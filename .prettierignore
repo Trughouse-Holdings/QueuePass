@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+coverage/
+package-lock.json
+packages/shared/src/api-schema.ts
+
+# Generated tooling and hand-wrapped docs, matching the ESLint ignores.
+.claude/
+.specify/
+specs/

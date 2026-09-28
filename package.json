@@ -1,0 +1,35 @@
+{
+  "name": "queuepass",
+  "private": true,
+  "version": "0.1.0",
+  "description": "QueuePass — venue and event management foundation",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/shared",
+    "backend",
+    "admin-app",
+    "customer-app",
+    "booth-app",
+    "scripts/seed"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "node scripts/check-boundary.mjs && node scripts/check-contract-drift.mjs && npm run test --workspace @queuepass/shared && npm run test --workspace @queuepass/backend && npm run test --workspace @queuepass/admin-app && npm run test --workspace @queuepass/customer-app && npm run test --workspace @queuepass/booth-app && npm run test --workspace @queuepass/seed",
+    "seed": "npm run seed --workspace scripts/seed",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "generate:api": "openapi-typescript contracts/openapi.yaml -o packages/shared/src/api-schema.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "globals": "^15.15.0",
+    "openapi-typescript": "^7.13.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.0",
+    "yaml": "^2.9.1"
+  }
+}

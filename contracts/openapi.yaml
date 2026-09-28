@@ -1,0 +1,680 @@
+openapi: 3.1.0
+info:
+  title: QueuePass Backend API
+  version: 1.1.0
+  description: |
+    The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
+    against this document. An endpoint is added or changed here, in a reviewed pull request,
+    before it is implemented.
+
+    **Authentication**: every operation except `getHealth` requires
+    `Authorization: Bearer <access token>`, where the token is a JWT issued by the Keycloak realm
+    `queuepass`. The Backend checks its signature against the realm's published keys, its issuer
+    (`http://localhost:8080/realms/queuepass`), that its audience includes `queuepass-api`, and
+    that it is not expired (30-second clock tolerance). Any failure is `401 UNAUTHENTICATED`.
+
+    **Authorization**: `x-required-roles` on each operation lists the Keycloak realm roles that
+    may call it. An empty list means any signed-in user. Roles are read from the token's
+    `realm_access.roles`. A valid token without a listed role is `403 FORBIDDEN`. A test fails if
+    the Backend's role checks differ from this document.
+
+    **Authority**: this API is the only path to persistent state. No front end holds a database
+    connection. Every business rule, including the scheduling conflict rule, is enforced here.
+
+    **Times**: all timestamps are RFC 3339 with an explicit offset, stored as `timestamptz` and
+    compared in UTC. Event windows are half-open, `[startsAt, endsAt)`.
+
+    **Errors**: every non-2xx response is an `ErrorEnvelope`. Branch on `error.code`, never on
+    `error.message`.
+
+servers:
+  - url: http://localhost:3000
+    description: Local docker compose
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: system
+    description: Health and identity (feature 001)
+  - name: hello
+    description: One greeting per front end, for the hello-world pages (feature 001)
+  - name: venues
+    description: |
+      Venue catalog (feature 002). A venue is a `Location` in this API; the paths keep that name.
+  - name: events
+    description: Event scheduling with the 60-minute double-booking rule (feature 002)
+
+paths:
+  /health:
+    get:
+      tags: [system]
+      summary: Liveness and readiness probe
+      description: Used by Compose health checks. The only operation that needs no token.
+      operationId: getHealth
+      security: []
+      x-required-roles: public
+      responses:
+        '200':
+          description: Service is up and the database is reachable.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, database]
+                additionalProperties: false
+                properties:
+                  status: { type: string, enum: [ok] }
+                  database: { type: string, enum: [up] }
+
+  /me:
+    get:
+      tags: [system]
+      summary: Who am I
+      description: |
+        Returns the caller's identity as read from the validated token (spec 001 FR-022). Nothing
+        is looked up in a database.
+      operationId: getMe
+      x-required-roles: []
+      responses:
+        '200':
+          description: The caller.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /hello/admin:
+    get:
+      tags: [hello]
+      summary: Greeting for the Admin app
+      operationId: getAdminHello
+      x-required-roles: [queuepass-admin]
+      responses:
+        '200':
+          description: A greeting naming the caller and the app.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Hello' }
+              example:
+                {
+                  app: admin,
+                  appName: QueuePass Admin,
+                  username: admin1,
+                  message: 'Hello, admin1! Welcome to QueuePass Admin.',
+                }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /hello/customer:
+    get:
+      tags: [hello]
+      summary: Greeting for the Customer app
+      operationId: getCustomerHello
+      x-required-roles: [customer]
+      responses:
+        '200':
+          description: A greeting naming the caller and the app.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Hello' }
+              example:
+                {
+                  app: customer,
+                  appName: QueuePass,
+                  username: customer1,
+                  message: 'Hello, customer1! Welcome to QueuePass.',
+                }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /hello/booth:
+    get:
+      tags: [hello]
+      summary: Greeting for the Ticket Booth app
+      operationId: getBoothHello
+      x-required-roles: [gate-agent]
+      responses:
+        '200':
+          description: A greeting naming the caller and the app.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Hello' }
+              example:
+                {
+                  app: booth,
+                  appName: QueuePass Ticket Booth,
+                  username: agent1,
+                  message: 'Hello, agent1! Welcome to QueuePass Ticket Booth.',
+                }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /locations:
+    get:
+      tags: [venues]
+      summary: List all venues
+      description: Ordered by name, A to Z. The Customer app (feature 003) relies on this order.
+      operationId: listLocations
+      x-required-roles: []
+      responses:
+        '200':
+          description: Every venue on file, ordered by name.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Location' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [venues]
+      summary: Create a venue
+      description: Rejects empty name or address and non-positive capacity.
+      operationId: createLocation
+      x-required-roles: [queuepass-admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LocationInput' }
+      responses:
+        '201':
+          description: Venue created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Location' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /locations/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [venues]
+      summary: Retrieve one venue
+      operationId: getLocation
+      x-required-roles: []
+      responses:
+        '200':
+          description: The venue.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Location' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [venues]
+      summary: Update a venue
+      description: |
+        Lowering `seatingCapacity` below the `totalTicketCapacity` of any event already
+        scheduled at this venue is refused with `CAPACITY_EXCEEDED`.
+      operationId: updateLocation
+      x-required-roles: [queuepass-admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LocationUpdate' }
+      responses:
+        '200':
+          description: Venue updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Location' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: An existing event's ticket capacity exceeds the proposed seating capacity.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              example:
+                error:
+                  code: CAPACITY_EXCEEDED
+                  message: "Cannot reduce seating capacity to 500; event 'Season Opener' has a ticket capacity of 900."
+                  details:
+                    proposedSeatingCapacity: 500
+                    conflictingEvent:
+                      id: 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40
+                      name: Season Opener
+                      totalTicketCapacity: 900
+    delete:
+      tags: [venues]
+      summary: Delete a venue
+      description: |
+        Permanent: there is no undo. Clients MUST ask the user to confirm first.
+
+        Refused with `409 VENUE_HAS_EVENTS` while any event is scheduled at this venue. The
+        service counts the events so the message and `details.eventCount` are specific; the
+        database's `ON DELETE RESTRICT` is the guarantee, so no client can orphan events. If an
+        event is added concurrently, the database refuses and `eventCount` is omitted.
+      operationId: deleteLocation
+      x-required-roles: [queuepass-admin]
+      responses:
+        '204':
+          description: Venue deleted.
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Events are still scheduled at this venue.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VenueHasEvents' }
+              example:
+                error:
+                  code: VENUE_HAS_EVENTS
+                  message: 'Cannot delete "Freedom Hall": 3 events are still scheduled there. Delete or move them first.'
+                  details:
+                    eventCount: 3
+
+  /events:
+    get:
+      tags: [events]
+      summary: List all events
+      description: |
+        Each event embeds its venue. Ordered by `startsAt`, soonest first; the Customer app
+        (feature 003) relies on this order. Optional `locationId` filter, used by the Admin app's
+        venue page.
+      operationId: listEvents
+      x-required-roles: []
+      parameters:
+        - name: locationId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+          description: Restrict results to events at one venue.
+      responses:
+        '200':
+          description: Matching events, ordered by start time.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Event' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+    post:
+      tags: [events]
+      summary: Schedule an event
+      description: |
+        Rejects, in this order: request-shape and field validation, unknown venue, ticket
+        capacity above the venue's seating capacity, and a scheduling conflict at that venue.
+      operationId: createEvent
+      x-required-roles: [queuepass-admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventInput' }
+      responses:
+        '201':
+          description: Event scheduled.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Event' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /events/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [events]
+      summary: Retrieve one event
+      operationId: getEvent
+      x-required-roles: []
+      responses:
+        '200':
+          description: The event, with its venue.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Event' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [events]
+      summary: Update an event
+      description: |
+        Includes moving the event to a different venue or time window. The conflict rule is
+        re-evaluated against the destination venue and window, excluding the event itself.
+      operationId: updateEvent
+      x-required-roles: [queuepass-admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventUpdate' }
+      responses:
+        '200':
+          description: Event updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Event' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [events]
+      summary: Delete an event
+      description: |
+        Permanent: there is no undo. Clients MUST ask the user to confirm first. The window the
+        event occupied becomes available for scheduling again immediately.
+      operationId: deleteEvent
+      x-required-roles: [queuepass-admin]
+      responses:
+        '204':
+          description: Event deleted.
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        A Keycloak access token for realm `queuepass`, obtained by a front end through the OIDC
+        Authorization Code flow with PKCE. Audience must include `queuepass-api`.
+
+  schemas:
+    Role:
+      type: string
+      enum: [queuepass-admin, gate-agent, customer]
+
+    Me:
+      type: object
+      required: [sub, username, roles]
+      additionalProperties: false
+      properties:
+        sub:
+          type: string
+          description: Keycloak subject identifier (the token's `sub`).
+          example: 3f0c1e9a-5b7d-4c2e-9f1a-2b3c4d5e6f70
+        username:
+          type: string
+          description: The token's `preferred_username`.
+          example: admin1
+        roles:
+          type: array
+          description: The caller's QueuePass realm roles. Other realm roles are omitted.
+          items: { $ref: '#/components/schemas/Role' }
+          uniqueItems: true
+          example: [queuepass-admin]
+
+    Hello:
+      type: object
+      required: [app, appName, username, message]
+      additionalProperties: false
+      properties:
+        app: { type: string, enum: [admin, customer, booth] }
+        appName: { type: string }
+        username: { type: string }
+        message: { type: string }
+
+    VenueHasEvents:
+      description: The `409` for deleting a venue that still has events. An `ErrorEnvelope`.
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, const: VENUE_HAS_EVENTS }
+            message: { type: string }
+            details:
+              type: object
+              properties:
+                eventCount:
+                  type: integer
+                  minimum: 1
+                  description: Omitted only when a concurrent insert made the database refuse.
+
+    Location:
+      description: A venue.
+      type: object
+      required: [id, name, address, seatingCapacity, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200, example: 'KFC Yum! Center' }
+        address:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 500,
+            example: '1 Arena Plaza, Louisville, KY 40202',
+          }
+        seatingCapacity: { type: integer, minimum: 1, example: 22090 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    LocationInput:
+      type: object
+      required: [name, address, seatingCapacity]
+      properties:
+        name:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 200,
+            description: Rejected when empty or whitespace-only after trimming.,
+          }
+        address:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 500,
+            description: Rejected when empty or whitespace-only after trimming.,
+          }
+        seatingCapacity:
+          { type: integer, minimum: 1, description: Must be a positive whole number. }
+
+    LocationUpdate:
+      type: object
+      minProperties: 1
+      description: Partial update; supply only the fields being changed.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        address: { type: string, minLength: 1, maxLength: 500 }
+        seatingCapacity: { type: integer, minimum: 1 }
+
+    Event:
+      type: object
+      required:
+        [
+          id,
+          name,
+          locationId,
+          location,
+          startsAt,
+          endsAt,
+          totalTicketCapacity,
+          basePrice,
+          createdAt,
+          updatedAt,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 200, example: Season Opener }
+        locationId: { type: string, format: uuid }
+        location:
+          allOf: [{ $ref: '#/components/schemas/Location' }]
+          description: The venue, embedded so lists need no second request.
+        startsAt: { type: string, format: date-time, example: '2026-10-01T18:00:00-04:00' }
+        endsAt: { type: string, format: date-time, example: '2026-10-01T21:00:00-04:00' }
+        totalTicketCapacity: { type: integer, minimum: 1, example: 18000 }
+        basePrice:
+          type: string
+          pattern: '^\d+\.\d{2}$'
+          description: Decimal string in USD, never a JSON number, so no client loses precision.
+          example: '45.00'
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    EventInput:
+      type: object
+      required: [name, locationId, startsAt, endsAt, totalTicketCapacity, basePrice]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        locationId:
+          {
+            type: string,
+            format: uuid,
+            description: Must reference an existing venue; otherwise 404.,
+          }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time, description: Must be strictly after `startsAt`. }
+        totalTicketCapacity:
+          { type: integer, minimum: 1, description: Must not exceed the venue's `seatingCapacity`. }
+        basePrice:
+          { type: string, pattern: '^\d+(\.\d{1,2})?$', description: Non-negative decimal string. }
+
+    EventUpdate:
+      type: object
+      minProperties: 1
+      description: Partial update; supply only the fields being changed.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        locationId: { type: string, format: uuid }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        totalTicketCapacity: { type: integer, minimum: 1 }
+        basePrice: { type: string, pattern: '^\d+(\.\d{1,2})?$' }
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      description: |
+        Every non-2xx response uses this shape. `code` is the stable machine-readable
+        discriminator clients branch on; `message` is human-readable and may change.
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - UNAUTHENTICATED
+                - FORBIDDEN
+                - VALIDATION_FAILED
+                - NOT_FOUND
+                - SCHEDULING_CONFLICT
+                - VENUE_HAS_EVENTS
+                - CAPACITY_EXCEEDED
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+
+  responses:
+    Unauthenticated:
+      description: |
+        No token, or the token is malformed, expired, signed by an unknown key, from another
+        issuer, or for another audience. The message does not say which check failed.
+      headers:
+        WWW-Authenticate:
+          schema: { type: string, example: Bearer }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: UNAUTHENTICATED
+              message: A valid access token is required.
+
+    Forbidden:
+      description: The token is valid, but the caller lacks a role this operation requires.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: FORBIDDEN
+              message: This action requires the queuepass-admin role.
+              details:
+                requiredRoles: [queuepass-admin]
+
+    ValidationFailed:
+      description: Request shape or field validation failed.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: VALIDATION_FAILED
+              message: Request validation failed.
+              details:
+                fields:
+                  endsAt: must be later than startsAt
+                  seatingCapacity: must be a positive whole number
+
+    NotFound:
+      description: The referenced resource does not exist.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: NOT_FOUND
+              message: No venue exists with id 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40.
+
+    Conflict:
+      description: |
+        The request violates a business rule; `code` says which. For `SCHEDULING_CONFLICT`,
+        `details.conflictingEvent` names the event responsible. It is `null` only when a
+        concurrent request won the race and the database constraint refused this write.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            schedulingConflict:
+              summary: Venue already committed during this window
+              value:
+                error:
+                  code: SCHEDULING_CONFLICT
+                  message: "KFC Yum! Center is already committed from 18:00 to 21:00 by 'Season Opener'. Events at the same venue must be at least 60 minutes apart."
+                  details:
+                    bufferMinutes: 60
+                    conflictingEvent:
+                      id: 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40
+                      name: Season Opener
+                      startsAt: '2026-10-01T18:00:00-04:00'
+                      endsAt: '2026-10-01T21:00:00-04:00'
+            schedulingConflictRace:
+              summary: Lost a concurrent write race
+              value:
+                error:
+                  code: SCHEDULING_CONFLICT
+                  message: This venue was committed for an overlapping window by another request. Reload and try again.
+                  details:
+                    bufferMinutes: 60
+                    conflictingEvent: null
+            capacityExceeded:
+              summary: Ticket capacity above the venue's seating capacity
+              value:
+                error:
+                  code: CAPACITY_EXCEEDED
+                  message: 'Ticket capacity 25000 exceeds the seating capacity of KFC Yum! Center (22090).'
+                  details:
+                    seatingCapacity: 22090
+                    requestedTicketCapacity: 25000

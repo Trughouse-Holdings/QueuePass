@@ -1,0 +1,40 @@
+// QueuePass data model — see specs/002-admin-venues-events/data-model.md
+//
+// NOTE: The scheduling rule (event_no_overlap), the btree_gist extension, and all CHECK
+// constraints live in hand-written migration SQL. Prisma's schema language cannot express
+// EXCLUDE constraints. Never run `prisma db push` on this project — it bypasses migration
+// SQL and would silently drop the feature's central invariant.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Location {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  address         String
+  seatingCapacity Int
+  events          Event[]
+  createdAt       DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+}
+
+model Event {
+  id                  String   @id @default(uuid()) @db.Uuid
+  name                String
+  location            Location @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  locationId          String   @db.Uuid
+  startsAt            DateTime @db.Timestamptz(6)
+  endsAt              DateTime @db.Timestamptz(6)
+  totalTicketCapacity Int
+  basePrice           Decimal  @db.Decimal(10, 2)
+  createdAt           DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([locationId])
+}

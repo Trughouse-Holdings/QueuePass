@@ -1,0 +1,22 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { AuthProvider, RequireRole } from '@queuepass/shared/web';
+import { App } from './App';
+import './styles.css';
+
+// Spec 001: sign in with Keycloak before anything renders; only QueuePass Admins get in.
+createRoot(document.getElementById('root') as HTMLElement).render(
+  <StrictMode>
+    <AuthProvider
+      authority={import.meta.env.VITE_OIDC_AUTHORITY}
+      clientId={import.meta.env.VITE_OIDC_CLIENT_ID}
+    >
+      <RequireRole role="queuepass-admin">
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </RequireRole>
+    </AuthProvider>
+  </StrictMode>,
+);

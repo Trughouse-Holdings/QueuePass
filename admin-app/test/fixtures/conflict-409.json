@@ -1,0 +1,15 @@
+{
+  "error": {
+    "code": "SCHEDULING_CONFLICT",
+    "message": "This venue is already committed from 22:00 to 01:00 UTC by 'Season Opener'. Events at the same venue must be at least 60 minutes apart.",
+    "details": {
+      "bufferMinutes": 60,
+      "conflictingEvent": {
+        "id": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+        "name": "Season Opener",
+        "startsAt": "2026-10-01T22:00:00.000Z",
+        "endsAt": "2026-10-02T01:00:00.000Z"
+      }
+    }
+  }
+}

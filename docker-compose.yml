@@ -1,0 +1,180 @@
+# QueuePass — six services plus a one-shot seed job (spec 001 FR-001).
+# Start everything with:  docker compose up --build
+
+services:
+  # ---------------------------------------------------------------- database
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-queuepass}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-queuepass}
+      POSTGRES_DB: ${POSTGRES_DB:-queuepass}
+    ports:
+      - '5432:5432'
+    volumes:
+      # Mapped volume so data survives a full stop and restart (FR-002).
+      # `docker compose down -v` DELETES this — omit -v to keep your data.
+      - queuepass-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-queuepass} -d ${POSTGRES_DB:-queuepass}']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ---------------------------------------------------------------- keycloak
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ['start-dev']
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      # Required for /health/ready to exist — the seed job gates on it. Without this the
+      # healthcheck below can never pass and the seed races startup (research R5).
+      KC_HEALTH_ENABLED: 'true'
+      KC_HTTP_ENABLED: 'true'
+      # One public issuer for every token, whichever address Keycloak was reached on, so tokens
+      # the browser gets from localhost:8080 validate in the backend container. Backchannel
+      # calls (seed, JWKS) still work on keycloak:8080 (spec 001 research R4).
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: 'true'
+    ports:
+      - '8080:8080'
+      - '9000:9000'
+    volumes:
+      - queuepass-keycloak-data:/opt/keycloak/data
+    healthcheck:
+      # Keycloak 26 serves health on the management port 9000, and the image has no curl —
+      # use the JVM-free bash /dev/tcp trick against the readiness endpoint.
+      test:
+        [
+          'CMD-SHELL',
+          'exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e "GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n" >&3 && cat <&3 | grep -q "\"status\": \"UP\""',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+
+  # ----------------------------------------------------------------- backend
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-queuepass}:${POSTGRES_PASSWORD:-queuepass}@database:5432/${POSTGRES_DB:-queuepass}?schema=public
+      PORT: '3000'
+      # Token validation (spec 001 FR-019). Issuer is the browser-facing address; keys are
+      # fetched over the Compose network (research R4). There is no switch to disable this.
+      OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:8080/realms/queuepass}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/queuepass/protocol/openid-connect/certs}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-queuepass-api}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:5175}
+    ports:
+      - '3000:3000'
+    depends_on:
+      database:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:3000/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    restart: unless-stopped
+
+  # ----------------------------------------------------- admin app
+  admin-app:
+    build:
+      context: .
+      dockerfile: admin-app/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+        VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass}
+        VITE_OIDC_CLIENT_ID: admin-app
+    ports:
+      - '5173:5173'
+    depends_on:
+      backend:
+        condition: service_healthy
+      # No login page before its OIDC client exists (research R10).
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5173/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # -------------------------------------------------- customer app
+  customer-app:
+    build:
+      context: .
+      dockerfile: customer-app/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+        VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass}
+        VITE_OIDC_CLIENT_ID: customer-app
+    ports:
+      - '5174:5174'
+    depends_on:
+      backend:
+        condition: service_healthy
+      # No login page before its OIDC client exists (research R10).
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5174/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # ---------------------------------------------- ticket booth app
+  booth-app:
+    build:
+      context: .
+      dockerfile: booth-app/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+        VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass}
+        VITE_OIDC_CLIENT_ID: booth-app
+    ports:
+      - '5175:5175'
+    depends_on:
+      backend:
+        condition: service_healthy
+      # No login page before its OIDC client exists (research R10).
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5175/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # -------------------------------------------------------- seed (one-shot)
+  seed:
+    build:
+      context: .
+      dockerfile: scripts/seed/Dockerfile
+    environment:
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_HEALTH_URL: http://keycloak:9000
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-queuepass}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-test123}
+    depends_on:
+      keycloak:
+        # Without service_healthy the seed races Keycloak startup and fails
+        # intermittently — no code is wrong, but SC-001 and SC-002 both break.
+        condition: service_healthy
+    restart: on-failure
+
+volumes:
+  queuepass-db-data:
+  queuepass-keycloak-data:

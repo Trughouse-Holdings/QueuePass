@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "CAPACITY_EXCEEDED",
+    "message": "Ticket capacity 99999 exceeds the seating capacity of KFC Yum! Center (22090).",
+    "details": { "seatingCapacity": 22090, "requestedTicketCapacity": 99999 }
+  }
+}

@@ -1,0 +1,78 @@
+[
+  {
+    "id": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+    "name": "Season Opener",
+    "locationId": "6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e",
+    "startsAt": "2026-10-01T22:00:00.000Z",
+    "endsAt": "2026-10-02T01:00:00.000Z",
+    "totalTicketCapacity": 18000,
+    "basePrice": "45.00",
+    "createdAt": "2026-09-20T18:57:51.388Z",
+    "updatedAt": "2026-09-20T18:57:51.388Z",
+    "location": {
+      "id": "6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e",
+      "name": "KFC Yum! Center",
+      "address": "1 Arena Plaza, Louisville, KY",
+      "seatingCapacity": 22090,
+      "createdAt": "2026-09-20T18:57:51.327Z",
+      "updatedAt": "2026-09-20T18:57:51.327Z"
+    }
+  },
+  {
+    "id": "4da3fb2c-1e7a-4bfe-85e8-7db356799687",
+    "name": "c7",
+    "locationId": "84acf1a8-901d-429b-a80d-a07f2b6d203f",
+    "startsAt": "2026-10-01T22:00:00.000Z",
+    "endsAt": "2026-10-02T01:00:00.000Z",
+    "totalTicketCapacity": 100,
+    "basePrice": "10.00",
+    "createdAt": "2026-09-20T18:57:51.520Z",
+    "updatedAt": "2026-09-20T18:57:51.520Z",
+    "location": {
+      "id": "84acf1a8-901d-429b-a80d-a07f2b6d203f",
+      "name": "Freedom Hall",
+      "address": "937 Phillips Ln, Louisville, KY",
+      "seatingCapacity": 19000,
+      "createdAt": "2026-09-20T18:57:51.352Z",
+      "updatedAt": "2026-09-20T18:57:51.352Z"
+    }
+  },
+  {
+    "id": "2e52a6b6-2013-41c8-ab8d-730f2e1c10f9",
+    "name": "c6",
+    "locationId": "6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e",
+    "startsAt": "2026-10-02T02:00:00.000Z",
+    "endsAt": "2026-10-02T03:00:00.000Z",
+    "totalTicketCapacity": 100,
+    "basePrice": "10.00",
+    "createdAt": "2026-09-20T18:57:51.501Z",
+    "updatedAt": "2026-09-20T18:57:51.501Z",
+    "location": {
+      "id": "6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e",
+      "name": "KFC Yum! Center",
+      "address": "1 Arena Plaza, Louisville, KY",
+      "seatingCapacity": 22090,
+      "createdAt": "2026-09-20T18:57:51.327Z",
+      "updatedAt": "2026-09-20T18:57:51.327Z"
+    }
+  },
+  {
+    "id": "7902522e-98ca-415c-bca1-22402fdc0e95",
+    "name": "Race3",
+    "locationId": "6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e",
+    "startsAt": "2026-11-05T22:00:00.000Z",
+    "endsAt": "2026-11-06T01:00:00.000Z",
+    "totalTicketCapacity": 100,
+    "basePrice": "10.00",
+    "createdAt": "2026-09-20T18:58:07.895Z",
+    "updatedAt": "2026-09-20T18:58:07.895Z",
+    "location": {
+      "id": "6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e",
+      "name": "KFC Yum! Center",
+      "address": "1 Arena Plaza, Louisville, KY",
+      "seatingCapacity": 22090,
+      "createdAt": "2026-09-20T18:57:51.327Z",
+      "updatedAt": "2026-09-20T18:57:51.327Z"
+    }
+  }
+]
