@@ -1,55 +1,82 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { App } from '../src/App';
-import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-user-manager';
+import { screen } from '@testing-library/react';
+import { event, json, renderCustomer, stubApi, venue } from './helpers';
 
-/** Spec 001 US2: sign-in gate, hello-world page, wrong-role refusal, and logout for this app. */
-const json = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-
+/**
+ * Spec 001 US2 and spec 003 US3: the sign-in gate, wrong-role refusal, and logout, and a
+ * Customer app that never offers a change.
+ */
 afterEach(() => vi.unstubAllGlobals());
 
-describe('QueuePass app', () => {
-  it('greets a customer user from the Backend and offers logout', async () => {
-    const fetchMock = vi.fn(async (_req: Request) =>
-      json({
-        app: 'customer',
-        appName: 'QueuePass',
-        username: 'customer1',
-        message: 'Hello, customer1! Welcome to QueuePass.',
-      }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-    render(
-      <App
-        userManager={fakeUserManager(makeUser({ username: 'customer1', roles: ['customer'] }))}
-      />,
-    );
+const everyRoute = () =>
+  stubApi({
+    'GET /events': json([event()]),
+    'GET /events/e1': json(event()),
+    'GET /locations': json([venue()]),
+    'GET /locations/v1': json(venue()),
+  });
 
-    expect(await screen.findByText('Hello, customer1! Welcome to QueuePass.')).toBeInTheDocument();
-    expect(new URL(fetchMock.mock.calls[0][0].url).pathname).toBe('/hello/customer');
+describe('Customer app sign-in', () => {
+  it('shows a signed-in customer Events, Venues, and Log out', async () => {
+    everyRoute();
+    renderCustomer();
+
+    expect(await screen.findByRole('link', { name: 'Events' })).toHaveAttribute('href', '/events');
+    expect(screen.getByRole('link', { name: 'Venues' })).toHaveAttribute('href', '/venues');
     expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
   });
 
-  it('refuses a queuepass-admin user and shows no greeting', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => json({})),
-    );
-    render(
-      <App
-        userManager={fakeUserManager(makeUser({ username: 'someone', roles: ['queuepass-admin'] }))}
-      />,
-    );
-
-    expect(await screen.findByText("Your account can't use this app.")).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
-    expect(fetch).not.toHaveBeenCalled();
+  it('logs out through Keycloak', async () => {
+    everyRoute();
+    const { um } = renderCustomer();
+    (await screen.findByRole('button', { name: 'Log out' })).click();
+    await vi.waitFor(() => expect(um.calls).toContain('signoutRedirect'));
+    expect(um.calls.indexOf('removeUser')).toBeLessThan(um.calls.indexOf('signoutRedirect'));
   });
 
-  it('shows nothing but "Signing in…" to a signed-out visitor', () => {
-    render(<App userManager={fakeUserManager(null)} />);
+  it.each(['queuepass-admin', 'gate-agent'])(
+    'refuses a %s user on a venue page and asks the Backend for nothing',
+    async (role) => {
+      const { calls } = everyRoute();
+      renderCustomer({ at: '/venues/v1', roles: [role], username: 'someone' });
+
+      expect(await screen.findByText("Your account can't use this app.")).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
+      expect(screen.queryByText('Alpha Arena')).toBeNull();
+      expect(calls).toHaveLength(0);
+    },
+  );
+
+  it('shows a signed-out visitor nothing but "Signing in…"', () => {
+    const { calls } = everyRoute();
+    renderCustomer({ at: '/venues/v1', signedIn: false });
+
     expect(screen.getByText('Signing in…')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe('Customer app is read-only (spec 003 US3-1; FR-009, SC-003)', () => {
+  it.each(['/', '/events/e1', '/venues', '/venues/v1'])(
+    'offers no change control at %s and sends only GETs',
+    async (at) => {
+      const { calls } = everyRoute();
+      renderCustomer({ at });
+
+      expect(await screen.findAllByText(/Alpha Arena/)).not.toHaveLength(0);
+      const changeWord = /\b(add|new|edit|save|delete|schedule|create|update|remove)\b/i;
+      expect(screen.queryAllByRole('button', { name: changeWord })).toHaveLength(0);
+      expect(screen.queryAllByRole('link', { name: changeWord })).toHaveLength(0);
+      expect(screen.queryAllByRole('textbox')).toHaveLength(0);
+      expect(calls.length).toBeGreaterThan(0);
+      expect(calls.every((c) => c.method === 'GET')).toBe(true);
+    },
+  );
+
+  it('shows a plain message for an unknown address', async () => {
+    everyRoute();
+    renderCustomer({ at: '/nowhere' });
+    expect(await screen.findByText('Page not found.')).toBeInTheDocument();
   });
 });

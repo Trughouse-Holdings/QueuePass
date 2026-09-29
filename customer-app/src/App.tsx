@@ -1,31 +1,44 @@
-import {
-  AuthProvider,
-  HelloPage,
-  LogoutButton,
-  RequireRole,
-  type UserManagerLike,
-} from '@queuepass/shared/web';
+import { Link, NavLink, Route, Routes } from 'react-router-dom';
+import { LogoutButton } from '@queuepass/shared/web';
+import { EventList } from './pages/EventList';
+import { EventDetail } from './pages/EventDetail';
+import { VenueList } from './pages/VenueList';
+import { VenueDetail } from './pages/VenueDetail';
 
 /**
- * QueuePass: a stub front end (spec 001, Constitution VII). Sign-in, a hello-world page from the
- * Backend, and logout. Admits only the customer role.
+ * QueuePass for customers (spec 003): every venue and event, read-only. main.tsx puts this
+ * behind sign-in and the customer role (spec 001), so no route renders without both.
  */
-export function App({ userManager }: { userManager?: UserManagerLike }) {
+export function App() {
   return (
-    <AuthProvider
-      authority={import.meta.env.VITE_OIDC_AUTHORITY}
-      clientId={import.meta.env.VITE_OIDC_CLIENT_ID}
-      userManager={userManager}
-    >
-      <RequireRole role="customer">
-        <header>
-          <p>QueuePass</p>
-          <LogoutButton />
-        </header>
-        <main>
-          <HelloPage greetingPath="/hello/customer" />
-        </main>
-      </RequireRole>
-    </AuthProvider>
+    <>
+      <header>
+        <p>QueuePass</p>
+        <nav>
+          <NavLink to="/events">Events</NavLink> <NavLink to="/venues">Venues</NavLink>
+        </nav>
+        <LogoutButton />
+      </header>
+      <main>
+        <Routes>
+          {/* The event list is the landing page; it replaces 001's hello page (spec 003). */}
+          <Route path="/" element={<EventList />} />
+          <Route path="/events" element={<EventList />} />
+          <Route path="/events/:id" element={<EventDetail />} />
+          <Route path="/venues" element={<VenueList />} />
+          <Route path="/venues/:id" element={<VenueDetail />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </main>
+    </>
+  );
+}
+
+function NotFound() {
+  return (
+    <section>
+      <p>Page not found.</p>
+      <Link to="/events">Events</Link> <Link to="/venues">Venues</Link>
+    </section>
   );
 }
