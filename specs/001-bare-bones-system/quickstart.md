@@ -6,8 +6,7 @@ before the `001` implementation PR is merged. Each step names the requirement it
 ## Prerequisites
 
 - Docker Desktop running, Node.js 22, and a desktop browser.
-- Nothing else on ports 3000, 5173–5175, 8080, 9000, or 5432. In particular, stop the sibling
-  project: `cd ../queuepass && docker compose stop`.
+- Nothing else on ports 3000, 5173–5175, 8080, 9000, or 5432.
 
 ## V1: One command brings up everything (US1; FR-001, FR-002, SC-001)
 

@@ -12,6 +12,7 @@ const fresh = join(dir, 'api-schema.ts');
 try {
   execFileSync('npx', ['openapi-typescript', 'contracts/openapi.yaml', '-o', fresh], {
     stdio: ['ignore', 'ignore', 'inherit'],
+    shell: process.platform === 'win32',
   });
   if (readFileSync(fresh, 'utf8') !== readFileSync(committed, 'utf8')) {
     console.error(`${committed} is out of date: run npm run generate:api`);
