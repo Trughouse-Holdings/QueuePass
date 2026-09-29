@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-28
 
-**Status**: Draft
+**Status**: Ready for review
 
 **Input**: User description: "In the customer app, show all the venues and events. The front-end
 apps can only communicate with the database through OpenAPI-style REST APIs to the back-end app."
@@ -16,6 +16,17 @@ This feature builds on `001-bare-bones-system` (sign-in and the stub Customer ap
 endpoints `002` defines, which are open to any signed-in user, and adds no Backend endpoints,
 schema changes, or contract changes. If it turns out the API is missing something, that change is
 made in its own shared-surface pull request first.
+
+## Clarifications
+
+### Session 2026-09-28
+
+- Q: Does the hello-world page from `001` stay? → A: No. The event list replaces it as the page a
+  signed-in customer lands on. `001` made the hello page a stand-in "until a spec gives it
+  functionality" (Constitution VII), and this is that spec. Sign-in, the role check, and logout
+  stay exactly as `001` built them.
+- Q: Does the Customer app sort or filter on its own? → A: No. It shows the lists in the order the
+  Backend returns them: events by start time and venues by name, as the contract documents.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -164,6 +175,8 @@ Log out, open a venue's address directly, and confirm the login page appears.
   cancelled states, it decides what customers see.
 - **No live updates**: Reloading the page shows the latest data; automatic refresh is out of
   scope.
+- **Landing page**: `/` shows the event list. The `001` hello-world page is retired for this app
+  (see Clarifications).
 - **Scale**: A few hundred venues and events, so everything is listed on one page without
   pagination.
 
