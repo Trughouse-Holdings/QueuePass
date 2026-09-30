@@ -11,6 +11,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./test/setup.ts'],
     include: ['test/**/*.test.tsx', 'test/**/*.test.ts'],
+    // Pin local time so date and time assertions are exact (spec 003 research R6).
+    env: { TZ: 'America/New_York' },
   },
   resolve: {
     // Exact-match aliases: a plain '@queuepass/shared' key would also capture '/web' as a prefix.
