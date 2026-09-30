@@ -1,0 +1,4 @@
+# Check out text files with LF on every OS. The contract-drift check compares the committed
+# api-schema.ts byte for byte with freshly generated output (LF), so a CRLF checkout on
+# Windows would fail it with no real drift. Prettier also formats with LF.
+* text=auto eol=lf
