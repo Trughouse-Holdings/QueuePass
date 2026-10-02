@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -44,6 +44,8 @@ tags:
       Venue catalog (feature 002). A venue is a `Location` in this API; the paths keep that name.
   - name: events
     description: Event scheduling with the 60-minute double-booking rule (feature 002)
+  - name: tiers
+    description: Ticket tiers per event (feature 004)
 
 paths:
   /health:
@@ -154,17 +156,28 @@ paths:
     get:
       tags: [venues]
       summary: List all venues
-      description: Ordered by name, A to Z. The Customer app (feature 003) relies on this order.
+      description: |
+        Ordered by name, A to Z. The Customer app (feature 003) relies on this order. Optional
+        `q` filter (feature 004), used by the Admin app's venue search.
       operationId: listLocations
       x-required-roles: []
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 200 }
+          description: |
+            Keep only venues whose name or address contains this text, ignoring case and
+            surrounding spaces. Blank means no filter.
       responses:
         '200':
-          description: Every venue on file, ordered by name.
+          description: Matching venues, ordered by name.
           content:
             application/json:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/Location' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
     post:
       tags: [venues]
@@ -282,8 +295,8 @@ paths:
       summary: List all events
       description: |
         Each event embeds its venue. Ordered by `startsAt`, soonest first; the Customer app
-        (feature 003) relies on this order. Optional `locationId` filter, used by the Admin app's
-        venue page.
+        (feature 003) relies on this order. Optional filters, combinable: `locationId` (used by the
+        Admin app's venue page), and `q`, `from`, `to` (feature 004, the Admin app's event search).
       operationId: listEvents
       x-required-roles: []
       parameters:
@@ -292,6 +305,25 @@ paths:
           required: false
           schema: { type: string, format: uuid }
           description: Restrict results to events at one venue.
+        - name: q
+          in: query
+          required: false
+          schema: { type: string, maxLength: 200 }
+          description: |
+            Keep only events whose name contains this text, ignoring case and surrounding
+            spaces. Blank means no filter.
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+          description: Keep only events with `startsAt` at or after this instant.
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+          description: |
+            Keep only events with `startsAt` strictly before this instant. When both are given,
+            `from` must be earlier than `to`, otherwise `400`.
       responses:
         '200':
           description: Matching events, ordered by start time.
@@ -353,6 +385,8 @@ paths:
       description: |
         Includes moving the event to a different venue or time window. The conflict rule is
         re-evaluated against the destination venue and window, excluding the event itself.
+        Lowering `totalTicketCapacity` below the sum of the event's tier quantities is refused
+        with `409 CAPACITY_EXCEEDED` (feature 004).
       operationId: updateEvent
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -376,12 +410,112 @@ paths:
       summary: Delete an event
       description: |
         Permanent: there is no undo. Clients MUST ask the user to confirm first. The window the
-        event occupied becomes available for scheduling again immediately.
+        event occupied becomes available for scheduling again immediately. The event's ticket
+        tiers are deleted with it.
       operationId: deleteEvent
       x-required-roles: [queuepass-admin]
       responses:
         '204':
           description: Event deleted.
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /events/{id}/tiers:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+    get:
+      tags: [tiers]
+      summary: List an event's ticket tiers
+      description: Ordered by price, lowest first, then by name.
+      operationId: listTicketTiers
+      x-required-roles: []
+      responses:
+        '200':
+          description: The event's tiers. Empty when the event sells a single admission type.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TicketTier' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [tiers]
+      summary: Add a ticket tier to an event
+      description: |
+        Rejects, in this order: field validation, unknown event, a name already used by another
+        tier of this event ignoring case (`409 TIER_NAME_TAKEN`), and a quantity that would push
+        the event's tier total above its `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`, with
+        `details.remaining`). The capacity rule holds under concurrent requests.
+      operationId: createTicketTier
+      x-required-roles: [queuepass-admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TicketTierInput' }
+      responses:
+        '201':
+          description: Tier added.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketTier' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /events/{id}/tiers/{tierId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+      - name: tierId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: A tier of that event. A tier of a different event is `404`.
+    patch:
+      tags: [tiers]
+      summary: Update a ticket tier
+      description: Same rules as creating one, evaluated against the event's other tiers.
+      operationId: updateTicketTier
+      x-required-roles: [queuepass-admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TicketTierUpdate' }
+      responses:
+        '200':
+          description: Tier updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketTier' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [tiers]
+      summary: Remove a ticket tier
+      description: Permanent. Clients MUST ask the user to confirm first.
+      operationId: deleteTicketTier
+      x-required-roles: [queuepass-admin]
+      responses:
+        '204':
+          description: Tier removed.
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
@@ -562,6 +696,52 @@ components:
         totalTicketCapacity: { type: integer, minimum: 1 }
         basePrice: { type: string, pattern: '^\d+(\.\d{1,2})?$' }
 
+    TicketTier:
+      description: One kind of ticket for an event, such as General or VIP (feature 004).
+      type: object
+      required: [id, eventId, name, price, quantity, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        eventId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 100, example: VIP }
+        price:
+          type: string
+          pattern: '^\d+\.\d{2}$'
+          description: Decimal string in USD, never a JSON number.
+          example: '120.00'
+        quantity: { type: integer, minimum: 1, example: 500 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    TicketTierInput:
+      type: object
+      required: [name, price, quantity]
+      properties:
+        name:
+          {
+            type: string,
+            minLength: 1,
+            maxLength: 100,
+            description: Trimmed; unique within the event ignoring case.,
+          }
+        price:
+          { type: string, pattern: '^\d+(\.\d{1,2})?$', description: Non-negative decimal string. }
+        quantity:
+          {
+            type: integer,
+            minimum: 1,
+            description: The event's tiers together may not exceed its `totalTicketCapacity`.,
+          }
+
+    TicketTierUpdate:
+      type: object
+      minProperties: 1
+      description: Partial update; supply only the fields being changed.
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        price: { type: string, pattern: '^\d+(\.\d{1,2})?$' }
+        quantity: { type: integer, minimum: 1 }
+
     ErrorEnvelope:
       type: object
       required: [error]
@@ -583,6 +763,7 @@ components:
                 - SCHEDULING_CONFLICT
                 - VENUE_HAS_EVENTS
                 - CAPACITY_EXCEEDED
+                - TIER_NAME_TAKEN
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -678,3 +859,20 @@ components:
                   details:
                     seatingCapacity: 22090
                     requestedTicketCapacity: 25000
+            tierCapacityExceeded:
+              summary: Tier quantities would exceed the event's ticket capacity
+              value:
+                error:
+                  code: CAPACITY_EXCEEDED
+                  message: 'Season Opener has 1000 tickets and 800 are already in tiers; only 200 remain, so 500 cannot be added.'
+                  details:
+                    totalTicketCapacity: 1000
+                    allocated: 800
+                    requested: 500
+                    remaining: 200
+            tierNameTaken:
+              summary: Another tier of this event already has that name
+              value:
+                error:
+                  code: TIER_NAME_TAKEN
+                  message: "Season Opener already has a tier named 'VIP'."
