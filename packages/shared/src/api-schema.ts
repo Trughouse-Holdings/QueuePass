@@ -198,7 +198,8 @@ export interface paths {
          * Delete an event
          * @description Permanent: there is no undo. Clients MUST ask the user to confirm first. The window the
          *     event occupied becomes available for scheduling again immediately. The event's ticket
-         *     tiers are deleted with it.
+         *     tiers are deleted with it. An event with orders cannot be deleted (`409
+         *     EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records.
          */
         delete: operations["deleteEvent"];
         options?: never;
@@ -207,8 +208,9 @@ export interface paths {
          * Update an event
          * @description Includes moving the event to a different venue or time window. The conflict rule is
          *     re-evaluated against the destination venue and window, excluding the event itself.
-         *     Lowering `totalTicketCapacity` below the sum of the event's tier quantities is refused
-         *     with `409 CAPACITY_EXCEEDED` (feature 004).
+         *     Lowering `totalTicketCapacity` below the sum of the event's tier quantities, or below
+         *     its tickets sold, is refused with `409 CAPACITY_EXCEEDED` (features 004, 005). A
+         *     cancelled event cannot be changed (`409 EVENT_CANCELLED`).
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -234,7 +236,9 @@ export interface paths {
          * @description Rejects, in this order: field validation, unknown event, a name already used by another
          *     tier of this event ignoring case (`409 TIER_NAME_TAKEN`), and a quantity that would push
          *     the event's tier total above its `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`, with
-         *     `details.remaining`). The capacity rule holds under concurrent requests.
+         *     `details.remaining`). The capacity rule holds under concurrent requests. Also refused:
+         *     a cancelled event (`409 EVENT_CANCELLED`), and an event that already sold tickets
+         *     without tiers (`409 EVENT_HAS_ORDERS`), since those tickets would belong to no tier.
          */
         post: operations["createTicketTier"];
         delete?: never;
@@ -260,16 +264,122 @@ export interface paths {
         post?: never;
         /**
          * Remove a ticket tier
-         * @description Permanent. Clients MUST ask the user to confirm first.
+         * @description Permanent. Clients MUST ask the user to confirm first. A tier with orders cannot be
+         *     removed (`409 TIER_HAS_ORDERS`); a cancelled event's tiers cannot change (`409
+         *     EVENT_CANCELLED`).
          */
         delete: operations["deleteTicketTier"];
         options?: never;
         head?: never;
         /**
          * Update a ticket tier
-         * @description Same rules as creating one, evaluated against the event's other tiers.
+         * @description Same rules as creating one, evaluated against the event's other tiers. `quantity` may not
+         *     drop below the tier's tickets sold (`409 CAPACITY_EXCEEDED`). A price change does not
+         *     affect orders already placed.
          */
         patch: operations["updateTicketTier"];
+        trace?: never;
+    };
+    "/events/{id}/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get tickets for an event
+         * @description Places an order for the signed-in customer and issues one ticket per seat, each with a
+         *     unique code. Payment is simulated and always succeeds. Prices are fixed on the order.
+         *
+         *     For an event with tiers, `tierId` is required and must be one of its tiers; for an event
+         *     without tiers, `tierId` must be omitted and the base price applies (`400` otherwise).
+         *     Refused when the event is cancelled (`409 EVENT_CANCELLED`) or when fewer tickets are
+         *     left than requested, in the tier or in the event (`409 SOLD_OUT`, with
+         *     `details.available`). Sales never exceed a tier's quantity or the event's capacity,
+         *     including under concurrent requests. The Customer app screens arrive in feature 006.
+         */
+        post: operations["createOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/attendees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * List an event's orders and tickets
+         * @description Every order for the event, oldest first, refunded ones included.
+         */
+        get: operations["listAttendees"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an event
+         * @description Irreversible: clients MUST ask the user to confirm first. In one all-or-nothing step,
+         *     voids every valid ticket, marks every confirmed order refunded (simulated), and marks the
+         *     event cancelled. A cancelled event no longer blocks its venue's time, and refuses edits,
+         *     tier changes, orders, and a second cancellation (`409 EVENT_CANCELLED`).
+         */
+        post: operations["cancelEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/sales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sales report
+         * @description Computed on request, so it is always current. Totals cover all events; `ticketCapacity`
+         *     and `events` in the totals count scheduled events only. Refunded orders and void tickets
+         *     are excluded from sold, revenue, and check-ins. Events ordered by `startsAt`.
+         */
+        get: operations["getSalesReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -350,6 +460,16 @@ export interface components {
             id: string;
             /** @example Season Opener */
             name: string;
+            /**
+             * @description Feature 005. A cancelled event stays on record but is read-only.
+             * @enum {string}
+             */
+            status: "SCHEDULED" | "CANCELLED";
+            /**
+             * Format: date-time
+             * @description When the event was cancelled; `null` while scheduled.
+             */
+            cancelledAt: string | null;
             /** Format: uuid */
             locationId: string;
             /** @description The venue, embedded so lists need no second request. */
@@ -441,6 +561,99 @@ export interface components {
             price?: string;
             quantity?: number;
         };
+        /** @description One seat. The code is unique and unguessable (feature 005). */
+        Ticket: {
+            /** Format: uuid */
+            id: string;
+            /** @example 7KQ2M9XWAB4C */
+            code: string;
+            /** @enum {string} */
+            status: "VALID" | "VOID";
+            /** Format: date-time */
+            checkedInAt: string | null;
+        };
+        /** @description One customer's purchase for one event (feature 005). */
+        Order: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            eventId: string;
+            /**
+             * Format: uuid
+             * @description `null` for an event sold without tiers.
+             */
+            tierId: string | null;
+            tierName: string | null;
+            /** @example customer1 */
+            customerUsername: string;
+            quantity: number;
+            /** @example 45.00 */
+            unitPrice: string;
+            /** @example 45.00 */
+            totalPrice: string;
+            /** @enum {string} */
+            status: "CONFIRMED" | "REFUNDED";
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            refundedAt: string | null;
+            tickets: components["schemas"]["Ticket"][];
+        };
+        OrderInput: {
+            /**
+             * Format: uuid
+             * @description Required for an event with tiers; omitted for one without.
+             */
+            tierId?: string;
+            quantity: number;
+        };
+        Cancellation: {
+            event: components["schemas"]["Event"];
+            ordersRefunded: number;
+            ticketsVoided: number;
+        };
+        TierSales: {
+            /** Format: uuid */
+            tierId: string;
+            name: string;
+            /** @example 45.00 */
+            price: string;
+            quantity: number;
+            ticketsSold: number;
+            /** @example 45.00 */
+            revenue: string;
+        };
+        EventSales: {
+            /** Format: uuid */
+            eventId: string;
+            name: string;
+            venueName: string;
+            /** Format: date-time */
+            startsAt: string;
+            /** @enum {string} */
+            status: "SCHEDULED" | "CANCELLED";
+            ticketCapacity: number;
+            ticketsSold: number;
+            checkedIn: number;
+            /** @example 45.00 */
+            revenue: string;
+            tiers: components["schemas"]["TierSales"][];
+        };
+        SalesReport: {
+            /** Format: date-time */
+            generatedAt: string;
+            totals: {
+                /** @description Scheduled events. */
+                events: number;
+                /** @description Capacity of scheduled events. */
+                ticketCapacity: number;
+                ticketsSold: number;
+                checkedIn: number;
+                /** @example 45.00 */
+                revenue: string;
+            };
+            events: components["schemas"]["EventSales"][];
+        };
         /**
          * @description Every non-2xx response uses this shape. `code` is the stable machine-readable
          *     discriminator clients branch on; `message` is human-readable and may change.
@@ -448,7 +661,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -989,6 +1202,7 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     updateEvent: {
@@ -1105,6 +1319,7 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     updateTicketTier: {
@@ -1139,6 +1354,115 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    createOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderInput"];
+            };
+        };
+        responses: {
+            /** @description Order placed; its tickets are included. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listAttendees: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event's orders, each with its tickets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"][];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    cancelEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Event cancelled, with how many orders and tickets were affected. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cancellation"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getSalesReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Totals and per-event, per-tier figures. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SalesReport"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
         };
     };
 }
