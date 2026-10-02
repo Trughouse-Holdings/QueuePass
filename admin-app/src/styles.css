@@ -530,3 +530,109 @@ select {
     font-size: 21px;
   }
 }
+
+/* ---------------------------------------------------------------- reports */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Headline tiles: the number is the point, so it is large and in text ink. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.stat--hero {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-soft), var(--surface) 70%);
+}
+.stat p {
+  margin: 0;
+}
+.stat__label {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 560;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stat__value {
+  font-size: 28px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.stat__note {
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+
+/* Sell-through meter: one hue on a recessive track, rounded ends. */
+.meter {
+  display: block;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--border);
+  overflow: hidden;
+}
+.meter__fill {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: var(--accent);
+  min-width: 2px;
+}
+.cell-meter {
+  min-width: 170px;
+}
+.cell-meter .meter {
+  margin-top: 6px;
+}
+
+.card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 14px 18px 4px;
+}
+.card__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+.card__sub {
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 12.5px;
+}
+.num,
+.num-head {
+  text-align: right;
+}
+.pill--danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.row--muted td {
+  color: var(--text-faint);
+}
+.row--muted .meter__fill {
+  background: var(--border-strong);
+}
