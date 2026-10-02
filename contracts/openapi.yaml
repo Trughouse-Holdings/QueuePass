@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.2.0
+  version: 1.3.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -46,6 +46,10 @@ tags:
     description: Event scheduling with the 60-minute double-booking rule (feature 002)
   - name: tiers
     description: Ticket tiers per event (feature 004)
+  - name: orders
+    description: Orders, tickets, attendee lists, and cancellation (feature 005)
+  - name: reports
+    description: Sales reporting for admins (feature 005)
 
 paths:
   /health:
@@ -385,8 +389,9 @@ paths:
       description: |
         Includes moving the event to a different venue or time window. The conflict rule is
         re-evaluated against the destination venue and window, excluding the event itself.
-        Lowering `totalTicketCapacity` below the sum of the event's tier quantities is refused
-        with `409 CAPACITY_EXCEEDED` (feature 004).
+        Lowering `totalTicketCapacity` below the sum of the event's tier quantities, or below
+        its tickets sold, is refused with `409 CAPACITY_EXCEEDED` (features 004, 005). A
+        cancelled event cannot be changed (`409 EVENT_CANCELLED`).
       operationId: updateEvent
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -411,7 +416,8 @@ paths:
       description: |
         Permanent: there is no undo. Clients MUST ask the user to confirm first. The window the
         event occupied becomes available for scheduling again immediately. The event's ticket
-        tiers are deleted with it.
+        tiers are deleted with it. An event with orders cannot be deleted (`409
+        EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records.
       operationId: deleteEvent
       x-required-roles: [queuepass-admin]
       responses:
@@ -421,6 +427,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /events/{id}/tiers:
     parameters:
@@ -453,7 +460,9 @@ paths:
         Rejects, in this order: field validation, unknown event, a name already used by another
         tier of this event ignoring case (`409 TIER_NAME_TAKEN`), and a quantity that would push
         the event's tier total above its `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`, with
-        `details.remaining`). The capacity rule holds under concurrent requests.
+        `details.remaining`). The capacity rule holds under concurrent requests. Also refused:
+        a cancelled event (`409 EVENT_CANCELLED`), and an event that already sold tickets
+        without tiers (`409 EVENT_HAS_ORDERS`), since those tickets would belong to no tier.
       operationId: createTicketTier
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -488,7 +497,10 @@ paths:
     patch:
       tags: [tiers]
       summary: Update a ticket tier
-      description: Same rules as creating one, evaluated against the event's other tiers.
+      description: |
+        Same rules as creating one, evaluated against the event's other tiers. `quantity` may not
+        drop below the tier's tickets sold (`409 CAPACITY_EXCEEDED`). A price change does not
+        affect orders already placed.
       operationId: updateTicketTier
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -510,7 +522,10 @@ paths:
     delete:
       tags: [tiers]
       summary: Remove a ticket tier
-      description: Permanent. Clients MUST ask the user to confirm first.
+      description: |
+        Permanent. Clients MUST ask the user to confirm first. A tier with orders cannot be
+        removed (`409 TIER_HAS_ORDERS`); a cancelled event's tiers cannot change (`409
+        EVENT_CANCELLED`).
       operationId: deleteTicketTier
       x-required-roles: [queuepass-admin]
       responses:
@@ -520,6 +535,120 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /events/{id}/orders:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+    post:
+      tags: [orders]
+      summary: Get tickets for an event
+      description: |
+        Places an order for the signed-in customer and issues one ticket per seat, each with a
+        unique code. Payment is simulated and always succeeds. Prices are fixed on the order.
+
+        For an event with tiers, `tierId` is required and must be one of its tiers; for an event
+        without tiers, `tierId` must be omitted and the base price applies (`400` otherwise).
+        Refused when the event is cancelled (`409 EVENT_CANCELLED`) or when fewer tickets are
+        left than requested, in the tier or in the event (`409 SOLD_OUT`, with
+        `details.available`). Sales never exceed a tier's quantity or the event's capacity,
+        including under concurrent requests. The Customer app screens arrive in feature 006.
+      operationId: createOrder
+      x-required-roles: [customer]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderInput' }
+      responses:
+        '201':
+          description: Order placed; its tickets are included.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /events/{id}/attendees:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+    get:
+      tags: [orders]
+      summary: List an event's orders and tickets
+      description: Every order for the event, oldest first, refunded ones included.
+      operationId: listAttendees
+      x-required-roles: [queuepass-admin]
+      responses:
+        '200':
+          description: The event's orders, each with its tickets.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Order' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /events/{id}/cancel:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+    post:
+      tags: [orders]
+      summary: Cancel an event
+      description: |
+        Irreversible: clients MUST ask the user to confirm first. In one all-or-nothing step,
+        voids every valid ticket, marks every confirmed order refunded (simulated), and marks the
+        event cancelled. A cancelled event no longer blocks its venue's time, and refuses edits,
+        tier changes, orders, and a second cancellation (`409 EVENT_CANCELLED`).
+      operationId: cancelEvent
+      x-required-roles: [queuepass-admin]
+      responses:
+        '200':
+          description: Event cancelled, with how many orders and tickets were affected.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cancellation' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /reports/sales:
+    get:
+      tags: [reports]
+      summary: Sales report
+      description: |
+        Computed on request, so it is always current. Totals cover all events; `ticketCapacity`
+        and `events` in the totals count scheduled events only. Refunded orders and void tickets
+        are excluded from sold, revenue, and check-ins. Events ordered by `startsAt`.
+      operationId: getSalesReport
+      x-required-roles: [queuepass-admin]
+      responses:
+        '200':
+          description: Totals and per-event, per-tier figures.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SalesReport' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
 components:
   securitySchemes:
@@ -645,12 +774,22 @@ components:
           endsAt,
           totalTicketCapacity,
           basePrice,
+          status,
+          cancelledAt,
           createdAt,
           updatedAt,
         ]
       properties:
         id: { type: string, format: uuid }
         name: { type: string, minLength: 1, maxLength: 200, example: Season Opener }
+        status:
+          type: string
+          enum: [SCHEDULED, CANCELLED]
+          description: Feature 005. A cancelled event stays on record but is read-only.
+        cancelledAt:
+          type: [string, 'null']
+          format: date-time
+          description: When the event was cancelled; `null` while scheduled.
         locationId: { type: string, format: uuid }
         location:
           allOf: [{ $ref: '#/components/schemas/Location' }]
@@ -742,6 +881,130 @@ components:
         price: { type: string, pattern: '^\d+(\.\d{1,2})?$' }
         quantity: { type: integer, minimum: 1 }
 
+    Ticket:
+      description: One seat. The code is unique and unguessable (feature 005).
+      type: object
+      required: [id, code, status, checkedInAt]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string, pattern: '^[A-Z2-9]{12}$', example: 7KQ2M9XWAB4C }
+        status: { type: string, enum: [VALID, VOID] }
+        checkedInAt: { type: [string, 'null'], format: date-time }
+
+    Order:
+      description: One customer's purchase for one event (feature 005).
+      type: object
+      required:
+        [
+          id,
+          eventId,
+          tierId,
+          tierName,
+          customerUsername,
+          quantity,
+          unitPrice,
+          totalPrice,
+          status,
+          createdAt,
+          refundedAt,
+          tickets,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        eventId: { type: string, format: uuid }
+        tierId:
+          type: [string, 'null']
+          format: uuid
+          description: '`null` for an event sold without tiers.'
+        tierName: { type: [string, 'null'] }
+        customerUsername: { type: string, example: customer1 }
+        quantity: { type: integer, minimum: 1, maximum: 10 }
+        unitPrice: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
+        totalPrice: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
+        status: { type: string, enum: [CONFIRMED, REFUNDED] }
+        createdAt: { type: string, format: date-time }
+        refundedAt: { type: [string, 'null'], format: date-time }
+        tickets:
+          type: array
+          items: { $ref: '#/components/schemas/Ticket' }
+
+    OrderInput:
+      type: object
+      required: [quantity]
+      properties:
+        tierId:
+          type: string
+          format: uuid
+          description: Required for an event with tiers; omitted for one without.
+        quantity: { type: integer, minimum: 1, maximum: 10 }
+
+    Cancellation:
+      type: object
+      required: [event, ordersRefunded, ticketsVoided]
+      properties:
+        event: { $ref: '#/components/schemas/Event' }
+        ordersRefunded: { type: integer, minimum: 0 }
+        ticketsVoided: { type: integer, minimum: 0 }
+
+    TierSales:
+      type: object
+      required: [tierId, name, price, quantity, ticketsSold, revenue]
+      properties:
+        tierId: { type: string, format: uuid }
+        name: { type: string }
+        price: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
+        quantity: { type: integer, minimum: 1 }
+        ticketsSold: { type: integer, minimum: 0 }
+        revenue: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
+
+    EventSales:
+      type: object
+      required:
+        [
+          eventId,
+          name,
+          venueName,
+          startsAt,
+          status,
+          ticketCapacity,
+          ticketsSold,
+          checkedIn,
+          revenue,
+          tiers,
+        ]
+      properties:
+        eventId: { type: string, format: uuid }
+        name: { type: string }
+        venueName: { type: string }
+        startsAt: { type: string, format: date-time }
+        status: { type: string, enum: [SCHEDULED, CANCELLED] }
+        ticketCapacity: { type: integer, minimum: 1 }
+        ticketsSold: { type: integer, minimum: 0 }
+        checkedIn: { type: integer, minimum: 0 }
+        revenue: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
+        tiers:
+          type: array
+          items: { $ref: '#/components/schemas/TierSales' }
+
+    SalesReport:
+      type: object
+      required: [generatedAt, totals, events]
+      properties:
+        generatedAt: { type: string, format: date-time }
+        totals:
+          type: object
+          required: [events, ticketCapacity, ticketsSold, checkedIn, revenue]
+          properties:
+            events: { type: integer, minimum: 0, description: Scheduled events. }
+            ticketCapacity:
+              { type: integer, minimum: 0, description: Capacity of scheduled events. }
+            ticketsSold: { type: integer, minimum: 0 }
+            checkedIn: { type: integer, minimum: 0 }
+            revenue: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
+        events:
+          type: array
+          items: { $ref: '#/components/schemas/EventSales' }
+
     ErrorEnvelope:
       type: object
       required: [error]
@@ -764,6 +1027,10 @@ components:
                 - VENUE_HAS_EVENTS
                 - CAPACITY_EXCEEDED
                 - TIER_NAME_TAKEN
+                - SOLD_OUT
+                - EVENT_CANCELLED
+                - EVENT_HAS_ORDERS
+                - TIER_HAS_ORDERS
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -876,3 +1143,26 @@ components:
                 error:
                   code: TIER_NAME_TAKEN
                   message: "Season Opener already has a tier named 'VIP'."
+            soldOut:
+              summary: Fewer tickets left than requested
+              value:
+                error:
+                  code: SOLD_OUT
+                  message: 'Only 1 VIP ticket is left for Season Opener; 2 were requested.'
+                  details:
+                    available: 1
+                    requested: 2
+            eventCancelled:
+              summary: The event is cancelled
+              value:
+                error:
+                  code: EVENT_CANCELLED
+                  message: Season Opener is cancelled and can no longer be changed or sold.
+            eventHasOrders:
+              summary: Deleting an event that has orders
+              value:
+                error:
+                  code: EVENT_HAS_ORDERS
+                  message: 'Cannot delete "Season Opener": it has 3 orders. Cancel it instead, which keeps its records.'
+                  details:
+                    orderCount: 3
