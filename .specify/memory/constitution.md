@@ -209,13 +209,16 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `004`.
+number is a pull request against this table. The next free number is `007`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
 | `001-bare-bones-system` | All six services and the seed job; Keycloak sign-in, token validation, and role enforcement; three stub front ends with a login page, a hello-world page, and logout | none |
 | `002-admin-venues-events` | Backend venue and event API with the 60-minute double-booking rule; Admin app screens to create, read, update, and delete venues and events | `001` |
 | `003-customer-venues-events` | Customer app screens that show all venues and events, read-only | `001`, `002` |
+| `004-admin-tiers-search` | Ticket tiers per event (name, price, quantity); search and filters for events and venues in the Admin app | `002` |
+| `005-admin-orders-reporting` | Orders and tickets in the Backend; Admin sales dashboard, attendee lists, and safe event cancellation | `004` |
+| `006-customer-ticket-purchase` | Customer app screens to choose a tier, get tickets, and see them (payment simulated) | `003`, `005` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, and the root
@@ -261,4 +264,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 2.0.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-09-28
+**Version**: 2.1.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-01
