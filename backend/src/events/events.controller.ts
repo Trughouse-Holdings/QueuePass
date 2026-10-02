@@ -48,6 +48,15 @@ export class EventsController {
     return this.events.update(id, dto);
   }
 
+  @Post(':id/cancel')
+  @Roles('queuepass-admin')
+  @HttpCode(HttpStatus.OK)
+  cancel(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<{ event: EventResponse; ordersRefunded: number; ticketsVoided: number }> {
+    return this.events.cancel(id);
+  }
+
   @Delete(':id')
   @Roles('queuepass-admin')
   @HttpCode(HttpStatus.NO_CONTENT)

@@ -16,6 +16,12 @@ export const ERROR_CODES = [
   'CAPACITY_EXCEEDED',
   // Spec 004: another tier of the same event already has this name, ignoring case.
   'TIER_NAME_TAKEN',
+  // Spec 005: fewer tickets left than requested; the event is cancelled; an event or tier that
+  // has orders cannot be deleted.
+  'SOLD_OUT',
+  'EVENT_CANCELLED',
+  'EVENT_HAS_ORDERS',
+  'TIER_HAS_ORDERS',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

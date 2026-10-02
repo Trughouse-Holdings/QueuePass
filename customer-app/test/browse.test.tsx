@@ -164,3 +164,35 @@ describe('venue page (US2; FR-004)', () => {
     expect(screen.getByRole('link', { name: 'Back to venues' })).toHaveAttribute('href', '/venues');
   });
 });
+
+describe('cancelled events (spec 005 US4-5; FR-012)', () => {
+  const gone = event({
+    id: 'e9',
+    name: 'Rained Out',
+    status: 'CANCELLED',
+    cancelledAt: '2026-11-20T12:00:00.000Z',
+  });
+
+  it('marks a cancelled event in the event list', async () => {
+    stubApi({ 'GET /events': json([early, gone]) });
+    renderCustomer();
+    await screen.findAllByRole('row');
+    const [first, second] = bodyRows();
+    expect(within(first).queryByText('Cancelled')).toBeNull();
+    expect(within(second).getByText('Cancelled')).toBeInTheDocument();
+  });
+
+  it('marks a cancelled event on its page', async () => {
+    stubApi({ 'GET /events/e9': json(gone) });
+    renderCustomer({ at: '/events/e9' });
+    expect(await screen.findByRole('heading', { name: /Rained Out/ })).toBeInTheDocument();
+    expect(screen.getByText('This event has been cancelled.')).toBeInTheDocument();
+  });
+
+  it("marks a cancelled event in its venue's list", async () => {
+    stubApi({ 'GET /locations/v1': json(venue()), 'GET /events': json([gone]) });
+    renderCustomer({ at: '/venues/v1' });
+    await screen.findAllByRole('row');
+    expect(within(bodyRows()[0]).getByText('Cancelled')).toBeInTheDocument();
+  });
+});

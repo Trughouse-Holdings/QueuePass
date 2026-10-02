@@ -26,6 +26,12 @@ export function EventDetail() {
   return (
     <section>
       <h1>{e.name}</h1>
+      {/* Spec 005 FR-012: a cancelled event stays visible, clearly marked. */}
+      {e.status === 'CANCELLED' && (
+        <p>
+          <strong>This event has been cancelled.</strong>
+        </p>
+      )}
       <dl>
         <dt>Venue</dt>
         <dd>

@@ -21,7 +21,14 @@ const EMPTY: Draft = { name: '', price: '', quantity: '' };
  * Spec 004 US1: an event's ticket tiers, with add, edit, and remove (research R7). The Backend
  * enforces the capacity and name rules; refusals show in the banner and the typed values stay.
  */
-export function TierSection({ event }: { event: Event }): React.ReactElement {
+export function TierSection({
+  event,
+  readOnly = false,
+}: {
+  event: Event;
+  /** Spec 005: a cancelled event's tiers are shown but cannot change. */
+  readOnly?: boolean;
+}): React.ReactElement {
   const [tiers, setTiers] = useState<TicketTier[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -121,7 +128,7 @@ export function TierSection({ event }: { event: Event }): React.ReactElement {
                 </thead>
                 <tbody>
                   {tiers.map((t) =>
-                    editing?.id === t.id ? (
+                    !readOnly && editing?.id === t.id ? (
                       <tr key={t.id}>
                         <td>
                           <input
@@ -182,31 +189,35 @@ export function TierSection({ event }: { event: Event }): React.ReactElement {
                         <td className="price">${t.price}</td>
                         <td className="cell-num">{t.quantity.toLocaleString()}</td>
                         <td className="cell-action">
-                          <button
-                            type="button"
-                            className="btn"
-                            disabled={busy}
-                            onClick={() =>
-                              setEditing({
-                                id: t.id,
-                                draft: {
-                                  name: t.name,
-                                  price: t.price,
-                                  quantity: String(t.quantity),
-                                },
-                              })
-                            }
-                          >
-                            Edit
-                          </button>{' '}
-                          <button
-                            type="button"
-                            className="btn"
-                            disabled={busy}
-                            onClick={() => remove(t)}
-                          >
-                            Remove
-                          </button>
+                          {!readOnly && (
+                            <>
+                              <button
+                                type="button"
+                                className="btn"
+                                disabled={busy}
+                                onClick={() =>
+                                  setEditing({
+                                    id: t.id,
+                                    draft: {
+                                      name: t.name,
+                                      price: t.price,
+                                      quantity: String(t.quantity),
+                                    },
+                                  })
+                                }
+                              >
+                                Edit
+                              </button>{' '}
+                              <button
+                                type="button"
+                                className="btn"
+                                disabled={busy}
+                                onClick={() => remove(t)}
+                              >
+                                Remove
+                              </button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     ),
@@ -218,44 +229,46 @@ export function TierSection({ event }: { event: Event }): React.ReactElement {
         </>
       )}
 
-      <form className="form" onSubmit={add} aria-label="Add a tier">
-        <div className="field-row">
-          <label className="field">
-            Tier name
-            <input
-              value={draft.name}
-              required
-              maxLength={100}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-            />
-          </label>
-          <label className="field">
-            Price
-            <input
-              value={draft.price}
-              required
-              inputMode="decimal"
-              placeholder="45.00"
-              onChange={(e) => setDraft({ ...draft, price: e.target.value })}
-            />
-          </label>
-          <label className="field">
-            Quantity
-            <input
-              type="number"
-              min={1}
-              required
-              value={draft.quantity}
-              onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
-            />
-          </label>
-        </div>
-        <div className="form__actions">
-          <button type="submit" className="btn btn--primary" disabled={busy}>
-            Add tier
-          </button>
-        </div>
-      </form>
+      {!readOnly && (
+        <form className="form" onSubmit={add} aria-label="Add a tier">
+          <div className="field-row">
+            <label className="field">
+              Tier name
+              <input
+                value={draft.name}
+                required
+                maxLength={100}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+              />
+            </label>
+            <label className="field">
+              Price
+              <input
+                value={draft.price}
+                required
+                inputMode="decimal"
+                placeholder="45.00"
+                onChange={(e) => setDraft({ ...draft, price: e.target.value })}
+              />
+            </label>
+            <label className="field">
+              Quantity
+              <input
+                type="number"
+                min={1}
+                required
+                value={draft.quantity}
+                onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
+              />
+            </label>
+          </div>
+          <div className="form__actions">
+            <button type="submit" className="btn btn--primary" disabled={busy}>
+              Add tier
+            </button>
+          </div>
+        </form>
+      )}
     </section>
   );
 }

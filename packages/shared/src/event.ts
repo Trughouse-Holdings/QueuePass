@@ -15,9 +15,14 @@ export interface Event {
   endsAt: string;
   totalTicketCapacity: number;
   basePrice: string;
+  /** Spec 005: a cancelled event stays on record but is read-only. */
+  status: EventStatus;
+  cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+export type EventStatus = 'SCHEDULED' | 'CANCELLED';
 
 export interface EventInput {
   name: string;

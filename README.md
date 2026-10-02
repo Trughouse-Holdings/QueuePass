@@ -17,7 +17,7 @@ Features `001`, `002`, and `003` are built and verified.
 | [`002-admin-venues-events`](specs/002-admin-venues-events/spec.md)       | Venue and event API with the 60-minute rule; Admin app create, read, update, delete                                     | Draft (revised)  | Done (32/32 tasks) | **Built and verified** |
 | [`003-customer-venues-events`](specs/003-customer-venues-events/spec.md) | Customer app shows all venues and events                                                                                | Ready for review | Done (23/23 tasks) | **Built and verified** |
 | [`004-admin-tiers-search`](specs/004-admin-tiers-search/spec.md)         | Ticket tiers per event; Admin search for events and venues                                                              | Ready for review | Done (23/23 tasks) | **Built and verified** |
-| [`005-admin-orders-reporting`](specs/005-admin-orders-reporting/spec.md) | Orders and tickets; Admin sales dashboard, attendee lists, safe cancellation                                            | Ready for review | Done (0/25 tasks)  | Not started            |
+| [`005-admin-orders-reporting`](specs/005-admin-orders-reporting/spec.md) | Orders and tickets; Admin sales dashboard, attendee lists, safe cancellation                                            | Ready for review | Done (25/25 tasks) | **Built and verified** |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -60,6 +60,21 @@ seed waits for Keycloak's `/health/ready`, and the front ends wait for the Backe
 docker compose down          # keeps the volumes
 docker compose down -v       # DELETES all data — venues, events, and Keycloak users
 ```
+
+---
+
+## Demo data
+
+The Admin app's Reports and Attendees pages need orders, and customers can't buy tickets in the
+Customer app until spec `006`. To fill them for a demo, run once after `docker compose up`:
+
+```bash
+docker compose exec backend node backend/dist/scripts/demo-data.js
+```
+
+It adds two venues, three events with tiers, orders from `customer1`…`customer25`, some
+check-ins, and one cancelled event, all through the real Backend rules. Running it again changes
+nothing. It is never run automatically.
 
 ---
 
@@ -156,6 +171,15 @@ unchanged.
   simultaneous edits (`004`)
 - **Admin search** — find events by name, venue, and date range, and venues by name or address;
   filters stay in the page address (`004`)
+- **Orders and tickets** — customers get tickets through the API, one unique code per seat; sales
+  never exceed a tier or the event, even with many simultaneous buyers. Payment is simulated, and
+  the Customer app screens arrive in `006` (`005`)
+- **Sales dashboard** — admins see tickets sold against capacity, revenue, and check-ins, overall
+  and per event and tier, always current (`005`)
+- **Attendee lists** — every order for an event, with ticket codes and check-in state (`005`)
+- **Safe cancellation** — cancelling an event voids its tickets, refunds its orders, frees the
+  venue time, and shows customers it was cancelled; events and tiers with orders can't be
+  deleted (`005`)
 
 ### Scheduling rule
 

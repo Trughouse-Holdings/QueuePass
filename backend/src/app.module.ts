@@ -8,6 +8,8 @@ import { HelloModule } from './hello/hello.module';
 import { LocationsModule } from './locations/locations.module';
 import { EventsModule } from './events/events.module';
 import { TiersModule } from './tiers/tiers.module';
+import { OrdersModule } from './orders/orders.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { TiersModule } from './tiers/tiers.module';
     LocationsModule,
     EventsModule,
     TiersModule,
+    OrdersModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}

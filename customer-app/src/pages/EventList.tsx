@@ -35,6 +35,7 @@ export function EventList() {
                 <tr key={e.id}>
                   <td>
                     <Link to={`/events/${e.id}`}>{e.name}</Link>
+                    {e.status === 'CANCELLED' && <strong> Cancelled</strong>}
                   </td>
                   <td>
                     <Link to={`/venues/${e.locationId}`}>{e.location.name}</Link>

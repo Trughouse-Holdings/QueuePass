@@ -108,16 +108,34 @@ export class AllExceptionsFilter implements ExceptionFilter {
       switch (exception.code) {
         // Foreign-key violation. On a venue delete this is FR-013: the database refuses
         // to orphan events, so no client can bypass the rule.
-        case 'P2003':
-          response
-            .status(HttpStatus.CONFLICT)
-            .json(
-              envelope(
-                'VENUE_HAS_EVENTS',
-                'Cannot delete this venue; events are still scheduled at it.',
-              ),
-            );
+        // Spec 005: the same RESTRICT protects events and tiers that have orders, so say which.
+        case 'P2003': {
+          const fk = JSON.stringify(exception.meta ?? {});
+          if (/(Order|Ticket)_eventId/.test(fk)) {
+            response
+              .status(HttpStatus.CONFLICT)
+              .json(
+                envelope(
+                  'EVENT_HAS_ORDERS',
+                  'Cannot delete this event; it has orders. Cancel it instead.',
+                ),
+              );
+          } else if (/(Order|Ticket)_tierId/.test(fk)) {
+            response
+              .status(HttpStatus.CONFLICT)
+              .json(envelope('TIER_HAS_ORDERS', 'Cannot remove this tier; it has orders.'));
+          } else {
+            response
+              .status(HttpStatus.CONFLICT)
+              .json(
+                envelope(
+                  'VENUE_HAS_EVENTS',
+                  'Cannot delete this venue; events are still scheduled at it.',
+                ),
+              );
+          }
           return;
+        }
         // Unique violation. The only unique index a client can trip is the tier name index
         // (spec 004 research R3), reached when a concurrent insert beat the service's check.
         case 'P2002':

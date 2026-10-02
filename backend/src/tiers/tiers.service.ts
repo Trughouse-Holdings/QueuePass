@@ -6,7 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma, TicketTier } from '@prisma/client';
-import { LOCKING_TX, LockedEvent, lockEvent } from '../common/event-lock';
+import { conflict, eventCancelled } from '../common/conflict';
+import { LOCKING_TX, LockedEvent, lockEvent, ticketsSold } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTierDto } from './dto/create-tier.dto';
 import { UpdateTierDto } from './dto/update-tier.dto';
@@ -40,6 +41,8 @@ export class TiersService {
   create(eventId: string, dto: CreateTierDto): Promise<TierResponse> {
     return this.prisma.$transaction(async (tx) => {
       const event = await lockEvent(tx, eventId);
+      if (event.status === 'CANCELLED') throw eventCancelled(event.name);
+      await this.assertNoTierlessSales(tx, event);
       await this.assertNameFree(tx, event, dto.name, null);
       await this.assertFits(tx, event, dto.quantity, null);
       const created = await tx.ticketTier.create({
@@ -55,9 +58,13 @@ export class TiersService {
     }
     return this.prisma.$transaction(async (tx) => {
       const event = await lockEvent(tx, eventId);
+      if (event.status === 'CANCELLED') throw eventCancelled(event.name);
       const tier = await this.requireTier(tx, eventId, tierId);
       if (dto.name !== undefined) await this.assertNameFree(tx, event, dto.name, tier.id);
-      if (dto.quantity !== undefined) await this.assertFits(tx, event, dto.quantity, tier.id);
+      if (dto.quantity !== undefined) {
+        await this.assertFits(tx, event, dto.quantity, tier.id);
+        await this.assertCoversTierSales(tx, tier, dto.quantity);
+      }
       const updated = await tx.ticketTier.update({
         where: { id: tier.id },
         data: {
@@ -70,9 +77,22 @@ export class TiersService {
     }, LOCKING_TX);
   }
 
-  async remove(eventId: string, tierId: string): Promise<void> {
-    const { count } = await this.prisma.ticketTier.deleteMany({ where: { id: tierId, eventId } });
-    if (count === 0) throw new NotFoundException(`No tier ${tierId} exists for event ${eventId}.`);
+  remove(eventId: string, tierId: string): Promise<void> {
+    return this.prisma.$transaction(async (tx) => {
+      const event = await lockEvent(tx, eventId);
+      if (event.status === 'CANCELLED') throw eventCancelled(event.name);
+      const tier = await this.requireTier(tx, eventId, tierId);
+      // Spec 005 FR-010. Order.tierId is ON DELETE RESTRICT; the count only names the refusal.
+      const orderCount = await tx.order.count({ where: { tierId } });
+      if (orderCount > 0) {
+        throw conflict(
+          'TIER_HAS_ORDERS',
+          `Cannot remove the tier "${tier.name}": it has ${orderCount} ${orderCount === 1 ? 'order' : 'orders'}.`,
+          { orderCount },
+        );
+      }
+      await tx.ticketTier.delete({ where: { id: tierId } });
+    }, LOCKING_TX);
   }
 
   // ---------------------------------------------------------------- rules
@@ -116,6 +136,37 @@ export class TiersService {
           },
         },
         HttpStatus.CONFLICT,
+      );
+    }
+  }
+
+  /** Spec 005 FR-011: tickets already sold without a tier would belong to no tier. */
+  private async assertNoTierlessSales(
+    tx: Prisma.TransactionClient,
+    event: LockedEvent,
+  ): Promise<void> {
+    const tierless = await ticketsSold(tx, { eventId: event.id, tierId: null });
+    if (tierless > 0) {
+      throw conflict(
+        'EVENT_HAS_ORDERS',
+        `${event.name} has already sold ${tierless} tickets without tiers, so tiers cannot be added.`,
+        { tierlessTicketsSold: tierless },
+      );
+    }
+  }
+
+  /** Spec 005 FR-011: a tier cannot shrink below the tickets it has sold. */
+  private async assertCoversTierSales(
+    tx: Prisma.TransactionClient,
+    tier: TicketTier,
+    requested: number,
+  ): Promise<void> {
+    const sold = await ticketsSold(tx, { eventId: tier.eventId, tierId: tier.id });
+    if (requested < sold) {
+      throw conflict(
+        'CAPACITY_EXCEEDED',
+        `Cannot set ${tier.name} to ${requested} tickets; ${sold} are already sold.`,
+        { requested, ticketsSold: sold },
       );
     }
   }
