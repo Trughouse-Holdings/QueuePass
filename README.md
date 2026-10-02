@@ -50,9 +50,8 @@ One command from a clean clone. No manual configuration steps.
 Startup order is gated on health: the Backend waits for PostgreSQL and applies migrations, the
 seed waits for Keycloak's `/health/ready`, and the front ends wait for the Backend.
 
-> The sibling `../queuepass` project uses the same ports. Stop it first
-> (`docker compose stop` in that folder), or `docker compose up` here fails with
-> "port is already allocated".
+> The stack uses ports 3000, 5173–5175, 8080, 9000, and 5432. Stop anything else using them
+> first, or `docker compose up` fails with "port is already allocated".
 
 **To stop without losing data:**
 
@@ -208,7 +207,7 @@ specs/            Specifications, plans, contracts, tasks
 
 | Symptom                                          | Fix                                                                                                                                                                              |
 | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `port is already allocated` on startup           | The sibling `../queuepass` project is running. Run `docker compose stop` there.                                                                                                  |
+| `port is already allocated` on startup           | Another program or Compose project is using one of the ports listed under _Start the system_. Stop it.                                                                           |
 | Seed fails with connection refused               | Keycloak wasn't ready; the job retries. Confirm `KC_HEALTH_ENABLED=true`.                                                                                                        |
 | Every API call returns `401` with a valid login  | The token's issuer is the browser's Keycloak address (`localhost:8080`), not the in-container one. The Backend must expect that issuer while fetching keys from `keycloak:8080`. |
 | `401` with "invalid audience"                    | The front-end client is missing the audience mapper for the QueuePass API. Re-run the seed.                                                                                      |

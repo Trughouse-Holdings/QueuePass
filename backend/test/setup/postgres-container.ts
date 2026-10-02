@@ -27,6 +27,7 @@ export async function startPostgres(): Promise<StartedPostgreSqlContainer> {
     cwd: path.resolve(__dirname, '../..'),
     env: { ...process.env, DATABASE_URL: url },
     stdio: 'inherit',
+    shell: process.platform === 'win32',
   });
 
   return container;
