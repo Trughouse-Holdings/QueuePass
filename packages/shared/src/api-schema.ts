@@ -105,7 +105,8 @@ export interface paths {
         };
         /**
          * List all venues
-         * @description Ordered by name, A to Z. The Customer app (feature 003) relies on this order.
+         * @description Ordered by name, A to Z. The Customer app (feature 003) relies on this order. Optional
+         *     `q` filter (feature 004), used by the Admin app's venue search.
          */
         get: operations["listLocations"];
         put?: never;
@@ -163,8 +164,8 @@ export interface paths {
         /**
          * List all events
          * @description Each event embeds its venue. Ordered by `startsAt`, soonest first; the Customer app
-         *     (feature 003) relies on this order. Optional `locationId` filter, used by the Admin app's
-         *     venue page.
+         *     (feature 003) relies on this order. Optional filters, combinable: `locationId` (used by the
+         *     Admin app's venue page), and `q`, `from`, `to` (feature 004, the Admin app's event search).
          */
         get: operations["listEvents"];
         put?: never;
@@ -196,7 +197,8 @@ export interface paths {
         /**
          * Delete an event
          * @description Permanent: there is no undo. Clients MUST ask the user to confirm first. The window the
-         *     event occupied becomes available for scheduling again immediately.
+         *     event occupied becomes available for scheduling again immediately. The event's ticket
+         *     tiers are deleted with it.
          */
         delete: operations["deleteEvent"];
         options?: never;
@@ -205,8 +207,69 @@ export interface paths {
          * Update an event
          * @description Includes moving the event to a different venue or time window. The conflict rule is
          *     re-evaluated against the destination venue and window, excluding the event itself.
+         *     Lowering `totalTicketCapacity` below the sum of the event's tier quantities is refused
+         *     with `409 CAPACITY_EXCEEDED` (feature 004).
          */
         patch: operations["updateEvent"];
+        trace?: never;
+    };
+    "/events/{id}/tiers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * List an event's ticket tiers
+         * @description Ordered by price, lowest first, then by name.
+         */
+        get: operations["listTicketTiers"];
+        put?: never;
+        /**
+         * Add a ticket tier to an event
+         * @description Rejects, in this order: field validation, unknown event, a name already used by another
+         *     tier of this event ignoring case (`409 TIER_NAME_TAKEN`), and a quantity that would push
+         *     the event's tier total above its `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`, with
+         *     `details.remaining`). The capacity rule holds under concurrent requests.
+         */
+        post: operations["createTicketTier"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/tiers/{tierId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+                /** @description A tier of that event. A tier of a different event is `404`. */
+                tierId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a ticket tier
+         * @description Permanent. Clients MUST ask the user to confirm first.
+         */
+        delete: operations["deleteTicketTier"];
+        options?: never;
+        head?: never;
+        /**
+         * Update a ticket tier
+         * @description Same rules as creating one, evaluated against the event's other tiers.
+         */
+        patch: operations["updateTicketTier"];
         trace?: never;
     };
 }
@@ -344,6 +407,40 @@ export interface components {
             totalTicketCapacity?: number;
             basePrice?: string;
         };
+        /** @description One kind of ticket for an event, such as General or VIP (feature 004). */
+        TicketTier: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            eventId: string;
+            /** @example VIP */
+            name: string;
+            /**
+             * @description Decimal string in USD, never a JSON number.
+             * @example 120.00
+             */
+            price: string;
+            /** @example 500 */
+            quantity: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        TicketTierInput: {
+            /** @description Trimmed; unique within the event ignoring case. */
+            name: string;
+            /** @description Non-negative decimal string. */
+            price: string;
+            /** @description The event's tiers together may not exceed its `totalTicketCapacity`. */
+            quantity: number;
+        };
+        /** @description Partial update; supply only the fields being changed. */
+        TicketTierUpdate: {
+            name?: string;
+            price?: string;
+            quantity?: number;
+        };
         /**
          * @description Every non-2xx response uses this shape. `code` is the stable machine-readable
          *     discriminator clients branch on; `message` is human-readable and may change.
@@ -351,7 +448,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -602,14 +699,20 @@ export interface operations {
     };
     listLocations: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description Keep only venues whose name or address contains this text, ignoring case and
+                 *     surrounding spaces. Blank means no filter.
+                 */
+                q?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Every venue on file, ordered by name. */
+            /** @description Matching venues, ordered by name. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -618,6 +721,7 @@ export interface operations {
                     "application/json": components["schemas"]["Location"][];
                 };
             };
+            400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
         };
     };
@@ -777,6 +881,18 @@ export interface operations {
             query?: {
                 /** @description Restrict results to events at one venue. */
                 locationId?: string;
+                /**
+                 * @description Keep only events whose name contains this text, ignoring case and surrounding
+                 *     spaces. Blank means no filter.
+                 */
+                q?: string;
+                /** @description Keep only events with `startsAt` at or after this instant. */
+                from?: string;
+                /**
+                 * @description Keep only events with `startsAt` strictly before this instant. When both are given,
+                 *     `from` must be earlier than `to`, otherwise `400`.
+                 */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -897,6 +1013,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Event"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    listTicketTiers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event's tiers. Empty when the event sells a single admission type. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketTier"][];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createTicketTier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketTierInput"];
+            };
+        };
+        responses: {
+            /** @description Tier added. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketTier"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteTicketTier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+                /** @description A tier of that event. A tier of a different event is `404`. */
+                tierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tier removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateTicketTier: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+                /** @description A tier of that event. A tier of a different event is `404`. */
+                tierId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TicketTierUpdate"];
+            };
+        };
+        responses: {
+            /** @description Tier updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketTier"];
                 };
             };
             400: components["responses"]["ValidationFailed"];
