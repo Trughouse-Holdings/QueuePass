@@ -33,8 +33,25 @@ model Event {
   endsAt              DateTime @db.Timestamptz(6)
   totalTicketCapacity Int
   basePrice           Decimal  @db.Decimal(10, 2)
+  tiers               TicketTier[]
   createdAt           DateTime @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @db.Timestamptz(6)
 
   @@index([locationId])
+}
+
+// Spec 004. Case-insensitive unique names and the CHECK constraints live in the migration SQL.
+// The rule "tier quantities never exceed the event's totalTicketCapacity" is enforced by the
+// Backend under an event-row lock (specs/004-admin-tiers-search/research.md R2).
+model TicketTier {
+  id        String   @id @default(uuid()) @db.Uuid
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String   @db.Uuid
+  name      String
+  price     Decimal  @db.Decimal(10, 2)
+  quantity  Int
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+
+  @@index([eventId])
 }

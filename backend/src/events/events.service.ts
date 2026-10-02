@@ -7,12 +7,17 @@ import {
 } from '@nestjs/common';
 import type { Event, Location, Prisma } from '@prisma/client';
 import { SCHEDULING_BUFFER_MINUTES } from '@queuepass/shared';
+import { LOCKING_TX, lockEvent } from '../common/event-lock';
+import { searchText } from '../common/search-text';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
+import { ListEventsQuery } from './dto/list-events.query';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { SchedulingConflictException } from './scheduling-conflict.exception';
 
 type EventWithLocation = Event & { location: Location };
+/** The service's own client or a transaction's; the rule helpers work with either. */
+type Db = PrismaService | Prisma.TransactionClient;
 
 /** PostgreSQL SQLSTATE for a detected deadlock. */
 const PG_DEADLOCK = '40P01';
@@ -78,8 +83,21 @@ export class EventsService {
     return this.toResponse(created);
   }
 
-  async findAll(locationId?: string): Promise<EventResponse[]> {
-    const where: Prisma.EventWhereInput = locationId ? { locationId } : {};
+  async findAll(query: ListEventsQuery = {}): Promise<EventResponse[]> {
+    const from = query.from ? new Date(query.from) : undefined;
+    const to = query.to ? new Date(query.to) : undefined;
+    if (from && to && from >= to) {
+      throw new BadRequestException({ message: ['from must be earlier than to'] });
+    }
+    const q = searchText(query.q);
+    // Spec 004 FR-006: filters combine; the soonest-first order is unchanged.
+    const where: Prisma.EventWhereInput = {
+      ...(query.locationId ? { locationId: query.locationId } : {}),
+      ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
+      ...(from || to
+        ? { startsAt: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } }
+        : {}),
+    };
     const events = await this.prisma.event.findMany({
       where,
       include: { location: true },
@@ -101,9 +119,21 @@ export class EventsService {
     return retryOnDeadlock(() => this.updateOnce(id, dto));
   }
 
-  private async updateOnce(id: string, dto: UpdateEventDto): Promise<EventResponse> {
-    const existing = await this.prisma.event.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`No event exists with id ${id}.`);
+  /**
+   * Runs in one transaction that first locks the event row, the same lock tier writes take
+   * (spec 004 research R2), so a capacity cut and a tier change can never both slip through.
+   */
+  private updateOnce(id: string, dto: UpdateEventDto): Promise<EventResponse> {
+    return this.prisma.$transaction((tx) => this.updateLocked(tx, id, dto), LOCKING_TX);
+  }
+
+  private async updateLocked(
+    tx: Prisma.TransactionClient,
+    id: string,
+    dto: UpdateEventDto,
+  ): Promise<EventResponse> {
+    await lockEvent(tx, id);
+    const existing = await tx.event.findUniqueOrThrow({ where: { id } });
 
     // The conflict check runs against the DESTINATION venue and DESTINATION window —
     // an edit that only moves the venue must be checked where it is going, not where it was.
@@ -112,16 +142,17 @@ export class EventsService {
     const endsAt = dto.endsAt ? new Date(dto.endsAt) : existing.endsAt;
 
     this.assertWindowOrdered(startsAt, endsAt);
-    const location = await this.requireLocation(locationId);
+    const location = await this.requireLocation(locationId, tx);
 
     const capacity = dto.totalTicketCapacity ?? existing.totalTicketCapacity;
     this.assertCapacityWithinVenue(capacity, location);
+    if (dto.totalTicketCapacity !== undefined) await this.assertCoversTiers(tx, id, capacity);
 
     // `id` is excluded so an event never conflicts with itself (FR-025) — saving an
     // unchanged event must always succeed.
-    await this.assertNoConflict(locationId, startsAt, endsAt, id);
+    await this.assertNoConflict(locationId, startsAt, endsAt, id, tx);
 
-    const updated = await this.prisma.event.update({
+    const updated = await tx.event.update({
       where: { id },
       data: {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
@@ -153,8 +184,8 @@ export class EventsService {
     }
   }
 
-  private async requireLocation(locationId: string): Promise<Location> {
-    const location = await this.prisma.location.findUnique({ where: { id: locationId } });
+  private async requireLocation(locationId: string, db: Db = this.prisma): Promise<Location> {
+    const location = await db.location.findUnique({ where: { id: locationId } });
     if (!location) throw new NotFoundException(`No venue exists with id ${locationId}.`);
     return location;
   }
@@ -172,6 +203,30 @@ export class EventsService {
               seatingCapacity: location.seatingCapacity,
               requestedTicketCapacity: requested,
             },
+          },
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+  }
+
+  /** Spec 004 FR-004: capacity may not drop below the tickets already allocated to tiers. */
+  private async assertCoversTiers(
+    tx: Prisma.TransactionClient,
+    eventId: string,
+    proposed: number,
+  ): Promise<void> {
+    const tiers = await tx.ticketTier.aggregate({ where: { eventId }, _sum: { quantity: true } });
+    const tierTotal = tiers._sum.quantity ?? 0;
+    if (proposed < tierTotal) {
+      throw new HttpException(
+        {
+          error: {
+            code: 'CAPACITY_EXCEEDED',
+            message:
+              `Cannot set ticket capacity to ${proposed}; this event's tiers already total ` +
+              `${tierTotal} tickets. Reduce or remove tiers first.`,
+            details: { proposedTicketCapacity: proposed, tierTotal },
           },
         },
         HttpStatus.CONFLICT,
@@ -203,6 +258,7 @@ export class EventsService {
     startsAt: Date,
     endsAt: Date,
     excludeEventId: string | null,
+    db: Db = this.prisma,
   ): Promise<void> {
     const bufferMs = SCHEDULING_BUFFER_MINUTES * 60_000;
 
@@ -210,7 +266,7 @@ export class EventsService {
     //   (A.start - 60min) < B.end  AND  (B.start - 60min) < A.end
     const candidateLowerBound = new Date(startsAt.getTime() - bufferMs);
 
-    const conflict = await this.prisma.event.findFirst({
+    const conflict = await db.event.findFirst({
       where: {
         locationId,
         ...(excludeEventId ? { id: { not: excludeEventId } } : {}),

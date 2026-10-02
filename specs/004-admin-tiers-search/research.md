@@ -49,7 +49,7 @@ CHECK constraints: `price >= 0`, `quantity > 0`, `length(trim(name)) between 1 a
 Validated by query DTOs (`ListEventsQuery`, `ListLocationsQuery`) so malformed values are `400`
 through the existing global `ValidationPipe`, which also starts rejecting unknown query keys and a
 malformed `locationId` (previously a `500`). Orders are unchanged: events by `startsAt`, venues by
-`name`. `%` and `_` in `q` are matched literally (Prisma's `contains` escapes them).
+`name`. `%`, `_`, and `\` in `q` are matched literally: Prisma's `contains` does **not** escape LIKE wildcards, so the Backend escapes them (found by the T013 test).
 
 ## R5: Admin filters live in the URL
 

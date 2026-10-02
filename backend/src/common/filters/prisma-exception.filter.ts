@@ -118,6 +118,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
               ),
             );
           return;
+        // Unique violation. The only unique index a client can trip is the tier name index
+        // (spec 004 research R3), reached when a concurrent insert beat the service's check.
+        case 'P2002':
+          response
+            .status(HttpStatus.CONFLICT)
+            .json(
+              envelope(
+                'TIER_NAME_TAKEN',
+                'Another tier of this event already has that name. Choose a different name.',
+              ),
+            );
+          return;
         // Record required but not found (update/delete of a missing row).
         case 'P2025':
           response

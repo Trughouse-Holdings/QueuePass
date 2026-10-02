@@ -24,7 +24,7 @@ export function LocationDetail(): React.ReactElement {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getLocation(id), listEvents(id)])
+    Promise.all([getLocation(id), listEvents({ locationId: id })])
       .then(([venue, events]) => !cancelled && setLoad({ kind: 'ok', venue, events }))
       .catch((err: unknown) => {
         if (cancelled) return;

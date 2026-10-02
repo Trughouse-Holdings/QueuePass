@@ -16,7 +16,7 @@ Features `001`, `002`, and `003` are built and verified.
 | [`001-bare-bones-system`](specs/001-bare-bones-system/spec.md)           | All six services; Keycloak sign-in, JWT validation, role checks; login, hello-world, and logout in all three front ends | Draft            | Done (64/64 tasks) | **Built and verified** |
 | [`002-admin-venues-events`](specs/002-admin-venues-events/spec.md)       | Venue and event API with the 60-minute rule; Admin app create, read, update, delete                                     | Draft (revised)  | Done (32/32 tasks) | **Built and verified** |
 | [`003-customer-venues-events`](specs/003-customer-venues-events/spec.md) | Customer app shows all venues and events                                                                                | Ready for review | Done (23/23 tasks) | **Built and verified** |
-| [`004-admin-tiers-search`](specs/004-admin-tiers-search/spec.md)         | Ticket tiers per event; Admin search for events and venues                                                              | Ready for review | Done (0/23 tasks)  | Not started            |
+| [`004-admin-tiers-search`](specs/004-admin-tiers-search/spec.md)         | Ticket tiers per event; Admin search for events and venues                                                              | Ready for review | Done (23/23 tasks) | **Built and verified** |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -150,6 +150,11 @@ unchanged.
 - **Double-booking prevention** — events at the same venue must be at least **60 minutes**
   apart, enforced by a database constraint so no client can bypass it (`002`)
 - **Customer browsing** — customers see all venues and events, read-only (`003`)
+- **Ticket tiers** — admins split an event's tickets into tiers such as General and VIP, each
+  with its own price and quantity; tiers never exceed the event's capacity, even under
+  simultaneous edits (`004`)
+- **Admin search** — find events by name, venue, and date range, and venues by name or address;
+  filters stay in the page address (`004`)
 
 ### Scheduling rule
 
