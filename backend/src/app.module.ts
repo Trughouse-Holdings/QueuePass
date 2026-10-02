@@ -7,6 +7,7 @@ import { MeModule } from './me/me.module';
 import { HelloModule } from './hello/hello.module';
 import { LocationsModule } from './locations/locations.module';
 import { EventsModule } from './events/events.module';
+import { TiersModule } from './tiers/tiers.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { EventsModule } from './events/events.module';
     HelloModule,
     LocationsModule,
     EventsModule,
+    TiersModule,
   ],
 })
 export class AppModule {}

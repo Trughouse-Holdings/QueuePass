@@ -4,6 +4,7 @@ import type { Event } from '@queuepass/shared';
 import { ApiError } from '../api/client';
 import { deleteEvent, getEvent } from '../api/events';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { TierSection } from '../components/TierSection';
 import { when } from '../format';
 import { useDelete } from '../hooks/use-delete';
 
@@ -98,6 +99,8 @@ function EventView({ event }: { event: Event }): React.ReactElement {
           <dd className="price">${event.basePrice}</dd>
         </dl>
       </div>
+
+      <TierSection event={event} />
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import type { Location } from '@prisma/client';
+import { searchText } from '../common/search-text';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
@@ -12,8 +13,20 @@ export class LocationsService {
     return this.prisma.location.create({ data: dto });
   }
 
-  findAll(): Promise<Location[]> {
-    return this.prisma.location.findMany({ orderBy: { name: 'asc' } });
+  /** Spec 004 FR-007: `q` matches name or address, ignoring case; name order is unchanged. */
+  findAll(q?: string): Promise<Location[]> {
+    const text = searchText(q);
+    return this.prisma.location.findMany({
+      where: text
+        ? {
+            OR: [
+              { name: { contains: text, mode: 'insensitive' } },
+              { address: { contains: text, mode: 'insensitive' } },
+            ],
+          }
+        : {},
+      orderBy: { name: 'asc' },
+    });
   }
 
   async findOne(id: string): Promise<Location> {

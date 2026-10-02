@@ -14,6 +14,8 @@ export const ERROR_CODES = [
   'SCHEDULING_CONFLICT',
   'VENUE_HAS_EVENTS',
   'CAPACITY_EXCEEDED',
+  // Spec 004: another tier of the same event already has this name, ignoring case.
+  'TIER_NAME_TAKEN',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

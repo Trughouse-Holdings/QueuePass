@@ -9,12 +9,14 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import type { Location } from '@prisma/client';
 import { Roles } from '../auth/roles.decorator';
 import { LocationsService } from './locations.service';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
+import { ListLocationsQuery } from './dto/list-locations.query';
 
 /** Implements the /locations operations in contracts/openapi.yaml. */
 @Controller('locations')
@@ -22,8 +24,8 @@ export class LocationsController {
   constructor(private readonly locations: LocationsService) {}
 
   @Get()
-  findAll(): Promise<Location[]> {
-    return this.locations.findAll();
+  findAll(@Query() query: ListLocationsQuery): Promise<Location[]> {
+    return this.locations.findAll(query.q);
   }
 
   @Post()

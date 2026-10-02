@@ -1,8 +1,18 @@
 import type { Event, EventInput, EventUpdate } from '@queuepass/shared';
 import { api, unwrap } from './client';
 
-export const listEvents = (locationId?: string): Promise<Event[]> =>
-  unwrap(api.GET('/events', { params: { query: locationId ? { locationId } : {} } }));
+/** Spec 004 FR-006 filters; every one optional. `from` and `to` are ISO instants. */
+export interface EventFilters {
+  locationId?: string;
+  q?: string;
+  from?: string;
+  to?: string;
+}
+
+export const listEvents = (filters: EventFilters = {}): Promise<Event[]> => {
+  const query = Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) as EventFilters;
+  return unwrap(api.GET('/events', { params: { query } }));
+};
 
 export const getEvent = (id: string): Promise<Event> =>
   unwrap(api.GET('/events/{id}', { params: { path: { id } } }));

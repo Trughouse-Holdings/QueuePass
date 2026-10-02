@@ -6,8 +6,10 @@ import { PrismaClient } from '@prisma/client';
  * Dropping and recreating would take `event_no_overlap` with it, silently disabling the
  * feature's central invariant for every subsequent test. Truncate only.
  *
- * Event before Location: the FK is ON DELETE RESTRICT (FR-013).
+ * Children before parents: the venue FK is ON DELETE RESTRICT (FR-013).
  */
 export async function resetDb(prisma: PrismaClient): Promise<void> {
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "Event", "Location" RESTART IDENTITY CASCADE');
+  await prisma.$executeRawUnsafe(
+    'TRUNCATE TABLE "TicketTier", "Event", "Location" RESTART IDENTITY CASCADE',
+  );
 }

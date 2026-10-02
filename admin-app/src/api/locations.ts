@@ -1,7 +1,9 @@
 import type { Location, LocationInput, LocationUpdate } from '@queuepass/shared';
 import { api, unwrap } from './client';
 
-export const listLocations = (): Promise<Location[]> => unwrap(api.GET('/locations'));
+/** Spec 004 FR-007: `q` matches name or address. */
+export const listLocations = (q?: string): Promise<Location[]> =>
+  unwrap(api.GET('/locations', { params: { query: q ? { q } : {} } }));
 
 export const getLocation = (id: string): Promise<Location> =>
   unwrap(api.GET('/locations/{id}', { params: { path: { id } } }));

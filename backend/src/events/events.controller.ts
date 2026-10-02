@@ -15,6 +15,7 @@ import { Roles } from '../auth/roles.decorator';
 import { EventsService, EventResponse } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { ListEventsQuery } from './dto/list-events.query';
 
 /** Implements the /events operations in contracts/openapi.yaml. */
 @Controller('events')
@@ -22,8 +23,8 @@ export class EventsController {
   constructor(private readonly events: EventsService) {}
 
   @Get()
-  findAll(@Query('locationId') locationId?: string): Promise<EventResponse[]> {
-    return this.events.findAll(locationId);
+  findAll(@Query() query: ListEventsQuery): Promise<EventResponse[]> {
+    return this.events.findAll(query);
   }
 
   @Post()
