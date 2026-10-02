@@ -9,19 +9,19 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` and `002` are built and verified. Feature `003` is specified but not yet built.
+Features `001`, `002`, and `003` are built and verified.
 
-| Spec                                                                     | What it delivers                                                                                                        | Spec            | Plan and tasks     | Code                   |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | --------------- | ------------------ | ---------------------- |
-| [`001-bare-bones-system`](specs/001-bare-bones-system/spec.md)           | All six services; Keycloak sign-in, JWT validation, role checks; login, hello-world, and logout in all three front ends | Draft           | Done (64/64 tasks) | **Built and verified** |
-| [`002-admin-venues-events`](specs/002-admin-venues-events/spec.md)       | Venue and event API with the 60-minute rule; Admin app create, read, update, delete                                     | Draft (revised) | Done (32/32 tasks) | **Built and verified** |
-| [`003-customer-venues-events`](specs/003-customer-venues-events/spec.md) | Customer app shows all venues and events                                                                                | Draft           | Not started        | Not started            |
+| Spec                                                                     | What it delivers                                                                                                        | Spec             | Plan and tasks     | Code                   |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------- |
+| [`001-bare-bones-system`](specs/001-bare-bones-system/spec.md)           | All six services; Keycloak sign-in, JWT validation, role checks; login, hello-world, and logout in all three front ends | Draft            | Done (64/64 tasks) | **Built and verified** |
+| [`002-admin-venues-events`](specs/002-admin-venues-events/spec.md)       | Venue and event API with the 60-minute rule; Admin app create, read, update, delete                                     | Draft (revised)  | Done (32/32 tasks) | **Built and verified** |
+| [`003-customer-venues-events`](specs/003-customer-venues-events/spec.md) | Customer app shows all venues and events                                                                                | Ready for review | Done (23/23 tasks) | **Built and verified** |
 
-**Today** all three front ends sign in through Keycloak, show a hello-world page, and log out,
+**Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
 list, view, create, edit, and delete venues and events. Deleting asks for confirmation first,
-and a venue that still has events is refused with a count of what blocks it. The Customer app's
-venue and event listings arrive in `003`.
+and a venue that still has events is refused with a count of what blocks it. In the Customer app,
+customers browse every event, soonest first, and every venue with what is on there, read-only.
 
 Each feature lands as three pull requests, in order: spec, then plan and tasks, then code
 (Constitution III).
@@ -40,7 +40,7 @@ One command from a clean clone. No manual configuration steps.
 | Service          | URL                   | Sign in as        | Notes                                                        |
 | ---------------- | --------------------- | ----------------- | ------------------------------------------------------------ |
 | Admin app        | http://localhost:5173 | `admin1`          | role `queuepass-admin`                                       |
-| Customer app     | http://localhost:5174 | `customer1`       | role `customer`; hello-world page only                       |
+| Customer app     | http://localhost:5174 | `customer1`       | role `customer`; browse venues and events, read-only         |
 | Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`; hello-world page only                     |
 | Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs` |
 | Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realm `queuepass`                             |
