@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Event } from '@queuepass/shared';
 import { ApiError } from '../api/client';
 import { deleteEvent, getEvent } from '../api/events';
+import { cancelEvent } from '../api/orders';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { SalesCard } from '../components/SalesCard';
+import { SuccessState } from '../components/SuccessState';
 import { TierSection } from '../components/TierSection';
 import { when } from '../format';
 import { useDelete } from '../hooks/use-delete';
@@ -52,10 +55,18 @@ export function EventDetail(): React.ReactElement {
       </section>
     );
   }
-  return <EventView event={load.event} />;
+  return <EventView event={load.event} onChange={(event) => setLoad({ kind: 'ok', event })} />;
 }
 
-function EventView({ event }: { event: Event }): React.ReactElement {
+function EventView({
+  event,
+  onChange,
+}: {
+  event: Event;
+  onChange: (event: Event) => void;
+}): React.ReactElement {
+  const cancelled = event.status === 'CANCELLED';
+  const cancel = useCancel(event, onChange);
   const { remove, deleting, error } = useDelete({
     kind: 'event',
     name: event.name,
@@ -67,18 +78,42 @@ function EventView({ event }: { event: Event }): React.ReactElement {
     <section>
       <div className="page-head">
         <div>
-          <h1 className="page-title">{event.name}</h1>
+          <h1 className="page-title">
+            {event.name} {cancelled && <span className="pill">Cancelled</span>}
+          </h1>
         </div>
         <div className="form__actions">
-          <Link to={`/events/${event.id}/edit`} className="btn">
-            Edit
+          <Link to={`/events/${event.id}/attendees`} className="btn">
+            Attendees
           </Link>
-          <button type="button" className="btn" onClick={() => void remove()} disabled={deleting}>
-            {deleting ? 'Deleting…' : 'Delete'}
-          </button>
+          {!cancelled && (
+            <>
+              <Link to={`/events/${event.id}/edit`} className="btn">
+                Edit
+              </Link>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void cancel.run()}
+                disabled={cancel.busy}
+              >
+                {cancel.busy ? 'Cancelling…' : 'Cancel event'}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void remove()}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting…' : 'Delete'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
+      {cancel.done && <SuccessState message={cancel.done} />}
+      {cancel.error && <ErrorBanner error={cancel.error} title="Could not cancel" />}
       {error && <ErrorBanner error={error} title="Could not delete" />}
 
       <div className="card">
@@ -100,7 +135,55 @@ function EventView({ event }: { event: Event }): React.ReactElement {
         </dl>
       </div>
 
-      <TierSection event={event} />
+      {/* Keyed on status: cancelling refunds every sale, so the card must reload. */}
+      <SalesCard key={event.status} eventId={event.id} />
+      <TierSection event={event} readOnly={cancelled} />
     </section>
   );
+}
+
+/**
+ * Spec 005 FR-008: confirm, cancel, then show the counts and switch the page to read-only.
+ * Cancelling is irreversible, so nothing is sent unless the admin confirms.
+ */
+function useCancel(
+  event: Event,
+  onChange: (event: Event) => void,
+): { run: () => Promise<void>; busy: boolean; done: string | null; error: ApiError | null } {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
+  const inFlight = useRef(false);
+
+  const run = async () => {
+    if (inFlight.current) return;
+    const ok = window.confirm(
+      `Cancel "${event.name}"? Every ticket will be voided and every order refunded. This cannot be undone.`,
+    );
+    if (!ok) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await cancelEvent(event.id);
+      setDone(
+        `Cancelled. ${result.ordersRefunded} ${result.ordersRefunded === 1 ? 'order' : 'orders'} refunded, ` +
+          `${result.ticketsVoided} ${result.ticketsVoided === 1 ? 'ticket' : 'tickets'} voided.`,
+      );
+      onChange(result.event);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err
+          : new ApiError(0, {
+              error: { code: 'VALIDATION_FAILED', message: "Can't reach the QueuePass service." },
+            }),
+      );
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  };
+
+  return { run, busy, done, error };
 }

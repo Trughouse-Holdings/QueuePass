@@ -1,0 +1,47 @@
+import { runDemoData } from '../../src/scripts/demo-data';
+import { asAdmin } from '../setup/authed-request';
+import { createTestApp, TestContext } from '../setup/test-app';
+import { resetDb } from '../setup/reset-db';
+
+/** Spec 005 FR-013: the demo-data command obeys every rule and is safe to run twice. */
+describe('Demo data', () => {
+  let ctx: TestContext;
+
+  beforeAll(async () => {
+    ctx = await createTestApp();
+    await resetDb(ctx.prisma);
+  });
+  afterAll(async () => {
+    await ctx.app.close();
+  });
+
+  it('creates venues, events, tiers, orders, check-ins, and one cancelled event', async () => {
+    const summary = await runDemoData(ctx.app);
+    expect(summary).toMatchObject({
+      created: true,
+      venues: 2,
+      events: 3,
+      cancelled: 'Holiday Gala',
+    });
+    expect(summary.orders).toBeGreaterThan(30);
+    expect(summary.checkedIn).toBeGreaterThan(0);
+
+    const report = (await asAdmin(ctx).get('/reports/sales').expect(200)).body;
+    expect(report.totals.events).toBe(2);
+    expect(report.totals.ticketsSold).toBeGreaterThan(0);
+    expect(report.totals.checkedIn).toBe(summary.checkedIn);
+    const gala = report.events.find((e: { name: string }) => e.name === 'Holiday Gala');
+    expect(gala).toMatchObject({ status: 'CANCELLED', ticketsSold: 0, revenue: '0.00' });
+    for (const e of report.events) {
+      expect(e.ticketsSold).toBeLessThanOrEqual(e.ticketCapacity);
+      for (const t of e.tiers) expect(t.ticketsSold).toBeLessThanOrEqual(t.quantity);
+    }
+  });
+
+  it('changes nothing when run again', async () => {
+    const before = await ctx.prisma.order.count();
+    const again = await runDemoData(ctx.app);
+    expect(again.created).toBe(false);
+    expect(await ctx.prisma.order.count()).toBe(before);
+  });
+});

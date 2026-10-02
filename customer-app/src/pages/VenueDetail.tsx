@@ -59,6 +59,7 @@ export function VenueDetail() {
               <tr key={e.id}>
                 <td>
                   <Link to={`/events/${e.id}`}>{e.name}</Link>
+                  {e.status === 'CANCELLED' && <strong> Cancelled</strong>}
                 </td>
                 <td>{when(e.startsAt)}</td>
                 <td>{when(e.endsAt)}</td>

@@ -7,7 +7,8 @@ import {
 } from '@nestjs/common';
 import type { Event, Location, Prisma } from '@prisma/client';
 import { SCHEDULING_BUFFER_MINUTES } from '@queuepass/shared';
-import { LOCKING_TX, lockEvent } from '../common/event-lock';
+import { conflict, eventCancelled } from '../common/conflict';
+import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
 import { searchText } from '../common/search-text';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateEventDto } from './dto/create-event.dto';
@@ -132,7 +133,8 @@ export class EventsService {
     id: string,
     dto: UpdateEventDto,
   ): Promise<EventResponse> {
-    await lockEvent(tx, id);
+    const locked = await lockEvent(tx, id);
+    if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
     const existing = await tx.event.findUniqueOrThrow({ where: { id } });
 
     // The conflict check runs against the DESTINATION venue and DESTINATION window —
@@ -146,7 +148,10 @@ export class EventsService {
 
     const capacity = dto.totalTicketCapacity ?? existing.totalTicketCapacity;
     this.assertCapacityWithinVenue(capacity, location);
-    if (dto.totalTicketCapacity !== undefined) await this.assertCoversTiers(tx, id, capacity);
+    if (dto.totalTicketCapacity !== undefined) {
+      await this.assertCoversTiers(tx, id, capacity);
+      await this.assertCoversSales(tx, id, capacity);
+    }
 
     // `id` is excluded so an event never conflicts with itself (FR-025) — saving an
     // unchanged event must always succeed.
@@ -173,7 +178,52 @@ export class EventsService {
   async remove(id: string): Promise<void> {
     const existing = await this.prisma.event.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`No event exists with id ${id}.`);
+
+    // Spec 005 FR-010. The count only names the refusal; Order.eventId is ON DELETE RESTRICT,
+    // so the database refuses even if an order lands between this check and the delete.
+    const orderCount = await this.prisma.order.count({ where: { eventId: id } });
+    if (orderCount > 0) {
+      throw conflict(
+        'EVENT_HAS_ORDERS',
+        `Cannot delete "${existing.name}": it has ${orderCount} ${orderCount === 1 ? 'order' : 'orders'}. ` +
+          'Cancel it instead, which keeps its records.',
+        { orderCount },
+      );
+    }
     await this.prisma.event.delete({ where: { id } });
+  }
+
+  /**
+   * Spec 005 US4 (FR-008, research R4): in one transaction under the event lock, void every
+   * valid ticket, refund every confirmed order, and mark the event cancelled. All or nothing.
+   */
+  cancel(
+    id: string,
+  ): Promise<{ event: EventResponse; ordersRefunded: number; ticketsVoided: number }> {
+    return this.prisma.$transaction(async (tx) => {
+      const locked = await lockEvent(tx, id);
+      if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
+
+      const now = new Date();
+      const tickets = await tx.ticket.updateMany({
+        where: { eventId: id, status: 'VALID' },
+        data: { status: 'VOID' },
+      });
+      const orders = await tx.order.updateMany({
+        where: { eventId: id, status: 'CONFIRMED' },
+        data: { status: 'REFUNDED', refundedAt: now },
+      });
+      const event = await tx.event.update({
+        where: { id },
+        data: { status: 'CANCELLED', cancelledAt: now },
+        include: { location: true },
+      });
+      return {
+        event: this.toResponse(event),
+        ordersRefunded: orders.count,
+        ticketsVoided: tickets.count,
+      };
+    }, LOCKING_TX);
   }
 
   // ---------------------------------------------------------------- rules
@@ -206,6 +256,22 @@ export class EventsService {
           },
         },
         HttpStatus.CONFLICT,
+      );
+    }
+  }
+
+  /** Spec 005 FR-011: capacity may not drop below the tickets already sold. */
+  private async assertCoversSales(
+    tx: Prisma.TransactionClient,
+    eventId: string,
+    proposed: number,
+  ): Promise<void> {
+    const sold = await ticketsSold(tx, { eventId });
+    if (proposed < sold) {
+      throw conflict(
+        'CAPACITY_EXCEEDED',
+        `Cannot set ticket capacity to ${proposed}; ${sold} tickets are already sold.`,
+        { proposedTicketCapacity: proposed, ticketsSold: sold },
       );
     }
   }
@@ -266,9 +332,12 @@ export class EventsService {
     //   (A.start - 60min) < B.end  AND  (B.start - 60min) < A.end
     const candidateLowerBound = new Date(startsAt.getTime() - bufferMs);
 
-    const conflict = await db.event.findFirst({
+    const clash = await db.event.findFirst({
       where: {
         locationId,
+        // Spec 005 FR-009: a cancelled event no longer holds its venue's time; the
+        // event_no_overlap constraint carries the same WHERE clause.
+        status: 'SCHEDULED',
         ...(excludeEventId ? { id: { not: excludeEventId } } : {}),
         // existing.startsAt - 60min < candidate.endsAt
         startsAt: { lt: new Date(endsAt.getTime() + bufferMs) },
@@ -278,8 +347,8 @@ export class EventsService {
       orderBy: { startsAt: 'asc' },
     });
 
-    if (conflict) {
-      throw new SchedulingConflictException(conflict);
+    if (clash) {
+      throw new SchedulingConflictException(clash);
     }
   }
 }

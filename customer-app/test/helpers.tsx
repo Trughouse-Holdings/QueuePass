@@ -84,6 +84,8 @@ export const event = (over: Partial<Event> = {}): Event => {
     endsAt: '2026-12-02T02:00:00.000Z', //   9:00 PM in New York
     totalTicketCapacity: 18000,
     basePrice: '45.5',
+    status: 'SCHEDULED',
+    cancelledAt: null,
     createdAt: stamp,
     updatedAt: stamp,
     ...over,

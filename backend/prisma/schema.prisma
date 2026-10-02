@@ -33,11 +33,22 @@ model Event {
   endsAt              DateTime @db.Timestamptz(6)
   totalTicketCapacity Int
   basePrice           Decimal  @db.Decimal(10, 2)
+  // Spec 005. A cancelled event is read-only and no longer blocks its venue's time: the
+  // event_no_overlap constraint applies only WHERE status = 'SCHEDULED' (migration SQL).
+  status              EventStatus @default(SCHEDULED)
+  cancelledAt         DateTime?   @db.Timestamptz(6)
   tiers               TicketTier[]
+  orders              Order[]
+  tickets             Ticket[]
   createdAt           DateTime @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @db.Timestamptz(6)
 
   @@index([locationId])
+}
+
+enum EventStatus {
+  SCHEDULED
+  CANCELLED
 }
 
 // Spec 004. Case-insensitive unique names and the CHECK constraints live in the migration SQL.
@@ -50,8 +61,60 @@ model TicketTier {
   name      String
   price     Decimal  @db.Decimal(10, 2)
   quantity  Int
+  orders    Order[]
+  tickets   Ticket[]
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
   @@index([eventId])
+}
+
+// Spec 005. "Never sell more than a tier or the event holds" is enforced by the Backend under
+// the event-row lock (specs/005-admin-orders-reporting/research.md R2). Every foreign key is
+// RESTRICT: sold tickets keep their event and tier on record.
+model Order {
+  id               String      @id @default(uuid()) @db.Uuid
+  event            Event       @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  eventId          String      @db.Uuid
+  tier             TicketTier? @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  tierId           String?     @db.Uuid
+  customerSub      String
+  customerUsername String
+  quantity         Int
+  unitPrice        Decimal     @db.Decimal(10, 2)
+  totalPrice       Decimal     @db.Decimal(10, 2)
+  status           OrderStatus @default(CONFIRMED)
+  tickets          Ticket[]
+  createdAt        DateTime    @default(now()) @db.Timestamptz(6)
+  refundedAt       DateTime?   @db.Timestamptz(6)
+
+  @@index([eventId])
+  @@index([tierId])
+}
+
+enum OrderStatus {
+  CONFIRMED
+  REFUNDED
+}
+
+model Ticket {
+  id          String       @id @default(uuid()) @db.Uuid
+  order       Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  orderId     String       @db.Uuid
+  event       Event        @relation(fields: [eventId], references: [id], onDelete: Restrict)
+  eventId     String       @db.Uuid
+  tier        TicketTier?  @relation(fields: [tierId], references: [id], onDelete: Restrict)
+  tierId      String?      @db.Uuid
+  code        String       @unique
+  status      TicketStatus @default(VALID)
+  checkedInAt DateTime?    @db.Timestamptz(6)
+
+  @@index([orderId])
+  @@index([eventId, status])
+  @@index([tierId])
+}
+
+enum TicketStatus {
+  VALID
+  VOID
 }

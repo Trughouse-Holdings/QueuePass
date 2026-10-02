@@ -7,6 +7,8 @@ import { LocationDetail } from './pages/LocationDetail';
 import { EventList } from './pages/EventList';
 import { EventForm } from './pages/EventForm';
 import { EventDetail } from './pages/EventDetail';
+import { Attendees } from './pages/Attendees';
+import { Reports } from './pages/Reports';
 
 const navClass = ({ isActive }: { isActive: boolean }): string =>
   `navlink${isActive ? ' navlink--active' : ''}`;
@@ -34,6 +36,9 @@ export function App(): React.ReactElement {
             <NavLink to="/events" className={navClass}>
               Events
             </NavLink>
+            <NavLink to="/reports" className={navClass}>
+              Reports
+            </NavLink>
           </nav>
           <LogoutButton />
         </div>
@@ -52,6 +57,8 @@ export function App(): React.ReactElement {
           {/* After /events/new, so "new" is never read as an id. */}
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/events/:id/edit" element={<EventForm />} />
+          <Route path="/events/:id/attendees" element={<Attendees />} />
+          <Route path="/reports" element={<Reports />} />
         </Routes>
       </main>
     </div>
