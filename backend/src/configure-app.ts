@@ -34,7 +34,8 @@ export function configureApp(app: INestApplication): void {
     .filter(Boolean);
   app.enableCors({
     origin: origins,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    // Every method the contract uses; spec 007's layout and seating writes are PUT.
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['authorization', 'content-type'],
     credentials: false,
   });
