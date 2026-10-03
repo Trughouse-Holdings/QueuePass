@@ -81,7 +81,7 @@ cannot change them while seated sales depend on them.
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T006 [P] [US1] Write `backend/test/integration/layout.e2e-spec.ts`: `GET` returns
+- [X] T006 [P] [US1] Write `backend/test/integration/layout.e2e-spec.ts`: `GET` returns
   `{ totalSeats: 0, sections: [] }` for a venue without one; `PUT` with A (3×10) and B (2×20)
   returns them in order with `totalSeats: 70`, and `GET` agrees; a second `PUT` replaces them;
   total seats above seating capacity → `409 CAPACITY_EXCEEDED`; names `A` and `a` → `400`;
@@ -93,7 +93,7 @@ cannot change them while seated sales depend on them.
   otherwise `DELETE` → `204` and `GET` is empty; `PATCH /locations/{id}` lowering
   `seatingCapacity` below the layout's seats → `409 CAPACITY_EXCEEDED`; customer and agent can
   `GET` but get `403` on `PUT` and `DELETE`; no token `401`.
-- [ ] T007 [P] [US1] Write `admin-app/test/layout.test.tsx` (stubbed fetch via
+- [X] T007 [P] [US1] Write `admin-app/test/layout.test.tsx` (stubbed fetch via
   `admin-app/test/helpers/api-stub.ts`): the venue page shows a Seating layout card listing each
   section's name, "3 rows × 10 seats", its seats, and the total; without a layout it says "No
   seating layout"; **Edit layout** shows one line per section (name, rows, seats per row) with
@@ -104,7 +104,7 @@ cannot change them while seated sales depend on them.
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Create `backend/src/seating/` with `seating.module.ts`, `dto/layout-input.dto.ts`
+- [X] T008 [US1] Create `backend/src/seating/` with `seating.module.ts`, `dto/layout-input.dto.ts`
   (nested `SectionInputDto`: `name` trimmed 1–50, `rows` 1–100, `seatsPerRow` 1–200; 1–50
   sections), `layout.service.ts` (get; replace and remove in one transaction that locks the venue
   row, then every scheduled event at the venue in id order; case-insensitive duplicate names →
@@ -115,9 +115,9 @@ cannot change them while seated sales depend on them.
   (`@Controller('locations/:id/layout')`: `GET` with no `@Roles`, `PUT` and `DELETE`
   `@Roles('queuepass-admin')`, `DELETE` `@HttpCode(204)`, `ParseUUIDPipe`). Register the module
   in `backend/src/app.module.ts`.
-- [ ] T009 [US1] In `backend/src/locations/locations.service.ts` `update`, refuse a
+- [X] T009 [US1] In `backend/src/locations/locations.service.ts` `update`, refuse a
   `seatingCapacity` below the venue's layout seats with `conflict('CAPACITY_EXCEEDED', ...)`.
-- [ ] T010 [US1] Create `admin-app/src/api/seating.ts` (`getLayout`, `replaceLayout`,
+- [X] T010 [US1] Create `admin-app/src/api/seating.ts` (`getLayout`, `replaceLayout`,
   `deleteLayout`) and `admin-app/src/components/LayoutCard.tsx` (card, edit form, remove with
   `window.confirm`), and render it on `admin-app/src/pages/LocationDetail.tsx`.
 

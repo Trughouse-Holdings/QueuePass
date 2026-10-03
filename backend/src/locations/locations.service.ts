@@ -68,6 +68,24 @@ export class LocationsService {
           HttpStatus.CONFLICT,
         );
       }
+
+      // Spec 007: a venue's seating layout never holds more seats than the venue (FR-001).
+      const sections = await this.prisma.section.findMany({ where: { locationId: id } });
+      const layoutSeats = sections.reduce((n, s) => n + s.rows * s.seatsPerRow, 0);
+      if (layoutSeats > dto.seatingCapacity) {
+        throw new HttpException(
+          {
+            error: {
+              code: 'CAPACITY_EXCEEDED',
+              message:
+                `Cannot reduce seating capacity to ${dto.seatingCapacity}; ` +
+                `the seating layout has ${layoutSeats} seats.`,
+              details: { proposedSeatingCapacity: dto.seatingCapacity, layoutSeats },
+            },
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
     }
 
     return this.prisma.location.update({ where: { id }, data: dto });
