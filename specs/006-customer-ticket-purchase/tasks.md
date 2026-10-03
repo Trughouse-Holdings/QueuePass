@@ -191,14 +191,14 @@ anyone else's.
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T020 [P] [US3] Write `backend/test/integration/me-orders.e2e-spec.ts` for
+- [X] T020 [P] [US3] Write `backend/test/integration/me-orders.e2e-spec.ts` for
   `GET /me/orders`: `customer1`'s orders newest first, each with tickets and an `event` summary
   (id, name, start, end, status, venue id and name); `customer2` gets none of them; after an admin
   cancels the event, the order is `REFUNDED`, `event.status` is `CANCELLED`, and its tickets are
   `VOID`; a checked-in ticket carries `checkedInAt`; a customer with no orders gets `[]`; orders
   made with a stand-in subject (as the demo script does) never appear; admin and agent `403`; no
   token `401`.
-- [ ] T021 [P] [US3] Write `customer-app/test/my-tickets.test.tsx`: the header shows a My tickets
+- [X] T021 [P] [US3] Write `customer-app/test/my-tickets.test.tsx`: the header shows a My tickets
   link after Events and Venues; `/my-tickets` lists orders newest first with the event linking to
   `/events/{id}`, venue, start, tier, quantity, total, placed time, and Confirmed or Refunded;
   each ticket shows its code and Valid, Void, or "Used {time}"; a cancelled event is marked;
@@ -207,15 +207,15 @@ anyone else's.
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] Add `mine(sub: string)` to `backend/src/orders/orders.service.ts`: orders where
+- [X] T022 [US3] Add `mine(sub: string)` to `backend/src/orders/orders.service.ts`: orders where
   `customerSub = sub`, `orderBy [{ createdAt: 'desc' }, { id: 'desc' }]`, including tier, tickets,
   and event with location; map with `toOrderResponse` plus the `event` summary (`MyOrder`).
-- [ ] T023 [US3] Create `backend/src/orders/me-orders.controller.ts` (`@Controller('me')`,
+- [X] T023 [US3] Create `backend/src/orders/me-orders.controller.ts` (`@Controller('me')`,
   `@Get('orders')`, `@Roles('customer')`, subject from `@CurrentPrincipal()`) and register it in
   `backend/src/orders/orders.module.ts`.
-- [ ] T024 [P] [US3] Create `customer-app/src/pages/MyTickets.tsx` using `useLoad` with
+- [X] T024 [P] [US3] Create `customer-app/src/pages/MyTickets.tsx` using `useLoad` with
   `GET /me/orders`, per T021.
-- [ ] T025 [US3] In `customer-app/src/App.tsx`, add the `/my-tickets` route and a
+- [X] T025 [US3] In `customer-app/src/App.tsx`, add the `/my-tickets` route and a
   `<NavLink to="/my-tickets">My tickets</NavLink>` after Venues, and update the doc comment.
 
 **Checkpoint**: T020–T021 pass; quickstart P4 and P5 work in the browser.

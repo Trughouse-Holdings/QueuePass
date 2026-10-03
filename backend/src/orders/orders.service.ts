@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, type Order, type Ticket, type TicketTier } from '@prisma/client';
+import { Prisma, type EventStatus, type Order, type Ticket, type TicketTier } from '@prisma/client';
 import type { Principal } from '../auth/principal';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
@@ -44,6 +44,18 @@ export function toOrderResponse(o: OrderRow): OrderResponse {
       status: t.status,
       checkedInAt: t.checkedInAt,
     })),
+  };
+}
+
+/** API shape (contracts/openapi.yaml `MyOrder`): an order plus a summary of its event. */
+export interface MyOrderResponse extends OrderResponse {
+  event: {
+    id: string;
+    name: string;
+    startsAt: Date;
+    endsAt: Date;
+    status: EventStatus;
+    location: { id: string; name: string };
   };
 }
 
@@ -185,6 +197,29 @@ export class OrdersService {
       include: ORDER_INCLUDE,
     });
     return { order: toOrderResponse(order), replayed: false };
+  }
+
+  /**
+   * Spec 006 FR-007: the caller's own orders, newest first. `sub` always comes from the validated
+   * token; nothing in a request can name another customer.
+   */
+  async mine(sub: string): Promise<MyOrderResponse[]> {
+    const orders = await this.prisma.order.findMany({
+      where: { customerSub: sub },
+      include: { ...ORDER_INCLUDE, event: { include: { location: true } } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    });
+    return orders.map((o) => ({
+      ...toOrderResponse(o),
+      event: {
+        id: o.event.id,
+        name: o.event.name,
+        startsAt: o.event.startsAt,
+        endsAt: o.event.endsAt,
+        status: o.event.status,
+        location: { id: o.event.location.id, name: o.event.location.name },
+      },
+    }));
   }
 
   /** Spec 005 US3: every order for an event, oldest first, refunded ones included. */
