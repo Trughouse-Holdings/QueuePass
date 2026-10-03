@@ -26,6 +26,9 @@ export const ERROR_CODES = [
   // different order.
   'SALES_CLOSED',
   'REQUEST_ID_REUSED',
+  // Spec 007: seats already held by valid tickets; a layout that seated sales depend on.
+  'SEAT_TAKEN',
+  'LAYOUT_IN_USE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

@@ -15,7 +15,13 @@ const older = myOrder({
   totalPrice: '120.00',
   createdAt: '2026-10-01T16:00:00.000Z',
   tickets: [
-    { id: 'k9', code: 'EEEE4444FFFF', status: 'VALID', checkedInAt: '2026-12-01T23:10:00.000Z' },
+    {
+      id: 'k9',
+      code: 'EEEE4444FFFF',
+      status: 'VALID',
+      checkedInAt: '2026-12-01T23:10:00.000Z',
+      seat: null,
+    },
   ],
   event: {
     id: 'e2',
@@ -76,7 +82,7 @@ describe('My tickets', () => {
       id: 'o3',
       status: 'REFUNDED',
       refundedAt: '2026-10-04T12:00:00.000Z',
-      tickets: [{ id: 'k5', code: 'GGGG5555HHHH', status: 'VOID', checkedInAt: null }],
+      tickets: [{ id: 'k5', code: 'GGGG5555HHHH', status: 'VOID', checkedInAt: null, seat: null }],
       event: { ...opener.event, id: 'e3', name: 'Gone Show', status: 'CANCELLED' },
     });
     stubApi({ 'GET /me/orders': json([opener, older, refunded]) });

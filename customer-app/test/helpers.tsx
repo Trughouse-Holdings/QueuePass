@@ -94,6 +94,7 @@ export const event = (over: Partial<Event> = {}): Event => {
     basePrice: '45.5',
     status: 'SCHEDULED',
     cancelledAt: null,
+    reservedSeating: false,
     createdAt: stamp,
     updatedAt: stamp,
     ...over,
@@ -133,8 +134,8 @@ export const order = (over: Partial<Order> = {}): Order => ({
   createdAt: '2026-10-03T15:00:00.000Z',
   refundedAt: null,
   tickets: [
-    { id: 'k1', code: 'AAAA2222BBBB', status: 'VALID', checkedInAt: null },
-    { id: 'k2', code: 'CCCC3333DDDD', status: 'VALID', checkedInAt: null },
+    { id: 'k1', code: 'AAAA2222BBBB', status: 'VALID', checkedInAt: null, seat: null },
+    { id: 'k2', code: 'CCCC3333DDDD', status: 'VALID', checkedInAt: null, seat: null },
   ],
   ...over,
 });

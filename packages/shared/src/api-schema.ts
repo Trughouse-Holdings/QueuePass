@@ -172,9 +172,47 @@ export interface paths {
         /**
          * Update a venue
          * @description Lowering `seatingCapacity` below the `totalTicketCapacity` of any event already
-         *     scheduled at this venue is refused with `CAPACITY_EXCEEDED`.
+         *     scheduled at this venue is refused with `CAPACITY_EXCEEDED`. Feature 007: so is lowering
+         *     it below the seats in the venue's seating layout.
          */
         patch: operations["updateLocation"];
+        trace?: never;
+    };
+    "/locations/{id}/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A venue's seating layout
+         * @description The venue's sections in display order, and their total seats (feature 007). `sections` is
+         *     empty when the venue has no layout.
+         */
+        get: operations["getLayout"];
+        /**
+         * Replace a venue's seating layout
+         * @description Replaces every section with the given ones, in order (feature 007). Section names must be
+         *     unique ignoring case (`400`). Total seats may not exceed the venue's seating capacity
+         *     (`409 CAPACITY_EXCEEDED`). Refused while any scheduled event at the venue with reserved
+         *     seating has valid tickets (`409 LAYOUT_IN_USE`, `details.events`). Every event's section
+         *     mappings at this venue are dropped, because the old sections no longer exist.
+         */
+        put: operations["replaceLayout"];
+        post?: never;
+        /**
+         * Remove a venue's seating layout
+         * @description Removes every section (feature 007). Refused as `replaceLayout` is, and also while any
+         *     scheduled event at the venue has reserved seating on (`409 LAYOUT_IN_USE`).
+         */
+        delete: operations["deleteLayout"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/events": {
@@ -233,7 +271,8 @@ export interface paths {
          *     re-evaluated against the destination venue and window, excluding the event itself.
          *     Lowering `totalTicketCapacity` below the sum of the event's tier quantities, or below
          *     its tickets sold, is refused with `409 CAPACITY_EXCEEDED` (features 004, 005). A
-         *     cancelled event cannot be changed (`409 EVENT_CANCELLED`).
+         *     cancelled event cannot be changed (`409 EVENT_CANCELLED`). Feature 007: an event with
+         *     reserved seating cannot move to another venue (`400`); turn reserved seating off first.
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -329,6 +368,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events/{id}/seats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * The event's seat map
+         * @description Whether the event has reserved seating and, for each section of its venue's layout, its
+         *     size, its tier for this event, and which seats are taken by valid tickets (feature 007).
+         *     It never says who holds a seat. `sections` is empty when the venue has no layout.
+         */
+        get: operations["getSeatMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/seating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set reserved seating and section tiers
+         * @description Turns reserved seating on or off and replaces the event's section-to-tier mappings
+         *     (feature 007). Reserved seating can switch only while the event has no valid tickets
+         *     (`409 EVENT_HAS_ORDERS`), and turn on only when its venue has a layout (`400`). Each
+         *     `sectionId` must be a section of the venue and each `tierId` a tier of the event (`400`).
+         *     A section with valid tickets cannot move to another tier (`409 EVENT_HAS_ORDERS`). A
+         *     cancelled event cannot change (`409 EVENT_CANCELLED`).
+         */
+        put: operations["updateSeating"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events/{id}/orders": {
         parameters: {
             query?: never;
@@ -359,6 +451,13 @@ export interface paths {
          *     `200` and nothing new is recorded, even if the event has since sold out, started, or been
          *     cancelled. The same `requestId` with a different event, tier, or quantity is refused
          *     (`409 REQUEST_ID_REUSED`). Without a `requestId`, every request places a new order.
+         *
+         *     Feature 007: an event with reserved seating requires `seats`, exactly `quantity` distinct
+         *     ones, each inside its venue's layout and, for an event with tiers, in a section mapped to
+         *     the order's tier (`400` otherwise); an event without reserved seating forbids them. Seats
+         *     already taken by valid tickets are refused (`409 SEAT_TAKEN`, `details.seats`). No seat is
+         *     ever held by two valid tickets, including under concurrent requests. A repeated
+         *     `requestId` must also name the same seats.
          */
         post: operations["createOrder"];
         delete?: never;
@@ -516,6 +615,8 @@ export interface components {
             id: string;
             /** @example Season Opener */
             name: string;
+            /** @description Feature 007. Whether customers choose seats; set with `updateSeating`. */
+            reservedSeating: boolean;
             /**
              * @description Feature 005. A cancelled event stays on record but is read-only.
              * @enum {string}
@@ -627,6 +728,8 @@ export interface components {
             status: "VALID" | "VOID";
             /** Format: date-time */
             checkedInAt: string | null;
+            /** @description Feature 007. The seat this ticket is for; `null` for general admission. */
+            seat: components["schemas"]["SeatLabel"] | null;
         };
         /** @description One customer's purchase for one event (feature 005). */
         Order: {
@@ -668,6 +771,8 @@ export interface components {
              *     repeat that same confirmation. Optional; see `createOrder`.
              */
             requestId?: string;
+            /** @description Feature 007. Required for reserved seating, one per ticket; see `createOrder`. */
+            seats?: components["schemas"]["SeatChoice"][];
         };
         /** @description One of the signed-in customer's orders, with a summary of its event (feature 006). */
         MyOrder: components["schemas"]["Order"] & {
@@ -714,6 +819,86 @@ export interface components {
             tierId: string;
             /** @description The tier's quantity minus its valid tickets, never more than the event has left. */
             ticketsLeft: number;
+        };
+        /** @description One block of a venue's seating layout (feature 007). */
+        Section: {
+            /** Format: uuid */
+            id: string;
+            /** @example A */
+            name: string;
+            /** @example 10 */
+            rows: number;
+            /** @example 20 */
+            seatsPerRow: number;
+        };
+        SectionInput: {
+            /** @example A */
+            name: string;
+            rows: number;
+            seatsPerRow: number;
+        };
+        LayoutInput: {
+            /** @description In display order. Names unique ignoring case. */
+            sections: components["schemas"]["SectionInput"][];
+        };
+        /** @description A venue's sections, in display order (feature 007). */
+        SeatingLayout: {
+            /** Format: uuid */
+            locationId: string;
+            totalSeats: number;
+            sections: components["schemas"]["Section"][];
+        };
+        SeatPosition: {
+            row: number;
+            seat: number;
+        };
+        /** @description A seat a customer chooses when ordering (feature 007). */
+        SeatChoice: {
+            /** Format: uuid */
+            sectionId: string;
+            row: number;
+            seat: number;
+        };
+        /** @description A sold seat, by its section's name when sold (feature 007). */
+        SeatLabel: {
+            /** @example A */
+            section: string;
+            /** @example 3 */
+            row: number;
+            /** @example 7 */
+            seat: number;
+        };
+        SeatMapSection: {
+            /** Format: uuid */
+            sectionId: string;
+            name: string;
+            rows: number;
+            seatsPerRow: number;
+            /**
+             * Format: uuid
+             * @description This section's tier for the event; `null` when unmapped.
+             */
+            tierId: string | null;
+            sold: number;
+            /** @description Seats held by valid tickets. Never says by whom. */
+            taken: components["schemas"]["SeatPosition"][];
+        };
+        /** @description An event's seats, sold or open (feature 007). */
+        SeatMap: {
+            /** Format: uuid */
+            eventId: string;
+            reservedSeating: boolean;
+            sections: components["schemas"]["SeatMapSection"][];
+        };
+        SeatingInput: {
+            reservedSeating: boolean;
+            /** @description The complete set of mappings; sections left out become unmapped. */
+            sections: {
+                /** Format: uuid */
+                sectionId: string;
+                /** Format: uuid */
+                tierId: string;
+            }[];
         };
         Cancellation: {
             event: components["schemas"]["Event"];
@@ -769,7 +954,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -1219,6 +1404,90 @@ export interface operations {
             };
         };
     };
+    getLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The layout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatingLayout"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    replaceLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayoutInput"];
+            };
+        };
+        responses: {
+            /** @description The new layout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatingLayout"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Layout removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     listEvents: {
         parameters: {
             query?: {
@@ -1510,6 +1779,64 @@ export interface operations {
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+        };
+    };
+    getSeatMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The seat map. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatMap"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateSeating: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeatingInput"];
+            };
+        };
+        responses: {
+            /** @description The updated seat map. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatMap"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     createOrder: {
