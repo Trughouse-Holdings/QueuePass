@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { screen } from '@testing-library/react';
-import { event, json, renderCustomer, stubApi, venue } from './helpers';
+import { availability, event, json, renderCustomer, stubApi, venue } from './helpers';
 
 /**
- * Spec 001 US2 and spec 003 US3: the sign-in gate, wrong-role refusal, and logout, and a
- * Customer app that never offers a change.
+ * Spec 001 US2, spec 003 US3, and spec 006 FR-009: the sign-in gate, wrong-role refusal, and
+ * logout, and a Customer app whose only write is placing an order.
  */
 afterEach(() => vi.unstubAllGlobals());
 
@@ -12,6 +12,8 @@ const everyRoute = () =>
   stubApi({
     'GET /events': json([event()]),
     'GET /events/e1': json(event()),
+    'GET /events/e1/availability': json(availability()),
+    'GET /events/e1/tiers': json([]),
     'GET /locations': json([venue()]),
     'GET /locations/v1': json(venue()),
   });
@@ -57,7 +59,7 @@ describe('Customer app sign-in', () => {
   });
 });
 
-describe('Customer app is read-only (spec 003 US3-1; FR-009, SC-003)', () => {
+describe('Customer app changes no venue, event, or tier (spec 003 US3-1; spec 006 FR-009)', () => {
   it.each(['/', '/events/e1', '/venues', '/venues/v1'])(
     'offers no change control at %s and sends only GETs',
     async (at) => {

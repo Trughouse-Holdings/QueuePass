@@ -1,10 +1,14 @@
 import { Link, useParams } from 'react-router-dom';
 import type { Event } from '@queuepass/shared';
 import { ServiceUnreachable } from '@queuepass/shared/web';
+import { GetTickets } from '../components/GetTickets';
 import { count, usd, when } from '../format';
 import { useLoad } from '../use-load';
 
-/** Spec 003 FR-005, US2-4: one event, with a way to its venue. Read-only. */
+/**
+ * Spec 003 FR-005, US2-4: one event, with a way to its venue. Spec 006: and a way to get tickets,
+ * the only write the Customer app makes (FR-009).
+ */
 export function EventDetail() {
   const { id = '' } = useParams();
   const load = useLoad<Event>(`event:${id}`, (api) =>
@@ -46,6 +50,7 @@ export function EventDetail() {
         <dt>Base price</dt>
         <dd>{usd(e.basePrice)}</dd>
       </dl>
+      <GetTickets event={e} />
       <Link to="/events">All events</Link>
     </section>
   );

@@ -71,14 +71,14 @@ codes and twice the tier price, and the order appears on the event's Admin atten
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T005 [P] [US1] Write `backend/test/integration/availability.e2e-spec.ts` for
+- [X] T005 [P] [US1] Write `backend/test/integration/availability.e2e-spec.ts` for
   `GET /events/{id}/availability`: an event without tiers reports `ticketsLeft = capacity − valid
   tickets` and `tiers: []`; an event with tiers reports each tier as `min(quantity − tier valid
   tickets, event left)`, in `listTicketTiers` order; void tickets from a cancelled event do not
   count; `salesClosed` is `null` for a future scheduled event, `STARTED` for an event that started
   one minute ago, and `CANCELLED` for a cancelled event (even one that has started); unknown event
   `404`; malformed id `400`; admin, agent, and customer all `200`; no token `401`.
-- [ ] T006 [P] [US1] Write `backend/test/integration/orders.request-id.e2e-spec.ts`: the same
+- [X] T006 [P] [US1] Write `backend/test/integration/orders.request-id.e2e-spec.ts`: the same
   `requestId` sent twice by `customer1` returns `201` then `200` with the same order id, and only
   one order and its tickets exist; **10 simultaneous identical requests → exactly one order, one
   `201` and nine `200`, all with the same id**; the same `requestId` with a different quantity,
@@ -86,10 +86,10 @@ codes and twice the tier price, and the order appears on the event's Admin atten
   each get their own order; a repeat after the event has sold out still returns `200` with the
   original order; two requests without `requestId` place two orders (`005` behavior); a
   non-UUID `requestId` → `400`.
-- [ ] T007 [P] [US1] Add exact-total cases to `customer-app/test/format.test.ts` for a new
+- [X] T007 [P] [US1] Add exact-total cases to `customer-app/test/format.test.ts` for a new
   `totalUsd(price: string, quantity: number): string`: `('19.99', 3)` → `$59.97`, `('0.10', 3)` →
   `$0.30`, `('1250.00', 10)` → `$12,500.00`, `('0.00', 4)` → `$0.00`.
-- [ ] T008 [P] [US1] Write `customer-app/test/purchase.test.tsx` (stubbed fetch via
+- [X] T008 [P] [US1] Write `customer-app/test/purchase.test.tsx` (stubbed fetch via
   `customer-app/test/helpers.tsx`): an event with tiers lists each tier's name, price, and tickets
   left as radio choices and Confirm stays disabled until one is chosen; an event without tiers
   shows the base price and no tier choice; the quantity offers 1 to `min(10, tickets left)`; the
@@ -105,30 +105,30 @@ codes and twice the tier price, and the order appears on the event's Admin atten
 
 ### Implementation for User Story 1
 
-- [ ] T009 [US1] Add optional `requestId` to `backend/src/orders/dto/create-order.dto.ts`
+- [X] T009 [US1] Add optional `requestId` to `backend/src/orders/dto/create-order.dto.ts`
   (`@IsOptional()`, `@IsUUID('all', { message: 'requestId must be a UUID' })`).
-- [ ] T010 [US1] In `backend/src/orders/orders.service.ts`, inside `createLocked` and before the
+- [X] T010 [US1] In `backend/src/orders/orders.service.ts`, inside `createLocked` and before the
   cancelled check, look up the caller's order by `(customerSub, requestId)` when `requestId` is
   given: same event, tier, and quantity → return it marked as replayed; anything different →
   `conflict('REQUEST_ID_REUSED', ...)`. Store `requestId` on new orders. In `create`, treat a
   `P2002` on `requestId` (concurrent repeat across events) by re-running the lookup, alongside the
   existing ticket-code retry. Return `{ order, replayed }` to the controller.
-- [ ] T011 [US1] In `backend/src/orders/orders.controller.ts`, respond `200` for a replayed order
+- [X] T011 [US1] In `backend/src/orders/orders.controller.ts`, respond `200` for a replayed order
   and `201` for a new one (`@Res({ passthrough: true })` setting the status).
-- [ ] T012 [US1] Create `backend/src/events/availability.service.ts` computing `Availability` per
+- [X] T012 [US1] Create `backend/src/events/availability.service.ts` computing `Availability` per
   data-model.md (valid tickets via `ticketsSold` or one grouped count; tier left capped by event
   left, floored at 0; `salesClosed` from status, then `new Date() >= startsAt`), register it in
   `backend/src/events/events.module.ts`, and add `GET :id/availability` (no `@Roles`, so any
   signed-in user; `ParseUUIDPipe`) to `backend/src/events/events.controller.ts`.
-- [ ] T013 [P] [US1] Add `totalUsd(price, quantity)` to `customer-app/src/format.ts`: convert the
+- [X] T013 [P] [US1] Add `totalUsd(price, quantity)` to `customer-app/src/format.ts`: convert the
   decimal string to integer cents, multiply, and format through `usd()`.
-- [ ] T014 [US1] Create `customer-app/src/components/GetTickets.tsx`: load
+- [X] T014 [US1] Create `customer-app/src/components/GetTickets.tsx`: load
   `GET /events/{id}/availability` and `GET /events/{id}/tiers`; render tier radios (or the base
   price), a quantity select, the `totalUsd` total, and Confirm; create a `requestId` with
   `crypto.randomUUID()` when Confirm is first pressed and keep it for that confirmation; disable
   Confirm while the request runs; on success show the confirmation with every code and a
   `Link` to `/my-tickets`.
-- [ ] T015 [US1] Render `<GetTickets event={e} />` in `customer-app/src/pages/EventDetail.tsx`
+- [X] T015 [US1] Render `<GetTickets event={e} />` in `customer-app/src/pages/EventDetail.tsx`
   below the details, and update its doc comment (no longer read-only: spec 006 FR-009 allows
   ordering only).
 
