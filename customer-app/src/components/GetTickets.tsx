@@ -11,16 +11,24 @@ import { useAuth } from '@queuepass/shared/web';
 import { count, totalUsd, usd } from '../format';
 import { useLoad } from '../use-load';
 
-type Phase = { kind: 'choosing' } | { kind: 'confirming' } | { kind: 'done'; order: Order };
+type Phase =
+  | { kind: 'choosing' }
+  | { kind: 'confirming' }
+  | { kind: 'done'; order: Order }
+  // No answer, or a server error: the order may or may not exist (spec 006 edge cases).
+  | { kind: 'unknown' };
 
 /**
- * Spec 006 US1: choose a tier (or the base price), a quantity, see the exact total, and confirm.
- * The Backend decides every rule (FR-003); the counts shown here are guidance.
+ * Spec 006 US1 and US2: choose a tier (or the base price), a quantity, see the exact total, and
+ * confirm; or learn why tickets can't be had. The Backend decides every rule (FR-003); the counts
+ * shown here are guidance.
  */
 export function GetTickets({ event }: { event: Event }) {
-  const { api } = useAuth();
+  const { api, signIn } = useAuth();
   const id = event.id;
-  const availability = useLoad<Availability>(`availability:${id}`, (a) =>
+  // Bumped after a refusal, so what is left is loaded again.
+  const [reloads, setReloads] = useState(0);
+  const availability = useLoad<Availability>(`availability:${id}:${reloads}`, (a) =>
     a.GET('/events/{id}/availability', { params: { path: { id } } }),
   );
   const tiers = useLoad<TicketTier[]>(`tiers:${id}`, (a) =>
@@ -30,6 +38,8 @@ export function GetTickets({ event }: { event: Event }) {
   const [tierId, setTierId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [phase, setPhase] = useState<Phase>({ kind: 'choosing' });
+  // FR-006: the Backend's reason for the last refusal, in its own words.
+  const [notice, setNotice] = useState<string | null>(null);
   // FR-005: one id per confirmation, created on the first press and kept for that confirmation.
   const requestId = useRef<string | null>(null);
   // Set synchronously, so a second click before React re-renders sends nothing.
@@ -48,7 +58,7 @@ export function GetTickets({ event }: { event: Event }) {
   const ticketsLeft = chosen ? tierLeft(chosen.id) : left.ticketsLeft;
   const maxQuantity = Math.max(1, Math.min(ORDER_LIMITS.maxQuantity, ticketsLeft));
   const price = tierList.length > 0 ? chosen?.price : event.basePrice;
-  const canConfirm = price !== undefined && phase.kind === 'choosing';
+  const canConfirm = price !== undefined && ticketsLeft > 0 && phase.kind === 'choosing';
 
   const choose = (change: () => void): void => {
     change();
@@ -61,7 +71,7 @@ export function GetTickets({ event }: { event: Event }) {
     requestId.current ??= crypto.randomUUID();
     setPhase({ kind: 'confirming' });
     try {
-      const { data, response } = await api.POST('/events/{id}/orders', {
+      const { data, error, response } = await api.POST('/events/{id}/orders', {
         params: { path: { id } },
         body: {
           ...(chosen ? { tierId: chosen.id } : {}),
@@ -69,10 +79,24 @@ export function GetTickets({ event }: { event: Event }) {
           requestId: requestId.current,
         },
       });
-      if (response.ok && data) setPhase({ kind: 'done', order: data as Order });
-      else setPhase({ kind: 'choosing' });
+      if (response.ok && data) {
+        setNotice(null);
+        setPhase({ kind: 'done', order: data as Order });
+      } else if (response.status === 401) {
+        // The token is checked before any ordering rule, so nothing was recorded.
+        setPhase({ kind: 'choosing' });
+        await signIn();
+      } else if (response.status >= 500) {
+        setPhase({ kind: 'unknown' });
+      } else {
+        // Refused: nothing was recorded. The next press is a new confirmation.
+        setNotice(error?.error.message ?? 'The order was refused.');
+        requestId.current = null;
+        setReloads((n) => n + 1);
+        setPhase({ kind: 'choosing' });
+      }
     } catch {
-      setPhase({ kind: 'choosing' });
+      setPhase({ kind: 'unknown' });
     } finally {
       sending.current = false;
     }
@@ -80,47 +104,86 @@ export function GetTickets({ event }: { event: Event }) {
 
   if (phase.kind === 'done') return <Confirmation event={event} order={phase.order} />;
 
+  const closed =
+    left.salesClosed === 'CANCELLED'
+      ? 'No tickets: this event has been cancelled.'
+      : left.salesClosed === 'STARTED'
+        ? 'Sales closed: this event has already started.'
+        : left.ticketsLeft === 0
+          ? 'Sold out: no tickets are left for this event.'
+          : null;
+
   return (
     <section aria-labelledby="get-tickets">
       <h2 id="get-tickets">Get tickets</h2>
-      {tierList.length > 0 ? (
-        <fieldset>
-          <legend>Ticket type</legend>
-          {tierList.map((t) => (
-            <label key={t.id}>
-              <input
-                type="radio"
-                name="tier"
-                value={t.id}
-                checked={tierId === t.id}
-                onChange={() => choose(() => setTierId(t.id))}
-              />{' '}
-              {`${t.name}, ${usd(t.price)}, ${count(tierLeft(t.id))} left`}
-            </label>
-          ))}
-        </fieldset>
+      {notice && <p role="alert">{notice}</p>}
+      {phase.kind === 'unknown' ? (
+        <div role="alert">
+          <p>We couldn&apos;t confirm whether your order went through.</p>
+          <p>
+            Check again, which never places a second order, or look for it in{' '}
+            <Link to="/my-tickets">My tickets</Link>.
+          </p>
+          <button type="button" onClick={() => void confirm()}>
+            Check again
+          </button>
+        </div>
+      ) : closed ? (
+        <p>{closed}</p>
       ) : (
-        <p>{`${usd(event.basePrice)} each, ${count(left.ticketsLeft)} left`}</p>
+        chooseAndConfirm()
       )}
-      <label>
-        Quantity{' '}
-        <select
-          value={Math.min(quantity, maxQuantity)}
-          onChange={(e) => choose(() => setQuantity(Number(e.target.value)))}
-        >
-          {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((n) => (
-            <option key={n} value={n}>
-              {n}
-            </option>
-          ))}
-        </select>
-      </label>
-      {price !== undefined && <p>{`Total: ${totalUsd(price, Math.min(quantity, maxQuantity))}`}</p>}
-      <button type="button" disabled={!canConfirm} onClick={() => void confirm()}>
-        {phase.kind === 'confirming' ? 'Confirming…' : 'Confirm order'}
-      </button>
     </section>
   );
+
+  /** A plain function, not a component, so the form is never remounted (focus stays put). */
+  function chooseAndConfirm() {
+    return (
+      <>
+        {tierList.length > 0 ? (
+          <fieldset>
+            <legend>Ticket type</legend>
+            {tierList.map((t) => (
+              <label key={t.id}>
+                <input
+                  type="radio"
+                  name="tier"
+                  value={t.id}
+                  checked={tierId === t.id}
+                  disabled={tierLeft(t.id) === 0}
+                  onChange={() => choose(() => setTierId(t.id))}
+                />{' '}
+                {tierLeft(t.id) === 0
+                  ? `${t.name}, ${usd(t.price)}, sold out`
+                  : `${t.name}, ${usd(t.price)}, ${count(tierLeft(t.id))} left`}
+              </label>
+            ))}
+          </fieldset>
+        ) : (
+          <p>{`${usd(event.basePrice)} each, ${count(left.ticketsLeft)} left`}</p>
+        )}
+        <label>
+          Quantity{' '}
+          <select
+            value={Math.min(quantity, maxQuantity)}
+            onChange={(e) => choose(() => setQuantity(Number(e.target.value)))}
+          >
+            {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        {price !== undefined && (
+          <p>{`Total: ${totalUsd(price, Math.min(quantity, maxQuantity))}`}</p>
+        )}
+        <button type="button" disabled={!canConfirm} onClick={() => void confirm()}>
+          {phase.kind === 'confirming' ? 'Confirming…' : 'Confirm order'}
+        </button>
+      </>
+    );
+  }
 }
 
 /** Spec 006 FR-004: what was bought, what it cost, and every ticket code. */

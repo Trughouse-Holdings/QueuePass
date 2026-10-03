@@ -125,6 +125,10 @@ export class OrdersService {
     }
 
     if (event.status === 'CANCELLED') throw eventCancelled(event.name);
+    // Spec 006 FR-014: sales close when the event starts; half-open, so at startsAt is closed.
+    if (new Date() >= event.startsAt) {
+      throw conflict('SALES_CLOSED', `Sales for ${event.name} closed when it started.`);
+    }
 
     const tierCount = await tx.ticketTier.count({ where: { eventId } });
     let tier: TicketTier | null = null;

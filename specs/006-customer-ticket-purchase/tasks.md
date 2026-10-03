@@ -147,12 +147,12 @@ tickets are unavailable and cannot be confirmed (quickstart P3).
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T016 [P] [US2] Write `backend/test/integration/orders.sales-closed.e2e-spec.ts`: an order
+- [X] T016 [P] [US2] Write `backend/test/integration/orders.sales-closed.e2e-spec.ts`: an order
   for an event that started one minute ago (and ends later) → `409 SALES_CLOSED` with nothing
   recorded; an event starting in one hour → `201`; a cancelled event that has started still
   answers `409 EVENT_CANCELLED` (cancelled is checked first); a repeat of an earlier order's
   `requestId` after the event started → `200` with the original order.
-- [ ] T017 [P] [US2] Write `customer-app/test/purchase-unavailable.test.tsx`: a tier with 0 left is
+- [X] T017 [P] [US2] Write `customer-app/test/purchase-unavailable.test.tsx`: a tier with 0 left is
   disabled and marked "Sold out"; an event with `ticketsLeft: 0` shows "Sold out" and no form;
   with 3 left the quantity stops at 3; `salesClosed: 'CANCELLED'` shows "This event has been
   cancelled" and no form; `salesClosed: 'STARTED'` shows "Sales closed" and no form; a `409
@@ -165,11 +165,11 @@ tickets are unavailable and cannot be confirmed (quickstart P3).
 
 ### Implementation for User Story 2
 
-- [ ] T018 [US2] In `backend/src/orders/orders.service.ts`, after the cancelled check and before
+- [X] T018 [US2] In `backend/src/orders/orders.service.ts`, after the cancelled check and before
   the tier rules, refuse when `new Date() >= event.startsAt` with
   `conflict('SALES_CLOSED', ...)` and the message "Sales for {event name} closed when it
   started." (the contract's `salesClosed` example).
-- [ ] T019 [US2] In `customer-app/src/components/GetTickets.tsx`, add the unavailable states
+- [X] T019 [US2] In `customer-app/src/components/GetTickets.tsx`, add the unavailable states
   (sold out, cancelled, sales closed) in place of the form, disable and mark sold-out tiers, cap
   the quantity at what is left, show refusal messages from `error.message` with a new
   `requestId` and an availability reload, and the unknown-outcome message with Check again
