@@ -135,8 +135,8 @@ map shows those 3 seats sold and the section counts match.
    **Then** it is refused.
 4. **Given** sold seats, **When** an admin opens the event's seat map, **Then** every sold seat is
    marked, and each section shows sold and open counts.
-5. **Given** a customer or gate agent, **When** they try to change seating, a mapping, or read the
-   admin seat map, **Then** they are refused.
+5. **Given** a customer or gate agent, **When** they try to change seating or a mapping, **Then**
+   they are refused; the seat map they can read shows sold and open seats, never who holds them.
 
 ---
 
@@ -198,9 +198,10 @@ map shows those 3 seats sold and the section counts match.
   seat as section, row, and seat number.
 - **FR-012**: The Admin app MUST show a seated event's seat map with every seat marked sold or
   open, and each section's sold and open counts.
-- **FR-013**: Layout and mapping changes and the admin seat map MUST require `queuepass-admin`;
-  the customer seat map MUST be readable by any signed-in user and MUST NOT reveal who holds a
-  seat.
+- **FR-013**: Layout, reserved-seating, and mapping changes MUST require `queuepass-admin`. The seat
+  map (each seat sold or open, and section counts) MUST be readable by any signed-in user and MUST
+  NOT reveal who holds a seat; who bought which seat is visible only to admins, on the attendee
+  list.
 - **FR-014**: Events that do not sell seats MUST keep working exactly as in `006`.
 - **FR-015**: The contract MUST be updated first; changes MUST be additive.
 - **FR-016**: Automated tests MUST cover, against real PostgreSQL: layout rules, mapping rules,
