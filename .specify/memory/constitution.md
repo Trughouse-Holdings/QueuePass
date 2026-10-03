@@ -209,7 +209,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `007`.
+number is a pull request against this table. The next free number is `010`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -219,6 +219,9 @@ number is a pull request against this table. The next free number is `007`.
 | `004-admin-tiers-search` | Ticket tiers per event (name, price, quantity); search and filters for events and venues in the Admin app | `002` |
 | `005-admin-orders-reporting` | Orders and tickets in the Backend; Admin sales dashboard, attendee lists, and safe event cancellation | `004` |
 | `006-customer-ticket-purchase` | Customer app screens to choose a tier, get tickets, and see them (payment simulated) | `003`, `005` |
+| `007-seat-selection` | Seating layouts per venue (sections, rows, seats) mapped to tiers; Admin seat map of sold and open seats; customers choose seats when getting tickets; no seat sold twice | `004`, `005`, `006` |
+| `008-customer-event-search` | Customer app search and filters for events (name, venue, date range, hide cancelled) using the existing event search | `003`, `004` |
+| `009-admin-order-management` | Admin order lookup by ticket code or customer; refund a single order, voiding its tickets and freeing its seats | `005`, `007` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, and the root
@@ -264,4 +267,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 2.1.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-01
+**Version**: 2.2.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-03
