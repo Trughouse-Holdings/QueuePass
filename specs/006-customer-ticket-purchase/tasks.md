@@ -23,6 +23,9 @@ test tasks and confirm they **fail** before the implementation tasks below them.
 - The customer is always the token's subject. No request input names a customer.
 - Backend tests go through `backend/test/setup/authed-request.ts`, so every response is checked
   against the contract.
+- **Green gate (constitution, Development Workflow 4)**: contract 1.4.0 lands in the plan PR
+  before its routes exist, so route coverage fails on the plan PR alone. Merge the plan and
+  implementation PRs back to back, in order, and say so in the plan PR description, as `005` did.
 
 ---
 
@@ -92,6 +95,11 @@ codes and twice the tier price, and the order appears on the event's Admin atten
   `tierId` (when tiered), `quantity`, and a UUID `requestId`; success replaces the form with the
   event, tier, quantity, unit price, total charged, every ticket code, and a link to My tickets;
   clicking Confirm twice quickly sends one request; leaving before confirming sends no order.
+  Also update `customer-app/test/app.test.tsx` "Customer app is read-only (spec 003 ...)": retitle
+  it for spec 006 FR-009 (placing an order is the only write), stub
+  `GET /events/{id}/availability` and `GET /events/{id}/tiers` in its `everyRoute()`, and keep
+  its assertions that no control creates, edits, or deletes a venue, event, or tier and that
+  loading a page sends only GETs.
 
 ### Implementation for User Story 1
 
@@ -147,7 +155,9 @@ tickets are unavailable and cannot be confirmed (quickstart P3).
   with 3 left the quantity stops at 3; `salesClosed: 'CANCELLED'` shows "This event has been
   cancelled" and no form; `salesClosed: 'STARTED'` shows "Sales closed" and no form; a `409
   SOLD_OUT`, `EVENT_CANCELLED`, or `SALES_CLOSED` on Confirm shows the Backend's message, reloads
-  availability, and the next Confirm sends a **new** `requestId`; a network error or `500` on
+  availability, and the next Confirm sends a **new** `requestId`; a `400 VALIDATION_FAILED` on
+  Confirm shows its message the same way; a `401` on Confirm sends the customer back through
+  sign-in (`signIn()` from `useAuth`) and shows no outcome; a network error or `500` on
   Confirm shows "We couldn't confirm whether your order went through" with a link to My tickets
   and a Check again button that resends the **same** `requestId`.
 
@@ -161,7 +171,9 @@ tickets are unavailable and cannot be confirmed (quickstart P3).
   (sold out, cancelled, sales closed) in place of the form, disable and mark sold-out tiers, cap
   the quantity at what is left, show refusal messages from `error.message` with a new
   `requestId` and an availability reload, and the unknown-outcome message with Check again
-  (same `requestId`) and a link to `/my-tickets`.
+  (same `requestId`) and a link to `/my-tickets`. A `401` on Confirm calls `signIn()`, as
+  `customer-app/src/use-load.ts` does: the Backend checks the token before any ordering rule, so
+  nothing was recorded.
 
 **Checkpoint**: T016–T017 pass; quickstart P3 works in the browser.
 
