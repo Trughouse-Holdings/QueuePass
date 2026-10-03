@@ -31,26 +31,28 @@ test tasks and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Run `npm test` from the repo root and record the baseline in this line. Expect
+- [X] T001 Run `npm test` from the repo root and record the baseline in this line. Expect
   `backend/test/contract/route-coverage.e2e-spec.ts` to fail for `listMyOrders` and
   `getEventAvailability` until they are implemented, because contract 1.4.0 is already applied.
+  **Baseline 2026-10-03: shared 22, Backend 202 of 204 (the 2 failures are route coverage for
+  exactly those two operations), Admin 70, Customer 33, Booth 3, seed 3.**
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T002 Add `requestId String? @db.Uuid` to `model Order` in `backend/prisma/schema.prisma`, with
+- [X] T002 Add `requestId String? @db.Uuid` to `model Order` in `backend/prisma/schema.prisma`, with
   `@@unique([customerSub, requestId])` and `@@index([customerSub, createdAt])`, and write migration
   `backend/prisma/migrations/20261004000000_order_request_id/migration.sql` per data-model.md:
   "`requestId` `uuid` null"; unique index `Order_customerSub_requestId_key` on
   `(customerSub, requestId)`; index `Order_customerSub_createdAt_idx` on `(customerSub, createdAt)`.
   Existing orders keep `requestId = NULL`. Run `npx prisma generate` in `backend/`.
-- [ ] T003 Move order-placing tests to dates relative to now (research R2): in
+- [X] T003 Move order-placing tests to dates relative to now (research R2): in
   `backend/test/setup/fixtures.ts`, base `nextWindow()` on midnight UTC 365 days from now instead
   of `Date.UTC(2027, 0, 1, 18)`, and export a `windowAt(daysFromNow: number, hour = 18)` helper;
   replace the fixed 2027 windows and timestamps in
   `backend/test/integration/reports.e2e-spec.ts`, `backend/test/integration/cancel.e2e-spec.ts`,
   and `backend/test/integration/attendees.e2e-spec.ts` with `windowAt(...)` values that keep each
   test's relative ordering. Every one of these suites must still pass unchanged otherwise.
-- [ ] T004 Select `"startsAt"` in the `lockEvent` query and add `startsAt: Date` to `LockedEvent`
+- [X] T004 Select `"startsAt"` in the `lockEvent` query and add `startsAt: Date` to `LockedEvent`
   in `backend/src/common/event-lock.ts`. No behavior changes yet.
 
 **Checkpoint**: `npm test --workspace @queuepass/backend` matches the T001 baseline.

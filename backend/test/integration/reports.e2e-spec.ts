@@ -1,5 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, tier, venue } from '../setup/fixtures';
+import { customer, event, tier, venue, windowAt } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -40,21 +40,18 @@ describe('Sales report', () => {
       name: 'Later',
       capacity: 50,
       basePrice: '20.00',
-      startsAt: '2027-03-01T18:00:00Z',
-      endsAt: '2027-03-01T21:00:00Z',
+      ...windowAt(424),
     });
     const opener = await event(ctx, yum, {
       name: 'Opener',
       capacity: 100,
-      startsAt: '2027-02-01T18:00:00Z',
-      endsAt: '2027-02-01T21:00:00Z',
+      ...windowAt(396),
     });
     const gone = await event(ctx, yum, {
       name: 'Gone',
       capacity: 30,
       basePrice: '5.00',
-      startsAt: '2027-04-01T18:00:00Z',
-      endsAt: '2027-04-01T21:00:00Z',
+      ...windowAt(455),
     });
     const general = await tier(ctx, opener, 'General', '45.00', 80);
     const vip = await tier(ctx, opener, 'VIP', '120.50', 20);

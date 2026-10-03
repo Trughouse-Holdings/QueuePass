@@ -4,15 +4,26 @@ import { tokenFor } from './tokens';
 
 /** Shared setup for spec 005 tests: venues, events, tiers, and orders through the real API. */
 
-let day = 0;
-/** A fresh, non-overlapping three-hour window for each event a test creates. */
-function nextWindow(): { startsAt: string; endsAt: string } {
-  day += 1;
-  const start = new Date(Date.UTC(2027, 0, 1, 18) + day * 86_400_000);
+/**
+ * A three-hour window starting `hour` hours after midnight UTC, `daysFromNow` days ahead. Always
+ * relative to today, so events that take orders never drift into the past, where sales are closed
+ * (spec 006 FR-014; research R2).
+ */
+export function windowAt(daysFromNow: number, hour = 18): { startsAt: string; endsAt: string } {
+  const midnight = new Date();
+  midnight.setUTCHours(0, 0, 0, 0);
+  const start = new Date(midnight.getTime() + daysFromNow * 86_400_000 + hour * 3_600_000);
   return {
     startsAt: start.toISOString(),
     endsAt: new Date(start.getTime() + 3 * 3_600_000).toISOString(),
   };
+}
+
+let day = 0;
+/** A fresh, non-overlapping three-hour window for each event a test creates, a year ahead. */
+function nextWindow(): { startsAt: string; endsAt: string } {
+  day += 1;
+  return windowAt(365 + day);
 }
 
 export async function venue(ctx: TestContext, name = 'Yum Center'): Promise<string> {
