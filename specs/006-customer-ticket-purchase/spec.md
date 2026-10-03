@@ -163,7 +163,9 @@ own order, with its codes.
   venue, event, or tier. Placing an order is the only write it performs.
 - **FR-010**: Payment is simulated: the app MUST NOT ask for or store payment details.
 - **FR-011**: The contract MUST be updated first. Changes MUST be additive: the customer's own-orders
-  read, the tickets-left counts, and a sales-closed refusal reason.
+  read, the tickets-left counts, a sales-closed refusal reason, and what FR-005 needs to recognize
+  a repeated confirmation (an optional confirmation id on orders, a response for a repeat, and a
+  refusal when the id is reused for a different order).
 - **FR-012**: The constitution's Feature Roadmap MUST reserve `007-seat-selection`,
   `008-customer-event-search`, and `009-admin-order-management`, and give `010` as the next free
   number.
