@@ -266,10 +266,11 @@ matching counts (quickstart S2, S4).
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T027 Update `README.md`: the status table (007 built), the "Today" paragraph, the features
+- [X] T027 Update `README.md`: the status table (007 built), the "Today" paragraph, the features
   list (venue layouts, reserved seating, choosing seats), and the scope boundaries.
-- [ ] T028 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
+- [X] T028 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
   `node scripts/check-contract-drift.mjs`; all pass. Record the result in this line.
+  **2026-10-03: lint, build, Prettier, boundary, and drift checks pass.**
 - [ ] T029 Run `npm test` from the repo root; all suites pass, including route coverage and every
   `006` suite. Record the counts per workspace in this line.
 - [ ] T030 Run `docker compose up --build -d`, then quickstart S1–S6 in a browser. Record the

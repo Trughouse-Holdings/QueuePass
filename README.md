@@ -9,24 +9,26 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `006` are built and verified.
+Features `001` through `007` are built and verified.
 
-| Spec                                                                         | What it delivers                                                                                                        | Spec             | Plan and tasks     | Code                   |
-| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------- |
-| [`001-bare-bones-system`](specs/001-bare-bones-system/spec.md)               | All six services; Keycloak sign-in, JWT validation, role checks; login, hello-world, and logout in all three front ends | Draft            | Done (64/64 tasks) | **Built and verified** |
-| [`002-admin-venues-events`](specs/002-admin-venues-events/spec.md)           | Venue and event API with the 60-minute rule; Admin app create, read, update, delete                                     | Draft (revised)  | Done (32/32 tasks) | **Built and verified** |
-| [`003-customer-venues-events`](specs/003-customer-venues-events/spec.md)     | Customer app shows all venues and events                                                                                | Ready for review | Done (23/23 tasks) | **Built and verified** |
-| [`004-admin-tiers-search`](specs/004-admin-tiers-search/spec.md)             | Ticket tiers per event; Admin search for events and venues                                                              | Ready for review | Done (23/23 tasks) | **Built and verified** |
-| [`005-admin-orders-reporting`](specs/005-admin-orders-reporting/spec.md)     | Orders and tickets; Admin sales dashboard, attendee lists, safe cancellation                                            | Ready for review | Done (25/25 tasks) | **Built and verified** |
-| [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                      | Draft            | Done (29/29 tasks) | **Built and verified** |
+| Spec                                                                         | What it delivers                                                                                                            | Spec             | Plan and tasks     | Code                   |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------- |
+| [`001-bare-bones-system`](specs/001-bare-bones-system/spec.md)               | All six services; Keycloak sign-in, JWT validation, role checks; login, hello-world, and logout in all three front ends     | Draft            | Done (64/64 tasks) | **Built and verified** |
+| [`002-admin-venues-events`](specs/002-admin-venues-events/spec.md)           | Venue and event API with the 60-minute rule; Admin app create, read, update, delete                                         | Draft (revised)  | Done (32/32 tasks) | **Built and verified** |
+| [`003-customer-venues-events`](specs/003-customer-venues-events/spec.md)     | Customer app shows all venues and events                                                                                    | Ready for review | Done (23/23 tasks) | **Built and verified** |
+| [`004-admin-tiers-search`](specs/004-admin-tiers-search/spec.md)             | Ticket tiers per event; Admin search for events and venues                                                                  | Ready for review | Done (23/23 tasks) | **Built and verified** |
+| [`005-admin-orders-reporting`](specs/005-admin-orders-reporting/spec.md)     | Orders and tickets; Admin sales dashboard, attendee lists, safe cancellation                                                | Ready for review | Done (25/25 tasks) | **Built and verified** |
+| [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                          | Draft            | Done (29/29 tasks) | **Built and verified** |
+| [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice | Draft            | Done (30/30 tasks) | **Built and verified** |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
 list, view, create, edit, and delete venues and events. Deleting asks for confirmation first,
 and a venue that still has events is refused with a count of what blocks it. In the Customer app,
 customers browse every event, soonest first, and every venue with what is on there; get tickets
-for an event, in a tier or at its base price, and see their codes; and find every order they
-placed on **My tickets**.
+for an event, in a tier or at its base price, and see their codes; choose their exact seats at
+events with reserved seating; and find every order they placed on **My tickets**. Admins give
+venues seating layouts and see each seated event's seat map.
 
 Each feature lands as three pull requests, in order: spec, then plan and tasks, then code
 (Constitution III).
@@ -42,14 +44,14 @@ docker compose up --build
 
 One command from a clean clone. No manual configuration steps.
 
-| Service          | URL                   | Sign in as        | Notes                                                        |
-| ---------------- | --------------------- | ----------------- | ------------------------------------------------------------ |
-| Admin app        | http://localhost:5173 | `admin1`          | role `queuepass-admin`                                       |
-| Customer app     | http://localhost:5174 | `customer1`       | role `customer`; browse events and venues, get tickets       |
-| Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`; hello-world page only                     |
-| Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs` |
-| Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realm `queuepass`                             |
-| PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                             |
+| Service          | URL                   | Sign in as        | Notes                                                                |
+| ---------------- | --------------------- | ----------------- | -------------------------------------------------------------------- |
+| Admin app        | http://localhost:5173 | `admin1`          | role `queuepass-admin`                                               |
+| Customer app     | http://localhost:5174 | `customer1`       | role `customer`; browse events and venues, get tickets, choose seats |
+| Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`; hello-world page only                             |
+| Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs`         |
+| Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realm `queuepass`                                     |
+| PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                                     |
 
 Startup order is gated on health: the Backend waits for PostgreSQL and applies migrations, the
 seed waits for Keycloak's `/health/ready`, and the front ends wait for the Backend.
@@ -102,12 +104,12 @@ Every front end requires sign-in, and the Backend trusts nothing without a valid
 6. **Logout** discards the tokens and ends your Keycloak session, so reopening the app shows the
    login page again.
 
-| Who                         | Can use          | Can do through the API                                     |
-| --------------------------- | ---------------- | ---------------------------------------------------------- |
-| `queuepass-admin`           | Admin app        | read and change venues and events                          |
-| `customer`                  | Customer app     | read venues and events; get tickets; read their own orders |
-| `gate-agent`                | Ticket Booth app | read venues and events                                     |
-| no token, or an invalid one | nothing          | only `GET /health`                                         |
+| Who                         | Can use          | Can do through the API                                                 |
+| --------------------------- | ---------------- | ---------------------------------------------------------------------- |
+| `queuepass-admin`           | Admin app        | read and change venues and events                                      |
+| `customer`                  | Customer app     | read venues, events, and seat maps; get tickets; read their own orders |
+| `gate-agent`                | Ticket Booth app | read venues and events                                                 |
+| no token, or an invalid one | nothing          | only `GET /health`                                                     |
 
 To call the API by hand, copy a token from a signed-in app and pass it as a Bearer token. The
 steps are in [quickstart V6](specs/001-bare-bones-system/quickstart.md#v6-the-backend-refuses-bad-tokens-us3-fr-018fr-024-sc-006).
@@ -190,6 +192,13 @@ unchanged.
   event starts. Confirming twice, or a retried request, never places a second order (`006`)
 - **My tickets** — every order a customer placed, newest first, with its codes, and refunded
   orders, cancelled events, and used tickets marked; never anyone else's orders (`006`)
+- **Seating layouts** — admins give a venue sections of numbered rows and seats, within its
+  seating capacity; a layout is locked while seated sales depend on it (`007`)
+- **Reserved seating** — per event, admins choose seats or general admission and map each
+  section to a tier; the event page shows a seat map with sold and open counts (`007`)
+- **Choosing seats** — customers pick a tier, a section, and their exact seats; every ticket names
+  its seat. No seat is ever sold twice, guaranteed by the database, and cancelling frees seats
+  (`007`)
 
 ### Scheduling rule
 
@@ -222,6 +231,8 @@ The front ends reach data **only** through this API. None holds a database conne
 
 - Payment is simulated, and customers can't cancel or refund their own orders.
 - No check-in at the gate yet, and no QR codes, emailed, or printable tickets.
+- No seat holds while choosing (the first confirmation wins), no best-available assignment, and
+  no drawn floor plans: sections are rectangular rows of seats.
 - The Ticket Booth app is a stub (sign-in, hello-world, logout) until a later spec.
 - No self-service sign-up, password reset, or multi-factor authentication.
 - No visual design work: front ends are plain and accessible (Constitution VII).
