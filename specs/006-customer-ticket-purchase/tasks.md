@@ -232,8 +232,10 @@ anyone else's.
 - [X] T028 Run `npm test` from the repo root; all suites pass, including route coverage. Record
   the counts per workspace in this line. **2026-10-03: 389 tests pass — shared 22, Backend 228,
   Admin 70, Customer 63, Booth 3, seed 3.**
-- [ ] T029 Run `docker compose up --build -d` and the demo-data command, then quickstart P1–P5 in
-  a browser. Record the result in this line.
+- [X] T029 Run `docker compose up --build -d` and the demo-data command, then quickstart P1–P5 in
+  a browser. Record the result in this line. **2026-10-03: all six services healthy and migration
+  `20261004000000_order_request_id` applied against `docker compose up --build`; P1–P5 pass in a
+  browser (checked by the user).**
 
 ---
 
