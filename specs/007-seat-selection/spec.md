@@ -25,6 +25,17 @@ The requirements emails motivate it: customers must "NEVER get an order messed u
 people holding tickets for the same seat is the clearest way to mess one up. The system must
 "remain flexible" because "different events may have different operational needs".
 
+## Clarifications
+
+### Session 2026-10-03
+
+- Q: Can one order include seats from different tiers? → A: No. One tier per order: the customer
+  picks a tier, then seats only from that tier's sections; mixing tiers takes two orders. `005`'s
+  order model (one tier, one price per order) is unchanged.
+- Q: Should the customer's seat map show every seat at once, or one section at a time? → A: One
+  section at a time: pick a tier, then one of its sections, then seats; picks in other sections of
+  the same tier are kept when switching.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Admins Lay Out a Venue's Seats (Priority: P1)
@@ -65,10 +76,11 @@ The confirmation shows both seats, and the admin seat map shows them sold.
 
 **Acceptance Scenarios**:
 
-1. **Given** an event with reserved seating, **When** a customer opens it, **Then** they see each section's rows
-   and seats, with taken seats marked and not choosable.
-2. **Given** an event with tiers, **When** a customer chooses seats, **Then** the price of each
-   seat is the price of the tier its section belongs to, and the total is their sum.
+1. **Given** an event with reserved seating, **When** a customer opens it and chooses a section,
+   **Then** they see that section's rows and seats, with taken seats marked and not choosable.
+2. **Given** an event with tiers, **When** a customer picks a tier, **Then** only seats in that
+   tier's sections can be chosen, each at the tier's price, and the total is the price times the
+   number of seats.
 3. **Given** chosen seats, **When** the customer confirms, **Then** one ticket is issued per seat
    and the confirmation lists each ticket's code and seat (section, row, seat number).
 4. **Given** a confirmed order, **When** the customer opens My tickets, **Then** each ticket shows
@@ -130,7 +142,10 @@ map shows those 3 seats sold and the section counts match.
 
 ### Edge Cases
 
-- **Choosing for two**: a customer may pick any seats, adjacent or not, up to 10 per order.
+- **Choosing for two**: a customer may pick any seats, adjacent or not, up to 10 per order, all in
+  one tier, across that tier's sections.
+- **Large venues**: only one section's seats are shown at a time; a section holds at most 100 rows
+  of 200 seats (FR-001).
 - **Seat taken while choosing**: no seat is held while a customer chooses; the first confirmation
   wins (US3).
 - **Repeated confirmation**: `006`'s confirmation id still applies; a repeat returns the earlier
@@ -164,12 +179,16 @@ map shows those 3 seats sold and the section counts match.
 - **FR-006**: A tier keeps its quantity (`004`) on seated events: it sells at most that many
   tickets, each from a seat in a section mapped to it. A tier with no section mapped to it sells
   nothing.
-- **FR-007**: For a seated event, the Customer app's Get tickets form MUST show a seat map (each
-  section's rows and seats, taken seats marked and not choosable, each seat's price) and let the
-  customer choose 1 to 10 seats, showing the exact total before confirming.
+- **FR-007**: For a seated event, the Customer app's Get tickets form MUST show a seat map one
+  section at a time (the chosen section's rows and seats, taken seats marked and not choosable)
+  and let the customer choose 1 to 10 seats, showing the exact total and every chosen seat before
+  confirming. For an event with tiers, the customer picks a tier first, and only that tier's
+  sections are offered. Seats chosen in one section stay chosen when the customer switches to
+  another section of the same tier.
 - **FR-008**: An order for a seated event MUST name its seats; the Backend MUST issue one ticket
-  per seat and MUST refuse a seat that is taken, outside the layout, in a section not for sale, or
-  repeated in the same order. A refusal for taken seats MUST name them.
+  per seat and MUST refuse a seat that is taken, outside the layout, in a section not for sale or
+  mapped to a different tier than the order's, or repeated in the same order. A refusal for taken
+  seats MUST name them.
 - **FR-009**: A seat MUST be held by at most one valid ticket for an event, including under
   concurrent orders. This MUST be guaranteed by the database, not only checked by the Backend
   (Constitution IV).
