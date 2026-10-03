@@ -81,6 +81,9 @@ export function GetTickets({ event }: { event: Event }) {
     ? seated.sections.filter((s) => (tierList.length > 0 ? chosen && s.tierId === chosen.id : true))
     : [];
   const section = offered.find((s) => s.sectionId === sectionId) ?? offered[0] ?? null;
+  // Spec 007 FR-006: on a seated event, a tier with no section mapped to it sells nothing.
+  const onSale = (t: TicketTier): boolean =>
+    !seated || seated.sections.some((s) => s.tierId === t.id);
   const chosenCount = seated ? seats.length : Math.min(quantity, maxQuantity);
   const canConfirm =
     price !== undefined && ticketsLeft > 0 && chosenCount > 0 && phase.kind === 'choosing';
@@ -162,7 +165,9 @@ export function GetTickets({ event }: { event: Event }) {
         ? 'Sales closed: this event has already started.'
         : left.ticketsLeft === 0
           ? 'Sold out: no tickets are left for this event.'
-          : null;
+          : seated && tierList.length > 0 && !tierList.some(onSale)
+            ? 'No seats are on sale for this event yet.'
+            : null;
 
   return (
     <section aria-labelledby="get-tickets">
@@ -201,7 +206,7 @@ export function GetTickets({ event }: { event: Event }) {
                   name="tier"
                   value={t.id}
                   checked={tierId === t.id}
-                  disabled={tierLeft(t.id) === 0}
+                  disabled={tierLeft(t.id) === 0 || !onSale(t)}
                   onChange={() =>
                     choose(() => {
                       setTierId(t.id);
@@ -211,9 +216,11 @@ export function GetTickets({ event }: { event: Event }) {
                     })
                   }
                 />{' '}
-                {tierLeft(t.id) === 0
-                  ? `${t.name}, ${usd(t.price)}, sold out`
-                  : `${t.name}, ${usd(t.price)}, ${count(tierLeft(t.id))} left`}
+                {!onSale(t)
+                  ? `${t.name}, ${usd(t.price)}, no seats on sale`
+                  : tierLeft(t.id) === 0
+                    ? `${t.name}, ${usd(t.price)}, sold out`
+                    : `${t.name}, ${usd(t.price)}, ${count(tierLeft(t.id))} left`}
               </label>
             ))}
           </fieldset>

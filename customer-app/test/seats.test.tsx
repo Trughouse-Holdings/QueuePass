@@ -128,6 +128,32 @@ describe('choosing seats (US2-1, US2-2; FR-007)', () => {
   });
 });
 
+describe('a tier with no seats on sale (FR-006)', () => {
+  it('is disabled and says why, instead of offering an empty seat map', async () => {
+    const unmapped = seatMap();
+    unmapped.sections = unmapped.sections.map((x) => ({
+      ...x,
+      tierId: x.tierId === 't-vip' ? null : x.tierId,
+    }));
+    stubApi(routes(json(unmapped)));
+    renderCustomer({ at: '/events/e1' });
+
+    const vipRadio = await screen.findByRole('radio', { name: 'VIP, $120.00, no seats on sale' });
+    expect(vipRadio).toBeDisabled();
+    expect(screen.getByRole('radio', { name: /General/ })).toBeEnabled();
+  });
+
+  it('says no seats are on sale when no tier has a section', async () => {
+    const unmapped = seatMap();
+    unmapped.sections = unmapped.sections.map((x) => ({ ...x, tierId: null }));
+    stubApi(routes(json(unmapped)));
+    renderCustomer({ at: '/events/e1' });
+
+    expect(await screen.findByText('No seats are on sale for this event yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Confirm order' })).toBeNull();
+  });
+});
+
 describe('confirming seats (US2-3; FR-008, FR-011)', () => {
   it('sends the seats and their count, then lists each code with its seat', async () => {
     const placed = order({

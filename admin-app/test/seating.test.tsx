@@ -105,6 +105,19 @@ describe('Seating card', () => {
     ).toBeInTheDocument();
   });
 
+  it('warns which tiers have no section, so they sell nothing', async () => {
+    stubApi(routes({ seatMap: map(true) }));
+    renderPage();
+
+    const region = await card();
+    expect(
+      await within(region).findByText(
+        'General has no section, so it sells nothing. Choose a tier for a section above.',
+      ),
+    ).toBeInTheDocument();
+    expect(within(region).queryByText(/VIP has no section/)).toBeNull();
+  });
+
   it("shows a refusal in the Backend's words", async () => {
     const message = 'Section A has sold seats, so it stays in its tier.';
     stubApi(

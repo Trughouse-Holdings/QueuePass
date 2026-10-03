@@ -136,6 +136,16 @@ export function SeatingCard({ event }: { event: Event }): React.ReactElement {
           </div>
         )}
 
+        {/* FR-006: a tier with no section sells nothing; say so instead of letting it look on sale. */}
+        {map.reservedSeating &&
+          tiers
+            .filter((t) => !map.sections.some((s) => s.tierId === t.id))
+            .map((t) => (
+              <p key={t.id} className="note">
+                {`${t.name} has no section, so it sells nothing. Choose a tier for a section above.`}
+              </p>
+            ))}
+
         {map.reservedSeating && shown && (
           <>
             <h3>Seat map</h3>
