@@ -212,7 +212,7 @@ seating on in the browser, so they run at the US4 checkpoint.
 
 ### Tests for User Story 3 (write first)
 
-- [ ] T021 [P] [US3] Write `backend/test/integration/seats.concurrency.e2e-spec.ts`: **10
+- [X] T021 [P] [US3] Write `backend/test/integration/seats.concurrency.e2e-spec.ts`: **10
   simultaneous orders from 10 customers for the same seat → exactly one `201`, nine `409
   SEAT_TAKEN`, and one valid ticket for that seat**; simultaneous orders for A-1-1+A-1-2 and
   A-1-2+A-1-3 → exactly one succeeds; after the event is cancelled, its seat map shows 0 sold;
@@ -222,9 +222,11 @@ seating on in the browser, so they run at the US4 checkpoint.
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] Run T021 against the US2 code. If any case surfaces a `500` from the index,
+- [X] T022 [US3] Run T021 against the US2 code. If any case surfaces a `500` from the index,
   extend the `P2002` mapping in `backend/src/orders/orders.service.ts` so it answers `409
   SEAT_TAKEN` naming the seats; record in this line whether a change was needed.
+  **2026-10-03: no change needed. All four cases pass on repeated runs; under the event lock the
+  Backend's check refuses first, and the index refuses direct writes.**
 
 **Checkpoint**: T021 passes; quickstart S5 (cancellation frees seats) works.
 
