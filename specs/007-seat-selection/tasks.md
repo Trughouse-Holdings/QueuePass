@@ -242,23 +242,23 @@ matching counts (quickstart S2, S4).
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
-- [ ] T023 [P] [US4] Write `admin-app/test/seating.test.tsx`: the event page shows a Seating card
+- [X] T023 [P] [US4] Write `admin-app/test/seating.test.tsx`: the event page shows a Seating card
   with a "Reserved seating" checkbox, disabled with "This venue has no seating layout" or "Seats
   can't change after tickets are sold" as applicable; for an event with tiers, one tier select
   per section (including "Not for sale"); Save seating sends `PUT /events/{id}/seating` with
   `reservedSeating` and the mapped sections only; a refusal shows its message; the seat map shows
   one section at a time (a section select), each row as a line of seats marked sold or open, and
   "2 sold, 28 open" for that section.
-- [ ] T024 [P] [US4] Add to `admin-app/test/attendees.test.tsx`: a seated ticket shows
+- [X] T024 [P] [US4] Add to `admin-app/test/attendees.test.tsx`: a seated ticket shows
   "Section A, Row 1, Seat 5" next to its code; general-admission tickets show no seat.
 
 ### Implementation for User Story 4
 
-- [ ] T025 [US4] Add `getSeatMap` and `updateSeating` to `admin-app/src/api/seating.ts`; create
+- [X] T025 [US4] Add `getSeatMap` and `updateSeating` to `admin-app/src/api/seating.ts`; create
   `admin-app/src/components/SeatingCard.tsx` and `admin-app/src/components/SeatGrid.tsx`; render
   the card on `admin-app/src/pages/EventDetail.tsx` (hidden for cancelled events, as the tier form
   is).
-- [ ] T026 [US4] Show each ticket's seat in `admin-app/src/pages/Attendees.tsx`.
+- [X] T026 [US4] Show each ticket's seat in `admin-app/src/pages/Attendees.tsx`.
 
 **Checkpoint**: T023–T024 pass; quickstart S2, S3, and S4 work in the browser.
 

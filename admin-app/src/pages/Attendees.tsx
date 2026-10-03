@@ -1,3 +1,4 @@
+import { seatLabel } from '../format';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Event, Order } from '@queuepass/shared';
@@ -105,6 +106,7 @@ export function Attendees(): React.ReactElement {
                           {o.tickets.map((t) => (
                             <li key={t.id}>
                               <code>{t.code}</code>
+                              {t.seat && ` ${seatLabel(t.seat)}`}
                               {t.status === 'VOID'
                                 ? ' (void)'
                                 : t.checkedInAt

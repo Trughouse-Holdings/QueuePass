@@ -6,6 +6,7 @@ import { deleteEvent, getEvent } from '../api/events';
 import { cancelEvent } from '../api/orders';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { SalesCard } from '../components/SalesCard';
+import { SeatingCard } from '../components/SeatingCard';
 import { SuccessState } from '../components/SuccessState';
 import { TierSection } from '../components/TierSection';
 import { when } from '../format';
@@ -138,6 +139,8 @@ function EventView({
       {/* Keyed on status: cancelling refunds every sale, so the card must reload. */}
       <SalesCard key={event.status} eventId={event.id} />
       <TierSection event={event} readOnly={cancelled} />
+      {/* Spec 007: hidden once cancelled, as the tier form's controls are. */}
+      {!cancelled && <SeatingCard event={event} />}
     </section>
   );
 }
