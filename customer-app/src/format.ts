@@ -28,3 +28,7 @@ export function totalUsd(price: string, quantity: number): string {
   const total = cents * quantity;
   return usd(`${Math.floor(total / 100)}.${String(total % 100).padStart(2, '0')}`);
 }
+
+/** A seat as customers read it (spec 007 FR-011): "Section A, Row 3, Seat 7". */
+export const seatLabel = (s: { section: string; row: number; seat: number }): string =>
+  `Section ${s.section}, Row ${s.row}, Seat ${s.seat}`;

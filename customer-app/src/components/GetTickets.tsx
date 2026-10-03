@@ -5,11 +5,14 @@ import {
   type Availability,
   type Event,
   type Order,
+  type SeatLabel,
+  type SeatMap,
   type TicketTier,
 } from '@queuepass/shared';
 import { useAuth } from '@queuepass/shared/web';
-import { count, totalUsd, usd } from '../format';
+import { count, seatLabel, totalUsd, usd } from '../format';
 import { useLoad } from '../use-load';
+import { SeatPicker, type ChosenSeat } from './SeatPicker';
 
 type Phase =
   | { kind: 'choosing' }
@@ -20,8 +23,9 @@ type Phase =
 
 /**
  * Spec 006 US1 and US2: choose a tier (or the base price), a quantity, see the exact total, and
- * confirm; or learn why tickets can't be had. The Backend decides every rule (FR-003); the counts
- * shown here are guidance.
+ * confirm; or learn why tickets can't be had. Spec 007: for an event with reserved seating, choose
+ * a tier, a section, and seats instead of a quantity. The Backend decides every rule (FR-003);
+ * the counts and taken seats shown here are guidance.
  */
 export function GetTickets({ event }: { event: Event }) {
   const { api, signIn } = useAuth();
@@ -34,19 +38,32 @@ export function GetTickets({ event }: { event: Event }) {
   const tiers = useLoad<TicketTier[]>(`tiers:${id}`, (a) =>
     a.GET('/events/{id}/tiers', { params: { path: { id } } }),
   );
+  // Spec 007: only a seated event needs its seat map; for the rest, settle at once with nothing.
+  const seatMap = useLoad<SeatMap | undefined>(
+    `seats:${id}:${event.reservedSeating}:${reloads}`,
+    (a) =>
+      event.reservedSeating
+        ? a.GET('/events/{id}/seats', { params: { path: { id } } })
+        : Promise.resolve({ data: undefined, response: new Response(null, { status: 204 }) }),
+  );
 
   const [tierId, setTierId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [phase, setPhase] = useState<Phase>({ kind: 'choosing' });
   // FR-006: the Backend's reason for the last refusal, in its own words.
   const [notice, setNotice] = useState<string | null>(null);
+  // Spec 007: the chosen section (null: the first offered) and the seats chosen so far.
+  const [sectionId, setSectionId] = useState<string | null>(null);
+  const [seats, setSeats] = useState<ChosenSeat[]>([]);
   // FR-005: one id per confirmation, created on the first press and kept for that confirmation.
   const requestId = useRef<string | null>(null);
   // Set synchronously, so a second click before React re-renders sends nothing.
   const sending = useRef(false);
 
-  if (availability.kind === 'loading' || tiers.kind === 'loading') return <p>Loading tickets…</p>;
-  if (availability.kind !== 'ok' || tiers.kind !== 'ok') {
+  if (availability.kind === 'loading' || tiers.kind === 'loading' || seatMap.kind === 'loading') {
+    return <p>Loading tickets…</p>;
+  }
+  if (availability.kind !== 'ok' || tiers.kind !== 'ok' || seatMap.kind !== 'ok') {
     return <p>Ticket information is unavailable right now. Try again later.</p>;
   }
 
@@ -58,12 +75,33 @@ export function GetTickets({ event }: { event: Event }) {
   const ticketsLeft = chosen ? tierLeft(chosen.id) : left.ticketsLeft;
   const maxQuantity = Math.max(1, Math.min(ORDER_LIMITS.maxQuantity, ticketsLeft));
   const price = tierList.length > 0 ? chosen?.price : event.basePrice;
-  const canConfirm = price !== undefined && ticketsLeft > 0 && phase.kind === 'choosing';
+  const seated = seatMap.data?.reservedSeating === true ? seatMap.data : null;
+  // Seats for the chosen tier's sections; every section when the event has no tiers.
+  const offered = seated
+    ? seated.sections.filter((s) => (tierList.length > 0 ? chosen && s.tierId === chosen.id : true))
+    : [];
+  const section = offered.find((s) => s.sectionId === sectionId) ?? offered[0] ?? null;
+  const chosenCount = seated ? seats.length : Math.min(quantity, maxQuantity);
+  const canConfirm =
+    price !== undefined && ticketsLeft > 0 && chosenCount > 0 && phase.kind === 'choosing';
 
   const choose = (change: () => void): void => {
     change();
     requestId.current = null;
   };
+  const toggleSeat = (seat: ChosenSeat): void =>
+    choose(() =>
+      setSeats((all) =>
+        all.some(
+          (c) => c.sectionId === seat.sectionId && c.row === seat.row && c.seat === seat.seat,
+        )
+          ? all.filter(
+              (c) =>
+                !(c.sectionId === seat.sectionId && c.row === seat.row && c.seat === seat.seat),
+            )
+          : [...all, seat],
+      ),
+    );
 
   async function confirm(): Promise<void> {
     if (sending.current) return;
@@ -75,8 +113,11 @@ export function GetTickets({ event }: { event: Event }) {
         params: { path: { id } },
         body: {
           ...(chosen ? { tierId: chosen.id } : {}),
-          quantity: Math.min(quantity, maxQuantity),
+          quantity: chosenCount,
           requestId: requestId.current,
+          ...(seated
+            ? { seats: seats.map((c) => ({ sectionId: c.sectionId, row: c.row, seat: c.seat })) }
+            : {}),
         },
       });
       if (response.ok && data) {
@@ -91,6 +132,16 @@ export function GetTickets({ event }: { event: Event }) {
       } else {
         // Refused: nothing was recorded. The next press is a new confirmation.
         setNotice(error?.error.message ?? 'The order was refused.');
+        if (error?.error.code === 'SEAT_TAKEN') {
+          // Spec 007 US3-2: let go of the taken seats, keep the rest.
+          const gone = (error.error.details?.seats ?? []) as SeatLabel[];
+          setSeats((all) =>
+            all.filter(
+              (c) =>
+                !gone.some((g) => g.section === c.section && g.row === c.row && g.seat === c.seat),
+            ),
+          );
+        }
         requestId.current = null;
         setReloads((n) => n + 1);
         setPhase({ kind: 'choosing' });
@@ -151,7 +202,14 @@ export function GetTickets({ event }: { event: Event }) {
                   value={t.id}
                   checked={tierId === t.id}
                   disabled={tierLeft(t.id) === 0}
-                  onChange={() => choose(() => setTierId(t.id))}
+                  onChange={() =>
+                    choose(() => {
+                      setTierId(t.id);
+                      // One tier per order (spec 007): seats of another tier don't carry over.
+                      setSeats([]);
+                      setSectionId(null);
+                    })
+                  }
                 />{' '}
                 {tierLeft(t.id) === 0
                   ? `${t.name}, ${usd(t.price)}, sold out`
@@ -162,22 +220,57 @@ export function GetTickets({ event }: { event: Event }) {
         ) : (
           <p>{`${usd(event.basePrice)} each, ${count(left.ticketsLeft)} left`}</p>
         )}
-        <label>
-          Quantity{' '}
-          <select
-            value={Math.min(quantity, maxQuantity)}
-            onChange={(e) => choose(() => setQuantity(Number(e.target.value)))}
-          >
-            {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-        </label>
-        {price !== undefined && (
-          <p>{`Total: ${totalUsd(price, Math.min(quantity, maxQuantity))}`}</p>
+        {seated ? (
+          section && (
+            <>
+              <label>
+                Section{' '}
+                <select value={section.sectionId} onChange={(e) => setSectionId(e.target.value)}>
+                  {offered.map((s) => (
+                    <option key={s.sectionId} value={s.sectionId}>
+                      {`Section ${s.name}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <SeatPicker
+                section={section}
+                chosen={seats}
+                full={seats.length >= maxQuantity}
+                onToggle={toggleSeat}
+              />
+              <ul aria-label="Chosen seats">
+                {seats.map((c) => (
+                  <li key={`${c.sectionId}-${c.row}-${c.seat}`}>
+                    <span>{seatLabel(c)}</span>{' '}
+                    <button
+                      type="button"
+                      aria-label={`Remove ${seatLabel(c)}`}
+                      onClick={() => toggleSeat(c)}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )
+        ) : (
+          <label>
+            Quantity{' '}
+            <select
+              value={Math.min(quantity, maxQuantity)}
+              onChange={(e) => choose(() => setQuantity(Number(e.target.value)))}
+            >
+              {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </label>
         )}
+        {price !== undefined && <p>{`Total: ${totalUsd(price, chosenCount)}`}</p>}
         <button type="button" disabled={!canConfirm} onClick={() => void confirm()}>
           {phase.kind === 'confirming' ? 'Confirming…' : 'Confirm order'}
         </button>
@@ -210,7 +303,7 @@ function Confirmation({ event, order }: { event: Event; order: Order }) {
       <h3>Your ticket codes</h3>
       <ul aria-label="Ticket codes">
         {order.tickets.map((t) => (
-          <li key={t.id}>{t.code}</li>
+          <li key={t.id}>{t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}</li>
         ))}
       </ul>
       <Link to="/my-tickets">See all my tickets</Link>

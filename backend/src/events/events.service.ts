@@ -135,6 +135,12 @@ export class EventsService {
   ): Promise<EventResponse> {
     const locked = await lockEvent(tx, id);
     if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
+    // Spec 007 research R3: a seated event's sections belong to its venue, so it cannot move.
+    if (locked.reservedSeating && dto.locationId && dto.locationId !== locked.locationId) {
+      throw new BadRequestException({
+        message: ['Turn reserved seating off before moving this event to another venue.'],
+      });
+    }
     const existing = await tx.event.findUniqueOrThrow({ where: { id } });
 
     // The conflict check runs against the DESTINATION venue and DESTINATION window —

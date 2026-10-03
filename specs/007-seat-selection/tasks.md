@@ -135,7 +135,7 @@ confirmation and My tickets (quickstart S2, S3).
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T011 [P] [US2] Write `backend/test/integration/seating.e2e-spec.ts`: `PUT
+- [X] T011 [P] [US2] Write `backend/test/integration/seating.e2e-spec.ts`: `PUT
   /events/{id}/seating` turning reserved seating on at a venue with a layout returns the seat map
   with `reservedSeating: true`; at a venue without one → `400`; switching either way after a
   ticket is sold → `409 EVENT_HAS_ORDERS`; a section of another venue or a tier of another event
@@ -146,7 +146,7 @@ confirmation and My tickets (quickstart S2, S3).
   the event's sections unmapped; deleting an unsold tier unmaps its sections; `PATCH
   /events/{id}` with a new `locationId` while reserved seating is on → `400`; customer and agent
   `GET` the seat map but get `403` on `PUT`; no token `401`.
-- [ ] T012 [P] [US2] Write `backend/test/integration/orders.seats.e2e-spec.ts`: a tiered seated
+- [X] T012 [P] [US2] Write `backend/test/integration/orders.seats.e2e-spec.ts`: a tiered seated
   order with 2 seats in its tier's section → `201`, tickets carry `seat` labels with the
   section's name; missing `seats`, a count different from `quantity`, `seats` on a
   general-admission event, a repeated seat, row or seat outside the section, a section of
@@ -156,7 +156,7 @@ confirmation and My tickets (quickstart S2, S3).
   quantity still stops sales (`409 SOLD_OUT`) with seats open; a repeated `requestId` with the same
   seats → `200`, with different seats → `409 REQUEST_ID_REUSED`; `GET /me/orders` and `GET
   /events/{id}/attendees` show the seats; a general-admission order still has `seat: null`.
-- [ ] T013 [P] [US2] Write `customer-app/test/seats.test.tsx` (stubbed fetch): for a seat map with
+- [X] T013 [P] [US2] Write `customer-app/test/seats.test.tsx` (stubbed fetch): for a seat map with
   `reservedSeating: true`, the form offers tiers, then a section select listing only the chosen
   tier's sections, then that section's seats as toggle buttons named "Row R, Seat S" with
   `aria-pressed`; taken seats are disabled; chosen seats are listed ("Section A, Row 1, Seat 5")
@@ -166,12 +166,12 @@ confirmation and My tickets (quickstart S2, S3).
   `sectionId`, `row`, `seat`) and `quantity`; a `409 SEAT_TAKEN` names the taken seats in an
   alert, reloads the seat map, unchooses those seats, and keeps the rest; the confirmation lists
   each code with its seat; a general-admission event still shows the `006` form.
-- [ ] T014 [P] [US2] Add to `customer-app/test/my-tickets.test.tsx`: a seated ticket reads
+- [X] T014 [P] [US2] Add to `customer-app/test/my-tickets.test.tsx`: a seated ticket reads
   "CODE, Section A, Row 3, Seat 7: Valid"; general-admission tickets keep "CODE: Valid".
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Create `backend/src/seating/seat-map.service.ts` and `seat-map.controller.ts`
+- [X] T015 [US2] Create `backend/src/seating/seat-map.service.ts` and `seat-map.controller.ts`
   (`@Controller('events/:id')`: `GET seats` with no `@Roles`; `PUT seating`
   `@Roles('queuepass-admin')`, with `dto/seating-input.dto.ts`) per research R5: the write locks
   the event, refuses cancelled, refuses switching with valid tickets, refuses turning on without
@@ -179,10 +179,10 @@ confirmation and My tickets (quickstart S2, S3).
   moving a section with valid tickets to another tier, and replaces the event's `SectionTier`
   rows; the read returns sections in `position` order with `tierId`, `sold`, and `taken` from
   valid tickets grouped by seat label. Register both in `seating.module.ts`.
-- [ ] T016 [US2] In `backend/src/events/events.service.ts` `updateLocked`, refuse a `locationId`
+- [X] T016 [US2] In `backend/src/events/events.service.ts` `updateLocked`, refuse a `locationId`
   change while `reservedSeating` is on with a `400` ("Turn reserved seating off before moving
   this event to another venue.").
-- [ ] T017 [US2] Add `seats` to `backend/src/orders/dto/create-order.dto.ts` (`@IsOptional`,
+- [X] T017 [US2] Add `seats` to `backend/src/orders/dto/create-order.dto.ts` (`@IsOptional`,
   `@IsArray`, `@ArrayMinSize(1)`, `@ArrayMaxSize(10)`, `@ValidateNested({ each: true })` of
   `SeatChoiceDto`: `sectionId` UUID, `row` and `seat` integers `>= 1`). In
   `backend/src/orders/orders.service.ts` `createLocked`, after the sales-closed check apply
@@ -190,14 +190,14 @@ confirmation and My tickets (quickstart S2, S3).
   `005`'s tier and capacity checks; create tickets with `seatSection` (the section's name),
   `seatRow`, and `seatNumber`; include seats in the repeat comparison (as a set of labels); map a
   `P2002` on `ticket_one_valid_per_seat` to `409 SEAT_TAKEN`.
-- [ ] T018 [P] [US2] Add `seatLabel(seat)` → "Section A, Row 3, Seat 7" to
+- [X] T018 [P] [US2] Add `seatLabel(seat)` → "Section A, Row 3, Seat 7" to
   `customer-app/src/format.ts`, with cases in `customer-app/test/format.test.ts`.
-- [ ] T019 [US2] Create `customer-app/src/components/SeatPicker.tsx` (section select and seat grid
+- [X] T019 [US2] Create `customer-app/src/components/SeatPicker.tsx` (section select and seat grid
   per research R8) and, in `customer-app/src/components/GetTickets.tsx`, load `GET
   /events/{id}/seats` and use the seat picker when `reservedSeating` is true: send `seats` and
   `quantity`, handle `409 SEAT_TAKEN` (reload, unchoose, name the seats), and list each code with
   `seatLabel` on the confirmation.
-- [ ] T020 [US2] Show `seatLabel` for seated tickets in `customer-app/src/pages/MyTickets.tsx`.
+- [X] T020 [US2] Show `seatLabel` for seated tickets in `customer-app/src/pages/MyTickets.tsx`.
 
 **Checkpoint**: T011–T014 pass. Quickstart S2 and S3 need US4's Seating card to turn reserved
 seating on in the browser, so they run at the US4 checkpoint.

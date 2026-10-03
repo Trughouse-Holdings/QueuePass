@@ -100,6 +100,31 @@ describe('My tickets', () => {
     expect(within(third).getByText('This event has been cancelled.')).toBeInTheDocument();
   });
 
+  it('shows the seat of a seated ticket (spec 007 FR-011)', async () => {
+    const seated = myOrder({
+      id: 'o4',
+      tickets: [
+        {
+          id: 'k7',
+          code: 'JJJJ7777KKKK',
+          status: 'VALID',
+          checkedInAt: null,
+          seat: { section: 'A', row: 3, seat: 7 },
+        },
+      ],
+    });
+    stubApi({ 'GET /me/orders': json([seated, opener]) });
+    renderCustomer({ at: '/my-tickets' });
+
+    const [first, second] = await orders();
+    const ticketsOf = (o: HTMLElement) =>
+      within(within(o).getByRole('list', { name: 'Tickets' }))
+        .getAllByRole('listitem')
+        .map((li) => li.textContent);
+    expect(ticketsOf(first)).toEqual(['JJJJ7777KKKK, Section A, Row 3, Seat 7: Valid']);
+    expect(ticketsOf(second)).toEqual(['AAAA2222BBBB: Valid', 'CCCC3333DDDD: Valid']);
+  });
+
   it('says so, with a way to the events, when there are no tickets yet', async () => {
     stubApi({ 'GET /me/orders': json([]) });
     renderCustomer({ at: '/my-tickets' });

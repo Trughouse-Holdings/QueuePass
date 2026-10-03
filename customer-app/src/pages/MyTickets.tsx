@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { MyOrder, Ticket } from '@queuepass/shared';
 import { ServiceUnreachable } from '@queuepass/shared/web';
-import { usd, when } from '../format';
+import { seatLabel, usd, when } from '../format';
 import { useLoad } from '../use-load';
 
 /**
@@ -61,7 +61,9 @@ function OrderCard({ order: o }: { order: MyOrder }) {
       </dl>
       <ul aria-label="Tickets">
         {o.tickets.map((t) => (
-          <li key={t.id}>{`${t.code}: ${ticketState(t)}`}</li>
+          <li key={t.id}>
+            {`${t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}: ${ticketState(t)}`}
+          </li>
         ))}
       </ul>
     </article>

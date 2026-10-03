@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { totalUsd, usd, when } from '../src/format';
+import { seatLabel, totalUsd, usd, when } from '../src/format';
 
 /** Spec 003 FR-006, FR-007; research R5. TZ is pinned to America/New_York in vitest.config.ts. */
 describe('usd', () => {
@@ -36,5 +36,15 @@ describe('totalUsd', () => {
     ['45.5', 2, '$91.00'],
   ])('multiplies %s by %i as %s without going through a float', (price, quantity, shown) => {
     expect(totalUsd(price, quantity)).toBe(shown);
+  });
+});
+
+/** Spec 007 FR-011: a seat, the same everywhere it is shown. */
+describe('seatLabel', () => {
+  it('names the section, row, and seat', () => {
+    expect(seatLabel({ section: 'A', row: 3, seat: 7 })).toBe('Section A, Row 3, Seat 7');
+    expect(seatLabel({ section: 'Floor', row: 12, seat: 140 })).toBe(
+      'Section Floor, Row 12, Seat 140',
+    );
   });
 });
