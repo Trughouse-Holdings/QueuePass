@@ -1,10 +1,10 @@
-import { seatLabel } from '../format';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Event, Order } from '@queuepass/shared';
 import { ApiError } from '../api/client';
 import { getEvent } from '../api/events';
 import { listAttendees } from '../api/orders';
+import { seatLabel } from '../format';
 import { usd } from '../money';
 
 type Load =
