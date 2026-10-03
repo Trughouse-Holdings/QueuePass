@@ -271,8 +271,10 @@ matching counts (quickstart S2, S4).
 - [X] T028 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
   `node scripts/check-contract-drift.mjs`; all pass. Record the result in this line.
   **2026-10-03: lint, build, Prettier, boundary, and drift checks pass.**
-- [ ] T029 Run `npm test` from the repo root; all suites pass, including route coverage and every
+- [X] T029 Run `npm test` from the repo root; all suites pass, including route coverage and every
   `006` suite. Record the counts per workspace in this line.
+  **2026-10-03: 444 tests pass — shared 22, Backend 261, Admin 83, Customer 72, Booth 3,
+  seed 3.**
 - [ ] T030 Run `docker compose up --build -d`, then quickstart S1–S6 in a browser. Record the
   result in this line.
 
