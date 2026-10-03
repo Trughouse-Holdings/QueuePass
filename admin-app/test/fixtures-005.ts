@@ -19,6 +19,7 @@ export const EVENT = {
   basePrice: '45.00',
   status: 'SCHEDULED',
   cancelledAt: null,
+  reservedSeating: false,
   createdAt: VENUE.createdAt,
   updatedAt: VENUE.updatedAt,
 };
@@ -27,6 +28,7 @@ export const CANCELLED_EVENT = {
   ...EVENT,
   status: 'CANCELLED',
   cancelledAt: '2026-10-01T12:00:00.000Z',
+  reservedSeating: false,
 };
 
 export const GENERAL_ID = '11111111-1111-4111-8111-111111111111';
@@ -97,6 +99,7 @@ const ticket = (id: string, code: string, checkedInAt: string | null, status = '
   code,
   status,
   checkedInAt,
+  seat: null as { section: string; row: number; seat: number } | null,
 });
 
 export const ORDERS = [

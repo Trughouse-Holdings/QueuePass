@@ -22,6 +22,8 @@ model Location {
   events          Event[]
   createdAt       DateTime @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @db.Timestamptz(6)
+  // Spec 007: the venue's seating layout.
+  sections Section[]
 }
 
 model Event {
@@ -42,6 +44,9 @@ model Event {
   tickets             Ticket[]
   createdAt           DateTime @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @db.Timestamptz(6)
+  // Spec 007 FR-002: whether customers choose seats.
+  reservedSeating     Boolean       @default(false)
+  sectionTiers        SectionTier[]
 
   @@index([locationId])
 }
@@ -63,6 +68,7 @@ model TicketTier {
   quantity  Int
   orders    Order[]
   tickets   Ticket[]
+  sections  SectionTier[]
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
@@ -112,6 +118,11 @@ model Ticket {
   code        String       @unique
   status      TicketStatus @default(VALID)
   checkedInAt DateTime?    @db.Timestamptz(6)
+  // Spec 007: the seat's label when sold; all three set or all null (research R1). One valid
+  // ticket per seat is the partial unique index ticket_one_valid_per_seat in the migration.
+  seatSection String?
+  seatRow     Int?
+  seatNumber  Int?
 
   @@index([orderId])
   @@index([eventId, status])
@@ -121,4 +132,35 @@ model Ticket {
 enum TicketStatus {
   VALID
   VOID
+}
+
+// Spec 007: a venue's layout is its sections (research R1). Names are unique per venue ignoring
+// case by the expression index section_name_unique_per_venue in the migration.
+model Section {
+  id          String        @id @default(uuid()) @db.Uuid
+  location    Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  locationId  String        @db.Uuid
+  name        String
+  rows        Int
+  seatsPerRow Int
+  position    Int
+  tiers       SectionTier[]
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+
+  @@unique([locationId, position])
+  @@index([locationId])
+}
+
+// Spec 007 FR-004: for one seated event, which tier a section belongs to.
+model SectionTier {
+  event     Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId   String     @db.Uuid
+  section   Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId String     @db.Uuid
+  tier      TicketTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  tierId    String     @db.Uuid
+
+  @@id([eventId, sectionId])
+  @@index([tierId])
 }

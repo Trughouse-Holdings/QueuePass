@@ -22,7 +22,14 @@ export interface OrderResponse {
   status: Order['status'];
   createdAt: Date;
   refundedAt: Date | null;
-  tickets: { id: string; code: string; status: Ticket['status']; checkedInAt: Date | null }[];
+  tickets: {
+    id: string;
+    code: string;
+    status: Ticket['status'];
+    checkedInAt: Date | null;
+    /** Spec 007 FR-011: the seat, or `null` for general admission. */
+    seat: { section: string; row: number; seat: number } | null;
+  }[];
 }
 
 export function toOrderResponse(o: OrderRow): OrderResponse {
@@ -43,6 +50,10 @@ export function toOrderResponse(o: OrderRow): OrderResponse {
       code: t.code,
       status: t.status,
       checkedInAt: t.checkedInAt,
+      seat:
+        t.seatSection !== null && t.seatRow !== null && t.seatNumber !== null
+          ? { section: t.seatSection, row: t.seatRow, seat: t.seatNumber }
+          : null,
     })),
   };
 }

@@ -34,14 +34,17 @@ test tasks and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Run `npm test` from the repo root (and each front-end workspace separately if the
+- [X] T001 Run `npm test` from the repo root (and each front-end workspace separately if the
   Backend fails first) and record the baseline in this line. Expect Backend failures only from
   contract validation of `Event.reservedSeating` and `Ticket.seat`, and from route coverage for
   `getLayout`, `replaceLayout`, `deleteLayout`, `getSeatMap`, and `updateSeating`.
+  **Baseline 2026-10-03: shared 22, Admin 70, Customer 63, Booth 3, seed 3 pass. Backend 73 of
+  228 pass; every contract failure is "must have required property 'reservedSeating'" (306
+  times), plus route coverage for the five new operations.**
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T002 Add `Section` and `SectionTier` models, `Event.reservedSeating Boolean @default(false)`,
+- [X] T002 Add `Section` and `SectionTier` models, `Event.reservedSeating Boolean @default(false)`,
   and `Ticket.seatSection String?`, `seatRow Int?`, `seatNumber Int?` to
   `backend/prisma/schema.prisma`, and write
   `backend/prisma/migrations/20261005000000_seat_selection/migration.sql` per data-model.md:
@@ -53,11 +56,11 @@ test tasks and confirm they **fail** before the implementation tasks below them.
   `seatRow >= 1`, `seatNumber >= 1`; and the partial unique index `ticket_one_valid_per_seat` on
   `("eventId", "seatSection", "seatRow", "seatNumber") WHERE "status" = 'VALID' AND
   "seatSection" IS NOT NULL`. Run `npx prisma generate` in `backend/`.
-- [ ] T003 [P] Add `"SectionTier"` and `"Section"` to the `TRUNCATE` list in
+- [X] T003 [P] Add `"SectionTier"` and `"Section"` to the `TRUNCATE` list in
   `backend/test/setup/reset-db.ts`, children first.
-- [ ] T004 [P] Select `"reservedSeating"` and `"locationId"` in `lockEvent` and add them to
+- [X] T004 [P] Select `"reservedSeating"` and `"locationId"` in `lockEvent` and add them to
   `LockedEvent` in `backend/src/common/event-lock.ts`.
-- [ ] T005 Return each ticket's seat in `toOrderResponse` in `backend/src/orders/orders.service.ts`
+- [X] T005 Return each ticket's seat in `toOrderResponse` in `backend/src/orders/orders.service.ts`
   (`seat: { section, row, seat }` from the three columns, or `null`), and confirm event responses
   include `reservedSeating` (Prisma spreads it in `backend/src/events/events.service.ts`). Add
   `reservedSeating: false` to events and `seat: null` to tickets in

@@ -10,6 +10,6 @@ import { PrismaClient } from '@prisma/client';
  */
 export async function resetDb(prisma: PrismaClient): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "Ticket", "Order", "TicketTier", "Event", "Location" RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE "Ticket", "Order", "SectionTier", "Section", "TicketTier", "Event", "Location" RESTART IDENTITY CASCADE',
   );
 }
