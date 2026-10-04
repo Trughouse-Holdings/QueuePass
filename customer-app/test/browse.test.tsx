@@ -44,13 +44,18 @@ describe('event list (US1; FR-001, FR-002, FR-006, FR-007)', () => {
     expect(within(second).getByRole('link', { name: 'Late Show' })).toBeInTheDocument();
     expect(within(second).getByText(usd('1200.00'))).toBeInTheDocument();
 
-    expect(calls).toEqual([
+    // Spec 008: the page also lists venues for its Venue filter. Every call is still a signed-in
+    // read, and the events are asked for once.
+    expect(calls.filter((c) => c.path === '/events')).toEqual([
       expect.objectContaining({
         method: 'GET',
         path: '/events',
         authorization: expect.stringMatching(/^Bearer /),
       }),
     ]);
+    expect(calls.every((c) => c.method === 'GET' && /^Bearer /.test(c.authorization ?? ''))).toBe(
+      true,
+    );
   });
 
   it('gives an event that crosses midnight both of its dates', async () => {

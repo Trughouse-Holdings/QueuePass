@@ -60,7 +60,7 @@ results (quickstart E1).
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T004 [P] [US1] Write `customer-app/test/filters.test.tsx`: typing "open" sends `GET /events`
+- [X] T004 [P] [US1] Write `customer-app/test/filters.test.tsx`: typing "open" sends `GET /events`
   with `q=open` after the pause and shows the results; choosing a venue sends `locationId`; start
   and end dates send `from` (local midnight of the start) and `to` (local midnight of the day
   after the end); filters combine in one request; each filter appears in the address; rendering
@@ -73,11 +73,11 @@ results (quickstart E1).
 
 ### Implementation for User Story 1
 
-- [ ] T005 [P] [US1] Create `customer-app/src/filters.ts`: read filters from `URLSearchParams`
+- [X] T005 [P] [US1] Create `customer-app/src/filters.ts`: read filters from `URLSearchParams`
   with validation per data-model.md ("`venue`: a UUID among the venues listed"; "`from`, `to`:
   `YYYY-MM-DD`, a real calendar date; `to` not before `from`"; "`hideCancelled`: `1`"); write them
   back; and build the `GET /events` query (`q`, `locationId`, `from`, `to` per research R1).
-- [ ] T006 [US1] Create `customer-app/src/components/EventFilters.tsx` (search box with a 300 ms
+- [X] T006 [US1] Create `customer-app/src/components/EventFilters.tsx` (search box with a 300 ms
   pause, venue select from `GET /locations`, start and end date inputs, Hide cancelled checkbox,
   Clear filters) and use it in `customer-app/src/pages/EventList.tsx`, which reads filters from
   `useSearchParams`, loads `GET /events` with the built query, applies hide-cancelled, and shows
