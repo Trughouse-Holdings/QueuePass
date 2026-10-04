@@ -157,10 +157,11 @@ results (quickstart E1).
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T016 Update `README.md`: the status table (008 built), the "Today" paragraph, the features
+- [X] T016 Update `README.md`: the status table (008 built), the "Today" paragraph, the features
   list (finding events; the Customer app on a phone), and the Customer app row.
-- [ ] T017 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
+- [X] T017 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
   `node scripts/check-contract-drift.mjs`; all pass. Record the result in this line.
+  **2026-10-03: lint, build, Prettier, boundary, and drift checks pass.**
 - [ ] T018 Run `npm test` from the repo root; every suite passes, including all `003`, `006`, and
   `007` Customer tests. Record the counts per workspace in this line.
 - [ ] T019 Run `docker compose up --build -d`, the demo-data command, and quickstart E1–E5 in a

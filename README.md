@@ -9,7 +9,7 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `007` are built and verified.
+Features `001` through `008` are built and verified.
 
 | Spec                                                                         | What it delivers                                                                                                            | Spec             | Plan and tasks     | Code                   |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------- |
@@ -20,12 +20,14 @@ Features `001` through `007` are built and verified.
 | [`005-admin-orders-reporting`](specs/005-admin-orders-reporting/spec.md)     | Orders and tickets; Admin sales dashboard, attendee lists, safe cancellation                                                | Ready for review | Done (25/25 tasks) | **Built and verified** |
 | [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                          | Draft            | Done (29/29 tasks) | **Built and verified** |
 | [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice | Draft            | Done (30/30 tasks) | **Built and verified** |
+| [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look   | Draft            | Done (19/19 tasks) | **Built and verified** |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
 list, view, create, edit, and delete venues and events. Deleting asks for confirmation first,
 and a venue that still has events is refused with a count of what blocks it. In the Customer app,
-customers browse every event, soonest first, and every venue with what is on there; get tickets
+customers find events by name, venue, and dates, browse them as cards on any screen, and see
+every venue with what is on there; get tickets
 for an event, in a tier or at its base price, and see their codes; choose their exact seats at
 events with reserved seating; and find every order they placed on **My tickets**. Admins give
 venues seating layouts and see each seated event's seat map.
@@ -44,14 +46,14 @@ docker compose up --build
 
 One command from a clean clone. No manual configuration steps.
 
-| Service          | URL                   | Sign in as        | Notes                                                                |
-| ---------------- | --------------------- | ----------------- | -------------------------------------------------------------------- |
-| Admin app        | http://localhost:5173 | `admin1`          | role `queuepass-admin`                                               |
-| Customer app     | http://localhost:5174 | `customer1`       | role `customer`; browse events and venues, get tickets, choose seats |
-| Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`; hello-world page only                             |
-| Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs`         |
-| Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realm `queuepass`                                     |
-| PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                                     |
+| Service          | URL                   | Sign in as        | Notes                                                              |
+| ---------------- | --------------------- | ----------------- | ------------------------------------------------------------------ |
+| Admin app        | http://localhost:5173 | `admin1`          | role `queuepass-admin`                                             |
+| Customer app     | http://localhost:5174 | `customer1`       | role `customer`; find and browse events, get tickets, choose seats |
+| Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`; hello-world page only                           |
+| Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs`       |
+| Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realm `queuepass`                                   |
+| PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                                   |
 
 Startup order is gated on health: the Backend waits for PostgreSQL and applies migrations, the
 seed waits for Keycloak's `/health/ready`, and the front ends wait for the Backend.
@@ -192,6 +194,11 @@ unchanged.
   event starts. Confirming twice, or a retried request, never places a second order (`006`)
 - **My tickets** — every order a customer placed, newest first, with its codes, and refunded
   orders, cancelled events, and used tickets marked; never anyone else's orders (`006`)
+- **Finding events** — customers search by name and filter by venue, dates, and cancelled
+  events; filters stay in the page address, so a filtered list can be reloaded or shared (`008`)
+- **The Customer app on a phone** — events as cards, one column on a phone with no sideways
+  scrolling, 44-pixel touch targets, WCAG AA contrast checked by a test, seat states that hold
+  in grayscale, and full keyboard use, in the Admin app's look (`008`)
 - **Seating layouts** — admins give a venue sections of numbered rows and seats, within its
   seating capacity; a layout is locked while seated sales depend on it (`007`)
 - **Reserved seating** — per event, admins choose seats or general admission and map each
