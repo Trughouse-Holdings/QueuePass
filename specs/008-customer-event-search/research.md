@@ -141,3 +141,20 @@ whose cards can finish the setup. No Backend or contract change.
 **Alternatives rejected**: one create-with-seating endpoint would be atomic but is a contract
 change with all-member approval for one form; the event page's cards stay for later changes.
 
+## R10: Price by ticket types, edited with the event (US7, added during the browser check)
+
+- **No base price field.** The form sends `basePrice` as the lowest ticket type price (compared
+  in whole cents); the contract still requires it, and cards and reports keep reading it.
+- **Ticket types always**, at least one: name and price; general-admission types also take a
+  quantity (`TicketTierInput.quantity` is required without reserved seating, `007` R11).
+- **Create**: `POST /events`; seated: `PUT seating` on, `POST tiers` (no quantity), `PUT seating`
+  mapping; general admission: `POST tiers` with quantities. Then open the event.
+- **Edit** loads the event, its tiers, and (at a venue with a layout) its seat map. Saving: `PATCH
+  /events/{id}`; `POST` new tiers; `PATCH` changed tiers (quantity only for general admission);
+  `PUT seating` with the choice and mappings (seated) when the venue has a layout; then `DELETE`
+  removed tiers, last, so a removed type is unmapped first. The first refusal stops the save and
+  shows its reason; the form keeps every value.
+
+`002`'s Admin form tests fill a ticket type instead of the base price; their assertions about
+refusals keeping values check the ticket type's price instead.
+
