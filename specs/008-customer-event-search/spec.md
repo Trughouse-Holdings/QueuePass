@@ -28,6 +28,16 @@ design, so this spec states the restyle as **usability**: what a customer must b
 tell apart, and reach, each testable. It reuses the look the Admin app already has rather than
 designing a new one.
 
+## Clarifications
+
+### Session 2026-10-03
+
+- Q: On the event list, should each card show the "from $X" price and the Sold out / Sales closed
+  badges, given the list doesn't include that information? → A: No. Cards show what the list
+  already has: name, date and time, venue, base price, and a Cancelled badge. The event page,
+  which already loads tiers and availability, shows tier prices and the Sold out and Sales closed
+  badges. No extra requests per card and no Backend change.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Find Events (Priority: P1)
@@ -61,8 +71,8 @@ month, and confirm only matching events show; reload and confirm the same list a
 
 ### User Story 2 - Read and Use the App on a Phone (Priority: P1)
 
-A customer on a phone reads events as cards (name, date and time, venue, price from, and a
-cancelled, sold-out, or sales-closed status), and can use every control, including the filters,
+A customer on a phone reads events as cards (name, date and time, venue, base price, and a
+Cancelled badge when it applies), and can use every control, including the filters,
 the Get tickets form, the seat picker, and My tickets, without zooming or scrolling sideways.
 
 **Why this priority**: Customers buy tickets on their phones; a page that only works on a wide
@@ -74,7 +84,8 @@ tickets; confirm nothing scrolls sideways and every control can be tapped.
 **Acceptance Scenarios**:
 
 1. **Given** the event list, **When** viewed at 375 pixels wide, **Then** each event is a card
-   showing its name, date and time, venue, lowest price, and status, and nothing scrolls sideways.
+   showing its name, date and time, venue, base price, and a Cancelled badge when cancelled, and
+   nothing scrolls sideways.
 2. **Given** the Get tickets form or the seat picker at 375 pixels wide, **Then** every control is
    at least 44 by 44 pixels and nothing scrolls sideways.
 3. **Given** a wide screen, **Then** cards sit side by side in a grid instead of one long column.
@@ -96,8 +107,9 @@ in at least one way besides color (a mark, border, or pattern) and is announced 
 
 1. **Given** a seat map, **Then** open, chosen, and taken seats each look different, and the
    difference holds in grayscale.
-2. **Given** a sold-out tier, a cancelled event, or closed sales, **Then** the status shows as a
-   labelled badge, not only as plain text in a sentence.
+2. **Given** a cancelled event in the list, or a sold-out tier, a cancelled event, or closed sales
+   on an event's page, **Then** the status shows as a labelled badge, not only as plain text in a
+   sentence.
 3. **Given** any page, **Then** every control can be reached and used with the keyboard alone,
    and the focused control is visibly marked.
 
@@ -110,8 +122,8 @@ in at least one way besides color (a mark, border, or pattern) and is announced 
 - **No events at all**: the page says there are no events yet, distinct from "no events match".
 - **Typing quickly**: the list updates after the customer pauses typing, not on every keystroke.
 - **Hide cancelled with everything cancelled**: shows the "no events match" message.
-- **Prices**: an event with tiers shows its lowest tier price as "from $X"; one without shows its
-  base price.
+- **Prices**: cards show the event's base price; an event's page shows each tier's price and, for
+  an event with tiers, its lowest as "from $X".
 - **Venue page**: its list of events uses the same cards.
 
 ## Requirements *(mandatory)*
@@ -128,9 +140,11 @@ in at least one way besides color (a mark, border, or pattern) and is announced 
   opening the address elsewhere restores it. Invalid filters in the address MUST be ignored.
 - **FR-004**: When filters match nothing, the page MUST say so and offer one control that clears
   every filter; when no events exist at all, it MUST say that instead.
-- **FR-005**: Events MUST appear as cards with the name, local date and time, venue, lowest
-  price ("from $X" with tiers, the base price without), and a status badge (Cancelled, Sold out,
-  or Sales closed) when one applies. The same cards MUST appear on a venue's page.
+- **FR-005**: Events MUST appear as cards with the name, local date and time, venue, base price,
+  and a Cancelled badge when cancelled, using only what the event list already provides (no
+  per-card requests). The same cards MUST appear on a venue's page. An event's page MUST show its
+  tier prices (with the lowest as "from $X" when it has tiers) and Sold out or Sales closed
+  badges when they apply.
 - **FR-006**: At a 375-pixel-wide viewport, no Customer app page MUST scroll sideways, and every
   interactive control MUST be at least 44 by 44 pixels.
 - **FR-007**: Text and controls MUST meet WCAG 2.1 AA contrast (4.5:1 for text, 3:1 for control
@@ -165,11 +179,11 @@ status come from `006`'s availability read.
 
 ## Assumptions
 
+- **"Hide cancelled" starts off**, so cancelled events still show, marked, as `005` FR-012
+  requires; the customer turns it on.
 - **Search updates as you type**, after a short pause (about 300 ms), with no Search button.
 - **Dates are whole days** in the customer's own time zone: an event matches if it starts on or
   after the start date and before the day after the end date.
-- **"From" prices** need each event's tiers; the event page already loads them, and the list loads
-  them per card only if the plan finds no cheaper way. The plan decides.
 - **The Admin app's look is reused as-is**; nothing in this feature changes the Admin app.
 - **No new pages**: filters live on the existing Events page.
 
