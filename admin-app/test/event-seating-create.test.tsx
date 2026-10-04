@@ -61,7 +61,6 @@ const fillBasics = async (venueId: string) => {
   fireEvent.change(screen.getByLabelText('Venue'), { target: { value: venueId } });
   fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
   fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
-  fireEvent.change(screen.getByLabelText('Base price'), { target: { value: '30.00' } });
 };
 
 const typeLine = (n: number, name: string, price: string) => {
@@ -198,7 +197,9 @@ describe('Schedule event at a venue with a layout', () => {
     fireEvent.click(await screen.findByRole('radio', { name: 'General admission' }));
 
     expect(screen.getByLabelText('Total tickets')).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: 'Ticket type 1 name' })).toBeNull();
+    // Spec 008 US7: general admission still takes ticket types, each with a quantity.
+    expect(screen.getByLabelText('Ticket type 1 quantity')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: 'Section front ticket type' })).toBeNull();
   });
 
   it('shows no tickets and seating for a venue without a layout', async () => {

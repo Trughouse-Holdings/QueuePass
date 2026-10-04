@@ -275,21 +275,21 @@ research R10).
 
 ### Tests for User Story 7 (write first, confirm they fail)
 
-- [ ] T032 [P] [US7] Write `admin-app/test/event-types-edit.test.tsx`: neither form has a Base price
+- [X] T032 [P] [US7] Write `admin-app/test/event-types-edit.test.tsx`: neither form has a Base price
   field; scheduling a general-admission event requires a ticket type with a quantity and sends
   `basePrice` as the lowest type price then one `POST .../tiers` per type with its quantity;
   editing a seated event shows its tiers and section types prefilled, and saving after renaming
   and repricing a type, adding one, and moving an unsold section sends `PATCH /events/{id}`, the
   new tier's `POST`, the changed tier's `PATCH` (no quantity), and `PUT .../seating` with the new
   mapping, then opens the event; a refused step shows its reason and keeps the form's values.
-- [ ] T033 [P] [US7] Update `admin-app/test/EventForm.conflict.test.tsx`,
+- [X] T033 [P] [US7] Update `admin-app/test/EventForm.conflict.test.tsx`,
   `admin-app/test/delete-flows.event.test.tsx`, `admin-app/test/pages.live-fixtures.test.tsx`,
   `admin-app/test/capacity.test.tsx`, and `admin-app/test/event-seating-create.test.tsx` to fill
   ticket type 1 instead of the base price, keeping every other assertion.
 
 ### Implementation for User Story 7
 
-- [ ] T034 [US7] In `admin-app/src/pages/EventForm.tsx`, remove the base price field, make ticket
+- [X] T034 [US7] In `admin-app/src/pages/EventForm.tsx`, remove the base price field, make ticket
   types part of both forms (quantity for general admission), load and apply them on edit, and
   send the lowest type price as `basePrice`, per research R10.
 - [ ] T035 Re-run T017's checks and T018's full suite, then the browser check with T019, T024,

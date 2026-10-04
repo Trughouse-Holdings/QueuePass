@@ -175,7 +175,10 @@ describe('EventForm against live rejections', () => {
     await user.type(screen.getByLabelText('Starts'), '2026-10-01T19:30');
     await user.type(screen.getByLabelText('Ends'), '2026-10-01T20:30');
     await user.type(screen.getByLabelText('Total tickets'), '100');
-    await user.type(screen.getByLabelText('Base price'), '10.00');
+    // Spec 008 US7: priced by a ticket type instead of a base price.
+    await user.type(screen.getByLabelText('Ticket type 1 name'), 'General');
+    await user.type(screen.getByLabelText('Ticket type 1 price'), '10.00');
+    await user.type(screen.getByLabelText('Ticket type 1 quantity'), '100');
     await user.click(screen.getByRole('button', { name: /Schedule event/i }));
   }
 
@@ -203,7 +206,7 @@ describe('EventForm against live rejections', () => {
     expect(screen.getByLabelText('Event name')).toHaveValue('UI Test Clash');
     expect(screen.getByLabelText('Starts')).toHaveValue('2026-10-01T19:30');
     expect(screen.getByLabelText('Total tickets')).toHaveValue(100);
-    expect(screen.getByLabelText('Base price')).toHaveValue('10.00');
+    expect(screen.getByLabelText('Ticket type 1 price')).toHaveValue('10.00');
   });
 
   it('gives CAPACITY_EXCEEDED its own non-conflict treatment (FR-036)', async () => {
