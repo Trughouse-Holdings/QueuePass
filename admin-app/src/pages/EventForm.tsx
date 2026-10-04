@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { Location, ConflictingEventRef } from '@queuepass/shared';
+import type { Location, ConflictingEventRef, SeatingLayout } from '@queuepass/shared';
 import { createEvent, getEvent, updateEvent } from '../api/events';
 import { listLocations } from '../api/locations';
+import { getLayout, updateSeating } from '../api/seating';
+import { createTier } from '../api/tiers';
 import { ApiError } from '../api/client';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { SuccessState } from '../components/SuccessState';
@@ -24,6 +26,12 @@ const when = (iso: string): string =>
     minute: '2-digit',
   });
 
+/** One ticket type being set up while scheduling (spec 008 US6). */
+type TicketType = { name: string; price: string };
+
+const validationError = (message: string): ApiError =>
+  new ApiError(400, { error: { code: 'VALIDATION_FAILED', message } });
+
 /** FR-032, FR-033, FR-034, FR-035 — create/edit an event. No removal control (API-only). */
 export function EventForm(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
@@ -39,6 +47,15 @@ export function EventForm(): React.ReactElement {
   // Spec 007 FR-018: a seated event's capacity is its venue's layout total.
   const [seated, setSeated] = useState(false);
   const [basePrice, setBasePrice] = useState('');
+  // Spec 008 US6 (research R9): at a venue with a layout, set up seating while scheduling.
+  const [layout, setLayout] = useState<SeatingLayout | null>(null);
+  const [plan, setPlan] = useState<'reserved' | 'general'>('reserved');
+  const [types, setTypes] = useState<TicketType[]>([{ name: '', price: '' }]);
+  /** Each section's ticket type, as an index into `types`; '' is Not for sale. */
+  const [sectionType, setSectionType] = useState<Record<string, string>>({});
+  const [setupRefused, setSetupRefused] = useState<{ eventId: string; error: ApiError } | null>(
+    null,
+  );
   const [error, setError] = useState<ApiError | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -48,6 +65,23 @@ export function EventForm(): React.ReactElement {
       .then(setVenues)
       .catch(() => setVenues([]));
   }, []);
+
+  useEffect(() => {
+    setLayout(null);
+    if (id || !locationId) return;
+    let cancelled = false;
+    getLayout(locationId)
+      .then((l) => {
+        if (cancelled) return;
+        setLayout(l.sections.length > 0 ? l : null);
+        // Every section sells the first ticket type until the admin says otherwise.
+        setSectionType(Object.fromEntries(l.sections.map((s) => [s.id, '0'])));
+      })
+      .catch(() => !cancelled && setLayout(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [id, locationId]);
 
   useEffect(() => {
     if (!id) return;
@@ -67,7 +101,14 @@ export function EventForm(): React.ReactElement {
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     setError(null);
+    setSetupRefused(null);
     setSaved(false);
+
+    const reserved = !isEdit && layout !== null && plan === 'reserved';
+    if (reserved && types.some((t) => !t.name.trim() || !t.price.trim())) {
+      setError(validationError('Give every ticket type a name and a price.'));
+      return;
+    }
     setBusy(true);
 
     const payload = {
@@ -76,7 +117,7 @@ export function EventForm(): React.ReactElement {
       startsAt: toIso(startsAt),
       endsAt: toIso(endsAt),
       // FR-019: blank means the venue's capacity; seated events never send one (FR-018).
-      ...(!seated && totalTicketCapacity.trim() !== ''
+      ...(!seated && !reserved && totalTicketCapacity.trim() !== ''
         ? { totalTicketCapacity: Number(totalTicketCapacity) }
         : {}),
       basePrice,
@@ -84,7 +125,35 @@ export function EventForm(): React.ReactElement {
 
     try {
       if (isEdit && id) await updateEvent(id, payload);
-      else await createEvent(payload);
+      else {
+        const created = await createEvent(payload);
+        if (reserved && layout) {
+          // Spec 008 R9: the event exists now; finish its seating with the existing operations.
+          try {
+            await updateSeating(created.id, { reservedSeating: true, sections: [] });
+            const tierIds: string[] = [];
+            for (const t of types) {
+              tierIds.push(
+                (await createTier(created.id, { name: t.name.trim(), price: t.price.trim() })).id,
+              );
+            }
+            await updateSeating(created.id, {
+              reservedSeating: true,
+              sections: layout.sections
+                .filter((sec) => sectionType[sec.id] !== '' && tierIds[Number(sectionType[sec.id])])
+                .map((sec) => ({
+                  sectionId: sec.id,
+                  tierId: tierIds[Number(sectionType[sec.id])],
+                })),
+            });
+          } catch (err) {
+            setSetupRefused({ eventId: created.id, error: err as ApiError });
+            return;
+          }
+          navigate(`/events/${created.id}`);
+          return;
+        }
+      }
       setSaved(true);
       setTimeout(() => navigate('/events'), 700);
     } catch (err) {
@@ -103,6 +172,91 @@ export function EventForm(): React.ReactElement {
 
   const selected = venues.find((v) => v.id === locationId);
 
+  const setType = (i: number, change: Partial<TicketType>) =>
+    setTypes(types.map((t, j) => (j === i ? { ...t, ...change } : t)));
+  const removeType = (i: number) => {
+    setTypes(types.filter((_, j) => j !== i));
+    // Sections on the removed type become Not for sale; later types shift down by one.
+    setSectionType(
+      Object.fromEntries(
+        Object.entries(sectionType).map(([sec, v]) => {
+          if (v === '') return [sec, v];
+          const n = Number(v);
+          return [sec, n === i ? '' : String(n > i ? n - 1 : n)];
+        }),
+      ),
+    );
+  };
+
+  /** Spec 008 US6: ticket types, each section's type, and each type's seats. */
+  const reservedSetup = (l: SeatingLayout): React.ReactElement => (
+    <>
+      {types.map((t, i) => (
+        <div key={i} className="form__row">
+          <input
+            aria-label={`Ticket type ${i + 1} name`}
+            placeholder="Floor"
+            value={t.name}
+            onChange={(e) => setType(i, { name: e.target.value })}
+          />
+          <input
+            aria-label={`Ticket type ${i + 1} price`}
+            inputMode="decimal"
+            placeholder="80.00"
+            value={t.price}
+            onChange={(e) => setType(i, { price: e.target.value })}
+          />
+          {types.length > 1 && (
+            <button type="button" className="btn" onClick={() => removeType(i)}>
+              Remove ticket type {i + 1}
+            </button>
+          )}
+        </div>
+      ))}
+      <div>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => setTypes([...types, { name: '', price: '' }])}
+        >
+          Add ticket type
+        </button>
+      </div>
+      {l.sections.map((sec) => (
+        <div key={sec.id} className="field">
+          <label htmlFor={`section-${sec.id}`}>
+            {`Section ${sec.name} (${(sec.rows * sec.seatsPerRow).toLocaleString()} seats)`}
+          </label>
+          <select
+            id={`section-${sec.id}`}
+            aria-label={`Section ${sec.name} ticket type`}
+            value={sectionType[sec.id] ?? ''}
+            onChange={(e) => setSectionType({ ...sectionType, [sec.id]: e.target.value })}
+          >
+            {types.map((t, i) => (
+              <option key={i} value={String(i)}>
+                {t.name.trim() || `Ticket type ${i + 1}`}
+              </option>
+            ))}
+            <option value="">Not for sale</option>
+          </select>
+        </div>
+      ))}
+      <div className="note">
+        {types.map((t, i) => {
+          const seats = l.sections
+            .filter((sec) => sectionType[sec.id] === String(i))
+            .reduce((n, sec) => n + sec.rows * sec.seatsPerRow, 0);
+          return (
+            <p
+              key={i}
+            >{`${t.name.trim() || `Ticket type ${i + 1}`}: ${seats.toLocaleString()} ${seats === 1 ? 'seat' : 'seats'}`}</p>
+          );
+        })}
+      </div>
+    </>
+  );
+
   return (
     <section>
       <div className="page-head">
@@ -114,6 +268,18 @@ export function EventForm(): React.ReactElement {
 
       {saved && <SuccessState message="Event saved." />}
       {error && <ErrorBanner error={error} />}
+      {setupRefused && (
+        <div role="alert" className="banner banner--error">
+          <div className="banner__body">
+            <strong>Seating setup not finished</strong>
+            <p>{setupRefused.error.envelope.error.message}</p>
+            <p>
+              The event was created; its ticket types or sections were not all set up.{' '}
+              <Link to={`/events/${setupRefused.eventId}`}>Finish on the event page</Link>
+            </p>
+          </div>
+        </div>
+      )}
 
       {conflict && (
         <p data-testid="conflict-detail" className="conflict-detail">
@@ -172,8 +338,37 @@ export function EventForm(): React.ReactElement {
             </div>
           </div>
 
+          {!isEdit && layout && (
+            <fieldset className="field">
+              <legend>Tickets and seating</legend>
+              <label className="choice">
+                <input
+                  type="radio"
+                  name="plan"
+                  checked={plan === 'reserved'}
+                  onChange={() => setPlan('reserved')}
+                />
+                Reserved seating
+              </label>
+              <label className="choice">
+                <input
+                  type="radio"
+                  name="plan"
+                  checked={plan === 'general'}
+                  onChange={() => setPlan('general')}
+                />
+                General admission
+              </label>
+              {plan === 'reserved' && reservedSetup(layout)}
+            </fieldset>
+          )}
+
           <div className="field-row">
-            {seated ? (
+            {!isEdit && layout && plan === 'reserved' ? (
+              <p className="note">
+                {`Total tickets: ${layout.totalSeats.toLocaleString()}, set by the venue's seating layout.`}
+              </p>
+            ) : seated ? (
               <p className="note">
                 {`Total tickets: ${Number(totalTicketCapacity).toLocaleString()}, set by the venue's seating layout.`}
               </p>

@@ -246,7 +246,7 @@ FR-018; research R9).
 
 ### Tests for User Story 6 (write first, confirm they fail)
 
-- [ ] T029 [P] [US6] Write `admin-app/test/event-seating-create.test.tsx`: choosing a venue with a
+- [X] T029 [P] [US6] Write `admin-app/test/event-seating-create.test.tsx`: choosing a venue with a
   layout shows Reserved seating (checked) and General admission, ticket type lines (name, price,
   Add ticket type, Remove), one select per section ("Section front ticket type") listing the types
   and Not for sale, each type's seat total, and no Total tickets field; scheduling sends, in order,
@@ -258,7 +258,7 @@ FR-018; research R9).
 
 ### Implementation for User Story 6
 
-- [ ] T030 [US6] In `admin-app/src/pages/EventForm.tsx` (create only), load the chosen venue's
+- [X] T030 [US6] In `admin-app/src/pages/EventForm.tsx` (create only), load the chosen venue's
   layout, render the Tickets and seating section, and run the steps per research R9 through
   `admin-app/src/api/events.ts`, `admin-app/src/api/tiers.ts`, and `admin-app/src/api/seating.ts`.
 - [ ] T031 Re-run T017's checks and T018's full suite, then the browser check with T019, T024, and
