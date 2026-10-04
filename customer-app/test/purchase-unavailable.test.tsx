@@ -98,8 +98,12 @@ describe('refused on confirm (US2-4; FR-006)', () => {
 
       await confirm();
       expect(await screen.findByRole('alert')).toHaveTextContent(message);
-      const availabilityLoads = calls.filter((x) => x.path === '/events/e1/availability');
-      expect(availabilityLoads.length).toBeGreaterThanOrEqual(2);
+      // The reload is sent just after the refusal shows, so wait for it rather than check at once.
+      await vi.waitFor(() =>
+        expect(
+          calls.filter((x) => x.path === '/events/e1/availability').length,
+        ).toBeGreaterThanOrEqual(2),
+      );
 
       await confirm();
       await screen.findByRole('region', { name: 'Order confirmed' });

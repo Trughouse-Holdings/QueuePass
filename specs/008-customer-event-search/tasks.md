@@ -95,23 +95,23 @@ results (quickstart E1).
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T007 [P] [US2] Write `customer-app/test/cards.test.tsx`: the Events page shows one `article`
+- [X] T007 [P] [US2] Write `customer-app/test/cards.test.tsx`: the Events page shows one `article`
   per event, in the Backend's order, each with the name linking to `/events/{id}`, the local date
   and time, the venue linking to `/venues/{id}`, the base price, and a "Cancelled" badge only on
   cancelled events; a venue's page shows the same cards; the cards come from `GET /events` alone
   (no per-event requests); an event's page shows "from $X" with the lowest tier price when the
   event has tiers; each card's links carry the class that gives them a 44-pixel tap area.
-- [ ] T008 [P] [US2] Update `customer-app/test/browse.test.tsx` so its event-list and venue-page
+- [X] T008 [P] [US2] Update `customer-app/test/browse.test.tsx` so its event-list and venue-page
   cases read cards (`article`s) instead of table rows, keeping every assertion about content,
   links, order, dates, prices, empty and error states, and the Cancelled marker.
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Create `customer-app/src/components/EventCard.tsx` per spec FR-005 (the badge a
+- [X] T009 [US2] Create `customer-app/src/components/EventCard.tsx` per spec FR-005 (the badge a
   `.pill` with the danger tokens) and a card grid in `customer-app/src/styles.css`
   (`repeat(auto-fill, minmax(260px, 1fr))`, one column below 640 pixels); render the cards in
   `customer-app/src/pages/EventList.tsx` and `customer-app/src/pages/VenueDetail.tsx`.
-- [ ] T010 [US2] Show "from $X" (the lowest tier price) on `customer-app/src/pages/EventDetail.tsx`
+- [X] T010 [US2] Show "from $X" (the lowest tier price) on `customer-app/src/pages/EventDetail.tsx`
   when the event has tiers, from the tiers `GetTickets` already loads; give
   `customer-app/src/pages/VenueList.tsx`, `customer-app/src/pages/MyTickets.tsx`, and
   `customer-app/src/components/GetTickets.tsx` the copied card, button, field, and note classes,

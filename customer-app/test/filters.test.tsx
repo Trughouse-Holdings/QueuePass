@@ -36,7 +36,8 @@ describe('filters (US1-1 to US1-4)', () => {
     fireEvent.change(await screen.findByRole('searchbox', { name: 'Search events' }), {
       target: { value: '  open ' },
     });
-    await vi.waitFor(() => expect(lastQuery(calls).get('q')).toBe('open'));
+    // The search waits for a 300 ms pause; allow for a busy test run.
+    await vi.waitFor(() => expect(lastQuery(calls).get('q')).toBe('open'), { timeout: 3000 });
   });
 
   it('filters by venue', async () => {

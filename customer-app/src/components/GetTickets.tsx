@@ -10,7 +10,7 @@ import {
   type TicketTier,
 } from '@queuepass/shared';
 import { useAuth } from '@queuepass/shared/web';
-import { count, seatLabel, totalUsd, usd } from '../format';
+import { cents, count, seatLabel, totalUsd, usd } from '../format';
 import { useLoad } from '../use-load';
 import { SeatPicker, type ChosenSeat } from './SeatPicker';
 
@@ -170,8 +170,17 @@ export function GetTickets({ event }: { event: Event }) {
             : null;
 
   return (
-    <section aria-labelledby="get-tickets">
+    <section className="card get-tickets" aria-labelledby="get-tickets">
       <h2 id="get-tickets">Get tickets</h2>
+      {/* Spec 008 FR-005: the lowest tier price, compared in whole cents. */}
+      {tierList.length > 0 && (
+        <p className="price">{`From ${usd(
+          tierList.reduce(
+            (lo, t) => (cents(t.price) < cents(lo) ? t.price : lo),
+            tierList[0].price,
+          ),
+        )}`}</p>
+      )}
       {notice && <p role="alert">{notice}</p>}
       {phase.kind === 'unknown' ? (
         <div role="alert">
@@ -180,7 +189,7 @@ export function GetTickets({ event }: { event: Event }) {
             Check again, which never places a second order, or look for it in{' '}
             <Link to="/my-tickets">My tickets</Link>.
           </p>
-          <button type="button" onClick={() => void confirm()}>
+          <button type="button" className="btn btn--ghost" onClick={() => void confirm()}>
             Check again
           </button>
         </div>
@@ -200,7 +209,7 @@ export function GetTickets({ event }: { event: Event }) {
           <fieldset>
             <legend>Ticket type</legend>
             {tierList.map((t) => (
-              <label key={t.id}>
+              <label key={t.id} className="choice">
                 <input
                   type="radio"
                   name="tier"
@@ -278,7 +287,12 @@ export function GetTickets({ event }: { event: Event }) {
           </label>
         )}
         {price !== undefined && <p>{`Total: ${totalUsd(price, chosenCount)}`}</p>}
-        <button type="button" disabled={!canConfirm} onClick={() => void confirm()}>
+        <button
+          type="button"
+          className="btn btn--primary"
+          disabled={!canConfirm}
+          onClick={() => void confirm()}
+        >
           {phase.kind === 'confirming' ? 'Confirming…' : 'Confirm order'}
         </button>
       </>

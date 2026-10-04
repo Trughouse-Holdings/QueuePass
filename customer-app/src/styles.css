@@ -540,3 +540,63 @@ input[type='radio'] {
   align-items: center;
   min-height: 44px;
 }
+
+/* Spec 008 FR-005 (research R3): event cards in a grid, one column on a phone. */
+.card-grid {
+  list-style: none;
+  margin: 18px 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.event-card {
+  padding: 16px 18px;
+  height: 100%;
+}
+.event-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.event-card__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+}
+.event-card__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 12px;
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+.event-card__facts dt {
+  color: var(--text-muted);
+}
+.event-card__facts dd {
+  margin: 0;
+}
+/* A status badge in the danger colors; the word, not the color, carries the meaning. */
+.pill--danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger-border);
+}
+.pill--warn {
+  background: var(--warn-bg);
+  color: var(--warn);
+  border: 1px solid var(--warn-border);
+}
+.filters {
+  padding: 16px 18px;
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+.get-tickets,
+.order-card {
+  padding: 16px 18px;
+  margin: 18px 0;
+}

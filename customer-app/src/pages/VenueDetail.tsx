@@ -1,7 +1,8 @@
 import { Link, useParams } from 'react-router-dom';
 import type { Event, Location } from '@queuepass/shared';
 import { ServiceUnreachable } from '@queuepass/shared/web';
-import { count, when } from '../format';
+import { EventCards } from '../components/EventCard';
+import { count } from '../format';
 import { useLoad } from '../use-load';
 
 /** Spec 003 FR-004: one venue and the events scheduled there, soonest first. Read-only. */
@@ -46,27 +47,7 @@ export function VenueDetail() {
       {events.length === 0 ? (
         <p>Nothing is scheduled here.</p>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Event</th>
-              <th scope="col">Starts</th>
-              <th scope="col">Ends</th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((e) => (
-              <tr key={e.id}>
-                <td>
-                  <Link to={`/events/${e.id}`}>{e.name}</Link>
-                  {e.status === 'CANCELLED' && <strong> Cancelled</strong>}
-                </td>
-                <td>{when(e.startsAt)}</td>
-                <td>{when(e.endsAt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <EventCards events={events} label={`Events at ${venue.name}`} />
       )}
       <Link to="/venues">All venues</Link>
     </section>

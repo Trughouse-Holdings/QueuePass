@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import type { Event, Location } from '@queuepass/shared';
 import { ServiceUnreachable } from '@queuepass/shared/web';
+import { EventCards } from '../components/EventCard';
 import { EventFilters } from '../components/EventFilters';
 import {
   eventQuery,
@@ -11,7 +12,6 @@ import {
   writeFilters,
   type Filters,
 } from '../filters';
-import { usd, when } from '../format';
 import { useLoad } from '../use-load';
 
 /**
@@ -66,33 +66,7 @@ export function EventList() {
             <p>Nothing is scheduled yet.</p>
           )
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Event</th>
-                <th scope="col">Venue</th>
-                <th scope="col">Starts</th>
-                <th scope="col">Ends</th>
-                <th scope="col">Base price</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.map((e) => (
-                <tr key={e.id}>
-                  <td>
-                    <Link to={`/events/${e.id}`}>{e.name}</Link>
-                    {e.status === 'CANCELLED' && <strong> Cancelled</strong>}
-                  </td>
-                  <td>
-                    <Link to={`/venues/${e.locationId}`}>{e.location.name}</Link>
-                  </td>
-                  <td>{when(e.startsAt)}</td>
-                  <td>{when(e.endsAt)}</td>
-                  <td>{usd(e.basePrice)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <EventCards events={shown} label="Events" />
         ))}
     </section>
   );
