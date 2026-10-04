@@ -146,6 +146,9 @@ map shows those 3 seats sold and the section counts match.
   one tier, across that tier's sections.
 - **Large venues**: only one section's seats are shown at a time; a section holds at most 100 rows
   of 200 seats (FR-001).
+- **Moving a seated event**: an event with reserved seating cannot move to another venue, whose
+  sections are different; turn reserved seating off first.
+- **Shrinking a venue**: a venue's seating capacity cannot be lowered below its layout's seats.
 - **Seat taken while choosing**: no seat is held while a customer chooses; the first confirmation
   wins (US3).
 - **Repeated confirmation**: `006`'s confirmation id still applies; a repeat returns the earlier
@@ -164,15 +167,17 @@ map shows those 3 seats sold and the section counts match.
 ### Functional Requirements
 
 - **FR-001**: Admins MUST be able to create, view, change, and remove a venue's seating layout:
-  sections with unique names (1–50 characters), each with 1–100 rows, each row with 1–200 seats.
-  Rows are numbered from 1 and seats from 1 within each row. A layout's total seats MUST NOT
-  exceed the venue's seating capacity.
+  sections with names unique ignoring case (1–50 characters), each with 1–100 rows, each row with
+  1–200 seats. Rows are numbered from 1 and seats from 1 within each row. A layout's total seats
+  MUST NOT exceed the venue's seating capacity.
 - **FR-002**: An admin MUST choose for each event whether it sells seats (reserved seating) or
   not (general admission, as in `006`). Reserved seating MAY be turned on only when the event's
   venue has a layout, and MAY be switched either way only while the event has no valid tickets.
   New events default to general admission.
 - **FR-003**: A layout MUST NOT be changed or removed while any scheduled event that sells seats
-  from it has valid tickets; the refusal MUST name those events.
+  from it has valid tickets; the refusal MUST name those events. A layout MUST NOT be removed
+  while any scheduled event at the venue has reserved seating on, even without sales. Replacing a
+  layout MUST leave every event's sections at that venue unmapped, so admins remap them.
 - **FR-004**: For a seated event with tiers, an admin MUST be able to map each section to exactly
   one of the event's tiers. A section with valid tickets MUST NOT be moved to another tier.
 - **FR-005**: A seated event without tiers sells every seat at its base price.
