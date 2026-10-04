@@ -45,6 +45,10 @@ designing a new one.
   will replace. How should creating a venue work? → A: The form asks Seated or General admission.
   Seated: define sections in the form, and the capacity is calculated, never typed. General
   admission: type a capacity, as before. Added as US5.
+- Q: (During the browser check) Setting up ticket types and sections took two cards on the event
+  page after scheduling. Should it happen while scheduling? → A: Yes, in one place: the Schedule
+  event form sets up reserved seating, ticket types (name and price), and each section's ticket
+  type, then opens the new event. Added as US6.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -171,6 +175,34 @@ exists with that layout and a capacity of 70, and no capacity was typed.
 
 ---
 
+### User Story 6 - Set Up Ticket Types and Sections While Scheduling (Priority: P3)
+
+When an admin schedules an event at a venue that has a seating layout, the Schedule event form
+also asks for reserved seating or general admission, the event's ticket types (name and price),
+and which ticket type each section sells, showing each type's seats as they choose. Scheduling
+creates the event with all of it and opens the event's page.
+
+**Why this priority**: Added by the user during the browser check; the same setup otherwise
+takes two cards on the event page after scheduling.
+
+**Independent Test**: At a venue with sections front, middle, and back, schedule an event with
+Floor (front) and Balcony (middle and back) in one form; the event opens with reserved seating,
+Floor at 10 seats and Balcony at 20, and nothing else to set up.
+
+**Acceptance Scenarios**:
+
+1. **Given** a venue with a layout, **When** the admin chooses it, **Then** the form shows
+   Reserved seating (chosen) or General admission, ticket type lines, and one row per section with
+   a ticket type choice, and no Total tickets field while reserved seating is chosen.
+2. **Given** ticket types and section choices, **Then** the form shows each type's seat count.
+3. **Given** the admin schedules it, **Then** the event exists with reserved seating, its tiers,
+   and its section mappings, and its page opens.
+4. **Given** the event is created but a later step is refused, **Then** the admin is told what
+   was refused and is offered the event's page to finish there.
+5. **Given** a venue without a layout, or editing an event, **Then** the form is as before.
+
+---
+
 ### Edge Cases
 
 - **Filters in the address that make no sense** (an unknown venue, an end date before the start,
@@ -228,6 +260,13 @@ exists with that layout and a capacity of 70, and no capacity was typed.
   to General admission. Seated MUST take sections in the form (as on the venue page), show their
   total, and ask for no capacity; creating it MUST create the venue and then save its layout, so
   the Backend sets the capacity (`007` FR-017). Editing a venue is unchanged.
+- **FR-018**: The Admin app's Schedule event form MUST, for a venue with a layout, offer reserved
+  seating (chosen by default) or general admission; with reserved seating, ticket types (name
+  and price, at least one) and a ticket type (or Not for sale) per section, with each type's seat
+  total, and no ticket capacity to type. Scheduling MUST create the event, turn reserved seating
+  on, create the ticket types, and map the sections, through the existing operations, then open
+  the event's page. A refusal after the event exists MUST say what failed and link to the event.
+  Venues without a layout and editing an event are unchanged.
 
 ### Key Entities
 
@@ -256,7 +295,7 @@ status come from `006`'s availability read.
 ## Out of Scope
 
 - Sorting other than soonest first, saved searches, and full-text search of descriptions.
-- Any change to the Booth app, and any Admin change beyond FR-014–FR-017.
+- Any change to the Booth app, and any Admin change beyond FR-014–FR-018.
 - Branding, logos, images, animation, and a dark/light theme switch beyond what the reused styles
   already do.
 - Search by price, tier, or seat availability.
