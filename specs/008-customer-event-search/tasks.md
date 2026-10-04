@@ -41,7 +41,9 @@ test tasks and confirm they **fail** before the implementation tasks below them.
   `.page-title`, `.btn` variants, `.card`, `.pill`, `.price`, form `input`/`select`/checkbox,
   `.field`, `.field-row`, `.form__actions`, `.note`, `.empty`, `.loading`, `.visually-hidden`, and
   the 640-pixel breakpoint, each block marked with its source; add `:focus-visible` outlines and
-  `min-height: 44px; min-width: 44px` for buttons, fields, and choice labels (research R4); import
+  `min-height: 44px; min-width: 44px` for buttons, fields, and choice labels, and padding that
+  gives nav links and links inside cards and lists a tap area at least 44 pixels tall (research
+  R4; spec FR-006); import
   it in `customer-app/src/main.tsx`; give `customer-app/src/App.tsx`'s header and nav the Admin
   classes, keeping its link names and order.
 
@@ -98,7 +100,7 @@ results (quickstart E1).
   and time, the venue linking to `/venues/{id}`, the base price, and a "Cancelled" badge only on
   cancelled events; a venue's page shows the same cards; the cards come from `GET /events` alone
   (no per-event requests); an event's page shows "from $X" with the lowest tier price when the
-  event has tiers.
+  event has tiers; each card's links carry the class that gives them a 44-pixel tap area.
 - [ ] T008 [P] [US2] Update `customer-app/test/browse.test.tsx` so its event-list and venue-page
   cases read cards (`article`s) instead of table rows, keeping every assertion about content,
   links, order, dates, prices, empty and error states, and the Cancelled marker.
@@ -131,32 +133,37 @@ results (quickstart E1).
   number and has `aria-pressed="true"`; a taken seat shows "✕" instead of its number and is
   `disabled`; an open seat shows only its number; seat names stay "Row R, Seat S"; each section's
   seats sit in a region named "Section {name} seats" that is scrollable on its own.
-- [ ] T012 [P] [US3] Add to `customer-app/test/purchase-unavailable.test.tsx`: sold-out tiers, a
+- [ ] T012 [P] [US3] Write `customer-app/test/keyboard.test.tsx` (with `@testing-library/user-event`):
+  tabbing from the page start on Events reaches the search box, venue select, start date, end
+  date, Hide cancelled, and the first card's link, in that order; on a seated event, Tab and Space
+  choose a tier, Tab reaches the section select and then the first open seat, Space chooses it
+  (`aria-pressed="true"`), and Tab skips taken seats (spec FR-009, SC-004).
+- [ ] T013 [P] [US3] Add to `customer-app/test/purchase-unavailable.test.tsx`: sold-out tiers, a
   cancelled event, and closed sales show their status as a badge element (class `pill`) as well
   as the existing text.
 
 ### Implementation for User Story 3
 
-- [ ] T013 [US3] In `customer-app/src/components/SeatPicker.tsx`, render the glyphs and state
+- [ ] T014 [US3] In `customer-app/src/components/SeatPicker.tsx`, render the glyphs and state
   classes per research R5 and wrap the grid in a labelled `overflow-x: auto` region; add
   `.seat`, `.seat--chosen` (accent fill, thicker border), and `.seat--taken` (hatched stripes,
   dashed border) to `customer-app/src/styles.css`.
-- [ ] T014 [US3] In `customer-app/src/components/GetTickets.tsx`, show sold-out, cancelled, and
+- [ ] T015 [US3] In `customer-app/src/components/GetTickets.tsx`, show sold-out, cancelled, and
   sales-closed statuses as badges alongside their existing text.
 
-**Checkpoint**: T011–T012 pass; quickstart E5 works in the browser.
+**Checkpoint**: T011–T013 pass; quickstart E5 works in the browser.
 
 ---
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T015 Update `README.md`: the status table (008 built), the "Today" paragraph, the features
+- [ ] T016 Update `README.md`: the status table (008 built), the "Today" paragraph, the features
   list (finding events; the Customer app on a phone), and the Customer app row.
-- [ ] T016 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
+- [ ] T017 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
   `node scripts/check-contract-drift.mjs`; all pass. Record the result in this line.
-- [ ] T017 Run `npm test` from the repo root; every suite passes, including all `003`, `006`, and
+- [ ] T018 Run `npm test` from the repo root; every suite passes, including all `003`, `006`, and
   `007` Customer tests. Record the counts per workspace in this line.
-- [ ] T018 Run `docker compose up --build -d`, the demo-data command, and quickstart E1–E5 in a
+- [ ] T019 Run `docker compose up --build -d`, the demo-data command, and quickstart E1–E5 in a
   browser, including device mode at 375 × 812. Record the result in this line.
 
 ---
@@ -165,14 +172,15 @@ results (quickstart E1).
 
 - **Setup (T001)** → **Foundational (T002–T003)** → stories.
 - **US1** (filters) and **US2** (cards) both change `EventList.tsx`: do US1 first, then US2.
-- **US3** needs only Foundational; it can run alongside US1.
-- **Polish (T015–T018)** after all stories.
+- **US3** needs only Foundational; its tests and `SeatPicker.tsx` work can run alongside US1, but
+  T015 edits `GetTickets.tsx` after US2's T010 does.
+- **Polish (T016–T019)** after all stories.
 
 ## Parallel Opportunities
 
 - **US1**: T004 (tests) alongside T005 (`filters.ts`).
 - **US2**: T007 and T008.
-- **US3**: T011 and T012; the whole story alongside US1.
+- **US3**: T011, T012, and T013; T014 alongside US1.
 
 ## Implementation Strategy
 
@@ -180,4 +188,4 @@ results (quickstart E1).
    Admin look.
 2. **Then US2**: cards and the phone layout.
 3. **Then US3**: seat and status states.
-4. **Polish** and the running-system gate (T018) before the implementation PR.
+4. **Polish** and the running-system gate (T019) before the implementation PR.

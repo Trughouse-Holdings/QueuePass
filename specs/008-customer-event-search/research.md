@@ -1,6 +1,6 @@
 # Research: Customer Event Search and Usability
 
-Decisions for feature `008`, planned under constitution v2.2.1 on top of `007`. No Backend,
+Decisions for feature `008`, planned under constitution v2.3.0 on top of `007`. No Backend,
 database, or contract change (spec FR-012).
 
 ## R1: Filters through the existing search, state in the address

@@ -38,7 +38,7 @@ WCAG 2.1 AA contrast; no sideways page scrolling at 375 pixels.
 
 ## Constitution Check
 
-Evaluated against constitution **v2.2.1**.
+Evaluated against constitution **v2.3.0**.
 
 | Principle | Pre | Post | Evidence |
 |---|---|---|---|
@@ -48,7 +48,7 @@ Evaluated against constitution **v2.2.1**.
 | **IV. Server-Authoritative, DB-Guaranteed** | PASS | **PASS** | No rule moves to the app; "Hide cancelled" only filters what is shown. |
 | **V. Sign-In Everywhere** | PASS | **PASS** | No new route or role; the same customer-only app. |
 | **VI. Test-First, Real Database** | PASS | **PASS** | UI tests precede each change; no Backend code, so no new database tests are needed. |
-| **VII. Function Over Finish** | PASS | **PASS** | Usability with measurable targets (width, target size, contrast, non-color states); the Admin app's existing look is reused, with no new branding or design. Roadmap row widened in constitution 2.2.1. |
+| **VII. Function Over Finish** | PASS | **PASS** | Usability with measurable targets (width, target size, contrast, non-color states, keyboard); the Admin app's existing look is reused, with no new branding or design. Constitution 2.3.0 states explicitly that this is usability work (amendment in the spec PR). |
 | **VIII. Staged Simplicity** | PASS | **PASS** | No shared style package, no design system, no theme switch. |
 
 ## Project Structure
