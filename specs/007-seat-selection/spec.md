@@ -35,26 +35,36 @@ people holding tickets for the same seat is the clearest way to mess one up. The
 - Q: Should the customer's seat map show every seat at once, or one section at a time? → A: One
   section at a time: pick a tier, then one of its sections, then seats; picks in other sections of
   the same tier are kept when switching.
+- Q: After using the seated flow, the user found typed capacities confusing: venue capacity, event
+  capacity, and tier quantities all had to agree with the layout. Where should capacity be
+  calculated instead of typed? → A: The seated flow only. A venue with a layout gets its seating
+  capacity from the layout; a reserved-seating event gets its ticket capacity from that layout.
+  General-admission events and venues without a layout keep typed capacities.
+- Q: On a reserved-seating event, how should each tier's ticket amount work? → A: Calculated: a
+  tier's amount is the seats in the sections mapped to it. Admins type only its name and price.
+  (Supersedes the earlier FR-006, where tiers kept a typed quantity.)
 
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Admins Lay Out a Venue's Seats (Priority: P1)
 
 An admin gives a venue a seating layout: named sections (such as "A" or "Floor"), each with
-numbered rows, each row with a number of seats. The admin can view and change the layout while no
-seated sales depend on it.
+numbered rows, each row with a number of seats. The venue's seating capacity becomes the layout's
+total seats, with no number to type or keep in agreement. The admin can view and change the layout
+while no seated sales depend on it.
 
 **Why this priority**: Nothing can be chosen until seats exist.
 
 **Independent Test**: Give a venue sections A (3 rows of 10) and B (2 rows of 20). Confirm the
-venue shows 70 seats in that layout, and a layout of more seats than the venue holds is refused.
+venue's seating capacity is 70, with no capacity typed.
 
 **Acceptance Scenarios**:
 
 1. **Given** a venue without a layout, **When** an admin adds sections with rows and seats per
-   row, **Then** the venue shows its layout and its total seats.
-2. **Given** a layout, **When** its total seats would exceed the venue's seating capacity,
-   **Then** it is refused, saying by how much.
+   row, **Then** the venue shows its layout and its total seats, and its seating capacity becomes
+   that total.
+2. **Given** a venue with a layout, **When** an admin edits the venue, **Then** its seating
+   capacity is shown, not editable, as set by its layout.
 3. **Given** a layout, **When** two sections would share a name, **Then** it is refused.
 4. **Given** a layout that a seated event with sold tickets depends on, **When** an admin tries
    to change or remove it, **Then** it is refused, naming the events that block it.
@@ -148,7 +158,12 @@ map shows those 3 seats sold and the section counts match.
   of 200 seats (FR-001).
 - **Moving a seated event**: an event with reserved seating cannot move to another venue, whose
   sections are different; turn reserved seating off first.
-- **Shrinking a venue**: a venue's seating capacity cannot be lowered below its layout's seats.
+- **Shrinking a layout below a general-admission event**: a layout whose total is less than the
+  ticket capacity of a scheduled general-admission event at the venue is refused, naming the
+  event, since that event would exceed its venue (`002`).
+- **Removing a layout**: the venue keeps the last total as a typed capacity again.
+- **Turning reserved seating off**: the event and its tiers keep their last calculated amounts,
+  which become typed again.
 - **Seat taken while choosing**: no seat is held while a customer chooses; the first confirmation
   wins (US3).
 - **Repeated confirmation**: `006`'s confirmation id still applies; a repeat returns the earlier
@@ -159,8 +174,7 @@ map shows those 3 seats sold and the section counts match.
 - **Events that started or were cancelled**: no seats can be chosen (`006` FR-014, `005`).
 - **General admission at a venue with a layout**: allowed; the event sells tickets without seats,
   exactly as in `006` (FR-002).
-- **Tier quantity below its sections' seats**: the tier stops selling at its quantity even if
-  seats in its sections are still open; the seat map shows the tier as sold out (FR-006).
+- **A tier with no sections**: its amount is 0, so it sells nothing (FR-006).
 
 ## Requirements *(mandatory)*
 
@@ -168,8 +182,7 @@ map shows those 3 seats sold and the section counts match.
 
 - **FR-001**: Admins MUST be able to create, view, change, and remove a venue's seating layout:
   sections with names unique ignoring case (1–50 characters), each with 1–100 rows, each row with
-  1–200 seats. Rows are numbered from 1 and seats from 1 within each row. A layout's total seats
-  MUST NOT exceed the venue's seating capacity.
+  1–200 seats. Rows are numbered from 1 and seats from 1 within each row.
 - **FR-002**: An admin MUST choose for each event whether it sells seats (reserved seating) or
   not (general admission, as in `006`). Reserved seating MAY be turned on only when the event's
   venue has a layout, and MAY be switched either way only while the event has no valid tickets.
@@ -181,9 +194,9 @@ map shows those 3 seats sold and the section counts match.
 - **FR-004**: For a seated event with tiers, an admin MUST be able to map each section to exactly
   one of the event's tiers. A section with valid tickets MUST NOT be moved to another tier.
 - **FR-005**: A seated event without tiers sells every seat at its base price.
-- **FR-006**: A tier keeps its quantity (`004`) on seated events: it sells at most that many
-  tickets, each from a seat in a section mapped to it. A tier with no section mapped to it sells
-  nothing.
+- **FR-006**: On a seated event, each tier's amount MUST be the number of seats in the sections
+  mapped to it, recalculated whenever the mapping or the layout changes; admins MUST NOT type it.
+  A tier with no section mapped to it has an amount of 0 and sells nothing.
 - **FR-007**: For a seated event, the Customer app's Get tickets form MUST show a seat map one
   section at a time (the chosen section's rows and seats, taken seats marked and not choosable)
   and let the customer choose 1 to 10 seats, showing the exact total and every chosen seat before
@@ -212,6 +225,16 @@ map shows those 3 seats sold and the section counts match.
 - **FR-016**: Automated tests MUST cover, against real PostgreSQL: layout rules, mapping rules,
   seat ordering rules, the concurrent same-seat guarantee (10 simultaneous orders for one seat →
   exactly 1 succeeds), seats freed by cancellation, and the Admin and Customer screens.
+- **FR-017**: A venue with a layout MUST take its seating capacity from the layout's total seats,
+  set whenever the layout is saved; admins MUST NOT type it while the layout exists. Saving a
+  layout whose total is below a scheduled general-admission event's ticket capacity at the venue
+  MUST be refused, naming the event.
+- **FR-018**: A seated event MUST take its ticket capacity from its venue's layout total, set when
+  reserved seating is turned on and whenever the layout changes; admins MUST NOT type it while
+  reserved seating is on.
+- **FR-019**: A new event's ticket capacity MAY be left out, in which case it is the venue's
+  seating capacity. General-admission events and venues without a layout otherwise keep typed
+  capacities and tier quantities exactly as in `002`, `004`, and `006`.
 
 ### Key Entities
 
@@ -239,6 +262,9 @@ map shows those 3 seats sold and the section counts match.
 - **No seat holds**: seats are not reserved while a customer chooses; the first confirmation wins
   and others are told which seats were taken. Timed holds belong to a later feature
   (Constitution VIII).
+- **Calculated numbers are stored**: the venue's capacity, a seated event's capacity, and its
+  tiers' amounts are saved as they are calculated, so reports, availability, and ordering rules
+  from `004`–`006` keep working unchanged.
 - **Rectangular sections**: every row in a section has the same number of seats; no aisles,
   curves, accessible-seating flags, or drawn floor plans.
 - **One layout per venue**: a venue's layout is shared by its events that sell seats.

@@ -164,3 +164,37 @@ layout refused; seat map never names holders; role refusals via route coverage a
 Admin and Customer apps (Vitest, React Testing Library, stubbed fetch): the layout card and form,
 the seating card and seat map, attendee seats; the seated Get tickets flow (tier, section, seats,
 total, kept picks, cap, taken refusal), and seats on the confirmation and My tickets.
+
+## R11: Calculated capacities in the seated flow (revision, spec FR-006, FR-017–FR-019)
+
+After the browser check, the user found three typed numbers that must agree with a layout (venue
+capacity, event capacity, tier quantity) confusing. In the seated flow they are now **calculated
+and stored**, so every `004`–`006` rule that reads them (tier totals, no-oversell, availability,
+reports) keeps working unchanged:
+
+- **Venue**: saving a layout sets `Location.seatingCapacity` to its total seats, under the layout
+  write's locks (R3). The old "layout exceeds capacity" refusal is gone. A layout below a
+  scheduled general-admission event's `totalTicketCapacity` at the venue is refused (`409
+  CAPACITY_EXCEEDED`, naming it), so `002`'s event-within-venue rule still holds. `PATCH
+  /locations/{id}` refuses `seatingCapacity` while a layout exists (`400`). Removing a layout
+  leaves the last total in place, typed again.
+- **Seated event**: `Event.totalTicketCapacity` is set to the venue's layout total when reserved
+  seating turns on, and for every scheduled seated event at the venue when its layout is saved.
+  `PATCH /events/{id}` refuses `totalTicketCapacity` while reserved seating is on (`400`).
+- **Seated tiers**: `TicketTier.quantity` is recalculated as the seats in its mapped sections on
+  every seating write and layout save (mappings dropped by a layout save make it 0). Tier creates
+  on a seated event must omit `quantity` (stored as 0); tier updates may not set it (`400`).
+  Because each section maps to at most one tier, the tier total never exceeds the event's
+  capacity, and a section with sales can't be unmapped (FR-004), so a quantity never drops below
+  tickets sold.
+- **New events**: `totalTicketCapacity` is optional on create and defaults to the venue's
+  `seatingCapacity`.
+- **Turning reserved seating off** keeps the event's capacity and its tiers' quantities as they
+  were; they are typed again from then on.
+
+**Database**: `ticket_tier_quantity_positive` (`quantity > 0`, from `004`) becomes
+`ticket_tier_quantity_non_negative` (`quantity >= 0`), since a seated tier with no section has 0.
+
+**Alternatives rejected**: computing the numbers on every read would leave the columns stale and
+touch every query in `004`–`006`; dropping the typed fields everywhere was the larger option the
+user declined (general admission keeps them).

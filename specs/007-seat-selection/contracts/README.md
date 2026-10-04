@@ -14,6 +14,11 @@ in this plan PR with `packages/shared/src/api-schema.ts` regenerated.
 | PATCH | `/events/{id}` | `queuepass-admin` | `updateEvent` | refuses a venue change while reserved seating is on (described) |
 | PATCH | `/locations/{id}` | `queuepass-admin` | `updateLocation` | refuses seating capacity below the layout's seats (described) |
 
+**Revision (research R11)**: `EventInput.totalTicketCapacity` and `TicketTierInput.quantity`
+become optional; `TicketTier.quantity` may be 0; `replaceLayout`, `deleteLayout`,
+`updateSeating`, `updateLocation`, `updateEvent`, `createTicketTier`, and `updateTicketTier`
+describe the calculated capacities.
+
 `Event` gains required `reservedSeating`; `Ticket` gains required, nullable `seat`. New schemas:
 `SeatingLayout`, `Section`, `SectionInput`, `LayoutInput`, `SeatMap`, `SeatMapSection`,
 `SeatPosition`, `SeatChoice`, `SeatLabel`, `SeatingInput`. New error codes: `SEAT_TAKEN`,

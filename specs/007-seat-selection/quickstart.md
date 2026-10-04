@@ -13,13 +13,16 @@ window for the Customer app (http://localhost:5174, `customer1` / `test123`).
 
 As `admin1`, create a venue "Seat Hall" with seating capacity 500. On its page, **Edit layout**:
 section `A`, 3 rows of 10; section `B`, 2 rows of 20. Save. **Expect**: the layout card lists
-both sections and 70 seats. Try a section of 30 rows of 20. **Expect**: refused, over capacity.
+both sections and 70 seats, and the venue's seating capacity now reads 70, set by its layout (its
+edit form no longer offers the field).
 
 ## S2: Turn on reserved seating and map tiers (US4)
 
-Create an event at Seat Hall starting next week, with tiers `VIP` ($120, 30) and `General` ($40,
-40). On the event page, check **Reserved seating**, map `A` → VIP and `B` → General, and save.
-**Expect**: the seat map shows both sections with 0 sold.
+Create an event at Seat Hall starting next week, leaving its ticket capacity blank. **Expect**:
+its capacity is 70, the venue's. On the event page, check **Reserved seating** and save, then add
+tiers `VIP` ($120) and `General` ($40) with no quantity. Map `A` → VIP and `B` → General, and
+save. **Expect**: VIP shows 30 and General 40, calculated from their sections; the seat map shows
+both sections with 0 sold.
 
 ## S3: Choose seats (US2)
 
