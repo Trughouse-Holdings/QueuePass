@@ -35,13 +35,15 @@ export function VenueDetail() {
   const { venue, events } = load.data;
   return (
     <section>
-      <h1>{venue.name}</h1>
-      <dl>
-        <dt>Address</dt>
-        <dd>{venue.address}</dd>
-        <dt>Seating capacity</dt>
-        <dd>{count(venue.seatingCapacity)}</dd>
-      </dl>
+      <h1 className="page-title">{venue.name}</h1>
+      <div className="card">
+        <dl>
+          <dt>Address</dt>
+          <dd>{venue.address}</dd>
+          <dt>Seating capacity</dt>
+          <dd>{count(venue.seatingCapacity)}</dd>
+        </dl>
+      </div>
 
       <h2>Events here</h2>
       {events.length === 0 ? (

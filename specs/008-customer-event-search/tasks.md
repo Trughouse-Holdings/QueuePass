@@ -180,20 +180,20 @@ in padded cards and styled actions.
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
-- [ ] T020 [P] [US4] Write `customer-app/test/shared-look.test.ts`: read `customer-app/src/styles.css`
+- [X] T020 [P] [US4] Write `customer-app/test/shared-look.test.ts`: read `customer-app/src/styles.css`
   and `admin-app/src/styles.css`, extract the block between `/* >>> shared detail layout` and
   `/* <<< shared detail layout */`, and assert it exists in both, is identical, and contains rules
   for `a`, `.btn` with a `background`, `.topbar button`, `dl` with `display: grid`, `dt`, `.card`
   child spacing, `.card + .card`, and `.page-head .form__actions`.
-- [ ] T021 [P] [US4] Add to `customer-app/test/my-tickets.test.tsx`: the Tickets list has the
+- [X] T021 [P] [US4] Add to `customer-app/test/my-tickets.test.tsx`: the Tickets list has the
   `ticket-list` class (its rows' text is unchanged); and to `customer-app/test/browse.test.tsx`:
   the event page's and venue page's details sit inside an element with the `card` class.
 
 ### Implementation for User Story 4
 
-- [ ] T022 [US4] Add the shared block per research R7 to `admin-app/src/styles.css` and the same
+- [X] T022 [US4] Add the shared block per research R7 to `admin-app/src/styles.css` and the same
   block to `customer-app/src/styles.css`, plus `.ticket-list` rows in the Customer stylesheet.
-- [ ] T023 [US4] Customer markup: `customer-app/src/pages/MyTickets.tsx` gives the Tickets list the
+- [X] T023 [US4] Customer markup: `customer-app/src/pages/MyTickets.tsx` gives the Tickets list the
   `ticket-list` class; `customer-app/src/pages/EventDetail.tsx` and
   `customer-app/src/pages/VenueDetail.tsx` wrap their details in a `card`; give their titles the
   `page-title` class. No text or behavior changes.

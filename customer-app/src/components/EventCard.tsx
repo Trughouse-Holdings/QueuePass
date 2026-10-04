@@ -10,7 +10,7 @@ import { usd, when } from '../format';
 export function EventCard({ event: e }: { event: Event }) {
   const headingId = `event-${e.id}`;
   return (
-    <article className="card event-card" aria-labelledby={headingId}>
+    <article className="card card--padded event-card" aria-labelledby={headingId}>
       <div className="event-card__head">
         <h2 id={headingId} className="event-card__title">
           <Link to={`/events/${e.id}`} className="tap">

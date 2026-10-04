@@ -178,7 +178,7 @@ export function GetTickets({ event }: { event: Event }) {
             : null;
 
   return (
-    <section className="card get-tickets" aria-labelledby="get-tickets">
+    <section className="card card--padded get-tickets" aria-labelledby="get-tickets">
       <h2 id="get-tickets">Get tickets</h2>
       {/* Spec 008 FR-005: the lowest tier price, compared in whole cents. */}
       {tierList.length > 0 && (

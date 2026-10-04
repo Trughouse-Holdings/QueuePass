@@ -646,3 +646,80 @@ select {
 .row--muted .meter__fill {
   background: var(--border-strong);
 }
+
+/* >>> shared detail layout (spec 008 US4; research R7). Identical in admin-app and customer-app
+   stylesheets; customer-app/test/shared-look.test.ts compares the two. */
+
+/* Links in the accent color, never browser-default blue or purple. :where() keeps this at zero
+   specificity, so nav links, row links, and buttons keep their own colors. */
+:where(a, a:visited) {
+  color: var(--accent);
+}
+
+/* A .btn without a variant looks like the top bar's controls, not a link or a gray system button. */
+.btn:not(.btn--primary):not(.btn--ghost) {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.btn:not(.btn--primary):not(.btn--ghost):hover {
+  background: var(--surface-alt);
+}
+
+/* The shared Log out button sits in the top bar without a class. */
+.topbar button {
+  padding: 8px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  cursor: pointer;
+}
+.topbar button:hover {
+  background: var(--surface-alt);
+}
+
+/* Label/value lists: each label beside its value, the label muted. */
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 20px;
+  margin: 0;
+}
+dt {
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+dd {
+  margin: 0;
+}
+
+/* Content placed straight in a card gets inner spacing; tables, forms, and cards that pad
+   themselves (card--padded) are left alone. */
+.card:not(.card--padded) > :not(.table-wrap):not(.form):not(form):not(.empty):not(.stats) {
+  margin-left: 24px;
+  margin-right: 24px;
+}
+.card:not(.card--padded) > :first-child:not(.table-wrap):not(.form):not(form) {
+  margin-top: 20px;
+}
+.card:not(.card--padded) > :last-child:not(.table-wrap):not(.form):not(form) {
+  margin-bottom: 20px;
+}
+.card + .card {
+  margin-top: 18px;
+}
+
+/* Actions beside a page title: no form divider above them. */
+.page-head .form__actions {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+.page-head .form__actions > :first-child {
+  margin-top: 0;
+}
+/* <<< shared detail layout */

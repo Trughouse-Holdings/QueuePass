@@ -33,7 +33,7 @@ export function EventFilters({
   }, [text, filters, onChange]);
 
   return (
-    <form className="filters card" role="search" onSubmit={(e) => e.preventDefault()}>
+    <form className="filters card card--padded" role="search" onSubmit={(e) => e.preventDefault()}>
       <div className="field">
         <label htmlFor="filter-q">Search events</label>
         <input
