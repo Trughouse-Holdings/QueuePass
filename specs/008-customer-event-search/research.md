@@ -154,6 +154,10 @@ change with all-member approval for one form; the event page's cards stay for la
   `PUT seating` with the choice and mappings (seated) when the venue has a layout; then `DELETE`
   removed tiers, last, so a removed type is unmapped first. The first refusal stops the save and
   shows its reason; the form keeps every value.
+- **Switching** a seated event to general admission (or back) on Edit turns seating on or off
+  right after `PATCH /events/{id}`, before the ticket types change: the Backend takes a typed
+  quantity only without reserved seating. If the ticket types cannot be loaded, Edit saves the
+  event's details alone and keeps its stored base price.
 
 `002`'s Admin form tests fill a ticket type instead of the base price; their assertions about
 refusals keeping values check the ticket type's price instead.
