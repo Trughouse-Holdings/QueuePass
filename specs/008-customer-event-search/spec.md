@@ -41,6 +41,10 @@ designing a new one.
   Yes. The user found label/value lists, links in browser-default blue, plain gray buttons, and
   edge-to-edge text inside cards inconsistent with the top bar in both apps. Added as US4; the
   Admin app is now in scope for these shared layout rules only.
+- Q: (During the browser check) A new venue still asks for a seating capacity that its layout
+  will replace. How should creating a venue work? → A: The form asks Seated or General admission.
+  Seated: define sections in the form, and the capacity is calculated, never typed. General
+  admission: type a capacity, as before. Added as US5.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -142,6 +146,31 @@ labels and values align in two columns inside padded cards and every action is a
 
 ---
 
+### User Story 5 - Create a Seated Venue in One Step (Priority: P3)
+
+On the Admin app's New venue form, an admin chooses Seated or General admission. For a seated
+venue they add its sections (name, rows, seats per row) right there; the form shows the total
+seats as the venue's capacity, with no capacity to type. For general admission they type a
+capacity as before.
+
+**Why this priority**: Added by the user during the browser check; it removes a number that the
+layout would immediately replace.
+
+**Independent Test**: Create a seated venue with sections A (3 × 10) and B (2 × 20); confirm it
+exists with that layout and a capacity of 70, and no capacity was typed.
+
+**Acceptance Scenarios**:
+
+1. **Given** the New venue form, **When** the admin chooses Seated, **Then** the capacity field is
+   replaced by section lines and a running total of seats.
+2. **Given** a seated venue with sections, **When** the admin creates it, **Then** the venue
+   exists with that layout and its capacity is the layout's total.
+3. **Given** General admission, **Then** the form asks for a capacity exactly as before.
+4. **Given** the venue is created but its layout is refused, **Then** the admin is told so, with a
+   way to the venue's page to add the layout there.
+
+---
+
 ### Edge Cases
 
 - **Filters in the address that make no sense** (an unknown venue, an end date before the start,
@@ -195,6 +224,10 @@ labels and values align in two columns inside padded cards and every action is a
   the app's button styles, and every link MUST use the accent color in light and dark mode.
 - **FR-016**: These shared layout rules MUST be identical in both apps' stylesheets, checked by a
   test, and MUST NOT change any text, control, or behavior.
+- **FR-017**: The Admin app's New venue form MUST offer Seated and General admission, defaulting
+  to General admission. Seated MUST take sections in the form (as on the venue page), show their
+  total, and ask for no capacity; creating it MUST create the venue and then save its layout, so
+  the Backend sets the capacity (`007` FR-017). Editing a venue is unchanged.
 
 ### Key Entities
 
@@ -223,7 +256,7 @@ status come from `006`'s availability read.
 ## Out of Scope
 
 - Sorting other than soonest first, saved searches, and full-text search of descriptions.
-- Any change to the Booth app, and any Admin change beyond FR-014–FR-016's shared layout rules.
+- Any change to the Booth app, and any Admin change beyond FR-014–FR-017.
 - Branding, logos, images, animation, and a dark/light theme switch beyond what the reused styles
   already do.
 - Search by price, tier, or seat availability.
