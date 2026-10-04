@@ -275,8 +275,13 @@ matching counts (quickstart S2, S4).
   `006` suite. Record the counts per workspace in this line.
   **2026-10-03: 444 tests pass — shared 22, Backend 261, Admin 83, Customer 72, Booth 3,
   seed 3.**
-- [ ] T030 Run `docker compose up --build -d`, then quickstart S1–S6 in a browser. Record the
-  result in this line.
+- [X] T030 Run `docker compose up --build -d`, then quickstart S1–S6 in a browser. Record the
+  result in this line. **2026-10-03: passes in a browser (checked by the user): a venue layout,
+  reserved seating with a section mapped to a tier, a seat bought in the Customer app (front, Row 4,
+  Seat 10) and shown taken and sold. The check found three bugs, each fixed with a test: CORS did
+  not allow PUT; a tier with no section looked on sale; the Admin checkbox rendered as an empty
+  bar. After the fixes, `npm test` passes 453 tests (shared 22, Backend 266, Admin 84, Customer
+  75, Booth 3, seed 3).**
 
 ---
 
