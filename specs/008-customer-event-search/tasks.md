@@ -201,6 +201,38 @@ in padded cards and styled actions.
 
 ---
 
+## Phase 8: User Story 5 - Create a Seated Venue in One Step (Priority: P3)
+
+**Goal**: Seated or General admission on the New venue form (spec FR-017; research R8).
+
+**Independent test**: Create a seated venue with A (3 × 10) and B (2 × 20); it has that layout
+and capacity 70, with no capacity typed.
+
+### Tests for User Story 5 (write first, confirm they fail)
+
+- [ ] T025 [P] [US5] Write `admin-app/test/venue-create.test.tsx`: the New venue form defaults to
+  General admission with the Seating capacity field; choosing Seated hides it and shows section
+  lines (Add section, Remove section N) and "Total: N seats"; creating a seated venue sends
+  `POST /locations` with `seatingCapacity` equal to the total, then `PUT
+  /locations/{id}/layout` with the sections in order, and returns to the venue list; a refused
+  layout shows the Backend's message, says the venue was created without its layout, and links to
+  the venue's page; General admission still sends the typed capacity and no layout request.
+
+### Implementation for User Story 5
+
+- [ ] T026 [US5] Extract the section lines editor from `admin-app/src/components/LayoutCard.tsx`
+  into `admin-app/src/components/SectionLines.tsx` and use it in both places; `LayoutCard` keeps
+  its behavior and its tests.
+- [ ] T027 [US5] In `admin-app/src/pages/LocationForm.tsx`, add the Seated / General admission
+  choice on create (not edit), the sections and total for Seated, and the two-step create per
+  research R8.
+- [ ] T028 Re-run T017's checks and T018's full suite, then a browser check of US4 and US5 with
+  T019's. Record the results in this line.
+
+**Checkpoint**: T025 passes; a seated venue is created in one step in the browser.
+
+---
+
 ## Dependencies & Execution Order
 
 - **Setup (T001)** → **Foundational (T002–T003)** → stories.

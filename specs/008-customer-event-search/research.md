@@ -113,3 +113,16 @@ cannot drift.
 **Alternatives rejected**: classes on each element would touch every page for the same result;
 a shared stylesheet package is the shared-surface change R2 already declined.
 
+## R8: A seated venue in one step (US5, added during the browser check)
+
+The New venue form gets a Seated / General admission choice (General admission by default, so
+`002`'s flow and tests are unchanged). Seated shows the same section lines as the venue page's
+layout editor, extracted into a shared `SectionLines` component, and the running total. Creating
+sends `POST /locations` with `seatingCapacity` set to that total (the contract still requires one)
+and then `PUT /locations/{id}/layout`, which sets the capacity authoritatively (`007` R11). If the
+layout is refused, the venue exists without a layout; the form says so and links to the venue's
+page. No Backend or contract change.
+
+**Alternatives rejected**: a single create-with-layout endpoint would be a contract change for one
+form; requiring a layout on every venue is the option the user declined.
+
