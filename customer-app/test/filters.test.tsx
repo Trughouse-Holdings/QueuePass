@@ -32,8 +32,10 @@ describe('filters (US1-1 to US1-4)', () => {
   it('searches by name after a pause in typing', async () => {
     const { calls } = stubApi(routes());
     renderCustomer({ at: '/events' });
+    // Loaded first, so the wait below times only the search pause, not a cold first render.
+    await screen.findByText('Season Opener', {}, { timeout: 3000 });
 
-    fireEvent.change(await screen.findByRole('searchbox', { name: 'Search events' }), {
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search events' }), {
       target: { value: '  open ' },
     });
     // The search waits for a 300 ms pause; allow for a busy test run.
