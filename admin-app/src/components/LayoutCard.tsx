@@ -3,8 +3,7 @@ import type { Location, SeatingLayout } from '@queuepass/shared';
 import { ApiError } from '../api/client';
 import { deleteLayout, getLayout, replaceLayout } from '../api/seating';
 import { ErrorBanner } from './ErrorBanner';
-
-type Line = { name: string; rows: string; seatsPerRow: string };
+import { SectionLines, toSectionInputs, type SectionLine } from './SectionLines';
 
 const plural = (n: number, one: string, many: string): string =>
   `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -23,7 +22,7 @@ const asApiError = (err: unknown): ApiError =>
  */
 export function LayoutCard({ venue }: { venue: Location }): React.ReactElement {
   const [layout, setLayout] = useState<SeatingLayout | null | 'unavailable'>(null);
-  const [lines, setLines] = useState<Line[] | null>(null);
+  const [lines, setLines] = useState<SectionLine[] | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -56,11 +55,7 @@ export function LayoutCard({ venue }: { venue: Location }): React.ReactElement {
   const save = () =>
     run(async () => {
       const saved = await replaceLayout(venue.id, {
-        sections: (lines ?? []).map((l) => ({
-          name: l.name,
-          rows: Number(l.rows),
-          seatsPerRow: Number(l.seatsPerRow),
-        })),
+        sections: toSectionInputs(lines ?? []),
       });
       setLayout(saved);
       setLines(null);
@@ -73,9 +68,6 @@ export function LayoutCard({ venue }: { venue: Location }): React.ReactElement {
       setLayout({ locationId: venue.id, totalSeats: 0, sections: [] });
     });
   };
-
-  const edit = (i: number, change: Partial<Line>) =>
-    setLines((ls) => (ls ?? []).map((l, j) => (j === i ? { ...l, ...change } : l)));
 
   return (
     <section className="card" aria-labelledby="layout-heading">
@@ -93,49 +85,8 @@ export function LayoutCard({ venue }: { venue: Location }): React.ReactElement {
             void save();
           }}
         >
-          {lines.map((l, i) => (
-            <fieldset key={i} className="form__row">
-              <legend>Section {i + 1}</legend>
-              <input
-                aria-label={`Section ${i + 1} name`}
-                value={l.name}
-                onChange={(e) => edit(i, { name: e.target.value })}
-              />
-              <input
-                type="number"
-                min={1}
-                max={100}
-                aria-label={`Section ${i + 1} rows`}
-                value={l.rows}
-                onChange={(e) => edit(i, { rows: e.target.value })}
-              />
-              <input
-                type="number"
-                min={1}
-                max={200}
-                aria-label={`Section ${i + 1} seats per row`}
-                value={l.seatsPerRow}
-                onChange={(e) => edit(i, { seatsPerRow: e.target.value })}
-              />
-              <button
-                type="button"
-                className="btn"
-                onClick={() => setLines((ls) => (ls ?? []).filter((_, j) => j !== i))}
-              >
-                Remove section {i + 1}
-              </button>
-            </fieldset>
-          ))}
+          <SectionLines lines={lines} onChange={setLines} />
           <div className="form__actions">
-            <button
-              type="button"
-              className="btn"
-              onClick={() =>
-                setLines((ls) => [...(ls ?? []), { name: '', rows: '1', seatsPerRow: '1' }])
-              }
-            >
-              Add section
-            </button>
             <button type="submit" className="btn btn--primary" disabled={busy}>
               {busy ? 'Saving…' : 'Save layout'}
             </button>

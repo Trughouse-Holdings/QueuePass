@@ -213,7 +213,7 @@ and capacity 70, with no capacity typed.
 
 ### Tests for User Story 5 (write first, confirm they fail)
 
-- [ ] T025 [P] [US5] Write `admin-app/test/venue-create.test.tsx`: the New venue form defaults to
+- [X] T025 [P] [US5] Write `admin-app/test/venue-create.test.tsx`: the New venue form defaults to
   General admission with the Seating capacity field; choosing Seated hides it and shows section
   lines (Add section, Remove section N) and "Total: N seats"; creating a seated venue sends
   `POST /locations` with `seatingCapacity` equal to the total, then `PUT
@@ -223,10 +223,10 @@ and capacity 70, with no capacity typed.
 
 ### Implementation for User Story 5
 
-- [ ] T026 [US5] Extract the section lines editor from `admin-app/src/components/LayoutCard.tsx`
+- [X] T026 [US5] Extract the section lines editor from `admin-app/src/components/LayoutCard.tsx`
   into `admin-app/src/components/SectionLines.tsx` and use it in both places; `LayoutCard` keeps
   its behavior and its tests.
-- [ ] T027 [US5] In `admin-app/src/pages/LocationForm.tsx`, add the Seated / General admission
+- [X] T027 [US5] In `admin-app/src/pages/LocationForm.tsx`, add the Seated / General admission
   choice on create (not edit), the sections and total for Seated, and the two-step create per
   research R8.
 - [ ] T028 Re-run T017's checks and T018's full suite, then a browser check of US4 and US5 with
