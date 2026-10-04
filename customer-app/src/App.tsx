@@ -11,18 +11,31 @@ import { VenueDetail } from './pages/VenueDetail';
  * (spec 006). main.tsx puts this behind sign-in and the customer role (spec 001), so no route
  * renders without both.
  */
+/** Spec 008: the Admin app's nav classes, so the current page is marked (research R2). */
+const navClass = ({ isActive }: { isActive: boolean }): string =>
+  `navlink${isActive ? ' navlink--active' : ''}`;
+
 export function App() {
   return (
-    <>
-      <header>
-        <p>QueuePass</p>
-        <nav>
-          <NavLink to="/events">Events</NavLink> <NavLink to="/venues">Venues</NavLink>{' '}
-          <NavLink to="/my-tickets">My tickets</NavLink>
-        </nav>
-        <LogoutButton />
+    <div className="app">
+      <header className="topbar">
+        <div className="topbar__inner">
+          <p className="brand">QueuePass</p>
+          <nav className="navlinks">
+            <NavLink to="/events" className={navClass}>
+              Events
+            </NavLink>
+            <NavLink to="/venues" className={navClass}>
+              Venues
+            </NavLink>
+            <NavLink to="/my-tickets" className={navClass}>
+              My tickets
+            </NavLink>
+          </nav>
+          <LogoutButton />
+        </div>
       </header>
-      <main>
+      <main className="main">
         <Routes>
           {/* The event list is the landing page; it replaces 001's hello page (spec 003). */}
           <Route path="/" element={<EventList />} />
@@ -34,7 +47,7 @@ export function App() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
-    </>
+    </div>
   );
 }
 

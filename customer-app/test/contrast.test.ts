@@ -1,0 +1,72 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { describe, it, expect } from 'vitest';
+
+/**
+ * Spec 008 FR-007 (research R2, R6): every text and state color the Customer stylesheet uses
+ * meets WCAG 2.1 AA, in light and dark. Computed from the stylesheet itself, so a token change
+ * that breaks contrast fails here instead of being eyeballed.
+ */
+// Vitest runs each workspace from its own folder (customer-app/).
+const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+
+/** The custom properties in the first block matching `selector`. */
+function tokens(selector: RegExp): Record<string, string> {
+  const block = css.match(selector)?.[1] ?? '';
+  return Object.fromEntries(
+    [...block.matchAll(/--([a-z-]+):\s*(#[0-9a-f]{6})\s*;/gi)].map((m) => [m[1], m[2]]),
+  );
+}
+
+const light = tokens(/:root\s*\{([^}]*)\}/);
+const dark = { ...light, ...tokens(/prefers-color-scheme:\s*dark\)\s*\{[^{]*\{([^}]*)\}/) };
+
+/** WCAG relative luminance of a #rrggbb color. */
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => {
+    const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+function contrast(a: string, b: string): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+const TEXT = ['text', 'text-muted', 'accent', 'danger', 'warn', 'ok'];
+const BACKGROUNDS = ['surface', 'bg'];
+
+describe.each([
+  ['light', light],
+  ['dark', dark],
+])('%s theme', (_, t) => {
+  it('defines every token the checks need', () => {
+    for (const name of [...TEXT, ...BACKGROUNDS, 'accent-text', 'border-strong']) {
+      expect(t[name], name).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it.each(TEXT.flatMap((fg) => BACKGROUNDS.map((bg) => [fg, bg])))(
+    'shows --%s text on --%s at 4.5:1 or more',
+    (fg, bg) => {
+      expect(contrast(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
+    },
+  );
+
+  it('shows button text on the accent color at 4.5:1 or more', () => {
+    expect(contrast(t['accent-text'], t['accent'])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(['border-strong', 'accent'])(
+    'draws --%s control boundaries and states at 3:1 or more on --surface',
+    (token) => {
+      expect(contrast(t[token], t['surface'])).toBeGreaterThanOrEqual(3);
+    },
+  );
+});
+
+it('never uses --text-faint for text, since it is below 4.5:1', () => {
+  expect(css).not.toMatch(/(^|[^-])color:\s*var\(--text-faint\)/m);
+});

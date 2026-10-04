@@ -1,0 +1,542 @@
+/* ============================================================================
+   QueuePass Customer app (spec 008; research R2).
+
+   Reuses the Admin app's look (constitution VII, 2.3.0): the blocks below are copied from
+   admin-app/src/styles.css, each marked with what it holds. Three changes from the source: form
+   hints and placeholders use --text-muted, because --text-faint is below 4.5:1 for text, and
+   --border-strong is darker (lighter in dark mode) so control edges reach 3:1
+   (test/contrast.test.ts). Customer-only usability rules follow at the end.
+   ========================================================================== */
+
+/* --- copied from admin-app/src/styles.css: tokens (light and dark) and base --- */
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-alt: #fafbfc;
+  --border: #e3e6ea;
+  /* Darker than the Admin #cfd4da: control edges need 3:1 (WCAG 1.4.11). */
+  --border-strong: #868e99;
+
+  --text: #16191d;
+  --text-muted: #656d78;
+  --text-faint: #8b939d;
+
+  --accent: #4f46e5;
+  --accent-hover: #4338ca;
+  --accent-soft: #eef2ff;
+  --accent-text: #ffffff;
+
+  --danger: #b42318;
+  --danger-bg: #fef3f2;
+  --danger-border: #fda29b;
+
+  --warn: #b54708;
+  --warn-bg: #fffaeb;
+  --warn-border: #fdb022;
+
+  --ok: #067647;
+  --ok-bg: #ecfdf3;
+  --ok-border: #75e0a7;
+
+  --radius: 10px;
+  --radius-sm: 7px;
+  --shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 8%);
+  --shadow-lg: 0 4px 8px -2px rgb(16 24 40 / 8%), 0 2px 4px -2px rgb(16 24 40 / 6%);
+  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0f1115;
+    --surface: #171a21;
+    --surface-alt: #1c2029;
+    --border: #272c36;
+    /* Lighter than the Admin #363d4a, for the same 3:1. */
+    --border-strong: #6f7887;
+
+    --text: #e8eaed;
+    --text-muted: #9aa3b0;
+    --text-faint: #6f7887;
+
+    --accent: #8b85f5;
+    --accent-hover: #a29bff;
+    --accent-soft: #1e1b4b;
+    --accent-text: #0f1115;
+
+    --danger: #fda29b;
+    --danger-bg: #2a1513;
+    --danger-border: #7a271a;
+
+    --warn: #fdb022;
+    --warn-bg: #2b1c0b;
+    --warn-border: #93370d;
+
+    --ok: #75e0a7;
+    --ok-bg: #0d2a1c;
+    --ok-border: #085d3a;
+
+    --shadow: 0 1px 3px rgb(0 0 0 / 40%);
+    --shadow-lg: 0 6px 16px -4px rgb(0 0 0 / 50%);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- copied from admin-app/src/styles.css: layout, page, buttons, cards --- */
+
+/* ------------------------------------------------------------------ layout */
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.topbar__inner {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  min-height: 60px;
+  flex-wrap: wrap;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 650;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  text-decoration: none;
+}
+.brand__mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--accent), #7c6cf7);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+.navlinks {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.navlink {
+  padding: 7px 13px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.navlink:hover {
+  background: var(--surface-alt);
+  color: var(--text);
+}
+.navlink--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.main {
+  flex: 1;
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+/* ------------------------------------------------------------------- page */
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.page-sub {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ------------------------------------------------------------------ button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 550;
+  font-family: inherit;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    transform 0.04s;
+  white-space: nowrap;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn--primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+.btn--primary:hover {
+  background: var(--accent-hover);
+}
+.btn--ghost {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.btn--ghost:hover {
+  background: var(--surface-alt);
+}
+
+/* ------------------------------------------------------------------- card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+/* --- copied from admin-app/src/styles.css: tables --- */
+
+/* ------------------------------------------------------------------ table */
+.table-wrap {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+thead th {
+  text-align: left;
+  padding: 11px 18px;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+tbody tr:last-child td {
+  border-bottom: none;
+}
+tbody tr {
+  transition: background 0.1s;
+}
+tbody tr:hover {
+  background: var(--surface-alt);
+}
+.cell-strong {
+  font-weight: 570;
+  color: var(--text);
+}
+.cell-muted {
+  color: var(--text-muted);
+}
+.cell-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.cell-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+.cell-action {
+  text-align: right;
+}
+.rowlink {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 550;
+  font-size: 13.5px;
+  padding: 5px 11px;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+.rowlink:hover {
+  background: var(--accent-soft);
+}
+
+.pill {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 99px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 560;
+  white-space: nowrap;
+}
+.price {
+  font-variant-numeric: tabular-nums;
+  font-weight: 560;
+  white-space: nowrap;
+}
+
+/* --- copied from admin-app/src/styles.css: empty and loading states --- */
+
+/* ------------------------------------------------------------- empty/state */
+.empty {
+  padding: 56px 24px;
+  text-align: center;
+}
+.empty__icon {
+  font-size: 28px;
+  opacity: 0.45;
+}
+.empty__title {
+  margin: 10px 0 4px;
+  font-weight: 600;
+  font-size: 15px;
+}
+.empty__body {
+  margin: 0 0 18px;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.loading {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* --- copied from admin-app/src/styles.css: forms, notes, and the 640-pixel breakpoint --- */
+
+/* -------------------------------------------------------------------- form */
+.form {
+  padding: 24px;
+  display: grid;
+  gap: 17px;
+  max-width: 560px;
+}
+.field {
+  display: grid;
+  gap: 6px;
+}
+.field label {
+  font-size: 13.5px;
+  font-weight: 560;
+  color: var(--text);
+}
+.field__hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+input,
+select {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 14.5px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+  appearance: none;
+}
+input:hover,
+select:hover {
+  border-color: var(--text-muted);
+}
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+input::placeholder {
+  color: var(--text-muted);
+}
+/* Spec 007: the first checkbox (Reserved seating). The text-input rules above would stretch it
+   into an empty bar and strip its native look, so a checkbox keeps its own size and mark. */
+input[type='checkbox'] {
+  width: auto;
+  padding: 0;
+  margin-right: 6px;
+  appearance: auto;
+  accent-color: var(--accent);
+  vertical-align: middle;
+}
+select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+    linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 17px) 52%,
+    calc(100% - 12px) 52%;
+  background-size:
+    5px 5px,
+    5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 34px;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.form__actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding-top: 5px;
+  border-top: 1px solid var(--border);
+  margin-top: 3px;
+}
+.form__actions > :first-child {
+  margin-top: 13px;
+}
+.form__actions {
+  padding-top: 16px;
+}
+
+.note {
+  margin: 18px 0 0;
+  padding: 11px 14px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.note code {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .main {
+    padding: 22px 16px 48px;
+  }
+  .topbar__inner {
+    padding: 0 16px;
+  }
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+  .page-title {
+    font-size: 21px;
+  }
+}
+
+/* --- copied from admin-app/src/styles.css: visually-hidden --- */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ============================================================================
+   Customer-only usability rules (spec 008 FR-006, FR-009; research R4)
+   ========================================================================== */
+
+/* FR-009: every control shows where the keyboard is. */
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* FR-006: touch targets at least 44 by 44 pixels. */
+.btn,
+button,
+input,
+select {
+  min-height: 44px;
+}
+button,
+.btn {
+  min-width: 44px;
+}
+input[type='checkbox'],
+input[type='radio'] {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+  margin: 0 8px 0 0;
+  padding: 0;
+  appearance: auto;
+  accent-color: var(--accent);
+  vertical-align: middle;
+}
+.choice {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  cursor: pointer;
+}
+/* Links get a tall enough tap area without changing how text flows around them. */
+.navlink,
+.tap {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}

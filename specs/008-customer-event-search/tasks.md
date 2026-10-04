@@ -26,17 +26,17 @@ test tasks and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Run `npm test --workspace @queuepass/customer-app` and record the count in this line.
+- [X] T001 Run `npm test --workspace @queuepass/customer-app` and record the count in this line. **Baseline 2026-10-03: 75 Customer tests pass.**
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T002 Write `customer-app/test/contrast.test.ts`: parse the `:root` and dark-mode token
+- [X] T002 Write `customer-app/test/contrast.test.ts`: parse the `:root` and dark-mode token
   blocks of `customer-app/src/styles.css`, and assert WCAG contrast of at least 4.5:1 for every
   text pair the stylesheet uses (`--text`, `--text-muted`, `--accent`, `--danger`, `--warn`,
   `--ok` on `--surface` and `--bg`; `--accent-text` on `--accent`) and at least 3:1 for state
   boundaries (`--border-strong` and `--accent` on `--surface`), in light and dark; and assert no
   rule sets `color: var(--text-faint)`.
-- [ ] T003 Create `customer-app/src/styles.css`: copy from `admin-app/src/styles.css` the tokens
+- [X] T003 Create `customer-app/src/styles.css`: copy from `admin-app/src/styles.css` the tokens
   (light and dark), base, `.app`/`.topbar`/`.brand`/`.navlinks`/`.navlink`, `.main`, `.page-head`,
   `.page-title`, `.btn` variants, `.card`, `.pill`, `.price`, form `input`/`select`/checkbox,
   `.field`, `.field-row`, `.form__actions`, `.note`, `.empty`, `.loading`, `.visually-hidden`, and
