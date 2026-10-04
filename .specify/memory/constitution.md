@@ -144,6 +144,11 @@ plain, semantic, and accessible. No effort goes into branding, theming, or custo
 A stub front end (a hello-world page behind sign-in, plus logout) is a complete front end until a
 spec gives it functionality.
 
+Reusing a look the project already has, to meet usability targets a spec states and tests (a
+layout that works at phone width, touch target size, WCAG contrast, states that do not rely on
+color alone, keyboard access), is usability work, not custom visual design. New branding, new
+themes, and decoration remain out of scope.
+
 Rationale: Make it function now. Make it pretty later.
 
 ### VIII. Staged Simplicity (YAGNI)
@@ -267,4 +272,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 2.2.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-03
+**Version**: 2.3.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-03
