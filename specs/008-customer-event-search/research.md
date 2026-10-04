@@ -23,7 +23,7 @@ input the customer never typed.
 
 **Empty states** (FR-004): with any filter active and nothing returned, "No events match your
 filters" and a **Clear filters** button that empties the address; with no filters and nothing
-returned, "No events yet".
+returned, `003`'s "Nothing is scheduled yet." (unchanged, FR-011).
 
 **Alternatives rejected**: downloading every event and filtering in the app would ignore `004`'s
 search and grow with every event; a Search button adds a step for no benefit at this size.
