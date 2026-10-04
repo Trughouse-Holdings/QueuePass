@@ -49,6 +49,11 @@ designing a new one.
   page after scheduling. Should it happen while scheduling? → A: Yes, in one place: the Schedule
   event form sets up reserved seating, ticket types (name and price), and each section's ticket
   type, then opens the new event. Added as US6.
+- Q: (During the browser check) Editing an event only offered the base price, not its ticket types
+  and sections; and should the base price field go? → A: The Edit form sets up ticket types and
+  sections as scheduling does, and the base price field goes everywhere: every event is priced by
+  its ticket types (general-admission types also take a quantity), and the stored base price
+  becomes the lowest ticket type price. Added as US7.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -203,6 +208,30 @@ Floor at 10 seats and Balcony at 20, and nothing else to set up.
 
 ---
 
+### User Story 7 - Price by Ticket Types, and Edit Them With the Event (Priority: P3)
+
+The Schedule and Edit event forms have no base price. Every event is priced by its ticket types:
+at least one, each with a name and price, plus a quantity for general admission (a seated
+type's seats come from its sections). Editing an event shows its ticket types and, at a venue
+with a layout, its reserved seating choice and each section's type, all changeable in that form.
+
+**Why this priority**: Added by the user during the browser check.
+
+**Independent Test**: Edit a seated event: rename a ticket type, change its price, add a type,
+and move an unsold section to it; save and see every change on the event page.
+
+**Acceptance Scenarios**:
+
+1. **Given** the Schedule or Edit event form, **Then** there is no base price field, and at least
+   one ticket type is required.
+2. **Given** a general-admission event, **Then** each ticket type takes a quantity.
+3. **Given** a seated event's Edit form, **Then** its ticket types and each section's type are
+   shown and can be changed, added, or removed, and saving applies them.
+4. **Given** a change the Backend refuses (a sold section moved, a type with orders removed),
+   **Then** its reason is shown and nothing else is lost from the form.
+
+---
+
 ### Edge Cases
 
 - **Filters in the address that make no sense** (an unknown venue, an end date before the start,
@@ -267,6 +296,11 @@ Floor at 10 seats and Balcony at 20, and nothing else to set up.
   on, create the ticket types, and map the sections, through the existing operations, then open
   the event's page. A refusal after the event exists MUST say what failed and link to the event.
   Venues without a layout and editing an event are unchanged.
+- **FR-019**: The Admin app's Schedule and Edit event forms MUST NOT ask for a base price; they
+  MUST take at least one ticket type (name, price, and, for general admission, a quantity) and
+  send the lowest ticket type price as the event's base price. The Edit form MUST show and apply
+  the event's ticket types and, at a venue with a layout, its reserved seating choice and section
+  types, through the existing operations; the Backend's refusals MUST be shown.
 
 ### Key Entities
 
@@ -295,7 +329,7 @@ status come from `006`'s availability read.
 ## Out of Scope
 
 - Sorting other than soonest first, saved searches, and full-text search of descriptions.
-- Any change to the Booth app, and any Admin change beyond FR-014–FR-018.
+- Any change to the Booth app, and any Admin change beyond FR-014–FR-019.
 - Branding, logos, images, animation, and a dark/light theme switch beyond what the reused styles
   already do.
 - Search by price, tier, or seat availability.
