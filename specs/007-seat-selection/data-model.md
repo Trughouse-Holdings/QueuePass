@@ -19,7 +19,7 @@ under the venue lock (R3).
 
 ## SectionTier (new)
 
-For one seated event with tiers, which tier one section belongs to.
+The spec's "section mapping": for one seated event with tiers, which tier one section belongs to.
 
 | Column | Type | Rules |
 |---|---|---|
