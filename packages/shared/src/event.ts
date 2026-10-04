@@ -31,7 +31,8 @@ export interface EventInput {
   locationId: string;
   startsAt: string;
   endsAt: string;
-  totalTicketCapacity: number;
+  /** Spec 007 FR-019: optional; when left out, the venue's seating capacity. */
+  totalTicketCapacity?: number;
   basePrice: string;
 }
 

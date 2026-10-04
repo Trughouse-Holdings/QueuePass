@@ -16,6 +16,10 @@
   **Customer app**: tier → section → seats in Get tickets; seats on the confirmation and My
   tickets (R8).
 
+- **Revision (R11)**: in the seated flow, the venue's capacity, the event's capacity, and each
+  tier's amount are calculated from the layout and stored; general admission keeps typed
+  numbers.
+
 Contract **1.5.0** lands in this plan PR with types regenerated (R9).
 
 ## Technical Context

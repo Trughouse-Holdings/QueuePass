@@ -29,6 +29,20 @@ The spec's "section mapping": for one seated event with tiers, which tier one se
 
 Primary key `(eventId, sectionId)`: a section has at most one tier per event.
 
+## TicketTier (changed, revision R11)
+
+| Change | Rule |
+|---|---|
+| CHECK `ticket_tier_quantity_positive` (`quantity > 0`) | replaced by `ticket_tier_quantity_non_negative` (`quantity >= 0`) |
+| `quantity` on a seated event | the seats in the sections mapped to it, recalculated on every seating write and layout save |
+
+## Location and Event (calculated values, revision R11)
+
+| Column | When the seated flow sets it |
+|---|---|
+| `Location.seatingCapacity` | to the layout's total seats, on every layout save |
+| `Event.totalTicketCapacity` | to the venue's layout total, when reserved seating turns on and on every layout save |
+
 ## Event (changed)
 
 | Column | Type | Rules |
@@ -67,3 +81,7 @@ Partial unique index `ticket_one_valid_per_seat` on `("eventId", "seatSection", 
 Creates `Section` and `SectionTier` with their FKs, indexes, and CHECKs; adds
 `Event.reservedSeating`; adds the three `Ticket` seat columns, `ticket_seat_all_or_none`, and
 `ticket_one_valid_per_seat`.
+
+## Migration `20261006000000_tier_quantity_non_negative` (revision R11)
+
+Replaces `ticket_tier_quantity_positive` with `ticket_tier_quantity_non_negative`.

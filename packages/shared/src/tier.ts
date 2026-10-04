@@ -16,7 +16,8 @@ export interface TicketTier {
 export interface TicketTierInput {
   name: string;
   price: string;
-  quantity: number;
+  /** Required without reserved seating; omitted with it (spec 007 FR-006). */
+  quantity?: number;
 }
 
 export type TicketTierUpdate = Partial<TicketTierInput>;

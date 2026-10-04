@@ -172,8 +172,9 @@ export interface paths {
         /**
          * Update a venue
          * @description Lowering `seatingCapacity` below the `totalTicketCapacity` of any event already
-         *     scheduled at this venue is refused with `CAPACITY_EXCEEDED`. Feature 007: so is lowering
-         *     it below the seats in the venue's seating layout.
+         *     scheduled at this venue is refused with `CAPACITY_EXCEEDED`. Feature 007: while the venue
+         *     has a seating layout, its `seatingCapacity` is the layout's total seats and cannot be set
+         *     here (`400`).
          */
         patch: operations["updateLocation"];
         trace?: never;
@@ -197,17 +198,22 @@ export interface paths {
         /**
          * Replace a venue's seating layout
          * @description Replaces every section with the given ones, in order (feature 007). Section names must be
-         *     unique ignoring case (`400`). Total seats may not exceed the venue's seating capacity
-         *     (`409 CAPACITY_EXCEEDED`). Refused while any scheduled event at the venue with reserved
+         *     unique ignoring case (`400`). Saving sets the venue's `seatingCapacity` to the layout's
+         *     total seats, and the `totalTicketCapacity` of every scheduled event at the venue with
+         *     reserved seating to the same total. Refused when that total is below the
+         *     `totalTicketCapacity` of a scheduled general-admission event at the venue (`409
+         *     CAPACITY_EXCEEDED`, naming it), and while any scheduled event at the venue with reserved
          *     seating has valid tickets (`409 LAYOUT_IN_USE`, `details.events`). Every event's section
-         *     mappings at this venue are dropped, because the old sections no longer exist.
+         *     mappings at this venue are dropped, because the old sections no longer exist, so their
+         *     tiers' quantities become 0 until remapped.
          */
         put: operations["replaceLayout"];
         post?: never;
         /**
          * Remove a venue's seating layout
          * @description Removes every section (feature 007). Refused as `replaceLayout` is, and also while any
-         *     scheduled event at the venue has reserved seating on (`409 LAYOUT_IN_USE`).
+         *     scheduled event at the venue has reserved seating on (`409 LAYOUT_IN_USE`). The venue
+         *     keeps its last `seatingCapacity`, which can be set by `updateLocation` again.
          */
         delete: operations["deleteLayout"];
         options?: never;
@@ -271,8 +277,10 @@ export interface paths {
          *     re-evaluated against the destination venue and window, excluding the event itself.
          *     Lowering `totalTicketCapacity` below the sum of the event's tier quantities, or below
          *     its tickets sold, is refused with `409 CAPACITY_EXCEEDED` (features 004, 005). A
-         *     cancelled event cannot be changed (`409 EVENT_CANCELLED`). Feature 007: an event with
-         *     reserved seating cannot move to another venue (`400`); turn reserved seating off first.
+         *     cancelled event cannot be changed (`409 EVENT_CANCELLED`). Feature 007: while an event has
+         *     reserved seating, it cannot move to another venue, and its `totalTicketCapacity` is its
+         *     venue's layout total and cannot be set (`400` for either); turn reserved seating off
+         *     first.
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -301,6 +309,9 @@ export interface paths {
          *     `details.remaining`). The capacity rule holds under concurrent requests. Also refused:
          *     a cancelled event (`409 EVENT_CANCELLED`), and an event that already sold tickets
          *     without tiers (`409 EVENT_HAS_ORDERS`), since those tickets would belong to no tier.
+         *     Feature 007: for an event with reserved seating, `quantity` must be omitted (`400`
+         *     otherwise): the tier's quantity is the seats in its mapped sections, 0 until mapped. For
+         *     any other event it is required (`400`).
          */
         post: operations["createTicketTier"];
         delete?: never;
@@ -337,7 +348,8 @@ export interface paths {
          * Update a ticket tier
          * @description Same rules as creating one, evaluated against the event's other tiers. `quantity` may not
          *     drop below the tier's tickets sold (`409 CAPACITY_EXCEEDED`). A price change does not
-         *     affect orders already placed.
+         *     affect orders already placed. Feature 007: for an event with reserved seating, `quantity`
+         *     cannot be set (`400`); it follows the tier's mapped sections.
          */
         patch: operations["updateTicketTier"];
         trace?: never;
@@ -411,7 +423,9 @@ export interface paths {
          *     (`409 EVENT_HAS_ORDERS`), and turn on only when its venue has a layout (`400`). Each
          *     `sectionId` must be a section of the venue and each `tierId` a tier of the event (`400`).
          *     A section with valid tickets cannot move to another tier (`409 EVENT_HAS_ORDERS`). A
-         *     cancelled event cannot change (`409 EVENT_CANCELLED`).
+         *     cancelled event cannot change (`409 EVENT_CANCELLED`). With reserved seating on, the event's
+         *     `totalTicketCapacity` becomes its venue's layout total and each tier's `quantity` becomes
+         *     the seats in the sections mapped to it (0 with none); turning it off keeps those numbers.
          */
         put: operations["updateSeating"];
         post?: never;
@@ -667,8 +681,11 @@ export interface components {
              * @description Must be strictly after `startsAt`.
              */
             endsAt: string;
-            /** @description Must not exceed the venue's `seatingCapacity`. */
-            totalTicketCapacity: number;
+            /**
+             * @description Must not exceed the venue's `seatingCapacity`. Feature 007: optional; when left out it
+             *     is the venue's `seatingCapacity`.
+             */
+            totalTicketCapacity?: number;
             /** @description Non-negative decimal string. */
             basePrice: string;
         };
@@ -697,7 +714,11 @@ export interface components {
              * @example 120.00
              */
             price: string;
-            /** @example 500 */
+            /**
+             * @description Typed for a general-admission event. Feature 007: for an event with reserved seating,
+             *     the seats in the sections mapped to this tier; 0 when none are.
+             * @example 500
+             */
             quantity: number;
             /** Format: date-time */
             createdAt: string;
@@ -709,8 +730,11 @@ export interface components {
             name: string;
             /** @description Non-negative decimal string. */
             price: string;
-            /** @description The event's tiers together may not exceed its `totalTicketCapacity`. */
-            quantity: number;
+            /**
+             * @description The event's tiers together may not exceed its `totalTicketCapacity`. Required without
+             *     reserved seating; omitted with it (feature 007).
+             */
+            quantity?: number;
         };
         /** @description Partial update; supply only the fields being changed. */
         TicketTierUpdate: {
