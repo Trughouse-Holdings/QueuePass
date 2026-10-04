@@ -168,13 +168,47 @@ results (quickstart E1).
 
 ---
 
+## Phase 7: User Story 4 - Detail Pages Match the Top Bar, in Both Apps (Priority: P3)
+
+**Goal**: Shared layout rules, identical in both apps (spec FR-014–FR-016; research R7).
+
+**Independent test**: An event's page in each app and My tickets show aligned label/value pairs
+in padded cards and styled actions.
+
+### Tests for User Story 4 (write first, confirm they fail)
+
+- [ ] T020 [P] [US4] Write `customer-app/test/shared-look.test.ts`: read `customer-app/src/styles.css`
+  and `admin-app/src/styles.css`, extract the block between `/* >>> shared detail layout` and
+  `/* <<< shared detail layout */`, and assert it exists in both, is identical, and contains rules
+  for `a`, `.btn` with a `background`, `.topbar button`, `dl` with `display: grid`, `dt`, `.card`
+  child spacing, `.card + .card`, and `.page-head .form__actions`.
+- [ ] T021 [P] [US4] Add to `customer-app/test/my-tickets.test.tsx`: the Tickets list has the
+  `ticket-list` class (its rows' text is unchanged); and to `customer-app/test/browse.test.tsx`:
+  the event page's and venue page's details sit inside an element with the `card` class.
+
+### Implementation for User Story 4
+
+- [ ] T022 [US4] Add the shared block per research R7 to `admin-app/src/styles.css` and the same
+  block to `customer-app/src/styles.css`, plus `.ticket-list` rows in the Customer stylesheet.
+- [ ] T023 [US4] Customer markup: `customer-app/src/pages/MyTickets.tsx` gives the Tickets list the
+  `ticket-list` class; `customer-app/src/pages/EventDetail.tsx` and
+  `customer-app/src/pages/VenueDetail.tsx` wrap their details in a `card`; give their titles the
+  `page-title` class. No text or behavior changes.
+- [ ] T024 Re-run T017's checks and T018's full test suite, then T019's browser check including an
+  Admin event page. Record the results in this line.
+
+**Checkpoint**: T020–T021 pass; both apps' detail pages match the top bar in the browser.
+
+---
+
 ## Dependencies & Execution Order
 
 - **Setup (T001)** → **Foundational (T002–T003)** → stories.
 - **US1** (filters) and **US2** (cards) both change `EventList.tsx`: do US1 first, then US2.
 - **US3** needs only Foundational; its tests and `SeatPicker.tsx` work can run alongside US1, but
   T015 edits `GetTickets.tsx` after US2's T010 does.
-- **Polish (T016–T019)** after all stories.
+- **Polish (T016–T019)** after all stories; **US4 (T020–T024)** was added during T019's browser
+  check and closes with its own re-run of the checks (T024).
 
 ## Parallel Opportunities
 

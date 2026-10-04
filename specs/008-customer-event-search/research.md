@@ -94,3 +94,22 @@ Glyph, border style, and pattern each differ, so states hold in grayscale. Names
   each text pair is at least 4.5:1 and each state boundary at least 3:1, light and dark.
 - **Running-system check**: 375-pixel width with no sideways scrolling and 44-pixel targets,
   checked in a browser's device mode (quickstart).
+
+## R7: Detail pages match the top bar, in both apps (US4, added during the browser check)
+
+The browser check showed four gaps the Admin app shares: `.btn` has no background unless a
+variant class is added (so `.btn` links look like links and `.btn` buttons fall back to gray system
+buttons), no base link color (browser blue and purple in dark mode), `<dl>` in browser defaults
+(label above, value indented), and content placed straight in a `.card` touching its edges.
+
+**Decision**: one block of shared rules, **identical in both stylesheets** between marker
+comments: `a` in the accent color; `.btn` with the ghost look by default (variants still
+override); the top bar's Log out button styled as a `.btn`; `dl` as a two-column label/value grid
+with muted labels; inner spacing for a card's direct children except tables and forms, which pad
+themselves; space between stacked cards; and `.page-head .form__actions` without the form's top
+rule. My tickets' codes become `ticket-list` rows. A test compares the two blocks so the apps
+cannot drift.
+
+**Alternatives rejected**: classes on each element would touch every page for the same result;
+a shared stylesheet package is the shared-surface change R2 already declined.
+
