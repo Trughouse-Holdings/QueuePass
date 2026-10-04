@@ -143,6 +143,23 @@ describe('a tier with no seats on sale (FR-006)', () => {
     expect(screen.getByRole('radio', { name: /General/ })).toBeEnabled();
   });
 
+  it('shows a tier at its quantity as sold out, though its sections have open seats', async () => {
+    const r = routes();
+    r['GET /events/e1/availability'] = json(
+      availability({
+        ticketsLeft: 40,
+        tiers: [
+          { tierId: 't-gen', ticketsLeft: 40 },
+          { tierId: 't-vip', ticketsLeft: 0 },
+        ],
+      }),
+    );
+    stubApi(r);
+    renderCustomer({ at: '/events/e1' });
+
+    expect(await screen.findByRole('radio', { name: 'VIP, $120.00, sold out' })).toBeDisabled();
+  });
+
   it('says no seats are on sale when no tier has a section', async () => {
     const unmapped = seatMap();
     unmapped.sections = unmapped.sections.map((x) => ({ ...x, tierId: null }));
