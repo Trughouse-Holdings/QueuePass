@@ -129,26 +129,26 @@ results (quickstart E1).
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T011 [P] [US3] Add to `customer-app/test/seats.test.tsx`: a chosen seat shows "✓" before its
+- [X] T011 [P] [US3] Add to `customer-app/test/seats.test.tsx`: a chosen seat shows "✓" before its
   number and has `aria-pressed="true"`; a taken seat shows "✕" instead of its number and is
   `disabled`; an open seat shows only its number; seat names stay "Row R, Seat S"; each section's
   seats sit in a region named "Section {name} seats" that is scrollable on its own.
-- [ ] T012 [P] [US3] Write `customer-app/test/keyboard.test.tsx` (with `@testing-library/user-event`):
+- [X] T012 [P] [US3] Write `customer-app/test/keyboard.test.tsx` (with `@testing-library/user-event`):
   tabbing from the page start on Events reaches the search box, venue select, start date, end
   date, Hide cancelled, and the first card's link, in that order; on a seated event, Tab and Space
   choose a tier, Tab reaches the section select and then the first open seat, Space chooses it
   (`aria-pressed="true"`), and Tab skips taken seats (spec FR-009, SC-004).
-- [ ] T013 [P] [US3] Add to `customer-app/test/purchase-unavailable.test.tsx`: sold-out tiers, a
+- [X] T013 [P] [US3] Add to `customer-app/test/purchase-unavailable.test.tsx`: sold-out tiers, a
   cancelled event, and closed sales show their status as a badge element (class `pill`) as well
   as the existing text.
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] In `customer-app/src/components/SeatPicker.tsx`, render the glyphs and state
+- [X] T014 [US3] In `customer-app/src/components/SeatPicker.tsx`, render the glyphs and state
   classes per research R5 and wrap the grid in a labelled `overflow-x: auto` region; add
   `.seat`, `.seat--chosen` (accent fill, thicker border), and `.seat--taken` (hatched stripes,
   dashed border) to `customer-app/src/styles.css`.
-- [ ] T015 [US3] In `customer-app/src/components/GetTickets.tsx`, show sold-out, cancelled, and
+- [X] T015 [US3] In `customer-app/src/components/GetTickets.tsx`, show sold-out, cancelled, and
   sales-closed statuses as badges alongside their existing text.
 
 **Checkpoint**: T011–T013 pass; quickstart E5 works in the browser.

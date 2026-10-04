@@ -600,3 +600,54 @@ input[type='radio'] {
   padding: 16px 18px;
   margin: 18px 0;
 }
+
+/* Spec 008 FR-008 (research R5): seats. Open, chosen, and taken differ by glyph, border, and
+   pattern, so they hold in grayscale; color only adds to that. */
+.seat-scroll {
+  overflow-x: auto;
+  padding: 6px 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.seat-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin: 4px 0;
+  white-space: nowrap;
+}
+.seat-row__label {
+  min-width: 64px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.seat {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.seat--chosen {
+  border: 3px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.seat--taken {
+  border-style: dashed;
+  color: var(--text-muted);
+  cursor: not-allowed;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--surface-alt),
+    var(--surface-alt) 4px,
+    var(--border) 4px,
+    var(--border) 8px
+  );
+}

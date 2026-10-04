@@ -158,6 +158,14 @@ export function GetTickets({ event }: { event: Event }) {
 
   if (phase.kind === 'done') return <Confirmation event={event} order={phase.order} />;
 
+  const closedBadge =
+    left.salesClosed === 'CANCELLED'
+      ? 'Cancelled'
+      : left.salesClosed === 'STARTED'
+        ? 'Sales closed'
+        : left.ticketsLeft === 0
+          ? 'Sold out'
+          : 'Not on sale';
   const closed =
     left.salesClosed === 'CANCELLED'
       ? 'No tickets: this event has been cancelled.'
@@ -194,7 +202,13 @@ export function GetTickets({ event }: { event: Event }) {
           </button>
         </div>
       ) : closed ? (
-        <p>{closed}</p>
+        <>
+          {/* Spec 008 US3-2: the status as a badge, beside the sentence that explains it. */}
+          <p>
+            <span className="pill pill--danger">{closedBadge}</span>
+          </p>
+          <p>{closed}</p>
+        </>
       ) : (
         chooseAndConfirm()
       )}
@@ -230,6 +244,12 @@ export function GetTickets({ event }: { event: Event }) {
                   : tierLeft(t.id) === 0
                     ? `${t.name}, ${usd(t.price)}, sold out`
                     : `${t.name}, ${usd(t.price)}, ${count(tierLeft(t.id))} left`}
+                {/* Spec 008 US3-2: hidden from the name, which already says it. */}
+                {onSale(t) && tierLeft(t.id) === 0 && (
+                  <span className="pill pill--danger" aria-hidden="true">
+                    Sold out
+                  </span>
+                )}
               </label>
             ))}
           </fieldset>
