@@ -358,5 +358,8 @@ saved; a new event left blank gets 70; seated tiers show 30 and 40 from their se
   quantity optional, required without seating and refused with it.
 - [X] T036 Admin app: `admin-app/src/pages/LocationForm.tsx`, `admin-app/src/pages/EventForm.tsx`,
   and `admin-app/src/components/TierSection.tsx` per T033.
-- [ ] T037 Run `npm test`, lint, build, Prettier, boundary, and drift; then quickstart S1 and S2
-  in a browser. Record the results in this line.
+- [X] T037 Run `npm test`, lint, build, Prettier, boundary, and drift; then quickstart S1 and S2
+  in a browser. Record the results in this line. **2026-10-03: lint, build, Prettier, boundary,
+  and drift pass; `npm test` passes 468 tests (shared 22, Backend 275, Admin 90, Customer 75,
+  Booth 3, seed 3); the revised S1 and S2 pass in a browser (checked by the user). The migration
+  also recalculates existing seated data once, so earlier data matches the new rules.**
