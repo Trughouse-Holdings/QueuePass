@@ -167,7 +167,9 @@ results (quickstart E1).
   pass — shared 22, Backend 275, Admin 90, Customer 132, Booth 3, seed 3. Backend and Admin are
   unchanged, as FR-012 requires.**
 - [ ] T019 Run `docker compose up --build -d`, the demo-data command, and quickstart E1–E5 in a
-  browser, including device mode at 375 × 812. Record the result in this line.
+  browser, including device mode at 375 × 812. Record the result in this line. **2026-10-04:
+  E1–E5 checked in a desktop browser by the feature owner after a fresh wipe; the 375 × 812
+  device-mode check is still to be recorded.**
 
 ---
 
@@ -197,8 +199,9 @@ in padded cards and styled actions.
   `ticket-list` class; `customer-app/src/pages/EventDetail.tsx` and
   `customer-app/src/pages/VenueDetail.tsx` wrap their details in a `card`; give their titles the
   `page-title` class. No text or behavior changes.
-- [ ] T024 Re-run T017's checks and T018's full test suite, then T019's browser check including an
-  Admin event page. Record the results in this line.
+- [X] T024 Re-run T017's checks and T018's full test suite, then T019's browser check including an
+  Admin event page. Record the results in this line. **2026-10-04: lint, Prettier, build, boundary, and drift pass; 553 tests pass (shared 22, Backend 275, Admin 106, Customer 144, Booth 3, seed 3); the
+  feature owner checked both apps' detail pages, the Admin event page included.**
 
 **Checkpoint**: T020–T021 pass; both apps' detail pages match the top bar in the browser.
 
@@ -229,8 +232,9 @@ and capacity 70, with no capacity typed.
 - [X] T027 [US5] In `admin-app/src/pages/LocationForm.tsx`, add the Seated / General admission
   choice on create (not edit), the sections and total for Seated, and the two-step create per
   research R8.
-- [ ] T028 Re-run T017's checks and T018's full suite, then a browser check of US4 and US5 with
-  T019's. Record the results in this line.
+- [X] T028 Re-run T017's checks and T018's full suite, then a browser check of US4 and US5 with
+  T019's. Record the results in this line. **2026-10-04: lint, Prettier, build, boundary, and drift pass; 553 tests pass (shared 22, Backend 275, Admin 106, Customer 144, Booth 3, seed 3); a seated venue was
+  created in one step in the browser.**
 
 **Checkpoint**: T025 passes; a seated venue is created in one step in the browser.
 
@@ -261,8 +265,9 @@ FR-018; research R9).
 - [X] T030 [US6] In `admin-app/src/pages/EventForm.tsx` (create only), load the chosen venue's
   layout, render the Tickets and seating section, and run the steps per research R9 through
   `admin-app/src/api/events.ts`, `admin-app/src/api/tiers.ts`, and `admin-app/src/api/seating.ts`.
-- [ ] T031 Re-run T017's checks and T018's full suite, then the browser check with T019, T024, and
-  T028. Record the results in this line.
+- [X] T031 Re-run T017's checks and T018's full suite, then the browser check with T019, T024, and
+  T028. Record the results in this line. **2026-10-04: lint, Prettier, build, boundary, and drift pass; 553 tests pass (shared 22, Backend 275, Admin 106, Customer 144, Booth 3, seed 3); an event at a laid-out
+  venue was fully set up from one form in the browser.**
 
 **Checkpoint**: T029 passes; an event at a laid-out venue is fully set up from one form.
 
@@ -292,8 +297,9 @@ research R10).
 - [X] T034 [US7] In `admin-app/src/pages/EventForm.tsx`, remove the base price field, make ticket
   types part of both forms (quantity for general admission), load and apply them on edit, and
   send the lowest type price as `basePrice`, per research R10.
-- [ ] T035 Re-run T017's checks and T018's full suite, then the browser check with T019, T024,
-  T028, and T031. Record the results in this line.
+- [X] T035 Re-run T017's checks and T018's full suite, then the browser check with T019, T024,
+  T028, and T031. Record the results in this line. **2026-10-04: lint, Prettier, build, boundary, and drift pass; 553 tests pass (shared 22, Backend 275, Admin 106, Customer 144, Booth 3, seed 3); both forms
+  price by ticket types in the browser, and Edit changed ticket types and section types.**
 
 **Checkpoint**: T032–T033 pass; both forms price by ticket types in the browser.
 
