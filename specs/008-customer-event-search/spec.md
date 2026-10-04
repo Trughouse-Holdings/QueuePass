@@ -37,6 +37,10 @@ designing a new one.
   already has: name, date and time, venue, base price, and a Cancelled badge. The event page,
   which already loads tiers and availability, shows tier prices and the Sold out and Sales closed
   badges. No extra requests per card and no Backend change.
+- Q: (During the browser check) Should detail pages in both apps match the top bar's look? → A:
+  Yes. The user found label/value lists, links in browser-default blue, plain gray buttons, and
+  edge-to-edge text inside cards inconsistent with the top bar in both apps. Added as US4; the
+  Admin app is now in scope for these shared layout rules only.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -115,6 +119,29 @@ in at least one way besides color (a mark, border, or pattern) and is announced 
 
 ---
 
+### User Story 4 - Detail Pages Match the Top Bar, in Both Apps (Priority: P3)
+
+In both apps, detail pages read as tidy panels: labels and values sit side by side inside cards
+with inner spacing, links and action buttons look like the top bar's controls, and lists of
+ticket codes read as a list of codes rather than bullet points.
+
+**Why this priority**: Added by the user during the browser check; it changes no behavior.
+
+**Independent Test**: Open an event's page in each app and My tickets in the Customer app; confirm
+labels and values align in two columns inside padded cards and every action is a styled button.
+
+**Acceptance Scenarios**:
+
+1. **Given** a detail page in either app, **Then** each label and its value sit on one line, the
+   label muted, inside a card whose content does not touch its edges.
+2. **Given** an action such as Attendees, Edit, Cancel event, Delete, or Log out, **Then** it looks
+   like the app's buttons, never a browser-default link or gray system button.
+3. **Given** any link in dark mode, **Then** it uses the app's accent color, never browser-default
+   blue or purple.
+4. **Given** My tickets, **Then** each ticket code reads as a row with its state, without bullets.
+
+---
+
 ### Edge Cases
 
 - **Filters in the address that make no sense** (an unknown venue, an end date before the start,
@@ -162,6 +189,12 @@ in at least one way besides color (a mark, border, or pattern) and is announced 
   invalid address filters, both empty states, the cards' content and badges, and the seat states'
   non-color differences and announcements; the 375-pixel and contrast checks MUST be verified in
   the running-system check.
+- **FR-014**: In both apps, label/value lists MUST show each label beside its value, the label in
+  the muted text color, and content placed directly in a card MUST have inner spacing.
+- **FR-015**: In both apps, links and buttons that perform actions (including Log out) MUST use
+  the app's button styles, and every link MUST use the accent color in light and dark mode.
+- **FR-016**: These shared layout rules MUST be identical in both apps' stylesheets, checked by a
+  test, and MUST NOT change any text, control, or behavior.
 
 ### Key Entities
 
@@ -190,7 +223,7 @@ status come from `006`'s availability read.
 ## Out of Scope
 
 - Sorting other than soonest first, saved searches, and full-text search of descriptions.
-- Any change to the Admin app or the Booth app.
+- Any change to the Booth app, and any Admin change beyond FR-014–FR-016's shared layout rules.
 - Branding, logos, images, animation, and a dark/light theme switch beyond what the reused styles
   already do.
 - Search by price, tier, or seat availability.
