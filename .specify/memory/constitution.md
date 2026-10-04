@@ -220,7 +220,7 @@ number is a pull request against this table. The next free number is `010`.
 | `005-admin-orders-reporting` | Orders and tickets in the Backend; Admin sales dashboard, attendee lists, and safe event cancellation | `004` |
 | `006-customer-ticket-purchase` | Customer app screens to choose a tier, get tickets, and see them (payment simulated) | `003`, `005` |
 | `007-seat-selection` | Seating layouts per venue (sections, rows, seats) mapped to tiers; Admin seat map of sold and open seats; customers choose seats when getting tickets; no seat sold twice | `004`, `005`, `006` |
-| `008-customer-event-search` | Customer app search and filters for events (name, venue, date range, hide cancelled) using the existing event search | `003`, `004` |
+| `008-customer-event-search` | Customer app search and filters for events (name, venue, date range, hide cancelled) using the existing event search; Customer app usability (phone-width layout, event cards, distinguishable seat and status states, keyboard access, AA contrast) reusing the Admin app's existing look | `003`, `004` |
 | `009-admin-order-management` | Admin order lookup by ticket code or customer; refund a single order, voiding its tickets and freeing its seats | `005`, `007` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
@@ -267,4 +267,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 2.2.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-03
+**Version**: 2.2.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-03
