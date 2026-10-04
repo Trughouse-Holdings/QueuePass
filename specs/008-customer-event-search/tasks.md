@@ -233,6 +233,38 @@ and capacity 70, with no capacity typed.
 
 ---
 
+## Phase 9: User Story 6 - Set Up Ticket Types and Sections While Scheduling (Priority: P3)
+
+**Goal**: One form schedules a seated event with its ticket types and section mapping (spec
+FR-018; research R9).
+
+**Independent test**: Schedule an event at a three-section venue with Floor (front) and Balcony
+(middle, back); it opens with Floor 10 and Balcony 20.
+
+### Tests for User Story 6 (write first, confirm they fail)
+
+- [ ] T029 [P] [US6] Write `admin-app/test/event-seating-create.test.tsx`: choosing a venue with a
+  layout shows Reserved seating (checked) and General admission, ticket type lines (name, price,
+  Add ticket type, Remove), one select per section ("Section front ticket type") listing the types
+  and Not for sale, each type's seat total, and no Total tickets field; scheduling sends, in order,
+  `POST /events` without `totalTicketCapacity`, `PUT /events/{id}/seating` with
+  `reservedSeating: true` and no sections, one `POST /events/{id}/tiers` per type with name and
+  price only, and `PUT /events/{id}/seating` with each section's new tier id, then shows the event
+  page; a refused tier shows the Backend's message and a link to the event page; choosing General
+  admission keeps the plain form; a venue without a layout shows no Tickets and seating section.
+
+### Implementation for User Story 6
+
+- [ ] T030 [US6] In `admin-app/src/pages/EventForm.tsx` (create only), load the chosen venue's
+  layout, render the Tickets and seating section, and run the steps per research R9 through
+  `admin-app/src/api/events.ts`, `admin-app/src/api/tiers.ts`, and `admin-app/src/api/seating.ts`.
+- [ ] T031 Re-run T017's checks and T018's full suite, then the browser check with T019, T024, and
+  T028. Record the results in this line.
+
+**Checkpoint**: T029 passes; an event at a laid-out venue is fully set up from one form.
+
+---
+
 ## Dependencies & Execution Order
 
 - **Setup (T001)** → **Foundational (T002–T003)** → stories.

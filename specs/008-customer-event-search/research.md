@@ -126,3 +126,18 @@ page. No Backend or contract change.
 **Alternatives rejected**: a single create-with-layout endpoint would be a contract change for one
 form; requiring a layout on every venue is the option the user declined.
 
+## R9: Ticket types and sections while scheduling (US6, added during the browser check)
+
+When the chosen venue has a layout (`GET /locations/{id}/layout`), the Schedule event form shows
+a **Tickets and seating** section: Reserved seating (default) or General admission; ticket type
+lines (name, price); one row per section with a ticket type select, defaulting to the first type;
+each type's seat total. Scheduling runs the existing operations in order: `POST /events` without a
+capacity (the venue's, `007` FR-019); `PUT /events/{id}/seating` to turn reserved seating on;
+`POST /events/{id}/tiers` per type without a quantity; `PUT /events/{id}/seating` with the
+mappings, which sets each tier's quantity (`007` R11); then navigate to `/events/{id}`. A refusal
+after the first step stops there, shows the Backend's message, and links to the event's page,
+whose cards can finish the setup. No Backend or contract change.
+
+**Alternatives rejected**: one create-with-seating endpoint would be atomic but is a contract
+change with all-member approval for one form; the event page's cards stay for later changes.
+
