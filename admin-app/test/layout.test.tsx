@@ -110,7 +110,10 @@ describe('Seating layout card', () => {
       'LAYOUT_IN_USE',
       'The seating layout of Yum Center is in use by "Season Opener", which has sold seats.',
     ],
-    ['CAPACITY_EXCEEDED', 'The layout has 40,000 seats; Yum Center seats only 22,090.'],
+    [
+      'CAPACITY_EXCEEDED',
+      'The layout has 70 seats, fewer than "Big Night" sells (100 tickets). Lower its capacity first.',
+    ],
   ])("shows a %s refusal in the Backend's words", async (code, message) => {
     stubApi(routes({ [`PUT ${LAYOUT_PATH}`]: json({ error: { code, message } }, 409) }));
     renderPage();

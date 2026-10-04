@@ -1,4 +1,10 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Location } from '@prisma/client';
 import { searchText } from '../common/search-text';
 import { PrismaService } from '../prisma/prisma.service';
@@ -38,6 +44,18 @@ export class LocationsService {
   async update(id: string, dto: UpdateLocationDto): Promise<Location> {
     await this.findOne(id);
 
+    // Spec 007 FR-017: a venue with a seating layout takes its capacity from the layout.
+    if (
+      dto.seatingCapacity !== undefined &&
+      (await this.prisma.section.count({ where: { locationId: id } })) > 0
+    ) {
+      throw new BadRequestException({
+        message: [
+          "seatingCapacity is set by this venue's seating layout; change the layout instead",
+        ],
+      });
+    }
+
     // Cross-table rule, so it cannot be a database constraint: reducing seating capacity
     // below an already-scheduled event's ticket capacity would leave that event silently
     // invalid (research R8, spec Edge Cases).
@@ -63,24 +81,6 @@ export class LocationsService {
                   totalTicketCapacity: offending.totalTicketCapacity,
                 },
               },
-            },
-          },
-          HttpStatus.CONFLICT,
-        );
-      }
-
-      // Spec 007: a venue's seating layout never holds more seats than the venue (FR-001).
-      const sections = await this.prisma.section.findMany({ where: { locationId: id } });
-      const layoutSeats = sections.reduce((n, s) => n + s.rows * s.seatsPerRow, 0);
-      if (layoutSeats > dto.seatingCapacity) {
-        throw new HttpException(
-          {
-            error: {
-              code: 'CAPACITY_EXCEEDED',
-              message:
-                `Cannot reduce seating capacity to ${dto.seatingCapacity}; ` +
-                `the seating layout has ${layoutSeats} seats.`,
-              details: { proposedSeatingCapacity: dto.seatingCapacity, layoutSeats },
             },
           },
           HttpStatus.CONFLICT,

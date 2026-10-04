@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { createLocation, getLocation, updateLocation } from '../api/locations';
+import { getLayout } from '../api/seating';
 import { ApiError } from '../api/client';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { SuccessState } from '../components/SuccessState';
@@ -14,6 +15,8 @@ export function LocationForm(): React.ReactElement {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [seatingCapacity, setSeatingCapacity] = useState('');
+  // Spec 007 FR-017: a venue with a seating layout takes its capacity from it.
+  const [setByLayout, setSetByLayout] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -27,6 +30,9 @@ export function LocationForm(): React.ReactElement {
         setSeatingCapacity(String(l.seatingCapacity));
       })
       .catch((err: ApiError) => setError(err));
+    getLayout(id)
+      .then((layout) => setSetByLayout(layout.sections.length > 0))
+      .catch(() => setSetByLayout(false));
   }, [id]);
 
   async function handleSubmit(e: React.FormEvent): Promise<void> {
@@ -38,7 +44,8 @@ export function LocationForm(): React.ReactElement {
     const payload = { name, address, seatingCapacity: Number(seatingCapacity) };
 
     try {
-      if (isEdit && id) await updateLocation(id, payload);
+      // Spec 007 FR-017: a laid-out venue's capacity is never sent; its layout sets it.
+      if (isEdit && id) await updateLocation(id, setByLayout ? { name, address } : payload);
       else await createLocation(payload);
       setSaved(true);
       setTimeout(() => navigate('/locations'), 700);
@@ -85,20 +92,27 @@ export function LocationForm(): React.ReactElement {
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="seatingCapacity">Seating capacity</label>
-            <input
-              id="seatingCapacity"
-              type="number"
-              min={1}
-              value={seatingCapacity}
-              placeholder="22090"
-              onChange={(e) => setSeatingCapacity(e.target.value)}
-            />
-            <span className="field__hint">
-              An event scheduled here cannot sell more tickets than this.
-            </span>
-          </div>
+          {setByLayout ? (
+            <p className="note">
+              {`Seating capacity: ${Number(seatingCapacity).toLocaleString()}, set by its seating layout.`}
+            </p>
+          ) : (
+            <div className="field">
+              <label htmlFor="seatingCapacity">Seating capacity</label>
+              <input
+                id="seatingCapacity"
+                type="number"
+                min={1}
+                value={seatingCapacity}
+                placeholder="22090"
+                onChange={(e) => setSeatingCapacity(e.target.value)}
+              />
+              <span className="field__hint">
+                An event scheduled here cannot sell more tickets than this. A seating layout, once
+                added on the venue page, sets it instead.
+              </span>
+            </div>
+          )}
 
           <div className="form__actions">
             <button type="submit" className="btn btn--primary" disabled={busy}>

@@ -79,7 +79,7 @@ describe('Orders with seats', () => {
 
   it('refuses malformed seat choices with 400 and records nothing', async () => {
     const { eventId, vip } = await tiered();
-    const gaEvent = await event(ctx, venueId);
+    const gaEvent = await event(ctx, venueId, { capacity: 70 });
     const elsewhere = await venue(ctx, 'Other Hall');
     const other = await asAdmin(ctx)
       .put(`/locations/${elsewhere}/layout`)
@@ -154,15 +154,19 @@ describe('Orders with seats', () => {
     expect(await ctx.prisma.order.count()).toBe(1);
   });
 
-  it("still stops at the tier's quantity with seats open", async () => {
-    const { eventId, vip } = await tiered(1);
-    await order(eventId, { tierId: vip, quantity: 1, seats: [seat(sectionA, 1, 1)] }).then((r) =>
-      expect(r.status).toBe(201),
-    );
-
-    const res = await order(eventId, { tierId: vip, quantity: 1, seats: [seat(sectionA, 1, 2)] });
-    expect(res.status).toBe(409);
-    expect(code(res)).toBe('SOLD_OUT');
+  // Revision R11: a seated tier's amount is its sections' seats, so it sells out exactly when
+  // they do; the old case of a typed quantity below the seats no longer exists.
+  it("sets a seated tier's amount to its sections' seats", async () => {
+    const { eventId } = await tiered();
+    const tiers = await asAdmin(ctx).get(`/events/${eventId}/tiers`).expect(200);
+    expect(
+      Object.fromEntries(
+        tiers.body.map((t: { name: string; quantity: number }) => [t.name, t.quantity]),
+      ),
+    ).toEqual({
+      VIP: 30,
+      General: 40,
+    });
   });
 
   it('treats a repeated requestId with the same seats as a repeat, and different seats as reuse', async () => {
@@ -184,7 +188,7 @@ describe('Orders with seats', () => {
   it('shows seats on My orders and the attendee list, and none for general admission', async () => {
     const { eventId, vip } = await tiered();
     await order(eventId, { tierId: vip, quantity: 1, seats: [seat(sectionA, 3, 10)] });
-    const gaEvent = await event(ctx, venueId);
+    const gaEvent = await event(ctx, venueId, { capacity: 70 });
     const ga = await order(gaEvent, { quantity: 1 });
     expect(ga.body.tickets[0].seat).toBeNull();
 

@@ -5,6 +5,7 @@ import { conflict } from '../common/conflict';
 import { LOCKING_TX } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { LayoutInputDto } from './dto/layout-input.dto';
+import { recalcSeatedTiers } from './tier-seats';
 
 const toLayout = (locationId: string, sections: Section[]): SeatingLayout => ({
   locationId,
@@ -48,15 +49,28 @@ export class LayoutService {
         });
       }
       const totalSeats = dto.sections.reduce((n, s) => n + s.rows * s.seatsPerRow, 0);
-      if (totalSeats > venue.seatingCapacity) {
+      await this.assertNoSeatedSales(tx, locationId, venue.name);
+
+      // FR-017: the layout becomes the venue's capacity, so a general-admission event that
+      // already sells more than the new total would exceed its venue (spec 002).
+      const tooBig = await tx.event.findFirst({
+        where: {
+          locationId,
+          status: 'SCHEDULED',
+          reservedSeating: false,
+          totalTicketCapacity: { gt: totalSeats },
+        },
+        orderBy: { totalTicketCapacity: 'desc' },
+      });
+      if (tooBig) {
         throw conflict(
           'CAPACITY_EXCEEDED',
-          `The layout has ${totalSeats.toLocaleString('en-US')} seats; ${venue.name} seats only ` +
-            `${venue.seatingCapacity.toLocaleString('en-US')}.`,
-          { totalSeats, seatingCapacity: venue.seatingCapacity },
+          `The layout has ${totalSeats.toLocaleString('en-US')} seats, fewer than "${tooBig.name}" ` +
+            `sells (${tooBig.totalTicketCapacity.toLocaleString('en-US')} tickets). Lower its ` +
+            'capacity first.',
+          { totalSeats, conflictingEvent: { id: tooBig.id, name: tooBig.name } },
         );
       }
-      await this.assertNoSeatedSales(tx, locationId, venue.name);
 
       // Deleting the sections drops every event's mappings at this venue (ON DELETE CASCADE).
       await tx.section.deleteMany({ where: { locationId } });
@@ -67,6 +81,21 @@ export class LayoutService {
         where: { locationId },
         orderBy: { position: 'asc' },
       });
+
+      // FR-017, FR-018 (research R11): the total is the venue's capacity and every scheduled
+      // seated event's; their mappings went with the old sections, so their tiers drop to 0.
+      await tx.location.update({
+        where: { id: locationId },
+        data: { seatingCapacity: totalSeats },
+      });
+      const seated = await tx.event.findMany({
+        where: { locationId, status: 'SCHEDULED', reservedSeating: true },
+        select: { id: true },
+      });
+      for (const e of seated) {
+        await tx.event.update({ where: { id: e.id }, data: { totalTicketCapacity: totalSeats } });
+        await recalcSeatedTiers(tx, e.id);
+      }
       return toLayout(locationId, sections);
     }, LOCKING_TX);
   }

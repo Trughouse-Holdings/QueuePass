@@ -60,7 +60,7 @@ describe('Reserved seating and the seat map', () => {
   };
 
   it('turns reserved seating on at a venue with a layout and returns the seat map', async () => {
-    const eventId = await event(ctx, venueId);
+    const eventId = await event(ctx, venueId, { capacity: 70 });
     const res = await seating(eventId, { reservedSeating: true, sections: [] }).expect(200);
 
     expect(res.body).toEqual({
@@ -106,7 +106,7 @@ describe('Reserved seating and the seat map', () => {
     expect(off.status).toBe(409);
     expect(code(off)).toBe('EVENT_HAS_ORDERS');
 
-    const gaEvent = await event(ctx, venueId);
+    const gaEvent = await event(ctx, venueId, { capacity: 70 });
     await (await customer(ctx)).post(`/events/${gaEvent}/orders`).send({ quantity: 1 }).expect(201);
     const on = await seating(gaEvent, { reservedSeating: true, sections: [] });
     expect(on.status).toBe(409);
@@ -114,14 +114,14 @@ describe('Reserved seating and the seat map', () => {
   });
 
   it("refuses another venue's section or another event's tier", async () => {
-    const eventId = await event(ctx, venueId);
+    const eventId = await event(ctx, venueId, { capacity: 70 });
     const vip = await tier(ctx, eventId, 'VIP', '120.00', 10);
     const elsewhere = await venue(ctx, 'Other Hall');
     const otherLayout = await asAdmin(ctx)
       .put(`/locations/${elsewhere}/layout`)
       .send({ sections: [{ name: 'Z', rows: 1, seatsPerRow: 5 }] })
       .expect(200);
-    const otherEvent = await event(ctx, venueId);
+    const otherEvent = await event(ctx, venueId, { capacity: 70 });
     const otherTier = await tier(ctx, otherEvent, 'VIP', '120.00', 10);
 
     for (const sections of [
@@ -158,7 +158,7 @@ describe('Reserved seating and the seat map', () => {
   });
 
   it('refuses changes to a cancelled event', async () => {
-    const eventId = await event(ctx, venueId);
+    const eventId = await event(ctx, venueId, { capacity: 70 });
     await asAdmin(ctx).post(`/events/${eventId}/cancel`).expect(200);
     const res = await seating(eventId, { reservedSeating: true, sections: [] });
     expect(res.status).toBe(409);
@@ -185,7 +185,7 @@ describe('Reserved seating and the seat map', () => {
   });
 
   it("leaves an event's sections unmapped when the venue's layout is replaced", async () => {
-    const eventId = await event(ctx, venueId);
+    const eventId = await event(ctx, venueId, { capacity: 70 });
     const vip = await tier(ctx, eventId, 'VIP', '120.00', 10);
     await seating(eventId, {
       reservedSeating: true,
@@ -202,7 +202,7 @@ describe('Reserved seating and the seat map', () => {
   });
 
   it('unmaps sections whose tier is deleted while unsold', async () => {
-    const eventId = await event(ctx, venueId);
+    const eventId = await event(ctx, venueId, { capacity: 70 });
     const vip = await tier(ctx, eventId, 'VIP', '120.00', 10);
     await seating(eventId, {
       reservedSeating: true,
@@ -215,7 +215,7 @@ describe('Reserved seating and the seat map', () => {
   });
 
   it('refuses moving a seated event to another venue', async () => {
-    const eventId = await event(ctx, venueId);
+    const eventId = await event(ctx, venueId, { capacity: 70 });
     await seating(eventId, { reservedSeating: true, sections: [] }).expect(200);
     const elsewhere = await venue(ctx, 'Other Hall');
 
@@ -225,7 +225,7 @@ describe('Reserved seating and the seat map', () => {
   });
 
   it('lets anyone signed in read the seat map, and only admins change seating', async () => {
-    const eventId = await event(ctx, venueId);
+    const eventId = await event(ctx, venueId, { capacity: 70 });
     for (const opts of [CUSTOMER, AGENT]) {
       const client = as(ctx, await tokenFor(opts));
       await client.get(`/events/${eventId}/seats`).expect(200);

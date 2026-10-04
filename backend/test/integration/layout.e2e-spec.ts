@@ -32,7 +32,7 @@ describe('Seating layouts', () => {
    * so this suite does not depend on seat ordering (US2).
    */
   const seatedEventWithSale = async (name = 'Season Opener') => {
-    const eventId = await event(ctx, venueId, { name });
+    const eventId = await event(ctx, venueId, { name, capacity: 30 });
     const order = await (
       await customer(ctx)
     )
@@ -66,12 +66,37 @@ describe('Seating layouts', () => {
     expect(replaced.body.sections.map((s: { name: string }) => s.name)).toEqual(['Floor']);
   });
 
-  it("refuses more seats than the venue's seating capacity", async () => {
-    // The fixture venue seats 22,090; 100 rows of 200 is 20,000 per section.
+  // Spec 007 FR-017 (research R11): the layout sets the venue's capacity; nothing is typed.
+  it("sets the venue's seating capacity to the layout's total, larger or smaller", async () => {
+    // The fixture venue was created seating 22,090; two full sections are 40,000.
     const big = { name: 'Big', rows: 100, seatsPerRow: 200 };
-    const res = await put([big, { ...big, name: 'Bigger' }]);
+    await put([big, { ...big, name: 'Bigger' }]).expect(200);
+    const venueRes = await asAdmin(ctx).get(`/locations/${venueId}`).expect(200);
+    expect(venueRes.body.seatingCapacity).toBe(40_000);
+
+    await put([A, B]).expect(200);
+    expect((await asAdmin(ctx).get(`/locations/${venueId}`).expect(200)).body.seatingCapacity).toBe(
+      70,
+    );
+  });
+
+  it("refuses a layout below a scheduled general-admission event's capacity, naming it", async () => {
+    await event(ctx, venueId, { name: 'Big Night', capacity: 100 });
+    const res = await put([A, B]);
     expect(res.status).toBe(409);
     expect(code(res)).toBe('CAPACITY_EXCEEDED');
+    expect(res.body.error.message).toContain('Big Night');
+  });
+
+  it('sets every scheduled seated event at the venue to the new total', async () => {
+    await put([A, B]).expect(200);
+    const eventId = await event(ctx, venueId, { capacity: 70 });
+    await ctx.prisma.event.update({ where: { id: eventId }, data: { reservedSeating: true } });
+
+    await put([A]).expect(200);
+
+    const res = await asAdmin(ctx).get(`/events/${eventId}`).expect(200);
+    expect(res.body.totalTicketCapacity).toBe(30);
   });
 
   it('refuses names that repeat ignoring case, and sizes outside the limits', async () => {
@@ -109,7 +134,7 @@ describe('Seating layouts', () => {
 
   it('refuses removal while a scheduled event has reserved seating on, even with no sales', async () => {
     await put([A]).expect(200);
-    const eventId = await event(ctx, venueId);
+    const eventId = await event(ctx, venueId, { capacity: 30 });
     await ctx.prisma.event.update({ where: { id: eventId }, data: { reservedSeating: true } });
 
     const res = await asAdmin(ctx).delete(`/locations/${venueId}/layout`);
@@ -126,12 +151,18 @@ describe('Seating layouts', () => {
     expect(res.body.sections).toEqual([]);
   });
 
-  it("refuses lowering the venue's seating capacity below the layout's seats", async () => {
+  it("refuses typing the venue's capacity while it has a layout, and allows it after removal", async () => {
     await put([A, B]).expect(200);
-    const res = await asAdmin(ctx).patch(`/locations/${venueId}`).send({ seatingCapacity: 69 });
-    expect(res.status).toBe(409);
-    expect(code(res)).toBe('CAPACITY_EXCEEDED');
-    await asAdmin(ctx).patch(`/locations/${venueId}`).send({ seatingCapacity: 70 }).expect(200);
+    const res = await asAdmin(ctx).patch(`/locations/${venueId}`).send({ seatingCapacity: 500 });
+    expect(res.status).toBe(400);
+    expect(code(res)).toBe('VALIDATION_FAILED');
+    // Other fields still change.
+    await asAdmin(ctx).patch(`/locations/${venueId}`).send({ name: 'Seat Hall East' }).expect(200);
+
+    await asAdmin(ctx).delete(`/locations/${venueId}/layout`).expect(204);
+    const kept = await asAdmin(ctx).get(`/locations/${venueId}`).expect(200);
+    expect(kept.body.seatingCapacity).toBe(70);
+    await asAdmin(ctx).patch(`/locations/${venueId}`).send({ seatingCapacity: 500 }).expect(200);
   });
 
   it('answers 404 for an unknown venue', async () => {

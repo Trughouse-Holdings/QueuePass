@@ -23,7 +23,14 @@ const asApiError = (err: unknown): ApiError =>
  * the seat map. The Backend refuses switching after sales and retiering sold sections; this card
  * only explains the refusals in advance.
  */
-export function SeatingCard({ event }: { event: Event }): React.ReactElement {
+export function SeatingCard({
+  event,
+  onSaved,
+}: {
+  event: Event;
+  /** Tells the event page that capacity and tier amounts may have changed (revision R11). */
+  onSaved?: () => void;
+}): React.ReactElement {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [reserved, setReserved] = useState(false);
   const [tierOf, setTierOf] = useState<Record<string, string>>({});
@@ -67,6 +74,7 @@ export function SeatingCard({ event }: { event: Event }): React.ReactElement {
       });
       setLoad({ ...load, map });
       adopt(map);
+      onSaved?.();
     } catch (err) {
       setError(asApiError(err));
     } finally {

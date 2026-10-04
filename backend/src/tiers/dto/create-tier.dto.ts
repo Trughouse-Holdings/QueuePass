@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsInt, IsPositive, IsString, Length, Matches } from 'class-validator';
+import { IsInt, IsOptional, IsPositive, IsString, Length, Matches } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -18,7 +18,9 @@ export class CreateTierDto {
   })
   price!: string;
 
+  /** Required without reserved seating; omitted with it (spec 007 FR-006). */
+  @IsOptional()
   @IsInt({ message: 'quantity must be a whole number' })
   @IsPositive({ message: 'quantity must be a positive whole number' })
-  quantity!: number;
+  quantity?: number;
 }

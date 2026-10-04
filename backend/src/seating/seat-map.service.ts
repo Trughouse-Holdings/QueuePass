@@ -5,6 +5,7 @@ import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { SeatingInputDto } from './dto/seating-input.dto';
+import { recalcSeatedTiers } from './tier-seats';
 
 type Db = PrismaService | Prisma.TransactionClient;
 
@@ -117,9 +118,15 @@ export class SeatMapService {
         }
       }
 
+      // FR-018 (research R11): a seated event's capacity is its venue's layout total. Turning
+      // seating off keeps the number, which is typed again from then on.
+      const layoutSeats = sections.reduce((n, s) => n + s.rows * s.seatsPerRow, 0);
       await tx.event.update({
         where: { id: eventId },
-        data: { reservedSeating: dto.reservedSeating },
+        data: {
+          reservedSeating: dto.reservedSeating,
+          ...(dto.reservedSeating ? { totalTicketCapacity: layoutSeats } : {}),
+        },
       });
       await tx.sectionTier.deleteMany({ where: { eventId } });
       if (dto.sections.length > 0) {
@@ -127,6 +134,8 @@ export class SeatMapService {
           data: dto.sections.map((m) => ({ eventId, sectionId: m.sectionId, tierId: m.tierId })),
         });
       }
+      // FR-006: each tier's amount follows its sections while seating is on.
+      if (dto.reservedSeating) await recalcSeatedTiers(tx, eventId);
       return this.forEvent(eventId, tx);
     }, LOCKING_TX);
   }

@@ -322,13 +322,13 @@ saved; a new event left blank gets 70; seated tiers show 30 and 40 from their se
 
 ### Tests for the revision (write first, confirm they fail)
 
-- [ ] T031 [P] Revise `backend/test/integration/layout.e2e-spec.ts`: saving a layout sets the
+- [X] T031 [P] Revise `backend/test/integration/layout.e2e-spec.ts`: saving a layout sets the
   venue's `seatingCapacity` to its total (no over-capacity refusal remains); saving a layout below
   a scheduled general-admission event's `totalTicketCapacity` → `409 CAPACITY_EXCEEDED` naming it;
   saving sets every scheduled seated event's `totalTicketCapacity` to the total; `PATCH
   /locations/{id}` with `seatingCapacity` while a layout exists → `400`; after `DELETE` the venue
   keeps its last capacity and `PATCH` may set it again.
-- [ ] T032 [P] Write `backend/test/integration/seating.capacity.e2e-spec.ts`: turning reserved
+- [X] T032 [P] Write `backend/test/integration/seating.capacity.e2e-spec.ts`: turning reserved
   seating on sets the event's capacity to the layout total; mapping sets each tier's `quantity`
   to its sections' seats (0 when unmapped) and remapping recalculates it; a layout save drops
   mappings to 0; turning reserved seating off keeps the numbers; `PATCH /events/{id}` with
@@ -336,7 +336,7 @@ saved; a new event left blank gets 70; seated tiers show 30 and 40 from their se
   → `400`, without it → `201` with `quantity: 0`, and `PATCH .../tiers/{id}` with `quantity` →
   `400`; on a general-admission event `POST .../tiers` without `quantity` → `400`; `POST /events`
   without `totalTicketCapacity` gets the venue's `seatingCapacity`.
-- [ ] T033 [P] Revise `admin-app/test/layout.test.tsx` (no over-capacity case) and add Admin
+- [X] T033 [P] Revise `admin-app/test/layout.test.tsx` (no over-capacity case) and add Admin
   tests: the venue edit form omits seating capacity when the venue has a layout, saying it is set
   by the layout; the event form's capacity field is optional ("leave blank for the venue's
   capacity") and omitted when sent blank, and is read-only for a seated event; the tier form omits
@@ -344,10 +344,10 @@ saved; a new event left blank gets 70; seated tiers show 30 and 40 from their se
 
 ### Implementation for the revision
 
-- [ ] T034 Write the migration `20261006000000_tier_quantity_non_negative` in
+- [X] T034 Write the migration `20261006000000_tier_quantity_non_negative` in
   `backend/prisma/migrations/` per data-model.md: drop `ticket_tier_quantity_positive`, add
   `ticket_tier_quantity_non_negative` (`"quantity" >= 0`).
-- [ ] T035 Backend: `backend/src/seating/layout.service.ts` sets the venue's capacity and its
+- [X] T035 Backend: `backend/src/seating/layout.service.ts` sets the venue's capacity and its
   scheduled seated events' capacities and zeroes their tiers on save, and refuses a total below a
   scheduled general-admission event's capacity; `backend/src/seating/seat-map.service.ts` sets
   capacity on turning seating on and recalculates tier quantities on every write;
@@ -356,7 +356,7 @@ saved; a new event left blank gets 70; seated tiers show 30 and 40 from their se
   event; `backend/src/events/dto/create-event.dto.ts` makes it optional;
   `backend/src/tiers/tiers.service.ts` and `backend/src/tiers/dto/create-tier.dto.ts` make
   quantity optional, required without seating and refused with it.
-- [ ] T036 Admin app: `admin-app/src/pages/LocationForm.tsx`, `admin-app/src/pages/EventForm.tsx`,
+- [X] T036 Admin app: `admin-app/src/pages/LocationForm.tsx`, `admin-app/src/pages/EventForm.tsx`,
   and `admin-app/src/components/TierSection.tsx` per T033.
 - [ ] T037 Run `npm test`, lint, build, Prettier, boundary, and drift; then quickstart S1 and S2
   in a browser. Record the results in this line.

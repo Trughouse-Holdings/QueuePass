@@ -44,9 +44,11 @@ export class TiersService {
       if (event.status === 'CANCELLED') throw eventCancelled(event.name);
       await this.assertNoTierlessSales(tx, event);
       await this.assertNameFree(tx, event, dto.name, null);
-      await this.assertFits(tx, event, dto.quantity, null);
+      // Spec 007 FR-006: a seated tier's amount comes from its sections, 0 until mapped.
+      const quantity = this.quantityFor(event, dto.quantity);
+      await this.assertFits(tx, event, quantity, null);
       const created = await tx.ticketTier.create({
-        data: { eventId, name: dto.name, price: dto.price, quantity: dto.quantity },
+        data: { eventId, name: dto.name, price: dto.price, quantity },
       });
       return toResponse(created);
     }, LOCKING_TX);
@@ -60,6 +62,11 @@ export class TiersService {
       const event = await lockEvent(tx, eventId);
       if (event.status === 'CANCELLED') throw eventCancelled(event.name);
       const tier = await this.requireTier(tx, eventId, tierId);
+      if (event.reservedSeating && dto.quantity !== undefined) {
+        throw new BadRequestException({
+          message: ["quantity follows this tier's sections while reserved seating is on"],
+        });
+      }
       if (dto.name !== undefined) await this.assertNameFree(tx, event, dto.name, tier.id);
       if (dto.quantity !== undefined) {
         await this.assertFits(tx, event, dto.quantity, tier.id);
@@ -96,6 +103,24 @@ export class TiersService {
   }
 
   // ---------------------------------------------------------------- rules
+
+  /** Spec 007 FR-006: typed without reserved seating, calculated (starting at 0) with it. */
+  private quantityFor(event: LockedEvent, typed: number | undefined): number {
+    if (event.reservedSeating) {
+      if (typed !== undefined) {
+        throw new BadRequestException({
+          message: [
+            "quantity must be omitted: it follows this tier's sections while reserved seating is on",
+          ],
+        });
+      }
+      return 0;
+    }
+    if (typed === undefined) {
+      throw new BadRequestException({ message: ['quantity is required for a tier'] });
+    }
+    return typed;
+  }
 
   /** A tier of a different event is reported as not found (contract). */
   private async requireTier(

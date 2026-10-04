@@ -24,10 +24,13 @@ const EMPTY: Draft = { name: '', price: '', quantity: '' };
 export function TierSection({
   event,
   readOnly = false,
+  onChange,
 }: {
   event: Event;
   /** Spec 005: a cancelled event's tiers are shown but cannot change. */
   readOnly?: boolean;
+  /** Spec 007: tells the event page that tiers changed, so the Seating card reloads them. */
+  onChange?: () => void;
 }): React.ReactElement {
   const [tiers, setTiers] = useState<TicketTier[] | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
@@ -58,6 +61,7 @@ export function TierSection({
       await action();
       after?.();
       await reload();
+      onChange?.();
     } catch (err) {
       setError(asApiError(err));
     } finally {
@@ -72,7 +76,8 @@ export function TierSection({
         createTier(event.id, {
           name: draft.name,
           price: draft.price,
-          quantity: Number(draft.quantity),
+          // Spec 007 FR-006: a seated tier's amount comes from its sections, never typed.
+          ...(seated ? {} : { quantity: Number(draft.quantity) }),
         }),
       () => setDraft(EMPTY),
     );
@@ -84,7 +89,9 @@ export function TierSection({
         updateTier(event.id, tier.id, {
           ...(d.name !== tier.name ? { name: d.name } : {}),
           ...(d.price !== tier.price ? { price: d.price } : {}),
-          ...(Number(d.quantity) !== tier.quantity ? { quantity: Number(d.quantity) } : {}),
+          ...(!seated && Number(d.quantity) !== tier.quantity
+            ? { quantity: Number(d.quantity) }
+            : {}),
         }),
       () => setEditing(null),
     );
@@ -95,6 +102,7 @@ export function TierSection({
   };
 
   const allocated = (tiers ?? []).reduce((sum, t) => sum + t.quantity, 0);
+  const seated = event.reservedSeating;
 
   return (
     <section className="card" aria-labelledby="tiers-heading">
@@ -111,6 +119,9 @@ export function TierSection({
             Allocated {allocated.toLocaleString()} of {event.totalTicketCapacity.toLocaleString()}{' '}
             tickets
           </p>
+          {seated && (
+            <p className="note">Seats per tier come from the sections mapped in Seating below.</p>
+          )}
           {tiers.length === 0 ? (
             <p className="note">
               No tiers yet. Without tiers, the event sells one admission type at its base price.
@@ -156,18 +167,22 @@ export function TierSection({
                           />
                         </td>
                         <td>
-                          <input
-                            aria-label={`Quantity for ${t.name}`}
-                            type="number"
-                            min={1}
-                            value={editing.draft.quantity}
-                            onChange={(e) =>
-                              setEditing({
-                                id: t.id,
-                                draft: { ...editing.draft, quantity: e.target.value },
-                              })
-                            }
-                          />
+                          {seated ? (
+                            <span className="cell-num">{t.quantity.toLocaleString()}</span>
+                          ) : (
+                            <input
+                              aria-label={`Quantity for ${t.name}`}
+                              type="number"
+                              min={1}
+                              value={editing.draft.quantity}
+                              onChange={(e) =>
+                                setEditing({
+                                  id: t.id,
+                                  draft: { ...editing.draft, quantity: e.target.value },
+                                })
+                              }
+                            />
+                          )}
                         </td>
                         <td className="cell-action">
                           <button
@@ -251,16 +266,18 @@ export function TierSection({
                 onChange={(e) => setDraft({ ...draft, price: e.target.value })}
               />
             </label>
-            <label className="field">
-              Quantity
-              <input
-                type="number"
-                min={1}
-                required
-                value={draft.quantity}
-                onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
-              />
-            </label>
+            {!seated && (
+              <label className="field">
+                Quantity
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={draft.quantity}
+                  onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
+                />
+              </label>
+            )}
           </div>
           <div className="form__actions">
             <button type="submit" className="btn btn--primary" disabled={busy}>

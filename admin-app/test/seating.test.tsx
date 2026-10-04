@@ -140,6 +140,44 @@ describe('Seating card', () => {
   });
 });
 
+describe('Seating and tiers stay in step (revision R11)', () => {
+  it('offers a newly added tier in the section dropdowns, and reloads tiers after saving seating', async () => {
+    let tiers = [VIP];
+    const api = stubApi({
+      ...routes({ seatMap: map(true) }),
+      // A seated event, as in the real flow: its tier form takes no quantity.
+      [`GET ${PATH}`]: json({ ...EVENT, reservedSeating: true }),
+      [`GET ${PATH}/tiers`]: () => json(tiers),
+      [`POST ${PATH}/tiers`]: () => {
+        tiers = [GEN, VIP];
+        return json(GEN, 201);
+      },
+      [`PUT ${PATH}/seating`]: json(map(true)),
+    });
+    renderPage();
+
+    const tierForm = await screen.findByRole('form', { name: 'Add a tier' });
+    fireEvent.change(within(tierForm).getByLabelText('Tier name'), {
+      target: { value: 'General' },
+    });
+    fireEvent.change(within(tierForm).getByLabelText('Price'), { target: { value: '40.00' } });
+    fireEvent.click(within(tierForm).getByRole('button', { name: 'Add tier' }));
+
+    // The card reloads (remounts) after a tier change, so look it up afresh each time.
+    await vi.waitFor(async () =>
+      expect(
+        within(within(await card()).getByRole('combobox', { name: 'Section B tier' }))
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual(['Not for sale', 'General', 'VIP']),
+    );
+
+    const before = api.count('GET', `${PATH}/tiers`);
+    fireEvent.click(within(await card()).getByRole('button', { name: 'Save seating' }));
+    await vi.waitFor(() => expect(api.count('GET', `${PATH}/tiers`)).toBeGreaterThan(before));
+  });
+});
+
 describe('Seat map', () => {
   it('shows one section at a time, each seat sold or open, with counts', async () => {
     stubApi(routes({ seatMap: map(true, 2), ticketsLeft: EVENT.totalTicketCapacity - 2 }));
