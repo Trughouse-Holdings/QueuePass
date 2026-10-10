@@ -1,5 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, tier, venue } from '../setup/fixtures';
+import { customer, event, tier, venue, windowAt } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -88,7 +88,7 @@ describe('Cancellation and sales protections', () => {
   });
 
   it("frees the cancelled event's venue time", async () => {
-    const window = { startsAt: '2027-06-01T18:00:00Z', endsAt: '2027-06-01T21:00:00Z' };
+    const window = windowAt(516);
     const eventId = await event(ctx, venueId, window);
     // Same slot is refused while it is scheduled …
     await asAdmin(ctx)

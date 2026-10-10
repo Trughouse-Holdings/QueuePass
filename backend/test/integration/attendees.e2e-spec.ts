@@ -43,7 +43,7 @@ describe('Attendee list', () => {
       .expect(201);
     await ctx.prisma.ticket.update({
       where: { id: first.body.tickets[0].id },
-      data: { checkedInAt: new Date('2027-01-02T23:05:00Z') },
+      data: { checkedInAt: new Date() },
     });
 
     const res = await asAdmin(ctx).get(`/events/${eventId}/attendees`).expect(200);

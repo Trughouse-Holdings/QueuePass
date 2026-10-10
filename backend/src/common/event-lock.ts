@@ -7,6 +7,8 @@ export interface LockedEvent {
   totalTicketCapacity: number;
   basePrice: Prisma.Decimal;
   status: EventStatus;
+  /** Spec 006 FR-014: sales close at this instant. */
+  startsAt: Date;
 }
 
 /**
@@ -23,7 +25,7 @@ export async function lockEvent(
   eventId: string,
 ): Promise<LockedEvent> {
   const rows = await tx.$queryRaw<LockedEvent[]>`
-    SELECT "id", "name", "totalTicketCapacity", "basePrice", "status"
+    SELECT "id", "name", "totalTicketCapacity", "basePrice", "status", "startsAt"
     FROM "Event" WHERE "id" = ${eventId}::uuid FOR UPDATE`;
   if (rows.length === 0) throw new NotFoundException(`No event exists with id ${eventId}.`);
   return rows[0];

@@ -11,7 +11,9 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import type { Availability } from '@queuepass/shared';
 import { Roles } from '../auth/roles.decorator';
+import { AvailabilityService } from './availability.service';
 import { EventsService, EventResponse } from './events.service';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
@@ -20,7 +22,10 @@ import { ListEventsQuery } from './dto/list-events.query';
 /** Implements the /events operations in contracts/openapi.yaml. */
 @Controller('events')
 export class EventsController {
-  constructor(private readonly events: EventsService) {}
+  constructor(
+    private readonly events: EventsService,
+    private readonly availability: AvailabilityService,
+  ) {}
 
   @Get()
   findAll(@Query() query: ListEventsQuery): Promise<EventResponse[]> {
@@ -32,6 +37,12 @@ export class EventsController {
   @HttpCode(HttpStatus.CREATED)
   create(@Body() dto: CreateEventDto): Promise<EventResponse> {
     return this.events.create(dto);
+  }
+
+  /** Spec 006 FR-002: any signed-in user, like the event it describes. */
+  @Get(':id/availability')
+  availabilityOf(@Param('id', ParseUUIDPipe) id: string): Promise<Availability> {
+    return this.availability.forEvent(id);
   }
 
   @Get(':id')
