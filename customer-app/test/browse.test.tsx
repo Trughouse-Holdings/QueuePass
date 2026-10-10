@@ -7,6 +7,8 @@ import { event, json, renderCustomer, stubApi, venue } from './helpers';
 afterEach(() => vi.unstubAllGlobals());
 
 const bodyRows = (): HTMLElement[] => screen.getAllByRole('row').slice(1);
+/** Spec 008 US2: events are cards (`article`s), on the Events page and a venue's page. */
+const cards = (): HTMLElement[] => screen.getAllByRole('article');
 
 const zeta = venue({ id: 'v2', name: 'Zeta Hall', address: '9 Last St', seatingCapacity: 800 });
 const early = event();
@@ -26,10 +28,9 @@ describe('event list (US1; FR-001, FR-002, FR-006, FR-007)', () => {
     renderCustomer({ at });
 
     expect(await screen.findByRole('heading', { name: 'Events' })).toBeInTheDocument();
-    const rows = await screen.findAllByRole('row');
-    expect(rows).toHaveLength(3);
+    expect(await screen.findAllByRole('article')).toHaveLength(2);
 
-    const [first, second] = bodyRows();
+    const [first, second] = cards();
     expect(within(first).getByRole('link', { name: 'Early Show' })).toHaveAttribute(
       'href',
       '/events/e1',
@@ -44,20 +45,25 @@ describe('event list (US1; FR-001, FR-002, FR-006, FR-007)', () => {
     expect(within(second).getByRole('link', { name: 'Late Show' })).toBeInTheDocument();
     expect(within(second).getByText(usd('1200.00'))).toBeInTheDocument();
 
-    expect(calls).toEqual([
+    // Spec 008: the page also lists venues for its Venue filter. Every call is still a signed-in
+    // read, and the events are asked for once.
+    expect(calls.filter((c) => c.path === '/events')).toEqual([
       expect.objectContaining({
         method: 'GET',
         path: '/events',
         authorization: expect.stringMatching(/^Bearer /),
       }),
     ]);
+    expect(calls.every((c) => c.method === 'GET' && /^Bearer /.test(c.authorization ?? ''))).toBe(
+      true,
+    );
   });
 
   it('gives an event that crosses midnight both of its dates', async () => {
     stubApi({ 'GET /events': json([late]) });
     renderCustomer();
 
-    const [row] = await screen.findAllByRole('row').then(() => bodyRows());
+    const [row] = await screen.findAllByRole('article').then(() => cards());
     expect(within(row).getByText(/Dec 8, 2026/)).toBeInTheDocument();
     expect(within(row).getByText(/Dec 9, 2026/)).toBeInTheDocument();
   });
@@ -66,7 +72,7 @@ describe('event list (US1; FR-001, FR-002, FR-006, FR-007)', () => {
     stubApi({ 'GET /events': json([]) });
     renderCustomer();
     expect(await screen.findByText('Nothing is scheduled yet.')).toBeInTheDocument();
-    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('article')).toBeNull();
   });
 
   it('says the service cannot be reached instead of showing a blank list', async () => {
@@ -141,8 +147,8 @@ describe('venue page (US2; FR-004)', () => {
     expect(await screen.findByRole('heading', { name: 'Alpha Arena' })).toBeInTheDocument();
     expect(screen.getByText('1 Arena Plaza, Louisville, KY')).toBeInTheDocument();
     expect(screen.getByText('22,090')).toBeInTheDocument();
-    await screen.findAllByRole('row');
-    const [first, second] = bodyRows();
+    await screen.findAllByRole('article');
+    const [first, second] = cards();
     expect(within(first).getByRole('link', { name: 'Matinee' })).toHaveAttribute(
       'href',
       '/events/e3',
@@ -165,6 +171,22 @@ describe('venue page (US2; FR-004)', () => {
   });
 });
 
+describe('details in cards (spec 008 US4)', () => {
+  it("puts an event's details in a card", async () => {
+    stubApi({ 'GET /events/e1': json(early) });
+    renderCustomer({ at: '/events/e1' });
+    const venueTerm = await screen.findByText('Venue');
+    expect(venueTerm.closest('.card')).not.toBeNull();
+  });
+
+  it("puts a venue's details in a card", async () => {
+    stubApi({ 'GET /locations/v1': json(venue()), 'GET /events': json([]) });
+    renderCustomer({ at: '/venues/v1' });
+    const address = await screen.findByText('1 Arena Plaza, Louisville, KY');
+    expect(address.closest('.card')).not.toBeNull();
+  });
+});
+
 describe('cancelled events (spec 005 US4-5; FR-012)', () => {
   const gone = event({
     id: 'e9',
@@ -176,8 +198,8 @@ describe('cancelled events (spec 005 US4-5; FR-012)', () => {
   it('marks a cancelled event in the event list', async () => {
     stubApi({ 'GET /events': json([early, gone]) });
     renderCustomer();
-    await screen.findAllByRole('row');
-    const [first, second] = bodyRows();
+    await screen.findAllByRole('article');
+    const [first, second] = cards();
     expect(within(first).queryByText('Cancelled')).toBeNull();
     expect(within(second).getByText('Cancelled')).toBeInTheDocument();
   });
@@ -192,7 +214,7 @@ describe('cancelled events (spec 005 US4-5; FR-012)', () => {
   it("marks a cancelled event in its venue's list", async () => {
     stubApi({ 'GET /locations/v1': json(venue()), 'GET /events': json([gone]) });
     renderCustomer({ at: '/venues/v1' });
-    await screen.findAllByRole('row');
-    expect(within(bodyRows()[0]).getByText('Cancelled')).toBeInTheDocument();
+    await screen.findAllByRole('article');
+    expect(within(cards()[0]).getByText('Cancelled')).toBeInTheDocument();
   });
 });

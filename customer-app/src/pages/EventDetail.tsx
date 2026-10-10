@@ -29,27 +29,29 @@ export function EventDetail() {
   const e = load.data;
   return (
     <section>
-      <h1>{e.name}</h1>
+      <h1 className="page-title">{e.name}</h1>
       {/* Spec 005 FR-012: a cancelled event stays visible, clearly marked. */}
       {e.status === 'CANCELLED' && (
         <p>
           <strong>This event has been cancelled.</strong>
         </p>
       )}
-      <dl>
-        <dt>Venue</dt>
-        <dd>
-          <Link to={`/venues/${e.locationId}`}>{e.location.name}</Link>
-        </dd>
-        <dt>Starts</dt>
-        <dd>{when(e.startsAt)}</dd>
-        <dt>Ends</dt>
-        <dd>{when(e.endsAt)}</dd>
-        <dt>Tickets</dt>
-        <dd>{count(e.totalTicketCapacity)}</dd>
-        <dt>Base price</dt>
-        <dd>{usd(e.basePrice)}</dd>
-      </dl>
+      <div className="card">
+        <dl>
+          <dt>Venue</dt>
+          <dd>
+            <Link to={`/venues/${e.locationId}`}>{e.location.name}</Link>
+          </dd>
+          <dt>Starts</dt>
+          <dd>{when(e.startsAt)}</dd>
+          <dt>Ends</dt>
+          <dd>{when(e.endsAt)}</dd>
+          <dt>Tickets</dt>
+          <dd>{count(e.totalTicketCapacity)}</dd>
+          <dt>Base price</dt>
+          <dd>{usd(e.basePrice)}</dd>
+        </dl>
+      </div>
       <GetTickets event={e} />
       <Link to="/events">All events</Link>
     </section>

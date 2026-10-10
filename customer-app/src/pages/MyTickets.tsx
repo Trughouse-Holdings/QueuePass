@@ -16,7 +16,7 @@ export function MyTickets() {
 
   return (
     <section>
-      <h1>My tickets</h1>
+      <h1 className="page-title">My tickets</h1>
       {load.data.length === 0 ? (
         <p>
           You have no tickets yet. <Link to="/events">Browse events</Link>
@@ -30,7 +30,7 @@ export function MyTickets() {
 
 function OrderCard({ order: o }: { order: MyOrder }) {
   return (
-    <article aria-labelledby={`order-${o.id}`}>
+    <article className="card card--padded order-card" aria-labelledby={`order-${o.id}`}>
       <h2 id={`order-${o.id}`}>
         <Link to={`/events/${o.event.id}`}>{o.event.name}</Link>
       </h2>
@@ -59,7 +59,7 @@ function OrderCard({ order: o }: { order: MyOrder }) {
         <dt>Status</dt>
         <dd>{o.status === 'REFUNDED' ? 'Refunded' : 'Confirmed'}</dd>
       </dl>
-      <ul aria-label="Tickets">
+      <ul aria-label="Tickets" className="ticket-list">
         {o.tickets.map((t) => (
           <li key={t.id}>
             {`${t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}: ${ticketState(t)}`}

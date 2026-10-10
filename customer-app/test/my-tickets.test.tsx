@@ -125,6 +125,13 @@ describe('My tickets', () => {
     expect(ticketsOf(second)).toEqual(['AAAA2222BBBB: Valid', 'CCCC3333DDDD: Valid']);
   });
 
+  it('lists ticket codes as rows, not bullets (spec 008 US4)', async () => {
+    stubApi({ 'GET /me/orders': json([opener]) });
+    renderCustomer({ at: '/my-tickets' });
+    const [first] = await orders();
+    expect(within(first).getByRole('list', { name: 'Tickets' })).toHaveClass('ticket-list');
+  });
+
   it('says so, with a way to the events, when there are no tickets yet', async () => {
     stubApi({ 'GET /me/orders': json([]) });
     renderCustomer({ at: '/my-tickets' });

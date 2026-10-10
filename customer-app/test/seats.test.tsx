@@ -128,6 +128,36 @@ describe('choosing seats (US2-1, US2-2; FR-007)', () => {
   });
 });
 
+describe('seat states beyond color (spec 008 US3; FR-008)', () => {
+  it('marks chosen seats with a check, taken seats with a cross, and keeps their names', async () => {
+    stubApi(routes());
+    renderCustomer({ at: '/events/e1' });
+
+    await chooseTier(/VIP/);
+    chooseSection('A');
+    fireEvent.click(seatButton(1, 1));
+
+    expect(seatButton(1, 1)).toHaveAttribute('aria-pressed', 'true');
+    expect(seatButton(1, 1)).toHaveTextContent('✓1');
+    expect(seatButton(1, 2)).toBeDisabled();
+    expect(seatButton(1, 2)).toHaveTextContent('✕');
+    expect(seatButton(1, 2)).not.toHaveTextContent('2');
+    expect(seatButton(1, 3)).toHaveTextContent(/^3$/);
+    expect(seatButton(1, 3)).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it("puts each section's seats in their own scrollable region", async () => {
+    stubApi(routes());
+    renderCustomer({ at: '/events/e1' });
+
+    await chooseTier(/VIP/);
+    chooseSection('A');
+    const region = screen.getByRole('region', { name: 'Section A seats' });
+    expect(region).toHaveClass('seat-scroll');
+    expect(within(region).getAllByRole('button', { name: /^Row \d+, Seat \d+$/ })).toHaveLength(6);
+  });
+});
+
 describe('a tier with no seats on sale (FR-006)', () => {
   it('is disabled and says why, instead of offering an empty seat map', async () => {
     const unmapped = seatMap();

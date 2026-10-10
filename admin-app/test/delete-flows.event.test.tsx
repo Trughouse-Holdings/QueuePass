@@ -129,6 +129,11 @@ describe('Deleting the blocking event frees its window', () => {
         return json(null, 204);
       },
       'POST /events': () => (blockerDeleted ? json(created, 201) : json(conflict409, 409)),
+      // Spec 008 US7: the event's ticket type is created right after it.
+      [`POST /events/${created.id}/tiers`]: json(
+        { id: 't-gen', eventId: created.id, name: 'General', price: '45.00', quantity: 500 },
+        201,
+      ),
     });
     render(
       <MemoryRouter initialEntries={['/events/new']}>
@@ -144,7 +149,10 @@ describe('Deleting the blocking event frees its window', () => {
     await user.type(screen.getByLabelText('Starts'), '2026-10-01T20:00');
     await user.type(screen.getByLabelText('Ends'), '2026-10-01T23:00');
     await user.type(screen.getByLabelText('Total tickets'), '500');
-    await user.type(screen.getByLabelText('Base price'), '45.00');
+    // Spec 008 US7: priced by a ticket type instead of a base price.
+    await user.type(screen.getByLabelText('Ticket type 1 name'), 'General');
+    await user.type(screen.getByLabelText('Ticket type 1 price'), '45.00');
+    await user.type(screen.getByLabelText('Ticket type 1 quantity'), '500');
 
     await user.click(screen.getByRole('button', { name: /Schedule event/i }));
     expect(await screen.findByText('Venue already committed')).toBeInTheDocument();

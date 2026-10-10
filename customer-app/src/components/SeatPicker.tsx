@@ -29,24 +29,37 @@ export function SeatPicker({
     chosen.some((c) => c.sectionId === section.sectionId && c.row === row && c.seat === seat);
 
   return (
-    <div role="group" aria-label={`Section ${section.name} seats`}>
+    // Spec 008 research R4: a wide section scrolls inside this box, never the page. Not itself a
+    // tab stop; focusing a seat scrolls it into view.
+    <div role="region" aria-label={`Section ${section.name} seats`} className="seat-scroll">
       {Array.from({ length: section.rows }, (_, r) => r + 1).map((row) => (
-        <p key={row}>
-          <span>{`Row ${row}: `}</span>
+        <p key={row} className="seat-row">
+          <span className="seat-row__label">{`Row ${row}: `}</span>
           {Array.from({ length: section.seatsPerRow }, (_, s) => s + 1).map((seat) => {
             const on = isChosen(row, seat);
+            const gone = taken.has(`${row}-${seat}`);
             return (
               <button
                 key={seat}
                 type="button"
+                // Spec 008 FR-008: states differ by glyph, border, and pattern, not color alone;
+                // aria-pressed and disabled announce them.
+                className={`seat${on ? ' seat--chosen' : ''}${gone ? ' seat--taken' : ''}`}
                 aria-label={`Row ${row}, Seat ${seat}`}
                 aria-pressed={on}
-                disabled={taken.has(`${row}-${seat}`) || (full && !on)}
+                disabled={gone || (full && !on)}
                 onClick={() =>
                   onToggle({ sectionId: section.sectionId, section: section.name, row, seat })
                 }
               >
-                {seat}
+                {gone ? (
+                  '✕'
+                ) : (
+                  <>
+                    {on && <span aria-hidden="true">✓</span>}
+                    {seat}
+                  </>
+                )}
               </button>
             );
           })}

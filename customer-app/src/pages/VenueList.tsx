@@ -13,7 +13,7 @@ export function VenueList() {
 
   return (
     <section>
-      <h1>Venues</h1>
+      <h1 className="page-title">Venues</h1>
       {load.kind === 'loading' && <p>Loading…</p>}
       {(load.kind === 'unreachable' || load.kind === 'missing') && <ServiceUnreachable />}
       {load.kind === 'ok' &&

@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider, RequireRole } from '@queuepass/shared/web';
 import { App } from './App';
+// Spec 008: the Admin app's look, reused for usability (research R2).
+import './styles.css';
 
 // Spec 001: sign in with Keycloak before anything renders; only customers get in.
 createRoot(document.getElementById('root') as HTMLElement).render(

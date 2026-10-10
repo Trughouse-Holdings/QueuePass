@@ -83,6 +83,31 @@ describe('unavailable before trying (US2-1 to US2-3, US2-5, US2-6)', () => {
   });
 });
 
+describe('status badges (spec 008 US3-2)', () => {
+  const badge = (name: string) => screen.findByText(name, { selector: '.pill' });
+
+  it('badges a sold-out tier without changing its name', async () => {
+    const vip = tier({ id: 't-vip', name: 'VIP', price: '120.00' });
+    stubApi(
+      routes({ ticketsLeft: 5, tiers: [{ tierId: 't-vip', ticketsLeft: 0 }] }, undefined, [vip]),
+    );
+    renderCustomer({ at: '/events/e1' });
+
+    expect(await screen.findByRole('radio', { name: 'VIP, $120.00, sold out' })).toBeDisabled();
+    expect(await badge('Sold out')).toBeInTheDocument();
+  });
+
+  it.each([
+    [{ ticketsLeft: 0 }, 'Sold out'],
+    [{ salesClosed: 'CANCELLED' as const }, 'Cancelled'],
+    [{ salesClosed: 'STARTED' as const }, 'Sales closed'],
+  ])('badges an unavailable event (%o) as %s, keeping its message', async (left, name) => {
+    stubApi(routes(left));
+    renderCustomer({ at: '/events/e1' });
+    expect(await badge(name)).toBeInTheDocument();
+  });
+});
+
 describe('refused on confirm (US2-4; FR-006)', () => {
   it.each([
     ['SOLD_OUT', 'Only 1 ticket is left for Early Show; 2 were requested.'],
@@ -98,8 +123,12 @@ describe('refused on confirm (US2-4; FR-006)', () => {
 
       await confirm();
       expect(await screen.findByRole('alert')).toHaveTextContent(message);
-      const availabilityLoads = calls.filter((x) => x.path === '/events/e1/availability');
-      expect(availabilityLoads.length).toBeGreaterThanOrEqual(2);
+      // The reload is sent just after the refusal shows, so wait for it rather than check at once.
+      await vi.waitFor(() =>
+        expect(
+          calls.filter((x) => x.path === '/events/e1/availability').length,
+        ).toBeGreaterThanOrEqual(2),
+      );
 
       await confirm();
       await screen.findByRole('region', { name: 'Order confirmed' });

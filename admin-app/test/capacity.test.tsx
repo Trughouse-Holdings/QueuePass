@@ -66,6 +66,10 @@ describe('event form', () => {
     const api = stubApi({
       'GET /locations': json([VENUE]),
       'POST /events': json(EVENT, 201),
+      [`POST /events/${EVENT.id}/tiers`]: json(
+        { id: 't-gen', eventId: EVENT.id, name: 'General', price: '10.00', quantity: 10 },
+        201,
+      ),
     });
     at('/events/new', '/events/new', <EventForm />);
 
@@ -73,7 +77,9 @@ describe('event form', () => {
     fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
     fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
     fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
-    fireEvent.change(screen.getByLabelText('Base price'), { target: { value: '10.00' } });
+    fireEvent.change(screen.getByLabelText('Ticket type 1 name'), { target: { value: 'General' } });
+    fireEvent.change(screen.getByLabelText('Ticket type 1 price'), { target: { value: '10.00' } });
+    fireEvent.change(screen.getByLabelText('Ticket type 1 quantity'), { target: { value: '10' } });
     expect(screen.getByLabelText('Total tickets')).not.toBeRequired();
     expect(screen.getByText(/Leave blank to use the venue's capacity/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));

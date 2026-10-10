@@ -26,17 +26,17 @@ test tasks and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Run `npm test --workspace @queuepass/customer-app` and record the count in this line.
+- [X] T001 Run `npm test --workspace @queuepass/customer-app` and record the count in this line. **Baseline 2026-10-03: 75 Customer tests pass.**
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T002 Write `customer-app/test/contrast.test.ts`: parse the `:root` and dark-mode token
+- [X] T002 Write `customer-app/test/contrast.test.ts`: parse the `:root` and dark-mode token
   blocks of `customer-app/src/styles.css`, and assert WCAG contrast of at least 4.5:1 for every
   text pair the stylesheet uses (`--text`, `--text-muted`, `--accent`, `--danger`, `--warn`,
   `--ok` on `--surface` and `--bg`; `--accent-text` on `--accent`) and at least 3:1 for state
   boundaries (`--border-strong` and `--accent` on `--surface`), in light and dark; and assert no
   rule sets `color: var(--text-faint)`.
-- [ ] T003 Create `customer-app/src/styles.css`: copy from `admin-app/src/styles.css` the tokens
+- [X] T003 Create `customer-app/src/styles.css`: copy from `admin-app/src/styles.css` the tokens
   (light and dark), base, `.app`/`.topbar`/`.brand`/`.navlinks`/`.navlink`, `.main`, `.page-head`,
   `.page-title`, `.btn` variants, `.card`, `.pill`, `.price`, form `input`/`select`/checkbox,
   `.field`, `.field-row`, `.form__actions`, `.note`, `.empty`, `.loading`, `.visually-hidden`, and
@@ -60,7 +60,7 @@ results (quickstart E1).
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T004 [P] [US1] Write `customer-app/test/filters.test.tsx`: typing "open" sends `GET /events`
+- [X] T004 [P] [US1] Write `customer-app/test/filters.test.tsx`: typing "open" sends `GET /events`
   with `q=open` after the pause and shows the results; choosing a venue sends `locationId`; start
   and end dates send `from` (local midnight of the start) and `to` (local midnight of the day
   after the end); filters combine in one request; each filter appears in the address; rendering
@@ -73,11 +73,11 @@ results (quickstart E1).
 
 ### Implementation for User Story 1
 
-- [ ] T005 [P] [US1] Create `customer-app/src/filters.ts`: read filters from `URLSearchParams`
+- [X] T005 [P] [US1] Create `customer-app/src/filters.ts`: read filters from `URLSearchParams`
   with validation per data-model.md ("`venue`: a UUID among the venues listed"; "`from`, `to`:
   `YYYY-MM-DD`, a real calendar date; `to` not before `from`"; "`hideCancelled`: `1`"); write them
   back; and build the `GET /events` query (`q`, `locationId`, `from`, `to` per research R1).
-- [ ] T006 [US1] Create `customer-app/src/components/EventFilters.tsx` (search box with a 300 ms
+- [X] T006 [US1] Create `customer-app/src/components/EventFilters.tsx` (search box with a 300 ms
   pause, venue select from `GET /locations`, start and end date inputs, Hide cancelled checkbox,
   Clear filters) and use it in `customer-app/src/pages/EventList.tsx`, which reads filters from
   `useSearchParams`, loads `GET /events` with the built query, applies hide-cancelled, and shows
@@ -95,23 +95,23 @@ results (quickstart E1).
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T007 [P] [US2] Write `customer-app/test/cards.test.tsx`: the Events page shows one `article`
+- [X] T007 [P] [US2] Write `customer-app/test/cards.test.tsx`: the Events page shows one `article`
   per event, in the Backend's order, each with the name linking to `/events/{id}`, the local date
   and time, the venue linking to `/venues/{id}`, the base price, and a "Cancelled" badge only on
   cancelled events; a venue's page shows the same cards; the cards come from `GET /events` alone
   (no per-event requests); an event's page shows "from $X" with the lowest tier price when the
   event has tiers; each card's links carry the class that gives them a 44-pixel tap area.
-- [ ] T008 [P] [US2] Update `customer-app/test/browse.test.tsx` so its event-list and venue-page
+- [X] T008 [P] [US2] Update `customer-app/test/browse.test.tsx` so its event-list and venue-page
   cases read cards (`article`s) instead of table rows, keeping every assertion about content,
   links, order, dates, prices, empty and error states, and the Cancelled marker.
 
 ### Implementation for User Story 2
 
-- [ ] T009 [US2] Create `customer-app/src/components/EventCard.tsx` per spec FR-005 (the badge a
+- [X] T009 [US2] Create `customer-app/src/components/EventCard.tsx` per spec FR-005 (the badge a
   `.pill` with the danger tokens) and a card grid in `customer-app/src/styles.css`
   (`repeat(auto-fill, minmax(260px, 1fr))`, one column below 640 pixels); render the cards in
   `customer-app/src/pages/EventList.tsx` and `customer-app/src/pages/VenueDetail.tsx`.
-- [ ] T010 [US2] Show "from $X" (the lowest tier price) on `customer-app/src/pages/EventDetail.tsx`
+- [X] T010 [US2] Show "from $X" (the lowest tier price) on `customer-app/src/pages/EventDetail.tsx`
   when the event has tiers, from the tiers `GetTickets` already loads; give
   `customer-app/src/pages/VenueList.tsx`, `customer-app/src/pages/MyTickets.tsx`, and
   `customer-app/src/components/GetTickets.tsx` the copied card, button, field, and note classes,
@@ -129,26 +129,26 @@ results (quickstart E1).
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T011 [P] [US3] Add to `customer-app/test/seats.test.tsx`: a chosen seat shows "✓" before its
+- [X] T011 [P] [US3] Add to `customer-app/test/seats.test.tsx`: a chosen seat shows "✓" before its
   number and has `aria-pressed="true"`; a taken seat shows "✕" instead of its number and is
   `disabled`; an open seat shows only its number; seat names stay "Row R, Seat S"; each section's
   seats sit in a region named "Section {name} seats" that is scrollable on its own.
-- [ ] T012 [P] [US3] Write `customer-app/test/keyboard.test.tsx` (with `@testing-library/user-event`):
+- [X] T012 [P] [US3] Write `customer-app/test/keyboard.test.tsx` (with `@testing-library/user-event`):
   tabbing from the page start on Events reaches the search box, venue select, start date, end
   date, Hide cancelled, and the first card's link, in that order; on a seated event, Tab and Space
   choose a tier, Tab reaches the section select and then the first open seat, Space chooses it
   (`aria-pressed="true"`), and Tab skips taken seats (spec FR-009, SC-004).
-- [ ] T013 [P] [US3] Add to `customer-app/test/purchase-unavailable.test.tsx`: sold-out tiers, a
+- [X] T013 [P] [US3] Add to `customer-app/test/purchase-unavailable.test.tsx`: sold-out tiers, a
   cancelled event, and closed sales show their status as a badge element (class `pill`) as well
   as the existing text.
 
 ### Implementation for User Story 3
 
-- [ ] T014 [US3] In `customer-app/src/components/SeatPicker.tsx`, render the glyphs and state
+- [X] T014 [US3] In `customer-app/src/components/SeatPicker.tsx`, render the glyphs and state
   classes per research R5 and wrap the grid in a labelled `overflow-x: auto` region; add
   `.seat`, `.seat--chosen` (accent fill, thicker border), and `.seat--taken` (hatched stripes,
   dashed border) to `customer-app/src/styles.css`.
-- [ ] T015 [US3] In `customer-app/src/components/GetTickets.tsx`, show sold-out, cancelled, and
+- [X] T015 [US3] In `customer-app/src/components/GetTickets.tsx`, show sold-out, cancelled, and
   sales-closed statuses as badges alongside their existing text.
 
 **Checkpoint**: T011–T013 pass; quickstart E5 works in the browser.
@@ -157,14 +157,19 @@ results (quickstart E1).
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T016 Update `README.md`: the status table (008 built), the "Today" paragraph, the features
+- [X] T016 Update `README.md`: the status table (008 built), the "Today" paragraph, the features
   list (finding events; the Customer app on a phone), and the Customer app row.
-- [ ] T017 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
+- [X] T017 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
   `node scripts/check-contract-drift.mjs`; all pass. Record the result in this line.
-- [ ] T018 Run `npm test` from the repo root; every suite passes, including all `003`, `006`, and
-  `007` Customer tests. Record the counts per workspace in this line.
+  **2026-10-03: lint, build, Prettier, boundary, and drift checks pass.**
+- [X] T018 Run `npm test` from the repo root; every suite passes, including all `003`, `006`, and
+  `007` Customer tests. Record the counts per workspace in this line. **2026-10-03: 525 tests
+  pass — shared 22, Backend 275, Admin 90, Customer 132, Booth 3, seed 3. Backend and Admin are
+  unchanged, as FR-012 requires.**
 - [ ] T019 Run `docker compose up --build -d`, the demo-data command, and quickstart E1–E5 in a
-  browser, including device mode at 375 × 812. Record the result in this line.
+  browser, including device mode at 375 × 812. Record the result in this line. **2026-10-04:
+  E1–E5 checked in a desktop browser by the feature owner after a fresh wipe; the 375 × 812
+  device-mode check is still to be recorded.**
 
 ---
 
@@ -177,25 +182,26 @@ in padded cards and styled actions.
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
-- [ ] T020 [P] [US4] Write `customer-app/test/shared-look.test.ts`: read `customer-app/src/styles.css`
+- [X] T020 [P] [US4] Write `customer-app/test/shared-look.test.ts`: read `customer-app/src/styles.css`
   and `admin-app/src/styles.css`, extract the block between `/* >>> shared detail layout` and
   `/* <<< shared detail layout */`, and assert it exists in both, is identical, and contains rules
   for `a`, `.btn` with a `background`, `.topbar button`, `dl` with `display: grid`, `dt`, `.card`
   child spacing, `.card + .card`, and `.page-head .form__actions`.
-- [ ] T021 [P] [US4] Add to `customer-app/test/my-tickets.test.tsx`: the Tickets list has the
+- [X] T021 [P] [US4] Add to `customer-app/test/my-tickets.test.tsx`: the Tickets list has the
   `ticket-list` class (its rows' text is unchanged); and to `customer-app/test/browse.test.tsx`:
   the event page's and venue page's details sit inside an element with the `card` class.
 
 ### Implementation for User Story 4
 
-- [ ] T022 [US4] Add the shared block per research R7 to `admin-app/src/styles.css` and the same
+- [X] T022 [US4] Add the shared block per research R7 to `admin-app/src/styles.css` and the same
   block to `customer-app/src/styles.css`, plus `.ticket-list` rows in the Customer stylesheet.
-- [ ] T023 [US4] Customer markup: `customer-app/src/pages/MyTickets.tsx` gives the Tickets list the
+- [X] T023 [US4] Customer markup: `customer-app/src/pages/MyTickets.tsx` gives the Tickets list the
   `ticket-list` class; `customer-app/src/pages/EventDetail.tsx` and
   `customer-app/src/pages/VenueDetail.tsx` wrap their details in a `card`; give their titles the
   `page-title` class. No text or behavior changes.
-- [ ] T024 Re-run T017's checks and T018's full test suite, then T019's browser check including an
-  Admin event page. Record the results in this line.
+- [X] T024 Re-run T017's checks and T018's full test suite, then T019's browser check including an
+  Admin event page. Record the results in this line. **2026-10-04: lint, Prettier, build, boundary, and drift pass; 553 tests pass (shared 22, Backend 275, Admin 106, Customer 144, Booth 3, seed 3); the
+  feature owner checked both apps' detail pages, the Admin event page included.**
 
 **Checkpoint**: T020–T021 pass; both apps' detail pages match the top bar in the browser.
 
@@ -210,7 +216,7 @@ and capacity 70, with no capacity typed.
 
 ### Tests for User Story 5 (write first, confirm they fail)
 
-- [ ] T025 [P] [US5] Write `admin-app/test/venue-create.test.tsx`: the New venue form defaults to
+- [X] T025 [P] [US5] Write `admin-app/test/venue-create.test.tsx`: the New venue form defaults to
   General admission with the Seating capacity field; choosing Seated hides it and shows section
   lines (Add section, Remove section N) and "Total: N seats"; creating a seated venue sends
   `POST /locations` with `seatingCapacity` equal to the total, then `PUT
@@ -220,14 +226,15 @@ and capacity 70, with no capacity typed.
 
 ### Implementation for User Story 5
 
-- [ ] T026 [US5] Extract the section lines editor from `admin-app/src/components/LayoutCard.tsx`
+- [X] T026 [US5] Extract the section lines editor from `admin-app/src/components/LayoutCard.tsx`
   into `admin-app/src/components/SectionLines.tsx` and use it in both places; `LayoutCard` keeps
   its behavior and its tests.
-- [ ] T027 [US5] In `admin-app/src/pages/LocationForm.tsx`, add the Seated / General admission
+- [X] T027 [US5] In `admin-app/src/pages/LocationForm.tsx`, add the Seated / General admission
   choice on create (not edit), the sections and total for Seated, and the two-step create per
   research R8.
-- [ ] T028 Re-run T017's checks and T018's full suite, then a browser check of US4 and US5 with
-  T019's. Record the results in this line.
+- [X] T028 Re-run T017's checks and T018's full suite, then a browser check of US4 and US5 with
+  T019's. Record the results in this line. **2026-10-04: lint, Prettier, build, boundary, and drift pass; 553 tests pass (shared 22, Backend 275, Admin 106, Customer 144, Booth 3, seed 3); a seated venue was
+  created in one step in the browser.**
 
 **Checkpoint**: T025 passes; a seated venue is created in one step in the browser.
 
@@ -243,7 +250,7 @@ FR-018; research R9).
 
 ### Tests for User Story 6 (write first, confirm they fail)
 
-- [ ] T029 [P] [US6] Write `admin-app/test/event-seating-create.test.tsx`: choosing a venue with a
+- [X] T029 [P] [US6] Write `admin-app/test/event-seating-create.test.tsx`: choosing a venue with a
   layout shows Reserved seating (checked) and General admission, ticket type lines (name, price,
   Add ticket type, Remove), one select per section ("Section front ticket type") listing the types
   and Not for sale, each type's seat total, and no Total tickets field; scheduling sends, in order,
@@ -255,11 +262,12 @@ FR-018; research R9).
 
 ### Implementation for User Story 6
 
-- [ ] T030 [US6] In `admin-app/src/pages/EventForm.tsx` (create only), load the chosen venue's
+- [X] T030 [US6] In `admin-app/src/pages/EventForm.tsx` (create only), load the chosen venue's
   layout, render the Tickets and seating section, and run the steps per research R9 through
   `admin-app/src/api/events.ts`, `admin-app/src/api/tiers.ts`, and `admin-app/src/api/seating.ts`.
-- [ ] T031 Re-run T017's checks and T018's full suite, then the browser check with T019, T024, and
-  T028. Record the results in this line.
+- [X] T031 Re-run T017's checks and T018's full suite, then the browser check with T019, T024, and
+  T028. Record the results in this line. **2026-10-04: lint, Prettier, build, boundary, and drift pass; 553 tests pass (shared 22, Backend 275, Admin 106, Customer 144, Booth 3, seed 3); an event at a laid-out
+  venue was fully set up from one form in the browser.**
 
 **Checkpoint**: T029 passes; an event at a laid-out venue is fully set up from one form.
 
@@ -272,25 +280,26 @@ research R10).
 
 ### Tests for User Story 7 (write first, confirm they fail)
 
-- [ ] T032 [P] [US7] Write `admin-app/test/event-types-edit.test.tsx`: neither form has a Base price
+- [X] T032 [P] [US7] Write `admin-app/test/event-types-edit.test.tsx`: neither form has a Base price
   field; scheduling a general-admission event requires a ticket type with a quantity and sends
   `basePrice` as the lowest type price then one `POST .../tiers` per type with its quantity;
   editing a seated event shows its tiers and section types prefilled, and saving after renaming
   and repricing a type, adding one, and moving an unsold section sends `PATCH /events/{id}`, the
   new tier's `POST`, the changed tier's `PATCH` (no quantity), and `PUT .../seating` with the new
   mapping, then opens the event; a refused step shows its reason and keeps the form's values.
-- [ ] T033 [P] [US7] Update `admin-app/test/EventForm.conflict.test.tsx`,
+- [X] T033 [P] [US7] Update `admin-app/test/EventForm.conflict.test.tsx`,
   `admin-app/test/delete-flows.event.test.tsx`, `admin-app/test/pages.live-fixtures.test.tsx`,
   `admin-app/test/capacity.test.tsx`, and `admin-app/test/event-seating-create.test.tsx` to fill
   ticket type 1 instead of the base price, keeping every other assertion.
 
 ### Implementation for User Story 7
 
-- [ ] T034 [US7] In `admin-app/src/pages/EventForm.tsx`, remove the base price field, make ticket
+- [X] T034 [US7] In `admin-app/src/pages/EventForm.tsx`, remove the base price field, make ticket
   types part of both forms (quantity for general admission), load and apply them on edit, and
   send the lowest type price as `basePrice`, per research R10.
-- [ ] T035 Re-run T017's checks and T018's full suite, then the browser check with T019, T024,
-  T028, and T031. Record the results in this line.
+- [X] T035 Re-run T017's checks and T018's full suite, then the browser check with T019, T024,
+  T028, and T031. Record the results in this line. **2026-10-04: lint, Prettier, build, boundary, and drift pass; 553 tests pass (shared 22, Backend 275, Admin 106, Customer 144, Booth 3, seed 3); both forms
+  price by ticket types in the browser, and Edit changed ticket types and section types.**
 
 **Checkpoint**: T032–T033 pass; both forms price by ticket types in the browser.
 

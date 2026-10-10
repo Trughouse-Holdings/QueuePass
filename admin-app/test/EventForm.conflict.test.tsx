@@ -76,7 +76,10 @@ async function fillAndSubmit(): Promise<void> {
   await user.type(screen.getByLabelText('Starts'), '2026-10-01T20:00');
   await user.type(screen.getByLabelText('Ends'), '2026-10-01T23:00');
   await user.type(screen.getByLabelText('Total tickets'), '500');
-  await user.type(screen.getByLabelText('Base price'), '45.00');
+  // Spec 008 US7: priced by a ticket type instead of a base price.
+  await user.type(screen.getByLabelText('Ticket type 1 name'), 'General');
+  await user.type(screen.getByLabelText('Ticket type 1 price'), '45.00');
+  await user.type(screen.getByLabelText('Ticket type 1 quantity'), '500');
   await user.click(screen.getByRole('button', { name: /Schedule event/i }));
 }
 
@@ -133,7 +136,7 @@ describe('EventForm conflict handling', () => {
     expect(screen.getByLabelText('Starts')).toHaveValue('2026-10-01T20:00');
     expect(screen.getByLabelText('Ends')).toHaveValue('2026-10-01T23:00');
     expect(screen.getByLabelText('Total tickets')).toHaveValue(500);
-    expect(screen.getByLabelText('Base price')).toHaveValue('45.00');
+    expect(screen.getByLabelText('Ticket type 1 price')).toHaveValue('45.00');
   });
 
   it('shows no success state when the save was rejected', async () => {
