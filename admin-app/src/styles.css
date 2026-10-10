@@ -468,6 +468,16 @@ select:focus {
 input::placeholder {
   color: var(--text-faint);
 }
+/* Spec 007: the first checkbox (Reserved seating). The text-input rules above would stretch it
+   into an empty bar and strip its native look, so a checkbox keeps its own size and mark. */
+input[type='checkbox'] {
+  width: auto;
+  padding: 0;
+  margin-right: 6px;
+  appearance: auto;
+  accent-color: var(--accent);
+  vertical-align: middle;
+}
 select {
   background-image:
     linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),

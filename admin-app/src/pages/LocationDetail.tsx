@@ -5,6 +5,7 @@ import { ApiError } from '../api/client';
 import { deleteLocation, getLocation } from '../api/locations';
 import { listEvents } from '../api/events';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { LayoutCard } from '../components/LayoutCard';
 import { when } from '../format';
 import { useDelete } from '../hooks/use-delete';
 
@@ -118,6 +119,8 @@ function VenueView({ venue, events }: { venue: Location; events: Event[] }): Rea
           </div>
         )}
       </div>
+
+      <LayoutCard venue={venue} />
     </section>
   );
 }

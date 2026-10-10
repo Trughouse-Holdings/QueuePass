@@ -60,4 +60,25 @@ describe('Attendees page', () => {
       `/events/${EVENT.id}`,
     );
   });
+
+  it('shows the seat of each seated ticket (spec 007 FR-011)', async () => {
+    const seated = [
+      {
+        ...ORDERS[0],
+        tickets: ORDERS[0].tickets.map((t, i) => ({
+          ...t,
+          seat: i === 0 ? { section: 'A', row: 1, seat: 5 } : null,
+        })),
+      },
+    ];
+    stubApi({ [`GET /events/${EVENT.id}`]: json(EVENT), [`GET ${PATH}`]: json(seated) });
+    renderPage();
+
+    const row = (await screen.findByText('customer3')).closest('tr') as HTMLElement;
+    const items = within(row)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent);
+    expect(items[0]).toContain('Section A, Row 1, Seat 5');
+    expect(items.slice(1).join(' ')).not.toContain('Section');
+  });
 });

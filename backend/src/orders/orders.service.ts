@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma, type EventStatus, type Order, type Ticket, type TicketTier } from '@prisma/client';
 import type { Principal } from '../auth/principal';
 import { conflict, eventCancelled } from '../common/conflict';
-import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
+import { LOCKING_TX, type LockedEvent, lockEvent, ticketsSold } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ticketCode } from './ticket-code';
@@ -22,7 +22,14 @@ export interface OrderResponse {
   status: Order['status'];
   createdAt: Date;
   refundedAt: Date | null;
-  tickets: { id: string; code: string; status: Ticket['status']; checkedInAt: Date | null }[];
+  tickets: {
+    id: string;
+    code: string;
+    status: Ticket['status'];
+    checkedInAt: Date | null;
+    /** Spec 007 FR-011: the seat, or `null` for general admission. */
+    seat: { section: string; row: number; seat: number } | null;
+  }[];
 }
 
 export function toOrderResponse(o: OrderRow): OrderResponse {
@@ -43,6 +50,10 @@ export function toOrderResponse(o: OrderRow): OrderResponse {
       code: t.code,
       status: t.status,
       checkedInAt: t.checkedInAt,
+      seat:
+        t.seatSection !== null && t.seatRow !== null && t.seatNumber !== null
+          ? { section: t.seatSection, row: t.seatRow, seat: t.seatNumber }
+          : null,
     })),
   };
 }
@@ -74,6 +85,25 @@ const isCodeCollision = (err: unknown): boolean => isUniqueViolationOn(err, 'cod
 /** Spec 006 research R3: a repeat of the same confirmation for another event won the race. */
 const isRequestIdCollision = (err: unknown): boolean => isUniqueViolationOn(err, 'requestId');
 
+/**
+ * Spec 007 research R2: the one-valid-ticket-per-seat index refused a seat. Under the event lock
+ * this needs a write from outside the Backend; the retry's check then names the taken seats.
+ */
+const isSeatCollision = (err: unknown): boolean =>
+  isUniqueViolationOn(err, 'ticket_one_valid_per_seat') || isUniqueViolationOn(err, 'seatSection');
+
+/** A seat by its label (spec 007 research R1). */
+interface SeatLabel {
+  section: string;
+  row: number;
+  seat: number;
+}
+
+const seatText = (s: SeatLabel): string => `Section ${s.section}, Row ${s.row}, Seat ${s.seat}`;
+const seatKey = (s: SeatLabel): string => `${s.section}\u0000${s.row}\u0000${s.seat}`;
+const badSeats = (message: string): BadRequestException =>
+  new BadRequestException({ message: [message] });
+
 /** An order, and whether it was placed now (`false`) or returned for a repeated request. */
 export interface PlacedOrder {
   order: OrderResponse;
@@ -91,8 +121,9 @@ export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(eventId: string, dto: CreateOrderDto, buyer: Principal): Promise<PlacedOrder> {
-    // Retry once when a ticket code collides (60 random bits: vanishingly rare), or when a repeat
-    // of this confirmation for another event committed first; the retry's lookup then finds it.
+    // Retry once when a ticket code collides (60 random bits: vanishingly rare), when a repeat of
+    // this confirmation for another event committed first (the retry's lookup then finds it), or
+    // when the seat index refused a seat (the retry's check then names it).
     for (let attempt = 1; ; attempt++) {
       try {
         return await this.prisma.$transaction(
@@ -100,7 +131,8 @@ export class OrdersService {
           LOCKING_TX,
         );
       } catch (err) {
-        if (!(isCodeCollision(err) || isRequestIdCollision(err)) || attempt >= 2) throw err;
+        const retryable = isCodeCollision(err) || isRequestIdCollision(err) || isSeatCollision(err);
+        if (!retryable || attempt >= 2) throw err;
       }
     }
   }
@@ -125,7 +157,8 @@ export class OrdersService {
         const same =
           earlier.eventId === eventId &&
           earlier.tierId === (dto.tierId ?? null) &&
-          earlier.quantity === dto.quantity;
+          earlier.quantity === dto.quantity &&
+          (await this.sameSeats(tx, event, earlier.tickets, dto));
         if (!same) {
           throw conflict(
             'REQUEST_ID_REUSED',
@@ -158,6 +191,9 @@ export class OrdersService {
       });
     }
 
+    // Spec 007 research R6: seats are checked before counts, so a refusal names the seat.
+    const seats = await this.resolveSeats(tx, event, dto, tier);
+
     let available = event.totalTicketCapacity - (await ticketsSold(tx, { eventId }));
     if (tier) {
       const tierLeft = tier.quantity - (await ticketsSold(tx, { eventId, tierId: tier.id }));
@@ -187,16 +223,118 @@ export class OrdersService {
         unitPrice,
         totalPrice: unitPrice.mul(dto.quantity),
         tickets: {
-          create: Array.from({ length: dto.quantity }, () => ({
+          create: Array.from({ length: dto.quantity }, (_, i) => ({
             eventId,
             tierId: tier?.id ?? null,
             code: ticketCode(),
+            ...(seats[i]
+              ? { seatSection: seats[i].section, seatRow: seats[i].row, seatNumber: seats[i].seat }
+              : {}),
           })),
         },
       },
       include: ORDER_INCLUDE,
     });
     return { order: toOrderResponse(order), replayed: false };
+  }
+
+  /**
+   * Spec 007 FR-008, research R6: the seats an order names, as labels, after every seat rule.
+   * General admission takes no seats. Taken seats are refused by name (409 SEAT_TAKEN); the
+   * partial unique index guarantees it even if this check were bypassed (FR-009).
+   */
+  private async resolveSeats(
+    tx: Prisma.TransactionClient,
+    event: LockedEvent,
+    dto: CreateOrderDto,
+    tier: TicketTier | null,
+  ): Promise<SeatLabel[]> {
+    if (!event.reservedSeating) {
+      if (dto.seats?.length)
+        throw badSeats('seats must be omitted: this event has no reserved seating');
+      return [];
+    }
+    if (!dto.seats || dto.seats.length !== dto.quantity) {
+      throw badSeats(
+        `seats must list exactly ${dto.quantity} ${dto.quantity === 1 ? 'seat' : 'seats'}: ` +
+          'this event has reserved seating',
+      );
+    }
+
+    const sections = await tx.section.findMany({ where: { locationId: event.locationId } });
+    const mappings = tier ? await tx.sectionTier.findMany({ where: { eventId: event.id } }) : [];
+    const labels: SeatLabel[] = [];
+    const keys = new Set<string>();
+    for (const choice of dto.seats) {
+      const section = sections.find((s) => s.id === choice.sectionId);
+      if (!section)
+        throw badSeats(`section ${choice.sectionId} is not part of this venue's layout`);
+      const label = { section: section.name, row: choice.row, seat: choice.seat };
+      if (choice.row > section.rows || choice.seat > section.seatsPerRow) {
+        throw badSeats(`${seatText(label)} is not in the layout`);
+      }
+      // One tier per order (spec Clarifications): every seat's section is mapped to its tier.
+      if (tier && mappings.find((m) => m.sectionId === section.id)?.tierId !== tier.id) {
+        throw badSeats(`${seatText(label)} is not sold as ${tier.name}`);
+      }
+      if (keys.has(seatKey(label))) throw badSeats(`${seatText(label)} is listed twice`);
+      keys.add(seatKey(label));
+      labels.push(label);
+    }
+
+    const taken = await tx.ticket.findMany({
+      where: {
+        eventId: event.id,
+        status: 'VALID',
+        OR: labels.map((l) => ({ seatSection: l.section, seatRow: l.row, seatNumber: l.seat })),
+      },
+      select: { seatSection: true, seatRow: true, seatNumber: true },
+    });
+    if (taken.length > 0) {
+      const seats = taken
+        .map((t) => ({
+          section: t.seatSection as string,
+          row: t.seatRow as number,
+          seat: t.seatNumber as number,
+        }))
+        .sort((a, b) => seatKey(a).localeCompare(seatKey(b)));
+      throw conflict(
+        'SEAT_TAKEN',
+        `${seats.map(seatText).join('; ')} ${seats.length === 1 ? 'is' : 'are'} already taken.`,
+        { seats },
+      );
+    }
+    return labels;
+  }
+
+  /** Spec 007 research R6: a repeated requestId must name the same seats (as a set). */
+  private async sameSeats(
+    tx: Prisma.TransactionClient,
+    event: LockedEvent,
+    tickets: Ticket[],
+    dto: CreateOrderDto,
+  ): Promise<boolean> {
+    const before = tickets
+      .filter((t) => t.seatSection !== null)
+      .map((t) =>
+        seatKey({
+          section: t.seatSection as string,
+          row: t.seatRow as number,
+          seat: t.seatNumber as number,
+        }),
+      )
+      .sort();
+    const choices = dto.seats ?? [];
+    if (choices.length === 0) return before.length === 0;
+    const sections = await tx.section.findMany({ where: { locationId: event.locationId } });
+    const requested: string[] = [];
+    for (const c of choices) {
+      const section = sections.find((s) => s.id === c.sectionId);
+      if (!section) return false;
+      requested.push(seatKey({ section: section.name, row: c.row, seat: c.seat }));
+    }
+    requested.sort();
+    return before.length === requested.length && before.every((k, i) => k === requested[i]);
   }
 
   /**

@@ -6,6 +6,7 @@ import { deleteEvent, getEvent } from '../api/events';
 import { cancelEvent } from '../api/orders';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { SalesCard } from '../components/SalesCard';
+import { SeatingCard } from '../components/SeatingCard';
 import { SuccessState } from '../components/SuccessState';
 import { TierSection } from '../components/TierSection';
 import { when } from '../format';
@@ -67,6 +68,16 @@ function EventView({
 }): React.ReactElement {
   const cancelled = event.status === 'CANCELLED';
   const cancel = useCancel(event, onChange);
+  // Spec 007 (revision R11): seating sets the event's capacity and its tiers' amounts, and the
+  // Seating card maps the tiers, so each card reloads when the other changes.
+  const [tiersVersion, setTiersVersion] = useState(0);
+  const [seatingVersion, setSeatingVersion] = useState(0);
+  const seatingSaved = (): void => {
+    setTiersVersion((v) => v + 1);
+    void getEvent(event.id)
+      .then(onChange)
+      .catch(() => undefined);
+  };
   const { remove, deleting, error } = useDelete({
     kind: 'event',
     name: event.name,
@@ -137,7 +148,16 @@ function EventView({
 
       {/* Keyed on status: cancelling refunds every sale, so the card must reload. */}
       <SalesCard key={event.status} eventId={event.id} />
-      <TierSection event={event} readOnly={cancelled} />
+      <TierSection
+        key={`tiers-${tiersVersion}`}
+        event={event}
+        readOnly={cancelled}
+        onChange={() => setSeatingVersion((v) => v + 1)}
+      />
+      {/* Spec 007: hidden once cancelled, as the tier form's controls are. */}
+      {!cancelled && (
+        <SeatingCard key={`seating-${seatingVersion}`} event={event} onSaved={seatingSaved} />
+      )}
     </section>
   );
 }

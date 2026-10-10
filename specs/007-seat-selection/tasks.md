@@ -34,14 +34,17 @@ test tasks and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Run `npm test` from the repo root (and each front-end workspace separately if the
+- [X] T001 Run `npm test` from the repo root (and each front-end workspace separately if the
   Backend fails first) and record the baseline in this line. Expect Backend failures only from
   contract validation of `Event.reservedSeating` and `Ticket.seat`, and from route coverage for
   `getLayout`, `replaceLayout`, `deleteLayout`, `getSeatMap`, and `updateSeating`.
+  **Baseline 2026-10-03: shared 22, Admin 70, Customer 63, Booth 3, seed 3 pass. Backend 73 of
+  228 pass; every contract failure is "must have required property 'reservedSeating'" (306
+  times), plus route coverage for the five new operations.**
 
 ## Phase 2: Foundational (blocks every story)
 
-- [ ] T002 Add `Section` and `SectionTier` models, `Event.reservedSeating Boolean @default(false)`,
+- [X] T002 Add `Section` and `SectionTier` models, `Event.reservedSeating Boolean @default(false)`,
   and `Ticket.seatSection String?`, `seatRow Int?`, `seatNumber Int?` to
   `backend/prisma/schema.prisma`, and write
   `backend/prisma/migrations/20261005000000_seat_selection/migration.sql` per data-model.md:
@@ -53,11 +56,11 @@ test tasks and confirm they **fail** before the implementation tasks below them.
   `seatRow >= 1`, `seatNumber >= 1`; and the partial unique index `ticket_one_valid_per_seat` on
   `("eventId", "seatSection", "seatRow", "seatNumber") WHERE "status" = 'VALID' AND
   "seatSection" IS NOT NULL`. Run `npx prisma generate` in `backend/`.
-- [ ] T003 [P] Add `"SectionTier"` and `"Section"` to the `TRUNCATE` list in
+- [X] T003 [P] Add `"SectionTier"` and `"Section"` to the `TRUNCATE` list in
   `backend/test/setup/reset-db.ts`, children first.
-- [ ] T004 [P] Select `"reservedSeating"` and `"locationId"` in `lockEvent` and add them to
+- [X] T004 [P] Select `"reservedSeating"` and `"locationId"` in `lockEvent` and add them to
   `LockedEvent` in `backend/src/common/event-lock.ts`.
-- [ ] T005 Return each ticket's seat in `toOrderResponse` in `backend/src/orders/orders.service.ts`
+- [X] T005 Return each ticket's seat in `toOrderResponse` in `backend/src/orders/orders.service.ts`
   (`seat: { section, row, seat }` from the three columns, or `null`), and confirm event responses
   include `reservedSeating` (Prisma spreads it in `backend/src/events/events.service.ts`). Add
   `reservedSeating: false` to events and `seat: null` to tickets in
@@ -78,7 +81,7 @@ cannot change them while seated sales depend on them.
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T006 [P] [US1] Write `backend/test/integration/layout.e2e-spec.ts`: `GET` returns
+- [X] T006 [P] [US1] Write `backend/test/integration/layout.e2e-spec.ts`: `GET` returns
   `{ totalSeats: 0, sections: [] }` for a venue without one; `PUT` with A (3×10) and B (2×20)
   returns them in order with `totalSeats: 70`, and `GET` agrees; a second `PUT` replaces them;
   total seats above seating capacity → `409 CAPACITY_EXCEEDED`; names `A` and `a` → `400`;
@@ -90,7 +93,7 @@ cannot change them while seated sales depend on them.
   otherwise `DELETE` → `204` and `GET` is empty; `PATCH /locations/{id}` lowering
   `seatingCapacity` below the layout's seats → `409 CAPACITY_EXCEEDED`; customer and agent can
   `GET` but get `403` on `PUT` and `DELETE`; no token `401`.
-- [ ] T007 [P] [US1] Write `admin-app/test/layout.test.tsx` (stubbed fetch via
+- [X] T007 [P] [US1] Write `admin-app/test/layout.test.tsx` (stubbed fetch via
   `admin-app/test/helpers/api-stub.ts`): the venue page shows a Seating layout card listing each
   section's name, "3 rows × 10 seats", its seats, and the total; without a layout it says "No
   seating layout"; **Edit layout** shows one line per section (name, rows, seats per row) with
@@ -101,7 +104,7 @@ cannot change them while seated sales depend on them.
 
 ### Implementation for User Story 1
 
-- [ ] T008 [US1] Create `backend/src/seating/` with `seating.module.ts`, `dto/layout-input.dto.ts`
+- [X] T008 [US1] Create `backend/src/seating/` with `seating.module.ts`, `dto/layout-input.dto.ts`
   (nested `SectionInputDto`: `name` trimmed 1–50, `rows` 1–100, `seatsPerRow` 1–200; 1–50
   sections), `layout.service.ts` (get; replace and remove in one transaction that locks the venue
   row, then every scheduled event at the venue in id order; case-insensitive duplicate names →
@@ -112,9 +115,9 @@ cannot change them while seated sales depend on them.
   (`@Controller('locations/:id/layout')`: `GET` with no `@Roles`, `PUT` and `DELETE`
   `@Roles('queuepass-admin')`, `DELETE` `@HttpCode(204)`, `ParseUUIDPipe`). Register the module
   in `backend/src/app.module.ts`.
-- [ ] T009 [US1] In `backend/src/locations/locations.service.ts` `update`, refuse a
+- [X] T009 [US1] In `backend/src/locations/locations.service.ts` `update`, refuse a
   `seatingCapacity` below the venue's layout seats with `conflict('CAPACITY_EXCEEDED', ...)`.
-- [ ] T010 [US1] Create `admin-app/src/api/seating.ts` (`getLayout`, `replaceLayout`,
+- [X] T010 [US1] Create `admin-app/src/api/seating.ts` (`getLayout`, `replaceLayout`,
   `deleteLayout`) and `admin-app/src/components/LayoutCard.tsx` (card, edit form, remove with
   `window.confirm`), and render it on `admin-app/src/pages/LocationDetail.tsx`.
 
@@ -132,7 +135,7 @@ confirmation and My tickets (quickstart S2, S3).
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T011 [P] [US2] Write `backend/test/integration/seating.e2e-spec.ts`: `PUT
+- [X] T011 [P] [US2] Write `backend/test/integration/seating.e2e-spec.ts`: `PUT
   /events/{id}/seating` turning reserved seating on at a venue with a layout returns the seat map
   with `reservedSeating: true`; at a venue without one → `400`; switching either way after a
   ticket is sold → `409 EVENT_HAS_ORDERS`; a section of another venue or a tier of another event
@@ -143,7 +146,7 @@ confirmation and My tickets (quickstart S2, S3).
   the event's sections unmapped; deleting an unsold tier unmaps its sections; `PATCH
   /events/{id}` with a new `locationId` while reserved seating is on → `400`; customer and agent
   `GET` the seat map but get `403` on `PUT`; no token `401`.
-- [ ] T012 [P] [US2] Write `backend/test/integration/orders.seats.e2e-spec.ts`: a tiered seated
+- [X] T012 [P] [US2] Write `backend/test/integration/orders.seats.e2e-spec.ts`: a tiered seated
   order with 2 seats in its tier's section → `201`, tickets carry `seat` labels with the
   section's name; missing `seats`, a count different from `quantity`, `seats` on a
   general-admission event, a repeated seat, row or seat outside the section, a section of
@@ -153,7 +156,7 @@ confirmation and My tickets (quickstart S2, S3).
   quantity still stops sales (`409 SOLD_OUT`) with seats open; a repeated `requestId` with the same
   seats → `200`, with different seats → `409 REQUEST_ID_REUSED`; `GET /me/orders` and `GET
   /events/{id}/attendees` show the seats; a general-admission order still has `seat: null`.
-- [ ] T013 [P] [US2] Write `customer-app/test/seats.test.tsx` (stubbed fetch): for a seat map with
+- [X] T013 [P] [US2] Write `customer-app/test/seats.test.tsx` (stubbed fetch): for a seat map with
   `reservedSeating: true`, the form offers tiers, then a section select listing only the chosen
   tier's sections, then that section's seats as toggle buttons named "Row R, Seat S" with
   `aria-pressed`; taken seats are disabled; chosen seats are listed ("Section A, Row 1, Seat 5")
@@ -163,12 +166,12 @@ confirmation and My tickets (quickstart S2, S3).
   `sectionId`, `row`, `seat`) and `quantity`; a `409 SEAT_TAKEN` names the taken seats in an
   alert, reloads the seat map, unchooses those seats, and keeps the rest; the confirmation lists
   each code with its seat; a general-admission event still shows the `006` form.
-- [ ] T014 [P] [US2] Add to `customer-app/test/my-tickets.test.tsx`: a seated ticket reads
+- [X] T014 [P] [US2] Add to `customer-app/test/my-tickets.test.tsx`: a seated ticket reads
   "CODE, Section A, Row 3, Seat 7: Valid"; general-admission tickets keep "CODE: Valid".
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Create `backend/src/seating/seat-map.service.ts` and `seat-map.controller.ts`
+- [X] T015 [US2] Create `backend/src/seating/seat-map.service.ts` and `seat-map.controller.ts`
   (`@Controller('events/:id')`: `GET seats` with no `@Roles`; `PUT seating`
   `@Roles('queuepass-admin')`, with `dto/seating-input.dto.ts`) per research R5: the write locks
   the event, refuses cancelled, refuses switching with valid tickets, refuses turning on without
@@ -176,10 +179,10 @@ confirmation and My tickets (quickstart S2, S3).
   moving a section with valid tickets to another tier, and replaces the event's `SectionTier`
   rows; the read returns sections in `position` order with `tierId`, `sold`, and `taken` from
   valid tickets grouped by seat label. Register both in `seating.module.ts`.
-- [ ] T016 [US2] In `backend/src/events/events.service.ts` `updateLocked`, refuse a `locationId`
+- [X] T016 [US2] In `backend/src/events/events.service.ts` `updateLocked`, refuse a `locationId`
   change while `reservedSeating` is on with a `400` ("Turn reserved seating off before moving
   this event to another venue.").
-- [ ] T017 [US2] Add `seats` to `backend/src/orders/dto/create-order.dto.ts` (`@IsOptional`,
+- [X] T017 [US2] Add `seats` to `backend/src/orders/dto/create-order.dto.ts` (`@IsOptional`,
   `@IsArray`, `@ArrayMinSize(1)`, `@ArrayMaxSize(10)`, `@ValidateNested({ each: true })` of
   `SeatChoiceDto`: `sectionId` UUID, `row` and `seat` integers `>= 1`). In
   `backend/src/orders/orders.service.ts` `createLocked`, after the sales-closed check apply
@@ -187,14 +190,14 @@ confirmation and My tickets (quickstart S2, S3).
   `005`'s tier and capacity checks; create tickets with `seatSection` (the section's name),
   `seatRow`, and `seatNumber`; include seats in the repeat comparison (as a set of labels); map a
   `P2002` on `ticket_one_valid_per_seat` to `409 SEAT_TAKEN`.
-- [ ] T018 [P] [US2] Add `seatLabel(seat)` → "Section A, Row 3, Seat 7" to
+- [X] T018 [P] [US2] Add `seatLabel(seat)` → "Section A, Row 3, Seat 7" to
   `customer-app/src/format.ts`, with cases in `customer-app/test/format.test.ts`.
-- [ ] T019 [US2] Create `customer-app/src/components/SeatPicker.tsx` (section select and seat grid
+- [X] T019 [US2] Create `customer-app/src/components/SeatPicker.tsx` (section select and seat grid
   per research R8) and, in `customer-app/src/components/GetTickets.tsx`, load `GET
   /events/{id}/seats` and use the seat picker when `reservedSeating` is true: send `seats` and
   `quantity`, handle `409 SEAT_TAKEN` (reload, unchoose, name the seats), and list each code with
   `seatLabel` on the confirmation.
-- [ ] T020 [US2] Show `seatLabel` for seated tickets in `customer-app/src/pages/MyTickets.tsx`.
+- [X] T020 [US2] Show `seatLabel` for seated tickets in `customer-app/src/pages/MyTickets.tsx`.
 
 **Checkpoint**: T011–T014 pass. Quickstart S2 and S3 need US4's Seating card to turn reserved
 seating on in the browser, so they run at the US4 checkpoint.
@@ -209,7 +212,7 @@ seating on in the browser, so they run at the US4 checkpoint.
 
 ### Tests for User Story 3 (write first)
 
-- [ ] T021 [P] [US3] Write `backend/test/integration/seats.concurrency.e2e-spec.ts`: **10
+- [X] T021 [P] [US3] Write `backend/test/integration/seats.concurrency.e2e-spec.ts`: **10
   simultaneous orders from 10 customers for the same seat → exactly one `201`, nine `409
   SEAT_TAKEN`, and one valid ticket for that seat**; simultaneous orders for A-1-1+A-1-2 and
   A-1-2+A-1-3 → exactly one succeeds; after the event is cancelled, its seat map shows 0 sold;
@@ -219,9 +222,11 @@ seating on in the browser, so they run at the US4 checkpoint.
 
 ### Implementation for User Story 3
 
-- [ ] T022 [US3] Run T021 against the US2 code. If any case surfaces a `500` from the index,
+- [X] T022 [US3] Run T021 against the US2 code. If any case surfaces a `500` from the index,
   extend the `P2002` mapping in `backend/src/orders/orders.service.ts` so it answers `409
   SEAT_TAKEN` naming the seats; record in this line whether a change was needed.
+  **2026-10-03: no change needed. All four cases pass on repeated runs; under the event lock the
+  Backend's check refuses first, and the index refuses direct writes.**
 
 **Checkpoint**: T021 passes; quickstart S5 (cancellation frees seats) works.
 
@@ -237,23 +242,23 @@ matching counts (quickstart S2, S4).
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
-- [ ] T023 [P] [US4] Write `admin-app/test/seating.test.tsx`: the event page shows a Seating card
+- [X] T023 [P] [US4] Write `admin-app/test/seating.test.tsx`: the event page shows a Seating card
   with a "Reserved seating" checkbox, disabled with "This venue has no seating layout" or "Seats
   can't change after tickets are sold" as applicable; for an event with tiers, one tier select
   per section (including "Not for sale"); Save seating sends `PUT /events/{id}/seating` with
   `reservedSeating` and the mapped sections only; a refusal shows its message; the seat map shows
   one section at a time (a section select), each row as a line of seats marked sold or open, and
   "2 sold, 28 open" for that section.
-- [ ] T024 [P] [US4] Add to `admin-app/test/attendees.test.tsx`: a seated ticket shows
+- [X] T024 [P] [US4] Add to `admin-app/test/attendees.test.tsx`: a seated ticket shows
   "Section A, Row 1, Seat 5" next to its code; general-admission tickets show no seat.
 
 ### Implementation for User Story 4
 
-- [ ] T025 [US4] Add `getSeatMap` and `updateSeating` to `admin-app/src/api/seating.ts`; create
+- [X] T025 [US4] Add `getSeatMap` and `updateSeating` to `admin-app/src/api/seating.ts`; create
   `admin-app/src/components/SeatingCard.tsx` and `admin-app/src/components/SeatGrid.tsx`; render
   the card on `admin-app/src/pages/EventDetail.tsx` (hidden for cancelled events, as the tier form
   is).
-- [ ] T026 [US4] Show each ticket's seat in `admin-app/src/pages/Attendees.tsx`.
+- [X] T026 [US4] Show each ticket's seat in `admin-app/src/pages/Attendees.tsx`.
 
 **Checkpoint**: T023–T024 pass; quickstart S2, S3, and S4 work in the browser.
 
@@ -261,14 +266,22 @@ matching counts (quickstart S2, S4).
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T027 Update `README.md`: the status table (007 built), the "Today" paragraph, the features
+- [X] T027 Update `README.md`: the status table (007 built), the "Today" paragraph, the features
   list (venue layouts, reserved seating, choosing seats), and the scope boundaries.
-- [ ] T028 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
+- [X] T028 Run lint, build, Prettier, `node scripts/check-boundary.mjs`, and
   `node scripts/check-contract-drift.mjs`; all pass. Record the result in this line.
-- [ ] T029 Run `npm test` from the repo root; all suites pass, including route coverage and every
+  **2026-10-03: lint, build, Prettier, boundary, and drift checks pass.**
+- [X] T029 Run `npm test` from the repo root; all suites pass, including route coverage and every
   `006` suite. Record the counts per workspace in this line.
-- [ ] T030 Run `docker compose up --build -d`, then quickstart S1–S6 in a browser. Record the
-  result in this line.
+  **2026-10-03: 444 tests pass — shared 22, Backend 261, Admin 83, Customer 72, Booth 3,
+  seed 3.**
+- [X] T030 Run `docker compose up --build -d`, then quickstart S1–S6 in a browser. Record the
+  result in this line. **2026-10-03: passes in a browser (checked by the user): a venue layout,
+  reserved seating with a section mapped to a tier, a seat bought in the Customer app (front, Row 4,
+  Seat 10) and shown taken and sold. The check found three bugs, each fixed with a test: CORS did
+  not allow PUT; a tier with no section looked on sale; the Admin checkbox rendered as an empty
+  bar. After the fixes, `npm test` passes 453 tests (shared 22, Backend 266, Admin 84, Customer
+  75, Booth 3, seed 3).**
 
 ---
 
@@ -309,13 +322,13 @@ saved; a new event left blank gets 70; seated tiers show 30 and 40 from their se
 
 ### Tests for the revision (write first, confirm they fail)
 
-- [ ] T031 [P] Revise `backend/test/integration/layout.e2e-spec.ts`: saving a layout sets the
+- [X] T031 [P] Revise `backend/test/integration/layout.e2e-spec.ts`: saving a layout sets the
   venue's `seatingCapacity` to its total (no over-capacity refusal remains); saving a layout below
   a scheduled general-admission event's `totalTicketCapacity` → `409 CAPACITY_EXCEEDED` naming it;
   saving sets every scheduled seated event's `totalTicketCapacity` to the total; `PATCH
   /locations/{id}` with `seatingCapacity` while a layout exists → `400`; after `DELETE` the venue
   keeps its last capacity and `PATCH` may set it again.
-- [ ] T032 [P] Write `backend/test/integration/seating.capacity.e2e-spec.ts`: turning reserved
+- [X] T032 [P] Write `backend/test/integration/seating.capacity.e2e-spec.ts`: turning reserved
   seating on sets the event's capacity to the layout total; mapping sets each tier's `quantity`
   to its sections' seats (0 when unmapped) and remapping recalculates it; a layout save drops
   mappings to 0; turning reserved seating off keeps the numbers; `PATCH /events/{id}` with
@@ -323,7 +336,7 @@ saved; a new event left blank gets 70; seated tiers show 30 and 40 from their se
   → `400`, without it → `201` with `quantity: 0`, and `PATCH .../tiers/{id}` with `quantity` →
   `400`; on a general-admission event `POST .../tiers` without `quantity` → `400`; `POST /events`
   without `totalTicketCapacity` gets the venue's `seatingCapacity`.
-- [ ] T033 [P] Revise `admin-app/test/layout.test.tsx` (no over-capacity case) and add Admin
+- [X] T033 [P] Revise `admin-app/test/layout.test.tsx` (no over-capacity case) and add Admin
   tests: the venue edit form omits seating capacity when the venue has a layout, saying it is set
   by the layout; the event form's capacity field is optional ("leave blank for the venue's
   capacity") and omitted when sent blank, and is read-only for a seated event; the tier form omits
@@ -331,10 +344,10 @@ saved; a new event left blank gets 70; seated tiers show 30 and 40 from their se
 
 ### Implementation for the revision
 
-- [ ] T034 Write the migration `20261006000000_tier_quantity_non_negative` in
+- [X] T034 Write the migration `20261006000000_tier_quantity_non_negative` in
   `backend/prisma/migrations/` per data-model.md: drop `ticket_tier_quantity_positive`, add
   `ticket_tier_quantity_non_negative` (`"quantity" >= 0`).
-- [ ] T035 Backend: `backend/src/seating/layout.service.ts` sets the venue's capacity and its
+- [X] T035 Backend: `backend/src/seating/layout.service.ts` sets the venue's capacity and its
   scheduled seated events' capacities and zeroes their tiers on save, and refuses a total below a
   scheduled general-admission event's capacity; `backend/src/seating/seat-map.service.ts` sets
   capacity on turning seating on and recalculates tier quantities on every write;
@@ -343,7 +356,10 @@ saved; a new event left blank gets 70; seated tiers show 30 and 40 from their se
   event; `backend/src/events/dto/create-event.dto.ts` makes it optional;
   `backend/src/tiers/tiers.service.ts` and `backend/src/tiers/dto/create-tier.dto.ts` make
   quantity optional, required without seating and refused with it.
-- [ ] T036 Admin app: `admin-app/src/pages/LocationForm.tsx`, `admin-app/src/pages/EventForm.tsx`,
+- [X] T036 Admin app: `admin-app/src/pages/LocationForm.tsx`, `admin-app/src/pages/EventForm.tsx`,
   and `admin-app/src/components/TierSection.tsx` per T033.
-- [ ] T037 Run `npm test`, lint, build, Prettier, boundary, and drift; then quickstart S1 and S2
-  in a browser. Record the results in this line.
+- [X] T037 Run `npm test`, lint, build, Prettier, boundary, and drift; then quickstart S1 and S2
+  in a browser. Record the results in this line. **2026-10-03: lint, build, Prettier, boundary,
+  and drift pass; `npm test` passes 468 tests (shared 22, Backend 275, Admin 90, Customer 75,
+  Booth 3, seed 3); the revised S1 and S2 pass in a browser (checked by the user). The migration
+  also recalculates existing seated data once, so earlier data matches the new rules.**

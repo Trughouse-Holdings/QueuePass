@@ -36,6 +36,8 @@ export function EventForm(): React.ReactElement {
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
   const [totalTicketCapacity, setTotalTicketCapacity] = useState('');
+  // Spec 007 FR-018: a seated event's capacity is its venue's layout total.
+  const [seated, setSeated] = useState(false);
   const [basePrice, setBasePrice] = useState('');
   const [error, setError] = useState<ApiError | null>(null);
   const [saved, setSaved] = useState(false);
@@ -56,6 +58,7 @@ export function EventForm(): React.ReactElement {
         setStartsAt(toLocalInput(e.startsAt));
         setEndsAt(toLocalInput(e.endsAt));
         setTotalTicketCapacity(String(e.totalTicketCapacity));
+        setSeated(e.reservedSeating);
         setBasePrice(e.basePrice);
       })
       .catch((err: ApiError) => setError(err));
@@ -72,7 +75,10 @@ export function EventForm(): React.ReactElement {
       locationId,
       startsAt: toIso(startsAt),
       endsAt: toIso(endsAt),
-      totalTicketCapacity: Number(totalTicketCapacity),
+      // FR-019: blank means the venue's capacity; seated events never send one (FR-018).
+      ...(!seated && totalTicketCapacity.trim() !== ''
+        ? { totalTicketCapacity: Number(totalTicketCapacity) }
+        : {}),
       basePrice,
     };
 
@@ -167,22 +173,29 @@ export function EventForm(): React.ReactElement {
           </div>
 
           <div className="field-row">
-            <div className="field">
-              <label htmlFor="totalTicketCapacity">Total tickets</label>
-              <input
-                id="totalTicketCapacity"
-                type="number"
-                min={1}
-                value={totalTicketCapacity}
-                placeholder="18000"
-                onChange={(e) => setTotalTicketCapacity(e.target.value)}
-              />
-              {selected && (
+            {seated ? (
+              <p className="note">
+                {`Total tickets: ${Number(totalTicketCapacity).toLocaleString()}, set by the venue's seating layout.`}
+              </p>
+            ) : (
+              <div className="field">
+                <label htmlFor="totalTicketCapacity">Total tickets</label>
+                <input
+                  id="totalTicketCapacity"
+                  type="number"
+                  min={1}
+                  value={totalTicketCapacity}
+                  placeholder={selected ? String(selected.seatingCapacity) : '18000'}
+                  onChange={(e) => setTotalTicketCapacity(e.target.value)}
+                />
                 <span className="field__hint">
-                  Up to {selected.seatingCapacity.toLocaleString()} at {selected.name}.
+                  {selected
+                    ? `Up to ${selected.seatingCapacity.toLocaleString()} at ${selected.name}. `
+                    : ''}
+                  Leave blank to use the venue&apos;s capacity.
                 </span>
-              )}
-            </div>
+              </div>
+            )}
             <div className="field">
               <label htmlFor="basePrice">Base price</label>
               <input

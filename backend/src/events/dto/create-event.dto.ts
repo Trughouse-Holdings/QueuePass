@@ -1,5 +1,14 @@
 import { Transform } from 'class-transformer';
-import { IsInt, IsISO8601, IsPositive, IsString, IsUUID, Length, Matches } from 'class-validator';
+import {
+  IsISO8601,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  IsUUID,
+  Length,
+  Matches,
+} from 'class-validator';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -19,9 +28,11 @@ export class CreateEventDto {
   @IsISO8601({ strict: true }, { message: 'endsAt must be an ISO-8601 timestamp' })
   endsAt!: string;
 
+  /** Spec 007 FR-019: optional; when left out, the venue's seating capacity. */
+  @IsOptional()
   @IsInt({ message: 'totalTicketCapacity must be a whole number' })
   @IsPositive({ message: 'totalTicketCapacity must be a positive whole number' })
-  totalTicketCapacity!: number;
+  totalTicketCapacity?: number;
 
   /**
    * Decimal STRING, not a number — binary floating point cannot represent currency

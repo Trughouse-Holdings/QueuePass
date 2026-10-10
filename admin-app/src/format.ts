@@ -4,3 +4,7 @@
  */
 export const when = (iso: string): string =>
   new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+
+/** A seat as admins and customers read it (spec 007 FR-011): "Section A, Row 3, Seat 7". */
+export const seatLabel = (s: { section: string; row: number; seat: number }): string =>
+  `Section ${s.section}, Row ${s.row}, Seat ${s.seat}`;

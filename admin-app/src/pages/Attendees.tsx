@@ -4,6 +4,7 @@ import type { Event, Order } from '@queuepass/shared';
 import { ApiError } from '../api/client';
 import { getEvent } from '../api/events';
 import { listAttendees } from '../api/orders';
+import { seatLabel } from '../format';
 import { usd } from '../money';
 
 type Load =
@@ -105,6 +106,7 @@ export function Attendees(): React.ReactElement {
                           {o.tickets.map((t) => (
                             <li key={t.id}>
                               <code>{t.code}</code>
+                              {t.seat && ` ${seatLabel(t.seat)}`}
                               {t.status === 'VOID'
                                 ? ' (void)'
                                 : t.checkedInAt

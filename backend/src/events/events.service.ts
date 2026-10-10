@@ -66,7 +66,9 @@ export class EventsService {
 
     this.assertWindowOrdered(startsAt, endsAt);
     const location = await this.requireLocation(dto.locationId);
-    this.assertCapacityWithinVenue(dto.totalTicketCapacity, location);
+    // Spec 007 FR-019: left out, the event can sell as many tickets as the venue holds.
+    const capacity = dto.totalTicketCapacity ?? location.seatingCapacity;
+    this.assertCapacityWithinVenue(capacity, location);
     await this.assertNoConflict(dto.locationId, startsAt, endsAt, null);
 
     const created = await this.prisma.event.create({
@@ -75,7 +77,7 @@ export class EventsService {
         locationId: dto.locationId,
         startsAt,
         endsAt,
-        totalTicketCapacity: dto.totalTicketCapacity,
+        totalTicketCapacity: capacity,
         basePrice: dto.basePrice,
       },
       include: { location: true },
@@ -135,6 +137,20 @@ export class EventsService {
   ): Promise<EventResponse> {
     const locked = await lockEvent(tx, id);
     if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
+    // Spec 007 research R3: a seated event's sections belong to its venue, so it cannot move.
+    if (locked.reservedSeating && dto.locationId && dto.locationId !== locked.locationId) {
+      throw new BadRequestException({
+        message: ['Turn reserved seating off before moving this event to another venue.'],
+      });
+    }
+    // Spec 007 FR-018: a seated event's capacity is its venue's layout total.
+    if (locked.reservedSeating && dto.totalTicketCapacity !== undefined) {
+      throw new BadRequestException({
+        message: [
+          "totalTicketCapacity is set by the venue's seating layout while reserved seating is on",
+        ],
+      });
+    }
     const existing = await tx.event.findUniqueOrThrow({ where: { id } });
 
     // The conflict check runs against the DESTINATION venue and DESTINATION window —
