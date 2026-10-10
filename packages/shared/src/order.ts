@@ -29,6 +29,39 @@ export interface Order {
 export interface OrderInput {
   tierId?: string;
   quantity: number;
+  /** Spec 006: one random id per confirmation, so repeating it never places a second order. */
+  requestId?: string;
+}
+
+/** Spec 006: the parts of an event My tickets shows next to an order. */
+export interface OrderEvent {
+  id: string;
+  name: string;
+  startsAt: string;
+  endsAt: string;
+  status: EventStatus;
+  location: { id: string; name: string };
+}
+
+/** Spec 006: one of the signed-in customer's own orders (`GET /me/orders`). */
+export interface MyOrder extends Order {
+  event: OrderEvent;
+}
+
+/** Spec 006: why tickets cannot be ordered, or `null` while they can. */
+export type SalesClosedReason = 'CANCELLED' | 'STARTED';
+
+export interface TierAvailability {
+  tierId: string;
+  ticketsLeft: number;
+}
+
+/** Spec 006: tickets left for an event and its tiers (`GET /events/{id}/availability`). */
+export interface Availability {
+  eventId: string;
+  ticketsLeft: number;
+  salesClosed: SalesClosedReason | null;
+  tiers: TierAvailability[];
 }
 
 export const ORDER_LIMITS = { maxQuantity: 10 } as const;

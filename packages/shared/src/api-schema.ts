@@ -45,6 +45,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My orders
+         * @description Every order the signed-in customer has placed, newest first, each with its tickets and a
+         *     summary of its event (feature 006). The customer is the token's subject; no parameter can
+         *     name another customer. Orders made by the demo script belong to stand-in identities and
+         *     never appear here.
+         */
+        get: operations["listMyOrders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/hello/admin": {
         parameters: {
             query?: never;
@@ -280,6 +303,32 @@ export interface paths {
         patch: operations["updateTicketTier"];
         trace?: never;
     };
+    "/events/{id}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Tickets left and whether sales are open
+         * @description Tickets left for the event and for each of its tiers, counting valid tickets only, and
+         *     whether sales are closed and why, decided by the Backend's clock (feature 006). The
+         *     counts are guidance: `createOrder` decides under its own lock, so a count can be out of
+         *     date by the time an order arrives.
+         */
+        get: operations["getEventAvailability"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/events/{id}/orders": {
         parameters: {
             query?: never;
@@ -302,7 +351,14 @@ export interface paths {
          *     Refused when the event is cancelled (`409 EVENT_CANCELLED`) or when fewer tickets are
          *     left than requested, in the tier or in the event (`409 SOLD_OUT`, with
          *     `details.available`). Sales never exceed a tier's quantity or the event's capacity,
-         *     including under concurrent requests. The Customer app screens arrive in feature 006.
+         *     including under concurrent requests.
+         *
+         *     Feature 006: sales close when the event starts; an order at or after `startsAt` is
+         *     refused (`409 SALES_CLOSED`). A `requestId` makes a confirmation safe to repeat: if this
+         *     customer already placed an order with the same `requestId`, that order is returned with
+         *     `200` and nothing new is recorded, even if the event has since sold out, started, or been
+         *     cancelled. The same `requestId` with a different event, tier, or quantity is refused
+         *     (`409 REQUEST_ID_REUSED`). Without a `requestId`, every request places a new order.
          */
         post: operations["createOrder"];
         delete?: never;
@@ -606,6 +662,58 @@ export interface components {
              */
             tierId?: string;
             quantity: number;
+            /**
+             * Format: uuid
+             * @description Feature 006. A new random id for each confirmation the customer makes, reused only to
+             *     repeat that same confirmation. Optional; see `createOrder`.
+             */
+            requestId?: string;
+        };
+        /** @description One of the signed-in customer's orders, with a summary of its event (feature 006). */
+        MyOrder: components["schemas"]["Order"] & {
+            event: components["schemas"]["OrderEvent"];
+        };
+        /** @description The parts of an event My tickets shows next to an order (feature 006). */
+        OrderEvent: {
+            /** Format: uuid */
+            id: string;
+            /** @example Season Opener */
+            name: string;
+            /** Format: date-time */
+            startsAt: string;
+            /** Format: date-time */
+            endsAt: string;
+            /** @enum {string} */
+            status: "SCHEDULED" | "CANCELLED";
+            location: {
+                /** Format: uuid */
+                id: string;
+                /** @example KFC Yum! Center */
+                name: string;
+            };
+        };
+        /**
+         * @description Tickets left for an event and its tiers, and whether sales are closed (feature 006).
+         *     Valid tickets only. Guidance, not a reservation.
+         */
+        Availability: {
+            /** Format: uuid */
+            eventId: string;
+            /** @description The event's ticket capacity minus its valid tickets. */
+            ticketsLeft: number;
+            /**
+             * @description `null` while tickets can be ordered; otherwise why they cannot.
+             * @enum {string|null}
+             */
+            salesClosed: "CANCELLED" | "STARTED" | null;
+            /** @description One entry per tier, in the order `listTicketTiers` returns; empty without tiers. */
+            tiers: components["schemas"]["TierAvailability"][];
+        };
+        TierAvailability: {
+            /** Format: uuid */
+            tierId: string;
+            /** @description The tier's quantity minus its valid tickets, never more than the event has left. */
+            ticketsLeft: number;
         };
         Cancellation: {
             event: components["schemas"]["Event"];
@@ -661,7 +769,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -818,6 +926,28 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthenticated"];
+        };
+    };
+    listMyOrders: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's orders, newest first; empty when there are none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyOrder"][];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getAdminHello: {
@@ -1356,6 +1486,32 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    getEventAvailability: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event's availability. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Availability"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     createOrder: {
         parameters: {
             query?: never;
@@ -1372,6 +1528,18 @@ export interface operations {
             };
         };
         responses: {
+            /**
+             * @description A repeat of an earlier request with the same `requestId`; the earlier order is
+             *     returned unchanged and nothing new is recorded (feature 006).
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Order"];
+                };
+            };
             /** @description Order placed; its tickets are included. */
             201: {
                 headers: {

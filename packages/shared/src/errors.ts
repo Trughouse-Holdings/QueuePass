@@ -22,6 +22,10 @@ export const ERROR_CODES = [
   'EVENT_CANCELLED',
   'EVENT_HAS_ORDERS',
   'TIER_HAS_ORDERS',
+  // Spec 006: the event has started, so sales are closed; a requestId already used for a
+  // different order.
+  'SALES_CLOSED',
+  'REQUEST_ID_REUSED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.3.0
+  version: 1.4.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -47,7 +47,9 @@ tags:
   - name: tiers
     description: Ticket tiers per event (feature 004)
   - name: orders
-    description: Orders, tickets, attendee lists, and cancellation (feature 005)
+    description: |
+      Orders, tickets, attendee lists, and cancellation (feature 005); customer purchase,
+      availability, and a customer's own orders (feature 006)
   - name: reports
     description: Sales reporting for admins (feature 005)
 
@@ -89,6 +91,28 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Me' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /me/orders:
+    get:
+      tags: [orders]
+      summary: My orders
+      description: |
+        Every order the signed-in customer has placed, newest first, each with its tickets and a
+        summary of its event (feature 006). The customer is the token's subject; no parameter can
+        name another customer. Orders made by the demo script belong to stand-in identities and
+        never appear here.
+      operationId: listMyOrders
+      x-required-roles: [customer]
+      responses:
+        '200':
+          description: The caller's orders, newest first; empty when there are none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/MyOrder' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
 
   /hello/admin:
     get:
@@ -537,6 +561,33 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /events/{id}/availability:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+    get:
+      tags: [orders]
+      summary: Tickets left and whether sales are open
+      description: |
+        Tickets left for the event and for each of its tiers, counting valid tickets only, and
+        whether sales are closed and why, decided by the Backend's clock (feature 006). The
+        counts are guidance: `createOrder` decides under its own lock, so a count can be out of
+        date by the time an order arrives.
+      operationId: getEventAvailability
+      x-required-roles: []
+      responses:
+        '200':
+          description: The event's availability.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Availability' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /events/{id}/orders:
     parameters:
       - name: id
@@ -556,7 +607,14 @@ paths:
         Refused when the event is cancelled (`409 EVENT_CANCELLED`) or when fewer tickets are
         left than requested, in the tier or in the event (`409 SOLD_OUT`, with
         `details.available`). Sales never exceed a tier's quantity or the event's capacity,
-        including under concurrent requests. The Customer app screens arrive in feature 006.
+        including under concurrent requests.
+
+        Feature 006: sales close when the event starts; an order at or after `startsAt` is
+        refused (`409 SALES_CLOSED`). A `requestId` makes a confirmation safe to repeat: if this
+        customer already placed an order with the same `requestId`, that order is returned with
+        `200` and nothing new is recorded, even if the event has since sold out, started, or been
+        cancelled. The same `requestId` with a different event, tier, or quantity is refused
+        (`409 REQUEST_ID_REUSED`). Without a `requestId`, every request places a new order.
       operationId: createOrder
       x-required-roles: [customer]
       requestBody:
@@ -565,6 +623,13 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/OrderInput' }
       responses:
+        '200':
+          description: |
+            A repeat of an earlier request with the same `requestId`; the earlier order is
+            returned unchanged and nothing new is recorded (feature 006).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
         '201':
           description: Order placed; its tickets are included.
           content:
@@ -937,6 +1002,69 @@ components:
           format: uuid
           description: Required for an event with tiers; omitted for one without.
         quantity: { type: integer, minimum: 1, maximum: 10 }
+        requestId:
+          type: string
+          format: uuid
+          description: |
+            Feature 006. A new random id for each confirmation the customer makes, reused only to
+            repeat that same confirmation. Optional; see `createOrder`.
+
+    MyOrder:
+      description: One of the signed-in customer's orders, with a summary of its event (feature 006).
+      allOf:
+        - $ref: '#/components/schemas/Order'
+        - type: object
+          required: [event]
+          properties:
+            event: { $ref: '#/components/schemas/OrderEvent' }
+
+    OrderEvent:
+      description: The parts of an event My tickets shows next to an order (feature 006).
+      type: object
+      required: [id, name, startsAt, endsAt, status, location]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: Season Opener }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        status: { type: string, enum: [SCHEDULED, CANCELLED] }
+        location:
+          type: object
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string, example: KFC Yum! Center }
+
+    Availability:
+      description: |
+        Tickets left for an event and its tiers, and whether sales are closed (feature 006).
+        Valid tickets only. Guidance, not a reservation.
+      type: object
+      required: [eventId, ticketsLeft, salesClosed, tiers]
+      properties:
+        eventId: { type: string, format: uuid }
+        ticketsLeft:
+          type: integer
+          minimum: 0
+          description: The event's ticket capacity minus its valid tickets.
+        salesClosed:
+          type: [string, 'null']
+          enum: [CANCELLED, STARTED, null]
+          description: '`null` while tickets can be ordered; otherwise why they cannot.'
+        tiers:
+          type: array
+          description: One entry per tier, in the order `listTicketTiers` returns; empty without tiers.
+          items: { $ref: '#/components/schemas/TierAvailability' }
+
+    TierAvailability:
+      type: object
+      required: [tierId, ticketsLeft]
+      properties:
+        tierId: { type: string, format: uuid }
+        ticketsLeft:
+          type: integer
+          minimum: 0
+          description: The tier's quantity minus its valid tickets, never more than the event has left.
 
     Cancellation:
       type: object
@@ -1031,6 +1159,8 @@ components:
                 - EVENT_CANCELLED
                 - EVENT_HAS_ORDERS
                 - TIER_HAS_ORDERS
+                - SALES_CLOSED
+                - REQUEST_ID_REUSED
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -1158,6 +1288,18 @@ components:
                 error:
                   code: EVENT_CANCELLED
                   message: Season Opener is cancelled and can no longer be changed or sold.
+            salesClosed:
+              summary: The event has started, so sales are closed (feature 006)
+              value:
+                error:
+                  code: SALES_CLOSED
+                  message: Sales for Season Opener closed when it started.
+            requestIdReused:
+              summary: A requestId already used for a different order (feature 006)
+              value:
+                error:
+                  code: REQUEST_ID_REUSED
+                  message: This requestId was already used for a different order. Start a new confirmation.
             eventHasOrders:
               summary: Deleting an event that has orders
               value:
