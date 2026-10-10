@@ -1,4 +1,5 @@
 import type { Event, EventStatus } from './event.js';
+import type { SeatChoice, SeatLabel } from './seating.js';
 
 /**
  * Mirrors the order, ticket, and report schemas in contracts/openapi.yaml (spec 005). Every
@@ -9,6 +10,8 @@ export interface Ticket {
   code: string;
   status: 'VALID' | 'VOID';
   checkedInAt: string | null;
+  /** Spec 007: the seat this ticket is for; `null` for general admission. */
+  seat: SeatLabel | null;
 }
 
 export interface Order {
@@ -31,6 +34,8 @@ export interface OrderInput {
   quantity: number;
   /** Spec 006: one random id per confirmation, so repeating it never places a second order. */
   requestId?: string;
+  /** Spec 007: required for reserved seating, one per ticket. */
+  seats?: SeatChoice[];
 }
 
 /** Spec 006: the parts of an event My tickets shows next to an order. */

@@ -18,6 +18,8 @@ export interface Event {
   /** Spec 005: a cancelled event stays on record but is read-only. */
   status: EventStatus;
   cancelledAt: string | null;
+  /** Spec 007: whether customers choose seats. */
+  reservedSeating: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,7 +31,8 @@ export interface EventInput {
   locationId: string;
   startsAt: string;
   endsAt: string;
-  totalTicketCapacity: number;
+  /** Spec 007 FR-019: optional; when left out, the venue's seating capacity. */
+  totalTicketCapacity?: number;
   basePrice: string;
 }
 
