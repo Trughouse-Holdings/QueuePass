@@ -287,15 +287,15 @@ replaced by the reached message.
 - [X] T033 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' coverage if a provider is installed) in the PR description. The 80% floor is not
   yet blocking (Constitution VI deferral until `010` and `011`).
-- [ ] T034 Running-system gate: `docker compose up --build`, then walk quickstart.md S1–S8 in the
+- [X] T034 Running-system gate: `docker compose up --build`, then walk quickstart.md S1–S8 in the
   browser, and sign in, use, and sign out of each front end. Record the results in this file.
   - 2026-10-11, automated part: `docker compose up --build` brought every service up healthy;
     the backend applied `20261011000000_per_customer_ticket_limit` on startup (column and
     `event_max_tickets_per_customer_range` CHECK present); both events already in the database
     have no limit (S8, FR-017); `demo-data.js` created its data with "Comedy Night" limited to 4
     (S8). S6 is covered by `orders.ticket-limit.concurrency.e2e-spec.ts` in `npm test`.
-  - Still to do by hand: S1–S5 and S7 in the browser, and the sign-in/use/sign-out smoke test of
-    each front end.
+  - 2026-10-11, by hand: the user walked through the Admin app (Safari) and the Customer app
+    (Chrome) on this stack and reported it working.
 - [ ] T035 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
