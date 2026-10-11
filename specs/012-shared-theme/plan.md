@@ -77,6 +77,11 @@ Evaluated against constitution **v3.0.0**.
 component's class, new tests). Per the constitution, both the spec and plan PR and the
 implementation PR need approval from every team member.
 
+**Visible Admin changes need sign-off**: spec FR-012's Admin changes (darker control borders,
+44-pixel buttons and fields, larger checkboxes and radios, the focus outline) land on dense Admin
+screens. The teammate review of the implementation PR must sign them off explicitly (quickstart
+S5b).
+
 ## Project Structure
 
 ```text

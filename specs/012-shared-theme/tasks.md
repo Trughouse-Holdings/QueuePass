@@ -124,7 +124,8 @@ values, and the app scan fails today.
     `color-mix(in srgb, var(--accent) 18%, transparent)`, `padding: 0 var(--space-4)`,
     `margin: calc(-1 * var(--space-2)) 0 var(--space-5)`, `gap: var(--space-1)`,
     `border-radius: var(--radius-sm)`, `font: inherit`, `width: 44px`, `font-size: 13px`,
-    `white-space: nowrap`, and `style={{ width: '40%' }}`; and a comment containing `#fff` that
+    `white-space: nowrap`, a named-color word in a non-color property (`content: "red"` and
+    `grid-template-areas: "tan"`), and `style={{ width: '40%' }}`; and a comment containing `#fff` that
     must be ignored.
   - **The scan** (FR-005, SC-001): every `*.css` and `*.tsx` file under `../../admin-app/src`,
     `../../customer-app/src`, and `../../booth-app/src`; the test fails listing every violation as
@@ -141,7 +142,9 @@ values, and the app scan fails today.
   (replace comment characters with spaces, newlines kept); take each innermost `{ ... }` block;
   split into declarations; apply C1–C6; for TSX, find `style={{ ... }}` objects and apply the
   inline rule. Include the CSS named color list (CSS Color Module Level 4), excluding
-  `transparent` and `currentcolor`, matched as whole words in values only. Run T010's self-tests
+  `transparent` and `currentcolor`, matched as whole words only in the values of the
+  color-bearing properties listed in research R6 (C2); hex and color functions are matched in every
+  value. Run T010's self-tests
   until they pass. Use the C2 matcher in T003.
 
 **Checkpoint**: the self-tests pass; the scan fails, listing the work Phase 4 does.
@@ -258,7 +261,8 @@ unchanged.
   rounds). Record the number of rounds and any open finding in the PR description.
 - [ ] T029 Open the implementation PR against `main` with `fixes #24` in its description, noting
   that it changes `packages/shared/` and needs every team member's approval, and listing the
-  visible changes from spec FR-012.
+  visible changes from spec FR-012, with a request for the teammate's explicit sign-off of the
+  Admin ones (plan.md; quickstart S5b results attached).
 
 ---
 

@@ -73,6 +73,22 @@ picker, and My tickets, and the Admin app's Events and an event. **Expect**: no 
 scrolls sideways (a wide seat map scrolls inside its own box, as before); every button and field
 is at least 44 pixels tall in both apps; the seat picker looks as before.
 
+## S5b: Dense Admin screens (spec FR-012)
+
+The 44-pixel controls, larger checkboxes and radios, focus outline, and darker borders land
+hardest on the Admin app's dense screens. At 1280 pixels wide and again at 375 pixels, check:
+
+- an event page's **Ticket tiers** table with its inline Edit and Remove buttons, and the inline
+  edit row with Save and Cancel open;
+- the **Attendees** table;
+- the **Events** search form;
+- the **Reports** page;
+- the **New event** and **Edit event** form, including its checkboxes and radios.
+
+**Expect**: no controls overlap or are clipped, rows stay readable, and the Tab key shows the focus
+outline on each control. No Customer page scrolls sideways at 375 pixels; Admin pages are no worse
+than today. Record what you see for the teammate's sign-off (plan.md).
+
 ## S6: One change, both apps (US4; SC-003)
 
 On a scratch branch, change `--accent` in `packages/shared/src/web/theme.css` only (light value

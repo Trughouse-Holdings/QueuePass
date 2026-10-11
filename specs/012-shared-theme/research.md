@@ -195,7 +195,7 @@ Rules for app stylesheets:
 | # | Fails when | Allowed |
 |---|---|---|
 | C1 | a custom property is defined (`--anything:`) | none; apps define no theme values |
-| C2 | a value contains a color written out: `#` hex, `rgb(`, `rgba(`, `hsl(`, `hsla(`, `hwb(`, `lab(`, `lch(`, `oklab(`, `oklch(`, `color(`, or a CSS named color as a whole word | `var(--...)`, `transparent`, `currentcolor`, `inherit`, `color-mix()` of tokens |
+| C2 | any value contains a color written out: `#` hex, `rgb(`, `rgba(`, `hsl(`, `hsla(`, `hwb(`, `lab(`, `lch(`, `oklab(`, `oklch(`, or `color(`; or the value of a color-bearing property (`color`, `background`, `background-color`, `border*`, `outline*`, `fill`, `stroke`, `box-shadow`, `text-decoration*`, `caret-color`, `accent-color`, `column-rule*`) contains a CSS named color as a whole word | `var(--...)`, `transparent`, `currentcolor`, `inherit`, `color-mix()` of tokens |
 | C3 | `font-family` is set, or `font` is set to anything but `inherit` | none; the typeface is in the theme |
 | C4 | `border-radius` or `box-shadow` is not `var(--...)`, `0`, or `none` | tokens |
 | C5 | `padding*`, `margin*`, `gap`, `row-gap`, or `column-gap` has a part that is not `0`, `auto`, `var(--space-N)`, or `calc(-1 * var(--space-N))` | spacing steps |
@@ -225,6 +225,9 @@ preprocessor. Running in the first workspace of `npm test` fails fast.
   rules cannot say "only theme spacing steps" without a plugin.
 - A CSS parser such as PostCSS: only a transitive dependency of Vite today; depending on it
   directly adds a dependency for files this simple.
+
+Named colors are matched only in color-bearing properties, because the same words appear in
+other values (`content: "Gold tier"`, `grid-template-areas`, an animation or font name).
 
 **Limits, accepted**: the checker reads only plain CSS and inline `style` objects; it does not
 evaluate class names built at runtime, and it does not check widths, heights, or text sizes,
@@ -331,11 +334,15 @@ To keep conflicts small:
   picker. 012 leaves the seat rules in `customer-app/src/styles.css` and `SeatPicker.tsx` alone,
   except that the seat block's spacing values (`4px`, `4px 0`, `6px 2px`) become theme steps. If
   015 merges first, 012's implementer applies R9 to any rules 015 added; the drift check names
-  them. If 012 merges first, 015 must pass the check, which tells it what to use.
+  them. If 012 merges first, 015 must pass the check, which tells it what to use. Any new held-seat
+  state or message 015 adds uses theme values and existing theme classes.
 - **`016-per-user-ticket-limit`** (spec pending): it changes `GetTickets.tsx`, `SeatPicker.tsx`, and
-  the Admin `EventForm.tsx`, and adds no styles. 012 touches `GetTickets.tsx` in two `className`
-  attributes only. Whichever merges second gives any new status text in `GetTickets.tsx` the
-  banner classes (R8).
+  the Admin `EventForm.tsx`. Its research R8 adds text lines: a limit line on Get tickets ("Limit:
+  8 tickets per customer. You can get 3 more."), a "You have reached the limit" message, and a
+  seat-picker line saying why no more seats can be chosen. 012 touches `GetTickets.tsx` in two
+  `className` attributes only. Those 016 lines must use existing theme classes (`.note` for the
+  limit and seat-picker lines, `banner banner--conflict` or `.note` for the reached message) and
+  no new colors or spacing, so whichever of 012 and 016 merges second passes the drift check.
 
 **Rationale**: Moving tokens and shared controls, not screen-specific rules, keeps 012's edits
 away from the screens other features are changing.
