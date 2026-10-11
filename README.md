@@ -3,7 +3,7 @@
 Venue and event management with sign-in for every user and guaranteed conflict-free scheduling.
 
 Built from the specifications in [`specs/`](specs/) under the project constitution at
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v2.0.0).
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.0.0).
 
 ---
 
@@ -32,8 +32,22 @@ for an event, in a tier or at its base price, and see their codes; choose their 
 events with reserved seating; and find every order they placed on **My tickets**. Admins give
 venues seating layouts and see each seated event's seat map.
 
-Each feature lands as three pull requests, in order: spec, then plan and tasks, then code
-(Constitution III).
+Features `010` through `016` are reserved in the constitution's roadmap and not started: test
+coverage, CI test runs, a shared theme, venue address validation, event images, seat holds, and a
+per-user ticket limit.
+
+### How a feature is delivered
+
+Each feature has a GitHub issue and lands as two pull requests, in order (Constitution III):
+
+1. **Spec and plan** (branch `NNN-name-spec`): the spec, then the plan, contract changes, and
+   tasks. Merged before any code is written.
+2. **Implementation** (branch `NNN-name-impl`): the code and tests, written in a fresh Claude
+   session from the merged spec and plan. The PR says `fixes #N` to close the issue.
+
+Before either PR is opened, a second Claude session reviews the branch and the author fixes what
+it finds, usually two or three rounds. A teammate then reviews the PR. Only finished, reviewed
+work reaches `main`, so `main` always runs for a demo.
 
 ---
 
