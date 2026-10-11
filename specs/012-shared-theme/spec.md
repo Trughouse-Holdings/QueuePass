@@ -165,7 +165,8 @@ confirm both show the new accent on buttons, links, and the current navigation i
 - **Spacing on app-specific screens**: a few spacing values sit between the theme's steps. They
   move to the nearest step, a change of at most 2 pixels.
 - **Seat picker**: the Customer app's seat states keep their look. Their colors already come from
-  theme values; only their spacing is expressed as theme steps of the same size.
+  theme values. Only their spacing becomes theme steps: the gaps between seats and rows keep their
+  size, and the seat map's inner padding grows by 2 pixels.
 - **Ticket Booth app**: unchanged. It keeps the browser's plain look and does not load the theme.
 - **The theme fails to load**: not a case to design for. The theme is part of each app's build, so
   an app without it does not build or fails the check (US2-5).
@@ -267,8 +268,8 @@ confirm both show the new accent on buttons, links, and the current navigation i
 - **A change to the theme is a change to the shared code**, so it needs every team member's
   approval (Constitution, shared surface). That is intended: it is how the look stays one look.
 - **Seat holds (`015`)** will change the Customer app's seat picker. This feature changes only the
-  seat picker's spacing values, to theme steps of the same size, so the two can merge in either
-  order with little conflict.
+  seat picker's three spacing values, to theme steps, so the two can merge in either order with
+  little conflict.
 
 ## Out of Scope
 
