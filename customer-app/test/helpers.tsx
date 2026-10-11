@@ -91,6 +91,7 @@ export const event = (over: Partial<Event> = {}): Event => {
     startsAt: '2026-12-01T23:00:00.000Z', // 6:00 PM in New York
     endsAt: '2026-12-02T02:00:00.000Z', //   9:00 PM in New York
     totalTicketCapacity: 18000,
+    maxTicketsPerCustomer: null,
     basePrice: '45.5',
     status: 'SCHEDULED',
     cancelledAt: null,
@@ -118,6 +119,8 @@ export const availability = (over: Partial<Availability> = {}): Availability => 
   ticketsLeft: 100,
   salesClosed: null,
   tiers: [],
+  // Spec 016: no per-customer limit unless a test gives one.
+  customerLimit: null,
   ...over,
 });
 

@@ -43,6 +43,8 @@ export async function event(
     basePrice?: string;
     startsAt?: string;
     endsAt?: string;
+    /** Spec 016: sent only when given, so other suites create events exactly as before. */
+    maxTicketsPerCustomer?: number | null;
   } = {},
 ): Promise<string> {
   const window = opts.startsAt && opts.endsAt ? opts : nextWindow();
@@ -55,6 +57,9 @@ export async function event(
       endsAt: window.endsAt,
       totalTicketCapacity: opts.capacity ?? 100,
       basePrice: opts.basePrice ?? '45.00',
+      ...(opts.maxTicketsPerCustomer !== undefined
+        ? { maxTicketsPerCustomer: opts.maxTicketsPerCustomer }
+        : {}),
     })
     .expect(201);
   return res.body.id;

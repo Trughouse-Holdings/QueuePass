@@ -39,7 +39,13 @@ describe('Event availability', () => {
     await buy(eventId, { quantity: 3 });
 
     const res = await availability(eventId);
-    expect(res.body).toEqual({ eventId, ticketsLeft: 7, salesClosed: null, tiers: [] });
+    expect(res.body).toEqual({
+      eventId,
+      ticketsLeft: 7,
+      salesClosed: null,
+      tiers: [],
+      customerLimit: null,
+    });
   });
 
   it("counts each tier's tickets left, in the tier list's order", async () => {
@@ -99,5 +105,54 @@ describe('Event availability', () => {
       .get(`/events/${eventId}/availability`)
       .expect(200);
     await anon(ctx).get(`/events/${eventId}/availability`).expect(401);
+  });
+
+  describe("the caller's own standing against the limit (spec 016 FR-012; research R5)", () => {
+    const mine = async (eventId: string, n = 1) =>
+      (await customer(ctx, n)).get(`/events/${eventId}/availability`).expect(200);
+
+    it('gives a customer the limit, what they hold, and what is left, without void tickets', async () => {
+      const eventId = await event(ctx, venueId, { maxTicketsPerCustomer: 8 });
+      expect((await mine(eventId)).body.customerLimit).toEqual({ limit: 8, held: 0, remaining: 8 });
+
+      const placed = await buy(eventId, { quantity: 5 });
+      await ctx.prisma.ticket.update({
+        where: { id: placed.body.tickets[0].id },
+        data: { status: 'VOID' },
+      });
+      expect((await mine(eventId)).body.customerLimit).toEqual({ limit: 8, held: 4, remaining: 4 });
+    });
+
+    it('never reports a negative remainder after the limit is lowered below what is held', async () => {
+      const eventId = await event(ctx, venueId, { maxTicketsPerCustomer: 8 });
+      await buy(eventId, { quantity: 6 });
+      await asAdmin(ctx).patch(`/events/${eventId}`).send({ maxTicketsPerCustomer: 4 }).expect(200);
+      expect((await mine(eventId)).body.customerLimit).toEqual({ limit: 4, held: 6, remaining: 0 });
+    });
+
+    it('is null for an event with no limit', async () => {
+      const eventId = await event(ctx, venueId);
+      await buy(eventId, { quantity: 2 });
+      expect((await mine(eventId)).body).toHaveProperty('customerLimit', null);
+    });
+
+    it('is null for an admin or a gate agent', async () => {
+      const eventId = await event(ctx, venueId, { maxTicketsPerCustomer: 8 });
+      expect((await availability(eventId)).body).toHaveProperty('customerLimit', null);
+      const agent = await as(ctx, await tokenFor(AGENT))
+        .get(`/events/${eventId}/availability`)
+        .expect(200);
+      expect(agent.body).toHaveProperty('customerLimit', null);
+    });
+
+    it("never shows one customer another's count", async () => {
+      const eventId = await event(ctx, venueId, { maxTicketsPerCustomer: 8 });
+      await buy(eventId, { quantity: 6 }, 1);
+      expect((await mine(eventId, 2)).body.customerLimit).toEqual({
+        limit: 8,
+        held: 0,
+        remaining: 8,
+      });
+    });
   });
 });

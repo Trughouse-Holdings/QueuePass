@@ -73,7 +73,15 @@ export function GetTickets({ event }: { event: Event }) {
     left.tiers.find((t) => t.tierId === tid)?.ticketsLeft ?? 0;
   const chosen = tierList.find((t) => t.id === tierId) ?? null;
   const ticketsLeft = chosen ? tierLeft(chosen.id) : left.ticketsLeft;
-  const maxQuantity = Math.max(1, Math.min(ORDER_LIMITS.maxQuantity, ticketsLeft));
+  // Spec 016 research R8: the customer's own limit; missing means none (research R9).
+  const limit = left.customerLimit ?? null;
+  const maxQuantity = Math.max(
+    1,
+    Math.min(ORDER_LIMITS.maxQuantity, ticketsLeft, limit?.remaining ?? Infinity),
+  );
+  // Spec 016 US4-3: why no more seats can be chosen, when the limit is what stops them.
+  const limitBinds =
+    limit !== null && limit.remaining <= Math.min(ORDER_LIMITS.maxQuantity, ticketsLeft);
   const price = tierList.length > 0 ? chosen?.price : event.basePrice;
   const seated = seatMap.data?.reservedSeating === true ? seatMap.data : null;
   // Seats for the chosen tier's sections; every section when the event has no tiers.
@@ -176,6 +184,11 @@ export function GetTickets({ event }: { event: Event }) {
           : seated && tierList.length > 0 && !tierList.some(onSale)
             ? 'No seats are on sale for this event yet.'
             : null;
+  // Spec 016 FR-014: after the closed messages, which apply to every customer.
+  const reached =
+    !closed && limit !== null && limit.remaining === 0
+      ? `You have reached the limit of ${tickets(limit.limit)} for this event.`
+      : null;
 
   return (
     <section className="card card--padded get-tickets" aria-labelledby="get-tickets">
@@ -209,6 +222,8 @@ export function GetTickets({ event }: { event: Event }) {
           </p>
           <p>{closed}</p>
         </>
+      ) : reached ? (
+        <p>{reached}</p>
       ) : (
         chooseAndConfirm()
       )}
@@ -256,6 +271,10 @@ export function GetTickets({ event }: { event: Event }) {
         ) : (
           <p>{`${usd(event.basePrice)} each, ${count(left.ticketsLeft)} left`}</p>
         )}
+        {/* Spec 016 FR-012. */}
+        {limit !== null && (
+          <p>{`Limit: ${tickets(limit.limit)} per customer. You can get ${limit.remaining} more.`}</p>
+        )}
         {seated ? (
           section && (
             <>
@@ -275,6 +294,9 @@ export function GetTickets({ event }: { event: Event }) {
                 full={seats.length >= maxQuantity}
                 onToggle={toggleSeat}
               />
+              {limit !== null && limitBinds && seats.length >= maxQuantity && (
+                <p>{`No more seats can be chosen: the limit of ${tickets(limit.limit)} per customer allows you ${limit.remaining} more.`}</p>
+              )}
               <ul aria-label="Chosen seats">
                 {seats.map((c) => (
                   <li key={`${c.sectionId}-${c.row}-${c.seat}`}>
@@ -319,6 +341,8 @@ export function GetTickets({ event }: { event: Event }) {
     );
   }
 }
+
+const tickets = (n: number): string => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;
 
 /** Spec 006 FR-004: what was bought, what it cost, and every ticket code. */
 function Confirmation({ event, order }: { event: Event; order: Order }) {

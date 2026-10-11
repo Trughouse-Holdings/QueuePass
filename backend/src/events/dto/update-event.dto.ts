@@ -8,10 +8,14 @@ import {
   IsUUID,
   Length,
   Matches,
+  Min,
 } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
+
+const LIMIT_MESSAGE =
+  'maxTicketsPerCustomer must be a whole number of at least 1, or empty for no limit';
 
 /** Partial update — every field optional, same rules as create when supplied. */
 export class UpdateEventDto {
@@ -37,6 +41,12 @@ export class UpdateEventDto {
   @IsInt({ message: 'totalTicketCapacity must be a whole number' })
   @IsPositive({ message: 'totalTicketCapacity must be a positive whole number' })
   totalTicketCapacity?: number;
+
+  /** Spec 016 FR-001: optional; left out or `null`, the event has no per-customer limit. */
+  @IsOptional()
+  @IsInt({ message: LIMIT_MESSAGE })
+  @Min(1, { message: LIMIT_MESSAGE })
+  maxTicketsPerCustomer?: number | null;
 
   @IsOptional()
   @IsString({ message: 'basePrice must be a decimal string such as "45.00"' })

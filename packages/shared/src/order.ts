@@ -61,12 +61,26 @@ export interface TierAvailability {
   ticketsLeft: number;
 }
 
+/** Spec 016: the signed-in customer's own standing against an event's per-customer limit. */
+export interface CustomerLimit {
+  limit: number;
+  /** Their valid tickets for the event, across all their orders. */
+  held: number;
+  /** `limit - held`, never below 0. */
+  remaining: number;
+}
+
 /** Spec 006: tickets left for an event and its tiers (`GET /events/{id}/availability`). */
 export interface Availability {
   eventId: string;
   ticketsLeft: number;
   salesClosed: SalesClosedReason | null;
   tiers: TierAvailability[];
+  /**
+   * Spec 016: `null` without a limit or for a non-customer. Always sent by the Backend; a missing
+   * value means `null` (research R9).
+   */
+  customerLimit?: CustomerLimit | null;
 }
 
 export const ORDER_LIMITS = { maxQuantity: 10 } as const;

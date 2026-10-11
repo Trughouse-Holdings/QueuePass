@@ -94,6 +94,8 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
     startsAt: at(21, 24),
     endsAt: at(22, 2),
     totalTicketCapacity: 200,
+    // Spec 016 research R10: a per-customer limit to show live; every demo order fits under it.
+    maxTicketsPerCustomer: 4,
     basePrice: '25.00',
   });
 
