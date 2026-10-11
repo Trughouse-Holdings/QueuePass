@@ -101,7 +101,7 @@ clear it, and confirm each change is shown and applied to the next order.
 1. **Given** the event form, **When** an admin leaves the limit blank, **Then** the event is saved
    with no per-customer limit.
 2. **Given** the event form, **When** an admin enters 4, **Then** the event is saved with a limit of
-   4, and the event's detail page says "Limit: 4 tickets per customer".
+   4, and the event's detail page says "Per customer: 4 tickets" ("No limit" when blank).
 3. **Given** the event form, **When** an admin enters 0, a negative number, a fraction, or a number
    above the event's total ticket capacity, **Then** the event is not saved, the form explains the
    allowed range, and the other values entered are kept.
