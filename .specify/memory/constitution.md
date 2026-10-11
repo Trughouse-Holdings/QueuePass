@@ -51,18 +51,38 @@ front ends, and a one-shot seed job.
 Rationale: Reviewers, graders, and teammates must reach an identical running system without
 tribal knowledge. A nondeterministic seed turns every test failure into environment archaeology.
 
-### III. Spec-Driven Development, Delivered by Pull Request
+### III. Spec-Driven Development, Reviewed Before Every Pull Request
 
-Specs come before code. Each feature moves through three pull requests, in order, and each MUST
-be reviewed and merged before the next begins:
+Specs come before code. Each feature has a GitHub issue and moves through two pull requests, in
+order. The first MUST be merged before implementation begins:
 
-1. **Spec PR**: `specs/NNN-name/spec.md`, plus any change to this constitution.
-2. **Plan PR**: the plan, research, data model, OpenAPI contract changes, and task list.
-3. **Implementation PR**: the code and tests, with the tasks checked off.
+1. **Spec and plan PR** (branch `NNN-name-spec`): `specs/NNN-name/spec.md`, then the plan,
+   research, data model, OpenAPI contract changes, and task list, plus any change to this
+   constitution. The spec is worked through until it is right, and only then is the plan written.
+2. **Implementation PR** (branch `NNN-name-impl`): the code and tests, with the tasks checked off.
+   Its description MUST reference the feature's issue (`fixes #N`) so the issue closes on merge.
 
-Nothing is committed directly to `main`. There is exactly one copy of this constitution and one
-copy of each spec, in the repository. Code that contradicts its spec is a defect in one of the
-two, and one of them MUST be corrected in a pull request.
+Every branch is reviewed by a second Claude session before its pull request is opened:
+
+- **Independent review.** A Claude session that did not write the work reviews the branch
+  locally: the spec and plan against this constitution and the issue, and the code against the
+  merged spec and plan. The writing session fixes the findings, and the review repeats until
+  only minor findings remain, normally two or three rounds. The PR description records the
+  number of rounds and any finding left open, with the reason.
+- **Fresh implementer.** The implementation is written in a new Claude session that starts from
+  the merged spec and plan only, not in the session that wrote them. A gap it finds is fixed in
+  the spec or plan, not worked around in code.
+- **One feature at a time.** Each feature has its own branch and its own Claude session. A
+  session never works on two features at once.
+- **Teammate review.** Teammates review each other's pull requests promptly. Because the author
+  has already run the independent review, the teammate checks that the work makes sense and
+  follows this constitution, not every line again.
+
+Nothing is committed directly to `main`, and `main` MUST be demo-ready at all times: only
+reviewed, finished work is merged, and at any moment `main` MUST start with
+`docker compose up --build` and pass the smoke test in Principle VI. There is exactly one copy
+of this constitution and one copy of each spec, in the repository. Code that contradicts its spec
+is a defect in one of the two, and one of them MUST be corrected in a pull request.
 
 - Specifications describe capabilities in technology-agnostic terms. Framework choices belong in
   the plan, within the stack this constitution fixes.
@@ -70,8 +90,10 @@ two, and one of them MUST be corrected in a pull request.
 - Where the source requirements are silent, the spec records a reasoned default in its
   Assumptions section and work continues.
 
-Rationale: Separate pull requests let the team agree on what to build, then on how, before anyone
-writes code against a moving target.
+Rationale: One reviewed pull request settles what to build and how before anyone writes code
+against a moving target. A reviewer that did not write the work catches what its author cannot
+see, and an implementer that knows only the spec and plan proves they are complete enough to
+build from.
 
 ### IV. Server-Authoritative Rules, Guaranteed by the Database
 
@@ -129,27 +151,47 @@ after it.
   expired, wrongly signed, wrong-audience, and wrong-role cases.
 - Boundary conditions MUST be tested on both sides, and concurrency guarantees MUST be tested with
   genuinely concurrent requests.
-- The full suite MUST run with one documented command (`npm test`).
+- The full suite MUST run with one documented command (`npm test`) on a laptop, and MUST also
+  run automatically in GitHub Actions whenever a pull request is opened or updated.
+- Each workspace (`backend`, `admin-app`, `customer-app`, `booth-app`, `packages/shared`, and
+  `scripts/seed`) MUST reach at least **80% line coverage** on its own; one well-tested
+  workspace cannot make up for another. Coverage MUST be measured by the documented test command
+  and checked in CI. Only generated code (such as `packages/shared/src/api-schema.ts`) may be
+  excluded, and every exclusion MUST be listed in the coverage configuration with its reason.
 - Before an implementation PR is merged, the system MUST be brought up with
   `docker compose up --build`, and each front end MUST be signed into, used, and signed out of as
   a smoke test.
 
-Rationale: Scheduling logic is full of boundary conditions, and authorization mistakes are
-silent until exploited. Only explicit tests pin either down.
+Recorded deferral (Principle VIII): the coverage floor and the CI run become merge-blocking when
+`010-test-coverage` and `011-ci-test-runs` are merged. Until then, pull requests report their
+coverage but are not blocked by it.
 
-### VII. Function Over Finish
+Rationale: Scheduling logic is full of boundary conditions, and authorization mistakes are
+silent until exploited. Only explicit tests pin either down. A coverage floor per workspace shows
+where tests are missing, and running them on every pull request means nobody has to remember to.
+
+### VII. Function Over Finish, One Shared Look
 
 Usability and correctness are what get evaluated; visual design does not. Front ends MUST be
-plain, semantic, and accessible. No effort goes into branding, theming, or custom visual design.
-A stub front end (a hello-world page behind sign-in, plus logout) is a complete front end until a
-spec gives it functionality.
+plain, semantic, and accessible. No effort goes into branding, logos, decoration, or custom visual
+design. A stub front end (a hello-world page behind sign-in, plus logout) is a complete front end
+until a spec gives it functionality.
+
+The Admin and Customer apps MUST take their look (accent color, fonts, spacing, and the styles of
+shared controls such as buttons, inputs, and status messages) from one shared theme in
+`packages/shared/`, so the two apps are guaranteed to match. Neither app may define its own accent
+color or redefine a theme value. An app MAY add styles for its own screens, but those styles MUST
+use the theme's values. The theme is one fixed set of values, not a theming system: no runtime
+theme switching, no user-chosen themes, and no per-app variants. The Ticket Booth app stays a
+plain stub and adopts the shared theme when a spec gives it functionality.
 
 Reusing a look the project already has, to meet usability targets a spec states and tests (a
 layout that works at phone width, touch target size, WCAG contrast, states that do not rely on
-color alone, keyboard access), is usability work, not custom visual design. New branding, new
-themes, and decoration remain out of scope.
+color alone, keyboard access), is usability work, not custom visual design. New branding and
+decoration remain out of scope.
 
-Rationale: Make it function now. Make it pretty later.
+Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
+without anyone spending time on visual design, and a change to the look is made once.
 
 ### VIII. Staged Simplicity (YAGNI)
 
@@ -184,6 +226,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 | Backend tests | Jest, with Testcontainers for PostgreSQL |
 | Front-end tests | Vitest with React Testing Library |
 | Lint and format | ESLint and Prettier |
+| Continuous integration | GitHub Actions, running `npm test` with coverage on every pull request open and update |
 | Orchestration | Docker Compose v2 |
 
 ## Security and Data Constraints
@@ -214,7 +257,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `010`.
+number is a pull request against this table. The next free number is `017`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -227,19 +270,29 @@ number is a pull request against this table. The next free number is `010`.
 | `007-seat-selection` | Seating layouts per venue (sections, rows, seats) mapped to tiers; Admin seat map of sold and open seats; customers choose seats when getting tickets; no seat sold twice | `004`, `005`, `006` |
 | `008-customer-event-search` | Customer app search and filters for events (name, venue, date range, hide cancelled) using the existing event search; Customer app usability (phone-width layout, event cards, distinguishable seat and status states, keyboard access, AA contrast) reusing the Admin app's existing look | `003`, `004` |
 | `009-admin-order-management` | Admin order lookup by ticket code or customer; refund a single order, voiding its tickets and freeing its seats | `005`, `007` |
+| `010-test-coverage` | Tests for every existing feature, so each workspace reaches 80% line coverage, and coverage reporting in `npm test` | `001`–`008` |
+| `011-ci-test-runs` | GitHub Actions workflow that runs the full suite with coverage on every pull request open and update, and fails below the floor | `010` |
+| `012-shared-theme` | One shared theme in `packages/shared/` (accent color, fonts, spacing, shared control styles) used by the Admin and Customer apps | `008` |
+| `013-venue-address-validation` | Admin venue create and edit accept only a real US address; a Google Maps link on the address in the Admin and Customer apps | `002`, `003` |
+| `014-event-images` | Admins upload up to 5 images per event; customers see them on the event, for example as a rotating gallery | `002`, `003` |
+| `015-seat-holds` | Seats a customer selects are held so no one else can take them before checkout; released on deselect or logout; other customers see held seats update live without refreshing | `007` |
+| `016-per-user-ticket-limit` | Admins set a maximum number of tickets per customer per event; the limit counts across all of that customer's orders | `005`, `006` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
-`backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, and the root
-`package.json`) needs approval from every team member in its pull request.
+`backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
+and the root `package.json`) needs approval from every team member in its pull request.
 
 ## Development Workflow and Quality Gates
 
-1. **Spec, plan, implementation: three PRs.** Per Principle III.
+1. **Spec and plan, then implementation: two PRs.** Per Principle III. Each branch passes the
+   independent Claude review before its pull request is opened.
 2. **Contract before code.** Per Principle I, any API change is merged into
-   `contracts/openapi.yaml` in the plan PR, before it is implemented.
+   `contracts/openapi.yaml` in the spec and plan PR, before it is implemented.
 3. **Tests precede implementation.** Per Principle VI.
-4. **Green gate.** The full suite MUST pass before a pull request is merged. A failing test is
-   never skipped to unblock a merge; it is fixed, or the change is withdrawn.
+4. **Green gate.** The full suite MUST pass, locally and in CI, and every workspace MUST meet the
+   80% line coverage floor before a pull request is merged (Principle VI). A failing test is
+   never skipped, and a coverage exclusion is never added, to unblock a merge; the test is fixed,
+   or the change is withdrawn.
 5. **Running-system gate.** Before an implementation PR is merged, the system MUST start from a
    fresh clone with `docker compose up --build`, seeding MUST succeed on the first run, and each
    front end MUST pass the sign-in, use, and sign-out smoke test.
@@ -248,8 +301,10 @@ A change to the shared surface (`.specify/memory/constitution.md`, `contracts/op
    that changes any of them.
 7. **Review gate.** Reviews explicitly check API-only client access, contract conformance,
    Backend- and database-enforced rules, server-side token and role checks, test-first evidence,
-   and feature-appropriate scope. Any deviation MUST be justified in the PR description, or the
-   PR is rejected.
+   coverage, use of the shared theme, and feature-appropriate scope. Any deviation MUST be
+   justified in the PR description, or the PR is rejected.
+8. **Issue gate.** Every feature has a GitHub issue before its spec is written, and its
+   implementation PR closes that issue with `fixes #N`.
 
 ## Governance
 
@@ -272,4 +327,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 2.3.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-03
+**Version**: 3.0.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-11
