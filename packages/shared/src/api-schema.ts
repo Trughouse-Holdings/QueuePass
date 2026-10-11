@@ -206,6 +206,10 @@ export interface paths {
          *     seating has valid tickets (`409 LAYOUT_IN_USE`, `details.events`). Every event's section
          *     mappings at this venue are dropped, because the old sections no longer exist, so their
          *     tiers' quantities become 0 until remapped.
+         *
+         *     Feature 016: also refused when the total is below the `maxTicketsPerCustomer` of a
+         *     scheduled event at the venue with reserved seating (`409 CAPACITY_EXCEEDED`, naming it);
+         *     lower its limit first.
          */
         put: operations["replaceLayout"];
         post?: never;
@@ -240,6 +244,10 @@ export interface paths {
          * Schedule an event
          * @description Rejects, in this order: request-shape and field validation, unknown venue, ticket
          *     capacity above the venue's seating capacity, and a scheduling conflict at that venue.
+         *
+         *     Feature 016: `maxTicketsPerCustomer`, when given, must be from 1 to the event's
+         *     `totalTicketCapacity`, where an omitted capacity is the venue's `seatingCapacity` (`400`
+         *     otherwise). It is checked after the venue's seating capacity.
          */
         post: operations["createEvent"];
         delete?: never;
@@ -281,6 +289,14 @@ export interface paths {
          *     reserved seating, it cannot move to another venue, and its `totalTicketCapacity` is its
          *     venue's layout total and cannot be set (`400` for either); turn reserved seating off
          *     first.
+         *
+         *     Feature 016: `maxTicketsPerCustomer` may be set, changed, or cleared with `null` at any
+         *     time before the event is cancelled. After the existing capacity checks, the limit in
+         *     force after the update must not exceed the event's `totalTicketCapacity`: a
+         *     `maxTicketsPerCustomer` sent in the request above it is `400`; an update that lowers
+         *     `totalTicketCapacity` below the stored limit, without sending a new one, is `409
+         *     CAPACITY_EXCEEDED` (`details.proposedTicketCapacity`, `details.maxTicketsPerCustomer`).
+         *     Lowering or clearing the limit never changes an existing order or ticket.
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -370,6 +386,10 @@ export interface paths {
          *     whether sales are closed and why, decided by the Backend's clock (feature 006). The
          *     counts are guidance: `createOrder` decides under its own lock, so a count can be out of
          *     date by the time an order arrives.
+         *
+         *     Feature 016: for a signed-in customer and an event with a `maxTicketsPerCustomer`,
+         *     `customerLimit` gives the limit, the caller's own valid tickets for the event, and how many
+         *     more they may get; otherwise it is `null`. It never describes another customer.
          */
         get: operations["getEventAvailability"];
         put?: never;
@@ -472,6 +492,15 @@ export interface paths {
          *     already taken by valid tickets are refused (`409 SEAT_TAKEN`, `details.seats`). No seat is
          *     ever held by two valid tickets, including under concurrent requests. A repeated
          *     `requestId` must also name the same seats.
+         *
+         *     Feature 016: for an event with a `maxTicketsPerCustomer`, an order is refused when the
+         *     customer's valid tickets for the event, across all their orders, plus `quantity` would
+         *     exceed it (`409 TICKET_LIMIT_REACHED`, with `details.limit`, `details.held`,
+         *     `details.remaining`, and `details.requested`). Void tickets do not count. When fewer
+         *     tickets are left than the customer may still get, `SOLD_OUT` is returned instead, so the
+         *     refusal always names the smaller number. A customer never holds more than the limit,
+         *     including under concurrent requests. A repeated `requestId` is returned as before and
+         *     counts once.
          */
         post: operations["createOrder"];
         delete?: never;
@@ -658,6 +687,14 @@ export interface components {
             /** @example 18000 */
             totalTicketCapacity: number;
             /**
+             * @description Feature 016. The most valid tickets one customer may hold for this event, across all
+             *     their orders; `null` for no limit. Never more than `totalTicketCapacity`. Always sent
+             *     once 016 is implemented; not listed as required so this contract can merge ahead of
+             *     the implementation with the suite green. Clients treat a missing value as `null`.
+             * @example 8
+             */
+            maxTicketsPerCustomer?: number | null;
+            /**
              * @description Decimal string in USD, never a JSON number, so no client loses precision.
              * @example 45.00
              */
@@ -686,6 +723,11 @@ export interface components {
              *     is the venue's `seatingCapacity`.
              */
             totalTicketCapacity?: number;
+            /**
+             * @description Feature 016. Optional; left out or `null` means no limit. Must not exceed the event's
+             *     `totalTicketCapacity` (`400` otherwise).
+             */
+            maxTicketsPerCustomer?: number | null;
             /** @description Non-negative decimal string. */
             basePrice: string;
         };
@@ -699,6 +741,8 @@ export interface components {
             /** Format: date-time */
             endsAt?: string;
             totalTicketCapacity?: number;
+            /** @description Feature 016. `null` clears the limit. */
+            maxTicketsPerCustomer?: number | null;
             basePrice?: string;
         };
         /** @description One kind of ticket for an event, such as General or VIP (feature 004). */
@@ -828,6 +872,13 @@ export interface components {
         Availability: {
             /** Format: uuid */
             eventId: string;
+            /**
+             * @description Feature 016. The caller's standing against the event's `maxTicketsPerCustomer`;
+             *     `null` when the event has no limit or the caller is not a customer. Always sent once
+             *     016 is implemented; optional for the same reason as `Event.maxTicketsPerCustomer`.
+             *     Clients treat a missing value as `null`.
+             */
+            customerLimit?: components["schemas"]["CustomerLimit"] | null;
             /** @description The event's ticket capacity minus its valid tickets. */
             ticketsLeft: number;
             /**
@@ -837,6 +888,18 @@ export interface components {
             salesClosed: "CANCELLED" | "STARTED" | null;
             /** @description One entry per tier, in the order `listTicketTiers` returns; empty without tiers. */
             tiers: components["schemas"]["TierAvailability"][];
+        };
+        /** @description Feature 016. One customer's own standing against an event's limit. */
+        CustomerLimit: {
+            /** @description The event's `maxTicketsPerCustomer`. */
+            limit: number;
+            /** @description The caller's valid tickets for the event, across all their orders. */
+            held: number;
+            /**
+             * @description How many more the caller may get under the limit, `limit - held`, never below 0. Tickets
+             *     left for the event may still be fewer.
+             */
+            remaining: number;
         };
         TierAvailability: {
             /** Format: uuid */
@@ -978,7 +1041,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED";
                 message: string;
                 details?: {
                     [key: string]: unknown;
