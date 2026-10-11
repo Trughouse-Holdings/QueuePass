@@ -8,13 +8,14 @@ changes.
 
 | Where | Change |
 |---|---|
-| `Location` | adds `street`, `city`, `state` (`UsState`), `zip`, each a value or `null` (`null` = not verified). Always sent, not in `required` (research R11). `address` unchanged, now documented as built from the parts. |
-| `LocationInput` | adds `street` (1–200), `city` (1–100), `state` (`UsState`), `zip` (`^[0-9]{5}(-[0-9]{4})?$`); removes `address`. The four are required by the Backend but not listed in `required` (research R11). |
-| `LocationUpdate` | adds the same four, optional, all together or none; removes `address`. |
+| `Location` | adds `street`, `city`, `state` (`UsState`), `zip`, each a value or `null` (`null` = from before `013`), and `addressVerified: boolean`. Always sent, not in `required` (research R11). `address` unchanged, now documented as built from the parts. |
+| `LocationInput` | adds `street` (1–200), `city` (1–100), `state` (`UsState`), `zip` (`^[0-9]{5}(-[0-9]{4})?$`), and optional `acceptUnverifiedAddress`; removes `address`. The four are required by the Backend but not listed in `required` (research R11). |
+| `LocationUpdate` | adds the same four, optional, all together or none, and `acceptUnverifiedAddress` (only with the four); removes `address`. |
+| `AcceptUnverifiedAddress` | new schema: boolean, default `false`. "Save anyway" after a not-found or ambiguous refusal; never bypasses `503` (research R2, R6). |
 | `UsState` | new schema: enum of the 50 states and DC. |
-| `createLocation` | description: the address check, the standard form, the three refusals. `400` → `AddressRejected`; new `503`. |
-| `updateLocation` | description: all four or none; checked only when changed, after the other checks. `400` → `AddressRejected`; new `503`. |
-| `AddressRejected` | new response: `VALIDATION_FAILED`, `ADDRESS_NOT_FOUND`, `ADDRESS_AMBIGUOUS` examples. |
+| `createLocation` | description: the address check, the standard form, save anyway, the three refusals. `400` → `AddressRejected`; new `503`. |
+| `updateLocation` | description: all four or none; checked only when changed, after the other checks; `addressVerified` kept when unchanged. `400` → `AddressRejected`; new `503`. |
+| `AddressRejected` | new response: `VALIDATION_FAILED`, `ADDRESS_NOT_FOUND`, `ADDRESS_AMBIGUOUS` examples; says the request may be resent with `acceptUnverifiedAddress: true`. |
 | `AddressServiceUnavailable` | new response: `503 ADDRESS_SERVICE_UNAVAILABLE`. |
 | `ErrorEnvelope.code` | adds `ADDRESS_NOT_FOUND`, `ADDRESS_AMBIGUOUS`, `ADDRESS_SERVICE_UNAVAILABLE`. |
 
@@ -66,8 +67,19 @@ Example venue after a verified save:
   "city": "LEXINGTON",
   "state": "KY",
   "zip": "40507",
+  "addressVerified": true,
   "seatingCapacity": 20500,
   "createdAt": "…",
   "updatedAt": "…"
 }
 ```
+
+Save anyway, after `ADDRESS_NOT_FOUND` for the KFC Yum! Center:
+
+```json
+{ "name": "KFC Yum! Center", "street": "1 Arena Plaza", "city": "Louisville", "state": "KY",
+  "zip": "40202", "seatingCapacity": 22090, "acceptUnverifiedAddress": true }
+```
+
+→ `201` with `"address": "1 Arena Plaza, Louisville, KY 40202"` and `"addressVerified": false`.
+The same request while the service is down → `503 ADDRESS_SERVICE_UNAVAILABLE`.

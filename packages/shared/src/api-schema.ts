@@ -140,11 +140,19 @@ export interface paths {
          *
          *     Feature 013: the address (`street`, `city`, `state`, `zip`) is then checked with the
          *     address service (the US Census Geocoder) before anything is saved. Exactly one match is
-         *     accepted, and the venue is saved with the service's standard form of the four fields;
-         *     `address` is built from them as `STREET, CITY, ST ZIP`. No match is
-         *     `400 ADDRESS_NOT_FOUND`; several matches are `400 ADDRESS_AMBIGUOUS`, listing them. When
-         *     the service cannot be reached, does not answer within 5 seconds, or answers with an
-         *     error, the save is refused with `503 ADDRESS_SERVICE_UNAVAILABLE` and nothing is saved.
+         *     accepted, and the venue is saved with the service's standard form of the four fields and
+         *     `addressVerified: true`; `address` is built from them as `STREET, CITY, ST ZIP`. No
+         *     match is `400 ADDRESS_NOT_FOUND`; several matches are `400 ADDRESS_AMBIGUOUS`, listing
+         *     them.
+         *
+         *     Save anyway: with `acceptUnverifiedAddress: true`, no match or several matches instead
+         *     save the venue with the four fields as sent (trimmed, ZIP cut to 5 digits) and
+         *     `addressVerified: false`. The address service is still asked first, and the flag changes
+         *     nothing when it finds exactly one match.
+         *
+         *     When the service cannot be reached, does not answer within 5 seconds, or answers with an
+         *     error, the save is refused with `503 ADDRESS_SERVICE_UNAVAILABLE` and nothing is saved,
+         *     with or without `acceptUnverifiedAddress`.
          */
         post: operations["createLocation"];
         delete?: never;
@@ -188,9 +196,11 @@ export interface paths {
          *     Feature 013: `street`, `city`, `state`, and `zip` are sent all together or not at all
          *     (`400`). When they are sent and differ from the stored ones (ignoring case and extra
          *     spaces), the address is checked exactly as in `createLocation`, after every other check
-         *     on this request and before anything is saved. An edit without address fields, or with
-         *     the same address, never calls the address service. A venue saved before feature 013
-         *     keeps its `address` and has `null` parts until its address is changed.
+         *     on this request and before anything is saved, including `acceptUnverifiedAddress`. An
+         *     edit without address fields, or with the same address, never calls the address service
+         *     and keeps `addressVerified` as it is. `acceptUnverifiedAddress` without the four address
+         *     fields is `400`. A venue saved before feature 013 keeps its `address`, has `null` parts,
+         *     and has `addressVerified: false` until its address is changed.
          */
         patch: operations["updateLocation"];
         trace?: never;
@@ -641,11 +651,17 @@ export interface components {
             };
         };
         /**
-         * @description A venue. Feature 013: `street`, `city`, `state`, and `zip` are the address as the address
-         *     service matched it, in its standard (upper-case) form, and `address` is built from them
-         *     as `STREET, CITY, ST ZIP`. All four are `null` for a venue saved before feature 013 whose
-         *     address has not been changed since; its `address` is the one-line text it was saved with.
-         *     The four fields are always sent from feature 013 on, but are not in `required`, so this
+         * @description A venue. Feature 013: when `street`, `city`, `state`, and `zip` are set, `address` is
+         *     built from them as `STREET, CITY, ST ZIP`. Three kinds of venue:
+         *
+         *     - `addressVerified: true`: the address service matched it; the four fields are its
+         *       standard (upper-case) form.
+         *     - `addressVerified: false` with the four fields set: an admin saved it anyway
+         *       (`acceptUnverifiedAddress`); the fields are as the admin sent them.
+         *     - `addressVerified: false` with the four fields `null`: saved before feature 013 and not
+         *       re-addressed since; `address` is the one-line text it was saved with.
+         *
+         *     The five fields are always sent from feature 013 on, but are not in `required`, so this
          *     contract can merge before the Backend sends them (feature 013 research R11).
          */
         Location: {
@@ -665,6 +681,8 @@ export interface components {
             state?: components["schemas"]["UsState"] | null;
             /** @example 40507 */
             zip?: string | null;
+            /** @description Whether the address service matched this address. Clients mark `false` as "Address not verified". */
+            addressVerified?: boolean;
             /** @example 22090 */
             seatingCapacity: number;
             /** Format: date-time */
@@ -700,12 +718,14 @@ export interface components {
              * @example 40507
              */
             zip?: string;
+            acceptUnverifiedAddress?: components["schemas"]["AcceptUnverifiedAddress"];
             /** @description Must be a positive whole number. */
             seatingCapacity: number;
         };
         /**
          * @description Partial update; supply only the fields being changed. Feature 013: `street`, `city`,
-         *     `state`, and `zip` are sent all together or not at all.
+         *     `state`, and `zip` are sent all together or not at all, and `acceptUnverifiedAddress`
+         *     only with them (`400` otherwise).
          */
         LocationUpdate: {
             name?: string;
@@ -713,8 +733,18 @@ export interface components {
             city?: string;
             state?: components["schemas"]["UsState"];
             zip?: string;
+            acceptUnverifiedAddress?: components["schemas"]["AcceptUnverifiedAddress"];
             seatingCapacity?: number;
         };
+        /**
+         * @description Feature 013 "save anyway": the admin confirmed the address after an `ADDRESS_NOT_FOUND`
+         *     or `ADDRESS_AMBIGUOUS` refusal. The address service is still asked. With no match or
+         *     several matches, the venue is saved as sent with `addressVerified: false`. With exactly
+         *     one match, it is saved verified, as without the flag. When the service is unavailable,
+         *     the request is still refused with `503 ADDRESS_SERVICE_UNAVAILABLE`.
+         * @default false
+         */
+        AcceptUnverifiedAddress: boolean;
         /**
          * @description A US state or the District of Columbia, by its two-letter postal code (feature 013).
          * @enum {string}
@@ -1187,6 +1217,8 @@ export interface components {
          * @description Request shape or field validation failed (`VALIDATION_FAILED`), or, for a venue address
          *     (feature 013), the address service found no match (`ADDRESS_NOT_FOUND`) or more than one
          *     (`ADDRESS_AMBIGUOUS`, with up to 5 matches in `details.candidates`). Nothing was saved.
+         *     After either address refusal, the client may resend the same request with
+         *     `acceptUnverifiedAddress: true` to save the venue as not verified.
          */
         AddressRejected: {
             headers: {

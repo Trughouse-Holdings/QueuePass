@@ -41,8 +41,12 @@ The response is `{ "result": { "input": {...}, "addressMatches": [ { "matchedAdd
 "coordinates": { "x", "y" }, "addressComponents": {...}, "tigerLine": {...} } ] } }`.
 `addressComponents` gives the street's number range (`fromAddress`, `toAddress`), not the house
 number, so the saved parts come from `matchedAddress` (R3). The HTTP status for a malformed
-request and the shape of the service's own error body were not observed; every non-2xx answer is
-treated as unavailable (R6), so the client does not depend on them.
+request and the shape of the service's own error body were not observed; the client reads only
+the status code of a non-2xx answer (R6), never its body, so it does not depend on them.
+
+An independent review re-ran the live service the same day: Freedom Hall, Rupp Arena, 350 Adams
+St, and the White House matched; 1 Arena Plaza had no match again; and
+`2301 S 3rd St, Louisville, KY 40292` matched with its ZIP code corrected to `40208` (R3).
 
 **Rationale**: Decided by the user, 2026-10-11: free, no key, no secret to manage (Constitution
 Security). One interface keeps tests off the network (R9) and lets a later feature swap the
@@ -50,32 +54,43 @@ service by writing one class.
 
 **Known limit**: the Census service matches against street address ranges, and misses some real
 addresses, such as the KFC Yum! Center above. Such an address is refused like any other unmatched
-address (spec Edge Cases). The admin enters a form the service knows. There is no override
-(spec Assumptions).
+address on the first try. Because of this, the user decided (2026-10-11) that the admin may then
+confirm "save anyway": the venue is saved as typed and marked not verified (R2, R4, R8).
 
 **Alternatives considered**: Google's Address Validation API (needs a key and billing; the user
 chose Census). USPS Web Tools (needs registration). The Census one-line endpoint
 (`onelineaddress`) (we already have the parts; the parts endpoint parses less).
 
-## R2. Exactly one match is "real"; none and several are refused with their own codes
+## R2. Exactly one match is verified; none and several are refused unless the admin confirms
 
 **Decision**: The client groups `addressMatches` by `matchedAddress`:
 
-- one distinct `matchedAddress` → `match`;
-- none → `none` → `400 ADDRESS_NOT_FOUND`;
-- two or more distinct → `many` (up to the first 5) → `400 ADDRESS_AMBIGUOUS`, with
-  `details.candidates` listing them in the service's order.
+- one distinct `matchedAddress` → `match` → saved in standard form, `addressVerified = true`;
+- none → `none`;
+- two or more distinct → `many` (up to the first 5).
 
-Both refusals carry `details.address`, the one-line address as the admin typed it, and a message
-naming it. Nothing is saved.
+For `none` and `many`:
 
-**Rationale**: FR-003 to FR-005. A match the admin cannot see could be the wrong building; listing
-the candidates lets them type the right one. `400` because the request is wrong as sent, like
-`VALIDATION_FAILED`; separate codes let the Admin app branch on `code` (Constitution I).
+- **without** `acceptUnverifiedAddress: true` → `400 ADDRESS_NOT_FOUND` or
+  `400 ADDRESS_AMBIGUOUS` (with `details.candidates` in the service's order). Both carry
+  `details.address`, the one-line address as typed, and a message naming it. Nothing is saved.
+- **with** `acceptUnverifiedAddress: true` → saved as typed (trimmed, spaces collapsed, ZIP cut to
+  5 digits; the admin's own case is kept), `addressVerified = false`.
+
+`match` ignores the flag: a matched address is always saved in standard form and verified.
+`unavailable` ignores it too (R6).
+
+**Rationale**: FR-003 to FR-005 and FR-019. A match the admin cannot see could be the wrong
+building; listing the candidates lets them type the right one. The service misses some real venues
+(R1), so the user chose an explicit, recorded "save anyway" over a dead end. The lookup always
+runs first, so the flag never saves an address the service could have verified, and never hides
+an outage. `400` because the request is not acceptable as sent; separate codes let the Admin app
+branch on `code` and offer "Save anyway" only for these two (Constitution I).
 
 **Alternatives considered**: Taking the first of several matches (could save the wrong street).
 Folding "several" into `ADDRESS_NOT_FOUND` with candidates (one code with two meanings). `422`
-(no other operation in the contract uses it).
+(no other operation in the contract uses it). Skipping the lookup when the flag is sent (an
+admin who ticks it up front would never get a verified address).
 
 ## R3. Save the service's standard form, built from `matchedAddress`
 
@@ -95,31 +110,43 @@ comparison reliable.
 Title-casing the service's answer ("Mcdonald St", "Nw" are wrong more often than upper case is
 ugly; Constitution VII puts function first).
 
-## R4. Storage: four nullable columns, and `address` stays
+## R4. Storage: four nullable columns, a verified flag, and `address` stays
 
 **Decision**: `Location` gains `street VARCHAR(200)`, `city VARCHAR(100)`, `state VARCHAR(2)`, and
-`zip VARCHAR(5)`, all nullable. `address` stays `NOT NULL`. Three CHECKs (data-model.md): the four
-parts are all set or all `NULL`; `state` is two capital letters and `zip` five digits; and when the
-parts are set, `address` equals `street || ', ' || city || ', ' || state || ' ' || zip`. No
-coordinates are stored.
+`zip VARCHAR(5)`, all nullable, and `addressVerified BOOLEAN NOT NULL DEFAULT false`. `address`
+stays `NOT NULL`. Four CHECKs (data-model.md): the four parts are all set or all `NULL`; `state`
+is two capital letters and `zip` five digits; when the parts are set, `address` equals
+`street || ', ' || city || ', ' || state || ' ' || zip`; and a verified venue has its parts
+(`NOT "addressVerified" OR "street" IS NOT NULL`). No coordinates are stored.
 
-A venue with `NULL` parts is "not verified" (spec US4). There is no separate flag.
+The three kinds of venue (FR-020):
+
+| Kind | Parts | `addressVerified` |
+|---|---|---|
+| Verified (service matched) | standard form | `true` |
+| Saved anyway (admin confirmed) | as typed | `false` |
+| From before `013`, not re-addressed | `NULL` | `false` |
 
 **Rationale**: Keeping `address` means venue search (`004` FR-007), the event responses that embed
-the venue, and every display keep working with no change (FR-010, FR-016). The CHECKs make it a
-database fact that the line and the parts agree. The Google Maps link is built from text (R10), so
-coordinates would be unused (Constitution VIII).
+the venue, and every display keep working with no change (FR-010, FR-016). With "save anyway",
+`NULL` parts can no longer stand for "not verified", because a confirmed venue has parts, so the
+state is stored. A boolean is enough: nothing reads when an address was verified (Constitution
+VIII). `DEFAULT false` makes every existing row not verified in the same statement, with no
+backfill. The CHECKs make it a database fact that the line and the parts agree, and that no venue
+is verified without parts. The Google Maps link is built from text (R10), so coordinates would be
+unused.
 
-**Alternatives considered**: Dropping `address` and building it on read (search would need an
-expression over four columns, and existing rows would lose their address). A `verified` boolean
-(says the same as `street IS NOT NULL`, and could disagree with it).
+**Alternatives considered**: `addressVerifiedAt TIMESTAMPTZ NULL` (carries a time no requirement
+reads). Inferring "not verified" from `NULL` parts (wrong for saved-anyway venues). Dropping
+`address` and building it on read (search would need an expression over four columns, and
+existing rows would lose their address).
 
 ## R5. Existing venues are not converted
 
 **Decision**: The migration adds the columns and CHECKs only. Existing rows keep their `address`
-and get `NULL` parts. They are checked only when an admin next changes their address (FR-016).
-The Admin app marks them "Address not verified" on the venue page and shows the old address above
-the four empty fields in the edit form (FR-017).
+and get `NULL` parts and `addressVerified = false`. They are checked only when an admin next
+changes their address (FR-016). The Admin app marks them "Address not verified" on the venue list
+and page, and shows the old address above the four empty fields in the edit form (FR-017).
 
 **Rationale**: Existing addresses are free text ("1 Demo Plaza, Louisville, KY", "Y"), most with
 no ZIP code, so a parse would guess, and a guessed part is worse than an honest `NULL`. A
@@ -130,40 +157,55 @@ existing venue stops working.
 fit the pattern, presented as if verified). A one-off script that geocodes every venue (needs the
 network, and refuses real venues the service does not know, R1).
 
-## R6. "Unavailable" covers every failure, with a 5-second limit, as `503`
+## R6. "Unavailable" covers every failure to get an answer, with a 5-second limit, as `503`
 
 **Decision**: `CensusGeocoder` throws `AddressServiceUnavailableError` when the request fails to
 connect, takes longer than 5 seconds (`AbortSignal.timeout(5000)` on Node 22's global `fetch`),
-returns a non-2xx status, returns a body that is not JSON, or returns JSON without
-`result.addressMatches` as an array, or a match that R3 cannot split. There is no retry. The
-service turns it into `503 ADDRESS_SERVICE_UNAVAILABLE`: "We can't verify the address right now.
-Nothing was saved. Try again in a minute." The cause is logged at `warn` for the operator; the
-response does not include it.
+returns a `5xx` status or any `4xx` other than `400`, returns a body that is not JSON, or returns
+JSON without `result.addressMatches` as an array, or a match that R3 cannot split. There is no
+retry. The service turns it into `503 ADDRESS_SERVICE_UNAVAILABLE`: "We can't verify the address
+right now. Nothing was saved. Try again in a minute." The cause is logged at `warn` for the
+operator; the response does not include it. `acceptUnverifiedAddress` does not change this
+(decided by the user, 2026-10-11).
+
+A `400` from the service is the one exception: it returns `none`, so the admin gets
+`ADDRESS_NOT_FOUND` and may save anyway. Our own field rules (FR-001) run first, so a `400` from
+the service means it read the request and could not work with the address itself (for example,
+characters it does not parse). Retrying would give the same answer, so "try again" would be the
+wrong advice. Other `4xx` statuses (`404`, `408`, `429`, …) describe the endpoint or the
+connection, not the address, so they stay "unavailable".
 
 The timeout is a constant, not a setting (Constitution VIII).
 
-**Rationale**: Decided by the user, 2026-10-11: refuse, keep the values. `503` says "this server
-cannot do it right now, retry later", which is the advice we give. `502 Bad Gateway` would describe
-a proxy relaying a bad answer, and is the wrong signal for "unreachable" or "timed out". 5 seconds
-keeps the admin's wait under SC-003's 6 seconds. One code for every failure, because the admin's
-next step is the same.
+**Rationale**: Decided by the user, 2026-10-11: refuse, keep the values, even with "save anyway".
+`503` says "this server cannot do it right now, retry later", which is the advice we give.
+`502 Bad Gateway` would describe a proxy relaying a bad answer, and is the wrong signal for
+"unreachable" or "timed out". 5 seconds keeps the admin's wait under SC-003's 6 seconds. One code
+for every failure, because the admin's next step is the same.
 
 **Alternatives considered**: Saving the venue unverified when the service is down (the user chose
-refusal). Retrying once (doubles the wait for little gain on a service that is down).
+refusal). Treating every non-2xx as unavailable (tells the admin to retry an address that will
+never pass). Retrying once (doubles the wait for little gain on a service that is down).
 `504 Gateway Timeout` for timeouts only (two codes, one meaning to the admin).
 
 ## R7. The check runs last before the write, and only when the address changes
 
 **Decision**:
 
-- **Create**: DTO validation (FR-001) → `lookup` → one `location.create` with the standard parts
-  and `address`.
-- **Update**: DTO validation → venue exists → all four address fields or none (FR-009, `400`) →
-  the existing capacity rules (`007` FR-017, `CAPACITY_EXCEEDED`) → if the address is sent and
-  differs from the stored parts, `lookup` → one `location.update`.
-- "Differs" compares trimmed, space-collapsed, upper-cased `street`, `city`, and `state`, and the
-  first 5 digits of `zip`, against the stored parts. A venue with `NULL` parts always differs.
-  When it does not differ, the address fields are left out of the write.
+- **Create**: DTO validation (FR-001; `acceptUnverifiedAddress` is a boolean) → `lookup` → R2
+  decides → one `location.create` with the parts, `address`, and `addressVerified`.
+- **Update**: DTO validation → venue exists → all four address fields or none, and
+  `acceptUnverifiedAddress` only with the four (FR-009, FR-019, `400`) → the existing capacity
+  rules (`007` FR-017, `CAPACITY_EXCEEDED`) → if the address is sent and differs from the stored
+  parts, `lookup` → R2 decides → one `location.update`.
+- "Differs" compares `norm(street)`, `norm(city)`, `state`, and the first 5 digits of `zip`
+  against the same of the stored parts, where `norm` trims, collapses spaces, and upper-cases.
+  Both sides are normalized, because a saved-anyway venue stores the admin's own case. A venue
+  with `NULL` parts always differs.
+- When it does not differ, no lookup runs, the address fields and `addressVerified` are left out
+  of the write, and the venue keeps its verified or not-verified state, whatever the flag says.
+  So a saved-anyway venue whose name is edited is not re-checked; changing its address re-checks
+  it, and a match makes it verified.
 - No transaction or lock is open during `lookup`, and nothing is written before it returns.
 
 **Rationale**: FR-002, FR-007, FR-008. Cheap local refusals come first, so a request refused for
@@ -184,10 +226,15 @@ call). Re-checking on every edit (fails name-only edits while the service is dow
   unknown properties, a request that still sends `address` is `400`.
 - `LocationUpdate` gains optional `street`, `city`, `state`, `zip` (all four or none) and drops
   `address`.
+- `LocationInput` and `LocationUpdate` gain optional `acceptUnverifiedAddress: boolean`
+  (default `false`). It only turns `ADDRESS_NOT_FOUND` and `ADDRESS_AMBIGUOUS` into a save with
+  `addressVerified: false` (R2). It never skips the lookup and never bypasses
+  `ADDRESS_SERVICE_UNAVAILABLE` (R6). On an update without the four address fields it is `400`,
+  so it cannot be sent by mistake on a name-only edit.
 - `state` is one of `US_STATES`: the 50 states and DC, by code. `zip` is `^\d{5}(-\d{4})?$`.
   `street` 1–200 and `city` 1–100 characters after trimming.
-- `Location` gains `street`, `city`, `state`, `zip`, each a value or `null`, always sent.
-  `address` is unchanged.
+- `Location` gains `street`, `city`, `state`, `zip`, each a value or `null`, and
+  `addressVerified: boolean`, all always sent. `address` is unchanged.
 
 `US_STATES` (code and name, for the Admin app's list) lives in `packages/shared/src/location.ts`
 and is used by the Backend DTO and the Admin app. A Backend unit test fails if it differs from the
@@ -210,14 +257,15 @@ endpoint (two input shapes for one thing). Territories (spec Out of Scope).
 - `createTestApp()` overrides `ADDRESS_GEOCODER` with a new `FakeGeocoder`, as it already
   overrides `JWKS`, and returns it as `ctx.geocoder`. Every test app, including the demo-data
   test, uses it.
-- `backend/test/setup/fixtures.ts` exports `ADDRESS = { street: '1 Arena Plaza', city:
-  'Louisville', state: 'KY', zip: '40202' }`. Each existing test that posts a venue with
-  `address: '…'` sends `...ADDRESS` (or its own four fields) instead. Assertions on the returned
-  `address` expect the fake's standard form, such as `1 ARENA PLAZA, LOUISVILLE, KY 40202`.
+- `backend/test/setup/fixtures.ts` exports `ADDRESS = { street: '430 W Vine St', city:
+  'Lexington', state: 'KY', zip: '40507' }`, an address the real service matches (R1), so the
+  fixture does not suggest otherwise. Each existing test that posts a venue with `address: '…'`
+  sends `...ADDRESS` (or its own four fields) instead. Assertions on the returned `address`
+  expect the fake's standard form, `430 W VINE ST, LEXINGTON, KY 40507`.
 - `CensusGeocoder` is tested on its own against a local HTTP server on `127.0.0.1` started by the
-  test (one match, none, several distinct, several identical, non-2xx, not JSON, wrong shape, a
-  split that fails, and a server that never answers, with the timeout lowered through the
-  constructor). Local only, so no network (Constitution VI).
+  test (one match, none, several distinct, several identical, `400` → none, `404`/`429`/`500` →
+  unavailable, not JSON, wrong shape, a split that fails, and a server that never answers, with
+  the timeout lowered through the constructor). Local only, so no network (Constitution VI).
 - The real service is used only in the running-system check (quickstart.md).
 
 **Rationale**: Tests must not depend on an outside service (Constitution VI). A default that
@@ -267,8 +315,9 @@ Two things would turn `main` red between the PRs, and both are avoided the way `
 avoids it:
 
 - **Responses**: the Backend's tests validate every response against the contract, and the
-  Backend on `main` does not send the four new `Location` fields until the implementation merges.
-  They are documented as always sent, but are not in `required`.
+  Backend on `main` does not send the five new `Location` fields (the four parts and
+  `addressVerified`) until the implementation merges. They are documented as always sent, but
+  are not in `required`.
 - **Requests**: the Admin app sends venues through `openapi-fetch`, typed by `api-schema.ts`, and
   its build runs `tsc --noEmit` (also inside `docker compose up --build`). If `LocationInput` listed
   `street`, `city`, `state`, and `zip` in `required`, the Admin app's current request type (with
@@ -317,20 +366,29 @@ defaults in `.env.example`. A default in code means tests and `demo-data` need n
 
 - Before sending, the form refuses a blank field or a ZIP code that is not 5 digits or ZIP+4,
   naming the field, and keeps every value (FR-013).
-- Create sends all four. Edit of a verified venue prefills them from the stored parts and always
-  sends all four (the Backend skips the check when unchanged, R7). Edit of a venue that is not
-  verified shows "Current address (not verified): {address}. Enter it below to verify it." above
-  empty fields, and sends the four only when the admin fills any of them (then all four are
-  required).
+- Create sends all four. Edit of a venue with parts (verified or saved anyway) prefills them from
+  the stored parts and always sends all four (the Backend skips the check when unchanged, R7).
+  Edit of a venue from before `013` (`street` is `null`) shows "Current address (not verified):
+  {address}. Enter it below to verify it." above empty fields, and sends the four only when the
+  admin fills any of them (then all four are required).
 - `ADDRESS_NOT_FOUND`, `ADDRESS_AMBIGUOUS` (with its candidates as a list), and
   `ADDRESS_SERVICE_UNAVAILABLE` appear through `ErrorBanner`, which gains the candidates list.
   Every value stays (FR-011).
+- After `ADDRESS_NOT_FOUND` or `ADDRESS_AMBIGUOUS`, and only then, the form shows a secondary
+  button, **Save anyway (address not verified)**, with the line "Use this only if you are sure the
+  address is right. The venue will be marked not verified." It resubmits the same values with
+  `acceptUnverifiedAddress: true`. Any change to an address field hides it again, so the
+  confirmation always applies to the address the admin saw refused. The normal submit never sends
+  the flag. `ADDRESS_SERVICE_UNAVAILABLE` never shows it (R6).
 - After saving, the app goes to the venue list with the existing notice: "Venue saved. Address:
-  430 W VINE ST, LEXINGTON, KY 40507." (FR-012).
-- `LocationDetail.tsx` shows "Address not verified. Edit the venue to verify it." under the
-  address when `street` is `null` (FR-017).
+  430 W VINE ST, LEXINGTON, KY 40507." (FR-012), or, for a saved-anyway venue, "Venue saved.
+  Address (not verified): 1 Arena Plaza, Louisville, KY 40202."
+- When `addressVerified` is `false`, `LocationList.tsx` shows "Not verified" after the address
+  link, and `LocationDetail.tsx` shows "Address not verified. Edit the venue to verify it." under
+  it (FR-017). For a saved-anyway venue the edit form shows "This address is not verified." above
+  the prefilled fields. The text is in words, not color alone.
 - A seated venue created in one step (`008`) is unchanged: the layout is only saved after the
-  venue is, so a refused address saves neither.
+  venue is, so a refused address saves neither, and "Save anyway" continues to the layout.
 
 **Rationale**: The smallest change to a form that already keeps values on any refusal and shows
 the Backend's message.
@@ -340,11 +398,29 @@ enter an address).
 
 ## R14. Demo data
 
-**Decision**: `backend/src/scripts/demo-data.ts` gives its two venues real, verified addresses
-(R1): Demo Riverside Hall at `430 W Vine St, Lexington, KY 40507`, and QueuePass Demo Arena at
-`937 Phillips Ln, Louisville, KY 40209`. It still goes through `LocationsService`, so every rule
-applies, and so it needs internet. The Hall is created first and the Arena (the "already run"
-marker) second, so a run that fails on an address leaves no marker and can be run again.
+**Decision**: `backend/src/scripts/demo-data.ts` gives its two venues real addresses the service
+matches (R1): Demo Riverside Hall at `430 W Vine St, Lexington, KY 40507`, and QueuePass Demo
+Arena at `937 Phillips Ln, Louisville, KY 40209`. It goes through `LocationsService.create`, so
+every rule applies, and online the venues are verified.
 
-**Rationale**: `main` must be demo-ready (Constitution III). The demo-data test runs with the fake
-(R9).
+So that a demo still works offline or while the service is down, `LocationsService.create` takes
+a second, internal argument, `{ whenServiceUnavailable: 'refuse' | 'saveUnverified' }`, default
+`'refuse'`. Only `demo-data.ts` passes `'saveUnverified'`: on `AddressServiceUnavailableError`
+the venue is saved as typed with `addressVerified: false`, and the script prints that the demo
+venues are not verified. The controller never passes the argument, it is not part of any DTO, and
+no request can set it, so the API rule (FR-006: refuse when unavailable, even with "save anyway")
+is unchanged. A test proves the controller path still refuses.
+
+The Hall is created first and the Arena (the "already run" marker) second, so a run that fails
+for any other reason leaves no marker and can be run again.
+
+**Rationale**: `main` must be demo-ready (Constitution III), and demo day may have no internet.
+`demo-data` is a developer tool run by hand inside the container (`005` research R9), not a client
+of the API, so a dev-only path through the service is not a bypass of the API's control
+(Constitution VIII is about switches that disable a control for the running system). The
+demo-data test runs with the fake, once matching and once unavailable (R9).
+
+**Alternatives considered**: Writing the demo venues with `prisma` directly (skips every other
+venue rule, which `demo-data` exists to obey). An environment variable that saves unverified when
+the service is down (would reach the API in the running system). Leaving demo-data dependent on
+the network (fails on demo day offline).

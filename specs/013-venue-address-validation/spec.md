@@ -34,6 +34,11 @@ that opens the address in Google Maps.
   kept (decided by the user, 2026-10-11).
 - Q: One address line, or separate fields? → A: Separate fields: street, city, state (chosen from
   a list), and ZIP code (decided by the user, 2026-10-11).
+- Q: The service misses some real venues (the KFC Yum! Center at 1 Arena Plaza has no match).
+  What can the admin do? → A: When the address is not found, or matches more than one address,
+  the admin can explicitly confirm and "save anyway". The venue is saved with the address as the
+  admin typed it and marked "Address not verified". When the service is unavailable, saving is
+  still refused, even with the confirmation (decided by the user, 2026-10-11).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -43,14 +48,17 @@ An admin creates a venue and enters a street, city, state, and ZIP code. If the 
 finds exactly one matching US address, the venue is saved with the address in the service's
 standard form, and the admin is shown the address as saved. If the service finds no match, the
 venue is not saved, the admin is told the address could not be found, and everything they typed
-stays in the form so they can fix it.
+stays in the form so they can fix it. If the admin is sure the address is real (the service
+misses some real venues), they can choose "Save anyway". The venue is then saved with the address
+as they typed it, and marked "Address not verified".
 
 **Why this priority**: This is the rule itself. Without it, a venue can still have an address no
-one can find.
+one has checked, and no one knows it.
 
 **Independent Test**: With the address service replaced by a stand-in in tests, create a venue
-whose address the stand-in matches and confirm it is saved in standard form. Create one the
-stand-in does not match and confirm it is refused, nothing is saved, and the form keeps its values.
+whose address the stand-in matches and confirm it is saved in standard form and verified. Create
+one the stand-in does not match and confirm it is refused, nothing is saved, and the form keeps
+its values. Choose "Save anyway" and confirm it is saved as typed and marked not verified.
 
 **Acceptance Scenarios**:
 
@@ -59,18 +67,26 @@ stand-in does not match and confirm it is refused, nothing is saved, and the for
    KY 40507".
 2. **Given** the venue form, **When** an admin enters an address the service cannot match,
    **Then** the venue is not saved, the message says the address could not be found as a US
-   address and asks the admin to check it, and every value entered is kept.
+   address and asks the admin to check it, every value entered is kept, and a "Save anyway
+   (address not verified)" control is offered.
 3. **Given** the venue form, **When** the address matches more than one US address, **Then** the
-   venue is not saved, and the message lists the matches so the admin can enter the right one.
-4. **Given** the venue form, **When** any of the four address fields is blank, the state is not on
+   venue is not saved, the message lists the matches so the admin can enter the right one, and
+   "Save anyway" is offered.
+4. **Given** the refusal in scenario 2 for "1 Arena Plaza", "Louisville", "KY", "40202" (the KFC
+   Yum! Center, a real venue the service does not know), **When** the admin chooses "Save
+   anyway", **Then** the venue is saved with "1 Arena Plaza, Louisville, KY 40202" as typed, and
+   the Admin app marks it "Address not verified" on the venue list and the venue page.
+5. **Given** a venue saved anyway, **When** an admin later changes its address to one the service
+   matches, **Then** it is saved in standard form and the mark is removed.
+6. **Given** the venue form, **When** any of the four address fields is blank, the state is not on
    the list, or the ZIP code is not 5 digits (or 5+4), **Then** the venue is not saved and the
    form names the field, without asking the address service.
-5. **Given** an existing venue, **When** an admin changes its street and saves, **Then** the new
+7. **Given** an existing venue, **When** an admin changes its street and saves, **Then** the new
    address is checked the same way before anything is saved.
-6. **Given** an existing venue, **When** an admin changes only its name or seating capacity,
-   **Then** the address is not checked again and the change is saved.
-7. **Given** a request sent straight to the API, not through the Admin app, **Then** the same
-   checks apply.
+8. **Given** an existing venue, verified or not, **When** an admin changes only its name or
+   seating capacity, **Then** the address is not checked again and the change is saved.
+9. **Given** a request sent straight to the API, not through the Admin app, **Then** the same
+   checks apply, and "save anyway" must be asked for explicitly in the request.
 
 ---
 
@@ -94,9 +110,11 @@ nothing is saved.
    was saved. Try again in a minute.", and the form keeps every value.
 2. **Given** the address service does not answer within 5 seconds, **Then** the save is refused
    the same way.
-3. **Given** the address service is down, **When** an admin edits only a venue's name, **Then**
+3. **Given** the address service is down, **When** an admin asks to "save anyway", **Then** the
+   save is still refused the same way. "Save anyway" is never offered for this refusal.
+4. **Given** the address service is down, **When** an admin edits only a venue's name, **Then**
    the change is saved, because the address is not checked.
-4. **Given** the address service is down, **Then** customers and admins can still see every
+5. **Given** the address service is down, **Then** customers and admins can still see every
    venue and its address link.
 
 ---
@@ -135,7 +153,8 @@ on, but no new capability depends on it.
 
 **Independent Test**: Insert a venue with only a one-line address, as an existing venue would be,
 and confirm it lists, searches, takes an event, and edits its name without an address check.
-Then edit its address and confirm the new address is checked and saved in the four fields.
+Then edit its address and confirm the new address is checked and saved in the four fields and
+verified.
 
 **Acceptance Scenarios**:
 
@@ -148,7 +167,8 @@ Then edit its address and confirm the new address is checked and saved in the fo
 4. **Given** that venue, **When** an admin changes only its name and leaves the address fields
    empty, **Then** the change is saved and the venue stays not verified.
 5. **Given** that venue, **When** an admin fills in the four address fields, **Then** the address
-   is checked and, if it matches, replaces the old one.
+   is checked and, if it matches, replaces the old one and the venue is verified. If it does not
+  match, "Save anyway" is offered as in US1.
 
 ---
 
@@ -160,11 +180,18 @@ Then edit its address and confirm the new address is checked and saved in the fo
 - **The service corrects a field**: If the admin's city or ZIP code was slightly off and the
   service still finds one match, the corrected address is saved and shown to the admin.
 - **A real address the service does not know**: The service works from street address ranges and
-  misses some real addresses, such as some plazas and new buildings. These are refused like any
-  other unmatched address; the admin can enter the street address the service knows. There is no
-  override (Assumptions).
+  misses some real addresses, such as the KFC Yum! Center at 1 Arena Plaza, some other plazas,
+  and new buildings. The first save is refused like any other unmatched address. The admin can
+  then fix the address, or choose "Save anyway" to save it as typed, marked not verified.
+- **Save anyway is a deliberate choice**: It is offered only after a "not found" or "several
+  matches" refusal, never up front and never when the service is unavailable. An address saved
+  this way keeps the admin's spelling and case (trimmed, with the ZIP code cut to 5 digits).
+- **Save anyway when the address does match**: If the admin asks to save anyway and the service
+  does find exactly one match (for example, on a retry with a corrected address), the matched
+  address is saved and verified, as usual.
 - **Unchanged address on edit**: If the four fields are sent again with the same values (ignoring
-  case and extra spaces), the address is not checked again.
+  case and extra spaces), the address is not checked again, and a venue keeps its verified or not
+  verified state.
 - **Only part of an address on edit**: Changing one field (for example, only the city) still
   sends all four, and the whole address is checked. A request with some but not all four fields
   is refused.
@@ -185,18 +212,20 @@ Then edit its address and confirm the new address is checked and saved in the fo
   city (1 to 100 characters), state (one of the 50 US states or DC, by two-letter code), and ZIP
   code (5 digits, or 5 digits, a hyphen, and 4 digits).
 - **FR-002**: Before a new venue is saved, or a venue's address is changed, the Backend MUST check
-  the address with the address service. Nothing about the venue is saved until the check passes.
-- **FR-003**: An address is accepted only when the service finds exactly one matching US address.
+  the address with the address service. Nothing about the venue is saved until the service has
+  answered and the answer allows the save (FR-003, FR-019).
+- **FR-003**: An address is verified only when the service finds exactly one matching US address.
   The venue is then saved with the service's standard form of the street, city, state, and ZIP
-  code, not the text the admin typed.
+  code, not the text the admin typed, and recorded as verified.
 - **FR-004**: An address with no match MUST be refused with the standard error shape and its own
-  stable code, and a message telling the admin the address was not found.
+  stable code, and a message telling the admin the address was not found, unless the admin
+  confirmed "save anyway" (FR-019).
 - **FR-005**: An address with more than one match MUST be refused with its own stable code, and
-  the refusal MUST list the matches.
+  the refusal MUST list the matches, unless the admin confirmed "save anyway" (FR-019).
 - **FR-006**: When the address service cannot be reached, does not answer within 5 seconds,
   answers with an error, or answers with something that cannot be read, the save MUST be refused
   with its own stable code and a message saying the address cannot be verified right now and to
-  try again. Nothing is saved.
+  try again. Nothing is saved, whether or not the admin confirmed "save anyway".
 - **FR-007**: Field rules (FR-001) and the venue's other rules MUST be checked before the address
   service is asked, so a request refused for another reason never calls it.
 - **FR-008**: An edit that does not change the address (no address fields sent, or the same four
@@ -205,7 +234,8 @@ Then edit its address and confirm the new address is checked and saved in the fo
 - **FR-010**: Every venue MUST still have a full one-line address, built from the four fields as
   "STREET, CITY, ST ZIP", which every app shows and venue search matches (`004` FR-007).
 - **FR-011**: The Admin app MUST show any refusal from FR-004 to FR-006 as an explicit error, and
-  MUST keep every value the admin entered (Constitution IV).
+  MUST keep every value the admin entered (Constitution IV). After a refusal from FR-004 or
+  FR-005, and only then, it MUST offer a "Save anyway (address not verified)" control.
 - **FR-012**: After a save, the Admin app MUST show the address as it was saved.
 - **FR-013**: The Admin app's state field MUST be a list of the 50 states and DC, and its form
   MUST point out a blank field or a malformed ZIP code before sending, as a convenience only.
@@ -216,16 +246,27 @@ Then edit its address and confirm the new address is checked and saved in the fo
   Maps in a new tab.
 - **FR-016**: Venues that exist before this feature MUST keep their one-line address, MUST keep
   working everywhere as before, and MUST NOT be checked until their address is changed.
-- **FR-017**: The Admin app MUST mark a venue whose address has not been verified, on its page and
-  in its edit form.
+- **FR-017**: The Admin app MUST mark every venue whose address is not verified (venues from
+  before this feature, and venues saved anyway) on the venue list, on its page, and in its edit
+  form.
 - **FR-018**: Only the Backend decides whether an address is accepted. The Admin app's checks
   (FR-013) are a preview.
+- **FR-019**: A create or address change MAY carry an explicit "save anyway" confirmation. With
+  it, when the service finds no match or several matches, the venue MUST be saved with the four
+  fields as the admin sent them (trimmed, ZIP code cut to 5 digits), and recorded as not verified.
+  The address service MUST still be asked first; the confirmation MUST NOT change the outcome when
+  the service finds exactly one match (FR-003) or is unavailable (FR-006), and MUST be refused
+  when sent without the four address fields.
+- **FR-020**: Every venue MUST record whether its address is verified. A verified venue always
+  has its four fields.
 
 ### Key Entities
 
-- **Venue**: gains a **street**, **city**, **state**, and **ZIP code**, all present for a venue
-  whose address was verified, all absent for a venue from before this feature. Its one-line
-  **address** stays and is built from the four.
+- **Venue**: gains a **street**, **city**, **state**, and **ZIP code**, and whether its address
+  is **verified**. A verified venue's four fields are the service's standard form. A venue saved
+  anyway has its four fields as typed and is not verified. A venue from before this feature has no
+  fields and is not verified. Its one-line **address** stays and, when the fields are present, is
+  built from them.
 - **Address check**: not stored. The answer from the address service for one save: one match,
   no match, several matches, or unavailable.
 
@@ -233,10 +274,12 @@ Then edit its address and confirm the new address is checked and saved in the fo
 
 ### Measurable Outcomes
 
-- **SC-001**: 100% of venues saved or re-addressed after this feature have an address the address
-  service matched.
-- **SC-002**: 100% of refused saves (no match, several matches, service unavailable) leave the
-  database unchanged and keep the admin's entered values in the form.
+- **SC-001**: 100% of venues saved or re-addressed after this feature have either an address the
+  address service matched, or an address an admin explicitly confirmed with "save anyway" and
+  that is marked not verified.
+- **SC-002**: 100% of refused saves (no match or several matches without confirmation, service
+  unavailable with or without it) leave the database unchanged and keep the admin's entered
+  values in the form.
 - **SC-003**: When the address service is unreachable, the admin sees the "try again" message
   within 6 seconds of saving.
 - **SC-004**: Every venue address shown in the Admin and Customer apps opens Google Maps on that
@@ -250,11 +293,11 @@ Then edit its address and confirm the new address is checked and saved in the fo
 - The address service is the free US Census Geocoder, with no API key (decided by the user,
   2026-10-11).
 - When the address service is unavailable, the save is refused and the admin's values are kept;
-  there is no "save anyway" (decided by the user, 2026-10-11).
+  "save anyway" does not apply (decided by the user, 2026-10-11).
 - The address is entered as street, city, state, and ZIP code (decided by the user, 2026-10-11).
-- "Real" means the address service matched it. A real address the service does not know is
-  refused; the admin enters a nearby form of the address it knows. A manual override would
-  reopen the gap this feature closes, so none is offered.
+- "Verified" means the address service matched it. When the service finds no match or several,
+  the admin may confirm "save anyway", and the venue is saved as typed and marked not verified
+  (decided by the user, 2026-10-11), because the service misses some real venues.
 - The service's standard form (upper case, abbreviated street types) is saved and shown, because
   it is what the service vouched for.
 - The 50 states and DC are enough for the venues QueuePass expects. Territories can be added
