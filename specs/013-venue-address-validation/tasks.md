@@ -6,7 +6,7 @@ description: "Task list for Venue Address Validation and Google Maps Link"
 
 **Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md),
 [data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) →
-[`contracts/openapi.yaml`](../../contracts/openapi.yaml) (1.6.0, already applied),
+[`contracts/openapi.yaml`](../../contracts/openapi.yaml) (1.7.0, already applied),
 [quickstart.md](./quickstart.md)
 
 **Issue**: [#25](https://github.com/Trughouse-Holdings/QueuePass/issues/25). The implementation PR
@@ -20,8 +20,7 @@ and confirm they **fail** before the implementation tasks below them.
 - **Fresh session** (Constitution III): implement on branch `013-venue-address-validation-impl`,
   cut from `main` after the spec and plan PR merges, in a Claude session that starts from these
   files only. A gap in the spec or plan is fixed there, not worked around in code.
-- **Do not change the contract** (1.6.0, types regenerated). Raise any gap. If `016` merged first,
-  the spec and plan PR was already rebased to 1.7.0; use what is on `main`.
+- **Do not change the contract** (1.7.0, types regenerated). Raise any gap.
 - **Always send the new response fields**: `street`, `city`, `state`, `zip` (`null` for a venue
   from before `013`) and `addressVerified` on every `Location`. They are optional in the contract
   only so the plan PR could merge with `main` green (research R11). The Backend DTO requires the

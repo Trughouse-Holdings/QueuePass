@@ -33,7 +33,7 @@
 - **Tests**: a fake geocoder in the test app; the real client tested against a local HTTP server.
   No test uses the network (R9).
 
-Contract **1.6.0** (or 1.7.0 if `016` merges first) lands in this spec and plan PR with types
+Contract **1.7.0** (`016` took 1.6.0 and merged first) lands in this spec and plan PR with types
 regenerated. New response fields and the four request fields are left out of `required`, so
 `main` stays green before the implementation merges (R11).
 
@@ -74,7 +74,7 @@ Evaluated against constitution **v3.0.0**.
 
 | Principle | Pre | Post | Evidence |
 |---|---|---|---|
-| **I. API-Only, Contract First** | PASS | **PASS** | Contract 1.6.0 and regenerated types in this PR, before any code; drift check passes. Three new codes in the standard envelope, every refusal declared on its operation. The address service is called by the Backend only; no front end calls it. |
+| **I. API-Only, Contract First** | PASS | **PASS** | Contract 1.7.0 and regenerated types in this PR, before any code; drift check passes. Three new codes in the standard envelope, every refusal declared on its operation. The address service is called by the Backend only; no front end calls it. |
 | **II. One Repo, One Command** | PASS | **PASS** | No new service or dependency. One variable with a working default in `.env.example`, `docker-compose.yml`, and code. One migration applied by the existing startup. `docker compose up --build` still starts with no manual step; saving a new address needs internet (README). |
 | **III. Spec-Driven, Reviewed** | PASS | **PASS** | Issue #25; spec and plan on `013-venue-address-validation-spec`, reviewed by a second Claude session before the PR; implementation on `013-venue-address-validation-impl` in a fresh session, closing #25. |
 | **IV. Server-Authoritative, DB-Guaranteed** | PASS | **PASS** | The Backend decides (FR-018), including "save anyway", which is an explicit request field the Backend applies only after the lookup. CHECKs keep the parts all-or-none, well-formed, equal to `address`, and present whenever `addressVerified` is true. Refusals keep the admin's values (FR-011). Not a concurrency rule: venue edits stay last-write-wins, as today. |
@@ -93,7 +93,7 @@ specs/013-venue-address-validation/
 ├── checklists/requirements.md
 └── contracts/README.md
 
-contracts/~ openapi.yaml                              # 1.6.0 (this PR)
+contracts/~ openapi.yaml                              # 1.7.0 (this PR)
 packages/shared/src/~ api-schema.ts                   # regenerated (this PR)
 packages/shared/src/~ location.ts, ~ errors.ts        # implementation PR
 packages/shared/src/web/+ address-link.tsx, ~ index.ts

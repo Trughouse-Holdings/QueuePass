@@ -1,10 +1,10 @@
 # Contract Changes: Venue Address Validation and Google Maps Link
 
 The single contract is [`contracts/openapi.yaml`](../../../contracts/openapi.yaml) (Constitution I).
-This feature moves it from **1.5.0 to 1.6.0** in the spec and plan PR, with
-`packages/shared/src/api-schema.ts` regenerated (`npm run generate:api`). If `016` merges first,
-this branch rebases and takes **1.7.0** (research R11). No route is added or removed, and no role
-changes.
+This feature moves it from **1.6.0 to 1.7.0** in the spec and plan PR, with
+`packages/shared/src/api-schema.ts` regenerated (`npm run generate:api`). `016` took 1.6.0 and
+merged first (PR #29), so this branch was rebased onto it (research R11). No route is added or
+removed, and no role changes.
 
 | Where | Change |
 |---|---|

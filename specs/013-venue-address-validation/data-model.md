@@ -101,4 +101,4 @@ Unchanged → no lookup; parts, `address`, and `addressVerified` are left as sto
 - `packages/shared/src/errors.ts`: `ADDRESS_NOT_FOUND`, `ADDRESS_AMBIGUOUS`,
   `ADDRESS_SERVICE_UNAVAILABLE` added to `ERROR_CODES`, in the contract's order. Without them the
   exception filter would rewrite the `503` as `VALIDATION_FAILED`.
-- `packages/shared/src/api-schema.ts`: regenerated from contract 1.6.0 (in this PR).
+- `packages/shared/src/api-schema.ts`: regenerated from contract 1.7.0 (in this PR).

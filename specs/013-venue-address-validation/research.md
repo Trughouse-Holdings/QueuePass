@@ -307,9 +307,10 @@ thing). An embedded map (spec Out of Scope; needs a key).
 ## R11. Contract version, and keeping `main` green between the two PRs
 
 **Decision**: The contract change and regenerated `packages/shared/src/api-schema.ts` land in the
-spec and plan PR. The version is the next minor at merge time: **1.6.0** here, from `main`'s
-1.5.0. `016`'s pending spec PR also claims 1.6.0; whichever merges second rebases, takes **1.7.0**,
-reruns `npm run generate:api`, and passes `node scripts/check-contract-drift.mjs`.
+spec and plan PR. The version is the next minor at merge time. `016`'s spec PR (#29) took
+**1.6.0** and merged first, so this branch was rebased onto it and takes **1.7.0**: the error-code
+lists of both features are kept, `npm run generate:api` was rerun, and
+`node scripts/check-contract-drift.mjs` passes.
 
 Two things would turn `main` red between the PRs, and both are avoided the way `016` research R9
 avoids it:
