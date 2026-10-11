@@ -56,7 +56,8 @@ the Booth app unchanged (FR-015); seat picker rules untouched except spacing tok
 
 **Scale/Scope**: 1 new CSS file (about 600 lines, moved, not written); 2 stylesheets cut to their
 own screens; 4 Vite/Vitest configs gain one alias line; 2 `main.tsx` gain one import; 6 components
-gain a `className`; 0 Backend files.
+gain a `className` (one also gains a `banner__body` wrapper), plus any status lines
+other features have added (T022); 0 Backend files.
 
 ## Constitution Check
 
@@ -69,7 +70,7 @@ Evaluated against constitution **v3.0.0**.
 | **III. Spec-Driven, Reviewed** | PASS | **PASS** | Issue #24; spec and plan on `012-shared-theme-spec`, reviewed by a second Claude session before the PR; implementation on `012-shared-theme-impl` in a fresh session, closing #24. |
 | **IV. Server-Authoritative, DB-Guaranteed** | PASS | **PASS** | No rule changes or moves to a front end. Error messages keep their text and roles; only their look changes. |
 | **V. Sign-In Everywhere** | PASS | **PASS** | No route, role, or sign-in change. |
-| **VI. Test-First, Real Database** | PASS | **PASS** | Every phase in `tasks.md` writes its tests first; the drift checker has self-tests for each rule. No persistence, so no database tests. The 80% coverage floor is a recorded deferral until `010` and `011`; this feature reports its coverage. |
+| **VI. Test-First, Real Database** | PASS | **PASS** | Every phase in `tasks.md` writes its tests first; the drift checker has self-tests for each rule. No persistence, so no database tests. The 80% coverage floor is a recorded deferral until `010` and `011`. No workspace has a Vitest coverage provider and this feature adds no dependency, so front-end coverage reporting waits on `010`; the Backend is not touched. |
 | **VII. Function Over Finish, One Shared Look** | PASS | **PASS** | This feature implements it: one theme in `packages/shared/`; neither app defines an accent or redefines a theme value (checked, R6); app screen styles use theme values; one fixed set, no switching or variants (R5); the Booth app stays plain (R12). The few visible changes are the Customer app's tested usability values (contrast, targets, focus), not new design (R4). |
 | **VIII. Staged Simplicity** | PASS | **PASS** | One CSS file and an existing alias pattern; no theming system, no new dependency, no type scale, no shared React components (spec Out of Scope). No control deferred. |
 
@@ -77,10 +78,11 @@ Evaluated against constitution **v3.0.0**.
 component's class, new tests). Per the constitution, both the spec and plan PR and the
 implementation PR need approval from every team member.
 
-**Visible Admin changes need sign-off**: spec FR-012's Admin changes (darker control borders,
-44-pixel buttons and fields, larger checkboxes and radios, the focus outline) land on dense Admin
-screens. The teammate review of the implementation PR must sign them off explicitly (quickstart
-S5b).
+**Visible changes need sign-off**: spec FR-012's Admin changes (darker control borders, 44-pixel
+buttons, fields, and navigation links, larger checkboxes and radios, the focus outline on buttons
+and links) land on dense Admin screens, and the Customer Get tickets "Ticket type" group loses the
+browser's default box. The teammate review of the implementation PR must sign them off
+explicitly (quickstart S5b).
 
 ## Project Structure
 
@@ -111,7 +113,7 @@ customer-app/
 ├── ~ vite.config.ts, ~ vitest.config.ts   # theme alias (R1)
 ├── src/~ main.tsx                         # imports the theme first (R1)
 ├── src/~ styles.css                       # Customer-only rules, spacing on steps (R2, R9)
-├── src/components/~ GetTickets.tsx        # banner classes on two messages (R8)
+├── src/components/~ GetTickets.tsx        # banners, one banner__body wrapper, 016 lines (R8)
 └── test/+ theme-classes.test.tsx; - shared-look.test.ts; - contrast.test.ts (moved)
 ~ README.md                                # Status row; where the look lives
 ```
@@ -129,8 +131,10 @@ package's existing test folder.
   the seat rules of `customer-app/src/styles.css` it changes only three spacing values to theme
   steps (two keep their size; the seat map's padding grows by 2 pixels). The drift check names
   anything the second-merged branch must adjust (R11).
-- **`016-per-user-ticket-limit`** (spec pending) edits `GetTickets.tsx`; 012 adds two class names
-  there. The second to merge gives any new status text the banner classes (R11).
+- **`016-per-user-ticket-limit`** (spec merged in #29; implementation PR #32) edits
+  `GetTickets.tsx` but not `SeatPicker.tsx`, and adds no CSS. Its three new status lines are
+  plain `<p>`; whichever merges second gives them theme classes. If #32 is on `main` when 012's
+  implementation starts, T022 does it (R8, R11).
 
 ## Complexity Tracking
 

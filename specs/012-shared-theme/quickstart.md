@@ -16,7 +16,8 @@ Customer app (http://localhost:5174, `customer1` / `test123`) in a private windo
 With the system in light mode, open the Admin app's **Events** list and the Customer app's
 **Events** page, then an event in each. Compare the top bar and its Log out button, the current
 navigation item, a primary button, a secondary button, a text field, a menu, a checkbox, a card, a
-label/value list, a link, and a Cancelled badge. **Expect**: each pair looks the same: same
+table (the Admin **Venues** list and the Customer **Venues** list), a label/value list, a link,
+and a Cancelled badge. **Expect**: each pair looks the same: same
 accent, typeface, corner rounding, and border. Field borders are clearly visible in both.
 
 ## S2: Computed styles match (US1; SC-002)
@@ -83,10 +84,15 @@ hardest on the Admin app's dense screens. At 1280 pixels wide and again at 375 p
 - the **Attendees** table;
 - the **Events** search form;
 - the **Reports** page;
-- the **New event** and **Edit event** form, including its checkboxes and radios.
+- the **New event** and **Edit event** form, including its checkboxes and radios;
+- the top bar's navigation links, now at least 44 pixels tall.
+
+In the Customer app, open a seated event's **Get tickets**: the "Ticket type" group has no browser
+box around it, and its heading looks like the other field labels.
 
 **Expect**: no controls overlap or are clipped, rows stay readable, and the Tab key shows the focus
-outline on each control. No Customer page scrolls sideways at 375 pixels; Admin pages are no worse
+outline on each button and link, and the accent ring on each field (fields keep the ring they
+have today). No Customer page scrolls sideways at 375 pixels; Admin pages are no worse
 than today. Record what you see for the teammate's sign-off (plan.md).
 
 ## S6: One change, both apps (US4; SC-003)

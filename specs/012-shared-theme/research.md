@@ -76,8 +76,10 @@ TypeScript accepts a side-effect import of a CSS file (`noUncheckedSideEffectImp
 
 ## R2. What moves into the theme, and what stays
 
-**Decision**: Every rule both apps use today moves into the theme. Every rule only one app uses
-stays in that app's `styles.css`.
+**Decision**: Every shared control moves into the theme with all its variants and parts, and so
+does every page part both apps use. Styles for one app's own screens stay in that app's
+`styles.css` (spec FR-011). A variant only one app uses today (`.pill--warn`, `.banner--success`,
+`.banner__icon`, `.tap`) still belongs to its shared control, so it moves too.
 
 - **Theme**: tokens (light and dark); `*` box sizing; `body`; `.app`, `.topbar`, `.topbar__inner`,
   `.brand`, `.brand__mark`, `.navlinks`, `.navlink` and its states; `.main`; `.page-head`,
@@ -101,9 +103,13 @@ The `>>> shared detail layout` markers are dropped: the block is no longer copie
 
 **Rationale**: The constitution names accent, fonts, spacing, and shared controls. The page frame
 (top bar, cards, tables, label/value lists) is used identically by both apps today, so leaving it
-copied would keep the drift risk this feature removes. Rules only one app uses would be dead
-weight in the other (FR-011). `.banner` is Admin-only today but becomes shared because the
-Customer app adopts it (R8). `.choice` and `fieldset`/`legend` are used by both apps' forms.
+copied would keep the drift risk this feature removes. Screen-specific rules would be dead
+weight in the other app (FR-011), but a control's variants are part of the control: splitting
+`.banner--success` from `.banner` would let the two halves drift. `.banner` is Admin-only today
+but becomes shared because the Customer app adopts it (R8). `.choice` is used by both apps'
+forms. `fieldset` and `legend` are styled only by the Admin app today, but both apps use them
+(the Customer Get tickets "Ticket type" group is a `fieldset`), so they move, and the Customer
+group's look changes (spec FR-012).
 
 **Alternatives considered**: Moving only tokens and buttons, inputs, and status messages (the
 issue's list): the top bar, cards, and tables would stay copied and could drift. Moving every
@@ -182,9 +188,11 @@ with its checker in `packages/shared/test/theme/check-theme.ts`. It runs in
 `npm test --workspace @queuepass/shared`, which the root `npm test` already runs first, right
 after the boundary and contract checks. No root `package.json` change.
 
-What it reads: every `*.css` file under `admin-app/src`, `customer-app/src`, and `booth-app/src`,
-and every `*.tsx` file under the same folders (paths relative to the shared package, as
-`customer-app/test/shared-look.test.ts` does today).
+What it reads: every `*.css` file under `admin-app/src`, `customer-app/src`, and `booth-app/src`;
+every `*.tsx` file under the same folders and under `packages/shared/src/web` (inline styles
+only, so shared components such as `013`'s planned address link are checked too); and
+`packages/shared/src/web/theme.css` outside its two token blocks, for C2 only (paths relative to
+the shared package, as `customer-app/test/shared-look.test.ts` does today).
 
 How it reads CSS: strip comments; take each innermost `{ ... }` block (a declaration block, also
 inside `@media`); split it into `property: value` pairs; report each violation with the file, the
@@ -196,8 +204,8 @@ Rules for app stylesheets:
 |---|---|---|
 | C1 | a custom property is defined (`--anything:`) | none; apps define no theme values |
 | C2 | any value contains a color written out: `#` hex, `rgb(`, `rgba(`, `hsl(`, `hsla(`, `hwb(`, `lab(`, `lch(`, `oklab(`, `oklch(`, or `color(`; or the value of a color-bearing property (`color`, `background`, `background-color`, `border*`, `outline*`, `fill`, `stroke`, `box-shadow`, `text-decoration*`, `caret-color`, `accent-color`, `column-rule*`) contains a CSS named color as a whole word | `var(--...)`, `transparent`, `currentcolor`, `inherit`, `color-mix()` of tokens |
-| C3 | `font-family` is set, or `font` is set to anything but `inherit` | none; the typeface is in the theme |
-| C4 | `border-radius` or `box-shadow` is not `var(--...)`, `0`, or `none` | tokens |
+| C3 | `font-family` is set to anything but `var(--...)` (a typeface written out), or `font` is set to anything but `inherit` | `font-family: var(--mono)` and other typeface tokens |
+| C4 | `border-radius` or `box-shadow` has a space-separated part that is not `0`, `none`, or `var(--...)` | tokens, e.g. `0 var(--radius-sm) var(--radius-sm) 0` |
 | C5 | `padding*`, `margin*`, `gap`, `row-gap`, or `column-gap` has a part that is not `0`, `auto`, `var(--space-N)`, or `calc(-1 * var(--space-N))` | spacing steps |
 | C6 | `color: var(--text-faint)` | (also checked in the theme) |
 
@@ -241,9 +249,10 @@ its pairs (text, muted, accent, danger, warn, ok on surface and bg; accent-text 
 border-strong and accent at 3:1 on surface) and add the pairs the shared controls use: `--accent`
 on `--accent-soft` (active nav item, pills), `--danger` on `--danger-bg`, `--warn` on `--warn-bg`,
 `--ok` on `--ok-bg` (banners and badges), and `--text-muted` on `--surface-alt` (table headings).
-All pass with the Customer values today (lowest: `--text-muted` on `--surface-alt` 5.05:1 light;
-`--border-strong` on `--surface` 3.31:1 light). The "never faint text" assertion covers the theme;
-C6 covers the apps.
+All pass with the Customer values today (lowest text pairs: `--text-muted` on `--bg` 4.88:1 and
+on `--surface-alt` 5.05:1 in light; `--accent` on `--accent-soft` 5.15:1 in dark; lowest boundary:
+`--border-strong` on `--surface` 3.31:1 in light). The "never faint text" assertion covers the
+theme; C6 covers the apps.
 
 **Rationale**: FR-008 is a property of the theme, so the theme's tests own it. The added pairs are
 the ones a status message or badge actually shows.
@@ -260,10 +269,17 @@ the ones a status message or badge actually shows.
 - `admin-app/src/pages/Attendees.tsx`, `EventDetail.tsx`, `LocationDetail.tsx`, `Reports.tsx`:
   their own "Can't reach the QueuePass service." paragraphs get the same classes.
 - `customer-app/src/components/GetTickets.tsx`: the `notice` paragraph gets `banner
-  banner--error`; the "couldn't confirm" block gets `banner banner--conflict`, keeping its text and
-  its Check again button.
+  banner--error`; the "couldn't confirm" block gets `banner banner--conflict`, and its two
+  paragraphs and Check again button are wrapped in one `<div className="banner__body">`, as in
+  `admin-app/src/components/ErrorBanner.tsx`. Without the wrapper, `.banner`'s `display: flex`
+  would set the three side by side in narrow columns.
+- Status lines another feature has added to `main` by the time 012 is built (R11): `016`'s
+  limit line and its "no more seats" line get `note`; its "You have reached the limit" message
+  gets `banner banner--conflict` (a warning: the customer can do nothing more here, but nothing
+  failed).
 
-Roles, text, and structure stay; only `className` is added. `admin-app/src/pages/EventList.tsx`
+Roles, text, and controls stay. Apart from the one `banner__body` wrapper, only `className` is
+added. `admin-app/src/pages/EventList.tsx`
 already uses a plain `<p className="banner banner--error">`, so a banner without the icon and body
 parts is an existing pattern.
 
@@ -336,13 +352,16 @@ To keep conflicts small:
   015 merges first, 012's implementer applies R9 to any rules 015 added; the drift check names
   them. If 012 merges first, 015 must pass the check, which tells it what to use. Any new held-seat
   state or message 015 adds uses theme values and existing theme classes.
-- **`016-per-user-ticket-limit`** (spec pending): it changes `GetTickets.tsx`, `SeatPicker.tsx`, and
-  the Admin `EventForm.tsx`. Its research R8 adds text lines: a limit line on Get tickets ("Limit:
-  8 tickets per customer. You can get 3 more."), a "You have reached the limit" message, and a
-  seat-picker line saying why no more seats can be chosen. 012 touches `GetTickets.tsx` in two
-  `className` attributes only. Those 016 lines must use existing theme classes (`.note` for the
-  limit and seat-picker lines, `banner banner--conflict` or `.note` for the reached message) and
-  no new colors or spacing, so whichever of 012 and 016 merges second passes the drift check.
+- **`016-per-user-ticket-limit`**: its spec merged (#29); its implementation is PR #32. It
+  changes `GetTickets.tsx` and the Admin `EventForm.tsx` and `EventDetail.tsx`, not
+  `SeatPicker.tsx`, and adds no CSS, so it passes the drift check. In `GetTickets.tsx` it adds
+  three plain `<p>` lines: the limit ("Limit: 8 tickets per customer. You can get 3 more."), the
+  reached message ("You have reached the limit of ..."), and "No more seats can be chosen: ...".
+  **Decision**: whichever of 012 and 016 merges second gives those lines theme classes (R8).
+  012's implementation will most likely start from a `main` that already has #32, so T022 does it,
+  test first in T017, and more generally gives the theme's status styles to every status message
+  on `main` when 012's implementation starts (spec FR-010). If 012 merges first, 016 adds the
+  classes itself.
 
 **Rationale**: Moving tokens and shared controls, not screen-specific rules, keeps 012's edits
 away from the screens other features are changing.

@@ -205,23 +205,31 @@ confirm both show the new accent on buttons, links, and the current navigation i
 - **FR-009**: Where the two apps style a shared control differently today, the theme MUST use the
   Customer app's value (the one `008` set and tested for contrast, touch target size, and focus).
 - **FR-010**: Every error and status message in both apps MUST use the theme's status message
-  styles, including "Can't reach the QueuePass service" and the Customer app's Get tickets
-  messages, and MUST keep its text and the way it is announced to screen readers.
-- **FR-011**: Styles for one app's own screens (for example the Admin reports tiles and seat
-  layout lines, and the Customer event cards, filters, and seat picker) MUST stay with that app.
-  The theme MUST NOT hold styles that only one app uses.
+  styles, including "Can't reach the QueuePass service", the Customer app's Get tickets messages,
+  and any status line another feature has added to `main` by the time this feature is built (for
+  example `016`'s per-customer limit lines), and MUST keep its text and the way it is announced to
+  screen readers.
+- **FR-011**: The theme MUST hold every shared control together with all of its variants and
+  parts (for example every badge, banner, and button variant, and the tap-area helper), even when
+  only one app uses a given variant today. Styles for one app's own screens (for example the Admin
+  reports tiles and seat layout lines, and the Customer event cards, filters, and seat picker)
+  MUST stay with that app.
 - **FR-012**: Apart from these changes, every screen in both apps MUST look as it does today:
   - in the Admin app: darker control borders; field hints, placeholders, table headings, and the
     reports page's notes, subtitles, and cancelled rows in the darker gray; buttons, fields, and
-    choices at least 44 pixels tall; larger checkboxes and radio buttons; a visible focus outline;
-    a border on status badges; and "Can't reach the QueuePass service" as an error banner;
+    choices at least 44 pixels tall; navigation links at least 44 pixels tall; larger checkboxes
+    and radio buttons; a visible focus outline on buttons and links (fields keep the accent ring
+    they show today); a border on status badges; and "Can't reach the QueuePass service" as an
+    error banner;
   - in the Customer app: its Get tickets messages and "Can't reach the QueuePass service" as
-    banners;
+    banners; and the Get tickets "Ticket type" group losing the browser's default box around it
+    and showing its heading in the theme's label style;
   - in both apps: spacing on app-specific screens moved by at most 2 pixels to the nearest theme
     step.
 - **FR-013**: Every behavior MUST stay the same: the same text, controls, flows, and messages.
   Every existing test MUST still pass, except the two Customer app tests that check the copied
-  styles, which move to the shared code and check the theme instead.
+  styles. Their checks move to the shared code and check the theme instead, keeping every
+  assertion they make today.
 - **FR-014**: Automated tests MUST show that both apps load the same theme file, and that key
   controls in each app (the primary and secondary buttons, an error banner, and "Can't reach the
   QueuePass service") carry the theme's styles.
