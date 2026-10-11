@@ -244,6 +244,10 @@ export interface paths {
          * Schedule an event
          * @description Rejects, in this order: request-shape and field validation, unknown venue, ticket
          *     capacity above the venue's seating capacity, and a scheduling conflict at that venue.
+         *
+         *     Feature 016: `maxTicketsPerCustomer`, when given, must be from 1 to the event's
+         *     `totalTicketCapacity`, where an omitted capacity is the venue's `seatingCapacity` (`400`
+         *     otherwise). It is checked after the venue's seating capacity.
          */
         post: operations["createEvent"];
         delete?: never;
@@ -287,10 +291,12 @@ export interface paths {
          *     first.
          *
          *     Feature 016: `maxTicketsPerCustomer` may be set, changed, or cleared with `null` at any
-         *     time before the event is cancelled. It must be from 1 to the event's
-         *     `totalTicketCapacity` after the update (`400` otherwise, including when the update lowers
-         *     the capacity below the limit; the existing capacity checks are applied first). Lowering or
-         *     clearing it never changes an existing order or ticket.
+         *     time before the event is cancelled. After the existing capacity checks, the limit in
+         *     force after the update must not exceed the event's `totalTicketCapacity`: a
+         *     `maxTicketsPerCustomer` sent in the request above it is `400`; an update that lowers
+         *     `totalTicketCapacity` below the stored limit, without sending a new one, is `409
+         *     CAPACITY_EXCEEDED` (`details.proposedTicketCapacity`, `details.maxTicketsPerCustomer`).
+         *     Lowering or clearing the limit never changes an existing order or ticket.
          */
         patch: operations["updateEvent"];
         trace?: never;

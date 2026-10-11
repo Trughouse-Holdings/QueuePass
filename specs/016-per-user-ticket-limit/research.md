@@ -103,13 +103,23 @@ request and a new route for three numbers).
 **Decision**:
 
 - `POST /events` and `PATCH /events/{id}` accept `maxTicketsPerCustomer`: an integer of at least 1,
-  or `null`, validated by the DTOs. The service compares the limit with the event's capacity as
-  it will be stored: on create, the capacity sent or else the venue's `seatingCapacity`; on
-  update, the merged values. It refuses `maxTicketsPerCustomer > totalTicketCapacity` with
-  `400 VALIDATION_FAILED`, naming the field and the capacity. This covers both raising the limit
-  and lowering the capacity (spec edge case "Capacity lowered below the limit"). The existing
-  capacity checks (venue, tiers, sales: `409 CAPACITY_EXCEEDED`) run first, unchanged, so an edit
-  that breaks one of them gets the same answer as today.
+  or `null`, validated by the DTOs. The service compares the limit in force after the write with
+  the event's capacity as it will be stored: on create, the capacity sent or else the venue's
+  `seatingCapacity`; on update, the merged values. The existing capacity checks (venue, tiers,
+  sales: `409 CAPACITY_EXCEEDED`) run first, unchanged, so an edit that breaks one of them gets
+  the same answer as today. Then:
+  - the request's own `maxTicketsPerCustomer` is above the capacity → `400 VALIDATION_FAILED`,
+    naming the field and the capacity. This is bad input, whether the same request also changes
+    the capacity or not.
+  - the request lowers `totalTicketCapacity` below the **stored** limit, and does not send a
+    limit → `409 CAPACITY_EXCEEDED`, "Cannot set ticket capacity to N; this event allows M
+    tickets per customer. Lower its limit first.", with `details` `{ proposedTicketCapacity,
+    maxTicketsPerCustomer }`. This is a conflict with saved data, answered like a capacity cut
+    below tier totals or tickets sold, and like a layout replace below a limit (next bullet).
+
+  Both cover the spec edge case "Capacity lowered below the limit". The Admin app always sends the
+  limit on edit (R7), so it sees the `400`; the `409` is for API callers that change the capacity
+  alone.
 - `PUT /locations/{id}/layout` (`LayoutService.replace`) sets the capacity of every scheduled
   seated event at the venue to the new layout total. It refuses only when such an event has
   valid tickets (`LAYOUT_IN_USE`), so an unsold seated event's capacity can drop. The service

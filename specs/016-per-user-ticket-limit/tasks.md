@@ -179,8 +179,12 @@ numbers (FR-002, FR-003, FR-005, FR-006, FR-007).
     exactly at it → accepted (both sides of the boundary);
   - on create without `totalTicketCapacity`, the limit is checked against the venue's
     `seatingCapacity`;
-  - an update that lowers `totalTicketCapacity` below the stored limit → `400`; one that also
-    falls below the tickets sold → the existing `409 CAPACITY_EXCEEDED` (existing checks first);
+  - an update that lowers `totalTicketCapacity` below the stored limit without sending a limit →
+    `409 CAPACITY_EXCEEDED` with `details` `{ proposedTicketCapacity, maxTicketsPerCustomer }`,
+    and nothing changes; the same update sending a limit still above the new capacity → `400`;
+    sending a limit at or below it → `200` with both values saved;
+  - an update that also falls below the tickets sold → the existing `409 CAPACITY_EXCEEDED` for
+    sales (existing checks first);
   - lowering it below what a customer holds succeeds, and their orders and tickets are unchanged
     (FR-009);
   - a cancelled event's `PATCH` with the field → `409 EVENT_CANCELLED` (FR-010);
@@ -201,10 +205,12 @@ numbers (FR-002, FR-003, FR-005, FR-006, FR-007).
 ### Implementation for User Story 3
 
 - [ ] T019 [US3] In `backend/src/events/events.service.ts`, after the existing capacity checks
-  (venue, tiers, sales), refuse `maxTicketsPerCustomer > totalTicketCapacity` with a `400` whose
-  message names the field and the capacity (research R6): in `createOnce` against the resolved
-  capacity (sent, else the venue's), and in `updateLocked` against the merged values. Lowering or
-  clearing changes nothing else.
+  (venue, tiers, sales), apply research R6 to the limit in force after the write: in `createOnce`
+  against the resolved capacity (sent, else the venue's), and in `updateLocked` against the merged
+  values. A limit sent in the request above the capacity → `400` whose message names the field and
+  the capacity; a capacity cut below the stored limit with no limit sent → `conflict(
+  'CAPACITY_EXCEEDED', ...)` with `details` `{ proposedTicketCapacity, maxTicketsPerCustomer }`.
+  Lowering or clearing changes nothing else.
 - [ ] T020 [US3] In `backend/src/seating/layout.service.ts` `replace`, next to the existing
   `tooBig` check and before any write, find a scheduled event at the venue with
   `reservedSeating: true` and `maxTicketsPerCustomer > totalSeats`; refuse with

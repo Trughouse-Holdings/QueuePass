@@ -10,7 +10,8 @@ removed, and no role changes.
 | `Event` | `maxTicketsPerCustomer: integer \| null`, minimum 1. Not in `required` (research R9). |
 | `EventInput` | optional `maxTicketsPerCustomer: integer \| null`; must not exceed `totalTicketCapacity` (`400`). |
 | `EventUpdate` | optional `maxTicketsPerCustomer: integer \| null`; `null` clears. |
-| `updateEvent` | description: range rule after the update, `400`, after the existing capacity checks; lowering or clearing changes no order. |
+| `createEvent` | description: the limit is from 1 to the event's capacity (an omitted capacity is the venue's), `400`. |
+| `updateEvent` | description: after the existing capacity checks, a limit sent above the capacity is `400`; a capacity cut below the stored limit is `409 CAPACITY_EXCEEDED`; lowering or clearing changes no order. |
 | `replaceLayout` | description: a total below a seated event's limit is `409 CAPACITY_EXCEEDED`, naming the event. |
 | `Availability` | `customerLimit: CustomerLimit \| null`. Not in `required` (research R9). |
 | `CustomerLimit` | new schema: `limit`, `held`, `remaining`. |
