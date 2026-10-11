@@ -15,8 +15,10 @@
   left (R2, R3, R4).
 - **Customer standing**: the availability read gains `customerLimit` (`limit`, `held`, `remaining`)
   for the signed-in customer (R5).
+- **Event writes**: the limit is refused above the event's capacity on create and edit, and a
+  venue layout that would drop a seated event's capacity below its limit is refused (R6).
 - **Admin app**: a "Tickets per customer" field in the event form, and a "Per customer" row on the
-  event page (R6, R7).
+  event page (R7).
 - **Customer app**: Get tickets offers no more than the smallest of the per-order cap, the tickets
   left, and the customer's remaining limit, and says when the limit is reached (R8).
 
@@ -47,7 +49,7 @@ counts tickets; no measurable change.
 event row lock (Constitution IV); every existing order rule and refusal unchanged; `requestId`
 replays count once.
 
-**Scale/Scope**: 0 new routes; 4 changed operations (`createEvent`, `updateEvent`, `updateSeating`,
+**Scale/Scope**: 0 new routes; 4 changed operations (`createEvent`, `updateEvent`, `replaceLayout`,
 `getEventAvailability`) and 1 changed rule in `createOrder`; 1 new error code.
 
 ## Constitution Check
@@ -75,7 +77,7 @@ specs/016-per-user-ticket-limit/
 
 contracts/~ openapi.yaml                       # 1.6.0 (this PR)
 packages/shared/src/~ api-schema.ts            # regenerated (this PR)
-packages/shared/src/~ errors.ts, ~ event.ts    # implementation PR
+packages/shared/src/~ errors.ts, ~ event.ts, ~ order.ts   # implementation PR (order.ts: Availability)
 backend/
 ├── prisma/~ schema.prisma, migrations/+ 20261011000000_per_customer_ticket_limit/migration.sql
 ├── src/
@@ -83,7 +85,7 @@ backend/
 │   ├── orders/~ orders.service.ts             # the limit rule (R2, R3, R4)
 │   ├── events/~ dto/create-event.dto.ts, ~ dto/update-event.dto.ts, ~ events.service.ts (R6)
 │   ├── events/~ events.controller.ts, ~ availability.service.ts      # customerLimit (R5)
-│   ├── seating/~ seat-map.service.ts          # seating on below the limit (R6)
+│   ├── seating/~ layout.service.ts            # a layout below a seated event's limit (R6)
 │   └── scripts/~ demo-data.ts                 # one demo event with a limit (R10)
 └── test/
     ├── integration/+ orders.ticket-limit.e2e-spec.ts, + orders.ticket-limit.concurrency.e2e-spec.ts,

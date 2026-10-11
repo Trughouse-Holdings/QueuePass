@@ -13,6 +13,7 @@ window for the Customer app (http://localhost:5174, `customer1` / `test123`).
 ## S1: Set a limit (US3)
 
 As `admin1`, create an event starting next week with 100 tickets and **Tickets per customer** 8.
+Time the later edit to 6 from opening the edit form to saving: under 30 seconds (SC-003).
 **Expect**: the event page shows "Per customer: 8 tickets". Edit it and enter 0, then 101.
 **Expect**: each is refused, the form names the allowed range (1 to 100), and the other values
 stay. Enter 6 and save. **Expect**: "Per customer: 6 tickets".
@@ -59,9 +60,10 @@ leave 6. **Expect**: `npm test` passes, with these tests listed.
 ## S7: Seated events (US4)
 
 On a reserved-seating event with a limit of 3, as a customer holding 0, choose seats. **Expect**:
-a fourth seat cannot be chosen, with a line saying the limit allows 3. As `admin1`, try to turn
-reserved seating on for an event whose limit is above its venue's layout total. **Expect**: refused
-with a message to lower the limit first.
+a fourth seat cannot be chosen, with a line saying the limit allows 3. As `admin1`, schedule a
+reserved-seating event with no tickets sold at a venue with a layout, give it a limit of 20, then
+open the venue's seating layout and save one with fewer than 20 seats. **Expect**: refused, naming
+the event and telling the admin to lower its limit first; the layout is unchanged.
 
 ## S8: Existing events and the demo
 

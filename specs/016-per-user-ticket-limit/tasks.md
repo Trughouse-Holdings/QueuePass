@@ -56,21 +56,32 @@ and confirm they **fail** before the implementation tasks below them.
   `SELECT ... FOR UPDATE` column list in `backend/src/common/event-lock.ts`.
 - [ ] T005 [P] In `packages/shared/src/event.ts`, add `maxTicketsPerCustomer: number | null` to
   `Event` and `maxTicketsPerCustomer?: number | null` to `EventInput` (so `EventUpdate` gains it).
+  In `packages/shared/src/order.ts`, add `CustomerLimit { limit; held; remaining }` (numbers) and
+  `customerLimit?: CustomerLimit | null` to `Availability`, as in data-model.md. The Backend's
+  `AvailabilityService` and the Customer app's `GetTickets` use this type, not `api-schema.ts`.
 - [ ] T006 [P] Add `'TICKET_LIMIT_REACHED'` to `ERROR_CODES` in `packages/shared/src/errors.ts`, in
   the same position as the contract's `ErrorEnvelope` enum (last). Without it, the exception filter
   rewrites the refusal as `VENUE_HAS_EVENTS` (research R4).
-- [ ] T007 [P] Add `maxTicketsPerCustomer` to `backend/src/events/dto/create-event.dto.ts` and
+- [ ] T007 **Test first.** Create `backend/test/integration/events.ticket-limit.e2e-spec.ts` with
+  the storage and input tests, and confirm they fail before T008 and T009:
+  - create with `maxTicketsPerCustomer: 4` → stored and returned; without it → `null`;
+  - `PATCH` to 6 → 6; `PATCH` with `null` → cleared; a `PATCH` without the key leaves it as is;
+  - `0`, `-1`, `2.5`, and `"4"` → `400 VALIDATION_FAILED`, field named, on create and on update;
+  - `GET /events` and `GET /events/{id}` carry `maxTicketsPerCustomer: null` for an event without
+    one (FR-017);
+  - the database CHECK refuses an out-of-range value written directly with `ctx.prisma`.
+- [ ] T008 [P] Add `maxTicketsPerCustomer` to `backend/src/events/dto/create-event.dto.ts` and
   `backend/src/events/dto/update-event.dto.ts`: `@IsOptional() @IsInt() @Min(1)`, accepting
   `null`, with the message `'maxTicketsPerCustomer must be a whole number of at least 1, or empty
   for no limit'`.
-- [ ] T008 In `backend/src/events/events.service.ts`, persist `maxTicketsPerCustomer` on create
+- [ ] T009 In `backend/src/events/events.service.ts`, persist `maxTicketsPerCustomer` on create
   (`?? null`) and on update (set when the key is present, including `null`, using
-  `!== undefined`). Confirm `toResponse` sends it as `null` when unset.
-- [ ] T009 [P] Let `event()` in `backend/test/setup/fixtures.ts` take an optional
+  `!== undefined`). Confirm `toResponse` sends it as `null` when unset. Run T007 until it passes.
+- [ ] T010 [P] Let `event()` in `backend/test/setup/fixtures.ts` take an optional
   `maxTicketsPerCustomer`, sent only when given. Add the field (`null`) to the event factory in
   `customer-app/test/helpers.tsx` and to hand-built `EVENT` objects in admin-app tests that are
   typed as `Event`.
-- [ ] T010 Run `npm test`: everything still passes, and event responses carry
+- [ ] T011 Run `npm test`: everything still passes, and event responses carry
   `maxTicketsPerCustomer: null`.
 
 **Checkpoint**: the limit can be stored and read; nothing enforces it yet.
@@ -87,7 +98,7 @@ numbers (FR-002, FR-003, FR-005, FR-006, FR-007).
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T011 [US1] Create `backend/test/integration/orders.ticket-limit.e2e-spec.ts` covering, each as
+- [ ] T012 [US1] Create `backend/test/integration/orders.ticket-limit.e2e-spec.ts` covering, each as
   its own test:
   - limit 8, holding 0, order 8 → `201`;
   - holding 5, order 5 → `409 TICKET_LIMIT_REACHED`, `details` `{ limit: 8, held: 5, remaining:
@@ -104,18 +115,22 @@ numbers (FR-002, FR-003, FR-005, FR-006, FR-007).
     `TICKET_LIMIT_REACHED` with `remaining: 1`; a tie → `SOLD_OUT`;
   - a repeated `requestId` returns the original order with `200` and the count does not grow,
     even when the customer is now at the limit;
-  - a reserved-seating event counts the seats ordered toward the limit.
+  - a reserved-seating event counts the seats ordered toward the limit;
+  - the per-order cap still applies: limit 20, holding 0, order 11 → `400 VALIDATION_FAILED`
+    (FR-006);
+  - holding 6 after the limit is lowered to 4 (set with `ctx.prisma`), order 1 →
+    `TICKET_LIMIT_REACHED` with `remaining: 0`, never negative.
 
 ### Implementation for User Story 1
 
-- [ ] T012 [US1] In `backend/src/orders/orders.service.ts` `createLocked`, after the seat
+- [ ] T013 [US1] In `backend/src/orders/orders.service.ts` `createLocked`, after the seat
   resolution and with the existing tickets-left computation, count the caller's valid tickets for
   the event (`tx.ticket.count({ where: { eventId, status: 'VALID', order: { customerSub:
   buyer.sub } } })`) only when `event.maxTicketsPerCustomer` is not `null`, and apply research R3:
   refuse with `conflict('TICKET_LIMIT_REACHED', message, { limit, held, remaining, requested })`
-  when the limit is the smaller cap, else keep the existing `SOLD_OUT`. Messages exactly as
-  research R4.
-- [ ] T013 [US1] Run T011 until it passes, then the whole Backend suite.
+  when the limit is the smaller cap, else keep the existing `SOLD_OUT`. `remaining` is
+  `max(0, limit - held)`. Messages exactly as research R4.
+- [ ] T014 [US1] Run T012 until it passes, then the whole Backend suite.
 
 **Checkpoint**: the rule holds for orders one at a time.
 
@@ -129,18 +144,20 @@ numbers (FR-002, FR-003, FR-005, FR-006, FR-007).
 
 ### Tests for User Story 2 (write first)
 
-- [ ] T014 [US2] Create `backend/test/integration/orders.ticket-limit.concurrency.e2e-spec.ts`
+- [ ] T015 [US2] Create `backend/test/integration/orders.ticket-limit.concurrency.e2e-spec.ts`
   using one client (one customer) firing requests with `Promise.all`, each with its own
   `requestId`, against an event with capacity 100:
   - limit 8, 50 simultaneous orders of 1 → exactly 8 `201`, 42 `409 TICKET_LIMIT_REACHED`, and 8
     valid tickets for that customer in the database (SC-001);
   - limit 8, 2 simultaneous orders of 6 → exactly one `201`, and 6 valid tickets;
   - 10 identical requests with the same `requestId` → one `201`, nine `200`, and the count is the
-    order's quantity once (FR-007).
+    order's quantity once (FR-007);
+  - in every case, assert first that no response is `5xx`, so a connection-pool or transaction
+    timeout fails with a clear message rather than as a miscount.
 
 ### Implementation for User Story 2
 
-- [ ] T015 [US2] Run T014. It should pass with T012 alone because of the event row lock (research
+- [ ] T016 [US2] Run T015. It should pass with T013 alone because of the event row lock (research
   R2). If it does not, fix the cause in `orders.service.ts` without adding a new lock mechanism,
   and record why in research.md.
 
@@ -156,43 +173,50 @@ numbers (FR-002, FR-003, FR-005, FR-006, FR-007).
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T016 [P] [US3] Create `backend/test/integration/events.ticket-limit.e2e-spec.ts`:
-  - create with `maxTicketsPerCustomer: 4` → stored and returned; without it → `null`;
-  - `0`, `-1`, `2.5`, and `"4"` → `400 VALIDATION_FAILED`, field named;
+- [ ] T017 [P] [US3] Extend `backend/test/integration/events.ticket-limit.e2e-spec.ts` (from T007)
+  with the range rule:
   - above `totalTicketCapacity` on create, and on update → `400`, message naming the capacity;
-  - an update that lowers `totalTicketCapacity` below the stored limit → `400`;
-  - `PATCH` with `null` clears it;
+    exactly at it → accepted (both sides of the boundary);
+  - on create without `totalTicketCapacity`, the limit is checked against the venue's
+    `seatingCapacity`;
+  - an update that lowers `totalTicketCapacity` below the stored limit → `400`; one that also
+    falls below the tickets sold → the existing `409 CAPACITY_EXCEEDED` (existing checks first);
   - lowering it below what a customer holds succeeds, and their orders and tickets are unchanged
     (FR-009);
   - a cancelled event's `PATCH` with the field → `409 EVENT_CANCELLED` (FR-010);
-  - `PUT /events/{id}/seating` turning reserved seating on when the venue's layout total is below
-    the limit → `409 CAPACITY_EXCEEDED`, and nothing changes;
-  - the database CHECK refuses an out-of-range value written directly with `ctx.prisma`
-    (backstop).
-- [ ] T017 [P] [US3] Create `admin-app/test/ticket-limit.test.tsx` with `stubApi`:
+  - `PUT /locations/{id}/layout` with a total below the limit of an unsold, scheduled seated event
+    at the venue → `409 CAPACITY_EXCEEDED` naming the event, and the layout, the venue's capacity,
+    and the event are unchanged; a total equal to the limit → `200`.
+- [ ] T018 [P] [US3] Create `admin-app/test/ticket-limit.test.tsx` with `stubApi`:
   - the form shows "Tickets per customer" with the hint "Leave blank for no limit.";
   - create sends the number when entered and omits it when blank;
   - edit prefills it, and sends `null` when cleared;
-  - `0` or a value above the typed capacity is refused before sending, and the other values stay;
+  - `0`, `2.5`, or a value above the event's capacity is refused before sending with "Tickets per
+    customer must be a whole number from 1 to N, or blank for no limit.", and the other values
+    stay; N is, per research R7, the typed "Total tickets", else the venue's capacity when that is
+    blank, else the layout total for reserved seating (one test for each);
   - a `400` from the Backend is shown through the error banner;
   - the event page shows "Per customer: 4 tickets", or "Per customer: No limit".
 
 ### Implementation for User Story 3
 
-- [ ] T018 [US3] In `backend/src/events/events.service.ts`, after merging the update in
-  `updateLocked` (and on create), refuse `maxTicketsPerCustomer > totalTicketCapacity` with a
-  `400` whose message names the field and the capacity (research R6). Lowering or clearing changes
-  nothing else.
-- [ ] T019 [US3] In `backend/src/seating/seat-map.service.ts`, when reserved seating turns on and
-  the layout total is below the event's `maxTicketsPerCustomer`, refuse with
-  `conflict('CAPACITY_EXCEEDED', ...)` telling the admin to lower the limit first, before any
-  write.
-- [ ] T020 [US3] In `admin-app/src/pages/EventForm.tsx`, add the "Tickets per customer" field under
+- [ ] T019 [US3] In `backend/src/events/events.service.ts`, after the existing capacity checks
+  (venue, tiers, sales), refuse `maxTicketsPerCustomer > totalTicketCapacity` with a `400` whose
+  message names the field and the capacity (research R6): in `createOnce` against the resolved
+  capacity (sent, else the venue's), and in `updateLocked` against the merged values. Lowering or
+  clearing changes nothing else.
+- [ ] T020 [US3] In `backend/src/seating/layout.service.ts` `replace`, next to the existing
+  `tooBig` check and before any write, find a scheduled event at the venue with
+  `reservedSeating: true` and `maxTicketsPerCustomer > totalSeats`; refuse with
+  `conflict('CAPACITY_EXCEEDED', ...)` naming it and telling the admin to lower its limit first,
+  `details` `{ totalSeats, conflictingEvent: { id, name } }` (research R6). `PUT
+  /events/{id}/seating` needs no change (research R6).
+- [ ] T021 [US3] In `admin-app/src/pages/EventForm.tsx`, add the "Tickets per customer" field under
   "Total tickets", reusing its `.field`, `<label htmlFor>`, `type="number" min={1}`, and
   `.field__hint` markup; prefill on edit; send per research R7; add the client-side preview check.
-- [ ] T021 [US3] In `admin-app/src/pages/EventDetail.tsx`, add a "Per customer" row to the details
+- [ ] T022 [US3] In `admin-app/src/pages/EventDetail.tsx`, add a "Per customer" row to the details
   `<dl>`: "N tickets" or "No limit".
-- [ ] T022 [US3] Run T016 and T017 until they pass, then the Backend and Admin app suites.
+- [ ] T023 [US3] Run T017 and T018 until they pass, then the Backend and Admin app suites.
 
 **Checkpoint**: admins control the limit end to end.
 
@@ -207,12 +231,12 @@ replaced by the reached message.
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
-- [ ] T023 [P] [US4] Extend `backend/test/integration/availability.e2e-spec.ts`: for a customer on
+- [ ] T024 [P] [US4] Extend `backend/test/integration/availability.e2e-spec.ts`: for a customer on
   an event with a limit, `customerLimit` is `{ limit, held, remaining }` with void tickets
   excluded and `remaining` never below 0 (after lowering the limit under `held`); `null` for an
   event with no limit, and for an admin or gate agent caller; one customer never sees another's
   count.
-- [ ] T024 [P] [US4] Create `customer-app/test/ticket-limit.test.tsx`, adding `customerLimit`
+- [ ] T025 [P] [US4] Create `customer-app/test/ticket-limit.test.tsx`, adding `customerLimit`
   (default `null`) to the `availability` factory in `customer-app/test/helpers.tsx`:
   - with a limit and `remaining` 8: "Limit: 8 tickets per customer. You can get 8 more.", quantity
     up to 8;
@@ -223,21 +247,23 @@ replaced by the reached message.
   - a seated event stops seat selection at `remaining`, with a line saying why;
   - a `409 TICKET_LIMIT_REACHED` shows the Backend's message in the alert, keeps the choices, and
     reloads availability;
+  - a sold-out or cancelled event shows its existing message even when `remaining` is 0;
   - `customerLimit: null`, and a response without it, leave the form exactly as today.
 
 ### Implementation for User Story 4
 
-- [ ] T025 [US4] In `backend/src/events/events.controller.ts`, pass `@CurrentPrincipal()` to the
+- [ ] T026 [US4] In `backend/src/events/events.controller.ts`, pass `@CurrentPrincipal()` to the
   availability handler; in `backend/src/events/availability.service.ts`, compute `customerLimit`
-  for a caller with the `customer` role on an event with a limit, using the same count as T012,
+  for a caller with the `customer` role on an event with a limit, using the same count as T013,
   and `null` otherwise. Always include the key.
-- [ ] T026 [US4] In `customer-app/src/components/GetTickets.tsx`, apply research R8: `maxQuantity`
+- [ ] T027 [US4] In `customer-app/src/components/GetTickets.tsx`, apply research R8: `maxQuantity`
   is the smallest of `ORDER_LIMITS.maxQuantity`, the tickets left, and `customerLimit.remaining`;
-  show the limit line; replace the form with the reached message at 0. Treat a missing
-  `customerLimit` as `null`.
-- [ ] T027 [US4] In `customer-app/src/components/SeatPicker.tsx` (or its caller), show why no more
+  show the limit line; replace the form with the reached message at 0, after the existing closed
+  messages (cancelled, sales closed, sold out, no seats on sale), which keep precedence. Treat a
+  missing `customerLimit` as `null`.
+- [ ] T028 [US4] In `customer-app/src/components/SeatPicker.tsx` (or its caller), show why no more
   seats can be chosen when the cap is the customer's limit.
-- [ ] T028 [US4] Run T023 and T024 until they pass, then the Backend and Customer app suites.
+- [ ] T029 [US4] Run T024 and T025 until they pass, then the Backend and Customer app suites.
 
 **Checkpoint**: every story works on its own and together.
 
@@ -245,38 +271,38 @@ replaced by the reached message.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T029 [P] In `backend/src/scripts/demo-data.ts`, give one demo event `maxTicketsPerCustomer: 4`
+- [ ] T030 [P] In `backend/src/scripts/demo-data.ts`, give one demo event `maxTicketsPerCustomer: 4`
   (research R10).
-- [ ] T030 [P] Update `README.md`: add the `016` row to the Status table, mention the limit in
+- [ ] T031 [P] Update `README.md`: add the `016` row to the Status table, mention the limit in
   "Today", and keep the reserved-features line accurate.
-- [ ] T031 Run `npm run lint` and `npm test` from the repository root; everything passes, including
+- [ ] T032 Run `npm run lint` and `npm test` from the repository root; everything passes, including
   `check-contract-drift`.
-- [ ] T032 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
+- [ ] T033 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' coverage if a provider is installed) in the PR description. The 80% floor is not
   yet blocking (Constitution VI deferral until `010` and `011`).
-- [ ] T033 Running-system gate: `docker compose up --build`, then walk quickstart.md S1–S8 in the
+- [ ] T034 Running-system gate: `docker compose up --build`, then walk quickstart.md S1–S8 in the
   browser, and sign in, use, and sign out of each front end. Record the results in this file.
-- [ ] T034 Independent review (Constitution III): a separate Claude session reviews the branch
+- [ ] T035 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
-- [ ] T035 Open the implementation PR against `main` with `fixes #28` in its description.
+- [ ] T036 Open the implementation PR against `main` with `fixes #28` in its description.
 
 ---
 
 ## Dependencies & Execution Order
 
 - **Phase 1 → Phase 2** before any story.
-- **US1 (Phase 3)** is the MVP and comes first. **US2** depends on US1's rule (T012).
+- **US1 (Phase 3)** is the MVP and comes first. **US2** depends on US1's rule (T013).
 - **US3** and **US4** depend only on Phase 2 and can run in either order after US1; US4's Backend
-  count reuses T012's query.
+  count reuses T013's query.
 - **Phase 7** after every story.
 
 ## Parallel Opportunities
 
-- Phase 2: T004, T005, T006, T007, T009 touch different files.
-- US3: T016 (Backend) and T017 (Admin app) tests in parallel; T020/T021 alongside T018/T019.
-- US4: T023 and T024 in parallel; T026/T027 alongside T025.
-- Polish: T029 and T030.
+- Phase 2: T007 first (tests); T004, T005, T006, T008, T010 touch different files.
+- US3: T017 (Backend) and T018 (Admin app) tests in parallel; T021/T022 alongside T019/T020.
+- US4: T024 and T025 in parallel; T027/T028 alongside T026.
+- Polish: T030 and T031.
 
 ## Implementation Strategy
 

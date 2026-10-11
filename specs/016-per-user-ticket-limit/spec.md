@@ -154,7 +154,9 @@ is replaced by a "you have reached the limit" message.
 - **Two refusal reasons at once**: When an order would break both the limit and the tickets left,
   the customer is told the smaller number they can actually get.
 - **Capacity lowered below the limit**: An edit that would leave the limit above the event's total
-  ticket capacity is refused, and the admin is told to lower the limit in the same edit.
+  ticket capacity is refused, and the admin is told to lower the limit in the same edit. A change
+  to a venue's seating layout that would lower a reserved-seating event's capacity below its limit
+  is refused the same way, naming the event.
 - **Limit changed while a customer is on the form**: The Backend applies the limit in force when
   the order arrives. The customer sees the refusal message with the current numbers.
 - **Who is "one customer"**: One signed-in customer account. The limit does not try to detect one

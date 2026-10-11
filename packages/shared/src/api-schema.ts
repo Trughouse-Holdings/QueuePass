@@ -206,6 +206,10 @@ export interface paths {
          *     seating has valid tickets (`409 LAYOUT_IN_USE`, `details.events`). Every event's section
          *     mappings at this venue are dropped, because the old sections no longer exist, so their
          *     tiers' quantities become 0 until remapped.
+         *
+         *     Feature 016: also refused when the total is below the `maxTicketsPerCustomer` of a
+         *     scheduled event at the venue with reserved seating (`409 CAPACITY_EXCEEDED`, naming it);
+         *     lower its limit first.
          */
         put: operations["replaceLayout"];
         post?: never;
@@ -284,8 +288,9 @@ export interface paths {
          *
          *     Feature 016: `maxTicketsPerCustomer` may be set, changed, or cleared with `null` at any
          *     time before the event is cancelled. It must be from 1 to the event's
-         *     `totalTicketCapacity` after the update (`400` otherwise). Lowering or clearing it never
-         *     changes an existing order or ticket.
+         *     `totalTicketCapacity` after the update (`400` otherwise, including when the update lowers
+         *     the capacity below the limit; the existing capacity checks are applied first). Lowering or
+         *     clearing it never changes an existing order or ticket.
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -435,8 +440,6 @@ export interface paths {
          *     cancelled event cannot change (`409 EVENT_CANCELLED`). With reserved seating on, the event's
          *     `totalTicketCapacity` becomes its venue's layout total and each tier's `quantity` becomes
          *     the seats in the sections mapped to it (0 with none); turning it off keeps those numbers.
-         *     Feature 016: turning it on is refused when the layout total is below the event's
-         *     `maxTicketsPerCustomer` (`409 CAPACITY_EXCEEDED`); lower the limit first.
          */
         put: operations["updateSeating"];
         post?: never;

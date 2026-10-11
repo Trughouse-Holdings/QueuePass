@@ -56,5 +56,9 @@ refusal is `TICKET_LIMIT_REACHED` when the limit is the smaller cap, `SOLD_OUT` 
 
 - `packages/shared/src/event.ts`: `Event.maxTicketsPerCustomer: number | null`;
   `EventInput.maxTicketsPerCustomer?: number | null`.
+- `packages/shared/src/order.ts`: new `CustomerLimit { limit: number; held: number; remaining:
+  number }`, and `Availability.customerLimit?: CustomerLimit | null`. The Backend's
+  `AvailabilityService` and the Customer app's `GetTickets` use this hand-written type, not
+  `api-schema.ts`.
 - `packages/shared/src/errors.ts`: `TICKET_LIMIT_REACHED` added to `ERROR_CODES`.
 - `packages/shared/src/api-schema.ts`: regenerated from contract 1.6.0 (in this PR).

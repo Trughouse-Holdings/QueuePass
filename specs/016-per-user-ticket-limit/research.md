@@ -49,11 +49,14 @@ checks, tier resolution, and seat resolution, and together with the tickets-left
 
 ```text
 stockLeft    = min(event tickets left, tier tickets left)      # existing
-customerLeft = limit - held   (no limit: unbounded)            # new
+customerLeft = max(0, limit - held)   (no limit: unbounded)    # new
 if quantity > min(stockLeft, customerLeft):
     if customerLeft < stockLeft: TICKET_LIMIT_REACHED
     else:                        SOLD_OUT                      # existing message and details
 ```
+
+`customerLeft` is clamped at 0, because `held` can be above the limit after an admin lowers it
+(FR-009); `details.remaining` is that clamped value.
 
 **Rationale**: A replayed `requestId` must still return its order and count once (FR-007), so the
 check runs after the replay. A cancelled or closed event keeps its existing message. When both
@@ -100,15 +103,26 @@ request and a new route for three numbers).
 **Decision**:
 
 - `POST /events` and `PATCH /events/{id}` accept `maxTicketsPerCustomer`: an integer of at least 1,
-  or `null`, validated by the DTOs. After applying the update, the service refuses
-  `maxTicketsPerCustomer > totalTicketCapacity` with `400 VALIDATION_FAILED`, naming the field and
-  the capacity. This covers both raising the limit and lowering the capacity (spec edge case
-  "Capacity lowered below the limit").
-- `PUT /events/{id}/seating`, which sets the capacity from the venue's layout when reserved seating
-  turns on, refuses with `409 CAPACITY_EXCEEDED` when the layout total is below the limit.
-- A venue layout change never lowers a seated event's capacity (it is already refused with
-  `LAYOUT_IN_USE`), so it needs no new check.
-- The database CHECK from R1 backs all three.
+  or `null`, validated by the DTOs. The service compares the limit with the event's capacity as
+  it will be stored: on create, the capacity sent or else the venue's `seatingCapacity`; on
+  update, the merged values. It refuses `maxTicketsPerCustomer > totalTicketCapacity` with
+  `400 VALIDATION_FAILED`, naming the field and the capacity. This covers both raising the limit
+  and lowering the capacity (spec edge case "Capacity lowered below the limit"). The existing
+  capacity checks (venue, tiers, sales: `409 CAPACITY_EXCEEDED`) run first, unchanged, so an edit
+  that breaks one of them gets the same answer as today.
+- `PUT /locations/{id}/layout` (`LayoutService.replace`) sets the capacity of every scheduled
+  seated event at the venue to the new layout total. It refuses only when such an event has
+  valid tickets (`LAYOUT_IN_USE`), so an unsold seated event's capacity can drop. The service
+  therefore also refuses, before any write, when the new total is below the
+  `maxTicketsPerCustomer` of a scheduled seated event at the venue: `409 CAPACITY_EXCEEDED`,
+  naming the event, with `details` `{ totalSeats, conflictingEvent: { id, name } }`, alongside
+  the existing check for general-admission events that sell more than the new total. The venue
+  lock it already takes on every scheduled event at the venue serializes it with a limit edit.
+- `PUT /events/{id}/seating` needs no check. Turning reserved seating on sets the capacity to the
+  layout total, which equals the venue's `seatingCapacity` (a venue with a layout cannot set it
+  otherwise), and an event's capacity, and so its limit, never exceeds that. The capacity can
+  only rise.
+- The database CHECK from R1 backs every path.
 - Lowering or clearing the limit touches no order or ticket (FR-009). A cancelled event's update is
   already refused with `EVENT_CANCELLED` before any field is read (FR-010).
 
@@ -123,9 +137,20 @@ would change without them knowing).
 
 **Decision**: `EventForm.tsx` gains a "Tickets per customer" number field (`min=1`, step 1) under
 "Total tickets", with the hint "Leave blank for no limit." Create sends the number when one is
-entered. Edit always sends it, `null` when blank, so clearing works. A client-side preview check
-mirrors R6. `EventDetail.tsx` adds a "Per customer" row to its details card: "8 tickets" or
-"No limit".
+entered. Edit always sends it, `null` when blank, so clearing works. `EventDetail.tsx` adds a
+"Per customer" row to its details card: "8 tickets" or "No limit".
+
+A client-side preview check mirrors R6 against the capacity the event will have, which the form
+often does not have typed:
+
+1. reserved seating chosen, or the event already seated: the layout total shown in the form
+   (`layout.totalSeats`, or the stored capacity for a seated event being edited);
+2. otherwise, the typed "Total tickets" value;
+3. otherwise (blank), the selected venue's `seatingCapacity`.
+
+A value of 0 or less, a fraction, or a value above that capacity is refused before sending, with
+"Tickets per customer must be a whole number from 1 to N, or blank for no limit." The other values
+stay as entered. The Backend remains the check (FR-016).
 
 **Rationale**: The form already sends the full `EventInput` on edit and shows `details.fields` from
 a `400`, so a Backend refusal appears with no new error handling. The field reuses the existing
@@ -138,8 +163,10 @@ a `400`, so a Backend refusal appears with no new error handling. The field reus
 **Decision**: In `GetTickets.tsx`, `maxQuantity` becomes the smallest of the per-order cap (10),
 the tickets left, and `customerLimit.remaining` when present. The form shows "Limit: 8 tickets per
 customer. You can get 3 more." When `remaining` is 0, the form is replaced with "You have reached
-the limit of 8 tickets for this event." and no confirm control. The seat picker's `full` uses the
-same `maxQuantity`, with a line saying why no more seats can be chosen. A `TICKET_LIMIT_REACHED`
+the limit of 8 tickets for this event." and no confirm control. The existing closed messages
+(cancelled, sales closed, sold out, no seats on sale) come first, because they apply to every
+customer; the limit message shows only when the event is otherwise on sale. The seat picker's
+`full` uses the same `maxQuantity`, with a line saying why no more seats can be chosen. A `TICKET_LIMIT_REACHED`
 refusal is shown through the existing alert, which already shows the Backend's message and
 reloads availability.
 
