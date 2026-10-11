@@ -23,6 +23,11 @@ This feature splits the address into street, city, state, and ZIP code, checks i
 address service before a venue is saved, and turns every venue address in both apps into a link
 that opens the address in Google Maps.
 
+Because an admin may "save anyway" an address the service does not find (Clarifications), this
+spec's PR also rewords the `013` row of the constitution's roadmap to say so, a PATCH amendment
+(3.0.0 → 3.0.1, decided by the user, 2026-10-11). The constitution is shared surface, so every
+team member signs off on that row in the PR.
+
 ## Clarifications
 
 ### Session 2026-10-11
@@ -39,6 +44,10 @@ that opens the address in Google Maps.
   the admin can explicitly confirm and "save anyway". The venue is saved with the address as the
   admin typed it and marked "Address not verified". When the service is unavailable, saving is
   still refused, even with the confirmation (decided by the user, 2026-10-11).
+- Q: The constitution's roadmap row for `013` says "accept only a real US address". Does it
+  change? → A: Yes. It now reads that a real US address is required, checked by the Census
+  Geocoder, unless an admin explicitly confirms an unmatched address, which is then marked not
+  verified. Constitution 3.0.1 (decided by the user, 2026-10-11).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -168,7 +177,7 @@ verified.
    empty, **Then** the change is saved and the venue stays not verified.
 5. **Given** that venue, **When** an admin fills in the four address fields, **Then** the address
    is checked and, if it matches, replaces the old one and the venue is verified. If it does not
-  match, "Save anyway" is offered as in US1.
+   match, "Save anyway" is offered as in US1.
 
 ---
 
@@ -179,13 +188,17 @@ verified.
 - **ZIP+4**: An admin may enter "40507-1234". The service's 5-digit ZIP code is what is saved.
 - **The service corrects a field**: If the admin's city or ZIP code was slightly off and the
   service still finds one match, the corrected address is saved and shown to the admin.
+- **A match in a form QueuePass cannot read**: If the service's match cannot be split into a
+  street, a city, one of the listed states, and a 5-digit ZIP code, it is treated as not found,
+  so "Save anyway" is offered. Retrying would give the same answer.
 - **A real address the service does not know**: The service works from street address ranges and
   misses some real addresses, such as the KFC Yum! Center at 1 Arena Plaza, some other plazas,
   and new buildings. The first save is refused like any other unmatched address. The admin can
   then fix the address, or choose "Save anyway" to save it as typed, marked not verified.
 - **Save anyway is a deliberate choice**: It is offered only after a "not found" or "several
   matches" refusal, never up front and never when the service is unavailable. An address saved
-  this way keeps the admin's spelling and case (trimmed, with the ZIP code cut to 5 digits).
+  this way keeps the admin's spelling and case (trimmed, runs of spaces collapsed to one, and the
+  ZIP code cut to 5 digits).
 - **Save anyway when the address does match**: If the admin asks to save anyway and the service
   does find exactly one match (for example, on a retry with a corrected address), the matched
   address is saved and verified, as usual.
@@ -253,7 +266,8 @@ verified.
   (FR-013) are a preview.
 - **FR-019**: A create or address change MAY carry an explicit "save anyway" confirmation. With
   it, when the service finds no match or several matches, the venue MUST be saved with the four
-  fields as the admin sent them (trimmed, ZIP code cut to 5 digits), and recorded as not verified.
+  fields as the admin sent them (trimmed, runs of spaces collapsed to one, ZIP code cut to 5
+  digits), and recorded as not verified.
   The address service MUST still be asked first; the confirmation MUST NOT change the outcome when
   the service finds exactly one match (FR-003) or is unavailable (FR-006), and MUST be refused
   when sent without the four address fields.

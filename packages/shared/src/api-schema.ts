@@ -146,7 +146,8 @@ export interface paths {
          *     them.
          *
          *     Save anyway: with `acceptUnverifiedAddress: true`, no match or several matches instead
-         *     save the venue with the four fields as sent (trimmed, ZIP cut to 5 digits) and
+         *     save the venue with the four fields as sent (trimmed, runs of whitespace collapsed to one
+         *     space, ZIP cut to 5 digits) and
          *     `addressVerified: false`. The address service is still asked first, and the flag changes
          *     nothing when it finds exactly one match.
          *
@@ -739,7 +740,8 @@ export interface components {
         /**
          * @description Feature 013 "save anyway": the admin confirmed the address after an `ADDRESS_NOT_FOUND`
          *     or `ADDRESS_AMBIGUOUS` refusal. The address service is still asked. With no match or
-         *     several matches, the venue is saved as sent with `addressVerified: false`. With exactly
+         *     several matches, the venue is saved as sent (trimmed, runs of whitespace collapsed to one
+         *     space, ZIP cut to 5 digits) with `addressVerified: false`. With exactly
          *     one match, it is saved verified, as without the flag. When the service is unavailable,
          *     the request is still refused with `503 ADDRESS_SERVICE_UNAVAILABLE`.
          * @default false
@@ -1216,7 +1218,9 @@ export interface components {
         /**
          * @description Request shape or field validation failed (`VALIDATION_FAILED`), or, for a venue address
          *     (feature 013), the address service found no match (`ADDRESS_NOT_FOUND`) or more than one
-         *     (`ADDRESS_AMBIGUOUS`, with up to 5 matches in `details.candidates`). Nothing was saved.
+         *     (`ADDRESS_AMBIGUOUS`, with up to 5 matches in `details.candidates`, each in the one-line form
+         *     `STREET, CITY, ST ZIP`, or as the service returned it when it cannot be split). A match the
+         *     Backend cannot split is reported as `ADDRESS_NOT_FOUND`. Nothing was saved.
          *     After either address refusal, the client may resend the same request with
          *     `acceptUnverifiedAddress: true` to save the venue as not verified.
          */

@@ -72,9 +72,10 @@ chose Census). USPS Web Tools (needs registration). The Census one-line endpoint
 For `none` and `many`:
 
 - **without** `acceptUnverifiedAddress: true` → `400 ADDRESS_NOT_FOUND` or
-  `400 ADDRESS_AMBIGUOUS` (with `details.candidates` in the service's order). Both carry
+  `400 ADDRESS_AMBIGUOUS` (with `details.candidates` in the service's order, in our one-line
+  form, R3). Both carry
   `details.address`, the one-line address as typed, and a message naming it. Nothing is saved.
-- **with** `acceptUnverifiedAddress: true` → saved as typed (trimmed, spaces collapsed, ZIP cut to
+- **with** `acceptUnverifiedAddress: true` → saved as typed (trimmed, runs of whitespace collapsed to one space, state as its code, ZIP cut to
   5 digits; the admin's own case is kept), `addressVerified = false`.
 
 `match` ignores the flag: a matched address is always saved in standard form and verified.
@@ -96,15 +97,27 @@ admin who ticks it up front would never get a verified address).
 
 **Decision**: `matchedAddress` is always `STREET, CITY, ST, ZIP` (four comma-separated parts in
 the samples above). The client splits it from the right: the last part is the ZIP code, then the
-state, then the city, and everything before is the street. If the split does not give a 2-letter
-state in `US_STATES` and a 5-digit ZIP code, the answer is treated as unreadable (R6). The venue
-stores these four parts exactly as returned (upper case), and `address` is built from them as
+state, then the city, and everything before is the street. A split "works" when it gives a
+non-empty street and city, a state in `US_STATES`, and a 5-digit ZIP code. The venue stores these
+four parts exactly as returned (upper case), and `address` is built from them as
 `STREET, CITY, ST ZIP` (FR-010), for example `430 W VINE ST, LEXINGTON, KY 40507`. After saving,
 the Admin app shows the saved address (FR-012).
 
+- **A single match that does not split** (for example, a territory's state code, or a ZIP code
+  that is not 5 digits) returns `none`, so the admin gets `ADDRESS_NOT_FOUND` and may save
+  anyway. The client logs the raw `matchedAddress` at `warn`. Retrying would give the same
+  answer, so it is not "unavailable" (R6).
+- **Candidates for `ADDRESS_AMBIGUOUS`** are reformatted to our one-line form, `STREET, CITY, ST
+  ZIP` (Census returns `100 N MAIN ST, SPRINGFIELD, IL, 62701`; we show
+  `100 N MAIN ST, SPRINGFIELD, IL 62701`), so they read like every other address in the app. A
+  candidate that does not split is shown raw, as the service returned it: it is display text
+  only, never saved, and dropping it could leave the admin wondering why the address was called
+  ambiguous.
+
 **Rationale**: What the service vouched for is what is stored, so a typo the service corrected (a
 wrong ZIP code, "Lexinton") is not kept. One standard form also makes FR-008's "same address"
-comparison reliable.
+comparison reliable. A match we cannot read is no better than no match, and the admin should get
+the same way forward.
 
 **Alternatives considered**: Storing what the admin typed (keeps the typo the check forgave).
 Title-casing the service's answer ("Mcdonald St", "Nw" are wrong more often than upper case is
@@ -162,8 +175,8 @@ network, and refuses real venues the service does not know, R1).
 **Decision**: `CensusGeocoder` throws `AddressServiceUnavailableError` when the request fails to
 connect, takes longer than 5 seconds (`AbortSignal.timeout(5000)` on Node 22's global `fetch`),
 returns a `5xx` status or any `4xx` other than `400`, returns a body that is not JSON, or returns
-JSON without `result.addressMatches` as an array, or a match that R3 cannot split. There is no
-retry. The service turns it into `503 ADDRESS_SERVICE_UNAVAILABLE`: "We can't verify the address
+JSON without `result.addressMatches` as an array. There is no retry. (A match that R3 cannot
+split is not a failure to get an answer; it is `none`, R3.) The service turns it into `503 ADDRESS_SERVICE_UNAVAILABLE`: "We can't verify the address
 right now. Nothing was saved. Try again in a minute." The cause is logged at `warn` for the
 operator; the response does not include it. `acceptUnverifiedAddress` does not change this
 (decided by the user, 2026-10-11).
@@ -188,16 +201,30 @@ refusal). Treating every non-2xx as unavailable (tells the admin to retry an add
 never pass). Retrying once (doubles the wait for little gain on a service that is down).
 `504 Gateway Timeout` for timeouts only (two codes, one meaning to the admin).
 
-## R7. The check runs last before the write, and only when the address changes
+## R7. The lookup runs outside any lock; the write re-checks under the venue lock
 
 **Decision**:
 
 - **Create**: DTO validation (FR-001; `acceptUnverifiedAddress` is a boolean) → `lookup` → R2
-  decides → one `location.create` with the parts, `address`, and `addressVerified`.
-- **Update**: DTO validation → venue exists → all four address fields or none, and
-  `acceptUnverifiedAddress` only with the four (FR-009, FR-019, `400`) → the existing capacity
-  rules (`007` FR-017, `CAPACITY_EXCEEDED`) → if the address is sent and differs from the stored
-  parts, `lookup` → R2 decides → one `location.update`.
+  decides → one `location.create` with the parts, `address`, and `addressVerified`. A new row has
+  nothing to race with.
+- **Update**, in two steps:
+  1. **Before the lookup, no lock**: DTO validation → venue exists → all four address fields or
+     none, and `acceptUnverifiedAddress` only with the four (FR-009, FR-019, `400`) → the
+     existing capacity rules as a fast first check (`007` FR-017 "set by its seating layout",
+     `400`; an event above the new `seatingCapacity`, `409 CAPACITY_EXCEEDED`) → if the address
+     is sent and differs from the stored parts, `lookup` (up to 5 seconds) → R2 decides, or
+     refuses.
+  2. **The write, in one short transaction** (`LOCKING_TX`): lock the venue row and its scheduled
+     events in the same order `layout.service.ts` does (`SELECT … FROM "Location" … FOR UPDATE`,
+     then `SELECT … FROM "Event" WHERE "locationId" = … AND "status" = 'SCHEDULED' ORDER BY "id"
+     FOR UPDATE`), **re-run** the two capacity rules against what is now stored, and then
+     `location.update`. That lock helper moves from `LayoutService` to
+     `backend/src/common/venue-lock.ts` so both use the same code and order, and no deadlock is
+     possible between them.
+  When the request changes neither `seatingCapacity` nor anything checked in step 2 (for example
+  a name-only edit), step 2 still takes the lock, which costs one row lock for a few
+  milliseconds.
 - "Differs" compares `norm(street)`, `norm(city)`, `state`, and the first 5 digits of `zip`
   against the same of the stored parts, where `norm` trims, collapses spaces, and upper-cases.
   Both sides are normalized, because a saved-anyway venue stores the admin's own case. A venue
@@ -207,14 +234,31 @@ never pass). Retrying once (doubles the wait for little gain on a service that i
   So a saved-anyway venue whose name is edited is not re-checked; changing its address re-checks
   it, and a match makes it verified.
 - No transaction or lock is open during `lookup`, and nothing is written before it returns.
+- The "differs" decision is made in step 1. If another admin changes the same venue's address
+  during the lookup, the later write wins, as for every other venue field today; only capacity
+  is a rule that must hold under concurrency.
 
-**Rationale**: FR-002, FR-007, FR-008. Cheap local refusals come first, so a request refused for
-another reason never waits on the network. Holding no lock during a network call keeps a slow
-service from blocking other writes. Venue edits are not a concurrency rule today (last write
-wins), and this feature does not change that.
+**Rationale**: FR-002, FR-007, FR-008, and Constitution IV. Cheap local refusals come first, so a
+request refused for another reason never waits on the network. Holding no lock during a network
+call keeps a slow service from blocking layout saves, event writes, and orders. But capacity *is*
+a concurrency rule: `layout.service.ts` locks the venue row and sets `seatingCapacity` from the
+layout (`007` FR-017), and an event's ticket capacity must not exceed its venue's. On `main` a
+venue update checks those rules and writes within milliseconds; with a lookup of up to 5 seconds
+between the check and the write, a layout saved meanwhile would have its capacity overwritten,
+and an event raised meanwhile could end up above the new capacity. Re-running the checks under the
+same lock `layout.service.ts` takes closes that gap: a layout save either finishes before the
+re-check (and the re-check sees it) or waits for the update.
 
-**Alternatives considered**: Checking the address first (a capacity refusal would cost a network
-call). Re-checking on every edit (fails name-only edits while the service is down; SC-006).
+Event create and event update read the venue without locking it, so a millisecond-wide race
+between them and a capacity edit already exists on `main`. This feature does not widen it (the
+re-check runs immediately before the write) and does not change event code; closing it is out of
+scope.
+
+**Alternatives considered**: Holding the lock across the lookup (a slow service would block layout
+saves and seat sales at that venue for up to 5 seconds). Checking only once, after the lookup
+(every refusal for another reason would wait on the network). Checking the address first (a
+capacity refusal would cost a network call). Re-checking on every edit (fails name-only edits
+while the service is down; SC-006).
 
 ## R8. Request and response shapes
 
@@ -335,6 +379,13 @@ Removing `address` from the request is a change old clients would notice. Every 
 this repository and changes in the implementation PR, so it follows the project's one minor
 version per feature.
 
+**Follow-up**: the loose `required` lists exist only for the gap between the two PRs. Once the
+implementation has merged, a small contract PR tightens them: `Location.required` gains `street`,
+`city`, `state`, `zip`, and `addressVerified` (the parts stay nullable), and
+`LocationInput.required` gains `street`, `city`, `state`, and `zip`, with `api-schema.ts`
+regenerated. The implementation session opens a GitHub issue for it as its last task (tasks.md);
+it is not opened now, because it cannot be done until the implementation merges.
+
 **Rationale**: Constitution I (contract first) and III (`main` green and demo-ready at every
 merge).
 
@@ -369,6 +420,9 @@ defaults in `.env.example`. A default in code means tests and `demo-data` need n
   naming the field, and keeps every value (FR-013).
 - Create sends all four. Edit of a venue with parts (verified or saved anyway) prefills them from
   the stored parts and always sends all four (the Backend skips the check when unchanged, R7).
+  For a venue with a seating layout, the edit sends the name and the four fields (plus the flag
+  on Save anyway), never `seatingCapacity`; today `LocationForm.tsx` sends `{ name, address }`
+  there, and `address` goes away.
   Edit of a venue from before `013` (`street` is `null`) shows "Current address (not verified):
   {address}. Enter it below to verify it." above empty fields, and sends the four only when the
   admin fills any of them (then all four are required).
@@ -381,13 +435,19 @@ defaults in `.env.example`. A default in code means tests and `demo-data` need n
   `acceptUnverifiedAddress: true`. Any change to an address field hides it again, so the
   confirmation always applies to the address the admin saw refused. The normal submit never sends
   the flag. `ADDRESS_SERVICE_UNAVAILABLE` never shows it (R6).
-- After saving, the app goes to the venue list with the existing notice: "Venue saved. Address:
-  430 W VINE ST, LEXINGTON, KY 40507." (FR-012), or, for a saved-anyway venue, "Venue saved.
-  Address (not verified): 1 Arena Plaza, Louisville, KY 40202."
+- After saving, the app goes to the venue list with a notice: "Venue saved. Address: 430 W VINE
+  ST, LEXINGTON, KY 40507." (FR-012), or, for a saved-anyway venue, "Venue saved. Address (not
+  verified): 1 Arena Plaza, Louisville, KY 40202." Today the form shows `SuccessState` and then
+  calls `navigate('/locations')` with no state. It instead calls
+  `navigate('/locations', { state: { notice: { kind: 'success', text } } })`, as
+  `admin-app/src/hooks/use-delete.ts` does, and the list's existing `Notice` shows it.
 - When `addressVerified` is `false`, `LocationList.tsx` shows "Not verified" after the address
   link, and `LocationDetail.tsx` shows "Address not verified. Edit the venue to verify it." under
   it (FR-017). For a saved-anyway venue the edit form shows "This address is not verified." above
   the prefilled fields. The text is in words, not color alone.
+- These marks use existing classes only: `.pill` for "Not verified" in the list, and `.note` for
+  the sentences on the venue page and in the form. No new CSS and no inline style, so they pass
+  the shared theme's no-drift check from `012` (#30).
 - A seated venue created in one step (`008`) is unchanged: the layout is only saved after the
   venue is, so a refused address saves neither, and "Save anyway" continues to the layout.
 

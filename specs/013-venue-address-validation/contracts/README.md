@@ -22,6 +22,10 @@ removed, and no role changes.
 Unchanged: `listLocations` (`q` still matches name or address), `getLocation`, `deleteLocation`,
 and every event operation (their embedded `location` gains the new fields through `Location`).
 
+Candidates are in our one-line form, `STREET, CITY, ST ZIP` (Census itself writes
+`…, IL, 62701`); one that cannot be split is shown as the service returned it (research R3). A
+match the Backend cannot split is reported as `ADDRESS_NOT_FOUND`.
+
 Example refusals:
 
 ```json

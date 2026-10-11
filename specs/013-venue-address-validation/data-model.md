@@ -70,6 +70,12 @@ lookup(street, city, state, zip5) →
 
 flag = acceptUnverifiedAddress === true
 "as sent" = collapse_spaces(trim(street)), collapse_spaces(trim(city)), state, zip[0..5]
+            (one rule everywhere: trim, collapse runs of whitespace to one space, the state
+            code as validated, the first 5 digits of the ZIP; the admin's case is kept)
+
+A single match that does not split into street, city, a listed state, and a 5-digit ZIP is
+`none` (logged at warn). Candidates are reformatted to "STREET, CITY, ST ZIP"; one that does
+not split is shown raw (research R3).
 ```
 
 "Changed" on edit:
@@ -82,6 +88,18 @@ unchanged = stored.street IS NOT NULL
 ```
 
 Unchanged → no lookup; parts, `address`, and `addressVerified` are left as stored.
+
+## Venue update write (research R7)
+
+```text
+no lock:      DTO → exists → all-four-or-none, flag only with four → capacity rules (fast check)
+              → lookup if the address changed (≤ 5 s)
+transaction:  SELECT "Location" … FOR UPDATE → SELECT scheduled "Event" … ORDER BY id FOR UPDATE
+              → re-run capacity rules on fresh data → UPDATE "Location"
+```
+
+Same lock order as `layout.service.ts` (venue, then its scheduled events), through one shared
+helper in `backend/src/common/venue-lock.ts`.
 
 ## Shared types and helpers (`packages/shared/src/location.ts`)
 

@@ -21,6 +21,10 @@ and confirm they **fail** before the implementation tasks below them.
   cut from `main` after the spec and plan PR merges, in a Claude session that starts from these
   files only. A gap in the spec or plan is fixed there, not worked around in code.
 - **Do not change the contract** (1.7.0, types regenerated). Raise any gap.
+- **Merge order with `016`'s implementation (#32) does not matter**: the contract already lists
+  `TICKET_LIMIT_REACHED`. If `packages/shared/src/errors.ts` on `main` does not have it yet when
+  you start, T005 adds it, in the contract's position (before the three address codes). If #32
+  merges later, its line and yours are the same; resolve the conflict by keeping one.
 - **Always send the new response fields**: `street`, `city`, `state`, `zip` (`null` for a venue
   from before `013`) and `addressVerified` on every `Location`. They are optional in the contract
   only so the plan PR could merge with `main` green (research R11). The Backend DTO requires the
@@ -28,14 +32,20 @@ and confirm they **fail** before the implementation tasks below them.
 - **Save anyway never skips the lookup** (research R2, R6): `acceptUnverifiedAddress` only turns
   `none` / `many` into a save with `addressVerified: false`. A `match` is always saved verified;
   `unavailable` is always `503`. The flag without the four address fields is `400`.
+- **One whitespace rule** for an address saved as sent: trim, collapse runs of whitespace to one
+  space, the state code as validated, the first 5 digits of the ZIP; the admin's case is kept
+  (data-model.md).
 - **No network in tests**: every test app uses `FakeGeocoder` (research R9). `CensusGeocoder` is
   tested only against a local server on `127.0.0.1`. Never call `geocoding.geo.census.gov` from a
   test.
-- **Order on write** (research R7): DTO → venue exists → all-four-or-none and flag-only-with-four
-  → existing capacity rules → address check only if changed → one write. No transaction or lock
-  open during the check.
+- **Order on update** (research R7): DTO → venue exists → all-four-or-none and flag-only-with-four
+  → capacity rules (fast check) → address lookup only if changed, **no lock held** → one short
+  transaction: lock the venue then its scheduled events (`common/venue-lock.ts`, the same order as
+  `layout.service.ts`) → re-run the capacity rules → write.
 - **One format**: when the parts are set, `address` is always `formatAddress(parts)` from
   `packages/shared`. Never build it anywhere else.
+- **No new styles**: the "not verified" marks use the existing `.pill` and `.note` classes only;
+  no new CSS and no inline style (research R13).
 - **Nothing else changes**: every existing test keeps its meaning. Tests that posted
   `address: '…'` now post the four fields (T013); assertions on a returned address expect the
   fake's standard form.
@@ -64,13 +74,16 @@ the four fields, with the happy path working through the fake.
   boolean` to `Location`; replace `address` in `LocationInput` with `street`, `city`, `state:
   UsState`, `zip`, and optional `acceptUnverifiedAddress: boolean` (data-model.md). Export the
   new names from `packages/shared/src/index.ts`. Run T002 until it passes.
-- [ ] T004 [P] Add `'ADDRESS_NOT_FOUND'`, `'ADDRESS_AMBIGUOUS'`, `'ADDRESS_SERVICE_UNAVAILABLE'` to
-  `ERROR_CODES` in `packages/shared/src/errors.ts`, last, in the contract's order, with a
-  `// Spec 013` comment. Without them the exception filter rewrites the `503` (data-model.md).
-- [ ] T005 [P] **Test first.** Create `backend/test/unit/us-states.spec.ts`: the codes of
+- [ ] T004 [P] **Test first.** Create `backend/test/unit/us-states.spec.ts`: the codes of
   `US_STATES` equal the contract's `components.schemas.UsState.enum` (as sets), and every code in
   the contract's `ErrorEnvelope` enum is in `ERROR_CODES`. Load the contract the way
-  `backend/test/contract/expect-to-match-contract.ts` does.
+  `backend/test/contract/expect-to-match-contract.ts` does. Confirm the second test fails.
+- [ ] T005 [P] In `packages/shared/src/errors.ts`, add `'ADDRESS_NOT_FOUND'`,
+  `'ADDRESS_AMBIGUOUS'`, `'ADDRESS_SERVICE_UNAVAILABLE'` to `ERROR_CODES`, last, in the contract's
+  order, with a `// Spec 013` comment. If `'TICKET_LIMIT_REACHED'` is missing (`016`'s
+  implementation, #32, not yet merged), add it before them with a `// Spec 016` comment (ground
+  rules). Without the codes the exception filter rewrites the `503` (data-model.md). Run T004
+  until it passes.
 - [ ] T006 **Test first.** Create `backend/test/integration/locations.legacy-address.e2e-spec.ts`
   with the storage tests (direct writes with `ctx.prisma`), and confirm they fail before T007:
   - a venue with only `address` (parts `NULL`) is accepted and reads back `addressVerified:
@@ -101,12 +114,14 @@ the four fields, with the happy path working through the fake.
   - one match `"430 W VINE ST, LEXINGTON, KY, 40507"` → `match` with those four parts;
   - a street containing a comma in `matchedAddress` keeps it in `street` (split from the right);
   - `addressMatches: []` → `none`;
-  - two matches with the same `matchedAddress` → `match`; two distinct → `many` with both; seven
-    distinct → `many` with the first 5;
+  - one match that does not split (state `"PR"`, or ZIP `"4050"`, or only three parts) → `none`,
+    and a `warn` is logged with the raw `matchedAddress` (research R3);
+  - two matches with the same `matchedAddress` → `match`; two distinct → `many` with both, each
+    reformatted to `STREET, CITY, ST ZIP` (`"…, IL, 62701"` becomes `"…, IL 62701"`); a distinct
+    candidate that does not split is kept raw; seven distinct → `many` with the first 5;
   - status `400` (any body) → `none` (research R6);
-  - status `404`, `429`, `500`, `503`, a non-JSON `200` body, JSON without
-    `result.addressMatches`, and a `matchedAddress` whose state is not in `US_STATES` or whose ZIP
-    is not 5 digits → each throws `AddressServiceUnavailableError`;
+  - status `404`, `429`, `500`, `503`, a non-JSON `200` body, and JSON without
+    `result.addressMatches` → each throws `AddressServiceUnavailableError`;
   - a server that never answers, with `timeoutMs: 200` → throws within 1 second; one that answers
     at 100 ms with `timeoutMs: 200` → succeeds (both sides);
   - a closed port → throws `AddressServiceUnavailableError`.
@@ -120,9 +135,11 @@ the four fields, with the happy path working through the fake.
   Default answer: `match` with the input trimmed, upper-cased, and the ZIP cut to 5 digits. A test
   sets `next(answer)` for one call, or `always(answer)` until `reset()` (`none`, `many` with
   candidates, `unavailable` which throws `AddressServiceUnavailableError`, or a specific
-  `match`); `calls` records each input. In `backend/test/setup/test-app.ts`, override
-  `ADDRESS_GEOCODER` with a new `FakeGeocoder` (next to the `JWKS` override) and add `geocoder:
-  FakeGeocoder` to `TestContext`.
+  `match`); `pause()` makes the next `lookup` wait on a promise until the returned `release()` is
+  called, and resolves `started` once that lookup has begun (for the concurrency tests in T017);
+  `calls` records each input. In `backend/test/setup/test-app.ts`, override `ADDRESS_GEOCODER`
+  with a new `FakeGeocoder` (next to the `JWKS` override) and add `geocoder: FakeGeocoder` to
+  `TestContext`.
 - [ ] T012 **Test first.** Extend `backend/test/integration/locations.crud.e2e-spec.ts`: create with
   the four fields → `201`, the four parts in the fake's standard form, `address`
   `430 W VINE ST, LEXINGTON, KY 40507`, `addressVerified: true`, matching the contract;
@@ -151,7 +168,7 @@ the four fields, with the happy path working through the fake.
   `this.geocoder.lookup(parts)` (injected with `@Inject(ADDRESS_GEOCODER)`); on `match`, write the
   matched parts, `address: formatAddress(parts)`, and `addressVerified: true` in one
   `location.create`. Every response includes the five fields. (Refusals and save anyway come in
-  US1 and US2.) Run T005, T012, and the whole Backend suite until green.
+  US1 and US2.) Run T004, T012, and the whole Backend suite until green.
 
 **Checkpoint**: venues are created with four fields and saved in standard form; every existing
 test passes on the fake.
@@ -160,22 +177,24 @@ test passes on the fake.
 
 ## Phase 3: User Story 1 - An Admin Cannot Save an Address That Is Not Real (Priority: P1) 🎯 MVP
 
-**Goal**: FR-002 to FR-005, FR-007 to FR-011, FR-013, FR-018, FR-019, FR-020.
+**Goal**: FR-002 to FR-005, FR-007 to FR-011, FR-013, FR-018, FR-019, FR-020, and the capacity
+guarantee of research R7.
 
 **Independent Test**: a matched address saves in standard form and verified; unmatched and
 ambiguous ones are refused with nothing saved, or saved as typed and not verified with "save
-anyway"; name-only edits do not call the service.
+anyway"; name-only edits do not call the service; a slow lookup cannot break capacity.
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
 - [ ] T016 [P] [US1] Create `backend/test/integration/locations.address.e2e-spec.ts` (create):
   - fake `none` → `400 ADDRESS_NOT_FOUND`, message naming the typed address, `details.address`,
     matching the contract, and no row in `Location`;
-  - fake `many` with two candidates → `400 ADDRESS_AMBIGUOUS` with `details.candidates`, no row;
+  - fake `many` with two candidates → `400 ADDRESS_AMBIGUOUS` with `details.candidates` as the
+    fake gave them, no row;
   - fake `none` with `acceptUnverifiedAddress: true` and input `' 1  Arena Plaza '`,
     `'Louisville'`, `'KY'`, `'40202-1234'` → `201`, the fake was called once, parts `1 Arena
-    Plaza`, `Louisville`, `KY`, `40202` (trimmed, spaces collapsed, case kept, ZIP cut),
-    `address` `1 Arena Plaza, Louisville, KY 40202`, `addressVerified: false`;
+    Plaza`, `Louisville`, `KY`, `40202` (the one whitespace rule, case kept, ZIP cut), `address`
+    `1 Arena Plaza, Louisville, KY 40202`, `addressVerified: false`;
   - fake `many` with `acceptUnverifiedAddress: true` → `201`, saved as typed, not verified;
   - fake `match` with `acceptUnverifiedAddress: true` → `201`, the matched standard form,
     `addressVerified: true` (the flag changes nothing);
@@ -202,7 +221,22 @@ anyway"; name-only edits do not call the service.
     `name`) → `400`, fake not called (FR-019);
   - a changed address together with a capacity below an event's tickets → the existing
     `409 CAPACITY_EXCEEDED`, fake not called (FR-007); with a capacity on a laid-out venue → the
-    existing `400`, fake not called.
+    existing `400`, fake not called;
+  - **concurrency (research R7)**, each with `ctx.geocoder.pause()` holding the lookup of a
+    `PATCH` that changes the address and sets `seatingCapacity`, and the other request sent after
+    `started` resolves and allowed to finish before `release()`:
+    - a venue without a layout, `PATCH { seatingCapacity: 500, …new address }`; meanwhile
+      `PUT /locations/{id}/layout` with 300 seats → `200`; after release the `PATCH` is
+      `400` ("set by this venue's seating layout"), and the venue's `seatingCapacity` is still
+      300 and its layout unchanged;
+    - a venue of 1000 with an event of 100 tickets, `PATCH { seatingCapacity: 200, … }`;
+      meanwhile the event is raised to 400 tickets (`PATCH /events/{id}`) → `200`; after release
+      the `PATCH` is `409 CAPACITY_EXCEEDED` naming the event, and the venue is still 1000;
+    - the same, but meanwhile a new event of 400 tickets is created at the venue → after release
+      `409 CAPACITY_EXCEEDED` naming it;
+    - 10 simultaneous requests mixing address-changing venue edits and layout saves on one venue
+      → no `5xx` (assert this first, so a deadlock or transaction timeout fails clearly), and the
+      venue's `seatingCapacity` equals its layout's total seats at the end.
 - [ ] T018 [P] [US1] Create `admin-app/test/venue-address.test.tsx` with `stubApi`:
   - the form has Street address, City, State (a list of 51 options plus "Choose a state"), and
     ZIP code, each with a `<label>`;
@@ -218,35 +252,47 @@ anyway"; name-only edits do not call the service.
     `addressVerified: false`, the venue list shows "Venue saved. Address (not verified): …";
   - editing any address field after the refusal hides Save anyway; a `400 VALIDATION_FAILED`
     does not show it;
-  - after a verified save, the venue list shows "Venue saved. Address: 430 W VINE ST,
-    LEXINGTON, KY 40507." from the response;
+  - after a verified save, the app navigates to the venue list with the notice in router state,
+    and the list shows "Venue saved. Address: 430 W VINE ST, LEXINGTON, KY 40507." from the
+    response;
   - edit of a venue with parts prefills the four fields from `street`, `city`, `state`, `zip`
-    and sends all four;
+    and sends all four; edit of a laid-out venue sends `name` and the four fields, never
+    `seatingCapacity` or `address`;
   - a seated create whose address is refused sends no layout request; after Save anyway, the
     layout request follows.
-  Update `admin-app/test/fixtures/locations.json`, `admin-app/test/venue-create.test.tsx`, and
-  other `Location` fixtures in `admin-app/test/` with the four fields and `addressVerified`.
+  Update the existing tests that use the old single Address field or `Location` fixtures:
+  `admin-app/test/venue-create.test.tsx`, `admin-app/test/pages.live-fixtures.test.tsx` (it types
+  into the `Address` label), `admin-app/test/fixtures/locations.json`, and other `Location`
+  fixtures in `admin-app/test/`, with the four fields and `addressVerified`.
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] In `backend/src/locations/locations.service.ts`, apply research R2 and R7: map
+- [ ] T019 [US1] Move `lockVenueAndEvents` from `backend/src/seating/layout.service.ts` to
+  `backend/src/common/venue-lock.ts` (exported, same SQL and order: the venue row, then its
+  scheduled events ordered by `id`, both `FOR UPDATE`), and use it from `LayoutService`. Run
+  `layout.e2e-spec.ts` and `seating*.e2e-spec.ts`: unchanged behavior.
+- [ ] T020 [US1] In `backend/src/locations/locations.service.ts`, apply research R2 and R7: map
   `none` to `400 ADDRESS_NOT_FOUND` and `many` to `400 ADDRESS_AMBIGUOUS` (messages and `details`
   exactly as in contracts/README.md), thrown as envelopes, unless `acceptUnverifiedAddress` is
-  `true`, in which case save the parts as sent (data-model.md) with `addressVerified: false`. In
-  `update`: all-four-or-none and flag-only-with-four checks after `findOne`, then the existing
-  capacity rules, then the "changed" comparison (data-model.md, both sides normalized), then
-  `lookup` only if changed, then one `location.update` (address fields and `addressVerified`
-  left out when unchanged). Run T016 and T017 until they pass.
-- [ ] T020 [US1] In `admin-app/src/pages/LocationForm.tsx`, replace the Address field with the four
+  `true`, in which case save the parts as sent (the one whitespace rule) with `addressVerified:
+  false`. In `update`: all-four-or-none and flag-only-with-four checks after `findOne`, then the
+  existing capacity rules as a fast check, then the "changed" comparison (data-model.md, both
+  sides normalized), then `lookup` only if changed, with no lock; then one
+  `prisma.$transaction(…, LOCKING_TX)` that calls `lockVenueAndEvents`, re-runs the two capacity
+  rules against the locked data, and calls `location.update` (address fields and
+  `addressVerified` left out when unchanged). Run T016 and T017 until they pass.
+- [ ] T021 [US1] In `admin-app/src/pages/LocationForm.tsx`, replace the Address field with the four
   fields (research R13), reusing `.field` markup, `autoComplete` values, and the `US_STATES` list
-  ("Kentucky (KY)"); add the preview check; send per R13; add the Save anyway button shown only
-  after `ADDRESS_NOT_FOUND` / `ADDRESS_AMBIGUOUS` and hidden on any address-field change; after
-  saving, navigate to `/locations` with the notice from R13.
-- [ ] T021 [US1] In `admin-app/src/components/ErrorBanner.tsx`, list `details.candidates` when
+  ("Kentucky (KY)"); add the preview check; send per R13 (a laid-out venue: `name` and the four
+  fields, plus the flag on Save anyway); add the Save anyway button shown only after
+  `ADDRESS_NOT_FOUND` / `ADDRESS_AMBIGUOUS` and hidden on any address-field change; after saving,
+  `navigate('/locations', { state: { notice: { kind: 'success', text } } })` as
+  `admin-app/src/hooks/use-delete.ts` does, instead of `SuccessState` and a bare navigate.
+- [ ] T022 [US1] In `admin-app/src/components/ErrorBanner.tsx`, list `details.candidates` when
   present, like `details.fields`. Run T018 until it passes, then the Admin app suite.
 
 **Checkpoint**: only matched or explicitly confirmed addresses are saved, through the API and the
-Admin app.
+Admin app, and capacity holds during a slow lookup.
 
 ---
 
@@ -259,28 +305,32 @@ or without "save anyway", nothing saved; name-only edits still work.
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T022 [P] [US2] Extend `backend/test/integration/locations.address.e2e-spec.ts`: fake
-  `unavailable` on create → `503 ADDRESS_SERVICE_UNAVAILABLE` with the exact message, matching the
-  contract, no row; the response has no `details` revealing the cause; the same with
-  `acceptUnverifiedAddress: true` → `503`, no row (the flag is ignored).
-- [ ] T023 [P] [US2] Extend `backend/test/integration/locations.address-edit.e2e-spec.ts`: fake
+- [ ] T023 [P] [US2] Extend `backend/test/integration/locations.address.e2e-spec.ts`:
+  - fake `unavailable` on create → `503 ADDRESS_SERVICE_UNAVAILABLE` with the exact message,
+    matching the contract, no row; the response has no `details` revealing the cause; the same
+    with `acceptUnverifiedAddress: true` → `503`, no row (the flag is ignored);
+  - the internal option (research R14), called in-process with
+    `ctx.app.get(LocationsService).create(dto, { whenServiceUnavailable: 'saveUnverified' })`
+    while the fake is `unavailable` → the venue is saved as sent with `addressVerified: false`;
+    the same call without the option → throws the `503` envelope, no row.
+- [ ] T024 [P] [US2] Extend `backend/test/integration/locations.address-edit.e2e-spec.ts`: fake
   `unavailable` on an address change → `503`, venue unchanged, also with
   `acceptUnverifiedAddress: true`; with the fake set to `always('unavailable')`, a name-only edit
   → `200` (SC-006); `GET /locations` and `GET /locations/{id}` → `200`.
-- [ ] T024 [P] [US2] Extend `admin-app/test/venue-address.test.tsx`: a `503
+- [ ] T025 [P] [US2] Extend `admin-app/test/venue-address.test.tsx`: a `503
   ADDRESS_SERVICE_UNAVAILABLE` shows "We can't verify the address right now. Nothing was saved.
   Try again in a minute.", keeps every value, and shows **no** Save anyway button, on create and
   on edit; a `503` after pressing Save anyway shows the same and hides the button.
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] In `backend/src/locations/locations.service.ts`, catch
+- [ ] T026 [US2] In `backend/src/locations/locations.service.ts`, catch
   `AddressServiceUnavailableError` from `lookup`, log its cause at `warn`, and throw `503
   ADDRESS_SERVICE_UNAVAILABLE` (research R6), whatever `acceptUnverifiedAddress` says. Give
   `create` its internal second argument `{ whenServiceUnavailable: 'refuse' | 'saveUnverified' }`
   (default `'refuse'`, research R14); the controller never passes it. Confirm in
   `backend/src/common/filters/prisma-exception.filter.ts` that the envelope passes through with
-  status 503 (it should, once T004 is in). Run T022–T024 until they pass.
+  status 503 (it should, once T005 is in). Run T023–T025 until they pass.
 
 **Checkpoint**: the P1 rule is complete, and an outage never lets an unchecked address through
 the API.
@@ -296,22 +346,22 @@ that opens in a new tab.
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T026 [P] [US3] Create `packages/shared/test/web/address-link.test.tsx`: `AddressLink` renders
+- [ ] T027 [P] [US3] Create `packages/shared/test/web/address-link.test.tsx`: `AddressLink` renders
   a link whose text is the address, `href` is `mapsUrl(address)`, `target="_blank"`,
   `rel="noopener noreferrer"`, and accessible name `{address} (opens Google Maps in a new tab)`.
-- [ ] T027 [P] [US3] Create `customer-app/test/address-link.test.tsx`: on Venues and on a venue
+- [ ] T028 [P] [US3] Create `customer-app/test/address-link.test.tsx`: on Venues and on a venue
   page, the address is that link. Add the four fields and `addressVerified` to the venue factory
   in `customer-app/test/helpers.tsx`.
-- [ ] T028 [P] [US3] Extend `admin-app/test/venue-address.test.tsx`: on the venue list and the venue
+- [ ] T029 [P] [US3] Extend `admin-app/test/venue-address.test.tsx`: on the venue list and the venue
   page, the address is that link.
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Create `packages/shared/src/web/address-link.tsx` (research R10) and export it
+- [ ] T030 [US3] Create `packages/shared/src/web/address-link.tsx` (research R10) and export it
   from `packages/shared/src/web/index.ts`.
-- [ ] T030 [US3] Use `AddressLink` for the address in `admin-app/src/pages/LocationList.tsx`,
+- [ ] T031 [US3] Use `AddressLink` for the address in `admin-app/src/pages/LocationList.tsx`,
   `admin-app/src/pages/LocationDetail.tsx`, `customer-app/src/pages/VenueList.tsx`, and
-  `customer-app/src/pages/VenueDetail.tsx`. Run T026–T028 until they pass.
+  `customer-app/src/pages/VenueDetail.tsx`. Run T027–T029 until they pass.
 
 **Checkpoint**: every venue address in both apps opens Google Maps.
 
@@ -326,7 +376,7 @@ its name without a check, and is verified when its address is filled in.
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
-- [ ] T031 [P] [US4] Extend `backend/test/integration/locations.legacy-address.e2e-spec.ts`
+- [ ] T032 [P] [US4] Extend `backend/test/integration/locations.legacy-address.e2e-spec.ts`
   (from T006), with a venue inserted by `ctx.prisma` with `address: '1 Demo Plaza, Louisville, KY'`
   and no parts:
   - `GET /locations` and `GET /locations/{id}` return it with `address` unchanged, the four
@@ -337,10 +387,11 @@ its name without a check, and is verified when its address is filled in.
   - an edit with the four fields → fake called; `match` replaces `address`, sets the parts, and
     `addressVerified: true`; `none` → `400`, row unchanged; `none` with
     `acceptUnverifiedAddress: true` → saved as typed, `addressVerified: false`.
-- [ ] T032 [P] [US4] Extend `admin-app/test/venue-address.test.tsx`:
+- [ ] T033 [P] [US4] Extend `admin-app/test/venue-address.test.tsx`:
   - for any venue with `addressVerified: false` (legacy with `street: null`, and saved anyway),
-    the venue list shows "Not verified" after the address, and the venue page shows "Address not
-    verified. Edit the venue to verify it."; a verified venue shows neither;
+    the venue list shows "Not verified" in a `.pill` after the address, and the venue page shows
+    "Address not verified. Edit the venue to verify it." in a `.note`; a verified venue shows
+    neither; no element of either mark has a `style` attribute;
   - for a legacy venue, the edit form shows "Current address (not verified): {address}. Enter it
     below to verify it." above empty address fields; saving with them empty sends no address
     fields; filling one requires all four;
@@ -349,10 +400,11 @@ its name without a check, and is verified when its address is filled in.
 
 ### Implementation for User Story 4
 
-- [ ] T033 [US4] In `admin-app/src/pages/LocationList.tsx`, `LocationDetail.tsx`, and
+- [ ] T034 [US4] In `admin-app/src/pages/LocationList.tsx`, `LocationDetail.tsx`, and
   `LocationForm.tsx`, add the not-verified marks and the edit behavior from research R13, keyed
-  on `addressVerified` (and on `street === null` for the legacy edit form). The Backend needs no
-  change beyond Phase 3. Run T031 and T032 until they pass.
+  on `addressVerified` (and on `street === null` for the legacy edit form), with the existing
+  `.pill` and `.note` classes only. The Backend needs no change beyond Phase 3. Run T032 and
+  T033 until they pass.
 
 **Checkpoint**: every story works on its own and together.
 
@@ -360,38 +412,42 @@ its name without a check, and is verified when its address is filled in.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T034 [P] Add `ADDRESS_GEOCODER_URL=https://geocoding.geo.census.gov` to `.env.example` under a
+- [ ] T035 [P] Add `ADDRESS_GEOCODER_URL=https://geocoding.geo.census.gov` to `.env.example` under a
   `# --- Address service (spec 013) ---` heading, and `ADDRESS_GEOCODER_URL:
   ${ADDRESS_GEOCODER_URL:-https://geocoding.geo.census.gov}` to the `backend` service in
   `docker-compose.yml` (research R12).
-- [ ] T035 **Test first**, then implement. Extend
-  `backend/test/integration/demo-data.e2e-spec.ts`: with the fake matching, both demo venues are
-  `addressVerified: true`; on a reset database with the fake `always('unavailable')`, the run
-  still completes with the same summary, both venues are saved as typed with `addressVerified:
-  false`, and a direct `POST /locations` in the same state is still `503`. Then, in
-  `backend/src/scripts/demo-data.ts`, give the venues the addresses from research R14, creating
-  Demo Riverside Hall before QueuePass Demo Arena, call `locations.create(dto, {
+- [ ] T036 **Test first.** Extend `backend/test/integration/demo-data.e2e-spec.ts`: with the fake
+  matching, both demo venues have the R14 addresses and `addressVerified: true`; on a reset
+  database with the fake `always('unavailable')`, the run still completes with the same summary,
+  both venues are saved as typed with `addressVerified: false`, and a direct `POST /locations` in
+  the same state is still `503`. Confirm it fails before T037.
+- [ ] T037 In `backend/src/scripts/demo-data.ts`, give the venues the addresses from research R14,
+  creating Demo Riverside Hall before QueuePass Demo Arena, call `locations.create(dto, {
   whenServiceUnavailable: 'saveUnverified' })`, and print a line saying the demo venues are not
-  verified when that happened.
-- [ ] T036 [P] Update `README.md`: add the `013` row to the Status table, mention address checks,
+  verified when that happened. Run T036 until it passes.
+- [ ] T038 [P] Update `README.md`: add the `013` row to the Status table, mention address checks,
   save anyway, and map links in "Today", note that saving a new venue address needs internet
   (the Census Geocoder) and the `ADDRESS_GEOCODER_URL` variable, note that `demo-data` works
   offline with unverified venues, and keep the reserved-features line accurate.
-- [ ] T037 Run `npm run lint` and `npm test` from the repository root; everything passes,
+- [ ] T039 Run `npm run lint` and `npm test` from the repository root; everything passes,
   including `check-contract-drift`. Also run `npm run build` in `admin-app` and `customer-app`
   (their `tsc --noEmit`).
-- [ ] T038 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
+- [ ] T040 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' and `packages/shared` coverage if a provider is installed) in the PR
   description. The 80% floor is not yet blocking (Constitution VI deferral until `010` and `011`).
-- [ ] T039 Running-system gate: `docker compose up --build` online, walk quickstart.md S1–S9
+- [ ] T041 Running-system gate: `docker compose up --build` online, walk quickstart.md S1–S9
   (including S2b) in the browser, and sign in, use, and sign out of each front end. Record the
   results in this file.
-- [ ] T040 Independent review (Constitution III): a separate Claude session reviews the branch
+- [ ] T042 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
-- [ ] T041 Open the implementation PR against `main` with `fixes #25` in its description. It
+- [ ] T043 Open the implementation PR against `main` with `fixes #25` in its description. It
   touches the shared surface (`packages/shared/`, `backend/prisma/`, `.env.example`,
   `docker-compose.yml`), so every team member approves it.
+- [ ] T044 After the implementation PR merges, open a follow-up GitHub issue to tighten the
+  contract (research R11 Follow-up): add `street`, `city`, `state`, `zip`, and `addressVerified`
+  to `Location.required`, and `street`, `city`, `state`, `zip` to `LocationInput.required`, then
+  regenerate `api-schema.ts`. Link it from the PR.
 
 ---
 
@@ -401,17 +457,17 @@ its name without a check, and is verified when its address is filled in.
 - **US1 (Phase 3)** is the MVP and comes first. **US2** builds on US1's refusal path in the same
   service.
 - **US3** depends only on Phase 2 (`mapsUrl`) and can run in parallel with US1 and US2.
-- **US4** depends on US1 (edit rules) and on T020's form.
-- **Phase 7** after every story; T035 needs T025's internal option.
+- **US4** depends on US1 (edit rules) and on T021's form.
+- **Phase 7** after every story; T036–T037 need T026's internal option.
 
 ## Parallel Opportunities
 
-- Phase 2: T002, T004, T005 in parallel; T003 with T008. T006 → T007; T009 → T010; T011, T012,
-  T013 → T014 → T015.
-- US1: T016, T017, T018 in parallel; T020/T021 alongside T019.
-- US2: T022, T023, T024 in parallel.
-- US3: T026, T027, T028 in parallel; all of US3 alongside US1/US2.
-- Polish: T034 and T036.
+- Phase 2: T002, T004 in parallel, then T003, T005; T008 alongside. T006 → T007; T009 → T010;
+  T011, T012, T013 → T014 → T015.
+- US1: T016, T017, T018 in parallel; T019 before T020; T021/T022 alongside T019–T020.
+- US2: T023, T024, T025 in parallel.
+- US3: T027, T028, T029 in parallel; all of US3 alongside US1/US2.
+- Polish: T035 and T038.
 
 ## Implementation Strategy
 

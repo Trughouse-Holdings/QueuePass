@@ -273,7 +273,7 @@ number is a pull request against this table. The next free number is `017`.
 | `010-test-coverage` | Tests for every existing feature, so each workspace reaches 80% line coverage, and coverage reporting in `npm test` | `001`–`008` |
 | `011-ci-test-runs` | GitHub Actions workflow that runs the full suite with coverage on every pull request open and update, and fails below the floor | `010` |
 | `012-shared-theme` | One shared theme in `packages/shared/` (accent color, fonts, spacing, shared control styles) used by the Admin and Customer apps | `008` |
-| `013-venue-address-validation` | Admin venue create and edit accept only a real US address; a Google Maps link on the address in the Admin and Customer apps | `002`, `003` |
+| `013-venue-address-validation` | Admin venue create and edit accept only a real US address, checked by the Census Geocoder, unless an admin explicitly confirms an unmatched address, which is then marked not verified; a Google Maps link on the address in the Admin and Customer apps | `002`, `003` |
 | `014-event-images` | Admins upload up to 5 images per event; customers see them on the event, for example as a rotating gallery | `002`, `003` |
 | `015-seat-holds` | Seats a customer selects are held so no one else can take them before checkout; released on deselect or logout; other customers see held seats update live without refreshing | `007` |
 | `016-per-user-ticket-limit` | Admins set a maximum number of tickets per customer per event; the limit counts across all of that customer's orders | `005`, `006` |
@@ -327,4 +327,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.0.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-11
+**Version**: 3.0.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-11
