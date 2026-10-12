@@ -22,8 +22,13 @@ const renderNew = () =>
 
 const fillNameAndAddress = () => {
   fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Seat Hall' } });
-  fireEvent.change(screen.getByLabelText('Address'), { target: { value: '1 Seat St' } });
+  // Spec 013: the address is four fields.
+  fireEvent.change(screen.getByLabelText('Street address'), { target: { value: '1 Seat St' } });
+  fireEvent.change(screen.getByLabelText('City'), { target: { value: 'Louisville' } });
+  fireEvent.change(screen.getByLabelText('State'), { target: { value: 'KY' } });
+  fireEvent.change(screen.getByLabelText('ZIP code'), { target: { value: '40202' } });
 };
+const SENT_ADDRESS = { street: '1 Seat St', city: 'Louisville', state: 'KY', zip: '40202' };
 
 const addSection = (n: number, name: string, rows: string, seats: string) => {
   fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
@@ -81,7 +86,7 @@ describe('New venue: seated or general admission', () => {
     ]);
     expect(writes[0].body).toEqual({
       name: 'Seat Hall',
-      address: '1 Seat St',
+      ...SENT_ADDRESS,
       seatingCapacity: 70,
     });
     expect(writes[1].body).toEqual({
@@ -128,7 +133,7 @@ describe('New venue: seated or general admission', () => {
     expect(writes.map((c) => c.method)).toEqual(['POST']);
     expect(writes[0].body).toEqual({
       name: 'Seat Hall',
-      address: '1 Seat St',
+      ...SENT_ADDRESS,
       seatingCapacity: 500,
     });
   });

@@ -17,6 +17,8 @@ export function ErrorBanner({
 }): React.ReactElement {
   const isConflict = error.code === 'SCHEDULING_CONFLICT';
   const fields = error.details?.fields as string[] | undefined;
+  // Spec 013: ADDRESS_AMBIGUOUS lists the addresses the service matched.
+  const candidates = error.details?.candidates as string[] | undefined;
 
   return (
     <div
@@ -35,6 +37,13 @@ export function ErrorBanner({
           <ul>
             {fields.map((f) => (
               <li key={f}>{f}</li>
+            ))}
+          </ul>
+        )}
+        {candidates && candidates.length > 0 && (
+          <ul>
+            {candidates.map((c) => (
+              <li key={c}>{c}</li>
             ))}
           </ul>
         )}

@@ -186,7 +186,7 @@ anyway"; name-only edits do not call the service; a slow lookup cannot break cap
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T016 [P] [US1] Create `backend/test/integration/locations.address.e2e-spec.ts` (create):
+- [x] T016 [P] [US1] Create `backend/test/integration/locations.address.e2e-spec.ts` (create):
   - fake `none` → `400 ADDRESS_NOT_FOUND`, message naming the typed address, `details.address`,
     matching the contract, and no row in `Location`;
   - fake `many` with two candidates → `400 ADDRESS_AMBIGUOUS` with `details.candidates` as the
@@ -204,7 +204,7 @@ anyway"; name-only edits do not call the service; a slow lookup cannot break cap
   - a ZIP+4 input is sent to the fake as 5 digits and stored as 5;
   - a request with a bad field and a real address → `400 VALIDATION_FAILED`, fake not called
     (FR-007).
-- [ ] T017 [P] [US1] Create `backend/test/integration/locations.address-edit.e2e-spec.ts`:
+- [x] T017 [P] [US1] Create `backend/test/integration/locations.address-edit.e2e-spec.ts`:
   - name only, capacity only → `200`, fake not called (FR-008);
   - the same four values in different case and spacing, and the same ZIP as ZIP+4 → `200`, fake
     not called, and the stored parts and `addressVerified` are unchanged;
@@ -237,7 +237,7 @@ anyway"; name-only edits do not call the service; a slow lookup cannot break cap
     - 10 simultaneous requests mixing address-changing venue edits and layout saves on one venue
       → no `5xx` (assert this first, so a deadlock or transaction timeout fails clearly), and the
       venue's `seatingCapacity` equals its layout's total seats at the end.
-- [ ] T018 [P] [US1] Create `admin-app/test/venue-address.test.tsx` with `stubApi`:
+- [x] T018 [P] [US1] Create `admin-app/test/venue-address.test.tsx` with `stubApi`:
   - the form has Street address, City, State (a list of 51 options plus "Choose a state"), and
     ZIP code, each with a `<label>`;
   - create sends `street`, `city`, `state`, `zip`, no `address`, and no
@@ -267,11 +267,11 @@ anyway"; name-only edits do not call the service; a slow lookup cannot break cap
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Move `lockVenueAndEvents` from `backend/src/seating/layout.service.ts` to
+- [x] T019 [US1] Move `lockVenueAndEvents` from `backend/src/seating/layout.service.ts` to
   `backend/src/common/venue-lock.ts` (exported, same SQL and order: the venue row, then its
   scheduled events ordered by `id`, both `FOR UPDATE`), and use it from `LayoutService`. Run
   `layout.e2e-spec.ts` and `seating*.e2e-spec.ts`: unchanged behavior.
-- [ ] T020 [US1] In `backend/src/locations/locations.service.ts`, apply research R2 and R7: map
+- [x] T020 [US1] In `backend/src/locations/locations.service.ts`, apply research R2 and R7: map
   `none` to `400 ADDRESS_NOT_FOUND` and `many` to `400 ADDRESS_AMBIGUOUS` (messages and `details`
   exactly as in contracts/README.md), thrown as envelopes, unless `acceptUnverifiedAddress` is
   `true`, in which case save the parts as sent (the one whitespace rule) with `addressVerified:
@@ -281,14 +281,14 @@ anyway"; name-only edits do not call the service; a slow lookup cannot break cap
   `prisma.$transaction(…, LOCKING_TX)` that calls `lockVenueAndEvents`, re-runs the two capacity
   rules against the locked data, and calls `location.update` (address fields and
   `addressVerified` left out when unchanged). Run T016 and T017 until they pass.
-- [ ] T021 [US1] In `admin-app/src/pages/LocationForm.tsx`, replace the Address field with the four
+- [x] T021 [US1] In `admin-app/src/pages/LocationForm.tsx`, replace the Address field with the four
   fields (research R13), reusing `.field` markup, `autoComplete` values, and the `US_STATES` list
   ("Kentucky (KY)"); add the preview check; send per R13 (a laid-out venue: `name` and the four
   fields, plus the flag on Save anyway); add the Save anyway button shown only after
   `ADDRESS_NOT_FOUND` / `ADDRESS_AMBIGUOUS` and hidden on any address-field change; after saving,
   `navigate('/locations', { state: { notice: { kind: 'success', text } } })` as
   `admin-app/src/hooks/use-delete.ts` does, instead of `SuccessState` and a bare navigate.
-- [ ] T022 [US1] In `admin-app/src/components/ErrorBanner.tsx`, list `details.candidates` when
+- [x] T022 [US1] In `admin-app/src/components/ErrorBanner.tsx`, list `details.candidates` when
   present, like `details.fields`. Run T018 until it passes, then the Admin app suite.
 
 **Checkpoint**: only matched or explicitly confirmed addresses are saved, through the API and the

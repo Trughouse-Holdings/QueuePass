@@ -149,7 +149,11 @@ describe('LocationForm against a live validation rejection', () => {
     const user = userEvent.setup();
 
     await user.type(screen.getByLabelText('Name'), 'x');
-    await user.type(screen.getByLabelText('Address'), 'y');
+    // Spec 013: the four address fields; the form's own checks pass, the API refuses.
+    await user.type(screen.getByLabelText('Street address'), 'y');
+    await user.type(screen.getByLabelText('City'), 'y');
+    await user.selectOptions(screen.getByLabelText('State'), 'KY');
+    await user.type(screen.getByLabelText('ZIP code'), '40202');
     await user.type(screen.getByLabelText('Seating capacity'), '1');
     await user.click(screen.getByRole('button', { name: /Create venue/i }));
 

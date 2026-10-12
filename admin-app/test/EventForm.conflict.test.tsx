@@ -9,7 +9,12 @@ import { EventForm } from '../src/pages/EventForm';
 const VENUE = {
   id: '11111111-1111-4111-8111-111111111111',
   name: 'Yum Center',
-  address: '1 Arena Plaza',
+  address: '1 Arena Plaza, Louisville, KY 40202',
+  street: '1 Arena Plaza',
+  city: 'Louisville',
+  state: 'KY',
+  zip: '40202',
+  addressVerified: false,
   seatingCapacity: 22090,
   createdAt: '2026-09-01T00:00:00Z',
   updatedAt: '2026-09-01T00:00:00Z',

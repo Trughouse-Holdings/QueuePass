@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { US_STATES, ZIP_PATTERN, type Location, type UsState } from '@queuepass/shared';
 import { createLocation, getLocation, updateLocation } from '../api/locations';
 import { getLayout, replaceLayout } from '../api/seating';
 import { ApiError } from '../api/client';
@@ -10,7 +11,41 @@ import {
   totalSeats,
   type SectionLine,
 } from '../components/SectionLines';
-import { SuccessState } from '../components/SuccessState';
+import type { NoticeState } from '../hooks/use-delete';
+
+/** Spec 013 FR-011: the only refusals that offer "Save anyway". */
+const SAVE_ANYWAY_CODES = ['ADDRESS_NOT_FOUND', 'ADDRESS_AMBIGUOUS'];
+
+interface Address {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+}
+const EMPTY: Address = { street: '', city: '', state: '', zip: '' };
+
+/**
+ * Spec 013 FR-013: a preview of the Backend's field rules, naming each problem. The Backend
+ * still decides (FR-018).
+ */
+function addressProblems(a: Address): string[] {
+  const problems: string[] = [];
+  if (!a.street.trim()) problems.push('Street address is required.');
+  if (!a.city.trim()) problems.push('City is required.');
+  if (!a.state) problems.push('Choose a state.');
+  if (!ZIP_PATTERN.test(a.zip.trim())) {
+    problems.push('ZIP code must be 5 digits, or 5 digits, a hyphen, and 4 digits.');
+  }
+  return problems;
+}
+
+/** Spec 013 FR-012: the address as saved, from the response. */
+const savedNotice = (v: Location): NoticeState['notice'] => ({
+  kind: 'success',
+  text: v.addressVerified
+    ? `Venue saved. Address: ${v.address}.`
+    : `Venue saved. Address (not verified): ${v.address}.`,
+});
 
 /** FR-031, FR-033, FR-035 — create/edit a venue. No removal control (API-only). */
 export function LocationForm(): React.ReactElement {
@@ -19,7 +54,7 @@ export function LocationForm(): React.ReactElement {
   const isEdit = Boolean(id);
 
   const [name, setName] = useState('');
-  const [address, setAddress] = useState('');
+  const [address, setAddress] = useState<Address>(EMPTY);
   const [seatingCapacity, setSeatingCapacity] = useState('');
   // Spec 007 FR-017: a venue with a seating layout takes its capacity from it.
   const [setByLayout, setSetByLayout] = useState(false);
@@ -30,7 +65,9 @@ export function LocationForm(): React.ReactElement {
     null,
   );
   const [error, setError] = useState<ApiError | null>(null);
-  const [saved, setSaved] = useState(false);
+  const [problems, setProblems] = useState<string[]>([]);
+  // Spec 013 FR-011: offered only after a not-found or ambiguous refusal of this address.
+  const [offerSaveAnyway, setOfferSaveAnyway] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -38,7 +75,13 @@ export function LocationForm(): React.ReactElement {
     getLocation(id)
       .then((l) => {
         setName(l.name);
-        setAddress(l.address);
+        // A venue from before 013 has no parts: its fields start empty (research R13).
+        setAddress({
+          street: l.street ?? '',
+          city: l.city ?? '',
+          state: l.state ?? '',
+          zip: l.zip ?? '',
+        });
         setSeatingCapacity(String(l.seatingCapacity));
       })
       .catch((err: ApiError) => setError(err));
@@ -47,26 +90,43 @@ export function LocationForm(): React.ReactElement {
       .catch(() => setSetByLayout(false));
   }, [id]);
 
-  async function handleSubmit(e: React.FormEvent): Promise<void> {
-    e.preventDefault();
+  function changeAddress(key: keyof Address, value: string): void {
+    setAddress((a) => ({ ...a, [key]: value }));
+    // The confirmation applies only to the address the admin saw refused.
+    setOfferSaveAnyway(false);
+  }
+
+  async function save(acceptUnverifiedAddress: boolean): Promise<void> {
     setError(null);
     setLayoutRefused(null);
-    setSaved(false);
-    setBusy(true);
+    setOfferSaveAnyway(false);
 
+    const found = addressProblems(address);
+    setProblems(found);
+    if (found.length > 0) return;
+
+    setBusy(true);
     const seated = !isEdit && kind === 'seated';
-    const payload = {
-      name,
-      address,
-      // Spec 008 R8: the contract needs a capacity; the layout saved next sets it for good.
-      seatingCapacity: seated ? totalSeats(lines) : Number(seatingCapacity),
+    const parts = {
+      street: address.street,
+      city: address.city,
+      state: address.state as UsState,
+      zip: address.zip.trim(),
+      ...(acceptUnverifiedAddress ? { acceptUnverifiedAddress: true } : {}),
     };
+    // Spec 008 R8: the contract needs a capacity; the layout saved next sets it for good.
+    const capacity = seated ? totalSeats(lines) : Number(seatingCapacity);
 
     try {
+      let venue: Location;
       // Spec 007 FR-017: a laid-out venue's capacity is never sent; its layout sets it.
-      if (isEdit && id) await updateLocation(id, setByLayout ? { name, address } : payload);
-      else {
-        const venue = await createLocation(payload);
+      if (isEdit && id) {
+        venue = await updateLocation(
+          id,
+          setByLayout ? { name, ...parts } : { name, ...parts, seatingCapacity: capacity },
+        );
+      } else {
+        venue = await createLocation({ name, ...parts, seatingCapacity: capacity });
         if (seated) {
           try {
             await replaceLayout(venue.id, { sections: toSectionInputs(lines) });
@@ -77,15 +137,21 @@ export function LocationForm(): React.ReactElement {
           }
         }
       }
-      setSaved(true);
-      setTimeout(() => navigate('/locations'), 700);
+      navigate('/locations', { state: { notice: savedNotice(venue) } });
     } catch (err) {
       // FR-035: surface the rejection but keep every entered value — an admin should
       // never retype a whole form to correct one field.
-      setError(err as ApiError);
+      const refusal = err as ApiError;
+      setError(refusal);
+      setOfferSaveAnyway(SAVE_ANYWAY_CODES.includes(refusal.code));
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleSubmit(e: React.FormEvent): void {
+    e.preventDefault();
+    void save(false);
   }
 
   return (
@@ -97,8 +163,33 @@ export function LocationForm(): React.ReactElement {
         </div>
       </div>
 
-      {saved && <SuccessState message="Venue saved." />}
+      {problems.length > 0 && (
+        <div role="alert" className="banner banner--error">
+          <span className="banner__icon" aria-hidden="true">
+            ✕
+          </span>
+          <div className="banner__body">
+            <strong>Check the address</strong>
+            <ul>
+              {problems.map((p) => (
+                <li key={p}>{p}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
       {error && <ErrorBanner error={error} />}
+      {offerSaveAnyway && (
+        <div className="form__actions">
+          <button type="button" className="btn" disabled={busy} onClick={() => void save(true)}>
+            Save anyway (address not verified)
+          </button>
+          <p className="note">
+            Use this only if you are sure the address is right. The venue will be marked not
+            verified.
+          </p>
+        </div>
+      )}
       {layoutRefused && (
         <div role="alert" className="banner banner--error">
           <div className="banner__body">
@@ -125,12 +216,53 @@ export function LocationForm(): React.ReactElement {
           </div>
 
           <div className="field">
-            <label htmlFor="address">Address</label>
+            <label htmlFor="street">Street address</label>
             <input
-              id="address"
-              value={address}
-              placeholder="1 Arena Plaza, Louisville, KY"
-              onChange={(e) => setAddress(e.target.value)}
+              id="street"
+              autoComplete="address-line1"
+              value={address.street}
+              placeholder="430 W Vine St"
+              onChange={(e) => changeAddress('street', e.target.value)}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="city">City</label>
+            <input
+              id="city"
+              autoComplete="address-level2"
+              value={address.city}
+              placeholder="Lexington"
+              onChange={(e) => changeAddress('city', e.target.value)}
+            />
+          </div>
+
+          <div className="field">
+            <label htmlFor="state">State</label>
+            <select
+              id="state"
+              autoComplete="address-level1"
+              value={address.state}
+              onChange={(e) => changeAddress('state', e.target.value)}
+            >
+              <option value="">Choose a state</option>
+              {US_STATES.map((s) => (
+                <option key={s.code} value={s.code}>
+                  {`${s.name} (${s.code})`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="zip">ZIP code</label>
+            <input
+              id="zip"
+              inputMode="numeric"
+              autoComplete="postal-code"
+              value={address.zip}
+              placeholder="40507"
+              onChange={(e) => changeAddress('zip', e.target.value)}
             />
           </div>
 
