@@ -119,7 +119,7 @@ values, and the app scan fails today.
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T010 [US2] Create `packages/shared/test/theme/drift.test.ts` with:
+- [x] T010 [US2] Create `packages/shared/test/theme/drift.test.ts` with:
   - **Self-tests** (FR-006, SC-005), each feeding a small string to the checker and asserting the
     exact rule, line, and declaration reported: C1 `--accent: #000;`; C2 each of `#abc`,
     `#a1b2c3`, `rgb(0 0 0)`, `rgba(0,0,0,.5)`, `hsl(0 0% 0%)`, `oklch(0.5 0.1 200)`, `red`, and a
@@ -147,7 +147,7 @@ values, and the app scan fails today.
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] Create `packages/shared/test/theme/check-theme.ts` exporting
+- [x] T011 [US2] Create `packages/shared/test/theme/check-theme.ts` exporting
   `cssViolations(path: string, css: string): Violation[]` and
   `inlineStyleViolations(path: string, tsx: string): Violation[]`, where `Violation` is
   `{ path, line, rule, text }`, implementing research R6: strip comments keeping line numbers
