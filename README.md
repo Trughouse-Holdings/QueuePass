@@ -21,6 +21,7 @@ Features `001` through `008` are built and verified.
 | [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                          | Draft            | Done (29/29 tasks) | **Built and verified** |
 | [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice | Draft            | Done (30/30 tasks) | **Built and verified** |
 | [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look   | Draft            | Done (19/19 tasks) | **Built and verified** |
+| [`012-shared-theme`](specs/012-shared-theme/spec.md)                         | One shared theme in `packages/shared/` for the Admin and Customer apps; a test fails when an app defines its own look       | Draft            | Done (27/30 tasks) | **Built**              |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -32,8 +33,10 @@ for an event, in a tier or at its base price, and see their codes; choose their 
 events with reserved seating; and find every order they placed on **My tickets**. Admins give
 venues seating layouts and see each seated event's seat map.
 
-Features `010` through `016` are reserved in the constitution's roadmap and not started: test
-coverage, CI test runs, a shared theme, venue address validation, event images, seat holds, and a
+The Admin and Customer apps take their whole look from one shared theme (`012`).
+
+Features `010`, `011`, and `013` through `016` are reserved in the constitution's roadmap and not
+built yet: test coverage, CI test runs, venue address validation, event images, seat holds, and a
 per-user ticket limit.
 
 ### How a feature is delivered
@@ -221,6 +224,17 @@ unchanged.
   its seat. No seat is ever sold twice, guaranteed by the database, and cancelling frees seats
   (`007`)
 
+### One shared look
+
+The Admin and Customer apps look the same because both load one theme,
+[`packages/shared/src/web/theme.css`](packages/shared/src/web/theme.css): the colors (light and
+dark, following the device), typefaces, spacing steps, corner rounding, shadows, and the shared
+controls (buttons, fields, banners, badges, cards, tables). Each app's own `styles.css` adds only
+its own screens' rules, using the theme's values. `npm test` fails, naming the file and line, if
+an app writes a color, typeface, radius, shadow, or off-step spacing of its own, or redefines a
+theme value (`012`). A change to the theme changes `packages/shared/`, so it needs every team
+member's approval. The Ticket Booth app stays plain until a spec gives it functionality.
+
 ### Scheduling rule
 
 Each event reserves its window plus a 60-minute setup and teardown buffer. For an event running
@@ -269,7 +283,7 @@ admin-app/        React + Vite Admin app          (role queuepass-admin)
 customer-app/     React + Vite Customer app       (role customer)
 booth-app/        React + Vite Ticket Booth app   (role gate-agent)
 contracts/        OpenAPI contract shared by every app
-packages/shared/  Request and response types shared by the apps
+packages/shared/  Request and response types, sign-in, and the theme shared by the apps
 scripts/seed/     Idempotent Keycloak seed: realm, roles, clients, accounts
 specs/            Specifications, plans, contracts, tasks
 ```

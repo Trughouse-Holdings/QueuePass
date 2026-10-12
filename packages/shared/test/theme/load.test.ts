@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 /**
@@ -44,4 +44,18 @@ describe.each(['admin-app', 'customer-app'])('%s', (app) => {
 
 it('the Booth app does not load the theme (FR-015)', () => {
   expect(read('../../booth-app/src/main.tsx')).not.toContain('@queuepass/shared/theme.css');
+});
+
+// SC-003 (research R10): with both apps resolving the same file and no app defining a token
+// (drift.test.ts, C1), a change to the accent is one edit, in the theme.
+it('defines --accent in the theme file only', () => {
+  const root = resolve(process.cwd(), '../..');
+  const defining = ['admin-app/src', 'customer-app/src', 'booth-app/src', 'packages/shared/src']
+    .flatMap((dir) =>
+      (readdirSync(resolve(root, dir), { recursive: true }) as string[])
+        .filter((f) => f.endsWith('.css'))
+        .map((f) => relative(root, resolve(root, dir, f)).replace(/\\/g, '/')),
+    )
+    .filter((f) => /--accent\s*:/.test(readFileSync(resolve(root, f), 'utf8')));
+  expect(defining).toEqual(['packages/shared/src/web/theme.css']);
 });

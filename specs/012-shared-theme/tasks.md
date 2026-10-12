@@ -271,12 +271,12 @@ unchanged.
 
 **Independent Test**: quickstart S6.
 
-- [ ] T024 [US4] Confirm by test, not by hand: `load.test.ts` (both apps resolve the same file)
+- [x] T024 [US4] Confirm by test, not by hand: `load.test.ts` (both apps resolve the same file)
   and the C1 rule in `drift.test.ts` (no app defines `--accent` or any token) together guarantee
   SC-003. Add one assertion to `load.test.ts` that `--accent` is defined only in
   `packages/shared/src/web/theme.css` among all `*.css` files under `admin-app/src`,
   `customer-app/src`, `booth-app/src`, and `packages/shared/src`.
-- [ ] T025 [US4] Update `README.md`: add the `012` row to the Status table, and one short
+- [x] T025 [US4] Update `README.md`: add the `012` row to the Status table, and one short
   paragraph under the front-end section: the look lives in `packages/shared/src/web/theme.css`;
   apps add only their own screens' rules, using theme values; `npm test` fails on drift; a theme
   change needs every member's approval.
