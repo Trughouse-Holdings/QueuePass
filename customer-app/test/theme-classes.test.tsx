@@ -82,6 +82,23 @@ describe('status messages (US3)', () => {
     );
   });
 
+  it.each([
+    ['tickets left', 'GET /events/e1/availability'],
+    ['tiers', 'GET /events/e1/tiers'],
+  ])(
+    'shows Get tickets as unavailable in an error banner when the %s fail to load',
+    async (_, route) => {
+      stubApi({ ...routes(), [route]: 'network-error' });
+      renderCustomer({ at: '/events/e1' });
+      const message = await screen.findByText(
+        'Ticket information is unavailable right now. Try again later.',
+      );
+      expect(message).toHaveClass('banner', 'banner--error');
+      // Its text and announcement stay as they were: no role is added (FR-010).
+      expect(message).not.toHaveAttribute('role');
+    },
+  );
+
   it("shows Can't reach the QueuePass service as an error banner", async () => {
     stubApi({ 'GET /events': 'network-error', 'GET /locations': json([]) });
     renderCustomer({ at: '/events' });

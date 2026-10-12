@@ -208,7 +208,8 @@ confirm both show the new accent on buttons, links, and the current navigation i
   styles, including "Can't reach the QueuePass service", the Customer app's Get tickets messages,
   and any status line another feature has added to `main` by the time this feature is built (for
   example `016`'s per-customer limit lines), and MUST keep its text and the way it is announced to
-  screen readers.
+  screen readers. Plain loading and empty text lines (for example "Loading…" and "Nothing is
+  scheduled yet.") are out of scope for 012 and keep their current look.
 - **FR-011**: The theme MUST hold every shared control together with all of its variants and
   parts (for example every badge, banner, and button variant, and the tap-area helper), even when
   only one app uses a given variant today. Styles for one app's own screens (for example the Admin
@@ -221,8 +222,9 @@ confirm both show the new accent on buttons, links, and the current navigation i
     and radio buttons; a visible focus outline on buttons and links (fields keep the accent ring
     they show today); a border on status badges; and "Can't reach the QueuePass service" as an
     error banner;
-  - in the Customer app: its Get tickets messages and "Can't reach the QueuePass service" as
-    banners; and the Get tickets "Ticket type" group losing the browser's default box around it
+  - in the Customer app: its Get tickets messages (including "Ticket information is unavailable
+    right now. Try again later.") and "Can't reach the QueuePass service" as banners; and the Get
+    tickets "Ticket type" group losing the browser's default box around it
     and showing its heading in the theme's label style;
   - in both apps: spacing on app-specific screens moved by at most 2 pixels to the nearest theme
     step.

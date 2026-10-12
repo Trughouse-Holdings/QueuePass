@@ -64,7 +64,12 @@ export function GetTickets({ event }: { event: Event }) {
     return <p>Loading tickets…</p>;
   }
   if (availability.kind !== 'ok' || tiers.kind !== 'ok' || seatMap.kind !== 'ok') {
-    return <p>Ticket information is unavailable right now. Try again later.</p>;
+    // Spec 012 FR-010: an error, so the theme's error banner; no role added, as before.
+    return (
+      <p className="banner banner--error">
+        Ticket information is unavailable right now. Try again later.
+      </p>
+    );
   }
 
   const left = availability.data;

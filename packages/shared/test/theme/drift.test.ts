@@ -105,6 +105,107 @@ describe('the checker (FR-006)', () => {
   });
 });
 
+// Review round 1: declarations at any depth, the full property families, and defined tokens only.
+describe('the checker, wider coverage (FR-005, FR-006)', () => {
+  it('reads declarations in a rule that also holds a nested rule', () => {
+    expect(css('.a {\n  color: #fff;\n  &:hover {\n    color: var(--accent);\n  }\n}')).toEqual([
+      'C2 2 color: #fff',
+    ]);
+    expect(css('.a {\n  &:hover {\n    color: red;\n  }\n  margin: 6px;\n}')).toEqual([
+      'C2 3 color: red',
+      'C5 5 margin: 6px',
+    ]);
+  });
+
+  it.each([
+    ['background-image: linear-gradient(red, var(--surface))'],
+    ['text-shadow: 0 0 2px red'],
+    ['filter: drop-shadow(0 0 2px red)'],
+    ['scrollbar-color: red var(--surface)'],
+    ['-webkit-tap-highlight-color: red'],
+  ])('C2: reports a named color in %s', (decl) => {
+    expect(css(`.a {\n  ${decl};\n}`)).toEqual([`C2 2 ${decl}`]);
+  });
+
+  it.each([
+    ['border-top-left-radius: 6px'],
+    ['text-shadow: 0 1px 2px var(--border)'],
+    ['border-radius: var(--radius-xl)'],
+    ['box-shadow: var(--accent)'],
+  ])('C4: reports %s', (decl) => {
+    expect(css(`.a {\n  ${decl};\n}`)).toEqual([`C4 2 ${decl}`]);
+  });
+
+  it.each([
+    ['grid-gap: 6px'],
+    ['grid-row-gap: 6px'],
+    ['grid-column-gap: 6px'],
+    ['row-gap: 6px'],
+    ['scroll-margin-top: 6px'],
+    ['scroll-padding: 6px'],
+    ['padding: var(--space-7)'],
+    ['margin: calc(-1 * var(--space-99))'],
+  ])('C5: reports %s', (decl) => {
+    expect(css(`.a {\n  ${decl};\n}`)).toEqual([`C5 2 ${decl}`]);
+  });
+
+  it('C3: reports a typeface token the theme does not define', () => {
+    expect(css('.a {\n  font-family: var(--serif);\n}')).toEqual([
+      'C3 2 font-family: var(--serif)',
+    ]);
+  });
+
+  it('accepts every defined step, radius, and shadow token', () => {
+    const ok = [
+      '.a {',
+      '  padding: var(--space-1) var(--space-2) var(--space-3) var(--space-4);',
+      '  margin: var(--space-5) var(--space-6) var(--space-8) calc(-1 * var(--space-8));',
+      '  grid-gap: var(--space-2);',
+      '  scroll-margin-top: var(--space-4);',
+      '  border-radius: var(--radius) var(--radius-sm) var(--radius-pill) 0;',
+      '  border-top-left-radius: var(--radius-sm);',
+      '  box-shadow: var(--shadow), var(--shadow-lg);',
+      '  text-shadow: none;',
+      '  font-family: var(--font);',
+      '  background-image: linear-gradient(var(--accent-soft), var(--surface) 70%);',
+      '}',
+    ].join('\n');
+    expect(css(ok)).toEqual([]);
+  });
+
+  it.each([
+    ["style={{ border: '1px solid red' }}", ["inline 2 border: '1px solid red'"]],
+    [
+      "style={{ outline: '2px solid #f00', font: '14px serif' }}",
+      ["inline 2 outline: '2px solid #f00'", "inline 2 font: '14px serif'"],
+    ],
+    [
+      'style={{ borderRadius: 6, padding: 18 }}',
+      ['inline 2 borderRadius: 6', 'inline 2 padding: 18'],
+    ],
+    ["style={{ '--accent': '#f00' }}", ["inline 2 '--accent': '#f00'"]],
+    ["style={{ 'color': 'red' }}", ["inline 2 'color': 'red'"]],
+    [
+      "style={{ boxShadow: '0 1px 2px var(--border)' }}",
+      ["inline 2 boxShadow: '0 1px 2px var(--border)'"],
+    ],
+    ["style={{ marginTop: '6px', gap: 4 }}", ["inline 2 marginTop: '6px'", 'inline 2 gap: 4']],
+    ["style={{ content: '#abc' }}", ["inline 2 content: '#abc'"]],
+  ])('inline: reports %s', (code, expected) => {
+    expect(tsx(`export const A = () => (\n  <p ${code}>x</p>\n);`)).toEqual(expected);
+  });
+
+  it('inline: accepts theme values, zero, and lengths it does not check', () => {
+    const code = [
+      'export const A = ({ pct }: { pct: number }) => (',
+      "  <p style={{ width: `${pct}%`, padding: 0, margin: 'var(--space-2) 0',",
+      "    borderRadius: 'var(--radius-sm)', color: 'var(--accent)', height: 6 }}>x</p>",
+      ');',
+    ].join('\n');
+    expect(tsx(code)).toEqual([]);
+  });
+});
+
 /** Every file under `dir` (relative to the repository root) ending in one of `exts`. */
 function files(dir: string, exts: string[]): string[] {
   const abs = resolve(ROOT, dir);
@@ -121,17 +222,25 @@ const listing = (vs: Violation[]): string[] =>
 describe('the apps (FR-005, FR-015, SC-001)', () => {
   const APPS = ['admin-app/src', 'customer-app/src', 'booth-app/src'];
 
-  it('define no look of their own in their stylesheets', () => {
-    const found = APPS.flatMap((dir) => files(dir, ['.css'])).flatMap((f) =>
-      cssViolations(f, read(f)),
+  const stylesheets = APPS.flatMap((dir) => files(dir, ['.css']));
+  const screens = [...APPS, 'packages/shared/src/web'].flatMap((dir) => files(dir, ['.tsx']));
+
+  it('scans both app stylesheets and the screen code, so a move cannot pass unseen', () => {
+    expect(stylesheets).toEqual(
+      expect.arrayContaining(['admin-app/src/styles.css', 'customer-app/src/styles.css']),
     );
+    for (const dir of [...APPS, 'packages/shared/src/web']) {
+      expect(screens.filter((f) => f.startsWith(`${dir}/`)).length, dir).toBeGreaterThan(0);
+    }
+  });
+
+  it('define no look of their own in their stylesheets', () => {
+    const found = stylesheets.flatMap((f) => cssViolations(f, read(f)));
     expect(listing(found)).toEqual([]);
   });
 
-  it('set no color, typeface, or shadow in inline styles', () => {
-    const found = [...APPS, 'packages/shared/src/web']
-      .flatMap((dir) => files(dir, ['.tsx']))
-      .flatMap((f) => inlineStyleViolations(f, read(f)));
+  it('set no look of their own in inline styles', () => {
+    const found = screens.flatMap((f) => inlineStyleViolations(f, read(f)));
     expect(listing(found)).toEqual([]);
   });
 });

@@ -57,6 +57,7 @@ describe.each([
       'warn-bg',
       'ok-bg',
       'surface-alt',
+      'accent-hover',
     ]) {
       expect(t[name], name).toMatch(/^#[0-9a-f]{6}$/i);
     }
@@ -80,6 +81,10 @@ describe.each([
     ['warn', 'warn-bg'],
     ['ok', 'ok-bg'],
     ['text-muted', 'surface-alt'],
+    // Links inside a warning or error banner, and primary button text on hover.
+    ['accent', 'warn-bg'],
+    ['accent', 'danger-bg'],
+    ['accent-text', 'accent-hover'],
   ])('shows --%s text on --%s at 4.5:1 or more', (fg, bg) => {
     expect(contrast(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
   });
@@ -90,6 +95,10 @@ describe.each([
       expect(contrast(t[token], t['surface'])).toBeGreaterThanOrEqual(3);
     },
   );
+
+  it('draws --border-strong control boundaries at 3:1 or more on --bg', () => {
+    expect(contrast(t['border-strong'], t['bg'])).toBeGreaterThanOrEqual(3);
+  });
 });
 
 it('never uses --text-faint for text, since it is below 4.5:1', () => {

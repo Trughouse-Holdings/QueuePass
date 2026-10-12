@@ -149,7 +149,7 @@ body {
 .brand__mark {
   width: 26px;
   height: 26px;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   background: linear-gradient(135deg, var(--accent), var(--brand-mark-end));
   display: grid;
   place-items: center;
@@ -526,15 +526,12 @@ select {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding-top: 5px;
+  padding-top: 16px;
   border-top: 1px solid var(--border);
   margin-top: 3px;
 }
 .form__actions > :first-child {
   margin-top: 13px;
-}
-.form__actions {
-  padding-top: 16px;
 }
 
 /* Choice groups (spec 008 US5): fieldsets group them without the browser's default box. */

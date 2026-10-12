@@ -3,12 +3,19 @@
  * objects of screen code, and reports each place an app defines its own look:
  *
  * - C1 a custom property is defined (apps define no theme values);
- * - C2 a color is written out (hex, a color function, or a named color in a color property);
- * - C3 a typeface is written out (`font-family` other than a token, `font` other than inherit);
- * - C4 `border-radius` or `box-shadow` has a part that is not 0, none, or a token;
- * - C5 padding, margin, or a gap has a part that is not 0, auto, or a spacing step;
+ * - C2 a color is written out (hex or a color function anywhere; a named color in a color,
+ *   background, border, outline, shadow, filter, fill, or stroke property);
+ * - C3 a typeface is written out (`font-family` other than a typeface token, `font` other than
+ *   inherit);
+ * - C4 a corner rounding or shadow has a part that is not 0 (rounding), none (shadow), or one of
+ *   the theme's radius or shadow tokens;
+ * - C5 padding, margin, a gap, or scroll spacing has a part that is not 0, auto, or one of the
+ *   theme's spacing steps;
  * - C6 the faintest gray is used for text;
- * - inline: a `style={{ ... }}` sets a color, a typeface, or a shadow.
+ * - inline: a `style={{ ... }}` entry that would break any rule above (a number counts as
+ *   pixels), or sets a typeface at all.
+ *
+ * Declarations are read at any depth, including beside a nested rule.
  */
 export interface Violation {
   path: string;
@@ -49,20 +56,21 @@ const NAMED_COLORS = new Set(
 const COLOR_LITERAL = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/i;
 
 /** Properties whose value is (or carries) a color, where a named color word counts (C2). */
-function isColorProperty(prop: string): boolean {
-  return (
-    [
-      'color',
-      'background',
-      'background-color',
-      'fill',
-      'stroke',
-      'box-shadow',
-      'caret-color',
-      'accent-color',
-    ].includes(prop) || /^(border|outline|text-decoration|column-rule)(-|$)/.test(prop)
-  );
-}
+const COLOR_PROPERTY =
+  /(^|-)color$|^background|shadow$|^filter$|^(border|outline|text-decoration|column-rule)(-|$)|^(fill|stroke)$/;
+/** Corner rounding and shadows (C4). */
+const RADIUS_PROPERTY = /radius$/;
+const SHADOW_PROPERTY = /shadow$/;
+/** Spacing (C5). */
+const SPACING_PROPERTY =
+  /^(padding|margin)(-|$)|^(grid-)?(row-|column-)?gap$|^scroll-(margin|padding)(-|$)/;
+
+// Only the tokens theme.css defines (data-model.md; tokens.test.ts checks them there).
+const FONT_TOKEN = /^var\(--(font|mono)\)$/;
+const RADIUS_TOKEN = /^var\(--radius(-sm|-pill)?\)$/;
+const SHADOW_TOKEN = /^var\(--shadow(-lg)?\)$/;
+const STEP = /^var\(--space-([1-6]|8)\)$/;
+const NEGATIVE_STEP = /^calc\(-1 \* var\(--space-([1-6]|8)\)\)$/;
 
 /** Comments replaced by spaces, newlines kept, so indexes and line numbers still match. */
 function stripComments(css: string): string {
@@ -71,18 +79,28 @@ function stripComments(css: string): string {
 
 const lineAt = (text: string, index: number): number => text.slice(0, index).split('\n').length;
 
-/** Every declaration in every innermost `{ ... }` block, with its line. */
+/**
+ * Every declaration at any depth, with its line. Text that ends at a `{` is a selector or an
+ * at-rule prelude and is skipped; text that ends at a `;` or `}` is a declaration if it has a
+ * colon.
+ */
 function declarations(css: string): Declaration[] {
   const text = stripComments(css);
   const out: Declaration[] = [];
-  for (const block of text.matchAll(/\{([^{}]*)\}/g)) {
-    let offset = (block.index ?? 0) + 1;
-    for (const part of block[1].split(';')) {
-      const lead = part.length - part.trimStart().length;
+  let start = 0;
+  let parens = 0;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '(') parens++;
+    else if (ch === ')') parens--;
+    else if (ch === '{') start = i + 1;
+    else if (parens === 0 && (ch === ';' || ch === '}')) {
+      const part = text.slice(start, i);
       const colon = part.indexOf(':');
       if (colon !== -1 && part.trim() !== '') {
+        const lead = part.length - part.trimStart().length;
         out.push({
-          line: lineAt(text, offset + lead),
+          line: lineAt(text, start + lead),
           prop: part.slice(0, colon).trim().toLowerCase(),
           value: part
             .slice(colon + 1)
@@ -90,7 +108,7 @@ function declarations(css: string): Declaration[] {
             .trim(),
         });
       }
-      offset += part.length + 1;
+      start = i + 1;
     }
   }
   return out;
@@ -115,34 +133,35 @@ function parts(value: string): string[] {
   return out.filter((p) => p !== '!important');
 }
 
-const TOKEN = /^var\(--[a-z0-9-]+\)$/i;
-const STEP = /^var\(--space-\d+\)$/;
-const NEGATIVE_STEP = /^calc\(-1 \* var\(--space-\d+\)\)$/;
-
 function hasColor(d: Declaration): boolean {
   if (COLOR_LITERAL.test(d.value)) return true;
-  if (!isColorProperty(d.prop)) return false;
+  if (!COLOR_PROPERTY.test(d.prop)) return false;
   return d.value
     .toLowerCase()
     .split(/[^a-z0-9-]+/)
     .some((word) => NAMED_COLORS.has(word));
 }
 
+const every = (value: string, ok: (part: string) => boolean): boolean => parts(value).every(ok);
+
 function ruleFor(d: Declaration): Violation['rule'] | null {
   if (d.prop.startsWith('--')) return 'C1';
   if (d.prop === 'color' && /var\(--text-faint\)/.test(d.value)) return 'C6';
   if (hasColor(d)) return 'C2';
-  if (d.prop === 'font-family' && !TOKEN.test(d.value)) return 'C3';
+  if (d.prop === 'font-family' && !FONT_TOKEN.test(d.value)) return 'C3';
   if (d.prop === 'font' && d.value !== 'inherit') return 'C3';
+  if (RADIUS_PROPERTY.test(d.prop) && !every(d.value, (p) => p === '0' || RADIUS_TOKEN.test(p))) {
+    return 'C4';
+  }
   if (
-    (d.prop === 'border-radius' || d.prop === 'box-shadow') &&
-    parts(d.value).some((p) => p !== '0' && p !== 'none' && !TOKEN.test(p))
+    SHADOW_PROPERTY.test(d.prop) &&
+    !every(d.value, (p) => p === 'none' || SHADOW_TOKEN.test(p))
   ) {
     return 'C4';
   }
   if (
-    /^(padding|margin)(-|$)|^(gap|row-gap|column-gap)$/.test(d.prop) &&
-    parts(d.value).some((p) => p !== '0' && p !== 'auto' && !STEP.test(p) && !NEGATIVE_STEP.test(p))
+    SPACING_PROPERTY.test(d.prop) &&
+    !every(d.value, (p) => p === '0' || p === 'auto' || STEP.test(p) || NEGATIVE_STEP.test(p))
   ) {
     return 'C5';
   }
@@ -164,9 +183,51 @@ export function colorLiteralViolations(path: string, css: string): Violation[] {
     .map((d) => ({ path, line: d.line, rule: 'C2' as const, text: `${d.prop}: ${d.value}` }));
 }
 
-const INLINE_KEY = /\b(color|background|backgroundColor|border\w*Color|fontFamily|boxShadow)\s*:/g;
+/** `text` split at top-level commas (outside brackets and quotes), each with its offset. */
+function entries(text: string): { at: number; text: string }[] {
+  const out: { at: number; text: string }[] = [];
+  let depth = 0;
+  let quote: string | null = null;
+  let start = 0;
+  for (let i = 0; i <= text.length; i++) {
+    const ch = i < text.length ? text[i] : ',';
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
+    } else if (ch === "'" || ch === '"' || ch === '`') {
+      quote = ch;
+    } else if (ch === '(' || ch === '[' || ch === '{') {
+      depth++;
+    } else if (ch === ')' || ch === ']' || ch === '}') {
+      depth--;
+    } else if (ch === ',' && (depth === 0 || i === text.length)) {
+      out.push({ at: start, text: text.slice(start, i) });
+      start = i + 1;
+    }
+  }
+  return out;
+}
 
-/** The inline rule over screen code: no color, typeface, or shadow in a `style={{ ... }}`. */
+const STRING = /^(['"])(.*)\1$/s;
+const PLAIN_TEMPLATE = /^`([^$`]*)`$/;
+const NUMBER = /^-?\d*\.?\d+$/;
+
+/** Whether one inline style entry breaks the stylesheet rules. */
+function inlineBreaks(key: string, raw: string): boolean {
+  const prop = key.startsWith('--') ? key : key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+  if (prop.startsWith('--') || COLOR_LITERAL.test(raw)) return true;
+  const text = STRING.exec(raw)?.[2] ?? PLAIN_TEMPLATE.exec(raw)?.[1];
+  if (text !== undefined) return ruleFor({ line: 0, prop, value: text.trim() }) !== null;
+  if (NUMBER.test(raw)) {
+    // React reads a bare number as pixels: only 0 is allowed for rounding, shadows, and spacing.
+    const sized = [RADIUS_PROPERTY, SHADOW_PROPERTY, SPACING_PROPERTY].some((r) => r.test(prop));
+    return sized && Number(raw) !== 0;
+  }
+  // Any other expression can't be judged here, but a typeface is never an app's to set.
+  return prop === 'font' || prop === 'font-family';
+}
+
+/** The inline rule over screen code: a `style={{ ... }}` follows the stylesheet rules. */
 export function inlineStyleViolations(path: string, tsx: string): Violation[] {
   const out: Violation[] = [];
   for (const m of tsx.matchAll(/style=\{\{/g)) {
@@ -179,17 +240,23 @@ export function inlineStyleViolations(path: string, tsx: string): Violation[] {
       if (tsx[end] === '}') depth--;
       end++;
     }
-    const body = tsx.slice(start, end - 1);
-    for (const key of body.matchAll(INLINE_KEY)) {
-      const at = key.index ?? 0;
-      const rest = body.slice(at);
-      const stop = rest.search(/,|$/);
-      out.push({
-        path,
-        line: lineAt(tsx, start + at),
-        rule: 'inline',
-        text: rest.slice(0, stop).replace(/\s+/g, ' ').trim(),
-      });
+    for (const entry of entries(tsx.slice(start, end - 1))) {
+      const colon = entry.text.indexOf(':');
+      if (colon === -1 || entry.text.trim().startsWith('...')) continue;
+      const keyRaw = entry.text.slice(0, colon).trim();
+      const raw = entry.text
+        .slice(colon + 1)
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (inlineBreaks(keyRaw.replace(STRING, '$2'), raw)) {
+        const lead = entry.text.length - entry.text.trimStart().length;
+        out.push({
+          path,
+          line: lineAt(tsx, start + entry.at + lead),
+          rule: 'inline',
+          text: `${keyRaw}: ${raw}`,
+        });
+      }
     }
   }
   return out;

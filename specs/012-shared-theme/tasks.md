@@ -257,7 +257,10 @@ unchanged.
   Classed: `ServiceUnreachable` and the Admin Attendees, EventDetail, LocationDetail, and Reports
   "Can't reach" paragraphs (`banner banner--error`); the Get tickets refusal (`banner
   banner--error`) and couldn't-confirm block (`banner banner--conflict`, with `banner__body`).
-  Every other `role="alert"`/`role="status"` element already had a theme banner class.
+  Every other `role="alert"`/`role="status"` element already had a theme banner class; the Admin
+  `Notice.tsx` (`role="status"`) keeps the existing bare `.banner`. Review round 1: the Get
+  tickets "Ticket information is unavailable right now." line (no role) also gets `banner
+  banner--error` (spec FR-010, FR-012), tested in `customer-app/test/theme-classes.test.tsx`.
 - [x] T023 [US3] Run T016–T018 until they pass, then the shared, Admin, Customer, and Booth suites
   (the Booth app renders `ServiceUnreachable` too; its tests must still pass).
 
