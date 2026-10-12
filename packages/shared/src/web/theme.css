@@ -418,6 +418,10 @@ tbody tr:hover {
 .banner p {
   margin: 0;
 }
+/* A control under a banner's message keeps a small gap above it. */
+.banner__body > .btn {
+  margin-top: var(--space-2);
+}
 .banner ul {
   margin: 7px 0 0;
   padding-left: 18px;

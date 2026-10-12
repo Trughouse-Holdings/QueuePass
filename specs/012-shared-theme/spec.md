@@ -226,7 +226,9 @@ confirm both show the new accent on buttons, links, and the current navigation i
   - in the Customer app: its Get tickets messages (including "Ticket information is unavailable
     right now. Try again later.") and "Can't reach the QueuePass service" as banners; and the Get
     tickets "Ticket type" group losing the browser's default box around it
-    and showing its heading in the theme's label style;
+    and showing its heading in the theme's label style; and the couldn't-confirm banner's Check
+    again button keeping a small gap under the message (roughly the spacing it has today, now a
+    theme step);
   - in both apps: spacing on app-specific screens moved by at most 2 pixels to the nearest theme
     step.
 - **FR-013**: Every behavior MUST stay the same: the same text, controls, flows, and messages.

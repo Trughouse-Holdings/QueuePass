@@ -257,6 +257,8 @@ function inlineBreaks(key: string, raw: string | undefined): boolean {
     const sized = [RADIUS_PROPERTY, SHADOW_PROPERTY, SPACING_PROPERTY].some((r) => r.test(prop));
     return sized && Number(raw) !== 0;
   }
+  // Deliberately strict: even a ternary between two theme tokens is rejected here, because an
+  // expression can't be proved to hold only theme values. Use a class for a state instead.
   // Any other expression can't be judged: a key the theme holds values for fails, and the
   // literals inside it are judged as stylesheet values.
   if (themed(prop)) return true;

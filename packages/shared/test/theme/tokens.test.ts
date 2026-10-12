@@ -123,6 +123,10 @@ describe('shared detail layout', () => {
   });
 });
 
+it('keeps a small gap above a button inside a banner body (FR-012)', () => {
+  expect(css).toMatch(/\.banner__body > \.btn\s*\{[^}]*margin-top:\s*var\(--space-2\)/);
+});
+
 it('has no hook to force a light or dark set (FR-007)', () => {
   expect(css).not.toContain('data-theme');
 });

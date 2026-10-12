@@ -297,13 +297,51 @@ unchanged.
   dependency, so front-end coverage reporting waits on `010`; the Backend is not touched. Say so
   in the PR description. The 80% floor is not yet blocking (Constitution VI deferral until `010`
   and `011`).
-- [ ] T028 Running-system gate: `docker compose up --build`, then walk quickstart.md S1–S6 in the
+- [x] T028 Running-system gate: `docker compose up --build`, then walk quickstart.md S1–S6 in the
   browser, including light, dark, and 375 pixels wide, and sign in, use, and sign out of each front
   end. Record the results, and the S2 tables, in this file. Also check the spacing of the Check
   again button inside the Customer couldn't-confirm warning banner (review round 1, item 9).
-- [ ] T029 Independent review (Constitution III): a separate Claude session reviews the branch
+
+  **Results:**
+  - `docker compose up --build`: all 6 services healthy; demo data present.
+  - S1/S3 (light and dark): Admin and Customer Events, event pages, venue lists, and forms
+    compared; same accent (`#8b85f5` dark), typeface, 7px radius, field border
+    rgb(111,120,135) dark, and 44px fields, buttons, and nav links in both.
+  - S2 (dark), Admin New event: primary bg rgb(139,133,245), text rgb(15,17,21), radius 7px,
+    height 44; field bg rgb(23,26,33), border rgb(111,120,135), radius 7px, height 44. Customer
+    Events page field identical. Banner (Backend stopped), identical in both apps: bg
+    rgb(42,21,19), border rgb(122,39,26), text rgb(253,162,155), radius 10px.
+  - S4.1: Backend stopped, "Can't reach the QueuePass service." is the same red banner in both
+    apps; restarted fine. S4.3: the Admin Cancelled badge was a plain `pill` (purple) against the
+    Customer `pill--danger`; fixed in fbdc7bc and rechecked: Admin now rgb(180,35,24) on
+    rgb(254,243,242) with its border (light), matching the Customer app. S4.2 and the
+    couldn't-confirm banner are covered by component tests, not triggered live; the Check again
+    gap (review round 1, item 9) is restored by `.banner__body > .btn` in the theme.
+  - S5 (375px): Customer Events, a seated event with its seat picker, and My tickets: no sideways
+    scroll; seat picker as before. Admin event page: the action row (Attendees, Edit, Cancel
+    event, Delete) overflows by 15px, the same on `main` (nowrap row, unchanged button padding),
+    so no worse than today; follow-up.
+  - S5b at 1280px: Reports, Ticket tiers with the inline edit row (Save, Cancel), the Events
+    search form, and the New event form: no overlap or clipping. The Events search form's Search
+    button sits 13px lower than Clear, from the pre-existing
+    `.form__actions > :first-child { margin-top: 13px }` rule, copied unchanged from `main`.
+  - S6: covered by `load.test.ts` and `tokens.test.ts` (T024) and a manual drift check (a hex
+    color in `customer-app/src/styles.css` failed, naming file and line; reverted). The accent
+    rebuild was not repeated live.
+  - Smoke: signed in, used, and signed out of Admin (admin1), Customer (customer1), and Booth
+    (agent1); the Booth app looks as before (browser defaults).
+  - Follow-up noticed: the shared `wrong-role.tsx` ("Your account can't use this app") is
+    unstyled (pre-existing).
+- [x] T029 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
+
+  **Results:** 3 rounds. Round 1: 4 should-fix (the checker missed nested rules; the inline rule
+  was narrower than FR-005; property-family gaps; the unclassed Get tickets "unavailable" line)
+  and 7 minor, all fixed in 17d28f0. Round 2: 2 should-fix (a quote-blind paren count; a
+  regression on non-literal inline values) and 3 minor, fixed in 654480f. Round 3: minor only;
+  one left open by design: a ternary between two theme tokens in an inline style is rejected
+  (deliberately strict; use a class instead, as commented in `check-theme.ts`).
 - [ ] T030 Open the implementation PR against `main` with `fixes #24` in its description, noting
   that it changes `packages/shared/` and needs every team member's approval, and listing the
   visible changes from spec FR-012, with a request for the teammate's explicit sign-off of the
