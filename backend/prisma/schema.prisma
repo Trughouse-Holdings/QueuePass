@@ -18,6 +18,13 @@ model Location {
   id              String   @id @default(uuid()) @db.Uuid
   name            String
   address         String
+  // Spec 013 FR-001, FR-020: the address as four parts, all set or all NULL (NULL for a venue
+  // from before 013), and whether the address service matched them. CHECKs in the migration.
+  street          String?  @db.VarChar(200)
+  city            String?  @db.VarChar(100)
+  state           String?  @db.VarChar(2)
+  zip             String?  @db.VarChar(5)
+  addressVerified Boolean  @default(false)
   seatingCapacity Int
   events          Event[]
   createdAt       DateTime @default(now()) @db.Timestamptz(6)
