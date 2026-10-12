@@ -29,6 +29,12 @@ export const ERROR_CODES = [
   // Spec 007: seats already held by valid tickets; a layout that seated sales depend on.
   'SEAT_TAKEN',
   'LAYOUT_IN_USE',
+  // Spec 016: the customer's tickets for the event would exceed its per-customer limit.
+  'TICKET_LIMIT_REACHED',
+  // Spec 013: the address service found no match, or several, or could not be asked.
+  'ADDRESS_NOT_FOUND',
+  'ADDRESS_AMBIGUOUS',
+  'ADDRESS_SERVICE_UNAVAILABLE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
