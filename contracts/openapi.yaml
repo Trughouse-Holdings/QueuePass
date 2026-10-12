@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.6.0
+  version: 1.7.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -212,7 +212,26 @@ paths:
     post:
       tags: [venues]
       summary: Create a venue
-      description: Rejects empty name or address and non-positive capacity.
+      description: |
+        Rejects an empty name, a missing or malformed address field, and a non-positive capacity
+        (`400 VALIDATION_FAILED`).
+
+        Feature 013: the address (`street`, `city`, `state`, `zip`) is then checked with the
+        address service (the US Census Geocoder) before anything is saved. Exactly one match is
+        accepted, and the venue is saved with the service's standard form of the four fields and
+        `addressVerified: true`; `address` is built from them as `STREET, CITY, ST ZIP`. No
+        match is `400 ADDRESS_NOT_FOUND`; several matches are `400 ADDRESS_AMBIGUOUS`, listing
+        them.
+
+        Save anyway: with `acceptUnverifiedAddress: true`, no match or several matches instead
+        save the venue with the four fields as sent (trimmed, runs of whitespace collapsed to one
+        space, ZIP cut to 5 digits) and
+        `addressVerified: false`. The address service is still asked first, and the flag changes
+        nothing when it finds exactly one match.
+
+        When the service cannot be reached, does not answer within 5 seconds, or answers with an
+        error, the save is refused with `503 ADDRESS_SERVICE_UNAVAILABLE` and nothing is saved,
+        with or without `acceptUnverifiedAddress`.
       operationId: createLocation
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -226,9 +245,10 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Location' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '400': { $ref: '#/components/responses/AddressRejected' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
+        '503': { $ref: '#/components/responses/AddressServiceUnavailable' }
 
   /locations/{id}:
     parameters:
@@ -258,6 +278,15 @@ paths:
         scheduled at this venue is refused with `CAPACITY_EXCEEDED`. Feature 007: while the venue
         has a seating layout, its `seatingCapacity` is the layout's total seats and cannot be set
         here (`400`).
+
+        Feature 013: `street`, `city`, `state`, and `zip` are sent all together or not at all
+        (`400`). When they are sent and differ from the stored ones (ignoring case and extra
+        spaces), the address is checked exactly as in `createLocation`, after every other check
+        on this request and before anything is saved, including `acceptUnverifiedAddress`. An
+        edit without address fields, or with the same address, never calls the address service
+        and keeps `addressVerified` as it is. `acceptUnverifiedAddress` without the four address
+        fields is `400`. A venue saved before feature 013 keeps its `address`, has `null` parts,
+        and has `addressVerified: false` until its address is changed.
       operationId: updateLocation
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -271,10 +300,11 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Location' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '400': { $ref: '#/components/responses/AddressRejected' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '503': { $ref: '#/components/responses/AddressServiceUnavailable' }
         '409':
           description: An existing event's ticket capacity exceeds the proposed seating capacity.
           content:
@@ -963,26 +993,64 @@ components:
                   description: Omitted only when a concurrent insert made the database refuse.
 
     Location:
-      description: A venue.
+      description: |
+        A venue. Feature 013: when `street`, `city`, `state`, and `zip` are set, `address` is
+        built from them as `STREET, CITY, ST ZIP`. Three kinds of venue:
+
+        - `addressVerified: true`: the address service matched it; the four fields are its
+          standard (upper-case) form.
+        - `addressVerified: false` with the four fields set: an admin saved it anyway
+          (`acceptUnverifiedAddress`); the fields are as the admin sent them.
+        - `addressVerified: false` with the four fields `null`: saved before feature 013 and not
+          re-addressed since; `address` is the one-line text it was saved with.
+
+        The five fields are always sent from feature 013 on, but are not in `required`, so this
+        contract can merge before the Backend sends them (feature 013 research R11).
       type: object
       required: [id, name, address, seatingCapacity, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         name: { type: string, minLength: 1, maxLength: 200, example: 'KFC Yum! Center' }
         address:
-          {
-            type: string,
-            minLength: 1,
-            maxLength: 500,
-            example: '1 Arena Plaza, Louisville, KY 40202',
-          }
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: The full one-line address. Shown by every client and matched by `q`.
+          example: '430 W VINE ST, LEXINGTON, KY 40507'
+        street:
+          type: [string, 'null']
+          maxLength: 200
+          example: '430 W VINE ST'
+        city:
+          type: [string, 'null']
+          maxLength: 100
+          example: LEXINGTON
+        state:
+          oneOf:
+            - { $ref: '#/components/schemas/UsState' }
+            - { type: 'null' }
+        zip:
+          type: [string, 'null']
+          pattern: '^[0-9]{5}$'
+          example: '40507'
+        addressVerified:
+          type: boolean
+          description: Whether the address service matched this address. Clients mark `false` as "Address not verified".
         seatingCapacity: { type: integer, minimum: 1, example: 22090 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
     LocationInput:
       type: object
-      required: [name, address, seatingCapacity]
+      required: [name, seatingCapacity]
+      description: |
+        Feature 013: the address is sent as four fields and checked with the address service.
+        `address` is not accepted; the Backend builds it.
+
+        `street`, `city`, `state`, and `zip` are **required**: the Backend refuses a create
+        without any of them with `400 VALIDATION_FAILED`. They are left out of `required` only so
+        the Admin app's generated request types still compile on `main` between this contract
+        and its implementation (feature 013 research R11).
       properties:
         name:
           {
@@ -991,24 +1059,114 @@ components:
             maxLength: 200,
             description: Rejected when empty or whitespace-only after trimming.,
           }
-        address:
-          {
-            type: string,
-            minLength: 1,
-            maxLength: 500,
-            description: Rejected when empty or whitespace-only after trimming.,
-          }
+        street:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: House number and street. Trimmed; rejected when empty.
+          example: '430 W Vine St'
+        city:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Trimmed; rejected when empty.
+          example: Lexington
+        state: { $ref: '#/components/schemas/UsState' }
+        zip:
+          type: string
+          pattern: '^[0-9]{5}(-[0-9]{4})?$'
+          description: 5 digits, or ZIP+4. The saved value is the address service's 5-digit ZIP.
+          example: '40507'
+        acceptUnverifiedAddress:
+          $ref: '#/components/schemas/AcceptUnverifiedAddress'
         seatingCapacity:
           { type: integer, minimum: 1, description: Must be a positive whole number. }
 
     LocationUpdate:
       type: object
       minProperties: 1
-      description: Partial update; supply only the fields being changed.
+      description: |
+        Partial update; supply only the fields being changed. Feature 013: `street`, `city`,
+        `state`, and `zip` are sent all together or not at all, and `acceptUnverifiedAddress`
+        only with them (`400` otherwise).
       properties:
         name: { type: string, minLength: 1, maxLength: 200 }
-        address: { type: string, minLength: 1, maxLength: 500 }
+        street: { type: string, minLength: 1, maxLength: 200 }
+        city: { type: string, minLength: 1, maxLength: 100 }
+        state: { $ref: '#/components/schemas/UsState' }
+        zip: { type: string, pattern: '^[0-9]{5}(-[0-9]{4})?$' }
+        acceptUnverifiedAddress:
+          $ref: '#/components/schemas/AcceptUnverifiedAddress'
         seatingCapacity: { type: integer, minimum: 1 }
+
+    AcceptUnverifiedAddress:
+      type: boolean
+      default: false
+      description: |
+        Feature 013 "save anyway": the admin confirmed the address after an `ADDRESS_NOT_FOUND`
+        or `ADDRESS_AMBIGUOUS` refusal. The address service is still asked. With no match or
+        several matches, the venue is saved as sent (trimmed, runs of whitespace collapsed to one
+        space, ZIP cut to 5 digits) with `addressVerified: false`. With exactly
+        one match, it is saved verified, as without the flag. When the service is unavailable,
+        the request is still refused with `503 ADDRESS_SERVICE_UNAVAILABLE`.
+
+    UsState:
+      type: string
+      description: A US state or the District of Columbia, by its two-letter postal code (feature 013).
+      enum:
+        [
+          AL,
+          AK,
+          AZ,
+          AR,
+          CA,
+          CO,
+          CT,
+          DE,
+          DC,
+          FL,
+          GA,
+          HI,
+          ID,
+          IL,
+          IN,
+          IA,
+          KS,
+          KY,
+          LA,
+          ME,
+          MD,
+          MA,
+          MI,
+          MN,
+          MS,
+          MO,
+          MT,
+          NE,
+          NV,
+          NH,
+          NJ,
+          NM,
+          NY,
+          NC,
+          ND,
+          OH,
+          OK,
+          OR,
+          PA,
+          RI,
+          SC,
+          SD,
+          TN,
+          TX,
+          UT,
+          VT,
+          VA,
+          WA,
+          WV,
+          WI,
+          WY,
+        ]
 
     Event:
       type: object
@@ -1526,6 +1684,9 @@ components:
                 - SEAT_TAKEN
                 - LAYOUT_IN_USE
                 - TICKET_LIMIT_REACHED
+                - ADDRESS_NOT_FOUND
+                - ADDRESS_AMBIGUOUS
+                - ADDRESS_SERVICE_UNAVAILABLE
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -1570,6 +1731,62 @@ components:
                 fields:
                   endsAt: must be later than startsAt
                   seatingCapacity: must be a positive whole number
+
+    AddressRejected:
+      description: |
+        Request shape or field validation failed (`VALIDATION_FAILED`), or, for a venue address
+        (feature 013), the address service found no match (`ADDRESS_NOT_FOUND`) or more than one
+        (`ADDRESS_AMBIGUOUS`, with up to 5 matches in `details.candidates`, each in the one-line form
+        `STREET, CITY, ST ZIP`, or as the service returned it when it cannot be split). A match the
+        Backend cannot split is reported as `ADDRESS_NOT_FOUND`. Nothing was saved.
+        After either address refusal, the client may resend the same request with
+        `acceptUnverifiedAddress: true` to save the venue as not verified.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            validationFailed:
+              summary: A field is missing or malformed
+              value:
+                error:
+                  code: VALIDATION_FAILED
+                  message: Request validation failed.
+                  details:
+                    fields: ['zip must be 5 digits, or 5 digits, a hyphen, and 4 digits']
+            addressNotFound:
+              summary: The address service found no such US address
+              value:
+                error:
+                  code: ADDRESS_NOT_FOUND
+                  message: "We couldn't find 1 Nowhere Blvd, Louisville, KY 40202 as a US address. Check the street, city, state, and ZIP code."
+                  details:
+                    address: '1 Nowhere Blvd, Louisville, KY 40202'
+            addressAmbiguous:
+              summary: The address matches more than one US address
+              value:
+                error:
+                  code: ADDRESS_AMBIGUOUS
+                  message: '100 Main St, Springfield, IL 62701 matches more than one US address. Enter one of these.'
+                  details:
+                    address: '100 Main St, Springfield, IL 62701'
+                    candidates:
+                      [
+                        '100 N MAIN ST, SPRINGFIELD, IL 62701',
+                        '100 S MAIN ST, SPRINGFIELD, IL 62701',
+                      ]
+
+    AddressServiceUnavailable:
+      description: |
+        Feature 013: the address service could not be reached, did not answer within 5 seconds,
+        or answered with an error, so the address could not be verified. Nothing was saved. The
+        same request may succeed later.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: ADDRESS_SERVICE_UNAVAILABLE
+              message: "We can't verify the address right now. Nothing was saved. Try again in a minute."
 
     NotFound:
       description: The referenced resource does not exist.
