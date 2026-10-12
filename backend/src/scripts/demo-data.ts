@@ -64,12 +64,18 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
 
   const arena = await locations.create({
     name: DEMO_VENUE,
-    address: '1 Demo Plaza, Louisville, KY',
+    street: '937 Phillips Ln',
+    city: 'Louisville',
+    state: 'KY',
+    zip: '40209',
     seatingCapacity: 2000,
   });
   const hall = await locations.create({
     name: 'Demo Riverside Hall',
-    address: '200 River Rd, Lexington, KY',
+    street: '430 W Vine St',
+    city: 'Lexington',
+    state: 'KY',
+    zip: '40507',
     seatingCapacity: 400,
   });
 

@@ -1,4 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
+import { ADDRESS } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -20,7 +21,7 @@ describe('Venue deletion is restricted while events exist', () => {
       .post('/locations')
       .send({
         name: 'Cardinal Stadium',
-        address: '2800 S Floyd St, Louisville, KY',
+        ...ADDRESS,
         seatingCapacity: 60000,
       })
       .expect(201);
@@ -63,7 +64,7 @@ describe('Venue deletion is restricted while events exist', () => {
   async function venueWithEvents(n: number, name = 'Yum Center') {
     const { body: venue } = await asAdmin(ctx)
       .post('/locations')
-      .send({ name, address: '1 Arena Plaza', seatingCapacity: 22090 })
+      .send({ name, ...ADDRESS, seatingCapacity: 22090 })
       .expect(201);
     for (let i = 0; i < n; i++) {
       await asAdmin(ctx)

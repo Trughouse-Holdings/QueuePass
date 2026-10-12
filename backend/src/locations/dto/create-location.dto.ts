@@ -1,8 +1,16 @@
 import { Transform } from 'class-transformer';
-import { IsInt, IsPositive, IsString, Length } from 'class-validator';
-
-const trim = ({ value }: { value: unknown }): unknown =>
-  typeof value === 'string' ? value.trim() : value;
+import {
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Length,
+  Matches,
+} from 'class-validator';
+import { ZIP_PATTERN } from '@queuepass/shared';
+import { MESSAGES, STATE_CODES, trim } from './address-fields';
 
 export class CreateLocationDto {
   /** Trimmed before length-checking, so "   " fails rather than passing as length 3 (FR-012). */
@@ -11,10 +19,28 @@ export class CreateLocationDto {
   @Length(1, 200, { message: 'name must be between 1 and 200 characters' })
   name!: string;
 
+  /** Spec 013 FR-001: the address as four fields; the Backend builds `address` from them. */
   @Transform(trim)
-  @IsString({ message: 'address must be a string' })
-  @Length(1, 500, { message: 'address must be between 1 and 500 characters' })
-  address!: string;
+  @IsString({ message: 'street must be a string' })
+  @Length(1, 200, { message: MESSAGES.street })
+  street!: string;
+
+  @Transform(trim)
+  @IsString({ message: 'city must be a string' })
+  @Length(1, 100, { message: MESSAGES.city })
+  city!: string;
+
+  @IsIn(STATE_CODES, { message: MESSAGES.state })
+  state!: string;
+
+  @IsString({ message: 'zip must be a string' })
+  @Matches(ZIP_PATTERN, { message: MESSAGES.zip })
+  zip!: string;
+
+  /** Spec 013 FR-019 "save anyway"; never skips the lookup (research R2). */
+  @IsOptional()
+  @IsBoolean({ message: MESSAGES.acceptUnverifiedAddress })
+  acceptUnverifiedAddress?: boolean;
 
   @IsInt({ message: 'seatingCapacity must be a whole number' })
   @IsPositive({ message: 'seatingCapacity must be a positive whole number' })

@@ -1,4 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
+import { ADDRESS } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -22,11 +23,11 @@ describe('Scheduling conflict on update', () => {
 
     const { body: a } = await asAdmin(ctx)
       .post('/locations')
-      .send({ name: 'Venue A', address: '1 A St', seatingCapacity: 20000 })
+      .send({ name: 'Venue A', ...ADDRESS, seatingCapacity: 20000 })
       .expect(201);
     const { body: b } = await asAdmin(ctx)
       .post('/locations')
-      .send({ name: 'Venue B', address: '2 B St', seatingCapacity: 20000 })
+      .send({ name: 'Venue B', ...ADDRESS, seatingCapacity: 20000 })
       .expect(201);
     venueA = a.id;
     venueB = b.id;

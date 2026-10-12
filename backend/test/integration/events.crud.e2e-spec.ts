@@ -1,4 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
+import { ADDRESS } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -21,7 +22,7 @@ describe('Event CRUD persistence', () => {
     await resetDb(ctx.prisma);
     const { body } = await asAdmin(ctx)
       .post('/locations')
-      .send({ name: 'Yum Center', address: '1 Arena Plaza', seatingCapacity: 22090 })
+      .send({ name: 'Yum Center', ...ADDRESS, seatingCapacity: 22090 })
       .expect(201);
     venueId = body.id;
   });
@@ -72,7 +73,7 @@ describe('Event CRUD persistence', () => {
   it('filters by locationId', async () => {
     const { body: other } = await asAdmin(ctx)
       .post('/locations')
-      .send({ name: 'Freedom Hall', address: '937 Phillips Ln', seatingCapacity: 19000 })
+      .send({ name: 'Freedom Hall', ...ADDRESS, seatingCapacity: 19000 })
       .expect(201);
     await asAdmin(ctx).post('/events').send(event()).expect(201);
     await asAdmin(ctx)

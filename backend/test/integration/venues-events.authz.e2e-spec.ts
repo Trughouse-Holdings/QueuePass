@@ -1,4 +1,5 @@
 import { anon, as, asAdmin } from '../setup/authed-request';
+import { ADDRESS } from '../setup/fixtures';
 import { resetDb } from '../setup/reset-db';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { AGENT, CUSTOMER, tokenFor } from '../setup/tokens';
@@ -26,7 +27,7 @@ describe('Venue and event endpoints: authorization', () => {
     await resetDb(ctx.prisma);
     const venue = await asAdmin(ctx)
       .post('/locations')
-      .send({ name: 'Yum Center', address: '1 Arena Plaza', seatingCapacity: 22090 })
+      .send({ name: 'Yum Center', ...ADDRESS, seatingCapacity: 22090 })
       .expect(201);
     venueId = venue.body.id;
     const event = await asAdmin(ctx)
@@ -47,7 +48,7 @@ describe('Venue and event endpoints: authorization', () => {
     {
       name: 'createLocation',
       run: (c: ReturnType<typeof as>) =>
-        c.post('/locations').send({ name: 'X', address: 'Y', seatingCapacity: 1 }),
+        c.post('/locations').send({ name: 'X', ...ADDRESS, seatingCapacity: 1 }),
     },
     {
       name: 'updateLocation',
@@ -120,7 +121,7 @@ describe('Venue and event endpoints: authorization', () => {
   it('refuses a non-admin delete of an EMPTY venue with 403, not the 409 events path', async () => {
     const { body: empty } = await asAdmin(ctx)
       .post('/locations')
-      .send({ name: 'Empty Hall', address: '2 Arena Plaza', seatingCapacity: 100 })
+      .send({ name: 'Empty Hall', ...ADDRESS, seatingCapacity: 100 })
       .expect(201);
     for (const role of ['customer', 'agent'] as const) {
       const res = await as(ctx, tokens[role]).delete(`/locations/${empty.id}`).expect(403);

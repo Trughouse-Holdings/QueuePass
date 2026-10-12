@@ -52,7 +52,7 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `013-venue-address-validation-impl` from an up-to-date `main`, run `npm install` and
+- [x] T001 Cut `013-venue-address-validation-impl` from an up-to-date `main`, run `npm install` and
   `npm test` from the repository root, and confirm the suite is green before any change (baseline).
 
 ---
@@ -62,29 +62,29 @@ and confirm they **fail** before the implementation tasks below them.
 **Purpose**: shared types, storage, the geocoder plumbing, and every existing venue test moved to
 the four fields, with the happy path working through the fake.
 
-- [ ] T002 [P] **Test first.** Create `packages/shared/test/location.test.ts`: `US_STATES` has 51
+- [x] T002 [P] **Test first.** Create `packages/shared/test/location.test.ts`: `US_STATES` has 51
   unique codes including `DC` and no territory; `ZIP_PATTERN` accepts `40507` and `40507-1234`,
   refuses `4050`, `405071`, `40507-123`, and `ABCDE`; `formatAddress` gives
   `430 W VINE ST, LEXINGTON, KY 40507`; `mapsUrl` encodes spaces, commas, `#`, and `&` (for
   example `1 A St #2 & B`) with `encodeURIComponent` after
   `https://www.google.com/maps/search/?api=1&query=`.
-- [ ] T003 [P] In `packages/shared/src/location.ts`, add `US_STATES`, `UsState`, `ZIP_PATTERN`,
+- [x] T003 [P] In `packages/shared/src/location.ts`, add `US_STATES`, `UsState`, `ZIP_PATTERN`,
   `formatAddress`, `mapsUrl`, `streetMaxLength: 200` and `cityMaxLength: 100` in
   `LOCATION_LIMITS`; add `street`, `city`, `state`, `zip` (`… | null`) and `addressVerified:
   boolean` to `Location`; replace `address` in `LocationInput` with `street`, `city`, `state:
   UsState`, `zip`, and optional `acceptUnverifiedAddress: boolean` (data-model.md). Export the
   new names from `packages/shared/src/index.ts`. Run T002 until it passes.
-- [ ] T004 [P] **Test first.** Create `backend/test/unit/us-states.spec.ts`: the codes of
+- [x] T004 [P] **Test first.** Create `backend/test/unit/us-states.spec.ts`: the codes of
   `US_STATES` equal the contract's `components.schemas.UsState.enum` (as sets), and every code in
   the contract's `ErrorEnvelope` enum is in `ERROR_CODES`. Load the contract the way
   `backend/test/contract/expect-to-match-contract.ts` does. Confirm the second test fails.
-- [ ] T005 [P] In `packages/shared/src/errors.ts`, add `'ADDRESS_NOT_FOUND'`,
+- [x] T005 [P] In `packages/shared/src/errors.ts`, add `'ADDRESS_NOT_FOUND'`,
   `'ADDRESS_AMBIGUOUS'`, `'ADDRESS_SERVICE_UNAVAILABLE'` to `ERROR_CODES`, last, in the contract's
   order, with a `// Spec 013` comment. If `'TICKET_LIMIT_REACHED'` is missing (`016`'s
   implementation, #32, not yet merged), add it before them with a `// Spec 016` comment (ground
   rules). Without the codes the exception filter rewrites the `503` (data-model.md). Run T004
   until it passes.
-- [ ] T006 **Test first.** Create `backend/test/integration/locations.legacy-address.e2e-spec.ts`
+- [x] T006 **Test first.** Create `backend/test/integration/locations.legacy-address.e2e-spec.ts`
   with the storage tests (direct writes with `ctx.prisma`), and confirm they fail before T007:
   - a venue with only `address` (parts `NULL`) is accepted and reads back `addressVerified:
     false` (the default);
@@ -94,19 +94,19 @@ the four fields, with the happy path working through the fake.
     (`location_address_matches_parts`); the matching `address` is accepted, with
     `addressVerified` `true` or `false`;
   - `addressVerified: true` with `NULL` parts is refused (`location_verified_has_parts`).
-- [ ] T007 Add `street String? @db.VarChar(200)`, `city String? @db.VarChar(100)`,
+- [x] T007 Add `street String? @db.VarChar(200)`, `city String? @db.VarChar(100)`,
   `state String? @db.VarChar(2)`, `zip String? @db.VarChar(5)`, and `addressVerified Boolean
   @default(false)` to `model Location` in `backend/prisma/schema.prisma`, with a comment citing
   spec 013 FR-001 and FR-020. Create
   `backend/prisma/migrations/20261011120000_venue_address_parts/migration.sql` exactly as in
   data-model.md (no backfill beyond the column default). Apply with `prisma migrate deploy`
   (never `db push`). Run T006 until it passes.
-- [ ] T008 Create `backend/src/address/address-geocoder.ts`: `export const ADDRESS_GEOCODER =
+- [x] T008 Create `backend/src/address/address-geocoder.ts`: `export const ADDRESS_GEOCODER =
   Symbol('ADDRESS_GEOCODER')`; `AddressParts { street; city; state; zip }`; `GeocodeResult` (`match`
   with parts, `none`, `many` with `candidates`); `interface AddressGeocoder { lookup(parts):
   Promise<GeocodeResult> }`; `class AddressServiceUnavailableError extends Error` with a `cause`
   (research R1).
-- [ ] T009 **Test first.** Create `backend/test/unit/census-geocoder.spec.ts`, which starts a
+- [x] T009 **Test first.** Create `backend/test/unit/census-geocoder.spec.ts`, which starts a
   `node:http` server on `127.0.0.1:0` per test and builds `new CensusGeocoder({ baseUrl, timeoutMs
   })` against it:
   - the request path is `/geocoder/locations/address` with `street`, `city`, `state`, `zip` (first
@@ -125,13 +125,13 @@ the four fields, with the happy path working through the fake.
   - a server that never answers, with `timeoutMs: 200` → throws within 1 second; one that answers
     at 100 ms with `timeoutMs: 200` → succeeds (both sides);
   - a closed port → throws `AddressServiceUnavailableError`.
-- [ ] T010 Create `backend/src/address/census-geocoder.ts` implementing T009 with global `fetch`
+- [x] T010 Create `backend/src/address/census-geocoder.ts` implementing T009 with global `fetch`
   and `AbortSignal.timeout(timeoutMs)` (default 5000), no retry (research R1, R3, R6). Create
   `backend/src/address/address.module.ts` providing `ADDRESS_GEOCODER` with a factory: `new
   CensusGeocoder({ baseUrl: process.env.ADDRESS_GEOCODER_URL ??
   'https://geocoding.geo.census.gov' })`, exported. Import it in
   `backend/src/locations/locations.module.ts`. Run T009 until it passes.
-- [ ] T011 Create `backend/test/setup/fake-geocoder.ts`: `FakeGeocoder implements AddressGeocoder`.
+- [x] T011 Create `backend/test/setup/fake-geocoder.ts`: `FakeGeocoder implements AddressGeocoder`.
   Default answer: `match` with the input trimmed, upper-cased, and the ZIP cut to 5 digits. A test
   sets `next(answer)` for one call, or `always(answer)` until `reset()` (`none`, `many` with
   candidates, `unavailable` which throws `AddressServiceUnavailableError`, or a specific
@@ -140,7 +140,7 @@ the four fields, with the happy path working through the fake.
   `calls` records each input. In `backend/test/setup/test-app.ts`, override `ADDRESS_GEOCODER`
   with a new `FakeGeocoder` (next to the `JWKS` override) and add `geocoder: FakeGeocoder` to
   `TestContext`.
-- [ ] T012 **Test first.** Extend `backend/test/integration/locations.crud.e2e-spec.ts`: create with
+- [x] T012 **Test first.** Extend `backend/test/integration/locations.crud.e2e-spec.ts`: create with
   the four fields → `201`, the four parts in the fake's standard form, `address`
   `430 W VINE ST, LEXINGTON, KY 40507`, `addressVerified: true`, matching the contract;
   `GET /locations/{id}` and `GET /events/{id}` (embedded `location`) carry the parts and
@@ -149,7 +149,7 @@ the four fields, with the happy path working through the fake.
   `'40507-12'`; `street` of 201 characters and `city` of 101 (and 200 / 100 accepted, both sides);
   `acceptUnverifiedAddress: 'yes'`; a body with `address` → each `400 VALIDATION_FAILED` naming
   the field, and the fake was **not** called.
-- [ ] T013 In `backend/test/setup/fixtures.ts`, export `ADDRESS = { street: '430 W Vine St', city:
+- [x] T013 In `backend/test/setup/fixtures.ts`, export `ADDRESS = { street: '430 W Vine St', city:
   'Lexington', state: 'KY', zip: '40507' }` (an address the real service matches, research R9)
   and use it in `venue()`. Replace every `address: '…'` in a `POST /locations` body with
   `...ADDRESS` (or four fields of its own where a test needs a distinct address) in:
@@ -159,12 +159,12 @@ the four fields, with the happy path working through the fake.
   `locations.search`, `tiers.authz`, `tiers.capacity`, `tiers.crud`, `venues-events.authz` (all
   `backend/test/integration/*.e2e-spec.ts`). In `locations.search.e2e-spec.ts`, give each venue a
   different city so the "matches the address, such as a city" test still means what it says.
-- [ ] T014 In `backend/src/locations/dto/create-location.dto.ts` and `update-location.dto.ts`,
+- [x] T014 In `backend/src/locations/dto/create-location.dto.ts` and `update-location.dto.ts`,
   replace `address` with `street` (trim, 1–200), `city` (trim, 1–100), `state` (`@IsIn` the
   `US_STATES` codes), `zip` (`@Matches(ZIP_PATTERN)`), and add optional
   `acceptUnverifiedAddress` (`@IsBoolean`), with messages naming the field and the rule
   (address fields optional in the update DTO).
-- [ ] T015 In `backend/src/locations/locations.service.ts` `create`, call
+- [x] T015 In `backend/src/locations/locations.service.ts` `create`, call
   `this.geocoder.lookup(parts)` (injected with `@Inject(ADDRESS_GEOCODER)`); on `match`, write the
   matched parts, `address: formatAddress(parts)`, and `addressVerified: true` in one
   `location.create`. Every response includes the five fields. (Refusals and save anyway come in

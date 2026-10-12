@@ -1,4 +1,5 @@
 import { anon, as, asAdmin } from '../setup/authed-request';
+import { ADDRESS } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, CUSTOMER, tokenFor } from '../setup/tokens';
@@ -23,7 +24,7 @@ describe('Ticket tier authorization', () => {
     await resetDb(ctx.prisma);
     const { body: venue } = await asAdmin(ctx)
       .post('/locations')
-      .send({ name: 'Yum Center', address: '1 Arena Plaza', seatingCapacity: 22090 });
+      .send({ name: 'Yum Center', ...ADDRESS, seatingCapacity: 22090 });
     const { body: event } = await asAdmin(ctx).post('/events').send({
       name: 'Season Opener',
       locationId: venue.id,

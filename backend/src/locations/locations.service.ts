@@ -2,10 +2,13 @@ import {
   BadRequestException,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type { Location } from '@prisma/client';
+import { formatAddress } from '@queuepass/shared';
+import { ADDRESS_GEOCODER, AddressGeocoder } from '../address/address-geocoder';
 import { searchText } from '../common/search-text';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLocationDto } from './dto/create-location.dto';
@@ -13,10 +16,30 @@ import { UpdateLocationDto } from './dto/update-location.dto';
 
 @Injectable()
 export class LocationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(ADDRESS_GEOCODER) private readonly geocoder: AddressGeocoder,
+  ) {}
 
-  create(dto: CreateLocationDto): Promise<Location> {
-    return this.prisma.location.create({ data: dto });
+  async create(dto: CreateLocationDto): Promise<Location> {
+    const { street, city, state, zip, name, seatingCapacity } = dto;
+    const result = await this.geocoder.lookup({ street, city, state, zip });
+    if (result.kind !== 'match') throw new Error('not yet implemented');
+    const parts = {
+      street: result.street,
+      city: result.city,
+      state: result.state,
+      zip: result.zip,
+    };
+    return this.prisma.location.create({
+      data: {
+        name,
+        seatingCapacity,
+        ...parts,
+        address: formatAddress(parts),
+        addressVerified: true,
+      },
+    });
   }
 
   /** Spec 004 FR-007: `q` matches name or address, ignoring case; name order is unchanged. */
@@ -88,7 +111,10 @@ export class LocationsService {
       }
     }
 
-    return this.prisma.location.update({ where: { id }, data: dto });
+    return this.prisma.location.update({
+      where: { id },
+      data: { name: dto.name, seatingCapacity: dto.seatingCapacity },
+    });
   }
 
   async remove(id: string): Promise<void> {
