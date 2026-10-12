@@ -429,10 +429,10 @@ its name without a check, and is verified when its address is filled in.
   save anyway, and map links in "Today", note that saving a new venue address needs internet
   (the Census Geocoder) and the `ADDRESS_GEOCODER_URL` variable, note that `demo-data` works
   offline with unverified venues, and keep the reserved-features line accurate.
-- [ ] T039 Run `npm run lint` and `npm test` from the repository root; everything passes,
+- [x] T039 Run `npm run lint` and `npm test` from the repository root; everything passes,
   including `check-contract-drift`. Also run `npm run build` in `admin-app` and `customer-app`
   (their `tsc --noEmit`).
-- [ ] T040 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
+- [x] T040 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' and `packages/shared` coverage if a provider is installed) in the PR
   description. The 80% floor is not yet blocking (Constitution VI deferral until `010` and `011`).
 - [ ] T041 Running-system gate: `docker compose up --build` online, walk quickstart.md S1–S9
