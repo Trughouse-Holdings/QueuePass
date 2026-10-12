@@ -498,6 +498,18 @@ its name without a check, and is verified when its address is filled in.
     verified. Default URL restored, database re-seeded.
   - Smoke: signed in, used, and signed out of the Admin app (`admin1`) and the Customer app
     (`customer1`). The Ticket Booth app is untouched by 013 and was not repeated.
+  **Re-run after FR-021 (f086909, 3f37055)**, on a stack built from 3f37055:
+  - S1b: Kroger Field, 1540 University Dr, Lexington, KY 40508 → refused: "We found a different
+    US address for 1540 University Dr, Lexington, KY 40508. Did you mean this one? Enter it to
+    use it." with the candidate "1540 UNIVERSITY CT, LEXINGTON, KY 40503" and Save anyway; Save
+    anyway → "Venue saved. Address (not verified): 1540 University Dr, Lexington, KY 40508."
+  - S1: Rupp Arena, 430 W Vine St 40507 → saved verified as "430 W VINE ST, LEXINGTON, KY 40507".
+  - S5/S8 address: 937 Phillips Ln, Louisville 40209 → saved verified as "937 PHILLIPS LN,
+    LOUISVILLE, KY 40209".
+  - Also checked live against Census on 2026-10-12 (15 real KY venues): 12 match and are
+    verified unchanged; KFC Yum! Center is not found (Save anyway); Iroquois Amphitheater matches
+    with Census's own spelling "1080 AMPHLITHEATER RD" (ZIP code and house number kept, so
+    verified; a data quirk of the service); Kroger Field is refused under FR-021 as above.
 - [x] T042 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
