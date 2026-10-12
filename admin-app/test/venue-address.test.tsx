@@ -195,6 +195,40 @@ describe('Address refusals and Save anyway', () => {
     expect(screen.getByRole('button', { name: SAVE_ANYWAY })).toBeInTheDocument();
   });
 
+  it('shows a single different match as "did you mean", with Save anyway (FR-021)', async () => {
+    const moved = {
+      error: {
+        code: 'ADDRESS_AMBIGUOUS',
+        message:
+          'We found a different US address for 1540 University Dr, Lexington, KY 40508. ' +
+          'Did you mean this one? Enter it to use it.',
+        details: {
+          address: '1540 University Dr, Lexington, KY 40508',
+          candidates: ['1540 UNIVERSITY CT, LEXINGTON, KY 40503'],
+        },
+      },
+    };
+    stubApi({ 'POST /locations': json(moved, 400) });
+    renderAt('/locations/new');
+    fill({
+      Name: 'Kroger Field',
+      'Street address': '1540 University Dr',
+      City: 'Lexington',
+      'ZIP code': '40508',
+    });
+    create();
+    const banner = await screen.findByTestId('error-banner');
+    expect(banner).toHaveTextContent('Did you mean this one?');
+    expect(
+      within(banner)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['1540 UNIVERSITY CT, LEXINGTON, KY 40503']);
+    expect(field('Street address').value).toBe('1540 University Dr');
+    expect(field('ZIP code').value).toBe('40508');
+    expect(screen.getByRole('button', { name: SAVE_ANYWAY })).toBeInTheDocument();
+  });
+
   it('resends the same values with the flag, and the list shows the not-verified notice', async () => {
     let n = 0;
     const api = stubApi({

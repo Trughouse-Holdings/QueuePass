@@ -101,6 +101,36 @@ describe('Venue address check on edit (spec 013)', () => {
     expect(await row()).toEqual(before);
   });
 
+  it('refuses a changed address whose one match moves the ZIP code, venue unchanged (FR-021)', async () => {
+    const before = await row();
+    ctx.geocoder.next({
+      kind: 'match',
+      street: '937 PHILLIPS LN',
+      city: 'LOUISVILLE',
+      state: 'KY',
+      zip: '40213',
+    });
+    const res = await patch(moved).expect(400);
+    expect(res.body.error.code).toBe('ADDRESS_AMBIGUOUS');
+    expect(res.body.error.details.candidates).toEqual(['937 PHILLIPS LN, LOUISVILLE, KY 40213']);
+    expect(await row()).toEqual(before);
+  });
+
+  it('saves anyway a changed address whose one match moves the house number', async () => {
+    ctx.geocoder.next({
+      kind: 'match',
+      street: '973 PHILLIPS LN',
+      city: 'LOUISVILLE',
+      state: 'KY',
+      zip: '40209',
+    });
+    const res = await patch({ ...moved, acceptUnverifiedAddress: true }).expect(200);
+    expect(res.body).toMatchObject({
+      address: '937 Phillips Ln, Louisville, KY 40209',
+      addressVerified: false,
+    });
+  });
+
   it('saves a changed address anyway after no match: as typed, not verified', async () => {
     ctx.geocoder.next({ kind: 'none' });
     const res = await patch({ ...moved, acceptUnverifiedAddress: true }).expect(200);

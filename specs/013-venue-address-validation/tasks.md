@@ -445,6 +445,22 @@ its name without a check, and is verified when its address is filled in.
 - [x] T040 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' and `packages/shared` coverage if a provider is installed) in the PR
   description. The 80% floor is not yet blocking (Constitution VI deferral until `010` and `011`).
+- [x] T045 **Test first.** After live testing (Kroger Field, research R3, FR-021): create
+  `backend/test/unit/address-match.spec.ts` (house number read from the street; a match with
+  another ZIP code or house number refused; the same ZIP code and house number with the street in
+  standard form accepted; a typed ZIP+4 compared by its first 5 digits; a corrected city
+  accepted). Extend `locations.address.e2e-spec.ts` (a moved ZIP code or house number on create →
+  `400 ADDRESS_AMBIGUOUS` with that one candidate and the "did you mean" message, nothing saved;
+  Save anyway saves what was typed, not verified; entering the shown address saves it verified;
+  the "corrects a field" test now corrects only the city and street spelling) and
+  `locations.address-edit.e2e-spec.ts` (a moved match on edit → 400, venue unchanged; Save anyway
+  saves as typed). Extend `admin-app/test/venue-address.test.tsx` with the one-candidate message.
+  Confirm they fail.
+- [x] T046 Create `backend/src/locations/address-match.ts` (`houseNumber`, `matchesTyped`) and use
+  it in `LocationsService`: one match that fails it is refused as `ADDRESS_AMBIGUOUS` with that
+  candidate, or saved as typed and not verified with `acceptUnverifiedAddress`. The geocoder is
+  unchanged. Reword the `ADDRESS_AMBIGUOUS` descriptions in `contracts/openapi.yaml` (still
+  1.7.0), regenerate `api-schema.ts`, and run the drift check. Run T045 until it passes.
 - [x] T041 Running-system gate: `docker compose up --build` online, walk quickstart.md S1–S9
   (including S2b) in the browser, and sign in, use, and sign out of each front end. Record the
   results in this file.

@@ -123,7 +123,7 @@ describe('Venue address check on create (spec 013)', () => {
     expect(await ctx.prisma.location.count()).toBe(0);
   });
 
-  it('saves the corrected parts when the service corrects a field', async () => {
+  it('saves the corrected parts when the service corrects the city', async () => {
     ctx.geocoder.next({
       kind: 'match',
       street: '2301 S 3RD ST',
@@ -133,7 +133,13 @@ describe('Venue address check on create (spec 013)', () => {
     });
     const res = await asAdmin(ctx)
       .post('/locations')
-      .send({ ...venue, street: '2301 S 3rd St', city: 'Louisvile', state: 'KY', zip: '40292' })
+      .send({
+        ...venue,
+        street: '2301 South 3rd Street',
+        city: 'Louisvile',
+        state: 'KY',
+        zip: '40208',
+      })
       .expect(201);
     expect(res.body).toMatchObject({
       street: '2301 S 3RD ST',
@@ -141,6 +147,76 @@ describe('Venue address check on create (spec 013)', () => {
       zip: '40208',
       address: '2301 S 3RD ST, LOUISVILLE, KY 40208',
       addressVerified: true,
+    });
+  });
+
+  describe('one match that moves the ZIP code or house number (FR-021)', () => {
+    const kroger = {
+      name: 'Kroger Field',
+      street: '1540 University Dr',
+      city: 'Lexington',
+      state: 'KY',
+      zip: '40508',
+      seatingCapacity: 61000,
+    };
+    const moved = {
+      kind: 'match',
+      street: '1540 UNIVERSITY CT',
+      city: 'LEXINGTON',
+      state: 'KY',
+      zip: '40503',
+    } as const;
+
+    it('refuses a match with another ZIP code as ambiguous, offering it, nothing saved', async () => {
+      ctx.geocoder.next(moved);
+      const res = await asAdmin(ctx).post('/locations').send(kroger).expect(400);
+      expect(res.body.error).toEqual({
+        code: 'ADDRESS_AMBIGUOUS',
+        message:
+          'We found a different US address for 1540 University Dr, Lexington, KY 40508. ' +
+          'Did you mean this one? Enter it to use it.',
+        details: {
+          address: '1540 University Dr, Lexington, KY 40508',
+          candidates: ['1540 UNIVERSITY CT, LEXINGTON, KY 40503'],
+        },
+      });
+      expect(await ctx.prisma.location.count()).toBe(0);
+    });
+
+    it('refuses a match with another house number as ambiguous', async () => {
+      ctx.geocoder.next({ ...moved, street: '1504 UNIVERSITY DR', zip: '40508' });
+      const res = await asAdmin(ctx).post('/locations').send(kroger).expect(400);
+      expect(res.body.error.code).toBe('ADDRESS_AMBIGUOUS');
+      expect(res.body.error.details.candidates).toEqual([
+        '1504 UNIVERSITY DR, LEXINGTON, KY 40508',
+      ]);
+      expect(await ctx.prisma.location.count()).toBe(0);
+    });
+
+    it('saves anyway what was typed, not verified', async () => {
+      ctx.geocoder.next(moved);
+      const res = await asAdmin(ctx)
+        .post('/locations')
+        .send({ ...kroger, acceptUnverifiedAddress: true })
+        .expect(201);
+      expect(res.body).toMatchObject({
+        address: '1540 University Dr, Lexington, KY 40508',
+        street: '1540 University Dr',
+        zip: '40508',
+        addressVerified: false,
+      });
+    });
+
+    it('accepts the match once the admin enters it', async () => {
+      ctx.geocoder.next(moved);
+      const res = await asAdmin(ctx)
+        .post('/locations')
+        .send({ ...kroger, street: '1540 University Ct', zip: '40503' })
+        .expect(201);
+      expect(res.body).toMatchObject({
+        address: '1540 UNIVERSITY CT, LEXINGTON, KY 40503',
+        addressVerified: true,
+      });
     });
   });
 

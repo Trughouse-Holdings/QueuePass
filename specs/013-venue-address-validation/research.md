@@ -46,7 +46,8 @@ the status code of a non-2xx answer (R6), never its body, so it does not depend 
 
 An independent review re-ran the live service the same day: Freedom Hall, Rupp Arena, 350 Adams
 St, and the White House matched; 1 Arena Plaza had no match again; and
-`2301 S 3rd St, Louisville, KY 40292` matched with its ZIP code corrected to `40208` (R3).
+`2301 S 3rd St, Louisville, KY 40292` matched with its ZIP code corrected to `40208` (R3). Since
+the Kroger Field finding below, such a match is offered as a candidate rather than saved (R3).
 
 **Rationale**: Decided by the user, 2026-10-11: free, no key, no secret to manage (Constitution
 Security). One interface keeps tests off the network (R9) and lets a later feature swap the
@@ -65,7 +66,9 @@ chose Census). USPS Web Tools (needs registration). The Census one-line endpoint
 
 **Decision**: The client groups `addressMatches` by `matchedAddress`:
 
-- one distinct `matchedAddress` → `match` → saved in standard form, `addressVerified = true`;
+- one distinct `matchedAddress` → `match` → saved in standard form, `addressVerified = true`,
+  when it keeps the typed ZIP code and house number; otherwise refused as `ADDRESS_AMBIGUOUS`
+  with that one candidate (R3, FR-021);
 - none → `none`;
 - two or more distinct → `many` (up to the first 5).
 
@@ -113,13 +116,32 @@ the Admin app shows the saved address (FR-012).
   candidate that does not split is shown raw, as the service returned it: it is display text
   only, never saved, and dropping it could leave the admin wondering why the address was called
   ambiguous.
+- **A single match that moved** (added after live testing, decided by the user, 2026-10-11): the
+  Census service can answer one match that is a different place. Kroger Field, `1540 University
+  Dr, Lexington, KY 40508`, comes back as `1540 UNIVERSITY CT, LEXINGTON, KY, 40503`. So the one
+  match is trusted only when its ZIP code equals the typed ZIP code's first 5 digits and its house
+  number (the leading number token of the street, compared ignoring case) equals the typed one.
+  Otherwise `LocationsService` refuses with `400 ADDRESS_AMBIGUOUS`, message "We found a
+  different US address for {typed}. Did you mean this one? Enter it to use it.", and
+  `details.candidates` holding that match in our one-line form. The admin can enter it (which
+  then matches and is verified), or "Save anyway" (saved as typed, not verified). The check lives
+  in the service (`backend/src/locations/address-match.ts`), which knows what was typed; the
+  geocoder's job is unchanged. No new error code: the admin's next step is the same as for
+  several matches, and a new code would change the contract.
 
-**Rationale**: What the service vouched for is what is stored, so a typo the service corrected (a
-wrong ZIP code, "Lexinton") is not kept. One standard form also makes FR-008's "same address"
+**Rationale**: What the service vouched for is what is stored, so a typo the service corrected
+("Lexinton", "West Vine Street") is not kept. But a match that moved the ZIP code or house
+number may be another building, and saving it would silently replace what the admin typed with a
+wrong place, so it is shown, not saved. Comparing the whole street instead would reject good
+matches, because the service rewrites it ("West" → "W", "Street" → "ST", "Drive" → "DR"); the
+ZIP code and house number are the parts it does not rewrite. The city is not compared either:
+correcting it is what the service is for, and a moved ZIP code catches a match in another place. One standard form also makes FR-008's "same address"
 comparison reliable. A match we cannot read is no better than no match, and the admin should get
 the same way forward.
 
 **Alternatives considered**: Storing what the admin typed (keeps the typo the check forgave).
+Comparing the full street or city (rejects matches the service only normalized). A new error code
+for a moved match (a contract change for the same next step as `ADDRESS_AMBIGUOUS`).
 Title-casing the service's answer ("Mcdonald St", "Nw" are wrong more often than upper case is
 ugly; Constitution VII puts function first).
 

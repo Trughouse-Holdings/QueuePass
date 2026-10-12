@@ -1,0 +1,18 @@
+import type { AddressParts } from '../address/address-geocoder';
+
+/** The leading house number of a street ("1540 University Dr" → "1540"), or "" when none. */
+export function houseNumber(street: string): string {
+  return /^\d[^\s]*/.exec(street.trim())?.[0].toUpperCase() ?? '';
+}
+
+/**
+ * Spec 013 FR-021, research R3: the address service's one match is trusted only when it keeps
+ * the ZIP code (first 5 digits) and house number that were typed. The rest of the street is not
+ * compared, because the service writes it in its own standard form ("West Vine Street" →
+ * "W VINE ST"), and the city may be corrected.
+ */
+export function matchesTyped(typed: AddressParts, match: AddressParts): boolean {
+  return (
+    typed.zip.slice(0, 5) === match.zip && houseNumber(typed.street) === houseNumber(match.street)
+  );
+}
