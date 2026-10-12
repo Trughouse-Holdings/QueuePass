@@ -1,5 +1,6 @@
 import { runDemoData } from '../../src/scripts/demo-data';
 import { asAdmin } from '../setup/authed-request';
+import { ADDRESS } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -10,6 +11,7 @@ describe('Demo data', () => {
   beforeAll(async () => {
     ctx = await createTestApp();
     await resetDb(ctx.prisma);
+    ctx.geocoder.reset();
   });
   afterAll(async () => {
     await ctx.app.close();
@@ -22,6 +24,7 @@ describe('Demo data', () => {
       venues: 2,
       events: 3,
       cancelled: 'Holiday Gala',
+      unverifiedVenues: 0,
     });
     expect(summary.orders).toBeGreaterThan(30);
     expect(summary.checkedIn).toBeGreaterThan(0);
@@ -43,5 +46,68 @@ describe('Demo data', () => {
     const again = await runDemoData(ctx.app);
     expect(again.created).toBe(false);
     expect(await ctx.prisma.order.count()).toBe(before);
+  });
+
+  /** Spec 013 research R14: real addresses, and a demo that still works offline. */
+  describe('venue addresses (spec 013)', () => {
+    const venues = () =>
+      ctx.prisma.location.findMany({
+        where: { name: { in: ['Demo Riverside Hall', 'QueuePass Demo Arena'] } },
+        orderBy: { name: 'asc' },
+      });
+
+    it('gives both venues real addresses, verified, the Hall first', async () => {
+      // Created by the first test of this file, with the fake matching.
+      const [hall, arena] = await venues();
+      expect(hall).toMatchObject({
+        name: 'Demo Riverside Hall',
+        address: '430 W VINE ST, LEXINGTON, KY 40507',
+        addressVerified: true,
+      });
+      expect(arena).toMatchObject({
+        name: 'QueuePass Demo Arena',
+        address: '937 PHILLIPS LN, LOUISVILLE, KY 40209',
+        addressVerified: true,
+      });
+      expect(hall.createdAt.getTime()).toBeLessThanOrEqual(arena.createdAt.getTime());
+    });
+
+    it('completes while the address service is down, saving the venues not verified', async () => {
+      await resetDb(ctx.prisma);
+      ctx.geocoder.reset();
+      ctx.geocoder.always({ kind: 'unavailable' });
+      try {
+        const summary = await runDemoData(ctx.app);
+        expect(summary).toMatchObject({
+          created: true,
+          venues: 2,
+          events: 3,
+          cancelled: 'Holiday Gala',
+          unverifiedVenues: 2,
+        });
+        expect(ctx.geocoder.calls.map((c) => c.street)).toEqual([
+          '430 W Vine St',
+          '937 Phillips Ln',
+        ]);
+        const [hall, arena] = await venues();
+        expect(hall).toMatchObject({
+          address: '430 W Vine St, Lexington, KY 40507',
+          addressVerified: false,
+        });
+        expect(arena).toMatchObject({
+          address: '937 Phillips Ln, Louisville, KY 40209',
+          addressVerified: false,
+        });
+
+        // The API rule is unchanged: a request is still refused (FR-006).
+        const res = await asAdmin(ctx)
+          .post('/locations')
+          .send({ name: 'Walk-in Hall', ...ADDRESS, seatingCapacity: 10 })
+          .expect(503);
+        expect(res.body.error.code).toBe('ADDRESS_SERVICE_UNAVAILABLE');
+      } finally {
+        ctx.geocoder.reset();
+      }
+    });
   });
 });
