@@ -56,6 +56,8 @@ export function LocationForm(): React.ReactElement {
   const [name, setName] = useState('');
   const [address, setAddress] = useState<Address>(EMPTY);
   const [seatingCapacity, setSeatingCapacity] = useState('');
+  // Spec 013 research R13: the venue as loaded, for the not-verified notes on edit.
+  const [loaded, setLoaded] = useState<Location | null>(null);
   // Spec 007 FR-017: a venue with a seating layout takes its capacity from it.
   const [setByLayout, setSetByLayout] = useState(false);
   // Spec 008 US5: a new venue is seated (sections, capacity calculated) or general admission.
@@ -74,6 +76,7 @@ export function LocationForm(): React.ReactElement {
     if (!id) return;
     getLocation(id)
       .then((l) => {
+        setLoaded(l);
         setName(l.name);
         // A venue from before 013 has no parts: its fields start empty (research R13).
         setAddress({
@@ -90,6 +93,9 @@ export function LocationForm(): React.ReactElement {
       .catch(() => setSetByLayout(false));
   }, [id]);
 
+  // Spec 013 US4: a venue from before 013 has a one-line address and no parts.
+  const legacy = loaded !== null && loaded.street == null;
+
   function changeAddress(key: keyof Address, value: string): void {
     setAddress((a) => ({ ...a, [key]: value }));
     // The confirmation applies only to the address the admin saw refused.
@@ -101,7 +107,10 @@ export function LocationForm(): React.ReactElement {
     setLayoutRefused(null);
     setOfferSaveAnyway(false);
 
-    const found = addressProblems(address);
+    // A venue from before 013 may keep its old address: the four fields are sent only once one
+    // is filled in, and then all four are needed (research R13).
+    const sendAddress = !legacy || Object.values(address).some((v) => v.trim() !== '');
+    const found = sendAddress ? addressProblems(address) : [];
     setProblems(found);
     if (found.length > 0) return;
 
@@ -114,6 +123,7 @@ export function LocationForm(): React.ReactElement {
       zip: address.zip.trim(),
       ...(acceptUnverifiedAddress ? { acceptUnverifiedAddress: true } : {}),
     };
+    const sentParts = sendAddress ? parts : {};
     // Spec 008 R8: the contract needs a capacity; the layout saved next sets it for good.
     const capacity = seated ? totalSeats(lines) : Number(seatingCapacity);
 
@@ -123,7 +133,7 @@ export function LocationForm(): React.ReactElement {
       if (isEdit && id) {
         venue = await updateLocation(
           id,
-          setByLayout ? { name, ...parts } : { name, ...parts, seatingCapacity: capacity },
+          setByLayout ? { name, ...sentParts } : { name, ...sentParts, seatingCapacity: capacity },
         );
       } else {
         venue = await createLocation({ name, ...parts, seatingCapacity: capacity });
@@ -214,6 +224,15 @@ export function LocationForm(): React.ReactElement {
               onChange={(e) => setName(e.target.value)}
             />
           </div>
+
+          {legacy && loaded && (
+            <p className="note">
+              {`Current address (not verified): ${loaded.address}. Enter it below to verify it.`}
+            </p>
+          )}
+          {!legacy && loaded?.addressVerified === false && (
+            <p className="note">This address is not verified.</p>
+          )}
 
           <div className="field">
             <label htmlFor="street">Street address</label>

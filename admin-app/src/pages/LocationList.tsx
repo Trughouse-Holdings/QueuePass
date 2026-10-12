@@ -134,6 +134,13 @@ export function LocationList(): React.ReactElement {
                     </td>
                     <td className="cell-muted">
                       <AddressLink address={l.address} />
+                      {/* Spec 013 FR-017: in words, not color alone. */}
+                      {!l.addressVerified && (
+                        <>
+                          {' '}
+                          <span className="pill">Not verified</span>
+                        </>
+                      )}
                     </td>
                     <td className="cell-num">{l.seatingCapacity.toLocaleString()}</td>
                     <td className="cell-action">

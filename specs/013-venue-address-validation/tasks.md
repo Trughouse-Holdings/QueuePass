@@ -376,7 +376,7 @@ its name without a check, and is verified when its address is filled in.
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
-- [ ] T032 [P] [US4] Extend `backend/test/integration/locations.legacy-address.e2e-spec.ts`
+- [x] T032 [P] [US4] Extend `backend/test/integration/locations.legacy-address.e2e-spec.ts`
   (from T006), with a venue inserted by `ctx.prisma` with `address: '1 Demo Plaza, Louisville, KY'`
   and no parts:
   - `GET /locations` and `GET /locations/{id}` return it with `address` unchanged, the four
@@ -387,7 +387,7 @@ its name without a check, and is verified when its address is filled in.
   - an edit with the four fields → fake called; `match` replaces `address`, sets the parts, and
     `addressVerified: true`; `none` → `400`, row unchanged; `none` with
     `acceptUnverifiedAddress: true` → saved as typed, `addressVerified: false`.
-- [ ] T033 [P] [US4] Extend `admin-app/test/venue-address.test.tsx`:
+- [x] T033 [P] [US4] Extend `admin-app/test/venue-address.test.tsx`:
   - for any venue with `addressVerified: false` (legacy with `street: null`, and saved anyway),
     the venue list shows "Not verified" in a `.pill` after the address, and the venue page shows
     "Address not verified. Edit the venue to verify it." in a `.note`; a verified venue shows
@@ -400,7 +400,7 @@ its name without a check, and is verified when its address is filled in.
 
 ### Implementation for User Story 4
 
-- [ ] T034 [US4] In `admin-app/src/pages/LocationList.tsx`, `LocationDetail.tsx`, and
+- [x] T034 [US4] In `admin-app/src/pages/LocationList.tsx`, `LocationDetail.tsx`, and
   `LocationForm.tsx`, add the not-verified marks and the edit behavior from research R13, keyed
   on `addressVerified` (and on `street === null` for the legacy edit form), with the existing
   `.pill` and `.note` classes only. The Backend needs no change beyond Phase 3. Run T032 and

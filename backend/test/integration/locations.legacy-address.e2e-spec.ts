@@ -1,4 +1,6 @@
 import { formatAddress } from '@queuepass/shared';
+import { asAdmin } from '../setup/authed-request';
+import { windowAt } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -67,5 +69,95 @@ describe('Venue address storage (spec 013)', () => {
     await expect(insert({ address: '1 Demo Plaza', addressVerified: true })).rejects.toThrow(
       /location_verified_has_parts/,
     );
+  });
+
+  describe('a venue from before this feature (US4, FR-016)', () => {
+    let id: string;
+    const OLD = '1 Demo Plaza, Louisville, KY';
+    const moved = { street: '937 Phillips Ln', city: 'Louisville', state: 'KY', zip: '40209' };
+
+    beforeEach(async () => {
+      ctx.geocoder.reset();
+      id = (await insert({ name: 'Demo Arena', address: OLD, seatingCapacity: 2000 })).id;
+    });
+
+    const legacyShape = {
+      address: OLD,
+      street: null,
+      city: null,
+      state: null,
+      zip: null,
+      addressVerified: false,
+    };
+
+    it('reads back unchanged, with null parts and not verified', async () => {
+      const list = await asAdmin(ctx).get('/locations').expect(200);
+      expect(list.body[0]).toMatchObject(legacyShape);
+      const one = await asAdmin(ctx).get(`/locations/${id}`).expect(200);
+      expect(one.body).toMatchObject(legacyShape);
+    });
+
+    it('is found by a word in its address', async () => {
+      const res = await asAdmin(ctx).get('/locations?q=demo%20plaza').expect(200);
+      expect(res.body.map((v: { id: string }) => v.id)).toEqual([id]);
+    });
+
+    it('takes an event, which embeds it', async () => {
+      const ev = await asAdmin(ctx)
+        .post('/events')
+        .send({
+          name: 'Old Show',
+          locationId: id,
+          ...windowAt(400),
+          totalTicketCapacity: 100,
+          basePrice: '10.00',
+        })
+        .expect(201);
+      const got = await asAdmin(ctx).get(`/events/${ev.body.id}`).expect(200);
+      expect(got.body.location).toMatchObject(legacyShape);
+    });
+
+    it('saves a name-only edit without asking the service, still without parts', async () => {
+      const res = await asAdmin(ctx)
+        .patch(`/locations/${id}`)
+        .send({ name: 'Demo Arena II' })
+        .expect(200);
+      expect(ctx.geocoder.calls).toHaveLength(0);
+      expect(res.body).toMatchObject({ ...legacyShape, name: 'Demo Arena II' });
+    });
+
+    it('checks the four fields when filled in, and a match replaces the address, verified', async () => {
+      const res = await asAdmin(ctx).patch(`/locations/${id}`).send(moved).expect(200);
+      expect(ctx.geocoder.calls).toHaveLength(1);
+      expect(res.body).toMatchObject({
+        address: '937 PHILLIPS LN, LOUISVILLE, KY 40209',
+        street: '937 PHILLIPS LN',
+        city: 'LOUISVILLE',
+        state: 'KY',
+        zip: '40209',
+        addressVerified: true,
+      });
+    });
+
+    it('refuses an unmatched address and leaves the row unchanged', async () => {
+      const before = await ctx.prisma.location.findUniqueOrThrow({ where: { id } });
+      ctx.geocoder.next({ kind: 'none' });
+      const res = await asAdmin(ctx).patch(`/locations/${id}`).send(moved).expect(400);
+      expect(res.body.error.code).toBe('ADDRESS_NOT_FOUND');
+      expect(await ctx.prisma.location.findUniqueOrThrow({ where: { id } })).toEqual(before);
+    });
+
+    it('saves an unmatched address anyway as typed, not verified', async () => {
+      ctx.geocoder.next({ kind: 'none' });
+      const res = await asAdmin(ctx)
+        .patch(`/locations/${id}`)
+        .send({ ...moved, acceptUnverifiedAddress: true })
+        .expect(200);
+      expect(res.body).toMatchObject({
+        address: '937 Phillips Ln, Louisville, KY 40209',
+        street: '937 Phillips Ln',
+        addressVerified: false,
+      });
+    });
   });
 });

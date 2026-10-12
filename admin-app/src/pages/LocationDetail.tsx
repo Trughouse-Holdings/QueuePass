@@ -73,6 +73,10 @@ function VenueView({ venue, events }: { venue: Location; events: Event[] }): Rea
           <p className="page-sub">
             <AddressLink address={venue.address} />
           </p>
+          {/* Spec 013 FR-017. */}
+          {!venue.addressVerified && (
+            <p className="note">Address not verified. Edit the venue to verify it.</p>
+          )}
         </div>
         <div className="form__actions">
           <Link to={`/locations/${venue.id}/edit`} className="btn">

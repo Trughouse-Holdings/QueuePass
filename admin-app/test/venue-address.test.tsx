@@ -424,3 +424,87 @@ describe('Venue addresses as map links (US3)', () => {
     await expectMapLink(verified.address);
   });
 });
+
+describe('Venues whose address is not verified (US4, FR-017)', () => {
+  const MARK = 'Address not verified. Edit the venue to verify it.';
+  const noStyle = (el: HTMLElement) => {
+    expect(el).not.toHaveAttribute('style');
+    for (const child of Array.from(el.querySelectorAll('*'))) {
+      expect(child).not.toHaveAttribute('style');
+    }
+  };
+
+  it('marks each not-verified venue "Not verified" in a pill on the list, not a verified one', async () => {
+    stubApi({ 'GET /locations': json([verified, savedAnyway, legacy]) });
+    renderAt('/locations');
+    await screen.findByText(verified.name);
+    const rowOf = (name: string) => screen.getByRole('link', { name }).closest('tr') as HTMLElement;
+
+    for (const v of [savedAnyway, legacy]) {
+      const pill = within(rowOf(v.name)).getByText('Not verified');
+      expect(pill).toHaveClass('pill');
+      noStyle(pill);
+    }
+    expect(within(rowOf(verified.name)).queryByText('Not verified')).toBeNull();
+  });
+
+  it.each([
+    ['saved anyway', savedAnyway],
+    ['from before 013', legacy],
+  ])('marks a venue %s on its page in a note', async (_label, v) => {
+    stubApi({ [`GET ${PATH}`]: json(v), 'GET /events': json([]) });
+    renderAt(PATH);
+    const note = await screen.findByText(MARK);
+    expect(note).toHaveClass('note');
+    noStyle(note);
+  });
+
+  it('does not mark a verified venue on its page', async () => {
+    stubApi({ [`GET ${PATH}`]: json(verified), 'GET /events': json([]) });
+    renderAt(PATH);
+    await screen.findByRole('heading', { name: verified.name });
+    expect(screen.queryByText(MARK)).toBeNull();
+  });
+
+  it('shows a legacy venue its old address above empty fields, and sends no address when they stay empty', async () => {
+    const api = stubApi({
+      [`GET ${PATH}`]: json(legacy),
+      [`PATCH ${PATH}`]: json({ ...legacy, name: 'Demo Arena II' }),
+      'GET /locations': json([legacy]),
+    });
+    renderAt(`${PATH}/edit`);
+    const note = await screen.findByText(
+      'Current address (not verified): 1 Demo Plaza, Louisville, KY. Enter it below to verify it.',
+    );
+    expect(note).toHaveClass('note');
+    await waitFor(() => expect(field('Name').value).toBe('Demo Arena'));
+    for (const label of ['Street address', 'City', 'State', 'ZIP code']) {
+      expect(field(label).value).toBe('');
+    }
+
+    set('Name', 'Demo Arena II');
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    expect(writes(api)[0].body).toEqual({ name: 'Demo Arena II', seatingCapacity: 20500 });
+  });
+
+  it('requires all four once a legacy venue address field is filled in', async () => {
+    const api = stubApi({ [`GET ${PATH}`]: json(legacy) });
+    renderAt(`${PATH}/edit`);
+    await waitFor(() => expect(field('Name').value).toBe('Demo Arena'));
+    set('Street address', '937 Phillips Ln');
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('City');
+    expect(alert).toHaveTextContent('ZIP code');
+    expect(writes(api)).toHaveLength(0);
+  });
+
+  it('says a saved-anyway venue is not verified above its prefilled fields', async () => {
+    stubApi({ [`GET ${PATH}`]: json(savedAnyway) });
+    renderAt(`${PATH}/edit`);
+    const note = await screen.findByText('This address is not verified.');
+    expect(note).toHaveClass('note');
+    await waitFor(() => expect(field('Street address').value).toBe('1 Arena Plaza'));
+  });
+});
