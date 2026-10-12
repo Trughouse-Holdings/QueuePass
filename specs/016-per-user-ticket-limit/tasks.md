@@ -287,6 +287,11 @@ replaced by the reached message.
 - [X] T033 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' coverage if a provider is installed) in the PR description. The 80% floor is not
   yet blocking (Constitution VI deferral until `010` and `011`).
+  - 2026-10-12: `npx jest --coverage` in `backend`, 318 tests: 95.4% lines overall. 100% lines
+    for `common/event-lock.ts`, `events/availability.service.ts`, `events/events.service.ts`,
+    `events/events.controller.ts` and both event DTOs; `orders/orders.service.ts` 99.2%,
+    `seating/layout.service.ts` 96.3%, `scripts/demo-data.ts` 84.6% (`main()` isn't run in
+    tests). No front-end coverage provider is installed, so front-end coverage waits on `010`.
 - [X] T034 Running-system gate: `docker compose up --build`, then walk quickstart.md S1–S8 in the
   browser, and sign in, use, and sign out of each front end. Record the results in this file.
   - 2026-10-11, automated part: `docker compose up --build` brought every service up healthy;
@@ -296,10 +301,19 @@ replaced by the reached message.
     (S8). S6 is covered by `orders.ticket-limit.concurrency.e2e-spec.ts` in `npm test`.
   - 2026-10-11, by hand: the user walked through the Admin app (Safari) and the Customer app
     (Chrome) on this stack and reported it working.
-- [ ] T035 Independent review (Constitution III): a separate Claude session reviews the branch
+- [X] T035 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
-- [ ] T036 Open the implementation PR against `main` with `fixes #28` in its description.
+  - 2026-10-12, round 1 (dd878ff): no blocking. 1 should-fix: an edit that turns reserved
+    seating on sent the limit before the seating switch, so the Backend checked it against the
+    stored capacity, not the layout total the form checked. 2 minor: the seat picker blamed the
+    limit on a tie with the seats left (R3); `schema.prisma` column alignment. Fixed in acc0a94,
+    except the alignment (left open: `prisma format` rewrites other models too and would
+    conflict with 013).
+  - 2026-10-12, round 2 (acc0a94), by a fresh session: minor only. Open: the seat-picker message
+    still shows when the allowance equals the per-order cap of 10 (its text is still true);
+    the schema alignment.
+- [X] T036 Open the implementation PR against `main` with `fixes #28` in its description (#32).
 
 ---
 
