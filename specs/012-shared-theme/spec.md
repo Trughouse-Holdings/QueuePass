@@ -231,7 +231,9 @@ confirm both show the new accent on buttons, links, and the current navigation i
     theme step);
   - in both apps: spacing on app-specific screens moved by at most 2 pixels to the nearest theme
     step; and buttons in a form's button row line up (the first one no longer sits lower than the
-    rest), with the space above the row on a theme step.
+    rest), with the space above the row on a theme step: the gap between a button row's divider
+    and its buttons becomes 20 pixels (it was 29 for the first button and about 22 for the others,
+    so single-button rows such as Add tier and the seating save row lose 9 pixels).
 - **FR-013**: Every behavior MUST stay the same: the same text, controls, flows, and messages.
   Every existing test MUST still pass, except the two Customer app tests that check the copied
   styles. Their checks move to the shared code and check the theme instead, keeping every

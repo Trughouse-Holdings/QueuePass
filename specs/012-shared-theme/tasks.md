@@ -336,8 +336,15 @@ unchanged.
     theme's `.form__actions > :first-child { margin-top: 13px }` (copied from the old Admin
     stylesheet; it put the first button about 13px lower, e.g. Search vs Clear, Create venue vs
     Cancel) and its `.page-head` override are removed; the row's own `padding-top` becomes
-    `var(--space-5)` (was 16px). `tokens.test.ts` checks no rule offsets one child of the row;
-    spec FR-012 lists the change.
+    `var(--space-5)` (was 16px), so the gap between the row's divider and its buttons is 20px (was
+    29px for the first button and about 22px for the others; single-button rows such as Add tier
+    and the seating save row lose 9px). `tokens.test.ts` checks no rule offsets one child of the
+    row; spec FR-012 lists the change.
+  - Review round 4 (cecc16e): minor only. Open: the alignment guard reads `theme.css` only, and
+    only `>`/`+`/`~`/`:` selectors with a margin; acceptable, since app stylesheets are covered
+    by the drift checker's spacing steps. Live check on a stack built from cecc16e: Admin Events
+    search "Search" and "Clear" both at top 422; venue form "Create venue" and "Cancel" both at
+    top 1131.
 - [x] T029 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
