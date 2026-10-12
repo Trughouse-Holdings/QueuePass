@@ -189,17 +189,24 @@ export function GetTickets({ event }: { event: Event }) {
           ),
         )}`}</p>
       )}
-      {notice && <p role="alert">{notice}</p>}
+      {/* Spec 012 FR-010: refusals and the unknown outcome as the shared theme's banners. */}
+      {notice && (
+        <p role="alert" className="banner banner--error">
+          {notice}
+        </p>
+      )}
       {phase.kind === 'unknown' ? (
-        <div role="alert">
-          <p>We couldn&apos;t confirm whether your order went through.</p>
-          <p>
-            Check again, which never places a second order, or look for it in{' '}
-            <Link to="/my-tickets">My tickets</Link>.
-          </p>
-          <button type="button" className="btn btn--ghost" onClick={() => void confirm()}>
-            Check again
-          </button>
+        <div role="alert" className="banner banner--conflict">
+          <div className="banner__body">
+            <p>We couldn&apos;t confirm whether your order went through.</p>
+            <p>
+              Check again, which never places a second order, or look for it in{' '}
+              <Link to="/my-tickets">My tickets</Link>.
+            </p>
+            <button type="button" className="btn btn--ghost" onClick={() => void confirm()}>
+              Check again
+            </button>
+          </div>
         </div>
       ) : closed ? (
         <>

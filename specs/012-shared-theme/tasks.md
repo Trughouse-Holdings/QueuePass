@@ -208,10 +208,10 @@ unchanged.
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T016 [P] [US3] Create `packages/shared/test/web/service-unreachable.test.tsx`: renders one
+- [x] T016 [P] [US3] Create `packages/shared/test/web/service-unreachable.test.tsx`: renders one
   element with role `alert`, text "Can't reach the QueuePass service.", and classes `banner` and
   `banner--error`.
-- [ ] T017 [P] [US3] Create `customer-app/test/theme-classes.test.tsx` with `stubApi` and the
+- [x] T017 [P] [US3] Create `customer-app/test/theme-classes.test.tsx` with `stubApi` and the
   helpers in `customer-app/test/helpers.tsx`:
   - on an event page, the Get tickets confirm button has `btn` and `btn--primary`;
   - the Events page's Clear filters button (with filters matching nothing) has `btn` and
@@ -228,7 +228,7 @@ unchanged.
     status line found on `main` per T022;
   - with the API unreachable, the Events page shows "Can't reach the QueuePass service." with
     classes `banner banner--error`.
-- [ ] T018 [P] [US3] Create `admin-app/test/theme-classes.test.tsx` with `stubApi` from
+- [x] T018 [P] [US3] Create `admin-app/test/theme-classes.test.tsx` with `stubApi` from
   `admin-app/test/helpers/api-stub.ts`: with the API failing, the event, venue, attendees, and
   reports pages each show "Can't reach the QueuePass service." with role `alert` and classes
   `banner banner--error`; the New event form's save button has `btn btn--primary` and its
@@ -236,24 +236,29 @@ unchanged.
 
 ### Implementation for User Story 3
 
-- [ ] T019 [P] [US3] In `packages/shared/src/web/service-unreachable.tsx`, add
+- [x] T019 [P] [US3] In `packages/shared/src/web/service-unreachable.tsx`, add
   `className="banner banner--error"` to the paragraph (research R8).
-- [ ] T020 [P] [US3] In `admin-app/src/pages/Attendees.tsx`, `EventDetail.tsx`,
+- [x] T020 [P] [US3] In `admin-app/src/pages/Attendees.tsx`, `EventDetail.tsx`,
   `LocationDetail.tsx`, and `Reports.tsx`, add `className="banner banner--error"` to each
   "Can't reach the QueuePass service." paragraph.
-- [ ] T021 [P] [US3] In `customer-app/src/components/GetTickets.tsx`, add
+- [x] T021 [P] [US3] In `customer-app/src/components/GetTickets.tsx`, add
   `className="banner banner--error"` to the `notice` paragraph and
   `className="banner banner--conflict"` to the couldn't-confirm `div`, and wrap that `div`'s two
   paragraphs and Check again button in `<div className="banner__body">` (research R8). Text,
   role, and the Check again control stay as they are.
-- [ ] T022 [US3] Status lines from other features (research R8, R11; spec FR-010): search
+- [x] T022 [US3] Status lines from other features (research R8, R11; spec FR-010): search
   `admin-app/src` and `customer-app/src` for every element with `role="alert"` or
   `role="status"`, and every status sentence added since this plan (on `main` today, `016`'s
   lines in `GetTickets.tsx`: the limit line and "No more seats can be chosen" get
   `className="note"`; "You have reached the limit" gets `className="banner banner--conflict"`).
   Give each the fitting theme class, list them in the PR description, and extend T017 or T018
   first for any not already covered.
-- [ ] T023 [US3] Run T016–T018 until they pass, then the shared, Admin, Customer, and Booth suites
+  Result: `016` is not on `main` at b58ff2e (no `customerLimit`), so it has no lines to class.
+  Classed: `ServiceUnreachable` and the Admin Attendees, EventDetail, LocationDetail, and Reports
+  "Can't reach" paragraphs (`banner banner--error`); the Get tickets refusal (`banner
+  banner--error`) and couldn't-confirm block (`banner banner--conflict`, with `banner__body`).
+  Every other `role="alert"`/`role="status"` element already had a theme banner class.
+- [x] T023 [US3] Run T016–T018 until they pass, then the shared, Admin, Customer, and Booth suites
   (the Booth app renders `ServiceUnreachable` too; its tests must still pass).
 
 **Checkpoint**: status messages match in both apps.
