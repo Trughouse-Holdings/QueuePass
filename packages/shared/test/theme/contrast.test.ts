@@ -3,12 +3,12 @@ import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 /**
- * Spec 008 FR-007 (research R2, R6): every text and state color the Customer stylesheet uses
- * meets WCAG 2.1 AA, in light and dark. Computed from the stylesheet itself, so a token change
- * that breaks contrast fails here instead of being eyeballed.
+ * Spec 012 FR-008 (research R7), moved from the Customer app (spec 008 FR-007): every text and
+ * state color the shared theme uses meets WCAG 2.1 AA, in light and dark. Computed from the theme
+ * itself, so a token change that breaks contrast fails here instead of being eyeballed.
  */
-// Vitest runs each workspace from its own folder (customer-app/).
-const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+// Vitest runs each workspace from its own folder (packages/shared/).
+const css = readFileSync(resolve(process.cwd(), 'src/web/theme.css'), 'utf8');
 
 /** The custom properties in the first block matching `selector`. */
 function tokens(selector: RegExp): Record<string, string> {
@@ -18,8 +18,12 @@ function tokens(selector: RegExp): Record<string, string> {
   );
 }
 
-const light = tokens(/:root\s*\{([^}]*)\}/);
-const dark = { ...light, ...tokens(/prefers-color-scheme:\s*dark\)\s*\{[^{]*\{([^}]*)\}/) };
+const light = tokens(/(?:^|\n):root\s*\{([^}]*)\}/);
+// The dark set is `@media (prefers-color-scheme: dark) { :root { ... } }`, with no guard (R5).
+const dark = {
+  ...light,
+  ...tokens(/prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{([^}]*)\}/),
+};
 
 /** WCAG relative luminance of a #rrggbb color. */
 function luminance(hex: string): number {
@@ -43,7 +47,17 @@ describe.each([
   ['dark', dark],
 ])('%s theme', (_, t) => {
   it('defines every token the checks need', () => {
-    for (const name of [...TEXT, ...BACKGROUNDS, 'accent-text', 'border-strong']) {
+    for (const name of [
+      ...TEXT,
+      ...BACKGROUNDS,
+      'accent-text',
+      'border-strong',
+      'accent-soft',
+      'danger-bg',
+      'warn-bg',
+      'ok-bg',
+      'surface-alt',
+    ]) {
       expect(t[name], name).toMatch(/^#[0-9a-f]{6}$/i);
     }
   });
@@ -57,6 +71,17 @@ describe.each([
 
   it('shows button text on the accent color at 4.5:1 or more', () => {
     expect(contrast(t['accent-text'], t['accent'])).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // Research R7: the pairs the shared controls show, each on its own background.
+  it.each([
+    ['accent', 'accent-soft'],
+    ['danger', 'danger-bg'],
+    ['warn', 'warn-bg'],
+    ['ok', 'ok-bg'],
+    ['text-muted', 'surface-alt'],
+  ])('shows --%s text on --%s at 4.5:1 or more', (fg, bg) => {
+    expect(contrast(t[fg], t[bg])).toBeGreaterThanOrEqual(4.5);
   });
 
   it.each(['border-strong', 'accent'])(

@@ -34,8 +34,11 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `012-shared-theme-impl` from an up-to-date `main`, run `npm install` and `npm test`
+- [x] T001 Cut `012-shared-theme-impl` from an up-to-date `main`, run `npm install` and `npm test`
   from the repository root, and record the pass counts per workspace in this line (baseline).
+  Baseline at b58ff2e: boundary and contract checks pass; shared 22, backend 275 (41 suites),
+  admin-app 106, customer-app 144, booth-app 3, seed 3 (Keycloak-dependent cases skip when the
+  stack is down); all passing.
 
 ---
 
@@ -47,7 +50,7 @@ already picks up the theme's focus outline and 44-pixel targets, which it did no
 
 ### Tests (write first, confirm they fail)
 
-- [ ] T002 [P] Create `packages/shared/test/theme/load.test.ts` (research R10): read files relative
+- [x] T002 [P] Create `packages/shared/test/theme/load.test.ts` (research R10): read files relative
   to `process.cwd()` (`packages/shared`) and assert
   - `package.json` `exports["./theme.css"]` is `"./src/web/theme.css"`, and that file exists;
   - `../../admin-app/vite.config.ts`, `../../admin-app/vitest.config.ts`,
@@ -56,7 +59,7 @@ already picks up the theme's focus outline and 44-pixel targets, which it did no
   - `../../admin-app/src/main.tsx` and `../../customer-app/src/main.tsx` each import
     `'@queuepass/shared/theme.css'`, and that import comes before `import './styles.css'`;
   - `../../booth-app/src/main.tsx` does not import it (FR-015).
-- [ ] T003 [P] Create `packages/shared/test/theme/tokens.test.ts` (research R3, R5, R10) over
+- [x] T003 [P] Create `packages/shared/test/theme/tokens.test.ts` (research R3, R5, R10) over
   `src/web/theme.css`:
   - the light block (`:root { ... }`) defines every token in data-model.md, with those values;
   - every color token in the light block is also redefined in the dark block
@@ -69,7 +72,7 @@ already picks up the theme's focus outline and 44-pixel targets, which it did no
     cards (`.card + .card`), and `.page-head .form__actions`;
   - the file contains no `data-theme`;
   - no rule sets `color: var(--text-faint)`.
-- [ ] T004 [P] Move `customer-app/test/contrast.test.ts` to
+- [x] T004 [P] Move `customer-app/test/contrast.test.ts` to
   `packages/shared/test/theme/contrast.test.ts` with `git mv`, read `src/web/theme.css` instead,
   and add the pairs in research R7 (`--accent` on `--accent-soft`; `--danger` on `--danger-bg`;
   `--warn` on `--warn-bg`; `--ok` on `--ok-bg` at 4.5:1; `--text-muted` on `--surface-alt` at
@@ -78,7 +81,7 @@ already picks up the theme's focus outline and 44-pixel targets, which it did no
 
 ### Implementation
 
-- [ ] T005 Create `packages/shared/src/web/theme.css`, starting with a header comment citing spec
+- [x] T005 Create `packages/shared/src/web/theme.css`, starting with a header comment citing spec
   012 and Constitution VII ("one fixed set; apps use these values, never redefine them"):
   - the light and dark token blocks exactly as in data-model.md (Customer values for
     `--border-strong`; the new `--font`, `--space-*`, `--radius-pill`, `--brand-mark-end`,
@@ -92,15 +95,15 @@ already picks up the theme's focus outline and 44-pixel targets, which it did no
     `var(--brand-mark-text)`; `.pill` uses `var(--radius-pill)`;
   - the `008` "shared detail layout" block without its `>>>`/`<<<` markers.
   Run `npx prettier --write` on it.
-- [ ] T006 Add `"./theme.css": "./src/web/theme.css"` to `exports` in
+- [x] T006 Add `"./theme.css": "./src/web/theme.css"` to `exports` in
   `packages/shared/package.json`.
-- [ ] T007 [P] Add `{ find: /^@queuepass\/shared\/theme\.css$/, replacement:
+- [x] T007 [P] Add `{ find: /^@queuepass\/shared\/theme\.css$/, replacement:
   shared('web/theme.css') }` to the `alias` list in `admin-app/vite.config.ts`,
   `admin-app/vitest.config.ts`, `customer-app/vite.config.ts`, and `customer-app/vitest.config.ts`.
-- [ ] T008 [P] In `admin-app/src/main.tsx` and `customer-app/src/main.tsx`, add
+- [x] T008 [P] In `admin-app/src/main.tsx` and `customer-app/src/main.tsx`, add
   `import '@queuepass/shared/theme.css';` directly above `import './styles.css';`, with a comment
   citing spec 012 and Constitution VII. Update the Customer app's existing "Spec 008" comment.
-- [ ] T009 Run T002–T004 until they pass, then `npm test`. Every existing test still passes.
+- [x] T009 Run T002–T004 until they pass, then `npm test`. Every existing test still passes.
 
 **Checkpoint**: both apps load one theme; nothing has been removed from the apps yet.
 
