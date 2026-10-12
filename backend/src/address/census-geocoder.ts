@@ -40,7 +40,11 @@ export class CensusGeocoder implements AddressGeocoder {
     let response: Response;
     let text: string;
     try {
-      response = await fetch(url, { signal: AbortSignal.timeout(this.timeoutMs) });
+      // A redirect is not an answer from this endpoint: it is "unavailable", never followed.
+      response = await fetch(url, {
+        signal: AbortSignal.timeout(this.timeoutMs),
+        redirect: 'error',
+      });
       text = await response.text();
     } catch (cause) {
       throw new AddressServiceUnavailableError('The address service could not be reached.', {
@@ -102,7 +106,8 @@ export class CensusGeocoder implements AddressGeocoder {
 /**
  * Splits `STREET, CITY, ST, ZIP` from the right (research R3): the last part is the ZIP code,
  * then the state, then the city, and everything before is the street. Null unless it gives a
- * street, a city, a listed state, and a 5-digit ZIP code.
+ * street of at most 200 characters, a city of at most 100 (the columns' limits), a listed state,
+ * and a 5-digit ZIP code.
  */
 function splitMatched(matched: string): AddressParts | null {
   const pieces = matched.split(',').map((p) => p.trim());
@@ -111,6 +116,7 @@ function splitMatched(matched: string): AddressParts | null {
   const state = pieces[pieces.length - 2];
   const city = pieces[pieces.length - 3];
   const street = pieces.slice(0, -3).join(', ');
-  if (!street || !city || !STATE_CODES.has(state) || !/^\d{5}$/.test(zip)) return null;
+  if (!street || street.length > 200 || !city || city.length > 100) return null;
+  if (!STATE_CODES.has(state) || !/^\d{5}$/.test(zip)) return null;
   return { street, city, state, zip };
 }

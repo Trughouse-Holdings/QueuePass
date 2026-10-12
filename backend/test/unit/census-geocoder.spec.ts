@@ -139,6 +139,43 @@ describe('CensusGeocoder', () => {
     });
   });
 
+  it.each([
+    ['a street over 200 characters', `${'1'.repeat(201)}, LEXINGTON, KY, 40507`],
+    ['a city over 100 characters', `430 W VINE ST, ${'C'.repeat(101)}, KY, 40507`],
+  ])('returns none, and warns, for one match with %s (column limits)', async (_l, matched) => {
+    const g = await geocoder(matches(matched));
+    await expect(g.lookup(ADDRESS)).resolves.toEqual({ kind: 'none' });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(matched));
+  });
+
+  it('accepts a street of exactly 200 and a city of exactly 100 characters', async () => {
+    const street = 'S'.repeat(200);
+    const city = 'C'.repeat(100);
+    const g = await geocoder(matches(`${street}, ${city}, KY, 40507`));
+    await expect(g.lookup(ADDRESS)).resolves.toEqual({
+      kind: 'match',
+      street,
+      city,
+      state: 'KY',
+      zip: '40507',
+    });
+  });
+
+  it('throws unavailable for a redirect, without following it', async () => {
+    let followed = false;
+    const g = await geocoder((req, res) => {
+      if (req.url?.startsWith('/elsewhere')) {
+        followed = true;
+        matches('430 W VINE ST, LEXINGTON, KY, 40507')(req, res);
+        return;
+      }
+      res.writeHead(302, { Location: '/elsewhere' });
+      res.end();
+    });
+    await expect(g.lookup(ADDRESS)).rejects.toBeInstanceOf(AddressServiceUnavailableError);
+    expect(followed).toBe(false);
+  });
+
   it('keeps the first 5 of seven distinct matches', async () => {
     const all = [1, 2, 3, 4, 5, 6, 7].map((n) => `${n} MAIN ST, SPRINGFIELD, IL, 62701`);
     const g = await geocoder(matches(...all));

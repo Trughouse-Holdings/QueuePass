@@ -3,11 +3,11 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
-  IsOptional,
   IsPositive,
   IsString,
   Length,
   Matches,
+  ValidateIf,
 } from 'class-validator';
 import { ZIP_PATTERN } from '@queuepass/shared';
 import { MESSAGES, STATE_CODES, trim } from './address-fields';
@@ -38,7 +38,7 @@ export class CreateLocationDto {
   zip!: string;
 
   /** Spec 013 FR-019 "save anyway"; never skips the lookup (research R2). */
-  @IsOptional()
+  @ValidateIf((o: CreateLocationDto) => o.acceptUnverifiedAddress !== undefined)
   @IsBoolean({ message: MESSAGES.acceptUnverifiedAddress })
   acceptUnverifiedAddress?: boolean;
 

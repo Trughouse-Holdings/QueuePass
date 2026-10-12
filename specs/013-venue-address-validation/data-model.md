@@ -106,7 +106,12 @@ helper in `backend/src/common/venue-lock.ts`.
 - `US_STATES`: `readonly { code: UsState; name: string }[]`, the 50 states and DC; `UsState` is
   the union of the codes.
 - `Location`: gains `street: string | null`, `city: string | null`, `state: UsState | null`,
-  `zip: string | null`, `addressVerified: boolean`. `address` unchanged.
+  `zip: string | null`, `addressVerified: boolean`. `address` unchanged. Until the research R11
+  follow-up tightens the contract, the five are declared optional (`street?: string | null`, …,
+  `addressVerified?: boolean`), mirroring the contract: required shared fields fail both front
+  ends' `tsc` against the generated types, whose fields are optional (found in the
+  implementation). The Backend always sends them. The follow-up (tasks.md T044) makes them
+  required here too.
 - `LocationInput`: `{ name; street; city; state: UsState; zip; acceptUnverifiedAddress?: boolean;
   seatingCapacity }` (no `address`). `LocationUpdate = Partial<LocationInput>`.
 - `LOCATION_LIMITS`: adds `streetMaxLength: 200`, `cityMaxLength: 100`; `ZIP_PATTERN =

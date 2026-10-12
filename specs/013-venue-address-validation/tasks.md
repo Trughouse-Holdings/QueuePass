@@ -159,11 +159,18 @@ the four fields, with the happy path working through the fake.
   `locations.search`, `tiers.authz`, `tiers.capacity`, `tiers.crud`, `venues-events.authz` (all
   `backend/test/integration/*.e2e-spec.ts`). In `locations.search.e2e-spec.ts`, give each venue a
   different city so the "matches the address, such as a city" test still means what it says.
+  *Implementation note*: in `locations.search.e2e-spec.ts` the venues keep their real cities
+  (two in Louisville, one in Lexington) rather than three different ones, so the existing
+  "q=LOUISVILLE finds two" test still means what it says.
 - [x] T014 In `backend/src/locations/dto/create-location.dto.ts` and `update-location.dto.ts`,
   replace `address` with `street` (trim, 1–200), `city` (trim, 1–100), `state` (`@IsIn` the
   `US_STATES` codes), `zip` (`@Matches(ZIP_PATTERN)`), and add optional
   `acceptUnverifiedAddress` (`@IsBoolean`), with messages naming the field and the rule
   (address fields optional in the update DTO).
+  *Implementation note*: `acceptUnverifiedAddress` sent without the four address fields is `400`
+  for any value, `false` included, as the contract says. The update DTO uses `@ValidateIf`
+  rather than `@IsOptional` for the four fields and the flag, so a field sent as `null` is `400`
+  (review round 1), not "sent".
 - [x] T015 In `backend/src/locations/locations.service.ts` `create`, call
   `this.geocoder.lookup(parts)` (injected with `@Inject(ADDRESS_GEOCODER)`); on `match`, write the
   matched parts, `address: formatAddress(parts)`, and `addressVerified: true` in one
@@ -421,6 +428,9 @@ its name without a check, and is verified when its address is filled in.
   database with the fake `always('unavailable')`, the run still completes with the same summary,
   both venues are saved as typed with `addressVerified: false`, and a direct `POST /locations` in
   the same state is still `503`. Confirm it fails before T037.
+  *Implementation note*: `DemoSummary` gained `unverifiedVenues` (0 online, 2 when the service is
+  unavailable), so the script can print its "not verified" line; the other summary values are
+  unchanged.
 - [x] T037 In `backend/src/scripts/demo-data.ts`, give the venues the addresses from research R14,
   creating Demo Riverside Hall before QueuePass Demo Arena, call `locations.create(dto, {
   whenServiceUnavailable: 'saveUnverified' })`, and print a line saying the demo venues are not
@@ -447,7 +457,9 @@ its name without a check, and is verified when its address is filled in.
 - [ ] T044 After the implementation PR merges, open a follow-up GitHub issue to tighten the
   contract (research R11 Follow-up): add `street`, `city`, `state`, `zip`, and `addressVerified`
   to `Location.required`, and `street`, `city`, `state`, `zip` to `LocationInput.required`, then
-  regenerate `api-schema.ts`. Link it from the PR.
+  regenerate `api-schema.ts`, and make the same five `Location` fields required in
+  `packages/shared/src/location.ts` (optional there until then, data-model.md). Link it from the
+  PR.
 
 ---
 

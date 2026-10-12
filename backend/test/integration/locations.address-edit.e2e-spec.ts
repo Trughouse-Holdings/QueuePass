@@ -165,6 +165,19 @@ describe('Venue address check on edit (spec 013)', () => {
     expect(ctx.geocoder.calls).toHaveLength(0);
   });
 
+  it.each([
+    ['all four null', { street: null, city: null, state: null, zip: null }],
+    ['one null among values', { ...moved, city: null }],
+    ['a null flag with the four', { ...moved, acceptUnverifiedAddress: null }],
+    ['a null flag alone', { acceptUnverifiedAddress: null }],
+  ])('refuses %s with 400 VALIDATION_FAILED, without asking the service', async (_l, body) => {
+    const before = await row();
+    const res = await patch(body).expect(400);
+    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    expect(ctx.geocoder.calls).toHaveLength(0);
+    expect(await row()).toEqual(before);
+  });
+
   it('refuses a capacity below an event first: 409, without asking the service', async () => {
     await event(ctx, id, { capacity: 900 });
     const res = await patch({ ...moved, seatingCapacity: 500 }).expect(409);

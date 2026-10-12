@@ -59,6 +59,13 @@ describe('Location validation', () => {
       { ...valid, acceptUnverifiedAddress: 'yes' },
       /acceptUnverifiedAddress/,
     ],
+    ['a null street', { ...valid, street: null }, /street/],
+    ['a null state', { ...valid, state: null }, /state/],
+    [
+      'a null acceptUnverifiedAddress',
+      { ...valid, acceptUnverifiedAddress: null },
+      /acceptUnverifiedAddress/,
+    ],
     ['the old one-line address', { ...valid, address: '937 Phillips Ln' }, /address/],
   ];
 
