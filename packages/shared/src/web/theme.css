@@ -526,16 +526,14 @@ select {
   grid-template-columns: 1fr 1fr;
   gap: 14px;
 }
+/* A form's button row: every button on one line, the space above it on the row itself. */
 .form__actions {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding-top: 16px;
+  padding-top: var(--space-5);
   border-top: 1px solid var(--border);
   margin-top: 3px;
-}
-.form__actions > :first-child {
-  margin-top: 13px;
 }
 
 /* Choice groups (spec 008 US5): fieldsets group them without the browser's default box. */
@@ -694,7 +692,4 @@ dd {
   border-top: none;
   margin-top: 0;
   padding-top: 0;
-}
-.page-head .form__actions > :first-child {
-  margin-top: 0;
 }

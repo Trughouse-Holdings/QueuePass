@@ -230,7 +230,8 @@ confirm both show the new accent on buttons, links, and the current navigation i
     again button keeping a small gap under the message (roughly the spacing it has today, now a
     theme step);
   - in both apps: spacing on app-specific screens moved by at most 2 pixels to the nearest theme
-    step.
+    step; and buttons in a form's button row line up (the first one no longer sits lower than the
+    rest), with the space above the row on a theme step.
 - **FR-013**: Every behavior MUST stay the same: the same text, controls, flows, and messages.
   Every existing test MUST still pass, except the two Customer app tests that check the copied
   styles. Their checks move to the shared code and check the theme instead, keeping every

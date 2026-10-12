@@ -332,6 +332,12 @@ unchanged.
     (agent1); the Booth app looks as before (browser defaults).
   - Follow-up noticed: the shared `wrong-role.tsx` ("Your account can't use this app") is
     unstyled (pre-existing).
+  - Change after the gate, requested by Mahdi: buttons in a `.form__actions` row now line up. The
+    theme's `.form__actions > :first-child { margin-top: 13px }` (copied from the old Admin
+    stylesheet; it put the first button about 13px lower, e.g. Search vs Clear, Create venue vs
+    Cancel) and its `.page-head` override are removed; the row's own `padding-top` becomes
+    `var(--space-5)` (was 16px). `tokens.test.ts` checks no rule offsets one child of the row;
+    spec FR-012 lists the change.
 - [x] T029 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.

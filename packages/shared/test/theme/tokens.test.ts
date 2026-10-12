@@ -127,6 +127,14 @@ it('keeps a small gap above a button inside a banner body (FR-012)', () => {
   expect(css).toMatch(/\.banner__body > \.btn\s*\{[^}]*margin-top:\s*var\(--space-2\)/);
 });
 
+it('gives no single child of a button row its own top margin, so the buttons line up', () => {
+  // Any selector reaching into .form__actions for one child (> :first-child, > .btn, + ...).
+  const offsets = [...css.matchAll(/([^{}]*\.form__actions[^{}]*[>+~:][^{}]*)\{([^}]*)\}/g)]
+    .filter(([, , body]) => /margin(-top)?\s*:/.test(body))
+    .map(([, selector]) => selector.trim());
+  expect(offsets).toEqual([]);
+});
+
 it('has no hook to force a light or dark set (FR-007)', () => {
   expect(css).not.toContain('data-theme');
 });
