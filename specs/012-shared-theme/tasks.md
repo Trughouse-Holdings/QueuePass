@@ -285,9 +285,9 @@ unchanged.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T026 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
+- [x] T026 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
   everything passes.
-- [ ] T027 Coverage: no workspace has a Vitest coverage provider, and this feature adds no
+- [x] T027 Coverage: no workspace has a Vitest coverage provider, and this feature adds no
   dependency, so front-end coverage reporting waits on `010`; the Backend is not touched. Say so
   in the PR description. The 80% floor is not yet blocking (Constitution VI deferral until `010`
   and `011`).
