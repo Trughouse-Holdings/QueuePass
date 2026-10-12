@@ -68,13 +68,18 @@ export interface Location {
   name: string;
   /** The one-line address; when the parts are set, `formatAddress(parts)` (spec 013 FR-010). */
   address: string;
-  /** Spec 013: `null` for a venue from before the feature that was not re-addressed since. */
-  street: string | null;
-  city: string | null;
-  state: UsState | null;
-  zip: string | null;
+  /**
+   * Spec 013: `null` for a venue from before the feature that was not re-addressed since.
+   * The Backend always sends these five fields. They are optional here only because the
+   * contract leaves them out of `required` until its follow-up tightening (research R11);
+   * both become required together with the contract.
+   */
+  street?: string | null;
+  city?: string | null;
+  state?: UsState | null;
+  zip?: string | null;
   /** Spec 013 FR-020: the address service matched this address. */
-  addressVerified: boolean;
+  addressVerified?: boolean;
   seatingCapacity: number;
   createdAt: string;
   updatedAt: string;
