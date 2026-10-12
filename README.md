@@ -9,18 +9,19 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `008` are built and verified.
+Features `001` through `008` are built and verified, and `013` is built.
 
-| Spec                                                                         | What it delivers                                                                                                            | Spec             | Plan and tasks     | Code                   |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------- |
-| [`001-bare-bones-system`](specs/001-bare-bones-system/spec.md)               | All six services; Keycloak sign-in, JWT validation, role checks; login, hello-world, and logout in all three front ends     | Draft            | Done (64/64 tasks) | **Built and verified** |
-| [`002-admin-venues-events`](specs/002-admin-venues-events/spec.md)           | Venue and event API with the 60-minute rule; Admin app create, read, update, delete                                         | Draft (revised)  | Done (32/32 tasks) | **Built and verified** |
-| [`003-customer-venues-events`](specs/003-customer-venues-events/spec.md)     | Customer app shows all venues and events                                                                                    | Ready for review | Done (23/23 tasks) | **Built and verified** |
-| [`004-admin-tiers-search`](specs/004-admin-tiers-search/spec.md)             | Ticket tiers per event; Admin search for events and venues                                                                  | Ready for review | Done (23/23 tasks) | **Built and verified** |
-| [`005-admin-orders-reporting`](specs/005-admin-orders-reporting/spec.md)     | Orders and tickets; Admin sales dashboard, attendee lists, safe cancellation                                                | Ready for review | Done (25/25 tasks) | **Built and verified** |
-| [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                          | Draft            | Done (29/29 tasks) | **Built and verified** |
-| [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice | Draft            | Done (30/30 tasks) | **Built and verified** |
-| [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look   | Draft            | Done (19/19 tasks) | **Built and verified** |
+| Spec                                                                         | What it delivers                                                                                                                             | Spec             | Plan and tasks     | Code                   |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------- |
+| [`001-bare-bones-system`](specs/001-bare-bones-system/spec.md)               | All six services; Keycloak sign-in, JWT validation, role checks; login, hello-world, and logout in all three front ends                      | Draft            | Done (64/64 tasks) | **Built and verified** |
+| [`002-admin-venues-events`](specs/002-admin-venues-events/spec.md)           | Venue and event API with the 60-minute rule; Admin app create, read, update, delete                                                          | Draft (revised)  | Done (32/32 tasks) | **Built and verified** |
+| [`003-customer-venues-events`](specs/003-customer-venues-events/spec.md)     | Customer app shows all venues and events                                                                                                     | Ready for review | Done (23/23 tasks) | **Built and verified** |
+| [`004-admin-tiers-search`](specs/004-admin-tiers-search/spec.md)             | Ticket tiers per event; Admin search for events and venues                                                                                   | Ready for review | Done (23/23 tasks) | **Built and verified** |
+| [`005-admin-orders-reporting`](specs/005-admin-orders-reporting/spec.md)     | Orders and tickets; Admin sales dashboard, attendee lists, safe cancellation                                                                 | Ready for review | Done (25/25 tasks) | **Built and verified** |
+| [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                                           | Draft            | Done (29/29 tasks) | **Built and verified** |
+| [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice                  | Draft            | Done (30/30 tasks) | **Built and verified** |
+| [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look                    | Draft            | Done (19/19 tasks) | **Built and verified** |
+| [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps | Draft            | Done (40/44 tasks) | **Built**              |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -30,10 +31,13 @@ customers find events by name, venue, and dates, browse them as cards on any scr
 every venue with what is on there; get tickets
 for an event, in a tier or at its base price, and see their codes; choose their exact seats at
 events with reserved seating; and find every order they placed on **My tickets**. Admins give
-venues seating layouts and see each seated event's seat map.
+venues seating layouts and see each seated event's seat map. A venue's address is a real US
+address, checked by the US Census Geocoder when it is saved, unless an admin chooses **Save
+anyway** for an address the service does not know, which is then marked not verified. Every venue
+address in both apps opens Google Maps.
 
-Features `010` through `016` are reserved in the constitution's roadmap and not started: test
-coverage, CI test runs, a shared theme, venue address validation, event images, seat holds, and a
+Features `010`, `011`, `012`, `014`, `015`, and `016` are reserved in the constitution's roadmap
+and not yet built: test coverage, CI test runs, a shared theme, event images, seat holds, and a
 per-user ticket limit.
 
 ### How a feature is delivered
@@ -69,6 +73,10 @@ One command from a clean clone. No manual configuration steps.
 | Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realm `queuepass`                                   |
 | PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                                   |
 
+Saving a new venue address needs internet: the Backend checks it with the US Census Geocoder
+(`ADDRESS_GEOCODER_URL`, default `https://geocoding.geo.census.gov`, no key). Offline, a new
+address is refused with "We can't verify the address right now"; everything else works.
+
 Startup order is gated on health: the Backend waits for PostgreSQL and applies migrations, the
 seed waits for Keycloak's `/health/ready`, and the front ends wait for the Backend.
 
@@ -97,6 +105,9 @@ It adds two venues, three events with tiers, orders from `customer1`…`customer
 check-ins, and one cancelled event, all through the real Backend rules. Running it again changes
 nothing. It is never run automatically. Its orders belong to stand-in identities, so they don't
 appear on any customer's **My tickets**; buy in the Customer app to see that page filled.
+
+Its two venues have real addresses, verified by the address service. It also works offline: when
+the service can't be reached, it saves them with their addresses not verified and says so.
 
 ---
 
@@ -183,6 +194,14 @@ unchanged.
   JWT validation and role checks at the Backend (`001`)
 - **Venue catalog** — admins create, view, edit, and delete venues with name, address, and
   seating capacity (`002`)
+- **Venue address checks** — a venue's address is entered as street, city, state, and ZIP code
+  and checked by the US Census Geocoder before it is saved, in the service's standard form. An
+  address the service does not find, or finds more than once, is refused, unless the admin
+  chooses **Save anyway**; the venue is then marked "Address not verified". When the service is
+  down, saving a new address is refused and nothing is lost. Venues from before this check keep
+  their address and are marked not verified until an admin enters it again (`013`)
+- **Map links** — every venue address in the Admin and Customer apps opens Google Maps in a new
+  tab (`013`)
 - **Event scheduling** — admins create, view, edit, and delete events with times, ticket
   capacity, and base price (`002`)
 - **Double-booking prevention** — events at the same venue must be at least **60 minutes**
@@ -257,6 +276,8 @@ The front ends reach data **only** through this API. None holds a database conne
 - The Ticket Booth app is a stub (sign-in, hello-world, logout) until a later spec.
 - No self-service sign-up, password reset, or multi-factor authentication.
 - No visual design work: front ends are plain and accessible (Constitution VII).
+- Venue addresses in the 50 states and DC only; no map inside the apps, and no address
+  suggestions while typing.
 - Laptop only: no shared deployment, no TLS.
 
 ---
@@ -278,15 +299,16 @@ specs/            Specifications, plans, contracts, tasks
 
 ## Troubleshooting
 
-| Symptom                                          | Fix                                                                                                                                                                              |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `port is already allocated` on startup           | Another program or Compose project is using one of the ports listed under _Start the system_. Stop it.                                                                           |
-| Seed fails with connection refused               | Keycloak wasn't ready; the job retries. Confirm `KC_HEALTH_ENABLED=true`.                                                                                                        |
-| Every API call returns `401` with a valid login  | The token's issuer is the browser's Keycloak address (`localhost:8080`), not the in-container one. The Backend must expect that issuer while fetching keys from `keycloak:8080`. |
-| `401` with "invalid audience"                    | The front-end client is missing the audience mapper for the QueuePass API. Re-run the seed.                                                                                      |
-| Login redirects fail with "Invalid redirect uri" | The client's redirect URI must match the front end's address exactly. Re-run the seed.                                                                                           |
-| Signed in but "your account cannot use this app" | You are using the wrong role for that app. See the table under _Start the system_.                                                                                               |
-| All same-venue bookings rejected                 | Buffer applied to both interval bounds; it belongs on the lower bound only.                                                                                                      |
-| `constraint "event_no_overlap" does not exist`   | Someone ran `prisma db push`. Use `prisma migrate deploy`.                                                                                                                       |
-| Data gone after restart                          | `docker compose down -v` deletes volumes; omit `-v`.                                                                                                                             |
-| Tests fail to start                              | Docker must be running for Testcontainers.                                                                                                                                       |
+| Symptom                                                     | Fix                                                                                                                                                                              |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `port is already allocated` on startup                      | Another program or Compose project is using one of the ports listed under _Start the system_. Stop it.                                                                           |
+| Seed fails with connection refused                          | Keycloak wasn't ready; the job retries. Confirm `KC_HEALTH_ENABLED=true`.                                                                                                        |
+| Every API call returns `401` with a valid login             | The token's issuer is the browser's Keycloak address (`localhost:8080`), not the in-container one. The Backend must expect that issuer while fetching keys from `keycloak:8080`. |
+| `401` with "invalid audience"                               | The front-end client is missing the audience mapper for the QueuePass API. Re-run the seed.                                                                                      |
+| Login redirects fail with "Invalid redirect uri"            | The client's redirect URI must match the front end's address exactly. Re-run the seed.                                                                                           |
+| Signed in but "your account cannot use this app"            | You are using the wrong role for that app. See the table under _Start the system_.                                                                                               |
+| All same-venue bookings rejected                            | Buffer applied to both interval bounds; it belongs on the lower bound only.                                                                                                      |
+| `constraint "event_no_overlap" does not exist`              | Someone ran `prisma db push`. Use `prisma migrate deploy`.                                                                                                                       |
+| Data gone after restart                                     | `docker compose down -v` deletes volumes; omit `-v`.                                                                                                                             |
+| Saving a venue says "We can't verify the address right now" | The Backend can't reach the US Census Geocoder. Check the laptop's internet and `ADDRESS_GEOCODER_URL`. Name-only edits still work.                                              |
+| Tests fail to start                                         | Docker must be running for Testcontainers.                                                                                                                                       |

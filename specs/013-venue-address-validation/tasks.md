@@ -412,20 +412,20 @@ its name without a check, and is verified when its address is filled in.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T035 [P] Add `ADDRESS_GEOCODER_URL=https://geocoding.geo.census.gov` to `.env.example` under a
+- [x] T035 [P] Add `ADDRESS_GEOCODER_URL=https://geocoding.geo.census.gov` to `.env.example` under a
   `# --- Address service (spec 013) ---` heading, and `ADDRESS_GEOCODER_URL:
   ${ADDRESS_GEOCODER_URL:-https://geocoding.geo.census.gov}` to the `backend` service in
   `docker-compose.yml` (research R12).
-- [ ] T036 **Test first.** Extend `backend/test/integration/demo-data.e2e-spec.ts`: with the fake
+- [x] T036 **Test first.** Extend `backend/test/integration/demo-data.e2e-spec.ts`: with the fake
   matching, both demo venues have the R14 addresses and `addressVerified: true`; on a reset
   database with the fake `always('unavailable')`, the run still completes with the same summary,
   both venues are saved as typed with `addressVerified: false`, and a direct `POST /locations` in
   the same state is still `503`. Confirm it fails before T037.
-- [ ] T037 In `backend/src/scripts/demo-data.ts`, give the venues the addresses from research R14,
+- [x] T037 In `backend/src/scripts/demo-data.ts`, give the venues the addresses from research R14,
   creating Demo Riverside Hall before QueuePass Demo Arena, call `locations.create(dto, {
   whenServiceUnavailable: 'saveUnverified' })`, and print a line saying the demo venues are not
   verified when that happened. Run T036 until it passes.
-- [ ] T038 [P] Update `README.md`: add the `013` row to the Status table, mention address checks,
+- [x] T038 [P] Update `README.md`: add the `013` row to the Status table, mention address checks,
   save anyway, and map links in "Today", note that saving a new venue address needs internet
   (the Census Geocoder) and the `ADDRESS_GEOCODER_URL` variable, note that `demo-data` works
   offline with unverified venues, and keep the reserved-features line accurate.
