@@ -1777,6 +1777,15 @@ components:
                         '100 N MAIN ST, SPRINGFIELD, IL 62701',
                         '100 S MAIN ST, SPRINGFIELD, IL 62701',
                       ]
+            addressMoved:
+              summary: The one match has a different ZIP code or house number than sent
+              value:
+                error:
+                  code: ADDRESS_AMBIGUOUS
+                  message: 'We found a different US address for 1540 University Dr, Lexington, KY 40508. Did you mean this one? Enter it to use it.'
+                  details:
+                    address: '1540 University Dr, Lexington, KY 40508'
+                    candidates: ['1540 UNIVERSITY CT, LEXINGTON, KY 40503']
 
     AddressServiceUnavailable:
       description: |

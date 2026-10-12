@@ -59,7 +59,8 @@ team member signs off on that row in the PR.
 ### User Story 1 - An Admin Cannot Save an Address That Is Not Real (Priority: P1)
 
 An admin creates a venue and enters a street, city, state, and ZIP code. If the address service
-finds exactly one matching US address, the venue is saved with the address in the service's
+finds exactly one matching US address that keeps the typed ZIP code and house number (FR-021),
+the venue is saved with the address in the service's
 standard form, and the admin is shown the address as saved. If the service finds no match, the
 venue is not saved, the admin is told the address could not be found, and everything they typed
 stays in the form so they can fix it. If the admin is sure the address is real (the service
@@ -203,7 +204,9 @@ verified.
   number than typed (Kroger Field, "1540 University Dr", 40508, comes back as "1540 UNIVERSITY
   CT", 40503), it may be a different place, so it is not saved. It is refused like several
   matches, listing that one address (FR-021). The rest of the street is not compared, because the
-  service writes it in its own form ("West" → "W", "Street" → "ST").
+  service writes it in its own form ("West" → "W", "Street" → "ST"). Known limit: a match with the
+  same house number and ZIP code on a different street (for example University Dr and University
+  Ct in the same ZIP code) is still accepted as verified (research R3).
 - **A match in a form QueuePass cannot read**: If the service's match cannot be split into a
   street, a city, one of the listed states, and a 5-digit ZIP code, it is treated as not found,
   so "Save anyway" is offered. Retrying would give the same answer.
@@ -216,8 +219,9 @@ verified.
   this way keeps the admin's spelling and case (trimmed, runs of spaces collapsed to one, and the
   ZIP code cut to 5 digits).
 - **Save anyway when the address does match**: If the admin asks to save anyway and the service
-  does find exactly one match (for example, on a retry with a corrected address), the matched
-  address is saved and verified, as usual.
+  does find exactly one match that keeps the typed ZIP code and house number (FR-021) (for
+  example, on a retry with a corrected address), the matched address is saved and verified, as
+  usual.
 - **Unchanged address on edit**: If the four fields are sent again with the same values (ignoring
   case and extra spaces), the address is not checked again, and a venue keeps its verified or not
   verified state.
@@ -288,7 +292,8 @@ verified.
   fields as the admin sent them (trimmed, runs of spaces collapsed to one, ZIP code cut to 5
   digits), and recorded as not verified.
   The address service MUST still be asked first; the confirmation MUST NOT change the outcome when
-  the service finds exactly one match (FR-003) or is unavailable (FR-006), and MUST be refused
+  the service finds exactly one match that keeps the typed ZIP code and house number (FR-003,
+  FR-021) or is unavailable (FR-006), and MUST be refused
   when sent without the four address fields.
 - **FR-020**: Every venue MUST record whether its address is verified. A verified venue always
   has its four fields.
@@ -306,8 +311,9 @@ verified.
   anyway has its four fields as typed and is not verified. A venue from before this feature has no
   fields and is not verified. Its one-line **address** stays and, when the fields are present, is
   built from them.
-- **Address check**: not stored. The answer from the address service for one save: one match,
-  no match, several matches, or unavailable.
+- **Address check**: not stored. The answer from the address service for one save: exactly one
+  match that keeps the typed ZIP code and house number (FR-021), no match, several matches (or
+  one match that moved), or unavailable.
 
 ## Success Criteria *(mandatory)*
 

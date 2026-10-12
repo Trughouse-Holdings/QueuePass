@@ -461,6 +461,11 @@ its name without a check, and is verified when its address is filled in.
   candidate, or saved as typed and not verified with `acceptUnverifiedAddress`. The geocoder is
   unchanged. Reword the `ADDRESS_AMBIGUOUS` descriptions in `contracts/openapi.yaml` (still
   1.7.0), regenerate `api-schema.ts`, and run the drift check. Run T045 until it passes.
+- [x] T047 Review round 3: a house number keeps letters, "/" and "-" but not trailing punctuation,
+  and drops leading zeros (research R3), with unit cases first (`1540,`, `123 1/2`, `0430`);
+  the "exactly one match" wording in spec.md carries FR-021's condition; the known limit (same
+  house number and ZIP code on another street) is named in the edge cases; the Kroger example is
+  added to the contract's `AddressRejected` examples (still 1.7.0).
 - [x] T041 Running-system gate: `docker compose up --build` online, walk quickstart.md S1–S9
   (including S2b) in the browser, and sign in, use, and sign out of each front end. Record the
   results in this file.

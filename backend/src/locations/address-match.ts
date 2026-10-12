@@ -1,8 +1,13 @@
 import type { AddressParts } from '../address/address-geocoder';
 
-/** The leading house number of a street ("1540 University Dr" → "1540"), or "" when none. */
+/**
+ * The leading house number of a street ("1540 University Dr" → "1540"), or "" when none. Letters,
+ * "/" and "-" belong to it ("12B", "100-02"); trailing punctuation does not ("1540," → "1540"),
+ * and leading zeros are dropped ("0430" → "430"), so the comparison is of the number itself.
+ */
 export function houseNumber(street: string): string {
-  return /^\d[^\s]*/.exec(street.trim())?.[0].toUpperCase() ?? '';
+  const token = /^\d[0-9A-Z/-]*/i.exec(street.trim())?.[0].toUpperCase() ?? '';
+  return token.replace(/^0+(?=\d)/, '');
 }
 
 /**

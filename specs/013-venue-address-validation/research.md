@@ -120,7 +120,12 @@ the Admin app shows the saved address (FR-012).
   Census service can answer one match that is a different place. Kroger Field, `1540 University
   Dr, Lexington, KY 40508`, comes back as `1540 UNIVERSITY CT, LEXINGTON, KY, 40503`. So the one
   match is trusted only when its ZIP code equals the typed ZIP code's first 5 digits and its house
-  number (the leading number token of the street, compared ignoring case) equals the typed one.
+  number equals the typed one. The house number is the leading token of the street that starts
+  with a digit and runs over digits, letters, "/", and "-" ("12B", "100-02"); trailing punctuation
+  is not part of it ("1540," → "1540"), "123 1/2 Main St" reads as "123", case is ignored, and
+  leading zeros are dropped ("0430" equals "430"), so the number itself is compared. Known limit:
+  the same house number and ZIP code on a different street (University Dr and University Ct in
+  one ZIP code) is still accepted, because the street is not compared.
   Otherwise `LocationsService` refuses with `400 ADDRESS_AMBIGUOUS`, message "We found a
   different US address for {typed}. Did you mean this one? Enter it to use it.", and
   `details.candidates` holding that match in our one-line form. The admin can enter it (which

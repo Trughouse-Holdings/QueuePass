@@ -12,6 +12,10 @@ describe('houseNumber', () => {
     ['12b Main St', '12B'],
     ['100-02 Queens Blvd', '100-02'],
     ['One Arena Plaza', ''],
+    ['1540, University Dr', '1540'],
+    ['123 1/2 Main St', '123'],
+    ['0430 W Vine St', '430'],
+    ['0 Main St', '0'],
   ])('reads %p as %p', (street, expected) => {
     expect(houseNumber(street)).toBe(expected);
   });
@@ -41,6 +45,21 @@ describe('matchesTyped', () => {
   it('compares only the first 5 digits of a typed ZIP+4', () => {
     expect(
       matchesTyped({ ...typed, zip: '40508-1234' }, match('1540 UNIVERSITY DR', '40508')),
+    ).toBe(true);
+  });
+
+  it('ignores a comma after the house number and leading zeros', () => {
+    expect(
+      matchesTyped(
+        { ...typed, street: '1540, University Dr' },
+        match('1540 UNIVERSITY DR', '40508'),
+      ),
+    ).toBe(true);
+    expect(
+      matchesTyped(
+        { ...typed, street: '01540 University Dr' },
+        match('1540 UNIVERSITY DR', '40508'),
+      ),
     ).toBe(true);
   });
 

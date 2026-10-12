@@ -17,9 +17,9 @@ import {
 } from '../address/address-geocoder';
 import { LOCKING_TX } from '../common/event-lock';
 import { searchText } from '../common/search-text';
-import { matchesTyped } from './address-match';
 import { lockVenueAndEvents } from '../common/venue-lock';
 import { PrismaService } from '../prisma/prisma.service';
+import { matchesTyped } from './address-match';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 
@@ -209,9 +209,9 @@ export class LocationsService {
   /**
    * Asks the address service (spec 013 research R2, R3). Exactly one match that keeps the typed
    * ZIP code and house number is saved in the service's standard form and verified, whatever the
-   * flag says; one that moves either is refused as ambiguous, listing it (FR-021). No match or several are
-   * refused, unless the admin confirmed "save anyway": then the address is saved as sent and
-   * not verified. When the service cannot be asked, the save is refused with 503 whatever the
+   * flag says; one that moves either is refused as ambiguous, listing it (FR-021). No match or
+   * several are refused, unless the admin confirmed "save anyway": then the address is saved as
+   * sent and not verified. When the service cannot be asked, the save is refused with 503 whatever the
    * flag says (research R6), except through `create`'s internal demo-data option (R14).
    */
   private async checkAddress(
