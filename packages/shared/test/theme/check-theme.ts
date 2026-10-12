@@ -57,7 +57,7 @@ const COLOR_LITERAL = /#[0-9a-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch
 
 /** Properties whose value is (or carries) a color, where a named color word counts (C2). */
 const COLOR_PROPERTY =
-  /(^|-)color$|^background|shadow$|^filter$|^(border|outline|text-decoration|column-rule)(-|$)|^(fill|stroke)$/;
+  /(^|-)color$|^background|^mask|shadow$|^filter$|^(border|outline|text-decoration|column-rule)(-|$)|^(fill|stroke)$/;
 /** Corner rounding and shadows (C4). */
 const RADIUS_PROPERTY = /radius$/;
 const SHADOW_PROPERTY = /shadow$/;
@@ -70,6 +70,7 @@ const FONT_TOKEN = /^var\(--(font|mono)\)$/;
 const RADIUS_TOKEN = /^var\(--radius(-sm|-pill)?\)$/;
 const SHADOW_TOKEN = /^var\(--shadow(-lg)?\)$/;
 const STEP = /^var\(--space-([1-6]|8)\)$/;
+const DROP_SHADOW = /drop-shadow\(((?:[^()]|\([^()]*\))*)\)/g;
 const NEGATIVE_STEP = /^calc\(-1 \* var\(--space-([1-6]|8)\)\)$/;
 
 /** Comments replaced by spaces, newlines kept, so indexes and line numbers still match. */
@@ -89,12 +90,21 @@ function declarations(css: string): Declaration[] {
   const out: Declaration[] = [];
   let start = 0;
   let parens = 0;
+  // Characters inside a quoted string (with \ escapes) end nothing and open nothing.
+  let quote: string | null = null;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    if (ch === '(') parens++;
-    else if (ch === ')') parens--;
-    else if (ch === '{') start = i + 1;
-    else if (parens === 0 && (ch === ';' || ch === '}')) {
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === '(') parens++;
+    else if (ch === ')') parens = Math.max(0, parens - 1);
+    else if (ch === '{') {
+      start = i + 1;
+      parens = 0;
+    } else if (ch === '}' || (ch === ';' && parens === 0)) {
+      parens = 0;
       const part = text.slice(start, i);
       const colon = part.indexOf(':');
       if (colon !== -1 && part.trim() !== '') {
@@ -159,6 +169,13 @@ function ruleFor(d: Declaration): Violation['rule'] | null {
   ) {
     return 'C4';
   }
+  // A drop-shadow filter is a shadow: only a shadow token inside it.
+  if (
+    d.prop === 'filter' &&
+    [...d.value.matchAll(DROP_SHADOW)].some((m) => !SHADOW_TOKEN.test(m[1].trim()))
+  ) {
+    return 'C4';
+  }
   if (
     SPACING_PROPERTY.test(d.prop) &&
     !every(d.value, (p) => p === '0' || p === 'auto' || STEP.test(p) || NEGATIVE_STEP.test(p))
@@ -212,10 +229,27 @@ const STRING = /^(['"])(.*)\1$/s;
 const PLAIN_TEMPLATE = /^`([^$`]*)`$/;
 const NUMBER = /^-?\d*\.?\d+$/;
 
-/** Whether one inline style entry breaks the stylesheet rules. */
-function inlineBreaks(key: string, raw: string): boolean {
+/** A key the theme holds values for: color, typeface, rounding, shadow, or spacing. */
+const themed = (prop: string): boolean =>
+  prop === 'font' ||
+  prop === 'font-family' ||
+  [COLOR_PROPERTY, RADIUS_PROPERTY, SHADOW_PROPERTY, SPACING_PROPERTY].some((r) => r.test(prop));
+
+/** The string literals and template text inside an expression. */
+const literalsIn = (raw: string): string[] =>
+  [...raw.matchAll(/'([^'\\]*)'|"([^"\\]*)"|`([^`]*)`/g)].map((m) =>
+    (m[1] ?? m[2] ?? m[3]).replace(/\$\{[^}]*\}/g, ' '),
+  );
+
+/**
+ * Whether one inline style entry breaks the stylesheet rules. `raw` is undefined for a shorthand
+ * entry (`{ color }`), whose value is unknown.
+ */
+function inlineBreaks(key: string, raw: string | undefined): boolean {
   const prop = key.startsWith('--') ? key : key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
-  if (prop.startsWith('--') || COLOR_LITERAL.test(raw)) return true;
+  if (prop.startsWith('--')) return true;
+  if (raw === undefined) return themed(prop);
+  if (COLOR_LITERAL.test(raw)) return true;
   const text = STRING.exec(raw)?.[2] ?? PLAIN_TEMPLATE.exec(raw)?.[1];
   if (text !== undefined) return ruleFor({ line: 0, prop, value: text.trim() }) !== null;
   if (NUMBER.test(raw)) {
@@ -223,14 +257,53 @@ function inlineBreaks(key: string, raw: string): boolean {
     const sized = [RADIUS_PROPERTY, SHADOW_PROPERTY, SPACING_PROPERTY].some((r) => r.test(prop));
     return sized && Number(raw) !== 0;
   }
-  // Any other expression can't be judged here, but a typeface is never an app's to set.
-  return prop === 'font' || prop === 'font-family';
+  // Any other expression can't be judged: a key the theme holds values for fails, and the
+  // literals inside it are judged as stylesheet values.
+  if (themed(prop)) return true;
+  return literalsIn(raw).some((value) => ruleFor({ line: 0, prop, value: value.trim() }) !== null);
+}
+
+/** The violations in one style object's body, which starts at `offset` in `tsx`. */
+function styleObject(path: string, tsx: string, body: string, offset: number): Violation[] {
+  const out: Violation[] = [];
+  for (const entry of entries(body)) {
+    const trimmed = entry.text.trim();
+    if (trimmed === '') continue;
+    const lead = entry.text.length - entry.text.trimStart().length;
+    const at = offset + entry.at + lead;
+    const report = (text: string): number =>
+      out.push({ path, line: lineAt(tsx, at), rule: 'inline', text });
+    if (trimmed.startsWith('...')) {
+      const spread = trimmed.slice(3).trim();
+      // A spread object literal is walked; any other spread can't be judged, so it is reported.
+      if (spread.startsWith('{') && spread.endsWith('}')) {
+        const inner = entry.text.indexOf('{', entry.text.indexOf('...')) + 1;
+        out.push(...styleObject(path, tsx, spread.slice(1, -1), offset + entry.at + inner));
+      } else {
+        report(trimmed.replace(/\s+/g, ' '));
+      }
+      continue;
+    }
+    const colon = trimmed.indexOf(':');
+    const keyRaw = colon === -1 ? trimmed : trimmed.slice(0, colon).trim();
+    const raw =
+      colon === -1
+        ? undefined
+        : trimmed
+            .slice(colon + 1)
+            .replace(/\s+/g, ' ')
+            .trim();
+    if (inlineBreaks(keyRaw.replace(STRING, '$2'), raw)) {
+      report(raw === undefined ? keyRaw : `${keyRaw}: ${raw}`);
+    }
+  }
+  return out;
 }
 
 /** The inline rule over screen code: a `style={{ ... }}` follows the stylesheet rules. */
 export function inlineStyleViolations(path: string, tsx: string): Violation[] {
   const out: Violation[] = [];
-  for (const m of tsx.matchAll(/style=\{\{/g)) {
+  for (const m of tsx.matchAll(/style=\{\s*\{/g)) {
     const start = (m.index ?? 0) + m[0].length;
     // The object ends where its braces balance.
     let depth = 1;
@@ -240,24 +313,7 @@ export function inlineStyleViolations(path: string, tsx: string): Violation[] {
       if (tsx[end] === '}') depth--;
       end++;
     }
-    for (const entry of entries(tsx.slice(start, end - 1))) {
-      const colon = entry.text.indexOf(':');
-      if (colon === -1 || entry.text.trim().startsWith('...')) continue;
-      const keyRaw = entry.text.slice(0, colon).trim();
-      const raw = entry.text
-        .slice(colon + 1)
-        .replace(/\s+/g, ' ')
-        .trim();
-      if (inlineBreaks(keyRaw.replace(STRING, '$2'), raw)) {
-        const lead = entry.text.length - entry.text.trimStart().length;
-        out.push({
-          path,
-          line: lineAt(tsx, start + entry.at + lead),
-          rule: 'inline',
-          text: `${keyRaw}: ${raw}`,
-        });
-      }
-    }
+    out.push(...styleObject(path, tsx, tsx.slice(start, end - 1), start));
   }
   return out;
 }

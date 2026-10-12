@@ -206,6 +206,53 @@ describe('the checker, wider coverage (FR-005, FR-006)', () => {
   });
 });
 
+// Review round 2: quoted parentheses, values that can't be judged, spaced and spread styles,
+// drop-shadow filters, and masks.
+describe('the checker, round 2 (FR-005, FR-006)', () => {
+  it.each([['"("'], ['")"'], ["'('"], ['"\\"("']])('keeps reading after content: %s', (quoted) => {
+    expect(
+      css(`.a {\n  content: ${quoted};\n}\n.b {\n  color: #fff;\n  padding: 18px;\n}`),
+    ).toEqual(['C2 5 color: #fff', 'C5 6 padding: 18px']);
+  });
+
+  it.each([
+    ['filter: drop-shadow(0 0 2px var(--border))', 'C4'],
+    ['mask-image: linear-gradient(red, transparent)', 'C2'],
+    ['mask: url(a.svg) black', 'C2'],
+  ])('reports %s', (decl, rule) => {
+    expect(css(`.a {\n  ${decl};\n}`)).toEqual([`${rule} 2 ${decl}`]);
+  });
+
+  it('accepts a drop-shadow filter made of a shadow token', () => {
+    expect(css('.a {\n  filter: drop-shadow(var(--shadow));\n}')).toEqual([]);
+  });
+
+  it.each([
+    ['style={{ color: myColor }}', 'color: myColor'],
+    ["style={{ color: c ? 'red' : 'blue' }}", "color: c ? 'red' : 'blue'"],
+    ["style={{ color: 'red' as const }}", "color: 'red' as const"],
+    ['style={{ background: `${a} red` }}', 'background: `${a} red`'],
+    ['style={{ padding: `${n}px` }}', 'padding: `${n}px`'],
+    ['style={{ borderRadius: r }}', 'borderRadius: r'],
+    ['style={{ boxShadow: s }}', 'boxShadow: s'],
+    ['style={{ color }}', 'color'],
+    ["style={ { color: 'red' } }", "color: 'red'"],
+    ["style={{ ...{ color: 'red' } }}", "color: 'red'"],
+    ['style={{ ...custom }}', '...custom'],
+    ["style={{ content: c ? '#abc' : '' }}", "content: c ? '#abc' : ''"],
+  ])('inline: reports %s', (code, text) => {
+    expect(tsx(`export const A = () => (\n  <p ${code}>x</p>\n);`)).toEqual([`inline 2 ${text}`]);
+  });
+
+  it('inline: accepts an expression for a size the theme does not hold', () => {
+    expect(
+      tsx(
+        'export const A = () => <span style={{ width: `${pct}%`, height: h, ...{ width: 1 } }} />;',
+      ),
+    ).toEqual([]);
+  });
+});
+
 /** Every file under `dir` (relative to the repository root) ending in one of `exts`. */
 function files(dir: string, exts: string[]): string[] {
   const abs = resolve(ROOT, dir);

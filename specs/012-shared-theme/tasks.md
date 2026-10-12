@@ -296,7 +296,8 @@ unchanged.
   and `011`).
 - [ ] T028 Running-system gate: `docker compose up --build`, then walk quickstart.md S1–S6 in the
   browser, including light, dark, and 375 pixels wide, and sign in, use, and sign out of each front
-  end. Record the results, and the S2 tables, in this file.
+  end. Record the results, and the S2 tables, in this file. Also check the spacing of the Check
+  again button inside the Customer couldn't-confirm warning banner (review round 1, item 9).
 - [ ] T029 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
