@@ -4,9 +4,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Attendees } from '../src/pages/Attendees';
 import { EventDetail } from '../src/pages/EventDetail';
 import { EventForm } from '../src/pages/EventForm';
+import { EventList } from '../src/pages/EventList';
 import { LocationDetail } from '../src/pages/LocationDetail';
 import { Reports } from '../src/pages/Reports';
 import { json, stubApi } from './helpers/api-stub';
+import { CANCELLED_EVENT } from './fixtures-005';
 
 /**
  * Spec 012 FR-010, FR-014 (research R8, R10): key controls and "Can't reach the QueuePass
@@ -20,6 +22,7 @@ const renderAt = (url: string) =>
   render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
+        <Route path="/events" element={<EventList />} />
         <Route path="/events/new" element={<EventForm />} />
         <Route path="/events/:id" element={<EventDetail />} />
         <Route path="/events/:id/attendees" element={<Attendees />} />
@@ -52,4 +55,26 @@ it('the New event form saves with the primary button and cancels with the second
     'btn--primary',
   );
   expect(screen.getByRole('link', { name: 'Cancel' })).toHaveClass('btn', 'btn--ghost');
+});
+
+// US3-4: a status badge looks the same in both apps; Cancelled is the danger badge everywhere.
+describe('the Cancelled badge (US3-4)', () => {
+  it('is the danger badge on the Events list', async () => {
+    stubApi({ 'GET /events': json([CANCELLED_EVENT]), 'GET /locations': json([]) });
+    renderAt('/events');
+    expect(await screen.findByText('Cancelled', { selector: '.pill' })).toHaveClass(
+      'pill',
+      'pill--danger',
+    );
+  });
+
+  it('is the danger badge on an event page', async () => {
+    const path = `/events/${CANCELLED_EVENT.id}`;
+    stubApi({ [`GET ${path}`]: json(CANCELLED_EVENT), [`GET ${path}/tiers`]: json([]) });
+    renderAt(path);
+    expect(await screen.findByText('Cancelled', { selector: '.pill' })).toHaveClass(
+      'pill',
+      'pill--danger',
+    );
+  });
 });

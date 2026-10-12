@@ -220,8 +220,9 @@ confirm both show the new accent on buttons, links, and the current navigation i
     reports page's notes, subtitles, and cancelled rows in the darker gray; buttons, fields, and
     choices at least 44 pixels tall; navigation links at least 44 pixels tall; larger checkboxes
     and radio buttons; a visible focus outline on buttons and links (fields keep the accent ring
-    they show today); a border on status badges; and "Can't reach the QueuePass service" as an
-    error banner;
+    they show today); a border on status badges; the Cancelled badge on the Events list and event
+    page in red, as on Reports and in the Customer app; and "Can't reach the QueuePass service" as
+    an error banner;
   - in the Customer app: its Get tickets messages (including "Ticket information is unavailable
     right now. Try again later.") and "Can't reach the QueuePass service" as banners; and the Get
     tickets "Ticket type" group losing the browser's default box around it

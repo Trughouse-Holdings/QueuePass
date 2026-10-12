@@ -261,6 +261,9 @@ unchanged.
   `Notice.tsx` (`role="status"`) keeps the existing bare `.banner`. Review round 1: the Get
   tickets "Ticket information is unavailable right now." line (no role) also gets `banner
   banner--error` (spec FR-010, FR-012), tested in `customer-app/test/theme-classes.test.tsx`.
+  Running-system gate: the Admin Events list and event page Cancelled badge gets `pill
+  pill--danger`, as on Reports and in the Customer app (US3-4; spec FR-012), tested in
+  `admin-app/test/theme-classes.test.tsx`.
 - [x] T023 [US3] Run T016–T018 until they pass, then the shared, Admin, Customer, and Booth suites
   (the Booth app renders `ServiceUnreachable` too; its tests must still pass).
 

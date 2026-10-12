@@ -94,7 +94,7 @@ function EventView({
       <div className="page-head">
         <div>
           <h1 className="page-title">
-            {event.name} {cancelled && <span className="pill">Cancelled</span>}
+            {event.name} {cancelled && <span className="pill pill--danger">Cancelled</span>}
           </h1>
         </div>
         <div className="form__actions">
