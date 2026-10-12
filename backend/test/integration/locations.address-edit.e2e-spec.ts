@@ -244,4 +244,25 @@ describe('Venue address check on edit (spec 013)', () => {
       expect((await row()).seatingCapacity).toBe(layout.body.totalSeats);
     });
   });
+
+  describe('when the address service is unavailable (US2)', () => {
+    it.each([
+      ['without the flag', {}],
+      ['with save anyway', { acceptUnverifiedAddress: true }],
+    ])('refuses an address change %s with 503, venue unchanged', async (_l, extra) => {
+      const before = await row();
+      ctx.geocoder.next({ kind: 'unavailable' });
+      const res = await patch({ ...moved, ...extra }).expect(503);
+      expect(res.body.error.code).toBe('ADDRESS_SERVICE_UNAVAILABLE');
+      expect(await row()).toEqual(before);
+    });
+
+    it('still saves a name-only edit, and venues still read (SC-006)', async () => {
+      ctx.geocoder.always({ kind: 'unavailable' });
+      const res = await patch({ name: 'Renamed' }).expect(200);
+      expect(res.body.name).toBe('Renamed');
+      await asAdmin(ctx).get('/locations').expect(200);
+      await asAdmin(ctx).get(`/locations/${id}`).expect(200);
+    });
+  });
 });

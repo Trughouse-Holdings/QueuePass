@@ -1,3 +1,5 @@
+import { HttpException } from '@nestjs/common';
+import { LocationsService } from '../../src/locations/locations.service';
 import { asAdmin } from '../setup/authed-request';
 import { ADDRESS } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
@@ -158,5 +160,54 @@ describe('Venue address check on create (spec 013)', () => {
       .expect(400);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
     expect(ctx.geocoder.calls).toHaveLength(0);
+  });
+
+  describe('when the address service is unavailable (US2, FR-006)', () => {
+    const UNAVAILABLE = {
+      code: 'ADDRESS_SERVICE_UNAVAILABLE',
+      message: "We can't verify the address right now. Nothing was saved. Try again in a minute.",
+    };
+
+    it('refuses with 503 and the exact message, no cause revealed, nothing saved', async () => {
+      ctx.geocoder.next({ kind: 'unavailable' });
+      const res = await asAdmin(ctx).post('/locations').send(venue).expect(503);
+      expect(res.body).toEqual({ error: UNAVAILABLE });
+      expect(await ctx.prisma.location.count()).toBe(0);
+    });
+
+    it('ignores save anyway: still 503, nothing saved', async () => {
+      ctx.geocoder.next({ kind: 'unavailable' });
+      const res = await asAdmin(ctx)
+        .post('/locations')
+        .send({ ...arena, acceptUnverifiedAddress: true })
+        .expect(503);
+      expect(res.body.error.code).toBe('ADDRESS_SERVICE_UNAVAILABLE');
+      expect(await ctx.prisma.location.count()).toBe(0);
+    });
+
+    it('saves as sent, not verified, only through the internal option (research R14)', async () => {
+      ctx.geocoder.always({ kind: 'unavailable' });
+      const service = ctx.app.get(LocationsService);
+      const saved = await service.create(
+        { ...arena, street: ' 1  Arena Plaza ' },
+        { whenServiceUnavailable: 'saveUnverified' },
+      );
+      expect(saved).toMatchObject({
+        street: '1 Arena Plaza',
+        address: '1 Arena Plaza, Louisville, KY 40202',
+        addressVerified: false,
+      });
+      expect(await ctx.prisma.location.count()).toBe(1);
+    });
+
+    it('refuses through the service without the internal option', async () => {
+      ctx.geocoder.always({ kind: 'unavailable' });
+      const service = ctx.app.get(LocationsService);
+      const refused = await service.create(arena).catch((err: unknown) => err);
+      expect(refused).toBeInstanceOf(HttpException);
+      expect((refused as HttpException).getStatus()).toBe(503);
+      expect((refused as HttpException).getResponse()).toEqual({ error: UNAVAILABLE });
+      expect(await ctx.prisma.location.count()).toBe(0);
+    });
   });
 });

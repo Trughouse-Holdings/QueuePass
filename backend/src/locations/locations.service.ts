@@ -4,11 +4,17 @@ import {
   HttpStatus,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { Location, Prisma } from '@prisma/client';
 import { formatAddress } from '@queuepass/shared';
-import { ADDRESS_GEOCODER, AddressGeocoder, AddressParts } from '../address/address-geocoder';
+import {
+  ADDRESS_GEOCODER,
+  AddressGeocoder,
+  AddressParts,
+  AddressServiceUnavailableError,
+} from '../address/address-geocoder';
 import { LOCKING_TX } from '../common/event-lock';
 import { searchText } from '../common/search-text';
 import { lockVenueAndEvents } from '../common/venue-lock';
@@ -59,11 +65,33 @@ const checked = (parts: AddressParts, addressVerified: boolean): CheckedAddress 
   addressVerified,
 });
 
+/**
+ * Spec 013 research R14: an internal option of `create`, passed only by the dev-only
+ * `demo-data` script. No request can set it: the controller never passes it and no DTO has it.
+ */
+export interface CreateOptions {
+  whenServiceUnavailable?: 'refuse' | 'saveUnverified';
+}
+
+/** Research R6: every failure to get an answer; the cause goes to the log, not the response. */
+const serviceUnavailable = (): HttpException =>
+  new HttpException(
+    {
+      error: {
+        code: 'ADDRESS_SERVICE_UNAVAILABLE',
+        message: "We can't verify the address right now. Nothing was saved. Try again in a minute.",
+      },
+    },
+    HttpStatus.SERVICE_UNAVAILABLE,
+  );
+
 const addressRefused = (code: string, message: string, details: object): HttpException =>
   new HttpException({ error: { code, message, details } }, HttpStatus.BAD_REQUEST);
 
 @Injectable()
 export class LocationsService {
+  private readonly logger = new Logger(LocationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(ADDRESS_GEOCODER) private readonly geocoder: AddressGeocoder,
@@ -73,9 +101,13 @@ export class LocationsService {
    * Spec 013 FR-002: the address is checked before anything is saved. A new row has nothing to
    * race with, so it is one insert after the lookup (research R7).
    */
-  async create(dto: CreateLocationDto): Promise<Location> {
+  async create(dto: CreateLocationDto, options: CreateOptions = {}): Promise<Location> {
     const { name, seatingCapacity, acceptUnverifiedAddress } = dto;
-    const address = await this.checkAddress(dto, acceptUnverifiedAddress === true);
+    const address = await this.checkAddress(
+      dto,
+      acceptUnverifiedAddress === true,
+      options.whenServiceUnavailable === 'saveUnverified',
+    );
     return this.prisma.location.create({ data: { name, seatingCapacity, ...address } });
   }
 
@@ -177,14 +209,25 @@ export class LocationsService {
    * Asks the address service (spec 013 research R2). Exactly one match is saved in the
    * service's standard form and verified, whatever the flag says. No match or several are
    * refused, unless the admin confirmed "save anyway": then the address is saved as sent and
-   * not verified.
+   * not verified. When the service cannot be asked, the save is refused with 503 whatever the
+   * flag says (research R6), except through `create`'s internal demo-data option (R14).
    */
   private async checkAddress(
     input: AddressParts,
     acceptUnverified: boolean,
+    saveUnverifiedWhenUnavailable = false,
   ): Promise<CheckedAddress> {
     const sent = asSent(input);
-    const result = await this.geocoder.lookup(sent);
+    let result;
+    try {
+      result = await this.geocoder.lookup(sent);
+    } catch (err) {
+      if (!(err instanceof AddressServiceUnavailableError)) throw err;
+      const cause = err.cause instanceof Error ? `: ${err.cause.message}` : '';
+      this.logger.warn(`Address service unavailable: ${err.message}${cause}`);
+      if (saveUnverifiedWhenUnavailable) return checked(sent, false);
+      throw serviceUnavailable();
+    }
 
     if (result.kind === 'match') {
       const { street, city, state, zip } = result;

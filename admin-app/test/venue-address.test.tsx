@@ -357,3 +357,46 @@ describe('Seated venue in one step', () => {
     ]);
   });
 });
+
+describe('The address service is down (US2)', () => {
+  const MESSAGE = UNAVAILABLE.error.message;
+
+  it('shows the try-again message on create, keeps every value, and offers no Save anyway', async () => {
+    stubApi({ 'POST /locations': json(UNAVAILABLE, 503) });
+    renderAt('/locations/new');
+    fill();
+    create();
+    const banner = await screen.findByTestId('error-banner');
+    expect(banner).toHaveTextContent(MESSAGE);
+    expectValuesKept();
+    expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
+  });
+
+  it('shows the same on edit, with no Save anyway', async () => {
+    stubApi({
+      [`GET ${PATH}`]: json(verified),
+      [`PATCH ${PATH}`]: json(UNAVAILABLE, 503),
+    });
+    renderAt(`${PATH}/edit`);
+    await waitFor(() => expect(field('Street address').value).toBe('430 W VINE ST'));
+    set('Street address', '1 Nowhere Blvd');
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByTestId('error-banner')).toHaveTextContent(MESSAGE);
+    expect(field('Street address').value).toBe('1 Nowhere Blvd');
+    expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
+  });
+
+  it('hides Save anyway when pressing it meets a 503', async () => {
+    let n = 0;
+    stubApi({
+      'POST /locations': () => (n++ === 0 ? json(NOT_FOUND, 400) : json(UNAVAILABLE, 503)),
+    });
+    renderAt('/locations/new');
+    fill();
+    create();
+    fireEvent.click(await screen.findByRole('button', { name: SAVE_ANYWAY }));
+    await waitFor(() => expect(screen.getByTestId('error-banner')).toHaveTextContent(MESSAGE));
+    expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
+    expectValuesKept();
+  });
+});

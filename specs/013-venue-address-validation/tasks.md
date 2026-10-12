@@ -305,7 +305,7 @@ or without "save anyway", nothing saved; name-only edits still work.
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T023 [P] [US2] Extend `backend/test/integration/locations.address.e2e-spec.ts`:
+- [x] T023 [P] [US2] Extend `backend/test/integration/locations.address.e2e-spec.ts`:
   - fake `unavailable` on create → `503 ADDRESS_SERVICE_UNAVAILABLE` with the exact message,
     matching the contract, no row; the response has no `details` revealing the cause; the same
     with `acceptUnverifiedAddress: true` → `503`, no row (the flag is ignored);
@@ -313,18 +313,18 @@ or without "save anyway", nothing saved; name-only edits still work.
     `ctx.app.get(LocationsService).create(dto, { whenServiceUnavailable: 'saveUnverified' })`
     while the fake is `unavailable` → the venue is saved as sent with `addressVerified: false`;
     the same call without the option → throws the `503` envelope, no row.
-- [ ] T024 [P] [US2] Extend `backend/test/integration/locations.address-edit.e2e-spec.ts`: fake
+- [x] T024 [P] [US2] Extend `backend/test/integration/locations.address-edit.e2e-spec.ts`: fake
   `unavailable` on an address change → `503`, venue unchanged, also with
   `acceptUnverifiedAddress: true`; with the fake set to `always('unavailable')`, a name-only edit
   → `200` (SC-006); `GET /locations` and `GET /locations/{id}` → `200`.
-- [ ] T025 [P] [US2] Extend `admin-app/test/venue-address.test.tsx`: a `503
+- [x] T025 [P] [US2] Extend `admin-app/test/venue-address.test.tsx`: a `503
   ADDRESS_SERVICE_UNAVAILABLE` shows "We can't verify the address right now. Nothing was saved.
   Try again in a minute.", keeps every value, and shows **no** Save anyway button, on create and
   on edit; a `503` after pressing Save anyway shows the same and hides the button.
 
 ### Implementation for User Story 2
 
-- [ ] T026 [US2] In `backend/src/locations/locations.service.ts`, catch
+- [x] T026 [US2] In `backend/src/locations/locations.service.ts`, catch
   `AddressServiceUnavailableError` from `lookup`, log its cause at `warn`, and throw `503
   ADDRESS_SERVICE_UNAVAILABLE` (research R6), whatever `acceptUnverifiedAddress` says. Give
   `create` its internal second argument `{ whenServiceUnavailable: 'refuse' | 'saveUnverified' }`
