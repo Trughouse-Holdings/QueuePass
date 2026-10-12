@@ -173,7 +173,7 @@ screens, using theme values; the scan passes.
 
 ### Tests for User Story 1
 
-- [ ] T012 [US1] The failing scan from T010 is this story's test. Delete
+- [x] T012 [US1] The failing scan from T010 is this story's test. Delete
   `customer-app/test/shared-look.test.ts` only after confirming its eight rule-presence
   assertions are in `packages/shared/test/theme/tokens.test.ts` (T003) and pass there; its
   "identical in both apps" assertion is replaced by the block existing once, in the theme
@@ -181,18 +181,18 @@ screens, using theme values; the scan passes.
 
 ### Implementation for User Story 1
 
-- [ ] T013 [P] [US1] Cut `admin-app/src/styles.css` to the "Stays in admin-app" rules in research
+- [x] T013 [P] [US1] Cut `admin-app/src/styles.css` to the "Stays in admin-app" rules in research
   R2, with a header comment: "Admin-only screens. Colors, typefaces, radii, shadows, and spacing
   come from @queuepass/shared/theme.css (spec 012)." Then apply research R4 and R9:
   `.stat__note`, `.card__sub`, and `.row--muted td` use `--text-muted`; `.meter` and
   `.meter__fill` use `var(--radius-pill)`; every padding, margin, and gap uses the nearest
   `var(--space-N)` (ties up; `-8px` → `calc(-1 * var(--space-2))`).
-- [ ] T014 [P] [US1] Cut `customer-app/src/styles.css` to the "Stays in customer-app" rules in
+- [x] T014 [P] [US1] Cut `customer-app/src/styles.css` to the "Stays in customer-app" rules in
   research R2, with the same kind of header comment, replacing the "copied from" header. Apply
   research R9 to every padding, margin, and gap, including the three seat values
   (`.seat-scroll` padding `6px 2px` → `var(--space-2) var(--space-1)`; `.seat-row` gap and margin
   `4px` → `var(--space-1)`). Change nothing else in the seat rules (research R11).
-- [ ] T015 [US1] Run `drift.test.ts` until the scan passes, then `npm test`. Every existing Admin
+- [x] T015 [US1] Run `drift.test.ts` until the scan passes, then `npm test`. Every existing Admin
   and Customer test still passes unchanged.
 
 **Checkpoint**: one theme, no copies, no drift; screens look as before except FR-012.
