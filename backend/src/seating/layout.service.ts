@@ -3,6 +3,7 @@ import type { Prisma, Section } from '@prisma/client';
 import type { SeatingLayout } from '@queuepass/shared';
 import { conflict } from '../common/conflict';
 import { LOCKING_TX } from '../common/event-lock';
+import { lockVenueAndEvents } from '../common/venue-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { LayoutInputDto } from './dto/layout-input.dto';
 import { recalcSeatedTiers } from './tier-seats';
@@ -21,8 +22,9 @@ const toLayout = (locationId: string, sections: Section[]): SeatingLayout => ({
 /**
  * A venue's seating layout (spec 007 US1; research R3, R4). Writes lock the venue row and then
  * every scheduled event at the venue, in id order, so no order, seating switch, or event edit
- * for those events can slip in between the checks and the write. Nothing else locks an event
- * and then a venue, so these locks never deadlock.
+ * for those events can slip in between the checks and the write (`common/venue-lock.ts`, shared
+ * with venue updates, spec 013 research R7). Nothing else locks an event and then a venue, so
+ * these locks never deadlock.
  */
 @Injectable()
 export class LayoutService {
@@ -39,7 +41,7 @@ export class LayoutService {
 
   replace(locationId: string, dto: LayoutInputDto): Promise<SeatingLayout> {
     return this.prisma.$transaction(async (tx) => {
-      const venue = await this.lockVenueAndEvents(tx, locationId);
+      const venue = await lockVenueAndEvents(tx, locationId);
 
       const names = dto.sections.map((s) => s.name.toLowerCase());
       const repeated = names.find((n, i) => names.indexOf(n) !== i);
@@ -102,7 +104,7 @@ export class LayoutService {
 
   remove(locationId: string): Promise<void> {
     return this.prisma.$transaction(async (tx) => {
-      const venue = await this.lockVenueAndEvents(tx, locationId);
+      const venue = await lockVenueAndEvents(tx, locationId);
       await this.assertNoSeatedSales(tx, locationId, venue.name);
 
       const seated = await tx.event.findMany({
@@ -126,21 +128,6 @@ export class LayoutService {
   async totalSeats(locationId: string): Promise<number> {
     const sections = await this.prisma.section.findMany({ where: { locationId } });
     return sections.reduce((n, s) => n + s.rows * s.seatsPerRow, 0);
-  }
-
-  private async lockVenueAndEvents(
-    tx: Prisma.TransactionClient,
-    locationId: string,
-  ): Promise<{ name: string; seatingCapacity: number }> {
-    const venues = await tx.$queryRaw<{ name: string; seatingCapacity: number }[]>`
-      SELECT "name", "seatingCapacity" FROM "Location" WHERE "id" = ${locationId}::uuid
-      FOR UPDATE`;
-    if (venues.length === 0) throw new NotFoundException(`No venue exists with id ${locationId}.`);
-    await tx.$queryRaw`
-      SELECT "id" FROM "Event"
-      WHERE "locationId" = ${locationId}::uuid AND "status" = 'SCHEDULED'
-      ORDER BY "id" FOR UPDATE`;
-    return venues[0];
   }
 
   /** FR-003: no change while a scheduled seated event at the venue has valid tickets. */
