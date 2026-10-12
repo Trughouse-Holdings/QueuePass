@@ -123,7 +123,7 @@ describe('venue list (US2; FR-003)', () => {
       'href',
       '/venues/v1',
     );
-    expect(within(first).getByText('1 Arena Plaza, Louisville, KY')).toBeInTheDocument();
+    expect(within(first).getByText('430 W VINE ST, LEXINGTON, KY 40507')).toBeInTheDocument();
     expect(within(first).getByText('22,090')).toBeInTheDocument();
     expect(within(second).getByRole('link', { name: 'Zeta Hall' })).toBeInTheDocument();
   });
@@ -145,7 +145,7 @@ describe('venue page (US2; FR-004)', () => {
     renderCustomer({ at: '/venues/v1' });
 
     expect(await screen.findByRole('heading', { name: 'Alpha Arena' })).toBeInTheDocument();
-    expect(screen.getByText('1 Arena Plaza, Louisville, KY')).toBeInTheDocument();
+    expect(screen.getByText('430 W VINE ST, LEXINGTON, KY 40507')).toBeInTheDocument();
     expect(screen.getByText('22,090')).toBeInTheDocument();
     await screen.findAllByRole('article');
     const [first, second] = cards();
@@ -182,7 +182,7 @@ describe('details in cards (spec 008 US4)', () => {
   it("puts a venue's details in a card", async () => {
     stubApi({ 'GET /locations/v1': json(venue()), 'GET /events': json([]) });
     renderCustomer({ at: '/venues/v1' });
-    const address = await screen.findByText('1 Arena Plaza, Louisville, KY');
+    const address = await screen.findByText('430 W VINE ST, LEXINGTON, KY 40507');
     expect(address.closest('.card')).not.toBeNull();
   });
 });

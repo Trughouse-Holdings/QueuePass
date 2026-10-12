@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Event, Location } from '@queuepass/shared';
+import { AddressLink } from '@queuepass/shared/web';
 import { ApiError } from '../api/client';
 import { deleteLocation, getLocation } from '../api/locations';
 import { listEvents } from '../api/events';
@@ -69,7 +70,9 @@ function VenueView({ venue, events }: { venue: Location; events: Event[] }): Rea
       <div className="page-head">
         <div>
           <h1 className="page-title">{venue.name}</h1>
-          <p className="page-sub">{venue.address}</p>
+          <p className="page-sub">
+            <AddressLink address={venue.address} />
+          </p>
         </div>
         <div className="form__actions">
           <Link to={`/locations/${venue.id}/edit`} className="btn">

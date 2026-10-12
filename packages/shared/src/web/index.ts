@@ -8,5 +8,6 @@ export { HelloPage } from './hello-page.js';
 export type { GreetingPath } from './hello-page.js';
 export { WrongRole } from './wrong-role.js';
 export { ServiceUnreachable } from './service-unreachable.js';
+export { AddressLink } from './address-link.js';
 export { apiBaseUrl, createApiClient } from './api-client.js';
 export type { ApiClient } from './api-client.js';

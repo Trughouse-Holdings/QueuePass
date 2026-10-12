@@ -74,7 +74,13 @@ const stamp = '2026-09-01T00:00:00.000Z';
 export const venue = (over: Partial<Location> = {}): Location => ({
   id: 'v1',
   name: 'Alpha Arena',
-  address: '1 Arena Plaza, Louisville, KY',
+  // Spec 013: the four parts and whether the address service verified them.
+  address: '430 W VINE ST, LEXINGTON, KY 40507',
+  street: '430 W VINE ST',
+  city: 'LEXINGTON',
+  state: 'KY',
+  zip: '40507',
+  addressVerified: true,
   seatingCapacity: 22090,
   createdAt: stamp,
   updatedAt: stamp,

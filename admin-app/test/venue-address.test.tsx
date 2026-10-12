@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import type { Location } from '@queuepass/shared';
+import { mapsUrl, type Location } from '@queuepass/shared';
+import { LocationDetail } from '../src/pages/LocationDetail';
 import { LocationForm } from '../src/pages/LocationForm';
 import { LocationList } from '../src/pages/LocationList';
 import { json, stubApi } from './helpers/api-stub';
@@ -77,6 +78,7 @@ function renderAt(path: string): void {
       <Routes>
         <Route path="/locations" element={<LocationList />} />
         <Route path="/locations/new" element={<LocationForm />} />
+        <Route path="/locations/:id" element={<LocationDetail />} />
         <Route path="/locations/:id/edit" element={<LocationForm />} />
       </Routes>
     </MemoryRouter>,
@@ -398,5 +400,27 @@ describe('The address service is down (US2)', () => {
     await waitFor(() => expect(screen.getByTestId('error-banner')).toHaveTextContent(MESSAGE));
     expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
     expectValuesKept();
+  });
+});
+
+describe('Venue addresses as map links (US3)', () => {
+  const label = (address: string) => `${address} (opens Google Maps in a new tab)`;
+  const expectMapLink = async (address: string) => {
+    const link = await screen.findByRole('link', { name: label(address) });
+    expect(link).toHaveAttribute('href', mapsUrl(address));
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  };
+
+  it('links each address on the venue list, including a venue from before 013', async () => {
+    stubApi({ 'GET /locations': json([verified, savedAnyway, legacy]) });
+    renderAt('/locations');
+    for (const v of [verified, savedAnyway, legacy]) await expectMapLink(v.address);
+  });
+
+  it('links the address on the venue page', async () => {
+    stubApi({ [`GET ${PATH}`]: json(verified), 'GET /events': json([]) });
+    renderAt(PATH);
+    await expectMapLink(verified.address);
   });
 });

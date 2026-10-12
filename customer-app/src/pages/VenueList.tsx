@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { Location } from '@queuepass/shared';
-import { ServiceUnreachable } from '@queuepass/shared/web';
+import { AddressLink, ServiceUnreachable } from '@queuepass/shared/web';
 import { count } from '../format';
 import { useLoad } from '../use-load';
 
@@ -34,7 +34,9 @@ export function VenueList() {
                   <td>
                     <Link to={`/venues/${v.id}`}>{v.name}</Link>
                   </td>
-                  <td>{v.address}</td>
+                  <td>
+                    <AddressLink address={v.address} />
+                  </td>
                   <td>{count(v.seatingCapacity)}</td>
                 </tr>
               ))}

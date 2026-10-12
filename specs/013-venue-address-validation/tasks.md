@@ -346,20 +346,20 @@ that opens in a new tab.
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T027 [P] [US3] Create `packages/shared/test/web/address-link.test.tsx`: `AddressLink` renders
+- [x] T027 [P] [US3] Create `packages/shared/test/web/address-link.test.tsx`: `AddressLink` renders
   a link whose text is the address, `href` is `mapsUrl(address)`, `target="_blank"`,
   `rel="noopener noreferrer"`, and accessible name `{address} (opens Google Maps in a new tab)`.
-- [ ] T028 [P] [US3] Create `customer-app/test/address-link.test.tsx`: on Venues and on a venue
+- [x] T028 [P] [US3] Create `customer-app/test/address-link.test.tsx`: on Venues and on a venue
   page, the address is that link. Add the four fields and `addressVerified` to the venue factory
   in `customer-app/test/helpers.tsx`.
-- [ ] T029 [P] [US3] Extend `admin-app/test/venue-address.test.tsx`: on the venue list and the venue
+- [x] T029 [P] [US3] Extend `admin-app/test/venue-address.test.tsx`: on the venue list and the venue
   page, the address is that link.
 
 ### Implementation for User Story 3
 
-- [ ] T030 [US3] Create `packages/shared/src/web/address-link.tsx` (research R10) and export it
+- [x] T030 [US3] Create `packages/shared/src/web/address-link.tsx` (research R10) and export it
   from `packages/shared/src/web/index.ts`.
-- [ ] T031 [US3] Use `AddressLink` for the address in `admin-app/src/pages/LocationList.tsx`,
+- [x] T031 [US3] Use `AddressLink` for the address in `admin-app/src/pages/LocationList.tsx`,
   `admin-app/src/pages/LocationDetail.tsx`, `customer-app/src/pages/VenueList.tsx`, and
   `customer-app/src/pages/VenueDetail.tsx`. Run T027–T029 until they pass.
 
