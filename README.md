@@ -9,7 +9,7 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `008` are built and verified, and `013` is built.
+Features `001` through `008` and `013` are built and verified.
 
 | Spec                                                                         | What it delivers                                                                                                                             | Spec             | Plan and tasks     | Code                   |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------- |
@@ -21,7 +21,7 @@ Features `001` through `008` are built and verified, and `013` is built.
 | [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                                           | Draft            | Done (29/29 tasks) | **Built and verified** |
 | [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice                  | Draft            | Done (30/30 tasks) | **Built and verified** |
 | [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look                    | Draft            | Done (19/19 tasks) | **Built and verified** |
-| [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps | Draft            | Done (40/44 tasks) | **Built**              |
+| [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps | Draft            | Done (42/44 tasks) | **Built and verified** |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins

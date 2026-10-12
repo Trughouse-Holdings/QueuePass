@@ -445,12 +445,47 @@ its name without a check, and is verified when its address is filled in.
 - [x] T040 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' and `packages/shared` coverage if a provider is installed) in the PR
   description. The 80% floor is not yet blocking (Constitution VI deferral until `010` and `011`).
-- [ ] T041 Running-system gate: `docker compose up --build` online, walk quickstart.md S1–S9
+- [x] T041 Running-system gate: `docker compose up --build` online, walk quickstart.md S1–S9
   (including S2b) in the browser, and sign in, use, and sign out of each front end. Record the
   results in this file.
-- [ ] T042 Independent review (Constitution III): a separate Claude session reviews the branch
+  **Results (2026-10-11)**:
+  - `docker compose up --build` online on the existing (pre-013) database: all 6 services
+    healthy; migration `20261011120000_venue_address_parts` applied cleanly.
+  - S1: Rupp Arena, 430 W Vine St, Lexington KY 40507 → "Venue saved. Address: 430 W VINE ST,
+    LEXINGTON, KY 40507."
+  - S2/S2b: 1 Arena Plaza, Louisville KY 40202 refused as not found with Save anyway; changing
+    the ZIP hid the button; restored, refused again, Save anyway → "Venue saved. Address (not
+    verified): …"; the list shows "Not verified", the venue page "Address not verified. Edit the
+    venue to verify it.", the map link is present; a name-only edit kept it not verified.
+  - S3: covered by the Admin venue-address tests (T018), not repeated live.
+  - S4: Rupp's street changed to 1 Nowhere Blvd → refused, values kept, old address unchanged.
+  - S5: seated venue (one section 2×10) with 1 Nowhere Blvd refused, nothing saved; fixed to
+    937 Phillips Ln 40209 → saved verified with capacity 20 from the layout.
+  - S6: every venue address in the Admin and Customer venue lists and venue pages is a Google
+    Maps link with `target="_blank"` and `rel="noopener noreferrer"`, query URL-encoded.
+  - S7: `ADDRESS_GEOCODER_URL=http://10.255.255.1`: Admin create refused in 5.1 s with "We can't
+    verify the address right now…", values kept, no Save anyway; API POST with
+    `acceptUnverifiedAddress: true` → `503 ADDRESS_SERVICE_UNAVAILABLE`, nothing saved.
+    `http://geocoder.invalid`: 503 in 0.14 s; a name-only PATCH saved (200, still not
+    verified). The network-off case was not repeated separately (same code path as an
+    unreachable host).
+  - S8: on the upgraded database the four pre-013 venues show "Not verified" with map links;
+    QueuePass Demo Arena (with events) edited to 937 Phillips Ln → saved as 937 PHILLIPS LN,
+    LOUISVILLE, KY 40209, verified.
+  - S9: empty database, online → both demo venues verified; reset with the geocoder at
+    10.255.255.1 → the script finished in 16 s, printed the not-verified line, both venues not
+    verified. Default URL restored, database re-seeded.
+  - Smoke: signed in, used, and signed out of the Admin app (`admin1`) and the Customer app
+    (`customer1`). The Ticket Booth app is untouched by 013 and was not repeated.
+- [x] T042 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
+  **Result**: 2 rounds. Round 1: 3 should-fix (null address fields gave 500; plan deviations not
+  recorded in data-model.md and tasks.md; no test-first evidence) and 4 minor (empty
+  `ADDRESS_GEOCODER_URL`, redirects followed, Census parts longer than the columns, a brittle
+  test filter), all fixed in 994b460. Round 2: only minor. Open: `name: null` or
+  `seatingCapacity: null` on PATCH likely gives 500 (pre-existing on `main`, not 013; follow-up);
+  no response-size cap on the Census body (bounded by the 5-second limit).
 - [ ] T043 Open the implementation PR against `main` with `fixes #25` in its description. It
   touches the shared surface (`packages/shared/`, `backend/prisma/`, `.env.example`,
   `docker-compose.yml`), so every team member approves it.
