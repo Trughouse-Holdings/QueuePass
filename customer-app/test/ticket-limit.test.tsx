@@ -185,4 +185,27 @@ describe('choosing seats (US4-3)', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it('does not blame the limit when it ties with the seats left (research R3)', async () => {
+    stubApi({
+      'GET /events/e1': json(event({ reservedSeating: true })),
+      'GET /events/e1/tiers': json([vip]),
+      'GET /events/e1/availability': json(
+        availability({
+          ticketsLeft: 2,
+          tiers: [{ tierId: 't-vip', ticketsLeft: 2 }],
+          customerLimit: limit(2, 3),
+        }),
+      ),
+      'GET /events/e1/seats': json(map),
+    });
+    renderCustomer({ at: '/events/e1' });
+
+    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 2' }));
+
+    expect(screen.getByRole('button', { name: 'Row 1, Seat 3' })).toBeDisabled();
+    expect(screen.queryByText(/No more seats can be chosen/)).toBeNull();
+  });
 });

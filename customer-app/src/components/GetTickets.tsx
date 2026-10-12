@@ -79,9 +79,10 @@ export function GetTickets({ event }: { event: Event }) {
     1,
     Math.min(ORDER_LIMITS.maxQuantity, ticketsLeft, limit?.remaining ?? Infinity),
   );
-  // Spec 016 US4-3: why no more seats can be chosen, when the limit is what stops them.
+  // Spec 016 US4-3: why no more seats can be chosen, when the limit is what stops them. On a tie
+  // with the tickets left the limit does not bind, as the Backend answers SOLD_OUT (research R3).
   const limitBinds =
-    limit !== null && limit.remaining <= Math.min(ORDER_LIMITS.maxQuantity, ticketsLeft);
+    limit !== null && limit.remaining <= ORDER_LIMITS.maxQuantity && limit.remaining < ticketsLeft;
   const price = tierList.length > 0 ? chosen?.price : event.basePrice;
   const seated = seatMap.data?.reservedSeating === true ? seatMap.data : null;
   // Seats for the chosen tier's sections; every section when the event has no tiers.

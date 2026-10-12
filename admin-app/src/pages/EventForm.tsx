@@ -201,10 +201,15 @@ export function EventForm(): React.ReactElement {
    * since the Backend takes a typed quantity only without reserved seating.
    */
   async function saveEvent(eventId: string, payload: EventInput): Promise<void> {
-    await updateEvent(eventId, payload);
+    const switching = typesLoaded && layout !== null && reserved !== seated;
+    // Spec 016 research R7: turning reserved seating on raises the capacity to the layout's
+    // total, which the form already checked the limit against, so the limit waits for the switch.
+    const limitAfterSwitch = switching && reserved && 'maxTicketsPerCustomer' in payload;
+    const { maxTicketsPerCustomer, ...details } = payload;
+    await updateEvent(eventId, limitAfterSwitch ? details : payload);
     if (!typesLoaded) return;
-    const switching = layout !== null && reserved !== seated;
     if (switching) await updateSeating(eventId, { reservedSeating: reserved, sections: [] });
+    if (limitAfterSwitch) await updateEvent(eventId, { maxTicketsPerCustomer });
     const tierIds = types.map((t) => t.id ?? '');
     for (const [i, t] of types.entries()) {
       if (!t.id) tierIds[i] = (await createTier(eventId, tierInput(t))).id;

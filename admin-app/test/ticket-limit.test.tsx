@@ -130,6 +130,53 @@ describe('event form: Tickets per customer', () => {
     );
   });
 
+  it('sends a limit above the stored capacity after turning reserved seating on', async () => {
+    const api = stubApi({
+      'GET /locations': json([VENUE]),
+      [`GET /events/${EVENT.id}`]: json(EVENT),
+      [`GET /events/${EVENT.id}/tiers`]: json([
+        {
+          id: 't-gen',
+          eventId: EVENT.id,
+          name: 'General',
+          price: '10.00',
+          quantity: 10,
+          createdAt: EVENT.createdAt,
+          updatedAt: EVENT.updatedAt,
+        },
+      ]),
+      [`GET /events/${EVENT.id}/seats`]: json({
+        eventId: EVENT.id,
+        reservedSeating: false,
+        sections: [
+          {
+            sectionId: 's-a',
+            name: 'A',
+            rows: 15,
+            seatsPerRow: 10,
+            tierId: null,
+            sold: 0,
+            taken: [],
+          },
+        ],
+      }),
+      [`PATCH /events/${EVENT.id}`]: json(EVENT),
+      [`PUT /events/${EVENT.id}/seating`]: json({}),
+    });
+    at(`/events/${EVENT.id}/edit`, '/events/:id/edit', <EventForm />);
+
+    fireEvent.click(await screen.findByLabelText('Reserved seating'));
+    setLimit('120');
+    submit(/Save changes/);
+
+    await vi.waitFor(() => expect(api.count('PATCH', `/events/${EVENT.id}`)).toBe(2));
+    const writes = api.calls.filter((c) => c.method !== 'GET').map((c) => c.method);
+    expect(writes.slice(0, 3)).toEqual(['PATCH', 'PUT', 'PATCH']);
+    const [details, limit] = api.calls.filter((c) => c.method === 'PATCH');
+    expect(details.body).not.toHaveProperty('maxTicketsPerCustomer');
+    expect(limit.body).toEqual({ maxTicketsPerCustomer: 120 });
+  });
+
   describe('refuses a value out of range before sending, keeping the other values', () => {
     it.each(['0', '2.5', '41'])('%s against the typed Total tickets', async (value) => {
       const api = stubApi(newEventRoutes());
