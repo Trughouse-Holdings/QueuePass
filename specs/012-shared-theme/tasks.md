@@ -253,7 +253,12 @@ unchanged.
   `className="note"`; "You have reached the limit" gets `className="banner banner--conflict"`).
   Give each the fitting theme class, list them in the PR description, and extend T017 or T018
   first for any not already covered.
-  Result: `016` is not on `main` at b58ff2e (no `customerLimit`), so it has no lines to class.
+  Result: `016` was not on `main` at b58ff2e (no `customerLimit`). It merged first (#32), so 012
+  merged `main` in and classed its lines (research R11): in `GetTickets.tsx` the limit line and
+  "No more seats can be chosen" get `note`, and "You have reached the limit" gets `banner
+  banner--conflict` (a single `<p>`, like the Admin `EventList` banner), text unchanged; tested
+  first in `customer-app/test/theme-classes.test.tsx`. 016's Admin lines need no class: the limit
+  is a label/value on the event page, and its form refusals already use `ErrorBanner`.
   Classed: `ServiceUnreachable` and the Admin Attendees, EventDetail, LocationDetail, and Reports
   "Can't reach" paragraphs (`banner banner--error`); the Get tickets refusal (`banner
   banner--error`) and couldn't-confirm block (`banner banner--conflict`, with `banner__body`).

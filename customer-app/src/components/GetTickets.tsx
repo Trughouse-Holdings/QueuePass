@@ -236,7 +236,7 @@ export function GetTickets({ event }: { event: Event }) {
           <p>{closed}</p>
         </>
       ) : reached ? (
-        <p>{reached}</p>
+        <p className="banner banner--conflict">{reached}</p>
       ) : (
         chooseAndConfirm()
       )}
@@ -286,7 +286,7 @@ export function GetTickets({ event }: { event: Event }) {
         )}
         {/* Spec 016 FR-012. */}
         {limit !== null && (
-          <p>{`Limit: ${tickets(limit.limit)} per customer. You can get ${limit.remaining} more.`}</p>
+          <p className="note">{`Limit: ${tickets(limit.limit)} per customer. You can get ${limit.remaining} more.`}</p>
         )}
         {seated ? (
           section && (
@@ -308,7 +308,7 @@ export function GetTickets({ event }: { event: Event }) {
                 onToggle={toggleSeat}
               />
               {limit !== null && limitBinds && seats.length >= maxQuantity && (
-                <p>{`No more seats can be chosen: the limit of ${tickets(limit.limit)} per customer allows you ${limit.remaining} more.`}</p>
+                <p className="note">{`No more seats can be chosen: the limit of ${tickets(limit.limit)} per customer allows you ${limit.remaining} more.`}</p>
               )}
               <ul aria-label="Chosen seats">
                 {seats.map((c) => (

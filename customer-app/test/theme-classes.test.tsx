@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
-import { availability, event, json, order, renderCustomer, stubApi } from './helpers';
+import type { CustomerLimit, SeatMap } from '@queuepass/shared';
+import { availability, event, json, order, renderCustomer, stubApi, tier } from './helpers';
 
 /**
  * Spec 012 FR-010, FR-014 (research R8, R10): key controls and every status message carry the
@@ -105,5 +106,77 @@ describe('status messages (US3)', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent("Can't reach the QueuePass service.");
     expect(alert).toHaveClass('banner', 'banner--error');
+  });
+});
+
+// T022 (research R8, R11): 016's ticket-limit lines, with their text unchanged.
+describe("016's ticket-limit lines (FR-010)", () => {
+  const limit = (remaining: number, max = 8): CustomerLimit => ({
+    limit: max,
+    held: max - remaining,
+    remaining,
+  });
+
+  it('shows the limit line as a note', async () => {
+    stubApi({
+      ...routes(),
+      'GET /events/e1/availability': json(availability({ customerLimit: limit(3) })),
+    });
+    renderCustomer({ at: '/events/e1' });
+    expect(
+      await screen.findByText('Limit: 8 tickets per customer. You can get 3 more.'),
+    ).toHaveClass('note');
+  });
+
+  it('shows the reached message as a warning banner', async () => {
+    stubApi({
+      ...routes(),
+      'GET /events/e1/availability': json(availability({ customerLimit: limit(0) })),
+    });
+    renderCustomer({ at: '/events/e1' });
+    expect(
+      await screen.findByText('You have reached the limit of 8 tickets for this event.'),
+    ).toHaveClass('banner', 'banner--conflict');
+  });
+
+  it('shows "No more seats can be chosen" as a note', async () => {
+    const vip = tier({ id: 't-vip', name: 'VIP', price: '120.00', quantity: 6 });
+    const map: SeatMap = {
+      eventId: 'e1',
+      reservedSeating: true,
+      sections: [
+        {
+          sectionId: 's-a',
+          name: 'A',
+          rows: 2,
+          seatsPerRow: 3,
+          tierId: 't-vip',
+          sold: 0,
+          taken: [],
+        },
+      ],
+    };
+    stubApi({
+      'GET /events/e1': json(event({ reservedSeating: true })),
+      'GET /events/e1/tiers': json([vip]),
+      'GET /events/e1/availability': json(
+        availability({
+          ticketsLeft: 6,
+          tiers: [{ tierId: 't-vip', ticketsLeft: 6 }],
+          customerLimit: limit(2, 3),
+        }),
+      ),
+      'GET /events/e1/seats': json(map),
+    });
+    renderCustomer({ at: '/events/e1' });
+
+    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 2' }));
+    expect(
+      screen.getByText(
+        'No more seats can be chosen: the limit of 3 tickets per customer allows you 2 more.',
+      ),
+    ).toHaveClass('note');
   });
 });
