@@ -41,6 +41,9 @@ model Event {
   startsAt            DateTime @db.Timestamptz(6)
   endsAt              DateTime @db.Timestamptz(6)
   totalTicketCapacity Int
+  // Spec 016 FR-001: the most valid tickets one customer may hold; NULL is no limit. The range
+  // (1 to totalTicketCapacity) is the event_max_tickets_per_customer_range CHECK (migration SQL).
+  maxTicketsPerCustomer Int?
   basePrice           Decimal  @db.Decimal(10, 2)
   // Spec 005. A cancelled event is read-only and no longer blocks its venue's time: the
   // event_no_overlap constraint applies only WHERE status = 'SCHEDULED' (migration SQL).

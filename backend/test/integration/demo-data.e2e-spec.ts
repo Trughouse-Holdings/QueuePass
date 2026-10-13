@@ -35,6 +35,11 @@ describe('Demo data', () => {
     expect(report.totals.checkedIn).toBe(summary.checkedIn);
     const gala = report.events.find((e: { name: string }) => e.name === 'Holiday Gala');
     expect(gala).toMatchObject({ status: 'CANCELLED', ticketsSold: 0, revenue: '0.00' });
+    // Spec 016 research R10: one event shows the per-customer limit live.
+    const limited = await ctx.prisma.event.findMany({
+      where: { maxTicketsPerCustomer: { not: null } },
+    });
+    expect(limited.map((e) => [e.name, e.maxTicketsPerCustomer])).toEqual([['Comedy Night', 4]]);
     for (const e of report.events) {
       expect(e.ticketsSold).toBeLessThanOrEqual(e.ticketCapacity);
       for (const t of e.tiers) expect(t.ticketsSold).toBeLessThanOrEqual(t.quantity);

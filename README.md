@@ -9,7 +9,7 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `008` and `013` are built and verified.
+Features `001` through `008` and `013` are built and verified. `016` is built and in review.
 
 | Spec                                                                         | What it delivers                                                                                                                             | Spec             | Plan and tasks     | Code                   |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------- |
@@ -22,6 +22,7 @@ Features `001` through `008` and `013` are built and verified.
 | [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice                  | Draft            | Done (30/30 tasks) | **Built and verified** |
 | [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look                    | Draft            | Done (19/19 tasks) | **Built and verified** |
 | [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps | Draft            | Done (47/48 tasks) | **Built and verified** |
+| [`016-per-user-ticket-limit`](specs/016-per-user-ticket-limit/spec.md)       | An optional per-customer ticket limit on each event, held under concurrent orders; shown to admins and customers                             | Draft            | Done (36 tasks)    | Built, in review       |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -31,14 +32,15 @@ customers find events by name, venue, and dates, browse them as cards on any scr
 every venue with what is on there; get tickets
 for an event, in a tier or at its base price, and see their codes; choose their exact seats at
 events with reserved seating; and find every order they placed on **My tickets**. Admins give
-venues seating layouts and see each seated event's seat map. A venue's address is a real US
+venues seating layouts and see each seated event's seat map. Admins can cap how many tickets one
+customer may hold for an event; customers see how many more they can get, and the Backend refuses
+an order over the cap, even when two arrive at once. A venue's address is a real US
 address, checked by the US Census Geocoder when it is saved, unless an admin chooses **Save
 anyway** for an address the service does not know, which is then marked not verified. Every venue
 address in both apps opens Google Maps.
 
-Features `010`, `011`, `012`, `014`, `015`, and `016` are reserved in the constitution's roadmap
-and not yet built: test coverage, CI test runs, a shared theme, event images, seat holds, and a
-per-user ticket limit.
+Features `010`, `011`, `012`, `014`, and `015` are reserved in the constitution's roadmap and not
+yet built: test coverage, CI test runs, a shared theme, event images, and seat holds.
 
 ### How a feature is delivered
 
@@ -239,6 +241,9 @@ unchanged.
 - **Choosing seats** — customers pick a tier, a section, and their exact seats; every ticket names
   its seat. No seat is ever sold twice, guaranteed by the database, and cancelling frees seats
   (`007`)
+- **Ticket limit per customer** — admins may set the most tickets one customer can hold for an
+  event, across all their orders, or leave it blank for no limit. Customers see how many more they
+  can get, and the Backend refuses an order over the limit, including simultaneous ones (`016`)
 
 ### Scheduling rule
 
