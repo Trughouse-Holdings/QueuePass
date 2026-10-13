@@ -119,7 +119,8 @@ the four fields, with the happy path working through the fake.
   - two matches with the same `matchedAddress` → `match`; two distinct → `many` with both, each
     reformatted to `STREET, CITY, ST ZIP` (`"…, IL, 62701"` becomes `"…, IL 62701"`); a distinct
     candidate that does not split is kept raw; seven distinct → `many` with the first 5;
-  - status `400` (any body) → `none` (research R6);
+  - status `400` (any body) → `none` (research R6); *superseded by T048: a `400` is
+    unavailable*;
   - status `404`, `429`, `500`, `503`, a non-JSON `200` body, and JSON without
     `result.addressMatches` → each throws `AddressServiceUnavailableError`;
   - a server that never answers, with `timeoutMs: 200` → throws within 1 second; one that answers
@@ -466,6 +467,14 @@ its name without a check, and is verified when its address is filled in.
   the "exactly one match" wording in spec.md carries FR-021's condition; the known limit (same
   house number and ZIP code on another street) is named in the edge cases; the Kroger example is
   added to the contract's `AddressRejected` examples (still 1.7.0).
+- [x] T048 **Test first.** Teammate review of PR #34 (Nate): a Census `400` was mapped to `none`
+  (not found), but live on 2026-10-12 a `400` with `{"errors":[...]}` means a broken request or
+  configuration (invalid benchmark, empty street or city), while an unknown address is `200` with
+  no matches. In `backend/test/unit/census-geocoder.spec.ts`, the `400` cases (one with the
+  service's `errors` body, one with another body) now expect `AddressServiceUnavailableError`
+  and a `warn` with the body; confirm they fail. Then `CensusGeocoder` treats every non-2xx,
+  `400` included, as unavailable (→ `503 ADDRESS_SERVICE_UNAVAILABLE`) and logs the status and
+  the start of the body at `warn`. Research R1, R6, and R9 amended.
 - [x] T041 Running-system gate: `docker compose up --build` online, walk quickstart.md S1–S9
   (including S2b) in the browser, and sign in, use, and sign out of each front end. Record the
   results in this file.
@@ -519,7 +528,7 @@ its name without a check, and is verified when its address is filled in.
   test filter), all fixed in 994b460. Round 2: only minor. Open: `name: null` or
   `seatingCapacity: null` on PATCH likely gives 500 (pre-existing on `main`, not 013; follow-up);
   no response-size cap on the Census body (bounded by the 5-second limit).
-- [ ] T043 Open the implementation PR against `main` with `fixes #25` in its description. It
+- [x] T043 Open the implementation PR against `main` with `fixes #25` in its description. It
   touches the shared surface (`packages/shared/`, `backend/prisma/`, `.env.example`,
   `docker-compose.yml`), so every team member approves it.
 - [ ] T044 After the implementation PR merges, open a follow-up GitHub issue to tighten the

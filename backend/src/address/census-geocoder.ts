@@ -52,10 +52,13 @@ export class CensusGeocoder implements AddressGeocoder {
       });
     }
 
-    // A 400 means the service read the request and cannot work with this address; retrying
-    // gives the same answer, so it is "not found", not "unavailable" (research R6).
-    if (response.status === 400) return { kind: 'none' };
+    // Every non-2xx answer, 400 included, means the request or the service is broken, not that
+    // the address does not exist: an unknown address is a 200 with no matches. The body (the
+    // service's own `errors`, never a secret) goes to the log for the operator (research R6).
     if (!response.ok) {
+      this.logger.warn(
+        `Address service answered ${response.status}: ${text.slice(0, 500).replace(/\s+/g, ' ')}`,
+      );
       throw new AddressServiceUnavailableError(
         `The address service answered with status ${response.status}.`,
       );

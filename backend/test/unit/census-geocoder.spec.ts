@@ -185,12 +185,20 @@ describe('CensusGeocoder', () => {
     });
   });
 
-  it('returns none for a 400 answer, whatever its body', async () => {
+  it('throws unavailable for a 400 with the service errors body, and logs it', async () => {
+    // Live 2026-10-12: a bad benchmark or an empty street or city is 400 with this body, while
+    // an unknown address is 200 with no matches; so a 400 is a broken request, not "not found".
+    const g = await geocoder(json({ errors: ['Invalid benchmark in request'] }, 400));
+    await expect(g.lookup(ADDRESS)).rejects.toBeInstanceOf(AddressServiceUnavailableError);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('Invalid benchmark in request'));
+  });
+
+  it('throws unavailable for a 400 with any other body', async () => {
     const g = await geocoder((_req, res) => {
       res.writeHead(400, { 'Content-Type': 'text/plain' });
-      res.end('bad address');
+      res.end('bad request');
     });
-    await expect(g.lookup(ADDRESS)).resolves.toEqual({ kind: 'none' });
+    await expect(g.lookup(ADDRESS)).rejects.toBeInstanceOf(AddressServiceUnavailableError);
   });
 
   it.each([404, 429, 500, 503])('throws unavailable for status %i', async (status) => {
