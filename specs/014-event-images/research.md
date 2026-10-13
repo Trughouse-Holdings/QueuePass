@@ -571,8 +571,9 @@ seconds). A CSS animation for the change (motion to reduce, and nothing in the s
 - **Event card**: the image is inside a link to the event page, the same destination as the card's
   title, with `tabIndex={-1}` and `aria-hidden="true"`: a larger target for pointer users, with no
   second tab stop or duplicate announcement for keyboard and screen reader users, who use the title
-  link. The arrows are buttons outside the link, so flipping never opens the event. No full screen
-  from a card (confirmed by Mahdi).
+  link. The arrows and the Pause/Play button are buttons outside the link, so flipping or pausing
+  never opens the event. On the event page they are likewise outside the full-screen image button.
+  No full screen from a card (confirmed by Mahdi).
 - **Labels, in every variant**: each gallery is a `role="group"` with
   `aria-roledescription="carousel"` and `aria-label` "Images of Season Opener", and its arrows are
   named "Previous image of Season Opener" and "Next image of Season Opener", so on a list of cards

@@ -484,12 +484,12 @@ gallery shows the last image viewed.
   and every unsaved picture; saving again never stores a picture twice or creates the event twice.
 - **SC-003**: An admin can schedule an event with three images in one submission of the form.
 - **SC-004**: On both galleries, an image stays shown for 5 seconds (within half a second) before
-  the next, except while an arrow is pointed at or a gallery control has keyboard focus, never
-  while paused with the Pause/Play button, and never under reduced motion.
+  the next, except while an arrow is pointed at, or an arrow or the event page's full-screen image
+  button has keyboard focus, never while paused with the Pause/Play button, and never under reduced
+  motion.
 - **SC-005**: Every gallery and full-screen action (flip, pause, play, open, close) can be done with
-  the
-  keyboard alone, every control is at least 44 by 44 pixels, and closing full screen returns focus
-  to where it was opened in 100% of cases.
+  the keyboard alone, every control is at least 44 by 44 pixels, and closing full screen returns
+  focus to where it was opened in 100% of cases.
 - **SC-006**: On an Events list of 20 events with 5 images each, the first view loads at most 2
   images per card on or near the screen, and every card's text shows before any image arrives.
 - **SC-007**: 100% of events without images look and behave as they did before this feature.

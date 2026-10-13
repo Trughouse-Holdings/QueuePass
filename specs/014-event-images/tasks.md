@@ -445,15 +445,15 @@ not, and only cards on or near the screen load images.
   gallery is a `role="group"` named "Images of Season Opener" and its arrows are "Previous image of
   Season Opener" and "Next image of Season Opener", so two cards' arrows have different names; the
   image is a link to the event's path with `tabindex="-1"` and `aria-hidden="true"`, and has no
-  full-screen button; the arrows are not inside the link; selecting an arrow does not navigate;
-  each card gallery has its own Pause/Play button named for its event, and pausing one card leaves
-  the other turning; with a controllable `IntersectionObserver`, nothing is fetched while off
-  screen, and on entering only the shown and next images are fetched; after a change, the image
-  after next is fetched and the one before is let go (its object URL revoked when no one else
-  holds it); when the card leaves the screen it stops changing (fake timers, 20 s) and both held
-  images are let go at once; when it comes back it fetches them again (answered by the stub, as the
-  HTTP cache would) and turns again from the same image; at no time does a card hold more than 2
-  images (count `createObjectURL` minus `revokeObjectURL` per card).
+  full-screen button; the arrows and the Pause/Play button are not inside the link; selecting an
+  arrow does not navigate; each card gallery has its own Pause/Play button named for its event, and
+  pausing one card leaves the other turning; with a controllable `IntersectionObserver`, nothing is
+  fetched while off screen, and on entering only the shown and next images are fetched; after a
+  change, the image after next is fetched and the one before is let go (its object URL revoked when
+  no one else holds it); when the card leaves the screen it stops changing (fake timers, 20 s) and
+  both held images are let go at once; when it comes back it fetches them again (answered by the
+  stub, as the HTTP cache would) and turns again from the same image; at no time does a card hold
+  more than 2 images (count `createObjectURL` minus `revokeObjectURL` per card).
 - [ ] T035 [P] [US4] Extend `customer-app/test/event-images.test.tsx` (Events list): a card with 3
   images shows its gallery above the title; two cards rotate independently (an arrow on one does
   not change the other); a card without images renders the same markup as before; the card's name,
