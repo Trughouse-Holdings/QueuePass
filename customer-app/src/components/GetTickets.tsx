@@ -64,7 +64,12 @@ export function GetTickets({ event }: { event: Event }) {
     return <p>Loading tickets…</p>;
   }
   if (availability.kind !== 'ok' || tiers.kind !== 'ok' || seatMap.kind !== 'ok') {
-    return <p>Ticket information is unavailable right now. Try again later.</p>;
+    // Spec 012 FR-010: an error, so the theme's error banner; no role added, as before.
+    return (
+      <p className="banner banner--error">
+        Ticket information is unavailable right now. Try again later.
+      </p>
+    );
   }
 
   const left = availability.data;
@@ -203,17 +208,24 @@ export function GetTickets({ event }: { event: Event }) {
           ),
         )}`}</p>
       )}
-      {notice && <p role="alert">{notice}</p>}
+      {/* Spec 012 FR-010: refusals and the unknown outcome as the shared theme's banners. */}
+      {notice && (
+        <p role="alert" className="banner banner--error">
+          {notice}
+        </p>
+      )}
       {phase.kind === 'unknown' ? (
-        <div role="alert">
-          <p>We couldn&apos;t confirm whether your order went through.</p>
-          <p>
-            Check again, which never places a second order, or look for it in{' '}
-            <Link to="/my-tickets">My tickets</Link>.
-          </p>
-          <button type="button" className="btn btn--ghost" onClick={() => void confirm()}>
-            Check again
-          </button>
+        <div role="alert" className="banner banner--conflict">
+          <div className="banner__body">
+            <p>We couldn&apos;t confirm whether your order went through.</p>
+            <p>
+              Check again, which never places a second order, or look for it in{' '}
+              <Link to="/my-tickets">My tickets</Link>.
+            </p>
+            <button type="button" className="btn btn--ghost" onClick={() => void confirm()}>
+              Check again
+            </button>
+          </div>
         </div>
       ) : closed ? (
         <>
@@ -224,7 +236,7 @@ export function GetTickets({ event }: { event: Event }) {
           <p>{closed}</p>
         </>
       ) : reached ? (
-        <p>{reached}</p>
+        <p className="banner banner--conflict">{reached}</p>
       ) : (
         chooseAndConfirm()
       )}
@@ -274,7 +286,7 @@ export function GetTickets({ event }: { event: Event }) {
         )}
         {/* Spec 016 FR-012. */}
         {limit !== null && (
-          <p>{`Limit: ${tickets(limit.limit)} per customer. You can get ${limit.remaining} more.`}</p>
+          <p className="note">{`Limit: ${tickets(limit.limit)} per customer. You can get ${limit.remaining} more.`}</p>
         )}
         {seated ? (
           section && (
@@ -296,7 +308,7 @@ export function GetTickets({ event }: { event: Event }) {
                 onToggle={toggleSeat}
               />
               {limit !== null && limitBinds && seats.length >= maxQuantity && (
-                <p>{`No more seats can be chosen: the limit of ${tickets(limit.limit)} per customer allows you ${limit.remaining} more.`}</p>
+                <p className="note">{`No more seats can be chosen: the limit of ${tickets(limit.limit)} per customer allows you ${limit.remaining} more.`}</p>
               )}
               <ul aria-label="Chosen seats">
                 {seats.map((c) => (

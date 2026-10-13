@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Event, Location } from '@queuepass/shared';
+import { AddressLink } from '@queuepass/shared/web';
 import { ApiError } from '../api/client';
 import { deleteLocation, getLocation } from '../api/locations';
 import { listEvents } from '../api/events';
@@ -42,7 +43,11 @@ export function LocationDetail(): React.ReactElement {
 
   if (load.kind === 'loading') return <p className="loading">Loading venue…</p>;
   if (load.kind === 'unreachable')
-    return <p role="alert">Can&apos;t reach the QueuePass service.</p>;
+    return (
+      <p role="alert" className="banner banner--error">
+        Can&apos;t reach the QueuePass service.
+      </p>
+    );
   if (load.kind === 'missing') {
     return (
       <section>
@@ -69,7 +74,13 @@ function VenueView({ venue, events }: { venue: Location; events: Event[] }): Rea
       <div className="page-head">
         <div>
           <h1 className="page-title">{venue.name}</h1>
-          <p className="page-sub">{venue.address}</p>
+          <p className="page-sub">
+            <AddressLink address={venue.address} />
+          </p>
+          {/* Spec 013 FR-017. */}
+          {!venue.addressVerified && (
+            <p className="note">Address not verified. Edit the venue to verify it.</p>
+          )}
         </div>
         <div className="form__actions">
           <Link to={`/locations/${venue.id}/edit`} className="btn">

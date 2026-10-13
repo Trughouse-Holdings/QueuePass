@@ -15,14 +15,16 @@ describe('Venue search', () => {
 
   beforeEach(async () => {
     await resetDb(ctx.prisma);
-    for (const [name, address] of [
-      ['Rupp Arena', '430 W Vine St, Lexington, KY'],
-      ['Yum Center', '1 Arena Plaza, Louisville, KY'],
-      ['Freedom Hall', '937 Phillips Ln, Louisville, KY'],
+    // Spec 013: four address fields; the fake saves them upper-cased. Two venues share a city
+    // and one does not, so a city search means what it says.
+    for (const [name, street, city, zip] of [
+      ['Rupp Arena', '430 W Vine St', 'Lexington', '40507'],
+      ['Yum Center', '1 Arena Plaza', 'Louisville', '40202'],
+      ['Freedom Hall', '937 Phillips Ln', 'Louisville', '40209'],
     ]) {
       await asAdmin(ctx)
         .post('/locations')
-        .send({ name, address, seatingCapacity: 100 })
+        .send({ name, street, city, state: 'KY', zip, seatingCapacity: 100 })
         .expect(201);
     }
   });

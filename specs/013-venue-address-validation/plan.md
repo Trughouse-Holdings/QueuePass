@@ -10,8 +10,9 @@
 - **Address service**: the US Census Geocoder behind one small interface, `AddressGeocoder`,
   injected with `ADDRESS_GEOCODER`. Base URL from `ADDRESS_GEOCODER_URL`, 5-second limit (research
   R1, R6, R12).
-- **Rule**: exactly one match is saved in the service's standard form and verified; none is
-  `400 ADDRESS_NOT_FOUND`, several are `400 ADDRESS_AMBIGUOUS`, and any failure to get an answer
+- **Rule**: exactly one match that keeps the typed ZIP code and house number is saved in the
+  service's standard form and verified; none is `400 ADDRESS_NOT_FOUND`, several (or one that
+  moved the ZIP code or house number) are `400 ADDRESS_AMBIGUOUS`, and any failure to get an answer
   is `503 ADDRESS_SERVICE_UNAVAILABLE`. Nothing is written until the service has answered
   (R2, R3, R6).
 - **Save anyway** (decided by the user, 2026-10-11): with `acceptUnverifiedAddress: true`, a

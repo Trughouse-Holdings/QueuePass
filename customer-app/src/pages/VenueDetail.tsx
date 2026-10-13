@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import type { Event, Location } from '@queuepass/shared';
-import { ServiceUnreachable } from '@queuepass/shared/web';
+import { AddressLink, ServiceUnreachable } from '@queuepass/shared/web';
 import { EventCards } from '../components/EventCard';
 import { count } from '../format';
 import { useLoad } from '../use-load';
@@ -39,7 +39,9 @@ export function VenueDetail() {
       <div className="card">
         <dl>
           <dt>Address</dt>
-          <dd>{venue.address}</dd>
+          <dd>
+            <AddressLink address={venue.address} />
+          </dd>
           <dt>Seating capacity</dt>
           <dd>{count(venue.seatingCapacity)}</dd>
         </dl>

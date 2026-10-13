@@ -1,4 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
+import { ADDRESS, windowAt } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -7,7 +8,18 @@ describe('Location CRUD persistence', () => {
   let ctx: TestContext;
   const venue = {
     name: 'KFC Yum! Center',
-    address: '1 Arena Plaza, Louisville, KY',
+    ...ADDRESS,
+    seatingCapacity: 22090,
+  };
+  /** The fake geocoder's standard form of ADDRESS (spec 013 research R9). */
+  const saved = {
+    name: 'KFC Yum! Center',
+    address: '430 W VINE ST, LEXINGTON, KY 40507',
+    street: '430 W VINE ST',
+    city: 'LEXINGTON',
+    state: 'KY',
+    zip: '40507',
+    addressVerified: true,
     seatingCapacity: 22090,
   };
 
@@ -19,11 +31,12 @@ describe('Location CRUD persistence', () => {
   });
   beforeEach(async () => {
     await resetDb(ctx.prisma);
+    ctx.geocoder.reset();
   });
 
   it('creates a venue and returns it with a generated id', async () => {
     const res = await asAdmin(ctx).post('/locations').send(venue).expect(201);
-    expect(res.body).toMatchObject(venue);
+    expect(res.body).toMatchObject(saved);
     expect(res.body.id).toEqual(expect.any(String));
     expect(res.body.createdAt).toEqual(expect.any(String));
   });
@@ -34,6 +47,31 @@ describe('Location CRUD persistence', () => {
     expect(row).not.toBeNull();
     expect(row?.name).toBe(venue.name);
     expect(row?.seatingCapacity).toBe(22090);
+  });
+
+  it('saves the address in the service standard form, verified, and reads it back (spec 013)', async () => {
+    const { body } = await asAdmin(ctx).post('/locations').send(venue).expect(201);
+    expect(ctx.geocoder.calls).toEqual([ADDRESS]);
+    expect(body).toMatchObject(saved);
+
+    const one = await asAdmin(ctx).get(`/locations/${body.id}`).expect(200);
+    expect(one.body).toMatchObject(saved);
+
+    const list = await asAdmin(ctx).get('/locations').expect(200);
+    expect(list.body[0]).toMatchObject(saved);
+
+    const ev = await asAdmin(ctx)
+      .post('/events')
+      .send({
+        name: 'Opener',
+        locationId: body.id,
+        ...windowAt(400),
+        totalTicketCapacity: 100,
+        basePrice: '10.00',
+      })
+      .expect(201);
+    const embedded = await asAdmin(ctx).get(`/events/${ev.body.id}`).expect(200);
+    expect(embedded.body.location).toMatchObject(saved);
   });
 
   it('lists venues ordered by name', async () => {

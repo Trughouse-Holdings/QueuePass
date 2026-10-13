@@ -1,4 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
+import { ADDRESS } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -22,7 +23,7 @@ describe('Ticket tier capacity and names', () => {
     await resetDb(ctx.prisma);
     const { body: venue } = await asAdmin(ctx)
       .post('/locations')
-      .send({ name: 'Yum Center', address: '1 Arena Plaza', seatingCapacity: 22090 })
+      .send({ name: 'Yum Center', ...ADDRESS, seatingCapacity: 22090 })
       .expect(201);
     const { body: event } = await asAdmin(ctx)
       .post('/events')
@@ -129,7 +130,7 @@ describe('Ticket tier capacity and names', () => {
     await add('VIP', 10).expect(201);
     const { body: venue } = await asAdmin(ctx)
       .post('/locations')
-      .send({ name: 'Freedom Hall', address: '937 Phillips Ln', seatingCapacity: 19000 });
+      .send({ name: 'Freedom Hall', ...ADDRESS, seatingCapacity: 19000 });
     const { body: other } = await asAdmin(ctx).post('/events').send({
       name: 'Other',
       locationId: venue.id,

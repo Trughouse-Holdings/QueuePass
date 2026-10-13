@@ -40,13 +40,16 @@ real implementation. Nothing outside it knows the Census URL or response shape.
 The response is `{ "result": { "input": {...}, "addressMatches": [ { "matchedAddress",
 "coordinates": { "x", "y" }, "addressComponents": {...}, "tigerLine": {...} } ] } }`.
 `addressComponents` gives the street's number range (`fromAddress`, `toAddress`), not the house
-number, so the saved parts come from `matchedAddress` (R3). The HTTP status for a malformed
-request and the shape of the service's own error body were not observed; the client reads only
-the status code of a non-2xx answer (R6), never its body, so it does not depend on them.
+number, so the saved parts come from `matchedAddress` (R3). Observed on 2026-10-12: a malformed
+request (an invalid benchmark, an empty street or city) is `400` with a body such as
+`{"errors":["Invalid benchmark in request"]}`, while a street the service cannot read (`%%%%`) is
+`200` with `"addressMatches": []`. The client decides on the status code of a non-2xx answer
+(R6) and only logs its body.
 
 An independent review re-ran the live service the same day: Freedom Hall, Rupp Arena, 350 Adams
 St, and the White House matched; 1 Arena Plaza had no match again; and
-`2301 S 3rd St, Louisville, KY 40292` matched with its ZIP code corrected to `40208` (R3).
+`2301 S 3rd St, Louisville, KY 40292` matched with its ZIP code corrected to `40208` (R3). Since
+the Kroger Field finding below, such a match is offered as a candidate rather than saved (R3).
 
 **Rationale**: Decided by the user, 2026-10-11: free, no key, no secret to manage (Constitution
 Security). One interface keeps tests off the network (R9) and lets a later feature swap the
@@ -65,7 +68,9 @@ chose Census). USPS Web Tools (needs registration). The Census one-line endpoint
 
 **Decision**: The client groups `addressMatches` by `matchedAddress`:
 
-- one distinct `matchedAddress` → `match` → saved in standard form, `addressVerified = true`;
+- one distinct `matchedAddress` → `match` → saved in standard form, `addressVerified = true`,
+  when it keeps the typed ZIP code and house number; otherwise refused as `ADDRESS_AMBIGUOUS`
+  with that one candidate (R3, FR-021);
 - none → `none`;
 - two or more distinct → `many` (up to the first 5).
 
@@ -113,13 +118,37 @@ the Admin app shows the saved address (FR-012).
   candidate that does not split is shown raw, as the service returned it: it is display text
   only, never saved, and dropping it could leave the admin wondering why the address was called
   ambiguous.
+- **A single match that moved** (added after live testing, decided by the user, 2026-10-11): the
+  Census service can answer one match that is a different place. Kroger Field, `1540 University
+  Dr, Lexington, KY 40508`, comes back as `1540 UNIVERSITY CT, LEXINGTON, KY, 40503`. So the one
+  match is trusted only when its ZIP code equals the typed ZIP code's first 5 digits and its house
+  number equals the typed one. The house number is the leading token of the street that starts
+  with a digit and runs over digits, letters, "/", and "-" ("12B", "100-02"); trailing punctuation
+  is not part of it ("1540," → "1540"), "123 1/2 Main St" reads as "123", case is ignored, and
+  leading zeros are dropped ("0430" equals "430"), so the number itself is compared. Known limit:
+  the same house number and ZIP code on a different street (University Dr and University Ct in
+  one ZIP code) is still accepted, because the street is not compared.
+  Otherwise `LocationsService` refuses with `400 ADDRESS_AMBIGUOUS`, message "We found a
+  different US address for {typed}. Did you mean this one? Enter it to use it.", and
+  `details.candidates` holding that match in our one-line form. The admin can enter it (which
+  then matches and is verified), or "Save anyway" (saved as typed, not verified). The check lives
+  in the service (`backend/src/locations/address-match.ts`), which knows what was typed; the
+  geocoder's job is unchanged. No new error code: the admin's next step is the same as for
+  several matches, and a new code would change the contract.
 
-**Rationale**: What the service vouched for is what is stored, so a typo the service corrected (a
-wrong ZIP code, "Lexinton") is not kept. One standard form also makes FR-008's "same address"
+**Rationale**: What the service vouched for is what is stored, so a typo the service corrected
+("Lexinton", "West Vine Street") is not kept. But a match that moved the ZIP code or house
+number may be another building, and saving it would silently replace what the admin typed with a
+wrong place, so it is shown, not saved. Comparing the whole street instead would reject good
+matches, because the service rewrites it ("West" → "W", "Street" → "ST", "Drive" → "DR"); the
+ZIP code and house number are the parts it does not rewrite. The city is not compared either:
+correcting it is what the service is for, and a moved ZIP code catches a match in another place. One standard form also makes FR-008's "same address"
 comparison reliable. A match we cannot read is no better than no match, and the admin should get
 the same way forward.
 
 **Alternatives considered**: Storing what the admin typed (keeps the typo the check forgave).
+Comparing the full street or city (rejects matches the service only normalized). A new error code
+for a moved match (a contract change for the same next step as `ADDRESS_AMBIGUOUS`).
 Title-casing the service's answer ("Mcdonald St", "Nw" are wrong more often than upper case is
 ugly; Constitution VII puts function first).
 
@@ -174,19 +203,22 @@ network, and refuses real venues the service does not know, R1).
 
 **Decision**: `CensusGeocoder` throws `AddressServiceUnavailableError` when the request fails to
 connect, takes longer than 5 seconds (`AbortSignal.timeout(5000)` on Node 22's global `fetch`),
-returns a `5xx` status or any `4xx` other than `400`, returns a body that is not JSON, or returns
+returns any non-2xx status (`400` included), returns a body that is not JSON, or returns
 JSON without `result.addressMatches` as an array. There is no retry. (A match that R3 cannot
 split is not a failure to get an answer; it is `none`, R3.) The service turns it into `503 ADDRESS_SERVICE_UNAVAILABLE`: "We can't verify the address
 right now. Nothing was saved. Try again in a minute." The cause is logged at `warn` for the
 operator; the response does not include it. `acceptUnverifiedAddress` does not change this
 (decided by the user, 2026-10-11).
 
-A `400` from the service is the one exception: it returns `none`, so the admin gets
-`ADDRESS_NOT_FOUND` and may save anyway. Our own field rules (FR-001) run first, so a `400` from
-the service means it read the request and could not work with the address itself (for example,
-characters it does not parse). Retrying would give the same answer, so "try again" would be the
-wrong advice. Other `4xx` statuses (`404`, `408`, `429`, …) describe the endpoint or the
-connection, not the address, so they stay "unavailable".
+A `400` is "unavailable" too (corrected after review of the implementation PR, 2026-10-12;
+the plan first mapped it to `none`). Checked live on 2026-10-12: the service answers `400`, with
+`{"errors": [...]}`, for a broken request (an invalid benchmark, an empty street or city), and
+answers an address it cannot find, even garbage like `%%%%`, with `200` and no matches. So a
+`400` means our request or configuration is wrong, not that the address does not exist. Mapping
+it to `none` would make admins "save anyway" every venue during a misconfiguration instead of
+seeing that the check is broken. Our DTOs never send an empty field, so no real address reaches a
+`400`. The client logs the status and the start of the body (the service's own `errors`, never a
+secret) at `warn`, for the operator.
 
 The timeout is a constant, not a setting (Constitution VIII).
 
@@ -197,8 +229,8 @@ The timeout is a constant, not a setting (Constitution VIII).
 for every failure, because the admin's next step is the same.
 
 **Alternatives considered**: Saving the venue unverified when the service is down (the user chose
-refusal). Treating every non-2xx as unavailable (tells the admin to retry an address that will
-never pass). Retrying once (doubles the wait for little gain on a service that is down).
+refusal). Treating a `400` as "not found" (the first plan: the live evidence above shows a `400`
+is a broken request, and it would hide a misconfiguration behind "save anyway"). Retrying once (doubles the wait for little gain on a service that is down).
 `504 Gateway Timeout` for timeouts only (two codes, one meaning to the admin).
 
 ## R7. The lookup runs outside any lock; the write re-checks under the venue lock
@@ -307,7 +339,7 @@ endpoint (two input shapes for one thing). Territories (spec Out of Scope).
   sends `...ADDRESS` (or its own four fields) instead. Assertions on the returned `address`
   expect the fake's standard form, `430 W VINE ST, LEXINGTON, KY 40507`.
 - `CensusGeocoder` is tested on its own against a local HTTP server on `127.0.0.1` started by the
-  test (one match, none, several distinct, several identical, `400` → none, `404`/`429`/`500` →
+  test (one match, none, several distinct, several identical, `400`/`404`/`429`/`500` →
   unavailable, not JSON, wrong shape, a split that fails, and a server that never answers, with
   the timeout lowered through the constructor). Local only, so no network (Constitution VI).
 - The real service is used only in the running-system check (quickstart.md).

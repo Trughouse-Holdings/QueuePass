@@ -29,11 +29,15 @@ export const ERROR_CODES = [
   // Spec 007: seats already held by valid tickets; a layout that seated sales depend on.
   'SEAT_TAKEN',
   'LAYOUT_IN_USE',
-  // Spec 016: the order would put the customer over the event's per-customer limit.
+  // Spec 016: the customer's tickets for the event would exceed its per-customer limit.
   'TICKET_LIMIT_REACHED',
+  // Spec 013: the address service found no match, or several, or could not be asked.
+  'ADDRESS_NOT_FOUND',
+  'ADDRESS_AMBIGUOUS',
+  'ADDRESS_SERVICE_UNAVAILABLE',
   // Spec 014: a sixth image; an image over 5 MB; a file that is not a JPEG, PNG, or WebP; a new
   // image order that no longer names the event's current images; a picture too large in pixels.
-  // Adds the 014 codes ahead of the implementation (013's codes arrive with #34).
+  // Added ahead of the implementation, so the list matches the contract.
   'IMAGE_LIMIT_REACHED',
   'IMAGE_TOO_LARGE',
   'IMAGE_TYPE_NOT_ALLOWED',

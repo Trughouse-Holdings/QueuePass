@@ -61,7 +61,10 @@ One call per create, and per edit whose address changed (research R7):
 
 ```text
 lookup(street, city, state, zip5) →
-    match { street, city, state, zip }   save these, verified = true      (flag ignored)
+    match { street, city, state, zip }   same zip5 and house number as typed:
+                                              save these, verified = true (flag ignored)
+                                         otherwise (FR-021): like many, with this
+                                              one match as the only candidate
   | none                                 flag ? save as sent, verified = false
                                               : 400 ADDRESS_NOT_FOUND
   | many { candidates[≤5] }              flag ? save as sent, verified = false
@@ -72,6 +75,9 @@ flag = acceptUnverifiedAddress === true
 "as sent" = collapse_spaces(trim(street)), collapse_spaces(trim(city)), state, zip[0..5]
             (one rule everywhere: trim, collapse runs of whitespace to one space, the state
             code as validated, the first 5 digits of the ZIP; the admin's case is kept)
+
+house number = the leading number token of the street ("1540 University Dr" → 1540), compared
+ignoring case; the rest of the street and the city are not compared (research R3).
 
 A single match that does not split into street, city, a listed state, and a 5-digit ZIP is
 `none` (logged at warn). Candidates are reformatted to "STREET, CITY, ST ZIP"; one that does
@@ -106,7 +112,12 @@ helper in `backend/src/common/venue-lock.ts`.
 - `US_STATES`: `readonly { code: UsState; name: string }[]`, the 50 states and DC; `UsState` is
   the union of the codes.
 - `Location`: gains `street: string | null`, `city: string | null`, `state: UsState | null`,
-  `zip: string | null`, `addressVerified: boolean`. `address` unchanged.
+  `zip: string | null`, `addressVerified: boolean`. `address` unchanged. Until the research R11
+  follow-up tightens the contract, the five are declared optional (`street?: string | null`, …,
+  `addressVerified?: boolean`), mirroring the contract: required shared fields fail both front
+  ends' `tsc` against the generated types, whose fields are optional (found in the
+  implementation). The Backend always sends them. The follow-up (tasks.md T044) makes them
+  required here too.
 - `LocationInput`: `{ name; street; city; state: UsState; zip; acceptUnverifiedAddress?: boolean;
   seatingCapacity }` (no `address`). `LocationUpdate = Partial<LocationInput>`.
 - `LOCATION_LIMITS`: adds `streetMaxLength: 200`, `cityMaxLength: 100`; `ZIP_PATTERN =

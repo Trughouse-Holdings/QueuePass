@@ -15,7 +15,7 @@ removed, and no role changes.
 | `UsState` | new schema: enum of the 50 states and DC. |
 | `createLocation` | description: the address check, the standard form, save anyway, the three refusals. `400` → `AddressRejected`; new `503`. |
 | `updateLocation` | description: all four or none; checked only when changed, after the other checks; `addressVerified` kept when unchanged. `400` → `AddressRejected`; new `503`. |
-| `AddressRejected` | new response: `VALIDATION_FAILED`, `ADDRESS_NOT_FOUND`, `ADDRESS_AMBIGUOUS` examples; says the request may be resent with `acceptUnverifiedAddress: true`. |
+| `AddressRejected` | new response: `VALIDATION_FAILED`, `ADDRESS_NOT_FOUND`, `ADDRESS_AMBIGUOUS` examples; says the request may be resent with `acceptUnverifiedAddress: true`. `ADDRESS_AMBIGUOUS` also covers one match at a different ZIP code or house number than sent (descriptions reworded after live testing; still 1.7.0). |
 | `AddressServiceUnavailable` | new response: `503 ADDRESS_SERVICE_UNAVAILABLE`. |
 | `ErrorEnvelope.code` | adds `ADDRESS_NOT_FOUND`, `ADDRESS_AMBIGUOUS`, `ADDRESS_SERVICE_UNAVAILABLE`. |
 
@@ -46,6 +46,21 @@ Example refusals:
     "details": {
       "address": "100 Main St, Springfield, IL 62701",
       "candidates": ["100 N MAIN ST, SPRINGFIELD, IL 62701", "100 S MAIN ST, SPRINGFIELD, IL 62701"]
+    }
+  }
+}
+```
+
+One match at a different ZIP code or house number (Kroger Field, research R3):
+
+```json
+{
+  "error": {
+    "code": "ADDRESS_AMBIGUOUS",
+    "message": "We found a different US address for 1540 University Dr, Lexington, KY 40508. Did you mean this one? Enter it to use it.",
+    "details": {
+      "address": "1540 University Dr, Lexington, KY 40508",
+      "candidates": ["1540 UNIVERSITY CT, LEXINGTON, KY 40503"]
     }
   }
 }

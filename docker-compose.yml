@@ -69,6 +69,8 @@ services:
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/queuepass/protocol/openid-connect/certs}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-queuepass-api}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:5175}
+      # Spec 013: the address service that checks venue addresses (research R12).
+      ADDRESS_GEOCODER_URL: ${ADDRESS_GEOCODER_URL:-https://geocoding.geo.census.gov}
     ports:
       - '3000:3000'
     depends_on:

@@ -19,6 +19,12 @@ export function windowAt(daysFromNow: number, hour = 18): { startsAt: string; en
   };
 }
 
+/**
+ * A venue address the real address service matches (spec 013 research R1, R9). In tests the
+ * fake geocoder saves it as `430 W VINE ST, LEXINGTON, KY 40507`.
+ */
+export const ADDRESS = { street: '430 W Vine St', city: 'Lexington', state: 'KY', zip: '40507' };
+
 let day = 0;
 /** A fresh, non-overlapping three-hour window for each event a test creates, a year ahead. */
 function nextWindow(): { startsAt: string; endsAt: string } {
@@ -29,7 +35,7 @@ function nextWindow(): { startsAt: string; endsAt: string } {
 export async function venue(ctx: TestContext, name = 'Yum Center'): Promise<string> {
   const res = await asAdmin(ctx)
     .post('/locations')
-    .send({ name, address: '1 Arena Plaza', seatingCapacity: 22090 })
+    .send({ name, ...ADDRESS, seatingCapacity: 22090 })
     .expect(201);
   return res.body.id;
 }

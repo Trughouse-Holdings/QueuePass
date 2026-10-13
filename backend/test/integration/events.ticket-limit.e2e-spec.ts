@@ -1,6 +1,6 @@
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, venue, windowAt } from '../setup/fixtures';
+import { ADDRESS, customer, event, venue, windowAt } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -128,7 +128,7 @@ describe('Per-customer ticket limit on events', () => {
     it("checks against the venue's capacity when the event's is left out", async () => {
       const small = await asAdmin(ctx)
         .post('/locations')
-        .send({ name: 'Small Room', address: '2 Side St', seatingCapacity: 50 })
+        .send({ name: 'Small Room', ...ADDRESS, seatingCapacity: 50 })
         .expect(201);
       const noCapacity = { locationId: small.body.id, totalTicketCapacity: undefined };
       tooBig(await create({ ...noCapacity, maxTicketsPerCustomer: 51 }).expect(400), 50);

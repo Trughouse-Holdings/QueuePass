@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { Location } from '@queuepass/shared';
+import { AddressLink } from '@queuepass/shared/web';
 import { listLocations } from '../api/locations';
 import { Notice } from '../components/Notice';
 
@@ -131,7 +132,16 @@ export function LocationList(): React.ReactElement {
                         {l.name}
                       </Link>
                     </td>
-                    <td className="cell-muted">{l.address}</td>
+                    <td className="cell-muted">
+                      <AddressLink address={l.address} />
+                      {/* Spec 013 FR-017: in words, not color alone. */}
+                      {!l.addressVerified && (
+                        <>
+                          {' '}
+                          <span className="pill">Not verified</span>
+                        </>
+                      )}
+                    </td>
                     <td className="cell-num">{l.seatingCapacity.toLocaleString()}</td>
                     <td className="cell-action">
                       <Link to={`/locations/${l.id}/edit`} className="rowlink">

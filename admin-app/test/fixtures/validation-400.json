@@ -5,7 +5,7 @@
     "details": {
       "fields": [
         "name must be between 1 and 200 characters",
-        "address must be between 1 and 500 characters",
+        "street must be between 1 and 200 characters",
         "seatingCapacity must be a positive whole number"
       ]
     }

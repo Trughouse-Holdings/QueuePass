@@ -16,7 +16,8 @@
       "import": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js"
     },
-    "./web": "./src/web/index.ts"
+    "./web": "./src/web/index.ts",
+    "./theme.css": "./src/web/theme.css"
   },
   "dependencies": {
     "oidc-client-ts": "^3.5.0",

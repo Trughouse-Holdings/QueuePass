@@ -139,17 +139,18 @@ export interface paths {
          *     (`400 VALIDATION_FAILED`).
          *
          *     Feature 013: the address (`street`, `city`, `state`, `zip`) is then checked with the
-         *     address service (the US Census Geocoder) before anything is saved. Exactly one match is
-         *     accepted, and the venue is saved with the service's standard form of the four fields and
-         *     `addressVerified: true`; `address` is built from them as `STREET, CITY, ST ZIP`. No
-         *     match is `400 ADDRESS_NOT_FOUND`; several matches are `400 ADDRESS_AMBIGUOUS`, listing
-         *     them.
+         *     address service (the US Census Geocoder) before anything is saved. Exactly one match
+         *     that keeps the sent ZIP code (first 5 digits) and house number is accepted, and the venue
+         *     is saved with the service's standard form of the four fields and `addressVerified: true`;
+         *     `address` is built from them as `STREET, CITY, ST ZIP`. No match is
+         *     `400 ADDRESS_NOT_FOUND`; several matches, or one match at a different ZIP code or house
+         *     number, are `400 ADDRESS_AMBIGUOUS`, listing them.
          *
-         *     Save anyway: with `acceptUnverifiedAddress: true`, no match or several matches instead
-         *     save the venue with the four fields as sent (trimmed, runs of whitespace collapsed to one
-         *     space, ZIP cut to 5 digits) and
+         *     Save anyway: with `acceptUnverifiedAddress: true`, no match, several matches, or one
+         *     match at a different ZIP code or house number instead save the venue with the four fields
+         *     as sent (trimmed, runs of whitespace collapsed to one space, ZIP cut to 5 digits) and
          *     `addressVerified: false`. The address service is still asked first, and the flag changes
-         *     nothing when it finds exactly one match.
+         *     nothing when it finds exactly one match that keeps the ZIP code and house number.
          *
          *     When the service cannot be reached, does not answer within 5 seconds, or answers with an
          *     error, the save is refused with `503 ADDRESS_SERVICE_UNAVAILABLE` and nothing is saved,
@@ -863,10 +864,11 @@ export interface components {
         };
         /**
          * @description Feature 013 "save anyway": the admin confirmed the address after an `ADDRESS_NOT_FOUND`
-         *     or `ADDRESS_AMBIGUOUS` refusal. The address service is still asked. With no match or
-         *     several matches, the venue is saved as sent (trimmed, runs of whitespace collapsed to one
-         *     space, ZIP cut to 5 digits) with `addressVerified: false`. With exactly
-         *     one match, it is saved verified, as without the flag. When the service is unavailable,
+         *     or `ADDRESS_AMBIGUOUS` refusal. The address service is still asked. With no match,
+         *     several matches, or one match at a different ZIP code or house number, the venue is saved
+         *     as sent (trimmed, runs of whitespace collapsed to one space, ZIP cut to 5 digits) with
+         *     `addressVerified: false`. With exactly one match that keeps the ZIP code and house number,
+         *     it is saved verified, as without the flag. When the service is unavailable,
          *     the request is still refused with `503 ADDRESS_SERVICE_UNAVAILABLE`.
          * @default false
          */
@@ -1380,10 +1382,11 @@ export interface components {
         };
         /**
          * @description Request shape or field validation failed (`VALIDATION_FAILED`), or, for a venue address
-         *     (feature 013), the address service found no match (`ADDRESS_NOT_FOUND`) or more than one
-         *     (`ADDRESS_AMBIGUOUS`, with up to 5 matches in `details.candidates`, each in the one-line form
-         *     `STREET, CITY, ST ZIP`, or as the service returned it when it cannot be split). A match the
-         *     Backend cannot split is reported as `ADDRESS_NOT_FOUND`. Nothing was saved.
+         *     (feature 013), the address service found no match (`ADDRESS_NOT_FOUND`), or more than one,
+         *     or one match at a different ZIP code or house number than sent (`ADDRESS_AMBIGUOUS`, with
+         *     up to 5 matches in `details.candidates`, each in the one-line form `STREET, CITY, ST ZIP`,
+         *     or as the service returned it when it cannot be split). A match the Backend cannot split
+         *     is reported as `ADDRESS_NOT_FOUND`. Nothing was saved.
          *     After either address refusal, the client may resend the same request with
          *     `acceptUnverifiedAddress: true` to save the venue as not verified.
          */
