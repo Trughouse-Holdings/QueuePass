@@ -26,6 +26,11 @@ export interface ContractOperation {
   path: string;
   requiredRoles: 'public' | string[];
   pointer: string;
+  /**
+   * The feature that declared the operation ahead of its implementation (`x-planned`), or
+   * `undefined` once it is implemented. See the contract's `info` description.
+   */
+  planned?: string;
 }
 
 const escape = (s: string): string => s.replace(/~/g, '~0').replace(/\//g, '~1');
@@ -38,6 +43,7 @@ export const operations: ContractOperation[] = Object.entries(contract.paths as 
       path,
       requiredRoles: item[method]['x-required-roles'],
       pointer: `#/paths/${escape(path)}/${method}`,
+      planned: item[method]['x-planned'],
     })),
 );
 

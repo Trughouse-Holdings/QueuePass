@@ -46,18 +46,31 @@ describe('Contract route and role coverage', () => {
     return found;
   }
 
+  /**
+   * Spec 014 research R8: an operation marked `x-planned` is declared in its feature's spec and
+   * plan PR, before the implementation, so `main` stays green between the two PRs. It is skipped
+   * only while no route serves it; once served, its roles are checked like any other.
+   */
+  const awaitingRoute = (op: (typeof operations)[number], actual: Map<string, unknown>): boolean =>
+    op.planned !== undefined && !actual.has(`${op.method} ${op.path}`);
+
   it('has exactly the operations the contract declares', () => {
-    const actual = [...routes().keys()].sort();
+    const found = routes();
+    const actual = [...found.keys()].sort();
     const declared = operations.map((o) => `${o.method} ${o.path}`).sort();
+    const planned = operations
+      .filter((o) => awaitingRoute(o, found))
+      .map((o) => `${o.method} ${o.path}`);
     expect({
       undocumented: actual.filter((r) => !declared.includes(r)),
-      unimplemented: declared.filter((d) => !actual.includes(d)),
+      unimplemented: declared.filter((d) => !actual.includes(d) && !planned.includes(d)),
     }).toEqual({ undocumented: [], unimplemented: [] });
   });
 
   it('enforces exactly the roles the contract declares for each operation', () => {
     const actual = routes();
     for (const op of operations) {
+      if (awaitingRoute(op, actual)) continue;
       const expected = op.requiredRoles === 'public' ? 'public' : [...op.requiredRoles].sort();
       expect({ op: op.operationId, roles: actual.get(`${op.method} ${op.path}`) }).toEqual({
         op: op.operationId,

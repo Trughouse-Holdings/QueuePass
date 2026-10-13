@@ -301,7 +301,8 @@ export interface paths {
          * @description Permanent: there is no undo. Clients MUST ask the user to confirm first. The window the
          *     event occupied becomes available for scheduling again immediately. The event's ticket
          *     tiers are deleted with it. An event with orders cannot be deleted (`409
-         *     EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records.
+         *     EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records. Feature 014:
+         *     the event's images are deleted with it.
          */
         delete: operations["deleteEvent"];
         options?: never;
@@ -585,6 +586,113 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/events/{id}/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add an image to an event
+         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+         *     `info` description.
+         *
+         *     Adds one picture after the event's existing images. The body is `multipart/form-data` with
+         *     exactly one part, `file`, and nothing else. The type is decided from the file's first
+         *     bytes (its signature), never from its file name or the part's `Content-Type`: only JPEG
+         *     (`FF D8 FF`), PNG (`89 50 4E 47 0D 0A 1A 0A`), and WebP (`RIFF`, 4 bytes, `WEBP`) are
+         *     accepted. The stored and served `contentType` is the detected one.
+         *
+         *     Refused, in this order: a file over 5 MB, 5,242,880 bytes (`413 IMAGE_TOO_LARGE`, while the
+         *     body is read); a body without exactly one `file` part, or with other parts (`400`); a file
+         *     that is not a JPEG, PNG, or WebP (`415 IMAGE_TYPE_NOT_ALLOWED`); an unknown event (`404`); a
+         *     cancelled event (`409 EVENT_CANCELLED`); and an event that already has 5 images (`409
+         *     IMAGE_LIMIT_REACHED`, with `details.limit` and `details.count`). An event never has more
+         *     than 5 images, including under concurrent requests. Nothing is stored when refused.
+         */
+        post: operations["uploadEventImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/images/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the order of an event's images
+         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+         *     `info` description.
+         *
+         *     `imageIds` lists every image of the event, each once, in the new order; the first becomes
+         *     the cover (`position` 1). A list that is malformed, repeats an id, or has more than 5 ids is
+         *     `400`. A list that does not name exactly the event's current images, because another
+         *     request added or removed one meanwhile, is `409 IMAGES_CHANGED`, with the current order in
+         *     `details.imageIds`; nothing changes. A cancelled event is `409 EVENT_CANCELLED`.
+         */
+        put: operations["reorderEventImages"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/images/{imageId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+                /** @description An image of that event. An image of a different event is `404`. */
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * An image's content
+         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+         *     `info` description.
+         *
+         *     The picture's bytes, exactly as uploaded, with `Content-Type` set to its detected type. Like
+         *     every operation except `getHealth`, it needs a bearer token, so a browser cannot load it
+         *     with a plain `<img src>`: the apps fetch it with the token and show it from a local object
+         *     URL. An image's content never changes, so the response carries `Cache-Control: private,
+         *     max-age=31536000, immutable`, and `X-Content-Type-Options: nosniff`.
+         */
+        get: operations["getEventImage"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove an image from an event
+         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+         *     `info` description.
+         *
+         *     Permanent. The event's other images keep their order and close the gap, so positions stay
+         *     1 to n. A cancelled event's images cannot change (`409 EVENT_CANCELLED`).
+         */
+        delete: operations["deleteEventImage"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reports/sales": {
         parameters: {
             query?: never;
@@ -794,6 +902,13 @@ export interface components {
              */
             maxTicketsPerCustomer?: number | null;
             /**
+             * @description Feature 014. The event's images in order, `position` 1 (the cover) first; empty when it
+             *     has none. Metadata only: load each image's content with `getEventImage`. Always sent
+             *     once 014 is implemented; not listed as required so this contract can merge ahead of the
+             *     implementation with the suite green. Clients treat a missing value as empty.
+             */
+            images?: components["schemas"]["EventImage"][];
+            /**
              * @description Decimal string in USD, never a JSON number, so no client loses precision.
              * @example 45.00
              */
@@ -843,6 +958,37 @@ export interface components {
             /** @description Feature 016. `null` clears the limit. */
             maxTicketsPerCustomer?: number | null;
             basePrice?: string;
+        };
+        /**
+         * @description Feature 014. One picture of an event: what a client needs to load it from
+         *     `getEventImage` and to order it, never its content.
+         */
+        EventImage: {
+            /**
+             * Format: uuid
+             * @description Never reused. An image's content never changes; a new picture is a new id.
+             */
+            id: string;
+            /** @description 1 is the event's cover. An event's positions are always 1 to n, no gaps. */
+            position: number;
+            /**
+             * @description Detected from the file's content when it was added.
+             * @enum {string}
+             */
+            contentType: "image/jpeg" | "image/png" | "image/webp";
+            byteSize: number;
+        };
+        /** @description Feature 014. The `multipart/form-data` body of `uploadEventImage`. */
+        EventImageUpload: {
+            /**
+             * @description One JPEG, PNG, or WebP picture, at most 5,242,880 bytes. Its file name and declared
+             *     type are ignored.
+             */
+            file: string;
+        };
+        /** @description Feature 014. Every image of the event, each once, in the new order. */
+        EventImageOrder: {
+            imageIds: string[];
         };
         /** @description One kind of ticket for an event, such as General or VIP (feature 004). */
         TicketTier: {
@@ -1140,7 +1286,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -1247,6 +1393,53 @@ export interface components {
                  *       "error": {
                  *         "code": "ADDRESS_SERVICE_UNAVAILABLE",
                  *         "message": "We can't verify the address right now. Nothing was saved. Try again in a minute."
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description Feature 014. The image is over 5 MB (5,242,880 bytes). Nothing was stored. */
+        ImageTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "IMAGE_TOO_LARGE",
+                 *         "message": "An image can be at most 5 MB.",
+                 *         "details": {
+                 *           "maxBytes": 5242880
+                 *         }
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /**
+         * @description Feature 014. The file's content is not a JPEG, PNG, or WebP picture, whatever its name or
+         *     declared type. Nothing was stored.
+         */
+        ImageTypeNotAllowed: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "IMAGE_TYPE_NOT_ALLOWED",
+                 *         "message": "This file is not a JPG, PNG, or WebP picture.",
+                 *         "details": {
+                 *           "allowed": [
+                 *             "image/jpeg",
+                 *             "image/png",
+                 *             "image/webp"
+                 *           ]
+                 *         }
                  *       }
                  *     }
                  */
@@ -2156,6 +2349,132 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Cancellation"];
                 };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    uploadEventImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["EventImageUpload"];
+            };
+        };
+        responses: {
+            /** @description Image added, last in the event's order. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventImage"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["ImageTooLarge"];
+            415: components["responses"]["ImageTypeNotAllowed"];
+        };
+    };
+    reorderEventImages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventImageOrder"];
+            };
+        };
+        responses: {
+            /** @description The event's images in their new order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventImage"][];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getEventImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+                /** @description An image of that event. An image of a different event is `404`. */
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The image. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    "X-Content-Type-Options"?: "nosniff";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                    "image/png": string;
+                    "image/webp": string;
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    deleteEventImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+                /** @description An image of that event. An image of a different event is `404`. */
+                imageId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Image removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];

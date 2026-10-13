@@ -31,6 +31,13 @@ export const ERROR_CODES = [
   'LAYOUT_IN_USE',
   // Spec 016: the order would put the customer over the event's per-customer limit.
   'TICKET_LIMIT_REACHED',
+  // Spec 014: a sixth image; an image over 5 MB; a file that is not a JPEG, PNG, or WebP; a new
+  // image order that no longer names the event's current images. Listed in the contract 1.8.0
+  // ahead of the implementation, so this list stays a superset of the contract's codes.
+  'IMAGE_LIMIT_REACHED',
+  'IMAGE_TOO_LARGE',
+  'IMAGE_TYPE_NOT_ALLOWED',
+  'IMAGES_CHANGED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
