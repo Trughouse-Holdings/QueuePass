@@ -37,6 +37,17 @@ Issue #27 lists three open decisions. The user settled them on 2026-10-12 (see C
 - Q: How should seats another customer has reserved look to everyone else? → A: As a distinct
   **Reserved** state, different from sold, and named as such for screen readers, so customers can
   tell they may free up. The Admin seat map also shows reserved seats and counts.
+- Q: When a customer's reservation ends without a purchase, can they reserve the same seats again
+  at once? → A: No. For 2 minutes after a reservation of theirs ends unbought (it runs out, they
+  release it, they deselect a seat, or they log out), that customer can't reserve those seats
+  again; other customers can. So that releasing never forces this wait, a customer adds seats to
+  their active reservation instead of releasing it and reserving again.
+- Q: Should the Admin app's event seat map update live too, or only the Customer app's? → A: Both.
+  The Admin seat map, including its section counts, gets the same live updates as customers.
+- Q: Must a seated order come from the customer's own active reservation, or may it still name
+  open seats with no reservation, as in `007`? → A: It must come from a reservation. The Backend
+  refuses a seated order that names any seat not in the customer's active reservation, so the
+  5-minute rule holds for direct API calls too (Constitution IV).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -65,7 +76,8 @@ both seats.
    **Then** one ticket is issued per reserved seat, as in `007`, and the reservation ends.
 4. **Given** a reservation, **When** 5 minutes pass without Confirm purchase, **Then** the seats
    are released, the customer is told the reservation ran out, Confirm purchase is no longer
-   offered, and their picks are kept so they can reserve again if the seats are still open.
+   offered, and their picks are kept; they can reserve those seats again 2 minutes later if they
+   are still open (FR-004a).
 5. **Given** a reservation, **When** the customer deselects one of its seats, **Then** that seat is
    released at once, the rest stay reserved, and the countdown does not change.
 6. **Given** a reservation, **When** the customer presses Release seats, **Then** every seat in it
@@ -151,21 +163,27 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
    seats are shown as theirs, distinct from other customers' reserved seats.
 3. **Given** reserved seats, **When** an admin opens the event's seat map, **Then** each reserved
    seat is marked Reserved, and each section shows its sold, reserved, and open counts.
-4. **Given** any viewer other than the customer holding it, **When** they view a reserved seat,
+4. **Given** an admin viewing an event's seat map, **When** a customer reserves, releases, or buys
+   seats, **Then** the seats and the section counts change within 2 seconds, without refreshing.
+5. **Given** any viewer other than the customer holding it, **When** they view a reserved seat,
    **Then** nothing reveals who reserved it.
 
 ---
 
 ### Edge Cases
 
-- **Reserving again**: a customer has at most one reservation per event. While it is active they
-  can deselect seats from it, release it, or confirm it, but not add seats to it; to add seats,
-  they release it and reserve again, which starts a new 5 minutes.
-- **Confirming after the 5 minutes**: no longer offered in the Customer app. An order for seats
-  another customer has since reserved or bought is refused, naming them (US2).
+- **Adding seats**: a customer has at most one reservation per event. While it is active they can
+  pick more seats and press Reserve seats again to add them to it, within the caps below; the
+  added seats end with the rest, and the 5 minutes don't restart.
+- **Reserving again after it ends**: for 2 minutes after a reservation ends unbought, the same
+  customer can't reserve any of its seats again. They can reserve other seats at once, and other
+  customers can reserve those seats at once.
+- **Confirming after the 5 minutes**: no longer offered in the Customer app, and refused by the
+  Backend, which says the reservation ran out (FR-006).
 - **Clock edge**: a reservation covers exactly 5 minutes from when it was made, `[reservedAt,
-  reservedAt + 5 min)`. A Confirm purchase the Backend receives at or after the end is not covered
-  by the reservation.
+  reservedAt + 5 min)`. A Confirm purchase the Backend receives at or after the end is refused.
+- **Ordering without reserving**: a seated order sent straight to the API, naming seats the
+  customer hasn't reserved, is refused (FR-006). General-admission orders don't change.
 - **Closing the tab**: the reservation stays until its 5 minutes end; nothing else releases it.
 - **Two tabs, one customer**: the reservation belongs to the customer, not to the tab. Both tabs
   show it as theirs, and confirming or releasing in one is reflected in the other.
@@ -199,15 +217,24 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
   tier, or is repeated, nothing MUST be reserved, and the refusal MUST name the unavailable seats.
 - **FR-003**: A reservation MUST hold 1 to 10 seats, all of one tier, and MUST NOT hold more seats
   than the customer may still get under the event's per-customer limit (`016`). A customer MUST
-  have at most one active reservation per event.
+  have at most one active reservation per event. Reserving more seats while it is active MUST add
+  them to it, all-or-nothing as in FR-002, without changing when it ends.
 - **FR-004**: A reservation MUST last exactly 5 minutes from when it is made, and MUST NOT be
   extended or restarted. When it ends without a purchase, its seats MUST be released.
+- **FR-004a**: For 2 minutes after a seat leaves a customer's reservation without being bought
+  (the reservation runs out, is released, or loses the seat by deselect or logout), that customer
+  MUST NOT be able to reserve that seat for the same event; the refusal MUST name the seat and say
+  when it can be reserved again. Other customers MUST be able to reserve it at once. Seats ended by
+  an admin change or cancellation (FR-016) are not affected.
 - **FR-005**: While a reservation is active, the Customer app MUST show a countdown of the time
   left, a **Confirm purchase** control, and a **Release seats** control. When the 5 minutes end,
   it MUST tell the customer, stop offering Confirm purchase, and keep their picks.
-- **FR-006**: Confirm purchase MUST order the reserved seats as in `007`. An order MUST be refused,
-  naming the seats, if any of its seats is reserved by another customer, as it is for a seat with
-  a valid ticket. A successful order MUST end the reservation for the seats it bought.
+- **FR-006**: Confirm purchase MUST order the reserved seats as in `007`. The Backend MUST accept a
+  seated order only if every seat it names is in the ordering customer's active reservation for
+  that event; otherwise it MUST refuse the whole order, naming the seats that aren't, and saying
+  when the reservation has run out. A seat reserved by another customer MUST be refused as it is
+  for a seat with a valid ticket. A successful order MUST end the reservation for the seats it
+  bought; any of its seats left unbought stay reserved until it ends.
 - **FR-007**: A customer MUST be able to release their own reservation, all of it with Release
   seats or one seat at a time by deselecting it. A released seat MUST be open to others at once.
   Releasing seats MUST NOT change the time left on the rest.
@@ -218,8 +245,9 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
   event at any time, including under concurrent requests. This MUST be guaranteed by the database,
   not only checked by the Backend (Constitution IV). A reservation that has ended MUST NOT block
   anyone.
-- **FR-010**: Every customer viewing a seated event's seat map MUST see seats become Reserved, open,
-  or sold within 2 seconds of the change, without refreshing the page. A viewer whose updates were
+- **FR-010**: Every customer viewing a seated event's seat map in the Customer app, and every admin
+  viewing it in the Admin app (with its section counts), MUST see seats become Reserved, open, or
+  sold within 2 seconds of the change, without refreshing the page. A viewer whose updates were
   interrupted MUST catch up to the current state when they resume, without a page reload.
 - **FR-011**: A seat a customer has picked but not reserved MUST be removed from their picks, with a
   message naming it, when another customer reserves or buys it.
@@ -235,11 +263,13 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
   is turned off, when the venue's layout is replaced, and, for a section, when it is moved to
   another tier. No seat MUST be reservable while the event's sales are closed.
 - **FR-017**: Events that do not sell seats MUST keep working exactly as in `006`, and every `007`
-  rule for seated orders MUST still hold.
+  rule for seated orders MUST still hold, with the reservation required by FR-006 added.
 - **FR-018**: The contract MUST be updated first; changes to existing operations MUST be additive.
 - **FR-019**: Automated tests MUST cover, against real PostgreSQL: reserving, all-or-nothing
   refusals, the 5-minute end on both sides of the boundary, releasing by deselect, Release seats,
-  and logout, orders against another customer's reservation, the per-order and per-customer caps,
+  and logout, adding seats to a reservation, the 2-minute wait on both sides of its boundary,
+  orders against another customer's reservation, seated orders refused without a reservation or
+  after it runs out, the per-order and per-customer caps,
   the concurrent same-seat guarantee (10 simultaneous reservations for one seat → exactly 1
   succeeds), reservations ended by admin changes and cancellation, live updates reaching a second
   viewer, and the Customer and Admin screens.
@@ -263,37 +293,38 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
 - **SC-001**: 0 seats are ever covered by two active reservations, or by an active reservation and
   a valid ticket, for the same event, including in a test of 10 simultaneous reservations for one
   seat.
-- **SC-002**: When a customer reserves, releases, or buys seats, a second customer viewing the same
-  event sees the change within 2 seconds, without refreshing, in at least 95% of trials.
+- **SC-002**: When a customer reserves, releases, or buys seats, a second customer and an admin
+  viewing the same event see the change within 2 seconds, without refreshing, in at least 95% of trials.
 - **SC-003**: 100% of reservations not confirmed within 5 minutes release their seats, and other
   viewers see those seats open within 2 seconds after the 5 minutes end.
 - **SC-004**: After logout, the customer's reserved seats show as open to other viewers within 2
   seconds.
 - **SC-005**: A customer picks, reserves, and confirms seats in under 90 seconds.
-- **SC-006**: Every `006` and `007` scenario still passes, and the full test suite passes from a
-  clean checkout.
+- **SC-006**: Every `006` scenario still passes; every `007` scenario passes with a reserve step
+  before confirming; and the full test suite passes from a clean checkout.
 
 ## Assumptions
 
-- **The Backend still accepts an order for open seats without a reservation.** Reserving is the
-  Customer app's flow, not a precondition for every order, so `007` orders and their tests keep
-  working. What changes is that a seat reserved by another customer is refused like a sold seat.
+- **Existing seated-order tests gain a reserve step.** Because a seated order now needs a
+  reservation (FR-006), `007`'s tests and scenarios reserve the seats before ordering them; what
+  they check is otherwise unchanged.
 - **A reservation is not a ticket.** It doesn't count toward capacity reports, sales, or the
   `016` per-customer limit, and nothing is charged until Confirm purchase (payment remains
   simulated, `006`).
-- **5 minutes is fixed** for every event, not something an admin sets (Constitution VIII).
+- **5 minutes and 2 minutes are fixed** for every event, not something an admin sets
+  (Constitution VIII).
 - **Picks are private.** Only reservations and sales are shared live; seats a customer has merely
   picked are not.
-- **Live updates cover seated events only**, and only the seat map; availability counts and other
-  pages keep loading as they do today.
+- **Live updates cover seated events only**, and only the seat map (in the Customer and Admin apps);
+  availability counts and other pages keep loading as they do today.
 - **Laptop scale.** The proof of concept needs live updates for the seeded 200 customers, not for
   public-sale traffic.
 - **The Ticket Booth app is unchanged.** Gate agents don't reserve seats.
 
 ## Out of Scope
 
-- Holding seats on click, before Reserve seats; extending or restarting a reservation; a timer an
-  admin can set.
+- Holding seats on click, before Reserve seats; extending or restarting a reservation; a timer or
+  wait an admin can set.
 - Holds for general-admission tickets.
 - Waiting lists, queues for sold-out events, or notifying a customer when a reserved seat frees up.
 - Showing who holds a reservation, to admins or anyone else.
