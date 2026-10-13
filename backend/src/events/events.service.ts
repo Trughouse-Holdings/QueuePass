@@ -69,6 +69,7 @@ export class EventsService {
     // Spec 007 FR-019: left out, the event can sell as many tickets as the venue holds.
     const capacity = dto.totalTicketCapacity ?? location.seatingCapacity;
     this.assertCapacityWithinVenue(capacity, location);
+    this.assertLimitWithinCapacity(dto.maxTicketsPerCustomer, null, capacity);
     await this.assertNoConflict(dto.locationId, startsAt, endsAt, null);
 
     const created = await this.prisma.event.create({
@@ -78,6 +79,7 @@ export class EventsService {
         startsAt,
         endsAt,
         totalTicketCapacity: capacity,
+        maxTicketsPerCustomer: dto.maxTicketsPerCustomer ?? null,
         basePrice: dto.basePrice,
       },
       include: { location: true },
@@ -168,6 +170,11 @@ export class EventsService {
       await this.assertCoversTiers(tx, id, capacity);
       await this.assertCoversSales(tx, id, capacity);
     }
+    this.assertLimitWithinCapacity(
+      dto.maxTicketsPerCustomer,
+      existing.maxTicketsPerCustomer,
+      capacity,
+    );
 
     // `id` is excluded so an event never conflicts with itself (FR-025) — saving an
     // unchanged event must always succeed.
@@ -184,6 +191,10 @@ export class EventsService {
           ? { totalTicketCapacity: dto.totalTicketCapacity }
           : {}),
         ...(dto.basePrice !== undefined ? { basePrice: dto.basePrice } : {}),
+        // Spec 016: `null` clears the limit, so presence, not truthiness, decides.
+        ...(dto.maxTicketsPerCustomer !== undefined
+          ? { maxTicketsPerCustomer: dto.maxTicketsPerCustomer }
+          : {}),
       },
       include: { location: true },
     });
@@ -272,6 +283,38 @@ export class EventsService {
           },
         },
         HttpStatus.CONFLICT,
+      );
+    }
+  }
+
+  /**
+   * Spec 016 FR-001, FR-008 (research R6): the limit in force after the write may not exceed the
+   * event's capacity. A limit sent in the request is bad input (400); a capacity cut below the
+   * stored limit conflicts with saved data (409), like a cut below tiers or sales. The
+   * event_max_tickets_per_customer_range CHECK backs both.
+   */
+  private assertLimitWithinCapacity(
+    sent: number | null | undefined,
+    stored: number | null,
+    capacity: number,
+  ): void {
+    if (sent !== undefined) {
+      if (sent !== null && sent > capacity) {
+        throw new BadRequestException({
+          message: [
+            `maxTicketsPerCustomer must be from 1 to the event's ticket capacity (${capacity}), ` +
+              'or empty for no limit',
+          ],
+        });
+      }
+      return;
+    }
+    if (stored !== null && stored > capacity) {
+      throw conflict(
+        'CAPACITY_EXCEEDED',
+        `Cannot set ticket capacity to ${capacity}; this event allows ${stored} tickets per ` +
+          'customer. Lower its limit first.',
+        { proposedTicketCapacity: capacity, maxTicketsPerCustomer: stored },
       );
     }
   }

@@ -54,8 +54,11 @@ refusal is `TICKET_LIMIT_REACHED` when the limit is the smaller cap, `SOLD_OUT` 
 
 ## Shared types
 
-- `packages/shared/src/event.ts`: `Event.maxTicketsPerCustomer: number | null`;
-  `EventInput.maxTicketsPerCustomer?: number | null`.
+- `packages/shared/src/event.ts`: `Event.maxTicketsPerCustomer?: number | null`;
+  `EventInput.maxTicketsPerCustomer?: number | null`. `Event`'s field is optional, like
+  `Availability.customerLimit`, because the contract lists it as optional (research R9) and the
+  front ends check their API responses against these types; a required field would not accept the
+  generated type. The Backend still always sends it. (Corrected during implementation.)
 - `packages/shared/src/order.ts`: new `CustomerLimit { limit: number; held: number; remaining:
   number }`, and `Availability.customerLimit?: CustomerLimit | null`. The Backend's
   `AvailabilityService` and the Customer app's `GetTickets` use this hand-written type, not

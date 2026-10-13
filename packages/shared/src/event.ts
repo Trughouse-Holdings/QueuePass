@@ -14,6 +14,11 @@ export interface Event {
   startsAt: string;
   endsAt: string;
   totalTicketCapacity: number;
+  /**
+   * Spec 016: the most valid tickets one customer may hold; `null` for no limit. Always sent by the
+   * Backend, but optional in the contract (research R9), so a missing value also means no limit.
+   */
+  maxTicketsPerCustomer?: number | null;
   basePrice: string;
   /** Spec 005: a cancelled event stays on record but is read-only. */
   status: EventStatus;
@@ -33,6 +38,8 @@ export interface EventInput {
   endsAt: string;
   /** Spec 007 FR-019: optional; when left out, the venue's seating capacity. */
   totalTicketCapacity?: number;
+  /** Spec 016: 1 to the event's capacity; left out or `null` for no limit (`null` clears). */
+  maxTicketsPerCustomer?: number | null;
   basePrice: string;
 }
 

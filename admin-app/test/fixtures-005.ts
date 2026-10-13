@@ -16,6 +16,7 @@ export const EVENT = {
   startsAt: '2026-11-01T23:00:00.000Z',
   endsAt: '2026-11-02T02:00:00.000Z',
   totalTicketCapacity: 100,
+  maxTicketsPerCustomer: null,
   basePrice: '45.00',
   status: 'SCHEDULED',
   cancelledAt: null,

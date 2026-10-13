@@ -5,6 +5,8 @@ export interface LockedEvent {
   id: string;
   name: string;
   totalTicketCapacity: number;
+  /** Spec 016: the most valid tickets one customer may hold; `null` for no limit. */
+  maxTicketsPerCustomer: number | null;
   basePrice: Prisma.Decimal;
   status: EventStatus;
   /** Spec 006 FR-014: sales close at this instant. */
@@ -28,8 +30,8 @@ export async function lockEvent(
   eventId: string,
 ): Promise<LockedEvent> {
   const rows = await tx.$queryRaw<LockedEvent[]>`
-    SELECT "id", "name", "totalTicketCapacity", "basePrice", "status", "startsAt",
-           "reservedSeating", "locationId"
+    SELECT "id", "name", "totalTicketCapacity", "maxTicketsPerCustomer", "basePrice", "status",
+           "startsAt", "reservedSeating", "locationId"
     FROM "Event" WHERE "id" = ${eventId}::uuid FOR UPDATE`;
   if (rows.length === 0) throw new NotFoundException(`No event exists with id ${eventId}.`);
   return rows[0];
@@ -44,4 +46,17 @@ export function ticketsSold(
   where: { eventId: string; tierId?: string | null },
 ): Promise<number> {
   return tx.ticket.count({ where: { ...where, status: 'VALID' } });
+}
+
+/**
+ * Spec 016 FR-003: the valid tickets one customer holds for an event, across all their orders,
+ * tiers, and sections. Void tickets never count. Orders and availability share it, so the
+ * Customer app's count and the rule cannot disagree (research R5).
+ */
+export function customerHeld(
+  db: Pick<Prisma.TransactionClient, 'ticket'>,
+  eventId: string,
+  customerSub: string,
+): Promise<number> {
+  return db.ticket.count({ where: { eventId, status: 'VALID', order: { customerSub } } });
 }

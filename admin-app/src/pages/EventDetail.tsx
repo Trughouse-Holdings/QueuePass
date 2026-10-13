@@ -145,6 +145,13 @@ function EventView({
           <dd className="cell-time">{when(event.endsAt)}</dd>
           <dt>Tickets</dt>
           <dd className="cell-num">{event.totalTicketCapacity.toLocaleString()}</dd>
+          {/* Spec 016 FR-011: a missing value is no limit (research R9). */}
+          <dt>Per customer</dt>
+          <dd>
+            {event.maxTicketsPerCustomer == null
+              ? 'No limit'
+              : `${event.maxTicketsPerCustomer.toLocaleString()} ${event.maxTicketsPerCustomer === 1 ? 'ticket' : 'tickets'}`}
+          </dd>
           <dt>Base price</dt>
           <dd className="price">${event.basePrice}</dd>
         </dl>

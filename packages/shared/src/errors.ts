@@ -29,6 +29,8 @@ export const ERROR_CODES = [
   // Spec 007: seats already held by valid tickets; a layout that seated sales depend on.
   'SEAT_TAKEN',
   'LAYOUT_IN_USE',
+  // Spec 016: the order would put the customer over the event's per-customer limit.
+  'TICKET_LIMIT_REACHED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
