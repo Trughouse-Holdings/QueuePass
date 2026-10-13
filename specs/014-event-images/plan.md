@@ -14,19 +14,28 @@
   so the limit refusal is clear and positions stay 1 to n under concurrency (R2).
 - **Type and size**: one file per `multipart/form-data` request, read by NestJS's built-in multer
   with a 5,242,880-byte limit (`413 IMAGE_TOO_LARGE`); the type is the file's signature (JPEG, PNG,
-  WebP), never its name or declared type (`415 IMAGE_TYPE_NOT_ALLOWED`) (R3).
+  WebP), never its name or declared type (`415 IMAGE_TYPE_NOT_ALLOWED`); the size in pixels is read
+  from the header and capped at 16,384 a side and 40 megapixels (`400 IMAGE_DIMENSIONS_TOO_LARGE`)
+  (R3).
+- **Metadata**: location, camera, and text metadata are removed before storing (JPEG Exif/XMP/IPTC,
+  PNG `eXIf`/text chunks, WebP `EXIF`/`XMP `); a JPEG keeps only its orientation (R17).
 - **API** (contract **1.8.0**): `uploadEventImage`, `getEventImage`, `deleteEventImage`,
-  `reorderEventImages` (`PUT …/images/order` with every id), four new codes, and `Event.images`
+  `reorderEventImages` (`PUT …/images/order` with every id), five new codes, and `Event.images`
   (metadata only) on every event response (R5, R6). Cancelled events refuse image changes with the
   existing `EVENT_CANCELLED`; deleting an event cascades (R7).
 - **Serving under Constitution V**: the image read needs a token like everything else; the apps
   fetch it with the token as a blob and show it from an object URL, through one shared cache, with
-  `Cache-Control: private, max-age=31536000, immutable` (R4).
+  `Cache-Control: private, max-age=31536000, immutable`; CORS preflights cached for 10 minutes
+  (`maxAge: 600`) (R4).
 - **Admin app**: an Images control in the event form (add, preview, move, remove, "Cover"),
-  applied on Save after the event's details, resumable after a refusal (R9).
+  applied on Save after the event's details, resumable after a refusal. When an image is refused
+  after a new event was created, the form becomes that event's edit form with the pending pictures,
+  so saving again never creates the event twice (R9).
 - **Both apps**: a shared `ImageGallery` (cards, the event page band, the Admin event page) and
   `ImageViewer` (full screen), rotating every 5 seconds and pausing only while an arrow is pointed
-  at or a gallery control has keyboard focus; no automatic change under reduced motion (R10–R12).
+  at or has keyboard focus (Mahdi), or the event page's full-screen image button has keyboard focus
+  (recommended); no automatic change under reduced motion (Mahdi). No Pause/Play button, so WCAG
+  2.2.2 is not met, by Mahdi's decision (R10–R12).
 - **Look**: gallery and viewer rules in the shared theme (`012`) with two new tokens, `--scrim` and
   `--scrim-text`; the Admin control's layout in its own stylesheet on theme values (R13).
 - **Performance**: lists carry metadata only; cards load images only on or near the screen, the
@@ -36,7 +45,7 @@
 The contract and regenerated types land in this PR. To keep `main` green before the
 implementation, `Event.images` is not in `required`, the four operations are marked `x-planned`
 and the route-coverage test skips them only while unserved, and `ERROR_CODES` already lists the
-four codes (R8).
+five codes (R8).
 
 ## Technical Context
 
@@ -67,8 +76,8 @@ event row lock is held only for an image insert or shift, never during an upload
 events without images unchanged; gallery styles only from the shared theme (Constitution VII).
 
 **Scale/Scope**: 4 new operations; 1 changed schema (`Event`, embedded in 5 operations' responses);
-3 new schemas; 2 new responses; 4 new error codes; 1 migration; 2 new theme tokens; 0 new
-environment variables.
+3 new schemas; 3 new responses; 5 new error codes; 1 migration; 2 new theme tokens; 1 CORS setting
+(`maxAge`); 0 new environment variables.
 
 ## Constitution Check
 
@@ -78,22 +87,23 @@ already describes this feature.
 
 | Principle | Pre | Post | Evidence |
 |---|---|---|---|
-| **I. API-Only, Contract First** | PASS | **PASS** | Contract 1.8.0 and regenerated types in this PR, before any code; drift check passes. Each new operation declares its request (multipart or JSON), response (JSON or image bytes with headers), roles, and every error. Four new codes in the standard envelope. Apps load images only through the API client. The `x-planned` marker keeps the operations declared and typed now; the route-coverage test still fails any route the contract does not declare, and checks every served route's roles (R8). |
+| **I. API-Only, Contract First** | PASS | **PASS** | Contract 1.8.0 and regenerated types in this PR, before any code; drift check passes. Each new operation declares its request (multipart or JSON), response (JSON or image bytes with headers), roles, and every error. Five new codes in the standard envelope. Apps load images only through the API client. The `x-planned` marker keeps the operations declared and typed now; the route-coverage test still fails any route the contract does not declare, and checks every served route's roles (R8). |
 | **II. One Repo, One Command** | PASS | **PASS** | No new service, volume, variable, or dependency. Images live in PostgreSQL's existing mapped volume, so they survive a restart. One migration applied by the existing startup. Seed unchanged; demo data generates its pictures (R1, R15). |
+| **Quality gate 4 (never skip a failing test)** | — | **PASS** | The route-coverage change is a correction of the test, not a skip: its premise ("every declared operation is served") cannot hold during Constitution III's two-PR window, so it now asserts the corrected rule (every served route declared with the right roles; every declared route served unless the contract marks it planned). It still fails an undeclared route or a wrong role, and the implementation adds a test that all four `x-planned: '014'` operations are served (T029, T042). The marker lives in the contract, shared surface, so every team member approves it in this PR (R8). |
 | **III. Spec-Driven, Reviewed** | PASS | **PASS** | Issue #26; spec and plan on `014-event-images-spec`, reviewed by a second Claude session before the PR; implementation on `014-event-images-impl` in a fresh session, closing #26. |
 | **IV. Server-Authoritative, DB-Guaranteed** | PASS | **PASS** | The Backend decides type (by signature), size, count, and order. The database guarantees at most 5 per event and unique positions (CHECK + unique constraint), and the type list and size (CHECKs); every image write takes the event row lock, so the limit and contiguous positions hold under concurrent requests (tested with 10 at once). The Admin form's checks are a preview; refusals are shown with every value and unsaved picture kept (R2, R3, R9). |
 | **V. Sign-In Everywhere** | PASS | **PASS** | Writes are `queuepass-admin`; the image read is any signed-in role, with a token, like the event it belongs to. No public or signed URL (R4). Tokens stay in memory: the apps send them with the existing client and show images from page-local `blob:` URLs. |
-| **VI. Test-First, Real Database** | PASS | **PASS** | Tests precede code in `tasks.md`; persistence and constraints tested on real PostgreSQL; boundaries both sides (5,242,880 / 5,242,881 bytes; 5th / 6th image; 11 / 12 signature bytes); concurrency with genuinely simultaneous uploads; authorization's missing, expired, wrongly signed, wrong-audience, and wrong-role cases on the four routes. The 80% floor is a recorded deferral until `010` and `011`; this feature reports its coverage. |
+| **VI. Test-First, Real Database** | PASS | **PASS** | Tests precede code in `tasks.md`; persistence and constraints tested on real PostgreSQL; boundaries both sides (5,242,880 / 5,242,881 bytes; 5th / 6th image; 11 / 12 signature bytes; 16,384 / 16,385 pixels a side; 40 megapixels); concurrency with genuinely simultaneous uploads; authorization's missing, expired, wrongly signed, wrong-audience, and wrong-role cases on the four routes. The 80% floor is a recorded deferral until `010` and `011`; this feature reports its coverage. |
 | **VII. Function Over Finish, One Shared Look** | PASS | **PASS** | The gallery is the feature the roadmap and Mahdi asked for, built from theme classes: no animation, no decoration. Its rules are in the shared theme because both apps use it; two tokens (`--scrim`, `--scrim-text`) are added there, since a full-screen backdrop must be dark in both modes. The Admin control uses theme values only. Usability targets stated and tested: 44-pixel targets, keyboard access, position in words, AA contrast (R13). |
 | **VIII. Staged Simplicity** | PASS | **PASS** | No object store, thumbnails, image library, captions, drag-and-drop, swipe, or pause button (spec Out of Scope). No test-only bypass of a control: `x-planned` skips an operation in the route-coverage test only while nothing serves it, so it cannot hide an undeclared route or a wrong role. No security or correctness control deferred. The WCAG 2.2.2 gap is a recorded product decision, not a deferral (R11). |
-| **Security** | PASS | **PASS** | No secret. Types by signature only (SVG and every other format refused), served with the detected type and `nosniff`; 5 MB cap enforced while reading. Pictures are stored as uploaded, metadata included, and the Admin form says so (R17). |
-| **Shared surface** | — | **Needs every member's approval** | This PR touches `contracts/openapi.yaml`, `packages/shared/src/api-schema.ts`, and `packages/shared/src/errors.ts` (plus the Backend's contract tests). The implementation touches `packages/shared/` (new files, the theme), `backend/prisma/`, and nothing else on the shared list. |
+| **Security** | PASS | **PASS** | No secret. Types by signature only (SVG and every other format refused), served with the detected type and `nosniff`; 5 MB cap enforced while reading; a pixel cap stops decompression bombs (R3). Location, camera, and text metadata removed before storing, keeping only a JPEG's orientation (R17). CORS still allows only the three front ends; only the preflight cache time changes (R4). |
+| **Shared surface** | — | **Needs every member's approval** | This PR touches `contracts/openapi.yaml` (including the `x-planned` markers), `packages/shared/src/api-schema.ts`, and `packages/shared/src/errors.ts` (plus the Backend's contract tests). The implementation touches `packages/shared/` (new files, the theme), `backend/prisma/`, and nothing else on the shared list. |
 
 ## Project Structure
 
 ```text
 specs/014-event-images/
-├── spec.md, plan.md, research.md (R1–R17), data-model.md, quickstart.md (S1–S10), tasks.md
+├── spec.md, plan.md, research.md (R1–R17), data-model.md, quickstart.md (S1–S12), tasks.md
 ├── checklists/requirements.md
 └── contracts/README.md
 
@@ -112,18 +122,20 @@ backend/
 ├── prisma/~ schema.prisma, migrations/+ 20261012000000_event_images/migration.sql
 ├── src/
 │   ├── events/+ event-images.controller.ts, + event-images.service.ts,
+│   │         + image-metadata.ts,                       # metadata removal (R17)
 │   │         + dto/reorder-event-images.dto.ts, ~ events.module.ts,
 │   │         ~ events.service.ts                         # EVENT_INCLUDE (R6)
-│   ├── common/filters/~ prisma-exception.filter.ts       # 413 → IMAGE_TOO_LARGE (R3)
+│   ├── common/filters/~ prisma-exception.filter.ts       # 413 → IMAGE_TOO_LARGE (R3); position unique → IMAGES_CHANGED (R2)
+│   ├── ~ configure-app.ts                                # CORS maxAge: 600 (R4)
 │   └── scripts/+ demo-images.ts, ~ demo-data.ts          # R15
 └── test/
     ├── contract/~ expect-to-match-contract.ts            # non-JSON responses (R8)
     ├── setup/+ images.ts                                 # small valid images, upload helper
-    ├── unit/+ expect-to-match-contract.spec.ts, + demo-images.spec.ts
+    ├── unit/+ expect-to-match-contract.spec.ts, + demo-images.spec.ts, + image-metadata.spec.ts
     └── integration/+ event-images.storage.e2e-spec.ts, + event-images.e2e-spec.ts,
                     + event-images.order.e2e-spec.ts, + event-images.concurrency.e2e-spec.ts,
                     + event-images.authz.e2e-spec.ts; ~ events.crud.e2e-spec.ts,
-                    ~ demo-data.e2e-spec.ts
+                    ~ demo-data.e2e-spec.ts, ~ cors-docs.e2e-spec.ts
 admin-app/src/api/+ images.ts
 admin-app/src/components/+ ImagesField.tsx
 admin-app/src/pages/~ EventForm.tsx, ~ EventDetail.tsx
@@ -152,4 +164,5 @@ code; each app only places them.
 | A deferrable unique constraint written in SQL | Delete and reorder shift positions in one statement, checked at commit (R2) | A plain unique index can fail mid-statement on a swap; Prisma cannot declare deferrable constraints. |
 | Images fetched as blobs with a shared object URL cache | `<img src>` cannot carry the bearer token Constitution V requires on every route (R4) | Public or signed image URLs need an unauthenticated route, which the constitution forbids. |
 | A custom full-screen dialog | FR-030's focus trap and return must behave the same in every browser and in tests (R12) | `<dialog>.showModal()` is not in jsdom and returns focus differently across browsers; the Fullscreen API does not work for images on iPhone. |
+| Metadata removal and header reading written by hand (R3, R17) | Mahdi decided metadata is removed (FR-035); a pixel cap needs each format's size (FR-036) | An image library (`sharp`) re-encodes, loses quality, and brings native binaries; `file-type` and `exif` packages cover only part and add dependencies. Both are byte-level walks of documented structures, unit-tested per format. |
 | Two new theme tokens (`--scrim`, `--scrim-text`) | The full-screen backdrop must be dark in light and dark mode (R13) | No existing token is dark in both; writing the color in an app stylesheet fails `012`'s drift check. |

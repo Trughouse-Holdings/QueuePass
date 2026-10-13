@@ -13,47 +13,63 @@ window for the Customer app (http://localhost:5174, `customer1` / `test123`). Ta
 
 ## Test files
 
-Three real pictures of your own: a JPG photo, a PNG (a screenshot works), and a WebP (any picture
-saved from a web page as `.webp`; or the 1-pixel one below). Then make the files for the refusals,
-in a scratch folder:
+Three real pictures of your own: a JPG photo taken with a phone with location turned on (so it
+has GPS and camera metadata, and ideally taken holding the phone upright), a PNG (a screenshot
+works), and a WebP (any picture saved from a web page as `.webp`; or the 1-pixel one below). Then
+make the files for the refusals, in a scratch folder:
 
 ```bash
 mkdir -p qp-images && cd qp-images
 echo "not a picture" > fake.jpg                                   # text named .jpg
 node -e "require('fs').writeFileSync('tiny.webp', Buffer.from('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==', 'base64'))"
 node -e "require('fs').writeFileSync('anim.gif', Buffer.from('R0lGODlhAQABAAAAACw=', 'base64'))"
-node -e "const f=require('fs'),s=Buffer.from('89504e470d0a1a0a','hex'); f.writeFileSync('five-mb.png', Buffer.concat([s, Buffer.alloc(5242880-8)])); f.writeFileSync('too-big.png', Buffer.concat([s, Buffer.alloc(5242881-8)]))"
+node -e "
+const z = require('zlib'), f = require('fs');
+const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+  const td = Buffer.concat([Buffer.from(type), data]); const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(z.crc32(td)); return Buffer.concat([len, td, crc]); };
+const png = (w, h, total) => { const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0);
+  ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const head = Buffer.concat([Buffer.from('89504e470d0a1a0a', 'hex'), chunk('IHDR', ihdr),
+    chunk('IDAT', z.deflateSync(Buffer.from([0, 200, 30, 30])))]);
+  const end = chunk('IEND', Buffer.alloc(0));
+  const pad = total ? chunk('prVt', Buffer.alloc(total - head.length - end.length - 12)) : Buffer.alloc(0);
+  return Buffer.concat([head, pad, end]); };
+f.writeFileSync('five-mb.png', png(1, 1, 5242880));     // exactly 5 MB, accepted
+f.writeFileSync('too-big.png', png(1, 1, 5242881));     // 1 byte over, refused
+f.writeFileSync('huge.png', png(20000, 20000));         // tiny file, 400 megapixels, refused
+"
 ```
 
-`five-mb.png` is exactly 5,242,880 bytes with a PNG signature and nothing else: the Backend accepts
-it, and browsers show it as an image that could not be loaded (spec edge case "A picture that is
-damaged after its first bytes").
+`five-mb.png` and `too-big.png` are a 1-pixel PNG padded with a private chunk to exactly 5,242,880
+and 5,242,881 bytes. `huge.png` is a few dozen bytes whose header declares 20,000 × 20,000 pixels.
 
 ## S1: Schedule an event with three images (US1)
 
 As `admin1`, open **Events → Schedule event**, fill in an event "Images Night" at any venue a week
 ahead, and in **Images** choose the JPG, PNG, and WebP at once. **Expect**: three previews in that
-order, "Cover" on the first, and the hint naming the limits and that pictures are shown as
-uploaded. Save. **Expect**: the event page shows the JPG across the full width of the page above
+order, "Cover" on the first, and the hint naming the limits. Save. **Expect**: the event page shows the JPG across the full width of the page above
 the title, "1 of 3", and arrows.
 
 ## S2: Refusals (US1)
 
-Edit "Images Night" and choose `anim.gif`, then `fake.jpg`, then `too-big.png`. **Expect**: each is
-refused in the form, naming the file and the reason (type, type, size), and nothing is sent (the
-Network panel shows no `POST …/images`). Then send them straight to the API:
+Edit "Images Night" and choose `anim.gif`, then `fake.jpg`, then `too-big.png`, then `huge.png`.
+**Expect**: each is refused in the form, naming the file and the reason (type, type, size, pixels),
+and nothing is sent (the Network panel shows no `POST …/images`). Then send them straight to the
+API:
 
 ```bash
 EVENT=…   # the event's id, from its page address
-for f in fake.jpg anim.gif too-big.png five-mb.png; do
+for f in fake.jpg anim.gif too-big.png huge.png five-mb.png; do
   curl -s -o /dev/null -w "$f %{http_code}\n" -X POST http://localhost:3000/events/$EVENT/images \
     -H "Authorization: Bearer $TOKEN" -F "file=@$f;type=image/jpeg"
 done
 ```
 
-**Expect**: `fake.jpg 415`, `anim.gif 415`, `too-big.png 413`, `five-mb.png 201`. `GET
-/events/$EVENT` lists four images, the fourth `image/png` with `byteSize` 5242880 (the declared
-`image/jpeg` was ignored). Add `tiny.webp` the same way (`201`, five images), and the JPG once more.
+**Expect**: `fake.jpg 415`, `anim.gif 415`, `too-big.png 413`, `huge.png 400` (`code:
+IMAGE_DIMENSIONS_TOO_LARGE`), `five-mb.png 201`. `GET /events/$EVENT` lists four images, the fourth
+`image/png` with `byteSize` 5242880 (the declared `image/jpeg` was ignored; a private chunk is not
+metadata, so nothing was removed). Add `tiny.webp` the same way (`201`, five images), and the JPG once more.
 **Expect**: `409` with `code: IMAGE_LIMIT_REACHED`.
 
 ## S3: Remove, reorder, and Cancel (US3)
@@ -152,5 +168,37 @@ As `admin1`, open "Images Night"'s event page. **Expect**: the same gallery and 
 customer's. Compare the gallery's arrows, position label, and full-screen backdrop in both apps,
 in light and dark mode (the device's setting). **Expect**: identical. `npm test` passed the
 theme's no-drift check (`packages/shared/test/theme/drift.test.ts`).
+
+## S11: Load with large images (FR-032, research R1, R14)
+
+Schedule 8 or more events, each with five JPG photos of about 5 MB (phone photos at full size).
+In one terminal run `docker stats`. As `customer1`, open **Events** with the Network panel open,
+scroll to the bottom and back, and leave it rotating for a minute. **Expect**: the page stays
+responsive (scrolling and the arrows react at once); image requests only for cards on or near the
+screen; after the first minute, looping galleries make no new image requests (each gallery keeps
+what it loaded); `OPTIONS` preflights appear about once per 10 minutes per image URL, not before
+every read (`Access-Control-Max-Age: 600`); the `backend` container's memory rises by no more than
+a few dozen MB while images load and settles back; the `postgres` container stays well within its
+limit. Record the peak memory of both in tasks.md (T044).
+
+## S12: Creating an event when an image is refused, and metadata removal (FR-018, FR-035)
+
+The form's preview stops bad files before sending, so make the upload fail another way: in Chrome
+DevTools open **Network request blocking**, add the pattern `*/images`, and enable it. Schedule a
+new event "Partial Night" with three pictures and save. **Expect**: "Event created. These pictures
+were not added: … Save again to add them.", the address is now `/events/<id>/edit`, the heading
+reads "Edit event", and the three pictures are still in the Images control. (The Admin app's tests,
+T014, check the same with a Backend refusal.) Disable the blocking and save. **Expect**: the remaining pictures are added; the
+Events list shows exactly one "Partial Night" with three images.
+
+Download the phone photo you added in S1 through the API and inspect it:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:3000/events/$EVENT/images/$IMG -o stored.jpg
+```
+
+Open `stored.jpg`'s **Properties → Details** in Windows (or run `exiftool stored.jpg` if
+installed). **Expect**: no GPS position, no camera make or model, no date taken; the photo opens
+the right way up. In the Customer app the same photo is shown upright.
 
 Finally, sign in, use, and sign out of each front end (Constitution VI smoke test).

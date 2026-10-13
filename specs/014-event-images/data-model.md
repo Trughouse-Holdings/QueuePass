@@ -11,8 +11,8 @@ One new table, `EventImage`, in one migration:
 | `eventId` | `String @db.Uuid` | The event. `ON DELETE CASCADE`: deleting the event deletes its images (research R7). |
 | `position` | `Int` | 1 to 5; 1 is the cover. Unique per event; 1 to n with no gap (research R2). |
 | `contentType` | `String @db.VarChar(10)` | `image/jpeg`, `image/png`, or `image/webp`, detected from the bytes (research R3). |
-| `byteSize` | `Int` | 1 to 5,242,880, and equal to the length of `bytes`. |
-| `bytes` | `Bytes` (`bytea`) | The picture exactly as uploaded (research R1, R17). Never selected with an event. |
+| `byteSize` | `Int` | 1 to 5,242,880, and equal to the length of `bytes` (the stored size, after metadata removal). |
+| `bytes` | `Bytes` (`bytea`) | The picture as uploaded with its metadata removed; a JPEG keeps only its orientation (research R1, R17). Never selected with an event. |
 | `createdAt` | `DateTime @default(now()) @db.Timestamptz(6)` | Kept for operators; not in the API. |
 
 `Event` gains the relation `images EventImage[]`. No column of `Event` changes.
@@ -66,7 +66,12 @@ Every write is one transaction that starts with `lockEvent(tx, eventId)` (`SELEC
 … FOR UPDATE`, `backend/src/common/event-lock.ts`), after the upload has been read and checked.
 
 ```text
-add(eventId, bytes)            -- bytes already ≤ 5,242,880 and sniffed (no lock held for that)
+add(eventId, file)             -- no lock held for these first steps
+  file.size > 5,242,880        → 413 IMAGE_TOO_LARGE        (multer, while reading)
+  readImageHeader(file) = null → 415 IMAGE_TYPE_NOT_ALLOWED
+  side > 16,384 or w×h > 40,000,000
+                               → 400 IMAGE_DIMENSIONS_TOO_LARGE { width, height, maxSide, maxPixels }
+  bytes = stripImageMetadata(file, contentType)   -- 415 if its structure cannot be walked
   lock event                   -- 404 if missing
   status = CANCELLED           → 409 EVENT_CANCELLED
   n = count(images)
@@ -116,10 +121,17 @@ reorder(eventId, imageIds)     -- body already: uuids, unique, ≤ 5 (400 otherw
 - `GALLERY_INTERVAL_MS = 5000`.
 - `sniffImageType(bytes: Uint8Array): ImageContentType | null` (research R3): reads at most the
   first 12 bytes.
+- `IMAGE_PIXEL_LIMITS = { maxSide: 16_384, maxPixels: 40_000_000 } as const`.
+- `readImageHeader(bytes: Uint8Array): { contentType: ImageContentType; width: number; height:
+  number } | null` (research R3): the signature plus the size from the PNG `IHDR`, WebP `VP8X` /
+  `VP8L` / `VP8 `, or JPEG `SOFn` header.
+- Backend only, `backend/src/events/image-metadata.ts`: `stripImageMetadata(bytes, contentType):
+  Uint8Array` (research R17), throwing a `415` envelope for a structure it cannot walk.
 - `packages/shared/src/event.ts`: `Event` gains `images?: EventImage[]` (optional until the contract
   follow-up, research R8; clients treat missing as empty).
 - `packages/shared/src/errors.ts`: `IMAGE_LIMIT_REACHED`, `IMAGE_TOO_LARGE`,
-  `IMAGE_TYPE_NOT_ALLOWED`, `IMAGES_CHANGED` added to `ERROR_CODES` (in this PR, research R8).
+  `IMAGE_TYPE_NOT_ALLOWED`, `IMAGES_CHANGED`, `IMAGE_DIMENSIONS_TOO_LARGE` added to
+  `ERROR_CODES` (in this PR, research R8).
 - `packages/shared/src/api-schema.ts`: regenerated from contract 1.8.0 (in this PR).
 
 ## Front-end state (not stored)
@@ -127,7 +139,7 @@ reorder(eventId, imageIds)     -- body already: uuids, unique, ≤ 5 (400 otherw
 - **Image cache** (`packages/shared/src/web/event-images.ts`): image id → `{ url: string | null;
   failed: boolean; users: number; promise }`. An entry is made by the first user, and its object
   URL is revoked and the entry dropped when `users` returns to 0 (research R4).
-- **Gallery**: shown index; paused (arrow under the pointer, keyboard focus on a control, or
+- **Gallery**: the images it has loaded, held until it unmounts (research R4); shown index; paused (arrow under the pointer, keyboard focus on a control, or
   viewer open); reduced motion; on screen (cards, research R14).
 - **Admin Images control** (research R9): ordered items, `saved` (an `EventImage`) or `new` (a
   `File` and its preview URL), and the saved images removed but not yet deleted.

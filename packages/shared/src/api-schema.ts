@@ -607,14 +607,26 @@ export interface paths {
          *     exactly one part, `file`, and nothing else. The type is decided from the file's first
          *     bytes (its signature), never from its file name or the part's `Content-Type`: only JPEG
          *     (`FF D8 FF`), PNG (`89 50 4E 47 0D 0A 1A 0A`), and WebP (`RIFF`, 4 bytes, `WEBP`) are
-         *     accepted. The stored and served `contentType` is the detected one.
+         *     accepted. The stored and served `contentType` is the detected one. The width and height
+         *     are read from the header (PNG `IHDR`, WebP `VP8 `/`VP8L`/`VP8X`, JPEG `SOFn`); a file
+         *     whose header gives no size is treated as not a picture.
          *
-         *     Refused, in this order: a file over 5 MB, 5,242,880 bytes (`413 IMAGE_TOO_LARGE`, while the
-         *     body is read); a body without exactly one `file` part, or with other parts (`400`); a file
-         *     that is not a JPEG, PNG, or WebP (`415 IMAGE_TYPE_NOT_ALLOWED`); an unknown event (`404`); a
-         *     cancelled event (`409 EVENT_CANCELLED`); and an event that already has 5 images (`409
-         *     IMAGE_LIMIT_REACHED`, with `details.limit` and `details.count`). An event never has more
-         *     than 5 images, including under concurrent requests. Nothing is stored when refused.
+         *     Before storing, location, camera, and text metadata are removed: JPEG Exif and XMP `APP1`
+         *     segments (a JPEG's orientation is kept in a minimal Exif segment of its own), PNG `eXIf`,
+         *     `tEXt`, `iTXt`, and `zTXt` chunks, and WebP `EXIF` and `XMP ` chunks. The picture data is
+         *     not changed. `byteSize` is the stored size; the 5 MB limit applies to the file as sent.
+         *
+         *     Refused, in this order: `401` and `403` (before the body is read); a file over 5 MB,
+         *     5,242,880 bytes (`413 IMAGE_TOO_LARGE`, while the body is read); a body without exactly
+         *     one `file` part, or with other parts (`400 VALIDATION_FAILED`); a malformed event id
+         *     (`400 VALIDATION_FAILED`); a file that is not a JPEG, PNG, or WebP, or whose size in pixels
+         *     cannot be read (`415 IMAGE_TYPE_NOT_ALLOWED`); a picture wider or taller than 16,384
+         *     pixels or of more than 40,000,000 pixels (`400 IMAGE_DIMENSIONS_TOO_LARGE`, with
+         *     `details.width`, `details.height`, `details.maxSide`, `details.maxPixels`); an unknown
+         *     event (`404`); a cancelled event (`409 EVENT_CANCELLED`); and an event that already has 5
+         *     images (`409 IMAGE_LIMIT_REACHED`, with `details.limit` and `details.count`). An event
+         *     never has more than 5 images, including under concurrent requests. Nothing is stored when
+         *     refused.
          */
         post: operations["uploadEventImage"];
         delete?: never;
@@ -670,7 +682,7 @@ export interface paths {
          * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
          *     `info` description.
          *
-         *     The picture's bytes, exactly as uploaded, with `Content-Type` set to its detected type. Like
+         *     The picture's bytes as stored (as uploaded, with its metadata removed), with `Content-Type` set to its detected type. Like
          *     every operation except `getHealth`, it needs a bearer token, so a browser cannot load it
          *     with a plain `<img src>`: the apps fetch it with the token and show it from a local object
          *     URL. An image's content never changes, so the response carries `Cache-Control: private,
@@ -976,13 +988,14 @@ export interface components {
              * @enum {string}
              */
             contentType: "image/jpeg" | "image/png" | "image/webp";
+            /** @description The stored size in bytes, after metadata was removed. */
             byteSize: number;
         };
         /** @description Feature 014. The `multipart/form-data` body of `uploadEventImage`. */
         EventImageUpload: {
             /**
-             * @description One JPEG, PNG, or WebP picture, at most 5,242,880 bytes. Its file name and declared
-             *     type are ignored.
+             * @description One JPEG, PNG, or WebP picture, at most 5,242,880 bytes, 16,384 pixels a side, and
+             *     40,000,000 pixels. Its file name and declared type are ignored.
              */
             file: string;
         };
@@ -1286,7 +1299,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -1396,6 +1409,19 @@ export interface components {
                  *       }
                  *     }
                  */
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /**
+         * @description Feature 014. The request's shape is wrong (`VALIDATION_FAILED`: no `file` part, other
+         *     parts, or a malformed event id), or the picture is too large in pixels
+         *     (`IMAGE_DIMENSIONS_TOO_LARGE`). Nothing was stored.
+         */
+        ImageRejected: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
@@ -2382,7 +2408,7 @@ export interface operations {
                     "application/json": components["schemas"]["EventImage"];
                 };
             };
-            400: components["responses"]["ValidationFailed"];
+            400: components["responses"]["ImageRejected"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

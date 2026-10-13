@@ -20,7 +20,7 @@ and confirm they **fail** before the implementation tasks below them.
 - **Fresh session** (Constitution III): implement on branch `014-event-images-impl`, cut from
   `main` after the spec and plan PR merges, in a Claude session that starts from these files only.
   A gap in the spec or plan is fixed there, not worked around in code.
-- **Do not change the contract** (1.8.0, types regenerated, the four codes already in
+- **Do not change the contract** (1.8.0, types regenerated, the five codes already in
   `ERROR_CODES`). Leave the `x-planned` markers: the route-coverage test checks served operations'
   roles whether or not they are marked, and the follow-up PR removes them (T047). Raise any gap.
 - **`012` first**: start from a `main` that has `012`'s implementation (PR #33: the shared
@@ -32,14 +32,19 @@ and confirm they **fail** before the implementation tasks below them.
   `main` green (research R8).
 - **Positions are 1 to n**, 1 is the cover. Every image write runs in one transaction that starts
   with `lockEvent(tx, eventId)`; read and sniff the upload **before** the transaction (research R2).
-- **Type by signature only** (`sniffImageType` from `packages/shared`); ignore the file name and
-  the part's `Content-Type`; store and serve the detected type (research R3).
+- **Type by signature only** (`sniffImageType` / `readImageHeader` from `packages/shared`); ignore
+  the file name and the part's `Content-Type`; store and serve the detected type; refuse more than
+  16,384 pixels a side or 40,000,000 pixels (research R3).
+- **Metadata out before storing** (`stripImageMetadata`, research R17): JPEG Exif/XMP `APP1` and
+  `APP13`, PNG `eXIf`/`tEXt`/`iTXt`/`zTXt`, WebP `EXIF`/`XMP `; a JPEG keeps only its
+  orientation, in a minimal Exif segment.
 - **Never select `bytes`** except in `getEventImage` (research R6).
 - **No `<img src>` to the API**: images are fetched with the token through `useEventImage` and
   shown from object URLs (research R4).
 - **Rotation**: 5,000 ms, restarted by every change; paused only by an arrow under the pointer,
-  keyboard (not pointer-caused) focus on a gallery control, or the viewer being open; no timer
-  under reduced motion; no animation (research R11).
+  keyboard (not pointer-caused) focus on an arrow or on the event page's full-screen image button,
+  or the viewer being open; no timer under reduced motion; no animation; no Pause/Play button
+  (research R11; these are settled decisions, not open questions).
 - **No new dependencies.** No color, font, or off-step spacing written in an app stylesheet, and no
   inline style setting a color, font, or shadow (`012` drift check).
 - **Nothing else changes**: every existing test keeps its meaning; events without images render
@@ -61,13 +66,17 @@ test helpers every story uses.
   returns `image/jpeg` for `FF D8 FF E0 …`, `image/png` for the 8-byte PNG signature plus 4 bytes,
   `image/webp` for `RIFF` + 4 bytes + `WEBP`; `null` for `GIF89a…`, `<svg …`, `RIFF…WAVE`,
   `%PDF-1.7`, an empty array, the PNG signature cut to 11 bytes (and accepted at 12, both sides),
-  and `FF D8` alone. `EVENT_IMAGE_LIMITS` is `{ maxCount: 5, maxBytes: 5242880 }`;
+  and `FF D8` alone. `readImageHeader` returns type, width, and height for a PNG, a JPEG (with an
+  Exif `APP1` before its `SOF0`, and a progressive `SOF2`), and WebP `VP8 `, `VP8L`, and
+  `VP8X` files; `null` for a PNG whose first chunk is not `IHDR`, a JPEG with no `SOFn`, a
+  truncated segment, and a zero width. `IMAGE_PIXEL_LIMITS` is `{ maxSide: 16384, maxPixels:
+  40000000 }`. `EVENT_IMAGE_LIMITS` is `{ maxCount: 5, maxBytes: 5242880 }`;
   `IMAGE_CONTENT_TYPES` is `['image/jpeg', 'image/png', 'image/webp']`, the contract's
   `EventImage.contentType` enum (the Backend's contract checks in T011 catch a mismatch);
   `GALLERY_INTERVAL_MS` is 5000.
-- [ ] T003 [P] Create `packages/shared/src/event-image.ts` (data-model.md: `ImageContentType`,
-  `IMAGE_CONTENT_TYPES`, `EventImage`, `EVENT_IMAGE_LIMITS`, `GALLERY_INTERVAL_MS`,
-  `sniffImageType`), add `images?: EventImage[]` to `Event` in `packages/shared/src/event.ts`, and
+- [ ] T003 Create `packages/shared/src/event-image.ts` (data-model.md: `ImageContentType`,
+  `IMAGE_CONTENT_TYPES`, `EventImage`, `EVENT_IMAGE_LIMITS`, `IMAGE_PIXEL_LIMITS`,
+  `GALLERY_INTERVAL_MS`, `sniffImageType`, `readImageHeader`), add `images?: EventImage[]` to `Event` in `packages/shared/src/event.ts`, and
   export from `packages/shared/src/index.ts`. Run T002 until it passes.
 - [ ] T004 [P] In `backend/test/contract/expect-to-match-contract.ts`, handle a declared response
   whose `content` has no `application/json`: assert the response's `Content-Type` (without
@@ -120,7 +129,7 @@ carries `images`.
 
 ## Phase 3: User Story 1 - An Admin Adds Images to an Event (Priority: P1) 🎯 MVP
 
-**Goal**: FR-001 to FR-006, FR-013 to FR-018, SC-001 to SC-003.
+**Goal**: FR-001 to FR-006, FR-013 to FR-018, FR-035, FR-036, SC-001 to SC-003.
 
 **Independent Test**: images of each accepted type are added in order through the API and the
 Admin form; wrong types, oversized files, and a sixth image are refused with nothing stored, also
@@ -140,6 +149,16 @@ under simultaneous uploads.
   - no `file` part, a JSON body, two `file` parts, and a `file` plus another field → each
     `400 VALIDATION_FAILED`, no row;
   - an unknown event → `404`; a malformed event id → `400`;
+  - a PNG of 16,384 × 2,441 pixels → `201`; 16,385 × 1 and 7,000 × 7,000 (49 megapixels) →
+    `400 IMAGE_DIMENSIONS_TOO_LARGE` with `details` and no row (both sides of each limit); a PNG
+    whose `IHDR` is cut short → `415`;
+  - metadata removal (FR-035): a JPEG with an Exif `APP1` holding GPS, camera make, and
+    Orientation 6, plus an XMP `APP1` and an `APP13` → stored without the GPS bytes, the make
+    string, the XMP packet, or `APP13`, with a minimal Exif segment whose only tag is Orientation
+    6, and the scan data after `SOS` byte for byte the same; `byteSize` is the stored length; a
+    JPEG with Orientation 1 gets no Exif segment; a PNG with `eXIf`, `tEXt`, `iTXt`, and `zTXt`
+    → none of them stored, other chunks unchanged; a WebP (VP8X) with `EXIF` and `XMP ` chunks →
+    neither stored, both VP8X flags cleared, and the `RIFF` size equal to the file length − 8;
   - a cancelled event → `409 EVENT_CANCELLED`, no row;
   - with 5 images, a sixth → `409 IMAGE_LIMIT_REACHED` with `details.limit: 5`, `details.count:
     5`, and the message naming the event; still 5 rows;
@@ -147,6 +166,10 @@ under simultaneous uploads.
     `Cache-Control: private, max-age=31536000, immutable`, and `X-Content-Type-Options: nosniff`,
     matching the contract (T004); the image of another event under this event's path → `404`; an
     unknown image id → `404`.
+  Also create `backend/test/unit/image-metadata.spec.ts` for `stripImageMetadata` on hand-built
+  files: each case above, a JPEG with a `JFIF` `APP0` (the orientation segment goes after it),
+  little-endian and big-endian Exif, extended XMP, and a segment or chunk length past the end of
+  the file → the `415` envelope.
 - [ ] T012 [P] [US1] Create `backend/test/integration/event-images.concurrency.e2e-spec.ts`: an event
   with 3 images and 10 simultaneous uploads → exactly two `201` and eight `409
   IMAGE_LIMIT_REACHED`, no `5xx`, and positions exactly `{1, 2, 3, 4, 5}`; an event with 0 images
@@ -157,14 +180,17 @@ under simultaneous uploads.
   `venues-events.authz.e2e-spec.ts`: on `uploadEventImage`, `deleteEventImage`,
   `reorderEventImages`, and `getEventImage`, a missing, expired, wrongly signed, and
   wrong-audience token → `401`; for the three writes, `customer1` and `agent1` → `403` and nothing
-  changed; for `getEventImage`, `customer1` and `agent1` → `200`.
+  changed; for `getEventImage`, `customer1` and `agent1` → `200`. Extend
+  `backend/test/integration/cors-docs.e2e-spec.ts`: a preflight from an allowed origin answers
+  `Access-Control-Max-Age: 600` (research R4); a disallowed origin still gets no CORS headers.
 - [ ] T014 [P] [US1] Create `admin-app/test/images-field.test.tsx` with `stubApi` (create and edit):
   - the Schedule event and Edit event forms have an "Images" group with an "Add images" file input
     (`accept="image/jpeg,image/png,image/webp"`, `multiple`) and the hint from research R9
-    (limits, cover, shown as uploaded);
+    (limits and cover, and no text about metadata);
   - choosing a PNG, a JPEG, and a WebP (`File`s with real signatures) shows three previews in order
     (`img` with `alt` "Image 1" … and a `blob:` source), "Cover" on the first;
-  - a GIF, a text file named `.jpg`, a 5,242,881-byte PNG, and a sixth file are refused before
+  - a GIF, a text file named `.jpg`, a 5,242,881-byte PNG, a PNG whose header says 20,000 × 20,000
+    pixels, and a sixth file are refused before
     sending, each named with its reason in the note; nothing is sent; a 5,242,880-byte PNG is
     accepted (both sides); with 5 items the input is replaced by "5 of 5 images. Remove one to add
     another.";
@@ -175,36 +201,53 @@ under simultaneous uploads.
   - a `415` on the second of three uploads shows "{file name}: {message}", keeps every field and
     the third picture, and the first stays saved: saving again uploads only the second and third;
   - a `413` and a `409 IMAGE_LIMIT_REACHED` show their messages the same way;
-  - on scheduling, an image refused after the event was created shows "Images not all added", the
-    pictures not added, and a link to `/events/{id}/edit`;
+  - **create path** (FR-017, FR-018): on scheduling with three pictures, a `415` on the second
+    upload after `POST /events` returned `201` → the location becomes `/events/{id}/edit` (router
+    state carries the pending pictures), the heading reads "Edit event", the banner says "Event
+    created. These pictures were not added: …", and the second and third pictures are pending in
+    the Images control after the first, which is saved. Saving again sends `PATCH /events/{id}`
+    and the two uploads, and **no second `POST /events`** (assert the count of `POST /events`
+    stays 1), then navigates to the event page. The same holds if the form is unmounted and mounted
+    again at `/events/{id}/edit` with that router state. A refused seating or ticket-type step
+    also switches to the edit form with the pictures pending and no upload attempted;
   - Cancel after choosing pictures sends no image request.
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] In `backend/src/common/filters/prisma-exception.filter.ts`, map a `413` to
-  `IMAGE_TOO_LARGE` with "An image can be at most 5 MB." and `details.maxBytes: 5242880` (research
-  R3). Envelopes thrown by services already pass through (the codes are in `ERROR_CODES`).
+- [ ] T015 [US1] **Test first.** Create `backend/test/unit/prisma-exception.filter.spec.ts`: a
+  `P2002` whose `meta.target` names `event_image_position_unique`, and a raw-query error whose
+  message carries `23505` and that constraint's name, are each answered `409 IMAGES_CHANGED`; a
+  tier-name `P2002` is still `TIER_NAME_TAKEN`; a `413` `HttpException` is `IMAGE_TOO_LARGE`. Then, in `backend/src/common/filters/prisma-exception.filter.ts`, map a `413`
+  to `IMAGE_TOO_LARGE` with "An image can be at most 5 MB." and `details.maxBytes: 5242880`, and
+  the position violation to `409 IMAGES_CHANGED` (research R2, R3). Envelopes thrown by services
+  already pass through (the codes are in `ERROR_CODES`).
 - [ ] T016 [US1] Create `backend/src/events/event-images.service.ts` (`add`, `read`) and
   `backend/src/events/event-images.controller.ts` (`POST /events/:id/images` with
   `@Roles('queuepass-admin')`, `FileInterceptor('file', { storage: memoryStorage(), limits: {
   fileSize: 5_242_880, files: 1, fields: 0, parts: 1 } })`, `@HttpCode(201)`; `GET
   /events/:id/images/:imageId` with no role, returning a `StreamableFile` with the research R4
-  headers), and register them in `backend/src/events/events.module.ts`. `add`: refuse a missing
-  file (`400`), sniff (`415`), then one transaction: `lockEvent` → cancelled (`409
+  headers), and register them in `backend/src/events/events.module.ts`. Create
+  `backend/src/events/image-metadata.ts` (`stripImageMetadata`, research R17). `add`: refuse a
+  missing file (`400`), `readImageHeader` (`415`), the pixel limits (`400
+  IMAGE_DIMENSIONS_TOO_LARGE`), strip metadata (`415` if it cannot be walked), then one
+  transaction: `lockEvent` → cancelled (`409
   EVENT_CANCELLED`) → count → `409 IMAGE_LIMIT_REACHED` → insert at `count + 1` (data-model.md).
-  Use a local `UploadedImage { buffer: Buffer; size: number }` type, not `@types/multer`. Run
-  T011–T013 (upload and read parts) and the route-coverage test until they pass.
+  Use a local `UploadedImage { buffer: Buffer; size: number }` type, not `@types/multer`. In
+  `backend/src/configure-app.ts`, add `maxAge: 600` to `enableCors` (research R4). Run T011–T013 (upload and read parts) and the
+  route-coverage test until they pass.
 - [ ] T017 [US1] Create `admin-app/src/api/images.ts` (`uploadEventImage`, `deleteEventImage`,
   `reorderEventImages`, research R9) and `admin-app/src/components/ImagesField.tsx` with adding,
-  previews, the preview checks (using `sniffImageType` on `file.slice(0, 12)` and
-  `EVENT_IMAGE_LIMITS`), the hint, and object URL clean-up; layout classes in
+  previews, the preview checks (using `readImageHeader` on `await file.arrayBuffer()`,
+  `EVENT_IMAGE_LIMITS`, and `IMAGE_PIXEL_LIMITS`), the hint, and object URL clean-up; layout classes in
   `admin-app/src/styles.css` on theme values (research R13).
 - [ ] T018 [US1] In `admin-app/src/pages/EventForm.tsx`, hold the Images state, load it from
   `event.images ?? []` on edit, and after the existing create or edit steps run `applyImages`
   (uploads in this story; deletes and reorder come in US3), updating state as each step succeeds
-  and stopping at the first refusal, with the file name before the Backend's message; add the
-  "Images not all added" banner on create (research R9). Run T014 until it passes, then the Admin
-  app suite.
+  and stopping at the first refusal, with the file name before the Backend's message. On create,
+  after `createEvent` succeeds and a later step is refused, `navigate(`/events/${id}/edit`, {
+  replace: true, state: { pendingImages, notice } })`; on edit, initialize the Images control from
+  the event's images followed by `location.state?.pendingImages`, and show `notice` (research R9).
+  Run T014 until it passes, then the Admin app suite.
 
 **Checkpoint**: admins add images through the form and the API, and the Backend's rules hold under
 concurrency.
@@ -225,7 +268,8 @@ looks as before.
   the same image id cause one `GET /events/{id}/images/{imageId}` with the user's `Authorization`
   header; both receive the same `blob:` URL; it is revoked only after both unmount; a later use
   fetches again; a `404` or network failure gives the failed state and does not throw; `enabled:
-  false` fetches nothing.
+  false` fetches nothing. A gallery of 3 images that loops twice (fake timers) makes exactly 3
+  image requests and revokes nothing until it unmounts (research R4: kept while mounted).
 - [ ] T020 [P] [US2] Create `packages/shared/test/web/use-gallery-rotation.test.ts` with fake
   timers: with 3 images the index goes 0 → 1 at 5,000 ms (not at 4,999), → 2, → 0; `next()` at
   3,000 ms shows the next at once and the following change comes 5,000 ms after the press; `prev()`
@@ -235,9 +279,10 @@ looks as before.
   no timer is set.
 - [ ] T021 [P] [US2] Create `packages/shared/test/web/image-gallery.test.tsx` (variant `page`):
   - 0 images → renders nothing; 1 image → the image, no arrows, no position, no timer;
-  - 3 images → a region named "Images of Season Opener", the image with `alt` "Season Opener,
-    image 1 of 3", "1 of 3", and buttons "Previous image" and "Next image" with class
-    `gallery__arrow`; the image is inside a button named "View Season Opener, image 1 of 3, full
+  - 3 images → a `role="group"` with `aria-roledescription="carousel"` named "Images of Season
+    Opener" inside a `.page-band` wrapper (placed by the page), the image with `alt` "Season
+    Opener, image 1 of 3", "1 of 3", and buttons "Previous image of Season Opener" and "Next image of
+    Season Opener" with class `gallery__arrow`; the image is inside a button named "View Season Opener, image 1 of 3, full
     screen";
   - after 5 s, image 2 and "2 of 3";
   - `pointerEnter` on the image, then 15 s → it changed three times; `pointerEnter` on the next
@@ -245,7 +290,8 @@ looks as before.
   - keyboard focus (`userEvent.tab()`) on an arrow → no change for 15 s; focus leaves the gallery →
     a change 5 s later; a click on an arrow (pointer down, then focus) followed by `pointerLeave`
     → it changes 5 s later (pointer-caused focus does not pause);
-  - keyboard focus on the full-screen image button also pauses (research R11);
+  - keyboard focus on the full-screen image button also pauses (research R11, recommended for
+    keyboard users); pointer hover over that button does not;
   - the slide area has `aria-live="off"` while rotating and `"polite"` while paused;
   - a failed image shows "Image unavailable" and the gallery keeps rotating;
   - no element has an inline `style` setting a color.
@@ -257,7 +303,10 @@ looks as before.
   shows the gallery for an event with images (FR-019), and nothing for one without.
 - [ ] T024 [P] [US2] Extend `packages/shared/test/theme/tokens.test.ts` and `contrast.test.ts`
   (from `012`): `--scrim` and `--scrim-text` exist in the light and dark sets with the same values;
-  `--scrim-text` on `--scrim` composited over white and over black is at least 4.5:1.
+  `--scrim-text` on `--scrim` composited over white and over black is at least 4.5:1. Also assert
+  the theme sets no `overflow` on `.app` except under `.app:has(.page-band)`. If `012` has not
+  merged when this task starts, skip it: under research R13's fallback the rules live in the apps'
+  stylesheets, and `012`'s implementer adds these assertions when moving them into the theme.
 
 ### Implementation for User Story 2
 
@@ -270,11 +319,13 @@ looks as before.
   the page variant, arrows, position, placeholder, pause rules, live region; the full-screen button
   calls an `onOpen` that US5 connects) and export it and the hook from
   `packages/shared/src/web/index.ts`. Add the gallery classes and the two tokens to
-  `packages/shared/src/web/theme.css` (research R13), including `.app { overflow-x: clip }`. Run
-  T021 and T024 until they pass, and the shared suite, including the drift check.
-- [ ] T028 [US2] Place `ImageGallery variant="page"` at the top of
-  `customer-app/src/pages/EventDetail.tsx` (above the `h1`) and `admin-app/src/pages/EventDetail.tsx`
-  (above the page head). Run T022 and T023 until they pass, then both apps' suites.
+  `packages/shared/src/web/theme.css` (research R13): `.page-band` (full width, flush under the
+  top bar by cancelling `.main`'s top padding with the same tokens, at both widths) and
+  `.app:has(.page-band) { overflow-x: clip }`, with no other `overflow` on `.app`. Run T021 and
+  T024 until they pass, and the shared suite, including the drift check.
+- [ ] T028 [US2] Place `ImageGallery variant="page"`, inside `<div className="page-band">` and
+  only when the event has images, at the top of `customer-app/src/pages/EventDetail.tsx` (above the
+  `h1`) and `admin-app/src/pages/EventDetail.tsx` (above the page head). Run T022 and T023 until they pass, then both apps' suites.
 
 **Checkpoint**: customers and admins see an event's images on its page, rotating as Mahdi decided.
 
@@ -300,6 +351,8 @@ a stale order is refused; a cancelled event refuses changes; deleting an event r
   - a cancelled event → delete and reorder `409 EVENT_CANCELLED`, nothing changed; its images are
     still listed and served;
   - deleting an event with 3 images and no orders → `204`, and `EventImage` has no row for it.
+  Also add to `backend/test/contract/route-coverage.e2e-spec.ts` a test that every operation with
+  `x-planned: '014'` is served by a route (it fails until T032 adds delete and reorder).
 - [ ] T030 [P] [US3] Extend `backend/test/integration/event-images.concurrency.e2e-spec.ts`: 20
   simultaneous requests on one event mixing uploads, deletes of existing images, and reorders (each
   reorder built from the order read before sending) → no `5xx` (assert first), each refusal is
@@ -344,6 +397,8 @@ not, and only cards on or near the screen load images.
 ### Tests for User Story 4 (write first, confirm they fail)
 
 - [ ] T034 [P] [US4] Extend `packages/shared/test/web/image-gallery.test.tsx` (variant `card`): the
+  gallery is a `role="group"` named "Images of Season Opener" and its arrows are "Previous image of
+  Season Opener" and "Next image of Season Opener", so two cards' arrows have different names; the
   image is a link to the event's path with `tabindex="-1"` and `aria-hidden="true"`, and has no
   full-screen button; the arrows are not inside the link; selecting an arrow does not navigate;
   with a controllable `IntersectionObserver`, nothing is fetched while off screen, and on entering
@@ -377,7 +432,8 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 - [ ] T037 [P] [US5] Create `packages/shared/test/web/image-viewer.test.tsx`:
   - opening from the gallery showing image 2 of 3 renders, in `document.body`, a `role="dialog"`
     with `aria-modal="true"` named "Season Opener, image 2 of 3", the image, "2 of 3", "Previous
-    image", "Next image", and "Close full screen"; `body` has `viewer-open`;
+    image", "Next image", and "Close full screen"; `body` has `viewer-open`; the app root
+    (`#root`) has the `inert` attribute, removed again on close;
   - focus is on "Close full screen"; Tab and Shift+Tab cycle among the three buttons only;
   - Right arrow key and "Next image" go to 3, then 1; Left arrow key and "Previous image" go back;
   - with fake timers, nothing changes over 20 s, and the gallery behind does not change either;
@@ -388,8 +444,8 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 
 ### Implementation for User Story 5
 
-- [ ] T038 [US5] Create `packages/shared/src/web/image-viewer.tsx` (research R12), add the viewer
-  classes to `theme.css`, connect it to `ImageGallery`'s `onOpen` and pause rule, and export it.
+- [ ] T038 [US5] Create `packages/shared/src/web/image-viewer.tsx` (research R12, with `inert` on
+  `#root` while open), add the viewer classes to `theme.css`, connect it to `ImageGallery`'s `onOpen` and pause rule, and export it.
   Run T037 and T021 until they pass, then the shared suite and both apps' suites.
 
 **Checkpoint**: every story works on its own and together.
@@ -413,19 +469,23 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   accurate.
 - [ ] T042 Run `npm run lint` and `npm test` from the repository root; everything passes,
   including `check-contract-drift` and the theme's drift check. Also run `npm run build` in
-  `admin-app` and `customer-app` (their `tsc --noEmit`).
+  `admin-app` and `customer-app` (their `tsc --noEmit`). Check explicitly that all four
+  `x-planned: '014'` operations are served: the test added in T029 passes, and running the
+  route-coverage test against a copy of the contract with the markers removed reports an empty
+  `unimplemented` list.
 - [ ] T043 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' and `packages/shared` coverage if a provider is installed) in the PR description.
   The 80% floor is not yet blocking (Constitution VI deferral until `010` and `011`).
-- [ ] T044 Running-system gate: `docker compose up --build`, walk quickstart.md S1–S10 in the
-  browser, and sign in, use, and sign out of each front end. Record the results in this file.
+- [ ] T044 Running-system gate: `docker compose up --build`, walk quickstart.md S1–S12 in the
+  browser, and sign in, use, and sign out of each front end. Record the results in this file,
+  including S11's peak memory of the `backend` and `postgres` containers.
 - [ ] T045 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
 - [ ] T046 Open the implementation PR against `main` with `fixes #26` in its description. It
   touches the shared surface (`packages/shared/`, `backend/prisma/`), so every team member approves
-  it. The description asks Mahdi to confirm the reduced-motion behavior and the keyboard-focus
-  pause on the full-screen button (research R11), and records the WCAG 2.2.2 note.
+  it. The description repeats the spec's WCAG 2.2.2 statement (not met, no Pause/Play button, by
+  Mahdi's decision); the product decisions were settled in the spec and plan PR.
 - [ ] T047 After the implementation PR merges, open a follow-up GitHub issue to tighten the
   contract (research R8 Follow-up): add `images` to `Event.required`, remove the four `x-planned`
   markers, and regenerate `api-schema.ts`. Link it from the PR.

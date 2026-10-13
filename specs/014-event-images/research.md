@@ -23,6 +23,15 @@ filesystem, and no service is added.
 - Size is bounded: at most 5 images × 5 MB = 25 MB per event. PostgreSQL stores large values out
   of line (TOAST), so list queries that do not select the bytes are unaffected (R6).
 
+**Known cost**: Prisma 6's query engine passes a `Bytes` value to and from Node as base64 inside
+its JSON protocol. Reading or writing a 5 MB image therefore holds roughly 2 to 3 times that in
+memory for the moment of the call (the base64 string, the decoded buffer, and the response), about
+15 MB, and each read holds one connection of Prisma's pool for its duration. With images loaded
+only for cards on screen, two at a time (R14), that is a few dozen MB at a peak and a short queue
+for the pool. The running-system gate measures it with `docker stats` (quickstart S11). If it
+proves too much, reading the bytes with a streaming query is the next step; it is not built now
+(Constitution VIII).
+
 **Alternatives considered**:
 
 - **A filesystem volume** (`/data/images/<id>`, path in the table): a second volume in
@@ -67,9 +76,12 @@ two shifting writes, and tested under concurrency (R16).
 Image writes for an event wait for that event's orders and the reverse, for the few milliseconds
 of an insert. Orders for other events never wait.
 
-**Why `INITIALLY IMMEDIATE`**: a deferred violation would surface only at `COMMIT`, as a Prisma
-error the exception filter maps to `TIER_NAME_TAKEN` (P2002). With the constraint immediate except
-inside the two shifting writes, an impossible collision fails at the statement that caused it.
+**Why `INITIALLY IMMEDIATE`**: a deferred violation would surface only at `COMMIT`, far from the
+statement that caused it. With the constraint immediate except inside the two shifting writes, a
+collision fails where it happens. Under the lock no collision is expected; if one ever happens (a
+write that skipped the lock), the exception filter maps a unique violation naming
+`event_image_position_unique` (Prisma `P2002`, or SQLSTATE `23505` from a raw statement) to
+`409 IMAGES_CHANGED`, instead of today's fallback for `P2002`, `TIER_NAME_TAKEN`.
 
 **Alternatives considered**: A count CHECK through a trigger (more SQL, and the lock is needed for
 the message anyway). Locking the event's image rows (`SELECT … FOR UPDATE` on `EventImage`): it
@@ -78,7 +90,7 @@ advisory lock (a second locking scheme beside `lockEvent`). Positions with gaps 
 sparse number): the API and the Admin app would have to renumber anyway to show "1 of 3".
 Shifting through temporary out-of-range positions (needs the CHECK to allow them).
 
-## R3. The type comes from the file's content; the size is limited while reading
+## R3. The type and size in pixels come from the file's content; bytes are limited while reading
 
 **Decision**:
 
@@ -100,10 +112,26 @@ Shifting through temporary out-of-range positions (needs the CHECK to allow them
 
   The part's `Content-Type` and file name are ignored. The stored `contentType` is the detected
   one, and `getEventImage` serves that type (spec edge case "Type by content").
+- **Size in pixels** (spec FR-036): `readImageHeader(bytes)` returns `{ contentType, width, height
+  }` or `null`, reading only headers:
+  - PNG: the `IHDR` chunk, which must come first (width at byte 16, height at 20, big-endian);
+  - WebP: the first chunk after `WEBP`: `VP8X` (24-bit width − 1 and height − 1 at bytes 24
+    and 27), `VP8L` (14-bit width − 1 and height − 1 after the `0x2F` signature byte at 20), or
+    `VP8 ` (14-bit width and height at bytes 26 and 28, after the `9D 01 2A` start code);
+  - JPEG: walk the segments from `SOI` to the first start-of-frame marker (`SOF0`–`SOF15`
+    except `DHT` `C4`, `JPG` `C8`, and `DAC` `CC`), whose height and width are at bytes 3
+    and 5 of the segment.
+
+  A picture wider or taller than 16,384 pixels, or of more than 40,000,000 pixels, is refused with
+  a new code, `400 IMAGE_DIMENSIONS_TOO_LARGE` (`details.width`, `height`, `maxSide`,
+  `maxPixels`). A file whose header is cut short, or that gives no size or a zero size, is
+  `415 IMAGE_TYPE_NOT_ALLOWED`: it is not a picture we can read.
 - **Missing or extra parts**: no `file` part, a non-multipart body, a second file, or any other
   field → `400 VALIDATION_FAILED`, naming the rule.
-- `sniffImageType`, the limits, and the type list live in `packages/shared/src/event-image.ts`, so
-  the Admin app's preview (R9) and the Backend use the same rule.
+- `sniffImageType`, `readImageHeader`, the limits, and the type list live in
+  `packages/shared/src/event-image.ts`, so the Admin app's preview (R9) and the Backend use the
+  same rule.
+- **Then metadata is removed** (R17), and the stored bytes are what remains.
 
 **Rationale**: Spec FR-003 and FR-004 (Mahdi: check the real type, not the extension or the
 declared type). A signature check is exact for these three formats and needs no decoder. SVG is
@@ -111,7 +139,15 @@ excluded by construction: it is text and can carry scripts. Limits applied while
 oversized upload is cut off at 5 MB, not buffered whole. One file per request keeps every refusal
 about one named file (FR-017) and the limit check simple.
 
-**Known limit**: the check reads the signature, not the whole file. A file that starts like a
+**Why a pixel limit**: a few kilobytes of PNG can declare 30,000 × 30,000 pixels, which every
+browser would try to decode into about 3.6 GB. 16,384 is the largest side Chrome and Firefox
+reliably decode and display, and 40 megapixels (about 160 MB decoded) is more than any phone camera
+in common use, so no real photo is refused. A separate code, rather than reusing one: the remedy
+differs (make the picture smaller, not choose another format or a smaller file); `413` would say
+the request body is too large, which it is not; `400` because the content is unacceptable as sent,
+and clients branch on `code`.
+
+**Known limit**: the check reads the signature and headers, not the whole file. A file that starts like a
 picture but is damaged later is stored, and the browser shows it as an image that could not load
 (spec edge case). Decoding every upload would need an image library (R14).
 
@@ -141,6 +177,15 @@ the apps fetch the bytes through their existing API client, with the signed-in u
   `Content-Length`.
 - A `401` while loading an image shows the image as unavailable; the page's other requests already
   send the user to sign in (spec edge case "Session ends").
+- **Kept while mounted**: a gallery holds every image it has loaded until it unmounts, so looping
+  back to an image neither fetches it again nor flickers (at most 5 per gallery). The object URLs
+  are revoked when the gallery goes, or the viewer closes, and no one else uses them.
+- **CORS preflight**: a request with an `Authorization` header from another origin is preceded by
+  an `OPTIONS` preflight. `enableCors` in `backend/src/configure-app.ts` sets no `maxAge` today,
+  so browsers cache each preflight for only about 5 seconds, and a rotating gallery would send one
+  before most image reads. The implementation sets `maxAge: 600` (10 minutes; browsers cap it at
+  2 hours or more), and a CORS test asserts `Access-Control-Max-Age: 600`. It changes no allowed
+  origin, method, or header.
 
 **Rationale**: Constitution V says the Backend MUST validate the token on every endpoint except
 health. Fetching with the token is the only option that keeps that rule unchanged: the token stays
@@ -161,7 +206,7 @@ exposes nothing new.
 - **Bytes inline in the event payload (base64)**: every event list would carry up to 25 MB per
   event, and nothing could be loaded lazily.
 
-## R5. The API: four operations and four codes
+## R5. The API: four operations and five codes
 
 **Decision** (contract 1.8.0, contracts/README.md):
 
@@ -180,13 +225,16 @@ New codes, in the standard envelope:
 | `IMAGE_TYPE_NOT_ALLOWED` | `415` | content is not JPEG, PNG, or WebP (`details.allowed`) |
 | `IMAGE_LIMIT_REACHED` | `409` | the event already has 5 (`details.limit`, `details.count`) |
 | `IMAGES_CHANGED` | `409` | the new order does not name exactly the current images (`details.imageIds`, the current order) |
+| `IMAGE_DIMENSIONS_TOO_LARGE` | `400` | wider or taller than 16,384 pixels, or over 40,000,000 pixels (R3) |
 
 The existing `EVENT_CANCELLED` (409) covers a cancelled event, and `VALIDATION_FAILED` (400) a
 malformed body, a repeated id, or more than 5 ids. An image id of another event is `404`.
 
-Refusal order for an upload: `401`/`403` (guards run before the body is read) → `400` for a
-malformed event id → `413` while reading → `400` for the wrong parts → `415` → `404` unknown event →
-`409 EVENT_CANCELLED` → `409 IMAGE_LIMIT_REACHED`.
+Refusal order for an upload: `401`/`403` (guards run before the body is read) → `413` while
+reading → `400` for the wrong parts (the file interceptor runs before route pipes) → `400` for a
+malformed event id (`ParseUUIDPipe`) → `415` → `400 IMAGE_DIMENSIONS_TOO_LARGE` → `404` unknown
+event → `409 EVENT_CANCELLED` → `409 IMAGE_LIMIT_REACHED`. The upload's `400` uses a new response,
+`ImageRejected`, that lists both `400` codes.
 
 **Rationale**:
 
@@ -262,9 +310,18 @@ in this PR:
    `expect-to-match-contract.ts`) to skip an `x-planned` operation **only while no route serves
    it**. Once a route serves it, its roles are checked like any other. Verified on 2026-10-12: the
    route-coverage, CORS-and-docs, and hello suites pass with the change.
+
+   **Quality gate 4** says a failing test is never skipped to unblock a merge. This is not that:
+   the test's premise was "every declared operation is served", which Constitution III's two-PR
+   order made untrue for one PR's lifetime. The test now asserts the corrected rule (every served
+   route is declared with the right roles; every declared route is served unless the contract
+   says it is planned), and the marker is in the contract, which is shared surface, so every team
+   member approves it in this PR. The implementation PR adds a test that every `x-planned: '014'`
+   operation is served (tasks T029, T042), so the marker cannot hide a missing route after 014
+   ships.
 3. **New error codes**: `013`'s implementation (PR #34) adds a unit test that every code in the
    contract's `ErrorEnvelope` enum is in `ERROR_CODES` (`packages/shared/src/errors.ts`). So this
-   PR adds the four codes to `ERROR_CODES` too, as `006`'s plan PR did for its codes. Nothing
+   PR adds the five codes to `ERROR_CODES` too, as `006`'s plan PR did for its codes. Nothing
    sends them until the implementation merges.
 
 New request shapes are not validated on `main` and no front end calls the new routes yet, so
@@ -281,7 +338,7 @@ implementation session opens a GitHub issue for it as its last task (tasks.md), 
 
 **Merging with other open work**: if PR #34 (`013`'s implementation) merges first, this branch is
 rebased: the contract keeps both changes, `ERROR_CODES` lists the three address codes before the
-four image codes (the contract's order), and `npm run generate:api` is rerun. If this PR merges
+five image codes (the contract's order), and `npm run generate:api` is rerun. If this PR merges
 first, #34 does the same.
 
 **Rationale**: Constitution I (contract first, reviewed before code) and III (`main` green and
@@ -303,8 +360,8 @@ modes, inside a `<fieldset>` with the legend "Images".
   edit it starts from `event.images ?? []`.
 - **Add**: a file input labeled "Add images", `accept="image/jpeg,image/png,image/webp"`,
   `multiple`. Each chosen file goes through a preview check (FR-016): would it make more than 5,
-  is it over 5,242,880 bytes, and does `sniffImageType` of its first 12 bytes
-  (`file.slice(0, 12)`) accept it. Accepted files are appended with an object URL preview; refused
+  is it over 5,242,880 bytes, and does `readImageHeader` of the file's bytes
+  (`await file.arrayBuffer()`, at most 5 MB) accept its type and size in pixels. Accepted files are appended with an object URL preview; refused
   ones are named in a note with the reason ("poster.gif: only JPG, PNG, or WebP pictures"). The
   input is hidden, and the note says "5 of 5 images. Remove one to add another.", when the list
   is full. The input is reset after each choice so the same file can be chosen again.
@@ -312,8 +369,7 @@ modes, inside a `<fieldset>` with the legend "Images".
   "Cover" `.pill` on the first, and three buttons: "Move image 2 earlier" (not on the first),
   "Move image 2 later" (not on the last), "Remove image 2". Buttons, not drag-and-drop (spec Out of
   Scope), so it works by keyboard.
-- **Hint**: "Up to 5 images. JPG, PNG, or WebP, up to 5 MB each. The first image is the cover.
-  Pictures are shown exactly as uploaded, including any location a phone saved in them." (R17).
+- **Hint**: "Up to 5 images. JPG, PNG, or WebP, up to 5 MB each. The first image is the cover."
 - **On Save**, after the event's details, seating, and ticket types are saved as today
   (`scheduleEvent` / `saveEvent`), `applyImages(eventId)` runs, stopping at the first refusal:
   1. delete each removed image (`404` counts as done: it is already gone), dropping it from the
@@ -326,16 +382,26 @@ modes, inside a `<fieldset>` with the legend "Images".
 
   Because each step updates the state as it succeeds, saving again after a refusal finishes what
   is left and never uploads a picture twice (FR-017).
+- **After creating** (review round 1): the moment `createEvent` succeeds, the form stops being a
+  Schedule form. When every later step succeeds it goes to the event page, as today. When an image
+  step is refused (or the seating and ticket-type setup is), it calls
+  `navigate(`/events/${id}/edit`, { replace: true, state: { pendingImages, notice } })`: the
+  address becomes the new event's edit form, and the form initializes its Images control from the
+  event's saved images followed by `pendingImages` (the `File`s not yet added, kept in router
+  state, which a `File` survives), and shows `notice` as a banner: "Event created. These pictures
+  were not added: poster.gif (This file is not a JPG, PNG, or WebP picture.). Save again to add
+  them." The heading reads "Edit event". Saving again goes through the edit path (`saveEvent`,
+  then `applyImages`), so `createEvent` is never called a second time and saved pictures are not
+  uploaded again (FR-017, FR-018). This works whether React keeps or remounts the form, because the
+  edit form reads the pending pictures from router state on load.
 - **Refusals**: shown through `ErrorBanner`, with the picture's file name before the Backend's
   message for an upload ("poster.jpg: This file is not a JPG, PNG, or WebP picture."). Every value
   and every unsaved change stays. On `409 IMAGES_CHANGED`, the control reloads the event's images
   (`getEvent`), keeps the admin's pending new pictures after them, and shows the message, so the
   admin checks and saves again (spec US3 scenario 6).
-- **Scheduling**: when the event and its setup were created but an image step is refused, the
-  form shows a banner like `008`'s "Seating setup not finished": "Images not all added. The event
-  was created; these pictures were not added: …", with a link to `/events/{id}/edit`. If the
-  seating setup itself was refused, images are not attempted, and that banner also says images
-  were not added (FR-018).
+- **Scheduling**: if the seating and ticket-type setup is refused, images are not attempted; the
+  form switches to the edit form in the same way, with `008`'s "Seating setup not finished"
+  message and the pictures still pending.
 - **Cancel** leaves the page without calling the API, so nothing changes (FR-015). Object URLs of
   new files are revoked when an item is removed and when the form unmounts.
 - `admin-app/src/api/images.ts`: `uploadEventImage(eventId, file)` posts a `FormData` with
@@ -359,8 +425,10 @@ files in one request (R3).
 
 - `packages/shared/src/event-image.ts` (exported from the package root): the `EventImage` type,
   `EVENT_IMAGE_LIMITS = { maxCount: 5, maxBytes: 5_242_880 }`, `IMAGE_CONTENT_TYPES`,
-  `GALLERY_INTERVAL_MS = 5000`, and `sniffImageType(bytes: Uint8Array)`. Used by the Backend
-  (authoritative) and the Admin app (preview). `Event` gains `images?: EventImage[]` (optional,
+  `IMAGE_PIXEL_LIMITS = { maxSide: 16_384, maxPixels: 40_000_000 }`, `GALLERY_INTERVAL_MS =
+  5000`, `sniffImageType(bytes)`, and `readImageHeader(bytes)`. Used by the Backend
+  (authoritative) and the Admin app (preview). Metadata removal (R17) is Backend-only, in
+  `backend/src/events/image-metadata.ts`. `Event` gains `images?: EventImage[]` (optional,
   as in the contract, R8).
 - `packages/shared/src/web/` (exported from `@queuepass/shared/web`):
   - `event-images.ts`: the object URL cache and `useEventImage` (R4);
@@ -401,11 +469,11 @@ which is what Mahdi ruled out).
 
   Nothing else pauses it: not the pointer over the image, the card, or the page, and not the
   page being scrolled. When the pause ends, the next image comes 5 seconds later.
-- **Keyboard focus beyond the arrows**: Mahdi named the arrows. On the event page the image itself
-  is a control (it opens full screen), so focus on it also pauses, so that what Enter opens cannot
-  change while a keyboard user is on it. On a card the image is not a tab stop (R12), so only the
-  arrows are. Recorded for Mahdi to confirm in the PR.
-- **Reduced motion** (recommended; Mahdi confirms in the PR): when
+- **Arrow hover and focus (Mahdi), plus image-button focus (recommended for keyboard users)**:
+  Mahdi named the arrows. On the event page the image itself is a control (it opens full screen),
+  so this spec adds that keyboard focus on it also pauses, so what Enter opens cannot change while
+  a keyboard user is on it. On a card the image is not a tab stop (R12), so only the arrows are.
+- **Reduced motion** (decided by Mahdi, 2026-10-12): when
   `matchMedia('(prefers-reduced-motion: reduce)')` matches, no timer runs at all; the arrows still
   flip. The hook listens for changes to the setting.
 - **No animation**: images are swapped, not slid or faded, in every mode. Nothing moves, so there
@@ -426,9 +494,10 @@ asks for "a mechanism for the user to pause, stop, or hide" it. How the design r
 - Full conformance would need a lasting control: a Pause/Play button on each gallery (the
   WAI-ARIA carousel pattern), which Mahdi chose not to have.
 
-So this is a recorded product decision with a known gap against 2.2.2, not a claim of conformance.
-If Mahdi wants conformance later, it is one button per gallery that sets `paused` until pressed
-again; nothing else in this design changes. Flagged for Mahdi in the PR description.
+So the galleries **do not meet WCAG 2.2.2**: this is Mahdi's explicit decision (2026-10-12, after
+review round 1, he confirmed no Pause/Play button), stated in the spec's Assumptions, not a claim
+of conformance. If conformance is wanted later, it is one button per gallery that sets `paused`
+until pressed again; nothing else in this design changes.
 
 **Alternatives considered**: Pausing on hover over the whole gallery (Mahdi ruled it out). A
 Pause/Play button (above). Stopping after one full cycle (still auto-updating for up to 25 seconds,
@@ -445,7 +514,11 @@ A CSS animation for the change (motion to reduce, and nothing in the spec asks f
   title, with `tabIndex={-1}` and `aria-hidden="true"`: a larger target for pointer users, with no
   second tab stop or duplicate announcement for keyboard and screen reader users, who use the title
   link. The arrows are buttons outside the link, so flipping never opens the event. No full screen
-  from a card.
+  from a card (confirmed by Mahdi).
+- **Labels, in every variant**: each gallery is a `role="group"` with
+  `aria-roledescription="carousel"` and `aria-label` "Images of Season Opener", and its arrows are
+  named "Previous image of Season Opener" and "Next image of Season Opener", so on a list of cards
+  every arrow says which event it belongs to.
 - **`ImageViewer`**: rendered with `createPortal` into `document.body`, so no card or page
   container can clip it.
   - A `div` with `role="dialog"`, `aria-modal="true"`, and `aria-label` "Season Opener, image 2 of
@@ -459,8 +532,11 @@ A CSS animation for the change (motion to reduce, and nothing in the spec asks f
   - Focus: moves to the close button on open; Tab and Shift+Tab cycle among the viewer's controls
     only; on close, focus returns to the button that opened it, and the gallery shows the last
     image viewed (FR-030).
-  - While open, the page behind does not scroll (a class on `<body>` sets `overflow: hidden`), and
-    the gallery's rotation is paused (R11).
+  - While open, the app root (`#root`, which the portal is outside of) gets the `inert`
+    attribute, so nothing behind can be focused, clicked, or read by a screen reader; the page
+    behind does not scroll (a class on `<body>` sets `overflow: hidden`); and the gallery's
+    rotation is paused (R11). The Tab trap stays as well, because jsdom does not implement
+    `inert`.
   - It loads the shown image and its neighbors through `useEventImage` (R4), so flipping is quick.
 
 **Rationale**: Spec FR-020 and FR-029/FR-030. On a card, the whole card already leads to the
@@ -487,7 +563,7 @@ in the shared theme, `packages/shared/src/web/theme.css` (`012` research R2: a c
 use belongs to the theme). `012`'s implementation (PR #33) adds that file and the no-drift check
 (`012` research R6); 014's implementation starts from a `main` that has it.
 
-- **Classes**: `.gallery`, `.gallery--card`, `.gallery--page`, `.gallery__open` (the event page's
+- **Classes**: `.page-band`, `.gallery`, `.gallery--card`, `.gallery--page`, `.gallery__open` (the event page's
   image button), `.gallery__image`, `.gallery__placeholder`, `.gallery__arrow`,
   `.gallery__arrow--prev`, `.gallery__arrow--next`, `.gallery__count`; `.viewer`, `.viewer__image`,
   `.viewer__close`, `.viewer__arrow` (with `--prev` and `--next`), `.viewer__count`; and
@@ -496,11 +572,18 @@ use belongs to the theme). `012`'s implementation (PR #33) adds that file and th
   above the title. The Customer app's `.event-card` gives the gallery negative margins equal to
   its own padding (`calc(-1 * var(--space-N))`, which `012`'s rule C5 allows) and rounds its top
   corners with the card.
-- **Event page**: `.gallery--page` spans the full width of the app window, edge to edge, above the
-  page title: `width: 100vw` with `margin-inline: calc(50% - 50vw)`, and `.app` gets `overflow-x:
-  clip` so the vertical scroll bar's width never causes sideways scrolling (`100vw` includes it
-  on Windows). Its height is `clamp(200px, 40vw, 480px)`. These lengths are in the theme, where
-  `012`'s spacing rule does not apply.
+- **Event page**: the event pages wrap the gallery in `<div className="page-band">`. `.page-band`
+  spans the full width of the app window, edge to edge, above the page title: `width: 100vw` with
+  `margin-inline: calc(50% - 50vw)`. Because `100vw` includes the vertical scroll bar on Windows,
+  sideways scrolling is prevented only where a band is shown: `.app:has(.page-band) { overflow-x:
+  clip }`. The shared theme sets no `overflow` on `.app` otherwise, so no other page changes.
+  The band's height is `clamp(200px, 40vw, 480px)`.
+- **Vertical placement**: `.main` has 32 pixels of top padding (`var(--space-8)` after `012`;
+  24 pixels, `var(--space-6)`, at phone width). The band sits flush under the top bar by
+  cancelling it: `margin-top: calc(-1 * var(--space-8))`, and `calc(-1 * var(--space-6))` inside
+  the theme's 640-pixel breakpoint, with `margin-bottom: var(--space-6)` before the title. Using
+  the same tokens as `.main` keeps the two in step. These lengths are in the theme, where `012`'s
+  spacing rule does not apply.
 - **Images**: `object-fit: cover` in both galleries (the area is filled, edges may be cropped);
   `contain` in the viewer (the whole picture).
 - **Arrows and position**: over the image, vertically centered on each side, at least 44 × 44
@@ -531,7 +614,8 @@ but `--text` is light, and vice versa), so it needs its own token. Reusing `--su
 controls makes them readable on any picture without a new color.
 
 **Alternatives considered**: Gallery rules in each app's stylesheet (two copies to drift, which
-`012` exists to prevent). Rendering the page band outside `<main>` (every page would need a slot
+`012` exists to prevent). `overflow-x: clip` on `.app` for every page (changes every page of both
+apps for one band). Rendering the page band outside `<main>` (every page would need a slot
 in the app shell for one page's band). A backdrop in `--bg` (white in light mode; Mahdi asked for
 dark).
 
@@ -548,7 +632,11 @@ dark).
   is at the top); full screen also loads the previous one.
 - **Text first**: no card or page waits for an image; images fill their placeholder when they
   arrive (FR-031, FR-032).
-- **Caching** (R4): one fetch per image id per page, and the browser's own cache after that.
+- **Caching** (R4): one fetch per image id per page, kept while the gallery is mounted, and the
+  browser's own cache after that; preflights cached for 10 minutes (R4).
+- **Backend cost** (R1): about 15 MB of transient memory and one pool connection per 5 MB image
+  read; the running-system gate checks a list of 8 or more events with five 5 MB images each
+  (quickstart S11).
 - **No smaller copies**: images are served as uploaded. On a first view of a list, at most about
   two images per visible card are loaded (SC-006). The Admin hint (R9) does not set a size beyond
   5 MB; pictures of about 1 MB load well.
@@ -587,7 +675,8 @@ harder to see).
 **Decision** (tasks.md has the full list), tests first in every phase:
 
 - **Shared** (Vitest): `sniffImageType` for each accepted signature and for GIF, SVG text,
-  `RIFF…WAVE`, PDF, empty, 11 bytes, and `FF D8` only; the image cache (one fetch for two users,
+  `RIFF…WAVE`, PDF, empty, 11 bytes, and `FF D8` only; `readImageHeader` for each format and
+  WebP variant, both sides of 16,384 pixels a side and 40,000,000 pixels, and truncated headers; the image cache (one fetch for two users,
   revoke on last release, `Authorization` sent, failure state); the rotation hook with fake timers
   (5,000 ms steps, wrap, restart after an arrow, pause and resume, reduced motion, fewer than 2
   images); the gallery (nothing for 0 images, no arrows for 1, accessible names, position text,
@@ -597,7 +686,10 @@ harder to see).
   focus returned, no automatic change, the gallery shows the last image viewed).
 - **Backend** (Jest, Supertest, Testcontainers): storage CHECKs and the unique constraint on real
   PostgreSQL; upload of each type with the contract check; detected type over the declared one; a
-  renamed text file `415`; exactly 5,242,880 bytes `201` and 5,242,881 `413`; missing, extra, and
+  renamed text file `415`; exactly 5,242,880 bytes `201` and 5,242,881 `413`; 16,384 × 2,441
+  pixels `201` and 16,385 × 1 `400 IMAGE_DIMENSIONS_TOO_LARGE`; metadata removed from a JPEG with
+  Exif GPS, camera make, and XMP (orientation kept), a PNG with `eXIf` and text chunks, and a WebP
+  with `EXIF` and `XMP ` chunks (VP8X flags cleared, RIFF size right); missing, extra, and
   second parts `400`; unknown event `404`; cancelled `409`; sixth `409 IMAGE_LIMIT_REACHED`; bytes
   read back byte for byte with `Content-Type`, `Cache-Control`, and `nosniff`; another event's
   image `404`; delete closes the gap; reorder, stale reorder `409 IMAGES_CHANGED`, malformed `400`;
@@ -609,8 +701,9 @@ harder to see).
   files with `.attach('file', buffer, { filename, contentType })`; small valid images are base64
   constants in `backend/test/setup/images.ts`.
 - **Admin app**: the Images control on create and edit (requests, order of calls, multipart body,
-  previews and refusals naming files, retry continues, `IMAGES_CHANGED` reload, partial-create
-  banner, Cancel makes no call) and the gallery on the event page.
+  previews and refusals naming files, retry continues, `IMAGES_CHANGED` reload, the switch to the
+  edit form after a refused image on create with no second `POST /events`, Cancel makes no call)
+  and the gallery on the event page.
 - **Customer app**: cards and the event page with 0, 1, and 3 images; an event card without images
   renders exactly as before.
 - **Test environment**: each front-end `test/setup.ts` stubs `URL.createObjectURL` and
@@ -623,16 +716,42 @@ harder to see).
 boundaries on both sides, concurrency with genuinely simultaneous requests. Fake timers make the
 5-second rule exact and fast.
 
-## R17. Pictures are stored exactly as uploaded
+## R17. Metadata is removed before storing; a JPEG keeps its orientation
 
-**Decision**: The Backend stores and serves the uploaded bytes unchanged: no resizing, no
-re-encoding, and no removal of metadata. The Admin hint says pictures are shown exactly as
-uploaded, including any location a phone saved in them (R9).
+**Decision** (Mahdi, 2026-10-12, after review round 1): `stripImageMetadata(bytes, contentType)`
+in `backend/src/events/image-metadata.ts` runs after the type and size checks (R3) and before the
+transaction. It copies the file, leaving out metadata, and never touches the picture data:
 
-**Rationale**: Removing metadata safely means parsing each format's segments (JPEG APP1, PNG
-chunks, WebP RIFF chunks) or re-encoding, which needs an image library (R14). Admins choose what
-they upload, and telling them is enough for a proof of concept. Browsers apply a JPEG's orientation
-tag themselves, so photos display upright.
+- **JPEG**: walks the segments from `SOI` to `SOS` and drops every `APP1` whose payload starts
+  with `Exif\0\0` or an XMP namespace (`http://ns.adobe.com/xap/1.0/\0`, and extended XMP
+  `http://ns.adobe.com/xmp/extension/\0`), and every `APP13` (`Photoshop 3.0`, which carries
+  IPTC captions and places). From `SOS` on, the bytes are copied unchanged.
+- **PNG**: drops the `eXIf`, `tEXt`, `iTXt`, and `zTXt` chunks; every other chunk is copied with
+  its own CRC.
+- **WebP**: drops the `EXIF` and `XMP ` chunks, clears the EXIF (`0x08`) and XMP (`0x04`) flags
+  in a `VP8X` header, and rewrites the `RIFF` size (chunks keep their even padding).
+- **Orientation**: when a JPEG's Exif `IFD0` has an Orientation tag (`0x0112`) of 2 to 8, a new
+  minimal Exif `APP1` with only that tag (a 32-byte payload: `Exif\0\0`, a big-endian TIFF
+  header, one IFD entry, no next IFD) is written right after `SOI`, or after a `JFIF` `APP0`
+  when there is one. Orientation 1, or none, writes nothing.
+- A structure that cannot be walked (a segment or chunk length past the end of the file) is
+  `415 IMAGE_TYPE_NOT_ALLOWED`, as an unreadable header is (R3).
+- `byteSize` is the stored size. The 5 MB limit applies to the file as sent, so what is stored is
+  never larger.
 
-**Alternatives considered**: Stripping JPEG EXIF segments only (partial: PNG and WebP carry
-metadata too). Re-encoding every upload (a native dependency and a loss of quality).
+**Orientation, the known cost**: Removing Exif removes the tag that tells browsers which way up a
+photo is. Phones commonly store a portrait photo as landscape pixels with Orientation 6, so
+removing everything would show many phone photos sideways, a visible defect admins could not fix
+in the form. Keeping that one number reveals nothing about where, when, or with what camera the
+photo was taken, so it is kept for JPEG. PNG and WebP orientation (rare, and not applied by every
+browser) is not kept.
+
+**Rationale**: Spec FR-035. A phone photo's Exif can hold GPS coordinates, the time, and the
+camera's make, model, and serial number; customers should not be able to read where an admin's
+photo was taken. Removing segments and chunks is a byte-level copy with no decoder, so it adds no
+dependency and costs no quality.
+
+**Alternatives considered**: Telling the admin and storing as uploaded (the first plan; Mahdi chose
+removal). Re-encoding every upload with an image library (a native dependency and a loss of
+quality, R14). Removing everything including orientation (sideways phone photos). Keeping the whole
+`IFD0` (it holds the camera make and model).

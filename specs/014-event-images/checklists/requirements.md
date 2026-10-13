@@ -35,14 +35,13 @@
   decisions (Clarifications), so they are requirements, not implementation choices. How the
   Backend reads a file's type, where images are stored, and how the apps fetch them are left to
   the plan.
-- "Keyboard focus" pausing the gallery is the keyboard equivalent of pointing at an arrow, which
-  Constitution VII's keyboard-access target and the WCAG commitment call for. The spec extends it
-  from the arrows to every gallery control (on the event page the image itself is a control that
-  opens full screen), so what Enter acts on cannot change under a keyboard user; Mahdi confirms
-  this in the PR together with the reduced-motion behavior (FR-025).
-- Mahdi chose no other pause (no pause button, no pause on hovering the image). Research R11
-  records that WCAG 2.2.2 normally expects a lasting way to pause, and that this is a recorded
-  product decision, so no clarification marker remains.
-- One open choice was settled in the spec rather than put to Mahdi: on an event card, selecting
-  the image opens the event (as the title does), and full screen is offered on the event page
-  (research R12).
+- Pausing while an arrow has keyboard focus is Mahdi's decision, the keyboard equivalent of
+  pointing at an arrow. The spec adds, as a recommendation for keyboard users, a pause while the
+  event page's full-screen image button has keyboard focus, so what Enter opens cannot change under
+  a keyboard user. Reduced motion stopping the rotation is Mahdi's decision (FR-025).
+- Mahdi chose no other pause and no Pause/Play button. The spec's Assumptions state plainly that
+  the galleries therefore do not meet WCAG 2.2.2 (Level A), so no clarification marker remains.
+- After review round 1, Mahdi decided that metadata is removed from pictures (FR-035); the limit on
+  a picture's size in pixels (FR-036) was added in the same round.
+- On an event card, selecting the image opens the event (as the title does), and full screen is
+  offered on the event page (confirmed by Mahdi, research R12).

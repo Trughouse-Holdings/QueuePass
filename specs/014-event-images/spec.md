@@ -40,6 +40,13 @@ not amended.
 - Q: What images are accepted? → A: Up to 5 per event, JPG, PNG, or WebP only, at most 5 MB each.
   The Backend enforces this, not only the form, and it checks what the file really is from its
   content, not from its name or the type the browser claims (decided by Mahdi, 2026-10-12).
+- Q: A phone photo can record where it was taken and with which camera. Is that kept? → A: No.
+  The Backend removes location and camera metadata from every picture before storing it (decided
+  by Mahdi, 2026-10-12, after review round 1). Only a JPG's orientation is kept, so phone photos
+  stay upright (research R17).
+- Q: Is there a limit on a picture's width and height? → A: Yes: at most 16,384 pixels on either
+  side and 40 megapixels in all, so a small file cannot expand into a picture too large for
+  browsers to show (decided in this spec after review round 1, research R3).
 - Q: Where do customers see the images on the Events list? → A: Each event card shows that event's
   images as a rotating gallery spanning the full width of the card, before the customer opens the
   event (decided by Mahdi, 2026-10-12).
@@ -50,13 +57,17 @@ not amended.
   truly full screen: it covers the whole window over a dark backdrop, with arrows, a close button,
   and Esc to close (decided by Mahdi, 2026-10-12). On an event card, selecting the image opens
   the event page, as selecting the card's title does today; full screen is offered from the event
-  page (decided in this spec, research R12).
+  page (confirmed by Mahdi, research R12).
 - Q: How do the galleries rotate? → A: Both move to the next image every 5 seconds and start over
   after the last. They do not pause when the pointer is over the image or anywhere else. They pause
-  only while the pointer is over one of the arrow buttons, or while a gallery control has keyboard
-  focus, the keyboard equivalent (decided by Mahdi, 2026-10-12; "no other pause"). For a customer
-  whose device asks for reduced motion, the galleries do not advance on their own; the arrows still
-  work (recommended in this spec for Mahdi to confirm in the PR, research R11).
+  only while the pointer is over one of the arrow buttons or an arrow button has keyboard focus
+  (decided by Mahdi, 2026-10-12; "no other pause"), plus, on the event page, while the image
+  button that opens full screen has keyboard focus (recommended in this spec for keyboard users,
+  research R11). For a customer whose device asks for reduced motion, the galleries do not advance
+  on their own; the arrows still work (decided by Mahdi, 2026-10-12).
+- Q: Should there be a Pause/Play button, as WCAG 2.2.2 expects? → A: No. Mahdi keeps his design
+  and accepts that the galleries do not meet WCAG 2.2.2 (Assumptions; decided by Mahdi,
+  2026-10-12, after review round 1).
 - Q: How can a customer flip through faster? → A: Previous and next arrow buttons on the sides of
   the images, in both galleries and in full screen (decided by Mahdi, 2026-10-12).
 - Q: What does an event with no images, or one image, look like? → A: With no images, the card and
@@ -104,11 +115,17 @@ a sixth picture, and confirm each is refused with its own reason and nothing is 
 8. **Given** the Backend refuses one picture while the admin saves, **Then** the form shows the
    refusal, naming the picture, keeps every value and every picture not yet saved, and saving
    again finishes what is left without adding any picture twice.
-9. **Given** a new event whose details were saved but one of whose pictures was refused, **Then**
-   the admin is told the event was created and which pictures were not added, with a link to the
-   event's edit form to finish.
+9. **Given** the Schedule event form, **When** the event is created but one of its pictures is
+   refused, **Then** the admin is told the event was created and which pictures were not added,
+   and the form becomes the Edit event form of that new event, keeping the pictures not yet added.
+   Saving again adds only those pictures (and any other change made meanwhile) to that event; a
+   second event is never created.
 10. **Given** a signed-in user who is not an admin, **When** they try to add an image through the
     API, **Then** it is refused, and nothing is stored.
+11. **Given** a picture wider or taller than 16,384 pixels, or of more than 40 megapixels, **Then**
+    it is refused, saying it is too large in pixels, and nothing is stored.
+12. **Given** a phone photo that records where it was taken and the camera's make, **When** it is
+    added, **Then** the stored picture contains neither, and it is shown upright.
 
 ---
 
@@ -180,8 +197,8 @@ save, and confirm the event has three images in the new order with the moved ima
    event's images are unchanged.
 5. **Given** an event with five images, **When** the admin removes one and adds another in the
    same edit and saves, **Then** the event has five images, the new one where the admin put it.
-6. **Given** another admin changed the event's images after this form was opened, **When** this
-   admin saves a new order, **Then** the order is refused because the images changed, nothing is
+6. **Given** another admin added or removed one of the event's images after this form was opened,
+   **When** this admin saves a new order, **Then** the order is refused because the images changed, nothing is
    changed, and the form shows the event's current images to try again.
 7. **Given** a cancelled event, **Then** its images cannot be added, removed, or reordered, through
    the API or the Admin app, and are still shown.
@@ -263,8 +280,8 @@ gallery shows the last image viewed.
   picture is refused.
 - **Other picture formats**: GIF, SVG, HEIC, AVIF, BMP, and TIFF are refused, even though some
   browsers can show them. SVG in particular can carry scripts.
-- **A picture that is damaged after its first bytes**: The Backend checks the file's signature,
-  not every byte. A file that starts like a picture but is damaged is stored, and browsers show it
+- **A picture that is damaged after its first bytes**: The Backend checks the file's signature
+  and reads its size in pixels from its header, not every byte. A file that starts like a picture but is damaged is stored, and browsers show it
   as an image that could not be loaded, the same as an image that fails to download. Removing it
   fixes it.
 - **Several pictures chosen at once**: The admin may choose several files in one go. If that would
@@ -280,10 +297,13 @@ gallery shows the last image viewed.
 - **Touch screens**: There is no hover. Tapping an arrow flips the image; the gallery keeps
   rotating. Swiping is not offered.
 - **Full screen and rotation**: While full screen is open, the gallery behind it does not move.
-- **Event deleted while viewed**: If an event is deleted while a customer is viewing it, its images
-  stop loading and show "Image unavailable"; the page behaves as it does today for a deleted event.
-- **Image metadata**: Pictures are stored and shown exactly as uploaded. A phone photo may contain
-  where it was taken; the form tells the admin this (Assumptions).
+- **Event deleted while viewed**: If an event is deleted while a customer is viewing it, images
+  already shown stay until the customer leaves the page; images not yet loaded show "Image
+  unavailable". The page otherwise behaves as it does today for a deleted event.
+- **Image metadata**: Location, camera, and other descriptive metadata are removed before a picture
+  is stored. A JPG keeps only its orientation, so a phone photo taken sideways still shows upright.
+- **Huge pictures in small files**: A picture of, say, 30,000 × 30,000 pixels can be a small file.
+  It is refused by its size in pixels, whatever its size in bytes.
 - **Order of an image added in the same save as a reorder**: New images are placed where the admin
   put them in the Images control, not only at the end.
 
@@ -336,10 +356,12 @@ gallery shows the last image viewed.
   convenience only. The Backend decides (FR-003 to FR-005).
 - **FR-017**: A Backend refusal of an image change MUST be shown as an explicit error naming the
   picture and the reason, and the form MUST keep every value and every picture change not yet
-  saved, so that saving again completes the rest without repeating what was saved (Constitution
-  IV).
+  saved, so that saving again completes the rest without repeating what was saved: no picture is
+  added twice and no event is created twice (Constitution IV).
 - **FR-018**: When a new event is created but one of its pictures is refused, the Admin app MUST
-  say the event was created, name the pictures not added, and link to the event's edit form.
+  say the event was created and name the pictures not added, and the form MUST become the edit form
+  of that new event, keeping the pictures not yet added, so that saving again changes only that
+  event.
 - **FR-019**: The Admin app's event page MUST show the event's images the same way the customer's
   event page does (FR-021 to FR-031), so admins see what customers see.
 
@@ -366,6 +388,9 @@ gallery shows the last image viewed.
 - **FR-028**: Every gallery and full-screen control MUST have an accessible name, a target of at
   least 44 by 44 pixels, a visible keyboard focus, and work by keyboard. Each image MUST have a text
   alternative naming the event and the image's position, such as "Season Opener, image 2 of 5".
+  On an event card, the image's link duplicates the card's title link, so it is hidden from
+  assistive technology and from the Tab order (FR-020); the card's gallery is still labeled
+  "Images of {event}" and its arrows name the event.
 - **FR-029**: On the event page, selecting the image MUST open it full screen: covering the whole
   window over a dark backdrop, showing the whole image as large as fits, with previous and next
   arrows (with two or more images), the position, and a close button. Esc and the close button
@@ -385,6 +410,17 @@ gallery shows the last image viewed.
 - **FR-034**: The demo data MUST include an event with several images, one with one image, and one
   with none, made without any copyrighted picture.
 
+**Storing images (added after review round 1)**
+
+- **FR-035**: Before storing a picture, the Backend MUST remove its location, camera, and other
+  descriptive metadata: in a JPG, its Exif and XMP segments; in a PNG, its `eXIf`, `tEXt`, `iTXt`,
+  and `zTXt` chunks; in a WebP, its `EXIF` and `XMP ` chunks. A JPG's orientation MUST be kept,
+  so it is shown the same way up. The picture itself is not changed. The size limit (FR-004)
+  applies to the file as sent.
+- **FR-036**: The Backend MUST refuse a picture wider or taller than 16,384 pixels, or of more than
+  40,000,000 pixels in all, with its own stable code, storing nothing. A file whose size in pixels
+  cannot be read from its header is refused as not a JPG, PNG, or WebP picture (FR-003).
+
 ### Key Entities
 
 - **Event image**: one picture of one event: its content, its type (JPG, PNG, or WebP), its size in
@@ -396,11 +432,11 @@ gallery shows the last image viewed.
 
 ### Measurable Outcomes
 
-- **SC-001**: 100% of stored images are JPG, PNG, or WebP by their content and at most 5 MB, and no
-  event ever has more than 5 images, including when 10 images are sent for one event at the same
-  moment.
+- **SC-001**: 100% of stored images are JPG, PNG, or WebP by their content, at most 5 MB, within
+  16,384 pixels a side and 40 megapixels, and free of location and camera metadata, and no event
+  ever has more than 5 images, including when 10 images are sent for one event at the same moment.
 - **SC-002**: 100% of refused images leave nothing stored, and the Admin form keeps every value
-  and every unsaved picture.
+  and every unsaved picture; saving again never stores a picture twice or creates the event twice.
 - **SC-003**: An admin can schedule an event with three images in one submission of the form.
 - **SC-004**: On both galleries, an image stays shown for 5 seconds (within half a second) before
   the next, except while an arrow is pointed at or a gallery control has keyboard focus, and never
@@ -414,18 +450,21 @@ gallery shows the last image viewed.
 
 ## Assumptions
 
-- The decisions in Clarifications were made by Mahdi, the feature owner, on 2026-10-12. The
-  reduced-motion behavior (FR-025) is recommended here and confirmed by Mahdi in the PR.
-- Pause rule: Mahdi chose that nothing pauses the galleries except an arrow under the pointer or a
-  gallery control with keyboard focus. There is no separate pause button. Research R11 records how
-  this relates to WCAG 2.2.2 (Pause, Stop, Hide).
+- The decisions in Clarifications were made by Mahdi, the feature owner, on 2026-10-12, including
+  the reduced-motion behavior (FR-025) and, after review round 1, metadata removal and no
+  Pause/Play button.
+- **WCAG 2.2.2 is not met.** The galleries do not meet WCAG 2.2.2 Pause, Stop, Hide (Level A),
+  because a customer has no lasting way to pause them: they pause only while an arrow is pointed at
+  or a gallery control has keyboard focus. Reduced motion stops the rotation for customers who ask
+  their device for it. A Pause/Play button on each gallery would close the gap. Keeping the design
+  without it is Mahdi's explicit decision (2026-10-12); research R11 has the details.
 - Text alternatives are generated from the event's name and the image's position. Admins do not
   write their own descriptions in this feature.
 - Galleries fill their area and may crop the edges of a picture whose shape differs; full screen
   always shows the whole picture.
-- Pictures are stored and shown exactly as uploaded: not resized, not re-encoded, and with any
-  metadata they contain (a phone photo may record where it was taken). The Images control says so.
-  Smaller copies for cards are not made; the 5 MB limit and loading only what is on screen keep
+- Pictures are stored and shown as uploaded except for their metadata: not resized and not
+  re-encoded. Location, camera, and text metadata are removed; a JPG keeps only its orientation
+  (research R17). Smaller copies for cards are not made; the 5 MB limit and loading only what is on screen keep
   pages usable (research R14).
 - 5 MB means 5 × 1024 × 1024 = 5,242,880 bytes.
 - An image is something any signed-in user who can see the event may see, so it is not secret
