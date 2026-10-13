@@ -9,6 +9,10 @@ import { operations } from './expect-to-match-contract';
 /**
  * Spec 001 FR-027, SC-009 — every route is in the contract and every contract operation is a
  * route, with identical role requirements. Catches an undocumented endpoint or a missing @Roles.
+ *
+ * Spec 015 research R12: an operation marked `x-planned` is in the contract before its feature is
+ * implemented. It may be missing as a route, but once implemented its marker must go, so a
+ * planned operation that is a route fails here.
  */
 describe('Contract route and role coverage', () => {
   let ctx: TestContext;
@@ -46,18 +50,23 @@ describe('Contract route and role coverage', () => {
     return found;
   }
 
+  const key = (o: { method: string; path: string }) => `${o.method} ${o.path}`;
+  const implemented = operations.filter((o) => o.planned === null);
+  const planned = operations.filter((o) => o.planned !== null);
+
   it('has exactly the operations the contract declares', () => {
     const actual = [...routes().keys()].sort();
-    const declared = operations.map((o) => `${o.method} ${o.path}`).sort();
+    const declared = operations.map(key).sort();
     expect({
       undocumented: actual.filter((r) => !declared.includes(r)),
-      unimplemented: declared.filter((d) => !actual.includes(d)),
-    }).toEqual({ undocumented: [], unimplemented: [] });
+      unimplemented: implemented.map(key).filter((d) => !actual.includes(d)),
+      plannedButImplemented: planned.map(key).filter((d) => actual.includes(d)),
+    }).toEqual({ undocumented: [], unimplemented: [], plannedButImplemented: [] });
   });
 
   it('enforces exactly the roles the contract declares for each operation', () => {
     const actual = routes();
-    for (const op of operations) {
+    for (const op of implemented) {
       const expected = op.requiredRoles === 'public' ? 'public' : [...op.requiredRoles].sort();
       expect({ op: op.operationId, roles: actual.get(`${op.method} ${op.path}`) }).toEqual({
         op: op.operationId,

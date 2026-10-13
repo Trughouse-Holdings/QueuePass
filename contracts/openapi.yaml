@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.7.0
+  version: 1.8.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -26,6 +26,11 @@ info:
 
     **Errors**: every non-2xx response is an `ErrorEnvelope`. Branch on `error.code`, never on
     `error.message`.
+
+    **Planned operations**: an operation marked `x-planned: '<feature>'` is declared in that
+    feature's spec and plan pull request, before its implementation (Constitution I), and the
+    Backend does not serve it yet (`404`). The implementation removes the marker in the change
+    that serves the route. A test fails if a marked operation is served, or an unmarked one is not.
 
 servers:
   - url: http://localhost:3000
@@ -54,6 +59,8 @@ tags:
     description: Sales reporting for admins (feature 005)
   - name: seating
     description: Venue seating layouts, reserved seating per event, and seat maps (feature 007)
+  - name: images
+    description: Up to 5 images per event, shown to customers as a gallery (feature 014)
 
 paths:
   /health:
@@ -567,7 +574,8 @@ paths:
         Permanent: there is no undo. Clients MUST ask the user to confirm first. The window the
         event occupied becomes available for scheduling again immediately. The event's ticket
         tiers are deleted with it. An event with orders cannot be deleted (`409
-        EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records.
+        EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records. Feature 014:
+        the event's images are deleted with it.
       operationId: deleteEvent
       x-required-roles: [queuepass-admin]
       responses:
@@ -910,6 +918,178 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /events/{id}/images:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+    post:
+      tags: [images]
+      summary: Add an image to an event
+      description: |
+        Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+        `info` description.
+
+        Adds one picture after the event's existing images. The body is `multipart/form-data` with
+        exactly one part, `file`, and nothing else. The type is decided from the file's first
+        bytes (its signature), never from its file name or the part's `Content-Type`: only JPEG
+        (`FF D8 FF`), PNG (`89 50 4E 47 0D 0A 1A 0A`), and WebP (`RIFF`, 4 bytes, `WEBP`) are
+        accepted. The stored and served `contentType` is the detected one. The width and height
+        are read from the header (PNG `IHDR`, WebP `VP8 `/`VP8L`/`VP8X`, JPEG `SOFn`); a file
+        whose header gives no size is treated as not a picture.
+
+        Before storing, location, camera, and text metadata are removed: JPEG Exif and XMP `APP1`
+        segments, `APP2` `MPF` and `APP13` segments, and `COM` comments (a JPEG's orientation is
+        kept in a minimal Exif segment of its own); PNG `eXIf`, `tEXt`, `iTXt`, `zTXt`, and `tIME`
+        chunks; WebP `EXIF` and `XMP ` chunks; and anything after a JPEG's first `EOI`, after a
+        PNG's `IEND`, or past a WebP's declared `RIFF` length. The picture data is not changed.
+        `byteSize` is the stored size; the 5 MB limit applies to the file as sent.
+
+        Refused, in this order: `401` and `403` (before the body is read); a file over 5 MB,
+        5,242,880 bytes (`413 IMAGE_TOO_LARGE`, while the body is read); a body without exactly
+        one `file` part, or with other parts (`400 VALIDATION_FAILED`); a malformed event id
+        (`400 VALIDATION_FAILED`); a file that is not a JPEG, PNG, or WebP, an animated PNG or WebP,
+        or one whose size in pixels cannot be read or whose segments or chunks run past the end of
+        the file (`415 IMAGE_TYPE_NOT_ALLOWED`); a picture wider or taller than 16,384
+        pixels or of more than 40,000,000 pixels (`400 IMAGE_DIMENSIONS_TOO_LARGE`, with
+        `details.width`, `details.height`, `details.maxSide`, `details.maxPixels`); an unknown
+        event (`404`); a cancelled event (`409 EVENT_CANCELLED`); and an event that already has 5
+        images (`409 IMAGE_LIMIT_REACHED`, with `details.limit` and `details.count`). An event
+        never has more than 5 images, including under concurrent requests. Nothing is stored when
+        refused.
+      operationId: uploadEventImage
+      x-required-roles: [queuepass-admin]
+      x-planned: '014'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/EventImageUpload' }
+      responses:
+        '201':
+          description: Image added, last in the event's order.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EventImage' }
+        '400': { $ref: '#/components/responses/ImageRejected' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { $ref: '#/components/responses/ImageTooLarge' }
+        '415': { $ref: '#/components/responses/ImageTypeNotAllowed' }
+
+  /events/{id}/images/order:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+    put:
+      tags: [images]
+      summary: Set the order of an event's images
+      description: |
+        Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+        `info` description.
+
+        `imageIds` lists every image of the event, each once, in the new order; the first becomes
+        the cover (`position` 1). A list that is malformed, repeats an id, or has more than 5 ids is
+        `400`. A list that does not name exactly the event's current images, because another
+        request added or removed one meanwhile, is `409 IMAGES_CHANGED`, with the current order in
+        `details.imageIds`; nothing changes. A cancelled event is `409 EVENT_CANCELLED`.
+      operationId: reorderEventImages
+      x-required-roles: [queuepass-admin]
+      x-planned: '014'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EventImageOrder' }
+      responses:
+        '200':
+          description: The event's images in their new order.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 5
+                items: { $ref: '#/components/schemas/EventImage' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /events/{id}/images/{imageId}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+      - name: imageId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: An image of that event. An image of a different event is `404`.
+    get:
+      tags: [images]
+      summary: An image's content
+      description: |
+        Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+        `info` description.
+
+        The picture's bytes as stored (as uploaded, with its metadata removed), with
+        `Content-Type` set to its detected type. Like every operation except `getHealth`, it needs a
+        bearer token, so a browser cannot load it with a plain `<img src>`: the apps fetch it with the
+        token and show it from a local object URL. An image's content never changes, so the response
+        carries `Cache-Control: private, max-age=31536000, immutable`, and
+        `X-Content-Type-Options: nosniff`.
+      operationId: getEventImage
+      x-required-roles: []
+      x-planned: '014'
+      responses:
+        '200':
+          description: The image.
+          headers:
+            Cache-Control:
+              schema: { type: string, example: 'private, max-age=31536000, immutable' }
+            X-Content-Type-Options:
+              schema: { type: string, const: nosniff }
+          content:
+            image/jpeg:
+              schema: { type: string, contentMediaType: image/jpeg }
+            image/png:
+              schema: { type: string, contentMediaType: image/png }
+            image/webp:
+              schema: { type: string, contentMediaType: image/webp }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [images]
+      summary: Remove an image from an event
+      description: |
+        Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+        `info` description.
+
+        Permanent. The event's other images keep their order and close the gap, so positions stay
+        1 to n. A cancelled event's images cannot change (`409 EVENT_CANCELLED`).
+      operationId: deleteEventImage
+      x-required-roles: [queuepass-admin]
+      x-planned: '014'
+      responses:
+        '204':
+          description: Image removed.
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /reports/sales:
     get:
       tags: [reports]
@@ -1218,6 +1398,15 @@ components:
             their orders; `null` for no limit. Never more than `totalTicketCapacity`. Always sent
             once 016 is implemented; not listed as required so this contract can merge ahead of
             the implementation with the suite green. Clients treat a missing value as `null`.
+        images:
+          type: array
+          maxItems: 5
+          items: { $ref: '#/components/schemas/EventImage' }
+          description: |
+            Feature 014. The event's images in order, `position` 1 (the cover) first; empty when it
+            has none. Metadata only: load each image's content with `getEventImage`. Always sent
+            once 014 is implemented; not listed as required so this contract can merge ahead of the
+            implementation with the suite green. Clients treat a missing value as empty.
         basePrice:
           type: string
           pattern: '^\d+\.\d{2}$'
@@ -1269,6 +1458,58 @@ components:
           minimum: 1
           description: Feature 016. `null` clears the limit.
         basePrice: { type: string, pattern: '^\d+(\.\d{1,2})?$' }
+
+    EventImage:
+      description: |
+        Feature 014. One picture of an event: what a client needs to load it from
+        `getEventImage` and to order it, never its content.
+      type: object
+      required: [id, position, contentType, byteSize]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Never reused. An image's content never changes; a new picture is a new id.
+        position:
+          type: integer
+          minimum: 1
+          maximum: 5
+          description: 1 is the event's cover. An event's positions are always 1 to n, no gaps.
+        contentType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+          description: Detected from the file's content when it was added.
+        byteSize:
+          type: integer
+          minimum: 1
+          maximum: 5242880
+          description: The stored size in bytes, after metadata was removed.
+
+    EventImageUpload:
+      description: Feature 014. The `multipart/form-data` body of `uploadEventImage`.
+      type: object
+      required: [file]
+      additionalProperties: false
+      properties:
+        file:
+          type: string
+          contentMediaType: application/octet-stream
+          description: |
+            One JPEG, PNG, or WebP picture, at most 5,242,880 bytes, 16,384 pixels a side, and
+            40,000,000 pixels. Its file name and declared type are ignored.
+
+    EventImageOrder:
+      description: Feature 014. Every image of the event, each once, in the new order.
+      type: object
+      required: [imageIds]
+      additionalProperties: false
+      properties:
+        imageIds:
+          type: array
+          maxItems: 5
+          uniqueItems: true
+          items: { type: string, format: uuid }
 
     TicketTier:
       description: One kind of ticket for an event, such as General or VIP (feature 004).
@@ -1689,6 +1930,11 @@ components:
                 - ADDRESS_NOT_FOUND
                 - ADDRESS_AMBIGUOUS
                 - ADDRESS_SERVICE_UNAVAILABLE
+                - IMAGE_LIMIT_REACHED
+                - IMAGE_TOO_LARGE
+                - IMAGE_TYPE_NOT_ALLOWED
+                - IMAGES_CHANGED
+                - IMAGE_DIMENSIONS_TOO_LARGE
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -1799,6 +2045,62 @@ components:
             error:
               code: ADDRESS_SERVICE_UNAVAILABLE
               message: "We can't verify the address right now. Nothing was saved. Try again in a minute."
+
+    ImageRejected:
+      description: |
+        Feature 014. The request's shape is wrong (`VALIDATION_FAILED`: no `file` part, other
+        parts, or a malformed event id), or the picture is too large in pixels
+        (`IMAGE_DIMENSIONS_TOO_LARGE`). Nothing was stored.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            validationFailed:
+              summary: No file part
+              value:
+                error:
+                  code: VALIDATION_FAILED
+                  message: Request validation failed.
+                  details:
+                    fields: ['Send exactly one file, in a part named file.']
+            dimensionsTooLarge:
+              summary: Too many pixels
+              value:
+                error:
+                  code: IMAGE_DIMENSIONS_TOO_LARGE
+                  message: This picture is 20000 × 20000 pixels. A picture can be at most 16,384 pixels on each side and 40 megapixels in all.
+                  details:
+                    width: 20000
+                    height: 20000
+                    maxSide: 16384
+                    maxPixels: 40000000
+
+    ImageTooLarge:
+      description: Feature 014. The image is over 5 MB (5,242,880 bytes). Nothing was stored.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: IMAGE_TOO_LARGE
+              message: An image can be at most 5 MB.
+              details:
+                maxBytes: 5242880
+
+    ImageTypeNotAllowed:
+      description: |
+        Feature 014. The file's content is not a still JPEG, PNG, or WebP picture, whatever its name
+        or declared type: another format, an animated PNG or WebP, or a file whose header cannot be
+        read or whose segments or chunks run past the end of the file. Nothing was stored.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: IMAGE_TYPE_NOT_ALLOWED
+              message: This file is not a JPG, PNG, or WebP picture.
+              details:
+                allowed: [image/jpeg, image/png, image/webp]
 
     NotFound:
       description: The referenced resource does not exist.
@@ -1923,6 +2225,24 @@ components:
                   details:
                     events:
                       - { id: 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40, name: Season Opener }
+            imageLimitReached:
+              summary: The event already has 5 images (feature 014)
+              value:
+                error:
+                  code: IMAGE_LIMIT_REACHED
+                  message: Season Opener already has 5 images, the most an event can have. Remove one to add another.
+                  details:
+                    limit: 5
+                    count: 5
+            imagesChanged:
+              summary: The event's images changed since the order was chosen (feature 014)
+              value:
+                error:
+                  code: IMAGES_CHANGED
+                  message: The images of Season Opener changed since you loaded them. Check them and try again.
+                  details:
+                    imageIds:
+                      [2b1e0c3d-4f5a-4b6c-8d7e-9f0a1b2c3d4e, 5e6f7a8b-9c0d-4e1f-8a2b-3c4d5e6f7a8b]
             eventHasOrders:
               summary: Deleting an event that has orders
               value:

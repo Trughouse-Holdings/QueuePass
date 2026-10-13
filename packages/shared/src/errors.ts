@@ -35,6 +35,14 @@ export const ERROR_CODES = [
   'ADDRESS_NOT_FOUND',
   'ADDRESS_AMBIGUOUS',
   'ADDRESS_SERVICE_UNAVAILABLE',
+  // Spec 014: a sixth image; an image over 5 MB; a file that is not a JPEG, PNG, or WebP; a new
+  // image order that no longer names the event's current images; a picture too large in pixels.
+  // Added ahead of the implementation, so the list matches the contract.
+  'IMAGE_LIMIT_REACHED',
+  'IMAGE_TOO_LARGE',
+  'IMAGE_TYPE_NOT_ALLOWED',
+  'IMAGES_CHANGED',
+  'IMAGE_DIMENSIONS_TOO_LARGE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

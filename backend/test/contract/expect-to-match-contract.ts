@@ -25,6 +25,8 @@ export interface ContractOperation {
   method: string;
   path: string;
   requiredRoles: 'public' | string[];
+  /** The feature that will implement it, from `x-planned`; `null` once it is implemented. */
+  planned: string | null;
   pointer: string;
 }
 
@@ -37,6 +39,7 @@ export const operations: ContractOperation[] = Object.entries(contract.paths as 
       method: method.toUpperCase(),
       path,
       requiredRoles: item[method]['x-required-roles'],
+      planned: (item[method]['x-planned'] as string | undefined) ?? null,
       pointer: `#/paths/${escape(path)}/${method}`,
     })),
 );
