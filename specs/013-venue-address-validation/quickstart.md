@@ -20,6 +20,15 @@ As `admin1`, open **Venues → New venue**. Name "Rupp Arena", street "430 W Vin
 shows "Venue saved. Address: 430 W VINE ST, LEXINGTON, KY 40507." and the new row has that
 address.
 
+### S1b: One match somewhere else is not saved (US1 scenario 10, FR-021)
+
+New venue: name "Kroger Field", street "1540 University Dr", city "Lexington", state KY, ZIP
+"40508", capacity 61000. Save. **Expect**: refused with "We found a different US address for
+1540 University Dr, Lexington, KY 40508. Did you mean this one?…", the candidate "1540
+UNIVERSITY CT, LEXINGTON, KY 40503" listed, every field kept, and **Save anyway** offered; no new
+venue. Leave the form without saving (or choose Save anyway: the venue is saved as typed, "Not
+verified").
+
 ## S2: An address that does not exist is refused (US1)
 
 New venue: street "1 Nowhere Blvd", city "Louisville", state KY, ZIP "40202". Save. **Expect**:

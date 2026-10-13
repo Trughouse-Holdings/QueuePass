@@ -69,7 +69,12 @@ describe('Customer app changes no venue, event, or tier (spec 003 US3-1; spec 00
       expect(await screen.findAllByText(/Alpha Arena/)).not.toHaveLength(0);
       const changeWord = /\b(add|new|edit|save|delete|schedule|create|update|remove)\b/i;
       expect(screen.queryAllByRole('button', { name: changeWord })).toHaveLength(0);
-      expect(screen.queryAllByRole('link', { name: changeWord })).toHaveLength(0);
+      // Spec 013: an address link says it "opens Google Maps in a new tab"; "new" there is
+      // not a change control, so links to Google Maps are left out.
+      const changeLinks = screen
+        .queryAllByRole('link', { name: changeWord })
+        .filter((l) => !(l.getAttribute('href') ?? '').startsWith('https://www.google.com/maps/'));
+      expect(changeLinks).toHaveLength(0);
       expect(screen.queryAllByRole('textbox')).toHaveLength(0);
       expect(calls.length).toBeGreaterThan(0);
       expect(calls.every((c) => c.method === 'GET')).toBe(true);

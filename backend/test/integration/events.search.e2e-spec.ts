@@ -1,4 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
+import { ADDRESS } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -21,7 +22,7 @@ describe('Event search', () => {
       (
         await asAdmin(ctx)
           .post('/locations')
-          .send({ name, address: '1 Main St', seatingCapacity: 20000 })
+          .send({ name, ...ADDRESS, seatingCapacity: 20000 })
           .expect(201)
       ).body.id as string;
     yum = await venue('Yum Center');

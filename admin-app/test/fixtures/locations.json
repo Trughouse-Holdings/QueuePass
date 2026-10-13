@@ -2,7 +2,12 @@
   {
     "id": "84acf1a8-901d-429b-a80d-a07f2b6d203f",
     "name": "Freedom Hall",
-    "address": "937 Phillips Ln, Louisville, KY",
+    "address": "937 PHILLIPS LN, LOUISVILLE, KY 40209",
+    "street": "937 PHILLIPS LN",
+    "city": "LOUISVILLE",
+    "state": "KY",
+    "zip": "40209",
+    "addressVerified": true,
     "seatingCapacity": 19000,
     "createdAt": "2026-09-20T18:57:51.352Z",
     "updatedAt": "2026-09-20T18:57:51.352Z"
@@ -10,7 +15,12 @@
   {
     "id": "6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e",
     "name": "KFC Yum! Center",
-    "address": "1 Arena Plaza, Louisville, KY",
+    "address": "1 Arena Plaza, Louisville, KY 40202",
+    "street": "1 Arena Plaza",
+    "city": "Louisville",
+    "state": "KY",
+    "zip": "40202",
+    "addressVerified": false,
     "seatingCapacity": 22090,
     "createdAt": "2026-09-20T18:57:51.327Z",
     "updatedAt": "2026-09-20T18:57:51.327Z"

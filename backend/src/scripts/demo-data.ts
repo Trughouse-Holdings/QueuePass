@@ -16,6 +16,11 @@ import { TiersService } from '../tiers/tiers.service';
  * Goes through the real services, so every rule applies: capacity, tiers, no overselling. Never
  * run by `docker compose up` (Constitution VIII). Safe to run twice: it stops if the demo venue
  * already exists.
+ *
+ * Spec 013 research R14: the venues have real addresses the address service matches. So a demo
+ * still works offline, this script alone saves them not verified when the service is unavailable,
+ * through an internal option of LocationsService.create that no request can reach. The Hall is
+ * created before the Arena (the "already run" marker), so a failed run can be run again.
  */
 export const DEMO_VENUE = 'QueuePass Demo Arena';
 
@@ -27,6 +32,8 @@ export interface DemoSummary {
   tickets: number;
   checkedIn: number;
   cancelled: string | null;
+  /** Spec 013: demo venues saved not verified because the address service was unavailable. */
+  unverifiedVenues: number;
 }
 
 /** Stand-in buyer: demo orders are not tied to a real Keycloak sign-in (spec 005 Assumptions). */
@@ -54,6 +61,7 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
       tickets: 0,
       checkedIn: 0,
       cancelled: null,
+      unverifiedVenues: 0,
     };
   }
 
@@ -62,16 +70,29 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const tiers = app.get(TiersService);
   const orders = app.get(OrdersService);
 
-  const arena = await locations.create({
-    name: DEMO_VENUE,
-    address: '1 Demo Plaza, Louisville, KY',
-    seatingCapacity: 2000,
-  });
-  const hall = await locations.create({
-    name: 'Demo Riverside Hall',
-    address: '200 River Rd, Lexington, KY',
-    seatingCapacity: 400,
-  });
+  const offline = { whenServiceUnavailable: 'saveUnverified' } as const;
+  const hall = await locations.create(
+    {
+      name: 'Demo Riverside Hall',
+      street: '430 W Vine St',
+      city: 'Lexington',
+      state: 'KY',
+      zip: '40507',
+      seatingCapacity: 400,
+    },
+    offline,
+  );
+  const arena = await locations.create(
+    {
+      name: DEMO_VENUE,
+      street: '937 Phillips Ln',
+      city: 'Louisville',
+      state: 'KY',
+      zip: '40209',
+      seatingCapacity: 2000,
+    },
+    offline,
+  );
 
   const concert = await events.create({
     name: 'Fall Concert',
@@ -146,6 +167,7 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
     }),
     checkedIn: toCheckIn.length,
     cancelled: gala.name,
+    unverifiedVenues: [hall, arena].filter((v) => !v.addressVerified).length,
   };
 }
 
@@ -159,6 +181,12 @@ async function main(): Promise<void> {
             `${s.tickets} tickets (${s.checkedIn} checked in); "${s.cancelled}" cancelled.`
         : `Demo data already present ("${DEMO_VENUE}" exists); nothing changed.`,
     );
+    if (s.unverifiedVenues > 0) {
+      console.log(
+        'The address service was unavailable, so the demo venues were saved with their ' +
+          'addresses not verified.',
+      );
+    }
   } finally {
     await app.close();
   }
