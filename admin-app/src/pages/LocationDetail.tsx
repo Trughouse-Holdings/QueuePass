@@ -43,7 +43,11 @@ export function LocationDetail(): React.ReactElement {
 
   if (load.kind === 'loading') return <p className="loading">Loading venue…</p>;
   if (load.kind === 'unreachable')
-    return <p role="alert">Can&apos;t reach the QueuePass service.</p>;
+    return (
+      <p role="alert" className="banner banner--error">
+        Can&apos;t reach the QueuePass service.
+      </p>
+    );
   if (load.kind === 'missing') {
     return (
       <section>

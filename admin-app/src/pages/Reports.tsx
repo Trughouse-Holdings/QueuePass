@@ -33,7 +33,12 @@ export function Reports(): React.ReactElement {
       .catch(() => setFailed(true));
   }, []);
 
-  if (failed) return <p role="alert">Can&apos;t reach the QueuePass service.</p>;
+  if (failed)
+    return (
+      <p role="alert" className="banner banner--error">
+        Can&apos;t reach the QueuePass service.
+      </p>
+    );
   if (!report) return <p className="loading">Loading report…</p>;
   const { totals } = report;
   const soldPct = share(totals.ticketsSold, totals.ticketCapacity);

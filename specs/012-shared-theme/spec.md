@@ -208,7 +208,8 @@ confirm both show the new accent on buttons, links, and the current navigation i
   styles, including "Can't reach the QueuePass service", the Customer app's Get tickets messages,
   and any status line another feature has added to `main` by the time this feature is built (for
   example `016`'s per-customer limit lines), and MUST keep its text and the way it is announced to
-  screen readers.
+  screen readers. Plain loading and empty text lines (for example "Loading…" and "Nothing is
+  scheduled yet.") are out of scope for 012 and keep their current look.
 - **FR-011**: The theme MUST hold every shared control together with all of its variants and
   parts (for example every badge, banner, and button variant, and the tap-area helper), even when
   only one app uses a given variant today. Styles for one app's own screens (for example the Admin
@@ -219,13 +220,20 @@ confirm both show the new accent on buttons, links, and the current navigation i
     reports page's notes, subtitles, and cancelled rows in the darker gray; buttons, fields, and
     choices at least 44 pixels tall; navigation links at least 44 pixels tall; larger checkboxes
     and radio buttons; a visible focus outline on buttons and links (fields keep the accent ring
-    they show today); a border on status badges; and "Can't reach the QueuePass service" as an
-    error banner;
-  - in the Customer app: its Get tickets messages and "Can't reach the QueuePass service" as
-    banners; and the Get tickets "Ticket type" group losing the browser's default box around it
-    and showing its heading in the theme's label style;
+    they show today); a border on status badges; the Cancelled badge on the Events list and event
+    page in red, as on Reports and in the Customer app; and "Can't reach the QueuePass service" as
+    an error banner;
+  - in the Customer app: its Get tickets messages (including "Ticket information is unavailable
+    right now. Try again later.") and "Can't reach the QueuePass service" as banners; and the Get
+    tickets "Ticket type" group losing the browser's default box around it
+    and showing its heading in the theme's label style; and the couldn't-confirm banner's Check
+    again button keeping a small gap under the message (roughly the spacing it has today, now a
+    theme step);
   - in both apps: spacing on app-specific screens moved by at most 2 pixels to the nearest theme
-    step.
+    step; and buttons in a form's button row line up (the first one no longer sits lower than the
+    rest), with the space above the row on a theme step: the gap between a button row's divider
+    and its buttons becomes 20 pixels (it was 29 for the first button and about 22 for the others,
+    so single-button rows such as Add tier and the seating save row lose 9 pixels).
 - **FR-013**: Every behavior MUST stay the same: the same text, controls, flows, and messages.
   Every existing test MUST still pass, except the two Customer app tests that check the copied
   styles. Their checks move to the shared code and check the theme instead, keeping every
