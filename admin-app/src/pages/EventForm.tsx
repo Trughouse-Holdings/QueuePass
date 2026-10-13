@@ -44,6 +44,14 @@ const cents = (price: string): number => Math.round(Number(price.trim()) * 100);
 const lowestPrice = (types: TicketType[]): string =>
   types.reduce((low, t) => (cents(t.price) < cents(low.price) ? t : low)).price.trim();
 
+/** Spec 016 research R7: the allowed range, or no upper bound while the capacity is unknown. */
+const limitRefused = (most: number | null): ApiError =>
+  validationError(
+    most !== null
+      ? `Tickets per customer must be a whole number from 1 to ${most}, or blank for no limit.`
+      : 'Tickets per customer must be a whole number of at least 1, or blank for no limit.',
+  );
+
 /** FR-032, FR-033, FR-034, FR-035 — create/edit an event. No removal control (API-only). */
 export function EventForm(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
@@ -56,6 +64,8 @@ export function EventForm(): React.ReactElement {
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
   const [totalTicketCapacity, setTotalTicketCapacity] = useState('');
+  // Spec 016 FR-008: blank is no limit.
+  const [maxPerCustomer, setMaxPerCustomer] = useState('');
   // Spec 007 FR-018: a seated event's capacity is its venue's layout total.
   const [seated, setSeated] = useState(false);
   /** The event's stored base price, kept when its ticket types could not be loaded. */
@@ -110,6 +120,7 @@ export function EventForm(): React.ReactElement {
         setStartsAt(toLocalInput(e.startsAt));
         setEndsAt(toLocalInput(e.endsAt));
         setTotalTicketCapacity(String(e.totalTicketCapacity));
+        setMaxPerCustomer(e.maxTicketsPerCustomer == null ? '' : String(e.maxTicketsPerCustomer));
         setSeated(e.reservedSeating);
         setStoredBasePrice(e.basePrice);
       })
@@ -190,10 +201,15 @@ export function EventForm(): React.ReactElement {
    * since the Backend takes a typed quantity only without reserved seating.
    */
   async function saveEvent(eventId: string, payload: EventInput): Promise<void> {
-    await updateEvent(eventId, payload);
+    const switching = typesLoaded && layout !== null && reserved !== seated;
+    // Spec 016 research R7: turning reserved seating on raises the capacity to the layout's
+    // total, which the form already checked the limit against, so the limit waits for the switch.
+    const limitAfterSwitch = switching && reserved && 'maxTicketsPerCustomer' in payload;
+    const { maxTicketsPerCustomer, ...details } = payload;
+    await updateEvent(eventId, limitAfterSwitch ? details : payload);
     if (!typesLoaded) return;
-    const switching = layout !== null && reserved !== seated;
     if (switching) await updateSeating(eventId, { reservedSeating: reserved, sections: [] });
+    if (limitAfterSwitch) await updateEvent(eventId, { maxTicketsPerCustomer });
     const tierIds = types.map((t) => t.id ?? '');
     for (const [i, t] of types.entries()) {
       if (!t.id) tierIds[i] = (await createTier(eventId, tierInput(t))).id;
@@ -222,6 +238,19 @@ export function EventForm(): React.ReactElement {
     setSetupRefused(null);
     setSaved(false);
 
+    // Spec 016 research R7: a preview of the Backend's range check; the Backend decides.
+    const limit = maxPerCustomer.trim();
+    const most = capacityPreview();
+    if (
+      limit !== '' &&
+      (!Number.isInteger(Number(limit)) ||
+        Number(limit) < 1 ||
+        (most !== null && Number(limit) > most))
+    ) {
+      setError(limitRefused(most));
+      return;
+    }
+
     if (typesLoaded) {
       const blank = (t: TicketType) =>
         !t.name.trim() || !t.price.trim() || (!reserved && !t.quantity.trim());
@@ -247,6 +276,12 @@ export function EventForm(): React.ReactElement {
       ...(!seated && !reserved && totalTicketCapacity.trim() !== ''
         ? { totalTicketCapacity: Number(totalTicketCapacity) }
         : {}),
+      // Spec 016 research R7: an edit always sends it, so clearing it sends null.
+      ...(limit !== ''
+        ? { maxTicketsPerCustomer: Number(limit) }
+        : isEdit
+          ? { maxTicketsPerCustomer: null }
+          : {}),
       // Spec 008 FR-019: no base price field; the event is priced from its ticket types.
       basePrice: typesLoaded ? lowestPrice(types) : storedBasePrice,
     };
@@ -273,6 +308,16 @@ export function EventForm(): React.ReactElement {
       : null;
 
   const selected = venues.find((v) => v.id === locationId);
+
+  /**
+   * Spec 016 research R7: the capacity the event will have, as the Total tickets row shows it:
+   * the layout total when seated, else the typed total, else the venue's; `null` while unknown.
+   */
+  function capacityPreview(): number | null {
+    if (reserved && layout) return layout.totalSeats;
+    if (seated || totalTicketCapacity.trim() !== '') return Number(totalTicketCapacity);
+    return selected ? selected.seatingCapacity : null;
+  }
 
   const setType = (i: number, change: Partial<TicketType>) =>
     setTypes(types.map((t, j) => (j === i ? { ...t, ...change } : t)));
@@ -518,6 +563,24 @@ export function EventForm(): React.ReactElement {
                 </span>
               </div>
             )}
+          </div>
+
+          <div className="field">
+            <label htmlFor="maxTicketsPerCustomer">Tickets per customer</label>
+            <input
+              id="maxTicketsPerCustomer"
+              type="number"
+              min={1}
+              step={1}
+              value={maxPerCustomer}
+              onChange={(e) => setMaxPerCustomer(e.target.value)}
+              // The browser blocks 0 or a fraction itself; say the range instead of its bubble.
+              onInvalid={(e) => {
+                e.preventDefault();
+                setError(limitRefused(capacityPreview()));
+              }}
+            />
+            <span className="field__hint">Leave blank for no limit.</span>
           </div>
 
           <div className="form__actions">

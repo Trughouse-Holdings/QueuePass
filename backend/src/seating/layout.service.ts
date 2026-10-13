@@ -72,6 +72,28 @@ export class LayoutService {
         );
       }
 
+      // Spec 016 research R6: the total becomes every scheduled seated event's capacity, which
+      // may never fall below its per-customer limit.
+      const overLimit = await tx.event.findFirst({
+        where: {
+          locationId,
+          status: 'SCHEDULED',
+          reservedSeating: true,
+          maxTicketsPerCustomer: { gt: totalSeats },
+        },
+        orderBy: { maxTicketsPerCustomer: 'desc' },
+      });
+      if (overLimit) {
+        throw conflict(
+          'CAPACITY_EXCEEDED',
+          `The layout has ${totalSeats.toLocaleString('en-US')} seats, fewer than ` +
+            `"${overLimit.name}" allows per customer ` +
+            `(${(overLimit.maxTicketsPerCustomer ?? 0).toLocaleString('en-US')} tickets). Lower ` +
+            'its limit first.',
+          { totalSeats, conflictingEvent: { id: overLimit.id, name: overLimit.name } },
+        );
+      }
+
       // Deleting the sections drops every event's mappings at this venue (ON DELETE CASCADE).
       await tx.section.deleteMany({ where: { locationId } });
       await tx.section.createMany({

@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { Availability } from '@queuepass/shared';
+import type { Availability, CustomerLimit } from '@queuepass/shared';
+import type { Principal } from '../auth/principal';
+import { customerHeld } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -11,7 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class AvailabilityService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async forEvent(eventId: string): Promise<Availability> {
+  async forEvent(eventId: string, caller: Principal): Promise<Availability> {
     const event = await this.prisma.event.findUnique({
       where: { id: eventId },
       include: { tiers: { orderBy: [{ price: 'asc' }, { name: 'asc' }] } },
@@ -43,6 +45,21 @@ export class AvailabilityService {
         tierId: t.id,
         ticketsLeft: Math.max(0, Math.min(t.quantity - soldIn(t.id), ticketsLeft)),
       })),
+      customerLimit: await this.customerLimit(eventId, event.maxTicketsPerCustomer, caller),
     };
+  }
+
+  /**
+   * Spec 016 FR-012 (research R5): the caller's own standing, counted as an order counts it.
+   * Only customers buy tickets, so for anyone else, and without a limit, it is `null`.
+   */
+  private async customerLimit(
+    eventId: string,
+    limit: number | null,
+    caller: Principal,
+  ): Promise<CustomerLimit | null> {
+    if (limit === null || !caller.roles.includes('customer')) return null;
+    const held = await customerHeld(this.prisma, eventId, caller.sub);
+    return { limit, held, remaining: Math.max(0, limit - held) };
   }
 }

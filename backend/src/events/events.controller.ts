@@ -12,6 +12,7 @@ import {
   Query,
 } from '@nestjs/common';
 import type { Availability } from '@queuepass/shared';
+import { CurrentPrincipal, type Principal } from '../auth/principal';
 import { Roles } from '../auth/roles.decorator';
 import { AvailabilityService } from './availability.service';
 import { EventsService, EventResponse } from './events.service';
@@ -39,10 +40,16 @@ export class EventsController {
     return this.events.create(dto);
   }
 
-  /** Spec 006 FR-002: any signed-in user, like the event it describes. */
+  /**
+   * Spec 006 FR-002: any signed-in user, like the event it describes. Spec 016: the caller's own
+   * standing against the event's limit.
+   */
   @Get(':id/availability')
-  availabilityOf(@Param('id', ParseUUIDPipe) id: string): Promise<Availability> {
-    return this.availability.forEvent(id);
+  availabilityOf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentPrincipal() caller: Principal,
+  ): Promise<Availability> {
+    return this.availability.forEvent(id, caller);
   }
 
   @Get(':id')

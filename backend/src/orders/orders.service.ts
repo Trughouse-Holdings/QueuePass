@@ -2,7 +2,13 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Prisma, type EventStatus, type Order, type Ticket, type TicketTier } from '@prisma/client';
 import type { Principal } from '../auth/principal';
 import { conflict, eventCancelled } from '../common/conflict';
-import { LOCKING_TX, type LockedEvent, lockEvent, ticketsSold } from '../common/event-lock';
+import {
+  LOCKING_TX,
+  type LockedEvent,
+  customerHeld,
+  lockEvent,
+  ticketsSold,
+} from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ticketCode } from './ticket-code';
@@ -104,6 +110,19 @@ const seatKey = (s: SeatLabel): string => `${s.section}\u0000${s.row}\u0000${s.s
 const badSeats = (message: string): BadRequestException =>
   new BadRequestException({ message: [message] });
 
+const tickets = (n: number): string => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;
+
+/** Spec 016 research R4: the limit refusal, with the limit, what is held, and what is left. */
+function limitMessage(event: string, limit: number, held: number, requested: number): string {
+  const allows = `${event} allows ${tickets(limit)} per customer`;
+  const remaining = limit - held;
+  if (remaining <= 0) return `${allows}, and you already hold ${held}.`;
+  return (
+    `${allows}. You already hold ${held}, so you can get ${remaining} more; ` +
+    `${requested} ${requested === 1 ? 'was' : 'were'} requested.`
+  );
+}
+
 /** An order, and whether it was placed now (`false`) or returned for a repeated request. */
 export interface PlacedOrder {
   order: OrderResponse;
@@ -200,6 +219,29 @@ export class OrdersService {
       available = Math.min(available, tierLeft);
     }
     available = Math.max(0, available);
+
+    // Spec 016 FR-002, FR-004 (research R2, R3): the customer's own valid tickets for the event,
+    // counted under the event lock above, so two of their orders can never both pass. When both
+    // caps bind, the refusal names the smaller; on a tie, SOLD_OUT.
+    const limit = event.maxTicketsPerCustomer;
+    if (limit !== null) {
+      const held = await customerHeld(tx, eventId, buyer.sub);
+      // Clamped: an admin may lower the limit below what a customer already holds (FR-009).
+      const remaining = Math.max(0, limit - held);
+      if (dto.quantity > remaining && remaining < available) {
+        throw conflict(
+          'TICKET_LIMIT_REACHED',
+          limitMessage(event.name, limit, held, dto.quantity),
+          {
+            limit,
+            held,
+            remaining,
+            requested: dto.quantity,
+          },
+        );
+      }
+    }
+
     if (dto.quantity > available) {
       const kind = tier ? `${tier.name} ` : '';
       throw conflict(
