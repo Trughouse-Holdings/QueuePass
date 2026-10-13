@@ -369,8 +369,13 @@ modes, inside a `<fieldset>` with the legend "Images".
   `multiple`. Each chosen file goes through a preview check (FR-016): would it make more than 5, is
   it over 5,242,880 bytes, and does `readImageHeader` of the file's bytes (`await
   file.arrayBuffer()`, at most 5 MB) accept its type and size in pixels. Accepted files are appended
-  with an object URL preview; refused ones are named in a note with the reason ("poster.gif: only
-  JPG, PNG, or WebP pictures"). The input is hidden, and the note says "5 of 5 images. Remove one to
+  with an object URL preview; refused ones are named in a note with the reason: "poster.gif: only
+  JPG, PNG, or WebP pictures", "banner.png: animated pictures are not accepted" (when
+  `readImageHeader` reports `animated`), "photo.jpg: over 5 MB", or "scan.png: over 16,384 pixels
+  a side or 40 megapixels". The preview reads headers only; a file that passes it but whose segments
+  or chunks run past the end of the file is refused by the Backend at save time (`415
+  IMAGE_TYPE_NOT_ALLOWED`, R17) and shown like any other refusal: the form is only a preview
+  (FR-016). The input is hidden, and the note says "5 of 5 images. Remove one to
   add another.", when the list is full. The input is reset after each choice so the same file can be
   chosen again.
 - **List**: an `<ol>` of thumbnails. Each item shows its preview (`alt="Image 2"`), "Image 2", a
@@ -759,7 +764,8 @@ transaction. It copies the file, leaving out metadata, and never touches the pic
   header, one IFD entry, no next IFD) is written right after `SOI`, or after a `JFIF` `APP0`
   when there is one. Orientation 1, or none, writes nothing.
 - A structure that cannot be walked (a segment or chunk length past the end of the file) is
-  `415 IMAGE_TYPE_NOT_ALLOWED`, as an unreadable header is (R3).
+  `415 IMAGE_TYPE_NOT_ALLOWED`, as an unreadable header is (R3). The Admin form's preview reads
+  headers only, so such a file passes it and is refused here, at save time (R9, FR-016).
 - `byteSize` is the stored size. The 5 MB limit applies to the file as sent, so what is stored is
   never larger.
 

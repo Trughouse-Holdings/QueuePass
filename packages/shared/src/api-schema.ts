@@ -615,7 +615,8 @@ export interface paths {
          *     segments, `APP2` `MPF` and `APP13` segments, and `COM` comments (a JPEG's orientation is
          *     kept in a minimal Exif segment of its own); PNG `eXIf`, `tEXt`, `iTXt`, `zTXt`, and `tIME`
          *     chunks; WebP `EXIF` and `XMP ` chunks; and anything after a JPEG's first `EOI`, after a
-         *     PNG's `IEND`, or past a WebP's declared `RIFF` length. The picture data is not changed. `byteSize` is the stored size; the 5 MB limit applies to the file as sent.
+         *     PNG's `IEND`, or past a WebP's declared `RIFF` length. The picture data is not changed.
+         *     `byteSize` is the stored size; the 5 MB limit applies to the file as sent.
          *
          *     Refused, in this order: `401` and `403` (before the body is read); a file over 5 MB,
          *     5,242,880 bytes (`413 IMAGE_TOO_LARGE`, while the body is read); a body without exactly

@@ -199,8 +199,10 @@ under simultaneous uploads.
   - choosing a PNG, a JPEG, and a WebP (`File`s with real signatures) shows three previews in order
     (`img` with `alt` "Image 1" … and a `blob:` source), "Cover" on the first;
   - a GIF, a text file named `.jpg`, a 5,242,881-byte PNG, a PNG whose header says 20,000 × 20,000
-    pixels, and a sixth file are refused before
-    sending, each named with its reason in the note; nothing is sent; a 5,242,880-byte PNG is
+    pixels, an animated PNG (`acTL`), and a sixth file are refused before sending, each named with
+    its reason in the note (the animated one as "{file name}: animated pictures are not accepted");
+    a PNG with a valid header whose later chunk runs past the end passes the preview, and the
+    Backend's `415` on save is shown as "{file name}: {message}"; nothing is sent; a 5,242,880-byte PNG is
     accepted (both sides); with 5 items the input is replaced by "5 of 5 images. Remove one to add
     another.";
   - saving a new event sends `POST /events`, then (after any seating and ticket types, as today)
