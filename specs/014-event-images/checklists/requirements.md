@@ -39,8 +39,8 @@
   pointing at an arrow. The spec adds, as a recommendation for keyboard users, a pause while the
   event page's full-screen image button has keyboard focus, so what Enter opens cannot change under
   a keyboard user. Reduced motion stopping the rotation is Mahdi's decision (FR-025).
-- Mahdi chose no other pause and no Pause/Play button. The spec's Assumptions state plainly that
-  the galleries therefore do not meet WCAG 2.2.2 (Level A), so no clarification marker remains.
+- Mahdi first chose no Pause/Play button, then added one after the PR review (2026-10-13, FR-038),
+  so the galleries meet WCAG 2.2.2 (Level A). No clarification marker remains.
 - After review round 1, Mahdi decided that metadata is removed from pictures (FR-035); the limit on
   a picture's size in pixels (FR-036) was added in the same round.
 - On an event card, selecting the image opens the event (as the title does), and full screen is

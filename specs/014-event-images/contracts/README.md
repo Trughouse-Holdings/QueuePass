@@ -3,12 +3,14 @@
 The single contract is [`contracts/openapi.yaml`](../../../contracts/openapi.yaml) (Constitution I).
 This feature moves it from **1.7.0 to 1.8.0** in the spec and plan PR, with
 `packages/shared/src/api-schema.ts` regenerated (`npm run generate:api`) and
-`node scripts/check-contract-drift.mjs` passing. `013`'s implementation (PR #34) edits only 1.7.0
-descriptions, so 1.8.0 is free; whichever merges second rebases and regenerates (research R8).
+`node scripts/check-contract-drift.mjs` passing. `015`'s spec PR (#38) also takes 1.8.0:
+whichever of #35 and #38 merges second rebases onto the other, moves to **1.9.0**, keeps both
+features' operations, codes, and markers, and reruns `npm run generate:api` and the drift check
+(research R8).
 
 | Where | Change |
 |---|---|
-| `info.description` | new paragraph, **Planned operations**: what `x-planned` means, and that 014's image operations carry it until implemented (research R8). |
+| `info.description` | new paragraph, **Planned operations** (feature-neutral, to be shared with #38): an `x-planned` operation is declared but not yet served; the implementation removes the marker in the change that serves the route; a test fails if a marked operation is served, or an unmarked one is not (research R8). |
 | `tags` | adds `images`. |
 | `POST /events/{id}/images` | new, `uploadEventImage`, `queuepass-admin`, `x-planned: '014'`. `multipart/form-data` with one `file` (`EventImageUpload`). `201 EventImage`; `400 ImageRejected` (`VALIDATION_FAILED`, `IMAGE_DIMENSIONS_TOO_LARGE`), `401`, `403`, `404`, `409` (`EVENT_CANCELLED`, `IMAGE_LIMIT_REACHED`), `413 ImageTooLarge`, `415 ImageTypeNotAllowed`. The description gives the three signatures, the header fields the size in pixels is read from, the metadata and trailing data removed before storing (a JPEG keeps its orientation), animated PNG and WebP refused as `415`, and the refusal order. |
 | `PUT /events/{id}/images/order` | new, `reorderEventImages`, `queuepass-admin`, `x-planned: '014'`. Body `EventImageOrder`. `200` the images in order; `400`, `401`, `403`, `404`, `409` (`EVENT_CANCELLED`, `IMAGES_CHANGED`). |
@@ -31,8 +33,10 @@ says a cancelled event refuses changes.
 Also in this PR, so `main` stays green before the implementation (research R8):
 
 - `packages/shared/src/errors.ts`: the five codes added to `ERROR_CODES`.
-- `backend/test/contract/route-coverage.e2e-spec.ts` and `expect-to-match-contract.ts`: an
-  `x-planned` operation is skipped only while no route serves it.
+- `backend/test/contract/route-coverage.e2e-spec.ts` and `expect-to-match-contract.ts`: copied
+  exactly from `015`'s spec PR (#38), so whichever merges second has no conflict there. An
+  unmarked operation must be served with its roles; an `x-planned` operation must not be served
+  (`plannedButImplemented`).
 
 Example upload:
 

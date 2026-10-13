@@ -50,10 +50,16 @@ proves too much, reading the bytes with a streaming query is the next step; it i
 
 - `position` is `1` to `5` (CHECK), and `("eventId", "position")` is unique. Together they make it
   a database fact that an event has at most 5 images, whatever writes them (Constitution IV).
-- The unique constraint is `DEFERRABLE INITIALLY IMMEDIATE`. The two writes that shift positions
-  (closing the gap after a delete, and a new order) run `SET CONSTRAINTS
-  "event_image_position_unique" DEFERRED` in their transaction, so positions can be swapped in one
-  statement and are checked at commit. Every other write checks immediately.
+- The unique constraint is `DEFERRABLE INITIALLY IMMEDIATE`, written in the migration SQL. A
+  deferrable constraint, even one checked immediately, is checked at the end of each statement
+  rather than row by row, so the two writes that shift positions (closing the gap after a delete,
+  and a new order) each do it in **one** `UPDATE` and need no `SET CONSTRAINTS … DEFERRED`: a
+  swap inside one statement is valid when the statement ends. (A non-deferrable unique index is
+  checked row by row and could fail mid-swap.) The plan drops `SET CONSTRAINTS` for that reason.
+- The Prisma model also declares it, `@@unique([eventId, position], map:
+  "event_image_position_unique")`, so the schema documents it and Prisma names it in errors.
+  Prisma cannot express `DEFERRABLE`, but `prisma migrate diff` between the migrations and the
+  schema is empty with this pair (checked by Nate on PR #35), so no drift appears.
 - Every image write (add, delete, reorder) runs in one transaction that first takes the event's
   row lock with the existing `lockEvent(tx, eventId)` (`backend/src/common/event-lock.ts`), then
   reads the event's images and decides:
@@ -77,8 +83,8 @@ Image writes for an event wait for that event's orders and the reverse, for the 
 of an insert. Orders for other events never wait.
 
 **Why `INITIALLY IMMEDIATE`**: a deferred violation would surface only at `COMMIT`, far from the
-statement that caused it. With the constraint immediate except inside the two shifting writes, a
-collision fails where it happens. Under the lock no collision is expected; if one ever happens (a
+statement that caused it. Checked at the end of each statement, a collision fails where it
+happens. Under the lock no collision is expected; if one ever happens (a
 write that skipped the lock), the exception filter maps a unique violation naming
 `event_image_position_unique` (Prisma `P2002`, or SQLSTATE `23505` from a raw statement) to
 `409 IMAGES_CHANGED`, instead of today's fallback for `P2002`, `TIER_NAME_TAKEN`.
@@ -184,9 +190,13 @@ the apps fetch the bytes through their existing API client, with the signed-in u
   `Content-Length`.
 - A `401` while loading an image shows the image as unavailable; the page's other requests already
   send the user to sign in (spec edge case "Session ends").
-- **Kept while mounted**: a gallery holds every image it has loaded until it unmounts, so looping
-  back to an image neither fetches it again nor flickers (at most 5 per gallery). The object URLs
-  are revoked when the gallery goes, or the viewer closes, and no one else uses them.
+- **What a gallery holds**: the event-page gallery and the full-screen viewer hold every image
+  they have loaded until they unmount (at most 5 per event, 25 MB), so looping back neither fetches
+  again nor flickers. A **card** holds only its shown image and the next one while it is on or near
+  the screen, and lets go of both when it leaves (R14). Letting go revokes the object URL when no
+  other user holds it. Loading again later is answered from the browser's HTTP cache (`immutable`,
+  above), so it costs no network and no Backend work, only a new blob; because the next image is
+  always loaded before it is shown, a card never flickers.
 - **CORS preflight**: a request with an `Authorization` header from another origin is preceded by
   an `OPTIONS` preflight. `enableCors` in `backend/src/configure-app.ts` sets no `maxAge` today,
   so browsers cache each preflight for only about 5 seconds, and a rotating gallery would send one
@@ -300,9 +310,8 @@ read-only rule). `RESTRICT` on delete (every event delete would need to remove i
 ## R8. Contract 1.8.0, keeping `main` green between the two PRs
 
 **Decision**: The contract change and regenerated `packages/shared/src/api-schema.ts` land in this
-spec and plan PR, as 1.8.0 (`013`'s implementation, PR #34, edits 1.7.0's descriptions only, so
-1.8.0 is free). Three things would otherwise turn `main` red between the PRs, and each is avoided
-in this PR:
+spec and plan PR, as 1.8.0. Three things would otherwise turn `main` red between the PRs, and each
+is avoided in this PR:
 
 1. **New response field**: `Event.images` is documented as always sent but is **not** in
    `required`, because the Backend on `main` does not send it until the implementation merges and
@@ -313,48 +322,55 @@ in this PR:
    operation no route serves. Checked on 2026-10-12: with the four new operations and the test
    unchanged, both of its tests fail (`unimplemented` lists the four routes). So the four
    operations carry a vendor extension, `x-planned: '014'`, explained in the contract's `info`
-   description, and this PR changes the test (a few lines in `route-coverage.e2e-spec.ts` and
-   `expect-to-match-contract.ts`) to skip an `x-planned` operation **only while no route serves
-   it**. Once a route serves it, its roles are checked like any other. Verified on 2026-10-12: the
-   route-coverage, CORS-and-docs, and hello suites pass with the change.
+   description (feature-neutral wording), and the test follows one strict rule, the same as `015`'s
+   spec PR (#38), whose `route-coverage.e2e-spec.ts` and `expect-to-match-contract.ts` this PR
+   copies exactly so that whichever of the two merges second has no conflict there:
+   - an unmarked operation must be served, with exactly its declared roles;
+   - a marked operation must **not** be served: once a route serves it, the test fails
+     (`plannedButImplemented`), so its implementation must remove the marker in the same change
+     that adds the route.
+
+   Verified on 2026-10-13: the route-coverage and CORS-and-docs suites pass with the change.
 
    **Quality gate 4** says a failing test is never skipped to unblock a merge. This is not that:
    the test's premise was "every declared operation is served", which Constitution III's two-PR
-   order made untrue for one PR's lifetime. The test now asserts the corrected rule (every served
-   route is declared with the right roles; every declared route is served unless the contract
-   says it is planned), and the marker is in the contract, which is shared surface, so every team
-   member approves it in this PR. The implementation PR adds a test that every `x-planned: '014'`
-   operation is served (tasks T029, T042), so the marker cannot hide a missing route after 014
-   ships.
-3. **New error codes**: `013`'s implementation (PR #34) adds a unit test that every code in the
-   contract's `ErrorEnvelope` enum is in `ERROR_CODES` (`packages/shared/src/errors.ts`). So this
-   PR adds the five codes to `ERROR_CODES` too, as `006`'s plan PR did for its codes. Nothing
-   sends them until the implementation merges.
+   order makes untrue for one PR's lifetime. The test now asserts the corrected rule above, which
+   is stricter than before in one way (a served route must not stay marked), and it still fails an
+   undeclared route or a wrong role. The marker is in the contract, which is shared surface, so
+   every team member approves it in this PR.
+3. **New error codes**: a unit test (`backend/test/unit/us-states.spec.ts`, from `013`) checks that
+   every code in the contract's `ErrorEnvelope` enum is in `ERROR_CODES`
+   (`packages/shared/src/errors.ts`). So this PR adds the five codes to `ERROR_CODES` too, after
+   `013`'s address codes, as `006`'s plan PR did for its codes. Nothing sends them until the
+   implementation merges.
 
 New request shapes are not validated on `main` and no front end calls the new routes yet, so
 nothing else changes. `npm run generate:api` was run and `node scripts/check-contract-drift.mjs`
-passes; `tsc --noEmit` passes in every workspace.
+passes.
 
-**Response helper**: `expectToMatchContract` reads only `application/json` bodies. The
-implementation extends it: for a declared response whose content has no `application/json`, it
-checks that the response's `Content-Type` is one of the declared media types (`getEventImage`).
+**Removing the markers**: the implementation removes each `x-planned: '014'` marker in the commit
+that serves its route (tasks T016, T032), regenerates `api-schema.ts`, and the route-coverage test
+proves it. This is a change to the contract in the implementation PR, but only of the marker the
+contract itself says the implementation removes; no request, response, role, or error changes.
 
 **Follow-up**: once the implementation has merged, a small contract PR adds `images` to
-`Event.required` and removes the four `x-planned` markers, with `api-schema.ts` regenerated. The
-implementation session opens a GitHub issue for it as its last task (tasks.md), as `013` did.
+`Event.required`, with `api-schema.ts` regenerated. The implementation session opens a GitHub
+issue for it as its last task (tasks.md), as `013` did.
 
-**Merging with other open work**: if PR #34 (`013`'s implementation) merges first, this branch is
-rebased: the contract keeps both changes, `ERROR_CODES` lists the three address codes before the
-five image codes (the contract's order), and `npm run generate:api` is rerun. If this PR merges
-first, #34 does the same.
+**Version and `015`**: `015`'s spec PR (#38) also takes 1.8.0. Whichever of #35 and #38 merges
+second rebases onto the other, moves to **1.9.0**, keeps both sets of operations, codes, and
+markers, and reruns `npm run generate:api` and the drift check.
 
 **Rationale**: Constitution I (contract first, reviewed before code) and III (`main` green and
 demo-ready at every merge). A marker in the contract keeps the operations fully declared and
-typed now, rather than holding them back to the implementation PR.
+typed now, rather than holding them back to the implementation PR; failing on a served marked
+operation keeps the marker from outliving the implementation.
 
 **Alternatives considered**: Leaving the new paths out until the implementation PR (contract
 after code, which Constitution I forbids). Declaring them and letting the route-coverage test fail
-until the implementation merges (`main` red). A list of planned operations inside the test file
+until the implementation merges (`main` red). Skipping a marked operation whenever it is unserved
+and checking it once served (the first version of this PR: a marker could stay on forever; `015`
+chose the strict rule and this PR adopts it). A list of planned operations inside the test file
 (the contract would no longer be the one place that says what is planned).
 
 ## R9. The Admin form's Images control: changes are made on Save
@@ -395,9 +411,14 @@ modes, inside a `<fieldset>` with the legend "Images".
 
   Because each step updates the state as it succeeds, saving again after a refusal finishes what
   is left and never uploads a picture twice (FR-017).
-- **After creating** (review round 1): the moment `createEvent` succeeds, the form stops being a
-  Schedule form. When every later step succeeds it goes to the event page, as today. When an image
-  step is refused (or the seating and ticket-type setup is), it calls
+- **After creating** (review round 1, narrowed after the PR review): the create flow of `008` is
+  unchanged up to the pictures: event, then seating, then ticket types. When every step succeeds
+  it goes to the event page, as today. If the seating or a ticket type is refused, it behaves
+  exactly as today (`EventForm.tsx` `scheduleEvent`, the "Seating setup not finished" banner with
+  "Finish on the event page"; `admin-app/test/event-seating-create.test.tsx` stays as it is): it
+  stays on Schedule event, no picture is sent, and every value, the chosen pictures included,
+  stays in the form (Constitution IV). Only when the event, its seating, and its ticket types are
+  all saved and a **picture** step is refused or cannot be sent does it call
   `navigate(`/events/${id}/edit`, { replace: true, state: { pendingImages, notice } })`: the
   address becomes the new event's edit form, and the form initializes its Images control from the
   event's saved images followed by `pendingImages` (the `File`s not yet added, kept in router
@@ -417,9 +438,9 @@ modes, inside a `<fieldset>` with the legend "Images".
   and every unsaved change stays. On `409 IMAGES_CHANGED`, the control reloads the event's images
   (`getEvent`), keeps the admin's pending new pictures after them, and shows the message, so the
   admin checks and saves again (spec US3 scenario 6).
-- **Scheduling**: if the seating and ticket-type setup is refused, images are not attempted; the
-  form switches to the edit form in the same way, with `008`'s "Seating setup not finished"
-  message and the pictures still pending.
+- **Constitution IV**: in the switch to the edit form no entered value is lost: everything except
+  the pending pictures is already saved and is loaded back by the edit form, and the pending
+  pictures travel in router state.
 - **Cancel** leaves the page without calling the API, so nothing changes (FR-015). Object URLs of
   new files are revoked when an item is removed and when the form unmounts.
 - `admin-app/src/api/images.ts`: `uploadEventImage(eventId, file)` posts a `FormData` with
@@ -471,56 +492,75 @@ which is what Mahdi ruled out).
 
 ## R11. Rotation and pausing
 
-**Decision**: `useGalleryRotation({ count, paused })` keeps the shown index.
+**Decision**: `useGalleryRotation({ count, paused })` keeps the shown index, and each gallery that
+turns on its own has a Pause/Play button (Mahdi, 2026-10-13, after the PR review).
 
 - **Timer**: with 2 or more images, a `setTimeout` of 5,000 ms shows the next image (the first
   after the last). Every change, automatic or by an arrow, schedules a fresh 5,000 ms, so an arrow
   press or a resume always gives a full 5 seconds (spec US2 scenario 3).
-- **Pause** (Mahdi, 2026-10-12: "no other pause"): the timer is cleared while
+- **Pause/Play button** (FR-038):
+  - **Where**: one per gallery that turns on its own: each card gallery and the event page
+    gallery, in both apps. Not in the full-screen viewer, which never changes on its own (R12).
+    Not shown with one image, nor under reduced motion, where nothing moves, so a button would
+    control nothing.
+  - **State**: `stopped`, per gallery instance, in memory. It starts `false` (turning), since
+    rotation is on by default. Pause sets it, Play clears it. It is not saved: a new page, a
+    reload, or a card scrolled away and remounted starts turning again (spec Assumptions). One
+    card's button never affects another card.
+  - **While stopped**: no timer, whatever the pointer or focus does; the arrows still flip (each
+    press shows the image at once and starts no timer). Play schedules the next change 5 seconds
+    later.
+  - **Name, not `aria-pressed`**: the button's accessible name says what it will do: "Pause
+    images of Season Opener" while turning, "Play images of Season Opener" while stopped, with a
+    matching visible glyph (two bars / a triangle). The WAI-ARIA Authoring Practices carousel
+    pattern swaps the label this way; `aria-pressed` on a button named "Pause" would be read as
+    "Pause, pressed" while playing is what is stopped, which is confusing. Focus stays on the
+    button when its name changes.
+  - **Look**: the same 44 × 44 pixel, theme-colored round button as the arrows (R13), at the bottom
+    left of the image (the position label is at the bottom right).
+  - **Its own focus does not pause**: keyboard focus on the Pause/Play button is not one of the
+    temporary pauses below, so pressing Play while the button has focus visibly resumes the
+    gallery.
+- **Temporary pauses** (Mahdi, 2026-10-12): while not stopped, the timer is also cleared while
   - the pointer is over a previous or next arrow (`pointerenter` / `pointerleave` on each arrow),
-  - or a control in the gallery has **keyboard** focus: the arrows, and on the event page the image
-    button that opens full screen. Keyboard focus is focus not caused by a pointer: the gallery
-    records a `pointerdown` inside it and ignores the focus that follows, so a mouse click on an
-    arrow does not keep the gallery paused after the pointer leaves (browsers focus a clicked
-    button);
-  - or the full-screen view is open (R12).
+  - or an arrow, or on the event page the image button that opens full screen, has **keyboard**
+    focus. Keyboard focus is focus not caused by a pointer: the gallery records a `pointerdown`
+    inside it and ignores the focus that follows, so a mouse click on an arrow does not keep the
+    gallery paused after the pointer leaves (browsers focus a clicked button);
+  - or the full-screen view is open (R12);
+  - or, for a card, it is not on or near the screen (R14).
 
-  Nothing else pauses it: not the pointer over the image, the card, or the page, and not the
-  page being scrolled. When the pause ends, the next image comes 5 seconds later.
+  Nothing else pauses it: not the pointer over the image, the card, or the page. When a temporary
+  pause ends, the next image comes 5 seconds later.
 - **Arrow hover and focus (Mahdi), plus image-button focus (recommended for keyboard users)**:
   Mahdi named the arrows. On the event page the image itself is a control (it opens full screen),
   so this spec adds that keyboard focus on it also pauses, so what Enter opens cannot change while
   a keyboard user is on it. On a card the image is not a tab stop (R12), so only the arrows are.
 - **Reduced motion** (decided by Mahdi, 2026-10-12): when
-  `matchMedia('(prefers-reduced-motion: reduce)')` matches, no timer runs at all; the arrows still
-  flip. The hook listens for changes to the setting.
+  `matchMedia('(prefers-reduced-motion: reduce)')` matches, no timer runs at all and there is no
+  Pause/Play button; the arrows still flip. The hook listens for changes to the setting; if it
+  turns off, the gallery starts turning and the button appears.
 - **No animation**: images are swapped, not slid or faded, in every mode. Nothing moves, so there
   is no motion to reduce beyond the automatic change.
-- **Announcements**: the slide area has `aria-live="off"` while it can change on its own, and
-  `aria-live="polite"` while paused or under reduced motion, so an arrow press is announced and
-  automatic changes are not (the WAI-ARIA Authoring Practices carousel pattern).
+- **Announcements**: the slide area has `aria-live="off"` while it turns on its own, and
+  `aria-live="polite"` while stopped, temporarily paused, or under reduced motion, so an arrow
+  press is announced and automatic changes are not (the WAI-ARIA carousel pattern).
 
 **WCAG 2.2.2 (Pause, Stop, Hide, Level A)**: the galleries are auto-updating content that starts on
 its own, runs alongside other content, and goes on longer than 5 seconds, so 2.2.2 applies. It
-asks for "a mechanism for the user to pause, stop, or hide" it. How the design relates:
+asks for "a mechanism for the user to pause, stop, or hide" it. The Pause/Play button is that
+mechanism, on every gallery that changes on its own, and the pause lasts until the user chooses
+Play. The galleries therefore meet 2.2.2. The arrow pauses and reduced motion remain as extra
+comfort, not as the mechanism.
 
-- Pausing while an arrow is pointed at or focused gives keyboard and pointer users control of the
-  moment they act, and the arrows let them reach any image at once. But the pause lasts only while
-  they stay there: a user cannot leave the gallery paused while they read the rest of the page.
-- Honoring reduced motion stops the change entirely for users who set that preference, which is
-  the group most affected. WCAG does not count a system setting as the mechanism 2.2.2 asks for.
-- Full conformance would need a lasting control: a Pause/Play button on each gallery (the
-  WAI-ARIA carousel pattern), which Mahdi chose not to have.
-
-So the galleries **do not meet WCAG 2.2.2**: this is Mahdi's explicit decision (2026-10-12, after
-review round 1, he confirmed no Pause/Play button), stated in the spec's Assumptions, not a claim
-of conformance. If conformance is wanted later, it is one button per gallery that sets `paused`
-until pressed again; nothing else in this design changes.
-
-**Alternatives considered**: Pausing on hover over the whole gallery (Mahdi ruled it out). A
-Pause/Play button (above). Stopping after one full cycle (still auto-updating for up to 25 seconds,
-and not what Mahdi asked). `setInterval` (an arrow press would not restart the full 5 seconds).
-A CSS animation for the change (motion to reduce, and nothing in the spec asks for it).
+**Alternatives considered**: Pausing on hover over the whole gallery (Mahdi ruled it out). No
+Pause/Play button (the first version of this spec, by Mahdi's earlier decision; it did not meet
+2.2.2). One button for all cards on the list (pausing one event's pictures should not stop
+another's, and each card's button sits on its own gallery). Remembering a pause across pages or
+visits (needs storage and a preference no one asked for; Constitution VIII). A button in the
+full-screen view (it does not change on its own). `aria-pressed` (above). Stopping after one full
+cycle (not what Mahdi asked). `setInterval` (an arrow press would not restart the full 5
+seconds). A CSS animation for the change (motion to reduce, and nothing in the spec asks for it).
 
 ## R12. Full screen, and what selecting a card's image does
 
@@ -578,14 +618,14 @@ so focus trapping and return are tested directly (R16).
 
 **Decision**: The gallery and viewer are shared controls used by both apps (R10), so their rules go
 in the shared theme, `packages/shared/src/web/theme.css` (`012` research R2: a control both apps
-use belongs to the theme). `012`'s implementation (PR #33) adds that file and the no-drift check
-(`012` research R6); 014's implementation starts from a `main` that has it.
+use belongs to the theme). `012` is on `main` with that file and the no-drift check (`012`
+research R6).
 
 - **Classes**: `.page-band`, `.gallery`, `.gallery--card`, `.gallery--page`, `.gallery__open` (the
   event page's image button), `.gallery__image`, `.gallery__placeholder`, `.gallery__arrow`,
-  `.gallery__arrow--prev`, `.gallery__arrow--next`, `.gallery__count`; `.viewer`, `.viewer__image`,
-  `.viewer__close`, `.viewer__arrow` (with `--prev` and `--next`), `.viewer__count`; and
-  `.viewer-open` on `<body>`.
+  `.gallery__arrow--prev`, `.gallery__arrow--next`, `.gallery__count`, `.gallery__toggle`
+  (Pause/Play); `.viewer`, `.viewer__image`, `.viewer__close`, `.viewer__arrow` (with `--prev` and
+  `--next`), `.viewer__count`; and `.viewer-open` on `<body>`.
 - **Card**: `.gallery--card` is 16:9 (`aspect-ratio`), flush with the top and sides of the card,
   above the title. The Customer app's `.event-card` gives the gallery negative margins equal to
   its own padding (`calc(-1 * var(--space-N))`, which `012`'s rule C5 allows) and rounds its top
@@ -596,35 +636,33 @@ use belongs to the theme). `012`'s implementation (PR #33) adds that file and th
   sideways scrolling is prevented only where a band is shown: `.app:has(.page-band) { overflow-x:
   clip }`. The shared theme sets no `overflow` on `.app` otherwise, so no other page changes.
   The band's height is `clamp(200px, 40vw, 480px)`.
-- **Vertical placement**: `.main` has 32 pixels of top padding (`var(--space-8)` after `012`;
-  24 pixels, `var(--space-6)`, at phone width). The band sits flush under the top bar by
-  cancelling it: `margin-top: calc(-1 * var(--space-8))`, and `calc(-1 * var(--space-6))` inside
-  the theme's 640-pixel breakpoint, with `margin-bottom: var(--space-6)` before the title. Using
-  the same tokens as `.main` keeps the two in step. These lengths are in the theme, where `012`'s
-  spacing rule does not apply.
+- **Vertical placement**: in `theme.css` on `main`, `.main` has `padding: 32px 24px 64px`, and
+  `22px 16px 48px` inside the 640-pixel breakpoint, as literal values (`012` kept the theme's own
+  lengths). The band sits exactly flush under the sticky top bar by cancelling that top padding
+  with the same literals: `margin-top: -32px`, and `-22px` inside the same breakpoint, with
+  `margin-bottom: 24px` before the title. A comment on both `.main` rules points at the band, and
+  a theme test (T024) asserts the band's negative top margin equals `.main`'s top padding at both
+  widths, so the two cannot drift apart. This is the smaller change: tokenizing `.main`'s padding
+  first would move every page of both apps by 2 pixels at phone width (22 → 24) for one band.
 - **Images**: `object-fit: cover` in both galleries (the area is filled, edges may be cropped);
   `contain` in the viewer (the whole picture).
-- **Arrows and position**: over the image, vertically centered on each side, at least 44 × 44
-  pixels, with an opaque `--surface` background, `--text` glyph, `--border-strong` border, and
-  `--radius-pill`, so they read the same on any picture. The position ("2 of 5") is a small label
-  in the same colors at the bottom corner. Text, not dots: it says the position without relying on
-  color or tiny targets (Constitution VII, `008` FR-006).
+- **Arrows, Pause/Play, and position**: over the image; arrows vertically centered on each side, at
+  least 44 × 44 pixels, with an opaque `--surface` background, `--text` glyph, `--border-strong`
+  border, and `--radius-pill`, so they read the same on any picture. The position ("2 of 5") is a
+  small label in the same colors at the bottom right corner; the Pause/Play button, styled like the
+  arrows, at the bottom left. Text, not dots: it says the position without relying on color or tiny
+  targets (Constitution VII, `008` FR-006).
 - **Placeholder**: `--surface-alt` with `--text-muted` "Image unavailable" when loading failed;
   the same box with no text while loading.
 - **Two new tokens**, in both the light and dark sets with the same values (like
-  `--brand-mark-end`): `--scrim: rgba(0, 0, 0, 0.92)` (the full-screen backdrop) and
+  `--brand-mark-end`): `--scrim: rgb(0 0 0 / 92%)`, in the theme's `rgb(… / %)` style (the
+  full-screen backdrop) and
   `--scrim-text: #ffffff` (the position label on it). `012`'s contrast test gains the pair
   `--scrim-text` on `--scrim` composited over white (about 18:1).
 - **Admin Images control**: its layout is Admin-only, so it stays in `admin-app/src/styles.css`
   (`.image-list`, `.image-item`, `.image-item__thumb`), with spacing on `var(--space-N)` and no
   color written out. It reuses `.btn`, `.pill`, `.note`, and `.field__hint`.
 - **No inline styles** that set a color, font, or shadow anywhere (`012`'s inline rule).
-
-**If `012` has not merged** when 014's implementation starts: put the gallery and viewer rules in
-both apps' `styles.css` under a `/* 014: moves to the shared theme with 012 */` comment, with
-today's literal values, and `012`'s implementer moves them into the theme and onto tokens (the
-pattern `012` research R11 sets for features that merge before it). Whichever merges second makes
-the drift check pass.
 
 **Rationale**: Constitution VII: one shared look, and app styles only on theme values. A scrim
 must be dark in both light and dark mode, and no existing token is (in dark mode `--bg` is dark
@@ -643,15 +681,26 @@ dark).
 
 - **Lists carry metadata only** (R6).
 - **Cards**: each card gallery watches itself with `IntersectionObserver` (`rootMargin: '200px'`).
-  Only while it is on or near the screen does it load the shown image and the next one (so the
-  next change is instant); the others load when they are about to be shown. When
+  While it is on or near the screen it turns, and holds the shown image and the next one (so the
+  next change is instant), letting go of an image once it is neither. When it leaves that zone it
+  **stops turning, stops fetching, and lets go of both images at once**; when it comes back it
+  loads them again from the browser's HTTP cache and turns again from the image it was on. When
   `IntersectionObserver` is not available (jsdom), the gallery counts as on screen.
+- **Why let go at once, not after a delay**: the bound is simplest to state and test, and loading
+  again costs only a cache read (R4). A delay would only save that cache read for a card scrolled
+  away and straight back.
+- **Memory ceiling** (spec FR-039): on the Events list the page holds at most 2 images per card on
+  or near the screen. With every picture at the 5 MB limit and, say, 12 cards in that zone on a
+  large desktop window (three columns of four), that is 12 × 2 × 5 MB = 120 MB of image data at
+  most, whatever the length of the list; with typical 1 MB photos, about 24 MB. The event page and
+  viewer hold at most one event's 5 images, 25 MB. Decoded pictures are the browser's own cache
+  and it frees them as needed. The running-system gate measures the tab (quickstart S11).
 - **Event page and full screen**: load the shown image and the next one at once (the page band
   is at the top); full screen also loads the previous one.
 - **Text first**: no card or page waits for an image; images fill their placeholder when they
   arrive (FR-031, FR-032).
-- **Caching** (R4): one fetch per image id per page, kept while the gallery is mounted, and the
-  browser's own cache after that; preflights cached for 10 minutes (R4).
+- **Caching** (R4): images held as above, the browser's own cache after that; preflights cached
+  for 10 minutes (R4).
 - **Backend cost** (R1): about 15 MB of transient memory and one pool connection per 5 MB image
   read; the running-system gate checks a list of 8 or more events with five 5 MB images each
   (quickstart S11).
@@ -698,11 +747,12 @@ harder to see).
   image cache (one fetch for two users, revoke on last release, `Authorization` sent, failure
   state); the rotation hook with fake timers (5,000 ms steps, wrap, restart after an arrow, pause
   and resume, reduced motion, fewer than 2 images); the gallery (nothing for 0 images, no arrows for
-  1, accessible names, position text, alternative text, arrow hover pauses, image hover does not,
-  keyboard focus on an arrow pauses, pointer-caused focus does not, lazy loading with a stubbed
-  `IntersectionObserver`, card link); the viewer (opens on the image, Esc and close, arrows and
-  keys, focus moves in, Tab trapped, focus returned, no automatic change, the gallery shows the last
-  image viewed).
+  1, accessible names, position text, alternative text, the Pause/Play button (pause stops, play
+  resumes after 5 s, arrows work while paused, hidden with one image and under reduced motion),
+  arrow hover pauses, image hover does not, keyboard focus on an arrow pauses, pointer-caused focus
+  does not, lazy loading with a stubbed `IntersectionObserver`, card link); the viewer (opens on the
+  image, Esc and close, arrows and keys, focus moves in, Tab trapped, focus returned, no automatic
+  change, the gallery shows the last image viewed).
 - **Backend** (Jest, Supertest, Testcontainers): storage CHECKs and the unique constraint on real
   PostgreSQL; upload of each type with the contract check; detected type over the declared one; a
   renamed text file `415`; exactly 5,242,880 bytes `201` and 5,242,881 `413`; 16,384 × 2,441 pixels

@@ -17,10 +17,27 @@ One new table, `EventImage`, in one migration:
 
 `Event` gains the relation `images EventImage[]`. No column of `Event` changes.
 
-The unique constraint on `("eventId", "position")` is written in the migration SQL, not as
-`@@unique` in `schema.prisma`, because Prisma cannot declare a deferrable constraint (as with
-`event_no_overlap`, the schema file says where it lives). Its index also serves every lookup by
-event.
+The unique constraint on `("eventId", "position")` is written in the migration SQL as
+`DEFERRABLE INITIALLY IMMEDIATE`, and also declared in `schema.prisma` as
+`@@unique([eventId, position], map: "event_image_position_unique")`. Prisma cannot express
+`DEFERRABLE`, but with the same name on both sides `prisma migrate diff` is empty (checked by Nate
+on PR #35), so there is no drift. Its index also serves every lookup by event.
+
+```prisma
+model EventImage {
+  id          String   @id @default(uuid()) @db.Uuid
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId     String   @db.Uuid
+  position    Int
+  contentType String   @db.VarChar(10)
+  byteSize    Int
+  bytes       Bytes
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  // Spec 014: DEFERRABLE INITIALLY IMMEDIATE in the migration SQL; the CHECKs live there too.
+  @@unique([eventId, position], map: "event_image_position_unique")
+}
+```
 
 ```sql
 CREATE TABLE "EventImage" (
@@ -83,17 +100,19 @@ delete(eventId, imageId)
   lock event
   image not of this event      → 404
   status = CANCELLED           → 409 EVENT_CANCELLED
-  SET CONSTRAINTS "event_image_position_unique" DEFERRED
   DELETE image; UPDATE position = position - 1 WHERE eventId = … AND position > deleted.position
 
 reorder(eventId, imageIds)     -- body already: uuids, unique, ≤ 5 (400 otherwise)
   lock event
   status = CANCELLED           → 409 EVENT_CANCELLED
   set(imageIds) ≠ set(current) → 409 IMAGES_CHANGED { imageIds: current order }
-  SET CONSTRAINTS "event_image_position_unique" DEFERRED
   UPDATE position = 1 + index of id in imageIds   (one statement, CASE on id)
   → the images in their new order
 ```
+
+Each shift is a single `UPDATE`. A deferrable unique constraint is checked at the end of each
+statement, even when `INITIALLY IMMEDIATE`, so neither write needs `SET CONSTRAINTS … DEFERRED`
+(research R2).
 
 ## Reads
 
@@ -140,8 +159,10 @@ reorder(eventId, imageIds)     -- body already: uuids, unique, ≤ 5 (400 otherw
 - **Image cache** (`packages/shared/src/web/event-images.ts`): image id → `{ url: string | null;
   failed: boolean; users: number; promise }`. An entry is made by the first user, and its object
   URL is revoked and the entry dropped when `users` returns to 0 (research R4).
-- **Gallery**: the images it has loaded, held until it unmounts (research R4); shown index; paused
-  (arrow under the pointer, keyboard focus on a control, or viewer open); reduced motion; on screen
-  (cards, research R14).
+- **Gallery**: the images it holds (the event page and viewer: every image loaded, until unmount;
+  a card: the shown and next image while on or near the screen, none otherwise; research R4,
+  R14); shown index; `stopped` (the Pause/Play button, per gallery, not saved; research R11);
+  temporarily paused (arrow under the pointer, keyboard focus on an arrow or the full-screen image
+  button, viewer open, or a card off screen); reduced motion; on screen (cards).
 - **Admin Images control** (research R9): ordered items, `saved` (an `EventImage`) or `new` (a
   `File` and its preview URL), and the saved images removed but not yet deleted.

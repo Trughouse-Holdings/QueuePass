@@ -65,9 +65,11 @@ not amended.
   button that opens full screen has keyboard focus (recommended in this spec for keyboard users,
   research R11). For a customer whose device asks for reduced motion, the galleries do not advance
   on their own; the arrows still work (decided by Mahdi, 2026-10-12).
-- Q: Should there be a Pause/Play button, as WCAG 2.2.2 expects? → A: No. Mahdi keeps his design
-  and accepts that the galleries do not meet WCAG 2.2.2 (Assumptions; decided by Mahdi,
-  2026-10-12, after review round 1).
+- Q: Should there be a Pause/Play button, as WCAG 2.2.2 expects? → A: Yes. Each gallery that turns
+  on its own has a Pause/Play button. Pause stops the turning until Play is pressed; rotation still
+  starts on by default, and the arrow pause and reduced motion stay as above. Mahdi first chose no
+  button, then added it after the PR review (decided by Mahdi, 2026-10-13), so the galleries meet
+  WCAG 2.2.2 (research R11).
 - Q: How can a customer flip through faster? → A: Previous and next arrow buttons on the sides of
   the images, in both galleries and in full screen (decided by Mahdi, 2026-10-12).
 - Q: What does an event with no images, or one image, look like? → A: With no images, the card and
@@ -115,11 +117,16 @@ a sixth picture, and confirm each is refused with its own reason and nothing is 
 8. **Given** the Backend refuses one picture while the admin saves, **Then** the form shows the
    refusal, naming the picture, keeps every value and every picture not yet saved, and saving
    again finishes what is left without adding any picture twice.
-9. **Given** the Schedule event form, **When** the event is created but one of its pictures is
-   refused, **Then** the admin is told the event was created and which pictures were not added,
-   and the form becomes the Edit event form of that new event, keeping the pictures not yet added.
-   Saving again adds only those pictures (and any other change made meanwhile) to that event; a
-   second event is never created.
+9. **Given** the Schedule event form, **When** the event, its seating, and its ticket types are all
+   saved but one of its pictures is refused or cannot be sent, **Then** the admin is told the event
+   was created and which pictures were not added, and the form becomes the Edit event form of that
+   new event, showing everything just saved and keeping the pictures not yet added. Saving again
+   adds only those pictures (and any other change made meanwhile) to that event; a second event is
+   never created.
+13. **Given** the Schedule event form, **When** the event is created but its seating or ticket
+    types are refused, **Then** the form behaves exactly as it does today (`008`): it stays on
+    Schedule event with every value, including the chosen pictures, and offers "Finish on the
+    event page". No picture is sent.
 10. **Given** a signed-in user who is not an admin, **When** they try to add an image through the
     API, **Then** it is refused, and nothing is stored.
 11. **Given** a picture wider or taller than 16,384 pixels, or of more than 40 megapixels, **Then**
@@ -131,11 +138,11 @@ a sixth picture, and confirm each is refused with its own reason and nothing is 
 
 ### User Story 2 - Customers See the Images on the Event Page (Priority: P1)
 
-A customer opens an event that has images. Across the top of the event page, spanning the full
-width of the app, the cover is shown first. Every 5 seconds the gallery moves to the next image,
-and after the last it starts over. Arrow buttons on the left and right let the customer go back or
-forward at any time. Below the gallery, the event's details and the ticket and seat choices are
-exactly where they were.
+A customer opens an event that has images. Across the top of the event page, spanning the full width
+of the app, the cover is shown first. Every 5 seconds the gallery moves to the next image, and after
+the last it starts over. Arrow buttons on the left and right let the customer go back or forward at
+any time, and a Pause/Play button stops the turning until they choose Play. Below the gallery, the
+event's details and the ticket and seat choices are exactly where they were.
 
 **Why this priority**: This is where a customer decides to get tickets, and it is the main place
 customers see the images.
@@ -161,9 +168,16 @@ forward, and that an event with no images looks as it does today.
    moving on its own while the button has focus, and Enter or Space flips the image. When focus
    leaves the gallery's controls, it moves on 5 seconds later.
 7. **Given** the customer's device is set to reduce motion, **Then** the gallery shows the cover
-   and does not move on its own; the arrows still flip through the images.
+   and does not move on its own, and there is no Pause/Play button (nothing moves); the arrows still
+   flip through the images.
+12. **Given** a gallery turning on its own, **When** the customer selects "Pause images of Season
+    Opener", **Then** it stops on the shown image and stays there, whatever the pointer or focus
+    does, until they select "Play images of Season Opener"; then it moves on 5 seconds later. While
+    paused, the arrows still flip the image.
+13. **Given** the customer paused the gallery and then opens another event or reloads the page,
+    **Then** the new gallery turns on its own again.
 8. **Given** an event with one image, **Then** it is shown across the top with no arrows, no
-   position, and no movement.
+   position, no Pause/Play button, and no movement.
 9. **Given** an event with no images, **Then** the event page looks exactly as it does today.
 10. **Given** a cancelled event, or one whose sales have closed, with images, **Then** its images
     are shown the same way.
@@ -226,17 +240,19 @@ without images looks as it does today.
 1. **Given** the Events list, **When** an event has three images, **Then** its card shows its
    cover across the full width of the card, above the event's name, with "1 of 3" and previous and
    next arrows.
-2. **Given** that card, **Then** it moves to the next image every 5 seconds and wraps around, and
-   pauses only while the pointer is over one of its arrows or one has keyboard focus, as on the
-   event page.
+2. **Given** that card, **Then** it moves to the next image every 5 seconds and wraps around,
+   pauses while the pointer is over one of its arrows or one has keyboard focus, and has its own
+   Pause/Play button, as on the event page. Pausing one card does not pause the others.
 3. **Given** two cards with images, **Then** each rotates on its own; using one card's arrows
    does not change the other.
 4. **Given** a card with images, **When** the customer selects the image, **Then** the event page
    opens. Selecting an arrow flips the image and does not open the event.
-5. **Given** an event with one image, **Then** its card shows the image with no arrows and no
-   movement. **Given** an event with no images, **Then** its card looks exactly as it does today.
+5. **Given** an event with one image, **Then** its card shows the image with no arrows, no
+   Pause/Play button, and no movement. **Given** an event with no images, **Then** its card looks
+   exactly as it does today.
 6. **Given** a long list of events with images, **Then** the event names, times, and prices appear
-   without waiting for any image, and images are loaded only for the cards on or near the screen.
+   without waiting for any image; images are loaded only for the cards on or near the screen, and
+   a card that scrolls away stops turning and lets go of its images.
 
 ---
 
@@ -364,10 +380,12 @@ gallery shows the last image viewed.
   picture and the reason, and the form MUST keep every value and every picture change not yet
   saved, so that saving again completes the rest without repeating what was saved: no picture is
   added twice and no event is created twice (Constitution IV).
-- **FR-018**: When a new event is created but one of its pictures is refused, the Admin app MUST
-  say the event was created and name the pictures not added, and the form MUST become the edit form
-  of that new event, keeping the pictures not yet added, so that saving again changes only that
-  event.
+- **FR-018**: When a new event, its seating, and its ticket types are all saved but one of its
+  pictures is refused or cannot be sent, the Admin app MUST say the event was created and name the
+  pictures not added, and the form MUST become the edit form of that new event, showing what was
+  saved and keeping the pictures not yet added, so that saving again changes only that event. When
+  the seating or ticket types are refused, the form MUST behave as it does today (`008`), keeping
+  every value including the chosen pictures, and no picture is sent.
 - **FR-019**: The Admin app's event page MUST show the event's images the same way the customer's
   event page does (FR-021 to FR-031), so admins see what customers see.
 
@@ -382,15 +400,17 @@ gallery shows the last image viewed.
 - **FR-023**: With two or more images, each gallery MUST have previous and next arrow buttons on
   the left and right sides of the image. They flip to the previous or next image at once, wrap
   around, and restart the 5-second wait.
-- **FR-024**: A gallery MUST pause its automatic change only while the pointer is over one of its
-  arrow buttons, or while one of its controls has keyboard focus, and MUST resume 5 seconds after
-  that ends. Nothing else pauses it: not the pointer over the image, not anything else on the page.
+- **FR-024**: Apart from its Pause/Play button (FR-038), a gallery MUST pause its automatic change
+  only while the pointer is over one of its arrow buttons, or while an arrow or, on the event page,
+  the image that opens full screen has keyboard focus, and MUST resume 5 seconds after that ends.
+  Nothing else pauses it: not the pointer over the image, not anything else on the page.
 - **FR-025**: When the customer's device asks for reduced motion, the galleries MUST NOT change
-  images on their own; the arrows still work.
+  images on their own and show no Pause/Play button; the arrows still work.
 - **FR-026**: With two or more images, each gallery MUST show the position of the shown image in
   words, such as "2 of 5".
-- **FR-027**: With one image, a gallery MUST show it with no arrows, no position, and no automatic
-  change. With no images, there MUST be no gallery: the card and the page look as they do today.
+- **FR-027**: With one image, a gallery MUST show it with no arrows, no position, no Pause/Play
+  button, and no automatic change. With no images, there MUST be no gallery: the card and the page
+  look as they do today.
 - **FR-028**: Every gallery and full-screen control MUST have an accessible name, a target of at
   least 44 by 44 pixels, a visible keyboard focus, and work by keyboard. Each image MUST have a text
   alternative naming the event and the image's position, such as "Season Opener, image 2 of 5".
@@ -433,6 +453,19 @@ gallery shows the last image viewed.
 - **FR-037**: The Backend MUST refuse an animated PNG or animated WebP as not an accepted picture
   (FR-003), storing nothing.
 
+**Galleries (added after the PR review)**
+
+- **FR-038**: Each gallery that changes images on its own (two or more images, reduced motion not
+  asked for) MUST have a Pause/Play button. It starts as Pause, since the gallery turns by default.
+  Pause MUST stop the automatic change until Play is pressed, whatever the pointer or focus does;
+  Play MUST resume it, with the next image 5 seconds later. The arrows MUST still work while paused.
+  Each gallery has its own button and state; a new page starts turning again. The button's
+  accessible name says what it will do and for which event ("Pause images of Season Opener",
+  "Play images of Season Opener"). The full-screen view does not change on its own, so it has no
+  such button.
+- **FR-039**: On the Events list, a card that is neither on nor near the screen MUST stop changing
+  images and MUST let go of its loaded images, loading them again when it comes back.
+
 ### Key Entities
 
 - **Event image**: one picture of one event: its content, its type (JPG, PNG, or WebP), its size in
@@ -451,9 +484,10 @@ gallery shows the last image viewed.
   and every unsaved picture; saving again never stores a picture twice or creates the event twice.
 - **SC-003**: An admin can schedule an event with three images in one submission of the form.
 - **SC-004**: On both galleries, an image stays shown for 5 seconds (within half a second) before
-  the next, except while an arrow is pointed at or a gallery control has keyboard focus, and never
-  under reduced motion.
-- **SC-005**: Every gallery and full-screen action (flip, open, close) can be done with the
+  the next, except while an arrow is pointed at or a gallery control has keyboard focus, never
+  while paused with the Pause/Play button, and never under reduced motion.
+- **SC-005**: Every gallery and full-screen action (flip, pause, play, open, close) can be done with
+  the
   keyboard alone, every control is at least 44 by 44 pixels, and closing full screen returns focus
   to where it was opened in 100% of cases.
 - **SC-006**: On an Events list of 20 events with 5 images each, the first view loads at most 2
@@ -463,13 +497,11 @@ gallery shows the last image viewed.
 ## Assumptions
 
 - The decisions in Clarifications were made by Mahdi, the feature owner, on 2026-10-12, including
-  the reduced-motion behavior (FR-025) and, after review round 1, metadata removal and no
-  Pause/Play button.
-- **WCAG 2.2.2 is not met.** The galleries do not meet WCAG 2.2.2 Pause, Stop, Hide (Level A),
-  because a customer has no lasting way to pause them: they pause only while an arrow is pointed at
-  or a gallery control has keyboard focus. Reduced motion stops the rotation for customers who ask
-  their device for it. A Pause/Play button on each gallery would close the gap. Keeping the design
-  without it is Mahdi's explicit decision (2026-10-12); research R11 has the details.
+  the reduced-motion behavior (FR-025) and, after review round 1, metadata removal; after the PR
+  review (2026-10-13) he added the Pause/Play button (FR-038).
+- With the Pause/Play button, the galleries meet WCAG 2.2.2 Pause, Stop, Hide (Level A): every
+  gallery that changes on its own has a lasting way to pause it (research R11).
+- A paused gallery is not remembered: each page, and each card, starts turning again.
 - Text alternatives are generated from the event's name and the image's position. Admins do not
   write their own descriptions in this feature.
 - Galleries fill their area and may crop the edges of a picture whose shape differs; full screen
@@ -490,7 +522,6 @@ gallery shows the last image viewed.
 - Cropping, rotating, resizing, or editing images, and making smaller copies.
 - Drag-and-drop reordering (buttons are used).
 - Swiping between images on touch screens.
-- A pause or play button on the galleries (Mahdi's decision; research R11).
 - The browser's own full-screen mode that hides its toolbars (the full-screen view covers the
   window).
 - Images for venues, tiers, or orders, and video or animated images (animated PNG and WebP are

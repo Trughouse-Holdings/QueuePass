@@ -30,24 +30,29 @@
   `Cache-Control: private, max-age=31536000, immutable`; CORS preflights cached for 10 minutes
   (`maxAge: 600`) (R4).
 - **Admin app**: an Images control in the event form (add, preview, move, remove, "Cover"),
-  applied on Save after the event's details, resumable after a refusal. When an image is refused
-  after a new event was created, the form becomes that event's edit form with the pending pictures,
-  so saving again never creates the event twice (R9).
+  applied on Save after the event's details, resumable after a refusal. `008`'s create flow is
+  unchanged for seating and ticket-type refusals; only when a picture is refused after the event,
+  its seating, and its ticket types were all saved does the form become that event's edit form
+  with the pending pictures, so saving again never creates the event twice (R9).
 - **Both apps**: a shared `ImageGallery` (cards, the event page band, the Admin event page) and
-  `ImageViewer` (full screen), rotating every 5 seconds and pausing only while an arrow is pointed
-  at or has keyboard focus (Mahdi), or the event page's full-screen image button has keyboard focus
-  (recommended); no automatic change under reduced motion (Mahdi). No Pause/Play button, so WCAG
-  2.2.2 is not met, by Mahdi's decision (R10–R12).
+  `ImageViewer` (full screen), rotating every 5 seconds, with a Pause/Play button on every gallery
+  that turns on its own (Mahdi, after the PR review), so the galleries meet WCAG 2.2.2; also
+  pausing while an arrow is pointed at or has keyboard focus (Mahdi), or the event page's
+  full-screen image button has keyboard focus (recommended); no automatic change and no button
+  under reduced motion (Mahdi) (R10–R12).
 - **Look**: gallery and viewer rules in the shared theme (`012`) with two new tokens, `--scrim` and
   `--scrim-text`; the Admin control's layout in its own stylesheet on theme values (R13).
 - **Performance**: lists carry metadata only; cards load images only on or near the screen, the
-  shown one and the next (R14).
+  shown one and the next, and stop turning and let go of them when they leave, so the Events list
+  holds at most 2 images per card in view (R14).
 - **Demo data**: generated striped PNGs, no committed pictures (R15).
 
 The contract and regenerated types land in this PR. To keep `main` green before the
 implementation, `Event.images` is not in `required`, the four operations are marked `x-planned`
-and the route-coverage test skips them only while unserved, and `ERROR_CODES` already lists the
-five codes (R8).
+under the strict rule `015` (#38) also uses (a marked operation must be unserved; the
+implementation removes each marker in the commit that serves its route), and `ERROR_CODES`
+already lists the five codes (R8). `015`'s spec PR (#38) also takes 1.8.0: whichever of #35 and
+#38 merges second rebases to **1.9.0** and reruns `npm run generate:api` (R8).
 
 ## Technical Context
 
@@ -91,13 +96,13 @@ already describes this feature.
 |---|---|---|---|
 | **I. API-Only, Contract First** | PASS | **PASS** | Contract 1.8.0 and regenerated types in this PR, before any code; drift check passes. Each new operation declares its request (multipart or JSON), response (JSON or image bytes with headers), roles, and every error. Five new codes in the standard envelope. Apps load images only through the API client. The `x-planned` marker keeps the operations declared and typed now; the route-coverage test still fails any route the contract does not declare, and checks every served route's roles (R8). |
 | **II. One Repo, One Command** | PASS | **PASS** | No new service, volume, variable, or dependency. Images live in PostgreSQL's existing mapped volume, so they survive a restart. One migration applied by the existing startup. Seed unchanged; demo data generates its pictures (R1, R15). |
-| **Quality gate 4 (never skip a failing test)** | — | **PASS** | The route-coverage change is a correction of the test, not a skip: its premise ("every declared operation is served") cannot hold during Constitution III's two-PR window, so it now asserts the corrected rule (every served route declared with the right roles; every declared route served unless the contract marks it planned). It still fails an undeclared route or a wrong role, and the implementation adds a test that all four `x-planned: '014'` operations are served (T029, T042). The marker lives in the contract, shared surface, so every team member approves it in this PR (R8). |
+| **Quality gate 4 (never skip a failing test)** | — | **PASS** | The route-coverage change is a correction of the test, not a skip: its premise ("every declared operation is served") cannot hold during Constitution III's two-PR window, so it now asserts the corrected rule, copied exactly from `015`'s spec PR (#38): every unmarked operation is served with exactly its declared roles, and every `x-planned` operation is **not** served (`plannedButImplemented`). It still fails an undeclared route or a wrong role, and it fails if a marker outlives its implementation, which removes each marker in the commit that serves its route (T016, T032). The marker lives in the contract, shared surface, so every team member approves it in this PR (R8). |
 | **III. Spec-Driven, Reviewed** | PASS | **PASS** | Issue #26; spec and plan on `014-event-images-spec`, reviewed by a second Claude session before the PR; implementation on `014-event-images-impl` in a fresh session, closing #26. |
 | **IV. Server-Authoritative, DB-Guaranteed** | PASS | **PASS** | The Backend decides type (by signature), size, count, and order. The database guarantees at most 5 per event and unique positions (CHECK + unique constraint), and the type list and size (CHECKs); every image write takes the event row lock, so the limit and contiguous positions hold under concurrent requests (tested with 10 at once). The Admin form's checks are a preview; refusals are shown with every value and unsaved picture kept (R2, R3, R9). |
 | **V. Sign-In Everywhere** | PASS | **PASS** | Writes are `queuepass-admin`; the image read is any signed-in role, with a token, like the event it belongs to. No public or signed URL (R4). Tokens stay in memory: the apps send them with the existing client and show images from page-local `blob:` URLs. |
 | **VI. Test-First, Real Database** | PASS | **PASS** | Tests precede code in `tasks.md`; persistence and constraints tested on real PostgreSQL; boundaries both sides (5,242,880 / 5,242,881 bytes; 5th / 6th image; 11 / 12 signature bytes; 16,384 / 16,385 pixels a side; 40 megapixels); concurrency with genuinely simultaneous uploads; authorization's missing, expired, wrongly signed, wrong-audience, and wrong-role cases on the four routes. The 80% floor is a recorded deferral until `010` and `011`; this feature reports its coverage. |
-| **VII. Function Over Finish, One Shared Look** | PASS | **PASS** | The gallery is the feature the roadmap and Mahdi asked for, built from theme classes: no animation, no decoration. Its rules are in the shared theme because both apps use it; two tokens (`--scrim`, `--scrim-text`) are added there, since a full-screen backdrop must be dark in both modes. The Admin control uses theme values only. Usability targets stated and tested: 44-pixel targets, keyboard access, position in words, AA contrast (R13). |
-| **VIII. Staged Simplicity** | PASS | **PASS** | No object store, thumbnails, image library, captions, drag-and-drop, swipe, or pause button (spec Out of Scope). No test-only bypass of a control: `x-planned` skips an operation in the route-coverage test only while nothing serves it, so it cannot hide an undeclared route or a wrong role. No security or correctness control deferred. The WCAG 2.2.2 gap is a recorded product decision, not a deferral (R11). |
+| **VII. Function Over Finish, One Shared Look** | PASS | **PASS** | The gallery is the feature the roadmap and Mahdi asked for, built from theme classes: no animation, no decoration. Its rules are in the shared theme because both apps use it; two tokens (`--scrim`, `--scrim-text`) are added there, since a full-screen backdrop must be dark in both modes. The Admin control uses theme values only. Usability targets stated and tested: 44-pixel targets, keyboard access, position in words, AA contrast, and a Pause/Play button on every gallery that turns on its own, so the galleries meet WCAG 2.2.2 (R11, R13). |
+| **VIII. Staged Simplicity** | PASS | **PASS** | No object store, thumbnails, image library, captions, drag-and-drop, or swipe (spec Out of Scope). The Pause/Play state is per gallery and not saved (no preference storage). No test-only bypass of a control: an `x-planned` operation must be unserved, so the marker cannot hide an undeclared route, a wrong role, or a finished route. No security or correctness control deferred. |
 | **Security** | PASS | **PASS** | No secret. Types by signature only (SVG and every other format refused), served with the detected type and `nosniff`; 5 MB cap enforced while reading; a pixel cap stops decompression bombs (R3). Location, camera, and text metadata removed before storing, keeping only a JPEG's orientation (R17). CORS still allows only the three front ends; only the preflight cache time changes (R4). |
 | **Shared surface** | — | **Needs every member's approval** | This PR touches `contracts/openapi.yaml` (including the `x-planned` markers), `packages/shared/src/api-schema.ts`, and `packages/shared/src/errors.ts` (plus the Backend's contract tests). The implementation touches `packages/shared/` (new files, the theme), `backend/prisma/`, and nothing else on the shared list. |
 
@@ -160,9 +165,9 @@ code; each app only places them.
 
 | Item | Why needed | Simpler alternative rejected because |
 |---|---|---|
-| `x-planned` on the four operations, and the route-coverage test skipping them while unserved | Constitution I puts the operations in this PR; Constitution III needs `main` green before the implementation; the unchanged test fails with them declared (checked, R8) | Leaving them out of the contract is contract-after-code; leaving the test failing turns `main` red. A follow-up contract PR removes the markers (tasks.md). |
+| `x-planned` on the four operations, and the route-coverage test requiring them to be unserved | Constitution I puts the operations in this PR; Constitution III needs `main` green before the implementation; the unchanged test fails with them declared (checked, R8) | Leaving them out of the contract is contract-after-code; leaving the test failing turns `main` red. The implementation removes each marker with its route (T016, T032), and the test's version is shared with #38. |
 | `Event.images` not in `required` | The Backend's tests validate responses, and `main` does not send it yet (R8) | Required would fail every event response test on `main` until the implementation merges. |
-| `ERROR_CODES` updated in this PR | `013`'s implementation adds a test that every contract code is in `ERROR_CODES` (R8) | Waiting for the implementation would fail that test on `main` if #34 merges first. |
+| `ERROR_CODES` updated in this PR | A unit test (`us-states.spec.ts`, from `013`) requires every contract code to be in `ERROR_CODES` (R8) | Waiting for the implementation would fail that test on `main`. |
 | A deferrable unique constraint written in SQL | Delete and reorder shift positions in one statement, checked at commit (R2) | A plain unique index can fail mid-statement on a swap; Prisma cannot declare deferrable constraints. |
 | Images fetched as blobs with a shared object URL cache | `<img src>` cannot carry the bearer token Constitution V requires on every route (R4) | Public or signed image URLs need an unauthenticated route, which the constitution forbids. |
 | A custom full-screen dialog | FR-030's focus trap and return must behave the same in every browser and in tests (R12) | `<dialog>.showModal()` is not in jsdom and returns focus differently across browsers; the Fullscreen API does not work for images on iPhone. |

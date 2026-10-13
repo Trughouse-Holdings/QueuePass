@@ -98,6 +98,13 @@ every 5 seconds, back to 1 after 3.
   it has focus, Enter flips. Tab out of the gallery. **Expect**: it moves on 5 seconds later.
 - Click an arrow with the mouse and move the pointer off it. **Expect**: it moves on 5 seconds
   later (a mouse click does not count as keyboard focus).
+- Select **Pause** (bottom left of the image; its accessible name is "Pause images of Images
+  Night"). **Expect**: the image stays for a minute, wherever the pointer or focus goes; the button
+  now reads "Play images of Images Night" and keeps focus. Select next and previous. **Expect**:
+  they still flip, and it stays paused. Select **Play**. **Expect**: the next image about 5 seconds
+  later. Pause again and reload the page. **Expect**: it turns again (the pause is not saved).
+- Tab to the Pause/Play button and press Enter, then Space. **Expect**: it pauses, then plays; the
+  button is at least 44 × 44 pixels with a visible focus ring.
 
 Open an event with no images (for example one of the demo events, S9). **Expect**: the page looks
 as before this feature.
@@ -107,7 +114,8 @@ as before this feature.
 Open **Events**. **Expect**: "Images Night"'s card shows its images across the full width of the
 card, above its name, rotating every 5 seconds with arrows and "1 of 3"; cards of events without
 images look as before. Select an arrow. **Expect**: the image flips and the event does not open.
-Select the image. **Expect**: the event page opens.
+Select the image. **Expect**: the event page opens. With two cards with images on screen, select
+one card's **Pause**. **Expect**: that card stops; the other keeps turning.
 
 Schedule 8 more events with 3 images each (or run S9 first and add images), reload **Events** with
 the Network panel open, filtered to `images/`. **Expect**: the cards' text appears before any
@@ -126,7 +134,8 @@ gallery's image. Open it again and close with the close button. **Expect**: the 
 ## S7: Reduced motion and phone width (US2, FR-025, FR-028)
 
 In Chrome DevTools, **Rendering → Emulate CSS media feature prefers-reduced-motion: reduce**, and
-reload the event page and the Events list. **Expect**: no automatic changes; the arrows still flip.
+reload the event page and the Events list. **Expect**: no automatic changes and no Pause/Play
+buttons; the arrows still flip.
 Turn it off. Then use the device toolbar at 375 pixels wide. **Expect**: no sideways scrolling on
 the Events list or the event page; arrows and the full-screen close button at least 44 × 44 pixels
 (inspect them).
@@ -169,17 +178,28 @@ customer's. Compare the gallery's arrows, position label, and full-screen backdr
 in light and dark mode (the device's setting). **Expect**: identical. `npm test` passed the
 theme's no-drift check (`packages/shared/test/theme/drift.test.ts`).
 
-## S11: Load with large images (FR-032, research R1, R14)
+## S11: Load with large images (FR-032, FR-039, research R1, R14)
 
 Schedule 8 or more events, each with five JPG photos of about 5 MB (phone photos at full size).
 In one terminal run `docker stats`. As `customer1`, open **Events** with the Network panel open,
-scroll to the bottom and back, and leave it rotating for a minute. **Expect**: the page stays
-responsive (scrolling and the arrows react at once); image requests only for cards on or near the
-screen; after the first minute, looping galleries make no new image requests (each gallery keeps
-what it loaded); `OPTIONS` preflights appear about once per 10 minutes per image URL, not before
-every read (`Access-Control-Max-Age: 600`); the `backend` container's memory rises by no more than
-a few dozen MB while images load and settles back; the `postgres` container stays well within its
-limit. Record the peak memory of both in tasks.md (T044).
+scroll to the bottom and back, and leave it rotating for a minute. Also open Chrome's **Task
+Manager** (Shift+Esc) and watch the tab's memory footprint, or run
+`performance.memory.usedJSHeapSize` in the console now and then. **Expect**:
+
+- the page stays responsive (scrolling, the arrows, and Pause react at once);
+- image requests only for cards on or near the screen; a card scrolled away stops turning, and
+  when it comes back its images are read again from the browser's cache (the Network panel's Size
+  column shows "disk cache" or "memory cache"), so no new image request reaches the Backend after
+  the first minute;
+- `OPTIONS` preflights about once per 10 minutes per image URL, not before every read
+  (`Access-Control-Max-Age: 600`);
+- the tab's memory stays within research R14's ceiling (2 images per card in view: about
+  12 × 2 × 5 MB = 120 MB of image data at most on a large window, plus the page) and does not grow
+  as you scroll the whole list up and down several times;
+- the `backend` container's memory rises by no more than a few dozen MB while images load and
+  settles back; the `postgres` container stays well within its limit.
+
+Record the peak memory of the tab and both containers in tasks.md (T044).
 
 ## S12: Creating an event when an image is refused, and metadata removal (FR-018, FR-035)
 

@@ -28,9 +28,9 @@ info:
     `error.message`.
 
     **Planned operations**: an operation marked `x-planned: '<feature>'` is declared in that
-    feature's spec and plan pull request, before its implementation (Constitution I). Until the
-    implementation merges, the Backend does not serve it (`404`). The route-coverage test skips a
-    planned operation only while no route serves it. Feature 014's image operations are planned.
+    feature's spec and plan pull request, before its implementation (Constitution I), and the
+    Backend does not serve it yet (`404`). The implementation removes the marker in the change
+    that serves the route. A test fails if a marked operation is served, or an unmarked one is not.
 
 servers:
   - url: http://localhost:3000
