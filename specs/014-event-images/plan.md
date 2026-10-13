@@ -107,7 +107,7 @@ packages/shared/src/web/+ event-images.ts, + use-gallery-rotation.ts,
 packages/shared/test/+ event-image.test.ts,
                      web/+ event-images.test.tsx, + use-gallery-rotation.test.ts,
                          + image-gallery.test.tsx, + image-viewer.test.tsx,
-                     theme/~ contrast.test.ts
+                     theme/~ contrast.test.ts, ~ tokens.test.ts
 backend/
 ├── prisma/~ schema.prisma, migrations/+ 20261012000000_event_images/migration.sql
 ├── src/
@@ -119,6 +119,7 @@ backend/
 └── test/
     ├── contract/~ expect-to-match-contract.ts            # non-JSON responses (R8)
     ├── setup/+ images.ts                                 # small valid images, upload helper
+    ├── unit/+ expect-to-match-contract.spec.ts, + demo-images.spec.ts
     └── integration/+ event-images.storage.e2e-spec.ts, + event-images.e2e-spec.ts,
                     + event-images.order.e2e-spec.ts, + event-images.concurrency.e2e-spec.ts,
                     + event-images.authz.e2e-spec.ts; ~ events.crud.e2e-spec.ts,
