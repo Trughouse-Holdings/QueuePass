@@ -69,6 +69,7 @@ Every write is one transaction that starts with `lockEvent(tx, eventId)` (`SELEC
 add(eventId, file)             -- no lock held for these first steps
   file.size > 5,242,880        → 413 IMAGE_TOO_LARGE        (multer, while reading)
   readImageHeader(file) = null → 415 IMAGE_TYPE_NOT_ALLOWED
+  header.animated              → 415 IMAGE_TYPE_NOT_ALLOWED      (APNG acTL, WebP ANIM)
   side > 16,384 or w×h > 40,000,000
                                → 400 IMAGE_DIMENSIONS_TOO_LARGE { width, height, maxSide, maxPixels }
   bytes = stripImageMetadata(file, contentType)   -- 415 if its structure cannot be walked
@@ -123,8 +124,8 @@ reorder(eventId, imageIds)     -- body already: uuids, unique, ≤ 5 (400 otherw
   first 12 bytes.
 - `IMAGE_PIXEL_LIMITS = { maxSide: 16_384, maxPixels: 40_000_000 } as const`.
 - `readImageHeader(bytes: Uint8Array): { contentType: ImageContentType; width: number; height:
-  number } | null` (research R3): the signature plus the size from the PNG `IHDR`, WebP `VP8X` /
-  `VP8L` / `VP8 `, or JPEG `SOFn` header.
+  number; animated: boolean } | null` (research R3): the signature plus the size from the PNG
+  `IHDR`, WebP `VP8X` / `VP8L` / `VP8 `, or JPEG `SOFn` header.
 - Backend only, `backend/src/events/image-metadata.ts`: `stripImageMetadata(bytes, contentType):
   Uint8Array` (research R17), throwing a `415` envelope for a structure it cannot walk.
 - `packages/shared/src/event.ts`: `Event` gains `images?: EventImage[]` (optional until the contract
@@ -139,7 +140,8 @@ reorder(eventId, imageIds)     -- body already: uuids, unique, ≤ 5 (400 otherw
 - **Image cache** (`packages/shared/src/web/event-images.ts`): image id → `{ url: string | null;
   failed: boolean; users: number; promise }`. An entry is made by the first user, and its object
   URL is revoked and the entry dropped when `users` returns to 0 (research R4).
-- **Gallery**: the images it has loaded, held until it unmounts (research R4); shown index; paused (arrow under the pointer, keyboard focus on a control, or
-  viewer open); reduced motion; on screen (cards, research R14).
+- **Gallery**: the images it has loaded, held until it unmounts (research R4); shown index; paused
+  (arrow under the pointer, keyboard focus on a control, or viewer open); reduced motion; on screen
+  (cards, research R14).
 - **Admin Images control** (research R9): ordered items, `saved` (an `EventImage`) or `new` (a
   `File` and its preview URL), and the saved images removed but not yet deleted.

@@ -48,8 +48,8 @@ and 5,242,881 bytes. `huge.png` is a few dozen bytes whose header declares 20,00
 
 As `admin1`, open **Events → Schedule event**, fill in an event "Images Night" at any venue a week
 ahead, and in **Images** choose the JPG, PNG, and WebP at once. **Expect**: three previews in that
-order, "Cover" on the first, and the hint naming the limits. Save. **Expect**: the event page shows the JPG across the full width of the page above
-the title, "1 of 3", and arrows.
+order, "Cover" on the first, and the hint naming the limits. Save. **Expect**: the event page shows
+the JPG across the full width of the page above the title, "1 of 3", and arrows.
 
 ## S2: Refusals (US1)
 
@@ -69,8 +69,8 @@ done
 **Expect**: `fake.jpg 415`, `anim.gif 415`, `too-big.png 413`, `huge.png 400` (`code:
 IMAGE_DIMENSIONS_TOO_LARGE`), `five-mb.png 201`. `GET /events/$EVENT` lists four images, the fourth
 `image/png` with `byteSize` 5242880 (the declared `image/jpeg` was ignored; a private chunk is not
-metadata, so nothing was removed). Add `tiny.webp` the same way (`201`, five images), and the JPG once more.
-**Expect**: `409` with `code: IMAGE_LIMIT_REACHED`.
+metadata, so nothing was removed). Add `tiny.webp` the same way (`201`, five images), and the JPG
+once more. **Expect**: `409` with `code: IMAGE_LIMIT_REACHED`.
 
 ## S3: Remove, reorder, and Cancel (US3)
 
@@ -187,9 +187,11 @@ The form's preview stops bad files before sending, so make the upload fail anoth
 DevTools open **Network request blocking**, add the pattern `*/images`, and enable it. Schedule a
 new event "Partial Night" with three pictures and save. **Expect**: "Event created. These pictures
 were not added: … Save again to add them.", the address is now `/events/<id>/edit`, the heading
-reads "Edit event", and the three pictures are still in the Images control. (The Admin app's tests,
-T014, check the same with a Backend refusal.) Disable the blocking and save. **Expect**: the remaining pictures are added; the
-Events list shows exactly one "Partial Night" with three images.
+reads "Edit event", and the three pictures are still in the Images control. Blocking makes the
+upload a network failure, not a Backend refusal; the form treats both the same way, and the Admin
+app's tests (T014) check both. Disable the blocking and save. **Expect**: the remaining pictures are
+added; the Events list shows exactly one "Partial Night" with three images. Press the browser's
+Back button to return to the edit form. **Expect**: no pictures pending; saving changes nothing.
 
 Download the phone photo you added in S1 through the API and inspect it:
 

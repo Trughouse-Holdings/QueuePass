@@ -17,8 +17,10 @@
   WebP), never its name or declared type (`415 IMAGE_TYPE_NOT_ALLOWED`); the size in pixels is read
   from the header and capped at 16,384 a side and 40 megapixels (`400 IMAGE_DIMENSIONS_TOO_LARGE`)
   (R3).
-- **Metadata**: location, camera, and text metadata are removed before storing (JPEG Exif/XMP/IPTC,
-  PNG `eXIf`/text chunks, WebP `EXIF`/`XMP `); a JPEG keeps only its orientation (R17).
+- **Metadata**: location, camera, and text metadata are removed before storing (JPEG Exif/XMP/MPF/
+  IPTC/comments, PNG `eXIf`/text/`tIME` chunks, WebP `EXIF`/`XMP `), and anything after the end of
+  the main picture is dropped; a JPEG keeps only its orientation (R17). Animated PNG and WebP are
+  refused (`415`, R3).
 - **API** (contract **1.8.0**): `uploadEventImage`, `getEventImage`, `deleteEventImage`,
   `reorderEventImages` (`PUT …/images/order` with every id), five new codes, and `Event.images`
   (metadata only) on every event response (R5, R6). Cancelled events refuse image changes with the

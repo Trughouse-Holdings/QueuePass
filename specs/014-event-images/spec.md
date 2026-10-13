@@ -198,8 +198,8 @@ save, and confirm the event has three images in the new order with the moved ima
 5. **Given** an event with five images, **When** the admin removes one and adds another in the
    same edit and saves, **Then** the event has five images, the new one where the admin put it.
 6. **Given** another admin added or removed one of the event's images after this form was opened,
-   **When** this admin saves a new order, **Then** the order is refused because the images changed, nothing is
-   changed, and the form shows the event's current images to try again.
+   **When** this admin saves a new order, **Then** the order is refused because the images changed,
+   nothing is changed, and the form shows the event's current images to try again.
 7. **Given** a cancelled event, **Then** its images cannot be added, removed, or reordered, through
    the API or the Admin app, and are still shown.
 8. **Given** an event with images and no orders, **When** an admin deletes the event, **Then** its
@@ -280,10 +280,16 @@ gallery shows the last image viewed.
   picture is refused.
 - **Other picture formats**: GIF, SVG, HEIC, AVIF, BMP, and TIFF are refused, even though some
   browsers can show them. SVG in particular can carry scripts.
-- **A picture that is damaged after its first bytes**: The Backend checks the file's signature
-  and reads its size in pixels from its header, not every byte. A file that starts like a picture but is damaged is stored, and browsers show it
-  as an image that could not be loaded, the same as an image that fails to download. Removing it
-  fixes it.
+- **A picture that is damaged after its first bytes**: The Backend checks the file's signature,
+  reads its size in pixels from its header, and walks its segments or chunks, but does not decode
+  the picture. A file whose segments or chunks run past the end of the file is refused as not a
+  picture. A file that is well formed but damaged inside its picture data is stored, and browsers
+  show it as an image that could not be loaded, the same as an image that fails to download.
+  Removing it fixes it.
+- **Animated pictures**: An animated PNG or an animated WebP is refused as not an accepted
+  picture, like a GIF. Only still pictures are shown (spec Out of Scope).
+- **Data hidden after the picture**: Some phones add a second picture or a short video after the
+  main JPG, with its own location. Everything after the end of the main picture is dropped.
 - **Several pictures chosen at once**: The admin may choose several files in one go. If that would
   make more than five, the form adds what fits and names the files it left out.
 - **An image that cannot be loaded**: If one image fails to download, its place shows "Image
@@ -413,13 +419,19 @@ gallery shows the last image viewed.
 **Storing images (added after review round 1)**
 
 - **FR-035**: Before storing a picture, the Backend MUST remove its location, camera, and other
-  descriptive metadata: in a JPG, its Exif and XMP segments; in a PNG, its `eXIf`, `tEXt`, `iTXt`,
-  and `zTXt` chunks; in a WebP, its `EXIF` and `XMP ` chunks. A JPG's orientation MUST be kept,
-  so it is shown the same way up. The picture itself is not changed. The size limit (FR-004)
-  applies to the file as sent.
+  descriptive metadata: in a JPG, its Exif, XMP, Photoshop (IPTC), multi-picture (`MPF`), and
+  comment segments; in a PNG, its `eXIf`, `tEXt`, `iTXt`, `zTXt`, and `tIME` chunks; in a WebP,
+  its `EXIF` and `XMP ` chunks. It MUST also drop anything after the end of the main picture (after
+  a JPG's end marker, after a PNG's `IEND`, or past a WebP's declared length), where phones store
+  secondary pictures and videos with their own metadata. A JPG's orientation MUST be kept, so it is
+  shown the same way up. The picture itself is not changed. The size limit (FR-004) applies to the
+  file as sent.
 - **FR-036**: The Backend MUST refuse a picture wider or taller than 16,384 pixels, or of more than
   40,000,000 pixels in all, with its own stable code, storing nothing. A file whose size in pixels
-  cannot be read from its header is refused as not a JPG, PNG, or WebP picture (FR-003).
+  cannot be read from its header, or whose segments or chunks run past the end of the file, is
+  refused as not a JPG, PNG, or WebP picture (FR-003).
+- **FR-037**: The Backend MUST refuse an animated PNG or animated WebP as not an accepted picture
+  (FR-003), storing nothing.
 
 ### Key Entities
 
@@ -464,8 +476,8 @@ gallery shows the last image viewed.
   always shows the whole picture.
 - Pictures are stored and shown as uploaded except for their metadata: not resized and not
   re-encoded. Location, camera, and text metadata are removed; a JPG keeps only its orientation
-  (research R17). Smaller copies for cards are not made; the 5 MB limit and loading only what is on screen keep
-  pages usable (research R14).
+  (research R17). Smaller copies for cards are not made; the 5 MB limit and loading only what is on
+  screen keep pages usable (research R14).
 - 5 MB means 5 × 1024 × 1024 = 5,242,880 bytes.
 - An image is something any signed-in user who can see the event may see, so it is not secret
   after it reaches the browser.
@@ -481,5 +493,6 @@ gallery shows the last image viewed.
 - A pause or play button on the galleries (Mahdi's decision; research R11).
 - The browser's own full-screen mode that hides its toolbars (the full-screen view covers the
   window).
-- Images for venues, tiers, or orders, and video or animated images.
+- Images for venues, tiers, or orders, and video or animated images (animated PNG and WebP are
+  refused, FR-037).
 - The Ticket Booth app, which does not show events.

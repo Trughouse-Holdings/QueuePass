@@ -122,6 +122,12 @@ Shifting through temporary out-of-range positions (needs the CHECK to allow them
     except `DHT` `C4`, `JPG` `C8`, and `DAC` `CC`), whose height and width are at bytes 3
     and 5 of the segment.
 
+  It also reports `animated`: a PNG with an `acTL` chunk before its first `IDAT` (APNG), or a
+  WebP whose `VP8X` header has the animation flag (`0x02`) or that contains an `ANIM` or `ANMF`
+  chunk. An animated picture is `415 IMAGE_TYPE_NOT_ALLOWED` (spec FR-037), the same answer as a
+  GIF: the spec puts animated images out of scope, and a moving picture inside a gallery would add
+  motion that reduced motion (R11) cannot stop.
+
   A picture wider or taller than 16,384 pixels, or of more than 40,000,000 pixels, is refused with
   a new code, `400 IMAGE_DIMENSIONS_TOO_LARGE` (`details.width`, `height`, `maxSide`,
   `maxPixels`). A file whose header is cut short, or that gives no size or a zero size, is
@@ -140,16 +146,17 @@ oversized upload is cut off at 5 MB, not buffered whole. One file per request ke
 about one named file (FR-017) and the limit check simple.
 
 **Why a pixel limit**: a few kilobytes of PNG can declare 30,000 × 30,000 pixels, which every
-browser would try to decode into about 3.6 GB. 16,384 is the largest side Chrome and Firefox
-reliably decode and display, and 40 megapixels (about 160 MB decoded) is more than any phone camera
+browser would try to decode into about 3.6 GB. 16,384 pixels a side is a safety bound we chose: it
+is a common GPU texture and canvas size limit, not a limit on what browsers can decode, and well
+above any photo an event needs. 40 megapixels (about 160 MB decoded) is more than any phone camera
 in common use, so no real photo is refused. A separate code, rather than reusing one: the remedy
 differs (make the picture smaller, not choose another format or a smaller file); `413` would say
 the request body is too large, which it is not; `400` because the content is unacceptable as sent,
 and clients branch on `code`.
 
-**Known limit**: the check reads the signature and headers, not the whole file. A file that starts like a
-picture but is damaged later is stored, and the browser shows it as an image that could not load
-(spec edge case). Decoding every upload would need an image library (R14).
+**Known limit**: the check reads the signature and headers, not the whole file. A file that starts
+like a picture but is damaged later is stored, and the browser shows it as an image that could not
+load (spec edge case). Decoding every upload would need an image library (R14).
 
 **Alternatives considered**: NestJS's `FileTypeValidator` (uses the `file-type` package, answers
 `400` with its own message, and its accepted types are configured by MIME pattern, not signature
@@ -359,12 +366,13 @@ modes, inside a `<fieldset>` with the legend "Images".
   `{ kind: 'new', key, file: File, previewUrl }`, and a list of saved images the admin removed. On
   edit it starts from `event.images ?? []`.
 - **Add**: a file input labeled "Add images", `accept="image/jpeg,image/png,image/webp"`,
-  `multiple`. Each chosen file goes through a preview check (FR-016): would it make more than 5,
-  is it over 5,242,880 bytes, and does `readImageHeader` of the file's bytes
-  (`await file.arrayBuffer()`, at most 5 MB) accept its type and size in pixels. Accepted files are appended with an object URL preview; refused
-  ones are named in a note with the reason ("poster.gif: only JPG, PNG, or WebP pictures"). The
-  input is hidden, and the note says "5 of 5 images. Remove one to add another.", when the list
-  is full. The input is reset after each choice so the same file can be chosen again.
+  `multiple`. Each chosen file goes through a preview check (FR-016): would it make more than 5, is
+  it over 5,242,880 bytes, and does `readImageHeader` of the file's bytes (`await
+  file.arrayBuffer()`, at most 5 MB) accept its type and size in pixels. Accepted files are appended
+  with an object URL preview; refused ones are named in a note with the reason ("poster.gif: only
+  JPG, PNG, or WebP pictures"). The input is hidden, and the note says "5 of 5 images. Remove one to
+  add another.", when the list is full. The input is reset after each choice so the same file can be
+  chosen again.
 - **List**: an `<ol>` of thumbnails. Each item shows its preview (`alt="Image 2"`), "Image 2", a
   "Cover" `.pill` on the first, and three buttons: "Move image 2 earlier" (not on the first),
   "Move image 2 later" (not on the last), "Remove image 2". Buttons, not drag-and-drop (spec Out of
@@ -393,7 +401,12 @@ modes, inside a `<fieldset>` with the legend "Images".
   them." The heading reads "Edit event". Saving again goes through the edit path (`saveEvent`,
   then `applyImages`), so `createEvent` is never called a second time and saved pictures are not
   uploaded again (FR-017, FR-018). This works whether React keeps or remounts the form, because the
-  edit form reads the pending pictures from router state on load.
+  edit form reads the pending pictures from router state on load. As soon as it has read them into
+  its own state, it clears the history entry's state with `navigate(location.pathname, { replace:
+  true, state: null })`, so going Back to this entry after a successful save cannot bring the same
+  pictures back as pending and upload them again. A network failure during an image step is
+  treated like a refusal: the same switch, the same message with "could not be sent" as the
+  reason.
 - **Refusals**: shown through `ErrorBanner`, with the picture's file name before the Backend's
   message for an upload ("poster.jpg: This file is not a JPG, PNG, or WebP picture."). Every value
   and every unsaved change stays. On `409 IMAGES_CHANGED`, the control reloads the event's images
@@ -563,8 +576,8 @@ in the shared theme, `packages/shared/src/web/theme.css` (`012` research R2: a c
 use belongs to the theme). `012`'s implementation (PR #33) adds that file and the no-drift check
 (`012` research R6); 014's implementation starts from a `main` that has it.
 
-- **Classes**: `.page-band`, `.gallery`, `.gallery--card`, `.gallery--page`, `.gallery__open` (the event page's
-  image button), `.gallery__image`, `.gallery__placeholder`, `.gallery__arrow`,
+- **Classes**: `.page-band`, `.gallery`, `.gallery--card`, `.gallery--page`, `.gallery__open` (the
+  event page's image button), `.gallery__image`, `.gallery__placeholder`, `.gallery__arrow`,
   `.gallery__arrow--prev`, `.gallery__arrow--next`, `.gallery__count`; `.viewer`, `.viewer__image`,
   `.viewer__close`, `.viewer__arrow` (with `--prev` and `--next`), `.viewer__count`; and
   `.viewer-open` on `<body>`.
@@ -675,31 +688,33 @@ harder to see).
 **Decision** (tasks.md has the full list), tests first in every phase:
 
 - **Shared** (Vitest): `sniffImageType` for each accepted signature and for GIF, SVG text,
-  `RIFF…WAVE`, PDF, empty, 11 bytes, and `FF D8` only; `readImageHeader` for each format and
-  WebP variant, both sides of 16,384 pixels a side and 40,000,000 pixels, and truncated headers; the image cache (one fetch for two users,
-  revoke on last release, `Authorization` sent, failure state); the rotation hook with fake timers
-  (5,000 ms steps, wrap, restart after an arrow, pause and resume, reduced motion, fewer than 2
-  images); the gallery (nothing for 0 images, no arrows for 1, accessible names, position text,
-  alternative text, arrow hover pauses, image hover does not, keyboard focus on an arrow pauses,
-  pointer-caused focus does not, lazy loading with a stubbed `IntersectionObserver`, card link);
-  the viewer (opens on the image, Esc and close, arrows and keys, focus moves in, Tab trapped,
-  focus returned, no automatic change, the gallery shows the last image viewed).
+  `RIFF…WAVE`, PDF, empty, 11 bytes, and `FF D8` only; `readImageHeader` for each format and WebP
+  variant, both sides of 16,384 pixels a side and 40,000,000 pixels, and truncated headers; the
+  image cache (one fetch for two users, revoke on last release, `Authorization` sent, failure
+  state); the rotation hook with fake timers (5,000 ms steps, wrap, restart after an arrow, pause
+  and resume, reduced motion, fewer than 2 images); the gallery (nothing for 0 images, no arrows for
+  1, accessible names, position text, alternative text, arrow hover pauses, image hover does not,
+  keyboard focus on an arrow pauses, pointer-caused focus does not, lazy loading with a stubbed
+  `IntersectionObserver`, card link); the viewer (opens on the image, Esc and close, arrows and
+  keys, focus moves in, Tab trapped, focus returned, no automatic change, the gallery shows the last
+  image viewed).
 - **Backend** (Jest, Supertest, Testcontainers): storage CHECKs and the unique constraint on real
   PostgreSQL; upload of each type with the contract check; detected type over the declared one; a
-  renamed text file `415`; exactly 5,242,880 bytes `201` and 5,242,881 `413`; 16,384 × 2,441
-  pixels `201` and 16,385 × 1 `400 IMAGE_DIMENSIONS_TOO_LARGE`; metadata removed from a JPEG with
-  Exif GPS, camera make, and XMP (orientation kept), a PNG with `eXIf` and text chunks, and a WebP
-  with `EXIF` and `XMP ` chunks (VP8X flags cleared, RIFF size right); missing, extra, and
+  renamed text file `415`; exactly 5,242,880 bytes `201` and 5,242,881 `413`; 16,384 × 2,441 pixels
+  `201` and 16,385 × 1 `400 IMAGE_DIMENSIONS_TOO_LARGE`; metadata removed from a JPEG with Exif GPS,
+  camera make, and XMP (orientation kept), a PNG with `eXIf` and text chunks, and a WebP with `EXIF`
+  and `XMP ` chunks (VP8X flags cleared, RIFF size right); data after a JPEG's `EOI`, after a PNG's
+  `IEND`, and past a WebP's `RIFF` length dropped; animated PNG and WebP `415`; missing, extra, and
   second parts `400`; unknown event `404`; cancelled `409`; sixth `409 IMAGE_LIMIT_REACHED`; bytes
-  read back byte for byte with `Content-Type`, `Cache-Control`, and `nosniff`; another event's
-  image `404`; delete closes the gap; reorder, stale reorder `409 IMAGES_CHANGED`, malformed `400`;
-  `images` in every event response in order and never `bytes`; event delete cascades;
-  authorization (missing, expired, wrongly signed, wrong audience, wrong role) on all four routes;
+  read back byte for byte with `Content-Type`, `Cache-Control`, and `nosniff`; another event's image
+  `404`; delete closes the gap; reorder, stale reorder `409 IMAGES_CHANGED`, malformed `400`;
+  `images` in every event response in order and never `bytes`; event delete cascades; authorization
+  (missing, expired, wrongly signed, wrong audience, wrong role) on all four routes;
   **concurrency**: 10 simultaneous uploads to an event with 3 images give exactly two `201`, eight
   `409`, and positions 1 to 5; a mix of simultaneous adds, deletes, and reorders gives no `5xx` and
-  contiguous positions; uploads during orders for the same event both succeed. Supertest sends
-  files with `.attach('file', buffer, { filename, contentType })`; small valid images are base64
-  constants in `backend/test/setup/images.ts`.
+  contiguous positions; uploads during orders for the same event both succeed. Supertest sends files
+  with `.attach('file', buffer, { filename, contentType })`; small valid images are base64 constants
+  in `backend/test/setup/images.ts`.
 - **Admin app**: the Images control on create and edit (requests, order of calls, multipart body,
   previews and refusals naming files, retry continues, `IMAGES_CHANGED` reload, the switch to the
   edit form after a refused image on create with no second `POST /events`, Cancel makes no call)
@@ -722,14 +737,23 @@ boundaries on both sides, concurrency with genuinely simultaneous requests. Fake
 in `backend/src/events/image-metadata.ts` runs after the type and size checks (R3) and before the
 transaction. It copies the file, leaving out metadata, and never touches the picture data:
 
-- **JPEG**: walks the segments from `SOI` to `SOS` and drops every `APP1` whose payload starts
-  with `Exif\0\0` or an XMP namespace (`http://ns.adobe.com/xap/1.0/\0`, and extended XMP
-  `http://ns.adobe.com/xmp/extension/\0`), and every `APP13` (`Photoshop 3.0`, which carries
-  IPTC captions and places). From `SOS` on, the bytes are copied unchanged.
-- **PNG**: drops the `eXIf`, `tEXt`, `iTXt`, and `zTXt` chunks; every other chunk is copied with
-  its own CRC.
-- **WebP**: drops the `EXIF` and `XMP ` chunks, clears the EXIF (`0x08`) and XMP (`0x04`) flags
-  in a `VP8X` header, and rewrites the `RIFF` size (chunks keep their even padding).
+- **JPEG**: walks the markers from `SOI`. Before each marker code, any run of `0xFF` fill bytes is
+  skipped. Standalone markers, which have no length (`RST0`–`RST7` `D0`–`D7`, `TEM` `01`), are
+  copied as two bytes; every other marker before `SOS` has a two-byte length and is copied or
+  dropped whole. It drops every `APP1` whose payload starts with `Exif\0\0` or an XMP namespace
+  (`http://ns.adobe.com/xap/1.0/\0`, and extended XMP `http://ns.adobe.com/xmp/extension/\0`),
+  every `APP2` starting `MPF\0` (multi-picture data, which points at secondary pictures), every
+  `APP13` (`Photoshop 3.0`, which carries IPTC captions and places), and every `COM` comment.
+  From `SOS` it copies the scan data, where a `0xFF` is always followed by `00` (byte stuffing),
+  `D0`–`D7` (restart markers), or a marker that ends the scan; it continues through any further
+  segments and scans of a progressive picture, and **stops after the first `EOI` (`FF D9`)**.
+  Anything after it, such as the secondary pictures that `MPF` describes or a motion photo's
+  video, each with its own Exif and GPS, is dropped.
+- **PNG**: drops the `eXIf`, `tEXt`, `iTXt`, `zTXt`, and `tIME` chunks; every other chunk is
+  copied with its own CRC; **stops after `IEND`**, dropping anything after it.
+- **WebP**: copies only the chunks within the `RIFF` length the header declares, dropping any
+  bytes past it; drops the `EXIF` and `XMP ` chunks, clears the EXIF (`0x08`) and XMP (`0x04`)
+  flags in a `VP8X` header, and rewrites the `RIFF` size (chunks keep their even padding).
 - **Orientation**: when a JPEG's Exif `IFD0` has an Orientation tag (`0x0112`) of 2 to 8, a new
   minimal Exif `APP1` with only that tag (a 32-byte payload: `Exif\0\0`, a big-endian TIFF
   header, one IFD entry, no next IFD) is written right after `SOI`, or after a `JFIF` `APP0`

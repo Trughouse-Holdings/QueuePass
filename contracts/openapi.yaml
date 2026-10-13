@@ -940,15 +940,17 @@ paths:
         whose header gives no size is treated as not a picture.
 
         Before storing, location, camera, and text metadata are removed: JPEG Exif and XMP `APP1`
-        segments (a JPEG's orientation is kept in a minimal Exif segment of its own), PNG `eXIf`,
-        `tEXt`, `iTXt`, and `zTXt` chunks, and WebP `EXIF` and `XMP ` chunks. The picture data is
-        not changed. `byteSize` is the stored size; the 5 MB limit applies to the file as sent.
+        segments, `APP2` `MPF` and `APP13` segments, and `COM` comments (a JPEG's orientation is
+        kept in a minimal Exif segment of its own); PNG `eXIf`, `tEXt`, `iTXt`, `zTXt`, and `tIME`
+        chunks; WebP `EXIF` and `XMP ` chunks; and anything after a JPEG's first `EOI`, after a
+        PNG's `IEND`, or past a WebP's declared `RIFF` length. The picture data is not changed. `byteSize` is the stored size; the 5 MB limit applies to the file as sent.
 
         Refused, in this order: `401` and `403` (before the body is read); a file over 5 MB,
         5,242,880 bytes (`413 IMAGE_TOO_LARGE`, while the body is read); a body without exactly
         one `file` part, or with other parts (`400 VALIDATION_FAILED`); a malformed event id
-        (`400 VALIDATION_FAILED`); a file that is not a JPEG, PNG, or WebP, or whose size in pixels
-        cannot be read (`415 IMAGE_TYPE_NOT_ALLOWED`); a picture wider or taller than 16,384
+        (`400 VALIDATION_FAILED`); a file that is not a JPEG, PNG, or WebP, an animated PNG or WebP,
+        or one whose size in pixels cannot be read or whose segments or chunks run past the end of
+        the file (`415 IMAGE_TYPE_NOT_ALLOWED`); a picture wider or taller than 16,384
         pixels or of more than 40,000,000 pixels (`400 IMAGE_DIMENSIONS_TOO_LARGE`, with
         `details.width`, `details.height`, `details.maxSide`, `details.maxPixels`); an unknown
         event (`404`); a cancelled event (`409 EVENT_CANCELLED`); and an event that already has 5
@@ -1038,11 +1040,12 @@ paths:
         Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
         `info` description.
 
-        The picture's bytes as stored (as uploaded, with its metadata removed), with `Content-Type` set to its detected type. Like
-        every operation except `getHealth`, it needs a bearer token, so a browser cannot load it
-        with a plain `<img src>`: the apps fetch it with the token and show it from a local object
-        URL. An image's content never changes, so the response carries `Cache-Control: private,
-        max-age=31536000, immutable`, and `X-Content-Type-Options: nosniff`.
+        The picture's bytes as stored (as uploaded, with its metadata removed), with
+        `Content-Type` set to its detected type. Like every operation except `getHealth`, it needs a
+        bearer token, so a browser cannot load it with a plain `<img src>`: the apps fetch it with the
+        token and show it from a local object URL. An image's content never changes, so the response
+        carries `Cache-Control: private, max-age=31536000, immutable`, and
+        `X-Content-Type-Options: nosniff`.
       operationId: getEventImage
       x-required-roles: []
       x-planned: '014'
@@ -2073,8 +2076,9 @@ components:
 
     ImageTypeNotAllowed:
       description: |
-        Feature 014. The file's content is not a JPEG, PNG, or WebP picture, whatever its name or
-        declared type. Nothing was stored.
+        Feature 014. The file's content is not a still JPEG, PNG, or WebP picture, whatever its name
+        or declared type: another format, an animated PNG or WebP, or a file whose header cannot be
+        read or whose segments or chunks run past the end of the file. Nothing was stored.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
