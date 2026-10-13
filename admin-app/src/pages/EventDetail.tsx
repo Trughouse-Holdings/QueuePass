@@ -45,7 +45,11 @@ export function EventDetail(): React.ReactElement {
 
   if (load.kind === 'loading') return <p className="loading">Loading event…</p>;
   if (load.kind === 'unreachable')
-    return <p role="alert">Can&apos;t reach the QueuePass service.</p>;
+    return (
+      <p role="alert" className="banner banner--error">
+        Can&apos;t reach the QueuePass service.
+      </p>
+    );
   if (load.kind === 'missing') {
     return (
       <section>
@@ -90,7 +94,7 @@ function EventView({
       <div className="page-head">
         <div>
           <h1 className="page-title">
-            {event.name} {cancelled && <span className="pill">Cancelled</span>}
+            {event.name} {cancelled && <span className="pill pill--danger">Cancelled</span>}
           </h1>
         </div>
         <div className="form__actions">

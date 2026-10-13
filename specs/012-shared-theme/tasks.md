@@ -34,8 +34,11 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `012-shared-theme-impl` from an up-to-date `main`, run `npm install` and `npm test`
+- [x] T001 Cut `012-shared-theme-impl` from an up-to-date `main`, run `npm install` and `npm test`
   from the repository root, and record the pass counts per workspace in this line (baseline).
+  Baseline at b58ff2e: boundary and contract checks pass; shared 22, backend 275 (41 suites),
+  admin-app 106, customer-app 144, booth-app 3, seed 3 (Keycloak-dependent cases skip when the
+  stack is down); all passing.
 
 ---
 
@@ -47,7 +50,7 @@ already picks up the theme's focus outline and 44-pixel targets, which it did no
 
 ### Tests (write first, confirm they fail)
 
-- [ ] T002 [P] Create `packages/shared/test/theme/load.test.ts` (research R10): read files relative
+- [x] T002 [P] Create `packages/shared/test/theme/load.test.ts` (research R10): read files relative
   to `process.cwd()` (`packages/shared`) and assert
   - `package.json` `exports["./theme.css"]` is `"./src/web/theme.css"`, and that file exists;
   - `../../admin-app/vite.config.ts`, `../../admin-app/vitest.config.ts`,
@@ -56,7 +59,7 @@ already picks up the theme's focus outline and 44-pixel targets, which it did no
   - `../../admin-app/src/main.tsx` and `../../customer-app/src/main.tsx` each import
     `'@queuepass/shared/theme.css'`, and that import comes before `import './styles.css'`;
   - `../../booth-app/src/main.tsx` does not import it (FR-015).
-- [ ] T003 [P] Create `packages/shared/test/theme/tokens.test.ts` (research R3, R5, R10) over
+- [x] T003 [P] Create `packages/shared/test/theme/tokens.test.ts` (research R3, R5, R10) over
   `src/web/theme.css`:
   - the light block (`:root { ... }`) defines every token in data-model.md, with those values;
   - every color token in the light block is also redefined in the dark block
@@ -69,7 +72,7 @@ already picks up the theme's focus outline and 44-pixel targets, which it did no
     cards (`.card + .card`), and `.page-head .form__actions`;
   - the file contains no `data-theme`;
   - no rule sets `color: var(--text-faint)`.
-- [ ] T004 [P] Move `customer-app/test/contrast.test.ts` to
+- [x] T004 [P] Move `customer-app/test/contrast.test.ts` to
   `packages/shared/test/theme/contrast.test.ts` with `git mv`, read `src/web/theme.css` instead,
   and add the pairs in research R7 (`--accent` on `--accent-soft`; `--danger` on `--danger-bg`;
   `--warn` on `--warn-bg`; `--ok` on `--ok-bg` at 4.5:1; `--text-muted` on `--surface-alt` at
@@ -78,7 +81,7 @@ already picks up the theme's focus outline and 44-pixel targets, which it did no
 
 ### Implementation
 
-- [ ] T005 Create `packages/shared/src/web/theme.css`, starting with a header comment citing spec
+- [x] T005 Create `packages/shared/src/web/theme.css`, starting with a header comment citing spec
   012 and Constitution VII ("one fixed set; apps use these values, never redefine them"):
   - the light and dark token blocks exactly as in data-model.md (Customer values for
     `--border-strong`; the new `--font`, `--space-*`, `--radius-pill`, `--brand-mark-end`,
@@ -92,15 +95,15 @@ already picks up the theme's focus outline and 44-pixel targets, which it did no
     `var(--brand-mark-text)`; `.pill` uses `var(--radius-pill)`;
   - the `008` "shared detail layout" block without its `>>>`/`<<<` markers.
   Run `npx prettier --write` on it.
-- [ ] T006 Add `"./theme.css": "./src/web/theme.css"` to `exports` in
+- [x] T006 Add `"./theme.css": "./src/web/theme.css"` to `exports` in
   `packages/shared/package.json`.
-- [ ] T007 [P] Add `{ find: /^@queuepass\/shared\/theme\.css$/, replacement:
+- [x] T007 [P] Add `{ find: /^@queuepass\/shared\/theme\.css$/, replacement:
   shared('web/theme.css') }` to the `alias` list in `admin-app/vite.config.ts`,
   `admin-app/vitest.config.ts`, `customer-app/vite.config.ts`, and `customer-app/vitest.config.ts`.
-- [ ] T008 [P] In `admin-app/src/main.tsx` and `customer-app/src/main.tsx`, add
+- [x] T008 [P] In `admin-app/src/main.tsx` and `customer-app/src/main.tsx`, add
   `import '@queuepass/shared/theme.css';` directly above `import './styles.css';`, with a comment
   citing spec 012 and Constitution VII. Update the Customer app's existing "Spec 008" comment.
-- [ ] T009 Run T002–T004 until they pass, then `npm test`. Every existing test still passes.
+- [x] T009 Run T002–T004 until they pass, then `npm test`. Every existing test still passes.
 
 **Checkpoint**: both apps load one theme; nothing has been removed from the apps yet.
 
@@ -116,7 +119,7 @@ values, and the app scan fails today.
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T010 [US2] Create `packages/shared/test/theme/drift.test.ts` with:
+- [x] T010 [US2] Create `packages/shared/test/theme/drift.test.ts` with:
   - **Self-tests** (FR-006, SC-005), each feeding a small string to the checker and asserting the
     exact rule, line, and declaration reported: C1 `--accent: #000;`; C2 each of `#abc`,
     `#a1b2c3`, `rgb(0 0 0)`, `rgba(0,0,0,.5)`, `hsl(0 0% 0%)`, `oklch(0.5 0.1 200)`, `red`, and a
@@ -144,7 +147,7 @@ values, and the app scan fails today.
 
 ### Implementation for User Story 2
 
-- [ ] T011 [US2] Create `packages/shared/test/theme/check-theme.ts` exporting
+- [x] T011 [US2] Create `packages/shared/test/theme/check-theme.ts` exporting
   `cssViolations(path: string, css: string): Violation[]` and
   `inlineStyleViolations(path: string, tsx: string): Violation[]`, where `Violation` is
   `{ path, line, rule, text }`, implementing research R6: strip comments keeping line numbers
@@ -170,7 +173,7 @@ screens, using theme values; the scan passes.
 
 ### Tests for User Story 1
 
-- [ ] T012 [US1] The failing scan from T010 is this story's test. Delete
+- [x] T012 [US1] The failing scan from T010 is this story's test. Delete
   `customer-app/test/shared-look.test.ts` only after confirming its eight rule-presence
   assertions are in `packages/shared/test/theme/tokens.test.ts` (T003) and pass there; its
   "identical in both apps" assertion is replaced by the block existing once, in the theme
@@ -178,18 +181,18 @@ screens, using theme values; the scan passes.
 
 ### Implementation for User Story 1
 
-- [ ] T013 [P] [US1] Cut `admin-app/src/styles.css` to the "Stays in admin-app" rules in research
+- [x] T013 [P] [US1] Cut `admin-app/src/styles.css` to the "Stays in admin-app" rules in research
   R2, with a header comment: "Admin-only screens. Colors, typefaces, radii, shadows, and spacing
   come from @queuepass/shared/theme.css (spec 012)." Then apply research R4 and R9:
   `.stat__note`, `.card__sub`, and `.row--muted td` use `--text-muted`; `.meter` and
   `.meter__fill` use `var(--radius-pill)`; every padding, margin, and gap uses the nearest
   `var(--space-N)` (ties up; `-8px` → `calc(-1 * var(--space-2))`).
-- [ ] T014 [P] [US1] Cut `customer-app/src/styles.css` to the "Stays in customer-app" rules in
+- [x] T014 [P] [US1] Cut `customer-app/src/styles.css` to the "Stays in customer-app" rules in
   research R2, with the same kind of header comment, replacing the "copied from" header. Apply
   research R9 to every padding, margin, and gap, including the three seat values
   (`.seat-scroll` padding `6px 2px` → `var(--space-2) var(--space-1)`; `.seat-row` gap and margin
   `4px` → `var(--space-1)`). Change nothing else in the seat rules (research R11).
-- [ ] T015 [US1] Run `drift.test.ts` until the scan passes, then `npm test`. Every existing Admin
+- [x] T015 [US1] Run `drift.test.ts` until the scan passes, then `npm test`. Every existing Admin
   and Customer test still passes unchanged.
 
 **Checkpoint**: one theme, no copies, no drift; screens look as before except FR-012.
@@ -205,10 +208,10 @@ unchanged.
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T016 [P] [US3] Create `packages/shared/test/web/service-unreachable.test.tsx`: renders one
+- [x] T016 [P] [US3] Create `packages/shared/test/web/service-unreachable.test.tsx`: renders one
   element with role `alert`, text "Can't reach the QueuePass service.", and classes `banner` and
   `banner--error`.
-- [ ] T017 [P] [US3] Create `customer-app/test/theme-classes.test.tsx` with `stubApi` and the
+- [x] T017 [P] [US3] Create `customer-app/test/theme-classes.test.tsx` with `stubApi` and the
   helpers in `customer-app/test/helpers.tsx`:
   - on an event page, the Get tickets confirm button has `btn` and `btn--primary`;
   - the Events page's Clear filters button (with filters matching nothing) has `btn` and
@@ -225,7 +228,7 @@ unchanged.
     status line found on `main` per T022;
   - with the API unreachable, the Events page shows "Can't reach the QueuePass service." with
     classes `banner banner--error`.
-- [ ] T018 [P] [US3] Create `admin-app/test/theme-classes.test.tsx` with `stubApi` from
+- [x] T018 [P] [US3] Create `admin-app/test/theme-classes.test.tsx` with `stubApi` from
   `admin-app/test/helpers/api-stub.ts`: with the API failing, the event, venue, attendees, and
   reports pages each show "Can't reach the QueuePass service." with role `alert` and classes
   `banner banner--error`; the New event form's save button has `btn btn--primary` and its
@@ -233,24 +236,40 @@ unchanged.
 
 ### Implementation for User Story 3
 
-- [ ] T019 [P] [US3] In `packages/shared/src/web/service-unreachable.tsx`, add
+- [x] T019 [P] [US3] In `packages/shared/src/web/service-unreachable.tsx`, add
   `className="banner banner--error"` to the paragraph (research R8).
-- [ ] T020 [P] [US3] In `admin-app/src/pages/Attendees.tsx`, `EventDetail.tsx`,
+- [x] T020 [P] [US3] In `admin-app/src/pages/Attendees.tsx`, `EventDetail.tsx`,
   `LocationDetail.tsx`, and `Reports.tsx`, add `className="banner banner--error"` to each
   "Can't reach the QueuePass service." paragraph.
-- [ ] T021 [P] [US3] In `customer-app/src/components/GetTickets.tsx`, add
+- [x] T021 [P] [US3] In `customer-app/src/components/GetTickets.tsx`, add
   `className="banner banner--error"` to the `notice` paragraph and
   `className="banner banner--conflict"` to the couldn't-confirm `div`, and wrap that `div`'s two
   paragraphs and Check again button in `<div className="banner__body">` (research R8). Text,
   role, and the Check again control stay as they are.
-- [ ] T022 [US3] Status lines from other features (research R8, R11; spec FR-010): search
+- [x] T022 [US3] Status lines from other features (research R8, R11; spec FR-010): search
   `admin-app/src` and `customer-app/src` for every element with `role="alert"` or
   `role="status"`, and every status sentence added since this plan (on `main` today, `016`'s
   lines in `GetTickets.tsx`: the limit line and "No more seats can be chosen" get
   `className="note"`; "You have reached the limit" gets `className="banner banner--conflict"`).
   Give each the fitting theme class, list them in the PR description, and extend T017 or T018
   first for any not already covered.
-- [ ] T023 [US3] Run T016–T018 until they pass, then the shared, Admin, Customer, and Booth suites
+  Result: `016` was not on `main` at b58ff2e (no `customerLimit`). It merged first (#32), so 012
+  merged `main` in and classed its lines (research R11): in `GetTickets.tsx` the limit line and
+  "No more seats can be chosen" get `note`, and "You have reached the limit" gets `banner
+  banner--conflict` (a single `<p>`, like the Admin `EventList` banner), text unchanged; tested
+  first in `customer-app/test/theme-classes.test.tsx`. 016's Admin lines need no class: the limit
+  is a label/value on the event page, and its form refusals already use `ErrorBanner`.
+  Classed: `ServiceUnreachable` and the Admin Attendees, EventDetail, LocationDetail, and Reports
+  "Can't reach" paragraphs (`banner banner--error`); the Get tickets refusal (`banner
+  banner--error`) and couldn't-confirm block (`banner banner--conflict`, with `banner__body`).
+  Every other `role="alert"`/`role="status"` element already had a theme banner class; the Admin
+  `Notice.tsx` (`role="status"`) keeps the existing bare `.banner`. Review round 1: the Get
+  tickets "Ticket information is unavailable right now." line (no role) also gets `banner
+  banner--error` (spec FR-010, FR-012), tested in `customer-app/test/theme-classes.test.tsx`.
+  Running-system gate: the Admin Events list and event page Cancelled badge gets `pill
+  pill--danger`, as on Reports and in the Customer app (US3-4; spec FR-012), tested in
+  `admin-app/test/theme-classes.test.tsx`.
+- [x] T023 [US3] Run T016–T018 until they pass, then the shared, Admin, Customer, and Booth suites
   (the Booth app renders `ServiceUnreachable` too; its tests must still pass).
 
 **Checkpoint**: status messages match in both apps.
@@ -263,12 +282,12 @@ unchanged.
 
 **Independent Test**: quickstart S6.
 
-- [ ] T024 [US4] Confirm by test, not by hand: `load.test.ts` (both apps resolve the same file)
+- [x] T024 [US4] Confirm by test, not by hand: `load.test.ts` (both apps resolve the same file)
   and the C1 rule in `drift.test.ts` (no app defines `--accent` or any token) together guarantee
   SC-003. Add one assertion to `load.test.ts` that `--accent` is defined only in
   `packages/shared/src/web/theme.css` among all `*.css` files under `admin-app/src`,
   `customer-app/src`, `booth-app/src`, and `packages/shared/src`.
-- [ ] T025 [US4] Update `README.md`: add the `012` row to the Status table, and one short
+- [x] T025 [US4] Update `README.md`: add the `012` row to the Status table, and one short
   paragraph under the front-end section: the look lives in `packages/shared/src/web/theme.css`;
   apps add only their own screens' rules, using theme values; `npm test` fails on drift; a theme
   change needs every member's approval.
@@ -277,18 +296,70 @@ unchanged.
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T026 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
+- [x] T026 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
   everything passes.
-- [ ] T027 Coverage: no workspace has a Vitest coverage provider, and this feature adds no
+- [x] T027 Coverage: no workspace has a Vitest coverage provider, and this feature adds no
   dependency, so front-end coverage reporting waits on `010`; the Backend is not touched. Say so
   in the PR description. The 80% floor is not yet blocking (Constitution VI deferral until `010`
   and `011`).
-- [ ] T028 Running-system gate: `docker compose up --build`, then walk quickstart.md S1–S6 in the
+- [x] T028 Running-system gate: `docker compose up --build`, then walk quickstart.md S1–S6 in the
   browser, including light, dark, and 375 pixels wide, and sign in, use, and sign out of each front
-  end. Record the results, and the S2 tables, in this file.
-- [ ] T029 Independent review (Constitution III): a separate Claude session reviews the branch
+  end. Record the results, and the S2 tables, in this file. Also check the spacing of the Check
+  again button inside the Customer couldn't-confirm warning banner (review round 1, item 9).
+
+  **Results:**
+  - `docker compose up --build`: all 6 services healthy; demo data present.
+  - S1/S3 (light and dark): Admin and Customer Events, event pages, venue lists, and forms
+    compared; same accent (`#8b85f5` dark), typeface, 7px radius, field border
+    rgb(111,120,135) dark, and 44px fields, buttons, and nav links in both.
+  - S2 (dark), Admin New event: primary bg rgb(139,133,245), text rgb(15,17,21), radius 7px,
+    height 44; field bg rgb(23,26,33), border rgb(111,120,135), radius 7px, height 44. Customer
+    Events page field identical. Banner (Backend stopped), identical in both apps: bg
+    rgb(42,21,19), border rgb(122,39,26), text rgb(253,162,155), radius 10px.
+  - S4.1: Backend stopped, "Can't reach the QueuePass service." is the same red banner in both
+    apps; restarted fine. S4.3: the Admin Cancelled badge was a plain `pill` (purple) against the
+    Customer `pill--danger`; fixed in fbdc7bc and rechecked: Admin now rgb(180,35,24) on
+    rgb(254,243,242) with its border (light), matching the Customer app. S4.2 and the
+    couldn't-confirm banner are covered by component tests, not triggered live; the Check again
+    gap (review round 1, item 9) is restored by `.banner__body > .btn` in the theme.
+  - S5 (375px): Customer Events, a seated event with its seat picker, and My tickets: no sideways
+    scroll; seat picker as before. Admin event page: the action row (Attendees, Edit, Cancel
+    event, Delete) overflows by 15px, the same on `main` (nowrap row, unchanged button padding),
+    so no worse than today; follow-up.
+  - S5b at 1280px: Reports, Ticket tiers with the inline edit row (Save, Cancel), the Events
+    search form, and the New event form: no overlap or clipping. The Events search form's Search
+    button sits 13px lower than Clear, from the pre-existing
+    `.form__actions > :first-child { margin-top: 13px }` rule, copied unchanged from `main`.
+  - S6: covered by `load.test.ts` and `tokens.test.ts` (T024) and a manual drift check (a hex
+    color in `customer-app/src/styles.css` failed, naming file and line; reverted). The accent
+    rebuild was not repeated live.
+  - Smoke: signed in, used, and signed out of Admin (admin1), Customer (customer1), and Booth
+    (agent1); the Booth app looks as before (browser defaults).
+  - Follow-up noticed: the shared `wrong-role.tsx` ("Your account can't use this app") is
+    unstyled (pre-existing).
+  - Change after the gate, requested by Mahdi: buttons in a `.form__actions` row now line up. The
+    theme's `.form__actions > :first-child { margin-top: 13px }` (copied from the old Admin
+    stylesheet; it put the first button about 13px lower, e.g. Search vs Clear, Create venue vs
+    Cancel) and its `.page-head` override are removed; the row's own `padding-top` becomes
+    `var(--space-5)` (was 16px), so the gap between the row's divider and its buttons is 20px (was
+    29px for the first button and about 22px for the others; single-button rows such as Add tier
+    and the seating save row lose 9px). `tokens.test.ts` checks no rule offsets one child of the
+    row; spec FR-012 lists the change.
+  - Review round 4 (cecc16e): minor only. Open: the alignment guard reads `theme.css` only, and
+    only `>`/`+`/`~`/`:` selectors with a margin; acceptable, since app stylesheets are covered
+    by the drift checker's spacing steps. Live check on a stack built from cecc16e: Admin Events
+    search "Search" and "Clear" both at top 422; venue form "Create venue" and "Cancel" both at
+    top 1131.
+- [x] T029 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
+
+  **Results:** 3 rounds. Round 1: 4 should-fix (the checker missed nested rules; the inline rule
+  was narrower than FR-005; property-family gaps; the unclassed Get tickets "unavailable" line)
+  and 7 minor, all fixed in 17d28f0. Round 2: 2 should-fix (a quote-blind paren count; a
+  regression on non-literal inline values) and 3 minor, fixed in 654480f. Round 3: minor only;
+  one left open by design: a ternary between two theme tokens in an inline style is rejected
+  (deliberately strict; use a class instead, as commented in `check-theme.ts`).
 - [ ] T030 Open the implementation PR against `main` with `fixes #24` in its description, noting
   that it changes `packages/shared/` and needs every team member's approval, and listing the
   visible changes from spec FR-012, with a request for the teammate's explicit sign-off of the

@@ -233,7 +233,9 @@ export function EventList(): React.ReactElement {
                       <Link to={`/events/${e.id}`} className="rowlink">
                         {e.name}
                       </Link>{' '}
-                      {e.status === 'CANCELLED' && <span className="pill">Cancelled</span>}
+                      {e.status === 'CANCELLED' && (
+                        <span className="pill pill--danger">Cancelled</span>
+                      )}
                     </td>
                     <td>
                       <span className="pill">{e.location.name}</span>
