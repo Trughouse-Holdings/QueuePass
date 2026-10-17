@@ -119,7 +119,7 @@ test helpers every story uses.
   data-model.md. Apply with `prisma migrate deploy`, and confirm `prisma migrate diff
   --from-migrations backend/prisma/migrations --to-schema-datamodel backend/prisma/schema.prisma
   --shadow-database-url …` reports no difference (research R2). Run T006 until it passes.
-- [ ] T008 [P] Create `backend/test/setup/images.ts`: base64 constants for a small valid JPEG, PNG,
+- [x] T008 [P] Create `backend/test/setup/images.ts`: base64 constants for a small valid JPEG, PNG,
   and WebP (the WebP may be the 1-pixel one in quickstart.md), `padded(signature, totalBytes)` for
   size boundaries, and `upload(ctx, eventId, bytes, { filename, contentType, token })` using
   Supertest's `.attach('file', …)` through the contract-checking client.
