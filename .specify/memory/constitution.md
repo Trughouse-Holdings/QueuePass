@@ -77,6 +77,16 @@ Every branch is reviewed by a second Claude session before its pull request is o
 - **Teammate review.** Teammates review each other's pull requests promptly. Because the author
   has already run the independent review, the teammate checks that the work makes sense and
   follows this constitution, not every line again.
+- **Commit citations.** Every commit message cites the spec it belongs to and, for
+  implementation work, the task IDs it carries out, so a later review session can trace each
+  commit to its requirements without the author's context. The subject line starts with the
+  kind of work and the spec number and ends with the task IDs, when there are any, and the issue:
+  `Impl 015: reserve path and its refusals (T017–T019, #27)`. Spec, clarify, plan, tasks and review
+  commits use `Spec`, `Clarify`, `Plan`, `Tasks` or `Review` in place of `Impl`, and cite the
+  issue: `Review 015: address PR #38 review (#27)`. A commit outside any feature, such as a
+  constitution amendment, says so in place of the spec number: `Constitution: …`. The body
+  names any spec requirement (`FR-…`) or research decision (`R…`) the change rests on. The
+  repository's `.gitmessage` is the template.
 
 Nothing is committed directly to `main`, and `main` MUST be demo-ready at all times: only
 reviewed, finished work is merged, and at any moment `main` MUST start with
@@ -301,7 +311,8 @@ and the root `package.json`) needs approval from every team member in its pull r
    that changes any of them.
 7. **Review gate.** Reviews explicitly check API-only client access, contract conformance,
    Backend- and database-enforced rules, server-side token and role checks, test-first evidence,
-   coverage, use of the shared theme, and feature-appropriate scope. Any deviation MUST be
+   coverage, use of the shared theme, feature-appropriate scope, and commit citations
+   (Principle III). Any deviation MUST be
    justified in the PR description, or the PR is rejected.
 8. **Issue gate.** Every feature has a GitHub issue before its spec is written, and its
    implementation PR closes that issue with `fixes #N`.
@@ -327,4 +338,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.0.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-11
+**Version**: 3.1.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-16
