@@ -1,0 +1,8 @@
+# <Kind> <spec>: <what changed> (<task IDs>, #<issue>)
+#
+# Kind: Spec | Clarify | Plan | Tasks | Impl | Review   (Constitution III, "Commit citations")
+# Example: Impl 015: reserve path and its refusals (T017–T019, #27)
+# Outside any feature: Constitution: … / Fix: … (#<issue>)
+#
+# Body: why, and the requirements or decisions it rests on (FR-…, R…).
+# Use it once per clone: git config commit.template .gitmessage
