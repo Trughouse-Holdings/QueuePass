@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.8.0
+  version: 1.9.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -32,6 +32,12 @@ info:
     Backend does not serve it yet (`404`). The implementation removes the marker in the change
     that serves the route. A test fails if a marked operation is served, or an unmarked one is not.
 
+    **Live streams**: `streamSeatMap` answers with `text/event-stream` (Server-Sent Events). It is
+    a plain HTTP `GET`. Each event's `data` is one JSON document, and `x-sse-events` on the
+    operation maps each event name to its schema, so clients and tests take the payload types from
+    this document. Send only the `Authorization` and `Accept` headers (the CORS policy allows
+    `authorization` and `content-type`); the stream ends when the token expires.
+
 servers:
   - url: http://localhost:3000
     description: Local docker compose
@@ -58,7 +64,9 @@ tags:
   - name: reports
     description: Sales reporting for admins (feature 005)
   - name: seating
-    description: Venue seating layouts, reserved seating per event, and seat maps (feature 007)
+    description: |
+      Venue seating layouts, reserved seating per event, and seat maps (feature 007); seat
+      reservations and live seat-map updates (feature 015)
   - name: images
     description: Up to 5 images per event, shown to customers as a gallery (feature 014)
 
@@ -120,6 +128,48 @@ paths:
               schema:
                 type: array
                 items: { $ref: '#/components/schemas/MyOrder' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /me/reservations:
+    get:
+      tags: [seating]
+      summary: My active seat reservations
+      description: |
+        The signed-in customer's active reservations, for every event, newest first (feature 015).
+        A reservation is active from when it is made until it is bought, released, or ended, or its
+        5 minutes run out (`expiresAt`, exclusive). The customer is the token's subject.
+      operationId: listMyReservations
+      x-required-roles: [customer]
+      x-planned: '015'
+      responses:
+        '200':
+          description: The caller's active reservations; empty when there are none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Reservation' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /me/reservations/release:
+    post:
+      tags: [seating]
+      summary: Release all my seat reservations
+      description: |
+        Releases every active reservation of the signed-in customer, for every event (feature
+        015). The Customer app calls it when the customer logs out. Each released seat is open to
+        others at once, and this customer can't reserve it again for 2 minutes. Safe to repeat.
+      operationId: releaseAllMyReservations
+      x-required-roles: [customer]
+      x-planned: '015'
+      responses:
+        '200':
+          description: How many seats were released; 0 when there was nothing to release.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReleasedSeats' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
@@ -400,6 +450,8 @@ paths:
         Feature 016: also refused when the total is below the `maxTicketsPerCustomer` of a
         scheduled event at the venue with reserved seating (`409 CAPACITY_EXCEEDED`, naming it);
         lower its limit first.
+
+        Feature 015: saving ends every active reservation at the venue's events.
       operationId: replaceLayout
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -575,7 +627,8 @@ paths:
         event occupied becomes available for scheduling again immediately. The event's ticket
         tiers are deleted with it. An event with orders cannot be deleted (`409
         EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records. Feature 014:
-        the event's images are deleted with it.
+        the event's images are deleted with it. Feature 015: its seat reservations are deleted
+        with it, and every open `streamSeatMap` stream for it ends.
       operationId: deleteEvent
       x-required-roles: [queuepass-admin]
       responses:
@@ -624,6 +677,10 @@ paths:
         Feature 007: for an event with reserved seating, `quantity` must be omitted (`400`
         otherwise): the tier's quantity is the seats in its mapped sections, 0 until mapped. For
         any other event it is required (`400`).
+
+        Feature 015: adding the first tier to an event with reserved seating ends its active
+        reservations, which were made without a tier and could no longer be bought; their seats
+        become open at once.
       operationId: createTicketTier
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -687,7 +744,8 @@ paths:
       description: |
         Permanent. Clients MUST ask the user to confirm first. A tier with orders cannot be
         removed (`409 TIER_HAS_ORDERS`); a cancelled event's tiers cannot change (`409
-        EVENT_CANCELLED`).
+        EVENT_CANCELLED`). Feature 015: the tier's seat reservations are deleted with it, and
+        their seats become open at once.
       operationId: deleteTicketTier
       x-required-roles: [queuepass-admin]
       responses:
@@ -744,6 +802,10 @@ paths:
         Whether the event has reserved seating and, for each section of its venue's layout, its
         size, its tier for this event, and which seats are taken by valid tickets (feature 007).
         It never says who holds a seat. `sections` is empty when the venue has no layout.
+
+        Feature 015: each section's `reserved` lists the seats in active reservations. It is the
+        same for every caller and never says whose; a customer's own are in
+        `listMyReservations`. `streamSeatMap` sends this map and then every change, live.
       operationId: getSeatMap
       x-required-roles: []
       responses:
@@ -752,6 +814,50 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SeatMap' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /events/{id}/seats/stream:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+    get:
+      tags: [seating]
+      summary: Live updates of the event's seat map
+      description: |
+        A Server-Sent Events stream of the event's seat map (feature 015). It begins with
+        `event: snapshot`, whose `data` is the `SeatMap`, as from `getSeatMap`. After that, each
+        `event: seats` carries a `SeatMapChange`: seats that became open, reserved, or sold, sent
+        within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15 seconds. No
+        event ever names a customer. A client that loses the stream reconnects and gets a fresh
+        snapshot. The stream ends when the access token expires; reconnect at once with a current
+        one. It also ends when the event is deleted; a reconnect then gets `404`.
+      operationId: streamSeatMap
+      x-required-roles: []
+      x-planned: '015'
+      x-sse-events:
+        snapshot: { $ref: '#/components/schemas/SeatMap' }
+        seats: { $ref: '#/components/schemas/SeatMapChange' }
+        ping: { type: object, maxProperties: 0 }
+      responses:
+        '200':
+          description: |
+            The event stream. `data` is a `SeatMap` for `snapshot` and a `SeatMapChange` for
+            `seats`.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                example: |
+                  event: snapshot
+                  data: {"eventId":"7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40","reservedSeating":true,"sections":[]}
+
+                  event: seats
+                  data: {"eventId":"7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40","changes":[{"sectionId":"5b0d3c1e-8f2a-4c6b-9d1e-2a3b4c5d6e7f","row":1,"seat":3,"state":"reserved"}]}
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -775,6 +881,9 @@ paths:
         cancelled event cannot change (`409 EVENT_CANCELLED`). With reserved seating on, the event's
         `totalTicketCapacity` becomes its venue's layout total and each tier's `quantity` becomes
         the seats in the sections mapped to it (0 with none); turning it off keeps those numbers.
+
+        Feature 015: turning reserved seating off ends every active reservation for the event, and
+        moving a section to another tier ends the reservations' seats in that section.
       operationId: updateSeating
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -793,6 +902,100 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+
+  /events/{id}/reservation:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+    post:
+      tags: [seating]
+      summary: Reserve seats
+      description: |
+        Reserves seats for the signed-in customer for 5 minutes (feature 015). With no active
+        reservation for the event, it makes one (`201`) that ends at `expiresAt`, 5 minutes later;
+        with one, it adds the seats to it (`200`) without changing `expiresAt`. All or nothing:
+        any refusal reserves no seat.
+
+        Each seat follows the rules of `createOrder`'s seats: inside the venue's layout, in a
+        section for sale and, for an event with tiers, all of one tier (`400`), and not repeated
+        (`400`). Added seats must be of the active reservation's tier and not already in it
+        (`400`). A reservation holds at most 10 seats (`400`), and no more than the customer may
+        still get under the event's `maxTicketsPerCustomer`, counting valid tickets only
+        (`409 TICKET_LIMIT_REACHED`; `details.requested` is the seats the reservation would then
+        hold).
+
+        Refused when the event has no reserved seating (`400`), is cancelled (`409
+        EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or
+        in another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
+        `details.reserved` listing the reserved ones); and for seats of this customer's own
+        reservation that ended unbought less than 2 minutes ago (`409 SEAT_COOLDOWN`,
+        `details.seats`, `details.availableAt`). No seat is ever in two active reservations, or in
+        one and on a valid ticket, including under concurrent requests.
+
+        There is no `tierId` in the request: the reservation's tier is the tier of the sections its
+        seats are in (`null` for an event without tiers), and is returned as `tierId`.
+      operationId: reserveSeats
+      x-required-roles: [customer]
+      x-planned: '015'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReservationInput' }
+      responses:
+        '200':
+          description: The seats were added to the caller's active reservation.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reservation' }
+        '201':
+          description: A new reservation, ending 5 minutes from now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Reservation' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /events/{id}/reservation/release:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event.
+    post:
+      tags: [seating]
+      summary: Release reserved seats
+      description: |
+        Releases seats from the signed-in customer's active reservation for the event (feature
+        015): the listed `seats`, or all of them when `seats` is omitted. Released seats are open
+        to others at once, and this customer can't reserve them again for 2 minutes. The rest
+        keep their `expiresAt`. A seat not in the reservation is `400`. With no active reservation,
+        nothing happens and `reservation` is `null`, so a repeat is harmless.
+      operationId: releaseSeats
+      x-required-roles: [customer]
+      x-planned: '015'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReservationRelease' }
+      responses:
+        '200':
+          description: What is left of the reservation; `null` once no seat is left.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReservationReleaseResult' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
 
   /events/{id}/orders:
     parameters:
@@ -837,6 +1040,15 @@ paths:
         refusal always names the smaller number. A customer never holds more than the limit,
         including under concurrent requests. A repeated `requestId` is returned as before and
         counts once.
+
+        Feature 015: for an event with reserved seating, every seat must be in the caller's
+        active reservation for the event (`reserveSeats`). A seat with a valid ticket or in another
+        customer's reservation is `409 SEAT_TAKEN` (with `details.reserved`); any other seat is
+        `409 RESERVATION_REQUIRED` (`details.seats`; `details.expired` is `true` when the
+        caller's reservation ran out). Bought seats leave the reservation; seats not bought stay
+        reserved until it ends. A repeated `requestId` is returned before this check. An order whose
+        `tierId` is not the reservation's tier is `400`, since its seats are not in that tier's
+        sections.
       operationId: createOrder
       x-required-roles: [customer]
       requestBody:
@@ -903,7 +1115,9 @@ paths:
         Irreversible: clients MUST ask the user to confirm first. In one all-or-nothing step,
         voids every valid ticket, marks every confirmed order refunded (simulated), and marks the
         event cancelled. A cancelled event no longer blocks its venue's time, and refuses edits,
-        tier changes, orders, and a second cancellation (`409 EVENT_CANCELLED`).
+        tier changes, orders, and a second cancellation (`409 EVENT_CANCELLED`). Feature 015:
+        every active seat reservation for the event ends too, and every seat freed, reserved or
+        sold, is sent as open on `streamSeatMap`.
       operationId: cancelEvent
       x-required-roles: [queuepass-admin]
       responses:
@@ -1802,9 +2016,15 @@ components:
           type: array
           description: Seats held by valid tickets. Never says by whom.
           items: { $ref: '#/components/schemas/SeatPosition' }
+        reserved:
+          type: array
+          description: |
+            Seats in active reservations (feature 015). Never says by whom. Not in `required`
+            until feature 015 is implemented.
+          items: { $ref: '#/components/schemas/SeatPosition' }
 
     SeatMap:
-      description: An event's seats, sold or open (feature 007).
+      description: An event's seats, sold or open (feature 007), or reserved (feature 015).
       type: object
       required: [eventId, reservedSeating, sections]
       properties:
@@ -1813,6 +2033,108 @@ components:
         sections:
           type: array
           items: { $ref: '#/components/schemas/SeatMapSection' }
+
+    SeatMapChange:
+      description: Seats of one event that changed state, as sent by `streamSeatMap` (feature 015).
+      type: object
+      required: [eventId, changes]
+      properties:
+        eventId: { type: string, format: uuid }
+        changes:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/SeatStateChange' }
+
+    SeatStateChange:
+      description: One seat's new state. Never says who reserved or bought it (feature 015).
+      type: object
+      required: [sectionId, row, seat, state]
+      properties:
+        sectionId: { type: string, format: uuid }
+        row: { type: integer, minimum: 1 }
+        seat: { type: integer, minimum: 1 }
+        state: { type: string, enum: [open, reserved, sold] }
+
+    ReservedSeat:
+      description: A seat in a reservation, by section id and by its section's name (feature 015).
+      type: object
+      required: [sectionId, section, row, seat]
+      properties:
+        sectionId: { type: string, format: uuid }
+        section: { type: string, example: A }
+        row: { type: integer, minimum: 1, example: 1 }
+        seat: { type: integer, minimum: 1, example: 5 }
+
+    Reservation:
+      description: |
+        The caller's active hold on seats of one event, for 5 minutes (feature 015). It ends at
+        `expiresAt` (exclusive) unless bought or released first; it is never extended.
+      type: object
+      required: [eventId, tierId, seats, createdAt, expiresAt, secondsLeft]
+      properties:
+        eventId: { type: string, format: uuid }
+        tierId:
+          type: [string, 'null']
+          format: uuid
+          description: The tier of every seat; `null` for an event without tiers.
+        seats:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items: { $ref: '#/components/schemas/ReservedSeat' }
+        createdAt: { type: string, format: date-time }
+        expiresAt:
+          type: string
+          format: date-time
+          description: Exactly 5 minutes after `createdAt`.
+        secondsLeft:
+          type: integer
+          minimum: 0
+          maximum: 300
+          description: |
+            Whole seconds until `expiresAt`, by the Backend's clock when it answered. Clients count
+            down from this, not from `expiresAt`, so their own clock can't skew it.
+
+    ReservationInput:
+      type: object
+      required: [seats]
+      additionalProperties: false
+      properties:
+        seats:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items: { $ref: '#/components/schemas/SeatChoice' }
+
+    ReservationRelease:
+      type: object
+      additionalProperties: false
+      properties:
+        seats:
+          type: array
+          minItems: 1
+          maxItems: 10
+          description: The seats to release; omit to release all of them.
+          items: { $ref: '#/components/schemas/SeatChoice' }
+
+    ReservationReleaseResult:
+      type: object
+      required: [reservation]
+      properties:
+        reservation:
+          oneOf:
+            - $ref: '#/components/schemas/Reservation'
+            - type: 'null'
+          description: What is left; `null` once no seat is left.
+
+    ReleasedSeats:
+      type: object
+      required: [released]
+      properties:
+        released:
+          type: integer
+          minimum: 0
+          description: How many reserved seats were released, across every event.
 
     SeatingInput:
       type: object
@@ -1927,6 +2249,8 @@ components:
                 - SEAT_TAKEN
                 - LAYOUT_IN_USE
                 - TICKET_LIMIT_REACHED
+                - SEAT_COOLDOWN
+                - RESERVATION_REQUIRED
                 - ADDRESS_NOT_FOUND
                 - ADDRESS_AMBIGUOUS
                 - ADDRESS_SERVICE_UNAVAILABLE
@@ -2216,6 +2540,37 @@ components:
                   details:
                     seats:
                       - { section: A, row: 1, seat: 5 }
+            seatReserved:
+              summary: Seats in another customer's reservation (feature 015)
+              value:
+                error:
+                  code: SEAT_TAKEN
+                  message: 'Section A, Row 1, Seat 5 is reserved by another customer.'
+                  details:
+                    seats:
+                      - { section: A, row: 1, seat: 5 }
+                    reserved:
+                      - { section: A, row: 1, seat: 5 }
+            seatCooldown:
+              summary: Seats this customer's own reservation released less than 2 minutes ago (feature 015)
+              value:
+                error:
+                  code: SEAT_COOLDOWN
+                  message: 'You released Section A, Row 1, Seat 5 less than 2 minutes ago. You can reserve it again at 19:02:30.'
+                  details:
+                    seats:
+                      - { section: A, row: 1, seat: 5 }
+                    availableAt: '2026-10-20T19:02:30-04:00'
+            reservationRequired:
+              summary: A seated order for seats not in the caller's reservation (feature 015)
+              value:
+                error:
+                  code: RESERVATION_REQUIRED
+                  message: 'Your reservation for Season Opener ran out. Reserve the seats again to get them.'
+                  details:
+                    seats:
+                      - { section: A, row: 1, seat: 5 }
+                    expired: true
             layoutInUse:
               summary: A layout that seated sales depend on (feature 007)
               value:

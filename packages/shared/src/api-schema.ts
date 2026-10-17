@@ -68,6 +68,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My active seat reservations
+         * @description The signed-in customer's active reservations, for every event, newest first (feature 015).
+         *     A reservation is active from when it is made until it is bought, released, or ended, or its
+         *     5 minutes run out (`expiresAt`, exclusive). The customer is the token's subject.
+         */
+        get: operations["listMyReservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/reservations/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release all my seat reservations
+         * @description Releases every active reservation of the signed-in customer, for every event (feature
+         *     015). The Customer app calls it when the customer logs out. Each released seat is open to
+         *     others at once, and this customer can't reserve it again for 2 minutes. Safe to repeat.
+         */
+        post: operations["releaseAllMyReservations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/hello/admin": {
         parameters: {
             query?: never;
@@ -238,6 +282,8 @@ export interface paths {
          *     Feature 016: also refused when the total is below the `maxTicketsPerCustomer` of a
          *     scheduled event at the venue with reserved seating (`409 CAPACITY_EXCEEDED`, naming it);
          *     lower its limit first.
+         *
+         *     Feature 015: saving ends every active reservation at the venue's events.
          */
         put: operations["replaceLayout"];
         post?: never;
@@ -303,7 +349,8 @@ export interface paths {
          *     event occupied becomes available for scheduling again immediately. The event's ticket
          *     tiers are deleted with it. An event with orders cannot be deleted (`409
          *     EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records. Feature 014:
-         *     the event's images are deleted with it.
+         *     the event's images are deleted with it. Feature 015: its seat reservations are deleted
+         *     with it, and every open `streamSeatMap` stream for it ends.
          */
         delete: operations["deleteEvent"];
         options?: never;
@@ -357,6 +404,10 @@ export interface paths {
          *     Feature 007: for an event with reserved seating, `quantity` must be omitted (`400`
          *     otherwise): the tier's quantity is the seats in its mapped sections, 0 until mapped. For
          *     any other event it is required (`400`).
+         *
+         *     Feature 015: adding the first tier to an event with reserved seating ends its active
+         *     reservations, which were made without a tier and could no longer be bought; their seats
+         *     become open at once.
          */
         post: operations["createTicketTier"];
         delete?: never;
@@ -384,7 +435,8 @@ export interface paths {
          * Remove a ticket tier
          * @description Permanent. Clients MUST ask the user to confirm first. A tier with orders cannot be
          *     removed (`409 TIER_HAS_ORDERS`); a cancelled event's tiers cannot change (`409
-         *     EVENT_CANCELLED`).
+         *     EVENT_CANCELLED`). Feature 015: the tier's seat reservations are deleted with it, and
+         *     their seats become open at once.
          */
         delete: operations["deleteTicketTier"];
         options?: never;
@@ -444,8 +496,41 @@ export interface paths {
          * @description Whether the event has reserved seating and, for each section of its venue's layout, its
          *     size, its tier for this event, and which seats are taken by valid tickets (feature 007).
          *     It never says who holds a seat. `sections` is empty when the venue has no layout.
+         *
+         *     Feature 015: each section's `reserved` lists the seats in active reservations. It is the
+         *     same for every caller and never says whose; a customer's own are in
+         *     `listMyReservations`. `streamSeatMap` sends this map and then every change, live.
          */
         get: operations["getSeatMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/seats/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Live updates of the event's seat map
+         * @description A Server-Sent Events stream of the event's seat map (feature 015). It begins with
+         *     `event: snapshot`, whose `data` is the `SeatMap`, as from `getSeatMap`. After that, each
+         *     `event: seats` carries a `SeatMapChange`: seats that became open, reserved, or sold, sent
+         *     within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15 seconds. No
+         *     event ever names a customer. A client that loses the stream reconnects and gets a fresh
+         *     snapshot. The stream ends when the access token expires; reconnect at once with a current
+         *     one. It also ends when the event is deleted; a reconnect then gets `404`.
+         */
+        get: operations["streamSeatMap"];
         put?: never;
         post?: never;
         delete?: never;
@@ -475,9 +560,84 @@ export interface paths {
          *     cancelled event cannot change (`409 EVENT_CANCELLED`). With reserved seating on, the event's
          *     `totalTicketCapacity` becomes its venue's layout total and each tier's `quantity` becomes
          *     the seats in the sections mapped to it (0 with none); turning it off keeps those numbers.
+         *
+         *     Feature 015: turning reserved seating off ends every active reservation for the event, and
+         *     moving a section to another tier ends the reservations' seats in that section.
          */
         put: operations["updateSeating"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/reservation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reserve seats
+         * @description Reserves seats for the signed-in customer for 5 minutes (feature 015). With no active
+         *     reservation for the event, it makes one (`201`) that ends at `expiresAt`, 5 minutes later;
+         *     with one, it adds the seats to it (`200`) without changing `expiresAt`. All or nothing:
+         *     any refusal reserves no seat.
+         *
+         *     Each seat follows the rules of `createOrder`'s seats: inside the venue's layout, in a
+         *     section for sale and, for an event with tiers, all of one tier (`400`), and not repeated
+         *     (`400`). Added seats must be of the active reservation's tier and not already in it
+         *     (`400`). A reservation holds at most 10 seats (`400`), and no more than the customer may
+         *     still get under the event's `maxTicketsPerCustomer`, counting valid tickets only
+         *     (`409 TICKET_LIMIT_REACHED`; `details.requested` is the seats the reservation would then
+         *     hold).
+         *
+         *     Refused when the event has no reserved seating (`400`), is cancelled (`409
+         *     EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or
+         *     in another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
+         *     `details.reserved` listing the reserved ones); and for seats of this customer's own
+         *     reservation that ended unbought less than 2 minutes ago (`409 SEAT_COOLDOWN`,
+         *     `details.seats`, `details.availableAt`). No seat is ever in two active reservations, or in
+         *     one and on a valid ticket, including under concurrent requests.
+         *
+         *     There is no `tierId` in the request: the reservation's tier is the tier of the sections its
+         *     seats are in (`null` for an event without tiers), and is returned as `tierId`.
+         */
+        post: operations["reserveSeats"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/reservation/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Release reserved seats
+         * @description Releases seats from the signed-in customer's active reservation for the event (feature
+         *     015): the listed `seats`, or all of them when `seats` is omitted. Released seats are open
+         *     to others at once, and this customer can't reserve them again for 2 minutes. The rest
+         *     keep their `expiresAt`. A seat not in the reservation is `400`. With no active reservation,
+         *     nothing happens and `reservation` is `null`, so a repeat is harmless.
+         */
+        post: operations["releaseSeats"];
         delete?: never;
         options?: never;
         head?: never;
@@ -530,6 +690,15 @@ export interface paths {
          *     refusal always names the smaller number. A customer never holds more than the limit,
          *     including under concurrent requests. A repeated `requestId` is returned as before and
          *     counts once.
+         *
+         *     Feature 015: for an event with reserved seating, every seat must be in the caller's
+         *     active reservation for the event (`reserveSeats`). A seat with a valid ticket or in another
+         *     customer's reservation is `409 SEAT_TAKEN` (with `details.reserved`); any other seat is
+         *     `409 RESERVATION_REQUIRED` (`details.seats`; `details.expired` is `true` when the
+         *     caller's reservation ran out). Bought seats leave the reservation; seats not bought stay
+         *     reserved until it ends. A repeated `requestId` is returned before this check. An order whose
+         *     `tierId` is not the reservation's tier is `400`, since its seats are not in that tier's
+         *     sections.
          */
         post: operations["createOrder"];
         delete?: never;
@@ -578,7 +747,9 @@ export interface paths {
          * @description Irreversible: clients MUST ask the user to confirm first. In one all-or-nothing step,
          *     voids every valid ticket, marks every confirmed order refunded (simulated), and marks the
          *     event cancelled. A cancelled event no longer blocks its venue's time, and refuses edits,
-         *     tier changes, orders, and a second cancellation (`409 EVENT_CANCELLED`).
+         *     tier changes, orders, and a second cancellation (`409 EVENT_CANCELLED`). Feature 015:
+         *     every active seat reservation for the event ends too, and every seat freed, reserved or
+         *     sold, is sent as open on `streamSeatMap`.
          */
         post: operations["cancelEvent"];
         delete?: never;
@@ -1233,13 +1404,85 @@ export interface components {
             sold: number;
             /** @description Seats held by valid tickets. Never says by whom. */
             taken: components["schemas"]["SeatPosition"][];
+            /**
+             * @description Seats in active reservations (feature 015). Never says by whom. Not in `required`
+             *     until feature 015 is implemented.
+             */
+            reserved?: components["schemas"]["SeatPosition"][];
         };
-        /** @description An event's seats, sold or open (feature 007). */
+        /** @description An event's seats, sold or open (feature 007), or reserved (feature 015). */
         SeatMap: {
             /** Format: uuid */
             eventId: string;
             reservedSeating: boolean;
             sections: components["schemas"]["SeatMapSection"][];
+        };
+        /** @description Seats of one event that changed state, as sent by `streamSeatMap` (feature 015). */
+        SeatMapChange: {
+            /** Format: uuid */
+            eventId: string;
+            changes: components["schemas"]["SeatStateChange"][];
+        };
+        /** @description One seat's new state. Never says who reserved or bought it (feature 015). */
+        SeatStateChange: {
+            /** Format: uuid */
+            sectionId: string;
+            row: number;
+            seat: number;
+            /** @enum {string} */
+            state: "open" | "reserved" | "sold";
+        };
+        /** @description A seat in a reservation, by section id and by its section's name (feature 015). */
+        ReservedSeat: {
+            /** Format: uuid */
+            sectionId: string;
+            /** @example A */
+            section: string;
+            /** @example 1 */
+            row: number;
+            /** @example 5 */
+            seat: number;
+        };
+        /**
+         * @description The caller's active hold on seats of one event, for 5 minutes (feature 015). It ends at
+         *     `expiresAt` (exclusive) unless bought or released first; it is never extended.
+         */
+        Reservation: {
+            /** Format: uuid */
+            eventId: string;
+            /**
+             * Format: uuid
+             * @description The tier of every seat; `null` for an event without tiers.
+             */
+            tierId: string | null;
+            seats: components["schemas"]["ReservedSeat"][];
+            /** Format: date-time */
+            createdAt: string;
+            /**
+             * Format: date-time
+             * @description Exactly 5 minutes after `createdAt`.
+             */
+            expiresAt: string;
+            /**
+             * @description Whole seconds until `expiresAt`, by the Backend's clock when it answered. Clients count
+             *     down from this, not from `expiresAt`, so their own clock can't skew it.
+             */
+            secondsLeft: number;
+        };
+        ReservationInput: {
+            seats: components["schemas"]["SeatChoice"][];
+        };
+        ReservationRelease: {
+            /** @description The seats to release; omit to release all of them. */
+            seats?: components["schemas"]["SeatChoice"][];
+        };
+        ReservationReleaseResult: {
+            /** @description What is left; `null` once no seat is left. */
+            reservation: components["schemas"]["Reservation"] | null;
+        };
+        ReleasedSeats: {
+            /** @description How many reserved seats were released, across every event. */
+            released: number;
         };
         SeatingInput: {
             reservedSeating: boolean;
@@ -1305,7 +1548,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -1580,6 +1823,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MyOrder"][];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listMyReservations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The caller's active reservations; empty when there are none. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"][];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    releaseAllMyReservations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many seats were released; 0 when there was nothing to release. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasedSeats"];
                 };
             };
             401: components["responses"]["Unauthenticated"];
@@ -2260,6 +2547,35 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    streamSeatMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description The event stream. `data` is a `SeatMap` for `snapshot` and a `SeatMapChange` for
+             *     `seats`.
+             */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     updateSeating: {
         parameters: {
             query?: never;
@@ -2290,6 +2606,78 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    reserveSeats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReservationInput"];
+            };
+        };
+        responses: {
+            /** @description The seats were added to the caller's active reservation. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
+                };
+            };
+            /** @description A new reservation, ending 5 minutes from now. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reservation"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    releaseSeats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReservationRelease"];
+            };
+        };
+        responses: {
+            /** @description What is left of the reservation; `null` once no seat is left. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReservationReleaseResult"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
         };
     };
     createOrder: {

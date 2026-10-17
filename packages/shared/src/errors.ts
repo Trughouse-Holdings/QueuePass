@@ -43,6 +43,11 @@ export const ERROR_CODES = [
   'IMAGE_TYPE_NOT_ALLOWED',
   'IMAGES_CHANGED',
   'IMAGE_DIMENSIONS_TOO_LARGE',
+  // Spec 015: a seat this customer's own reservation ended unbought less than 2 minutes ago; a
+  // seated order naming seats not in the caller's active reservation. Added ahead of the
+  // implementation, so the list matches the contract.
+  'SEAT_COOLDOWN',
+  'RESERVATION_REQUIRED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
