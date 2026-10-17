@@ -83,7 +83,7 @@ test helpers every story uses.
   `GALLERY_INTERVAL_MS`, `sniffImageType`, `readImageHeader`), add `images?: EventImage[]` to
   `Event` in `packages/shared/src/event.ts`, and export from `packages/shared/src/index.ts`. Run
   T002 until it passes.
-- [ ] T004 [P] In `backend/test/contract/expect-to-match-contract.ts`, handle a declared response
+- [x] T004 [P] In `backend/test/contract/expect-to-match-contract.ts`, handle a declared response
   whose `content` has no `application/json`: assert the response's `Content-Type` (without
   parameters) is one of the declared media types, and skip schema validation (research R8). Add a
   unit test, `backend/test/unit/expect-to-match-contract.spec.ts`, with fake responses for

@@ -80,6 +80,23 @@ export function expectToMatchContract(res: Response, operationId: string): void 
     return;
   }
 
+  // Spec 014 research R8: a response declared only with non-JSON media types (an image's bytes)
+  // is checked by its Content-Type, without parameters; its body has no JSON schema to validate.
+  if (!response.content['application/json']) {
+    const declared = Object.keys(response.content);
+    const received = String(res.headers['content-type'] ?? '')
+      .split(';')[0]!
+      .trim()
+      .toLowerCase();
+    if (!declared.includes(received)) {
+      throw new Error(
+        `${operationId} ${status} answered Content-Type '${received}', which the contract does ` +
+          `not declare. Declared: ${declared.join(', ')}.`,
+      );
+    }
+    return;
+  }
+
   const schemaPointer = `${responsePointer}/content/${escape('application/json')}/schema`;
   const validate = ajv.getSchema(`openapi${schemaPointer}`);
   if (!validate) throw new Error(`Cannot compile schema at ${schemaPointer}`);
