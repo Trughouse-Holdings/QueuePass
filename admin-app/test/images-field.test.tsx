@@ -2,7 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import type { EventImage } from '@queuepass/shared';
+import { AuthProvider } from '@queuepass/shared/web';
 import { EventForm } from '../src/pages/EventForm';
+import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-user-manager';
 import { json, stubApi } from './helpers/api-stub';
 import {
   ANIMATED_CHUNK,
@@ -60,17 +62,22 @@ function EventPage() {
   );
 }
 
+/** Signed in, as the Admin app runs: stored images are loaded with the token. */
 const renderAt = (entry: string | { pathname: string; state: unknown }) =>
   render(
-    <MemoryRouter initialEntries={[entry]}>
-      <Routes>
-        <Route path="/events/new" element={<EventForm />} />
-        <Route path="/events/:id" element={<EventPage />} />
-        <Route path="/events/:id/edit" element={<EventForm />} />
-        <Route path="/events" element={<p>Event list</p>} />
-      </Routes>
-      <Where />
-    </MemoryRouter>,
+    <AuthProvider
+      userManager={fakeUserManager(makeUser({ username: 'admin1', roles: ['queuepass-admin'] }))}
+    >
+      <MemoryRouter initialEntries={[entry]}>
+        <Routes>
+          <Route path="/events/new" element={<EventForm />} />
+          <Route path="/events/:id" element={<EventPage />} />
+          <Route path="/events/:id/edit" element={<EventForm />} />
+          <Route path="/events" element={<p>Event list</p>} />
+        </Routes>
+        <Where />
+      </MemoryRouter>
+    </AuthProvider>,
   );
 
 type Planned = 'ok' | Response | 'network-error';
@@ -104,7 +111,9 @@ function backend(opts: { images?: EventImage[]; uploads?: Planned[]; routes?: ob
   const uploads = () => api.calls.filter((c) => c.method === 'POST' && c.path.endsWith('/images'));
   const uploadedNames = () =>
     uploads().map((c) => ((c.body as { formData: FormData }).formData.get('file') as File).name);
-  const imageCalls = () => api.calls.filter((c) => c.path.includes('/images'));
+  // Image writes; reading a stored image's preview is not one.
+  const imageCalls = () =>
+    api.calls.filter((c) => c.path.includes('/images') && c.method !== 'GET');
   return { api, images, uploads, uploadedNames, imageCalls };
 }
 

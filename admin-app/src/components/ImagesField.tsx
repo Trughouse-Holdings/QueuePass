@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useEventImage } from '@queuepass/shared/web';
 import {
   EVENT_IMAGE_LIMITS,
   IMAGE_PIXEL_LIMITS,
@@ -42,19 +43,29 @@ function NewThumb({ file, alt }: { file: File; alt: string }) {
   );
 }
 
+/** A stored image's preview, loaded with the token through the shared cache (research R4). */
+function SavedThumb({ eventId, image, alt }: { eventId: string; image: EventImage; alt: string }) {
+  const { url } = useEventImage(eventId, image.id);
+  return url ? (
+    <img className="image-item__thumb" src={url} alt={alt} />
+  ) : (
+    <span className="image-item__thumb" role="img" aria-label={alt} />
+  );
+}
+
 /**
  * Spec 014 FR-014, FR-016 (research R9): the Images control of the event form. Changes are made
  * when the form is saved, so this only edits the list the form holds.
  */
 export function ImagesField({
+  eventId,
   items,
   onAdd,
-  savedThumb,
 }: {
+  /** The event, once it exists; stored images are shown from it. */
+  eventId: string | undefined;
   items: ImageItem[];
   onAdd: (files: File[]) => void;
-  /** Renders a stored image's preview. */
-  savedThumb: (image: EventImage, alt: string) => React.ReactNode;
 }): React.ReactElement {
   const [refused, setRefused] = useState<string[]>([]);
   const full = items.length >= EVENT_IMAGE_LIMITS.maxCount;
@@ -95,9 +106,9 @@ export function ImagesField({
               <li key={item.key} className="image-item">
                 {item.kind === 'new' ? (
                   <NewThumb file={item.file} alt={alt} />
-                ) : (
-                  savedThumb(item.image, alt)
-                )}
+                ) : eventId ? (
+                  <SavedThumb eventId={eventId} image={item.image} alt={alt} />
+                ) : null}
                 <span>{alt}</span>
                 {i === 0 && <span className="pill">Cover</span>}
               </li>

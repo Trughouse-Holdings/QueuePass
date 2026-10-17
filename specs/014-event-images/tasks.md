@@ -336,11 +336,11 @@ looks as before.
   - the slide area has `aria-live="off"` while rotating and `"polite"` while paused;
   - a failed image shows "Image unavailable" and the gallery keeps rotating;
   - no element has an inline `style` setting a color.
-- [ ] T022 [P] [US2] Create `customer-app/test/event-images.test.tsx` (event page): an event with 3
+- [x] T022 [P] [US2] Create `customer-app/test/event-images.test.tsx` (event page): an event with 3
   images shows the gallery above the `h1`; with no `images` key and with `images: []`, the page's
   markup is the same as before this feature (no `.gallery`); a cancelled event with images shows
   them. Add `images` to the event factory in `customer-app/test/helpers.tsx` (default `[]`).
-- [ ] T023 [P] [US2] Create `admin-app/test/event-images.detail.test.tsx`: the Admin event page
+- [x] T023 [P] [US2] Create `admin-app/test/event-images.detail.test.tsx`: the Admin event page
   shows the gallery for an event with images (FR-019), and nothing for one without.
 - [x] T024 [P] [US2] Extend `packages/shared/test/theme/tokens.test.ts` and `contrast.test.ts`
   (from `012`): `--scrim` and `--scrim-text` exist in the light and dark sets with the same values;
@@ -367,7 +367,7 @@ looks as before.
   literal top padding, with a comment on both rules), `.gallery__toggle`, and
   `.app:has(.page-band) { overflow-x: clip }`, with no other `overflow` on `.app`. Run T021 and T024
   until they pass, and the shared suite, including the drift check.
-- [ ] T028 [US2] Place `ImageGallery variant="page"`, inside `<div className="page-band">` and only
+- [x] T028 [US2] Place `ImageGallery variant="page"`, inside `<div className="page-band">` and only
   when the event has images, at the top of `customer-app/src/pages/EventDetail.tsx` (above the `h1`)
   and `admin-app/src/pages/EventDetail.tsx` (above the page head). Run T022 and T023 until they
   pass, then both apps' suites.

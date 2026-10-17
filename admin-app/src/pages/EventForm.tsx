@@ -692,9 +692,9 @@ export function EventForm(): React.ReactElement {
           </div>
 
           <ImagesField
+            eventId={id}
             items={images}
             onAdd={(files) => setImages((now) => [...now, ...files.map(newItem)])}
-            savedThumb={(_image, alt) => <span className="image-item__thumb" aria-label={alt} />}
           />
 
           <div className="form__actions">
