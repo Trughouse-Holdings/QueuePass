@@ -1,12 +1,20 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { ConflictingEventRef, EventInput, Location, SeatingLayout } from '@queuepass/shared';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import type {
+  ConflictingEventRef,
+  EventImage,
+  EventInput,
+  Location,
+  SeatingLayout,
+} from '@queuepass/shared';
 import { createEvent, getEvent, updateEvent } from '../api/events';
+import { uploadEventImage } from '../api/images';
 import { listLocations } from '../api/locations';
 import { getLayout, getSeatMap, updateSeating } from '../api/seating';
 import { createTier, deleteTier, listTiers, updateTier } from '../api/tiers';
 import { ApiError } from '../api/client';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { ImagesField, type ImageItem } from '../components/ImagesField';
 import { SuccessState } from '../components/SuccessState';
 
 /** `datetime-local` value ("2026-10-01T18:00") → ISO-8601 with the browser's offset. */
@@ -52,10 +60,47 @@ const limitRefused = (most: number | null): ApiError =>
       : 'Tickets per customer must be a whole number of at least 1, or blank for no limit.',
   );
 
+/**
+ * Spec 014 research R9: what the form hands its edit form after creating an event whose pictures
+ * were not all added: the pictures not yet added, and what to tell the admin.
+ */
+interface PendingImagesState {
+  pendingImages: File[];
+  notice: string;
+}
+
+/** Spec 014: a picture step that was refused or could not be sent, and the pictures left. */
+class ImageStepError extends Error {
+  constructor(
+    readonly file: File,
+    /** The Backend's refusal, or `null` when the request could not be sent. */
+    readonly refusal: ApiError | null,
+    readonly remaining: File[],
+  ) {
+    super(refusal?.message ?? 'could not be sent');
+  }
+
+  /** "{file name}: {message}", as the form shows it (FR-017). */
+  asApiError(): ApiError {
+    const message = this.refusal
+      ? this.refusal.envelope.error.message
+      : 'It could not be sent. Check the connection and save again.';
+    return new ApiError(this.refusal?.status ?? 0, {
+      error: {
+        ...(this.refusal?.envelope.error ?? { code: 'VALIDATION_FAILED' }),
+        message: `${this.file.name}: ${message}`,
+      },
+    });
+  }
+}
+
+const savedItem = (image: EventImage): ImageItem => ({ kind: 'saved', key: image.id, image });
+
 /** FR-032, FR-033, FR-034, FR-035 — create/edit an event. No removal control (API-only). */
 export function EventForm(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const isEdit = Boolean(id);
 
   const [venues, setVenues] = useState<Location[]>([]);
@@ -86,6 +131,15 @@ export function EventForm(): React.ReactElement {
   const [error, setError] = useState<ApiError | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Spec 014 (research R9): the event's pictures in order; changes are made on Save.
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [imagesNotice, setImagesNotice] = useState<string | null>(null);
+  const nextKey = useRef(0);
+  const newItem = (file: File): ImageItem => ({
+    kind: 'new',
+    key: `new-${(nextKey.current += 1)}`,
+    file,
+  });
 
   useEffect(() => {
     listLocations()
@@ -113,8 +167,16 @@ export function EventForm(): React.ReactElement {
 
   useEffect(() => {
     if (!id) return;
+    // Spec 014 research R9: pictures not yet added when this event was created, handed over in
+    // router state. Read once, then cleared from history, so going Back cannot send them again.
+    const handed = location.state as PendingImagesState | null;
+    const pending = (handed?.pendingImages ?? []).map(newItem);
+    setImagesNotice(handed?.notice ?? null);
+    if (handed?.pendingImages) navigate(location.pathname, { replace: true, state: null });
+    setImages(pending);
     getEvent(id)
       .then((e) => {
+        setImages([...(e.images ?? []).map(savedItem), ...pending]);
         setName(e.name);
         setLocationId(e.locationId);
         setStartsAt(toLocalInput(e.startsAt));
@@ -196,6 +258,26 @@ export function EventForm(): React.ReactElement {
   }
 
   /**
+   * Spec 014 research R9: after the event's other changes, upload each new picture in list order,
+   * stopping at the first refusal. Each step updates the list as it succeeds, so saving again
+   * finishes what is left and never sends a picture twice (FR-017).
+   */
+  async function applyImages(eventId: string, list: ImageItem[]): Promise<void> {
+    for (const [i, item] of list.entries()) {
+      if (item.kind !== 'new') continue;
+      try {
+        const image = await uploadEventImage(eventId, item.file);
+        setImages((now) =>
+          now.map((it) => (it.key === item.key ? { kind: 'saved', key: item.key, image } : it)),
+        );
+      } catch (err) {
+        const remaining = list.slice(i).flatMap((it) => (it.kind === 'new' ? [it.file] : []));
+        throw new ImageStepError(item.file, err instanceof ApiError ? err : null, remaining);
+      }
+    }
+  }
+
+  /**
    * Spec 008 R10: apply the edit through the existing operations, stopping at the first refusal.
    * Switching between seated and general admission happens before the ticket types change,
    * since the Backend takes a typed quantity only without reserved seating.
@@ -237,6 +319,7 @@ export function EventForm(): React.ReactElement {
     setError(null);
     setSetupRefused(null);
     setSaved(false);
+    setImagesNotice(null);
 
     // Spec 016 research R7: a preview of the Backend's range check; the Backend decides.
     const limit = maxPerCustomer.trim();
@@ -286,17 +369,35 @@ export function EventForm(): React.ReactElement {
       basePrice: typesLoaded ? lowestPrice(types) : storedBasePrice,
     };
 
+    const list = images;
     try {
       let eventId = id;
       if (isEdit && id) await saveEvent(id, payload);
       else eventId = (await scheduleEvent(payload)) ?? undefined;
       if (!eventId) return;
+      try {
+        await applyImages(eventId, list);
+      } catch (err) {
+        if (!(err instanceof ImageStepError) || isEdit) throw err;
+        // Spec 014 FR-018: the event, its seating, and its ticket types are saved; the form
+        // becomes that event's edit form with the pictures not yet added, so saving again
+        // changes only this event.
+        const [first, ...rest] = err.remaining;
+        const why = err.refusal ? err.refusal.envelope.error.message : 'could not be sent';
+        const names = [`${first!.name} (${why})`, ...rest.map((f) => f.name)].join(', ');
+        const handed: PendingImagesState = {
+          pendingImages: err.remaining,
+          notice: `Event created. These pictures were not added: ${names}. Save again to add them.`,
+        };
+        navigate(`/events/${eventId}/edit`, { replace: true, state: handed });
+        return;
+      }
       setSaved(true);
       setTimeout(() => navigate(`/events/${eventId}`), 700);
     } catch (err) {
       // FR-035: state is deliberately untouched here — re-entering a whole form to fix
       // one time is exactly the friction this requirement exists to prevent.
-      setError(err as ApiError);
+      setError(err instanceof ImageStepError ? err.asApiError() : (err as ApiError));
     } finally {
       setBusy(false);
     }
@@ -426,6 +527,13 @@ export function EventForm(): React.ReactElement {
       </div>
 
       {saved && <SuccessState message="Event saved." />}
+      {imagesNotice && (
+        <div role="status" className="banner">
+          <div className="banner__body">
+            <p>{imagesNotice}</p>
+          </div>
+        </div>
+      )}
       {error && <ErrorBanner error={error} />}
       {setupRefused && (
         <div role="alert" className="banner banner--error">
@@ -582,6 +690,12 @@ export function EventForm(): React.ReactElement {
             />
             <span className="field__hint">Leave blank for no limit.</span>
           </div>
+
+          <ImagesField
+            items={images}
+            onAdd={(files) => setImages((now) => [...now, ...files.map(newItem)])}
+            savedThumb={(_image, alt) => <span className="image-item__thumb" aria-label={alt} />}
+          />
 
           <div className="form__actions">
             <button type="submit" className="btn btn--primary" disabled={busy}>

@@ -200,7 +200,7 @@ under simultaneous uploads.
   changed; for `getEventImage`, `customer1` and `agent1` → `200`. Extend
   `backend/test/integration/cors-docs.e2e-spec.ts`: a preflight from an allowed origin answers
   `Access-Control-Max-Age: 600` (research R4); a disallowed origin still gets no CORS headers.
-- [ ] T014 [P] [US1] Create `admin-app/test/images-field.test.tsx` with `stubApi` (create and edit):
+- [x] T014 [P] [US1] Create `admin-app/test/images-field.test.tsx` with `stubApi` (create and edit):
   - the Schedule event and Edit event forms have an "Images" group with an "Add images" file input
     (`accept="image/jpeg,image/png,image/webp"`, `multiple`) and the hint from research R9
     (limits and cover, and no text about metadata);
@@ -264,12 +264,12 @@ under simultaneous uploads.
   (research R4). In the same commit, remove `x-planned: '014'` from `uploadEventImage` and
   `getEventImage` in `contracts/openapi.yaml` and run `npm run generate:api`. Run T011–T013
   (upload and read parts) and the route-coverage test until they pass.
-- [ ] T017 [US1] Create `admin-app/src/api/images.ts` (`uploadEventImage`, `deleteEventImage`,
+- [x] T017 [US1] Create `admin-app/src/api/images.ts` (`uploadEventImage`, `deleteEventImage`,
   `reorderEventImages`, research R9) and `admin-app/src/components/ImagesField.tsx` with adding,
   previews, the preview checks (using `readImageHeader` on `await file.arrayBuffer()`,
   `EVENT_IMAGE_LIMITS`, and `IMAGE_PIXEL_LIMITS`), the hint, and object URL clean-up; layout classes
   in `admin-app/src/styles.css` on theme values (research R13).
-- [ ] T018 [US1] In `admin-app/src/pages/EventForm.tsx`, hold the Images state, load it from
+- [x] T018 [US1] In `admin-app/src/pages/EventForm.tsx`, hold the Images state, load it from
   `event.images ?? []` on edit, and after the existing create or edit steps run `applyImages`
   (uploads in this story; deletes and reorder come in US3), updating state as each step succeeds and
   stopping at the first refusal, with the file name before the Backend's message. On create, leave

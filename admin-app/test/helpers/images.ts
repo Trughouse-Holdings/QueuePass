@@ -19,7 +19,7 @@ const chunk = (type: string, data: number[] = []) => [
 /** PNG bytes: `width` × `height`, optional extra chunks before IDAT, padded to `size` bytes. */
 export function pngBytes(
   opts: { width?: number; height?: number; before?: number[][]; size?: number } = {},
-): Uint8Array {
+): Uint8Array<ArrayBuffer> {
   const head = [
     0x89,
     0x50,
@@ -48,19 +48,21 @@ export function pngBytes(
 export const ANIMATED_CHUNK = chunk('acTL', [0, 0, 0, 2, 0, 0, 0, 0]);
 
 /** A JPEG header: SOI, then a baseline frame of 2 × 2. */
-export const jpegBytes = (): Uint8Array =>
+export const jpegBytes = (): Uint8Array<ArrayBuffer> =>
   Uint8Array.from([
     0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 0x08, 0x00, 0x02, 0x00, 0x02, 0x01, 0x01, 0x11, 0x00, 0xff,
     0xd9,
   ]);
 
 /** The 1 × 1 WebP of quickstart.md. */
-export const webpBytes = (): Uint8Array =>
+export const webpBytes = (): Uint8Array<ArrayBuffer> =>
   Uint8Array.from(atob('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA=='), (c) => c.charCodeAt(0));
 
-export const gifBytes = (): Uint8Array => Uint8Array.from(ascii('GIF89a\x01\x00\x01\x00\x00\x00'));
+export const gifBytes = (): Uint8Array<ArrayBuffer> =>
+  Uint8Array.from(ascii('GIF89a\x01\x00\x01\x00\x00\x00'));
 
-const file = (bytes: Uint8Array, name: string, type: string) => new File([bytes], name, { type });
+const file = (bytes: Uint8Array<ArrayBuffer>, name: string, type: string) =>
+  new File([bytes], name, { type });
 
 export const pngFile = (name = 'stage.png', opts: Parameters<typeof pngBytes>[0] = {}) =>
   file(pngBytes(opts), name, 'image/png');
