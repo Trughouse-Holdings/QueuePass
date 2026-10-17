@@ -1,3 +1,5 @@
+import type { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { as, asAdmin } from './authed-request';
 import type { TestContext } from './test-app';
 import { tokenFor } from './tokens';
@@ -88,4 +90,60 @@ export async function tier(
 /** A signed-in customer client, `customer<n>`. */
 export async function customer(ctx: TestContext, n = 1) {
   return as(ctx, await tokenFor({ username: `customer${n}`, roles: ['customer'] }));
+}
+
+/** Spec 015: a seat by its label, as a hold stores it. */
+export interface HeldSeat {
+  section: string;
+  row: number;
+  seat: number;
+}
+
+/**
+ * Spec 015 (research R3, R16): a reservation and its live holds, inserted directly by SQL so a
+ * test can place one in the past. `secondsAgo` moves `createdAt` back by the database's clock;
+ * `expiresAt` is always 5 minutes after it (CHECK seat_reservation_five_minutes).
+ */
+export async function holdSeats(
+  prisma: PrismaClient,
+  opts: {
+    eventId: string;
+    customerSub: string;
+    tierId?: string | null;
+    seats: HeldSeat[];
+    secondsAgo?: number;
+  },
+): Promise<{ reservationId: string; holdIds: string[] }> {
+  const reservationId = randomUUID();
+  const ago = opts.secondsAgo ?? 0;
+  await prisma.$executeRaw`
+    INSERT INTO "SeatReservation" ("id", "eventId", "customerSub", "tierId", "createdAt", "expiresAt")
+    VALUES (${reservationId}::uuid, ${opts.eventId}::uuid, ${opts.customerSub},
+            ${opts.tierId ?? null}::uuid, now() - make_interval(secs => ${ago}),
+            now() - make_interval(secs => ${ago}) + interval '5 minutes')`;
+  const holdIds: string[] = [];
+  for (const s of opts.seats) {
+    const id = randomUUID();
+    holdIds.push(id);
+    await prisma.$executeRaw`
+      INSERT INTO "SeatHold" ("id", "reservationId", "eventId", "seatSection", "seatRow",
+                              "seatNumber", "createdAt")
+      VALUES (${id}::uuid, ${reservationId}::uuid, ${opts.eventId}::uuid, ${s.section}, ${s.row},
+              ${s.seat}, now() - make_interval(secs => ${ago}))`;
+  }
+  return { reservationId, holdIds };
+}
+
+/** Spec 015: ends one hold with a reason, `secondsAgo` before the database's now. */
+export async function endHold(
+  prisma: PrismaClient,
+  holdId: string,
+  reason: 'EXPIRED' | 'RELEASED' | 'LOGOUT' | 'BOUGHT' | 'CLOSED',
+  secondsAgo = 0,
+): Promise<void> {
+  await prisma.$executeRaw`
+    UPDATE "SeatHold"
+    SET "releasedAt" = now() - make_interval(secs => ${secondsAgo}),
+        "endReason" = ${reason}::"SeatHoldEnd"
+    WHERE "id" = ${holdId}::uuid`;
 }

@@ -57,6 +57,9 @@ model Event {
   // Spec 007 FR-002: whether customers choose seats.
   reservedSeating     Boolean       @default(false)
   sectionTiers        SectionTier[]
+  // Spec 015: seat reservations and their holds, deleted with the event (research R11).
+  seatReservations    SeatReservation[]
+  seatHolds           SeatHold[]
 
   @@index([locationId])
 }
@@ -79,6 +82,8 @@ model TicketTier {
   orders    Order[]
   tickets   Ticket[]
   sections  SectionTier[]
+  // Spec 015 research R11: reservations of this tier are deleted with it.
+  seatReservations SeatReservation[]
   createdAt DateTime @default(now()) @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @db.Timestamptz(6)
 
@@ -173,4 +178,61 @@ model SectionTier {
 
   @@id([eventId, sectionId])
   @@index([tierId])
+}
+
+// Spec 015 (research R1): one customer's 5-minute claim on seats of one event. `expiresAt` is
+// exactly `createdAt` + 5 minutes (CHECK seat_reservation_five_minutes), and at most one is active
+// per customer per event (partial unique index seat_reservation_one_active); both live in the
+// migration SQL, as does the partial expiry index the sweep reads (research R4). Times come from
+// the database's clock (research R3).
+model SeatReservation {
+  id          String      @id @default(uuid()) @db.Uuid
+  event       Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId     String      @db.Uuid
+  // The Keycloak subject identifier (Constitution V), as on Order.
+  customerSub String
+  // NULL for an event without tiers; every hold is in a section mapped to it (FR-003).
+  tier        TicketTier? @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  tierId      String?     @db.Uuid
+  createdAt   DateTime    @db.Timestamptz(6)
+  expiresAt   DateTime    @db.Timestamptz(6)
+  // NULL until its last live hold ends; `expiresAt` when it ran out (research R3).
+  endedAt     DateTime?   @db.Timestamptz(6)
+  holds       SeatHold[]
+
+  // The target of SeatHold's composite foreign key, so a hold's event is its reservation's.
+  @@unique([id, eventId], map: "seat_reservation_id_event")
+  @@index([customerSub])
+}
+
+// Spec 015 (research R1, R6): one seat in a reservation, by its label as on Ticket, kept after it
+// ends with when and why, since the 2-minute wait is computed from ended holds. No seat has two
+// live holds for an event: the partial unique index seat_hold_one_live_per_seat (migration SQL,
+// FR-009, Constitution IV).
+model SeatHold {
+  id            String          @id @default(uuid()) @db.Uuid
+  reservation   SeatReservation @relation(fields: [reservationId, eventId], references: [id, eventId], onDelete: Cascade, map: "seat_hold_reservation_event")
+  reservationId String          @db.Uuid
+  event         Event           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId       String          @db.Uuid
+  seatSection   String
+  seatRow       Int
+  seatNumber    Int
+  createdAt     DateTime        @db.Timestamptz(6)
+  // Both NULL while live, both set once it ends (CHECK seat_hold_end_all_or_none).
+  releasedAt    DateTime?       @db.Timestamptz(6)
+  endReason     SeatHoldEnd?
+
+  @@index([reservationId])
+  @@index([eventId, releasedAt])
+}
+
+// Spec 015 data-model.md: why a hold ended. EXPIRED, RELEASED and LOGOUT start the 2-minute wait
+// (FR-004a); BOUGHT and CLOSED don't.
+enum SeatHoldEnd {
+  EXPIRED
+  RELEASED
+  LOGOUT
+  BOUGHT
+  CLOSED
 }

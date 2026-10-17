@@ -10,6 +10,14 @@ import {
   ticketsSold,
 } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  badSeats,
+  resolveSeats,
+  seatKey,
+  seatText,
+  soldSeats,
+  type SeatLabel,
+} from '../seating/seat-rules';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ticketCode } from './ticket-code';
 
@@ -97,18 +105,6 @@ const isRequestIdCollision = (err: unknown): boolean => isUniqueViolationOn(err,
  */
 const isSeatCollision = (err: unknown): boolean =>
   isUniqueViolationOn(err, 'ticket_one_valid_per_seat') || isUniqueViolationOn(err, 'seatSection');
-
-/** A seat by its label (spec 007 research R1). */
-interface SeatLabel {
-  section: string;
-  row: number;
-  seat: number;
-}
-
-const seatText = (s: SeatLabel): string => `Section ${s.section}, Row ${s.row}, Seat ${s.seat}`;
-const seatKey = (s: SeatLabel): string => `${s.section}\u0000${s.row}\u0000${s.seat}`;
-const badSeats = (message: string): BadRequestException =>
-  new BadRequestException({ message: [message] });
 
 const tickets = (n: number): string => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;
 
@@ -211,7 +207,7 @@ export class OrdersService {
     }
 
     // Spec 007 research R6: seats are checked before counts, so a refusal names the seat.
-    const seats = await this.resolveSeats(tx, event, dto, tier);
+    const seats = await this.seatsFor(tx, event, dto, tier);
 
     let available = event.totalTicketCapacity - (await ticketsSold(tx, { eventId }));
     if (tier) {
@@ -281,11 +277,12 @@ export class OrdersService {
   }
 
   /**
-   * Spec 007 FR-008, research R6: the seats an order names, as labels, after every seat rule.
-   * General admission takes no seats. Taken seats are refused by name (409 SEAT_TAKEN); the
-   * partial unique index guarantees it even if this check were bypassed (FR-009).
+   * Spec 007 FR-008, research R6: the seats an order names, as labels, after every seat rule
+   * (`seating/seat-rules.ts`, shared with reservations). General admission takes no seats. Taken
+   * seats are refused by name (409 SEAT_TAKEN); the partial unique index guarantees it even if
+   * this check were bypassed (FR-009).
    */
-  private async resolveSeats(
+  private async seatsFor(
     tx: Prisma.TransactionClient,
     event: LockedEvent,
     dto: CreateOrderDto,
@@ -303,43 +300,9 @@ export class OrdersService {
       );
     }
 
-    const sections = await tx.section.findMany({ where: { locationId: event.locationId } });
-    const mappings = tier ? await tx.sectionTier.findMany({ where: { eventId: event.id } }) : [];
-    const labels: SeatLabel[] = [];
-    const keys = new Set<string>();
-    for (const choice of dto.seats) {
-      const section = sections.find((s) => s.id === choice.sectionId);
-      if (!section)
-        throw badSeats(`section ${choice.sectionId} is not part of this venue's layout`);
-      const label = { section: section.name, row: choice.row, seat: choice.seat };
-      if (choice.row > section.rows || choice.seat > section.seatsPerRow) {
-        throw badSeats(`${seatText(label)} is not in the layout`);
-      }
-      // One tier per order (spec Clarifications): every seat's section is mapped to its tier.
-      if (tier && mappings.find((m) => m.sectionId === section.id)?.tierId !== tier.id) {
-        throw badSeats(`${seatText(label)} is not sold as ${tier.name}`);
-      }
-      if (keys.has(seatKey(label))) throw badSeats(`${seatText(label)} is listed twice`);
-      keys.add(seatKey(label));
-      labels.push(label);
-    }
-
-    const taken = await tx.ticket.findMany({
-      where: {
-        eventId: event.id,
-        status: 'VALID',
-        OR: labels.map((l) => ({ seatSection: l.section, seatRow: l.row, seatNumber: l.seat })),
-      },
-      select: { seatSection: true, seatRow: true, seatNumber: true },
-    });
-    if (taken.length > 0) {
-      const seats = taken
-        .map((t) => ({
-          section: t.seatSection as string,
-          row: t.seatRow as number,
-          seat: t.seatNumber as number,
-        }))
-        .sort((a, b) => seatKey(a).localeCompare(seatKey(b)));
+    const labels = await resolveSeats(tx, event, tier, dto.seats);
+    const seats = await soldSeats(tx, event.id, labels);
+    if (seats.length > 0) {
       throw conflict(
         'SEAT_TAKEN',
         `${seats.map(seatText).join('; ')} ${seats.length === 1 ? 'is' : 'are'} already taken.`,

@@ -33,6 +33,16 @@ export class SeatMapService {
       select: { seatSection: true, seatRow: true, seatNumber: true },
       orderBy: [{ seatSection: 'asc' }, { seatRow: 'asc' }, { seatNumber: 'asc' }],
     });
+    // Spec 015 FR-012, FR-014 (research R10): live holds of active reservations, by the database's
+    // clock. A run-out reservation the sweep hasn't closed yet is already open here (research R3).
+    const reserved = await db.$queryRaw<
+      { seatSection: string; seatRow: number; seatNumber: number }[]
+    >`
+      SELECT h."seatSection", h."seatRow", h."seatNumber"
+      FROM "SeatHold" h JOIN "SeatReservation" r ON r."id" = h."reservationId"
+      WHERE h."eventId" = ${eventId}::uuid AND h."releasedAt" IS NULL
+        AND r."endedAt" IS NULL AND now() < r."expiresAt"
+      ORDER BY h."seatRow", h."seatNumber"`;
 
     return {
       eventId,
@@ -49,6 +59,9 @@ export class SeatMapService {
           tierId: event.sectionTiers.find((m) => m.sectionId === s.id)?.tierId ?? null,
           sold: mine.length,
           taken: mine,
+          reserved: reserved
+            .filter((h) => h.seatSection === s.name)
+            .map((h) => ({ row: h.seatRow, seat: h.seatNumber })),
         };
       }),
     };

@@ -1,9 +1,9 @@
 import type { Response } from 'supertest';
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { customer, event, tier, venue } from '../setup/fixtures';
+import { customer, endHold, event, holdSeats, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
-import { AGENT, CUSTOMER, tokenFor } from '../setup/tokens';
+import { AGENT, CUSTOMER, subFor, tokenFor } from '../setup/tokens';
 
 /** Spec 007 FR-002, FR-004, FR-013 (research R5): reserved seating, tiers, and the seat map. */
 describe('Reserved seating and the seat map', () => {
@@ -75,6 +75,7 @@ describe('Reserved seating and the seat map', () => {
           tierId: null,
           sold: 0,
           taken: [],
+          reserved: [],
         },
         {
           sectionId: sectionB,
@@ -84,6 +85,7 @@ describe('Reserved seating and the seat map', () => {
           tierId: null,
           sold: 0,
           taken: [],
+          reserved: [],
         },
       ],
     });
@@ -179,6 +181,7 @@ describe('Reserved seating and the seat map', () => {
       tierId: vip,
       sold: 1,
       taken: [{ row: 1, seat: 5 }],
+      reserved: [],
     });
     expect(b.sold).toBe(0);
     expect(JSON.stringify(res.body)).not.toMatch(/customer|order|sub/i);
@@ -235,5 +238,85 @@ describe('Reserved seating and the seat map', () => {
         .expect(403);
     }
     await anon(ctx).get(`/events/${eventId}/seats`).expect(401);
+  });
+
+  /** Spec 015 FR-012, FR-014 (research R10): reserved seats in the seat map, never whose. */
+  describe('reserved seats (spec 015)', () => {
+    const seated = async () => {
+      const eventId = await event(ctx, venueId, { capacity: 70 });
+      await seating(eventId, { reservedSeating: true, sections: [] }).expect(200);
+      return eventId;
+    };
+
+    it('reports reserved: [] for every section with nothing reserved', async () => {
+      const eventId = await seated();
+
+      const map = await seatMap(eventId);
+
+      expect(map.body.sections.map((s: { reserved: unknown }) => s.reserved)).toEqual([[], []]);
+    });
+
+    it('lists seats held by a live hold of an active reservation, by row and seat', async () => {
+      const eventId = await seated();
+      await holdSeats(ctx.prisma, {
+        eventId,
+        customerSub: subFor('customer1'),
+        seats: [
+          { section: 'A', row: 2, seat: 1 },
+          { section: 'A', row: 1, seat: 6 },
+          { section: 'A', row: 1, seat: 5 },
+        ],
+      });
+
+      const map = await seatMap(eventId);
+
+      expect(map.body.sections[0].reserved).toEqual([
+        { row: 1, seat: 5 },
+        { row: 1, seat: 6 },
+        { row: 2, seat: 1 },
+      ]);
+      expect(map.body.sections[1].reserved).toEqual([]);
+      // Reserved is not sold.
+      expect(map.body.sections[0]).toMatchObject({ sold: 0, taken: [] });
+    });
+
+    it("omits a run-out reservation that isn't closed yet, and an ended hold", async () => {
+      const eventId = await seated();
+      await holdSeats(ctx.prisma, {
+        eventId,
+        customerSub: subFor('customer1'),
+        seats: [{ section: 'A', row: 1, seat: 1 }],
+        secondsAgo: 6 * 60,
+      });
+      const { holdIds } = await holdSeats(ctx.prisma, {
+        eventId,
+        customerSub: subFor('customer2'),
+        seats: [
+          { section: 'B', row: 1, seat: 1 },
+          { section: 'B', row: 1, seat: 2 },
+        ],
+      });
+      await endHold(ctx.prisma, holdIds[0], 'RELEASED');
+
+      const map = await seatMap(eventId);
+
+      expect(map.body.sections[0].reserved).toEqual([]);
+      expect(map.body.sections[1].reserved).toEqual([{ row: 1, seat: 2 }]);
+    });
+
+    it('never names the customer holding a seat', async () => {
+      const eventId = await seated();
+      await holdSeats(ctx.prisma, {
+        eventId,
+        customerSub: subFor('customer1'),
+        seats: [{ section: 'A', row: 1, seat: 1 }],
+      });
+
+      for (const client of [asAdmin(ctx), await customer(ctx, 2)]) {
+        const res = await client.get(`/events/${eventId}/seats`).expect(200);
+        expect(res.text).not.toContain(subFor('customer1'));
+        expect(res.text).not.toContain('customer1');
+      }
+    });
   });
 });
