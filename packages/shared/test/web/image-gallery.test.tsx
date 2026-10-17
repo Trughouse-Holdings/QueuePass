@@ -17,6 +17,9 @@ import {
  */
 beforeEach(() => {
   vi.useFakeTimers();
+  // Testing Library drains its async helpers with a setTimeout, advanced only for Jest's fake
+  // timers; this lets user-event run under Vitest's.
+  vi.stubGlobal('jest', { advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms) });
 });
 afterEach(() => {
   vi.useRealTimers();
@@ -38,7 +41,7 @@ async function show(count: number, extra?: React.ReactNode) {
   return view;
 }
 
-const keyboard = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+const keyboard = () => userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
 const position = () => screen.getByText(/^\d of \d$/).textContent;
 const shownAlt = () => screen.getByRole('img').getAttribute('alt');
 const arrow = (which: 'Previous' | 'Next') =>

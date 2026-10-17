@@ -204,7 +204,7 @@ describe('the event page band (spec 014 research R13)', () => {
   it('sets overflow on .app only where a page band is shown', () => {
     const rules = [...css.matchAll(/([^{}]*\.app\b[^{}]*)\{([^}]*)\}/g)]
       .filter(([, , body]) => /overflow/.test(body!))
-      .map(([, selector]) => selector!.trim());
+      .map(([, selector]) => selector!.replace(/\/\*[\s\S]*?\*\//g, '').trim());
     expect(rules).toEqual(['.app:has(.page-band)']);
     expect(bodiesOf(css, '.app:has(.page-band)')[0]).toMatch(/overflow-x:\s*clip/);
   });

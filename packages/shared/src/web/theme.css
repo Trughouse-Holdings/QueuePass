@@ -40,6 +40,10 @@
   --brand-mark-end: #7c6cf7;
   --brand-mark-text: #ffffff;
 
+  /* Spec 014: the full-screen image backdrop and the text on it, dark in both sets. */
+  --scrim: rgb(0 0 0 / 92%);
+  --scrim-text: #ffffff;
+
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -90,6 +94,9 @@
 
     --brand-mark-end: #7c6cf7;
     --brand-mark-text: #ffffff;
+
+    --scrim: rgb(0 0 0 / 92%);
+    --scrim-text: #ffffff;
 
     --shadow: 0 1px 3px rgb(0 0 0 / 40%);
     --shadow-lg: 0 6px 16px -4px rgb(0 0 0 / 50%);
@@ -183,6 +190,7 @@ body {
   font-weight: 600;
 }
 
+/* The top padding (32px) is also .page-band's negative top margin: keep the two equal. */
 .main {
   flex: 1;
   max-width: 1080px;
@@ -607,8 +615,12 @@ button,
 }
 
 @media (max-width: 640px) {
+  /* The top padding (22px) is also .page-band's negative top margin here: keep them equal. */
   .main {
     padding: 22px 16px 48px;
+  }
+  .page-band {
+    margin-top: -22px;
   }
   .topbar__inner {
     padding: 0 16px;
@@ -692,4 +704,108 @@ dd {
   border-top: none;
   margin-top: 0;
   padding-top: 0;
+}
+
+/* ------------------------------------------------------------ event images */
+/* Spec 014 (research R11 to R13): an event's images, a gallery the Admin and Customer apps share.
+   Images are swapped, never slid or faded. Controls sit over the image on an opaque surface so
+   they read the same on any picture, and are at least 44 by 44 pixels. */
+
+/* The event page band: the full width of the app window, flush under the top bar. Its negative top
+   margin cancels .main's top padding (32px; 22px at phone width, below): keep them equal
+   (tokens.test.ts checks). */
+.page-band {
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  margin-top: -32px;
+  margin-bottom: 24px;
+}
+/* 100vw includes a vertical scroll bar on some systems; only a page with a band clips it. */
+.app:has(.page-band) {
+  overflow-x: clip;
+}
+
+.gallery {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-alt);
+}
+.gallery--page {
+  height: clamp(200px, 40vw, 480px);
+}
+.gallery__slide,
+.gallery__open {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.gallery__open {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  cursor: zoom-in;
+}
+.gallery__image,
+.gallery__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gallery__placeholder {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.gallery__arrow,
+.gallery__toggle,
+.gallery__count {
+  position: absolute;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+}
+.gallery__arrow,
+.gallery__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.gallery__arrow {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.gallery__arrow--prev {
+  left: 12px;
+}
+.gallery__arrow--next {
+  right: 12px;
+}
+.gallery__toggle {
+  left: 12px;
+  bottom: 12px;
+  font-size: 14px;
+}
+.gallery__count {
+  right: 12px;
+  bottom: 12px;
+  margin: 0;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }

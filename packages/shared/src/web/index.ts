@@ -11,3 +11,10 @@ export { ServiceUnreachable } from './service-unreachable.js';
 export { AddressLink } from './address-link.js';
 export { apiBaseUrl, createApiClient } from './api-client.js';
 export type { ApiClient } from './api-client.js';
+// Spec 014: event images, loaded with the token and shown as a rotating gallery.
+export { useEventImage } from './event-images.js';
+export type { EventImageState } from './event-images.js';
+export { useGalleryRotation } from './use-gallery-rotation.js';
+export type { GalleryRotation } from './use-gallery-rotation.js';
+export { ImageGallery } from './image-gallery.js';
+export type { ImageGalleryProps } from './image-gallery.js';

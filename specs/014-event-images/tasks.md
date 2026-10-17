@@ -295,13 +295,13 @@ looks as before.
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T019 [P] [US2] Create `packages/shared/test/web/event-images.test.tsx`: two components using
+- [x] T019 [P] [US2] Create `packages/shared/test/web/event-images.test.tsx`: two components using
   the same image id cause one `GET /events/{id}/images/{imageId}` with the user's `Authorization`
   header; both receive the same `blob:` URL; it is revoked only after both unmount; a later use
   fetches again; a `404` or network failure gives the failed state and does not throw; `enabled:
   false` fetches nothing. A gallery of 3 images that loops twice (fake timers) makes exactly 3
   image requests and revokes nothing until it unmounts (research R4: kept while mounted).
-- [ ] T020 [P] [US2] Create `packages/shared/test/web/use-gallery-rotation.test.ts` with fake
+- [x] T020 [P] [US2] Create `packages/shared/test/web/use-gallery-rotation.test.ts` with fake
   timers: with 3 images the index goes 0 → 1 at 5,000 ms (not at 4,999), → 2, → 0; `next()` at
   3,000 ms shows the next at once and the following change comes 5,000 ms after the press; `prev()`
   from 0 gives 2; `paused: true` stops changes for 20 s, and after it turns false the next change is
@@ -310,7 +310,7 @@ looks as before.
   no timer is set; with `stopped: true` nothing changes over 20 s whatever `paused` does, `next()`
   and `prev()` still change the index at once without starting a timer, and when `stopped` turns
   false the next change is 5,000 ms later.
-- [ ] T021 [P] [US2] Create `packages/shared/test/web/image-gallery.test.tsx` (variant `page`):
+- [x] T021 [P] [US2] Create `packages/shared/test/web/image-gallery.test.tsx` (variant `page`):
   - 0 images → renders nothing; 1 image → the image, no arrows, no position, no Pause/Play button,
     no timer;
   - 3 images → a `role="group"` with `aria-roledescription="carousel"` named "Images of Season
@@ -342,7 +342,7 @@ looks as before.
   them. Add `images` to the event factory in `customer-app/test/helpers.tsx` (default `[]`).
 - [ ] T023 [P] [US2] Create `admin-app/test/event-images.detail.test.tsx`: the Admin event page
   shows the gallery for an event with images (FR-019), and nothing for one without.
-- [ ] T024 [P] [US2] Extend `packages/shared/test/theme/tokens.test.ts` and `contrast.test.ts`
+- [x] T024 [P] [US2] Extend `packages/shared/test/theme/tokens.test.ts` and `contrast.test.ts`
   (from `012`): `--scrim` and `--scrim-text` exist in the light and dark sets with the same values;
   `--scrim-text` on `--scrim` composited over white and over black is at least 4.5:1. Also assert
   the theme sets no `overflow` on `.app` except under `.app:has(.page-band)`; `--scrim` is
@@ -352,12 +352,12 @@ looks as before.
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Create `packages/shared/src/web/event-images.ts` (the cache and `useEventImage`,
+- [x] T025 [US2] Create `packages/shared/src/web/event-images.ts` (the cache and `useEventImage`,
   research R4) using `useAuth().api.GET('/events/{id}/images/{imageId}', { …, parseAs: 'blob' })`.
   Run T019 until it passes.
-- [ ] T026 [US2] Create `packages/shared/src/web/use-gallery-rotation.ts` (research R11). Run T020
+- [x] T026 [US2] Create `packages/shared/src/web/use-gallery-rotation.ts` (research R11). Run T020
   until it passes.
-- [ ] T027 [US2] Create `packages/shared/src/web/image-gallery.tsx` (`ImageGallery`, research
+- [x] T027 [US2] Create `packages/shared/src/web/image-gallery.tsx` (`ImageGallery`, research
   R10–R13: the page variant, arrows, Pause/Play button, position, placeholder, pause rules, live
   region; the
   full-screen button calls an `onOpen` that US5 connects) and export it and the hook from

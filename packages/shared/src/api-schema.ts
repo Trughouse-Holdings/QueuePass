@@ -4,2927 +4,3005 @@
  */
 
 export interface paths {
-    "/health": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Liveness and readiness probe
-         * @description Used by Compose health checks. The only operation that needs no token.
-         */
-        get: operations["getHealth"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+  '/health': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Who am I
-         * @description Returns the caller's identity as read from the validated token (spec 001 FR-022). Nothing
-         *     is looked up in a database.
-         */
-        get: operations["getMe"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Liveness and readiness probe
+     * @description Used by Compose health checks. The only operation that needs no token.
+     */
+    get: operations['getHealth'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/me': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/me/orders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * My orders
-         * @description Every order the signed-in customer has placed, newest first, each with its tickets and a
-         *     summary of its event (feature 006). The customer is the token's subject; no parameter can
-         *     name another customer. Orders made by the demo script belong to stand-in identities and
-         *     never appear here.
-         */
-        get: operations["listMyOrders"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Who am I
+     * @description Returns the caller's identity as read from the validated token (spec 001 FR-022). Nothing
+     *     is looked up in a database.
+     */
+    get: operations['getMe'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/me/orders': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/me/reservations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * My active seat reservations
-         * @description The signed-in customer's active reservations, for every event, newest first (feature 015).
-         *     A reservation is active from when it is made until it is bought, released, or ended, or its
-         *     5 minutes run out (`expiresAt`, exclusive). The customer is the token's subject.
-         */
-        get: operations["listMyReservations"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * My orders
+     * @description Every order the signed-in customer has placed, newest first, each with its tickets and a
+     *     summary of its event (feature 006). The customer is the token's subject; no parameter can
+     *     name another customer. Orders made by the demo script belong to stand-in identities and
+     *     never appear here.
+     */
+    get: operations['listMyOrders'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/me/reservations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/me/reservations/release": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Release all my seat reservations
-         * @description Releases every active reservation of the signed-in customer, for every event (feature
-         *     015). The Customer app calls it when the customer logs out. Each released seat is open to
-         *     others at once, and this customer can't reserve it again for 2 minutes. Safe to repeat.
-         */
-        post: operations["releaseAllMyReservations"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * My active seat reservations
+     * @description The signed-in customer's active reservations, for every event, newest first (feature 015).
+     *     A reservation is active from when it is made until it is bought, released, or ended, or its
+     *     5 minutes run out (`expiresAt`, exclusive). The customer is the token's subject.
+     */
+    get: operations['listMyReservations'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/me/reservations/release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/hello/admin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Greeting for the Admin app */
-        get: operations["getAdminHello"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Release all my seat reservations
+     * @description Releases every active reservation of the signed-in customer, for every event (feature
+     *     015). The Customer app calls it when the customer logs out. Each released seat is open to
+     *     others at once, and this customer can't reserve it again for 2 minutes. Safe to repeat.
+     */
+    post: operations['releaseAllMyReservations'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/hello/admin': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/hello/customer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Greeting for the Customer app */
-        get: operations["getCustomerHello"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Greeting for the Admin app */
+    get: operations['getAdminHello'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/hello/customer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/hello/booth": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Greeting for the Ticket Booth app */
-        get: operations["getBoothHello"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Greeting for the Customer app */
+    get: operations['getCustomerHello'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/hello/booth': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/locations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all venues
-         * @description Ordered by name, A to Z. The Customer app (feature 003) relies on this order. Optional
-         *     `q` filter (feature 004), used by the Admin app's venue search.
-         */
-        get: operations["listLocations"];
-        put?: never;
-        /**
-         * Create a venue
-         * @description Rejects an empty name, a missing or malformed address field, and a non-positive capacity
-         *     (`400 VALIDATION_FAILED`).
-         *
-         *     Feature 013: the address (`street`, `city`, `state`, `zip`) is then checked with the
-         *     address service (the US Census Geocoder) before anything is saved. Exactly one match
-         *     that keeps the sent ZIP code (first 5 digits) and house number is accepted, and the venue
-         *     is saved with the service's standard form of the four fields and `addressVerified: true`;
-         *     `address` is built from them as `STREET, CITY, ST ZIP`. No match is
-         *     `400 ADDRESS_NOT_FOUND`; several matches, or one match at a different ZIP code or house
-         *     number, are `400 ADDRESS_AMBIGUOUS`, listing them.
-         *
-         *     Save anyway: with `acceptUnverifiedAddress: true`, no match, several matches, or one
-         *     match at a different ZIP code or house number instead save the venue with the four fields
-         *     as sent (trimmed, runs of whitespace collapsed to one space, ZIP cut to 5 digits) and
-         *     `addressVerified: false`. The address service is still asked first, and the flag changes
-         *     nothing when it finds exactly one match that keeps the ZIP code and house number.
-         *
-         *     When the service cannot be reached, does not answer within 5 seconds, or answers with an
-         *     error, the save is refused with `503 ADDRESS_SERVICE_UNAVAILABLE` and nothing is saved,
-         *     with or without `acceptUnverifiedAddress`.
-         */
-        post: operations["createLocation"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Greeting for the Ticket Booth app */
+    get: operations['getBoothHello'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/locations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/locations/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        /** Retrieve one venue */
-        get: operations["getLocation"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete a venue
-         * @description Permanent: there is no undo. Clients MUST ask the user to confirm first.
-         *
-         *     Refused with `409 VENUE_HAS_EVENTS` while any event is scheduled at this venue. The
-         *     service counts the events so the message and `details.eventCount` are specific; the
-         *     database's `ON DELETE RESTRICT` is the guarantee, so no client can orphan events. If an
-         *     event is added concurrently, the database refuses and `eventCount` is omitted.
-         */
-        delete: operations["deleteLocation"];
-        options?: never;
-        head?: never;
-        /**
-         * Update a venue
-         * @description Lowering `seatingCapacity` below the `totalTicketCapacity` of any event already
-         *     scheduled at this venue is refused with `CAPACITY_EXCEEDED`. Feature 007: while the venue
-         *     has a seating layout, its `seatingCapacity` is the layout's total seats and cannot be set
-         *     here (`400`).
-         *
-         *     Feature 013: `street`, `city`, `state`, and `zip` are sent all together or not at all
-         *     (`400`). When they are sent and differ from the stored ones (ignoring case and extra
-         *     spaces), the address is checked exactly as in `createLocation`, after every other check
-         *     on this request and before anything is saved, including `acceptUnverifiedAddress`. An
-         *     edit without address fields, or with the same address, never calls the address service
-         *     and keeps `addressVerified` as it is. `acceptUnverifiedAddress` without the four address
-         *     fields is `400`. A venue saved before feature 013 keeps its `address`, has `null` parts,
-         *     and has `addressVerified: false` until its address is changed.
-         */
-        patch: operations["updateLocation"];
-        trace?: never;
+    /**
+     * List all venues
+     * @description Ordered by name, A to Z. The Customer app (feature 003) relies on this order. Optional
+     *     `q` filter (feature 004), used by the Admin app's venue search.
+     */
+    get: operations['listLocations'];
+    put?: never;
+    /**
+     * Create a venue
+     * @description Rejects an empty name, a missing or malformed address field, and a non-positive capacity
+     *     (`400 VALIDATION_FAILED`).
+     *
+     *     Feature 013: the address (`street`, `city`, `state`, `zip`) is then checked with the
+     *     address service (the US Census Geocoder) before anything is saved. Exactly one match
+     *     that keeps the sent ZIP code (first 5 digits) and house number is accepted, and the venue
+     *     is saved with the service's standard form of the four fields and `addressVerified: true`;
+     *     `address` is built from them as `STREET, CITY, ST ZIP`. No match is
+     *     `400 ADDRESS_NOT_FOUND`; several matches, or one match at a different ZIP code or house
+     *     number, are `400 ADDRESS_AMBIGUOUS`, listing them.
+     *
+     *     Save anyway: with `acceptUnverifiedAddress: true`, no match, several matches, or one
+     *     match at a different ZIP code or house number instead save the venue with the four fields
+     *     as sent (trimmed, runs of whitespace collapsed to one space, ZIP cut to 5 digits) and
+     *     `addressVerified: false`. The address service is still asked first, and the flag changes
+     *     nothing when it finds exactly one match that keeps the ZIP code and house number.
+     *
+     *     When the service cannot be reached, does not answer within 5 seconds, or answers with an
+     *     error, the save is refused with `503 ADDRESS_SERVICE_UNAVAILABLE` and nothing is saved,
+     *     with or without `acceptUnverifiedAddress`.
+     */
+    post: operations['createLocation'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/locations/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
     };
-    "/locations/{id}/layout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The venue. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        /**
-         * A venue's seating layout
-         * @description The venue's sections in display order, and their total seats (feature 007). `sections` is
-         *     empty when the venue has no layout.
-         */
-        get: operations["getLayout"];
-        /**
-         * Replace a venue's seating layout
-         * @description Replaces every section with the given ones, in order (feature 007). Section names must be
-         *     unique ignoring case (`400`). Saving sets the venue's `seatingCapacity` to the layout's
-         *     total seats, and the `totalTicketCapacity` of every scheduled event at the venue with
-         *     reserved seating to the same total. Refused when that total is below the
-         *     `totalTicketCapacity` of a scheduled general-admission event at the venue (`409
-         *     CAPACITY_EXCEEDED`, naming it), and while any scheduled event at the venue with reserved
-         *     seating has valid tickets (`409 LAYOUT_IN_USE`, `details.events`). Every event's section
-         *     mappings at this venue are dropped, because the old sections no longer exist, so their
-         *     tiers' quantities become 0 until remapped.
-         *
-         *     Feature 016: also refused when the total is below the `maxTicketsPerCustomer` of a
-         *     scheduled event at the venue with reserved seating (`409 CAPACITY_EXCEEDED`, naming it);
-         *     lower its limit first.
-         *
-         *     Feature 015: saving ends every active reservation at the venue's events.
-         */
-        put: operations["replaceLayout"];
-        post?: never;
-        /**
-         * Remove a venue's seating layout
-         * @description Removes every section (feature 007). Refused as `replaceLayout` is, and also while any
-         *     scheduled event at the venue has reserved seating on (`409 LAYOUT_IN_USE`). The venue
-         *     keeps its last `seatingCapacity`, which can be set by `updateLocation` again.
-         */
-        delete: operations["deleteLayout"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Retrieve one venue */
+    get: operations['getLocation'];
+    put?: never;
+    post?: never;
+    /**
+     * Delete a venue
+     * @description Permanent: there is no undo. Clients MUST ask the user to confirm first.
+     *
+     *     Refused with `409 VENUE_HAS_EVENTS` while any event is scheduled at this venue. The
+     *     service counts the events so the message and `details.eventCount` are specific; the
+     *     database's `ON DELETE RESTRICT` is the guarantee, so no client can orphan events. If an
+     *     event is added concurrently, the database refuses and `eventCount` is omitted.
+     */
+    delete: operations['deleteLocation'];
+    options?: never;
+    head?: never;
+    /**
+     * Update a venue
+     * @description Lowering `seatingCapacity` below the `totalTicketCapacity` of any event already
+     *     scheduled at this venue is refused with `CAPACITY_EXCEEDED`. Feature 007: while the venue
+     *     has a seating layout, its `seatingCapacity` is the layout's total seats and cannot be set
+     *     here (`400`).
+     *
+     *     Feature 013: `street`, `city`, `state`, and `zip` are sent all together or not at all
+     *     (`400`). When they are sent and differ from the stored ones (ignoring case and extra
+     *     spaces), the address is checked exactly as in `createLocation`, after every other check
+     *     on this request and before anything is saved, including `acceptUnverifiedAddress`. An
+     *     edit without address fields, or with the same address, never calls the address service
+     *     and keeps `addressVerified` as it is. `acceptUnverifiedAddress` without the four address
+     *     fields is `400`. A venue saved before feature 013 keeps its `address`, has `null` parts,
+     *     and has `addressVerified: false` until its address is changed.
+     */
+    patch: operations['updateLocation'];
+    trace?: never;
+  };
+  '/locations/{id}/layout': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The venue. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List all events
-         * @description Each event embeds its venue. Ordered by `startsAt`, soonest first; the Customer app
-         *     (feature 003) relies on this order. Optional filters, combinable: `locationId` (used by the
-         *     Admin app's venue page), and `q`, `from`, `to` (feature 004, the Admin app's event search).
-         */
-        get: operations["listEvents"];
-        put?: never;
-        /**
-         * Schedule an event
-         * @description Rejects, in this order: request-shape and field validation, unknown venue, ticket
-         *     capacity above the venue's seating capacity, and a scheduling conflict at that venue.
-         *
-         *     Feature 016: `maxTicketsPerCustomer`, when given, must be from 1 to the event's
-         *     `totalTicketCapacity`, where an omitted capacity is the venue's `seatingCapacity` (`400`
-         *     otherwise). It is checked after the venue's seating capacity.
-         */
-        post: operations["createEvent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * A venue's seating layout
+     * @description The venue's sections in display order, and their total seats (feature 007). `sections` is
+     *     empty when the venue has no layout.
+     */
+    get: operations['getLayout'];
+    /**
+     * Replace a venue's seating layout
+     * @description Replaces every section with the given ones, in order (feature 007). Section names must be
+     *     unique ignoring case (`400`). Saving sets the venue's `seatingCapacity` to the layout's
+     *     total seats, and the `totalTicketCapacity` of every scheduled event at the venue with
+     *     reserved seating to the same total. Refused when that total is below the
+     *     `totalTicketCapacity` of a scheduled general-admission event at the venue (`409
+     *     CAPACITY_EXCEEDED`, naming it), and while any scheduled event at the venue with reserved
+     *     seating has valid tickets (`409 LAYOUT_IN_USE`, `details.events`). Every event's section
+     *     mappings at this venue are dropped, because the old sections no longer exist, so their
+     *     tiers' quantities become 0 until remapped.
+     *
+     *     Feature 016: also refused when the total is below the `maxTicketsPerCustomer` of a
+     *     scheduled event at the venue with reserved seating (`409 CAPACITY_EXCEEDED`, naming it);
+     *     lower its limit first.
+     *
+     *     Feature 015: saving ends every active reservation at the venue's events.
+     */
+    put: operations['replaceLayout'];
+    post?: never;
+    /**
+     * Remove a venue's seating layout
+     * @description Removes every section (feature 007). Refused as `replaceLayout` is, and also while any
+     *     scheduled event at the venue has reserved seating on (`409 LAYOUT_IN_USE`). The venue
+     *     keeps its last `seatingCapacity`, which can be set by `updateLocation` again.
+     */
+    delete: operations['deleteLayout'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    "/events/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        /** Retrieve one event */
-        get: operations["getEvent"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete an event
-         * @description Permanent: there is no undo. Clients MUST ask the user to confirm first. The window the
-         *     event occupied becomes available for scheduling again immediately. The event's ticket
-         *     tiers are deleted with it. An event with orders cannot be deleted (`409
-         *     EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records. Feature 014:
-         *     the event's images are deleted with it. Feature 015: its seat reservations are deleted
-         *     with it, and every open `streamSeatMap` stream for it ends.
-         */
-        delete: operations["deleteEvent"];
-        options?: never;
-        head?: never;
-        /**
-         * Update an event
-         * @description Includes moving the event to a different venue or time window. The conflict rule is
-         *     re-evaluated against the destination venue and window, excluding the event itself.
-         *     Lowering `totalTicketCapacity` below the sum of the event's tier quantities, or below
-         *     its tickets sold, is refused with `409 CAPACITY_EXCEEDED` (features 004, 005). A
-         *     cancelled event cannot be changed (`409 EVENT_CANCELLED`). Feature 007: while an event has
-         *     reserved seating, it cannot move to another venue, and its `totalTicketCapacity` is its
-         *     venue's layout total and cannot be set (`400` for either); turn reserved seating off
-         *     first.
-         *
-         *     Feature 016: `maxTicketsPerCustomer` may be set, changed, or cleared with `null` at any
-         *     time before the event is cancelled. After the existing capacity checks, the limit in
-         *     force after the update must not exceed the event's `totalTicketCapacity`: a
-         *     `maxTicketsPerCustomer` sent in the request above it is `400`; an update that lowers
-         *     `totalTicketCapacity` below the stored limit, without sending a new one, is `409
-         *     CAPACITY_EXCEEDED` (`details.proposedTicketCapacity`, `details.maxTicketsPerCustomer`).
-         *     Lowering or clearing the limit never changes an existing order or ticket.
-         */
-        patch: operations["updateEvent"];
-        trace?: never;
+    /**
+     * List all events
+     * @description Each event embeds its venue. Ordered by `startsAt`, soonest first; the Customer app
+     *     (feature 003) relies on this order. Optional filters, combinable: `locationId` (used by the
+     *     Admin app's venue page), and `q`, `from`, `to` (feature 004, the Admin app's event search).
+     */
+    get: operations['listEvents'];
+    put?: never;
+    /**
+     * Schedule an event
+     * @description Rejects, in this order: request-shape and field validation, unknown venue, ticket
+     *     capacity above the venue's seating capacity, and a scheduling conflict at that venue.
+     *
+     *     Feature 016: `maxTicketsPerCustomer`, when given, must be from 1 to the event's
+     *     `totalTicketCapacity`, where an omitted capacity is the venue's `seatingCapacity` (`400`
+     *     otherwise). It is checked after the venue's seating capacity.
+     */
+    post: operations['createEvent'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/tiers": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        /**
-         * List an event's ticket tiers
-         * @description Ordered by price, lowest first, then by name.
-         */
-        get: operations["listTicketTiers"];
-        put?: never;
-        /**
-         * Add a ticket tier to an event
-         * @description Rejects, in this order: field validation, unknown event, a name already used by another
-         *     tier of this event ignoring case (`409 TIER_NAME_TAKEN`), and a quantity that would push
-         *     the event's tier total above its `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`, with
-         *     `details.remaining`). The capacity rule holds under concurrent requests. Also refused:
-         *     a cancelled event (`409 EVENT_CANCELLED`), and an event that already sold tickets
-         *     without tiers (`409 EVENT_HAS_ORDERS`), since those tickets would belong to no tier.
-         *     Feature 007: for an event with reserved seating, `quantity` must be omitted (`400`
-         *     otherwise): the tier's quantity is the seats in its mapped sections, 0 until mapped. For
-         *     any other event it is required (`400`).
-         *
-         *     Feature 015: adding the first tier to an event with reserved seating ends its active
-         *     reservations, which were made without a tier and could no longer be bought; their seats
-         *     become open at once.
-         */
-        post: operations["createTicketTier"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /** Retrieve one event */
+    get: operations['getEvent'];
+    put?: never;
+    post?: never;
+    /**
+     * Delete an event
+     * @description Permanent: there is no undo. Clients MUST ask the user to confirm first. The window the
+     *     event occupied becomes available for scheduling again immediately. The event's ticket
+     *     tiers are deleted with it. An event with orders cannot be deleted (`409
+     *     EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records. Feature 014:
+     *     the event's images are deleted with it. Feature 015: its seat reservations are deleted
+     *     with it, and every open `streamSeatMap` stream for it ends.
+     */
+    delete: operations['deleteEvent'];
+    options?: never;
+    head?: never;
+    /**
+     * Update an event
+     * @description Includes moving the event to a different venue or time window. The conflict rule is
+     *     re-evaluated against the destination venue and window, excluding the event itself.
+     *     Lowering `totalTicketCapacity` below the sum of the event's tier quantities, or below
+     *     its tickets sold, is refused with `409 CAPACITY_EXCEEDED` (features 004, 005). A
+     *     cancelled event cannot be changed (`409 EVENT_CANCELLED`). Feature 007: while an event has
+     *     reserved seating, it cannot move to another venue, and its `totalTicketCapacity` is its
+     *     venue's layout total and cannot be set (`400` for either); turn reserved seating off
+     *     first.
+     *
+     *     Feature 016: `maxTicketsPerCustomer` may be set, changed, or cleared with `null` at any
+     *     time before the event is cancelled. After the existing capacity checks, the limit in
+     *     force after the update must not exceed the event's `totalTicketCapacity`: a
+     *     `maxTicketsPerCustomer` sent in the request above it is `400`; an update that lowers
+     *     `totalTicketCapacity` below the stored limit, without sending a new one, is `409
+     *     CAPACITY_EXCEEDED` (`details.proposedTicketCapacity`, `details.maxTicketsPerCustomer`).
+     *     Lowering or clearing the limit never changes an existing order or ticket.
+     */
+    patch: operations['updateEvent'];
+    trace?: never;
+  };
+  '/events/{id}/tiers': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/tiers/{tierId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-                /** @description A tier of that event. A tier of a different event is `404`. */
-                tierId: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Remove a ticket tier
-         * @description Permanent. Clients MUST ask the user to confirm first. A tier with orders cannot be
-         *     removed (`409 TIER_HAS_ORDERS`); a cancelled event's tiers cannot change (`409
-         *     EVENT_CANCELLED`). Feature 015: the tier's seat reservations are deleted with it, and
-         *     their seats become open at once.
-         */
-        delete: operations["deleteTicketTier"];
-        options?: never;
-        head?: never;
-        /**
-         * Update a ticket tier
-         * @description Same rules as creating one, evaluated against the event's other tiers. `quantity` may not
-         *     drop below the tier's tickets sold (`409 CAPACITY_EXCEEDED`). A price change does not
-         *     affect orders already placed. Feature 007: for an event with reserved seating, `quantity`
-         *     cannot be set (`400`); it follows the tier's mapped sections.
-         */
-        patch: operations["updateTicketTier"];
-        trace?: never;
+    /**
+     * List an event's ticket tiers
+     * @description Ordered by price, lowest first, then by name.
+     */
+    get: operations['listTicketTiers'];
+    put?: never;
+    /**
+     * Add a ticket tier to an event
+     * @description Rejects, in this order: field validation, unknown event, a name already used by another
+     *     tier of this event ignoring case (`409 TIER_NAME_TAKEN`), and a quantity that would push
+     *     the event's tier total above its `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`, with
+     *     `details.remaining`). The capacity rule holds under concurrent requests. Also refused:
+     *     a cancelled event (`409 EVENT_CANCELLED`), and an event that already sold tickets
+     *     without tiers (`409 EVENT_HAS_ORDERS`), since those tickets would belong to no tier.
+     *     Feature 007: for an event with reserved seating, `quantity` must be omitted (`400`
+     *     otherwise): the tier's quantity is the seats in its mapped sections, 0 until mapped. For
+     *     any other event it is required (`400`).
+     *
+     *     Feature 015: adding the first tier to an event with reserved seating ends its active
+     *     reservations, which were made without a tier and could no longer be bought; their seats
+     *     become open at once.
+     */
+    post: operations['createTicketTier'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/tiers/{tierId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+        /** @description A tier of that event. A tier of a different event is `404`. */
+        tierId: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/availability": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        /**
-         * Tickets left and whether sales are open
-         * @description Tickets left for the event and for each of its tiers, counting valid tickets only, and
-         *     whether sales are closed and why, decided by the Backend's clock (feature 006). The
-         *     counts are guidance: `createOrder` decides under its own lock, so a count can be out of
-         *     date by the time an order arrives.
-         *
-         *     Feature 016: for a signed-in customer and an event with a `maxTicketsPerCustomer`,
-         *     `customerLimit` gives the limit, the caller's own valid tickets for the event, and how many
-         *     more they may get; otherwise it is `null`. It never describes another customer.
-         */
-        get: operations["getEventAvailability"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    post?: never;
+    /**
+     * Remove a ticket tier
+     * @description Permanent. Clients MUST ask the user to confirm first. A tier with orders cannot be
+     *     removed (`409 TIER_HAS_ORDERS`); a cancelled event's tiers cannot change (`409
+     *     EVENT_CANCELLED`). Feature 015: the tier's seat reservations are deleted with it, and
+     *     their seats become open at once.
+     */
+    delete: operations['deleteTicketTier'];
+    options?: never;
+    head?: never;
+    /**
+     * Update a ticket tier
+     * @description Same rules as creating one, evaluated against the event's other tiers. `quantity` may not
+     *     drop below the tier's tickets sold (`409 CAPACITY_EXCEEDED`). A price change does not
+     *     affect orders already placed. Feature 007: for an event with reserved seating, `quantity`
+     *     cannot be set (`400`); it follows the tier's mapped sections.
+     */
+    patch: operations['updateTicketTier'];
+    trace?: never;
+  };
+  '/events/{id}/availability': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/seats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        /**
-         * The event's seat map
-         * @description Whether the event has reserved seating and, for each section of its venue's layout, its
-         *     size, its tier for this event, and which seats are taken by valid tickets (feature 007).
-         *     It never says who holds a seat. `sections` is empty when the venue has no layout.
-         *
-         *     Feature 015: each section's `reserved` lists the seats in active reservations. It is the
-         *     same for every caller and never says whose; a customer's own are in
-         *     `listMyReservations`. `streamSeatMap` sends this map and then every change, live.
-         */
-        get: operations["getSeatMap"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Tickets left and whether sales are open
+     * @description Tickets left for the event and for each of its tiers, counting valid tickets only, and
+     *     whether sales are closed and why, decided by the Backend's clock (feature 006). The
+     *     counts are guidance: `createOrder` decides under its own lock, so a count can be out of
+     *     date by the time an order arrives.
+     *
+     *     Feature 016: for a signed-in customer and an event with a `maxTicketsPerCustomer`,
+     *     `customerLimit` gives the limit, the caller's own valid tickets for the event, and how many
+     *     more they may get; otherwise it is `null`. It never describes another customer.
+     */
+    get: operations['getEventAvailability'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/seats': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/seats/stream": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        /**
-         * Live updates of the event's seat map
-         * @description A Server-Sent Events stream of the event's seat map (feature 015). It begins with
-         *     `event: snapshot`, whose `data` is the `SeatMap`, as from `getSeatMap`. After that, each
-         *     `event: seats` carries a `SeatMapChange`: seats that became open, reserved, or sold, sent
-         *     within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15 seconds. No
-         *     event ever names a customer. A client that loses the stream reconnects and gets a fresh
-         *     snapshot. The stream ends when the access token expires; reconnect at once with a current
-         *     one. It also ends when the event is deleted; a reconnect then gets `404`.
-         */
-        get: operations["streamSeatMap"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * The event's seat map
+     * @description Whether the event has reserved seating and, for each section of its venue's layout, its
+     *     size, its tier for this event, and which seats are taken by valid tickets (feature 007).
+     *     It never says who holds a seat. `sections` is empty when the venue has no layout.
+     *
+     *     Feature 015: each section's `reserved` lists the seats in active reservations. It is the
+     *     same for every caller and never says whose; a customer's own are in
+     *     `listMyReservations`. `streamSeatMap` sends this map and then every change, live.
+     */
+    get: operations['getSeatMap'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/seats/stream': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/seating": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set reserved seating and section tiers
-         * @description Turns reserved seating on or off and replaces the event's section-to-tier mappings
-         *     (feature 007). Reserved seating can switch only while the event has no valid tickets
-         *     (`409 EVENT_HAS_ORDERS`), and turn on only when its venue has a layout (`400`). Each
-         *     `sectionId` must be a section of the venue and each `tierId` a tier of the event (`400`).
-         *     A section with valid tickets cannot move to another tier (`409 EVENT_HAS_ORDERS`). A
-         *     cancelled event cannot change (`409 EVENT_CANCELLED`). With reserved seating on, the event's
-         *     `totalTicketCapacity` becomes its venue's layout total and each tier's `quantity` becomes
-         *     the seats in the sections mapped to it (0 with none); turning it off keeps those numbers.
-         *
-         *     Feature 015: turning reserved seating off ends every active reservation for the event, and
-         *     moving a section to another tier ends the reservations' seats in that section.
-         */
-        put: operations["updateSeating"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * Live updates of the event's seat map
+     * @description A Server-Sent Events stream of the event's seat map (feature 015). It begins with
+     *     `event: snapshot`, whose `data` is the `SeatMap`, as from `getSeatMap`. After that, each
+     *     `event: seats` carries a `SeatMapChange`: seats that became open, reserved, or sold, sent
+     *     within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15 seconds. No
+     *     event ever names a customer. A client that loses the stream reconnects and gets a fresh
+     *     snapshot. The stream ends when the access token expires; reconnect at once with a current
+     *     one. It also ends when the event is deleted; a reconnect then gets `404`.
+     */
+    get: operations['streamSeatMap'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/seating': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/reservation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reserve seats
-         * @description Reserves seats for the signed-in customer for 5 minutes (feature 015). With no active
-         *     reservation for the event, it makes one (`201`) that ends at `expiresAt`, 5 minutes later;
-         *     with one, it adds the seats to it (`200`) without changing `expiresAt`. All or nothing:
-         *     any refusal reserves no seat.
-         *
-         *     Each seat follows the rules of `createOrder`'s seats: inside the venue's layout, in a
-         *     section for sale and, for an event with tiers, all of one tier (`400`), and not repeated
-         *     (`400`). Added seats must be of the active reservation's tier and not already in it
-         *     (`400`). A reservation holds at most 10 seats (`400`), and no more than the customer may
-         *     still get under the event's `maxTicketsPerCustomer`, counting valid tickets only
-         *     (`409 TICKET_LIMIT_REACHED`; `details.requested` is the seats the reservation would then
-         *     hold).
-         *
-         *     Refused when the event has no reserved seating (`400`), is cancelled (`409
-         *     EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or
-         *     in another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
-         *     `details.reserved` listing the reserved ones); and for seats of this customer's own
-         *     reservation that ended unbought less than 2 minutes ago (`409 SEAT_COOLDOWN`,
-         *     `details.seats`, `details.availableAt`). No seat is ever in two active reservations, or in
-         *     one and on a valid ticket, including under concurrent requests.
-         *
-         *     There is no `tierId` in the request: the reservation's tier is the tier of the sections its
-         *     seats are in (`null` for an event without tiers), and is returned as `tierId`.
-         */
-        post: operations["reserveSeats"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /**
+     * Set reserved seating and section tiers
+     * @description Turns reserved seating on or off and replaces the event's section-to-tier mappings
+     *     (feature 007). Reserved seating can switch only while the event has no valid tickets
+     *     (`409 EVENT_HAS_ORDERS`), and turn on only when its venue has a layout (`400`). Each
+     *     `sectionId` must be a section of the venue and each `tierId` a tier of the event (`400`).
+     *     A section with valid tickets cannot move to another tier (`409 EVENT_HAS_ORDERS`). A
+     *     cancelled event cannot change (`409 EVENT_CANCELLED`). With reserved seating on, the event's
+     *     `totalTicketCapacity` becomes its venue's layout total and each tier's `quantity` becomes
+     *     the seats in the sections mapped to it (0 with none); turning it off keeps those numbers.
+     *
+     *     Feature 015: turning reserved seating off ends every active reservation for the event, and
+     *     moving a section to another tier ends the reservations' seats in that section.
+     */
+    put: operations['updateSeating'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/reservation': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/reservation/release": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Release reserved seats
-         * @description Releases seats from the signed-in customer's active reservation for the event (feature
-         *     015): the listed `seats`, or all of them when `seats` is omitted. Released seats are open
-         *     to others at once, and this customer can't reserve them again for 2 minutes. The rest
-         *     keep their `expiresAt`. A seat not in the reservation is `400`. With no active reservation,
-         *     nothing happens and `reservation` is `null`, so a repeat is harmless.
-         */
-        post: operations["releaseSeats"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Reserve seats
+     * @description Reserves seats for the signed-in customer for 5 minutes (feature 015). With no active
+     *     reservation for the event, it makes one (`201`) that ends at `expiresAt`, 5 minutes later;
+     *     with one, it adds the seats to it (`200`) without changing `expiresAt`. All or nothing:
+     *     any refusal reserves no seat.
+     *
+     *     Each seat follows the rules of `createOrder`'s seats: inside the venue's layout, in a
+     *     section for sale and, for an event with tiers, all of one tier (`400`), and not repeated
+     *     (`400`). Added seats must be of the active reservation's tier and not already in it
+     *     (`400`). A reservation holds at most 10 seats (`400`), and no more than the customer may
+     *     still get under the event's `maxTicketsPerCustomer`, counting valid tickets only
+     *     (`409 TICKET_LIMIT_REACHED`; `details.requested` is the seats the reservation would then
+     *     hold).
+     *
+     *     Refused when the event has no reserved seating (`400`), is cancelled (`409
+     *     EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or
+     *     in another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
+     *     `details.reserved` listing the reserved ones); and for seats of this customer's own
+     *     reservation that ended unbought less than 2 minutes ago (`409 SEAT_COOLDOWN`,
+     *     `details.seats`, `details.availableAt`). No seat is ever in two active reservations, or in
+     *     one and on a valid ticket, including under concurrent requests.
+     *
+     *     There is no `tierId` in the request: the reservation's tier is the tier of the sections its
+     *     seats are in (`null` for an event without tiers), and is returned as `tierId`.
+     */
+    post: operations['reserveSeats'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/reservation/release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/orders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Get tickets for an event
-         * @description Places an order for the signed-in customer and issues one ticket per seat, each with a
-         *     unique code. Payment is simulated and always succeeds. Prices are fixed on the order.
-         *
-         *     For an event with tiers, `tierId` is required and must be one of its tiers; for an event
-         *     without tiers, `tierId` must be omitted and the base price applies (`400` otherwise).
-         *     Refused when the event is cancelled (`409 EVENT_CANCELLED`) or when fewer tickets are
-         *     left than requested, in the tier or in the event (`409 SOLD_OUT`, with
-         *     `details.available`). Sales never exceed a tier's quantity or the event's capacity,
-         *     including under concurrent requests.
-         *
-         *     Feature 006: sales close when the event starts; an order at or after `startsAt` is
-         *     refused (`409 SALES_CLOSED`). A `requestId` makes a confirmation safe to repeat: if this
-         *     customer already placed an order with the same `requestId`, that order is returned with
-         *     `200` and nothing new is recorded, even if the event has since sold out, started, or been
-         *     cancelled. The same `requestId` with a different event, tier, or quantity is refused
-         *     (`409 REQUEST_ID_REUSED`). Without a `requestId`, every request places a new order.
-         *
-         *     Feature 007: an event with reserved seating requires `seats`, exactly `quantity` distinct
-         *     ones, each inside its venue's layout and, for an event with tiers, in a section mapped to
-         *     the order's tier (`400` otherwise); an event without reserved seating forbids them. Seats
-         *     already taken by valid tickets are refused (`409 SEAT_TAKEN`, `details.seats`). No seat is
-         *     ever held by two valid tickets, including under concurrent requests. A repeated
-         *     `requestId` must also name the same seats.
-         *
-         *     Feature 016: for an event with a `maxTicketsPerCustomer`, an order is refused when the
-         *     customer's valid tickets for the event, across all their orders, plus `quantity` would
-         *     exceed it (`409 TICKET_LIMIT_REACHED`, with `details.limit`, `details.held`,
-         *     `details.remaining`, and `details.requested`). Void tickets do not count. When fewer
-         *     tickets are left than the customer may still get, `SOLD_OUT` is returned instead, so the
-         *     refusal always names the smaller number. A customer never holds more than the limit,
-         *     including under concurrent requests. A repeated `requestId` is returned as before and
-         *     counts once.
-         *
-         *     Feature 015: for an event with reserved seating, every seat must be in the caller's
-         *     active reservation for the event (`reserveSeats`). A seat with a valid ticket or in another
-         *     customer's reservation is `409 SEAT_TAKEN` (with `details.reserved`); any other seat is
-         *     `409 RESERVATION_REQUIRED` (`details.seats`; `details.expired` is `true` when the
-         *     caller's reservation ran out). Bought seats leave the reservation; seats not bought stay
-         *     reserved until it ends. A repeated `requestId` is returned before this check. An order whose
-         *     `tierId` is not the reservation's tier is `400`, since its seats are not in that tier's
-         *     sections.
-         */
-        post: operations["createOrder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Release reserved seats
+     * @description Releases seats from the signed-in customer's active reservation for the event (feature
+     *     015): the listed `seats`, or all of them when `seats` is omitted. Released seats are open
+     *     to others at once, and this customer can't reserve them again for 2 minutes. The rest
+     *     keep their `expiresAt`. A seat not in the reservation is `400`. With no active reservation,
+     *     nothing happens and `reservation` is `null`, so a repeat is harmless.
+     */
+    post: operations['releaseSeats'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/orders': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/attendees": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        /**
-         * List an event's orders and tickets
-         * @description Every order for the event, oldest first, refunded ones included.
-         */
-        get: operations["listAttendees"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Get tickets for an event
+     * @description Places an order for the signed-in customer and issues one ticket per seat, each with a
+     *     unique code. Payment is simulated and always succeeds. Prices are fixed on the order.
+     *
+     *     For an event with tiers, `tierId` is required and must be one of its tiers; for an event
+     *     without tiers, `tierId` must be omitted and the base price applies (`400` otherwise).
+     *     Refused when the event is cancelled (`409 EVENT_CANCELLED`) or when fewer tickets are
+     *     left than requested, in the tier or in the event (`409 SOLD_OUT`, with
+     *     `details.available`). Sales never exceed a tier's quantity or the event's capacity,
+     *     including under concurrent requests.
+     *
+     *     Feature 006: sales close when the event starts; an order at or after `startsAt` is
+     *     refused (`409 SALES_CLOSED`). A `requestId` makes a confirmation safe to repeat: if this
+     *     customer already placed an order with the same `requestId`, that order is returned with
+     *     `200` and nothing new is recorded, even if the event has since sold out, started, or been
+     *     cancelled. The same `requestId` with a different event, tier, or quantity is refused
+     *     (`409 REQUEST_ID_REUSED`). Without a `requestId`, every request places a new order.
+     *
+     *     Feature 007: an event with reserved seating requires `seats`, exactly `quantity` distinct
+     *     ones, each inside its venue's layout and, for an event with tiers, in a section mapped to
+     *     the order's tier (`400` otherwise); an event without reserved seating forbids them. Seats
+     *     already taken by valid tickets are refused (`409 SEAT_TAKEN`, `details.seats`). No seat is
+     *     ever held by two valid tickets, including under concurrent requests. A repeated
+     *     `requestId` must also name the same seats.
+     *
+     *     Feature 016: for an event with a `maxTicketsPerCustomer`, an order is refused when the
+     *     customer's valid tickets for the event, across all their orders, plus `quantity` would
+     *     exceed it (`409 TICKET_LIMIT_REACHED`, with `details.limit`, `details.held`,
+     *     `details.remaining`, and `details.requested`). Void tickets do not count. When fewer
+     *     tickets are left than the customer may still get, `SOLD_OUT` is returned instead, so the
+     *     refusal always names the smaller number. A customer never holds more than the limit,
+     *     including under concurrent requests. A repeated `requestId` is returned as before and
+     *     counts once.
+     *
+     *     Feature 015: for an event with reserved seating, every seat must be in the caller's
+     *     active reservation for the event (`reserveSeats`). A seat with a valid ticket or in another
+     *     customer's reservation is `409 SEAT_TAKEN` (with `details.reserved`); any other seat is
+     *     `409 RESERVATION_REQUIRED` (`details.seats`; `details.expired` is `true` when the
+     *     caller's reservation ran out). Bought seats leave the reservation; seats not bought stay
+     *     reserved until it ends. A repeated `requestId` is returned before this check. An order whose
+     *     `tierId` is not the reservation's tier is `400`, since its seats are not in that tier's
+     *     sections.
+     */
+    post: operations['createOrder'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/attendees': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel an event
-         * @description Irreversible: clients MUST ask the user to confirm first. In one all-or-nothing step,
-         *     voids every valid ticket, marks every confirmed order refunded (simulated), and marks the
-         *     event cancelled. A cancelled event no longer blocks its venue's time, and refuses edits,
-         *     tier changes, orders, and a second cancellation (`409 EVENT_CANCELLED`). Feature 015:
-         *     every active seat reservation for the event ends too, and every seat freed, reserved or
-         *     sold, is sent as open on `streamSeatMap`.
-         */
-        post: operations["cancelEvent"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * List an event's orders and tickets
+     * @description Every order for the event, oldest first, refunded ones included.
+     */
+    get: operations['listAttendees'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/images": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add an image to an event
-         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
-         *     `info` description.
-         *
-         *     Adds one picture after the event's existing images. The body is `multipart/form-data` with
-         *     exactly one part, `file`, and nothing else. The type is decided from the file's first
-         *     bytes (its signature), never from its file name or the part's `Content-Type`: only JPEG
-         *     (`FF D8 FF`), PNG (`89 50 4E 47 0D 0A 1A 0A`), and WebP (`RIFF`, 4 bytes, `WEBP`) are
-         *     accepted. The stored and served `contentType` is the detected one. The width and height
-         *     are read from the header (PNG `IHDR`, WebP `VP8 `/`VP8L`/`VP8X`, JPEG `SOFn`); a file
-         *     whose header gives no size is treated as not a picture.
-         *
-         *     Before storing, location, camera, and text metadata are removed: JPEG Exif and XMP `APP1`
-         *     segments, `APP2` `MPF` and `APP13` segments, and `COM` comments (a JPEG's orientation is
-         *     kept in a minimal Exif segment of its own); PNG `eXIf`, `tEXt`, `iTXt`, `zTXt`, and `tIME`
-         *     chunks; WebP `EXIF` and `XMP ` chunks; and anything after a JPEG's first `EOI`, after a
-         *     PNG's `IEND`, or past a WebP's declared `RIFF` length. The picture data is not changed.
-         *     `byteSize` is the stored size; the 5 MB limit applies to the file as sent.
-         *
-         *     Refused, in this order: `401` and `403` (before the body is read); a file over 5 MB,
-         *     5,242,880 bytes (`413 IMAGE_TOO_LARGE`, while the body is read); a body without exactly
-         *     one `file` part, or with other parts (`400 VALIDATION_FAILED`); a malformed event id
-         *     (`400 VALIDATION_FAILED`); a file that is not a JPEG, PNG, or WebP, an animated PNG or WebP,
-         *     or one whose size in pixels cannot be read or whose segments or chunks run past the end of
-         *     the file (`415 IMAGE_TYPE_NOT_ALLOWED`); a picture wider or taller than 16,384
-         *     pixels or of more than 40,000,000 pixels (`400 IMAGE_DIMENSIONS_TOO_LARGE`, with
-         *     `details.width`, `details.height`, `details.maxSide`, `details.maxPixels`); an unknown
-         *     event (`404`); a cancelled event (`409 EVENT_CANCELLED`); and an event that already has 5
-         *     images (`409 IMAGE_LIMIT_REACHED`, with `details.limit` and `details.count`). An event
-         *     never has more than 5 images, including under concurrent requests. Nothing is stored when
-         *     refused.
-         */
-        post: operations["uploadEventImage"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Cancel an event
+     * @description Irreversible: clients MUST ask the user to confirm first. In one all-or-nothing step,
+     *     voids every valid ticket, marks every confirmed order refunded (simulated), and marks the
+     *     event cancelled. A cancelled event no longer blocks its venue's time, and refuses edits,
+     *     tier changes, orders, and a second cancellation (`409 EVENT_CANCELLED`). Feature 015:
+     *     every active seat reservation for the event ends too, and every seat freed, reserved or
+     *     sold, is sent as open on `streamSeatMap`.
+     */
+    post: operations['cancelEvent'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/images': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/images/order": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set the order of an event's images
-         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
-         *     `info` description.
-         *
-         *     `imageIds` lists every image of the event, each once, in the new order; the first becomes
-         *     the cover (`position` 1). A list that is malformed, repeats an id, or has more than 5 ids is
-         *     `400`. A list that does not name exactly the event's current images, because another
-         *     request added or removed one meanwhile, is `409 IMAGES_CHANGED`, with the current order in
-         *     `details.imageIds`; nothing changes. A cancelled event is `409 EVENT_CANCELLED`.
-         */
-        put: operations["reorderEventImages"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    put?: never;
+    /**
+     * Add an image to an event
+     * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+     *     `info` description.
+     *
+     *     Adds one picture after the event's existing images. The body is `multipart/form-data` with
+     *     exactly one part, `file`, and nothing else. The type is decided from the file's first
+     *     bytes (its signature), never from its file name or the part's `Content-Type`: only JPEG
+     *     (`FF D8 FF`), PNG (`89 50 4E 47 0D 0A 1A 0A`), and WebP (`RIFF`, 4 bytes, `WEBP`) are
+     *     accepted. The stored and served `contentType` is the detected one. The width and height
+     *     are read from the header (PNG `IHDR`, WebP `VP8 `/`VP8L`/`VP8X`, JPEG `SOFn`); a file
+     *     whose header gives no size is treated as not a picture.
+     *
+     *     Before storing, location, camera, and text metadata are removed: JPEG Exif and XMP `APP1`
+     *     segments, `APP2` `MPF` and `APP13` segments, and `COM` comments (a JPEG's orientation is
+     *     kept in a minimal Exif segment of its own); PNG `eXIf`, `tEXt`, `iTXt`, `zTXt`, and `tIME`
+     *     chunks; WebP `EXIF` and `XMP ` chunks; and anything after a JPEG's first `EOI`, after a
+     *     PNG's `IEND`, or past a WebP's declared `RIFF` length. The picture data is not changed.
+     *     `byteSize` is the stored size; the 5 MB limit applies to the file as sent.
+     *
+     *     Refused, in this order: `401` and `403` (before the body is read); a file over 5 MB,
+     *     5,242,880 bytes (`413 IMAGE_TOO_LARGE`, while the body is read); a body without exactly
+     *     one `file` part, or with other parts (`400 VALIDATION_FAILED`); a malformed event id
+     *     (`400 VALIDATION_FAILED`); a file that is not a JPEG, PNG, or WebP, an animated PNG or WebP,
+     *     or one whose size in pixels cannot be read or whose segments or chunks run past the end of
+     *     the file (`415 IMAGE_TYPE_NOT_ALLOWED`); a picture wider or taller than 16,384
+     *     pixels or of more than 40,000,000 pixels (`400 IMAGE_DIMENSIONS_TOO_LARGE`, with
+     *     `details.width`, `details.height`, `details.maxSide`, `details.maxPixels`); an unknown
+     *     event (`404`); a cancelled event (`409 EVENT_CANCELLED`); and an event that already has 5
+     *     images (`409 IMAGE_LIMIT_REACHED`, with `details.limit` and `details.count`). An event
+     *     never has more than 5 images, including under concurrent requests. Nothing is stored when
+     *     refused.
+     */
+    post: operations['uploadEventImage'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/images/order': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
     };
-    "/events/{id}/images/{imageId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-                /** @description An image of that event. An image of a different event is `404`. */
-                imageId: string;
-            };
-            cookie?: never;
-        };
-        /**
-         * An image's content
-         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
-         *     `info` description.
-         *
-         *     The picture's bytes as stored (as uploaded, with its metadata removed), with
-         *     `Content-Type` set to its detected type. Like every operation except `getHealth`, it needs a
-         *     bearer token, so a browser cannot load it with a plain `<img src>`: the apps fetch it with the
-         *     token and show it from a local object URL. An image's content never changes, so the response
-         *     carries `Cache-Control: private, max-age=31536000, immutable`, and
-         *     `X-Content-Type-Options: nosniff`.
-         */
-        get: operations["getEventImage"];
-        put?: never;
-        post?: never;
-        /**
-         * Remove an image from an event
-         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
-         *     `info` description.
-         *
-         *     Permanent. The event's other images keep their order and close the gap, so positions stay
-         *     1 to n. A cancelled event's images cannot change (`409 EVENT_CANCELLED`).
-         */
-        delete: operations["deleteEventImage"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    get?: never;
+    /**
+     * Set the order of an event's images
+     * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+     *     `info` description.
+     *
+     *     `imageIds` lists every image of the event, each once, in the new order; the first becomes
+     *     the cover (`position` 1). A list that is malformed, repeats an id, or has more than 5 ids is
+     *     `400`. A list that does not name exactly the event's current images, because another
+     *     request added or removed one meanwhile, is `409 IMAGES_CHANGED`, with the current order in
+     *     `details.imageIds`; nothing changes. A cancelled event is `409 EVENT_CANCELLED`.
+     */
+    put: operations['reorderEventImages'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/events/{id}/images/{imageId}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+        /** @description An image of that event. An image of a different event is `404`. */
+        imageId: string;
+      };
+      cookie?: never;
     };
-    "/reports/sales": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Sales report
-         * @description Computed on request, so it is always current. Totals cover all events; `ticketCapacity`
-         *     and `events` in the totals count scheduled events only. Refunded orders and void tickets
-         *     are excluded from sold, revenue, and check-ins. Events ordered by `startsAt`.
-         */
-        get: operations["getSalesReport"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
+    /**
+     * An image's content
+     * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+     *     `info` description.
+     *
+     *     The picture's bytes as stored (as uploaded, with its metadata removed), with
+     *     `Content-Type` set to its detected type. Like every operation except `getHealth`, it needs a
+     *     bearer token, so a browser cannot load it with a plain `<img src>`: the apps fetch it with the
+     *     token and show it from a local object URL. An image's content never changes, so the response
+     *     carries `Cache-Control: private, max-age=31536000, immutable`, and
+     *     `X-Content-Type-Options: nosniff`.
+     */
+    get: operations['getEventImage'];
+    put?: never;
+    post?: never;
+    /**
+     * Remove an image from an event
+     * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
+     *     `info` description.
+     *
+     *     Permanent. The event's other images keep their order and close the gap, so positions stay
+     *     1 to n. A cancelled event's images cannot change (`409 EVENT_CANCELLED`).
+     */
+    delete: operations['deleteEventImage'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/reports/sales': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
+    /**
+     * Sales report
+     * @description Computed on request, so it is always current. Totals cover all events; `ticketCapacity`
+     *     and `events` in the totals count scheduled events only. Refunded orders and void tickets
+     *     are excluded from sold, revenue, and check-ins. Events ordered by `startsAt`.
+     */
+    get: operations['getSalesReport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
+  schemas: {
+    /** @enum {string} */
+    Role: 'queuepass-admin' | 'gate-agent' | 'customer';
+    Me: {
+      /**
+       * @description Keycloak subject identifier (the token's `sub`).
+       * @example 3f0c1e9a-5b7d-4c2e-9f1a-2b3c4d5e6f70
+       */
+      sub: string;
+      /**
+       * @description The token's `preferred_username`.
+       * @example admin1
+       */
+      username: string;
+      /**
+       * @description The caller's QueuePass realm roles. Other realm roles are omitted.
+       * @example [
+       *       "queuepass-admin"
+       *     ]
+       */
+      roles: components['schemas']['Role'][];
+    };
+    Hello: {
+      /** @enum {string} */
+      app: 'admin' | 'customer' | 'booth';
+      appName: string;
+      username: string;
+      message: string;
+    };
+    /** @description The `409` for deleting a venue that still has events. An `ErrorEnvelope`. */
+    VenueHasEvents: {
+      error: {
+        /** @constant */
+        code: 'VENUE_HAS_EVENTS';
+        message: string;
+        details?: {
+          /** @description Omitted only when a concurrent insert made the database refuse. */
+          eventCount?: number;
+        };
+      };
+    };
+    /**
+     * @description A venue. Feature 013: when `street`, `city`, `state`, and `zip` are set, `address` is
+     *     built from them as `STREET, CITY, ST ZIP`. Three kinds of venue:
+     *
+     *     - `addressVerified: true`: the address service matched it; the four fields are its
+     *       standard (upper-case) form.
+     *     - `addressVerified: false` with the four fields set: an admin saved it anyway
+     *       (`acceptUnverifiedAddress`); the fields are as the admin sent them.
+     *     - `addressVerified: false` with the four fields `null`: saved before feature 013 and not
+     *       re-addressed since; `address` is the one-line text it was saved with.
+     *
+     *     The five fields are always sent from feature 013 on, but are not in `required`, so this
+     *     contract can merge before the Backend sends them (feature 013 research R11).
+     */
+    Location: {
+      /** Format: uuid */
+      id: string;
+      /** @example KFC Yum! Center */
+      name: string;
+      /**
+       * @description The full one-line address. Shown by every client and matched by `q`.
+       * @example 430 W VINE ST, LEXINGTON, KY 40507
+       */
+      address: string;
+      /** @example 430 W VINE ST */
+      street?: string | null;
+      /** @example LEXINGTON */
+      city?: string | null;
+      state?: components['schemas']['UsState'] | null;
+      /** @example 40507 */
+      zip?: string | null;
+      /** @description Whether the address service matched this address. Clients mark `false` as "Address not verified". */
+      addressVerified?: boolean;
+      /** @example 22090 */
+      seatingCapacity: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    /**
+     * @description Feature 013: the address is sent as four fields and checked with the address service.
+     *     `address` is not accepted; the Backend builds it.
+     *
+     *     `street`, `city`, `state`, and `zip` are **required**: the Backend refuses a create
+     *     without any of them with `400 VALIDATION_FAILED`. They are left out of `required` only so
+     *     the Admin app's generated request types still compile on `main` between this contract
+     *     and its implementation (feature 013 research R11).
+     */
+    LocationInput: {
+      /** @description Rejected when empty or whitespace-only after trimming. */
+      name: string;
+      /**
+       * @description House number and street. Trimmed; rejected when empty.
+       * @example 430 W Vine St
+       */
+      street?: string;
+      /**
+       * @description Trimmed; rejected when empty.
+       * @example Lexington
+       */
+      city?: string;
+      state?: components['schemas']['UsState'];
+      /**
+       * @description 5 digits, or ZIP+4. The saved value is the address service's 5-digit ZIP.
+       * @example 40507
+       */
+      zip?: string;
+      acceptUnverifiedAddress?: components['schemas']['AcceptUnverifiedAddress'];
+      /** @description Must be a positive whole number. */
+      seatingCapacity: number;
+    };
+    /**
+     * @description Partial update; supply only the fields being changed. Feature 013: `street`, `city`,
+     *     `state`, and `zip` are sent all together or not at all, and `acceptUnverifiedAddress`
+     *     only with them (`400` otherwise).
+     */
+    LocationUpdate: {
+      name?: string;
+      street?: string;
+      city?: string;
+      state?: components['schemas']['UsState'];
+      zip?: string;
+      acceptUnverifiedAddress?: components['schemas']['AcceptUnverifiedAddress'];
+      seatingCapacity?: number;
+    };
+    /**
+     * @description Feature 013 "save anyway": the admin confirmed the address after an `ADDRESS_NOT_FOUND`
+     *     or `ADDRESS_AMBIGUOUS` refusal. The address service is still asked. With no match,
+     *     several matches, or one match at a different ZIP code or house number, the venue is saved
+     *     as sent (trimmed, runs of whitespace collapsed to one space, ZIP cut to 5 digits) with
+     *     `addressVerified: false`. With exactly one match that keeps the ZIP code and house number,
+     *     it is saved verified, as without the flag. When the service is unavailable,
+     *     the request is still refused with `503 ADDRESS_SERVICE_UNAVAILABLE`.
+     * @default false
+     */
+    AcceptUnverifiedAddress: boolean;
+    /**
+     * @description A US state or the District of Columbia, by its two-letter postal code (feature 013).
+     * @enum {string}
+     */
+    UsState:
+      | 'AL'
+      | 'AK'
+      | 'AZ'
+      | 'AR'
+      | 'CA'
+      | 'CO'
+      | 'CT'
+      | 'DE'
+      | 'DC'
+      | 'FL'
+      | 'GA'
+      | 'HI'
+      | 'ID'
+      | 'IL'
+      | 'IN'
+      | 'IA'
+      | 'KS'
+      | 'KY'
+      | 'LA'
+      | 'ME'
+      | 'MD'
+      | 'MA'
+      | 'MI'
+      | 'MN'
+      | 'MS'
+      | 'MO'
+      | 'MT'
+      | 'NE'
+      | 'NV'
+      | 'NH'
+      | 'NJ'
+      | 'NM'
+      | 'NY'
+      | 'NC'
+      | 'ND'
+      | 'OH'
+      | 'OK'
+      | 'OR'
+      | 'PA'
+      | 'RI'
+      | 'SC'
+      | 'SD'
+      | 'TN'
+      | 'TX'
+      | 'UT'
+      | 'VT'
+      | 'VA'
+      | 'WA'
+      | 'WV'
+      | 'WI'
+      | 'WY';
+    Event: {
+      /** Format: uuid */
+      id: string;
+      /** @example Season Opener */
+      name: string;
+      /** @description Feature 007. Whether customers choose seats; set with `updateSeating`. */
+      reservedSeating: boolean;
+      /**
+       * @description Feature 005. A cancelled event stays on record but is read-only.
+       * @enum {string}
+       */
+      status: 'SCHEDULED' | 'CANCELLED';
+      /**
+       * Format: date-time
+       * @description When the event was cancelled; `null` while scheduled.
+       */
+      cancelledAt: string | null;
+      /** Format: uuid */
+      locationId: string;
+      /** @description The venue, embedded so lists need no second request. */
+      location: components['schemas']['Location'];
+      /**
+       * Format: date-time
+       * @example 2026-10-01T18:00:00-04:00
+       */
+      startsAt: string;
+      /**
+       * Format: date-time
+       * @example 2026-10-01T21:00:00-04:00
+       */
+      endsAt: string;
+      /** @example 18000 */
+      totalTicketCapacity: number;
+      /**
+       * @description Feature 016. The most valid tickets one customer may hold for this event, across all
+       *     their orders; `null` for no limit. Never more than `totalTicketCapacity`. Always sent
+       *     once 016 is implemented; not listed as required so this contract can merge ahead of
+       *     the implementation with the suite green. Clients treat a missing value as `null`.
+       * @example 8
+       */
+      maxTicketsPerCustomer?: number | null;
+      /**
+       * @description Feature 014. The event's images in order, `position` 1 (the cover) first; empty when it
+       *     has none. Metadata only: load each image's content with `getEventImage`. Always sent
+       *     once 014 is implemented; not listed as required so this contract can merge ahead of the
+       *     implementation with the suite green. Clients treat a missing value as empty.
+       */
+      images?: components['schemas']['EventImage'][];
+      /**
+       * @description Decimal string in USD, never a JSON number, so no client loses precision.
+       * @example 45.00
+       */
+      basePrice: string;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    EventInput: {
+      name: string;
+      /**
+       * Format: uuid
+       * @description Must reference an existing venue; otherwise 404.
+       */
+      locationId: string;
+      /** Format: date-time */
+      startsAt: string;
+      /**
+       * Format: date-time
+       * @description Must be strictly after `startsAt`.
+       */
+      endsAt: string;
+      /**
+       * @description Must not exceed the venue's `seatingCapacity`. Feature 007: optional; when left out it
+       *     is the venue's `seatingCapacity`.
+       */
+      totalTicketCapacity?: number;
+      /**
+       * @description Feature 016. Optional; left out or `null` means no limit. Must not exceed the event's
+       *     `totalTicketCapacity` (`400` otherwise).
+       */
+      maxTicketsPerCustomer?: number | null;
+      /** @description Non-negative decimal string. */
+      basePrice: string;
+    };
+    /** @description Partial update; supply only the fields being changed. */
+    EventUpdate: {
+      name?: string;
+      /** Format: uuid */
+      locationId?: string;
+      /** Format: date-time */
+      startsAt?: string;
+      /** Format: date-time */
+      endsAt?: string;
+      totalTicketCapacity?: number;
+      /** @description Feature 016. `null` clears the limit. */
+      maxTicketsPerCustomer?: number | null;
+      basePrice?: string;
+    };
+    /**
+     * @description Feature 014. One picture of an event: what a client needs to load it from
+     *     `getEventImage` and to order it, never its content.
+     */
+    EventImage: {
+      /**
+       * Format: uuid
+       * @description Never reused. An image's content never changes; a new picture is a new id.
+       */
+      id: string;
+      /** @description 1 is the event's cover. An event's positions are always 1 to n, no gaps. */
+      position: number;
+      /**
+       * @description Detected from the file's content when it was added.
+       * @enum {string}
+       */
+      contentType: 'image/jpeg' | 'image/png' | 'image/webp';
+      /** @description The stored size in bytes, after metadata was removed. */
+      byteSize: number;
+    };
+    /** @description Feature 014. The `multipart/form-data` body of `uploadEventImage`. */
+    EventImageUpload: {
+      /**
+       * @description One JPEG, PNG, or WebP picture, at most 5,242,880 bytes, 16,384 pixels a side, and
+       *     40,000,000 pixels. Its file name and declared type are ignored.
+       */
+      file: string;
+    };
+    /** @description Feature 014. Every image of the event, each once, in the new order. */
+    EventImageOrder: {
+      imageIds: string[];
+    };
+    /** @description One kind of ticket for an event, such as General or VIP (feature 004). */
+    TicketTier: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      eventId: string;
+      /** @example VIP */
+      name: string;
+      /**
+       * @description Decimal string in USD, never a JSON number.
+       * @example 120.00
+       */
+      price: string;
+      /**
+       * @description Typed for a general-admission event. Feature 007: for an event with reserved seating,
+       *     the seats in the sections mapped to this tier; 0 when none are.
+       * @example 500
+       */
+      quantity: number;
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      updatedAt: string;
+    };
+    TicketTierInput: {
+      /** @description Trimmed; unique within the event ignoring case. */
+      name: string;
+      /** @description Non-negative decimal string. */
+      price: string;
+      /**
+       * @description The event's tiers together may not exceed its `totalTicketCapacity`. Required without
+       *     reserved seating; omitted with it (feature 007).
+       */
+      quantity?: number;
+    };
+    /** @description Partial update; supply only the fields being changed. */
+    TicketTierUpdate: {
+      name?: string;
+      price?: string;
+      quantity?: number;
+    };
+    /** @description One seat. The code is unique and unguessable (feature 005). */
+    Ticket: {
+      /** Format: uuid */
+      id: string;
+      /** @example 7KQ2M9XWAB4C */
+      code: string;
+      /** @enum {string} */
+      status: 'VALID' | 'VOID';
+      /** Format: date-time */
+      checkedInAt: string | null;
+      /** @description Feature 007. The seat this ticket is for; `null` for general admission. */
+      seat: components['schemas']['SeatLabel'] | null;
+    };
+    /** @description One customer's purchase for one event (feature 005). */
+    Order: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      eventId: string;
+      /**
+       * Format: uuid
+       * @description `null` for an event sold without tiers.
+       */
+      tierId: string | null;
+      tierName: string | null;
+      /** @example customer1 */
+      customerUsername: string;
+      quantity: number;
+      /** @example 45.00 */
+      unitPrice: string;
+      /** @example 45.00 */
+      totalPrice: string;
+      /** @enum {string} */
+      status: 'CONFIRMED' | 'REFUNDED';
+      /** Format: date-time */
+      createdAt: string;
+      /** Format: date-time */
+      refundedAt: string | null;
+      tickets: components['schemas']['Ticket'][];
+    };
+    OrderInput: {
+      /**
+       * Format: uuid
+       * @description Required for an event with tiers; omitted for one without.
+       */
+      tierId?: string;
+      quantity: number;
+      /**
+       * Format: uuid
+       * @description Feature 006. A new random id for each confirmation the customer makes, reused only to
+       *     repeat that same confirmation. Optional; see `createOrder`.
+       */
+      requestId?: string;
+      /** @description Feature 007. Required for reserved seating, one per ticket; see `createOrder`. */
+      seats?: components['schemas']['SeatChoice'][];
+    };
+    /** @description One of the signed-in customer's orders, with a summary of its event (feature 006). */
+    MyOrder: components['schemas']['Order'] & {
+      event: components['schemas']['OrderEvent'];
+    };
+    /** @description The parts of an event My tickets shows next to an order (feature 006). */
+    OrderEvent: {
+      /** Format: uuid */
+      id: string;
+      /** @example Season Opener */
+      name: string;
+      /** Format: date-time */
+      startsAt: string;
+      /** Format: date-time */
+      endsAt: string;
+      /** @enum {string} */
+      status: 'SCHEDULED' | 'CANCELLED';
+      location: {
+        /** Format: uuid */
+        id: string;
+        /** @example KFC Yum! Center */
+        name: string;
+      };
+    };
+    /**
+     * @description Tickets left for an event and its tiers, and whether sales are closed (feature 006).
+     *     Valid tickets only. Guidance, not a reservation.
+     */
+    Availability: {
+      /** Format: uuid */
+      eventId: string;
+      /**
+       * @description Feature 016. The caller's standing against the event's `maxTicketsPerCustomer`;
+       *     `null` when the event has no limit or the caller is not a customer. Always sent once
+       *     016 is implemented; optional for the same reason as `Event.maxTicketsPerCustomer`.
+       *     Clients treat a missing value as `null`.
+       */
+      customerLimit?: components['schemas']['CustomerLimit'] | null;
+      /** @description The event's ticket capacity minus its valid tickets. */
+      ticketsLeft: number;
+      /**
+       * @description `null` while tickets can be ordered; otherwise why they cannot.
+       * @enum {string|null}
+       */
+      salesClosed: 'CANCELLED' | 'STARTED' | null;
+      /** @description One entry per tier, in the order `listTicketTiers` returns; empty without tiers. */
+      tiers: components['schemas']['TierAvailability'][];
+    };
+    /** @description Feature 016. One customer's own standing against an event's limit. */
+    CustomerLimit: {
+      /** @description The event's `maxTicketsPerCustomer`. */
+      limit: number;
+      /** @description The caller's valid tickets for the event, across all their orders. */
+      held: number;
+      /**
+       * @description How many more the caller may get under the limit, `limit - held`, never below 0. Tickets
+       *     left for the event may still be fewer.
+       */
+      remaining: number;
+    };
+    TierAvailability: {
+      /** Format: uuid */
+      tierId: string;
+      /** @description The tier's quantity minus its valid tickets, never more than the event has left. */
+      ticketsLeft: number;
+    };
+    /** @description One block of a venue's seating layout (feature 007). */
+    Section: {
+      /** Format: uuid */
+      id: string;
+      /** @example A */
+      name: string;
+      /** @example 10 */
+      rows: number;
+      /** @example 20 */
+      seatsPerRow: number;
+    };
+    SectionInput: {
+      /** @example A */
+      name: string;
+      rows: number;
+      seatsPerRow: number;
+    };
+    LayoutInput: {
+      /** @description In display order. Names unique ignoring case. */
+      sections: components['schemas']['SectionInput'][];
+    };
+    /** @description A venue's sections, in display order (feature 007). */
+    SeatingLayout: {
+      /** Format: uuid */
+      locationId: string;
+      totalSeats: number;
+      sections: components['schemas']['Section'][];
+    };
+    SeatPosition: {
+      row: number;
+      seat: number;
+    };
+    /** @description A seat a customer chooses when ordering (feature 007). */
+    SeatChoice: {
+      /** Format: uuid */
+      sectionId: string;
+      row: number;
+      seat: number;
+    };
+    /** @description A sold seat, by its section's name when sold (feature 007). */
+    SeatLabel: {
+      /** @example A */
+      section: string;
+      /** @example 3 */
+      row: number;
+      /** @example 7 */
+      seat: number;
+    };
+    SeatMapSection: {
+      /** Format: uuid */
+      sectionId: string;
+      name: string;
+      rows: number;
+      seatsPerRow: number;
+      /**
+       * Format: uuid
+       * @description This section's tier for the event; `null` when unmapped.
+       */
+      tierId: string | null;
+      sold: number;
+      /** @description Seats held by valid tickets. Never says by whom. */
+      taken: components['schemas']['SeatPosition'][];
+      /**
+       * @description Seats in active reservations (feature 015). Never says by whom. Not in `required`
+       *     until feature 015 is implemented.
+       */
+      reserved?: components['schemas']['SeatPosition'][];
+    };
+    /** @description An event's seats, sold or open (feature 007), or reserved (feature 015). */
+    SeatMap: {
+      /** Format: uuid */
+      eventId: string;
+      reservedSeating: boolean;
+      sections: components['schemas']['SeatMapSection'][];
+    };
+    /** @description Seats of one event that changed state, as sent by `streamSeatMap` (feature 015). */
+    SeatMapChange: {
+      /** Format: uuid */
+      eventId: string;
+      changes: components['schemas']['SeatStateChange'][];
+    };
+    /** @description One seat's new state. Never says who reserved or bought it (feature 015). */
+    SeatStateChange: {
+      /** Format: uuid */
+      sectionId: string;
+      row: number;
+      seat: number;
+      /** @enum {string} */
+      state: 'open' | 'reserved' | 'sold';
+    };
+    /** @description A seat in a reservation, by section id and by its section's name (feature 015). */
+    ReservedSeat: {
+      /** Format: uuid */
+      sectionId: string;
+      /** @example A */
+      section: string;
+      /** @example 1 */
+      row: number;
+      /** @example 5 */
+      seat: number;
+    };
+    /**
+     * @description The caller's active hold on seats of one event, for 5 minutes (feature 015). It ends at
+     *     `expiresAt` (exclusive) unless bought or released first; it is never extended.
+     */
+    Reservation: {
+      /** Format: uuid */
+      eventId: string;
+      /**
+       * Format: uuid
+       * @description The tier of every seat; `null` for an event without tiers.
+       */
+      tierId: string | null;
+      seats: components['schemas']['ReservedSeat'][];
+      /** Format: date-time */
+      createdAt: string;
+      /**
+       * Format: date-time
+       * @description Exactly 5 minutes after `createdAt`.
+       */
+      expiresAt: string;
+      /**
+       * @description Whole seconds until `expiresAt`, by the Backend's clock when it answered. Clients count
+       *     down from this, not from `expiresAt`, so their own clock can't skew it.
+       */
+      secondsLeft: number;
+    };
+    ReservationInput: {
+      seats: components['schemas']['SeatChoice'][];
+    };
+    ReservationRelease: {
+      /** @description The seats to release; omit to release all of them. */
+      seats?: components['schemas']['SeatChoice'][];
+    };
+    ReservationReleaseResult: {
+      /** @description What is left; `null` once no seat is left. */
+      reservation: components['schemas']['Reservation'] | null;
+    };
+    ReleasedSeats: {
+      /** @description How many reserved seats were released, across every event. */
+      released: number;
+    };
+    SeatingInput: {
+      reservedSeating: boolean;
+      /** @description The complete set of mappings; sections left out become unmapped. */
+      sections: {
+        /** Format: uuid */
+        sectionId: string;
+        /** Format: uuid */
+        tierId: string;
+      }[];
+    };
+    Cancellation: {
+      event: components['schemas']['Event'];
+      ordersRefunded: number;
+      ticketsVoided: number;
+    };
+    TierSales: {
+      /** Format: uuid */
+      tierId: string;
+      name: string;
+      /** @example 45.00 */
+      price: string;
+      quantity: number;
+      ticketsSold: number;
+      /** @example 45.00 */
+      revenue: string;
+    };
+    EventSales: {
+      /** Format: uuid */
+      eventId: string;
+      name: string;
+      venueName: string;
+      /** Format: date-time */
+      startsAt: string;
+      /** @enum {string} */
+      status: 'SCHEDULED' | 'CANCELLED';
+      ticketCapacity: number;
+      ticketsSold: number;
+      checkedIn: number;
+      /** @example 45.00 */
+      revenue: string;
+      tiers: components['schemas']['TierSales'][];
+    };
+    SalesReport: {
+      /** Format: date-time */
+      generatedAt: string;
+      totals: {
+        /** @description Scheduled events. */
+        events: number;
+        /** @description Capacity of scheduled events. */
+        ticketCapacity: number;
+        ticketsSold: number;
+        checkedIn: number;
+        /** @example 45.00 */
+        revenue: string;
+      };
+      events: components['schemas']['EventSales'][];
+    };
+    /**
+     * @description Every non-2xx response uses this shape. `code` is the stable machine-readable
+     *     discriminator clients branch on; `message` is human-readable and may change.
+     */
+    ErrorEnvelope: {
+      error: {
         /** @enum {string} */
-        Role: "queuepass-admin" | "gate-agent" | "customer";
-        Me: {
-            /**
-             * @description Keycloak subject identifier (the token's `sub`).
-             * @example 3f0c1e9a-5b7d-4c2e-9f1a-2b3c4d5e6f70
-             */
-            sub: string;
-            /**
-             * @description The token's `preferred_username`.
-             * @example admin1
-             */
-            username: string;
-            /**
-             * @description The caller's QueuePass realm roles. Other realm roles are omitted.
-             * @example [
-             *       "queuepass-admin"
-             *     ]
-             */
-            roles: components["schemas"]["Role"][];
+        code:
+          | 'UNAUTHENTICATED'
+          | 'FORBIDDEN'
+          | 'VALIDATION_FAILED'
+          | 'NOT_FOUND'
+          | 'SCHEDULING_CONFLICT'
+          | 'VENUE_HAS_EVENTS'
+          | 'CAPACITY_EXCEEDED'
+          | 'TIER_NAME_TAKEN'
+          | 'SOLD_OUT'
+          | 'EVENT_CANCELLED'
+          | 'EVENT_HAS_ORDERS'
+          | 'TIER_HAS_ORDERS'
+          | 'SALES_CLOSED'
+          | 'REQUEST_ID_REUSED'
+          | 'SEAT_TAKEN'
+          | 'LAYOUT_IN_USE'
+          | 'TICKET_LIMIT_REACHED'
+          | 'SEAT_COOLDOWN'
+          | 'RESERVATION_REQUIRED'
+          | 'ADDRESS_NOT_FOUND'
+          | 'ADDRESS_AMBIGUOUS'
+          | 'ADDRESS_SERVICE_UNAVAILABLE'
+          | 'IMAGE_LIMIT_REACHED'
+          | 'IMAGE_TOO_LARGE'
+          | 'IMAGE_TYPE_NOT_ALLOWED'
+          | 'IMAGES_CHANGED'
+          | 'IMAGE_DIMENSIONS_TOO_LARGE';
+        message: string;
+        details?: {
+          [key: string]: unknown;
         };
-        Hello: {
-            /** @enum {string} */
-            app: "admin" | "customer" | "booth";
-            appName: string;
-            username: string;
-            message: string;
-        };
-        /** @description The `409` for deleting a venue that still has events. An `ErrorEnvelope`. */
-        VenueHasEvents: {
-            error: {
-                /** @constant */
-                code: "VENUE_HAS_EVENTS";
-                message: string;
-                details?: {
-                    /** @description Omitted only when a concurrent insert made the database refuse. */
-                    eventCount?: number;
-                };
-            };
-        };
-        /**
-         * @description A venue. Feature 013: when `street`, `city`, `state`, and `zip` are set, `address` is
-         *     built from them as `STREET, CITY, ST ZIP`. Three kinds of venue:
-         *
-         *     - `addressVerified: true`: the address service matched it; the four fields are its
-         *       standard (upper-case) form.
-         *     - `addressVerified: false` with the four fields set: an admin saved it anyway
-         *       (`acceptUnverifiedAddress`); the fields are as the admin sent them.
-         *     - `addressVerified: false` with the four fields `null`: saved before feature 013 and not
-         *       re-addressed since; `address` is the one-line text it was saved with.
-         *
-         *     The five fields are always sent from feature 013 on, but are not in `required`, so this
-         *     contract can merge before the Backend sends them (feature 013 research R11).
-         */
-        Location: {
-            /** Format: uuid */
-            id: string;
-            /** @example KFC Yum! Center */
-            name: string;
-            /**
-             * @description The full one-line address. Shown by every client and matched by `q`.
-             * @example 430 W VINE ST, LEXINGTON, KY 40507
-             */
-            address: string;
-            /** @example 430 W VINE ST */
-            street?: string | null;
-            /** @example LEXINGTON */
-            city?: string | null;
-            state?: components["schemas"]["UsState"] | null;
-            /** @example 40507 */
-            zip?: string | null;
-            /** @description Whether the address service matched this address. Clients mark `false` as "Address not verified". */
-            addressVerified?: boolean;
-            /** @example 22090 */
-            seatingCapacity: number;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        /**
-         * @description Feature 013: the address is sent as four fields and checked with the address service.
-         *     `address` is not accepted; the Backend builds it.
-         *
-         *     `street`, `city`, `state`, and `zip` are **required**: the Backend refuses a create
-         *     without any of them with `400 VALIDATION_FAILED`. They are left out of `required` only so
-         *     the Admin app's generated request types still compile on `main` between this contract
-         *     and its implementation (feature 013 research R11).
-         */
-        LocationInput: {
-            /** @description Rejected when empty or whitespace-only after trimming. */
-            name: string;
-            /**
-             * @description House number and street. Trimmed; rejected when empty.
-             * @example 430 W Vine St
-             */
-            street?: string;
-            /**
-             * @description Trimmed; rejected when empty.
-             * @example Lexington
-             */
-            city?: string;
-            state?: components["schemas"]["UsState"];
-            /**
-             * @description 5 digits, or ZIP+4. The saved value is the address service's 5-digit ZIP.
-             * @example 40507
-             */
-            zip?: string;
-            acceptUnverifiedAddress?: components["schemas"]["AcceptUnverifiedAddress"];
-            /** @description Must be a positive whole number. */
-            seatingCapacity: number;
-        };
-        /**
-         * @description Partial update; supply only the fields being changed. Feature 013: `street`, `city`,
-         *     `state`, and `zip` are sent all together or not at all, and `acceptUnverifiedAddress`
-         *     only with them (`400` otherwise).
-         */
-        LocationUpdate: {
-            name?: string;
-            street?: string;
-            city?: string;
-            state?: components["schemas"]["UsState"];
-            zip?: string;
-            acceptUnverifiedAddress?: components["schemas"]["AcceptUnverifiedAddress"];
-            seatingCapacity?: number;
-        };
-        /**
-         * @description Feature 013 "save anyway": the admin confirmed the address after an `ADDRESS_NOT_FOUND`
-         *     or `ADDRESS_AMBIGUOUS` refusal. The address service is still asked. With no match,
-         *     several matches, or one match at a different ZIP code or house number, the venue is saved
-         *     as sent (trimmed, runs of whitespace collapsed to one space, ZIP cut to 5 digits) with
-         *     `addressVerified: false`. With exactly one match that keeps the ZIP code and house number,
-         *     it is saved verified, as without the flag. When the service is unavailable,
-         *     the request is still refused with `503 ADDRESS_SERVICE_UNAVAILABLE`.
-         * @default false
-         */
-        AcceptUnverifiedAddress: boolean;
-        /**
-         * @description A US state or the District of Columbia, by its two-letter postal code (feature 013).
-         * @enum {string}
-         */
-        UsState: "AL" | "AK" | "AZ" | "AR" | "CA" | "CO" | "CT" | "DE" | "DC" | "FL" | "GA" | "HI" | "ID" | "IL" | "IN" | "IA" | "KS" | "KY" | "LA" | "ME" | "MD" | "MA" | "MI" | "MN" | "MS" | "MO" | "MT" | "NE" | "NV" | "NH" | "NJ" | "NM" | "NY" | "NC" | "ND" | "OH" | "OK" | "OR" | "PA" | "RI" | "SC" | "SD" | "TN" | "TX" | "UT" | "VT" | "VA" | "WA" | "WV" | "WI" | "WY";
-        Event: {
-            /** Format: uuid */
-            id: string;
-            /** @example Season Opener */
-            name: string;
-            /** @description Feature 007. Whether customers choose seats; set with `updateSeating`. */
-            reservedSeating: boolean;
-            /**
-             * @description Feature 005. A cancelled event stays on record but is read-only.
-             * @enum {string}
-             */
-            status: "SCHEDULED" | "CANCELLED";
-            /**
-             * Format: date-time
-             * @description When the event was cancelled; `null` while scheduled.
-             */
-            cancelledAt: string | null;
-            /** Format: uuid */
-            locationId: string;
-            /** @description The venue, embedded so lists need no second request. */
-            location: components["schemas"]["Location"];
-            /**
-             * Format: date-time
-             * @example 2026-10-01T18:00:00-04:00
-             */
-            startsAt: string;
-            /**
-             * Format: date-time
-             * @example 2026-10-01T21:00:00-04:00
-             */
-            endsAt: string;
-            /** @example 18000 */
-            totalTicketCapacity: number;
-            /**
-             * @description Feature 016. The most valid tickets one customer may hold for this event, across all
-             *     their orders; `null` for no limit. Never more than `totalTicketCapacity`. Always sent
-             *     once 016 is implemented; not listed as required so this contract can merge ahead of
-             *     the implementation with the suite green. Clients treat a missing value as `null`.
-             * @example 8
-             */
-            maxTicketsPerCustomer?: number | null;
-            /**
-             * @description Feature 014. The event's images in order, `position` 1 (the cover) first; empty when it
-             *     has none. Metadata only: load each image's content with `getEventImage`. Always sent
-             *     once 014 is implemented; not listed as required so this contract can merge ahead of the
-             *     implementation with the suite green. Clients treat a missing value as empty.
-             */
-            images?: components["schemas"]["EventImage"][];
-            /**
-             * @description Decimal string in USD, never a JSON number, so no client loses precision.
-             * @example 45.00
-             */
-            basePrice: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        EventInput: {
-            name: string;
-            /**
-             * Format: uuid
-             * @description Must reference an existing venue; otherwise 404.
-             */
-            locationId: string;
-            /** Format: date-time */
-            startsAt: string;
-            /**
-             * Format: date-time
-             * @description Must be strictly after `startsAt`.
-             */
-            endsAt: string;
-            /**
-             * @description Must not exceed the venue's `seatingCapacity`. Feature 007: optional; when left out it
-             *     is the venue's `seatingCapacity`.
-             */
-            totalTicketCapacity?: number;
-            /**
-             * @description Feature 016. Optional; left out or `null` means no limit. Must not exceed the event's
-             *     `totalTicketCapacity` (`400` otherwise).
-             */
-            maxTicketsPerCustomer?: number | null;
-            /** @description Non-negative decimal string. */
-            basePrice: string;
-        };
-        /** @description Partial update; supply only the fields being changed. */
-        EventUpdate: {
-            name?: string;
-            /** Format: uuid */
-            locationId?: string;
-            /** Format: date-time */
-            startsAt?: string;
-            /** Format: date-time */
-            endsAt?: string;
-            totalTicketCapacity?: number;
-            /** @description Feature 016. `null` clears the limit. */
-            maxTicketsPerCustomer?: number | null;
-            basePrice?: string;
-        };
-        /**
-         * @description Feature 014. One picture of an event: what a client needs to load it from
-         *     `getEventImage` and to order it, never its content.
-         */
-        EventImage: {
-            /**
-             * Format: uuid
-             * @description Never reused. An image's content never changes; a new picture is a new id.
-             */
-            id: string;
-            /** @description 1 is the event's cover. An event's positions are always 1 to n, no gaps. */
-            position: number;
-            /**
-             * @description Detected from the file's content when it was added.
-             * @enum {string}
-             */
-            contentType: "image/jpeg" | "image/png" | "image/webp";
-            /** @description The stored size in bytes, after metadata was removed. */
-            byteSize: number;
-        };
-        /** @description Feature 014. The `multipart/form-data` body of `uploadEventImage`. */
-        EventImageUpload: {
-            /**
-             * @description One JPEG, PNG, or WebP picture, at most 5,242,880 bytes, 16,384 pixels a side, and
-             *     40,000,000 pixels. Its file name and declared type are ignored.
-             */
-            file: string;
-        };
-        /** @description Feature 014. Every image of the event, each once, in the new order. */
-        EventImageOrder: {
-            imageIds: string[];
-        };
-        /** @description One kind of ticket for an event, such as General or VIP (feature 004). */
-        TicketTier: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            eventId: string;
-            /** @example VIP */
-            name: string;
-            /**
-             * @description Decimal string in USD, never a JSON number.
-             * @example 120.00
-             */
-            price: string;
-            /**
-             * @description Typed for a general-admission event. Feature 007: for an event with reserved seating,
-             *     the seats in the sections mapped to this tier; 0 when none are.
-             * @example 500
-             */
-            quantity: number;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-        };
-        TicketTierInput: {
-            /** @description Trimmed; unique within the event ignoring case. */
-            name: string;
-            /** @description Non-negative decimal string. */
-            price: string;
-            /**
-             * @description The event's tiers together may not exceed its `totalTicketCapacity`. Required without
-             *     reserved seating; omitted with it (feature 007).
-             */
-            quantity?: number;
-        };
-        /** @description Partial update; supply only the fields being changed. */
-        TicketTierUpdate: {
-            name?: string;
-            price?: string;
-            quantity?: number;
-        };
-        /** @description One seat. The code is unique and unguessable (feature 005). */
-        Ticket: {
-            /** Format: uuid */
-            id: string;
-            /** @example 7KQ2M9XWAB4C */
-            code: string;
-            /** @enum {string} */
-            status: "VALID" | "VOID";
-            /** Format: date-time */
-            checkedInAt: string | null;
-            /** @description Feature 007. The seat this ticket is for; `null` for general admission. */
-            seat: components["schemas"]["SeatLabel"] | null;
-        };
-        /** @description One customer's purchase for one event (feature 005). */
-        Order: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            eventId: string;
-            /**
-             * Format: uuid
-             * @description `null` for an event sold without tiers.
-             */
-            tierId: string | null;
-            tierName: string | null;
-            /** @example customer1 */
-            customerUsername: string;
-            quantity: number;
-            /** @example 45.00 */
-            unitPrice: string;
-            /** @example 45.00 */
-            totalPrice: string;
-            /** @enum {string} */
-            status: "CONFIRMED" | "REFUNDED";
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            refundedAt: string | null;
-            tickets: components["schemas"]["Ticket"][];
-        };
-        OrderInput: {
-            /**
-             * Format: uuid
-             * @description Required for an event with tiers; omitted for one without.
-             */
-            tierId?: string;
-            quantity: number;
-            /**
-             * Format: uuid
-             * @description Feature 006. A new random id for each confirmation the customer makes, reused only to
-             *     repeat that same confirmation. Optional; see `createOrder`.
-             */
-            requestId?: string;
-            /** @description Feature 007. Required for reserved seating, one per ticket; see `createOrder`. */
-            seats?: components["schemas"]["SeatChoice"][];
-        };
-        /** @description One of the signed-in customer's orders, with a summary of its event (feature 006). */
-        MyOrder: components["schemas"]["Order"] & {
-            event: components["schemas"]["OrderEvent"];
-        };
-        /** @description The parts of an event My tickets shows next to an order (feature 006). */
-        OrderEvent: {
-            /** Format: uuid */
-            id: string;
-            /** @example Season Opener */
-            name: string;
-            /** Format: date-time */
-            startsAt: string;
-            /** Format: date-time */
-            endsAt: string;
-            /** @enum {string} */
-            status: "SCHEDULED" | "CANCELLED";
-            location: {
-                /** Format: uuid */
-                id: string;
-                /** @example KFC Yum! Center */
-                name: string;
-            };
-        };
-        /**
-         * @description Tickets left for an event and its tiers, and whether sales are closed (feature 006).
-         *     Valid tickets only. Guidance, not a reservation.
-         */
-        Availability: {
-            /** Format: uuid */
-            eventId: string;
-            /**
-             * @description Feature 016. The caller's standing against the event's `maxTicketsPerCustomer`;
-             *     `null` when the event has no limit or the caller is not a customer. Always sent once
-             *     016 is implemented; optional for the same reason as `Event.maxTicketsPerCustomer`.
-             *     Clients treat a missing value as `null`.
-             */
-            customerLimit?: components["schemas"]["CustomerLimit"] | null;
-            /** @description The event's ticket capacity minus its valid tickets. */
-            ticketsLeft: number;
-            /**
-             * @description `null` while tickets can be ordered; otherwise why they cannot.
-             * @enum {string|null}
-             */
-            salesClosed: "CANCELLED" | "STARTED" | null;
-            /** @description One entry per tier, in the order `listTicketTiers` returns; empty without tiers. */
-            tiers: components["schemas"]["TierAvailability"][];
-        };
-        /** @description Feature 016. One customer's own standing against an event's limit. */
-        CustomerLimit: {
-            /** @description The event's `maxTicketsPerCustomer`. */
-            limit: number;
-            /** @description The caller's valid tickets for the event, across all their orders. */
-            held: number;
-            /**
-             * @description How many more the caller may get under the limit, `limit - held`, never below 0. Tickets
-             *     left for the event may still be fewer.
-             */
-            remaining: number;
-        };
-        TierAvailability: {
-            /** Format: uuid */
-            tierId: string;
-            /** @description The tier's quantity minus its valid tickets, never more than the event has left. */
-            ticketsLeft: number;
-        };
-        /** @description One block of a venue's seating layout (feature 007). */
-        Section: {
-            /** Format: uuid */
-            id: string;
-            /** @example A */
-            name: string;
-            /** @example 10 */
-            rows: number;
-            /** @example 20 */
-            seatsPerRow: number;
-        };
-        SectionInput: {
-            /** @example A */
-            name: string;
-            rows: number;
-            seatsPerRow: number;
-        };
-        LayoutInput: {
-            /** @description In display order. Names unique ignoring case. */
-            sections: components["schemas"]["SectionInput"][];
-        };
-        /** @description A venue's sections, in display order (feature 007). */
-        SeatingLayout: {
-            /** Format: uuid */
-            locationId: string;
-            totalSeats: number;
-            sections: components["schemas"]["Section"][];
-        };
-        SeatPosition: {
-            row: number;
-            seat: number;
-        };
-        /** @description A seat a customer chooses when ordering (feature 007). */
-        SeatChoice: {
-            /** Format: uuid */
-            sectionId: string;
-            row: number;
-            seat: number;
-        };
-        /** @description A sold seat, by its section's name when sold (feature 007). */
-        SeatLabel: {
-            /** @example A */
-            section: string;
-            /** @example 3 */
-            row: number;
-            /** @example 7 */
-            seat: number;
-        };
-        SeatMapSection: {
-            /** Format: uuid */
-            sectionId: string;
-            name: string;
-            rows: number;
-            seatsPerRow: number;
-            /**
-             * Format: uuid
-             * @description This section's tier for the event; `null` when unmapped.
-             */
-            tierId: string | null;
-            sold: number;
-            /** @description Seats held by valid tickets. Never says by whom. */
-            taken: components["schemas"]["SeatPosition"][];
-            /**
-             * @description Seats in active reservations (feature 015). Never says by whom. Not in `required`
-             *     until feature 015 is implemented.
-             */
-            reserved?: components["schemas"]["SeatPosition"][];
-        };
-        /** @description An event's seats, sold or open (feature 007), or reserved (feature 015). */
-        SeatMap: {
-            /** Format: uuid */
-            eventId: string;
-            reservedSeating: boolean;
-            sections: components["schemas"]["SeatMapSection"][];
-        };
-        /** @description Seats of one event that changed state, as sent by `streamSeatMap` (feature 015). */
-        SeatMapChange: {
-            /** Format: uuid */
-            eventId: string;
-            changes: components["schemas"]["SeatStateChange"][];
-        };
-        /** @description One seat's new state. Never says who reserved or bought it (feature 015). */
-        SeatStateChange: {
-            /** Format: uuid */
-            sectionId: string;
-            row: number;
-            seat: number;
-            /** @enum {string} */
-            state: "open" | "reserved" | "sold";
-        };
-        /** @description A seat in a reservation, by section id and by its section's name (feature 015). */
-        ReservedSeat: {
-            /** Format: uuid */
-            sectionId: string;
-            /** @example A */
-            section: string;
-            /** @example 1 */
-            row: number;
-            /** @example 5 */
-            seat: number;
-        };
-        /**
-         * @description The caller's active hold on seats of one event, for 5 minutes (feature 015). It ends at
-         *     `expiresAt` (exclusive) unless bought or released first; it is never extended.
-         */
-        Reservation: {
-            /** Format: uuid */
-            eventId: string;
-            /**
-             * Format: uuid
-             * @description The tier of every seat; `null` for an event without tiers.
-             */
-            tierId: string | null;
-            seats: components["schemas"]["ReservedSeat"][];
-            /** Format: date-time */
-            createdAt: string;
-            /**
-             * Format: date-time
-             * @description Exactly 5 minutes after `createdAt`.
-             */
-            expiresAt: string;
-            /**
-             * @description Whole seconds until `expiresAt`, by the Backend's clock when it answered. Clients count
-             *     down from this, not from `expiresAt`, so their own clock can't skew it.
-             */
-            secondsLeft: number;
-        };
-        ReservationInput: {
-            seats: components["schemas"]["SeatChoice"][];
-        };
-        ReservationRelease: {
-            /** @description The seats to release; omit to release all of them. */
-            seats?: components["schemas"]["SeatChoice"][];
-        };
-        ReservationReleaseResult: {
-            /** @description What is left; `null` once no seat is left. */
-            reservation: components["schemas"]["Reservation"] | null;
-        };
-        ReleasedSeats: {
-            /** @description How many reserved seats were released, across every event. */
-            released: number;
-        };
-        SeatingInput: {
-            reservedSeating: boolean;
-            /** @description The complete set of mappings; sections left out become unmapped. */
-            sections: {
-                /** Format: uuid */
-                sectionId: string;
-                /** Format: uuid */
-                tierId: string;
-            }[];
-        };
-        Cancellation: {
-            event: components["schemas"]["Event"];
-            ordersRefunded: number;
-            ticketsVoided: number;
-        };
-        TierSales: {
-            /** Format: uuid */
-            tierId: string;
-            name: string;
-            /** @example 45.00 */
-            price: string;
-            quantity: number;
-            ticketsSold: number;
-            /** @example 45.00 */
-            revenue: string;
-        };
-        EventSales: {
-            /** Format: uuid */
-            eventId: string;
-            name: string;
-            venueName: string;
-            /** Format: date-time */
-            startsAt: string;
-            /** @enum {string} */
-            status: "SCHEDULED" | "CANCELLED";
-            ticketCapacity: number;
-            ticketsSold: number;
-            checkedIn: number;
-            /** @example 45.00 */
-            revenue: string;
-            tiers: components["schemas"]["TierSales"][];
-        };
-        SalesReport: {
-            /** Format: date-time */
-            generatedAt: string;
-            totals: {
-                /** @description Scheduled events. */
-                events: number;
-                /** @description Capacity of scheduled events. */
-                ticketCapacity: number;
-                ticketsSold: number;
-                checkedIn: number;
-                /** @example 45.00 */
-                revenue: string;
-            };
-            events: components["schemas"]["EventSales"][];
-        };
-        /**
-         * @description Every non-2xx response uses this shape. `code` is the stable machine-readable
-         *     discriminator clients branch on; `message` is human-readable and may change.
-         */
-        ErrorEnvelope: {
-            error: {
-                /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE";
-                message: string;
-                details?: {
-                    [key: string]: unknown;
-                };
-            };
-        };
+      };
     };
-    responses: {
+  };
+  responses: {
+    /**
+     * @description No token, or the token is malformed, expired, signed by an unknown key, from another
+     *     issuer, or for another audience. The message does not say which check failed.
+     */
+    Unauthenticated: {
+      headers: {
+        'WWW-Authenticate'?: string;
+        [name: string]: unknown;
+      };
+      content: {
         /**
-         * @description No token, or the token is malformed, expired, signed by an unknown key, from another
-         *     issuer, or for another audience. The message does not say which check failed.
+         * @example {
+         *       "error": {
+         *         "code": "UNAUTHENTICATED",
+         *         "message": "A valid access token is required."
+         *       }
+         *     }
          */
-        Unauthenticated: {
-            headers: {
-                "WWW-Authenticate"?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "UNAUTHENTICATED",
-                 *         "message": "A valid access token is required."
-                 *       }
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /** @description The token is valid, but the caller lacks a role this operation requires. */
-        Forbidden: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "FORBIDDEN",
-                 *         "message": "This action requires the queuepass-admin role.",
-                 *         "details": {
-                 *           "requiredRoles": [
-                 *             "queuepass-admin"
-                 *           ]
-                 *         }
-                 *       }
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /** @description Request shape or field validation failed. */
-        ValidationFailed: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "VALIDATION_FAILED",
-                 *         "message": "Request validation failed.",
-                 *         "details": {
-                 *           "fields": {
-                 *             "endsAt": "must be later than startsAt",
-                 *             "seatingCapacity": "must be a positive whole number"
-                 *           }
-                 *         }
-                 *       }
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /**
-         * @description Request shape or field validation failed (`VALIDATION_FAILED`), or, for a venue address
-         *     (feature 013), the address service found no match (`ADDRESS_NOT_FOUND`), or more than one,
-         *     or one match at a different ZIP code or house number than sent (`ADDRESS_AMBIGUOUS`, with
-         *     up to 5 matches in `details.candidates`, each in the one-line form `STREET, CITY, ST ZIP`,
-         *     or as the service returned it when it cannot be split). A match the Backend cannot split
-         *     is reported as `ADDRESS_NOT_FOUND`. Nothing was saved.
-         *     After either address refusal, the client may resend the same request with
-         *     `acceptUnverifiedAddress: true` to save the venue as not verified.
-         */
-        AddressRejected: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /**
-         * @description Feature 013: the address service could not be reached, did not answer within 5 seconds,
-         *     or answered with an error, so the address could not be verified. Nothing was saved. The
-         *     same request may succeed later.
-         */
-        AddressServiceUnavailable: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "ADDRESS_SERVICE_UNAVAILABLE",
-                 *         "message": "We can't verify the address right now. Nothing was saved. Try again in a minute."
-                 *       }
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /**
-         * @description Feature 014. The request's shape is wrong (`VALIDATION_FAILED`: no `file` part, other
-         *     parts, or a malformed event id), or the picture is too large in pixels
-         *     (`IMAGE_DIMENSIONS_TOO_LARGE`). Nothing was stored.
-         */
-        ImageRejected: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /** @description Feature 014. The image is over 5 MB (5,242,880 bytes). Nothing was stored. */
-        ImageTooLarge: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "IMAGE_TOO_LARGE",
-                 *         "message": "An image can be at most 5 MB.",
-                 *         "details": {
-                 *           "maxBytes": 5242880
-                 *         }
-                 *       }
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /**
-         * @description Feature 014. The file's content is not a still JPEG, PNG, or WebP picture, whatever its name
-         *     or declared type: another format, an animated PNG or WebP, or a file whose header cannot be
-         *     read or whose segments or chunks run past the end of the file. Nothing was stored.
-         */
-        ImageTypeNotAllowed: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "IMAGE_TYPE_NOT_ALLOWED",
-                 *         "message": "This file is not a JPG, PNG, or WebP picture.",
-                 *         "details": {
-                 *           "allowed": [
-                 *             "image/jpeg",
-                 *             "image/png",
-                 *             "image/webp"
-                 *           ]
-                 *         }
-                 *       }
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /** @description The referenced resource does not exist. */
-        NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "NOT_FOUND",
-                 *         "message": "No venue exists with id 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40."
-                 *       }
-                 *     }
-                 */
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
-        /**
-         * @description The request violates a business rule; `code` says which. For `SCHEDULING_CONFLICT`,
-         *     `details.conflictingEvent` names the event responsible. It is `null` only when a
-         *     concurrent request won the race and the database constraint refused this write.
-         */
-        Conflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["ErrorEnvelope"];
-            };
-        };
+        'application/json': components['schemas']['ErrorEnvelope'];
+      };
     };
-    parameters: never;
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
+    /** @description The token is valid, but the caller lacks a role this operation requires. */
+    Forbidden: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        /**
+         * @example {
+         *       "error": {
+         *         "code": "FORBIDDEN",
+         *         "message": "This action requires the queuepass-admin role.",
+         *         "details": {
+         *           "requiredRoles": [
+         *             "queuepass-admin"
+         *           ]
+         *         }
+         *       }
+         *     }
+         */
+        'application/json': components['schemas']['ErrorEnvelope'];
+      };
+    };
+    /** @description Request shape or field validation failed. */
+    ValidationFailed: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        /**
+         * @example {
+         *       "error": {
+         *         "code": "VALIDATION_FAILED",
+         *         "message": "Request validation failed.",
+         *         "details": {
+         *           "fields": {
+         *             "endsAt": "must be later than startsAt",
+         *             "seatingCapacity": "must be a positive whole number"
+         *           }
+         *         }
+         *       }
+         *     }
+         */
+        'application/json': components['schemas']['ErrorEnvelope'];
+      };
+    };
+    /**
+     * @description Request shape or field validation failed (`VALIDATION_FAILED`), or, for a venue address
+     *     (feature 013), the address service found no match (`ADDRESS_NOT_FOUND`), or more than one,
+     *     or one match at a different ZIP code or house number than sent (`ADDRESS_AMBIGUOUS`, with
+     *     up to 5 matches in `details.candidates`, each in the one-line form `STREET, CITY, ST ZIP`,
+     *     or as the service returned it when it cannot be split). A match the Backend cannot split
+     *     is reported as `ADDRESS_NOT_FOUND`. Nothing was saved.
+     *     After either address refusal, the client may resend the same request with
+     *     `acceptUnverifiedAddress: true` to save the venue as not verified.
+     */
+    AddressRejected: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['ErrorEnvelope'];
+      };
+    };
+    /**
+     * @description Feature 013: the address service could not be reached, did not answer within 5 seconds,
+     *     or answered with an error, so the address could not be verified. Nothing was saved. The
+     *     same request may succeed later.
+     */
+    AddressServiceUnavailable: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        /**
+         * @example {
+         *       "error": {
+         *         "code": "ADDRESS_SERVICE_UNAVAILABLE",
+         *         "message": "We can't verify the address right now. Nothing was saved. Try again in a minute."
+         *       }
+         *     }
+         */
+        'application/json': components['schemas']['ErrorEnvelope'];
+      };
+    };
+    /**
+     * @description Feature 014. The request's shape is wrong (`VALIDATION_FAILED`: no `file` part, other
+     *     parts, or a malformed event id), or the picture is too large in pixels
+     *     (`IMAGE_DIMENSIONS_TOO_LARGE`). Nothing was stored.
+     */
+    ImageRejected: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['ErrorEnvelope'];
+      };
+    };
+    /** @description Feature 014. The image is over 5 MB (5,242,880 bytes). Nothing was stored. */
+    ImageTooLarge: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        /**
+         * @example {
+         *       "error": {
+         *         "code": "IMAGE_TOO_LARGE",
+         *         "message": "An image can be at most 5 MB.",
+         *         "details": {
+         *           "maxBytes": 5242880
+         *         }
+         *       }
+         *     }
+         */
+        'application/json': components['schemas']['ErrorEnvelope'];
+      };
+    };
+    /**
+     * @description Feature 014. The file's content is not a still JPEG, PNG, or WebP picture, whatever its name
+     *     or declared type: another format, an animated PNG or WebP, or a file whose header cannot be
+     *     read or whose segments or chunks run past the end of the file. Nothing was stored.
+     */
+    ImageTypeNotAllowed: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        /**
+         * @example {
+         *       "error": {
+         *         "code": "IMAGE_TYPE_NOT_ALLOWED",
+         *         "message": "This file is not a JPG, PNG, or WebP picture.",
+         *         "details": {
+         *           "allowed": [
+         *             "image/jpeg",
+         *             "image/png",
+         *             "image/webp"
+         *           ]
+         *         }
+         *       }
+         *     }
+         */
+        'application/json': components['schemas']['ErrorEnvelope'];
+      };
+    };
+    /** @description The referenced resource does not exist. */
+    NotFound: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        /**
+         * @example {
+         *       "error": {
+         *         "code": "NOT_FOUND",
+         *         "message": "No venue exists with id 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40."
+         *       }
+         *     }
+         */
+        'application/json': components['schemas']['ErrorEnvelope'];
+      };
+    };
+    /**
+     * @description The request violates a business rule; `code` says which. For `SCHEDULING_CONFLICT`,
+     *     `details.conflictingEvent` names the event responsible. It is `null` only when a
+     *     concurrent request won the race and the database constraint refused this write.
+     */
+    Conflict: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json': components['schemas']['ErrorEnvelope'];
+      };
+    };
+  };
+  parameters: never;
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    getHealth: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Service is up and the database is reachable. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @enum {string} */
-                        status: "ok";
-                        /** @enum {string} */
-                        database: "up";
-                    };
-                };
-            };
-        };
+  getHealth: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    getMe: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Service is up and the database is reachable. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description The caller. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Me"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
+        content: {
+          'application/json': {
+            /** @enum {string} */
+            status: 'ok';
+            /** @enum {string} */
+            database: 'up';
+          };
         };
+      };
     };
-    listMyOrders: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The caller's orders, newest first; empty when there are none. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MyOrder"][];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-        };
+  };
+  getMe: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    listMyReservations: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description The caller. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description The caller's active reservations; empty when there are none. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Reservation"][];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
+        content: {
+          'application/json': components['schemas']['Me'];
         };
+      };
+      401: components['responses']['Unauthenticated'];
     };
-    releaseAllMyReservations: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description How many seats were released; 0 when there was nothing to release. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReleasedSeats"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-        };
+  };
+  listMyOrders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    getAdminHello: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description The caller's orders, newest first; empty when there are none. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description A greeting naming the caller and the app. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "app": "admin",
-                     *       "appName": "QueuePass Admin",
-                     *       "username": "admin1",
-                     *       "message": "Hello, admin1! Welcome to QueuePass Admin."
-                     *     }
-                     */
-                    "application/json": components["schemas"]["Hello"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
+        content: {
+          'application/json': components['schemas']['MyOrder'][];
         };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
     };
-    getCustomerHello: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A greeting naming the caller and the app. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "app": "customer",
-                     *       "appName": "QueuePass",
-                     *       "username": "customer1",
-                     *       "message": "Hello, customer1! Welcome to QueuePass."
-                     *     }
-                     */
-                    "application/json": components["schemas"]["Hello"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-        };
+  };
+  listMyReservations: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    getBoothHello: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description The caller's active reservations; empty when there are none. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description A greeting naming the caller and the app. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "app": "booth",
-                     *       "appName": "QueuePass Ticket Booth",
-                     *       "username": "agent1",
-                     *       "message": "Hello, agent1! Welcome to QueuePass Ticket Booth."
-                     *     }
-                     */
-                    "application/json": components["schemas"]["Hello"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
+        content: {
+          'application/json': components['schemas']['Reservation'][];
         };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
     };
-    listLocations: {
-        parameters: {
-            query?: {
-                /**
-                 * @description Keep only venues whose name or address contains this text, ignoring case and
-                 *     surrounding spaces. Blank means no filter.
-                 */
-                q?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Matching venues, ordered by name. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Location"][];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-        };
+  };
+  releaseAllMyReservations: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    createLocation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description How many seats were released; 0 when there was nothing to release. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LocationInput"];
-            };
+        content: {
+          'application/json': components['schemas']['ReleasedSeats'];
         };
-        responses: {
-            /** @description Venue created. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Location"];
-                };
-            };
-            400: components["responses"]["AddressRejected"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            503: components["responses"]["AddressServiceUnavailable"];
-        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
     };
-    getLocation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The venue. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Location"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-        };
+  };
+  getAdminHello: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    deleteLocation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description A greeting naming the caller and the app. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Venue deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description Events are still scheduled at this venue. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "VENUE_HAS_EVENTS",
-                     *         "message": "Cannot delete \"Freedom Hall\": 3 events are still scheduled there. Delete or move them first.",
-                     *         "details": {
-                     *           "eventCount": 3
-                     *         }
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["VenueHasEvents"];
-                };
-            };
+        content: {
+          /**
+           * @example {
+           *       "app": "admin",
+           *       "appName": "QueuePass Admin",
+           *       "username": "admin1",
+           *       "message": "Hello, admin1! Welcome to QueuePass Admin."
+           *     }
+           */
+          'application/json': components['schemas']['Hello'];
         };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
     };
-    updateLocation: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LocationUpdate"];
-            };
-        };
-        responses: {
-            /** @description Venue updated. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Location"];
-                };
-            };
-            400: components["responses"]["AddressRejected"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description An existing event's ticket capacity exceeds the proposed seating capacity. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "CAPACITY_EXCEEDED",
-                     *         "message": "Cannot reduce seating capacity to 500; event 'Season Opener' has a ticket capacity of 900.",
-                     *         "details": {
-                     *           "proposedSeatingCapacity": 500,
-                     *           "conflictingEvent": {
-                     *             "id": "7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40",
-                     *             "name": "Season Opener",
-                     *             "totalTicketCapacity": 900
-                     *           }
-                     *         }
-                     *       }
-                     *     }
-                     */
-                    "application/json": components["schemas"]["ErrorEnvelope"];
-                };
-            };
-            503: components["responses"]["AddressServiceUnavailable"];
-        };
+  };
+  getCustomerHello: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    getLayout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The venue. */
-                id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description A greeting naming the caller and the app. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description The layout. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SeatingLayout"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
+        content: {
+          /**
+           * @example {
+           *       "app": "customer",
+           *       "appName": "QueuePass",
+           *       "username": "customer1",
+           *       "message": "Hello, customer1! Welcome to QueuePass."
+           *     }
+           */
+          'application/json': components['schemas']['Hello'];
         };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
     };
-    replaceLayout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The venue. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LayoutInput"];
-            };
-        };
-        responses: {
-            /** @description The new layout. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SeatingLayout"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+  };
+  getBoothHello: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    deleteLayout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The venue. */
-                id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description A greeting naming the caller and the app. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Layout removed. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
+        content: {
+          /**
+           * @example {
+           *       "app": "booth",
+           *       "appName": "QueuePass Ticket Booth",
+           *       "username": "agent1",
+           *       "message": "Hello, agent1! Welcome to QueuePass Ticket Booth."
+           *     }
+           */
+          'application/json': components['schemas']['Hello'];
         };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
     };
-    listEvents: {
-        parameters: {
-            query?: {
-                /** @description Restrict results to events at one venue. */
-                locationId?: string;
-                /**
-                 * @description Keep only events whose name contains this text, ignoring case and surrounding
-                 *     spaces. Blank means no filter.
-                 */
-                q?: string;
-                /** @description Keep only events with `startsAt` at or after this instant. */
-                from?: string;
-                /**
-                 * @description Keep only events with `startsAt` strictly before this instant. When both are given,
-                 *     `from` must be earlier than `to`, otherwise `400`.
-                 */
-                to?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Matching events, ordered by start time. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Event"][];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-        };
+  };
+  listLocations: {
+    parameters: {
+      query?: {
+        /**
+         * @description Keep only venues whose name or address contains this text, ignoring case and
+         *     surrounding spaces. Blank means no filter.
+         */
+        q?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    createEvent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Matching venues, ordered by name. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EventInput"];
-            };
+        content: {
+          'application/json': components['schemas']['Location'][];
         };
-        responses: {
-            /** @description Event scheduled. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Event"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
     };
-    getEvent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The event, with its venue. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Event"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-        };
+  };
+  createLocation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    deleteEvent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Event deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LocationInput'];
+      };
     };
-    updateEvent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
+    responses: {
+      /** @description Venue created. */
+      201: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EventUpdate"];
-            };
+        content: {
+          'application/json': components['schemas']['Location'];
         };
-        responses: {
-            /** @description Event updated. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Event"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+      };
+      400: components['responses']['AddressRejected'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      503: components['responses']['AddressServiceUnavailable'];
     };
-    listTicketTiers: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The event's tiers. Empty when the event sells a single admission type. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TicketTier"][];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-        };
+  };
+  getLocation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
     };
-    createTicketTier: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description The venue. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TicketTierInput"];
-            };
+        content: {
+          'application/json': components['schemas']['Location'];
         };
-        responses: {
-            /** @description Tier added. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TicketTier"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      404: components['responses']['NotFound'];
     };
-    deleteTicketTier: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-                /** @description A tier of that event. A tier of a different event is `404`. */
-                tierId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Tier removed. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+  };
+  deleteLocation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
     };
-    updateTicketTier: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-                /** @description A tier of that event. A tier of a different event is `404`. */
-                tierId: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Venue deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TicketTierUpdate"];
-            };
+        content?: never;
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description Events are still scheduled at this venue. */
+      409: {
+        headers: {
+          [name: string]: unknown;
         };
-        responses: {
-            /** @description Tier updated. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TicketTier"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "VENUE_HAS_EVENTS",
+           *         "message": "Cannot delete \"Freedom Hall\": 3 events are still scheduled there. Delete or move them first.",
+           *         "details": {
+           *           "eventCount": 3
+           *         }
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['VenueHasEvents'];
         };
+      };
     };
-    getEventAvailability: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The event's availability. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Availability"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-        };
+  };
+  updateLocation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
     };
-    getSeatMap: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The seat map. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SeatMap"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
-        };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LocationUpdate'];
+      };
     };
-    streamSeatMap: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
+    responses: {
+      /** @description Venue updated. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /**
-             * @description The event stream. `data` is a `SeatMap` for `snapshot` and a `SeatMapChange` for
-             *     `seats`.
-             */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
+        content: {
+          'application/json': components['schemas']['Location'];
         };
+      };
+      400: components['responses']['AddressRejected'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description An existing event's ticket capacity exceeds the proposed seating capacity. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          /**
+           * @example {
+           *       "error": {
+           *         "code": "CAPACITY_EXCEEDED",
+           *         "message": "Cannot reduce seating capacity to 500; event 'Season Opener' has a ticket capacity of 900.",
+           *         "details": {
+           *           "proposedSeatingCapacity": 500,
+           *           "conflictingEvent": {
+           *             "id": "7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40",
+           *             "name": "Season Opener",
+           *             "totalTicketCapacity": 900
+           *           }
+           *         }
+           *       }
+           *     }
+           */
+          'application/json': components['schemas']['ErrorEnvelope'];
+        };
+      };
+      503: components['responses']['AddressServiceUnavailable'];
     };
-    updateSeating: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SeatingInput"];
-            };
-        };
-        responses: {
-            /** @description The updated seat map. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SeatMap"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+  };
+  getLayout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The venue. */
+        id: string;
+      };
+      cookie?: never;
     };
-    reserveSeats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description The layout. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReservationInput"];
-            };
+        content: {
+          'application/json': components['schemas']['SeatingLayout'];
         };
-        responses: {
-            /** @description The seats were added to the caller's active reservation. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Reservation"];
-                };
-            };
-            /** @description A new reservation, ending 5 minutes from now. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Reservation"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      404: components['responses']['NotFound'];
     };
-    releaseSeats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["ReservationRelease"];
-            };
-        };
-        responses: {
-            /** @description What is left of the reservation; `null` once no seat is left. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReservationReleaseResult"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-        };
+  };
+  replaceLayout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The venue. */
+        id: string;
+      };
+      cookie?: never;
     };
-    createOrder: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["OrderInput"];
-            };
-        };
-        responses: {
-            /**
-             * @description A repeat of an earlier request with the same `requestId`; the earlier order is
-             *     returned unchanged and nothing new is recorded (feature 006).
-             */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Order"];
-                };
-            };
-            /** @description Order placed; its tickets are included. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Order"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LayoutInput'];
+      };
     };
-    listAttendees: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
+    responses: {
+      /** @description The new layout. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description The event's orders, each with its tickets. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Order"][];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
+        content: {
+          'application/json': components['schemas']['SeatingLayout'];
         };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
     };
-    cancelEvent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Event cancelled, with how many orders and tickets were affected. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Cancellation"];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+  };
+  deleteLayout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The venue. */
+        id: string;
+      };
+      cookie?: never;
     };
-    uploadEventImage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Layout removed. */
+      204: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody: {
-            content: {
-                "multipart/form-data": components["schemas"]["EventImageUpload"];
-            };
-        };
-        responses: {
-            /** @description Image added, last in the event's order. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventImage"];
-                };
-            };
-            400: components["responses"]["ImageRejected"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            413: components["responses"]["ImageTooLarge"];
-            415: components["responses"]["ImageTypeNotAllowed"];
-        };
+        content?: never;
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
     };
-    reorderEventImages: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EventImageOrder"];
-            };
-        };
-        responses: {
-            /** @description The event's images in their new order. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EventImage"][];
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+  };
+  listEvents: {
+    parameters: {
+      query?: {
+        /** @description Restrict results to events at one venue. */
+        locationId?: string;
+        /**
+         * @description Keep only events whose name contains this text, ignoring case and surrounding
+         *     spaces. Blank means no filter.
+         */
+        q?: string;
+        /** @description Keep only events with `startsAt` at or after this instant. */
+        from?: string;
+        /**
+         * @description Keep only events with `startsAt` strictly before this instant. When both are given,
+         *     `from` must be earlier than `to`, otherwise `400`.
+         */
+        to?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    getEventImage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-                /** @description An image of that event. An image of a different event is `404`. */
-                imageId: string;
-            };
-            cookie?: never;
+    requestBody?: never;
+    responses: {
+      /** @description Matching events, ordered by start time. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        requestBody?: never;
-        responses: {
-            /** @description The image. */
-            200: {
-                headers: {
-                    "Cache-Control"?: string;
-                    "X-Content-Type-Options"?: "nosniff";
-                    [name: string]: unknown;
-                };
-                content: {
-                    "image/jpeg": string;
-                    "image/png": string;
-                    "image/webp": string;
-                };
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            404: components["responses"]["NotFound"];
+        content: {
+          'application/json': components['schemas']['Event'][];
         };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
     };
-    deleteEventImage: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description The event. */
-                id: string;
-                /** @description An image of that event. An image of a different event is `404`. */
-                imageId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Image removed. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            400: components["responses"]["ValidationFailed"];
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-        };
+  };
+  createEvent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
     };
-    getSalesReport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Totals and per-event, per-tier figures. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SalesReport"];
-                };
-            };
-            401: components["responses"]["Unauthenticated"];
-            403: components["responses"]["Forbidden"];
-        };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EventInput'];
+      };
     };
+    responses: {
+      /** @description Event scheduled. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Event'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  getEvent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The event, with its venue. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Event'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  deleteEvent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Event deleted. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  updateEvent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EventUpdate'];
+      };
+    };
+    responses: {
+      /** @description Event updated. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Event'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  listTicketTiers: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The event's tiers. Empty when the event sells a single admission type. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TicketTier'][];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  createTicketTier: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TicketTierInput'];
+      };
+    };
+    responses: {
+      /** @description Tier added. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TicketTier'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  deleteTicketTier: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+        /** @description A tier of that event. A tier of a different event is `404`. */
+        tierId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Tier removed. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  updateTicketTier: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+        /** @description A tier of that event. A tier of a different event is `404`. */
+        tierId: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['TicketTierUpdate'];
+      };
+    };
+    responses: {
+      /** @description Tier updated. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TicketTier'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  getEventAvailability: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The event's availability. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Availability'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  getSeatMap: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The seat map. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SeatMap'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  streamSeatMap: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /**
+       * @description The event stream. `data` is a `SeatMap` for `snapshot` and a `SeatMapChange` for
+       *     `seats`.
+       */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/event-stream': string;
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  updateSeating: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['SeatingInput'];
+      };
+    };
+    responses: {
+      /** @description The updated seat map. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SeatMap'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  reserveSeats: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ReservationInput'];
+      };
+    };
+    responses: {
+      /** @description The seats were added to the caller's active reservation. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Reservation'];
+        };
+      };
+      /** @description A new reservation, ending 5 minutes from now. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Reservation'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  releaseSeats: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': components['schemas']['ReservationRelease'];
+      };
+    };
+    responses: {
+      /** @description What is left of the reservation; `null` once no seat is left. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReservationReleaseResult'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  createOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['OrderInput'];
+      };
+    };
+    responses: {
+      /**
+       * @description A repeat of an earlier request with the same `requestId`; the earlier order is
+       *     returned unchanged and nothing new is recorded (feature 006).
+       */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Order'];
+        };
+      };
+      /** @description Order placed; its tickets are included. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Order'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  listAttendees: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The event's orders, each with its tickets. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Order'][];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  cancelEvent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Event cancelled, with how many orders and tickets were affected. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['Cancellation'];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  uploadEventImage: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'multipart/form-data': components['schemas']['EventImageUpload'];
+      };
+    };
+    responses: {
+      /** @description Image added, last in the event's order. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EventImage'];
+        };
+      };
+      400: components['responses']['ImageRejected'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+      413: components['responses']['ImageTooLarge'];
+      415: components['responses']['ImageTypeNotAllowed'];
+    };
+  };
+  reorderEventImages: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EventImageOrder'];
+      };
+    };
+    responses: {
+      /** @description The event's images in their new order. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EventImage'][];
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  getEventImage: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+        /** @description An image of that event. An image of a different event is `404`. */
+        imageId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The image. */
+      200: {
+        headers: {
+          'Cache-Control'?: string;
+          'X-Content-Type-Options'?: 'nosniff';
+          [name: string]: unknown;
+        };
+        content: {
+          'image/jpeg': string;
+          'image/png': string;
+          'image/webp': string;
+        };
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      404: components['responses']['NotFound'];
+    };
+  };
+  deleteEventImage: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description The event. */
+        id: string;
+        /** @description An image of that event. An image of a different event is `404`. */
+        imageId: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Image removed. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      400: components['responses']['ValidationFailed'];
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['Conflict'];
+    };
+  };
+  getSalesReport: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Totals and per-event, per-tier figures. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SalesReport'];
+        };
+      };
+      401: components['responses']['Unauthenticated'];
+      403: components['responses']['Forbidden'];
+    };
+  };
 }
