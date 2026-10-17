@@ -16,14 +16,24 @@ export const PNG = Buffer.from(
   'base64',
 );
 
-/** A real 1 × 1 grey progressive JPEG (JFIF), ending with its `EOI`. */
-export const JPEG = Buffer.concat([
-  Buffer.from(
-    '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
-    'base64',
-  ),
-  Buffer.from([0xff, 0xd9]),
-]);
+/**
+ * A real 1 × 1 grey baseline JPEG (JFIF): one quantization table, one-code Huffman tables, and a
+ * single block whose DC difference is 0 and whose AC is end-of-block, then `EOI`.
+ */
+export const JPEG = Buffer.from(
+  [
+    'ffd8',
+    'ffe000104a46494600010100000100010000', // APP0 JFIF
+    'ffdb004300' + '01'.repeat(64), // DQT
+    'ffc0000b080001000101011100', // SOF0: 1 x 1, one component
+    'ffc4001400' + '01' + '00'.repeat(15) + '00', // DHT DC: one code, category 0
+    'ffc4001410' + '01' + '00'.repeat(15) + '00', // DHT AC: one code, end of block
+    'ffda0008010100003f00', // SOS
+    '3f', // scan: DC 0, EOB, padded with 1 bits
+    'ffd9',
+  ].join(''),
+  'hex',
+);
 
 /** A real 1 × 1 lossless WebP (`VP8L`), the one in quickstart.md. */
 export const WEBP = Buffer.from('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA==', 'base64');

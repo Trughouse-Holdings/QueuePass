@@ -38,6 +38,9 @@ export function configureApp(app: INestApplication): void {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['authorization', 'content-type'],
     credentials: false,
+    // Spec 014 research R4: browsers may reuse a preflight for 10 minutes, so a rotating gallery
+    // does not send one before most image reads. Origins, methods, and headers are unchanged.
+    maxAge: 600,
   });
 
   // Spec 001 FR-027: publish the hand-written contract, never a generated copy (research R7).

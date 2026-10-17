@@ -1175,7 +1175,6 @@ paths:
         refused.
       operationId: uploadEventImage
       x-required-roles: [queuepass-admin]
-      x-planned: '014'
       requestBody:
         required: true
         content:
@@ -1264,7 +1263,6 @@ paths:
         `X-Content-Type-Options: nosniff`.
       operationId: getEventImage
       x-required-roles: []
-      x-planned: '014'
       responses:
         '200':
           description: The image.

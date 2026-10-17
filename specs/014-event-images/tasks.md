@@ -147,7 +147,7 @@ under simultaneous uploads.
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T011 [P] [US1] Create `backend/test/integration/event-images.e2e-spec.ts` (upload and read):
+- [x] T011 [P] [US1] Create `backend/test/integration/event-images.e2e-spec.ts` (upload and read):
   - a JPEG, a PNG, and a WebP → each `201` matching the contract, positions 1, 2, 3, the detected
     `contentType`, `byteSize` equal to the file's length; `getEvent` lists them in that order;
   - PNG bytes sent as `photo.jpg` with `contentType: 'image/jpeg'` → stored and returned as
@@ -187,13 +187,13 @@ under simultaneous uploads.
   (dropped: the output ends at the first `EOI`), a PNG `tIME` chunk and bytes after `IEND`
   (dropped), a WebP with bytes past its declared `RIFF` length (dropped, size rewritten), and a
   segment or chunk length past the end of the file → the `415` envelope.
-- [ ] T012 [P] [US1] Create `backend/test/integration/event-images.concurrency.e2e-spec.ts`: an
+- [x] T012 [P] [US1] Create `backend/test/integration/event-images.concurrency.e2e-spec.ts`: an
   event with 3 images and 10 simultaneous uploads → exactly two `201` and eight `409
   IMAGE_LIMIT_REACHED`, no `5xx`, and positions exactly `{1, 2, 3, 4, 5}`; an event with 0 images
   and 10 simultaneous uploads → five `201`, five `409`, positions 1 to 5; 5 simultaneous uploads
   while 5 orders are placed for the same event → every request succeeds (no deadlock, no transaction
   timeout).
-- [ ] T013 [P] [US1] Create `backend/test/integration/event-images.authz.e2e-spec.ts`, following
+- [x] T013 [P] [US1] Create `backend/test/integration/event-images.authz.e2e-spec.ts`, following
   `venues-events.authz.e2e-spec.ts`: on `uploadEventImage`, `deleteEventImage`,
   `reorderEventImages`, and `getEventImage`, a missing, expired, wrongly signed, and
   wrong-audience token → `401`; for the three writes, `customer1` and `agent1` → `403` and nothing
@@ -249,7 +249,7 @@ under simultaneous uploads.
   "An image can be at most 5 MB." and `details.maxBytes: 5242880`, and the position violation to
   `409 IMAGES_CHANGED` (research R2, R3). Envelopes thrown by services already pass through (the
   codes are in `ERROR_CODES`).
-- [ ] T016 [US1] Create `backend/src/events/event-images.service.ts` (`add`, `read`) and
+- [x] T016 [US1] Create `backend/src/events/event-images.service.ts` (`add`, `read`) and
   `backend/src/events/event-images.controller.ts` (`POST /events/:id/images` with
   `@Roles('queuepass-admin')`, `FileInterceptor('file', { storage: memoryStorage(), limits: {
   fileSize: 5_242_880, files: 1, fields: 0, parts: 1 } })`, `@HttpCode(201)`; `GET
