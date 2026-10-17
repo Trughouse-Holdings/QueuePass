@@ -118,6 +118,8 @@ export const event = (over: Partial<Event> = {}): Event => {
     status: 'SCHEDULED',
     cancelledAt: null,
     reservedSeating: false,
+    // Spec 014: always sent by the Backend, empty when the event has no images.
+    images: [],
     createdAt: stamp,
     updatedAt: stamp,
     ...over,

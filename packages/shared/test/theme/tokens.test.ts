@@ -142,3 +142,85 @@ it('has no hook to force a light or dark set (FR-007)', () => {
 it('never uses --text-faint for text (FR-008)', () => {
   expect(css).not.toMatch(/(^|[^-])color:\s*var\(--text-faint\)/m);
 });
+
+// Spec 014 research R13: the full-screen backdrop and its text, dark in both sets.
+describe('the image scrim tokens (spec 014)', () => {
+  it.each(['scrim', 'scrim-text'])('defines --%s in both sets with the same value', (name) => {
+    expect(light[name]).toBeDefined();
+    expect(dark[name]).toBe(light[name]);
+  });
+
+  it("writes --scrim in the theme's rgb(… / %) style", () => {
+    expect(light['scrim']).toMatch(/^rgb\(\d+ \d+ \d+ \/ \d+%\)$/);
+  });
+});
+
+/** The bodies of every innermost rule in `source` whose selector is exactly `selector`. */
+function bodiesOf(source: string, selector: string): string[] {
+  return [...source.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+    .filter(([, sel]) => sel!.replace(/\/\*[\s\S]*?\*\//g, '').trim() === selector)
+    .map(([, , body]) => body!);
+}
+
+/** The contents of every `@media (max-width: 640px)` block. */
+function narrowBlocks(): string {
+  const out: string[] = [];
+  let from = 0;
+  for (;;) {
+    const at = css.indexOf('@media (max-width: 640px)', from);
+    if (at < 0) break;
+    const open = css.indexOf('{', at);
+    let depth = 1;
+    let i = open + 1;
+    for (; i < css.length && depth > 0; i++) {
+      if (css[i] === '{') depth++;
+      else if (css[i] === '}') depth--;
+    }
+    out.push(css.slice(open + 1, i - 1));
+    from = i;
+  }
+  return out.join('\n');
+}
+
+/** The top-level rules, outside any at-rule. */
+function topLevel(): string {
+  let depth = 0;
+  let inAt = 0;
+  let out = '';
+  for (let i = 0; i < css.length; i++) {
+    const c = css[i]!;
+    if (c === '@' && depth === 0) inAt = 1;
+    if (c === '{') depth++;
+    if (inAt === 0) out += c;
+    if (c === '}') {
+      depth--;
+      if (depth === 0 && inAt) inAt = 0;
+    }
+  }
+  return out;
+}
+
+describe('the event page band (spec 014 research R13)', () => {
+  it('sets overflow on .app only where a page band is shown', () => {
+    const rules = [...css.matchAll(/([^{}]*\.app\b[^{}]*)\{([^}]*)\}/g)]
+      .filter(([, , body]) => /overflow/.test(body!))
+      .map(([, selector]) => selector!.trim());
+    expect(rules).toEqual(['.app:has(.page-band)']);
+    expect(bodiesOf(css, '.app:has(.page-band)')[0]).toMatch(/overflow-x:\s*clip/);
+  });
+
+  const topPadding = (body: string) => body.match(/padding:\s*(\d+)px/)?.[1];
+  const bandMargin = (body: string) => body.match(/margin-top:\s*-(\d+)px/)?.[1];
+
+  it.each([
+    ['outside the 640-pixel breakpoint', () => topLevel(), '32'],
+    ['inside the 640-pixel breakpoint', () => narrowBlocks(), '22'],
+  ])('pulls the band up by exactly .main top padding %s', (_, source, today) => {
+    const main = bodiesOf(source(), '.main');
+    const band = bodiesOf(source(), '.page-band').filter((b) => /margin-top/.test(b));
+    expect(main).toHaveLength(1);
+    expect(band).toHaveLength(1);
+    expect(bandMargin(band[0]!)).toBe(topPadding(main[0]!));
+    expect(topPadding(main[0]!)).toBe(today);
+  });
+});
