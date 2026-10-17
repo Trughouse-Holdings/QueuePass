@@ -153,9 +153,8 @@ describe('readImageHeader', () => {
   });
 
   it('reads the 1-pixel WebP of the quickstart', () => {
-    const tiny = Uint8Array.from(
-      atob('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA=='),
-      (c) => c.charCodeAt(0),
+    const tiny = Uint8Array.from(atob('UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA=='), (c) =>
+      c.charCodeAt(0),
     );
     expect(readImageHeader(tiny)).toEqual({
       contentType: 'image/webp',
@@ -170,9 +169,10 @@ describe('readImageHeader', () => {
   });
 
   it('reports an animated PNG (acTL before IDAT)', () => {
-    expect(readImageHeader(png(10, 10, chunk('acTL', [0, 0, 0, 2, 0, 0, 0, 0])))).toMatchObject(
-      { contentType: 'image/png', animated: true },
-    );
+    expect(readImageHeader(png(10, 10, chunk('acTL', [0, 0, 0, 2, 0, 0, 0, 0])))).toMatchObject({
+      contentType: 'image/png',
+      animated: true,
+    });
   });
 
   it('reports an animated WebP (VP8X flag or ANIM chunk)', () => {

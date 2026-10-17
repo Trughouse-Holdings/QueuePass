@@ -89,7 +89,7 @@ test helpers every story uses.
   unit test, `backend/test/unit/expect-to-match-contract.spec.ts`, with fake responses for
   `getEventImage`: `image/png` passes, `application/json` fails with a message naming the declared
   types. Confirm it fails before the change.
-- [ ] T005 [P] Test environment for the front ends: in `packages/shared/test/setup.ts`,
+- [x] T005 [P] Test environment for the front ends: in `packages/shared/test/setup.ts`,
   `admin-app/test/setup.ts`, and `customer-app/test/setup.ts`, stub `URL.createObjectURL` (returns
   `blob:test/<n>`) and `URL.revokeObjectURL` (records calls), `window.matchMedia` (no match by
   default, settable per test), and `IntersectionObserver` (absent by default, so galleries count
