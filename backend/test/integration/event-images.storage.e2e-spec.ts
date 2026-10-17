@@ -89,8 +89,7 @@ describe('EventImage storage rules', () => {
 
   it('holds positions 1 to 5 and no sixth row at any position', async () => {
     for (const p of [1, 2, 3, 4, 5]) await insert(p);
-    for (const p of [1, 2, 3, 4, 5])
-      await expect(insert(p)).rejects.toThrow(POSITION_UNIQUE);
+    for (const p of [1, 2, 3, 4, 5]) await expect(insert(p)).rejects.toThrow(POSITION_UNIQUE);
     await expect(insert(6)).rejects.toThrow(/event_image_position_range/);
     expect(await positions()).toEqual([1, 2, 3, 4, 5]);
   });

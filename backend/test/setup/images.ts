@@ -175,3 +175,97 @@ export function upload(
       contentType: opts.contentType ?? 'application/octet-stream',
     });
 }
+
+/**
+ * A TIFF structure as found in a JPEG's Exif `APP1` (after `Exif\0\0`) or a PNG's `eXIf`: `IFD0`
+ * with the camera's make, an orientation, and a pointer to a GPS IFD holding `gps` as its
+ * processing method, so tests can look for those bytes after removal.
+ */
+export function exifTiff(
+  opts: { orientation?: number; make?: string; gps?: string; littleEndian?: boolean } = {},
+): Buffer {
+  const le = opts.littleEndian ?? false;
+  const w16 = (n: number) => {
+    const b = Buffer.alloc(2);
+    if (le) b.writeUInt16LE(n);
+    else b.writeUInt16BE(n);
+    return b;
+  };
+  const w32 = (n: number) => {
+    const b = Buffer.alloc(4);
+    if (le) b.writeUInt32LE(n);
+    else b.writeUInt32BE(n);
+    return b;
+  };
+  const make = opts.make !== undefined ? Buffer.from(`${opts.make}\0`, 'latin1') : null;
+  const gps = opts.gps !== undefined ? Buffer.from(opts.gps, 'latin1') : null;
+  const count = (make ? 1 : 0) + (opts.orientation !== undefined ? 1 : 0) + (gps ? 1 : 0);
+  const ifd0End = 8 + 2 + count * 12 + 4;
+  const makeAt = ifd0End;
+  const gpsIfdAt = makeAt + (make?.length ?? 0);
+  const gpsDataAt = gpsIfdAt + 2 + 12 + 4;
+  const entry = (tag: number, type: number, n: number, value: Buffer) =>
+    Buffer.concat([w16(tag), w16(type), w32(n), value]);
+  const shortValue = (v: number) => Buffer.concat([w16(v), Buffer.alloc(2)]);
+  const entries: Buffer[] = [];
+  if (make) entries.push(entry(0x010f, 2, make.length, w32(makeAt)));
+  if (opts.orientation !== undefined)
+    entries.push(entry(0x0112, 3, 1, shortValue(opts.orientation)));
+  if (gps) entries.push(entry(0x8825, 4, 1, w32(gpsIfdAt)));
+  return Buffer.concat([
+    Buffer.from(le ? 'II' : 'MM', 'latin1'),
+    w16(42),
+    w32(8),
+    w16(count),
+    ...entries,
+    w32(0),
+    make ?? Buffer.alloc(0),
+    ...(gps ? [w16(1), entry(0x001b, 7, gps.length, w32(gpsDataAt)), w32(0), gps] : []),
+  ]);
+}
+
+/** A JPEG Exif `APP1` segment. */
+export function exifApp1(opts: Parameters<typeof exifTiff>[0] = {}): Buffer {
+  return jpegSegment(0xe1, Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), exifTiff(opts)]));
+}
+
+/** The minimal Exif `APP1` the Backend keeps: only `IFD0` Orientation (research R17). */
+export function orientationApp1(orientation: number): Buffer {
+  return jpegSegment(
+    0xe1,
+    Buffer.concat([
+      Buffer.from('Exif\0\0MM\0\x2a\0\0\0\x08\0\x01\x01\x12\0\x03\0\0\0\x01', 'latin1'),
+      Buffer.from([0, orientation, 0, 0, 0, 0, 0, 0]),
+    ]),
+  );
+}
+
+/** An XMP `APP1` segment (standard or extended). */
+export function xmpApp1(text: string, extended = false): Buffer {
+  const ns = extended ? 'http://ns.adobe.com/xmp/extension/\0' : 'http://ns.adobe.com/xap/1.0/\0';
+  return jpegSegment(0xe1, Buffer.from(`${ns}${text}`, 'latin1'));
+}
+
+/** A Photoshop `APP13` (IPTC) segment. */
+export function iptcApp13(text: string): Buffer {
+  return jpegSegment(0xed, Buffer.from(`Photoshop 3.0\0${text}`, 'latin1'));
+}
+
+/** Where the scan of a JPEG starts: the `SOS` marker. */
+export function sosAt(jpeg: Buffer): number {
+  for (let i = 2; i + 1 < jpeg.length; i++) if (jpeg[i] === 0xff && jpeg[i + 1] === 0xda) return i;
+  return -1;
+}
+
+/** The marker codes of a JPEG's segments before its scan, in order. */
+export function jpegMarkers(jpeg: Buffer): number[] {
+  const out: number[] = [];
+  let at = 2;
+  while (at + 3 < jpeg.length && jpeg[at] === 0xff) {
+    const marker = jpeg[at + 1]!;
+    out.push(marker);
+    if (marker === 0xda) break;
+    at += 2 + jpeg.readUInt16BE(at + 2);
+  }
+  return out;
+}
