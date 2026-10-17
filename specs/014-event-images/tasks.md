@@ -55,7 +55,7 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `014-event-images-impl` from an up-to-date `main`, run `npm install` and `npm test`
+- [x] T001 Cut `014-event-images-impl` from an up-to-date `main`, run `npm install` and `npm test`
   from the repository root, and confirm the suite is green before any change (baseline).
 
 ---
@@ -65,7 +65,7 @@ and confirm they **fail** before the implementation tasks below them.
 **Purpose**: shared types and the type check, storage, event responses carrying `images`, and the
 test helpers every story uses.
 
-- [ ] T002 [P] **Test first.** Create `packages/shared/test/event-image.test.ts`: `sniffImageType`
+- [x] T002 [P] **Test first.** Create `packages/shared/test/event-image.test.ts`: `sniffImageType`
   returns `image/jpeg` for `FF D8 FF E0 …`, `image/png` for the 8-byte PNG signature plus 4 bytes,
   `image/webp` for `RIFF` + 4 bytes + `WEBP`; `null` for `GIF89a…`, `<svg …`, `RIFF…WAVE`,
   `%PDF-1.7`, an empty array, the PNG signature cut to 11 bytes (and accepted at 12, both sides),
@@ -78,7 +78,7 @@ test helpers every story uses.
   }`; `IMAGE_CONTENT_TYPES` is `['image/jpeg', 'image/png', 'image/webp']`, the contract's
   `EventImage.contentType` enum (the Backend's contract checks in T011 catch a mismatch);
   `GALLERY_INTERVAL_MS` is 5000.
-- [ ] T003 Create `packages/shared/src/event-image.ts` (data-model.md: `ImageContentType`,
+- [x] T003 Create `packages/shared/src/event-image.ts` (data-model.md: `ImageContentType`,
   `IMAGE_CONTENT_TYPES`, `EventImage`, `EVENT_IMAGE_LIMITS`, `IMAGE_PIXEL_LIMITS`,
   `GALLERY_INTERVAL_MS`, `sniffImageType`, `readImageHeader`), add `images?: EventImage[]` to
   `Event` in `packages/shared/src/event.ts`, and export from `packages/shared/src/index.ts`. Run
