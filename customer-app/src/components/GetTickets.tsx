@@ -10,7 +10,12 @@ import {
   type SeatLabel,
   type TicketTier,
 } from '@queuepass/shared';
-import { useAuth, useSeatStream, type StreamSeatMapChange } from '@queuepass/shared/web';
+import {
+  useAuth,
+  useSeatStream,
+  type StreamSeatMap,
+  type StreamSeatMapChange,
+} from '@queuepass/shared/web';
 import { cents, count, seatLabel, totalUsd, usd } from '../format';
 import { useLoad } from '../use-load';
 import { SeatPicker, type ChosenSeat } from './SeatPicker';
@@ -54,11 +59,13 @@ export function GetTickets({ event }: { event: Event }) {
   // Spec 007: only a seated event needs its seat map. Spec 015 FR-010 (research R9): kept live,
   // with the customer's own reservations (`mine`), which a change to one of them reloads.
   const onChange = useRef<(change: StreamSeatMapChange) => void>(() => undefined);
+  const onSnapshot = useRef<(map: StreamSeatMap) => void>(() => undefined);
   const live = useSeatStream(event.reservedSeating ? id : null, {
     api,
     getToken: accessToken,
     withMine: true,
     onChange: (change) => onChange.current(change),
+    onSnapshot: (map) => onSnapshot.current(map),
   });
 
   const [tierId, setTierId] = useState<string | null>(null);
@@ -73,8 +80,10 @@ export function GetTickets({ event }: { event: Event }) {
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [ranOut, setRanOut] = useState(false);
-  // FR-012: what the status region says (the 1-minute warning), separate from the timer.
+  // FR-012: what the status region says (FR-011 and released messages), and the countdown's own
+  // status region for its 1-minute warning, both separate from the timer.
   const [status, setStatus] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   // Research R13: the deadline by this browser's monotonic clock, from the Backend's secondsLeft.
   const deadline = useRef<number | null>(null);
   const warned = useRef(false);
@@ -100,6 +109,7 @@ export function GetTickets({ event }: { event: Event }) {
     if (deadline.current === null) {
       deadline.current = performance.now() + r.secondsLeft * 1000;
       warned.current = false;
+      setWarning(null);
       setSecondsLeft(r.secondsLeft);
     }
     if (r.tierId) setTierId(r.tierId);
@@ -140,7 +150,27 @@ export function GetTickets({ event }: { event: Event }) {
 
   useEffect(() => setReleasedHere([]), [live.map]);
 
-  // FR-011, FR-012: what another customer reserved or bought, as it happens.
+  /** FR-011: drops picks someone else reserved or bought, naming them in the status region. */
+  const dropPicks = (gone: { sectionId: string; row: number; seat: number }[]): void => {
+    const lost = seatsRef.current.filter((p) => gone.some((g) => placeKey(g) === placeKey(p)));
+    if (lost.length === 0) return;
+    setSeats((all) => all.filter((p) => !lost.some((l) => placeKey(l) === placeKey(p))));
+    setStatus(
+      `${lost.map(seatLabel).join('; ')} ${lost.length === 1 ? 'is' : 'are'} no longer ` +
+        `available: someone else reserved or bought ${lost.length === 1 ? 'it' : 'them'}.`,
+    );
+  };
+
+  // A snapshot after a reconnect may show picks taken while the stream was down.
+  onSnapshot.current = (map: StreamSeatMap): void =>
+    dropPicks(
+      map.sections.flatMap((s) =>
+        [...s.taken, ...s.reserved].map((p) => ({ sectionId: s.sectionId, ...p })),
+      ),
+    );
+
+  // FR-011, FR-012: what another customer reserved or bought, as it happens. Those seats stay
+  // focusable, marked aria-disabled.
   onChange.current = (change: StreamSeatMapChange): void => {
     const gone = change.changes.filter(
       (c) =>
@@ -149,14 +179,8 @@ export function GetTickets({ event }: { event: Event }) {
         !(reservationRef.current?.seats ?? []).some((r) => placeKey(r) === placeKey(c)),
     );
     if (gone.length === 0) return;
-    setLateGone((all) => [...all, ...gone.map(placeKey)]);
-    const lost = seatsRef.current.filter((p) => gone.some((g) => placeKey(g) === placeKey(p)));
-    if (lost.length === 0) return;
-    setSeats((all) => all.filter((p) => !lost.some((l) => placeKey(l) === placeKey(p))));
-    setStatus(
-      `${lost.map(seatLabel).join('; ')} ${lost.length === 1 ? 'is' : 'are'} no longer ` +
-        `available: someone else reserved or bought ${lost.length === 1 ? 'it' : 'them'}.`,
-    );
+    setLateGone((all) => [...new Set([...all, ...gone.map(placeKey)])]);
+    dropPicks(gone);
   };
 
   // FR-005, FR-012: the countdown, a single 1-minute warning, and the end of the 5 minutes.
@@ -168,7 +192,7 @@ export function GetTickets({ event }: { event: Event }) {
       setSecondsLeft(left);
       if (left > 0 && left <= 60 && !warned.current) {
         warned.current = true;
-        setStatus('1 minute left to confirm your purchase.');
+        setWarning('1 minute left to confirm your purchase.');
       }
       if (left === 0) {
         // The picks are kept, so the customer can reserve them again (US1-4).
@@ -197,6 +221,10 @@ export function GetTickets({ event }: { event: Event }) {
   const seatsFailed = event.reservedSeating && live.map === null && !seatsLoading;
   if (availability.kind === 'loading' || tiers.kind === 'loading' || seatsLoading) {
     return <p>Loading tickets…</p>;
+  }
+  // Spec 015 edge case "Event deleted": its stream ended and a reconnect found no event.
+  if (event.reservedSeating && live.status === 'missing') {
+    return <p className="banner banner--error">This event no longer exists.</p>;
   }
   if (availability.kind !== 'ok' || tiers.kind !== 'ok' || seatsFailed) {
     // Spec 012 FR-010: an error, so the theme's error banner; no role added, as before.
@@ -604,7 +632,10 @@ export function GetTickets({ event }: { event: Event }) {
             </select>
           </label>
         )}
-        {price !== undefined && <p>{`Total: ${totalUsd(price, chosenCount)}`}</p>}
+        {/* FR-006: with a reservation, Confirm purchase buys exactly its seats. */}
+        {price !== undefined && (
+          <p>{`Total: ${totalUsd(price, seated && reservation ? mine.length : chosenCount)}`}</p>
+        )}
         {!seated && (
           <button
             type="button"
@@ -627,6 +658,10 @@ export function GetTickets({ event }: { event: Event }) {
         {/* A timer isn't announced (aria-live off); the 1-minute warning is, below. */}
         <p role="timer" aria-live="off">
           {`Time left to confirm: ${clock(secondsLeft ?? r.secondsLeft)}`}
+        </p>
+        {/* FR-012: the countdown's own status region, announced once at 1:00. */}
+        <p role="status" className="note">
+          {warning}
         </p>
         <ul aria-label="Reserved seats">
           {r.seats.map((s) => (

@@ -111,6 +111,7 @@ export function useSeatStream(eventId: string | null, options: SeatStreamOptions
     if (!eventId) return;
     let cancelled = false;
     let stream: { close(): void } | undefined;
+    let wasLive = false;
     setMap(null);
     setStatus('loading');
 
@@ -159,8 +160,11 @@ export function useSeatStream(eventId: string | null, options: SeatStreamOptions
         {
           baseUrl: opts.current.baseUrl,
           onStatus: (s: SeatStreamStatus) => {
+            if (s === 'live') wasLive = true;
             if (s === 'connecting' || s === 'live' || s === 'reconnecting') setStatus(s);
-            else if (s === 'gone') setStatus('offline');
+            // A 404 after the stream was live: the event was deleted (research R9). Before
+            // that, the map loaded, so streaming is just unavailable.
+            else if (s === 'gone') setStatus(wasLive ? 'missing' : 'offline');
           },
         },
       );

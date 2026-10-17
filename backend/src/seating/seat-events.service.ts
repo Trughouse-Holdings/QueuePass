@@ -36,7 +36,11 @@ export class SeatEventsService {
     });
   }
 
-  /** Completes every stream of the event: it was deleted (research R11). */
+  /**
+   * Completes every stream of the event. Viewers reconnect at once and get a fresh snapshot, or a
+   * 404 if the event was deleted (research R9, R11). Used when the map's shape changed (reserved
+   * seating, section tiers, the layout) as well as on delete.
+   */
   end(eventId: string): void {
     const subject = this.subjects.get(eventId);
     this.subjects.delete(eventId);

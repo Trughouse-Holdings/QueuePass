@@ -145,4 +145,20 @@ describe('live seat map (US3; FR-010)', () => {
     expect(await screen.findByRole('timer')).toBeInTheDocument();
     expect(seatButton(4)).toHaveAttribute('aria-pressed', 'true');
   });
+
+  it('drops a pick a reconnect snapshot shows as taken, naming it (FR-011, T047)', async () => {
+    const { stream } = setup();
+    await live(stream);
+    fireEvent.click(seatButton(2));
+    fireEvent.click(seatButton(3));
+
+    const later = seatMap();
+    later.sections[0].reserved = [{ row: 1, seat: 3 }];
+    act(() => stream.send('snapshot', later));
+
+    await waitFor(() => expect(picks()).toEqual(['Section A, Row 1, Seat 2']));
+    expect(screen.getByText(/Section A, Row 1, Seat 3.*no longer available/)).toBeInTheDocument();
+    // Unavailable when the map arrived: disabled, as at first load.
+    expect(seatButton(3)).toBeDisabled();
+  });
 });

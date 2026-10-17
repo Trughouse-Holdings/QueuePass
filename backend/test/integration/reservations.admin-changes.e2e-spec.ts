@@ -125,7 +125,7 @@ describe('Admin changes end reservations', () => {
       .send({ reservedSeating: true, sections: [] })
       .expect(200);
     await reserve(eventId, [seat(sectionA, 1, 1)]);
-    listen(eventId);
+    const stream = listen(eventId);
 
     await asAdmin(ctx)
       .put(`/events/${eventId}/seating`)
@@ -134,6 +134,8 @@ describe('Admin changes end reservations', () => {
 
     expect((await holds(eventId)).map((h) => h.endReason)).toEqual(['CLOSED']);
     expect(opened()).toEqual(['A-1-1']);
+    // Review T047: the map's shape changed, so viewers reconnect for a fresh snapshot.
+    expect(stream.completed()).toBe(true);
 
     // Back on: the same customer may reserve the seat at once (no wait after CLOSED).
     await asAdmin(ctx)
@@ -183,7 +185,7 @@ describe('Admin changes end reservations', () => {
     }
     await reserve(first, [seat(sectionA, 1, 1)]);
     await reserve(second, [seat(sectionB, 2, 2)]);
-    listen(first);
+    const stream = listen(first);
 
     await asAdmin(ctx)
       .put(`/locations/${venueId}/layout`)
@@ -192,8 +194,10 @@ describe('Admin changes end reservations', () => {
 
     expect((await holds(first)).map((h) => h.endReason)).toEqual(['CLOSED']);
     expect((await holds(second)).map((h) => h.endReason)).toEqual(['CLOSED']);
-    // Published by the old layout's section ids, the ones viewers have.
+    // Published by the old layout's section ids, the ones viewers have; then the streams end, so
+    // viewers reconnect to the new layout (review T047).
     expect(opened()).toEqual(['A-1-1']);
+    expect(stream.completed()).toBe(true);
   });
 
   it('createTicketTier adding the first tier ends tierless reservations', async () => {

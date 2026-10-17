@@ -43,7 +43,7 @@ export function SeatingCard({
 
   // Spec 015: live changes and catch-up snapshots go into the map shown; the form's own state
   // (the switch and each section's tier) is left as the admin set it.
-  useSeatStream(event.id, {
+  const live = useSeatStream(event.id, {
     api,
     getToken: accessToken,
     onChange: (change) =>
@@ -51,11 +51,16 @@ export function SeatingCard({
     onSnapshot: (map) => setLoad((l) => (l.kind === 'ok' ? { ...l, map } : l)),
   });
 
+  const liveMap = useRef<SeatMap | null>(null);
+  liveMap.current = live.map;
+
   useEffect(() => {
     let cancelled = false;
     Promise.all([getSeatMap(event.id), listTiers(event.id), getAvailability(event.id)])
-      .then(([map, tiers, left]) => {
+      .then(([loaded, tiers, left]) => {
         if (cancelled) return;
+        // Changes may have arrived while this loaded: the stream's map already has them.
+        const map = liveMap.current ?? loaded;
         setLoad({ kind: 'ok', map, tiers, hasSales: left.ticketsLeft < event.totalTicketCapacity });
         adopt(map);
       })

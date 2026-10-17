@@ -174,6 +174,8 @@ export class SeatMapService {
       return { result: await this.forEvent(eventId, tx), changes: opened };
     }, LOCKING_TX);
     this.seatEvents.publish(eventId, changes);
+    // Reserved seating or section tiers changed the map's shape: viewers take a fresh snapshot.
+    this.seatEvents.end(eventId);
     return result;
   }
 }

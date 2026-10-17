@@ -45,7 +45,7 @@ export class LayoutService {
   }
 
   async replace(locationId: string, dto: LayoutInputDto): Promise<SeatingLayout> {
-    const { result, changes } = await this.prisma.$transaction(async (tx) => {
+    const { result, changes, atVenue } = await this.prisma.$transaction(async (tx) => {
       const venue = await lockVenueAndEvents(tx, locationId);
 
       const names = dto.sections.map((s) => s.name.toLowerCase());
@@ -139,9 +139,12 @@ export class LayoutService {
         await tx.event.update({ where: { id: e.id }, data: { totalTicketCapacity: totalSeats } });
         await recalcSeatedTiers(tx, e.id);
       }
-      return { result: toLayout(locationId, sections), changes };
+      const atVenue = await tx.event.findMany({ where: { locationId }, select: { id: true } });
+      return { result: toLayout(locationId, sections), changes, atVenue };
     }, LOCKING_TX);
     for (const [eventId, opened] of changes) this.seatEvents.publish(eventId, opened);
+    // New sections, new ids: every viewer at the venue takes a fresh snapshot.
+    for (const { id } of atVenue) this.seatEvents.end(id);
     return result;
   }
 

@@ -61,7 +61,15 @@ export class HoldSweeper implements OnModuleInit, OnModuleDestroy {
         SELECT DISTINCT r."eventId" FROM "SeatReservation" r JOIN "Event" e ON e."id" = r."eventId"
         WHERE r."endedAt" IS NULL AND (r."expiresAt" <= now() OR e."startsAt" <= now())
         ORDER BY r."eventId"`;
-      for (const { eventId } of due) await this.sweepEvent(eventId);
+      for (const { eventId } of due) {
+        // One event failing (a lock timeout, say) never holds up the others (review T047).
+        await this.sweepEvent(eventId).catch((err: unknown) =>
+          this.logger.error(
+            `Seat hold sweep failed for event ${eventId}`,
+            err instanceof Error ? err.stack : err,
+          ),
+        );
+      }
     } finally {
       this.running = false;
     }

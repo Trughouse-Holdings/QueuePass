@@ -125,3 +125,45 @@ describe('reserved seats on the Admin seat map (US4; FR-012, FR-013)', () => {
     expect(await within(card).findByText('1 sold, 3 reserved, 26 open')).toBeInTheDocument();
   });
 });
+
+describe('review round 1 (T047)', () => {
+  it('keeps a change that arrives before the rest of the card has loaded', async () => {
+    const stream = seatStream();
+    let release!: () => void;
+    const slow = new Promise<void>((resolve) => (release = resolve));
+    stubApi({
+      [`GET ${PATH}`]: json({ ...EVENT, reservedSeating: true }),
+      [`GET ${PATH}/tiers`]: json([VIP]),
+      [`GET ${PATH}/seats`]: json(map()),
+      [`GET ${PATH}/seats/stream`]: stream.reply,
+      [`GET ${PATH}/availability`]: async () => {
+        await slow;
+        return json({
+          eventId: EVENT.id,
+          ticketsLeft: EVENT.totalTicketCapacity,
+          salesClosed: null,
+          tiers: [],
+        });
+      },
+    });
+    render(
+      <MemoryRouter initialEntries={[PATH]}>
+        <Routes>
+          <Route path="/events/:id" element={<EventDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await waitFor(() => stream.send('snapshot', map()));
+    act(() =>
+      stream.send('seats', {
+        eventId: EVENT.id,
+        changes: [{ sectionId: 's-a', row: 1, seat: 1, state: 'sold' }],
+      }),
+    );
+
+    await act(async () => release());
+
+    const card = await screen.findByRole('region', { name: 'Seating' });
+    expect(await within(card).findByText('1 sold, 0 reserved, 29 open')).toBeInTheDocument();
+  });
+});

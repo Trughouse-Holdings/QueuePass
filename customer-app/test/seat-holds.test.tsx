@@ -563,3 +563,56 @@ describe('reserved looks different from sold (US4; FR-012, research R13, R15)', 
     expect(seat).toBeDisabled();
   });
 });
+
+describe('review round 1 (T047)', () => {
+  it('totals only the reserved seats while a reservation is active (FR-006)', async () => {
+    stubApi(
+      routes({
+        'POST /events/e1/reservation': json(
+          reservation([
+            [1, 1],
+            [1, 3],
+          ]),
+          201,
+        ),
+      }),
+    );
+    renderCustomer({ at: '/events/e1' });
+    await pick([1, 1], [1, 3]);
+    press('Reserve seats');
+    await screen.findByRole('timer');
+
+    fireEvent.click(seatButton(2, 1));
+    fireEvent.click(seatButton(2, 2));
+
+    expect(screen.getByText('Total: $240.00')).toBeInTheDocument();
+  });
+
+  it('says the event no longer exists when the seat stream answers 404', async () => {
+    let streams = 0;
+    stubApi(
+      routes({
+        'GET /events/e1/seats/stream': () =>
+          streams++ === 0
+            ? new Response(
+                new ReadableStream({
+                  start: (c) => {
+                    c.enqueue(
+                      new TextEncoder().encode(
+                        `event: snapshot\ndata: ${JSON.stringify(seatMap())}\n\n`,
+                      ),
+                    );
+                    c.close();
+                  },
+                }),
+                { status: 200, headers: { 'content-type': 'text/event-stream' } },
+              )
+            : json({ error: { code: 'NOT_FOUND', message: 'No event' } }, 404),
+      }),
+    );
+    renderCustomer({ at: '/events/e1' });
+
+    expect(await screen.findByText('This event no longer exists.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reserve seats' })).toBeNull();
+  });
+});
