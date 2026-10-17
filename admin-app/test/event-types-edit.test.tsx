@@ -126,6 +126,7 @@ describe('editing a seated event', () => {
           tierId: 't-floor',
           sold: 0,
           taken: [],
+          reserved: [],
         },
         {
           sectionId: 's-middle',
@@ -135,6 +136,7 @@ describe('editing a seated event', () => {
           tierId: 't-bal',
           sold: 0,
           taken: [],
+          reserved: [],
         },
         {
           sectionId: 's-back',
@@ -144,6 +146,7 @@ describe('editing a seated event', () => {
           tierId: 't-bal',
           sold: 0,
           taken: [],
+          reserved: [],
         },
       ],
     }),

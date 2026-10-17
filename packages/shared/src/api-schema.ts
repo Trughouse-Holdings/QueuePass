@@ -1404,11 +1404,8 @@ export interface components {
             sold: number;
             /** @description Seats held by valid tickets. Never says by whom. */
             taken: components["schemas"]["SeatPosition"][];
-            /**
-             * @description Seats in active reservations (feature 015). Never says by whom. Not in `required`
-             *     until feature 015 is implemented.
-             */
-            reserved?: components["schemas"]["SeatPosition"][];
+            /** @description Seats in active reservations (feature 015). Never says by whom. */
+            reserved: components["schemas"]["SeatPosition"][];
         };
         /** @description An event's seats, sold or open (feature 007), or reserved (feature 015). */
         SeatMap: {

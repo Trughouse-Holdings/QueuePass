@@ -49,11 +49,8 @@ export interface SeatMapSection {
   sold: number;
   /** Seats held by valid tickets. Never says by whom. */
   taken: SeatPosition[];
-  /**
-   * Spec 015: seats in active reservations. Never says by whom. Optional to match the contract
-   * until the implementation PR makes it required (tasks T049).
-   */
-  reserved?: SeatPosition[];
+  /** Spec 015: seats in active reservations. Never says by whom. */
+  reserved: SeatPosition[];
 }
 
 export interface SeatMap {

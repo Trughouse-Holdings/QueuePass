@@ -180,8 +180,8 @@ export function SeatingCard({
               </select>
             </label>
             {/* Spec 015 FR-013: sold, reserved, and open, kept current by the stream. */}
-            <p>{`${shown.sold} sold, ${(shown.reserved ?? []).length} reserved, ${
-              shown.rows * shown.seatsPerRow - shown.sold - (shown.reserved ?? []).length
+            <p>{`${shown.sold} sold, ${shown.reserved.length} reserved, ${
+              shown.rows * shown.seatsPerRow - shown.sold - shown.reserved.length
             } open`}</p>
             <SeatGrid section={shown} />
           </>

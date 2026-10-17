@@ -236,7 +236,7 @@ export function GetTickets({ event }: { event: Event }) {
   const mine = reservation?.seats ?? [];
   // Spec 015: seats in another customer's reservation (the map never says whose, FR-014).
   const othersReserved = section
-    ? (section.reserved ?? []).filter((p) => {
+    ? section.reserved.filter((p) => {
         const label = { section: section.name, row: p.row, seat: p.seat };
         return !mine.some((m) => sameSeat(m, label)) && !releasedHere.includes(seatKey(label));
       })

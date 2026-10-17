@@ -153,6 +153,7 @@ describe("016's ticket-limit lines (FR-010)", () => {
           tierId: 't-vip',
           sold: 0,
           taken: [],
+          reserved: [],
         },
       ],
     };

@@ -1996,7 +1996,7 @@ components:
 
     SeatMapSection:
       type: object
-      required: [sectionId, name, rows, seatsPerRow, tierId, sold, taken]
+      required: [sectionId, name, rows, seatsPerRow, tierId, sold, taken, reserved]
       properties:
         sectionId: { type: string, format: uuid }
         name: { type: string }
@@ -2013,9 +2013,7 @@ components:
           items: { $ref: '#/components/schemas/SeatPosition' }
         reserved:
           type: array
-          description: |
-            Seats in active reservations (feature 015). Never says by whom. Not in `required`
-            until feature 015 is implemented.
+          description: Seats in active reservations (feature 015). Never says by whom.
           items: { $ref: '#/components/schemas/SeatPosition' }
 
     SeatMap:

@@ -7,7 +7,7 @@ import type { SeatMapSection } from '@queuepass/shared';
  */
 export function SeatGrid({ section }: { section: SeatMapSection }): React.ReactElement {
   const taken = new Set(section.taken.map((t) => `${t.row}-${t.seat}`));
-  const reserved = new Set((section.reserved ?? []).map((t) => `${t.row}-${t.seat}`));
+  const reserved = new Set(section.reserved.map((t) => `${t.row}-${t.seat}`));
   return (
     <div role="group" aria-label={`Section ${section.name} seat map`} className="seat-grid">
       {Array.from({ length: section.rows }, (_, r) => r + 1).map((row) => (

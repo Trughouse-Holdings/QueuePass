@@ -9,7 +9,8 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `008`, `012`, and `013` are built and verified. `016` is built and in review.
+Features `001` through `008`, `012`, `013`, and `016` are built and verified. `015` is built and
+in review.
 
 | Spec                                                                         | What it delivers                                                                                                                             | Spec             | Plan and tasks     | Code                   |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------- |
@@ -23,7 +24,8 @@ Features `001` through `008`, `012`, and `013` are built and verified. `016` is 
 | [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look                    | Draft            | Done (19/19 tasks) | **Built and verified** |
 | [`012-shared-theme`](specs/012-shared-theme/spec.md)                         | One shared theme in `packages/shared/` for the Admin and Customer apps; a test fails when an app defines its own look                        | Draft            | Done (29/30 tasks) | **Built and verified** |
 | [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps | Draft            | Done (47/48 tasks) | **Built and verified** |
-| [`016-per-user-ticket-limit`](specs/016-per-user-ticket-limit/spec.md)       | An optional per-customer ticket limit on each event, held under concurrent orders; shown to admins and customers                             | Draft            | Done (36 tasks)    | Built, in review       |
+| [`015-seat-holds`](specs/015-seat-holds/spec.md)                             | Customers reserve picked seats for 5 minutes, then confirm; no seat reserved twice; reserved and sold seats shown live in both apps          | Draft            | Done (50 tasks)    | Built, in review       |
+| [`016-per-user-ticket-limit`](specs/016-per-user-ticket-limit/spec.md)       | An optional per-customer ticket limit on each event, held under concurrent orders; shown to admins and customers                             | Draft            | Done (36 tasks)    | **Built and verified** |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -42,8 +44,8 @@ address in both apps opens Google Maps.
 
 The Admin and Customer apps take their whole look from one shared theme (`012`).
 
-Features `010`, `011`, `014`, and `015` are reserved in the constitution's roadmap and not yet
-built: test coverage, CI test runs, event images, and seat holds.
+Features `010`, `011`, and `014` are reserved in the constitution's roadmap and not yet built:
+test coverage, CI test runs, and event images.
 
 ### How a feature is delivered
 
@@ -141,12 +143,12 @@ Every front end requires sign-in, and the Backend trusts nothing without a valid
 6. **Logout** discards the tokens and ends your Keycloak session, so reopening the app shows the
    login page again.
 
-| Who                         | Can use          | Can do through the API                                                 |
-| --------------------------- | ---------------- | ---------------------------------------------------------------------- |
-| `queuepass-admin`           | Admin app        | read and change venues and events                                      |
-| `customer`                  | Customer app     | read venues, events, and seat maps; get tickets; read their own orders |
-| `gate-agent`                | Ticket Booth app | read venues and events                                                 |
-| no token, or an invalid one | nothing          | only `GET /health`                                                     |
+| Who                         | Can use          | Can do through the API                                                                                 |
+| --------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------ |
+| `queuepass-admin`           | Admin app        | read and change venues and events                                                                      |
+| `customer`                  | Customer app     | read venues, events, and seat maps; reserve seats; get tickets; read their own orders and reservations |
+| `gate-agent`                | Ticket Booth app | read venues and events                                                                                 |
+| no token, or an invalid one | nothing          | only `GET /health`                                                                                     |
 
 To call the API by hand, copy a token from a signed-in app and pass it as a Bearer token. The
 steps are in [quickstart V6](specs/001-bare-bones-system/quickstart.md#v6-the-backend-refuses-bad-tokens-us3-fr-018fr-024-sc-006).
@@ -253,6 +255,25 @@ unchanged.
   event, across all their orders, or leave it blank for no limit. Customers see how many more they
   can get, and the Backend refuses an order over the limit, including simultaneous ones (`016`)
 
+### Seat reservations
+
+On an event with reserved seating, a customer picks seats and presses **Reserve seats**. The
+seats are theirs for exactly 5 minutes, with a countdown; **Confirm purchase** buys them, and
+**Release seats** (or deselecting one) lets them go. A seated order must come from the customer's
+own reservation. No seat is ever reserved by two customers, or reserved and sold, at once,
+guaranteed by the database (`015`).
+
+- **The 5 minutes** never restart. Adding seats keeps the same end. When they run out, the seats
+  are released and the customer is told, with their picks kept.
+- **The 2-minute wait**: a customer whose reservation ended unbought (it ran out, they released
+  it, or they logged out) can reserve those same seats again 2 minutes later. Anyone else can
+  reserve them at once. Admin changes and cancellations start no wait.
+- **Live updates**: every customer and admin viewing an event's seat map sees seats turn
+  Reserved, open, or sold within 2 seconds, without refreshing, and catches up after a dropped
+  connection. Reserved looks different from sold (a dashed outline and an R, not a striped cross;
+  `◩` in the Admin app, with reserved counts), and nobody sees who reserved a seat.
+- **Logging out** of the Customer app releases every seat the customer has reserved.
+
 ### One shared look
 
 The Admin and Customer apps look the same because both load one theme,
@@ -295,8 +316,9 @@ The front ends reach data **only** through this API. None holds a database conne
 
 - Payment is simulated, and customers can't cancel or refund their own orders.
 - No check-in at the gate yet, and no QR codes, emailed, or printable tickets.
-- No seat holds while choosing (the first confirmation wins), no best-available assignment, and
-  no drawn floor plans: sections are rectangular rows of seats.
+- Picking a seat holds nothing until **Reserve seats**; reservation times are fixed, with no
+  admin override or waiting list. No best-available assignment, and no drawn floor plans:
+  sections are rectangular rows of seats.
 - The Ticket Booth app is a stub (sign-in, hello-world, logout) until a later spec.
 - No self-service sign-up, password reset, or multi-factor authentication.
 - No visual design work: front ends are plain and accessible (Constitution VII).

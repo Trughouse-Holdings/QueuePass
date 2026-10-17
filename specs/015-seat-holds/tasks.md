@@ -454,16 +454,16 @@ catches up after a drop (FR-010, FR-011).
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T042 Confirm no `x-planned: '015'` remains in `contracts/openapi.yaml`, that
+- [X] T042 Confirm no `x-planned: '015'` remains in `contracts/openapi.yaml`, that
   `route-coverage.e2e-spec.ts` passes with every operation implemented, and that
   `check-contract-drift.mjs` passes.
-- [ ] T043 [P] Update `README.md`:
+- [X] T043 [P] Update `README.md`:
   - the status row for `015`;
   - a short "Seat reservations" section: Reserve seats, 5 minutes, the 2-minute wait, live
     updates, logout releases.
 
   No new URL, command, or credential.
-- [ ] T044 [P] Run `npm run lint`, `npx prettier --check .`, and `npm test` from the root; all
+- [X] T044 [P] Run `npm run lint`, `npx prettier --check .`, and `npm test` from the root; all
   green.
 - [ ] T045 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' if a provider is installed) in the PR description. The 80% floor is not yet
@@ -476,7 +476,7 @@ catches up after a drop (FR-010, FR-011).
 - [ ] T048 Open the implementation PR against `main` with `fixes #27` in its description, and the
   shared-surface note (`backend/prisma/`, `packages/shared/`, `contracts/openapi.yaml`) asking for
   both approvals.
-- [ ] T049 Before the PR, make `SeatMapSection.reserved` required: add it to `required` in
+- [X] T049 Before the PR, make `SeatMapSection.reserved` required: add it to `required` in
   `contracts/openapi.yaml` (and drop "Not in `required` until…" from its description), make it
   non-optional in `packages/shared/src/seating.ts`, regenerate, and run the drift check. The
   Backend always sends it from T010 on.

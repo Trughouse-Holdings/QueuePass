@@ -59,7 +59,7 @@ export function applySeatChange(map: StreamSeatMap, change: StreamSeatMapChange)
         ...here.filter((c) => c.state === 'sold').map(({ row, seat }) => ({ row, seat })),
       ];
       const reserved = [
-        ...(section.reserved ?? []).filter(keep),
+        ...section.reserved.filter(keep),
         ...here.filter((c) => c.state === 'reserved').map(({ row, seat }) => ({ row, seat })),
       ];
       return { ...section, taken, reserved, sold: taken.length };

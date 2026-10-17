@@ -32,8 +32,18 @@ const map = (reservedSeating: boolean, sold = 0) => ({
       tierId: reservedSeating ? 't-vip' : null,
       sold,
       taken: Array.from({ length: sold }, (_, i) => ({ row: 1, seat: i + 1 })),
+      reserved: [],
     },
-    { sectionId: 's-b', name: 'B', rows: 2, seatsPerRow: 20, tierId: null, sold: 0, taken: [] },
+    {
+      sectionId: 's-b',
+      name: 'B',
+      rows: 2,
+      seatsPerRow: 20,
+      tierId: null,
+      sold: 0,
+      taken: [],
+      reserved: [],
+    },
   ],
 });
 
