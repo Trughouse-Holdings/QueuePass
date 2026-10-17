@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, type EventStatus, type Order, type Ticket, type TicketTier } from '@prisma/client';
+import type { SeatStateChange } from '@queuepass/shared';
 import type { Principal } from '../auth/principal';
 import { conflict, eventCancelled } from '../common/conflict';
 import {
@@ -9,14 +10,25 @@ import {
   lockEvent,
   ticketsSold,
 } from '../common/event-lock';
+import { limitMessage } from '../common/ticket-limit';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  closeRunOut,
+  endHolds,
+  liveHolds,
+  seatsTaken,
+  toChanges,
+  type LiveHold,
+} from '../reservations/holds';
+import { SeatEventsService } from '../seating/seat-events.service';
 import {
   badSeats,
   resolveSeats,
   seatKey,
   seatText,
   soldSeats,
-  type SeatLabel,
+  sortSeats,
+  type ResolvedSeat,
 } from '../seating/seat-rules';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ticketCode } from './ticket-code';
@@ -106,34 +118,31 @@ const isRequestIdCollision = (err: unknown): boolean => isUniqueViolationOn(err,
 const isSeatCollision = (err: unknown): boolean =>
   isUniqueViolationOn(err, 'ticket_one_valid_per_seat') || isUniqueViolationOn(err, 'seatSection');
 
-const tickets = (n: number): string => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;
-
-/** Spec 016 research R4: the limit refusal, with the limit, what is held, and what is left. */
-function limitMessage(event: string, limit: number, held: number, requested: number): string {
-  const allows = `${event} allows ${tickets(limit)} per customer`;
-  const remaining = limit - held;
-  if (remaining <= 0) return `${allows}, and you already hold ${held}.`;
-  return (
-    `${allows}. You already hold ${held}, so you can get ${remaining} more; ` +
-    `${requested} ${requested === 1 ? 'was' : 'were'} requested.`
-  );
-}
-
 /** An order, and whether it was placed now (`false`) or returned for a repeated request. */
 export interface PlacedOrder {
   order: OrderResponse;
   replayed: boolean;
 }
 
+/** Spec 015 research R7: an order's seats, and the caller's holds on them that it buys. */
+interface OrderSeats {
+  seats: ResolvedSeat[];
+  holds: LiveHold[];
+}
+
 /**
  * Orders and tickets (spec 005 US1). An order runs in one transaction that first takes the
  * event-row lock shared with tier writes, capacity edits, and cancellation, then counts valid
  * tickets, so no two orders can both take the last seat (FR-002, research R2). Spec 006 adds a
- * repeat check and the sales-closed rule under the same lock.
+ * repeat check and the sales-closed rule under the same lock. Spec 015: a seated order buys seats
+ * from the caller's own reservation, and the seats it sells are published to live viewers.
  */
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly seatEvents: SeatEventsService,
+  ) {}
 
   async create(eventId: string, dto: CreateOrderDto, buyer: Principal): Promise<PlacedOrder> {
     // Retry once when a ticket code collides (60 random bits: vanishingly rare), when a repeat of
@@ -141,10 +150,13 @@ export class OrdersService {
     // when the seat index refused a seat (the retry's check then names it).
     for (let attempt = 1; ; attempt++) {
       try {
-        return await this.prisma.$transaction(
+        const { placed, changes } = await this.prisma.$transaction(
           (tx) => this.createLocked(tx, eventId, dto, buyer),
           LOCKING_TX,
         );
+        // Spec 015 research R9: only after the commit.
+        this.seatEvents.publish(eventId, changes);
+        return placed;
       } catch (err) {
         const retryable = isCodeCollision(err) || isRequestIdCollision(err) || isSeatCollision(err);
         if (!retryable || attempt >= 2) throw err;
@@ -157,7 +169,7 @@ export class OrdersService {
     eventId: string,
     dto: CreateOrderDto,
     buyer: Principal,
-  ): Promise<PlacedOrder> {
+  ): Promise<{ placed: PlacedOrder; changes: SeatStateChange[] }> {
     const event = await lockEvent(tx, eventId);
 
     // Spec 006 FR-005: a repeated confirmation gets its first answer back, before any other rule,
@@ -180,7 +192,7 @@ export class OrdersService {
             'This requestId was already used for a different order. Start a new confirmation.',
           );
         }
-        return { order: toOrderResponse(earlier), replayed: true };
+        return { placed: { order: toOrderResponse(earlier), replayed: true }, changes: [] };
       }
     }
 
@@ -189,6 +201,8 @@ export class OrdersService {
     if (new Date() >= event.startsAt) {
       throw conflict('SALES_CLOSED', `Sales for ${event.name} closed when it started.`);
     }
+    // Spec 015 research R3, R7: run-out reservations end first, so their seats are free.
+    const freed = await closeRunOut(tx, eventId);
 
     const tierCount = await tx.ticketTier.count({ where: { eventId } });
     let tier: TicketTier | null = null;
@@ -207,7 +221,7 @@ export class OrdersService {
     }
 
     // Spec 007 research R6: seats are checked before counts, so a refusal names the seat.
-    const seats = await this.seatsFor(tx, event, dto, tier);
+    const { seats, holds } = await this.seatsFor(tx, event, dto, tier, buyer);
 
     let available = event.totalTicketCapacity - (await ticketsSold(tx, { eventId }));
     if (tier) {
@@ -273,25 +287,41 @@ export class OrdersService {
       },
       include: ORDER_INCLUDE,
     });
-    return { order: toOrderResponse(order), replayed: false };
+    // Spec 015 research R7: the bought seats leave the reservation with the tickets, under the same
+    // lock, so a seat is never both reserved and sold; the rest stay reserved until it ends.
+    await endHolds(tx, eventId, holds, 'BOUGHT');
+    return {
+      placed: { order: toOrderResponse(order), replayed: false },
+      changes: [
+        ...(await toChanges(tx, event.locationId, freed, 'open')),
+        ...seats.map((s) => ({
+          sectionId: s.sectionId,
+          row: s.row,
+          seat: s.seat,
+          state: 'sold' as const,
+        })),
+      ],
+    };
   }
 
   /**
    * Spec 007 FR-008, research R6: the seats an order names, as labels, after every seat rule
-   * (`seating/seat-rules.ts`, shared with reservations). General admission takes no seats. Taken
-   * seats are refused by name (409 SEAT_TAKEN); the partial unique index guarantees it even if
-   * this check were bypassed (FR-009).
+   * (`seating/seat-rules.ts`, shared with reservations). General admission takes no seats. Seats
+   * sold or in another customer's reservation are refused by name (409 SEAT_TAKEN); the partial
+   * unique index guarantees no seat is sold twice even if this check were bypassed (FR-009).
+   * Spec 015 FR-006 (research R7): every other seat must be in the caller's own reservation.
    */
   private async seatsFor(
     tx: Prisma.TransactionClient,
     event: LockedEvent,
     dto: CreateOrderDto,
     tier: TicketTier | null,
-  ): Promise<SeatLabel[]> {
+    buyer: Principal,
+  ): Promise<OrderSeats> {
     if (!event.reservedSeating) {
       if (dto.seats?.length)
         throw badSeats('seats must be omitted: this event has no reserved seating');
-      return [];
+      return { seats: [], holds: [] };
     }
     if (!dto.seats || dto.seats.length !== dto.quantity) {
       throw badSeats(
@@ -300,16 +330,44 @@ export class OrdersService {
       );
     }
 
-    const labels = await resolveSeats(tx, event, tier, dto.seats);
-    const seats = await soldSeats(tx, event.id, labels);
-    if (seats.length > 0) {
+    const seats = await resolveSeats(tx, event, tier, dto.seats);
+    const sold = await soldSeats(tx, event.id, seats);
+    const held = (await liveHolds(tx, event.id)).filter((h) =>
+      seats.some((s) => seatKey(s) === seatKey(h)),
+    );
+    const others = held.filter((h) => h.customerSub !== buyer.sub);
+    if (sold.length > 0 || others.length > 0) throw seatsTaken(sold, others);
+
+    const mine = held.filter((h) => h.customerSub === buyer.sub);
+    const missing = seats.filter((s) => !mine.some((h) => seatKey(h) === seatKey(s)));
+    if (missing.length > 0) {
+      const expired = await this.reservationRanOut(tx, event.id, buyer.sub);
+      const labels = sortSeats(missing.map(({ section, row, seat }) => ({ section, row, seat })));
+      const them = labels.length === 1 ? 'it' : 'them';
       throw conflict(
-        'SEAT_TAKEN',
-        `${seats.map(seatText).join('; ')} ${seats.length === 1 ? 'is' : 'are'} already taken.`,
-        { seats },
+        'RESERVATION_REQUIRED',
+        expired
+          ? `Your reservation for ${event.name} ran out. Reserve the seats again to get them.`
+          : `${labels.map(seatText).join('; ')} ${labels.length === 1 ? 'is' : 'are'} not in ` +
+              `your reservation. Reserve ${them} first.`,
+        { seats: labels, expired },
       );
     }
-    return labels;
+    return { seats, holds: mine };
+  }
+
+  /** Spec 015 FR-006: whether the caller's latest reservation for the event ran out. */
+  private async reservationRanOut(
+    tx: Prisma.TransactionClient,
+    eventId: string,
+    customerSub: string,
+  ): Promise<boolean> {
+    const latest = await tx.seatReservation.findFirst({
+      where: { eventId, customerSub },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: { holds: { where: { endReason: 'EXPIRED' }, take: 1 } },
+    });
+    return latest !== null && latest.endedAt !== null && latest.holds.length > 0;
   }
 
   /** Spec 007 research R6: a repeated requestId must name the same seats (as a set). */

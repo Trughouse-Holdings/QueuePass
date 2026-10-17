@@ -29,7 +29,12 @@ const seatMap = (over: Partial<SeatMap> = {}): SeatMap => ({
 });
 
 type Reply = Response | (() => Response);
-const routes = (map: Reply = json(seatMap()), orderReply?: Reply, left = 56) => ({
+const routes = (
+  map: Reply = json(seatMap()),
+  orderReply?: Reply,
+  left = 56,
+  reserveReply?: Reply,
+) => ({
   'GET /events/e1': json(event({ reservedSeating: true })),
   'GET /events/e1/tiers': json([general, vip]),
   'GET /events/e1/availability': json(
@@ -43,7 +48,23 @@ const routes = (map: Reply = json(seatMap()), orderReply?: Reply, left = 56) => 
   ),
   'GET /events/e1/seats': map,
   ...(orderReply ? { 'POST /events/e1/orders': orderReply } : {}),
+  // Spec 015 FR-006: seats are reserved before they are ordered.
+  ...(reserveReply ? { 'POST /events/e1/reservation': reserveReply } : {}),
 });
+
+/** Spec 015: the reservation the Backend answers for these seats of section A. */
+const reservationOf = (seats: [number, number][]) =>
+  json(
+    {
+      eventId: 'e1',
+      tierId: 't-vip',
+      seats: seats.map(([row, seat]) => ({ sectionId: 's-a', section: 'A', row, seat })),
+      createdAt: '2026-10-20T19:00:00.000Z',
+      expiresAt: '2026-10-20T19:05:00.000Z',
+      secondsLeft: 300,
+    },
+    201,
+  );
 
 const chooseTier = async (name: RegExp) =>
   fireEvent.click(await screen.findByRole('radio', { name }));
@@ -197,7 +218,7 @@ describe('a tier with no seats on sale (FR-006)', () => {
     renderCustomer({ at: '/events/e1' });
 
     expect(await screen.findByText('No seats are on sale for this event yet.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Confirm order' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reserve seats' })).toBeNull();
   });
 });
 
@@ -226,17 +247,28 @@ describe('confirming seats (US2-3; FR-008, FR-011)', () => {
         },
       ],
     });
-    const { calls } = stubApi(routes(json(seatMap()), json(placed, 201)));
+    const { calls } = stubApi(
+      routes(
+        json(seatMap()),
+        json(placed, 201),
+        56,
+        reservationOf([
+          [1, 1],
+          [1, 3],
+        ]),
+      ),
+    );
     renderCustomer({ at: '/events/e1' });
 
     await chooseTier(/VIP/);
     chooseSection('A');
     fireEvent.click(seatButton(1, 1));
     fireEvent.click(seatButton(1, 3));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm order' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reserve seats' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm purchase' }));
 
     const done = await screen.findByRole('region', { name: 'Order confirmed' });
-    const post = calls.find((c) => c.method === 'POST');
+    const post = calls.find((c) => c.path === '/events/e1/orders');
     expect(post?.body).toEqual({
       tierId: 't-vip',
       quantity: 2,
@@ -264,6 +296,9 @@ describe('confirming seats (US2-3; FR-008, FR-011)', () => {
     const { calls } = stubApi(
       routes(
         () => json(maps++ === 0 ? seatMap() : reloaded),
+        undefined,
+        56,
+        // Spec 015: the taken seat is now refused at Reserve seats.
         json(
           {
             error: {
@@ -282,7 +317,7 @@ describe('confirming seats (US2-3; FR-008, FR-011)', () => {
     chooseSection('A');
     fireEvent.click(seatButton(1, 1));
     fireEvent.click(seatButton(1, 3));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm order' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reserve seats' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Section A, Row 1, Seat 3 is already taken.',

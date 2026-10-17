@@ -5,6 +5,7 @@ import { ADDRESS_GEOCODER } from '../../src/address/address-geocoder';
 import { AppModule } from '../../src/app.module';
 import { JWKS } from '../../src/auth/jwks.provider';
 import { configureApp } from '../../src/configure-app';
+import { HOLD_SWEEP_INTERVAL_MS } from '../../src/reservations/hold-sweeper';
 import { PrismaService } from '../../src/prisma/prisma.service';
 import { FakeGeocoder } from './fake-geocoder';
 import { testKeys } from './keys';
@@ -23,9 +24,10 @@ export interface TestContext {
  * Boots the real application graph with the same pipes, filters, guards, CORS, and /docs as
  * production (src/configure-app.ts), so responses under test are what clients receive.
  *
- * Two substitutions: the key set (the app trusts only the test key pair instead of fetching
- * Keycloak's JWKS, research R11; token validation itself is NOT bypassed), and the address
- * service, replaced by a `FakeGeocoder` (spec 013 research R9).
+ * Three substitutions: the key set (the app trusts only the test key pair instead of fetching
+ * Keycloak's JWKS, research R11; token validation itself is NOT bypassed), the address service,
+ * replaced by a `FakeGeocoder` (spec 013 research R9), and the seat hold sweep's interval, 0 so
+ * no timer runs (spec 015 research R4).
  */
 export async function createTestApp(): Promise<TestContext> {
   process.env.OIDC_ISSUER = TEST_ISSUER;
@@ -40,6 +42,9 @@ export async function createTestApp(): Promise<TestContext> {
     .useValue(createLocalJWKSet({ keys: [trusted.publicJwk] }))
     .overrideProvider(ADDRESS_GEOCODER)
     .useValue(geocoder)
+    // Spec 015 research R4: no sweep timer in tests; they call HoldSweeper.sweepOnce().
+    .overrideProvider(HOLD_SWEEP_INTERVAL_MS)
+    .useValue(0)
     .compile();
 
   const app = moduleRef.createNestApplication();

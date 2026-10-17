@@ -1,6 +1,14 @@
 import type { Response } from 'supertest';
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { customer, endHold, event, holdSeats, tier, venue } from '../setup/fixtures';
+import {
+  customer,
+  endHold,
+  event,
+  holdSeats,
+  reserveThenOrder,
+  tier,
+  venue,
+} from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, CUSTOMER, subFor, tokenFor } from '../setup/tokens';
@@ -50,12 +58,12 @@ describe('Reserved seating and the seat map', () => {
         { sectionId: sectionB, tierId: general },
       ],
     }).expect(200);
-    await (
-      await customer(ctx)
-    )
-      .post(`/events/${eventId}/orders`)
-      .send({ tierId: vip, quantity: 1, seats: [{ sectionId: sectionA, row: 1, seat: 5 }] })
-      .expect(201);
+    // Spec 015 FR-006: reserved first, then ordered.
+    const sold = await reserveThenOrder(ctx, await tokenFor(CUSTOMER), eventId, {
+      tierId: vip,
+      seats: [{ sectionId: sectionA, row: 1, seat: 5 }],
+    });
+    expect(sold.status).toBe(201);
     return { eventId, vip, general };
   };
 

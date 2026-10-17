@@ -141,7 +141,6 @@ paths:
         5 minutes run out (`expiresAt`, exclusive). The customer is the token's subject.
       operationId: listMyReservations
       x-required-roles: [customer]
-      x-planned: '015'
       responses:
         '200':
           description: The caller's active reservations; empty when there are none.
@@ -163,7 +162,6 @@ paths:
         others at once, and this customer can't reserve it again for 2 minutes. Safe to repeat.
       operationId: releaseAllMyReservations
       x-required-roles: [customer]
-      x-planned: '015'
       responses:
         '200':
           description: How many seats were released; 0 when there was nothing to release.
@@ -939,7 +937,6 @@ paths:
         seats are in (`null` for an event without tiers), and is returned as `tierId`.
       operationId: reserveSeats
       x-required-roles: [customer]
-      x-planned: '015'
       requestBody:
         required: true
         content:
@@ -980,7 +977,6 @@ paths:
         nothing happens and `reservation` is `null`, so a repeat is harmless.
       operationId: releaseSeats
       x-required-roles: [customer]
-      x-planned: '015'
       requestBody:
         required: false
         content:

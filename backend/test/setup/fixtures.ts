@@ -147,3 +147,33 @@ export async function endHold(
         "endReason" = ${reason}::"SeatHoldEnd"
     WHERE "id" = ${holdId}::uuid`;
 }
+
+/**
+ * Spec 015 (FR-006, spec Assumptions): a seated order now needs the customer's own reservation, so
+ * seated-order tests reserve the seats first and then order them, and otherwise check the same
+ * things. Returns the order response, whatever its status.
+ */
+export async function reserveThenOrder(
+  ctx: TestContext,
+  token: string,
+  eventId: string,
+  body: {
+    tierId?: string;
+    seats: { sectionId: string; row: number; seat: number }[];
+    requestId?: string;
+  },
+) {
+  const client = as(ctx, token);
+  const reserved = await client.post(`/events/${eventId}/reservation`).send({ seats: body.seats });
+  if (reserved.status !== 200 && reserved.status !== 201) {
+    throw new Error(
+      `reserveThenOrder: reserving failed with ${reserved.status} ${JSON.stringify(reserved.body)}`,
+    );
+  }
+  return client.post(`/events/${eventId}/orders`).send({
+    ...(body.tierId ? { tierId: body.tierId } : {}),
+    quantity: body.seats.length,
+    seats: body.seats,
+    ...(body.requestId ? { requestId: body.requestId } : {}),
+  });
+}

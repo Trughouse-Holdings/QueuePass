@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import type { Availability, Event, Location, MyOrder, Order, TicketTier } from '@queuepass/shared';
 import { AuthProvider, RequireRole } from '@queuepass/shared/web';
 import { App } from '../src/App';
+import { releaseOnLogout } from '../src/release-on-logout';
 import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-user-manager';
 
 type Reply = Response | (() => Response | Promise<Response>) | 'network-error';
@@ -58,7 +59,7 @@ export function renderCustomer({
   return {
     um,
     ...render(
-      <AuthProvider userManager={um}>
+      <AuthProvider userManager={um} beforeLogout={releaseOnLogout}>
         <RequireRole role="customer">
           <MemoryRouter initialEntries={[at]}>
             <App />

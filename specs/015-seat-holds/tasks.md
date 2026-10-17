@@ -152,7 +152,7 @@ A-1-5; `customer1` confirms within 5 minutes and gets both seats.
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T011 [P] [US1] `backend/test/integration/reservations.e2e-spec.ts`, `reserveSeats`:
+- [X] T011 [P] [US1] `backend/test/integration/reservations.e2e-spec.ts`, `reserveSeats`:
   - `201` with `expiresAt` exactly `createdAt` + 5 minutes and `secondsLeft` 299–300;
   - a second call adds seats with `200` and the same `expiresAt`;
   - all or nothing (nothing is stored after any refusal), with `400` for: a seat outside the
@@ -165,7 +165,7 @@ A-1-5; `customer1` confirms within 5 minutes and gets both seats.
     reservation never counts as held;
   - `403` for `admin1` and `agent1`, and `401` without a token;
   - every response checked with `expectToMatchContract('reserveSeats', …)`.
-- [ ] T012 [P] [US1] `backend/test/integration/reservations.e2e-spec.ts`, release and list:
+- [X] T012 [P] [US1] `backend/test/integration/reservations.e2e-spec.ts`, release and list:
   - `releaseSeats` with one seat leaves the rest with the same `expiresAt`, and the hold ends
     `RELEASED`;
   - with no body it releases all and returns `{ reservation: null }`, and the reservation ends;
@@ -175,7 +175,7 @@ A-1-5; `customer1` confirms within 5 minutes and gets both seats.
   - `releaseAllMyReservations` ends every one with `LOGOUT` and returns `{ released }` (the seat
     count), and is `0` when repeated;
   - roles and contract checks as T011.
-- [ ] T013 [P] [US1] `backend/test/integration/reservations.boundaries.e2e-spec.ts` (move
+- [X] T013 [P] [US1] `backend/test/integration/reservations.boundaries.e2e-spec.ts` (move
   `createdAt`/`expiresAt`/`releasedAt` with SQL, research R3):
   - **5 minutes**: at `expiresAt` − 1 s the reservation is active (listed, orderable); at
     `expiresAt` it is not (`createOrder` → `409 RESERVATION_REQUIRED` with
@@ -187,7 +187,7 @@ A-1-5; `customer1` confirms within 5 minutes and gets both seats.
   - the wait applies after `EXPIRED`, `RELEASED` and `LOGOUT`, but not after `BOUGHT` or `CLOSED`,
     and another customer can reserve the seat at once;
   - `HoldSweeper.sweepOnce()` closes a run-out reservation the same way.
-- [ ] T014 [P] [US1] `backend/test/integration/orders.reservation.e2e-spec.ts` (research R7):
+- [X] T014 [P] [US1] `backend/test/integration/orders.reservation.e2e-spec.ts` (research R7):
   - a seated order without a reservation is `409 RESERVATION_REQUIRED` (`details.expired: false`);
   - with the caller's reservation it is `201`, its holds end `BOUGHT`, and the reservation ends
     when no live hold is left;
@@ -198,7 +198,7 @@ A-1-5; `customer1` confirms within 5 minutes and gets both seats.
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Add `reserveThenOrder(ctx, token, eventId, { tierId, seats, requestId? })` to
+- [X] T015 [US1] Add `reserveThenOrder(ctx, token, eventId, { tierId, seats, requestId? })` to
   `backend/test/setup/fixtures.ts`. Update the seated orders in `orders.seats.e2e-spec.ts`,
   `orders.ticket-limit.e2e-spec.ts` and `seating.e2e-spec.ts` to reserve first, with assertions
   unchanged. Rewrite `seats.concurrency.e2e-spec.ts` as 10 simultaneous orders, with distinct
@@ -206,11 +206,11 @@ A-1-5; `customer1` confirms within 5 minutes and gets both seats.
   others are refused, and the seat has one valid ticket. The many-customer race moves to T026.
   Keep `007`'s "holds below the Backend" test in that file unchanged: it proves
   `ticket_one_valid_per_seat` by inserting tickets directly, which no reservation path replaces.
-- [ ] T016 [US1] Create `backend/src/reservations/dto/reservation-input.dto.ts` and
+- [X] T016 [US1] Create `backend/src/reservations/dto/reservation-input.dto.ts` and
   `reservation-release.dto.ts` (class-validator): `seats` an array of 1–10 `SeatChoice`
   (`sectionId` UUID, `row` and `seat` integers ≥ 1), required in the first and optional in the
   second, `forbidNonWhitelisted` as elsewhere.
-- [ ] T017 [US1] Create `backend/src/reservations/reservations.service.ts`:
+- [X] T017 [US1] Create `backend/src/reservations/reservations.service.ts`:
   - **`closeRunOut(tx, eventId)`**, per the ground rules;
   - **`reserve(principal, eventId, dto)`**, in one transaction following research R5 step by step:
     lock, close run-out, cancelled / sales closed / no reserved seating, `resolveSeats` from
@@ -222,20 +222,20 @@ A-1-5; `customer1` confirms within 5 minutes and gets both seats.
     the local time from `availableAt`.
   - It returns `{ status: 200 | 201, reservation }`, with `secondsLeft` from SQL
     (`greatest(0, floor(extract(epoch from "expiresAt" - now())))`).
-- [ ] T018 [US1] In `reservations.service.ts`, add:
+- [X] T018 [US1] In `reservations.service.ts`, add:
   - `release(principal, eventId, dto)`: listed seats or all; `RELEASED`; ends the reservation when
     no live hold is left;
   - `listMine(principal)`;
   - `releaseAllMine(principal)`: `LOGOUT`, every event, one transaction per event in event-id
     order, each taking `lockEvent` first.
-- [ ] T019 [US1] Create `backend/src/reservations/reservations.controller.ts`
+- [X] T019 [US1] Create `backend/src/reservations/reservations.controller.ts`
   (`POST events/:id/reservation`, `POST events/:id/reservation/release`) and
   `me-reservations.controller.ts` (`GET me/reservations`, `POST me/reservations/release`), all
   `@Roles('customer')`, setting `201`/`200` as returned. Wire `reservations.module.ts` into
   `backend/src/app.module.ts`. Remove `x-planned` from `reserveSeats`, `releaseSeats`,
   `listMyReservations` and `releaseAllMyReservations` in `contracts/openapi.yaml`, then regenerate
   (ground rules).
-- [ ] T020 [US1] In `OrdersService.createLocked` (`backend/src/orders/orders.service.ts`), after the
+- [X] T020 [US1] In `OrdersService.createLocked` (`backend/src/orders/orders.service.ts`), after the
   `requestId` replay and the cancelled and sales-closed checks, call `closeRunOut`, then for a
   seated order (research R7):
   - require each resolved seat to have a live hold in the caller's active reservation;
@@ -244,14 +244,14 @@ A-1-5; `customer1` confirms within 5 minutes and gets both seats.
     reservation for the event ran out);
   - in the same transaction as the ticket inserts, end the order's holds `BOUGHT`, and end the
     reservation when none is left.
-- [ ] T021 [US1] Create `backend/src/reservations/hold-sweeper.ts`: `sweepOnce()` finds events with
+- [X] T021 [US1] Create `backend/src/reservations/hold-sweeper.ts`: `sweepOnce()` finds events with
   run-out active reservations through `seat_reservation_open_by_expiry`, and for each, in its own
   transaction, locks the event and calls `closeRunOut`. Its interval comes from the
   `HOLD_SWEEP_INTERVAL_MS` provider (1000 in `reservations.module.ts`); `onModuleInit` starts a
   timer only when it is above 0, and `onModuleDestroy` clears it. In
   `backend/test/setup/test-app.ts`, override the provider with `0` (research R4). A failing sweep
   is logged and never crashes the Backend. Publishing and the sales close come in T031 and T041.
-- [ ] T022 [P] [US1] Write `packages/shared/test/web/auth-provider.test.tsx` cases first:
+- [X] T022 [P] [US1] Write `packages/shared/test/web/auth-provider.test.tsx` cases first:
   - `logout()` awaits `beforeLogout(api)` before `removeUser`;
   - it still signs out when `beforeLogout` rejects, and after 2 seconds (fake timers) when it never
     resolves;
@@ -259,7 +259,7 @@ A-1-5; `customer1` confirms within 5 minutes and gets both seats.
 
   Then implement `beforeLogout?: (api: ApiClient) => Promise<void>` on `AuthProvider` in
   `packages/shared/src/web/auth-provider.tsx` (research R8).
-- [ ] T023 [P] [US1] Write `customer-app/test/seat-holds.test.tsx` first (stubbed API, fake timers):
+- [X] T023 [P] [US1] Write `customer-app/test/seat-holds.test.tsx` first (stubbed API, fake timers):
   - Reserve seats sends the picks and shows the countdown from `secondsLeft` as `m:ss` in a
     `role="timer"`, plus Confirm purchase and Release seats;
   - Confirm purchase posts the reserved seats with a `requestId`, and the confirmation shows them;
@@ -274,13 +274,13 @@ A-1-5; `customer1` confirms within 5 minutes and gets both seats.
   - each refusal is an error state with the picks kept: `SEAT_TAKEN` (reserved vs sold wording),
     `SEAT_COOLDOWN` (shows when, from `availableAt`), `RESERVATION_REQUIRED` (with `expired`) and
     `TICKET_LIMIT_REACHED`.
-- [ ] T024 [US1] Implement T023 in `customer-app/src/components/GetTickets.tsx` and
+- [X] T024 [US1] Implement T023 in `customer-app/src/components/GetTickets.tsx` and
   `SeatPicker.tsx`:
   - the three states and controls of research R13, with the countdown from `secondsLeft` against
     `performance.now()`, and the 1:00 warning and "ran out" message in their own live regions;
   - Confirm purchase reuses the existing order call and `requestId` handling;
   - general-admission events are untouched.
-- [ ] T025 [US1] In `customer-app/src/main.tsx`, pass `beforeLogout` calling
+- [X] T025 [US1] In `customer-app/src/main.tsx`, pass `beforeLogout` calling
   `releaseAllMyReservations`. Add a test in `customer-app/test/seat-holds.test.tsx`: logout calls it
   first, and still logs out when it fails.
 
