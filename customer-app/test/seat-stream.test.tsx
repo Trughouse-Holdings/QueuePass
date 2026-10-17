@@ -158,7 +158,24 @@ describe('live seat map (US3; FR-010)', () => {
 
     await waitFor(() => expect(picks()).toEqual(['Section A, Row 1, Seat 2']));
     expect(screen.getByText(/Section A, Row 1, Seat 3.*no longer available/)).toBeInTheDocument();
-    // Unavailable when the map arrived: disabled, as at first load.
-    expect(seatButton(3)).toBeDisabled();
+    // It was open before, so it stays focusable (FR-012, review round 2).
+    expect(seatButton(3)).toHaveAttribute('aria-disabled', 'true');
+    expect(seatButton(3)).not.toBeDisabled();
+  });
+
+  it("never calls the customer's own reserved seats taken by someone else (review round 2)", async () => {
+    const { stream } = setup({ 'GET /me/reservations': json([reservation([2, 3])]) });
+    await screen.findByRole('timer');
+    await waitFor(() => expect(stream.connects).toBe(1));
+    const mine = seatMap();
+    mine.sections[0].reserved = [
+      { row: 1, seat: 2 },
+      { row: 1, seat: 3 },
+    ];
+
+    act(() => stream.send('snapshot', mine));
+
+    expect(seatButton(2)).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByText(/no longer available/)).toBeNull();
   });
 });

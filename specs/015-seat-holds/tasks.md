@@ -470,7 +470,7 @@ catches up after a drop (FR-010, FR-011).
   blocking (Constitution VI deferral until `010` and `011`).
 - [ ] T046 Running-system gate: `docker compose up --build`, then walk quickstart.md S0–S11 in the
   browser, and sign in, use, and sign out of each front end. Record the results in this file.
-- [ ] T047 Independent review (Constitution III): a separate Claude session reviews the branch
+- [X] T047 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
 - [ ] T048 Open the implementation PR against `main` with `fixes #27` in its description, and the

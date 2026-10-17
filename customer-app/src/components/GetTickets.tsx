@@ -107,6 +107,7 @@ export function GetTickets({ event }: { event: Event }) {
       return;
     }
     if (deadline.current === null) {
+      ranOutSeats.current = [];
       deadline.current = performance.now() + r.secondsLeft * 1000;
       warned.current = false;
       setWarning(null);
@@ -120,6 +121,11 @@ export function GetTickets({ event }: { event: Event }) {
   reservationRef.current = reservation;
   const seatsRef = useRef<ChosenSeat[]>([]);
   seatsRef.current = seats;
+  const mapRef = useRef<StreamSeatMap | null>(null);
+  mapRef.current = live.map;
+  // The seats of a reservation whose countdown just ran out: the Backend may close it up to a
+  // second later, and they are still this customer's until then.
+  const ranOutSeats = useRef<string[]>([]);
   // When this tab last changed its reservation; a list requested before that is out of date.
   const lastWrite = useRef(0);
   const { reloadMine } = live;
@@ -150,6 +156,12 @@ export function GetTickets({ event }: { event: Event }) {
 
   useEffect(() => setReleasedHere([]), [live.map]);
 
+  /** This customer's own seat: being reserved now, reserved, or from the reservation that ran out. */
+  const isOwn = (c: { sectionId: string; row: number; seat: number }): boolean =>
+    inFlight.current.includes(placeKey(c)) ||
+    ranOutSeats.current.includes(placeKey(c)) ||
+    (reservationRef.current?.seats ?? []).some((r) => placeKey(r) === placeKey(c));
+
   /** FR-011: drops picks someone else reserved or bought, naming them in the status region. */
   const dropPicks = (gone: { sectionId: string; row: number; seat: number }[]): void => {
     const lost = seatsRef.current.filter((p) => gone.some((g) => placeKey(g) === placeKey(p)));
@@ -162,22 +174,28 @@ export function GetTickets({ event }: { event: Event }) {
   };
 
   // A snapshot after a reconnect may show picks taken while the stream was down.
-  onSnapshot.current = (map: StreamSeatMap): void =>
-    dropPicks(
-      map.sections.flatMap((s) =>
-        [...s.taken, ...s.reserved].map((p) => ({ sectionId: s.sectionId, ...p })),
-      ),
-    );
+  // Like a change: the customer's own seats (in flight, reserved, or just run out) are not taken
+  // by someone else, and a seat that was open before stays focusable (FR-011, FR-012).
+  onSnapshot.current = (map: StreamSeatMap): void => {
+    const before = mapRef.current;
+    const gone = map.sections
+      .flatMap((s) => [...s.taken, ...s.reserved].map((p) => ({ sectionId: s.sectionId, ...p })))
+      .filter((c) => !isOwn(c));
+    const wasOpen = (c: { sectionId: string; row: number; seat: number }): boolean => {
+      const old = before?.sections.find((s) => s.sectionId === c.sectionId);
+      return (
+        !!old && ![...old.taken, ...old.reserved].some((p) => p.row === c.row && p.seat === c.seat)
+      );
+    };
+    const late = gone.filter(wasOpen).map(placeKey);
+    if (late.length > 0) setLateGone((all) => [...new Set([...all, ...late])]);
+    dropPicks(gone);
+  };
 
   // FR-011, FR-012: what another customer reserved or bought, as it happens. Those seats stay
   // focusable, marked aria-disabled.
   onChange.current = (change: StreamSeatMapChange): void => {
-    const gone = change.changes.filter(
-      (c) =>
-        c.state !== 'open' &&
-        !inFlight.current.includes(placeKey(c)) &&
-        !(reservationRef.current?.seats ?? []).some((r) => placeKey(r) === placeKey(c)),
-    );
+    const gone = change.changes.filter((c) => c.state !== 'open' && !isOwn(c));
     if (gone.length === 0) return;
     setLateGone((all) => [...new Set([...all, ...gone.map(placeKey)])]);
     dropPicks(gone);
@@ -200,6 +218,7 @@ export function GetTickets({ event }: { event: Event }) {
           ...all,
           ...reservation.seats.filter((r) => !all.some((c) => sameSeat(c, r))),
         ]);
+        ranOutSeats.current = reservation.seats.map(placeKey);
         deadline.current = null;
         setReservation(null);
         setSecondsLeft(null);
@@ -611,6 +630,11 @@ export function GetTickets({ event }: { event: Event }) {
                 Reserve seats
               </button>
               {reservation && reserved(reservation)}
+              {/* FR-012: the countdown's own status region, always present so its 1:00 warning is
+                  announced, apart from the timer and from the other messages below. */}
+              <p role="status" className="note">
+                {reservation ? warning : null}
+              </p>
               {/* FR-012: announced, unlike the timer; FR-011 messages join it (US3). */}
               <p role="status" className="note">
                 {status}
@@ -658,10 +682,6 @@ export function GetTickets({ event }: { event: Event }) {
         {/* A timer isn't announced (aria-live off); the 1-minute warning is, below. */}
         <p role="timer" aria-live="off">
           {`Time left to confirm: ${clock(secondsLeft ?? r.secondsLeft)}`}
-        </p>
-        {/* FR-012: the countdown's own status region, announced once at 1:00. */}
-        <p role="status" className="note">
-          {warning}
         </p>
         <ul aria-label="Reserved seats">
           {r.seats.map((s) => (
