@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { Event, Location, Prisma } from '@prisma/client';
+import type { Location, Prisma } from '@prisma/client';
 import { SCHEDULING_BUFFER_MINUTES } from '@queuepass/shared';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
@@ -16,7 +16,19 @@ import { ListEventsQuery } from './dto/list-events.query';
 import { UpdateEventDto } from './dto/update-event.dto';
 import { SchedulingConflictException } from './scheduling-conflict.exception';
 
-type EventWithLocation = Event & { location: Location };
+/**
+ * Spec 014 research R6: every read and write that returns an event includes its venue and its
+ * images' metadata in order. Never the `bytes` column.
+ */
+const EVENT_INCLUDE = {
+  location: true,
+  images: {
+    select: { id: true, position: true, contentType: true, byteSize: true },
+    orderBy: { position: 'asc' },
+  },
+} satisfies Prisma.EventInclude;
+
+type EventWithLocation = Prisma.EventGetPayload<{ include: typeof EVENT_INCLUDE }>;
 /** The service's own client or a transaction's; the rule helpers work with either. */
 type Db = PrismaService | Prisma.TransactionClient;
 
@@ -82,7 +94,7 @@ export class EventsService {
         maxTicketsPerCustomer: dto.maxTicketsPerCustomer ?? null,
         basePrice: dto.basePrice,
       },
-      include: { location: true },
+      include: EVENT_INCLUDE,
     });
 
     return this.toResponse(created);
@@ -105,7 +117,7 @@ export class EventsService {
     };
     const events = await this.prisma.event.findMany({
       where,
-      include: { location: true },
+      include: EVENT_INCLUDE,
       orderBy: { startsAt: 'asc' },
     });
     return events.map((e) => this.toResponse(e));
@@ -114,7 +126,7 @@ export class EventsService {
   async findOne(id: string): Promise<EventResponse> {
     const event = await this.prisma.event.findUnique({
       where: { id },
-      include: { location: true },
+      include: EVENT_INCLUDE,
     });
     if (!event) throw new NotFoundException(`No event exists with id ${id}.`);
     return this.toResponse(event);
@@ -196,7 +208,7 @@ export class EventsService {
           ? { maxTicketsPerCustomer: dto.maxTicketsPerCustomer }
           : {}),
       },
-      include: { location: true },
+      include: EVENT_INCLUDE,
     });
 
     return this.toResponse(updated);
@@ -243,7 +255,7 @@ export class EventsService {
       const event = await tx.event.update({
         where: { id },
         data: { status: 'CANCELLED', cancelledAt: now },
-        include: { location: true },
+        include: EVENT_INCLUDE,
       });
       return {
         event: this.toResponse(event),

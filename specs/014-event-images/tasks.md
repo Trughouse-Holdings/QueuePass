@@ -123,12 +123,12 @@ test helpers every story uses.
   and WebP (the WebP may be the 1-pixel one in quickstart.md), `padded(signature, totalBytes)` for
   size boundaries, and `upload(ctx, eventId, bytes, { filename, contentType, token })` using
   Supertest's `.attach('file', …)` through the contract-checking client.
-- [ ] T009 **Test first.** Extend `backend/test/integration/events.crud.e2e-spec.ts`: a new event
+- [x] T009 **Test first.** Extend `backend/test/integration/events.crud.e2e-spec.ts`: a new event
   has `images: []` in the `createEvent`, `getEvent`, `listEvents`, `updateEvent`, and
   `cancelEvent` responses; with two rows inserted by `ctx.prisma` at positions 2 and 1, every one
   of those responses lists them by position with exactly `id`, `position`, `contentType`,
   `byteSize`, and no response anywhere contains a `bytes` key.
-- [ ] T010 In `backend/src/events/events.service.ts`, define `EVENT_INCLUDE` (data-model.md) and use
+- [x] T010 In `backend/src/events/events.service.ts`, define `EVENT_INCLUDE` (data-model.md) and use
   it in every read and write that returns an event (create, findAll, findOne, update, cancel), so
   `toResponse` passes `images` through. Run T009 and the whole Backend suite until green.
 
