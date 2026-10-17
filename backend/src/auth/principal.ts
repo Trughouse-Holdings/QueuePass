@@ -6,6 +6,8 @@ export interface Principal {
   sub: string;
   username: string;
   roles: Role[];
+  /** Spec 015 research R9: the token's `exp`, in seconds; a seat stream ends then. */
+  expiresAt: number;
 }
 
 export interface AuthenticatedRequest {

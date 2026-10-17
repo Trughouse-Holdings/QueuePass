@@ -520,3 +520,46 @@ describe('logging out (US1-7; FR-008)', () => {
     await waitFor(() => expect(um.signoutRedirect).toHaveBeenCalled());
   });
 });
+
+describe('reserved looks different from sold (US4; FR-012, research R13, R15)', () => {
+  const othersReserved = seatMap();
+  othersReserved.sections[0].reserved = [{ row: 2, seat: 5 }];
+
+  it("shows another customer's reserved seat as Reserved: its own class, an R, and its name", async () => {
+    stubApi(routes({ 'GET /events/e1/seats': json(othersReserved) }));
+    renderCustomer({ at: '/events/e1' });
+    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+
+    const seat = screen.getByRole('button', { name: 'Row 2, Seat 5, reserved' });
+
+    expect(seat).toHaveClass('seat--reserved');
+    expect(seat).not.toHaveClass('seat--taken');
+    expect(seat).toHaveTextContent('R');
+    expect(seat).toBeDisabled();
+  });
+
+  it("shows the customer's own reserved seats as theirs", async () => {
+    stubApi(routes({ 'GET /me/reservations': json([reservation([[1, 4]])]) }));
+    renderCustomer({ at: '/events/e1' });
+    await screen.findByRole('timer');
+
+    const seat = screen.getByRole('button', { name: 'Row 1, Seat 4, reserved by you' });
+
+    expect(seat).toHaveClass('seat--mine');
+    expect(seat).not.toHaveClass('seat--reserved');
+    expect(seat).toHaveAttribute('aria-pressed', 'true');
+    expect(seat).toBeEnabled();
+  });
+
+  it('keeps sold seats as sold, by class, cross, and name', async () => {
+    stubApi(routes({ 'GET /events/e1/seats': json(othersReserved) }));
+    renderCustomer({ at: '/events/e1' });
+    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+
+    const seat = screen.getByRole('button', { name: 'Row 1, Seat 2, sold' });
+
+    expect(seat).toHaveClass('seat--taken');
+    expect(seat).toHaveTextContent('✕');
+    expect(seat).toBeDisabled();
+  });
+});

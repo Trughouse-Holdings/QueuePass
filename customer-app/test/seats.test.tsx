@@ -74,8 +74,9 @@ const chooseSection = (name: string) =>
       value: screen.getByRole('option', { name: `Section ${name}` }).getAttribute('value'),
     },
   });
+// Spec 015 FR-012: a sold seat's name ends ", sold" (and a reserved one's ", reserved").
 const seatButton = (row: number, seat: number) =>
-  screen.getByRole('button', { name: `Row ${row}, Seat ${seat}` });
+  screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}(, [a-z ]+)?$`) });
 const chosen = () =>
   within(screen.getByRole('list', { name: 'Chosen seats' }))
     .queryAllByRole('listitem')
@@ -95,7 +96,9 @@ describe('choosing seats (US2-1, US2-2; FR-007)', () => {
     chooseSection('A');
     expect(seatButton(1, 1)).toHaveAttribute('aria-pressed', 'false');
     expect(seatButton(1, 2)).toBeDisabled();
-    expect(screen.getAllByRole('button', { name: /^Row \d+, Seat \d+$/ })).toHaveLength(6);
+    expect(screen.getAllByRole('button', { name: /^Row \d+, Seat \d+(, [a-z ]+)?$/ })).toHaveLength(
+      6,
+    );
   });
 
   it('lists chosen seats, keeps them across sections of the tier, and totals them', async () => {
@@ -175,7 +178,9 @@ describe('seat states beyond color (spec 008 US3; FR-008)', () => {
     chooseSection('A');
     const region = screen.getByRole('region', { name: 'Section A seats' });
     expect(region).toHaveClass('seat-scroll');
-    expect(within(region).getAllByRole('button', { name: /^Row \d+, Seat \d+$/ })).toHaveLength(6);
+    expect(
+      within(region).getAllByRole('button', { name: /^Row \d+, Seat \d+(, [a-z ]+)?$/ }),
+    ).toHaveLength(6);
   });
 });
 

@@ -836,7 +836,6 @@ paths:
         one. It also ends when the event is deleted; a reconnect then gets `404`.
       operationId: streamSeatMap
       x-required-roles: []
-      x-planned: '015'
       x-sse-events:
         snapshot: { $ref: '#/components/schemas/SeatMap' }
         seats: { $ref: '#/components/schemas/SeatMapChange' }

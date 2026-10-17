@@ -61,11 +61,15 @@ export class AuthGuard implements CanActivate {
         return this.refuse('token lacks sub or preferred_username');
       }
 
+      // jwtVerify has already refused a token without a valid exp.
+      if (typeof payload.exp !== 'number') return this.refuse('token lacks exp');
+
       const realmRoles = (payload.realm_access as { roles?: unknown } | undefined)?.roles;
       request.principal = {
         sub: payload.sub,
         username,
         roles: Array.isArray(realmRoles) ? realmRoles.filter(isRole) : [],
+        expiresAt: payload.exp,
       };
       return true;
     } catch (err) {

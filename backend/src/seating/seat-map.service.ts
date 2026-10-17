@@ -4,7 +4,9 @@ import type { SeatMap } from '@queuepass/shared';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
+import { closeHolds, closeRunOut, toChanges } from '../reservations/holds';
 import { SeatingInputDto } from './dto/seating-input.dto';
+import { SeatEventsService } from './seat-events.service';
 import { recalcSeatedTiers } from './tier-seats';
 
 type Db = PrismaService | Prisma.TransactionClient;
@@ -15,7 +17,10 @@ type Db = PrismaService | Prisma.TransactionClient;
  */
 @Injectable()
 export class SeatMapService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly seatEvents: SeatEventsService,
+  ) {}
 
   async forEvent(eventId: string, db: Db = this.prisma): Promise<SeatMap> {
     const event = await db.event.findUnique({
@@ -67,8 +72,8 @@ export class SeatMapService {
     };
   }
 
-  update(eventId: string, dto: SeatingInputDto): Promise<SeatMap> {
-    return this.prisma.$transaction(async (tx) => {
+  async update(eventId: string, dto: SeatingInputDto): Promise<SeatMap> {
+    const { result, changes } = await this.prisma.$transaction(async (tx) => {
       const event = await lockEvent(tx, eventId);
       if (event.status === 'CANCELLED') throw eventCancelled(event.name);
 
@@ -131,6 +136,23 @@ export class SeatMapService {
         }
       }
 
+      // Spec 015 FR-016 (research R11): turning reserved seating off ends every reservation, and
+      // a section whose tier changes loses its reserved seats. CLOSED: no 2-minute wait.
+      const moved = new Set(
+        sections
+          .filter(
+            (s) =>
+              (current.find((m) => m.sectionId === s.id)?.tierId ?? null) !==
+              (dto.sections.find((m) => m.sectionId === s.id)?.tierId ?? null),
+          )
+          .map((s) => s.name),
+      );
+      const freed = [
+        ...(await closeRunOut(tx, eventId)),
+        ...(await closeHolds(tx, eventId, (h) => !dto.reservedSeating || moved.has(h.section))),
+      ];
+      const opened = await toChanges(tx, event.locationId, freed, 'open');
+
       // FR-018 (research R11): a seated event's capacity is its venue's layout total. Turning
       // seating off keeps the number, which is typed again from then on.
       const layoutSeats = sections.reduce((n, s) => n + s.rows * s.seatsPerRow, 0);
@@ -149,7 +171,9 @@ export class SeatMapService {
       }
       // FR-006: each tier's amount follows its sections while seating is on.
       if (dto.reservedSeating) await recalcSeatedTiers(tx, eventId);
-      return this.forEvent(eventId, tx);
+      return { result: await this.forEvent(eventId, tx), changes: opened };
     }, LOCKING_TX);
+    this.seatEvents.publish(eventId, changes);
+    return result;
   }
 }

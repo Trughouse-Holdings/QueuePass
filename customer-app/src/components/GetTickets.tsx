@@ -8,10 +8,9 @@ import {
   type Order,
   type Reservation,
   type SeatLabel,
-  type SeatMap,
   type TicketTier,
 } from '@queuepass/shared';
-import { useAuth } from '@queuepass/shared/web';
+import { useAuth, useSeatStream, type StreamSeatMapChange } from '@queuepass/shared/web';
 import { cents, count, seatLabel, totalUsd, usd } from '../format';
 import { useLoad } from '../use-load';
 import { SeatPicker, type ChosenSeat } from './SeatPicker';
@@ -26,6 +25,9 @@ type Phase =
 const sameSeat = (a: SeatLabel, b: SeatLabel): boolean =>
   a.section === b.section && a.row === b.row && a.seat === b.seat;
 const seatKey = (s: SeatLabel): string => `${s.section}-${s.row}-${s.seat}`;
+/** A seat by section id, as live changes name it. */
+const placeKey = (s: { sectionId: string; row: number; seat: number }): string =>
+  `${s.sectionId}-${s.row}-${s.seat}`;
 
 /** Spec 015 FR-005: the countdown as `m:ss`. */
 const clock = (seconds: number): string =>
@@ -39,7 +41,7 @@ const clock = (seconds: number): string =>
  * every rule (FR-003); the counts, taken seats, and countdown shown here are guidance.
  */
 export function GetTickets({ event }: { event: Event }) {
-  const { api, signIn } = useAuth();
+  const { api, signIn, accessToken } = useAuth();
   const id = event.id;
   // Bumped after a refusal, so what is left is loaded again.
   const [reloads, setReloads] = useState(0);
@@ -49,14 +51,15 @@ export function GetTickets({ event }: { event: Event }) {
   const tiers = useLoad<TicketTier[]>(`tiers:${id}`, (a) =>
     a.GET('/events/{id}/tiers', { params: { path: { id } } }),
   );
-  // Spec 007: only a seated event needs its seat map; for the rest, settle at once with nothing.
-  const seatMap = useLoad<SeatMap | undefined>(
-    `seats:${id}:${event.reservedSeating}:${reloads}`,
-    (a) =>
-      event.reservedSeating
-        ? a.GET('/events/{id}/seats', { params: { path: { id } } })
-        : Promise.resolve({ data: undefined, response: new Response(null, { status: 204 }) }),
-  );
+  // Spec 007: only a seated event needs its seat map. Spec 015 FR-010 (research R9): kept live,
+  // with the customer's own reservations (`mine`), which a change to one of them reloads.
+  const onChange = useRef<(change: StreamSeatMapChange) => void>(() => undefined);
+  const live = useSeatStream(event.reservedSeating ? id : null, {
+    api,
+    getToken: accessToken,
+    withMine: true,
+    onChange: (change) => onChange.current(change),
+  });
 
   const [tierId, setTierId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -77,6 +80,10 @@ export function GetTickets({ event }: { event: Event }) {
   const warned = useRef(false);
   // Seats this customer released since the map loaded: open, though the map still says reserved.
   const [releasedHere, setReleasedHere] = useState<string[]>([]);
+  // FR-012: seats that became unavailable while shown. They stay focusable (aria-disabled).
+  const [lateGone, setLateGone] = useState<string[]>([]);
+  // Seats of a Reserve seats request in flight: their own `reserved` change is not someone else's.
+  const inFlight = useRef<string[]>([]);
   // FR-005: one id per confirmation, created on the first press and kept for that confirmation.
   const requestId = useRef<string | null>(null);
   // Set synchronously, so a second click before React re-renders sends nothing.
@@ -99,21 +106,58 @@ export function GetTickets({ event }: { event: Event }) {
     setRanOut(false);
   }, []);
 
-  /** Research R8: a reservation made earlier, in this tab or another, is shown on load. */
-  const loadMine = useCallback(async () => {
-    try {
-      const { data } = await api.GET('/me/reservations');
-      adopt(data?.find((r) => r.eventId === id) ?? null);
-    } catch {
-      // Unknown for now; the Backend still decides every order.
-    }
-  }, [api, id, adopt]);
+  const reservationRef = useRef<Reservation | null>(null);
+  reservationRef.current = reservation;
+  const seatsRef = useRef<ChosenSeat[]>([]);
+  seatsRef.current = seats;
+  // When this tab last changed its reservation; a list requested before that is out of date.
+  const lastWrite = useRef(0);
+  const { reloadMine } = live;
 
+  /**
+   * Research R8, R13: the Backend's view of this customer's reservation, loaded on open and again
+   * whenever a live change touches it, so another tab, an admin change, or the end of the 5
+   * minutes is reflected here.
+   */
   useEffect(() => {
-    if (event.reservedSeating) void loadMine();
-  }, [event.reservedSeating, loadMine]);
+    if (live.mine === null || live.mineAt < lastWrite.current) return;
+    const found = live.mine.find((r) => r.eventId === id) ?? null;
+    const local = reservationRef.current;
+    if (found || !local) {
+      adopt(found);
+      return;
+    }
+    // It ended on the Backend. Close to the end of the 5 minutes, that is the run-out the
+    // countdown is about to show; otherwise it was released elsewhere or by an admin change.
+    const left = deadline.current === null ? 0 : deadline.current - performance.now();
+    if (left <= 2_000) {
+      deadline.current = performance.now();
+      return;
+    }
+    adopt(null);
+    setStatus('Your reserved seats were released.');
+  }, [live.mine, live.mineAt, id, adopt]);
 
-  useEffect(() => setReleasedHere([]), [seatMap]);
+  useEffect(() => setReleasedHere([]), [live.map]);
+
+  // FR-011, FR-012: what another customer reserved or bought, as it happens.
+  onChange.current = (change: StreamSeatMapChange): void => {
+    const gone = change.changes.filter(
+      (c) =>
+        c.state !== 'open' &&
+        !inFlight.current.includes(placeKey(c)) &&
+        !(reservationRef.current?.seats ?? []).some((r) => placeKey(r) === placeKey(c)),
+    );
+    if (gone.length === 0) return;
+    setLateGone((all) => [...all, ...gone.map(placeKey)]);
+    const lost = seatsRef.current.filter((p) => gone.some((g) => placeKey(g) === placeKey(p)));
+    if (lost.length === 0) return;
+    setSeats((all) => all.filter((p) => !lost.some((l) => placeKey(l) === placeKey(p))));
+    setStatus(
+      `${lost.map(seatLabel).join('; ')} ${lost.length === 1 ? 'is' : 'are'} no longer ` +
+        `available: someone else reserved or bought ${lost.length === 1 ? 'it' : 'them'}.`,
+    );
+  };
 
   // FR-005, FR-012: the countdown, a single 1-minute warning, and the end of the 5 minutes.
   useEffect(() => {
@@ -146,10 +190,15 @@ export function GetTickets({ event }: { event: Event }) {
     return () => clearInterval(timer);
   }, [reservation]);
 
-  if (availability.kind === 'loading' || tiers.kind === 'loading' || seatMap.kind === 'loading') {
+  const seatsLoading =
+    event.reservedSeating &&
+    live.map === null &&
+    (live.status === 'loading' || live.status === 'connecting');
+  const seatsFailed = event.reservedSeating && live.map === null && !seatsLoading;
+  if (availability.kind === 'loading' || tiers.kind === 'loading' || seatsLoading) {
     return <p>Loading tickets…</p>;
   }
-  if (availability.kind !== 'ok' || tiers.kind !== 'ok' || seatMap.kind !== 'ok') {
+  if (availability.kind !== 'ok' || tiers.kind !== 'ok' || seatsFailed) {
     // Spec 012 FR-010: an error, so the theme's error banner; no role added, as before.
     return (
       <p className="banner banner--error">
@@ -175,7 +224,7 @@ export function GetTickets({ event }: { event: Event }) {
   const limitBinds =
     limit !== null && limit.remaining <= ORDER_LIMITS.maxQuantity && limit.remaining < ticketsLeft;
   const price = tierList.length > 0 ? chosen?.price : event.basePrice;
-  const seated = seatMap.data?.reservedSeating === true ? seatMap.data : null;
+  const seated = live.map?.reservedSeating === true ? live.map : null;
   // Seats for the chosen tier's sections; every section when the event has no tiers.
   const offered = seated
     ? seated.sections.filter((s) => (tierList.length > 0 ? chosen && s.tierId === chosen.id : true))
@@ -191,6 +240,11 @@ export function GetTickets({ event }: { event: Event }) {
         const label = { section: section.name, row: p.row, seat: p.seat };
         return !mine.some((m) => sameSeat(m, label)) && !releasedHere.includes(seatKey(label));
       })
+    : [];
+  const late = section
+    ? lateGone
+        .filter((k) => k.startsWith(`${section.sectionId}-`))
+        .map((k) => k.slice(section.sectionId.length + 1))
     : [];
   const chosenCount = seated ? seats.length + mine.length : Math.min(quantity, maxQuantity);
   const canConfirm =
@@ -223,7 +277,7 @@ export function GetTickets({ event }: { event: Event }) {
       const gone = (e.details?.seats ?? []) as SeatLabel[];
       setSeats((all) => all.filter((c) => !gone.some((g) => sameSeat(g, c))));
       setNotice(e.message);
-      setReloads((n) => n + 1);
+      refresh();
     } else if (e?.code === 'SEAT_COOLDOWN') {
       // FR-004a: when, in the customer's own time zone.
       const waiting = (e.details?.seats ?? []) as SeatLabel[];
@@ -240,15 +294,22 @@ export function GetTickets({ event }: { event: Event }) {
       setSeats((all) => [...all, ...mine.filter((r) => !all.some((c) => sameSeat(c, r)))]);
       adopt(null);
       setNotice(e.message);
-      void loadMine();
+      reloadMine();
     } else {
       setNotice(e?.message ?? 'The request was refused.');
     }
   }
 
+  /** Loads what is left, and the seat map, again. */
+  function refresh(): void {
+    setReloads((n) => n + 1);
+    live.reload();
+  }
+
   async function reserve(): Promise<void> {
     if (sending.current) return;
     sending.current = true;
+    inFlight.current = seats.map(placeKey);
     try {
       const { data, error, response } = await api.POST('/events/{id}/reservation', {
         params: { path: { id } },
@@ -257,6 +318,7 @@ export function GetTickets({ event }: { event: Event }) {
       if (response.ok && data) {
         setNotice(null);
         setSeats([]);
+        lastWrite.current = performance.now();
         adopt(data);
       } else if (response.status === 401) {
         await signIn();
@@ -267,6 +329,7 @@ export function GetTickets({ event }: { event: Event }) {
       setNotice("Can't reach QueuePass right now. Your seats weren't reserved; try again.");
     } finally {
       sending.current = false;
+      inFlight.current = [];
     }
   }
 
@@ -288,15 +351,16 @@ export function GetTickets({ event }: { event: Event }) {
         return;
       }
       if (!response.ok) {
-        void loadMine();
+        reloadMine();
         return;
       }
       const freed = which ?? mine;
       setReleasedHere((all) => [...all, ...freed.map(seatKey)]);
+      lastWrite.current = performance.now();
       adopt(data?.reservation ?? null);
       setStatus(null);
     } catch {
-      void loadMine();
+      reloadMine();
     }
   }
 
@@ -321,6 +385,7 @@ export function GetTickets({ event }: { event: Event }) {
       });
       if (response.ok && data) {
         setNotice(null);
+        lastWrite.current = performance.now();
         adopt(null);
         setPhase({ kind: 'done', order: data as Order });
       } else if (response.status === 401) {
@@ -333,7 +398,7 @@ export function GetTickets({ event }: { event: Event }) {
         // Refused: nothing was recorded. The next press is a new confirmation.
         refused(error);
         requestId.current = null;
-        setReloads((n) => n + 1);
+        refresh();
         setPhase({ kind: 'choosing' });
       }
     } catch {
@@ -488,6 +553,7 @@ export function GetTickets({ event }: { event: Event }) {
                 chosen={seats}
                 mine={mine}
                 reserved={othersReserved}
+                late={late}
                 full={chosenCount >= maxQuantity}
                 onToggle={toggleSeat}
               />

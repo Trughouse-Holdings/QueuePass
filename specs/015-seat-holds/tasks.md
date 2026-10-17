@@ -296,14 +296,14 @@ run out at 5 minutes.
 **Independent Test**: 10 simultaneous reservations for one seat from 10 customers; exactly 1
 succeeds.
 
-- [ ] T026 [US2] Write `backend/test/integration/reservations.concurrency.e2e-spec.ts` first:
+- [X] T026 [US2] Write `backend/test/integration/reservations.concurrency.e2e-spec.ts` first:
   - 10 customers (`customer1`–`customer10` tokens) reserve the same seat with `Promise.all`:
     exactly one `201`, nine `409 SEAT_TAKEN` naming it, and one live hold in the database;
   - 10 simultaneous reservations from one customer for 10 different seats leave exactly one active
     reservation (`seat_reservation_one_active`) holding all of them, or refusals, never two;
   - a reservation and an order racing for a seat leave it either reserved or sold, never both;
   - repeat each case 5 times.
-- [ ] T027 [US2] In `reservations.service.ts`, treat a unique violation of
+- [X] T027 [US2] In `reservations.service.ts`, treat a unique violation of
   `seat_hold_one_live_per_seat` or `seat_reservation_one_active` (which, under the event lock, only
   a write from outside the Backend can cause) like `isSeatCollision` in `orders.service.ts`: retry
   the transaction once, so the retry's checks name the seat. Make T026 pass.
@@ -321,7 +321,7 @@ catches up after a drop (FR-010, FR-011).
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T028 [P] [US3] Write `backend/test/integration/seat-stream.e2e-spec.ts` (a real `listen(0)`,
+- [X] T028 [P] [US3] Write `backend/test/integration/seat-stream.e2e-spec.ts` (a real `listen(0)`,
   read with `fetch`):
   - the first event is `snapshot` with the `SeatMap`;
   - after `customer1` reserves, a second reader (`customer2`) gets `seats` with those seats
@@ -339,7 +339,7 @@ catches up after a drop (FR-010, FR-011).
   - every payload is validated against the schema that the operation's `x-sse-events` names for
     its event. Add `expectSseEvent(operationId, event, data)` to
     `backend/test/contract/expect-to-match-contract.ts`, reading the schema from `x-sse-events`.
-- [ ] T029 [P] [US3] Write `packages/shared/test/web/seat-stream.test.ts` first, with a stubbed
+- [X] T029 [P] [US3] Write `packages/shared/test/web/seat-stream.test.ts` first, with a stubbed
   `fetch` whose body is a `ReadableStream`:
   - it parses `event:`/`data:` lines across chunk boundaries and ignores `ping`;
   - it sends `Authorization: Bearer <token>` from the getter at each connect, and `Accept:
@@ -351,7 +351,7 @@ catches up after a drop (FR-010, FR-011).
   - a new `snapshot` replaces the state;
   - `close()` aborts the request and it stops; `useSeatStream` closes it on unmount and when the
     event changes.
-- [ ] T030 [P] [US3] Write the live cases in `customer-app/test/seat-stream.test.tsx` and
+- [X] T030 [P] [US3] Write the live cases in `customer-app/test/seat-stream.test.tsx` and
   `admin-app/test/seat-holds.test.tsx` first:
   - a `seats` event greys out another customer's reservation without a refresh;
   - a picked seat that another customer reserves is dropped, with a message naming it in a
@@ -363,15 +363,15 @@ catches up after a drop (FR-010, FR-011).
 
 ### Implementation for User Story 3
 
-- [ ] T031 [US3] Publish after commit (ground rules), as `SeatStateChange`s carrying the section's
+- [X] T031 [US3] Publish after commit (ground rules), as `SeatStateChange`s carrying the section's
   `sectionId`. Add `end(eventId)` to `SeatEventsService`, which completes every stream of the event
   (used by event delete, T041):
   - `reserved` from `ReservationsService.reserve`;
   - `open` from `release`, `releaseAllMine` and `HoldSweeper` (per event);
   - `sold` from `OrdersService` for seated orders.
-- [ ] T032 [US3] Add `expiresAt: number` (the token's `exp`, in seconds) to `Principal` in
+- [X] T032 [US3] Add `expiresAt: number` (the token's `exp`, in seconds) to `Principal` in
   `backend/src/auth/principal.ts`, set in `auth.guard.ts`.
-- [ ] T033 [US3] Create `backend/src/seating/seat-stream.controller.ts`:
+- [X] T033 [US3] Create `backend/src/seating/seat-stream.controller.ts`:
   - `@Sse('events/:id/seats/stream')` with `@Roles()` (any signed-in user), with a 404 for an
     unknown event before streaming;
   - it emits `snapshot` from `SeatMapService.forEvent`, then `seats` from
@@ -379,14 +379,14 @@ catches up after a drop (FR-010, FR-011).
   - it completes at `principal.expiresAt`.
 
   Remove `x-planned` from `streamSeatMap` and regenerate (ground rules). Make T028 pass.
-- [ ] T034 [US3] Create `packages/shared/src/web/seat-stream.ts` (`openSeatStream(eventId,
+- [X] T034 [US3] Create `packages/shared/src/web/seat-stream.ts` (`openSeatStream(eventId,
   getToken, onSnapshot, onChange) → { close }`, research R9), taking its path from the generated
   `paths['/events/{id}/seats/stream']` and its payload types from `components['schemas']['SeatMap']`
   and `['SeatMapChange']`, with no hand-written payload type, and `use-seat-stream.ts`
   (`useSeatStream(eventId)` → `{ map, mine, status }`, where `mine` comes from
   `listMyReservations` for a customer, and reloads when a change touches it). Export both from
   `packages/shared/src/web/index.ts`. Make T029 pass.
-- [ ] T035 [US3] Use `useSeatStream` in `customer-app/src/components/GetTickets.tsx` in place of the
+- [X] T035 [US3] Use `useSeatStream` in `customer-app/src/components/GetTickets.tsx` in place of the
   one-off seat map load, dropping taken picks with a message (FR-011). Use it in
   `admin-app/src/components/SeatingCard.tsx` for the seat map. Make T030 pass.
 
@@ -401,25 +401,25 @@ catches up after a drop (FR-010, FR-011).
 
 **Independent Test**: spec US4.
 
-- [ ] T036 [P] [US4] Write the cases first in `customer-app/test/seat-holds.test.tsx`:
+- [X] T036 [P] [US4] Write the cases first in `customer-app/test/seat-holds.test.tsx`:
   - another customer's reserved seat has class `seat--reserved`, an `R` mark, the accessible name
     "Row N, Seat M, reserved", and is disabled;
   - the customer's own has `seat--mine` and "Row N, Seat M, reserved by you";
   - sold stays `seat--taken` and is named "Row N, Seat M, sold".
-- [ ] T037 [P] [US4] Write the cases first in `admin-app/test/seat-holds.test.tsx`:
+- [X] T037 [P] [US4] Write the cases first in `admin-app/test/seat-holds.test.tsx`:
   - `SeatGrid` marks a reserved seat `◩`, with the label "Row N, Seat M, reserved";
   - `SeatingCard` shows each section's sold, reserved, and open counts.
-- [ ] T038 [US4] Implement T036 in `customer-app/src/components/SeatPicker.tsx` and
+- [X] T038 [US4] Implement T036 in `customer-app/src/components/SeatPicker.tsx` and
   `customer-app/src/styles.css` (research R15): `.seat--reserved` and `.seat--mine` using theme
   values only: `.seat--reserved` is a dashed outline with no fill pattern, unlike `.seat--taken`'s
   stripe. `012`'s drift check must pass.
-- [ ] T039 [US4] Implement T037 in `admin-app/src/components/SeatGrid.tsx` and `SeatingCard.tsx`.
+- [X] T039 [US4] Implement T037 in `admin-app/src/components/SeatGrid.tsx` and `SeatingCard.tsx`.
 
 ---
 
 ## Phase 7: Admin Changes and Closed Sales End Reservations (FR-016)
 
-- [ ] T040 Write `backend/test/integration/reservations.admin-changes.e2e-spec.ts` first. Each of
+- [X] T040 Write `backend/test/integration/reservations.admin-changes.e2e-spec.ts` first. Each of
   these ends the affected live holds `CLOSED`, starts no 2-minute wait for their customers, and
   publishes the seats as `open` (subscribe to `SeatEventsService` in the test):
   - `cancelEvent`, which also publishes the seats of the tickets it voids as `open`;
@@ -437,7 +437,7 @@ catches up after a drop (FR-010, FR-011).
 
   `deleteLayout` needs no case: it is already refused while an event at the venue has reserved
   seating on (`007`).
-- [ ] T041 Implement T040 in:
+- [X] T041 Implement T040 in:
   - `backend/src/events/events.service.ts`: cancel (publish held and voided seats); remove, now
     in a transaction that takes `lockEvent` before the order count and the delete, then
     `SeatEventsService.end(eventId)` after the commit;

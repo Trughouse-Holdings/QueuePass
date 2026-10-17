@@ -41,6 +41,8 @@ const buyer = (n: number): Principal => ({
   sub: `demo-customer${n}`,
   username: `customer${n}`,
   roles: ['customer'],
+  // No token: these orders are placed directly, and no seat stream is opened for them.
+  expiresAt: 0,
 });
 
 /** Midnight UTC `days` from now, plus `hour` hours. */

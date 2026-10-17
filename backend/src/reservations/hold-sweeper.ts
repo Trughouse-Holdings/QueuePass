@@ -9,7 +9,8 @@ import {
 import { LOCKING_TX, lockEvent } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { SeatEventsService } from '../seating/seat-events.service';
-import { closeRunOut, toChanges } from './holds';
+import { closeHolds, closeRunOut, toChanges } from './holds';
+import { salesClosed } from './reservations.service';
 
 /**
  * Spec 015 research R4: how often the sweep runs, in milliseconds. A provider rather than an
@@ -54,11 +55,12 @@ export class HoldSweeper implements OnModuleInit, OnModuleDestroy {
     if (this.running) return;
     this.running = true;
     try {
-      // seat_reservation_open_by_expiry serves this.
+      // seat_reservation_open_by_expiry serves both: run out, or their event has started
+      // (FR-016, research R11).
       const due = await this.prisma.$queryRaw<{ eventId: string }[]>`
-        SELECT DISTINCT "eventId" FROM "SeatReservation"
-        WHERE "endedAt" IS NULL AND "expiresAt" <= now()
-        ORDER BY "eventId"`;
+        SELECT DISTINCT r."eventId" FROM "SeatReservation" r JOIN "Event" e ON e."id" = r."eventId"
+        WHERE r."endedAt" IS NULL AND (r."expiresAt" <= now() OR e."startsAt" <= now())
+        ORDER BY r."eventId"`;
       for (const { eventId } of due) await this.sweepEvent(eventId);
     } finally {
       this.running = false;
@@ -70,6 +72,8 @@ export class HoldSweeper implements OnModuleInit, OnModuleDestroy {
       const changes = await this.prisma.$transaction(async (tx) => {
         const event = await lockEvent(tx, eventId);
         const freed = await closeRunOut(tx, eventId);
+        // Sales close when the event starts: what is still reserved ends CLOSED.
+        if (await salesClosed(tx, eventId)) freed.push(...(await closeHolds(tx, eventId)));
         return toChanges(tx, event.locationId, freed, 'open');
       }, LOCKING_TX);
       this.seatEvents.publish(eventId, changes);

@@ -166,3 +166,28 @@ export const myOrder = (over: Partial<MyOrder> = {}): MyOrder => {
     ...over,
   };
 };
+
+/**
+ * Spec 015: a live seat stream for `GET /events/{id}/seats/stream`. Each connect gets a fresh
+ * stream; `send` writes an event to the newest one.
+ */
+export function seatStream() {
+  let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
+  const encoder = new TextEncoder();
+  let connects = 0;
+  return {
+    reply: (): Response => {
+      connects += 1;
+      const body = new ReadableStream<Uint8Array>({ start: (c) => (controller = c) });
+      return new Response(body, { status: 200, headers: { 'content-type': 'text/event-stream' } });
+    },
+    /** Throws until the app has connected, so `waitFor(() => send(…))` waits for it. */
+    send: (event: string, data: unknown) => {
+      if (!controller) throw new Error('the seat stream is not connected yet');
+      controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+    },
+    get connects() {
+      return connects;
+    },
+  };
+}

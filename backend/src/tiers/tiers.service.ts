@@ -9,6 +9,8 @@ import type { Prisma, TicketTier } from '@prisma/client';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, LockedEvent, lockEvent, ticketsSold } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
+import { closeHolds, closeRunOut, liveHolds, toChanges } from '../reservations/holds';
+import { SeatEventsService } from '../seating/seat-events.service';
 import { CreateTierDto } from './dto/create-tier.dto';
 import { UpdateTierDto } from './dto/update-tier.dto';
 
@@ -26,7 +28,10 @@ const toResponse = (tier: TicketTier): TierResponse => ({ ...tier, price: tier.p
  */
 @Injectable()
 export class TiersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly seatEvents: SeatEventsService,
+  ) {}
 
   async list(eventId: string): Promise<TierResponse[]> {
     const event = await this.prisma.event.findUnique({ where: { id: eventId } });
@@ -38,8 +43,8 @@ export class TiersService {
     return tiers.map(toResponse);
   }
 
-  create(eventId: string, dto: CreateTierDto): Promise<TierResponse> {
-    return this.prisma.$transaction(async (tx) => {
+  async create(eventId: string, dto: CreateTierDto): Promise<TierResponse> {
+    const { result, changes } = await this.prisma.$transaction(async (tx) => {
       const event = await lockEvent(tx, eventId);
       if (event.status === 'CANCELLED') throw eventCancelled(event.name);
       await this.assertNoTierlessSales(tx, event);
@@ -50,8 +55,19 @@ export class TiersService {
       const created = await tx.ticketTier.create({
         data: { eventId, name: dto.name, price: dto.price, quantity },
       });
-      return toResponse(created);
+      // Spec 015 FR-016 (research R11): reservations made while the event had no tiers can't be
+      // ordered once it has one, so they end CLOSED rather than block their seats.
+      const freed = [
+        ...(await closeRunOut(tx, eventId)),
+        ...(await closeHolds(tx, eventId, (h) => h.tierId === null)),
+      ];
+      return {
+        result: toResponse(created),
+        changes: await toChanges(tx, event.locationId, freed, 'open'),
+      };
     }, LOCKING_TX);
+    this.seatEvents.publish(eventId, changes);
+    return result;
   }
 
   update(eventId: string, tierId: string, dto: UpdateTierDto): Promise<TierResponse> {
@@ -84,8 +100,8 @@ export class TiersService {
     }, LOCKING_TX);
   }
 
-  remove(eventId: string, tierId: string): Promise<void> {
-    return this.prisma.$transaction(async (tx) => {
+  async remove(eventId: string, tierId: string): Promise<void> {
+    const changes = await this.prisma.$transaction(async (tx) => {
       const event = await lockEvent(tx, eventId);
       if (event.status === 'CANCELLED') throw eventCancelled(event.name);
       const tier = await this.requireTier(tx, eventId, tierId);
@@ -98,8 +114,17 @@ export class TiersService {
           { orderCount },
         );
       }
+      // Spec 015 research R11: the tier's reservations are deleted with it (ON DELETE CASCADE);
+      // their seats are read first, to publish them as open after the commit.
+      const freed = [
+        ...(await closeRunOut(tx, eventId)),
+        ...(await liveHolds(tx, eventId)).filter((h) => h.tierId === tierId),
+      ];
+      const opened = await toChanges(tx, event.locationId, freed, 'open');
       await tx.ticketTier.delete({ where: { id: tierId } });
+      return opened;
     }, LOCKING_TX);
+    this.seatEvents.publish(eventId, changes);
   }
 
   // ---------------------------------------------------------------- rules
