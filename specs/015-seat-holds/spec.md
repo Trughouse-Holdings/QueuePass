@@ -195,8 +195,12 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
 - **Sales closed**: no seats can be reserved for an event that has started or is cancelled. When an
   event is cancelled or starts, its reservations end.
 - **Admin seating changes**: if an admin turns reserved seating off, replaces the venue's layout,
-  or moves a section to another tier, reservations on the affected seats end. The customer is
-  told when they next try to confirm.
+  moves a section to another tier, adds the first tier to a seated event, or removes a tier,
+  reservations on the affected seats end. The customer sees it through the live update, and is
+  told when they next try to confirm. Removing a layout can't meet a reservation: it is refused
+  while any scheduled event at the venue has reserved seating on (`007`).
+- **Event deleted**: only an event without orders can be deleted (`005`). Its reservations go with
+  it, and every viewer's live updates end; the seat map then says the event no longer exists.
 - **Logging out with a dropped connection**: if the release can't reach the Backend, the seats stay
   reserved until their 5 minutes end.
 - **General-admission events**: unchanged. There are no seats, so nothing is reserved (`006`).
@@ -252,26 +256,40 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
 - **FR-011**: A seat a customer has picked but not reserved MUST be removed from their picks, with a
   message naming it, when another customer reserves or buys it.
 - **FR-012**: The customer and admin seat maps MUST show a reserved seat as Reserved, distinct from
-  open and sold without relying on color alone, and named Reserved to assistive technology. A
-  customer's own reserved seats MUST be shown as theirs.
+  open and sold without relying on color alone, and named Reserved to assistive technology; a sold
+  seat MUST be named sold. A customer's own reserved seats MUST be shown as theirs. Assistive
+  technology MUST hear about live changes that affect the customer:
+  - a seat that becomes unavailable while it has keyboard focus MUST keep focus (it is marked
+    unavailable, not removed from the focus order);
+  - the FR-011 "no longer available" message and the "ran out" message MUST be announced (a
+    status region, and an alert region for "ran out");
+  - the countdown MUST announce once when 1 minute is left, through its own status region (a
+    timer alone is not announced).
 - **FR-013**: The Admin seat map MUST show each section's sold, reserved, and open counts.
 - **FR-014**: The seat map and its live updates MUST NOT reveal who has reserved a seat, to anyone
   but the customer holding it (`007` FR-013).
 - **FR-015**: Only a signed-in user with the `customer` role MUST be able to reserve or release
   seats, and only their own. Live seat updates MUST require sign-in, like the seat map.
 - **FR-016**: Reservations MUST end when their event is cancelled or starts, when reserved seating
-  is turned off, when the venue's layout is replaced, and, for a section, when it is moved to
-  another tier. No seat MUST be reservable while the event's sales are closed.
+  is turned off, when the venue's layout is replaced, when the first tier is added to an event
+  whose reservations have no tier, and, for a section, when it is moved to another tier. Removing a
+  tier or deleting the event removes its reservations with it. Every seat these changes free,
+  including seats whose tickets a cancellation voids, MUST reach viewers as open. No seat MUST be
+  reservable while the event's sales are closed.
 - **FR-017**: Events that do not sell seats MUST keep working exactly as in `006`, and every `007`
   rule for seated orders MUST still hold, with the reservation required by FR-006 added.
-- **FR-018**: The contract MUST be updated first; changes to existing operations MUST be additive.
+- **FR-018**: The contract MUST be updated first; changes to existing operations MUST be additive,
+  with one deliberate exception: FR-006 tightens `createOrder`, since a seated order now needs a
+  reservation. The only client that sends seated orders, the Customer app, changes in the same
+  implementation PR, so no released client breaks. The minor version follows the `016` precedent.
 - **FR-019**: Automated tests MUST cover, against real PostgreSQL: reserving, all-or-nothing
   refusals, the 5-minute end on both sides of the boundary, releasing by deselect, Release seats,
   and logout, adding seats to a reservation, the 2-minute wait on both sides of its boundary,
   orders against another customer's reservation, seated orders refused without a reservation or
   after it runs out, the per-order and per-customer caps,
   the concurrent same-seat guarantee (10 simultaneous reservations for one seat → exactly 1
-  succeeds), reservations ended by admin changes and cancellation, live updates reaching a second
+  succeeds), the database rules on their own (rows written directly, below the Backend),
+  reservations ended by admin changes and cancellation, live updates reaching a second
   viewer, and the Customer and Admin screens.
 
 ### Key Entities
@@ -320,6 +338,11 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
 - **Laptop scale.** The proof of concept needs live updates for the seeded 200 customers, not for
   public-sale traffic.
 - **The Ticket Booth app is unchanged.** Gate agents don't reserve seats.
+- **The 5-minute limit is not adjustable (WCAG 2.2.1).** It meets the success criterion's
+  real-time exception: the seats are a contested resource that other customers are waiting to
+  reserve, so letting one customer extend the limit would take the seats from others, which is the
+  point of the limit. The customer is warned at 1 minute left, and can reserve other seats at once,
+  or the same seats 2 minutes after the limit ends.
 
 ## Out of Scope
 
@@ -330,3 +353,6 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
 - Showing who holds a reservation, to admins or anyone else.
 - Admin tools to release or override a customer's reservation.
 - Live updates outside the seat map (event lists, availability counts, reports).
+- **Hoarding (accepted risk)**: the 2-minute wait is per seat, so a customer could keep 10
+  different seats reserved at all times by rotating through them every 5 minutes. A per-customer
+  limit is not needed at laptop scale; a real sale would add one.

@@ -291,8 +291,7 @@ export interface paths {
          * Remove a venue's seating layout
          * @description Removes every section (feature 007). Refused as `replaceLayout` is, and also while any
          *     scheduled event at the venue has reserved seating on (`409 LAYOUT_IN_USE`). The venue
-         *     keeps its last `seatingCapacity`, which can be set by `updateLocation` again. Feature 015:
-         *     removing it ends every active reservation at the venue's events.
+         *     keeps its last `seatingCapacity`, which can be set by `updateLocation` again.
          */
         delete: operations["deleteLayout"];
         options?: never;
@@ -350,7 +349,8 @@ export interface paths {
          *     event occupied becomes available for scheduling again immediately. The event's ticket
          *     tiers are deleted with it. An event with orders cannot be deleted (`409
          *     EVENT_HAS_ORDERS`, feature 005); cancel it instead, which keeps its records. Feature 014:
-         *     the event's images are deleted with it.
+         *     the event's images are deleted with it. Feature 015: its seat reservations are deleted
+         *     with it, and every open `streamSeatMap` stream for it ends.
          */
         delete: operations["deleteEvent"];
         options?: never;
@@ -404,6 +404,10 @@ export interface paths {
          *     Feature 007: for an event with reserved seating, `quantity` must be omitted (`400`
          *     otherwise): the tier's quantity is the seats in its mapped sections, 0 until mapped. For
          *     any other event it is required (`400`).
+         *
+         *     Feature 015: adding the first tier to an event with reserved seating ends its active
+         *     reservations, which were made without a tier and could no longer be bought; their seats
+         *     become open at once.
          */
         post: operations["createTicketTier"];
         delete?: never;
@@ -431,7 +435,8 @@ export interface paths {
          * Remove a ticket tier
          * @description Permanent. Clients MUST ask the user to confirm first. A tier with orders cannot be
          *     removed (`409 TIER_HAS_ORDERS`); a cancelled event's tiers cannot change (`409
-         *     EVENT_CANCELLED`). Feature 015: removing a tier ends its active reservations.
+         *     EVENT_CANCELLED`). Feature 015: the tier's seat reservations are deleted with it, and
+         *     their seats become open at once.
          */
         delete: operations["deleteTicketTier"];
         options?: never;
@@ -522,7 +527,8 @@ export interface paths {
          *     `event: seats` carries a `SeatMapChange`: seats that became open, reserved, or sold, sent
          *     within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15 seconds. No
          *     event ever names a customer. A client that loses the stream reconnects and gets a fresh
-         *     snapshot. The stream ends when the access token expires; reconnect with a current one.
+         *     snapshot. The stream ends when the access token expires; reconnect at once with a current
+         *     one. It also ends when the event is deleted; a reconnect then gets `404`.
          */
         get: operations["streamSeatMap"];
         put?: never;
@@ -600,6 +606,9 @@ export interface paths {
          *     reservation that ended unbought less than 2 minutes ago (`409 SEAT_COOLDOWN`,
          *     `details.seats`, `details.availableAt`). No seat is ever in two active reservations, or in
          *     one and on a valid ticket, including under concurrent requests.
+         *
+         *     There is no `tierId` in the request: the reservation's tier is the tier of the sections its
+         *     seats are in (`null` for an event without tiers), and is returned as `tierId`.
          */
         post: operations["reserveSeats"];
         delete?: never;
@@ -687,7 +696,9 @@ export interface paths {
          *     customer's reservation is `409 SEAT_TAKEN` (with `details.reserved`); any other seat is
          *     `409 RESERVATION_REQUIRED` (`details.seats`; `details.expired` is `true` when the
          *     caller's reservation ran out). Bought seats leave the reservation; seats not bought stay
-         *     reserved until it ends. A repeated `requestId` is returned before this check.
+         *     reserved until it ends. A repeated `requestId` is returned before this check. An order whose
+         *     `tierId` is not the reservation's tier is `400`, since its seats are not in that tier's
+         *     sections.
          */
         post: operations["createOrder"];
         delete?: never;
@@ -737,7 +748,8 @@ export interface paths {
          *     voids every valid ticket, marks every confirmed order refunded (simulated), and marks the
          *     event cancelled. A cancelled event no longer blocks its venue's time, and refuses edits,
          *     tier changes, orders, and a second cancellation (`409 EVENT_CANCELLED`). Feature 015:
-         *     every active seat reservation for the event ends too.
+         *     every active seat reservation for the event ends too, and every seat freed, reserved or
+         *     sold, is sent as open on `streamSeatMap`.
          */
         post: operations["cancelEvent"];
         delete?: never;

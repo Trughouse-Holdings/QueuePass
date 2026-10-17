@@ -30,6 +30,10 @@ CREATE UNIQUE INDEX "seat_reservation_one_active"
 CREATE INDEX "seat_reservation_open_by_expiry"
   ON "SeatReservation"("expiresAt") WHERE "endedAt" IS NULL;
 CREATE INDEX "SeatReservation_customerSub_idx" ON "SeatReservation"("customerSub");
+-- Review of #38: the target of SeatHold's composite foreign key, so a hold's eventId always equals
+-- its reservation's.
+ALTER TABLE "SeatReservation" ADD CONSTRAINT "seat_reservation_id_event"
+  UNIQUE ("id", "eventId");
 ```
 
 **Active** means `endedAt IS NULL AND now() < expiresAt`. A reservation past `expiresAt` that the
@@ -44,7 +48,7 @@ One seat in a reservation, kept after it ends (research R1, R6).
 |---|---|---|
 | `id` | `UUID` | Primary key. |
 | `reservationId` | `UUID` | → `SeatReservation.id`, `ON DELETE CASCADE`. |
-| `eventId` | `UUID` | → `Event.id`, `ON DELETE CASCADE`. The reservation's event, repeated so the unique index can use it. |
+| `eventId` | `UUID` | → `Event.id`, `ON DELETE CASCADE`. The reservation's event, repeated so the unique index can use it; the composite foreign key below keeps it equal to the reservation's. |
 | `seatSection` | `TEXT` | The section's name: the seat's label, as on `Ticket` (spec 007 research R1). |
 | `seatRow` | `INT` | ≥ 1. |
 | `seatNumber` | `INT` | ≥ 1. |
@@ -59,6 +63,10 @@ ALTER TABLE "SeatHold" ADD CONSTRAINT "seat_hold_seat_positive"
   CHECK ("seatRow" >= 1 AND "seatNumber" >= 1);
 ALTER TABLE "SeatHold" ADD CONSTRAINT "seat_hold_end_all_or_none"
   CHECK (("releasedAt" IS NULL) = ("endReason" IS NULL));
+-- A hold's event is its reservation's event.
+ALTER TABLE "SeatHold" ADD CONSTRAINT "seat_hold_reservation_event"
+  FOREIGN KEY ("reservationId", "eventId") REFERENCES "SeatReservation"("id", "eventId")
+  ON DELETE CASCADE;
 
 -- FR-009 (Constitution IV): no seat has two live holds for an event, whatever any client does.
 CREATE UNIQUE INDEX "seat_hold_one_live_per_seat"
@@ -76,7 +84,10 @@ CREATE INDEX "SeatHold_eventId_releasedAt_idx" ON "SeatHold"("eventId", "release
 | `RELEASED` | `releaseSeats`: deselect, Release seats, or a tier switch (R8) | Yes |
 | `LOGOUT` | `releaseAllMyReservations` (R8) | Yes |
 | `BOUGHT` | `createOrder`, with the tickets (R7) | No |
-| `CLOSED` | Cancellation, seating and layout changes, tier deletion, sales closing (R11) | No |
+| `CLOSED` | Cancellation, seating changes, layout replacement, the first tier added to a tierless seated event, sales closing (R11) | No |
+
+Deleting a tier or an event removes its reservations and holds through `ON DELETE CASCADE`
+instead (R11); no end reason is recorded, and no 2-minute wait follows.
 
 ## Rules across tables (enforced under the event row lock)
 
@@ -127,7 +138,8 @@ SeatHold:         live --deselect / Release seats / tier switch--> RELEASED
                   live --logout-----------------------------------> LOGOUT
                   live --createOrder------------------------------> BOUGHT
                   live --reservation runs out---------------------> EXPIRED  (releasedAt = expiresAt)
-                  live --cancel / seating / layout / tier / start-> CLOSED
+                  live --cancel / seating / layout / first tier / start-> CLOSED
+                  (tier or event deleted: the row is removed by cascade)
 ```
 
 Nothing ever returns to live. Reserving the seat again creates a new hold row.
@@ -135,6 +147,8 @@ Nothing ever returns to live. Reserving the seat again creates a new hold row.
 ## Prisma
 
 `SeatReservation` and `SeatHold` models with the fields above. `Event` and `TicketTier` gain the
-back-relations. The partial unique indexes, the CHECKs, and the partial expiry index are written in
-the migration SQL, as spec 007 did for `ticket_one_valid_per_seat`, because Prisma can't express
+back-relations. `SeatReservation` declares `@@unique([id, eventId])`, and `SeatHold`'s relation to
+it uses `fields: [reservationId, eventId], references: [id, eventId]`, so `prisma migrate` keeps
+the composite key and doesn't try to drop it. The partial unique indexes, the CHECKs, and the
+partial expiry index are written in the migration SQL, as spec 007 did for `ticket_one_valid_per_seat`, because Prisma can't express
 them.

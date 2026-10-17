@@ -33,8 +33,8 @@ Open the event as both **Customer 1** and **Customer 2**, side by side, with the
 also open. As Customer 1, reserve A-2-3 and A-2-4. **Expect**, within 2 seconds and without a
 refresh (SC-002):
 
-- **Customer 2** sees both seats as **Reserved**: striped, with an R mark, distinct from sold,
-  announced as "reserved" by a screen reader, and not choosable.
+- **Customer 2** sees both seats as **Reserved**: a dashed outline with an R mark, distinct from
+  sold (striped), announced as "reserved" by a screen reader, and not choosable.
 - **Admin** sees them marked `◩`, and section A's counts show 2 reserved.
 
 As Customer 2, try to pick A-2-3. **Expect**: it can't be chosen. As Customer 1, press **Release
