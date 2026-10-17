@@ -97,7 +97,7 @@ test helpers every story uses.
   `customer-app/test/helpers.tsx`, record a non-JSON request body as `{ formData: FormData }`
   (from `req.clone().formData()`) instead of `JSON.parse`, record the request's `content-type`,
   and add `blob(bytes, type)` to answer with an image. Run both apps' suites: unchanged results.
-- [ ] T006 **Test first.** Create `backend/test/integration/event-images.storage.e2e-spec.ts`
+- [x] T006 **Test first.** Create `backend/test/integration/event-images.storage.e2e-spec.ts`
   (direct writes with `ctx.prisma` and `$executeRaw`), and confirm it fails before T007:
   - a row with position 1, `image/png`, `byteSize` equal to the bytes' length is accepted;
   - position 0 and position 6 are refused (`event_image_position_range`);
@@ -111,7 +111,7 @@ test helpers every story uses.
     deleting 1 in one `UPDATE` succeeds; the same swap as two separate `UPDATE`s fails at the
     first;
   - deleting the event deletes its rows (cascade).
-- [ ] T007 Add `model EventImage` (data-model.md, including `@@unique([eventId, position], map:
+- [x] T007 Add `model EventImage` (data-model.md, including `@@unique([eventId, position], map:
   "event_image_position_unique")`) and `images EventImage[]` on `Event` to
   `backend/prisma/schema.prisma` (comment: spec 014; `DEFERRABLE` and the CHECKs live in the
   migration SQL, never `db push`). Create
