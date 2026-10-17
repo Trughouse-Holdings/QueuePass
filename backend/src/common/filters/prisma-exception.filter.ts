@@ -9,12 +9,39 @@ import {
 import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
 import type { ErrorEnvelope, ErrorCode } from '@queuepass/shared';
-import { SCHEDULING_BUFFER_MINUTES, isErrorEnvelope } from '@queuepass/shared';
+import { EVENT_IMAGE_LIMITS, SCHEDULING_BUFFER_MINUTES, isErrorEnvelope } from '@queuepass/shared';
 
 /** PostgreSQL SQLSTATE for an exclusion constraint violation. */
 const PG_EXCLUSION_VIOLATION = '23P01';
 /** PostgreSQL SQLSTATE for a detected deadlock. */
 const PG_DEADLOCK = '40P01';
+/** PostgreSQL SQLSTATE for a unique violation. */
+const PG_UNIQUE_VIOLATION = '23505';
+/** Spec 014: the unique (eventId, position) of EventImage (data-model.md). */
+const IMAGE_POSITION_UNIQUE = 'event_image_position_unique';
+
+/**
+ * Spec 014 research R2: a write that collided on an event's image positions. Prisma names the
+ * violation in several ways: by the constraint in `meta.target`, by the model and fields of a
+ * `P2002`, or, from a raw statement, by SQLSTATE 23505 with the constraint's name or its key in the
+ * message. Under the event lock no collision is expected; this is the backstop.
+ */
+function isImagePositionViolation(exception: unknown): boolean {
+  if (exception instanceof Prisma.PrismaClientKnownRequestError && exception.code === 'P2002') {
+    const meta = (exception.meta ?? {}) as { modelName?: string; target?: unknown };
+    const target = Array.isArray(meta.target) ? meta.target.join(',') : String(meta.target ?? '');
+    return (
+      target.includes(IMAGE_POSITION_UNIQUE) ||
+      (meta.modelName === 'EventImage' && target.includes('position'))
+    );
+  }
+  if (!(exception instanceof Error)) return false;
+  const text = `${exception.message} ${JSON.stringify((exception as { meta?: unknown }).meta ?? {})}`;
+  return (
+    text.includes(PG_UNIQUE_VIOLATION) &&
+    (text.includes(IMAGE_POSITION_UNIQUE) || /\(\\?"eventId\\?", \\?"position\\?"\)/.test(text))
+  );
+}
 
 function envelope(
   code: ErrorCode,
@@ -46,6 +73,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // through, so clients receive Nest's shape instead of the declared envelope.
       if (isErrorEnvelope(body)) {
         response.status(status).json(body);
+        return;
+      }
+
+      // Spec 014 research R3: multer stops reading an upload past 5 MB and Nest answers 413. Only
+      // uploadEventImage reads a body that can raise it, so the mapping is unambiguous.
+      if (status === HttpStatus.PAYLOAD_TOO_LARGE) {
+        response.status(status).json(
+          envelope('IMAGE_TOO_LARGE', 'An image can be at most 5 MB.', {
+            maxBytes: EVENT_IMAGE_LIMITS.maxBytes,
+          }),
+        );
         return;
       }
 
@@ -101,6 +139,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
       this.logger.error(`Unmapped HttpException status ${status}: ${messages.join(' ')}`);
       response.status(status).json(envelope('VALIDATION_FAILED', messages.join(' ')));
+      return;
+    }
+
+    if (isImagePositionViolation(exception)) {
+      response
+        .status(HttpStatus.CONFLICT)
+        .json(
+          envelope(
+            'IMAGES_CHANGED',
+            "The event's images changed since you loaded them. Check them and try again.",
+          ),
+        );
       return;
     }
 

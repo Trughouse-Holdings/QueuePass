@@ -241,7 +241,7 @@ under simultaneous uploads.
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] **Test first.** Create `backend/test/unit/prisma-exception.filter.spec.ts`: a
+- [x] T015 [US1] **Test first.** Create `backend/test/unit/prisma-exception.filter.spec.ts`: a
   `P2002` whose `meta.target` names `event_image_position_unique`, and a raw-query error whose
   message carries `23505` and that constraint's name, are each answered `409 IMAGES_CHANGED`; a
   tier-name `P2002` is still `TIER_NAME_TAKEN`; a `413` `HttpException` is `IMAGE_TOO_LARGE`. Then,
