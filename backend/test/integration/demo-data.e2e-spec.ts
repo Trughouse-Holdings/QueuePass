@@ -1,3 +1,4 @@
+import { sniffImageType } from '@queuepass/shared';
 import { runDemoData } from '../../src/scripts/demo-data';
 import { asAdmin } from '../setup/authed-request';
 import { ADDRESS } from '../setup/fixtures';
@@ -25,6 +26,9 @@ describe('Demo data', () => {
       events: 3,
       cancelled: 'Holiday Gala',
       unverifiedVenues: 0,
+      // Spec 014 research R15: 3 on the concert and 1 on the comedy night. (R15 and T039 say 6,
+      // which does not match 3 + 1 + 0; the summary counts what was made.)
+      images: 4,
     });
     expect(summary.orders).toBeGreaterThan(30);
     expect(summary.checkedIn).toBeGreaterThan(0);
@@ -46,11 +50,42 @@ describe('Demo data', () => {
     }
   });
 
+  /**
+   * Spec 014 FR-034 (research R15): generated pictures, through the image rules: several on the
+   * concert, one on the comedy night, none on the gala.
+   */
+  it('adds generated images: 3 to the concert, 1 to the comedy night, none to the gala', async () => {
+    // Created by the first test of this file.
+    const byEvent = await ctx.prisma.event.findMany({
+      where: { name: { in: ['Fall Concert', 'Comedy Night', 'Holiday Gala'] } },
+      select: {
+        name: true,
+        images: { select: { position: true, bytes: true }, orderBy: { position: 'asc' } },
+      },
+    });
+    const count = Object.fromEntries(byEvent.map((e) => [e.name, e.images.length]));
+    expect(count).toEqual({ 'Fall Concert': 3, 'Comedy Night': 1, 'Holiday Gala': 0 });
+    const all = byEvent.flatMap((e) => e.images);
+    expect(await ctx.prisma.eventImage.count()).toBe(all.length);
+    for (const image of all) {
+      expect(sniffImageType(image.bytes)).toBe('image/png');
+      expect(image.bytes.length).toBeLessThan(100 * 1024);
+    }
+    // Three different pictures on the concert, so its rotation shows.
+    const concert = byEvent.find((e) => e.name === 'Fall Concert')!;
+    expect(new Set(concert.images.map((i) => Buffer.from(i.bytes).toString('base64'))).size).toBe(
+      3,
+    );
+  });
+
   it('changes nothing when run again', async () => {
     const before = await ctx.prisma.order.count();
+    const images = await ctx.prisma.eventImage.count();
     const again = await runDemoData(ctx.app);
     expect(again.created).toBe(false);
+    expect(again.images).toBe(0);
     expect(await ctx.prisma.order.count()).toBe(before);
+    expect(await ctx.prisma.eventImage.count()).toBe(images);
   });
 
   /** Spec 013 research R14: real addresses, and a demo that still works offline. */
