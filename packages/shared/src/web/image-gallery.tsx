@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react';
 import { Link } from 'react-router-dom';
 import type { EventImage } from '../event-image.js';
 import { useEventImage } from './event-images.js';
+import { ImageViewer } from './image-viewer.js';
 import { useGalleryRotation, type SlideDirection } from './use-gallery-rotation.js';
 
 /** The slide between images: the length of the theme's `gallery-*` keyframes (FR-040). */
@@ -16,15 +17,14 @@ export interface ImageGalleryProps {
   /** The event's images in order; none renders nothing (FR-027). */
   images: EventImage[];
   /**
-   * `page`: across the top of the event page, with a full-screen button. `card`: at the top of an
+   * `page`: across the top of the event page, its image a button that opens it full screen
+   * (`ImageViewer`). `card`: at the top of an
    * Events list card, its image a link to the event, loaded only on or near the screen (research
    * R12, R14).
    */
   variant: 'card' | 'page';
   /** `card`: where the image leads, the same place as the card's title link (FR-020). */
   eventHref?: string;
-  /** `page`: opens the shown image full screen (US5 connects it). */
-  onOpen?: (index: number) => void;
 }
 
 /** Keeps one image loaded while mounted; renders nothing (research R4). */
@@ -82,9 +82,10 @@ interface SlideState {
  * Spec 014 FR-040 (research R11): after each change, the image shown before slides out while the
  * new one slides in, for `SLIDE_MS` or until the outgoing animation ends. A change during a slide
  * drops the outgoing image and slides from the current one. `still` (reduced motion, or a card off
- * screen) means no slide at all.
+ * screen) means no slide at all. A new index with no new `turn` is a jump (the gallery showing the
+ * image last viewed full screen), with no slide. The galleries and the full-screen view share it.
  */
-function useSlide(
+export function useSlide(
   index: number,
   turn: number,
   direction: SlideDirection,
@@ -97,8 +98,9 @@ function useSlide(
   if (seen.turn !== turn) {
     setSeen({ turn, index });
     setSlide(still ? null : { from: seen.index, direction });
-  } else if (still && slide) {
-    setSlide(null);
+  } else {
+    if (seen.index !== index) setSeen({ turn, index });
+    if (still && slide) setSlide(null);
   }
   useEffect(() => {
     if (!slide) return;
@@ -121,7 +123,6 @@ export function ImageGallery({
   images,
   variant,
   eventHref,
-  onOpen,
 }: ImageGalleryProps) {
   const count = images.length;
   const card = variant === 'card';
@@ -130,11 +131,15 @@ export function ImageGallery({
   const [stopped, setStopped] = useState(false);
   const [overArrow, setOverArrow] = useState(false);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
+  // US5: the image open full screen, if any; the gallery does not turn meanwhile (research R11).
+  const [viewing, setViewing] = useState<number | null>(null);
+  const openButton = useRef<HTMLButtonElement>(null);
+  const wasViewing = useRef(false);
   // Research R11: a pointer press is followed by focus; that focus is not keyboard focus.
   const pointerDown = useRef(false);
   const rotation = useGalleryRotation({
     count,
-    paused: overArrow || keyboardFocus || !onScreen,
+    paused: overArrow || keyboardFocus || !onScreen || viewing !== null,
     stopped,
   });
   const { index } = rotation;
@@ -156,6 +161,17 @@ export function ImageGallery({
         : new Set([...now, index, (index + 1) % count]),
     );
   }, [index, count, card]);
+
+  // FR-030: on closing full screen, focus goes back to the image button that opened it, once the
+  // view has made the app usable again.
+  useEffect(() => {
+    if (viewing !== null) {
+      wasViewing.current = true;
+    } else if (wasViewing.current) {
+      wasViewing.current = false;
+      openButton.current?.focus();
+    }
+  }, [viewing]);
 
   if (count === 0) return null;
 
@@ -238,10 +254,11 @@ export function ImageGallery({
           </Link>
         ) : (
           <button
+            ref={openButton}
             type="button"
             className="gallery__open"
             aria-label={`View ${eventName}, ${position}, full screen`}
-            onClick={() => onOpen?.(index)}
+            onClick={() => setViewing(index)}
             {...keyboardOnly}
           >
             {incoming}
@@ -283,6 +300,18 @@ export function ImageGallery({
           )}
           {!card && positionText}
         </>
+      )}
+      {viewing !== null && (
+        <ImageViewer
+          eventId={eventId}
+          eventName={eventName}
+          images={images}
+          start={viewing}
+          onClose={(last) => {
+            rotation.show(last);
+            setViewing(null);
+          }}
+        />
       )}
     </div>
   );

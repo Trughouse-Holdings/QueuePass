@@ -18,3 +18,5 @@ export { useGalleryRotation } from './use-gallery-rotation.js';
 export type { GalleryRotation } from './use-gallery-rotation.js';
 export { ImageGallery } from './image-gallery.js';
 export type { ImageGalleryProps } from './image-gallery.js';
+export { ImageViewer } from './image-viewer.js';
+export type { ImageViewerProps } from './image-viewer.js';

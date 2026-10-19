@@ -505,7 +505,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 
 ### Tests for User Story 5 (write first, confirm they fail)
 
-- [ ] T037 [P] [US5] Create `packages/shared/test/web/image-viewer.test.tsx`:
+- [x] T037 [P] [US5] Create `packages/shared/test/web/image-viewer.test.tsx`:
   - opening from the gallery showing image 2 of 3 renders, in `document.body`, a `role="dialog"`
     with `aria-modal="true"` named "Season Opener, image 2 of 3", the image, "2 of 3", "Previous
     image", "Next image", and "Close full screen"; `body` has `viewer-open`; the app root
@@ -520,7 +520,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 
 ### Implementation for User Story 5
 
-- [ ] T038 [US5] Create `packages/shared/src/web/image-viewer.tsx` (research R12, with `inert` on
+- [x] T038 [US5] Create `packages/shared/src/web/image-viewer.tsx` (research R12, with `inert` on
   `#root` while open), add the viewer classes to `theme.css`, connect it to `ImageGallery`'s
   `onOpen` and pause rule, and export it. Run T037 and T021 until they pass, then the shared suite
   and both apps' suites.

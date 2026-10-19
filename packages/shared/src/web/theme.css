@@ -885,3 +885,101 @@ dd {
     animation: none;
   }
 }
+
+/* Spec 014 US5 (research R12, R13): an image full screen. It covers the whole window, above the
+   top bar, on a backdrop dark in both modes, and shows the whole picture as large as fits. Its
+   controls look like the gallery's and are at least 44 by 44 pixels. */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--scrim);
+}
+/* The page behind does not scroll while the view is open. */
+.viewer-open {
+  overflow: hidden;
+}
+/* The picture's area, clear of the controls; it clips the slide between images (FR-040). */
+.viewer__stage {
+  position: absolute;
+  inset: 72px 72px 64px;
+  overflow: hidden;
+}
+.viewer__frame {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.viewer__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.viewer__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--scrim-text);
+  font-size: 14px;
+}
+.viewer__close,
+.viewer__arrow {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.viewer__close {
+  top: 16px;
+  right: 16px;
+}
+.viewer__arrow {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.viewer__arrow--prev {
+  left: 16px;
+}
+.viewer__arrow--next {
+  right: 16px;
+}
+.viewer__count {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  margin: 0;
+  color: var(--scrim-text);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* Phone width: the picture takes the whole width, the arrows sit over its edges. */
+@media (max-width: 640px) {
+  .viewer__stage {
+    inset: 68px 0 56px;
+  }
+  .viewer__arrow--prev {
+    left: 8px;
+  }
+  .viewer__arrow--next {
+    right: 8px;
+  }
+}

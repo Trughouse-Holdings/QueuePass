@@ -32,6 +32,8 @@ export interface GalleryRotation {
   direction: SlideDirection;
   next(): void;
   prev(): void;
+  /** Shows image `index` at once, as a jump rather than a change: no slide (the viewer closing). */
+  show(index: number): void;
   /** No automatic change and no Pause/Play button (FR-025). */
   reducedMotion: boolean;
   /** The gallery is changing on its own right now. */
@@ -48,14 +50,17 @@ export function useGalleryRotation({
   count,
   paused = false,
   stopped = false,
+  start = 0,
 }: {
   count: number;
   paused?: boolean;
   stopped?: boolean;
+  /** The image shown first, 0-based (the full-screen view opens on the gallery's image). */
+  start?: number;
 }): GalleryRotation {
   // `turn` is bumped on every change, so the wait restarts even when the index lands where it was.
   const [state, setState] = useState<{ index: number; turn: number; direction: SlideDirection }>({
-    index: 0,
+    index: start,
     turn: 0,
     direction: 'left',
   });
@@ -88,6 +93,7 @@ export function useGalleryRotation({
     direction,
     next: useCallback(() => step(1), [step]),
     prev: useCallback(() => step(-1), [step]),
+    show: useCallback((at: number) => setState((now) => ({ ...now, index: at })), []),
     reducedMotion,
     rotating,
   };
