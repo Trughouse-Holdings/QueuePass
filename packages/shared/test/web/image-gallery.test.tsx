@@ -583,6 +583,39 @@ describe('ImageGallery, card variant', () => {
     expect(most).toBeLessThanOrEqual(3);
   });
 
+  it('announces the card position from inside its live region (FR-028, T050)', async () => {
+    stubImages();
+    await cards([opener]);
+    const user = keyboard();
+    const live = () =>
+      within(group(NAME))
+        .getByText(/^\d of \d$/)
+        .closest('[aria-live]');
+    expect(live()).not.toBeNull();
+    expect(group(NAME).querySelectorAll('[aria-live]')).toHaveLength(1);
+    expect(live()).toHaveAttribute('aria-live', 'off');
+
+    // An arrow press (the pointer still over the arrow): announced.
+    const next = screen.getByRole('button', { name: `Next image of ${NAME}` });
+    await user.click(next);
+    expect(cardPosition(NAME)).toBe('2 of 3');
+    expect(live()).toHaveAttribute('aria-live', 'polite');
+    fireEvent.pointerLeave(next);
+    expect(live()).toHaveAttribute('aria-live', 'off');
+
+    // Paused with the Pause/Play button: announced.
+    await user.click(screen.getByRole('button', { name: `Pause images of ${NAME}` }));
+    expect(live()).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('announces the card position politely under reduced motion', async () => {
+    setMediaQuery(REDUCED_MOTION, true);
+    stubImages();
+    await cards([opener]);
+    const live = within(group(NAME)).getByText('1 of 3').closest('[aria-live]');
+    expect(live).toHaveAttribute('aria-live', 'polite');
+  });
+
   it('counts as on screen where IntersectionObserver is missing', async () => {
     const { calls } = stubImages();
     await cards([opener]);
