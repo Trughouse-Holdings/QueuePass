@@ -559,7 +559,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
     `main` is not run by tests), `prisma-exception.filter.ts` 74.3% (older paths; its `014`
     mappings are covered by `prisma-exception.filter.spec.ts`). No front-end coverage provider is
     installed, so `packages/shared`, Admin, and Customer coverage waits on `010`; their suites
-    pass (336, 186, and 133 tests).
+    pass (343, 187, and 133 tests after review round 2).
 - [ ] T044 Running-system gate: `docker compose up --build`, walk quickstart.md S1–S12 in the
   browser, and sign in, use, and sign out of each front end. Record the results in this file,
   including S11's peak memory of the `backend` and `postgres` containers and of the browser
