@@ -272,7 +272,7 @@ export function minimalExifApp1(
   u16(3, 12); // SHORT
   u32(1, 14); // count
   u16(orientation, 18);
-  return jpegSegment(0xe1, Buffer.concat([Buffer.from('Exif  ', 'latin1'), tiff]));
+  return jpegSegment(0xe1, Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), tiff]));
 }
 
 /** An XMP `APP1` segment (standard or extended). */
