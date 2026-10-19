@@ -540,8 +540,18 @@ turns on its own has a Pause/Play button (Mahdi, 2026-10-13, after the PR review
   `matchMedia('(prefers-reduced-motion: reduce)')` matches, no timer runs at all and there is no
   Pause/Play button; the arrows still flip. The hook listens for changes to the setting; if it
   turns off, the gallery starts turning and the button appears.
-- **No animation**: images are swapped, not slid or faded, in every mode. Nothing moves, so there
-  is no motion to reduce beyond the automatic change.
+- **Slide between images** (decided by Mahdi, 2026-10-19, replacing "no animation"; spec FR-040):
+  the gallery keeps the outgoing image for the length of one slide and shows both in a clipped
+  track: the outgoing image moves from 0 to −100% and the incoming one from 100% to 0 for the next
+  image, mirrored for the previous arrow, over 400 ms with `ease-in-out`, as CSS `transform`
+  animations (theme keyframes, so it costs no layout and stays on the compositor). The direction
+  comes from the action, not the index, so wrapping from the last image to the first still slides
+  left. The outgoing image is `aria-hidden` and not a control; the live region and names follow the
+  incoming image only. A new change during a slide drops the outgoing image and slides from the
+  current one. A card keeps the outgoing image's object URL until the slide ends, then lets it go,
+  so a card holds at most 3 images for 0.4 seconds and 2 otherwise (R14). Under reduced motion no
+  slide classes are set and `@media (prefers-reduced-motion: reduce)` also turns the keyframes
+  off, so the image simply changes.
 - **Announcements**: the slide area has `aria-live="off"` while it turns on its own, and
   `aria-live="polite"` while stopped, temporarily paused, or under reduced motion, so an arrow
   press is announced and automatic changes are not (the WAI-ARIA carousel pattern).
@@ -560,7 +570,9 @@ another's, and each card's button sits on its own gallery). Remembering a pause 
 visits (needs storage and a preference no one asked for; Constitution VIII). A button in the
 full-screen view (it does not change on its own). `aria-pressed` (above). Stopping after one full
 cycle (not what Mahdi asked). `setInterval` (an arrow press would not restart the full 5
-seconds). A CSS animation for the change (motion to reduce, and nothing in the spec asks for it).
+seconds). No animation (the first decision; Mahdi found the sudden swap jarring and chose a slide on
+2026-10-19). A fade (Mahdi asked for a slide). A JavaScript-driven animation (CSS transforms are
+smoother and need no library).
 
 ## R12. Full screen, and what selecting a card's image does
 
@@ -627,7 +639,8 @@ research R6).
   `.gallery__arrow--prev`, `.gallery__arrow--next`, `.gallery__count`, `.gallery__toggle`
   (Pause/Play); `.viewer`, `.viewer__image`, `.viewer__close`, `.viewer__arrow` (with `--prev` and
   `--next`), `.viewer__count`; and `.viewer-open` on `<body>`.
-- **Card**: `.gallery--card` is 16:9 (`aspect-ratio`), flush with the top and sides of the card,
+- **Card**: `.gallery--card` is 4:3 (`aspect-ratio`; Mahdi, 2026-10-19: the gallery takes most of
+  the card), flush with the top and sides of the card,
   above the title. The Customer app's `.event-card` gives the gallery negative margins equal to
   its own padding (`calc(-1 * var(--space-N))`, which `012`'s rule C5 allows) and rounds its top
   corners with the card.

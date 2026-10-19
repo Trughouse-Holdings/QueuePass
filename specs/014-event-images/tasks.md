@@ -46,8 +46,8 @@ and confirm they **fail** before the implementation tasks below them.
   its own (stopped until Play; per gallery, not saved; none under reduced motion or with one
   image; none in the viewer); also paused while an arrow is under the pointer, while an arrow or
   the event page's full-screen image button has keyboard (not pointer-caused) focus, while the
-  viewer is open, or while a card is off screen; no timer under reduced motion; no animation
-  (research R11; settled decisions).
+  viewer is open, or while a card is off screen; no timer under reduced motion; a 400 ms slide between
+  images, none under reduced motion (research R11, FR-040, decided 2026-10-19).
 - **No new dependencies.** No color, font, or off-step spacing written in an app stylesheet, and no
   inline style setting a color, font, or shadow (`012` drift check).
 - **Nothing else changes**: every existing test keeps its meaning; events without images render
@@ -372,6 +372,24 @@ looks as before.
   and `admin-app/src/pages/EventDetail.tsx` (above the page head). Run T022 and T023 until they
   pass, then both apps' suites.
 
+### Slide between images (added 2026-10-19, FR-040)
+
+- [ ] T048 [P] [US2] **Test first.** Extend `packages/shared/test/web/image-gallery.test.tsx`: on an
+  automatic change and on "Next image", the gallery renders the outgoing image (`aria-hidden`, not
+  inside the full-screen button) with `gallery__slide--out-left` and the incoming one with
+  `gallery__slide--in-left`; "Previous image" uses the `-right` pair, and so does wrapping
+  backward, while wrapping forward from the last image still uses `-left`; on `animationend` (or
+  after 400 ms with fake timers) only the incoming image remains; a second press during a slide
+  leaves exactly two images and slides from the current one; the position text, live region, and
+  names follow the incoming image at once; the next automatic change still comes 5,000 ms after the
+  slide started; under reduced motion no slide class is ever set and only one image is rendered.
+  Extend `packages/shared/test/theme/tokens.test.ts`: the four keyframes exist and use only
+  `transform`, and a `prefers-reduced-motion: reduce` rule sets `animation: none` on the slide
+  classes.
+- [ ] T049 [US2] Implement the slide in `image-gallery.tsx` and the keyframes and classes in
+  `theme.css` (research R11). Run T048, T021, and T024 until they pass, then the shared suite and
+  both apps' suites. T036 (cards) and T038 (viewer) use the same slide.
+
 **Checkpoint**: customers and admins see an event's images on its page, rotating as Mahdi decided.
 
 ---
@@ -453,7 +471,7 @@ not, and only cards on or near the screen load images.
   no one else holds it); when the card leaves the screen it stops changing (fake timers, 20 s) and
   both held images are let go at once; when it comes back it fetches them again (answered by the
   stub, as the HTTP cache would) and turns again from the same image; at no time does a card hold
-  more than 2 images (count `createObjectURL` minus `revokeObjectURL` per card).
+  more than 2 images outside a slide, or 3 during one (FR-040) (count `createObjectURL` minus `revokeObjectURL` per card).
 - [ ] T035 [P] [US4] Extend `customer-app/test/event-images.test.tsx` (Events list): a card with 3
   images shows its gallery above the title; two cards rotate independently (an arrow on one does
   not change the other); a card without images renders the same markup as before; the card's name,
@@ -461,7 +479,7 @@ not, and only cards on or near the screen load images.
 
 ### Implementation for User Story 4
 
-- [ ] T036 [US4] In `image-gallery.tsx`, add the `card` variant (research R12) and on-screen
+- [ ] T036 [US4] In `image-gallery.tsx`, add the `card` variant (research R12; 4:3, R13) and on-screen
   loading with `IntersectionObserver` (`rootMargin: '200px'`): hold only the shown and next image,
   and off screen stop turning and let go of both (research R14, FR-039). Place it at the top of
   `customer-app/src/components/EventCard.tsx` with `eventHref={`/events/${e.id}`}`, and add the
