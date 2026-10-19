@@ -238,3 +238,157 @@ describe('ImageGallery, page variant', () => {
     }
   });
 });
+
+/**
+ * Spec 014 FR-040 (research R11, decided 2026-10-19): the shown image slides out and the next
+ * slides in, over 400 ms, toward the left for the next image and toward the right for the previous
+ * one, decided by the action rather than the index. None under reduced motion.
+ */
+describe('ImageGallery, the slide between images (FR-040)', () => {
+  const outgoing = (c: HTMLElement) => c.querySelectorAll('[class*="gallery__slide--out-"]');
+  const incoming = (c: HTMLElement) => c.querySelectorAll('[class*="gallery__slide--in-"]');
+  /** Each image or placeholder rendered in the slide area, outgoing or incoming. */
+  const frames = (c: HTMLElement) =>
+    c.querySelectorAll('.gallery__slide img, .gallery__slide .gallery__placeholder');
+
+  const shownSrc = () => screen.getByRole('img').getAttribute('src');
+
+  /** A slide toward `dir`, from the image whose source was `fromSrc` to image `to`. */
+  async function expectSlide(
+    c: HTMLElement,
+    dir: 'left' | 'right',
+    fromSrc: string | null,
+    to: number,
+  ) {
+    await advance(0); // the incoming image's read, if it was not loaded yet
+    const [out] = outgoing(c);
+    const [inn] = incoming(c);
+    expect(outgoing(c)).toHaveLength(1);
+    expect(incoming(c)).toHaveLength(1);
+    expect(out).toHaveClass(`gallery__slide--out-${dir}`);
+    expect(inn).toHaveClass(`gallery__slide--in-${dir}`);
+    expect(out).toHaveAttribute('aria-hidden', 'true');
+    expect(out!.closest('.gallery__open')).toBeNull();
+    expect(out!.querySelector('.gallery__open')).toBeNull();
+    expect(inn!.closest('.gallery__open') ?? inn!.querySelector('.gallery__open')).not.toBeNull();
+    expect(frames(c)).toHaveLength(2);
+    // The image that leaves is the one shown before; the one that arrives is named.
+    expect(fromSrc).toMatch(/^blob:/);
+    expect(out!.querySelector('img')).toHaveAttribute('src', fromSrc);
+    expect(screen.getByRole('img')).toHaveAttribute('alt', `${NAME}, image ${to} of 3`);
+    expect(inn!.querySelector('img')).toBe(screen.getByRole('img'));
+    expect(position()).toBe(`${to} of 3`);
+  }
+
+  it('slides left on an automatic change, and keeps only the incoming image after 400 ms', async () => {
+    stubImages();
+    const { container } = await show(3);
+    expect(outgoing(container)).toHaveLength(0);
+    expect(incoming(container)).toHaveLength(0);
+    expect(frames(container)).toHaveLength(1);
+    const first = shownSrc();
+    await advance(5000);
+    await expectSlide(container, 'left', first, 2);
+    await advance(399);
+    expect(frames(container)).toHaveLength(2);
+    await advance(1);
+    expect(frames(container)).toHaveLength(1);
+    expect(outgoing(container)).toHaveLength(0);
+    expect(incoming(container)).toHaveLength(0);
+    expect(shownAlt()).toBe(`${NAME}, image 2 of 3`);
+  });
+
+  it('ends the slide on animationend', async () => {
+    stubImages();
+    const { container } = await show(3);
+    await advance(5000);
+    fireEvent.animationEnd(outgoing(container)[0]!);
+    expect(frames(container)).toHaveLength(1);
+    expect(outgoing(container)).toHaveLength(0);
+  });
+
+  it('slides left for "Next image", including from the last image to the first', async () => {
+    stubImages();
+    const { container } = await show(3);
+    const user = keyboard();
+    let before = shownSrc();
+    await user.click(arrow('Next'));
+    await expectSlide(container, 'left', before, 2);
+    await advance(400);
+    before = shownSrc();
+    await user.click(arrow('Next'));
+    await expectSlide(container, 'left', before, 3);
+    await advance(400);
+    before = shownSrc();
+    await user.click(arrow('Next'));
+    await expectSlide(container, 'left', before, 1);
+  });
+
+  it('slides right for "Previous image", including from the first image to the last', async () => {
+    stubImages();
+    const { container } = await show(3);
+    const user = keyboard();
+    let before = shownSrc();
+    await user.click(arrow('Previous'));
+    await expectSlide(container, 'right', before, 3);
+    await advance(400);
+    before = shownSrc();
+    await user.click(arrow('Previous'));
+    await expectSlide(container, 'right', before, 2);
+  });
+
+  it('starts a press during a slide from the current image, with exactly two images', async () => {
+    stubImages();
+    const { container } = await show(3);
+    const user = keyboard();
+    await user.click(arrow('Next'));
+    await advance(100);
+    let before = shownSrc();
+    await user.click(arrow('Next'));
+    await expectSlide(container, 'left', before, 3);
+    await advance(100);
+    before = shownSrc();
+    await user.click(arrow('Previous'));
+    await expectSlide(container, 'right', before, 2);
+    await advance(400);
+    expect(frames(container)).toHaveLength(1);
+    expect(position()).toBe('2 of 3');
+  });
+
+  it('names the incoming image at once: the full-screen button and the live region', async () => {
+    stubImages();
+    const { container } = await show(3);
+    await advance(5000);
+    expect(openButton()).toHaveAccessibleName(`View ${NAME}, image 2 of 3, full screen`);
+    const live = container.querySelector('[aria-live]')!;
+    expect(within(live as HTMLElement).getByRole('img')).toHaveAttribute(
+      'alt',
+      `${NAME}, image 2 of 3`,
+    );
+  });
+
+  it('waits 5,000 ms from the start of the slide for the next automatic change', async () => {
+    stubImages();
+    await show(3);
+    await advance(5000);
+    expect(position()).toBe('2 of 3');
+    await advance(4999);
+    expect(position()).toBe('2 of 3');
+    await advance(1);
+    expect(position()).toBe('3 of 3');
+  });
+
+  it('never slides under reduced motion: one image, no slide class', async () => {
+    setMediaQuery(REDUCED_MOTION, true);
+    stubImages();
+    const { container } = await show(3);
+    const user = keyboard();
+    await user.click(arrow('Next'));
+    expect(position()).toBe('2 of 3');
+    expect(frames(container)).toHaveLength(1);
+    expect(container.querySelector('[class*="gallery__slide--"]')).toBeNull();
+    await user.click(arrow('Previous'));
+    expect(frames(container)).toHaveLength(1);
+    expect(container.querySelector('[class*="gallery__slide--"]')).toBeNull();
+  });
+});

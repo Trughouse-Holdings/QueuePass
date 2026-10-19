@@ -224,3 +224,63 @@ describe('the event page band (spec 014 research R13)', () => {
     expect(topPadding(main[0]!)).toBe(today);
   });
 });
+
+// Spec 014 FR-040 (research R11): the 400 ms slide between images, as transforms only, and none
+// under reduced motion.
+describe('the gallery slide (spec 014 FR-040)', () => {
+  const SLIDES = ['out-left', 'in-left', 'out-right', 'in-right'];
+
+  /** The `@keyframes name { … }` block, nested braces included. */
+  function keyframes(name: string): string | undefined {
+    const at = css.search(new RegExp(`@keyframes\\s+${name}\\s*\\{`));
+    return at < 0 ? undefined : atRuleBody(at);
+  }
+
+  /** The body of the at-rule starting at `at`, nested braces included. */
+  function atRuleBody(at: number): string {
+    const open = css.indexOf('{', at);
+    let depth = 1;
+    let i = open + 1;
+    for (; i < css.length && depth > 0; i++) {
+      if (css[i] === '{') depth++;
+      else if (css[i] === '}') depth--;
+    }
+    return css.slice(open + 1, i - 1);
+  }
+
+  it.each(SLIDES)(
+    'animates .gallery__slide--%s over 400 ms with keyframes that move it by transform only',
+    (slide) => {
+      const body = bodiesOf(topLevel(), `.gallery__slide--${slide}`).join('\n');
+      const animation = body.match(/animation:\s*([a-z-]+)\s+([^;]+);/i);
+      expect(animation, `.gallery__slide--${slide} sets an animation`).not.toBeNull();
+      expect(animation![2]).toMatch(/\b400ms\b/);
+      const frames = keyframes(animation![1]!);
+      expect(frames, `@keyframes ${animation![1]}`).toBeDefined();
+      const properties = [...frames!.matchAll(/([a-z-]+)\s*:/gi)].map((m) => m[1]);
+      expect(properties.length).toBeGreaterThan(0);
+      expect(new Set(properties)).toEqual(new Set(['transform']));
+    },
+  );
+
+  it('uses four different keyframes', () => {
+    const names = SLIDES.map(
+      (slide) =>
+        bodiesOf(topLevel(), `.gallery__slide--${slide}`)
+          .join('\n')
+          .match(/animation:\s*([a-z-]+)/i)?.[1],
+    );
+    expect(new Set(names).size).toBe(4);
+  });
+
+  it('turns every slide off under reduced motion', () => {
+    const at = css.indexOf('@media (prefers-reduced-motion: reduce)');
+    expect(at).toBeGreaterThanOrEqual(0);
+    const block = atRuleBody(at);
+    const rule = [...block.matchAll(/([^{}]*)\{([^{}]*)\}/g)].find(([, sel]) =>
+      SLIDES.every((slide) => sel!.includes(`.gallery__slide--${slide}`)),
+    );
+    expect(rule, 'one rule naming the four slide classes').toBeDefined();
+    expect(rule![2]).toMatch(/animation:\s*none/);
+  });
+});
