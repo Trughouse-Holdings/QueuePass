@@ -708,8 +708,9 @@ dd {
 
 /* ------------------------------------------------------------ event images */
 /* Spec 014 (research R11 to R13): an event's images, a gallery the Admin and Customer apps share.
-   Images are swapped, never slid or faded. Controls sit over the image on an opaque surface so
-   they read the same on any picture, and are at least 44 by 44 pixels. */
+   One image slides to the next over 400ms, by transform only, and not at all under reduced
+   motion (FR-040). Controls sit over the image on an opaque surface so they read the same on any
+   picture, and are at least 44 by 44 pixels. */
 
 /* The event page band: the full width of the app window, flush under the top bar. Its negative top
    margin cancels .main's top padding (32px; 22px at phone width, below): keep them equal
@@ -734,10 +735,20 @@ dd {
   height: clamp(200px, 40vw, 480px);
 }
 .gallery__slide,
-.gallery__open {
+.gallery__open,
+.gallery__frame {
   display: block;
   width: 100%;
   height: 100%;
+}
+.gallery__slide {
+  position: relative;
+}
+/* The image on its way out lies over the incoming one's place and takes no clicks. */
+.gallery__slide > .gallery__frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 .gallery__open {
   padding: 0;
@@ -808,4 +819,60 @@ dd {
   font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+}
+
+/* FR-040 (research R11): the slide between images. The next image comes in from the right while
+   the shown one leaves to the left; the previous image, the other way. */
+.gallery__slide--out-left {
+  animation: gallery-out-left 400ms ease-in-out both;
+}
+.gallery__slide--in-left {
+  animation: gallery-in-left 400ms ease-in-out both;
+}
+.gallery__slide--out-right {
+  animation: gallery-out-right 400ms ease-in-out both;
+}
+.gallery__slide--in-right {
+  animation: gallery-in-right 400ms ease-in-out both;
+}
+@keyframes gallery-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes gallery-in-left {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes gallery-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes gallery-in-right {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+/* FR-025: under reduced motion the image simply changes (the gallery sets no slide class either). */
+@media (prefers-reduced-motion: reduce) {
+  .gallery__slide--out-left,
+  .gallery__slide--in-left,
+  .gallery__slide--out-right,
+  .gallery__slide--in-right {
+    animation: none;
+  }
 }

@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import type { EventImage } from '../event-image.js';
 import { useEventImage } from './event-images.js';
-import { useGalleryRotation } from './use-gallery-rotation.js';
+import { useGalleryRotation, type SlideDirection } from './use-gallery-rotation.js';
+
+/** The slide between images: the length of the theme's `gallery-*` keyframes (FR-040). */
+export const SLIDE_MS = 400;
 
 export interface ImageGalleryProps {
   eventId: string;
@@ -27,10 +30,46 @@ function Slide({ eventId, image, alt }: { eventId: string; image: EventImage; al
   return <span className="gallery__placeholder">{failed ? 'Image unavailable' : null}</span>;
 }
 
+interface SlideState {
+  /** The outgoing image's index. */
+  from: number;
+  direction: SlideDirection;
+}
+
 /**
- * Spec 014 US2 (FR-021 to FR-028, FR-031, FR-038; research R10 to R13): an event's images as a
- * gallery that shows the next image every 5 seconds, with previous and next arrows, the position
- * in words, and a Pause/Play button. It also pauses while the pointer is over an arrow, or while an
+ * Spec 014 FR-040 (research R11): after each change, the image shown before slides out while the
+ * new one slides in, for `SLIDE_MS` or until the outgoing animation ends. A change during a slide
+ * drops the outgoing image and slides from the current one. `still` (reduced motion) means no
+ * slide at all.
+ */
+function useSlide(
+  index: number,
+  turn: number,
+  direction: SlideDirection,
+  still: boolean,
+): [SlideState | null, () => void] {
+  const [seen, setSeen] = useState({ turn, index });
+  const [slide, setSlide] = useState<SlideState | null>(null);
+  // Set during render (React's derived-state pattern), so the outgoing image is in the very first
+  // frame of the change and the incoming one never shows alone first.
+  if (seen.turn !== turn) {
+    setSeen({ turn, index });
+    setSlide(still ? null : { from: seen.index, direction });
+  } else if (still && slide) {
+    setSlide(null);
+  }
+  useEffect(() => {
+    if (!slide) return;
+    const timer = setTimeout(() => setSlide(null), SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [slide]);
+  return [slide, () => setSlide(null)];
+}
+
+/**
+ * Spec 014 US2 (FR-021 to FR-028, FR-031, FR-038, FR-040; research R10 to R13): an event's images
+ * as a gallery that shows the next image every 5 seconds, sliding between them, with previous and
+ * next arrows, the position in words, and a Pause/Play button. It also pauses while the pointer is over an arrow, or while an
  * arrow or the full-screen image button has keyboard focus; nothing else pauses it.
  */
 export function ImageGallery({ eventId, eventName, images, onOpen }: ImageGalleryProps) {
@@ -46,6 +85,12 @@ export function ImageGallery({ eventId, eventName, images, onOpen }: ImageGaller
     stopped,
   });
   const { index } = rotation;
+  const [slide, endSlide] = useSlide(
+    index,
+    rotation.turn,
+    rotation.direction,
+    rotation.reducedMotion,
+  );
 
   // Research R14: the event page loads the shown image and the next one, and holds each image it
   // has loaded until it unmounts, so looping back neither fetches again nor flickers.
@@ -62,6 +107,7 @@ export function ImageGallery({ eventId, eventName, images, onOpen }: ImageGaller
   if (count === 0) return null;
 
   const shown = images[index]!;
+  const leaving = slide && slide.from < count ? images[slide.from]! : null;
   const position = `image ${index + 1} of ${count}`;
   const several = count >= 2;
 
@@ -95,6 +141,19 @@ export function ImageGallery({ eventId, eventName, images, onOpen }: ImageGaller
         wanted.has(i) ? <Held key={image.id} eventId={eventId} imageId={image.id} /> : null,
       )}
       <div className="gallery__slide" aria-live={rotation.rotating ? 'off' : 'polite'}>
+        {leaving && (
+          // FR-040: the image shown before, on its way out; not a control and not announced.
+          <div
+            key={`out-${leaving.id}`}
+            className={`gallery__frame gallery__slide--out-${slide!.direction}`}
+            aria-hidden="true"
+            onAnimationEnd={(e) => {
+              if (e.target === e.currentTarget) endSlide();
+            }}
+          >
+            <Slide eventId={eventId} image={leaving} alt="" />
+          </div>
+        )}
         <button
           type="button"
           className="gallery__open"
@@ -102,7 +161,14 @@ export function ImageGallery({ eventId, eventName, images, onOpen }: ImageGaller
           onClick={() => onOpen?.(index)}
           {...keyboardOnly}
         >
-          <Slide key={shown.id} eventId={eventId} image={shown} alt={`${eventName}, ${position}`} />
+          <span
+            key={shown.id}
+            className={
+              leaving ? `gallery__frame gallery__slide--in-${slide!.direction}` : 'gallery__frame'
+            }
+          >
+            <Slide eventId={eventId} image={shown} alt={`${eventName}, ${position}`} />
+          </span>
         </button>
       </div>
       {several && (

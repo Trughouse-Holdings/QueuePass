@@ -374,7 +374,7 @@ looks as before.
 
 ### Slide between images (added 2026-10-19, FR-040)
 
-- [ ] T048 [P] [US2] **Test first.** Extend `packages/shared/test/web/image-gallery.test.tsx`: on an
+- [x] T048 [P] [US2] **Test first.** Extend `packages/shared/test/web/image-gallery.test.tsx`: on an
   automatic change and on "Next image", the gallery renders the outgoing image (`aria-hidden`, not
   inside the full-screen button) with `gallery__slide--out-left` and the incoming one with
   `gallery__slide--in-left`; "Previous image" uses the `-right` pair, and so does wrapping
@@ -386,7 +386,7 @@ looks as before.
   Extend `packages/shared/test/theme/tokens.test.ts`: the four keyframes exist and use only
   `transform`, and a `prefers-reduced-motion: reduce` rule sets `animation: none` on the slide
   classes.
-- [ ] T049 [US2] Implement the slide in `image-gallery.tsx` and the keyframes and classes in
+- [x] T049 [US2] Implement the slide in `image-gallery.tsx` and the keyframes and classes in
   `theme.css` (research R11). Run T048, T021, and T024 until they pass, then the shared suite and
   both apps' suites. T036 (cards) and T038 (viewer) use the same slide.
 

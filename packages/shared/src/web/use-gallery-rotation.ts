@@ -20,9 +20,16 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
+/** Which way the last change slides: `left` for the next image, `right` for the previous. */
+export type SlideDirection = 'left' | 'right';
+
 export interface GalleryRotation {
   /** The shown image, 0-based. */
   index: number;
+  /** Counts the changes, so a change is seen even when it lands on an index shown before. */
+  turn: number;
+  /** The direction of the last change, from the action rather than the index (FR-040). */
+  direction: SlideDirection;
   next(): void;
   prev(): void;
   /** No automatic change and no Pause/Play button (FR-025). */
@@ -46,17 +53,25 @@ export function useGalleryRotation({
   paused?: boolean;
   stopped?: boolean;
 }): GalleryRotation {
-  const [index, setIndex] = useState(0);
-  // Bumped on every change, so the wait restarts even when the index lands where it was.
-  const [turn, setTurn] = useState(0);
+  // `turn` is bumped on every change, so the wait restarts even when the index lands where it was.
+  const [state, setState] = useState<{ index: number; turn: number; direction: SlideDirection }>({
+    index: 0,
+    turn: 0,
+    direction: 'left',
+  });
+  const { index, turn, direction } = state;
   const reducedMotion = useReducedMotion();
   const rotating = count >= 2 && !paused && !stopped && !reducedMotion;
 
   const step = useCallback(
     (by: number) => {
       if (count < 2) return;
-      setIndex((i) => (((i + by) % count) + count) % count);
-      setTurn((t) => t + 1);
+      setState((now) => ({
+        index: (((now.index + by) % count) + count) % count,
+        turn: now.turn + 1,
+        // Research R11: wrapping from the last image to the first still slides left.
+        direction: by > 0 ? 'left' : 'right',
+      }));
     },
     [count],
   );
@@ -69,6 +84,8 @@ export function useGalleryRotation({
 
   return {
     index: count > 0 ? Math.min(index, count - 1) : 0,
+    turn,
+    direction,
     next: useCallback(() => step(1), [step]),
     prev: useCallback(() => step(-1), [step]),
     reducedMotion,

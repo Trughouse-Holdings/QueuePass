@@ -67,7 +67,12 @@ function release(imageId: string, entry: Entry): void {
  */
 export function useEventImage(eventId: string, imageId: string, enabled = true): EventImageState {
   const { api } = useAuth();
-  const [state, setState] = useState<EventImageState>({ url: null, failed: false });
+  // An image already in the cache shows at once, with no placeholder frame in between (a slide
+  // mounts the image again, research R11).
+  const [state, setState] = useState<EventImageState>(() => {
+    const entry = enabled ? cache.get(imageId) : undefined;
+    return { url: entry?.url ?? null, failed: entry?.failed ?? false };
+  });
 
   useEffect(() => {
     if (!enabled) {
