@@ -285,6 +285,21 @@ describe('the gallery slide (spec 014 FR-040)', () => {
   });
 });
 
+// Spec 014 FR-028 (spec 008 FR-009): the gallery clips what lies outside it, and the full-screen
+// image button fills it, so that button draws its focus ring inside its own box.
+describe('the gallery focus ring (spec 014 FR-028)', () => {
+  it('draws the full-screen image button ring inside the clipped gallery', () => {
+    const ring = bodiesOf(topLevel(), ':focus-visible')[0]?.match(/outline:\s*(\d+)px/)?.[1];
+    const width = Number(ring);
+    expect(width).toBeGreaterThan(0);
+    const offset = bodiesOf(topLevel(), '.gallery__open:focus-visible')
+      .join('\n')
+      .match(/outline-offset:\s*(-?\d+)px/)?.[1];
+    expect(offset, '.gallery__open:focus-visible sets outline-offset').toBeDefined();
+    expect(Number(offset)).toBeLessThanOrEqual(-width);
+  });
+});
+
 // Spec 014 FR-029 (research R12, R13): the full-screen view covers the window on the scrim, and
 // the page behind does not scroll while it is open.
 describe('the full-screen view (spec 014 FR-029)', () => {

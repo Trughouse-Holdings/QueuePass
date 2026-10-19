@@ -763,6 +763,12 @@ dd {
   background: none;
   cursor: zoom-in;
 }
+/* Spec 014 FR-028 (spec 008 FR-009): the image button fills the gallery, which clips, so its focus
+   ring is drawn inside it: deep enough to clear the half of a scroll bar the 100vw page band hides
+   on each side. */
+.gallery__open:focus-visible {
+  outline-offset: -12px;
+}
 /* On a card the image opens the event, not full screen. */
 .gallery--card .gallery__open {
   cursor: pointer;
