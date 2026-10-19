@@ -168,13 +168,17 @@ export function ImagesField({
           />
         </div>
       )}
-      {refused.length > 0 && (
-        <div className="note" data-testid="images-note">
-          {refused.map((r) => (
-            <p key={r}>{r}</p>
-          ))}
-        </div>
-      )}
+      {/* FR-016: the refusals are announced; the live region is there from the start so a screen
+          reader hears what is added to it. */}
+      <div aria-live="polite" data-testid="images-live">
+        {refused.length > 0 && (
+          <div className="note" data-testid="images-note">
+            {refused.map((r) => (
+              <p key={r}>{r}</p>
+            ))}
+          </div>
+        )}
+      </div>
     </fieldset>
   );
 }

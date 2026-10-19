@@ -243,6 +243,21 @@ describe('the Images control', () => {
     expect(server.imageCalls()).toEqual([]);
   });
 
+  it('announces the refusals in a live region present from the start', async () => {
+    backend();
+    renderAt('/events/new');
+    const group = await screen.findByRole('group', { name: 'Images' });
+    const status = within(group).getByTestId('images-live');
+    expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(status).toBeEmptyDOMElement();
+    choose(gifFile('poster.gif'));
+    await vi.waitFor(() =>
+      expect(status).toHaveTextContent('poster.gif: only JPG, PNG, or WebP pictures'),
+    );
+    expect(within(group).getByTestId('images-live')).toBe(status);
+    expect(status).toContainElement(screen.getByTestId('images-note'));
+  });
+
   it('accepts a PNG of exactly 5,242,880 bytes, and a sixth file is left out', async () => {
     const server = backend();
     renderAt('/events/new');
