@@ -564,9 +564,35 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   browser, and sign in, use, and sign out of each front end. Record the results in this file,
   including S11's peak memory of the `backend` and `postgres` containers and of the browser
   tab.
-- [ ] T045 Independent review (Constitution III): a separate Claude session reviews the branch
+  - 2026-10-19, on the running stack (`docker compose up --build`, this branch):
+    - **API (S2, S3, S8), run from the signed-in Admin app:** `fake.jpg` and a GIF `415
+      IMAGE_TYPE_NOT_ALLOWED`; 5,242,881 bytes `413 IMAGE_TOO_LARGE`; 20,000 × 20,000 pixels `400
+      IMAGE_DIMENSIONS_TOO_LARGE`; exactly 5,242,880 bytes `201`, stored as `image/png` though sent
+      as `image/jpeg`; the WebP `201`; positions 1–5 and no `bytes` key in `GET /events/{id}`;
+      `getEventImage` returns the same 5,242,880 bytes with `Cache-Control: private,
+      max-age=31536000, immutable`; reorder `200`, a stale reorder `409 IMAGES_CHANGED`; delete
+      `204`, again `404`, positions close up to 1–4; three uploads at once on 3 images → `201`,
+      `201`, `409 IMAGE_LIMIT_REACHED`, positions 1–5; a cancelled event refuses an upload `409
+      EVENT_CANCELLED` and still serves its images; deleting an event makes its image `404`; no
+      token `401` (with the HTTP cache bypassed; a cached copy is answered by the browser, as R4
+      intends). The test events were deleted afterwards.
+    - **Browser (S1, S4, S5, S6, S10):** Mahdi added five photos to an event in the Admin app and
+      checked the event page and the Events list cards in both apps, then asked for the 4:3 card
+      and the slide (Clarify, 2026-10-19), and checked them after the change. Full screen opened
+      on "image 1 of 5" with Close, Previous, and Next, `#root` inert, and Esc closed it. Sign
+      in, use, and sign out worked in the Admin and Customer apps.
+    - **S11 memory:** `backend` 102 MiB and `database` 41 MiB after the uploads above (light
+      load). The full S11 run with 8+ events × five 5 MB photos was not done.
+    - **Not walked by hand:** S7 (reduced motion, 375 px), S9 (needs an empty database; covered
+      by `demo-data.e2e-spec.ts`), S12 (network blocking and the photo's Exif in Windows;
+      covered by T014 and `image-metadata.spec.ts`). The animation itself was seen by Mahdi, not
+      in the automation browser, which renders no frames while hidden.
+- [x] T045 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
+  - 2026-10-19: 3 rounds by separate Claude sessions. Round 1: 0 must-fix, 3 should-fix, 4 minor;
+    round 2: all 7 confirmed fixed, 1 should-fix and 3 minor new; round 3: all 4 confirmed fixed,
+    nothing new. No open findings.
 - [ ] T046 Open the implementation PR against `main` with `fixes #26` in its description. It
   touches the shared surface (`packages/shared/`, `backend/prisma/`), so every team member approves
   it. The product decisions, including the Pause/Play button that makes the galleries meet WCAG
