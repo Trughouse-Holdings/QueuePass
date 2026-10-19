@@ -2,7 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ImageGallery } from '../../src/web/image-gallery';
-import { REDUCED_MOTION, setMediaQuery } from './browser-stubs';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import type { EventImage } from '../../src/event-image';
+import {
+  installIntersectionObserver,
+  objectUrls,
+  REDUCED_MOTION,
+  setMediaQuery,
+} from './browser-stubs';
 import {
   advance,
   EVENT_ID,
@@ -390,5 +397,197 @@ describe('ImageGallery, the slide between images (FR-040)', () => {
     await user.click(arrow('Previous'));
     expect(frames(container)).toHaveLength(1);
     expect(container.querySelector('[class*="gallery__slide--"]')).toBeNull();
+  });
+});
+
+/**
+ * Spec 014 US4 (FR-020, FR-028, FR-032, FR-038, FR-039, FR-040; research R12, R14): the gallery on
+ * an Events list card. Its image links to the event, out of the Tab order and hidden from
+ * assistive technology; its arrows and Pause/Play button are outside the link; it loads only the
+ * shown and next images while on or near the screen, and lets both go when it leaves.
+ */
+describe('ImageGallery, card variant', () => {
+  interface Card {
+    id: string;
+    name: string;
+    images: EventImage[];
+  }
+  const opener: Card = { id: EVENT_ID, name: NAME, images: images(3) };
+  const late: Card = {
+    id: 'e2',
+    name: 'Late Show',
+    images: images(3).map((i) => ({ ...i, id: `b-${i.position}` })),
+  };
+
+  async function cards(list: Card[]) {
+    const view = renderSignedIn(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <ul>
+                {list.map((c) => (
+                  <li key={c.id}>
+                    <ImageGallery
+                      eventId={c.id}
+                      eventName={c.name}
+                      images={c.images}
+                      variant="card"
+                      eventHref={`/events/${c.id}`}
+                    />
+                  </li>
+                ))}
+              </ul>
+            }
+          />
+          <Route path="/events/:id" element={<p>The event page</p>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await advance(0);
+    return view;
+  }
+
+  const group = (name: string) => screen.getByRole('group', { name: `Images of ${name}` });
+  const cardPosition = (name: string) => within(group(name)).getByText(/^\d of \d$/).textContent;
+  const link = (name: string) => group(name).querySelector('a');
+  const imageIds = (calls: { path: string }[]) => calls.map((c) => c.path.split('/').pop());
+
+  it('labels each card gallery and its arrows with its event', async () => {
+    stubImages();
+    await cards([opener, late]);
+    for (const name of [NAME, 'Late Show']) {
+      const g = group(name);
+      expect(g).toHaveClass('gallery', 'gallery--card');
+      expect(g).toHaveAttribute('aria-roledescription', 'carousel');
+      expect(
+        within(g).getByRole('button', { name: `Previous image of ${name}` }),
+      ).toBeInTheDocument();
+      expect(within(g).getByRole('button', { name: `Next image of ${name}` })).toBeInTheDocument();
+      expect(
+        within(g).getByRole('button', { name: `Pause images of ${name}` }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it('links the image to the event, out of the Tab order and hidden, with no full-screen button', async () => {
+    stubImages();
+    await cards([opener]);
+    const a = link(NAME)!;
+    expect(a).toHaveAttribute('href', '/events/e1');
+    expect(a).toHaveAttribute('tabindex', '-1');
+    expect(a).toHaveAttribute('aria-hidden', 'true');
+    expect(a.querySelector('img')).toHaveAttribute('alt', `${NAME}, image 1 of 3`);
+    expect(screen.queryByRole('button', { name: /full screen/ })).toBeNull();
+    for (const button of within(group(NAME)).getAllByRole('button'))
+      expect(button.closest('a')).toBeNull();
+  });
+
+  it('opens the event from the image, but not from an arrow or the Pause/Play button', async () => {
+    stubImages();
+    await cards([opener]);
+    const user = keyboard();
+    await user.click(screen.getByRole('button', { name: `Next image of ${NAME}` }));
+    await user.click(screen.getByRole('button', { name: `Previous image of ${NAME}` }));
+    await user.click(screen.getByRole('button', { name: `Pause images of ${NAME}` }));
+    expect(screen.queryByText('The event page')).toBeNull();
+    await user.click(link(NAME)!);
+    expect(screen.getByText('The event page')).toBeInTheDocument();
+  });
+
+  it('turns each card on its own: an arrow or Pause on one card leaves the other alone', async () => {
+    stubImages();
+    await cards([opener, late]);
+    const user = keyboard();
+    const next = screen.getByRole('button', { name: `Next image of ${NAME}` });
+    await user.click(next);
+    fireEvent.pointerLeave(next);
+    expect(cardPosition(NAME)).toBe('2 of 3');
+    expect(cardPosition('Late Show')).toBe('1 of 3');
+    await user.click(screen.getByRole('button', { name: `Pause images of ${NAME}` }));
+    await advance(5000);
+    expect(cardPosition(NAME)).toBe('2 of 3');
+    expect(cardPosition('Late Show')).toBe('2 of 3');
+  });
+
+  it('uses the same slide as the event page', async () => {
+    stubImages();
+    const { container } = await cards([opener]);
+    await advance(5000);
+    const out = container.querySelector('.gallery__slide--out-left');
+    expect(out).toHaveAttribute('aria-hidden', 'true');
+    expect(out!.closest('a')).toBeNull();
+    expect(container.querySelector('a .gallery__slide--in-left')).not.toBeNull();
+    await advance(400);
+    expect(container.querySelector('[class*="gallery__slide--"]')).toBeNull();
+  });
+
+  it('loads only on or near the screen, holds the shown and next images, and lets go off screen', async () => {
+    const io = installIntersectionObserver();
+    const { calls } = stubImages();
+    await cards([{ ...opener, images: images(5) }]);
+    let most = 0;
+    /** Object URLs this card holds now (the only gallery on the page). */
+    const held = () => {
+      const n = objectUrls.live().length;
+      most = Math.max(most, n);
+      return n;
+    };
+    const shownSrc = () => link(NAME)!.querySelector('img')?.getAttribute('src');
+
+    // Off screen at first: nothing fetched.
+    expect(io.options).toContainEqual(expect.objectContaining({ rootMargin: '200px' }));
+    expect(io.observed()).toContain(group(NAME));
+    await advance(1000);
+    expect(calls).toHaveLength(0);
+
+    // On screen: the shown and the next image.
+    act(() => io.set(group(NAME), true));
+    await advance(0);
+    expect(imageIds(calls).sort()).toEqual(['img-1', 'img-2']);
+    expect(held()).toBe(2);
+    const first = shownSrc();
+    expect(first).toMatch(/^blob:/);
+
+    // A change: the image after next is fetched; the one before goes once the slide ends.
+    await advance(5000);
+    expect(cardPosition(NAME)).toBe('2 of 5');
+    expect(imageIds(calls).sort()).toEqual(['img-1', 'img-2', 'img-3']);
+    expect(held()).toBe(3);
+    await advance(400);
+    expect(held()).toBe(2);
+    expect(objectUrls.revoked).toContain(first);
+
+    // Off screen: no change, and both images let go at once.
+    act(() => io.set(group(NAME), false));
+    await advance(0);
+    expect(held()).toBe(0);
+    await advance(20_000);
+    expect(cardPosition(NAME)).toBe('2 of 5');
+    expect(calls).toHaveLength(3);
+
+    // Back: the same two images again, and turning from the same image.
+    act(() => io.set(group(NAME), true));
+    await advance(0);
+    expect(imageIds(calls.slice(3)).sort()).toEqual(['img-2', 'img-3']);
+    expect(held()).toBe(2);
+    expect(cardPosition(NAME)).toBe('2 of 5');
+    await advance(4999);
+    expect(cardPosition(NAME)).toBe('2 of 5');
+    await advance(1);
+    expect(cardPosition(NAME)).toBe('3 of 5');
+    held();
+    await advance(400);
+    expect(held()).toBe(2);
+    expect(most).toBeLessThanOrEqual(3);
+  });
+
+  it('counts as on screen where IntersectionObserver is missing', async () => {
+    const { calls } = stubImages();
+    await cards([opener]);
+    expect(imageIds(calls).sort()).toEqual(['img-1', 'img-2']);
+    await advance(5000);
+    expect(cardPosition(NAME)).toBe('2 of 3');
   });
 });
