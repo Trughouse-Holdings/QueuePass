@@ -164,17 +164,18 @@ export function ImageGallery({
     );
   }, [index, count, card]);
 
-  // Research R11: a press ends with pointerup or, when the browser takes it over for a native drag,
-  // pointercancel, and may end outside the gallery; any of these ends it.
+  // Research R11: the focus a press gives comes before its pointerup with a mouse, but after it with
+  // touch (from the compatibility mousedown), so the press ends at the click that follows, anywhere
+  // in the document. A press with no click ends at pointercancel (a native drag or a scroll), or at
+  // the next key, since keyboard focus always follows a key.
   useEffect(() => {
     const release = () => {
       pointerDown.current = false;
     };
-    document.addEventListener('pointerup', release, true);
-    document.addEventListener('pointercancel', release, true);
+    const events = ['click', 'pointercancel', 'keydown'] as const;
+    for (const type of events) document.addEventListener(type, release, true);
     return () => {
-      document.removeEventListener('pointerup', release, true);
-      document.removeEventListener('pointercancel', release, true);
+      for (const type of events) document.removeEventListener(type, release, true);
     };
   }, []);
 

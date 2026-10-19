@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider } from '../../src/web/auth-provider';
 import { ImageGallery } from '../../src/web/image-gallery';
@@ -161,6 +161,26 @@ describe('ImageViewer', () => {
     await page(3);
     const user = await openAt(1);
     await user.click(screen.getByRole('button', { name: 'Close full screen' }));
+    expect(openButton()).toHaveFocus();
+    await advance(5000);
+    expect(galleryPosition()).toBe('2 of 3');
+  });
+
+  it('keeps the gallery turning when touch taps open and close the view (FR-024)', async () => {
+    stubImages();
+    await page(3);
+    // The touch order: pointerdown, pointerup, then the compatibility mousedown's focus, then click.
+    const tap = (el: HTMLElement) => {
+      fireEvent.pointerDown(el, { pointerType: 'touch' });
+      fireEvent.pointerUp(el, { pointerType: 'touch' });
+      act(() => el.focus());
+      fireEvent.click(el, { detail: 1 });
+    };
+    tap(openButton());
+    await advance(0);
+    expect(dialog()).toBeInTheDocument();
+    tap(screen.getByRole('button', { name: 'Close full screen' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(openButton()).toHaveFocus();
     await advance(5000);
     expect(galleryPosition()).toBe('2 of 3');

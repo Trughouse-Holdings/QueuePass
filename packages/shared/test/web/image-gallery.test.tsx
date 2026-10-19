@@ -240,6 +240,23 @@ describe('ImageGallery, page variant', () => {
     expect(position()).toBe('1 of 3');
   });
 
+  it('keeps turning after a touch tap on an arrow, where focus comes after pointerup (FR-024)', async () => {
+    stubImages();
+    await show(3);
+    // The touch order: pointerdown, pointerup, then the compatibility mousedown's focus, then click.
+    const tap = (el: HTMLElement) => {
+      fireEvent.pointerDown(el, { pointerType: 'touch' });
+      fireEvent.pointerUp(el, { pointerType: 'touch' });
+      act(() => el.focus());
+      fireEvent.click(el, { detail: 1 });
+    };
+    tap(arrow('Next'));
+    expect(arrow('Next')).toHaveFocus();
+    expect(position()).toBe('2 of 3');
+    await advance(5000);
+    expect(position()).toBe('3 of 3');
+  });
+
   it('is announced politely only while it does not turn on its own', async () => {
     stubImages();
     const { container } = await show(3);
