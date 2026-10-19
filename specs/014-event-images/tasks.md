@@ -540,7 +540,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 - [x] T040 Create `backend/src/scripts/demo-images.ts` (`demoPng`, research R15) and, in
   `backend/src/scripts/demo-data.ts`, add the images through `EventImagesService.add` and count them
   in `DemoSummary`. Run T039 until it passes.
-- [ ] T041 [P] Update `README.md`: add the `014` row to the Status table, mention event images in
+- [x] T041 [P] Update `README.md`: add the `014` row to the Status table, mention event images in
   "Today" (admins add up to 5; customers see a rotating gallery on cards and the event page, and
   full screen), note that images are stored in PostgreSQL, and keep the reserved-features line
   accurate.
