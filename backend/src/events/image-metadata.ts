@@ -137,7 +137,10 @@ function stripJpeg(b: Buffer): Buffer {
   return Buffer.concat(out);
 }
 
-/** The Orientation (0x0112) of IFD0 in a TIFF structure, or `null`. Never throws. */
+/**
+ * The Orientation (0x0112) of IFD0 in a TIFF structure, or `null`. Never throws. An IFD offset
+ * below 8 overlaps the 8-byte TIFF header, which no valid file has, so it is read as none.
+ */
 function readOrientation(tiff: Buffer): number | null {
   if (tiff.length < 8) return null;
   const order = tiff.toString('latin1', 0, 2);
@@ -147,7 +150,7 @@ function readOrientation(tiff: Buffer): number | null {
   const u32 = (at: number) => (le ? tiff.readUInt32LE(at) : tiff.readUInt32BE(at));
   if (u16(2) !== 42) return null;
   const ifd = u32(4);
-  if (ifd + 2 > tiff.length) return null;
+  if (ifd < 8 || ifd + 2 > tiff.length) return null;
   const count = u16(ifd);
   for (let i = 0; i < count; i++) {
     const entry = ifd + 2 + i * 12;
@@ -159,9 +162,11 @@ function readOrientation(tiff: Buffer): number | null {
 
 /**
  * A minimal Exif APP1 with only IFD0 Orientation: a 32-byte payload (research R17). An Exif segment
- * that holds an orientation is at least 32 bytes (its one entry ends there), so when the one it
- * replaces is shorter than this one's 36, it is cut to that length, dropping only the zero
- * next-IFD offset: the stored file is never larger than the file as sent (FR-004, FR-035).
+ * that `readOrientation` reads an orientation from is at least 32 bytes (marker and length 4,
+ * `Exif\0\0` 6, TIFF header 8, entry count 2, and one 12-byte entry, the IFD starting at 8 or
+ * later), so when the one it replaces is shorter than this one's 36, it is cut to that length,
+ * dropping only the zero next-IFD offset and keeping the whole entry: the stored file is never
+ * larger than the file as sent (FR-004, FR-035).
  */
 function orientationSegment(orientation: number, atMost: number): Buffer {
   const payload = Buffer.alloc(32);

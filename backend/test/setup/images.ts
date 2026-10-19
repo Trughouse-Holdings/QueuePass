@@ -251,8 +251,9 @@ export function orientationApp1(orientation: number): Buffer {
 }
 
 /**
- * The smallest Exif `APP1` the Backend reads an orientation from: one `IFD0` entry and no next-IFD
- * offset, 32 bytes in all, plus `extra` trailing bytes (review 014 round 1, M2).
+ * The smallest Exif `APP1` the Backend reads an orientation from: `IFD0` at offset 8 (an offset
+ * below 8 overlaps the TIFF header and is ignored), one entry, and no next-IFD offset, 32 bytes in
+ * all, plus `extra` trailing bytes (review 014 rounds 1 and 2, M2).
  */
 export function minimalExifApp1(
   orientation: number,

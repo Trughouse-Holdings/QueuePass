@@ -831,9 +831,11 @@ pixel limits (the contract's refusal order), and before the transaction. It copi
 - **Orientation**: when a JPEG's Exif `IFD0` has an Orientation tag (`0x0112`) of 2 to 8, a new
   minimal Exif `APP1` with only that tag (a 32-byte payload: `Exif\0\0`, a big-endian TIFF
   header, one IFD entry, no next IFD) is written right after `SOI`, or after a `JFIF` `APP0`
-  when there is one. Orientation 1, or none, writes nothing. An Exif segment that holds an
-  orientation can be as short as 32 bytes (no next-IFD offset); the new one is never longer than
-  the one it replaces, so it is cut to that length, and the file never grows (review round 1).
+  when there is one. Orientation 1, or none, writes nothing. An `IFD0` offset below 8 overlaps the
+  TIFF header and is read as no orientation. An Exif segment that gives an orientation is then at
+  least 32 bytes (one whole entry, no next-IFD offset); the new one is never longer than the one it
+  replaces, so it is cut to that length, keeping the whole entry, and the file never grows (review
+  rounds 1 and 2).
 - A structure that cannot be walked (a segment or chunk length past the end of the file) is
   `415 IMAGE_TYPE_NOT_ALLOWED`, as an unreadable header is (R3). The Admin form's preview reads
   headers only, so such a file passes it and is refused here, at save time (R9, FR-016).

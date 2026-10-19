@@ -96,6 +96,24 @@ describe('stripImageMetadata: JPEG', () => {
     }
   });
 
+  it('reads no orientation from an IFD that overlaps the TIFF header: 30- and 31-byte Exif', () => {
+    for (const ifd of [6, 7]) {
+      // The offset field doubles as the entry count; the one Orientation entry starts at ifd + 2.
+      const tiff = Buffer.alloc(ifd + 14);
+      tiff.write('MM', 0, 'latin1');
+      tiff.writeUInt16BE(42, 2);
+      tiff.writeUInt32BE(ifd, 4);
+      tiff.writeUInt16BE(0x0112, ifd + 2);
+      tiff.writeUInt16BE(3, ifd + 4);
+      tiff.writeUInt32BE(1, ifd + 6);
+      tiff.writeUInt16BE(6, ifd + 10);
+      const exif = jpegSegment(0xe1, Buffer.concat([Buffer.from('Exif\0\0', 'latin1'), tiff]));
+      expect(exif.length).toBe(24 + ifd);
+      const out = strip(jpegWith([exif]), 'image/jpeg');
+      expect(out).toEqual(jpegWith([]));
+    }
+  });
+
   it('writes nothing for orientation 1 or no orientation', () => {
     expect(strip(jpegWith([exifApp1({ orientation: 1, make: 'X' })]), 'image/jpeg')).toEqual(
       jpegWith([]),
