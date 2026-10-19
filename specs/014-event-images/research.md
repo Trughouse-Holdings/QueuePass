@@ -554,7 +554,10 @@ turns on its own has a Pause/Play button (Mahdi, 2026-10-13, after the PR review
   off, so the image simply changes.
 - **Announcements**: the slide area has `aria-live="off"` while it turns on its own, and
   `aria-live="polite"` while stopped, temporarily paused, or under reduced motion, so an arrow
-  press is announced and automatic changes are not (the WAI-ARIA carousel pattern).
+  press is announced and automatic changes are not (the WAI-ARIA carousel pattern). On a card the
+  image sits inside the hidden link (R12), so the card's position text ("2 of 3") is the part
+  announced: it is inside the same live region, with the same `off`/`polite` rule, so an arrow
+  press or Play on a card is announced too (decided 2026-10-19, found while building T036).
 
 **WCAG 2.2.2 (Pause, Stop, Hide, Level A)**: the galleries are auto-updating content that starts on
 its own, runs alongside other content, and goes on longer than 5 seconds, so 2.2.2 applies. It
@@ -637,7 +640,8 @@ research R6).
 - **Classes**: `.page-band`, `.gallery`, `.gallery--card`, `.gallery--page`, `.gallery__open` (the
   event page's image button), `.gallery__image`, `.gallery__placeholder`, `.gallery__arrow`,
   `.gallery__arrow--prev`, `.gallery__arrow--next`, `.gallery__count`, `.gallery__toggle`
-  (Pause/Play); `.viewer`, `.viewer__image`, `.viewer__close`, `.viewer__arrow` (with `--prev` and
+  (Pause/Play), `.gallery__frame` (one image in the slide track) and the four slide classes
+  `.gallery__slide--{out,in}-{left,right}` with their `gallery-*` keyframes (R11, FR-040); `.viewer`, `.viewer__image`, `.viewer__close`, `.viewer__arrow` (with `--prev` and
   `--next`), `.viewer__count`; and `.viewer-open` on `<body>`.
 - **Card**: `.gallery--card` is 4:3 (`aspect-ratio`; Mahdi, 2026-10-19: the gallery takes most of
   the card), flush with the top and sides of the card,

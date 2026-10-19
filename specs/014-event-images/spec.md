@@ -432,7 +432,8 @@ gallery shows the last image viewed.
   alternative naming the event and the image's position, such as "Season Opener, image 2 of 5".
   On an event card, the image's link duplicates the card's title link, so it is hidden from
   assistive technology and from the Tab order (FR-020); the card's gallery is still labeled
-  "Images of {event}" and its arrows name the event.
+  "Images of {event}" and its arrows name the event, and the card announces its position ("2 of
+  3") when an arrow or Play changes the image, as the event page announces its image.
 - **FR-029**: On the event page, selecting the image MUST open it full screen: covering the whole
   window over a dark backdrop, showing the whole image as large as fits, with previous and next
   arrows (with two or more images), the position, and a close button. Esc and the close button

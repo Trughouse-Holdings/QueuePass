@@ -390,6 +390,12 @@ looks as before.
   `theme.css` (research R11). Run T048, T021, and T024 until they pass, then the shared suite and
   both apps' suites. T036 (cards) and T038 (viewer) use the same slide.
 
+- [ ] T050 [P] [US4] **Test first**, then fix: in `packages/shared/test/web/image-gallery.test.tsx`
+  (variant `card`), the card's position text is inside the element with `aria-live`, which is
+  `off` while turning and `polite` while paused, after an arrow press, or under reduced motion
+  (FR-028, research R11). Then move the card's position into that live region in
+  `image-gallery.tsx`.
+
 **Checkpoint**: customers and admins see an event's images on its page, rotating as Mahdi decided.
 
 ---
