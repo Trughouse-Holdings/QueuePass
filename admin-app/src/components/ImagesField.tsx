@@ -54,18 +54,24 @@ function SavedThumb({ eventId, image, alt }: { eventId: string; image: EventImag
 }
 
 /**
- * Spec 014 FR-014, FR-016 (research R9): the Images control of the event form. Changes are made
- * when the form is saved, so this only edits the list the form holds.
+ * Spec 014 FR-014, FR-016 (research R9): the Images control of the event form: add, move earlier
+ * or later, and remove. Changes are made when the form is saved, so this only edits the list the
+ * form holds.
  */
 export function ImagesField({
   eventId,
   items,
   onAdd,
+  onMove,
+  onRemove,
 }: {
   /** The event, once it exists; stored images are shown from it. */
   eventId: string | undefined;
   items: ImageItem[];
   onAdd: (files: File[]) => void;
+  /** Moves the item at `index` one place earlier (`-1`) or later (`1`). */
+  onMove: (index: number, by: -1 | 1) => void;
+  onRemove: (index: number) => void;
 }): React.ReactElement {
   const [refused, setRefused] = useState<string[]>([]);
   const full = items.length >= EVENT_IMAGE_LIMITS.maxCount;
@@ -111,6 +117,36 @@ export function ImagesField({
                 ) : null}
                 <span>{alt}</span>
                 {i === 0 && <span className="pill">Cover</span>}
+                <div className="image-item__actions">
+                  {i > 0 && (
+                    <button
+                      type="button"
+                      className="btn"
+                      aria-label={`Move image ${i + 1} earlier`}
+                      onClick={() => onMove(i, -1)}
+                    >
+                      Earlier
+                    </button>
+                  )}
+                  {i < items.length - 1 && (
+                    <button
+                      type="button"
+                      className="btn"
+                      aria-label={`Move image ${i + 1} later`}
+                      onClick={() => onMove(i, 1)}
+                    >
+                      Later
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn"
+                    aria-label={`Remove image ${i + 1}`}
+                    onClick={() => onRemove(i)}
+                  >
+                    Remove
+                  </button>
+                </div>
               </li>
             );
           })}

@@ -8,7 +8,7 @@ import type {
   SeatingLayout,
 } from '@queuepass/shared';
 import { createEvent, getEvent, updateEvent } from '../api/events';
-import { uploadEventImage } from '../api/images';
+import { deleteEventImage, reorderEventImages, uploadEventImage } from '../api/images';
 import { listLocations } from '../api/locations';
 import { getLayout, getSeatMap, updateSeating } from '../api/seating';
 import { createTier, deleteTier, listTiers, updateTier } from '../api/tiers';
@@ -134,6 +134,10 @@ export function EventForm(): React.ReactElement {
   // Spec 014 (research R9): the event's pictures in order; changes are made on Save.
   const [images, setImages] = useState<ImageItem[]>([]);
   const [imagesNotice, setImagesNotice] = useState<string | null>(null);
+  /** Stored images the admin removed, deleted on Save. */
+  const [removed, setRemoved] = useState<EventImage[]>([]);
+  /** The order the Backend holds, as far as the form knows: decides whether to reorder. */
+  const serverOrder = useRef<string[]>([]);
   const nextKey = useRef(0);
   const newItem = (file: File): ImageItem => ({
     kind: 'new',
@@ -174,8 +178,10 @@ export function EventForm(): React.ReactElement {
     setImagesNotice(handed?.notice ?? null);
     if (handed?.pendingImages) navigate(location.pathname, { replace: true, state: null });
     setImages(pending);
+    setRemoved([]);
     getEvent(id)
       .then((e) => {
+        serverOrder.current = (e.images ?? []).map((i) => i.id);
         setImages([...(e.images ?? []).map(savedItem), ...pending]);
         setName(e.name);
         setLocationId(e.locationId);
@@ -258,15 +264,37 @@ export function EventForm(): React.ReactElement {
   }
 
   /**
-   * Spec 014 research R9: after the event's other changes, upload each new picture in list order,
-   * stopping at the first refusal. Each step updates the list as it succeeds, so saving again
-   * finishes what is left and never sends a picture twice (FR-017).
+   * Spec 014 research R9: after the event's other changes, delete each removed image, upload each
+   * new picture in list order, then, if the list's order differs from the Backend's, send the
+   * whole order, stopping at the first refusal. Each step updates the form as it succeeds, so
+   * saving again finishes what is left and never sends a picture twice (FR-015, FR-017).
    */
-  async function applyImages(eventId: string, list: ImageItem[]): Promise<void> {
+  async function applyImages(
+    eventId: string,
+    list: ImageItem[],
+    toDelete: EventImage[],
+  ): Promise<void> {
+    for (const image of toDelete) {
+      try {
+        await deleteEventImage(eventId, image.id);
+      } catch (err) {
+        // Already gone: what this step wanted.
+        if (!(err instanceof ApiError && err.status === 404)) throw err;
+      }
+      serverOrder.current = serverOrder.current.filter((i) => i !== image.id);
+      setRemoved((now) => now.filter((r) => r.id !== image.id));
+    }
+
+    const ids: string[] = [];
     for (const [i, item] of list.entries()) {
-      if (item.kind !== 'new') continue;
+      if (item.kind === 'saved') {
+        ids.push(item.image.id);
+        continue;
+      }
       try {
         const image = await uploadEventImage(eventId, item.file);
+        ids.push(image.id);
+        serverOrder.current = [...serverOrder.current, image.id];
         setImages((now) =>
           now.map((it) => (it.key === item.key ? { kind: 'saved', key: item.key, image } : it)),
         );
@@ -275,6 +303,52 @@ export function EventForm(): React.ReactElement {
         throw new ImageStepError(item.file, err instanceof ApiError ? err : null, remaining);
       }
     }
+
+    if (ids.join() === serverOrder.current.join()) return;
+    const ordered = await reorderEventImages(eventId, ids);
+    serverOrder.current = ordered.map((i) => i.id);
+    const byId = new Map(ordered.map((i) => [i.id, i]));
+    setImages((now) =>
+      now.map((it) => {
+        const image = it.kind === 'saved' ? byId.get(it.image.id) : undefined;
+        return image ? { ...it, image } : it;
+      }),
+    );
+  }
+
+  /**
+   * Spec 014 research R9, US3 scenario 6: the event's images changed since the form loaded them.
+   * Show the event's current images, with the pictures not yet added after them, to check and
+   * save again.
+   */
+  async function reloadImages(eventId: string): Promise<void> {
+    try {
+      const e = await getEvent(eventId);
+      serverOrder.current = (e.images ?? []).map((i) => i.id);
+      setRemoved([]);
+      setImages((now) => [
+        ...(e.images ?? []).map(savedItem),
+        ...now.filter((it) => it.kind === 'new'),
+      ]);
+    } catch {
+      // The refusal is shown either way; the list stays as it was.
+    }
+  }
+
+  function moveImage(index: number, by: -1 | 1): void {
+    setImages((now) => {
+      const next = [...now];
+      const [item] = next.splice(index, 1);
+      next.splice(index + by, 0, item!);
+      return next;
+    });
+  }
+
+  function removeImage(index: number): void {
+    const item = images[index];
+    if (!item) return;
+    if (item.kind === 'saved') setRemoved((now) => [...now, item.image]);
+    setImages((now) => now.filter((it) => it.key !== item.key));
   }
 
   /**
@@ -370,13 +444,14 @@ export function EventForm(): React.ReactElement {
     };
 
     const list = images;
+    const toDelete = removed;
+    let eventId = id;
     try {
-      let eventId = id;
       if (isEdit && id) await saveEvent(id, payload);
       else eventId = (await scheduleEvent(payload)) ?? undefined;
       if (!eventId) return;
       try {
-        await applyImages(eventId, list);
+        await applyImages(eventId, list, toDelete);
       } catch (err) {
         if (!(err instanceof ImageStepError) || isEdit) throw err;
         // Spec 014 FR-018: the event, its seating, and its ticket types are saved; the form
@@ -398,6 +473,9 @@ export function EventForm(): React.ReactElement {
       // FR-035: state is deliberately untouched here — re-entering a whole form to fix
       // one time is exactly the friction this requirement exists to prevent.
       setError(err instanceof ImageStepError ? err.asApiError() : (err as ApiError));
+      if (err instanceof ApiError && err.code === 'IMAGES_CHANGED' && eventId) {
+        await reloadImages(eventId);
+      }
     } finally {
       setBusy(false);
     }
@@ -695,6 +773,8 @@ export function EventForm(): React.ReactElement {
             eventId={id}
             items={images}
             onAdd={(files) => setImages((now) => [...now, ...files.map(newItem)])}
+            onMove={moveImage}
+            onRemove={removeImage}
           />
 
           <div className="form__actions">

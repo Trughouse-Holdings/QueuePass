@@ -425,7 +425,7 @@ a stale order is refused; a cancelled event refuses changes; deleting an event r
   reorder built from the order read before sending) → no `5xx` (assert first), each refusal is
   `404`, `409 IMAGE_LIMIT_REACHED`, or `409 IMAGES_CHANGED`, and afterwards positions are exactly 1
   to n with n ≤ 5.
-- [ ] T031 [P] [US3] Extend `admin-app/test/images-field.test.tsx`:
+- [x] T031 [P] [US3] Extend `admin-app/test/images-field.test.tsx`:
   - on edit, each preview has "Move image N earlier" (not on the first), "Move image N later" (not
     on the last), and "Remove image N"; moving and removing update the order and the "Cover" mark;
   - saving with image 2 removed and image 4 moved first sends `DELETE` for image 2, then `PUT
@@ -448,7 +448,7 @@ a stale order is refused; a cancelled event refuses changes; deleting an event r
   CONSTRAINTS`). In the same commit, remove `x-planned: '014'` from `deleteEventImage` and
   `reorderEventImages` and run `npm run generate:api`. Run T029, T030, and the route-coverage test
   until they pass.
-- [ ] T033 [US3] In `ImagesField.tsx` and `EventForm.tsx`, add Move earlier, Move later, Remove,
+- [x] T033 [US3] In `ImagesField.tsx` and `EventForm.tsx`, add Move earlier, Move later, Remove,
   the removed list, and the full `applyImages` order (deletes, uploads, reorder when needed), and
   the `IMAGES_CHANGED` reload (research R9). Run T031 until it passes, then the Admin app suite.
 
