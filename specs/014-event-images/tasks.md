@@ -256,8 +256,8 @@ under simultaneous uploads.
   /events/:id/images/:imageId` with no role, returning a `StreamableFile` with the research R4
   headers), and register them in `backend/src/events/events.module.ts`. Create
   `backend/src/events/image-metadata.ts` (`stripImageMetadata`, research R17). `add`: refuse a
-  missing file (`400`), `readImageHeader` (`415`), the pixel limits (`400
-  IMAGE_DIMENSIONS_TOO_LARGE`), strip metadata (`415` if it cannot be walked), then one transaction:
+  missing file (`400`), `readImageHeader` (`415`), strip metadata (`415` if it cannot be walked),
+  the pixel limits (`400 IMAGE_DIMENSIONS_TOO_LARGE`), then one transaction:
   `lockEvent` → cancelled (`409 EVENT_CANCELLED`) → count → `409 IMAGE_LIMIT_REACHED` → insert at
   `count + 1` (data-model.md). Use a local `UploadedImage { buffer: Buffer; size: number }` type,
   not `@types/multer`. In `backend/src/configure-app.ts`, add `maxAge: 600` to `enableCors`

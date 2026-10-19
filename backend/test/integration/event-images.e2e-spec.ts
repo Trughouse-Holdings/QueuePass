@@ -8,7 +8,9 @@ import {
   iptcApp13,
   JPEG,
   jpegMarkers,
+  jpegSegment,
   jpegWith,
+  minimalExifApp1,
   orientationApp1,
   padded,
   PNG,
@@ -139,12 +141,41 @@ describe('Event images: upload and read', () => {
       ]);
       await refused(broken, 415, 'IMAGE_TYPE_NOT_ALLOWED');
     });
+    it('refuses a picture too large in pixels whose chunks run past the end with 415, as the contract orders (M3)', async () => {
+      const broken = Buffer.concat([
+        pngOf(20_000, 20_000).subarray(0, 33),
+        Buffer.from([0, 0, 0, 99]),
+        Buffer.from('IDAT'),
+      ]);
+      await refused(broken, 415, 'IMAGE_TYPE_NOT_ALLOWED');
+    });
   });
 
   describe('size in bytes (FR-004)', () => {
     it('accepts exactly 5,242,880 bytes', async () => {
       const res = await upload(ctx, eventId, padded(PNG, 5_242_880)).expect(201);
       expect(res.body.byteSize).toBe(5_242_880);
+    });
+
+    it('accepts a 5,242,880-byte JPEG whose only Exif is a 32-byte orientation (M2)', async () => {
+      const target = 5_242_880;
+      const base = jpegWith([minimalExifApp1(6)]);
+      // Kept APP3 segments fill the rest; each is at most 65,537 bytes.
+      const remaining = target - base.length;
+      const n = Math.ceil(remaining / 65_537);
+      const fill = Array.from({ length: n }, (_, i) => {
+        const size = Math.floor(remaining / n) + (i < remaining % n ? 1 : 0);
+        return jpegSegment(0xe3, Buffer.alloc(size - 4, 0x2a));
+      });
+      const original = jpegWith([minimalExifApp1(6), ...fill]);
+      expect(original.length).toBe(target);
+      const res = await upload(ctx, eventId, original).expect(201);
+      expect(res.body.byteSize).toBeLessThanOrEqual(target);
+      const bytes = await stored();
+      expect(bytes.length).toBe(res.body.byteSize);
+      expect(bytes.subarray(2, 34)).toEqual(
+        Buffer.concat([Buffer.from([0xff, 0xe1, 0, 30]), orientationApp1(6).subarray(4, 32)]),
+      );
     });
 
     it('refuses 5,242,881 bytes with 413 IMAGE_TOO_LARGE and details.maxBytes', async () => {

@@ -143,7 +143,8 @@ Shifting through temporary out-of-range positions (needs the CHECK to allow them
 - `sniffImageType`, `readImageHeader`, the limits, and the type list live in
   `packages/shared/src/event-image.ts`, so the Admin app's preview (R9) and the Backend use the
   same rule.
-- **Then metadata is removed** (R17), and the stored bytes are what remains.
+- **Then metadata is removed** (R17), and the stored bytes are what remains. It runs before the
+  pixel limits, so a file that cannot be walked is `415` before it is `400`, the contract's order.
 
 **Rationale**: Spec FR-003 and FR-004 (Mahdi: check the real type, not the extension or the
 declared type). A signature check is exact for these three formats and needs no decoder. SVG is
@@ -807,8 +808,8 @@ boundaries on both sides, concurrency with genuinely simultaneous requests. Fake
 ## R17. Metadata is removed before storing; a JPEG keeps its orientation
 
 **Decision** (Mahdi, 2026-10-12, after review round 1): `stripImageMetadata(bytes, contentType)`
-in `backend/src/events/image-metadata.ts` runs after the type and size checks (R3) and before the
-transaction. It copies the file, leaving out metadata, and never touches the picture data:
+in `backend/src/events/image-metadata.ts` runs after the type and byte-size checks (R3), before the
+pixel limits (the contract's refusal order), and before the transaction. It copies the file, leaving out metadata, and never touches the picture data:
 
 - **JPEG**: walks the markers from `SOI`. Before each marker code, any run of `0xFF` fill bytes is
   skipped. Standalone markers, which have no length (`RST0`–`RST7` `D0`–`D7`, `TEM` `01`), are
@@ -830,7 +831,9 @@ transaction. It copies the file, leaving out metadata, and never touches the pic
 - **Orientation**: when a JPEG's Exif `IFD0` has an Orientation tag (`0x0112`) of 2 to 8, a new
   minimal Exif `APP1` with only that tag (a 32-byte payload: `Exif\0\0`, a big-endian TIFF
   header, one IFD entry, no next IFD) is written right after `SOI`, or after a `JFIF` `APP0`
-  when there is one. Orientation 1, or none, writes nothing.
+  when there is one. Orientation 1, or none, writes nothing. An Exif segment that holds an
+  orientation can be as short as 32 bytes (no next-IFD offset); the new one is never longer than
+  the one it replaces, so it is cut to that length, and the file never grows (review round 1).
 - A structure that cannot be walked (a segment or chunk length past the end of the file) is
   `415 IMAGE_TYPE_NOT_ALLOWED`, as an unreadable header is (R3). The Admin form's preview reads
   headers only, so such a file passes it and is refused here, at save time (R9, FR-016).

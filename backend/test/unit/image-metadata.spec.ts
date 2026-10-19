@@ -9,6 +9,7 @@ import {
   jpegMarkers,
   jpegSegment,
   jpegWith,
+  minimalExifApp1,
   orientationApp1,
   PNG,
   pngChunk,
@@ -75,6 +76,23 @@ describe('stripImageMetadata: JPEG', () => {
     for (const littleEndian of [true, false]) {
       const out = strip(jpegWith([exifApp1({ orientation: 3, littleEndian })]), 'image/jpeg');
       expect(out).toEqual(jpegWith([orientationApp1(3)]));
+    }
+  });
+
+  it('never makes the file larger: an Exif of 32 to 35 bytes gives a segment no longer (M2)', () => {
+    for (const littleEndian of [false, true]) {
+      for (let extra = 0; extra <= 4; extra++) {
+        const exif = minimalExifApp1(6, { littleEndian, extra });
+        const original = jpegWith([exif]);
+        const out = strip(original, 'image/jpeg');
+        expect(out.length).toBeLessThanOrEqual(original.length);
+        // The same orientation segment, cut after its one entry when the source was shorter.
+        const kept = Math.min(exif.length, 36);
+        const want = Buffer.from(orientationApp1(6).subarray(0, kept));
+        want.writeUInt16BE(kept - 2, 2);
+        expect(out.subarray(2, 2 + kept)).toEqual(want);
+        expect(out.subarray(2 + kept)).toEqual(original.subarray(2 + exif.length));
+      }
     }
   });
 

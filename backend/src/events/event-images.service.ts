@@ -49,6 +49,9 @@ export class EventImagesService {
 
     const header = readImageHeader(file.buffer);
     if (!header || header.animated) throw notAPicture();
+    // The contract's refusal order: a structure that cannot be walked (415) before the pixel limits
+    // (400). Stripping reads the whole file but holds no lock.
+    const bytes = stripImageMetadata(file.buffer, header.contentType);
     const { width, height } = header;
     const { maxSide, maxPixels } = IMAGE_PIXEL_LIMITS;
     if (width > maxSide || height > maxSide || width * height > maxPixels) {
@@ -65,7 +68,6 @@ export class EventImagesService {
         HttpStatus.BAD_REQUEST,
       );
     }
-    const bytes = stripImageMetadata(file.buffer, header.contentType);
 
     return this.prisma.$transaction(async (tx) => {
       const event = await lockEvent(tx, eventId);

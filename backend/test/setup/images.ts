@@ -250,6 +250,31 @@ export function orientationApp1(orientation: number): Buffer {
   );
 }
 
+/**
+ * The smallest Exif `APP1` the Backend reads an orientation from: one `IFD0` entry and no next-IFD
+ * offset, 32 bytes in all, plus `extra` trailing bytes (review 014 round 1, M2).
+ */
+export function minimalExifApp1(
+  orientation: number,
+  opts: { littleEndian?: boolean; extra?: number } = {},
+): Buffer {
+  const le = opts.littleEndian ?? false;
+  const tiff = Buffer.alloc(22 + (opts.extra ?? 0));
+  tiff.write(le ? 'II' : 'MM', 0, 'latin1');
+  const u16 = (v: number, at: number) =>
+    le ? tiff.writeUInt16LE(v, at) : tiff.writeUInt16BE(v, at);
+  const u32 = (v: number, at: number) =>
+    le ? tiff.writeUInt32LE(v, at) : tiff.writeUInt32BE(v, at);
+  u16(42, 2);
+  u32(8, 4);
+  u16(1, 8); // one entry
+  u16(0x0112, 10); // Orientation
+  u16(3, 12); // SHORT
+  u32(1, 14); // count
+  u16(orientation, 18);
+  return jpegSegment(0xe1, Buffer.concat([Buffer.from('Exif  ', 'latin1'), tiff]));
+}
+
 /** An XMP `APP1` segment (standard or extended). */
 export function xmpApp1(text: string, extended = false): Buffer {
   const ns = extended ? 'http://ns.adobe.com/xmp/extension/\0' : 'http://ns.adobe.com/xap/1.0/\0';

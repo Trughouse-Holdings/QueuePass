@@ -6,7 +6,8 @@ import { IMAGE_CONTENT_TYPES, type ImageContentType } from '@queuepass/shared';
  * metadata, and anything after the end of the main picture, without touching the picture data:
  *
  * - JPEG: drops Exif and XMP `APP1`, `APP2` `MPF`, `APP13`, and `COM`; stops after the first
- *   `EOI`. An Exif Orientation of 2 to 8 is kept in a minimal Exif `APP1` of its own.
+ *   `EOI`. An Exif Orientation of 2 to 8 is kept in a minimal Exif `APP1` of its own, never longer
+ *   than the Exif segment it was read from, so the file never grows past the size limit.
  * - PNG: drops `eXIf`, `tEXt`, `iTXt`, `zTXt`, and `tIME`; stops after `IEND`.
  * - WebP: drops `EXIF` and `XMP `, clears their `VP8X` flags, drops bytes past the declared `RIFF`
  *   length, and rewrites the `RIFF` size.
@@ -47,6 +48,8 @@ const isStandalone = (marker: number) => (marker >= 0xd0 && marker <= 0xd7) || m
 function stripJpeg(b: Buffer): Buffer {
   const out: Buffer[] = [b.subarray(0, 2)]; // SOI
   let orientation: number | null = null;
+  // The length of the Exif segment the orientation was read from.
+  let orientationFrom = 0;
   // Where the orientation segment goes: after SOI, or after a JFIF APP0 that comes first.
   let insertAt = 1;
   let at = 2;
@@ -83,7 +86,10 @@ function stripJpeg(b: Buffer): Buffer {
       out.push(segment);
       insertAt = out.length;
     } else if (marker === 0xe1 && startsWith(b, payload, 'Exif\0\0')) {
-      orientation ??= readOrientation(b.subarray(payload + 6, end));
+      if (orientation === null) {
+        orientation = readOrientation(b.subarray(payload + 6, end));
+        orientationFrom = segment.length;
+      }
     } else if (
       (marker === 0xe1 && (startsWith(b, payload, XMP) || startsWith(b, payload, XMP_EXTENDED))) ||
       (marker === 0xe2 && startsWith(b, payload, 'MPF\0')) ||
@@ -126,7 +132,7 @@ function stripJpeg(b: Buffer): Buffer {
   }
 
   if (orientation !== null && orientation >= 2 && orientation <= 8) {
-    out.splice(insertAt, 0, orientationSegment(orientation));
+    out.splice(insertAt, 0, orientationSegment(orientation, orientationFrom));
   }
   return Buffer.concat(out);
 }
@@ -151,8 +157,13 @@ function readOrientation(tiff: Buffer): number | null {
   return null;
 }
 
-/** A minimal Exif APP1 with only IFD0 Orientation: a 32-byte payload (research R17). */
-function orientationSegment(orientation: number): Buffer {
+/**
+ * A minimal Exif APP1 with only IFD0 Orientation: a 32-byte payload (research R17). An Exif segment
+ * that holds an orientation is at least 32 bytes (its one entry ends there), so when the one it
+ * replaces is shorter than this one's 36, it is cut to that length, dropping only the zero
+ * next-IFD offset: the stored file is never larger than the file as sent (FR-004, FR-035).
+ */
+function orientationSegment(orientation: number, atMost: number): Buffer {
   const payload = Buffer.alloc(32);
   payload.write('Exif\0\0MM', 0, 'latin1');
   payload.writeUInt16BE(42, 8);
@@ -163,7 +174,11 @@ function orientationSegment(orientation: number): Buffer {
   payload.writeUInt32BE(1, 20); // count
   payload.writeUInt16BE(orientation, 24); // value, left-justified
   // bytes 26 to 31: value padding and no next IFD, all zero
-  return Buffer.concat([Buffer.from([0xff, 0xe1, 0, 34]), payload]);
+  const segment = Buffer.concat([Buffer.from([0xff, 0xe1, 0, 34]), payload]);
+  if (atMost >= segment.length) return segment;
+  const cut = segment.subarray(0, atMost);
+  cut.writeUInt16BE(atMost - 2, 2);
+  return cut;
 }
 
 const PNG_DROPPED = new Set(['eXIf', 'tEXt', 'iTXt', 'zTXt', 'tIME']);
