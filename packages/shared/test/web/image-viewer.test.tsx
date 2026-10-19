@@ -156,6 +156,47 @@ describe('ImageViewer', () => {
     expect(root).not.toHaveAttribute('inert');
   });
 
+  it('keeps the gallery turning after a pointer closes the view (FR-024, research R11)', async () => {
+    stubImages();
+    await page(3);
+    const user = await openAt(1);
+    await user.click(screen.getByRole('button', { name: 'Close full screen' }));
+    expect(openButton()).toHaveFocus();
+    await advance(5000);
+    expect(galleryPosition()).toBe('2 of 3');
+  });
+
+  it('pauses the gallery after a keyboard close, while the image button has focus (FR-024)', async () => {
+    stubImages();
+    await page(3);
+    const user = await openAt(1);
+    await user.keyboard('{Escape}');
+    await advance(15_000);
+    expect(galleryPosition()).toBe('1 of 3');
+
+    await user.click(openButton());
+    await advance(0);
+    await user.keyboard('{Enter}'); // the close button has focus
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(openButton()).toHaveFocus();
+    await advance(15_000);
+    expect(galleryPosition()).toBe('1 of 3');
+  });
+
+  it('still takes Esc and the arrow keys after a click on the picture or the backdrop (FR-029)', async () => {
+    stubImages();
+    await page(3);
+    const user = await openAt(1);
+    await user.click(within(dialog()).getByRole('img'));
+    await user.keyboard('{ArrowRight}');
+    expect(dialog()).toHaveAccessibleName(`${NAME}, image 2 of 3`);
+    await user.click(dialog());
+    await user.keyboard('{ArrowLeft}');
+    expect(dialog()).toHaveAccessibleName(`${NAME}, image 1 of 3`);
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('shows one image with the close button, no arrows, and no position', async () => {
     stubImages();
     await page(1);

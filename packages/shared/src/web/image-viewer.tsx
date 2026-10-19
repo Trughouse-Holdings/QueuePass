@@ -12,8 +12,12 @@ export interface ImageViewerProps {
   images: EventImage[];
   /** The image to open on, 0-based. */
   start: number;
-  /** Closes the view; `index` is the image last viewed, which the gallery then shows (FR-030). */
-  onClose: (index: number) => void;
+  /**
+   * Closes the view; `index` is the image last viewed, which the gallery then shows (FR-030).
+   * `byKeyboard` says whether a key closed it (Esc, or Enter or Space on the close button), so the
+   * gallery counts the focus it gets back as keyboard focus only then (research R11).
+   */
+  onClose: (index: number, how: { byKeyboard: boolean }) => void;
 }
 
 /** Keeps one image loaded while mounted; renders nothing (research R4). */
@@ -80,7 +84,7 @@ export function ImageViewer({ eventId, eventName, images, start, onClose }: Imag
   function onKeyDown(e: React.KeyboardEvent<HTMLDivElement>): void {
     if (e.key === 'Escape') {
       e.preventDefault();
-      onClose(index);
+      onClose(index, { byKeyboard: true });
     } else if (e.key === 'ArrowRight' && several) {
       e.preventDefault();
       rotation.next();
@@ -111,6 +115,9 @@ export function ImageViewer({ eventId, eventName, images, start, onClose }: Imag
       role="dialog"
       aria-modal="true"
       aria-label={label}
+      // FR-029: a click on the picture or the backdrop focuses the dialog, not the page, so Esc
+      // and the arrow keys still reach it.
+      tabIndex={-1}
       onKeyDown={onKeyDown}
     >
       {images.map((image, i) =>
@@ -146,7 +153,8 @@ export function ImageViewer({ eventId, eventName, images, start, onClose }: Imag
         type="button"
         className="viewer__close"
         aria-label="Close full screen"
-        onClick={() => onClose(index)}
+        // A click from a key press has no pointer clicks counted (`detail` 0).
+        onClick={(e) => onClose(index, { byKeyboard: e.detail === 0 })}
       >
         <span aria-hidden="true">×</span>
       </button>

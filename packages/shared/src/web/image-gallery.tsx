@@ -137,6 +137,8 @@ export function ImageGallery({
   const wasViewing = useRef(false);
   // Research R11: a pointer press is followed by focus; that focus is not keyboard focus.
   const pointerDown = useRef(false);
+  // Research R11: focus given back by a full-screen view a pointer closed is not keyboard focus.
+  const closedByPointer = useRef(false);
   const rotation = useGalleryRotation({
     count,
     paused: overArrow || keyboardFocus || !onScreen || viewing !== null,
@@ -170,6 +172,7 @@ export function ImageGallery({
     } else if (wasViewing.current) {
       wasViewing.current = false;
       openButton.current?.focus();
+      closedByPointer.current = false;
     }
   }, [viewing]);
 
@@ -189,7 +192,7 @@ export function ImageGallery({
 
   const keyboardOnly = {
     onFocus: () => {
-      if (!pointerDown.current) setKeyboardFocus(true);
+      if (!pointerDown.current && !closedByPointer.current) setKeyboardFocus(true);
     },
     onBlur: () => setKeyboardFocus(false),
   };
@@ -307,7 +310,8 @@ export function ImageGallery({
           eventName={eventName}
           images={images}
           start={viewing}
-          onClose={(last) => {
+          onClose={(last, { byKeyboard }) => {
+            closedByPointer.current = !byKeyboard;
             rotation.show(last);
             setViewing(null);
           }}
