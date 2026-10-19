@@ -544,14 +544,21 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   "Today" (admins add up to 5; customers see a rotating gallery on cards and the event page, and
   full screen), note that images are stored in PostgreSQL, and keep the reserved-features line
   accurate.
-- [ ] T042 Run `npm run lint` and `npm test` from the repository root; everything passes,
+- [x] T042 Run `npm run lint` and `npm test` from the repository root; everything passes,
   including `check-contract-drift` and the theme's drift check. Also run `npm run build` in
   `admin-app` and `customer-app` (their `tsc --noEmit`). Check explicitly that no
   `x-planned: '014'` marker is left in `contracts/openapi.yaml` and that the route-coverage test
   passes (every 014 operation served, none still marked).
-- [ ] T043 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
+- [x] T043 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' and `packages/shared` coverage if a provider is installed) in the PR description.
   The 80% floor is not yet blocking (Constitution VI deferral until `010` and `011`).
+  - 2026-10-19: `npx jest --coverage` in `backend`, 547 tests: 96.35% lines overall; the new
+    image controller, service, reorder DTO, and `demo-images.ts` at 100% lines,
+    `image-metadata.ts` 96.2%, `events.service.ts` 100%, `demo-data.ts` 85.3% (its command-line
+    `main` is not run by tests), `prisma-exception.filter.ts` 74.3% (older paths; its `014`
+    mappings are covered). No front-end coverage provider is installed, so `packages/shared`,
+    Admin, and Customer coverage waits on `010`. Details for the PR: `coverage.md` (not
+    committed).
 - [ ] T044 Running-system gate: `docker compose up --build`, walk quickstart.md S1–S12 in the
   browser, and sign in, use, and sign out of each front end. Record the results in this file,
   including S11's peak memory of the `backend` and `postgres` containers and of the browser
