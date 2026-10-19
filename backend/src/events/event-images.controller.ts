@@ -1,11 +1,14 @@
 import {
+  Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   Res,
   StreamableFile,
   UploadedFile,
@@ -15,6 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { EVENT_IMAGE_LIMITS, type EventImage } from '@queuepass/shared';
 import type { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
+import { ReorderEventImagesDto } from './dto/reorder-event-images.dto';
 import { EventImagesService, type UploadedImage } from './event-images.service';
 
 /** Implements the /events/{id}/images operations in contracts/openapi.yaml (spec 014). */
@@ -44,6 +48,27 @@ export class EventImagesController {
     @UploadedFile() file: UploadedImage | undefined,
   ): Promise<EventImage> {
     return this.images.add(id, file);
+  }
+
+  /** FR-008: the event's images in the order named; declared before `:imageId` routes. */
+  @Put('order')
+  @Roles('queuepass-admin')
+  reorder(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ReorderEventImagesDto,
+  ): Promise<EventImage[]> {
+    return this.images.reorder(id, body.imageIds);
+  }
+
+  /** FR-007: removes one image; the others close the gap. */
+  @Delete(':imageId')
+  @Roles('queuepass-admin')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('imageId', ParseUUIDPipe) imageId: string,
+  ): Promise<void> {
+    return this.images.remove(id, imageId);
   }
 
   /** Any signed-in user, like the event it belongs to (FR-002, FR-013; research R4). */

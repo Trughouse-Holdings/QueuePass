@@ -10,9 +10,8 @@ import { AGENT, CUSTOMER, tokenFor } from '../setup/tokens';
  * Spec 014 FR-002, FR-013 (Constitution V): every image operation needs a valid token; only a
  * QueuePass Admin may change images; any signed-in role may read one.
  *
- * An operation still marked `x-planned` in the contract is not served yet (research R8; delete
- * and reorder arrive with US3, T032). Its cases run once the marker is gone, so this file covers
- * all four operations without a failing case for a route the contract says does not exist yet.
+ * A case runs only for an operation the contract no longer marks `x-planned` (research R8); since
+ * T032 all four are served, and the first case checks that none is skipped.
  */
 describe('Event image endpoints: authorization', () => {
   let ctx: TestContext;
@@ -79,7 +78,7 @@ describe('Event image endpoints: authorization', () => {
       .map((o) => o.operationId)
       .sort();
     expect([...writes, read].map((w) => w.op).sort()).toEqual(declared);
-    expect(served('uploadEventImage') && served('getEventImage')).toBe(true);
+    expect(declared.filter((op) => !served(op))).toEqual([]);
   });
 
   it('refuses every operation without a token, or with an expired, wrongly signed, or wrong-audience token', async () => {

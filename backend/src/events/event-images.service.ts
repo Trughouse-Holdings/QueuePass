@@ -24,6 +24,9 @@ export interface UploadedImage {
   size: number;
 }
 
+const imageNotFound = (eventId: string, imageId: string) =>
+  new NotFoundException(`No image ${imageId} exists for event ${eventId}.`);
+
 /** Metadata only: `bytes` is selected in `read` and nowhere else (research R6). */
 const IMAGE_SELECT = { id: true, position: true, contentType: true, byteSize: true } as const;
 
@@ -90,6 +93,64 @@ export class EventImagesService {
     }, LOCKING_TX);
   }
 
+  /**
+   * FR-007, FR-009, FR-010: removes one image and closes the gap, in one statement (the deferrable
+   * unique constraint is checked when the statement ends, research R2).
+   */
+  async remove(eventId: string, imageId: string): Promise<void> {
+    await this.prisma.$transaction(async (tx) => {
+      const event = await lockEvent(tx, eventId);
+      const image = await tx.eventImage.findFirst({
+        where: { id: imageId, eventId },
+        select: { position: true },
+      });
+      if (!image) throw imageNotFound(eventId, imageId);
+      if (event.status === 'CANCELLED') throw eventCancelled(event.name);
+      await tx.eventImage.delete({ where: { id: imageId } });
+      await tx.$executeRaw`
+        UPDATE "EventImage" SET "position" = "position" - 1
+        WHERE "eventId" = ${eventId}::uuid AND "position" > ${image.position}`;
+    }, LOCKING_TX);
+  }
+
+  /**
+   * FR-008 to FR-010: sets the order from a list naming every image of the event exactly once,
+   * in one statement. Any other list means the images changed since it was read.
+   */
+  async reorder(eventId: string, imageIds: string[]): Promise<EventImage[]> {
+    return this.prisma.$transaction(async (tx) => {
+      const event = await lockEvent(tx, eventId);
+      if (event.status === 'CANCELLED') throw eventCancelled(event.name);
+      const current = (
+        await tx.eventImage.findMany({
+          where: { eventId },
+          select: { id: true },
+          orderBy: { position: 'asc' },
+        })
+      ).map((i) => i.id);
+      const wanted = new Set(imageIds);
+      if (current.length !== imageIds.length || current.some((id) => !wanted.has(id))) {
+        throw conflict(
+          'IMAGES_CHANGED',
+          `The images of ${event.name} changed since you loaded them. Check them and try again.`,
+          { imageIds: current },
+        );
+      }
+      if (imageIds.length > 0) {
+        await tx.$executeRaw`
+          UPDATE "EventImage" AS i SET "position" = o.ord::int
+          FROM unnest(${imageIds}::uuid[]) WITH ORDINALITY AS o(id, ord)
+          WHERE i."id" = o.id AND i."eventId" = ${eventId}::uuid`;
+      }
+      const images = await tx.eventImage.findMany({
+        where: { eventId },
+        select: IMAGE_SELECT,
+        orderBy: { position: 'asc' },
+      });
+      return images.map((i) => ({ ...i, contentType: i.contentType as ImageContentType }));
+    }, LOCKING_TX);
+  }
+
   /** FR-013: one image's bytes and type; an image of another event is not found. */
   async read(
     eventId: string,
@@ -99,7 +160,7 @@ export class EventImagesService {
       where: { id: imageId, eventId },
       select: { contentType: true, bytes: true },
     });
-    if (!image) throw new NotFoundException(`No image ${imageId} exists for event ${eventId}.`);
+    if (!image) throw imageNotFound(eventId, imageId);
     return { contentType: image.contentType as ImageContentType, bytes: image.bytes };
   }
 }

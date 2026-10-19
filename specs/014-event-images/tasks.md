@@ -409,7 +409,7 @@ a stale order is refused; a cancelled event refuses changes; deleting an event r
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T029 [P] [US3] Create `backend/test/integration/event-images.order.e2e-spec.ts`:
+- [x] T029 [P] [US3] Create `backend/test/integration/event-images.order.e2e-spec.ts`:
   - delete image 2 of 4 → `204`; the event lists 3 images, positions 1 to 3, in the old order;
     `getEventImage` of the deleted id → `404`; deleting it again → `404`;
   - reorder 4 images to `[d, a, b, c]` → `200`, matching the contract, positions follow the list;
@@ -420,7 +420,7 @@ a stale order is refused; a cancelled event refuses changes; deleting an event r
   - a cancelled event → delete and reorder `409 EVENT_CANCELLED`, nothing changed; its images are
     still listed and served;
   - deleting an event with 3 images and no orders → `204`, and `EventImage` has no row for it.
-- [ ] T030 [P] [US3] Extend `backend/test/integration/event-images.concurrency.e2e-spec.ts`: 20
+- [x] T030 [P] [US3] Extend `backend/test/integration/event-images.concurrency.e2e-spec.ts`: 20
   simultaneous requests on one event mixing uploads, deletes of existing images, and reorders (each
   reorder built from the order read before sending) → no `5xx` (assert first), each refusal is
   `404`, `409 IMAGE_LIMIT_REACHED`, or `409 IMAGES_CHANGED`, and afterwards positions are exactly 1
@@ -441,7 +441,7 @@ a stale order is refused; a cancelled event refuses changes; deleting an event r
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] In `backend/src/events/event-images.service.ts` and the controller, add `remove`
+- [x] T032 [US3] In `backend/src/events/event-images.service.ts` and the controller, add `remove`
   (`DELETE /events/:id/images/:imageId`, `204`) and `reorder` (`PUT /events/:id/images/order`,
   `backend/src/events/dto/reorder-event-images.dto.ts`: `imageIds` UUIDs, unique, at most 5), each
   in one transaction with `lockEvent` and the single-statement shifts in data-model.md (no `SET
