@@ -746,7 +746,7 @@ diagonal bands in two colors, 960 × 540 pixels, a few kilobytes each. `demo-dat
 - the comedy night: 1 image (no arrows);
 - the gala: none (looks as before).
 
-`DemoSummary` gains `images: 6`. No picture file is committed.
+`DemoSummary` gains `images: 4` (3 + 1 + 0). No picture file is committed.
 
 **Rationale**: Spec FR-034. Generated pictures keep the repository small, carry no copyright, show
 each gallery case on demo day, and go through the same type check as uploads (they are real PNGs).

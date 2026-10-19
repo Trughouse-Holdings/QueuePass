@@ -532,7 +532,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 ## Phase 8: Polish & Cross-Cutting Concerns
 
 - [x] T039 **Test first.** Extend `backend/test/integration/demo-data.e2e-spec.ts`: after the run,
-  the summary has `images: 6`; the concert has 3 images, the comedy night 1, and the gala none;
+  the summary has `images: 4`; the concert has 3 images, the comedy night 1, and the gala none;
   each is a valid PNG by `sniffImageType` and under 100 KB; a second run creates nothing. Add a unit
   test, `backend/test/unit/demo-images.spec.ts`: `demoPng` output starts with the PNG signature,
   has `IHDR` with the requested width and height, and its chunks' CRCs check. Confirm both fail
