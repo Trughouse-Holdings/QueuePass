@@ -164,6 +164,20 @@ export function ImageGallery({
     );
   }, [index, count, card]);
 
+  // Research R11: a press ends with pointerup or, when the browser takes it over for a native drag,
+  // pointercancel, and may end outside the gallery; any of these ends it.
+  useEffect(() => {
+    const release = () => {
+      pointerDown.current = false;
+    };
+    document.addEventListener('pointerup', release, true);
+    document.addEventListener('pointercancel', release, true);
+    return () => {
+      document.removeEventListener('pointerup', release, true);
+      document.removeEventListener('pointercancel', release, true);
+    };
+  }, []);
+
   // FR-030: on closing full screen, focus goes back to the image button that opened it, once the
   // view has made the app usable again.
   useEffect(() => {
@@ -227,9 +241,6 @@ export function ImageGallery({
       onPointerDown={() => {
         pointerDown.current = true;
         setKeyboardFocus(false);
-      }}
-      onPointerUp={() => {
-        pointerDown.current = false;
       }}
     >
       {images.map((image, i) =>

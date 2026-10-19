@@ -217,6 +217,29 @@ describe('ImageGallery, page variant', () => {
     expect(position()).toBe('2 of 3');
   });
 
+  it('still pauses for keyboard focus after a press that ended in a cancel or outside (M1)', async () => {
+    stubImages();
+    await show(3, <button type="button">Outside</button>);
+    const user = keyboard();
+    // A native drag of the image ends the press with pointercancel, not pointerup.
+    fireEvent.pointerDown(openButton());
+    fireEvent.pointerCancel(openButton());
+    await user.tab(); // the full-screen image button
+    expect(openButton()).toHaveFocus();
+    await advance(15_000);
+    expect(position()).toBe('1 of 3');
+
+    // A press inside the gallery released outside it.
+    await user.tab({ shift: true });
+    fireEvent.pointerDown(arrow('Next'));
+    fireEvent.pointerUp(screen.getByRole('button', { name: 'Outside' }));
+    await user.tab(); // the full-screen image button
+    await user.tab(); // Previous
+    expect(arrow('Previous')).toHaveFocus();
+    await advance(15_000);
+    expect(position()).toBe('1 of 3');
+  });
+
   it('is announced politely only while it does not turn on its own', async () => {
     stubImages();
     const { container } = await show(3);
