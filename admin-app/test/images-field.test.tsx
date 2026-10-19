@@ -39,6 +39,8 @@ const TIER = {
 };
 const HINT = 'Up to 5 images. JPG, PNG, or WebP, up to 5 MB each. The first image is the cover.';
 const TYPE_MESSAGE = 'This file is not a JPG, PNG, or WebP picture.';
+const CHANGED =
+  'The images of Season Opener changed since you loaded them. Check them and try again.';
 
 /** Where the router is, and whether the history entry carries state. */
 function Where() {
@@ -86,8 +88,16 @@ type Planned = 'ok' | Response | 'network-error';
  * A Backend for one event: its stored images grow with each accepted upload. `uploads` plans the
  * answers to the uploads in order; any not planned are accepted.
  */
-function backend(opts: { images?: EventImage[]; uploads?: Planned[]; routes?: object } = {}) {
-  const images = [...(opts.images ?? [])];
+function backend(
+  opts: {
+    images?: EventImage[];
+    uploads?: Planned[];
+    /** Answers to deletes, by image id; any not planned are done. */
+    deletes?: Record<string, Planned>;
+    routes?: object;
+  } = {},
+) {
+  const images = (opts.images ?? []).map((i) => ({ ...i }));
   let n = 0;
   let made = 0;
   const api = stubApi({
@@ -105,6 +115,35 @@ function backend(opts: { images?: EventImage[]; uploads?: Planned[]; routes?: ob
       const image = savedImage(`img-${++made}`, images.length + 1);
       images.push(image as EventImage);
       return json(image, 201);
+    },
+    // US3: deleting closes the gap; a reorder must name exactly the stored images.
+    ...Object.fromEntries(
+      ['s1', 's2', 's3', 's4', 's5', 'img-1', 'img-2', 'img-3'].map((imageId) => [
+        `DELETE /events/${ID}/images/${imageId}`,
+        () => {
+          const planned = opts.deletes?.[imageId] ?? 'ok';
+          if (planned === 'network-error') throw new TypeError('Failed to fetch');
+          if (planned !== 'ok') return planned;
+          const at = images.findIndex((i) => i.id === imageId);
+          if (at < 0) return refusal(404, 'NOT_FOUND', 'No such image.');
+          images.splice(at, 1);
+          images.forEach((i, n) => (i.position = n + 1));
+          return new Response(null, { status: 204 });
+        },
+      ]),
+    ),
+    [`PUT /events/${ID}/images/order`]: () => {
+      const { imageIds } = api.calls.at(-1)!.body as { imageIds: string[] };
+      const current = images.map((i) => i.id);
+      if (imageIds.length !== current.length || current.some((i) => !imageIds.includes(i))) {
+        return json(
+          { error: { code: 'IMAGES_CHANGED', message: CHANGED, details: { imageIds: current } } },
+          409,
+        );
+      }
+      images.sort((a, b) => imageIds.indexOf(a.id) - imageIds.indexOf(b.id));
+      images.forEach((i, n) => (i.position = n + 1));
+      return json(images.map((i) => ({ ...i })));
     },
     ...opts.routes,
   });
@@ -335,6 +374,170 @@ describe('saving', () => {
     fireEvent.click(screen.getByRole('link', { name: 'Cancel' }));
     expect(await screen.findByText('Event list')).toBeInTheDocument();
     expect(server.imageCalls()).toEqual([]);
+    expect(server.api.calls.filter((c) => c.method !== 'GET')).toEqual([]);
+  });
+});
+
+describe('moving and removing (US3, FR-014, FR-015)', () => {
+  const stored = (n: number) =>
+    Array.from({ length: n }, (_, i) => savedImage(`s${i + 1}`, i + 1)) as EventImage[];
+  const button = (name: string) => screen.getByRole('button', { name });
+  const writes = (server: ReturnType<typeof backend>) =>
+    server.imageCalls().map((c) => `${c.method} ${c.path.replace(`/events/${ID}/images`, '')}`);
+  const orderSent = (server: ReturnType<typeof backend>) =>
+    server.api.calls
+      .filter((c) => c.method === 'PUT')
+      .map((c) => (c.body as { imageIds: string[] }).imageIds);
+  const save = async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText('Event page', {}, { timeout: 3000 })).toBeInTheDocument();
+  };
+
+  it('offers Move earlier, Move later, and Remove on each image of the edit form', async () => {
+    backend({ images: stored(3) });
+    renderAt(`/events/${ID}/edit`);
+    await editLoaded(3);
+    items().forEach((item, i) => {
+      const n = i + 1;
+      const names = within(item)
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label') ?? b.textContent);
+      expect(names).toEqual([
+        ...(n > 1 ? [`Move image ${n} earlier`] : []),
+        ...(n < 3 ? [`Move image ${n} later`] : []),
+        `Remove image ${n}`,
+      ]);
+    });
+  });
+
+  it('moves and removes in the list, keeping Cover on the first', async () => {
+    backend();
+    renderAt('/events/new');
+    await screen.findByRole('group', { name: 'Images' });
+    choose(pngFile('a.png'), pngFile('b.png'), pngFile('c.png'));
+    await vi.waitFor(() => expect(items()).toHaveLength(3));
+    const src = () =>
+      items().map((item) => within(item).getByRole('img').getAttribute('src') as string);
+    await vi.waitFor(() => expect(src().every((u) => u?.startsWith('blob:'))).toBe(true));
+    const [a, b, c] = src();
+
+    fireEvent.click(button('Move image 3 earlier'));
+    expect(src()).toEqual([a, c, b]);
+    fireEvent.click(button('Move image 2 earlier'));
+    expect(src()).toEqual([c, a, b]);
+    expect(within(items()[0]!).getByText('Cover')).toBeInTheDocument();
+    expect(within(items()[1]!).queryByText('Cover')).toBeNull();
+    fireEvent.click(button('Move image 1 later'));
+    expect(src()).toEqual([a, c, b]);
+    fireEvent.click(button('Remove image 1'));
+    expect(src()).toEqual([c, b]);
+    expect(within(items()[0]!).getByText('Cover')).toBeInTheDocument();
+    expect(within(items()[0]!).getByRole('img')).toHaveAccessibleName('Image 1');
+  });
+
+  it('deletes image 2, then sends the new order with image 4 first', async () => {
+    const server = backend({ images: stored(4) });
+    renderAt(`/events/${ID}/edit`);
+    await editLoaded(4);
+    fireEvent.click(button('Remove image 2'));
+    await vi.waitFor(() => expect(items()).toHaveLength(3));
+    fireEvent.click(button('Move image 3 earlier'));
+    fireEvent.click(button('Move image 2 earlier'));
+    await save();
+    expect(writes(server)).toEqual(['DELETE /s2', 'PUT /order']);
+    expect(orderSent(server)).toEqual([['s4', 's1', 's3']]);
+    expect(server.images.map((i) => [i.id, i.position])).toEqual([
+      ['s4', 1],
+      ['s1', 2],
+      ['s3', 3],
+    ]);
+  });
+
+  it('sends no image request when the images did not change', async () => {
+    const server = backend({ images: stored(2) });
+    renderAt(`/events/${ID}/edit`);
+    await editLoaded(2);
+    await save();
+    expect(writes(server)).toEqual([]);
+  });
+
+  it('removes one of five and adds one: delete, upload, and no reorder when the new one is last', async () => {
+    const server = backend({ images: stored(5) });
+    renderAt(`/events/${ID}/edit`);
+    await editLoaded(5);
+    fireEvent.click(button('Remove image 2'));
+    choose(pngFile('new.png'));
+    await vi.waitFor(() => expect(items()).toHaveLength(5));
+    await save();
+    expect(writes(server)).toEqual(['DELETE /s2', 'POST ']);
+    expect(server.images.map((i) => i.id)).toEqual(['s1', 's3', 's4', 's5', 'img-1']);
+  });
+
+  it('removes one of five and adds one first: delete, upload, then the reorder', async () => {
+    const server = backend({ images: stored(5) });
+    renderAt(`/events/${ID}/edit`);
+    await editLoaded(5);
+    fireEvent.click(button('Remove image 2'));
+    choose(pngFile('new.png'));
+    await vi.waitFor(() => expect(items()).toHaveLength(5));
+    for (let n = 5; n > 1; n--) fireEvent.click(button(`Move image ${n} earlier`));
+    await save();
+    expect(writes(server)).toEqual(['DELETE /s2', 'POST ', 'PUT /order']);
+    expect(orderSent(server)).toEqual([['img-1', 's1', 's3', 's4', 's5']]);
+    expect(server.images.map((i) => i.id)).toEqual(['img-1', 's1', 's3', 's4', 's5']);
+  });
+
+  it('reloads the images on IMAGES_CHANGED, keeps pending pictures, and saves the order again', async () => {
+    const server = backend({ images: stored(3), uploads: ['network-error'] });
+    renderAt(`/events/${ID}/edit`);
+    await editLoaded(3);
+    fireEvent.click(button('Move image 3 earlier'));
+    // Another admin adds a picture meanwhile.
+    server.images.push(savedImage('s4', 4) as EventImage);
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(CHANGED);
+    expect(orderSent(server)).toEqual([['s1', 's3', 's2']]);
+    await vi.waitFor(() => expect(items()).toHaveLength(4));
+    expect(server.api.count('GET', `/events/${ID}`)).toBe(2);
+
+    // A new picture whose upload fails stays pending after the reloaded images.
+    choose(pngFile('new.png'));
+    await vi.waitFor(() => expect(items()).toHaveLength(5));
+    fireEvent.click(button('Move image 4 earlier'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await vi.waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent('new.png: It could not be sent.'),
+    );
+    expect(items()).toHaveLength(5);
+
+    // Saving again sends the upload, then the order of the reloaded list.
+    await save();
+    expect(orderSent(server).at(-1)).toEqual(['s1', 's2', 's4', 's3', 'img-1']);
+    expect(server.images.map((i) => i.id)).toEqual(['s1', 's2', 's4', 's3', 'img-1']);
+  });
+
+  it('counts a 404 on a delete as done', async () => {
+    const server = backend({
+      images: stored(3),
+      deletes: { s2: refusal(404, 'NOT_FOUND', 'No such image.') },
+    });
+    renderAt(`/events/${ID}/edit`);
+    await editLoaded(3);
+    fireEvent.click(button('Remove image 2'));
+    await save();
+    expect(writes(server)).toEqual(['DELETE /s2']);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('sends no request on Cancel after moves and removals', async () => {
+    const server = backend({ images: stored(3) });
+    renderAt(`/events/${ID}/edit`);
+    await editLoaded(3);
+    fireEvent.click(button('Remove image 1'));
+    fireEvent.click(button('Move image 2 earlier'));
+    fireEvent.click(screen.getByRole('link', { name: 'Cancel' }));
+    expect(await screen.findByText('Event list')).toBeInTheDocument();
     expect(server.api.calls.filter((c) => c.method !== 'GET')).toEqual([]);
   });
 });
