@@ -284,3 +284,29 @@ describe('the gallery slide (spec 014 FR-040)', () => {
     expect(rule![2]).toMatch(/animation:\s*none/);
   });
 });
+
+// Spec 014 FR-029 (research R12, R13): the full-screen view covers the window on the scrim, and
+// the page behind does not scroll while it is open.
+describe('the full-screen view (spec 014 FR-029)', () => {
+  it('covers the whole window on --scrim, above the top bar', () => {
+    const body = bodiesOf(topLevel(), '.viewer').join('\n');
+    expect(body).toMatch(/position:\s*fixed/);
+    expect(body).toMatch(/inset:\s*0/);
+    expect(body).toMatch(/background:\s*var\(--scrim\)/);
+    expect(body).toMatch(/z-index:\s*\d+/);
+  });
+
+  it('shows the whole picture', () => {
+    expect(bodiesOf(topLevel(), '.viewer__image').join('\n')).toMatch(/object-fit:\s*contain/);
+  });
+
+  it('keeps the page behind from scrolling', () => {
+    expect(bodiesOf(topLevel(), '.viewer-open').join('\n')).toMatch(/overflow:\s*hidden/);
+  });
+
+  it('writes the position in --scrim-text', () => {
+    expect(bodiesOf(topLevel(), '.viewer__count').join('\n')).toMatch(
+      /color:\s*var\(--scrim-text\)/,
+    );
+  });
+});
