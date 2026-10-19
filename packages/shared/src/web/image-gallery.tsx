@@ -183,6 +183,10 @@ export function ImageGallery({
     onPointerLeave: () => setOverArrow(false),
   };
 
+  const positionText = several ? (
+    <p className="gallery__count">{`${index + 1} of ${count}`}</p>
+  ) : null;
+
   const incoming = (
     <span
       key={shown.id}
@@ -243,6 +247,9 @@ export function ImageGallery({
             {incoming}
           </button>
         )}
+        {/* FR-028 (research R11): on a card the image sits in the hidden link, so the position is
+            what the live region announces. */}
+        {card && positionText}
       </div>
       {several && (
         <>
@@ -274,7 +281,7 @@ export function ImageGallery({
               <span aria-hidden="true">{stopped ? '▶' : '❚❚'}</span>
             </button>
           )}
-          <p className="gallery__count">{`${index + 1} of ${count}`}</p>
+          {!card && positionText}
         </>
       )}
     </div>
