@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
+import { asAdmin } from '../setup/authed-request';
 import { customer, event, venue } from '../setup/fixtures';
 import { PNG, upload } from '../setup/images';
 import { resetDb } from '../setup/reset-db';
@@ -77,5 +78,42 @@ describe('Event images under concurrent requests', () => {
     noServerErrors(results);
     expect(results.map((r) => r.status)).toEqual(Array(10).fill(201));
     expect(await positions()).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it('keeps positions 1 to n under 20 simultaneous uploads, deletes, and reorders (FR-009)', async () => {
+    const ids: string[] = [];
+    for (let i = 0; i < 4; i++) ids.push((await upload(ctx, eventId, PNG).expect(201)).body.id);
+    // Each reorder is built from the order read before sending, as the Admin app does.
+    const before = (await asAdmin(ctx).get(`/events/${eventId}`).expect(200)).body.images.map(
+      (i: { id: string }) => i.id,
+    ) as string[];
+    const requests = Array.from({ length: 20 }, (_, n) => {
+      switch (n % 4) {
+        case 0:
+          return upload(ctx, eventId, PNG);
+        case 1:
+          return asAdmin(ctx).delete(`/events/${eventId}/images/${ids[(n >> 2) % ids.length]}`);
+        case 2:
+          return asAdmin(ctx)
+            .put(`/events/${eventId}/images/order`)
+            .send({ imageIds: [...before].reverse() });
+        default:
+          return asAdmin(ctx)
+            .put(`/events/${eventId}/images/order`)
+            .send({ imageIds: [...before.slice(1), before[0]] });
+      }
+    });
+    const results = await Promise.all(requests);
+    noServerErrors(results);
+    for (const r of results.filter((x) => x.status >= 400)) {
+      expect(['404', '409 IMAGE_LIMIT_REACHED', '409 IMAGES_CHANGED']).toContain(
+        r.status === 404 ? '404' : `${r.status} ${r.body.error?.code}`,
+      );
+    }
+    // The first delete of each existing image to take the lock removes it.
+    expect(results.filter((r) => r.status === 204).length).toBeGreaterThanOrEqual(1);
+    const after = await positions();
+    expect(after.length).toBeLessThanOrEqual(5);
+    expect(after).toEqual(Array.from({ length: after.length }, (_, i) => i + 1));
   });
 });
