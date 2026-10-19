@@ -531,13 +531,13 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T039 **Test first.** Extend `backend/test/integration/demo-data.e2e-spec.ts`: after the run,
+- [x] T039 **Test first.** Extend `backend/test/integration/demo-data.e2e-spec.ts`: after the run,
   the summary has `images: 6`; the concert has 3 images, the comedy night 1, and the gala none;
   each is a valid PNG by `sniffImageType` and under 100 KB; a second run creates nothing. Add a unit
   test, `backend/test/unit/demo-images.spec.ts`: `demoPng` output starts with the PNG signature,
   has `IHDR` with the requested width and height, and its chunks' CRCs check. Confirm both fail
   before T040.
-- [ ] T040 Create `backend/src/scripts/demo-images.ts` (`demoPng`, research R15) and, in
+- [x] T040 Create `backend/src/scripts/demo-images.ts` (`demoPng`, research R15) and, in
   `backend/src/scripts/demo-data.ts`, add the images through `EventImagesService.add` and count them
   in `DemoSummary`. Run T039 until it passes.
 - [ ] T041 [P] Update `README.md`: add the `014` row to the Status table, mention event images in
