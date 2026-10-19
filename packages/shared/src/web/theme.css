@@ -734,6 +734,11 @@ dd {
 .gallery--page {
   height: clamp(200px, 40vw, 480px);
 }
+/* An Events list card: the gallery spans the card at 4:3, taking most of it (FR-020); the
+   Customer app's .event-card cancels its padding so the gallery is flush with the card's edges. */
+.gallery--card {
+  aspect-ratio: 4 / 3;
+}
 .gallery__slide,
 .gallery__open,
 .gallery__frame {
@@ -757,6 +762,10 @@ dd {
   border-radius: 0;
   background: none;
   cursor: zoom-in;
+}
+/* On a card the image opens the event, not full screen. */
+.gallery--card .gallery__open {
+  cursor: pointer;
 }
 .gallery__image,
 .gallery__placeholder {

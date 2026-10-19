@@ -459,7 +459,7 @@ not, and only cards on or near the screen load images.
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
-- [ ] T034 [P] [US4] Extend `packages/shared/test/web/image-gallery.test.tsx` (variant `card`): the
+- [x] T034 [P] [US4] Extend `packages/shared/test/web/image-gallery.test.tsx` (variant `card`): the
   gallery is a `role="group"` named "Images of Season Opener" and its arrows are "Previous image of
   Season Opener" and "Next image of Season Opener", so two cards' arrows have different names; the
   image is a link to the event's path with `tabindex="-1"` and `aria-hidden="true"`, and has no
@@ -472,14 +472,14 @@ not, and only cards on or near the screen load images.
   both held images are let go at once; when it comes back it fetches them again (answered by the
   stub, as the HTTP cache would) and turns again from the same image; at no time does a card hold
   more than 2 images outside a slide, or 3 during one (FR-040) (count `createObjectURL` minus `revokeObjectURL` per card).
-- [ ] T035 [P] [US4] Extend `customer-app/test/event-images.test.tsx` (Events list): a card with 3
+- [x] T035 [P] [US4] Extend `customer-app/test/event-images.test.tsx` (Events list): a card with 3
   images shows its gallery above the title; two cards rotate independently (an arrow on one does
   not change the other); a card without images renders the same markup as before; the card's name,
   times, and price render while every image request is still pending.
 
 ### Implementation for User Story 4
 
-- [ ] T036 [US4] In `image-gallery.tsx`, add the `card` variant (research R12; 4:3, R13) and on-screen
+- [x] T036 [US4] In `image-gallery.tsx`, add the `card` variant (research R12; 4:3, R13) and on-screen
   loading with `IntersectionObserver` (`rootMargin: '200px'`): hold only the shown and next image,
   and off screen stop turning and let go of both (research R14, FR-039). Place it at the top of
   `customer-app/src/components/EventCard.tsx` with `eventHref={`/events/${e.id}`}`, and add the
