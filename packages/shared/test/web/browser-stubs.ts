@@ -32,7 +32,21 @@ const NodeFormData = (
   }).formData()
 ).constructor as typeof FormData;
 
-Object.assign(globalThis, { Blob: NodeBlob, File: NodeFile, FormData: NodeFormData });
+// jsdom's own, for `new FormData(form, submitter)`, which React calls on a form's submit and Node's
+// FormData cannot read.
+const JsdomFormData = globalThis.FormData;
+
+/** Node's FormData that can also be built from a form element, taking its text fields. */
+class TestFormData extends NodeFormData {
+  constructor(form?: HTMLFormElement, submitter?: HTMLElement | null) {
+    super();
+    if (!form) return;
+    for (const [name, value] of new JsdomFormData(form, submitter))
+      if (typeof value === 'string') this.append(name, value);
+  }
+}
+
+Object.assign(globalThis, { Blob: NodeBlob, File: NodeFile, FormData: TestFormData });
 
 type Listener = (e: MediaQueryListEvent) => void;
 const mediaMatches = new Map<string, boolean>();
