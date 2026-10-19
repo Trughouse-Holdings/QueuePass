@@ -552,13 +552,14 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 - [x] T043 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' and `packages/shared` coverage if a provider is installed) in the PR description.
   The 80% floor is not yet blocking (Constitution VI deferral until `010` and `011`).
-  - 2026-10-19: `npx jest --coverage` in `backend`, 547 tests: 96.35% lines overall; the new
-    image controller, service, reorder DTO, and `demo-images.ts` at 100% lines,
-    `image-metadata.ts` 96.2%, `events.service.ts` 100%, `demo-data.ts` 85.3% (its command-line
+  - 2026-10-19: `npx jest --coverage` in `backend`, 547 tests: 96.35% lines, 84.19% branches
+    overall; the new image controller, service, reorder DTO, and `demo-images.ts` at 100% lines
+    (the service 94.7% branches), `image-metadata.ts` 96.2% lines and 75% branches,
+    `events.service.ts` 100%, `configure-app.ts` 100%, `demo-data.ts` 85.3% (its command-line
     `main` is not run by tests), `prisma-exception.filter.ts` 74.3% (older paths; its `014`
-    mappings are covered). No front-end coverage provider is installed, so `packages/shared`,
-    Admin, and Customer coverage waits on `010`. Details for the PR: `coverage.md` (not
-    committed).
+    mappings are covered by `prisma-exception.filter.spec.ts`). No front-end coverage provider is
+    installed, so `packages/shared`, Admin, and Customer coverage waits on `010`; their suites
+    pass (336, 186, and 133 tests).
 - [ ] T044 Running-system gate: `docker compose up --build`, walk quickstart.md S1–S12 in the
   browser, and sign in, use, and sign out of each front end. Record the results in this file,
   including S11's peak memory of the `backend` and `postgres` containers and of the browser
