@@ -7,6 +7,7 @@ import type {
   Location,
   SeatingLayout,
 } from '@queuepass/shared';
+import { EVENT_IMAGE_LIMITS } from '@queuepass/shared';
 import { createEvent, getEvent, updateEvent } from '../api/events';
 import { deleteEventImage, reorderEventImages, uploadEventImage } from '../api/images';
 import { listLocations } from '../api/locations';
@@ -333,6 +334,15 @@ export function EventForm(): React.ReactElement {
     } catch {
       // The refusal is shown either way; the list stays as it was.
     }
+  }
+
+  /**
+   * FR-014: at most 5, checked against the latest list (ImagesField has already refused, with a
+   * note, whatever it saw would not fit; this only guards the list itself).
+   */
+  function addImages(files: File[]): void {
+    const added = files.map(newItem);
+    setImages((now) => [...now, ...added].slice(0, EVENT_IMAGE_LIMITS.maxCount));
   }
 
   function moveImage(index: number, by: -1 | 1): void {
@@ -772,7 +782,7 @@ export function EventForm(): React.ReactElement {
           <ImagesField
             eventId={id}
             items={images}
-            onAdd={(files) => setImages((now) => [...now, ...files.map(newItem)])}
+            onAdd={addImages}
             onMove={moveImage}
             onRemove={removeImage}
           />

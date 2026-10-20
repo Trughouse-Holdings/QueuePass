@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEventImage } from '@queuepass/shared/web';
 import {
   EVENT_IMAGE_LIMITS,
@@ -75,27 +75,34 @@ export function ImagesField({
 }): React.ReactElement {
   const [refused, setRefused] = useState<string[]>([]);
   const full = items.length >= EVENT_IMAGE_LIMITS.maxCount;
+  /**
+   * How many items the list holds, counting files handed to `onAdd` and not yet rendered. A file
+   * check awaits, so two quick choices both run against it, never against an old `items`.
+   */
+  const count = useRef(items.length);
+  count.current = items.length;
 
   async function choose(e: React.ChangeEvent<HTMLInputElement>): Promise<void> {
     const input = e.currentTarget;
     const files = [...(input.files ?? [])];
     // So the same file can be chosen again.
     input.value = '';
+    const reasons = await Promise.all(files.map(refusalOf));
+    // From here on nothing awaits: the room is taken from the latest count and claimed at once.
     const accepted: File[] = [];
     const notes: string[] = [];
-    let room = EVENT_IMAGE_LIMITS.maxCount - items.length;
-    for (const file of files) {
-      if (room <= 0) {
-        notes.push(`${file.name}: an event can have at most ${EVENT_IMAGE_LIMITS.maxCount} images`);
-        continue;
-      }
-      const why = await refusalOf(file);
+    let room = EVENT_IMAGE_LIMITS.maxCount - count.current;
+    files.forEach((file, i) => {
+      const why = reasons[i];
       if (why) notes.push(`${file.name}: ${why}`);
+      else if (room <= 0)
+        notes.push(`${file.name}: an event can have at most ${EVENT_IMAGE_LIMITS.maxCount} images`);
       else {
         accepted.push(file);
         room -= 1;
       }
-    }
+    });
+    count.current += accepted.length;
     setRefused(notes);
     if (accepted.length > 0) onAdd(accepted);
   }
@@ -173,8 +180,9 @@ export function ImagesField({
       <div aria-live="polite" data-testid="images-live">
         {refused.length > 0 && (
           <div className="note" data-testid="images-note">
-            {refused.map((r) => (
-              <p key={r}>{r}</p>
+            {refused.map((r, i) => (
+              // Two files of one name give the same text (FR-016: each is announced).
+              <p key={i}>{r}</p>
             ))}
           </div>
         )}

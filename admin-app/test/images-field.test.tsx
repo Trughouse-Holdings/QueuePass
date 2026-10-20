@@ -281,6 +281,43 @@ describe('the Images control', () => {
     expect(server.imageCalls()).toEqual([]);
   });
 
+  it('keeps to 5 when a second choice is made before the first is checked (review #63)', async () => {
+    const server = backend();
+    renderAt('/events/new');
+    await screen.findByRole('group', { name: 'Images' });
+    choose(pngFile('a.png'), pngFile('b.png'), pngFile('c.png'));
+    await vi.waitFor(() => expect(items()).toHaveLength(3));
+
+    // Two choices in quick succession: both start while the list holds 3.
+    choose(pngFile('d.png'), pngFile('e.png'));
+    choose(pngFile('f.png'), pngFile('g.png'));
+
+    const group = screen.getByRole('group', { name: 'Images' });
+    await vi.waitFor(() =>
+      expect(group).toHaveTextContent('g.png: an event can have at most 5 images'),
+    );
+    expect(group).toHaveTextContent('f.png: an event can have at most 5 images');
+    expect(items()).toHaveLength(5);
+    expect(group).toHaveTextContent('5 of 5 images. Remove one to add another.');
+    expect(server.imageCalls()).toEqual([]);
+  });
+
+  it('shows a refusal for each of two files with the same name (review #63)', async () => {
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      backend();
+      renderAt('/events/new');
+      await screen.findByRole('group', { name: 'Images' });
+      choose(gifFile('IMG_0001.gif'), gifFile('IMG_0001.gif'));
+
+      const note = await screen.findByTestId('images-note');
+      await vi.waitFor(() => expect(note.querySelectorAll('p')).toHaveLength(2));
+      expect(errors.mock.calls.flat().join(' ')).not.toMatch(/same key/);
+    } finally {
+      errors.mockRestore();
+    }
+  });
+
   it('lets a picture whose later chunk runs past the end through, and shows the 415 on save', async () => {
     const server = backend({
       images: [savedImage('s1', 1) as EventImage],
