@@ -1,8 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { EventImage } from '../event-image.js';
-import { useEventImage } from './event-images.js';
-import { useSlide } from './image-gallery.js';
+import {
+  EventPicture,
+  HeldImages,
+  SHOWN_AND_NEIGHBORS,
+  useSlide,
+  useWantedImages,
+} from './gallery-parts.js';
 import { useGalleryRotation } from './use-gallery-rotation.js';
 
 export interface ImageViewerProps {
@@ -18,19 +23,6 @@ export interface ImageViewerProps {
    * gallery counts the focus it gets back as keyboard focus only then (research R11).
    */
   onClose: (index: number, how: { byKeyboard: boolean }) => void;
-}
-
-/** Keeps one image loaded while mounted; renders nothing (research R4). */
-function Held({ eventId, imageId }: { eventId: string; imageId: string }) {
-  useEventImage(eventId, imageId);
-  return null;
-}
-
-/** The whole picture, or a placeholder while it loads or when it failed (FR-031). */
-function Picture({ eventId, image, alt }: { eventId: string; image: EventImage; alt: string }) {
-  const { url, failed } = useEventImage(eventId, image.id);
-  if (url) return <img className="viewer__image" src={url} alt={alt} />;
-  return <span className="viewer__placeholder">{failed ? 'Image unavailable' : null}</span>;
 }
 
 /**
@@ -55,12 +47,7 @@ export function ImageViewer({ eventId, eventName, images, start, onClose }: Imag
   const close = useRef<HTMLButtonElement>(null);
 
   // Research R4, R14: the shown image and its neighbors, each held until the view closes.
-  const [wanted, setWanted] = useState<Set<number>>(() => new Set());
-  useEffect(() => {
-    if (count === 0) return;
-    const around = [index, (index + 1) % count, (index - 1 + count) % count];
-    setWanted((now) => (around.every((i) => now.has(i)) ? now : new Set([...now, ...around])));
-  }, [index, count]);
+  const wanted = useWantedImages(index, count, SHOWN_AND_NEIGHBORS);
 
   // Research R12: the app behind is inert and does not scroll; focus starts on Close.
   useEffect(() => {
@@ -120,9 +107,7 @@ export function ImageViewer({ eventId, eventName, images, start, onClose }: Imag
       tabIndex={-1}
       onKeyDown={onKeyDown}
     >
-      {images.map((image, i) =>
-        wanted.has(i) ? <Held key={image.id} eventId={eventId} imageId={image.id} /> : null,
-      )}
+      <HeldImages eventId={eventId} images={images} held={wanted} />
       <div className="viewer__stage">
         {slide && leaving && (
           // FR-040: the image shown before, on its way out; not announced.
@@ -134,7 +119,7 @@ export function ImageViewer({ eventId, eventName, images, start, onClose }: Imag
               if (e.target === e.currentTarget) endSlide();
             }}
           >
-            <Picture eventId={eventId} image={leaving} alt="" />
+            <EventPicture eventId={eventId} image={leaving} alt="" part="viewer" />
           </div>
         )}
         <div
@@ -145,7 +130,7 @@ export function ImageViewer({ eventId, eventName, images, start, onClose }: Imag
               : 'viewer__frame'
           }
         >
-          <Picture eventId={eventId} image={shown} alt={label} />
+          <EventPicture eventId={eventId} image={shown} alt={label} part="viewer" />
         </div>
       </div>
       <button

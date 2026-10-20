@@ -485,7 +485,10 @@ files in one request (R3).
   - `use-gallery-rotation.ts`: the timer and pause rules (R11);
   - `image-gallery.tsx`: `ImageGallery({ eventId, eventName, images, variant: 'card' | 'page',
     eventHref? })`, which renders nothing for no images (FR-027);
-  - `image-viewer.tsx`: the full-screen view (R12).
+  - `image-viewer.tsx`: the full-screen view (R12);
+  - `gallery-parts.tsx`: what both share, so neither imports the other: holding images while
+    mounted, the image or its placeholder, the slide (`useSlide`), and the set of images wanted
+    so far.
 - **Per app**: the Admin app's `ImagesField` and `api/images.ts` (R9), and the places each app puts
   the gallery: the Customer app's `EventCard.tsx` and `pages/EventDetail.tsx`, and the Admin app's
   `pages/EventDetail.tsx` (FR-019).

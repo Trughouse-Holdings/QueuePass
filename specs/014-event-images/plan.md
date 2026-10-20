@@ -120,7 +120,8 @@ backend/test/contract/~ route-coverage.e2e-spec.ts, ~ expect-to-match-contract.t
 
 packages/shared/src/+ event-image.ts, ~ event.ts, ~ index.ts          # implementation PR
 packages/shared/src/web/+ event-images.ts, + use-gallery-rotation.ts,
-                        + image-gallery.tsx, + image-viewer.tsx, ~ index.ts, ~ theme.css
+                        + image-gallery.tsx, + image-viewer.tsx, + gallery-parts.tsx,
+                        ~ index.ts, ~ theme.css
 packages/shared/test/+ event-image.test.ts,
                      web/+ event-images.test.tsx, + use-gallery-rotation.test.ts,
                          + image-gallery.test.tsx, + image-viewer.test.tsx,
