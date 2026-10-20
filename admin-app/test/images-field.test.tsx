@@ -17,6 +17,7 @@ import {
   webpFile,
 } from './helpers/images';
 import { EVENT, VENUE } from './fixtures-005';
+import { objectUrls } from '../../packages/shared/test/web/browser-stubs';
 
 /**
  * Spec 014 US1 (FR-014 to FR-018; research R9): the Images control of the Schedule event and Edit
@@ -397,6 +398,32 @@ describe('saving', () => {
     expect(await screen.findByText('Event page', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(server.uploadedNames()).toEqual(['a.png', 'b.png', 'b.png', 'c.png']);
     expect(server.images).toHaveLength(3);
+  });
+
+  it('keeps showing an uploaded picture from the chosen file, without reading it back (review #63)', async () => {
+    const server = backend({
+      uploads: ['ok', refusal(415, 'IMAGE_TYPE_NOT_ALLOWED', TYPE_MESSAGE)],
+    });
+    const view = renderAt(`/events/${ID}/edit`);
+    await editLoaded(0);
+    choose(pngFile('a.png'), pngFile('b.png'));
+    await vi.waitFor(() => expect(items()).toHaveLength(2));
+    const thumb = () => within(items()[0]!).getByRole('img', { name: 'Image 1' });
+    const before = thumb().getAttribute('src');
+    expect(before).toMatch(/^blob:/);
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    // a.png is stored; b.png is refused, so the form stays with both.
+    expect(await screen.findByRole('alert')).toHaveTextContent(`b.png: ${TYPE_MESSAGE}`);
+    expect(server.images.map((i) => i.id)).toEqual(['img-1']);
+    expect(thumb().getAttribute('src')).toBe(before);
+    expect(
+      server.api.calls.filter((c) => c.method === 'GET' && c.path.includes('/images/')),
+    ).toEqual([]);
+    expect(objectUrls.revoked).toEqual([]);
+
+    view.unmount();
+    expect(objectUrls.live()).toEqual([]);
   });
 
   it.each([

@@ -95,7 +95,12 @@ class ImageStepError extends Error {
   }
 }
 
-const savedItem = (image: EventImage): ImageItem => ({ kind: 'saved', key: image.id, image });
+const savedItem = (image: EventImage, file?: File): ImageItem => ({
+  kind: 'saved',
+  key: image.id,
+  image,
+  ...(file ? { file } : {}),
+});
 
 /** FR-032, FR-033, FR-034, FR-035 — create/edit an event. No removal control (API-only). */
 export function EventForm(): React.ReactElement {
@@ -183,7 +188,7 @@ export function EventForm(): React.ReactElement {
     getEvent(id)
       .then((e) => {
         serverOrder.current = (e.images ?? []).map((i) => i.id);
-        setImages([...(e.images ?? []).map(savedItem), ...pending]);
+        setImages([...(e.images ?? []).map((image) => savedItem(image)), ...pending]);
         setName(e.name);
         setLocationId(e.locationId);
         setStartsAt(toLocalInput(e.startsAt));
@@ -297,7 +302,10 @@ export function EventForm(): React.ReactElement {
         ids.push(image.id);
         serverOrder.current = [...serverOrder.current, image.id];
         setImages((now) =>
-          now.map((it) => (it.key === item.key ? { kind: 'saved', key: item.key, image } : it)),
+          now.map((it) =>
+            // The file stays with it: its preview is not read back (review of PR #63).
+            it.key === item.key ? { kind: 'saved', key: item.key, image, file: item.file } : it,
+          ),
         );
       } catch (err) {
         const remaining = list.slice(i).flatMap((it) => (it.kind === 'new' ? [it.file] : []));
@@ -327,10 +335,16 @@ export function EventForm(): React.ReactElement {
       const e = await getEvent(eventId);
       serverOrder.current = (e.images ?? []).map((i) => i.id);
       setRemoved([]);
-      setImages((now) => [
-        ...(e.images ?? []).map(savedItem),
-        ...now.filter((it) => it.kind === 'new'),
-      ]);
+      setImages((now) => {
+        // Pictures sent from this form keep showing from their files.
+        const files = new Map(
+          now.flatMap((it) => (it.kind === 'saved' && it.file ? [[it.image.id, it.file]] : [])),
+        );
+        return [
+          ...(e.images ?? []).map((image) => savedItem(image, files.get(image.id))),
+          ...now.filter((it) => it.kind === 'new'),
+        ];
+      });
     } catch {
       // The refusal is shown either way; the list stays as it was.
     }

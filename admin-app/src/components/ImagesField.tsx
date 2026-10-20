@@ -7,9 +7,14 @@ import {
   type EventImage,
 } from '@queuepass/shared';
 
-/** One picture in the form: already stored, or chosen and not yet sent (research R9). */
+/**
+ * One picture in the form: already stored, or chosen and not yet sent (research R9). A picture
+ * sent from this form keeps its `file`, so its preview stays the chosen file's and is not read
+ * back from the Backend.
+ */
 export type ImageItem =
-  { kind: 'saved'; key: string; image: EventImage } | { kind: 'new'; key: string; file: File };
+  | { kind: 'saved'; key: string; image: EventImage; file?: File }
+  | { kind: 'new'; key: string; file: File };
 
 const HINT = 'Up to 5 images. JPG, PNG, or WebP, up to 5 MB each. The first image is the cover.';
 
@@ -115,11 +120,14 @@ export function ImagesField({
         <ol className="image-list">
           {items.map((item, i) => {
             const alt = `Image ${i + 1}`;
+            // Chosen here (sent or not): shown from the file, by the same NewThumb across the
+            // upload, so its object URL lives until the item leaves the list or the form.
+            const file = item.file;
             return (
               <li key={item.key} className="image-item">
-                {item.kind === 'new' ? (
-                  <NewThumb file={item.file} alt={alt} />
-                ) : eventId ? (
+                {file ? (
+                  <NewThumb file={file} alt={alt} />
+                ) : item.kind === 'saved' && eventId ? (
                   <SavedThumb eventId={eventId} image={item.image} alt={alt} />
                 ) : null}
                 <span>{alt}</span>

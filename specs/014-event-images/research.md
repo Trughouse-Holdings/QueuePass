@@ -389,7 +389,9 @@ modes, inside a `<fieldset>` with the legend "Images".
 
 - **State**: an ordered list of items, each either `{ kind: 'saved', image: EventImage }` or
   `{ kind: 'new', key, file: File, previewUrl }`, and a list of saved images the admin removed. On
-  edit it starts from `event.images ?? []`.
+  edit it starts from `event.images ?? []`. A picture uploaded from the form becomes `saved` and
+  keeps its `file`: its preview stays the chosen file's object URL, not read back from the Backend
+  (no second download of what was just sent, and no placeholder in between).
 - **Add**: a file input labeled "Add images", `accept="image/jpeg,image/png,image/webp"`,
   `multiple`. Each chosen file goes through a preview check (FR-016): would it make more than 5, is
   it over 5,242,880 bytes, and does `readImageHeader` of the file's bytes (`await
@@ -451,7 +453,7 @@ modes, inside a `<fieldset>` with the legend "Images".
   the pending pictures is already saved and is loaded back by the edit form, and the pending
   pictures travel in router state.
 - **Cancel** leaves the page without calling the API, so nothing changes (FR-015). Object URLs of
-  new files are revoked when an item is removed and when the form unmounts.
+  chosen files, sent or not, are revoked when an item is removed and when the form unmounts.
 - `admin-app/src/api/images.ts`: `uploadEventImage(eventId, file)` posts a `FormData` with
   `file` through the typed client (`bodySerializer: (body) => body`, so `openapi-fetch` sends the
   `FormData` as is and the browser sets the multipart boundary; a test checks the request's
