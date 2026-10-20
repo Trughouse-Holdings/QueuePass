@@ -45,6 +45,18 @@ function Pair({ id }: { id: string }) {
   );
 }
 
+/** One probe that stays mounted, and one that `remount` mounts again (a new key). */
+function HeldAndRemounted({ id }: { id: string }) {
+  const [round, setRound] = useState(0);
+  return (
+    <>
+      <Probe id={id} />
+      <Probe key={round} id={id} />
+      <button onClick={() => setRound((r) => r + 1)}>remount</button>
+    </>
+  );
+}
+
 const probes = (id: string) => screen.queryAllByTestId(`probe-${id}`);
 
 describe('useEventImage', () => {
@@ -92,6 +104,30 @@ describe('useEventImage', () => {
       expect(probes(id)[0]!.dataset.failed).toBe('true');
       expect(probes(id)[0]!.dataset.url).toBe('');
     }
+  });
+
+  it('loads a failed image again for a new user while the failed one is still held (review #63)', async () => {
+    let first = true;
+    const api = stubImages({
+      'img-1': async () => {
+        const status = first ? 503 : 200;
+        first = false;
+        return imageResponse(status);
+      },
+    });
+    renderSignedIn(<HeldAndRemounted id="img-1" />);
+    await settle();
+    expect(probes('img-1').map((p) => p.dataset.failed)).toEqual(['true', 'true']);
+
+    // The first probe stays mounted and keeps holding the failed load; the second mounts again.
+    act(() => screen.getByText('remount').click());
+    await settle();
+    expect(api.calls).toHaveLength(2);
+    const [held, remounted] = probes('img-1');
+    expect(remounted!.dataset.url).toMatch(/^blob:/);
+    expect(remounted!.dataset.failed).toBe('false');
+    // The holder of the failed load is not stuck either: it shows the retried image.
+    expect(held!.dataset.url).toBe(remounted!.dataset.url);
   });
 
   it('fetches nothing when not enabled', async () => {

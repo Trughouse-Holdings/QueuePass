@@ -182,7 +182,9 @@ the apps fetch the bytes through their existing API client, with the signed-in u
 - **Shared cache** (`packages/shared/src/web/event-images.ts`): a module-level map from image id
   to `{ url, users }`. `useEventImage(eventId, imageId, enabled)` fetches once per id, counts the
   components using it, and revokes the object URL when the last one lets go. Two cards, or a card
-  and the full-screen view, showing the same image fetch it once.
+  and the full-screen view, showing the same image fetch it once. A failed load (a network
+  failure, a `5xx`) is not kept while the image is held: the next component to acquire it (a slide
+  mounting again, the viewer opening) fetches it again, and every holder shows the outcome.
 - **Browser cache**: an image's content never changes (a new picture is a new id, R5), so the
   response carries `Cache-Control: private, max-age=31536000, immutable`. After an object URL is
   revoked, fetching the same image again is answered from the browser's own cache. `private` keeps
