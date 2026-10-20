@@ -86,6 +86,8 @@ export class EventImagesController {
     // An image's content never changes: a new picture is a new id.
     res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
     res.setHeader('X-Content-Type-Options', 'nosniff');
-    return new StreamableFile(Buffer.from(bytes), { type: contentType, length: bytes.length });
+    // A Buffer over the same memory: no copy of up to 5 MB per read.
+    const body = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    return new StreamableFile(body, { type: contentType, length: bytes.length });
   }
 }

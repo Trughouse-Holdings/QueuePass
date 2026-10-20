@@ -27,6 +27,14 @@ export interface UploadedImage {
 const imageNotFound = (eventId: string, imageId: string) =>
   new NotFoundException(`No image ${imageId} exists for event ${eventId}.`);
 
+/**
+ * Prisma types `Bytes` as a `Uint8Array` over an `ArrayBuffer`, not a `SharedArrayBuffer`. The
+ * stripped picture is a Buffer over an `ArrayBuffer`, so it is passed as it is; copied only if it
+ * ever were not (review of PR #63: no copy beyond the one stripping makes).
+ */
+const ownBytes = (bytes: Uint8Array): Uint8Array<ArrayBuffer> =>
+  bytes.buffer instanceof ArrayBuffer ? (bytes as Uint8Array<ArrayBuffer>) : new Uint8Array(bytes);
+
 /** Metadata only: `bytes` is selected in `read` and nowhere else (research R6). */
 const IMAGE_SELECT = { id: true, position: true, contentType: true, byteSize: true } as const;
 
@@ -87,7 +95,7 @@ export class EventImagesService {
           position: count + 1,
           contentType: header.contentType,
           byteSize: bytes.length,
-          bytes: new Uint8Array(bytes),
+          bytes: ownBytes(bytes),
         },
         select: IMAGE_SELECT,
       });
