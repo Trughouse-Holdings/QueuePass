@@ -537,7 +537,9 @@ turns on its own has a Pause/Play button (Mahdi, 2026-10-13, after the PR review
   - or an arrow, or on the event page the image button that opens full screen, has **keyboard**
     focus. Keyboard focus is focus not caused by a pointer: the gallery records a `pointerdown`
     inside it and ignores the focus that follows, so a mouse click on an arrow does not keep the
-    gallery paused after the pointer leaves (browsers focus a clicked button);
+    gallery paused after the pointer leaves (browsers focus a clicked button). The press ends at
+    the next `click`, `pointercancel`, or `keydown` anywhere in the document, through one set of
+    capture listeners shared by every gallery on the page (not three per gallery);
   - or the full-screen view is open (R12);
   - or, for a card, it is not on or near the screen (R14).
 
@@ -709,7 +711,9 @@ dark).
 **Decision**:
 
 - **Lists carry metadata only** (R6).
-- **Cards**: each card gallery watches itself with `IntersectionObserver` (`rootMargin: '200px'`).
+- **Cards**: each card gallery watches itself with `IntersectionObserver` (`rootMargin: '200px'`),
+  through one observer shared by every card on the page, which tells each card about its own
+  element only.
   While it is on or near the screen it turns, and holds the shown image and the next one (so the
   next change is instant), letting go of an image once it is neither. When it leaves that zone it
   **stops turning, stops fetching, and lets go of both images at once**; when it comes back it

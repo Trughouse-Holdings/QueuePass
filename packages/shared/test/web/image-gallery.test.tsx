@@ -656,6 +656,39 @@ describe('ImageGallery, card variant', () => {
     expect(live).toHaveAttribute('aria-live', 'polite');
   });
 
+  it('shares one set of document listeners and one IntersectionObserver among cards (review #63)', async () => {
+    const io = installIntersectionObserver();
+    stubImages();
+    const added = vi.spyOn(document, 'addEventListener');
+    const removed = vi.spyOn(document, 'removeEventListener');
+    /** Capture listeners a gallery uses to end a pointer press (research R11). */
+    const pressListeners = (spy: typeof added) =>
+      spy.mock.calls.filter(
+        ([type, , capture]) =>
+          ['click', 'pointercancel', 'keydown'].includes(type) && capture === true,
+      ).length;
+    const third: Card = {
+      id: 'e3',
+      name: 'Encore',
+      images: images(2).map((i) => ({ ...i, id: `c-${i.position}` })),
+    };
+
+    const view = await cards([opener, late, third]);
+    expect(pressListeners(added)).toBe(3);
+    expect(io.options).toHaveLength(1);
+    expect(io.observed()).toHaveLength(3);
+
+    // Each card is still told on its own whether it is on screen.
+    act(() => io.set(group('Late Show'), true));
+    await advance(0);
+    expect(link('Late Show')!.querySelector('img')).not.toBeNull();
+    expect(link(NAME)!.querySelector('img')).toBeNull();
+
+    view.unmount();
+    expect(pressListeners(removed)).toBe(3);
+    expect(io.observed()).toEqual([]);
+  });
+
   it('counts as on screen where IntersectionObserver is missing', async () => {
     const { calls } = stubImages();
     await cards([opener]);

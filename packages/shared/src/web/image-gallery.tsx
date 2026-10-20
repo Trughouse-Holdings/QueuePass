@@ -51,6 +51,31 @@ function Slide({
 }
 
 /**
+ * Research R14: one IntersectionObserver for every gallery that watches, each told only about its
+ * own element (review of PR #63: an Events list of 50 cards needs one observer, not 50).
+ */
+const nearScreen = new Map<Element, (on: boolean) => void>();
+let observer: IntersectionObserver | null = null;
+
+function watchNearScreen(el: Element, onChange: (on: boolean) => void): () => void {
+  observer ??= new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) nearScreen.get(entry.target)?.(entry.isIntersecting);
+    },
+    { rootMargin: NEAR_SCREEN },
+  );
+  nearScreen.set(el, onChange);
+  observer.observe(el);
+  return () => {
+    nearScreen.delete(el);
+    observer?.unobserve(el);
+    if (nearScreen.size > 0) return;
+    observer?.disconnect();
+    observer = null;
+  };
+}
+
+/**
  * Research R14: whether the element in `ref` is on or near the screen, for a gallery that
  * `watch`es. Without `IntersectionObserver` (jsdom) it counts as on screen.
  */
@@ -60,16 +85,41 @@ function useOnScreen(ref: RefObject<HTMLElement | null>, watch: boolean): boolea
   useEffect(() => {
     const el = ref.current;
     if (!watch || !supported || !el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) if (entry.target === el) setOnScreen(entry.isIntersecting);
-      },
-      { rootMargin: NEAR_SCREEN },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    return watchNearScreen(el, setOnScreen);
   }, [ref, watch, supported]);
   return !watch || !supported || onScreen;
+}
+
+/**
+ * Research R11: a pointer press is followed by focus, and that focus is not keyboard focus. The
+ * focus a press gives comes before its pointerup with a mouse, but after it with touch (from the
+ * compatibility mousedown), so the press ends at the click that follows, anywhere in the document.
+ * A press with no click ends at pointercancel (a native drag or a scroll), or at the next key,
+ * since keyboard focus always follows a key. One set of capture listeners on the document ends the
+ * presses of every gallery (review of PR #63), added with the first gallery and removed with the
+ * last.
+ */
+const presses = new Set<{ current: boolean }>();
+const PRESS_ENDS = ['click', 'pointercancel', 'keydown'] as const;
+
+function endPresses(): void {
+  for (const press of presses) press.current = false;
+}
+
+/** This gallery's press: set on its own pointerdown, ended by the shared listeners. */
+function usePointerPress(): { current: boolean } {
+  const pressed = useRef(false);
+  useEffect(() => {
+    if (presses.size === 0)
+      for (const type of PRESS_ENDS) document.addEventListener(type, endPresses, true);
+    presses.add(pressed);
+    return () => {
+      presses.delete(pressed);
+      if (presses.size === 0)
+        for (const type of PRESS_ENDS) document.removeEventListener(type, endPresses, true);
+    };
+  }, []);
+  return pressed;
 }
 
 interface SlideState {
@@ -136,7 +186,7 @@ export function ImageGallery({
   const openButton = useRef<HTMLButtonElement>(null);
   const wasViewing = useRef(false);
   // Research R11: a pointer press is followed by focus; that focus is not keyboard focus.
-  const pointerDown = useRef(false);
+  const pointerDown = usePointerPress();
   // Research R11: focus given back by a full-screen view a pointer closed is not keyboard focus.
   const closedByPointer = useRef(false);
   const rotation = useGalleryRotation({
@@ -163,21 +213,6 @@ export function ImageGallery({
         : new Set([...now, index, (index + 1) % count]),
     );
   }, [index, count, card]);
-
-  // Research R11: the focus a press gives comes before its pointerup with a mouse, but after it with
-  // touch (from the compatibility mousedown), so the press ends at the click that follows, anywhere
-  // in the document. A press with no click ends at pointercancel (a native drag or a scroll), or at
-  // the next key, since keyboard focus always follows a key.
-  useEffect(() => {
-    const release = () => {
-      pointerDown.current = false;
-    };
-    const events = ['click', 'pointercancel', 'keydown'] as const;
-    for (const type of events) document.addEventListener(type, release, true);
-    return () => {
-      for (const type of events) document.removeEventListener(type, release, true);
-    };
-  }, []);
 
   // FR-030: on closing full screen, focus goes back to the image button that opened it, once the
   // view has made the app usable again.
