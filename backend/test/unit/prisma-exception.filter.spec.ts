@@ -100,4 +100,20 @@ describe('AllExceptionsFilter, spec 014', () => {
     expect(run(new PayloadTooLargeException('File too large'))).toEqual(generic);
     expect(run(new HttpException('too big', 413))).toEqual(generic);
   });
+
+  // Review of PR #63: the raw-statement fallback reads Prisma's structured fields only.
+  it('does not map an Error that Prisma did not throw to IMAGES_CHANGED, whatever its text', () => {
+    const text =
+      'Code: `23505` duplicate key "event_image_position_unique" Key ("eventId", "position")';
+    expect(run(new Error(text)).status).toBe(500);
+    const withMeta = Object.assign(new Error('failed'), { meta: { code: '23505', message: text } });
+    expect(run(withMeta).status).toBe(500);
+  });
+
+  it('does not map a P2010 whose SQLSTATE is not 23505, though its message quotes the constraint', () => {
+    const message = 'value "23505 event_image_position_unique" violates check constraint "x"';
+    expect(
+      run(known('P2010', { code: '23514', message }, `Raw query failed. ${message}`)).status,
+    ).toBe(500);
+  });
 });

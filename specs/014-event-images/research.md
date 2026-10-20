@@ -87,7 +87,10 @@ statement that caused it. Checked at the end of each statement, a collision fail
 happens. Under the lock no collision is expected; if one ever happens (a
 write that skipped the lock), the exception filter maps a unique violation naming
 `event_image_position_unique` (Prisma `P2002`, or SQLSTATE `23505` from a raw statement) to
-`409 IMAGES_CHANGED`, instead of today's fallback for `P2002`, `TIER_NAME_TAKEN`.
+`409 IMAGES_CHANGED`, instead of today's fallback for `P2002`, `TIER_NAME_TAKEN`. It reads only
+Prisma's errors and their structured fields: a `P2002`'s `meta.target` (or model and fields), a
+raw statement's `P2010` with `meta.code` `23505` and a `meta.message` naming the constraint or its
+key `("eventId", "position")`. An error Prisma did not throw is never mapped by its text.
 
 **Alternatives considered**: A count CHECK through a trigger (more SQL, and the lock is needed for
 the message anyway). Locking the event's image rows (`SELECT … FOR UPDATE` on `EventImage`): it

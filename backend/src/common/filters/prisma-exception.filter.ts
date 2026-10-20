@@ -20,27 +20,49 @@ const PG_UNIQUE_VIOLATION = '23505';
 /** Spec 014: the unique (eventId, position) of EventImage (data-model.md). */
 const IMAGE_POSITION_UNIQUE = 'event_image_position_unique';
 
+/** Postgres names the duplicated key of `event_image_position_unique` this way. */
+const IMAGE_POSITION_KEY = /\("eventId", "position"\)/;
+
 /**
- * Spec 014 research R2: a write that collided on an event's image positions. Prisma names the
- * violation in several ways: by the constraint in `meta.target`, by the model and fields of a
- * `P2002`, or, from a raw statement, by SQLSTATE 23505 with the constraint's name or its key in the
- * message. Under the event lock no collision is expected; this is the backstop.
+ * Spec 014 research R2: a write that collided on an event's image positions. Under the event lock
+ * no collision is expected; this is the backstop. Only Prisma's own errors are read, and only
+ * their structured fields where Prisma gives them (review of PR #63):
+ * - `P2002` (a model write): the constraint in `meta.target`, or the model and fields;
+ * - `P2010` (a raw statement): SQLSTATE `23505` in `meta.code`, and the database's own message in
+ *   `meta.message` naming the constraint or its key ("eventId", "position"), which only
+ *   EventImage has (data-model.md; Prisma 6 does not repeat the constraint's name here);
+ * - `PrismaClientUnknownRequestError`, which has no fields: the engine's message must carry
+ *   `23505` and the constraint's name.
+ * Any other error, whatever its message says, is not this.
  */
 function isImagePositionViolation(exception: unknown): boolean {
-  if (exception instanceof Prisma.PrismaClientKnownRequestError && exception.code === 'P2002') {
-    const meta = (exception.meta ?? {}) as { modelName?: string; target?: unknown };
-    const target = Array.isArray(meta.target) ? meta.target.join(',') : String(meta.target ?? '');
+  if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+    const meta = (exception.meta ?? {}) as {
+      modelName?: string;
+      target?: unknown;
+      code?: unknown;
+      message?: unknown;
+    };
+    if (exception.code === 'P2002') {
+      const target = Array.isArray(meta.target) ? meta.target.join(',') : String(meta.target ?? '');
+      return (
+        target.includes(IMAGE_POSITION_UNIQUE) ||
+        (meta.modelName === 'EventImage' && target.includes('position'))
+      );
+    }
+    if (exception.code === 'P2010' && meta.code === PG_UNIQUE_VIOLATION) {
+      const message = typeof meta.message === 'string' ? meta.message : '';
+      return message.includes(IMAGE_POSITION_UNIQUE) || IMAGE_POSITION_KEY.test(message);
+    }
+    return false;
+  }
+  if (exception instanceof Prisma.PrismaClientUnknownRequestError) {
     return (
-      target.includes(IMAGE_POSITION_UNIQUE) ||
-      (meta.modelName === 'EventImage' && target.includes('position'))
+      exception.message.includes(PG_UNIQUE_VIOLATION) &&
+      exception.message.includes(IMAGE_POSITION_UNIQUE)
     );
   }
-  if (!(exception instanceof Error)) return false;
-  const text = `${exception.message} ${JSON.stringify((exception as { meta?: unknown }).meta ?? {})}`;
-  return (
-    text.includes(PG_UNIQUE_VIOLATION) &&
-    (text.includes(IMAGE_POSITION_UNIQUE) || /\(\\?"eventId\\?", \\?"position\\?"\)/.test(text))
-  );
+  return false;
 }
 
 function envelope(
