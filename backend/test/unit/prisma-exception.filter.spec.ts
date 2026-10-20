@@ -3,8 +3,9 @@ import { Prisma } from '@prisma/client';
 import { AllExceptionsFilter } from '../../src/common/filters/prisma-exception.filter';
 
 /**
- * Spec 014 research R2, R3: a `413` while an upload is read is `IMAGE_TOO_LARGE`, and a violation of
- * `event_image_position_unique` is `409 IMAGES_CHANGED`, not the older `P2002` fallback.
+ * Spec 014 research R2, R3: the IMAGE_TOO_LARGE envelope passes through with its `413`, any other
+ * `413` is generic, and a violation of `event_image_position_unique` is `409 IMAGES_CHANGED`, not
+ * the older `P2002` fallback.
  */
 function run(exception: unknown): { status: number; body: unknown } {
   const out = { status: 0, body: undefined as unknown };
@@ -79,18 +80,24 @@ describe('AllExceptionsFilter, spec 014', () => {
     });
   });
 
-  it('maps a 413 to IMAGE_TOO_LARGE with details.maxBytes', () => {
-    const expected = {
-      status: 413,
-      body: {
-        error: {
-          code: 'IMAGE_TOO_LARGE',
-          message: 'An image can be at most 5 MB.',
-          details: { maxBytes: 5242880 },
-        },
+  it('passes an IMAGE_TOO_LARGE envelope through with its 413', () => {
+    const body = {
+      error: {
+        code: 'IMAGE_TOO_LARGE',
+        message: 'An image can be at most 5 MB.',
+        details: { maxBytes: 5242880 },
       },
     };
-    expect(run(new PayloadTooLargeException('File too large'))).toEqual(expected);
-    expect(run(new HttpException('too big', 413))).toEqual(expected);
+    expect(run(new HttpException(body, 413))).toEqual({ status: 413, body });
+  });
+
+  // Review of PR #63: only the image upload says "image"; any other 413 is a generic refusal.
+  it('answers any other 413 with a generic envelope, not IMAGE_TOO_LARGE', () => {
+    const generic = {
+      status: 413,
+      body: { error: { code: 'VALIDATION_FAILED', message: 'The request body is too large.' } },
+    };
+    expect(run(new PayloadTooLargeException('File too large'))).toEqual(generic);
+    expect(run(new HttpException('too big', 413))).toEqual(generic);
   });
 });

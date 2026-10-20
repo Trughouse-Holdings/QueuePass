@@ -129,10 +129,11 @@ backend/
 ├── prisma/~ schema.prisma, migrations/+ 20261012000000_event_images/migration.sql
 ├── src/
 │   ├── events/+ event-images.controller.ts, + event-images.service.ts,
+│   │         + image-too-large.filter.ts,               # upload route's 413 → IMAGE_TOO_LARGE (R3)
 │   │         + image-metadata.ts,                       # metadata removal (R17)
 │   │         + dto/reorder-event-images.dto.ts, ~ events.module.ts,
 │   │         ~ events.service.ts                         # EVENT_INCLUDE (R6)
-│   ├── common/filters/~ prisma-exception.filter.ts       # 413 → IMAGE_TOO_LARGE (R3); position unique → IMAGES_CHANGED (R2)
+│   ├── common/filters/~ prisma-exception.filter.ts       # position unique → IMAGES_CHANGED (R2)
 │   ├── ~ configure-app.ts                                # CORS maxAge: 600 (R4)
 │   └── scripts/+ demo-images.ts, ~ demo-data.ts          # R15
 └── test/

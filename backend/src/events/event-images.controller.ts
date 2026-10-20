@@ -12,6 +12,7 @@ import {
   Res,
   StreamableFile,
   UploadedFile,
+  UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -20,6 +21,7 @@ import type { Response } from 'express';
 import { Roles } from '../auth/roles.decorator';
 import { ReorderEventImagesDto } from './dto/reorder-event-images.dto';
 import { EventImagesService, type UploadedImage } from './event-images.service';
+import { ImageTooLargeFilter } from './image-too-large.filter';
 
 /** Implements the /events/{id}/images operations in contracts/openapi.yaml (spec 014). */
 @Controller('events/:id/images')
@@ -28,12 +30,14 @@ export class EventImagesController {
 
   /**
    * One `file` part and nothing else, read into memory (multer keeps files in memory when no
-   * storage or destination is given), stopped past 5 MB with a 413 (research R3). Guards run
-   * before the interceptor, so 401 and 403 come before the body is read.
+   * storage or destination is given), stopped past 5 MB with `413 IMAGE_TOO_LARGE` (research R3;
+   * the filter maps multer's refusal on this route only). Guards run before the interceptor, so
+   * 401 and 403 come before the body is read.
    */
   @Post()
   @Roles('queuepass-admin')
   @HttpCode(HttpStatus.CREATED)
+  @UseFilters(ImageTooLargeFilter)
   @UseInterceptors(
     FileInterceptor('file', {
       // busboy refuses when a count REACHES its limit, not when it passes it. So the file size

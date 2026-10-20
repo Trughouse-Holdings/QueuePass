@@ -4,7 +4,6 @@ import {
   HttpStatus,
   Injectable,
   NotFoundException,
-  PayloadTooLargeException,
 } from '@nestjs/common';
 import {
   EVENT_IMAGE_LIMITS,
@@ -17,6 +16,7 @@ import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { notAPicture, stripImageMetadata } from './image-metadata';
+import { imageTooLarge } from './image-too-large.filter';
 
 /** The part of multer's file object this service reads; avoids a dependency on @types/multer. */
 export interface UploadedImage {
@@ -45,7 +45,7 @@ export class EventImagesService {
       throw new BadRequestException({ message: ['Send exactly one file, in a part named file.'] });
     }
     // Multer stops at the limit while reading; this is the same rule, checked again.
-    if (file.size > EVENT_IMAGE_LIMITS.maxBytes) throw new PayloadTooLargeException();
+    if (file.size > EVENT_IMAGE_LIMITS.maxBytes) throw imageTooLarge();
 
     const header = readImageHeader(file.buffer);
     if (!header || header.animated) throw notAPicture();

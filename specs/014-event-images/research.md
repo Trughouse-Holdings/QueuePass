@@ -105,10 +105,13 @@ Shifting through temporary out-of-range positions (needs the CHECK to allow them
   `@nestjs/platform-express`) into memory with limits `{ fileSize: 5_242_880, files: 1, fields: 0,
   parts: 1 }`. A local type `UploadedImage { buffer: Buffer; size: number }` is used instead of
   adding `@types/multer`.
-- **Size**: multer stops reading at 5,242,880 bytes and NestJS raises `413`. The exception filter
-  maps a `413` to `IMAGE_TOO_LARGE` ("An image can be at most 5 MB.", `details.maxBytes`). Only
-  this operation reads a body that can raise `413` through NestJS, so the mapping is unambiguous.
-  The service also checks `size <= 5_242_880`, and the database CHECKs it (data-model.md).
+- **Size**: multer stops reading at 5,242,880 bytes and NestJS raises `413`. An exception filter
+  on the upload route only (`ImageTooLargeFilter`, `@UseFilters` on `uploadEventImage`) answers it
+  with `IMAGE_TOO_LARGE` ("An image can be at most 5 MB.", `details.maxBytes`). The service also
+  checks `size <= 5_242_880` and throws the same envelope, and the database CHECKs it
+  (data-model.md). The global filter does not map `413` to `IMAGE_TOO_LARGE`: a body too large
+  for any other operation is a generic `413` (`VALIDATION_FAILED`, "The request body is too
+  large."), so no other refusal can claim to be about an image.
 - **Type**: `sniffImageType(bytes)` reads the file's signature and returns `image/jpeg`,
   `image/png`, `image/webp`, or `null`:
   - JPEG: `FF D8 FF`;

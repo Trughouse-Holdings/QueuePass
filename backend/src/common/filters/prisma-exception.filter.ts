@@ -9,7 +9,7 @@ import {
 import { Prisma } from '@prisma/client';
 import type { Response } from 'express';
 import type { ErrorEnvelope, ErrorCode } from '@queuepass/shared';
-import { EVENT_IMAGE_LIMITS, SCHEDULING_BUFFER_MINUTES, isErrorEnvelope } from '@queuepass/shared';
+import { SCHEDULING_BUFFER_MINUTES, isErrorEnvelope } from '@queuepass/shared';
 
 /** PostgreSQL SQLSTATE for an exclusion constraint violation. */
 const PG_EXCLUSION_VIOLATION = '23P01';
@@ -76,14 +76,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
         return;
       }
 
-      // Spec 014 research R3: multer stops reading an upload past 5 MB and Nest answers 413. Only
-      // uploadEventImage reads a body that can raise it, so the mapping is unambiguous.
+      // Spec 014 research R3: the image upload answers its own 413 with IMAGE_TOO_LARGE (an
+      // envelope, passed through above). Any other body too large is said as such.
       if (status === HttpStatus.PAYLOAD_TOO_LARGE) {
-        response.status(status).json(
-          envelope('IMAGE_TOO_LARGE', 'An image can be at most 5 MB.', {
-            maxBytes: EVENT_IMAGE_LIMITS.maxBytes,
-          }),
-        );
+        response
+          .status(status)
+          .json(envelope('VALIDATION_FAILED', 'The request body is too large.'));
         return;
       }
 
