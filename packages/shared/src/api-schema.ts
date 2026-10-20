@@ -528,7 +528,9 @@ export interface paths {
          *     within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15 seconds. No
          *     event ever names a customer. A client that loses the stream reconnects and gets a fresh
          *     snapshot. The stream ends when the access token expires; reconnect at once with a current
-         *     one. It also ends when the event is deleted; a reconnect then gets `404`.
+         *     one. It also ends when the event's seating or its venue's layout changes; reconnect at
+         *     once for a new snapshot. It also ends when the event is deleted; a reconnect then gets
+         *     `404`.
          */
         get: operations["streamSeatMap"];
         put?: never;

@@ -49,6 +49,9 @@ export class AuthGuard implements CanActivate {
         audience: this.config.audience,
         algorithms: ['RS256'],
         clockTolerance: CLOCK_TOLERANCE_S,
+        // Constitution V: a token must expire. Without this, jwtVerify checks `exp` only when the
+        // token has one.
+        requiredClaims: ['exp'],
       });
 
       const username = payload.preferred_username;
@@ -61,7 +64,7 @@ export class AuthGuard implements CanActivate {
         return this.refuse('token lacks sub or preferred_username');
       }
 
-      // jwtVerify has already refused a token without a valid exp.
+      // requiredClaims has already refused a token without exp; this narrows the type.
       if (typeof payload.exp !== 'number') return this.refuse('token lacks exp');
 
       const realmRoles = (payload.realm_access as { roles?: unknown } | undefined)?.roles;

@@ -266,6 +266,10 @@ when the tab closes).
   gives both apps the current `SeatMap`.
 - **Deleting the event** completes every stream for it (`SeatEventsService.end(eventId)`, after
   the delete commits).
+- **A change to the map's shape** ends the stream too: `updateSeating` (reserved seating on or off,
+  a section's tier) and a layout replace (new sections, new ids) end every stream for the event,
+  or for each event at the venue, after the commit (R11). A `SeatMapChange` can't carry a new
+  shape, so the client reconnects at once, as at token expiry, and the new snapshot carries it.
 
 **Rationale**: Updates flow one way, server to browser, which is what SSE is for. It is plain HTTP,
 a `GET` like any other in the contract, with JSON `data`, and `x-sse-events` names each event's
@@ -320,6 +324,9 @@ transaction, and publish the seats as open after the commit:
 
 `cancelEvent` also voids the event's valid tickets, so it publishes **every** seat it frees as
 open: the held seats and the sold ones.
+
+`updateSeating` and layout replace also end the streams of the events they change, after the
+commit, because the seat map's shape changed (R9).
 
 Two paths **remove** rows instead, through `ON DELETE CASCADE`, because the parent row goes:
 

@@ -133,6 +133,22 @@ describe('Seated orders need a reservation', () => {
     expect(again.body.id).toBe(first.body.id);
   });
 
+  // Spec 016 FR-009: an admin may lower the limit below a reservation already made, so the order
+  // path's own limit check still decides Confirm purchase.
+  it('refuses Confirm purchase when the limit was lowered below the reservation', async () => {
+    await asAdmin(ctx).patch(`/events/${eventId}`).send({ maxTicketsPerCustomer: 3 }).expect(200);
+    const seats = [seat(1, 5), seat(1, 6), seat(1, 7)];
+    expect((await reserve(seats)).status).toBe(201);
+    await asAdmin(ctx).patch(`/events/${eventId}`).send({ maxTicketsPerCustomer: 2 }).expect(200);
+
+    const res = await order(seats);
+
+    expect(res.status).toBe(409);
+    expect(code(res)).toBe('TICKET_LIMIT_REACHED');
+    expect(res.body.error.details).toEqual({ limit: 2, held: 0, remaining: 2, requested: 3 });
+    expect(await ctx.prisma.order.count()).toBe(0);
+  });
+
   it('leaves general-admission orders unchanged', async () => {
     const ga = await event(ctx, venueId, { capacity: 30 });
 
