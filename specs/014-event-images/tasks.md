@@ -560,7 +560,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
     mappings are covered by `prisma-exception.filter.spec.ts`). No front-end coverage provider is
     installed, so `packages/shared`, Admin, and Customer coverage waits on `010`; their suites
     pass (343, 187, and 133 tests after review round 2).
-- [ ] T044 Running-system gate: `docker compose up --build`, walk quickstart.md S1–S12 in the
+- [x] T044 Running-system gate: `docker compose up --build`, walk quickstart.md S1–S12 in the
   browser, and sign in, use, and sign out of each front end. Record the results in this file,
   including S11's peak memory of the `backend` and `postgres` containers and of the browser
   tab.
@@ -582,11 +582,26 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
       on "image 1 of 5" with Close, Previous, and Next, `#root` inert, and Esc closed it. Sign
       in, use, and sign out worked in the Admin and Customer apps.
     - **S11 memory:** `backend` 102 MiB and `database` 41 MiB after the uploads above (light
-      load). The full S11 run with 8+ events × five 5 MB photos was not done.
-    - **Not walked by hand:** S7 (reduced motion, 375 px), S9 (needs an empty database; covered
-      by `demo-data.e2e-spec.ts`), S12 (network blocking and the photo's Exif in Windows;
-      covered by T014 and `image-metadata.spec.ts`). The animation itself was seen by Mahdi, not
-      in the automation browser, which renders no frames while hidden.
+      load).
+  - 2026-10-20, on a separate fresh stack (`docker compose -p qp014gate`, removed afterwards):
+    - **S9:** on the empty database the demo script reported "4 images"; the concert has 3, the
+      comedy night 1, the gala none, each a valid PNG of about 13 KB; a second run changed nothing.
+    - **S11:** 8 events with five 4.7 MB JPEG photos each (40 uploads, all `201`). As `customer1`
+      on Events, scrolled to the bottom and back and left it rotating: each card held at most 1
+      shown image (plus its next in the cache); cards off screen held none; coming back, all 11
+      image reads were answered from the browser cache, and in 40 seconds of rotation 32 reads,
+      none from the network. `backend` rose from 96 to a peak of 214 MiB while the first images
+      loaded and settled to 135 MiB; `database` peaked at 261 MiB. That is more than the
+      quickstart's "a few dozen MB" but within R14's estimate of about 15 MB per 5 MB image in
+      flight. The tab's JS heap stayed at 3–4 MB; the automation browser cannot report the image
+      memory of the whole tab.
+    - **S7 (375 px):** no sideways scrolling on Events, the event page, or full screen; card
+      arrows, Pause/Play, the viewer's arrows, and Close are 44 × 44.
+    - **S12 (metadata):** a JPEG with GPS, camera make and model, date, and Orientation 6 was
+      stored with one Exif entry, Orientation 6, and none of the rest (2,169 → 1,973 bytes).
+    - **Not walked by hand, covered by tests:** reduced motion (the automation browser cannot
+      emulate it; `use-gallery-rotation.test.ts`, `image-gallery.test.tsx`) and S12's blocked
+      upload during create (T014's network-failure case).
 - [x] T045 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
