@@ -50,10 +50,13 @@ export function GetTickets({ event }: { event: Event }) {
   const id = event.id;
   // Bumped after a refusal, so what is left is loaded again.
   const [reloads, setReloads] = useState(0);
-  const availability = useLoad<Availability>(`availability:${id}:${reloads}`, (a) =>
+  // Spec 015 FR-016: bumped when an admin change maps the sections to tiers anew, so the tiers and
+  // what is left of each are loaded again, not kept from before the change (T046).
+  const [seatings, setSeatings] = useState(0);
+  const availability = useLoad<Availability>(`availability:${id}:${reloads}:${seatings}`, (a) =>
     a.GET('/events/{id}/availability', { params: { path: { id } } }),
   );
-  const tiers = useLoad<TicketTier[]>(`tiers:${id}`, (a) =>
+  const tiers = useLoad<TicketTier[]>(`tiers:${id}:${seatings}`, (a) =>
     a.GET('/events/{id}/tiers', { params: { path: { id } } }),
   );
   // Spec 007: only a seated event needs its seat map. Spec 015 FR-010 (research R9): kept live,
@@ -178,6 +181,11 @@ export function GetTickets({ event }: { event: Event }) {
   // by someone else, and a seat that was open before stays focusable (FR-011, FR-012).
   onSnapshot.current = (map: StreamSeatMap): void => {
     const before = mapRef.current;
+    // An admin change ends the stream (contract: streamSeatMap); the snapshot after it may map
+    // the sections to other tiers, which changes the tiers and their counts too (FR-016, T046).
+    const seating = (m: StreamSeatMap): string =>
+      m.sections.map((s) => `${s.sectionId}:${s.tierId ?? ''}`).join(',');
+    if (before && seating(before) !== seating(map)) setSeatings((n) => n + 1);
     const gone = map.sections
       .flatMap((s) => [...s.taken, ...s.reserved].map((p) => ({ sectionId: s.sectionId, ...p })))
       .filter((c) => !isOwn(c));
@@ -631,12 +639,13 @@ export function GetTickets({ event }: { event: Event }) {
               </button>
               {reservation && reserved(reservation)}
               {/* FR-012: the countdown's own status region, always present so its 1:00 warning is
-                  announced, apart from the timer and from the other messages below. */}
-              <p role="status" className="note">
+                  announced, apart from the timer and from the other messages below. Boxed only
+                  while it has something to say, so an empty one draws no bar (T046). */}
+              <p role="status" className={reservation && warning ? 'note' : undefined}>
                 {reservation ? warning : null}
               </p>
               {/* FR-012: announced, unlike the timer; FR-011 messages join it (US3). */}
-              <p role="status" className="note">
+              <p role="status" className={status ? 'note' : undefined}>
                 {status}
               </p>
             </>

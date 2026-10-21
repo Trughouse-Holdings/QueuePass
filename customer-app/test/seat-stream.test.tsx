@@ -163,6 +163,42 @@ describe('live seat map (US3; FR-010)', () => {
     expect(seatButton(3)).not.toBeDisabled();
   });
 
+  it('loads the tiers again when a snapshot maps the sections to other tiers (FR-016, T046)', async () => {
+    const gen = tier({ id: 't-gen', name: 'General', price: '20.00', quantity: 6 });
+    let remapped = false;
+    let tierLoads = 0;
+    const { stream } = setup({
+      'GET /events/e1/tiers': () => {
+        tierLoads += 1;
+        return json(remapped ? [vip, gen] : [vip]);
+      },
+      'GET /events/e1/availability': () =>
+        json(
+          availability({
+            ticketsLeft: 6,
+            tiers: remapped
+              ? [
+                  { tierId: 't-vip', ticketsLeft: 0 },
+                  { tierId: 't-gen', ticketsLeft: 6 },
+                ]
+              : [{ tierId: 't-vip', ticketsLeft: 6 }],
+          }),
+        ),
+    });
+    await live(stream);
+    // A reconnect with the same mapping loads nothing again.
+    act(() => stream.send('snapshot', seatMap()));
+    expect(tierLoads).toBe(1);
+
+    remapped = true;
+    const later = seatMap();
+    later.sections[0].tierId = 't-gen';
+    act(() => stream.send('snapshot', later));
+
+    expect(await screen.findByRole('radio', { name: 'General, $20.00, 6 left' })).toBeEnabled();
+    expect(tierLoads).toBe(2);
+  });
+
   it("never calls the customer's own reserved seats taken by someone else (review round 2)", async () => {
     const { stream } = setup({ 'GET /me/reservations': json([reservation([2, 3])]) });
     await screen.findByRole('timer');

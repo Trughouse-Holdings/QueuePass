@@ -274,6 +274,21 @@ describe('the countdown (FR-005, FR-012)', () => {
     expect(screen.getAllByText(/1 minute left/)).toHaveLength(1);
   });
 
+  it('keeps its empty status regions in the page without drawing them as notes (T046)', async () => {
+    fakeClock();
+    stubApi(routes({ 'POST /events/e1/reservation': json(reservation([[1, 1]]), 201) }));
+    renderCustomer({ at: '/events/e1' });
+    await pick([1, 1]);
+    press('Reserve seats');
+    await screen.findByRole('timer');
+    const empty = screen.getAllByRole('status').filter((s) => s.textContent === '');
+    expect(empty.length).toBeGreaterThanOrEqual(2);
+    for (const region of empty) expect(region).not.toHaveClass('note');
+
+    await advance(240_000);
+    expect(screen.getByText(/1 minute left/)).toHaveClass('note');
+  });
+
   it('at 0:00 says the reservation ran out, hides Confirm purchase, and keeps the picks', async () => {
     fakeClock();
     stubApi(
