@@ -468,8 +468,61 @@ catches up after a drop (FR-010, FR-011).
 - [X] T045 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' if a provider is installed) in the PR description. The 80% floor is not yet
   blocking (Constitution VI deferral until `010` and `011`).
-- [ ] T046 Running-system gate: `docker compose up --build`, then walk quickstart.md S0–S11 in the
+- [X] T046 Running-system gate: `docker compose up --build`, then walk quickstart.md S0–S11 in the
   browser, and sign in, use, and sign out of each front end. Record the results in this file.
+  - 2026-10-20, from a fresh clone of `015-seat-holds-impl` at a29631d, on its own stack
+    (`COMPOSE_PROJECT_NAME=qp015gate`, `docker compose up --build -d`, removed afterwards). All
+    10 migrations applied, and the seed job exited 0 on its first run. The walk was driven by
+    Playwright in Chrome, with three separate sessions (`admin1`, `customer1`, `customer2`), the
+    same way 014's T044 was. Times are measured from the action to the change on the other
+    screen.
+    - **S0:** the venue "Gate Hall" was created with sections A (3 × 10) and B (2 × 10), and the
+      event with General $20 and VIP $50. Reserved seating is on, with A and B mapped to General.
+      The Admin seat map was left open.
+    - **S1:** A-1-5 and A-1-6 were reserved. The countdown showed 5:00, Confirm purchase and
+      Release seats appeared, and both seats were named "reserved by you". After confirming,
+      the confirmation listed both seats, and so did My tickets. Opening to confirmed took 0.5 s.
+    - **S2:** Customer 2 saw A-2-3 and A-2-4 as reserved, and the Admin's count read
+      "2 reserved", both within 0.1 s. Customer 2's seats had a dashed outline with an R, were
+      named "reserved" (sold ones are striped with a ✕, named "sold"), and were disabled. The
+      Admin showed ◩. After Release seats, both screens showed the seats open within 0.1 s.
+    - **S3:** Customer 2's pick of A-3-1 was dropped with "Section A, Row 3, Seat 1 is no longer
+      available: someone else reserved or bought it." Their pick of A-3-2 stayed.
+    - **S4:** both customers pressed Reserve seats on A-3-5 together. Customer 1 got it.
+      Customer 2 saw "Section A, Row 3, Seat 5 is reserved by another customer." and had nothing
+      reserved.
+    - **S5:** Customer 2 saw A-3-7 open 300.6 s after it was reserved. Customer 1 saw "Your
+      reservation ran out…", Confirm purchase went away, and the pick stayed. Reserving again at
+      once was refused: "…You can reserve it again at 10:24 PM", 2 minutes later. Customer 2
+      then reserved A-3-7.
+    - **S6:** at 4:00 left, A-1-3 was added. Three seats were reserved, and the countdown read
+      3:59, so it did not restart. A-1-1 was then deselected; Customer 2 saw it open within
+      0.1 s, and the countdown did not change.
+    - **S7:** Customer 1 reserved A-1-8 and logged out. Customer 2 saw A-1-8 open within 0.1 s.
+    - **S8:** a reservation made in tab 1 showed in tab 2 within 0.3 s. Releasing it in tab 2
+      cleared it in tab 1 within 0.3 s.
+    - **S9:** first run: mapping B to VIP ended Customer 1's reservation of B-1-1 within 0.3 s,
+      without a refresh. **Found:** the open page kept its old tier list and counts: VIP said
+      "sold out" and couldn't be chosen, and General said 48 left (really 28) until a reload.
+      Fixed: a snapshot that maps the sections to other tiers now reloads the tiers and
+      availability (`GetTickets.tsx`, with a test in `seat-stream.test.tsx`). Second run, on
+      the same stack with the fixed Customer app (B mapped back to General first): the
+      reservation ended within 0.3 s, VIP showed "20 left" with no reload, and B-1-1 was
+      reserved again as VIP at once, with no 2-minute wait.
+    - **S10:** the Backend was stopped for 10.9 s and started again. With no reload, Customer 2's
+      seat map then showed a new reservation by Customer 1 within 0.1 s.
+    - **S11:** each app's sign-in, use, and sign-out worked.
+      - Admin: created a general-admission venue and event.
+      - Customer (`customer3`): bought 2 general-admission tickets and saw them on My tickets,
+        as before (SC-006).
+      - Ticket Booth (`agent1`): showed its hello page.
+    - **Also found:** under Reserve seats, the two status regions always drew empty note boxes.
+      They now take the `note` box only when they have a message, and stay in the page for
+      screen readers (test in `seat-holds.test.tsx`).
+    - **Minor, open:** "Your reserved seats were released." stays shown after a new reservation
+      is made.
+    - **Not checked:** SC-005's 90 seconds by hand. The automation did S1 in 0.5 s, so it says
+      nothing about a person's time.
 - [X] T047 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
