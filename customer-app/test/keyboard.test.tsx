@@ -43,6 +43,7 @@ describe('keyboard', () => {
           tierId: 't-vip',
           sold: 1,
           taken: [{ row: 1, seat: 2 }],
+          reserved: [],
         },
       ],
     };

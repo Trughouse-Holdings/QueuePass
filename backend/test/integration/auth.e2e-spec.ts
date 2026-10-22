@@ -42,6 +42,11 @@ describe('Token validation', () => {
     expectUnauthenticated(await as(ctx, await tokenFor({ ...ADMIN, expiresIn: -300 })).get('/me'));
   });
 
+  // Constitution V: a token must expire. jwtVerify checks `exp` only when the token has one.
+  it('refuses a correctly signed token with no exp', async () => {
+    expectUnauthenticated(await as(ctx, await tokenFor({ ...ADMIN, noExp: true })).get('/me'));
+  });
+
   it('accepts a token expired by less than the 30-second clock tolerance', async () => {
     await as(ctx, await tokenFor({ ...ADMIN, expiresIn: -10 }))
       .get('/me')

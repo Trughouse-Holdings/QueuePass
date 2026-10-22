@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { InMemoryWebStorage, User } from 'oidc-client-ts';
+import type { ApiClient } from '../../src/web/api-client';
 import { AuthProvider, createUserManager, useAuth } from '../../src/web/auth-provider';
 import { fakeUserManager, makeUser } from './fake-user-manager';
 
@@ -152,5 +153,99 @@ describe('AuthProvider', () => {
     Object.defineProperty(event, 'persisted', { value: true });
     await act(async () => window.dispatchEvent(event));
     await waitFor(() => expect(um.signinRedirect).toHaveBeenCalled());
+  });
+});
+
+/** Spec 015 FR-008 (research R8): the Customer app releases its reservations before signing out. */
+describe('AuthProvider beforeLogout', () => {
+  function LogoutProbe() {
+    const auth = useAuth();
+    return (
+      <button type="button" onClick={() => void auth.logout()}>
+        log out
+      </button>
+    );
+  }
+
+  const signedIn = () => fakeUserManager(makeUser({ username: 'customer1', roles: ['customer'] }));
+
+  it('awaits beforeLogout, with the signed-in API client, before removing the user', async () => {
+    const um = signedIn();
+    let release!: () => void;
+    const beforeLogout = vi.fn(
+      (_api: ApiClient) =>
+        new Promise<void>((resolve) => {
+          um.calls.push('beforeLogout');
+          release = resolve;
+        }),
+    );
+    render(
+      <AuthProvider userManager={um} beforeLogout={beforeLogout}>
+        <LogoutProbe />
+      </AuthProvider>,
+    );
+    const button = await screen.findByRole('button', { name: 'log out' });
+    act(() => button.click());
+    await waitFor(() => expect(beforeLogout).toHaveBeenCalledTimes(1));
+    expect(beforeLogout.mock.calls[0][0]).toHaveProperty('POST');
+    expect(um.removeUser).not.toHaveBeenCalled();
+
+    await act(async () => release());
+
+    await waitFor(() =>
+      expect(um.calls.slice(-3)).toEqual(['beforeLogout', 'removeUser', 'signoutRedirect']),
+    );
+  });
+
+  it('still signs out when beforeLogout rejects', async () => {
+    const um = signedIn();
+    const beforeLogout = vi.fn(async () => {
+      throw new Error('offline');
+    });
+    render(
+      <AuthProvider userManager={um} beforeLogout={beforeLogout}>
+        <LogoutProbe />
+      </AuthProvider>,
+    );
+    const button = await screen.findByRole('button', { name: 'log out' });
+    await act(async () => button.click());
+
+    await waitFor(() => expect(um.signoutRedirect).toHaveBeenCalled());
+    expect(um.removeUser).toHaveBeenCalled();
+  });
+
+  it('still signs out after 2 seconds when beforeLogout never settles', async () => {
+    const um = signedIn();
+    const beforeLogout = vi.fn(() => new Promise<void>(() => {}));
+    render(
+      <AuthProvider userManager={um} beforeLogout={beforeLogout}>
+        <LogoutProbe />
+      </AuthProvider>,
+    );
+    await screen.findByRole('button', { name: 'log out' });
+    vi.useFakeTimers();
+    try {
+      act(() => screen.getByRole('button', { name: 'log out' }).click());
+      await act(async () => vi.advanceTimersByTimeAsync(1_999));
+      expect(um.removeUser).not.toHaveBeenCalled();
+
+      await act(async () => vi.advanceTimersByTimeAsync(1));
+    } finally {
+      vi.useRealTimers();
+    }
+    await waitFor(() => expect(um.signoutRedirect).toHaveBeenCalled());
+  });
+
+  it('signs out exactly as before without the prop', async () => {
+    const um = signedIn();
+    render(
+      <AuthProvider userManager={um}>
+        <LogoutProbe />
+      </AuthProvider>,
+    );
+    const button = await screen.findByRole('button', { name: 'log out' });
+    await act(async () => button.click());
+
+    await waitFor(() => expect(um.calls.slice(-2)).toEqual(['removeUser', 'signoutRedirect']));
   });
 });

@@ -1,10 +1,17 @@
+import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, venue } from '../setup/fixtures';
+import { customer, event, reserveThenOrder, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
+import { tokenFor } from '../setup/tokens';
 
-/** Spec 007 US3 (FR-009, FR-010, SC-001; research R2): no seat is ever sold twice. */
+/**
+ * Spec 007 US3 (FR-009, FR-010, SC-001; research R2): no seat is ever sold twice. Spec 015: a
+ * seated order needs the customer's reservation, so the races here are one customer's own
+ * simultaneous orders; the many-customer race is for the reservation itself
+ * (reservations.concurrency.e2e-spec.ts).
+ */
 describe('One valid ticket per seat', () => {
   let ctx: TestContext;
   let eventId: string;
@@ -35,17 +42,24 @@ describe('One valid ticket per seat', () => {
   const order = async (n: number, seats: object[]) =>
     (await customer(ctx, n))
       .post(`/events/${eventId}/orders`)
-      .send({ quantity: seats.length, seats });
+      .send({ quantity: seats.length, seats, requestId: randomUUID() });
+  const reserve = async (n: number, seats: object[]) =>
+    (await customer(ctx, n)).post(`/events/${eventId}/reservation`).send({ seats }).expect(201);
+  const bought = async (n: number, seats: { sectionId: string; row: number; seat: number }[]) =>
+    reserveThenOrder(
+      ctx,
+      await tokenFor({ username: `customer${n}`, roles: ['customer'] }),
+      eventId,
+      {
+        seats,
+      },
+    );
   const code = (res: Response): string => res.body.error?.code;
 
-  it('lets exactly 1 of 10 simultaneous orders for the same seat succeed', async () => {
-    const clients = await Promise.all(Array.from({ length: 10 }, (_, i) => customer(ctx, i + 1)));
+  it('lets exactly 1 of 10 simultaneous orders for the same reserved seat succeed', async () => {
+    await reserve(1, [seat(1, 1)]);
 
-    const results = await Promise.all(
-      clients.map((c) =>
-        c.post(`/events/${eventId}/orders`).send({ quantity: 1, seats: [seat(1, 1)] }),
-      ),
-    );
+    const results = await Promise.all(Array.from({ length: 10 }, () => order(1, [seat(1, 1)])));
 
     expect(results.filter((r) => r.status === 201)).toHaveLength(1);
     const refused = results.filter((r) => r.status !== 201);
@@ -62,9 +76,11 @@ describe('One valid ticket per seat', () => {
   });
 
   it('lets exactly one of two simultaneous overlapping orders succeed', async () => {
+    await reserve(1, [seat(2, 1), seat(2, 2), seat(2, 3)]);
+
     const [first, second] = await Promise.all([
       order(1, [seat(2, 1), seat(2, 2)]),
-      order(2, [seat(2, 2), seat(2, 3)]),
+      order(1, [seat(2, 2), seat(2, 3)]),
     ]);
 
     expect([first.status, second.status].sort()).toEqual([201, 409]);
@@ -72,7 +88,7 @@ describe('One valid ticket per seat', () => {
   });
 
   it('frees every seat when the event is cancelled', async () => {
-    await order(1, [seat(1, 1), seat(1, 2)]).then((r) => expect(r.status).toBe(201));
+    await bought(1, [seat(1, 1), seat(1, 2)]).then((r) => expect(r.status).toBe(201));
 
     await asAdmin(ctx).post(`/events/${eventId}/cancel`).expect(200);
 
@@ -81,7 +97,7 @@ describe('One valid ticket per seat', () => {
   });
 
   it('holds below the Backend: the database refuses a second valid ticket for a seat', async () => {
-    const placed = await order(1, [seat(3, 3)]);
+    const placed = await bought(1, [seat(3, 3)]);
     expect(placed.status).toBe(201);
     const orderId = placed.body.id;
     const tierless = { orderId, eventId, tierId: null };

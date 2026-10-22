@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Event, SeatMap, TicketTier } from '@queuepass/shared';
-import { ApiError } from '../api/client';
+import { applySeatChange, useSeatStream } from '@queuepass/shared/web';
+import { ApiError, accessToken, api } from '../api/client';
 import { getAvailability, getSeatMap, updateSeating } from '../api/seating';
 import { listTiers } from '../api/tiers';
 import { ErrorBanner } from './ErrorBanner';
@@ -21,7 +22,8 @@ const asApiError = (err: unknown): ApiError =>
 /**
  * Spec 007 US4 (FR-002, FR-004, FR-012): reserved seating on or off, each section's tier, and
  * the seat map. The Backend refuses switching after sales and retiering sold sections; this card
- * only explains the refusals in advance.
+ * only explains the refusals in advance. Spec 015 FR-010 (research R14): the seat map and its
+ * counts update live, from the same stream customers read.
  */
 export function SeatingCard({
   event,
@@ -39,11 +41,26 @@ export function SeatingCard({
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
 
+  // Spec 015: live changes and catch-up snapshots go into the map shown; the form's own state
+  // (the switch and each section's tier) is left as the admin set it.
+  const live = useSeatStream(event.id, {
+    api,
+    getToken: accessToken,
+    onChange: (change) =>
+      setLoad((l) => (l.kind === 'ok' ? { ...l, map: applySeatChange(l.map, change) } : l)),
+    onSnapshot: (map) => setLoad((l) => (l.kind === 'ok' ? { ...l, map } : l)),
+  });
+
+  const liveMap = useRef<SeatMap | null>(null);
+  liveMap.current = live.map;
+
   useEffect(() => {
     let cancelled = false;
     Promise.all([getSeatMap(event.id), listTiers(event.id), getAvailability(event.id)])
-      .then(([map, tiers, left]) => {
+      .then(([loaded, tiers, left]) => {
         if (cancelled) return;
+        // Changes may have arrived while this loaded: the stream's map already has them.
+        const map = liveMap.current ?? loaded;
         setLoad({ kind: 'ok', map, tiers, hasSales: left.ticketsLeft < event.totalTicketCapacity });
         adopt(map);
       })
@@ -167,7 +184,10 @@ export function SeatingCard({
                 ))}
               </select>
             </label>
-            <p>{`${shown.sold} sold, ${shown.rows * shown.seatsPerRow - shown.sold} open`}</p>
+            {/* Spec 015 FR-013: sold, reserved, and open, kept current by the stream. */}
+            <p>{`${shown.sold} sold, ${shown.reserved.length} reserved, ${
+              shown.rows * shown.seatsPerRow - shown.sold - shown.reserved.length
+            } open`}</p>
             <SeatGrid section={shown} />
           </>
         )}

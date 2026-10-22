@@ -23,6 +23,9 @@ export function connectAuth(opts: {
 
 export const api: ApiClient = createApiClient(apiBaseUrl(), () => getAccessToken());
 
+/** Spec 015: the signed-in admin's current token, for the live seat stream (research R9). */
+export const accessToken = (): string | undefined => getAccessToken();
+
 /** A rejected request, carrying the envelope so callers can branch on `code`. */
 export class ApiError extends Error {
   constructor(

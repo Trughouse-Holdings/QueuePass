@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, tier, venue } from '../setup/fixtures';
+import { customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
-import { subFor } from '../setup/tokens';
+import { subFor, tokenFor } from '../setup/tokens';
 
 /**
  * Spec 016 US1 (FR-002, FR-003, FR-005–FR-007; research R2–R4): a customer never goes over an
@@ -196,10 +196,17 @@ describe('Per-customer ticket limit on orders', () => {
       .expect(200);
     const seat = (s: number) => ({ sectionId: sectionA, row: 1, seat: s });
 
-    await order(eventId, { quantity: 2, seats: [seat(1), seat(2)] }).then((r) =>
+    const token = await tokenFor({ username: 'customer1', roles: ['customer'] });
+    await reserveThenOrder(ctx, token, eventId, { seats: [seat(1), seat(2)] }).then((r) =>
       expect(r.status).toBe(201),
     );
-    const res = await order(eventId, { quantity: 2, seats: [seat(3), seat(4)] });
+    // Spec 015 FR-003: seats are reserved before they are ordered, so the limit now refuses them
+    // at Reserve seats, with the same numbers.
+    const res = await (
+      await customer(ctx)
+    )
+      .post(`/events/${eventId}/reservation`)
+      .send({ seats: [seat(3), seat(4)] });
 
     expect(code(res)).toBe('TICKET_LIMIT_REACHED');
     expect(res.body.error.details).toEqual({ limit: 3, held: 2, remaining: 1, requested: 2 });

@@ -157,6 +157,7 @@ describe('event form: Tickets per customer', () => {
             tierId: null,
             sold: 0,
             taken: [],
+            reserved: [],
           },
         ],
       }),

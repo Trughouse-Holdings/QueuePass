@@ -11,6 +11,15 @@ export { ServiceUnreachable } from './service-unreachable.js';
 export { AddressLink } from './address-link.js';
 export { apiBaseUrl, createApiClient } from './api-client.js';
 export type { ApiClient } from './api-client.js';
+export { openSeatStream, RECONNECT_DELAYS_MS } from './seat-stream.js';
+export type {
+  SeatStream,
+  SeatStreamStatus,
+  StreamSeatMap,
+  StreamSeatMapChange,
+} from './seat-stream.js';
+export { applySeatChange, useSeatStream } from './use-seat-stream.js';
+export type { LiveSeats, LiveSeatStatus, SeatStreamOptions } from './use-seat-stream.js';
 // Spec 014: event images, loaded with the token and shown as a rotating gallery.
 export { useEventImage } from './event-images.js';
 export type { EventImageState } from './event-images.js';

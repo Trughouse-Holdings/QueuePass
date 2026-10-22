@@ -102,14 +102,23 @@ export interface AuthProviderProps {
   /** Substitute for tests. Built from `authority` and `clientId` when omitted. */
   userManager?: UserManagerLike;
   apiBaseUrl?: string;
+  /**
+   * Spec 015 FR-008 (research R8): runs at logout while the token is still in memory, before the
+   * user is cleared. Waited for at most 2 seconds; logout goes on even if it fails or times out.
+   */
+  beforeLogout?: (api: ApiClient) => Promise<void>;
   children: ReactNode;
 }
+
+/** Spec 015 research R8: how long logout waits for `beforeLogout` before going on anyway. */
+const BEFORE_LOGOUT_MS = 2_000;
 
 export function AuthProvider({
   authority,
   clientId,
   userManager,
   apiBaseUrl,
+  beforeLogout,
   children,
 }: AuthProviderProps) {
   const um = useMemo<UserManagerLike>(() => {
@@ -199,9 +208,27 @@ export function AuthProvider({
     return () => window.removeEventListener('pageshow', onPageShow);
   }, [um, apply, signIn]);
 
+  const accessToken = useCallback(() => userRef.current?.access_token, []);
+
+  const api = useMemo(
+    () => createApiClient(apiBaseUrl ?? defaultApiBaseUrl(), accessToken),
+    [apiBaseUrl, accessToken],
+  );
+
   const logout = useCallback(async () => {
     const idToken = userRef.current?.id_token;
     loggingOut.current = true;
+    // Spec 015 FR-008: while the token is still here; never longer than 2 seconds, never fatal.
+    if (beforeLogout) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        beforeLogout(api).catch(() => undefined),
+        new Promise<void>((resolve) => {
+          timer = setTimeout(resolve, BEFORE_LOGOUT_MS);
+        }),
+      ]);
+      clearTimeout(timer);
+    }
     // Order matters (research R2): memory first, so any cached snapshot is signed out.
     await um.removeUser();
     apply(null);
@@ -209,14 +236,7 @@ export function AuthProvider({
       id_token_hint: idToken,
       post_logout_redirect_uri: `${window.location.origin}/`,
     });
-  }, [um, apply]);
-
-  const accessToken = useCallback(() => userRef.current?.access_token, []);
-
-  const api = useMemo(
-    () => createApiClient(apiBaseUrl ?? defaultApiBaseUrl(), accessToken),
-    [apiBaseUrl, accessToken],
-  );
+  }, [um, apply, api, beforeLogout]);
 
   const value = useMemo<Auth>(() => {
     const { username, roles } = claimsOf(user);

@@ -153,7 +153,16 @@ describe('choosing seats (US4-3)', () => {
     eventId: 'e1',
     reservedSeating: true,
     sections: [
-      { sectionId: 's-a', name: 'A', rows: 2, seatsPerRow: 3, tierId: 't-vip', sold: 0, taken: [] },
+      {
+        sectionId: 's-a',
+        name: 'A',
+        rows: 2,
+        seatsPerRow: 3,
+        tierId: 't-vip',
+        sold: 0,
+        taken: [],
+        reserved: [],
+      },
     ],
   };
 

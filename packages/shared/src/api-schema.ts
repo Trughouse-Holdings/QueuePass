@@ -528,7 +528,9 @@ export interface paths {
          *     within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15 seconds. No
          *     event ever names a customer. A client that loses the stream reconnects and gets a fresh
          *     snapshot. The stream ends when the access token expires; reconnect at once with a current
-         *     one. It also ends when the event is deleted; a reconnect then gets `404`.
+         *     one. It also ends when the event's seating or its venue's layout changes; reconnect at
+         *     once for a new snapshot. It also ends when the event is deleted; a reconnect then gets
+         *     `404`.
          */
         get: operations["streamSeatMap"];
         put?: never;
@@ -1396,11 +1398,8 @@ export interface components {
             sold: number;
             /** @description Seats held by valid tickets. Never says by whom. */
             taken: components["schemas"]["SeatPosition"][];
-            /**
-             * @description Seats in active reservations (feature 015). Never says by whom. Not in `required`
-             *     until feature 015 is implemented.
-             */
-            reserved?: components["schemas"]["SeatPosition"][];
+            /** @description Seats in active reservations (feature 015). Never says by whom. */
+            reserved: components["schemas"]["SeatPosition"][];
         };
         /** @description An event's seats, sold or open (feature 007), or reserved (feature 015). */
         SeatMap: {

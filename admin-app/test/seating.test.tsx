@@ -32,8 +32,18 @@ const map = (reservedSeating: boolean, sold = 0) => ({
       tierId: reservedSeating ? 't-vip' : null,
       sold,
       taken: Array.from({ length: sold }, (_, i) => ({ row: 1, seat: i + 1 })),
+      reserved: [],
     },
-    { sectionId: 's-b', name: 'B', rows: 2, seatsPerRow: 20, tierId: null, sold: 0, taken: [] },
+    {
+      sectionId: 's-b',
+      name: 'B',
+      rows: 2,
+      seatsPerRow: 20,
+      tierId: null,
+      sold: 0,
+      taken: [],
+      reserved: [],
+    },
   ],
 });
 
@@ -80,7 +90,7 @@ describe('Seating card', () => {
     ).toEqual(['Not for sale', 'General', 'VIP']);
     fireEvent.click(within(region).getByRole('button', { name: 'Save seating' }));
 
-    await within(region).findByText('0 sold, 30 open');
+    await within(region).findByText('0 sold, 0 reserved, 30 open');
     expect(api.calls.find((c) => c.method === 'PUT')?.body).toEqual({
       reservedSeating: true,
       sections: [{ sectionId: 's-a', tierId: 't-vip' }],
@@ -184,7 +194,7 @@ describe('Seat map', () => {
     renderPage();
 
     const region = await card();
-    expect(await within(region).findByText('2 sold, 28 open')).toBeInTheDocument();
+    expect(await within(region).findByText('2 sold, 0 reserved, 28 open')).toBeInTheDocument();
     const grid = within(region).getByRole('group', { name: 'Section A seat map' });
     expect(within(grid).getByLabelText('Row 1, Seat 1, sold')).toBeInTheDocument();
     expect(within(grid).getByLabelText('Row 1, Seat 3, open')).toBeInTheDocument();
@@ -193,7 +203,7 @@ describe('Seat map', () => {
     fireEvent.change(within(region).getByRole('combobox', { name: 'Seat map section' }), {
       target: { value: 's-b' },
     });
-    expect(within(region).getByText('0 sold, 40 open')).toBeInTheDocument();
+    expect(within(region).getByText('0 sold, 0 reserved, 40 open')).toBeInTheDocument();
     expect(within(region).getByRole('group', { name: 'Section B seat map' })).toBeInTheDocument();
   });
 });

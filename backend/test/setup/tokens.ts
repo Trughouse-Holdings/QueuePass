@@ -17,6 +17,8 @@ export interface TokenOptions {
   rogue?: boolean;
   /** Omit `realm_access` entirely. */
   noRealmAccess?: boolean;
+  /** Omit `exp` entirely. */
+  noExp?: boolean;
 }
 
 /** A stable subject per username, shaped like a Keycloak user id. */
@@ -34,14 +36,14 @@ export async function tokenFor(opts: TokenOptions): Promise<string> {
   const claims: Record<string, unknown> = { preferred_username: opts.username };
   if (!opts.noRealmAccess) claims.realm_access = { roles: opts.roles };
 
-  return new SignJWT(claims)
+  const jwt = new SignJWT(claims)
     .setProtectedHeader({ alg: 'RS256', kid: key.kid, typ: 'JWT' })
     .setSubject(opts.sub ?? subFor(opts.username))
     .setIssuer(opts.iss ?? TEST_ISSUER)
     .setAudience(opts.aud ?? TEST_AUDIENCE)
-    .setIssuedAt(now - 60)
-    .setExpirationTime(now + (opts.expiresIn ?? 300))
-    .sign(key.privateKey);
+    .setIssuedAt(now - 60);
+  if (!opts.noExp) jwt.setExpirationTime(now + (opts.expiresIn ?? 300));
+  return jwt.sign(key.privateKey);
 }
 
 export const ADMIN: TokenOptions = { username: 'admin1', roles: ['queuepass-admin'] };

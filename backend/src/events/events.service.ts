@@ -11,6 +11,9 @@ import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
 import { searchText } from '../common/search-text';
 import { PrismaService } from '../prisma/prisma.service';
+import { closeHolds, closeRunOut, toChanges } from '../reservations/holds';
+import { SeatEventsService } from '../seating/seat-events.service';
+import type { SeatLabel } from '../seating/seat-rules';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventsQuery } from './dto/list-events.query';
 import { UpdateEventDto } from './dto/update-event.dto';
@@ -62,7 +65,10 @@ export interface EventResponse extends Omit<EventWithLocation, 'basePrice'> {
 
 @Injectable()
 export class EventsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly seatEvents: SeatEventsService,
+  ) {}
 
   private toResponse(event: EventWithLocation): EventResponse {
     return { ...event, basePrice: event.basePrice.toFixed(2) };
@@ -215,33 +221,54 @@ export class EventsService {
   }
 
   async remove(id: string): Promise<void> {
-    const existing = await this.prisma.event.findUnique({ where: { id } });
-    if (!existing) throw new NotFoundException(`No event exists with id ${id}.`);
+    // Spec 015 research R11: under the event lock every other event write takes, so no
+    // reservation slips in between the order count and the delete. Its reservations and holds go
+    // with it (ON DELETE CASCADE).
+    await this.prisma.$transaction(async (tx) => {
+      const existing = await lockEvent(tx, id);
 
-    // Spec 005 FR-010. The count only names the refusal; Order.eventId is ON DELETE RESTRICT,
-    // so the database refuses even if an order lands between this check and the delete.
-    const orderCount = await this.prisma.order.count({ where: { eventId: id } });
-    if (orderCount > 0) {
-      throw conflict(
-        'EVENT_HAS_ORDERS',
-        `Cannot delete "${existing.name}": it has ${orderCount} ${orderCount === 1 ? 'order' : 'orders'}. ` +
-          'Cancel it instead, which keeps its records.',
-        { orderCount },
-      );
-    }
-    await this.prisma.event.delete({ where: { id } });
+      // Spec 005 FR-010. The count only names the refusal; Order.eventId is ON DELETE RESTRICT,
+      // so the database refuses even if an order lands between this check and the delete.
+      const orderCount = await tx.order.count({ where: { eventId: id } });
+      if (orderCount > 0) {
+        throw conflict(
+          'EVENT_HAS_ORDERS',
+          `Cannot delete "${existing.name}": it has ${orderCount} ${orderCount === 1 ? 'order' : 'orders'}. ` +
+            'Cancel it instead, which keeps its records.',
+          { orderCount },
+        );
+      }
+      await tx.event.delete({ where: { id } });
+    }, LOCKING_TX);
+    // Every live viewer's stream ends; a reconnect gets 404 (research R9).
+    this.seatEvents.end(id);
   }
 
   /**
    * Spec 005 US4 (FR-008, research R4): in one transaction under the event lock, void every
    * valid ticket, refund every confirmed order, and mark the event cancelled. All or nothing.
+   * Spec 015 FR-016 (research R11): its reservations end `CLOSED`, and every seat it frees, held
+   * or sold, is published as open after the commit.
    */
-  cancel(
+  async cancel(
     id: string,
   ): Promise<{ event: EventResponse; ordersRefunded: number; ticketsVoided: number }> {
-    return this.prisma.$transaction(async (tx) => {
+    const { result, changes } = await this.prisma.$transaction(async (tx) => {
       const locked = await lockEvent(tx, id);
       if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
+
+      const freed: SeatLabel[] = [...(await closeRunOut(tx, id)), ...(await closeHolds(tx, id))];
+      const sold = await tx.ticket.findMany({
+        where: { eventId: id, status: 'VALID', seatSection: { not: null } },
+        select: { seatSection: true, seatRow: true, seatNumber: true },
+      });
+      for (const t of sold) {
+        freed.push({
+          section: t.seatSection as string,
+          row: t.seatRow as number,
+          seat: t.seatNumber as number,
+        });
+      }
 
       const now = new Date();
       const tickets = await tx.ticket.updateMany({
@@ -258,11 +285,16 @@ export class EventsService {
         include: EVENT_INCLUDE,
       });
       return {
-        event: this.toResponse(event),
-        ordersRefunded: orders.count,
-        ticketsVoided: tickets.count,
+        result: {
+          event: this.toResponse(event),
+          ordersRefunded: orders.count,
+          ticketsVoided: tickets.count,
+        },
+        changes: await toChanges(tx, locked.locationId, freed, 'open'),
       };
     }, LOCKING_TX);
+    this.seatEvents.publish(id, changes);
+    return result;
   }
 
   // ---------------------------------------------------------------- rules

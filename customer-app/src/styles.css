@@ -108,6 +108,26 @@
   );
 }
 
+/* Spec 015 FR-012 (research R15): another customer's reserved seat is a dashed outline over the
+   open seat's background, with an R and no fill pattern, so it differs from sold's stripe in
+   shape; the customer's own reserved seats look chosen, with a clock. Theme values only. */
+.seat--reserved {
+  border: 2px dashed var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-weight: 700;
+  cursor: not-allowed;
+}
+.seat--mine {
+  border: 3px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.seat[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+
 /* Spec 008 US4: ticket codes as rows, not bullets. */
 .ticket-list {
   list-style: none;

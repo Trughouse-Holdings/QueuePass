@@ -1,10 +1,12 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import type { Prisma, Section } from '@prisma/client';
-import type { SeatingLayout } from '@queuepass/shared';
+import type { SeatingLayout, SeatStateChange } from '@queuepass/shared';
 import { conflict } from '../common/conflict';
 import { LOCKING_TX } from '../common/event-lock';
 import { lockVenueAndEvents } from '../common/venue-lock';
 import { PrismaService } from '../prisma/prisma.service';
+import { closeHolds, closeRunOut, toChanges } from '../reservations/holds';
+import { SeatEventsService } from './seat-events.service';
 import { LayoutInputDto } from './dto/layout-input.dto';
 import { recalcSeatedTiers } from './tier-seats';
 
@@ -28,7 +30,10 @@ const toLayout = (locationId: string, sections: Section[]): SeatingLayout => ({
  */
 @Injectable()
 export class LayoutService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly seatEvents: SeatEventsService,
+  ) {}
 
   async get(locationId: string): Promise<SeatingLayout> {
     const venue = await this.prisma.location.findUnique({
@@ -39,8 +44,8 @@ export class LayoutService {
     return toLayout(locationId, venue.sections);
   }
 
-  replace(locationId: string, dto: LayoutInputDto): Promise<SeatingLayout> {
-    return this.prisma.$transaction(async (tx) => {
+  async replace(locationId: string, dto: LayoutInputDto): Promise<SeatingLayout> {
+    const { result, changes, atVenue } = await this.prisma.$transaction(async (tx) => {
       const venue = await lockVenueAndEvents(tx, locationId);
 
       const names = dto.sections.map((s) => s.name.toLowerCase());
@@ -96,6 +101,20 @@ export class LayoutService {
         );
       }
 
+      // Spec 015 FR-016 (research R11): every reservation at the venue's events ends CLOSED. The
+      // seats are named by the old sections' ids, the ones viewers have, so read them first. The
+      // events are already locked, after the venue (common/venue-lock.ts).
+      const changes = new Map<string, SeatStateChange[]>();
+      const held = await tx.seatHold.findMany({
+        where: { releasedAt: null, event: { locationId } },
+        distinct: ['eventId'],
+        select: { eventId: true },
+      });
+      for (const { eventId } of held) {
+        const freed = [...(await closeRunOut(tx, eventId)), ...(await closeHolds(tx, eventId))];
+        changes.set(eventId, await toChanges(tx, locationId, freed, 'open'));
+      }
+
       // Deleting the sections drops every event's mappings at this venue (ON DELETE CASCADE).
       await tx.section.deleteMany({ where: { locationId } });
       await tx.section.createMany({
@@ -120,8 +139,13 @@ export class LayoutService {
         await tx.event.update({ where: { id: e.id }, data: { totalTicketCapacity: totalSeats } });
         await recalcSeatedTiers(tx, e.id);
       }
-      return toLayout(locationId, sections);
+      const atVenue = await tx.event.findMany({ where: { locationId }, select: { id: true } });
+      return { result: toLayout(locationId, sections), changes, atVenue };
     }, LOCKING_TX);
+    for (const [eventId, opened] of changes) this.seatEvents.publish(eventId, opened);
+    // New sections, new ids: every viewer at the venue takes a fresh snapshot.
+    for (const { id } of atVenue) this.seatEvents.end(id);
+    return result;
   }
 
   remove(locationId: string): Promise<void> {

@@ -1,9 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, tier, venue } from '../setup/fixtures';
+import { customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
+import { tokenFor } from '../setup/tokens';
 
 /** Spec 007 US2 (FR-005–FR-008, FR-011; research R6): ordering seats. */
 describe('Orders with seats', () => {
@@ -35,6 +36,22 @@ describe('Orders with seats', () => {
 
   const order = async (eventId: string, body: object, n = 1) =>
     (await customer(ctx, n)).post(`/events/${eventId}/orders`).send(body);
+  /** Spec 015 FR-006: a seated order buys seats the customer has reserved first. */
+  const bought = async (
+    eventId: string,
+    body: {
+      tierId?: string;
+      seats: { sectionId: string; row: number; seat: number }[];
+      requestId?: string;
+    },
+    n = 1,
+  ) =>
+    reserveThenOrder(
+      ctx,
+      await tokenFor({ username: `customer${n}`, roles: ['customer'] }),
+      eventId,
+      body,
+    );
   const code = (res: Response): string => res.body.error?.code;
   const seat = (sectionId: string, row: number, s: number) => ({ sectionId, row, seat: s });
 
@@ -59,9 +76,8 @@ describe('Orders with seats', () => {
   it('issues one ticket per seat, each labelled with its section, row, and seat', async () => {
     const { eventId, vip } = await tiered();
 
-    const res = await order(eventId, {
+    const res = await bought(eventId, {
       tierId: vip,
-      quantity: 2,
       seats: [seat(sectionA, 1, 6), seat(sectionA, 1, 5)],
     });
 
@@ -127,8 +143,7 @@ describe('Orders with seats', () => {
       .send({ reservedSeating: true, sections: [] })
       .expect(200);
 
-    const res = await order(eventId, {
-      quantity: 2,
+    const res = await bought(eventId, {
       seats: [seat(sectionA, 2, 3), seat(sectionB, 1, 20)],
     });
 
@@ -138,7 +153,7 @@ describe('Orders with seats', () => {
 
   it('refuses taken seats, naming them, and records nothing', async () => {
     const { eventId, vip } = await tiered();
-    await order(eventId, { tierId: vip, quantity: 1, seats: [seat(sectionA, 1, 5)] }, 1).then((r) =>
+    await bought(eventId, { tierId: vip, seats: [seat(sectionA, 1, 5)] }, 1).then((r) =>
       expect(r.status).toBe(201),
     );
 
@@ -173,7 +188,7 @@ describe('Orders with seats', () => {
     const { eventId, vip } = await tiered();
     const requestId = randomUUID();
     const body = { tierId: vip, quantity: 1, seats: [seat(sectionA, 2, 2)], requestId };
-    const first = await order(eventId, body);
+    const first = await bought(eventId, body);
     expect(first.status).toBe(201);
 
     const repeat = await order(eventId, body);
@@ -187,7 +202,7 @@ describe('Orders with seats', () => {
 
   it('shows seats on My orders and the attendee list, and none for general admission', async () => {
     const { eventId, vip } = await tiered();
-    await order(eventId, { tierId: vip, quantity: 1, seats: [seat(sectionA, 3, 10)] });
+    await bought(eventId, { tierId: vip, seats: [seat(sectionA, 3, 10)] });
     const gaEvent = await event(ctx, venueId, { capacity: 70 });
     const ga = await order(gaEvent, { quantity: 1 });
     expect(ga.body.tickets[0].seat).toBeNull();

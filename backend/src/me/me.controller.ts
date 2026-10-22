@@ -5,7 +5,7 @@ import { CurrentPrincipal, type Principal } from '../auth/principal';
 @Controller('me')
 export class MeController {
   @Get()
-  me(@CurrentPrincipal() principal: Principal): Principal {
+  me(@CurrentPrincipal() principal: Principal): Pick<Principal, 'sub' | 'username' | 'roles'> {
     return { sub: principal.sub, username: principal.username, roles: principal.roles };
   }
 }

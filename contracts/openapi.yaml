@@ -141,7 +141,6 @@ paths:
         5 minutes run out (`expiresAt`, exclusive). The customer is the token's subject.
       operationId: listMyReservations
       x-required-roles: [customer]
-      x-planned: '015'
       responses:
         '200':
           description: The caller's active reservations; empty when there are none.
@@ -163,7 +162,6 @@ paths:
         others at once, and this customer can't reserve it again for 2 minutes. Safe to repeat.
       operationId: releaseAllMyReservations
       x-required-roles: [customer]
-      x-planned: '015'
       responses:
         '200':
           description: How many seats were released; 0 when there was nothing to release.
@@ -835,10 +833,11 @@ paths:
         within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15 seconds. No
         event ever names a customer. A client that loses the stream reconnects and gets a fresh
         snapshot. The stream ends when the access token expires; reconnect at once with a current
-        one. It also ends when the event is deleted; a reconnect then gets `404`.
+        one. It also ends when the event's seating or its venue's layout changes; reconnect at
+        once for a new snapshot. It also ends when the event is deleted; a reconnect then gets
+        `404`.
       operationId: streamSeatMap
       x-required-roles: []
-      x-planned: '015'
       x-sse-events:
         snapshot: { $ref: '#/components/schemas/SeatMap' }
         seats: { $ref: '#/components/schemas/SeatMapChange' }
@@ -939,7 +938,6 @@ paths:
         seats are in (`null` for an event without tiers), and is returned as `tierId`.
       operationId: reserveSeats
       x-required-roles: [customer]
-      x-planned: '015'
       requestBody:
         required: true
         content:
@@ -980,7 +978,6 @@ paths:
         nothing happens and `reservation` is `null`, so a repeat is harmless.
       operationId: releaseSeats
       x-required-roles: [customer]
-      x-planned: '015'
       requestBody:
         required: false
         content:
@@ -1989,7 +1986,7 @@ components:
 
     SeatMapSection:
       type: object
-      required: [sectionId, name, rows, seatsPerRow, tierId, sold, taken]
+      required: [sectionId, name, rows, seatsPerRow, tierId, sold, taken, reserved]
       properties:
         sectionId: { type: string, format: uuid }
         name: { type: string }
@@ -2006,9 +2003,7 @@ components:
           items: { $ref: '#/components/schemas/SeatPosition' }
         reserved:
           type: array
-          description: |
-            Seats in active reservations (feature 015). Never says by whom. Not in `required`
-            until feature 015 is implemented.
+          description: Seats in active reservations (feature 015). Never says by whom.
           items: { $ref: '#/components/schemas/SeatPosition' }
 
     SeatMap:

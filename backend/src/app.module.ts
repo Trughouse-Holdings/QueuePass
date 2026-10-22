@@ -11,6 +11,7 @@ import { TiersModule } from './tiers/tiers.module';
 import { OrdersModule } from './orders/orders.module';
 import { ReportsModule } from './reports/reports.module';
 import { SeatingModule } from './seating/seating.module';
+import { ReservationsModule } from './reservations/reservations.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { SeatingModule } from './seating/seating.module';
     OrdersModule,
     ReportsModule,
     SeatingModule,
+    ReservationsModule,
   ],
 })
 export class AppModule {}

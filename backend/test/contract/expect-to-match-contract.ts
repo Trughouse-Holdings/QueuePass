@@ -107,3 +107,28 @@ export function expectToMatchContract(res: Response, operationId: string): void 
     );
   }
 }
+
+/**
+ * Spec 015 (plan Complexity Tracking): validates one Server-Sent Event's `data` against the schema
+ * the operation's `x-sse-events` names for that event, so stream payloads are checked from the
+ * contract like every other response.
+ */
+export function expectSseEvent(operationId: string, event: string, data: unknown): void {
+  const op = operations.find((o) => o.operationId === operationId);
+  if (!op) throw new Error(`Contract has no operation '${operationId}'`);
+  const events = resolve(`${op.pointer}/x-sse-events`);
+  if (!events?.[event]) {
+    throw new Error(
+      `${operationId} sent event '${event}', which its x-sse-events does not declare. ` +
+        `Declared: ${Object.keys(events ?? {}).join(', ')}.`,
+    );
+  }
+  const validate = ajv.getSchema(`openapi${op.pointer}/x-sse-events/${escape(event)}`);
+  if (!validate) throw new Error(`Cannot compile the schema of ${operationId} event '${event}'`);
+  if (!validate(data)) {
+    throw new Error(
+      `${operationId} event '${event}' does not match the contract:\n` +
+        `${ajv.errorsText(validate.errors, { separator: '\n' })}\nData: ${JSON.stringify(data, null, 2)}`,
+    );
+  }
+}
