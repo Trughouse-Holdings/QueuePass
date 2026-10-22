@@ -1,6 +1,7 @@
 export * from './errors.js';
 export * from './location.js';
 export * from './event.js';
+export * from './event-image.js';
 export * from './tier.js';
 export * from './order.js';
 export * from './seating.js';

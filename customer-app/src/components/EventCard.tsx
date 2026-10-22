@@ -1,16 +1,25 @@
 import { Link } from 'react-router-dom';
 import type { Event } from '@queuepass/shared';
+import { ImageGallery } from '@queuepass/shared/web';
 import { usd, when } from '../format';
 
 /**
  * Spec 008 FR-005 (research R3): one event as a card, built only from what the event list already
  * has, so a list of cards needs no extra requests. Links carry `tap` for a 44-pixel target
- * (FR-006).
+ * (FR-006). Spec 014 FR-020 (research R12 to R14): the event's images, if any, across the top of
+ * the card, loaded only while the card is on or near the screen.
  */
 export function EventCard({ event: e }: { event: Event }) {
   const headingId = `event-${e.id}`;
   return (
     <article className="card card--padded event-card" aria-labelledby={headingId}>
+      <ImageGallery
+        eventId={e.id}
+        eventName={e.name}
+        images={e.images ?? []}
+        variant="card"
+        eventHref={`/events/${e.id}`}
+      />
       <div className="event-card__head">
         <h2 id={headingId} className="event-card__title">
           <Link to={`/events/${e.id}`} className="tap">

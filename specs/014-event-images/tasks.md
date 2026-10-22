@@ -46,8 +46,8 @@ and confirm they **fail** before the implementation tasks below them.
   its own (stopped until Play; per gallery, not saved; none under reduced motion or with one
   image; none in the viewer); also paused while an arrow is under the pointer, while an arrow or
   the event page's full-screen image button has keyboard (not pointer-caused) focus, while the
-  viewer is open, or while a card is off screen; no timer under reduced motion; no animation
-  (research R11; settled decisions).
+  viewer is open, or while a card is off screen; no timer under reduced motion; a 400 ms slide between
+  images, none under reduced motion (research R11, FR-040, decided 2026-10-19).
 - **No new dependencies.** No color, font, or off-step spacing written in an app stylesheet, and no
   inline style setting a color, font, or shadow (`012` drift check).
 - **Nothing else changes**: every existing test keeps its meaning; events without images render
@@ -55,7 +55,7 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `014-event-images-impl` from an up-to-date `main`, run `npm install` and `npm test`
+- [x] T001 Cut `014-event-images-impl` from an up-to-date `main`, run `npm install` and `npm test`
   from the repository root, and confirm the suite is green before any change (baseline).
 
 ---
@@ -65,7 +65,7 @@ and confirm they **fail** before the implementation tasks below them.
 **Purpose**: shared types and the type check, storage, event responses carrying `images`, and the
 test helpers every story uses.
 
-- [ ] T002 [P] **Test first.** Create `packages/shared/test/event-image.test.ts`: `sniffImageType`
+- [x] T002 [P] **Test first.** Create `packages/shared/test/event-image.test.ts`: `sniffImageType`
   returns `image/jpeg` for `FF D8 FF E0 …`, `image/png` for the 8-byte PNG signature plus 4 bytes,
   `image/webp` for `RIFF` + 4 bytes + `WEBP`; `null` for `GIF89a…`, `<svg …`, `RIFF…WAVE`,
   `%PDF-1.7`, an empty array, the PNG signature cut to 11 bytes (and accepted at 12, both sides),
@@ -78,18 +78,18 @@ test helpers every story uses.
   }`; `IMAGE_CONTENT_TYPES` is `['image/jpeg', 'image/png', 'image/webp']`, the contract's
   `EventImage.contentType` enum (the Backend's contract checks in T011 catch a mismatch);
   `GALLERY_INTERVAL_MS` is 5000.
-- [ ] T003 Create `packages/shared/src/event-image.ts` (data-model.md: `ImageContentType`,
+- [x] T003 Create `packages/shared/src/event-image.ts` (data-model.md: `ImageContentType`,
   `IMAGE_CONTENT_TYPES`, `EventImage`, `EVENT_IMAGE_LIMITS`, `IMAGE_PIXEL_LIMITS`,
   `GALLERY_INTERVAL_MS`, `sniffImageType`, `readImageHeader`), add `images?: EventImage[]` to
   `Event` in `packages/shared/src/event.ts`, and export from `packages/shared/src/index.ts`. Run
   T002 until it passes.
-- [ ] T004 [P] In `backend/test/contract/expect-to-match-contract.ts`, handle a declared response
+- [x] T004 [P] In `backend/test/contract/expect-to-match-contract.ts`, handle a declared response
   whose `content` has no `application/json`: assert the response's `Content-Type` (without
   parameters) is one of the declared media types, and skip schema validation (research R8). Add a
   unit test, `backend/test/unit/expect-to-match-contract.spec.ts`, with fake responses for
   `getEventImage`: `image/png` passes, `application/json` fails with a message naming the declared
   types. Confirm it fails before the change.
-- [ ] T005 [P] Test environment for the front ends: in `packages/shared/test/setup.ts`,
+- [x] T005 [P] Test environment for the front ends: in `packages/shared/test/setup.ts`,
   `admin-app/test/setup.ts`, and `customer-app/test/setup.ts`, stub `URL.createObjectURL` (returns
   `blob:test/<n>`) and `URL.revokeObjectURL` (records calls), `window.matchMedia` (no match by
   default, settable per test), and `IntersectionObserver` (absent by default, so galleries count
@@ -97,7 +97,7 @@ test helpers every story uses.
   `customer-app/test/helpers.tsx`, record a non-JSON request body as `{ formData: FormData }`
   (from `req.clone().formData()`) instead of `JSON.parse`, record the request's `content-type`,
   and add `blob(bytes, type)` to answer with an image. Run both apps' suites: unchanged results.
-- [ ] T006 **Test first.** Create `backend/test/integration/event-images.storage.e2e-spec.ts`
+- [x] T006 **Test first.** Create `backend/test/integration/event-images.storage.e2e-spec.ts`
   (direct writes with `ctx.prisma` and `$executeRaw`), and confirm it fails before T007:
   - a row with position 1, `image/png`, `byteSize` equal to the bytes' length is accepted;
   - position 0 and position 6 are refused (`event_image_position_range`);
@@ -111,7 +111,7 @@ test helpers every story uses.
     deleting 1 in one `UPDATE` succeeds; the same swap as two separate `UPDATE`s fails at the
     first;
   - deleting the event deletes its rows (cascade).
-- [ ] T007 Add `model EventImage` (data-model.md, including `@@unique([eventId, position], map:
+- [x] T007 Add `model EventImage` (data-model.md, including `@@unique([eventId, position], map:
   "event_image_position_unique")`) and `images EventImage[]` on `Event` to
   `backend/prisma/schema.prisma` (comment: spec 014; `DEFERRABLE` and the CHECKs live in the
   migration SQL, never `db push`). Create
@@ -119,16 +119,16 @@ test helpers every story uses.
   data-model.md. Apply with `prisma migrate deploy`, and confirm `prisma migrate diff
   --from-migrations backend/prisma/migrations --to-schema-datamodel backend/prisma/schema.prisma
   --shadow-database-url …` reports no difference (research R2). Run T006 until it passes.
-- [ ] T008 [P] Create `backend/test/setup/images.ts`: base64 constants for a small valid JPEG, PNG,
+- [x] T008 [P] Create `backend/test/setup/images.ts`: base64 constants for a small valid JPEG, PNG,
   and WebP (the WebP may be the 1-pixel one in quickstart.md), `padded(signature, totalBytes)` for
   size boundaries, and `upload(ctx, eventId, bytes, { filename, contentType, token })` using
   Supertest's `.attach('file', …)` through the contract-checking client.
-- [ ] T009 **Test first.** Extend `backend/test/integration/events.crud.e2e-spec.ts`: a new event
+- [x] T009 **Test first.** Extend `backend/test/integration/events.crud.e2e-spec.ts`: a new event
   has `images: []` in the `createEvent`, `getEvent`, `listEvents`, `updateEvent`, and
   `cancelEvent` responses; with two rows inserted by `ctx.prisma` at positions 2 and 1, every one
   of those responses lists them by position with exactly `id`, `position`, `contentType`,
   `byteSize`, and no response anywhere contains a `bytes` key.
-- [ ] T010 In `backend/src/events/events.service.ts`, define `EVENT_INCLUDE` (data-model.md) and use
+- [x] T010 In `backend/src/events/events.service.ts`, define `EVENT_INCLUDE` (data-model.md) and use
   it in every read and write that returns an event (create, findAll, findOne, update, cancel), so
   `toResponse` passes `images` through. Run T009 and the whole Backend suite until green.
 
@@ -147,7 +147,7 @@ under simultaneous uploads.
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T011 [P] [US1] Create `backend/test/integration/event-images.e2e-spec.ts` (upload and read):
+- [x] T011 [P] [US1] Create `backend/test/integration/event-images.e2e-spec.ts` (upload and read):
   - a JPEG, a PNG, and a WebP → each `201` matching the contract, positions 1, 2, 3, the detected
     `contentType`, `byteSize` equal to the file's length; `getEvent` lists them in that order;
   - PNG bytes sent as `photo.jpg` with `contentType: 'image/jpeg'` → stored and returned as
@@ -187,20 +187,20 @@ under simultaneous uploads.
   (dropped: the output ends at the first `EOI`), a PNG `tIME` chunk and bytes after `IEND`
   (dropped), a WebP with bytes past its declared `RIFF` length (dropped, size rewritten), and a
   segment or chunk length past the end of the file → the `415` envelope.
-- [ ] T012 [P] [US1] Create `backend/test/integration/event-images.concurrency.e2e-spec.ts`: an
+- [x] T012 [P] [US1] Create `backend/test/integration/event-images.concurrency.e2e-spec.ts`: an
   event with 3 images and 10 simultaneous uploads → exactly two `201` and eight `409
   IMAGE_LIMIT_REACHED`, no `5xx`, and positions exactly `{1, 2, 3, 4, 5}`; an event with 0 images
   and 10 simultaneous uploads → five `201`, five `409`, positions 1 to 5; 5 simultaneous uploads
   while 5 orders are placed for the same event → every request succeeds (no deadlock, no transaction
   timeout).
-- [ ] T013 [P] [US1] Create `backend/test/integration/event-images.authz.e2e-spec.ts`, following
+- [x] T013 [P] [US1] Create `backend/test/integration/event-images.authz.e2e-spec.ts`, following
   `venues-events.authz.e2e-spec.ts`: on `uploadEventImage`, `deleteEventImage`,
   `reorderEventImages`, and `getEventImage`, a missing, expired, wrongly signed, and
   wrong-audience token → `401`; for the three writes, `customer1` and `agent1` → `403` and nothing
   changed; for `getEventImage`, `customer1` and `agent1` → `200`. Extend
   `backend/test/integration/cors-docs.e2e-spec.ts`: a preflight from an allowed origin answers
   `Access-Control-Max-Age: 600` (research R4); a disallowed origin still gets no CORS headers.
-- [ ] T014 [P] [US1] Create `admin-app/test/images-field.test.tsx` with `stubApi` (create and edit):
+- [x] T014 [P] [US1] Create `admin-app/test/images-field.test.tsx` with `stubApi` (create and edit):
   - the Schedule event and Edit event forms have an "Images" group with an "Add images" file input
     (`accept="image/jpeg,image/png,image/webp"`, `multiple`) and the hint from research R9
     (limits and cover, and no text about metadata);
@@ -241,7 +241,7 @@ under simultaneous uploads.
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] **Test first.** Create `backend/test/unit/prisma-exception.filter.spec.ts`: a
+- [x] T015 [US1] **Test first.** Create `backend/test/unit/prisma-exception.filter.spec.ts`: a
   `P2002` whose `meta.target` names `event_image_position_unique`, and a raw-query error whose
   message carries `23505` and that constraint's name, are each answered `409 IMAGES_CHANGED`; a
   tier-name `P2002` is still `TIER_NAME_TAKEN`; a `413` `HttpException` is `IMAGE_TOO_LARGE`. Then,
@@ -249,27 +249,27 @@ under simultaneous uploads.
   "An image can be at most 5 MB." and `details.maxBytes: 5242880`, and the position violation to
   `409 IMAGES_CHANGED` (research R2, R3). Envelopes thrown by services already pass through (the
   codes are in `ERROR_CODES`).
-- [ ] T016 [US1] Create `backend/src/events/event-images.service.ts` (`add`, `read`) and
+- [x] T016 [US1] Create `backend/src/events/event-images.service.ts` (`add`, `read`) and
   `backend/src/events/event-images.controller.ts` (`POST /events/:id/images` with
   `@Roles('queuepass-admin')`, `FileInterceptor('file', { storage: memoryStorage(), limits: {
   fileSize: 5_242_880, files: 1, fields: 0, parts: 1 } })`, `@HttpCode(201)`; `GET
   /events/:id/images/:imageId` with no role, returning a `StreamableFile` with the research R4
   headers), and register them in `backend/src/events/events.module.ts`. Create
   `backend/src/events/image-metadata.ts` (`stripImageMetadata`, research R17). `add`: refuse a
-  missing file (`400`), `readImageHeader` (`415`), the pixel limits (`400
-  IMAGE_DIMENSIONS_TOO_LARGE`), strip metadata (`415` if it cannot be walked), then one transaction:
+  missing file (`400`), `readImageHeader` (`415`), strip metadata (`415` if it cannot be walked),
+  the pixel limits (`400 IMAGE_DIMENSIONS_TOO_LARGE`), then one transaction:
   `lockEvent` → cancelled (`409 EVENT_CANCELLED`) → count → `409 IMAGE_LIMIT_REACHED` → insert at
   `count + 1` (data-model.md). Use a local `UploadedImage { buffer: Buffer; size: number }` type,
   not `@types/multer`. In `backend/src/configure-app.ts`, add `maxAge: 600` to `enableCors`
   (research R4). In the same commit, remove `x-planned: '014'` from `uploadEventImage` and
   `getEventImage` in `contracts/openapi.yaml` and run `npm run generate:api`. Run T011–T013
   (upload and read parts) and the route-coverage test until they pass.
-- [ ] T017 [US1] Create `admin-app/src/api/images.ts` (`uploadEventImage`, `deleteEventImage`,
+- [x] T017 [US1] Create `admin-app/src/api/images.ts` (`uploadEventImage`, `deleteEventImage`,
   `reorderEventImages`, research R9) and `admin-app/src/components/ImagesField.tsx` with adding,
   previews, the preview checks (using `readImageHeader` on `await file.arrayBuffer()`,
   `EVENT_IMAGE_LIMITS`, and `IMAGE_PIXEL_LIMITS`), the hint, and object URL clean-up; layout classes
   in `admin-app/src/styles.css` on theme values (research R13).
-- [ ] T018 [US1] In `admin-app/src/pages/EventForm.tsx`, hold the Images state, load it from
+- [x] T018 [US1] In `admin-app/src/pages/EventForm.tsx`, hold the Images state, load it from
   `event.images ?? []` on edit, and after the existing create or edit steps run `applyImages`
   (uploads in this story; deletes and reorder come in US3), updating state as each step succeeds and
   stopping at the first refusal, with the file name before the Backend's message. On create, leave
@@ -295,13 +295,13 @@ looks as before.
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T019 [P] [US2] Create `packages/shared/test/web/event-images.test.tsx`: two components using
+- [x] T019 [P] [US2] Create `packages/shared/test/web/event-images.test.tsx`: two components using
   the same image id cause one `GET /events/{id}/images/{imageId}` with the user's `Authorization`
   header; both receive the same `blob:` URL; it is revoked only after both unmount; a later use
   fetches again; a `404` or network failure gives the failed state and does not throw; `enabled:
   false` fetches nothing. A gallery of 3 images that loops twice (fake timers) makes exactly 3
   image requests and revokes nothing until it unmounts (research R4: kept while mounted).
-- [ ] T020 [P] [US2] Create `packages/shared/test/web/use-gallery-rotation.test.ts` with fake
+- [x] T020 [P] [US2] Create `packages/shared/test/web/use-gallery-rotation.test.ts` with fake
   timers: with 3 images the index goes 0 → 1 at 5,000 ms (not at 4,999), → 2, → 0; `next()` at
   3,000 ms shows the next at once and the following change comes 5,000 ms after the press; `prev()`
   from 0 gives 2; `paused: true` stops changes for 20 s, and after it turns false the next change is
@@ -310,7 +310,7 @@ looks as before.
   no timer is set; with `stopped: true` nothing changes over 20 s whatever `paused` does, `next()`
   and `prev()` still change the index at once without starting a timer, and when `stopped` turns
   false the next change is 5,000 ms later.
-- [ ] T021 [P] [US2] Create `packages/shared/test/web/image-gallery.test.tsx` (variant `page`):
+- [x] T021 [P] [US2] Create `packages/shared/test/web/image-gallery.test.tsx` (variant `page`):
   - 0 images → renders nothing; 1 image → the image, no arrows, no position, no Pause/Play button,
     no timer;
   - 3 images → a `role="group"` with `aria-roledescription="carousel"` named "Images of Season
@@ -336,13 +336,13 @@ looks as before.
   - the slide area has `aria-live="off"` while rotating and `"polite"` while paused;
   - a failed image shows "Image unavailable" and the gallery keeps rotating;
   - no element has an inline `style` setting a color.
-- [ ] T022 [P] [US2] Create `customer-app/test/event-images.test.tsx` (event page): an event with 3
+- [x] T022 [P] [US2] Create `customer-app/test/event-images.test.tsx` (event page): an event with 3
   images shows the gallery above the `h1`; with no `images` key and with `images: []`, the page's
   markup is the same as before this feature (no `.gallery`); a cancelled event with images shows
   them. Add `images` to the event factory in `customer-app/test/helpers.tsx` (default `[]`).
-- [ ] T023 [P] [US2] Create `admin-app/test/event-images.detail.test.tsx`: the Admin event page
+- [x] T023 [P] [US2] Create `admin-app/test/event-images.detail.test.tsx`: the Admin event page
   shows the gallery for an event with images (FR-019), and nothing for one without.
-- [ ] T024 [P] [US2] Extend `packages/shared/test/theme/tokens.test.ts` and `contrast.test.ts`
+- [x] T024 [P] [US2] Extend `packages/shared/test/theme/tokens.test.ts` and `contrast.test.ts`
   (from `012`): `--scrim` and `--scrim-text` exist in the light and dark sets with the same values;
   `--scrim-text` on `--scrim` composited over white and over black is at least 4.5:1. Also assert
   the theme sets no `overflow` on `.app` except under `.app:has(.page-band)`; `--scrim` is
@@ -352,12 +352,12 @@ looks as before.
 
 ### Implementation for User Story 2
 
-- [ ] T025 [US2] Create `packages/shared/src/web/event-images.ts` (the cache and `useEventImage`,
+- [x] T025 [US2] Create `packages/shared/src/web/event-images.ts` (the cache and `useEventImage`,
   research R4) using `useAuth().api.GET('/events/{id}/images/{imageId}', { …, parseAs: 'blob' })`.
   Run T019 until it passes.
-- [ ] T026 [US2] Create `packages/shared/src/web/use-gallery-rotation.ts` (research R11). Run T020
+- [x] T026 [US2] Create `packages/shared/src/web/use-gallery-rotation.ts` (research R11). Run T020
   until it passes.
-- [ ] T027 [US2] Create `packages/shared/src/web/image-gallery.tsx` (`ImageGallery`, research
+- [x] T027 [US2] Create `packages/shared/src/web/image-gallery.tsx` (`ImageGallery`, research
   R10–R13: the page variant, arrows, Pause/Play button, position, placeholder, pause rules, live
   region; the
   full-screen button calls an `onOpen` that US5 connects) and export it and the hook from
@@ -367,10 +367,34 @@ looks as before.
   literal top padding, with a comment on both rules), `.gallery__toggle`, and
   `.app:has(.page-band) { overflow-x: clip }`, with no other `overflow` on `.app`. Run T021 and T024
   until they pass, and the shared suite, including the drift check.
-- [ ] T028 [US2] Place `ImageGallery variant="page"`, inside `<div className="page-band">` and only
+- [x] T028 [US2] Place `ImageGallery variant="page"`, inside `<div className="page-band">` and only
   when the event has images, at the top of `customer-app/src/pages/EventDetail.tsx` (above the `h1`)
   and `admin-app/src/pages/EventDetail.tsx` (above the page head). Run T022 and T023 until they
   pass, then both apps' suites.
+
+### Slide between images (added 2026-10-19, FR-040)
+
+- [x] T048 [P] [US2] **Test first.** Extend `packages/shared/test/web/image-gallery.test.tsx`: on an
+  automatic change and on "Next image", the gallery renders the outgoing image (`aria-hidden`, not
+  inside the full-screen button) with `gallery__slide--out-left` and the incoming one with
+  `gallery__slide--in-left`; "Previous image" uses the `-right` pair, and so does wrapping
+  backward, while wrapping forward from the last image still uses `-left`; on `animationend` (or
+  after 400 ms with fake timers) only the incoming image remains; a second press during a slide
+  leaves exactly two images and slides from the current one; the position text, live region, and
+  names follow the incoming image at once; the next automatic change still comes 5,000 ms after the
+  slide started; under reduced motion no slide class is ever set and only one image is rendered.
+  Extend `packages/shared/test/theme/tokens.test.ts`: the four keyframes exist and use only
+  `transform`, and a `prefers-reduced-motion: reduce` rule sets `animation: none` on the slide
+  classes.
+- [x] T049 [US2] Implement the slide in `image-gallery.tsx` and the keyframes and classes in
+  `theme.css` (research R11). Run T048, T021, and T024 until they pass, then the shared suite and
+  both apps' suites. T036 (cards) and T038 (viewer) use the same slide.
+
+- [x] T050 [P] [US4] **Test first**, then fix: in `packages/shared/test/web/image-gallery.test.tsx`
+  (variant `card`), the card's position text is inside the element with `aria-live`, which is
+  `off` while turning and `polite` while paused, after an arrow press, or under reduced motion
+  (FR-028, research R11). Then move the card's position into that live region in
+  `image-gallery.tsx`.
 
 **Checkpoint**: customers and admins see an event's images on its page, rotating as Mahdi decided.
 
@@ -385,7 +409,7 @@ a stale order is refused; a cancelled event refuses changes; deleting an event r
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T029 [P] [US3] Create `backend/test/integration/event-images.order.e2e-spec.ts`:
+- [x] T029 [P] [US3] Create `backend/test/integration/event-images.order.e2e-spec.ts`:
   - delete image 2 of 4 → `204`; the event lists 3 images, positions 1 to 3, in the old order;
     `getEventImage` of the deleted id → `404`; deleting it again → `404`;
   - reorder 4 images to `[d, a, b, c]` → `200`, matching the contract, positions follow the list;
@@ -396,12 +420,12 @@ a stale order is refused; a cancelled event refuses changes; deleting an event r
   - a cancelled event → delete and reorder `409 EVENT_CANCELLED`, nothing changed; its images are
     still listed and served;
   - deleting an event with 3 images and no orders → `204`, and `EventImage` has no row for it.
-- [ ] T030 [P] [US3] Extend `backend/test/integration/event-images.concurrency.e2e-spec.ts`: 20
+- [x] T030 [P] [US3] Extend `backend/test/integration/event-images.concurrency.e2e-spec.ts`: 20
   simultaneous requests on one event mixing uploads, deletes of existing images, and reorders (each
   reorder built from the order read before sending) → no `5xx` (assert first), each refusal is
   `404`, `409 IMAGE_LIMIT_REACHED`, or `409 IMAGES_CHANGED`, and afterwards positions are exactly 1
   to n with n ≤ 5.
-- [ ] T031 [P] [US3] Extend `admin-app/test/images-field.test.tsx`:
+- [x] T031 [P] [US3] Extend `admin-app/test/images-field.test.tsx`:
   - on edit, each preview has "Move image N earlier" (not on the first), "Move image N later" (not
     on the last), and "Remove image N"; moving and removing update the order and the "Cover" mark;
   - saving with image 2 removed and image 4 moved first sends `DELETE` for image 2, then `PUT
@@ -417,14 +441,14 @@ a stale order is refused; a cancelled event refuses changes; deleting an event r
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] In `backend/src/events/event-images.service.ts` and the controller, add `remove`
+- [x] T032 [US3] In `backend/src/events/event-images.service.ts` and the controller, add `remove`
   (`DELETE /events/:id/images/:imageId`, `204`) and `reorder` (`PUT /events/:id/images/order`,
   `backend/src/events/dto/reorder-event-images.dto.ts`: `imageIds` UUIDs, unique, at most 5), each
   in one transaction with `lockEvent` and the single-statement shifts in data-model.md (no `SET
   CONSTRAINTS`). In the same commit, remove `x-planned: '014'` from `deleteEventImage` and
   `reorderEventImages` and run `npm run generate:api`. Run T029, T030, and the route-coverage test
   until they pass.
-- [ ] T033 [US3] In `ImagesField.tsx` and `EventForm.tsx`, add Move earlier, Move later, Remove,
+- [x] T033 [US3] In `ImagesField.tsx` and `EventForm.tsx`, add Move earlier, Move later, Remove,
   the removed list, and the full `applyImages` order (deletes, uploads, reorder when needed), and
   the `IMAGES_CHANGED` reload (research R9). Run T031 until it passes, then the Admin app suite.
 
@@ -441,7 +465,7 @@ not, and only cards on or near the screen load images.
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
-- [ ] T034 [P] [US4] Extend `packages/shared/test/web/image-gallery.test.tsx` (variant `card`): the
+- [x] T034 [P] [US4] Extend `packages/shared/test/web/image-gallery.test.tsx` (variant `card`): the
   gallery is a `role="group"` named "Images of Season Opener" and its arrows are "Previous image of
   Season Opener" and "Next image of Season Opener", so two cards' arrows have different names; the
   image is a link to the event's path with `tabindex="-1"` and `aria-hidden="true"`, and has no
@@ -453,15 +477,15 @@ not, and only cards on or near the screen load images.
   no one else holds it); when the card leaves the screen it stops changing (fake timers, 20 s) and
   both held images are let go at once; when it comes back it fetches them again (answered by the
   stub, as the HTTP cache would) and turns again from the same image; at no time does a card hold
-  more than 2 images (count `createObjectURL` minus `revokeObjectURL` per card).
-- [ ] T035 [P] [US4] Extend `customer-app/test/event-images.test.tsx` (Events list): a card with 3
+  more than 2 images outside a slide, or 3 during one (FR-040) (count `createObjectURL` minus `revokeObjectURL` per card).
+- [x] T035 [P] [US4] Extend `customer-app/test/event-images.test.tsx` (Events list): a card with 3
   images shows its gallery above the title; two cards rotate independently (an arrow on one does
   not change the other); a card without images renders the same markup as before; the card's name,
   times, and price render while every image request is still pending.
 
 ### Implementation for User Story 4
 
-- [ ] T036 [US4] In `image-gallery.tsx`, add the `card` variant (research R12) and on-screen
+- [x] T036 [US4] In `image-gallery.tsx`, add the `card` variant (research R12; 4:3, R13) and on-screen
   loading with `IntersectionObserver` (`rootMargin: '200px'`): hold only the shown and next image,
   and off screen stop turning and let go of both (research R14, FR-039). Place it at the top of
   `customer-app/src/components/EventCard.tsx` with `eventHref={`/events/${e.id}`}`, and add the
@@ -481,7 +505,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 
 ### Tests for User Story 5 (write first, confirm they fail)
 
-- [ ] T037 [P] [US5] Create `packages/shared/test/web/image-viewer.test.tsx`:
+- [x] T037 [P] [US5] Create `packages/shared/test/web/image-viewer.test.tsx`:
   - opening from the gallery showing image 2 of 3 renders, in `document.body`, a `role="dialog"`
     with `aria-modal="true"` named "Season Opener, image 2 of 3", the image, "2 of 3", "Previous
     image", "Next image", and "Close full screen"; `body` has `viewer-open`; the app root
@@ -496,7 +520,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 
 ### Implementation for User Story 5
 
-- [ ] T038 [US5] Create `packages/shared/src/web/image-viewer.tsx` (research R12, with `inert` on
+- [x] T038 [US5] Create `packages/shared/src/web/image-viewer.tsx` (research R12, with `inert` on
   `#root` while open), add the viewer classes to `theme.css`, connect it to `ImageGallery`'s
   `onOpen` and pause rule, and export it. Run T037 and T021 until they pass, then the shared suite
   and both apps' suites.
@@ -507,34 +531,83 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T039 **Test first.** Extend `backend/test/integration/demo-data.e2e-spec.ts`: after the run,
-  the summary has `images: 6`; the concert has 3 images, the comedy night 1, and the gala none;
+- [x] T039 **Test first.** Extend `backend/test/integration/demo-data.e2e-spec.ts`: after the run,
+  the summary has `images: 4`; the concert has 3 images, the comedy night 1, and the gala none;
   each is a valid PNG by `sniffImageType` and under 100 KB; a second run creates nothing. Add a unit
   test, `backend/test/unit/demo-images.spec.ts`: `demoPng` output starts with the PNG signature,
   has `IHDR` with the requested width and height, and its chunks' CRCs check. Confirm both fail
   before T040.
-- [ ] T040 Create `backend/src/scripts/demo-images.ts` (`demoPng`, research R15) and, in
+- [x] T040 Create `backend/src/scripts/demo-images.ts` (`demoPng`, research R15) and, in
   `backend/src/scripts/demo-data.ts`, add the images through `EventImagesService.add` and count them
   in `DemoSummary`. Run T039 until it passes.
-- [ ] T041 [P] Update `README.md`: add the `014` row to the Status table, mention event images in
+- [x] T041 [P] Update `README.md`: add the `014` row to the Status table, mention event images in
   "Today" (admins add up to 5; customers see a rotating gallery on cards and the event page, and
   full screen), note that images are stored in PostgreSQL, and keep the reserved-features line
   accurate.
-- [ ] T042 Run `npm run lint` and `npm test` from the repository root; everything passes,
+- [x] T042 Run `npm run lint` and `npm test` from the repository root; everything passes,
   including `check-contract-drift` and the theme's drift check. Also run `npm run build` in
   `admin-app` and `customer-app` (their `tsc --noEmit`). Check explicitly that no
   `x-planned: '014'` marker is left in `contracts/openapi.yaml` and that the route-coverage test
   passes (every 014 operation served, none still marked).
-- [ ] T043 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
+- [x] T043 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' and `packages/shared` coverage if a provider is installed) in the PR description.
   The 80% floor is not yet blocking (Constitution VI deferral until `010` and `011`).
-- [ ] T044 Running-system gate: `docker compose up --build`, walk quickstart.md S1–S12 in the
+  - 2026-10-19: `npx jest --coverage` in `backend`, 547 tests: 96.35% lines, 84.19% branches
+    overall; the new image controller, service, reorder DTO, and `demo-images.ts` at 100% lines
+    (the service 94.7% branches), `image-metadata.ts` 96.2% lines and 75% branches,
+    `events.service.ts` 100%, `configure-app.ts` 100%, `demo-data.ts` 85.3% (its command-line
+    `main` is not run by tests), `prisma-exception.filter.ts` 74.3% (older paths; its `014`
+    mappings are covered by `prisma-exception.filter.spec.ts`). No front-end coverage provider is
+    installed, so `packages/shared`, Admin, and Customer coverage waits on `010`; their suites
+    pass (343, 187, and 133 tests after review round 2).
+- [x] T044 Running-system gate: `docker compose up --build`, walk quickstart.md S1–S12 in the
   browser, and sign in, use, and sign out of each front end. Record the results in this file,
   including S11's peak memory of the `backend` and `postgres` containers and of the browser
   tab.
-- [ ] T045 Independent review (Constitution III): a separate Claude session reviews the branch
+  - 2026-10-19, on the running stack (`docker compose up --build`, this branch):
+    - **API (S2, S3, S8), run from the signed-in Admin app:** `fake.jpg` and a GIF `415
+      IMAGE_TYPE_NOT_ALLOWED`; 5,242,881 bytes `413 IMAGE_TOO_LARGE`; 20,000 × 20,000 pixels `400
+      IMAGE_DIMENSIONS_TOO_LARGE`; exactly 5,242,880 bytes `201`, stored as `image/png` though sent
+      as `image/jpeg`; the WebP `201`; positions 1–5 and no `bytes` key in `GET /events/{id}`;
+      `getEventImage` returns the same 5,242,880 bytes with `Cache-Control: private,
+      max-age=31536000, immutable`; reorder `200`, a stale reorder `409 IMAGES_CHANGED`; delete
+      `204`, again `404`, positions close up to 1–4; three uploads at once on 3 images → `201`,
+      `201`, `409 IMAGE_LIMIT_REACHED`, positions 1–5; a cancelled event refuses an upload `409
+      EVENT_CANCELLED` and still serves its images; deleting an event makes its image `404`; no
+      token `401` (with the HTTP cache bypassed; a cached copy is answered by the browser, as R4
+      intends). The test events were deleted afterwards.
+    - **Browser (S1, S4, S5, S6, S10):** Mahdi added five photos to an event in the Admin app and
+      checked the event page and the Events list cards in both apps, then asked for the 4:3 card
+      and the slide (Clarify, 2026-10-19), and checked them after the change. Full screen opened
+      on "image 1 of 5" with Close, Previous, and Next, `#root` inert, and Esc closed it. Sign
+      in, use, and sign out worked in the Admin and Customer apps.
+    - **S11 memory:** `backend` 102 MiB and `database` 41 MiB after the uploads above (light
+      load).
+  - 2026-10-20, on a separate fresh stack (`docker compose -p qp014gate`, removed afterwards):
+    - **S9:** on the empty database the demo script reported "4 images"; the concert has 3, the
+      comedy night 1, the gala none, each a valid PNG of about 13 KB; a second run changed nothing.
+    - **S11:** 8 events with five 4.7 MB JPEG photos each (40 uploads, all `201`). As `customer1`
+      on Events, scrolled to the bottom and back and left it rotating: each card held at most 1
+      shown image (plus its next in the cache); cards off screen held none; coming back, all 11
+      image reads were answered from the browser cache, and in 40 seconds of rotation 32 reads,
+      none from the network. `backend` rose from 96 to a peak of 214 MiB while the first images
+      loaded and settled to 135 MiB; `database` peaked at 261 MiB. That is more than the
+      quickstart's "a few dozen MB" but within R14's estimate of about 15 MB per 5 MB image in
+      flight. The tab's JS heap stayed at 3–4 MB; the automation browser cannot report the image
+      memory of the whole tab.
+    - **S7 (375 px):** no sideways scrolling on Events, the event page, or full screen; card
+      arrows, Pause/Play, the viewer's arrows, and Close are 44 × 44.
+    - **S12 (metadata):** a JPEG with GPS, camera make and model, date, and Orientation 6 was
+      stored with one Exif entry, Orientation 6, and none of the rest (2,169 → 1,973 bytes).
+    - **Not walked by hand, covered by tests:** reduced motion (the automation browser cannot
+      emulate it; `use-gallery-rotation.test.ts`, `image-gallery.test.tsx`) and S12's blocked
+      upload during create (T014's network-failure case).
+- [x] T045 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the number of rounds and any open finding in the PR description.
+  - 2026-10-19: 3 rounds by separate Claude sessions. Round 1: 0 must-fix, 3 should-fix, 4 minor;
+    round 2: all 7 confirmed fixed, 1 should-fix and 3 minor new; round 3: all 4 confirmed fixed,
+    nothing new. No open findings.
 - [ ] T046 Open the implementation PR against `main` with `fixes #26` in its description. It
   touches the shared surface (`packages/shared/`, `backend/prisma/`), so every team member approves
   it. The product decisions, including the Pause/Play button that makes the galleries meet WCAG

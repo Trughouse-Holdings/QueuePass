@@ -87,9 +87,9 @@ add(eventId, file)             -- no lock held for these first steps
   file.size > 5,242,880        → 413 IMAGE_TOO_LARGE        (multer, while reading)
   readImageHeader(file) = null → 415 IMAGE_TYPE_NOT_ALLOWED
   header.animated              → 415 IMAGE_TYPE_NOT_ALLOWED      (APNG acTL, WebP ANIM)
+  bytes = stripImageMetadata(file, contentType)   -- 415 if its structure cannot be walked
   side > 16,384 or w×h > 40,000,000
                                → 400 IMAGE_DIMENSIONS_TOO_LARGE { width, height, maxSide, maxPixels }
-  bytes = stripImageMetadata(file, contentType)   -- 415 if its structure cannot be walked
   lock event                   -- 404 if missing
   status = CANCELLED           → 409 EVENT_CANCELLED
   n = count(images)

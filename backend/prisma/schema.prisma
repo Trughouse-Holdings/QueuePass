@@ -57,11 +57,30 @@ model Event {
   // Spec 007 FR-002: whether customers choose seats.
   reservedSeating     Boolean       @default(false)
   sectionTiers        SectionTier[]
+  // Spec 014 FR-001: 0 to 5 images, in order; position 1 is the cover.
+  images              EventImage[]
   // Spec 015: seat reservations and their holds, deleted with the event (research R11).
   seatReservations    SeatReservation[]
   seatHolds           SeatHold[]
 
   @@index([locationId])
+}
+
+// Spec 014 (data-model.md). The CHECKs (position 1 to 5, the three types, the size) and the
+// DEFERRABLE INITIALLY IMMEDIATE unique constraint live in the migration SQL; schema changes go
+// through committed migrations only, never `prisma db push`.
+model EventImage {
+  id          String   @id @default(uuid()) @db.Uuid
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId     String   @db.Uuid
+  position    Int
+  contentType String   @db.VarChar(10)
+  byteSize    Int
+  bytes       Bytes
+  createdAt   DateTime @default(now()) @db.Timestamptz(6)
+
+  // Spec 014: DEFERRABLE INITIALLY IMMEDIATE in the migration SQL; the CHECKs live there too.
+  @@unique([eventId, position], map: "event_image_position_unique")
 }
 
 enum EventStatus {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import type { Event } from '@queuepass/shared';
+import { ImageGallery } from '@queuepass/shared/web';
 import { ApiError } from '../api/client';
 import { deleteEvent, getEvent } from '../api/events';
 import { cancelEvent } from '../api/orders';
@@ -91,6 +92,17 @@ function EventView({
 
   return (
     <section>
+      {/* Spec 014 FR-019: the event's images, as customers see them. */}
+      {event.images && event.images.length > 0 && (
+        <div className="page-band">
+          <ImageGallery
+            eventId={event.id}
+            eventName={event.name}
+            images={event.images}
+            variant="page"
+          />
+        </div>
+      )}
       <div className="page-head">
         <div>
           <h1 className="page-title">

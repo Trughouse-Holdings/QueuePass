@@ -40,6 +40,10 @@
   --brand-mark-end: #7c6cf7;
   --brand-mark-text: #ffffff;
 
+  /* Spec 014: the full-screen image backdrop and the text on it, dark in both sets. */
+  --scrim: rgb(0 0 0 / 92%);
+  --scrim-text: #ffffff;
+
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -90,6 +94,9 @@
 
     --brand-mark-end: #7c6cf7;
     --brand-mark-text: #ffffff;
+
+    --scrim: rgb(0 0 0 / 92%);
+    --scrim-text: #ffffff;
 
     --shadow: 0 1px 3px rgb(0 0 0 / 40%);
     --shadow-lg: 0 6px 16px -4px rgb(0 0 0 / 50%);
@@ -183,6 +190,7 @@ body {
   font-weight: 600;
 }
 
+/* The top padding (32px) is also .page-band's negative top margin: keep the two equal. */
 .main {
   flex: 1;
   max-width: 1080px;
@@ -607,8 +615,12 @@ button,
 }
 
 @media (max-width: 640px) {
+  /* The top padding (22px) is also .page-band's negative top margin here: keep them equal. */
   .main {
     padding: 22px 16px 48px;
+  }
+  .page-band {
+    margin-top: -22px;
   }
   .topbar__inner {
     padding: 0 16px;
@@ -692,4 +704,288 @@ dd {
   border-top: none;
   margin-top: 0;
   padding-top: 0;
+}
+
+/* ------------------------------------------------------------ event images */
+/* Spec 014 (research R11 to R13): an event's images, a gallery the Admin and Customer apps share.
+   One image slides to the next over 400ms, by transform only, and not at all under reduced
+   motion (FR-040). Controls sit over the image on an opaque surface so they read the same on any
+   picture, and are at least 44 by 44 pixels. */
+
+/* The event page band: the full width of the app window, flush under the top bar. Its negative top
+   margin cancels .main's top padding (32px; 22px at phone width, below): keep them equal
+   (tokens.test.ts checks). */
+.page-band {
+  width: 100vw;
+  margin-inline: calc(50% - 50vw);
+  margin-top: -32px;
+  margin-bottom: 24px;
+}
+/* 100vw includes a vertical scroll bar on some systems; only a page with a band clips it. */
+.app:has(.page-band) {
+  overflow-x: clip;
+}
+
+.gallery {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-alt);
+}
+.gallery--page {
+  height: clamp(200px, 40vw, 480px);
+}
+/* An Events list card: the gallery spans the card at 4:3, taking most of it (FR-020); the
+   Customer app's .event-card cancels its padding so the gallery is flush with the card's edges. */
+.gallery--card {
+  aspect-ratio: 4 / 3;
+}
+.gallery__slide,
+.gallery__open,
+.gallery__frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.gallery__slide {
+  position: relative;
+}
+/* The image on its way out lies over the incoming one's place and takes no clicks. */
+.gallery__slide > .gallery__frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.gallery__open {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  cursor: zoom-in;
+}
+/* Spec 014 FR-028 (spec 008 FR-009): the image button fills the gallery, which clips, so its focus
+   ring is drawn inside it: deep enough to clear the half of a scroll bar the 100vw page band hides
+   on each side. */
+.gallery__open:focus-visible {
+  outline-offset: -12px;
+}
+/* On a card the image opens the event, not full screen. */
+.gallery--card .gallery__open {
+  cursor: pointer;
+}
+.gallery__image,
+.gallery__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.gallery__placeholder {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.gallery__arrow,
+.gallery__toggle,
+.gallery__count {
+  position: absolute;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+}
+.gallery__arrow,
+.gallery__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.gallery__arrow {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.gallery__arrow--prev {
+  left: 12px;
+}
+.gallery__arrow--next {
+  right: 12px;
+}
+.gallery__toggle {
+  left: 12px;
+  bottom: 12px;
+  font-size: 14px;
+}
+.gallery__count {
+  right: 12px;
+  bottom: 12px;
+  margin: 0;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* FR-040 (research R11): the slide between images. The next image comes in from the right while
+   the shown one leaves to the left; the previous image, the other way. */
+.gallery__slide--out-left {
+  animation: gallery-out-left 400ms ease-in-out both;
+}
+.gallery__slide--in-left {
+  animation: gallery-in-left 400ms ease-in-out both;
+}
+.gallery__slide--out-right {
+  animation: gallery-out-right 400ms ease-in-out both;
+}
+.gallery__slide--in-right {
+  animation: gallery-in-right 400ms ease-in-out both;
+}
+@keyframes gallery-out-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes gallery-in-left {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes gallery-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes gallery-in-right {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+/* FR-025: under reduced motion the image simply changes (the gallery sets no slide class either). */
+@media (prefers-reduced-motion: reduce) {
+  .gallery__slide--out-left,
+  .gallery__slide--in-left,
+  .gallery__slide--out-right,
+  .gallery__slide--in-right {
+    animation: none;
+  }
+}
+
+/* Spec 014 US5 (research R12, R13): an image full screen. It covers the whole window, above the
+   top bar, on a backdrop dark in both modes, and shows the whole picture as large as fits. Its
+   controls look like the gallery's and are at least 44 by 44 pixels. */
+.viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--scrim);
+}
+/* The page behind does not scroll while the view is open. */
+.viewer-open {
+  overflow: hidden;
+}
+/* The picture's area, clear of the controls; it clips the slide between images (FR-040). */
+.viewer__stage {
+  position: absolute;
+  inset: 72px 72px 64px;
+  overflow: hidden;
+}
+.viewer__frame {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.viewer__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.viewer__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--scrim-text);
+  font-size: 14px;
+}
+.viewer__close,
+.viewer__arrow {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.viewer__close {
+  top: 16px;
+  right: 16px;
+}
+.viewer__arrow {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.viewer__arrow--prev {
+  left: 16px;
+}
+.viewer__arrow--next {
+  right: 16px;
+}
+.viewer__count {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  margin: 0;
+  color: var(--scrim-text);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* Phone width: the picture takes the whole width, the arrows sit over its edges. */
+@media (max-width: 640px) {
+  .viewer__stage {
+    inset: 68px 0 56px;
+  }
+  .viewer__arrow--prev {
+    left: 8px;
+  }
+  .viewer__arrow--next {
+    right: 8px;
+  }
 }

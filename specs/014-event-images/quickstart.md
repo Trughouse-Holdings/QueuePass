@@ -168,7 +168,7 @@ delete the event. **Expect**: `GET` of that image is `404`.
 
 On an empty database (`docker compose down -v && docker compose up --build -d`), run
 `docker compose exec backend node backend/dist/scripts/demo-data.js`. **Expect**: the summary
-counts 6 images; on **Events**, the concert rotates through 3 striped pictures, the comedy night
+counts 4 images; on **Events**, the concert rotates through 3 striped pictures, the comedy night
 shows 1 with no arrows, and the gala has no gallery.
 
 ## S10: The Admin event page and the shared look (FR-019, FR-033)

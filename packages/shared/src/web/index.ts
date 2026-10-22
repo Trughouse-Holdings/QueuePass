@@ -20,3 +20,12 @@ export type {
 } from './seat-stream.js';
 export { applySeatChange, useSeatStream } from './use-seat-stream.js';
 export type { LiveSeats, LiveSeatStatus, SeatStreamOptions } from './use-seat-stream.js';
+// Spec 014: event images, loaded with the token and shown as a rotating gallery.
+export { useEventImage } from './event-images.js';
+export type { EventImageState } from './event-images.js';
+export { useGalleryRotation } from './use-gallery-rotation.js';
+export type { GalleryRotation } from './use-gallery-rotation.js';
+export { ImageGallery } from './image-gallery.js';
+export type { ImageGalleryProps } from './image-gallery.js';
+export { ImageViewer } from './image-viewer.js';
+export type { ImageViewerProps } from './image-viewer.js';

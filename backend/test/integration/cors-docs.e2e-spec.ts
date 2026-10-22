@@ -42,6 +42,31 @@ describe('CORS and API documentation', () => {
     expect(res.headers['access-control-allow-headers']?.toLowerCase()).toContain('authorization');
   });
 
+  // Spec 014 research R4: a rotating gallery reads an image every few seconds, so browsers may
+  // cache each preflight for 10 minutes instead of about 5 seconds.
+  it('lets an allowed origin cache a preflight for 600 seconds', async () => {
+    const res = await request(ctx.app.getHttpServer())
+      .options(
+        '/events/7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40/images/0f8f7a8e-5a39-4c1e-9b7e-2d3c4b5a6f70',
+      )
+      .set('Origin', 'http://localhost:5174')
+      .set('Access-Control-Request-Method', 'GET')
+      .set('Access-Control-Request-Headers', 'authorization');
+    expect(res.status).toBe(204);
+    expect(res.headers['access-control-max-age']).toBe('600');
+  });
+
+  it('still grants a preflight from any other origin nothing', async () => {
+    const res = await request(ctx.app.getHttpServer())
+      .options('/me')
+      .set('Origin', 'http://evil.example')
+      .set('Access-Control-Request-Method', 'GET')
+      .set('Access-Control-Request-Headers', 'authorization');
+    // The grant is Access-Control-Allow-Origin; without it a browser refuses the request. (The
+    // `cors` middleware still lists its methods and headers, as it did before this feature.)
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
   // Spec 007 found this gap: replaceLayout and updateSeating are the first PUTs, and a browser
   // refuses any method the preflight does not list, so the request never reaches the Backend.
   it.each([...new Set(operations.map((op) => op.method))])(

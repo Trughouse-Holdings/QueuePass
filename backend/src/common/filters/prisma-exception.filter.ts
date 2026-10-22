@@ -15,6 +15,55 @@ import { SCHEDULING_BUFFER_MINUTES, isErrorEnvelope } from '@queuepass/shared';
 const PG_EXCLUSION_VIOLATION = '23P01';
 /** PostgreSQL SQLSTATE for a detected deadlock. */
 const PG_DEADLOCK = '40P01';
+/** PostgreSQL SQLSTATE for a unique violation. */
+const PG_UNIQUE_VIOLATION = '23505';
+/** Spec 014: the unique (eventId, position) of EventImage (data-model.md). */
+const IMAGE_POSITION_UNIQUE = 'event_image_position_unique';
+
+/** Postgres names the duplicated key of `event_image_position_unique` this way. */
+const IMAGE_POSITION_KEY = /\("eventId", "position"\)/;
+
+/**
+ * Spec 014 research R2: a write that collided on an event's image positions. Under the event lock
+ * no collision is expected; this is the backstop. Only Prisma's own errors are read, and only
+ * their structured fields where Prisma gives them (review of PR #63):
+ * - `P2002` (a model write): the constraint in `meta.target`, or the model and fields;
+ * - `P2010` (a raw statement): SQLSTATE `23505` in `meta.code`, and the database's own message in
+ *   `meta.message` naming the constraint or its key ("eventId", "position"), which only
+ *   EventImage has (data-model.md; Prisma 6 does not repeat the constraint's name here);
+ * - `PrismaClientUnknownRequestError`, which has no fields: the engine's message must carry
+ *   `23505` and the constraint's name.
+ * Any other error, whatever its message says, is not this.
+ */
+function isImagePositionViolation(exception: unknown): boolean {
+  if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+    const meta = (exception.meta ?? {}) as {
+      modelName?: string;
+      target?: unknown;
+      code?: unknown;
+      message?: unknown;
+    };
+    if (exception.code === 'P2002') {
+      const target = Array.isArray(meta.target) ? meta.target.join(',') : String(meta.target ?? '');
+      return (
+        target.includes(IMAGE_POSITION_UNIQUE) ||
+        (meta.modelName === 'EventImage' && target.includes('position'))
+      );
+    }
+    if (exception.code === 'P2010' && meta.code === PG_UNIQUE_VIOLATION) {
+      const message = typeof meta.message === 'string' ? meta.message : '';
+      return message.includes(IMAGE_POSITION_UNIQUE) || IMAGE_POSITION_KEY.test(message);
+    }
+    return false;
+  }
+  if (exception instanceof Prisma.PrismaClientUnknownRequestError) {
+    return (
+      exception.message.includes(PG_UNIQUE_VIOLATION) &&
+      exception.message.includes(IMAGE_POSITION_UNIQUE)
+    );
+  }
+  return false;
+}
 
 function envelope(
   code: ErrorCode,
@@ -46,6 +95,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
       // through, so clients receive Nest's shape instead of the declared envelope.
       if (isErrorEnvelope(body)) {
         response.status(status).json(body);
+        return;
+      }
+
+      // Spec 014 research R3: the image upload answers its own 413 with IMAGE_TOO_LARGE (an
+      // envelope, passed through above). Any other body too large is said as such.
+      if (status === HttpStatus.PAYLOAD_TOO_LARGE) {
+        response
+          .status(status)
+          .json(envelope('VALIDATION_FAILED', 'The request body is too large.'));
         return;
       }
 
@@ -101,6 +159,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
       this.logger.error(`Unmapped HttpException status ${status}: ${messages.join(' ')}`);
       response.status(status).json(envelope('VALIDATION_FAILED', messages.join(' ')));
+      return;
+    }
+
+    if (isImagePositionViolation(exception)) {
+      response
+        .status(HttpStatus.CONFLICT)
+        .json(
+          envelope(
+            'IMAGES_CHANGED',
+            "The event's images changed since you loaded them. Check them and try again.",
+          ),
+        );
       return;
     }
 

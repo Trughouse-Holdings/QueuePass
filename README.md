@@ -9,23 +9,23 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `008`, `012`, `013`, and `016` are built and verified. `015` is built and
-in review.
+Features `001` through `008` and `012` through `016` are built and verified.
 
-| Spec                                                                         | What it delivers                                                                                                                             | Spec             | Plan and tasks     | Code                   |
-| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------- |
-| [`001-bare-bones-system`](specs/001-bare-bones-system/spec.md)               | All six services; Keycloak sign-in, JWT validation, role checks; login, hello-world, and logout in all three front ends                      | Draft            | Done (64/64 tasks) | **Built and verified** |
-| [`002-admin-venues-events`](specs/002-admin-venues-events/spec.md)           | Venue and event API with the 60-minute rule; Admin app create, read, update, delete                                                          | Draft (revised)  | Done (32/32 tasks) | **Built and verified** |
-| [`003-customer-venues-events`](specs/003-customer-venues-events/spec.md)     | Customer app shows all venues and events                                                                                                     | Ready for review | Done (23/23 tasks) | **Built and verified** |
-| [`004-admin-tiers-search`](specs/004-admin-tiers-search/spec.md)             | Ticket tiers per event; Admin search for events and venues                                                                                   | Ready for review | Done (23/23 tasks) | **Built and verified** |
-| [`005-admin-orders-reporting`](specs/005-admin-orders-reporting/spec.md)     | Orders and tickets; Admin sales dashboard, attendee lists, safe cancellation                                                                 | Ready for review | Done (25/25 tasks) | **Built and verified** |
-| [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                                           | Draft            | Done (29/29 tasks) | **Built and verified** |
-| [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice                  | Draft            | Done (30/30 tasks) | **Built and verified** |
-| [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look                    | Draft            | Done (19/19 tasks) | **Built and verified** |
-| [`012-shared-theme`](specs/012-shared-theme/spec.md)                         | One shared theme in `packages/shared/` for the Admin and Customer apps; a test fails when an app defines its own look                        | Draft            | Done (29/30 tasks) | **Built and verified** |
-| [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps | Draft            | Done (47/48 tasks) | **Built and verified** |
-| [`015-seat-holds`](specs/015-seat-holds/spec.md)                             | Customers reserve picked seats for 5 minutes, then confirm; no seat reserved twice; reserved and sold seats shown live in both apps          | Draft            | Done (50 tasks)    | Built, in review       |
-| [`016-per-user-ticket-limit`](specs/016-per-user-ticket-limit/spec.md)       | An optional per-customer ticket limit on each event, held under concurrent orders; shown to admins and customers                             | Draft            | Done (36 tasks)    | **Built and verified** |
+| Spec                                                                         | What it delivers                                                                                                                                                               | Spec             | Plan and tasks     | Code                   |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ------------------ | ---------------------- |
+| [`001-bare-bones-system`](specs/001-bare-bones-system/spec.md)               | All six services; Keycloak sign-in, JWT validation, role checks; login, hello-world, and logout in all three front ends                                                        | Draft            | Done (64/64 tasks) | **Built and verified** |
+| [`002-admin-venues-events`](specs/002-admin-venues-events/spec.md)           | Venue and event API with the 60-minute rule; Admin app create, read, update, delete                                                                                            | Draft (revised)  | Done (32/32 tasks) | **Built and verified** |
+| [`003-customer-venues-events`](specs/003-customer-venues-events/spec.md)     | Customer app shows all venues and events                                                                                                                                       | Ready for review | Done (23/23 tasks) | **Built and verified** |
+| [`004-admin-tiers-search`](specs/004-admin-tiers-search/spec.md)             | Ticket tiers per event; Admin search for events and venues                                                                                                                     | Ready for review | Done (23/23 tasks) | **Built and verified** |
+| [`005-admin-orders-reporting`](specs/005-admin-orders-reporting/spec.md)     | Orders and tickets; Admin sales dashboard, attendee lists, safe cancellation                                                                                                   | Ready for review | Done (25/25 tasks) | **Built and verified** |
+| [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                                                                             | Draft            | Done (29/29 tasks) | **Built and verified** |
+| [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice                                                    | Draft            | Done (30/30 tasks) | **Built and verified** |
+| [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look                                                      | Draft            | Done (19/19 tasks) | **Built and verified** |
+| [`012-shared-theme`](specs/012-shared-theme/spec.md)                         | One shared theme in `packages/shared/` for the Admin and Customer apps; a test fails when an app defines its own look                                                          | Draft            | Done (29/30 tasks) | **Built and verified** |
+| [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps                                   | Draft            | Done (47/48 tasks) | **Built and verified** |
+| [`014-event-images`](specs/014-event-images/spec.md)                         | Up to 5 images per event, added, ordered, and removed in the Admin event form; a rotating gallery on Customer event cards and on the event page of both apps, with full screen | Draft            | Done (48/50 tasks) | **Built and verified** |
+| [`015-seat-holds`](specs/015-seat-holds/spec.md)                             | Customers reserve picked seats for 5 minutes, then confirm; no seat reserved twice; reserved and sold seats shown live in both apps                                            | Draft            | Done (50 tasks)    | **Built and verified** |
+| [`016-per-user-ticket-limit`](specs/016-per-user-ticket-limit/spec.md)       | An optional per-customer ticket limit on each event, held under concurrent orders; shown to admins and customers                                                               | Draft            | Done (36 tasks)    | **Built and verified** |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -40,12 +40,14 @@ customer may hold for an event; customers see how many more they can get, and th
 an order over the cap, even when two arrive at once. A venue's address is a real US
 address, checked by the US Census Geocoder when it is saved, unless an admin chooses **Save
 anyway** for an address the service does not know, which is then marked not verified. Every venue
-address in both apps opens Google Maps.
+address in both apps opens Google Maps. Admins add up to 5 pictures to an event (JPG, PNG, or
+WebP, up to 5 MB each) and put them in order; customers see them as a rotating gallery on the
+event's card and across the top of its page, and can open one full screen.
 
 The Admin and Customer apps take their whole look from one shared theme (`012`).
 
-Features `010`, `011`, and `014` are reserved in the constitution's roadmap and not yet built:
-test coverage, CI test runs, and event images.
+Features `010` and `011` are reserved in the constitution's roadmap and not yet built: test
+coverage and CI test runs.
 
 ### How a feature is delivered
 
@@ -114,7 +116,8 @@ docker compose exec backend node backend/dist/scripts/demo-data.js
 ```
 
 It adds two venues, three events with tiers, orders from `customer1`…`customer25`, some
-check-ins, and one cancelled event, all through the real Backend rules. Running it again changes
+check-ins, one cancelled event, and generated striped pictures (three on the concert, one on the
+comedy night), all through the real Backend rules. Running it again changes
 nothing. It is never run automatically. Its orders belong to stand-in identities, so they don't
 appear on any customer's **My tickets**; buy in the Customer app to see that page filled.
 
@@ -254,6 +257,13 @@ unchanged.
 - **Ticket limit per customer** — admins may set the most tickets one customer can hold for an
   event, across all their orders, or leave it blank for no limit. Customers see how many more they
   can get, and the Backend refuses an order over the limit, including simultaneous ones (`016`)
+- **Event images** — admins add up to 5 pictures to an event in its form, move them, and remove
+  them; the first is the cover. The Backend accepts only JPG, PNG, and WebP by their content, up to
+  5 MB and 40 megapixels, removes location and camera metadata, and never lets an event have more
+  than 5, even under simultaneous uploads. Customers see them as a gallery that turns every 5
+  seconds, with arrows and a Pause/Play button, on event cards and across the event page, and full
+  screen from the event page. Images are stored in PostgreSQL with their event and loaded with
+  the user's token, like every other API response (`014`)
 
 ### Seat reservations
 
