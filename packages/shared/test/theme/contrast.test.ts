@@ -104,3 +104,32 @@ describe.each([
 it('never uses --text-faint for text, since it is below 4.5:1', () => {
   expect(css).not.toMatch(/(^|[^-])color:\s*var\(--text-faint\)/m);
 });
+
+// Spec 014 research R13: the full-screen position label (--scrim-text) on the backdrop (--scrim,
+// partly transparent), composited over the lightest and the darkest page behind it.
+describe('the image scrim', () => {
+  const start = css.indexOf(':root {');
+  const root = css.slice(start, css.indexOf('}', start));
+  /** A token of the light set, whatever its notation. */
+  const value = (name: string) => root.split(`--${name}:`)[1]?.split(';')[0]?.trim() ?? '';
+  const hex = (r: number, g: number, b: number) =>
+    `#${[r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0')).join('')}`;
+  /** `rgb(r g b / a%)` over an opaque `#rrggbb`. */
+  function over(rgba: string, under: string): string {
+    const m = rgba.match(/^rgb\((\d+) (\d+) (\d+) \/ (\d+)%\)$/);
+    if (!m) throw new Error(`not rgb(r g b / a%): ${rgba}`);
+    const a = Number(m[4]) / 100;
+    const base = [1, 3, 5].map((i) => parseInt(under.slice(i, i + 2), 16));
+    const top = [m[1], m[2], m[3]].map(Number);
+    return hex(...(top.map((c, i) => a * c + (1 - a) * base[i]!) as [number, number, number]));
+  }
+
+  it.each(['#ffffff', '#000000'])(
+    'shows --scrim-text on --scrim over %s at 4.5:1 or more',
+    (under) => {
+      expect(contrast(value('scrim-text'), over(value('scrim'), under))).toBeGreaterThanOrEqual(
+        4.5,
+      );
+    },
+  );
+});

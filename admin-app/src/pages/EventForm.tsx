@@ -1,12 +1,21 @@
-import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { ConflictingEventRef, EventInput, Location, SeatingLayout } from '@queuepass/shared';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import type {
+  ConflictingEventRef,
+  EventImage,
+  EventInput,
+  Location,
+  SeatingLayout,
+} from '@queuepass/shared';
+import { EVENT_IMAGE_LIMITS } from '@queuepass/shared';
 import { createEvent, getEvent, updateEvent } from '../api/events';
+import { deleteEventImage, reorderEventImages, uploadEventImage } from '../api/images';
 import { listLocations } from '../api/locations';
 import { getLayout, getSeatMap, updateSeating } from '../api/seating';
 import { createTier, deleteTier, listTiers, updateTier } from '../api/tiers';
 import { ApiError } from '../api/client';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { ImagesField, type ImageItem } from '../components/ImagesField';
 import { SuccessState } from '../components/SuccessState';
 
 /** `datetime-local` value ("2026-10-01T18:00") → ISO-8601 with the browser's offset. */
@@ -52,10 +61,52 @@ const limitRefused = (most: number | null): ApiError =>
       : 'Tickets per customer must be a whole number of at least 1, or blank for no limit.',
   );
 
+/**
+ * Spec 014 research R9: what the form hands its edit form after creating an event whose pictures
+ * were not all added: the pictures not yet added, and what to tell the admin.
+ */
+interface PendingImagesState {
+  pendingImages: File[];
+  notice: string;
+}
+
+/** Spec 014: a picture step that was refused or could not be sent, and the pictures left. */
+class ImageStepError extends Error {
+  constructor(
+    readonly file: File,
+    /** The Backend's refusal, or `null` when the request could not be sent. */
+    readonly refusal: ApiError | null,
+    readonly remaining: File[],
+  ) {
+    super(refusal?.message ?? 'could not be sent');
+  }
+
+  /** "{file name}: {message}", as the form shows it (FR-017). */
+  asApiError(): ApiError {
+    const message = this.refusal
+      ? this.refusal.envelope.error.message
+      : 'It could not be sent. Check the connection and save again.';
+    return new ApiError(this.refusal?.status ?? 0, {
+      error: {
+        ...(this.refusal?.envelope.error ?? { code: 'VALIDATION_FAILED' }),
+        message: `${this.file.name}: ${message}`,
+      },
+    });
+  }
+}
+
+const savedItem = (image: EventImage, file?: File): ImageItem => ({
+  kind: 'saved',
+  key: image.id,
+  image,
+  ...(file ? { file } : {}),
+});
+
 /** FR-032, FR-033, FR-034, FR-035 — create/edit an event. No removal control (API-only). */
 export function EventForm(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const isEdit = Boolean(id);
 
   const [venues, setVenues] = useState<Location[]>([]);
@@ -86,6 +137,19 @@ export function EventForm(): React.ReactElement {
   const [error, setError] = useState<ApiError | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Spec 014 (research R9): the event's pictures in order; changes are made on Save.
+  const [images, setImages] = useState<ImageItem[]>([]);
+  const [imagesNotice, setImagesNotice] = useState<string | null>(null);
+  /** Stored images the admin removed, deleted on Save. */
+  const [removed, setRemoved] = useState<EventImage[]>([]);
+  /** The order the Backend holds, as far as the form knows: decides whether to reorder. */
+  const serverOrder = useRef<string[]>([]);
+  const nextKey = useRef(0);
+  const newItem = (file: File): ImageItem => ({
+    kind: 'new',
+    key: `new-${(nextKey.current += 1)}`,
+    file,
+  });
 
   useEffect(() => {
     listLocations()
@@ -113,8 +177,18 @@ export function EventForm(): React.ReactElement {
 
   useEffect(() => {
     if (!id) return;
+    // Spec 014 research R9: pictures not yet added when this event was created, handed over in
+    // router state. Read once, then cleared from history, so going Back cannot send them again.
+    const handed = location.state as PendingImagesState | null;
+    const pending = (handed?.pendingImages ?? []).map(newItem);
+    setImagesNotice(handed?.notice ?? null);
+    if (handed?.pendingImages) navigate(location.pathname, { replace: true, state: null });
+    setImages(pending);
+    setRemoved([]);
     getEvent(id)
       .then((e) => {
+        serverOrder.current = (e.images ?? []).map((i) => i.id);
+        setImages([...(e.images ?? []).map((image) => savedItem(image)), ...pending]);
         setName(e.name);
         setLocationId(e.locationId);
         setStartsAt(toLocalInput(e.startsAt));
@@ -196,6 +270,112 @@ export function EventForm(): React.ReactElement {
   }
 
   /**
+   * Spec 014 research R9: after the event's other changes, delete each removed image, upload each
+   * new picture in list order, then, if the list's order differs from the Backend's, send the
+   * whole order, stopping at the first refusal. Each step updates the form as it succeeds, so
+   * saving again finishes what is left and never sends a picture twice (FR-015, FR-017).
+   */
+  async function applyImages(
+    eventId: string,
+    list: ImageItem[],
+    toDelete: EventImage[],
+  ): Promise<void> {
+    for (const image of toDelete) {
+      try {
+        await deleteEventImage(eventId, image.id);
+      } catch (err) {
+        // Already gone: what this step wanted.
+        if (!(err instanceof ApiError && err.status === 404)) throw err;
+      }
+      serverOrder.current = serverOrder.current.filter((i) => i !== image.id);
+      setRemoved((now) => now.filter((r) => r.id !== image.id));
+    }
+
+    const ids: string[] = [];
+    for (const [i, item] of list.entries()) {
+      if (item.kind === 'saved') {
+        ids.push(item.image.id);
+        continue;
+      }
+      try {
+        const image = await uploadEventImage(eventId, item.file);
+        ids.push(image.id);
+        serverOrder.current = [...serverOrder.current, image.id];
+        setImages((now) =>
+          now.map((it) =>
+            // The file stays with it: its preview is not read back (review of PR #63).
+            it.key === item.key ? { kind: 'saved', key: item.key, image, file: item.file } : it,
+          ),
+        );
+      } catch (err) {
+        const remaining = list.slice(i).flatMap((it) => (it.kind === 'new' ? [it.file] : []));
+        throw new ImageStepError(item.file, err instanceof ApiError ? err : null, remaining);
+      }
+    }
+
+    if (ids.join() === serverOrder.current.join()) return;
+    const ordered = await reorderEventImages(eventId, ids);
+    serverOrder.current = ordered.map((i) => i.id);
+    const byId = new Map(ordered.map((i) => [i.id, i]));
+    setImages((now) =>
+      now.map((it) => {
+        const image = it.kind === 'saved' ? byId.get(it.image.id) : undefined;
+        return image ? { ...it, image } : it;
+      }),
+    );
+  }
+
+  /**
+   * Spec 014 research R9, US3 scenario 6: the event's images changed since the form loaded them.
+   * Show the event's current images, with the pictures not yet added after them, to check and
+   * save again.
+   */
+  async function reloadImages(eventId: string): Promise<void> {
+    try {
+      const e = await getEvent(eventId);
+      serverOrder.current = (e.images ?? []).map((i) => i.id);
+      setRemoved([]);
+      setImages((now) => {
+        // Pictures sent from this form keep showing from their files.
+        const files = new Map(
+          now.flatMap((it) => (it.kind === 'saved' && it.file ? [[it.image.id, it.file]] : [])),
+        );
+        return [
+          ...(e.images ?? []).map((image) => savedItem(image, files.get(image.id))),
+          ...now.filter((it) => it.kind === 'new'),
+        ];
+      });
+    } catch {
+      // The refusal is shown either way; the list stays as it was.
+    }
+  }
+
+  /**
+   * FR-014: at most 5, checked against the latest list (ImagesField has already refused, with a
+   * note, whatever it saw would not fit; this only guards the list itself).
+   */
+  function addImages(files: File[]): void {
+    const added = files.map(newItem);
+    setImages((now) => [...now, ...added].slice(0, EVENT_IMAGE_LIMITS.maxCount));
+  }
+
+  function moveImage(index: number, by: -1 | 1): void {
+    setImages((now) => {
+      const next = [...now];
+      const [item] = next.splice(index, 1);
+      next.splice(index + by, 0, item!);
+      return next;
+    });
+  }
+
+  function removeImage(index: number): void {
+    const item = images[index];
+    if (!item) return;
+    if (item.kind === 'saved') setRemoved((now) => [...now, item.image]);
+    setImages((now) => now.filter((it) => it.key !== item.key));
+  }
+
+  /**
    * Spec 008 R10: apply the edit through the existing operations, stopping at the first refusal.
    * Switching between seated and general admission happens before the ticket types change,
    * since the Backend takes a typed quantity only without reserved seating.
@@ -237,6 +417,7 @@ export function EventForm(): React.ReactElement {
     setError(null);
     setSetupRefused(null);
     setSaved(false);
+    setImagesNotice(null);
 
     // Spec 016 research R7: a preview of the Backend's range check; the Backend decides.
     const limit = maxPerCustomer.trim();
@@ -286,17 +467,39 @@ export function EventForm(): React.ReactElement {
       basePrice: typesLoaded ? lowestPrice(types) : storedBasePrice,
     };
 
+    const list = images;
+    const toDelete = removed;
+    let eventId = id;
     try {
-      let eventId = id;
       if (isEdit && id) await saveEvent(id, payload);
       else eventId = (await scheduleEvent(payload)) ?? undefined;
       if (!eventId) return;
+      try {
+        await applyImages(eventId, list, toDelete);
+      } catch (err) {
+        if (!(err instanceof ImageStepError) || isEdit) throw err;
+        // Spec 014 FR-018: the event, its seating, and its ticket types are saved; the form
+        // becomes that event's edit form with the pictures not yet added, so saving again
+        // changes only this event.
+        const [first, ...rest] = err.remaining;
+        const why = err.refusal ? err.refusal.envelope.error.message : 'could not be sent';
+        const names = [`${first!.name} (${why})`, ...rest.map((f) => f.name)].join(', ');
+        const handed: PendingImagesState = {
+          pendingImages: err.remaining,
+          notice: `Event created. These pictures were not added: ${names}. Save again to add them.`,
+        };
+        navigate(`/events/${eventId}/edit`, { replace: true, state: handed });
+        return;
+      }
       setSaved(true);
       setTimeout(() => navigate(`/events/${eventId}`), 700);
     } catch (err) {
       // FR-035: state is deliberately untouched here — re-entering a whole form to fix
       // one time is exactly the friction this requirement exists to prevent.
-      setError(err as ApiError);
+      setError(err instanceof ImageStepError ? err.asApiError() : (err as ApiError));
+      if (err instanceof ApiError && err.code === 'IMAGES_CHANGED' && eventId) {
+        await reloadImages(eventId);
+      }
     } finally {
       setBusy(false);
     }
@@ -426,6 +629,13 @@ export function EventForm(): React.ReactElement {
       </div>
 
       {saved && <SuccessState message="Event saved." />}
+      {imagesNotice && (
+        <div role="status" className="banner">
+          <div className="banner__body">
+            <p>{imagesNotice}</p>
+          </div>
+        </div>
+      )}
       {error && <ErrorBanner error={error} />}
       {setupRefused && (
         <div role="alert" className="banner banner--error">
@@ -582,6 +792,14 @@ export function EventForm(): React.ReactElement {
             />
             <span className="field__hint">Leave blank for no limit.</span>
           </div>
+
+          <ImagesField
+            eventId={id}
+            items={images}
+            onAdd={addImages}
+            onMove={moveImage}
+            onRemove={removeImage}
+          />
 
           <div className="form__actions">
             <button type="submit" className="btn btn--primary" disabled={busy}>

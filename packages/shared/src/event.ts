@@ -1,3 +1,4 @@
+import type { EventImage } from './event-image.js';
 import type { Location } from './location.js';
 
 /**
@@ -25,6 +26,11 @@ export interface Event {
   cancelledAt: string | null;
   /** Spec 007: whether customers choose seats. */
   reservedSeating: boolean;
+  /**
+   * Spec 014: the event's images in order, metadata only; `[]` when there are none. Always sent by
+   * the Backend, but optional in the contract (research R8), so clients treat missing as empty.
+   */
+  images?: EventImage[];
   createdAt: string;
   updatedAt: string;
 }

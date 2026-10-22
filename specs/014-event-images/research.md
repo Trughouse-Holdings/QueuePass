@@ -87,7 +87,10 @@ statement that caused it. Checked at the end of each statement, a collision fail
 happens. Under the lock no collision is expected; if one ever happens (a
 write that skipped the lock), the exception filter maps a unique violation naming
 `event_image_position_unique` (Prisma `P2002`, or SQLSTATE `23505` from a raw statement) to
-`409 IMAGES_CHANGED`, instead of today's fallback for `P2002`, `TIER_NAME_TAKEN`.
+`409 IMAGES_CHANGED`, instead of today's fallback for `P2002`, `TIER_NAME_TAKEN`. It reads only
+Prisma's errors and their structured fields: a `P2002`'s `meta.target` (or model and fields), a
+raw statement's `P2010` with `meta.code` `23505` and a `meta.message` naming the constraint or its
+key `("eventId", "position")`. An error Prisma did not throw is never mapped by its text.
 
 **Alternatives considered**: A count CHECK through a trigger (more SQL, and the lock is needed for
 the message anyway). Locking the event's image rows (`SELECT … FOR UPDATE` on `EventImage`): it
@@ -105,10 +108,13 @@ Shifting through temporary out-of-range positions (needs the CHECK to allow them
   `@nestjs/platform-express`) into memory with limits `{ fileSize: 5_242_880, files: 1, fields: 0,
   parts: 1 }`. A local type `UploadedImage { buffer: Buffer; size: number }` is used instead of
   adding `@types/multer`.
-- **Size**: multer stops reading at 5,242,880 bytes and NestJS raises `413`. The exception filter
-  maps a `413` to `IMAGE_TOO_LARGE` ("An image can be at most 5 MB.", `details.maxBytes`). Only
-  this operation reads a body that can raise `413` through NestJS, so the mapping is unambiguous.
-  The service also checks `size <= 5_242_880`, and the database CHECKs it (data-model.md).
+- **Size**: multer stops reading at 5,242,880 bytes and NestJS raises `413`. An exception filter
+  on the upload route only (`ImageTooLargeFilter`, `@UseFilters` on `uploadEventImage`) answers it
+  with `IMAGE_TOO_LARGE` ("An image can be at most 5 MB.", `details.maxBytes`). The service also
+  checks `size <= 5_242_880` and throws the same envelope, and the database CHECKs it
+  (data-model.md). The global filter does not map `413` to `IMAGE_TOO_LARGE`: a body too large
+  for any other operation is a generic `413` (`VALIDATION_FAILED`, "The request body is too
+  large."), so no other refusal can claim to be about an image.
 - **Type**: `sniffImageType(bytes)` reads the file's signature and returns `image/jpeg`,
   `image/png`, `image/webp`, or `null`:
   - JPEG: `FF D8 FF`;
@@ -143,7 +149,8 @@ Shifting through temporary out-of-range positions (needs the CHECK to allow them
 - `sniffImageType`, `readImageHeader`, the limits, and the type list live in
   `packages/shared/src/event-image.ts`, so the Admin app's preview (R9) and the Backend use the
   same rule.
-- **Then metadata is removed** (R17), and the stored bytes are what remains.
+- **Then metadata is removed** (R17), and the stored bytes are what remains. It runs before the
+  pixel limits, so a file that cannot be walked is `415` before it is `400`, the contract's order.
 
 **Rationale**: Spec FR-003 and FR-004 (Mahdi: check the real type, not the extension or the
 declared type). A signature check is exact for these three formats and needs no decoder. SVG is
@@ -181,7 +188,9 @@ the apps fetch the bytes through their existing API client, with the signed-in u
 - **Shared cache** (`packages/shared/src/web/event-images.ts`): a module-level map from image id
   to `{ url, users }`. `useEventImage(eventId, imageId, enabled)` fetches once per id, counts the
   components using it, and revokes the object URL when the last one lets go. Two cards, or a card
-  and the full-screen view, showing the same image fetch it once.
+  and the full-screen view, showing the same image fetch it once. A failed load (a network
+  failure, a `5xx`) is not kept while the image is held: the next component to acquire it (a slide
+  mounting again, the viewer opening) fetches it again, and every holder shows the outcome.
 - **Browser cache**: an image's content never changes (a new picture is a new id, R5), so the
   response carries `Cache-Control: private, max-age=31536000, immutable`. After an object URL is
   revoked, fetching the same image again is answered from the browser's own cache. `private` keeps
@@ -380,7 +389,9 @@ modes, inside a `<fieldset>` with the legend "Images".
 
 - **State**: an ordered list of items, each either `{ kind: 'saved', image: EventImage }` or
   `{ kind: 'new', key, file: File, previewUrl }`, and a list of saved images the admin removed. On
-  edit it starts from `event.images ?? []`.
+  edit it starts from `event.images ?? []`. A picture uploaded from the form becomes `saved` and
+  keeps its `file`: its preview stays the chosen file's object URL, not read back from the Backend
+  (no second download of what was just sent, and no placeholder in between).
 - **Add**: a file input labeled "Add images", `accept="image/jpeg,image/png,image/webp"`,
   `multiple`. Each chosen file goes through a preview check (FR-016): would it make more than 5, is
   it over 5,242,880 bytes, and does `readImageHeader` of the file's bytes (`await
@@ -442,7 +453,7 @@ modes, inside a `<fieldset>` with the legend "Images".
   the pending pictures is already saved and is loaded back by the edit form, and the pending
   pictures travel in router state.
 - **Cancel** leaves the page without calling the API, so nothing changes (FR-015). Object URLs of
-  new files are revoked when an item is removed and when the form unmounts.
+  chosen files, sent or not, are revoked when an item is removed and when the form unmounts.
 - `admin-app/src/api/images.ts`: `uploadEventImage(eventId, file)` posts a `FormData` with
   `file` through the typed client (`bodySerializer: (body) => body`, so `openapi-fetch` sends the
   `FormData` as is and the browser sets the multipart boundary; a test checks the request's
@@ -474,7 +485,10 @@ files in one request (R3).
   - `use-gallery-rotation.ts`: the timer and pause rules (R11);
   - `image-gallery.tsx`: `ImageGallery({ eventId, eventName, images, variant: 'card' | 'page',
     eventHref? })`, which renders nothing for no images (FR-027);
-  - `image-viewer.tsx`: the full-screen view (R12).
+  - `image-viewer.tsx`: the full-screen view (R12);
+  - `gallery-parts.tsx`: what both share, so neither imports the other: holding images while
+    mounted, the image or its placeholder, the slide (`useSlide`), and the set of images wanted
+    so far.
 - **Per app**: the Admin app's `ImagesField` and `api/images.ts` (R9), and the places each app puts
   the gallery: the Customer app's `EventCard.tsx` and `pages/EventDetail.tsx`, and the Admin app's
   `pages/EventDetail.tsx` (FR-019).
@@ -526,7 +540,9 @@ turns on its own has a Pause/Play button (Mahdi, 2026-10-13, after the PR review
   - or an arrow, or on the event page the image button that opens full screen, has **keyboard**
     focus. Keyboard focus is focus not caused by a pointer: the gallery records a `pointerdown`
     inside it and ignores the focus that follows, so a mouse click on an arrow does not keep the
-    gallery paused after the pointer leaves (browsers focus a clicked button);
+    gallery paused after the pointer leaves (browsers focus a clicked button). The press ends at
+    the next `click`, `pointercancel`, or `keydown` anywhere in the document, through one set of
+    capture listeners shared by every gallery on the page (not three per gallery);
   - or the full-screen view is open (R12);
   - or, for a card, it is not on or near the screen (R14).
 
@@ -540,11 +556,24 @@ turns on its own has a Pause/Play button (Mahdi, 2026-10-13, after the PR review
   `matchMedia('(prefers-reduced-motion: reduce)')` matches, no timer runs at all and there is no
   Pause/Play button; the arrows still flip. The hook listens for changes to the setting; if it
   turns off, the gallery starts turning and the button appears.
-- **No animation**: images are swapped, not slid or faded, in every mode. Nothing moves, so there
-  is no motion to reduce beyond the automatic change.
+- **Slide between images** (decided by Mahdi, 2026-10-19, replacing "no animation"; spec FR-040):
+  the gallery keeps the outgoing image for the length of one slide and shows both in a clipped
+  track: the outgoing image moves from 0 to −100% and the incoming one from 100% to 0 for the next
+  image, mirrored for the previous arrow, over 400 ms with `ease-in-out`, as CSS `transform`
+  animations (theme keyframes, so it costs no layout and stays on the compositor). The direction
+  comes from the action, not the index, so wrapping from the last image to the first still slides
+  left. The outgoing image is `aria-hidden` and not a control; the live region and names follow the
+  incoming image only. A new change during a slide drops the outgoing image and slides from the
+  current one. A card keeps the outgoing image's object URL until the slide ends, then lets it go,
+  so a card holds at most 3 images for 0.4 seconds and 2 otherwise (R14). Under reduced motion no
+  slide classes are set and `@media (prefers-reduced-motion: reduce)` also turns the keyframes
+  off, so the image simply changes.
 - **Announcements**: the slide area has `aria-live="off"` while it turns on its own, and
   `aria-live="polite"` while stopped, temporarily paused, or under reduced motion, so an arrow
-  press is announced and automatic changes are not (the WAI-ARIA carousel pattern).
+  press is announced and automatic changes are not (the WAI-ARIA carousel pattern). On a card the
+  image sits inside the hidden link (R12), so the card's position text ("2 of 3") is the part
+  announced: it is inside the same live region, with the same `off`/`polite` rule, so an arrow
+  press or Play on a card is announced too (decided 2026-10-19, found while building T036).
 
 **WCAG 2.2.2 (Pause, Stop, Hide, Level A)**: the galleries are auto-updating content that starts on
 its own, runs alongside other content, and goes on longer than 5 seconds, so 2.2.2 applies. It
@@ -560,7 +589,9 @@ another's, and each card's button sits on its own gallery). Remembering a pause 
 visits (needs storage and a preference no one asked for; Constitution VIII). A button in the
 full-screen view (it does not change on its own). `aria-pressed` (above). Stopping after one full
 cycle (not what Mahdi asked). `setInterval` (an arrow press would not restart the full 5
-seconds). A CSS animation for the change (motion to reduce, and nothing in the spec asks for it).
+seconds). No animation (the first decision; Mahdi found the sudden swap jarring and chose a slide on
+2026-10-19). A fade (Mahdi asked for a slide). A JavaScript-driven animation (CSS transforms are
+smoother and need no library).
 
 ## R12. Full screen, and what selecting a card's image does
 
@@ -625,9 +656,11 @@ research R6).
 - **Classes**: `.page-band`, `.gallery`, `.gallery--card`, `.gallery--page`, `.gallery__open` (the
   event page's image button), `.gallery__image`, `.gallery__placeholder`, `.gallery__arrow`,
   `.gallery__arrow--prev`, `.gallery__arrow--next`, `.gallery__count`, `.gallery__toggle`
-  (Pause/Play); `.viewer`, `.viewer__image`, `.viewer__close`, `.viewer__arrow` (with `--prev` and
+  (Pause/Play), `.gallery__frame` (one image in the slide track) and the four slide classes
+  `.gallery__slide--{out,in}-{left,right}` with their `gallery-*` keyframes (R11, FR-040); `.viewer`, `.viewer__image`, `.viewer__close`, `.viewer__arrow` (with `--prev` and
   `--next`), `.viewer__count`; and `.viewer-open` on `<body>`.
-- **Card**: `.gallery--card` is 16:9 (`aspect-ratio`), flush with the top and sides of the card,
+- **Card**: `.gallery--card` is 4:3 (`aspect-ratio`; Mahdi, 2026-10-19: the gallery takes most of
+  the card), flush with the top and sides of the card,
   above the title. The Customer app's `.event-card` gives the gallery negative margins equal to
   its own padding (`calc(-1 * var(--space-N))`, which `012`'s rule C5 allows) and rounds its top
   corners with the card.
@@ -681,7 +714,9 @@ dark).
 **Decision**:
 
 - **Lists carry metadata only** (R6).
-- **Cards**: each card gallery watches itself with `IntersectionObserver` (`rootMargin: '200px'`).
+- **Cards**: each card gallery watches itself with `IntersectionObserver` (`rootMargin: '200px'`),
+  through one observer shared by every card on the page, which tells each card about its own
+  element only.
   While it is on or near the screen it turns, and holds the shown image and the next one (so the
   next change is instant), letting go of an image once it is neither. When it leaves that zone it
   **stops turning, stops fetching, and lets go of both images at once**; when it comes back it
@@ -729,7 +764,7 @@ diagonal bands in two colors, 960 × 540 pixels, a few kilobytes each. `demo-dat
 - the comedy night: 1 image (no arrows);
 - the gala: none (looks as before).
 
-`DemoSummary` gains `images: 6`. No picture file is committed.
+`DemoSummary` gains `images: 4` (3 + 1 + 0). No picture file is committed.
 
 **Rationale**: Spec FR-034. Generated pictures keep the repository small, carry no copyright, show
 each gallery case on demo day, and go through the same type check as uploads (they are real PNGs).
@@ -790,8 +825,8 @@ boundaries on both sides, concurrency with genuinely simultaneous requests. Fake
 ## R17. Metadata is removed before storing; a JPEG keeps its orientation
 
 **Decision** (Mahdi, 2026-10-12, after review round 1): `stripImageMetadata(bytes, contentType)`
-in `backend/src/events/image-metadata.ts` runs after the type and size checks (R3) and before the
-transaction. It copies the file, leaving out metadata, and never touches the picture data:
+in `backend/src/events/image-metadata.ts` runs after the type and byte-size checks (R3), before the
+pixel limits (the contract's refusal order), and before the transaction. It copies the file, leaving out metadata, and never touches the picture data:
 
 - **JPEG**: walks the markers from `SOI`. Before each marker code, any run of `0xFF` fill bytes is
   skipped. Standalone markers, which have no length (`RST0`–`RST7` `D0`–`D7`, `TEM` `01`), are
@@ -813,7 +848,11 @@ transaction. It copies the file, leaving out metadata, and never touches the pic
 - **Orientation**: when a JPEG's Exif `IFD0` has an Orientation tag (`0x0112`) of 2 to 8, a new
   minimal Exif `APP1` with only that tag (a 32-byte payload: `Exif\0\0`, a big-endian TIFF
   header, one IFD entry, no next IFD) is written right after `SOI`, or after a `JFIF` `APP0`
-  when there is one. Orientation 1, or none, writes nothing.
+  when there is one. Orientation 1, or none, writes nothing. An `IFD0` offset below 8 overlaps the
+  TIFF header and is read as no orientation. An Exif segment that gives an orientation is then at
+  least 32 bytes (one whole entry, no next-IFD offset); the new one is never longer than the one it
+  replaces, so it is cut to that length, keeping the whole entry, and the file never grows (review
+  rounds 1 and 2).
 - A structure that cannot be walked (a segment or chunk length past the end of the file) is
   `415 IMAGE_TYPE_NOT_ALLOWED`, as an unreadable header is (R3). The Admin form's preview reads
   headers only, so such a file passes it and is refused here, at save time (R9, FR-016).

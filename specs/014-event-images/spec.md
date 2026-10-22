@@ -76,6 +76,19 @@ not amended.
   the page look exactly as they do today, with no empty gallery. With one image, it is shown with
   no rotation and no arrows (decided by Mahdi, 2026-10-12).
 
+### Session 2026-10-19
+
+- Q: How much of an event card does its gallery take? → A: Most of it. The gallery fills the top
+  of the card at a 4:3 shape, edge to edge, and the event's name, times, venue, and price sit right
+  under it, so customers see the pictures before they open the event (decided by Mahdi, 2026-10-19,
+  after trying the event page).
+- Q: How does one image change to the next? → A: With a short, smooth slide instead of a sudden
+  swap: the shown image slides out and the next slides in, toward the left for the next image
+  (automatic or the next arrow) and toward the right for the previous arrow, in every gallery and
+  in full screen. Under reduced motion there is no slide; the image simply changes (decided by
+  Mahdi, 2026-10-19, after trying the event page; this replaces the earlier "no animation" rule,
+  research R11).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - An Admin Adds Images to an Event (Priority: P1)
@@ -157,8 +170,8 @@ forward, and that an event with no images looks as it does today.
    is shown across the full width of the app, above the event's name, with "1 of 3".
 2. **Given** that page, **When** 5 seconds pass, **Then** image 2 is shown; 5 seconds later image
    3; 5 seconds later image 1 again.
-3. **Given** that page, **When** the customer selects the next arrow, **Then** the next image is
-   shown at once, and the gallery then waits a full 5 seconds before moving on. The previous arrow
+3. **Given** that page, **When** the customer selects the next arrow, **Then** the next image
+   slides in at once, and the gallery then waits a full 5 seconds before moving on. The previous arrow
    on image 1 shows image 3.
 4. **Given** the pointer is over an arrow button, **Then** the gallery does not move on its own for
    as long as the pointer stays there. When the pointer leaves, it moves on 5 seconds later.
@@ -392,20 +405,23 @@ gallery shows the last image viewed.
 **Customer app**
 
 - **FR-020**: Each event card on the Events list MUST show the event's images, cover first, at the
-  top of the card, spanning the card's full width. Selecting the image MUST open the event page.
+  top of the card, spanning the card's full width at a 4:3 shape, so it takes most of the card,
+  with the name, times, venue, and price right under it. Selecting the image MUST open the event
+  page.
 - **FR-021**: The event page MUST show the event's images, cover first, at the top of the page,
   spanning the full width of the app.
 - **FR-022**: With two or more images, each gallery MUST show the next image every 5 seconds, and
   the first after the last.
 - **FR-023**: With two or more images, each gallery MUST have previous and next arrow buttons on
-  the left and right sides of the image. They flip to the previous or next image at once, wrap
+  the left and right sides of the image. They move to the previous or next image straight away (with FR-040's slide), wrap
   around, and restart the 5-second wait.
 - **FR-024**: Apart from its Pause/Play button (FR-038), a gallery MUST pause its automatic change
   only while the pointer is over one of its arrow buttons, or while an arrow or, on the event page,
   the image that opens full screen has keyboard focus, and MUST resume 5 seconds after that ends.
   Nothing else pauses it: not the pointer over the image, not anything else on the page.
 - **FR-025**: When the customer's device asks for reduced motion, the galleries MUST NOT change
-  images on their own and show no Pause/Play button; the arrows still work.
+  images on their own and show no Pause/Play button; the arrows still work, and images change
+  without FR-040's slide.
 - **FR-026**: With two or more images, each gallery MUST show the position of the shown image in
   words, such as "2 of 5".
 - **FR-027**: With one image, a gallery MUST show it with no arrows, no position, no Pause/Play
@@ -416,7 +432,8 @@ gallery shows the last image viewed.
   alternative naming the event and the image's position, such as "Season Opener, image 2 of 5".
   On an event card, the image's link duplicates the card's title link, so it is hidden from
   assistive technology and from the Tab order (FR-020); the card's gallery is still labeled
-  "Images of {event}" and its arrows name the event.
+  "Images of {event}" and its arrows name the event, and the card announces its position ("2 of
+  3") when an arrow or Play changes the image, as the event page announces its image.
 - **FR-029**: On the event page, selecting the image MUST open it full screen: covering the whole
   window over a dark backdrop, showing the whole image as large as fits, with previous and next
   arrows (with two or more images), the position, and a close button. Esc and the close button
@@ -465,6 +482,15 @@ gallery shows the last image viewed.
   such button.
 - **FR-039**: On the Events list, a card that is neither on nor near the screen MUST stop changing
   images and MUST let go of its loaded images, loading them again when it comes back.
+
+**Galleries (added 2026-10-19, after Mahdi tried the event page)**
+
+- **FR-040**: When a gallery or the full-screen view changes image, the shown image MUST slide out
+  and the new one slide in, in about 0.4 seconds, toward the left for the next image (automatic or
+  the next arrow) and toward the right for the previous arrow, including when it wraps around. The
+  5-second wait (FR-022) counts from the start of the slide. A press during a slide MUST start the
+  next slide from where things are, never queue or skip images. Under reduced motion (FR-025) the
+  image MUST change with no slide.
 
 ### Key Entities
 

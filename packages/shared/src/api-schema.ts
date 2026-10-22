@@ -772,9 +772,7 @@ export interface paths {
         put?: never;
         /**
          * Add an image to an event
-         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
-         *     `info` description.
-         *
+         * @description Feature 014.
          *     Adds one picture after the event's existing images. The body is `multipart/form-data` with
          *     exactly one part, `file`, and nothing else. The type is decided from the file's first
          *     bytes (its signature), never from its file name or the part's `Content-Type`: only JPEG
@@ -823,9 +821,7 @@ export interface paths {
         get?: never;
         /**
          * Set the order of an event's images
-         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
-         *     `info` description.
-         *
+         * @description Feature 014.
          *     `imageIds` lists every image of the event, each once, in the new order; the first becomes
          *     the cover (`position` 1). A list that is malformed, repeats an id, or has more than 5 ids is
          *     `400`. A list that does not name exactly the event's current images, because another
@@ -854,9 +850,7 @@ export interface paths {
         };
         /**
          * An image's content
-         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
-         *     `info` description.
-         *
+         * @description Feature 014.
          *     The picture's bytes as stored (as uploaded, with its metadata removed), with
          *     `Content-Type` set to its detected type. Like every operation except `getHealth`, it needs a
          *     bearer token, so a browser cannot load it with a plain `<img src>`: the apps fetch it with the
@@ -869,9 +863,7 @@ export interface paths {
         post?: never;
         /**
          * Remove an image from an event
-         * @description Feature 014. Planned: declared ahead of its implementation (`x-planned`), see the
-         *     `info` description.
-         *
+         * @description Feature 014.
          *     Permanent. The event's other images keep their order and close the gap, so positions stay
          *     1 to n. A cancelled event's images cannot change (`409 EVENT_CANCELLED`).
          */

@@ -2,11 +2,13 @@ import type { INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../app.module';
 import type { Principal } from '../auth/principal';
+import { EventImagesService } from '../events/event-images.service';
 import { EventsService } from '../events/events.service';
 import { LocationsService } from '../locations/locations.service';
 import { OrdersService } from '../orders/orders.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { TiersService } from '../tiers/tiers.service';
+import { demoPng, type Rgb } from './demo-images';
 
 /**
  * Demo data for local demonstrations (spec 005 FR-013, research R9).
@@ -34,7 +36,29 @@ export interface DemoSummary {
   cancelled: string | null;
   /** Spec 013: demo venues saved not verified because the address service was unavailable. */
   unverifiedVenues: number;
+  /** Spec 014: generated images added to the demo events. */
+  images: number;
 }
+
+/** Spec 014 research R15: color pairs for the generated pictures, one picture each. */
+const CONCERT_COLORS: [Rgb, Rgb][] = [
+  [
+    [32, 64, 160],
+    [240, 176, 48],
+  ],
+  [
+    [144, 32, 80],
+    [32, 160, 144],
+  ],
+  [
+    [24, 96, 48],
+    [224, 224, 208],
+  ],
+];
+const COMEDY_COLORS: [Rgb, Rgb] = [
+  [96, 48, 160],
+  [248, 120, 88],
+];
 
 /** Stand-in buyer: demo orders are not tied to a real Keycloak sign-in (spec 005 Assumptions). */
 const buyer = (n: number): Principal => ({
@@ -62,6 +86,7 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
       checkedIn: 0,
       cancelled: null,
       unverifiedVenues: 0,
+      images: 0,
     };
   }
 
@@ -69,6 +94,7 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const events = app.get(EventsService);
   const tiers = app.get(TiersService);
   const orders = app.get(OrdersService);
+  const images = app.get(EventImagesService);
 
   const offline = { whenServiceUnavailable: 'saveUnverified' } as const;
   const hall = await locations.create(
@@ -131,6 +157,17 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const floor = await tiers.create(gala.id, { name: 'Floor', price: '80.00', quantity: 200 });
   await tiers.create(gala.id, { name: 'Balcony', price: '50.00', quantity: 100 });
 
+  // Spec 014 FR-034 (research R15): through the image rules, like an upload. Several pictures on
+  // the concert, so it rotates; one on the comedy night; none on the gala, which looks as before.
+  let imageCount = 0;
+  const addImage = async (eventId: string, colors: readonly [Rgb, Rgb]) => {
+    const buffer = demoPng(960, 540, colors);
+    await images.add(eventId, { buffer, size: buffer.length });
+    imageCount += 1;
+  };
+  for (const colors of CONCERT_COLORS) await addImage(concert.id, colors);
+  await addImage(comedy.id, COMEDY_COLORS);
+
   let orderCount = 0;
   const place = async (eventId: string, n: number, quantity: number, tierId?: string) => {
     await orders.create(eventId, { quantity, ...(tierId ? { tierId } : {}) }, buyer(n));
@@ -168,6 +205,7 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
     checkedIn: toCheckIn.length,
     cancelled: gala.name,
     unverifiedVenues: [hall, arena].filter((v) => !v.addressVerified).length,
+    images: imageCount,
   };
 }
 
@@ -178,7 +216,8 @@ async function main(): Promise<void> {
     console.log(
       s.created
         ? `Demo data created: ${s.venues} venues, ${s.events} events, ${s.orders} orders, ` +
-            `${s.tickets} tickets (${s.checkedIn} checked in); "${s.cancelled}" cancelled.`
+            `${s.tickets} tickets (${s.checkedIn} checked in), ${s.images} images; ` +
+            `"${s.cancelled}" cancelled.`
         : `Demo data already present ("${DEMO_VENUE}" exists); nothing changed.`,
     );
     if (s.unverifiedVenues > 0) {

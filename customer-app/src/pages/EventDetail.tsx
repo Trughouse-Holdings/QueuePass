@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import type { Event } from '@queuepass/shared';
-import { ServiceUnreachable } from '@queuepass/shared/web';
+import { ImageGallery, ServiceUnreachable } from '@queuepass/shared/web';
 import { GetTickets } from '../components/GetTickets';
 import { count, usd, when } from '../format';
 import { useLoad } from '../use-load';
@@ -29,6 +29,12 @@ export function EventDetail() {
   const e = load.data;
   return (
     <section>
+      {/* Spec 014 FR-021: the event's images across the full width of the app, above its name. */}
+      {e.images && e.images.length > 0 && (
+        <div className="page-band">
+          <ImageGallery eventId={e.id} eventName={e.name} images={e.images} variant="page" />
+        </div>
+      )}
       <h1 className="page-title">{e.name}</h1>
       {/* Spec 005 FR-012: a cancelled event stays visible, clearly marked. */}
       {e.status === 'CANCELLED' && (
