@@ -267,7 +267,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `017`.
+number is a pull request against this table. The next free number is `019`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -287,6 +287,8 @@ number is a pull request against this table. The next free number is `017`.
 | `014-event-images` | Admins upload up to 5 images per event; customers see them on the event, for example as a rotating gallery | `002`, `003` |
 | `015-seat-holds` | Seats a customer selects are held so no one else can take them before checkout; released on deselect or logout; other customers see held seats update live without refreshing | `007` |
 | `016-per-user-ticket-limit` | Admins set a maximum number of tickets per customer per event; the limit counts across all of that customer's orders | `005`, `006` |
+| `017-gate-check-in` | Every ticket carries its holder's name (#39); the Ticket Booth app checks tickets in by camera scan of a printed QR code or a typed code, with an ID check against the name, and admits each ticket exactly once, enforced by the Backend (#40) | `005`, `006`, `007` |
+| `018-rotating-qr-codes` | The Customer app shows each ticket as a QR code that changes every 30 seconds; the Ticket Booth app accepts it only in its own window, with no ID check, and still admits each ticket exactly once (#41) | `017` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -338,4 +340,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.1.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-16
+**Version**: 3.1.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-22
