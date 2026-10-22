@@ -701,6 +701,13 @@ export interface paths {
          *     reserved until it ends. A repeated `requestId` is returned before this check. An order whose
          *     `tierId` is not the reservation's tier is `400`, since its seats are not in that tier's
          *     sections.
+         *
+         *     Feature 017: `holderName` is the buyer's own name, printed on every ticket of the order
+         *     and checked against their ID at the gate. It is trimmed of leading and trailing spaces,
+         *     and must then be 1 to 100 characters, contain at least one letter in any script, and
+         *     contain no control characters; otherwise `400 HOLDER_NAME_INVALID` (`details.reason`).
+         *     It cannot be changed after the order is placed. A repeated `requestId` must also name the
+         *     same `holderName`. Required once feature 017 is implemented; until then it may be omitted.
          */
         post: operations["createOrder"];
         delete?: never;
@@ -754,6 +761,76 @@ export interface paths {
          *     sold, is sent as open on `streamSeatMap`.
          */
         post: operations["cancelEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/entry/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event the gate agent is working. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Look a ticket up at the gate
+         * @description Feature 017. Finds the ticket with this code and says whether it can be admitted at this
+         *     event's gate now. The code is sent in the body, not the path, so it stays out of request
+         *     logs. Letter case, spaces, and dashes are ignored; anything that is not then a ticket
+         *     code, or matches no ticket, is `404 TICKET_NOT_FOUND`.
+         *
+         *     A ticket that exists is always `200`, with `state` saying what the agent may do:
+         *     `ADMITTABLE`; `USED` (with `usedAt`); `VOID` (its order was refunded, for example because
+         *     the event was cancelled); `OTHER_EVENT` (the ticket's own event is in `event`); `NOT_OPEN`
+         *     (entry opens at `entryOpensAt`, 2 hours before the start); or `ENDED`. The window is
+         *     half-open, `[startsAt - 2 hours, endsAt)`, on the database's clock. Nothing is recorded.
+         *
+         *     `unusedOnOrder` counts the valid, unused tickets of this ticket's order for this event,
+         *     including this one, so the agent can offer to admit them all after one ID check.
+         */
+        post: operations["lookupEntryTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/entry/admit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event the gate agent is working. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Admit a ticket, or every unused ticket of its order
+         * @description Feature 017. Records an entry for the ticket: the time (the database's clock) and the
+         *     signed-in gate agent. A ticket is admitted at most once, including when any number of
+         *     admit requests for it arrive at the same moment; every later one is refused. Admitting
+         *     cannot be undone, and there is no re-entry.
+         *
+         *     With `wholeOrder: true`, every valid, unused ticket of the same order for this event is
+         *     admitted, each as its own entry under the same rule, and tickets of that order already
+         *     used by then are listed in `alreadyUsed` instead. It never admits another order's tickets.
+         *
+         *     Refused with `409 ENTRY_REFUSED` when nothing could be admitted. `details.reason` is
+         *     `USED` (with `details.usedAt`), `VOID`, `OTHER_EVENT` (with `details.event`), `NOT_OPEN`
+         *     (with `details.entryOpensAt`), or `ENDED`, the same states `lookupEntryTicket` reports.
+         *     A refused ID check is not sent to the Backend: the client simply does not call this.
+         */
+        post: operations["admitTicket"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1242,6 +1319,12 @@ export interface components {
             tierName: string | null;
             /** @example customer1 */
             customerUsername: string;
+            /**
+             * @description Feature 017. The buyer's name, on every ticket of the order; `null` for orders placed
+             *     before feature 017. Always sent once 017 is implemented, which adds it to `required`.
+             * @example Jordan Lee
+             */
+            holderName?: string | null;
             quantity: number;
             /** @example 45.00 */
             unitPrice: string;
@@ -1270,6 +1353,13 @@ export interface components {
             requestId?: string;
             /** @description Feature 007. Required for reserved seating, one per ticket; see `createOrder`. */
             seats?: components["schemas"]["SeatChoice"][];
+            /**
+             * @description Feature 017. The buyer's own name, for every ticket of the order; see `createOrder` for
+             *     the rules. `maxLength` only bounds the request: the name itself is at most 100
+             *     characters after trimming. Required once 017 is implemented, which adds it to `required`.
+             * @example Jordan Lee
+             */
+            holderName?: string;
         };
         /** @description One of the signed-in customer's orders, with a summary of its event (feature 006). */
         MyOrder: components["schemas"]["Order"] & {
@@ -1532,6 +1622,73 @@ export interface components {
             };
             events: components["schemas"]["EventSales"][];
         };
+        /** @description Feature 017. A ticket code as typed or scanned. */
+        EntryLookupInput: {
+            /**
+             * @description Letter case, spaces, and dashes are ignored.
+             * @example 7kq2-m9xw-ab4c
+             */
+            code: string;
+        };
+        /** @description Feature 017. A ticket as the gate agent sees it, and what they may do with it. */
+        EntryTicket: {
+            /** Format: uuid */
+            ticketId: string;
+            code: string;
+            /** Format: uuid */
+            orderId: string;
+            /** @enum {string} */
+            state: "ADMITTABLE" | "USED" | "VOID" | "OTHER_EVENT" | "NOT_OPEN" | "ENDED";
+            /** @description The ticket's own event (another event's when `state` is `OTHER_EVENT`). */
+            event: {
+                /** Format: uuid */
+                id: string;
+                /** @example Season Opener */
+                name: string;
+                /** Format: date-time */
+                startsAt: string;
+                /** Format: date-time */
+                endsAt: string;
+            };
+            /** @description `null` for an event sold at its base price. */
+            tierName: string | null;
+            seat: components["schemas"]["SeatLabel"] | null;
+            /** @description `null` for a ticket bought before feature 017 ("No name on ticket"). */
+            holderName: string | null;
+            /**
+             * Format: date-time
+             * @description When it was admitted; `null` unless `state` is `USED`.
+             */
+            usedAt: string | null;
+            /**
+             * Format: date-time
+             * @description Two hours before the ticket's event starts.
+             */
+            entryOpensAt: string;
+            /** @description Valid, unused tickets of this ticket's order for this event, this one included. */
+            unusedOnOrder: number;
+        };
+        /** @description Feature 017. */
+        AdmitInput: {
+            /** Format: uuid */
+            ticketId: string;
+            /** @description Also admit every other valid, unused ticket of the same order. */
+            wholeOrder: boolean;
+        };
+        /** @description Feature 017. What one admit request did. */
+        EntryResult: {
+            admitted: components["schemas"]["EntryTicketRef"][];
+            /** @description Tickets of the order that were already used when `wholeOrder` arrived. */
+            alreadyUsed: components["schemas"]["EntryTicketRef"][];
+        };
+        /** @description Feature 017. One ticket and the time of its entry. */
+        EntryTicketRef: {
+            /** Format: uuid */
+            ticketId: string;
+            code: string;
+            /** Format: date-time */
+            usedAt: string;
+        };
         /**
          * @description Every non-2xx response uses this shape. `code` is the stable machine-readable
          *     discriminator clients branch on; `message` is human-readable and may change.
@@ -1539,7 +1696,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -1611,6 +1768,20 @@ export interface components {
                  *       }
                  *     }
                  */
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /**
+         * @description Request shape or field validation failed (`VALIDATION_FAILED`), or, feature 017, the
+         *     holder's name is missing or invalid (`HOLDER_NAME_INVALID`, with `details.reason`:
+         *     `MISSING`, `TOO_LONG`, `NO_LETTER`, or `CONTROL_CHARACTER`; a name that is empty after
+         *     trimming is `MISSING`). Nothing was recorded.
+         */
+        OrderRejected: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
@@ -1725,6 +1896,26 @@ export interface components {
                  *       "error": {
                  *         "code": "NOT_FOUND",
                  *         "message": "No venue exists with id 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40."
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /**
+         * @description Feature 017. The event does not exist (`NOT_FOUND`), or no ticket has this code or id
+         *     (`TICKET_NOT_FOUND`).
+         */
+        EntryNotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "TICKET_NOT_FOUND",
+                 *         "message": "No ticket has the code 7KQ2M9XWAB4D."
                  *       }
                  *     }
                  */
@@ -2708,7 +2899,7 @@ export interface operations {
                     "application/json": components["schemas"]["Order"];
                 };
             };
-            400: components["responses"]["ValidationFailed"];
+            400: components["responses"]["OrderRejected"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -2767,6 +2958,69 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    lookupEntryTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event the gate agent is working. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryLookupInput"];
+            };
+        };
+        responses: {
+            /** @description The ticket and whether it can be admitted here now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryTicket"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["EntryNotFound"];
+        };
+    };
+    admitTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event the gate agent is working. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdmitInput"];
+            };
+        };
+        responses: {
+            /** @description At least one ticket was admitted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryResult"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["EntryNotFound"];
             409: components["responses"]["Conflict"];
         };
     };

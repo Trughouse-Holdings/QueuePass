@@ -317,8 +317,10 @@ times.
   device's camera (FR-012). A scan MUST behave exactly like typing the code it carries.
 - **FR-009a**: Camera scanning MUST work on the laptop running QueuePass, with its webcam, after
   the usual single start command (Constitution II). The README MUST document an optional step that
-  lets a phone on the same network open the Ticket Booth app from a secure address and scan with
-  its camera. That step MUST NOT be required for the demo, the automated tests, or any other app.
+  lets a phone connected to the laptop open the Ticket Booth app from a secure address and scan
+  with its camera. That step MUST NOT be required for the demo, the automated tests, or any other
+  app, and MUST NOT change any service's configuration. (The plan refines "on the same network" to
+  "connected to the laptop": research R10.)
 - **FR-010**: A lookup MUST show the ticket's event, ticket type (or base price), seat if any,
   holder's name (FR-004, FR-005), and whether it can be admitted at this gate now.
 - **FR-011**: A ticket that cannot be admitted MUST be refused with one stated reason: no ticket has
@@ -433,8 +435,8 @@ times.
   only the Backend can guarantee one entry per ticket (FR-015).
 - **Camera on a phone** (FR-009a, decided 2026-10-22): browsers allow camera access only to pages
   served from a secure origin. `localhost` counts; a phone reaching the laptop over the local
-  network does not. The required demo uses the laptop's webcam; a phone needs the optional secure
-  step, which the plan designs.
+  network does not. The required demo uses the laptop's webcam; a phone needs the optional step,
+  which the plan makes Android Chrome's USB port forwarding (research R10). iPhones can't use it.
 - **Gate agents are the 30 seeded accounts** (`agent1` to `agent30`, spec `001`); no new roles.
 - **Typed codes**: the existing 12-character codes from `005` are used unchanged.
 
