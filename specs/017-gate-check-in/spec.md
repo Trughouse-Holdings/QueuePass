@@ -34,6 +34,18 @@ phone. Rotating 30-second QR codes are out of scope (spec 018, #41)."
   to the audit log (#51).
 - Q: Can an entry be undone, and can a holder re-enter? → A: No undo and no re-entry. An admitted
   ticket is used for good.
+- Q: When a buyer arrives with their group, does the agent admit each ticket one at a time, or the
+  whole order after one ID check? → A: After one ticket is looked up, the agent sees how many of
+  its order's tickets are still unused and, after one ID check, can admit just this ticket or all
+  of them at once. Each ticket is still its own entry and is admitted at most once.
+- Q: When can a ticket be used to get in? → A: From 2 hours before its event's start until its
+  event's end.
+- Q: Must the camera scan work on a real phone in the demo, or is the laptop's webcam enough? → A:
+  The webcam is the required demo. A documented optional step serves the Ticket Booth app over
+  HTTPS so a real phone on the same network can scan; it is not part of the automated tests.
+- Q: Should this spec's PR clarify the constitution's identity rule for holder names, or leave the
+  constitution alone? → A: Add a PATCH clarification to Constitution V (3.1.2) in this spec's PR: a
+  name the buyer types onto an order is ticket data, not an identity.
 
 ## Context
 
@@ -90,6 +102,11 @@ used" refusal with the time. Confirm the Admin attendee list shows the ticket as
    same ticket can be entered again later and admitted.
 5. **Given** a code the agent mistypes in letter case, or with spaces or dashes, **When** they
    submit it, **Then** it is treated as the same code.
+6. **Given** a ticket whose order has 4 unused tickets, **When** the agent looks it up, **Then**
+   they see "4 unused tickets on this order" and, besides **Admit**, an **Admit all 4** control;
+   **When** they press **Admit all 4** after the ID check, **Then** all 4 tickets are admitted, each
+   as its own entry, and the app says 4 admitted.
+7. **Given** a ticket whose order has no other unused tickets, **Then** only **Admit** is offered.
 
 ---
 
@@ -233,10 +250,13 @@ times.
 
 ### Edge Cases
 
-- **A group at the gate**: every ticket of an order carries the buyer's name, so the buyer shows
-  their ID for each ticket of the group. Each ticket is still looked up and admitted on its own.
-  Group members arriving without the buyer are refused at the ID check, the accepted cost of one
-  name per order.
+- **A group at the gate**: every ticket of an order carries the buyer's name. The buyer shows
+  their ID once and the agent admits the whole group with **Admit all** (FR-015a), or one ticket at
+  a time if only some have arrived. Group members arriving without the buyer are refused at the ID
+  check, the accepted cost of one name per order.
+- **Admit all races another gate**: if some of the order's tickets are admitted at another gate
+  between the lookup and **Admit all**, those are not admitted again; the rest are, and the app
+  says how many were admitted here and how many were already used, with when.
 - **Tickets without a name** (bought before this feature): the agent sees "No name on ticket"
   instead of a name, and the prompt asks them to check that the person presents a valid ID; the
   agent decides to admit or refuse. These tickets still enter exactly once.
@@ -283,7 +303,8 @@ times.
   up.
 - **FR-005**: Tickets created before this feature MUST keep working exactly as today and MUST be
   shown as having no name ("No name on ticket") wherever FR-004 shows a name.
-- **FR-006**: The demo data MUST give every demo ticket a holder's name.
+- **FR-006**: The demo data MUST give every demo ticket a holder's name, and MUST include at least
+  one event whose entry window (FR-019) is open when the demo data is loaded, with unused tickets.
 
 **Looking a ticket up at the gate (#40)**
 
@@ -294,6 +315,10 @@ times.
   spaces, and dashes MUST be ignored.
 - **FR-009**: A gate agent MUST be able to look up a ticket by scanning its printed QR code with the
   device's camera (FR-012). A scan MUST behave exactly like typing the code it carries.
+- **FR-009a**: Camera scanning MUST work on the laptop running QueuePass, with its webcam, after
+  the usual single start command (Constitution II). The README MUST document an optional step that
+  lets a phone on the same network open the Ticket Booth app from a secure address and scan with
+  its camera. That step MUST NOT be required for the demo, the automated tests, or any other app.
 - **FR-010**: A lookup MUST show the ticket's event, ticket type (or base price), seat if any,
   holder's name (FR-004, FR-005), and whether it can be admitted at this gate now.
 - **FR-011**: A ticket that cannot be admitted MUST be refused with one stated reason: no ticket has
@@ -321,6 +346,11 @@ times.
   for it arrive at the same moment from any number of agents, guaranteed by the database
   (Constitution IV). Every admit after the first MUST be refused as already used, with the time of
   the entry.
+- **FR-015a**: A lookup MUST show how many of the ticket's order's tickets are still unused. When
+  more than one is, the agent MUST be offered, after the same ID check, to admit all of them at
+  once. **Admit all** MUST admit each of those tickets that is still unused when it arrives, each as
+  its own entry under FR-015, skip any already used, and report both counts. It MUST NOT admit
+  tickets of any other order.
 - **FR-016**: Only users with the gate-agent role MAY look tickets up for entry or admit them. The
   Backend MUST enforce this (Constitution V), refusing other roles with `403` and missing or invalid
   sign-in with `401`.
@@ -369,7 +399,8 @@ times.
 - **SC-001**: In a test of 20 concurrent admit requests for one ticket from different gate agents,
   exactly one entry is recorded, every time the test is run.
 - **SC-002**: A gate agent can go from a scanned QR code to an admitted holder in under 10 seconds,
-  not counting the time spent looking at the ID.
+  not counting the time spent looking at the ID, and can admit a group of 6 on one order in the
+  same time with one scan and one ID check.
 - **SC-003**: A gate agent can type a ticket's code and see the ticket, or the reason it is refused,
   in under 15 seconds.
 - **SC-004**: 100% of refused lookups state one of the reasons in FR-011, and none offer **Admit**.
@@ -386,12 +417,13 @@ times.
   like a seat or a quantity, not an account or identity: it is not tied to any user account, is not
   used to sign anyone in, and is never checked against the identity provider. Orders already store
   the buyer's username for display under the same reading (spec `005` research). This spec's PR
-  adds a PATCH clarification to Constitution V saying so, for every team member to approve.
+  adds a PATCH clarification to Constitution V saying so (3.1.2, decided 2026-10-22), for every
+  team member to approve.
 - **The QR code carries only the ticket code** (FR-012). A copy of it is worth exactly as much as
   the code itself, which the customer can already see and copy. Making a copied code worthless is
   spec `018`'s job (#41), not this one's.
-- **Entry window** (FR-019): 2 hours before the start until the end, a common default for venue
-  doors. A doors-open time on events (#49) can narrow it later.
+- **Entry window** (FR-019, decided 2026-10-22): 2 hours before the start until the end, a common
+  time for venue doors to open. A doors-open time on events (#49) can narrow it later.
 - **One event at a time**: a gate agent works one event, chosen in the app (FR-007), so a valid
   ticket for the wrong event is refused with its event named (FR-011). A gate serving several events
   at once is out of scope.
@@ -399,15 +431,18 @@ times.
   stay on record with their time; every ticket becomes void.
 - **No offline entry**: the Ticket Booth app needs to reach the Backend to admit anyone, because
   only the Backend can guarantee one entry per ticket (FR-015).
-- **Camera on a phone**: browsers allow camera access only to pages served from a secure origin.
-  `localhost` counts; a phone reaching the laptop over the local network does not. The plan decides
-  how the demo gives a phone a secure origin, or demonstrates the camera on the laptop's webcam.
+- **Camera on a phone** (FR-009a, decided 2026-10-22): browsers allow camera access only to pages
+  served from a secure origin. `localhost` counts; a phone reaching the laptop over the local
+  network does not. The required demo uses the laptop's webcam; a phone needs the optional secure
+  step, which the plan designs.
 - **Gate agents are the 30 seeded accounts** (`agent1` to `agent30`, spec `001`); no new roles.
 - **Typed codes**: the existing 12-character codes from `005` are used unchanged.
 
 ## Dependencies
 
-- Constitution 3.1.1 reserves `017-gate-check-in` for #39 and #40 (PR #65).
+- Constitution 3.1.1 reserves `017-gate-check-in` for #39 and #40 (PR #65, merged).
+- Constitution 3.1.2, in this spec's PR, clarifies that a holder's name is ticket data under
+  Constitution V.
 - Spec `018-rotating-qr-codes` (#41) builds on this spec's lookup and entry rules.
 - The live check-in dashboard (#53) and ticket transfer (#46) depend on this spec.
 
