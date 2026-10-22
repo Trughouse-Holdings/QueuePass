@@ -608,7 +608,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   - 2026-10-19: 3 rounds by separate Claude sessions. Round 1: 0 must-fix, 3 should-fix, 4 minor;
     round 2: all 7 confirmed fixed, 1 should-fix and 3 minor new; round 3: all 4 confirmed fixed,
     nothing new. No open findings.
-- [ ] T046 Open the implementation PR against `main` with `fixes #26` in its description. It
+- [x] T046 Open the implementation PR against `main` with `fixes #26` in its description. It
   touches the shared surface (`packages/shared/`, `backend/prisma/`), so every team member approves
   it. The product decisions, including the Pause/Play button that makes the galleries meet WCAG
   2.2.2, were settled in the spec and plan PR.
