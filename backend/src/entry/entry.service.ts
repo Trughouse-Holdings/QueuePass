@@ -87,6 +87,7 @@ export class EntryService {
       : Prisma.sql`t."id" = ${ticketId}::uuid`;
     let admitted = await this.tryAdmit(eventId, match, agent);
     if (admitted.length === 0) {
+      // The ticket existed a moment ago and nothing deletes tickets, so a row always comes back.
       let rows = await this.select(eventId, Prisma.sql`t."id" = ${ticketId}::uuid`);
       if (rows[0].state === 'ADMITTABLE') {
         // The entry window opened between the UPDATE and this read (its now() came later,

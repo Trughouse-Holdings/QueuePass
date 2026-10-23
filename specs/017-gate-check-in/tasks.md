@@ -424,7 +424,7 @@ as typing its code.
   overall; 017's files: entry/ 95–100% per file, orders/ 98.9–100%, demo-data.ts 86.3% lines. No
   coverage provider is installed for the front ends. The 80% floor stays a recorded deferral
   until `010` and `011`.
-- [ ] T049 Independent review (Constitution III): a separate Claude session reviews the branch
+- [X] T049 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the rounds and any open finding here and in the PR description.
   **T049 record — round 1 (2026-10-22):** a separate Claude session reviewed the branch against
@@ -441,6 +441,12 @@ as typing its code.
   pending (true by merge time; see T048); FR-010's "ticket type (or base price)" is satisfied by
   the "General admission" label, since `EntryTicket` carries no price — to note in the PR, spec
   PATCH optional.
+  **T049 record — round 2 (2026-10-22):** the same review session re-checked commit b1b6ac2. All
+  five round-1 fixes CONFIRMED FIXED, no new problem introduced: the retry rests entirely on the
+  one R4 UPDATE (no lock added), cannot double-admit or double-report, and changes nothing under
+  the 20-way race. Left open, minor: no automated test forces the sub-second NOT_OPEN→ADMITTABLE
+  flip (it would need a clock hook R5 deliberately avoids; the boundaries and the race are
+  covered) — noted for the PR description. Review done in 2 rounds; only minor findings remain.
 - [ ] T050 Open the implementation PR against `main` with `fixes #39` and `fixes #40` on their own
   lines. It touches the shared surface (`backend/prisma/`, `packages/shared/`,
   `contracts/openapi.yaml`), so every team member approves it.
