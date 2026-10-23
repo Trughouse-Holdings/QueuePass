@@ -85,21 +85,20 @@ export class EntryService {
     const match = wholeOrder
       ? Prisma.sql`t."orderId" = ${ticket.orderId}::uuid`
       : Prisma.sql`t."id" = ${ticketId}::uuid`;
-    const admitted = await this.prisma.$queryRaw<AdmittedRow[]>`
-      UPDATE "Ticket" t
-      SET "checkedInAt" = now(), "checkedInBySub" = ${agent.sub},
-          "checkedInByUsername" = ${agent.username}
-      FROM "Event" e
-      WHERE e."id" = t."eventId"
-        AND t."eventId" = ${eventId}::uuid
-        AND ${match}
-        AND t."status" = 'VALID'
-        AND t."checkedInAt" IS NULL
-        AND now() >= e."startsAt" - interval '2 hours'
-        AND now() < e."endsAt"
-      RETURNING t."id", t."code", t."checkedInAt"`;
-
-    if (admitted.length === 0) throw await this.refusal(eventId, ticketId);
+    let admitted = await this.tryAdmit(eventId, match, agent);
+    if (admitted.length === 0) {
+      let rows = await this.select(eventId, Prisma.sql`t."id" = ${ticketId}::uuid`);
+      if (rows[0].state === 'ADMITTABLE') {
+        // The entry window opened between the UPDATE and this read (its now() came later,
+        // research R5): the one state that can flip that way is NOT_OPEN → ADMITTABLE. Try once
+        // more; a second miss is read again and refused with its then-current reason.
+        admitted = await this.tryAdmit(eventId, match, agent);
+        if (admitted.length === 0) {
+          rows = await this.select(eventId, Prisma.sql`t."id" = ${ticketId}::uuid`);
+        }
+      }
+      if (admitted.length === 0) throw this.refusal(rows[0]);
+    }
 
     const refs: EntryTicketRef[] = admitted
       .map((t) => ({ ticketId: t.id, code: t.code, usedAt: iso(t.checkedInAt) }))
@@ -115,6 +114,23 @@ export class EntryService {
   private async eventOrThrow(eventId: string): Promise<void> {
     const event = await this.prisma.event.findUnique({ where: { id: eventId } });
     if (!event) throw new NotFoundException(`No event exists with id ${eventId}.`);
+  }
+
+  /** Exactly the UPDATE … RETURNING of research R4; the window sits in the same WHERE. */
+  private tryAdmit(eventId: string, match: Prisma.Sql, agent: Principal): Promise<AdmittedRow[]> {
+    return this.prisma.$queryRaw<AdmittedRow[]>`
+      UPDATE "Ticket" t
+      SET "checkedInAt" = now(), "checkedInBySub" = ${agent.sub},
+          "checkedInByUsername" = ${agent.username}
+      FROM "Event" e
+      WHERE e."id" = t."eventId"
+        AND t."eventId" = ${eventId}::uuid
+        AND ${match}
+        AND t."status" = 'VALID'
+        AND t."checkedInAt" IS NULL
+        AND now() >= e."startsAt" - interval '2 hours'
+        AND now() < e."endsAt"
+      RETURNING t."id", t."code", t."checkedInAt"`;
   }
 
   /** One SELECT joining Ticket, Order, Event, and TicketTier, with the shared state CASE. */
@@ -138,14 +154,11 @@ export class EntryService {
   }
 
   /**
-   * The admit updated nothing: the ticket's state (the same CASE as the lookup) names the one
-   * reason (FR-011, research R5). Messages name no local time; the client formats the times in
-   * `details`.
+   * The admit updated nothing: the ticket's re-read state (the same CASE as the lookup) names
+   * the one reason (FR-011, research R5). Messages name no local time; the client formats the
+   * times in `details`.
    */
-  private async refusal(gateEventId: string, ticketId: string): Promise<HttpException> {
-    const rows = await this.select(gateEventId, Prisma.sql`t."id" = ${ticketId}::uuid`);
-    // The ticket existed a moment ago; nothing deletes tickets, so a row always comes back.
-    const t = rows[0];
+  private refusal(t: LookupRow): HttpException {
     switch (t.state) {
       case 'USED':
         return conflict('ENTRY_REFUSED', 'This ticket was already used.', {
@@ -169,11 +182,12 @@ export class EntryService {
       case 'ENDED':
         return conflict('ENTRY_REFUSED', 'This event has ended.', { reason: 'ENDED' });
       default:
-        // ADMITTABLE and yet not admitted: a racing admit won between the UPDATE and this read,
-        // and was undone? It cannot be (entries are never cleared, FR-018). Answer USED-like
-        // conservatively by re-reading; in practice unreachable.
-        return conflict('ENTRY_REFUSED', 'This ticket could not be admitted. Look it up again.', {
-          reason: 'USED',
+        // Still ADMITTABLE after a retry: only reachable if the window keeps opening between
+        // each UPDATE and its re-read, which two consecutive statements cannot sustain. The
+        // truthful reason for the refused attempts is that entry had not opened at their now().
+        return conflict('ENTRY_REFUSED', 'Entry has not opened for this event.', {
+          reason: 'NOT_OPEN',
+          entryOpensAt: iso(t.entryOpensAt),
         });
     }
   }

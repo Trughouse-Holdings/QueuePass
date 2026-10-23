@@ -18,12 +18,18 @@ import { TicketLookup } from './TicketLookup';
  * tickets up by typed code, checks the holder's ID, and admits or refuses. Gate-agent only; every
  * rule is the Backend's (Constitution IV, V).
  */
+/** FR-007: a deliberate sign-out ends the shift, so the next agent chooses their own event. */
+async function forgetEventOnLogout(): Promise<void> {
+  saveEventId(null);
+}
+
 export function App({ userManager }: { userManager?: UserManagerLike }) {
   return (
     <AuthProvider
       authority={import.meta.env.VITE_OIDC_AUTHORITY}
       clientId={import.meta.env.VITE_OIDC_CLIENT_ID}
       userManager={userManager}
+      beforeLogout={forgetEventOnLogout}
     >
       <RequireRole role="gate-agent">
         <Booth />
@@ -158,7 +164,7 @@ function Booth() {
         };
         setOutcome({
           kind: 'refused',
-          message: refusalText(d.reason ?? 'ENDED', {
+          message: refusalText(d.reason, {
             eventName: d.event?.name,
             eventStartsAt: d.event?.startsAt,
             usedAt: d.usedAt,

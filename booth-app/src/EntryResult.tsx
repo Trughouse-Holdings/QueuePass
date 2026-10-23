@@ -13,20 +13,27 @@ export type Outcome =
  * The client formats the times; the Backend's details carry them (research R6).
  */
 export function refusalText(
-  state: string,
+  state: string | undefined,
   info: { eventName?: string; eventStartsAt?: string; usedAt?: string; entryOpensAt?: string },
 ): string {
+  // A reason the app doesn't know, or one missing its time, never becomes "Invalid Date" or a
+  // made-up reason: the agent is told plainly to look the ticket up again (FR-011's tone).
+  const fallback = "This ticket couldn't be admitted. Look it up again.";
   switch (state) {
     case 'VOID':
       return 'Cancelled and refunded';
-    case 'OTHER_EVENT':
-      return `For ${info.eventName} on ${when(info.eventStartsAt ?? '')}, not this event`;
-    case 'USED':
-      return `Already used at ${when(info.usedAt ?? '')}`;
-    case 'NOT_OPEN':
-      return `Entry opens at ${when(info.entryOpensAt ?? '')}`;
-    default:
+    case 'ENDED':
       return 'This event has ended';
+    case 'OTHER_EVENT':
+      return info.eventName && info.eventStartsAt
+        ? `For ${info.eventName} on ${when(info.eventStartsAt)}, not this event`
+        : fallback;
+    case 'USED':
+      return info.usedAt ? `Already used at ${when(info.usedAt)}` : fallback;
+    case 'NOT_OPEN':
+      return info.entryOpensAt ? `Entry opens at ${when(info.entryOpensAt)}` : fallback;
+    default:
+      return fallback;
   }
 }
 
@@ -128,9 +135,10 @@ export function EntryResult({
     return (
       <section className="card card--padded result">
         {context(t)}
-        {t.unusedOnOrder > 1 && (
-          <p className="note">{`${t.unusedOnOrder} unused tickets on this order`}</p>
-        )}
+        {/* FR-015a: always say how many of the order's tickets are still unused. */}
+        <p className="note">
+          {`${t.unusedOnOrder} unused ${t.unusedOnOrder === 1 ? 'ticket' : 'tickets'} on this order`}
+        </p>
         <p className="result__prompt">
           {t.holderName
             ? `Check a government-issued photo ID that shows: ${t.holderName}`

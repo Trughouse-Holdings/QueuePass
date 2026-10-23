@@ -404,15 +404,43 @@ as typing its code.
   can't use it.
 - [X] T046 Run `npm run lint` and `npm test` from the repository root; everything passes,
   including `check-contract-drift` and `check-boundary`.
-- [ ] T047 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
+- [X] T047 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' coverage if a provider is installed) in the PR description. The 80% floor is not
   yet blocking (Constitution VI deferral until `010` and `011`).
 - [ ] T048 Running-system gate: `docker compose up --build` from a fresh clone, then walk
   quickstart.md S0–S9 in the browser (S10 if an Android phone is at hand), and sign in, use, and
   sign out of each front end. Record the results in this file.
+  **T048 results (2026-10-22, fresh clone of `017-gate-check-in-impl` at T047's commit):**
+  `docker compose up --build -d` under a fresh compose project: all six services healthy on the
+  first boot, seeding succeeded on the first run, all three front ends serve on 5173–5175, the
+  contract at `/docs`. `GET /health` = `{"status":"ok","database":"up"}`. Demo data: 2 venues,
+  4 events, 53 orders — every one with a holder's name — 121 tickets, 24 check-ins, all recorded
+  by `demo-agent1`/`agent1`; Demo Tonight's entry window open right after loading, 19 unused
+  tickets. (First boot surfaced a stale `queuepass_*` volume from an unrelated 2026-10-03 run on
+  this laptop; a fresh project name got fresh volumes. Nothing in 017.) The full automated suite
+  ran green in the working tree (T046). **Still to walk by hand in the browser: quickstart S0–S9**
+  (sign in, use, sign out of each front end; the webcam scan in S4; S10 needs an Android phone).
+  **T047 results:** backend coverage (jest --runInBand --coverage): 96.94% lines, 84.92% branches
+  overall; 017's files: entry/ 95–100% per file, orders/ 98.9–100%, demo-data.ts 86.3% lines. No
+  coverage provider is installed for the front ends. The 80% floor stays a recorded deferral
+  until `010` and `011`.
 - [ ] T049 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the rounds and any open finding here and in the PR description.
+  **T049 record — round 1 (2026-10-22):** a separate Claude session reviewed the branch against
+  spec.md, plan.md, research, data-model, the contract, and the constitution. No CRITICAL or HIGH
+  findings. Fixed from round 1: (MEDIUM) the admit's "updated nothing" fallback could answer a
+  false `USED` at the window-opening boundary — the admit now retries once when the re-read says
+  ADMITTABLE and otherwise refuses with the truthful `NOT_OPEN` + `entryOpensAt`; (LOW) a
+  deliberate sign-out now forgets the chosen event (FR-007), while session expiry still keeps it;
+  (LOW) the unused-on-order count is always shown for an admittable ticket (FR-015a); (LOW) a
+  refusal with a missing or unknown `reason`, or a missing time detail, shows a plain
+  "couldn't be admitted" line instead of an invented reason or "Invalid Date"; (LOW) the decode
+  loop runs inside requestAnimationFrame (per T039), so a hidden tab stops decoding. Left open,
+  minor: the README's status row says built and verified while the S0–S9 browser walk is still
+  pending (true by merge time; see T048); FR-010's "ticket type (or base price)" is satisfied by
+  the "General admission" label, since `EntryTicket` carries no price — to note in the PR, spec
+  PATCH optional.
 - [ ] T050 Open the implementation PR against `main` with `fixes #39` and `fixes #40` on their own
   lines. It touches the shared surface (`backend/prisma/`, `packages/shared/`,
   `contracts/openapi.yaml`), so every team member approves it.

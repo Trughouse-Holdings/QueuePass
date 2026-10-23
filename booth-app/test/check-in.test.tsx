@@ -135,6 +135,19 @@ describe('Choosing an event (FR-007)', () => {
     expect(screen.getByText(/Demo Tonight/)).toBeInTheDocument();
   });
 
+  it('forgets the chosen event on a deliberate sign-out (FR-007)', async () => {
+    stubApi({ [EVENTS]: threeEvents() });
+    const user = userEvent.setup();
+    renderApp();
+    await chooseEvent(user);
+    expect(sessionStorage.getItem('queuepass.booth.eventId')).toBe(EVENT_ID);
+
+    await user.click(screen.getByRole('button', { name: 'Log out' }));
+    await vi.waitFor(() =>
+      expect(sessionStorage.getItem('queuepass.booth.eventId')).toBeNull(),
+    );
+  });
+
   it('still lets the agent choose when sessionStorage throws', async () => {
     stubApi({ [EVENTS]: threeEvents() });
     const throwing = {
@@ -169,6 +182,8 @@ describe('Typed lookup and the ID check (FR-008, FR-010, FR-014)', () => {
     expect(within(result).getByText(/Demo Tonight/)).toBeInTheDocument();
     expect(within(result).getByText(/General/)).toBeInTheDocument();
     expect(within(result).getByText(/Section A, Row 2, Seat 7/)).toBeInTheDocument();
+    // FR-015a: the unused count is always shown, even for one.
+    expect(within(result).getByText('1 unused ticket on this order')).toBeInTheDocument();
     expect(within(result).getByText('Jordan Lee')).toBeInTheDocument();
     expect(
       within(result).getByText('Check a government-issued photo ID that shows: Jordan Lee'),
@@ -307,6 +322,23 @@ describe('Admit, Admit all, and Refuse (FR-015, FR-015a, FR-017)', () => {
     await user.click(await screen.findByRole('button', { name: 'Admit' }));
     expect(await screen.findByText(/Already used at/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Admit' })).not.toBeInTheDocument();
+  });
+
+  it('never invents a reason or an Invalid Date when a refusal arrives without details', async () => {
+    stubApi({
+      [EVENTS]: threeEvents(),
+      [LOOKUP]: json(ticket()),
+      [ADMIT]: json({ error: { code: 'ENTRY_REFUSED', message: 'Refused.' } }, 409),
+    });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user);
+    await user.click(await screen.findByRole('button', { name: 'Admit' }));
+    expect(
+      await screen.findByText(/This ticket couldn't be admitted\. Look it up again\./),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/This event has ended/)).not.toBeInTheDocument();
   });
 });
 

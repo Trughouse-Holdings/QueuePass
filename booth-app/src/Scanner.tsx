@@ -50,7 +50,9 @@ export function Scanner({
             }
             setRejected(value);
           }
-          timer = window.setTimeout(tick, 160);
+          // About 6 frames a second (research R9), inside an animation frame so a hidden tab
+          // stops decoding.
+          timer = window.setTimeout(() => requestAnimationFrame(tick), 160);
         };
         tick();
       } catch (err) {
