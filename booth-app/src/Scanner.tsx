@@ -69,8 +69,7 @@ export function Scanner({
       stop?.();
       if (timer !== undefined) clearTimeout(timer);
     };
-    // onTicketCode and onStop are stable callbacks from the App.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Opened once per mount: onTicketCode is a stable callback from the App.
   }, []);
 
   return (
@@ -79,7 +78,6 @@ export function Scanner({
         <p className="banner banner--error">{error}</p>
       ) : (
         <>
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- a live camera preview */}
           <video ref={videoRef} className="scanner__video" playsInline muted />
           <p>Point the camera at the ticket&apos;s QR code.</p>
           {rejected !== null && <p className="banner banner--error">Not a QueuePass ticket</p>}

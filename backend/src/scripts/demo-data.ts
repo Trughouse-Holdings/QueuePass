@@ -178,6 +178,18 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
     basePrice: '25.00',
   });
 
+  // Spec 017 FR-006 (research R13): an event whose entry window is open the moment the demo data
+  // loads — starts 1 hour after the run, ends 4 hours after. The Hall's other event (Comedy
+  // Night) is weeks away, far past spec 002's 60-minute buffer.
+  const tonight = await events.create({
+    name: 'Demo Tonight',
+    locationId: hall.id,
+    startsAt: new Date(Date.now() + 3_600_000).toISOString(),
+    endsAt: new Date(Date.now() + 4 * 3_600_000).toISOString(),
+    totalTicketCapacity: 100,
+    basePrice: '20.00',
+  });
+
   const gala = await events.create({
     name: 'Holiday Gala',
     locationId: arena.id,
@@ -214,6 +226,10 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
     if (n % 2 === 0) await place(comedy.id, n, (n % 3) + 1);
     if (n % 3 === 0) await place(gala.id, n, 2, floor.id);
   }
+  // Spec 017 research R13: named orders with unused tickets on the open event, including one
+  // order of 4 for Admit all 4. Nothing checks these in: the gate demo does.
+  await place(tonight.id, 1, 4);
+  for (let n = 2; n <= 8; n++) await place(tonight.id, n, (n % 3) + 1);
 
   // No check-in operation exists until the Ticket Booth spec; mark the first 40% of the concert's
   // tickets as checked in directly so the reports have something to show (research R9).
@@ -225,7 +241,8 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const toCheckIn = concertTickets.slice(0, Math.floor(concertTickets.length * 0.4));
   await prisma.ticket.updateMany({
     where: { id: { in: toCheckIn.map((t) => t.id) } },
-    data: { checkedInAt: new Date() },
+    // Spec 017 research R13: demo entries record an agent, like real ones (ticket_entry_agent).
+    data: { checkedInAt: new Date(), checkedInBySub: 'demo-agent1', checkedInByUsername: 'agent1' },
   });
 
   await events.cancel(gala.id);
@@ -233,10 +250,10 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   return {
     created: true,
     venues: 2,
-    events: 3,
+    events: 4,
     orders: orderCount,
     tickets: await prisma.ticket.count({
-      where: { eventId: { in: [concert.id, comedy.id, gala.id] } },
+      where: { eventId: { in: [concert.id, comedy.id, tonight.id, gala.id] } },
     }),
     checkedIn: toCheckIn.length,
     cancelled: gala.name,

@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import qrcode from 'qrcode-generator';
 import { qrMatrix } from '../src/components/TicketQr';
 import { json, myOrder, renderCustomer, stubApi } from './helpers';

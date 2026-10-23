@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import type { Reservation, SeatMap } from '@queuepass/shared';
 import { availability, event, json, order, renderCustomer, stubApi, tier } from './helpers';
 

@@ -23,7 +23,8 @@ describe('Demo data', () => {
     expect(summary).toMatchObject({
       created: true,
       venues: 2,
-      events: 3,
+      // Spec 017: Demo Tonight joins the three (research R13).
+      events: 4,
       cancelled: 'Holiday Gala',
       unverifiedVenues: 0,
       // Spec 014 research R15: 3 on the concert and 1 on the comedy night. (R15 and T039 say 6,
@@ -34,7 +35,7 @@ describe('Demo data', () => {
     expect(summary.checkedIn).toBeGreaterThan(0);
 
     const report = (await asAdmin(ctx).get('/reports/sales').expect(200)).body;
-    expect(report.totals.events).toBe(2);
+    expect(report.totals.events).toBe(3);
     expect(report.totals.ticketsSold).toBeGreaterThan(0);
     expect(report.totals.checkedIn).toBe(summary.checkedIn);
     const gala = report.events.find((e: { name: string }) => e.name === 'Holiday Gala');
@@ -60,6 +61,37 @@ describe('Demo data', () => {
       expect((o.holderName as string).length).toBeGreaterThan(0);
     }
     expect(new Set(orders.map((o) => o.holderName)).size).toBeGreaterThan(5);
+  });
+
+  /** Spec 017 FR-006, research R13 (T044): an event whose entry window is open right away. */
+  it('creates Demo Tonight with its entry window open right after loading, with unused tickets', async () => {
+    // Created by the first test of this file.
+    const rows = await ctx.prisma.$queryRaw<
+      { id: string; open: boolean; startsAt: Date }[]
+    >`SELECT "id", now() >= "startsAt" - interval '2 hours' AND now() < "endsAt" AS "open", "startsAt"
+      FROM "Event" WHERE "name" = 'Demo Tonight'`;
+    expect(rows).toHaveLength(1);
+    expect(rows[0].open).toBe(true);
+    const unused = await ctx.prisma.ticket.count({
+      where: { eventId: rows[0].id, status: 'VALID', checkedInAt: null },
+    });
+    expect(unused).toBeGreaterThan(4);
+    // One order of 4, for Admit all 4 (research R13).
+    const orders = await ctx.prisma.order.groupBy({
+      by: ['quantity'],
+      where: { eventId: rows[0].id },
+    });
+    expect(orders.map((o) => o.quantity)).toContain(4);
+  });
+
+  /** Spec 017 research R13 (T044): the demo check-ins record an agent, like real entries. */
+  it('records demo-agent1 / agent1 on the check-ins the demo data makes', async () => {
+    const checkedIn = await ctx.prisma.ticket.findMany({ where: { checkedInAt: { not: null } } });
+    expect(checkedIn.length).toBeGreaterThan(0);
+    for (const t of checkedIn) {
+      expect(t.checkedInBySub).toBe('demo-agent1');
+      expect(t.checkedInByUsername).toBe('agent1');
+    }
   });
 
   /**
@@ -133,7 +165,7 @@ describe('Demo data', () => {
         expect(summary).toMatchObject({
           created: true,
           venues: 2,
-          events: 3,
+          events: 4,
           cancelled: 'Holiday Gala',
           unverifiedVenues: 2,
         });

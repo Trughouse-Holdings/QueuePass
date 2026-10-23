@@ -390,19 +390,19 @@ as typing its code.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T044 First add to `backend/test/integration/demo-data.e2e-spec.ts` that Demo Tonight's entry
+- [X] T044 First add to `backend/test/integration/demo-data.e2e-spec.ts` that Demo Tonight's entry
   window is open right after loading and that the demo check-ins record an agent, and confirm it
   fails (Constitution VI). Then, in `backend/src/scripts/demo-data.ts` (research R13): add "Demo
   Tonight" at Demo Riverside Hall, starting 1 hour after the demo data runs and ending 4 hours
   after, at least 60 minutes from every other demo event at that venue; give it named orders with
   unused tickets, including one order of 4; and record `checkedInBySub: 'demo-agent1'` and
   `checkedInByUsername: 'agent1'` on the check-ins the demo data already makes, until it passes.
-- [ ] T045 [P] Update `README.md`: the `017` row in the status table; "Today" says gate agents check
+- [X] T045 [P] Update `README.md`: the `017` row in the status table; "Today" says gate agents check
   tickets in by code or camera, once each, with an ID check against the name on the order; how to
   sign in to the Ticket Booth app (`agent1` / `test123`); the optional phone step from research R10
   word for word (`chrome://inspect`, **Port forwarding**, ports 5175, 8080, 3000), saying iPhones
   can't use it.
-- [ ] T046 Run `npm run lint` and `npm test` from the repository root; everything passes,
+- [X] T046 Run `npm run lint` and `npm test` from the repository root; everything passes,
   including `check-contract-drift` and `check-boundary`.
 - [ ] T047 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' coverage if a provider is installed) in the PR description. The 80% floor is not
