@@ -76,8 +76,9 @@ seconds, not counting the ID check (SC-002).
 
 As **Gate 1**: type `AAAAAAAAAAAA`. **Expect**: "No ticket has this code". Type a code of a ticket
 for another demo event. **Expect**: refused, naming that event. Type a code from the cancelled demo
-event. **Expect**: "Cancelled and refunded". Choose an event that starts tomorrow and type one of
-its codes. **Expect**: refused with the time entry opens. No refusal shows **Admit**.
+event. **Expect**: "Cancelled and refunded". Choose Fall Concert, whose entry has not opened yet
+(it is two weeks away), and type one of its codes from the attendee list. **Expect**: refused with
+the time entry opens. No refusal shows **Admit**.
 
 ## S7: Admins and customers see real check-ins (US6)
 

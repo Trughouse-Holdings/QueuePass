@@ -82,7 +82,7 @@ Request `{ "ticketId": "3b8e…", "wholeOrder": true }`, after another gate admi
 {
   "error": {
     "code": "ENTRY_REFUSED",
-    "message": "This ticket was already used at 19:42 on Oct 24.",
+    "message": "This ticket was already used.",
     "details": { "reason": "USED", "usedAt": "2026-10-24T19:42:10-04:00" }
   }
 }
