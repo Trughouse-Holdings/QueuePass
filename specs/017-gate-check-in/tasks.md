@@ -42,7 +42,8 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [X] T001 Cut `017-gate-check-in-impl` from an up-to-date `main`, run `npm install`, run
+- [X] T001 Cut `017-gate-check-in-impl` from `017-gate-check-in-spec` while the spec and plan PR is
+  open, or from an up-to-date `main` once it has merged (ground rules); run `npm install`, run
   `npx prisma generate` in `backend/`, and run `npm test` from the repository root. Confirm the
   suite is green before any change (baseline).
 - [X] T002 Add the two front-end libraries at exact versions (research R8, R9):
@@ -143,8 +144,9 @@ see "Already used" with the time; the attendee list shows it checked in.
   (`orderWithTickets`) is admitted once and then refused as used, like any other (SC-007); an
   unknown `ticketId` is `404 TICKET_NOT_FOUND`.
 - [X] T011 [P] [US1] Write `backend/test/integration/entry.authz.e2e-spec.ts`: both operations
-  answer `401` with no token, an expired token, and a wrongly signed one; `403` for a customer and
-  for an admin; and succeed for a gate agent (FR-016, Constitution V).
+  answer `401` with no token, an expired token, a wrongly signed one, and one for another
+  audience (Constitution VI); `403` for a customer and for an admin; and succeed for a gate
+  agent (FR-016, Constitution V).
 - [X] T012 [P] [US1] Write `booth-app/test/check-in.test.tsx` with a stubbed `fetch`: the event list
   shows only scheduled events that have not ended, soonest first; the chosen event is kept in
   `sessionStorage` and restored after a remount, and a throwing `sessionStorage` still lets the
