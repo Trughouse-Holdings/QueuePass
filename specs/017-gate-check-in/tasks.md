@@ -451,6 +451,17 @@ as typing its code.
   the 20-way race. Left open, minor: no automated test forces the sub-second NOT_OPEN→ADMITTABLE
   flip (it would need a clock hook R5 deliberately avoids; the boundaries and the race are
   covered) — noted for the PR description. Review done in 2 rounds; only minor findings remain.
+  **T049 record — round 3 (2026-10-23):** a fresh Claude session reviewed both branches against
+  #39, #40, and the constitution, after the spec PR's own round 2 had changed R5. Fixed: (HIGH)
+  the spec review was not carried in, so the reason order still put `OTHER_EVENT` before `VOID`
+  and "Cancelled and refunded" could never be shown (396f860, 51fde79); (MEDIUM) the Ticket
+  Booth cleared the typed code before the lookup answered, losing it on "No ticket has this code"
+  or a failed request (7b08c80); (LOW) no wrong-audience test on the entry routes (074a1ed); (LOW)
+  the README said built and verified before the S0–S9 walk (now "walk pending"). Left open,
+  minor: the print view may be faint when the OS is in dark mode (the theme has no print reset;
+  to check in S2, fix in the shared theme if confirmed); the scanner's camera-refused and
+  not-a-ticket messages are not in a live region; the Get tickets name error is not linked to its
+  field; no test races two **Admit all** presses for one order. Review done in 3 rounds.
 - [ ] T050 Once the spec and plan PR has merged (Constitution 3.2.0), rebase onto `main` and open
   the implementation PR against `main` with `fixes #39` and `fixes #40` on their own lines. It
   touches the shared surface (`backend/prisma/`, `packages/shared/`, `contracts/openapi.yaml`), so
