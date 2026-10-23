@@ -310,6 +310,72 @@ describe('Admit, Admit all, and Refuse (FR-015, FR-015a, FR-017)', () => {
   });
 });
 
+describe('Refusal reasons (US3, FR-011)', () => {
+  /** Looks up with the given stubbed answer and returns the status region. */
+  async function refusedLookup(reply: Response) {
+    stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: reply });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user);
+    return { user, result: await screen.findByRole('status') };
+  }
+
+  /** Every refusal offers no Admit, and Look up another focuses the code field. */
+  async function expectRefusal(
+    user: ReturnType<typeof userEvent.setup>,
+    result: HTMLElement,
+    text: RegExp,
+  ) {
+    expect(await within(result).findByText(text)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Admit/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Look up another' }));
+    expect(screen.getByLabelText('Ticket code')).toHaveFocus();
+  }
+
+  it('404 TICKET_NOT_FOUND → "No ticket has this code"', async () => {
+    const { user, result } = await refusedLookup(
+      json({ error: { code: 'TICKET_NOT_FOUND', message: 'No ticket has the code X.' } }, 404),
+    );
+    await expectRefusal(user, result, /No ticket has this code/);
+  });
+
+  it('VOID → "Cancelled and refunded"', async () => {
+    const { user, result } = await refusedLookup(json(ticket({ state: 'VOID' })));
+    await expectRefusal(user, result, /Cancelled and refunded/);
+  });
+
+  it('OTHER_EVENT → "For <event> on <date>, not this event"', async () => {
+    const { user, result } = await refusedLookup(
+      json(
+        ticket({
+          state: 'OTHER_EVENT',
+          event: { id: 'e-x', name: 'Other Show', startsAt: iso(5), endsAt: iso(8) },
+        }),
+      ),
+    );
+    await expectRefusal(user, result, /For Other Show on .*, not this event/);
+  });
+
+  it('USED → "Already used at <time>"', async () => {
+    const { user, result } = await refusedLookup(
+      json(ticket({ state: 'USED', usedAt: iso(-0.5) })),
+    );
+    await expectRefusal(user, result, /Already used at/);
+  });
+
+  it('NOT_OPEN → "Entry opens at <time>"', async () => {
+    const { user, result } = await refusedLookup(
+      json(ticket({ state: 'NOT_OPEN', entryOpensAt: iso(2) })),
+    );
+    await expectRefusal(user, result, /Entry opens at/);
+  });
+
+  it('ENDED → "This event has ended"', async () => {
+    const { user, result } = await refusedLookup(json(ticket({ state: 'ENDED' })));
+    await expectRefusal(user, result, /This event has ended/);
+  });
+});
+
 describe('Failures are explicit states (Constitution IV, Edge Cases)', () => {
   it('a network error on a lookup shows a plain error and re-enables the controls', async () => {
     stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: 'network-error' });

@@ -224,7 +224,7 @@ see "Already used" with the time; the attendee list shows it checked in.
 
 **Independent Test**: 20 simultaneous admits of one ticket; exactly one succeeds.
 
-- [ ] T022 [US2] Write `backend/test/integration/entry.concurrency.e2e-spec.ts`, firing requests
+- [X] T022 [US2] Write `backend/test/integration/entry.concurrency.e2e-spec.ts`, firing requests
   with `Promise.all` as `orders.ticket-limit.concurrency.e2e-spec.ts` does, and failing on any
   `5xx`:
   - 20 admits of one ticket from `agent1`…`agent20`: exactly one `200`, nineteen `409
@@ -235,7 +235,7 @@ see "Already used" with the time; the attendee list shows it checked in.
     total, with no ticket twice.
   - An admit racing the admin's `cancelEvent`: the ticket ends `VOID` either way; if the admit won,
     `checkedInAt` is still set; if the cancel won, the admit is `409` with `reason: 'VOID'`.
-- [ ] T023 [US2] Run T022 until it passes, without adding any lock (ground rules). If it fails,
+- [X] T023 [US2] Run T022 until it passes, without adding any lock (ground rules). If it fails,
   fix the statement of T016, not the test.
 
 **Checkpoint**: one entry per ticket under concurrency, guaranteed by the database.
@@ -249,19 +249,19 @@ see "Already used" with the time; the attendee list shows it checked in.
 **Independent Test**: an unknown code, a cancelled event's ticket, a used ticket, and another
 event's ticket are each refused with their reason.
 
-- [ ] T024 [P] [US3] Write `backend/test/integration/entry.window.e2e-spec.ts` with
+- [X] T024 [P] [US3] Write `backend/test/integration/entry.window.e2e-spec.ts` with
   `eventAroundNow` (research R5, 30-second margins): starting in 2 hours 30 seconds is `NOT_OPEN`
   with `entryOpensAt`, and its admit is `409` with `reason: 'NOT_OPEN'`; starting in 1 hour
   59 minutes 30 seconds is `ADMITTABLE` and admits; ending in 30 seconds admits; ended 30 seconds
   ago is `ENDED` for both operations. Reason order: a used ticket of another event is
   `OTHER_EVENT`; a void ticket that was admitted before its event was cancelled is `VOID` and still
   has its `checkedInAt`; a used ticket of an ended event is `USED`.
-- [ ] T025 [P] [US3] Add to `booth-app/test/check-in.test.tsx` one test per refusal, each with no
+- [X] T025 [P] [US3] Add to `booth-app/test/check-in.test.tsx` one test per refusal, each with no
   **Admit** and a **Look up another** that focuses the code field: `404 TICKET_NOT_FOUND` → "No
   ticket has this code"; `VOID` → "Cancelled and refunded"; `OTHER_EVENT` → "For <event> on
   <date>, not this event"; `USED` → "Already used at <time>"; `NOT_OPEN` → "Entry opens at
   <time>"; `ENDED` → "This event has ended".
-- [ ] T026 [US3] Implement the refusal texts in `booth-app/src/EntryResult.tsx`, and make any
+- [X] T026 [US3] Implement the refusal texts in `booth-app/src/EntryResult.tsx`, and make any
   Backend fix T024 needs in `backend/src/entry/`. Run T024 and T025 until they pass.
 
 **Checkpoint**: every refusal explains itself.
