@@ -103,6 +103,31 @@ describe('Entry window and the order of reasons', () => {
       expect(refused.body.error.details.event.name).toBe('Other Show');
     });
 
+    it('a void ticket of another (cancelled) event is VOID, not OTHER_EVENT, for both operations', async () => {
+      // The Ticket Booth never offers a cancelled event as the gate (FR-007), so a cancelled
+      // event's ticket always reaches another event's gate: VOID must come first (US3 scenario 2).
+      const gate = await eventAroundNow(ctx, venueId, {
+        startsInSeconds: 3600,
+        lastsSeconds: 10800,
+        name: 'This Gate',
+      });
+      const cancelled = await eventAroundNow(ctx, await venue(ctx, 'Other Hall'), {
+        startsInSeconds: 3600,
+        lastsSeconds: 10800,
+        name: 'Cancelled Show',
+      });
+      const { tickets } = await orderWithTickets(ctx, cancelled, { quantity: 1 });
+      await asAdmin(ctx).post(`/events/${cancelled}/cancel`).expect(200);
+
+      const look = await lookup(gate, tickets[0].code);
+      expect(look.status).toBe(200);
+      expect(look.body.state).toBe('VOID');
+
+      const refused = await admit(gate, tickets[0].id);
+      expect(refused.status).toBe(409);
+      expect(refused.body.error.details.reason).toBe('VOID');
+    });
+
     it('a ticket admitted before its event was cancelled is VOID and keeps its checkedInAt', async () => {
       const eventId = await eventAroundNow(ctx, venueId, {
         startsInSeconds: 3600,

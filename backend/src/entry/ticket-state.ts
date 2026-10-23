@@ -21,14 +21,16 @@ export function normalizeCode(raw: string): string | null {
 /**
  * The state rules of research R5 as one SQL CASE expression, shared by the lookup's SELECT and
  * the refusal query after an admit that updated nothing. Expects the ticket as `t` and its event
- * as `e`. Reason order: OTHER_EVENT, VOID, USED, NOT_OPEN, ENDED, else ADMITTABLE. The entry
- * window is `[startsAt - 2 hours, endsAt)` on `now()` (FR-019).
+ * as `e`. Reason order: VOID, OTHER_EVENT, USED, NOT_OPEN, ENDED, else ADMITTABLE. VOID comes
+ * first, at any gate: a cancelled event's tickets are void, and the Ticket Booth never offers a
+ * cancelled event as the gate (FR-007), so OTHER_EVENT first would hide "cancelled and refunded".
+ * The entry window is `[startsAt - 2 hours, endsAt)` on `now()` (FR-019).
  */
 export function stateCase(gateEventId: string): Prisma.Sql {
   return Prisma.sql`
     CASE
-      WHEN t."eventId" <> ${gateEventId}::uuid THEN 'OTHER_EVENT'
       WHEN t."status" = 'VOID' THEN 'VOID'
+      WHEN t."eventId" <> ${gateEventId}::uuid THEN 'OTHER_EVENT'
       WHEN t."checkedInAt" IS NOT NULL THEN 'USED'
       WHEN now() < e."startsAt" - interval '2 hours' THEN 'NOT_OPEN'
       WHEN now() >= e."endsAt" THEN 'ENDED'
