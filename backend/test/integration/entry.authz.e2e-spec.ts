@@ -59,6 +59,13 @@ describe('Entry authorization', () => {
     }
   });
 
+  it('answers 401 with a token for another audience (Constitution VI)', async () => {
+    const elsewhere = await tokenFor({ username: 'agent1', roles: ['gate-agent'], aud: 'account' });
+    for (const { path, body } of paths()) {
+      await as(ctx, elsewhere).post(path).send(body).expect(401);
+    }
+  });
+
   it('answers 403 for a customer and for an admin', async () => {
     for (const { path, body } of paths()) {
       await (await customer(ctx)).post(path).send(body).expect(403);
