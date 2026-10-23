@@ -33,7 +33,7 @@
 Contract **1.10.0** lands in this spec and plan PR with types regenerated and the three new codes
 in `ERROR_CODES`. The two new operations are marked `x-planned: '017'`; `holderName` is declared
 but not yet required. The implementation removes the markers and adds `holderName` to `required`.
-`main` stays green (R7). This PR also carries Constitution **3.1.2**, a PATCH clarification of
+`main` stays green (R7). This PR also carries Constitution **3.2.1**, a PATCH clarification of
 Principle V for holder names (spec Clarifications).
 
 ## Technical Context
@@ -73,15 +73,15 @@ real screen; laptop scale (30 gate agents, 200 customers).
 
 ## Constitution Check
 
-Evaluated against constitution **v3.1.2** (this PR's PATCH included).
+Evaluated against constitution **v3.2.1** (3.2.0 on `main`, plus this PR's PATCH).
 
 | Principle | Pre | Post | Evidence |
 |---|---|---|---|
 | **I. API-Only, Contract First** | PASS | **PASS** | Contract 1.10.0 and regenerated types in this PR, before any code. Each new operation declares its request, response, role, and every error; new codes use the standard envelope and are in `ERROR_CODES`. `x-planned` keeps the route-coverage test meaningful; `holderName` becomes required with its implementation (R7). The Ticket Booth app reaches the Backend only through the generated client. |
 | **II. One Repo, One Command** | PASS | **PASS** | No new service or variable. One migration applied by the existing startup. Two npm dependencies installed by the existing build. The phone step is optional and changes nothing in `docker compose up` (R10). |
-| **III. Spec-Driven, Reviewed** | PASS | **PASS** | Issues #39 and #40; number reserved by PR #65; spec, clarifications, and plan on `017-gate-check-in-spec`, reviewed by a second Claude session before the PR; implementation on `017-gate-check-in-impl` in a fresh session, closing #39 and #40. |
+| **III. Spec-Driven, Reviewed** | PASS | **PASS** | Issues #39 and #40; number reserved by PR #65; spec, clarifications, and plan on `017-gate-check-in-spec`, reviewed by a second Claude session before the PR; implementation on `017-gate-check-in-impl` in a fresh session, cut from the spec branch while this PR is open and opened as a PR only after it merges (3.2.0), closing #39 and #40. |
 | **IV. Server-Authoritative, DB-Guaranteed** | PASS | **PASS** | One entry per ticket is guaranteed by PostgreSQL's row lock in one conditional `UPDATE` (R4), tested with 20 genuinely simultaneous admits; the entry window is in the same statement, on the database's clock (R5). The name rules are enforced by the Backend and backed by a CHECK (R2). The Customer app's name check and the Ticket Booth app's states are previews; every Backend refusal is shown, with the entered values kept. |
-| **V. Sign-In Everywhere** | PASS | **PASS** | Both new operations are `gate-agent` only, checked by the server; tested for missing, expired, and wrong-role tokens. The agent is recorded by subject identifier, with the username as a display copy. Holder names are ticket data under the 3.1.2 clarification. No token in URLs or storage; the ticket code travels in a request body, not a path. |
+| **V. Sign-In Everywhere** | PASS | **PASS** | Both new operations are `gate-agent` only, checked by the server; tested for missing, expired, and wrong-role tokens. The agent is recorded by subject identifier, with the username as a display copy. Holder names are ticket data under the 3.2.1 clarification. No token in URLs or storage; the ticket code travels in a request body, not a path. |
 | **VI. Test-First, Real Database** | PASS | **PASS** | Tests precede code in `tasks.md`; the guarantee is tested with simultaneous requests on real PostgreSQL; window boundaries tested on both sides; name length tested at 100 and 101 code points. The 80% floor is a recorded deferral until `010` and `011`; this feature reports its coverage. |
 | **VII. Function Over Finish, One Shared Look** | PASS | **PASS** | The Ticket Booth app adopts the shared theme now that it has a function, as Principle VII says; its stylesheet uses theme values only and the drift check already scans `booth-app/src`. States use words and symbols, not color alone; theme buttons are already 44 pixels high. The print view's rules use theme values only. No new theme value. |
 | **VIII. Staged Simplicity** | PASS | **PASS** | No undo, no re-entry, no refusal records, no gates or devices, no offline entry, no per-ticket names (spec Out of Scope). The phone step reuses Chrome's port forwarding instead of adding a proxy (R10). No security or correctness control is deferred: rotating codes (`018`) add protection; they don't replace a missing one, since printed and typed codes always require the ID check. |
@@ -94,7 +94,7 @@ specs/017-gate-check-in/
 ├── checklists/requirements.md
 └── contracts/README.md
 
-.specify/memory/~ constitution.md                            # 3.1.2, Principle V (this PR)
+.specify/memory/~ constitution.md                            # 3.2.1, Principle V (this PR)
 contracts/~ openapi.yaml                                     # 1.10.0, x-planned (this PR)
 packages/shared/src/~ api-schema.ts                          # regenerated (this PR)
 packages/shared/src/~ errors.ts                              # 3 new codes (this PR)
@@ -139,7 +139,9 @@ entry columns. The name rule lives in `packages/shared` because two workspaces e
 
 ## Merging with other PRs
 
-- **Open now**: none. `main` is at a7c548d (#65, the reservation of 017 and 018).
+- **Merged since this plan was written**: #67, Constitution 3.2.0 (implementation may start while
+  the spec PR is open). This PR's Principle V PATCH is therefore 3.2.1, not 3.1.2; `main` was
+  merged into this branch (4d8e8b5). No other PR is open.
 - **Contract version**: if another spec PR merges first and takes 1.10.0, this one moves to the next
   minor version on rebase, as 015 did after 014.
 - **#60 (wildcard redirect URIs)**: touches the Keycloak seed's redirect URIs. This feature adds

@@ -54,8 +54,8 @@ Derived, not stored. Computed in one query on the database's clock (research R5)
 
 | State | When |
 |---|---|
+| `VOID` | `status = 'VOID'` (its order was refunded, e.g. the event was cancelled), at any gate |
 | `OTHER_EVENT` | the ticket's `eventId` is not the event the agent is working |
-| `VOID` | `status = 'VOID'` (its order was refunded, e.g. the event was cancelled) |
 | `USED` | `checkedInAt IS NOT NULL` (returned with `usedAt`) |
 | `NOT_OPEN` | `now() < startsAt - 2 hours` (returned with `entryOpensAt`) |
 | `ENDED` | `now() >= endsAt` |
