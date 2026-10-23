@@ -3,37 +3,34 @@ import { render, screen } from '@testing-library/react';
 import { App } from '../src/App';
 import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-user-manager';
 
-/** Spec 001 US2: sign-in gate, hello-world page, wrong-role refusal, and logout for this app. */
+/**
+ * Spec 001 US2, kept by spec 017: the sign-in gate, the wrong-role refusal, and logout. The
+ * hello-world greeting is gone (T013); the signed-in flow is check-in.test.tsx's job.
+ */
 const json = (body: unknown, status = 200): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  sessionStorage.clear();
+});
 
 describe('QueuePass Ticket Booth app', () => {
-  it('greets a gate-agent user from the Backend and offers logout', async () => {
-    const fetchMock = vi.fn(async (_req: Request) =>
-      json({
-        app: 'booth',
-        appName: 'QueuePass Ticket Booth',
-        username: 'agent1',
-        message: 'Hello, agent1! Welcome to QueuePass Ticket Booth.',
-      }),
+  it('shows a gate agent the event choice, not a hello-world greeting, and offers logout', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json([])),
     );
-    vi.stubGlobal('fetch', fetchMock);
     render(
-      <App
-        userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))}
-      />,
+      <App userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))} />,
     );
 
-    expect(
-      await screen.findByText('Hello, agent1! Welcome to QueuePass Ticket Booth.'),
-    ).toBeInTheDocument();
-    expect(new URL(fetchMock.mock.calls[0][0].url).pathname).toBe('/hello/booth');
+    expect(await screen.findByText(/Choose the event/)).toBeInTheDocument();
+    expect(screen.queryByText(/Hello, agent1/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Log out' })).toBeInTheDocument();
   });
 
-  it('refuses a customer user and shows no greeting', async () => {
+  it('refuses a customer user and shows no data', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => json({})),

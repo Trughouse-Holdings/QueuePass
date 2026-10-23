@@ -1165,7 +1165,6 @@ paths:
         `unusedOnOrder` counts the valid, unused tickets of this ticket's order for this event,
         including this one, so the agent can offer to admit them all after one ID check.
       operationId: lookupEntryTicket
-      x-planned: '017'
       x-required-roles: [gate-agent]
       requestBody:
         required: true
@@ -1208,7 +1207,6 @@ paths:
         (with `details.entryOpensAt`), or `ENDED`, the same states `lookupEntryTicket` reports.
         A refused ID check is not sent to the Backend: the client simply does not call this.
       operationId: admitTicket
-      x-planned: '017'
       x-required-roles: [gate-agent]
       requestBody:
         required: true

@@ -165,7 +165,7 @@ function testTicketCode(): string {
     suffix = alphabet[left % alphabet.length] + suffix;
     left = Math.floor(left / alphabet.length);
   }
-  return `FIXTUR${suffix}`;
+  return `GATEFX${suffix}`;
 }
 
 /** Spec 015: a seat by its label, as a hold stores it. */

@@ -124,7 +124,7 @@ see "Already used" with the time; the attendee list shows it checked in.
 
 ### Tests for User Story 1 ⚠️ write first, confirm they fail
 
-- [ ] T009 [P] [US1] Write `backend/test/integration/entry.lookup.e2e-spec.ts` (contract-checked
+- [X] T009 [P] [US1] Write `backend/test/integration/entry.lookup.e2e-spec.ts` (contract-checked
   `lookupEntryTicket`): an admittable ticket returns every `EntryTicket` field, `state:
   'ADMITTABLE'`, `holderName`, `tierName` (and `null` at base price), `seat` for a seated ticket,
   and `entryOpensAt` = `startsAt` − 2 hours; the code is found in lower case, with spaces, and with
@@ -132,7 +132,7 @@ see "Already used" with the time; the attendee list shows it checked in.
   with no name gives `holderName: null`; a lookup records nothing (`checkedInAt` unchanged); an
   unknown code, `'ABC'`, and `'IIIIIIIIIIII'` (outside the code alphabet) are `404
   TICKET_NOT_FOUND`; an unknown event is `404 NOT_FOUND`; an empty `code` is `400`.
-- [ ] T010 [P] [US1] Write `backend/test/integration/entry.admit.e2e-spec.ts` (contract-checked
+- [X] T010 [P] [US1] Write `backend/test/integration/entry.admit.e2e-spec.ts` (contract-checked
   `admitTicket`): a single admit is `200` with one `admitted` entry and empty `alreadyUsed`; the
   row then has `checkedInAt`, `checkedInBySub` = `subFor('agent1')`, and `checkedInByUsername` =
   `'agent1'`; the next lookup is `USED` with `usedAt`; a second admit is `409 ENTRY_REFUSED` with
@@ -141,10 +141,10 @@ see "Already used" with the time; the attendee list shows it checked in.
   order's tickets, even the same customer's at the same event; a ticket of an order with no name
   (`orderWithTickets`) is admitted once and then refused as used, like any other (SC-007); an
   unknown `ticketId` is `404 TICKET_NOT_FOUND`.
-- [ ] T011 [P] [US1] Write `backend/test/integration/entry.authz.e2e-spec.ts`: both operations
+- [X] T011 [P] [US1] Write `backend/test/integration/entry.authz.e2e-spec.ts`: both operations
   answer `401` with no token, an expired token, and a wrongly signed one; `403` for a customer and
   for an admin; and succeed for a gate agent (FR-016, Constitution V).
-- [ ] T012 [P] [US1] Write `booth-app/test/check-in.test.tsx` with a stubbed `fetch`: the event list
+- [X] T012 [P] [US1] Write `booth-app/test/check-in.test.tsx` with a stubbed `fetch`: the event list
   shows only scheduled events that have not ended, soonest first; the chosen event is kept in
   `sessionStorage` and restored after a remount, and a throwing `sessionStorage` still lets the
   agent choose; a typed lookup shows the event, ticket type, seat, the holder's name or "No name on
@@ -158,21 +158,21 @@ see "Already used" with the time; the attendee list shows it checked in.
   (network error) on a lookup or an admit shows a plain error, records nothing, and re-enables the
   controls (Constitution IV); a `401` on an admit sends the agent to sign in, and the chosen event
   is still there afterwards (Edge Cases).
-- [ ] T013 [P] [US1] Update `booth-app/test/app.test.tsx`: the hello-world greeting is gone; the
+- [X] T013 [P] [US1] Update `booth-app/test/app.test.tsx`: the hello-world greeting is gone; the
   sign-in gate, the wrong-role refusal, and logout keep their tests.
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] In `backend/src/orders/ticket-code.ts`, export `ALPHABET`. Create
+- [X] T014 [US1] In `backend/src/orders/ticket-code.ts`, export `ALPHABET`. Create
   `backend/src/entry/ticket-state.ts`: `normalizeCode(raw: string): string | null` (upper case,
   remove spaces and dashes, then `null` unless it is exactly 12 symbols of `ALPHABET`); and the
   state rules of research R5 as one SQL `CASE` expression shared by the lookup and the refusal
   query, in the order `OTHER_EVENT`, `VOID`, `USED`, `NOT_OPEN`, `ENDED`, `ADMITTABLE`, comparing
   with `now()`.
-- [ ] T015 [US1] Create `backend/src/entry/dto/entry-lookup.dto.ts` (`code`: `@IsString()`,
+- [X] T015 [US1] Create `backend/src/entry/dto/entry-lookup.dto.ts` (`code`: `@IsString()`,
   `@Length(1, 64)`) and `backend/src/entry/dto/admit.dto.ts` (`ticketId`: `@IsUUID('all')`;
   `wholeOrder`: `@IsBoolean()`), mirroring `EntryLookupInput` and `AdmitInput`.
-- [ ] T016 [US1] Create `backend/src/entry/entry.service.ts`:
+- [X] T016 [US1] Create `backend/src/entry/entry.service.ts`:
   - `lookup(eventId, rawCode)`: `404 NOT_FOUND` for an unknown event; `404 TICKET_NOT_FOUND`
     ("No ticket has the code <normalized>.") when `normalizeCode` is `null` or nothing matches;
     otherwise one `SELECT` joining `Ticket`, `Order`, `Event`, and `TicketTier` that returns the
@@ -187,16 +187,16 @@ see "Already used" with the time; the attendee list shows it checked in.
     return `admitted`, and for `wholeOrder` `alreadyUsed`: the order's other valid tickets for the
     event that have a `checkedInAt` and were not admitted now. Messages name no local time (the
     client formats the times in `details`).
-- [ ] T017 [US1] Create `backend/src/entry/entry.controller.ts` (`@Controller('events/:id/entry')`;
+- [X] T017 [US1] Create `backend/src/entry/entry.controller.ts` (`@Controller('events/:id/entry')`;
   `@Post('lookup')` and `@Post('admit')`, each `@Roles('gate-agent')` and `@HttpCode(200)`, with
   `ParseUUIDPipe` on `id` and `@CurrentPrincipal()` for the admit) and
   `backend/src/entry/entry.module.ts`; register it in `backend/src/app.module.ts`.
-- [ ] T018 [US1] Run T009–T011 until they pass.
-- [ ] T019 [US1] In `contracts/openapi.yaml`, remove `x-planned: '017'` from `lookupEntryTicket`
+- [X] T018 [US1] Run T009–T011 until they pass.
+- [X] T019 [US1] In `contracts/openapi.yaml`, remove `x-planned: '017'` from `lookupEntryTicket`
   and `admitTicket`; run `npm run generate:api`. Run
   `backend/test/contract/route-coverage.e2e-spec.ts` and `node scripts/check-contract-drift.mjs`;
   both pass.
-- [ ] T020 [US1] Build the Ticket Booth app (research R11):
+- [X] T020 [US1] Build the Ticket Booth app (research R11):
   - `booth-app/src/main.tsx`: import `@queuepass/shared/theme.css`.
   - `booth-app/src/api.ts`: typed wrappers on `createApiClient` for `listEvents`,
     `lookupEntryTicket`, and `admitTicket`.
@@ -212,7 +212,7 @@ see "Already used" with the time; the attendee list shows it checked in.
     `LogoutButton`. Remove `HelloPage` from the app; `getBoothHello` stays served.
   - `booth-app/src/styles.css`: layout only, theme values only (the drift check scans it);
     usable at 360 CSS pixels wide with no horizontal scroll (FR-023).
-- [ ] T021 [US1] Run T012 and T013 until they pass, then the drift test in `packages/shared`.
+- [X] T021 [US1] Run T012 and T013 until they pass, then the drift test in `packages/shared`.
 
 **Checkpoint**: typed codes are looked up and admitted once; MVP.
 

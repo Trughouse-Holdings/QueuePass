@@ -3,9 +3,10 @@ import { relative, resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 /**
- * Spec 012 FR-003, FR-014, FR-015 (research R1, R10): the shared package exports one theme, and
- * the Admin and Customer apps resolve and load that same file, before their own stylesheet. The
- * Booth app does not load it.
+ * Spec 012 FR-003, FR-014 (research R1, R10): the shared package exports one theme, and every
+ * app resolves and loads that same file, before its own stylesheet. Spec 017 FR-022: the Booth
+ * app, a stub when spec 012 kept it bare (its FR-015), now has functionality and adopts the
+ * theme (Constitution VII).
  */
 // Vitest runs each workspace from its own folder (packages/shared/).
 const read = (path: string): string => readFileSync(resolve(process.cwd(), path), 'utf8');
@@ -22,7 +23,7 @@ describe('the shared package', () => {
   });
 });
 
-describe.each(['admin-app', 'customer-app'])('%s', (app) => {
+describe.each(['admin-app', 'customer-app', 'booth-app'])('%s', (app) => {
   it.each(['vite.config.ts', 'vitest.config.ts'])(
     'aliases the theme to the shared file in %s',
     (config) => {
@@ -46,10 +47,6 @@ describe.each(['admin-app', 'customer-app'])('%s', (app) => {
 it('ignores a commented-out import', () => {
   expect("// import '@queuepass/shared/theme.css';".search(THEME_IMPORT)).toBe(-1);
   expect("// import './styles.css';".search(OWN_IMPORT)).toBe(-1);
-});
-
-it('the Booth app does not load the theme (FR-015)', () => {
-  expect(read('../../booth-app/src/main.tsx')).not.toContain('@queuepass/shared/theme.css');
 });
 
 // SC-003 (research R10): with both apps resolving the same file and no app defining a token

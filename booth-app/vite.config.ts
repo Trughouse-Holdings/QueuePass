@@ -13,6 +13,7 @@ export default defineConfig({
     alias: [
       { find: /^@queuepass\/shared$/, replacement: shared('index.ts') },
       { find: /^@queuepass\/shared\/web$/, replacement: shared('web/index.ts') },
+      { find: /^@queuepass\/shared\/theme\.css$/, replacement: shared('web/theme.css') },
     ],
     dedupe: ['react', 'react-dom', 'react-router-dom'],
   },
