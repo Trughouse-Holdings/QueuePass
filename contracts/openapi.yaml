@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.9.0
+  version: 1.10.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -69,6 +69,10 @@ tags:
       reservations and live seat-map updates (feature 015)
   - name: images
     description: Up to 5 images per event, shown to customers as a gallery (feature 014)
+  - name: entry
+    description: |
+      Gate check-in in the Ticket Booth app: look a ticket up by its code, then admit it, or every
+      unused ticket of its order, exactly once (feature 017)
 
 paths:
   /health:
@@ -1046,6 +1050,13 @@ paths:
         reserved until it ends. A repeated `requestId` is returned before this check. An order whose
         `tierId` is not the reservation's tier is `400`, since its seats are not in that tier's
         sections.
+
+        Feature 017: `holderName` is the buyer's own name, printed on every ticket of the order
+        and checked against their ID at the gate. It is trimmed of leading and trailing spaces,
+        and must then be 1 to 100 characters, contain at least one letter in any script, and
+        contain no control characters; otherwise `400 HOLDER_NAME_INVALID` (`details.reason`).
+        It cannot be changed after the order is placed. A repeated `requestId` must also name the
+        same `holderName`. Required once feature 017 is implemented; until then it may be omitted.
       operationId: createOrder
       x-required-roles: [customer]
       requestBody:
@@ -1066,7 +1077,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Order' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '400': { $ref: '#/components/responses/OrderRejected' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1127,6 +1138,93 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /events/{id}/entry/lookup:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event the gate agent is working.
+    post:
+      tags: [entry]
+      summary: Look a ticket up at the gate
+      description: |
+        Feature 017. Finds the ticket with this code and says whether it can be admitted at this
+        event's gate now. The code is sent in the body, not the path, so it stays out of request
+        logs. Letter case, spaces, and dashes are ignored; anything that is not then a ticket
+        code, or matches no ticket, is `404 TICKET_NOT_FOUND`.
+
+        A ticket that exists is always `200`, with `state` saying what the agent may do:
+        `ADMITTABLE`; `USED` (with `usedAt`); `VOID` (its order was refunded, for example because
+        the event was cancelled); `OTHER_EVENT` (the ticket's own event is in `event`); `NOT_OPEN`
+        (entry opens at `entryOpensAt`, 2 hours before the start); or `ENDED`. The window is
+        half-open, `[startsAt - 2 hours, endsAt)`, on the database's clock. Nothing is recorded.
+
+        `unusedOnOrder` counts the valid, unused tickets of this ticket's order for this event,
+        including this one, so the agent can offer to admit them all after one ID check.
+      operationId: lookupEntryTicket
+      x-planned: '017'
+      x-required-roles: [gate-agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EntryLookupInput' }
+      responses:
+        '200':
+          description: The ticket and whether it can be admitted here now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntryTicket' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/EntryNotFound' }
+
+  /events/{id}/entry/admit:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The event the gate agent is working.
+    post:
+      tags: [entry]
+      summary: Admit a ticket, or every unused ticket of its order
+      description: |
+        Feature 017. Records an entry for the ticket: the time (the database's clock) and the
+        signed-in gate agent. A ticket is admitted at most once, including when any number of
+        admit requests for it arrive at the same moment; every later one is refused. Admitting
+        cannot be undone, and there is no re-entry.
+
+        With `wholeOrder: true`, every valid, unused ticket of the same order for this event is
+        admitted, each as its own entry under the same rule, and tickets of that order already
+        used by then are listed in `alreadyUsed` instead. It never admits another order's tickets.
+
+        Refused with `409 ENTRY_REFUSED` when nothing could be admitted. `details.reason` is
+        `USED` (with `details.usedAt`), `VOID`, `OTHER_EVENT` (with `details.event`), `NOT_OPEN`
+        (with `details.entryOpensAt`), or `ENDED`, the same states `lookupEntryTicket` reports.
+        A refused ID check is not sent to the Backend: the client simply does not call this.
+      operationId: admitTicket
+      x-planned: '017'
+      x-required-roles: [gate-agent]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdmitInput' }
+      responses:
+        '200':
+          description: At least one ticket was admitted.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EntryResult' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/EntryNotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
   /events/{id}/images:
@@ -1804,6 +1902,14 @@ components:
           description: '`null` for an event sold without tiers.'
         tierName: { type: [string, 'null'] }
         customerUsername: { type: string, example: customer1 }
+        holderName:
+          type: [string, 'null']
+          minLength: 1
+          maxLength: 100
+          example: Jordan Lee
+          description: |
+            Feature 017. The buyer's name, on every ticket of the order; `null` for orders placed
+            before feature 017. Always sent once 017 is implemented, which adds it to `required`.
         quantity: { type: integer, minimum: 1, maximum: 10 }
         unitPrice: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
         totalPrice: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
@@ -1835,6 +1941,14 @@ components:
           maxItems: 10
           description: Feature 007. Required for reserved seating, one per ticket; see `createOrder`.
           items: { $ref: '#/components/schemas/SeatChoice' }
+        holderName:
+          type: string
+          maxLength: 400
+          example: Jordan Lee
+          description: |
+            Feature 017. The buyer's own name, for every ticket of the order; see `createOrder` for
+            the rules. `maxLength` only bounds the request: the name itself is at most 100
+            characters after trimming. Required once 017 is implemented, which adds it to `required`.
 
     MyOrder:
       description: One of the signed-in customer's orders, with a summary of its event (feature 006).
@@ -2201,6 +2315,111 @@ components:
           type: array
           items: { $ref: '#/components/schemas/EventSales' }
 
+    EntryLookupInput:
+      description: Feature 017. A ticket code as typed or scanned.
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 64
+          example: 7kq2-m9xw-ab4c
+          description: Letter case, spaces, and dashes are ignored.
+
+    EntryTicket:
+      description: Feature 017. A ticket as the gate agent sees it, and what they may do with it.
+      type: object
+      required:
+        [
+          ticketId,
+          code,
+          orderId,
+          state,
+          event,
+          tierName,
+          seat,
+          holderName,
+          usedAt,
+          entryOpensAt,
+          unusedOnOrder,
+        ]
+      properties:
+        ticketId: { type: string, format: uuid }
+        code: { type: string, pattern: '^[A-Z2-9]{12}$' }
+        orderId: { type: string, format: uuid }
+        state:
+          type: string
+          enum: [ADMITTABLE, USED, VOID, OTHER_EVENT, NOT_OPEN, ENDED]
+        event:
+          description: The ticket's own event (another event's when `state` is `OTHER_EVENT`).
+          type: object
+          required: [id, name, startsAt, endsAt]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string, example: Season Opener }
+            startsAt: { type: string, format: date-time }
+            endsAt: { type: string, format: date-time }
+        tierName:
+          type: [string, 'null']
+          description: '`null` for an event sold at its base price.'
+        seat:
+          oneOf:
+            - $ref: '#/components/schemas/SeatLabel'
+            - type: 'null'
+        holderName:
+          type: [string, 'null']
+          description: '`null` for a ticket bought before feature 017 ("No name on ticket").'
+        usedAt:
+          type: [string, 'null']
+          format: date-time
+          description: When it was admitted; `null` unless `state` is `USED`.
+        entryOpensAt:
+          type: string
+          format: date-time
+          description: Two hours before the ticket's event starts.
+        unusedOnOrder:
+          type: integer
+          minimum: 0
+          maximum: 10
+          description: |
+            Valid, unused tickets of this ticket's order for this event, this one included.
+
+    AdmitInput:
+      description: Feature 017.
+      type: object
+      required: [ticketId, wholeOrder]
+      properties:
+        ticketId: { type: string, format: uuid }
+        wholeOrder:
+          type: boolean
+          description: Also admit every other valid, unused ticket of the same order.
+
+    EntryResult:
+      description: Feature 017. What one admit request did.
+      type: object
+      required: [admitted, alreadyUsed]
+      properties:
+        admitted:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items: { $ref: '#/components/schemas/EntryTicketRef' }
+        alreadyUsed:
+          description: Tickets of the order that were already used when `wholeOrder` arrived.
+          type: array
+          maxItems: 9
+          items: { $ref: '#/components/schemas/EntryTicketRef' }
+
+    EntryTicketRef:
+      description: Feature 017. One ticket and the time of its entry.
+      type: object
+      required: [ticketId, code, usedAt]
+      properties:
+        ticketId: { type: string, format: uuid }
+        code: { type: string, pattern: '^[A-Z2-9]{12}$' }
+        usedAt: { type: string, format: date-time }
+
     ErrorEnvelope:
       type: object
       required: [error]
@@ -2242,6 +2461,9 @@ components:
                 - IMAGE_TYPE_NOT_ALLOWED
                 - IMAGES_CHANGED
                 - IMAGE_DIMENSIONS_TOO_LARGE
+                - HOLDER_NAME_INVALID
+                - TICKET_NOT_FOUND
+                - ENTRY_REFUSED
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -2286,6 +2508,34 @@ components:
                 fields:
                   endsAt: must be later than startsAt
                   seatingCapacity: must be a positive whole number
+
+    OrderRejected:
+      description: |
+        Request shape or field validation failed (`VALIDATION_FAILED`), or, feature 017, the
+        holder's name is missing or invalid (`HOLDER_NAME_INVALID`, with `details.reason`:
+        `MISSING`, `TOO_LONG`, `NO_LETTER`, or `CONTROL_CHARACTER`; a name that is empty after
+        trimming is `MISSING`). Nothing was recorded.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            validationFailed:
+              summary: A field failed validation
+              value:
+                error:
+                  code: VALIDATION_FAILED
+                  message: Request validation failed.
+                  details:
+                    fields:
+                      quantity: must be between 1 and 10
+            holderNameInvalid:
+              summary: The holder's name has no letter
+              value:
+                error:
+                  code: HOLDER_NAME_INVALID
+                  message: The name on the tickets must contain at least one letter.
+                  details:
+                    reason: NO_LETTER
 
     AddressRejected:
       description: |
@@ -2419,6 +2669,18 @@ components:
               code: NOT_FOUND
               message: No venue exists with id 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40.
 
+    EntryNotFound:
+      description: |
+        Feature 017. The event does not exist (`NOT_FOUND`), or no ticket has this code or id
+        (`TICKET_NOT_FOUND`).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: TICKET_NOT_FOUND
+              message: No ticket has the code 7KQ2M9XWAB4D.
+
     Conflict:
       description: |
         The request violates a business rule; `code` says which. For `SCHEDULING_CONFLICT`,
@@ -2428,6 +2690,24 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
           examples:
+            entryRefusedUsed:
+              summary: Feature 017. The ticket was already admitted
+              value:
+                error:
+                  code: ENTRY_REFUSED
+                  message: This ticket was already used.
+                  details:
+                    reason: USED
+                    usedAt: '2026-10-24T19:42:10-04:00'
+            entryRefusedNotOpen:
+              summary: Feature 017. Entry has not opened yet
+              value:
+                error:
+                  code: ENTRY_REFUSED
+                  message: Entry has not opened for this event.
+                  details:
+                    reason: NOT_OPEN
+                    entryOpensAt: '2026-10-24T17:00:00-04:00'
             schedulingConflict:
               summary: Venue already committed during this window
               value:

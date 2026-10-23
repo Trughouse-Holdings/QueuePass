@@ -48,6 +48,12 @@ export const ERROR_CODES = [
   // implementation, so the list matches the contract.
   'SEAT_COOLDOWN',
   'RESERVATION_REQUIRED',
+  // Spec 017: a missing or invalid holder's name on an order; a gate lookup or admit for a code or
+  // ticket that does not exist; a ticket that cannot be admitted (used, void, another event, or
+  // outside the entry window). Added ahead of the implementation, so the list matches the contract.
+  'HOLDER_NAME_INVALID',
+  'TICKET_NOT_FOUND',
+  'ENTRY_REFUSED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

@@ -149,7 +149,10 @@ feature `001` onward:
   Booth app requires `gate-agent`. A signed-in user without the required role is told so plainly,
   shown no data, and offered logout.
 - QueuePass MUST NOT store passwords or manage identities. It stores at most the Keycloak subject
-  identifier.
+  identifier. A name a buyer types onto an order, for the gate's ID check, is ticket data like a
+  seat or a quantity, not an identity: it belongs to no account, signs no one in, and is never
+  sent to or checked against Keycloak. Usernames shown next to orders and entries are display
+  copies of the token's `preferred_username`, under the same reading.
 
 Rationale: Not every staff member or customer may see or do everything. Building sign-in into
 the bare-bones feature means no later feature has to retrofit it, and an API that trusts every
@@ -348,4 +351,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.2.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-22
+**Version**: 3.2.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-23
