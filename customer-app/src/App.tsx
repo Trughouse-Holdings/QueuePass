@@ -3,6 +3,7 @@ import { LogoutButton } from '@queuepass/shared/web';
 import { EventList } from './pages/EventList';
 import { EventDetail } from './pages/EventDetail';
 import { MyTickets } from './pages/MyTickets';
+import { PrintTicket } from './pages/PrintTicket';
 import { VenueList } from './pages/VenueList';
 import { VenueDetail } from './pages/VenueDetail';
 
@@ -44,6 +45,8 @@ export function App() {
           <Route path="/venues" element={<VenueList />} />
           <Route path="/venues/:id" element={<VenueDetail />} />
           <Route path="/my-tickets" element={<MyTickets />} />
+          {/* Spec 017 FR-012: the printable ticket. */}
+          <Route path="/my-tickets/:ticketId/print" element={<PrintTicket />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

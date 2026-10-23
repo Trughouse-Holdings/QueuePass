@@ -66,6 +66,15 @@ function OrderCard({ order: o }: { order: MyOrder }) {
         {o.tickets.map((t) => (
           <li key={t.id}>
             {`${t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}: ${ticketState(t)}`}
+            {/* Spec 017 FR-012: a printable view for each valid, unused ticket. */}
+            {t.status === 'VALID' && t.checkedInAt === null && (
+              <>
+                {' '}
+                <Link to={`/my-tickets/${t.id}/print`} aria-label={`Print ticket ${t.code}`}>
+                  Print ticket
+                </Link>
+              </>
+            )}
           </li>
         ))}
       </ul>

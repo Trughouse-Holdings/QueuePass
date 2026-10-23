@@ -93,7 +93,8 @@ describe('My tickets', () => {
       within(within(o).getByRole('list', { name: 'Tickets' }))
         .getAllByRole('listitem')
         .map((li) => li.textContent);
-    expect(ticketsOf(first)).toEqual(['AAAA2222BBBB: Valid', 'CCCC3333DDDD: Valid']);
+    // Spec 017 FR-012: valid, unused tickets also carry a Print ticket link.
+    expect(ticketsOf(first)).toEqual(['AAAA2222BBBB: Valid Print ticket', 'CCCC3333DDDD: Valid Print ticket']);
     expect(ticketsOf(second)).toEqual([`EEEE4444FFFF: Used ${when('2026-12-01T23:10:00.000Z')}`]);
     expect(ticketsOf(third)).toEqual(['GGGG5555HHHH: Void']);
     expect(within(third).getByText('Refunded')).toBeInTheDocument();
@@ -121,8 +122,8 @@ describe('My tickets', () => {
       within(within(o).getByRole('list', { name: 'Tickets' }))
         .getAllByRole('listitem')
         .map((li) => li.textContent);
-    expect(ticketsOf(first)).toEqual(['JJJJ7777KKKK, Section A, Row 3, Seat 7: Valid']);
-    expect(ticketsOf(second)).toEqual(['AAAA2222BBBB: Valid', 'CCCC3333DDDD: Valid']);
+    expect(ticketsOf(first)).toEqual(['JJJJ7777KKKK, Section A, Row 3, Seat 7: Valid Print ticket']);
+    expect(ticketsOf(second)).toEqual(['AAAA2222BBBB: Valid Print ticket', 'CCCC3333DDDD: Valid Print ticket']);
   });
 
   it('lists ticket codes as rows, not bullets (spec 008 US4)', async () => {

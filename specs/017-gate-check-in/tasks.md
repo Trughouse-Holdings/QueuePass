@@ -333,21 +333,21 @@ list; an order without a name is refused with nothing recorded.
 **Independent Test**: open a ticket's print view, scan it with the webcam, and see the same lookup
 as typing its code.
 
-- [ ] T036 [P] [US5] Write `customer-app/test/print-ticket.test.tsx`: **Print ticket** appears on
+- [X] T036 [P] [US5] Write `customer-app/test/print-ticket.test.tsx`: **Print ticket** appears on
   My tickets for valid, unused tickets only (not void, not used); `/my-tickets/<ticketId>/print`
   shows an SVG with the accessible name "QR code for ticket <code>", the code in text, the holder's
   name (or "No name on ticket"), the event's name, venue, start time, and the seat if any; **Print**
   calls `window.print` (stubbed); an id that isn't one of the caller's tickets shows "Ticket not
   found"; `qrMatrix(code)` (exported by `TicketQr.tsx`) is 21 × 21 for a 12-character code, and is
   the same matrix `qrcode-generator` makes with type number 0, level `'M'`, and alphanumeric mode.
-- [ ] T037 [P] [US5] Write `booth-app/test/scanner.test.tsx`, with `booth-app/src/camera.ts` and
+- [X] T037 [P] [US5] Write `booth-app/test/scanner.test.tsx`, with `booth-app/src/camera.ts` and
   `booth-app/src/decode.ts` mocked: **Scan** asks for the camera; a decoded ticket code runs the
   lookup with no further tap and stops the camera; a decoded non-ticket value shows "Not a
   QueuePass ticket" once per distinct value and keeps scanning; a `NotAllowedError` shows "Camera
   access was refused. Type the code instead." and the code field still works; no
   `navigator.mediaDevices` shows "This device has no camera. Type the code instead."; unmounting
   and **Stop scanning** stop every track.
-- [ ] T038 [US5] Create `customer-app/src/components/TicketQr.tsx`: `qrMatrix(code)` with
+- [X] T038 [US5] Create `customer-app/src/components/TicketQr.tsx`: `qrMatrix(code)` with
   `qrcode-generator` (type number 0, level `'M'`, `addData(code, 'Alphanumeric')`, `make()`), and a
   component that draws it as one SVG `<path>` of the dark modules with a 4-module quiet zone, black
   on white, `role="img"` and `aria-label` "QR code for ticket <code>". Create
@@ -356,14 +356,14 @@ as typing its code.
   `customer-app/src/App.tsx`. Add **Print ticket** links in `customer-app/src/pages/MyTickets.tsx`.
   Add `@media print` rules to `customer-app/src/styles.css` that hide the app header and navigation
   and the **Print** button, using theme values only.
-- [ ] T039 [US5] Create `booth-app/src/camera.ts` (`openCamera()`: `getUserMedia({ video: {
+- [X] T039 [US5] Create `booth-app/src/camera.ts` (`openCamera()`: `getUserMedia({ video: {
   facingMode: 'environment' } })`, returning the stream and a `stop()` that stops every track, and
   typed errors for refused and missing cameras), `booth-app/src/decode.ts` (`decodeFrame(video,
   canvas)`: draws the frame at most 640 pixels wide and calls `jsQR` with `inversionAttempts:
   'dontInvert'`), and `booth-app/src/Scanner.tsx` (a `<video>` preview, decoding about every
   160 ms via `requestAnimationFrame`, normalizing a value like typing and handing a ticket code to
   the lookup, **Stop scanning**). Add **Scan** next to **Look up** in `TicketLookup.tsx`.
-- [ ] T040 [US5] Run T036 and T037 until they pass, then the drift test.
+- [X] T040 [US5] Run T036 and T037 until they pass, then the drift test.
 
 **Checkpoint**: printed codes scan; typing still works everywhere.
 

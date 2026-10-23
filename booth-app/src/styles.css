@@ -102,3 +102,15 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+.scanner {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+
+.scanner__video {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--radius-sm);
+}

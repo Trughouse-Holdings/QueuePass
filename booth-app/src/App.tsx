@@ -10,6 +10,7 @@ import {
 import { admitTicket, listEvents, lookupEntryTicket } from './api';
 import { EntryResult, refusalText, type Outcome } from './EntryResult';
 import { EventPicker, openForEntry, saveEventId, savedEventId } from './EventPicker';
+import { Scanner } from './Scanner';
 import { TicketLookup } from './TicketLookup';
 
 /**
@@ -43,6 +44,8 @@ function Booth() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [focusSignal, setFocusSignal] = useState(0);
+  // Spec 017 FR-009 (US5): whether the camera panel is open.
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -211,7 +214,22 @@ function Booth() {
           )
         ) : (
           <>
-            <TicketLookup busy={busy} focusSignal={focusSignal} onLookup={lookUp} />
+            <TicketLookup
+              busy={busy}
+              focusSignal={focusSignal}
+              onLookup={lookUp}
+              onScan={() => setScanning(true)}
+            />
+            {scanning && (
+              <Scanner
+                onTicketCode={(code) => {
+                  // A scan behaves exactly like typing the code it carries (FR-009).
+                  setScanning(false);
+                  void lookUp(code);
+                }}
+                onStop={() => setScanning(false)}
+              />
+            )}
             <EntryResult
               outcome={outcome}
               busy={busy}

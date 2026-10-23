@@ -9,10 +9,13 @@ export function TicketLookup({
   busy,
   focusSignal,
   onLookup,
+  onScan,
 }: {
   busy: boolean;
   focusSignal: number;
   onLookup: (code: string) => void;
+  /** Spec 017 FR-009: opens the camera panel (US5). */
+  onScan: () => void;
 }) {
   const [code, setCode] = useState('');
   const field = useRef<HTMLInputElement>(null);
@@ -44,6 +47,9 @@ export function TicketLookup({
         />
         <button type="submit" className="btn btn--primary" disabled={busy}>
           Look up
+        </button>
+        <button type="button" className="btn" disabled={busy} onClick={onScan}>
+          Scan
         </button>
       </div>
     </form>
