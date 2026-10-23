@@ -3,7 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 /**
  * Spec 017 FR-008: a labelled code field and Look up. The field keeps focus after each result,
  * so the next code can be typed at once (research R11). `focusSignal` bumps to refocus it
- * (the refusals' "Look up another").
+ * (the refusals' "Look up another"). The code is cleared only once a ticket is found: after "No
+ * ticket has this code" or a failed request it stays, so nothing has to be retyped
+ * (Constitution IV).
  */
 export function TicketLookup({
   busy,
@@ -13,7 +15,8 @@ export function TicketLookup({
 }: {
   busy: boolean;
   focusSignal: number;
-  onLookup: (code: string) => void;
+  /** Resolves `true` when a ticket was found (whatever its state), so the field can clear. */
+  onLookup: (code: string) => Promise<boolean>;
   /** Spec 017 FR-009: opens the camera panel (US5). */
   onScan: () => void;
 }) {
@@ -27,9 +30,12 @@ export function TicketLookup({
   const submit = (e: React.FormEvent): void => {
     e.preventDefault();
     if (busy || code.trim() === '') return;
-    onLookup(code);
-    setCode('');
+    const sent = code;
     field.current?.focus();
+    void onLookup(sent).then((found) => {
+      // Only the code that was sent: anything typed meanwhile is the agent's and stays.
+      if (found) setCode((now) => (now === sent ? '' : now));
+    });
   };
 
   return (

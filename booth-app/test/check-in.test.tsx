@@ -418,6 +418,36 @@ describe('Failures are explicit states (Constitution IV, Edge Cases)', () => {
     expect(screen.getByRole('button', { name: 'Look up' })).toBeEnabled();
   });
 
+  it('keeps the typed code after a network error, so nothing has to be retyped', async () => {
+    stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: 'network-error' });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user, '7kq2-m9xw-ab4c');
+    expect(await screen.findByText(/Can't reach QueuePass/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Ticket code')).toHaveValue('7kq2-m9xw-ab4c');
+  });
+
+  it('keeps the typed code after "No ticket has this code", so a typo can be fixed', async () => {
+    stubApi({
+      [EVENTS]: threeEvents(),
+      [LOOKUP]: json({ error: { code: 'TICKET_NOT_FOUND', message: 'No ticket.' } }, 404),
+    });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user, '7KQ2M9XWAB4D');
+    expect(await screen.findByText(/No ticket has this code/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Ticket code')).toHaveValue('7KQ2M9XWAB4D');
+  });
+
+  it('clears the code once the ticket is found, ready for the next one', async () => {
+    stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: json(ticket()) });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user);
+    expect(await screen.findByRole('button', { name: 'Admit' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Ticket code')).toHaveValue('');
+  });
+
   it('a network error on an admit shows a plain error and re-enables the controls', async () => {
     stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: json(ticket()), [ADMIT]: 'network-error' });
     const user = userEvent.setup();

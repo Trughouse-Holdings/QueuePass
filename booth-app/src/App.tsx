@@ -101,9 +101,13 @@ function Booth() {
     setFocusSignal((n) => n + 1);
   };
 
-  /** FR-024: the previous result leaves the screen only when the next lookup starts. */
-  async function lookUp(code: string): Promise<void> {
-    if (!chosen) return;
+  /**
+   * FR-024: the previous result leaves the screen only when the next lookup starts. Resolves
+   * `true` when a ticket was found, whatever its state, so the typed code can be cleared; a
+   * refusal of the code itself or a failed request keeps it (Constitution IV).
+   */
+  async function lookUp(code: string): Promise<boolean> {
+    if (!chosen) return false;
     setOutcome(null);
     setNotice(null);
     setBusy(true);
@@ -125,6 +129,7 @@ function Booth() {
                 }),
               },
         );
+        return true;
       } else if (response.status === 401) {
         await signIn();
       } else if (error?.error.code === 'TICKET_NOT_FOUND') {
@@ -137,6 +142,7 @@ function Booth() {
     } finally {
       setBusy(false);
     }
+    return false;
   }
 
   async function admit(wholeOrder: boolean): Promise<void> {
