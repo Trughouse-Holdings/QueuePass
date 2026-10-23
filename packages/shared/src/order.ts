@@ -20,6 +20,8 @@ export interface Order {
   tierId: string | null;
   tierName: string | null;
   customerUsername: string;
+  /** Spec 017 FR-001: the buyer's name, on every ticket; `null` for orders placed before 017. */
+  holderName: string | null;
   quantity: number;
   unitPrice: string;
   totalPrice: string;
@@ -31,6 +33,8 @@ export interface Order {
 
 export interface OrderInput {
   tierId?: string;
+  /** Spec 017 FR-001: the buyer's own name, required on every new order, fixed for good. */
+  holderName: string;
   quantity: number;
   /** Spec 006: one random id per confirmation, so repeating it never places a second order. */
   requestId?: string;

@@ -41,10 +41,10 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `017-gate-check-in-impl` from an up-to-date `main`, run `npm install`, run
+- [X] T001 Cut `017-gate-check-in-impl` from an up-to-date `main`, run `npm install`, run
   `npx prisma generate` in `backend/`, and run `npm test` from the repository root. Confirm the
   suite is green before any change (baseline).
-- [ ] T002 Add the two front-end libraries at exact versions (research R8, R9):
+- [X] T002 Add the two front-end libraries at exact versions (research R8, R9):
   `npm install --save-exact --workspace @queuepass/customer-app qrcode-generator@2.0.4` and
   `npm install --save-exact --workspace @queuepass/booth-app jsqr@1.4.0`. Confirm
   `node scripts/check-boundary.mjs` still passes and neither package brings dependencies of its own
@@ -56,7 +56,7 @@ and confirm they **fail** before the implementation tasks below them.
 
 **Purpose**: the name rule, the shared types, and the three new columns.
 
-- [ ] T003 [P] Write `packages/shared/test/holder-name.test.ts`, table tests for research R2:
+- [X] T003 [P] Write `packages/shared/test/holder-name.test.ts`, table tests for research R2:
   `MISSING` for `undefined`, `null`, `''`, `'   '`; `TOO_LONG` at 101 code points and none at
   exactly 100, including 100 × `'😀'` (one code point each, two UTF-16 units); `CONTROL_CHARACTER`
   for a tab, a newline, and `\u0000`; `NO_LETTER` for `'1234'` and `'---'`; no problem for
@@ -64,7 +64,7 @@ and confirm they **fail** before the implementation tasks below them.
   kept). `normalizeHolderName('  Jordan Lee ')` is `'Jordan Lee'`, and `'é'` becomes
   `'é'` (NFC). The check order is `MISSING`, `TOO_LONG`, `CONTROL_CHARACTER`, `NO_LETTER`. Confirm
   it fails.
-- [ ] T004 Create `packages/shared/src/holder-name.ts` and export it from `packages/shared/src/index.ts`:
+- [X] T004 Create `packages/shared/src/holder-name.ts` and export it from `packages/shared/src/index.ts`:
   `HOLDER_NAME_MAX = 100`; `type HolderNameProblem = 'MISSING' | 'TOO_LONG' | 'CONTROL_CHARACTER'
   | 'NO_LETTER'`; `normalizeHolderName(raw: string): string` (`trim()`, then
   `normalize('NFC')`); `holderNameProblem(raw: unknown): HolderNameProblem | null`, which
@@ -74,20 +74,20 @@ and confirm they **fail** before the implementation tasks below them.
   characters.", `CONTROL_CHARACTER` "The name can't contain tabs or line breaks.", `NO_LETTER`
   "The name on the tickets must contain at least one letter." Run T003 until it passes; build
   `packages/shared`.
-- [ ] T005 [P] Mirror the contract in the shared types. In `packages/shared/src/order.ts`, add
+- [X] T005 [P] Mirror the contract in the shared types. In `packages/shared/src/order.ts`, add
   `holderName: string | null` to `Order` (after `customerUsername`, with a comment citing spec 017
   FR-001) and `holderName: string` to `OrderInput`. Create `packages/shared/src/entry.ts` with
   `EntryState` (`'ADMITTABLE' | 'USED' | 'VOID' | 'OTHER_EVENT' | 'NOT_OPEN' | 'ENDED'`),
   `EntryTicket`, `AdmitInput`, `EntryResult`, and `EntryTicketRef`, field for field as in
   `contracts/openapi.yaml`; export them from `packages/shared/src/index.ts`.
-- [ ] T006 [P] Write `backend/test/integration/gate-check-in.constraints.e2e-spec.ts`, writing
+- [X] T006 [P] Write `backend/test/integration/gate-check-in.constraints.e2e-spec.ts`, writing
   directly with `ctx.prisma` (raw SQL where Prisma would trim): `holderName` `''`, `' Jordan'`,
   `'Jordan '`, and 101 characters are refused by `order_holder_name_valid`; 100 characters and
   `NULL` are accepted; `checkedInBySub` without `checkedInAt`, and `checkedInBySub` without
   `checkedInByUsername`, are refused by `ticket_entry_agent`; `checkedInAt` with no agent is
   accepted (demo check-ins from before this feature). Confirm it fails: the columns and CHECKs
   don't exist yet (Constitution VI).
-- [ ] T007 Add `holderName String?` to `model Order`, and `checkedInBySub String?` and
+- [X] T007 Add `holderName String?` to `model Order`, and `checkedInBySub String?` and
   `checkedInByUsername String?` to `model Ticket`, in `backend/prisma/schema.prisma`, with the
   comments shown in data-model.md. Create
   `backend/prisma/migrations/<timestamp>_gate_check_in/migration.sql` with exactly the SQL in
@@ -97,7 +97,7 @@ and confirm they **fail** before the implementation tasks below them.
   `"ticket_entry_agent"` (both agent columns `NULL`, or both set and `"checkedInAt" IS NOT NULL`).
   No backfill, no index. Apply with `prisma migrate deploy` (never `db push`). Run T006 until it
   passes.
-- [ ] T008 In `backend/test/setup/fixtures.ts`: add `export const HOLDER = 'Test Holder'` — but do
+- [X] T008 In `backend/test/setup/fixtures.ts`: add `export const HOLDER = 'Test Holder'` — but do
   **not** make `reserveThenOrder` send it yet: until T030 lets the order DTO accept the field, the
   ValidationPipe (`forbidNonWhitelisted`) turns every seated-order test `400`; T031 adds it. Add
   `agent(ctx, n = 1)` returning

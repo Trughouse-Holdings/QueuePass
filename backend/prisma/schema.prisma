@@ -129,6 +129,8 @@ model Order {
   refundedAt       DateTime?   @db.Timestamptz(6)
   // Spec 006 FR-005: the client's id for one confirmation, so a repeat returns this order.
   requestId        String?     @db.Uuid
+  // Spec 017 FR-001: the buyer's name, on every ticket; NULL before 017 (CHECK in migration SQL).
+  holderName       String?
 
   @@unique([customerSub, requestId])
   @@index([eventId])
@@ -152,6 +154,9 @@ model Ticket {
   code        String       @unique
   status      TicketStatus @default(VALID)
   checkedInAt DateTime?    @db.Timestamptz(6)
+  // Spec 017 research R3: who admitted it; both or neither, and only with checkedInAt.
+  checkedInBySub      String?
+  checkedInByUsername String?
   // Spec 007: the seat's label when sold; all three set or all null (research R1). One valid
   // ticket per seat is the partial unique index ticket_one_valid_per_seat in the migration.
   seatSection String?
