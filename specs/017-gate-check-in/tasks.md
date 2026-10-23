@@ -375,12 +375,12 @@ as typing its code.
 
 **Independent Test**: admit two tickets, then see both on the attendee list and in the report.
 
-- [ ] T041 [P] [US6] Update `admin-app/test/attendees.test.tsx`: a **Name on tickets** column with
+- [X] T041 [P] [US6] Update `admin-app/test/attendees.test.tsx`: a **Name on tickets** column with
   each order's name, or "No name on ticket" for `null`; each checked-in ticket shows its time.
-- [ ] T042 [P] [US6] Add to `backend/test/integration/entry.admit.e2e-spec.ts`: after two admits,
+- [X] T042 [P] [US6] Add to `backend/test/integration/entry.admit.e2e-spec.ts`: after two admits,
   `getSalesReport`'s checked-in count for the event rises by 2, `listAttendees` shows both tickets'
   `checkedInAt`, and the buyer's `listMyOrders` shows them too (FR-020, FR-021, SC-005).
-- [ ] T043 [US6] In `admin-app/src/pages/Attendees.tsx`, add the **Name on tickets** column, and
+- [X] T043 [US6] In `admin-app/src/pages/Attendees.tsx`, add the **Name on tickets** column, and
   show each checked-in ticket's time of entry — today the list says only "✓ checked in"; T041
   expects the time (FR-020). Run T041 and T042 until they pass.
 

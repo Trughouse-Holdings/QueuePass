@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Attendees } from '../src/pages/Attendees';
+import { when } from '../src/format';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, ORDERS } from './fixtures-005';
 
@@ -80,5 +81,30 @@ describe('Attendees page', () => {
       .map((li) => li.textContent);
     expect(items[0]).toContain('Section A, Row 1, Seat 5');
     expect(items.slice(1).join(' ')).not.toContain('Section');
+  });
+});
+
+describe('names and entry times (spec 017 FR-004, FR-005, FR-020)', () => {
+  it('shows a Name on tickets column, with "No name on ticket" for an order without one', async () => {
+    stubApi({ [`GET /events/${EVENT.id}`]: json(EVENT), [`GET ${PATH}`]: json(ORDERS) });
+    renderPage();
+
+    expect(await screen.findByRole('columnheader', { name: 'Name on tickets' })).toBeInTheDocument();
+    const first = screen.getByText('customer3').closest('tr') as HTMLElement;
+    expect(within(first).getByText('Jordan Lee')).toBeInTheDocument();
+    const second = screen.getByText('customer1').closest('tr') as HTMLElement;
+    expect(within(second).getByText('No name on ticket')).toBeInTheDocument();
+  });
+
+  it("shows each checked-in ticket's time of entry", async () => {
+    stubApi({ [`GET /events/${EVENT.id}`]: json(EVENT), [`GET ${PATH}`]: json(ORDERS) });
+    renderPage();
+
+    const first = (await screen.findByText('customer3')).closest('tr') as HTMLElement;
+    const items = within(first)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent);
+    expect(items[0]).toContain(`checked in ${when('2026-11-01T22:45:00.000Z')}`);
+    expect(items[1]).not.toContain('checked in');
   });
 });
