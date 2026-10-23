@@ -411,7 +411,7 @@ as typing its code.
 - [X] T047 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' coverage if a provider is installed) in the PR description. The 80% floor is not
   yet blocking (Constitution VI deferral until `010` and `011`).
-- [ ] T048 Running-system gate: `docker compose up --build` from a fresh clone, then walk
+- [X] T048 Running-system gate: `docker compose up --build` from a fresh clone, then walk
   quickstart.md S0–S9 in the browser (S10 if an Android phone is at hand), and sign in, use, and
   sign out of each front end. Record the results in this file.
   **T048 results (2026-10-22, fresh clone of `017-gate-check-in-impl` at T047's commit):**
@@ -422,8 +422,11 @@ as typing its code.
   by `demo-agent1`/`agent1`; Demo Tonight's entry window open right after loading, 19 unused
   tickets. (First boot surfaced a stale `queuepass_*` volume from an unrelated 2026-10-03 run on
   this laptop; a fresh project name got fresh volumes. Nothing in 017.) The full automated suite
-  ran green in the working tree (T046). **Still to walk by hand in the browser: quickstart S0–S9**
-  (sign in, use, sign out of each front end; the webcam scan in S4; S10 needs an Android phone).
+  ran green in the working tree (T046). **Browser walk (2026-10-23):** a fresh stack built from
+  2f608b8, demo data loaded at 18:17 CDT, Safari private tabs as `admin1`, `customer1`, `agent1`
+  (webcam), and `agent2`. Quickstart S0–S9 all passed, including the webcam scan (S4) and a print
+  preview that stays readable with the OS in dark mode (S2). S10 (optional, Android phone) was not
+  walked.
   **T047 results:** backend coverage (jest --runInBand --coverage): 96.94% lines, 84.92% branches
   overall; 017's files: entry/ 95–100% per file, orders/ 98.9–100%, demo-data.ts 86.3% lines. No
   coverage provider is installed for the front ends. The 80% floor stays a recorded deferral
@@ -457,15 +460,17 @@ as typing its code.
   and "Cancelled and refunded" could never be shown (396f860, 51fde79); (MEDIUM) the Ticket
   Booth cleared the typed code before the lookup answered, losing it on "No ticket has this code"
   or a failed request (7b08c80); (LOW) no wrong-audience test on the entry routes (074a1ed); (LOW)
-  the README said built and verified before the S0–S9 walk (now "walk pending"). Left open,
-  minor: the print view may be faint when the OS is in dark mode (the theme has no print reset;
-  to check in S2, fix in the shared theme if confirmed); the scanner's camera-refused and
-  not-a-ticket messages are not in a live region; the Get tickets name error is not linked to its
-  field; no test races two **Admit all** presses for one order. Review done in 3 rounds.
-- [ ] T050 Once the spec and plan PR has merged (Constitution 3.2.0), rebase onto `main` and open
+  the README said built and verified before the S0–S9 walk (restored after the walk). The
+  suspected faint print in dark mode was checked in S2 and is readable, so nothing changed. Left
+  open, minor: the scanner's camera-refused and not-a-ticket messages are not in a live region;
+  the Get tickets name error is not linked to its field; no test races two **Admit all** presses
+  for one order. Review done in 3 rounds.
+- [X] T050 Once the spec and plan PR has merged (Constitution 3.2.0), rebase onto `main` and open
   the implementation PR against `main` with `fixes #39` and `fixes #40` on their own lines. It
   touches the shared surface (`backend/prisma/`, `packages/shared/`, `contracts/openapi.yaml`), so
   every team member approves it.
+  Opened as draft #68 on 2026-10-23 after #66 merged (`main` merged in, 571025d, rather than
+  rebased, since the branch was pushed with merge commits); marked ready after T048.
 
 ---
 

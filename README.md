@@ -9,8 +9,7 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `008` and `012` through `016` are built and verified. `017` is built; its
-browser walk (quickstart S0–S9) is pending.
+Features `001` through `008` and `012` through `017` are built and verified.
 
 | Spec                                                                         | What it delivers                                                                                                                                                               | Spec             | Plan and tasks     | Code                   |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ------------------ | ---------------------- |
@@ -27,7 +26,7 @@ browser walk (quickstart S0–S9) is pending.
 | [`014-event-images`](specs/014-event-images/spec.md)                         | Up to 5 images per event, added, ordered, and removed in the Admin event form; a rotating gallery on Customer event cards and on the event page of both apps, with full screen | Draft            | Done (49/50 tasks) | **Built and verified** |
 | [`015-seat-holds`](specs/015-seat-holds/spec.md)                             | Customers reserve picked seats for 5 minutes, then confirm; no seat reserved twice; reserved and sold seats shown live in both apps                                            | Draft            | Done (50 tasks)    | **Built and verified** |
 | [`016-per-user-ticket-limit`](specs/016-per-user-ticket-limit/spec.md)       | An optional per-customer ticket limit on each event, held under concurrent orders; shown to admins and customers                                                               | Draft            | Done (36 tasks)    | **Built and verified** |
-| [`017-gate-check-in`](specs/017-gate-check-in/spec.md)                       | Every new ticket carries the buyer's name; customers print a QR per ticket; gate agents scan or type a code, check an ID against the name, and admit each ticket exactly once  | Draft            | Done (50 tasks)    | Built (walk pending)   |
+| [`017-gate-check-in`](specs/017-gate-check-in/spec.md)                       | Every new ticket carries the buyer's name; customers print a QR per ticket; gate agents scan or type a code, check an ID against the name, and admit each ticket exactly once  | Draft            | Done (50 tasks)    | **Built and verified** |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -127,11 +126,12 @@ app (`006`), but to fill the Admin pages quickly for a demo, run once after `doc
 docker compose exec backend node backend/dist/scripts/demo-data.js
 ```
 
-It adds two venues, three events with tiers, orders from `customer1`…`customer25`, some
-check-ins, one cancelled event, and generated striped pictures (three on the concert, one on the
-comedy night), all through the real Backend rules. Running it again changes
-nothing. It is never run automatically. Its orders belong to stand-in identities, so they don't
-appear on any customer's **My tickets**; buy in the Customer app to see that page filled.
+It adds two venues, four events (three with tiers, plus Demo Tonight, open for gate check-in as
+soon as the data loads, `017`), named orders from `customer1`…`customer25`, some check-ins, one
+cancelled event, and generated striped pictures (three on the concert, one on the comedy night),
+all through the real Backend rules. Running it again changes nothing. It is never run
+automatically. Its orders belong to stand-in identities, so they don't appear on any customer's
+**My tickets**; buy in the Customer app to see that page filled.
 
 Its two venues have real addresses, verified by the address service. It also works offline: when
 the service can't be reached, it saves them with their addresses not verified and says so.
