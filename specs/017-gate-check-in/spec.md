@@ -44,8 +44,9 @@ phone. Rotating 30-second QR codes are out of scope (spec 018, #41)."
   The webcam is the required demo. A documented optional step serves the Ticket Booth app over
   HTTPS so a real phone on the same network can scan; it is not part of the automated tests.
 - Q: Should this spec's PR clarify the constitution's identity rule for holder names, or leave the
-  constitution alone? → A: Add a PATCH clarification to Constitution V (3.1.2) in this spec's PR: a
-  name the buyer types onto an order is ticket data, not an identity.
+  constitution alone? → A: Add a PATCH clarification to Constitution V in this spec's PR (3.1.2
+  when decided; 3.2.1 since 3.2.0 merged first): a name the buyer types onto an order is ticket
+  data, not an identity.
 
 ## Context
 
@@ -90,9 +91,9 @@ used" refusal with the time. Confirm the Admin attendee list shows the ticket as
 **Acceptance Scenarios**:
 
 1. **Given** a valid, unused ticket for the chosen event, **When** the agent enters its code,
-   **Then** they see the event, the ticket type (or base price), the seat if any, and the holder's
-   name, with a prompt to check an ID that shows that name, and controls to **Admit** or
-   **Refuse**.
+   **Then** they see the event, the ticket type (or "General admission" for an event sold at its
+   base price), the seat if any, and the holder's name, with a prompt to check an ID that shows
+   that name, and controls to **Admit** or **Refuse**.
 2. **Given** that ticket on screen, **When** the agent presses **Admit**, **Then** the entry is
    recorded with the time and the agent, and the app says the holder is admitted.
 3. **Given** an admitted ticket, **When** its code is entered again by any agent, **Then** it is
@@ -262,8 +263,9 @@ times.
   agent decides to admit or refuse. These tickets still enter exactly once.
 - **Event not yet open for entry, or long over**: see FR-019. A refusal says when entry opens or
   that the event has ended.
-- **Cancelled event**: its tickets are void (spec `005`) and refused as cancelled. Entries recorded
-  before the cancellation stay on record and keep their time.
+- **Cancelled event**: its tickets are void (spec `005`) and refused as cancelled, at every gate,
+  including another event's (research R5). Entries recorded before the cancellation stay on
+  record and keep their time.
 - **Ticket refunded after it was used**: no customer refunds exist yet (#45, roadmap `009`). When
   an event is cancelled after people have entered, every ticket is voided as today, and the entries
   stay on record. Those features decide whether a used ticket can be refunded.
@@ -321,8 +323,9 @@ times.
   with its camera. That step MUST NOT be required for the demo, the automated tests, or any other
   app, and MUST NOT change any service's configuration. (The plan refines "on the same network" to
   "connected to the laptop": research R10.)
-- **FR-010**: A lookup MUST show the ticket's event, ticket type (or base price), seat if any,
-  holder's name (FR-004, FR-005), and whether it can be admitted at this gate now.
+- **FR-010**: A lookup MUST show the ticket's event, ticket type (or "General admission" for an
+  event sold at its base price; the price itself is not shown), seat if any, holder's name
+  (FR-004, FR-005), and whether it can be admitted at this gate now.
 - **FR-011**: A ticket that cannot be admitted MUST be refused with one stated reason: no ticket has
   this code; cancelled and refunded; already used (with the date and time); for another event (named);
   or outside the entry window (FR-019, with when entry opens or that the event has ended). No
@@ -419,8 +422,8 @@ times.
   like a seat or a quantity, not an account or identity: it is not tied to any user account, is not
   used to sign anyone in, and is never checked against the identity provider. Orders already store
   the buyer's username for display under the same reading (spec `005` research). This spec's PR
-  adds a PATCH clarification to Constitution V saying so (3.1.2, decided 2026-10-22), for every
-  team member to approve.
+  adds a PATCH clarification to Constitution V saying so (3.2.1, decided 2026-10-22; numbered 3.1.2
+  until 3.2.0 merged first), for every team member to approve.
 - **The QR code carries only the ticket code** (FR-012). A copy of it is worth exactly as much as
   the code itself, which the customer can already see and copy. Making a copied code worthless is
   spec `018`'s job (#41), not this one's.
@@ -443,7 +446,8 @@ times.
 ## Dependencies
 
 - Constitution 3.1.1 reserves `017-gate-check-in` for #39 and #40 (PR #65, merged).
-- Constitution 3.1.2, in this spec's PR, clarifies that a holder's name is ticket data under
+- Constitution 3.2.0 (PR #67, merged) lets the implementation start while this PR is open.
+- Constitution 3.2.1, in this spec's PR, clarifies that a holder's name is ticket data under
   Constitution V.
 - Spec `018-rotating-qr-codes` (#41) builds on this spec's lookup and entry rules.
 - The live check-in dashboard (#53) and ticket transfer (#46) depend on this spec.

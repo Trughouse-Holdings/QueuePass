@@ -18,9 +18,10 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Ground rules
 
-- **Fresh session** (Constitution III): implement on branch `017-gate-check-in-impl`, cut from
-  `main` after the spec and plan PR merges, in a Claude session that starts from these files only.
-  A gap in the spec or plan is fixed there, not worked around in code.
+- **Fresh session** (Constitution III, 3.2.0): implement on branch `017-gate-check-in-impl` in a
+  Claude session that starts from these files only. While the spec and plan PR is open, cut it from
+  `017-gate-check-in-spec` and carry in every change that PR's review makes; once it merges, rebase
+  onto `main`. A gap in the spec or plan is fixed there, not worked around in code.
 - **Contract**: 1.10.0 is final. The implementation makes only the two changes the plan names:
   remove `x-planned: '017'` from `lookupEntryTicket` and `admitTicket` in the commit that serves
   them (T019), and add `holderName` to `required` in `OrderInput` and `Order` (T034). Regenerate
@@ -28,7 +29,7 @@ and confirm they **fail** before the implementation tasks below them.
 - **One statement per admit** (research R4): the `UPDATE … RETURNING` in R4, run with
   `$queryRaw`. Add no lock, no `lockEvent`, no isolation level, no trigger. The window is in the
   same `WHERE`, on `now()` (R5).
-- **Reason order** (R5): `OTHER_EVENT`, `VOID`, `USED`, then `NOT_OPEN` or `ENDED`, else
+- **Reason order** (R5): `VOID`, `OTHER_EVENT`, `USED`, then `NOT_OPEN` or `ENDED`, else
   `ADMITTABLE`. The lookup and the admit refusal use the same order.
 - **Name rule** (R2): only `holderNameProblem` and `normalizeHolderName` from `packages/shared`
   decide what a valid name is. Never write the rule a second time.
@@ -167,7 +168,7 @@ see "Already used" with the time; the attendee list shows it checked in.
   `backend/src/entry/ticket-state.ts`: `normalizeCode(raw: string): string | null` (upper case,
   remove spaces and dashes, then `null` unless it is exactly 12 symbols of `ALPHABET`); and the
   state rules of research R5 as one SQL `CASE` expression shared by the lookup and the refusal
-  query, in the order `OTHER_EVENT`, `VOID`, `USED`, `NOT_OPEN`, `ENDED`, `ADMITTABLE`, comparing
+  query, in the order `VOID`, `OTHER_EVENT`, `USED`, `NOT_OPEN`, `ENDED`, `ADMITTABLE`, comparing
   with `now()`.
 - [ ] T015 [US1] Create `backend/src/entry/dto/entry-lookup.dto.ts` (`code`: `@IsString()`,
   `@Length(1, 64)`) and `backend/src/entry/dto/admit.dto.ts` (`ticketId`: `@IsUUID('all')`;
@@ -254,8 +255,9 @@ event's ticket are each refused with their reason.
   with `entryOpensAt`, and its admit is `409` with `reason: 'NOT_OPEN'`; starting in 1 hour
   59 minutes 30 seconds is `ADMITTABLE` and admits; ending in 30 seconds admits; ended 30 seconds
   ago is `ENDED` for both operations. Reason order: a used ticket of another event is
-  `OTHER_EVENT`; a void ticket that was admitted before its event was cancelled is `VOID` and still
-  has its `checkedInAt`; a used ticket of an ended event is `USED`.
+  `OTHER_EVENT`; a void ticket of another (cancelled) event is `VOID`, for both operations; a
+  void ticket that was admitted before its event was cancelled is `VOID` and still has its
+  `checkedInAt`; a used ticket of an ended event is `USED`.
 - [ ] T025 [P] [US3] Add to `booth-app/test/check-in.test.tsx` one test per refusal, each with no
   **Admit** and a **Look up another** that focuses the code field: `404 TICKET_NOT_FOUND` → "No
   ticket has this code"; `VOID` → "Cancelled and refunded"; `OTHER_EVENT` → "For <event> on
@@ -413,9 +415,10 @@ as typing its code.
 - [ ] T049 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the rounds and any open finding here and in the PR description.
-- [ ] T050 Open the implementation PR against `main` with `fixes #39` and `fixes #40` on their own
-  lines. It touches the shared surface (`backend/prisma/`, `packages/shared/`,
-  `contracts/openapi.yaml`), so every team member approves it.
+- [ ] T050 Once the spec and plan PR has merged (Constitution 3.2.0), rebase onto `main` and open
+  the implementation PR against `main` with `fixes #39` and `fixes #40` on their own lines. It
+  touches the shared surface (`backend/prisma/`, `packages/shared/`, `contracts/openapi.yaml`), so
+  every team member approves it.
 
 ---
 

@@ -115,8 +115,11 @@ lookup said "not open", or the reverse, because of two clocks.
 When several reasons apply, the lookup and the refusal give the first in this order, so the agent
 hears the most useful one:
 
-1. `OTHER_EVENT`: wrong gate, whatever else is true (the ticket's event is named).
-2. `VOID`: cancelled and refunded.
+1. `VOID`: cancelled and refunded, at any gate. A void ticket gets no one in anywhere. Today
+   tickets are void only because their event was cancelled, and the Ticket Booth app never offers
+   a cancelled event as the gate (FR-007), so putting `OTHER_EVENT` first would hide this reason
+   behind "another event" and US3 scenario 2 could never be seen.
+2. `OTHER_EVENT`: wrong gate (the ticket's event is named).
 3. `USED`: with `usedAt`.
 4. `NOT_OPEN` (with `entryOpensAt`) or `ENDED`.
 5. Otherwise `ADMITTABLE`.
@@ -240,10 +243,11 @@ no port forwarding. The README says so.
 2. **Ticket**: a code field with a **Look up** button, and a **Scan** button that opens the camera
    panel (R9).
 3. **Result**, in an `aria-live` region that stays until the next lookup (FR-024): the event, ticket
-   type or base price, seat, holder's name or "No name on ticket", and either the refusal reason
-   with no **Admit** (FR-011), or the ID-check prompt ("Check a government-issued photo ID that
-   shows: Jordan Lee") with **Admit**, **Admit all N** when `unusedOnOrder` > 1 (FR-015a), and
-   **Refuse**. Buttons are disabled while a request is in flight; a double tap is safe anyway (R4).
+   type (or "General admission" at the base price), seat, holder's name or "No name on ticket",
+   and either the refusal reason with no **Admit** (FR-011), or the ID-check prompt ("Check a
+   government-issued photo ID that shows: Jordan Lee") with **Admit**, **Admit all N** when
+   `unusedOnOrder` > 1 (FR-015a), and **Refuse**. Buttons are disabled while a request is in
+   flight; a double tap is safe anyway (R4).
 
 The app imports the shared theme and adds only layout rules that use theme values (FR-022,
 Constitution VII; the drift check already scans `booth-app/src`). Every state has a word and a
