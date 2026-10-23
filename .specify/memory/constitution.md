@@ -54,23 +54,30 @@ tribal knowledge. A nondeterministic seed turns every test failure into environm
 ### III. Spec-Driven Development, Reviewed Before Every Pull Request
 
 Specs come before code. Each feature has a GitHub issue and moves through two pull requests, in
-order. The first MUST be merged before implementation begins:
+order. Implementation MAY begin once the first is open; the first MUST be merged before the
+second:
 
 1. **Spec and plan PR** (branch `NNN-name-spec`): `specs/NNN-name/spec.md`, then the plan,
    research, data model, OpenAPI contract changes, and task list, plus any change to this
    constitution. The spec is worked through until it is right, and only then is the plan written.
 2. **Implementation PR** (branch `NNN-name-impl`): the code and tests, with the tasks checked off.
    Its description MUST reference the feature's issue (`fixes #N`) so the issue closes on merge.
+   While the spec and plan PR is open, the implementation branch is cut from the spec branch and
+   builds against the spec and plan as they stand there. Any change the spec PR's review makes to
+   the spec, plan, contract, or tasks MUST be carried into the implementation before its PR is
+   opened, and the implementation branch is rebased onto `main` once the spec PR merges. The
+   implementation PR MUST NOT be merged, or opened for review, before the spec and plan PR is
+   merged.
 
 Every branch is reviewed by a second Claude session before its pull request is opened:
 
 - **Independent review.** A Claude session that did not write the work reviews the branch
   locally: the spec and plan against this constitution and the issue, and the code against the
-  merged spec and plan. The writing session fixes the findings, and the review repeats until
+  spec and plan as merged. The writing session fixes the findings, and the review repeats until
   only minor findings remain, normally two or three rounds. The PR description records the
   number of rounds and any finding left open, with the reason.
 - **Fresh implementer.** The implementation is written in a new Claude session that starts from
-  the merged spec and plan only, not in the session that wrote them. A gap it finds is fixed in
+  the spec and plan only, not in the session that wrote them. A gap it finds is fixed in
   the spec or plan, not worked around in code.
 - **One feature at a time.** Each feature has its own branch and its own Claude session. A
   session never works on two features at once.
@@ -298,8 +305,9 @@ and the root `package.json`) needs approval from every team member in its pull r
 
 1. **Spec and plan, then implementation: two PRs.** Per Principle III. Each branch passes the
    independent Claude review before its pull request is opened.
-2. **Contract before code.** Per Principle I, any API change is merged into
-   `contracts/openapi.yaml` in the spec and plan PR, before it is implemented.
+2. **Contract before code.** Per Principle I, any API change is written into
+   `contracts/openapi.yaml` in the spec and plan PR, before it is implemented, and merged before
+   its implementation is merged.
 3. **Tests precede implementation.** Per Principle VI.
 4. **Green gate.** The full suite MUST pass, locally and in CI, and every workspace MUST meet the
    80% line coverage floor before a pull request is merged (Principle VI). A failing test is
@@ -340,4 +348,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.1.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-22
+**Version**: 3.2.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-22

@@ -3,7 +3,7 @@
 Venue and event management with sign-in for every user and guaranteed conflict-free scheduling.
 
 Built from the specifications in [`specs/`](specs/) under the project constitution at
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.1.1).
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.2.0).
 
 ---
 
@@ -55,9 +55,11 @@ coverage and CI test runs.
 Each feature has a GitHub issue and lands as two pull requests, in order (Constitution III):
 
 1. **Spec and plan** (branch `NNN-name-spec`): the spec, then the plan, contract changes, and
-   tasks. Merged before any code is written.
+   tasks. Coding may start once this PR is open; it must be merged before the implementation PR.
 2. **Implementation** (branch `NNN-name-impl`): the code and tests, written in a fresh Claude
-   session from the merged spec and plan. The PR says `fixes #N` to close the issue.
+   session from the spec and plan. Until the spec PR merges, this branch is cut from the spec
+   branch and picks up any change its review makes; it is opened as a PR only after the spec PR
+   merges. The PR says `fixes #N` to close the issue.
 
 Before either PR is opened, a second Claude session reviews the branch and the author fixes what
 it finds, usually two or three rounds. A teammate then reviews the PR. Only finished, reviewed
