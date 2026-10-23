@@ -1,5 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, tier, venue, windowAt } from '../setup/fixtures';
+import { HOLDER, customer, event, tier, venue, windowAt } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -20,7 +20,7 @@ describe('Cancellation and sales protections', () => {
   });
 
   const buy = async (eventId: string, body: object, n = 1) =>
-    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send(body).expect(201);
+    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...body }).expect(201);
 
   it('voids every ticket, refunds every order, marks the event cancelled, and reports counts', async () => {
     const eventId = await event(ctx, venueId);
@@ -82,7 +82,7 @@ describe('Cancellation and sales protections', () => {
       await customer(ctx)
     )
       .post(`/events/${eventId}/orders`)
-      .send({ tierId, quantity: 1 });
+      .send({ holderName: HOLDER, tierId, quantity: 1 });
     expect(order.status).toBe(409);
     expect(code(order)).toBe('EVENT_CANCELLED');
   });

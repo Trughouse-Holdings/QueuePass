@@ -1,6 +1,6 @@
 import type { Response } from 'supertest';
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { customer, event, holdSeats, tier, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, holdSeats, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, ADMIN, subFor, tokenFor } from '../setup/tokens';
@@ -225,7 +225,7 @@ describe('Seat reservations', () => {
         await customer(ctx)
       )
         .post(`/events/${eventId}/orders`)
-        .send({ tierId: vip, quantity: 1, seats: [seat(sectionA, 3, 1)] })
+        .send({ holderName: HOLDER, tierId: vip, quantity: 1, seats: [seat(sectionA, 3, 1)] })
         .expect(201);
 
       const over = await reserve(eventId, [

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, reserveThenOrder, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, reserveThenOrder, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { tokenFor } from '../setup/tokens';
@@ -42,7 +42,7 @@ describe('One valid ticket per seat', () => {
   const order = async (n: number, seats: object[]) =>
     (await customer(ctx, n))
       .post(`/events/${eventId}/orders`)
-      .send({ quantity: seats.length, seats, requestId: randomUUID() });
+      .send({ holderName: HOLDER, quantity: seats.length, seats, requestId: randomUUID() });
   const reserve = async (n: number, seats: object[]) =>
     (await customer(ctx, n)).post(`/events/${eventId}/reservation`).send({ seats }).expect(201);
   const bought = async (n: number, seats: { sectionId: string; row: number; seat: number }[]) =>

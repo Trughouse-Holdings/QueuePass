@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -22,7 +22,7 @@ describe('Sales close at the start time', () => {
   });
 
   const order = async (eventId: string, body: object) =>
-    (await customer(ctx)).post(`/events/${eventId}/orders`).send(body);
+    (await customer(ctx)).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...body });
   const code = (res: Response): string => res.body.error?.code;
 
   /** A three-hour window starting `offsetMs` from now (negative: already started). */

@@ -60,6 +60,36 @@ const COMEDY_COLORS: [Rgb, Rgb] = [
   [248, 120, 88],
 ];
 
+/**
+ * Spec 017 FR-006 (research R13): a fixed list of 20 sample names, one per demo customer, keyed
+ * by the customer's number, so every demo order carries a holder's name.
+ */
+const HOLDER_NAMES = [
+  'Jordan Lee',
+  'Maya Alvarez',
+  'Samir Haddad',
+  'Grace Chen',
+  'Tomás Rivera',
+  'Aisha Okafor',
+  'Liam O’Connell',
+  'Priya Nair',
+  'Noah Kim',
+  'Fatima Zahra',
+  'Ethan Brooks',
+  'Yuki Tanaka',
+  'Olivia Novak',
+  'Mateo Rossi',
+  'Hannah Weiss',
+  'Dmitri Volkov',
+  'Zoe Papadopoulos',
+  'Kwame Mensah',
+  'Ingrid Larsen',
+  'Ravi Patel',
+] as const;
+
+/** The demo holder's name for customer `n` (research R13). */
+const holderFor = (n: number): string => HOLDER_NAMES[(n - 1) % HOLDER_NAMES.length];
+
 /** Stand-in buyer: demo orders are not tied to a real Keycloak sign-in (spec 005 Assumptions). */
 const buyer = (n: number): Principal => ({
   sub: `demo-customer${n}`,
@@ -172,7 +202,11 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
 
   let orderCount = 0;
   const place = async (eventId: string, n: number, quantity: number, tierId?: string) => {
-    await orders.create(eventId, { quantity, ...(tierId ? { tierId } : {}) }, buyer(n));
+    await orders.create(
+      eventId,
+      { quantity, holderName: holderFor(n), ...(tierId ? { tierId } : {}) },
+      buyer(n),
+    );
     orderCount += 1;
   };
   for (let n = 1; n <= 25; n++) {

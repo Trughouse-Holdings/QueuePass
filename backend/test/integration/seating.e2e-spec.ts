@@ -1,14 +1,12 @@
 import type { Response } from 'supertest';
 import { anon, as, asAdmin } from '../setup/authed-request';
-import {
-  customer,
+import { HOLDER, customer,
   endHold,
   event,
   holdSeats,
   reserveThenOrder,
   tier,
-  venue,
-} from '../setup/fixtures';
+  venue, } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, CUSTOMER, subFor, tokenFor } from '../setup/tokens';
@@ -117,7 +115,7 @@ describe('Reserved seating and the seat map', () => {
     expect(code(off)).toBe('EVENT_HAS_ORDERS');
 
     const gaEvent = await event(ctx, venueId, { capacity: 70 });
-    await (await customer(ctx)).post(`/events/${gaEvent}/orders`).send({ quantity: 1 }).expect(201);
+    await (await customer(ctx)).post(`/events/${gaEvent}/orders`).send({ holderName: HOLDER, quantity: 1 }).expect(201);
     const on = await seating(gaEvent, { reservedSeating: true, sections: [] });
     expect(on.status).toBe(409);
     expect(code(on)).toBe('EVENT_HAS_ORDERS');

@@ -147,3 +147,22 @@ describe('My tickets', () => {
     expect(await screen.findByText("Can't reach the QueuePass service.")).toBeInTheDocument();
   });
 });
+
+describe('names on tickets (spec 017 FR-004, FR-005)', () => {
+  it('shows "Name on tickets: Jordan Lee" on each order with a name', async () => {
+    stubApi({ 'GET /me/orders': json([opener]) });
+    renderCustomer({ at: '/my-tickets' });
+
+    const [first] = await orders();
+    expect(within(first).getByText('Jordan Lee')).toBeInTheDocument();
+    expect(within(first).getByText('Name on tickets')).toBeInTheDocument();
+  });
+
+  it('shows "No name on ticket" when holderName is null (an order from before 017)', async () => {
+    stubApi({ 'GET /me/orders': json([myOrder({ holderName: null })]) });
+    renderCustomer({ at: '/my-tickets' });
+
+    const [first] = await orders();
+    expect(within(first).getByText('No name on ticket')).toBeInTheDocument();
+  });
+});

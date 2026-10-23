@@ -50,6 +50,18 @@ describe('Demo data', () => {
     }
   });
 
+  /** Spec 017 FR-006 (T032): every demo order carries a holder's name, from the fixed list. */
+  it('gives every demo order a holder name', async () => {
+    // Created by the first test of this file.
+    const orders = await ctx.prisma.order.findMany({ select: { holderName: true } });
+    expect(orders.length).toBeGreaterThan(0);
+    for (const o of orders) {
+      expect(typeof o.holderName).toBe('string');
+      expect((o.holderName as string).length).toBeGreaterThan(0);
+    }
+    expect(new Set(orders.map((o) => o.holderName)).size).toBeGreaterThan(5);
+  });
+
   /**
    * Spec 014 FR-034 (research R15): generated pictures, through the image rules: several on the
    * concert, one on the comedy night, none on the gala.

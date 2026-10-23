@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { Availability, CustomerLimit, SeatMap } from '@queuepass/shared';
-import { availability, event, json, renderCustomer, stubApi, tier } from './helpers';
+import { availability, event, json, renderCustomer, stubApi, tier, typeHolderName } from './helpers';
 
 /**
  * Spec 016 US4 (FR-012–FR-015; research R8): the Get tickets form shows the customer's limit,
@@ -124,6 +124,7 @@ describe('a refusal for the limit (FR-015)', () => {
 
     await heading();
     fireEvent.change(quantity(), { target: { value: '4' } });
+    await typeHolderName();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm order' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message);

@@ -2,7 +2,7 @@ import type { AddressInfo } from 'node:net';
 import { expectSseEvent } from '../contract/expect-to-match-contract';
 import { HoldSweeper } from '../../src/reservations/hold-sweeper';
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { customer, event, holdSeats, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, holdSeats, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor, tokenFor, type TokenOptions } from '../setup/tokens';
@@ -223,7 +223,7 @@ describe('Live seat stream', () => {
       .expect(201);
     await buyer
       .post(`/events/${eventId}/orders`)
-      .send({ quantity: 1, seats: [seat(2, 2)] })
+      .send({ holderName: HOLDER, quantity: 1, seats: [seat(2, 2)] })
       .expect(201);
     await viewer.next(changed('sold', { row: 2, seat: 2 }));
 

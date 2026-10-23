@@ -247,6 +247,8 @@ export async function reserveThenOrder(
     );
   }
   return client.post(`/events/${eventId}/orders`).send({
+    // Spec 017 FR-001 (T031): every order carries the test holder's name.
+    holderName: HOLDER,
     ...(body.tierId ? { tierId: body.tierId } : {}),
     quantity: body.seats.length,
     seats: body.seats,

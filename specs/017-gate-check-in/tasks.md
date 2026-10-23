@@ -275,7 +275,7 @@ event's ticket are each refused with their reason.
 **Independent Test**: buy 3 tickets with a name; all 3 show it on My tickets and the attendee
 list; an order without a name is refused with nothing recorded.
 
-- [ ] T027 [P] [US4] Write `backend/test/integration/orders.holder-name.e2e-spec.ts`
+- [X] T027 [P] [US4] Write `backend/test/integration/orders.holder-name.e2e-spec.ts`
   (contract-checked): no `holderName` and `'   '` are `400 HOLDER_NAME_INVALID` with
   `details.reason: 'MISSING'`; 101 code points `TOO_LONG` and 100 accepted; a tab
   `CONTROL_CHARACTER`; `'1234'` `NO_LETTER`; a refusal records no order and no ticket;
@@ -284,15 +284,15 @@ list; an order without a name is refused with nothing recorded.
   different name `409 REQUEST_ID_REUSED`; `holderName` is in the `createOrder` response, in
   `listMyOrders`, and in `listAttendees`; an order inserted without a name (fixture) returns
   `holderName: null`; a seated order (`reserveThenOrder`) carries the name too.
-- [ ] T028 [P] [US4] Write `customer-app/test/holder-name-field.test.tsx`: the Get tickets form has
+- [X] T028 [P] [US4] Write `customer-app/test/holder-name-field.test.tsx`: the Get tickets form has
   a field labelled **Name on tickets** with the hint "Your name, as on the photo ID you'll show at
   the gate. It goes on every ticket."; **Confirm** is disabled while `holderNameProblem` returns a
   problem, and the field shows `holderNameMessage` for it once touched; the name is sent as
   `holderName`; a `400 HOLDER_NAME_INVALID` from the Backend is shown as an error with the
   quantity, ticket type, seats, and name kept; the seated flow sends it too.
-- [ ] T029 [P] [US4] Update `customer-app/test/my-tickets.test.tsx`: each order shows "Name on
+- [X] T029 [P] [US4] Update `customer-app/test/my-tickets.test.tsx`: each order shows "Name on
   tickets: Jordan Lee", or "No name on ticket" when `holderName` is `null`.
-- [ ] T030 [US4] In `backend/src/orders/dto/create-order.dto.ts`, add `holderName` as
+- [X] T030 [US4] In `backend/src/orders/dto/create-order.dto.ts`, add `holderName` as
   `@IsOptional() @IsString() @MaxLength(400)` (a missing name must reach the service, research R2).
   In `backend/src/orders/orders.service.ts`:
   - At the top of `create()`, before the transaction: if `holderNameProblem(dto.holderName)` is a
@@ -303,24 +303,24 @@ list; an order without a name is refused with nothing recorded.
   - Store it in `order.create` as `holderName`.
   - In the replay check, add `earlier.holderName === name` to `same`.
   - Add `holderName` to `OrderResponse` and `toOrderResponse`.
-- [ ] T031 [US4] Add `holderName: HOLDER` (from `backend/test/setup/fixtures.ts`) to every order
+- [X] T031 [US4] Add `holderName: HOLDER` (from `backend/test/setup/fixtures.ts`) to every order
   that existing Backend tests place: the body `reserveThenOrder` sends in
   `backend/test/setup/fixtures.ts` (deferred from T008), and each body posted to `/events/{id}/orders` in
   `backend/test/integration/` (about 35 calls in 23 files; find them with
   `grep -rn 'orders`)' backend/test`). Change nothing else in those tests.
-- [ ] T032 [US4] First add to `backend/test/integration/demo-data.e2e-spec.ts` that every demo
+- [X] T032 [US4] First add to `backend/test/integration/demo-data.e2e-spec.ts` that every demo
   order has a name, and confirm it fails (Constitution VI). Then, in
   `backend/src/scripts/demo-data.ts`, give every demo order a `holderName` from a fixed list of 20
   sample names, indexed by the demo customer's number (research R13), until it passes.
-- [ ] T033 [US4] In `customer-app/src/components/GetTickets.tsx`, add the **Name on tickets** field
+- [X] T033 [US4] In `customer-app/src/components/GetTickets.tsx`, add the **Name on tickets** field
   above **Confirm** for both general admission and seated orders, validated with
   `holderNameProblem` and `holderNameMessage`, sent as `holderName`, and kept on a refusal
   (Constitution IV). In `customer-app/src/pages/MyTickets.tsx`, show "Name on tickets: <name>" or
   "No name on ticket" on each order.
-- [ ] T034 [US4] In `contracts/openapi.yaml`, add `holderName` to `required` in `OrderInput` and in
+- [X] T034 [US4] In `contracts/openapi.yaml`, add `holderName` to `required` in `OrderInput` and in
   `Order`, and remove the two "Required once 017 is implemented" sentences (in `createOrder`'s
   description and in each schema's `holderName` description); run `npm run generate:api`.
-- [ ] T035 [US4] Run T027–T029, then the full Backend and Customer app suites, until they pass.
+- [X] T035 [US4] Run T027–T029, then the full Backend and Customer app suites, until they pass.
 
 **Checkpoint**: every new order has a valid name, shown to customers and gate agents.
 

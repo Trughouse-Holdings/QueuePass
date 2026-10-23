@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { CustomerLimit, SeatMap } from '@queuepass/shared';
-import { availability, event, json, order, renderCustomer, stubApi, tier } from './helpers';
+import { availability, event, json, order, renderCustomer, stubApi, tier, typeHolderName } from './helpers';
 
 /**
  * Spec 012 FR-010, FR-014 (research R8, R10): key controls and every status message carry the
@@ -17,8 +17,10 @@ const routes = (orderReply?: Response | (() => Response)) => ({
   ...(orderReply ? { 'POST /events/e1/orders': orderReply } : {}),
 });
 
-const confirm = async () =>
+const confirm = async () => {
+  await typeHolderName();
   fireEvent.click(await screen.findByRole('button', { name: 'Confirm order' }));
+};
 
 describe('buttons', () => {
   it('the Get tickets confirm button is the primary button', async () => {

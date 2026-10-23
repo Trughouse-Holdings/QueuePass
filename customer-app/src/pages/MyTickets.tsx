@@ -50,6 +50,9 @@ function OrderCard({ order: o }: { order: MyOrder }) {
             <dd>{o.tierName}</dd>
           </>
         )}
+        {/* Spec 017 FR-004, FR-005: the holder's name, or plainly no name for older orders. */}
+        <dt>Name on tickets</dt>
+        <dd>{o.holderName ?? 'No name on ticket'}</dd>
         <dt>Quantity</dt>
         <dd>{o.quantity}</dd>
         <dt>Total</dt>

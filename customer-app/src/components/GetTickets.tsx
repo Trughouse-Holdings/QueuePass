@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ORDER_LIMITS,
+  holderNameMessage,
+  holderNameProblem,
   type Availability,
   type ErrorEnvelope,
   type Event,
@@ -73,6 +75,10 @@ export function GetTickets({ event }: { event: Event }) {
 
   const [tierId, setTierId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  // Spec 017 FR-001 (research R2, R12): the buyer's name, on every ticket of the order. The
+  // shared rule is a preview; the Backend decides (Constitution IV).
+  const [holderName, setHolderName] = useState('');
+  const [nameTouched, setNameTouched] = useState(false);
   const [phase, setPhase] = useState<Phase>({ kind: 'choosing' });
   // FR-006: the Backend's reason for the last refusal, in its own words.
   const [notice, setNotice] = useState<string | null>(null);
@@ -302,8 +308,14 @@ export function GetTickets({ event }: { event: Event }) {
         .map((k) => k.slice(section.sectionId.length + 1))
     : [];
   const chosenCount = seated ? seats.length + mine.length : Math.min(quantity, maxQuantity);
+  // Spec 017 FR-001: no order without a valid name; reserving seats needs none.
+  const nameProblem = holderNameProblem(holderName);
   const canConfirm =
-    price !== undefined && ticketsLeft > 0 && chosenCount > 0 && phase.kind === 'choosing';
+    price !== undefined &&
+    ticketsLeft > 0 &&
+    chosenCount > 0 &&
+    nameProblem === null &&
+    phase.kind === 'choosing';
   const canReserve = price !== undefined && seats.length > 0 && phase.kind === 'choosing';
 
   const choose = (change: () => void): void => {
@@ -431,6 +443,7 @@ export function GetTickets({ event }: { event: Event }) {
         params: { path: { id } },
         body: {
           ...(chosen ? { tierId: chosen.id } : {}),
+          holderName,
           quantity: seated ? buying.length : chosenCount,
           requestId: requestId.current,
           ...(seated
@@ -590,6 +603,25 @@ export function GetTickets({ event }: { event: Event }) {
         {limit !== null && (
           <p className="note">{`Limit: ${tickets(limit.limit)} per customer. You can get ${limit.remaining} more.`}</p>
         )}
+        {/* Spec 017 FR-001: one name, the buyer's own, on every ticket of the order. */}
+        <div className="holder-name">
+          <label htmlFor="holder-name">Name on tickets</label>
+          <input
+            id="holder-name"
+            type="text"
+            value={holderName}
+            autoComplete="name"
+            aria-describedby="holder-name-hint"
+            onChange={(e) => choose(() => setHolderName(e.target.value))}
+            onBlur={() => setNameTouched(true)}
+          />
+          <p id="holder-name-hint" className="note">
+            Your name, as on the photo ID you&apos;ll show at the gate. It goes on every ticket.
+          </p>
+          {nameTouched && nameProblem !== null && (
+            <p className="banner banner--error">{holderNameMessage(nameProblem)}</p>
+          )}
+        </div>
         {seated ? (
           section && (
             <>

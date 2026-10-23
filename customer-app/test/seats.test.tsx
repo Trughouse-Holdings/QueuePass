@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { SeatMap } from '@queuepass/shared';
-import { availability, event, json, order, renderCustomer, stubApi, tier } from './helpers';
+import { availability, event, json, order, renderCustomer, stubApi, tier, typeHolderName } from './helpers';
 
 /** Spec 007 US2 (FR-007, FR-008, FR-011): choosing seats in the Get tickets form. */
 afterEach(() => vi.unstubAllGlobals());
@@ -289,12 +289,14 @@ describe('confirming seats (US2-3; FR-008, FR-011)', () => {
     fireEvent.click(seatButton(1, 1));
     fireEvent.click(seatButton(1, 3));
     fireEvent.click(screen.getByRole('button', { name: 'Reserve seats' }));
+    await typeHolderName();
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm purchase' }));
 
     const done = await screen.findByRole('region', { name: 'Order confirmed' });
     const post = calls.find((c) => c.path === '/events/e1/orders');
     expect(post?.body).toEqual({
       tierId: 't-vip',
+      holderName: 'Jordan Lee',
       quantity: 2,
       requestId: expect.any(String),
       seats: [
