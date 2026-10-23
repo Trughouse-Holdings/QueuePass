@@ -80,7 +80,14 @@ and confirm they **fail** before the implementation tasks below them.
   `EntryState` (`'ADMITTABLE' | 'USED' | 'VOID' | 'OTHER_EVENT' | 'NOT_OPEN' | 'ENDED'`),
   `EntryTicket`, `AdmitInput`, `EntryResult`, and `EntryTicketRef`, field for field as in
   `contracts/openapi.yaml`; export them from `packages/shared/src/index.ts`.
-- [ ] T006 Add `holderName String?` to `model Order`, and `checkedInBySub String?` and
+- [ ] T006 [P] Write `backend/test/integration/gate-check-in.constraints.e2e-spec.ts`, writing
+  directly with `ctx.prisma` (raw SQL where Prisma would trim): `holderName` `''`, `' Jordan'`,
+  `'Jordan '`, and 101 characters are refused by `order_holder_name_valid`; 100 characters and
+  `NULL` are accepted; `checkedInBySub` without `checkedInAt`, and `checkedInBySub` without
+  `checkedInByUsername`, are refused by `ticket_entry_agent`; `checkedInAt` with no agent is
+  accepted (demo check-ins from before this feature). Confirm it fails: the columns and CHECKs
+  don't exist yet (Constitution VI).
+- [ ] T007 Add `holderName String?` to `model Order`, and `checkedInBySub String?` and
   `checkedInByUsername String?` to `model Ticket`, in `backend/prisma/schema.prisma`, with the
   comments shown in data-model.md. Create
   `backend/prisma/migrations/<timestamp>_gate_check_in/migration.sql` with exactly the SQL in
@@ -88,15 +95,12 @@ and confirm they **fail** before the implementation tasks below them.
   `"order_holder_name_valid"` (`"holderName" IS NULL OR (char_length("holderName") BETWEEN 1 AND
   100 AND "holderName" = btrim("holderName"))`), the two `"Ticket"` columns, and the CHECK
   `"ticket_entry_agent"` (both agent columns `NULL`, or both set and `"checkedInAt" IS NOT NULL`).
-  No backfill, no index. Apply with `prisma migrate deploy` (never `db push`).
-- [ ] T007 [P] Write `backend/test/integration/gate-check-in.constraints.e2e-spec.ts`, writing
-  directly with `ctx.prisma` (raw SQL where Prisma would trim): `holderName` `''`, `' Jordan'`,
-  `'Jordan '`, and 101 characters are refused by `order_holder_name_valid`; 100 characters and
-  `NULL` are accepted; `checkedInBySub` without `checkedInAt`, and `checkedInBySub` without
-  `checkedInByUsername`, are refused by `ticket_entry_agent`; `checkedInAt` with no agent is
-  accepted (demo check-ins from before this feature). Run until it passes against T006.
-- [ ] T008 In `backend/test/setup/fixtures.ts`: add `export const HOLDER = 'Test Holder'`; add
-  `holderName: HOLDER` to the body `reserveThenOrder` sends; add `agent(ctx, n = 1)` returning
+  No backfill, no index. Apply with `prisma migrate deploy` (never `db push`). Run T006 until it
+  passes.
+- [ ] T008 In `backend/test/setup/fixtures.ts`: add `export const HOLDER = 'Test Holder'` — but do
+  **not** make `reserveThenOrder` send it yet: until T030 lets the order DTO accept the field, the
+  ValidationPipe (`forbidNonWhitelisted`) turns every seated-order test `400`; T031 adds it. Add
+  `agent(ctx, n = 1)` returning
   `as(ctx, await tokenFor({ username: 'agent' + n, roles: ['gate-agent'] }))`; add
   `eventAroundNow(ctx, venueId, { startsInSeconds, lastsSeconds, tierId? })`, which reads
   `SELECT now()` from the database and creates the event with `ctx.prisma` at
@@ -134,8 +138,9 @@ see "Already used" with the time; the attendee list shows it checked in.
   `'agent1'`; the next lookup is `USED` with `usedAt`; a second admit is `409 ENTRY_REFUSED` with
   `details.reason: 'USED'` and `details.usedAt`; `wholeOrder: true` on a fresh order of 4 admits 4;
   with one already used it admits 3 and lists the 4th in `alreadyUsed`; it never admits another
-  order's tickets, even the same customer's at the same event; an unknown `ticketId` is `404
-  TICKET_NOT_FOUND`.
+  order's tickets, even the same customer's at the same event; a ticket of an order with no name
+  (`orderWithTickets`) is admitted once and then refused as used, like any other (SC-007); an
+  unknown `ticketId` is `404 TICKET_NOT_FOUND`.
 - [ ] T011 [P] [US1] Write `backend/test/integration/entry.authz.e2e-spec.ts`: both operations
   answer `401` with no token, an expired token, and a wrongly signed one; `403` for a customer and
   for an admin; and succeed for a gate agent (FR-016, Constitution V).
@@ -149,7 +154,10 @@ see "Already used" with the time; the attendee list shows it checked in.
   true`, and shows "✓ 4 admitted", or "✓ 3 admitted · 1 already used at <time>" for a partial
   result; **Refuse** posts nothing and shows "✕ Not admitted"; the buttons are disabled while a
   request is in flight; the result is in a `role="status"` region and stays until the next lookup;
-  a `409 ENTRY_REFUSED` from **Admit** is shown as a refusal with its reason.
+  a `409 ENTRY_REFUSED` from **Admit** is shown as a refusal with its reason; a failed request
+  (network error) on a lookup or an admit shows a plain error, records nothing, and re-enables the
+  controls (Constitution IV); a `401` on an admit sends the agent to sign in, and the chosen event
+  is still there afterwards (Edge Cases).
 - [ ] T013 [P] [US1] Update `booth-app/test/app.test.tsx`: the hello-world greeting is gone; the
   sign-in gate, the wrong-role refusal, and logout keep their tests.
 
@@ -296,12 +304,14 @@ list; an order without a name is refused with nothing recorded.
   - In the replay check, add `earlier.holderName === name` to `same`.
   - Add `holderName` to `OrderResponse` and `toOrderResponse`.
 - [ ] T031 [US4] Add `holderName: HOLDER` (from `backend/test/setup/fixtures.ts`) to every order
-  that existing Backend tests place: each body posted to `/events/{id}/orders` in
+  that existing Backend tests place: the body `reserveThenOrder` sends in
+  `backend/test/setup/fixtures.ts` (deferred from T008), and each body posted to `/events/{id}/orders` in
   `backend/test/integration/` (about 35 calls in 23 files; find them with
   `grep -rn 'orders`)' backend/test`). Change nothing else in those tests.
-- [ ] T032 [US4] In `backend/src/scripts/demo-data.ts`, give every demo order a `holderName` from
-  a fixed list of 20 sample names, indexed by the demo customer's number (research R13). Update
-  `backend/test/integration/demo-data.e2e-spec.ts` to check every demo order has a name.
+- [ ] T032 [US4] First add to `backend/test/integration/demo-data.e2e-spec.ts` that every demo
+  order has a name, and confirm it fails (Constitution VI). Then, in
+  `backend/src/scripts/demo-data.ts`, give every demo order a `holderName` from a fixed list of 20
+  sample names, indexed by the demo customer's number (research R13), until it passes.
 - [ ] T033 [US4] In `customer-app/src/components/GetTickets.tsx`, add the **Name on tickets** field
   above **Confirm** for both general admission and seated orders, validated with
   `holderNameProblem` and `holderNameMessage`, sent as `holderName`, and kept on a refusal
@@ -370,8 +380,9 @@ as typing its code.
 - [ ] T042 [P] [US6] Add to `backend/test/integration/entry.admit.e2e-spec.ts`: after two admits,
   `getSalesReport`'s checked-in count for the event rises by 2, `listAttendees` shows both tickets'
   `checkedInAt`, and the buyer's `listMyOrders` shows them too (FR-020, FR-021, SC-005).
-- [ ] T043 [US6] Add the **Name on tickets** column to `admin-app/src/pages/Attendees.tsx`. Run
-  T041 and T042 until they pass.
+- [ ] T043 [US6] In `admin-app/src/pages/Attendees.tsx`, add the **Name on tickets** column, and
+  show each checked-in ticket's time of entry — today the list says only "✓ checked in"; T041
+  expects the time (FR-020). Run T041 and T042 until they pass.
 
 **Checkpoint**: every story works on its own and together.
 
@@ -379,13 +390,13 @@ as typing its code.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T044 In `backend/src/scripts/demo-data.ts` (research R13): add "Demo Tonight" at Demo
-  Riverside Hall, starting 1 hour after the demo data runs and ending 4 hours after, at least
-  60 minutes from every other demo event at that venue; give it named orders with unused tickets,
-  including one order of 4; and record `checkedInBySub: 'demo-agent1'` and `checkedInByUsername:
-  'agent1'` on the check-ins the demo data already makes. Update
-  `backend/test/integration/demo-data.e2e-spec.ts` (Demo Tonight's entry window is open right after
-  loading; the check-ins have an agent).
+- [ ] T044 First add to `backend/test/integration/demo-data.e2e-spec.ts` that Demo Tonight's entry
+  window is open right after loading and that the demo check-ins record an agent, and confirm it
+  fails (Constitution VI). Then, in `backend/src/scripts/demo-data.ts` (research R13): add "Demo
+  Tonight" at Demo Riverside Hall, starting 1 hour after the demo data runs and ending 4 hours
+  after, at least 60 minutes from every other demo event at that venue; give it named orders with
+  unused tickets, including one order of 4; and record `checkedInBySub: 'demo-agent1'` and
+  `checkedInByUsername: 'agent1'` on the check-ins the demo data already makes, until it passes.
 - [ ] T045 [P] Update `README.md`: the `017` row in the status table; "Today" says gate agents check
   tickets in by code or camera, once each, with an ID check against the name on the order; how to
   sign in to the Ticket Booth app (`agent1` / `test123`); the optional phone step from research R10
@@ -397,7 +408,7 @@ as typing its code.
   the front ends' coverage if a provider is installed) in the PR description. The 80% floor is not
   yet blocking (Constitution VI deferral until `010` and `011`).
 - [ ] T048 Running-system gate: `docker compose up --build` from a fresh clone, then walk
-  quickstart.md S0–S8 in the browser (S9 if an Android phone is at hand), and sign in, use, and
+  quickstart.md S0–S9 in the browser (S10 if an Android phone is at hand), and sign in, use, and
   sign out of each front end. Record the results in this file.
 - [ ] T049 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
@@ -421,8 +432,8 @@ as typing its code.
 
 ## Parallel Opportunities
 
-- Phase 2: T003 and T005 and T007 in parallel (different workspaces); T004 after T003; T006 before
-  T007 runs.
+- Phase 2: T003, T005, and T006 in parallel (different workspaces); T004 after T003; T006 before
+  T007 (its tests fail first; the migration makes them pass).
 - US1: T009–T013 all in parallel; T014–T017 (Backend) alongside T020 (Ticket Booth app).
 - US3: T024 and T025 in parallel.
 - US4: T027, T028, T029 in parallel; T030 and T033 in parallel after them.

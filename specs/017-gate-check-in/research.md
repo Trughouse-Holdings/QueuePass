@@ -259,8 +259,9 @@ tested, since the contract still declares it.
   customer's choices kept (Constitution IV).
 - **My tickets**: each order shows "Name on tickets: Jordan Lee" or "No name on ticket", and each
   valid, unused ticket gets **Print ticket** (R8). "Used" already shows the time (FR-021).
-- **Admin attendee list**: a **Name on tickets** column; "No name on ticket" for older orders. The
-  checked-in counts and times already come from `checkedInAt` (FR-020).
+- **Admin attendee list**: a **Name on tickets** column; "No name on ticket" for older orders; and
+  the time of entry on each checked-in ticket (today the list says only "✓ checked in", without
+  the time). The checked-in counts already come from `checkedInAt` (FR-020).
 - **Sales report**: no change. It already counts valid tickets with a `checkedInAt`, so real entries
   appear there (SC-005).
 

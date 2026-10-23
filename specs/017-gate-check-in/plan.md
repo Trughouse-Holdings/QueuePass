@@ -90,7 +90,7 @@ Evaluated against constitution **v3.1.2** (this PR's PATCH included).
 
 ```text
 specs/017-gate-check-in/
-├── spec.md, plan.md, research.md (R1–R14), data-model.md, quickstart.md (S0–S9), tasks.md
+├── spec.md, plan.md, research.md (R1–R14), data-model.md, quickstart.md (S0–S10), tasks.md
 ├── checklists/requirements.md
 └── contracts/README.md
 

@@ -91,7 +91,17 @@ Sign in to the Ticket Booth app as `customer1`. **Expect**: told plainly that th
 agents, with no data, as today (spec 001). The automated suite covers the API directly: customers,
 admins, and missing tokens are refused on both operations.
 
-## S9 (optional): Scan with an Android phone (FR-009a)
+## S9: Phone width, keyboard, and long names (FR-023, Edge Cases)
+
+As **Gate 1**, open the browser's device toolbar at 360 × 640. **Expect**: no horizontal scroll,
+and **Admit**, **Refuse**, and **Scan** are comfortable touch targets. Repeat S3's lookup with the
+keyboard alone (Tab and Enter). **Expect**: every control is reachable, and the result is
+announced by a screen reader if one is running (FR-024). As **Customer**, buy 1 ticket for Demo
+Tonight with the name `Wolfeschlegelsteinhausenbergerdorff 木村拓哉之介`, then look it up at the
+gate at that width. **Expect**: the name is shown in full, wrapped, on **My tickets**, the print
+view, and the Ticket Booth result.
+
+## S10 (optional): Scan with an Android phone (FR-009a)
 
 Connect an Android phone with USB debugging on. In desktop Chrome, open `chrome://inspect`, choose
 **Port forwarding**, and add `5175`, `8080`, and `3000`, each to `localhost:` the same port. On the
@@ -110,3 +120,4 @@ can't do this step (research R10).
 | S5 | `wholeOrder` against single admits; 20 simultaneous admits |
 | S7 | attendee list and report figures after admits |
 | S8 | `401`/`403` on both operations |
+| S9 | states, controls, and the live region are tested in the apps; width and wrapping are checked by eye |
