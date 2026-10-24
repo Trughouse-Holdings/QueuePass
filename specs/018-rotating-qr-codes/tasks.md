@@ -551,6 +551,24 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
   against spec.md and plan.md; fix the findings. One review is required; another round is optional
   (Constitution 3.3.0, in this PR). Record the review and any open finding here and in the PR
   description.
+  **Round 1, 2026-10-24** (a fresh-context Claude subagent of the implementing session, as for
+  017's in-session rounds; given the spec, plan, and code, not the author's conclusions): no
+  CRITICAL. Fixed: **M1** the "new code within 1 second" tests passed with a 7-second refresh
+  (the page mounted on a boundary-aligned instant and `waitFor` kept advancing fake time); they
+  now mount 10.37 s into a window and fail once 1 s past the boundary has gone by (fail at
+  `TICK_MS` 1900 and 7000, checked). **L1** a failing `liveCode()` (no Web Crypto off a secure
+  origin) left "Getting your entry code…" forever; now it says so. **L2** the clock offset rode
+  the device's wall clock, so a time sync while the page is open shifted every code; it now uses
+  `performance.now()` (new clock-jump test). **L3** a 500 from My tickets said "no connection" with
+  no Try again; orders and key now load together, a server error is the standard error, Try
+  again retries both, and the no-connection and refusal messages are `role="alert"`. **L4** the
+  Booth repeated the live-code regex; it uses the shared `parseLiveCode`. **L5** README said
+  "Done (41 tasks)"; now 38/41. **Open, for the user to decide (a spec change, not code):** **H1**
+  FR-010 says a code keeps working offline once **My tickets** has loaded the ticket online;
+  research R5/R8 and the code need the **Show entry code** page itself opened online, so opening
+  it (or another ticket's) for the first time with no signal fails. **L6** R8 says a reload with
+  no signal reaches the no-connection message; it bounces to Keycloak first (quickstart S6 already
+  says so).
 - [ ] T041 Once the spec and plan PR has merged (Constitution 3.2.0), bring the branch up to `main`
   and open the implementation PR against `main`, assigned to `nathan-707`, with `fixes #41` on its
   own line in the **description** only (see Issue above). The description records: the review
