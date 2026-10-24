@@ -31,7 +31,7 @@ const AUDIENCE_MAPPER: ProtocolMapperRepresentation = {
  * Authorization Code flow with PKCE S256 only, and no password grant, so no front end can
  * ever accept a password (FR-010).
  */
-function desiredClient(c: (typeof FRONTEND_CLIENTS)[number]): ClientRepresentation {
+export function desiredClient(c: (typeof FRONTEND_CLIENTS)[number]): ClientRepresentation {
   const origin = `http://localhost:${c.port}`;
   return {
     clientId: c.clientId,

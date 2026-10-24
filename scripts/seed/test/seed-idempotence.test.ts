@@ -76,9 +76,12 @@ describe('Keycloak seed idempotence', () => {
       expect(c.implicitFlowEnabled).toBe(false);
       expect(c.serviceAccountsEnabled).toBe(false);
       expect(c.attributes?.['pkce.code.challenge.method']).toBe('S256');
-      expect(c.redirectUris).toEqual([`http://localhost:${port}/*`]);
+      // Exact URIs, no wildcard (constitution, OIDC clients; research R6; #60).
+      expect(c.redirectUris).toEqual([`http://localhost:${port}/`]);
       expect(c.webOrigins).toEqual([`http://localhost:${port}`]);
-      expect(c.attributes?.['post.logout.redirect.uris']).toBe(`http://localhost:${port}/*`);
+      expect(c.attributes?.['post.logout.redirect.uris']).toBe(`http://localhost:${port}/`);
+      expect(c.attributes?.['use.refresh.tokens']).toBe('true');
+      expectNoWildcard(c);
 
       const defaults = await kc.clients.listDefaultClientScopes({ realm, id: c.id! });
       const names = defaults.map((s) => s.name);
@@ -106,7 +109,53 @@ describe('Keycloak seed idempotence', () => {
     const [after] = await kc.clients.find({ realm, clientId: 'admin-app' });
     expect(after.directAccessGrantsEnabled).toBe(false);
   });
+
+  it('repairs drift: a wildcard redirect URI set by hand is replaced by the exact list (#60)', async () => {
+    if (!available) return;
+
+    await seed();
+    const kc = await createKeycloakClient();
+    for (const { clientId, port } of FRONTEND_CLIENTS) {
+      const [c] = await kc.clients.find({ realm, clientId });
+      const origin = `http://localhost:${port}`;
+      await kc.clients.update(
+        { realm, id: c.id! },
+        {
+          ...c,
+          redirectUris: [`${origin}/*`],
+          attributes: { ...c.attributes, 'post.logout.redirect.uris': `${origin}/*` },
+        },
+      );
+      const [drifted] = await kc.clients.find({ realm, clientId });
+      expect(drifted.redirectUris, clientId).toEqual([`${origin}/*`]);
+    }
+
+    await seed();
+
+    for (const { clientId, port } of FRONTEND_CLIENTS) {
+      const [after] = await kc.clients.find({ realm, clientId });
+      const origin = `http://localhost:${port}`;
+      expect(after.redirectUris, clientId).toEqual([`${origin}/`]);
+      expect(after.attributes?.['post.logout.redirect.uris'], clientId).toBe(`${origin}/`);
+      expectNoWildcard(after);
+    }
+  });
 });
+
+function expectNoWildcard(c: {
+  clientId?: string;
+  redirectUris?: string[];
+  webOrigins?: string[];
+  attributes?: Record<string, unknown>;
+}): void {
+  const uris = [
+    ...(c.redirectUris ?? []),
+    ...(c.webOrigins ?? []),
+    // Keycloak joins several post-logout URIs into one attribute with "##".
+    ...String(c.attributes?.['post.logout.redirect.uris'] ?? '').split('##'),
+  ];
+  for (const uri of uris) expect(uri, `${c.clientId}: ${uri}`).not.toContain('*');
+}
 
 async function clientIds(kc: KcAdminClient): Promise<Record<string, string | undefined>> {
   const ids: Record<string, string | undefined> = {};
