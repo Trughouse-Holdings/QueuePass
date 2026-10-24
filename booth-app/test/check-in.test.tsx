@@ -193,6 +193,15 @@ describe('Typed lookup and the ID check (FR-008, FR-010, FR-014)', () => {
     expect(screen.queryByRole('button', { name: /Admit all/ })).not.toBeInTheDocument();
   });
 
+  it('says "General admission" for a ticket with no tier (FR-010)', async () => {
+    stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: json(ticket({ tierName: null })) });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user);
+    const result = await screen.findByRole('status');
+    expect(await within(result).findByText('General admission')).toBeInTheDocument();
+  });
+
   it('prompts for a valid ID only when the ticket has no name (FR-005)', async () => {
     stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: json(ticket({ holderName: null })) });
     const user = userEvent.setup();
