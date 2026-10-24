@@ -33,7 +33,7 @@
   `datetime-local` in the venue's zone, refuses skipped times, and asks about repeated ones; the
   venue form and pages show and correct the zone; date filters use the venue's local day
   (`fromDate`/`toDate`); the booth formats in the event's zone; countdowns unchanged (R12–R17).
-- **Contract 1.12.0** in this PR: `UsTimeZone`, `TimeZoneSource`, `timeZone` on `Location`,
+- **Contract 1.13.0** in this PR (rebased onto `019`'s 1.12.0): `UsTimeZone`, `TimeZoneSource`, `timeZone` on `Location`,
   `LocationInput`, `LocationUpdate`, `OrderEvent.location`, `EventSales`, `EntryTicket.event`;
   `fromDate`/`toDate`; `EventTimeRejected`; five codes (also in `ERROR_CODES`). New response
   fields not `required`, so `main` stays green; no new operation, so no `x-planned` (R16, R18).
@@ -43,12 +43,11 @@
   before the PR; two independent review rounds at least; the migration run on a copy of real data;
   the browser check repeated for two zones and a DST date (R20, R21, tasks.md ground rules).
 
-**Expected merge order with `019`**: `019`'s spec PR (#50) also takes contract 1.12.0 and adds
-`address` to `OrderEvent.location`, and is expected to merge first. This branch then rebases onto
-`main`, takes **1.13.0**, keeps both `OrderEvent.location` additions (`address` from `019`,
-`timeZone` from this feature), reruns `npm run generate:api` and
-`node scripts/check-contract-drift.mjs`, and updates the version in this plan, research R18, and
-contracts/README.md (research R18).
+**Merge order with `019`**: `019`'s spec PR (#82) merged first (`main` 17ad895, contract 1.12.0,
+`address` added to `OrderEvent.location`). This branch is rebased onto it, takes **1.13.0**, keeps
+both `OrderEvent.location` additions (`address` from `019`, `timeZone` from this feature), and
+reran `npm run generate:api` and `node scripts/check-contract-drift.mjs` (research R18). `019`'s
+Customer app `TZ` pin stays; the multi-zone runs override it with `QP_TEST_TZ` (research R20).
 
 ## Technical Context
 
@@ -94,7 +93,7 @@ dependencies (`002`, `003`, `013`) are on `main`.
 
 | Principle | Pre | Post | Evidence |
 |---|---|---|---|
-| **I. API-Only, Contract First** | PASS | **PASS** | Contract 1.12.0 and regenerated types in this PR, before any code; drift check passes. Every changed operation declares its new errors (`AddressRejected` example, `EventTimeRejected`, `updateLocation` `409` examples). Five codes in the standard envelope and in `ERROR_CODES`. Apps call through the generated types; no new operation, so the route-coverage test is unaffected. |
+| **I. API-Only, Contract First** | PASS | **PASS** | Contract 1.13.0 and regenerated types in this PR, before any code; drift check passes. Every changed operation declares its new errors (`AddressRejected` example, `EventTimeRejected`, `updateLocation` `409` examples). Five codes in the standard envelope and in `ERROR_CODES`. Apps call through the generated types; no new operation, so the route-coverage test is unaffected. |
 | **Quality gate 2 (contract before code)** | — | **PASS** | `contracts/openapi.yaml`, `api-schema.ts`, and `errors.ts` change in this PR only; the implementation does not change the contract except the follow-up in R18, a separate PR. |
 | **II. One Repo, One Command** | PASS | **PASS** | No new service, volume, or variable. `geo-tz`'s data ships in the package, so the Backend image works offline. The migration runs at startup. Seed unchanged; demo data works offline (R19). |
 | **III. Spec-Driven, Reviewed** | PASS | **PASS** | Issue #42; spec and plan on `020-venue-time-zones-spec`, independently reviewed (at least two rounds, Mahdi 2026-10-24) before the PR; implementation on `020-venue-time-zones-impl` in a fresh session, `fixes #42`. Commits cite `Spec 020`/`Plan 020`/`Tasks 020`. |
@@ -114,7 +113,7 @@ specs/020-venue-time-zones/
 ├── checklists/requirements.md
 └── contracts/README.md
 
-contracts/~ openapi.yaml                                     # 1.12.0 (this PR)
+contracts/~ openapi.yaml                                     # 1.13.0 (this PR)
 packages/shared/src/~ api-schema.ts, ~ errors.ts              # this PR (R18)
 ```
 
@@ -123,7 +122,9 @@ Implementation (`020-venue-time-zones-impl`; `+` new, `~` changed):
 ```text
 package.json~                                   # test:tz; npm test reruns the time tests in LA (R20)
 scripts/+ test-tz.mjs                           # runs suites per device zone, from Node (R20)
-scripts/test/+ test-tz.test.mjs                 # the script's own tests (zones, exit codes)
+scripts/test/+ test-tz.test.mjs                 # the script's own tests (zones, build step, exit codes)
+scripts/test/+ seed-image.test.mjs              # the seed image installs only its workspaces (R1)
+scripts/seed/~ Dockerfile                       # npm ci for seed + shared only; geo-tz guard (R1)
 README.md~                                      # 020 row; zones; test:tz; geo-tz/ODbL attribution
 
 packages/shared/src/+ time-zone.ts              # R2, R3, R11
@@ -131,6 +132,7 @@ packages/shared/src/~ index.ts                  # export it
 packages/shared/test/+ time-zone.test.ts        # R20 exhaustive DST tests
 
 backend/package.json~                           # geo-tz 8.1.10
+backend/+ jest.unit.config.ts                   # unit tests without Testcontainers (R20)
 backend/prisma/~ schema.prisma                  # TimeZoneSource, Location.timeZone/Source
 backend/prisma/migrations/+ <ts>_venue_time_zones/migration.sql   # R6
 backend/src/address/~ address-geocoder.ts, ~ census-geocoder.ts   # match.location (R1)
@@ -143,7 +145,8 @@ backend/src/events/~ events.service.ts          # R9, R10, R15
 backend/src/events/+ event-time.ts              # checkEventTime (R9)
 backend/src/events/~ scheduling-conflict.exception.ts   # venue-local message, details.event
 backend/src/events/dto/~ list-events.query.ts   # fromDate, toDate
-backend/src/common/~ venue-lock.ts              # lockVenueShared (R10)
+backend/src/common/~ venue-lock.ts              # zone under the lock, lockAllVenueEvents,
+                                                #   lockVenueShared (R8, R10)
 backend/src/orders/~ orders.service.ts         # my orders: OrderEvent.location.timeZone (R16)
 backend/src/reports/~ reports.service.ts        # EventSales.timeZone (R16)
 backend/src/entry/~ entry.service.ts            # EntryTicket.event.timeZone, details.event (R16)
@@ -159,7 +162,8 @@ admin-app/src/~ format.ts; pages/~ EventForm.tsx, EventList.tsx, EventDetail.tsx
 admin-app/test/+ event-form.tz.test.tsx, + venue-time-zone.test.tsx, + times.tz.test.tsx
 customer-app/src/~ format.ts, filters.ts; components/~ EventCard.tsx, GetTickets.tsx;
     pages/~ EventDetail.tsx, MyTickets.tsx, PrintTicket.tsx, EntryCode.tsx
-customer-app/~ vitest.config.ts                 # remove the TZ pin (R20)
+customer-app/~ vitest.config.ts                 # TZ: QP_TEST_TZ || America/New_York (R20)
+admin-app/~, booth-app/~, packages/shared/~ vitest.config.ts   # TZ from QP_TEST_TZ when set (R20)
 customer-app/test/+ times.tz.test.tsx; ~ format.test.ts, filters.test.ts
 booth-app/src/~ format.ts, EntryResult.tsx, EventPicker.tsx, App.tsx
 booth-app/test/+ times.tz.test.tsx
@@ -173,7 +177,7 @@ because the Backend's refusals and the apps' previews must agree (Constitution I
 
 | Addition | Why needed | Simpler alternative rejected because |
 |---|---|---|
-| `geo-tz` dependency (72 MB in the Backend image, 29 packages) | FR-002: the zone is worked out from the address (Mahdi). Official boundaries matter at US county-line borders, some near Louisville (R1). | `tz-lookup` is 88 KB but its own README reports 5–10% disagreement on inhabited points, worst near borders; a hand-kept county table is maintenance we would own; the state alone is wrong in 15 states. |
+| `geo-tz` dependency (72 MB in the Backend image only, 29 packages; the seed image installs only its own workspaces, with a guard and a test, R1) | FR-002: the zone is worked out from the address (Mahdi). Official boundaries matter at US county-line borders, some near Louisville (R1). | `tz-lookup` is 88 KB but its own README reports 5–10% disagreement on inhabited points, worst near borders; a hand-kept county table is maintenance we would own; the state alone is wrong in 15 states. |
 | `event_no_overlap` made `DEFERRABLE INITIALLY IMMEDIATE` | A zone change moves all of a venue's events; checked per statement, an intermediate state can overlap though the final one does not (R8). | Ordering the updates fails when shifts differ across DST dates; a temporary status flip would weaken the rule mid-transaction. Behavior for every other write is unchanged. |
 | Event writes lock the venue `FOR SHARE` | The zone used to check an event time must be the zone it is saved under, under concurrency (Constitution IV, R10). | No lock leaves a race with a zone change; `FOR UPDATE` would serialize all event writes at a venue. |
 | `fromDate`/`toDate` on `listEvents` | Date filters must agree with the dates shown when venues are in different zones (FR-020). | Converting the viewer's day to instants is wrong for venues in other zones (US1 scenario 6). |

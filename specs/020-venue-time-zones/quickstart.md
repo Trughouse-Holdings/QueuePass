@@ -15,9 +15,52 @@ window for the Customer app (http://localhost:5174, `customer1` / `test123`), an
 Ticket Booth app (http://localhost:5175, `agent1` / `test123`). The laptop must be online for new
 addresses (S3–S5, the Census Geocoder, as in `013`).
 
-To change the **browser's** time zone without changing the laptop's: DevTools → ⋮ → More tools →
-Sensors → Location → "Other…", set a timezone ID (`UTC`, `America/Los_Angeles`), and reload. Record
-each check under both.
+**Two browser zones: done by Mahdi, by hand.** The implementing session walks every step in the
+laptop's own zone (America/New_York). The second and third browser zones are set by **Mahdi** in
+Chrome, without changing the laptop's zone: DevTools → ⋮ → More tools → Sensors → Location →
+"Other…", timezone ID `UTC`, reload, repeat the marked steps; then `America/Los_Angeles`. The
+session's browser tools have no time-zone emulation, and the laptop's Windows zone is a system
+setting the session must not change (research R21). The automated runs under four zones
+(`npm run test:tz`) carry the main proof; this hand check confirms it on the running system. Steps
+marked **(two zones)** are repeated this way, and Mahdi's results are recorded in tasks.md T053.
+
+## Two ways to run the system (research R21)
+
+**A. Where images build**: `docker compose up --build` (S2 onward as written).
+
+**B. Host-run path**, where the image build fails (on this laptop, containers cannot reach package
+servers: `011` T028 recorded "TLS: server certificate not trusted" at `apk add`). From PowerShell
+in the repository root, with Docker Desktop running:
+
+```powershell
+docker compose up -d database keycloak          # existing images, no build
+docker compose stop backend admin-app customer-app booth-app seed 2>$null
+npm ci; npm run build --workspace @queuepass/shared
+npm run prisma:generate --workspace @queuepass/backend
+$env:DATABASE_URL = 'postgresql://queuepass:queuepass@localhost:5432/queuepass?schema=public'
+npx prisma migrate deploy --schema backend/prisma/schema.prisma
+$env:KEYCLOAK_URL = 'http://localhost:8080'; npm run seed   # idempotent
+
+# Backend, in its own window, deliberately NOT in the venues' zone:
+$env:TZ = 'America/Los_Angeles'
+$env:OIDC_ISSUER = 'http://localhost:8080/realms/queuepass'
+$env:OIDC_JWKS_URL = 'http://localhost:8080/realms/queuepass/protocol/openid-connect/certs'
+$env:OIDC_AUDIENCE = 'queuepass-api'
+$env:CORS_ORIGINS = 'http://localhost:5173,http://localhost:5174,http://localhost:5175'
+$env:ADDRESS_GEOCODER_URL = 'https://geocoding.geo.census.gov'
+npm run build --workspace @queuepass/backend; npm run start:prod --workspace @queuepass/backend
+
+# Each app in its own window, on the port its OIDC client's redirect URI names:
+$env:VITE_API_BASE_URL = 'http://localhost:3000'
+$env:VITE_OIDC_AUTHORITY = 'http://localhost:8080/realms/queuepass'
+$env:VITE_OIDC_CLIENT_ID = 'admin-app';    npm run dev --workspace @queuepass/admin-app     # 5173
+$env:VITE_OIDC_CLIENT_ID = 'customer-app'; npm run dev --workspace @queuepass/customer-app  # 5174
+$env:VITE_OIDC_CLIENT_ID = 'booth-app';    npm run dev --workspace @queuepass/booth-app     # 5175
+```
+
+Use the same variable names as `docker-compose.yml` and `.env.example` if any differ from these.
+Check `http://localhost:3000/health` answers before signing in. With path B, record T013's image
+build and S2's container ICU check as "to do where images build"; S2's host ICU check still runs.
 
 Addresses and coordinates below were checked against the live service on 2026-10-24 (research R1).
 
@@ -53,14 +96,16 @@ DATABASE_URL=postgresql://queuepass:queuepass@localhost:55432/queuepass \
 
 ## S2: The stack starts with the new data and ICU zones (US7)
 
-`docker compose up --build`. **Expect**: every service healthy; the Backend log shows the
+Path A: `docker compose up --build`. **Expect**: every service healthy; the Backend log shows the
 migration applied. Then:
 
 ```bash
 docker compose exec backend node -e "console.log(new Intl.DateTimeFormat('en-US',{timeZone:'America/New_York',hour:'numeric',minute:'2-digit',timeZoneName:'short'}).format(new Date('2026-10-01T23:00:00Z')))"
 ```
 
-**Expect**: `7:00 PM EDT` (the Alpine image's ICU knows the zones). The demo venues' pages say
+**Expect**: `7:00 PM EDT` (the Alpine image's ICU knows the zones). Path B: the migration applied
+from the host, and the same `node -e …` on the host prints `7:00 PM EDT`; the container check is
+recorded "to do where images build". The demo venues' pages say
 "Time zone: Eastern Time, the default" (or "from the address" on a fresh database with demo
 data loaded online).
 
@@ -86,7 +131,7 @@ Then a one-zone state: "1 Nowhere Blvd", "Columbus", Ohio, "43215", Save anyway.
 question; "Time zone: Eastern Time, from the state." Delete both test venues afterwards (they have
 no events).
 
-## S5: Entering times in the venue's zone, two venues, two browser zones (US2, FR-014, FR-015)
+## S5: Entering times in the venue's zone, two venues (two zones) (US2, FR-014, FR-015)
 
 Browser zone **America/Los_Angeles**. **Events → New event**: "TZ Check East" at "Demo Riverside
 Hall" (Eastern), Oct 30, 2026, 7:00 PM to 10:00 PM. **Expect** under the fields: "Times are in the
@@ -97,13 +142,13 @@ New event "TZ Check West", 7:00 PM to 10:00 PM, venue Demo Riverside Hall first,
 venue to "Phoenix Test Hall" before saving. **Expect**: the fields still say 7:00 PM and 10:00 PM;
 the line now says Arizona Time (MST). Save. **Expect**: "7:00 PM MST".
 
-Switch the browser zone to **UTC**, reload, and open both events, their edit forms, the event list,
+**(two zones, Mahdi)** Switch the browser zone to **UTC**, reload, and open both events, their edit forms, the event list,
 and each venue page. **Expect**: identical text: 7:00 PM EDT and 7:00 PM MST; the edit forms show
 19:00 and 22:00.
 
 ## S6: Customer and Booth show the venue's time (US1, US6, FR-021, SC-002, SC-003)
 
-In the Customer window, browser zone **America/Los_Angeles**, then **UTC**: the Events list cards,
+In the Customer window (laptop zone; then **(two zones, Mahdi)** America/Los_Angeles and UTC): the Events list cards,
 both event pages, and (after buying one ticket for "TZ Check East") My tickets, the live entry code
 page, and the printable ticket. **Expect**: every time is "7:00 PM EDT" or "7:00 PM MST" (or the
 end times), never 4:00 PM, and the order's "ordered at" time has "EDT".
@@ -111,7 +156,7 @@ end times), never 4:00 PM, and the order's "ordered at" time has "EDT".
 Filter Events from Oct 30 to Oct 30. **Expect**: both test events are listed (each starts on Oct 30
 at its venue), whatever the browser zone.
 
-In the Booth window (browser zone **UTC**), pick "TZ Check East"; look up the ticket bought above
+In the Booth window (laptop zone; then **(two zones, Mahdi)** UTC), pick "TZ Check East"; look up the ticket bought above
 before its entry window. **Expect**: "Entry opens at Oct 30, 2026, 5:00 PM EDT". Pick "TZ Check
 West" and look up the same ticket. **Expect**: "For TZ Check East on Oct 30, 2026, 7:00 PM EDT,
 not this event".
@@ -134,8 +179,8 @@ UTC_OFFSET_MISMATCH`. With `"2026-10-30T23:00:00Z"`: `400 UTC_OFFSET_MISMATCH`.
 At Demo Riverside Hall, new event "Fall Back Show", start **Nov 7, 2027, 1:30 AM**, end 3:30 AM.
 **Expect**: "Which 1:30 AM?" with "1:30 AM EDT (the first time)" and "1:30 AM EST (the second
 time)"; Save refuses until one is chosen. Choose EST and save. **Expect**: "Nov 7, 2027, 1:30 AM
-EST" – "3:30 AM EST". Open its edit form. **Expect**: EST already chosen. Repeat both with the
-browser zone set to UTC.
+EST" – "3:30 AM EST". Open its edit form. **Expect**: EST already chosen. **(two zones, Mahdi)**
+Repeat both with the browser zone set to UTC.
 
 ## S9: Changing a venue's zone (US5, FR-009–FR-012)
 

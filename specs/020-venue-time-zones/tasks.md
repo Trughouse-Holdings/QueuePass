@@ -6,7 +6,7 @@ description: "Task list for Venue Time Zones"
 
 **Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md),
 [data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) →
-[`contracts/openapi.yaml`](../../contracts/openapi.yaml) (1.12.0, already applied),
+[`contracts/openapi.yaml`](../../contracts/openapi.yaml) (1.13.0, already applied),
 [quickstart.md](./quickstart.md)
 
 **Issue**: [#42](https://github.com/Trughouse-Holdings/QueuePass/issues/42). The implementation PR
@@ -22,8 +22,8 @@ and confirm they **fail** before the implementation tasks below them.
   `020-venue-time-zones-spec`, carry in any change its review makes, and rebase onto `main` once it
   merges; do not open the implementation PR before then. A gap in the spec or plan is fixed there,
   not worked around in code.
-- **Do not change the contract** (1.12.0, or 1.13.0 if `019`'s spec PR merged first; types
-  regenerated; the five codes already in `ERROR_CODES`). There is no `x-planned` marker to remove:
+- **Do not change the contract** (1.13.0, on top of `019`'s 1.12.0; types regenerated; the five
+  codes already in `ERROR_CODES`). There is no `x-planned` marker to remove:
   this feature adds no operation. Raise any gap. The `required` lists are tightened in a separate
   PR after merge (T055).
 - **Always send the new fields**: `Location.timeZone` and `timeZoneSource` on every venue and
@@ -38,10 +38,15 @@ and confirm they **fail** before the implementation tasks below them.
   offset>')` in app code for event times; T045 greps for them.
 - **No date library** (R11). The only new dependency is `geo-tz` 8.1.10 in `backend` (R1).
 - **Lock order**: venue, then event. Event writes take the venue row `FOR SHARE` first (R10); a zone
-  change takes `lockVenueAndEvents` (R8).
-- **Device zones in tests**: never pin `TZ` in a Vitest or Jest config; set it only through
-  `scripts/test-tz.mjs` (R20). On Windows, `TZ=… npm test` in Git Bash does **not** reach Node;
-  use `npm run test:tz` or PowerShell's `$env:TZ`.
+  change takes `lockVenueAndEvents`, reads the venue's zone **from that lock** (never from a row
+  read before it), and then locks every event of the venue, any status, in id order (R8).
+- **Device zones in tests** (R20): the Customer app's `TZ` pin (America/New_York) **stays**, as `019`
+  requires; every Vitest config takes `QP_TEST_TZ` when it is set (the Customer app's default stays
+  New York), and `scripts/test-tz.mjs` sets it. Never add another pin. Code that changes `TZ` and
+  restores it MUST `delete process.env.TZ` when the saved value was `undefined`, never assign
+  `undefined` (Node then reads the zone as `Etc/Unknown`). `019`'s `CALENDAR_TEST_TZ` keeps
+  working. On Windows, `TZ=… npm test` in Git Bash does **not** reach Node; use `npm run test:tz`
+  or PowerShell's `$env:TZ`.
 - **Testing several times** (Mahdi, 2026-10-24), all recorded in this file with dates and numbers:
   1. **At least two independent review rounds** (T047, T048), each by a Claude session that did
      not write the code; keep going with further rounds until a round finds only minor issues.
@@ -55,8 +60,9 @@ and confirm they **fail** before the implementation tasks below them.
   4. **`npm run ci` locally** before pushing (T049), then **CI green on GitHub** before merge
      (T057).
   5. **The running-system check repeated**: the migration on a copy of real data (quickstart S1),
-     and the browser walk for two venues in different zones and DST-boundary dates under two
-     browser zones (S2–S12) (T052, T053).
+     and the browser walk for two venues in different zones and DST-boundary dates (S2–S12),
+     with the second browser zones set by Mahdi by hand (T052, T053). Where images cannot be
+     built, the quickstart's host-run path B is used, with the Backend in America/Los_Angeles.
 - **Nothing else changes**: every existing test keeps its meaning. Tests that send event times
   change only to state them in the venue's offset (T015).
 
@@ -97,6 +103,7 @@ coordinates, the zone finder, and the test helpers every story uses.
   - `parseOffsetDateTime`: `2026-10-01T19:00:00-04:00`, `…19:00-04:00` (no seconds),
     `…19:00:00.123-04:00`, `…19:00:00Z` (offset 0), `…19:00:00+05:30`; `null` for no offset, a
     space instead of `T`, `24:00`, and garbage.
+  - `toLocalDateTime` of local midnight is `…T00:00`, never `…T24:00` (`hourCycle: 'h23'`, R11).
   - `formatEventTime(2026-10-01T23:00Z, America/New_York)` is `Oct 1, 2026, 7:00 PM EDT`;
     `formatTimeOfDay` `7:00 PM EDT`; `formatEventDate` `Oct 1, 2026`; an event 22:00–01:00 local
     formats two different dates; `zoneName('America/Phoenix')` is R2's name;
@@ -105,23 +112,36 @@ coordinates, the zone finder, and the test helpers every story uses.
 - [ ] T003 Create `packages/shared/src/time-zone.ts` (R2, R3, R11) and export it from
   `packages/shared/src/index.ts`. Run T002 until it passes, then the shared suite.
 - [ ] T004 [P] **Test first.** Create `scripts/test/test-tz.test.mjs` (`node --test`): with a stub
-  command, `scripts/test-tz.mjs` runs it once per zone with `TZ` set in the child's environment
-  (the child prints `Intl.DateTimeFormat().resolvedOptions().timeZone` and the test sees each of
-  the four zones); `--zones A,B` limits the zones; `--quick` selects only the time test files;
-  it exits non-zero when any run fails and prints a zone × workspace table.
+  command, `scripts/test-tz.mjs` runs it once per zone with both `QP_TEST_TZ` and `TZ` set in the
+  child's environment (the child prints `Intl.DateTimeFormat().resolvedOptions().timeZone` and the
+  test sees each of the four zones); it runs the `@queuepass/shared` build before the first suite
+  (a stub build command records that it ran first); the Backend run uses
+  `backend/jest.unit.config.ts`; `--zones A,B` limits the zones; `--quick` selects only the time
+  test files; `--backend-full` adds the Backend's full suite; it exits non-zero when any run fails
+  and prints a zone × workspace table.
 - [ ] T005 Create `scripts/test-tz.mjs` (R20): default zones America/New_York, UTC,
-  America/Los_Angeles, Pacific/Honolulu; workspaces `packages/shared`, `admin-app`,
-  `customer-app`, `booth-app` (their `vitest run`) and `backend` unit tests only
-  (`jest test/unit`, which need no Testcontainers; adjust its global setup so unit-only runs do not
-  start PostgreSQL if needed, without changing what the full suite does); `--quick` runs only
-  `packages/shared/test/time-zone.test.ts` and each app's `test/**/*.tz.test.tsx`. Add
-  `"test:tz": "node scripts/test-tz.mjs"` to the root `package.json`, and append
-  `&& node scripts/test-tz.mjs --zones America/Los_Angeles --quick` to the root `test` script (CI's
-  extra zone; the workflow is unchanged, `011` R12). Run T004 until it passes.
-- [ ] T006 Remove `env: { TZ: 'America/New_York' }` from `customer-app/vitest.config.ts` (R20).
-  Run the customer suite under America/New_York, UTC, and America/Los_Angeles with
-  `npm run test:tz -- --zones … ` and record which tests fail outside New York: those are today's
-  viewer-zone dependencies, fixed in Phase 8 (they may stay red only until then).
+  America/Los_Angeles, Pacific/Honolulu; it first runs `npm run build --workspace
+  @queuepass/shared` (the Backend's Jest maps `@queuepass/shared` to `dist/cjs`); then, per zone,
+  the `packages/shared`, `admin-app`, `customer-app`, and `booth-app` suites (`vitest run`) and the
+  Backend's unit tests with a new `backend/jest.unit.config.ts` (the main config's settings,
+  `roots`/`testMatch` limited to `test/unit`, and **no `globalSetup`**, so no Testcontainers
+  PostgreSQL and no Docker are needed; the main `jest.config.ts` is unchanged); `--quick` runs
+  only `packages/shared/test/time-zone.test.ts` and each app's `test/**/*.tz.test.tsx`;
+  `--backend-full` adds the Backend's full suite in that zone. Add `"test:tz": "node
+  scripts/test-tz.mjs"` to the root `package.json`, and append `&& node scripts/test-tz.mjs --zones
+  America/Los_Angeles --quick` to the root `test` script (CI's extra zone; the workflow is
+  unchanged, `011` R12; `scripts/test/ci-workflow.test.mjs` still passes). Run T004 until it
+  passes.
+- [ ] T006 Make each Vitest config take the override (R20): `customer-app/vitest.config.ts`
+  `env: { TZ: process.env.QP_TEST_TZ || 'America/New_York' }` (the `019` pin stays as the default);
+  `admin-app`, `booth-app`, and `packages/shared` `env: { ...(process.env.QP_TEST_TZ ? { TZ:
+  process.env.QP_TEST_TZ } : {}) }`. Check `019`'s `customer-app/test/calendar.test.ts`: its restore
+  of `TZ` deletes the variable when the saved value was `undefined` (fix it if it assigns), and it
+  still passes with `CALENDAR_TEST_TZ` set to `UTC`, `America/New_York`, and
+  `America/Los_Angeles`. Run `npm run test:tz` and record, per zone, which existing tests fail
+  outside their old zone: those are today's viewer-zone dependencies, fixed in Phases 7–9. Every
+  suite stays green in its default zone throughout (the pin is kept), so each commit's
+  `npm test` is green.
 - [ ] T007 [P] **Test first.** Create `backend/test/integration/migration.time-zones.e2e-spec.ts`
   (R6, US7, SC-001): on a fresh Testcontainers database migrated up to the migration **before**
   `venue_time_zones` (`prisma migrate deploy` against a copy of the migrations folder without it),
@@ -134,36 +154,67 @@ coordinates, the zone finder, and the test helpers every story uses.
 - [ ] T008 Add the `TimeZoneSource` enum and `Location.timeZone`/`timeZoneSource` to
   `backend/prisma/schema.prisma` and the migration `backend/prisma/migrations/<timestamp>_venue_time_zones/migration.sql`
   exactly as data-model.md. Run T007 until it passes.
-- [ ] T009 [P] **Test first.** Create `backend/test/unit/time-zone-lists.spec.ts` (R2): the
-  contract's `UsTimeZone` enum, `US_TIME_ZONES` ids, and the CHECK list parsed from the T008
-  migration file are equal; `TimeZoneSource` in the contract equals the Prisma enum's values.
+- [ ] T009 [P] **Test first, written before T003 and T008** (so it is seen failing: neither list
+  nor migration exists yet). Create `backend/test/unit/time-zone-lists.spec.ts` (R2): the
+  contract's `UsTimeZone` enum, `US_TIME_ZONES` ids, and the CHECK list parsed from the
+  `venue_time_zones` migration file are equal; `TimeZoneSource` in the contract equals the Prisma
+  enum's values. Run it again after T008: it passes.
 - [ ] T010 [P] **Test first.** Extend `backend/test/unit/census-geocoder.spec.ts` (R1): a one-match
   answer with `coordinates: { x: -84.500968562869, y: 38.049429848416 }` returns `location:
-  { latitude: 38.0494…, longitude: -84.5009… }`; missing `coordinates`, a string, `NaN`, or `null`
-  gives `location: null` and is still a match (not "unavailable").
+  { latitude: 38.0494…, longitude: -84.5009… }`; two entries with the same `matchedAddress` and
+  different coordinates give the **first** entry's; missing `coordinates`, a string, `NaN`, or
+  `null` gives `location: null` and is still a match (not "unavailable").
 - [ ] T011 Add `location` to the `match` result in `backend/src/address/address-geocoder.ts` and
-  read it in `census-geocoder.ts`. Run T009 and T010 until they pass.
+  read it in `census-geocoder.ts`. Run T010 until it passes.
 - [ ] T012 [P] **Test first.** Create `backend/test/unit/time-zone-finder.spec.ts` (R1): with the
   real `geo-tz` data (offline), `GeoTzFinder.zoneAt` returns R1's table for the eight Census
   addresses and the border towns (Indianapolis, Tell City, Pensacola, El Paso, Boise, Ontario OR,
-  Window Rock, West Wendover, Juneau, Adak), and `null` for (30, -70) in the Atlantic and for a
-  point in Mexico City and in Toronto (zones not on the list).
+  Window Rock, West Wendover, Juneau, Adak); `null` for (30, -70) in the Atlantic (`Etc/GMT+5`),
+  Mexico City (`America/Mexico_City`), and San Juan PR (`America/Caracas`), zones not on the list
+  (not Toronto: `find-now` merges it into America/New_York); `null`, not an exception, for latitude
+  91, longitude -181, and `NaN` (R1, review round 1 m6).
 - [ ] T013 Add `geo-tz` 8.1.10 to `backend/package.json` (exact version), create
   `backend/src/address/time-zone-finder.ts` (`TIME_ZONE_FINDER`, `TimeZoneFinder`, `GeoTzFinder`
-  importing `geo-tz/dist/find-now`), and provide it in `address.module.ts`. Run T012 until it
-  passes. Check that `docker compose build backend` still succeeds.
+  importing `geo-tz/dist/find-now`, with R1's range check and `try`/`catch`), and provide it in
+  `address.module.ts`. Run T012 until it passes.
+  - **Seed image** (R1, review round 1 S3), test first: create `scripts/test/seed-image.test.mjs`
+    (`node --test`) that reads `scripts/seed/Dockerfile` and fails unless its `npm ci` line
+    installs only `@queuepass/seed` and `@queuepass/shared` (plus the workspace root) and a later
+    `RUN` fails the build when `node_modules/geo-tz` exists; see it fail; then change the
+    Dockerfile to `npm ci --ignore-scripts --workspace @queuepass/seed --workspace
+    @queuepass/shared --include-workspace-root` followed by `RUN test ! -e node_modules/geo-tz`.
+    Run it until it passes.
+  - Where images build, check `docker compose build backend seed` succeeds and the seed image has
+    no `geo-tz`; where they cannot (quickstart path B), record "to do where images build" and
+    check the seed install on the host instead: in a scratch copy of the repository, run that same
+    `npm ci` line and confirm `node_modules/geo-tz` is absent and `npm run build --workspace
+    @queuepass/shared` succeeds.
 - [ ] T014 [P] Update `backend/test/setup/fake-geocoder.ts`: the default `match` carries Lexington's
   coordinates (38.0494, -84.5010); a test can set a match with any `location` or `null`.
   `createTestApp()` keeps the real `GeoTzFinder`.
 - [ ] T015 Update `backend/test/setup/fixtures.ts`: `windowAt(days, hour = 18, zone =
   'America/New_York')` returns the venue's local `hour`:00 on that day with its offset
-  (`toOffsetDateTime`), 3 hours long. Change the tests that send `Z` or a non-Eastern offset for an
-  Eastern venue (`events.search.e2e-spec.ts`, `seating.capacity.e2e-spec.ts`, and any other
-  `grep -rn "Z'" backend/test` finds for event times) to the venue's offset, keeping each test's
-  meaning. Run the whole Backend suite: green (the Backend still accepts any offset at this point).
+  (`toOffsetDateTime`), 3 hours long; add `atInstant(date, zone = 'America/New_York')`, which
+  turns a computed instant ("now + 2 hours" for sales close and entry windows) into the venue's
+  offset form. Then change every test that sends an event time (R20, review round 1 S7). Found by
+  searching `backend/test` for `toISOString()`, `Z'`, `` Z` ``, and `windowAt(` on 2026-10-24
+  (each match is checked: only event times sent to `createEvent`/`updateEvent` change, never
+  `serverTime` or `from`/`to` query instants unless the test is about event times):
+  `availability`, `cancel`, `entry-key`, `entry.live-refusals`, `entry.lookup`,
+  `events.conflict-update`, `events.crud`, `events.search`, `events.ticket-limit`,
+  `locations.crud`, `locations.delete` (template literal), `locations.legacy-address`,
+  `locations.validation`, `orders.sales-closed`, `orders.seats`, `reports`, `reservations`,
+  `seating.capacity`, `seating`, `seats.concurrency`, `venues-events.authz` (all
+  `backend/test/integration/*.e2e-spec.ts`). Tests that insert a `Location` directly
+  (`locations.legacy-address`, and any of `event-images.storage`, `events.crud`,
+  `gate-check-in.constraints`, `live-codes.constraints`, `seat-holds.constraints`, and
+  `setup/reset-db.ts` that do) set `timeZone: 'America/New_York'` and `timeZoneSource: 'DEFAULT'`
+  (required after T008). Rerun the search afterwards: every remaining match is recorded here as
+  not an event time. Run the whole Backend suite: green (the Backend still accepts any offset at
+  this point).
 
-**Checkpoint**: shared module, runner, storage, coordinates, and finder in place; suite green
-(except T006's recorded customer-app tests).
+**Checkpoint**: shared module, runner, storage, coordinates, finder, and seed image in place;
+`npm test` green (T006's recorded multi-zone failures are fixed in Phases 7–9).
 
 ---
 
@@ -194,6 +245,8 @@ coordinates, the zone finder, and the test helpers every story uses.
     address change → the sent zone wins;
   - a pre-`013` venue (`DEFAULT`) keeps its zone on a name edit and re-derives when given four
     parts;
+  - an `ADMIN` venue whose address changes to one that derives the **same** zone keeps its zone
+    and becomes `ADDRESS` (R7, review round 1 m1); with `timeZone` sent too, it stays `ADMIN`;
   - every response validates against the contract and carries `timeZone` and `timeZoneSource`.
 - [ ] T017 [P] [US4] Create `backend/test/unit/venue-time-zone.spec.ts`: `decideZone` (pure,
   table-driven) for every row of R7's order: sent zone; verified match with a zone; match with
@@ -205,11 +258,13 @@ coordinates, the zone finder, and the test helpers every story uses.
 - [ ] T018 [US4] Add `timeZone` (`IsOptional`, `IsIn(US_TIME_ZONES ids)`) to
   `create-location.dto.ts` and `update-location.dto.ts`; allow `timeZone` alone as a valid update.
 - [ ] T019 [US4] Create `backend/src/locations/venue-time-zone.ts` (`decideZone`, R3, R4, R7) and
-  use it in `LocationsService.create` and `update`, after `checkAddress`. Write `timeZone` and
-  `timeZoneSource` on create, and on update only when R7 says so. Moving events comes in Phase 5;
-  until then, an update that would change the zone of a venue that has events fails closed (an
-  internal error, nothing written), so no event is ever left with a different local time; T026
-  replaces that branch. Run T016 and T017 until they pass.
+  use it in `LocationsService.create` and `update`, after `checkAddress`, which now returns
+  `{ address, location }` with `location` beside the `CheckedAddress` spread into Prisma's `data`,
+  never inside it (R1). Write `timeZone` and `timeZoneSource` on create, and on update only when
+  R7 says so. Moving events comes in Phase 5; until then, an update that would change the zone of
+  a venue that has events fails closed (an internal error, nothing written), so no event is ever
+  left with a different local time; T026 replaces that branch. Run T016 and T017 until they
+  pass.
 
 **Checkpoint**: every new venue has a zone, decided by the rules.
 
@@ -235,25 +290,32 @@ US2 scenario 7, US3 scenarios 6–8.
     `expectedOffsets: ['-04:00', '-05:00']`;
   - Phoenix: `2027-03-14T02:30:00-07:00` → `201`; `-06:00` → `UTC_OFFSET_MISMATCH`;
   - an event 01:00 EST to 03:00 EDT on 2027-03-14 → `201`, one hour long;
+  - no offset (`2026-10-01T19:00:00`) and a date only (`2026-10-01`), for `startsAt` and for
+    `endsAt`, on create and update → `400 VALIDATION_FAILED` naming the field, "must include a UTC
+    offset" (R9, review round 1 S6), before the venue is looked up;
   - refusal order: a bad `locationId` is `404` before any zone check; `endsAt <= startsAt` is
     `400 VALIDATION_FAILED` first; a zone refusal comes before `CAPACITY_EXCEEDED` and
     `SCHEDULING_CONFLICT`; nothing is saved on any refusal;
   - `updateEvent`: only the sent time is checked; moving to a venue in another zone without both
     times → `400 VALIDATION_FAILED` with R9's message; with both, in the destination's offset →
     `200`; moving within the same zone without times → `200`, instants unchanged;
-  - `SCHEDULING_CONFLICT`'s message reads "This venue is already committed from 7:00 PM EDT to
-    10:00 PM EDT by 'X'…" (and MST at Phoenix); `details` unchanged.
+  - `SCHEDULING_CONFLICT`'s message reads "This venue is already committed from Oct 1, 2026,
+    7:00 PM EDT to 10:00 PM EDT by 'X'…" (and MST at Phoenix), and for a conflicting event across
+    midnight "… from Oct 1, 2026, 10:00 PM EDT to Oct 2, 2026, 1:00 AM EDT …" (R9, review round 1
+    m12); `details` unchanged.
 - [ ] T021 [P] [US2] Update `backend/test/integration/events.conflict-contract.e2e-spec.ts` and
   any test asserting the old `UTC` conflict message to the new message.
 
 ### Implementation
 
-- [ ] T022 [US2] [US3] Create `backend/src/events/event-time.ts` (`checkEventTime(field, sent,
-  zone, venueName)`, R9) and call it from `EventsService` create and update in R9's order; add
-  the venue-move rule. Run T020 until it passes.
-- [ ] T023 [US2] Change `SchedulingConflictException` to take the venue's zone and format with
-  `formatTimeOfDay`; add optional `details.event` (used in Phase 5). Run T020 and T021 until they
-  pass, then the whole Backend suite.
+- [ ] T022 [US2] [US3] Add the offset-presence pattern to the `startsAt`/`endsAt` DTO checks
+  (`create-event.dto.ts`, `update-event.dto.ts`, R9). Create `backend/src/events/event-time.ts`
+  (`checkEventTime(field, sent, zone, venueName)`, R9) and call it from `EventsService` create and
+  update in R9's order; add the venue-move rule. Run T020 until it passes.
+- [ ] T023 [US2] Change `SchedulingConflictException` to take the venue's zone and format the
+  start with `formatEventTime` and the end with `formatTimeOfDay`, or `formatEventTime` when its
+  local date differs (R9); add optional `details.event` (used in Phase 5). Run T020 and T021 until
+  they pass, then the whole Backend suite.
 
 **Checkpoint**: the Backend refuses every event time not stated in its venue's zone.
 
@@ -291,15 +353,27 @@ US2 scenario 7, US3 scenarios 6–8.
     either the event is created and moved with the others (its local time kept), or it is refused
     `UTC_OFFSET_MISMATCH` against the new zone; never an event saved with the old zone's reading
     after the change;
-  - a zone change racing `updateEvent` of one of its events: no deadlock surfaces as `500`.
+  - a zone change racing `updateEvent` of one of its events: no deadlock surfaces as `500`;
+  - **two zone changes racing at one venue** (review round 1 M2): an explicit `timeZone:
+    America/Chicago` against an address change that derives America/Denver, on a New York venue
+    with a 7:00 PM event and no orders: whichever commits second converts from the zone the first
+    one left, so the event's stored local time is 19:00 in the final zone, never 20:00 (and never
+    left unmoved); the final `timeZone`/`timeZoneSource` are the second request's;
+  - **two explicit zone changes racing** (Chicago and Denver): the same, 19:00 local in the final
+    zone;
+  - a zone change racing an event **delete** of a cancelled event without orders at the venue: no
+    `404`/`500` from the zone change (review round 1 m2).
 
 ### Implementation
 
-- [ ] T026 [US5] Implement `moveEventsToZone` in `venue-time-zone.ts` and call it inside
-  `LocationsService.update`'s transaction after `lockVenueAndEvents` (R8: orders, new moments,
-  pairwise 60-minute check, `SET CONSTRAINTS "event_no_overlap" DEFERRED`, the writes); add the
-  pre-lookup orders check for an explicit `timeZone`; remove T019's guard. Run T024 until it
-  passes.
+- [ ] T026 [US5] Make `lockVenueAndEvents` also return `timeZone` and `timeZoneSource` from its
+  locked `SELECT`, and add `lockAllVenueEvents(tx, locationId)` (every event of the venue, any
+  status, in id order) to `backend/src/common/venue-lock.ts`. Implement `moveEventsToZone` in
+  `venue-time-zone.ts` and call it inside `LocationsService.update`'s transaction after
+  `lockVenueAndEvents`, comparing with and converting from the **locked** zone (R8: lock all
+  events, orders, new moments, pairwise 60-minute check, `SET CONSTRAINTS "event_no_overlap"
+  DEFERRED`, the writes); add the pre-lookup orders check for an explicit `timeZone`; remove T019's
+  guard. Run T024 until it passes.
 - [ ] T027 [US5] Add `lockVenueShared(tx, ids)` to `backend/src/common/venue-lock.ts` (`FOR SHARE`
   in id order) and make `EventsService.create`/`update` run in one `LOCKING_TX` transaction that
   takes it first (R10: both venues on a move; re-read `locationId` after `lockEvent` and retry once
@@ -366,7 +440,10 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   question; `TIME_ZONE_REQUIRED` from the API shows the state's zones; on edit, picking another
   zone shows R14's note; `TIME_ZONE_HAS_ORDERS` (events listed as links), `EVENT_TIME_NOT_IN_ZONE`,
   and `SCHEDULING_CONFLICT` appear in the banner with every value kept; the saved notice names the
-  zone and source.
+  zone and source; on edit, the select's first option reads "Keep Eastern Time (from the address)"
+  and changes to "Work it out from the new address" once any address field differs (R14, review
+  round 1 m3); on an edit of a KY venue stored in Eastern that is saved anyway, the state's radio
+  group starts with Eastern selected (m4).
 
 ### Implementation
 
@@ -417,11 +494,14 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   start at 19:00, 20:00, and 19:00 local Eastern on their dates and end 3 hours later; "Demo
   Tonight" still starts about an hour after the run; a controller request can never use the
   fallback (a KY save anyway through the API is still `TIME_ZONE_REQUIRED`).
-- [ ] T043 Change `backend/src/scripts/demo-data.ts` (`atLocal`, `fallbackToDefaultTimeZone`) and
-  `LocationsService.create`'s internal options. Run T042 until it passes.
+- [ ] T043 Change `backend/src/scripts/demo-data.ts` (`atLocal`, `fallbackToDefaultTimeZone`, and
+  every time, Demo Tonight's included, sent as `toOffsetDateTime(instant, venueZone)`, never
+  `toISOString()`, R19) and `LocationsService.create`'s internal options. Run T042 until it
+  passes.
 - [ ] T044 [P] Update `README.md`: the `020` status row; "Today": every venue has a time zone from
-  its address and every app shows event times in the venue's local time; `npm run test:tz` and why
-  `TZ=` in Git Bash does not work on Windows; the boundary data attribution ("Time zone boundaries:
+  its address and every app shows event times in the venue's local time; `npm run test:tz`
+  (`QP_TEST_TZ`), its relation to `019`'s `CALENDAR_TEST_TZ`, and why `TZ=` in Git Bash does not
+  work on Windows; quickstart path B (host-run) for machines whose images do not build; the boundary data attribution ("Time zone boundaries:
   timezone-boundary-builder, © OpenStreetMap contributors, ODbL 1.0, via geo-tz").
 - [ ] T045 [P] Grep app sources for `toLocaleString(`, `toLocaleDateString(`,
   `toLocaleTimeString(`, `getTimezoneOffset(`, and `new Date(` with a local string or
@@ -452,18 +532,27 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   suite and record the three results (passed/failed, counts, duration) in a table here:
   `npm run test --workspace @queuepass/shared`, `… @queuepass/backend`, `… @queuepass/admin-app`,
   `… @queuepass/customer-app`, `… @queuepass/booth-app`, and `node --test "scripts/test/*.test.mjs"`.
-  Then run `npm run test:tz` (four zones) and record its zone × workspace table. Any failure,
-  even once: find the cause, fix it, and restart T049–T050.
+  Then run `npm run test:tz` (four zones) and record its zone × workspace table, and run the
+  Backend's **full** suite once more in America/Los_Angeles (`node scripts/test-tz.mjs --zones
+  America/Los_Angeles --backend-full`, or PowerShell `$env:TZ='America/Los_Angeles'; npm run test
+  --workspace @queuepass/backend`), because locally it otherwise runs in New York, the demo
+  venues' zone, and in CI in UTC (R20, review round 1 m13). Any failure, even once: find the
+  cause, fix it, and restart T049–T050.
 - [ ] T051 Report coverage for every workspace in the PR description; each new file is covered by
   its tests, and each workspace stays at or above 80% lines (Constitution VI, `010`).
 - [ ] T052 Running-system gate, part 1: quickstart **S1**, the migration on a copy of the running
   stack's real data. Record the event count and checksums before and after, the venue zone query,
   and `condeferrable`.
-- [ ] T053 Running-system gate, part 2: `docker compose up --build` from a fresh clone of the
-  branch; walk quickstart **S2–S12** in the browser, each of S5–S10 under **two browser zones**
-  (UTC and America/Los_Angeles), for the **two venues in different zones** (Eastern and Arizona or
-  Mountain) and the **DST dates** (2027-03-14 2:30 AM, 2027-11-07 1:30 AM); sign in, use, and sign
-  out of all three apps. Record the results here, with anything unexpected.
+- [ ] T053 Running-system gate, part 2. Path A where images build (`docker compose up --build`
+  from a fresh clone of the branch); otherwise quickstart **path B** (database and Keycloak
+  containers from their existing images, the Backend from the host started with
+  `TZ=America/Los_Angeles`, the apps with `vite` on 5173–5175), recording T013's image checks and
+  S2's container ICU check as "to do where images build". Walk quickstart **S2–S12** in the
+  browser for the **two venues in different zones** (Eastern and Arizona or Mountain) and the
+  **DST dates** (2027-03-14 2:30 AM, 2027-11-07 1:30 AM), in the laptop's zone; sign in, use, and
+  sign out of all three apps. Then **Mahdi** repeats the steps marked **(two zones)** by hand with
+  Chrome DevTools → Sensors → time zone override, in UTC and America/Los_Angeles; record his
+  results here. Record everything, with anything unexpected.
 
 ---
 

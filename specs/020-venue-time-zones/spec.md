@@ -425,7 +425,9 @@ the same moments as before.
   chosen. When editing an event at such a time, its stored choice MUST be selected.
 - **FR-018**: The Backend MUST refuse an event start or end whose local time does not exist in the
   venue's zone, and one stated in any zone other than the venue's zone at that time (including
-  UTC), each with its own stable code and the standard error shape, and save nothing. A time that
+  UTC), each with its own stable code and the standard error shape, and save nothing. A start or
+  end that states no zone at all (a time without an offset, or a date only) MUST be refused as
+  invalid. A time that
   happens twice MUST be accepted as either of its two moments, as the request states.
 - **FR-019**: A request that moves an event to a venue in a different zone MUST send the start and
   end; otherwise it MUST be refused.
