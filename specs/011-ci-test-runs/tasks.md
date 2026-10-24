@@ -291,7 +291,11 @@ stale, or zero-line summary fails it.
     missing`; undone. One earlier full run had a customer-app test fail once
     (`my-tickets.test.tsx`, "lists the customer's orders…": `findByRole('heading', { name: 'My
     tickets' })` not found within Testing Library's default 1 s); it passed in the next two
-    workspace runs and the next four full runs (T018, T022). Not changed (no test is weakened).
+    workspace runs and the next four full runs (T018, T022). The independent review saw it fail 1
+    in 17 runs. Fixed after review round 1 (S1): the Admin, Customer, and Booth apps' test setup
+    sets Testing Library's `asyncUtilTimeout` to 3 s (from 1 s), so `findBy*` and `waitFor` allow
+    for a busy run. No assertion changes, so this is FR-018-compatible (a longer wait, not a
+    weaker test). After it: customer-app 10 of 10 runs passed (200 each).
 
 **Checkpoint**: `npm run ci` runs every step locally.
 
