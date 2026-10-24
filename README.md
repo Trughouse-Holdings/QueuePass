@@ -10,7 +10,8 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 ## Status
 
 Features `001` through `008` and `012` through `017` are built and verified. `018` is built; its
-running-system walk is pending.
+running-system walk is pending. `011` is built; its first runs on GitHub and its running-system
+walk are pending.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                      | Spec             | Plan and tasks     | Code                     |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ------------------------ |
@@ -22,6 +23,7 @@ running-system walk is pending.
 | [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                                                                                    | Draft            | Done (29/29 tasks) | **Built and verified**   |
 | [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice                                                           | Draft            | Done (30/30 tasks) | **Built and verified**   |
 | [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look                                                             | Draft            | Done (19/19 tasks) | **Built and verified**   |
+| [`011-ci-test-runs`](specs/011-ci-test-runs/spec.md)                         | Every pull request and push to `main` runs formatting, lint, build, and all tests in GitHub Actions, showing each workspace's coverage; `npm run ci` runs the same steps locally      | Draft            | Done (34 tasks)    | **Built (walk pending)** |
 | [`012-shared-theme`](specs/012-shared-theme/spec.md)                         | One shared theme in `packages/shared/` for the Admin and Customer apps; a test fails when an app defines its own look                                                                 | Draft            | Done (29/30 tasks) | **Built and verified**   |
 | [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps                                          | Draft            | Done (47/48 tasks) | **Built and verified**   |
 | [`014-event-images`](specs/014-event-images/spec.md)                         | Up to 5 images per event, added, ordered, and removed in the Admin event form; a rotating gallery on Customer event cards and on the event page of both apps, with full screen        | Draft            | Done (56/57 tasks) | **Built and verified**   |
@@ -59,8 +61,8 @@ seconds, while printed and typed codes still need one (`018`).
 
 The Admin and Customer apps take their whole look from one shared theme (`012`).
 
-Features `010` and `011` are reserved in the constitution's roadmap and not yet built: test
-coverage and CI test runs.
+Feature `010` is reserved in the constitution's roadmap and not yet built: the 80% test coverage
+floor, enforced by `npm test` and the pull request check.
 
 ### How a feature is delivered
 
@@ -189,6 +191,10 @@ npm install     # first time only
 npm test
 ```
 
+`npm test` works on a fresh clone: the Backend's tests generate the Prisma client first. It runs
+the repository scripts' own tests, the boundary and contract-drift checks, then every workspace's
+tests, and measures each workspace's line coverage (a short summary after each).
+
 Backend tests provision a **real PostgreSQL 17** through Testcontainers, so Docker must be
 running. The scheduling rule is a PostgreSQL exclusion constraint, and SQLite has no
 `tstzrange`, `EXCLUDE`, or `btree_gist`, so a substitute could not express the feature.
@@ -199,6 +205,34 @@ npm test --workspace @queuepass/backend      # API, persistence, scheduling, aut
 npm test --workspace @queuepass/admin-app    # Admin app components
 npm run seed                                 # re-run the Keycloak seed (idempotent)
 ```
+
+### The pull request check, and running it locally
+
+Every pull request (when opened, updated, or reopened) and every push to `main` runs the **CI /
+test** check in GitHub Actions. Each run's summary page shows every workspace's line coverage;
+below 80% is marked but does not fail the run until `010` enforces the floor. To run exactly what
+the check runs:
+
+```bash
+npm ci          # what the check installs; only needed after package-lock.json changes
+npm run ci
+```
+
+`npm run ci` runs, in this order, stopping at the first failure: generate the Prisma client,
+`npm run format:check` (Prettier), `npm run lint` (ESLint), `npm run build` (every workspace,
+which type-checks the front ends), `npm test`, and `npm run coverage:report` (the coverage table).
+The check runs the same steps, and a test fails if the two ever differ. Docker must be running. To
+reproduce a pull request's run, first merge or rebase the branch onto the latest `main` (the check
+tests the branch merged with `main`), and keep the Docker Compose stack down (with it up, the
+seed's four Keycloak tests run instead of being skipped). `npm run coverage:report` is meant to
+follow the root `npm test` or `npm run ci`: after a single workspace's tests it can mix this run's
+numbers with older ones.
+
+**Reading a failed check**: open **Details** on **CI / test**. The failed step's name says which
+check failed: **Check formatting** (run `npm run format`), **Lint**, **Build**, **Test**, or
+**Report coverage** (a workspace whose coverage was not measured). The step's output names the file
+and line, or the failing test. A Testcontainers "could not pull image" error in the **Test** step
+is the runner, not the code: use **Re-run failed jobs**.
 
 ---
 
@@ -414,6 +448,7 @@ booth-app/        React + Vite Ticket Booth app   (role gate-agent)
 contracts/        OpenAPI contract shared by every app
 packages/shared/  Request and response types, sign-in, and the theme shared by the apps
 scripts/seed/     Idempotent Keycloak seed: realm, roles, clients, accounts
+.github/workflows/ The pull request check, CI / test (spec 011)
 specs/            Specifications, plans, contracts, tasks
 ```
 

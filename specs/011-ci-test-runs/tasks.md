@@ -311,7 +311,7 @@ turned on right after merge (T033).
 
 ## Phase 7: Polish and Cross-Cutting
 
-- [ ] T020 [P] Update `README.md` (R20, FR-017, Documentation gate): in "Run the tests", add
+- [x] T020 [P] Update `README.md` (R20, FR-017, Documentation gate): in "Run the tests", add
   `npm run ci` (what it runs, in order; it is exactly what the pull request check runs; run `npm ci`
   first to match exactly; Docker must be running; to reproduce a pull request's run, merge or
   rebase onto the latest `main` first and keep the Compose stack down), and that `npm test` alone
@@ -323,8 +323,10 @@ turned on right after merge (T033).
   `npm test` or `npm run ci` (R11), and that the 80% floor is enforced from `010`. Add the `011` row
   to the Status table, update the "Features `010` and `011` are reserved" line so only `010`
   remains reserved, and add `.github/workflows/` to the repository layout block.
-- [ ] T021 Run `npx prettier --write` on every file changed (never `api-schema.ts`), then
+- [x] T021 Run `npx prettier --write` on every file changed (never `api-schema.ts`), then
   `npm run lint`.
+  - **Result**: every file changed since `e73f5dd` outside `specs/` was already formatted;
+    `npm run format:check` and `npm run lint` pass.
 - [ ] T022 On a clean working tree with Docker running and the Compose stack down, run `npm ci` and
   `npm run ci`: everything passes and the coverage table prints. Record the duration of
   `npm run ci` and of `npm test` alone here, and compare `npm test` with T001's baseline (the cost
