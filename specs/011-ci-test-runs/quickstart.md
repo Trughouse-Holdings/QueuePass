@@ -8,7 +8,7 @@ Q4 and Q5 happen right after the implementation PR merges; Q5 needs a repository
 ## Q1: Reproduce a run locally (US2, FR-008)
 
 With Docker running (the backend's tests start PostgreSQL through Testcontainers) and the Docker
-Compose stack **down** (with it up, the seed's two Keycloak tests run instead of being skipped,
+Compose stack **down** (with it up, the seed's four Keycloak tests run instead of being skipped,
 the one expected difference from the check):
 
 ```bash
@@ -24,7 +24,7 @@ check runs on the branch merged with `main`, not on the branch alone.
 built; `npm test` deleting old coverage output, running the scripts' own tests (`node --test`), the
 boundary check, the contract-drift check, then each workspace's tests with a short coverage summary
 after each; then a table of line coverage for all six workspaces, with any below 80% marked, ending
-"The 80% floor is not enforced until 010-test-coverage is merged." The seed's two Keycloak tests
+"The 80% floor is not enforced until 010-test-coverage is merged." The seed's four Keycloak tests
 show as **skipped**, after the line `[skip] Keycloak not reachable`.
 
 Time it. Then, one at a time, undoing each before the next:

@@ -311,7 +311,7 @@ order. R13's test fails when the workflow's commands after `npm ci` are not exac
 script's parts, in order (FR-009). The README and quickstart say: run `npm ci` once (the workflow's
 install) and then `npm run ci` to reproduce a run exactly. For a pull request, run it on the
 branch merged or rebased onto the latest `main` (R1), with the Docker Compose stack down (with the
-stack up, the seed's two Keycloak tests run locally instead of being skipped, R16).
+stack up, the seed's four Keycloak tests run locally instead of being skipped, R16).
 
 **Rationale**: FR-008 asks for one command with the same steps, and the constitution's "tests run
 locally" now matches CI by construction. `npm ci` stays out of the script because it deletes
@@ -405,7 +405,7 @@ repository setting; more than the job uses).
 
 **Decision**: Keycloak is not started in the check. `scripts/seed/test/seed-idempotence.test.ts`
 already detects that Keycloak is unreachable and warns, but each test then returns early and is
-reported as **passed**. Change the two tests to call Vitest's `skip()` from the test context when
+reported as **passed**. Change the four tests to call Vitest's `skip()` from the test context when
 Keycloak is unavailable (`it('…', async ({ skip }) => { if (!available) skip(); … })`), so they
 are reported as skipped, with the existing warning (FR-014). The pure `provision-clients.test.ts`
 runs everywhere.
@@ -417,7 +417,7 @@ seed must succeed on the first run). Not starting it is a choice the run should 
 a test that did not run must not count as a pass.
 
 **Alternatives considered**: a Keycloak service container (above; also the seed's own coverage would
-rise, which is `010`'s concern); leaving the early `return` (two tests counted as passed that never
+rise, which is `010`'s concern); leaving the early `return` (four tests counted as passed that never
 ran); deleting the tests (they are the seed's idempotence proof when the stack is up).
 
 ## R17. Time limit

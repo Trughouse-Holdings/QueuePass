@@ -64,7 +64,7 @@ run (T031) and one throwaway pull request with deliberately failing runs (T029, 
     `TS7006` implicit `any` on transaction callbacks). After generating, the format check, lint,
     and build passed, and `npm test` passed in **247 s** (4 min 7 s). Counts: shared 468 (20
     files), backend 740 (84 suites), admin-app 200 (24 files), customer-app 200 (19 files),
-    booth-app 67 (4 files), seed 8 (2 files; the stack was up, so the two Keycloak tests ran):
+    booth-app 67 (4 files), seed 8 (2 files; the stack was up, so the four Keycloak tests ran):
     1,683 in all.
 
 ---
@@ -154,7 +154,8 @@ request goes red with a failing test.
   `scripts/seed/test/seed-idempotence.test.ts`, change each `if (!available) return;` to take the
   test context's `skip` (`async ({ skip }) => { if (!available) skip(); … }`), keeping the
   `[skip] Keycloak not reachable` warning. With the stack **down**, `npm test --workspace
-  @queuepass/seed` reports `2 skipped`, not `2 passed`; with the stack up (T028), they run and pass.
+  @queuepass/seed` reports `4 skipped`, not `4 passed` (the file has four Keycloak tests, not two:
+  two idempotence tests and two drift tests); with the stack up (T028), they run and pass.
 
 ### The backend's `pretest` generates Prisma (FR-019, R5)
 
@@ -295,7 +296,7 @@ turned on right after merge (T033).
   **Check formatting**; an unused variable stops at **Lint**; a type error in `booth-app/src`
   stops at **Build**; each names the file (SC-002's lint and type-error halves).
 - [ ] T024 Confirm FR-018: compare the test counts per workspace with T001's baseline; they are
-  equal, apart from the seed's two Keycloak tests now counted as skipped when the stack is down.
+  equal, apart from the seed's four Keycloak tests now counted as skipped when the stack is down.
 - [ ] T025 Confirm no secrets and least privilege by reading the final `ci.yml` once against R15
   (T005 asserts the rest).
 - [ ] T026 Independent review (Constitution III): a separate Claude session reviews the branch
