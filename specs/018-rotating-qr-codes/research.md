@@ -383,7 +383,10 @@ with an expired token the Backend refuses, while the refresh is retried quietly.
 
 **Constitution V is unchanged**: tokens stay in memory only (nothing new is written to storage);
 logout still ends both the front end's session and Keycloak's; the Backend still validates every
-token.
+token. `removeUser()` doesn't cancel a renewal in flight (checked under Node with oidc-client-ts
+3.5.0): when it answers, the library stores the user and raises `userLoaded`. A renewal that lands
+during logout, the library's own or the provider's retry, is dropped and the user removed again,
+so logout still ends the front end's session, and Back shows no signed-in page (spec 001 SC-007).
 
 **Scope**: the provider is shared, so the change applies to all three apps. In the Admin and Ticket
 Booth apps a lost signal now leaves the page in place until the next request, which shows that
@@ -394,14 +397,14 @@ app's `SeatingCard`) retry a `401` every 5 seconds and never call `signIn()`; th
 the same retry, as soon as the token is renewed.
 
 **Tests**: the shared provider's tests with the fake user manager and fake timers (tasks T016): a
-`TypeError` renewal error and `accessTokenExpired` alone each keep the user; the retry runs every
-30 seconds and on `online`, stops on `userLoaded`, keeps the user on a `TypeError`, and ends the
-session on an `ErrorResponse`; nothing runs while logging out; the `pageshow` cases. In the
-Customer app (T017), the live-code page stays mounted for 10 minutes through `accessTokenExpired`
-alone and through the `TypeError` sequence, with `signinSilent` failing throughout and
-`signinRedirect` never called. The quickstart (S6) stops Keycloak as well as the Backend for 10
-minutes, which outlasts one access token, and throttles the Customer window's network to stand
-for one that hangs.
+`TypeError` renewal error and `accessTokenExpired` alone each keep the user; the retry runs every 30
+seconds and on `online`, stops on `userLoaded`, keeps the user on a `TypeError`, and ends the
+session on an `ErrorResponse`; nothing runs while logging out, and a renewal that lands during
+logout is dropped; the `pageshow` cases. In the Customer app (T017), the live-code page stays
+mounted for 10 minutes through `accessTokenExpired` alone and through the `TypeError` sequence, with
+`signinSilent` failing throughout and `signinRedirect` never called. The quickstart (S6) stops
+Keycloak as well as the Backend for 10 minutes, which outlasts one access token, and throttles the
+Customer window's network to stand for one that hangs.
 
 **Alternatives considered**: a longer access-token lifetime in the realm (it would only move the
 cliff, and longer-lived tokens weaken Constitution V's expiry check); keeping the key outside

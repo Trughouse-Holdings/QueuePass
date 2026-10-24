@@ -264,7 +264,8 @@ label.
   never the other ticket's.
 - [ ] T016 [P] [US1] Add to `packages/shared/test/web/fake-user-manager.ts` a `signinSilent`
   `vi.fn` that records `'signinSilent'` in `calls` and by default resolves to the current user
-  without emitting anything (each test sets its outcome). Then add to
+  without emitting anything (each test sets its outcome), and a `storeUser(u)` that sets what
+  `getUser` returns, as the real `storeUser` does. Then add to
   `packages/shared/test/web/auth-provider.test.tsx`, under fake timers (research R12; FR-010,
   SC-006; spec 001 FR-013):
   - a `silentRenewError` with `new TypeError('Failed to fetch')` (what `fetch` throws with no
@@ -280,6 +281,11 @@ label.
     `new ErrorResponse({ error: 'invalid_grant' })` (from `oidc-client-ts`) ends in `removeUser`
     then `signinRedirect`; none of these calls `signinRedirect` otherwise;
   - an `online` event with no failed renewal calls nothing; no `signinSilent` while logging out;
+  - a renewal that lands during logout is dropped (spec 001 SC-007): after a failed renewal, make
+    `signinSilent` pending; call `logout`; then `storeUser(fresh)` and emit `userLoaded` with it:
+    the status is not `signed-in`, `calls` shows `removeUser` after the late load, `getUser`
+    resolves `null`, and a following `pageshow` with `persisted: true` calls `signinRedirect`. It
+    must fail against today's provider;
   - the probe calling `useAuth().signIn()`, which is what every app does on a `401`
     (`customer-app/src/use-load.ts`, `booth-app/src/App.tsx`, `admin-app/src/api/client.ts`),
     still calls `signinRedirect`, with or without a failed renewal;
@@ -385,6 +391,10 @@ label.
     event and every 30 seconds. On success, `userLoaded` applies the user and clears the ref, which
     stops the tries. An `ErrorResponse` does `removeUser`, `apply(null)`, `signIn()`. Anything
     else keeps the user until the next try. Nothing on this path navigates the page.
+  - While `loggingOut` is set, `userLoaded` doesn't apply the user; it calls `um.removeUser()`
+    again. `removeUser` doesn't cancel a renewal in flight (the library's own, or the provider's
+    `signinSilent`), which stores the user and raises `userLoaded` when it answers; applying it
+    would show a signed-in page during logout, and on Back (spec 001 SC-007).
   - `pageshow` from the back-forward cache: no user in memory still signs in (logout, SC-007); an
     expired user is handled like `accessTokenExpired`, not redirected.
   - A `401` still reaches `signIn()` through each app, unchanged.
