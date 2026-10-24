@@ -157,6 +157,9 @@ model Ticket {
   // Spec 017 research R3: who admitted it; both or neither, and only with checkedInAt.
   checkedInBySub      String?
   checkedInByUsername String?
+  // Spec 018 research R1: the key for this ticket's live codes. Never selected unless named
+  // (PrismaService's global omit), never printed, never in any response but getTicketEntryKey.
+  entrySecret         Bytes @default(dbgenerated("gen_random_bytes(32)")) @db.ByteA
   // Spec 007: the seat's label when sold; all three set or all null (research R1). One valid
   // ticket per seat is the partial unique index ticket_one_valid_per_seat in the migration.
   seatSection String?

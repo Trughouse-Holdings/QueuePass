@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
-import { InMemoryWebStorage, User } from 'oidc-client-ts';
+import { ErrorResponse, InMemoryWebStorage, User } from 'oidc-client-ts';
 import type { ApiClient } from '../../src/web/api-client';
 import { AuthProvider, createUserManager, useAuth } from '../../src/web/auth-provider';
 import { fakeUserManager, makeUser } from './fake-user-manager';
@@ -128,7 +128,7 @@ describe('AuthProvider', () => {
     await screen.findByText('status=signed-in user=admin1 roles=queuepass-admin,customer');
   });
 
-  it('signs in again when silent renew fails', async () => {
+  it('signs in again when Keycloak refuses the silent renew', async () => {
     const um = fakeUserManager(makeUser({ username: 'admin1', roles: ['queuepass-admin'] }));
     render(
       <AuthProvider userManager={um}>
@@ -136,7 +136,10 @@ describe('AuthProvider', () => {
       </AuthProvider>,
     );
     await screen.findByText(/user=admin1/);
-    await act(async () => um.emit('silentRenewError', new Error('refresh failed')));
+    // Spec 018 research R12: only Keycloak's own refusal (an ErrorResponse) ends the session.
+    await act(async () =>
+      um.emit('silentRenewError', new ErrorResponse({ error: 'invalid_grant' })),
+    );
     await waitFor(() => expect(um.calls.slice(-2)).toEqual(['removeUser', 'signinRedirect']));
   });
 
@@ -247,5 +250,247 @@ describe('AuthProvider beforeLogout', () => {
     await act(async () => button.click());
 
     await waitFor(() => expect(um.calls.slice(-2)).toEqual(['removeUser', 'signoutRedirect']));
+  });
+});
+
+/**
+ * Spec 018 research R12 (FR-010, SC-006; spec 001 FR-013 as amended): a renewal that fails for
+ * lack of network, or a token that simply expires, keeps the user in memory and retries quietly;
+ * only Keycloak's own refusal (ErrorResponse) ends the session.
+ */
+describe('AuthProvider with no signal', () => {
+  function Probes() {
+    const auth = useAuth();
+    return (
+      <>
+        <p>
+          status={auth.status} user={auth.username ?? '-'}
+        </p>
+        <button type="button" onClick={() => void auth.logout()}>
+          log out
+        </button>
+        <button type="button" onClick={() => void auth.signIn()}>
+          got 401
+        </button>
+      </>
+    );
+  }
+
+  const offline = () => new TypeError('Failed to fetch');
+  const silentCalls = (um: ReturnType<typeof fakeUserManager>) =>
+    um.calls.filter((c) => c === 'signinSilent').length;
+  const advance = (ms: number) => act(async () => void (await vi.advanceTimersByTimeAsync(ms)));
+  const goOnline = () => act(async () => void window.dispatchEvent(new Event('online')));
+  const pageShow = () => {
+    const event = new Event('pageshow') as PageTransitionEvent;
+    Object.defineProperty(event, 'persisted', { value: true });
+    return act(async () => void window.dispatchEvent(event));
+  };
+
+  async function signedIn() {
+    const um = fakeUserManager(makeUser({ username: 'customer1', roles: ['customer'] }));
+    const view = render(
+      <AuthProvider userManager={um}>
+        <Probes />
+      </AuthProvider>,
+    );
+    await screen.findByText('status=signed-in user=customer1');
+    return { um, view };
+  }
+
+  /** The user is still in memory and the children are still mounted. */
+  const expectKept = (um: ReturnType<typeof fakeUserManager>) => {
+    expect(screen.getByText('status=signed-in user=customer1')).toBeInTheDocument();
+    expect(um.removeUser).not.toHaveBeenCalled();
+    expect(um.signinRedirect).not.toHaveBeenCalled();
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers({
+      shouldAdvanceTime: true,
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
+    });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it('keeps the user when the renewal fails for lack of network', async () => {
+    const { um } = await signedIn();
+    await act(async () => um.emit('silentRenewError', offline()));
+    await advance(1_000);
+    expectKept(um);
+  });
+
+  it('keeps the user when the token expires with no renewal error before it', async () => {
+    const { um } = await signedIn();
+    await act(async () => um.emit('accessTokenExpired'));
+    await advance(1_000);
+    expectKept(um);
+  });
+
+  it.each(['silentRenewError', 'accessTokenExpired'] as const)(
+    'after %s, retries at once, then every 30 seconds and on going online until it succeeds',
+    async (first) => {
+      const { um } = await signedIn();
+      um.signinSilent.mockImplementation(async () => {
+        um.calls.push('signinSilent');
+        throw offline();
+      });
+      await act(async () => um.emit(first, first === 'silentRenewError' ? offline() : undefined));
+      // At once, before any timer has moved: a device waking past expiry renews before its next
+      // API call's 401 can send it to sign in (research R12).
+      expect(silentCalls(um)).toBe(1);
+      expectKept(um);
+
+      await advance(30_000);
+      expect(silentCalls(um)).toBe(2);
+      expectKept(um);
+      await advance(30_000);
+      expect(silentCalls(um)).toBe(3);
+      await goOnline();
+      expect(silentCalls(um)).toBe(4);
+      expectKept(um);
+
+      // Back online: the grant succeeds and raises userLoaded, which applies the user and stops.
+      const fresh = makeUser({ username: 'customer1', roles: ['customer', 'gate-agent'] });
+      um.signinSilent.mockImplementation(async () => {
+        um.calls.push('signinSilent');
+        um.storeUser(fresh);
+        um.emit('userLoaded', fresh);
+        return fresh;
+      });
+      await advance(30_000);
+      expect(silentCalls(um)).toBe(5);
+      await advance(60_000);
+      await goOnline();
+      expect(silentCalls(um)).toBe(5);
+      expectKept(um);
+    },
+  );
+
+  it('ends the session when Keycloak refuses a retry', async () => {
+    const { um } = await signedIn();
+    um.signinSilent.mockImplementation(async () => {
+      um.calls.push('signinSilent');
+      throw new ErrorResponse({ error: 'invalid_grant' });
+    });
+    await act(async () => um.emit('silentRenewError', offline()));
+    await advance(30_000);
+    await waitFor(() =>
+      expect(um.calls.slice(-3)).toEqual(['signinSilent', 'removeUser', 'signinRedirect']),
+    );
+  });
+
+  it('runs no retry with no failed renewal, on going online or after 60 seconds', async () => {
+    const { um } = await signedIn();
+    await goOnline();
+    await advance(60_000);
+    expect(silentCalls(um)).toBe(0);
+  });
+
+  it('runs no retry after unmounting', async () => {
+    const { um, view } = await signedIn();
+    await act(async () => um.emit('silentRenewError', offline()));
+    expect(silentCalls(um)).toBe(1); // the try at once, before the unmount
+    view.unmount();
+    await advance(60_000);
+    await goOnline();
+    expect(silentCalls(um)).toBe(1);
+  });
+
+  it('starts no second retry on going online while one is still pending', async () => {
+    const { um } = await signedIn();
+    um.signinSilent.mockImplementation(() => {
+      um.calls.push('signinSilent');
+      return new Promise<User | null>(() => {});
+    });
+    await act(async () => um.emit('accessTokenExpired'));
+    await goOnline();
+    expect(silentCalls(um)).toBe(1);
+    await goOnline();
+    await advance(30_000);
+    expect(silentCalls(um)).toBe(1);
+  });
+
+  it('runs no retry while logging out', async () => {
+    const { um } = await signedIn();
+    await act(async () => um.emit('silentRenewError', offline()));
+    expect(silentCalls(um)).toBe(1); // the try at once, before the logout
+    await act(async () => screen.getByRole('button', { name: 'log out' }).click());
+    await advance(60_000);
+    await goOnline();
+    expect(silentCalls(um)).toBe(1);
+  });
+
+  it('starts no try for a failure recorded while logging out', async () => {
+    const um = fakeUserManager(makeUser({ username: 'customer1', roles: ['customer'] }));
+    render(
+      <AuthProvider userManager={um} beforeLogout={() => new Promise<void>(() => {})}>
+        <Probes />
+      </AuthProvider>,
+    );
+    await screen.findByText('status=signed-in user=customer1');
+    // Logout waits on beforeLogout with the user still in memory, and the token expires meanwhile.
+    await act(async () => screen.getByRole('button', { name: 'log out' }).click());
+    await act(async () => um.emit('accessTokenExpired'));
+    expect(silentCalls(um)).toBe(0);
+    await advance(60_000);
+    await goOnline();
+    expect(silentCalls(um)).toBe(0);
+    expect(um.signoutRedirect).toHaveBeenCalled();
+  });
+
+  it('drops a renewal that lands during logout, so Back shows no signed-in page (001 SC-007)', async () => {
+    const { um } = await signedIn();
+    um.signinSilent.mockImplementation(() => {
+      um.calls.push('signinSilent');
+      return new Promise<User | null>(() => {});
+    });
+    await act(async () => um.emit('silentRenewError', offline()));
+    await advance(30_000);
+    expect(silentCalls(um)).toBe(1);
+
+    await act(async () => screen.getByRole('button', { name: 'log out' }).click());
+    await waitFor(() => expect(um.signoutRedirect).toHaveBeenCalled());
+
+    // The pending grant answers after removeUser: the library stores the user and raises it.
+    const late = makeUser({ username: 'customer1', roles: ['customer'] });
+    um.storeUser(late);
+    um.calls.push('late load');
+    await act(async () => um.emit('userLoaded', late));
+
+    expect(screen.queryByText(/status=signed-in/)).toBeNull();
+    expect(um.calls.slice(um.calls.indexOf('late load'))).toContain('removeUser');
+    await expect(um.getUser()).resolves.toBeNull();
+
+    await pageShow();
+    await waitFor(() => expect(um.signinRedirect).toHaveBeenCalled());
+  });
+
+  it.each([false, true])(
+    'still signs in on a 401 (failed renewal before: %s)',
+    async (failedFirst) => {
+      const { um } = await signedIn();
+      if (failedFirst) await act(async () => um.emit('silentRenewError', offline()));
+      await act(async () => screen.getByRole('button', { name: 'got 401' }).click());
+      expect(um.signinRedirect).toHaveBeenCalled();
+    },
+  );
+
+  it('keeps an expired user restored from the back-forward cache, and retries', async () => {
+    const { um } = await signedIn();
+    um.storeUser(makeUser({ username: 'customer1', roles: ['customer'], expiresIn: -10 }));
+    await pageShow();
+    await advance(1_000);
+    expectKept(um);
+    expect(silentCalls(um)).toBe(1); // at once, well before the first 30 seconds
+    await advance(30_000);
+    expect(silentCalls(um)).toBe(2);
+  });
+
+  it('signs in when restored from the back-forward cache with no user', async () => {
+    const { um } = await signedIn();
+    um.storeUser(null);
+    await pageShow();
+    await waitFor(() => expect(um.signinRedirect).toHaveBeenCalled());
   });
 });

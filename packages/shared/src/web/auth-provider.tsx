@@ -8,7 +8,13 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { InMemoryWebStorage, UserManager, WebStorageStateStore, type User } from 'oidc-client-ts';
+import {
+  ErrorResponse,
+  InMemoryWebStorage,
+  UserManager,
+  WebStorageStateStore,
+  type User,
+} from 'oidc-client-ts';
 import { isRole, type Role } from '../roles.js';
 import { apiBaseUrl as defaultApiBaseUrl, createApiClient, type ApiClient } from './api-client.js';
 
@@ -28,6 +34,8 @@ export interface UserManagerLike {
   getUser(): Promise<User | null>;
   signinRedirect(args?: { state?: unknown }): Promise<void>;
   signinRedirectCallback(): Promise<User>;
+  /** Spec 018 research R12: the refresh-token grant, with no page navigation. */
+  signinSilent(): Promise<User | null>;
   removeUser(): Promise<void>;
   signoutRedirect(args?: {
     id_token_hint?: string;
@@ -113,6 +121,17 @@ export interface AuthProviderProps {
 /** Spec 015 research R8: how long logout waits for `beforeLogout` before going on anyway. */
 const BEFORE_LOGOUT_MS = 2_000;
 
+/** Spec 018 research R12: how often a failed renewal is retried while the user is kept. */
+const RENEW_RETRY_MS = 30_000;
+
+/**
+ * Spec 018 research R12: Keycloak's own refusal of a renewal (an OAuth error such as
+ * `invalid_grant`), the one failure that ends the session. Anything else, such as `fetch`'s
+ * `TypeError` with no network, a timeout, or a captive portal's page, means "try again later".
+ */
+const isRefusal = (err: unknown): boolean =>
+  err instanceof ErrorResponse || (err as Error | undefined)?.name === 'ErrorResponse';
+
 export function AuthProvider({
   authority,
   clientId,
@@ -131,6 +150,10 @@ export function AuthProvider({
   const [status, setStatus] = useState<AuthStatus>('loading');
   const userRef = useRef<User | null>(null);
   const loggingOut = useRef(false);
+  // Spec 018 research R12: a renewal failed for a reason other than Keycloak's refusal, so the
+  // user is kept and the renewal retried quietly until it succeeds or Keycloak refuses it.
+  const [renewFailed, setRenewFailed] = useState(false);
+  const renewing = useRef(false);
 
   const apply = useCallback((u: User | null) => {
     userRef.current = u;
@@ -170,37 +193,87 @@ export function AuthProvider({
     };
   }, [um, apply, signIn]);
 
-  // Token lifecycle (FR-013): pick up silent renewals; sign in again when renewal is impossible.
+  /** Keycloak refused the renewal: the session is over, so sign in again (spec 001 FR-013). */
+  const endSession = useCallback(async () => {
+    setRenewFailed(false);
+    await um.removeUser();
+    apply(null);
+    await signIn();
+  }, [um, apply, signIn]);
+
+  // Token lifecycle (spec 001 FR-013, and its data-model §4 as amended by spec 018 research R12):
+  // pick up silent renewals; end the session only when Keycloak refuses a renewal. A renewal that
+  // fails for any other reason, or a token that simply expires (a hanging request is retried by
+  // the library and never reported), keeps the user in memory: the Backend refuses the expired
+  // token with 401, and the renewal is retried quietly below. Nothing is written to storage.
   useEffect(() => {
-    const onLoaded = (u: User) => apply(u);
-    const onLost = () => {
-      void (async () => {
-        await um.removeUser();
-        apply(null);
-        await signIn();
-      })();
+    const onLoaded = (u: User) => {
+      // A renewal in flight isn't cancelled by logout's removeUser; when it answers, the library
+      // stores the user again. Drop it, so logout still ends this session (spec 001 SC-007).
+      if (loggingOut.current) {
+        void um.removeUser();
+        return;
+      }
+      setRenewFailed(false);
+      apply(u);
+    };
+    const onExpired = () => setRenewFailed(true);
+    const onRenewError = (err: Error) => {
+      if (isRefusal(err)) void endSession();
+      else setRenewFailed(true);
     };
     um.events.addUserLoaded(onLoaded);
-    um.events.addAccessTokenExpired(onLost);
-    um.events.addSilentRenewError(onLost);
+    um.events.addAccessTokenExpired(onExpired);
+    um.events.addSilentRenewError(onRenewError);
     return () => {
       um.events.removeUserLoaded(onLoaded);
-      um.events.removeAccessTokenExpired(onLost);
-      um.events.removeSilentRenewError(onLost);
+      um.events.removeAccessTokenExpired(onExpired);
+      um.events.removeSilentRenewError(onRenewError);
     };
-  }, [um, apply, signIn]);
+  }, [um, apply, endSession]);
+
+  // Spec 018 research R12: while a renewal has failed, retry it with the refresh token (no page
+  // change) at once, then when the browser is back online and every 30 seconds, one at a time.
+  // Trying at once lets a device that wakes past expiry renew before its next API call's 401 sends
+  // it to sign in. Success raises userLoaded above, which stops this; Keycloak's refusal ends the
+  // session; anything else waits for the next try.
+  useEffect(() => {
+    if (!renewFailed) return;
+    const retry = () => {
+      if (renewing.current || loggingOut.current || !userRef.current) return;
+      renewing.current = true;
+      void um
+        .signinSilent()
+        .catch((err: unknown) => {
+          if (isRefusal(err) && !loggingOut.current) return endSession();
+        })
+        .finally(() => {
+          renewing.current = false;
+        });
+    };
+    retry();
+    const timer = setInterval(retry, RENEW_RETRY_MS);
+    window.addEventListener('online', retry);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('online', retry);
+    };
+  }, [renewFailed, um, endSession]);
 
   // A page restored from the back-forward cache keeps its JavaScript state; re-check that a
   // user is still in memory, so the back button after logout shows no signed-in page (SC-007).
+  // An expired user is kept and its renewal retried, as on accessTokenExpired (spec 018 R12).
   useEffect(() => {
     const onPageShow = (e: PageTransitionEvent) => {
       if (!e.persisted) return;
       void (async () => {
         const current = await um.getUser();
-        if (!current || current.expired) {
+        if (!current) {
           apply(null);
           loggingOut.current = false;
           await signIn();
+        } else if (current.expired) {
+          setRenewFailed(true);
         }
       })();
     };
@@ -218,6 +291,7 @@ export function AuthProvider({
   const logout = useCallback(async () => {
     const idToken = userRef.current?.id_token;
     loggingOut.current = true;
+    setRenewFailed(false);
     // Spec 015 FR-008: while the token is still here; never longer than 2 seconds, never fatal.
     if (beforeLogout) {
       let timer: ReturnType<typeof setTimeout> | undefined;

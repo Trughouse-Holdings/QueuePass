@@ -469,6 +469,116 @@ describe('Refusal reasons (US3, FR-011)', () => {
   });
 });
 
+/** Spec 018 FR-011 (research R9): a live code the Backend verified needs no ID check. */
+describe('A verified live code (US1-3 to US1-5)', () => {
+  const LIVE = 'QP1:3B8E0000000040008000000000000001:59762702:KX4N2Q7WZB3T5RYM';
+
+  it('says no ID check is needed, shows the ticket, and offers Admit, Admit all 3, and Refuse', async () => {
+    stubApi({
+      [EVENTS]: threeEvents(),
+      [LOOKUP]: json(ticket({ unusedOnOrder: 3, verifiedBy: 'LIVE_CODE' })),
+    });
+    renderApp();
+    const user = userEvent.setup();
+    await lookUp(user, LIVE);
+
+    const status = screen.getAllByRole('status').find((s) => s.classList.contains('entry-result'))!;
+    expect(
+      await within(status).findByText('✓ Live code verified. No ID check needed.'),
+    ).toBeInTheDocument();
+    expect(within(status).getByText('Jordan Lee')).toBeInTheDocument();
+    expect(within(status).getByText('Demo Tonight')).toBeInTheDocument();
+    expect(within(status).getByText('General')).toBeInTheDocument();
+    expect(within(status).getByRole('button', { name: 'Admit' })).toBeEnabled();
+    expect(within(status).getByRole('button', { name: 'Admit all 3' })).toBeEnabled();
+    expect(within(status).getByRole('button', { name: 'Refuse' })).toBeEnabled();
+    expect(screen.queryByText(/Check a government-issued photo ID/)).toBeNull();
+    expect(screen.queryByText(/Check that the person shows a valid photo ID/)).toBeNull();
+  });
+
+  it.each([
+    ['Admit', false],
+    ['Admit all 3', true],
+  ])('%s posts as in 017 (wholeOrder: %s)', async (name, wholeOrder) => {
+    const { calls } = stubApi({
+      [EVENTS]: threeEvents(),
+      [LOOKUP]: json(ticket({ unusedOnOrder: 3, verifiedBy: 'LIVE_CODE' })),
+      [ADMIT]: json({
+        admitted: [{ ticketId: TICKET_ID, code: '7KQ2M9XWAB4C', usedAt: iso(0) }],
+        alreadyUsed: [],
+      }),
+    });
+    renderApp();
+    const user = userEvent.setup();
+    await lookUp(user, LIVE);
+    await user.click(await screen.findByRole('button', { name }));
+    await screen.findByText(/✓/);
+    expect(calls.find((c) => c.path.endsWith('/entry/admit'))?.body).toEqual({
+      ticketId: TICKET_ID,
+      wholeOrder,
+    });
+  });
+});
+
+/** Spec 018 US3 (FR-014, SC-005): a printed or typed code keeps 017's ID check. */
+describe('A printed or typed code after 018 (US3-1)', () => {
+  it('verifiedBy TICKET_CODE shows the ID-check prompt and no "Live code verified"', async () => {
+    stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: json(ticket({ verifiedBy: 'TICKET_CODE' })) });
+    renderApp();
+    await lookUp(userEvent.setup());
+    expect(
+      await screen.findByText('Check a government-issued photo ID that shows: Jordan Lee'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Live code verified/)).toBeNull();
+  });
+});
+
+/** Spec 018 US2 (FR-011, FR-012; research R9): a copied or forged live code is refused. */
+describe('Refused live codes (US2-1, US2-3)', () => {
+  const LIVE = 'QP1:3B8E0000000040008000000000000001:59762702:KX4N2Q7WZB3T5RYM';
+  const EXPIRED =
+    '✕ This live code has expired. Ask for the live code in the QueuePass app, or a printed ticket with photo ID.';
+
+  async function refusedLive(reply: Response) {
+    stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: reply });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user, LIVE);
+    const result = screen.getAllByRole('status').find((s) => s.classList.contains('entry-result'))!;
+    return { user, result };
+  }
+
+  it('409 LIVE_CODE_EXPIRED says what to ask for, and shows nothing about the ticket', async () => {
+    const { user, result } = await refusedLive(
+      json({ error: { code: 'LIVE_CODE_EXPIRED', message: 'This live code has expired.' } }, 409),
+    );
+    expect(await within(result).findByText(EXPIRED)).toBeInTheDocument();
+    for (const fact of ['Event', 'Name on ticket', 'Seat', 'Ticket type']) {
+      expect(within(result).queryByText(fact)).toBeNull();
+    }
+    expect(screen.queryByRole('button', { name: /^Admit/ })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    // A typed code stays, as after 017's "No ticket has this code".
+    expect(screen.getByLabelText('Ticket code')).toHaveValue(LIVE);
+    await user.click(within(result).getByRole('button', { name: 'Look up another' }));
+    expect(screen.getByLabelText('Ticket code')).toHaveFocus();
+  });
+
+  it('404 LIVE_CODE_INVALID says it is not a valid QueuePass code', async () => {
+    const { user, result } = await refusedLive(
+      json(
+        { error: { code: 'LIVE_CODE_INVALID', message: 'This is not a valid QueuePass code.' } },
+        404,
+      ),
+    );
+    expect(await within(result).findByText('✕ Not a valid QueuePass code.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Admit/ })).toBeNull();
+    expect(screen.getByLabelText('Ticket code')).toHaveValue(LIVE);
+    await user.click(within(result).getByRole('button', { name: 'Look up another' }));
+    expect(screen.getByLabelText('Ticket code')).toHaveFocus();
+  });
+});
+
 describe('Failures are explicit states (Constitution IV, Edge Cases)', () => {
   it('a network error on a lookup shows a plain error and re-enables the controls', async () => {
     stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: 'network-error' });

@@ -10,7 +10,10 @@ export type EntryState = 'ADMITTABLE' | 'USED' | 'VOID' | 'OTHER_EVENT' | 'NOT_O
 
 /** Mirrors `EntryLookupInput`: a ticket code as typed or scanned. */
 export interface EntryLookupInput {
-  /** 1–64 characters; letter case, spaces, and dashes are ignored. */
+  /**
+   * 1–80 characters: a ticket code or a live code. A ticket code's letter case, spaces, and
+   * dashes are ignored.
+   */
   code: string;
 }
 
@@ -38,6 +41,11 @@ export interface EntryTicket {
   entryOpensAt: string;
   /** Valid, unused tickets of this ticket's order for this event, this one included. */
   unusedOnOrder: number;
+  /**
+   * Spec 018 FR-011: `LIVE_CODE` when the Backend verified a live code in its window (no ID
+   * check needed); `TICKET_CODE` for a typed or printed code.
+   */
+  verifiedBy: 'LIVE_CODE' | 'TICKET_CODE';
 }
 
 /** Mirrors `AdmitInput`. */
@@ -60,4 +68,13 @@ export interface EntryResult {
   admitted: EntryTicketRef[];
   /** Tickets of the order that were already used when `wholeOrder` arrived. */
   alreadyUsed: EntryTicketRef[];
+}
+
+/** Spec 018 (research R5). Mirrors `TicketEntryKey`: what `getTicketEntryKey` returns. */
+export interface TicketEntryKey {
+  ticketId: string;
+  /** The ticket's 32-byte entry secret, base64url without padding (43 characters). */
+  key: string;
+  /** The Backend's clock when it answered, with milliseconds. */
+  serverTime: string;
 }

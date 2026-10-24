@@ -1,6 +1,7 @@
 import { Link, NavLink, Route, Routes } from 'react-router-dom';
 import { LogoutButton } from '@queuepass/shared/web';
 import { EventList } from './pages/EventList';
+import { EntryCode } from './pages/EntryCode';
 import { EventDetail } from './pages/EventDetail';
 import { MyTickets } from './pages/MyTickets';
 import { PrintTicket } from './pages/PrintTicket';
@@ -47,6 +48,8 @@ export function App() {
           <Route path="/my-tickets" element={<MyTickets />} />
           {/* Spec 017 FR-012: the printable ticket. */}
           <Route path="/my-tickets/:ticketId/print" element={<PrintTicket />} />
+          {/* Spec 018 FR-001: the live entry code. */}
+          <Route path="/my-tickets/:ticketId/entry-code" element={<EntryCode />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>

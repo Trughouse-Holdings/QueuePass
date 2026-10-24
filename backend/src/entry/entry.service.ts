@@ -1,9 +1,19 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type { EntryResult, EntryState, EntryTicket, EntryTicketRef } from '@queuepass/shared';
+import {
+  isLiveCodeText,
+  keyToBase64url,
+  type EntryResult,
+  type EntryState,
+  type EntryTicket,
+  type EntryTicketRef,
+  type TicketEntryKey,
+} from '@queuepass/shared';
 import type { Principal } from '../auth/principal';
+import { CLOCK, type Clock } from '../common/clock';
 import { conflict } from '../common/conflict';
 import { PrismaService } from '../prisma/prisma.service';
+import { checkLiveCode } from './live-code-check';
 import { normalizeCode, stateCase } from './ticket-state';
 
 /** A 404 in the standard envelope with its own code (contracts/openapi.yaml `EntryNotFound`). */
@@ -47,11 +57,24 @@ const iso = (d: Date): string => d.toISOString();
  */
 @Injectable()
 export class EntryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(CLOCK) private readonly clock: Clock,
+  ) {}
 
-  /** `lookupEntryTicket`: the ticket with this code, and what the agent may do with it (FR-010). */
+  /**
+   * `lookupEntryTicket`: the ticket with this code, and what the agent may do with it (FR-010).
+   * Spec 018 (research R4): a code starting `QP1:` takes the live-code path, verified before
+   * anything about its ticket is read; every other code takes 017's path unchanged.
+   */
   async lookup(eventId: string, rawCode: string): Promise<EntryTicket> {
     await this.eventOrThrow(eventId);
+    if (isLiveCodeText(rawCode)) {
+      const ticketId = await checkLiveCode(this.prisma, this.clock, rawCode);
+      // The ticket existed a moment ago and nothing deletes tickets, so a row always comes back.
+      const rows = await this.select(eventId, Prisma.sql`t."id" = ${ticketId}::uuid`);
+      return toEntryTicket(rows[0], 'LIVE_CODE');
+    }
     const code = normalizeCode(rawCode);
     const rows = code === null ? [] : await this.select(eventId, Prisma.sql`t."code" = ${code}`);
     if (rows.length === 0) {
@@ -59,7 +82,35 @@ export class EntryService {
         code === null ? 'No ticket has this code.' : `No ticket has the code ${code}.`,
       );
     }
-    return toEntryTicket(rows[0]);
+    return toEntryTicket(rows[0], 'TICKET_CODE');
+  }
+
+  /**
+   * Spec 018 `getTicketEntryKey` (research R5): the buyer's own valid, unused ticket's secret and
+   * the Backend's time. Someone else's ticket is the same 404 as none (FR-003).
+   */
+  async entryKey(ticketId: string, buyer: Principal): Promise<TicketEntryKey> {
+    const ticket = await this.prisma.ticket.findFirst({
+      where: { id: ticketId, order: { customerSub: buyer.sub } },
+      select: { id: true, status: true, checkedInAt: true, entrySecret: true },
+    });
+    if (!ticket) throw new NotFoundException(`No ticket exists with id ${ticketId}.`);
+    if (ticket.status === 'VOID') {
+      throw conflict('ENTRY_REFUSED', 'This ticket was cancelled and refunded.', {
+        reason: 'VOID',
+      });
+    }
+    if (ticket.checkedInAt) {
+      throw conflict('ENTRY_REFUSED', 'This ticket was already used.', {
+        reason: 'USED',
+        usedAt: iso(ticket.checkedInAt),
+      });
+    }
+    return {
+      ticketId: ticket.id,
+      key: keyToBase64url(ticket.entrySecret),
+      serverTime: new Date(this.clock.now()).toISOString(),
+    };
   }
 
   /**
@@ -219,8 +270,11 @@ export class EntryService {
   }
 }
 
-/** The API shape (contracts/openapi.yaml `EntryTicket`), from one lookup row. */
-function toEntryTicket(r: LookupRow): EntryTicket {
+/**
+ * The API shape (contracts/openapi.yaml `EntryTicket`), from one lookup row. `verifiedBy` says
+ * which kind of code found it (spec 018 FR-011): only a verified live code skips the ID check.
+ */
+function toEntryTicket(r: LookupRow, verifiedBy: 'LIVE_CODE' | 'TICKET_CODE'): EntryTicket {
   return {
     ticketId: r.ticketId,
     code: r.code,
@@ -238,5 +292,6 @@ function toEntryTicket(r: LookupRow): EntryTicket {
     usedAt: r.state === 'USED' && r.checkedInAt ? iso(r.checkedInAt) : null,
     entryOpensAt: iso(r.entryOpensAt),
     unusedOnOrder: r.unusedOnOrder,
+    verifiedBy,
   };
 }

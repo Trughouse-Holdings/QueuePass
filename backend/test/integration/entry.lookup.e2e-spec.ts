@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { windowAt as liveWindowAt } from '@queuepass/shared';
 import { asAdmin } from '../setup/authed-request';
-import { agent, eventAroundNow, orderWithTickets, venue } from '../setup/fixtures';
+import { agent, eventAroundNow, liveCodeFor, orderWithTickets, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -53,6 +54,8 @@ describe('lookupEntryTicket', () => {
       usedAt: null,
       entryOpensAt: expect.any(String),
       unusedOnOrder: 1,
+      // Spec 018 FR-011: a typed or printed code always needs the ID check.
+      verifiedBy: 'TICKET_CODE',
     });
     // FR-019: entry opens exactly 2 hours before the start.
     expect(new Date(res.body.entryOpensAt).getTime()).toBe(
@@ -139,6 +142,53 @@ describe('lookupEntryTicket', () => {
   it('is 400 for an empty code', async () => {
     const res = await lookup('');
     expect(res.status).toBe(400);
+  });
+
+  describe('spec 018: verifiedBy and one ticket for every code (FR-014)', () => {
+    afterEach(() => ctx.clock.useRealTime());
+
+    const admit = async (ticketId: string) =>
+      (await agent(ctx))
+        .post(`/events/${eventId}/entry/admit`)
+        .send({ ticketId, wholeOrder: false })
+        .expect(200);
+
+    it('answers TICKET_CODE for a typed code in any case, with spaces or dashes', async () => {
+      const { tickets } = await orderWithTickets(ctx, eventId, { quantity: 1 });
+      const code = tickets[0].code;
+      for (const typed of [
+        code,
+        code.toLowerCase(),
+        `${code.slice(0, 6)} ${code.slice(6)}`,
+        `${code.slice(0, 6)}-${code.slice(6)}`,
+      ]) {
+        const res = await lookup(typed);
+        expect(res.status).toBe(200);
+        expect(res.body.verifiedBy).toBe('TICKET_CODE');
+      }
+    });
+
+    it('a ticket admitted by its live code is USED by its typed code, and the other way around', async () => {
+      const w = liveWindowAt(Date.now());
+      ctx.clock.set(w * 30_000 + 15_000);
+      const { tickets } = await orderWithTickets(ctx, eventId, { quantity: 2 });
+      const [a, b] = tickets;
+
+      const live = await lookup(await liveCodeFor(ctx, a.id, w));
+      expect(live.body).toMatchObject({ state: 'ADMITTABLE', verifiedBy: 'LIVE_CODE' });
+      await admit(a.id);
+      expect((await lookup(a.code)).body).toMatchObject({
+        state: 'USED',
+        verifiedBy: 'TICKET_CODE',
+      });
+
+      expect((await lookup(b.code)).body.state).toBe('ADMITTABLE');
+      await admit(b.id);
+      expect((await lookup(await liveCodeFor(ctx, b.id, w))).body).toMatchObject({
+        state: 'USED',
+        verifiedBy: 'LIVE_CODE',
+      });
+    });
   });
 
   it('shadows no existing route: the admin attendee list still answers 200', async () => {

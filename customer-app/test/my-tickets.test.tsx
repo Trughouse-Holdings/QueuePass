@@ -93,10 +93,11 @@ describe('My tickets', () => {
       within(within(o).getByRole('list', { name: 'Tickets' }))
         .getAllByRole('listitem')
         .map((li) => li.textContent);
-    // Spec 017 FR-012: valid, unused tickets also carry a Print ticket link.
+    // Spec 017 FR-012 and spec 018 FR-001: valid, unused tickets also carry Show entry code and
+    // Print ticket links.
     expect(ticketsOf(first)).toEqual([
-      'AAAA2222BBBB: Valid Print ticket',
-      'CCCC3333DDDD: Valid Print ticket',
+      'AAAA2222BBBB: Valid Show entry code Print ticket',
+      'CCCC3333DDDD: Valid Show entry code Print ticket',
     ]);
     expect(ticketsOf(second)).toEqual([`EEEE4444FFFF: Used ${when('2026-12-01T23:10:00.000Z')}`]);
     expect(ticketsOf(third)).toEqual(['GGGG5555HHHH: Void']);
@@ -126,11 +127,11 @@ describe('My tickets', () => {
         .getAllByRole('listitem')
         .map((li) => li.textContent);
     expect(ticketsOf(first)).toEqual([
-      'JJJJ7777KKKK, Section A, Row 3, Seat 7: Valid Print ticket',
+      'JJJJ7777KKKK, Section A, Row 3, Seat 7: Valid Show entry code Print ticket',
     ]);
     expect(ticketsOf(second)).toEqual([
-      'AAAA2222BBBB: Valid Print ticket',
-      'CCCC3333DDDD: Valid Print ticket',
+      'AAAA2222BBBB: Valid Show entry code Print ticket',
+      'CCCC3333DDDD: Valid Show entry code Print ticket',
     ]);
   });
 

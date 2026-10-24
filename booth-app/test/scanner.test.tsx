@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-user-manager';
 import { CameraRefusedError, NoCameraError } from '../src/camera';
+import { normalizeScan } from '../src/decode';
 
 /**
  * Spec 017 US5 (FR-009; research R9): scanning with the camera and the decoder stubbed, so no
@@ -293,5 +294,88 @@ describe('Scanning (US5-3 to US5-6)', () => {
     await screen.findByRole('button', { name: 'Stop scanning' });
     cleanup();
     expect(stopTracks).toHaveBeenCalled();
+  });
+});
+
+/** Spec 018 FR-011 (research R9): a live code is recognized when scanned, with no choice by the agent. */
+describe('Scanning a live code', () => {
+  const LIVE = 'QP1:3B8E0000000040008000000000000001:59762702:KX4N2Q7WZB3T5RYM';
+
+  it('normalizeScan returns a live code upper-cased, otherwise unchanged', () => {
+    expect(normalizeScan(LIVE)).toBe(LIVE);
+    expect(normalizeScan(LIVE.toLowerCase())).toBe(LIVE);
+    expect(normalizeScan('QP1:0000000000000000000000000000000A:0:AAAAAAAAAAAAAAAA')).toBe(
+      'QP1:0000000000000000000000000000000A:0:AAAAAAAAAAAAAAAA',
+    );
+    // 017's ticket codes are unchanged.
+    expect(normalizeScan('7kq2-m9xw ab4c')).toBe(CODE);
+  });
+
+  it.each([
+    'QP1:',
+    'QP1:XYZ',
+    'QP2:3B8E0000000040008000000000000001:59762702:KX4N2Q7WZB3T5RYM',
+    'QP1:3B8E000000004000800000000000001:59762702:KX4N2Q7WZB3T5RYM',
+    'QP1:3B8E0000000040008000000000000001:059762702:KX4N2Q7WZB3T5RYM',
+    'QP1:3B8E0000000040008000000000000001:59762702:KX4N2Q7WZB3T5RY1',
+  ])('normalizeScan refuses %j', (raw) => {
+    expect(normalizeScan(raw)).toBeNull();
+  });
+
+  it('a decoded live code runs the lookup with no further tap, stopping the camera', async () => {
+    const { calls } = stubApi();
+    decoded = [LIVE.toLowerCase()];
+    const user = userEvent.setup();
+    await openScanner(user);
+
+    await screen.findByText('Check a government-issued photo ID that shows: Jordan Lee');
+    const lookup = calls.find((c) => c.path.endsWith('/entry/lookup'));
+    expect(lookup?.body).toEqual({ code: LIVE });
+    expect(stopTracks).toHaveBeenCalled();
+  });
+});
+
+describe('Scanning again after an expired live code (US2-5)', () => {
+  const OLD = 'QP1:3B8E0000000040008000000000000001:59762700:KX4N2Q7WZB3T5RYM';
+  const NEW = 'QP1:3B8E0000000040008000000000000001:59762702:AAAAAAAAAAAAAAAA';
+
+  it('refuses the old code, then the fresh one scans and shows the ticket', async () => {
+    let answers = 0;
+    const { calls } = stubApi({
+      [LOOKUP]: async () =>
+        ++answers === 1
+          ? json(
+              { error: { code: 'LIVE_CODE_EXPIRED', message: 'This live code has expired.' } },
+              409,
+            )
+          : json({
+              ticketId: 't-1',
+              code: CODE,
+              orderId: 'o-1',
+              state: 'ADMITTABLE',
+              event: { id: EVENT_ID, name: 'Demo Tonight', startsAt: iso(1), endsAt: iso(4) },
+              tierName: null,
+              seat: null,
+              holderName: 'Jordan Lee',
+              usedAt: null,
+              entryOpensAt: iso(-1),
+              unusedOnOrder: 1,
+              verifiedBy: 'LIVE_CODE',
+            }),
+    });
+    decoded = [OLD];
+    const user = userEvent.setup();
+    await openScanner(user);
+    expect(await screen.findByText(/This live code has expired\. Ask for/)).toBeInTheDocument();
+
+    decoded = [NEW];
+    await user.click(screen.getByRole('button', { name: 'Scan' }));
+    expect(
+      await screen.findByText('✓ Live code verified. No ID check needed.'),
+    ).toBeInTheDocument();
+    expect(calls.filter((c) => c.path.endsWith('/entry/lookup')).map((c) => c.body)).toEqual([
+      { code: OLD },
+      { code: NEW },
+    ]);
   });
 });

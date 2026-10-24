@@ -38,6 +38,16 @@ export function refusalText(
 }
 
 /**
+ * Spec 018 FR-011 (research R9): why a live code itself was refused, with what to ask the holder
+ * for. Nothing about the ticket: the Backend sends nothing about it.
+ */
+export const LIVE_CODE_REFUSALS: Record<string, string> = {
+  LIVE_CODE_EXPIRED:
+    'This live code has expired. Ask for the live code in the QueuePass app, or a printed ticket with photo ID.',
+  LIVE_CODE_INVALID: 'Not a valid QueuePass code.',
+};
+
+/**
  * Spec 017 FR-014, FR-023, FR-024: the result of every lookup, admit, and refusal, in one
  * `role="status"` region that stays until the next lookup. Every state has a word and a symbol
  * (✓, ✕), never color alone.
@@ -139,10 +149,14 @@ export function EntryResult({
         <p className="note">
           {`${t.unusedOnOrder} unused ${t.unusedOnOrder === 1 ? 'ticket' : 'tickets'} on this order`}
         </p>
+        {/* Spec 018 FR-011: the Backend verified a live code in its window, so no ID check;
+            a printed or typed code always gets 017's prompt (FR-014). */}
         <p className="result__prompt">
-          {t.holderName
-            ? `Check a government-issued photo ID that shows: ${t.holderName}`
-            : 'Check that the person shows a valid photo ID'}
+          {t.verifiedBy === 'LIVE_CODE'
+            ? '✓ Live code verified. No ID check needed.'
+            : t.holderName
+              ? `Check a government-issued photo ID that shows: ${t.holderName}`
+              : 'Check that the person shows a valid photo ID'}
         </p>
         <div className="result__actions">
           <button

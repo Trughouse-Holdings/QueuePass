@@ -1708,10 +1708,10 @@ export interface components {
             /**
              * @description Feature 018. `LIVE_CODE` when the lookup was by a live code the Backend verified in
              *     its window: no ID check is needed. `TICKET_CODE` for a typed or printed code: the ID
-             *     check is always needed. Required once feature 018 is implemented.
+             *     check is always needed.
              * @enum {string}
              */
-            verifiedBy?: "LIVE_CODE" | "TICKET_CODE";
+            verifiedBy: "LIVE_CODE" | "TICKET_CODE";
         };
         /** @description Feature 018. A ticket's entry key and the Backend's time. */
         TicketEntryKey: {

@@ -54,7 +54,7 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `018-rotating-qr-codes-impl` from `018-rotating-qr-codes-spec` while the spec and
+- [X] T001 Cut `018-rotating-qr-codes-impl` from `018-rotating-qr-codes-spec` while the spec and
   plan PR is open, or from an up-to-date `main` once it has merged (ground rules); run
   `npm install`, run `npx prisma generate` in `backend/`, and run `npm test` from the repository
   root. Confirm the suite is green before any change (baseline). No new npm package is needed
@@ -66,7 +66,7 @@ and confirm they **fail** before the implementation tasks below them.
 
 **Purpose**: the shared live-code module, the secret column, and the Backend's clock.
 
-- [ ] T002 [P] Write `packages/shared/test/live-code.test.ts` (first line
+- [X] T002 [P] Write `packages/shared/test/live-code.test.ts` (first line
   `// @vitest-environment node`), for research R2 and R3:
   - `windowAt(ms)` is `Math.floor(ms / 30000)`: `windowAt(0) = 0`, `windowAt(29_999) = 0`,
     `windowAt(30_000) = 1`.
@@ -89,7 +89,7 @@ and confirm they **fail** before the implementation tasks below them.
   - `keyToBase64url` / `keyFromBase64url` round-trip 32 bytes as 43 characters of `[A-Za-z0-9_-]`
     with no padding; `keyFromBase64url` returns `null` for 42 or 44 characters, `+`, `/`, or `=`.
   Confirm it fails (the module doesn't exist).
-- [ ] T003 Create `packages/shared/src/live-code.ts` and export it from
+- [X] T003 Create `packages/shared/src/live-code.ts` and export it from
   `packages/shared/src/index.ts`: `LIVE_CODE_PREFIX = 'QP1:'`, `WINDOW_MS = 30_000`,
   `GRACE_MS = 5_000`; `windowAt(ms: number): number`; `windowStartMs(w: number): number`;
   `async liveCode(secret: Uint8Array, ticketId: string, window: number): Promise<string>` using
@@ -107,7 +107,7 @@ and confirm they **fail** before the implementation tasks below them.
   `QP1:` after trim and upper-case); `keyToBase64url(bytes)` and `keyFromBase64url(text):
   Uint8Array | null` (exactly 32 bytes). No Node-only import: the module runs in browsers too.
   Run T002 until it passes; build `packages/shared`.
-- [ ] T004 Mirror the contract in `packages/shared/src/entry.ts`: add
+- [X] T004 Mirror the contract in `packages/shared/src/entry.ts`: add
   `verifiedBy?: 'LIVE_CODE' | 'TICKET_CODE'` to `EntryTicket`, **optional** as in contract 1.11.0
   (comment citing spec 018 FR-011 and "required from T027"). Not required yet: the Backend's
   `toEntryTicket` returns this type and sends no `verifiedBy` until T021, so a required field
@@ -115,7 +115,7 @@ and confirm they **fail** before the implementation tasks below them.
   new `TicketEntryKey { ticketId: string; key: string; serverTime: string }` (comment: base64url of
   32 bytes; the Backend's clock with milliseconds); update `EntryLookupInput.code`'s comment to
   "1–80 characters: a ticket code or a live code"; export from `packages/shared/src/index.ts`.
-- [ ] T005 [P] Write `backend/test/integration/live-codes.constraints.e2e-spec.ts`, using
+- [X] T005 [P] Write `backend/test/integration/live-codes.constraints.e2e-spec.ts`, using
   `ctx.prisma` and raw SQL:
   - a ticket inserted with no `entrySecret` gets one of exactly 32 bytes, and two tickets get
     different secrets;
@@ -132,7 +132,7 @@ and confirm they **fail** before the implementation tasks below them.
     the "possibly null" error alone satisfies the `@ts-expect-error`, and a lost omit goes
     unnoticed.
   Confirm it fails.
-- [ ] T006 Add to `model Ticket` in `backend/prisma/schema.prisma`, after `checkedInByUsername`:
+- [X] T006 Add to `model Ticket` in `backend/prisma/schema.prisma`, after `checkedInByUsername`:
   `entrySecret Bytes @default(dbgenerated("gen_random_bytes(32)")) @db.ByteA`, with the comment from
   data-model.md. Create `backend/prisma/migrations/<timestamp>_live_codes/migration.sql` with
   exactly data-model.md's three statements, in order: `CREATE EXTENSION IF NOT EXISTS pgcrypto;`,
@@ -140,7 +140,7 @@ and confirm they **fail** before the implementation tasks below them.
   `ALTER TABLE "Ticket" ADD CONSTRAINT ticket_entry_secret_32_bytes CHECK
   (octet_length("entrySecret") = 32);`. No index. Apply with `prisma migrate deploy` (never
   `db push`).
-- [ ] T007 In `backend/src/prisma/prisma.service.ts`, leave `entrySecret` out of every query by
+- [X] T007 In `backend/src/prisma/prisma.service.ts`, leave `entrySecret` out of every query by
   default, in the types as well as at runtime (research R1):
   ```ts
   const OMIT = { ticket: { entrySecret: true } } as const;
@@ -169,13 +169,13 @@ and confirm they **fail** before the implementation tasks below them.
   `npx tsc --noEmit -p tsconfig.json` in `backend/`; fix any other compile error the omit causes
   by naming the field in a `select` or retyping a parameter, never by removing the omit. Run T005
   until it passes, then the full Backend suite: every existing test still passes.
-- [ ] T008 Create `backend/src/common/clock.ts`: `export interface Clock { now(): number }`,
+- [X] T008 Create `backend/src/common/clock.ts`: `export interface Clock { now(): number }`,
   `export const CLOCK = Symbol('CLOCK')`, and `export const systemClock: Clock = { now: () =>
   Date.now() }`, with a comment citing spec 018 research R3. Provide `{ provide: CLOCK, useValue:
   systemClock }` in `backend/src/entry/entry.module.ts` (the only module that reads it). It comes
   before T009 because T009's `FakeClock` and the `CLOCK` override in `test-app.ts` import it:
   without it, `test-app.ts` doesn't compile and every Backend suite fails.
-- [ ] T009 Create `backend/test/setup/fake-clock.ts` (after T008): `class FakeClock implements
+- [X] T009 Create `backend/test/setup/fake-clock.ts` (after T008): `class FakeClock implements
   Clock` with `now()` returning `Date.now()` until `set(ms: number)` fixes it, and
   `useRealTime()` to undo; add `clock: FakeClock` to `TestContext` in
   `backend/test/setup/test-app.ts`, override the `CLOCK` provider with it (next to
@@ -207,7 +207,7 @@ T014), the lookup (T021) answers `verifiedBy: 'TICKET_CODE'` on 017's path (T015
 response but the key operation's (T019) carries the secret (T032). Those four keep their story's
 label.
 
-- [ ] T010 [P] [US1] Write `backend/test/integration/entry-key.e2e-spec.ts` (contract-checked
+- [X] T010 [P] [US1] Write `backend/test/integration/entry-key.e2e-spec.ts` (contract-checked
   `getTicketEntryKey`, research R5): the buyer gets `200` with `ticketId`, a `key` of 43 base64url
   characters that `keyFromBase64url` turns into exactly the ticket's stored 32 bytes, and
   `serverTime` equal to `new Date(ctx.clock.now()).toISOString()` with the clock set; the response
@@ -219,12 +219,12 @@ label.
   name) still gets its key; and so do a ticket for an event 30 days away and one for an event that
   has ended, both valid and unused (`eventAroundNow`, `orderWithTickets`): the key doesn't depend
   on the entry window (FR-005).
-- [ ] T011 [P] [US1] Write `backend/test/integration/entry-key.authz.e2e-spec.ts`:
+- [X] T011 [P] [US1] Write `backend/test/integration/entry-key.authz.e2e-spec.ts`:
   `getTicketEntryKey` answers `401` with no token, an expired token, a wrongly signed one, and one
   for another audience; `403` for an admin and for a gate agent; `200` for the buyer (FR-003,
   SC-007, Constitution V and VI). Also, a customer's token posting a current live code
   (`liveCodeFor`) to `lookupEntryTicket` is `403` (FR-013).
-- [ ] T012 [P] [US1] Write `backend/test/integration/entry.live-code.e2e-spec.ts`
+- [X] T012 [P] [US1] Write `backend/test/integration/entry.live-code.e2e-spec.ts`
   (contract-checked `lookupEntryTicket`), with `ctx.clock.set` to the middle of a window: a current
   live code (`liveCodeFor`) for an admittable ticket is `200` with every `EntryTicket` field of spec
   017 and `verifiedBy: 'LIVE_CODE'`; the same code in lower case is accepted; a lookup records
@@ -233,7 +233,7 @@ label.
   other-event, not-yet-open, and ended ticket gives `state` `USED` (with `usedAt`), `VOID`,
   `OTHER_EVENT`, `NOT_OPEN`, and `ENDED`, each with `verifiedBy: 'LIVE_CODE'`; a ticket bought
   before 017 has a working live code with `holderName: null`.
-- [ ] T013 [P] [US2] Write `backend/test/integration/entry.live-boundaries.e2e-spec.ts` with
+- [X] T013 [P] [US2] Write `backend/test/integration/entry.live-boundaries.e2e-spec.ts` with
   `ctx.clock.set` and one ticket's code for window `w = liveWindowAt(Date.now())` (SC-001), where
   `liveWindowAt` is the shared module's `windowAt` imported under that name
   (`import { windowAt as liveWindowAt } from '@queuepass/shared'`). `backend/test/setup/fixtures.ts`
@@ -243,7 +243,7 @@ label.
   "This live code has expired." and no `details`. Repeat for 3 consecutive windows. Then, with the
   clock at the last accepted instant, a lookup is `200`, and admitting that ticket after moving
   the clock past the grace still succeeds (spec Edge Cases, research R6).
-- [ ] T014 [P] [US2] Write `backend/test/integration/entry.live-refusals.e2e-spec.ts`: each of these
+- [X] T014 [P] [US2] Write `backend/test/integration/entry.live-refusals.e2e-spec.ts`: each of these
   is `404 LIVE_CODE_INVALID` with "This is not a valid QueuePass code." and no `details`: a MAC with
   one character changed; the right MAC under another ticket's secret; a well-formed code naming a
   random UUID; `'QP1:'` alone; `'QP1:XYZ'`; a code whose window was changed by 1 with its MAC kept;
@@ -251,10 +251,10 @@ label.
   LIVE_CODE_EXPIRED`, not `USED` (R4: the window is checked before the ticket). None of them
   changes the ticket (`checkedInAt` still `NULL`), and the ticket's current live code is admitted
   afterwards (FR-012, US2 scenario 5). A request with an 81-character code is `400`.
-- [ ] T015 [P] [US3] Add to `backend/test/integration/entry.lookup.e2e-spec.ts`: a typed code
+- [X] T015 [P] [US3] Add to `backend/test/integration/entry.lookup.e2e-spec.ts`: a typed code
   (any case, spaces, dashes) answers `verifiedBy: 'TICKET_CODE'`; a ticket admitted through its
   live code is `USED` when looked up by its typed code, and the other way around (FR-014).
-- [ ] T032 [P] [US3] Write `backend/test/integration/entry-secret.no-leak.e2e-spec.ts` (FR-006),
+- [X] T032 [P] [US3] Write `backend/test/integration/entry-secret.no-leak.e2e-spec.ts` (FR-006),
   here, out of number order, because T019 and T021 build what it tests. For one order of 2
   tickets, read each ticket's secret (`select`) and form its base64url and hex; call
   `createOrder` (for a new order), `listMyOrders`, `listAttendees`, `getSalesReport`,
@@ -262,7 +262,7 @@ label.
   admit; the raw text of no response contains either secret's base64url or hex, or the word
   `entrySecret`. Only `getTicketEntryKey` for its own ticket contains that ticket's base64url, and
   never the other ticket's.
-- [ ] T016 [P] [US1] Add to `packages/shared/test/web/fake-user-manager.ts` a `signinSilent`
+- [X] T016 [P] [US1] Add to `packages/shared/test/web/fake-user-manager.ts` a `signinSilent`
   `vi.fn` that records `'signinSilent'` in `calls` and by default resolves to the current user
   without emitting anything (each test sets its outcome), and a `storeUser(u)` that sets what
   `getUser` returns, as the real `storeUser` does. Then add to
@@ -274,16 +274,18 @@ label.
   - `accessTokenExpired` with **no** `silentRenewError` before it keeps the user the same way: on
     a network that hangs, the library retries the timed-out renewal itself and raises no error,
     so the token expires with nothing before it;
-  - after either, the provider calls `signinSilent` every 30 seconds and on a `window` `online`
-    event; the fake rejecting with a `TypeError` keeps the user and the next try still comes; the
-    fake emitting `userLoaded` with a fresh user applies it and stops the tries (advancing another
-    60 seconds calls `signinSilent` no more); the fake rejecting with
-    `new ErrorResponse({ error: 'invalid_grant' })` (from `oidc-client-ts`) ends in `removeUser`
-    then `signinRedirect`; none of these calls `signinRedirect` otherwise;
+  - after either, the provider calls `signinSilent` once at once, before any timer moves, then
+    every 30 seconds and on a `window` `online` event; the fake rejecting with a `TypeError` keeps
+    the user and the next try still comes; the fake emitting `userLoaded` with a fresh user
+    applies it and stops the tries (advancing another 60 seconds calls `signinSilent` no more);
+    the fake rejecting with `new ErrorResponse({ error: 'invalid_grant' })` (from
+    `oidc-client-ts`) ends in `removeUser` then `signinRedirect`; none of these calls
+    `signinRedirect` otherwise;
   - an `online` event with no failed renewal calls nothing; no `signinSilent` while logging out;
   - with no failed renewal, advancing 60 seconds calls no `signinSilent`; after a failure,
-    unmounting and advancing 60 seconds calls none; an `online` event while a `signinSilent` is
-    still pending starts no second one;
+    unmounting and advancing 60 seconds calls none beyond the one at once, and so does logging
+    out; a failure recorded while logging out (`beforeLogout` still pending) starts none, at once
+    or later; an `online` event while a `signinSilent` is still pending starts no second one;
   - a renewal that lands during logout is dropped (spec 001 SC-007): after a failed renewal, make
     `signinSilent` pending; call `logout`; then `storeUser(fresh)` and emit `userLoaded` with it:
     the status is not `signed-in`, `calls` shows `removeUser` after the late load, `getUser`
@@ -301,7 +303,9 @@ label.
   `pageshow` with an expired user; the renewal landing during logout. These are guards that pass
   today and must keep passing: `online` with no failure; no `signinSilent` with no failure, after
   unmounting, or while logging out; the `401` probe; the `ErrorResponse`; `pageshow` with no user.
-- [ ] T017 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and fake
+  **Amended after review round 2 (L9, research R12)**: the try at once; the unmounting and
+  logging-out guards count from it, and the failure recorded while logging out is a new guard.
+- [X] T017 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and fake
   timers set up as `customer-app/test/seat-holds.test.tsx` does: `vi.useFakeTimers({
   shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
   'performance', 'Date'] })`. A bare `vi.useFakeTimers()` stalls Testing Library's `findBy…` and
@@ -340,10 +344,13 @@ label.
   - The countdown is not inside any `aria-live` or `role="status"` region (FR-004).
   - States: the key request failing with a network error shows "Can't show the live code without a
     connection. Use your printed ticket with photo ID."; so does `listMyOrders` getting no answer
-    (the page reloaded with no connection, quickstart S6); a `409` with `USED` shows "This ticket was
-    already used." and no QR; `404` shows "Ticket not found"; any other failure shows the standard
-    error with **Try again**, which retries.
-- [ ] T018 [P] [US1] Add to `booth-app/test/scanner.test.tsx` and `booth-app/test/check-in.test.tsx`:
+    (the page opened after the signal has gone; a reload with no signal stops at Keycloak first,
+    research R8); either way the message keeps `role="alert"` and **Back to My tickets** and offers
+    **Try again**, which retries both requests and, once they answer, shows the live code (amended
+    after review round 2, L10); a `409` with `USED` shows "This ticket was already used." and no
+    QR; `404` shows "Ticket not found"; any other failure shows the standard error with **Try
+    again**, which retries.
+- [X] T018 [P] [US1] Add to `booth-app/test/scanner.test.tsx` and `booth-app/test/check-in.test.tsx`:
   `normalizeScan` returns a live code (upper-cased, otherwise unchanged) for a value matching
   `^QP1:[0-9A-F]{32}:(0|[1-9]\d{0,11}):[A-Z2-7]{16}$`, and a decoded live code runs the lookup with
   no further tap and stops the camera; a lookup answering `verifiedBy: 'LIVE_CODE'` and `ADMITTABLE`
@@ -353,7 +360,7 @@ label.
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Create `backend/src/entry/entry-key.controller.ts`:
+- [X] T019 [US1] Create `backend/src/entry/entry-key.controller.ts`:
   `@Controller('me/tickets/:ticketId/entry-key')`, `@Get()` with `@Roles('customer')`,
   `ParseUUIDPipe` on `ticketId`, `@CurrentPrincipal()`, and `@Header('Cache-Control', 'no-store')`.
   Add `entryKey(ticketId, principal)` to `backend/src/entry/entry.service.ts` (or a small
@@ -364,7 +371,7 @@ label.
   })`; used is `conflict('ENTRY_REFUSED', 'This ticket was already used.', { reason: 'USED', usedAt
   })`; otherwise `{ ticketId, key: keyToBase64url(entrySecret), serverTime: new
   Date(clock.now()).toISOString() }`. Register the controller in `entry.module.ts`.
-- [ ] T020 [US1] Create `backend/src/entry/live-code-check.ts`: `checkLiveCode(prisma, clock, text)`
+- [X] T020 [US1] Create `backend/src/entry/live-code-check.ts`: `checkLiveCode(prisma, clock, text)`
   returning the verified `ticketId`, or throwing, in research R4's order: `parseLiveCode` is `null`
   → `404 LIVE_CODE_INVALID`; load `{ entrySecret }` by id (`select`), none → `404
   LIVE_CODE_INVALID`; recompute `liveCode(secret, ticketId, window)` and compare its MAC with the
@@ -374,18 +381,18 @@ label.
   expired."; no `details` on either (no ticket information, FR-011). Build both in the standard
   envelope as `ticketNotFound` in `entry.service.ts` builds its `404`, and with `conflict()` for the
   `409`.
-- [ ] T021 [US1] In `backend/src/entry/entry.service.ts`, inject `CLOCK`; at the top of `lookup`,
+- [X] T021 [US1] In `backend/src/entry/entry.service.ts`, inject `CLOCK`; at the top of `lookup`,
   after `eventOrThrow`, if `isLiveCodeText(rawCode)`, call `checkLiveCode` and then run the existing
   `select` with `t."id" = ${ticketId}::uuid`, returning `toEntryTicket(row)` with `verifiedBy:
   'LIVE_CODE'`; otherwise keep 017's path unchanged and return `verifiedBy: 'TICKET_CODE'`. In
   `backend/src/entry/dto/entry-lookup.dto.ts`, change `@Length(1, 64, …)` to `@Length(1, 80, {
   message: 'code must be between 1 and 80 characters' })` (research R4).
-- [ ] T022 [US1] Build `packages/shared`; run T010–T015 and T032 until they pass. A fix any of
+- [X] T022 [US1] Build `packages/shared`; run T010–T015 and T032 until they pass. A fix any of
   them needs goes in `backend/src/entry/` or `packages/shared/src/live-code.ts`.
-- [ ] T023 [US1] In `contracts/openapi.yaml`, remove `x-planned: '018'` from `getTicketEntryKey`;
+- [X] T023 [US1] In `contracts/openapi.yaml`, remove `x-planned: '018'` from `getTicketEntryKey`;
   run `npm run generate:api`. Run `backend/test/contract/route-coverage.e2e-spec.ts` and
   `node scripts/check-contract-drift.mjs`; both pass.
-- [ ] T024 [US1] In `packages/shared/src/web/auth-provider.tsx` (research R12), split today's
+- [X] T024 [US1] In `packages/shared/src/web/auth-provider.tsx` (research R12), split today's
   `onLost`:
   - A `silentRenewError` whose error is an `ErrorResponse` (`err instanceof ErrorResponse` from
     `oidc-client-ts`, or `err.name === 'ErrorResponse'`) does what `onLost` does now:
@@ -395,11 +402,14 @@ label.
     a timed-out renewal itself (every 5 seconds, with no limit) and never raises it, so on a
     network that hangs the token expires with no renewal error before it.
   - While `renewFailed` is set, a user is in memory, and `loggingOut` is not set, call
-    `um.signinSilent()` (the refresh-token grant, no page navigation) on the `window`'s `online`
-    event and every 30 seconds. On success, `userLoaded` applies the user and clears the ref, which
-    stops the tries. An `ErrorResponse` does `removeUser`, `apply(null)`, `signIn()`. Anything
-    else keeps the user until the next try. Skip a try while the provider's own `signinSilent` is
-    still in flight, so only one runs at a time. Nothing on this path navigates the page.
+    `um.signinSilent()` (the refresh-token grant, no page navigation) once at once when the failure
+    is first recorded, then on the `window`'s `online` event and every 30 seconds. The try at once
+    (amended after review round 2, L9) lets a device that wakes past expiry renew before a `401`
+    sends it to sign in with a full-page redirect. On success, `userLoaded` applies the user and
+    clears the ref, which stops the tries. An `ErrorResponse` does `removeUser`, `apply(null)`,
+    `signIn()`. Anything else keeps the user until the next try. Skip a try while the provider's
+    own `signinSilent` is still in flight, so only one runs at a time. Nothing on this path
+    navigates the page.
   - While `loggingOut` is set, `userLoaded` doesn't apply the user; it calls `um.removeUser()`
     again. `removeUser` doesn't cancel a renewal in flight (the library's own, or the provider's
     `signinSilent`), which stores the user and raises `userLoaded` when it answers; applying it
@@ -413,7 +423,7 @@ label.
   research R12. Nothing is written to storage (Constitution V) and `logout` doesn't change. Run
   T016 and the rest of `packages/shared`'s tests until they pass, build `packages/shared`, then run
   the Admin, Customer, and Ticket Booth apps' tests: the provider is theirs too.
-- [ ] T025 [US1] In `customer-app/src/components/TicketQr.tsx`, generalize without changing 017's
+- [X] T025 [US1] In `customer-app/src/components/TicketQr.tsx`, generalize without changing 017's
   output: `qrMatrix(text)` (any QR-alphanumeric text; type number 0, level `'M'`); export
   `qrPath(text): string`, the SVG path of the dark modules with the 4-module quiet zone, built as
   `TicketQr` builds it today, and have `TicketQr` draw with it (T017 compares with it); and
@@ -422,7 +432,7 @@ label.
   `ticket-qr--live`); 017's print view and `print-ticket.test.tsx` stay unchanged and passing. Add
   the class `ticket-qr--live` support for a size of `min(100%, 320px)` in
   `customer-app/src/styles.css`, theme values only.
-- [ ] T026 [US1] Build the live-code screen (research R8):
+- [X] T026 [US1] Build the live-code screen (research R8):
   - `customer-app/src/live-code-clock.ts`: `measureOffset(serverTime: string, sentMs: number,
     receivedMs: number): number` (`Date.parse(serverTime) − (sentMs + receivedMs) / 2`) and
     `serverNow(offset: number): number` (`Date.now() + offset`), with a comment citing FR-009.
@@ -434,25 +444,26 @@ label.
     `className`/`label` "Live entry code, changes every 30 seconds"), "Changes in N s" as plain text
     outside any live region, the static sentence "Show this at the gate. It changes every 30
     seconds.", the holder's name or "No name on ticket", the event's name and start time, and the
-    seat; the states of T017. Where `PrintTicket.tsx` shows `<ServiceUnreachable />` for
-    `useLoad`'s `unreachable`, this page shows the no-connection message instead (FR-010). Clears
-    the interval on unmount.
+    seat; the states of T017, the no-connection message with **Try again** before **Back to My
+    tickets**, as the error state has it (amended after review round 2, L10). Where
+    `PrintTicket.tsx` shows `<ServiceUnreachable />` for `useLoad`'s `unreachable`, this page shows
+    the no-connection message instead (FR-010). Clears the interval on unmount.
   - `customer-app/src/App.tsx`: the route `/my-tickets/:ticketId/entry-code`.
   - `customer-app/src/pages/MyTickets.tsx`: a **Show entry code** link, `aria-label` "Show entry
     code for ticket <code>", on each valid, unused ticket, beside **Print ticket**.
   - Typed calls through the generated client (`createApiClient`), as the other pages do.
-- [ ] T027 [US1] In `contracts/openapi.yaml`, add `verifiedBy` to `EntryTicket`'s `required` and
+- [X] T027 [US1] In `contracts/openapi.yaml`, add `verifiedBy` to `EntryTicket`'s `required` and
   delete "Required once feature 018 is implemented." from its description; run
   `npm run generate:api`. In `packages/shared/src/entry.ts`, make `verifiedBy` required too (drop
   T004's `?` and its "required from T027"), and build `packages/shared`. T012, T015, and the
   existing entry tests still pass against the contract.
-- [ ] T028 [US1] In the Ticket Booth app (research R9): `booth-app/src/decode.ts`, make
+- [X] T028 [US1] In the Ticket Booth app (research R9): `booth-app/src/decode.ts`, make
   `normalizeScan` return a live code (upper-cased) when it matches T018's pattern,
   `^QP1:[0-9A-F]{32}:(0|[1-9]\d{0,11}):[A-Z2-7]{16}$`, else 017's behavior;
   `booth-app/src/EntryResult.tsx`, for `verifiedBy === 'LIVE_CODE'` and `ADMITTABLE`, show
   "✓ Live code verified. No ID check needed." in place of the ID-check prompt, keeping **Admit**,
   **Admit all N**, and **Refuse**. Theme values only; word and symbol, not color alone (FR-016).
-- [ ] T029 [US1] Run T017 and T018 until they pass, then the theme drift test
+- [X] T029 [US1] Run T017 and T018 until they pass, then the theme drift test
   (`packages/shared/test/theme/drift.test.ts`, part of `npm test -w packages/shared`) and
   `node scripts/check-contract-drift.mjs`.
 
@@ -470,13 +481,13 @@ recorded and nothing about the ticket shown.
 its window and grace and refused just outside; forged codes are refused as not valid (T013, T014,
 written and passing in Phase 3); the Ticket Booth shows each refusal with its reason (T030).
 
-- [ ] T030 [US2] Add to `booth-app/test/check-in.test.tsx`: a `409 LIVE_CODE_EXPIRED` from a
+- [X] T030 [US2] Add to `booth-app/test/check-in.test.tsx`: a `409 LIVE_CODE_EXPIRED` from a
   lookup shows "✕ This live code has expired. Ask for the live code in the QueuePass app, or a
   printed ticket with photo ID.", with no event, name, seat, or **Admit**; a `404
   LIVE_CODE_INVALID` shows "✕ Not a valid QueuePass code." with no **Admit**; both are in the
   `role="status"` region, keep **Look up another**, and leave a typed code in the field (as 017's
   not-found does); scanning again after an expired code works. Confirm it fails.
-- [ ] T031 [US2] In `booth-app/src/App.tsx`, handle `LIVE_CODE_EXPIRED` and `LIVE_CODE_INVALID`
+- [X] T031 [US2] In `booth-app/src/App.tsx`, handle `LIVE_CODE_EXPIRED` and `LIVE_CODE_INVALID`
   from `lookupEntryTicket` as refusals beside 017's `TICKET_NOT_FOUND`, with the texts of T030, in
   `booth-app/src/EntryResult.tsx`. Run T030 until it passes.
 
@@ -492,10 +503,10 @@ written and passing in Phase 3); the Ticket Booth shows each refusal with its re
 `verifiedBy: 'TICKET_CODE'` (T015), and no response leaks the secret (T032), both written and
 passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
 
-- [ ] T033 [P] [US3] Add to `booth-app/test/check-in.test.tsx`: a lookup answering `verifiedBy:
+- [X] T033 [P] [US3] Add to `booth-app/test/check-in.test.tsx`: a lookup answering `verifiedBy:
   'TICKET_CODE'` shows 017's "Check a government-issued photo ID that shows: Jordan Lee" and no
   "Live code verified" (FR-014, SC-005).
-- [ ] T034 [US3] Run T033, T015, and every 017 test until they pass; fix only 018 code (017's
+- [X] T034 [US3] Run T033, T015, and every 017 test until they pass; fix only 018 code (017's
   tests are the specification of SC-005).
 
 **Checkpoint**: three ways in, one rule for each.
@@ -509,7 +520,7 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
 
 **Independent Test**: 20 simultaneous admits of one ticket after mixed lookups; exactly one wins.
 
-- [ ] T035 [US4] Write `backend/test/integration/entry.live-race.e2e-spec.ts`, firing with
+- [X] T035 [US4] Write `backend/test/integration/entry.live-race.e2e-spec.ts`, firing with
   `Promise.all` as `entry.concurrency.e2e-spec.ts` does, failing on any `5xx`: for one fresh
   ticket, `agent1`…`agent10` look it up by its current live code and `agent11`…`agent20` by its
   typed code (all `200`, ADMITTABLE), then all 20 admit at once: exactly one `200`, nineteen `409
@@ -522,27 +533,64 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T036 [P] Update `README.md`: the `018` row in the status table; "Today" says customers show a
+- [X] T036 [P] Update `README.md`: the `018` row in the status table; "Today" says customers show a
   live entry code from **My tickets** that changes every 30 seconds and needs no ID check at the
   gate, while printed and typed codes still need one; a pointer to
   `specs/018-rotating-qr-codes/quickstart.md` for the phone-to-webcam demo (research R10); the
   contract version 1.11.0 wherever the README names it.
-- [ ] T037 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
+- [X] T037 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
   everything passes, including `check-contract-drift` and `check-boundary`.
-- [ ] T038 Report coverage for the files this feature changed (`npm test -- --coverage` in
+- [X] T038 Report coverage for the files this feature changed (`npm test -- --coverage` in
   `backend`, which keeps `--runInBand`; the front ends' coverage if a provider is installed) in the
   PR description. The 80% floor is not yet blocking (Constitution VI deferral until `010` and
   `011`).
+  **Recorded 2026-10-24**: Backend 97.0% lines overall (96.2% statements, 85.2% branches).
+  Files this feature added or changed: `live-code-check.ts`, `entry-key.controller.ts`,
+  `entry.module.ts`, `entry-lookup.dto.ts`, `prisma.service.ts`, `event-lock.ts` 100% lines;
+  `entry.service.ts` 96.8% lines (lines 146 and 241 are 017's defensive retry and fallback
+  refusal, not 018 code); `orders.service.ts` 100% lines; `clock.ts` 100% lines, 0% functions
+  (`systemClock.now` runs only in production; every test app replaces it with `FakeClock`). No
+  Vitest coverage provider is installed, so the front ends report none. Suite at T037: shared
+  413, Backend 84 suites / 739, Admin 196, Customer 196, Booth 67, seed green; lint and
+  `prettier --check .` clean.
 - [ ] T039 Running-system gate: `docker compose up --build` from a fresh clone, then walk
   quickstart.md S0–S8 in the browser, with a phone camera for S2–S5, and sign in, use, and sign
   out of each front end. Record the results in this file, including whether S6's DevTools
   throttling step (a network that hangs, on the Customer window) behaved as written; if it didn't,
   correct quickstart.md in a spec PR (Constitution III).
-- [ ] T040 Independent review (Constitution III): a separate Claude session reviews the branch
+- [X] T040 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings. One review is required; another round is optional
   (Constitution 3.3.0, in this PR). Record the review and any open finding here and in the PR
   description.
-- [ ] T041 Once the spec and plan PR has merged (Constitution 3.2.0), bring the branch up to `main`
+  **Round 1, 2026-10-24** (a fresh-context Claude subagent of the implementing session, as for
+  017's in-session rounds; given the spec, plan, and code, not the author's conclusions): no
+  CRITICAL. Fixed: **M1** the "new code within 1 second" tests passed with a 7-second refresh
+  (the page mounted on a boundary-aligned instant and `waitFor` kept advancing fake time); they
+  now mount 10.37 s into a window and fail once 1 s past the boundary has gone by (fail at
+  `TICK_MS` 1900 and 7000, checked). **L1** a failing `liveCode()` (no Web Crypto off a secure
+  origin) left "Getting your entry code…" forever; now it says so. **L2** the clock offset rode
+  the device's wall clock, so a time sync while the page is open shifted every code; it now uses
+  `performance.now()` (new clock-jump test). **L3** a 500 from My tickets said "no connection" with
+  no Try again; orders and key now load together, a server error is the standard error, Try
+  again retries both, and the no-connection and refusal messages are `role="alert"`. **L4** the
+  Booth repeated the live-code regex; it uses the shared `parseLiveCode`. **L5** README said
+  "Done (41 tasks)"; now 38/41. **Open, for the user to decide (a spec change, not code):** **H1**
+  FR-010 says a code keeps working offline once **My tickets** has loaded the ticket online;
+  research R5/R8 and the code need the **Show entry code** page itself opened online, so opening
+  it (or another ticket's) for the first time with no signal fails. **L6** R8 says a reload with
+  no signal reaches the no-connection message; it bounces to Keycloak first (quickstart S6 already
+  says so).
+  **Round 2, 2026-10-24** (a separate, independent Claude session; optional under Constitution
+  3.3.0): no CRITICAL, no HIGH. Fixed: **L7** a database miss now costs a dummy HMAC (a stand-in
+  secret of 32 zero bytes, refused whatever the comparison says), so latency no longer tells a real
+  ticket id from a guess (research R4 amended); **L8** the whole code is compared in constant time
+  instead of `.slice(-16)`; **L9** one immediate quiet-renewal retry when a failure is first
+  recorded (R12 amended); **L10** the entry-code page's no-connection state gained **Try again**
+  (T017/T026 amended). **H1** resolved as a spec change: FR-010 now names the **Show entry code**
+  page (spec PR #71, since #70 had merged). **L6** fixed in research R8. Noted, no action: the
+  migration's `pgcrypto`/table-rewrite portability; the tests' `30_000` literals; the `/me/orders`
+  payload (contract 1.11.0 is final).
+- [X] T041 Once the spec and plan PR has merged (Constitution 3.2.0), bring the branch up to `main`
   and open the implementation PR against `main`, assigned to `nathan-707`, with `fixes #41` on its
   own line in the **description** only (see Issue above). The description records: the review
   (T040), coverage (T038), the running-system results (T039), and any deviation from the plan.

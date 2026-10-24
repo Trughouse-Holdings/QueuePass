@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import type { PrismaService } from '../../src/prisma/prisma.service';
 
 /**
  * Truncates data between tests WITHOUT dropping the schema.
@@ -8,7 +8,7 @@ import { PrismaClient } from '@prisma/client';
  *
  * Children before parents: the venue FK is ON DELETE RESTRICT (FR-013).
  */
-export async function resetDb(prisma: PrismaClient): Promise<void> {
+export async function resetDb(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(
     'TRUNCATE TABLE "SeatHold", "SeatReservation", "Ticket", "Order", "SectionTier", "Section", "TicketTier", "Event", "Location" RESTART IDENTITY CASCADE',
   );

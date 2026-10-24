@@ -155,7 +155,6 @@ paths:
         storage, a cookie, or a URL.
       operationId: getTicketEntryKey
       x-required-roles: [customer]
-      x-planned: '018'
       responses:
         '200':
           description: The key and the Backend's time.
@@ -2398,6 +2397,7 @@ components:
           usedAt,
           entryOpensAt,
           unusedOnOrder,
+          verifiedBy,
         ]
       properties:
         ticketId: { type: string, format: uuid }
@@ -2445,7 +2445,7 @@ components:
           description: |
             Feature 018. `LIVE_CODE` when the lookup was by a live code the Backend verified in
             its window: no ID check is needed. `TICKET_CODE` for a typed or printed code: the ID
-            check is always needed. Required once feature 018 is implemented.
+            check is always needed.
 
     TicketEntryKey:
       description: Feature 018. A ticket's entry key and the Backend's time.

@@ -44,7 +44,8 @@ import {
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ticketCode } from './ticket-code';
 
-type OrderRow = Order & { tier: TicketTier | null; tickets: Ticket[] };
+// Spec 018 research R1: queries leave entrySecret out (PrismaService's global omit).
+type OrderRow = Order & { tier: TicketTier | null; tickets: Omit<Ticket, 'entrySecret'>[] };
 
 /** API shape (contracts/openapi.yaml `Order`): amounts as two-decimal strings. */
 export interface OrderResponse {
@@ -408,7 +409,7 @@ export class OrdersService {
   private async sameSeats(
     tx: Prisma.TransactionClient,
     event: LockedEvent,
-    tickets: Ticket[],
+    tickets: Omit<Ticket, 'entrySecret'>[],
     dto: CreateOrderDto,
   ): Promise<boolean> {
     const before = tickets
