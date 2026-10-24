@@ -465,6 +465,36 @@ as typing its code.
   open, minor: the scanner's camera-refused and not-a-ticket messages are not in a live region;
   the Get tickets name error is not linked to its field; no test races two **Admit all** presses
   for one order. Review done in 3 rounds.
+  **T049 record — round 4 (2026-10-23):** a fresh Claude session reviewed the branch at 8cd9897
+  against the spec, plan, research R1–R14, data-model, quickstart, contract 1.10.0, and constitution
+  3.2.1. Must fix, all done: #39 and #40 were already closed, by the "fixes" lines in 12eecb3's body
+  when #66 merged (both reopened, with a comment that #68's merge closes them); the admit's one
+  retry from round 1 (b1b6ac2) had no test, and needed no clock hook: a real-PostgreSQL test moves
+  the event earlier just before the re-read, and fails with the retry removed (e0287e8); 36 files
+  the branch adds (13) or changes (23, each clean on `main`) were off Prettier's format, not six,
+  and are formatted in a commit with no code change, so the repository now passes `prettier --check`
+  (a8ea582); the scanner's camera error and "Not a QueuePass ticket" were not announced (f4204c2);
+  the Get tickets name error was not linked to its field (f9c9107). Also fixed (LOW): the camera
+  stayed open during a typed lookup or an admit, so a second read could race the first answer and
+  leave the wrong result on screen (8aa6253, FR-024); a failed admit said "Nothing was recorded",
+  which the app can't know (292f4c1); Admit, Admit all, and Refuse dropped focus to the page body
+  (088c35d, T020); a webcam busy in another app said "This device has no camera" (f4204c2); no test
+  raced two **Admit all** presses for one order (b01e3d0, which also renames a lookup test titled
+  "is 404" that asserts 200); no Booth test for "General admission" (9bc5736); the README didn't say
+  when Demo Tonight's window closes or how to demo later (bb7b8e2). Round 3's three open items are
+  among these fixes. Dark-mode print, checked in Chrome as well as Safari: print preview with the OS
+  in dark mode and Background graphics off is readable, so the theme is unchanged (were a print
+  reset ever needed, it belongs in `packages/shared/src/web/theme.css`, and `tokens.test.ts:25` and
+  `drift.test.ts:302` match its dark `@media` rule literally). Each behavior fix's test failed
+  first; the tests of behavior that already worked were shown to fail by breaking it. Suite after
+  round 4: Backend 703, shared 380, Admin 196, Customer 179, Booth 51, seed 3; lint and `prettier
+  --check` clean. Left open, minor: US4 scenario 2 says the name shows "next to each ticket's code",
+  but **My tickets** shows it once per order, in the same card as every code, as R12 and T029 chose
+  (align the wording in a later spec PATCH); FR-001a (the name can't be changed) has no test, but no
+  route writes `holderName` after `createOrder` (cancelling an event changes only an order's status
+  and refund time); merge commit ce6a93b has "# Conflicts:" lines after its Co-Authored-By line, so
+  GitHub doesn't show that co-author, and fixing it would rewrite pushed history. Review done in 4
+  rounds; a different session reviews these fixes (round 5) before teammates do.
 - [X] T050 Once the spec and plan PR has merged (Constitution 3.2.0), rebase onto `main` and open
   the implementation PR against `main` with `fixes #39` and `fixes #40` on their own lines. It
   touches the shared surface (`backend/prisma/`, `packages/shared/`, `contracts/openapi.yaml`), so
