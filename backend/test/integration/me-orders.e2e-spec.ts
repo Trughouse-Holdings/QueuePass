@@ -1,3 +1,4 @@
+import { expectToMatchContract } from '../contract/expect-to-match-contract';
 import { anon, as, asAdmin } from '../setup/authed-request';
 import { HOLDER, customer, event, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
@@ -102,6 +103,84 @@ describe('My orders', () => {
       .expect(201);
 
     expect((await mine(1)).body).toEqual([]);
+  });
+
+  /** Spec 019 FR-012 (research R2): each order's event summary carries its venue's address. */
+  describe('the venue address (spec 019)', () => {
+    it("sends the venue's one-line address for a venue with address parts", async () => {
+      const eventId = await event(ctx, venueId);
+      await buy(eventId, { quantity: 1 });
+      const venueRow = await ctx.prisma.location.findUniqueOrThrow({ where: { id: venueId } });
+
+      const [order] = (await mine()).body;
+
+      expect(venueRow.street).not.toBeNull();
+      expect(order.event.location).toEqual({
+        id: venueId,
+        name: 'Yum Center',
+        address: '430 W VINE ST, LEXINGTON, KY 40507',
+      });
+      expect(order.event.location.address).toBe(venueRow.address);
+    });
+
+    it('sends the stored text for a venue from before 013 (no address parts)', async () => {
+      const legacy = await ctx.prisma.location.create({
+        data: { name: 'Old Hall', address: '1 Demo Plaza, Louisville, KY', seatingCapacity: 500 },
+      });
+      const eventId = await event(ctx, legacy.id);
+      await buy(eventId, { quantity: 1 });
+
+      const [order] = (await mine()).body;
+
+      expect(legacy.street).toBeNull();
+      expect(order.event.location).toEqual({
+        id: legacy.id,
+        name: 'Old Hall',
+        address: '1 Demo Plaza, Louisville, KY',
+      });
+    });
+
+    it('gives each order its own venue address', async () => {
+      const other = (
+        await asAdmin(ctx)
+          .post('/locations')
+          .send({
+            name: 'River Hall',
+            street: '1 Arena Plaza',
+            city: 'Louisville',
+            state: 'KY',
+            zip: '40202',
+            seatingCapacity: 1000,
+          })
+          .expect(201)
+      ).body.id;
+      const here = await event(ctx, venueId, { name: 'Here' });
+      const there = await event(ctx, other, { name: 'There' });
+      await buy(here, { quantity: 1 });
+      await buy(there, { quantity: 1 });
+
+      const byName = Object.fromEntries(
+        (await mine()).body.map((o: { event: { name: string; location: unknown } }) => [
+          o.event.name,
+          o.event.location,
+        ]),
+      );
+
+      expect(byName).toEqual({
+        Here: { id: venueId, name: 'Yum Center', address: '430 W VINE ST, LEXINGTON, KY 40507' },
+        There: { id: other, name: 'River Hall', address: '1 ARENA PLAZA, LOUISVILLE, KY 40202' },
+      });
+    });
+
+    it('matches the contract, address included, for every response', async () => {
+      const eventId = await event(ctx, venueId);
+      await buy(eventId, { quantity: 1 });
+
+      const res = await (await customer(ctx, 1)).get('/me/orders').expect(200);
+
+      expectToMatchContract(res, 'listMyOrders');
+      expect(typeof res.body[0].event.location.address).toBe('string');
+    });
   });
 
   it('refuses admins and gate agents, and requests without a token', async () => {
