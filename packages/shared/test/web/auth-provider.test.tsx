@@ -328,7 +328,7 @@ describe('AuthProvider with no signal', () => {
   });
 
   it.each(['silentRenewError', 'accessTokenExpired'] as const)(
-    'after %s, retries every 30 seconds and on going online until it succeeds',
+    'after %s, retries at once, then every 30 seconds and on going online until it succeeds',
     async (first) => {
       const { um } = await signedIn();
       um.signinSilent.mockImplementation(async () => {
@@ -336,15 +336,18 @@ describe('AuthProvider with no signal', () => {
         throw offline();
       });
       await act(async () => um.emit(first, first === 'silentRenewError' ? offline() : undefined));
-      expect(silentCalls(um)).toBe(0);
-
-      await advance(30_000);
+      // At once, before any timer has moved: a device waking past expiry renews before its next
+      // API call's 401 can send it to sign in (research R12).
       expect(silentCalls(um)).toBe(1);
       expectKept(um);
+
       await advance(30_000);
       expect(silentCalls(um)).toBe(2);
-      await goOnline();
+      expectKept(um);
+      await advance(30_000);
       expect(silentCalls(um)).toBe(3);
+      await goOnline();
+      expect(silentCalls(um)).toBe(4);
       expectKept(um);
 
       // Back online: the grant succeeds and raises userLoaded, which applies the user and stops.
@@ -356,10 +359,10 @@ describe('AuthProvider with no signal', () => {
         return fresh;
       });
       await advance(30_000);
-      expect(silentCalls(um)).toBe(4);
+      expect(silentCalls(um)).toBe(5);
       await advance(60_000);
       await goOnline();
-      expect(silentCalls(um)).toBe(4);
+      expect(silentCalls(um)).toBe(5);
       expectKept(um);
     },
   );
@@ -387,10 +390,11 @@ describe('AuthProvider with no signal', () => {
   it('runs no retry after unmounting', async () => {
     const { um, view } = await signedIn();
     await act(async () => um.emit('silentRenewError', offline()));
+    expect(silentCalls(um)).toBe(1); // the try at once, before the unmount
     view.unmount();
     await advance(60_000);
     await goOnline();
-    expect(silentCalls(um)).toBe(0);
+    expect(silentCalls(um)).toBe(1);
   });
 
   it('starts no second retry on going online while one is still pending', async () => {
@@ -410,10 +414,29 @@ describe('AuthProvider with no signal', () => {
   it('runs no retry while logging out', async () => {
     const { um } = await signedIn();
     await act(async () => um.emit('silentRenewError', offline()));
+    expect(silentCalls(um)).toBe(1); // the try at once, before the logout
     await act(async () => screen.getByRole('button', { name: 'log out' }).click());
     await advance(60_000);
     await goOnline();
+    expect(silentCalls(um)).toBe(1);
+  });
+
+  it('starts no try for a failure recorded while logging out', async () => {
+    const um = fakeUserManager(makeUser({ username: 'customer1', roles: ['customer'] }));
+    render(
+      <AuthProvider userManager={um} beforeLogout={() => new Promise<void>(() => {})}>
+        <Probes />
+      </AuthProvider>,
+    );
+    await screen.findByText('status=signed-in user=customer1');
+    // Logout waits on beforeLogout with the user still in memory, and the token expires meanwhile.
+    await act(async () => screen.getByRole('button', { name: 'log out' }).click());
+    await act(async () => um.emit('accessTokenExpired'));
     expect(silentCalls(um)).toBe(0);
+    await advance(60_000);
+    await goOnline();
+    expect(silentCalls(um)).toBe(0);
+    expect(um.signoutRedirect).toHaveBeenCalled();
   });
 
   it('drops a renewal that lands during logout, so Back shows no signed-in page (001 SC-007)', async () => {
@@ -459,8 +482,9 @@ describe('AuthProvider with no signal', () => {
     await pageShow();
     await advance(1_000);
     expectKept(um);
+    expect(silentCalls(um)).toBe(1); // at once, well before the first 30 seconds
     await advance(30_000);
-    expect(silentCalls(um)).toBe(1);
+    expect(silentCalls(um)).toBe(2);
   });
 
   it('signs in when restored from the back-forward cache with no user', async () => {

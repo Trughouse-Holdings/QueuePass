@@ -85,7 +85,8 @@ export function EntryCode() {
           setPage({ kind: 'failed' });
         }
       } catch {
-        // No answer from either request: a reload or a visit with no signal (FR-010).
+        // No answer from either request: the page opened after the signal went (FR-010). A reload
+        // with no signal never gets here; it signs in through Keycloak first (research R8).
         if (!cancelled) setPage({ kind: 'offline' });
       }
     })();
@@ -95,6 +96,12 @@ export function EntryCode() {
   }, [api, signIn, ticketId, attempt]);
 
   const back = <Link to="/my-tickets">Back to My tickets</Link>;
+  // Asks for both again: a customer whose signal comes back in the queue needn't leave the page.
+  const tryAgain = (
+    <button type="button" className="btn" onClick={() => setAttempt((n) => n + 1)}>
+      Try again
+    </button>
+  );
 
   switch (page.kind) {
     case 'loading':
@@ -105,6 +112,7 @@ export function EntryCode() {
           <p role="alert" className="banner banner--error">
             {NO_CONNECTION}
           </p>
+          {tryAgain}
           {back}
         </section>
       );
@@ -119,9 +127,7 @@ export function EntryCode() {
       return (
         <section>
           <ServiceUnreachable />
-          <button type="button" className="btn" onClick={() => setAttempt((n) => n + 1)}>
-            Try again
-          </button>
+          {tryAgain}
         </section>
       );
     case 'missing':

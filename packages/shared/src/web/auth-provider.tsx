@@ -233,9 +233,10 @@ export function AuthProvider({
   }, [um, apply, endSession]);
 
   // Spec 018 research R12: while a renewal has failed, retry it with the refresh token (no page
-  // change) when the browser is back online and every 30 seconds, one at a time. Success raises
-  // userLoaded above, which stops this; Keycloak's refusal ends the session; anything else waits
-  // for the next try.
+  // change) at once, then when the browser is back online and every 30 seconds, one at a time.
+  // Trying at once lets a device that wakes past expiry renew before its next API call's 401 sends
+  // it to sign in. Success raises userLoaded above, which stops this; Keycloak's refusal ends the
+  // session; anything else waits for the next try.
   useEffect(() => {
     if (!renewFailed) return;
     const retry = () => {
@@ -250,6 +251,7 @@ export function AuthProvider({
           renewing.current = false;
         });
     };
+    retry();
     const timer = setInterval(retry, RENEW_RETRY_MS);
     window.addEventListener('online', retry);
     return () => {

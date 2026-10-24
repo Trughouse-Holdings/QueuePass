@@ -260,9 +260,31 @@ describe('the live-code screen when it cannot show a code', () => {
     expect(screen.queryByRole('img', { name: LABEL })).toBeNull();
   });
 
-  it('says the same when My tickets gets no answer (a reload with no signal)', async () => {
+  it('says the same when My tickets gets no answer (opened after the signal has gone)', async () => {
     await openEntryCode({ 'GET /me/orders': 'network-error' });
     expect(await screen.findByText(NO_CONNECTION)).toBeInTheDocument();
+  });
+
+  it('offers Try again with no connection, which retries both requests and shows the code', async () => {
+    let offline = true;
+    const reply = (answer: () => Response) => () => {
+      if (offline) throw new TypeError('Failed to fetch');
+      return answer();
+    };
+    const { calls } = await openEntryCode({
+      'GET /me/orders': reply(() => json(orders())),
+      [`GET /me/tickets/${TICKET}/entry-key`]: reply(keyReply),
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent(NO_CONNECTION);
+    expect(screen.getByRole('link', { name: 'Back to My tickets' })).toBeInTheDocument();
+
+    // The signal comes back while the customer is still in the queue.
+    offline = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('img', { name: LABEL })).toBeInTheDocument();
+    await expectCurrentCode();
+    expect(calls.filter((c) => c.path === '/me/orders')).toHaveLength(2);
+    expect(calls.filter((c) => c.path.endsWith('/entry-key'))).toHaveLength(2);
   });
 
   it('says a used ticket was already used, with no code', async () => {

@@ -274,16 +274,18 @@ label.
   - `accessTokenExpired` with **no** `silentRenewError` before it keeps the user the same way: on
     a network that hangs, the library retries the timed-out renewal itself and raises no error,
     so the token expires with nothing before it;
-  - after either, the provider calls `signinSilent` every 30 seconds and on a `window` `online`
-    event; the fake rejecting with a `TypeError` keeps the user and the next try still comes; the
-    fake emitting `userLoaded` with a fresh user applies it and stops the tries (advancing another
-    60 seconds calls `signinSilent` no more); the fake rejecting with
-    `new ErrorResponse({ error: 'invalid_grant' })` (from `oidc-client-ts`) ends in `removeUser`
-    then `signinRedirect`; none of these calls `signinRedirect` otherwise;
+  - after either, the provider calls `signinSilent` once at once, before any timer moves, then
+    every 30 seconds and on a `window` `online` event; the fake rejecting with a `TypeError` keeps
+    the user and the next try still comes; the fake emitting `userLoaded` with a fresh user
+    applies it and stops the tries (advancing another 60 seconds calls `signinSilent` no more);
+    the fake rejecting with `new ErrorResponse({ error: 'invalid_grant' })` (from
+    `oidc-client-ts`) ends in `removeUser` then `signinRedirect`; none of these calls
+    `signinRedirect` otherwise;
   - an `online` event with no failed renewal calls nothing; no `signinSilent` while logging out;
   - with no failed renewal, advancing 60 seconds calls no `signinSilent`; after a failure,
-    unmounting and advancing 60 seconds calls none; an `online` event while a `signinSilent` is
-    still pending starts no second one;
+    unmounting and advancing 60 seconds calls none beyond the one at once, and so does logging
+    out; a failure recorded while logging out (`beforeLogout` still pending) starts none, at once
+    or later; an `online` event while a `signinSilent` is still pending starts no second one;
   - a renewal that lands during logout is dropped (spec 001 SC-007): after a failed renewal, make
     `signinSilent` pending; call `logout`; then `storeUser(fresh)` and emit `userLoaded` with it:
     the status is not `signed-in`, `calls` shows `removeUser` after the late load, `getUser`
@@ -301,6 +303,8 @@ label.
   `pageshow` with an expired user; the renewal landing during logout. These are guards that pass
   today and must keep passing: `online` with no failure; no `signinSilent` with no failure, after
   unmounting, or while logging out; the `401` probe; the `ErrorResponse`; `pageshow` with no user.
+  **Amended after review round 2 (L9, research R12)**: the try at once; the unmounting and
+  logging-out guards count from it, and the failure recorded while logging out is a new guard.
 - [X] T017 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and fake
   timers set up as `customer-app/test/seat-holds.test.tsx` does: `vi.useFakeTimers({
   shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
@@ -340,9 +344,12 @@ label.
   - The countdown is not inside any `aria-live` or `role="status"` region (FR-004).
   - States: the key request failing with a network error shows "Can't show the live code without a
     connection. Use your printed ticket with photo ID."; so does `listMyOrders` getting no answer
-    (the page reloaded with no connection, quickstart S6); a `409` with `USED` shows "This ticket was
-    already used." and no QR; `404` shows "Ticket not found"; any other failure shows the standard
-    error with **Try again**, which retries.
+    (the page opened after the signal has gone; a reload with no signal stops at Keycloak first,
+    research R8); either way the message keeps `role="alert"` and **Back to My tickets** and offers
+    **Try again**, which retries both requests and, once they answer, shows the live code (amended
+    after review round 2, L10); a `409` with `USED` shows "This ticket was already used." and no
+    QR; `404` shows "Ticket not found"; any other failure shows the standard error with **Try
+    again**, which retries.
 - [X] T018 [P] [US1] Add to `booth-app/test/scanner.test.tsx` and `booth-app/test/check-in.test.tsx`:
   `normalizeScan` returns a live code (upper-cased, otherwise unchanged) for a value matching
   `^QP1:[0-9A-F]{32}:(0|[1-9]\d{0,11}):[A-Z2-7]{16}$`, and a decoded live code runs the lookup with
@@ -395,11 +402,14 @@ label.
     a timed-out renewal itself (every 5 seconds, with no limit) and never raises it, so on a
     network that hangs the token expires with no renewal error before it.
   - While `renewFailed` is set, a user is in memory, and `loggingOut` is not set, call
-    `um.signinSilent()` (the refresh-token grant, no page navigation) on the `window`'s `online`
-    event and every 30 seconds. On success, `userLoaded` applies the user and clears the ref, which
-    stops the tries. An `ErrorResponse` does `removeUser`, `apply(null)`, `signIn()`. Anything
-    else keeps the user until the next try. Skip a try while the provider's own `signinSilent` is
-    still in flight, so only one runs at a time. Nothing on this path navigates the page.
+    `um.signinSilent()` (the refresh-token grant, no page navigation) once at once when the failure
+    is first recorded, then on the `window`'s `online` event and every 30 seconds. The try at once
+    (amended after review round 2, L9) lets a device that wakes past expiry renew before a `401`
+    sends it to sign in with a full-page redirect. On success, `userLoaded` applies the user and
+    clears the ref, which stops the tries. An `ErrorResponse` does `removeUser`, `apply(null)`,
+    `signIn()`. Anything else keeps the user until the next try. Skip a try while the provider's
+    own `signinSilent` is still in flight, so only one runs at a time. Nothing on this path
+    navigates the page.
   - While `loggingOut` is set, `userLoaded` doesn't apply the user; it calls `um.removeUser()`
     again. `removeUser` doesn't cancel a renewal in flight (the library's own, or the provider's
     `signinSilent`), which stores the user and raises `userLoaded` when it answers; applying it
@@ -434,9 +444,10 @@ label.
     `className`/`label` "Live entry code, changes every 30 seconds"), "Changes in N s" as plain text
     outside any live region, the static sentence "Show this at the gate. It changes every 30
     seconds.", the holder's name or "No name on ticket", the event's name and start time, and the
-    seat; the states of T017. Where `PrintTicket.tsx` shows `<ServiceUnreachable />` for
-    `useLoad`'s `unreachable`, this page shows the no-connection message instead (FR-010). Clears
-    the interval on unmount.
+    seat; the states of T017, the no-connection message with **Try again** before **Back to My
+    tickets**, as the error state has it (amended after review round 2, L10). Where
+    `PrintTicket.tsx` shows `<ServiceUnreachable />` for `useLoad`'s `unreachable`, this page shows
+    the no-connection message instead (FR-010). Clears the interval on unmount.
   - `customer-app/src/App.tsx`: the route `/my-tickets/:ticketId/entry-code`.
   - `customer-app/src/pages/MyTickets.tsx`: a **Show entry code** link, `aria-label` "Show entry
     code for ticket <code>", on each valid, unused ticket, beside **Print ticket**.
@@ -569,6 +580,16 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
   it (or another ticket's) for the first time with no signal fails. **L6** R8 says a reload with
   no signal reaches the no-connection message; it bounces to Keycloak first (quickstart S6 already
   says so).
+  **Round 2, 2026-10-24** (a separate, independent Claude session; optional under Constitution
+  3.3.0): no CRITICAL, no HIGH. Fixed: **L7** a database miss now costs a dummy HMAC (a stand-in
+  secret of 32 zero bytes, refused whatever the comparison says), so latency no longer tells a real
+  ticket id from a guess (research R4 amended); **L8** the whole code is compared in constant time
+  instead of `.slice(-16)`; **L9** one immediate quiet-renewal retry when a failure is first
+  recorded (R12 amended); **L10** the entry-code page's no-connection state gained **Try again**
+  (T017/T026 amended). **H1** resolved as a spec change: FR-010 now names the **Show entry code**
+  page (spec PR #71, since #70 had merged). **L6** fixed in research R8. Noted, no action: the
+  migration's `pgcrypto`/table-rewrite portability; the tests' `30_000` literals; the `/me/orders`
+  payload (contract 1.11.0 is final).
 - [ ] T041 Once the spec and plan PR has merged (Constitution 3.2.0), bring the branch up to `main`
   and open the implementation PR against `main`, assigned to `nathan-707`, with `fixes #41` on its
   own line in the **description** only (see Issue above). The description records: the review

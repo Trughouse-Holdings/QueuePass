@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import crypto, { randomBytes, randomUUID } from 'node:crypto';
 import { liveCode, windowAt as liveWindowAt } from '@queuepass/shared';
 import { agent, eventAroundNow, liveCodeFor, orderWithTickets, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
@@ -103,6 +103,36 @@ describe('Live code refusals', () => {
       .post(`/events/${eventId}/entry/admit`)
       .send({ ticketId: current.body.ticketId, wholeOrder: false })
       .expect(200);
+  });
+
+  it('does the same work for an unknown ticket as for a wrong MAC (FR-011)', async () => {
+    // How long a refusal takes mustn't tell a real ticket's id from a guess. Time is too noisy to
+    // assert, so this checks that both refusals make a code and compare all of it in constant time.
+    const gate = await agent(ctx);
+    const wrongMac = swapLast(await liveCodeFor(ctx, ticketId, w));
+    const guess = await liveCode(randomBytes(32), randomUUID(), w);
+    const sign = jest.spyOn(globalThis.crypto.subtle, 'sign');
+    const compare = jest.spyOn(crypto, 'timingSafeEqual');
+    const workFor = async (code: string) => {
+      sign.mockClear();
+      compare.mockClear();
+      const res = await gate.post(`/events/${eventId}/entry/lookup`).send({ code });
+      expect(res.body).toEqual(INVALID);
+      return {
+        hmacs: sign.mock.calls.length,
+        compared: compare.mock.calls.map(([a, b]) => [a.byteLength, b.byteLength]),
+      };
+    };
+    try {
+      const known = await workFor(wrongMac);
+      expect(known.hmacs).toBe(1);
+      // The whole code, not a slice of it.
+      expect(known.compared).toEqual([[wrongMac.length, wrongMac.length]]);
+      expect(await workFor(guess)).toEqual(known);
+    } finally {
+      sign.mockRestore();
+      compare.mockRestore();
+    }
   });
 
   it('is 400 for an 81-character code', async () => {
