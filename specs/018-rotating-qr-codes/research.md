@@ -319,8 +319,9 @@ Tests precede code in `tasks.md` (Constitution VI).
   `sessionStorage` write; the load, offline, `409`, and error states; the QR's accessible name; the
   QR matrix decodes to the live code.
 - **Shared web (Vitest)**: the `AuthProvider` with the fake user manager: a renewal that fails for
-  lack of network keeps the user and doesn't redirect, nor does the token expiring after it; going
-  back online, or a `401`, signs in again; Keycloak's `ErrorResponse` still ends the session (R12).
+  lack of network keeps the user and doesn't redirect, nor does the token expiring with no error
+  before it; the renewal is retried quietly every 30 seconds and on going back online; a `401`
+  still signs in again; Keycloak's `ErrorResponse` still ends the session (R12).
   In the Customer app, the live-code page stays mounted through the same events.
 - **Ticket Booth app**: `normalizeScan` for live codes; the verified result with no ID prompt and
   with **Admit all**; the expired and invalid messages with no **Admit**; printed and typed lookups
@@ -336,23 +337,42 @@ default 5-minute access token applies (spec 001 data-model). With no signal, the
 before expiry fails, the redirect unmounts the live-code page, and the key, held in that page's
 memory only, is gone: FR-010 and SC-006 (10 minutes with no connection) can't be met.
 
-**Decision**: a renewal that fails for lack of network doesn't end the session. Only an error
-response from Keycloak does. oidc-client-ts 3.5.0 (the installed version) throws an `ErrorResponse`
-when Keycloak answers the renewal with an OAuth error (for example `invalid_grant` once its session
-has ended); a renewal that can't reach Keycloak fails with `fetch`'s `TypeError` instead, or with
-an `ErrorTimeout`, which the library itself retries every 5 seconds. So:
+**Decision**: a renewal that fails for lack of network doesn't end the session, and neither does
+the token expiring. Only an error response from Keycloak does. oidc-client-ts 3.5.0 (the installed
+version, checked under Node) behaves this way:
+
+- Keycloak answers the renewal with an OAuth error (for example `invalid_grant` once its session
+  has ended): `silentRenewError` with an `ErrorResponse`.
+- Keycloak can't be reached (connection refused): `silentRenewError` with `fetch`'s `TypeError`,
+  then `accessTokenExpired` when the token runs out. The library never tries that renewal again.
+- The request hangs: after `silentRequestTimeoutInSeconds` (10 seconds) it is an `ErrorTimeout`,
+  which the library retries every 5 seconds with no limit and **never** raises as
+  `silentRenewError`. `accessTokenExpired` still fires, with no renewal error before it.
+
+So expiry alone can't be read as "renewal impossible". The provider (tasks T024):
 
 - `silentRenewError` with an `ErrorResponse`: as today, remove the user and sign in again.
-- `silentRenewError` with anything else: keep the current user in memory and remember that renewal
-  failed. `accessTokenExpired` after that also keeps the user (and with no such failure before it,
-  signs in again as today).
-- Signing in again then happens when the browser goes back `online`, or when an API call returns
-  `401`, which every app already answers with `signIn()` (`customer-app/src/use-load.ts`,
-  `booth-app/src/App.tsx`, `admin-app/src/api/client.ts`). While Keycloak's single sign-on session
-  lives, that sign-in comes straight back.
+- `silentRenewError` with anything else, and every `accessTokenExpired`: keep the current user in
+  memory and remember that renewal failed.
+- While renewal has failed (and not while logging out), retry it quietly with
+  `UserManager.signinSilent()`, the refresh-token grant, which navigates nothing: when the browser
+  goes back `online` and every 30 seconds. Success raises `userLoaded`, which applies the new user
+  and stops the retries; an `ErrorResponse` removes the user and signs in again; anything else
+  waits for the next try. A full-page sign-in on `online` was rejected: a flickering signal at the
+  gate would navigate away mid-scan, or land on the browser's offline page, and lose the key.
+- A page restored from the back-forward cache with an expired user is treated like
+  `accessTokenExpired`; with no user (after logout) it still signs in (SC-007).
+- An API call that returns `401` still leads to `signIn()`, as every app already does
+  (`customer-app/src/use-load.ts`, `booth-app/src/App.tsx`, `admin-app/src/api/client.ts`). While
+  Keycloak's single sign-on session lives, that sign-in comes straight back.
 
 An expired token kept in memory is harmless: the Backend refuses it with `401` (Constitution V), so
-nothing is done with it, and the next call that needs the Backend leads back through sign-in.
+nothing is done with it, and the quiet retry or the next `401` renews it.
+
+**Any error other than `ErrorResponse` keeps the user, on purpose**: that includes a captive
+portal's HTML page in place of Keycloak's answer (oidc-client-ts's "Invalid response Content-Type")
+and the library's response-validation errors. Stadium Wi-Fi behind a portal must not cost the
+customer the live code; the retries carry on until Keycloak answers, either way.
 
 **Reading of spec 001 FR-013**: "return the user to the login page when renewal is no longer
 possible". A failed network request doesn't make renewal impossible; Keycloak refusing it does.
@@ -364,13 +384,23 @@ token.
 
 **Scope**: the provider is shared, so the change applies to all three apps. In the Admin and Ticket
 Booth apps a lost signal now leaves the page in place until the next request, which shows that
-app's own no-connection state (or gets a `401` once the signal is back, which signs in), instead of
-bouncing to a Keycloak page that can't load.
+app's own no-connection state, instead of bouncing to a Keycloak page that can't load; once the
+signal is back the quiet retry renews the token within about 30 seconds. The seat streams
+(`packages/shared/src/web/seat-stream.ts`, used by the Customer app's `GetTickets` and the Admin
+app's `SeatingCard`) retry a `401` every 5 seconds and never call `signIn()`; they recover through
+the same retry, as soon as the token is renewed.
 
-**Tests**: the shared provider's tests with the fake user manager (tasks T016) and, in the
-Customer app, the live-code page through the same events (T017). The quickstart (S6) stops
-Keycloak as well as the Backend for 10 minutes, which outlasts one access token.
+**Tests**: the shared provider's tests with the fake user manager and fake timers (tasks T016): a
+`TypeError` renewal error and `accessTokenExpired` alone each keep the user; the retry runs every
+30 seconds and on `online`, stops on `userLoaded`, keeps the user on a `TypeError`, and ends the
+session on an `ErrorResponse`; nothing runs while logging out; the `pageshow` cases. In the
+Customer app (T017), the live-code page stays mounted for 10 minutes through `accessTokenExpired`
+alone and through the `TypeError` sequence, with `signinSilent` failing throughout and
+`signinRedirect` never called. The quickstart (S6) stops Keycloak as well as the Backend for 10
+minutes, which outlasts one access token, and throttles the Customer window's network to stand
+for one that hangs.
 
 **Alternatives considered**: a longer access-token lifetime in the realm (it would only move the
 cliff, and longer-lived tokens weaken Constitution V's expiry check); keeping the key outside
-React (a module variable would survive the unmount, but not the full-page redirect to Keycloak).
+React (a module variable would survive the unmount, but not the full-page redirect to Keycloak);
+signing in again with a full-page redirect on `online` (navigates away mid-scan, see above).

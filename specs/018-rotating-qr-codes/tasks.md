@@ -43,9 +43,9 @@ and confirm they **fail** before the implementation tasks below them.
 - **The Backend's clock** for live codes is the injected `CLOCK` (T008), never `Date.now()` directly
   in `entry/`. The entry window stays on the database's `now()` (spec 017 R5).
 - **Sign-in survives no signal** (research R12, FR-010): a token renewal that fails for lack of
-  network keeps the signed-in user in memory; only Keycloak's own refusal (`ErrorResponse`) ends
-  the session. The change is in `packages/shared`'s `AuthProvider`, so it reaches all three apps
-  (T016, T024).
+  network, or a token that simply expires, keeps the signed-in user in memory and retries the
+  renewal quietly; only Keycloak's own refusal (`ErrorResponse`) ends the session. The change is in
+  `packages/shared`'s `AuthProvider`, so it reaches all three apps (T016, T024).
 - **Backend tests read `packages/shared` from `dist`**: run `npm run build --workspace
   @queuepass/shared` after changing it. **Backend Jest must run `--runInBand`** (`npm test` does);
   a bare `npx jest` breaks the shared test container.
@@ -251,23 +251,32 @@ three keep their story's label.
 - [ ] T015 [P] [US3] Add to `backend/test/integration/entry.lookup.e2e-spec.ts`: a typed code
   (any case, spaces, dashes) answers `verifiedBy: 'TICKET_CODE'`; a ticket admitted through its
   live code is `USED` when looked up by its typed code, and the other way around (FR-014).
-- [ ] T016 [P] [US1] Add to `packages/shared/test/web/auth-provider.test.tsx`, with
-  `fake-user-manager.ts` (research R12; FR-010, SC-006; spec 001 FR-013):
-  - a `silentRenewError` for lack of network (`new TypeError('Failed to fetch')`, as `fetch`
-    throws, and `new ErrorTimeout()` from `oidc-client-ts`) keeps the user: the status stays
-    `signed-in`, the children stay mounted, and neither `removeUser` nor `signinRedirect` is
-    called;
-  - `accessTokenExpired` after such a failure doesn't redirect either, and the user stays in
-    memory;
-  - after that, a `window` `online` event signs in again (`signinRedirect`), and so does the probe
-    calling `useAuth().signIn()`, which is what every app does on a `401`
-    (`customer-app/src/use-load.ts`, `booth-app/src/App.tsx`, `admin-app/src/api/client.ts`);
-  - an `online` event with no failed renewal does nothing;
-  - the existing "signs in again when silent renew fails" now emits an `ErrorResponse`
-    (`new ErrorResponse({ error: 'invalid_grant' })` from `oidc-client-ts`) and still ends in
-    `removeUser` then `signinRedirect`; `accessTokenExpired` with no failed renewal before it still
-    signs in again, as today.
-  Confirm the network cases fail.
+- [ ] T016 [P] [US1] Add to `packages/shared/test/web/fake-user-manager.ts` a `signinSilent`
+  `vi.fn` that records `'signinSilent'` in `calls` and by default resolves to the current user
+  without emitting anything (each test sets its outcome). Then add to
+  `packages/shared/test/web/auth-provider.test.tsx`, under fake timers (research R12; FR-010,
+  SC-006; spec 001 FR-013):
+  - a `silentRenewError` with `new TypeError('Failed to fetch')` (what `fetch` throws with no
+    network) keeps the user: the status stays `signed-in`, the children stay mounted, and neither
+    `removeUser` nor `signinRedirect` is called;
+  - `accessTokenExpired` with **no** `silentRenewError` before it keeps the user the same way: on
+    a network that hangs, the library retries the timed-out renewal itself and raises no error,
+    so the token expires with nothing before it;
+  - after either, the provider calls `signinSilent` every 30 seconds and on a `window` `online`
+    event; the fake rejecting with a `TypeError` keeps the user and the next try still comes; the
+    fake emitting `userLoaded` with a fresh user applies it and stops the tries (advancing another
+    60 seconds calls `signinSilent` no more); the fake rejecting with
+    `new ErrorResponse({ error: 'invalid_grant' })` (from `oidc-client-ts`) ends in `removeUser`
+    then `signinRedirect`; none of these calls `signinRedirect` otherwise;
+  - an `online` event with no failed renewal calls nothing; no `signinSilent` while logging out;
+  - the probe calling `useAuth().signIn()`, which is what every app does on a `401`
+    (`customer-app/src/use-load.ts`, `booth-app/src/App.tsx`, `admin-app/src/api/client.ts`),
+    still calls `signinRedirect`, with or without a failed renewal;
+  - the existing "signs in again when silent renew fails" now emits an `ErrorResponse` and still
+    ends in `removeUser` then `signinRedirect`;
+  - a `pageshow` with `persisted: true` and an expired user in memory keeps it and starts the
+    tries, as `accessTokenExpired` does; with no user, it signs in, as today (SC-007).
+  Confirm the new cases fail.
 - [ ] T017 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and fake
   timers set up as `customer-app/test/seat-holds.test.tsx` does: `vi.useFakeTimers({
   shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
@@ -295,9 +304,11 @@ three keep their story's label.
   - After the key loads, every further `fetch` rejects; advancing 10 minutes keeps drawing new
     codes, each `'CURRENT'` for server time (FR-010, SC-006), and `fetch` was called no more times.
     Along the way, through the `um` that `renderCustomer` returns (the real `AuthProvider` with the
-    fake user manager), emit `silentRenewError` with `new TypeError('Failed to fetch')` and then
-    `accessTokenExpired`: the page stays mounted and keeps drawing codes, and `signinRedirect` is
-    never called (research R12).
+    fake user manager), whose `signinSilent` (T016) rejects with `new TypeError('Failed to
+    fetch')` throughout, emit `accessTokenExpired` alone (no `silentRenewError`, the hanging
+    network), and in a second run `silentRenewError` with that `TypeError` and then
+    `accessTokenExpired`: in both, over the 10 minutes the page stays mounted and keeps drawing codes, and `signinRedirect` is
+    never called (research R12). The fake doesn't fetch, so `fetch`'s count holds.
   - `localStorage.setItem`, `sessionStorage.setItem`, and `document.cookie` writes are spied on and
     never called with anything containing the key (FR-010); the key never appears in
     `window.location`.
@@ -350,16 +361,28 @@ three keep their story's label.
   run `npm run generate:api`. Run `backend/test/contract/route-coverage.e2e-spec.ts` and
   `node scripts/check-contract-drift.mjs`; both pass.
 - [ ] T024 [US1] In `packages/shared/src/web/auth-provider.tsx` (research R12), split today's
-  `onLost`. A `silentRenewError` whose error is an `ErrorResponse` (`instanceof ErrorResponse` from
-  `oidc-client-ts`) does what `onLost` does now: `removeUser`, `apply(null)`, `signIn()`. Any other
-  error (no network: a `TypeError` from `fetch`, or an `ErrorTimeout`) keeps the user in memory and
-  sets a `renewFailed` ref. `accessTokenExpired` keeps the user while `renewFailed` is set, and
-  otherwise does what it does now. A `window` `online` listener calls `signIn()` while
-  `renewFailed` is set; a `401` already reaches `signIn()` through each app. `userLoaded` clears
-  the ref. Update the comment above that effect to cite spec 001 FR-013 as research R12 reads it.
-  Nothing is written to storage (Constitution V) and `logout` doesn't change. Run T016 and the rest
-  of `packages/shared`'s tests until they pass, build `packages/shared`, then run the Admin,
-  Customer, and Ticket Booth apps' tests: the provider is theirs too.
+  `onLost`:
+  - A `silentRenewError` whose error is an `ErrorResponse` (`err instanceof ErrorResponse` from
+    `oidc-client-ts`, or `err.name === 'ErrorResponse'`) does what `onLost` does now:
+    `removeUser`, `apply(null)`, `signIn()`.
+  - A `silentRenewError` with any other error, and every `accessTokenExpired`, keep the user in
+    memory and set a `renewFailed` ref. Expiry alone must not end the session: the library retries
+    a timed-out renewal itself (every 5 seconds, with no limit) and never raises it, so on a
+    network that hangs the token expires with no renewal error before it.
+  - While `renewFailed` is set, a user is in memory, and `loggingOut` is not set, call
+    `um.signinSilent()` (the refresh-token grant, no page navigation) on the `window`'s `online`
+    event and every 30 seconds. On success, `userLoaded` applies the user and clears the ref, which
+    stops the tries. An `ErrorResponse` does `removeUser`, `apply(null)`, `signIn()`. Anything
+    else keeps the user until the next try. Nothing on this path navigates the page.
+  - `pageshow` from the back-forward cache: no user in memory still signs in (logout, SC-007); an
+    expired user is handled like `accessTokenExpired`, not redirected.
+  - A `401` still reaches `signIn()` through each app, unchanged.
+  - Clear the interval on unmount and when the ref clears.
+  Add `signinSilent(): Promise<User | null>` to `UserManagerLike` (T016 added it to the fake).
+  Update the comment above the effect to cite spec 001 FR-013 and its data-model §4, as amended by
+  research R12. Nothing is written to storage (Constitution V) and `logout` doesn't change. Run
+  T016 and the rest of `packages/shared`'s tests until they pass, build `packages/shared`, then run
+  the Admin, Customer, and Ticket Booth apps' tests: the provider is theirs too.
 - [ ] T025 [US1] In `customer-app/src/components/TicketQr.tsx`, generalize without changing 017's
   output: `qrMatrix(text)` (any QR-alphanumeric text; type number 0, level `'M'`); export
   `qrPath(text): string`, the SVG path of the dark modules with the 4-module quiet zone, built as

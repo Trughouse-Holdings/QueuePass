@@ -87,8 +87,16 @@ the Backend and Keycloak with `docker compose stop backend keycloak` (everything
 "Signing in…" and no move to a sign-in page, for 10 minutes (SC-006). That outlasts one 5-minute
 access token, so the app has tried to renew it and failed for lack of network (research R12).
 Start both again (`docker compose start backend keycloak`) and, once they are healthy, scan the
-current code at **Gate 1** within its window (Gate 1's token expired too, so it may pass through
-sign-in first). **Expect**: verified.
+current code at **Gate 1** within its window (Gate 1's token expired too; it renews quietly within
+about 30 seconds of Keycloak answering, so it may not pass through sign-in at all). **Expect**:
+verified.
+
+Next, a network that hangs instead of refusing, on the **Customer** window only (to be confirmed in
+T039; nobody has run this step yet). In Chrome DevTools → **Network** → throttling, add a custom
+profile with about 60,000 ms of latency and select it for 6 minutes. **Expect**: the code keeps
+changing, with no "Signing in…" (the token expires with no renewal error, research R12). Turn
+throttling off. **Expect**: within about 30 seconds the token renews (the Network panel shows a
+`token` request answered `200`) with no change of page, and the code keeps changing.
 
 Now stop only the Backend (`docker compose stop backend`) and reload the Customer page. Keycloak
 stays up because a reload signs in again first: with Keycloak down too, that sign-in fails before

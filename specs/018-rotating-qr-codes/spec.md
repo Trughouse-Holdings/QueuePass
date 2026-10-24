@@ -336,8 +336,9 @@ succeeds.
   (Constitution V). It reaches the buyer's Customer app so codes keep changing with no signal
   (FR-010, decided 2026-10-23), held in memory only, as tokens are.
 - **No signal doesn't sign the customer out** (FR-010, SC-006): a sign-in renewal that fails only
-  because there is no connection leaves the customer signed in, in memory, so the live code stays
-  on screen; only the identity provider refusing the renewal ends the session. This reads spec
+  because there is no connection, or a token that expires, leaves the customer signed in, in
+  memory, so the live code stays on screen, and the app retries the renewal quietly, with no
+  change of page; only the identity provider refusing the renewal ends the session. This reads spec
   `001` FR-013's "no longer possible" as a refusal, not a lost connection (research R12), and
   applies to every app.
 - **Grace** (FR-008, decided 2026-10-23): 5 seconds on each side covers the time a scan takes and
