@@ -94,6 +94,43 @@ describe('One entry per ticket under concurrent admits', () => {
     expect(new Set(admitted).size).toBe(4);
   });
 
+  it('two Admit all presses for one order at once: 4 admitted in total, none twice', async () => {
+    const { tickets } = await orderWithTickets(ctx, eventId, { quantity: 4 });
+    const [first, second] = await Promise.all([1, 2].map((n) => agent(ctx, n)));
+    const results = await Promise.all(
+      [first, second].map((a) =>
+        a
+          .post(`/events/${eventId}/entry/admit`)
+          .send({ ticketId: tickets[0].id, wholeOrder: true }),
+      ),
+    );
+    no5xx(results);
+
+    // Across both responses, each ticket is reported admitted exactly once.
+    const admitted = results
+      .filter((r) => r.status === 200)
+      .flatMap((r) => r.body.admitted as { ticketId: string }[])
+      .map((t) => t.ticketId);
+    expect(admitted).toHaveLength(4);
+    expect(new Set(admitted)).toEqual(new Set(tickets.map((t) => t.id)));
+    // A press that admitted nothing was refused as USED (the other press took them all).
+    for (const r of results.filter((x) => x.status !== 200)) {
+      expect(r.status).toBe(409);
+      expect(r.body.error.details.reason).toBe('USED');
+    }
+    // One entry per row, recorded by the agent whose response reported it.
+    for (const t of tickets) {
+      const row = await ctx.prisma.ticket.findUniqueOrThrow({ where: { id: t.id } });
+      expect(row.checkedInAt).not.toBeNull();
+      const reporter = results.findIndex(
+        (r) =>
+          r.status === 200 &&
+          (r.body.admitted as { ticketId: string }[]).some((a) => a.ticketId === t.id),
+      );
+      expect(row.checkedInBySub).toBe(subFor(`agent${reporter + 1}`));
+    }
+  });
+
   it("an admit racing the admin's cancelEvent: VOID either way, and an entry is never cleared", async () => {
     const { tickets } = await orderWithTickets(ctx, eventId, { quantity: 1 });
     const gate = await agent(ctx);

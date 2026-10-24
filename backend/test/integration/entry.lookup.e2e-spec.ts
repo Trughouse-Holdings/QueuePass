@@ -139,7 +139,7 @@ describe('lookupEntryTicket', () => {
     expect(res.status).toBe(400);
   });
 
-  it('is 404 for an admin-only route check: the admin attendee list still works', async () => {
+  it('shadows no existing route: the admin attendee list still answers 200', async () => {
     // Sanity: the entry module must not shadow existing routes.
     await asAdmin(ctx).get(`/events/${eventId}/attendees`).expect(200);
   });
