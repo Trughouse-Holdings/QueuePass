@@ -3,7 +3,7 @@
 Venue and event management with sign-in for every user and guaranteed conflict-free scheduling.
 
 Built from the specifications in [`specs/`](specs/) under the project constitution at
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.2.1).
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.3.0).
 
 ---
 
@@ -70,8 +70,8 @@ Each feature has a GitHub issue and lands as two pull requests, in order (Consti
    merges. The PR says `fixes #N` to close the issue.
 
 Before either PR is opened, a second Claude session reviews the branch and the author fixes what
-it finds, usually two or three rounds. A teammate then reviews the PR. Only finished, reviewed
-work reaches `main`, so `main` always runs for a demo.
+it finds. One review is required; more rounds are optional. A teammate then reviews the PR. Only
+finished, reviewed work reaches `main`, so `main` always runs for a demo.
 
 Every commit message cites its spec, and implementation commits also cite their task IDs, for
 example `Impl 015: reserve path and its refusals (T017–T019, #27)`. That way a review session can
