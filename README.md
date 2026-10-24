@@ -133,6 +133,13 @@ all through the real Backend rules. Running it again changes nothing. It is neve
 automatically. Its orders belong to stand-in identities, so they don't appear on any customer's
 **My tickets**; buy in the Customer app to see that page filled.
 
+**Demo Tonight** starts 1 hour after the demo data loads and ends 4 hours after it, so its entry
+window (2 hours before the start until the end) is open at once and **closes 4 hours after the
+data loads**. Running the demo data again changes nothing, so it doesn't move Demo Tonight or add
+a new one. To demo check-in later, create an event in the Admin app that starts within the next 2
+hours, buy tickets for it in the Customer app, and choose it in the Ticket Booth
+([quickstart](specs/017-gate-check-in/quickstart.md) S0).
+
 Its two venues have real addresses, verified by the address service. It also works offline: when
 the service can't be reached, it saves them with their addresses not verified and says so.
 
