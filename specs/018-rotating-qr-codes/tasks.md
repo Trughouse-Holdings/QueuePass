@@ -492,10 +492,10 @@ written and passing in Phase 3); the Ticket Booth shows each refusal with its re
 `verifiedBy: 'TICKET_CODE'` (T015), and no response leaks the secret (T032), both written and
 passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
 
-- [ ] T033 [P] [US3] Add to `booth-app/test/check-in.test.tsx`: a lookup answering `verifiedBy:
+- [X] T033 [P] [US3] Add to `booth-app/test/check-in.test.tsx`: a lookup answering `verifiedBy:
   'TICKET_CODE'` shows 017's "Check a government-issued photo ID that shows: Jordan Lee" and no
   "Live code verified" (FR-014, SC-005).
-- [ ] T034 [US3] Run T033, T015, and every 017 test until they pass; fix only 018 code (017's
+- [X] T034 [US3] Run T033, T015, and every 017 test until they pass; fix only 018 code (017's
   tests are the specification of SC-005).
 
 **Checkpoint**: three ways in, one rule for each.
@@ -509,7 +509,7 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
 
 **Independent Test**: 20 simultaneous admits of one ticket after mixed lookups; exactly one wins.
 
-- [ ] T035 [US4] Write `backend/test/integration/entry.live-race.e2e-spec.ts`, firing with
+- [X] T035 [US4] Write `backend/test/integration/entry.live-race.e2e-spec.ts`, firing with
   `Promise.all` as `entry.concurrency.e2e-spec.ts` does, failing on any `5xx`: for one fresh
   ticket, `agent1`…`agent10` look it up by its current live code and `agent11`…`agent20` by its
   typed code (all `200`, ADMITTABLE), then all 20 admit at once: exactly one `200`, nineteen `409

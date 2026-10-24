@@ -520,6 +520,19 @@ describe('A verified live code (US1-3 to US1-5)', () => {
   });
 });
 
+/** Spec 018 US3 (FR-014, SC-005): a printed or typed code keeps 017's ID check. */
+describe('A printed or typed code after 018 (US3-1)', () => {
+  it('verifiedBy TICKET_CODE shows the ID-check prompt and no "Live code verified"', async () => {
+    stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: json(ticket({ verifiedBy: 'TICKET_CODE' })) });
+    renderApp();
+    await lookUp(userEvent.setup());
+    expect(
+      await screen.findByText('Check a government-issued photo ID that shows: Jordan Lee'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Live code verified/)).toBeNull();
+  });
+});
+
 /** Spec 018 US2 (FR-011, FR-012; research R9): a copied or forged live code is refused. */
 describe('Refused live codes (US2-1, US2-3)', () => {
   const LIVE = 'QP1:3B8E0000000040008000000000000001:59762702:KX4N2Q7WZB3T5RYM';
