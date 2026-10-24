@@ -89,3 +89,12 @@ test('the workflow uses no secret and no token (R15)', () => {
   assert.ok(!text.includes('secrets.'), 'the workflow references secrets.');
   assert.ok(!text.includes('github.token'), 'the workflow references github.token');
 });
+
+function readPackageJson(...segments) {
+  return JSON.parse(readFileSync(join(ROOT, ...segments, 'package.json'), 'utf8'));
+}
+
+test("the backend's pretest generates the Prisma client, so a fresh clone's npm test works (R5)", () => {
+  const backend = readPackageJson('backend');
+  assert.match(backend.scripts.pretest ?? '', /prisma generate/);
+});
