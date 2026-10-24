@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import type { MyOrder, OrderEvent, Ticket } from '@queuepass/shared';
 import { AuthProvider, RequireRole } from '@queuepass/shared/web';
 import { App } from '../src/App';
-import { calendarEntry, icsFile, icsFileName } from '../src/calendar';
+import { calendarEntry, googleCalendarUrl, icsFile, icsFileName } from '../src/calendar';
 import { releaseOnLogout } from '../src/release-on-logout';
 import { json, myOrder, renderCustomer, stubApi } from './helpers';
 
@@ -293,5 +293,55 @@ describe('saving the file (FR-008 to FR-010; research R12)', () => {
     const uid = async (b: Blob) => (await b.text()).match(/^UID:(.*)\r$/m)?.[1];
     expect(await uid(blobs[0])).toBe('queuepass-event-e-twin');
     expect(await uid(blobs[1])).toBe(await uid(blobs[0]));
+  });
+});
+
+describe('Add to Google Calendar (US2; FR-011, FR-013, FR-014; research R8, R11)', () => {
+  const googleName = (o: MyOrder) => `Add to Google Calendar: ${o.event.name}, opens in a new tab`;
+
+  it('gives each eligible card the link right after the button, opening a new tab', async () => {
+    await showAll();
+    for (const o of ELIGIBLE) {
+      const group = within(cardOf(o)).getByRole('group', { name: 'Add to calendar' });
+      const button = within(group).getByRole('button', { name: fileButtonName(o) });
+      const links = within(group).getAllByRole('link');
+      expect(links).toHaveLength(1);
+      const link = within(group).getByRole('link', { name: googleName(o) });
+      expect(link).toBe(links[0]);
+      expect(link).toHaveTextContent('Add to Google Calendar');
+      expect(link).toHaveAttribute('href', googleCalendarUrl(calendarEntry(o.event)));
+      expect(link).toHaveAttribute('target', '_blank');
+      const rel = (link.getAttribute('rel') ?? '').split(/\s+/);
+      expect(rel).toContain('noopener');
+      expect(rel).toContain('noreferrer');
+      expect(link).toHaveClass('btn', 'btn--ghost');
+      const noteId = within(group).getByText(NOTE).id;
+      expect(link).toHaveAttribute('aria-describedby', noteId);
+      expect(link).toHaveAccessibleDescription(NOTE);
+      // Right after the button: no focusable element between them.
+      expect(button.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      const focusable = [...group.querySelectorAll('a[href], button')];
+      expect(focusable.indexOf(link)).toBe(focusable.indexOf(button) + 1);
+    }
+  });
+
+  it('gives ineligible cards no Google link', async () => {
+    await showAll();
+    for (const o of INELIGIBLE)
+      expect(within(cardOf(o)).queryByRole('link', { name: /Google Calendar/ })).toBeNull();
+  });
+
+  it('is reached by Tab right after the button, then the first ticket link', async () => {
+    await showAll([upcoming]);
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const card = cardOf(upcoming);
+
+    within(card)
+      .getByRole('button', { name: fileButtonName(upcoming) })
+      .focus();
+    await user.tab();
+    expect(within(card).getByRole('link', { name: googleName(upcoming) })).toHaveFocus();
+    await user.tab();
+    expect(within(card).getByRole('link', { name: /^Show entry code/ })).toHaveFocus();
   });
 });

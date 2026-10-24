@@ -1,7 +1,13 @@
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { MyOrder, OrderEvent, Ticket } from '@queuepass/shared';
-import { calendarEligible, calendarEntry, icsFile, icsFileName } from '../src/calendar';
+import {
+  calendarEligible,
+  calendarEntry,
+  googleCalendarUrl,
+  icsFile,
+  icsFileName,
+} from '../src/calendar';
 
 /**
  * Spec 019 FR-004 to FR-009, SC-002, SC-003 (research R3 to R7, R10, R12, R14, R15): the calendar
@@ -600,6 +606,63 @@ describe('calendarEligible (R10, FR-002)', () => {
   it('does for a valid ticket already used at the gate', () => {
     const o = myOrder({ tickets: [ticket({ checkedInAt: '2026-10-31T23:40:00.000Z' })] });
     expect(calendarEligible(o, start + 600_000)).toBe(true);
+  });
+});
+
+describe('googleCalendarUrl (R8, FR-011)', () => {
+  const urlOf = (e: OrderEvent) => googleCalendarUrl(calendarEntry(e));
+
+  it("is exactly the R3 example's link", () => {
+    expect(urlOf(orderEvent())).toBe(
+      'https://calendar.google.com/calendar/render?action=TEMPLATE&text=Season+Opener&dates=20261031T233000Z%2F20261101T024500Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202',
+    );
+  });
+
+  it('gives back reserved characters, accents, and emoji exactly, with only four keys', () => {
+    const name = 'Rock & Roll #1 / A+B 100% = ? Café 🎉';
+    const venueName = 'Hall & Co. #2 / C+D 50% = ?';
+    const address = '1 Main St, Fl. 2; Noël 🎉, LOUISVILLE, KY 40202';
+    const url = new URL(urlOf(orderEvent({ name, location: venueAt(venueName, address) })));
+
+    expect(`${url.origin}${url.pathname}`).toBe('https://calendar.google.com/calendar/render');
+    expect([...url.searchParams.keys()]).toEqual(['action', 'text', 'dates', 'location']);
+    expect(url.searchParams.get('action')).toBe('TEMPLATE');
+    expect(url.searchParams.get('text')).toBe(name);
+    expect(url.searchParams.get('dates')).toBe('20261031T233000Z/20261101T024500Z');
+    expect(url.searchParams.get('location')).toBe(`${venueName}, ${address}`);
+    expect(url.searchParams.has('ctz')).toBe(false);
+    expect(url.searchParams.has('details')).toBe(false);
+  });
+
+  it('is the same link under every TZ', () => {
+    const before = process.env.TZ;
+    const expected = urlOf(orderEvent());
+    try {
+      for (const [zone, offset] of [
+        ['UTC', 0],
+        ['America/New_York', 240],
+        ['America/Los_Angeles', 420],
+        ['Asia/Kolkata', -330],
+      ] as const) {
+        process.env.TZ = zone;
+        expect(new Date('2026-10-24T12:00:00Z').getTimezoneOffset()).toBe(offset);
+        expect(urlOf(orderEvent())).toBe(expected);
+        expect(urlOf(FIXTURES[1].event)).toContain('dates=20261107T030000Z%2F20261107T070000Z');
+      }
+    } finally {
+      process.env.TZ = before;
+    }
+  });
+
+  it('keeps a 200-character name, venue name, and 500-character address whole', () => {
+    const name = 'n'.repeat(199) + 'Z';
+    const url = new URL(urlOf(orderEvent({ name, location: venueAt(LONG_VENUE, MAX_ADDRESS) })));
+    expect(url.searchParams.get('text')).toBe(name);
+    expect(url.searchParams.get('location')).toBe(`${LONG_VENUE}, ${MAX_ADDRESS}`);
+  });
+
+  it('refuses an end not after the start (R14)', () => {
+    expect(() => urlOf(orderEvent({ endsAt: '2026-10-31T23:30:00.000Z' }))).toThrow();
   });
 });
 
