@@ -34,6 +34,16 @@ test('the workflow is CI, on every pull request open, update, and reopen and eve
   assert.deepEqual(workflow.on.push.branches, ['main']);
 });
 
+test('the workflow has only name, on, permissions, concurrency, and jobs: no workflow-wide env or defaults (R13)', () => {
+  assert.deepEqual(Object.keys(readWorkflow()), [
+    'name',
+    'on',
+    'permissions',
+    'concurrency',
+    'jobs',
+  ]);
+});
+
 test('the token can only read the repository, and no job widens it (R15)', () => {
   const workflow = readWorkflow();
   assert.deepEqual(workflow.permissions, { contents: 'read' });

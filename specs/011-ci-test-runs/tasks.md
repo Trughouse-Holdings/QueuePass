@@ -91,7 +91,8 @@ before any story uses them.
     `npm install --package-lock-only` in a throwaway worktree re-added exactly those 78 flags,
     and a second run changed nothing, so the lock file is a fixed point of `npm install` and the
     next dependency change carries no unexplained lines. npm marks the platform packages
-    peer-reachable once the provider's exact `vitest` peer dependency is in the tree. `npm test` passed (the laptop's Prisma client was stale from 2026-10-17 and
+    peer-reachable once the provider's exact `vitest` peer dependency is in the tree. `npm test`
+    passed (the laptop's Prisma client was stale from 2026-10-17 and
     had to be regenerated first: the R5 problem on a laptop, which T011's `pretest` now fixes).
 - [x] T004 In `eslint.config.mjs`, add `'**/coverage/'` to the ignores, next to `'coverage/'`, as
   `'**/dist/'` sits next to `'dist/'` (R10). Check: create `backend/coverage/lcov-report/x.js`
@@ -375,7 +376,7 @@ turned on right after merge (T033).
     `github.token`, `env:`, environment, or `.env`; checkout does not persist credentials; only
     `actions/checkout@v7` and `actions/setup-node@v7`; no step pushes, publishes, or deploys
     (FR-012, FR-016).
-- [ ] T026 Independent review (Constitution III): a separate Claude session reviews the branch
+- [x] T026 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md, plan.md, and research.md. Fix the findings. One review is required; another
   round is optional. Record the review and any finding left open, with the reason, here and in the
   PR description.
@@ -390,6 +391,12 @@ turned on right after merge (T033).
     carries its reason. M4: README says each step stops the run if it fails. After the fixes:
     21 of 21 `node --test` tests, lint and format check clean, and shared 468, admin-app 200,
     customer-app 200, booth-app 67, seed 8 (stack up) pass.
+  - **Round 2** (2026-10-24, at `fd04668`): 0 must, 0 should, 3 minor; every round-1 finding
+    resolved (the three S2 mutations re-applied and each failed a test; customer-app 3 of 3;
+    the linked-root test also passes and cleans up on Linux, non-root). Minors fixed: m1, the
+    shared workspace's test setup gets the same 3 s wait; m2, a test pins the workflow's
+    top-level keys, so a workflow-wide `env:` or `defaults:` fails it (proven with an added
+    `env:`); m3, one long line rewrapped. No open findings.
 - [x] T027 Commit with citations (`Impl 011: … (T0NN, #23)`), each body naming the FRs and R
   decisions it rests on.
   - **Result**: committed task by task, failing tests before their implementation (T005/T006
