@@ -448,13 +448,43 @@ describe('Failures are explicit states (Constitution IV, Edge Cases)', () => {
     expect(screen.getByLabelText('Ticket code')).toHaveValue('');
   });
 
+  it('a lookup that fails says nothing was recorded (a lookup records nothing)', async () => {
+    stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: 'network-error' });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Can't reach QueuePass right now. Nothing was recorded; try again.",
+    );
+  });
+
+  /** The Backend may have recorded the entry and only the answer was lost (Constitution IV). */
+  const ADMIT_UNKNOWN =
+    "Can't reach QueuePass right now, so this entry may not have been recorded. Look the ticket up again before admitting.";
+
   it('a network error on an admit shows a plain error and re-enables the controls', async () => {
     stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: json(ticket()), [ADMIT]: 'network-error' });
     const user = userEvent.setup();
     renderApp();
     await lookUp(user);
     await user.click(await screen.findByRole('button', { name: 'Admit' }));
-    expect(await screen.findByText(/Can't reach QueuePass/)).toBeInTheDocument();
+    // It can't know whether the entry was recorded, so it never says "Nothing was recorded".
+    expect(await screen.findByRole('alert')).toHaveTextContent(ADMIT_UNKNOWN);
+    expect(screen.queryByText(/Nothing was recorded/)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Admit' })).toBeEnabled();
+  });
+
+  it('a 5xx on an admit says the same, not the server message', async () => {
+    stubApi({
+      [EVENTS]: threeEvents(),
+      [LOOKUP]: json(ticket()),
+      [ADMIT]: json({ error: { code: 'INTERNAL', message: 'Internal server error' } }, 500),
+    });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user);
+    await user.click(await screen.findByRole('button', { name: 'Admit' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(ADMIT_UNKNOWN);
     expect(screen.getByRole('button', { name: 'Admit' })).toBeEnabled();
   });
 

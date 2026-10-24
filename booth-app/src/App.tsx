@@ -39,6 +39,12 @@ export function App({ userManager }: { userManager?: UserManagerLike }) {
 }
 
 const UNREACHABLE = "Can't reach QueuePass right now. Nothing was recorded; try again.";
+/**
+ * A failed admit can't say "Nothing was recorded": the Backend may have recorded the entry and
+ * only its answer was lost (Constitution IV). Looking the ticket up again tells which.
+ */
+const ADMIT_UNKNOWN =
+  "Can't reach QueuePass right now, so this entry may not have been recorded. Look the ticket up again before admitting.";
 
 function Booth() {
   const { api, signIn } = useAuth();
@@ -181,11 +187,13 @@ function Booth() {
             entryOpensAt: d.entryOpensAt,
           }),
         });
+      } else if (response.status >= 500) {
+        setNotice(ADMIT_UNKNOWN);
       } else {
-        setNotice(error?.error.message ?? UNREACHABLE);
+        setNotice(error?.error.message ?? ADMIT_UNKNOWN);
       }
     } catch {
-      setNotice(UNREACHABLE);
+      setNotice(ADMIT_UNKNOWN);
     } finally {
       setBusy(false);
     }
