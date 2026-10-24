@@ -1,23 +1,13 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.3.0 -> 3.4.0 (MINOR). Not PATCH: the amendment changes when a requirement takes effect,
-  making the CI run merge-blocking before 010 is merged, which the versioning policy's PATCH
-  ("does not change what is required") excludes. Treated as MINOR under "existing guidance is
-  materially expanded": the recorded deferral now names a closing feature for each half.
-Problem: the roadmap lists 011-ci-test-runs as depending on 010-test-coverage, and the recorded
-  deferral in Principle VI closes the CI run and the coverage floor together, when both 010 and
-  011 are merged. The team builds 011 first (spec 011, Clarifications 2026-10-24).
+Version: 3.4.0 -> 3.4.1 (PATCH): two roadmap rows reserved; nothing that is required changes.
+Problem: issues #50 (add to calendar) and #42 (venue time zones) need spec numbers before their
+  spec and plan PRs (each issue's Process section).
 Changed:
-  - Principle VI, recorded deferral: split by feature. The CI run becomes merge-blocking once 011
-    is merged and its check is required on main (a repository setting turned on right after the
-    merge); the coverage floor when 010 is merged. Until 010, pull requests report coverage.
-  - Roadmap row 010: builds on 011's coverage measurement and turns the floor on in npm test and
-    the CI run (was: "coverage reporting in npm test"). Depends on 001-008 and 011.
-  - Roadmap row 011: the workflow fails on any failed check or test and reports each workspace's
-    coverage; the floor fails the run once 010 is merged. Depends on 001 (was: 010).
-Impact: no control is removed or weakened. The floor's deferral already existed and still closes
-  with 010; the CI half now closes sooner, with 011. No existing code or spec changes. The README's
-  version reference follows. Templates: none need updating.
+  - Roadmap: rows 019-add-to-calendar (#50, depends on 006) and 020-venue-time-zones (#42,
+    depends on 002, 003, 013). The next free number is 021.
+Impact: none on existing code, specs, or controls. The README's version reference follows.
+  Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -301,7 +291,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `019`.
+number is a pull request against this table. The next free number is `021`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -323,6 +313,8 @@ number is a pull request against this table. The next free number is `019`.
 | `016-per-user-ticket-limit` | Admins set a maximum number of tickets per customer per event; the limit counts across all of that customer's orders | `005`, `006` |
 | `017-gate-check-in` | Every ticket carries its holder's name (#39); the Ticket Booth app checks tickets in by camera scan of a printed QR code or a typed code, with an ID check against the name, and admits each ticket exactly once, enforced by the Backend (#40) | `005`, `006`, `007` |
 | `018-rotating-qr-codes` | The Customer app shows each ticket as a QR code that changes every 30 seconds; the Ticket Booth app accepts it only in its own window, with no ID check, and still admits each ticket exactly once (#41) | `017` |
+| `019-add-to-calendar` | From My tickets, a customer adds an event they hold tickets for to their own calendar (Google, Apple, Outlook): a one-time snapshot with the event's name, start and end, and venue address, offered only for events not cancelled or ended (#50) | `006` |
+| `020-venue-time-zones` | Every venue has a time zone, worked out from its checked address; event times are shown and entered in the venue's local time, with the zone made clear, in every app (#42) | `002`, `003`, `013` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -375,4 +367,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.4.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-24
+**Version**: 3.4.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-24
