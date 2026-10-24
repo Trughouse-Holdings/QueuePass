@@ -264,11 +264,25 @@ The result stays in the existing live region until the next lookup (spec 017 FR-
 
 **Decision**: the quickstart shows the Customer app's live code in one browser window and scans it
 with the laptop's webcam through the Ticket Booth app in another, by holding a phone up to the
-webcam. The phone's camera viewfinder, pointed at the laptop screen, relays the current code in real
-time (and shows the accepted risk of a live relay); a **photo** taken with the phone is a screenshot,
-which is accepted within its window and grace and refused as expired after. The optional Android USB
-forwarding step from spec 017 research R10 also lets the phone open the Customer app itself (forward
-port 5174 as well). Nothing is added to `docker compose up`.
+webcam. The phone's **front (selfie) camera** viewfinder, pointed at the laptop screen, relays the
+current code in real time (and shows the accepted risk of a live relay). It has to be the front
+camera: the webcam faces the same way as the screen, so with the back camera aimed at the screen
+the phone's own screen faces away from the webcam. The front camera's preview is mirrored; jsQR,
+which the Ticket Booth decodes with, retries a code mirrored when it fails to read it straight, so a
+mirrored code still scans. A **photo** taken with the phone is a screenshot, which is accepted
+within its window and grace and refused as expired after.
+
+If the relay won't read, either of these replaces it, with nothing added to the code:
+
+- **A camera aimed at the screen as Gate 1's camera**: on a Mac, an iPhone through Continuity
+  Camera, or any USB webcam, chosen as the camera for `http://localhost:5175` in Chrome's site
+  settings. The Ticket Booth asks for `facingMode: 'environment'`, which a laptop doesn't have, so
+  the browser uses the camera chosen there. This scans the Customer window directly; it shows no
+  relay, but every other scenario is the same.
+- **The Customer app on the phone** (Android only): spec 017 research R10's USB forwarding, with
+  port 5174 forwarded as well. The phone then shows its own live code to the webcam.
+
+Nothing is added to `docker compose up`.
 
 ## R11: Testing
 

@@ -16,7 +16,12 @@ You need three browser sessions that don't share sign-in, and a phone with a cam
   so the webcam works.
 - **Gate 2**: the Ticket Booth app, `agent2` / `test123`, in a second browser or profile.
 - **Phone**: its ordinary camera app, used only to carry the Customer window's QR code to the
-  webcam (research R10). Its live viewfinder relays the current code; a photo is a screenshot.
+  webcam (research R10). Use its **front (selfie) camera**: aimed at the Customer window, the
+  phone's screen then faces the webcam (with the back camera it faces away). Its live viewfinder
+  relays the current code, mirrored, which the Ticket Booth still reads; a photo is a screenshot.
+  If the relay won't read, use one of research R10's two alternatives: an iPhone (Continuity
+  Camera) or a USB webcam aimed at the screen as Gate 1's camera, or, on Android, the Customer app
+  on the phone itself.
 
 Contract and rules: [contracts/README.md](./contracts/README.md), [data-model.md](./data-model.md).
 
@@ -37,8 +42,9 @@ white. With a screen reader on, **expect** the countdown not to be read out as i
 
 ## S2: Scan the live code, no ID check (US1)
 
-As **Gate 1**, choose Demo Tonight and press **Scan**. Point the phone's camera at the Customer
-window and hold the phone's screen up to the webcam. **Expect**: the ticket appears with no further
+As **Gate 1**, choose Demo Tonight and press **Scan**. Aim the phone's front camera at the Customer
+window, so the phone's screen, showing the viewfinder, faces the webcam. **Expect**: the ticket
+appears with no further
 tap, saying "✓ Live code verified. No ID check needed.", with Jordan Lee, **Admit**, **Admit all
 3**, and **Refuse**, and no ID-check prompt. Press **Admit**. **Expect**: "✓ Admitted". From
 pressing **Scan** to "Admitted": under 5 seconds (SC-003).
