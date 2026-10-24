@@ -39,11 +39,14 @@ const CODE = '7KQ2M9XWAB4C';
 const ADMIT = `POST /events/${EVENT_ID}/entry/admit`;
 const LOOKUP = `POST /events/${EVENT_ID}/entry/lookup`;
 
-/** A reply that waits until the test releases it, to look at the screen mid-request. */
+/**
+ * A reply that waits until the test releases it, to look at the screen mid-request. The promise
+ * exists from the start, so a release sent before the request arrives is kept, not lost.
+ */
 function held() {
   let release: (r: Response) => void = () => undefined;
-  const reply = () => new Promise<Response>((resolve) => (release = resolve));
-  return { reply, release: (r: Response) => release(r) };
+  const answer = new Promise<Response>((resolve) => (release = resolve));
+  return { reply: () => answer, release: (r: Response) => release(r) };
 }
 
 function stubApi(extra: Record<string, Response | (() => Promise<Response>)> = {}) {

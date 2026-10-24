@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 
 /**
  * Spec 017 FR-008: a labelled code field and Look up. The field keeps focus after each result,
- * so the next code can be typed at once (research R11). `focusSignal` bumps to refocus it
- * (the refusals' "Look up another"). The code is cleared only once a ticket is found: after "No
- * ticket has this code" or a failed request it stays, so nothing has to be retyped
- * (Constitution IV).
+ * so the next code can be typed at once (research R11). `focusSignal` bumps to refocus it: after
+ * an admit's answer, Refuse, and "Look up another". The code is cleared only once a ticket is
+ * found: after "No ticket has this code" or a failed request it stays, so nothing has to be
+ * retyped (Constitution IV).
  */
 export function TicketLookup({
   busy,

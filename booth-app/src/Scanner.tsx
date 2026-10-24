@@ -71,7 +71,9 @@ export function Scanner({
       stop?.();
       if (timer !== undefined) clearTimeout(timer);
     };
-    // Opened once per mount: onTicketCode is a stable callback from the App.
+    // Opened once per mount, so onTicketCode is the one from the first render. That is safe: the
+    // App's lookup reads only the chosen event, which can't change while the Scanner is open
+    // (Change event closes it), and the API client, which never changes.
   }, []);
 
   return (
