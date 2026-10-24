@@ -342,6 +342,60 @@ describe('Admit, Admit all, and Refuse (FR-015, FR-015a, FR-017)', () => {
   });
 });
 
+describe('The code field gets focus back after each result (FR-008, T020)', () => {
+  const codeField = () => screen.getByLabelText('Ticket code');
+
+  it('after ✓ Admitted', async () => {
+    stubApi({
+      [EVENTS]: threeEvents(),
+      [LOOKUP]: json(ticket()),
+      [ADMIT]: json({
+        admitted: [{ ticketId: TICKET_ID, code: '7KQ2M9XWAB4C', usedAt: iso(0) }],
+        alreadyUsed: [],
+      }),
+    });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user);
+    await user.click(await screen.findByRole('button', { name: 'Admit' }));
+    expect(await screen.findByText(/✓ Admitted/)).toBeInTheDocument();
+    expect(document.activeElement).toBe(codeField());
+  });
+
+  it('after an Admit all refused with 409', async () => {
+    stubApi({
+      [EVENTS]: threeEvents(),
+      [LOOKUP]: json(ticket({ unusedOnOrder: 2 })),
+      [ADMIT]: json(
+        {
+          error: {
+            code: 'ENTRY_REFUSED',
+            message: 'Already used.',
+            details: { reason: 'USED', usedAt: iso(-0.1) },
+          },
+        },
+        409,
+      ),
+    });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user);
+    await user.click(await screen.findByRole('button', { name: 'Admit all 2' }));
+    expect(await screen.findByText(/Already used at/)).toBeInTheDocument();
+    expect(document.activeElement).toBe(codeField());
+  });
+
+  it('after Refuse', async () => {
+    stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: json(ticket()) });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user);
+    await user.click(await screen.findByRole('button', { name: 'Refuse' }));
+    expect(await screen.findByText(/✕ Not admitted/)).toBeInTheDocument();
+    expect(document.activeElement).toBe(codeField());
+  });
+});
+
 describe('Refusal reasons (US3, FR-011)', () => {
   /** Looks up with the given stubbed answer and returns the status region. */
   async function refusedLookup(reply: Response) {

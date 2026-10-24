@@ -168,6 +168,8 @@ function Booth() {
       );
       if (response.ok && data) {
         setOutcome({ kind: 'admitted', admitted: data.admitted, alreadyUsed: data.alreadyUsed });
+        // The pressed button is gone: the code field takes focus for the next ticket (FR-008).
+        setFocusSignal((n) => n + 1);
       } else if (response.status === 401) {
         // The session expired mid-scan: nothing was recorded; the chosen event is kept (Edge Cases).
         await signIn();
@@ -187,6 +189,7 @@ function Booth() {
             entryOpensAt: d.entryOpensAt,
           }),
         });
+        setFocusSignal((n) => n + 1);
       } else if (response.status >= 500) {
         setNotice(ADMIT_UNKNOWN);
       } else {
@@ -198,6 +201,11 @@ function Booth() {
       setBusy(false);
     }
   }
+
+  const refuse = (): void => {
+    setOutcome({ kind: 'notAdmitted' });
+    setFocusSignal((n) => n + 1);
+  };
 
   return (
     <>
@@ -256,7 +264,7 @@ function Booth() {
               outcome={outcome}
               busy={busy}
               onAdmit={(wholeOrder) => void admit(wholeOrder)}
-              onRefuse={() => setOutcome({ kind: 'notAdmitted' })}
+              onRefuse={refuse}
               onAnother={another}
             />
           </>
