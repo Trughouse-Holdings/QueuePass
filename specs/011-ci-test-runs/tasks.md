@@ -108,7 +108,7 @@ request goes red with a failing test.
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T005 [US1] Create `scripts/test/ci-workflow.test.mjs` (`node:test`, `node:assert/strict`,
+- [x] T005 [US1] Create `scripts/test/ci-workflow.test.mjs` (`node:test`, `node:assert/strict`,
   `yaml`'s `parse`), reading `.github/workflows/ci.yml` relative to the repository root, with one
   test per rule from research R13:
   - `name` is `CI`; `on.pull_request.types` is exactly `['opened', 'synchronize', 'reopened']` and
@@ -124,10 +124,12 @@ request goes red with a failing test.
     `actions/setup-node` step has `node-version-file: .nvmrc` and `cache: npm` (R2, R3);
   - every step that has a `run` also has a `name`; the first `run` step is exactly `npm ci`;
   - the raw file text contains neither `secrets.` nor `github.token` (R15).
-- [ ] T006 [US1] Add `node --test "scripts/test/*.test.mjs"` to the **start** of the root `test`
+- [x] T006 [US1] Add `node --test "scripts/test/*.test.mjs"` to the **start** of the root `test`
   script, before `node scripts/check-boundary.mjs` (escape the quotes in JSON; research R13 explains
   why the glob, not the directory). Run `npm test`: T005's tests **fail** because the workflow file
   does not exist.
+  - **Result**: 7 of 7 fail with `ENOENT` on `.github/workflows/ci.yml`; `npm test` stops there.
+    The quoted glob works under npm's `cmd.exe` on Windows too (Node expands it).
 
 ### Implementation for User Story 1
 
