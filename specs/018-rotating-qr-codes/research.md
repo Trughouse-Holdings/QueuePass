@@ -383,12 +383,20 @@ portal's HTML page in place of Keycloak's answer (oidc-client-ts's "Invalid resp
 and the library's response-validation errors. Stadium Wi-Fi behind a portal must not cost the
 customer the live code; the retries carry on until Keycloak answers, either way.
 
+**Offline longer than Keycloak's SSO Session Idle** (30 minutes by default; the seed sets none):
+Keycloak ends the idle session, so the first retry once the signal is back is refused
+(`invalid_grant`, an `ErrorResponse`) and the customer is sent to sign in. FR-010 still holds while
+there is no signal: nothing reaches Keycloak, so nothing is refused and the live code keeps
+changing. If the sign-in can't be completed at the gate, the printed ticket with photo ID remains
+the fallback.
+
 **Reading of spec 001 FR-013**: "return the user to the login page when renewal is no longer
-possible". A failed network request doesn't make renewal impossible; Keycloak refusing it does.
-This amends spec 001's data-model §4, whose transition "refresh fails → `signed-out`" and whose
+possible". A failed network request doesn't make renewal impossible; Keycloak refusing it does. This
+amends spec 001's data-model §4, whose transition "refresh fails → `signed-out`" and whose
 `signed-in` row ("token valid") are annotated in place: only Keycloak's refusal leads to
-`signed-out`, and a user whose refresh failed for lack of network stays `signed-in`, in memory,
-with an expired token the Backend refuses, while the refresh is retried quietly.
+`signed-out`, and a user whose refresh failed for any reason other than Keycloak's refusal (no
+network, a request that hangs, a captive portal's page) stays `signed-in`, in memory, with an
+expired token the Backend refuses, while the refresh is retried quietly.
 
 **Constitution V is unchanged**: tokens stay in memory only (nothing new is written to storage);
 logout still ends both the front end's session and Keycloak's; the Backend still validates every

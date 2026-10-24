@@ -96,7 +96,7 @@ Authoritative definitions are in [`contracts/openapi.yaml`](../../contracts/open
 | `loading` | checking for a user, or completing the redirect back from Keycloak | "Signing in…" |
 | `signed-out` | no user in memory | redirect to Keycloak login (never rendered as a page) |
 | `signed-in, wrong role` | token valid, required role missing | "Your account can't use this app", plus logout |
-| `signed-in` | token valid, role present. *Amended by spec 018 research R12: also a user kept in memory with an expired token after a refresh failed for lack of network; the Backend refuses that token with `401`, and the refresh is retried quietly.* | hello-world page, or the app's screens, plus logout |
+| `signed-in` | token valid, role present. *Amended by spec 018 research R12: also a user kept in memory with an expired token after a refresh failed for any reason other than Keycloak's refusal (no network, a request that hangs, a captive portal's page); the Backend refuses that token with `401`, and the refresh is retried quietly.* | hello-world page, or the app's screens, plus logout |
 | `backend-unreachable` | signed in, but the greeting call failed with a network error | "Can't reach the QueuePass service", plus logout |
 
 Transitions:
@@ -104,8 +104,9 @@ Transitions:
 - `loading` → `signed-out` → Keycloak → `loading` → `signed-in` or `signed-in, wrong role`
 - Access token nearing expiry → refresh in place; refresh fails → `signed-out`
   *Amended by spec 018 research R12: only Keycloak refusing the refresh (`ErrorResponse`) leads to
-  `signed-out`. A refresh that fails for lack of network keeps the user signed in, in memory, with
-  an expired token the Backend refuses, and retries quietly.*
+  `signed-out`. A refresh that fails for any reason other than Keycloak's refusal (no network, a
+  request that hangs, a captive portal's page) keeps the user signed in, in memory, with an expired
+  token the Backend refuses, and retries quietly.*
 - Logout: remove the user (→ `signed-out`), then redirect to Keycloak's end-session endpoint
 - Page restored from the back-forward cache → re-check → `signed-out` if memory is empty
 

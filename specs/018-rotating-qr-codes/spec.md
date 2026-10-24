@@ -178,6 +178,10 @@ succeeds.
 - **No signal at the venue**: the live code keeps changing as long as the Customer app stays open
   after loading **My tickets** online (FR-010). If the app is closed or reloaded with no signal, it
   can't show a live code, and the holder uses the printed ticket with ID.
+- **Offline longer than the sign-in session's idle limit** (Keycloak's SSO Session Idle, 30 minutes
+  by default; the realm sets none): FR-010 still holds while there is no signal. Once the signal is
+  back, the first quiet renewal is refused and the customer is sent to sign in; the printed ticket
+  with photo ID remains the fallback.
 - **Code expires between lookup and Admit**: the lookup already verified the code, so the agent can
   still press **Admit** for that lookup; the once-only rule (`017` FR-015) still applies. A new
   lookup needs a new code.
@@ -335,12 +339,13 @@ succeeds.
 - **No constitution change**: the entry secret is ticket data, not an identity, password, or token
   (Constitution V). It reaches the buyer's Customer app so codes keep changing with no signal
   (FR-010, decided 2026-10-23), held in memory only, as tokens are.
-- **No signal doesn't sign the customer out** (FR-010, SC-006): a sign-in renewal that fails only
-  because there is no connection, or a token that expires, leaves the customer signed in, in
-  memory, so the live code stays on screen, and the app retries the renewal quietly, with no
-  change of page; only the identity provider refusing the renewal ends the session. This reads spec
-  `001` FR-013's "no longer possible" as a refusal, not a lost connection, amends `001`'s
-  data-model §4 (its session states, annotated in place; research R12), and applies to every app.
+- **No signal doesn't sign the customer out** (FR-010, SC-006): a sign-in renewal that fails for any
+  reason other than the identity provider's refusal (no network, a request that hangs, a captive
+  portal's page), or a token that expires, leaves the customer signed in, in memory, so the live
+  code stays on screen, and the app retries the renewal quietly, with no change of page; only the
+  identity provider refusing the renewal ends the session. This reads spec `001` FR-013's "no longer
+  possible" as a refusal, not a lost connection, amends `001`'s data-model §4 (its session states,
+  annotated in place; research R12), and applies to every app.
 - **Grace** (FR-008, decided 2026-10-23): 5 seconds on each side covers the time a scan takes and
   small clock differences, at the cost of a copy working up to 5 seconds longer.
 
