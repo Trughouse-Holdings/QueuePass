@@ -88,7 +88,7 @@ async function expectCurrentCode() {
   });
 }
 
-async function openEntryCode(routes: Record<string, Parameters<typeof stubApi>[0][string]> = {}) {
+async function openEntryCode(routes: NonNullable<Parameters<typeof stubApi>[0]> = {}) {
   const api = stubApi({
     'GET /me/orders': json(orders()),
     [`GET /me/tickets/${TICKET}/entry-key`]: keyReply,

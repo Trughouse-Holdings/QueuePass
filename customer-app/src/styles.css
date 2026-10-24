@@ -153,6 +153,23 @@
   height: auto;
 }
 
+/* Spec 018 FR-004: the live code as large as the screen allows, up to 320 CSS pixels. */
+.ticket-qr--live {
+  width: min(100%, 320px);
+}
+
+.entry-code__card {
+  max-width: 420px;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.entry-code__countdown {
+  font-family: var(--mono);
+  font-size: 20px;
+  margin: 0;
+}
+
 .print-ticket__page {
   max-width: 420px;
   display: grid;
