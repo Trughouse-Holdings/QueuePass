@@ -643,7 +643,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   `gallery-parts.tsx` as needed) read the shown picture's shape on load, measure the width, and set
   the height; in `theme.css` switch to `contain` and add the transition with its reduced-motion
   rule (research R18). Run T051–T053 and the shared suite, including the drift check.
-- [ ] T055 In `admin-app/src/styles.css` and `ImagesField.tsx`, show each preview whole at its own
+- [x] T055 In `admin-app/src/styles.css` and `ImagesField.tsx`, show each preview whole at its own
   shape within the 3:4 limit (research R18). Run T052's Admin part and the Admin app suite.
 - [ ] T056 Running-system check: quickstart S13 in both apps, at desktop width and at 375 pixels,
   and record it here.

@@ -44,7 +44,7 @@ function NewThumb({ file, alt }: { file: File; alt: string }) {
   return url ? (
     <img className="image-item__thumb" src={url} alt={alt} />
   ) : (
-    <span className="image-item__thumb" />
+    <span className="image-item__thumb image-item__thumb--loading" />
   );
 }
 
@@ -54,7 +54,7 @@ function SavedThumb({ eventId, image, alt }: { eventId: string; image: EventImag
   return url ? (
     <img className="image-item__thumb" src={url} alt={alt} />
   ) : (
-    <span className="image-item__thumb" role="img" aria-label={alt} />
+    <span className="image-item__thumb image-item__thumb--loading" role="img" aria-label={alt} />
   );
 }
 
