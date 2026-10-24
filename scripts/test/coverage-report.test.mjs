@@ -2,9 +2,12 @@
 // coverage, marks a workspace below 80% without failing (until 010-test-coverage), and fails
 // naming a workspace whose coverage was not measured. Run by the root `npm test`.
 import { test } from 'node:test';
+import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import {
+  copyFileSync,
   existsSync,
+  symlinkSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -14,6 +17,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   WORKSPACES,
   cleanCoverage,
@@ -173,4 +177,57 @@ test('without a step summary path, nothing is written', (t) => {
   assert.equal(run({ rootDir }), 0);
   assert.equal(run({ rootDir, stepSummaryPath: '' }), 0);
   assert.deepEqual(readdirSync(rootDir, { recursive: true }).sort(), before);
+});
+
+// The script's own entry point, run as the check runs it (`node scripts/coverage-report.mjs`):
+// a copy in a temporary repository root, so it reads that root's fixture summaries.
+const SCRIPT = fileURLToPath(new URL('../coverage-report.mjs', import.meta.url));
+
+function scriptInTempRoot(t) {
+  const rootDir = tempRoot(t);
+  mkdirSync(join(rootDir, 'scripts'));
+  copyFileSync(SCRIPT, join(rootDir, 'scripts', 'coverage-report.mjs'));
+  return rootDir;
+}
+
+function runScript(scriptPath, ...args) {
+  const env = { ...process.env };
+  delete env.GITHUB_STEP_SUMMARY;
+  return spawnSync(process.execPath, [scriptPath, ...args], { encoding: 'utf8', env });
+}
+
+test('run directly, the script prints the table and exits 0, or 1 when a workspace is not measured', (t) => {
+  const rootDir = scriptInTempRoot(t);
+  writeAll(rootDir);
+  const script = join(rootDir, 'scripts', 'coverage-report.mjs');
+
+  const ok = runScript(script);
+  assert.equal(ok.status, 0, ok.stderr);
+  assert.match(ok.stdout, /Line coverage by workspace/);
+  assert.match(ok.stdout, /booth-app +85\.00% +85 \/ 100/);
+
+  rmSync(summaryPath(rootDir, 'booth-app'));
+  const missing = runScript(script);
+  assert.equal(missing.status, 1);
+  assert.match(missing.stdout, /Line coverage by workspace/);
+  assert.match(missing.stderr, /not measured for booth-app/);
+
+  assert.equal(runScript(script, '--clean').status, 0);
+  for (const workspace of WORKSPACES) {
+    assert.ok(!existsSync(join(rootDir, workspace, 'coverage')), `${workspace}/coverage remains`);
+  }
+});
+
+test('run through a linked checkout, the script still runs (not a silent exit 0)', (t) => {
+  const rootDir = scriptInTempRoot(t);
+  writeAll(rootDir);
+  rmSync(summaryPath(rootDir, 'booth-app'));
+  // A symbolic link (a junction on Windows, which needs no extra rights) to the root: Node
+  // resolves the main module's real path, so import.meta.url and process.argv[1] differ.
+  const link = join(tempRoot(t), 'linked-root');
+  symlinkSync(rootDir, link, process.platform === 'win32' ? 'junction' : 'dir');
+  const script = join(link, 'scripts', 'coverage-report.mjs');
+  const result = runScript(script);
+  assert.match(result.stdout, /Line coverage by workspace/);
+  assert.equal(result.status, 1);
 });
