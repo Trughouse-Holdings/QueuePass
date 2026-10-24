@@ -221,7 +221,7 @@ stale, or zero-line summary fails it.
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T014 [US3] Create `scripts/test/coverage-report.test.mjs` against the functions R11 names
+- [x] T014 [US3] Create `scripts/test/coverage-report.test.mjs` against the functions R11 names
   (export from `scripts/coverage-report.mjs`: `WORKSPACES`, the fixed list of the six workspace
   directories; `cleanCoverage(rootDir)`, deleting each workspace's `coverage/` folder;
   `readSummaries(rootDir)` returning each workspace's `total.lines` or a "not measured" marker;
@@ -243,6 +243,10 @@ stale, or zero-line summary fails it.
   the backend's `prisma:generate`, which must exist in `backend/package.json`; and the root `test`
   script starts with `node scripts/coverage-report.mjs --clean && ` (R11). Run `npm test`:
   **fails** (the module, `coverage:report`, and the clean do not exist).
+  - **Result**: `coverage-report.test.mjs` fails to load (`ERR_MODULE_NOT_FOUND` for
+    `scripts/coverage-report.mjs`); the two new workflow tests fail with
+    `ci part names a missing root script: coverage:report` and the root `test` script starting
+    with `node --test`; the 9 earlier tests pass.
 
 ### Implementation for User Story 3
 

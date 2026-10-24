@@ -112,3 +112,26 @@ test("the workflow's steps after npm ci are exactly the root ci script's parts, 
   const afterInstall = runs.slice(runs.indexOf('npm ci') + 1);
   assert.deepEqual(afterInstall, ciScriptParts());
 });
+
+test('every part of the ci script names an existing script (R12)', () => {
+  const rootScripts = readPackageJson().scripts;
+  const backendScripts = readPackageJson('backend').scripts;
+  for (const part of ciScriptParts()) {
+    if (part === 'npm test') continue;
+    if (part === 'npm run prisma:generate --workspace @queuepass/backend') {
+      assert.ok(backendScripts['prisma:generate'], 'backend has no prisma:generate script');
+      continue;
+    }
+    const match = /^npm run ([\w:-]+)$/.exec(part);
+    assert.ok(match, `ci part is neither npm test nor npm run <name>: ${part}`);
+    assert.ok(rootScripts[match[1]], `ci part names a missing root script: ${match[1]}`);
+  }
+});
+
+test("the root test script first deletes old coverage output, so the report reads only this run's (R11)", () => {
+  const rootScripts = readPackageJson().scripts;
+  assert.ok(
+    rootScripts.test.startsWith('node scripts/coverage-report.mjs --clean && '),
+    `the root test script starts with: ${rootScripts.test.slice(0, 50)}`,
+  );
+});
