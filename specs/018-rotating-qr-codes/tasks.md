@@ -307,7 +307,8 @@ label.
   'performance', 'Date'] })`. A bare `vi.useFakeTimers()` stalls Testing Library's `findBy…` and
   `waitFor`, which under Vitest poll with the faked timers. Move the device clock with
   `vi.setSystemTime`. `crypto.subtle` works under this jsdom setup as it is (checked 2026-10-23),
-  so `test/setup.ts` needs no change.
+  so `test/setup.ts` needs no change. It uses the fake's `signinSilent` from T016's first sub-step,
+  so it starts after that sub-step; the rest of T016 and T017 run in parallel.
   - **My tickets** shows **Show entry code**, linking to `/my-tickets/<ticketId>/entry-code`, on
     each valid, unused ticket only, next to **Print ticket**; none on void or used tickets.
   - The page calls `getTicketEntryKey` once and shows "Getting your entry code…" until it answers;
@@ -328,10 +329,10 @@ label.
   - After the key loads, every further `fetch` rejects; advancing 10 minutes keeps drawing new
     codes, each `'CURRENT'` for server time (FR-010, SC-006), and `fetch` was called no more times.
     Along the way, through the `um` that `renderCustomer` returns (the real `AuthProvider` with the
-    fake user manager), whose `signinSilent` (T016) rejects with `new TypeError('Failed to
-    fetch')` throughout, emit `accessTokenExpired` alone (no `silentRenewError`, the hanging
-    network), and in a second run `silentRenewError` with that `TypeError` and then
-    `accessTokenExpired`: in both, over the 10 minutes the page stays mounted and keeps drawing codes, and `signinRedirect` is
+    fake user manager), whose `signinSilent` (T016) rejects with `new TypeError('Failed to fetch')`
+    throughout, emit `accessTokenExpired` alone (no `silentRenewError`, the hanging network), and in
+    a second run `silentRenewError` with that `TypeError` and then `accessTokenExpired`: in both,
+    over the 10 minutes the page stays mounted and keeps drawing codes, and `signinRedirect` is
     never called (research R12). The fake doesn't fetch, so `fetch`'s count holds.
   - `localStorage.setItem`, `sessionStorage.setItem`, and `document.cookie` writes are spied on and
     never called with anything containing the key (FR-010); the key never appears in
@@ -566,10 +567,11 @@ T031, T034).
 
 - Phase 2: T002 and T005 touch different files. T004 runs after T003 (both edit
   `packages/shared/src/index.ts`). T008 then T009, in that order (T009 imports T008's `clock.ts`).
-- US1 tests: T010 to T018 and T032 in parallel, each in its own files. Then the Backend (T019–T023,
-  T027), Customer (T024–T026), and Ticket Booth (T028) tracks are independent of each other,
-  except that every task that writes or builds `packages/shared` runs one at a time: T022 (build),
-  T023 (`generate:api`), T024, and T027.
+- US1 tests: T010 to T018 and T032 in parallel, each in its own files, except that T017 uses the
+  fake's `signinSilent` from T016's first sub-step, so it starts after that sub-step; the rest of
+  T016 and T017 run in parallel. Then the Backend (T019–T023, T027), Customer (T024–T026), and
+  Ticket Booth (T028) tracks are independent of each other, except that every task that writes or
+  builds `packages/shared` runs one at a time: T022 (build), T023 (`generate:api`), T024, and T027.
 - US2: T030, then T031.
 - US3: T033 only.
 - T018, T030, and T033 all edit `booth-app/test/check-in.test.tsx`; they sit in different phases,
