@@ -664,7 +664,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   for 400 ms after a change of shape; in `theme.css` switch to `contain` and add the transition,
   its reduced-motion rule, the card's floor and measured rule, and `.viewport-probe` (research
   R18). Run T051–T053 and the shared suite, including the drift check.
-- [ ] T055 In `admin-app/src/styles.css` and `ImagesField.tsx`, show each preview whole at its own
+- [x] T055 In `admin-app/src/styles.css` and `ImagesField.tsx`, show each preview whole at its own
   shape within the card's limits, 3:4 to 2:1, keeping the 4:3 loading class until the `<img>`
   fires `load` (research R18; review I7, with a test). Run T052's Admin part and the Admin app
   suite.
