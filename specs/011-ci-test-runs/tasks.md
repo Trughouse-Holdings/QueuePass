@@ -451,7 +451,7 @@ turned on right after merge (T033).
   re-run T022.
   - 2026-10-24: not needed; the branch was cut from `main` e73f5dd after #77 merged, and `main`
     has not moved since.
-- [ ] T031 With the user's go-ahead, open the implementation PR against `main` with `fixes #23` in
+- [x] T031 With the user's go-ahead, open the implementation PR against `main` with `fixes #23` in
   its description, the independent review record (T026), the running-system results (T028, T029),
   the timings (T022), and a note that the root `package.json`, `eslint.config.mjs`, and
   `.github/workflows/ci.yml` are shared surface needing every team member's approval (the root
@@ -461,8 +461,15 @@ turned on right after merge (T033).
   its URL and duration (SC-004: under 15 minutes), and paste the coverage table into the
   description (the 80% floor is not yet blocking; Constitution VI, recorded deferral, closed by
   `010`).
-- [ ] T032 Right after merge: quickstart **Q4**, the run on `main` for the merge commit is green.
-- [ ] T033 Right after T032, the same day: a repository admin (Mahdi names who) follows quickstart
+  - 2026-10-24: PR #79, `fixes #23`; its own run
+    [40123642241](https://github.com/Trughouse-Holdings/QueuePass/actions/runs/40123642241) was
+    green in 5 min 6 s on ubuntu-24.04: every step, the backend's 740 tests on Testcontainers
+    PostgreSQL, and the coverage table (shared 92.30%, backend 97.02%, admin 96.88%, customer
+    97.20%, booth 92.33%, seed 24.01% marked below 80%, floor not enforced). Merged as `0fc44d5`.
+- [x] T032 Right after merge: quickstart **Q4**, the run on `main` for the merge commit is green.
+  - 2026-10-24: run [40124183099](https://github.com/Trughouse-Holdings/QueuePass/actions/runs/40124183099)
+    on `main` for `0fc44d5` (push): green.
+- [x] T033 Right after T032, the same day: a repository admin (Mahdi names who) follows quickstart
   **Q5** to require the `test` check on `main`, as the constitution's recorded deferral expects.
   Verify with the throwaway pull request from T029: rebuild its branch from `origin/main` and
   cherry-pick the canary commit recorded in T029 (Q5 step 1), force-push it, mark it **Ready for
@@ -470,6 +477,13 @@ turned on right after merge (T033).
   merging is allowed once green, and **do not merge**. Close it unmerged, delete
   `011-ci-throwaway`, and note on #23, with the user's go-ahead, who turned the setting on and
   when, and that the throwaway is closed.
+  - 2026-10-24, from Mahdi's account (his choice): ruleset `main: CI must pass` (id 25794263),
+    active, no bypass, default branch, requiring the GitHub Actions `test` check, branches not
+    required to be up to date. Throwaway #78 rebuilt on `main` with only the canary and marked
+    ready for review: `BLOCKED` while its check ran and after it failed. #78 closed unmerged and
+    its branch deleted.
+    Not done: removing the canary to see #78 become mergeable (the next pull request's green
+    run shows that), and the note on #23 (left with T034).
 - [ ] T034 After merge, with the user's go-ahead, bring the issue texts in line with constitution
   3.4.0: #23 says "Depends on: `010`" and that a workspace below 80% fails the check; #22 says the
   floor starts blocking "when this and 011 merge" and that "Coverage is reported by npm test".
