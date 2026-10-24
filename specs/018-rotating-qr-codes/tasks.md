@@ -207,7 +207,7 @@ T014), the lookup (T021) answers `verifiedBy: 'TICKET_CODE'` on 017's path (T015
 response but the key operation's (T019) carries the secret (T032). Those four keep their story's
 label.
 
-- [ ] T010 [P] [US1] Write `backend/test/integration/entry-key.e2e-spec.ts` (contract-checked
+- [X] T010 [P] [US1] Write `backend/test/integration/entry-key.e2e-spec.ts` (contract-checked
   `getTicketEntryKey`, research R5): the buyer gets `200` with `ticketId`, a `key` of 43 base64url
   characters that `keyFromBase64url` turns into exactly the ticket's stored 32 bytes, and
   `serverTime` equal to `new Date(ctx.clock.now()).toISOString()` with the clock set; the response
@@ -219,12 +219,12 @@ label.
   name) still gets its key; and so do a ticket for an event 30 days away and one for an event that
   has ended, both valid and unused (`eventAroundNow`, `orderWithTickets`): the key doesn't depend
   on the entry window (FR-005).
-- [ ] T011 [P] [US1] Write `backend/test/integration/entry-key.authz.e2e-spec.ts`:
+- [X] T011 [P] [US1] Write `backend/test/integration/entry-key.authz.e2e-spec.ts`:
   `getTicketEntryKey` answers `401` with no token, an expired token, a wrongly signed one, and one
   for another audience; `403` for an admin and for a gate agent; `200` for the buyer (FR-003,
   SC-007, Constitution V and VI). Also, a customer's token posting a current live code
   (`liveCodeFor`) to `lookupEntryTicket` is `403` (FR-013).
-- [ ] T012 [P] [US1] Write `backend/test/integration/entry.live-code.e2e-spec.ts`
+- [X] T012 [P] [US1] Write `backend/test/integration/entry.live-code.e2e-spec.ts`
   (contract-checked `lookupEntryTicket`), with `ctx.clock.set` to the middle of a window: a current
   live code (`liveCodeFor`) for an admittable ticket is `200` with every `EntryTicket` field of spec
   017 and `verifiedBy: 'LIVE_CODE'`; the same code in lower case is accepted; a lookup records
@@ -233,7 +233,7 @@ label.
   other-event, not-yet-open, and ended ticket gives `state` `USED` (with `usedAt`), `VOID`,
   `OTHER_EVENT`, `NOT_OPEN`, and `ENDED`, each with `verifiedBy: 'LIVE_CODE'`; a ticket bought
   before 017 has a working live code with `holderName: null`.
-- [ ] T013 [P] [US2] Write `backend/test/integration/entry.live-boundaries.e2e-spec.ts` with
+- [X] T013 [P] [US2] Write `backend/test/integration/entry.live-boundaries.e2e-spec.ts` with
   `ctx.clock.set` and one ticket's code for window `w = liveWindowAt(Date.now())` (SC-001), where
   `liveWindowAt` is the shared module's `windowAt` imported under that name
   (`import { windowAt as liveWindowAt } from '@queuepass/shared'`). `backend/test/setup/fixtures.ts`
@@ -243,7 +243,7 @@ label.
   "This live code has expired." and no `details`. Repeat for 3 consecutive windows. Then, with the
   clock at the last accepted instant, a lookup is `200`, and admitting that ticket after moving
   the clock past the grace still succeeds (spec Edge Cases, research R6).
-- [ ] T014 [P] [US2] Write `backend/test/integration/entry.live-refusals.e2e-spec.ts`: each of these
+- [X] T014 [P] [US2] Write `backend/test/integration/entry.live-refusals.e2e-spec.ts`: each of these
   is `404 LIVE_CODE_INVALID` with "This is not a valid QueuePass code." and no `details`: a MAC with
   one character changed; the right MAC under another ticket's secret; a well-formed code naming a
   random UUID; `'QP1:'` alone; `'QP1:XYZ'`; a code whose window was changed by 1 with its MAC kept;
@@ -251,10 +251,10 @@ label.
   LIVE_CODE_EXPIRED`, not `USED` (R4: the window is checked before the ticket). None of them
   changes the ticket (`checkedInAt` still `NULL`), and the ticket's current live code is admitted
   afterwards (FR-012, US2 scenario 5). A request with an 81-character code is `400`.
-- [ ] T015 [P] [US3] Add to `backend/test/integration/entry.lookup.e2e-spec.ts`: a typed code
+- [X] T015 [P] [US3] Add to `backend/test/integration/entry.lookup.e2e-spec.ts`: a typed code
   (any case, spaces, dashes) answers `verifiedBy: 'TICKET_CODE'`; a ticket admitted through its
   live code is `USED` when looked up by its typed code, and the other way around (FR-014).
-- [ ] T032 [P] [US3] Write `backend/test/integration/entry-secret.no-leak.e2e-spec.ts` (FR-006),
+- [X] T032 [P] [US3] Write `backend/test/integration/entry-secret.no-leak.e2e-spec.ts` (FR-006),
   here, out of number order, because T019 and T021 build what it tests. For one order of 2
   tickets, read each ticket's secret (`select`) and form its base64url and hex; call
   `createOrder` (for a new order), `listMyOrders`, `listAttendees`, `getSalesReport`,
@@ -262,7 +262,7 @@ label.
   admit; the raw text of no response contains either secret's base64url or hex, or the word
   `entrySecret`. Only `getTicketEntryKey` for its own ticket contains that ticket's base64url, and
   never the other ticket's.
-- [ ] T016 [P] [US1] Add to `packages/shared/test/web/fake-user-manager.ts` a `signinSilent`
+- [X] T016 [P] [US1] Add to `packages/shared/test/web/fake-user-manager.ts` a `signinSilent`
   `vi.fn` that records `'signinSilent'` in `calls` and by default resolves to the current user
   without emitting anything (each test sets its outcome), and a `storeUser(u)` that sets what
   `getUser` returns, as the real `storeUser` does. Then add to
@@ -301,7 +301,7 @@ label.
   `pageshow` with an expired user; the renewal landing during logout. These are guards that pass
   today and must keep passing: `online` with no failure; no `signinSilent` with no failure, after
   unmounting, or while logging out; the `401` probe; the `ErrorResponse`; `pageshow` with no user.
-- [ ] T017 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and fake
+- [X] T017 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and fake
   timers set up as `customer-app/test/seat-holds.test.tsx` does: `vi.useFakeTimers({
   shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
   'performance', 'Date'] })`. A bare `vi.useFakeTimers()` stalls Testing Library's `findBy…` and
@@ -343,7 +343,7 @@ label.
     (the page reloaded with no connection, quickstart S6); a `409` with `USED` shows "This ticket was
     already used." and no QR; `404` shows "Ticket not found"; any other failure shows the standard
     error with **Try again**, which retries.
-- [ ] T018 [P] [US1] Add to `booth-app/test/scanner.test.tsx` and `booth-app/test/check-in.test.tsx`:
+- [X] T018 [P] [US1] Add to `booth-app/test/scanner.test.tsx` and `booth-app/test/check-in.test.tsx`:
   `normalizeScan` returns a live code (upper-cased, otherwise unchanged) for a value matching
   `^QP1:[0-9A-F]{32}:(0|[1-9]\d{0,11}):[A-Z2-7]{16}$`, and a decoded live code runs the lookup with
   no further tap and stops the camera; a lookup answering `verifiedBy: 'LIVE_CODE'` and `ADMITTABLE`

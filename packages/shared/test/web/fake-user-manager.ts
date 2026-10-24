@@ -63,6 +63,19 @@ export function fakeUserManager(initial: User | null = null) {
     signoutRedirect: vi.fn(async (_args?: unknown) => {
       calls.push('signoutRedirect');
     }),
+    /**
+     * Spec 018 research R12: the refresh-token grant. By default resolves to the current user and
+     * emits nothing; each test sets its outcome (`mockImplementation`), as the real one stores the
+     * user and raises `userLoaded` on success.
+     */
+    signinSilent: vi.fn(async (): Promise<User | null> => {
+      calls.push('signinSilent');
+      return user;
+    }),
+    /** Sets what `getUser` returns, as the real `storeUser` does. */
+    storeUser(u: User | null) {
+      user = u;
+    },
     events: {
       addUserLoaded: on('userLoaded'),
       removeUserLoaded: off('userLoaded'),

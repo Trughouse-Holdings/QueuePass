@@ -29,7 +29,8 @@ function base32(bytes: Uint8Array): string {
   let bits = '';
   for (const b of bytes) bits += b.toString(2).padStart(8, '0');
   let out = '';
-  for (let i = 0; i < bits.length; i += 5) out += alphabet[parseInt(bits.slice(i, i + 5).padEnd(5, '0'), 2)];
+  for (let i = 0; i < bits.length; i += 5)
+    out += alphabet[parseInt(bits.slice(i, i + 5).padEnd(5, '0'), 2)];
   return out;
 }
 
@@ -76,11 +77,14 @@ describe('windowAt', () => {
 });
 
 describe('liveCode', () => {
-  it.each(VECTORS)('matches node:crypto for window $window', async ({ secret, ticketId, window }) => {
-    const code = await liveCode(secret, ticketId, window);
-    expect(code).toBe(expected(secret, ticketId, window));
-    expect(code).toMatch(LIVE);
-  });
+  it.each(VECTORS)(
+    'matches node:crypto for window $window',
+    async ({ secret, ticketId, window }) => {
+      const code = await liveCode(secret, ticketId, window);
+      expect(code).toBe(expected(secret, ticketId, window));
+      expect(code).toMatch(LIVE);
+    },
+  );
 
   it('is 62 characters for an 8-digit window', async () => {
     const { secret, ticketId } = VECTORS[1];

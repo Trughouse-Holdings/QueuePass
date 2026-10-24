@@ -469,6 +469,57 @@ describe('Refusal reasons (US3, FR-011)', () => {
   });
 });
 
+/** Spec 018 FR-011 (research R9): a live code the Backend verified needs no ID check. */
+describe('A verified live code (US1-3 to US1-5)', () => {
+  const LIVE = 'QP1:3B8E0000000040008000000000000001:59762702:KX4N2Q7WZB3T5RYM';
+
+  it('says no ID check is needed, shows the ticket, and offers Admit, Admit all 3, and Refuse', async () => {
+    stubApi({
+      [EVENTS]: threeEvents(),
+      [LOOKUP]: json(ticket({ unusedOnOrder: 3, verifiedBy: 'LIVE_CODE' })),
+    });
+    renderApp();
+    const user = userEvent.setup();
+    await lookUp(user, LIVE);
+
+    const status = screen.getAllByRole('status').find((s) => s.classList.contains('entry-result'))!;
+    expect(
+      await within(status).findByText('✓ Live code verified. No ID check needed.'),
+    ).toBeInTheDocument();
+    expect(within(status).getByText('Jordan Lee')).toBeInTheDocument();
+    expect(within(status).getByText('Demo Tonight')).toBeInTheDocument();
+    expect(within(status).getByText('General')).toBeInTheDocument();
+    expect(within(status).getByRole('button', { name: 'Admit' })).toBeEnabled();
+    expect(within(status).getByRole('button', { name: 'Admit all 3' })).toBeEnabled();
+    expect(within(status).getByRole('button', { name: 'Refuse' })).toBeEnabled();
+    expect(screen.queryByText(/Check a government-issued photo ID/)).toBeNull();
+    expect(screen.queryByText(/Check that the person shows a valid photo ID/)).toBeNull();
+  });
+
+  it.each([
+    ['Admit', false],
+    ['Admit all 3', true],
+  ])('%s posts as in 017 (wholeOrder: %s)', async (name, wholeOrder) => {
+    const { calls } = stubApi({
+      [EVENTS]: threeEvents(),
+      [LOOKUP]: json(ticket({ unusedOnOrder: 3, verifiedBy: 'LIVE_CODE' })),
+      [ADMIT]: json({
+        admitted: [{ ticketId: TICKET_ID, code: '7KQ2M9XWAB4C', usedAt: iso(0) }],
+        alreadyUsed: [],
+      }),
+    });
+    renderApp();
+    const user = userEvent.setup();
+    await lookUp(user, LIVE);
+    await user.click(await screen.findByRole('button', { name }));
+    await screen.findByText(/✓/);
+    expect(calls.find((c) => c.path.endsWith('/entry/admit'))?.body).toEqual({
+      ticketId: TICKET_ID,
+      wholeOrder,
+    });
+  });
+});
+
 describe('Failures are explicit states (Constitution IV, Edge Cases)', () => {
   it('a network error on a lookup shows a plain error and re-enables the controls', async () => {
     stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: 'network-error' });
