@@ -43,6 +43,13 @@
   before the PR; two independent review rounds at least; the migration run on a copy of real data;
   the browser check repeated for two zones and a DST date (R20, R21, tasks.md ground rules).
 
+**Expected merge order with `019`**: `019`'s spec PR (#50) also takes contract 1.12.0 and adds
+`address` to `OrderEvent.location`, and is expected to merge first. This branch then rebases onto
+`main`, takes **1.13.0**, keeps both `OrderEvent.location` additions (`address` from `019`,
+`timeZone` from this feature), reruns `npm run generate:api` and
+`node scripts/check-contract-drift.mjs`, and updates the version in this plan, research R18, and
+contracts/README.md (research R18).
+
 ## Technical Context
 
 **Language/Version**: TypeScript 5.7 (strict) on Node.js 22 LTS

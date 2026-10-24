@@ -64,12 +64,19 @@ every app") already describes this feature, so it is not amended.
   zone; for a time that happens twice, the request itself says which one (research R9).
 - Q: What counts as "sold tickets" for refusing a zone change? → A: Any order for any of the
   venue's events, past or future, whatever its state (confirmed, refunded, or for a cancelled
-  event), because a customer can still see that order's event time on My tickets (decided in this
-  spec, research R8; to confirm with Mahdi).
+  event), because a customer can still see that order's event time on My tickets (proposed in
+  this spec, research R8; confirmed by Mahdi, 2026-10-24).
+- Q: Which outside dependency may work out the zone from the address's place? → A: `geo-tz`,
+  about 72 MB in the Backend image only, with the boundary data's ODbL attribution in the README
+  (approved by Mahdi, 2026-10-24; research R1).
 - Q: Event date filters ("from" and "to" days in the Admin event search and the Customer event
   filters) pick days in the viewer's zone today. Do they change? → A: Yes. A day is a day at the
   venue: an event matches a day when it starts on that day in its venue's local time, so the
-  filters agree with the dates shown (decided in this spec, research R15).
+  filters agree with the dates shown, using new venue-day date filters (proposed in this spec,
+  research R15; confirmed by Mahdi, 2026-10-24).
+- Q: Times that belong to no event (the seat-cooldown "you can reserve them again at" time, the
+  sales report's "as of") — venue zone or viewer zone? → A: The viewer's own zone, labelled with
+  its abbreviation (proposed in this spec, research R12; confirmed by Mahdi, 2026-10-24).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -488,7 +495,7 @@ the same moments as before.
   venues in Kentucky (Lexington and Louisville, both Eastern) and test venues.
 - Events keep their local times when a venue's zone changes; the change is refused when any of the
   venue's events has sold tickets; the 60-minute rule is checked again (decided by Mahdi,
-  2026-10-24). "Sold tickets" means any order in any state (decided in this spec).
+  2026-10-24). "Sold tickets" means any order in any state (confirmed by Mahdi, 2026-10-24).
 - A time that doesn't exist is refused; a time that happens twice is asked about (decided by Mahdi,
   2026-10-24).
 - The eight zones cover every US state and DC. Territories are not venues (`013` allows only the
@@ -497,7 +504,9 @@ the same moments as before.
   (checked on 2026-10-24); the zone can be found from it on the Backend without any outside call.
 - English abbreviations ("EDT", "CST", "MST", "AKDT", "HST") are clear to QueuePass's users; where
   a zone has no common abbreviation, its offset from UTC is shown instead.
-- An event filter's "day" means a day at the venue (decided in this spec).
+- An event filter's "day" means a day at the venue (confirmed by Mahdi, 2026-10-24).
+- Times that belong to no event are shown in the viewer's zone, labelled (confirmed by Mahdi,
+  2026-10-24).
 
 ## Out of Scope
 

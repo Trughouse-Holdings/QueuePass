@@ -67,6 +67,9 @@ Louisville. Its `now` dataset answers with the eight zones the product shows, so
 of legacy names (America/Indiana/Knox …) is needed. Updates come through ordinary `npm` upgrades;
 a unit test pins the table above, so an upgrade that changes an answer fails visibly.
 
+**Approved by Mahdi** (2026-10-24): `geo-tz`, about 72 MB in the Backend image only, with the
+ODbL attribution in the README.
+
 **Principle VIII**: one dependency, justified by FR-002, with no configuration surface; the
 lookup sits behind one small interface so a later feature can swap it.
 
@@ -280,8 +283,8 @@ the new moments (and its sales-close check uses them). Event writes take the ven
 (R10).
 
 **Rationale**: Mahdi's decisions (2026-10-24): local times kept, refused when tickets are sold,
-conflicts re-checked. "Sold tickets" is read as any order in any state (decided in this spec, to
-confirm with Mahdi): a refunded order and an order for a cancelled event still show their event's
+conflicts re-checked. "Sold tickets" means any order in any state (confirmed by Mahdi,
+2026-10-24): a refunded order and an order for a cancelled event still show their event's
 time on My tickets, so moving it would change what a customer sees about something they bought.
 `409` because the venue's saved data conflicts with the change, as `CAPACITY_EXCEEDED` on a venue
 edit is.
@@ -436,7 +439,8 @@ The Admin venue list gains a "Time zone" column (`zoneName`), and the venue page
 zone: Eastern Time, from the address." (FR-024). Admin `EventList.tsx`'s own `day`/`clock` helpers
 call the shared formatters with the event's zone.
 
-The `SEAT_COOLDOWN` and Reports "as of" times are not event times: the customer acts on the
+The `SEAT_COOLDOWN` and Reports "as of" times are not event times (kept in the viewer's zone,
+labelled, confirmed by Mahdi, 2026-10-24): the customer acts on the
 cooldown with their own clock, and "as of" is when the admin loaded the page (FR-023). They gain
 the abbreviation so no time on screen is unlabeled.
 
@@ -515,6 +519,9 @@ date is in range, in JavaScript with the shared `localDate`, before ordering. On
 
 The Admin event search (`EventList.tsx`'s `localMidnight`) and the Customer filters (`filters.ts`'s
 `eventQuery`) send `fromDate` and `toDate` straight from their date inputs, with no conversion.
+
+**Confirmed by Mahdi** (2026-10-24): keep the venue-local-day filters with the new `fromDate`
+and `toDate`.
 
 **Rationale**: FR-020. With venues in several zones, a viewer's midnight is the wrong day boundary
 for some events (US1 scenario 6). Filtering after the query keeps it to one `findMany` with no raw

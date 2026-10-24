@@ -38,9 +38,11 @@
 - Four decisions are Mahdi's (2026-10-24): the zone is worked out from the address; existing
   venues get Eastern; events keep local times on a zone change, refused when tickets are sold and
   re-checked against the 60-minute rule; a skipped time is refused and a repeated time is asked
-  about. The rest is decided in this spec and marked so in Clarifications: the state rule for
-  addresses saved anyway (research R3), the admin correction (R4), "sold tickets" meaning any order
-  (R8, to confirm with Mahdi), and filter days meaning days at the venue (R15).
+  about. Decided in this spec and marked so in Clarifications: the state rule for addresses saved
+  anyway (research R3) and the admin correction (R4). Proposed here and confirmed by Mahdi
+  (2026-10-24): "sold tickets" meaning any order in any state (R8), the `geo-tz` dependency (R1),
+  filter days meaning days at the venue with `fromDate`/`toDate` (R15), and times that belong to
+  no event shown in the viewer's zone, labelled (R12). No open question remains.
 - The DST examples use 2027 dates (spring forward Mar 14, fall back Nov 7), so they stay in the
   future while the feature is built and tested.
 - SC-002 names four device zones; the plan makes them a repeatable test run (research R20).
