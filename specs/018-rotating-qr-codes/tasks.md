@@ -4,7 +4,7 @@ description: "Task list for Rotating QR Codes"
 
 # Tasks: Rotating QR Codes
 
-**Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R11),
+**Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R12),
 [data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) →
 [`contracts/openapi.yaml`](../../contracts/openapi.yaml) (1.11.0, already applied),
 [quickstart.md](./quickstart.md)
@@ -24,9 +24,9 @@ and confirm they **fail** before the implementation tasks below them.
   `018-rotating-qr-codes-spec` and carry in every change that PR's review makes; once it merges,
   bring it up to `main`. A gap in the spec or plan is fixed there, not worked around in code.
 - **Contract**: 1.11.0 is final. The implementation makes only the two changes the plan names:
-  remove `x-planned: '018'` from `getTicketEntryKey` in the commit that serves it (T019), and add
+  remove `x-planned: '018'` from `getTicketEntryKey` in the commit that serves it (T023), and add
   `verifiedBy` to `EntryTicket`'s `required`, deleting the sentence "Required once feature 018 is
-  implemented." (T022). Regenerate `api-schema.ts` after each (`npm run generate:api`). Raise any
+  implemented." (T027). Regenerate `api-schema.ts` after each (`npm run generate:api`). Raise any
   other gap.
 - **One live-code implementation** (research R2): only `packages/shared/src/live-code.ts` makes,
   parses, or times live codes. The Backend and the Customer app both import it. Never write the
@@ -42,11 +42,15 @@ and confirm they **fail** before the implementation tasks below them.
   `AdmitDto`. Add no lock.
 - **The Backend's clock** for live codes is the injected `CLOCK` (T008), never `Date.now()` directly
   in `entry/`. The entry window stays on the database's `now()` (spec 017 R5).
+- **Sign-in survives no signal** (research R12, FR-010): a token renewal that fails for lack of
+  network keeps the signed-in user in memory; only Keycloak's own refusal (`ErrorResponse`) ends
+  the session. The change is in `packages/shared`'s `AuthProvider`, so it reaches all three apps
+  (T016, T024).
 - **Backend tests read `packages/shared` from `dist`**: run `npm run build --workspace
   @queuepass/shared` after changing it. **Backend Jest must run `--runInBand`** (`npm test` does);
   a bare `npx jest` breaks the shared test container.
 - **Commit messages** cite the spec and task IDs (Constitution III): for example
-  `Impl 018: live-code check in lookupEntryTicket (T014, T017, #41)`.
+  `Impl 018: live-code check in lookupEntryTicket (T014, T020, T021, #41)`.
 
 ## Phase 1: Setup
 
@@ -101,9 +105,9 @@ and confirm they **fail** before the implementation tasks below them.
   Run T002 until it passes; build `packages/shared`.
 - [ ] T004 [P] Mirror the contract in `packages/shared/src/entry.ts`: add
   `verifiedBy?: 'LIVE_CODE' | 'TICKET_CODE'` to `EntryTicket`, **optional** as in contract 1.11.0
-  (comment citing spec 018 FR-011 and "required from T022"). Not required yet: the Backend's
-  `toEntryTicket` returns this type and sends no `verifiedBy` until T017, so a required field
-  would stop every Backend suite compiling from here to T017. Also add a
+  (comment citing spec 018 FR-011 and "required from T027"). Not required yet: the Backend's
+  `toEntryTicket` returns this type and sends no `verifiedBy` until T021, so a required field
+  would stop every Backend suite compiling from here to T021. Also add a
   new `TicketEntryKey { ticketId: string; key: string; serverTime: string }` (comment: base64url of
   32 bytes; the Backend's clock with milliseconds); update `EntryLookupInput.code`'s comment to
   "1–80 characters: a ticket code or a live code"; export from `packages/shared/src/index.ts`.
@@ -185,6 +189,11 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
 
 ### Tests for User Story 1 ⚠️ write first, confirm they fail
 
+Every Backend behavior this phase builds is tested here first (Constitution VI), including the
+ones that serve US2 and US3: the live-code check (T020) refuses expired and forged codes (T013,
+T014), and the lookup (T021) answers `verifiedBy: 'TICKET_CODE'` on 017's path (T015). Those
+three keep their story's label.
+
 - [ ] T010 [P] [US1] Write `backend/test/integration/entry-key.e2e-spec.ts` (contract-checked
   `getTicketEntryKey`, research R5): the buyer gets `200` with `ticketId`, a `key` of 43 base64url
   characters that `keyFromBase64url` turns into exactly the ticket's stored 32 bytes, and
@@ -210,7 +219,45 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
   other-event, not-yet-open, and ended ticket gives `state` `USED` (with `usedAt`), `VOID`,
   `OTHER_EVENT`, `NOT_OPEN`, and `ENDED`, each with `verifiedBy: 'LIVE_CODE'`; a ticket bought
   before 017 has a working live code with `holderName: null`.
-- [ ] T013 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and fake
+- [ ] T013 [P] [US2] Write `backend/test/integration/entry.live-boundaries.e2e-spec.ts` with
+  `ctx.clock.set` and one ticket's code for window `w = liveWindowAt(Date.now())` (SC-001), where
+  `liveWindowAt` is the shared module's `windowAt` imported under that name
+  (`import { windowAt as liveWindowAt } from '@queuepass/shared'`). `backend/test/setup/fixtures.ts`
+  already exports a different `windowAt(daysFromNow, hour)` for event times; never mix them up. At
+  `w × 30000 − 5000` and at `(w + 1) × 30000 + 4999`, `200` with `verifiedBy: 'LIVE_CODE'`; at
+  `w × 30000 − 5001` and at `(w + 1) × 30000 + 5000`, `409 LIVE_CODE_EXPIRED` with the message
+  "This live code has expired." and no `details`. Repeat for 3 consecutive windows. Then, with the
+  clock at the last accepted instant, a lookup is `200`, and admitting that ticket after moving
+  the clock past the grace still succeeds (spec Edge Cases, research R6).
+- [ ] T014 [P] [US2] Write `backend/test/integration/entry.live-refusals.e2e-spec.ts`: each of these
+  is `404 LIVE_CODE_INVALID` with "This is not a valid QueuePass code." and no `details`: a MAC with
+  one character changed; the right MAC under another ticket's secret; a well-formed code naming a
+  random UUID; `'QP1:'` alone; `'QP1:XYZ'`; a code whose window was changed by 1 with its MAC kept;
+  a code with a 15-character MAC. An expired genuine code of a **used** ticket is `409
+  LIVE_CODE_EXPIRED`, not `USED` (R4: the window is checked before the ticket). None of them
+  changes the ticket (`checkedInAt` still `NULL`), and the ticket's current live code is admitted
+  afterwards (FR-012, US2 scenario 5). A request with an 81-character code is `400`.
+- [ ] T015 [P] [US3] Add to `backend/test/integration/entry.lookup.e2e-spec.ts`: a typed code
+  (any case, spaces, dashes) answers `verifiedBy: 'TICKET_CODE'`; a ticket admitted through its
+  live code is `USED` when looked up by its typed code, and the other way around (FR-014).
+- [ ] T016 [P] [US1] Add to `packages/shared/test/web/auth-provider.test.tsx`, with
+  `fake-user-manager.ts` (research R12; FR-010, SC-006; spec 001 FR-013):
+  - a `silentRenewError` for lack of network (`new TypeError('Failed to fetch')`, as `fetch`
+    throws, and `new ErrorTimeout()` from `oidc-client-ts`) keeps the user: the status stays
+    `signed-in`, the children stay mounted, and neither `removeUser` nor `signinRedirect` is
+    called;
+  - `accessTokenExpired` after such a failure doesn't redirect either, and the user stays in
+    memory;
+  - after that, a `window` `online` event signs in again (`signinRedirect`), and so does the probe
+    calling `useAuth().signIn()`, which is what every app does on a `401`
+    (`customer-app/src/use-load.ts`, `booth-app/src/App.tsx`, `admin-app/src/api/client.ts`);
+  - an `online` event with no failed renewal does nothing;
+  - the existing "signs in again when silent renew fails" now emits an `ErrorResponse`
+    (`new ErrorResponse({ error: 'invalid_grant' })` from `oidc-client-ts`) and still ends in
+    `removeUser` then `signinRedirect`; `accessTokenExpired` with no failed renewal before it still
+    signs in again, as today.
+  Confirm the network cases fail.
+- [ ] T017 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and fake
   timers set up as `customer-app/test/seat-holds.test.tsx` does: `vi.useFakeTimers({
   shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
   'performance', 'Date'] })`. A bare `vi.useFakeTimers()` stalls Testing Library's `findBy…` and
@@ -236,6 +283,10 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
     SC-006).
   - After the key loads, every further `fetch` rejects; advancing 10 minutes keeps drawing new
     codes, each `'CURRENT'` for server time (FR-010, SC-006), and `fetch` was called no more times.
+    Along the way, through the `um` that `renderCustomer` returns (the real `AuthProvider` with the
+    fake user manager), emit `silentRenewError` with `new TypeError('Failed to fetch')` and then
+    `accessTokenExpired`: the page stays mounted and keeps drawing codes, and `signinRedirect` is
+    never called (research R12).
   - `localStorage.setItem`, `sessionStorage.setItem`, and `document.cookie` writes are spied on and
     never called with anything containing the key (FR-010); the key never appears in
     `window.location`.
@@ -245,7 +296,7 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
     (the page reloaded with no connection, quickstart S6); a `409` with `USED` shows "This ticket was
     already used." and no QR; `404` shows "Ticket not found"; any other failure shows the standard
     error with **Try again**, which retries.
-- [ ] T014 [P] [US1] Add to `booth-app/test/scanner.test.tsx` and `booth-app/test/check-in.test.tsx`:
+- [ ] T018 [P] [US1] Add to `booth-app/test/scanner.test.tsx` and `booth-app/test/check-in.test.tsx`:
   `normalizeScan` returns a live code (upper-cased, otherwise unchanged) for a value matching
   `^QP1:[0-9A-F]{32}:\d{1,12}:[A-Z2-7]{16}$`, and a decoded live code runs the lookup with no
   further tap and stops the camera; a lookup answering `verifiedBy: 'LIVE_CODE'` and `ADMITTABLE`
@@ -255,7 +306,7 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
 
 ### Implementation for User Story 1
 
-- [ ] T015 [US1] Create `backend/src/entry/entry-key.controller.ts`:
+- [ ] T019 [US1] Create `backend/src/entry/entry-key.controller.ts`:
   `@Controller('me/tickets/:ticketId/entry-key')`, `@Get()` with `@Roles('customer')`,
   `ParseUUIDPipe` on `ticketId`, `@CurrentPrincipal()`, and `@Header('Cache-Control', 'no-store')`.
   Add `entryKey(ticketId, principal)` to `backend/src/entry/entry.service.ts` (or a small
@@ -266,7 +317,7 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
   })`; used is `conflict('ENTRY_REFUSED', 'This ticket was already used.', { reason: 'USED', usedAt
   })`; otherwise `{ ticketId, key: keyToBase64url(entrySecret), serverTime: new
   Date(clock.now()).toISOString() }`. Register the controller in `entry.module.ts`.
-- [ ] T016 [US1] Create `backend/src/entry/live-code-check.ts`: `checkLiveCode(prisma, clock, text)`
+- [ ] T020 [US1] Create `backend/src/entry/live-code-check.ts`: `checkLiveCode(prisma, clock, text)`
   returning the verified `ticketId`, or throwing, in research R4's order: `parseLiveCode` is `null`
   → `404 LIVE_CODE_INVALID`; load `{ entrySecret }` by id (`select`), none → `404
   LIVE_CODE_INVALID`; recompute `liveCode(secret, ticketId, window)` and compare its MAC with the
@@ -276,23 +327,35 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
   expired."; no `details` on either (no ticket information, FR-011). Build both in the standard
   envelope as `ticketNotFound` in `entry.service.ts` builds its `404`, and with `conflict()` for the
   `409`.
-- [ ] T017 [US1] In `backend/src/entry/entry.service.ts`, inject `CLOCK`; at the top of `lookup`,
+- [ ] T021 [US1] In `backend/src/entry/entry.service.ts`, inject `CLOCK`; at the top of `lookup`,
   after `eventOrThrow`, if `isLiveCodeText(rawCode)`, call `checkLiveCode` and then run the existing
   `select` with `t."id" = ${ticketId}::uuid`, returning `toEntryTicket(row)` with `verifiedBy:
   'LIVE_CODE'`; otherwise keep 017's path unchanged and return `verifiedBy: 'TICKET_CODE'`. In
   `backend/src/entry/dto/entry-lookup.dto.ts`, change `@Length(1, 64, …)` to `@Length(1, 80, {
   message: 'code must be between 1 and 80 characters' })` (research R4).
-- [ ] T018 [US1] Build `packages/shared`; run T010–T012 until they pass.
-- [ ] T019 [US1] In `contracts/openapi.yaml`, remove `x-planned: '018'` from `getTicketEntryKey`;
+- [ ] T022 [US1] Build `packages/shared`; run T010–T015 until they pass. A fix any of them needs
+  goes in `backend/src/entry/` or `packages/shared/src/live-code.ts`.
+- [ ] T023 [US1] In `contracts/openapi.yaml`, remove `x-planned: '018'` from `getTicketEntryKey`;
   run `npm run generate:api`. Run `backend/test/contract/route-coverage.e2e-spec.ts` and
   `node scripts/check-contract-drift.mjs`; both pass.
-- [ ] T020 [US1] In `customer-app/src/components/TicketQr.tsx`, generalize without changing 017's
+- [ ] T024 [US1] In `packages/shared/src/web/auth-provider.tsx` (research R12), split today's
+  `onLost`. A `silentRenewError` whose error is an `ErrorResponse` (`instanceof ErrorResponse` from
+  `oidc-client-ts`) does what `onLost` does now: `removeUser`, `apply(null)`, `signIn()`. Any other
+  error (no network: a `TypeError` from `fetch`, or an `ErrorTimeout`) keeps the user in memory and
+  sets a `renewFailed` ref. `accessTokenExpired` keeps the user while `renewFailed` is set, and
+  otherwise does what it does now. A `window` `online` listener calls `signIn()` while
+  `renewFailed` is set; a `401` already reaches `signIn()` through each app. `userLoaded` clears
+  the ref. Update the comment above that effect to cite spec 001 FR-013 as research R12 reads it.
+  Nothing is written to storage (Constitution V) and `logout` doesn't change. Run T016 and the rest
+  of `packages/shared`'s tests until they pass, build `packages/shared`, then run the Admin,
+  Customer, and Ticket Booth apps' tests: the provider is theirs too.
+- [ ] T025 [US1] In `customer-app/src/components/TicketQr.tsx`, generalize without changing 017's
   output: `qrMatrix(text)` (any QR-alphanumeric text; type number 0, level `'M'`), and
   `TicketQr({ code, label? })` whose `aria-label` defaults to 017's "QR code for ticket <code>";
   017's print view and `print-ticket.test.tsx` stay unchanged and passing. Add the class
   `ticket-qr--live` support for a size of `min(100%, 320px)` in `customer-app/src/styles.css`,
   theme values only.
-- [ ] T021 [US1] Build the live-code screen (research R8):
+- [ ] T026 [US1] Build the live-code screen (research R8):
   - `customer-app/src/live-code-clock.ts`: `measureOffset(serverTime: string, sentMs: number,
     receivedMs: number): number` (`Date.parse(serverTime) − (sentMs + receivedMs) / 2`) and
     `serverNow(offset: number): number` (`Date.now() + offset`), with a comment citing FR-009.
@@ -304,27 +367,27 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
     `className`/`label` "Live entry code, changes every 30 seconds"), "Changes in N s" as plain text
     outside any live region, the static sentence "Show this at the gate. It changes every 30
     seconds.", the holder's name or "No name on ticket", the event's name and start time, and the
-    seat; the states of T013. Where `PrintTicket.tsx` shows `<ServiceUnreachable />` for
+    seat; the states of T017. Where `PrintTicket.tsx` shows `<ServiceUnreachable />` for
     `useLoad`'s `unreachable`, this page shows the no-connection message instead (FR-010). Clears
     the interval on unmount.
   - `customer-app/src/App.tsx`: the route `/my-tickets/:ticketId/entry-code`.
   - `customer-app/src/pages/MyTickets.tsx`: a **Show entry code** link, `aria-label` "Show entry
     code for ticket <code>", on each valid, unused ticket, beside **Print ticket**.
   - Typed calls through the generated client (`createApiClient`), as the other pages do.
-- [ ] T022 [US1] In `contracts/openapi.yaml`, add `verifiedBy` to `EntryTicket`'s `required` and
+- [ ] T027 [US1] In `contracts/openapi.yaml`, add `verifiedBy` to `EntryTicket`'s `required` and
   delete "Required once feature 018 is implemented." from its description; run
   `npm run generate:api`. In `packages/shared/src/entry.ts`, make `verifiedBy` required too (drop
-  T004's `?` and its "required from T022"), and build `packages/shared`. T012 and the existing
-  entry tests still pass against the contract.
-- [ ] T023 [US1] In the Ticket Booth app (research R9): `booth-app/src/decode.ts`, make
+  T004's `?` and its "required from T027"), and build `packages/shared`. T012, T015, and the
+  existing entry tests still pass against the contract.
+- [ ] T028 [US1] In the Ticket Booth app (research R9): `booth-app/src/decode.ts`, make
   `normalizeScan` return a live code (upper-cased) when it matches the live-code pattern, else
   017's behavior; `booth-app/src/EntryResult.tsx`, for `verifiedBy === 'LIVE_CODE'` and
   `ADMITTABLE`, show "✓ Live code verified. No ID check needed." in place of the ID-check prompt,
-  keeping **Admit**, **Admit all N**, and **Refuse**. Theme values only; word and symbol, not color
-  alone (FR-016).
-- [ ] T024 [US1] Run T013 and T014 until they pass, then the drift test in `packages/shared`.
+  keeping **Admit**, **Admit all N**, and **Refuse**. Theme values only; word and symbol, not color alone (FR-016).
+- [ ] T029 [US1] Run T017 and T018 until they pass, then the drift test in `packages/shared`.
 
-**Checkpoint**: a live code is shown, scanned, verified by the Backend, and admitted; MVP.
+**Checkpoint**: a live code is shown, scanned, verified by the Backend, and admitted, and keeps
+changing with no signal; copies and forgeries are refused by the Backend. MVP.
 
 ---
 
@@ -334,36 +397,18 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
 recorded and nothing about the ticket shown.
 
 **Independent Test**: with the clock controlled, a live code is accepted just inside each edge of
-its window and grace and refused just outside; forged codes are refused as not valid.
+its window and grace and refused just outside; forged codes are refused as not valid (T013, T014,
+written and passing in Phase 3); the Ticket Booth shows each refusal with its reason (T030).
 
-- [ ] T025 [P] [US2] Write `backend/test/integration/entry.live-boundaries.e2e-spec.ts` with
-  `ctx.clock.set` and one ticket's code for window `w = liveWindowAt(Date.now())` (SC-001), where
-  `liveWindowAt` is the shared module's `windowAt` imported under that name
-  (`import { windowAt as liveWindowAt } from '@queuepass/shared'`). `backend/test/setup/fixtures.ts`
-  already exports a different `windowAt(daysFromNow, hour)` for event times; never mix them up. At
-  `w × 30000 − 5000` and at `(w + 1) × 30000 + 4999`, `200` with `verifiedBy: 'LIVE_CODE'`; at
-  `w × 30000 − 5001` and at `(w + 1) × 30000 + 5000`, `409 LIVE_CODE_EXPIRED` with the message
-  "This live code has expired." and no `details`. Repeat for 3 consecutive windows. Then, with the
-  clock at the last accepted instant, a lookup is `200`, and admitting that ticket after moving
-  the clock past the grace still succeeds (spec Edge Cases, research R6).
-- [ ] T026 [P] [US2] Write `backend/test/integration/entry.live-refusals.e2e-spec.ts`: each of these
-  is `404 LIVE_CODE_INVALID` with "This is not a valid QueuePass code." and no `details`: a MAC with
-  one character changed; the right MAC under another ticket's secret; a well-formed code naming a
-  random UUID; `'QP1:'` alone; `'QP1:XYZ'`; a code whose window was changed by 1 with its MAC kept;
-  a code with a 15-character MAC. An expired genuine code of a **used** ticket is `409
-  LIVE_CODE_EXPIRED`, not `USED` (R4: the window is checked before the ticket). None of them
-  changes the ticket (`checkedInAt` still `NULL`), and the ticket's current live code is admitted
-  afterwards (FR-012, US2 scenario 5). A request with an 81-character code is `400`.
-- [ ] T027 [P] [US2] Add to `booth-app/test/check-in.test.tsx`: a `409 LIVE_CODE_EXPIRED` from a
+- [ ] T030 [US2] Add to `booth-app/test/check-in.test.tsx`: a `409 LIVE_CODE_EXPIRED` from a
   lookup shows "✕ This live code has expired. Ask for the live code in the QueuePass app, or a
   printed ticket with photo ID.", with no event, name, seat, or **Admit**; a `404
   LIVE_CODE_INVALID` shows "✕ Not a valid QueuePass code." with no **Admit**; both are in the
   `role="status"` region, keep **Look up another**, and leave a typed code in the field (as 017's
-  not-found does); scanning again after an expired code works.
-- [ ] T028 [US2] In `booth-app/src/App.tsx`, handle `LIVE_CODE_EXPIRED` and `LIVE_CODE_INVALID`
-  from `lookupEntryTicket` as refusals beside 017's `TICKET_NOT_FOUND`, with the texts of T027, in
-  `booth-app/src/EntryResult.tsx`. Make any Backend fix T025 or T026 needs in
-  `backend/src/entry/` or `packages/shared/src/live-code.ts`. Run T025–T027 until they pass.
+  not-found does); scanning again after an expired code works. Confirm it fails.
+- [ ] T031 [US2] In `booth-app/src/App.tsx`, handle `LIVE_CODE_EXPIRED` and `LIVE_CODE_INVALID`
+  from `lookupEntryTicket` as refusals beside 017's `TICKET_NOT_FOUND`, with the texts of T030, in
+  `booth-app/src/EntryResult.tsx`. Run T030 until it passes.
 
 **Checkpoint**: copies die within 35 seconds; forgeries never work.
 
@@ -374,23 +419,20 @@ its window and grace and refused just outside; forged codes are refused as not v
 **Goal**: 017's ID-checked path is untouched, and nothing printed can make a live code.
 
 **Independent Test**: 017's printed-QR and typed-code tests still pass, now with
-`verifiedBy: 'TICKET_CODE'`.
+`verifiedBy: 'TICKET_CODE'` (T015, written and passing in Phase 3).
 
-- [ ] T029 [P] [US3] Add to `backend/test/integration/entry.lookup.e2e-spec.ts`: a typed code
-  (any case, spaces, dashes) answers `verifiedBy: 'TICKET_CODE'`; a ticket admitted through its
-  live code is `USED` when looked up by its typed code, and the other way around (FR-014).
-- [ ] T030 [P] [US3] Write `backend/test/integration/entry-secret.no-leak.e2e-spec.ts` (FR-006): for
+- [ ] T032 [P] [US3] Write `backend/test/integration/entry-secret.no-leak.e2e-spec.ts` (FR-006): for
   one order of 2 tickets, read each ticket's secret (`select`) and form its base64url and hex; call
   `createOrder` (for a new order), `listMyOrders`, `listAttendees`, `getSalesReport`,
   `lookupEntryTicket` by typed code and by live code, `admitTicket`, and the `409` of a second
   admit; the raw text of no response contains either secret's base64url or hex, or the word
   `entrySecret`. Only `getTicketEntryKey` for its own ticket contains that ticket's base64url, and
   never the other ticket's.
-- [ ] T031 [P] [US3] Add to `booth-app/test/check-in.test.tsx`: a lookup answering `verifiedBy:
+- [ ] T033 [P] [US3] Add to `booth-app/test/check-in.test.tsx`: a lookup answering `verifiedBy:
   'TICKET_CODE'` shows 017's "Check a government-issued photo ID that shows: Jordan Lee" and no
   "Live code verified" (FR-014, SC-005).
-- [ ] T032 [US3] Run T029–T031 and every 017 test until they pass; fix only 018 code (017's tests
-  are the specification of SC-005).
+- [ ] T034 [US3] Run T032, T033, T015, and every 017 test until they pass; fix only 018 code (017's
+  tests are the specification of SC-005).
 
 **Checkpoint**: three ways in, one rule for each.
 
@@ -403,7 +445,7 @@ its window and grace and refused just outside; forged codes are refused as not v
 
 **Independent Test**: 20 simultaneous admits of one ticket after mixed lookups; exactly one wins.
 
-- [ ] T033 [US4] Write `backend/test/integration/entry.live-race.e2e-spec.ts`, firing with
+- [ ] T035 [US4] Write `backend/test/integration/entry.live-race.e2e-spec.ts`, firing with
   `Promise.all` as `entry.concurrency.e2e-spec.ts` does, failing on any `5xx`: for one fresh
   ticket, `agent1`…`agent10` look it up by its current live code and `agent11`…`agent20` by its
   typed code (all `200`, ADMITTABLE), then all 20 admit at once: exactly one `200`, nineteen `409
@@ -416,27 +458,27 @@ its window and grace and refused just outside; forged codes are refused as not v
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T034 [P] Update `README.md`: the `018` row in the status table; "Today" says customers show a
+- [ ] T036 [P] Update `README.md`: the `018` row in the status table; "Today" says customers show a
   live entry code from **My tickets** that changes every 30 seconds and needs no ID check at the
   gate, while printed and typed codes still need one; a pointer to
   `specs/018-rotating-qr-codes/quickstart.md` for the phone-to-webcam demo (research R10); the
   contract version 1.11.0 wherever the README names it.
-- [ ] T035 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
+- [ ] T037 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
   everything passes, including `check-contract-drift` and `check-boundary`.
-- [ ] T036 Report coverage for the files this feature changed (`npm test -- --coverage` in
+- [ ] T038 Report coverage for the files this feature changed (`npm test -- --coverage` in
   `backend`, which keeps `--runInBand`; the front ends' coverage if a provider is installed) in the
   PR description. The 80% floor is not yet blocking (Constitution VI deferral until `010` and
   `011`).
-- [ ] T037 Running-system gate: `docker compose up --build` from a fresh clone, then walk
+- [ ] T039 Running-system gate: `docker compose up --build` from a fresh clone, then walk
   quickstart.md S0–S8 in the browser, with a phone camera for S2–S5, and sign in, use, and sign
   out of each front end. Record the results in this file.
-- [ ] T038 Independent review (Constitution III): a separate Claude session reviews the branch
+- [ ] T040 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the rounds and any open finding here and in the PR description.
-- [ ] T039 Once the spec and plan PR has merged (Constitution 3.2.0), bring the branch up to `main`
+- [ ] T041 Once the spec and plan PR has merged (Constitution 3.2.0), bring the branch up to `main`
   and open the implementation PR against `main`, assigned to `nathan-707`, with `fixes #41` on its
   own line in the **description** only (see Issue above). The description records: the review
-  rounds (T038), coverage (T036), the running-system results (T037), and any deviation from the
+  rounds (T040), coverage (T038), the running-system results (T039), and any deviation from the
   plan.
 
 ---
@@ -444,38 +486,50 @@ its window and grace and refused just outside; forged codes are refused as not v
 ## Dependencies & Execution Order
 
 - **Phase 1 → Phase 2** → every story.
-- **US1 (Phase 3)** needs Phase 2. It is the MVP: secret, key operation, live lookup, Customer
-  screen, Ticket Booth result.
-- **US2 (Phase 4)** needs US1's live-code check (T016–T017) and Booth wiring (T023).
-- **US3 (Phase 5)** needs T017 (`verifiedBy` on both paths) and T015 (the key, for T030).
-- **US4 (Phase 6)** needs T017 and `liveCodeFor` (T009).
-- **Polish** last; T039 waits for the spec and plan PR to merge.
+- **US1 (Phase 3)** needs Phase 2. It is the MVP: secret, key operation, live lookup with its
+  refusals, sign-in that survives no signal, Customer screen, Ticket Booth result. Its tests
+  include the Backend tests of US2 (T013, T014) and US3 (T015), since T020 and T021 build what
+  they test.
+- **US2 (Phase 4)** needs US1's live-code check (T020–T022) and Booth wiring (T028).
+- **US3 (Phase 5)** needs T021 (`verifiedBy` on both paths) and T019 (the key, for T032).
+- **US4 (Phase 6)** needs T021 and `liveCodeFor` (T009).
+- **Polish** last; T041 waits for the spec and plan PR to merge.
 
 Within a phase, test tasks come first and must fail; implementation follows; the "run until they
-pass" task closes the phase.
+pass" task closes the phase (T022 for the Backend track and T029 for the front ends in Phase 3,
+T031, T034).
 
 ## Parallel Opportunities
 
 - Phase 2: T002, T004, T005 touch different files. T008 then T009, in that order (T009
   imports T008's `clock.ts`).
-- US1 tests: T010, T011, T012, T013, T014 in parallel; then Backend (T015–T019, T022), Customer
-  (T020–T021), and Ticket Booth (T023) tracks are independent of each other.
-- US2: T025, T026, T027 in parallel.
-- US3: T029, T030, T031 in parallel.
+- US1 tests: T010 to T018 in parallel, each in its own files. Then the Backend (T019–T023, T027),
+  Customer (T024–T026), and Ticket Booth (T028) tracks are independent of each other; T024 and
+  T027 each change one file of `packages/shared` and rebuild it, so run those two one after the
+  other.
+- US2: T030, then T031.
+- US3: T032 and T033 in parallel.
+- T018, T030, and T033 all edit `booth-app/test/check-in.test.tsx`; they sit in different phases,
+  so never run them at the same time.
 
 ```text
 # US1 tests, together:
 T010 backend/test/integration/entry-key.e2e-spec.ts
 T011 backend/test/integration/entry-key.authz.e2e-spec.ts
 T012 backend/test/integration/entry.live-code.e2e-spec.ts
-T013 customer-app/test/entry-code.test.tsx
-T014 booth-app/test/scanner.test.tsx, booth-app/test/check-in.test.tsx
+T013 backend/test/integration/entry.live-boundaries.e2e-spec.ts
+T014 backend/test/integration/entry.live-refusals.e2e-spec.ts
+T015 backend/test/integration/entry.lookup.e2e-spec.ts
+T016 packages/shared/test/web/auth-provider.test.tsx
+T017 customer-app/test/entry-code.test.tsx
+T018 booth-app/test/scanner.test.tsx, booth-app/test/check-in.test.tsx
 ```
 
 ## Implementation Strategy
 
-1. **MVP**: Phases 1–3. A live code works end to end and admits once (017's guarantee carries it).
-2. **Safety**: Phase 4 makes copies and forgeries fail visibly; Phase 5 proves nothing of 017
-   changed and the secret never leaks.
+1. **MVP**: Phases 1–3. A live code works end to end, keeps changing with no signal, admits once
+   (017's guarantee carries it), and the Backend refuses copies and forgeries.
+2. **Safety**: Phase 4 shows copies and forgeries refused at the gate; Phase 5 proves nothing of
+   017 changed and the secret never leaks.
 3. **Proof under load**: Phase 6.
 4. **Ship**: Phase 7, after the spec and plan PR merges.

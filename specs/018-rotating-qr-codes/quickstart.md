@@ -77,16 +77,21 @@ both, as close together as you can. **Expect**: exactly one "✓ Admitted"; the 
 used" with the time. Scan the live code again: "Already used". (The automated test sends 20 at
 once, SC-004.)
 
-## S6: No signal (FR-010)
+## S6: No signal (FR-010, SC-006)
 
-As **Customer**, buy one more ticket for Demo Tonight and open its **Show entry code**. Stop the
-Backend with `docker compose stop backend` (everything runs on `localhost`, so turning Wi-Fi off
-cuts nothing). **Expect**: the code
-keeps changing for at least two windows. Restore the Backend (`docker compose start backend`) and
-scan the current code at **Gate 1** within its window. **Expect**: verified.
+As **Customer**, buy one more ticket for Demo Tonight and open its **Show entry code**. Stop both
+the Backend and Keycloak with `docker compose stop backend keycloak` (everything runs on
+`localhost`, so turning Wi-Fi off cuts nothing). **Expect**: the code keeps changing, with no
+"Signing in…" and no move to a sign-in page, for 10 minutes (SC-006). That outlasts one 5-minute
+access token, so the app has tried to renew it and failed for lack of network (research R12).
+Start both again (`docker compose start backend keycloak`) and, once they are healthy, scan the
+current code at **Gate 1** within its window (Gate 1's token expired too, so it may pass through
+sign-in first). **Expect**: verified.
 
-Now stop the Backend again and reload the Customer page. **Expect**: "Can't show the live code
-without a connection. Use your printed ticket with photo ID." Start the Backend again.
+Now stop only the Backend (`docker compose stop backend`) and reload the Customer page. Keycloak
+stays up because a reload signs in again first: with Keycloak down too, that sign-in fails before
+the app can show anything. **Expect**: "Can't show the live code without a connection. Use your
+printed ticket with photo ID." Start the Backend again.
 
 ## S7: Only the buyer gets the key (FR-003)
 

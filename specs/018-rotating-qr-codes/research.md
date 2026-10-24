@@ -161,7 +161,8 @@ clarification rules out).
 The Customer app keeps the key in React state only: never in `localStorage`, `sessionStorage`,
 IndexedDB, a cookie, or a URL, exactly as tokens are held (Constitution V; FR-010: nothing is kept
 once the app is closed or reloaded). After the one request, making codes needs no network, so a
-loaded live code keeps changing with no signal while the page stays open (FR-010).
+loaded live code keeps changing with no signal while the page stays open (FR-010), provided the
+sign-in around it survives the lost signal too (R12).
 
 The secret reaches the buyer's own browser by design (decided 2026-10-23). A buyer who digs it out
 of their own tab and hands it on has handed on the ticket, which still enters once (spec Edge
@@ -311,7 +312,59 @@ Tests precede code in `tasks.md` (Constitution VI).
   of windows still produce new, correct codes (SC-006, FR-010); no `localStorage` or
   `sessionStorage` write; the load, offline, `409`, and error states; the QR's accessible name; the
   QR matrix decodes to the live code.
+- **Shared web (Vitest)**: the `AuthProvider` with the fake user manager: a renewal that fails for
+  lack of network keeps the user and doesn't redirect, nor does the token expiring after it; going
+  back online, or a `401`, signs in again; Keycloak's `ErrorResponse` still ends the session (R12).
+  In the Customer app, the live-code page stays mounted through the same events.
 - **Ticket Booth app**: `normalizeScan` for live codes; the verified result with no ID prompt and
   with **Admit all**; the expired and invalid messages with no **Admit**; printed and typed lookups
   unchanged (SC-005: 017's tests stay and pass).
 - **Running system**: [quickstart.md](./quickstart.md).
+
+## R12: Losing the signal doesn't sign the customer out
+
+**Problem**: every front end shares `AuthProvider` (`packages/shared/src/web/auth-provider.tsx`).
+On `silentRenewError` or `accessTokenExpired` it removes the user, renders nothing but "Signing
+in…", and redirects to Keycloak (spec 001 FR-013). The realm sets no token lifetime, so Keycloak's
+default 5-minute access token applies (spec 001 data-model). With no signal, the renewal a minute
+before expiry fails, the redirect unmounts the live-code page, and the key, held in that page's
+memory only, is gone: FR-010 and SC-006 (10 minutes with no connection) can't be met.
+
+**Decision**: a renewal that fails for lack of network doesn't end the session. Only an error
+response from Keycloak does. oidc-client-ts 3.5.0 (the installed version) throws an `ErrorResponse`
+when Keycloak answers the renewal with an OAuth error (for example `invalid_grant` once its session
+has ended); a renewal that can't reach Keycloak fails with `fetch`'s `TypeError` instead, or with
+an `ErrorTimeout`, which the library itself retries every 5 seconds. So:
+
+- `silentRenewError` with an `ErrorResponse`: as today, remove the user and sign in again.
+- `silentRenewError` with anything else: keep the current user in memory and remember that renewal
+  failed. `accessTokenExpired` after that also keeps the user (and with no such failure before it,
+  signs in again as today).
+- Signing in again then happens when the browser goes back `online`, or when an API call returns
+  `401`, which every app already answers with `signIn()` (`customer-app/src/use-load.ts`,
+  `booth-app/src/App.tsx`, `admin-app/src/api/client.ts`). While Keycloak's single sign-on session
+  lives, that sign-in comes straight back.
+
+An expired token kept in memory is harmless: the Backend refuses it with `401` (Constitution V), so
+nothing is done with it, and the next call that needs the Backend leads back through sign-in.
+
+**Reading of spec 001 FR-013**: "return the user to the login page when renewal is no longer
+possible". A failed network request doesn't make renewal impossible; Keycloak refusing it does.
+This is a reading of 001, not a change to it.
+
+**Constitution V is unchanged**: tokens stay in memory only (nothing new is written to storage);
+logout still ends both the front end's session and Keycloak's; the Backend still validates every
+token.
+
+**Scope**: the provider is shared, so the change applies to all three apps. In the Admin and Ticket
+Booth apps a lost signal now leaves the page in place until the next request, which shows that
+app's own no-connection state (or gets a `401` once the signal is back, which signs in), instead of
+bouncing to a Keycloak page that can't load.
+
+**Tests**: the shared provider's tests with the fake user manager (tasks T016) and, in the
+Customer app, the live-code page through the same events (T017). The quickstart (S6) stops
+Keycloak as well as the Backend for 10 minutes, which outlasts one access token.
+
+**Alternatives considered**: a longer access-token lifetime in the realm (it would only move the
+cliff, and longer-lived tokens weaken Constitution V's expiry check); keeping the key outside
+React (a module variable would survive the unmount, but not the full-page redirect to Keycloak).

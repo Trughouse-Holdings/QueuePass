@@ -24,6 +24,11 @@
 - **Customer app**: **Show entry code** on each valid, unused ticket opens a live QR code with a
   countdown, following the Backend's clock, held in memory only, and working with no signal while
   the page stays open (R5, R8).
+- **Sign-in with no signal**: the shared `AuthProvider` no longer ends the session when a token
+  renewal fails for lack of network, only when Keycloak refuses it; otherwise the 5-minute access
+  token's failed renewal would redirect away from the live code within minutes. It signs in again
+  when the browser is back online or an API call returns `401`. All three apps share the provider
+  (R12).
 - **Ticket Booth app**: recognizes a live code when scanned; a verified one shows "No ID check
   needed" with **Admit** and **Admit all**; expired and invalid codes are refused with their reason
   (R9).
@@ -78,8 +83,8 @@ Evaluated against constitution **v3.2.1**.
 | **II. One Repo, One Command** | PASS | **PASS** | No new service, variable, or secret to configure. One migration applied by the existing startup; `pgcrypto` is in the stock image. No new npm dependency. |
 | **III. Spec-Driven, Reviewed** | PASS | **PASS** | Issue #41; number reserved by PR #65; spec, clarifications, and plan on `018-rotating-qr-codes-spec`, reviewed by a second Claude session before the PR; implementation on `018-rotating-qr-codes-impl` in a fresh session, cut from the spec branch while this PR is open and opened as a PR only after it merges, closing #41 (and only that PR says "fixes"). |
 | **IV. Server-Authoritative, DB-Guaranteed** | PASS | **PASS** | The Backend verifies every live code and says so in `verifiedBy`; the Ticket Booth only shows it (R4). One entry per ticket stays the row-locked `UPDATE` of spec 017 R4, unchanged (R6). The live-code window guards no write, so it needs no database guarantee (R3). Every Backend refusal is shown as an explicit state. |
-| **V. Sign-In Everywhere** | PASS | **PASS** | `getTicketEntryKey` is `customer` only and owner only; `lookupEntryTicket` stays `gate-agent` only; both tested for missing, expired, wrongly signed, wrong-audience, and wrong-role tokens. The entry key is held in memory only, like tokens, and sent `no-store`. No identity data is added. |
-| **VI. Test-First, Real Database** | PASS | **PASS** | Tests precede code in `tasks.md`; window boundaries tested on both sides to the millisecond with a controlled clock; the race tested with 20 simultaneous requests on real PostgreSQL; the secret's CHECK and backfill tested on the real migration. The 80% floor is a recorded deferral until `010` and `011`; this feature reports its coverage. |
+| **V. Sign-In Everywhere** | PASS | **PASS** | `getTicketEntryKey` is `customer` only and owner only; `lookupEntryTicket` stays `gate-agent` only; both tested for missing, expired, wrongly signed, wrong-audience, and wrong-role tokens. The entry key is held in memory only, like tokens, and sent `no-store`. No identity data is added. A renewal that fails for lack of network keeps the user in memory instead of ending the session (R12): tokens stay in memory only, an expired one is refused by the Backend with `401`, and logout still ends both sessions. |
+| **VI. Test-First, Real Database** | PASS | **PASS** | Tests precede code in `tasks.md`, including the Backend's refusal tests (expired, forged) and the shared sign-in provider's no-network tests, which come before the code they cover in Phase 3; window boundaries tested on both sides to the millisecond with a controlled clock; the race tested with 20 simultaneous requests on real PostgreSQL; the secret's CHECK and backfill tested on the real migration. The 80% floor is a recorded deferral until `010` and `011`; this feature reports its coverage. |
 | **VII. Function Over Finish, One Shared Look** | PASS | **PASS** | The live-code screen uses theme values only; the QR is black on white because a scanner needs it, as spec 017's print view already is. States use words and symbols, not color alone. No new theme value. |
 | **VIII. Staged Simplicity** | PASS | **PASS** | No wallet passes, no secret rotation, no offline admits, no auto-admit, no relay protection (spec Out of Scope). No security or correctness control is deferred: real-time relay and a buyer handing on their own secret are accepted risks named in the spec, each equivalent to handing over the ticket, which still enters once. |
 
@@ -87,7 +92,7 @@ Evaluated against constitution **v3.2.1**.
 
 ```text
 specs/018-rotating-qr-codes/
-├── spec.md, plan.md, research.md (R1–R11), data-model.md, quickstart.md (S0–S8), tasks.md
+├── spec.md, plan.md, research.md (R1–R12), data-model.md, quickstart.md (S0–S8), tasks.md
 ├── checklists/requirements.md
 └── contracts/README.md
 
@@ -98,6 +103,8 @@ packages/shared/src/~ errors.ts                              # 2 new codes (this
 # Implementation PR:
 packages/shared/src/+ live-code.ts, ~ entry.ts (verifiedBy, TicketEntryKey), ~ index.ts   # R2, R3
 packages/shared/test/+ live-code.test.ts
+packages/shared/src/web/~ auth-provider.tsx                  # renewal without network (R12)
+packages/shared/test/web/~ auth-provider.test.tsx
 backend/
 ├── prisma/~ schema.prisma, migrations/+ <timestamp>_live_codes/migration.sql   # R1
 ├── src/
