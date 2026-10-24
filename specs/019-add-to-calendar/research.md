@@ -189,7 +189,7 @@ second is the format's finest unit). No `TZID`, no `VTIMEZONE`, no floating time
 `America/New_York`, `America/Los_Angeles`, and `Asia/Kolkata` (a half-hour offset), check that the
 switch took effect (`new Date(…).getTimezoneOffset()` differs), and require identical output. Node
 re-reads `TZ` when it is assigned, and Vitest runs each test file in its own process (`forks`, its
-default pool), so this is reliable. The tasks also run the file under each `TZ` from the shell (T022).
+default pool), so this is reliable. The tasks also run the file under each `TZ` from the shell (tasks T016).
 
 **Alternatives considered**: `TZID=America/New_York` from the browser's zone (wrong for a customer
 travelling, and depends on the device, against FR-005); waiting for 020 (the issue does not need it;

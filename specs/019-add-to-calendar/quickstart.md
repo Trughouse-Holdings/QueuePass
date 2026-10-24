@@ -9,7 +9,7 @@ npm run ci                    # format, lint, build, and the full suite, as GitH
 ```
 
 Mahdi asked for this walk to cover **two events**, each added through the calendar file and through
-Google Calendar (2026-10-24): S2–S5 below. Record each step's result in tasks.md (T031).
+Google Calendar (2026-10-24): S2–S5 below. Record each step's result in tasks.md (T023).
 
 You need:
 
