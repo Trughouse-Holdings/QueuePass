@@ -40,7 +40,7 @@ and confirm they **fail** before the implementation tasks below them.
   browser storage, a cookie, or a URL. In the Customer app it lives in React state only.
 - **Admitting does not change** (research R6): no edit to `EntryService.admit`, its `UPDATE`, or
   `AdmitDto`. Add no lock.
-- **The Backend's clock** for live codes is the injected `CLOCK` (T009), never `Date.now()` directly
+- **The Backend's clock** for live codes is the injected `CLOCK` (T008), never `Date.now()` directly
   in `entry/`. The entry window stays on the database's `now()` (spec 017 R5).
 - **Backend tests read `packages/shared` from `dist`**: run `npm run build --workspace
   @queuepass/shared` after changing it. **Backend Jest must run `--runInBand`** (`npm test` does);
@@ -86,8 +86,12 @@ and confirm they **fail** before the implementation tasks below them.
   `packages/shared/src/index.ts`: `LIVE_CODE_PREFIX = 'QP1:'`, `WINDOW_MS = 30_000`,
   `GRACE_MS = 5_000`; `windowAt(ms: number): number`; `windowStartMs(w: number): number`;
   `async liveCode(secret: Uint8Array, ticketId: string, window: number): Promise<string>` using
-  `globalThis.crypto.subtle` (`importKey('raw', secret, { name: 'HMAC', hash: 'SHA-256' }, false,
-  ['sign'])`, then `sign`), taking the first 10 bytes, base32 (RFC 4648, upper case, no padding);
+  `globalThis.crypto.subtle` (`importKey('raw', new Uint8Array(secret), { name: 'HMAC', hash:
+  'SHA-256' }, false, ['sign'])`, then `sign`), taking the first 10 bytes, base32 (RFC 4648, upper
+  case, no padding). The copy is needed: under TypeScript 5.9 `BufferSource` refuses a plain
+  `Uint8Array` (`Uint8Array<ArrayBufferLike>`, which is also what Prisma's `Bytes` is), and
+  `new Uint8Array(secret)` is a `Uint8Array<ArrayBuffer>`. The message is
+  `QP1:<ticket UUID, dashes removed, upper case>:<window>`;
   `parseLiveCode(text: string): { ticketId: string; window: number; mac: string } | null` (trim,
   upper-case, match `^QP1:([0-9A-F]{32}):(\d{1,12}):([A-Z2-7]{16})$`, rebuild the UUID with dashes
   in lower case); `windowStatus(window: number, nowMs: number): 'EARLY' | 'CURRENT' | 'EXPIRED'`
@@ -96,7 +100,10 @@ and confirm they **fail** before the implementation tasks below them.
   Uint8Array | null` (exactly 32 bytes). No Node-only import: the module runs in browsers too.
   Run T002 until it passes; build `packages/shared`.
 - [ ] T004 [P] Mirror the contract in `packages/shared/src/entry.ts`: add
-  `verifiedBy: 'LIVE_CODE' | 'TICKET_CODE'` to `EntryTicket` (comment citing spec 018 FR-011), and a
+  `verifiedBy?: 'LIVE_CODE' | 'TICKET_CODE'` to `EntryTicket`, **optional** as in contract 1.11.0
+  (comment citing spec 018 FR-011 and "required from T022"). Not required yet: the Backend's
+  `toEntryTicket` returns this type and sends no `verifiedBy` until T017, so a required field
+  would stop every Backend suite compiling from here to T017. Also add a
   new `TicketEntryKey { ticketId: string; key: string; serverTime: string }` (comment: base64url of
   32 bytes; the Backend's clock with milliseconds); update `EntryLookupInput.code`'s comment to
   "1–80 characters: a ticket code or a live code"; export from `packages/shared/src/index.ts`.
@@ -108,7 +115,10 @@ and confirm they **fail** before the implementation tasks below them.
     `ticket_entry_secret_32_bytes`;
   - the default query leaves it out: `ctx.prisma.ticket.findFirst()` returns an object with no
     `entrySecret` key, and so does `ctx.prisma.order.findFirst({ include: { tickets: true } })`'s
-    tickets; `ctx.prisma.ticket.findFirst({ select: { entrySecret: true } })` returns 32 bytes.
+    tickets; `ctx.prisma.ticket.findFirst({ select: { entrySecret: true } })` returns 32 bytes;
+  - the omit is in the types too: reading `.entrySecret` on the result of a default
+    `ctx.prisma.ticket.findFirst()` carries a `// @ts-expect-error`, so the file stops compiling
+    if T007's typing is ever lost.
   Confirm it fails.
 - [ ] T006 Add to `model Ticket` in `backend/prisma/schema.prisma`, after `checkedInByUsername`:
   `entrySecret Bytes @default(dbgenerated("gen_random_bytes(32)")) @db.ByteA`, with the comment from
@@ -118,24 +128,47 @@ and confirm they **fail** before the implementation tasks below them.
   `ALTER TABLE "Ticket" ADD CONSTRAINT ticket_entry_secret_32_bytes CHECK
   (octet_length("entrySecret") = 32);`. No index. Apply with `prisma migrate deploy` (never
   `db push`).
-- [ ] T007 In `backend/src/prisma/prisma.service.ts`, pass `omit: { ticket: { entrySecret: true } }`
-  to the `PrismaClient` constructor (`super({ omit: … })`), typed so that results of ordinary
-  queries have no `entrySecret` property (research R1). Run `npx tsc --noEmit` in `backend/`; fix
-  any compile error the omit causes by naming the field in a `select`, never by removing the omit.
-  Run T005 until it passes, then the full Backend suite: every existing test still passes.
-- [ ] T008 [P] Create `backend/test/setup/fake-clock.ts`: `class FakeClock implements Clock` with
-  `now()` returning `Date.now()` until `set(ms: number)` fixes it, and `useRealTime()` to undo; add
-  `clock: FakeClock` to `TestContext` in `backend/test/setup/test-app.ts`, override the `CLOCK`
-  provider with it (next to `ADDRESS_GEOCODER`); each `createTestApp()` gets a new `FakeClock` on
-  real time. Every test file that calls `ctx.clock.set` also calls `ctx.clock.useRealTime()` in its
-  `afterEach`, so no test inherits another's time. Add a `liveCodeFor(ctx, ticketId, window)` helper to
-  `backend/test/setup/fixtures.ts` that reads the ticket's secret with
-  `select: { entrySecret: true }` and returns `liveCode(...)` from `@queuepass/shared`.
-- [ ] T009 Create `backend/src/common/clock.ts`: `export interface Clock { now(): number }`,
+- [ ] T007 In `backend/src/prisma/prisma.service.ts`, leave `entrySecret` out of every query by
+  default, in the types as well as at runtime (research R1):
+  ```ts
+  const OMIT = { ticket: { entrySecret: true } } as const;
+  export class PrismaService extends PrismaClient<{ omit: typeof OMIT }> implements … {
+    constructor() { super({ omit: OMIT }); }
+  ```
+  A bare `extends PrismaClient` with `super({ omit })` drops the field at runtime, but its types
+  still say `entrySecret` is there. The typed form fixes that, and `$transaction`'s `tx` still
+  fits `Prisma.TransactionClient`, but a `PrismaService` no longer fits a `PrismaClient` or
+  `Prisma.TransactionClient` parameter, and a query result no longer fits Prisma's model type
+  `Ticket`, which still lists every column. A trial on 2026-10-23 (the typed omit on another
+  column, then `tsc`) found these, so retype them:
+  - `resetDb` (`backend/test/setup/reset-db.ts`) and `holdSeats` and `endHold`
+    (`backend/test/setup/fixtures.ts`): `PrismaClient` → `PrismaService` (every suite passes
+    `ctx.prisma` to them);
+  - `customerHeld`'s `db` (`backend/src/common/event-lock.ts`): `Pick<Prisma.TransactionClient,
+    'ticket'>` → `Pick<PrismaService | Prisma.TransactionClient, 'ticket'>`, since
+    `availability.service.ts` passes it `this.prisma` (the trial compiled with this);
+  - `backend/src/orders/orders.service.ts`: `OrderRow`'s `tickets: Ticket[]` and the
+    `tickets: Ticket[]` parameter further down → `Omit<Ticket, 'entrySecret'>[]`.
+  Run
+  `npx tsc --noEmit -p tsconfig.json` in `backend/`; fix any other compile error the omit causes
+  by naming the field in a `select` or retyping a parameter, never by removing the omit. Run T005
+  until it passes, then the full Backend suite: every existing test still passes.
+- [ ] T008 Create `backend/src/common/clock.ts`: `export interface Clock { now(): number }`,
   `export const CLOCK = Symbol('CLOCK')`, and `export const systemClock: Clock = { now: () =>
   Date.now() }`, with a comment citing spec 018 research R3. Provide `{ provide: CLOCK, useValue:
-  systemClock }` in `backend/src/entry/entry.module.ts` (the only module that reads it). T008's
-  override now compiles.
+  systemClock }` in `backend/src/entry/entry.module.ts` (the only module that reads it). It comes
+  before T009 because T009's `FakeClock` and the `CLOCK` override in `test-app.ts` import it:
+  without it, `test-app.ts` doesn't compile and every Backend suite fails.
+- [ ] T009 Create `backend/test/setup/fake-clock.ts` (after T008): `class FakeClock implements
+  Clock` with `now()` returning `Date.now()` until `set(ms: number)` fixes it, and
+  `useRealTime()` to undo; add `clock: FakeClock` to `TestContext` in
+  `backend/test/setup/test-app.ts`, override the `CLOCK` provider with it (next to
+  `ADDRESS_GEOCODER`); each `createTestApp()` gets a new `FakeClock` on real time. Every test file
+  that calls `ctx.clock.set` also calls `ctx.clock.useRealTime()` in its `afterEach`, so no test
+  inherits another's time. Add a `liveCodeFor(ctx, ticketId, window)` helper to
+  `backend/test/setup/fixtures.ts` that reads the ticket's secret with
+  `select: { entrySecret: true }` and returns `liveCode(...)` from `@queuepass/shared` (so it
+  needs T006 too). Run the full Backend suite: still green.
 
 **Checkpoint**: shared module built and tested; every ticket has a secret nobody loads by
 accident; the clock is injectable. Nothing served yet.
@@ -268,7 +301,9 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
   - Typed calls through the generated client (`createApiClient`), as the other pages do.
 - [ ] T022 [US1] In `contracts/openapi.yaml`, add `verifiedBy` to `EntryTicket`'s `required` and
   delete "Required once feature 018 is implemented." from its description; run
-  `npm run generate:api`; T012 and the existing entry tests still pass against the contract.
+  `npm run generate:api`. In `packages/shared/src/entry.ts`, make `verifiedBy` required too (drop
+  T004's `?` and its "required from T022"), and build `packages/shared`. T012 and the existing
+  entry tests still pass against the contract.
 - [ ] T023 [US1] In the Ticket Booth app (research R9): `booth-app/src/decode.ts`, make
   `normalizeScan` return a live code (upper-cased) when it matches the live-code pattern, else
   017's behavior; `booth-app/src/EntryResult.tsx`, for `verifiedBy === 'LIVE_CODE'` and
@@ -398,7 +433,7 @@ its window and grace and refused just outside; forged codes are refused as not v
   screen, Ticket Booth result.
 - **US2 (Phase 4)** needs US1's live-code check (T016–T017) and Booth wiring (T023).
 - **US3 (Phase 5)** needs T017 (`verifiedBy` on both paths) and T015 (the key, for T030).
-- **US4 (Phase 6)** needs T017 and `liveCodeFor` (T008).
+- **US4 (Phase 6)** needs T017 and `liveCodeFor` (T009).
 - **Polish** last; T039 waits for the spec and plan PR to merge.
 
 Within a phase, test tasks come first and must fail; implementation follows; the "run until they
@@ -406,7 +441,8 @@ pass" task closes the phase.
 
 ## Parallel Opportunities
 
-- Phase 2: T002, T004, T005, T008 touch different files.
+- Phase 2: T002, T004, T005 touch different files. T008 then T009, in that order (T009
+  imports T008's `clock.ts`).
 - US1 tests: T010, T011, T012, T013, T014 in parallel; then Backend (T015–T019, T022), Customer
   (T020–T021), and Ticket Booth (T023) tracks are independent of each other.
 - US2: T025, T026, T027 in parallel.
