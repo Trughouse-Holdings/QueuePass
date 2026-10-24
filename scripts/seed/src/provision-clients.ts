@@ -29,9 +29,11 @@ const AUDIENCE_MAPPER: ProtocolMapperRepresentation = {
 /**
  * The exact settings every front-end client converges on. Public (no secret), browser
  * Authorization Code flow with PKCE S256 only, and no password grant, so no front end can
- * ever accept a password (FR-010).
+ * ever accept a password (FR-010). Redirect and post-logout redirect URIs are exactly
+ * `${origin}/`, the only URI the shared AuthProvider uses: the constitution forbids wildcards
+ * (research R6, #60). The page to return to travels in the OIDC state, not the redirect URI.
  */
-function desiredClient(c: (typeof FRONTEND_CLIENTS)[number]): ClientRepresentation {
+export function desiredClient(c: (typeof FRONTEND_CLIENTS)[number]): ClientRepresentation {
   const origin = `http://localhost:${c.port}`;
   return {
     clientId: c.clientId,
@@ -46,11 +48,13 @@ function desiredClient(c: (typeof FRONTEND_CLIENTS)[number]): ClientRepresentati
     frontchannelLogout: true,
     rootUrl: origin,
     baseUrl: '/',
-    redirectUris: [`${origin}/*`],
+    redirectUris: [`${origin}/`],
     webOrigins: [origin],
     attributes: {
       'pkce.code.challenge.method': 'S256',
-      'post.logout.redirect.uris': `${origin}/*`,
+      'post.logout.redirect.uris': `${origin}/`,
+      // Renewal uses the refresh-token grant; there is no silent-renew page (research R6, #60).
+      'use.refresh.tokens': 'true',
     },
   };
 }

@@ -80,10 +80,18 @@ increment. IDs are in execution order.
 - [X] T015 [US1] Fix the health probe in `scripts/seed/test/seed-idempotence.test.ts`: use `process.env.KEYCLOAK_HEALTH_URL ?? 'http://localhost:9000'` + `/health/ready` instead of the 8080 URL, so the test runs whenever Keycloak is up (research R15).
 - [X] T016 [US1] Add client assertions to `scripts/seed/test/seed-idempotence.test.ts` (FR-005, FR-006, FR-034). After running `seed()` twice, assert:
   - exactly one client scope named `queuepass-api` exists, holding one `oidc-audience-mapper` with `included.custom.audience = queuepass-api` and `access.token.claim = "true"`;
-  - clients `admin-app`, `customer-app`, and `booth-app` each exist exactly once, with `publicClient: true`, `standardFlowEnabled: true`, `directAccessGrantsEnabled: false`, `implicitFlowEnabled: false`, `serviceAccountsEnabled: false`, `attributes['pkce.code.challenge.method'] === 'S256'`, `redirectUris` equal to `['http://localhost:<port>/*']`, `webOrigins` equal to `['http://localhost:<port>']`, and `attributes['post.logout.redirect.uris'] === 'http://localhost:<port>/*'`, where the port is 5173, 5174, or 5175;
+  - clients `admin-app`, `customer-app`, and `booth-app` each exist exactly once, with `publicClient: true`, `standardFlowEnabled: true`, `directAccessGrantsEnabled: false`, `implicitFlowEnabled: false`, `serviceAccountsEnabled: false`, `attributes['pkce.code.challenge.method'] === 'S256'`, `redirectUris` equal to `['http://localhost:<port>/']`, `webOrigins` equal to `['http://localhost:<port>']`, and `attributes['post.logout.redirect.uris'] === 'http://localhost:<port>/'` (exact, no wildcard; amended by #60, research R6), where the port is 5173, 5174, or 5175;
   - each client's default client scopes include `queuepass-api` and `roles`;
   - each client's internal `id` is unchanged between the two runs.
-- [X] T017 [P] [US1] Add a drift-repair test in `scripts/seed/test/seed-idempotence.test.ts`: set `admin-app`'s `directAccessGrantsEnabled` to `true` through the admin client, run `seed()`, and assert it is `false` again (research R6).
+  - each client's `attributes['use.refresh.tokens'] === 'true'`, since renewal relies on the
+    refresh token (research R6, #60).
+
+  Also, in `scripts/seed/test/provision-clients.test.ts` (a unit test, no Keycloak), assert the
+  same exact URIs and refresh-token setting for each client's desired settings, and that no
+  URI contains `*` (amended by #60).
+- [X] T017 [P] [US1] Add a drift-repair test in `scripts/seed/test/seed-idempotence.test.ts`: set `admin-app`'s `directAccessGrantsEnabled` to `true` through the admin client, run `seed()`, and assert it is `false` again (research R6). Likewise set all three clients'
+  redirect and post-logout URIs back to `http://localhost:<port>/*`, run `seed()`, and assert the
+  exact lists are restored (amended by #60).
 
 ### Implementation for User Story 1
 

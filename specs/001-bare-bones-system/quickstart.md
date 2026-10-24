@@ -33,7 +33,9 @@ npm test --workspace @queuepass/seed
 ```
 
 **Expect**: both runs report 235 accounts and 3 clients, with the second run creating nothing.
-The seed test **runs** rather than skips (research R15) and passes.
+The seed test **runs** rather than skips (research R15) and passes. Each front-end client lists
+exactly `http://localhost:<port>/` as its redirect and post-logout redirect URI, with no `*`
+(research R6, #60); `seed-idempotence.test.ts` and `provision-clients.test.ts` assert it.
 
 ## V3: Sign in, hello, and logout in each front end (US2; FR-009–FR-016, SC-003, SC-004)
 
