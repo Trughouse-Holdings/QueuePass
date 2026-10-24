@@ -790,7 +790,9 @@ five minutes, mostly Testcontainers tests that do not depend on the device zone)
   pointing at `localhost` for the database and Keycloak (`OIDC_JWKS_URL` too) and with
   `TZ=America/Los_Angeles`, so nothing can depend on the server's zone matching the venues', and
   starts the three apps with `vite` on ports 5173–5175 (the exact redirect URIs of the OIDC
-  clients), each child with its full environment set explicitly. The image build check (T013) is
+  clients), each child with its full environment set explicitly; `--geocoder-url` points the
+  address service elsewhere, so quickstart S11's offline demo-data run works without a Backend
+  container to disconnect (review round 3, P1). The image build check (T013) is
   then recorded as "to do where images build"; the ICU check runs in a plain `node:22-alpine`
   container when that image is in the local cache (`docker run --rm node:22-alpine node -e …`), as
   it has the same ICU data as the Backend image (review round 2, n2).

@@ -183,9 +183,11 @@ coordinates, the zone finder, and the test helpers every story uses.
   `address.module.ts`. Run T012 until it passes.
   - **Seed image** (R1, review round 1 S3), test first: create `scripts/test/seed-image.test.mjs`
     (`node --test`) that reads `scripts/seed/Dockerfile` and fails unless its `npm ci` line
-    installs only `@queuepass/seed` (plus the workspace root), `packages/shared` is neither
-    copied nor built, and a later `RUN` fails the build when `node_modules/geo-tz` exists; see it
-    fail; then change the Dockerfile to `npm ci --ignore-scripts --workspace @queuepass/seed
+    installs only `@queuepass/seed` (plus the workspace root), `packages/shared`'s sources are
+    neither copied nor built, and a later `RUN` fails the build when `node_modules/geo-tz` exists.
+    It allows (and the Dockerfile keeps) the `COPY <workspace>/package.json` lines for every
+    workspace: `npm ci` needs all the workspace manifests to check the lock file (review round 3,
+    q2). See it fail; then change the Dockerfile to `npm ci --ignore-scripts --workspace @queuepass/seed
     --include-workspace-root` followed by `RUN test ! -e node_modules/geo-tz`, and drop the
     `packages/shared` copy and build (the seed imports nothing from it, R1). Run it until it
     passes.
@@ -516,14 +518,19 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
 - [ ] T058 (added in spec review round 2, N2) **Test first.** Create
   `scripts/test/run-host.test.mjs` (`node --test`): `node scripts/run-host.mjs --print
   --backend-tz America/Los_Angeles` prints, without starting anything, the setup steps in order
-  (shared build, `prisma generate`, `migrate deploy`, seed; demo data only with `--demo-data`) and
-  four children: the Backend with `DATABASE_URL`, `OIDC_ISSUER`, `OIDC_JWKS_URL` (localhost),
+  (shared build, `prisma generate`, `migrate deploy`, seed; demo data only with `--demo-data`),
+  each with its environment: the seed step `KEYCLOAK_URL=http://localhost:8080` and
+  `KEYCLOAK_HEALTH_URL=http://localhost:9000`; the `migrate deploy` and demo-data steps the same
+  `DATABASE_URL` and `ADDRESS_GEOCODER_URL` as the Backend (review round 3, q1). With
+  `--geocoder-url http://127.0.0.1:9`, the Backend and the demo-data step get that
+  `ADDRESS_GEOCODER_URL` instead of the Census default (quickstart S11, path B; review round 3,
+  P1). Then the four children: the Backend with `DATABASE_URL`, `OIDC_ISSUER`, `OIDC_JWKS_URL` (localhost),
   `OIDC_AUDIENCE`, `CORS_ORIGINS`, `ADDRESS_GEOCODER_URL`, and `TZ=America/Los_Angeles`, and each app
   with `VITE_API_BASE_URL`, `VITE_OIDC_AUTHORITY`, and its own `VITE_OIDC_CLIENT_ID` on its own
   port (5173, 5174, 5175); every value matches `docker-compose.yml`'s defaults with `localhost` in
   place of service names. See it fail, then create `scripts/run-host.mjs` (explicit environment per
-  child; output prefixed by name; waits for `/health`; Ctrl+C stops all four) and run it until it
-  passes. Run it for real once in quickstart path B and record the result here.
+  child; output prefixed by name; waits for `/health`; Ctrl+C stops all four; `--demo-data`;
+  `--geocoder-url`) and run it until it passes. Run it for real once in quickstart path B and record the result here.
 - [ ] T046 Run `npm run ci` and `npm run test:tz`; everything passes. Fix before the reviews.
 
 ---

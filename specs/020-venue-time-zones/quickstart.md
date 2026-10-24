@@ -209,10 +209,22 @@ East": the conflict line names "7:00 PM EDT – 10:00 PM EDT".
 
 ## S11: Demo data on a fresh database (R19)
 
-On a separate fresh stack (`docker compose -p qp020gate up --build`), run the demo data script
-online; then remove that stack with its volumes, start it again, disconnect the Backend container
-from the network, and run the script again (a second run on the same database does nothing, by
-design). Remove the stack afterwards. **Expect**: both runs succeed; the concert, comedy night, and gala start at 7:00 PM, 8:00 PM, and 7:00 PM
+Two runs on empty databases (a second run on the same database does nothing, by design), done
+after S1–S10 and S12, because each run starts from an empty database.
+
+- **Path A**: on a separate fresh stack with its own project name, `docker compose -p qp020demo up
+  --build`, run the demo data script online; then `docker compose -p qp020demo down -v`, start it
+  again, disconnect its Backend container from the network, and run the script again. Finally
+  `docker compose -p qp020demo down -v`.
+- **Path B** (in the gate project, after the rest of the walk): stop `run-host.mjs` (Ctrl+C);
+  `docker compose -p qp020gate down -v` and `docker compose -p qp020gate up -d database keycloak`;
+  `node scripts/run-host.mjs --backend-tz America/Los_Angeles --demo-data` (online); stop it; `down
+  -v` and `up -d database keycloak` again; then `node scripts/run-host.mjs --backend-tz
+  America/Los_Angeles --demo-data --geocoder-url http://127.0.0.1:9`, which points the address
+  service at a port where nothing listens, so the demo data runs as with the service unavailable.
+  End with the path B clean-up (`down -v`, restart `main`'s stack).
+
+**Expect**: both runs succeed; the concert, comedy night, and gala start at 7:00 PM, 8:00 PM, and 7:00 PM
 Eastern (EDT or EST by date); online the two venues are Eastern "from the address", offline
 Eastern "the default" (research R19).
 
