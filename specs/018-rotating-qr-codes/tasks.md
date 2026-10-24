@@ -118,8 +118,10 @@ and confirm they **fail** before the implementation tasks below them.
   - an `UPDATE` setting `"entrySecret"` to 31 or 33 bytes is refused by
     `ticket_entry_secret_32_bytes`;
   - the default query leaves it out: `ctx.prisma.ticket.findFirst()` returns an object with no
-    `entrySecret` key, and so does `ctx.prisma.order.findFirst({ include: { tickets: true } })`'s
-    tickets; `ctx.prisma.ticket.findFirst({ select: { entrySecret: true } })` returns 32 bytes;
+    `entrySecret` key, nor do `ctx.prisma.order.findFirst({ include: { tickets: true } })`'s
+    tickets, nor the ticket from `ctx.prisma.$transaction((tx) => tx.ticket.findFirst())` (inside
+    a transaction the omit holds at runtime, though not in `tx`'s types, T007);
+    `ctx.prisma.ticket.findFirst({ select: { entrySecret: true } })` returns 32 bytes;
   - the omit is in the types too: reading `.entrySecret` on the result of a default
     `ctx.prisma.ticket.findFirst()` carries a `// @ts-expect-error`, so the file stops compiling
     if T007's typing is ever lost.
@@ -140,11 +142,15 @@ and confirm they **fail** before the implementation tasks below them.
     constructor() { super({ omit: OMIT }); }
   ```
   A bare `extends PrismaClient` with `super({ omit })` drops the field at runtime, but its types
-  still say `entrySecret` is there. The typed form fixes that, and `$transaction`'s `tx` still
-  fits `Prisma.TransactionClient`, but a `PrismaService` no longer fits a `PrismaClient` or
-  `Prisma.TransactionClient` parameter, and a query result no longer fits Prisma's model type
-  `Ticket`, which still lists every column. A trial on 2026-10-23 (the typed omit on another
-  column, then `tsc`) found these, so retype them:
+  still say `entrySecret` is there. The typed form fixes that for queries on `this.prisma`, but not
+  inside a transaction: `$transaction`'s `tx` still fits `Prisma.TransactionClient` because its
+  types keep the field, so in `$transaction(async (tx) => …)` the result of
+  `tx.ticket.findFirst()` is typed with `entrySecret` while at runtime it has none (a
+  `@ts-expect-error` there is reported unused). Never read `entrySecret` from a default query,
+  through `tx` or not: a `select` naming it is the only way to read it. Also, a `PrismaService` no
+  longer fits a `PrismaClient` or `Prisma.TransactionClient` parameter, and a query result no
+  longer fits Prisma's model type `Ticket`, which still lists every column. A trial on 2026-10-23
+  (the typed omit on another column, then `tsc`) found these, so retype them:
   - `resetDb` (`backend/test/setup/reset-db.ts`) and `holdSeats` and `endHold`
     (`backend/test/setup/fixtures.ts`): `PrismaClient` → `PrismaService` (every suite passes
     `ctx.prisma` to them);
