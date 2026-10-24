@@ -291,7 +291,7 @@ stale, or zero-line summary fails it.
     missing`; undone. One earlier full run had a customer-app test fail once
     (`my-tickets.test.tsx`, "lists the customer's orders…": `findByRole('heading', { name: 'My
     tickets' })` not found within Testing Library's default 1 s); it passed in the next two
-    workspace runs and the next two full runs. Not changed (no test is weakened); see T022.
+    workspace runs and the next four full runs (T018, T022). Not changed (no test is weakened).
 
 **Checkpoint**: `npm run ci` runs every step locally.
 
@@ -327,17 +327,46 @@ turned on right after merge (T033).
   `npm run lint`.
   - **Result**: every file changed since `e73f5dd` outside `specs/` was already formatted;
     `npm run format:check` and `npm run lint` pass.
-- [ ] T022 On a clean working tree with Docker running and the Compose stack down, run `npm ci` and
+- [x] T022 On a clean working tree with Docker running and the Compose stack down, run `npm ci` and
   `npm run ci`: everything passes and the coverage table prints. Record the duration of
   `npm run ci` and of `npm test` alone here, and compare `npm test` with T001's baseline (the cost
   of measuring coverage); state both in the PR description.
-- [ ] T023 Quickstart Q1's failing cases, one at a time, undoing each: an unformatted line stops at
+  - **Result** (2026-10-24, `5b34f1c`, the fresh clone from T001 fast-forwarded, so a clean
+    tree; the main checkout was left alone because `npm ci` there would delete the
+    `node_modules` the host's Vite servers run from; Compose stack stopped with
+    `docker compose stop`, then its four running services started again): `npm ci` passed;
+    `npm run ci` passed in **289 s** (4 min 49 s): Prisma generated, Prettier clean, ESLint clean,
+    every workspace built, `npm test` (18 `node --test` tests, boundary, drift, all six
+    workspaces), and the table: packages/shared 92.30%, backend 97.02%, admin-app 96.88%,
+    customer-app 97.20%, booth-app 92.33%, scripts/seed **24.01%** (61 / 254, below 80%, the
+    Keycloak tests skipped). `npm test` alone: **233 s**, against T001's 247 s. The baseline
+    ran the seed's Keycloak tests (stack up, about 19 s); without the seed, the runners'
+    own durations were 181.1 s before and 182.6 s after, so measuring coverage costs about 1 to
+    2 s on this laptop, within run-to-run noise.
+- [x] T023 Quickstart Q1's failing cases, one at a time, undoing each: an unformatted line stops at
   **Check formatting**; an unused variable stops at **Lint**; a type error in `booth-app/src`
   stops at **Build**; each names the file (SC-002's lint and type-error halves).
-- [ ] T024 Confirm FR-018: compare the test counts per workspace with T001's baseline; they are
+  - **Result** (in the fresh clone, each undone with `git checkout`): a trailing-spaces line in
+    `booth-app/src/format.ts` stopped `npm run ci` at `prettier --check .` with
+    `[warn] booth-app/src/format.ts`, exit 1; `const unused = 1;` inside `seatLabel` stopped it
+    at `eslint .` with `booth-app/src/format.ts 7:9 error 'unused' is assigned a value but never
+    used … @typescript-eslint/no-unused-vars`, exit 1; `const n: number = 'x';` (used) stopped
+    it at the build with `src/format.ts(7,9): error TS2322: Type 'string' is not assignable to
+    type 'number'.` in `@queuepass/booth-app`, exit 2 (npm's `--workspaces` still built the
+    seed after it before failing; nothing after `build` ran). Each case was formatted and
+    lint-clean apart from its own fault, so it reached the intended step.
+- [x] T024 Confirm FR-018: compare the test counts per workspace with T001's baseline; they are
   equal, apart from the seed's four Keycloak tests now counted as skipped when the stack is down.
-- [ ] T025 Confirm no secrets and least privilege by reading the final `ci.yml` once against R15
+  - **Result**: T022's `npm test` (stack down) against T001 (stack up): shared 468 = 468,
+    backend 740 = 740 (84 suites), admin-app 200 = 200, customer-app 200 = 200, booth-app
+    67 = 67, seed 8 = 8 with `4 passed | 4 skipped` instead of `8 passed`. Every existing test
+    passes; the 18 `node --test` tests are new.
+- [x] T025 Confirm no secrets and least privilege by reading the final `ci.yml` once against R15
   (T005 asserts the rest).
+  - **Result**: `permissions: contents: read` at the top and nowhere else; no `secrets.`,
+    `github.token`, `env:`, environment, or `.env`; checkout does not persist credentials; only
+    `actions/checkout@v7` and `actions/setup-node@v7`; no step pushes, publishes, or deploys
+    (FR-012, FR-016).
 - [ ] T026 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md, plan.md, and research.md. Fix the findings. One review is required; another
   round is optional. Record the review and any finding left open, with the reason, here and in the
@@ -350,6 +379,19 @@ turned on right after merge (T033).
 - [ ] T028 Quickstart **Q6**: `docker compose up --build`, every service healthy, seed succeeds on
   the first run; sign in to, use, and sign out of each front end; with the stack up, the seed's
   Keycloak tests run and pass. Record the results here.
+  - **Blocked** (2026-10-24, not done): on this laptop Docker cannot rebuild images, because
+    containers cannot reach package servers. One `docker compose build` failed after 3 s at the
+    backend image's `apk add --no-cache openssl`: `WARNING: fetching
+    https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz: TLS: server
+    certificate not trusted` (and the same for `community`), then `ERROR: unable to select
+    packages`. The host reaches the npm registry. What was checked instead: the stack already
+    running (built before this branch) was stopped and started again for T022, every service
+    healthy and the seed exiting 0; with it up, the seed's four Keycloak tests ran and passed
+    (T009, T018). The images' inputs that `011` changes are the lock file (one new
+    devDependency, which every image's `npm ci` now installs), the workspaces' `package.json`
+    scripts, and the `vitest.config.ts` files; on the host, `npm ci` on that lock file and
+    every workspace's `npm run build` pass (T022). To do on a machine whose containers reach
+    the package servers.
 - [ ] T029 With the user's go-ahead: push `011-ci-test-runs-impl` and the throwaway branch
   `011-ci-throwaway` cut from it, open the one throwaway pull request (Ground rules: draft, the
   throwaway title and body, no reviewers, linked from #23 in a comment), and walk quickstart **Q3**:
