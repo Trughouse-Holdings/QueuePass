@@ -163,13 +163,19 @@ request goes red with a failing test.
 
 ### The backend's `pretest` generates Prisma (FR-019, R5)
 
-- [ ] T010 [US1] Test first: add a test to `scripts/test/ci-workflow.test.mjs` that reads
+- [x] T010 [US1] Test first: add a test to `scripts/test/ci-workflow.test.mjs` that reads
   `backend/package.json` and asserts `scripts.pretest` contains `prisma generate`. Run `npm test`:
   **fails**.
-- [ ] T011 [US1] Change the backend's `pretest` to
+  - **Result**: fails (`The input did not match the regular expression /prisma generate/`, input
+    `npm run build --workspace @queuepass/shared`); the other 7 pass.
+- [x] T011 [US1] Change the backend's `pretest` to
   `npm run build --workspace @queuepass/shared && prisma generate`. Run `npm test`: T010 passes.
   In a fresh clone with Docker running, `npm ci` then `npm test` passes with **no** manual generate
   (FR-019). Record it here.
+  - **Result**: 8 of 8 `node --test` tests pass. In the fresh clone (T001's, fast-forwarded to
+    `c5ec7d0`): `npm ci` passed with the T003 lock file and left the placeholder client;
+    `npm test` passed in 248 s with no manual generate (the backend's `pretest` printed
+    `Generated Prisma Client (v6.19.3)`), with T001's counts (stack up, seed 8 run).
 
 **Checkpoint**: the workflow exists and its shape is tested; `coverage:report` does not exist yet,
 so the workflow's last step would fail until Phase 5.
