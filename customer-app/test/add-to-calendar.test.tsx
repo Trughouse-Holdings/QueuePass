@@ -271,6 +271,8 @@ describe('saving the file (FR-008 to FR-010; research R12)', () => {
     const text = await blobs[0].text();
     const stamp = /DTSTAMP:\d{8}T\d{6}Z\r\n/;
     expect(text).toMatch(stamp);
+    // ...and it is the click time: NOW (15:30:00Z) plus at most a few seconds of real time.
+    expect(text).toMatch(/DTSTAMP:20261024T1530[0-5]\dZ\r\n/);
     expect(text.replace(stamp, 'DTSTAMP:*')).toBe(
       expectedText(upcoming).replace(stamp, 'DTSTAMP:*'),
     );

@@ -313,10 +313,18 @@ US3's tests are here because the same component decides both.
 
 ## Phase 6: Independent review (at least two rounds)
 
-- [ ] T021 Review round 1 (Constitution III; ground rule 1): a separate Claude session that did not
+- [x] T021 Review round 1 (Constitution III; ground rule 1): a separate Claude session that did not
   write the code reviews the branch against spec.md, plan.md, research.md, and this file, given the
   code, not the author's conclusions. Fix the findings. Record the round, its findings, and what was
   fixed here and in the PR description.
+  - 2026-10-24, at `4c002e7`: 0 must, 0 should, 3 minor. Every check passed; nine deliberate
+    mutations (fold at 76, `<=` for the end, eligibility per render, immediate revoke, backslash
+    escaped last, local hours, no valid-ticket rule, UTF-16 length, venue name as address) each
+    failed tests. Minors fixed in `3be5e8a`: an unset `TZ` is restored by deleting it; the download
+    test checks `DTSTAMP` by shape so a one-second tick can't fail it; README line rewrapped. A
+    re-check by the same reviewer (not counted as round 2) found the shape check no longer tied
+    `DTSTAMP` to the click time (stamping `new Date(0)` passed); the test now also requires
+    `DTSTAMP:20261024T1530[0-5]\dZ`, and the same mutation fails 3 tests.
 - [ ] T022 Review round 2 (Mahdi, 2026-10-24): another separate Claude session, not the one from
   round 1, reviews the branch after round 1's fixes. Fix the findings. If this round finds anything
   above LOW, run further rounds (T022a, T022b, …) until one finds only LOW issues. Record every
