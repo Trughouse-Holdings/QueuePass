@@ -28,7 +28,8 @@
   renewal fails for lack of network or the token simply expires, only when Keycloak refuses the
   renewal; otherwise the 5-minute access token would redirect away from the live code within
   minutes. It keeps the user in memory and retries the renewal quietly (`signinSilent`, no page
-  change) when the browser is back online and every 30 seconds; a `401` still signs in again. All
+  change) at once, then when the browser is back online and every 30 seconds; a `401` still signs
+  in again. All
   three apps share the provider (R12).
 - **Ticket Booth app**: recognizes a live code when scanned; a verified one shows "No ID check
   needed" with **Admit** and **Admit all**; expired and invalid codes are refused with their reason

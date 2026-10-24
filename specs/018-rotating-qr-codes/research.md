@@ -67,8 +67,8 @@ and dashes removed, spec 017 FR-008) unchanged, because it has no lower case, sp
 (`WINDOW_MS = 30_000`, `GRACE_MS = 5_000`), `windowAt(ms)`, `liveCode(secret, ticketId, window)`,
 `parseLiveCode(text)`, and `windowStatus(window, nowMs)` (R3). `liveCode` uses the Web Crypto API
 (`globalThis.crypto.subtle`), which Node.js 22 and every current browser provide, so the Customer
-app makes codes with exactly the function the Backend checks them with. The Backend compares MACs
-with `crypto.timingSafeEqual`.
+app makes codes with exactly the function the Backend checks them with. The Backend compares the
+whole remade code with the one presented using `crypto.timingSafeEqual` (R4).
 
 **Alternatives considered**: standard TOTP digits (6 to 8 digits is 20 to 27 bits, far weaker than a
 ticket code, so FR-007 fails); a signed token (JWT) per window from the Backend (needs a connection
@@ -115,11 +115,12 @@ starts with `QP1:`, the Backend takes the live-code path, in this order:
 
 1. **Parse** (R2). Anything malformed is `404 LIVE_CODE_INVALID`.
 2. **Load the ticket's secret** by its id (`select: { entrySecret: true, … }`, R1). No such ticket is
-   `404 LIVE_CODE_INVALID`: the same answer as a forged MAC. The one difference is time: an unknown
-   ticket skips one HMAC, a few microseconds, which at most could tell a signed-in gate agent
-   whether a random UUID is a ticket. That helps make no code (the MAC still needs the secret), and
-   gate agents already see tickets, so it is accepted.
-3. **Check the MAC** for the window the code names, in constant time. A mismatch is
+   `404 LIVE_CODE_INVALID`: the same answer as a forged MAC, and in the same time. The code is still
+   remade and compared as in step 3, with a fixed stand-in secret of 32 zero bytes, and then refused
+   whatever the comparison says, so how long the answer takes doesn't tell a ticket's id from a
+   guess.
+3. **Check the MAC** for the window the code names: remake the whole code with the ticket's secret
+   and compare it with the code presented (trimmed and upper-cased) in constant time. A mismatch is
    `404 LIVE_CODE_INVALID`.
 4. **Check the window** (R3). Outside it is `409 LIVE_CODE_EXPIRED`, with no ticket details (FR-011,
    clarified 2026-10-23).
@@ -236,10 +237,15 @@ pixels.
 
 **States**: while the key loads, "Getting your entry code…"; no connection on load, "Can't show the
 live code without a connection. Use your printed ticket with photo ID.", whether it is
-`listMyOrders` or the key request that gets no answer (a reload with no signal fails at the first);
-a `409` (used or void),
-that reason and no code; any other failure, the standard error state with a **Try again** button
-(Constitution IV).
+`listMyOrders` or the key request that gets no answer, with a **Try again** button that retries
+both requests, so a customer whose signal comes back in the queue needn't leave the page; a `409`
+(used or void), that reason and no code; any other failure, the standard error state with a **Try
+again** button (Constitution IV).
+
+The no-connection message is what the page shows when it is opened from **My tickets** after the
+signal has gone. A reload with no signal never reaches it: tokens are held in memory only, so a
+reload signs in through Keycloak first, and with no signal that sign-in fails before the app can
+show anything (quickstart S6, which therefore reloads with only the Backend stopped).
 
 **Alternatives considered**: drawing codes on a `<canvas>` (an SVG path scales without blur and
 is what `017` already tests); announcing each new code (30 announcements in 15 minutes, all useless
@@ -316,12 +322,12 @@ Tests precede code in `tasks.md` (Constitution VI).
   device clock 5 minutes off and `serverTime` correct, every code drawn passes the shared
   `windowStatus` against server time (SC-006); after loading, with every request failing, 10 minutes
   of windows still produce new, correct codes (SC-006, FR-010); no `localStorage` or
-  `sessionStorage` write; the load, offline, `409`, and error states; the QR's accessible name; the
-  QR matrix decodes to the live code.
+  `sessionStorage` write; the load, offline, `409`, and error states, with **Try again** on the
+  offline and error states; the QR's accessible name; the QR matrix decodes to the live code.
 - **Shared web (Vitest)**: the `AuthProvider` with the fake user manager: a renewal that fails for
   lack of network keeps the user and doesn't redirect, nor does the token expiring with no error
-  before it; the renewal is retried quietly every 30 seconds and on going back online; a `401`
-  still signs in again; Keycloak's `ErrorResponse` still ends the session (R12).
+  before it; the renewal is retried quietly at once, then every 30 seconds and on going back
+  online; a `401` still signs in again; Keycloak's `ErrorResponse` still ends the session (R12).
   In the Customer app, the live-code page stays mounted through the same events.
 - **Ticket Booth app**: `normalizeScan` for live codes; the verified result with no ID prompt and
   with **Admit all**; the expired and invalid messages with no **Admit**; printed and typed lookups
@@ -354,13 +360,19 @@ So expiry alone can't be read as "renewal impossible". The provider (tasks T024)
 - `silentRenewError` with an `ErrorResponse`: as today, remove the user and sign in again.
 - `silentRenewError` with anything else, and every `accessTokenExpired`: keep the current user in
   memory and remember that renewal failed.
-- While renewal has failed (and not while logging out), retry it quietly with
-  `UserManager.signinSilent()`, the refresh-token grant, which navigates nothing: when the browser
-  goes back `online` and every 30 seconds. Success raises `userLoaded`, which applies the new user
-  and stops the retries; an `ErrorResponse` removes the user and signs in again; anything else
-  waits for the next try. A full-page sign-in on `online` was rejected: a flickering signal at the
-  gate would navigate away mid-scan, or land on the browser's offline page, and lose the key.
-  A try is skipped while the provider's own `signinSilent` is still in flight.
+- While renewal has failed (and not while logging out, nor with no user in memory), retry it
+  quietly with `UserManager.signinSilent()`, the refresh-token grant, which navigates nothing: one
+  try at once when the failure is first recorded (a `silentRenewError` that isn't an
+  `ErrorResponse`, an `accessTokenExpired`, or an expired user on `pageshow`), then one each time
+  the browser goes back `online` and one every 30 seconds. Success raises `userLoaded`, which
+  applies the new user and stops the retries; an `ErrorResponse` removes the user and signs in
+  again; anything else waits for the next try. The first try doesn't wait: a device that wakes
+  after its token has expired, often with its signal back, would otherwise wait up to 30 seconds
+  for a quiet renewal, and the page's next API call would usually get a `401` first and sign in
+  with a full-page redirect. A full-page sign-in on `online` was rejected: a flickering signal at
+  the gate would navigate away mid-scan, or land on the browser's offline page, and lose the key.
+  A try is skipped while the provider's own `signinSilent` is still in flight, so only one runs at
+  a time.
 - A page restored from the back-forward cache with an expired user is treated like
   `accessTokenExpired`; with no user (after logout) it still signs in (SC-007).
 - An API call that returns `401` still leads to `signIn()`, as every app already does
@@ -414,10 +426,10 @@ app's `SeatingCard`) retry a `401` every 5 seconds and never call `signIn()`; th
 the same retry, as soon as the token is renewed.
 
 **Tests**: the shared provider's tests with the fake user manager and fake timers (tasks T016): a
-`TypeError` renewal error and `accessTokenExpired` alone each keep the user; the retry runs every 30
-seconds and on `online`, stops on `userLoaded`, keeps the user on a `TypeError`, and ends the
-session on an `ErrorResponse`; nothing runs while logging out, and a renewal that lands during
-logout is dropped; the `pageshow` cases. In the Customer app (T017), the live-code page stays
+`TypeError` renewal error and `accessTokenExpired` alone each keep the user; the retry runs at once,
+then every 30 seconds and on `online`, stops on `userLoaded`, keeps the user on a `TypeError`, and
+ends the session on an `ErrorResponse`; nothing runs while logging out, and a renewal that lands
+during logout is dropped; the `pageshow` cases. In the Customer app (T017), the live-code page stays
 mounted for 10 minutes through `accessTokenExpired` alone and through the `TypeError` sequence, with
 `signinSilent` failing throughout and `signinRedirect` never called. The quickstart (S6) stops
 Keycloak as well as the Backend for 10 minutes, which outlasts one access token, and throttles the
