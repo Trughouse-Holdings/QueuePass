@@ -250,13 +250,17 @@ stale, or zero-line summary fails it.
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Create `scripts/coverage-report.mjs` per R11: the exported functions above, and a
+- [x] T015 [US3] Create `scripts/coverage-report.mjs` per R11: the exported functions above, and a
   `main` that runs only when the file is executed directly (compare `import.meta.url` with
   `process.argv[1]` via `pathToFileURL`). With `--clean`, `main` calls `cleanCoverage` and exits
   0; otherwise it calls `run` with the repository root and `process.env.GITHUB_STEP_SUMMARY` and
   exits with its code. Add the root script `"coverage:report": "node scripts/coverage-report.mjs"`,
   and put `node scripts/coverage-report.mjs --clean && ` at the very start of the root `test` script,
   before `node --test` (R11, R13). Run `npm test`: T014 passes.
+  - **Result**: 18 of 18 `node --test` tests pass (11 workflow, 7 report). Run by hand on this
+    laptop before any workspace measured coverage, the report listed the backend at 96.35% from a
+    stale `backend/coverage/coverage-summary.json` of an earlier run and the other five as not
+    measured, and exited 1; `--clean` then removed it (R11's stale-file case).
 - [ ] T016 [US3] Backend (R10): `backend/package.json` `test` becomes `jest --runInBand --coverage`;
   `backend/jest.config.ts` gains `coverageReporters: ['text-summary', 'json-summary']`, with a
   comment citing spec 011 R10. Keep `collectCoverageFrom` and `coverageDirectory`.

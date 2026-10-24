@@ -16,12 +16,13 @@
   ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
-    "test": "node --test \"scripts/test/*.test.mjs\" && node scripts/check-boundary.mjs && node scripts/check-contract-drift.mjs && npm run test --workspace @queuepass/shared && npm run test --workspace @queuepass/backend && npm run test --workspace @queuepass/admin-app && npm run test --workspace @queuepass/customer-app && npm run test --workspace @queuepass/booth-app && npm run test --workspace @queuepass/seed",
+    "test": "node scripts/coverage-report.mjs --clean && node --test \"scripts/test/*.test.mjs\" && node scripts/check-boundary.mjs && node scripts/check-contract-drift.mjs && npm run test --workspace @queuepass/shared && npm run test --workspace @queuepass/backend && npm run test --workspace @queuepass/admin-app && npm run test --workspace @queuepass/customer-app && npm run test --workspace @queuepass/booth-app && npm run test --workspace @queuepass/seed",
     "seed": "npm run seed --workspace scripts/seed",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "ci": "npm run prisma:generate --workspace @queuepass/backend && npm run format:check && npm run lint && npm run build && npm test && npm run coverage:report",
+    "coverage:report": "node scripts/coverage-report.mjs",
     "generate:api": "openapi-typescript contracts/openapi.yaml -o packages/shared/src/api-schema.ts"
   },
   "devDependencies": {
