@@ -30,6 +30,16 @@ earlier. The "exactly one entry" rule from #40 still holds. The printed QR code 
   open. Once **My tickets** has loaded a ticket online, its live code keeps changing with no
   signal for as long as the Customer app stays open. After the app is closed or reloaded, showing
   a live code needs a connection again.
+- Q: When a valid live code is scanned, is the holder admitted at once, or does the agent still
+  press **Admit**? → A: The agent still presses **Admit**. The scan shows the ticket with no
+  ID-check prompt, so the agent stays in control, for example to admit only part of a group.
+- Q: Can one verified live code admit all of its order's unused tickets with **Admit all**? → A:
+  Yes, as one ID check does in `017`: the buyer's app holds every ticket of the order.
+- Q: When can a customer show a ticket's live code? → A: At any time while the ticket is valid and
+  unused. The gate still enforces `017`'s entry window.
+- Q: When an expired live code is scanned, what does the agent see about its ticket? → A: Only that
+  the code has expired and what to ask for instead (a new live code, or a printed ticket with ID),
+  nothing about the ticket itself.
 
 ## Context
 
@@ -242,7 +252,8 @@ succeeds.
     verified live code and no ID check is needed, and with **Admit** (and **Admit all** where `017`
     offers it), without the ID-check prompt.
   - An expired live code MUST be refused as expired, with what to ask the holder for (a new live
-    code, or a printed ticket with ID), and shows nothing else about the ticket.
+    code, or a printed ticket with ID), and MUST show nothing about the ticket itself (no event,
+    name, or seat).
   - A code in the live-code form that QueuePass did not make MUST be refused as not a valid
     QueuePass code.
   - Every refusal reason from `017` FR-011 (cancelled and refunded, already used, for another event,
@@ -305,12 +316,12 @@ succeeds.
 - **No ID check for a live code** (from the issue): a live code proves the person holds the buyer's
   signed-in Customer app at the gate, close enough to the buyer for this proof of concept. The
   holder's name is still shown to the agent.
-- **The agent still presses Admit**: a valid live code shows the ticket with **Admit**, rather than
+- **The agent still presses Admit** (decided 2026-10-23): a valid live code shows the ticket with **Admit**, rather than
   admitting on scan, so the agent stays in control (for example, to admit only part of a group, or
   to stop someone who is clearly not the holder). This costs one tap and keeps `017`'s flow.
-- **Admit all with a live code** (US1 scenario 5): the buyer's app holds every ticket of the order,
+- **Admit all with a live code** (US1 scenario 5, decided 2026-10-23): the buyer's app holds every ticket of the order,
   so one verified live code can admit the order's unused tickets, as one ID check does in `017`.
-- **When the live code can be shown** (issue question 3): at any time while the ticket is valid and
+- **When the live code can be shown** (issue question 3, decided 2026-10-23): at any time while the ticket is valid and
   unused (FR-005). A code shown early is harmless because it expires within seconds, and the gate
   still enforces `017`'s entry window.
 - **Printed and live codes both always work** (issue question 4): the issue requires the printed

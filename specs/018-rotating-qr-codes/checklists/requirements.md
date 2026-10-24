@@ -34,6 +34,6 @@
 - Both [NEEDS CLARIFICATION] markers resolved by the user on 2026-10-23 (recorded under
   Clarifications): FR-008 grace of 5 seconds on each side (issue question 1); FR-010 live code keeps
   working with no signal while the app stays open (issue question 2). Issue questions 3–5 are
-  answered as recorded defaults in Assumptions.
+  answered as recorded defaults in Assumptions, confirmed by /speckit-clarify (2026-10-23).
 - "QR code", "Backend", and "Ticket Booth app" are the project's own names for its parts
   (Constitution), not technology choices.
