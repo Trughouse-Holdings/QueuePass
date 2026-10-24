@@ -121,7 +121,8 @@ not this event".
 At Demo Riverside Hall, new event, start **Mar 14, 2027, 2:30 AM**, end 4:00 AM. **Expect**: the
 form says "2:30 AM on Mar 14, 2027 doesn't exist in Eastern Time: clocks jump from 2:00 AM to 3:00
 AM. Choose another time." and nothing is sent (DevTools Network shows no `POST /events`); every
-value kept. At Phoenix Test Hall, the same times save normally (Arizona has no daylight saving).
+value kept. At Phoenix Test Hall, the same times save normally (Arizona has no daylight saving);
+delete that event afterwards (S9 needs the night free).
 
 Straight to the API (Admin window console, with the app's token as in `013`'s quickstart, or
 `curl` with a token): `POST /events` with `"startsAt":"2027-03-14T02:30:00-05:00"` at Demo Riverside
@@ -156,19 +157,21 @@ exists in Arizona). Change the venue to Mountain Time. **Expect**: refused, "Lat
 ## S10: Reports, attendees, and conflicts (FR-022)
 
 **Reports**: each event's date is its venue's local date; "as of" shows the browser's own zone
-abbreviation (PDT under America/Los_Angeles, UTC under UTC). **Attendees** of "TZ Check East" after
-admitting the ticket in the Booth: "checked in" time in EDT. Schedule an event overlapping "TZ Check
+abbreviation (PDT under America/Los_Angeles, UTC under UTC). **Attendees** of "Demo Tonight" (its
+entry window is open) after admitting one of its demo tickets in the Booth: the "checked in" time is
+in Eastern time with "EDT" or "EST", and the Booth's "Already used at" for the same ticket matches. Schedule an event overlapping "TZ Check
 East": the conflict line names "7:00 PM EDT – 10:00 PM EDT".
 
 ## S11: Demo data on a fresh database (R19)
 
-On a separate fresh stack (`docker compose -p qp020gate up --build`, removed afterwards), run the
-demo data script online and then offline (Backend container's network disconnected). **Expect**:
-both runs succeed; the concert, comedy night, and gala start at 7:00 PM, 8:00 PM, and 7:00 PM
+On a separate fresh stack (`docker compose -p qp020gate up --build`), run the demo data script
+online; then remove that stack with its volumes, start it again, disconnect the Backend container
+from the network, and run the script again (a second run on the same database does nothing, by
+design). Remove the stack afterwards. **Expect**: both runs succeed; the concert, comedy night, and gala start at 7:00 PM, 8:00 PM, and 7:00 PM
 Eastern (EDT or EST by date); online the two venues are Eastern "from the address", offline
 Eastern "the default" (research R19).
 
 ## S12: Sign in, use, sign out (Constitution VI)
 
 Sign in to, use, and sign out of each of the three apps. Record the results of S1–S12, with both
-browser zones, in tasks.md (T050).
+browser zones, in tasks.md (T052, T053).
