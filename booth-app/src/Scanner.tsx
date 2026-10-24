@@ -77,12 +77,17 @@ export function Scanner({
   return (
     <section className="scanner" aria-label="Scan a ticket">
       {error ? (
-        <p className="banner banner--error">{error}</p>
+        <p role="alert" className="banner banner--error">
+          {error}
+        </p>
       ) : (
         <>
           <video ref={videoRef} className="scanner__video" playsInline muted />
           <p>Point the camera at the ticket&apos;s QR code.</p>
-          {rejected !== null && <p className="banner banner--error">Not a QueuePass ticket</p>}
+          {/* Rendered from the start, so screen readers announce the message when it appears. */}
+          <div role="status">
+            {rejected !== null && <p className="banner banner--error">Not a QueuePass ticket</p>}
+          </div>
         </>
       )}
       <button type="button" className="btn" onClick={onStop}>

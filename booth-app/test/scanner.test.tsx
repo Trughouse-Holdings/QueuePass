@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { App } from '../src/App';
 import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-user-manager';
@@ -79,6 +79,9 @@ function stubApi(extra: Record<string, Response> = {}) {
   return { calls };
 }
 
+/** The camera panel; EntryResult has a role="status" too, so queries stay inside this. */
+const scanRegion = () => screen.findByRole('region', { name: 'Scan a ticket' });
+
 async function openScanner(user: ReturnType<typeof userEvent.setup>) {
   render(
     <App userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))} />,
@@ -119,11 +122,21 @@ describe('Scanning (US5-3 to US5-6)', () => {
     const user = userEvent.setup();
     await openScanner(user);
 
-    expect(await screen.findByText('Not a QueuePass ticket')).toBeInTheDocument();
+    const scanner = await scanRegion();
+    expect(await within(scanner).findByRole('status')).toHaveTextContent('Not a QueuePass ticket');
     expect(screen.getAllByText('Not a QueuePass ticket')).toHaveLength(1);
     // The camera keeps running: no code was read yet.
     expect(stopTracks).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Stop scanning' })).toBeInTheDocument();
+  });
+
+  it('has its status region from the start, so "Not a QueuePass ticket" is announced when it appears', async () => {
+    stubApi();
+    const user = userEvent.setup();
+    await openScanner(user);
+
+    const scanner = await scanRegion();
+    expect(within(scanner).getByRole('status')).toHaveTextContent('');
   });
 
   it('camera access refused: a plain message, and the typed code still works', async () => {
@@ -132,9 +145,10 @@ describe('Scanning (US5-3 to US5-6)', () => {
     const user = userEvent.setup();
     await openScanner(user);
 
-    expect(
-      await screen.findByText('Camera access was refused. Type the code instead.'),
-    ).toBeInTheDocument();
+    // An alert, so a screen reader announces it.
+    expect(await within(await scanRegion()).findByRole('alert')).toHaveTextContent(
+      'Camera access was refused. Type the code instead.',
+    );
 
     await user.type(screen.getByLabelText('Ticket code'), CODE);
     await user.click(screen.getByRole('button', { name: 'Look up' }));
@@ -150,10 +164,21 @@ describe('Scanning (US5-3 to US5-6)', () => {
     const user = userEvent.setup();
     await openScanner(user);
 
-    expect(
-      await screen.findByText('This device has no camera. Type the code instead.'),
-    ).toBeInTheDocument();
+    expect(await within(await scanRegion()).findByRole('alert')).toHaveTextContent(
+      'This device has no camera. Type the code instead.',
+    );
     expect(screen.getByLabelText('Ticket code')).toBeInTheDocument();
+  });
+
+  it("a camera that exists but can't be opened (busy in another app) says so, not \"no camera\"", async () => {
+    stubApi();
+    openCamera.mockRejectedValue(new DOMException('Could not start video source', 'NotReadableError'));
+    const user = userEvent.setup();
+    await openScanner(user);
+
+    expect(await within(await scanRegion()).findByRole('alert')).toHaveTextContent(
+      "The camera can't be opened. Type the code instead.",
+    );
   });
 
   it('Stop scanning stops every track, and so does unmounting', async () => {

@@ -33,7 +33,10 @@ export async function openCamera(): Promise<OpenCamera> {
   } catch (err) {
     const name = err instanceof DOMException ? err.name : '';
     if (name === 'NotAllowedError' || name === 'SecurityError') throw new CameraRefusedError();
-    throw new NoCameraError();
+    if (name === 'NotFoundError' || name === 'OverconstrainedError') throw new NoCameraError();
+    // Anything else (a webcam busy in another app, a hardware fault): the camera exists but
+    // can't be opened, and the Scanner says so.
+    throw err;
   }
   return { stream, stop: () => stream.getTracks().forEach((t) => t.stop()) };
 }
