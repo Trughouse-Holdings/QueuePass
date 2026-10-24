@@ -517,8 +517,11 @@ gallery shows the last image viewed.
     for every 2 wide (a panorama), so the controls still fit;
   - on the event page, the box is at most 70% of the window's height and at least 200 pixels tall.
 
-  Until the shown picture has loaded, the box keeps its earlier size (4:3 on a card; between 200
-  and 480 pixels tall on the event page). When the picture changes, the box's height MUST change
+  Until the gallery's first picture has loaded, the box has a starting size (4:3 on a card;
+  between 200 and 480 pixels tall on the event page); a picture that failed to load, with no
+  earlier shape, keeps that size. After a change, the box keeps the previous picture's shape until
+  the new picture's shape is known, then moves to it in one change, never back to the starting
+  size in between. When the picture changes, the box's height MUST change
   smoothly with FR-040's slide, over the same 0.4 seconds; under reduced motion it changes at once.
   The Admin form's previews follow the card's rule at the preview's width.
 
