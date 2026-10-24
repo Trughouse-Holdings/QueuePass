@@ -21,6 +21,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "ci": "npm run prisma:generate --workspace @queuepass/backend && npm run format:check && npm run lint && npm run build && npm test && npm run coverage:report",
     "generate:api": "openapi-typescript contracts/openapi.yaml -o packages/shared/src/api-schema.ts"
   },
   "devDependencies": {

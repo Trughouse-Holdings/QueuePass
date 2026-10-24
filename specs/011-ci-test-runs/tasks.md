@@ -200,8 +200,11 @@ unformatted file (quickstart Q1).
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Add the root script `"ci"` exactly as in research R12. Run `npm test`: T012
+- [x] T013 [US2] Add the root script `"ci"` exactly as in research R12. Run `npm test`: T012
   passes. Reorder two parts of `ci` temporarily and confirm T012 fails naming the difference; undo.
+  - **Result**: 9 of 9 pass. With `lint` and `format:check` swapped, T012 failed with a
+    deep-equal diff showing `npm run format:check` and `npm run lint` in each other's places;
+    undone, 9 of 9 pass.
 
 **Checkpoint**: `npm run ci` runs every step up to `coverage:report`, which Phase 5 adds.
 
