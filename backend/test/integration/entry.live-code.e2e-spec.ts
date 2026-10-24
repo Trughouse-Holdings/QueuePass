@@ -129,12 +129,13 @@ describe('lookupEntryTicket with a live code', () => {
   });
 
   it('gives NOT_OPEN before the entry window and ENDED after the event', async () => {
-    const later = await eventAroundNow(ctx, venueId, {
+    // Their own venues: an event may not overlap another at the same venue (spec 002).
+    const later = await eventAroundNow(ctx, await venue(ctx, 'Later Hall'), {
       startsInSeconds: 3 * 3600,
       lastsSeconds: 10800,
       name: 'Later',
     });
-    const ended = await eventAroundNow(ctx, venueId, {
+    const ended = await eventAroundNow(ctx, await venue(ctx, 'Earlier Hall'), {
       startsInSeconds: -7200,
       lastsSeconds: 3600,
       name: 'Over',

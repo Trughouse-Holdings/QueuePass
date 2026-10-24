@@ -54,6 +54,8 @@ describe('lookupEntryTicket', () => {
       usedAt: null,
       entryOpensAt: expect.any(String),
       unusedOnOrder: 1,
+      // Spec 018 FR-011: a typed or printed code always needs the ID check.
+      verifiedBy: 'TICKET_CODE',
     });
     // FR-019: entry opens exactly 2 hours before the start.
     expect(new Date(res.body.entryOpensAt).getTime()).toBe(

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CLOCK, systemClock } from '../common/clock';
 import { PrismaModule } from '../prisma/prisma.module';
 import { EntryController } from './entry.controller';
+import { EntryKeyController } from './entry-key.controller';
 import { EntryService } from './entry.service';
 
 /**
@@ -10,7 +11,7 @@ import { EntryService } from './entry.service';
  */
 @Module({
   imports: [PrismaModule],
-  controllers: [EntryController],
+  controllers: [EntryController, EntryKeyController],
   providers: [EntryService, { provide: CLOCK, useValue: systemClock }],
 })
 export class EntryModule {}
