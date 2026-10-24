@@ -43,10 +43,9 @@ export interface EntryTicket {
   unusedOnOrder: number;
   /**
    * Spec 018 FR-011: `LIVE_CODE` when the Backend verified a live code in its window (no ID
-   * check needed); `TICKET_CODE` for a typed or printed code. Optional as in contract 1.11.0;
-   * required from T027.
+   * check needed); `TICKET_CODE` for a typed or printed code.
    */
-  verifiedBy?: 'LIVE_CODE' | 'TICKET_CODE';
+  verifiedBy: 'LIVE_CODE' | 'TICKET_CODE';
 }
 
 /** Mirrors `AdmitInput`. */
