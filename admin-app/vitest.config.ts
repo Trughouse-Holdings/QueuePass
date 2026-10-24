@@ -11,6 +11,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./test/setup.ts'],
     include: ['test/**/*.test.tsx', 'test/**/*.test.ts'],
+    // Spec 011 research R10: npm test measures line coverage of this workspace's own source;
+    // coverage/coverage-summary.json feeds scripts/coverage-report.mjs (R11). No thresholds
+    // until 010-test-coverage.
+    coverage: { provider: 'v8', include: ['src/**'], reporter: ['text-summary', 'json-summary'] },
   },
   resolve: {
     // Exact-match aliases: a plain '@queuepass/shared' key would also capture '/web' as a prefix.

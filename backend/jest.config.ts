@@ -13,6 +13,9 @@ const config: Config = {
   transform: { '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: 'tsconfig.json' }] },
   collectCoverageFrom: ['src/**/*.(t|j)s'],
   coverageDirectory: './coverage',
+  // Spec 011 research R10: npm test measures coverage; a short summary in the log, and
+  // coverage/coverage-summary.json for scripts/coverage-report.mjs (R11). No threshold until 010.
+  coverageReporters: ['text-summary', 'json-summary'],
   testEnvironment: 'node',
   testTimeout: 120_000,
   globalSetup: '<rootDir>/test/setup/global-setup.ts',

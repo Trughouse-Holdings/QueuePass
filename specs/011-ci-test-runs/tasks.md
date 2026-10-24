@@ -44,7 +44,7 @@ run (T031) and one throwaway pull request with deliberately failing runs (T029, 
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `011-ci-test-runs-impl` (see Ground rules). In a **fresh clone** of it, with Docker
+- [x] T001 Cut `011-ci-test-runs-impl` (see Ground rules). In a **fresh clone** of it, with Docker
   running, run `npm ci`, then confirm research R5: the install printed `@prisma/client needs a
   schema.prisma`, `node_modules/.prisma/client` holds only Prisma's placeholder (importing
   `@prisma/client` throws "did not initialize yet"), and `npm test` fails in the backend for that
@@ -52,6 +52,20 @@ run (T031) and one throwaway pull request with deliberately failing runs (T029, 
   `npm run prisma:generate --workspace @queuepass/backend`, `npx prettier --check .`,
   `npm run lint`, `npm run build`, and `npm test`: all pass (baseline). Record the duration of
   `npm test` and each workspace's test count here.
+  - **Result** (2026-10-24, `e73f5dd`, fresh local clone, Windows 11, Node 22.20, npm 10.9.3,
+    Docker Desktop, Compose stack **up**): `npm ci` passed. It printed **no** Prisma warning: npm
+    10 hides install-script output unless a script fails (`npm rebuild @prisma/client
+    --foreground-scripts` shows only the script's banner too), so that half of R5 is not visible
+    here; the rest holds. `node_modules/.prisma/client` held only the placeholder
+    (`index.js`, `default.js`, `edge.js`, `wasm.js`, `index-browser.js` and their `.d.ts`), and
+    `new PrismaClient()` threw "@prisma/client did not initialize yet. Please run "prisma
+    generate"". `npm test` passed `packages/shared`, then failed in the backend: every suite
+    failed to compile (`TS2305: Module '"@prisma/client"' has no exported member 'Location'`,
+    `TS7006` implicit `any` on transaction callbacks). After generating, the format check, lint,
+    and build passed, and `npm test` passed in **247 s** (4 min 7 s). Counts: shared 468 (20
+    files), backend 740 (84 suites), admin-app 200 (24 files), customer-app 200 (19 files),
+    booth-app 67 (4 files), seed 8 (2 files; the stack was up, so the four Keycloak tests ran):
+    1,683 in all.
 
 ---
 
@@ -60,14 +74,27 @@ run (T031) and one throwaway pull request with deliberately failing runs (T029, 
 **Purpose**: the format check script, the coverage provider, and lint ignoring coverage output,
 before any story uses them.
 
-- [ ] T002 Add `"format:check": "prettier --check ."` to the root `package.json` scripts, next to
+- [x] T002 Add `"format:check": "prettier --check ."` to the root `package.json` scripts, next to
   `format` (R8). Run it: passes.
-- [ ] T003 Install the coverage provider at the root, pinned to the installed Vitest version
+- [x] T003 Install the coverage provider at the root, pinned to the installed Vitest version
   exactly: check it with `npm ls vitest` (3.2.7 on 2026-10-24; every workspace must resolve the
   same one), then `npm install --save-dev --save-exact @vitest/coverage-v8@<that version>` from the
   root (R9). Confirm `package-lock.json` gains only the provider and its own dependencies, and
   `npm test` still passes.
-- [ ] T004 In `eslint.config.mjs`, add `'**/coverage/'` to the ignores, next to `'coverage/'`, as
+  - **Result**: every workspace resolves `vitest@3.2.7`; `@vitest/coverage-v8@3.2.7` installed.
+    The lock file gained the provider and 15 packages of its own (`@ampproject/remapping`,
+    `ast-v8-to-istanbul`, `magicast`, and copies nested under the provider). npm 10.9.3 also
+    added `"peer": true` to 78 existing entries (the optional `@esbuild/*`, `@rollup/rollup-*`,
+    and `@napi-rs/lzma-linux-x64-gnu` platform packages), a metadata-only rewrite with no package
+    or version change. They were first removed by hand so the diff was additions only (`npm ci`
+    on that result: T011, T022). After review round 1 (M1) npm's own output is kept instead:
+    `npm install --package-lock-only` in a throwaway worktree re-added exactly those 78 flags,
+    and a second run changed nothing, so the lock file is a fixed point of `npm install` and the
+    next dependency change carries no unexplained lines. npm marks the platform packages
+    peer-reachable once the provider's exact `vitest` peer dependency is in the tree. `npm test`
+    passed (the laptop's Prisma client was stale from 2026-10-17 and
+    had to be regenerated first: the R5 problem on a laptop, which T011's `pretest` now fixes).
+- [x] T004 In `eslint.config.mjs`, add `'**/coverage/'` to the ignores, next to `'coverage/'`, as
   `'**/dist/'` sits next to `'dist/'` (R10). Check: create `backend/coverage/lcov-report/x.js`
   containing `var unused = 1`, run `npm run lint`: passes (it failed before the change); delete the
   file.
@@ -86,7 +113,7 @@ request goes red with a failing test.
 
 ### Tests for User Story 1 (write first, confirm they fail)
 
-- [ ] T005 [US1] Create `scripts/test/ci-workflow.test.mjs` (`node:test`, `node:assert/strict`,
+- [x] T005 [US1] Create `scripts/test/ci-workflow.test.mjs` (`node:test`, `node:assert/strict`,
   `yaml`'s `parse`), reading `.github/workflows/ci.yml` relative to the repository root, with one
   test per rule from research R13:
   - `name` is `CI`; `on.pull_request.types` is exactly `['opened', 'synchronize', 'reopened']` and
@@ -102,14 +129,16 @@ request goes red with a failing test.
     `actions/setup-node` step has `node-version-file: .nvmrc` and `cache: npm` (R2, R3);
   - every step that has a `run` also has a `name`; the first `run` step is exactly `npm ci`;
   - the raw file text contains neither `secrets.` nor `github.token` (R15).
-- [ ] T006 [US1] Add `node --test "scripts/test/*.test.mjs"` to the **start** of the root `test`
+- [x] T006 [US1] Add `node --test "scripts/test/*.test.mjs"` to the **start** of the root `test`
   script, before `node scripts/check-boundary.mjs` (escape the quotes in JSON; research R13 explains
   why the glob, not the directory). Run `npm test`: T005's tests **fail** because the workflow file
   does not exist.
+  - **Result**: 7 of 7 fail with `ENOENT` on `.github/workflows/ci.yml`; `npm test` stops there.
+    The quoted glob works under npm's `cmd.exe` on Windows too (Node expands it).
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Create `.github/workflows/ci.yml` per research R1 to R4, R14, R15, R17: workflow
+- [x] T007 [US1] Create `.github/workflows/ci.yml` per research R1 to R4, R14, R15, R17: workflow
   `CI`; the triggers; top-level `permissions: contents: read` and `concurrency`; job `test`
   (`runs-on: ubuntu-24.04`, `timeout-minutes: 30`) with steps: `actions/checkout` (current major,
   `persist-credentials: false`); `actions/setup-node` (current major, `node-version-file: .nvmrc`,
@@ -119,23 +148,39 @@ request goes red with a failing test.
   (`npm test`), `Report coverage` (`npm run coverage:report`). A comment at the top cites spec 011
   and says the steps must match the root `ci` script. Check the current major versions of the two
   actions on their GitHub pages and use those tags.
-- [ ] T008 [US1] Run `npx prettier --write .github/workflows/ci.yml`, then `npm test`: T005's tests
+  - **Result**: on 2026-10-24 the latest releases are `actions/checkout` v7.0.1 and
+    `actions/setup-node` v7.1.0, and both repositories have a `v7` tag; the workflow uses
+    `@v7` for both.
+- [x] T008 [US1] Run `npx prettier --write .github/workflows/ci.yml`, then `npm test`: T005's tests
   pass.
-- [ ] T009 [US1] Report the seed's Keycloak tests as skipped (R16, FR-014): in
+  - **Result**: Prettier left the file unchanged; 7 of 7 pass (the rest of `npm test` passed
+    with T011's run).
+- [x] T009 [US1] Report the seed's Keycloak tests as skipped (R16, FR-014): in
   `scripts/seed/test/seed-idempotence.test.ts`, change each `if (!available) return;` to take the
   test context's `skip` (`async ({ skip }) => { if (!available) skip(); … }`), keeping the
   `[skip] Keycloak not reachable` warning. With the stack **down**, `npm test --workspace
-  @queuepass/seed` reports `2 skipped`, not `2 passed`; with the stack up (T028), they run and pass.
+  @queuepass/seed` reports `4 skipped`, not `4 passed` (the file has four Keycloak tests, not two:
+  two idempotence tests and two drift tests); with the stack up (T028), they run and pass.
+  - **Result**: with Keycloak unreachable (`KEYCLOAK_HEALTH_URL=http://127.0.0.1:1`, the stack
+    itself stayed up here; T022 repeats it with the stack stopped), before the change: `8 passed`
+    after the `[skip]` warning; after it: `4 passed | 4 skipped (8)` with the warning kept. With
+    the running stack's Keycloak: `8 passed`. The seed's `tsc --noEmit` and lint pass.
 
 ### The backend's `pretest` generates Prisma (FR-019, R5)
 
-- [ ] T010 [US1] Test first: add a test to `scripts/test/ci-workflow.test.mjs` that reads
+- [x] T010 [US1] Test first: add a test to `scripts/test/ci-workflow.test.mjs` that reads
   `backend/package.json` and asserts `scripts.pretest` contains `prisma generate`. Run `npm test`:
   **fails**.
-- [ ] T011 [US1] Change the backend's `pretest` to
+  - **Result**: fails (`The input did not match the regular expression /prisma generate/`, input
+    `npm run build --workspace @queuepass/shared`); the other 7 pass.
+- [x] T011 [US1] Change the backend's `pretest` to
   `npm run build --workspace @queuepass/shared && prisma generate`. Run `npm test`: T010 passes.
   In a fresh clone with Docker running, `npm ci` then `npm test` passes with **no** manual generate
   (FR-019). Record it here.
+  - **Result**: 8 of 8 `node --test` tests pass. In the fresh clone (T001's, fast-forwarded to
+    `c5ec7d0`): `npm ci` passed with the T003 lock file and left the placeholder client;
+    `npm test` passed in 248 s with no manual generate (the backend's `pretest` printed
+    `Generated Prisma Client (v6.19.3)`), with T001's counts (stack up, seed 8 run).
 
 **Checkpoint**: the workflow exists and its shape is tested; `coverage:report` does not exist yet,
 so the workflow's last step would fail until Phase 5.
@@ -152,15 +197,19 @@ unformatted file (quickstart Q1).
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T012 [US2] Add a test to `scripts/test/ci-workflow.test.mjs`: read the root `package.json`,
+- [x] T012 [US2] Add a test to `scripts/test/ci-workflow.test.mjs`: read the root `package.json`,
   split `scripts.ci` on ` && `, and assert it deep-equals the `run` values of the workflow's steps
   after `npm ci`, in order. Run `npm test`: **fails** (no `ci` script). (That each part names an
   existing script is asserted in T014, once `coverage:report` exists.)
+  - **Result**: fails with `the root package.json has no ci script`; the other 8 pass.
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Add the root script `"ci"` exactly as in research R12. Run `npm test`: T012
+- [x] T013 [US2] Add the root script `"ci"` exactly as in research R12. Run `npm test`: T012
   passes. Reorder two parts of `ci` temporarily and confirm T012 fails naming the difference; undo.
+  - **Result**: 9 of 9 pass. With `lint` and `format:check` swapped, T012 failed with a
+    deep-equal diff showing `npm run format:check` and `npm run lint` in each other's places;
+    undone, 9 of 9 pass.
 
 **Checkpoint**: `npm run ci` runs every step up to `coverage:report`, which Phase 5 adds.
 
@@ -177,7 +226,7 @@ stale, or zero-line summary fails it.
 
 ### Tests for User Story 3 (write first, confirm they fail)
 
-- [ ] T014 [US3] Create `scripts/test/coverage-report.test.mjs` against the functions R11 names
+- [x] T014 [US3] Create `scripts/test/coverage-report.test.mjs` against the functions R11 names
   (export from `scripts/coverage-report.mjs`: `WORKSPACES`, the fixed list of the six workspace
   directories; `cleanCoverage(rootDir)`, deleting each workspace's `coverage/` folder;
   `readSummaries(rootDir)` returning each workspace's `total.lines` or a "not measured" marker;
@@ -199,20 +248,28 @@ stale, or zero-line summary fails it.
   the backend's `prisma:generate`, which must exist in `backend/package.json`; and the root `test`
   script starts with `node scripts/coverage-report.mjs --clean && ` (R11). Run `npm test`:
   **fails** (the module, `coverage:report`, and the clean do not exist).
+  - **Result**: `coverage-report.test.mjs` fails to load (`ERR_MODULE_NOT_FOUND` for
+    `scripts/coverage-report.mjs`); the two new workflow tests fail with
+    `ci part names a missing root script: coverage:report` and the root `test` script starting
+    with `node --test`; the 9 earlier tests pass.
 
 ### Implementation for User Story 3
 
-- [ ] T015 [US3] Create `scripts/coverage-report.mjs` per R11: the exported functions above, and a
+- [x] T015 [US3] Create `scripts/coverage-report.mjs` per R11: the exported functions above, and a
   `main` that runs only when the file is executed directly (compare `import.meta.url` with
   `process.argv[1]` via `pathToFileURL`). With `--clean`, `main` calls `cleanCoverage` and exits
   0; otherwise it calls `run` with the repository root and `process.env.GITHUB_STEP_SUMMARY` and
   exits with its code. Add the root script `"coverage:report": "node scripts/coverage-report.mjs"`,
   and put `node scripts/coverage-report.mjs --clean && ` at the very start of the root `test` script,
   before `node --test` (R11, R13). Run `npm test`: T014 passes.
-- [ ] T016 [US3] Backend (R10): `backend/package.json` `test` becomes `jest --runInBand --coverage`;
+  - **Result**: 18 of 18 `node --test` tests pass (11 workflow, 7 report). Run by hand on this
+    laptop before any workspace measured coverage, the report listed the backend at 96.35% from a
+    stale `backend/coverage/coverage-summary.json` of an earlier run and the other five as not
+    measured, and exited 1; `--clean` then removed it (R11's stale-file case).
+- [x] T016 [US3] Backend (R10): `backend/package.json` `test` becomes `jest --runInBand --coverage`;
   `backend/jest.config.ts` gains `coverageReporters: ['text-summary', 'json-summary']`, with a
   comment citing spec 011 R10. Keep `collectCoverageFrom` and `coverageDirectory`.
-- [ ] T017 [P] [US3] The five Vitest workspaces (R10): in each of `packages/shared`, `admin-app`,
+- [x] T017 [P] [US3] The five Vitest workspaces (R10): in each of `packages/shared`, `admin-app`,
   `customer-app`, `booth-app`, and `scripts/seed`, the `test` script becomes
   `vitest run --coverage`, and `vitest.config.ts` gains under `test`:
   `coverage: { provider: 'v8', include: ['src/**'], reporter: ['text-summary', 'json-summary'] }`.
@@ -221,12 +278,29 @@ stale, or zero-line summary fails it.
   `coverageConfigDefaults` from `vitest/config`) with the comment: generated from
   `contracts/openapi.yaml` by `npm run generate:api`; Constitution VI allows excluding generated
   code. No `thresholds`.
-- [ ] T018 [US3] Run `npm test` then `npm run coverage:report`: every workspace prints its coverage
+- [x] T018 [US3] Run `npm test` then `npm run coverage:report`: every workspace prints its coverage
   summary, `coverage/coverage-summary.json` exists in all six, and the table lists all six. Confirm
   the Admin and Customer apps' numbers do not include `packages/shared/src` files (inspect
   `admin-app/coverage/coverage-summary.json` keys). Then remove `--coverage` from `booth-app`'s
   `test` script temporarily and run `npm test && npm run coverage:report`: the report fails naming
   `booth-app` (the clean removed the old file); undo. Record the six line percentages here.
+  - **Result** (stack up, so the seed's Keycloak tests ran): every workspace printed its
+    `Coverage summary`, all six `coverage/coverage-summary.json` files existed, and the report
+    exited 0: packages/shared **92.30%** (1427 / 1546), backend **97.02%** (1890 / 1948),
+    admin-app **96.88%** (2803 / 2893), customer-app **97.20%** (1463 / 1505), booth-app
+    **92.33%** (542 / 587), scripts/seed **71.25%** (181 / 254, marked below 80%; lower with the
+    stack down, T022). Every key in each summary is a file under that workspace's own `src/`
+    (admin-app 31, customer-app 19: none under `packages/shared/src`); `api-schema.ts` is in
+    none. With `--coverage` removed from booth-app's `test`, `npm test` passed and the report
+    exited 1: `Coverage not measured for booth-app: booth-app/coverage/coverage-summary.json is
+    missing`; undone. One earlier full run had a customer-app test fail once
+    (`my-tickets.test.tsx`, "lists the customer's orders…": `findByRole('heading', { name: 'My
+    tickets' })` not found within Testing Library's default 1 s); it passed in the next two
+    workspace runs and the next four full runs (T018, T022). The independent review saw it fail 1
+    in 17 runs. Fixed after review round 1 (S1): the Admin, Customer, and Booth apps' test setup
+    sets Testing Library's `asyncUtilTimeout` to 3 s (from 1 s), so `findBy*` and `waitFor` allow
+    for a busy run. No assertion changes, so this is FR-018-compatible (a longer wait, not a
+    weaker test). After it: customer-app 10 of 10 runs passed (200 each).
 
 **Checkpoint**: `npm run ci` runs every step locally.
 
@@ -237,14 +311,16 @@ stale, or zero-line summary fails it.
 **Goal**: one stable check name (FR-015) and documented steps to require it. The setting itself is
 turned on right after merge (T033).
 
-- [ ] T019 [US4] Confirm T005 pins the workflow name `CI` and the single job `test`, and that
+- [x] T019 [US4] Confirm T005 pins the workflow name `CI` and the single job `test`, and that
   quickstart Q5 names the check `test` from the `CI` workflow. Nothing else to build.
+  - **Result**: T005's tests assert `name: CI` and `jobs` deep-equal to `['test']`; quickstart
+    Q5 step 4 chooses the `test` check from the `CI` workflow.
 
 ---
 
 ## Phase 7: Polish and Cross-Cutting
 
-- [ ] T020 [P] Update `README.md` (R20, FR-017, Documentation gate): in "Run the tests", add
+- [x] T020 [P] Update `README.md` (R20, FR-017, Documentation gate): in "Run the tests", add
   `npm run ci` (what it runs, in order; it is exactly what the pull request check runs; run `npm ci`
   first to match exactly; Docker must be running; to reproduce a pull request's run, merge or
   rebase onto the latest `main` first and keep the Compose stack down), and that `npm test` alone
@@ -256,32 +332,96 @@ turned on right after merge (T033).
   `npm test` or `npm run ci` (R11), and that the 80% floor is enforced from `010`. Add the `011` row
   to the Status table, update the "Features `010` and `011` are reserved" line so only `010`
   remains reserved, and add `.github/workflows/` to the repository layout block.
-- [ ] T021 Run `npx prettier --write` on every file changed (never `api-schema.ts`), then
+- [x] T021 Run `npx prettier --write` on every file changed (never `api-schema.ts`), then
   `npm run lint`.
-- [ ] T022 On a clean working tree with Docker running and the Compose stack down, run `npm ci` and
+  - **Result**: every file changed since `e73f5dd` outside `specs/` was already formatted;
+    `npm run format:check` and `npm run lint` pass.
+- [x] T022 On a clean working tree with Docker running and the Compose stack down, run `npm ci` and
   `npm run ci`: everything passes and the coverage table prints. Record the duration of
   `npm run ci` and of `npm test` alone here, and compare `npm test` with T001's baseline (the cost
   of measuring coverage); state both in the PR description.
-- [ ] T023 Quickstart Q1's failing cases, one at a time, undoing each: an unformatted line stops at
+  - **Result** (2026-10-24, `5b34f1c`, the fresh clone from T001 fast-forwarded, so a clean
+    tree; the main checkout was left alone because `npm ci` there would delete the
+    `node_modules` the host's Vite servers run from; Compose stack stopped with
+    `docker compose stop`, then its four running services started again): `npm ci` passed;
+    `npm run ci` passed in **289 s** (4 min 49 s): Prisma generated, Prettier clean, ESLint clean,
+    every workspace built, `npm test` (18 `node --test` tests, boundary, drift, all six
+    workspaces), and the table: packages/shared 92.30%, backend 97.02%, admin-app 96.88%,
+    customer-app 97.20%, booth-app 92.33%, scripts/seed **24.01%** (61 / 254, below 80%, the
+    Keycloak tests skipped). `npm test` alone: **233 s**, against T001's 247 s. The baseline
+    ran the seed's Keycloak tests (stack up, about 19 s); without the seed, the runners'
+    own durations were 181.1 s before and 182.6 s after, so measuring coverage costs about 1 to
+    2 s on this laptop, within run-to-run noise.
+- [x] T023 Quickstart Q1's failing cases, one at a time, undoing each: an unformatted line stops at
   **Check formatting**; an unused variable stops at **Lint**; a type error in `booth-app/src`
   stops at **Build**; each names the file (SC-002's lint and type-error halves).
-- [ ] T024 Confirm FR-018: compare the test counts per workspace with T001's baseline; they are
-  equal, apart from the seed's two Keycloak tests now counted as skipped when the stack is down.
-- [ ] T025 Confirm no secrets and least privilege by reading the final `ci.yml` once against R15
+  - **Result** (in the fresh clone, each undone with `git checkout`): a trailing-spaces line in
+    `booth-app/src/format.ts` stopped `npm run ci` at `prettier --check .` with
+    `[warn] booth-app/src/format.ts`, exit 1; `const unused = 1;` inside `seatLabel` stopped it
+    at `eslint .` with `booth-app/src/format.ts 7:9 error 'unused' is assigned a value but never
+    used … @typescript-eslint/no-unused-vars`, exit 1; `const n: number = 'x';` (used) stopped
+    it at the build with `src/format.ts(7,9): error TS2322: Type 'string' is not assignable to
+    type 'number'.` in `@queuepass/booth-app`, exit 2 (npm's `--workspaces` still built the
+    seed after it before failing; nothing after `build` ran). Each case was formatted and
+    lint-clean apart from its own fault, so it reached the intended step.
+- [x] T024 Confirm FR-018: compare the test counts per workspace with T001's baseline; they are
+  equal, apart from the seed's four Keycloak tests now counted as skipped when the stack is down.
+  - **Result**: T022's `npm test` (stack down) against T001 (stack up): shared 468 = 468,
+    backend 740 = 740 (84 suites), admin-app 200 = 200, customer-app 200 = 200, booth-app
+    67 = 67, seed 8 = 8 with `4 passed | 4 skipped` instead of `8 passed`. Every existing test
+    passes; the 18 `node --test` tests are new.
+- [x] T025 Confirm no secrets and least privilege by reading the final `ci.yml` once against R15
   (T005 asserts the rest).
-- [ ] T026 Independent review (Constitution III): a separate Claude session reviews the branch
+  - **Result**: `permissions: contents: read` at the top and nowhere else; no `secrets.`,
+    `github.token`, `env:`, environment, or `.env`; checkout does not persist credentials; only
+    `actions/checkout@v7` and `actions/setup-node@v7`; no step pushes, publishes, or deploys
+    (FR-012, FR-016).
+- [x] T026 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md, plan.md, and research.md. Fix the findings. One review is required; another
   round is optional. Record the review and any finding left open, with the reason, here and in the
   PR description.
-- [ ] T027 Commit with citations (`Impl 011: … (T0NN, #23)`), each body naming the FRs and R
+  - **Round 1** (2026-10-24, at `c0f3bf6`): 0 must, 3 should, 4 minor; all 7 fixed, none left
+    open. S1: the `my-tickets` wait race (1 in 17 runs), fixed by a 3 s `asyncUtilTimeout` in
+    the three apps' test setup (T018); customer-app then 10 of 10. S2: the workflow test missed
+    `continue-on-error`, `if:`, and an inserted `actions/cache` step; a new test pins each step's
+    keys and the step count, and each of the three mutations now fails it. S3: README row
+    `Done (26/34 tasks)`. M1: npm's own lock file with the 78 peer flags kept (T003). M2: two
+    tests spawn the coverage script (direct, and through a linked root, which failed first),
+    and the script compares real paths to decide it was run directly. M3: each seed skip
+    carries its reason. M4: README says each step stops the run if it fails. After the fixes:
+    21 of 21 `node --test` tests, lint and format check clean, and shared 468, admin-app 200,
+    customer-app 200, booth-app 67, seed 8 (stack up) pass.
+  - **Round 2** (2026-10-24, at `fd04668`): 0 must, 0 should, 3 minor; every round-1 finding
+    resolved (the three S2 mutations re-applied and each failed a test; customer-app 3 of 3;
+    the linked-root test also passes and cleans up on Linux, non-root). Minors fixed: m1, the
+    shared workspace's test setup gets the same 3 s wait; m2, a test pins the workflow's
+    top-level keys, so a workflow-wide `env:` or `defaults:` fails it (proven with an added
+    `env:`); m3, one long line rewrapped. No open findings.
+- [x] T027 Commit with citations (`Impl 011: … (T0NN, #23)`), each body naming the FRs and R
   decisions it rests on.
+  - **Result**: committed task by task, failing tests before their implementation (T005/T006
+    before T007, T010 before T011, T012 before T013, T014 before T015), each body naming its FRs
+    and R items; one `Clarify 011:` commit fixed the count of the seed's Keycloak tests.
 
 ## Phase 8: Running-System Gate
 
 - [ ] T028 Quickstart **Q6**: `docker compose up --build`, every service healthy, seed succeeds on
   the first run; sign in to, use, and sign out of each front end; with the stack up, the seed's
   Keycloak tests run and pass. Record the results here.
-- [ ] T029 With the user's go-ahead: push `011-ci-test-runs-impl` and the throwaway branch
+  - **Blocked** (2026-10-24, not done): on this laptop Docker cannot rebuild images, because
+    containers cannot reach package servers. One `docker compose build` failed after 3 s at the
+    backend image's `apk add --no-cache openssl`: `WARNING: fetching
+    https://dl-cdn.alpinelinux.org/alpine/v3.24/main/x86_64/APKINDEX.tar.gz: TLS: server
+    certificate not trusted` (and the same for `community`), then `ERROR: unable to select
+    packages`. The host reaches the npm registry. What was checked instead: the stack already
+    running (built before this branch) was stopped and started again for T022, every service
+    healthy and the seed exiting 0; with it up, the seed's four Keycloak tests ran and passed
+    (T009, T018). The images' inputs that `011` changes are the lock file (one new
+    devDependency, which every image's `npm ci` now installs), the workspaces' `package.json`
+    scripts, and the `vitest.config.ts` files; on the host, `npm ci` on that lock file and
+    every workspace's `npm run build` pass (T022). To do on a machine whose containers reach
+    the package servers.
+- [x] T029 With the user's go-ahead: push `011-ci-test-runs-impl` and the throwaway branch
   `011-ci-throwaway` cut from it, open the one throwaway pull request (Ground rules: draft, the
   throwaway title and body, no reviewers, linked from #23 in a comment), and walk quickstart **Q3**:
   the canary test makes the check red at **Test**, naming the test, with an annotation on the file
@@ -290,11 +430,27 @@ turned on right after merge (T033).
   `npm run ci` locally fails the same way (SC-003); two quick pushes leave the older run
   **cancelled** (FR-011); the formatting error is red at **Check formatting**. Leave the pull
   request open as a draft, with the canary, for T033. Record each run's URL and result here.
+  - 2026-10-24, throwaway PR #78 (draft, no reviewers; linked from #23). Canary commit `fc162b4`.
+    - [Run 40122281914](https://github.com/Trughouse-Holdings/QueuePass/actions/runs/40122281914)
+      (`fc162b4`): failure. Install, Generate Prisma client, Check formatting, Lint, and Build
+      passed on ubuntu-24.04; **Test** failed naming `test/ci-canary.test.ts:4:13`, "expected 1
+      to be 2", with an error annotation on the file; Report coverage skipped; 1 min 39 s. From
+      opening the failed check, the step and test were named at once (SC-006).
+    - Two pushes seconds apart (`4595a8c`, `b8778e8`): GitHub started one run, for the later.
+      A further push while it ran: [run 40122678730](https://github.com/Trughouse-Holdings/QueuePass/actions/runs/40122678730)
+      (`b8778e8`) **cancelled**, and so was run 40122725780 (`55a8a5c`) by the next push (FR-011).
+    - [Run 40122781279](https://github.com/Trughouse-Holdings/QueuePass/actions/runs/40122781279)
+      (`685647a`, an unformatted file): failure at **Check formatting**, naming
+      `packages/shared/test/ci-unformatted.ts`. Reverted; the PR stays a draft with the canary.
+    - `npm run ci` locally on the canary fails at the same test (SC-003; T023 covered the format,
+      lint, and type cases locally).
 
 ## Phase 9: Pull Request and After Merge
 
-- [ ] T030 Rebase onto `main` if the spec and plan PR has merged since T001 (Constitution III), and
+- [x] T030 Rebase onto `main` if the spec and plan PR has merged since T001 (Constitution III), and
   re-run T022.
+  - 2026-10-24: not needed; the branch was cut from `main` e73f5dd after #77 merged, and `main`
+    has not moved since.
 - [ ] T031 With the user's go-ahead, open the implementation PR against `main` with `fixes #23` in
   its description, the independent review record (T026), the running-system results (T028, T029),
   the timings (T022), and a note that the root `package.json`, `eslint.config.mjs`, and

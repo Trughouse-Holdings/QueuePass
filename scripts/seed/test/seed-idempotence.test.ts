@@ -26,6 +26,9 @@ const keycloakUp = async (): Promise<boolean> => {
   }
 };
 
+// Spec 011 FR-014 (research R16): without Keycloak these tests report as skipped, with the reason.
+const SKIP_REASON = 'Keycloak not reachable; start the stack to run seed idempotence tests';
+
 describe('Keycloak seed idempotence', () => {
   let available = false;
   beforeAll(async () => {
@@ -35,8 +38,8 @@ describe('Keycloak seed idempotence', () => {
     }
   });
 
-  it('seeds exactly 235 users, and re-running changes nothing', async () => {
-    if (!available) return;
+  it('seeds exactly 235 users, and re-running changes nothing', async ({ skip }) => {
+    skip(!available, SKIP_REASON);
 
     await seed();
     const first = await countUsers();
@@ -50,8 +53,10 @@ describe('Keycloak seed idempotence', () => {
     expect(await countUsers()).toEqual(first);
   });
 
-  it('converges the audience scope and three front-end clients, stably across runs', async () => {
-    if (!available) return;
+  it('converges the audience scope and three front-end clients, stably across runs', async ({
+    skip,
+  }) => {
+    skip(!available, SKIP_REASON);
 
     await seed();
     const kc = await createKeycloakClient();
@@ -93,8 +98,10 @@ describe('Keycloak seed idempotence', () => {
     expect(await clientIds(kc)).toEqual(firstIds);
   });
 
-  it('repairs drift: a password grant switched on by hand is switched off again', async () => {
-    if (!available) return;
+  it('repairs drift: a password grant switched on by hand is switched off again', async ({
+    skip,
+  }) => {
+    skip(!available, SKIP_REASON);
 
     await seed();
     const kc = await createKeycloakClient();
@@ -110,8 +117,10 @@ describe('Keycloak seed idempotence', () => {
     expect(after.directAccessGrantsEnabled).toBe(false);
   });
 
-  it('repairs drift: a wildcard redirect URI set by hand is replaced by the exact list (#60)', async () => {
-    if (!available) return;
+  it('repairs drift: a wildcard redirect URI set by hand is replaced by the exact list (#60)', async ({
+    skip,
+  }) => {
+    skip(!available, SKIP_REASON);
 
     await seed();
     const kc = await createKeycloakClient();
