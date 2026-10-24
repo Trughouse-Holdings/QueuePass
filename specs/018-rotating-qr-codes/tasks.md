@@ -553,11 +553,20 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
   Vitest coverage provider is installed, so the front ends report none. Suite at T037: shared
   413, Backend 84 suites / 739, Admin 196, Customer 196, Booth 67, seed green; lint and
   `prettier --check .` clean.
-- [ ] T039 Running-system gate: `docker compose up --build` from a fresh clone, then walk
+- [X] T039 Running-system gate: `docker compose up --build` from a fresh clone, then walk
   quickstart.md S0–S8 in the browser, with a phone camera for S2–S5, and sign in, use, and sign
   out of each front end. Record the results in this file, including whether S6's DevTools
   throttling step (a network that hangs, on the Customer window) behaved as written; if it didn't,
   correct quickstart.md in a spec PR (Constitution III).
+  **T039 results (2026-10-24, fresh clone of `main` at 991a954, compose project `qp018walk`):**
+  `docker compose up --build -d` built every image and brought all six services up healthy on the
+  first boot (17:47–17:55 CDT); the seed exited 0 (235 principals, 3 clients), every migration
+  applied, `GET /health` = `{"status":"ok","database":"up"}`, and the three front ends answer on
+  5173–5175. The three sign-in clients carry exact redirect URIs (`http://localhost:<port>/`,
+  #60). Demo data: 2 venues, 4 events, 53 orders, 121 tickets (24 checked in), 4 images; Demo
+  Tonight open for entry from 17:55 CDT. **Browser walk:** Nate confirmed 018 works in the
+  running system. The individual results of S0–S8 were not recorded step by step, so S6's DevTools
+  throttling step is still unconfirmed and quickstart.md keeps its "to be confirmed" note.
 - [X] T040 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings. One review is required; another round is optional
   (Constitution 3.3.0, in this PR). Record the review and any open finding here and in the PR

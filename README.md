@@ -9,9 +9,8 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `008` and `012` through `017` are built and verified. `018` is built; its
-running-system walk is pending. `011` is built; its first runs on GitHub and its running-system
-walk are pending.
+Features `001` through `008` and `012` through `018` are built and verified. `011` is built; its
+first runs on GitHub and its running-system walk are pending.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                      | Spec             | Plan and tasks     | Code                     |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ------------------------ |
@@ -30,7 +29,7 @@ walk are pending.
 | [`015-seat-holds`](specs/015-seat-holds/spec.md)                             | Customers reserve picked seats for 5 minutes, then confirm; no seat reserved twice; reserved and sold seats shown live in both apps                                                   | Draft            | Done (50 tasks)    | **Built and verified**   |
 | [`016-per-user-ticket-limit`](specs/016-per-user-ticket-limit/spec.md)       | An optional per-customer ticket limit on each event, held under concurrent orders; shown to admins and customers                                                                      | Draft            | Done (36 tasks)    | **Built and verified**   |
 | [`017-gate-check-in`](specs/017-gate-check-in/spec.md)                       | Every new ticket carries the buyer's name; customers print a QR per ticket; gate agents scan or type a code, check an ID against the name, and admit each ticket exactly once         | Draft            | Done (50 tasks)    | **Built and verified**   |
-| [`018-rotating-qr-codes`](specs/018-rotating-qr-codes/spec.md)               | Customers show a live QR code per ticket that changes every 30 seconds and needs no ID check at the gate; a copy expires within 35 seconds; printed and typed codes keep the ID check | Draft            | Done (40/41 tasks) | **Built (walk pending)** |
+| [`018-rotating-qr-codes`](specs/018-rotating-qr-codes/spec.md)               | Customers show a live QR code per ticket that changes every 30 seconds and needs no ID check at the gate; a copy expires within 35 seconds; printed and typed codes keep the ID check | Draft            | Done (41 tasks)    | **Built and verified**   |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
