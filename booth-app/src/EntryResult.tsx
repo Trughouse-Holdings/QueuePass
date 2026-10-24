@@ -38,6 +38,16 @@ export function refusalText(
 }
 
 /**
+ * Spec 018 FR-011 (research R9): why a live code itself was refused, with what to ask the holder
+ * for. Nothing about the ticket: the Backend sends nothing about it.
+ */
+export const LIVE_CODE_REFUSALS: Record<string, string> = {
+  LIVE_CODE_EXPIRED:
+    'This live code has expired. Ask for the live code in the QueuePass app, or a printed ticket with photo ID.',
+  LIVE_CODE_INVALID: 'Not a valid QueuePass code.',
+};
+
+/**
  * Spec 017 FR-014, FR-023, FR-024: the result of every lookup, admit, and refusal, in one
  * `role="status"` region that stays until the next lookup. Every state has a word and a symbol
  * (✓, ✕), never color alone.

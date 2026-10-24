@@ -470,13 +470,13 @@ recorded and nothing about the ticket shown.
 its window and grace and refused just outside; forged codes are refused as not valid (T013, T014,
 written and passing in Phase 3); the Ticket Booth shows each refusal with its reason (T030).
 
-- [ ] T030 [US2] Add to `booth-app/test/check-in.test.tsx`: a `409 LIVE_CODE_EXPIRED` from a
+- [X] T030 [US2] Add to `booth-app/test/check-in.test.tsx`: a `409 LIVE_CODE_EXPIRED` from a
   lookup shows "✕ This live code has expired. Ask for the live code in the QueuePass app, or a
   printed ticket with photo ID.", with no event, name, seat, or **Admit**; a `404
   LIVE_CODE_INVALID` shows "✕ Not a valid QueuePass code." with no **Admit**; both are in the
   `role="status"` region, keep **Look up another**, and leave a typed code in the field (as 017's
   not-found does); scanning again after an expired code works. Confirm it fails.
-- [ ] T031 [US2] In `booth-app/src/App.tsx`, handle `LIVE_CODE_EXPIRED` and `LIVE_CODE_INVALID`
+- [X] T031 [US2] In `booth-app/src/App.tsx`, handle `LIVE_CODE_EXPIRED` and `LIVE_CODE_INVALID`
   from `lookupEntryTicket` as refusals beside 017's `TICKET_NOT_FOUND`, with the texts of T030, in
   `booth-app/src/EntryResult.tsx`. Run T030 until it passes.
 

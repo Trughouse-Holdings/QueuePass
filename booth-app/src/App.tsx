@@ -8,7 +8,7 @@ import {
   type UserManagerLike,
 } from '@queuepass/shared/web';
 import { admitTicket, listEvents, lookupEntryTicket } from './api';
-import { EntryResult, refusalText, type Outcome } from './EntryResult';
+import { EntryResult, LIVE_CODE_REFUSALS, refusalText, type Outcome } from './EntryResult';
 import { EventPicker, openForEntry, saveEventId, savedEventId } from './EventPicker';
 import { Scanner } from './Scanner';
 import { TicketLookup } from './TicketLookup';
@@ -145,6 +145,9 @@ function Booth() {
         await signIn();
       } else if (error?.error.code === 'TICKET_NOT_FOUND') {
         setOutcome({ kind: 'refused', message: 'No ticket has this code' });
+      } else if (error && Object.hasOwn(LIVE_CODE_REFUSALS, error.error.code)) {
+        // Spec 018 FR-011: an expired or forged live code, refused like an unknown code.
+        setOutcome({ kind: 'refused', message: LIVE_CODE_REFUSALS[error.error.code] });
       } else {
         setNotice(error?.error.message ?? UNREACHABLE);
       }
