@@ -1056,7 +1056,7 @@ paths:
         and must then be 1 to 100 characters, contain at least one letter in any script, and
         contain no control characters; otherwise `400 HOLDER_NAME_INVALID` (`details.reason`).
         It cannot be changed after the order is placed. A repeated `requestId` must also name the
-        same `holderName`. Required once feature 017 is implemented; until then it may be omitted.
+        same `holderName`.
       operationId: createOrder
       x-required-roles: [customer]
       requestBody:
@@ -1165,7 +1165,6 @@ paths:
         `unusedOnOrder` counts the valid, unused tickets of this ticket's order for this event,
         including this one, so the agent can offer to admit them all after one ID check.
       operationId: lookupEntryTicket
-      x-planned: '017'
       x-required-roles: [gate-agent]
       requestBody:
         required: true
@@ -1208,7 +1207,6 @@ paths:
         (with `details.entryOpensAt`), or `ENDED`, the same states `lookupEntryTicket` reports.
         A refused ID check is not sent to the Backend: the client simply does not call this.
       operationId: admitTicket
-      x-planned: '017'
       x-required-roles: [gate-agent]
       requestBody:
         required: true
@@ -1885,6 +1883,7 @@ components:
           tierId,
           tierName,
           customerUsername,
+          holderName,
           quantity,
           unitPrice,
           totalPrice,
@@ -1909,7 +1908,7 @@ components:
           example: Jordan Lee
           description: |
             Feature 017. The buyer's name, on every ticket of the order; `null` for orders placed
-            before feature 017. Always sent once 017 is implemented, which adds it to `required`.
+            before feature 017.
         quantity: { type: integer, minimum: 1, maximum: 10 }
         unitPrice: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
         totalPrice: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
@@ -1922,7 +1921,7 @@ components:
 
     OrderInput:
       type: object
-      required: [quantity]
+      required: [quantity, holderName]
       properties:
         tierId:
           type: string
@@ -1948,7 +1947,7 @@ components:
           description: |
             Feature 017. The buyer's own name, for every ticket of the order; see `createOrder` for
             the rules. `maxLength` only bounds the request: the name itself is at most 100
-            characters after trimming. Required once 017 is implemented, which adds it to `required`.
+            characters after trimming.
 
     MyOrder:
       description: One of the signed-in customer's orders, with a summary of its event (feature 006).

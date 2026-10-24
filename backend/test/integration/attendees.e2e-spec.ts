@@ -1,5 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, tier, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -33,13 +33,13 @@ describe('Attendee list', () => {
       await customer(ctx, 3)
     )
       .post(`/events/${eventId}/orders`)
-      .send({ tierId: vip, quantity: 2 })
+      .send({ holderName: HOLDER, tierId: vip, quantity: 2 })
       .expect(201);
     await (
       await customer(ctx, 1)
     )
       .post(`/events/${eventId}/orders`)
-      .send({ tierId: general, quantity: 1 })
+      .send({ holderName: HOLDER, tierId: general, quantity: 1 })
       .expect(201);
     await ctx.prisma.ticket.update({
       where: { id: first.body.tickets[0].id },
@@ -61,7 +61,12 @@ describe('Attendee list', () => {
   });
 
   it('includes refunded orders after a cancel', async () => {
-    await (await customer(ctx)).post(`/events/${eventId}/orders`).send({ quantity: 1 }).expect(201);
+    await (
+      await customer(ctx)
+    )
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, quantity: 1 })
+      .expect(201);
     await asAdmin(ctx).post(`/events/${eventId}/cancel`).expect(200);
     const res = await asAdmin(ctx).get(`/events/${eventId}/attendees`).expect(200);
     expect(res.body[0].status).toBe('REFUNDED');

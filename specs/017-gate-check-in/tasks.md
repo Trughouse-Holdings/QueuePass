@@ -42,11 +42,11 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `017-gate-check-in-impl` from `017-gate-check-in-spec` while the spec and plan PR is
+- [X] T001 Cut `017-gate-check-in-impl` from `017-gate-check-in-spec` while the spec and plan PR is
   open, or from an up-to-date `main` once it has merged (ground rules); run `npm install`, run
   `npx prisma generate` in `backend/`, and run `npm test` from the repository root. Confirm the
   suite is green before any change (baseline).
-- [ ] T002 Add the two front-end libraries at exact versions (research R8, R9):
+- [X] T002 Add the two front-end libraries at exact versions (research R8, R9):
   `npm install --save-exact --workspace @queuepass/customer-app qrcode-generator@2.0.4` and
   `npm install --save-exact --workspace @queuepass/booth-app jsqr@1.4.0`. Confirm
   `node scripts/check-boundary.mjs` still passes and neither package brings dependencies of its own
@@ -58,7 +58,7 @@ and confirm they **fail** before the implementation tasks below them.
 
 **Purpose**: the name rule, the shared types, and the three new columns.
 
-- [ ] T003 [P] Write `packages/shared/test/holder-name.test.ts`, table tests for research R2:
+- [X] T003 [P] Write `packages/shared/test/holder-name.test.ts`, table tests for research R2:
   `MISSING` for `undefined`, `null`, `''`, `'   '`; `TOO_LONG` at 101 code points and none at
   exactly 100, including 100 × `'😀'` (one code point each, two UTF-16 units); `CONTROL_CHARACTER`
   for a tab, a newline, and `\u0000`; `NO_LETTER` for `'1234'` and `'---'`; no problem for
@@ -66,7 +66,7 @@ and confirm they **fail** before the implementation tasks below them.
   kept). `normalizeHolderName('  Jordan Lee ')` is `'Jordan Lee'`, and `'é'` becomes
   `'é'` (NFC). The check order is `MISSING`, `TOO_LONG`, `CONTROL_CHARACTER`, `NO_LETTER`. Confirm
   it fails.
-- [ ] T004 Create `packages/shared/src/holder-name.ts` and export it from `packages/shared/src/index.ts`:
+- [X] T004 Create `packages/shared/src/holder-name.ts` and export it from `packages/shared/src/index.ts`:
   `HOLDER_NAME_MAX = 100`; `type HolderNameProblem = 'MISSING' | 'TOO_LONG' | 'CONTROL_CHARACTER'
   | 'NO_LETTER'`; `normalizeHolderName(raw: string): string` (`trim()`, then
   `normalize('NFC')`); `holderNameProblem(raw: unknown): HolderNameProblem | null`, which
@@ -76,20 +76,20 @@ and confirm they **fail** before the implementation tasks below them.
   characters.", `CONTROL_CHARACTER` "The name can't contain tabs or line breaks.", `NO_LETTER`
   "The name on the tickets must contain at least one letter." Run T003 until it passes; build
   `packages/shared`.
-- [ ] T005 [P] Mirror the contract in the shared types. In `packages/shared/src/order.ts`, add
+- [X] T005 [P] Mirror the contract in the shared types. In `packages/shared/src/order.ts`, add
   `holderName: string | null` to `Order` (after `customerUsername`, with a comment citing spec 017
   FR-001) and `holderName: string` to `OrderInput`. Create `packages/shared/src/entry.ts` with
   `EntryState` (`'ADMITTABLE' | 'USED' | 'VOID' | 'OTHER_EVENT' | 'NOT_OPEN' | 'ENDED'`),
   `EntryTicket`, `AdmitInput`, `EntryResult`, and `EntryTicketRef`, field for field as in
   `contracts/openapi.yaml`; export them from `packages/shared/src/index.ts`.
-- [ ] T006 [P] Write `backend/test/integration/gate-check-in.constraints.e2e-spec.ts`, writing
+- [X] T006 [P] Write `backend/test/integration/gate-check-in.constraints.e2e-spec.ts`, writing
   directly with `ctx.prisma` (raw SQL where Prisma would trim): `holderName` `''`, `' Jordan'`,
   `'Jordan '`, and 101 characters are refused by `order_holder_name_valid`; 100 characters and
   `NULL` are accepted; `checkedInBySub` without `checkedInAt`, and `checkedInBySub` without
   `checkedInByUsername`, are refused by `ticket_entry_agent`; `checkedInAt` with no agent is
   accepted (demo check-ins from before this feature). Confirm it fails: the columns and CHECKs
   don't exist yet (Constitution VI).
-- [ ] T007 Add `holderName String?` to `model Order`, and `checkedInBySub String?` and
+- [X] T007 Add `holderName String?` to `model Order`, and `checkedInBySub String?` and
   `checkedInByUsername String?` to `model Ticket`, in `backend/prisma/schema.prisma`, with the
   comments shown in data-model.md. Create
   `backend/prisma/migrations/<timestamp>_gate_check_in/migration.sql` with exactly the SQL in
@@ -99,7 +99,7 @@ and confirm they **fail** before the implementation tasks below them.
   `"ticket_entry_agent"` (both agent columns `NULL`, or both set and `"checkedInAt" IS NOT NULL`).
   No backfill, no index. Apply with `prisma migrate deploy` (never `db push`). Run T006 until it
   passes.
-- [ ] T008 In `backend/test/setup/fixtures.ts`: add `export const HOLDER = 'Test Holder'` — but do
+- [X] T008 In `backend/test/setup/fixtures.ts`: add `export const HOLDER = 'Test Holder'` — but do
   **not** make `reserveThenOrder` send it yet: until T030 lets the order DTO accept the field, the
   ValidationPipe (`forbidNonWhitelisted`) turns every seated-order test `400`; T031 adds it. Add
   `agent(ctx, n = 1)` returning
@@ -126,7 +126,7 @@ see "Already used" with the time; the attendee list shows it checked in.
 
 ### Tests for User Story 1 ⚠️ write first, confirm they fail
 
-- [ ] T009 [P] [US1] Write `backend/test/integration/entry.lookup.e2e-spec.ts` (contract-checked
+- [X] T009 [P] [US1] Write `backend/test/integration/entry.lookup.e2e-spec.ts` (contract-checked
   `lookupEntryTicket`): an admittable ticket returns every `EntryTicket` field, `state:
   'ADMITTABLE'`, `holderName`, `tierName` (and `null` at base price), `seat` for a seated ticket,
   and `entryOpensAt` = `startsAt` − 2 hours; the code is found in lower case, with spaces, and with
@@ -134,7 +134,7 @@ see "Already used" with the time; the attendee list shows it checked in.
   with no name gives `holderName: null`; a lookup records nothing (`checkedInAt` unchanged); an
   unknown code, `'ABC'`, and `'IIIIIIIIIIII'` (outside the code alphabet) are `404
   TICKET_NOT_FOUND`; an unknown event is `404 NOT_FOUND`; an empty `code` is `400`.
-- [ ] T010 [P] [US1] Write `backend/test/integration/entry.admit.e2e-spec.ts` (contract-checked
+- [X] T010 [P] [US1] Write `backend/test/integration/entry.admit.e2e-spec.ts` (contract-checked
   `admitTicket`): a single admit is `200` with one `admitted` entry and empty `alreadyUsed`; the
   row then has `checkedInAt`, `checkedInBySub` = `subFor('agent1')`, and `checkedInByUsername` =
   `'agent1'`; the next lookup is `USED` with `usedAt`; a second admit is `409 ENTRY_REFUSED` with
@@ -143,11 +143,11 @@ see "Already used" with the time; the attendee list shows it checked in.
   order's tickets, even the same customer's at the same event; a ticket of an order with no name
   (`orderWithTickets`) is admitted once and then refused as used, like any other (SC-007); an
   unknown `ticketId` is `404 TICKET_NOT_FOUND`.
-- [ ] T011 [P] [US1] Write `backend/test/integration/entry.authz.e2e-spec.ts`: both operations
+- [X] T011 [P] [US1] Write `backend/test/integration/entry.authz.e2e-spec.ts`: both operations
   answer `401` with no token, an expired token, a wrongly signed one, and one for another
   audience (Constitution VI); `403` for a customer and for an admin; and succeed for a gate
   agent (FR-016, Constitution V).
-- [ ] T012 [P] [US1] Write `booth-app/test/check-in.test.tsx` with a stubbed `fetch`: the event list
+- [X] T012 [P] [US1] Write `booth-app/test/check-in.test.tsx` with a stubbed `fetch`: the event list
   shows only scheduled events that have not ended, soonest first; the chosen event is kept in
   `sessionStorage` and restored after a remount, and a throwing `sessionStorage` still lets the
   agent choose; a typed lookup shows the event, ticket type, seat, the holder's name or "No name on
@@ -161,21 +161,21 @@ see "Already used" with the time; the attendee list shows it checked in.
   (network error) on a lookup or an admit shows a plain error, records nothing, and re-enables the
   controls (Constitution IV); a `401` on an admit sends the agent to sign in, and the chosen event
   is still there afterwards (Edge Cases).
-- [ ] T013 [P] [US1] Update `booth-app/test/app.test.tsx`: the hello-world greeting is gone; the
+- [X] T013 [P] [US1] Update `booth-app/test/app.test.tsx`: the hello-world greeting is gone; the
   sign-in gate, the wrong-role refusal, and logout keep their tests.
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] In `backend/src/orders/ticket-code.ts`, export `ALPHABET`. Create
+- [X] T014 [US1] In `backend/src/orders/ticket-code.ts`, export `ALPHABET`. Create
   `backend/src/entry/ticket-state.ts`: `normalizeCode(raw: string): string | null` (upper case,
   remove spaces and dashes, then `null` unless it is exactly 12 symbols of `ALPHABET`); and the
   state rules of research R5 as one SQL `CASE` expression shared by the lookup and the refusal
   query, in the order `VOID`, `OTHER_EVENT`, `USED`, `NOT_OPEN`, `ENDED`, `ADMITTABLE`, comparing
   with `now()`.
-- [ ] T015 [US1] Create `backend/src/entry/dto/entry-lookup.dto.ts` (`code`: `@IsString()`,
+- [X] T015 [US1] Create `backend/src/entry/dto/entry-lookup.dto.ts` (`code`: `@IsString()`,
   `@Length(1, 64)`) and `backend/src/entry/dto/admit.dto.ts` (`ticketId`: `@IsUUID('all')`;
   `wholeOrder`: `@IsBoolean()`), mirroring `EntryLookupInput` and `AdmitInput`.
-- [ ] T016 [US1] Create `backend/src/entry/entry.service.ts`:
+- [X] T016 [US1] Create `backend/src/entry/entry.service.ts`:
   - `lookup(eventId, rawCode)`: `404 NOT_FOUND` for an unknown event; `404 TICKET_NOT_FOUND`
     ("No ticket has the code <normalized>.") when `normalizeCode` is `null` or nothing matches;
     otherwise one `SELECT` joining `Ticket`, `Order`, `Event`, and `TicketTier` that returns the
@@ -190,16 +190,16 @@ see "Already used" with the time; the attendee list shows it checked in.
     return `admitted`, and for `wholeOrder` `alreadyUsed`: the order's other valid tickets for the
     event that have a `checkedInAt` and were not admitted now. Messages name no local time (the
     client formats the times in `details`).
-- [ ] T017 [US1] Create `backend/src/entry/entry.controller.ts` (`@Controller('events/:id/entry')`;
+- [X] T017 [US1] Create `backend/src/entry/entry.controller.ts` (`@Controller('events/:id/entry')`;
   `@Post('lookup')` and `@Post('admit')`, each `@Roles('gate-agent')` and `@HttpCode(200)`, with
   `ParseUUIDPipe` on `id` and `@CurrentPrincipal()` for the admit) and
   `backend/src/entry/entry.module.ts`; register it in `backend/src/app.module.ts`.
-- [ ] T018 [US1] Run T009–T011 until they pass.
-- [ ] T019 [US1] In `contracts/openapi.yaml`, remove `x-planned: '017'` from `lookupEntryTicket`
+- [X] T018 [US1] Run T009–T011 until they pass.
+- [X] T019 [US1] In `contracts/openapi.yaml`, remove `x-planned: '017'` from `lookupEntryTicket`
   and `admitTicket`; run `npm run generate:api`. Run
   `backend/test/contract/route-coverage.e2e-spec.ts` and `node scripts/check-contract-drift.mjs`;
   both pass.
-- [ ] T020 [US1] Build the Ticket Booth app (research R11):
+- [X] T020 [US1] Build the Ticket Booth app (research R11):
   - `booth-app/src/main.tsx`: import `@queuepass/shared/theme.css`.
   - `booth-app/src/api.ts`: typed wrappers on `createApiClient` for `listEvents`,
     `lookupEntryTicket`, and `admitTicket`.
@@ -215,7 +215,7 @@ see "Already used" with the time; the attendee list shows it checked in.
     `LogoutButton`. Remove `HelloPage` from the app; `getBoothHello` stays served.
   - `booth-app/src/styles.css`: layout only, theme values only (the drift check scans it);
     usable at 360 CSS pixels wide with no horizontal scroll (FR-023).
-- [ ] T021 [US1] Run T012 and T013 until they pass, then the drift test in `packages/shared`.
+- [X] T021 [US1] Run T012 and T013 until they pass, then the drift test in `packages/shared`.
 
 **Checkpoint**: typed codes are looked up and admitted once; MVP.
 
@@ -227,7 +227,7 @@ see "Already used" with the time; the attendee list shows it checked in.
 
 **Independent Test**: 20 simultaneous admits of one ticket; exactly one succeeds.
 
-- [ ] T022 [US2] Write `backend/test/integration/entry.concurrency.e2e-spec.ts`, firing requests
+- [X] T022 [US2] Write `backend/test/integration/entry.concurrency.e2e-spec.ts`, firing requests
   with `Promise.all` as `orders.ticket-limit.concurrency.e2e-spec.ts` does, and failing on any
   `5xx`:
   - 20 admits of one ticket from `agent1`…`agent20`: exactly one `200`, nineteen `409
@@ -238,7 +238,7 @@ see "Already used" with the time; the attendee list shows it checked in.
     total, with no ticket twice.
   - An admit racing the admin's `cancelEvent`: the ticket ends `VOID` either way; if the admit won,
     `checkedInAt` is still set; if the cancel won, the admit is `409` with `reason: 'VOID'`.
-- [ ] T023 [US2] Run T022 until it passes, without adding any lock (ground rules). If it fails,
+- [X] T023 [US2] Run T022 until it passes, without adding any lock (ground rules). If it fails,
   fix the statement of T016, not the test.
 
 **Checkpoint**: one entry per ticket under concurrency, guaranteed by the database.
@@ -252,7 +252,7 @@ see "Already used" with the time; the attendee list shows it checked in.
 **Independent Test**: an unknown code, a cancelled event's ticket, a used ticket, and another
 event's ticket are each refused with their reason.
 
-- [ ] T024 [P] [US3] Write `backend/test/integration/entry.window.e2e-spec.ts` with
+- [X] T024 [P] [US3] Write `backend/test/integration/entry.window.e2e-spec.ts` with
   `eventAroundNow` (research R5, 30-second margins): starting in 2 hours 30 seconds is `NOT_OPEN`
   with `entryOpensAt`, and its admit is `409` with `reason: 'NOT_OPEN'`; starting in 1 hour
   59 minutes 30 seconds is `ADMITTABLE` and admits; ending in 30 seconds admits; ended 30 seconds
@@ -260,12 +260,12 @@ event's ticket are each refused with their reason.
   `OTHER_EVENT`; a void ticket of another (cancelled) event is `VOID`, for both operations; a
   void ticket that was admitted before its event was cancelled is `VOID` and still has its
   `checkedInAt`; a used ticket of an ended event is `USED`.
-- [ ] T025 [P] [US3] Add to `booth-app/test/check-in.test.tsx` one test per refusal, each with no
+- [X] T025 [P] [US3] Add to `booth-app/test/check-in.test.tsx` one test per refusal, each with no
   **Admit** and a **Look up another** that focuses the code field: `404 TICKET_NOT_FOUND` → "No
   ticket has this code"; `VOID` → "Cancelled and refunded"; `OTHER_EVENT` → "For <event> on
   <date>, not this event"; `USED` → "Already used at <time>"; `NOT_OPEN` → "Entry opens at
   <time>"; `ENDED` → "This event has ended".
-- [ ] T026 [US3] Implement the refusal texts in `booth-app/src/EntryResult.tsx`, and make any
+- [X] T026 [US3] Implement the refusal texts in `booth-app/src/EntryResult.tsx`, and make any
   Backend fix T024 needs in `backend/src/entry/`. Run T024 and T025 until they pass.
 
 **Checkpoint**: every refusal explains itself.
@@ -279,7 +279,7 @@ event's ticket are each refused with their reason.
 **Independent Test**: buy 3 tickets with a name; all 3 show it on My tickets and the attendee
 list; an order without a name is refused with nothing recorded.
 
-- [ ] T027 [P] [US4] Write `backend/test/integration/orders.holder-name.e2e-spec.ts`
+- [X] T027 [P] [US4] Write `backend/test/integration/orders.holder-name.e2e-spec.ts`
   (contract-checked): no `holderName` and `'   '` are `400 HOLDER_NAME_INVALID` with
   `details.reason: 'MISSING'`; 101 code points `TOO_LONG` and 100 accepted; a tab
   `CONTROL_CHARACTER`; `'1234'` `NO_LETTER`; a refusal records no order and no ticket;
@@ -288,15 +288,15 @@ list; an order without a name is refused with nothing recorded.
   different name `409 REQUEST_ID_REUSED`; `holderName` is in the `createOrder` response, in
   `listMyOrders`, and in `listAttendees`; an order inserted without a name (fixture) returns
   `holderName: null`; a seated order (`reserveThenOrder`) carries the name too.
-- [ ] T028 [P] [US4] Write `customer-app/test/holder-name-field.test.tsx`: the Get tickets form has
+- [X] T028 [P] [US4] Write `customer-app/test/holder-name-field.test.tsx`: the Get tickets form has
   a field labelled **Name on tickets** with the hint "Your name, as on the photo ID you'll show at
   the gate. It goes on every ticket."; **Confirm** is disabled while `holderNameProblem` returns a
   problem, and the field shows `holderNameMessage` for it once touched; the name is sent as
   `holderName`; a `400 HOLDER_NAME_INVALID` from the Backend is shown as an error with the
   quantity, ticket type, seats, and name kept; the seated flow sends it too.
-- [ ] T029 [P] [US4] Update `customer-app/test/my-tickets.test.tsx`: each order shows "Name on
+- [X] T029 [P] [US4] Update `customer-app/test/my-tickets.test.tsx`: each order shows "Name on
   tickets: Jordan Lee", or "No name on ticket" when `holderName` is `null`.
-- [ ] T030 [US4] In `backend/src/orders/dto/create-order.dto.ts`, add `holderName` as
+- [X] T030 [US4] In `backend/src/orders/dto/create-order.dto.ts`, add `holderName` as
   `@IsOptional() @IsString() @MaxLength(400)` (a missing name must reach the service, research R2).
   In `backend/src/orders/orders.service.ts`:
   - At the top of `create()`, before the transaction: if `holderNameProblem(dto.holderName)` is a
@@ -307,24 +307,24 @@ list; an order without a name is refused with nothing recorded.
   - Store it in `order.create` as `holderName`.
   - In the replay check, add `earlier.holderName === name` to `same`.
   - Add `holderName` to `OrderResponse` and `toOrderResponse`.
-- [ ] T031 [US4] Add `holderName: HOLDER` (from `backend/test/setup/fixtures.ts`) to every order
+- [X] T031 [US4] Add `holderName: HOLDER` (from `backend/test/setup/fixtures.ts`) to every order
   that existing Backend tests place: the body `reserveThenOrder` sends in
   `backend/test/setup/fixtures.ts` (deferred from T008), and each body posted to `/events/{id}/orders` in
   `backend/test/integration/` (about 35 calls in 23 files; find them with
   `grep -rn 'orders`)' backend/test`). Change nothing else in those tests.
-- [ ] T032 [US4] First add to `backend/test/integration/demo-data.e2e-spec.ts` that every demo
+- [X] T032 [US4] First add to `backend/test/integration/demo-data.e2e-spec.ts` that every demo
   order has a name, and confirm it fails (Constitution VI). Then, in
   `backend/src/scripts/demo-data.ts`, give every demo order a `holderName` from a fixed list of 20
   sample names, indexed by the demo customer's number (research R13), until it passes.
-- [ ] T033 [US4] In `customer-app/src/components/GetTickets.tsx`, add the **Name on tickets** field
+- [X] T033 [US4] In `customer-app/src/components/GetTickets.tsx`, add the **Name on tickets** field
   above **Confirm** for both general admission and seated orders, validated with
   `holderNameProblem` and `holderNameMessage`, sent as `holderName`, and kept on a refusal
   (Constitution IV). In `customer-app/src/pages/MyTickets.tsx`, show "Name on tickets: <name>" or
   "No name on ticket" on each order.
-- [ ] T034 [US4] In `contracts/openapi.yaml`, add `holderName` to `required` in `OrderInput` and in
+- [X] T034 [US4] In `contracts/openapi.yaml`, add `holderName` to `required` in `OrderInput` and in
   `Order`, and remove the two "Required once 017 is implemented" sentences (in `createOrder`'s
   description and in each schema's `holderName` description); run `npm run generate:api`.
-- [ ] T035 [US4] Run T027–T029, then the full Backend and Customer app suites, until they pass.
+- [X] T035 [US4] Run T027–T029, then the full Backend and Customer app suites, until they pass.
 
 **Checkpoint**: every new order has a valid name, shown to customers and gate agents.
 
@@ -337,21 +337,21 @@ list; an order without a name is refused with nothing recorded.
 **Independent Test**: open a ticket's print view, scan it with the webcam, and see the same lookup
 as typing its code.
 
-- [ ] T036 [P] [US5] Write `customer-app/test/print-ticket.test.tsx`: **Print ticket** appears on
+- [X] T036 [P] [US5] Write `customer-app/test/print-ticket.test.tsx`: **Print ticket** appears on
   My tickets for valid, unused tickets only (not void, not used); `/my-tickets/<ticketId>/print`
   shows an SVG with the accessible name "QR code for ticket <code>", the code in text, the holder's
   name (or "No name on ticket"), the event's name, venue, start time, and the seat if any; **Print**
   calls `window.print` (stubbed); an id that isn't one of the caller's tickets shows "Ticket not
   found"; `qrMatrix(code)` (exported by `TicketQr.tsx`) is 21 × 21 for a 12-character code, and is
   the same matrix `qrcode-generator` makes with type number 0, level `'M'`, and alphanumeric mode.
-- [ ] T037 [P] [US5] Write `booth-app/test/scanner.test.tsx`, with `booth-app/src/camera.ts` and
+- [X] T037 [P] [US5] Write `booth-app/test/scanner.test.tsx`, with `booth-app/src/camera.ts` and
   `booth-app/src/decode.ts` mocked: **Scan** asks for the camera; a decoded ticket code runs the
   lookup with no further tap and stops the camera; a decoded non-ticket value shows "Not a
   QueuePass ticket" once per distinct value and keeps scanning; a `NotAllowedError` shows "Camera
   access was refused. Type the code instead." and the code field still works; no
   `navigator.mediaDevices` shows "This device has no camera. Type the code instead."; unmounting
   and **Stop scanning** stop every track.
-- [ ] T038 [US5] Create `customer-app/src/components/TicketQr.tsx`: `qrMatrix(code)` with
+- [X] T038 [US5] Create `customer-app/src/components/TicketQr.tsx`: `qrMatrix(code)` with
   `qrcode-generator` (type number 0, level `'M'`, `addData(code, 'Alphanumeric')`, `make()`), and a
   component that draws it as one SVG `<path>` of the dark modules with a 4-module quiet zone, black
   on white, `role="img"` and `aria-label` "QR code for ticket <code>". Create
@@ -360,14 +360,14 @@ as typing its code.
   `customer-app/src/App.tsx`. Add **Print ticket** links in `customer-app/src/pages/MyTickets.tsx`.
   Add `@media print` rules to `customer-app/src/styles.css` that hide the app header and navigation
   and the **Print** button, using theme values only.
-- [ ] T039 [US5] Create `booth-app/src/camera.ts` (`openCamera()`: `getUserMedia({ video: {
+- [X] T039 [US5] Create `booth-app/src/camera.ts` (`openCamera()`: `getUserMedia({ video: {
   facingMode: 'environment' } })`, returning the stream and a `stop()` that stops every track, and
   typed errors for refused and missing cameras), `booth-app/src/decode.ts` (`decodeFrame(video,
   canvas)`: draws the frame at most 640 pixels wide and calls `jsQR` with `inversionAttempts:
   'dontInvert'`), and `booth-app/src/Scanner.tsx` (a `<video>` preview, decoding about every
   160 ms via `requestAnimationFrame`, normalizing a value like typing and handing a ticket code to
   the lookup, **Stop scanning**). Add **Scan** next to **Look up** in `TicketLookup.tsx`.
-- [ ] T040 [US5] Run T036 and T037 until they pass, then the drift test.
+- [X] T040 [US5] Run T036 and T037 until they pass, then the drift test.
 
 **Checkpoint**: printed codes scan; typing still works everywhere.
 
@@ -379,12 +379,12 @@ as typing its code.
 
 **Independent Test**: admit two tickets, then see both on the attendee list and in the report.
 
-- [ ] T041 [P] [US6] Update `admin-app/test/attendees.test.tsx`: a **Name on tickets** column with
+- [X] T041 [P] [US6] Update `admin-app/test/attendees.test.tsx`: a **Name on tickets** column with
   each order's name, or "No name on ticket" for `null`; each checked-in ticket shows its time.
-- [ ] T042 [P] [US6] Add to `backend/test/integration/entry.admit.e2e-spec.ts`: after two admits,
+- [X] T042 [P] [US6] Add to `backend/test/integration/entry.admit.e2e-spec.ts`: after two admits,
   `getSalesReport`'s checked-in count for the event rises by 2, `listAttendees` shows both tickets'
   `checkedInAt`, and the buyer's `listMyOrders` shows them too (FR-020, FR-021, SC-005).
-- [ ] T043 [US6] In `admin-app/src/pages/Attendees.tsx`, add the **Name on tickets** column, and
+- [X] T043 [US6] In `admin-app/src/pages/Attendees.tsx`, add the **Name on tickets** column, and
   show each checked-in ticket's time of entry — today the list says only "✓ checked in"; T041
   expects the time (FR-020). Run T041 and T042 until they pass.
 
@@ -394,33 +394,128 @@ as typing its code.
 
 ## Phase 9: Polish & Cross-Cutting Concerns
 
-- [ ] T044 First add to `backend/test/integration/demo-data.e2e-spec.ts` that Demo Tonight's entry
+- [X] T044 First add to `backend/test/integration/demo-data.e2e-spec.ts` that Demo Tonight's entry
   window is open right after loading and that the demo check-ins record an agent, and confirm it
   fails (Constitution VI). Then, in `backend/src/scripts/demo-data.ts` (research R13): add "Demo
   Tonight" at Demo Riverside Hall, starting 1 hour after the demo data runs and ending 4 hours
   after, at least 60 minutes from every other demo event at that venue; give it named orders with
   unused tickets, including one order of 4; and record `checkedInBySub: 'demo-agent1'` and
   `checkedInByUsername: 'agent1'` on the check-ins the demo data already makes, until it passes.
-- [ ] T045 [P] Update `README.md`: the `017` row in the status table; "Today" says gate agents check
+- [X] T045 [P] Update `README.md`: the `017` row in the status table; "Today" says gate agents check
   tickets in by code or camera, once each, with an ID check against the name on the order; how to
   sign in to the Ticket Booth app (`agent1` / `test123`); the optional phone step from research R10
   word for word (`chrome://inspect`, **Port forwarding**, ports 5175, 8080, 3000), saying iPhones
   can't use it.
-- [ ] T046 Run `npm run lint` and `npm test` from the repository root; everything passes,
+- [X] T046 Run `npm run lint` and `npm test` from the repository root; everything passes,
   including `check-contract-drift` and `check-boundary`.
-- [ ] T047 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
+- [X] T047 Report coverage for the files this feature changed (`npx jest --coverage` in `backend`;
   the front ends' coverage if a provider is installed) in the PR description. The 80% floor is not
   yet blocking (Constitution VI deferral until `010` and `011`).
-- [ ] T048 Running-system gate: `docker compose up --build` from a fresh clone, then walk
+- [X] T048 Running-system gate: `docker compose up --build` from a fresh clone, then walk
   quickstart.md S0–S9 in the browser (S10 if an Android phone is at hand), and sign in, use, and
   sign out of each front end. Record the results in this file.
-- [ ] T049 Independent review (Constitution III): a separate Claude session reviews the branch
+  **T048 results (2026-10-22, fresh clone of `017-gate-check-in-impl` at T047's commit):**
+  `docker compose up --build -d` under a fresh compose project: all six services healthy on the
+  first boot, seeding succeeded on the first run, all three front ends serve on 5173–5175, the
+  contract at `/docs`. `GET /health` = `{"status":"ok","database":"up"}`. Demo data: 2 venues,
+  4 events, 53 orders — every one with a holder's name — 121 tickets, 24 check-ins, all recorded
+  by `demo-agent1`/`agent1`; Demo Tonight's entry window open right after loading, 19 unused
+  tickets. (First boot surfaced a stale `queuepass_*` volume from an unrelated 2026-10-03 run on
+  this laptop; a fresh project name got fresh volumes. Nothing in 017.) The full automated suite
+  ran green in the working tree (T046). **Browser walk (2026-10-23):** a fresh stack built from
+  2f608b8, demo data loaded at 18:17 CDT, Safari private tabs as `admin1`, `customer1`, `agent1`
+  (webcam), and `agent2`. Quickstart S0–S9 all passed, including the webcam scan (S4) and a print
+  preview that stays readable with the OS in dark mode (S2). S10 (optional, Android phone) was not
+  walked.
+  **T047 results:** backend coverage (jest --runInBand --coverage): 96.94% lines, 84.92% branches
+  overall; 017's files: entry/ 95–100% per file, orders/ 98.9–100%, demo-data.ts 86.3% lines. No
+  coverage provider is installed for the front ends. The 80% floor stays a recorded deferral
+  until `010` and `011`.
+- [X] T049 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the rounds and any open finding here and in the PR description.
-- [ ] T050 Once the spec and plan PR has merged (Constitution 3.2.0), rebase onto `main` and open
+  **T049 record — round 1 (2026-10-22):** a separate Claude session reviewed the branch against
+  spec.md, plan.md, research, data-model, the contract, and the constitution. No CRITICAL or HIGH
+  findings. Fixed from round 1: (MEDIUM) the admit's "updated nothing" fallback could answer a
+  false `USED` at the window-opening boundary — the admit now retries once when the re-read says
+  ADMITTABLE and otherwise refuses with the truthful `NOT_OPEN` + `entryOpensAt`; (LOW) a
+  deliberate sign-out now forgets the chosen event (FR-007), while session expiry still keeps it;
+  (LOW) the unused-on-order count is always shown for an admittable ticket (FR-015a); (LOW) a
+  refusal with a missing or unknown `reason`, or a missing time detail, shows a plain
+  "couldn't be admitted" line instead of an invented reason or "Invalid Date"; (LOW) the decode
+  loop runs inside requestAnimationFrame (per T039), so a hidden tab stops decoding. Left open,
+  minor: the README's status row says built and verified while the S0–S9 browser walk is still
+  pending (true by merge time; see T048); FR-010's "ticket type (or base price)" is satisfied by
+  the "General admission" label, since `EntryTicket` carries no price — to note in the PR, spec
+  PATCH optional.
+  **T049 record — round 2 (2026-10-22):** the same review session re-checked commit b1b6ac2. All
+  five round-1 fixes CONFIRMED FIXED, no new problem introduced: the retry rests entirely on the
+  one R4 UPDATE (no lock added), cannot double-admit or double-report, and changes nothing under
+  the 20-way race. Left open, minor: no automated test forces the sub-second NOT_OPEN→ADMITTABLE
+  flip (it would need a clock hook R5 deliberately avoids; the boundaries and the race are
+  covered) — noted for the PR description. Review done in 2 rounds; only minor findings remain.
+  **T049 record — round 3 (2026-10-23):** a fresh Claude session reviewed both branches against
+  #39, #40, and the constitution, after the spec PR's own round 2 had changed R5. Fixed: (HIGH)
+  the spec review was not carried in, so the reason order still put `OTHER_EVENT` before `VOID`
+  and "Cancelled and refunded" could never be shown (396f860, 51fde79); (MEDIUM) the Ticket
+  Booth cleared the typed code before the lookup answered, losing it on "No ticket has this code"
+  or a failed request (7b08c80); (LOW) no wrong-audience test on the entry routes (074a1ed); (LOW)
+  the README said built and verified before the S0–S9 walk (restored after the walk). The
+  suspected faint print in dark mode was checked in S2 and is readable, so nothing changed. Left
+  open, minor: the scanner's camera-refused and not-a-ticket messages are not in a live region;
+  the Get tickets name error is not linked to its field; no test races two **Admit all** presses
+  for one order. Review done in 3 rounds.
+  **T049 record — round 4 (2026-10-23):** a fresh Claude session reviewed the branch at 8cd9897
+  against the spec, plan, research R1–R14, data-model, quickstart, contract 1.10.0, and constitution
+  3.2.1. Must fix, all done: #39 and #40 were already closed, by the "fixes" lines in 12eecb3's body
+  when #66 merged (both reopened, with a comment that #68's merge closes them); the admit's one
+  retry from round 1 (b1b6ac2) had no test, and needed no clock hook: a real-PostgreSQL test moves
+  the event earlier just before the re-read, and fails with the retry removed (e0287e8); 36 files
+  the branch adds (13) or changes (23, each clean on `main`) were off Prettier's format, not six,
+  and are formatted in a commit with no code change, so the repository now passes `prettier --check`
+  (a8ea582); the scanner's camera error and "Not a QueuePass ticket" were not announced (f4204c2);
+  the Get tickets name error was not linked to its field (f9c9107). Also fixed (LOW): the camera
+  stayed open during a typed lookup or an admit, so a second read could race the first answer and
+  leave the wrong result on screen (8aa6253, FR-024); a failed admit said "Nothing was recorded",
+  which the app can't know (292f4c1); Admit, Admit all, and Refuse dropped focus to the page body
+  (088c35d, T020); a webcam busy in another app said "This device has no camera" (f4204c2); no test
+  raced two **Admit all** presses for one order (b01e3d0, which also renames a lookup test titled
+  "is 404" that asserts 200); no Booth test for "General admission" (9bc5736); the README didn't say
+  when Demo Tonight's window closes or how to demo later (bb7b8e2). Round 3's three open items are
+  among these fixes. Dark-mode print, checked in Chrome as well as Safari: print preview with the OS
+  in dark mode and Background graphics off is readable, so the theme is unchanged (were a print
+  reset ever needed, it belongs in `packages/shared/src/web/theme.css`, and `tokens.test.ts:25` and
+  `drift.test.ts:302` match its dark `@media` rule literally). Each behavior fix's test failed
+  first; the tests of behavior that already worked were shown to fail by breaking it. Suite after
+  round 4: Backend 703, shared 380, Admin 196, Customer 179, Booth 51, seed 3; lint and `prettier
+  --check` clean. Left open, minor: US4 scenario 2 says the name shows "next to each ticket's code",
+  but **My tickets** shows it once per order, in the same card as every code, as R12 and T029 chose
+  (align the wording in a later spec PATCH); FR-001a (the name can't be changed) has no test, but no
+  route writes `holderName` after `createOrder` (cancelling an event changes only an order's status
+  and refund time); merge commit ce6a93b has "# Conflicts:" lines after its Co-Authored-By line, so
+  GitHub doesn't show that co-author, and fixing it would rewrite pushed history. Review done in 4
+  rounds; a different session reviews these fixes (round 5) before teammates do.
+  **T049 record — round 5 (2026-10-23):** a different session reviewed round 4's fixes at 6e635ef.
+  Every fix confirmed: each new test fails with its fix undone, and a8ea582 compiles to the same
+  output as before in all 36 files. No must-fix. Fixed (LOW): **Change event** left the camera
+  set to open, so choosing an event again turned it on without **Scan** (123b38c, FR-009; its test
+  failed first); `held()` in `scanner.test.tsx` lost a release sent before the request arrived, and
+  two comments were out of date (06acf22, no behavior change). Left open, minor: after a failed
+  admit that was in fact recorded, the lookup it advises shows "Already used" with no sign the
+  agent made that entry (would need the contract to name the agent); Admit is disabled while its
+  request runs, so in browsers that move focus off a disabled button, focus is on the page after a
+  failed admit (not a regression; check in a browser first); a Backend `HOLDER_NAME_INVALID` is
+  shown in the banner without marking the field invalid (unreachable while both apps share the
+  rule); a lookup or admit still running across **Change event** can show its answer on the next
+  event's screen (the Backend refuses another event's ticket, so nothing wrong is recorded). Suite
+  after round 5: Backend 703, shared 380, Admin 196, Customer 179, Booth 52, seed 3; lint and
+  `prettier --check` clean. Review done in 5 rounds; next, teammates.
+- [X] T050 Once the spec and plan PR has merged (Constitution 3.2.0), rebase onto `main` and open
   the implementation PR against `main` with `fixes #39` and `fixes #40` on their own lines. It
   touches the shared surface (`backend/prisma/`, `packages/shared/`, `contracts/openapi.yaml`), so
   every team member approves it.
+  Opened as draft #68 on 2026-10-23 after #66 merged (`main` merged in, 571025d, rather than
+  rebased, since the branch was pushed with merge commits); marked ready after T048.
 
 ---
 

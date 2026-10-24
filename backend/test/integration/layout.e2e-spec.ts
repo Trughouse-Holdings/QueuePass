@@ -1,6 +1,6 @@
 import type { Response } from 'supertest';
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { customer, event, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, CUSTOMER, tokenFor } from '../setup/tokens';
@@ -37,7 +37,7 @@ describe('Seating layouts', () => {
       await customer(ctx)
     )
       .post(`/events/${eventId}/orders`)
-      .send({ quantity: 1 })
+      .send({ holderName: HOLDER, quantity: 1 })
       .expect(201);
     await ctx.prisma.ticket.update({
       where: { id: order.body.tickets[0].id },

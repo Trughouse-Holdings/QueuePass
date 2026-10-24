@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { tokenFor } from '../setup/tokens';
@@ -35,7 +35,9 @@ describe('Orders with seats', () => {
   });
 
   const order = async (eventId: string, body: object, n = 1) =>
-    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send(body);
+    (await customer(ctx, n))
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, ...body });
   /** Spec 015 FR-006: a seated order buys seats the customer has reserved first. */
   const bought = async (
     eventId: string,

@@ -9,7 +9,7 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `008` and `012` through `016` are built and verified.
+Features `001` through `008` and `012` through `017` are built and verified.
 
 | Spec                                                                         | What it delivers                                                                                                                                                               | Spec             | Plan and tasks     | Code                   |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------- | ------------------ | ---------------------- |
@@ -26,6 +26,7 @@ Features `001` through `008` and `012` through `016` are built and verified.
 | [`014-event-images`](specs/014-event-images/spec.md)                         | Up to 5 images per event, added, ordered, and removed in the Admin event form; a rotating gallery on Customer event cards and on the event page of both apps, with full screen | Draft            | Done (49/50 tasks) | **Built and verified** |
 | [`015-seat-holds`](specs/015-seat-holds/spec.md)                             | Customers reserve picked seats for 5 minutes, then confirm; no seat reserved twice; reserved and sold seats shown live in both apps                                            | Draft            | Done (50 tasks)    | **Built and verified** |
 | [`016-per-user-ticket-limit`](specs/016-per-user-ticket-limit/spec.md)       | An optional per-customer ticket limit on each event, held under concurrent orders; shown to admins and customers                                                               | Draft            | Done (36 tasks)    | **Built and verified** |
+| [`017-gate-check-in`](specs/017-gate-check-in/spec.md)                       | Every new ticket carries the buyer's name; customers print a QR per ticket; gate agents scan or type a code, check an ID against the name, and admit each ticket exactly once  | Draft            | Done (50 tasks)    | **Built and verified** |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -43,7 +44,14 @@ address, checked by the US Census Geocoder when it is saved, unless an admin cho
 anyway** for an address the service does not know, which is then marked not verified. Every venue
 address in both apps opens Google Maps. Admins add up to 5 pictures to an event (JPG, PNG, or
 WebP, up to 5 MB each) and put them in order; customers see them as a rotating gallery on the
-event's card and across the top of its page, and can open one full screen.
+event's card and across the top of its page, and can open one full screen. Every new order carries
+the buyer's name, typed at purchase and never changed, shown on My tickets, the attendee list, and
+at the gate; customers print a QR code for each valid ticket. In the Ticket Booth app, gate agents
+choose their event and check people in by scanning that QR with the camera or typing the
+12-character code, see the ticket and the holder's name, check a government-issued photo ID
+against it, and admit — once per ticket, even when several gates try at the same moment — or
+refuse, with every refusal explained. Admin reports and attendee lists count the real entries,
+with their times.
 
 The Admin and Customer apps take their whole look from one shared theme (`012`).
 
@@ -85,7 +93,7 @@ One command from a clean clone. No manual configuration steps.
 | ---------------- | --------------------- | ----------------- | ------------------------------------------------------------------ |
 | Admin app        | http://localhost:5173 | `admin1`          | role `queuepass-admin`                                             |
 | Customer app     | http://localhost:5174 | `customer1`       | role `customer`; find and browse events, get tickets, choose seats |
-| Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`; hello-world page only                           |
+| Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`; check tickets in by camera scan or typed code   |
 | Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs`       |
 | Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realm `queuepass`                                   |
 | PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                                   |
@@ -118,11 +126,19 @@ app (`006`), but to fill the Admin pages quickly for a demo, run once after `doc
 docker compose exec backend node backend/dist/scripts/demo-data.js
 ```
 
-It adds two venues, three events with tiers, orders from `customer1`…`customer25`, some
-check-ins, one cancelled event, and generated striped pictures (three on the concert, one on the
-comedy night), all through the real Backend rules. Running it again changes
-nothing. It is never run automatically. Its orders belong to stand-in identities, so they don't
-appear on any customer's **My tickets**; buy in the Customer app to see that page filled.
+It adds two venues, four events (three with tiers, plus Demo Tonight, open for gate check-in as
+soon as the data loads, `017`), named orders from `customer1`…`customer25`, some check-ins, one
+cancelled event, and generated striped pictures (three on the concert, one on the comedy night),
+all through the real Backend rules. Running it again changes nothing. It is never run
+automatically. Its orders belong to stand-in identities, so they don't appear on any customer's
+**My tickets**; buy in the Customer app to see that page filled.
+
+**Demo Tonight** starts 1 hour after the demo data loads and ends 4 hours after it, so its entry
+window (2 hours before the start until the end) is open at once and **closes 4 hours after the
+data loads**. Running the demo data again changes nothing, so it doesn't move Demo Tonight or add
+a new one. To demo check-in later, create an event in the Admin app that starts within the next 2
+hours, buy tickets for it in the Customer app, and choose it in the Ticket Booth
+([quickstart](specs/017-gate-check-in/quickstart.md) S0).
 
 Its two venues have real addresses, verified by the address service. It also works offline: when
 the service can't be reached, it saves them with their addresses not verified and says so.
@@ -287,6 +303,35 @@ guaranteed by the database (`015`).
   `◩` in the Admin app, with reserved counts), and nobody sees who reserved a seat.
 - **Logging out** of the Customer app releases every seat the customer has reserved.
 
+### Gate check-in
+
+Every new order carries one holder's name — the buyer's own, typed at purchase, never changed
+(`017`). From **My tickets**, a customer opens **Print ticket** on any valid, unused ticket: one
+page with a QR code (it encodes only the 12-character ticket code), the code in text, the name,
+the event, venue, time, and seat.
+
+In the Ticket Booth app, a gate agent chooses the event they are working, then scans a ticket's QR
+code with the camera or types its code (case, spaces, and dashes are ignored). The app shows the
+ticket and the holder's name and prompts the agent to check a government-issued photo ID that
+shows that name — a printed or typed code is only as secret as the code itself, so the ID check is
+what ties it to a person. **Admit** records the entry (time and agent); **Admit all N** admits an
+order's remaining tickets after one ID check; **Refuse** records nothing, and the ticket stays
+usable. A ticket is admitted exactly once — simultaneous admits from any number of gates leave one
+entry, guaranteed by the database — and entry is open from 2 hours before the event's start until
+its end. Tickets from before `017` have no name; the agent is asked to check any valid photo ID.
+Refusals always say why: no such code, cancelled and refunded, already used (with the time), for
+another event (named), or outside the entry window.
+
+- **Camera demo**: the webcam works at `http://localhost:5175`, because browsers treat
+  `localhost` as a secure origin. Scan a printed ticket, or hold the print view on another screen
+  up to the camera.
+- **Optional, a real Android phone**: browsers allow the camera only on secure origins, and a
+  phone reaching the laptop over Wi-Fi is not one. Chrome's USB port forwarding bridges this with
+  no configuration change: connect the phone with USB debugging on, open `chrome://inspect` in
+  desktop Chrome, choose **Port forwarding**, and add `5175`, `8080`, and `3000`, each to
+  `localhost:` the same port. On the phone, open Chrome at `http://localhost:5175`, sign in as a
+  gate agent, and scan. iPhones can't use this step: Safari has no port forwarding.
+
 ### One shared look
 
 The Admin and Customer apps look the same because both load one theme,
@@ -296,7 +341,7 @@ controls (buttons, fields, banners, badges, cards, tables). Each app's own `styl
 its own screens' rules, using the theme's values. `npm test` fails, naming the file and line, if
 an app writes a color, typeface, radius, shadow, or off-step spacing of its own, or redefines a
 theme value (`012`). A change to the theme changes `packages/shared/`, so it needs every team
-member's approval. The Ticket Booth app stays plain until a spec gives it functionality.
+member's approval. The Ticket Booth app adopted the theme with its first functionality (`017`).
 
 ### Scheduling rule
 
@@ -328,7 +373,9 @@ The front ends reach data **only** through this API. None holds a database conne
 ## Deliberate scope boundaries
 
 - Payment is simulated, and customers can't cancel or refund their own orders.
-- No check-in at the gate yet, and no QR codes, emailed, or printable tickets.
+- No emailed tickets, and no rotating QR codes yet: a printed code never expires, which is why
+  it always takes an ID check (`018` adds codes that change every 30 seconds).
+- No undo for an entry, no re-entry, and refused ID checks are not recorded.
 - Picking a seat holds nothing until **Reserve seats**; reservation times are fixed, with no
   admin override or waiting list. No best-available assignment, and no drawn floor plans:
   sections are rectangular rows of seats.

@@ -707,7 +707,7 @@ export interface paths {
          *     and must then be 1 to 100 characters, contain at least one letter in any script, and
          *     contain no control characters; otherwise `400 HOLDER_NAME_INVALID` (`details.reason`).
          *     It cannot be changed after the order is placed. A repeated `requestId` must also name the
-         *     same `holderName`. Required once feature 017 is implemented; until then it may be omitted.
+         *     same `holderName`.
          */
         post: operations["createOrder"];
         delete?: never;
@@ -1321,10 +1321,10 @@ export interface components {
             customerUsername: string;
             /**
              * @description Feature 017. The buyer's name, on every ticket of the order; `null` for orders placed
-             *     before feature 017. Always sent once 017 is implemented, which adds it to `required`.
+             *     before feature 017.
              * @example Jordan Lee
              */
-            holderName?: string | null;
+            holderName: string | null;
             quantity: number;
             /** @example 45.00 */
             unitPrice: string;
@@ -1356,10 +1356,10 @@ export interface components {
             /**
              * @description Feature 017. The buyer's own name, for every ticket of the order; see `createOrder` for
              *     the rules. `maxLength` only bounds the request: the name itself is at most 100
-             *     characters after trimming. Required once 017 is implemented, which adds it to `required`.
+             *     characters after trimming.
              * @example Jordan Lee
              */
-            holderName?: string;
+            holderName: string;
         };
         /** @description One of the signed-in customer's orders, with a summary of its event (feature 006). */
         MyOrder: components["schemas"]["Order"] & {

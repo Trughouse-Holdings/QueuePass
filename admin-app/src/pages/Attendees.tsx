@@ -4,7 +4,7 @@ import type { Event, Order } from '@queuepass/shared';
 import { ApiError } from '../api/client';
 import { getEvent } from '../api/events';
 import { listAttendees } from '../api/orders';
-import { seatLabel } from '../format';
+import { seatLabel, when } from '../format';
 import { usd } from '../money';
 
 type Load =
@@ -85,6 +85,8 @@ export function Attendees(): React.ReactElement {
               <thead>
                 <tr>
                   <th>Customer</th>
+                  {/* Spec 017 FR-004: the name the gate checks an ID against. */}
+                  <th>Name on tickets</th>
                   <th>Tier</th>
                   <th>Tickets</th>
                   <th>Total</th>
@@ -99,6 +101,7 @@ export function Attendees(): React.ReactElement {
                   return (
                     <tr key={o.id}>
                       <td className="cell-strong">{o.customerUsername}</td>
+                      <td>{o.holderName ?? 'No name on ticket'}</td>
                       <td>{o.tierName ?? 'General admission'}</td>
                       <td className="cell-num">{o.quantity}</td>
                       <td className="price">{usd(o.totalPrice)}</td>
@@ -111,10 +114,11 @@ export function Attendees(): React.ReactElement {
                             <li key={t.id}>
                               <code>{t.code}</code>
                               {t.seat && ` ${seatLabel(t.seat)}`}
+                              {/* Spec 017 FR-020: the time of each entry, from checkedInAt. */}
                               {t.status === 'VOID'
                                 ? ' (void)'
                                 : t.checkedInAt
-                                  ? ' ✓ checked in'
+                                  ? ` ✓ checked in ${when(t.checkedInAt)}`
                                   : ''}
                             </li>
                           ))}

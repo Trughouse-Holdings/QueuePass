@@ -50,6 +50,9 @@ function OrderCard({ order: o }: { order: MyOrder }) {
             <dd>{o.tierName}</dd>
           </>
         )}
+        {/* Spec 017 FR-004, FR-005: the holder's name, or plainly no name for older orders. */}
+        <dt>Name on tickets</dt>
+        <dd>{o.holderName ?? 'No name on ticket'}</dd>
         <dt>Quantity</dt>
         <dd>{o.quantity}</dd>
         <dt>Total</dt>
@@ -63,6 +66,15 @@ function OrderCard({ order: o }: { order: MyOrder }) {
         {o.tickets.map((t) => (
           <li key={t.id}>
             {`${t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}: ${ticketState(t)}`}
+            {/* Spec 017 FR-012: a printable view for each valid, unused ticket. */}
+            {t.status === 'VALID' && t.checkedInAt === null && (
+              <>
+                {' '}
+                <Link to={`/my-tickets/${t.id}/print`} aria-label={`Print ticket ${t.code}`}>
+                  Print ticket
+                </Link>
+              </>
+            )}
           </li>
         ))}
       </ul>

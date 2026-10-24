@@ -1,6 +1,6 @@
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, holdSeats, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, holdSeats, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor } from '../setup/tokens';
@@ -108,7 +108,9 @@ describe('Reservations under concurrency', () => {
       });
 
       const [ordered, reserved] = await Promise.all([
-        buyer.post(`/events/${eventId}/orders`).send({ quantity: 1, seats: [seat(3, 3)] }),
+        buyer
+          .post(`/events/${eventId}/orders`)
+          .send({ holderName: HOLDER, quantity: 1, seats: [seat(3, 3)] }),
         reserve(2, [seat(3, 3)]),
       ]);
 

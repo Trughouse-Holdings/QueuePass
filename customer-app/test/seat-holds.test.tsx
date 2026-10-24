@@ -1,7 +1,16 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { Reservation, SeatMap } from '@queuepass/shared';
-import { availability, event, json, order, renderCustomer, stubApi, tier } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  order,
+  renderCustomer,
+  stubApi,
+  tier,
+  typeHolderName,
+} from './helpers';
 
 /**
  * Spec 015 US1 (FR-001, FR-002, FR-005–FR-008, FR-012; research R13): pick seats, press Reserve
@@ -118,6 +127,7 @@ describe('reserving seats (US1-1; FR-001, FR-005)', () => {
     expect(calls.filter((c) => c.method === 'POST')).toEqual([]);
     expect(screen.queryByRole('button', { name: 'Confirm purchase' })).toBeNull();
 
+    await typeHolderName();
     press('Reserve seats');
 
     const timer = await screen.findByRole('timer');
@@ -230,11 +240,13 @@ describe('confirming (US1-3; FR-006)', () => {
     await pick([1, 1], [1, 3]);
     press('Reserve seats');
     await screen.findByRole('timer');
+    await typeHolderName();
     press('Confirm purchase');
 
     const done = await screen.findByRole('region', { name: 'Order confirmed' });
     expect(calls.find((c) => c.path === '/events/e1/orders')?.body).toEqual({
       tierId: 't-vip',
+      holderName: 'Jordan Lee',
       quantity: 2,
       requestId: expect.any(String),
       seats: [
@@ -483,6 +495,7 @@ describe('refusals keep the picks (US1-2; FR-002, FR-004a)', () => {
     press('Reserve seats');
     await screen.findByRole('timer');
 
+    await typeHolderName();
     press('Confirm purchase');
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/ran out/);

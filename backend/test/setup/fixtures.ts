@@ -2,7 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { as, asAdmin } from './authed-request';
 import type { TestContext } from './test-app';
-import { tokenFor } from './tokens';
+import { subFor, tokenFor } from './tokens';
 
 /** Shared setup for spec 005 tests: venues, events, tiers, and orders through the real API. */
 
@@ -92,6 +92,82 @@ export async function customer(ctx: TestContext, n = 1) {
   return as(ctx, await tokenFor({ username: `customer${n}`, roles: ['customer'] }));
 }
 
+/** Spec 017: requests as a gate agent (`agent1` to `agent30`, spec 001). */
+export async function agent(ctx: TestContext, n = 1) {
+  return as(ctx, await tokenFor({ username: `agent${n}`, roles: ['gate-agent'] }));
+}
+
+/**
+ * Spec 017: the holder's name every test order carries once orders require one (FR-001). Sent by
+ * `reserveThenOrder` and by every body posted to `/events/{id}/orders` from T031 on, never
+ * before: until the order DTO accepts the field, the ValidationPipe refuses it.
+ */
+export const HOLDER = 'Test Holder';
+
+/**
+ * Spec 017 (research R5): an event placed relative to the DATABASE's `now()`, inserted directly
+ * with `ctx.prisma`, so a test can put it in the past or inside the entry window, which the API's
+ * own rules (scheduling buffer, sales-closed) would refuse. Negative `startsInSeconds` is the
+ * past. Returns the event's id.
+ */
+export async function eventAroundNow(
+  ctx: TestContext,
+  venueId: string,
+  opts: { startsInSeconds: number; lastsSeconds: number; name?: string; capacity?: number },
+): Promise<string> {
+  const id = randomUUID();
+  await ctx.prisma.$executeRaw`
+    INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt", "totalTicketCapacity",
+                         "basePrice", "updatedAt")
+    VALUES (${id}::uuid, ${opts.name ?? 'Around Now'}, ${venueId}::uuid,
+            now() + make_interval(secs => ${opts.startsInSeconds}),
+            now() + make_interval(secs => ${opts.startsInSeconds + opts.lastsSeconds}),
+            ${opts.capacity ?? 100}, 45.00, now())`;
+  return id;
+}
+
+/**
+ * Spec 017: an order and its tickets inserted directly, for what the API would no longer sell
+ * (an event that started) or no longer accepts (an order with no holder's name, as before 017).
+ */
+export async function orderWithTickets(
+  ctx: TestContext,
+  eventId: string,
+  opts: { quantity: number; holderName?: string | null; customer?: number } = { quantity: 1 },
+): Promise<{ orderId: string; tickets: { id: string; code: string }[] }> {
+  const n = opts.customer ?? 1;
+  const order = await ctx.prisma.order.create({
+    data: {
+      eventId,
+      customerSub: subFor(`customer${n}`),
+      customerUsername: `customer${n}`,
+      quantity: opts.quantity,
+      unitPrice: '45.00',
+      totalPrice: (45 * opts.quantity).toFixed(2),
+      holderName: opts.holderName ?? null,
+      tickets: {
+        create: Array.from({ length: opts.quantity }, () => ({ eventId, code: testTicketCode() })),
+      },
+    },
+    include: { tickets: { orderBy: { code: 'asc' } } },
+  });
+  return { orderId: order.id, tickets: order.tickets.map((t) => ({ id: t.id, code: t.code })) };
+}
+
+/** Codes from the ticket alphabet (no I, O, 0, or 1), unique per run. */
+let codeCounter = 0;
+function testTicketCode(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  codeCounter += 1;
+  let suffix = '';
+  let left = codeCounter;
+  for (let i = 0; i < 6; i++) {
+    suffix = alphabet[left % alphabet.length] + suffix;
+    left = Math.floor(left / alphabet.length);
+  }
+  return `GATEFX${suffix}`;
+}
+
 /** Spec 015: a seat by its label, as a hold stores it. */
 export interface HeldSeat {
   section: string;
@@ -171,6 +247,8 @@ export async function reserveThenOrder(
     );
   }
   return client.post(`/events/${eventId}/orders`).send({
+    // Spec 017 FR-001 (T031): every order carries the test holder's name.
+    holderName: HOLDER,
     ...(body.tierId ? { tierId: body.tierId } : {}),
     quantity: body.seats.length,
     seats: body.seats,

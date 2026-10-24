@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { Availability, Event, Location, MyOrder, Order, TicketTier } from '@queuepass/shared';
 import { AuthProvider, RequireRole } from '@queuepass/shared/web';
@@ -86,6 +86,13 @@ export function renderCustomer({
   };
 }
 
+/** Spec 017 FR-001: types a valid holder's name, so Confirm can enable. */
+export async function typeHolderName(name = 'Jordan Lee') {
+  fireEvent.change(await screen.findByRole('textbox', { name: 'Name on tickets' }), {
+    target: { value: name },
+  });
+}
+
 const stamp = '2026-09-01T00:00:00.000Z';
 
 export const venue = (over: Partial<Location> = {}): Location => ({
@@ -155,6 +162,8 @@ export const order = (over: Partial<Order> = {}): Order => ({
   tierId: null,
   tierName: null,
   customerUsername: 'customer1',
+  // Spec 017 FR-001: the buyer's name on every ticket; null for orders placed before 017.
+  holderName: 'Jordan Lee',
   quantity: 2,
   unitPrice: '45.50',
   totalPrice: '91.00',

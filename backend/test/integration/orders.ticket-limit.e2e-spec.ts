@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor, tokenFor } from '../setup/tokens';
@@ -26,7 +26,9 @@ describe('Per-customer ticket limit on orders', () => {
   });
 
   const order = async (eventId: string, body: object, n = 1) =>
-    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send(body);
+    (await customer(ctx, n))
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, ...body });
   const buy = async (eventId: string, quantity: number, n = 1) => {
     const res = await order(eventId, { quantity }, n);
     expect(res.status).toBe(201);

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { tokenFor } from '../setup/tokens';
@@ -45,9 +45,13 @@ describe('Seated orders need a reservation', () => {
   const reserve = async (seats: object[], n = 1) =>
     (await customer(ctx, n)).post(`/events/${eventId}/reservation`).send({ seats });
   const order = async (seats: object[], n = 1, requestId?: string) =>
-    (await customer(ctx, n))
-      .post(`/events/${eventId}/orders`)
-      .send({ tierId: vip, quantity: seats.length, seats, ...(requestId ? { requestId } : {}) });
+    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send({
+      holderName: HOLDER,
+      tierId: vip,
+      quantity: seats.length,
+      seats,
+      ...(requestId ? { requestId } : {}),
+    });
 
   it('refuses a seated order without a reservation, and records nothing', async () => {
     const res = await order([seat(1, 5)]);
@@ -152,7 +156,11 @@ describe('Seated orders need a reservation', () => {
   it('leaves general-admission orders unchanged', async () => {
     const ga = await event(ctx, venueId, { capacity: 30 });
 
-    const res = await (await customer(ctx)).post(`/events/${ga}/orders`).send({ quantity: 2 });
+    const res = await (
+      await customer(ctx)
+    )
+      .post(`/events/${ga}/orders`)
+      .send({ holderName: HOLDER, quantity: 2 });
 
     expect(res.status).toBe(201);
     expect(await ctx.prisma.seatReservation.count()).toBe(0);

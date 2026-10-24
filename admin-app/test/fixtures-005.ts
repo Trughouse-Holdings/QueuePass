@@ -115,6 +115,8 @@ export const ORDERS = [
     tierId: VIP_ID,
     tierName: 'VIP',
     customerUsername: 'customer3',
+    // Spec 017 FR-001: the buyer's name on every ticket.
+    holderName: 'Jordan Lee',
     quantity: 2,
     unitPrice: '84.30',
     totalPrice: '168.60',
@@ -132,6 +134,8 @@ export const ORDERS = [
     tierId: GENERAL_ID,
     tierName: 'General',
     customerUsername: 'customer1',
+    // Spec 017 FR-005: an order from before the feature has no name.
+    holderName: null,
     quantity: 1,
     unitPrice: '45.00',
     totalPrice: '45.00',

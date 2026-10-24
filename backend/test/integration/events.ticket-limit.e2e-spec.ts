@@ -1,6 +1,6 @@
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { ADDRESS, customer, event, venue, windowAt } from '../setup/fixtures';
+import { HOLDER, ADDRESS, customer, event, venue, windowAt } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -169,7 +169,7 @@ describe('Per-customer ticket limit on events', () => {
           await customer(ctx, n)
         )
           .post(`/events/${id}/orders`)
-          .send({ quantity: 5 })
+          .send({ holderName: HOLDER, quantity: 5 })
           .expect(201);
       }
 
@@ -186,7 +186,7 @@ describe('Per-customer ticket limit on events', () => {
         await customer(ctx)
       )
         .post(`/events/${id}/orders`)
-        .send({ quantity: 6 })
+        .send({ holderName: HOLDER, quantity: 6 })
         .expect(201);
 
       await patch(id, { maxTicketsPerCustomer: 4 }).expect(200);

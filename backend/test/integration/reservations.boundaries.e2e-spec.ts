@@ -1,7 +1,7 @@
 import type { Response } from 'supertest';
 import { HoldSweeper } from '../../src/reservations/hold-sweeper';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, holdSeats, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, holdSeats, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor } from '../setup/tokens';
@@ -44,7 +44,7 @@ describe('Reservation time boundaries', () => {
   const order = async (seats: object[], n = 1) =>
     (await customer(ctx, n))
       .post(`/events/${eventId}/orders`)
-      .send({ quantity: seats.length, seats });
+      .send({ holderName: HOLDER, quantity: seats.length, seats });
   const held = (secondsAgo: number, n = 1, seats = [{ section: 'A', row: 1, seat: 5 }]) =>
     holdSeats(ctx.prisma, { eventId, customerSub: subFor(`customer${n}`), seats, secondsAgo });
 

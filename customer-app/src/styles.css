@@ -144,3 +144,43 @@
   font-family: var(--mono);
   font-size: 13.5px;
 }
+
+/* Spec 017 FR-012: the printable ticket, one per page, legible in black and white. The print
+   rules hide the app chrome; everything else uses theme values only (Constitution VII). */
+.ticket-qr {
+  width: 256px;
+  max-width: 100%;
+  height: auto;
+}
+
+.print-ticket__page {
+  max-width: 420px;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.print-ticket__code {
+  font-family: var(--mono);
+  font-size: 24px;
+  letter-spacing: 2px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.print-ticket__actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-top: var(--space-4);
+}
+
+@media print {
+  .topbar,
+  .print-ticket__actions {
+    display: none;
+  }
+
+  .print-ticket__page {
+    page-break-inside: avoid;
+  }
+}

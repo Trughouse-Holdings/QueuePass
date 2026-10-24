@@ -1,0 +1,116 @@
+/*
+ * Spec 017 FR-022, FR-023 (Constitution VII): layout only, theme values only. The look comes from
+ * @queuepass/shared/theme.css; nothing here defines a color, font, or size of its own. Usable at
+ * 360 CSS pixels wide with no horizontal scrolling.
+ */
+
+.booth-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  flex-wrap: wrap;
+}
+
+.booth-header__app {
+  margin: 0;
+  font-weight: 650;
+}
+
+.booth-header__event {
+  margin: 0;
+}
+
+.booth-header__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.booth-main {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-4);
+}
+
+.event-choices {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.event-choice {
+  width: 100%;
+  text-align: left;
+  white-space: normal;
+}
+
+.lookup {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.lookup__row {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.lookup__row input {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.result {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.result__headline {
+  margin: 0;
+  font-weight: 650;
+}
+
+.result__prompt {
+  margin: 0;
+  font-weight: 650;
+}
+
+.result__actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.ticket-facts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+}
+
+.ticket-facts dt {
+  font-weight: 650;
+}
+
+.ticket-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.scanner {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+
+.scanner__video {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--radius-sm);
+}

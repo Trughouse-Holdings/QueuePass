@@ -1,5 +1,5 @@
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { customer, event, tier, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, tokenFor } from '../setup/tokens';
@@ -21,7 +21,10 @@ describe('My orders', () => {
   });
 
   const buy = async (eventId: string, body: object, n = 1) =>
-    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send(body).expect(201);
+    (await customer(ctx, n))
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, ...body })
+      .expect(201);
   const mine = async (n = 1) => (await customer(ctx, n)).get('/me/orders').expect(200);
 
   it("lists the customer's orders newest first, with tickets and an event summary", async () => {
@@ -93,7 +96,10 @@ describe('My orders', () => {
       roles: ['customer'],
       sub: 'demo-customer1',
     });
-    await as(ctx, standIn).post(`/events/${eventId}/orders`).send({ quantity: 1 }).expect(201);
+    await as(ctx, standIn)
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, quantity: 1 })
+      .expect(201);
 
     expect((await mine(1)).body).toEqual([]);
   });

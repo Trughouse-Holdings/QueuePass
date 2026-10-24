@@ -5,8 +5,10 @@ import {
   IsArray,
   IsInt,
   IsOptional,
+  IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -40,6 +42,16 @@ export class CreateOrderDto {
   @IsOptional()
   @IsUUID('all', { message: 'requestId must be a UUID' })
   requestId?: string;
+
+  /**
+   * Spec 017 FR-001 (research R2): the buyer's name, on every ticket. Declared optional with only
+   * a request-size bound, so a missing or invalid name reaches the service and is refused with
+   * its own code, 400 HOLDER_NAME_INVALID, never a generic VALIDATION_FAILED (FR-002).
+   */
+  @IsOptional()
+  @IsString({ message: 'holderName must be a string' })
+  @MaxLength(400, { message: 'holderName must be at most 400 characters as sent' })
+  holderName?: string;
 
   /** Spec 007 FR-008: required for reserved seating, one per ticket. */
   @IsOptional()

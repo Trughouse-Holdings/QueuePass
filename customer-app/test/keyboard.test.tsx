@@ -63,6 +63,9 @@ describe('keyboard', () => {
     expect(vip).toBeChecked();
 
     await user.tab();
+    // Spec 017: the Name on tickets field sits between the tiers and the section choice.
+    expect(screen.getByRole('textbox', { name: 'Name on tickets' })).toHaveFocus();
+    await user.tab();
     expect(screen.getByRole('combobox', { name: 'Section' })).toHaveFocus();
     await user.tab();
     const first = screen.getByRole('button', { name: 'Row 1, Seat 1' });

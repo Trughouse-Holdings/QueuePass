@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
-import { customer, event, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor } from '../setup/tokens';
@@ -34,7 +34,7 @@ describe('Per-customer ticket limit under concurrent orders', () => {
   const fire = async (bodies: object[]): Promise<Response[]> => {
     const buyer = await customer(ctx, 1);
     const results = await Promise.all(
-      bodies.map((b) => buyer.post(`/events/${eventId}/orders`).send(b)),
+      bodies.map((b) => buyer.post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...b })),
     );
     // A pool or transaction timeout would otherwise show up as a confusing miscount.
     const failed = results.filter((r) => r.status >= 500);

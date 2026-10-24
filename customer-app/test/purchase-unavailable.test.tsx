@@ -1,7 +1,16 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { Availability } from '@queuepass/shared';
-import { availability, event, json, order, renderCustomer, stubApi, tier } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  order,
+  renderCustomer,
+  stubApi,
+  tier,
+  typeHolderName,
+} from './helpers';
 
 /** Spec 006 US2 (FR-002, FR-006, FR-014): why tickets can't be had, and refusals explained. */
 afterEach(() => vi.unstubAllGlobals());
@@ -24,8 +33,10 @@ const inTurn = (...replies: Response[]) => {
   return () => replies[Math.min(i++, replies.length - 1)];
 };
 
-const confirm = async () =>
+const confirm = async () => {
+  await typeHolderName();
   fireEvent.click(await screen.findByRole('button', { name: 'Confirm order' }));
+};
 const requestIds = (calls: { method: string; body: unknown }[]) =>
   calls.filter((c) => c.method === 'POST').map((c) => (c.body as { requestId: string }).requestId);
 

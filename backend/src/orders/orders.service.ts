@@ -1,6 +1,17 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma, type EventStatus, type Order, type Ticket, type TicketTier } from '@prisma/client';
-import type { SeatStateChange } from '@queuepass/shared';
+import {
+  holderNameMessage,
+  holderNameProblem,
+  normalizeHolderName,
+  type SeatStateChange,
+} from '@queuepass/shared';
 import type { Principal } from '../auth/principal';
 import { conflict, eventCancelled } from '../common/conflict';
 import {
@@ -42,6 +53,8 @@ export interface OrderResponse {
   tierId: string | null;
   tierName: string | null;
   customerUsername: string;
+  /** Spec 017 FR-001: the buyer's name on every ticket; `null` for orders placed before 017. */
+  holderName: string | null;
   quantity: number;
   unitPrice: string;
   totalPrice: string;
@@ -65,6 +78,7 @@ export function toOrderResponse(o: OrderRow): OrderResponse {
     tierId: o.tierId,
     tierName: o.tier?.name ?? null,
     customerUsername: o.customerUsername,
+    holderName: o.holderName,
     quantity: o.quantity,
     unitPrice: o.unitPrice.toFixed(2),
     totalPrice: o.totalPrice.toFixed(2),
@@ -145,13 +159,29 @@ export class OrdersService {
   ) {}
 
   async create(eventId: string, dto: CreateOrderDto, buyer: Principal): Promise<PlacedOrder> {
+    // Spec 017 FR-002 (research R2): the name rule, checked before the event lock is taken. The
+    // one definition lives in packages/shared; a refusal records no order and no ticket.
+    const problem = holderNameProblem(dto.holderName);
+    if (problem !== null) {
+      throw new HttpException(
+        {
+          error: {
+            code: 'HOLDER_NAME_INVALID',
+            message: holderNameMessage(problem),
+            details: { reason: problem },
+          },
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const holderName = normalizeHolderName(dto.holderName as string);
     // Retry once when a ticket code collides (60 random bits: vanishingly rare), when a repeat of
     // this confirmation for another event committed first (the retry's lookup then finds it), or
     // when the seat index refused a seat (the retry's check then names it).
     for (let attempt = 1; ; attempt++) {
       try {
         const { placed, changes } = await this.prisma.$transaction(
-          (tx) => this.createLocked(tx, eventId, dto, buyer),
+          (tx) => this.createLocked(tx, eventId, dto, buyer, holderName),
           LOCKING_TX,
         );
         // Spec 015 research R9: only after the commit.
@@ -169,6 +199,7 @@ export class OrdersService {
     eventId: string,
     dto: CreateOrderDto,
     buyer: Principal,
+    holderName: string,
   ): Promise<{ placed: PlacedOrder; changes: SeatStateChange[] }> {
     const event = await lockEvent(tx, eventId);
 
@@ -185,6 +216,8 @@ export class OrdersService {
           earlier.eventId === eventId &&
           earlier.tierId === (dto.tierId ?? null) &&
           earlier.quantity === dto.quantity &&
+          // Spec 017 (research R2): a repeat must name the same holder, like the same quantity.
+          earlier.holderName === holderName &&
           (await this.sameSeats(tx, event, earlier.tickets, dto));
         if (!same) {
           throw conflict(
@@ -270,6 +303,7 @@ export class OrdersService {
         tierId: tier?.id ?? null,
         customerSub: buyer.sub,
         customerUsername: buyer.username,
+        holderName,
         requestId: dto.requestId ?? null,
         quantity: dto.quantity,
         unitPrice,
