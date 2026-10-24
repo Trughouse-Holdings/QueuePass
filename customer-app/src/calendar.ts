@@ -120,6 +120,23 @@ export function icsFile(entry: CalendarEntry, now: Date): string {
   return lines.map((l) => fold(l) + CRLF).join('');
 }
 
+/** Research R8: Google Calendar's "add event" template page. */
+const GOOGLE_TEMPLATE = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
+
+/**
+ * Research R8, FR-011: Google Calendar's new-entry page, pre-filled with only the title, the UTC
+ * times (`dates=<start>/<end>`, no `ctz`), and the location; `URLSearchParams` encodes them.
+ */
+export function googleCalendarUrl(entry: CalendarEntry): string {
+  const { start, end } = times(entry);
+  const params = new URLSearchParams({
+    text: entry.title,
+    dates: `${start}/${end}`,
+    location: `${entry.location.name}, ${entry.location.address}`,
+  });
+  return `${GOOGLE_TEMPLATE}&${params.toString()}`;
+}
+
 /**
  * Research R12, FR-009: the event's name in lower case without accents, every run of other
  * characters one `-`, at most 60 characters, then `.ics`; `event.ics` when nothing is left.

@@ -1,5 +1,5 @@
 import type { MyOrder } from '@queuepass/shared';
-import { ICS_TYPE, calendarEntry, icsFile, icsFileName } from '../calendar';
+import { ICS_TYPE, calendarEntry, googleCalendarUrl, icsFile, icsFileName } from '../calendar';
 
 /** Spec 019 FR-003 (research R11): the snapshot note, read as both controls' description. */
 export const CALENDAR_NOTE = "A copy for your calendar: it won't change if the event does.";
@@ -8,7 +8,7 @@ export const CALENDAR_NOTE = "A copy for your calendar: it won't change if the e
 const REVOKE_AFTER_MS = 60_000;
 
 /**
- * Spec 019 US1 (FR-001, FR-003, FR-008 to FR-010, FR-013, FR-014; research R11, R12): the "Add to
+ * Spec 019 US1 and US2 (FR-001, FR-003, FR-008 to FR-011, FR-013, FR-014; research R8, R11, R12): the "Add to
  * calendar" group on an eligible order card. The file is made on the device at the click, from
  * what My tickets already loaded; nothing is requested (FR-010).
  */
@@ -48,6 +48,18 @@ export function AddToCalendar({ order }: { order: MyOrder }) {
         >
           Add to Apple Calendar or Outlook
         </button>
+        {/* Research R8: a link, so it opens a new tab on the customer's own choice and is never
+            blocked as a pop-up; noopener and noreferrer keep My tickets and its address private. */}
+        <a
+          href={googleCalendarUrl(calendarEntry(event))}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn--ghost"
+          aria-label={`Add to Google Calendar: ${event.name}, opens in a new tab`}
+          aria-describedby={noteId}
+        >
+          Add to Google Calendar
+        </a>
       </div>
     </div>
   );
