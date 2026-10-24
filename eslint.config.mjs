@@ -11,6 +11,7 @@ export default tseslint.config(
       '**/dist/',
       'build/',
       'coverage/',
+      '**/coverage/',
       '**/*.min.js',
       'specs/',
       '.specify/',

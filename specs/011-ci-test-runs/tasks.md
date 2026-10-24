@@ -44,7 +44,7 @@ run (T031) and one throwaway pull request with deliberately failing runs (T029, 
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `011-ci-test-runs-impl` (see Ground rules). In a **fresh clone** of it, with Docker
+- [x] T001 Cut `011-ci-test-runs-impl` (see Ground rules). In a **fresh clone** of it, with Docker
   running, run `npm ci`, then confirm research R5: the install printed `@prisma/client needs a
   schema.prisma`, `node_modules/.prisma/client` holds only Prisma's placeholder (importing
   `@prisma/client` throws "did not initialize yet"), and `npm test` fails in the backend for that
@@ -52,6 +52,20 @@ run (T031) and one throwaway pull request with deliberately failing runs (T029, 
   `npm run prisma:generate --workspace @queuepass/backend`, `npx prettier --check .`,
   `npm run lint`, `npm run build`, and `npm test`: all pass (baseline). Record the duration of
   `npm test` and each workspace's test count here.
+  - **Result** (2026-10-24, `e73f5dd`, fresh local clone, Windows 11, Node 22.20, npm 10.9.3,
+    Docker Desktop, Compose stack **up**): `npm ci` passed. It printed **no** Prisma warning: npm
+    10 hides install-script output unless a script fails (`npm rebuild @prisma/client
+    --foreground-scripts` shows only the script's banner too), so that half of R5 is not visible
+    here; the rest holds. `node_modules/.prisma/client` held only the placeholder
+    (`index.js`, `default.js`, `edge.js`, `wasm.js`, `index-browser.js` and their `.d.ts`), and
+    `new PrismaClient()` threw "@prisma/client did not initialize yet. Please run "prisma
+    generate"". `npm test` passed `packages/shared`, then failed in the backend: every suite
+    failed to compile (`TS2305: Module '"@prisma/client"' has no exported member 'Location'`,
+    `TS7006` implicit `any` on transaction callbacks). After generating, the format check, lint,
+    and build passed, and `npm test` passed in **247 s** (4 min 7 s). Counts: shared 468 (20
+    files), backend 740 (84 suites), admin-app 200 (24 files), customer-app 200 (19 files),
+    booth-app 67 (4 files), seed 8 (2 files; the stack was up, so the two Keycloak tests ran):
+    1,683 in all.
 
 ---
 
@@ -60,14 +74,22 @@ run (T031) and one throwaway pull request with deliberately failing runs (T029, 
 **Purpose**: the format check script, the coverage provider, and lint ignoring coverage output,
 before any story uses them.
 
-- [ ] T002 Add `"format:check": "prettier --check ."` to the root `package.json` scripts, next to
+- [x] T002 Add `"format:check": "prettier --check ."` to the root `package.json` scripts, next to
   `format` (R8). Run it: passes.
-- [ ] T003 Install the coverage provider at the root, pinned to the installed Vitest version
+- [x] T003 Install the coverage provider at the root, pinned to the installed Vitest version
   exactly: check it with `npm ls vitest` (3.2.7 on 2026-10-24; every workspace must resolve the
   same one), then `npm install --save-dev --save-exact @vitest/coverage-v8@<that version>` from the
   root (R9). Confirm `package-lock.json` gains only the provider and its own dependencies, and
   `npm test` still passes.
-- [ ] T004 In `eslint.config.mjs`, add `'**/coverage/'` to the ignores, next to `'coverage/'`, as
+  - **Result**: every workspace resolves `vitest@3.2.7`; `@vitest/coverage-v8@3.2.7` installed.
+    The lock file gained the provider and 15 packages of its own (`@ampproject/remapping`,
+    `ast-v8-to-istanbul`, `magicast`, and copies nested under the provider). npm 10.9.3 also
+    added `"peer": true` to 78 existing entries (the optional `@esbuild/*`, `@rollup/rollup-*`,
+    and `@napi-rs/lzma-linux-x64-gnu` platform packages), a metadata-only rewrite with no package
+    or version change; those flags were removed so the diff is additions only (`npm ci` on the
+    result: T011). `npm test` passed (the laptop's Prisma client was stale from 2026-10-17 and
+    had to be regenerated first: the R5 problem on a laptop, which T011's `pretest` now fixes).
+- [x] T004 In `eslint.config.mjs`, add `'**/coverage/'` to the ignores, next to `'coverage/'`, as
   `'**/dist/'` sits next to `'dist/'` (R10). Check: create `backend/coverage/lcov-report/x.js`
   containing `var unused = 1`, run `npm run lint`: passes (it failed before the change); delete the
   file.
