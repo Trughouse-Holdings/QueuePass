@@ -376,7 +376,10 @@ customer the live code; the retries carry on until Keycloak answers, either way.
 
 **Reading of spec 001 FR-013**: "return the user to the login page when renewal is no longer
 possible". A failed network request doesn't make renewal impossible; Keycloak refusing it does.
-This is a reading of 001, not a change to it.
+This amends spec 001's data-model §4, whose transition "refresh fails → `signed-out`" and whose
+`signed-in` row ("token valid") are annotated in place: only Keycloak's refusal leads to
+`signed-out`, and a user whose refresh failed for lack of network stays `signed-in`, in memory,
+with an expired token the Backend refuses, while the refresh is retried quietly.
 
 **Constitution V is unchanged**: tokens stay in memory only (nothing new is written to storage);
 logout still ends both the front end's session and Keycloak's; the Backend still validates every
