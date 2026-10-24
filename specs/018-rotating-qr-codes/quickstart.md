@@ -20,8 +20,9 @@ You need three browser sessions that don't share sign-in, and a phone with a cam
   phone's screen then faces the webcam (with the back camera it faces away). Its live viewfinder
   relays the current code, mirrored, which the Ticket Booth still reads; a photo is a screenshot.
   If the relay won't read, use one of research R10's two alternatives: an iPhone (Continuity
-  Camera) or a USB webcam aimed at the screen as Gate 1's camera, or, on Android, the Customer app
-  on the phone itself.
+  Camera) or a USB webcam aimed at the screen as Gate 1's camera, made Chrome's default camera at
+  `chrome://settings/content/camera` (a site's settings only allow or block it), or, on Android,
+  the Customer app on the phone itself.
 
 Contract and rules: [contracts/README.md](./contracts/README.md), [data-model.md](./data-model.md).
 
@@ -32,12 +33,13 @@ if that has passed, create an event that starts within 2 hours). As **Customer**
 it with the name `Jordan Lee`. **Expect**: on **My tickets**, each of the three has **Print ticket**
 and **Show entry code**.
 
-## S1: The live code changes on its own (US1, FR-001–FR-004)
+## S1: The live code changes on its own (US1, FR-001–FR-004, FR-017)
 
 As **Customer**, choose **Show entry code** on the first ticket. **Expect**: a large black-on-white
 QR code, "Changes in N s" counting down, Jordan Lee, Demo Tonight with its start time, and the seat
-if any. Watch it reach 0. **Expect**: a new QR code within a second, and the countdown back at 29
-or 30, with no tap or reload. Switch the laptop to dark mode. **Expect**: the QR code stays black on
+if any, with no horizontal scroll at 360 pixels wide (FR-017). Watch it reach 0. **Expect**: a new
+QR code within a second, and the countdown back at 29 or 30, with no tap or reload. Switch the
+laptop to dark mode. **Expect**: the QR code stays black on
 white. With a screen reader on, **expect** the countdown not to be read out as it changes.
 
 ## S2: Scan the live code, no ID check (US1)

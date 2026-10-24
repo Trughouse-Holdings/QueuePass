@@ -36,7 +36,8 @@ QP1:<TICKET>:<WINDOW>:<MAC>
 ```
 
 - `TICKET`: the ticket's UUID as 32 upper-case hex digits, no dashes.
-- `WINDOW`: the window number in decimal, `floor(unixMilliseconds / 30000)`. Windows are
+- `WINDOW`: the window number in decimal with no leading zero (`0|[1-9][0-9]{0,11}`),
+  `floor(unixMilliseconds / 30000)`. Windows are
   `[WINDOW × 30 s, (WINDOW + 1) × 30 s)` in UTC, the same for every ticket (FR-002).
 - `MAC`: the first 10 bytes (80 bits) of `HMAC-SHA256(entrySecret, "QP1:<TICKET>:<WINDOW>")`, in
   RFC 4648 base32 without padding: 16 characters of `A–Z2–7`.
@@ -114,7 +115,10 @@ starts with `QP1:`, the Backend takes the live-code path, in this order:
 
 1. **Parse** (R2). Anything malformed is `404 LIVE_CODE_INVALID`.
 2. **Load the ticket's secret** by its id (`select: { entrySecret: true, … }`, R1). No such ticket is
-   `404 LIVE_CODE_INVALID`: the same answer as a forged MAC, so a made-up code learns nothing.
+   `404 LIVE_CODE_INVALID`: the same answer as a forged MAC. The one difference is time: an unknown
+   ticket skips one HMAC, a few microseconds, which at most could tell a signed-in gate agent
+   whether a random UUID is a ticket. That helps make no code (the MAC still needs the secret), and
+   gate agents already see tickets, so it is accepted.
 3. **Check the MAC** for the window the code names, in constant time. A mismatch is
    `404 LIVE_CODE_INVALID`.
 4. **Check the window** (R3). Outside it is `409 LIVE_CODE_EXPIRED`, with no ticket details (FR-011,
@@ -132,7 +136,8 @@ skip the ID check rests on the server's verification (Constitution IV: the clien
 preview). Nothing is recorded by any lookup (FR-012).
 
 `EntryLookupInput.code` grows from at most 64 to at most 80 characters, so a live code has room
-when window numbers reach 9 digits (in about 60 years) and the `QP1:` prefix is never squeezed.
+when window numbers reach 9 digits (in 2065, about 40 years from now) and the `QP1:` prefix is
+never squeezed.
 
 **Alternatives considered**: a new `lookupLiveCode` operation (two lookups with the same answer
 shape and refusal reasons; the Ticket Booth would have to choose, against FR-011's "no choice by the
@@ -245,8 +250,8 @@ to a screen reader user, who is better served by the static sentence).
 **Decision**:
 
 - `normalizeScan` (spec 017 R9) also recognizes a live code: after upper-casing, a value matching
-  `^QP1:[0-9A-F]{32}:\d{1,12}:[A-Z2-7]{16}$` is passed to the lookup as it is. A decoded QR that is
-  neither still shows "Not a QueuePass ticket" and scanning goes on. Typing a live code into the
+  `^QP1:[0-9A-F]{32}:(0|[1-9]\d{0,11}):[A-Z2-7]{16}$` is passed to the lookup as it is. A decoded
+  QR that is neither still shows "Not a QueuePass ticket" and scanning goes on. Typing a live code into the
   code field also works, since the Backend decides (R4); nobody is expected to.
 - **A verified live code** (`verifiedBy: 'LIVE_CODE'`, `state: ADMITTABLE`): the result says
   "✓ Live code verified. No ID check needed." in place of the ID-check prompt, shows the holder's
@@ -276,9 +281,10 @@ within its window and grace and refused as expired after.
 If the relay won't read, either of these replaces it, with nothing added to the code:
 
 - **A camera aimed at the screen as Gate 1's camera**: on a Mac, an iPhone through Continuity
-  Camera, or any USB webcam, chosen as the camera for `http://localhost:5175` in Chrome's site
-  settings. The Ticket Booth asks for `facingMode: 'environment'`, which a laptop doesn't have, so
-  the browser uses the camera chosen there. This scans the Customer window directly; it shows no
+  Camera, or any USB webcam, chosen as Chrome's default camera at `chrome://settings/content/camera`
+  (a site's own settings only allow or block the camera; they don't pick one). The Ticket Booth asks
+  for `facingMode: 'environment'`, which a laptop doesn't have, so the browser uses that default
+  camera. This scans the Customer window directly; it shows no
   relay, but every other scenario is the same.
 - **The Customer app on the phone** (Android only): spec 017 research R10's USB forwarding, with
   port 5174 forwarded as well. The phone then shows its own live code to the webcam.

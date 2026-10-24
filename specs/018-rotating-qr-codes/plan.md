@@ -115,6 +115,7 @@ backend/
 │   └── ~ app.module.ts                                      # CLOCK, if not in a shared module
 └── test/
     ├── integration/+ entry.live-code.e2e-spec.ts, + entry.live-boundaries.e2e-spec.ts,
+    │               + entry.live-refusals.e2e-spec.ts,
     │               + entry.live-race.e2e-spec.ts, + entry-key.e2e-spec.ts,
     │               + entry-key.authz.e2e-spec.ts, + live-codes.constraints.e2e-spec.ts,
     │               + entry-secret.no-leak.e2e-spec.ts; ~ entry.lookup tests (verifiedBy)

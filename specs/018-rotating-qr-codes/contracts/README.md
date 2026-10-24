@@ -40,7 +40,7 @@ It is tagged `entry`.
 ```json
 {
   "ticketId": "3b8e5f0a-6c1d-4b7e-9a2f-1d0c3e4b5a69",
-  "key": "q3J8b0xQm1vT9yZ2cE4hK7nR5sW1aD6fG8jL0pU3iO_",
+  "key": "q3J8b0xQm1vT9yZ2cE4hK7nR5sW1aD6fG8jL0pU3iO8",
   "serverTime": "2026-10-24T22:31:07.412Z"
 }
 ```
@@ -50,7 +50,7 @@ It is tagged `entry`.
 Request body:
 
 ```json
-{ "code": "QP1:3B8E5F0A6C1D4B7E9A2F1D0C3E4B5A69:58773103:KX4N2Q7WZB3T5RYM" }
+{ "code": "QP1:3B8E5F0A6C1D4B7E9A2F1D0C3E4B5A69:59762702:KX4N2Q7WZB3T5RYM" }
 ```
 
 Answer: spec 017's `EntryTicket` for that ticket, with `"verifiedBy": "LIVE_CODE"`.
@@ -65,8 +65,9 @@ Answer: spec 017's `EntryTicket` for that ticket, with `"verifiedBy": "LIVE_CODE
 { "error": { "code": "LIVE_CODE_INVALID", "message": "This is not a valid QueuePass code." } }
 ```
 
-The key and live code above are illustrative: they have the right shape and length, but the MAC is
-not computed from the key.
+The key and live code above are illustrative: they have the right shape and length, the key
+decodes to 32 bytes, and the window, 59762702, is the one the example `serverTime` falls in, but
+the MAC is not computed from the key.
 
 ## Verified on 2026-10-23
 

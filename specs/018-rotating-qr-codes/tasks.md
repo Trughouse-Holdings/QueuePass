@@ -75,11 +75,14 @@ and confirm they **fail** before the implementation tasks below them.
     equals the value the test computes itself with `node:crypto`: `createHmac('sha256', secret)
     .update('QP1:' + hex + ':' + window).digest().subarray(0, 10)`, base32-encoded by a reference
     encoder in the test, so the Web Crypto path is checked against an independent one. The result
-    matches `^QP1:[0-9A-F]{32}:\d{1,12}:[A-Z2-7]{16}$`; for window `58773103` it is 62 characters.
+    matches `^QP1:[0-9A-F]{32}:(0|[1-9]\d{0,11}):[A-Z2-7]{16}$`; for window `58773103` it is 62
+    characters.
   - `parseLiveCode` round-trips every vector to `{ ticketId (lower case, with dashes), window, mac }`
     and returns `null` for: a ticket code (`'7KQ2M9XWAB4C'`); `'QP2:…'`; 31 or 33 hex digits; a
     15-character MAC; a MAC with `1`, `0`, or `8`; a window with a sign, a decimal point, or 13
-    digits; anything after the MAC. It accepts lower-case input (it upper-cases first).
+    digits; a window with a leading zero (`…:058773103:…` carrying window `58773103`'s genuine
+    MAC, a code QueuePass never makes, FR-011); anything after the MAC. Window `0` alone parses.
+    It accepts lower-case input (it upper-cases first).
   - `windowStatus(w, nowMs)` with `w = 58773103` and `start = w × 30000`: `'EARLY'` at
     `start − 5001`; `'CURRENT'` at `start − 5000`, at `start`, and at `start + 34_999`; `'EXPIRED'`
     at `start + 35_000`.
@@ -97,9 +100,10 @@ and confirm they **fail** before the implementation tasks below them.
   `new Uint8Array(secret)` is a `Uint8Array<ArrayBuffer>`. The message is
   `QP1:<ticket UUID, dashes removed, upper case>:<window>`;
   `parseLiveCode(text: string): { ticketId: string; window: number; mac: string } | null` (trim,
-  upper-case, match `^QP1:([0-9A-F]{32}):(\d{1,12}):([A-Z2-7]{16})$`, rebuild the UUID with dashes
-  in lower case); `windowStatus(window: number, nowMs: number): 'EARLY' | 'CURRENT' | 'EXPIRED'`
-  with the ground rules' half-open range; `isLiveCodeText(text: string): boolean` (starts with
+  upper-case, match `^QP1:([0-9A-F]{32}):(0|[1-9]\d{0,11}):([A-Z2-7]{16})$`, rebuild the UUID
+  with dashes in lower case; no leading zero in the window, since QueuePass never writes one);
+  `windowStatus(window: number, nowMs: number): 'EARLY' | 'CURRENT' | 'EXPIRED'` with the ground
+  rules' half-open range; `isLiveCodeText(text: string): boolean` (starts with
   `QP1:` after trim and upper-case); `keyToBase64url(bytes)` and `keyFromBase64url(text):
   Uint8Array | null` (exactly 32 bytes). No Node-only import: the module runs in browsers too.
   Run T002 until it passes; build `packages/shared`.
@@ -215,7 +219,8 @@ three keep their story's label.
 - [ ] T011 [P] [US1] Write `backend/test/integration/entry-key.authz.e2e-spec.ts`:
   `getTicketEntryKey` answers `401` with no token, an expired token, a wrongly signed one, and one
   for another audience; `403` for an admin and for a gate agent; `200` for the buyer (FR-003,
-  SC-007, Constitution V and VI).
+  SC-007, Constitution V and VI). Also, a customer's token posting a current live code
+  (`liveCodeFor`) to `lookupEntryTicket` is `403` (FR-013).
 - [ ] T012 [P] [US1] Write `backend/test/integration/entry.live-code.e2e-spec.ts`
   (contract-checked `lookupEntryTicket`), with `ctx.clock.set` to the middle of a window: a current
   live code (`liveCodeFor`) for an admittable ticket is `200` with every `EntryTicket` field of spec
@@ -278,9 +283,9 @@ three keep their story's label.
     seat if any.
   - The QR drawn is the current live code: the test computes the expected code itself with
     `liveCode(key, ticketId, windowAt(serverNow))` from `@queuepass/shared`, checks that
-    `parseLiveCode` accepts it for this ticket, and compares the SVG's `path` with the path
-    `qrMatrix(expected)` gives, as `print-ticket.test.tsx` compares matrices. The Customer app has
-    no QR decoder, and none is added.
+    `parseLiveCode` accepts it for this ticket, and compares the SVG `path`'s `d` with
+    `qrPath(expected)`, which T025 exports from `TicketQr.tsx`. The Customer app has no QR decoder,
+    and none is added.
   - Advancing the timers across a window boundary draws a new code within 1 second, and the
     countdown restarts at 30 (or 29) (FR-002, SC-006).
   - With the device clock 5 minutes **ahead** of `serverTime`, and again 5 minutes **behind**, every
@@ -304,8 +309,8 @@ three keep their story's label.
     error with **Try again**, which retries.
 - [ ] T018 [P] [US1] Add to `booth-app/test/scanner.test.tsx` and `booth-app/test/check-in.test.tsx`:
   `normalizeScan` returns a live code (upper-cased, otherwise unchanged) for a value matching
-  `^QP1:[0-9A-F]{32}:\d{1,12}:[A-Z2-7]{16}$`, and a decoded live code runs the lookup with no
-  further tap and stops the camera; a lookup answering `verifiedBy: 'LIVE_CODE'` and `ADMITTABLE`
+  `^QP1:[0-9A-F]{32}:(0|[1-9]\d{0,11}):[A-Z2-7]{16}$`, and a decoded live code runs the lookup with
+  no further tap and stops the camera; a lookup answering `verifiedBy: 'LIVE_CODE'` and `ADMITTABLE`
   shows "✓ Live code verified. No ID check needed." and the holder's name, event, and ticket type,
   with **Admit**, **Admit all 3** (for `unusedOnOrder: 3`), and **Refuse**, and does **not** show
   "Check a government-issued photo ID"; **Admit** and **Admit all** post as in 017.
@@ -356,7 +361,9 @@ three keep their story's label.
   of `packages/shared`'s tests until they pass, build `packages/shared`, then run the Admin,
   Customer, and Ticket Booth apps' tests: the provider is theirs too.
 - [ ] T025 [US1] In `customer-app/src/components/TicketQr.tsx`, generalize without changing 017's
-  output: `qrMatrix(text)` (any QR-alphanumeric text; type number 0, level `'M'`), and
+  output: `qrMatrix(text)` (any QR-alphanumeric text; type number 0, level `'M'`); export
+  `qrPath(text): string`, the SVG path of the dark modules with the 4-module quiet zone, built as
+  `TicketQr` builds it today, and have `TicketQr` draw with it (T017 compares with it); and
   `TicketQr({ code, label? })` whose `aria-label` defaults to 017's "QR code for ticket <code>";
   017's print view and `print-ticket.test.tsx` stay unchanged and passing. Add the class
   `ticket-qr--live` support for a size of `min(100%, 320px)` in `customer-app/src/styles.css`,
@@ -386,11 +393,14 @@ three keep their story's label.
   T004's `?` and its "required from T027"), and build `packages/shared`. T012, T015, and the
   existing entry tests still pass against the contract.
 - [ ] T028 [US1] In the Ticket Booth app (research R9): `booth-app/src/decode.ts`, make
-  `normalizeScan` return a live code (upper-cased) when it matches the live-code pattern, else
-  017's behavior; `booth-app/src/EntryResult.tsx`, for `verifiedBy === 'LIVE_CODE'` and
-  `ADMITTABLE`, show "✓ Live code verified. No ID check needed." in place of the ID-check prompt,
-  keeping **Admit**, **Admit all N**, and **Refuse**. Theme values only; word and symbol, not color alone (FR-016).
-- [ ] T029 [US1] Run T017 and T018 until they pass, then the drift test in `packages/shared`.
+  `normalizeScan` return a live code (upper-cased) when it matches T018's pattern,
+  `^QP1:[0-9A-F]{32}:(0|[1-9]\d{0,11}):[A-Z2-7]{16}$`, else 017's behavior;
+  `booth-app/src/EntryResult.tsx`, for `verifiedBy === 'LIVE_CODE'` and `ADMITTABLE`, show
+  "✓ Live code verified. No ID check needed." in place of the ID-check prompt, keeping **Admit**,
+  **Admit all N**, and **Refuse**. Theme values only; word and symbol, not color alone (FR-016).
+- [ ] T029 [US1] Run T017 and T018 until they pass, then the theme drift test
+  (`packages/shared/test/theme/drift.test.ts`, part of `npm test -w packages/shared`) and
+  `node scripts/check-contract-drift.mjs`.
 
 **Checkpoint**: a live code is shown, scanned, verified by the Backend, and admitted, and keeps
 changing with no signal; copies and forgeries are refused by the Backend. MVP.
