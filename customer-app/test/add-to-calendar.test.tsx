@@ -126,6 +126,19 @@ async function showAll(orders: MyOrder[] = ALL) {
 }
 
 describe('which cards offer it (FR-001, FR-002, US3, SC-005)', () => {
+  it('skips the group on a card whose event times are unusable, and the rest of the page still renders', async () => {
+    const broken = myOrder({
+      id: 'o-bad',
+      event: ev('e-bad', 'Backwards Show', { endsAt: iso(NOW + 7 * 24 * HOUR - HOUR) }),
+      tickets: [tk('z1')],
+    });
+    await showAll([broken, upcoming]);
+    expect(within(cardOf(broken)).queryByRole('group', { name: 'Add to calendar' })).toBeNull();
+    expect(
+      within(cardOf(upcoming)).getAllByRole('group', { name: 'Add to calendar' }),
+    ).toHaveLength(1);
+  });
+
   it('gives each eligible card exactly one group, button, and note', async () => {
     await showAll();
     for (const o of ELIGIBLE) {

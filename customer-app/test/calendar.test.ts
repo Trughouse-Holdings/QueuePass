@@ -594,6 +594,21 @@ describe('calendarEligible (R10, FR-002)', () => {
     expect(calendarEligible(myOrder(), end + 1)).toBe(false);
   });
 
+  it('does not when the event times are unusable, so a bad record cannot break My tickets', () => {
+    const backwards = orderEvent({
+      startsAt: '2026-11-01T02:45:00.000Z',
+      endsAt: '2026-10-31T23:30:00.000Z',
+    });
+    const equal = orderEvent({
+      startsAt: '2026-10-31T23:30:00.000Z',
+      endsAt: '2026-10-31T23:30:00.000Z',
+    });
+    const garbled = orderEvent({ startsAt: 'not a date' });
+    for (const event of [backwards, equal, garbled]) {
+      expect(calendarEligible(myOrder({ event }), before)).toBe(false);
+    }
+  });
+
   it('offers it while the event is under way', () => {
     expect(calendarEligible(myOrder(), start + 60_000)).toBe(true);
   });
