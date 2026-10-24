@@ -102,7 +102,9 @@ throttling off. **Expect**: within about 30 seconds the token renews (the Networ
 Now stop only the Backend (`docker compose stop backend`) and reload the Customer page. Keycloak
 stays up because a reload signs in again first: with Keycloak down too, that sign-in fails before
 the app can show anything. **Expect**: "Can't show the live code without a connection. Use your
-printed ticket with photo ID." Start the Backend again.
+printed ticket with photo ID.", with **Try again** and **Back to My tickets**. Start the Backend
+again (`docker compose start backend`) and, once it is healthy, press **Try again**. **Expect**:
+the live code, with no reload.
 
 ## S7: Only the buyer gets the key (FR-003)
 
