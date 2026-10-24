@@ -93,7 +93,8 @@ verified.
 
 Next, a network that hangs instead of refusing, on the **Customer** window only (to be confirmed in
 T039; nobody has run this step yet). In Chrome DevTools → **Network** → throttling, add a custom
-profile with about 60,000 ms of latency and select it for 6 minutes. **Expect**: the code keeps
+profile with about 60,000 ms of latency and select it for 6 minutes. Keep DevTools open on the
+Customer window the whole time: throttling applies only while it is open. **Expect**: the code keeps
 changing, with no "Signing in…" (the token expires with no renewal error, research R12). Turn
 throttling off. **Expect**: within about 30 seconds the token renews (the Network panel shows a
 `token` request answered `200`) with no change of page, and the code keeps changing.

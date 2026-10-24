@@ -535,7 +535,9 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
   `011`).
 - [ ] T039 Running-system gate: `docker compose up --build` from a fresh clone, then walk
   quickstart.md S0–S8 in the browser, with a phone camera for S2–S5, and sign in, use, and sign
-  out of each front end. Record the results in this file.
+  out of each front end. Record the results in this file, including whether S6's DevTools
+  throttling step (a network that hangs, on the Customer window) behaved as written; if it didn't,
+  correct quickstart.md in a spec PR (Constitution III).
 - [ ] T040 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
   rounds). Record the rounds and any open finding here and in the PR description.
