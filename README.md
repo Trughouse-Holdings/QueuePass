@@ -3,7 +3,7 @@
 Venue and event management with sign-in for every user and guaranteed conflict-free scheduling.
 
 Built from the specifications in [`specs/`](specs/) under the project constitution at
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.3.0).
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.3.1).
 
 ---
 

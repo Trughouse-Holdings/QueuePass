@@ -1,3 +1,21 @@
+<!--
+Sync Impact Report
+Version: 3.3.0 -> 3.3.1 (PATCH)
+Problem: the roadmap lists 011-ci-test-runs as depending on 010-test-coverage, and the recorded
+  deferral in Principle VI closes the CI run and the coverage floor together, when both 010 and
+  011 are merged. The team builds 011 first (spec 011, Clarifications 2026-10-24).
+Changed:
+  - Principle VI, recorded deferral: split by feature. The CI run becomes merge-blocking when 011
+    is merged; the coverage floor when 010 is merged. Until 010, pull requests report coverage.
+  - Roadmap row 010: builds on 011's coverage measurement and turns the floor on in npm test and
+    the CI run (was: "coverage reporting in npm test"). Depends on 001-008 and 011.
+  - Roadmap row 011: the workflow fails on any failed check or test and reports each workspace's
+    coverage; the floor fails the run once 010 is merged. Depends on 001 (was: 010).
+Impact: no control is removed or weakened. The floor's deferral already existed and still closes
+  with 010; the CI half now closes sooner, with 011. No existing code or spec changes. The README's
+  version reference follows. Templates: none need updating.
+-->
+
 # QueuePass Constitution
 
 QueuePass replaces spreadsheets, drifting email lists, and paper tickets with one system of
@@ -183,9 +201,9 @@ after it.
   `docker compose up --build`, and each front end MUST be signed into, used, and signed out of as
   a smoke test.
 
-Recorded deferral (Principle VIII): the coverage floor and the CI run become merge-blocking when
-`010-test-coverage` and `011-ci-test-runs` are merged. Until then, pull requests report their
-coverage but are not blocked by it.
+Recorded deferral (Principle VIII): the CI run becomes merge-blocking when `011-ci-test-runs` is
+merged, and the coverage floor when `010-test-coverage` is merged. Until `010` is merged, pull
+requests report their coverage but are not blocked by it.
 
 Rationale: Scheduling logic is full of boundary conditions, and authorization mistakes are
 silent until exploited. Only explicit tests pin either down. A coverage floor per workspace shows
@@ -291,8 +309,8 @@ number is a pull request against this table. The next free number is `019`.
 | `007-seat-selection` | Seating layouts per venue (sections, rows, seats) mapped to tiers; Admin seat map of sold and open seats; customers choose seats when getting tickets; no seat sold twice | `004`, `005`, `006` |
 | `008-customer-event-search` | Customer app search and filters for events (name, venue, date range, hide cancelled) using the existing event search; Customer app usability (phone-width layout, event cards, distinguishable seat and status states, keyboard access, AA contrast) reusing the Admin app's existing look | `003`, `004` |
 | `009-admin-order-management` | Admin order lookup by ticket code or customer; refund a single order, voiding its tickets and freeing its seats | `005`, `007` |
-| `010-test-coverage` | Tests for every existing feature, so each workspace reaches 80% line coverage, and coverage reporting in `npm test` | `001`–`008` |
-| `011-ci-test-runs` | GitHub Actions workflow that runs the full suite with coverage on every pull request open and update, and fails below the floor | `010` |
+| `010-test-coverage` | Tests for every existing feature, so each workspace reaches 80% line coverage; turns the floor on, so `npm test` and the CI run fail when a workspace is below it | `001`–`008`, `011` |
+| `011-ci-test-runs` | GitHub Actions workflow that runs the format and lint checks, the build, and the full suite with coverage on every pull request open and update and every push to `main`; fails on any failed check or test and reports each workspace's line coverage; fails below the floor once `010` is merged | `001` |
 | `012-shared-theme` | One shared theme in `packages/shared/` (accent color, fonts, spacing, shared control styles) used by the Admin and Customer apps | `008` |
 | `013-venue-address-validation` | Admin venue create and edit accept only a real US address, checked by the Census Geocoder, unless an admin explicitly confirms an unmatched address, which is then marked not verified; a Google Maps link on the address in the Admin and Customer apps | `002`, `003` |
 | `014-event-images` | Admins upload up to 5 images per event; customers see them on the event, for example as a rotating gallery | `002`, `003` |
@@ -352,4 +370,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.3.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-23
+**Version**: 3.3.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-24
