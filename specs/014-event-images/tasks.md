@@ -623,7 +623,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 **Goal**: FR-041, FR-042, SC-008 (spec Session 2026-10-24, research R18). Branch
 `014-whole-images-impl`; the PR says `fixes #73`.
 
-- [ ] T051 [P] **Test first.** Create `packages/shared/test/web/gallery-size.test.ts` for
+- [x] T051 [P] **Test first.** Create `packages/shared/test/web/gallery-size.test.ts` for
   `galleryBoxHeight` (research R18), with each limit tested at, just inside, and beyond it
   (Constitution VI; review of #73, S9):
   - card at width 320: ratio 4/3 → 240, 1 → 320, `null` → 240; the 3:4 limit: 0.8 → 400, 0.75 →
@@ -633,7 +633,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   - page at width 1280 and window height 900: ratio 16/9 → 630 (70% of 900), 1280/620 → 620,
     1280/640 → 630, 3 → 426.67, 1280/210 → 210, 6.4 → 200, 10 → 200 (the minimum), `null` → 480;
     at width 375 with `null` → 200; and at window height 250 (70% is 175) with ratio 1 → 200.
-- [ ] T052 [P] **Test first.** Extend `packages/shared/test/theme/tokens.test.ts`: `.gallery__image`
+- [x] T052 [P] **Test first.** Extend `packages/shared/test/theme/tokens.test.ts`: `.gallery__image`
   and `.viewer__image` use `object-fit: contain`, and no `object-fit: cover` remains in `theme.css`;
   only `.gallery--reshaping` has a height transition, 0.4 seconds with the slide's curve, and
   `.gallery` none (review I8); `.gallery--reshaping` is `transition: none` under
@@ -643,7 +643,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   Admin app's tests: `.image-item__thumb` uses `contain`, has no fixed `aspect-ratio`, and has
   `min-height: calc(100cqw / 2)` and `max-height: calc(100cqw * 4 / 3)`; `.image-item` is an
   inline-size container; `.image-item__thumb--loading` is 4:3 (review I6).
-- [ ] T053 [P] **Test first.** Extend `packages/shared/test/web/image-gallery.test.tsx` (both
+- [x] T053 [P] **Test first.** Extend `packages/shared/test/web/image-gallery.test.tsx` (both
   variants), with a stub `ResizeObserver` reporting the width and images whose `naturalWidth` and
   `naturalHeight` are set before `load` fires, using shapes inside each variant's limits so every
   change shows (on the page at 1280 wide, ratios 3, 4, and 2.5; review I3): before the picture
@@ -658,7 +658,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   The event page follows the small viewport height: a window `resize` with a new height changes
   the page's height (and not a card's), and a `.viewport-probe` measuring less than
   `innerHeight` is the height used (review I4, S4, S8).
-- [ ] T054 Create `packages/shared/src/web/gallery-size.ts`; in `image-gallery.tsx` (and
+- [x] T054 Create `packages/shared/src/web/gallery-size.ts`; in `image-gallery.tsx` (and
   `gallery-parts.tsx` as needed) read the shown picture's shape on load, measure the width and the
   small viewport height, and set the height and `gallery--measured`, with `gallery--reshaping`
   for 400 ms after a change of shape; in `theme.css` switch to `contain` and add the transition,

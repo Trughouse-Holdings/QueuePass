@@ -5,6 +5,7 @@ import {
   EventPicture,
   HeldImages,
   SHOWN_AND_NEXT,
+  SLIDE_MS,
   useSlide,
   useWantedImages,
 } from './gallery-parts.js';
@@ -94,9 +95,24 @@ function watchWidth(el: Element, onChange: (width: number) => void): () => void 
 }
 
 /**
+ * Research R18 (review of #73, S4): the window's small height, CSS `100svh`, the height with a
+ * phone browser's bars shown, so it does not change while a phone scrolls (`innerHeight` does).
+ * Read from the theme's hidden `.viewport-probe`, added and removed at once; where it measures 0
+ * (no layout, as in jsdom), `innerHeight`.
+ */
+function smallViewportHeight(): number {
+  const probe = document.createElement('div');
+  probe.className = 'viewport-probe';
+  document.body.appendChild(probe);
+  const height = probe.getBoundingClientRect().height;
+  probe.remove();
+  return height > 0 ? height : window.innerHeight;
+}
+
+/**
  * Research R18: the width of the element in `ref` while `watch`, and, with `followWindow` (the
- * event page's limit), the window's height as it changes. The width is `null` where
- * ResizeObserver is missing; the theme's 4:3 card and fixed band then stand.
+ * event page's limit), the window's small height, read again on each `resize`. The width is
+ * `null` where ResizeObserver is missing; the theme's 4:3 card and fixed band then stand.
  */
 function useBoxSize(
   ref: RefObject<HTMLElement | null>,
@@ -108,8 +124,11 @@ function useBoxSize(
   useEffect(() => {
     const el = ref.current;
     if (!watch || !el || typeof ResizeObserver === 'undefined') return;
-    const onResize = () => setViewportHeight(window.innerHeight);
-    if (followWindow) window.addEventListener('resize', onResize);
+    const onResize = () => setViewportHeight(smallViewportHeight());
+    if (followWindow) {
+      onResize();
+      window.addEventListener('resize', onResize);
+    }
     const stop = watchWidth(el, setWidth);
     return () => {
       if (followWindow) window.removeEventListener('resize', onResize);
@@ -175,6 +194,15 @@ export function ImageGallery({
   const { width, viewportHeight } = useBoxSize(root, count > 0, !card);
   const [shapes, setShapes] = useState<ReadonlyMap<string, number>>(() => new Map());
   const [lastShape, setLastShape] = useState<number | null>(null);
+  // Research R18 (review I8): the height moves with the slide only when the shape changes, for
+  // SLIDE_MS (`gallery--reshaping`); a change of width or window height alone follows at once.
+  const [usedShape, setUsedShape] = useState<number | null>(null);
+  const [reshaping, setReshaping] = useState(false);
+  useEffect(() => {
+    if (!reshaping) return;
+    const timer = setTimeout(() => setReshaping(false), SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [reshaping, usedShape]);
   const [stopped, setStopped] = useState(false);
   const [overArrow, setOverArrow] = useState(false);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
@@ -234,6 +262,10 @@ export function ImageGallery({
   // React's derived-state pattern: remember the shape shown, for the next picture not yet loaded.
   if (shownShape !== undefined && shownShape !== lastShape) setLastShape(shownShape);
   const ratio = shownShape ?? lastShape;
+  if (ratio !== usedShape) {
+    setUsedShape(ratio);
+    setReshaping(true);
+  }
   const height =
     width === null ? undefined : galleryBoxHeight({ variant, width, ratio, viewportHeight });
   const onShape = (ratio: number) =>
@@ -279,7 +311,16 @@ export function ImageGallery({
       role="group"
       aria-roledescription="carousel"
       aria-label={`Images of ${eventName}`}
-      className={`gallery gallery--${variant}`}
+      // Review I1: once measured, the card's starting 4:3 no longer applies, so it cannot turn the
+      // set height into a width that the observer would report back.
+      className={[
+        'gallery',
+        `gallery--${variant}`,
+        height !== undefined && 'gallery--measured',
+        reshaping && 'gallery--reshaping',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       // A layout length only, never a color, font, or shadow (spec 012's inline rule; R18).
       style={height === undefined ? undefined : { height }}
       onPointerDown={() => {

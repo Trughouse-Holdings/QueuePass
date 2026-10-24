@@ -385,8 +385,8 @@ describe('whole pictures (spec 014 FR-041, FR-042)', () => {
 
   it('keeps the card at 4:3 only until it has measured itself (review I1)', () => {
     const ratios = [...topLevel().matchAll(/([^{}]*)\{([^{}]*)\}/g)]
-      .filter(([sel, , body]) => /\.gallery/.test(sel!) && /aspect-ratio/.test(body!))
-      .map(([sel, , body]) => [
+      .filter(([, sel, body]) => /\.gallery/.test(sel!) && /aspect-ratio/.test(body!))
+      .map(([, sel, body]) => [
         sel!.replace(/\/\*[\s\S]*?\*\//g, '').trim(),
         body!.match(/aspect-ratio:\s*([^;]+);/)![1]!.trim(),
       ]);
