@@ -98,3 +98,17 @@ test("the backend's pretest generates the Prisma client, so a fresh clone's npm 
   const backend = readPackageJson('backend');
   assert.match(backend.scripts.pretest ?? '', /prisma generate/);
 });
+
+function ciScriptParts() {
+  const root = readPackageJson();
+  assert.ok(root.scripts.ci, 'the root package.json has no ci script');
+  return root.scripts.ci.split(' && ');
+}
+
+test("the workflow's steps after npm ci are exactly the root ci script's parts, in order (R12)", () => {
+  const runs = steps(readWorkflow())
+    .filter((step) => step.run !== undefined)
+    .map((step) => step.run);
+  const afterInstall = runs.slice(runs.indexOf('npm ci') + 1);
+  assert.deepEqual(afterInstall, ciScriptParts());
+});

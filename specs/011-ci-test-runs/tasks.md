@@ -192,10 +192,11 @@ unformatted file (quickstart Q1).
 
 ### Tests for User Story 2 (write first, confirm they fail)
 
-- [ ] T012 [US2] Add a test to `scripts/test/ci-workflow.test.mjs`: read the root `package.json`,
+- [x] T012 [US2] Add a test to `scripts/test/ci-workflow.test.mjs`: read the root `package.json`,
   split `scripts.ci` on ` && `, and assert it deep-equals the `run` values of the workflow's steps
   after `npm ci`, in order. Run `npm test`: **fails** (no `ci` script). (That each part names an
   existing script is asserted in T014, once `coverage:report` exists.)
+  - **Result**: fails with `the root package.json has no ci script`; the other 8 pass.
 
 ### Implementation for User Story 2
 
