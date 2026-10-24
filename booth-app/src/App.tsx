@@ -95,6 +95,8 @@ function Booth() {
   };
 
   const changeEvent = (): void => {
+    // The camera opens only when Scan is pressed, not when the next event is chosen (FR-009).
+    setScanning(false);
     setChosen(null);
     saveEventId(null);
     setOutcome(null);

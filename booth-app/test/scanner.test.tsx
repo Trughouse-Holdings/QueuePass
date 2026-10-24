@@ -253,6 +253,21 @@ describe('Scanning (US5-3 to US5-6)', () => {
     expect(await screen.findByText(/✓ Admitted/)).toBeInTheDocument();
   });
 
+  it('Change event closes the camera, and choosing an event again leaves it closed', async () => {
+    stubApi();
+    const user = userEvent.setup();
+    await openScanner(user);
+    await scanRegion();
+
+    await user.click(screen.getByRole('button', { name: 'Change event' }));
+    expect(stopTracks).toHaveBeenCalled();
+    await user.click(await screen.findByRole('button', { name: /Demo Tonight/ }));
+    await screen.findByLabelText('Ticket code');
+    // The camera opens only when the agent presses Scan (US5 scenario 3).
+    expect(screen.queryByRole('region', { name: 'Scan a ticket' })).not.toBeInTheDocument();
+    expect(openCamera).toHaveBeenCalledTimes(1);
+  });
+
   it('Stop scanning stops every track, and so does unmounting', async () => {
     stubApi();
     const user = userEvent.setup();
