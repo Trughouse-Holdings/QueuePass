@@ -24,6 +24,13 @@ assert them and a reader does not have to know the default. The push to `main` c
 result (FR-002): two pull requests that pass on their own can still break each other once both are
 merged.
 
+For a pull request, GitHub checks out `refs/pull/N/merge`, the branch merged with the latest `main`,
+not the branch head. That is kept: it catches a branch that passes alone but breaks against what
+`main` gained since it was cut (for example a contract change). The cost is that reproducing a red
+check locally means merging or rebasing onto `main` first; the README and quickstart say so.
+GitHub does not run the workflow while a pull request has merge conflicts; a
+required check then keeps it unmergeable until they are resolved.
+
 - **Docs-only pull requests run in full.** A workflow skipped by a path filter never reports, and a
   required check (R18) that never reports leaves the pull request stuck at "Expected — Waiting for
   status to be reported". Spec and plan pull requests also change the contract and the generated
@@ -34,7 +41,9 @@ merged.
   withhold (R15). `pull_request_target` runs with a write token in the base repository's context
   and is the documented way to leak one; this workflow has no use for it.
 
-**Alternatives considered**: `paths-ignore: ['**/*.md', 'specs/**']` (the stuck-required-check
+**Alternatives considered**: checking out `github.event.pull_request.head.sha` (the branch alone,
+so local and CI see the same commit, but conflicts in meaning between the branch and `main` are
+then found only after merging); `paths-ignore: ['**/*.md', 'specs/**']` (the stuck-required-check
 problem above, and spec PRs carry contract changes); skipping drafts (above); a nightly `schedule`
 (nothing changes between pushes); `workflow_dispatch` (the "Re-run jobs" button already re-runs a
 check, R6).
@@ -102,8 +111,14 @@ into confusing errors).
 
 ## R5. Generate the Prisma client explicitly
 
-**Decision**: The first step after installing is `npm run prisma:generate --workspace
-@queuepass/backend`, both in the workflow and in the local `ci` script.
+**Decision**: Two places, both idempotent:
+
+- the first step after installing is `npm run prisma:generate --workspace @queuepass/backend`,
+  both in the workflow and in the local `ci` script, so the build step (R7), which runs before the
+  tests, has the client;
+- the backend's `pretest` becomes `npm run build --workspace @queuepass/shared && prisma generate`,
+  so the README's `npm install` then `npm test` works on a fresh clone (spec FR-019). R13's test
+  asserts that `pretest` contains `prisma generate`.
 
 **Rationale**: A fresh `npm ci` does not generate the client. `@prisma/client`'s install script
 changes to `INIT_CWD` (the repository root) and looks for `prisma/schema.prisma` there
@@ -112,13 +127,17 @@ changes to `INIT_CWD` (the repository root) and looks for `prisma/schema.prisma`
 and its tests import the generated client, so both would fail on the runner. Laptops do not notice
 because the client was generated once and stays in `node_modules`. The backend's `Dockerfile`
 already runs `npx prisma generate --schema backend/prisma/schema.prisma` for the same reason.
-Generating is idempotent and takes seconds.
+Generating is idempotent and takes seconds, so generating twice in `npm run ci` costs seconds, and
+it fixes the README's own documented test command for a new developer, which today fails on a fresh
+clone until someone generates the client by hand.
 
 **Alternatives considered**: a root `postinstall` script (would also run in every front-end image's
 `npm ci`, where the backend's schema may not be copied); a `"prisma": { "schema": ... }` key in the
 root `package.json` (Prisma 6 deprecates that configuration, and its failure is only a warning);
-adding `prisma generate` to the backend's `pretest` (does not cover the build step, R7, which runs
-first).
+`pretest` alone (does not cover the build step, R7, which runs first); the explicit step alone
+(leaves a fresh clone's `npm test` broken); a backend `prebuild` too (`nest build` is also run by
+the backend's `Dockerfile`, which already generates; one more hook for no new case); a README note
+to generate once by hand (a manual step the constitution's "one documented command" avoids).
 
 ## R6. The backend's Testcontainers PostgreSQL on the runner
 
@@ -145,7 +164,11 @@ would need a second code path); a pre-pull step with retries (above); `TESTCONTA
 ## R7. Build every workspace, which type-checks it
 
 **Decision**: Run `npm run build` (the existing root script, every workspace's `build`) after lint
-and before the tests.
+and before the tests. It type-checks the code the containers build: each front end's `src` (and the
+`packages/shared` code it imports), the backend's `src`, and the seed. It does not type-check test
+files, or `packages/shared/src/web` code that no app imports, because `packages/shared`'s build
+uses `tsconfig.build*.json`, which leaves those out. That gap is accepted for this feature: a type
+error there cannot break `docker compose up --build`, which is what this step protects.
 
 **Rationale**: Vitest strips types without checking them, so a type error in a front end passes
 every test today, and is found only when `docker compose up --build` runs `tsc --noEmit && vite
@@ -207,20 +230,31 @@ in `backend`, `vitest run --coverage` in the five Vitest workspaces. Configurati
 - **Backend** (`jest.config.ts`): keep `collectCoverageFrom: ['src/**/*.(t|j)s']` and
   `coverageDirectory`; add `coverageReporters: ['text-summary', 'json-summary']`.
 - **Vitest workspaces** (each `vitest.config.ts`): `coverage: { provider: 'v8', include:
-  ['src/**'], reporter: ['text-summary', 'json-summary'] }`. In `packages/shared`, also `exclude:
-  ['src/api-schema.ts']`, with the comment "generated from contracts/openapi.yaml by npm run
-  generate:api (Constitution VI allows excluding generated code)".
+  ['src/**'], reporter: ['text-summary', 'json-summary'] }`. In `packages/shared`, also
+  `exclude: [...coverageConfigDefaults.exclude, 'src/api-schema.ts']` (imported from
+  `vitest/config`; a plain `exclude` replaces Vitest's defaults instead of adding to them), with
+  the comment "generated from contracts/openapi.yaml by npm run generate:api (Constitution VI
+  allows excluding generated code)".
+- **ESLint** ignores `**/coverage/` (today only the root `coverage/` is ignored, so a laptop with
+  an old Jest HTML report in `backend/coverage/lcov-report/` fails `npm run lint` while CI passes).
+  `.prettierignore`'s `coverage/` already matches at any depth (gitignore rules), so Prettier needs
+  no change.
 - **No thresholds** anywhere. `010` adds them (`coverageThreshold` in Jest, `coverage.thresholds`
   in Vitest), which is how the floor fails `npm test` and the run.
 
 **Rationale**: Constitution VI says coverage "MUST be measured by the documented test command", so
 the measurement belongs in `npm test` itself, on laptops and in CI alike, not in a CI-only command.
-The flag sits on the `test` scripts, so the watch scripts stay fast. `include: ['src/**']` makes each
-workspace report only its own source: the Admin and Customer apps import `packages/shared/src`
-through an alias, and an explicit include keeps those files out of the apps' numbers, so "one
-well-tested workspace cannot make up for another" holds by configuration rather than by a default. `text-summary` prints four lines per workspace in the log; `json-summary` writes
-`coverage/coverage-summary.json`, which R11 reads. Both directories are already ignored by git,
-Prettier, and ESLint.
+The flag sits on the `test` scripts, so the watch scripts stay fast. A targeted run (for example
+`npm test --workspace @queuepass/backend -- one.spec.ts`) also measures, and prints the whole
+workspace's coverage, which is mostly low for one file; the cost of measuring on every `npm test` is
+recorded against T001's baseline (tasks T020).
+
+`include: ['src/**']` states each workspace's source plainly and leaves out its config files and
+`test/` folder. Files the Admin and Customer apps import from `packages/shared/src` are already
+outside their numbers (Vitest's `coverage.allowExternal` defaults to `false`); the include keeps
+it that way by configuration. `text-summary` prints four lines per workspace in the log;
+`json-summary` writes `coverage/coverage-summary.json`, which R11 reads. `coverage/` folders are
+ignored by git and Prettier at any depth, and by ESLint once `**/coverage/` is added (above).
 
 **Alternatives considered**: a separate `test:coverage` script (the chain in the root `test` script
 would be written twice, and `npm test` would not measure coverage as the constitution says);
@@ -234,17 +268,30 @@ would be written twice, and `npm test` would not measure coverage as the constit
 table: workspace, line coverage percentage, covered and total lines, and "below 80%" where it
 applies, followed by "The 80% floor is not enforced until 010-test-coverage is merged." When
 `GITHUB_STEP_SUMMARY` is set, it appends the same table in Markdown to that file, which GitHub shows
-on the run's summary page. It exits `1` if any workspace's file is missing or unreadable, naming
-it, and `0` otherwise, whatever the percentages. Its formatting and reading logic are exported
-functions, tested by R13; the file runs its `main` only when executed directly.
+on the run's summary page. It exits `1`, naming the workspace, if any workspace's file is missing or
+unreadable, or counts no lines (`total.lines.total === 0`, which istanbul reports as 100%: the mark
+of an `include` that matches nothing). Otherwise it exits `0`, whatever the percentages. Its
+formatting and reading logic are exported functions, tested by R13; the file runs its `main` only
+when executed directly.
+
+**Only this run's summaries**: the root `test` script starts with
+`node scripts/coverage-report.mjs --clean`, which deletes the six workspaces' `coverage/` folders
+before any test runs. A summary the report reads was therefore written by this `npm test`. Without
+it, a laptop keeps `backend/coverage/coverage-summary.json` from an earlier run, and if a
+workspace's `test` script lost `--coverage`, `npm run ci` would pass on the old file while CI, on a
+fresh checkout, fails (breaking FR-008).
 
 **Rationale**: FR-006 and FR-007 in about fifty lines, no dependency, no network, no write access
 (the step summary is a file on the runner, not an API call). Failing on a missing file catches a
-workspace whose coverage was silently not measured (FR-007). Below-80% exits `0` until `010`, which
-enforces the floor through the test runners' own thresholds (R10), so this script never needs an
-"enforce" switch.
+workspace whose coverage was silently not measured (FR-007); the zero-lines rule catches a
+misconfigured one; cleaning first catches a stale one, and also removes old HTML reports.
+Below-80% exits `0` until `010`, which enforces the floor through the test runners' own thresholds
+(R10), so this script never needs an "enforce" switch.
 
-**Alternatives considered**: a third-party coverage-comment action (third-party code, and
+**Alternatives considered** for stale files: comparing each summary's modification time with a
+start stamp written at the beginning of `npm test` (a stamp file, and clock comparisons, for what
+deleting does outright); relying on CI's fresh checkout only (leaves local parity broken). For the
+report: a third-party coverage-comment action (third-party code, and
 `pull-requests: write` to comment, against R15); Codecov or Coveralls (an outside service and,
 usually, a secret token); reading the `text-summary` lines from the log (fragile parsing).
 
@@ -259,7 +306,9 @@ usually, a secret token); reading the `text-summary` lines from the log (fragile
 The workflow runs `npm ci`, then each of these six commands as its own named step, in the same
 order. R13's test fails when the workflow's commands after `npm ci` are not exactly the `ci`
 script's parts, in order (FR-009). The README and quickstart say: run `npm ci` once (the workflow's
-install) and then `npm run ci` to reproduce a run exactly.
+install) and then `npm run ci` to reproduce a run exactly. For a pull request, run it on the
+branch merged or rebased onto the latest `main` (R1), with the Docker Compose stack down (with the
+stack up, the seed's two Keycloak tests run locally instead of being skipped, R16).
 
 **Rationale**: FR-008 asks for one command with the same steps, and the constitution's "tests run
 locally" now matches CI by construction. `npm ci` stays out of the script because it deletes
@@ -278,17 +327,21 @@ PowerShell, and macOS); no local command (the drift FR-009 guards against).
   (already a root devDependency) and asserts: the `pull_request` types are exactly `opened`,
   `synchronize`, `reopened`, with no `paths`, `paths-ignore`, or `branches`; `push.branches` is
   exactly `[main]`; no `pull_request_target`; `permissions` is exactly `{ contents: read }`;
-  `concurrency` matches R14; one job, `test`, on `ubuntu-24.04`, with `timeout-minutes` set; every
+  `concurrency` matches R14 exactly; one job, `test`, on `ubuntu-24.04`, with `timeout-minutes` set;
+  every
   `uses:` starts with `actions/`; `setup-node` reads `.nvmrc` with `cache: npm`; checkout sets
   `persist-credentials: false`; the first `run` step is `npm ci` and the remaining `run` steps
   equal the root `ci` script split on ` && `, in order; and the file contains no `secrets.` and no
-  `${{ github.token }}`.
+  `${{ github.token }}`. It also asserts that every part of the `ci` script names a script that
+  exists, and that the backend's `pretest` runs `prisma generate` (R5).
 - `scripts/test/coverage-report.test.mjs` tests R11's functions with fixture summaries: all six
   present and above 80% (table, exit 0); one below 80% (marked, note about `010`, still exit 0); one
-  missing (exit 1, named); the Markdown written to a temporary `GITHUB_STEP_SUMMARY` file.
+  missing, one unreadable, and one with zero lines (each exit 1, named); `--clean` removing the
+  `coverage/` folders; the Markdown appended to a temporary `GITHUB_STEP_SUMMARY` file.
 
-The root `test` script gains `node --test "scripts/test/*.test.mjs"` before the boundary check, so
-the suite, and therefore the check, runs them. The glob is quoted: Node 22 expands it itself, and
+The root `test` script gains `node scripts/coverage-report.mjs --clean && node --test
+"scripts/test/*.test.mjs"` before the boundary check, so the suite, and therefore the check, runs
+them. The glob is quoted: Node 22 expands it itself, and
 `node --test scripts/test/` with a directory fails (tried on Node 22.20, 2026-10-24).
 
 **Rationale**: The workflow is configuration whose mistakes (a wrong trigger, a write permission, a
@@ -307,13 +360,14 @@ FR-009 forbids would go unnoticed).
 
 ```yaml
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.sha }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 ```
 
-**Rationale**: For a pull request, the group is its number, so a new push cancels the run for the
-older push (FR-011). For a push to `main`, the group is the commit, unique per run, so nothing is
-cancelled and every merge result is checked.
+**Rationale**: The workflow's name prefixes the group, so a later workflow copying the pattern
+cannot cancel this one. For a pull request, the group is its number, so a new push cancels the run
+for the older push (FR-011). For a push to `main`, the group is the commit, unique per run, so
+nothing is cancelled and every merge result is checked.
 
 **Alternatives considered**: `group: ${{ github.ref }}` with `cancel-in-progress: true` (would also
 cancel a `main` run when the next merge lands, leaving a commit on `main` unchecked); no
@@ -383,6 +437,13 @@ six-hour default (above).
 once, a repository admin adds a branch ruleset (or branch protection rule) for `main` that requires
 the `test` status check. The quickstart gives the steps. Nothing automates it.
 
+`test` is a generic name; if another workflow ever has a `test` job, the ruleset picker lists both,
+and the admin chooses the one from the `CI` workflow (quickstart Q5). Renaming the job to something
+unique (`ci`) was considered and not done: "CI / test" reads well on a pull request, and no second
+workflow exists. The constitution's recorded deferral makes the run merge-blocking once `011` is
+merged **and** this setting is on, so it is turned on right after the merge, not at some later
+point (tasks T033).
+
 **Rationale**: It is a repository setting, not code (FR-015, spec Assumptions); automating it needs
 an admin token, which R15 rules out. The job name is the check's name, so it must not change; the
 test in R13 pins it. The constitution's Green gate already requires a passing run before a merge;
@@ -420,10 +481,13 @@ test output (fragile, duplicates the log).
 ## R20. Documentation
 
 **Decision**: The README's "Run the tests" section gains `npm run ci` (what it runs, that it is
-what the check runs, `npm ci` first to match exactly), a sentence on the pull request check and the
-coverage table, and the Status table and "reserved features" line are updated for `011`. The
-quickstart covers watching a run, reproducing it locally, reading a failure, and turning on the
-required check (FR-017).
+what the check runs, `npm ci` first to match exactly, and onto the latest `main` with the stack down
+to reproduce a pull request's run), how to read a failure (open **Details**; the failed step's
+name says which check failed; a Testcontainers "could not pull image" error means **Re-run failed
+jobs**), and a sentence on the pull request check and the coverage table. The Status table, the
+"reserved features" line, and the repository layout block (a line for `.github/workflows/`) are
+updated for `011`. The quickstart covers watching a run, reproducing it locally, reading a
+failure, and turning on the required check (FR-017).
 
 **Rationale**: The constitution's Documentation gate requires the README to document the test
 command in the same pull request that changes it.

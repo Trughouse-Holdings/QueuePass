@@ -12,21 +12,26 @@
   (research R1, R2, R4).
 - **Steps**: `npm ci` (cached npm downloads, R3), then the six parts of a new root `npm run ci`
   script, each its own named step: generate the Prisma client (R5), `format:check` (R8), `lint`,
-  `build` (type-checks every workspace, R7), `npm test` (now with coverage), and `coverage:report`.
+  `build` (type-checks the code the containers build, R7), `npm test` (now with coverage), and
+  `coverage:report`.
   A test fails if the workflow's steps and the `ci` script differ (R12, R13).
 - **Backend tests**: unchanged; Testcontainers uses the runner's Docker (R6). A 30-minute job limit
-  (R17).
+  (R17). The backend's `pretest` also generates the Prisma client, so a fresh clone's `npm test`
+  works (R5, FR-019).
 - **Coverage**: every workspace's `test` script measures line coverage on its own `src/`, with
-  `@vitest/coverage-v8` added for the five Vitest workspaces (R9, R10). A small script prints a
-  per-workspace table and writes it to the run's summary; below 80% is marked, not failed, until
-  `010` (R11).
+  `@vitest/coverage-v8` added for the five Vitest workspaces (R9, R10). `npm test` first deletes old
+  coverage output, then a small script prints a per-workspace table and writes it to the run's
+  summary; below 80% is marked, not failed, until `010`; a missing or zero-line result fails (R11).
+  ESLint ignores every workspace's `coverage/` (R10).
 - **Safety**: `contents: read` only, no secrets, superseded pull request runs cancelled, `main`
   runs never (R14, R15).
 - **Honest skips**: the seed's Keycloak tests report as skipped instead of passed (R16).
-- **Required check**: turned on by hand after merge, documented in the quickstart (R18).
+- **Required check**: turned on by hand right after merge, documented in the quickstart (R18).
+- **Pull requests are checked merged with the latest `main`** (R1); the local command reproduces a
+  run on the branch merged or rebased onto `main`, with the Compose stack down (R12).
 
-No API, contract, database, or screen change. The constitution amendment 3.3.1 (roadmap rows `010`
-and `011`, and the recorded deferral split by feature) lands in this spec and plan PR.
+No API, contract, database, or screen change. The constitution amendment 3.4.0 (MINOR: roadmap rows
+`010` and `011`, and the recorded deferral split by feature) lands in this spec and plan PR.
 
 ## Technical Context
 
@@ -58,11 +63,12 @@ every existing test still passes (FR-018).
 
 **Scale/Scope**: 1 new workflow; 3 new root scripts (`format:check`, `ci`, `coverage:report`) and 1
 changed (`test`); 1 new script and 2 new test files under `scripts/`; 6 test scripts and 6 test
-configs gain coverage settings; 1 seed test file changes `return` to `skip()`; README.
+configs gain coverage settings; the backend's `pretest` gains `prisma generate`; ESLint ignores
+`**/coverage/`; 1 seed test file changes `return` to `skip()`; README.
 
 ## Constitution Check
 
-Evaluated against constitution **v3.3.1** (amended in this PR; see spec Context).
+Evaluated against constitution **v3.4.0** (amended in this PR; see spec Context).
 
 | Principle | Pre | Post | Evidence |
 |---|---|---|---|
@@ -71,7 +77,7 @@ Evaluated against constitution **v3.3.1** (amended in this PR; see spec Context)
 | **III. Spec-Driven, Reviewed** | PASS | **PASS** | Issue #23; spec and plan on `011-ci-test-runs-spec`, reviewed by a second Claude session before the PR; implementation on `011-ci-test-runs-impl` in a fresh session, closing #23. Commits cite `011` and #23. |
 | **IV. Server-Authoritative, DB-Guaranteed** | PASS | **PASS** | No rule changes. The backend's real-database and concurrency tests run on every pull request (R6). |
 | **V. Sign-In Everywhere** | PASS | **PASS** | No auth change. The authorization tests run in CI with in-memory test keys; no real credential or token is used (R15). |
-| **VI. Test-First, Real Database** | PASS (deferral) | **PASS** | The suite runs in GitHub Actions on every pull request open and update (the bullet this feature exists for), with real PostgreSQL through Testcontainers. Coverage is measured by `npm test` for all six workspaces and reported in CI. The 80% floor stays a recorded deferral, now closed by `010` alone; the CI half closes with this feature. The workflow and the report script are tested first (R13). |
+| **VI. Test-First, Real Database** | PASS (deferral) | **PASS** | The suite runs in GitHub Actions on every pull request open and update (the bullet this feature exists for), with real PostgreSQL through Testcontainers. Coverage is measured by `npm test` for all six workspaces and reported in CI. The 80% floor stays a recorded deferral, now closed by `010` alone; the CI half closes with this feature once its check is required on `main` (right after merge, R18). The workflow and the report script are tested first (R13). |
 | **VII. Function Over Finish** | PASS | **PASS** | No screen changes. |
 | **VIII. Staged Simplicity** | PASS | **PASS** | One job, GitHub's own actions, no outside service, no comment bot, no Keycloak in CI (R4, R11, R16). One devDependency, justified (R9). The floor's deferral is recorded in the constitution and the spec, naming `010`. |
 | **Shared surface** | — | **Needs every member's approval** | `.github/workflows/`, the root `package.json` (implementation PR), and the constitution (this PR). |
@@ -85,24 +91,25 @@ specs/011-ci-test-runs/
 └── checklists/requirements.md
 (no data-model.md and no contracts/: no entity, API, or schema change)
 
-.specify/memory/constitution.md       # 3.3.1 (this PR): rows 010 and 011, the recorded deferral
+.specify/memory/constitution.md       # 3.4.0 (this PR): rows 010 and 011, the recorded deferral
 README.md                             # version reference (this PR); test section (implementation)
 
 .github/workflows/+ ci.yml            # the check (R1–R4, R14, R15, R17, R18)
 ~ package.json                        # + @vitest/coverage-v8; + format:check, ci, coverage:report;
                                       #   test gains node --test (R8–R13)
 ~ package-lock.json
+~ eslint.config.mjs                   # + '**/coverage/' ignored (R10)
 scripts/
 ├── + coverage-report.mjs             # R11
 └── test/
     ├── + ci-workflow.test.mjs        # R13
     └── + coverage-report.test.mjs    # R13
-backend/~ package.json (test: --coverage), ~ jest.config.ts (coverageReporters)            # R10
+backend/~ package.json (test: --coverage; pretest: + prisma generate), ~ jest.config.ts   # R5, R10
 admin-app/, customer-app/, booth-app/, scripts/seed/:
           ~ package.json (test: --coverage), ~ vitest.config.ts (coverage block)            # R10
 packages/shared/~ package.json, ~ vitest.config.ts (coverage block, api-schema.ts excluded) # R10
 scripts/seed/test/~ seed-idempotence.test.ts   # skip() instead of return (R16)
-~ README.md                           # Run the tests, Status (R20)
+~ README.md                           # Run the tests, reading a failure, Status, layout (R20)
 ```
 
 **Structure Decision**: the workflow lives where GitHub requires it; root scripts sit next to the
@@ -115,4 +122,5 @@ sit in the test configuration it already has. No new workspace.
 |---|---|---|
 | A new devDependency, `@vitest/coverage-v8` | Five of six workspaces cannot measure coverage without it (FR-005, R9) | Reporting backend coverage only leaves five workspaces unreported, against the Clarifications decision; `010` would add the same package anyway. |
 | One step per check plus a drift test, instead of one `npm run ci` step | A failed step's name tells the author which check failed (SC-006, R4) | A single step needs no drift test, but every failure looks the same until the log is read. |
-| An explicit Prisma generate step | A fresh `npm ci` does not generate the client, so build and tests would fail on the runner (R5) | Install hooks run in the front-end images too, or rely on deprecated configuration. |
+| Prisma generated in two places (a `ci` step and the backend's `pretest`) | A fresh `npm ci` does not generate the client; the build runs before the tests, and a fresh clone's `npm test` must work too (R5, FR-019) | Install hooks run in the front-end images too, or rely on deprecated configuration; either place alone leaves one of the two cases broken. |
+| Deleting coverage output at the start of `npm test` | The report must read only this run's results, or a laptop passes on a stale file that CI would fail (R11, FR-008) | Comparing file times with a start stamp needs a stamp file and clock logic for the same result. |

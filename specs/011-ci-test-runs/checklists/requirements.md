@@ -37,5 +37,5 @@
   those are in the plan. GitHub Actions is fixed by the constitution's stack table.
 - The two decisions with no safe default (floor reported now, enforced by `010`; `011` before
   `010`) were made by Mahdi and recorded in Clarifications, so no clarification markers remain.
-- The constitution amendment (3.3.1) that follows from building `011` first is described in
+- The constitution amendment (3.4.0, MINOR) that follows from building `011` first is described in
   Context and is shared surface: every team member approves it in the pull request.
