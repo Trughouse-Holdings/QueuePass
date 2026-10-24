@@ -797,12 +797,49 @@ describe.each(['page', 'card'] as const)(
       fireEvent.click(arrow('Next'));
       await advance(0);
       expect(outgoing(c)).not.toBeNull();
-      expect(height(c)).toBeCloseTo(expected(null), 2);
+      expect(height(c)).toBeCloseTo(expected(4 / 3), 2);
       load(incoming(c), 600, 1200);
       expect(outgoing(c)).not.toBeNull();
       expect(height(c)).toBeCloseTo(expected(0.5), 2);
       await advance(400);
       expect(outgoing(c)).toBeNull();
+      expect(height(c)).toBeCloseTo(expected(0.5), 2);
+    });
+
+    it('keeps the previous shape until a picture not yet loaded is read, never the starting size', async () => {
+      installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render();
+      load(incoming(c), 600, 1200);
+      const portrait = expected(0.5);
+      expect(height(c)).toBeCloseTo(portrait, 2);
+      // Every height the box takes from here on.
+      const seen: number[] = [];
+      const watcher = new MutationObserver(() => seen.push(height(c)));
+      watcher.observe(box(c), { attributes: true, attributeFilter: ['style'] });
+
+      fireEvent.click(arrow('Next'));
+      await advance(0);
+      expect(outgoing(c)).not.toBeNull();
+      expect(height(c)).toBeCloseTo(portrait, 2);
+      await advance(200);
+      expect(height(c)).toBeCloseTo(portrait, 2);
+      load(incoming(c), 1600, 900);
+      expect(height(c)).toBeCloseTo(expected(16 / 9), 2);
+      await advance(0);
+      watcher.disconnect();
+      const start = expected(null);
+      expect(seen.some((h) => Math.abs(h - start) < 0.01)).toBe(false);
+    });
+
+    it('keeps the previous shape for a picture that failed after one that loaded', async () => {
+      installResizeObserver(WIDTH);
+      stubImages({ 'img-2': imageResponse(404) });
+      const c = await render();
+      load(incoming(c), 600, 1200);
+      fireEvent.click(arrow('Next'));
+      await advance(0);
+      expect(within(box(c)).getByText('Image unavailable')).toBeInTheDocument();
       expect(height(c)).toBeCloseTo(expected(0.5), 2);
     });
 
