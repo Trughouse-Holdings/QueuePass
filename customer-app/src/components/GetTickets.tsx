@@ -310,6 +310,8 @@ export function GetTickets({ event }: { event: Event }) {
   const chosenCount = seated ? seats.length + mine.length : Math.min(quantity, maxQuantity);
   // Spec 017 FR-001: no order without a valid name; reserving seats needs none.
   const nameProblem = holderNameProblem(holderName);
+  // The shared message, shown once the field was left (research R2).
+  const nameError = nameTouched && nameProblem !== null ? holderNameMessage(nameProblem) : null;
   const canConfirm =
     price !== undefined &&
     ticketsLeft > 0 &&
@@ -603,7 +605,8 @@ export function GetTickets({ event }: { event: Event }) {
         {limit !== null && (
           <p className="note">{`Limit: ${tickets(limit.limit)} per customer. You can get ${limit.remaining} more.`}</p>
         )}
-        {/* Spec 017 FR-001: one name, the buyer's own, on every ticket of the order. */}
+        {/* Spec 017 FR-001: one name, the buyer's own, on every ticket of the order. A shown
+            error is linked to the field, so screen readers read it with the hint. */}
         <div className="holder-name">
           <label htmlFor="holder-name">Name on tickets</label>
           <input
@@ -611,15 +614,20 @@ export function GetTickets({ event }: { event: Event }) {
             type="text"
             value={holderName}
             autoComplete="name"
-            aria-describedby="holder-name-hint"
+            aria-describedby={
+              nameError !== null ? 'holder-name-hint holder-name-error' : 'holder-name-hint'
+            }
+            aria-invalid={nameError !== null ? true : undefined}
             onChange={(e) => choose(() => setHolderName(e.target.value))}
             onBlur={() => setNameTouched(true)}
           />
           <p id="holder-name-hint" className="note">
             Your name, as on the photo ID you&apos;ll show at the gate. It goes on every ticket.
           </p>
-          {nameTouched && nameProblem !== null && (
-            <p className="banner banner--error">{holderNameMessage(nameProblem)}</p>
+          {nameError !== null && (
+            <p id="holder-name-error" className="banner banner--error">
+              {nameError}
+            </p>
           )}
         </div>
         {seated ? (

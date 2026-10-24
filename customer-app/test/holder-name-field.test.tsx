@@ -53,6 +53,27 @@ describe('the Name on tickets field (US4-1)', () => {
     expect(await screen.findByText('Enter the name on your photo ID.')).toBeInTheDocument();
   });
 
+  it('links the shown error to the field for screen readers, and unlinks it once fixed', async () => {
+    stubApi(tierlessRoutes());
+    renderCustomer({ at: '/events/e1' });
+
+    const field = await nameField();
+    expect(field).not.toHaveAttribute('aria-invalid');
+    expect(field).toHaveAccessibleDescription(HINT);
+
+    fireEvent.change(field, { target: { value: '1234' } });
+    fireEvent.blur(field);
+    const message = 'The name on the tickets must contain at least one letter.';
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(field).toHaveAttribute('aria-invalid', 'true');
+    expect(field).toHaveAccessibleDescription(expect.stringContaining(message));
+
+    fireEvent.change(field, { target: { value: 'Jordan Lee' } });
+    expect(screen.queryByText(message)).not.toBeInTheDocument();
+    expect(field).not.toHaveAttribute('aria-invalid');
+    expect(field).toHaveAccessibleDescription(HINT);
+  });
+
   it('sends the name as holderName', async () => {
     const { calls } = stubApi(tierlessRoutes());
     renderCustomer({ at: '/events/e1' });
