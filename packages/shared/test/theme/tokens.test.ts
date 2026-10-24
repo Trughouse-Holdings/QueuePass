@@ -351,19 +351,21 @@ describe('whole pictures (spec 014 FR-041, FR-042)', () => {
     expect(css).not.toMatch(/object-fit:\s*cover/);
   });
 
-  it("changes .gallery's height over 0.4 seconds with the slide's curve", () => {
+  it('changes the height over 0.4 seconds with the slide, only on a change of shape (review I8)', () => {
     const slideCurve = bodiesOf(topLevel(), '.gallery__slide--in-left')
       .join('\n')
       .match(/animation:\s*[a-z-]+\s+400ms\s+([a-z-]+)/i)?.[1];
     expect(slideCurve).toBeDefined();
-    const transition = bodiesOf(topLevel(), '.gallery')
+    const transition = bodiesOf(topLevel(), '.gallery--reshaping')
       .join('\n')
       .match(/transition:\s*([^;]+);/)?.[1];
-    expect(transition, '.gallery sets a transition').toBeDefined();
+    expect(transition, '.gallery--reshaping sets a transition').toBeDefined();
     const [property, duration, curve] = transition!.trim().split(/\s+/);
     expect(property).toBe('height');
     expect(['0.4s', '400ms']).toContain(duration);
     expect(curve).toBe(slideCurve);
+    // A resize alone follows the window at once.
+    expect(bodiesOf(topLevel(), '.gallery').join('\n')).not.toMatch(/transition/);
   });
 
   it('changes the height at once under reduced motion', () => {
@@ -376,8 +378,29 @@ describe('whole pictures (spec 014 FR-041, FR-042)', () => {
       if (css[i] === '{') depth++;
       else if (css[i] === '}') depth--;
     }
-    expect(bodiesOf(css.slice(open + 1, i - 1), '.gallery').join('\n')).toMatch(
+    expect(bodiesOf(css.slice(open + 1, i - 1), '.gallery--reshaping').join('\n')).toMatch(
       /transition:\s*none/,
     );
+  });
+
+  it('keeps the card at 4:3 only until it has measured itself (review I1)', () => {
+    const ratios = [...topLevel().matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+      .filter(([sel, , body]) => /\.gallery/.test(sel!) && /aspect-ratio/.test(body!))
+      .map(([sel, , body]) => [
+        sel!.replace(/\/\*[\s\S]*?\*\//g, '').trim(),
+        body!.match(/aspect-ratio:\s*([^;]+);/)![1]!.trim(),
+      ]);
+    expect(ratios).toEqual([['.gallery--card:not(.gallery--measured)', '4 / 3']]);
+  });
+
+  it('never makes a card shorter than 160 pixels, so its controls never overlap (review S1)', () => {
+    expect(bodiesOf(topLevel(), '.gallery--card').join('\n')).toMatch(/min-height:\s*160px/);
+  });
+
+  it('has a hidden probe of the small viewport height (review S4)', () => {
+    const body = bodiesOf(topLevel(), '.viewport-probe').join('\n');
+    expect(body).toMatch(/height:\s*100svh/);
+    expect(body).toMatch(/position:\s*fixed/);
+    expect(body).toMatch(/visibility:\s*hidden/);
   });
 });

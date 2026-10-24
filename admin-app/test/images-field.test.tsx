@@ -769,10 +769,12 @@ describe('previews show the whole picture (FR-041)', () => {
     /\/\*[\s\S]*?\*\//g,
     '',
   );
-  const thumb = [...styles.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
-    .filter(([, sel]) => sel!.trim() === '.image-item__thumb')
-    .map(([, , body]) => body!)
-    .join('\n');
+  const rule = (selector: string) =>
+    [...styles.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+      .filter(([, sel]) => sel!.trim() === selector)
+      .map(([, , body]) => body!)
+      .join('\n');
+  const thumb = rule('.image-item__thumb');
 
   it('fits the picture with object-fit: contain, and crops nothing anywhere', () => {
     expect(thumb).toMatch(/object-fit:\s*contain/);
@@ -781,5 +783,27 @@ describe('previews show the whole picture (FR-041)', () => {
 
   it('sets no fixed aspect-ratio on .image-item__thumb', () => {
     expect(thumb).not.toMatch(/aspect-ratio/);
+  });
+
+  it("limits each preview as a card is, from 3:4 to 2:1 of the preview's width (review I6)", () => {
+    expect(thumb).toMatch(/height:\s*auto/);
+    expect(thumb).toMatch(/min-height:\s*calc\(100cqw \/ 2\)/);
+    expect(thumb).toMatch(/max-height:\s*calc\(100cqw \* 4 \/ 3\)/);
+    expect(rule('.image-item')).toMatch(/container-type:\s*inline-size/);
+    expect(rule('.image-item__thumb--loading')).toMatch(/aspect-ratio:\s*4 \/ 3/);
+  });
+
+  it('keeps the 4:3 loading shape until the picture has loaded (review I7)', async () => {
+    backend();
+    renderAt('/events/new');
+    await screen.findByRole('group', { name: 'Images' });
+    choose(pngFile('a.png'));
+    await vi.waitFor(() => expect(items()).toHaveLength(1));
+    const img = within(items()[0]!).getByRole('img', { name: 'Image 1' });
+    expect(img.tagName).toBe('IMG');
+    expect(img).toHaveClass('image-item__thumb', 'image-item__thumb--loading');
+    fireEvent.load(img);
+    expect(img).toHaveClass('image-item__thumb');
+    expect(img).not.toHaveClass('image-item__thumb--loading');
   });
 });
