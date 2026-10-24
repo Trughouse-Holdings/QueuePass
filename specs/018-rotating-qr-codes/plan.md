@@ -111,9 +111,8 @@ backend/
 ├── src/
 │   ├── common/+ clock.ts                                    # CLOCK provider (R3)
 │   ├── prisma/~ prisma.service.ts                           # global omit of entrySecret (R1)
-│   ├── entry/~ entry.service.ts, + live-code-check.ts, ~ dto/entry-lookup.dto.ts (80),
-│   │         + entry-key.controller.ts, ~ entry.module.ts   # R4, R5
-│   └── ~ app.module.ts                                      # CLOCK, if not in a shared module
+│   └── entry/~ entry.service.ts, + live-code-check.ts, ~ dto/entry-lookup.dto.ts (80),
+│             + entry-key.controller.ts, ~ entry.module.ts   # R4, R5; CLOCK provided here
 └── test/
     ├── integration/+ entry.live-code.e2e-spec.ts, + entry.live-boundaries.e2e-spec.ts,
     │               + entry.live-refusals.e2e-spec.ts,

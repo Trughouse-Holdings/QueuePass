@@ -107,7 +107,7 @@ and confirm they **fail** before the implementation tasks below them.
   `QP1:` after trim and upper-case); `keyToBase64url(bytes)` and `keyFromBase64url(text):
   Uint8Array | null` (exactly 32 bytes). No Node-only import: the module runs in browsers too.
   Run T002 until it passes; build `packages/shared`.
-- [ ] T004 [P] Mirror the contract in `packages/shared/src/entry.ts`: add
+- [ ] T004 Mirror the contract in `packages/shared/src/entry.ts`: add
   `verifiedBy?: 'LIVE_CODE' | 'TICKET_CODE'` to `EntryTicket`, **optional** as in contract 1.11.0
   (comment citing spec 018 FR-011 and "required from T027"). Not required yet: the Backend's
   `toEntryTicket` returns this type and sends no `verifiedBy` until T021, so a required field
@@ -126,9 +126,11 @@ and confirm they **fail** before the implementation tasks below them.
     tickets, nor the ticket from `ctx.prisma.$transaction((tx) => tx.ticket.findFirst())` (inside
     a transaction the omit holds at runtime, though not in `tx`'s types, T007);
     `ctx.prisma.ticket.findFirst({ select: { entrySecret: true } })` returns 32 bytes;
-  - the omit is in the types too: reading `.entrySecret` on the result of a default
-    `ctx.prisma.ticket.findFirst()` carries a `// @ts-expect-error`, so the file stops compiling
-    if T007's typing is ever lost.
+  - the omit is in the types too: reading `.entrySecret` on the non-null result of a default
+    `ctx.prisma.ticket.findFirstOrThrow()` carries a `// @ts-expect-error`, so the file stops
+    compiling if T007's typing is ever lost. It must be non-null: on `findFirst()`'s `T | null`,
+    the "possibly null" error alone satisfies the `@ts-expect-error`, and a lost omit goes
+    unnoticed.
   Confirm it fails.
 - [ ] T006 Add to `model Ticket` in `backend/prisma/schema.prisma`, after `checkedInByUsername`:
   `entrySecret Bytes @default(dbgenerated("gen_random_bytes(32)")) @db.ByteA`, with the comment from
@@ -396,10 +398,11 @@ label.
   output: `qrMatrix(text)` (any QR-alphanumeric text; type number 0, level `'M'`); export
   `qrPath(text): string`, the SVG path of the dark modules with the 4-module quiet zone, built as
   `TicketQr` builds it today, and have `TicketQr` draw with it (T017 compares with it); and
-  `TicketQr({ code, label? })` whose `aria-label` defaults to 017's "QR code for ticket <code>";
-  017's print view and `print-ticket.test.tsx` stay unchanged and passing. Add the class
-  `ticket-qr--live` support for a size of `min(100%, 320px)` in `customer-app/src/styles.css`,
-  theme values only.
+  `TicketQr({ code, label?, className? })` whose `aria-label` defaults to 017's "QR code for
+  ticket <code>" and whose `className` is appended to `ticket-qr` (how T026 applies
+  `ticket-qr--live`); 017's print view and `print-ticket.test.tsx` stay unchanged and passing. Add
+  the class `ticket-qr--live` support for a size of `min(100%, 320px)` in
+  `customer-app/src/styles.css`, theme values only.
 - [ ] T026 [US1] Build the live-code screen (research R8):
   - `customer-app/src/live-code-clock.ts`: `measureOffset(serverTime: string, sentMs: number,
     receivedMs: number): number` (`Date.parse(serverTime) − (sentMs + receivedMs) / 2`) and
@@ -543,12 +546,12 @@ T031, T034).
 
 ## Parallel Opportunities
 
-- Phase 2: T002, T004, T005 touch different files. T008 then T009, in that order (T009
-  imports T008's `clock.ts`).
+- Phase 2: T002 and T005 touch different files. T004 runs after T003 (both edit
+  `packages/shared/src/index.ts`). T008 then T009, in that order (T009 imports T008's `clock.ts`).
 - US1 tests: T010 to T018 and T032 in parallel, each in its own files. Then the Backend (T019–T023,
-  T027), Customer (T024–T026), and Ticket Booth (T028) tracks are independent of each other; T024 and
-  T027 each change one file of `packages/shared` and rebuild it, so run those two one after the
-  other.
+  T027), Customer (T024–T026), and Ticket Booth (T028) tracks are independent of each other,
+  except that every task that writes or builds `packages/shared` runs one at a time: T022 (build),
+  T023 (`generate:api`), T024, and T027.
 - US2: T030, then T031.
 - US3: T033 only.
 - T018, T030, and T033 all edit `booth-app/test/check-in.test.tsx`; they sit in different phases,
