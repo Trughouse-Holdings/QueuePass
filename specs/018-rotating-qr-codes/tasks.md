@@ -201,8 +201,9 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
 
 Every Backend behavior this phase builds is tested here first (Constitution VI), including the
 ones that serve US2 and US3: the live-code check (T020) refuses expired and forged codes (T013,
-T014), and the lookup (T021) answers `verifiedBy: 'TICKET_CODE'` on 017's path (T015). Those
-three keep their story's label.
+T014), the lookup (T021) answers `verifiedBy: 'TICKET_CODE'` on 017's path (T015), and no
+response but the key operation's (T019) carries the secret (T032). Those four keep their story's
+label.
 
 - [ ] T010 [P] [US1] Write `backend/test/integration/entry-key.e2e-spec.ts` (contract-checked
   `getTicketEntryKey`, research R5): the buyer gets `200` with `ticketId`, a `key` of 43 base64url
@@ -251,6 +252,14 @@ three keep their story's label.
 - [ ] T015 [P] [US3] Add to `backend/test/integration/entry.lookup.e2e-spec.ts`: a typed code
   (any case, spaces, dashes) answers `verifiedBy: 'TICKET_CODE'`; a ticket admitted through its
   live code is `USED` when looked up by its typed code, and the other way around (FR-014).
+- [ ] T032 [P] [US3] Write `backend/test/integration/entry-secret.no-leak.e2e-spec.ts` (FR-006),
+  here, out of number order, because T019 and T021 build what it tests. For one order of 2
+  tickets, read each ticket's secret (`select`) and form its base64url and hex; call
+  `createOrder` (for a new order), `listMyOrders`, `listAttendees`, `getSalesReport`,
+  `lookupEntryTicket` by typed code and by live code, `admitTicket`, and the `409` of a second
+  admit; the raw text of no response contains either secret's base64url or hex, or the word
+  `entrySecret`. Only `getTicketEntryKey` for its own ticket contains that ticket's base64url, and
+  never the other ticket's.
 - [ ] T016 [P] [US1] Add to `packages/shared/test/web/fake-user-manager.ts` a `signinSilent`
   `vi.fn` that records `'signinSilent'` in `calls` and by default resolves to the current user
   without emitting anything (each test sets its outcome). Then add to
@@ -355,8 +364,8 @@ three keep their story's label.
   'LIVE_CODE'`; otherwise keep 017's path unchanged and return `verifiedBy: 'TICKET_CODE'`. In
   `backend/src/entry/dto/entry-lookup.dto.ts`, change `@Length(1, 64, …)` to `@Length(1, 80, {
   message: 'code must be between 1 and 80 characters' })` (research R4).
-- [ ] T022 [US1] Build `packages/shared`; run T010–T015 until they pass. A fix any of them needs
-  goes in `backend/src/entry/` or `packages/shared/src/live-code.ts`.
+- [ ] T022 [US1] Build `packages/shared`; run T010–T015 and T032 until they pass. A fix any of
+  them needs goes in `backend/src/entry/` or `packages/shared/src/live-code.ts`.
 - [ ] T023 [US1] In `contracts/openapi.yaml`, remove `x-planned: '018'` from `getTicketEntryKey`;
   run `npm run generate:api`. Run `backend/test/contract/route-coverage.e2e-spec.ts` and
   `node scripts/check-contract-drift.mjs`; both pass.
@@ -458,19 +467,13 @@ written and passing in Phase 3); the Ticket Booth shows each refusal with its re
 **Goal**: 017's ID-checked path is untouched, and nothing printed can make a live code.
 
 **Independent Test**: 017's printed-QR and typed-code tests still pass, now with
-`verifiedBy: 'TICKET_CODE'` (T015, written and passing in Phase 3).
+`verifiedBy: 'TICKET_CODE'` (T015), and no response leaks the secret (T032), both written and
+passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
 
-- [ ] T032 [P] [US3] Write `backend/test/integration/entry-secret.no-leak.e2e-spec.ts` (FR-006): for
-  one order of 2 tickets, read each ticket's secret (`select`) and form its base64url and hex; call
-  `createOrder` (for a new order), `listMyOrders`, `listAttendees`, `getSalesReport`,
-  `lookupEntryTicket` by typed code and by live code, `admitTicket`, and the `409` of a second
-  admit; the raw text of no response contains either secret's base64url or hex, or the word
-  `entrySecret`. Only `getTicketEntryKey` for its own ticket contains that ticket's base64url, and
-  never the other ticket's.
 - [ ] T033 [P] [US3] Add to `booth-app/test/check-in.test.tsx`: a lookup answering `verifiedBy:
   'TICKET_CODE'` shows 017's "Check a government-issued photo ID that shows: Jordan Lee" and no
   "Live code verified" (FR-014, SC-005).
-- [ ] T034 [US3] Run T032, T033, T015, and every 017 test until they pass; fix only 018 code (017's
+- [ ] T034 [US3] Run T033, T015, and every 017 test until they pass; fix only 018 code (017's
   tests are the specification of SC-005).
 
 **Checkpoint**: three ways in, one rule for each.
@@ -527,10 +530,10 @@ written and passing in Phase 3); the Ticket Booth shows each refusal with its re
 - **Phase 1 → Phase 2** → every story.
 - **US1 (Phase 3)** needs Phase 2. It is the MVP: secret, key operation, live lookup with its
   refusals, sign-in that survives no signal, Customer screen, Ticket Booth result. Its tests
-  include the Backend tests of US2 (T013, T014) and US3 (T015), since T020 and T021 build what
-  they test.
+  include the Backend tests of US2 (T013, T014) and US3 (T015, T032), since T019, T020, and T021
+  build what they test.
 - **US2 (Phase 4)** needs US1's live-code check (T020–T022) and Booth wiring (T028).
-- **US3 (Phase 5)** needs T021 (`verifiedBy` on both paths) and T019 (the key, for T032).
+- **US3 (Phase 5)** needs T021 (`verifiedBy` on both paths).
 - **US4 (Phase 6)** needs T021 and `liveCodeFor` (T009).
 - **Polish** last; T041 waits for the spec and plan PR to merge.
 
@@ -542,12 +545,12 @@ T031, T034).
 
 - Phase 2: T002, T004, T005 touch different files. T008 then T009, in that order (T009
   imports T008's `clock.ts`).
-- US1 tests: T010 to T018 in parallel, each in its own files. Then the Backend (T019–T023, T027),
-  Customer (T024–T026), and Ticket Booth (T028) tracks are independent of each other; T024 and
+- US1 tests: T010 to T018 and T032 in parallel, each in its own files. Then the Backend (T019–T023,
+  T027), Customer (T024–T026), and Ticket Booth (T028) tracks are independent of each other; T024 and
   T027 each change one file of `packages/shared` and rebuild it, so run those two one after the
   other.
 - US2: T030, then T031.
-- US3: T032 and T033 in parallel.
+- US3: T033 only.
 - T018, T030, and T033 all edit `booth-app/test/check-in.test.tsx`; they sit in different phases,
   so never run them at the same time.
 
@@ -559,6 +562,7 @@ T012 backend/test/integration/entry.live-code.e2e-spec.ts
 T013 backend/test/integration/entry.live-boundaries.e2e-spec.ts
 T014 backend/test/integration/entry.live-refusals.e2e-spec.ts
 T015 backend/test/integration/entry.lookup.e2e-spec.ts
+T032 backend/test/integration/entry-secret.no-leak.e2e-spec.ts
 T016 packages/shared/test/web/auth-provider.test.tsx
 T017 customer-app/test/entry-code.test.tsx
 T018 booth-app/test/scanner.test.tsx, booth-app/test/check-in.test.tsx
@@ -568,7 +572,7 @@ T018 booth-app/test/scanner.test.tsx, booth-app/test/check-in.test.tsx
 
 1. **MVP**: Phases 1–3. A live code works end to end, keeps changing with no signal, admits once
    (017's guarantee carries it), and the Backend refuses copies and forgeries.
-2. **Safety**: Phase 4 shows copies and forgeries refused at the gate; Phase 5 proves nothing of
-   017 changed and the secret never leaks.
+2. **Safety**: Phase 3 already proves the secret never leaks (T032); Phase 4 shows copies and
+   forgeries refused at the gate; Phase 5 proves nothing of 017 changed.
 3. **Proof under load**: Phase 6.
 4. **Ship**: Phase 7, after the spec and plan PR merges.
