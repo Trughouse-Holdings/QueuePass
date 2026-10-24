@@ -227,6 +227,13 @@ export interface paths {
          *     When the service cannot be reached, does not answer within 5 seconds, or answers with an
          *     error, the save is refused with `503 ADDRESS_SERVICE_UNAVAILABLE` and nothing is saved,
          *     with or without `acceptUnverifiedAddress`.
+         *
+         *     Feature 020: the venue's `timeZone` is decided after the address, in this order: the
+         *     `timeZone` sent (`timeZoneSource: ADMIN`); else, for a verified address, the zone at the
+         *     place the address service matched (`ADDRESS`); else the zone of `state` when the state has
+         *     one (`STATE`). In a state with more than one zone (AK, AZ, FL, ID, IN, KS, KY, MI, NE, NV,
+         *     ND, OR, SD, TN, TX) the create is refused with `400 TIME_ZONE_REQUIRED`, listing the
+         *     state's zones in `details.timeZones`, and nothing is saved; resend with `timeZone`.
          */
         post: operations["createLocation"];
         delete?: never;
@@ -275,6 +282,20 @@ export interface paths {
          *     and keeps `addressVerified` as it is. `acceptUnverifiedAddress` without the four address
          *     fields is `400`. A venue saved before feature 013 keeps its `address`, has `null` parts,
          *     and has `addressVerified: false` until its address is changed.
+         *
+         *     Feature 020: `timeZone`, when sent, becomes the venue's zone (`timeZoneSource: ADMIN`),
+         *     also together with an address change. Otherwise, when the address is checked (it was sent
+         *     and differs), the zone is decided again exactly as in `createLocation`, including
+         *     `400 TIME_ZONE_REQUIRED`. An edit that sends neither never changes the zone.
+         *
+         *     When the zone changes, every event at the venue (scheduled or cancelled) keeps its local
+         *     start and end date and time, so its `startsAt` and `endsAt` move. The change is refused,
+         *     and nothing is saved, with `409 TIME_ZONE_HAS_ORDERS` when any event at the venue has any
+         *     order (`details.events`); with `409 EVENT_TIME_NOT_IN_ZONE` when an event's local start or
+         *     end does not exist, or happens twice, in the new zone (`details.event`, `details.reason`
+         *     `SKIPPED` or `REPEATED`); and with `409 SCHEDULING_CONFLICT` when the moved scheduled
+         *     events would be closer than 60 minutes (`details.conflictingEvent` and `details.event`).
+         *     All or nothing: the events and the venue change together.
          */
         patch: operations["updateLocation"];
         trace?: never;
@@ -339,6 +360,10 @@ export interface paths {
          * @description Each event embeds its venue. Ordered by `startsAt`, soonest first; the Customer app
          *     (feature 003) relies on this order. Optional filters, combinable: `locationId` (used by the
          *     Admin app's venue page), and `q`, `from`, `to` (feature 004, the Admin app's event search).
+         *
+         *     Feature 020: `fromDate` and `toDate` filter by the day an event starts **in its venue's
+         *     time zone**, both inclusive; the Admin and Customer apps' date filters use them. They
+         *     cannot be combined with `from` or `to` (`400`), and `fromDate` after `toDate` is `400`.
          */
         get: operations["listEvents"];
         put?: never;
@@ -350,6 +375,14 @@ export interface paths {
          *     Feature 016: `maxTicketsPerCustomer`, when given, must be from 1 to the event's
          *     `totalTicketCapacity`, where an omitted capacity is the venue's `seatingCapacity` (`400`
          *     otherwise). It is checked after the venue's seating capacity.
+         *
+         *     Feature 020: a `startsAt` or `endsAt` without a UTC offset, or a date only, is
+         *     `400 VALIDATION_FAILED` with the field validation. Right after the venue is found,
+         *     `startsAt` and then `endsAt` are checked against the venue's `timeZone`: a local time the zone skips is `400 LOCAL_TIME_SKIPPED`,
+         *     and a time stated with an offset other than the venue's at that local time (including `Z`)
+         *     is `400 UTC_OFFSET_MISMATCH`. A local time the zone repeats is accepted with either of its
+         *     two offsets. The scheduling conflict message names the conflicting event's times in the
+         *     venue's local time.
          */
         post: operations["createEvent"];
         delete?: never;
@@ -401,6 +434,11 @@ export interface paths {
          *     `totalTicketCapacity` below the stored limit, without sending a new one, is `409
          *     CAPACITY_EXCEEDED` (`details.proposedTicketCapacity`, `details.maxTicketsPerCustomer`).
          *     Lowering or clearing the limit never changes an existing order or ticket.
+         *
+         *     Feature 020: each of `startsAt` and `endsAt` sent is checked against the destination
+         *     venue's `timeZone` as in `createEvent`. Moving the event to a venue in a different time
+         *     zone must send both `startsAt` and `endsAt` (`400 VALIDATION_FAILED` otherwise), so its
+         *     local times are explicit; a move within the same zone without times keeps the instants.
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -865,6 +903,8 @@ export interface paths {
          *     Refused with `409 ENTRY_REFUSED` when nothing could be admitted. `details.reason` is
          *     `USED` (with `details.usedAt`), `VOID`, `OTHER_EVENT` (with `details.event`), `NOT_OPEN`
          *     (with `details.entryOpensAt`), or `ENDED`, the same states `lookupEntryTicket` reports.
+         *     Feature 020: `details.event` also carries the event's venue `timeZone`, as
+         *     `EntryTicket.event` does.
          *     A refused ID check is not sent to the Backend: the client simply does not call this.
          */
         post: operations["admitTicket"];
@@ -1068,6 +1108,10 @@ export interface components {
          *
          *     The five fields are always sent from feature 013 on, but are not in `required`, so this
          *     contract can merge before the Backend sends them (feature 013 research R11).
+         *
+         *     Feature 020: `timeZone` and `timeZoneSource` are always sent once feature 020 is
+         *     implemented; they are not in `required` so this contract can merge first (feature 020
+         *     research R18). Clients treat a missing `timeZone` as `America/New_York`.
          */
         Location: {
             /** Format: uuid */
@@ -1088,6 +1132,8 @@ export interface components {
             zip?: string | null;
             /** @description Whether the address service matched this address. Clients mark `false` as "Address not verified". */
             addressVerified?: boolean;
+            timeZone?: components["schemas"]["UsTimeZone"];
+            timeZoneSource?: components["schemas"]["TimeZoneSource"];
             /** @example 22090 */
             seatingCapacity: number;
             /** Format: date-time */
@@ -1124,6 +1170,13 @@ export interface components {
              */
             zip?: string;
             acceptUnverifiedAddress?: components["schemas"]["AcceptUnverifiedAddress"];
+            /**
+             * @description Feature 020. Optional: the admin's explicit choice of the venue's time zone, used
+             *     instead of the zone worked out from the address or state (`timeZoneSource: ADMIN`).
+             *     Needed for an address saved anyway in a state with more than one zone
+             *     (`400 TIME_ZONE_REQUIRED` otherwise).
+             */
+            timeZone?: components["schemas"]["UsTimeZone"];
             /** @description Must be a positive whole number. */
             seatingCapacity: number;
         };
@@ -1139,6 +1192,12 @@ export interface components {
             state?: components["schemas"]["UsState"];
             zip?: string;
             acceptUnverifiedAddress?: components["schemas"]["AcceptUnverifiedAddress"];
+            /**
+             * @description Feature 020. The admin's explicit choice of the venue's time zone (`timeZoneSource:
+             *     ADMIN`). A change of zone moves the venue's events to keep their local times, and is
+             *     refused as described in `updateLocation`.
+             */
+            timeZone?: components["schemas"]["UsTimeZone"];
             seatingCapacity?: number;
         };
         /**
@@ -1157,6 +1216,23 @@ export interface components {
          * @enum {string}
          */
         UsState: "AL" | "AK" | "AZ" | "AR" | "CA" | "CO" | "CT" | "DE" | "DC" | "FL" | "GA" | "HI" | "ID" | "IL" | "IN" | "IA" | "KS" | "KY" | "LA" | "ME" | "MD" | "MA" | "MI" | "MN" | "MS" | "MO" | "MT" | "NE" | "NV" | "NH" | "NJ" | "NM" | "NY" | "NC" | "ND" | "OH" | "OK" | "OR" | "PA" | "RI" | "SC" | "SD" | "TN" | "TX" | "UT" | "VT" | "VA" | "WA" | "WV" | "WI" | "WY";
+        /**
+         * @description Feature 020. A venue's time zone, by its IANA name: Eastern (`America/New_York`), Central
+         *     (`America/Chicago`), Mountain (`America/Denver`), Arizona, Mountain without daylight saving
+         *     (`America/Phoenix`), Pacific (`America/Los_Angeles`), Alaska (`America/Anchorage`),
+         *     Hawaii-Aleutian (`America/Adak`), and Hawaii (`Pacific/Honolulu`).
+         * @example America/New_York
+         * @enum {string}
+         */
+        UsTimeZone: "America/New_York" | "America/Chicago" | "America/Denver" | "America/Phoenix" | "America/Los_Angeles" | "America/Anchorage" | "America/Adak" | "Pacific/Honolulu";
+        /**
+         * @description Feature 020. How a venue's `timeZone` was set: `ADDRESS`, worked out from the place the
+         *     address service matched; `STATE`, from the venue's state, which has one zone; `ADMIN`,
+         *     chosen by an admin; `DEFAULT`, `America/New_York` by default: a venue that existed before
+         *     feature 020, or a demo-data venue saved while the address service was unavailable.
+         * @enum {string}
+         */
+        TimeZoneSource: "ADDRESS" | "STATE" | "ADMIN" | "DEFAULT";
         Event: {
             /** Format: uuid */
             id: string;
@@ -1222,11 +1298,18 @@ export interface components {
              * @description Must reference an existing venue; otherwise 404.
              */
             locationId: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description Feature 020: the venue's local date and time with the venue's UTC offset at that time
+             *     (`400 LOCAL_TIME_SKIPPED` or `400 UTC_OFFSET_MISMATCH` otherwise).
+             * @example 2026-10-01T19:00:00-04:00
+             */
             startsAt: string;
             /**
              * Format: date-time
-             * @description Must be strictly after `startsAt`.
+             * @description Must be strictly after `startsAt`. Feature 020: stated like `startsAt`, in the venue's
+             *     local time and offset.
+             * @example 2026-10-01T22:00:00-04:00
              */
             endsAt: string;
             /**
@@ -1245,11 +1328,21 @@ export interface components {
         /** @description Partial update; supply only the fields being changed. */
         EventUpdate: {
             name?: string;
-            /** Format: uuid */
+            /**
+             * Format: uuid
+             * @description Feature 020: moving to a venue in a different time zone must also send `startsAt` and
+             *     `endsAt`.
+             */
             locationId?: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description Feature 020. In the destination venue's local time and offset.
+             */
             startsAt?: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description Feature 020. In the destination venue's local time and offset.
+             */
             endsAt?: string;
             totalTicketCapacity?: number;
             /** @description Feature 016. `null` clears the limit. */
@@ -1424,6 +1517,11 @@ export interface components {
                  * @example 1 ARENA PLAZA, LOUISVILLE, KY 40202
                  */
                 address: string;
+                /**
+                 * @description Feature 020. The venue's time zone, for showing the event's times. Always sent once
+                 *     020 is implemented; clients treat a missing value as `America/New_York`.
+                 */
+                timeZone?: components["schemas"]["UsTimeZone"];
             };
         };
         /**
@@ -1640,6 +1738,11 @@ export interface components {
             venueName: string;
             /** Format: date-time */
             startsAt: string;
+            /**
+             * @description Feature 020. The venue's time zone, for showing `startsAt`. Always sent once 020 is
+             *     implemented; clients treat a missing value as `America/New_York`.
+             */
+            timeZone?: components["schemas"]["UsTimeZone"];
             /** @enum {string} */
             status: "SCHEDULED" | "CANCELLED";
             ticketCapacity: number;
@@ -1692,6 +1795,12 @@ export interface components {
                 startsAt: string;
                 /** Format: date-time */
                 endsAt: string;
+                /**
+                 * @description Feature 020. The event's venue's time zone, for showing its times, `usedAt`, and
+                 *     `entryOpensAt`. Always sent once 020 is implemented; clients treat a missing value
+                 *     as `America/New_York`.
+                 */
+                timeZone?: components["schemas"]["UsTimeZone"];
             };
             /** @description `null` for an event sold at its base price. */
             tierName: string | null;
@@ -1758,7 +1867,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -1834,6 +1943,21 @@ export interface components {
             };
         };
         /**
+         * @description Request shape or field validation failed (`VALIDATION_FAILED`, including, feature 020, an
+         *     event time without a UTC offset or a date only), or, feature 020, an event time does not
+         *     fit the venue's time zone: the local time is skipped by a daylight-saving
+         *     change (`LOCAL_TIME_SKIPPED`), or it is stated with an offset other than the venue's at
+         *     that local time (`UTC_OFFSET_MISMATCH`). Nothing was saved.
+         */
+        EventTimeRejected: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /**
          * @description Request shape or field validation failed (`VALIDATION_FAILED`), or, feature 017, the
          *     holder's name is missing or invalid (`HOLDER_NAME_INVALID`, with `details.reason`:
          *     `MISSING`, `TOO_LONG`, `NO_LETTER`, or `CONTROL_CHARACTER`; a name that is empty after
@@ -1856,6 +1980,9 @@ export interface components {
          *     is reported as `ADDRESS_NOT_FOUND`. Nothing was saved.
          *     After either address refusal, the client may resend the same request with
          *     `acceptUnverifiedAddress: true` to save the venue as not verified.
+         *
+         *     Feature 020: `TIME_ZONE_REQUIRED` when the zone cannot be worked out from the address and
+         *     the state has more than one (`details.state`, `details.timeZones`); resend with `timeZone`.
          */
         AddressRejected: {
             headers: {
@@ -1980,7 +2107,10 @@ export interface components {
         /**
          * @description The request violates a business rule; `code` says which. For `SCHEDULING_CONFLICT`,
          *     `details.conflictingEvent` names the event responsible. It is `null` only when a
-         *     concurrent request won the race and the database constraint refused this write.
+         *     concurrent request won the race and the database constraint refused this write. Feature
+         *     020: the message gives times in the venue's local time with the zone's abbreviation, the
+         *     start with its date and the end with its date when it differs; for
+         *     a venue's time-zone change, `details.event` names the second event of the pair.
          */
         Conflict: {
             headers: {
@@ -2381,28 +2511,16 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description An existing event's ticket capacity exceeds the proposed seating capacity. */
+            /**
+             * @description An existing event's ticket capacity exceeds the proposed seating capacity
+             *     (`CAPACITY_EXCEEDED`); or, feature 020, the time zone cannot change
+             *     (`TIME_ZONE_HAS_ORDERS`, `EVENT_TIME_NOT_IN_ZONE`, `SCHEDULING_CONFLICT`).
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    /**
-                     * @example {
-                     *       "error": {
-                     *         "code": "CAPACITY_EXCEEDED",
-                     *         "message": "Cannot reduce seating capacity to 500; event 'Season Opener' has a ticket capacity of 900.",
-                     *         "details": {
-                     *           "proposedSeatingCapacity": 500,
-                     *           "conflictingEvent": {
-                     *             "id": "7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40",
-                     *             "name": "Season Opener",
-                     *             "totalTicketCapacity": 900
-                     *           }
-                     *         }
-                     *       }
-                     *     }
-                     */
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
@@ -2510,6 +2628,16 @@ export interface operations {
                  *     `from` must be earlier than `to`, otherwise `400`.
                  */
                 to?: string;
+                /**
+                 * @description Feature 020. Keep only events that start on or after this day, in their venue's
+                 *     `timeZone`.
+                 */
+                fromDate?: string;
+                /**
+                 * @description Feature 020. Keep only events that start on or before this day, in their venue's
+                 *     `timeZone`.
+                 */
+                toDate?: string;
             };
             header?: never;
             path?: never;
@@ -2552,7 +2680,7 @@ export interface operations {
                     "application/json": components["schemas"]["Event"];
                 };
             };
-            400: components["responses"]["ValidationFailed"];
+            400: components["responses"]["EventTimeRejected"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
@@ -2633,7 +2761,7 @@ export interface operations {
                     "application/json": components["schemas"]["Event"];
                 };
             };
-            400: components["responses"]["ValidationFailed"];
+            400: components["responses"]["EventTimeRejected"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
