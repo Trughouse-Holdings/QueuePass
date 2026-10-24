@@ -86,8 +86,12 @@ before any story uses them.
     `ast-v8-to-istanbul`, `magicast`, and copies nested under the provider). npm 10.9.3 also
     added `"peer": true` to 78 existing entries (the optional `@esbuild/*`, `@rollup/rollup-*`,
     and `@napi-rs/lzma-linux-x64-gnu` platform packages), a metadata-only rewrite with no package
-    or version change; those flags were removed so the diff is additions only (`npm ci` on the
-    result: T011). `npm test` passed (the laptop's Prisma client was stale from 2026-10-17 and
+    or version change. They were first removed by hand so the diff was additions only (`npm ci`
+    on that result: T011, T022). After review round 1 (M1) npm's own output is kept instead:
+    `npm install --package-lock-only` in a throwaway worktree re-added exactly those 78 flags,
+    and a second run changed nothing, so the lock file is a fixed point of `npm install` and the
+    next dependency change carries no unexplained lines. npm marks the platform packages
+    peer-reachable once the provider's exact `vitest` peer dependency is in the tree. `npm test` passed (the laptop's Prisma client was stale from 2026-10-17 and
     had to be regenerated first: the R5 problem on a laptop, which T011's `pretest` now fixes).
 - [x] T004 In `eslint.config.mjs`, add `'**/coverage/'` to the ignores, next to `'coverage/'`, as
   `'**/dist/'` sits next to `'dist/'` (R10). Check: create `backend/coverage/lcov-report/x.js`
