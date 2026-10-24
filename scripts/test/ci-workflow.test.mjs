@@ -84,6 +84,24 @@ test('every run step is named, and the first one is npm ci (R3, R4)', () => {
   assert.equal(runSteps[0]?.run, 'npm ci');
 });
 
+test('the job is exactly checkout, setup-node, then named run steps, none skippable or allowed to fail (FR-004, R3, R4)', () => {
+  const job = readWorkflow().jobs.test;
+  assert.deepEqual(Object.keys(job).sort(), ['runs-on', 'steps', 'timeout-minutes']);
+  const all = job.steps;
+  assert.match(all[0]?.uses ?? '', /^actions\/checkout@/);
+  assert.match(all[1]?.uses ?? '', /^actions\/setup-node@/);
+  for (const [index, step] of all.entries()) {
+    const label = step.name ?? step.uses ?? step.run;
+    const allowed = index < 2 ? ['name', 'uses', 'with'] : ['name', 'run'];
+    for (const key of Object.keys(step)) {
+      assert.ok(allowed.includes(key), `step ${index} (${label}) has key ${key}`);
+    }
+    if (index >= 2) assert.equal(typeof step.run, 'string', `step ${index} (${label}) has no run`);
+  }
+  const runSteps = all.filter((step) => step.run !== undefined);
+  assert.equal(all.length, 2 + runSteps.length);
+});
+
 test('the workflow uses no secret and no token (R15)', () => {
   const text = readWorkflowText();
   assert.ok(!text.includes('secrets.'), 'the workflow references secrets.');
