@@ -170,9 +170,11 @@ export function ImageGallery({
   const root = useRef<HTMLDivElement>(null);
   const onScreen = useOnScreen(root, card && count > 0);
   // FR-042 (research R18): the box takes the shown picture's shape, read when it loads, and kept
-  // per image so a picture shown again has its shape at once.
+  // per image so a picture shown again has its shape at once. Until a newly shown picture's shape
+  // is known, the box keeps the last shape it showed; `null` only before any picture has loaded.
   const { width, viewportHeight } = useBoxSize(root, count > 0, !card);
   const [shapes, setShapes] = useState<ReadonlyMap<string, number>>(() => new Map());
+  const [lastShape, setLastShape] = useState<number | null>(null);
   const [stopped, setStopped] = useState(false);
   const [overArrow, setOverArrow] = useState(false);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
@@ -226,12 +228,14 @@ export function ImageGallery({
       : new Set();
   const position = `image ${index + 1} of ${count}`;
   const several = count >= 2;
-  // FR-042: during a slide the box already has the incoming picture's shape; the outgoing one
-  // stays whole inside it (object-fit: contain).
+  // FR-042: during a slide the box already has the incoming picture's shape once known; the
+  // outgoing one stays whole inside it (object-fit: contain).
+  const shownShape = shapes.get(shown.id);
+  // React's derived-state pattern: remember the shape shown, for the next picture not yet loaded.
+  if (shownShape !== undefined && shownShape !== lastShape) setLastShape(shownShape);
+  const ratio = shownShape ?? lastShape;
   const height =
-    width === null
-      ? undefined
-      : galleryBoxHeight({ variant, width, ratio: shapes.get(shown.id) ?? null, viewportHeight });
+    width === null ? undefined : galleryBoxHeight({ variant, width, ratio, viewportHeight });
   const onShape = (ratio: number) =>
     setShapes((now) => (now.get(shown.id) === ratio ? now : new Map(now).set(shown.id, ratio)));
 
