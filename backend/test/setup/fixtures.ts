@@ -1,5 +1,6 @@
-import type { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
+import { liveCode } from '@queuepass/shared';
+import type { PrismaService } from '../../src/prisma/prisma.service';
 import { as, asAdmin } from './authed-request';
 import type { TestContext } from './test-app';
 import { subFor, tokenFor } from './tokens';
@@ -181,7 +182,7 @@ export interface HeldSeat {
  * `expiresAt` is always 5 minutes after it (CHECK seat_reservation_five_minutes).
  */
 export async function holdSeats(
-  prisma: PrismaClient,
+  prisma: PrismaService,
   opts: {
     eventId: string;
     customerSub: string;
@@ -212,7 +213,7 @@ export async function holdSeats(
 
 /** Spec 015: ends one hold with a reason, `secondsAgo` before the database's now. */
 export async function endHold(
-  prisma: PrismaClient,
+  prisma: PrismaService,
   holdId: string,
   reason: 'EXPIRED' | 'RELEASED' | 'LOGOUT' | 'BOUGHT' | 'CLOSED',
   secondsAgo = 0,
@@ -254,4 +255,20 @@ export async function reserveThenOrder(
     seats: body.seats,
     ...(body.requestId ? { requestId: body.requestId } : {}),
   });
+}
+
+/**
+ * Spec 018: the live code of a ticket for a window, made from its secret (read with the one
+ * `select` that names it) by the shared module, exactly as the Customer app makes it.
+ */
+export async function liveCodeFor(
+  ctx: TestContext,
+  ticketId: string,
+  window: number,
+): Promise<string> {
+  const { entrySecret } = await ctx.prisma.ticket.findUniqueOrThrow({
+    where: { id: ticketId },
+    select: { entrySecret: true },
+  });
+  return liveCode(entrySecret, ticketId, window);
 }

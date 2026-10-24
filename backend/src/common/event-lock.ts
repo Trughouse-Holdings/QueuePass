@@ -1,5 +1,6 @@
 import { NotFoundException } from '@nestjs/common';
 import type { EventStatus, Prisma } from '@prisma/client';
+import type { PrismaService } from '../prisma/prisma.service';
 
 export interface LockedEvent {
   id: string;
@@ -54,7 +55,9 @@ export function ticketsSold(
  * Customer app's count and the rule cannot disagree (research R5).
  */
 export function customerHeld(
-  db: Pick<Prisma.TransactionClient, 'ticket'>,
+  // Spec 018: a PrismaService (availability) or a transaction (orders); the global omit of
+  // entrySecret makes the two differ in type.
+  db: Pick<PrismaService | Prisma.TransactionClient, 'ticket'>,
   eventId: string,
   customerSub: string,
 ): Promise<number> {

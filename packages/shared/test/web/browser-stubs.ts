@@ -142,6 +142,7 @@ beforeEach(() => {
   });
   mediaMatches.clear();
   mediaListeners.clear();
-  window.matchMedia = matchMedia;
+  // Spec 018: a test file under `@vitest-environment node` (live-code.test.ts) has no window.
+  if (typeof window !== 'undefined') window.matchMedia = matchMedia;
   delete (globalThis as { IntersectionObserver?: unknown }).IntersectionObserver;
 });

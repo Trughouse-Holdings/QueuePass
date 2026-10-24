@@ -54,7 +54,7 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `018-rotating-qr-codes-impl` from `018-rotating-qr-codes-spec` while the spec and
+- [X] T001 Cut `018-rotating-qr-codes-impl` from `018-rotating-qr-codes-spec` while the spec and
   plan PR is open, or from an up-to-date `main` once it has merged (ground rules); run
   `npm install`, run `npx prisma generate` in `backend/`, and run `npm test` from the repository
   root. Confirm the suite is green before any change (baseline). No new npm package is needed
@@ -66,7 +66,7 @@ and confirm they **fail** before the implementation tasks below them.
 
 **Purpose**: the shared live-code module, the secret column, and the Backend's clock.
 
-- [ ] T002 [P] Write `packages/shared/test/live-code.test.ts` (first line
+- [X] T002 [P] Write `packages/shared/test/live-code.test.ts` (first line
   `// @vitest-environment node`), for research R2 and R3:
   - `windowAt(ms)` is `Math.floor(ms / 30000)`: `windowAt(0) = 0`, `windowAt(29_999) = 0`,
     `windowAt(30_000) = 1`.
@@ -89,7 +89,7 @@ and confirm they **fail** before the implementation tasks below them.
   - `keyToBase64url` / `keyFromBase64url` round-trip 32 bytes as 43 characters of `[A-Za-z0-9_-]`
     with no padding; `keyFromBase64url` returns `null` for 42 or 44 characters, `+`, `/`, or `=`.
   Confirm it fails (the module doesn't exist).
-- [ ] T003 Create `packages/shared/src/live-code.ts` and export it from
+- [X] T003 Create `packages/shared/src/live-code.ts` and export it from
   `packages/shared/src/index.ts`: `LIVE_CODE_PREFIX = 'QP1:'`, `WINDOW_MS = 30_000`,
   `GRACE_MS = 5_000`; `windowAt(ms: number): number`; `windowStartMs(w: number): number`;
   `async liveCode(secret: Uint8Array, ticketId: string, window: number): Promise<string>` using
@@ -107,7 +107,7 @@ and confirm they **fail** before the implementation tasks below them.
   `QP1:` after trim and upper-case); `keyToBase64url(bytes)` and `keyFromBase64url(text):
   Uint8Array | null` (exactly 32 bytes). No Node-only import: the module runs in browsers too.
   Run T002 until it passes; build `packages/shared`.
-- [ ] T004 Mirror the contract in `packages/shared/src/entry.ts`: add
+- [X] T004 Mirror the contract in `packages/shared/src/entry.ts`: add
   `verifiedBy?: 'LIVE_CODE' | 'TICKET_CODE'` to `EntryTicket`, **optional** as in contract 1.11.0
   (comment citing spec 018 FR-011 and "required from T027"). Not required yet: the Backend's
   `toEntryTicket` returns this type and sends no `verifiedBy` until T021, so a required field
@@ -115,7 +115,7 @@ and confirm they **fail** before the implementation tasks below them.
   new `TicketEntryKey { ticketId: string; key: string; serverTime: string }` (comment: base64url of
   32 bytes; the Backend's clock with milliseconds); update `EntryLookupInput.code`'s comment to
   "1–80 characters: a ticket code or a live code"; export from `packages/shared/src/index.ts`.
-- [ ] T005 [P] Write `backend/test/integration/live-codes.constraints.e2e-spec.ts`, using
+- [X] T005 [P] Write `backend/test/integration/live-codes.constraints.e2e-spec.ts`, using
   `ctx.prisma` and raw SQL:
   - a ticket inserted with no `entrySecret` gets one of exactly 32 bytes, and two tickets get
     different secrets;
@@ -132,7 +132,7 @@ and confirm they **fail** before the implementation tasks below them.
     the "possibly null" error alone satisfies the `@ts-expect-error`, and a lost omit goes
     unnoticed.
   Confirm it fails.
-- [ ] T006 Add to `model Ticket` in `backend/prisma/schema.prisma`, after `checkedInByUsername`:
+- [X] T006 Add to `model Ticket` in `backend/prisma/schema.prisma`, after `checkedInByUsername`:
   `entrySecret Bytes @default(dbgenerated("gen_random_bytes(32)")) @db.ByteA`, with the comment from
   data-model.md. Create `backend/prisma/migrations/<timestamp>_live_codes/migration.sql` with
   exactly data-model.md's three statements, in order: `CREATE EXTENSION IF NOT EXISTS pgcrypto;`,
@@ -140,7 +140,7 @@ and confirm they **fail** before the implementation tasks below them.
   `ALTER TABLE "Ticket" ADD CONSTRAINT ticket_entry_secret_32_bytes CHECK
   (octet_length("entrySecret") = 32);`. No index. Apply with `prisma migrate deploy` (never
   `db push`).
-- [ ] T007 In `backend/src/prisma/prisma.service.ts`, leave `entrySecret` out of every query by
+- [X] T007 In `backend/src/prisma/prisma.service.ts`, leave `entrySecret` out of every query by
   default, in the types as well as at runtime (research R1):
   ```ts
   const OMIT = { ticket: { entrySecret: true } } as const;
@@ -169,13 +169,13 @@ and confirm they **fail** before the implementation tasks below them.
   `npx tsc --noEmit -p tsconfig.json` in `backend/`; fix any other compile error the omit causes
   by naming the field in a `select` or retyping a parameter, never by removing the omit. Run T005
   until it passes, then the full Backend suite: every existing test still passes.
-- [ ] T008 Create `backend/src/common/clock.ts`: `export interface Clock { now(): number }`,
+- [X] T008 Create `backend/src/common/clock.ts`: `export interface Clock { now(): number }`,
   `export const CLOCK = Symbol('CLOCK')`, and `export const systemClock: Clock = { now: () =>
   Date.now() }`, with a comment citing spec 018 research R3. Provide `{ provide: CLOCK, useValue:
   systemClock }` in `backend/src/entry/entry.module.ts` (the only module that reads it). It comes
   before T009 because T009's `FakeClock` and the `CLOCK` override in `test-app.ts` import it:
   without it, `test-app.ts` doesn't compile and every Backend suite fails.
-- [ ] T009 Create `backend/test/setup/fake-clock.ts` (after T008): `class FakeClock implements
+- [X] T009 Create `backend/test/setup/fake-clock.ts` (after T008): `class FakeClock implements
   Clock` with `now()` returning `Date.now()` until `set(ms: number)` fixes it, and
   `useRealTime()` to undo; add `clock: FakeClock` to `TestContext` in
   `backend/test/setup/test-app.ts`, override the `CLOCK` provider with it (next to
