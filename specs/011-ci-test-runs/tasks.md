@@ -371,8 +371,11 @@ turned on right after merge (T033).
   against spec.md, plan.md, and research.md. Fix the findings. One review is required; another
   round is optional. Record the review and any finding left open, with the reason, here and in the
   PR description.
-- [ ] T027 Commit with citations (`Impl 011: … (T0NN, #23)`), each body naming the FRs and R
+- [x] T027 Commit with citations (`Impl 011: … (T0NN, #23)`), each body naming the FRs and R
   decisions it rests on.
+  - **Result**: committed task by task, failing tests before their implementation (T005/T006
+    before T007, T010 before T011, T012 before T013, T014 before T015), each body naming its FRs
+    and R items; one `Clarify 011:` commit fixed the count of the seed's Keycloak tests.
 
 ## Phase 8: Running-System Gate
 
