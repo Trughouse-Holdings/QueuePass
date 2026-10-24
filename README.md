@@ -23,7 +23,7 @@ walk are pending.
 | [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                                                                                    | Draft            | Done (29/29 tasks) | **Built and verified**   |
 | [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice                                                           | Draft            | Done (30/30 tasks) | **Built and verified**   |
 | [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look                                                             | Draft            | Done (19/19 tasks) | **Built and verified**   |
-| [`011-ci-test-runs`](specs/011-ci-test-runs/spec.md)                         | Every pull request and push to `main` runs formatting, lint, build, and all tests in GitHub Actions, showing each workspace's coverage; `npm run ci` runs the same steps locally      | Draft            | Done (34 tasks)    | **Built (walk pending)** |
+| [`011-ci-test-runs`](specs/011-ci-test-runs/spec.md)                         | Every pull request and push to `main` runs formatting, lint, build, and all tests in GitHub Actions, showing each workspace's coverage; `npm run ci` runs the same steps locally      | Draft            | Done (26/34 tasks) | **Built (walk pending)** |
 | [`012-shared-theme`](specs/012-shared-theme/spec.md)                         | One shared theme in `packages/shared/` for the Admin and Customer apps; a test fails when an app defines its own look                                                                 | Draft            | Done (29/30 tasks) | **Built and verified**   |
 | [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps                                          | Draft            | Done (47/48 tasks) | **Built and verified**   |
 | [`014-event-images`](specs/014-event-images/spec.md)                         | Up to 5 images per event, added, ordered, and removed in the Admin event form; a rotating gallery on Customer event cards and on the event page of both apps, with full screen        | Draft            | Done (56/57 tasks) | **Built and verified**   |
@@ -218,15 +218,15 @@ npm ci          # what the check installs; only needed after package-lock.json c
 npm run ci
 ```
 
-`npm run ci` runs, in this order, stopping at the first failure: generate the Prisma client,
-`npm run format:check` (Prettier), `npm run lint` (ESLint), `npm run build` (every workspace,
-which type-checks the front ends), `npm test`, and `npm run coverage:report` (the coverage table).
-The check runs the same steps, and a test fails if the two ever differ. Docker must be running. To
-reproduce a pull request's run, first merge or rebase the branch onto the latest `main` (the check
-tests the branch merged with `main`), and keep the Docker Compose stack down (with it up, the
-seed's four Keycloak tests run instead of being skipped). `npm run coverage:report` is meant to
-follow the root `npm test` or `npm run ci`: after a single workspace's tests it can mix this run's
-numbers with older ones.
+`npm run ci` runs, in this order, and each step stops the run if it fails: generate the Prisma
+client, `npm run format:check` (Prettier), `npm run lint` (ESLint), `npm run build` (every
+workspace, which type-checks the front ends), `npm test`, and `npm run coverage:report` (the
+coverage table). The check runs the same steps, and a test fails if the two ever differ. Docker must
+be running. To reproduce a pull request's run, first merge or rebase the branch onto the latest
+`main` (the check tests the branch merged with `main`), and keep the Docker Compose stack down (with
+it up, the seed's four Keycloak tests run instead of being skipped). `npm run coverage:report` is
+meant to follow the root `npm test` or `npm run ci`: after a single workspace's tests it can mix
+this run's numbers with older ones.
 
 **Reading a failed check**: open **Details** on **CI / test**. The failed step's name says which
 check failed: **Check formatting** (run `npm run format`), **Lint**, **Build**, **Test**, or
