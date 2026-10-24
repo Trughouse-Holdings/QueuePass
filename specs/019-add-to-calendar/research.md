@@ -194,6 +194,10 @@ zone really changed, so a run that silently stays in one zone fails instead of p
    `new Date('2026-10-24T12:00:00Z').getTimezoneOffset()` is `0`, `240`, `420`, and `-330`, and
    require output identical to the committed expected text. Node re-reads `TZ` when it is assigned,
    and Vitest runs each test file in its own process (`forks`, its default pool), so this is reliable.
+   **Both checks depend on that pool**: in a `worker_threads` worker, assigning `process.env.TZ`
+   changes nothing (checked in spec review round 2). The Customer app sets no pool, and Vitest 3
+   defaults to `forks`. If the pool were ever switched to `threads`, the offset and zone assertions
+   would fail the file rather than let it pass, which is the right failure; keep `forks`.
 2. **From the shell**: the Customer app's `vitest.config.ts` pins `test.env.TZ` to
    `America/New_York` for every test (spec 003 research R6), and Vitest writes `test.env` over the
    inherited environment, so `TZ=UTC npx vitest …` would still run in New York, in CI too. The pin
@@ -201,7 +205,12 @@ zone really changed, so a run that silently stays in one zone fails instead of p
    `CALENDAR_TEST_TZ`: when it is set, a `beforeAll` assigns it to `process.env.TZ`, asserts the
    effective zone (`Intl.DateTimeFormat().resolvedOptions().timeZone` equals it) and its offset on
    2026-10-24 (`UTC` 0, `America/New_York` 240, `America/Los_Angeles` 420), prints
-   `[calendar-tz] <zone> offset <minutes>`, and fails if either does not match. Every test in the
+   `[calendar-tz] <zone> offset <minutes>`, and fails if either does not match. Because the zone is
+   compared by name, the shell runs use only names ICU reports canonically: `UTC`,
+   `America/New_York`, and `America/Los_Angeles`. `Asia/Kolkata`, for example, resolves to ICU's
+   `Asia/Calcutta` and fails the name check, so it stays in the in-file loop, which checks offsets
+   only. (From Git Bash, a plain `TZ` does not even reach a Windows `node.exe`;
+   `CALENDAR_TEST_TZ` does.) Every test in the
    file then runs in that zone against the same committed expected text. Tasks T016 runs it three
    times, with `CALENDAR_TEST_TZ` set to `UTC`, `America/New_York`, and `America/Los_Angeles`, and
    checks each run's printed line. Without the variable, the file runs in the pinned zone, as in CI.
@@ -355,7 +364,10 @@ the page is open (a timer for a harmless edge case; Principle VIII).
   Inside, in this order: a short note with an `id`, "A copy for your calendar: it won't change if
   the event does." (FR-003); a `<button type="button">` **Add to Apple Calendar or Outlook**; and an
   `<a>` **Add to Google Calendar**. Both controls carry `aria-describedby` pointing at the note, so a
-  screen reader reads it with each control (FR-003).
+  screen reader reads it with each control (FR-003). The label's and the note's `id`s are unique per
+  card (built from the order's id, for example `calendar-label-<order id>` and
+  `calendar-note-<order id>`, or React's `useId()`), since My tickets shows one group per eligible
+  card and a repeated `id` would point every card at the first card's elements.
 - **Names** (FR-013): `aria-label="Add to Apple Calendar or Outlook: <event name>, downloads a
   calendar file"` and `aria-label="Add to Google Calendar: <event name>, opens in a new tab"`. Each
   starts with the visible text (WCAG 2.5.3, Label in Name), names the event so the controls on

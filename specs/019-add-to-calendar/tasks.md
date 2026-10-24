@@ -36,7 +36,10 @@ confirm they **fail** before the implementation tasks below them.
      from the shell under `UTC`, `America/New_York`, and `America/Los_Angeles` (T016). The Customer
      app's `vitest.config.ts` pins `TZ` to `America/New_York` for every test run, CI included, and
      Vitest writes it over the shell's `TZ`, so the shell runs set `CALENDAR_TEST_TZ`, which
-     `calendar.test.ts` applies itself and checks (research R5). Never remove the pin.
+     `calendar.test.ts` applies itself and checks (research R5). Never remove the pin. The shell runs
+     use only zone names ICU reports canonically (`UTC`, `America/New_York`,
+     `America/Los_Angeles`; not `Asia/Kolkata`, which ICU reports as `Asia/Calcutta`), and both checks
+     rely on Vitest's default `forks` pool: do not switch the Customer app to `threads`.
   4. **`npm run ci` locally** before pushing (T020), then **CI green on GitHub** on the PR's final
      commit before merge (T025).
   5. **The running-system check in the browser** with **two events**, each imported into a calendar
@@ -44,10 +47,10 @@ confirm they **fail** before the implementation tasks below them.
 - **Contract**: the version is final as the spec PR merged it (1.12.0, or the next minor version if
   `020` merged a contract change first). The implementation makes only the change
   contracts/README.md names: add `address` to `OrderEvent.location`'s `required` and delete the
-  sentence "Always sent once feature 019 is implemented, which adds it to `required`." (T004). Regenerate `api-schema.ts` with
-  `npm run generate:api`; after any rebase over another contract change, regenerate it again (never
-  merge `api-schema.ts` by hand) and confirm `node scripts/check-contract-drift.mjs` passes. Raise any
-  other gap.
+  sentence "Always sent once feature 019 is implemented, which adds it to `required`." (T004).
+  Regenerate `api-schema.ts` with `npm run generate:api`; after any rebase over another contract
+  change, regenerate it again (never merge `api-schema.ts` by hand) and confirm
+  `node scripts/check-contract-drift.mjs` passes. Raise any other gap.
 - **One generator** (research R1, R13): only `customer-app/src/calendar.ts` writes iCalendar text,
   formats calendar times, builds the Google link, names the file, or decides eligibility. No React in
   it, no browser-only API except in the component, and no npm package added.
@@ -145,11 +148,14 @@ US3's tests are here because the same component decides both.
     `Asia/Kolkata`, set `process.env.TZ`, assert that
     `new Date('2026-10-24T12:00:00Z').getTimezoneOffset()` is `0`, `240`, `420`, and `-330`
     respectively (so the switch really happened), and assert `icsFile` of every fixture equals the
-    committed expected text. Restore `TZ` in `afterEach`.
+    committed expected text. After each loop test, restore `TZ` to the value it had when that test
+    started (so during a shell run, the zone `CALENDAR_TEST_TZ` set), never to a value captured when
+    the file loaded.
   - **Shell zone** (R5, ground rule 3): when `process.env.CALENDAR_TEST_TZ` is set, a `beforeAll`
     sets `process.env.TZ` to it, asserts `Intl.DateTimeFormat().resolvedOptions().timeZone` equals
     it and `new Date('2026-10-24T12:00:00Z').getTimezoneOffset()` equals the expected offset (`UTC`
-    0, `America/New_York` 240, `America/Los_Angeles` 420; any other value fails), and logs
+    0, `America/New_York` 240, `America/Los_Angeles` 420; any other name fails, including aliases
+    such as `Asia/Kolkata`, which ICU reports as `Asia/Calcutta`), and logs
     `[calendar-tz] <zone> offset <minutes>`. Every other test in the file then runs in that zone
     against the same committed expected text. Without the variable, nothing changes.
   - **Nothing extra** (FR-004): for an order with ticket codes, a holder's name, and a price, the
@@ -174,9 +180,12 @@ US3's tests are here because the same component decides both.
     disabled control (SC-005, FR-015); no ticket `<li>` contains a calendar control;
   - the note comes first in the group and has an `id`; the button's `aria-describedby` is that `id`
     (FR-003); the button has the classes `btn btn--ghost` (FR-014, research R11);
-  - after `vi.setSystemTime` moves past an eligible event's end and the page re-renders without
-    reloading the orders (for example, by a state change elsewhere on the page), the controls stay;
-    eligibility is decided when the orders load (FR-002, research R10);
+  - the label's and the note's `id`s differ between the two cards of the one event, and each card's
+    `aria-labelledby` and `aria-describedby` resolve to elements inside that card (research R11);
+  - after `vi.setSystemTime` moves past an eligible event's end, calling RTL's `rerender()` with the
+    same providers and page leaves the controls in place, and the stubbed API saw `GET /me/orders`
+    exactly once; eligibility is decided when the orders load, not on each render (FR-002, research
+    R10);
   - the group comes after the event's details and before the ticket list; with `userEvent.tab()`,
     the button is reached after the event's links and before the first ticket's links (FR-013);
   - clicking, pressing Enter, and pressing Space on the button each save one file: stub
@@ -200,8 +209,9 @@ US3's tests are here because the same component decides both.
   `<a download>`, and revoke the URL after 60 seconds (R12). In `customer-app/src/pages/MyTickets.tsx`,
   read `Date.now()` once, when the orders load successfully, keep it with the loaded data, pass it
   to each `OrderCard`, and render the group after the `<dl>` when `calendarEligible` is true (R10).
-  The note comes first in the group with an `id`, and the button has `aria-describedby` set to it
-  (R11). The button uses the shared theme's `btn btn--ghost` classes; add layout rules to
+  The note comes first in the group, and the group's label and the note get `id`s unique to the
+  order (for example from the order's id, or `useId()`); the button has `aria-describedby` set to the
+  note's `id` (R11). The button uses the shared theme's `btn btn--ghost` classes; add layout rules to
   `customer-app/src/styles.css` only with theme values, if needed (the theme-classes test must still
   pass).
 - [ ] T010 Run T006 and T007 until they pass, then the whole Customer app suite.
@@ -253,7 +263,9 @@ US3's tests are here because the same component decides both.
   run passes and its output shows `[calendar-tz] <that zone> offset <0, 240, or 420>`; a run without
   that line, or with another zone, means the zone did not change and the run does not count. (Plain
   `TZ=` is overridden by the Vitest config's pin and proves nothing.) Record the three results and
-  their `[calendar-tz]` lines here.
+  their `[calendar-tz]` lines here. Use only these three names: an ICU alias such as `Asia/Kolkata`
+  fails the zone-name check by design (research R5), and the check relies on Vitest's default
+  `forks` pool.
 - [ ] T017 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
   everything passes, including `check-contract-drift` and `check-boundary`.
 - [ ] T018 Flake check (ground rule 2): run `npm test --workspace @queuepass/shared`,

@@ -109,7 +109,7 @@ customer-app/
 ├── src/pages/~ MyTickets.tsx                  # the group on eligible cards
 ├── src/~ styles.css                           # layout only, theme values (if needed)
 └── test/+ calendar.test.ts, + add-to-calendar.test.tsx, ~ helpers.tsx (myOrder address)
-~ README.md                                    # 019 row, Today, contract 1.12.0
+~ README.md                                    # 019 row, Today, the contract version merged
 ```
 
 **Structure Decision**: the existing monorepo layout. The generator lives in the Customer app, the
