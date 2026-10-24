@@ -9,6 +9,13 @@ import {
   icsFileName,
 } from '../src/calendar';
 
+// Spec 020's ground rule: an unset TZ is restored by deleting it, never by assigning undefined
+// (Node would read the string "undefined" as an unknown zone).
+function restoreTz(before: string | undefined): void {
+  if (before === undefined) delete process.env.TZ;
+  else process.env.TZ = before;
+}
+
 /**
  * Spec 019 FR-004 to FR-009, SC-002, SC-003 (research R3 to R7, R10, R12, R14, R15): the calendar
  * file generator. Every expected file below is written out by hand from the research, never
@@ -478,7 +485,7 @@ describe('time zones (R5, SC-002)', () => {
       expect(new Date('2026-10-24T12:00:00Z').getTimezoneOffset()).toBe(offset);
       for (const f of FIXTURES) expect(fileOf(f.event)).toBe(f.expected);
     } finally {
-      process.env.TZ = before;
+      restoreTz(before);
     }
   });
 });
@@ -650,7 +657,7 @@ describe('googleCalendarUrl (R8, FR-011)', () => {
         expect(urlOf(FIXTURES[1].event)).toContain('dates=20261107T030000Z%2F20261107T070000Z');
       }
     } finally {
-      process.env.TZ = before;
+      restoreTz(before);
     }
   });
 

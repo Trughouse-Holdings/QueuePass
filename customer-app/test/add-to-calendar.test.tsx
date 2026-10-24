@@ -266,7 +266,14 @@ describe('saving the file (FR-008 to FR-010; research R12)', () => {
 
     expect(blobs).toHaveLength(1);
     expect(blobs[0].type).toBe('text/calendar;charset=utf-8');
-    expect(await blobs[0].text()).toBe(expectedText(upcoming));
+    // DTSTAMP is the moment the file is made; the fake clock advances with real time, so a slow
+    // run can tick it by a second. It is checked by shape; every other byte exactly.
+    const text = await blobs[0].text();
+    const stamp = /DTSTAMP:\d{8}T\d{6}Z\r\n/;
+    expect(text).toMatch(stamp);
+    expect(text.replace(stamp, 'DTSTAMP:*')).toBe(
+      expectedText(upcoming).replace(stamp, 'DTSTAMP:*'),
+    );
     expect(clicked).toEqual([{ download: 'season-opener.ics', href: 'blob:test/calendar-1' }]);
     expect(clicked[0].download).toBe(icsFileName(upcoming.event.name));
     // The temporary anchor is gone again.

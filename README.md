@@ -59,9 +59,9 @@ against it, and admit — once per ticket, even when several gates try at the sa
 refuse, with every refusal explained. Admin reports and attendee lists count the real entries,
 with their times. From **My tickets**, customers can instead show a live entry code that changes
 every 30 seconds; the gate scans it and needs no ID check, because a copy stops working within
-seconds, while printed and typed codes still need one (`018`). Customers can also add an event they hold tickets for to
-Apple Calendar, Outlook, or Google Calendar from **My tickets**, as a one-time copy that does not
-change if the event does (`019`).
+seconds, while printed and typed codes still need one (`018`). Customers can also add an event
+they hold tickets for to Apple Calendar, Outlook, or Google Calendar from **My tickets**, as a
+one-time copy that does not change if the event does (`019`).
 
 The Admin and Customer apps take their whole look from one shared theme (`012`).
 
