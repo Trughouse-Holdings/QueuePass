@@ -54,6 +54,11 @@ export const ERROR_CODES = [
   'HOLDER_NAME_INVALID',
   'TICKET_NOT_FOUND',
   'ENTRY_REFUSED',
+  // Spec 018: a live code QueuePass did not make, or naming no ticket; a genuine live code outside
+  // its 30-second window and 5 seconds of grace. Added ahead of the implementation, so the list
+  // matches the contract.
+  'LIVE_CODE_INVALID',
+  'LIVE_CODE_EXPIRED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

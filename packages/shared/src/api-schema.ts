@@ -68,6 +68,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/tickets/{ticketId}/entry-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticketId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * My ticket's entry key, for its live codes
+         * @description Feature 018. The secret the Customer app makes this ticket's live codes with, and the
+         *     Backend's current time, so the app can follow the Backend's clock rather than the
+         *     device's. Only the ticket's own buyer gets it: another customer's ticket, or one that does
+         *     not exist, is `404 NOT_FOUND`. A used or void ticket is `409 ENTRY_REFUSED` (`USED` with
+         *     `usedAt`, or `VOID`). Sent with `Cache-Control: no-store`. The client keeps the key in
+         *     memory only, never in browser storage, a cookie, or a URL.
+         */
+        get: operations["getTicketEntryKey"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/reservations": {
         parameters: {
             query?: never;
@@ -785,6 +812,15 @@ export interface paths {
          *     event's gate now. The code is sent in the body, not the path, so it stays out of request
          *     logs. Letter case, spaces, and dashes are ignored; anything that is not then a ticket
          *     code, or matches no ticket, is `404 TICKET_NOT_FOUND`.
+         *
+         *     Feature 018: `code` may instead be a **live code** from the Customer app, which starts
+         *     with `QP1:` and changes every 30 seconds. A live code that QueuePass did not make, or that
+         *     names no ticket, is `404 LIVE_CODE_INVALID`. A genuine live code is accepted from 5
+         *     seconds before its 30-second window starts until 5 seconds after it ends, on the
+         *     Backend's clock; outside that it is `409 LIVE_CODE_EXPIRED`, with nothing about its
+         *     ticket. An accepted live code then answers exactly like its ticket's code would, with
+         *     `verifiedBy: LIVE_CODE`; a ticket code answers `verifiedBy: TICKET_CODE`. A verified live
+         *     code needs no ID check; a ticket code always does.
          *
          *     A ticket that exists is always `200`, with `state` saying what the agent may do:
          *     `ADMITTABLE`; `USED` (with `usedAt`); `VOID` (its order was refunded, for example because
@@ -1625,7 +1661,8 @@ export interface components {
         /** @description Feature 017. A ticket code as typed or scanned. */
         EntryLookupInput: {
             /**
-             * @description Letter case, spaces, and dashes are ignored.
+             * @description A ticket code (letter case, spaces, and dashes are ignored), or, from feature 018, a
+             *     live code from the Customer app (`QP1:<ticket id, 32 hex digits>:<window>:<MAC>`).
              * @example 7kq2-m9xw-ab4c
              */
             code: string;
@@ -1667,6 +1704,25 @@ export interface components {
             entryOpensAt: string;
             /** @description Valid, unused tickets of this ticket's order for this event, this one included. */
             unusedOnOrder: number;
+            /**
+             * @description Feature 018. `LIVE_CODE` when the lookup was by a live code the Backend verified in
+             *     its window: no ID check is needed. `TICKET_CODE` for a typed or printed code: the ID
+             *     check is always needed. Required once feature 018 is implemented.
+             * @enum {string}
+             */
+            verifiedBy?: "LIVE_CODE" | "TICKET_CODE";
+        };
+        /** @description Feature 018. A ticket's entry key and the Backend's time. */
+        TicketEntryKey: {
+            /** Format: uuid */
+            ticketId: string;
+            /** @description The ticket's 32-byte entry secret, base64url without padding. */
+            key: string;
+            /**
+             * Format: date-time
+             * @description The Backend's clock when it answered, with milliseconds.
+             */
+            serverTime: string;
         };
         /** @description Feature 017. */
         AdmitInput: {
@@ -1696,7 +1752,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -1904,21 +1960,14 @@ export interface components {
         };
         /**
          * @description Feature 017. The event does not exist (`NOT_FOUND`), or no ticket has this code or id
-         *     (`TICKET_NOT_FOUND`).
+         *     (`TICKET_NOT_FOUND`). Feature 018: a live code QueuePass did not make, or that names no
+         *     ticket (`LIVE_CODE_INVALID`).
          */
         EntryNotFound: {
             headers: {
                 [name: string]: unknown;
             };
             content: {
-                /**
-                 * @example {
-                 *       "error": {
-                 *         "code": "TICKET_NOT_FOUND",
-                 *         "message": "No ticket has the code 7KQ2M9XWAB4D."
-                 *       }
-                 *     }
-                 */
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
@@ -2009,6 +2058,33 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+        };
+    };
+    getTicketEntryKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ticketId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The key and the Backend's time. */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketEntryKey"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
         };
     };
     listMyReservations: {
@@ -2990,6 +3066,23 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["EntryNotFound"];
+            /** @description Feature 018. A genuine live code outside its window and grace. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "error": {
+                     *         "code": "LIVE_CODE_EXPIRED",
+                     *         "message": "This live code has expired."
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
         };
     };
     admitTicket: {

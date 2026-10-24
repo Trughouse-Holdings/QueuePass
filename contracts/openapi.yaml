@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.10.0
+  version: 1.11.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -72,7 +72,8 @@ tags:
   - name: entry
     description: |
       Gate check-in in the Ticket Booth app: look a ticket up by its code, then admit it, or every
-      unused ticket of its order, exactly once (feature 017)
+      unused ticket of its order, exactly once (feature 017); live codes that change every 30
+      seconds, and the buyer's entry key that makes them (feature 018)
 
 paths:
   /health:
@@ -134,6 +135,39 @@ paths:
                 items: { $ref: '#/components/schemas/MyOrder' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
+
+  /me/tickets/{ticketId}/entry-key:
+    parameters:
+      - name: ticketId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [entry]
+      summary: My ticket's entry key, for its live codes
+      description: |
+        Feature 018. The secret the Customer app makes this ticket's live codes with, and the
+        Backend's current time, so the app can follow the Backend's clock rather than the
+        device's. Only the ticket's own buyer gets it: another customer's ticket, or one that does
+        not exist, is `404 NOT_FOUND`. A used or void ticket is `409 ENTRY_REFUSED` (`USED` with
+        `usedAt`, or `VOID`). Sent with `Cache-Control: no-store`. The client keeps the key in
+        memory only, never in browser storage, a cookie, or a URL.
+      operationId: getTicketEntryKey
+      x-required-roles: [customer]
+      x-planned: '018'
+      responses:
+        '200':
+          description: The key and the Backend's time.
+          headers:
+            Cache-Control:
+              schema: { type: string, example: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketEntryKey' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
 
   /me/reservations:
     get:
@@ -1156,6 +1190,15 @@ paths:
         logs. Letter case, spaces, and dashes are ignored; anything that is not then a ticket
         code, or matches no ticket, is `404 TICKET_NOT_FOUND`.
 
+        Feature 018: `code` may instead be a **live code** from the Customer app, which starts
+        with `QP1:` and changes every 30 seconds. A live code that QueuePass did not make, or that
+        names no ticket, is `404 LIVE_CODE_INVALID`. A genuine live code is accepted from 5
+        seconds before its 30-second window starts until 5 seconds after it ends, on the
+        Backend's clock; outside that it is `409 LIVE_CODE_EXPIRED`, with nothing about its
+        ticket. An accepted live code then answers exactly like its ticket's code would, with
+        `verifiedBy: LIVE_CODE`; a ticket code answers `verifiedBy: TICKET_CODE`. A verified live
+        code needs no ID check; a ticket code always does.
+
         A ticket that exists is always `200`, with `state` saying what the agent may do:
         `ADMITTABLE`; `USED` (with `usedAt`); `VOID` (its order was refunded, for example because
         the event was cancelled); `OTHER_EVENT` (the ticket's own event is in `event`); `NOT_OPEN`
@@ -1181,6 +1224,15 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/EntryNotFound' }
+        '409':
+          description: Feature 018. A genuine live code outside its window and grace.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              example:
+                error:
+                  code: LIVE_CODE_EXPIRED
+                  message: This live code has expired.
 
   /events/{id}/entry/admit:
     parameters:
@@ -2322,9 +2374,11 @@ components:
         code:
           type: string
           minLength: 1
-          maxLength: 64
+          maxLength: 80
           example: 7kq2-m9xw-ab4c
-          description: Letter case, spaces, and dashes are ignored.
+          description: |
+            A ticket code (letter case, spaces, and dashes are ignored), or, from feature 018, a
+            live code from the Customer app (`QP1:<ticket id, 32 hex digits>:<window>:<MAC>`).
 
     EntryTicket:
       description: Feature 017. A ticket as the gate agent sees it, and what they may do with it.
@@ -2383,6 +2437,28 @@ components:
           maximum: 10
           description: |
             Valid, unused tickets of this ticket's order for this event, this one included.
+        verifiedBy:
+          type: string
+          enum: [LIVE_CODE, TICKET_CODE]
+          description: |
+            Feature 018. `LIVE_CODE` when the lookup was by a live code the Backend verified in
+            its window: no ID check is needed. `TICKET_CODE` for a typed or printed code: the ID
+            check is always needed. Required once feature 018 is implemented.
+
+    TicketEntryKey:
+      description: Feature 018. A ticket's entry key and the Backend's time.
+      type: object
+      required: [ticketId, key, serverTime]
+      properties:
+        ticketId: { type: string, format: uuid }
+        key:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{43}$'
+          description: The ticket's 32-byte entry secret, base64url without padding.
+        serverTime:
+          type: string
+          format: date-time
+          description: The Backend's clock when it answered, with milliseconds.
 
     AdmitInput:
       description: Feature 017.
@@ -2463,6 +2539,8 @@ components:
                 - HOLDER_NAME_INVALID
                 - TICKET_NOT_FOUND
                 - ENTRY_REFUSED
+                - LIVE_CODE_INVALID
+                - LIVE_CODE_EXPIRED
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -2671,14 +2749,23 @@ components:
     EntryNotFound:
       description: |
         Feature 017. The event does not exist (`NOT_FOUND`), or no ticket has this code or id
-        (`TICKET_NOT_FOUND`).
+        (`TICKET_NOT_FOUND`). Feature 018: a live code QueuePass did not make, or that names no
+        ticket (`LIVE_CODE_INVALID`).
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
-          example:
-            error:
-              code: TICKET_NOT_FOUND
-              message: No ticket has the code 7KQ2M9XWAB4D.
+          examples:
+            ticketNotFound:
+              value:
+                error:
+                  code: TICKET_NOT_FOUND
+                  message: No ticket has the code 7KQ2M9XWAB4D.
+            liveCodeInvalid:
+              summary: Feature 018
+              value:
+                error:
+                  code: LIVE_CODE_INVALID
+                  message: This is not a valid QueuePass code.
 
     Conflict:
       description: |
