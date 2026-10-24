@@ -376,8 +376,9 @@ export interface paths {
          *     `totalTicketCapacity`, where an omitted capacity is the venue's `seatingCapacity` (`400`
          *     otherwise). It is checked after the venue's seating capacity.
          *
-         *     Feature 020: right after the venue is found, `startsAt` and then `endsAt` are checked
-         *     against the venue's `timeZone`: a local time the zone skips is `400 LOCAL_TIME_SKIPPED`,
+         *     Feature 020: a `startsAt` or `endsAt` without a UTC offset, or a date only, is
+         *     `400 VALIDATION_FAILED` with the field validation. Right after the venue is found,
+         *     `startsAt` and then `endsAt` are checked against the venue's `timeZone`: a local time the zone skips is `400 LOCAL_TIME_SKIPPED`,
          *     and a time stated with an offset other than the venue's at that local time (including `Z`)
          *     is `400 UTC_OFFSET_MISMATCH`. A local time the zone repeats is accepted with either of its
          *     two offsets. The scheduling conflict message names the conflicting event's times in the
@@ -1227,8 +1228,8 @@ export interface components {
         /**
          * @description Feature 020. How a venue's `timeZone` was set: `ADDRESS`, worked out from the place the
          *     address service matched; `STATE`, from the venue's state, which has one zone; `ADMIN`,
-         *     chosen by an admin; `DEFAULT`, set to `America/New_York` for a venue that existed before
-         *     feature 020.
+         *     chosen by an admin; `DEFAULT`, `America/New_York` by default: a venue that existed before
+         *     feature 020, or a demo-data venue saved while the address service was unavailable.
          * @enum {string}
          */
         TimeZoneSource: "ADDRESS" | "STATE" | "ADMIN" | "DEFAULT";
@@ -1942,8 +1943,9 @@ export interface components {
             };
         };
         /**
-         * @description Request shape or field validation failed (`VALIDATION_FAILED`), or, feature 020, an event
-         *     time does not fit the venue's time zone: the local time is skipped by a daylight-saving
+         * @description Request shape or field validation failed (`VALIDATION_FAILED`, including, feature 020, an
+         *     event time without a UTC offset or a date only), or, feature 020, an event time does not
+         *     fit the venue's time zone: the local time is skipped by a daylight-saving
          *     change (`LOCAL_TIME_SKIPPED`), or it is stated with an offset other than the venue's at
          *     that local time (`UTC_OFFSET_MISMATCH`). Nothing was saved.
          */
@@ -2106,7 +2108,8 @@ export interface components {
          * @description The request violates a business rule; `code` says which. For `SCHEDULING_CONFLICT`,
          *     `details.conflictingEvent` names the event responsible. It is `null` only when a
          *     concurrent request won the race and the database constraint refused this write. Feature
-         *     020: the message gives times in the venue's local time with the zone's abbreviation; for
+         *     020: the message gives times in the venue's local time with the zone's abbreviation, the
+         *     start with its date and the end with its date when it differs; for
          *     a venue's time-zone change, `details.event` names the second event of the pair.
          */
         Conflict: {

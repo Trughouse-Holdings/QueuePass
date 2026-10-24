@@ -1,12 +1,12 @@
 # Contract Changes: Venue Time Zones
 
 The single contract is [`contracts/openapi.yaml`](../../../contracts/openapi.yaml) (Constitution I).
-This feature moves it from **1.11.0 to 1.12.0** in the spec and plan PR, with
+This feature moves it from **1.12.0 to 1.13.0** in the spec and plan PR, with
 `packages/shared/src/api-schema.ts` regenerated (`npm run generate:api`) and
-`node scripts/check-contract-drift.mjs` passing. `019`'s spec PR (#50) may also take 1.12.0:
-whichever merges second rebases onto the other, moves to **1.13.0**, keeps both features' changes
-(both add a property to `OrderEvent.location`: `019` the venue's `address`, this feature
-`timeZone`), and reruns `npm run generate:api` and the drift check (research R18).
+`node scripts/check-contract-drift.mjs` passing. `019`'s spec PR (#82) merged first at 1.12.0; this
+branch is rebased onto it and keeps both properties of `OrderEvent.location` (`019`'s `address`,
+this feature's `timeZone`) (research R18). The narrower event-time input is a minor version, as
+R18 explains.
 
 No new operation, so no `x-planned` marker (the repository's rule covers operations only). Every
 new response property is documented as always sent but left out of `required`, and every new
@@ -15,23 +15,23 @@ implementation (research R18).
 
 | Where | Change |
 |---|---|
-| `info.version` | 1.11.0 → 1.12.0 |
+| `info.version` | 1.12.0 → 1.13.0 |
 | `info.description` | new paragraph **Venue time zones**: responses send UTC instants; clients show event times in the venue's `timeZone` with its abbreviation; event times sent to the API state the venue's local time with the venue's offset; `LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`; a repeated local time is accepted with either offset (R9). |
 | `UsTimeZone` | new schema: enum of the eight IANA names (R2). |
-| `TimeZoneSource` | new schema: `ADDRESS`, `STATE`, `ADMIN`, `DEFAULT` (R5). |
+| `TimeZoneSource` | new schema: `ADDRESS`, `STATE`, `ADMIN`, `DEFAULT` (R5); `DEFAULT` covers existing venues and demo data saved offline (R19). |
 | `Location` | gains `timeZone` (`UsTimeZone`) and `timeZoneSource`; not in `required`; description says clients treat a missing `timeZone` as `America/New_York`. |
 | `LocationInput`, `LocationUpdate` | gain optional `timeZone`, the admin's explicit choice (R4). |
 | `createLocation` | description: how the zone is decided (sent → address → state), `400 TIME_ZONE_REQUIRED` for a split state (R3, R7). |
 | `updateLocation` | description: when the zone changes and what moves; `409 TIME_ZONE_HAS_ORDERS`, `409 EVENT_TIME_NOT_IN_ZONE`, `409 SCHEDULING_CONFLICT` (R8). Its `409` becomes `examples` (`capacityExceeded`, `timeZoneHasOrders`, `eventTimeNotInZone`). |
 | `AddressRejected` | description and example `timeZoneRequired` (`details.state`, `details.timeZones`). |
 | `listEvents` | new optional query parameters `fromDate` and `toDate` (`format: date`, inclusive, compared with each event's local start date in its venue's zone); not combinable with `from`/`to` (R15). |
-| `createEvent`, `updateEvent` | descriptions: the zone checks and their place in the refusal order; moving to a venue in another zone must send both times (R9). `400` now refers to the new `EventTimeRejected` response. |
+| `createEvent`, `updateEvent` | descriptions: a time without an offset (or a date only) is `VALIDATION_FAILED`; the zone checks and their place in the refusal order; moving to a venue in another zone must send both times (R9). `400` now refers to the new `EventTimeRejected` response. |
 | `EventInput`, `EventUpdate` | `startsAt`, `endsAt` (and `EventUpdate.locationId`) descriptions and examples with the venue's offset. |
-| `EventTimeRejected` | new response: `VALIDATION_FAILED`, `LOCAL_TIME_SKIPPED` (`details.field`, `localTime`, `timeZone`, `skippedFrom`, `skippedTo`), `UTC_OFFSET_MISMATCH` (`details.field`, `localTime`, `timeZone`, `sentOffset`, `expectedOffsets`). |
-| `OrderEvent.location` | gains optional `timeZone` (R16). |
+| `EventTimeRejected` | new response: `VALIDATION_FAILED` (examples: a field, and a time without a UTC offset), `LOCAL_TIME_SKIPPED` (`details.field`, `localTime`, `timeZone`, `skippedFrom`, `skippedTo`), `UTC_OFFSET_MISMATCH` (`details.field`, `localTime`, `timeZone`, `sentOffset`, `expectedOffsets`). |
+| `OrderEvent.location` | gains optional `timeZone` (R16), next to `019`'s `address`. |
 | `EventSales` | gains optional `timeZone` (R16). |
 | `EntryTicket.event` | gains optional `timeZone`; `admitTicket`'s description says `ENTRY_REFUSED`'s `details.event` carries it too (R16). |
-| `Conflict` | description: messages use the venue's local time; `details.event` for a zone change's pair. The `schedulingConflict` example's message is in the new form. |
+| `Conflict` | description: messages use the venue's local time, the start with its date; `details.event` for a zone change's pair. The `schedulingConflict` example's message is in the new form. |
 | `ErrorEnvelope.code` | adds `TIME_ZONE_REQUIRED`, `TIME_ZONE_HAS_ORDERS`, `EVENT_TIME_NOT_IN_ZONE`, `LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`, after the `018` codes. |
 
 Unchanged: every operation's path, roles, and success shape; every response still sends instants in
