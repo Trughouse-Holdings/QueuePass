@@ -46,8 +46,9 @@ ESLint 9, `yaml` 2.
 **Storage**: none. Coverage summaries are written to each workspace's ignored `coverage/` folder.
 
 **Testing**: `node --test` for the workflow-shape test and the coverage report's tests (R13), run
-first by `npm test`. The feature itself is proven on GitHub by a throwaway pull request with one
-green run and one deliberately failing run ([quickstart.md](./quickstart.md)).
+first by `npm test`. The feature itself is proven on GitHub by the implementation PR's own green
+run and one throwaway pull request with deliberately failing runs
+([quickstart.md](./quickstart.md)).
 
 **Target Platform**: GitHub-hosted `ubuntu-24.04` runners (Docker preinstalled); laptops on
 Windows, macOS, or Linux with Docker for `npm run ci`.

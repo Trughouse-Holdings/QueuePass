@@ -65,8 +65,8 @@ it('fails on purpose to prove the check goes red', () => {
 });
 ```
 
-Commit, push, and open the pull request. **Expect**: the check turns red at the **Test** step. Its
-output names `ci-canary.test.ts` and the failed assertion, and the pull request's **Files changed**
+Commit (record this commit's SHA: Q5 reuses it), push, and open the pull request. **Expect**: the
+check turns red at the **Test** step. Its output names `ci-canary.test.ts` and the failed assertion, and the pull request's **Files changed**
 tab shows an annotation on that test. No coverage table appears (the run stopped at Test). Time how
 long it takes, from opening the failed check, to name the failing step and test: under 2 minutes
 (SC-006). Run `npm run ci` locally on the same code (Q1). **Expect**: it fails at the same step,
@@ -122,8 +122,18 @@ save.)
 
 **Verify with the throwaway pull request from Q3**:
 
-1. Rebase `011-ci-throwaway` onto the updated `main` (`git rebase origin/main`; the
-   implementation's commits drop out, leaving the canary) and force-push that branch only.
+1. Rebuild `011-ci-throwaway` from the updated `main` with only the canary on it, using the SHA
+   of the commit that added the canary (recorded in Q3), then force-push that branch only:
+
+   ```bash
+   git fetch origin
+   git checkout -B 011-ci-throwaway origin/main
+   git cherry-pick <canary commit SHA>
+   git push --force origin 011-ci-throwaway
+   ```
+
+   The pull request now shows only the canary test, whatever happened to the implementation's
+   commits in rebase or review.
 2. Mark the pull request **Ready for review** (a draft cannot be merged whatever its checks, so it
    would prove nothing). Still request no reviewers.
 3. **Expect**: once the check is red, the merge button is blocked by the required `test` check.

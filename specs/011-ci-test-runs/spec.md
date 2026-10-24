@@ -233,9 +233,9 @@ merge button is blocked; fix it and confirm merging is allowed once the check is
 - **FR-002**: The check MUST also run on every commit pushed to `main`.
 - **FR-003**: The check MUST run, in this order: install the exact locked dependencies, the
   formatting check, the lint check, the build of every workspace (which type-checks the code the
-  containers build), and the
-  full test suite, which includes the front-end database-access boundary check, the generated API
-  types drift check, and every workspace's tests, the backend's against a real PostgreSQL.
+  containers build), and the full test suite, which includes the front-end database-access boundary
+  check, the generated API types drift check, and every workspace's tests, the backend's against a
+  real PostgreSQL.
 - **FR-004**: The check MUST fail when any step in FR-003 fails, including a failure to install,
   to download a container image, or to start the test database. A step that fails MUST NOT be
   reported as passed.
@@ -267,10 +267,10 @@ merge button is blocked; fix it and confirm merging is allowed once the check is
 - **FR-016**: The check MUST NOT deploy, publish, or release anything.
 - **FR-017**: The repository's README MUST document the local command, what the check runs, and
   where to read a failure; the quickstart MUST document how an admin marks the check required.
-- **FR-019**: On a fresh clone, the documented `npm install` then `npm test` MUST work with no other
-  setup step, apart from Docker running.
 - **FR-018**: Every existing test MUST keep passing unchanged, apart from the seed's Keycloak tests
   reporting themselves as skipped (FR-014).
+- **FR-019**: On a fresh clone, the documented `npm install` then `npm test` MUST work with no other
+  setup step, apart from Docker running.
 
 ### Key Entities
 

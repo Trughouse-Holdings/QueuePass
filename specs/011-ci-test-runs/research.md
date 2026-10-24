@@ -247,7 +247,7 @@ the measurement belongs in `npm test` itself, on laptops and in CI alike, not in
 The flag sits on the `test` scripts, so the watch scripts stay fast. A targeted run (for example
 `npm test --workspace @queuepass/backend -- one.spec.ts`) also measures, and prints the whole
 workspace's coverage, which is mostly low for one file; the cost of measuring on every `npm test` is
-recorded against T001's baseline (tasks T020).
+recorded against T001's baseline (tasks T022).
 
 `include: ['src/**']` states each workspace's source plainly and leaves out its config files and
 `test/` folder. Files the Admin and Customer apps import from `packages/shared/src` are already
@@ -279,7 +279,10 @@ when executed directly.
 before any test runs. A summary the report reads was therefore written by this `npm test`. Without
 it, a laptop keeps `backend/coverage/coverage-summary.json` from an earlier run, and if a
 workspace's `test` script lost `--coverage`, `npm run ci` would pass on the old file while CI, on a
-fresh checkout, fails (breaking FR-008).
+fresh checkout, fails (breaking FR-008). The guarantee holds when `coverage:report` follows the
+root `npm test`, as it always does in `npm run ci` and in the check. A single workspace's tests
+(`npm test --workspace …`) clean nothing, so a report run after one of those can mix this run's
+numbers with older ones; the README says the table is meant to follow `npm test` or `npm run ci`.
 
 **Rationale**: FR-006 and FR-007 in about fifty lines, no dependency, no network, no write access
 (the step summary is a file on the runner, not an API call). Failing on a missing file catches a
@@ -328,12 +331,12 @@ PowerShell, and macOS); no local command (the drift FR-009 guards against).
   `synchronize`, `reopened`, with no `paths`, `paths-ignore`, or `branches`; `push.branches` is
   exactly `[main]`; no `pull_request_target`; `permissions` is exactly `{ contents: read }`;
   `concurrency` matches R14 exactly; one job, `test`, on `ubuntu-24.04`, with `timeout-minutes` set;
-  every
-  `uses:` starts with `actions/`; `setup-node` reads `.nvmrc` with `cache: npm`; checkout sets
-  `persist-credentials: false`; the first `run` step is `npm ci` and the remaining `run` steps
+  every `uses:` starts with `actions/`; `setup-node` reads `.nvmrc` with `cache: npm`; checkout
+  sets `persist-credentials: false`; the first `run` step is `npm ci` and the remaining `run` steps
   equal the root `ci` script split on ` && `, in order; and the file contains no `secrets.` and no
   `${{ github.token }}`. It also asserts that every part of the `ci` script names a script that
-  exists, and that the backend's `pretest` runs `prisma generate` (R5).
+  exists, that the root `test` script starts with `node scripts/coverage-report.mjs --clean`
+  (R11), and that the backend's `pretest` runs `prisma generate` (R5).
 - `scripts/test/coverage-report.test.mjs` tests R11's functions with fixture summaries: all six
   present and above 80% (table, exit 0); one below 80% (marked, note about `010`, still exit 0); one
   missing, one unreadable, and one with zero lines (each exit 1, named); `--clean` removing the

@@ -196,8 +196,9 @@ stale, or zero-line summary fails it.
     kept); without it, nothing is written.
   Also add to `scripts/test/ci-workflow.test.mjs`: every part of the root `ci` script is
   `npm test` or `npm run <name>` naming a script that exists in the root `package.json`, except
-  the backend's `prisma:generate`, which must exist in `backend/package.json`. Run `npm test`:
-  **fails** (the module and `coverage:report` do not exist).
+  the backend's `prisma:generate`, which must exist in `backend/package.json`; and the root `test`
+  script starts with `node scripts/coverage-report.mjs --clean && ` (R11). Run `npm test`:
+  **fails** (the module, `coverage:report`, and the clean do not exist).
 
 ### Implementation for User Story 3
 
@@ -251,7 +252,8 @@ turned on right after merge (T033).
   **CI / test**; the failed step's name says which check failed; a Testcontainers "could not pull
   image" error in the Test step means **Re-run failed jobs**, not a code problem. Add one sentence
   that every pull request and every push to `main` runs the check, that each run's summary shows
-  every workspace's line coverage, and that the 80% floor is enforced from `010`. Add the `011` row
+  every workspace's line coverage, that `npm run coverage:report` is meant to follow the root
+  `npm test` or `npm run ci` (R11), and that the 80% floor is enforced from `010`. Add the `011` row
   to the Status table, update the "Features `010` and `011` are reserved" line so only `010`
   remains reserved, and add `.github/workflows/` to the repository layout block.
 - [ ] T021 Run `npx prettier --write` on every file changed (never `api-schema.ts`), then
@@ -282,7 +284,8 @@ turned on right after merge (T033).
 - [ ] T029 With the user's go-ahead: push `011-ci-test-runs-impl` and the throwaway branch
   `011-ci-throwaway` cut from it, open the one throwaway pull request (Ground rules: draft, the
   throwaway title and body, no reviewers, linked from #23 in a comment), and walk quickstart **Q3**:
-  the canary test makes the check red at **Test**, naming the test, with an annotation on the file;
+  the canary test makes the check red at **Test**, naming the test, with an annotation on the file
+  (record the SHA of the commit that added the canary, for T033);
   time from opening the failed check to naming the step and test (SC-006: under 2 minutes);
   `npm run ci` locally fails the same way (SC-003); two quick pushes leave the older run
   **cancelled** (FR-011); the formatting error is red at **Check formatting**. Leave the pull
@@ -305,7 +308,8 @@ turned on right after merge (T033).
 - [ ] T032 Right after merge: quickstart **Q4**, the run on `main` for the merge commit is green.
 - [ ] T033 Right after T032, the same day: a repository admin (Mahdi names who) follows quickstart
   **Q5** to require the `test` check on `main`, as the constitution's recorded deferral expects.
-  Verify with the throwaway pull request from T029: rebase it onto `main`, mark it **Ready for
+  Verify with the throwaway pull request from T029: rebuild its branch from `origin/main` and
+  cherry-pick the canary commit recorded in T029 (Q5 step 1), force-push it, mark it **Ready for
   review** (no reviewers), confirm the red check blocks merging, remove the canary, confirm
   merging is allowed once green, and **do not merge**. Close it unmerged, delete
   `011-ci-throwaway`, and note on #23, with the user's go-ahead, who turned the setting on and

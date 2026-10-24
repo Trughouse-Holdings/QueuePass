@@ -2,7 +2,8 @@
 Sync Impact Report (replaced, not stacked, by the next amendment)
 Version: 3.3.0 -> 3.4.0 (MINOR). Not PATCH: the amendment changes when a requirement takes effect,
   making the CI run merge-blocking before 010 is merged, which the versioning policy's PATCH
-  ("does not change what is required") excludes.
+  ("does not change what is required") excludes. Treated as MINOR under "existing guidance is
+  materially expanded": the recorded deferral now names a closing feature for each half.
 Problem: the roadmap lists 011-ci-test-runs as depending on 010-test-coverage, and the recorded
   deferral in Principle VI closes the CI run and the coverage floor together, when both 010 and
   011 are merged. The team builds 011 first (spec 011, Clarifications 2026-10-24).
