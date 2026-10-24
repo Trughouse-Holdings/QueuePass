@@ -522,17 +522,26 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T036 [P] Update `README.md`: the `018` row in the status table; "Today" says customers show a
+- [X] T036 [P] Update `README.md`: the `018` row in the status table; "Today" says customers show a
   live entry code from **My tickets** that changes every 30 seconds and needs no ID check at the
   gate, while printed and typed codes still need one; a pointer to
   `specs/018-rotating-qr-codes/quickstart.md` for the phone-to-webcam demo (research R10); the
   contract version 1.11.0 wherever the README names it.
-- [ ] T037 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
+- [X] T037 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
   everything passes, including `check-contract-drift` and `check-boundary`.
-- [ ] T038 Report coverage for the files this feature changed (`npm test -- --coverage` in
+- [X] T038 Report coverage for the files this feature changed (`npm test -- --coverage` in
   `backend`, which keeps `--runInBand`; the front ends' coverage if a provider is installed) in the
   PR description. The 80% floor is not yet blocking (Constitution VI deferral until `010` and
   `011`).
+  **Recorded 2026-10-24**: Backend 97.0% lines overall (96.2% statements, 85.2% branches).
+  Files this feature added or changed: `live-code-check.ts`, `entry-key.controller.ts`,
+  `entry.module.ts`, `entry-lookup.dto.ts`, `prisma.service.ts`, `event-lock.ts` 100% lines;
+  `entry.service.ts` 96.8% lines (lines 146 and 241 are 017's defensive retry and fallback
+  refusal, not 018 code); `orders.service.ts` 100% lines; `clock.ts` 100% lines, 0% functions
+  (`systemClock.now` runs only in production; every test app replaces it with `FakeClock`). No
+  Vitest coverage provider is installed, so the front ends report none. Suite at T037: shared
+  413, Backend 84 suites / 739, Admin 196, Customer 196, Booth 67, seed green; lint and
+  `prettier --check .` clean.
 - [ ] T039 Running-system gate: `docker compose up --build` from a fresh clone, then walk
   quickstart.md S0–S8 in the browser, with a phone camera for S2–S5, and sign in, use, and sign
   out of each front end. Record the results in this file, including whether S6's DevTools
