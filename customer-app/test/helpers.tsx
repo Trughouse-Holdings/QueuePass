@@ -188,7 +188,8 @@ export const myOrder = (over: Partial<MyOrder> = {}): MyOrder => {
       startsAt: e.startsAt,
       endsAt: e.endsAt,
       status: e.status,
-      location: { id: e.location.id, name: e.location.name },
+      // Spec 019 FR-012: the venue's one-line address.
+      location: { id: e.location.id, name: e.location.name, address: e.location.address },
     },
     ...over,
   };

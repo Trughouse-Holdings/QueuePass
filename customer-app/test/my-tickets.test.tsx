@@ -29,7 +29,7 @@ const older = myOrder({
     startsAt: '2026-12-09T03:00:00.000Z',
     endsAt: '2026-12-09T07:00:00.000Z',
     status: 'SCHEDULED',
-    location: { id: 'v2', name: 'Zeta Hall' },
+    location: { id: 'v2', name: 'Zeta Hall', address: '1 ZETA WAY, LOUISVILLE, KY 40202' },
   },
 });
 
