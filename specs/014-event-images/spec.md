@@ -81,7 +81,8 @@ not amended.
 - Q: How much of an event card does its gallery take? → A: Most of it. The gallery fills the top
   of the card at a 4:3 shape, edge to edge, and the event's name, times, venue, and price sit right
   under it, so customers see the pictures before they open the event (decided by Mahdi, 2026-10-19,
-  after trying the event page).
+  after trying the event page; the 4:3 shape was replaced on 2026-10-24 by the shown picture's own
+  shape, FR-042, issue #73).
 - Q: How does one image change to the next? → A: With a short, smooth slide instead of a sudden
   swap: the shown image slides out and the next slides in, toward the left for the next image
   (automatic or the next arrow) and toward the right for the previous arrow, in every gallery and
@@ -514,8 +515,13 @@ gallery shows the last image viewed.
   picture's shape, so no space is left around it. Only extreme pictures are limited, and then the
   picture shrinks to fit, whole and centered, with the gallery's background beside or above it:
   - on a card, the box is at most 4 tall for every 3 wide (a portrait picture) and at least 1 tall
-    for every 2 wide (a panorama), so the controls still fit;
-  - on the event page, the box is at most 70% of the window's height and at least 200 pixels tall.
+    for every 2 wide (a panorama), and never under 160 pixels tall, so the arrows and the
+    Pause/Play button never overlap at any card width (review of #73: a 2:1 box on a 260-pixel
+    card would be 130 pixels tall);
+  - on the event page, the box is at most 70% of the window's small height (the height with a
+    phone browser's bars shown, CSS `100svh`, so the band does not move while a phone scrolls)
+    and at least 200 pixels tall; when 70% of that height is under 200 pixels (a short landscape
+    phone), 200 pixels wins.
 
   Until the gallery's first picture has loaded, the box has a starting size (4:3 on a card;
   between 200 and 480 pixels tall on the event page); a picture that failed to load, with no
@@ -523,6 +529,7 @@ gallery shows the last image viewed.
   the new picture's shape is known, then moves to it in one change, never back to the starting
   size in between. When the picture changes, the box's height MUST change
   smoothly with FR-040's slide, over the same 0.4 seconds; under reduced motion it changes at once.
+  When only the window changes size, the box follows at once, with no transition.
   The Admin form's previews follow the card's rule at the preview's width.
 
 ### Key Entities
@@ -566,8 +573,9 @@ gallery shows the last image viewed.
 - A paused gallery is not remembered: each page, and each card, starts turning again.
 - Text alternatives are generated from the event's name and the image's position. Admins do not
   write their own descriptions in this feature.
-- Galleries fill their area and may crop the edges of a picture whose shape differs; full screen
-  always shows the whole picture.
+- Every picture is shown whole, in every gallery, the Admin previews, and full screen (FR-041;
+  this replaced, on 2026-10-24, issue #73, the earlier assumption that galleries may crop the
+  edges of a picture whose shape differs).
 - Pictures are stored and shown as uploaded except for their metadata: not resized and not
   re-encoded. Location, camera, and text metadata are removed; a JPG keeps only its orientation
   (research R17). Smaller copies for cards are not made; the 5 MB limit and loading only what is on

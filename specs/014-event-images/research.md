@@ -721,23 +721,41 @@ dark).
   `Event` field and a migration to backfill every stored picture for one layout detail.
 - **Sizing rule**, one pure function in `packages/shared/src/web/gallery-size.ts`,
   `galleryBoxHeight({ variant, width, ratio, viewportHeight })` (`ratio` is width / height, or
-  `null` before the picture has loaded):
-  - card: `width / clamp(ratio, 3/4, 2)`, so between a 3:4 portrait and a 2:1 panorama; `null`
-    gives `width × 3/4` (4:3);
-  - page: `clamp(width / ratio, 200, 0.7 × viewportHeight)`; `null` gives
-    `clamp(200, 0.4 × width, 480)`.
+  `null` when no shape is known yet, see below):
+  - card: `max(160, width / clamp(ratio, 3/4, 2))`, so between a 3:4 portrait and a 2:1 panorama,
+    and never under 160 px; `null` gives `max(160, width × 3/4)` (4:3). The floor (review of #73,
+    S1): the arrow is 44 px centered and Pause/Play 44 px at 12 px from the bottom, so they clear
+    each other only when the box is at least 156 px tall, and the Events grid's cards are 260 to
+    311 px wide at some window widths, where 2:1 would be 130 to 156 px. Under the floor a
+    panorama is shown whole and centered (`contain`). The theme's starting `.gallery--card` also
+    has `min-height: 160px`.
+  - page: `max(200, min(width / ratio, 0.7 × viewportHeight))`, so 200 wins when 70% of the
+    height is under 200 px (a short landscape phone); `null` gives `clamp(200, 0.4 × width, 480)`.
+    `viewportHeight` is the **small** viewport height, CSS `100svh` (the height with a phone
+    browser's bars shown), read from a hidden probe element (`.viewport-probe`, `height: 100svh`)
+    on mount and on each window `resize`; where it measures 0 (no layout, as in jsdom),
+    `window.innerHeight`. `innerHeight` itself grows and shrinks as a phone's address bar hides
+    while scrolling, which would move the band and the page under it (review S4); `100svh` does
+    not.
 
   The gallery measures its own width with a `ResizeObserver` and sets its height in pixels as an
   inline style. A height is a layout length, not a color, font, or shadow, so `012`'s inline-style
-  rule allows it.
+  rule allows it. Once it has a height it also gets the class `gallery--measured`, and the card's
+  starting `aspect-ratio: 4 / 3` applies only to `.gallery--card:not(.gallery--measured)`: with a
+  set height and an auto width, `aspect-ratio` would otherwise turn the width into the dependent
+  side, the observer would report the new width, and the card would shrink or grow without end
+  (review I1, seen in a browser).
 - **No crop, ever**: `object-fit: contain` on `.gallery__image` and `.image-item__thumb` (and, as
   before, `.viewer__image`). Within the limits, the box has the picture's shape, so `contain` fills
   it exactly. Outside them, and for a pixel of rounding, `contain` keeps the whole picture
   centered on `.gallery`'s `--surface-alt` background rather than cutting it.
-- **Moving between shapes**: `.gallery` has `transition: height 0.4s ease-in-out`, the length and
-  curve of the slide (FR-040), so the box grows or shrinks while the pictures slide. During a slide
-  the box takes the incoming picture's shape; the outgoing picture keeps its own shape (`contain`)
-  inside it. Under `prefers-reduced-motion: reduce` the transition is `none`, as the slide is.
+- **Moving between shapes**: when the shape the box uses changes (a picture loads or another is
+  shown), the gallery has the class `gallery--reshaping` for 400 ms, and only that class has
+  `transition: height 400ms ease-in-out`, the length and curve of the slide (FR-040), so the box
+  grows or shrinks while the pictures slide. A change of width or window height alone follows at
+  once, with no lag behind the window (review I8). During a slide the box takes the incoming
+  picture's shape; the outgoing picture keeps its own shape (`contain`) inside it. Under
+  `prefers-reduced-motion: reduce` the transition is `none`, as the slide is.
 - **Which shape before a picture loads** (decided 2026-10-24, after T054): the gallery remembers
   each picture's shape once read, and the last shape it showed. The `ratio` passed to
   `galleryBoxHeight` is the shown picture's shape if known, else the last shape shown, else `null`.
@@ -747,11 +765,19 @@ dark).
 - **Admin previews**: `.image-item__thumb` drops `aspect-ratio: 16 / 9`, so each preview takes its
   picture's shape at the preview's width (`height: auto`), limited as a card is (FR-042): at most
   a 3:4 portrait and at least a 2:1 panorama (`max-height` and `min-height` from `100cqw`, with
-  `.image-item` an inline-size container), whole and centered beyond them. While loading, the
-  placeholder has the card's starting 4:3. A new picture's preview (from its `File`) and a saved one
+  `.image-item` an inline-size container), whole and centered beyond them. Until the picture has
+  loaded (before its URL exists, and after, until the `<img>` fires `load`), the preview keeps
+  the class `image-item__thumb--loading`, the card's starting 4:3, so it does not pass through
+  2:1 while decoding (review I7). A new picture's preview (from its `File`) and a saved one
   behave the same.
 - **Cards in a row**: the Events grid keeps its default `align-items: stretch`, so the cards in a
   row are as tall as the tallest, and each card's text sits right under its own gallery.
+- **Scroll bar** (review I9, not guarded in code): on a short Events list, a card growing can add
+  the page's vertical scroll bar, which narrows the cards a little and so shortens them, which
+  could remove the bar again. Each pass moves a card's width by a few pixels and its height by
+  less, so it settles unless the page sits within a pixel or two of the window's height; the
+  running-system check (T056) tries it on a short window with one portrait event. A fix that
+  changes every page (`scrollbar-gutter: stable` on the root) is left out unless it is seen.
 
 **Rationale**: Mahdi chose no cropping and no empty space (spec Session 2026-10-24). Reading the
 shape in the browser keeps the change inside the shared gallery and the Admin preview, with no
