@@ -59,6 +59,16 @@ export const ERROR_CODES = [
   // matches the contract.
   'LIVE_CODE_INVALID',
   'LIVE_CODE_EXPIRED',
+  // Spec 020: an address saved anyway in a state with more than one time zone, without a chosen
+  // zone; a venue time-zone change refused because an event has orders, or because an event's
+  // local time would be skipped or repeated in the new zone; an event time skipped by a
+  // daylight-saving change at the venue, or stated with another offset than the venue's. Added
+  // ahead of the implementation, so the list matches the contract.
+  'TIME_ZONE_REQUIRED',
+  'TIME_ZONE_HAS_ORDERS',
+  'EVENT_TIME_NOT_IN_ZONE',
+  'LOCAL_TIME_SKIPPED',
+  'UTC_OFFSET_MISMATCH',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

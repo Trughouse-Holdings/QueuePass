@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.12.0
+  version: 1.13.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -23,6 +23,14 @@ info:
 
     **Times**: all timestamps are RFC 3339 with an explicit offset, stored as `timestamptz` and
     compared in UTC. Event windows are half-open, `[startsAt, endsAt)`.
+
+    **Venue time zones** (feature 020): every venue has a `timeZone`, one of `UsTimeZone`.
+    Responses send instants in UTC; clients show every event time in its venue's `timeZone`, with
+    the zone's abbreviation. An event time sent to the API (`startsAt`, `endsAt`) states the
+    venue's local time with the venue's UTC offset at that time; the Backend refuses a local time
+    the venue's zone skips (`LOCAL_TIME_SKIPPED`) and a time stated with any other offset,
+    including `Z` (`UTC_OFFSET_MISMATCH`). A local time the zone repeats (clocks fall back) is
+    accepted with either of its two offsets, which says which occurrence is meant.
 
     **Errors**: every non-2xx response is an `ErrorEnvelope`. Branch on `error.code`, never on
     `error.message`.
@@ -327,6 +335,13 @@ paths:
         When the service cannot be reached, does not answer within 5 seconds, or answers with an
         error, the save is refused with `503 ADDRESS_SERVICE_UNAVAILABLE` and nothing is saved,
         with or without `acceptUnverifiedAddress`.
+
+        Feature 020: the venue's `timeZone` is decided after the address, in this order: the
+        `timeZone` sent (`timeZoneSource: ADMIN`); else, for a verified address, the zone at the
+        place the address service matched (`ADDRESS`); else the zone of `state` when the state has
+        one (`STATE`). In a state with more than one zone (AK, AZ, FL, ID, IN, KS, KY, MI, NE, NV,
+        ND, OR, SD, TN, TX) the create is refused with `400 TIME_ZONE_REQUIRED`, listing the
+        state's zones in `details.timeZones`, and nothing is saved; resend with `timeZone`.
       operationId: createLocation
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -382,6 +397,20 @@ paths:
         and keeps `addressVerified` as it is. `acceptUnverifiedAddress` without the four address
         fields is `400`. A venue saved before feature 013 keeps its `address`, has `null` parts,
         and has `addressVerified: false` until its address is changed.
+
+        Feature 020: `timeZone`, when sent, becomes the venue's zone (`timeZoneSource: ADMIN`),
+        also together with an address change. Otherwise, when the address is checked (it was sent
+        and differs), the zone is decided again exactly as in `createLocation`, including
+        `400 TIME_ZONE_REQUIRED`. An edit that sends neither never changes the zone.
+
+        When the zone changes, every event at the venue (scheduled or cancelled) keeps its local
+        start and end date and time, so its `startsAt` and `endsAt` move. The change is refused,
+        and nothing is saved, with `409 TIME_ZONE_HAS_ORDERS` when any event at the venue has any
+        order (`details.events`); with `409 EVENT_TIME_NOT_IN_ZONE` when an event's local start or
+        end does not exist, or happens twice, in the new zone (`details.event`, `details.reason`
+        `SKIPPED` or `REPEATED`); and with `409 SCHEDULING_CONFLICT` when the moved scheduled
+        events would be closer than 60 minutes (`details.conflictingEvent` and `details.event`).
+        All or nothing: the events and the venue change together.
       operationId: updateLocation
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -401,20 +430,53 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '503': { $ref: '#/components/responses/AddressServiceUnavailable' }
         '409':
-          description: An existing event's ticket capacity exceeds the proposed seating capacity.
+          description: |
+            An existing event's ticket capacity exceeds the proposed seating capacity
+            (`CAPACITY_EXCEEDED`); or, feature 020, the time zone cannot change
+            (`TIME_ZONE_HAS_ORDERS`, `EVENT_TIME_NOT_IN_ZONE`, `SCHEDULING_CONFLICT`).
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
-              example:
-                error:
-                  code: CAPACITY_EXCEEDED
-                  message: "Cannot reduce seating capacity to 500; event 'Season Opener' has a ticket capacity of 900."
-                  details:
-                    proposedSeatingCapacity: 500
-                    conflictingEvent:
-                      id: 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40
-                      name: Season Opener
-                      totalTicketCapacity: 900
+              examples:
+                capacityExceeded:
+                  summary: An event sells more tickets than the proposed seating capacity
+                  value:
+                    error:
+                      code: CAPACITY_EXCEEDED
+                      message: "Cannot reduce seating capacity to 500; event 'Season Opener' has a ticket capacity of 900."
+                      details:
+                        proposedSeatingCapacity: 500
+                        conflictingEvent:
+                          id: 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40
+                          name: Season Opener
+                          totalTicketCapacity: 900
+                timeZoneHasOrders:
+                  summary: Feature 020. Tickets were sold for one of the venue's events
+                  value:
+                    error:
+                      code: TIME_ZONE_HAS_ORDERS
+                      message: "Can't change the time zone of Freedom Hall: tickets have been sold for 1 of its events. No customer's ticket time may move."
+                      details:
+                        timeZone: America/New_York
+                        proposedTimeZone: America/Chicago
+                        eventCount: 1
+                        events:
+                          - id: 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40
+                            name: Season Opener
+                eventTimeNotInZone:
+                  summary: Feature 020. An event's local time does not exist in the new zone
+                  value:
+                    error:
+                      code: EVENT_TIME_NOT_IN_ZONE
+                      message: "Can't change the time zone: Late Show's start, Mar 14, 2027, 2:30 AM, doesn't exist in Mountain Time."
+                      details:
+                        event:
+                          id: 7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40
+                          name: Late Show
+                        field: startsAt
+                        localTime: '2027-03-14T02:30'
+                        proposedTimeZone: America/Denver
+                        reason: SKIPPED
     delete:
       tags: [venues]
       summary: Delete a venue
@@ -532,6 +594,10 @@ paths:
         Each event embeds its venue. Ordered by `startsAt`, soonest first; the Customer app
         (feature 003) relies on this order. Optional filters, combinable: `locationId` (used by the
         Admin app's venue page), and `q`, `from`, `to` (feature 004, the Admin app's event search).
+
+        Feature 020: `fromDate` and `toDate` filter by the day an event starts **in its venue's
+        time zone**, both inclusive; the Admin and Customer apps' date filters use them. They
+        cannot be combined with `from` or `to` (`400`), and `fromDate` after `toDate` is `400`.
       operationId: listEvents
       x-required-roles: []
       parameters:
@@ -559,6 +625,20 @@ paths:
           description: |
             Keep only events with `startsAt` strictly before this instant. When both are given,
             `from` must be earlier than `to`, otherwise `400`.
+        - name: fromDate
+          in: query
+          required: false
+          schema: { type: string, format: date, example: '2026-10-01' }
+          description: |
+            Feature 020. Keep only events that start on or after this day, in their venue's
+            `timeZone`.
+        - name: toDate
+          in: query
+          required: false
+          schema: { type: string, format: date, example: '2026-10-01' }
+          description: |
+            Feature 020. Keep only events that start on or before this day, in their venue's
+            `timeZone`.
       responses:
         '200':
           description: Matching events, ordered by start time.
@@ -579,6 +659,14 @@ paths:
         Feature 016: `maxTicketsPerCustomer`, when given, must be from 1 to the event's
         `totalTicketCapacity`, where an omitted capacity is the venue's `seatingCapacity` (`400`
         otherwise). It is checked after the venue's seating capacity.
+
+        Feature 020: a `startsAt` or `endsAt` without a UTC offset, or a date only, is
+        `400 VALIDATION_FAILED` with the field validation. Right after the venue is found,
+        `startsAt` and then `endsAt` are checked against the venue's `timeZone`: a local time the zone skips is `400 LOCAL_TIME_SKIPPED`,
+        and a time stated with an offset other than the venue's at that local time (including `Z`)
+        is `400 UTC_OFFSET_MISMATCH`. A local time the zone repeats is accepted with either of its
+        two offsets. The scheduling conflict message names the conflicting event's times in the
+        venue's local time.
       operationId: createEvent
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -592,7 +680,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Event' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '400': { $ref: '#/components/responses/EventTimeRejected' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -638,6 +726,11 @@ paths:
         `totalTicketCapacity` below the stored limit, without sending a new one, is `409
         CAPACITY_EXCEEDED` (`details.proposedTicketCapacity`, `details.maxTicketsPerCustomer`).
         Lowering or clearing the limit never changes an existing order or ticket.
+
+        Feature 020: each of `startsAt` and `endsAt` sent is checked against the destination
+        venue's `timeZone` as in `createEvent`. Moving the event to a venue in a different time
+        zone must send both `startsAt` and `endsAt` (`400 VALIDATION_FAILED` otherwise), so its
+        local times are explicit; a move within the same zone without times keeps the instants.
       operationId: updateEvent
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -651,7 +744,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Event' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '400': { $ref: '#/components/responses/EventTimeRejected' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1258,6 +1351,8 @@ paths:
         Refused with `409 ENTRY_REFUSED` when nothing could be admitted. `details.reason` is
         `USED` (with `details.usedAt`), `VOID`, `OTHER_EVENT` (with `details.event`), `NOT_OPEN`
         (with `details.entryOpensAt`), or `ENDED`, the same states `lookupEntryTicket` reports.
+        Feature 020: `details.event` also carries the event's venue `timeZone`, as
+        `EntryTicket.event` does.
         A refused ID check is not sent to the Backend: the client simply does not call this.
       operationId: admitTicket
       x-required-roles: [gate-agent]
@@ -1535,6 +1630,10 @@ components:
 
         The five fields are always sent from feature 013 on, but are not in `required`, so this
         contract can merge before the Backend sends them (feature 013 research R11).
+
+        Feature 020: `timeZone` and `timeZoneSource` are always sent once feature 020 is
+        implemented; they are not in `required` so this contract can merge first (feature 020
+        research R18). Clients treat a missing `timeZone` as `America/New_York`.
       type: object
       required: [id, name, address, seatingCapacity, createdAt, updatedAt]
       properties:
@@ -1565,6 +1664,8 @@ components:
         addressVerified:
           type: boolean
           description: Whether the address service matched this address. Clients mark `false` as "Address not verified".
+        timeZone: { $ref: '#/components/schemas/UsTimeZone' }
+        timeZoneSource: { $ref: '#/components/schemas/TimeZoneSource' }
         seatingCapacity: { type: integer, minimum: 1, example: 22090 }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -1608,6 +1709,13 @@ components:
           example: '40507'
         acceptUnverifiedAddress:
           $ref: '#/components/schemas/AcceptUnverifiedAddress'
+        timeZone:
+          allOf: [{ $ref: '#/components/schemas/UsTimeZone' }]
+          description: |
+            Feature 020. Optional: the admin's explicit choice of the venue's time zone, used
+            instead of the zone worked out from the address or state (`timeZoneSource: ADMIN`).
+            Needed for an address saved anyway in a state with more than one zone
+            (`400 TIME_ZONE_REQUIRED` otherwise).
         seatingCapacity:
           { type: integer, minimum: 1, description: Must be a positive whole number. }
 
@@ -1626,6 +1734,12 @@ components:
         zip: { type: string, pattern: '^[0-9]{5}(-[0-9]{4})?$' }
         acceptUnverifiedAddress:
           $ref: '#/components/schemas/AcceptUnverifiedAddress'
+        timeZone:
+          allOf: [{ $ref: '#/components/schemas/UsTimeZone' }]
+          description: |
+            Feature 020. The admin's explicit choice of the venue's time zone (`timeZoneSource:
+            ADMIN`). A change of zone moves the venue's events to keep their local times, and is
+            refused as described in `updateLocation`.
         seatingCapacity: { type: integer, minimum: 1 }
 
     AcceptUnverifiedAddress:
@@ -1697,6 +1811,35 @@ components:
           WI,
           WY,
         ]
+
+    UsTimeZone:
+      type: string
+      description: |
+        Feature 020. A venue's time zone, by its IANA name: Eastern (`America/New_York`), Central
+        (`America/Chicago`), Mountain (`America/Denver`), Arizona, Mountain without daylight saving
+        (`America/Phoenix`), Pacific (`America/Los_Angeles`), Alaska (`America/Anchorage`),
+        Hawaii-Aleutian (`America/Adak`), and Hawaii (`Pacific/Honolulu`).
+      enum:
+        [
+          America/New_York,
+          America/Chicago,
+          America/Denver,
+          America/Phoenix,
+          America/Los_Angeles,
+          America/Anchorage,
+          America/Adak,
+          Pacific/Honolulu,
+        ]
+      example: America/New_York
+
+    TimeZoneSource:
+      type: string
+      description: |
+        Feature 020. How a venue's `timeZone` was set: `ADDRESS`, worked out from the place the
+        address service matched; `STATE`, from the venue's state, which has one zone; `ADMIN`,
+        chosen by an admin; `DEFAULT`, `America/New_York` by default: a venue that existed before
+        feature 020, or a demo-data venue saved while the address service was unavailable.
+      enum: [ADDRESS, STATE, ADMIN, DEFAULT]
 
     Event:
       type: object
@@ -1774,8 +1917,20 @@ components:
             format: uuid,
             description: Must reference an existing venue; otherwise 404.,
           }
-        startsAt: { type: string, format: date-time }
-        endsAt: { type: string, format: date-time, description: Must be strictly after `startsAt`. }
+        startsAt:
+          type: string
+          format: date-time
+          example: '2026-10-01T19:00:00-04:00'
+          description: |
+            Feature 020: the venue's local date and time with the venue's UTC offset at that time
+            (`400 LOCAL_TIME_SKIPPED` or `400 UTC_OFFSET_MISMATCH` otherwise).
+        endsAt:
+          type: string
+          format: date-time
+          example: '2026-10-01T22:00:00-04:00'
+          description: |
+            Must be strictly after `startsAt`. Feature 020: stated like `startsAt`, in the venue's
+            local time and offset.
         totalTicketCapacity:
           type: integer
           minimum: 1
@@ -1797,9 +1952,20 @@ components:
       description: Partial update; supply only the fields being changed.
       properties:
         name: { type: string, minLength: 1, maxLength: 200 }
-        locationId: { type: string, format: uuid }
-        startsAt: { type: string, format: date-time }
-        endsAt: { type: string, format: date-time }
+        locationId:
+          type: string
+          format: uuid
+          description: |
+            Feature 020: moving to a venue in a different time zone must also send `startsAt` and
+            `endsAt`.
+        startsAt:
+          type: string
+          format: date-time
+          description: Feature 020. In the destination venue's local time and offset.
+        endsAt:
+          type: string
+          format: date-time
+          description: Feature 020. In the destination venue's local time and offset.
         totalTicketCapacity: { type: integer, minimum: 1 }
         maxTicketsPerCustomer:
           type: [integer, 'null']
@@ -2033,6 +2199,11 @@ components:
               maxLength: 500
               description: Feature 019. The venue's full one-line address, the same as its `Location.address`, for the customer's calendar entry. Always sent once feature 019 is implemented, which adds it to `required`.
               example: '1 ARENA PLAZA, LOUISVILLE, KY 40202'
+            timeZone:
+              allOf: [{ $ref: '#/components/schemas/UsTimeZone' }]
+              description: |
+                Feature 020. The venue's time zone, for showing the event's times. Always sent once
+                020 is implemented; clients treat a missing value as `America/New_York`.
 
     Availability:
       description: |
@@ -2345,6 +2516,11 @@ components:
         name: { type: string }
         venueName: { type: string }
         startsAt: { type: string, format: date-time }
+        timeZone:
+          allOf: [{ $ref: '#/components/schemas/UsTimeZone' }]
+          description: |
+            Feature 020. The venue's time zone, for showing `startsAt`. Always sent once 020 is
+            implemented; clients treat a missing value as `America/New_York`.
         status: { type: string, enum: [SCHEDULED, CANCELLED] }
         ticketCapacity: { type: integer, minimum: 1 }
         ticketsSold: { type: integer, minimum: 0 }
@@ -2421,6 +2597,12 @@ components:
             name: { type: string, example: Season Opener }
             startsAt: { type: string, format: date-time }
             endsAt: { type: string, format: date-time }
+            timeZone:
+              allOf: [{ $ref: '#/components/schemas/UsTimeZone' }]
+              description: |
+                Feature 020. The event's venue's time zone, for showing its times, `usedAt`, and
+                `entryOpensAt`. Always sent once 020 is implemented; clients treat a missing value
+                as `America/New_York`.
         tierName:
           type: [string, 'null']
           description: '`null` for an event sold at its base price.'
@@ -2549,6 +2731,11 @@ components:
                 - ENTRY_REFUSED
                 - LIVE_CODE_INVALID
                 - LIVE_CODE_EXPIRED
+                - TIME_ZONE_REQUIRED
+                - TIME_ZONE_HAS_ORDERS
+                - EVENT_TIME_NOT_IN_ZONE
+                - LOCAL_TIME_SKIPPED
+                - UTC_OFFSET_MISMATCH
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -2594,6 +2781,60 @@ components:
                   endsAt: must be later than startsAt
                   seatingCapacity: must be a positive whole number
 
+    EventTimeRejected:
+      description: |
+        Request shape or field validation failed (`VALIDATION_FAILED`, including, feature 020, an
+        event time without a UTC offset or a date only), or, feature 020, an event time does not
+        fit the venue's time zone: the local time is skipped by a daylight-saving
+        change (`LOCAL_TIME_SKIPPED`), or it is stated with an offset other than the venue's at
+        that local time (`UTC_OFFSET_MISMATCH`). Nothing was saved.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            validationFailed:
+              summary: A field failed validation
+              value:
+                error:
+                  code: VALIDATION_FAILED
+                  message: Request validation failed.
+                  details:
+                    fields:
+                      endsAt: must be later than startsAt
+            noUtcOffset:
+              summary: Feature 020. An event time without a UTC offset
+              value:
+                error:
+                  code: VALIDATION_FAILED
+                  message: Request validation failed.
+                  details:
+                    fields:
+                      startsAt: must include a UTC offset, for example 2026-10-01T19:00:00-04:00
+            localTimeSkipped:
+              summary: Feature 020. Clocks spring forward past this time at the venue
+              value:
+                error:
+                  code: LOCAL_TIME_SKIPPED
+                  message: "2:30 AM on Mar 14, 2027 doesn't exist in Eastern Time: clocks jump from 2:00 AM to 3:00 AM. Choose another time."
+                  details:
+                    field: startsAt
+                    localTime: '2027-03-14T02:30'
+                    timeZone: America/New_York
+                    skippedFrom: '02:00'
+                    skippedTo: '03:00'
+            utcOffsetMismatch:
+              summary: Feature 020. The time is stated in another zone than the venue's
+              value:
+                error:
+                  code: UTC_OFFSET_MISMATCH
+                  message: "startsAt is stated with offset -07:00, but Freedom Hall is in Eastern Time, which is -04:00 at that time. Send the venue's local time with its offset."
+                  details:
+                    field: startsAt
+                    localTime: '2026-10-01T19:00'
+                    timeZone: America/New_York
+                    sentOffset: '-07:00'
+                    expectedOffsets: ['-04:00']
+
     OrderRejected:
       description: |
         Request shape or field validation failed (`VALIDATION_FAILED`), or, feature 017, the
@@ -2632,6 +2873,9 @@ components:
         is reported as `ADDRESS_NOT_FOUND`. Nothing was saved.
         After either address refusal, the client may resend the same request with
         `acceptUnverifiedAddress: true` to save the venue as not verified.
+
+        Feature 020: `TIME_ZONE_REQUIRED` when the zone cannot be worked out from the address and
+        the state has more than one (`details.state`, `details.timeZones`); resend with `timeZone`.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
@@ -2674,6 +2918,15 @@ components:
                   details:
                     address: '1540 University Dr, Lexington, KY 40508'
                     candidates: ['1540 UNIVERSITY CT, LEXINGTON, KY 40503']
+            timeZoneRequired:
+              summary: Feature 020. Saved anyway in a state with more than one time zone
+              value:
+                error:
+                  code: TIME_ZONE_REQUIRED
+                  message: "Kentucky has more than one time zone. Choose this venue's time zone: Eastern Time or Central Time."
+                  details:
+                    state: KY
+                    timeZones: [America/New_York, America/Chicago]
 
     AddressServiceUnavailable:
       description: |
@@ -2779,7 +3032,10 @@ components:
       description: |
         The request violates a business rule; `code` says which. For `SCHEDULING_CONFLICT`,
         `details.conflictingEvent` names the event responsible. It is `null` only when a
-        concurrent request won the race and the database constraint refused this write.
+        concurrent request won the race and the database constraint refused this write. Feature
+        020: the message gives times in the venue's local time with the zone's abbreviation, the
+        start with its date and the end with its date when it differs; for
+        a venue's time-zone change, `details.event` names the second event of the pair.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
@@ -2807,7 +3063,7 @@ components:
               value:
                 error:
                   code: SCHEDULING_CONFLICT
-                  message: "KFC Yum! Center is already committed from 18:00 to 21:00 by 'Season Opener'. Events at the same venue must be at least 60 minutes apart."
+                  message: "This venue is already committed from Oct 1, 2026, 6:00 PM EDT to 9:00 PM EDT by 'Season Opener'. Events at the same venue must be at least 60 minutes apart."
                   details:
                     bufferMinutes: 60
                     conflictingEvent:
