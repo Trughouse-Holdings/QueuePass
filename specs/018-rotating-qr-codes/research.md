@@ -229,7 +229,9 @@ changes every 30 seconds and the gate scans it. The page uses theme values only 
 pixels.
 
 **States**: while the key loads, "Getting your entry code…"; no connection on load, "Can't show the
-live code without a connection. Use your printed ticket with photo ID."; a `409` (used or void),
+live code without a connection. Use your printed ticket with photo ID.", whether it is
+`listMyOrders` or the key request that gets no answer (a reload with no signal fails at the first);
+a `409` (used or void),
 that reason and no code; any other failure, the standard error state with a **Try again** button
 (Constitution IV).
 

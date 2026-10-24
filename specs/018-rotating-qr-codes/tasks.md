@@ -194,7 +194,9 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
   a used ticket is `409 ENTRY_REFUSED` with
   `details.reason: 'USED'` and `details.usedAt`; a void ticket (cancelled event) is `409
   ENTRY_REFUSED` with `reason: 'VOID'`; a ticket bought before 017 (`orderWithTickets` with no
-  name) still gets its key.
+  name) still gets its key; and so do a ticket for an event 30 days away and one for an event that
+  has ended, both valid and unused (`eventAroundNow`, `orderWithTickets`): the key doesn't depend
+  on the entry window (FR-005).
 - [ ] T011 [P] [US1] Write `backend/test/integration/entry-key.authz.e2e-spec.ts`:
   `getTicketEntryKey` answers `401` with no token, an expired token, a wrongly signed one, and one
   for another audience; `403` for an admin and for a gate agent; `200` for the buyer (FR-003,
@@ -208,17 +210,24 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
   other-event, not-yet-open, and ended ticket gives `state` `USED` (with `usedAt`), `VOID`,
   `OTHER_EVENT`, `NOT_OPEN`, and `ENDED`, each with `verifiedBy: 'LIVE_CODE'`; a ticket bought
   before 017 has a working live code with `holderName: null`.
-- [ ] T013 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and
-  `vi.useFakeTimers()`. If `globalThis.crypto.subtle` is missing under jsdom, first make
-  `customer-app/test/setup.ts` assign `webcrypto` from `node:crypto` to `globalThis.crypto`.
+- [ ] T013 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and fake
+  timers set up as `customer-app/test/seat-holds.test.tsx` does: `vi.useFakeTimers({
+  shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
+  'performance', 'Date'] })`. A bare `vi.useFakeTimers()` stalls Testing Library's `findBy…` and
+  `waitFor`, which under Vitest poll with the faked timers. Move the device clock with
+  `vi.setSystemTime`. `crypto.subtle` works under this jsdom setup as it is (checked 2026-10-23),
+  so `test/setup.ts` needs no change.
   - **My tickets** shows **Show entry code**, linking to `/my-tickets/<ticketId>/entry-code`, on
     each valid, unused ticket only, next to **Print ticket**; none on void or used tickets.
   - The page calls `getTicketEntryKey` once and shows "Getting your entry code…" until it answers;
     then an SVG with the accessible name "Live entry code, changes every 30 seconds", "Changes in
     N s", the holder's name (or "No name on ticket"), the event's name and start time, and the
     seat if any.
-  - Decoding the drawn matrix (the matrix `qrMatrix` returns for the code) gives a string that
-    `parseLiveCode` accepts for this ticket and the current window.
+  - The QR drawn is the current live code: the test computes the expected code itself with
+    `liveCode(key, ticketId, windowAt(serverNow))` from `@queuepass/shared`, checks that
+    `parseLiveCode` accepts it for this ticket, and compares the SVG's `path` with the path
+    `qrMatrix(expected)` gives, as `print-ticket.test.tsx` compares matrices. The Customer app has
+    no QR decoder, and none is added.
   - Advancing the timers across a window boundary draws a new code within 1 second, and the
     countdown restarts at 30 (or 29) (FR-002, SC-006).
   - With the device clock 5 minutes **ahead** of `serverTime`, and again 5 minutes **behind**, every
@@ -232,7 +241,8 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
     `window.location`.
   - The countdown is not inside any `aria-live` or `role="status"` region (FR-004).
   - States: the key request failing with a network error shows "Can't show the live code without a
-    connection. Use your printed ticket with photo ID."; a `409` with `USED` shows "This ticket was
+    connection. Use your printed ticket with photo ID."; so does `listMyOrders` getting no answer
+    (the page reloaded with no connection, quickstart S6); a `409` with `USED` shows "This ticket was
     already used." and no QR; `404` shows "Ticket not found"; any other failure shows the standard
     error with **Try again**, which retries.
 - [ ] T014 [P] [US1] Add to `booth-app/test/scanner.test.tsx` and `booth-app/test/check-in.test.tsx`:
@@ -294,7 +304,9 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
     `className`/`label` "Live entry code, changes every 30 seconds"), "Changes in N s" as plain text
     outside any live region, the static sentence "Show this at the gate. It changes every 30
     seconds.", the holder's name or "No name on ticket", the event's name and start time, and the
-    seat; the states of T013. Clears the interval on unmount.
+    seat; the states of T013. Where `PrintTicket.tsx` shows `<ServiceUnreachable />` for
+    `useLoad`'s `unreachable`, this page shows the no-connection message instead (FR-010). Clears
+    the interval on unmount.
   - `customer-app/src/App.tsx`: the route `/my-tickets/:ticketId/entry-code`.
   - `customer-app/src/pages/MyTickets.tsx`: a **Show entry code** link, `aria-label` "Show entry
     code for ticket <code>", on each valid, unused ticket, beside **Print ticket**.
@@ -325,7 +337,10 @@ recorded and nothing about the ticket shown.
 its window and grace and refused just outside; forged codes are refused as not valid.
 
 - [ ] T025 [P] [US2] Write `backend/test/integration/entry.live-boundaries.e2e-spec.ts` with
-  `ctx.clock.set` and one ticket's code for window `w = windowAt(Date.now())` (SC-001): at
+  `ctx.clock.set` and one ticket's code for window `w = liveWindowAt(Date.now())` (SC-001), where
+  `liveWindowAt` is the shared module's `windowAt` imported under that name
+  (`import { windowAt as liveWindowAt } from '@queuepass/shared'`). `backend/test/setup/fixtures.ts`
+  already exports a different `windowAt(daysFromNow, hour)` for event times; never mix them up. At
   `w × 30000 − 5000` and at `(w + 1) × 30000 + 4999`, `200` with `verifiedBy: 'LIVE_CODE'`; at
   `w × 30000 − 5001` and at `(w + 1) × 30000 + 5000`, `409 LIVE_CODE_EXPIRED` with the message
   "This live code has expired." and no `details`. Repeat for 3 consecutive windows. Then, with the
