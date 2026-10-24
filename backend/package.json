@@ -13,7 +13,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "test": "jest --runInBand",
     "test:watch": "jest --watch --runInBand",
-    "pretest": "npm run build --workspace @queuepass/shared"
+    "pretest": "npm run build --workspace @queuepass/shared && prisma generate"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
