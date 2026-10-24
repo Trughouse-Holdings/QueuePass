@@ -8,9 +8,9 @@ export const CALENDAR_NOTE = "A copy for your calendar: it won't change if the e
 const REVOKE_AFTER_MS = 60_000;
 
 /**
- * Spec 019 US1 and US2 (FR-001, FR-003, FR-008 to FR-011, FR-013, FR-014; research R8, R11, R12): the "Add to
- * calendar" group on an eligible order card. The file is made on the device at the click, from
- * what My tickets already loaded; nothing is requested (FR-010).
+ * Spec 019 US1 and US2 (FR-001, FR-003, FR-008 to FR-011, FR-013, FR-014; research R8, R11,
+ * R12): the "Add to calendar" group on an eligible order card. The file is made on the device at
+ * the click, from what My tickets already loaded; nothing is requested (FR-010).
  */
 export function AddToCalendar({ order }: { order: MyOrder }) {
   const { event } = order;
