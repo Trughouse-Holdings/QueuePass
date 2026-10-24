@@ -153,6 +153,13 @@ export function icsFileName(name: string): string {
   return `${slug || 'event'}.ics`;
 }
 
+/** Both times parse and the end is after the start, so the entry can be made (R14). */
+function usableTimes(startsAt: string, endsAt: string): boolean {
+  const start = Date.parse(startsAt);
+  const end = Date.parse(endsAt);
+  return Number.isFinite(start) && Number.isFinite(end) && end > start;
+}
+
 /**
  * Research R10, FR-002: offered while the event is not cancelled, has not ended (`endsAt` is
  * exclusive), and the order holds a valid ticket, used or not. `nowMs` is when My tickets loaded.
@@ -160,6 +167,7 @@ export function icsFileName(name: string): string {
 export function calendarEligible(order: MyOrder, nowMs: number): boolean {
   return (
     order.event.status !== 'CANCELLED' &&
+    usableTimes(order.event.startsAt, order.event.endsAt) &&
     nowMs < Date.parse(order.event.endsAt) &&
     order.tickets.some((t) => t.status === 'VALID')
   );

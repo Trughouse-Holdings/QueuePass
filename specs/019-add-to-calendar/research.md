@@ -113,16 +113,21 @@ END:VCALENDAR
 - `CALSCALE:GREGORIAN` is the default; stated because some older Outlook versions expect it.
 - `METHOD:PUBLISH` (RFC 5546): the file is information to add, not an invitation to answer. Without
   a `METHOD`, or with `REQUEST`, Outlook can treat the entry as a meeting and offer Accept/Decline,
-  and some apps then expect an `ORGANIZER`. `PUBLISH` needs neither `ORGANIZER` nor `ATTENDEE`, so
-  no person or account appears in the file (FR-004).
+  and some apps then expect an `ORGANIZER`. RFC 5546 §3.2.1 does list `ORGANIZER` as required in a
+  `PUBLISH` event; the file leaves it out on purpose (a deliberate deviation, review round 2, T022):
+  it would put a person or address in a file the customer may forward (FR-004), and Apple
+  Calendar, Outlook, and Google import a `PUBLISH` event without one. The browser walk (T023)
+  confirms each imports it as a plain entry. No `ATTENDEE` either, so no account appears.
 - `UID` and `DTSTAMP` are required in every `VEVENT` (§3.6.1); see R4.
 - `DTSTART` and `DTEND` in UTC (R5). `DTEND` rather than `DURATION`, because the event has an end
-  (R14) and an end time reads plainly.
+  (R14) and an end time reads plainly. An order whose stored times don't parse, or whose end is not
+  after its start, gets no calendar group at all (review round 2, T022), so one bad record can't
+  break My tickets.
 - `SUMMARY` is the title, `LOCATION` the place (FR-004). The comma between venue name and address is
   escaped like every other comma in a text value (R6).
 - No `DESCRIPTION`, `URL`, `ORGANIZER`, `ATTENDEE`, `VALARM`, `SEQUENCE`, `STATUS`, or `TRANSP`:
   FR-004 limits the content, reminders are the calendar app's (spec Out of Scope), and each is
-  optional. `SEQUENCE` defaults to 0, which is what a snapshot is.
+  optional in RFC 5545 (`ORGANIZER`'s RFC 5546 deviation is above). `SEQUENCE` defaults to 0, which is what a snapshot is.
 - No `VTIMEZONE`: every time is UTC (R5).
 - No byte order mark: RFC 5545 §3.1.4 makes UTF-8 the default, and a BOM before `BEGIN` breaks some
   readers.

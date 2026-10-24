@@ -325,10 +325,15 @@ US3's tests are here because the same component decides both.
     re-check by the same reviewer (not counted as round 2) found the shape check no longer tied
     `DTSTAMP` to the click time (stamping `new Date(0)` passed); the test now also requires
     `DTSTAMP:20261024T1530[0-5]\dZ`, and the same mutation fails 3 tests.
-- [ ] T022 Review round 2 (Mahdi, 2026-10-24): another separate Claude session, not the one from
+- [x] T022 Review round 2 (Mahdi, 2026-10-24): another separate Claude session, not the one from
   round 1, reviews the branch after round 1's fixes. Fix the findings. If this round finds anything
   above LOW, run further rounds (T022a, T022b, …) until one finds only LOW issues. Record every
   round. After the last fixes, rerun T016, T017, T018 (three runs each), and T020.
+  - 2026-10-24, at `3fdbf43`, by a fresh session that had not seen round 1: 0 must, 0 should,
+    3 minor; 18 mutations of its own each failed tests. Fixed: an order whose event times are
+    unusable gets no group, so one bad record can't blank My tickets (tests first: `calendarEligible`
+    and a component test, both seen failing); R3 records the deliberate RFC 5546 `ORGANIZER`
+    deviation, for T023 to confirm; README count. No round above LOW remains.
 
 ---
 
