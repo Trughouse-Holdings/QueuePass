@@ -1,3 +1,4 @@
+import { EntryService } from '../../src/entry/entry.service';
 import { asAdmin } from '../setup/authed-request';
 import { agent, eventAroundNow, orderWithTickets, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
@@ -54,6 +55,45 @@ describe('Entry window and the order of reasons', () => {
     const { tickets } = await orderWithTickets(ctx, eventId, { quantity: 1 });
     expect((await lookup(eventId, tickets[0].code)).body.state).toBe('ADMITTABLE');
     expect((await admit(eventId, tickets[0].id)).status).toBe(200);
+  });
+
+  it('admits when the window opens between the UPDATE and its re-read: the one retry', async () => {
+    // The admit's UPDATE misses while the event is NOT_OPEN; the event then moves a minute
+    // earlier just before the re-read (FR-019, research R5), as the clock would at the
+    // boundary. The re-read says ADMITTABLE, so the admit tries once more and records the entry.
+    const eventId = await eventAroundNow(ctx, venueId, {
+      startsInSeconds: 2 * 3600 + 30,
+      lastsSeconds: 3600,
+    });
+    const { tickets } = await orderWithTickets(ctx, eventId, { quantity: 1 });
+    const service = ctx.app.get(EntryService) as unknown as {
+      select: (...args: unknown[]) => Promise<unknown>;
+      tryAdmit: (...args: unknown[]) => Promise<unknown>;
+    };
+    const realSelect = service.select.bind(service);
+    const select = jest.spyOn(service, 'select').mockImplementationOnce(async (...args) => {
+      await ctx.prisma.$executeRaw`
+        UPDATE "Event"
+        SET "startsAt" = "startsAt" - interval '1 minute', "endsAt" = "endsAt" - interval '1 minute'
+        WHERE "id" = ${eventId}::uuid`;
+      return realSelect(...args);
+    });
+    const tryAdmit = jest.spyOn(service, 'tryAdmit');
+    try {
+      const res = await admit(eventId, tickets[0].id);
+      expect(res.status).toBe(200);
+      expect(res.body.admitted.map((t: { ticketId: string }) => t.ticketId)).toEqual([
+        tickets[0].id,
+      ]);
+      // Missed once, re-read once, admitted on the retry.
+      expect(tryAdmit).toHaveBeenCalledTimes(2);
+      expect(select).toHaveBeenCalledTimes(1);
+      const row = await ctx.prisma.ticket.findUniqueOrThrow({ where: { id: tickets[0].id } });
+      expect(row.checkedInAt).not.toBeNull();
+    } finally {
+      select.mockRestore();
+      tryAdmit.mockRestore();
+    }
   });
 
   it('ending in 30 seconds still admits', async () => {
