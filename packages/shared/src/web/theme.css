@@ -743,7 +743,8 @@ dd {
 }
 /* An Events list card: the gallery spans the card's width (FR-020), never under 160px so its
    arrows and Pause/Play never overlap; the Customer app's .event-card cancels its padding so the
-   gallery is flush with the card's edges. */
+   gallery is flush with the card's edges. Before measuring, the floor with the 4:3 below would
+   widen a card narrower than 213px; Events cards are at least 260px wide (customer-app grid). */
 .gallery--card {
   min-height: 160px;
 }

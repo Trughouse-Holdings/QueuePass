@@ -530,7 +530,8 @@ gallery shows the last image viewed.
   size in between. When the picture changes, the box's height MUST change
   smoothly with FR-040's slide, over the same 0.4 seconds; under reduced motion it changes at once.
   When only the window changes size, the box follows at once, with no transition.
-  The Admin form's previews follow the card's rule at the preview's width.
+  The Admin form's previews follow the card's shape limits (3:4 to 2:1) at the preview's width,
+  without the 160-pixel floor.
 
 ### Key Entities
 

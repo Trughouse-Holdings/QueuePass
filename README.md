@@ -9,8 +9,9 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 
 ## Status
 
-Features `001` through `008` and `012` through `017` are built and verified. `018` is built; its
-running-system walk is pending.
+Features `001` through `008`, `012`, `013`, and `015` through `017` are built and verified. `014`
+is built, and its whole-pictures change (#73) is in progress. `018` is built; its running-system
+walk is pending.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                      | Spec             | Plan and tasks            | Code                                        |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------- | ------------------------------------------- |
