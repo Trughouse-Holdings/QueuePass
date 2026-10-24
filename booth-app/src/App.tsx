@@ -107,6 +107,9 @@ function Booth() {
    * refusal of the code itself or a failed request keeps it (Constitution IV).
    */
   async function lookUp(code: string): Promise<boolean> {
+    // FR-024: the camera is never open during a request, so it can't read another ticket whose
+    // answer would race this one. Scan stays disabled until the request ends.
+    setScanning(false);
     if (!chosen) return false;
     setOutcome(null);
     setNotice(null);
@@ -146,6 +149,7 @@ function Booth() {
   }
 
   async function admit(wholeOrder: boolean): Promise<void> {
+    setScanning(false);
     if (!chosen || outcome?.kind !== 'ticket') return;
     setNotice(null);
     setBusy(true);
@@ -234,11 +238,9 @@ function Booth() {
             />
             {scanning && (
               <Scanner
-                onTicketCode={(code) => {
-                  // A scan behaves exactly like typing the code it carries (FR-009).
-                  setScanning(false);
-                  void lookUp(code);
-                }}
+                // A scan behaves exactly like typing the code it carries (FR-009); the lookup
+                // closes the camera.
+                onTicketCode={(code) => void lookUp(code)}
                 onStop={() => setScanning(false)}
               />
             )}

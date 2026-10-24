@@ -36,7 +36,17 @@ const iso = (inHours: number): string => new Date(Date.now() + inHours * hour).t
 const EVENT_ID = '7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40';
 const CODE = '7KQ2M9XWAB4C';
 
-function stubApi(extra: Record<string, Response> = {}) {
+const ADMIT = `POST /events/${EVENT_ID}/entry/admit`;
+const LOOKUP = `POST /events/${EVENT_ID}/entry/lookup`;
+
+/** A reply that waits until the test releases it, to look at the screen mid-request. */
+function held() {
+  let release: (r: Response) => void = () => undefined;
+  const reply = () => new Promise<Response>((resolve) => (release = resolve));
+  return { reply, release: (r: Response) => release(r) };
+}
+
+function stubApi(extra: Record<string, Response | (() => Promise<Response>)> = {}) {
   const calls: { method: string; path: string; body: unknown }[] = [];
   vi.stubGlobal(
     'fetch',
@@ -45,7 +55,7 @@ function stubApi(extra: Record<string, Response> = {}) {
       const url = new URL(req.url);
       const body = req.method === 'GET' ? null : JSON.parse((await req.clone().text()) || 'null');
       calls.push({ method: req.method, path: url.pathname, body });
-      const routes: Record<string, Response> = {
+      const routes: Record<string, Response | (() => Promise<Response>)> = {
         'GET /events': json([
           {
             id: EVENT_ID,
@@ -73,7 +83,7 @@ function stubApi(extra: Record<string, Response> = {}) {
       };
       const reply = routes[`${req.method} ${url.pathname}`];
       if (!reply) return json({ error: { code: 'NOT_FOUND', message: 'unstubbed' } }, 404);
-      return reply.clone();
+      return (typeof reply === 'function' ? await reply() : reply).clone();
     }),
   );
   return { calls };
@@ -179,6 +189,64 @@ describe('Scanning (US5-3 to US5-6)', () => {
     expect(await within(await scanRegion()).findByRole('alert')).toHaveTextContent(
       "The camera can't be opened. Type the code instead.",
     );
+  });
+
+  it('a typed Look up closes an open camera before the request goes out (FR-024)', async () => {
+    const lookup = held();
+    stubApi({ [LOOKUP]: lookup.reply });
+    const user = userEvent.setup();
+    await openScanner(user);
+    await scanRegion();
+
+    await user.type(screen.getByLabelText('Ticket code'), CODE);
+    await user.click(screen.getByRole('button', { name: 'Look up' }));
+    // Still waiting for the answer: the camera is already closed, so it can't read a second
+    // ticket whose answer would race this one.
+    expect(screen.queryByRole('region', { name: 'Scan a ticket' })).not.toBeInTheDocument();
+    expect(stopTracks).toHaveBeenCalled();
+
+    lookup.release(
+      json({
+        ticketId: 't-1',
+        code: CODE,
+        orderId: 'o-1',
+        state: 'ADMITTABLE',
+        event: { id: EVENT_ID, name: 'Demo Tonight', startsAt: iso(1), endsAt: iso(4) },
+        tierName: null,
+        seat: null,
+        holderName: 'Jordan Lee',
+        usedAt: null,
+        entryOpensAt: iso(-1),
+        unusedOnOrder: 1,
+      }),
+    );
+    expect(
+      await screen.findByText('Check a government-issued photo ID that shows: Jordan Lee'),
+    ).toBeInTheDocument();
+  });
+
+  it('Admit closes a camera reopened while the ticket shows (FR-024)', async () => {
+    const admit = held();
+    stubApi({ [ADMIT]: admit.reply });
+    const user = userEvent.setup();
+    render(
+      <App userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))} />,
+    );
+    await user.click(await screen.findByRole('button', { name: /Demo Tonight/ }));
+    await user.type(await screen.findByLabelText('Ticket code'), CODE);
+    await user.click(screen.getByRole('button', { name: 'Look up' }));
+    const admitButton = await screen.findByRole('button', { name: 'Admit' });
+
+    await user.click(screen.getByRole('button', { name: 'Scan' }));
+    await scanRegion();
+    await user.click(admitButton);
+    expect(screen.queryByRole('region', { name: 'Scan a ticket' })).not.toBeInTheDocument();
+    expect(stopTracks).toHaveBeenCalled();
+
+    admit.release(
+      json({ admitted: [{ ticketId: 't-1', code: CODE, usedAt: iso(0) }], alreadyUsed: [] }),
+    );
+    expect(await screen.findByText(/✓ Admitted/)).toBeInTheDocument();
   });
 
   it('Stop scanning stops every track, and so does unmounting', async () => {
