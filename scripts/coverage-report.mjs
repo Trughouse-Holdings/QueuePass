@@ -7,9 +7,9 @@
 //
 //   node scripts/coverage-report.mjs          print the table (root script coverage:report)
 //   node scripts/coverage-report.mjs --clean  delete every workspace's coverage/ (start of npm test)
-import { appendFileSync, readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 export const WORKSPACES = [
   'packages/shared',
@@ -115,4 +115,19 @@ function main() {
   process.exit(run({ rootDir, stepSummaryPath: process.env.GITHUB_STEP_SUMMARY }));
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+// Run main only when executed directly, not when imported by the tests. Compare real paths, so
+// a linked checkout or another spelling of the path still runs it (case-insensitive on Windows).
+function isMain() {
+  if (!process.argv[1]) return false;
+  const normalise = (path) => {
+    const real = realpathSync(path);
+    return process.platform === 'win32' ? real.toLowerCase() : real;
+  };
+  try {
+    return normalise(process.argv[1]) === normalise(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+if (isMain()) main();
