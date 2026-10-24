@@ -305,7 +305,7 @@ automated tests only.
 - **SC-004**: A customer can add an event to their calendar from **My tickets** in at most two
   selections in QueuePass (choose the control, then open the file), plus their calendar app's own
   confirmation.
-- **SC-005**: In tests, no card for a cancelled event, an ended event, or a refunded order shows a
+- **SC-005**: In tests, no card for a cancelled event, an ended event, or an order with no valid ticket shows a
   calendar control, and every eligible card shows exactly one of each.
 - **SC-006**: A keyboard-only user can reach and use both controls on every eligible card.
 

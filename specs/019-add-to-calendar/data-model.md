@@ -39,5 +39,5 @@ File name: `icsFileName(event.name)` (R12). MIME type: `text/calendar;charset=ut
 |---|---|
 | `event.status === 'CANCELLED'` | no |
 | `nowMs >= Date.parse(event.endsAt)` | no |
-| no ticket with `status === 'VALID'` (a refunded order) | no |
+| no ticket with `status === 'VALID'` (today only on a cancelled event; also a single-order refund once `009` is built) | no |
 | otherwise (upcoming or under way, with a valid ticket, used or not) | yes |
