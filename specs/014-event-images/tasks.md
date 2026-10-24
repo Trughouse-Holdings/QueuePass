@@ -624,31 +624,52 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 `014-whole-images-impl`; the PR says `fixes #73`.
 
 - [ ] T051 [P] **Test first.** Create `packages/shared/test/web/gallery-size.test.ts` for
-  `galleryBoxHeight` (research R18): card at width 320 with ratio 4/3 → 240, 1 → 320, 0.5 → 426.67
-  (limited to 3:4), 3 → 160 (limited to 2:1), `null` → 240; page at width 1280 and window height
-  900 with ratio 16/9 → 630 (70% of 900), 3 → 426.67, 10 → 200 (the minimum), `null` → 480, and at
-  width 375 with `null` → 200.
+  `galleryBoxHeight` (research R18), with each limit tested at, just inside, and beyond it
+  (Constitution VI; review of #73, S9):
+  - card at width 320: ratio 4/3 → 240, 1 → 320, `null` → 240; the 3:4 limit: 0.8 → 400, 0.75 →
+    426.67, 0.5 → 426.67; the 2:1 limit: 1.9 → 168.42, 2 → 160, 3 → 160;
+  - the card's 160-pixel floor: width 263 with ratio 3 → 160 (not 131.5), width 300 with ratio
+    2 → 160, width 330 with ratio 2 → 165, width 200 with `null` → 160;
+  - page at width 1280 and window height 900: ratio 16/9 → 630 (70% of 900), 1280/620 → 620,
+    1280/640 → 630, 3 → 426.67, 1280/210 → 210, 6.4 → 200, 10 → 200 (the minimum), `null` → 480;
+    at width 375 with `null` → 200; and at window height 250 (70% is 175) with ratio 1 → 200.
 - [ ] T052 [P] **Test first.** Extend `packages/shared/test/theme/tokens.test.ts`: `.gallery__image`
   and `.viewer__image` use `object-fit: contain`, and no `object-fit: cover` remains in `theme.css`;
-  `.gallery` has a 0.4-second height transition with the slide's curve, set to `none` under
-  `prefers-reduced-motion: reduce`. Extend the Admin app's tests: `.image-item__thumb` uses
-  `contain` and has no fixed `aspect-ratio`.
+  only `.gallery--reshaping` has a height transition, 0.4 seconds with the slide's curve, and
+  `.gallery` none (review I8); `.gallery--reshaping` is `transition: none` under
+  `prefers-reduced-motion: reduce`; the card's `aspect-ratio: 4 / 3` is on
+  `.gallery--card:not(.gallery--measured)` only, and `.gallery--card` has `min-height: 160px`
+  (review I1, S1); `.viewport-probe` is `height: 100svh`, fixed and hidden (review S4). Extend the
+  Admin app's tests: `.image-item__thumb` uses `contain`, has no fixed `aspect-ratio`, and has
+  `min-height: calc(100cqw / 2)` and `max-height: calc(100cqw * 4 / 3)`; `.image-item` is an
+  inline-size container; `.image-item__thumb--loading` is 4:3 (review I6).
 - [ ] T053 [P] **Test first.** Extend `packages/shared/test/web/image-gallery.test.tsx` (both
   variants), with a stub `ResizeObserver` reporting the width and images whose `naturalWidth` and
-  `naturalHeight` are set before `load` fires: before the picture loads the gallery has the
-  `null` height; after it loads, the height from `galleryBoxHeight`; after a change to a picture of
-  another shape, the new height (also during the slide, while the outgoing picture is still
-  rendered); a resize to another width recomputes it; a failed picture with no earlier shape keeps
-  the `null` height. After a change to a picture not yet loaded, the height stays at the previous
-  shape until its `load`, never the `null` height in between (research R18).
+  `naturalHeight` are set before `load` fires, using shapes inside each variant's limits so every
+  change shows (on the page at 1280 wide, ratios 3, 4, and 2.5; review I3): before the picture
+  loads the gallery has the `null` height and no `gallery--measured` class until it is measured;
+  after it loads, the height from `galleryBoxHeight` and `gallery--measured`; after a change to a
+  picture of another shape, the new height (also during the slide, while the outgoing picture is
+  still rendered); a resize to another width recomputes it, without `gallery--reshaping`, while a
+  shape change sets `gallery--reshaping` for 400 ms; a failed picture with no earlier shape keeps
+  the `null` height, and one after a loaded picture keeps that shape. After a change to a picture
+  not yet loaded, the height stays at the previous shape until its `load`, never the `null`
+  height in between. A picture shown again has its shape at once, with no new `load` (review S8).
+  The event page follows the small viewport height: a window `resize` with a new height changes
+  the page's height (and not a card's), and a `.viewport-probe` measuring less than
+  `innerHeight` is the height used (review I4, S4, S8).
 - [ ] T054 Create `packages/shared/src/web/gallery-size.ts`; in `image-gallery.tsx` (and
-  `gallery-parts.tsx` as needed) read the shown picture's shape on load, measure the width, and set
-  the height; in `theme.css` switch to `contain` and add the transition with its reduced-motion
-  rule (research R18). Run T051–T053 and the shared suite, including the drift check.
+  `gallery-parts.tsx` as needed) read the shown picture's shape on load, measure the width and the
+  small viewport height, and set the height and `gallery--measured`, with `gallery--reshaping`
+  for 400 ms after a change of shape; in `theme.css` switch to `contain` and add the transition,
+  its reduced-motion rule, the card's floor and measured rule, and `.viewport-probe` (research
+  R18). Run T051–T053 and the shared suite, including the drift check.
 - [ ] T055 In `admin-app/src/styles.css` and `ImagesField.tsx`, show each preview whole at its own
-  shape within the card's limits, 3:4 to 2:1 (research R18). Run T052's Admin part and the Admin app suite.
-- [ ] T056 Running-system check: quickstart S13 in both apps, at desktop width and at 375 pixels,
-  and record it here.
+  shape within the card's limits, 3:4 to 2:1, keeping the 4:3 loading class until the `<img>`
+  fires `load` (research R18; review I7, with a test). Run T052's Admin part and the Admin app
+  suite.
+- [ ] T056 Running-system check: quickstart S13 in both apps, at desktop width, at about 1,000
+  pixels, and at 375 pixels, and record it here.
 - [ ] T057 Independent review (Constitution III, one round), fix the findings, and open the
   implementation PR with `fixes #73`.
 
