@@ -212,7 +212,9 @@ East": the conflict line names "7:00 PM EDT – 10:00 PM EDT".
 Two runs on empty databases (a second run on the same database does nothing, by design), done
 after S1–S10 and S12, because each run starts from an empty database.
 
-- **Path A**: on a separate fresh stack with its own project name, `docker compose -p qp020demo up
+- **Path A**: first stop the gate's stack (`docker compose -p qp020gate stop`; both need ports
+  5432, 8080, 3000, and 5173–5175, and Keycloak's fixed hostname). Then, on a separate fresh stack
+  with its own project name, `docker compose -p qp020demo up
   --build`, run the demo data script online; then `docker compose -p qp020demo down -v`, start it
   again, disconnect its Backend container from the network, and run the script again. Finally
   `docker compose -p qp020demo down -v`.
