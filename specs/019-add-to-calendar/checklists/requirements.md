@@ -36,8 +36,14 @@
   are requirements, not implementation choices. How the file is built, where it is made, and how
   the address reaches **My tickets** are left to the plan.
 - Snapshot, the two ways in, eligibility (not cancelled, not ended), and the entry's content are
-  Mahdi's decisions (2026-10-24). That a refunded order offers nothing is a reasoned default in
-  Assumptions, flagged for Mahdi to confirm; it is not a clarification marker.
+  Mahdi's decisions (2026-10-24). Four points the spec proposed were confirmed by Mahdi the same
+  day: an order with no valid ticket offers nothing, the calendar file covers Outlook, one entry
+  identifier per event, and one control per order card. No clarification marker remains.
+- Spec `009` (single-order refunds) is not built. FR-002's valid-ticket rule needs nothing from it
+  today and covers its refunds when it lands; the all-void case is checked by automated tests only.
+- Re-adding an event (US1 scenario 6) requires only that the file identify the same entry (FR-007);
+  what each calendar app then does is recorded, not required. Phone behavior beyond width is not a
+  requirement (spec Edge Cases).
 - The 75-octet line limit in SC-003 is the iCalendar standard's own rule, measurable on the file.
-- One control per order card (not per ticket, not per event group) is decided in this spec, with
-  the alternatives in research R11.
+- One control per order card (not per ticket, not per event group): proposed in this spec, with
+  the alternatives in research R11, and confirmed by Mahdi.
