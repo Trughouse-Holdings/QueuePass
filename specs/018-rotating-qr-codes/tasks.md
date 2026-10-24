@@ -281,6 +281,9 @@ label.
     `new ErrorResponse({ error: 'invalid_grant' })` (from `oidc-client-ts`) ends in `removeUser`
     then `signinRedirect`; none of these calls `signinRedirect` otherwise;
   - an `online` event with no failed renewal calls nothing; no `signinSilent` while logging out;
+  - with no failed renewal, advancing 60 seconds calls no `signinSilent`; after a failure,
+    unmounting and advancing 60 seconds calls none; an `online` event while a `signinSilent` is
+    still pending starts no second one;
   - a renewal that lands during logout is dropped (spec 001 SC-007): after a failed renewal, make
     `signinSilent` pending; call `logout`; then `storeUser(fresh)` and emit `userLoaded` with it:
     the status is not `signed-in`, `calls` shows `removeUser` after the late load, `getUser`
@@ -293,7 +296,11 @@ label.
     ends in `removeUser` then `signinRedirect`;
   - a `pageshow` with `persisted: true` and an expired user in memory keeps it and starts the
     tries, as `accessTokenExpired` does; with no user, it signs in, as today (SC-007).
-  Confirm the new cases fail.
+  These must fail against today's provider: the `TypeError` keeping the user; expiry alone keeping
+  it; the 30-second and `online` retries and how they end; one `signinSilent` at a time on `online`;
+  `pageshow` with an expired user; the renewal landing during logout. These are guards that pass
+  today and must keep passing: `online` with no failure; no `signinSilent` with no failure, after
+  unmounting, or while logging out; the `401` probe; the `ErrorResponse`; `pageshow` with no user.
 - [ ] T017 [P] [US1] Write `customer-app/test/entry-code.test.tsx` with a stubbed `fetch` and fake
   timers set up as `customer-app/test/seat-holds.test.tsx` does: `vi.useFakeTimers({
   shouldAdvanceTime: true, toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval',
@@ -390,7 +397,8 @@ label.
     `um.signinSilent()` (the refresh-token grant, no page navigation) on the `window`'s `online`
     event and every 30 seconds. On success, `userLoaded` applies the user and clears the ref, which
     stops the tries. An `ErrorResponse` does `removeUser`, `apply(null)`, `signIn()`. Anything
-    else keeps the user until the next try. Nothing on this path navigates the page.
+    else keeps the user until the next try. Skip a try while the provider's own `signinSilent` is
+    still in flight, so only one runs at a time. Nothing on this path navigates the page.
   - While `loggingOut` is set, `userLoaded` doesn't apply the user; it calls `um.removeUser()`
     again. `removeUser` doesn't cancel a renewal in flight (the library's own, or the provider's
     `signinSilent`), which stores the user and raises `userLoaded` when it answers; applying it

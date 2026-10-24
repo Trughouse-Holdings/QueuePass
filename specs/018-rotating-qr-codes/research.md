@@ -360,6 +360,7 @@ So expiry alone can't be read as "renewal impossible". The provider (tasks T024)
   and stops the retries; an `ErrorResponse` removes the user and signs in again; anything else
   waits for the next try. A full-page sign-in on `online` was rejected: a flickering signal at the
   gate would navigate away mid-scan, or land on the browser's offline page, and lose the key.
+  A try is skipped while the provider's own `signinSilent` is still in flight.
 - A page restored from the back-forward cache with an expired user is treated like
   `accessTokenExpired`; with no user (after logout) it still signs in (SC-007).
 - An API call that returns `401` still leads to `signIn()`, as every app already does
@@ -368,6 +369,14 @@ So expiry alone can't be read as "renewal impossible". The provider (tasks T024)
 
 An expired token kept in memory is harmless: the Backend refuses it with `401` (Constitution V), so
 nothing is done with it, and the quiet retry or the next `401` renews it.
+
+**The library's retries and the provider's can overlap**: the library retries an `ErrorTimeout`
+itself (about every 15 seconds: the 10-second timeout, then 5 seconds), and the provider's tries run
+on their own schedule, so two refresh-token grants can be in flight at once with the same refresh
+token. That is harmless because the realm keeps Keycloak's default "Revoke Refresh Token" off (the
+seed sets none), so a refresh token that has been used stays valid until its session ends. With it
+on, the losing request would be refused with `invalid_grant`, an `ErrorResponse`, and sign the
+customer out. Turning it on needs this revisited.
 
 **Any error other than `ErrorResponse` keeps the user, on purpose**: that includes a captive
 portal's HTML page in place of Keycloak's answer (oidc-client-ts's "Invalid response Content-Type")
