@@ -668,15 +668,34 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   shape within the card's limits, 3:4 to 2:1, keeping the 4:3 loading class until the `<img>`
   fires `load` (research R18; review I7, with a test). Run T052's Admin part and the Admin app
   suite.
-- [ ] T056 Running-system check: quickstart S13 in both apps, at desktop width, at about 1,000
+- [x] T056 Running-system check: quickstart S13 in both apps, at desktop width, at about 1,000
   pixels, and at 375 pixels, and record it here.
-- [ ] T057 Independent review (Constitution III, one round), fix the findings, and open the
+  - 2026-10-24, Docker database, Keycloak, and Backend with the Admin and Customer apps from this
+    branch (Vite; Docker could not rebuild images: the package servers reset the connection). An
+    event with a 900 × 1600 photo, a 1000 × 1000 square, and a 2400 × 600 panorama, each with a red
+    border so any crop shows:
+    - Admin event page at 327 px wide: square 327 × 327, panorama 327 × 200 (the 200 px floor,
+      whole), tall photo 327 × 582 (its own shape, under 70% of the 1,057 px window); the border
+      shows on all four sides.
+    - Admin event page at 1280 × 900: panorama 1280 × 320 (its own shape); tall and square limited
+      to 630 px (70% of 900), whole and centered.
+    - Admin form previews (163 px wide): square 1:1, tall limited to 3:4, panorama to 2:1, all
+      `contain`.
+    - Customer Events card at 1280 × 900: the card stays 332 px wide on every turn (no layout
+      loop, review I1); square 332 × 332, panorama 332 × 166 (2:1), tall 332 × 443 (3:4), whole
+      with the border on all sides; `gallery--reshaping` only during a change.
+    - Not checked by hand: reduced motion and a phone scrolling (no emulation in the automation
+      browser; covered by the theme and gallery tests), and the short-list scroll bar (I9).
+- [x] T057 Independent review (Constitution III, one round), fix the findings, and open the
   implementation PR with `fixes #73`.
   - Round 1 (2026-10-24): must fix S1 (controls overlap on narrow cards), S2 (stale assumption),
     I1 (card `aspect-ratio` against the set height: a layout loop), I2 (the card floor); should
     fix S3 (README), S4/I5 (the page limit moved while a phone scrolled), I3, I4; minor S5–S9,
     I6–I11. Resolved by amending T051–T056 and R18/FR-042/S13 above; S10 (the clarify commit's
     two SHAs) is handled at merge time.
+  - Round 2 (2026-10-24): every round-1 finding resolved (I1 re-checked in headless Edge with the
+    real theme rules); 3 minor (N1 the pre-measure card floor, N2 the previews' limits in FR-042,
+    N3 README's status line), fixed in fcb4165. No open findings.
 
 ---
 
