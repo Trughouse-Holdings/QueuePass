@@ -273,12 +273,25 @@ stale, or zero-line summary fails it.
   `coverageConfigDefaults` from `vitest/config`) with the comment: generated from
   `contracts/openapi.yaml` by `npm run generate:api`; Constitution VI allows excluding generated
   code. No `thresholds`.
-- [ ] T018 [US3] Run `npm test` then `npm run coverage:report`: every workspace prints its coverage
+- [x] T018 [US3] Run `npm test` then `npm run coverage:report`: every workspace prints its coverage
   summary, `coverage/coverage-summary.json` exists in all six, and the table lists all six. Confirm
   the Admin and Customer apps' numbers do not include `packages/shared/src` files (inspect
   `admin-app/coverage/coverage-summary.json` keys). Then remove `--coverage` from `booth-app`'s
   `test` script temporarily and run `npm test && npm run coverage:report`: the report fails naming
   `booth-app` (the clean removed the old file); undo. Record the six line percentages here.
+  - **Result** (stack up, so the seed's Keycloak tests ran): every workspace printed its
+    `Coverage summary`, all six `coverage/coverage-summary.json` files existed, and the report
+    exited 0: packages/shared **92.30%** (1427 / 1546), backend **97.02%** (1890 / 1948),
+    admin-app **96.88%** (2803 / 2893), customer-app **97.20%** (1463 / 1505), booth-app
+    **92.33%** (542 / 587), scripts/seed **71.25%** (181 / 254, marked below 80%; lower with the
+    stack down, T022). Every key in each summary is a file under that workspace's own `src/`
+    (admin-app 31, customer-app 19: none under `packages/shared/src`); `api-schema.ts` is in
+    none. With `--coverage` removed from booth-app's `test`, `npm test` passed and the report
+    exited 1: `Coverage not measured for booth-app: booth-app/coverage/coverage-summary.json is
+    missing`; undone. One earlier full run had a customer-app test fail once
+    (`my-tickets.test.tsx`, "lists the customer's orders…": `findByRole('heading', { name: 'My
+    tickets' })` not found within Testing Library's default 1 s); it passed in the next two
+    workspace runs and the next two full runs. Not changed (no test is weakened); see T022.
 
 **Checkpoint**: `npm run ci` runs every step locally.
 
@@ -289,8 +302,10 @@ stale, or zero-line summary fails it.
 **Goal**: one stable check name (FR-015) and documented steps to require it. The setting itself is
 turned on right after merge (T033).
 
-- [ ] T019 [US4] Confirm T005 pins the workflow name `CI` and the single job `test`, and that
+- [x] T019 [US4] Confirm T005 pins the workflow name `CI` and the single job `test`, and that
   quickstart Q5 names the check `test` from the `CI` workflow. Nothing else to build.
+  - **Result**: T005's tests assert `name: CI` and `jobs` deep-equal to `['test']`; quickstart
+    Q5 step 4 chooses the `test` check from the `CI` workflow.
 
 ---
 
