@@ -539,13 +539,13 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
   throttling step (a network that hangs, on the Customer window) behaved as written; if it didn't,
   correct quickstart.md in a spec PR (Constitution III).
 - [ ] T040 Independent review (Constitution III): a separate Claude session reviews the branch
-  against spec.md and plan.md; fix the findings; repeat until only minor findings remain (2–3
-  rounds). Record the rounds and any open finding here and in the PR description.
+  against spec.md and plan.md; fix the findings. One review is required; another round is optional
+  (Constitution 3.3.0, PR #69). Record the review and any open finding here and in the PR
+  description.
 - [ ] T041 Once the spec and plan PR has merged (Constitution 3.2.0), bring the branch up to `main`
   and open the implementation PR against `main`, assigned to `nathan-707`, with `fixes #41` on its
   own line in the **description** only (see Issue above). The description records: the review
-  rounds (T040), coverage (T038), the running-system results (T039), and any deviation from the
-  plan.
+  (T040), coverage (T038), the running-system results (T039), and any deviation from the plan.
 
 ---
 
