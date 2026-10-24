@@ -21,9 +21,12 @@ const TICKET = '3b8e5f0a-6c1d-4b7e-9a2f-1d0c3e4b5a69';
 const CODE = 'AAAA2222BBBB';
 const KEY = Uint8Array.from({ length: 32 }, (_, i) => (i * 37 + 11) & 0xff);
 const KEY_TEXT = keyToBase64url(KEY);
-/** A window in late October 2026; the server starts 10 seconds into it. */
+/**
+ * A window in late October 2026; the server starts 10.37 seconds into it, so the page's clock
+ * checks don't line up with the window boundaries by luck.
+ */
 const W = 59762702;
-const SERVER0 = windowStartMs(W) + 10_000;
+const SERVER0 = windowStartMs(W) + 10_370;
 const LABEL = 'Live entry code, changes every 30 seconds';
 const NO_CONNECTION =
   "Can't show the live code without a connection. Use your printed ticket with photo ID.";
@@ -85,6 +88,20 @@ async function expectCurrentCode() {
     const w = await drawnWindow();
     expect(w).toBe(windowAt(serverNow()));
     expect(windowStatus(w as number, serverNow())).toBe('CURRENT');
+  });
+}
+
+/**
+ * FR-002, SC-006: moves to 600 ms after the next window starts, then gives the page until 1 second
+ * after it, on the Backend's clock, to draw that window's code. Once the second is up the check
+ * can never pass, so waiting longer doesn't help a slow page.
+ */
+async function expectNewCodeWithin1s() {
+  const boundary = windowStartMs(windowAt(serverNow()) + 1);
+  await advance(boundary + 600 - serverNow());
+  await waitFor(async () => {
+    expect(serverNow()).toBeLessThan(boundary + 1000);
+    expect(await drawnWindow()).toBe(windowAt(boundary));
   });
 }
 
@@ -156,11 +173,20 @@ describe('the live-code screen', () => {
     await openEntryCode();
     await screen.findByRole('img', { name: LABEL });
     await expectCurrentCode();
-    await advance(20_000);
-    await advance(1_000);
-    await expectCurrentCode();
+    await expectNewCodeWithin1s();
     expect(await drawnWindow()).toBe(W + 1);
     expect(screen.getByText(/^Changes in (30|29) s$/)).toBeInTheDocument();
+  });
+
+  it("keeps the Backend's time when the device's clock jumps while the page is open", async () => {
+    await openEntryCode();
+    await screen.findByRole('img', { name: LABEL });
+    await expectCurrentCode();
+    // An automatic time sync when the signal returns, or a manual change: an hour ahead.
+    skew += 3_600_000;
+    vi.setSystemTime(Date.now() + 3_600_000);
+    await expectNewCodeWithin1s();
+    await expectNewCodeWithin1s();
   });
 
   it.each([5 * 60_000, -5 * 60_000])(
@@ -170,10 +196,8 @@ describe('the live-code screen', () => {
       vi.setSystemTime(SERVER0 + off);
       await openEntryCode();
       await screen.findByRole('img', { name: LABEL });
-      for (let i = 0; i < 3; i++) {
-        await expectCurrentCode();
-        await advance(30_000);
-      }
+      await expectCurrentCode();
+      for (let i = 0; i < 3; i++) await expectNewCodeWithin1s();
     },
   );
 
@@ -195,10 +219,7 @@ describe('the live-code screen', () => {
     if (err) await act(async () => um.emit('silentRenewError', new TypeError('Failed to fetch')));
     await act(async () => um.emit('accessTokenExpired'));
 
-    for (let i = 0; i < 20; i++) {
-      await advance(30_000);
-      await expectCurrentCode();
-    }
+    for (let i = 0; i < 20; i++) await expectNewCodeWithin1s();
     expect(fetchMock.mock.calls.length).toBe(fetched);
     expect(um.signinRedirect).not.toHaveBeenCalled();
     expect(um.signinSilent).toHaveBeenCalled();
@@ -235,7 +256,7 @@ describe('the live-code screen', () => {
 describe('the live-code screen when it cannot show a code', () => {
   it('says to use the printed ticket when the key request gets no answer', async () => {
     await openEntryCode({ [`GET /me/tickets/${TICKET}/entry-key`]: 'network-error' });
-    expect(await screen.findByText(NO_CONNECTION)).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent(NO_CONNECTION);
     expect(screen.queryByRole('img', { name: LABEL })).toBeNull();
   });
 
@@ -257,7 +278,7 @@ describe('the live-code screen when it cannot show a code', () => {
         409,
       ),
     });
-    expect(await screen.findByText('This ticket was already used.')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('This ticket was already used.');
     expect(screen.queryByRole('img', { name: LABEL })).toBeNull();
   });
 
@@ -284,5 +305,32 @@ describe('the live-code screen when it cannot show a code', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('img', { name: LABEL })).toBeInTheDocument();
     expect(calls.filter((c) => c.path.endsWith('/entry-key'))).toHaveLength(2);
+  });
+
+  it('shows the standard error, not "no connection", when My tickets answers 500; Try again retries both', async () => {
+    let fail = true;
+    const { calls } = await openEntryCode({
+      'GET /me/orders': () =>
+        fail ? json({ error: { code: 'INTERNAL', message: 'boom' } }, 500) : json(orders()),
+    });
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Can't reach the QueuePass service.",
+    );
+    expect(screen.queryByText(NO_CONNECTION)).toBeNull();
+    fail = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('img', { name: LABEL })).toBeInTheDocument();
+    expect(calls.filter((c) => c.path === '/me/orders')).toHaveLength(2);
+    expect(calls.filter((c) => c.path.endsWith('/entry-key'))).toHaveLength(2);
+  });
+
+  it("says so, instead of waiting forever, when this browser can't make the code", async () => {
+    // No Web Crypto, as on a page that isn't a secure context.
+    vi.spyOn(crypto.subtle, 'importKey').mockRejectedValue(new Error('no crypto.subtle'));
+    await openEntryCode();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "Can't show the live code in this browser. Use your printed ticket with photo ID.",
+    );
+    expect(screen.queryByText('Getting your entry code…')).toBeNull();
   });
 });
