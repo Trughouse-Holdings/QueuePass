@@ -1,7 +1,8 @@
 # Contract Changes: Add to Calendar
 
 The single contract is [`contracts/openapi.yaml`](../../../contracts/openapi.yaml) (Constitution I).
-This feature moves it from **1.11.0 to 1.12.0** in the spec and plan PR, with
+This feature moves it from **1.11.0 to 1.12.0** in the spec and plan PR (or to the next minor
+version if `020` merges a contract change first; see Merging with other PRs), with
 `packages/shared/src/api-schema.ts` updated to match (`npm run generate:api`; the drift check,
 `scripts/check-contract-drift.mjs`, confirms it in CI).
 
@@ -56,12 +57,15 @@ No new error code. No change to `Location`, `Event`, `Order`, or any request bod
 3. Regenerates `api-schema.ts` (`npm run generate:api`) and makes `OrderEvent.location.address` a
    required `string` in `packages/shared/src/order.ts`.
 
-The contract version stays 1.12.0 for those steps (they finish this feature's change).
+The contract version stays the one this spec PR merged with for those steps (they finish this
+feature's change).
 
 ## Merging with other PRs
 
 Spec `020-venue-time-zones` (#42) is specified in parallel and may also change the contract,
-possibly `Location` or `OrderEvent.location` (a venue's time zone). Whichever spec PR merges second
-takes the next minor version and resolves the text conflict in `OrderEvent.location` by keeping both
-fields. There is no conflict in meaning: 019 reads only `address`, and its calendar times are UTC
-instants (research R5).
+possibly `Location` or `OrderEvent.location` (a venue's time zone). 1.12.0 holds unless 020 merges
+its contract change first. Then this branch is rebased onto `main`, takes the next minor version
+(1.13.0), keeps both changes where they meet in `OrderEvent.location`, and regenerates
+`api-schema.ts` with `npm run generate:api` rather than merging it by hand; the drift check must
+pass. If 019 merges first, 020 does the same. There is no conflict in meaning: 019 reads only
+`address`, and its calendar times are UTC instants (research R5).

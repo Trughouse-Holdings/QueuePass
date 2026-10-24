@@ -145,18 +145,19 @@ calendar called that, not wanted for one entry).
 
 - RFC 5545 says a `UID` must be globally unique and persistent for the entry; RFC 7986 §5.3
   recommends a value with no host name or other identifying data. A UUID is unique; the prefix makes
-  it obvious where the entry came from. Apple Calendar and Outlook recognize an imported entry whose
-  `UID` they already hold and update it (where the app honors it; the spec says "calendar apps that
-  recognize repeated entries", US1 scenario 6), so re-adding after the event changed brings the new
-  details without a duplicate.
-- **Stable per event and customer**: the brief asked for a `UID` stable per event and customer. Per
-  event is stable for every event and customer pair, and two files of one event (two orders, or two
-  downloads) become one entry, which is the point. Adding the customer to the `UID` would put an
-  account identifier (the Keycloak subject) into a file customers forward and share, for no gain:
-  each customer adds the file to their own calendar, where only their copy exists. If two customers
-  share one calendar and both add the event, one entry is the right result.
+  it obvious where the entry came from. A calendar app that honors `UID`s updates an entry it
+  already holds when the same `UID` is imported again, so re-adding after the event changed brings
+  the new details without a duplicate. Apps differ here: some update, some ask, and some add a
+  second entry. FR-007 requires only the same `UID`; the running-system walk records what the apps
+  it uses do (quickstart S6, US1 scenario 6).
+- **One `UID` per event, not per customer** (confirmed by Mahdi, 2026-10-24): every file of one
+  event (two orders, or two downloads) names one entry, which is the point. Adding the customer to
+  the `UID` would put an account identifier (the Keycloak subject) into a file customers forward and
+  share, for no gain: each customer adds the file to their own calendar, where only their copy
+  exists. If two customers share one calendar and both add the event, one entry is the right result.
 - With the same `UID` and `SEQUENCE` 0 every time, RFC 5546 orders revisions by `DTSTAMP`, so the
-  newer file wins in apps that check.
+  newer file wins in apps that check. Raising `SEQUENCE` when the event changes would need a
+  revision count or `updatedAt` on `OrderEvent`, which a snapshot does not justify (out of scope).
 
 **Alternatives considered**: a random UUID per download (re-adding duplicates; FR-007 fails);
 `<event id>@<customer sub>` (leaks the account id, above); `<order id>` (two orders for one event
@@ -185,11 +186,25 @@ second is the format's finest unit). No `TZID`, no `VTIMEZONE`, no floating time
   in: wrong for anyone outside the venue's zone. A `TZID` needs the venue's zone, which 019 does not
   have and must not depend on.
 
-**Tests**: the generator's tests run every fixture with `process.env.TZ` set in turn to `UTC`,
-`America/New_York`, `America/Los_Angeles`, and `Asia/Kolkata` (a half-hour offset), check that the
-switch took effect (`new Date(…).getTimezoneOffset()` differs), and require identical output. Node
-re-reads `TZ` when it is assigned, and Vitest runs each test file in its own process (`forks`, its
-default pool), so this is reliable. The tasks also run the file under each `TZ` from the shell (tasks T016).
+**Tests**: two independent proofs that the file does not depend on the zone, both asserting the
+zone really changed, so a run that silently stays in one zone fails instead of passing:
+
+1. **In the file**: the generator's tests run every fixture with `process.env.TZ` set in turn to
+   `UTC`, `America/New_York`, `America/Los_Angeles`, and `Asia/Kolkata` (a half-hour offset), assert
+   `new Date('2026-10-24T12:00:00Z').getTimezoneOffset()` is `0`, `240`, `420`, and `-330`, and
+   require output identical to the committed expected text. Node re-reads `TZ` when it is assigned,
+   and Vitest runs each test file in its own process (`forks`, its default pool), so this is reliable.
+2. **From the shell**: the Customer app's `vitest.config.ts` pins `test.env.TZ` to
+   `America/New_York` for every test (spec 003 research R6), and Vitest writes `test.env` over the
+   inherited environment, so `TZ=UTC npx vitest …` would still run in New York, in CI too. The pin
+   stays (other tests depend on it). Instead, `calendar.test.ts` reads its own variable,
+   `CALENDAR_TEST_TZ`: when it is set, a `beforeAll` assigns it to `process.env.TZ`, asserts the
+   effective zone (`Intl.DateTimeFormat().resolvedOptions().timeZone` equals it) and its offset on
+   2026-10-24 (`UTC` 0, `America/New_York` 240, `America/Los_Angeles` 420), prints
+   `[calendar-tz] <zone> offset <minutes>`, and fails if either does not match. Every test in the
+   file then runs in that zone against the same committed expected text. Tasks T016 runs it three
+   times, with `CALENDAR_TEST_TZ` set to `UTC`, `America/New_York`, and `America/Los_Angeles`, and
+   checks each run's printed line. Without the variable, the file runs in the pinned zone, as in CI.
 
 **Alternatives considered**: `TZID=America/New_York` from the browser's zone (wrong for a customer
 travelling, and depends on the device, against FR-005); waiting for 020 (the issue does not need it;
@@ -270,11 +285,13 @@ No `ctz`, no `details`, no `add`, no `sf`. It is an `<a>` with `target="_blank"`
 - `noopener` so the Google tab cannot reach **My tickets**; `noreferrer` so Google is not told the
   address of the customer's QueuePass page (FR-011: only the entry is sent).
 - **Length**: the event name (≤ 200 characters), venue name (≤ 200), and address (≤ 500) are bounded
-  by the contract. In ASCII the link is at most about 2,900 characters even if every character were
-  percent-encoded, and typical links are under 300. Browsers handle links far longer, and Google's
-  front end accepts several thousand characters. Nothing is cut (spec Edge Cases); if Google ever
-  refused an extreme link, the calendar file still works. The running-system walk opens a link with a
-  200-character name (quickstart S5).
+  by the contract. Typical links are under 300 characters. In ASCII the link is at most about 2,900
+  characters even if every character were percent-encoded; with non-ASCII text it grows further (an
+  emoji is 12 characters encoded), so a link made only of emoji at every maximum would be around
+  10,000 characters. Browsers handle links far longer. How long a link Google's own front end accepts
+  is not documented and is not tested beyond the running-system walk, which opens a link with a name
+  as long as the Admin form allows, accents and an emoji included (quickstart S5). Nothing is cut
+  (spec Edge Cases); if Google ever refused an extreme link, the calendar file still works.
 - An `<a>` the customer activates is never blocked as a pop-up (spec Edge Cases), unlike
   `window.open` after an `await`.
 
@@ -299,22 +316,27 @@ would also need its own accessible name, tests, and walk (Principle VIII).
 
 **Alternatives considered**: two Outlook web links (personal and work), which the customer must
 choose between; one `outlook.live.com` link (wrong for work accounts). Either can be added later in
-the same `calendar.ts` if customers ask (open question in the plan).
+the same `calendar.ts` if customers ask. Mahdi confirmed the file alone on 2026-10-24.
 
 ## R10: Who is offered the controls, decided in the client
 
-**Decision**: A card offers the controls when, at render, `order.event.status !== 'CANCELLED'`,
-`Date.now() < Date.parse(order.event.endsAt)`, and `order.tickets.some(t => t.status === 'VALID')`
-(FR-002), in one function, `calendarEligible(order, nowMs)`, in `calendar.ts`. **My tickets** reads
-the clock once when it renders the list.
+**Decision**: A card offers the controls when `order.event.status !== 'CANCELLED'`,
+`nowMs < Date.parse(order.event.endsAt)`, and `order.tickets.some(t => t.status === 'VALID')`
+(FR-002), in one function, `calendarEligible(order, nowMs)`, in `calendar.ts`. `nowMs` is the moment
+**My tickets** received its orders: read once when the load succeeds and kept with the loaded data,
+so a later re-render does not re-decide (spec FR-002, Edge Cases).
 
-**Rationale**: Mahdi's rule (not cancelled, not ended) plus the spec's default (a valid ticket). It
+**Rationale**: Mahdi's rule (not cancelled, not ended) plus the valid-ticket rule (proposed in the
+spec, confirmed by Mahdi, 2026-10-24). It
 is a display choice, like spec 018 hiding **Show entry code** on a used ticket: offering the control
 grants nothing and refusing it protects nothing, so it does not need the Backend (Constitution IV is
 about rules a write must obey). `endsAt` is exclusive (Constitution, Time: `[startsAt, endsAt)`), so
-at `endsAt` the event has ended. A refunded order's tickets are all `VOID` (`009`); a cancelled
-event's orders are refunded and its status is `CANCELLED` (`005`), so either test hides it. A used
-ticket (`checkedInAt` set) is still `VALID`.
+at `endsAt` the event has ended. Today the only path that voids tickets or refunds an order is
+event cancellation (`005`, `EventsService.cancel`: every `VALID` ticket becomes `VOID`, every
+`CONFIRMED` order `REFUNDED`, the event `CANCELLED`), so the status test alone hides every such
+order. Spec `009` (single-order refunds, planned, not built) will make orders with only `VOID`
+tickets for events still ahead; the ticket test excludes them automatically, with no change here. A
+used ticket (`checkedInAt` set) is still `VALID`.
 
 **The device clock**: the spec accepts that a badly wrong device clock shows or hides the controls
 near an event's end (spec Edge Cases). Following the Backend's clock (spec 018 R3) would need a
@@ -330,16 +352,19 @@ the page is open (a timer for a harmless edge case; Principle VIII).
 
 - **Placement**: in each eligible order card, after the event's details (`<dl>`) and before the
   ticket list, in a `<div role="group" aria-labelledby=…>` whose visible label is "Add to calendar".
-  Inside: a `<button type="button">` **Add to Apple Calendar or Outlook**, an `<a>` **Add to Google
-  Calendar**, and a short note, "A copy for your calendar: it won't change if the event does." (FR-003).
+  Inside, in this order: a short note with an `id`, "A copy for your calendar: it won't change if
+  the event does." (FR-003); a `<button type="button">` **Add to Apple Calendar or Outlook**; and an
+  `<a>` **Add to Google Calendar**. Both controls carry `aria-describedby` pointing at the note, so a
+  screen reader reads it with each control (FR-003).
 - **Names** (FR-013): `aria-label="Add to Apple Calendar or Outlook: <event name>, downloads a
   calendar file"` and `aria-label="Add to Google Calendar: <event name>, opens in a new tab"`. Each
   starts with the visible text (WCAG 2.5.3, Label in Name), names the event so the controls on
   different cards differ in a screen reader's list, and says what will happen (a download, a new tab;
   WCAG 3.2.5 advises warning of a new window).
-- **Look** (FR-014): the shared theme's existing button and link classes (`012`); the two controls
-  side by side, wrapping under each other at phone width; each at least 44 by 44 CSS pixels (spec 008
-  already sizes its buttons so). No icons, no new theme value.
+- **Look** (FR-014): both controls use the shared theme's `btn btn--ghost` classes (`012`), the
+  link included, because `.btn` is what gives a control its 44-pixel minimum size (`theme.css`); a
+  plain link would not reach 44 pixels. The two sit side by side and wrap under each other at phone
+  width. No icons, no new theme value.
 - **Keyboard**: a native `<button>` (Enter and Space) and a native `<a href>` (Enter), in reading
   order, with the theme's focus ring. No `tabindex`, no custom key handling.
 - A button for the file because it performs an action on the page (making and saving a file); a link
@@ -376,8 +401,11 @@ cap its length; the `Blob` is made only on click, R12).
 
 **Rationale**: A readable, safe file name on every operating system (no `/`, `\`, `:`, or spaces) that
 tells the customer which event the file is. The date is left out because which date (UTC or local)
-would be ambiguous for an event near midnight. iOS Safari hands a `text/calendar` download to Apple
-Calendar's add prompt; desktop browsers save it, and opening it starts the default calendar app.
+would be ambiguous for an event near midnight. Desktop browsers save the file, and opening it starts
+the default calendar app. On phones, what happens after the download depends on the system and the
+browser: some offer to add it to a calendar, some only save it to the downloads, and some browsers
+(in-app browsers in particular) may not save a `Blob` download at all. The spec does not require
+more than the download there, and the Google link is the dependable phone path (spec Edge Cases).
 
 **Alternatives considered**: `queuepass.ics` for every event (a customer with several cannot tell
 them apart); the event id as the name (unreadable); a `data:` URL (R11).
@@ -416,8 +444,11 @@ entry.
   `DTSTAMP` values (R4); UTC formatting including an event that crosses midnight and an end in the
   next year; milliseconds dropped; the same output under four `TZ` values (R5); `icsFileName` cases
   (R12); `googleCalendarUrl` exact for the example and for reserved characters (R8);
-  `calendarEligible` on both sides of `endsAt` to the millisecond, cancelled, refunded, used (R10). A
-  small reader in the test file unfolds and unescapes every fixture back to its inputs (SC-003).
+  `calendarEligible` on both sides of `endsAt` to the millisecond, cancelled, all tickets void,
+  used (R10). A small reader in the test file unfolds and unescapes every fixture back to its inputs,
+  including a maximum-length `LOCATION` (200-character venue name, 500-character address) (SC-003).
+  The same file runs under four zones in-process, and again under three zones from the shell through
+  `CALENDAR_TEST_TZ` (R5).
 - **Component tests** (`customer-app/test/add-to-calendar.test.tsx`, React Testing Library): the
   controls appear once on eligible cards and not at all on others (SC-005); names and order (FR-013);
   keyboard use (Tab, Enter, Space) downloads the file with the right name, type, and content, via

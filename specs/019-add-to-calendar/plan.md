@@ -27,7 +27,9 @@
 - **Time zones**: UTC instants throughout, so the file is identical in every zone and correct
   whatever `020` decides (R5).
 - **Tested many times** (Mahdi, 2026-10-24): generator tests under four `TZ` values in the suite and
-  three from the shell; every affected workspace's suite three times in a row; `npm run ci` locally;
+  three from the shell, through `CALENDAR_TEST_TZ`, because the Customer app's Vitest config pins
+  `TZ` to New York for every run, CI included, so a plain `TZ=` would change nothing (R5); every
+  affected workspace's suite three times in a row; `npm run ci` locally;
   CI green on GitHub before merge; the running-system walk with two events; at least two independent
   review rounds on each branch (tasks.md, ground rules).
 
@@ -74,7 +76,7 @@ Evaluated against constitution **v3.4.1**.
 
 | Principle | Pre | Post | Evidence |
 |---|---|---|---|
-| **I. API-Only, Contract First** | PASS | **PASS** | Contract 1.12.0 and the matching `api-schema.ts` in this PR, before any code. The one change is an additive response field on `listMyOrders`; role, errors, and request are unchanged. `address` is declared but not required until the implementation sends it, so the response-schema tests stay green on `main` (R2). The Customer app reads it through the generated types. The file is a presentation format made in the Customer app from API data, not business logic (R1); no front end gains data access. |
+| **I. API-Only, Contract First** | PASS | **PASS** | Contract 1.12.0 and the matching `api-schema.ts` in this PR, before any code. The one change is an additive response field on `listMyOrders`; role, errors, and request are unchanged. `address` is declared but not required until the implementation sends it, so the response-schema tests stay green on `main` (R2). The Customer app reads it through `MyOrder`/`OrderEvent` in `packages/shared/src/order.ts`, which mirror the contract and gain `address` in the implementation (T004); the Backend's response tests check it against the contract. The file is a presentation format made in the Customer app from API data, not business logic (R1); no front end gains data access. |
 | **II. One Repo, One Command** | PASS | **PASS** | No new service, variable, secret, migration, or npm dependency. |
 | **III. Spec-Driven, Reviewed** | PASS | **PASS** | Issue #50; number reserved in Constitution 3.4.1; spec, clarifications (Mahdi, 2026-10-24), and plan on `019-add-to-calendar-spec`, reviewed before the PR by independent Claude sessions: at least two rounds, more until only minor findings remain (Mahdi, 2026-10-24; the constitution requires one). Implementation on `019-add-to-calendar-impl` in a fresh session from the spec and plan only, cut from the spec branch while this PR is open and opened as a PR only after it merges, with `fixes #50` in its description only. Commits cite `Spec`/`Plan`/`Tasks 019` and `#50`. |
 | **IV. Server-Authoritative, DB-Guaranteed** | PASS | **PASS** | No write and no rule a write must obey. When the controls are offered is a display choice that grants and protects nothing (R10), like hiding **Show entry code** on a used ticket. Nothing to guarantee in the database. |
@@ -117,11 +119,13 @@ only user (R1); it is free of React and browser-only APIs except in the componen
 ## Merging with other PRs
 
 - `main` is at 6eb1f9b (Constitution 3.4.1, reserving 019 and 020).
-- **`020-venue-time-zones` (#42)**, specified in parallel, will likely change the contract too
-  (a venue's time zone). Whichever spec PR merges second takes the next minor version (1.13.0) and
-  keeps both fields where they meet in `OrderEvent.location`. No conflict in meaning: 019 writes UTC
-  instants and reads only `address` (R5). If 020 changes how **My tickets** shows times, the
-  calendar group sits in its own component and is unaffected.
+- **`020-venue-time-zones` (#42)**, specified in parallel, will likely change the contract too (a
+  venue's time zone). Contract 1.12.0 holds unless 020 merges its contract change first. Then this
+  branch is rebased onto `main`, takes the next minor version (1.13.0), keeps both changes where they
+  meet in `OrderEvent.location`, and regenerates `api-schema.ts` with `npm run generate:api` rather
+  than merging it by hand; the drift check must pass (T001, T024). If 019 merges first, 020 does the
+  same. No conflict in meaning: 019 writes UTC instants and reads only `address` (R5). If 020 changes
+  how **My tickets** shows times, the calendar group sits in its own component and is unaffected.
 - **`010-test-coverage`**: if it merges first, this feature's code must meet the 80% floor in
   `customer-app` and `backend`; the tests in tasks.md cover every branch of `calendar.ts`.
 
