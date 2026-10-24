@@ -82,9 +82,10 @@ export interface paths {
          * @description Feature 018. The secret the Customer app makes this ticket's live codes with, and the
          *     Backend's current time, so the app can follow the Backend's clock rather than the
          *     device's. Only the ticket's own buyer gets it: another customer's ticket, or one that does
-         *     not exist, is `404 NOT_FOUND`. A used or void ticket is `409 ENTRY_REFUSED` (`USED` with
-         *     `usedAt`, or `VOID`). Sent with `Cache-Control: no-store`. The client keeps the key in
-         *     memory only, never in browser storage, a cookie, or a URL.
+         *     not exist, is `404 NOT_FOUND`; an id that is not a UUID is `400 VALIDATION_FAILED`. A
+         *     used or void ticket is `409 ENTRY_REFUSED` (`USED` with `usedAt`, or `VOID`). Sent with
+         *     `Cache-Control: no-store`. The client keeps the key in memory only, never in browser
+         *     storage, a cookie, or a URL.
          */
         get: operations["getTicketEntryKey"];
         put?: never;
@@ -2081,6 +2082,7 @@ export interface operations {
                     "application/json": components["schemas"]["TicketEntryKey"];
                 };
             };
+            400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

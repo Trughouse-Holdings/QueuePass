@@ -13,7 +13,7 @@ new `EntryTicket.verifiedBy` is declared but not yet in `required`; the implemen
 
 | Operation | Route | Role | Answers |
 |---|---|---|---|
-| `getTicketEntryKey` | `GET /me/tickets/{ticketId}/entry-key` | `customer` | `200 TicketEntryKey` (with `Cache-Control: no-store`) for the caller's own valid, unused ticket; `404 NOT_FOUND` for another customer's ticket or none; `409 ENTRY_REFUSED` (`USED` with `usedAt`, or `VOID`) |
+| `getTicketEntryKey` | `GET /me/tickets/{ticketId}/entry-key` | `customer` | `200 TicketEntryKey` (with `Cache-Control: no-store`) for the caller's own valid, unused ticket; `404 NOT_FOUND` for another customer's ticket or none; `400 VALIDATION_FAILED` for an id that is not a UUID; `409 ENTRY_REFUSED` (`USED` with `usedAt`, or `VOID`) |
 
 It is tagged `entry`.
 

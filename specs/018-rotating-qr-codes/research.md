@@ -153,7 +153,8 @@ clarification rules out).
   used to learn which tickets exist (FR-003).
 - A used or void ticket is `409 ENTRY_REFUSED` (`USED` with `usedAt`, or `VOID`), the reasons and
   shape of spec 017: no live code is offered for it (US1 scenario 6).
-- Gate agents and admins are `403`; no or bad token `401` (FR-003, SC-007).
+- Gate agents and admins are `403`; no or bad token `401` (FR-003, SC-007); an id that is not a
+  UUID `400`, as on every route with an id in its path.
 - The response is sent with `Cache-Control: no-store`, so no browser or proxy cache keeps the key.
 - `serverTime` is the `Clock`'s time (R3), with milliseconds.
 

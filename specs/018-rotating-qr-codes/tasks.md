@@ -157,7 +157,8 @@ verified. No ID check needed.", admits it, and **My tickets** then shows the tic
   characters that `keyFromBase64url` turns into exactly the ticket's stored 32 bytes, and
   `serverTime` equal to `new Date(ctx.clock.now()).toISOString()` with the clock set; the response
   has `Cache-Control: no-store`; another customer's ticket and a random UUID are both `404
-  NOT_FOUND` with the same message shape; a used ticket is `409 ENTRY_REFUSED` with
+  NOT_FOUND` with the same message shape; an id that is not a UUID is `400 VALIDATION_FAILED`;
+  a used ticket is `409 ENTRY_REFUSED` with
   `details.reason: 'USED'` and `details.usedAt`; a void ticket (cancelled event) is `409
   ENTRY_REFUSED` with `reason: 'VOID'`; a ticket bought before 017 (`orderWithTickets` with no
   name) still gets its key.
