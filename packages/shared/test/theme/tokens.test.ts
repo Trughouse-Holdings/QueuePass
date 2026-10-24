@@ -329,10 +329,21 @@ describe('the full-screen view (spec 014 FR-029)', () => {
 // Spec 014 FR-041, FR-042 (research R18, issue #73): every picture whole, never cropped, and the
 // gallery's box changing height with the slide, at once under reduced motion.
 describe('whole pictures (spec 014 FR-041, FR-042)', () => {
+  /** The bodies of every top-level rule whose selector list names `selector`. */
+  const rulesNaming = (selector: string): string[] =>
+    [...topLevel().matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+      .filter(([, sel]) =>
+        sel!
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .split(',')
+          .some((s) => s.trim() === selector),
+      )
+      .map(([, , body]) => body!);
+
   it.each(['.gallery__image', '.viewer__image'])(
     'shows %s whole with object-fit: contain',
     (sel) => {
-      expect(bodiesOf(topLevel(), sel).join('\n')).toMatch(/object-fit:\s*contain/);
+      expect(rulesNaming(sel).join('\n')).toMatch(/object-fit:\s*contain/);
     },
   );
 

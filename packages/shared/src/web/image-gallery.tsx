@@ -8,6 +8,7 @@ import {
   useSlide,
   useWantedImages,
 } from './gallery-parts.js';
+import { galleryBoxHeight } from './gallery-size.js';
 import { ImageViewer } from './image-viewer.js';
 import { useGalleryRotation } from './use-gallery-rotation.js';
 
@@ -71,6 +72,54 @@ function useOnScreen(ref: RefObject<HTMLElement | null>, watch: boolean): boolea
 }
 
 /**
+ * Research R18: one ResizeObserver for every gallery, each told only its own width, as with the
+ * IntersectionObserver above.
+ */
+const widths = new Map<Element, (width: number) => void>();
+let resizes: ResizeObserver | null = null;
+
+function watchWidth(el: Element, onChange: (width: number) => void): () => void {
+  resizes ??= new ResizeObserver((entries) => {
+    for (const entry of entries) widths.get(entry.target)?.(entry.contentRect.width);
+  });
+  widths.set(el, onChange);
+  resizes.observe(el);
+  return () => {
+    widths.delete(el);
+    resizes?.unobserve(el);
+    if (widths.size > 0) return;
+    resizes?.disconnect();
+    resizes = null;
+  };
+}
+
+/**
+ * Research R18: the width of the element in `ref` while `watch`, and, with `followWindow` (the
+ * event page's limit), the window's height as it changes. The width is `null` where
+ * ResizeObserver is missing; the theme's 4:3 card and fixed band then stand.
+ */
+function useBoxSize(
+  ref: RefObject<HTMLElement | null>,
+  watch: boolean,
+  followWindow: boolean,
+): { width: number | null; viewportHeight: number } {
+  const [width, setWidth] = useState<number | null>(null);
+  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
+  useEffect(() => {
+    const el = ref.current;
+    if (!watch || !el || typeof ResizeObserver === 'undefined') return;
+    const onResize = () => setViewportHeight(window.innerHeight);
+    if (followWindow) window.addEventListener('resize', onResize);
+    const stop = watchWidth(el, setWidth);
+    return () => {
+      if (followWindow) window.removeEventListener('resize', onResize);
+      stop();
+    };
+  }, [ref, watch, followWindow]);
+  return { width, viewportHeight };
+}
+
+/**
  * Research R11: a pointer press is followed by focus, and that focus is not keyboard focus. The
  * focus a press gives comes before its pointerup with a mouse, but after it with touch (from the
  * compatibility mousedown), so the press ends at the click that follows, anywhere in the document.
@@ -120,6 +169,10 @@ export function ImageGallery({
   const card = variant === 'card';
   const root = useRef<HTMLDivElement>(null);
   const onScreen = useOnScreen(root, card && count > 0);
+  // FR-042 (research R18): the box takes the shown picture's shape, read when it loads, and kept
+  // per image so a picture shown again has its shape at once.
+  const { width, viewportHeight } = useBoxSize(root, count > 0, !card);
+  const [shapes, setShapes] = useState<ReadonlyMap<string, number>>(() => new Map());
   const [stopped, setStopped] = useState(false);
   const [overArrow, setOverArrow] = useState(false);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
@@ -173,6 +226,14 @@ export function ImageGallery({
       : new Set();
   const position = `image ${index + 1} of ${count}`;
   const several = count >= 2;
+  // FR-042: during a slide the box already has the incoming picture's shape; the outgoing one
+  // stays whole inside it (object-fit: contain).
+  const height =
+    width === null
+      ? undefined
+      : galleryBoxHeight({ variant, width, ratio: shapes.get(shown.id) ?? null, viewportHeight });
+  const onShape = (ratio: number) =>
+    setShapes((now) => (now.get(shown.id) === ratio ? now : new Map(now).set(shown.id, ratio)));
 
   const keyboardOnly = {
     onFocus: () => {
@@ -203,6 +264,7 @@ export function ImageGallery({
         alt={`${eventName}, ${position}`}
         part="gallery"
         enabled={onScreen}
+        onShape={onShape}
       />
     </span>
   );
@@ -214,6 +276,8 @@ export function ImageGallery({
       aria-roledescription="carousel"
       aria-label={`Images of ${eventName}`}
       className={`gallery gallery--${variant}`}
+      // A layout length only, never a color, font, or shadow (spec 012's inline rule; R18).
+      style={height === undefined ? undefined : { height }}
       onPointerDown={() => {
         pointerDown.current = true;
         setKeyboardFocus(false);
