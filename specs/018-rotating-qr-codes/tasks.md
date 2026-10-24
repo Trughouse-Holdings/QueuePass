@@ -558,7 +558,7 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
   out of each front end. Record the results in this file, including whether S6's DevTools
   throttling step (a network that hangs, on the Customer window) behaved as written; if it didn't,
   correct quickstart.md in a spec PR (Constitution III).
-- [ ] T040 Independent review (Constitution III): a separate Claude session reviews the branch
+- [X] T040 Independent review (Constitution III): a separate Claude session reviews the branch
   against spec.md and plan.md; fix the findings. One review is required; another round is optional
   (Constitution 3.3.0, in this PR). Record the review and any open finding here and in the PR
   description.
@@ -590,7 +590,7 @@ passing in Phase 3; the Ticket Booth keeps the ID check for them (T033).
   page (spec PR #71, since #70 had merged). **L6** fixed in research R8. Noted, no action: the
   migration's `pgcrypto`/table-rewrite portability; the tests' `30_000` literals; the `/me/orders`
   payload (contract 1.11.0 is final).
-- [ ] T041 Once the spec and plan PR has merged (Constitution 3.2.0), bring the branch up to `main`
+- [X] T041 Once the spec and plan PR has merged (Constitution 3.2.0), bring the branch up to `main`
   and open the implementation PR against `main`, assigned to `nathan-707`, with `fixes #41` on its
   own line in the **description** only (see Issue above). The description records: the review
   (T040), coverage (T038), the running-system results (T039), and any deviation from the plan.
