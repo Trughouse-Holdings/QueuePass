@@ -35,8 +35,8 @@ describe('Keycloak seed idempotence', () => {
     }
   });
 
-  it('seeds exactly 235 users, and re-running changes nothing', async () => {
-    if (!available) return;
+  it('seeds exactly 235 users, and re-running changes nothing', async ({ skip }) => {
+    if (!available) skip();
 
     await seed();
     const first = await countUsers();
@@ -50,8 +50,10 @@ describe('Keycloak seed idempotence', () => {
     expect(await countUsers()).toEqual(first);
   });
 
-  it('converges the audience scope and three front-end clients, stably across runs', async () => {
-    if (!available) return;
+  it('converges the audience scope and three front-end clients, stably across runs', async ({
+    skip,
+  }) => {
+    if (!available) skip();
 
     await seed();
     const kc = await createKeycloakClient();
@@ -93,8 +95,10 @@ describe('Keycloak seed idempotence', () => {
     expect(await clientIds(kc)).toEqual(firstIds);
   });
 
-  it('repairs drift: a password grant switched on by hand is switched off again', async () => {
-    if (!available) return;
+  it('repairs drift: a password grant switched on by hand is switched off again', async ({
+    skip,
+  }) => {
+    if (!available) skip();
 
     await seed();
     const kc = await createKeycloakClient();
@@ -110,8 +114,10 @@ describe('Keycloak seed idempotence', () => {
     expect(after.directAccessGrantsEnabled).toBe(false);
   });
 
-  it('repairs drift: a wildcard redirect URI set by hand is replaced by the exact list (#60)', async () => {
-    if (!available) return;
+  it('repairs drift: a wildcard redirect URI set by hand is replaced by the exact list (#60)', async ({
+    skip,
+  }) => {
+    if (!available) skip();
 
     await seed();
     const kc = await createKeycloakClient();

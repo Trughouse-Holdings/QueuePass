@@ -150,12 +150,16 @@ request goes red with a failing test.
   pass.
   - **Result**: Prettier left the file unchanged; 7 of 7 pass (the rest of `npm test` passed
     with T011's run).
-- [ ] T009 [US1] Report the seed's Keycloak tests as skipped (R16, FR-014): in
+- [x] T009 [US1] Report the seed's Keycloak tests as skipped (R16, FR-014): in
   `scripts/seed/test/seed-idempotence.test.ts`, change each `if (!available) return;` to take the
   test context's `skip` (`async ({ skip }) => { if (!available) skip(); … }`), keeping the
   `[skip] Keycloak not reachable` warning. With the stack **down**, `npm test --workspace
   @queuepass/seed` reports `4 skipped`, not `4 passed` (the file has four Keycloak tests, not two:
   two idempotence tests and two drift tests); with the stack up (T028), they run and pass.
+  - **Result**: with Keycloak unreachable (`KEYCLOAK_HEALTH_URL=http://127.0.0.1:1`, the stack
+    itself stayed up here; T022 repeats it with the stack stopped), before the change: `8 passed`
+    after the `[skip]` warning; after it: `4 passed | 4 skipped (8)` with the warning kept. With
+    the running stack's Keycloak: `8 passed`. The seed's `tsc --noEmit` and lint pass.
 
 ### The backend's `pretest` generates Prisma (FR-019, R5)
 
