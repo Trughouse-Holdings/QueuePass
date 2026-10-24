@@ -261,10 +261,10 @@ stale, or zero-line summary fails it.
     laptop before any workspace measured coverage, the report listed the backend at 96.35% from a
     stale `backend/coverage/coverage-summary.json` of an earlier run and the other five as not
     measured, and exited 1; `--clean` then removed it (R11's stale-file case).
-- [ ] T016 [US3] Backend (R10): `backend/package.json` `test` becomes `jest --runInBand --coverage`;
+- [x] T016 [US3] Backend (R10): `backend/package.json` `test` becomes `jest --runInBand --coverage`;
   `backend/jest.config.ts` gains `coverageReporters: ['text-summary', 'json-summary']`, with a
   comment citing spec 011 R10. Keep `collectCoverageFrom` and `coverageDirectory`.
-- [ ] T017 [P] [US3] The five Vitest workspaces (R10): in each of `packages/shared`, `admin-app`,
+- [x] T017 [P] [US3] The five Vitest workspaces (R10): in each of `packages/shared`, `admin-app`,
   `customer-app`, `booth-app`, and `scripts/seed`, the `test` script becomes
   `vitest run --coverage`, and `vitest.config.ts` gains under `test`:
   `coverage: { provider: 'v8', include: ['src/**'], reporter: ['text-summary', 'json-summary'] }`.

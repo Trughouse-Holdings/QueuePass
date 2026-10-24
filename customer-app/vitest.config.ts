@@ -11,6 +11,10 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./test/setup.ts'],
     include: ['test/**/*.test.tsx', 'test/**/*.test.ts'],
+    // Spec 011 research R10: npm test measures line coverage of this workspace's own source;
+    // coverage/coverage-summary.json feeds scripts/coverage-report.mjs (R11). No thresholds
+    // until 010-test-coverage.
+    coverage: { provider: 'v8', include: ['src/**'], reporter: ['text-summary', 'json-summary'] },
     // Pin local time so date and time assertions are exact (spec 003 research R6).
     env: { TZ: 'America/New_York' },
   },

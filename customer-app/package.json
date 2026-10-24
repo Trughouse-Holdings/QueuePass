@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "vitest run",
+    "test": "vitest run --coverage",
     "pretest": "npm run build --workspace @queuepass/shared"
   },
   "dependencies": {
