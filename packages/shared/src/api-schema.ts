@@ -1419,6 +1419,11 @@ export interface components {
                 id: string;
                 /** @example KFC Yum! Center */
                 name: string;
+                /**
+                 * @description Feature 019. The venue's full one-line address, the same as its `Location.address`, for the customer's calendar entry. Always sent once feature 019 is implemented, which adds it to `required`.
+                 * @example 1 ARENA PLAZA, LOUISVILLE, KY 40202
+                 */
+                address?: string;
             };
         };
         /**
