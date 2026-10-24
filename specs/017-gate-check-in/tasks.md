@@ -495,6 +495,21 @@ as typing its code.
   and refund time); merge commit ce6a93b has "# Conflicts:" lines after its Co-Authored-By line, so
   GitHub doesn't show that co-author, and fixing it would rewrite pushed history. Review done in 4
   rounds; a different session reviews these fixes (round 5) before teammates do.
+  **T049 record — round 5 (2026-10-23):** a different session reviewed round 4's fixes at 6e635ef.
+  Every fix confirmed: each new test fails with its fix undone, and a8ea582 compiles to the same
+  output as before in all 36 files. No must-fix. Fixed (LOW): **Change event** left the camera
+  set to open, so choosing an event again turned it on without **Scan** (123b38c, FR-009; its test
+  failed first); `held()` in `scanner.test.tsx` lost a release sent before the request arrived, and
+  two comments were out of date (06acf22, no behavior change). Left open, minor: after a failed
+  admit that was in fact recorded, the lookup it advises shows "Already used" with no sign the
+  agent made that entry (would need the contract to name the agent); Admit is disabled while its
+  request runs, so in browsers that move focus off a disabled button, focus is on the page after a
+  failed admit (not a regression; check in a browser first); a Backend `HOLDER_NAME_INVALID` is
+  shown in the banner without marking the field invalid (unreachable while both apps share the
+  rule); a lookup or admit still running across **Change event** can show its answer on the next
+  event's screen (the Backend refuses another event's ticket, so nothing wrong is recorded). Suite
+  after round 5: Backend 703, shared 380, Admin 196, Customer 179, Booth 52, seed 3; lint and
+  `prettier --check` clean. Review done in 5 rounds; next, teammates.
 - [X] T050 Once the spec and plan PR has merged (Constitution 3.2.0), rebase onto `main` and open
   the implementation PR against `main` with `fixes #39` and `fixes #40` on their own lines. It
   touches the shared surface (`backend/prisma/`, `packages/shared/`, `contracts/openapi.yaml`), so
