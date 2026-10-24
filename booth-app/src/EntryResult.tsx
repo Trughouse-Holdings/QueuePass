@@ -139,10 +139,14 @@ export function EntryResult({
         <p className="note">
           {`${t.unusedOnOrder} unused ${t.unusedOnOrder === 1 ? 'ticket' : 'tickets'} on this order`}
         </p>
+        {/* Spec 018 FR-011: the Backend verified a live code in its window, so no ID check;
+            a printed or typed code always gets 017's prompt (FR-014). */}
         <p className="result__prompt">
-          {t.holderName
-            ? `Check a government-issued photo ID that shows: ${t.holderName}`
-            : 'Check that the person shows a valid photo ID'}
+          {t.verifiedBy === 'LIVE_CODE'
+            ? '✓ Live code verified. No ID check needed.'
+            : t.holderName
+              ? `Check a government-issued photo ID that shows: ${t.holderName}`
+              : 'Check that the person shows a valid photo ID'}
         </p>
         <div className="result__actions">
           <button

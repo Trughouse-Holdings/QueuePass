@@ -353,7 +353,7 @@ label.
 
 ### Implementation for User Story 1
 
-- [ ] T019 [US1] Create `backend/src/entry/entry-key.controller.ts`:
+- [X] T019 [US1] Create `backend/src/entry/entry-key.controller.ts`:
   `@Controller('me/tickets/:ticketId/entry-key')`, `@Get()` with `@Roles('customer')`,
   `ParseUUIDPipe` on `ticketId`, `@CurrentPrincipal()`, and `@Header('Cache-Control', 'no-store')`.
   Add `entryKey(ticketId, principal)` to `backend/src/entry/entry.service.ts` (or a small
@@ -364,7 +364,7 @@ label.
   })`; used is `conflict('ENTRY_REFUSED', 'This ticket was already used.', { reason: 'USED', usedAt
   })`; otherwise `{ ticketId, key: keyToBase64url(entrySecret), serverTime: new
   Date(clock.now()).toISOString() }`. Register the controller in `entry.module.ts`.
-- [ ] T020 [US1] Create `backend/src/entry/live-code-check.ts`: `checkLiveCode(prisma, clock, text)`
+- [X] T020 [US1] Create `backend/src/entry/live-code-check.ts`: `checkLiveCode(prisma, clock, text)`
   returning the verified `ticketId`, or throwing, in research R4's order: `parseLiveCode` is `null`
   → `404 LIVE_CODE_INVALID`; load `{ entrySecret }` by id (`select`), none → `404
   LIVE_CODE_INVALID`; recompute `liveCode(secret, ticketId, window)` and compare its MAC with the
@@ -374,18 +374,18 @@ label.
   expired."; no `details` on either (no ticket information, FR-011). Build both in the standard
   envelope as `ticketNotFound` in `entry.service.ts` builds its `404`, and with `conflict()` for the
   `409`.
-- [ ] T021 [US1] In `backend/src/entry/entry.service.ts`, inject `CLOCK`; at the top of `lookup`,
+- [X] T021 [US1] In `backend/src/entry/entry.service.ts`, inject `CLOCK`; at the top of `lookup`,
   after `eventOrThrow`, if `isLiveCodeText(rawCode)`, call `checkLiveCode` and then run the existing
   `select` with `t."id" = ${ticketId}::uuid`, returning `toEntryTicket(row)` with `verifiedBy:
   'LIVE_CODE'`; otherwise keep 017's path unchanged and return `verifiedBy: 'TICKET_CODE'`. In
   `backend/src/entry/dto/entry-lookup.dto.ts`, change `@Length(1, 64, …)` to `@Length(1, 80, {
   message: 'code must be between 1 and 80 characters' })` (research R4).
-- [ ] T022 [US1] Build `packages/shared`; run T010–T015 and T032 until they pass. A fix any of
+- [X] T022 [US1] Build `packages/shared`; run T010–T015 and T032 until they pass. A fix any of
   them needs goes in `backend/src/entry/` or `packages/shared/src/live-code.ts`.
-- [ ] T023 [US1] In `contracts/openapi.yaml`, remove `x-planned: '018'` from `getTicketEntryKey`;
+- [X] T023 [US1] In `contracts/openapi.yaml`, remove `x-planned: '018'` from `getTicketEntryKey`;
   run `npm run generate:api`. Run `backend/test/contract/route-coverage.e2e-spec.ts` and
   `node scripts/check-contract-drift.mjs`; both pass.
-- [ ] T024 [US1] In `packages/shared/src/web/auth-provider.tsx` (research R12), split today's
+- [X] T024 [US1] In `packages/shared/src/web/auth-provider.tsx` (research R12), split today's
   `onLost`:
   - A `silentRenewError` whose error is an `ErrorResponse` (`err instanceof ErrorResponse` from
     `oidc-client-ts`, or `err.name === 'ErrorResponse'`) does what `onLost` does now:
@@ -413,7 +413,7 @@ label.
   research R12. Nothing is written to storage (Constitution V) and `logout` doesn't change. Run
   T016 and the rest of `packages/shared`'s tests until they pass, build `packages/shared`, then run
   the Admin, Customer, and Ticket Booth apps' tests: the provider is theirs too.
-- [ ] T025 [US1] In `customer-app/src/components/TicketQr.tsx`, generalize without changing 017's
+- [X] T025 [US1] In `customer-app/src/components/TicketQr.tsx`, generalize without changing 017's
   output: `qrMatrix(text)` (any QR-alphanumeric text; type number 0, level `'M'`); export
   `qrPath(text): string`, the SVG path of the dark modules with the 4-module quiet zone, built as
   `TicketQr` builds it today, and have `TicketQr` draw with it (T017 compares with it); and
@@ -422,7 +422,7 @@ label.
   `ticket-qr--live`); 017's print view and `print-ticket.test.tsx` stay unchanged and passing. Add
   the class `ticket-qr--live` support for a size of `min(100%, 320px)` in
   `customer-app/src/styles.css`, theme values only.
-- [ ] T026 [US1] Build the live-code screen (research R8):
+- [X] T026 [US1] Build the live-code screen (research R8):
   - `customer-app/src/live-code-clock.ts`: `measureOffset(serverTime: string, sentMs: number,
     receivedMs: number): number` (`Date.parse(serverTime) − (sentMs + receivedMs) / 2`) and
     `serverNow(offset: number): number` (`Date.now() + offset`), with a comment citing FR-009.
@@ -441,18 +441,18 @@ label.
   - `customer-app/src/pages/MyTickets.tsx`: a **Show entry code** link, `aria-label` "Show entry
     code for ticket <code>", on each valid, unused ticket, beside **Print ticket**.
   - Typed calls through the generated client (`createApiClient`), as the other pages do.
-- [ ] T027 [US1] In `contracts/openapi.yaml`, add `verifiedBy` to `EntryTicket`'s `required` and
+- [X] T027 [US1] In `contracts/openapi.yaml`, add `verifiedBy` to `EntryTicket`'s `required` and
   delete "Required once feature 018 is implemented." from its description; run
   `npm run generate:api`. In `packages/shared/src/entry.ts`, make `verifiedBy` required too (drop
   T004's `?` and its "required from T027"), and build `packages/shared`. T012, T015, and the
   existing entry tests still pass against the contract.
-- [ ] T028 [US1] In the Ticket Booth app (research R9): `booth-app/src/decode.ts`, make
+- [X] T028 [US1] In the Ticket Booth app (research R9): `booth-app/src/decode.ts`, make
   `normalizeScan` return a live code (upper-cased) when it matches T018's pattern,
   `^QP1:[0-9A-F]{32}:(0|[1-9]\d{0,11}):[A-Z2-7]{16}$`, else 017's behavior;
   `booth-app/src/EntryResult.tsx`, for `verifiedBy === 'LIVE_CODE'` and `ADMITTABLE`, show
   "✓ Live code verified. No ID check needed." in place of the ID-check prompt, keeping **Admit**,
   **Admit all N**, and **Refuse**. Theme values only; word and symbol, not color alone (FR-016).
-- [ ] T029 [US1] Run T017 and T018 until they pass, then the theme drift test
+- [X] T029 [US1] Run T017 and T018 until they pass, then the theme drift test
   (`packages/shared/test/theme/drift.test.ts`, part of `npm test -w packages/shared`) and
   `node scripts/check-contract-drift.mjs`.
 
