@@ -618,6 +618,40 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 
 ---
 
+## Phase 9: Whole pictures (issue #73, added 2026-10-24)
+
+**Goal**: FR-041, FR-042, SC-008 (spec Session 2026-10-24, research R18). Branch
+`014-whole-images-impl`; the PR says `fixes #73`.
+
+- [ ] T051 [P] **Test first.** Create `packages/shared/test/web/gallery-size.test.ts` for
+  `galleryBoxHeight` (research R18): card at width 320 with ratio 4/3 → 240, 1 → 320, 0.5 → 426.67
+  (limited to 3:4), 3 → 160 (limited to 2:1), `null` → 240; page at width 1280 and window height
+  900 with ratio 16/9 → 630 (70% of 900), 3 → 426.67, 10 → 200 (the minimum), `null` → 480, and at
+  width 375 with `null` → 200.
+- [ ] T052 [P] **Test first.** Extend `packages/shared/test/theme/tokens.test.ts`: `.gallery__image`
+  and `.viewer__image` use `object-fit: contain`, and no `object-fit: cover` remains in `theme.css`;
+  `.gallery` has a 0.4-second height transition with the slide's curve, set to `none` under
+  `prefers-reduced-motion: reduce`. Extend the Admin app's tests: `.image-item__thumb` uses
+  `contain` and has no fixed `aspect-ratio`.
+- [ ] T053 [P] **Test first.** Extend `packages/shared/test/web/image-gallery.test.tsx` (both
+  variants), with a stub `ResizeObserver` reporting the width and images whose `naturalWidth` and
+  `naturalHeight` are set before `load` fires: before the picture loads the gallery has the
+  `null` height; after it loads, the height from `galleryBoxHeight`; after a change to a picture of
+  another shape, the new height (also during the slide, while the outgoing picture is still
+  rendered); a resize to another width recomputes it; a failed picture keeps the `null` height.
+- [ ] T054 Create `packages/shared/src/web/gallery-size.ts`; in `image-gallery.tsx` (and
+  `gallery-parts.tsx` as needed) read the shown picture's shape on load, measure the width, and set
+  the height; in `theme.css` switch to `contain` and add the transition with its reduced-motion
+  rule (research R18). Run T051–T053 and the shared suite, including the drift check.
+- [ ] T055 In `admin-app/src/styles.css` and `ImagesField.tsx`, show each preview whole at its own
+  shape within the 3:4 limit (research R18). Run T052's Admin part and the Admin app suite.
+- [ ] T056 Running-system check: quickstart S13 in both apps, at desktop width and at 375 pixels,
+  and record it here.
+- [ ] T057 Independent review (Constitution III, one round), fix the findings, and open the
+  implementation PR with `fixes #73`.
+
+---
+
 ## Dependencies & Execution Order
 
 - **Phase 1 → Phase 2** before any story.

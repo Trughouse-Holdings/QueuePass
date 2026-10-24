@@ -89,6 +89,19 @@ not amended.
   Mahdi, 2026-10-19, after trying the event page; this replaces the earlier "no animation" rule,
   research R11).
 
+### Session 2026-10-24
+
+- Q: Can a gallery crop a picture to fill its box? → A: No. No part of any picture is ever cut, in
+  any gallery, on the event page, on a card, in the Admin form's previews, or in full screen. The
+  sponsors pointed out at the Oct 20 meeting that the full height of each picture should always
+  show (decided by Mahdi, 2026-10-24, issue #73).
+- Q: Then what fills the box when a picture's shape doesn't match it? → A: Nothing: the box takes
+  the shape of the picture it is showing, so there is no empty space around it. The box's height
+  changes as the gallery turns, and cards in one row can differ in height; Mahdi chose this over
+  a blurred copy or plain bars behind the picture (2026-10-24). This replaces the 4:3 card shape
+  of the 2026-10-19 session. Only an extreme picture is limited (FR-042): it shrinks to fit, still
+  whole and centered.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - An Admin Adds Images to an Event (Priority: P1)
@@ -405,9 +418,9 @@ gallery shows the last image viewed.
 **Customer app**
 
 - **FR-020**: Each event card on the Events list MUST show the event's images, cover first, at the
-  top of the card, spanning the card's full width at a 4:3 shape, so it takes most of the card,
-  with the name, times, venue, and price right under it. Selecting the image MUST open the event
-  page.
+  top of the card, spanning the card's full width in the shown picture's own shape (FR-041,
+  FR-042), with the name, times, venue, and price right under it. Selecting the image MUST open the
+  event page.
 - **FR-021**: The event page MUST show the event's images, cover first, at the top of the page,
   spanning the full width of the app.
 - **FR-022**: With two or more images, each gallery MUST show the next image every 5 seconds, and
@@ -492,6 +505,23 @@ gallery shows the last image viewed.
   next slide from where things are, never queue or skip images. Under reduced motion (FR-025) the
   image MUST change with no slide.
 
+**Whole pictures (added 2026-10-24, issue #73)**
+
+- **FR-041**: Every gallery, the Admin form's image previews, and the full-screen view MUST show
+  each picture whole: no part of it cropped, and never stretched or squashed out of its own shape.
+- **FR-042**: A gallery's box MUST take the shape of the picture it is showing: its full width
+  (the card's width on a card, the app's width on the event page) and the height that keeps the
+  picture's shape, so no space is left around it. Only extreme pictures are limited, and then the
+  picture shrinks to fit, whole and centered, with the gallery's background beside or above it:
+  - on a card, the box is at most 4 tall for every 3 wide (a portrait picture) and at least 1 tall
+    for every 2 wide (a panorama), so the controls still fit;
+  - on the event page, the box is at most 70% of the window's height and at least 200 pixels tall.
+
+  Until the shown picture has loaded, the box keeps its earlier size (4:3 on a card; between 200
+  and 480 pixels tall on the event page). When the picture changes, the box's height MUST change
+  smoothly with FR-040's slide, over the same 0.4 seconds; under reduced motion it changes at once.
+  The Admin form's previews follow the card's rule at the preview's width.
+
 ### Key Entities
 
 - **Event image**: one picture of one event: its content, its type (JPG, PNG, or WebP), its size in
@@ -518,6 +548,9 @@ gallery shows the last image viewed.
   focus to where it was opened in 100% of cases.
 - **SC-006**: On an Events list of 20 events with 5 images each, the first view loads at most 2
   images per card on or near the screen, and every card's text shows before any image arrives.
+- **SC-008**: 100% of pictures are shown whole (nothing cropped or stretched) in every gallery,
+  preview, and the full-screen view, at desktop width and at 375 pixels, for a tall phone photo,
+  a square picture, and a wide panorama (issue #73).
 - **SC-007**: 100% of events without images look and behave as they did before this feature.
 
 ## Assumptions

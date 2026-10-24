@@ -223,4 +223,19 @@ Open `stored.jpg`'s **Properties → Details** in Windows (or run `exiftool stor
 installed). **Expect**: no GPS position, no camera make or model, no date taken; the photo opens
 the right way up. In the Customer app the same photo is shown upright.
 
+## S13: Whole pictures (FR-041, FR-042, issue #73)
+
+Give an event three pictures: a tall phone photo (taller than wide), a square one, and a wide
+panorama (at least 3 times as wide as tall). **Expect**, on its card on **Events** and on its event
+page in both apps, at desktop width and at 375 pixels:
+
+- every picture is whole: compared with the original, nothing is missing at any edge and nothing
+  is stretched;
+- the box takes each picture's shape, with no space around it, and grows or shrinks smoothly with
+  the slide as the gallery turns (at once under reduced motion);
+- on the event page, the tall photo fits within the window's height, centered, still whole; on a
+  card it is no taller than 4:3 portrait, and the panorama no flatter than 2:1, both whole and
+  centered, with the arrows, position, and Pause/Play still usable;
+- the Admin form's previews show each picture whole in its own shape, and full screen still does.
+
 Finally, sign in, use, and sign out of each front end (Constitution VI smoke test).

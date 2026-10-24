@@ -659,8 +659,8 @@ research R6).
   (Pause/Play), `.gallery__frame` (one image in the slide track) and the four slide classes
   `.gallery__slide--{out,in}-{left,right}` with their `gallery-*` keyframes (R11, FR-040); `.viewer`, `.viewer__image`, `.viewer__close`, `.viewer__arrow` (with `--prev` and
   `--next`), `.viewer__count`; and `.viewer-open` on `<body>`.
-- **Card**: `.gallery--card` is 4:3 (`aspect-ratio`; Mahdi, 2026-10-19: the gallery takes most of
-  the card), flush with the top and sides of the card,
+- **Card**: `.gallery--card` takes the shown picture's shape (R18; it was 4:3 until 2026-10-24,
+  issue #73), flush with the top and sides of the card,
   above the title. The Customer app's `.event-card` gives the gallery negative margins equal to
   its own padding (`calc(-1 * var(--space-N))`, which `012`'s rule C5 allows) and rounds its top
   corners with the card.
@@ -669,7 +669,8 @@ research R6).
   `margin-inline: calc(50% - 50vw)`. Because `100vw` includes the vertical scroll bar on Windows,
   sideways scrolling is prevented only where a band is shown: `.app:has(.page-band) { overflow-x:
   clip }`. The shared theme sets no `overflow` on `.app` otherwise, so no other page changes.
-  The band's height is `clamp(200px, 40vw, 480px)`.
+  The band's height follows the shown picture (R18); `clamp(200px, 40vw, 480px)` is only its
+  height before the first picture has loaded.
 - **Vertical placement**: in `theme.css` on `main`, `.main` has `padding: 32px 24px 64px`, and
   `22px 16px 48px` inside the 640-pixel breakpoint, as literal values (`012` kept the theme's own
   lengths). The band sits exactly flush under the sticky top bar by cancelling that top padding
@@ -678,8 +679,9 @@ research R6).
   a theme test (T024) asserts the band's negative top margin equals `.main`'s top padding at both
   widths, so the two cannot drift apart. This is the smaller change: tokenizing `.main`'s padding
   first would move every page of both apps by 2 pixels at phone width (22 → 24) for one band.
-- **Images**: `object-fit: cover` in both galleries (the area is filled, edges may be cropped);
-  `contain` in the viewer (the whole picture).
+- **Images**: `object-fit: contain` everywhere: both galleries, the Admin previews, and the viewer
+  (the whole picture; R18). Until 2026-10-24 the galleries used `cover`, which cropped (issue
+  #73).
 - **Arrows, Pause/Play, and position**: over the image; arrows vertically centered on each side, at
   least 44 × 44 pixels, with an opaque `--surface` background, `--text` glyph, `--border-strong`
   border, and `--radius-pill`, so they read the same on any picture. The position ("2 of 5") is a
@@ -708,6 +710,53 @@ controls makes them readable on any picture without a new color.
 apps for one band). Rendering the page band outside `<main>` (every page would need a slot
 in the app shell for one page's band). A backdrop in `--bg` (white in light mode; Mahdi asked for
 dark).
+
+## R18. Whole pictures: the box takes the picture's shape (issue #73)
+
+**Decision** (Mahdi, 2026-10-24; spec FR-041, FR-042):
+
+- **Where the shape comes from**: the loaded image's `naturalWidth / naturalHeight`, read in the
+  browser when the shown picture's `<img>` loads. No contract or database change: the Backend
+  reads each picture's size at upload (R3) but does not return it, and adding it would mean a new
+  `Event` field and a migration to backfill every stored picture for one layout detail.
+- **Sizing rule**, one pure function in `packages/shared/src/web/gallery-size.ts`,
+  `galleryBoxHeight({ variant, width, ratio, viewportHeight })` (`ratio` is width / height, or
+  `null` before the picture has loaded):
+  - card: `width / clamp(ratio, 3/4, 2)`, so between a 3:4 portrait and a 2:1 panorama; `null`
+    gives `width × 3/4` (4:3);
+  - page: `clamp(width / ratio, 200, 0.7 × viewportHeight)`; `null` gives
+    `clamp(200, 0.4 × width, 480)`.
+
+  The gallery measures its own width with a `ResizeObserver` and sets its height in pixels as an
+  inline style. A height is a layout length, not a color, font, or shadow, so `012`'s inline-style
+  rule allows it.
+- **No crop, ever**: `object-fit: contain` on `.gallery__image` and `.image-item__thumb` (and, as
+  before, `.viewer__image`). Within the limits, the box has the picture's shape, so `contain` fills
+  it exactly. Outside them, and for a pixel of rounding, `contain` keeps the whole picture
+  centered on `.gallery`'s `--surface-alt` background rather than cutting it.
+- **Moving between shapes**: `.gallery` has `transition: height 0.4s ease-in-out`, the length and
+  curve of the slide (FR-040), so the box grows or shrinks while the pictures slide. During a slide
+  the box takes the incoming picture's shape; the outgoing picture keeps its own shape (`contain`)
+  inside it. Under `prefers-reduced-motion: reduce` the transition is `none`, as the slide is.
+- **Admin previews**: `.image-item__thumb` drops `aspect-ratio: 16 / 9`, so each preview takes its
+  picture's shape at the preview's width (`height: auto`), limited to the card's 3:4 portrait
+  shape, whole and centered beyond it. A new picture's preview (from its `File`) and a saved one
+  behave the same.
+- **Cards in a row**: the Events grid keeps its default `align-items: stretch`, so the cards in a
+  row are as tall as the tallest, and each card's text sits right under its own gallery.
+
+**Rationale**: Mahdi chose no cropping and no empty space (spec Session 2026-10-24). Reading the
+shape in the browser keeps the change inside the shared gallery and the Admin preview, with no
+contract, migration, or Backend work. One tested function decides every size, so the limits are
+stated once.
+
+**Alternatives considered**: A blurred copy of the picture or plain bars behind a fixed box (Mahdi
+chose the box that fits the picture). Returning `width` and `height` with each image (a contract
+change and a migration that must read every stored picture, and the box would still need the same
+rule). CSS `aspect-ratio` from a custom property (the event page's limit depends on the window's
+height, and a height transition needs a length). No limits at all (a tall phone photo on the
+event page would be taller than the window, and a panorama on a card would leave no room for the
+arrows).
 
 ## R14. Performance: load only what is on screen
 
