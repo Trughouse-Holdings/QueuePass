@@ -421,7 +421,7 @@ turned on right after merge (T033).
     scripts, and the `vitest.config.ts` files; on the host, `npm ci` on that lock file and
     every workspace's `npm run build` pass (T022). To do on a machine whose containers reach
     the package servers.
-- [ ] T029 With the user's go-ahead: push `011-ci-test-runs-impl` and the throwaway branch
+- [x] T029 With the user's go-ahead: push `011-ci-test-runs-impl` and the throwaway branch
   `011-ci-throwaway` cut from it, open the one throwaway pull request (Ground rules: draft, the
   throwaway title and body, no reviewers, linked from #23 in a comment), and walk quickstart **Q3**:
   the canary test makes the check red at **Test**, naming the test, with an annotation on the file
@@ -430,11 +430,27 @@ turned on right after merge (T033).
   `npm run ci` locally fails the same way (SC-003); two quick pushes leave the older run
   **cancelled** (FR-011); the formatting error is red at **Check formatting**. Leave the pull
   request open as a draft, with the canary, for T033. Record each run's URL and result here.
+  - 2026-10-24, throwaway PR #78 (draft, no reviewers; linked from #23). Canary commit `fc162b4`.
+    - [Run 40122281914](https://github.com/Trughouse-Holdings/QueuePass/actions/runs/40122281914)
+      (`fc162b4`): failure. Install, Generate Prisma client, Check formatting, Lint, and Build
+      passed on ubuntu-24.04; **Test** failed naming `test/ci-canary.test.ts:4:13`, "expected 1
+      to be 2", with an error annotation on the file; Report coverage skipped; 1 min 39 s. From
+      opening the failed check, the step and test were named at once (SC-006).
+    - Two pushes seconds apart (`4595a8c`, `b8778e8`): GitHub started one run, for the later.
+      A further push while it ran: [run 40122678730](https://github.com/Trughouse-Holdings/QueuePass/actions/runs/40122678730)
+      (`b8778e8`) **cancelled**, and so was run 40122725780 (`55a8a5c`) by the next push (FR-011).
+    - [Run 40122781279](https://github.com/Trughouse-Holdings/QueuePass/actions/runs/40122781279)
+      (`685647a`, an unformatted file): failure at **Check formatting**, naming
+      `packages/shared/test/ci-unformatted.ts`. Reverted; the PR stays a draft with the canary.
+    - `npm run ci` locally on the canary fails at the same test (SC-003; T023 covered the format,
+      lint, and type cases locally).
 
 ## Phase 9: Pull Request and After Merge
 
-- [ ] T030 Rebase onto `main` if the spec and plan PR has merged since T001 (Constitution III), and
+- [x] T030 Rebase onto `main` if the spec and plan PR has merged since T001 (Constitution III), and
   re-run T022.
+  - 2026-10-24: not needed; the branch was cut from `main` e73f5dd after #77 merged, and `main`
+    has not moved since.
 - [ ] T031 With the user's go-ahead, open the implementation PR against `main` with `fixes #23` in
   its description, the independent review record (T026), the running-system results (T028, T029),
   the timings (T022), and a note that the root `package.json`, `eslint.config.mjs`, and
