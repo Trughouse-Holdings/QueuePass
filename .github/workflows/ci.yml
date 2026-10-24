@@ -1,0 +1,45 @@
+# The pull request check, spec 011 (specs/011-ci-test-runs, research R1 to R19).
+# The run steps after `npm ci` MUST be exactly the parts of the root `ci` script in package.json,
+# in the same order (R12); scripts/test/ci-workflow.test.mjs fails when they differ.
+# The job name `test` is the required check's name on main (R18): do not rename it.
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate Prisma client
+        run: npm run prisma:generate --workspace @queuepass/backend
+      - name: Check formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Test
+        run: npm test
+      - name: Report coverage
+        run: npm run coverage:report

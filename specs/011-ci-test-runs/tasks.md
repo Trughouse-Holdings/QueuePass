@@ -133,7 +133,7 @@ request goes red with a failing test.
 
 ### Implementation for User Story 1
 
-- [ ] T007 [US1] Create `.github/workflows/ci.yml` per research R1 to R4, R14, R15, R17: workflow
+- [x] T007 [US1] Create `.github/workflows/ci.yml` per research R1 to R4, R14, R15, R17: workflow
   `CI`; the triggers; top-level `permissions: contents: read` and `concurrency`; job `test`
   (`runs-on: ubuntu-24.04`, `timeout-minutes: 30`) with steps: `actions/checkout` (current major,
   `persist-credentials: false`); `actions/setup-node` (current major, `node-version-file: .nvmrc`,
@@ -143,8 +143,13 @@ request goes red with a failing test.
   (`npm test`), `Report coverage` (`npm run coverage:report`). A comment at the top cites spec 011
   and says the steps must match the root `ci` script. Check the current major versions of the two
   actions on their GitHub pages and use those tags.
-- [ ] T008 [US1] Run `npx prettier --write .github/workflows/ci.yml`, then `npm test`: T005's tests
+  - **Result**: on 2026-10-24 the latest releases are `actions/checkout` v7.0.1 and
+    `actions/setup-node` v7.1.0, and both repositories have a `v7` tag; the workflow uses
+    `@v7` for both.
+- [x] T008 [US1] Run `npx prettier --write .github/workflows/ci.yml`, then `npm test`: T005's tests
   pass.
+  - **Result**: Prettier left the file unchanged; 7 of 7 pass (the rest of `npm test` passed
+    with T011's run).
 - [ ] T009 [US1] Report the seed's Keycloak tests as skipped (R16, FR-014): in
   `scripts/seed/test/seed-idempotence.test.ts`, change each `if (!available) return;` to take the
   test context's `skip` (`async ({ skip }) => { if (!available) skip(); … }`), keeping the
