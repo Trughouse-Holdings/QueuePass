@@ -114,14 +114,17 @@ coordinates, the zone finder, and the test helpers every story uses.
 - [ ] T004 [P] **Test first.** Create `scripts/test/test-tz.test.mjs` (`node --test`): with a stub
   command, `scripts/test-tz.mjs` runs it once per zone with both `QP_TEST_TZ` and `TZ` set in the
   child's environment (the child prints `Intl.DateTimeFormat().resolvedOptions().timeZone` and the
-  test sees each of the four zones); it runs the `@queuepass/shared` build before the first suite
-  (a stub build command records that it ran first); the Backend run uses
+  test sees each of the four zones); it runs the `@queuepass/shared` build and then the Backend's
+  `prisma:generate` before the first suite (stub commands record the order); `CALENDAR_TEST_TZ`
+  set in the parent is absent from every child's environment; the Backend run uses
   `backend/jest.unit.config.ts`; `--zones A,B` limits the zones; `--quick` selects only the time
   test files; `--backend-full` adds the Backend's full suite; it exits non-zero when any run fails
   and prints a zone × workspace table.
 - [ ] T005 Create `scripts/test-tz.mjs` (R20): default zones America/New_York, UTC,
   America/Los_Angeles, Pacific/Honolulu; it first runs `npm run build --workspace
-  @queuepass/shared` (the Backend's Jest maps `@queuepass/shared` to `dist/cjs`); then, per zone,
+  @queuepass/shared` (the Backend's Jest maps `@queuepass/shared` to `dist/cjs`) and `npm run
+  prisma:generate --workspace @queuepass/backend` (a unit test imports `@prisma/client`); it removes
+  `CALENDAR_TEST_TZ` from the children's environment (R20); then, per zone,
   the `packages/shared`, `admin-app`, `customer-app`, and `booth-app` suites (`vitest run`) and the
   Backend's unit tests with a new `backend/jest.unit.config.ts` (the main config's settings,
   `roots`/`testMatch` limited to `test/unit`, and **no `globalSetup`**, so no Testcontainers
@@ -135,7 +138,8 @@ coordinates, the zone finder, and the test helpers every story uses.
 - [ ] T006 Make each Vitest config take the override (R20): `customer-app/vitest.config.ts`
   `env: { TZ: process.env.QP_TEST_TZ || 'America/New_York' }` (the `019` pin stays as the default);
   `admin-app`, `booth-app`, and `packages/shared` `env: { ...(process.env.QP_TEST_TZ ? { TZ:
-  process.env.QP_TEST_TZ } : {}) }`. Check `019`'s `customer-app/test/calendar.test.ts`: its restore
+  process.env.QP_TEST_TZ } : {}) }`. If `019`'s implementation has merged, check its
+  `customer-app/test/calendar.test.ts`: its restore
   of `TZ` deletes the variable when the saved value was `undefined` (fix it if it assigns), and it
   still passes with `CALENDAR_TEST_TZ` set to `UTC`, `America/New_York`, and
   `America/Los_Angeles`. Run `npm run test:tz` and record, per zone, which existing tests fail
@@ -179,16 +183,17 @@ coordinates, the zone finder, and the test helpers every story uses.
   `address.module.ts`. Run T012 until it passes.
   - **Seed image** (R1, review round 1 S3), test first: create `scripts/test/seed-image.test.mjs`
     (`node --test`) that reads `scripts/seed/Dockerfile` and fails unless its `npm ci` line
-    installs only `@queuepass/seed` and `@queuepass/shared` (plus the workspace root) and a later
-    `RUN` fails the build when `node_modules/geo-tz` exists; see it fail; then change the
-    Dockerfile to `npm ci --ignore-scripts --workspace @queuepass/seed --workspace
-    @queuepass/shared --include-workspace-root` followed by `RUN test ! -e node_modules/geo-tz`.
-    Run it until it passes.
+    installs only `@queuepass/seed` (plus the workspace root), `packages/shared` is neither
+    copied nor built, and a later `RUN` fails the build when `node_modules/geo-tz` exists; see it
+    fail; then change the Dockerfile to `npm ci --ignore-scripts --workspace @queuepass/seed
+    --include-workspace-root` followed by `RUN test ! -e node_modules/geo-tz`, and drop the
+    `packages/shared` copy and build (the seed imports nothing from it, R1). Run it until it
+    passes.
   - Where images build, check `docker compose build backend seed` succeeds and the seed image has
     no `geo-tz`; where they cannot (quickstart path B), record "to do where images build" and
     check the seed install on the host instead: in a scratch copy of the repository, run that same
     `npm ci` line and confirm `node_modules/geo-tz` is absent and `npm run build --workspace
-    @queuepass/shared` succeeds.
+    @queuepass/seed` (its `tsc --noEmit`) passes.
 - [ ] T014 [P] Update `backend/test/setup/fake-geocoder.ts`: the default `match` carries Lexington's
   coordinates (38.0494, -84.5010); a test can set a match with any `location` or `null`.
   `createTestApp()` keeps the real `GeoTzFinder`.
@@ -367,11 +372,12 @@ US2 scenario 7, US3 scenarios 6–8.
 ### Implementation
 
 - [ ] T026 [US5] Make `lockVenueAndEvents` also return `timeZone` and `timeZoneSource` from its
-  locked `SELECT`, and add `lockAllVenueEvents(tx, locationId)` (every event of the venue, any
-  status, in id order) to `backend/src/common/venue-lock.ts`. Implement `moveEventsToZone` in
+  locked `SELECT`, and take an option `{ allStatuses: true }` that locks every event of the venue,
+  any status, in **one** query in id order; `LocationsService.update` uses it, layout saves keep
+  the scheduled-only default; say in `backend/src/common/venue-lock.ts` why (R8, review round 2
+  n5). Implement `moveEventsToZone` in
   `venue-time-zone.ts` and call it inside `LocationsService.update`'s transaction after
-  `lockVenueAndEvents`, comparing with and converting from the **locked** zone (R8: lock all
-  events, orders, new moments, pairwise 60-minute check, `SET CONSTRAINTS "event_no_overlap"
+  `lockVenueAndEvents`, comparing with and converting from the **locked** zone (R8: orders, new moments, pairwise 60-minute check, `SET CONSTRAINTS "event_no_overlap"
   DEFERRED`, the writes); add the pre-lookup orders check for an explicit `timeZone`; remove T019's
   guard. Run T024 until it passes.
 - [ ] T027 [US5] Add `lockVenueShared(tx, ids)` to `backend/src/common/venue-lock.ts` (`FOR SHARE`
@@ -507,6 +513,17 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   `toLocaleTimeString(`, `getTimezoneOffset(`, and `new Date(` with a local string or
   `(y, m, d)` arguments (ground rules); each remaining use is not an event time (record which) or is
   replaced.
+- [ ] T058 (added in spec review round 2, N2) **Test first.** Create
+  `scripts/test/run-host.test.mjs` (`node --test`): `node scripts/run-host.mjs --print
+  --backend-tz America/Los_Angeles` prints, without starting anything, the setup steps in order
+  (shared build, `prisma generate`, `migrate deploy`, seed; demo data only with `--demo-data`) and
+  four children: the Backend with `DATABASE_URL`, `OIDC_ISSUER`, `OIDC_JWKS_URL` (localhost),
+  `OIDC_AUDIENCE`, `CORS_ORIGINS`, `ADDRESS_GEOCODER_URL`, and `TZ=America/Los_Angeles`, and each app
+  with `VITE_API_BASE_URL`, `VITE_OIDC_AUTHORITY`, and its own `VITE_OIDC_CLIENT_ID` on its own
+  port (5173, 5174, 5175); every value matches `docker-compose.yml`'s defaults with `localhost` in
+  place of service names. See it fail, then create `scripts/run-host.mjs` (explicit environment per
+  child; output prefixed by name; waits for `/health`; Ctrl+C stops all four) and run it until it
+  passes. Run it for real once in quickstart path B and record the result here.
 - [ ] T046 Run `npm run ci` and `npm run test:tz`; everything passes. Fix before the reviews.
 
 ---
@@ -544,10 +561,12 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   stack's real data. Record the event count and checksums before and after, the venue zone query,
   and `condeferrable`.
 - [ ] T053 Running-system gate, part 2. Path A where images build (`docker compose up --build`
-  from a fresh clone of the branch); otherwise quickstart **path B** (database and Keycloak
-  containers from their existing images, the Backend from the host started with
-  `TZ=America/Los_Angeles`, the apps with `vite` on 5173–5175), recording T013's image checks and
-  S2's container ICU check as "to do where images build". Walk quickstart **S2–S12** in the
+  from a fresh clone of the branch); otherwise quickstart **path B**: at a time agreed with whoever
+  uses `main`'s stack, stop it, start the gate's own `docker compose -p qp020gate up -d database
+  keycloak`, and run `node scripts/run-host.mjs --backend-tz America/Los_Angeles --demo-data`
+  (T058); at the end `docker compose -p qp020gate down -v` and restart `main`'s stack. Record
+  T013's image checks as "to do where images build", and S2's container ICU check from a cached
+  `node:22-alpine`, or "to do" if none is cached. Walk quickstart **S2–S12** in the
   browser for the **two venues in different zones** (Eastern and Arizona or Mountain) and the
   **DST dates** (2027-03-14 2:30 AM, 2027-11-07 1:30 AM), in the laptop's zone; sign in, use, and
   sign out of all three apps. Then **Mahdi** repeats the steps marked **(two zones)** by hand with
@@ -572,6 +591,7 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
 
 ## Dependencies
 
+- T058 (the host-run script) comes before T053, which uses it.
 - Phase 2 blocks everything. Phase 3 before Phase 5 (zone decisions before zone changes); Phase 4
   before Phase 5 (event times and the conflict message before moving events). Phase 6 after
   Phase 2. Phases 7–9 after Phases 3–6 (they need the response fields and refusals); they are

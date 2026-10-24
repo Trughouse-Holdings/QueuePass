@@ -124,7 +124,9 @@ package.json~                                   # test:tz; npm test reruns the t
 scripts/+ test-tz.mjs                           # runs suites per device zone, from Node (R20)
 scripts/test/+ test-tz.test.mjs                 # the script's own tests (zones, build step, exit codes)
 scripts/test/+ seed-image.test.mjs              # the seed image installs only its workspaces (R1)
-scripts/seed/~ Dockerfile                       # npm ci for seed + shared only; geo-tz guard (R1)
+scripts/seed/~ Dockerfile                       # npm ci for the seed only; no shared; geo-tz guard (R1)
+scripts/+ run-host.mjs                          # quickstart path B: Backend + apps from the host (R21)
+scripts/test/+ run-host.test.mjs                # its --print output (T058)
 README.md~                                      # 020 row; zones; test:tz; geo-tz/ODbL attribution
 
 packages/shared/src/+ time-zone.ts              # R2, R3, R11
@@ -145,8 +147,8 @@ backend/src/events/~ events.service.ts          # R9, R10, R15
 backend/src/events/+ event-time.ts              # checkEventTime (R9)
 backend/src/events/~ scheduling-conflict.exception.ts   # venue-local message, details.event
 backend/src/events/dto/~ list-events.query.ts   # fromDate, toDate
-backend/src/common/~ venue-lock.ts              # zone under the lock, lockAllVenueEvents,
-                                                #   lockVenueShared (R8, R10)
+backend/src/common/~ venue-lock.ts              # zone under the lock, all events in one
+                                                #   ordered lock, lockVenueShared (R8, R10)
 backend/src/orders/~ orders.service.ts         # my orders: OrderEvent.location.timeZone (R16)
 backend/src/reports/~ reports.service.ts        # EventSales.timeZone (R16)
 backend/src/entry/~ entry.service.ts            # EntryTicket.event.timeZone, details.event (R16)

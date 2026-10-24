@@ -29,38 +29,38 @@ marked **(two zones)** are repeated this way, and Mahdi's results are recorded i
 **A. Where images build**: `docker compose up --build` (S2 onward as written).
 
 **B. Host-run path**, where the image build fails (on this laptop, containers cannot reach package
-servers: `011` T028 recorded "TLS: server certificate not trusted" at `apk add`). From PowerShell
-in the repository root, with Docker Desktop running:
+servers: `011` T028 recorded "TLS: server certificate not trusted" at `apk add`). It runs on its
+**own compose project and volumes**, `qp020gate`, so the team's database is never migrated in place
+(a pre-020 Backend cannot create venues once the migration has run) and no one else's containers
+are touched. The ports (5432, 8080, 3000, 5173–5175) and Keycloak's fixed hostname are shared, so
+**agree a time with whoever is using the stack** (for example the session implementing another
+feature against it), then stop `main`'s stack first. From PowerShell:
 
 ```powershell
-docker compose up -d database keycloak          # existing images, no build
-docker compose stop backend admin-app customer-app booth-app seed 2>$null
-npm ci; npm run build --workspace @queuepass/shared
-npm run prisma:generate --workspace @queuepass/backend
-$env:DATABASE_URL = 'postgresql://queuepass:queuepass@localhost:5432/queuepass?schema=public'
-npx prisma migrate deploy --schema backend/prisma/schema.prisma
-$env:KEYCLOAK_URL = 'http://localhost:8080'; npm run seed   # idempotent
+# 1. In the checkout that runs main's stack: stop it, keeping its data.
+docker compose stop
 
-# Backend, in its own window, deliberately NOT in the venues' zone:
-$env:TZ = 'America/Los_Angeles'
-$env:OIDC_ISSUER = 'http://localhost:8080/realms/queuepass'
-$env:OIDC_JWKS_URL = 'http://localhost:8080/realms/queuepass/protocol/openid-connect/certs'
-$env:OIDC_AUDIENCE = 'queuepass-api'
-$env:CORS_ORIGINS = 'http://localhost:5173,http://localhost:5174,http://localhost:5175'
-$env:ADDRESS_GEOCODER_URL = 'https://geocoding.geo.census.gov'
-npm run build --workspace @queuepass/backend; npm run start:prod --workspace @queuepass/backend
+# 2. In this branch's checkout: the gate's own database and Keycloak, from existing images.
+docker compose -p qp020gate up -d database keycloak
+npm ci
+node scripts/run-host.mjs --backend-tz America/Los_Angeles
+#   builds packages/shared; prisma generate; prisma migrate deploy; seeds Keycloak; builds and
+#   starts the Backend (start:prod) and the three apps (vite on 5173, 5174, 5175), each child with
+#   its full environment (DATABASE_URL, OIDC_*, CORS_ORIGINS, ADDRESS_GEOCODER_URL, TZ; and
+#   VITE_API_BASE_URL, VITE_OIDC_AUTHORITY, VITE_OIDC_CLIENT_ID per app), output prefixed by name;
+#   waits for http://localhost:3000/health; Ctrl+C stops all four.
+#   --demo-data also loads demo data once the Backend is built.
 
-# Each app in its own window, on the port its OIDC client's redirect URI names:
-$env:VITE_API_BASE_URL = 'http://localhost:3000'
-$env:VITE_OIDC_AUTHORITY = 'http://localhost:8080/realms/queuepass'
-$env:VITE_OIDC_CLIENT_ID = 'admin-app';    npm run dev --workspace @queuepass/admin-app     # 5173
-$env:VITE_OIDC_CLIENT_ID = 'customer-app'; npm run dev --workspace @queuepass/customer-app  # 5174
-$env:VITE_OIDC_CLIENT_ID = 'booth-app';    npm run dev --workspace @queuepass/booth-app     # 5175
+# 3. Afterwards: remove the gate project with its volumes, then restart main's stack.
+docker compose -p qp020gate down -v
+#   (in the main checkout) docker compose start
 ```
 
-Use the same variable names as `docker-compose.yml` and `.env.example` if any differ from these.
-Check `http://localhost:3000/health` answers before signing in. With path B, record T013's image
-build and S2's container ICU check as "to do where images build"; S2's host ICU check still runs.
+`scripts/run-host.mjs --print` prints each child's command and environment without starting
+anything (T058). With path B, record T013's image build as "to do where images build". S2's
+container ICU check runs in a plain `node:22-alpine` container if that image is in the local cache
+(`docker run --rm node:22-alpine node -e "…"`, the same ICU data as the Backend image); otherwise it
+is recorded "to do where images build". S2's host check always runs.
 
 Addresses and coordinates below were checked against the live service on 2026-10-24 (research R1).
 
@@ -104,8 +104,8 @@ docker compose exec backend node -e "console.log(new Intl.DateTimeFormat('en-US'
 ```
 
 **Expect**: `7:00 PM EDT` (the Alpine image's ICU knows the zones). Path B: the migration applied
-from the host, and the same `node -e …` on the host prints `7:00 PM EDT`; the container check is
-recorded "to do where images build". The demo venues' pages say
+by `run-host.mjs`; the same `node -e …` on the host, and in `docker run --rm node:22-alpine` if
+that image is cached, prints `7:00 PM EDT`. The demo venues' pages say
 "Time zone: Eastern Time, the default" (or "from the address" on a fresh database with demo
 data loaded online).
 

@@ -75,10 +75,12 @@ harmless (not loaded by `find-now`).
 It is a **Backend-only** dependency: no front end imports it. The front-end images install every
 workspace only in their discarded build stages. The **seed image** (`scripts/seed/Dockerfile`) is
 one stage that runs `npm ci` for every workspace, so it would carry `geo-tz` too; it changes to
-`npm ci --ignore-scripts --workspace @queuepass/seed --workspace @queuepass/shared
---include-workspace-root` (the root brings TypeScript, which builds `packages/shared`), and its next
-line fails the build if `node_modules/geo-tz` exists. A `scripts/test` test reads the Dockerfile
-and fails if the `npm ci` line installs any other workspace or the guard is missing. So the
+`npm ci --ignore-scripts --workspace @queuepass/seed --include-workspace-root`, and its next line
+fails the build if `node_modules/geo-tz` exists. The seed imports nothing from `packages/shared`
+(only `@keycloak/keycloak-admin-client` and its own files; checked in review round 2), so the
+image also stops copying and building `packages/shared` (review round 2, n6). A `scripts/test`
+test reads the Dockerfile and fails if the `npm ci` line installs any other workspace, if
+`packages/shared` is still copied, or if the guard is missing. So the
 Backend image grows by about 72 MB and no other image does, as Mahdi approved (review round 1,
 S3).
 
@@ -273,11 +275,12 @@ helper returns the venue's `timeZone` and `timeZoneSource` read **under the lock
 (`lockVenueAndEvents` gains them in its `SELECT … FOR UPDATE`). Everything below uses that zone: the
 comparison with the proposed zone, the conversion of each event's instants to local times, and the
 source written. The `existing` row read before the lock (for the address comparison of `013` R7)
-is never used for the zone. When a zone change is needed, the transaction also locks **every**
-event of the venue, scheduled or cancelled, in id order (`lockAllVenueEvents`, after the venue
-row, so the lock order stays venue then events), because a cancelled event without orders can be
-deleted or get an image write concurrently. Then, when the proposed zone differs from the locked
-one:
+is never used for the zone. For a venue update, the helper locks **every** event of the venue,
+scheduled or cancelled, in **one** query in id order (`lockVenueAndEvents(tx, id, { allStatuses:
+true })`, after the venue row, so the lock order stays venue then events, and the event locks are
+taken in one global id order; review round 2, n5), because a cancelled event without orders can be
+deleted or get an image write concurrently. Layout saves keep locking scheduled events only, as
+today. Then, when the proposed zone differs from the locked one:
 
 1. **Orders** (FR-010): `SELECT` the venue's events (any status) that have at least one order (any
    status). Any → `409 TIME_ZONE_HAS_ORDERS`, message "Can't change the time zone of {venue}:
@@ -721,8 +724,12 @@ which exercises the feature through the Admin app.
   It builds `@queuepass/shared` first (the Backend's Jest maps `@queuepass/shared` to its compiled
   `dist/cjs`, which only `npm test`'s `pretest` builds otherwise), and runs the Backend's unit tests
   with a separate `backend/jest.unit.config.ts` that has no `globalSetup`, so no Testcontainers
-  PostgreSQL is started and the run works without Docker (review round 1, S8). The `019` calendar
-  and component tests are part of the Customer app's run in every zone. **Checked on 2026-10-24**: on
+  PostgreSQL is started and the run works without Docker (review round 1, S8). After the shared
+  build it runs `npm run prisma:generate --workspace @queuepass/backend`, because a unit test
+  imports `@prisma/client`, which a fresh `npm ci` does not generate (review round 2, n4). It
+  removes `CALENDAR_TEST_TZ` from every child's environment, so `019`'s calendar test runs in the
+  zone `test:tz` reports, not one left in the shell (review round 2, n3). The `019` calendar and
+  component tests are part of the Customer app's run in every zone. **Checked on 2026-10-24**: on
   Windows, Git Bash does not pass a `TZ=… node` prefix to Node (Node still reports the system
   zone), while `TZ` set in a child's environment from Node, or in PowerShell, is honored. So the
   script, not a shell prefix, is the documented way.
@@ -770,14 +777,23 @@ five minutes, mostly Testcontainers tests that do not depend on the device zone)
   --build`, and `docker compose exec backend node -e …` prints "EDT" for an October instant in
   America/New_York, proving the Alpine image's ICU data has the zones. Where they cannot (this
   laptop: containers cannot reach package servers through TLS interception, `011` T028 recorded
-  "TLS: server certificate not trusted" at `apk add`), a **host-run path**: the compose `database`
-  and `keycloak` services from their existing images; `prisma migrate deploy` and the Keycloak seed
-  from the host; the Backend from the host with `npm run start --workspace @queuepass/backend`,
-  pointing at `localhost` for the database and Keycloak (`OIDC_JWKS_URL` too), and started with
-  `TZ=America/Los_Angeles` (from PowerShell) so nothing can depend on the server's zone matching
-  the venues'; and the three apps with `vite` on ports 5173–5175 (the exact redirect URIs of the
-  OIDC clients). The image build check (T013) and the ICU check are then recorded as "to do where
-  images build".
+  "TLS: server certificate not trusted" at `apk add`), a **host-run path**, on its **own compose
+  project and volumes** (`docker compose -p qp020gate`), so the team's database is never migrated
+  in place (its pre-020 Backend could no longer create venues: the new columns have no default,
+  R6) and no one else's containers are touched (review round 2, N1). Because ports 5432, 8080, and
+  3000/5173–5175 and Keycloak's fixed `KC_HOSTNAME` are shared, `main`'s stack is stopped first, at
+  a time agreed with whoever is using it, and restarted afterwards; the gate project is removed with
+  its volumes at the end. In it: the `database` and `keycloak` services from their existing images;
+  then one script, `scripts/run-host.mjs` (review round 2, N2), which runs `prisma generate`,
+  `prisma migrate deploy`, and the Keycloak seed from the host, builds and starts the Backend
+  (`npm run build` then `npm run start:prod --workspace @queuepass/backend`, review round 2, n1)
+  pointing at `localhost` for the database and Keycloak (`OIDC_JWKS_URL` too) and with
+  `TZ=America/Los_Angeles`, so nothing can depend on the server's zone matching the venues', and
+  starts the three apps with `vite` on ports 5173–5175 (the exact redirect URIs of the OIDC
+  clients), each child with its full environment set explicitly. The image build check (T013) is
+  then recorded as "to do where images build"; the ICU check runs in a plain `node:22-alpine`
+  container when that image is in the local cache (`docker run --rm node:22-alpine node -e …`), as
+  it has the same ICU data as the Backend image (review round 2, n2).
 
 **Rationale**: Constitution VI's running-system gate, plus Mahdi's instruction (2026-10-24) to
 repeat the check for two zones and a DST date and to run the migration on a copy of real data.
