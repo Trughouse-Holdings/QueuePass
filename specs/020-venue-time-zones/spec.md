@@ -225,8 +225,8 @@ saved, recorded as chosen by an admin.
    from the new address, unless the admin also chose a zone in the same save, and US5's rules
    apply if it changes.
 8. **Given** the Admin venue list and venue page, **Then** each venue shows its zone ("Eastern
-   Time") and how it was set ("from the address", "from the state", "chosen by an admin", or "set
-   for existing venues").
+   Time") and how it was set ("from the address", "from the state", "chosen by an admin", or "the
+   default", which existing venues have).
 9. **Given** a request straight to the API, **Then** the same rules apply, and a zone not on the
    list is refused.
 
@@ -299,19 +299,19 @@ look up a used ticket: "Already used at" shows the Eastern time with "EDT".
 ### User Story 7 - Existing Venues and Events Keep Working (Priority: P2)
 
 Venues and events saved before this feature keep working. Each existing venue is set to Eastern
-Time, recorded as set for existing venues. No event's moment changes. Admins can correct a venue's
+Time, recorded as the default. No event's moment changes. Admins can correct a venue's
 zone afterwards, under US5's rules.
 
 **Why this priority**: Events and orders depend on existing venues; nothing may break or move.
 
 **Independent Test**: Insert venues and events as they are before the change, apply the change,
-and confirm every venue is Eastern (set for existing venues) and every event's start and end are
+and confirm every venue is Eastern (the default) and every event's start and end are
 the same moments as before.
 
 **Acceptance Scenarios**:
 
 1. **Given** venues and events from before this feature, **When** the change is applied, **Then**
-   every venue's zone is Eastern Time, recorded as set for existing venues, and every event's
+   every venue's zone is Eastern Time, recorded as the default, and every event's
    start and end are unchanged to the microsecond.
 2. **Given** such a venue, **Then** its events appear in every app in Eastern time with "EDT" or
    "EST".
@@ -381,9 +381,9 @@ the same moments as before.
   explicit zone is sent in the same save. Edits that do not change the address MUST NOT change
   the zone unless an explicit zone is sent.
 - **FR-006**: Every venue that exists before this feature MUST get Eastern Time (America/New_York),
-  recorded as set for existing venues, with no other change.
+  recorded as the default, with no other change.
 - **FR-007**: Every venue MUST record how its zone was set: from the address, from the state,
-  chosen by an admin, or set for existing venues.
+  chosen by an admin, or the default (Eastern, for existing venues, FR-006).
 - **FR-008**: Only the Backend decides a venue's zone; the stored zone MUST be one on the list,
   guaranteed by the database.
 
@@ -453,7 +453,7 @@ the same moments as before.
 ### Key Entities
 
 - **Venue**: gains a **time zone** (one of the list in FR-001) and **how it was set** (from the
-  address, from the state, chosen by an admin, or set for existing venues).
+  address, from the state, chosen by an admin, or the default).
 - **Event**: unchanged. Its start and end stay exact moments; their local date and time come from
   its venue's zone.
 - **US time zone**: one of the eight in FR-001, with a display name ("Eastern Time"), and its
