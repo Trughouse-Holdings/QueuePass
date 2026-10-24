@@ -117,17 +117,37 @@ has:
 | `directAccessGrantsEnabled` | `false`, so no client accepts a password (FR-005, FR-010) |
 | `implicitFlowEnabled`, `serviceAccountsEnabled` | `false` |
 | `attributes."pkce.code.challenge.method"` | `S256` |
-| `redirectUris` | `["http://localhost:<port>/*"]` |
+| `redirectUris` | `["http://localhost:<port>/"]`, exactly; no wildcard (#60) |
 | `webOrigins` | `["http://localhost:<port>"]` |
-| `attributes."post.logout.redirect.uris"` | `http://localhost:<port>/*` |
+| `attributes."post.logout.redirect.uris"` | `http://localhost:<port>/`, exactly; no wildcard (#60) |
+| `attributes."use.refresh.tokens"` | `"true"`, set explicitly: renewal relies on the refresh token, and without it oidc-client-ts would need a silent-renew page this list does not have (#60) |
 | default client scopes | include `queuepass-api` (R5) and `roles` |
 
 An existing client is **updated** to these settings rather than skipped, so drift is repaired on a
 rerun. The client is looked up by `clientId` and never recreated, so its internal ID stays stable
 (FR-007).
 
-A redirect URI of `/*` on an exact origin is not a wildcard *host*. It still refuses a return to
-any other origin (spec edge case "Redirect tampering").
+**Exact redirect URIs, no wildcard** (issue #60). The constitution (Security and Data
+Constraints, "OIDC clients") requires front-end clients to "list exact redirect URIs and web
+origins; wildcards are not allowed", with no exception for a path wildcard. Each client
+therefore lists exactly the one URI its front end uses, `http://localhost:<port>/`, both as its
+redirect URI and as its post-logout redirect URI: the shared `AuthProvider` sends
+`redirect_uri` and `post_logout_redirect_uri` as `${origin}/` and nothing else, and renews tokens
+with the refresh-token grant, which needs no redirect URI (no silent-renew iframe page).
+Returning to the page the user was on does not use the redirect URI: the path travels in the
+OIDC `state` (`returnTo`) and is restored with `history.replaceState` once the code is
+exchanged. Web origins stay the exact origin. Any other return address, on any origin or any
+other path of the same origin, is refused by Keycloak (spec edge case "Redirect tampering").
+The seed converges an existing client to these exact lists, so rerunning it repairs a wildcard
+set by hand (FR-007), and the seed tests fail if a `*` comes back (FR-034).
+
+*Reversed*: this decision first registered `http://localhost:<port>/*` for both, reasoning that
+`/*` on an exact origin is not a wildcard *host* and still refuses a return to any other origin.
+That is true but beside the point: the constitution forbids wildcards outright, and a path
+wildcard still lets the identity provider deliver the authorization code to any page of the app
+rather than only the one that handles it, a known OAuth weakness. Since the front ends need only
+the root, nothing is gained by the wildcard, so the configuration was changed to match the
+constitution rather than amending it (#60).
 
 **Rejected**: *Realm import JSON.* Import applies only when the realm does not yet exist, so on a
 persisted Keycloak volume it silently does nothing. That is a no-op, not idempotence.
