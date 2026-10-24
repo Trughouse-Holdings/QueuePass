@@ -738,9 +738,17 @@ dark).
   curve of the slide (FR-040), so the box grows or shrinks while the pictures slide. During a slide
   the box takes the incoming picture's shape; the outgoing picture keeps its own shape (`contain`)
   inside it. Under `prefers-reduced-motion: reduce` the transition is `none`, as the slide is.
+- **Which shape before a picture loads** (decided 2026-10-24, after T054): the gallery remembers
+  each picture's shape once read, and the last shape it showed. The `ratio` passed to
+  `galleryBoxHeight` is the shown picture's shape if known, else the last shape shown, else `null`.
+  So `null` (the starting size) applies only before the gallery's first picture has ever loaded,
+  or to a failed picture with no earlier shape; a change to a picture not yet loaded keeps the
+  previous shape until its `load`, then moves once to the new one, with no turn toward 4:3.
 - **Admin previews**: `.image-item__thumb` drops `aspect-ratio: 16 / 9`, so each preview takes its
-  picture's shape at the preview's width (`height: auto`), limited to the card's 3:4 portrait
-  shape, whole and centered beyond it. A new picture's preview (from its `File`) and a saved one
+  picture's shape at the preview's width (`height: auto`), limited as a card is (FR-042): at most
+  a 3:4 portrait and at least a 2:1 panorama (`max-height` and `min-height` from `100cqw`, with
+  `.image-item` an inline-size container), whole and centered beyond them. While loading, the
+  placeholder has the card's starting 4:3. A new picture's preview (from its `File`) and a saved one
   behave the same.
 - **Cards in a row**: the Events grid keeps its default `align-items: stretch`, so the cards in a
   row are as tall as the tallest, and each card's text sits right under its own gallery.

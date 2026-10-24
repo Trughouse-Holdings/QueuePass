@@ -638,13 +638,15 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   `naturalHeight` are set before `load` fires: before the picture loads the gallery has the
   `null` height; after it loads, the height from `galleryBoxHeight`; after a change to a picture of
   another shape, the new height (also during the slide, while the outgoing picture is still
-  rendered); a resize to another width recomputes it; a failed picture keeps the `null` height.
+  rendered); a resize to another width recomputes it; a failed picture with no earlier shape keeps
+  the `null` height. After a change to a picture not yet loaded, the height stays at the previous
+  shape until its `load`, never the `null` height in between (research R18).
 - [x] T054 Create `packages/shared/src/web/gallery-size.ts`; in `image-gallery.tsx` (and
   `gallery-parts.tsx` as needed) read the shown picture's shape on load, measure the width, and set
   the height; in `theme.css` switch to `contain` and add the transition with its reduced-motion
   rule (research R18). Run T051–T053 and the shared suite, including the drift check.
 - [x] T055 In `admin-app/src/styles.css` and `ImagesField.tsx`, show each preview whole at its own
-  shape within the 3:4 limit (research R18). Run T052's Admin part and the Admin app suite.
+  shape within the card's limits, 3:4 to 2:1 (research R18). Run T052's Admin part and the Admin app suite.
 - [ ] T056 Running-system check: quickstart S13 in both apps, at desktop width and at 375 pixels,
   and record it here.
 - [ ] T057 Independent review (Constitution III, one round), fix the findings, and open the
