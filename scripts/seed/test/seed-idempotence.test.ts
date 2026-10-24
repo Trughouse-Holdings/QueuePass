@@ -26,6 +26,9 @@ const keycloakUp = async (): Promise<boolean> => {
   }
 };
 
+// Spec 011 FR-014 (research R16): without Keycloak these tests report as skipped, with the reason.
+const SKIP_REASON = 'Keycloak not reachable; start the stack to run seed idempotence tests';
+
 describe('Keycloak seed idempotence', () => {
   let available = false;
   beforeAll(async () => {
@@ -36,7 +39,7 @@ describe('Keycloak seed idempotence', () => {
   });
 
   it('seeds exactly 235 users, and re-running changes nothing', async ({ skip }) => {
-    if (!available) skip();
+    skip(!available, SKIP_REASON);
 
     await seed();
     const first = await countUsers();
@@ -53,7 +56,7 @@ describe('Keycloak seed idempotence', () => {
   it('converges the audience scope and three front-end clients, stably across runs', async ({
     skip,
   }) => {
-    if (!available) skip();
+    skip(!available, SKIP_REASON);
 
     await seed();
     const kc = await createKeycloakClient();
@@ -98,7 +101,7 @@ describe('Keycloak seed idempotence', () => {
   it('repairs drift: a password grant switched on by hand is switched off again', async ({
     skip,
   }) => {
-    if (!available) skip();
+    skip(!available, SKIP_REASON);
 
     await seed();
     const kc = await createKeycloakClient();
@@ -117,7 +120,7 @@ describe('Keycloak seed idempotence', () => {
   it('repairs drift: a wildcard redirect URI set by hand is replaced by the exact list (#60)', async ({
     skip,
   }) => {
-    if (!available) skip();
+    skip(!available, SKIP_REASON);
 
     await seed();
     const kc = await createKeycloakClient();
