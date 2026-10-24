@@ -1,12 +1,15 @@
 <!--
-Sync Impact Report
-Version: 3.3.0 -> 3.3.1 (PATCH)
+Sync Impact Report (replaced, not stacked, by the next amendment)
+Version: 3.3.0 -> 3.4.0 (MINOR). Not PATCH: the amendment changes when a requirement takes effect,
+  making the CI run merge-blocking before 010 is merged, which the versioning policy's PATCH
+  ("does not change what is required") excludes.
 Problem: the roadmap lists 011-ci-test-runs as depending on 010-test-coverage, and the recorded
   deferral in Principle VI closes the CI run and the coverage floor together, when both 010 and
   011 are merged. The team builds 011 first (spec 011, Clarifications 2026-10-24).
 Changed:
-  - Principle VI, recorded deferral: split by feature. The CI run becomes merge-blocking when 011
-    is merged; the coverage floor when 010 is merged. Until 010, pull requests report coverage.
+  - Principle VI, recorded deferral: split by feature. The CI run becomes merge-blocking once 011
+    is merged and its check is required on main (a repository setting turned on right after the
+    merge); the coverage floor when 010 is merged. Until 010, pull requests report coverage.
   - Roadmap row 010: builds on 011's coverage measurement and turns the floor on in npm test and
     the CI run (was: "coverage reporting in npm test"). Depends on 001-008 and 011.
   - Roadmap row 011: the workflow fails on any failed check or test and reports each workspace's
@@ -201,9 +204,10 @@ after it.
   `docker compose up --build`, and each front end MUST be signed into, used, and signed out of as
   a smoke test.
 
-Recorded deferral (Principle VIII): the CI run becomes merge-blocking when `011-ci-test-runs` is
-merged, and the coverage floor when `010-test-coverage` is merged. Until `010` is merged, pull
-requests report their coverage but are not blocked by it.
+Recorded deferral (Principle VIII): the CI run becomes merge-blocking once `011-ci-test-runs` is
+merged and its check is required on `main`, which a repository admin turns on right after that
+merge; the coverage floor becomes merge-blocking when `010-test-coverage` is merged. Until `010` is
+merged, pull requests report their coverage but are not blocked by it.
 
 Rationale: Scheduling logic is full of boundary conditions, and authorization mistakes are
 silent until exploited. Only explicit tests pin either down. A coverage floor per workspace shows
@@ -370,4 +374,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.3.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-24
+**Version**: 3.4.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-24
