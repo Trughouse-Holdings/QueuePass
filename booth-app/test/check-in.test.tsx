@@ -520,6 +520,52 @@ describe('A verified live code (US1-3 to US1-5)', () => {
   });
 });
 
+/** Spec 018 US2 (FR-011, FR-012; research R9): a copied or forged live code is refused. */
+describe('Refused live codes (US2-1, US2-3)', () => {
+  const LIVE = 'QP1:3B8E0000000040008000000000000001:59762702:KX4N2Q7WZB3T5RYM';
+  const EXPIRED =
+    '✕ This live code has expired. Ask for the live code in the QueuePass app, or a printed ticket with photo ID.';
+
+  async function refusedLive(reply: Response) {
+    stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: reply });
+    const user = userEvent.setup();
+    renderApp();
+    await lookUp(user, LIVE);
+    const result = screen.getAllByRole('status').find((s) => s.classList.contains('entry-result'))!;
+    return { user, result };
+  }
+
+  it('409 LIVE_CODE_EXPIRED says what to ask for, and shows nothing about the ticket', async () => {
+    const { user, result } = await refusedLive(
+      json({ error: { code: 'LIVE_CODE_EXPIRED', message: 'This live code has expired.' } }, 409),
+    );
+    expect(await within(result).findByText(EXPIRED)).toBeInTheDocument();
+    for (const fact of ['Event', 'Name on ticket', 'Seat', 'Ticket type']) {
+      expect(within(result).queryByText(fact)).toBeNull();
+    }
+    expect(screen.queryByRole('button', { name: /^Admit/ })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    // A typed code stays, as after 017's "No ticket has this code".
+    expect(screen.getByLabelText('Ticket code')).toHaveValue(LIVE);
+    await user.click(within(result).getByRole('button', { name: 'Look up another' }));
+    expect(screen.getByLabelText('Ticket code')).toHaveFocus();
+  });
+
+  it('404 LIVE_CODE_INVALID says it is not a valid QueuePass code', async () => {
+    const { user, result } = await refusedLive(
+      json(
+        { error: { code: 'LIVE_CODE_INVALID', message: 'This is not a valid QueuePass code.' } },
+        404,
+      ),
+    );
+    expect(await within(result).findByText('✕ Not a valid QueuePass code.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Admit/ })).toBeNull();
+    expect(screen.getByLabelText('Ticket code')).toHaveValue(LIVE);
+    await user.click(within(result).getByRole('button', { name: 'Look up another' }));
+    expect(screen.getByLabelText('Ticket code')).toHaveFocus();
+  });
+});
+
 describe('Failures are explicit states (Constitution IV, Edge Cases)', () => {
   it('a network error on a lookup shows a plain error and re-enables the controls', async () => {
     stubApi({ [EVENTS]: threeEvents(), [LOOKUP]: 'network-error' });

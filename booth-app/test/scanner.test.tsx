@@ -334,3 +334,48 @@ describe('Scanning a live code', () => {
     expect(stopTracks).toHaveBeenCalled();
   });
 });
+
+describe('Scanning again after an expired live code (US2-5)', () => {
+  const OLD = 'QP1:3B8E0000000040008000000000000001:59762700:KX4N2Q7WZB3T5RYM';
+  const NEW = 'QP1:3B8E0000000040008000000000000001:59762702:AAAAAAAAAAAAAAAA';
+
+  it('refuses the old code, then the fresh one scans and shows the ticket', async () => {
+    let answers = 0;
+    const { calls } = stubApi({
+      [LOOKUP]: async () =>
+        ++answers === 1
+          ? json(
+              { error: { code: 'LIVE_CODE_EXPIRED', message: 'This live code has expired.' } },
+              409,
+            )
+          : json({
+              ticketId: 't-1',
+              code: CODE,
+              orderId: 'o-1',
+              state: 'ADMITTABLE',
+              event: { id: EVENT_ID, name: 'Demo Tonight', startsAt: iso(1), endsAt: iso(4) },
+              tierName: null,
+              seat: null,
+              holderName: 'Jordan Lee',
+              usedAt: null,
+              entryOpensAt: iso(-1),
+              unusedOnOrder: 1,
+              verifiedBy: 'LIVE_CODE',
+            }),
+    });
+    decoded = [OLD];
+    const user = userEvent.setup();
+    await openScanner(user);
+    expect(await screen.findByText(/This live code has expired\. Ask for/)).toBeInTheDocument();
+
+    decoded = [NEW];
+    await user.click(screen.getByRole('button', { name: 'Scan' }));
+    expect(
+      await screen.findByText('✓ Live code verified. No ID check needed.'),
+    ).toBeInTheDocument();
+    expect(calls.filter((c) => c.path.endsWith('/entry/lookup')).map((c) => c.body)).toEqual([
+      { code: OLD },
+      { code: NEW },
+    ]);
+  });
+});
