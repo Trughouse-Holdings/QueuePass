@@ -6,7 +6,8 @@ description: "Task list for Add to Calendar"
 
 **Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R15),
 [data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) →
-[`contracts/openapi.yaml`](../../contracts/openapi.yaml) (1.12.0, already applied),
+[`contracts/openapi.yaml`](../../contracts/openapi.yaml) (1.12.0, already applied; the next minor
+version if `020` merged a contract change first, plan "Merging with other PRs"),
 [quickstart.md](./quickstart.md) (S0–S9)
 
 **Issue**: [#50](https://github.com/Trughouse-Holdings/QueuePass/issues/50). The implementation
@@ -32,16 +33,21 @@ confirm they **fail** before the implementation tasks below them.
      `customer-app`) before the PR, with each run's result recorded (T018). A failure in any run is
      investigated and fixed, never retried away, and then all three runs are repeated.
   3. **The generator's tests under several time zones**: in the suite (four `TZ` values, T006) and
-     from the shell under `UTC` (as in CI), `America/New_York` (the team's local zone), and
-     `America/Los_Angeles` (T016).
+     from the shell under `UTC`, `America/New_York`, and `America/Los_Angeles` (T016). The Customer
+     app's `vitest.config.ts` pins `TZ` to `America/New_York` for every test run, CI included, and
+     Vitest writes it over the shell's `TZ`, so the shell runs set `CALENDAR_TEST_TZ`, which
+     `calendar.test.ts` applies itself and checks (research R5). Never remove the pin.
   4. **`npm run ci` locally** before pushing (T020), then **CI green on GitHub** on the PR's final
      commit before merge (T025).
   5. **The running-system check in the browser** with **two events**, each imported into a calendar
      app through the `.ics` file and opened through the Google link (T023, quickstart S2–S5).
-- **Contract**: 1.12.0 is final. The implementation makes only the change contracts/README.md names:
-  add `address` to `OrderEvent.location`'s `required` and delete the sentence "Always sent once
-  feature 019 is implemented, which adds it to `required`." (T004). Regenerate `api-schema.ts` with
-  `npm run generate:api`. Raise any other gap.
+- **Contract**: the version is final as the spec PR merged it (1.12.0, or the next minor version if
+  `020` merged a contract change first). The implementation makes only the change
+  contracts/README.md names: add `address` to `OrderEvent.location`'s `required` and delete the
+  sentence "Always sent once feature 019 is implemented, which adds it to `required`." (T004). Regenerate `api-schema.ts` with
+  `npm run generate:api`; after any rebase over another contract change, regenerate it again (never
+  merge `api-schema.ts` by hand) and confirm `node scripts/check-contract-drift.mjs` passes. Raise any
+  other gap.
 - **One generator** (research R1, R13): only `customer-app/src/calendar.ts` writes iCalendar text,
   formats calendar times, builds the Google link, names the file, or decides eligibility. No React in
   it, no browser-only API except in the component, and no npm package added.
@@ -68,7 +74,8 @@ confirm they **fail** before the implementation tasks below them.
 - [ ] T001 Cut `019-add-to-calendar-impl` from `019-add-to-calendar-spec` while the spec and plan PR
   is open, or from an up-to-date `main` once it has merged; run `npm ci`, `npx prisma generate` in
   `backend/`, then `npm run generate:api` and confirm `git diff` is empty (the spec PR's
-  `api-schema.ts` was written by hand; if it differs, fix it in the spec PR). Run `npm test` from the
+  `api-schema.ts` was written by hand; if it differs, fix it in the spec PR; after a rebase over
+  another contract change, see the Contract ground rule). Run `npm test` from the
   repository root and confirm the suite is green before any change (baseline). No new npm package
   is needed; add none.
 
@@ -132,12 +139,19 @@ US3's tests are here because the same component decides both.
     without `\r` and no `\r` without `\n`.
   - **Round trip**: a reader in the test file (unfold `/\r\n[ \t]/g`, split lines, split at the
     first `:`, unescape) gives back the exact name and `name, address` for every fixture, minus
-    removed control characters (SC-003).
+    removed control characters, including a maximum-length `LOCATION` (a 200-character venue name
+    with commas and semicolons and a 500-character address), escaped and folded (SC-003).
   - **Time zones** (R5, SC-002): for `TZ` in `UTC`, `America/New_York`, `America/Los_Angeles`, and
     `Asia/Kolkata`, set `process.env.TZ`, assert that
     `new Date('2026-10-24T12:00:00Z').getTimezoneOffset()` is `0`, `240`, `420`, and `-330`
     respectively (so the switch really happened), and assert `icsFile` of every fixture equals the
-    `UTC` result. Restore `TZ` in `afterEach`.
+    committed expected text. Restore `TZ` in `afterEach`.
+  - **Shell zone** (R5, ground rule 3): when `process.env.CALENDAR_TEST_TZ` is set, a `beforeAll`
+    sets `process.env.TZ` to it, asserts `Intl.DateTimeFormat().resolvedOptions().timeZone` equals
+    it and `new Date('2026-10-24T12:00:00Z').getTimezoneOffset()` equals the expected offset (`UTC`
+    0, `America/New_York` 240, `America/Los_Angeles` 420; any other value fails), and logs
+    `[calendar-tz] <zone> offset <minutes>`. Every other test in the file then runs in that zone
+    against the same committed expected text. Without the variable, nothing changes.
   - **Nothing extra** (FR-004): for an order with ticket codes, a holder's name, and a price, the
     file contains none of them, and no `DESCRIPTION`, `URL`, `ORGANIZER`, `ATTENDEE`, `VALARM`,
     `TZID`, or `VTIMEZONE`.
@@ -150,12 +164,19 @@ US3's tests are here because the same component decides both.
     `checkedInAt` set → `true`.
 - [ ] T007 [P] [US1] [US3] Write `customer-app/test/add-to-calendar.test.tsx` (React Testing
   Library, `vi.setSystemTime` fixed), rendering **My tickets** with orders for: an upcoming event; an
-  event under way; a cancelled event; an ended event; a refunded order (all `VOID`); an order whose
-  only ticket was used, event under way; two valid orders of one event. Assert:
+  event under way; a cancelled event; an ended event; an order whose tickets are all `VOID` for an
+  event still ahead (the shape spec 009's refunds will produce; it cannot be made in the running
+  system today); an order whose only ticket was used, event under way; two valid orders of one
+  event. Assert:
   - each eligible card has exactly one group named "Add to calendar" with the button "Add to Apple
     Calendar or Outlook: <event name>, downloads a calendar file" and the note "A copy for your
     calendar: it won't change if the event does."; ineligible cards have no group, no button, no
     disabled control (SC-005, FR-015); no ticket `<li>` contains a calendar control;
+  - the note comes first in the group and has an `id`; the button's `aria-describedby` is that `id`
+    (FR-003); the button has the classes `btn btn--ghost` (FR-014, research R11);
+  - after `vi.setSystemTime` moves past an eligible event's end and the page re-renders without
+    reloading the orders (for example, by a state change elsewhere on the page), the controls stay;
+    eligibility is decided when the orders load (FR-002, research R10);
   - the group comes after the event's details and before the ticket list; with `userEvent.tab()`,
     the button is reached after the event's links and before the first ticket's links (FR-013);
   - clicking, pressing Enter, and pressing Space on the button each save one file: stub
@@ -177,10 +198,12 @@ US3's tests are here because the same component decides both.
   (`role="group"`, `aria-labelledby` its visible "Add to calendar" label), the button with its
   `aria-label`, and the note (research R11); on click, make the `Blob`, save it through a temporary
   `<a download>`, and revoke the URL after 60 seconds (R12). In `customer-app/src/pages/MyTickets.tsx`,
-  read `Date.now()` once per render of the list, pass it to each `OrderCard`, and render the group
-  after the `<dl>` when `calendarEligible` is true. Use the shared theme's existing classes; add
-  layout rules to `customer-app/src/styles.css` only with theme values, if needed (the theme-classes
-  test must still pass).
+  read `Date.now()` once, when the orders load successfully, keep it with the loaded data, pass it
+  to each `OrderCard`, and render the group after the `<dl>` when `calendarEligible` is true (R10).
+  The note comes first in the group with an `id`, and the button has `aria-describedby` set to it
+  (R11). The button uses the shared theme's `btn btn--ghost` classes; add layout rules to
+  `customer-app/src/styles.css` only with theme values, if needed (the theme-classes test must still
+  pass).
 - [ ] T010 Run T006 and T007 until they pass, then the whole Customer app suite.
 
 ---
@@ -204,13 +227,16 @@ US3's tests are here because the same component decides both.
 - [ ] T012 [P] [US2] Add to `customer-app/test/add-to-calendar.test.tsx`: each eligible card has the
   link "Add to Google Calendar: <event name>, opens in a new tab" right after the button, with
   `href` equal to `googleCalendarUrl` of its event, `target="_blank"`, and `rel` containing
-  `noopener` and `noreferrer`; ineligible cards have none; Tab reaches it after the button.
+  `noopener` and `noreferrer`, the classes `btn btn--ghost` (44 pixels, FR-014), and
+  `aria-describedby` set to the note's `id` (FR-003); ineligible cards have none; Tab reaches it after
+  the button.
   Confirm both fail.
 
 ### Implementation
 
 - [ ] T013 [US2] Add `googleCalendarUrl(entry)` to `customer-app/src/calendar.ts` (R8) and the link
-  to `AddToCalendar.tsx` (R11).
+  to `AddToCalendar.tsx`, with `className="btn btn--ghost"` and `aria-describedby` set to the note
+  (R11).
 - [ ] T014 Run T011 and T012 until they pass, then the whole Customer app suite.
 
 ---
@@ -219,11 +245,15 @@ US3's tests are here because the same component decides both.
 
 - [ ] T015 [P] Update `README.md`: the `019` row in the status table; "Today" says customers add an
   event they hold tickets for to Apple Calendar, Outlook, or Google Calendar from **My tickets**, as
-  a one-time copy; the contract version 1.12.0 wherever the README names it.
+  a one-time copy; the contract version (1.12.0, or the version the spec PR merged with) wherever the
+  README names it.
 - [ ] T016 Time zones from the shell (ground rule 3): in `customer-app`, run
-  `TZ=UTC npx vitest run test/calendar.test.ts`, then with `TZ=America/New_York`, then
-  `TZ=America/Los_Angeles` (Git Bash; Node honors `TZ` on Windows). All pass. Record the three
-  results here.
+  `CALENDAR_TEST_TZ=UTC npx vitest run test/calendar.test.ts`, then with
+  `CALENDAR_TEST_TZ=America/New_York`, then `CALENDAR_TEST_TZ=America/Los_Angeles` (Git Bash). Each
+  run passes and its output shows `[calendar-tz] <that zone> offset <0, 240, or 420>`; a run without
+  that line, or with another zone, means the zone did not change and the run does not count. (Plain
+  `TZ=` is overridden by the Vitest config's pin and proves nothing.) Record the three results and
+  their `[calendar-tz]` lines here.
 - [ ] T017 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
   everything passes, including `check-contract-drift` and `check-boundary`.
 - [ ] T018 Flake check (ground rule 2): run `npm test --workspace @queuepass/shared`,
@@ -266,8 +296,9 @@ US3's tests are here because the same component decides both.
 
 ## Phase 8: Pull request and merge
 
-- [ ] T024 Once the spec and plan PR has merged, rebase onto `main`, rerun `npm run ci` (T020),
-  push `019-add-to-calendar-impl`, and open the implementation PR against `main` with `fixes #50` on
+- [ ] T024 Once the spec and plan PR has merged, rebase onto `main` (after a rebase over another
+  contract change, regenerate `api-schema.ts` as the Contract ground rule says), rerun `npm run ci`
+  (T020), push `019-add-to-calendar-impl`, and open the implementation PR against `main` with `fixes #50` on
   its own line in the **description** only (see Issue above). Request every team member's review
   (shared surface). The description records: the review rounds (T021, T022), the time zone runs
   (T016), the three-run flake check (T018), coverage (T019), `npm run ci` (T020), the
