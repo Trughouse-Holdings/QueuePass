@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ImageGallery } from '../../src/web/image-gallery';
+import { galleryBoxHeight } from '../../src/web/gallery-size';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { EventImage } from '../../src/event-image';
 import {
@@ -697,3 +698,130 @@ describe('ImageGallery, card variant', () => {
     expect(cardPosition(NAME)).toBe('2 of 3');
   });
 });
+
+/**
+ * Spec 014 FR-041, FR-042 (research R18, issue #73): the gallery's box takes the shape of the
+ * picture it shows. It measures its own width with a ResizeObserver, reads the shown picture's
+ * shape when it loads, and sets its height from `galleryBoxHeight`; until then, or when the picture
+ * failed, it has the height for no shape (`null`).
+ */
+describe.each(['page', 'card'] as const)(
+  'ImageGallery, %s variant, the box takes the picture shape (FR-042)',
+  (variant) => {
+    const WIDTH = variant === 'card' ? 320 : 1280;
+
+    /** A ResizeObserver that reports `width` for every element, on observe and on `resize`. */
+    function installResizeObserver(width: number) {
+      const watched = new Map<Element, { cb: ResizeObserverCallback; ro: ResizeObserver }>();
+      const report = (el: Element) => {
+        const w = watched.get(el)!;
+        w.cb(
+          [{ target: el, contentRect: { width, height: 0 } } as unknown as ResizeObserverEntry],
+          w.ro,
+        );
+      };
+      class RO {
+        constructor(private cb: ResizeObserverCallback) {}
+        observe(el: Element) {
+          watched.set(el, { cb: this.cb, ro: this as unknown as ResizeObserver });
+          report(el);
+        }
+        unobserve(el: Element) {
+          watched.delete(el);
+        }
+        disconnect() {
+          for (const [el, w] of watched) if (w.ro === (this as unknown)) watched.delete(el);
+        }
+      }
+      vi.stubGlobal('ResizeObserver', RO);
+      return {
+        resize(to: number) {
+          width = to;
+          act(() => {
+            for (const el of [...watched.keys()]) report(el);
+          });
+        },
+      };
+    }
+
+    async function render(count = 3) {
+      const gallery = (
+        <ImageGallery
+          eventId={EVENT_ID}
+          eventName={NAME}
+          images={images(count)}
+          variant={variant}
+          eventHref={`/events/${EVENT_ID}`}
+        />
+      );
+      const view = renderSignedIn(
+        variant === 'card' ? (
+          <MemoryRouter>{gallery}</MemoryRouter>
+        ) : (
+          <div className="page-band">{gallery}</div>
+        ),
+      );
+      await advance(0);
+      return view.container;
+    }
+
+    const box = (c: HTMLElement) => c.querySelector<HTMLElement>('.gallery')!;
+    const height = (c: HTMLElement) => parseFloat(box(c).style.height);
+    const expected = (ratio: number | null, width = WIDTH) =>
+      galleryBoxHeight({ variant, width, ratio, viewportHeight: window.innerHeight });
+    const incoming = (c: HTMLElement) => c.querySelector<HTMLImageElement>('.gallery__open img')!;
+    const outgoing = (c: HTMLElement) => c.querySelector('[class*="gallery__slide--out-"] img');
+
+    /** The browser has read the incoming picture, `w` by `h` pixels. */
+    function load(img: HTMLImageElement, w: number, h: number) {
+      Object.defineProperty(img, 'naturalWidth', { value: w, configurable: true });
+      Object.defineProperty(img, 'naturalHeight', { value: h, configurable: true });
+      fireEvent.load(img);
+    }
+
+    it('has the height for no shape before the picture loads, then the picture shape', async () => {
+      installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render();
+      expect(incoming(c)).not.toBeNull();
+      expect(height(c)).toBeCloseTo(expected(null), 2);
+      load(incoming(c), 800, 600);
+      expect(height(c)).toBeCloseTo(expected(4 / 3), 2);
+    });
+
+    it('takes the new picture shape after a change, during the slide too', async () => {
+      installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render();
+      load(incoming(c), 800, 600);
+      fireEvent.click(arrow('Next'));
+      await advance(0);
+      expect(outgoing(c)).not.toBeNull();
+      expect(height(c)).toBeCloseTo(expected(null), 2);
+      load(incoming(c), 600, 1200);
+      expect(outgoing(c)).not.toBeNull();
+      expect(height(c)).toBeCloseTo(expected(0.5), 2);
+      await advance(400);
+      expect(outgoing(c)).toBeNull();
+      expect(height(c)).toBeCloseTo(expected(0.5), 2);
+    });
+
+    it('computes the height again when its width changes', async () => {
+      const ro = installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render();
+      load(incoming(c), 1000, 1000);
+      expect(height(c)).toBeCloseTo(expected(1), 2);
+      ro.resize(200);
+      expect(height(c)).toBeCloseTo(expected(1, 200), 2);
+    });
+
+    it('keeps the height for no shape when the picture failed', async () => {
+      installResizeObserver(WIDTH);
+      stubImages({ 'img-1': imageResponse(404) });
+      const c = await render(1);
+      expect(screen.getByText('Image unavailable')).toBeInTheDocument();
+      expect(height(c)).toBeCloseTo(expected(null), 2);
+    });
+  },
+);

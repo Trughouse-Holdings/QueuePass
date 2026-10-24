@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
@@ -754,5 +756,30 @@ describe('spec 008 unchanged: a refused seating or ticket type step', () => {
     expect(screen.getByTestId('where')).toHaveTextContent('/events/new');
     expect(server.imageCalls()).toEqual([]);
     expect(items()).toHaveLength(1);
+  });
+});
+
+/**
+ * Spec 014 FR-041, FR-042 (research R18, issue #73): each preview shows its picture whole, in its
+ * own shape at the preview's width, never cropped to a fixed shape.
+ */
+describe('previews show the whole picture (FR-041)', () => {
+  // Vitest runs each workspace from its own folder (admin-app/).
+  const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8').replace(
+    /\/\*[\s\S]*?\*\//g,
+    '',
+  );
+  const thumb = [...styles.matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+    .filter(([, sel]) => sel!.trim() === '.image-item__thumb')
+    .map(([, , body]) => body!)
+    .join('\n');
+
+  it('fits the picture with object-fit: contain, and crops nothing anywhere', () => {
+    expect(thumb).toMatch(/object-fit:\s*contain/);
+    expect(styles).not.toMatch(/object-fit:\s*cover/);
+  });
+
+  it('sets no fixed aspect-ratio on .image-item__thumb', () => {
+    expect(thumb).not.toMatch(/aspect-ratio/);
   });
 });

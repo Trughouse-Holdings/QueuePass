@@ -325,3 +325,48 @@ describe('the full-screen view (spec 014 FR-029)', () => {
     );
   });
 });
+
+// Spec 014 FR-041, FR-042 (research R18, issue #73): every picture whole, never cropped, and the
+// gallery's box changing height with the slide, at once under reduced motion.
+describe('whole pictures (spec 014 FR-041, FR-042)', () => {
+  it.each(['.gallery__image', '.viewer__image'])(
+    'shows %s whole with object-fit: contain',
+    (sel) => {
+      expect(bodiesOf(topLevel(), sel).join('\n')).toMatch(/object-fit:\s*contain/);
+    },
+  );
+
+  it('crops nothing anywhere: no object-fit: cover in the theme', () => {
+    expect(css).not.toMatch(/object-fit:\s*cover/);
+  });
+
+  it("changes .gallery's height over 0.4 seconds with the slide's curve", () => {
+    const slideCurve = bodiesOf(topLevel(), '.gallery__slide--in-left')
+      .join('\n')
+      .match(/animation:\s*[a-z-]+\s+400ms\s+([a-z-]+)/i)?.[1];
+    expect(slideCurve).toBeDefined();
+    const transition = bodiesOf(topLevel(), '.gallery')
+      .join('\n')
+      .match(/transition:\s*([^;]+);/)?.[1];
+    expect(transition, '.gallery sets a transition').toBeDefined();
+    const [property, duration, curve] = transition!.trim().split(/\s+/);
+    expect(property).toBe('height');
+    expect(['0.4s', '400ms']).toContain(duration);
+    expect(curve).toBe(slideCurve);
+  });
+
+  it('changes the height at once under reduced motion', () => {
+    const at = css.indexOf('@media (prefers-reduced-motion: reduce)');
+    expect(at).toBeGreaterThanOrEqual(0);
+    const open = css.indexOf('{', at);
+    let depth = 1;
+    let i = open + 1;
+    for (; i < css.length && depth > 0; i++) {
+      if (css[i] === '{') depth++;
+      else if (css[i] === '}') depth--;
+    }
+    expect(bodiesOf(css.slice(open + 1, i - 1), '.gallery').join('\n')).toMatch(
+      /transition:\s*none/,
+    );
+  });
+});
