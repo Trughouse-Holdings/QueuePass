@@ -325,3 +325,82 @@ describe('the full-screen view (spec 014 FR-029)', () => {
     );
   });
 });
+
+// Spec 014 FR-041, FR-042 (research R18, issue #73): every picture whole, never cropped, and the
+// gallery's box changing height with the slide, at once under reduced motion.
+describe('whole pictures (spec 014 FR-041, FR-042)', () => {
+  /** The bodies of every top-level rule whose selector list names `selector`. */
+  const rulesNaming = (selector: string): string[] =>
+    [...topLevel().matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+      .filter(([, sel]) =>
+        sel!
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .split(',')
+          .some((s) => s.trim() === selector),
+      )
+      .map(([, , body]) => body!);
+
+  it.each(['.gallery__image', '.viewer__image'])(
+    'shows %s whole with object-fit: contain',
+    (sel) => {
+      expect(rulesNaming(sel).join('\n')).toMatch(/object-fit:\s*contain/);
+    },
+  );
+
+  it('crops nothing anywhere: no object-fit: cover in the theme', () => {
+    expect(css).not.toMatch(/object-fit:\s*cover/);
+  });
+
+  it('changes the height over 0.4 seconds with the slide, only on a change of shape (review I8)', () => {
+    const slideCurve = bodiesOf(topLevel(), '.gallery__slide--in-left')
+      .join('\n')
+      .match(/animation:\s*[a-z-]+\s+400ms\s+([a-z-]+)/i)?.[1];
+    expect(slideCurve).toBeDefined();
+    const transition = bodiesOf(topLevel(), '.gallery--reshaping')
+      .join('\n')
+      .match(/transition:\s*([^;]+);/)?.[1];
+    expect(transition, '.gallery--reshaping sets a transition').toBeDefined();
+    const [property, duration, curve] = transition!.trim().split(/\s+/);
+    expect(property).toBe('height');
+    expect(['0.4s', '400ms']).toContain(duration);
+    expect(curve).toBe(slideCurve);
+    // A resize alone follows the window at once.
+    expect(bodiesOf(topLevel(), '.gallery').join('\n')).not.toMatch(/transition/);
+  });
+
+  it('changes the height at once under reduced motion', () => {
+    const at = css.indexOf('@media (prefers-reduced-motion: reduce)');
+    expect(at).toBeGreaterThanOrEqual(0);
+    const open = css.indexOf('{', at);
+    let depth = 1;
+    let i = open + 1;
+    for (; i < css.length && depth > 0; i++) {
+      if (css[i] === '{') depth++;
+      else if (css[i] === '}') depth--;
+    }
+    expect(bodiesOf(css.slice(open + 1, i - 1), '.gallery--reshaping').join('\n')).toMatch(
+      /transition:\s*none/,
+    );
+  });
+
+  it('keeps the card at 4:3 only until it has measured itself (review I1)', () => {
+    const ratios = [...topLevel().matchAll(/([^{}]*)\{([^{}]*)\}/g)]
+      .filter(([, sel, body]) => /\.gallery/.test(sel!) && /aspect-ratio/.test(body!))
+      .map(([, sel, body]) => [
+        sel!.replace(/\/\*[\s\S]*?\*\//g, '').trim(),
+        body!.match(/aspect-ratio:\s*([^;]+);/)![1]!.trim(),
+      ]);
+    expect(ratios).toEqual([['.gallery--card:not(.gallery--measured)', '4 / 3']]);
+  });
+
+  it('never makes a card shorter than 160 pixels, so its controls never overlap (review S1)', () => {
+    expect(bodiesOf(topLevel(), '.gallery--card').join('\n')).toMatch(/min-height:\s*160px/);
+  });
+
+  it('has a hidden probe of the small viewport height (review S4)', () => {
+    const body = bodiesOf(topLevel(), '.viewport-probe').join('\n');
+    expect(body).toMatch(/height:\s*100svh/);
+    expect(body).toMatch(/position:\s*fixed/);
+    expect(body).toMatch(/visibility:\s*hidden/);
+  });
+});

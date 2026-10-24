@@ -5,9 +5,11 @@ import {
   EventPicture,
   HeldImages,
   SHOWN_AND_NEXT,
+  SLIDE_MS,
   useSlide,
   useWantedImages,
 } from './gallery-parts.js';
+import { galleryBoxHeight } from './gallery-size.js';
 import { ImageViewer } from './image-viewer.js';
 import { useGalleryRotation } from './use-gallery-rotation.js';
 
@@ -71,6 +73,72 @@ function useOnScreen(ref: RefObject<HTMLElement | null>, watch: boolean): boolea
 }
 
 /**
+ * Research R18: one ResizeObserver for every gallery, each told only its own width, as with the
+ * IntersectionObserver above.
+ */
+const widths = new Map<Element, (width: number) => void>();
+let resizes: ResizeObserver | null = null;
+
+function watchWidth(el: Element, onChange: (width: number) => void): () => void {
+  resizes ??= new ResizeObserver((entries) => {
+    for (const entry of entries) widths.get(entry.target)?.(entry.contentRect.width);
+  });
+  widths.set(el, onChange);
+  resizes.observe(el);
+  return () => {
+    widths.delete(el);
+    resizes?.unobserve(el);
+    if (widths.size > 0) return;
+    resizes?.disconnect();
+    resizes = null;
+  };
+}
+
+/**
+ * Research R18 (review of #73, S4): the window's small height, CSS `100svh`, the height with a
+ * phone browser's bars shown, so it does not change while a phone scrolls (`innerHeight` does).
+ * Read from the theme's hidden `.viewport-probe`, added and removed at once; where it measures 0
+ * (no layout, as in jsdom), `innerHeight`.
+ */
+function smallViewportHeight(): number {
+  const probe = document.createElement('div');
+  probe.className = 'viewport-probe';
+  document.body.appendChild(probe);
+  const height = probe.getBoundingClientRect().height;
+  probe.remove();
+  return height > 0 ? height : window.innerHeight;
+}
+
+/**
+ * Research R18: the width of the element in `ref` while `watch`, and, with `followWindow` (the
+ * event page's limit), the window's small height, read again on each `resize`. The width is
+ * `null` where ResizeObserver is missing; the theme's 4:3 card and fixed band then stand.
+ */
+function useBoxSize(
+  ref: RefObject<HTMLElement | null>,
+  watch: boolean,
+  followWindow: boolean,
+): { width: number | null; viewportHeight: number } {
+  const [width, setWidth] = useState<number | null>(null);
+  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
+  useEffect(() => {
+    const el = ref.current;
+    if (!watch || !el || typeof ResizeObserver === 'undefined') return;
+    const onResize = () => setViewportHeight(smallViewportHeight());
+    if (followWindow) {
+      onResize();
+      window.addEventListener('resize', onResize);
+    }
+    const stop = watchWidth(el, setWidth);
+    return () => {
+      if (followWindow) window.removeEventListener('resize', onResize);
+      stop();
+    };
+  }, [ref, watch, followWindow]);
+  return { width, viewportHeight };
+}
+
+/**
  * Research R11: a pointer press is followed by focus, and that focus is not keyboard focus. The
  * focus a press gives comes before its pointerup with a mouse, but after it with touch (from the
  * compatibility mousedown), so the press ends at the click that follows, anywhere in the document.
@@ -120,6 +188,21 @@ export function ImageGallery({
   const card = variant === 'card';
   const root = useRef<HTMLDivElement>(null);
   const onScreen = useOnScreen(root, card && count > 0);
+  // FR-042 (research R18): the box takes the shown picture's shape, read when it loads, and kept
+  // per image so a picture shown again has its shape at once. Until a newly shown picture's shape
+  // is known, the box keeps the last shape it showed; `null` only before any picture has loaded.
+  const { width, viewportHeight } = useBoxSize(root, count > 0, !card);
+  const [shapes, setShapes] = useState<ReadonlyMap<string, number>>(() => new Map());
+  const [lastShape, setLastShape] = useState<number | null>(null);
+  // Research R18 (review I8): the height moves with the slide only when the shape changes, for
+  // SLIDE_MS (`gallery--reshaping`); a change of width or window height alone follows at once.
+  const [usedShape, setUsedShape] = useState<number | null>(null);
+  const [reshaping, setReshaping] = useState(false);
+  useEffect(() => {
+    if (!reshaping) return;
+    const timer = setTimeout(() => setReshaping(false), SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [reshaping, usedShape]);
   const [stopped, setStopped] = useState(false);
   const [overArrow, setOverArrow] = useState(false);
   const [keyboardFocus, setKeyboardFocus] = useState(false);
@@ -173,6 +256,20 @@ export function ImageGallery({
       : new Set();
   const position = `image ${index + 1} of ${count}`;
   const several = count >= 2;
+  // FR-042: during a slide the box already has the incoming picture's shape once known; the
+  // outgoing one stays whole inside it (object-fit: contain).
+  const shownShape = shapes.get(shown.id);
+  // React's derived-state pattern: remember the shape shown, for the next picture not yet loaded.
+  if (shownShape !== undefined && shownShape !== lastShape) setLastShape(shownShape);
+  const ratio = shownShape ?? lastShape;
+  if (ratio !== usedShape) {
+    setUsedShape(ratio);
+    setReshaping(true);
+  }
+  const height =
+    width === null ? undefined : galleryBoxHeight({ variant, width, ratio, viewportHeight });
+  const onShape = (ratio: number) =>
+    setShapes((now) => (now.get(shown.id) === ratio ? now : new Map(now).set(shown.id, ratio)));
 
   const keyboardOnly = {
     onFocus: () => {
@@ -203,6 +300,7 @@ export function ImageGallery({
         alt={`${eventName}, ${position}`}
         part="gallery"
         enabled={onScreen}
+        onShape={onShape}
       />
     </span>
   );
@@ -213,7 +311,18 @@ export function ImageGallery({
       role="group"
       aria-roledescription="carousel"
       aria-label={`Images of ${eventName}`}
-      className={`gallery gallery--${variant}`}
+      // Review I1: once measured, the card's starting 4:3 no longer applies, so it cannot turn the
+      // set height into a width that the observer would report back.
+      className={[
+        'gallery',
+        `gallery--${variant}`,
+        height !== undefined && 'gallery--measured',
+        reshaping && 'gallery--reshaping',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      // A layout length only, never a color, font, or shadow (spec 012's inline rule; R18).
+      style={height === undefined ? undefined : { height }}
       onPointerDown={() => {
         pointerDown.current = true;
         setKeyboardFocus(false);

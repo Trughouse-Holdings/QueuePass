@@ -623,7 +623,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
 **Goal**: FR-041, FR-042, SC-008 (spec Session 2026-10-24, research R18). Branch
 `014-whole-images-impl`; the PR says `fixes #73`.
 
-- [ ] T051 [P] **Test first.** Create `packages/shared/test/web/gallery-size.test.ts` for
+- [x] T051 [P] **Test first.** Create `packages/shared/test/web/gallery-size.test.ts` for
   `galleryBoxHeight` (research R18), with each limit tested at, just inside, and beyond it
   (Constitution VI; review of #73, S9):
   - card at width 320: ratio 4/3 → 240, 1 → 320, `null` → 240; the 3:4 limit: 0.8 → 400, 0.75 →
@@ -633,7 +633,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   - page at width 1280 and window height 900: ratio 16/9 → 630 (70% of 900), 1280/620 → 620,
     1280/640 → 630, 3 → 426.67, 1280/210 → 210, 6.4 → 200, 10 → 200 (the minimum), `null` → 480;
     at width 375 with `null` → 200; and at window height 250 (70% is 175) with ratio 1 → 200.
-- [ ] T052 [P] **Test first.** Extend `packages/shared/test/theme/tokens.test.ts`: `.gallery__image`
+- [x] T052 [P] **Test first.** Extend `packages/shared/test/theme/tokens.test.ts`: `.gallery__image`
   and `.viewer__image` use `object-fit: contain`, and no `object-fit: cover` remains in `theme.css`;
   only `.gallery--reshaping` has a height transition, 0.4 seconds with the slide's curve, and
   `.gallery` none (review I8); `.gallery--reshaping` is `transition: none` under
@@ -643,7 +643,7 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   Admin app's tests: `.image-item__thumb` uses `contain`, has no fixed `aspect-ratio`, and has
   `min-height: calc(100cqw / 2)` and `max-height: calc(100cqw * 4 / 3)`; `.image-item` is an
   inline-size container; `.image-item__thumb--loading` is 4:3 (review I6).
-- [ ] T053 [P] **Test first.** Extend `packages/shared/test/web/image-gallery.test.tsx` (both
+- [x] T053 [P] **Test first.** Extend `packages/shared/test/web/image-gallery.test.tsx` (both
   variants), with a stub `ResizeObserver` reporting the width and images whose `naturalWidth` and
   `naturalHeight` are set before `load` fires, using shapes inside each variant's limits so every
   change shows (on the page at 1280 wide, ratios 3, 4, and 2.5; review I3): before the picture
@@ -658,20 +658,44 @@ changes on its own, traps focus, and closes with Esc or the button, returning fo
   The event page follows the small viewport height: a window `resize` with a new height changes
   the page's height (and not a card's), and a `.viewport-probe` measuring less than
   `innerHeight` is the height used (review I4, S4, S8).
-- [ ] T054 Create `packages/shared/src/web/gallery-size.ts`; in `image-gallery.tsx` (and
+- [x] T054 Create `packages/shared/src/web/gallery-size.ts`; in `image-gallery.tsx` (and
   `gallery-parts.tsx` as needed) read the shown picture's shape on load, measure the width and the
   small viewport height, and set the height and `gallery--measured`, with `gallery--reshaping`
   for 400 ms after a change of shape; in `theme.css` switch to `contain` and add the transition,
   its reduced-motion rule, the card's floor and measured rule, and `.viewport-probe` (research
   R18). Run T051–T053 and the shared suite, including the drift check.
-- [ ] T055 In `admin-app/src/styles.css` and `ImagesField.tsx`, show each preview whole at its own
+- [x] T055 In `admin-app/src/styles.css` and `ImagesField.tsx`, show each preview whole at its own
   shape within the card's limits, 3:4 to 2:1, keeping the 4:3 loading class until the `<img>`
   fires `load` (research R18; review I7, with a test). Run T052's Admin part and the Admin app
   suite.
-- [ ] T056 Running-system check: quickstart S13 in both apps, at desktop width, at about 1,000
+- [x] T056 Running-system check: quickstart S13 in both apps, at desktop width, at about 1,000
   pixels, and at 375 pixels, and record it here.
-- [ ] T057 Independent review (Constitution III, one round), fix the findings, and open the
+  - 2026-10-24, Docker database, Keycloak, and Backend with the Admin and Customer apps from this
+    branch (Vite; Docker could not rebuild images: the package servers reset the connection). An
+    event with a 900 × 1600 photo, a 1000 × 1000 square, and a 2400 × 600 panorama, each with a red
+    border so any crop shows:
+    - Admin event page at 327 px wide: square 327 × 327, panorama 327 × 200 (the 200 px floor,
+      whole), tall photo 327 × 582 (its own shape, under 70% of the 1,057 px window); the border
+      shows on all four sides.
+    - Admin event page at 1280 × 900: panorama 1280 × 320 (its own shape); tall and square limited
+      to 630 px (70% of 900), whole and centered.
+    - Admin form previews (163 px wide): square 1:1, tall limited to 3:4, panorama to 2:1, all
+      `contain`.
+    - Customer Events card at 1280 × 900: the card stays 332 px wide on every turn (no layout
+      loop, review I1); square 332 × 332, panorama 332 × 166 (2:1), tall 332 × 443 (3:4), whole
+      with the border on all sides; `gallery--reshaping` only during a change.
+    - Not checked by hand: reduced motion and a phone scrolling (no emulation in the automation
+      browser; covered by the theme and gallery tests), and the short-list scroll bar (I9).
+- [x] T057 Independent review (Constitution III, one round), fix the findings, and open the
   implementation PR with `fixes #73`.
+  - Round 1 (2026-10-24): must fix S1 (controls overlap on narrow cards), S2 (stale assumption),
+    I1 (card `aspect-ratio` against the set height: a layout loop), I2 (the card floor); should
+    fix S3 (README), S4/I5 (the page limit moved while a phone scrolled), I3, I4; minor S5–S9,
+    I6–I11. Resolved by amending T051–T056 and R18/FR-042/S13 above; S10 (the clarify commit's
+    two SHAs) is handled at merge time.
+  - Round 2 (2026-10-24): every round-1 finding resolved (I1 re-checked in headless Edge with the
+    real theme rules); 3 minor (N1 the pre-measure card floor, N2 the previews' limits in FR-042,
+    N3 README's status line), fixed in fcb4165. No open findings.
 
 ---
 

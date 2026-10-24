@@ -138,23 +138,34 @@
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: var(--space-3);
 }
+/* A container, so a preview's height limit can follow its own width (100cqw, below). */
 .image-item {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-2);
+  container-type: inline-size;
 }
 .image-item__actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+/* Spec 014 FR-041, FR-042 (research R18, issue #73): each preview shows its picture whole, in its
+   own shape at the preview's width, within the card's limits (3:4 to 2:1); a more extreme
+   picture stays whole, centered on the background. */
 .image-item__thumb {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
+  height: auto;
+  min-height: calc(100cqw / 2);
+  max-height: calc(100cqw * 4 / 3);
+  object-fit: contain;
   background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+}
+/* While the picture loads there is no shape yet: the card's 4:3 until then. */
+.image-item__thumb--loading {
+  aspect-ratio: 4 / 3;
 }

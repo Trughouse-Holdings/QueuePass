@@ -726,18 +726,44 @@ dd {
   overflow-x: clip;
 }
 
+/* FR-041, FR-042 (research R18, issue #73): the gallery sets its own height, in pixels, from its
+   width and the shown picture's shape (gallery-size.ts), and gets .gallery--measured. The sizes
+   below stand only until it has measured itself. Its height moves with the slide's length and
+   curve only while the shape changes (.gallery--reshaping); a resize alone follows at once. */
 .gallery {
   position: relative;
   overflow: hidden;
   background: var(--surface-alt);
 }
+.gallery--reshaping {
+  transition: height 400ms ease-in-out;
+}
 .gallery--page {
   height: clamp(200px, 40vw, 480px);
 }
-/* An Events list card: the gallery spans the card at 4:3, taking most of it (FR-020); the
-   Customer app's .event-card cancels its padding so the gallery is flush with the card's edges. */
+/* An Events list card: the gallery spans the card's width (FR-020), never under 160px so its
+   arrows and Pause/Play never overlap; the Customer app's .event-card cancels its padding so the
+   gallery is flush with the card's edges. Before measuring, the floor with the 4:3 below would
+   widen a card narrower than 213px; Events cards are at least 260px wide (customer-app grid). */
 .gallery--card {
+  min-height: 160px;
+}
+/* 4:3 only until measured: with a set height and an auto width, aspect-ratio would make the width
+   follow the height, and the card would shrink or grow without end (review of #73, I1). */
+.gallery--card:not(.gallery--measured) {
   aspect-ratio: 4 / 3;
+}
+/* Research R18: measures the window's small height (100svh: with a phone browser's bars shown),
+   the event page's limit, so the band does not move while a phone scrolls. Added and removed at
+   once by the gallery. */
+.viewport-probe {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 100svh;
+  visibility: hidden;
+  pointer-events: none;
 }
 .gallery__slide,
 .gallery__open,
@@ -780,7 +806,9 @@ dd {
   justify-content: center;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* FR-041: the whole picture, never cropped; beyond FR-042's limits it is centered on the
+     gallery's background. */
+  object-fit: contain;
 }
 .gallery__placeholder {
   background: var(--surface-alt);
@@ -882,8 +910,12 @@ dd {
     transform: translateX(0);
   }
 }
-/* FR-025: under reduced motion the image simply changes (the gallery sets no slide class either). */
+/* FR-025: under reduced motion the image simply changes (the gallery sets no slide class either),
+   and the box takes its new height at once (FR-042). */
 @media (prefers-reduced-motion: reduce) {
+  .gallery--reshaping {
+    transition: none;
+  }
   .gallery__slide--out-left,
   .gallery__slide--in-left,
   .gallery__slide--out-right,

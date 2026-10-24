@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ImageGallery } from '../../src/web/image-gallery';
+import { galleryBoxHeight } from '../../src/web/gallery-size';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { EventImage } from '../../src/event-image';
 import {
@@ -697,3 +698,288 @@ describe('ImageGallery, card variant', () => {
     expect(cardPosition(NAME)).toBe('2 of 3');
   });
 });
+
+/**
+ * Spec 014 FR-041, FR-042 (research R18, issue #73): the gallery's box takes the shape of the
+ * picture it shows. It measures its own width with a ResizeObserver, reads the shown picture's
+ * shape when it loads, and sets its height from `galleryBoxHeight`; before any picture has
+ * loaded, or when the first one failed, it has the height for no shape (`null`).
+ */
+describe.each(['page', 'card'] as const)(
+  'ImageGallery, %s variant, the box takes the picture shape (FR-042)',
+  (variant) => {
+    const WIDTH = variant === 'card' ? 320 : 1280;
+    // Shapes inside the variant's limits, so every change shows (review I3): on a card at 320
+    // wide 1, 0.5, and 16/9 (320, 426.67, 180); on the page at 1280 wide, with jsdom's window
+    // 768 tall (limit 537.6), 3, 4, and 2.5 (426.67, 320, 512).
+    type Size = readonly [number, number];
+    const [A, B, C]: Size[] =
+      variant === 'card'
+        ? [
+            [1000, 1000],
+            [600, 1200],
+            [1600, 900],
+          ]
+        : [
+            [1200, 400],
+            [1600, 400],
+            [1000, 400],
+          ];
+    const ratio = ([w, h]: Size) => w / h;
+
+    let innerHeight: PropertyDescriptor | undefined;
+    beforeEach(() => {
+      innerHeight = Object.getOwnPropertyDescriptor(window, 'innerHeight');
+    });
+    afterEach(() => {
+      if (innerHeight) Object.defineProperty(window, 'innerHeight', innerHeight);
+      vi.restoreAllMocks();
+    });
+
+    /** A ResizeObserver that reports `width` for every element, on observe and on `resize`. */
+    function installResizeObserver(width: number) {
+      const watched = new Map<Element, { cb: ResizeObserverCallback; ro: ResizeObserver }>();
+      const report = (el: Element) => {
+        const w = watched.get(el)!;
+        w.cb(
+          [{ target: el, contentRect: { width, height: 0 } } as unknown as ResizeObserverEntry],
+          w.ro,
+        );
+      };
+      class RO {
+        constructor(private cb: ResizeObserverCallback) {}
+        observe(el: Element) {
+          watched.set(el, { cb: this.cb, ro: this as unknown as ResizeObserver });
+          report(el);
+        }
+        unobserve(el: Element) {
+          watched.delete(el);
+        }
+        disconnect() {
+          for (const [el, w] of watched) if (w.ro === (this as unknown)) watched.delete(el);
+        }
+      }
+      vi.stubGlobal('ResizeObserver', RO);
+      return {
+        resize(to: number) {
+          width = to;
+          act(() => {
+            for (const el of [...watched.keys()]) report(el);
+          });
+        },
+      };
+    }
+
+    async function render(count = 3) {
+      const gallery = (
+        <ImageGallery
+          eventId={EVENT_ID}
+          eventName={NAME}
+          images={images(count)}
+          variant={variant}
+          eventHref={`/events/${EVENT_ID}`}
+        />
+      );
+      const view = renderSignedIn(
+        variant === 'card' ? (
+          <MemoryRouter>{gallery}</MemoryRouter>
+        ) : (
+          <div className="page-band">{gallery}</div>
+        ),
+      );
+      await advance(0);
+      return view.container;
+    }
+
+    const box = (c: HTMLElement) => c.querySelector<HTMLElement>('.gallery')!;
+    const height = (c: HTMLElement) => parseFloat(box(c).style.height);
+    const expected = (r: number | null, width = WIDTH, viewportHeight = window.innerHeight) =>
+      galleryBoxHeight({ variant, width, ratio: r, viewportHeight });
+    const incoming = (c: HTMLElement) => c.querySelector<HTMLImageElement>('.gallery__open img')!;
+    const outgoing = (c: HTMLElement) => c.querySelector('[class*="gallery__slide--out-"] img');
+
+    /** The browser has read the incoming picture, `w` by `h` pixels. */
+    function load(img: HTMLImageElement, [w, h]: Size) {
+      Object.defineProperty(img, 'naturalWidth', { value: w, configurable: true });
+      Object.defineProperty(img, 'naturalHeight', { value: h, configurable: true });
+      fireEvent.load(img);
+    }
+
+    /** The window is now `to` pixels tall, and says so. */
+    function windowHeight(to: number) {
+      Object.defineProperty(window, 'innerHeight', { value: to, configurable: true });
+      act(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+    }
+
+    it('sets no height and keeps the theme size where ResizeObserver is missing', async () => {
+      stubImages();
+      const c = await render();
+      load(incoming(c), A);
+      expect(box(c).style.height).toBe('');
+      expect(box(c)).not.toHaveClass('gallery--measured');
+    });
+
+    it('has the height for no shape before the picture loads, then the picture shape', async () => {
+      installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render();
+      expect(incoming(c)).not.toBeNull();
+      expect(height(c)).toBeCloseTo(expected(null), 2);
+      // Review I1: a measured card drops the starting 4:3, which would fight the set height.
+      expect(box(c)).toHaveClass('gallery--measured');
+      load(incoming(c), A);
+      expect(height(c)).toBeCloseTo(expected(ratio(A)), 2);
+      expect(height(c)).not.toBeCloseTo(expected(null), 2);
+    });
+
+    it('takes the new picture shape after a change, during the slide too', async () => {
+      installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render();
+      load(incoming(c), A);
+      fireEvent.click(arrow('Next'));
+      await advance(0);
+      expect(outgoing(c)).not.toBeNull();
+      expect(height(c)).toBeCloseTo(expected(ratio(A)), 2);
+      load(incoming(c), B);
+      expect(outgoing(c)).not.toBeNull();
+      expect(height(c)).toBeCloseTo(expected(ratio(B)), 2);
+      expect(height(c)).not.toBeCloseTo(expected(ratio(A)), 2);
+      await advance(400);
+      expect(outgoing(c)).toBeNull();
+      expect(height(c)).toBeCloseTo(expected(ratio(B)), 2);
+    });
+
+    it('keeps the previous shape until a picture not yet loaded is read, never the starting size', async () => {
+      installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render();
+      load(incoming(c), B);
+      const before = expected(ratio(B));
+      expect(height(c)).toBeCloseTo(before, 2);
+      // Every height the box takes from here on.
+      const seen: number[] = [];
+      const watcher = new MutationObserver(() => seen.push(height(c)));
+      watcher.observe(box(c), { attributes: true, attributeFilter: ['style'] });
+
+      fireEvent.click(arrow('Next'));
+      await advance(0);
+      expect(outgoing(c)).not.toBeNull();
+      expect(height(c)).toBeCloseTo(before, 2);
+      await advance(200);
+      expect(height(c)).toBeCloseTo(before, 2);
+      load(incoming(c), C);
+      expect(height(c)).toBeCloseTo(expected(ratio(C)), 2);
+      expect(height(c)).not.toBeCloseTo(before, 2);
+      await advance(0);
+      watcher.disconnect();
+      const start = expected(null);
+      expect(seen.some((h) => Math.abs(h - start) < 0.01)).toBe(false);
+    });
+
+    it('gives a picture shown again its shape at once, with no new load (review S8)', async () => {
+      installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render(2);
+      load(incoming(c), A);
+      fireEvent.click(arrow('Next'));
+      await advance(0);
+      load(incoming(c), B);
+      await advance(400);
+      expect(height(c)).toBeCloseTo(expected(ratio(B)), 2);
+      fireEvent.click(arrow('Next'));
+      await advance(0);
+      expect(height(c)).toBeCloseTo(expected(ratio(A)), 2);
+    });
+
+    it('keeps the previous shape for a picture that failed after one that loaded', async () => {
+      installResizeObserver(WIDTH);
+      stubImages({ 'img-2': imageResponse(404) });
+      const c = await render();
+      load(incoming(c), B);
+      fireEvent.click(arrow('Next'));
+      await advance(0);
+      expect(within(box(c)).getByText('Image unavailable')).toBeInTheDocument();
+      expect(height(c)).toBeCloseTo(expected(ratio(B)), 2);
+    });
+
+    it('keeps the height for no shape when the picture failed', async () => {
+      installResizeObserver(WIDTH);
+      stubImages({ 'img-1': imageResponse(404) });
+      const c = await render(1);
+      expect(screen.getByText('Image unavailable')).toBeInTheDocument();
+      expect(height(c)).toBeCloseTo(expected(null), 2);
+    });
+
+    it('moves to a new shape with the slide, for 400 ms', async () => {
+      installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render();
+      load(incoming(c), A);
+      await advance(400);
+      fireEvent.click(arrow('Next'));
+      await advance(0);
+      expect(box(c)).not.toHaveClass('gallery--reshaping');
+      load(incoming(c), B);
+      expect(box(c)).toHaveClass('gallery--reshaping');
+      await advance(399);
+      expect(box(c)).toHaveClass('gallery--reshaping');
+      await advance(1);
+      expect(box(c)).not.toHaveClass('gallery--reshaping');
+    });
+
+    it('computes the height again when its width changes, at once (review I8)', async () => {
+      const ro = installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render();
+      load(incoming(c), A);
+      expect(height(c)).toBeCloseTo(expected(ratio(A)), 2);
+      await advance(400);
+      ro.resize(200);
+      expect(height(c)).toBeCloseTo(expected(ratio(A), 200), 2);
+      expect(height(c)).not.toBeCloseTo(expected(ratio(A)), 2);
+      expect(box(c)).not.toHaveClass('gallery--reshaping');
+    });
+
+    it(
+      variant === 'page'
+        ? 'follows the window height, at once (review I4)'
+        : 'does not depend on the window height',
+      async () => {
+        installResizeObserver(WIDTH);
+        stubImages();
+        const c = await render();
+        load(incoming(c), A);
+        const before = height(c);
+        await advance(400);
+        windowHeight(500);
+        // The page is now at most 350 tall (70% of 500); the card is as it was.
+        expect(height(c)).toBeCloseTo(expected(ratio(A), WIDTH, 500), 2);
+        if (variant === 'page') expect(height(c)).toBeCloseTo(350, 2);
+        else expect(height(c)).toBe(before);
+        expect(box(c)).not.toHaveClass('gallery--reshaping');
+      },
+    );
+
+    it('uses the small viewport height measured by the 100svh probe (review S4)', async () => {
+      const original = HTMLElement.prototype.getBoundingClientRect;
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return this.classList.contains('viewport-probe')
+          ? ({ height: 500, width: 0 } as DOMRect)
+          : original.call(this);
+      });
+      installResizeObserver(WIDTH);
+      stubImages();
+      const c = await render();
+      load(incoming(c), A);
+      expect(height(c)).toBeCloseTo(expected(ratio(A), WIDTH, 500), 2);
+      if (variant === 'page') expect(height(c)).toBeCloseTo(350, 2);
+      // The probe is measured and removed at once.
+      expect(document.querySelector('.viewport-probe')).toBeNull();
+    });
+  },
+);

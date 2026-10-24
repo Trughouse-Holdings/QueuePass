@@ -39,6 +39,7 @@ export function HeldImages({
 /**
  * The image, or a placeholder of the same size while it loads or when it failed (FR-031), with
  * the classes of `part`: `gallery__image` or `viewer__image`, and the matching placeholder.
+ * `onShape` hears the picture's width / height once the browser has read it (FR-042, R18).
  */
 export function EventPicture({
   eventId,
@@ -46,15 +47,31 @@ export function EventPicture({
   alt,
   part,
   enabled = true,
+  onShape,
 }: {
   eventId: string;
   image: EventImage;
   alt: string;
   part: 'gallery' | 'viewer';
   enabled?: boolean;
+  onShape?: (ratio: number) => void;
 }) {
   const { url, failed } = useEventImage(eventId, image.id, enabled);
-  if (url) return <img className={`${part}__image`} src={url} alt={alt} />;
+  if (url)
+    return (
+      <img
+        className={`${part}__image`}
+        src={url}
+        alt={alt}
+        onLoad={
+          onShape &&
+          ((e) => {
+            const { naturalWidth: w, naturalHeight: h } = e.currentTarget;
+            if (w > 0 && h > 0) onShape(w / h);
+          })
+        }
+      />
+    );
   return <span className={`${part}__placeholder`}>{failed ? 'Image unavailable' : null}</span>;
 }
 

@@ -33,6 +33,23 @@ async function refusalOf(file: File): Promise<string | null> {
   return null;
 }
 
+/**
+ * Spec 014 FR-041, FR-042 (research R18, review I7): a preview in its picture's own shape. Until
+ * the browser has read the picture it keeps the 4:3 loading shape, so it does not pass through the
+ * 2:1 minimum while decoding.
+ */
+function ThumbImage({ url, alt }: { url: string; alt: string }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <img
+      className={loaded ? 'image-item__thumb' : 'image-item__thumb image-item__thumb--loading'}
+      src={url}
+      alt={alt}
+      onLoad={() => setLoaded(true)}
+    />
+  );
+}
+
 /** A chosen file's preview, from an object URL revoked when the item goes. */
 function NewThumb({ file, alt }: { file: File; alt: string }) {
   const [url, setUrl] = useState<string | null>(null);
@@ -42,9 +59,9 @@ function NewThumb({ file, alt }: { file: File; alt: string }) {
     return () => URL.revokeObjectURL(u);
   }, [file]);
   return url ? (
-    <img className="image-item__thumb" src={url} alt={alt} />
+    <ThumbImage key={url} url={url} alt={alt} />
   ) : (
-    <span className="image-item__thumb" />
+    <span className="image-item__thumb image-item__thumb--loading" />
   );
 }
 
@@ -52,9 +69,9 @@ function NewThumb({ file, alt }: { file: File; alt: string }) {
 function SavedThumb({ eventId, image, alt }: { eventId: string; image: EventImage; alt: string }) {
   const { url } = useEventImage(eventId, image.id);
   return url ? (
-    <img className="image-item__thumb" src={url} alt={alt} />
+    <ThumbImage key={url} url={url} alt={alt} />
   ) : (
-    <span className="image-item__thumb" role="img" aria-label={alt} />
+    <span className="image-item__thumb image-item__thumb--loading" role="img" aria-label={alt} />
   );
 }
 
