@@ -27,9 +27,9 @@ earlier. The "exactly one entry" rule from #40 still holds. The printed QR code 
   so a code shown in its last second still scans, and a copy is dead at most 35 seconds after it
   first appeared.
 - Q: Must the live code keep working with no signal at the venue? → A: Yes, while the app stays
-  open. Once **My tickets** has loaded a ticket online, its live code keeps changing with no
-  signal for as long as the Customer app stays open. After the app is closed or reloaded, showing
-  a live code needs a connection again.
+  open. Once a ticket's entry code is on screen, it keeps changing with no signal for as long as
+  the Customer app stays open. After the app is closed or reloaded, showing a live code needs a
+  connection again.
 - Q: When a valid live code is scanned, is the holder admitted at once, or does the agent still
   press **Admit**? → A: The agent still presses **Admit**. The scan shows the ticket with no
   ID-check prompt, so the agent stays in control, for example to admit only part of a group.
@@ -175,9 +175,10 @@ succeeds.
   after the window ends. It still counts for 5 seconds after the boundary (FR-008).
 - **Customer's phone clock is wrong**: the live code MUST still be accepted (FR-009); the Backend's
   clock, not the phone's, decides which window is current.
-- **No signal at the venue**: the live code keeps changing as long as the Customer app stays open
-  after loading **My tickets** online (FR-010). If the app is closed or reloaded with no signal, it
-  can't show a live code, and the holder uses the printed ticket with ID.
+- **No signal at the venue**: once its entry code is on screen, a ticket's live code keeps changing
+  for as long as the Customer app stays open (FR-010). Opening **Show entry code**, for that ticket
+  or another, needs a connection. If the app is closed or reloaded with no signal, it can't show a
+  live code, and the holder uses the printed ticket with ID.
 - **Offline longer than the sign-in session's idle limit** (Keycloak's SSO Session Idle, 30 minutes
   by default; the realm sets none): FR-010 still holds while there is no signal. Once the signal is
   back, the first quiet renewal is refused and the customer is sent to sign in; the printed ticket
@@ -245,10 +246,11 @@ succeeds.
   until 5 seconds after it ends. A code outside its window and grace MUST be refused as expired.
 - **FR-009**: Which window is current MUST be decided by the Backend's clock. A customer's device
   whose clock is wrong by up to 5 minutes MUST still show codes that the Backend accepts.
-- **FR-010**: Once **My tickets** has loaded a ticket while online, its live code MUST keep
-  changing, and keep being accepted (FR-008, FR-009), with no connection, for as long as the
-  Customer app stays open. Nothing about live codes may be kept on the device once the app is
-  closed or reloaded; showing a live code then needs a connection again.
+- **FR-010**: Once the **Show entry code** page has loaded a ticket's entry secret while online,
+  its live code MUST keep changing, and keep being accepted (FR-008, FR-009), with no connection,
+  for as long as the Customer app stays open. Opening the page, for that ticket or another, needs
+  a connection. Nothing about live codes may be kept on the device once the app is closed or
+  reloaded; showing a live code then needs a connection again.
 - **FR-011**: The Ticket Booth app MUST tell a live code apart from a printed or typed ticket code
   when scanning, with no choice by the agent. A live code is looked up exactly like a ticket code in
   `017`, with these differences:
