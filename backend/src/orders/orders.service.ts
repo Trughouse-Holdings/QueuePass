@@ -107,7 +107,8 @@ export interface MyOrderResponse extends OrderResponse {
     startsAt: Date;
     endsAt: Date;
     status: EventStatus;
-    location: { id: string; name: string };
+    /** Spec 019 FR-012 (research R2): `address` is the venue's one-line `Location.address`. */
+    location: { id: string; name: string; address: string };
   };
 }
 
@@ -453,7 +454,11 @@ export class OrdersService {
         startsAt: o.event.startsAt,
         endsAt: o.event.endsAt,
         status: o.event.status,
-        location: { id: o.event.location.id, name: o.event.location.name },
+        location: {
+          id: o.event.location.id,
+          name: o.event.location.name,
+          address: o.event.location.address,
+        },
       },
     }));
   }
