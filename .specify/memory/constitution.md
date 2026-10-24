@@ -73,9 +73,10 @@ Every branch is reviewed by a second Claude session before its pull request is o
 
 - **Independent review.** A Claude session that did not write the work reviews the branch
   locally: the spec and plan against this constitution and the issue, and the code against the
-  spec and plan as merged. The writing session fixes the findings, and the review repeats until
-  only minor findings remain, normally two or three rounds. The PR description records the
-  number of rounds and any finding left open, with the reason.
+  spec and plan as merged. The writing session fixes the findings. One review is required;
+  another round is optional, at the author's choice. The fixes are not reviewed again by Claude:
+  the teammate review of the pull request is the check on them. The PR description records the
+  review and any finding left open, with the reason.
 - **Fresh implementer.** The implementation is written in a new Claude session that starts from
   the spec and plan only, not in the session that wrote them. A gap it finds is fixed in
   the spec or plan, not worked around in code.
@@ -351,4 +352,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.2.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-23
+**Version**: 3.3.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-23
