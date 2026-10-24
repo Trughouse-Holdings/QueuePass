@@ -379,6 +379,17 @@ turned on right after merge (T033).
   against spec.md, plan.md, and research.md. Fix the findings. One review is required; another
   round is optional. Record the review and any finding left open, with the reason, here and in the
   PR description.
+  - **Round 1** (2026-10-24, at `c0f3bf6`): 0 must, 3 should, 4 minor; all 7 fixed, none left
+    open. S1: the `my-tickets` wait race (1 in 17 runs), fixed by a 3 s `asyncUtilTimeout` in
+    the three apps' test setup (T018); customer-app then 10 of 10. S2: the workflow test missed
+    `continue-on-error`, `if:`, and an inserted `actions/cache` step; a new test pins each step's
+    keys and the step count, and each of the three mutations now fails it. S3: README row
+    `Done (26/34 tasks)`. M1: npm's own lock file with the 78 peer flags kept (T003). M2: two
+    tests spawn the coverage script (direct, and through a linked root, which failed first),
+    and the script compares real paths to decide it was run directly. M3: each seed skip
+    carries its reason. M4: README says each step stops the run if it fails. After the fixes:
+    21 of 21 `node --test` tests, lint and format check clean, and shared 468, admin-app 200,
+    customer-app 200, booth-app 67, seed 8 (stack up) pass.
 - [x] T027 Commit with citations (`Impl 011: … (T0NN, #23)`), each body naming the FRs and R
   decisions it rests on.
   - **Result**: committed task by task, failing tests before their implementation (T005/T006
