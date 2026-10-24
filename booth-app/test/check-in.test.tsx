@@ -143,9 +143,7 @@ describe('Choosing an event (FR-007)', () => {
     expect(sessionStorage.getItem('queuepass.booth.eventId')).toBe(EVENT_ID);
 
     await user.click(screen.getByRole('button', { name: 'Log out' }));
-    await vi.waitFor(() =>
-      expect(sessionStorage.getItem('queuepass.booth.eventId')).toBeNull(),
-    );
+    await vi.waitFor(() => expect(sessionStorage.getItem('queuepass.booth.eventId')).toBeNull());
   });
 
   it('still lets the agent choose when sessionStorage throws', async () => {

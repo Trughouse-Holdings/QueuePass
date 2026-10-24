@@ -11,7 +11,12 @@ export const listEvents = (api: ApiClient) => api.GET('/events');
 export const lookupEntryTicket = (api: ApiClient, eventId: string, code: string) =>
   api.POST('/events/{id}/entry/lookup', { params: { path: { id: eventId } }, body: { code } });
 
-export const admitTicket = (api: ApiClient, eventId: string, ticketId: string, wholeOrder: boolean) =>
+export const admitTicket = (
+  api: ApiClient,
+  eventId: string,
+  ticketId: string,
+  wholeOrder: boolean,
+) =>
   api.POST('/events/{id}/entry/admit', {
     params: { path: { id: eventId } },
     body: { ticketId, wholeOrder },

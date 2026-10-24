@@ -27,13 +27,24 @@ describe('Order, attendee, cancel, and report authorization', () => {
   });
 
   it('refuses orders from an admin or a gate agent with 403', async () => {
-    await asAdmin(ctx).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, quantity: 1 }).expect(403);
-    await as(ctx, tokens.agent).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, quantity: 1 }).expect(403);
+    await asAdmin(ctx)
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, quantity: 1 })
+      .expect(403);
+    await as(ctx, tokens.agent)
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, quantity: 1 })
+      .expect(403);
     expect(await ctx.prisma.order.count()).toBe(0);
   });
 
   it('lets a customer order', async () => {
-    await (await customer(ctx)).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, quantity: 1 }).expect(201);
+    await (
+      await customer(ctx)
+    )
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, quantity: 1 })
+      .expect(201);
   });
 
   for (const role of ['customer', 'agent'] as const) {
@@ -48,7 +59,10 @@ describe('Order, attendee, cancel, and report authorization', () => {
   }
 
   it('refuses all four without a token', async () => {
-    await anon(ctx).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, quantity: 1 }).expect(401);
+    await anon(ctx)
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, quantity: 1 })
+      .expect(401);
     await anon(ctx).get(`/events/${eventId}/attendees`).expect(401);
     await anon(ctx).post(`/events/${eventId}/cancel`).expect(401);
     await anon(ctx).get('/reports/sales').expect(401);

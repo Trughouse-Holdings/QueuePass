@@ -15,7 +15,13 @@ const CODE = 'AAAA2222BBBB';
 const mixed = myOrder({
   tickets: [
     { id: 'k1', code: CODE, status: 'VALID', checkedInAt: null, seat: null },
-    { id: 'k2', code: 'CCCC3333DDDD', status: 'VALID', checkedInAt: '2026-12-01T23:10:00.000Z', seat: null },
+    {
+      id: 'k2',
+      code: 'CCCC3333DDDD',
+      status: 'VALID',
+      checkedInAt: '2026-12-01T23:10:00.000Z',
+      seat: null,
+    },
     { id: 'k3', code: 'GGGG5555HHHH', status: 'VOID', checkedInAt: null, seat: null },
   ],
 });
@@ -49,7 +55,9 @@ describe('the printable view (US5-1)', () => {
     stubApi({ 'GET /me/orders': json([seated]) });
     renderCustomer({ at: '/my-tickets/k1/print' });
 
-    expect(await screen.findByRole('img', { name: `QR code for ticket ${CODE}` })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('img', { name: `QR code for ticket ${CODE}` }),
+    ).toBeInTheDocument();
     expect(screen.getByText(CODE)).toBeInTheDocument();
     expect(screen.getByText('Jordan Lee')).toBeInTheDocument();
     expect(screen.getByText('Early Show')).toBeInTheDocument();

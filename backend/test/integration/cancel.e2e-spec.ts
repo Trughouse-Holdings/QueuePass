@@ -20,7 +20,10 @@ describe('Cancellation and sales protections', () => {
   });
 
   const buy = async (eventId: string, body: object, n = 1) =>
-    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...body }).expect(201);
+    (await customer(ctx, n))
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, ...body })
+      .expect(201);
 
   it('voids every ticket, refunds every order, marks the event cancelled, and reports counts', async () => {
     const eventId = await event(ctx, venueId);

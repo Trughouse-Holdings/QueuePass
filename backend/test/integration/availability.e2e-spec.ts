@@ -21,7 +21,10 @@ describe('Event availability', () => {
   });
 
   const buy = async (eventId: string, body: object, n = 1) =>
-    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...body }).expect(201);
+    (await customer(ctx, n))
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, ...body })
+      .expect(201);
   const availability = (eventId: string) =>
     asAdmin(ctx).get(`/events/${eventId}/availability`).expect(200);
 

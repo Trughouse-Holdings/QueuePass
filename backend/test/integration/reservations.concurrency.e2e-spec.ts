@@ -108,7 +108,9 @@ describe('Reservations under concurrency', () => {
       });
 
       const [ordered, reserved] = await Promise.all([
-        buyer.post(`/events/${eventId}/orders`).send({ holderName: HOLDER, quantity: 1, seats: [seat(3, 3)] }),
+        buyer
+          .post(`/events/${eventId}/orders`)
+          .send({ holderName: HOLDER, quantity: 1, seats: [seat(3, 3)] }),
         reserve(2, [seat(3, 3)]),
       ]);
 

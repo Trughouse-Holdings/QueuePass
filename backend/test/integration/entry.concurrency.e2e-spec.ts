@@ -36,9 +36,7 @@ describe('One entry per ticket under concurrent admits', () => {
   it('of 20 simultaneous admits from 20 agents, exactly one succeeds — 5 rounds (SC-001)', async () => {
     for (let round = 1; round <= 5; round++) {
       const { tickets } = await orderWithTickets(ctx, eventId, { quantity: 1 });
-      const agents = await Promise.all(
-        Array.from({ length: 20 }, (_, i) => agent(ctx, i + 1)),
-      );
+      const agents = await Promise.all(Array.from({ length: 20 }, (_, i) => agent(ctx, i + 1)));
       const results = await Promise.all(
         agents.map((a) =>
           a

@@ -89,7 +89,9 @@ describe('names and entry times (spec 017 FR-004, FR-005, FR-020)', () => {
     stubApi({ [`GET /events/${EVENT.id}`]: json(EVENT), [`GET ${PATH}`]: json(ORDERS) });
     renderPage();
 
-    expect(await screen.findByRole('columnheader', { name: 'Name on tickets' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('columnheader', { name: 'Name on tickets' }),
+    ).toBeInTheDocument();
     const first = screen.getByText('customer3').closest('tr') as HTMLElement;
     expect(within(first).getByText('Jordan Lee')).toBeInTheDocument();
     const second = screen.getByText('customer1').closest('tr') as HTMLElement;

@@ -1,6 +1,15 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
-import { availability, event, json, order, renderCustomer, stubApi, tier, typeHolderName } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  order,
+  renderCustomer,
+  stubApi,
+  tier,
+  typeHolderName,
+} from './helpers';
 
 /** Spec 006 US1 (FR-001, FR-004, FR-005): get tickets on the event page. */
 afterEach(() => vi.unstubAllGlobals());
@@ -108,7 +117,12 @@ describe('confirming (US1-4, US1-5; FR-005)', () => {
     const done = await screen.findByRole('region', { name: 'Order confirmed' });
     const [post] = posts(calls);
     expect(post.path).toBe('/events/e1/orders');
-    expect(post.body).toEqual({ tierId: 't-vip', holderName: 'Jordan Lee', quantity: 2, requestId: expect.any(String) });
+    expect(post.body).toEqual({
+      tierId: 't-vip',
+      holderName: 'Jordan Lee',
+      quantity: 2,
+      requestId: expect.any(String),
+    });
     expect((post.body as { requestId: string }).requestId).toMatch(UUID);
 
     expect(within(done).getByText('Early Show')).toBeInTheDocument();
@@ -134,7 +148,11 @@ describe('confirming (US1-4, US1-5; FR-005)', () => {
     await typeHolderName();
     fireEvent.click(await confirmButton());
     await screen.findByRole('region', { name: 'Order confirmed' });
-    expect(posts(calls)[0].body).toEqual({ holderName: 'Jordan Lee', quantity: 1, requestId: expect.any(String) });
+    expect(posts(calls)[0].body).toEqual({
+      holderName: 'Jordan Lee',
+      quantity: 1,
+      requestId: expect.any(String),
+    });
   });
 
   it('sends one request when Confirm is clicked twice quickly', async () => {

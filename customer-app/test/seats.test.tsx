@@ -1,7 +1,16 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { SeatMap } from '@queuepass/shared';
-import { availability, event, json, order, renderCustomer, stubApi, tier, typeHolderName } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  order,
+  renderCustomer,
+  stubApi,
+  tier,
+  typeHolderName,
+} from './helpers';
 
 /** Spec 007 US2 (FR-007, FR-008, FR-011): choosing seats in the Get tickets form. */
 afterEach(() => vi.unstubAllGlobals());

@@ -21,7 +21,9 @@ describe('Orders with a requestId', () => {
   });
 
   const order = async (eventId: string, body: object, n = 1) =>
-    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...body });
+    (await customer(ctx, n))
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, ...body });
   const code = (res: Response): string => res.body.error?.code;
 
   it('returns the first order, with 200, when the same request is repeated', async () => {
@@ -44,7 +46,9 @@ describe('Orders with a requestId', () => {
     const client = await customer(ctx);
 
     const results = await Promise.all(
-      Array.from({ length: 10 }, () => client.post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...body })),
+      Array.from({ length: 10 }, () =>
+        client.post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...body }),
+      ),
     );
 
     const statuses = results.map((r) => r.status).sort();

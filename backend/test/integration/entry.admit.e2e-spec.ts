@@ -112,7 +112,9 @@ describe('admitTicket', () => {
 
   it('is 404 NOT_FOUND for an unknown event', async () => {
     const { tickets } = await orderWithTickets(ctx, eventId, { quantity: 1 });
-    const res = await (await agent(ctx))
+    const res = await (
+      await agent(ctx)
+    )
       .post(`/events/${randomUUID()}/entry/admit`)
       .send({ ticketId: tickets[0].id, wholeOrder: false });
     expect(res.status).toBe(404);

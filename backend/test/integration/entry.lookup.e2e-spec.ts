@@ -97,7 +97,9 @@ describe('lookupEntryTicket', () => {
   it('counts unused tickets of the order: 4 fresh, 3 after one is admitted', async () => {
     const { tickets } = await orderWithTickets(ctx, eventId, { quantity: 4 });
     expect((await lookup(tickets[0].code)).body.unusedOnOrder).toBe(4);
-    await (await agent(ctx))
+    await (
+      await agent(ctx)
+    )
       .post(`/events/${eventId}/entry/admit`)
       .send({ ticketId: tickets[1].id, wholeOrder: false })
       .expect(200);

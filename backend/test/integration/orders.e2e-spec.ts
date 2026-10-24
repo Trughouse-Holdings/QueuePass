@@ -21,7 +21,9 @@ describe('Orders', () => {
   });
 
   const order = async (eventId: string, body: object, n = 1) =>
-    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...body });
+    (await customer(ctx, n))
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, ...body });
 
   it('sells tickets for an event without tiers at its base price, one unique code per seat', async () => {
     const eventId = await event(ctx, venueId, { basePrice: '45.50' });
@@ -133,7 +135,9 @@ describe('Orders', () => {
     const eventId = await event(ctx, venueId, { capacity: 10 });
     const clients = await Promise.all(Array.from({ length: 20 }, (_, i) => customer(ctx, i + 1)));
     const results = await Promise.all(
-      clients.map((c) => c.post(`/events/${eventId}/orders`).send({ holderName: HOLDER, quantity: 1 })),
+      clients.map((c) =>
+        c.post(`/events/${eventId}/orders`).send({ holderName: HOLDER, quantity: 1 }),
+      ),
     );
     const statuses = results.map((r) => r.status);
     expect(statuses.filter((s) => s === 201)).toHaveLength(10);
@@ -146,7 +150,9 @@ describe('Orders', () => {
     const vip = await tier(ctx, eventId, 'VIP', '50.00', 6);
     const clients = await Promise.all(Array.from({ length: 10 }, (_, i) => customer(ctx, i + 1)));
     await Promise.all(
-      clients.map((c) => c.post(`/events/${eventId}/orders`).send({ holderName: HOLDER, tierId: vip, quantity: 2 })),
+      clients.map((c) =>
+        c.post(`/events/${eventId}/orders`).send({ holderName: HOLDER, tierId: vip, quantity: 2 }),
+      ),
     );
     expect(await ctx.prisma.ticket.count({ where: { tierId: vip, status: 'VALID' } })).toBe(6);
   });

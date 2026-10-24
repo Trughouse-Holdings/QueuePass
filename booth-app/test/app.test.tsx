@@ -22,7 +22,9 @@ describe('QueuePass Ticket Booth app', () => {
       vi.fn(async () => json([])),
     );
     render(
-      <App userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))} />,
+      <App
+        userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))}
+      />,
     );
 
     expect(await screen.findByText(/Choose the event/)).toBeInTheDocument();

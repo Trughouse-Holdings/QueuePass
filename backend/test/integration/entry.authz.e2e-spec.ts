@@ -77,11 +77,10 @@ describe('Entry authorization', () => {
   });
 
   it('succeeds for a gate agent on both operations', async () => {
-    await (await agent(ctx))
-      .post(`/events/${eventId}/entry/lookup`)
-      .send({ code })
-      .expect(200);
-    await (await agent(ctx))
+    await (await agent(ctx)).post(`/events/${eventId}/entry/lookup`).send({ code }).expect(200);
+    await (
+      await agent(ctx)
+    )
       .post(`/events/${eventId}/entry/admit`)
       .send({ ticketId, wholeOrder: false })
       .expect(200);

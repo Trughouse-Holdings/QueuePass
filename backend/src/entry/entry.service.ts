@@ -8,10 +8,7 @@ import { normalizeCode, stateCase } from './ticket-state';
 
 /** A 404 in the standard envelope with its own code (contracts/openapi.yaml `EntryNotFound`). */
 const ticketNotFound = (message: string): HttpException =>
-  new HttpException(
-    { error: { code: 'TICKET_NOT_FOUND', message } },
-    HttpStatus.NOT_FOUND,
-  );
+  new HttpException({ error: { code: 'TICKET_NOT_FOUND', message } }, HttpStatus.NOT_FOUND);
 
 /** One row of the lookup SELECT (and of the refusal query, which reads a subset). */
 interface LookupRow {
@@ -107,7 +104,11 @@ export class EntryService {
     return {
       admitted: refs,
       alreadyUsed: wholeOrder
-        ? await this.alreadyUsed(eventId, ticket.orderId, refs.map((t) => t.ticketId))
+        ? await this.alreadyUsed(
+            eventId,
+            ticket.orderId,
+            refs.map((t) => t.ticketId),
+          )
         : [],
     };
   }

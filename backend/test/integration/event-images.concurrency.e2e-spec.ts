@@ -72,7 +72,9 @@ describe('Event images under concurrent requests', () => {
     const results = await Promise.all([
       ...Array.from({ length: 5 }, () => upload(ctx, eventId, PNG)),
       ...Array.from({ length: 5 }, () =>
-        buyer.post(`/events/${eventId}/orders`).send({ holderName: HOLDER, quantity: 1, requestId: randomUUID() }),
+        buyer
+          .post(`/events/${eventId}/orders`)
+          .send({ holderName: HOLDER, quantity: 1, requestId: randomUUID() }),
       ),
     ]);
     noServerErrors(results);

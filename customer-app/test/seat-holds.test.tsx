@@ -1,7 +1,16 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { Reservation, SeatMap } from '@queuepass/shared';
-import { availability, event, json, order, renderCustomer, stubApi, tier, typeHolderName } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  order,
+  renderCustomer,
+  stubApi,
+  tier,
+  typeHolderName,
+} from './helpers';
 
 /**
  * Spec 015 US1 (FR-001, FR-002, FR-005–FR-008, FR-012; research R13): pick seats, press Reserve

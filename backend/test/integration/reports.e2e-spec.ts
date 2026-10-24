@@ -18,7 +18,10 @@ describe('Sales report', () => {
   });
 
   const buy = async (eventId: string, body: object, n = 1) =>
-    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...body }).expect(201);
+    (await customer(ctx, n))
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, ...body })
+      .expect(201);
 
   it('is empty with no events', async () => {
     const res = await asAdmin(ctx).get('/reports/sales').expect(200);

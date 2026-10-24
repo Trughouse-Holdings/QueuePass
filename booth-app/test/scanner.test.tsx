@@ -180,9 +180,11 @@ describe('Scanning (US5-3 to US5-6)', () => {
     expect(screen.getByLabelText('Ticket code')).toBeInTheDocument();
   });
 
-  it("a camera that exists but can't be opened (busy in another app) says so, not \"no camera\"", async () => {
+  it('a camera that exists but can\'t be opened (busy in another app) says so, not "no camera"', async () => {
     stubApi();
-    openCamera.mockRejectedValue(new DOMException('Could not start video source', 'NotReadableError'));
+    openCamera.mockRejectedValue(
+      new DOMException('Could not start video source', 'NotReadableError'),
+    );
     const user = userEvent.setup();
     await openScanner(user);
 
@@ -230,7 +232,9 @@ describe('Scanning (US5-3 to US5-6)', () => {
     stubApi({ [ADMIT]: admit.reply });
     const user = userEvent.setup();
     render(
-      <App userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))} />,
+      <App
+        userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))}
+      />,
     );
     await user.click(await screen.findByRole('button', { name: /Demo Tonight/ }));
     await user.type(await screen.findByLabelText('Ticket code'), CODE);
@@ -253,7 +257,9 @@ describe('Scanning (US5-3 to US5-6)', () => {
     stubApi();
     const user = userEvent.setup();
     render(
-      <App userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))} />,
+      <App
+        userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))}
+      />,
     );
     await user.click(await screen.findByRole('button', { name: /Demo Tonight/ }));
     await screen.findByLabelText('Ticket code');

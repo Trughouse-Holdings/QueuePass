@@ -26,7 +26,9 @@ describe('Per-customer ticket limit on orders', () => {
   });
 
   const order = async (eventId: string, body: object, n = 1) =>
-    (await customer(ctx, n)).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, ...body });
+    (await customer(ctx, n))
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, ...body });
   const buy = async (eventId: string, quantity: number, n = 1) => {
     const res = await order(eventId, { quantity }, n);
     expect(res.status).toBe(201);

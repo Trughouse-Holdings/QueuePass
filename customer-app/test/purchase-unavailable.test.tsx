@@ -1,7 +1,16 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { Availability } from '@queuepass/shared';
-import { availability, event, json, order, renderCustomer, stubApi, tier, typeHolderName } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  order,
+  renderCustomer,
+  stubApi,
+  tier,
+  typeHolderName,
+} from './helpers';
 
 /** Spec 006 US2 (FR-002, FR-006, FR-014): why tickets can't be had, and refusals explained. */
 afterEach(() => vi.unstubAllGlobals());

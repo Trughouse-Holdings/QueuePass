@@ -23,12 +23,9 @@ describe('holderNameProblem', () => {
     expect(holderNameProblem(`a${'😀'.repeat(100)}`)).toBe('TOO_LONG');
   });
 
-  it.each(['Jordan\tLee', 'Jordan\nLee', 'Jordan\u0000Lee'])(
-    '%j is CONTROL_CHARACTER',
-    (raw) => {
-      expect(holderNameProblem(raw)).toBe('CONTROL_CHARACTER');
-    },
-  );
+  it.each(['Jordan\tLee', 'Jordan\nLee', 'Jordan\u0000Lee'])('%j is CONTROL_CHARACTER', (raw) => {
+    expect(holderNameProblem(raw)).toBe('CONTROL_CHARACTER');
+  });
 
   it.each(['1234', '---'])('%j is NO_LETTER', (raw) => {
     expect(holderNameProblem(raw)).toBe('NO_LETTER');

@@ -24,9 +24,7 @@ export function TicketQr({ code }: { code: string }) {
   const size = matrix.length + 2 * QUIET_ZONE;
   const path = matrix
     .flatMap((row, r) =>
-      row.flatMap((dark, c) =>
-        dark ? [`M${c + QUIET_ZONE} ${r + QUIET_ZONE}h1v1h-1z`] : [],
-      ),
+      row.flatMap((dark, c) => (dark ? [`M${c + QUIET_ZONE} ${r + QUIET_ZONE}h1v1h-1z`] : [])),
     )
     .join('');
   return (

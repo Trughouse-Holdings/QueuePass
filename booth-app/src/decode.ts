@@ -15,7 +15,9 @@ export function decodeFrame(video: HTMLVideoElement, canvas: HTMLCanvasElement):
   if (!ctx) return null;
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  return jsQR(image.data, image.width, image.height, { inversionAttempts: 'dontInvert' })?.data ?? null;
+  return (
+    jsQR(image.data, image.width, image.height, { inversionAttempts: 'dontInvert' })?.data ?? null
+  );
 }
 
 /** The ticket-code alphabet (spec 005 research R3): no I, O, 0, or 1. */

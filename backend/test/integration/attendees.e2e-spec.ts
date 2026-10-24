@@ -61,7 +61,12 @@ describe('Attendee list', () => {
   });
 
   it('includes refunded orders after a cancel', async () => {
-    await (await customer(ctx)).post(`/events/${eventId}/orders`).send({ holderName: HOLDER, quantity: 1 }).expect(201);
+    await (
+      await customer(ctx)
+    )
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, quantity: 1 })
+      .expect(201);
     await asAdmin(ctx).post(`/events/${eventId}/cancel`).expect(200);
     const res = await asAdmin(ctx).get(`/events/${eventId}/attendees`).expect(200);
     expect(res.body[0].status).toBe('REFUNDED');

@@ -1,7 +1,15 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
 import type { Availability, CustomerLimit, SeatMap } from '@queuepass/shared';
-import { availability, event, json, renderCustomer, stubApi, tier, typeHolderName } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  renderCustomer,
+  stubApi,
+  tier,
+  typeHolderName,
+} from './helpers';
 
 /**
  * Spec 016 US4 (FR-012–FR-015; research R8): the Get tickets form shows the customer's limit,
