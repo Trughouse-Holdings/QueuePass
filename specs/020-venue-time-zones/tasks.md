@@ -824,7 +824,7 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
     before and after (`4 | a72fb0b199b284d28672314f2c9932c1`); every venue `America/New_York |
     DEFAULT`; `event_no_overlap` deferrable (`t`); a second `migrate deploy` had no pending
     migrations. The copy and the dump were removed.
-- [ ] T053 Running-system gate, part 2. Path A where images build (`docker compose up --build`
+- [x] T053 Running-system gate, part 2. Path A where images build (`docker compose up --build`
   from a fresh clone of the branch); otherwise quickstart **path B**: at a time agreed with whoever
   uses `main`'s stack, stop it, start the gate's own `docker compose -p qp020gate up -d database
   keycloak`, and run `node scripts/run-host.mjs --backend-tz America/Los_Angeles --demo-data`
@@ -836,16 +836,39 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   sign out of all three apps. Then **Mahdi** repeats the steps marked **(two zones)** by hand with
   Chrome DevTools → Sensors → time zone override, in UTC and America/Los_Angeles; record his
   results here. Record everything, with anything unexpected.
-  **Left for Mahdi** (browser walk and the second browser zones; `scripts/run-host.mjs` is ready,
-  T058). T013's image checks are "to do where images build".
+  - 2026-10-25, path B (images cannot build on this machine: Docker's TLS is intercepted), branch
+    at `83598c8`: `main`'s stack stopped; `qp020gate` database and Keycloak up; `run-host.mjs
+    --backend-tz America/Los_Angeles --demo-data`: 14 migrations, seed 235 principals, online demo
+    data with 2 venues "from the address". The laptop's zone is Eastern.
+  - Two zones: Phoenix Test Hall (201 E Jefferson St, Phoenix, AZ 85004) → `America/Phoenix`,
+    source ADDRESS. "TZ Check West" at 7 PM MST stored `2026-12-06T02:00Z`; the admin list shows
+    "Dec 5, 2026, 7:00 PM MST", next to Eastern venues in EDT/EST.
+  - Refusals: a time ending in `Z` → UTC_OFFSET_MISMATCH; a wrong offset → UTC_OFFSET_MISMATCH;
+    2027-03-14 2:30 AM Eastern → LOCAL_TIME_SKIPPED, "2:30 AM on Mar 14, 2027 doesn't exist in
+    Eastern Time: clocks jump from 2:00 AM to 3:00 AM. Choose another time."
+  - Repeated hour: 2027-11-07 1:30 AM, first (EDT) accepted, stored `05:30Z`; the admin page shows
+    "Nov 7, 2027, 1:30 AM EDT – 3:30 AM EST"; the edit form asks "Which 1:30 AM?" with "1:30 AM EDT
+    (the first time)" checked.
+  - Customer event cards and the Booth event picker show each venue's zone; all three apps signed
+    in, used, and signed out.
+  - **(two zones)** Mahdi, Chrome DevTools → Sensors → San Francisco (America/Los_Angeles): every
+    time stayed the same. The UTC override was not repeated.
+  - Offline demo data (`--geocoder-url http://127.0.0.1:9`): venues `America/New_York | DEFAULT`,
+    unverified; Fall Concert 19:00, Comedy Night 20:00, Holiday Gala 19:00 local.
+  - S2's container ICU check, cached `node:22-alpine`: 7 PM EDT, 4 PM MST, 1 PM HST, 2 PM HADT for
+    `2026-10-26T23:00Z`, all correct.
+  - **To do where images build**: path A and T013's image checks. Not done: a screen reader pass.
+  - `docker compose -p qp020gate down -v`; `main`'s stack restarted (backend, booth-app, database,
+    Keycloak healthy). Nothing unexpected.
 
 ---
 
 ## Phase 13: Pull request
 
-- [ ] T054 Mark every task done here, with its results, and update the README status row.
-  Tasks recorded as they were done; the README status row says 47/58 done, reviews and walk pending.
-  **Left for Mahdi** to finish after the reviews and the walk.
+- [x] T054 Mark every task done here, with its results, and update the README status row.
+  Tasks recorded as they were done. Review rounds: 1 (1 must, 1 should, 5 minor, all fixed); 2 (0
+  must, 1 should, 4 minor, all fixed); 3 (one minor, n1, accepted and moved to the follow-up issue,
+  T055). README row: 54/58 done, **Built and verified** (path A image checks still to do).
 - [ ] T055 Open the follow-up issue (research R18): "Contract: make the 020 time-zone fields
   required" (`Location.timeZone`, `Location.timeZoneSource`, `OrderEvent.location.timeZone`,
   `EventSales.timeZone`, `EntryTicket.event.timeZone`), to do after this PR merges.

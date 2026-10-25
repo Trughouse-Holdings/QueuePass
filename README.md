@@ -10,8 +10,8 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 ## Status
 
 Features `001` through `008` and `012` through `018` are built and verified. `019` is built and
-reviewed; part of its running-system walk is still to do. `020` is built and tested locally, with review rounds 1 and 2 fixed; its
-running-system walk is still to do. `011` is built; its first runs on
+reviewed; part of its running-system walk is still to do. `020` is built, reviewed, and walked
+on the running system (path B; the image checks wait for a machine where images build). `011` is built; its first runs on
 GitHub and its running-system walk are pending.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                | Spec             | Plan and tasks     | Code                         |
@@ -33,7 +33,7 @@ GitHub and its running-system walk are pending.
 | [`017-gate-check-in`](specs/017-gate-check-in/spec.md)                       | Every new ticket carries the buyer's name; customers print a QR per ticket; gate agents scan or type a code, check an ID against the name, and admit each ticket exactly once                                   | Draft            | Done (50 tasks)    | **Built and verified**       |
 | [`018-rotating-qr-codes`](specs/018-rotating-qr-codes/spec.md)               | Customers show a live QR code per ticket that changes every 30 seconds and needs no ID check at the gate; a copy expires within 35 seconds; printed and typed codes keep the ID check                           | Draft            | Done (41 tasks)    | **Built and verified**       |
 | [`019-add-to-calendar`](specs/019-add-to-calendar/spec.md)                   | From My tickets, customers add an event they hold tickets for to Apple Calendar or Outlook (a calendar file) or Google Calendar, as a one-time copy; offered only while the event is ahead or under way         | Draft            | Done (22/25 tasks) | **Built (walk partly done)** |
-| [`020-venue-time-zones`](specs/020-venue-time-zones/spec.md)                 | Every venue has a time zone, worked out from its checked address; every app shows and takes event times in the venue's local time with the zone's abbreviation (7:00 PM EDT), whatever the viewer's device zone | Draft            | Done (51/58 tasks) | **Built (walk pending)**     |
+| [`020-venue-time-zones`](specs/020-venue-time-zones/spec.md)                 | Every venue has a time zone, worked out from its checked address; every app shows and takes event times in the venue's local time with the zone's abbreviation (7:00 PM EDT), whatever the viewer's device zone | Draft            | Done (54/58 tasks) | **Built and verified**       |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
