@@ -727,11 +727,30 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   MB, so not preloaded (5aa357a).
   Left open: nothing. The reviewer's note of one idle combined Backend run through another `node` on
   PATH was not reproduced and not attributed to the branch.
-- [ ] T048 **Review round 2**, by another session that did not write the code (and not the round 1
+- [x] T048 **Review round 2**, by another session that did not write the code (and not the round 1
   reviewer if possible), on the fixed branch. Fix and record as T047. **If round 2 finds anything
   more than minor issues, run round 3, and so on, until a round finds only minor issues**; record
   each round here.
-  **Left for Mahdi**, as T047.
+  **Round 2 done 2026-10-25** (another independent session, at ad23436): must 0, should 1, minor 4;
+  21 of 24 mutations caught (the 3 survivors are S1 and m3; one more, `hour12: false`, is equivalent
+  on Node 22). Every finding fixed in `Review 020:` commits; failing tests committed first where
+  there was code to change:
+  **S1** (should): the booth's gate-zone times (USED, NOT_OPEN, an admit's already-used times) were
+  tested only at an Eastern gate, the fallback zone. Three tests at a Phoenix gate (MST), 66280a5:
+  they pass on the code and fail under the reviewer's mutation (checked); no code change.
+  **m1**: an event stored with seconds in a fall-back hour loaded as the wrong occurrence. Tests
+  (05:30:30Z loads as EDT, 06:30:30Z as EST; Demo Tonight on the whole minute) failed first,
+  47082d3; fix a946a02: the occurrence is chosen by the stored instant's own offset (what tells the
+  two moments apart, whatever the seconds), and Demo Tonight starts on the whole minute.
+  **m2**: Save with no venue chosen judged times in Eastern. Tests failed first, a3afa87; fix
+  ffa3da7: "Choose a venue first: times are in the venue's local time." before any preview.
+  **m3**: the repeated-hour reset on a venue change was untested. Test 0c26acd (Eastern second 1:30
+  AM, then a Central venue: asked again, -06:00 sent): passes on the code, fails under the
+  reviewer's mutation (checked); no code change.
+  **m4**: `offsetAt` read local mean time (`GMT-04:56:02`, before 1883) as 0. Shared and API tests
+  failed first, 81e8d3a (the API answered 201 for `1850-06-01T12:00:00Z`); fix f4a30de: an offset
+  that is not whole minutes throws a RangeError, and the API refuses it with 400 VALIDATION_FAILED.
+  Left open: nothing in the findings. **Round 3?** The ground rule asks for another round when a round finds more than minor issues; round 2 found one should-fix (a missing test, no code defect). Whether that needs a third round is left for Mahdi.
 
 ---
 
