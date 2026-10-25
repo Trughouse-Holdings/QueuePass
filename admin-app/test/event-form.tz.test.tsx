@@ -56,10 +56,13 @@ function newForm(post: () => Response = () => json({ ...EVENT, locationId: EAST.
   return api;
 }
 
-function editForm(event: object) {
+function editForm(
+  event: object,
+  locations: Parameters<typeof stubApi>[0][string] = json([EAST, PHX]),
+) {
   const e = { ...EVENT, ...event } as typeof EVENT;
   const api = stubApi({
-    'GET /locations': json([EAST, PHX]),
+    'GET /locations': locations,
     [`GET /events/${EVENT.id}`]: json(e),
     [`GET /events/${EVENT.id}/tiers`]: json([TIER]),
     [`GET /events/${EVENT.id}/seats`]: json({
@@ -291,5 +294,86 @@ describe("the Backend's refusals (FR-026)", () => {
     expect(await screen.findByTestId('conflict-detail')).toHaveTextContent(
       'Conflicts with X, which runs Oct 1, 2026, 7:00 PM EDT – 10:00 PM EDT.',
     );
+  });
+});
+
+/**
+ * Review round 1, S1: on edit, the event's own venue (from the event) gives the zone when the
+ * venue list fails or has not arrived: never Eastern by accident, never "Choose a venue first".
+ */
+describe('editing while the venue list is unavailable', () => {
+  const CHI = {
+    ...VENUE,
+    id: 'v-chi',
+    name: 'Lakeside',
+    timeZone: 'America/Chicago',
+    timeZoneSource: 'ADDRESS',
+  };
+  const PDX = {
+    ...VENUE,
+    id: 'v-pdx',
+    name: 'Rose Hall',
+    timeZone: 'America/Los_Angeles',
+    timeZoneSource: 'ADDRESS',
+  };
+
+  it.each([
+    ['fails', () => json({ error: { code: 'NOT_FOUND', message: 'gone' } }, 500)],
+    ['cannot be reached', 'network-error' as const],
+  ])(
+    'reads, labels, and sends a Pacific event in Pacific time when the list %s',
+    async (_l, reply) => {
+      const api = editForm(
+        {
+          locationId: PDX.id,
+          location: PDX,
+          startsAt: '2026-10-02T02:00:00.000Z', // 7:00 PM PDT on Oct 1
+          endsAt: '2026-10-02T05:00:00.000Z',
+        },
+        reply,
+      );
+      await vi.waitFor(() =>
+        expect(screen.getByLabelText('Starts')).toHaveValue('2026-10-01T19:00'),
+      );
+      expect(screen.getByTestId('zone-line')).toHaveTextContent(
+        "Times are in the venue's time zone: Pacific Time (PDT).",
+      );
+      await vi.waitFor(() =>
+        expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('General'),
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+      await screen.findByText('Event page', {}, { timeout: 3000 });
+      expect(api.calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
+        startsAt: '2026-10-01T19:00:00-07:00',
+        endsAt: '2026-10-01T22:00:00-07:00',
+      });
+    },
+  );
+
+  it("keeps a fall-back night's first 1:30 AM at a Central venue as CDT", async () => {
+    const api = editForm(
+      {
+        locationId: CHI.id,
+        location: CHI,
+        startsAt: '2027-11-07T06:30:00.000Z', // 1:30 AM CDT, the first time
+        endsAt: '2027-11-07T09:30:00.000Z', // 3:30 AM CST
+      },
+      'network-error',
+    );
+    await vi.waitFor(() => expect(screen.getByLabelText('Starts')).toHaveValue('2027-11-07T01:30'));
+    expect(screen.getByTestId('zone-line')).toHaveTextContent(
+      "Times are in the venue's time zone: Central Time (CDT).",
+    );
+    expect(screen.getByLabelText('1:30 AM CDT (the first time)')).toBeChecked();
+    expect(screen.getByLabelText('1:30 AM CST (the second time)')).not.toBeChecked();
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('General'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Event page', {}, { timeout: 3000 });
+    expect(api.calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
+      startsAt: '2027-11-07T01:30:00-05:00',
+      endsAt: '2027-11-07T03:30:00-06:00',
+    });
   });
 });
