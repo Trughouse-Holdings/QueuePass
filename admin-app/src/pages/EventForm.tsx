@@ -130,6 +130,8 @@ export function EventForm(): React.ReactElement {
   const isEdit = Boolean(id);
 
   const [venues, setVenues] = useState<Location[]>([]);
+  /** Spec 020 (review round 1, S1): the edited event's own venue, as the event carries it. */
+  const [eventVenue, setEventVenue] = useState<Location | null>(null);
   const [name, setName] = useState('');
   const [locationId, setLocationId] = useState('');
   // Spec 020 research R13: plain local strings, read in the chosen venue's zone.
@@ -216,6 +218,7 @@ export function EventForm(): React.ReactElement {
         setImages([...(e.images ?? []).map((image) => savedItem(image)), ...pending]);
         setName(e.name);
         setLocationId(e.locationId);
+        setEventVenue(e.location ?? null);
         // Spec 020 FR-017 (research R13): the venue's local times, and for a repeated local time
         // the occurrence the stored instant is.
         const zone = e.location?.timeZone ?? DEFAULT_TIME_ZONE;
@@ -566,7 +569,11 @@ export function EventForm(): React.ReactElement {
       ? ((error.details?.conflictingEvent ?? null) as ConflictingEventRef | null)
       : null;
 
-  const selected = venues.find((v) => v.id === locationId);
+  // Spec 020 (review round 1, S1): while the venue list has failed or not arrived, the edited
+  // event's own venue stands in, so its zone is never replaced by Eastern by accident.
+  const selected =
+    venues.find((v) => v.id === locationId) ??
+    (eventVenue && eventVenue.id === locationId ? eventVenue : undefined);
   /** Spec 020 FR-014: the chosen venue's zone; Eastern until a venue is chosen. */
   const venueZone: UsTimeZone = selected?.timeZone ?? DEFAULT_TIME_ZONE;
   const resolved: Record<TimeField, ResolvedLocal | null> = {
