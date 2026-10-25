@@ -74,13 +74,14 @@ confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `019-add-to-calendar-impl` from `019-add-to-calendar-spec` while the spec and plan PR
+- [x] T001 Cut `019-add-to-calendar-impl` from `019-add-to-calendar-spec` while the spec and plan PR
   is open, or from an up-to-date `main` once it has merged; run `npm ci`, `npx prisma generate` in
   `backend/`, then `npm run generate:api` and confirm `git diff` is empty (the spec PR's
   `api-schema.ts` was written by hand; if it differs, fix it in the spec PR; after a rebase over
   another contract change, see the Contract ground rule). Run `npm test` from the
   repository root and confirm the suite is green before any change (baseline). No new npm package
   is needed; add none.
+  **Done (2026-10-24)**: branch from `main` 17ad895 (spec PR #82 merged). `npm ci`, `npx prisma generate`, `npm run generate:api`: `git diff` empty. Baseline `npm test` green (exit 0, 236 s): scripts 22/22, shared 468, backend 740, admin 200, customer 200, booth 67, seed 4 (+4 skipped). No npm package added.
 
 ---
 
@@ -88,7 +89,7 @@ confirm they **fail** before the implementation tasks below them.
 
 **Purpose**: **My tickets** receives each venue's full address (FR-012, research R2).
 
-- [ ] T002 Extend `backend/test/integration/me-orders.e2e-spec.ts`:
+- [x] T002 Extend `backend/test/integration/me-orders.e2e-spec.ts`:
   - an order at a venue with address parts: `event.location.address` equals the venue's
     `Location.address` (`STREET, CITY, ST ZIP`);
   - an order at a venue from before 013 (parts `null`, one-line `address` written straight through
@@ -96,17 +97,21 @@ confirm they **fail** before the implementation tasks below them.
   - two orders at two venues: each carries its own address;
   - every response matches the contract (`expectToMatchContract`).
   Confirm it fails (no `address` today).
-- [ ] T003 In `backend/src/orders/orders.service.ts`, `mine()` returns
+  **Done**: 4 new tests (address-parts venue, pre-013 venue written through Prisma, two venues, contract check). Failed first: all 4, `address` missing from `event.location` (commit 3e81a44).
+- [x] T003 In `backend/src/orders/orders.service.ts`, `mine()` returns
   `location: { id, name, address }` from the venue row it already loads; add `address: string` to
   `MyOrderResponse.event.location`. Run T002 until it passes.
-- [ ] T004 Contract (ground rules): add `address` to `OrderEvent.location`'s `required` in
+  **Done**: `me-orders` 10/10 pass.
+- [x] T004 Contract (ground rules): add `address` to `OrderEvent.location`'s `required` in
   `contracts/openapi.yaml` and delete the sentence named there; `npm run generate:api`; in
   `packages/shared/src/order.ts`, `OrderEvent.location` becomes
   `{ id: string; name: string; /** Spec 019 FR-012 */ address: string }`; build
   `@queuepass/shared`; add a default `address` to `myOrder` in `customer-app/test/helpers.tsx` and to
   every inline `location` of an `OrderEvent` in the Customer app's tests (the type check finds them).
-- [ ] T005 Run the Backend's `me-orders`, `orders`, and contract tests and the whole Customer app
+  **Done**: `address` in `required`, sentence deleted, `api-schema.ts` regenerated (drift check passes), `order.ts`, `helpers.tsx` `myOrder`, and the one inline location in `my-tickets.test.tsx`.
+- [x] T005 Run the Backend's `me-orders`, `orders`, and contract tests and the whole Customer app
   suite (`tsc --noEmit` included); all pass.
+  **Done**: Backend `me-orders`, `orders.*`, contract tests: 13 suites, 96/96. Customer app `tsc --noEmit` clean, 19 files, 200/200.
 
 ---
 
@@ -119,7 +124,7 @@ US3's tests are here because the same component decides both.
 
 ### Tests (write first, confirm they fail)
 
-- [ ] T006 [P] [US1] [US3] Write `customer-app/test/calendar.test.ts` (first line
+- [x] T006 [P] [US1] [US3] Write `customer-app/test/calendar.test.ts` (first line
   `// @vitest-environment node`), against research R3–R7, R10, R12, R14:
   - **Exact file**: `icsFile(entry, now)` for the R3 example (event id
     `6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21`, `Season Opener`, `2026-10-31T23:30:00.000Z` to
@@ -168,7 +173,8 @@ US3's tests are here because the same component decides both.
     `nowMs = endsAt − 1` → `true`; `nowMs = endsAt` → `false`; `nowMs` after `startsAt` (under way)
     → `true`; every ticket `VOID` → `false`; one `VOID` and one `VALID` → `true`; `VALID` with
     `checkedInAt` set → `true`.
-- [ ] T007 [P] [US1] [US3] Write `customer-app/test/add-to-calendar.test.tsx` (React Testing
+  **Done**: written and committed failing (c07fd2f): `src/calendar.ts` did not exist; with a throwing stub, 82 of the 86 tests in T006 and T007 failed (the 4 passing check only a throw or an absence).
+- [x] T007 [P] [US1] [US3] Write `customer-app/test/add-to-calendar.test.tsx` (React Testing
   Library, `vi.setSystemTime` fixed), rendering **My tickets** with orders for: an upcoming event; an
   event under way; a cancelled event; an ended event; an order whose tickets are all `VOID` for an
   event still ahead (the shape spec 009's refunds will produce; it cannot be made in the running
@@ -196,14 +202,16 @@ US3's tests are here because the same component decides both.
     `GET /me/orders` (FR-010);
   - both orders of the one event produce files with the same `UID`.
   Confirm both files fail.
+  **Done**: as T006 (same commit). Checked also that computing eligibility on each render fails the rerender test.
 
 ### Implementation
 
-- [ ] T008 [US1] [US3] Create `customer-app/src/calendar.ts`: `calendarEntry(event)` (from
+- [x] T008 [US1] [US3] Create `customer-app/src/calendar.ts`: `calendarEntry(event)` (from
   `OrderEvent`: `uid`, `title`, `startsAt`, `endsAt`, `location`), `icsFile(entry, now: Date)`,
   `icsFileName(name)`, `calendarEligible(order, nowMs)`, and the internal escape, fold, and UTC
   formatter, exactly as research R3–R7, R10, R12, R14 say. Comments cite the spec and research.
-- [ ] T009 [US1] [US3] Create `customer-app/src/components/AddToCalendar.tsx`: the group
+  **Done**: `customer-app/src/calendar.ts`.
+- [x] T009 [US1] [US3] Create `customer-app/src/components/AddToCalendar.tsx`: the group
   (`role="group"`, `aria-labelledby` its visible "Add to calendar" label), the button with its
   `aria-label`, and the note (research R11); on click, make the `Blob`, save it through a temporary
   `<a download>`, and revoke the URL after 60 seconds (R12). In `customer-app/src/pages/MyTickets.tsx`,
@@ -214,7 +222,9 @@ US3's tests are here because the same component decides both.
   note's `id` (R11). The button uses the shared theme's `btn btn--ghost` classes; add layout rules to
   `customer-app/src/styles.css` only with theme values, if needed (the theme-classes test must still
   pass).
-- [ ] T010 Run T006 and T007 until they pass, then the whole Customer app suite.
+  **Done**: `AddToCalendar.tsx`, `MyTickets.tsx` (`loadedAt` kept with the orders), layout rules in `styles.css` with theme values only.
+- [x] T010 Run T006 and T007 until they pass, then the whole Customer app suite.
+  **Done**: T006 and T007 86/86 on the first implementation; Customer app 21 files, 286/286, `tsc` clean.
 
 ---
 
@@ -226,7 +236,7 @@ US3's tests are here because the same component decides both.
 
 ### Tests (write first, confirm they fail)
 
-- [ ] T011 [P] [US2] Add to `customer-app/test/calendar.test.ts`, against research R8:
+- [x] T011 [P] [US2] Add to `customer-app/test/calendar.test.ts`, against research R8:
   - `googleCalendarUrl(entry)` for the R3 example equals exactly
     `https://calendar.google.com/calendar/render?action=TEMPLATE&text=Season+Opener&dates=20261031T233000Z%2F20261101T024500Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202`;
   - parsed back with `new URL`, a name and venue with `&`, `#`, `/`, `+`, `%`, `=`, `?`, accents,
@@ -234,30 +244,35 @@ US3's tests are here because the same component decides both.
     `dates`, and `location` (no `ctz`, no `details`);
   - the link is identical under the four `TZ` values of T006;
   - the 200-character name, 200-character venue name, and 500-character address are kept whole.
-- [ ] T012 [P] [US2] Add to `customer-app/test/add-to-calendar.test.tsx`: each eligible card has the
+  **Done**: committed failing (`googleCalendarUrl` is not a function: 4 failing).
+- [x] T012 [P] [US2] Add to `customer-app/test/add-to-calendar.test.tsx`: each eligible card has the
   link "Add to Google Calendar: <event name>, opens in a new tab" right after the button, with
   `href` equal to `googleCalendarUrl` of its event, `target="_blank"`, and `rel` containing
   `noopener` and `noreferrer`, the classes `btn btn--ghost` (44 pixels, FR-014), and
   `aria-describedby` set to the note's `id` (FR-003); ineligible cards have none; Tab reaches it after
   the button.
   Confirm both fail.
+  **Done**: committed failing (no link rendered: 2 failing; 6 in all with T011).
 
 ### Implementation
 
-- [ ] T013 [US2] Add `googleCalendarUrl(entry)` to `customer-app/src/calendar.ts` (R8) and the link
+- [x] T013 [US2] Add `googleCalendarUrl(entry)` to `customer-app/src/calendar.ts` (R8) and the link
   to `AddToCalendar.tsx`, with `className="btn btn--ghost"` and `aria-describedby` set to the note
   (R11).
-- [ ] T014 Run T011 and T012 until they pass, then the whole Customer app suite.
+  **Done**: `googleCalendarUrl` and the link.
+- [x] T014 Run T011 and T012 until they pass, then the whole Customer app suite.
+  **Done**: T011 and T012 94/94; Customer app 21 files, 294/294, `tsc` clean.
 
 ---
 
 ## Phase 5: Polish and testing many times
 
-- [ ] T015 [P] Update `README.md`: the `019` row in the status table; "Today" says customers add an
+- [x] T015 [P] Update `README.md`: the `019` row in the status table; "Today" says customers add an
   event they hold tickets for to Apple Calendar, Outlook, or Google Calendar from **My tickets**, as
   a one-time copy; the contract version (1.12.0, or the version the spec PR merged with) wherever the
   README names it.
-- [ ] T016 Time zones from the shell (ground rule 3): in `customer-app`, run
+  **Done**: the README names no contract version, so only the row, the status line, and Today changed.
+- [x] T016 Time zones from the shell (ground rule 3): in `customer-app`, run
   `CALENDAR_TEST_TZ=UTC npx vitest run test/calendar.test.ts`, then with
   `CALENDAR_TEST_TZ=America/New_York`, then `CALENDAR_TEST_TZ=America/Los_Angeles` (Git Bash). Each
   run passes and its output shows `[calendar-tz] <that zone> offset <0, 240, or 420>`; a run without
@@ -266,31 +281,59 @@ US3's tests are here because the same component decides both.
   their `[calendar-tz]` lines here. Use only these three names: an ICU alias such as `Asia/Kolkata`
   fails the zone-name check by design (research R5), and the check relies on Vitest's default
   `forks` pool.
-- [ ] T017 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
+  **Done (2026-10-24)**, all three pass, 79/79 each:
+  - `CALENDAR_TEST_TZ=UTC`: `[calendar-tz] UTC offset 0`
+  - `CALENDAR_TEST_TZ=America/New_York`: `[calendar-tz] America/New_York offset 240`
+  - `CALENDAR_TEST_TZ=America/Los_Angeles`: `[calendar-tz] America/Los_Angeles offset 420`
+  Also checked: `CALENDAR_TEST_TZ=Asia/Kolkata` fails the `beforeAll` (not allowed), as designed.
+- [x] T017 Run `npm run lint`, `npx prettier --check .`, and `npm test` from the repository root;
   everything passes, including `check-contract-drift` and `check-boundary`.
-- [ ] T018 Flake check (ground rule 2): run `npm test --workspace @queuepass/shared`,
+  **Done**: `npm run lint` clean; `npx prettier --check .` clean; `npm test` exit 0 (234 s): scripts 22/22, boundary and contract-drift pass, shared 468, backend 744, admin 200, customer 294, booth 67, seed 4 (+4 skipped).
+- [x] T018 Flake check (ground rule 2): run `npm test --workspace @queuepass/shared`,
   `npm test --workspace @queuepass/backend`, and `npm test --workspace @queuepass/customer-app` three
   times each, in a row. Record each run's pass count, fail count, and time here. Any failure is
   investigated and fixed, never retried away; then repeat all three runs.
-- [ ] T019 Report coverage for the files this feature added or changed (`calendar.ts`,
+  **Done (2026-10-24)**, no failures, nothing retried:
+
+  | Workspace | Run 1 | Run 2 | Run 3 |
+  |---|---|---|---|
+  | `@queuepass/shared` | 468 pass, 0 fail, 19 s | 468 pass, 0 fail, 19 s | 468 pass, 0 fail, 19 s |
+  | `@queuepass/backend` | 744 pass, 0 fail, 115 s | 744 pass, 0 fail, 111 s | 744 pass, 0 fail, 113 s |
+  | `@queuepass/customer-app` | 294 pass, 0 fail, 26 s | 294 pass, 0 fail, 24 s | 294 pass, 0 fail, 25 s |
+- [x] T019 Report coverage for the files this feature added or changed (`calendar.ts`,
   `AddToCalendar.tsx`, `MyTickets.tsx`, `orders.service.ts`) in this file and the PR description.
   `calendar.ts` should be 100% lines and branches. The 80% floor is not yet blocking (Constitution
   VI deferral until `010`).
-- [ ] T020 Run `npm run ci` from the repository root (ground rule 4): format, lint, build, the full
+  **Done (this file; the PR description is T024's)**: `calendar.ts` 100% lines, 100% branches, 100% functions; `AddToCalendar.tsx` 100/100/100; `MyTickets.tsx` 100/100/100; `orders.service.ts` 100% lines, 90.8% branches (unchanged branches elsewhere in the file), 100% functions.
+- [x] T020 Run `npm run ci` from the repository root (ground rule 4): format, lint, build, the full
   suite, and the coverage report, as GitHub Actions runs them. It passes. Record it here.
+  **Done (2026-10-24)**: `npm run ci` exit 0 in 265 s: format, lint, build, the full suite (shared 468, backend 744, admin 200, customer 294, booth 67, seed 4 + 4 skipped), and the coverage report (shared 92.30%, backend 97.02%, admin 96.88%, customer 97.46%, booth 92.33%, seed 24.01%: below 80%, not enforced until 010, unchanged by this feature).
 
 ---
 
 ## Phase 6: Independent review (at least two rounds)
 
-- [ ] T021 Review round 1 (Constitution III; ground rule 1): a separate Claude session that did not
+- [x] T021 Review round 1 (Constitution III; ground rule 1): a separate Claude session that did not
   write the code reviews the branch against spec.md, plan.md, research.md, and this file, given the
   code, not the author's conclusions. Fix the findings. Record the round, its findings, and what was
   fixed here and in the PR description.
-- [ ] T022 Review round 2 (Mahdi, 2026-10-24): another separate Claude session, not the one from
+  - 2026-10-24, at `4c002e7`: 0 must, 0 should, 3 minor. Every check passed; nine deliberate
+    mutations (fold at 76, `<=` for the end, eligibility per render, immediate revoke, backslash
+    escaped last, local hours, no valid-ticket rule, UTF-16 length, venue name as address) each
+    failed tests. Minors fixed in `3be5e8a`: an unset `TZ` is restored by deleting it; the download
+    test checks `DTSTAMP` by shape so a one-second tick can't fail it; README line rewrapped. A
+    re-check by the same reviewer (not counted as round 2) found the shape check no longer tied
+    `DTSTAMP` to the click time (stamping `new Date(0)` passed); the test now also requires
+    `DTSTAMP:20261024T1530[0-5]\dZ`, and the same mutation fails 3 tests.
+- [x] T022 Review round 2 (Mahdi, 2026-10-24): another separate Claude session, not the one from
   round 1, reviews the branch after round 1's fixes. Fix the findings. If this round finds anything
   above LOW, run further rounds (T022a, T022b, …) until one finds only LOW issues. Record every
   round. After the last fixes, rerun T016, T017, T018 (three runs each), and T020.
+  - 2026-10-24, at `3fdbf43`, by a fresh session that had not seen round 1: 0 must, 0 should,
+    3 minor; 18 mutations of its own each failed tests. Fixed: an order whose event times are
+    unusable gets no group, so one bad record can't blank My tickets (tests first: `calendarEligible`
+    and a component test, both seen failing); R3 records the deliberate RFC 5546 `ORGANIZER`
+    deviation, for T023 to confirm; README count. No round above LOW remains.
 
 ---
 
@@ -303,6 +346,19 @@ US3's tests are here because the same component decides both.
   reader, and phone width (S8); and the sign-in, use, and sign-out smoke test of all three front
   ends (S9). Record each step's result here. A step that does not behave as written is a spec
   defect: correct quickstart.md or the spec in a spec PR (Constitution III).
+  - 2026-10-24, partly done. `docker compose up --build` is blocked on this machine (TLS
+    interception stops image builds, as 011's T028 recorded), so the Backend from this branch ran on
+    the host against the existing database and Keycloak containers, with the Customer app from Vite.
+    `customer1` placed one order each for Comedy Night (E1) and Drake FOMO Tour (E2). Both order
+    cards showed the group; each `.ics` was CRLF-only, longest line 67 octets, `METHOD:PUBLISH`,
+    `UID:queuepass-event-<id>`, `DTSTART`/`DTEND` equal to the events' times in UTC, and
+    `LOCATION` the venue name and full address with escaped commas, saved as `comedy-night.ics`
+    and `drake-fomo-tour.ics`, type `text/calendar;charset=utf-8`. The Google links carried the same
+    title, dates, and location. Mahdi imported both files into his calendar app and opened the
+    Google link: the entries came in right. Phone width (375 px): both controls inside the card,
+    44 px tall, no sideways scroll. Not done here: the fresh-clone build, adding again (S6), the
+    browser time zone check (S7, covered by the CALENDAR_TEST_TZ runs), a screen reader pass, and
+    the three-app smoke test (S9).
 
 ---
 

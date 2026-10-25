@@ -2189,7 +2189,7 @@ components:
         status: { type: string, enum: [SCHEDULED, CANCELLED] }
         location:
           type: object
-          required: [id, name]
+          required: [id, name, address]
           properties:
             id: { type: string, format: uuid }
             name: { type: string, example: KFC Yum! Center }
@@ -2197,7 +2197,7 @@ components:
               type: string
               minLength: 1
               maxLength: 500
-              description: Feature 019. The venue's full one-line address, the same as its `Location.address`, for the customer's calendar entry. Always sent once feature 019 is implemented, which adds it to `required`.
+              description: Feature 019. The venue's full one-line address, the same as its `Location.address`, for the customer's calendar entry.
               example: '1 ARENA PLAZA, LOUISVILLE, KY 40202'
             timeZone:
               allOf: [{ $ref: '#/components/schemas/UsTimeZone' }]

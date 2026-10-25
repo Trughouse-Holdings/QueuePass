@@ -49,7 +49,12 @@ export interface OrderEvent {
   startsAt: string;
   endsAt: string;
   status: EventStatus;
-  location: { id: string; name: string };
+  location: {
+    id: string;
+    name: string;
+    /** Spec 019 FR-012: the venue's full one-line address (`Location.address`). */
+    address: string;
+  };
 }
 
 /** Spec 006: one of the signed-in customer's own orders (`GET /me/orders`). */

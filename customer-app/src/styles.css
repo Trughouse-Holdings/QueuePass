@@ -201,3 +201,22 @@
     page-break-inside: avoid;
   }
 }
+
+/* Spec 019 FR-014 (research R11): the Add to calendar group on an order card. The controls sit
+   side by side and wrap under each other at phone width; their look is the theme's .btn. */
+.calendar-actions {
+  margin: var(--space-4) 0;
+}
+.calendar-actions__label {
+  display: block;
+  font-weight: 600;
+}
+.calendar-actions__note {
+  margin: var(--space-1) 0 var(--space-2);
+  color: var(--text-muted);
+}
+.calendar-actions__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
