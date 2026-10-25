@@ -869,20 +869,23 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
 - [x] T054 Mark every task done here, with its results, and update the README status row.
   Tasks recorded as they were done. Review rounds: 1 (1 must, 1 should, 5 minor, all fixed); 2 (0
   must, 1 should, 4 minor, all fixed); 3 (one minor, n1, accepted and moved to the follow-up issue,
-  T055). README row: 56/58 done, **Built and verified** (path A image checks still to do).
+  T055). README row: 58 tasks done, **Built and verified** (path A image checks still to do).
 - [x] T055 Open the follow-up issue (research R18): "Contract: make the 020 time-zone fields
   required" (`Location.timeZone`, `Location.timeZoneSource`, `OrderEvent.location.timeZone`,
   `EventSales.timeZone`, `EntryTicket.event.timeZone`), to do after this PR merges.
   Opened as #88, with review round 3's n1 (a pre-1883 legacy event → 500 on a zone change).
-- [ ] T056 Push `020-venue-time-zones-impl` and open the PR (only after the spec and plan PR has
+- [x] T056 Push `020-venue-time-zones-impl` and open the PR (only after the spec and plan PR has
   merged and the branch is rebased onto `main`, ground rules). The description says `fixes #42`,
   lists the review rounds with their findings and anything left open, the three-run and four-zone
   results (T050), the running-system results (T052, T053), coverage (T051), and the shared surface
   touched (every member approves).
-  **Left for Mahdi** (push and pull request).
-- [ ] T057 Wait for **CI green on GitHub** for the PR's last commit (the required `test` check,
+  Opened as #89 (`fixes #42`), with the reviews, test, walk, and coverage results.
+- [x] T057 Wait for **CI green on GitHub** for the PR's last commit (the required `test` check,
   `011`); a red run is fixed, never skipped (quality gate 4). Merge only when green and approved.
-  **Left for Mahdi** (CI on GitHub).
+  First run (2026-10-25) cancelled at the 30-minute limit: on Ubuntu, `run-host.test.mjs` left the
+  Backend's Node process running (SIGINT reached only the shell). Fixed in `d05592b` (stop the
+  child's process group; the test waits for the whole tree and cannot hang). Second run green in
+  6.5 min; merged 2026-10-25, #42 closed.
 
 ## Dependencies
 
