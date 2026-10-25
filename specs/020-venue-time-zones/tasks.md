@@ -808,12 +808,13 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   admin 249 ×3 (30, 29, 29 s); booth 76 ×3 (33 s each). `npm run test:tz` (378 s): all 20 runs
   passed (shared 592, backend unit 140, admin 249, customer 306, booth 76 in each zone). No Backend
   test failed.
-- [ ] T051 Report coverage for every workspace in the PR description; each new file is covered by
+- [x] T051 Report coverage for every workspace in the PR description; each new file is covered by
   its tests, and each workspace stays at or above 80% lines (Constitution VI, `010`).
   Coverage at c6b6b73 (T049): shared 93.13%, backend 97.01%, admin 97.05%, customer 97.46%, booth
-  92.28%. New files: `time-zone.ts` 100%, `venue-time-zone.ts` 100%, `event-time.ts` 100%,
+  92.28%; at e108e3e (fresh clone, `npm run ci`): shared 93.13%, backend 97.02%, admin 97.06%,
+  customer 97.46%, booth 92.28%, seed 71.25%. New files: `time-zone.ts` 100%, `venue-time-zone.ts` 100%, `event-time.ts` 100%,
   `venue-lock.ts` 100%, `time-zone-finder.ts` 83% (the logged `catch`), demo data 84%; the changed
-  front-end files 97.8–100%. **Left for the PR description** (T056).
+  front-end files 97.8–100%. In the PR description (T056).
 - [x] T052 Running-system gate, part 1: quickstart **S1**, the migration on a copy of the running
   stack's real data. Record the event count and checksums before and after, the venue zone query,
   and `condeferrable`.
@@ -868,11 +869,11 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
 - [x] T054 Mark every task done here, with its results, and update the README status row.
   Tasks recorded as they were done. Review rounds: 1 (1 must, 1 should, 5 minor, all fixed); 2 (0
   must, 1 should, 4 minor, all fixed); 3 (one minor, n1, accepted and moved to the follow-up issue,
-  T055). README row: 54/58 done, **Built and verified** (path A image checks still to do).
-- [ ] T055 Open the follow-up issue (research R18): "Contract: make the 020 time-zone fields
+  T055). README row: 56/58 done, **Built and verified** (path A image checks still to do).
+- [x] T055 Open the follow-up issue (research R18): "Contract: make the 020 time-zone fields
   required" (`Location.timeZone`, `Location.timeZoneSource`, `OrderEvent.location.timeZone`,
   `EventSales.timeZone`, `EntryTicket.event.timeZone`), to do after this PR merges.
-  **Left for Mahdi** (opens an issue on GitHub).
+  Opened as #88, with review round 3's n1 (a pre-1883 legacy event → 500 on a zone change).
 - [ ] T056 Push `020-venue-time-zones-impl` and open the PR (only after the spec and plan PR has
   merged and the branch is rebased onto `main`, ground rules). The description says `fixes #42`,
   lists the review rounds with their findings and anything left open, the three-run and four-zone
