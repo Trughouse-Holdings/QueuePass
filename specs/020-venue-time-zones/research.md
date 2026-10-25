@@ -493,8 +493,9 @@ formatted on its own (FR-021, US3 scenario 8). The zone comes from:
 | Booth | `OTHER_EVENT` ("For {event} on …") | `EntryTicket.event.timeZone` (new), or `details.event.timeZone` of an `ENTRY_REFUSED` |
 | Backend | `SCHEDULING_CONFLICT` message | the venue's zone (`formatEventTime`, R9) |
 
-The Admin venue list gains a "Time zone" column (`zoneName`), and the venue page a line "Time
-zone: Eastern Time, from the address." (FR-024). Admin `EventList.tsx`'s own `day`/`clock` helpers
+The Admin venue list gains a "Time zone" column with the zone and how it was set ("Eastern
+Time, from the address"), and the venue page a line "Time zone: Eastern Time, from the address."
+(FR-024, US4 scenario 8; clarified in implementation review round 1, M1). Admin `EventList.tsx`'s own `day`/`clock` helpers
 call the shared formatters with the event's zone.
 
 The `SEAT_COOLDOWN` and Reports "as of" times are not event times (kept in the viewer's zone,
@@ -559,7 +560,7 @@ nothing is converted until save).
   possible once tickets are sold." `TIME_ZONE_HAS_ORDERS` (listing the events as links),
   `EVENT_TIME_NOT_IN_ZONE`, and `SCHEDULING_CONFLICT` are shown through `ErrorBanner` with every
   value kept.
-- `LocationList` gains a "Time zone" column; `LocationDetail` shows "Time zone: Eastern Time, from
+- `LocationList` gains a "Time zone" column ("Eastern Time, from the address"); `LocationDetail` shows "Time zone: Eastern Time, from
   the address." Sources read "from the address", "from the state", "chosen by an admin", and "the
   default". Existing classes only (`012` drift check).
 

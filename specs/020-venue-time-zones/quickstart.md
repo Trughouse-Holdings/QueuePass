@@ -114,7 +114,8 @@ data loaded online).
 As `admin1`, **Venues → New venue**: "Phoenix Test Hall", "201 E Jefferson St", "Phoenix",
 Arizona, "85004", capacity 500, time zone left at "Work it out from the address". Save.
 **Expect**: "Venue saved. Address: 201 E JEFFERSON ST, PHOENIX, AZ 85004. Time zone: Arizona Time
-(no daylight saving), from the address." The list's Time zone column says Arizona Time.
+(no daylight saving), from the address." The list's Time zone column says
+Arizona Time (no daylight saving), from the address.
 
 Repeat with "1701 Bryant St", "Denver", Colorado, "80204" ("Denver Test Hall"). **Expect**:
 Mountain Time, from the address.
