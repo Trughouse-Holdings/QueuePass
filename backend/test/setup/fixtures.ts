@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { liveCode } from '@queuepass/shared';
+import {
+  liveCode,
+  localDate,
+  resolveLocal,
+  toOffsetDateTime,
+  type UsTimeZone,
+} from '@queuepass/shared';
 import type { PrismaService } from '../../src/prisma/prisma.service';
 import { as, asAdmin } from './authed-request';
 import type { TestContext } from './test-app';
@@ -8,18 +14,36 @@ import { subFor, tokenFor } from './tokens';
 /** Shared setup for spec 005 tests: venues, events, tiers, and orders through the real API. */
 
 /**
- * A three-hour window starting `hour` hours after midnight UTC, `daysFromNow` days ahead. Always
- * relative to today, so events that take orders never drift into the past, where sales are closed
- * (spec 006 FR-014; research R2).
+ * A three-hour window starting at the venue's local `hour`:00, `daysFromNow` days after today at
+ * the venue, stated in the venue's offset (spec 020 research R9, R20): the Backend refuses an
+ * event time in any other offset. Always relative to today, so events that take orders never
+ * drift into the past, where sales are closed (spec 006 FR-014; research R2). On a fall-back
+ * night the first of a repeated hour is taken; on a spring-forward night, the next hour.
  */
-export function windowAt(daysFromNow: number, hour = 18): { startsAt: string; endsAt: string } {
-  const midnight = new Date();
-  midnight.setUTCHours(0, 0, 0, 0);
-  const start = new Date(midnight.getTime() + daysFromNow * 86_400_000 + hour * 3_600_000);
-  return {
-    startsAt: start.toISOString(),
-    endsAt: new Date(start.getTime() + 3 * 3_600_000).toISOString(),
+export function windowAt(
+  daysFromNow: number,
+  hour = 18,
+  zone: UsTimeZone = 'America/New_York',
+): { startsAt: string; endsAt: string } {
+  const [y, m, d] = localDate(new Date(), zone).split('-').map(Number);
+  const day = new Date(Date.UTC(y, m - 1, d + daysFromNow)).toISOString().slice(0, 10);
+  const at = (h: number): Date | null => {
+    const r = resolveLocal(`${day}T${String(h).padStart(2, '0')}:00`, zone);
+    return r.kind === 'ok' ? r.moment.instant : r.kind === 'repeated' ? r.first.instant : null;
   };
+  const start = at(hour) ?? (at(hour + 1) as Date);
+  return {
+    startsAt: toOffsetDateTime(start, zone),
+    endsAt: toOffsetDateTime(new Date(start.getTime() + 3 * 3_600_000), zone),
+  };
+}
+
+/**
+ * Spec 020 (research R20): a computed instant ("now + 2 hours", for sales close and entry
+ * windows) stated in the venue's offset, as the Backend requires of an event time.
+ */
+export function atInstant(date: Date | number, zone: UsTimeZone = 'America/New_York'): string {
+  return toOffsetDateTime(date, zone);
 }
 
 /**

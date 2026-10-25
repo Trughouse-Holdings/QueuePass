@@ -247,7 +247,7 @@ coordinates, the zone finder, and the test helpers every story uses.
   **Done** with T011 (the match type now needs `location`): default place Lexington; `placeAt(place
   | null)`; `PLACES`; `createTestApp()` keeps the real `GeoTzFinder` (only `ADDRESS_GEOCODER` is
   overridden).
-- [ ] T015 Update `backend/test/setup/fixtures.ts`: `windowAt(days, hour = 18, zone =
+- [x] T015 Update `backend/test/setup/fixtures.ts`: `windowAt(days, hour = 18, zone =
   'America/New_York')` returns the venue's local `hour`:00 on that day with its offset
   (`toOffsetDateTime`), 3 hours long; add `atInstant(date, zone = 'America/New_York')`, which
   turns a computed instant ("now + 2 hours" for sales close and entry windows) into the venue's
@@ -267,6 +267,19 @@ coordinates, the zone finder, and the test helpers every story uses.
   (required after T008). Rerun the search afterwards: every remaining match is recorded here as
   not an event time. Run the whole Backend suite: green (the Backend still accepts any offset at
   this point).
+  **Done**: `windowAt` and `atInstant` as above (a fall-back night takes the first of a repeated
+  hour, a spring-forward night the next hour). Changed: `availability`, `orders.sales-closed`,
+  `reservations` (`atInstant` for "now + 2 hours"), `events.search` (the same four instants in
+  Eastern offsets), `locations.delete` (template literal), `seating.capacity`,
+  `venues-events.authz`; the rest of the listed files send event times only through
+  `windowAt`/`event()`, or already in `-04:00`. Direct `Location` inserts: only
+  `locations.legacy-address` and `me-orders` (done in T008); `reset-db` truncates only. Search rerun
+  2026-10-24, every remaining match is not an event time sent to `createEvent`/`updateEvent`:
+  `entry-key` (`serverTime`), `entry.live-refusals` and `entry.lookup` (codes with Z),
+  `events.conflict-update` and `events.crud` (assertions on stored instants), `events.search`
+  (`from`/`to` query instants, unchanged), `locations.validation` (state ZZ), `orders.seats`,
+  `seating`, `seats.concurrency` (section or ticket code Z), `demo-data` (SQL). Backend suite: 87
+  suites, 786 tests, green.
 
 **Checkpoint**: shared module, runner, storage, coordinates, finder, and seed image in place;
 `npm test` green (T006's recorded multi-zone failures are fixed in Phases 7–9).

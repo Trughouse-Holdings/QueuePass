@@ -54,8 +54,8 @@ describe('Calculated capacities in the seated flow', () => {
       .send({
         name: 'Blank Capacity',
         locationId: venueId,
-        startsAt: '2030-05-01T18:00:00Z',
-        endsAt: '2030-05-01T21:00:00Z',
+        startsAt: '2030-05-01T14:00:00-04:00',
+        endsAt: '2030-05-01T17:00:00-04:00',
         basePrice: '10.00',
       })
       .expect(201);

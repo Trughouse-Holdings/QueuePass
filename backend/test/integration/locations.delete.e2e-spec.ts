@@ -73,8 +73,8 @@ describe('Venue deletion is restricted while events exist', () => {
           name: `Show ${i + 1}`,
           locationId: venue.id,
           // A day apart, so the 60-minute rule never interferes.
-          startsAt: `2026-11-0${i + 1}T18:00:00Z`,
-          endsAt: `2026-11-0${i + 1}T21:00:00Z`,
+          startsAt: `2026-11-0${i + 1}T13:00:00-05:00`,
+          endsAt: `2026-11-0${i + 1}T16:00:00-05:00`,
           totalTicketCapacity: 100,
           basePrice: '10.00',
         })

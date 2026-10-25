@@ -1,6 +1,6 @@
 import type { Response } from 'supertest';
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { HOLDER, customer, event, holdSeats, tier, venue } from '../setup/fixtures';
+import { atInstant, customer, event, HOLDER, holdSeats, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, ADMIN, subFor, tokenFor } from '../setup/tokens';
@@ -206,8 +206,8 @@ describe('Seat reservations', () => {
     it('is 409 SALES_CLOSED once the event has started', async () => {
       const start = Date.now() - 60_000;
       const { eventId } = await tiered({
-        startsAt: new Date(start).toISOString(),
-        endsAt: new Date(start + 3 * 3_600_000).toISOString(),
+        startsAt: atInstant(start),
+        endsAt: atInstant(start + 3 * 3_600_000),
       });
 
       const res = await reserve(eventId, [seat(sectionA, 1, 1)]);
