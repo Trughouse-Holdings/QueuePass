@@ -6,6 +6,9 @@ import {
   US_TIME_ZONES,
   abbreviationAt,
   formatEventDate,
+  formatEventEnd,
+  formatLocalDateTime,
+  formatLocalTime,
   formatEventTime,
   formatTimeOfDay,
   formatViewerTime,
@@ -14,6 +17,7 @@ import {
   offsetAt,
   parseOffsetDateTime,
   resolveLocal,
+  skippedTimeMessage,
   toLocalDateTime,
   toOffsetDateTime,
   zoneName,
@@ -365,5 +369,30 @@ describe('formatters (R11, R12)', () => {
     const text = formatViewerTime(at);
     expect(text.endsWith(` ${abbr}`)).toBe(true);
     expect(text).toMatch(/^\d{1,2}:42 (AM|PM) \S+$/);
+  });
+});
+
+describe('R9 message helpers', () => {
+  it("states a skipped time as the Backend's LOCAL_TIME_SKIPPED and the form say it", () => {
+    expect(skippedTimeMessage('2027-03-14T02:30', 'America/New_York', '02:00', '03:00')).toBe(
+      "2:30 AM on Mar 14, 2027 doesn't exist in Eastern Time: clocks jump from 2:00 AM to 3:00 " +
+        'AM. Choose another time.',
+    );
+  });
+
+  it('formats a local wall time and date without any zone', () => {
+    expect(formatLocalTime('2027-11-07T01:30')).toBe('1:30 AM');
+    expect(formatLocalTime('2026-10-01T19:00:59')).toBe('7:00 PM');
+    expect(formatLocalTime('2026-10-01T00:05')).toBe('12:05 AM');
+    expect(formatLocalTime('2026-10-01T12:00')).toBe('12:00 PM');
+    expect(formatLocalDateTime('2027-03-14T02:30')).toBe('Mar 14, 2027, 2:30 AM');
+  });
+
+  it('formats an end with its date only when its local date differs from the start', () => {
+    const start = '2026-10-01T23:00:00Z'; // 7:00 PM EDT
+    expect(formatEventEnd(start, '2026-10-02T02:00:00Z', 'America/New_York')).toBe('10:00 PM EDT');
+    expect(formatEventEnd('2026-10-02T02:00:00Z', '2026-10-02T05:00:00Z', 'America/New_York')).toBe(
+      'Oct 2, 2026, 1:00 AM EDT',
+    );
   });
 });
