@@ -151,3 +151,40 @@ test('refuses an unknown argument', () => {
   const r = spawnSync(process.execPath, [SCRIPT, '--print', '--nope'], { encoding: 'utf8' });
   assert.notEqual(r.status, 0);
 });
+
+// Review round 1, m3: when /health never answers, the Backend child is stopped before the
+// script gives up, not left running.
+test('stops the Backend when /health never answers', async () => {
+  const { run } = await import('../run-host.mjs');
+  const started = [];
+  const backend = {
+    name: 'backend',
+    command: `"${process.execPath}" -e "setInterval(() => {}, 1000)"`,
+    env: {},
+  };
+  await assert.rejects(
+    run(
+      {},
+      {
+        plan: { setup: [], children: [backend] },
+        healthUrl: 'http://127.0.0.1:9/health',
+        healthTimeoutMs: 1500,
+        onStart: (child) => started.push(child),
+        quiet: true,
+      },
+    ),
+    /did not answer/,
+  );
+  assert.equal(started.length, 1);
+  const child = started[0];
+  if (child.exitCode === null && child.signalCode === null) {
+    // At most 5 s: a child left running fails the test instead of hanging it.
+    await Promise.race([
+      new Promise((resolve) => child.once('exit', resolve)),
+      new Promise((resolve) => setTimeout(resolve, 5000)),
+    ]);
+  }
+  const stopped = child.exitCode !== null || child.signalCode !== null;
+  if (!stopped) child.kill();
+  assert.ok(stopped, 'the Backend still runs');
+});
