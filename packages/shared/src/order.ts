@@ -1,5 +1,6 @@
 import type { Event, EventStatus } from './event.js';
 import type { SeatChoice, SeatLabel } from './seating.js';
+import type { UsTimeZone } from './time-zone.js';
 
 /**
  * Mirrors the order, ticket, and report schemas in contracts/openapi.yaml (spec 005). Every
@@ -54,6 +55,8 @@ export interface OrderEvent {
     name: string;
     /** Spec 019 FR-012: the venue's full one-line address (`Location.address`). */
     address: string;
+    /** Spec 020 FR-021: the venue's zone, for the event's times (always sent, research R18). */
+    timeZone?: UsTimeZone;
   };
 }
 
@@ -114,6 +117,8 @@ export interface EventSales {
   name: string;
   venueName: string;
   startsAt: string;
+  /** Spec 020 FR-022: the venue's zone, for the event's date (always sent, research R18). */
+  timeZone?: UsTimeZone;
   status: EventStatus;
   ticketCapacity: number;
   ticketsSold: number;

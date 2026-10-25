@@ -1,4 +1,5 @@
 import type { SeatLabel } from './seating.js';
+import type { UsTimeZone } from './time-zone.js';
 
 /**
  * Spec 017 (#40): gate check-in. Mirrors the entry schemas in contracts/openapi.yaml
@@ -29,6 +30,8 @@ export interface EntryTicket {
     name: string;
     startsAt: string;
     endsAt: string;
+    /** Spec 020 FR-021: the event's venue's zone (always sent, research R18). */
+    timeZone?: UsTimeZone;
   };
   /** `null` for an event sold at its base price. */
   tierName: string | null;

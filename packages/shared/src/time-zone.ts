@@ -355,3 +355,51 @@ export function formatViewerTime(instant: InstantLike, options: { date?: boolean
   const time = `${clock(at, zone)} ${abbreviationAt(at, zone)}`;
   return options.date ? `${formatEventDate(at, zone)}, ${time}` : time;
 }
+
+// ---------------------------------------------------------------- local wall times (R9)
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** `1:30 AM` from a local date-time (`YYYY-MM-DDTHH:mm…`), with no zone involved. */
+export function formatLocalTime(local: string): string {
+  const h = Number(local.slice(11, 13));
+  const m = local.slice(14, 16);
+  return `${h % 12 === 0 ? 12 : h % 12}:${m} ${h < 12 ? 'AM' : 'PM'}`;
+}
+
+/** `Mar 14, 2027, 2:30 AM` from a local date-time, with no zone involved. */
+export function formatLocalDateTime(local: string): string {
+  const date = `${MONTHS[Number(local.slice(5, 7)) - 1]} ${Number(local.slice(8, 10))}, ${local.slice(0, 4)}`;
+  return `${date}, ${formatLocalTime(local)}`;
+}
+
+/**
+ * Spec 020 research R9: the one message for a local time a daylight-saving change skips, used by
+ * the Backend's LOCAL_TIME_SKIPPED and by the Admin event form before it sends anything.
+ * `2:30 AM on Mar 14, 2027 doesn't exist in Eastern Time: clocks jump from 2:00 AM to 3:00 AM.
+ * Choose another time.`
+ */
+export function skippedTimeMessage(
+  local: string,
+  zone: UsTimeZone,
+  skippedFrom: string,
+  skippedTo: string,
+): string {
+  const day = local.slice(0, 10);
+  const date = formatLocalDateTime(local).split(', ').slice(0, 2).join(', ');
+  return (
+    `${formatLocalTime(local)} on ${date} doesn't exist in ${zoneName(zone)}: clocks jump from ` +
+    `${formatLocalTime(`${day}T${skippedFrom}`)} to ${formatLocalTime(`${day}T${skippedTo}`)}. ` +
+    'Choose another time.'
+  );
+}
+
+/**
+ * An event's end next to its start (research R9, review round 1 m12): `10:00 PM EDT`, or
+ * `Oct 2, 2026, 1:00 AM EDT` when its local date differs from the start's.
+ */
+export function formatEventEnd(start: InstantLike, end: InstantLike, zone: string): string {
+  return localDate(start, zone) === localDate(end, zone)
+    ? formatTimeOfDay(end, zone)
+    : formatEventTime(end, zone);
+}

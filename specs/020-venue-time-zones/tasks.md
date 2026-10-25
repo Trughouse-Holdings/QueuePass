@@ -356,7 +356,7 @@ US2 scenario 7, US3 scenarios 6–8.
 
 ### Tests (write first, confirm they fail)
 
-- [ ] T020 [P] [US2] [US3] Create `backend/test/integration/events.time-zone.e2e-spec.ts`, at an
+- [x] T020 [P] [US2] [US3] Create `backend/test/integration/events.time-zone.e2e-spec.ts`, at an
   Eastern venue and a Phoenix venue (fake match coordinates):
   - `2026-10-01T19:00:00-04:00` → `201`, stored `23:00Z`; `…19:00:00-07:00` → `400
     UTC_OFFSET_MISMATCH` with `details` `{ field: 'startsAt', localTime: '2026-10-01T19:00',
@@ -382,19 +382,31 @@ US2 scenario 7, US3 scenarios 6–8.
     7:00 PM EDT to 10:00 PM EDT by 'X'…" (and MST at Phoenix), and for a conflicting event across
     midnight "… from Oct 1, 2026, 10:00 PM EDT to Oct 2, 2026, 1:00 AM EDT …" (R9, review round 1
     m12); `details` unchanged.
-- [ ] T021 [P] [US2] Update `backend/test/integration/events.conflict-contract.e2e-spec.ts` and
+  **Done**: failed first, 23 of 33 (commit 428da28; the 10 passing check accepted times and the
+  existing refusal order). Three cases had an end equal to the start, so the earlier window check
+  answered first; their test data was fixed.
+- [x] T021 [P] [US2] Update `backend/test/integration/events.conflict-contract.e2e-spec.ts` and
   any test asserting the old `UTC` conflict message to the new message.
+  **Done**: `events.conflict-contract` asserts the exact new message; no other Backend test asserted
+  the old one (the Admin app's conflict fixture is updated in Phase 7). Failed first.
 
 ### Implementation
 
-- [ ] T022 [US2] [US3] Add the offset-presence pattern to the `startsAt`/`endsAt` DTO checks
+- [x] T022 [US2] [US3] Add the offset-presence pattern to the `startsAt`/`endsAt` DTO checks
   (`create-event.dto.ts`, `update-event.dto.ts`, R9). Create `backend/src/events/event-time.ts`
   (`checkEventTime(field, sent, zone, venueName)`, R9) and call it from `EventsService` create and
   update in R9's order; add the venue-move rule. Run T020 until it passes.
-- [ ] T023 [US2] Change `SchedulingConflictException` to take the venue's zone and format the
+  **Done**: the DTO pattern refuses a time without an offset (`must include a UTC offset`);
+  `checkEventTime` runs after the 404 and before capacity; the shared module gained
+  `skippedTimeMessage`, `formatLocalTime`, `formatLocalDateTime`, and `formatEventEnd` (tested
+  first, in T020's commit). T020 passes.
+- [x] T023 [US2] Change `SchedulingConflictException` to take the venue's zone and format the
   start with `formatEventTime` and the end with `formatTimeOfDay`, or `formatEventTime` when its
   local date differs (R9); add optional `details.event` (used in Phase 5). Run T020 and T021 until
   they pass, then the whole Backend suite.
+  **Done**: T020 and T021 pass. Whole Backend suite: only `demo-data` failed (6), because demo data
+  still sent `toISOString()`; it now states the same instants in the demo venues' Eastern offset
+  (T043 makes them local times), and passes (8). 90 suites, 904 tests otherwise green.
 
 **Checkpoint**: the Backend refuses every event time not stated in its venue's zone.
 

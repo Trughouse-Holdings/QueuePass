@@ -1,5 +1,6 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DEFAULT_TIME_ZONE, toOffsetDateTime } from '@queuepass/shared';
 import { AppModule } from '../app.module';
 import type { Principal } from '../auth/principal';
 import { EventImagesService } from '../events/event-images.service';
@@ -103,7 +104,11 @@ const buyer = (n: number): Principal => ({
 function at(days: number, hour: number): string {
   const d = new Date();
   d.setUTCHours(0, 0, 0, 0);
-  return new Date(d.getTime() + days * 86_400_000 + hour * 3_600_000).toISOString();
+  // Spec 020 R9: stated in the demo venues' zone (both in Kentucky, Eastern); T043 makes these local times.
+  return toOffsetDateTime(
+    new Date(d.getTime() + days * 86_400_000 + hour * 3_600_000),
+    DEFAULT_TIME_ZONE,
+  );
 }
 
 export async function runDemoData(app: INestApplicationContext): Promise<DemoSummary> {
@@ -188,8 +193,8 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const tonight = await events.create({
     name: 'Demo Tonight',
     locationId: hall.id,
-    startsAt: new Date(Date.now() + 3_600_000).toISOString(),
-    endsAt: new Date(Date.now() + 4 * 3_600_000).toISOString(),
+    startsAt: toOffsetDateTime(Date.now() + 3_600_000, DEFAULT_TIME_ZONE),
+    endsAt: toOffsetDateTime(Date.now() + 4 * 3_600_000, DEFAULT_TIME_ZONE),
     totalTicketCapacity: 100,
     basePrice: '20.00',
   });

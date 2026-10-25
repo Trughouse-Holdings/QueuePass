@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Location, Prisma } from '@prisma/client';
-import { SCHEDULING_BUFFER_MINUTES } from '@queuepass/shared';
+import { SCHEDULING_BUFFER_MINUTES, type UsTimeZone } from '@queuepass/shared';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
 import { searchText } from '../common/search-text';
@@ -17,6 +17,7 @@ import type { SeatLabel } from '../seating/seat-rules';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventsQuery } from './dto/list-events.query';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { checkEventTime } from './event-time';
 import { SchedulingConflictException } from './scheduling-conflict.exception';
 
 /**
@@ -79,16 +80,17 @@ export class EventsService {
   }
 
   private async createOnce(dto: CreateEventDto): Promise<EventResponse> {
-    const startsAt = new Date(dto.startsAt);
-    const endsAt = new Date(dto.endsAt);
-
-    this.assertWindowOrdered(startsAt, endsAt);
+    this.assertWindowOrdered(new Date(dto.startsAt), new Date(dto.endsAt));
     const location = await this.requireLocation(dto.locationId);
+    // Spec 020 FR-018 (research R9): each time in the venue's zone, start then end.
+    const zone = location.timeZone as UsTimeZone;
+    const startsAt = checkEventTime('startsAt', dto.startsAt, zone, location.name);
+    const endsAt = checkEventTime('endsAt', dto.endsAt, zone, location.name);
     // Spec 007 FR-019: left out, the event can sell as many tickets as the venue holds.
     const capacity = dto.totalTicketCapacity ?? location.seatingCapacity;
     this.assertCapacityWithinVenue(capacity, location);
     this.assertLimitWithinCapacity(dto.maxTicketsPerCustomer, null, capacity);
-    await this.assertNoConflict(dto.locationId, startsAt, endsAt, null);
+    await this.assertNoConflict(dto.locationId, zone, startsAt, endsAt, null);
 
     const created = await this.prisma.event.create({
       data: {
@@ -176,11 +178,32 @@ export class EventsService {
     // The conflict check runs against the DESTINATION venue and DESTINATION window —
     // an edit that only moves the venue must be checked where it is going, not where it was.
     const locationId = dto.locationId ?? existing.locationId;
-    const startsAt = dto.startsAt ? new Date(dto.startsAt) : existing.startsAt;
-    const endsAt = dto.endsAt ? new Date(dto.endsAt) : existing.endsAt;
-
-    this.assertWindowOrdered(startsAt, endsAt);
+    this.assertWindowOrdered(
+      dto.startsAt ? new Date(dto.startsAt) : existing.startsAt,
+      dto.endsAt ? new Date(dto.endsAt) : existing.endsAt,
+    );
     const location = await this.requireLocation(locationId, tx);
+    const zone = location.timeZone as UsTimeZone;
+
+    // Spec 020 FR-019 (research R9): a move to a venue in another zone must say both local times.
+    if (locationId !== existing.locationId && (!dto.startsAt || !dto.endsAt)) {
+      const current = await this.requireLocation(existing.locationId, tx);
+      if (current.timeZone !== location.timeZone) {
+        throw new BadRequestException({
+          message: [
+            'Send startsAt and endsAt when moving an event to a venue in another time zone, so ' +
+              'its local times are clear.',
+          ],
+        });
+      }
+    }
+    // Spec 020 FR-018: only the times sent are checked, in the destination venue's zone.
+    const startsAt = dto.startsAt
+      ? checkEventTime('startsAt', dto.startsAt, zone, location.name)
+      : existing.startsAt;
+    const endsAt = dto.endsAt
+      ? checkEventTime('endsAt', dto.endsAt, zone, location.name)
+      : existing.endsAt;
 
     const capacity = dto.totalTicketCapacity ?? existing.totalTicketCapacity;
     this.assertCapacityWithinVenue(capacity, location);
@@ -196,7 +219,7 @@ export class EventsService {
 
     // `id` is excluded so an event never conflicts with itself (FR-025) — saving an
     // unchanged event must always succeed.
-    await this.assertNoConflict(locationId, startsAt, endsAt, id, tx);
+    await this.assertNoConflict(locationId, zone, startsAt, endsAt, id, tx);
 
     const updated = await tx.event.update({
       where: { id },
@@ -424,6 +447,7 @@ export class EventsService {
    */
   private async assertNoConflict(
     locationId: string,
+    zone: UsTimeZone,
     startsAt: Date,
     endsAt: Date,
     excludeEventId: string | null,
@@ -451,7 +475,7 @@ export class EventsService {
     });
 
     if (clash) {
-      throw new SchedulingConflictException(clash);
+      throw new SchedulingConflictException(clash, zone);
     }
   }
 }

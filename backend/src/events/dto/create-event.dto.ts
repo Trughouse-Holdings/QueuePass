@@ -10,6 +10,7 @@ import {
   Matches,
   Min,
 } from 'class-validator';
+import { OFFSET_DATE_TIME, needsOffset } from '../event-time';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -26,10 +27,13 @@ export class CreateEventDto {
   @IsUUID('4', { message: 'locationId must be a UUID' })
   locationId!: string;
 
+  /** Spec 020 research R9: the venue's local time with the venue's offset. */
   @IsISO8601({ strict: true }, { message: 'startsAt must be an ISO-8601 timestamp' })
+  @Matches(OFFSET_DATE_TIME, { message: needsOffset('startsAt') })
   startsAt!: string;
 
   @IsISO8601({ strict: true }, { message: 'endsAt must be an ISO-8601 timestamp' })
+  @Matches(OFFSET_DATE_TIME, { message: needsOffset('endsAt') })
   endsAt!: string;
 
   /** Spec 007 FR-019: optional; when left out, the venue's seating capacity. */

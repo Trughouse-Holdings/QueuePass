@@ -93,6 +93,8 @@ export interface SchedulingConflictDetails {
   bufferMinutes: number;
   /** null only in the race path: the pre-check passed but the DB constraint refused. */
   conflictingEvent: ConflictingEventRef | null;
+  /** Spec 020 research R8: on a venue zone change, the later event of the pair. */
+  event?: ConflictingEventRef;
 }
 
 export function isErrorEnvelope(value: unknown): value is ErrorEnvelope {

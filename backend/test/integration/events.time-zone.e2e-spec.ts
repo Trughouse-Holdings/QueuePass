@@ -62,7 +62,7 @@ describe('Event times in the venue zone (spec 020 FR-018)', () => {
     });
 
     it('refuses 19:00-07:00 at an Eastern venue: 400 UTC_OFFSET_MISMATCH, nothing saved', async () => {
-      const res = await at(east, '2026-10-01T19:00:00-07:00', '2026-10-01T22:00:00-04:00').expect(
+      const res = await at(east, '2026-10-01T19:00:00-07:00', '2026-10-01T23:00:00-04:00').expect(
         400,
       );
       expect(res.body.error).toEqual({
@@ -254,7 +254,7 @@ describe('Event times in the venue zone (spec 020 FR-018)', () => {
       const res = await post({
         locationId: east,
         startsAt: '2026-10-01T19:00:00-07:00',
-        endsAt: '2026-10-01T22:00:00-04:00',
+        endsAt: '2026-10-01T23:00:00-04:00',
         totalTicketCapacity: 999_999,
       }).expect(400);
       expect(res.body.error.code).toBe('UTC_OFFSET_MISMATCH');
@@ -278,7 +278,7 @@ describe('Event times in the venue zone (spec 020 FR-018)', () => {
       const e = await create();
       for (const body of [
         { locationId: phoenix },
-        { locationId: phoenix, startsAt: '2026-10-01T19:00:00-07:00' },
+        { locationId: phoenix, startsAt: '2026-10-01T18:00:00-07:00' },
       ]) {
         const res = await patch(e.id, body).expect(400);
         expect(res.body.error.code).toBe('VALIDATION_FAILED');
