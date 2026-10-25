@@ -128,7 +128,11 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const orders = app.get(OrdersService);
   const images = app.get(EventImagesService);
 
-  const offline = { whenServiceUnavailable: 'saveUnverified' } as const;
+  // Spec 020 research R19: offline, a Kentucky venue gets the default zone instead of a refusal.
+  const offline = {
+    whenServiceUnavailable: 'saveUnverified',
+    fallbackToDefaultTimeZone: true,
+  } as const;
   const hall = await locations.create(
     {
       name: 'Demo Riverside Hall',

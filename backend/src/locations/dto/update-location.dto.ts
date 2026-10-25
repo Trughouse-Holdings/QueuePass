@@ -10,8 +10,8 @@ import {
   Matches,
   ValidateIf,
 } from 'class-validator';
-import { ZIP_PATTERN } from '@queuepass/shared';
-import { MESSAGES, STATE_CODES, trim } from './address-fields';
+import { ZIP_PATTERN, type UsTimeZone } from '@queuepass/shared';
+import { MESSAGES, STATE_CODES, TIME_ZONE_IDS, TIME_ZONE_MESSAGE, trim } from './address-fields';
 
 /**
  * Partial update — every field optional, same rules as create when supplied.
@@ -58,4 +58,12 @@ export class UpdateLocationDto {
   @IsInt({ message: 'seatingCapacity must be a whole number' })
   @IsPositive({ message: 'seatingCapacity must be a positive whole number' })
   seatingCapacity?: number;
+
+  /**
+   * Spec 020 FR-004, FR-005 (research R4, R7): an explicit zone, alone (a correction) or with an
+   * address change (it wins). Never null.
+   */
+  @ValidateIf((o: UpdateLocationDto) => o.timeZone !== undefined)
+  @IsIn(TIME_ZONE_IDS, { message: TIME_ZONE_MESSAGE })
+  timeZone?: UsTimeZone;
 }

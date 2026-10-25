@@ -74,6 +74,7 @@ describe('Venue address check on create (spec 013)', () => {
         street: ' 1  Arena Plaza ',
         zip: '40202-1234',
         acceptUnverifiedAddress: true,
+        timeZone: 'America/New_York',
       })
       .expect(201);
     expect(ctx.geocoder.calls).toHaveLength(1);
@@ -94,7 +95,7 @@ describe('Venue address check on create (spec 013)', () => {
     ctx.geocoder.next({ kind: 'many', candidates: ['A', 'B'] });
     const res = await asAdmin(ctx)
       .post('/locations')
-      .send({ ...arena, acceptUnverifiedAddress: true })
+      .send({ ...arena, acceptUnverifiedAddress: true, timeZone: 'America/New_York' })
       .expect(201);
     expect(res.body).toMatchObject({
       address: '1 Arena Plaza, Louisville, KY 40202',
@@ -105,7 +106,7 @@ describe('Venue address check on create (spec 013)', () => {
   it('ignores save anyway when the address matches: standard form, verified', async () => {
     const res = await asAdmin(ctx)
       .post('/locations')
-      .send({ ...venue, acceptUnverifiedAddress: true })
+      .send({ ...venue, acceptUnverifiedAddress: true, timeZone: 'America/New_York' })
       .expect(201);
     expect(ctx.geocoder.calls).toHaveLength(1);
     expect(res.body).toMatchObject({
@@ -200,7 +201,7 @@ describe('Venue address check on create (spec 013)', () => {
       ctx.geocoder.next(moved);
       const res = await asAdmin(ctx)
         .post('/locations')
-        .send({ ...kroger, acceptUnverifiedAddress: true })
+        .send({ ...kroger, acceptUnverifiedAddress: true, timeZone: 'America/New_York' })
         .expect(201);
       expect(res.body).toMatchObject({
         address: '1540 University Dr, Lexington, KY 40508',
@@ -258,7 +259,7 @@ describe('Venue address check on create (spec 013)', () => {
       ctx.geocoder.next({ kind: 'unavailable' });
       const res = await asAdmin(ctx)
         .post('/locations')
-        .send({ ...arena, acceptUnverifiedAddress: true })
+        .send({ ...arena, acceptUnverifiedAddress: true, timeZone: 'America/New_York' })
         .expect(503);
       expect(res.body.error.code).toBe('ADDRESS_SERVICE_UNAVAILABLE');
       expect(await ctx.prisma.location.count()).toBe(0);
@@ -269,7 +270,8 @@ describe('Venue address check on create (spec 013)', () => {
       const service = ctx.app.get(LocationsService);
       const saved = await service.create(
         { ...arena, street: ' 1  Arena Plaza ' },
-        { whenServiceUnavailable: 'saveUnverified' },
+        // Spec 020 R19: Kentucky has two zones; the internal option falls back to the default.
+        { whenServiceUnavailable: 'saveUnverified', fallbackToDefaultTimeZone: true },
       );
       expect(saved).toMatchObject({
         street: '1 Arena Plaza',

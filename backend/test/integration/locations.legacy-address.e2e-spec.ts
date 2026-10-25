@@ -159,7 +159,7 @@ describe('Venue address storage (spec 013)', () => {
       ctx.geocoder.next({ kind: 'none' });
       const res = await asAdmin(ctx)
         .patch(`/locations/${id}`)
-        .send({ ...moved, acceptUnverifiedAddress: true })
+        .send({ ...moved, acceptUnverifiedAddress: true, timeZone: 'America/New_York' })
         .expect(200);
       expect(res.body).toMatchObject({
         address: '937 Phillips Ln, Louisville, KY 40209',

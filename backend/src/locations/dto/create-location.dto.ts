@@ -9,8 +9,8 @@ import {
   Matches,
   ValidateIf,
 } from 'class-validator';
-import { ZIP_PATTERN } from '@queuepass/shared';
-import { MESSAGES, STATE_CODES, trim } from './address-fields';
+import { ZIP_PATTERN, type UsTimeZone } from '@queuepass/shared';
+import { MESSAGES, STATE_CODES, TIME_ZONE_IDS, TIME_ZONE_MESSAGE, trim } from './address-fields';
 
 export class CreateLocationDto {
   /** Trimmed before length-checking, so "   " fails rather than passing as length 3 (FR-012). */
@@ -45,4 +45,9 @@ export class CreateLocationDto {
   @IsInt({ message: 'seatingCapacity must be a whole number' })
   @IsPositive({ message: 'seatingCapacity must be a positive whole number' })
   seatingCapacity!: number;
+
+  /** Spec 020 FR-004 (research R4): the admin's explicit choice, used instead of a worked-out one. */
+  @ValidateIf((o: CreateLocationDto) => o.timeZone !== undefined)
+  @IsIn(TIME_ZONE_IDS, { message: TIME_ZONE_MESSAGE })
+  timeZone?: UsTimeZone;
 }

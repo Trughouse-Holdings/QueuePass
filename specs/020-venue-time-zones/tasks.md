@@ -292,7 +292,7 @@ coordinates, the zone finder, and the test helpers every story uses.
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
-- [ ] T016 [P] [US4] Create `backend/test/integration/venues.time-zone.e2e-spec.ts`:
+- [x] T016 [P] [US4] Create `backend/test/integration/venues.time-zone.e2e-spec.ts`:
   - verified match at Lexington → `America/New_York`, `ADDRESS`; at Phoenix (33.4465, -112.0706)
     → `America/Phoenix`, `ADDRESS`; at Honolulu → `Pacific/Honolulu`;
   - verified match with `location: null`, and one at (30, -70), in OH → `America/New_York`,
@@ -316,16 +316,22 @@ coordinates, the zone finder, and the test helpers every story uses.
   - an `ADMIN` venue whose address changes to one that derives the **same** zone keeps its zone
     and becomes `ADDRESS` (R7, review round 1 m1); with `timeZone` sent too, it stays `ADMIN`;
   - every response validates against the contract and carries `timeZone` and `timeZoneSource`.
-- [ ] T017 [P] [US4] Create `backend/test/unit/venue-time-zone.spec.ts`: `decideZone` (pure,
+  **Done**: failed first, 70 of 77 (commit 02045be; the 7 passing held already: an unknown
+  `timeZone` property was refused as not whitelisted, an unmatched Kentucky address was
+  `ADDRESS_NOT_FOUND`, and the 15/36 count of the shared table).
+- [x] T017 [P] [US4] Create `backend/test/unit/venue-time-zone.spec.ts`: `decideZone` (pure,
   table-driven) for every row of R7's order: sent zone; verified match with a zone; match with
   `location: null`; finder `null`; save anyway in a one-zone and in a split state; and the update
   cases (no address change, same address, changed address, zone alone).
+  **Done**: failed first (no `venue-time-zone` module; commit 02045be).
 
 ### Implementation for User Story 4
 
-- [ ] T018 [US4] Add `timeZone` (`IsOptional`, `IsIn(US_TIME_ZONES ids)`) to
+- [x] T018 [US4] Add `timeZone` (`IsOptional`, `IsIn(US_TIME_ZONES ids)`) to
   `create-location.dto.ts` and `update-location.dto.ts`; allow `timeZone` alone as a valid update.
-- [ ] T019 [US4] Create `backend/src/locations/venue-time-zone.ts` (`decideZone`, R3, R4, R7) and
+  **Done**: `timeZone` on both DTOs, `@ValidateIf(!== undefined)` + `@IsIn` of the eight, so `null`
+  is refused too; no rule stops `timeZone` alone on an update.
+- [x] T019 [US4] Create `backend/src/locations/venue-time-zone.ts` (`decideZone`, R3, R4, R7) and
   use it in `LocationsService.create` and `update`, after `checkAddress`, which now returns
   `{ address, location }` with `location` beside the `CheckedAddress` spread into Prisma's `data`,
   never inside it (R1). Write `timeZone` and `timeZoneSource` on create, and on update only when
@@ -333,6 +339,11 @@ coordinates, the zone finder, and the test helpers every story uses.
   a venue that has events fails closed (an internal error, nothing written), so no event is ever
   left with a different local time; T026 replaces that branch. Run T016 and T017 until they
   pass.
+  **Done**: T016 and T017 pass (88). Ten spec 013 tests saved a Kentucky address anyway, which
+  FR-003 now refuses without a zone; they now send `timeZone: 'America/New_York'` (the service-level
+  test passes R19's `fallbackToDefaultTimeZone`), as the Admin form will. Demo data passes
+  `fallbackToDefaultTimeZone` already (T043 finishes R19). Backend suite then green (874 tests
+  before that fix: only those 10 failed).
 
 **Checkpoint**: every new venue has a zone, decided by the rules.
 
