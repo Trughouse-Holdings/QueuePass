@@ -19,5 +19,8 @@ export default defineConfig({
       exclude: [...coverageConfigDefaults.exclude, 'src/api-schema.ts'],
       reporter: ['text-summary', 'json-summary'],
     },
+    // Spec 020 research R20: no zone pin; QP_TEST_TZ (set by scripts/test-tz.mjs) runs the suite
+    // under another device zone.
+    env: { ...(process.env.QP_TEST_TZ ? { TZ: process.env.QP_TEST_TZ } : {}) },
   },
 });

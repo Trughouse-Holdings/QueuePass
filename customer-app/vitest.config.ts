@@ -15,8 +15,10 @@ export default defineConfig({
     // coverage/coverage-summary.json feeds scripts/coverage-report.mjs (R11). No thresholds
     // until 010-test-coverage.
     coverage: { provider: 'v8', include: ['src/**'], reporter: ['text-summary', 'json-summary'] },
-    // Pin local time so date and time assertions are exact (spec 003 research R6).
-    env: { TZ: 'America/New_York' },
+    // Pin local time so date and time assertions are exact (spec 003 research R6); 019 relies on
+    // it. Spec 020 research R20: QP_TEST_TZ (set by scripts/test-tz.mjs) overrides it, so the
+    // suite also runs under other device zones; the pin stays the default.
+    env: { TZ: process.env.QP_TEST_TZ || 'America/New_York' },
   },
   resolve: {
     // Exact-match aliases: a plain '@queuepass/shared' key would also capture '/web' as a prefix.

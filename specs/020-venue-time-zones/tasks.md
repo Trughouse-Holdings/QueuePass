@@ -68,9 +68,15 @@ and confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `020-venue-time-zones-impl` (ground rules), run `npm ci` and `npm run ci` from the
+- [x] T001 Cut `020-venue-time-zones-impl` (ground rules), run `npm ci` and `npm run ci` from the
   repository root, and confirm everything is green before any change (baseline). Record the test
   counts per workspace here.
+  **Done 2026-10-24** on main 7858ebd: `npm ci` was blocked (EPERM) by a leftover customer-app Vite
+  dev server from the 019 walk holding rollup's native module, and had already emptied part of
+  `node_modules`; the tree was restored with `npm install` (the session could not stop that
+  process). `npm run ci` then passed in 4 min 55 s: scripts/test 22, shared 468 (92.00% lines),
+  backend 744 in 84 suites (97.02%), admin-app 200 (96.88%), customer-app 296 (97.47%), booth-app 67
+  (92.33%), seed 8 (71.25%).
 
 ---
 
@@ -79,7 +85,7 @@ and confirm they **fail** before the implementation tasks below them.
 **Purpose**: the shared time module, the device-zone test runner, storage, the address service's
 coordinates, the zone finder, and the test helpers every story uses.
 
-- [ ] T002 [P] **Test first.** Create `packages/shared/test/time-zone.test.ts` (research R11, R20):
+- [x] T002 [P] **Test first.** Create `packages/shared/test/time-zone.test.ts` (research R11, R20):
   - `US_TIME_ZONES` is exactly R2's eight ids in order, each with R2's `name`;
     `DEFAULT_TIME_ZONE` is `America/New_York`; `isUsTimeZone` accepts the eight and refuses
     `America/Kentucky/Louisville`, `UTC`, `''`.
@@ -109,9 +115,12 @@ coordinates, the zone finder, and the test helpers every story uses.
     formats two different dates; `zoneName('America/Phoenix')` is R2's name;
     `formatViewerTime` ends with the process zone's abbreviation.
   - Every assertion above holds whatever the process's `TZ` is (T050 runs it under four).
-- [ ] T003 Create `packages/shared/src/time-zone.ts` (R2, R3, R11) and export it from
+  **Done**: 119 tests; failed first because `src/time-zone.ts` did not exist (commit f02c1de).
+- [x] T003 Create `packages/shared/src/time-zone.ts` (R2, R3, R11) and export it from
   `packages/shared/src/index.ts`. Run T002 until it passes, then the shared suite.
-- [ ] T004 [P] **Test first.** Create `scripts/test/test-tz.test.mjs` (`node --test`): with a stub
+  **Done**: T002 passes (119), also with `TZ` Pacific/Honolulu, UTC, and America/Los_Angeles set
+  from PowerShell; the shared suite passes.
+- [x] T004 [P] **Test first.** Create `scripts/test/test-tz.test.mjs` (`node --test`): with a stub
   command, `scripts/test-tz.mjs` runs it once per zone with both `QP_TEST_TZ` and `TZ` set in the
   child's environment (the child prints `Intl.DateTimeFormat().resolvedOptions().timeZone` and the
   test sees each of the four zones); it runs the `@queuepass/shared` build and then the Backend's
@@ -120,7 +129,8 @@ coordinates, the zone finder, and the test helpers every story uses.
   `backend/jest.unit.config.ts`; `--zones A,B` limits the zones; `--quick` selects only the time
   test files; `--backend-full` adds the Backend's full suite; it exits non-zero when any run fails
   and prints a zone × workspace table.
-- [ ] T005 Create `scripts/test-tz.mjs` (R20): default zones America/New_York, UTC,
+  **Done**: 10 tests; failed first because `scripts/test-tz.mjs` did not exist (commit 501c0ce).
+- [x] T005 Create `scripts/test-tz.mjs` (R20): default zones America/New_York, UTC,
   America/Los_Angeles, Pacific/Honolulu; it first runs `npm run build --workspace
   @queuepass/shared` (the Backend's Jest maps `@queuepass/shared` to `dist/cjs`) and `npm run
   prisma:generate --workspace @queuepass/backend` (a unit test imports `@prisma/client`); it removes
@@ -135,7 +145,10 @@ coordinates, the zone finder, and the test helpers every story uses.
   America/Los_Angeles --quick` to the root `test` script (CI's extra zone; the workflow is
   unchanged, `011` R12; `scripts/test/ci-workflow.test.mjs` still passes). Run T004 until it
   passes.
-- [ ] T006 Make each Vitest config take the override (R20): `customer-app/vitest.config.ts`
+  **Done**: T004 passes. `--quick` runs no Backend suite, so it skips the build and generate steps,
+  and passes `--passWithNoTests` to the apps' `.tz.test.tsx` filter (until Phases 7–9 add them). The
+  root `npm test` ends with the Los Angeles quick run; `ci-workflow.test.mjs` still passes.
+- [x] T006 Make each Vitest config take the override (R20): `customer-app/vitest.config.ts`
   `env: { TZ: process.env.QP_TEST_TZ || 'America/New_York' }` (the `019` pin stays as the default);
   `admin-app`, `booth-app`, and `packages/shared` `env: { ...(process.env.QP_TEST_TZ ? { TZ:
   process.env.QP_TEST_TZ } : {}) }`. If `019`'s implementation has merged, check its
@@ -146,6 +159,16 @@ coordinates, the zone finder, and the test helpers every story uses.
   outside their old zone: those are today's viewer-zone dependencies, fixed in Phases 7–9. Every
   suite stays green in its default zone throughout (the pin is kept), so each commit's
   `npm test` is green.
+  **Done**: 019's `calendar.test.ts` already restores `TZ` by deleting it when it was unset, and
+  passes (80) with `CALENDAR_TEST_TZ` set to UTC, America/New_York, and America/Los_Angeles. `npm
+  run test:tz` on 2026-10-24: shared, admin-app, and booth-app pass in all four zones; backend
+  (unit) fails only T009 (no migration yet, expected); customer-app fails outside New York: in UTC 4
+  tests, `format.test.ts` "when > shows the local date and time", `filters.test.tsx` "filters by
+  whole days in the customer's time zone, the end day included" and "fills the controls from the
+  address and sends every filter in one request", `browse.test.tsx` "gives an event that crosses
+  midnight both of its dates"; in America/Los_Angeles and Pacific/Honolulu those 4 plus
+  `format.test.ts` "gives an event crossing midnight its own end date". These are today's
+  viewer-zone dependencies, fixed in Phase 8.
 - [ ] T007 [P] **Test first.** Create `backend/test/integration/migration.time-zones.e2e-spec.ts`
   (R6, US7, SC-001): on a fresh Testcontainers database migrated up to the migration **before**
   `venue_time_zones` (`prisma migrate deploy` against a copy of the migrations folder without it),
