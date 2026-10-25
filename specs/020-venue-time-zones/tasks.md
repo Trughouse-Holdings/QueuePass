@@ -639,16 +639,21 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
 
 ## Phase 10: Demo data, docs, and cross-cutting checks
 
-- [ ] T042 **Test first.** Extend `backend/test/integration/demo-data.e2e-spec.ts` (R19): with the
+- [x] T042 **Test first.** Extend `backend/test/integration/demo-data.e2e-spec.ts` (R19): with the
   fake geocoder matching, both demo venues are `America/New_York`/`ADDRESS`; with it unavailable,
   both are `America/New_York`/`DEFAULT` and the run succeeds; the concert, comedy night, and gala
   start at 19:00, 20:00, and 19:00 local Eastern on their dates and end 3 hours later; "Demo
   Tonight" still starts about an hour after the run; a controller request can never use the
   fallback (a KY save anyway through the API is still `TIME_ZONE_REQUIRED`).
-- [ ] T043 Change `backend/src/scripts/demo-data.ts` (`atLocal`, `fallbackToDefaultTimeZone`, and
+  **Done**: failed first on the local times (commit after bd13abd); the zone cases passed already
+  through T019's internal option.
+- [x] T043 Change `backend/src/scripts/demo-data.ts` (`atLocal`, `fallbackToDefaultTimeZone`, and
   every time, Demo Tonight's included, sent as `toOffsetDateTime(instant, venueZone)`, never
   `toISOString()`, R19) and `LocationsService.create`'s internal options. Run T042 until it
   passes.
+  **Done**: `atLocal(days, 'HH:mm', zone)` (first of a repeated time, next hour if skipped) and
+  every time sent as `toOffsetDateTime` in the venue's zone; Demo Tonight is now + 1 hour to + 4
+  hours, an instant. `fallbackToDefaultTimeZone` has been passed since T019. T042 passes (10).
 - [ ] T044 [P] Update `README.md`: the `020` status row; "Today": every venue has a time zone from
   its address and every app shows event times in the venue's local time; `npm run test:tz`
   (`QP_TEST_TZ`), its relation to `019`'s `CALENDAR_TEST_TZ`, and why `TZ=` in Git Bash does not
