@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { ApiError } from '../api/client';
 
 /**
@@ -19,6 +20,11 @@ export function ErrorBanner({
   const fields = error.details?.fields as string[] | undefined;
   // Spec 013: ADDRESS_AMBIGUOUS lists the addresses the service matched.
   const candidates = error.details?.candidates as string[] | undefined;
+  // Spec 020 (research R14): the events whose orders stop a zone change, as links.
+  const events =
+    error.code === 'TIME_ZONE_HAS_ORDERS'
+      ? (error.details?.events as { id: string; name: string }[] | undefined)
+      : undefined;
 
   return (
     <div
@@ -37,6 +43,15 @@ export function ErrorBanner({
           <ul>
             {fields.map((f) => (
               <li key={f}>{f}</li>
+            ))}
+          </ul>
+        )}
+        {events && events.length > 0 && (
+          <ul>
+            {events.map((e) => (
+              <li key={e.id}>
+                <Link to={`/events/${e.id}`}>{e.name}</Link>
+              </li>
             ))}
           </ul>
         )}

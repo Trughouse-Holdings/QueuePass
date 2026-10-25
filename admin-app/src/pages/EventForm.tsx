@@ -7,7 +7,21 @@ import type {
   Location,
   SeatingLayout,
 } from '@queuepass/shared';
-import { EVENT_IMAGE_LIMITS } from '@queuepass/shared';
+import {
+  DEFAULT_TIME_ZONE,
+  EVENT_IMAGE_LIMITS,
+  abbreviationAt,
+  formatLocalTime,
+  resolveLocal,
+  skippedTimeMessage,
+  toLocalDateTime,
+  toOffsetDateTime,
+  zoneName,
+  type Moment,
+  type ResolvedLocal,
+  type UsTimeZone,
+} from '@queuepass/shared';
+import { until, when } from '../format';
 import { createEvent, getEvent, updateEvent } from '../api/events';
 import { deleteEventImage, reorderEventImages, uploadEventImage } from '../api/images';
 import { listLocations } from '../api/locations';
@@ -18,22 +32,28 @@ import { ErrorBanner } from '../components/ErrorBanner';
 import { ImagesField, type ImageItem } from '../components/ImagesField';
 import { SuccessState } from '../components/SuccessState';
 
-/** `datetime-local` value ("2026-10-01T18:00") → ISO-8601 with the browser's offset. */
-const toIso = (local: string): string => new Date(local).toISOString();
+/** Spec 020 research R13: which of a repeated local time's two moments the admin chose. */
+type Occurrence = '' | 'first' | 'second';
+type TimeField = 'startsAt' | 'endsAt';
 
-/** ISO-8601 → `datetime-local` value in the browser's zone. */
-const toLocalInput = (iso: string): string => {
-  const d = new Date(iso);
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-};
+/**
+ * A `datetime-local` value read in the venue's zone (research R11, R13): null while it is not a
+ * complete date and time. Never the browser's zone.
+ */
+function resolveField(local: string, zone: UsTimeZone): ResolvedLocal | null {
+  try {
+    return local ? resolveLocal(local, zone) : null;
+  } catch {
+    return null;
+  }
+}
 
-const when = (iso: string): string =>
-  new Date(iso).toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+/** The moment a field names: `null` for a skipped time, or a repeated one not yet chosen. */
+function momentOf(resolved: ResolvedLocal, occurrence: Occurrence): Moment | null {
+  if (resolved.kind === 'ok') return resolved.moment;
+  if (resolved.kind === 'repeated' && occurrence) return resolved[occurrence];
+  return null;
+}
 
 /**
  * One ticket type on the form (spec 008 US6, US7). `id` is set for a type the event already has;
@@ -112,8 +132,13 @@ export function EventForm(): React.ReactElement {
   const [venues, setVenues] = useState<Location[]>([]);
   const [name, setName] = useState('');
   const [locationId, setLocationId] = useState('');
+  // Spec 020 research R13: plain local strings, read in the chosen venue's zone.
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
+  const [occurrence, setOccurrence] = useState<Record<TimeField, Occurrence>>({
+    startsAt: '',
+    endsAt: '',
+  });
   const [totalTicketCapacity, setTotalTicketCapacity] = useState('');
   // Spec 016 FR-008: blank is no limit.
   const [maxPerCustomer, setMaxPerCustomer] = useState('');
@@ -191,8 +216,20 @@ export function EventForm(): React.ReactElement {
         setImages([...(e.images ?? []).map((image) => savedItem(image)), ...pending]);
         setName(e.name);
         setLocationId(e.locationId);
-        setStartsAt(toLocalInput(e.startsAt));
-        setEndsAt(toLocalInput(e.endsAt));
+        // Spec 020 FR-017 (research R13): the venue's local times, and for a repeated local time
+        // the occurrence the stored instant is.
+        const zone = e.location?.timeZone ?? DEFAULT_TIME_ZONE;
+        const local = (iso: string): [string, Occurrence] => {
+          const value = toLocalDateTime(iso, zone);
+          const r = resolveField(value, zone);
+          if (r?.kind !== 'repeated') return [value, ''];
+          return [value, r.first.instant.getTime() === Date.parse(iso) ? 'first' : 'second'];
+        };
+        const [start, startOcc] = local(e.startsAt);
+        const [end, endOcc] = local(e.endsAt);
+        setStartsAt(start);
+        setEndsAt(end);
+        setOccurrence({ startsAt: startOcc, endsAt: endOcc });
         setTotalTicketCapacity(String(e.totalTicketCapacity));
         setMaxPerCustomer(e.maxTicketsPerCustomer == null ? '' : String(e.maxTicketsPerCustomer));
         setSeated(e.reservedSeating);
@@ -446,13 +483,32 @@ export function EventForm(): React.ReactElement {
         return;
       }
     }
+    // Spec 020 FR-016, FR-017 (research R13): a preview of the Backend's zone checks, with the
+    // same message for a skipped time; a repeated time is sent only once its occurrence is chosen.
+    const sent: Record<TimeField, string> = { startsAt, endsAt };
+    for (const field of ['startsAt', 'endsAt'] as const) {
+      const r = resolveField(sent[field], venueZone);
+      if (!r) continue;
+      if (r.kind === 'skipped') {
+        setError(
+          validationError(skippedTimeMessage(sent[field], venueZone, r.skippedFrom, r.skippedTo)),
+        );
+        return;
+      }
+      const m = momentOf(r, occurrence[field]);
+      if (!m) {
+        setError(validationError(`Choose which ${formatLocalTime(sent[field])} you mean.`));
+        return;
+      }
+      sent[field] = toOffsetDateTime(m.instant, venueZone);
+    }
     setBusy(true);
 
     const payload: EventInput = {
       name,
       locationId,
-      startsAt: toIso(startsAt),
-      endsAt: toIso(endsAt),
+      startsAt: sent.startsAt,
+      endsAt: sent.endsAt,
       // FR-019: blank means the venue's capacity; seated events never send one (FR-018).
       ...(!seated && !reserved && totalTicketCapacity.trim() !== ''
         ? { totalTicketCapacity: Number(totalTicketCapacity) }
@@ -511,6 +567,66 @@ export function EventForm(): React.ReactElement {
       : null;
 
   const selected = venues.find((v) => v.id === locationId);
+  /** Spec 020 FR-014: the chosen venue's zone; Eastern until a venue is chosen. */
+  const venueZone: UsTimeZone = selected?.timeZone ?? DEFAULT_TIME_ZONE;
+  const resolved: Record<TimeField, ResolvedLocal | null> = {
+    startsAt: resolveField(startsAt, venueZone),
+    endsAt: resolveField(endsAt, venueZone),
+  };
+
+  /** "Times are in the venue's time zone: Eastern Time (EDT)." with the typed start's abbreviation. */
+  function zoneLine(): string {
+    if (!selected) return "Choose a venue first: times are in the venue's local time.";
+    const start = resolved.startsAt;
+    const m =
+      start?.kind === 'ok'
+        ? start.moment
+        : start?.kind === 'repeated'
+          ? (momentOf(start, occurrence.startsAt) ?? start.first)
+          : null;
+    const abbreviation = m ? m.abbreviation : abbreviationAt(new Date(), venueZone);
+    return `Times are in the venue's time zone: ${zoneName(venueZone)} (${abbreviation}).`;
+  }
+
+  /** Under a time field: a skipped time's message, or the question for a repeated one. */
+  function timeNote(field: TimeField): React.ReactElement | null {
+    const r = selected ? resolved[field] : null;
+    const local = field === 'startsAt' ? startsAt : endsAt;
+    if (!r) return null;
+    if (r.kind === 'skipped') {
+      return (
+        <span className="field__hint" data-testid={`${field}-skipped`}>
+          {skippedTimeMessage(local, venueZone, r.skippedFrom, r.skippedTo)}
+        </span>
+      );
+    }
+    if (r.kind !== 'repeated') return null;
+    const time = formatLocalTime(local);
+    const choose = (value: Occurrence) => setOccurrence((o) => ({ ...o, [field]: value }));
+    return (
+      <fieldset className="field" data-testid={`${field}-occurrence`}>
+        <legend>{`Which ${time}?`}</legend>
+        <label className="choice">
+          <input
+            type="radio"
+            name={`${field}-occurrence`}
+            checked={occurrence[field] === 'first'}
+            onChange={() => choose('first')}
+          />
+          {`${time} ${r.first.abbreviation} (the first time)`}
+        </label>
+        <label className="choice">
+          <input
+            type="radio"
+            name={`${field}-occurrence`}
+            checked={occurrence[field] === 'second'}
+            onChange={() => choose('second')}
+          />
+          {`${time} ${r.second.abbreviation} (the second time)`}
+        </label>
+      </fieldset>
+    );
+  }
 
   /**
    * Spec 016 research R7: the capacity the event will have, as the Total tickets row shows it:
@@ -652,9 +768,10 @@ export function EventForm(): React.ReactElement {
 
       {conflict && (
         <p data-testid="conflict-detail" className="conflict-detail">
-          Conflicts with <strong>{conflict.name}</strong>, which runs {when(conflict.startsAt)} –{' '}
-          {when(conflict.endsAt)}. Pick a slot at least 60 minutes clear of it, or choose another
-          venue.
+          Conflicts with <strong>{conflict.name}</strong>, which runs{' '}
+          {when(conflict.startsAt, venueZone)} –{' '}
+          {until(conflict.startsAt, conflict.endsAt, venueZone)}. Pick a slot at least 60 minutes
+          clear of it, or choose another venue.
         </p>
       )}
 
@@ -675,7 +792,11 @@ export function EventForm(): React.ReactElement {
             <select
               id="locationId"
               value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
+              onChange={(e) => {
+                setLocationId(e.target.value);
+                // Spec 020 FR-015: the typed times stay; a repeated hour is asked again.
+                setOccurrence({ startsAt: '', endsAt: '' });
+              }}
             >
               <option value="">Select a venue…</option>
               {venues.map((v) => (
@@ -693,8 +814,12 @@ export function EventForm(): React.ReactElement {
                 id="startsAt"
                 type="datetime-local"
                 value={startsAt}
-                onChange={(e) => setStartsAt(e.target.value)}
+                onChange={(e) => {
+                  setStartsAt(e.target.value);
+                  setOccurrence((o) => ({ ...o, startsAt: '' }));
+                }}
               />
+              {timeNote('startsAt')}
             </div>
             <div className="field">
               <label htmlFor="endsAt">Ends</label>
@@ -702,10 +827,17 @@ export function EventForm(): React.ReactElement {
                 id="endsAt"
                 type="datetime-local"
                 value={endsAt}
-                onChange={(e) => setEndsAt(e.target.value)}
+                onChange={(e) => {
+                  setEndsAt(e.target.value);
+                  setOccurrence((o) => ({ ...o, endsAt: '' }));
+                }}
               />
+              {timeNote('endsAt')}
             </div>
           </div>
+          <p className="note" data-testid="zone-line">
+            {zoneLine()}
+          </p>
 
           {typesLoaded && layout && (
             <fieldset className="field">

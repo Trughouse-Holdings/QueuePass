@@ -29,16 +29,13 @@ const renderAt = (url: string) =>
     </MemoryRouter>,
   );
 
-/** Local midnight of a calendar day, as the instant the Admin app sends. */
-const localMidnight = (y: number, m: number, d: number) => new Date(y, m - 1, d).toISOString();
-
 const eventSearches = (calls: { method: string; path: string; search: string }[]) =>
   calls
     .filter((c) => c.method === 'GET' && c.path === '/events')
     .map((c) => Object.fromEntries(new URLSearchParams(c.search)));
 
 describe('Event search', () => {
-  it('sends the name, venue, and local-day date range, and puts them in the address', async () => {
+  it('sends the name, venue, and venue-day date range, and puts them in the address', async () => {
     const { calls } = stubApi({ 'GET /events': json(events), 'GET /locations': json(locations) });
     renderAt('/events');
     await screen.findByText('Season Opener');
@@ -53,9 +50,10 @@ describe('Event search', () => {
     expect(eventSearches(calls)[1]).toEqual({
       q: 'opener',
       locationId: locations[0].id,
-      from: localMidnight(2026, 10, 1),
-      // The whole "to" day is included: the bound is the next local midnight.
-      to: localMidnight(2026, 11, 1),
+      // Spec 020 FR-020 (research R15): the days as typed; the Backend reads each event's start
+      // date in its venue's zone, both days included.
+      fromDate: '2026-10-01',
+      toDate: '2026-10-31',
     });
     const params = new URLSearchParams(currentUrl.split('?')[1]);
     expect(Object.fromEntries(params)).toEqual({
@@ -71,7 +69,7 @@ describe('Event search', () => {
     renderAt('/events?q=gala&from=2026-12-01');
 
     expect(await screen.findByText('No events match these filters.')).toBeInTheDocument();
-    expect(eventSearches(calls)[0]).toEqual({ q: 'gala', from: localMidnight(2026, 12, 1) });
+    expect(eventSearches(calls)[0]).toEqual({ q: 'gala', fromDate: '2026-12-01' });
     expect(screen.getByLabelText('Search events')).toHaveValue('gala');
     expect(screen.getByLabelText('From')).toHaveValue('2026-12-01');
   });

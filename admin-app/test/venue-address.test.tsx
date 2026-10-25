@@ -238,17 +238,22 @@ describe('Address refusals and Save anyway', () => {
     renderAt('/locations/new');
     fill();
     create();
-    fireEvent.click(await screen.findByRole('button', { name: SAVE_ANYWAY }));
+    await screen.findByRole('button', { name: SAVE_ANYWAY });
+    // Spec 020 FR-003: Kentucky has two time zones, so Save anyway needs one chosen.
+    fireEvent.click(screen.getByLabelText('Eastern Time'));
+    fireEvent.click(screen.getByRole('button', { name: SAVE_ANYWAY }));
 
     expect(
       await screen.findByText(
-        'Venue saved. Address (not verified): 1 Arena Plaza, Louisville, KY 40202.',
+        // Spec 020 R14: the notice also names the zone (the fixture has none: the default).
+        'Venue saved. Address (not verified): 1 Arena Plaza, Louisville, KY 40202. Time zone: Eastern Time, the default.',
       ),
     ).toBeInTheDocument();
     const [first, second] = writes(api);
     expect(second.body).toEqual({
       ...(first.body as object),
       acceptUnverifiedAddress: true,
+      timeZone: 'America/New_York',
     });
     expect(first.body).not.toHaveProperty('acceptUnverifiedAddress');
   });
@@ -297,7 +302,9 @@ describe('Address refusals and Save anyway', () => {
     });
     create();
     expect(
-      await screen.findByText('Venue saved. Address: 430 W VINE ST, LEXINGTON, KY 40507.'),
+      await screen.findByText(
+        'Venue saved. Address: 430 W VINE ST, LEXINGTON, KY 40507. Time zone: Eastern Time, the default.',
+      ),
     ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Venues' })).toBeInTheDocument();
   });
@@ -384,6 +391,8 @@ describe('Seated venue in one step', () => {
     await screen.findByRole('button', { name: SAVE_ANYWAY });
     expect(writes(api).map((c) => c.method)).toEqual(['POST']);
 
+    // Spec 020 FR-003: Kentucky has two time zones, so Save anyway needs one chosen.
+    fireEvent.click(screen.getByLabelText('Eastern Time'));
     fireEvent.click(screen.getByRole('button', { name: SAVE_ANYWAY }));
     await screen.findByText(/Venue saved\. Address \(not verified\)/);
     expect(writes(api).map((c) => `${c.method} ${c.path}`)).toEqual([
@@ -430,7 +439,10 @@ describe('The address service is down (US2)', () => {
     renderAt('/locations/new');
     fill();
     create();
-    fireEvent.click(await screen.findByRole('button', { name: SAVE_ANYWAY }));
+    await screen.findByRole('button', { name: SAVE_ANYWAY });
+    // Spec 020 FR-003: Kentucky has two time zones, so Save anyway needs one chosen.
+    fireEvent.click(screen.getByLabelText('Eastern Time'));
+    fireEvent.click(screen.getByRole('button', { name: SAVE_ANYWAY }));
     await waitFor(() => expect(screen.getByTestId('error-banner')).toHaveTextContent(MESSAGE));
     expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
     expectValuesKept();

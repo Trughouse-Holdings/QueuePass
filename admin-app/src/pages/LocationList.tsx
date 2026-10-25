@@ -1,3 +1,4 @@
+import { DEFAULT_TIME_ZONE, zoneName } from '@queuepass/shared';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { Location } from '@queuepass/shared';
@@ -120,6 +121,7 @@ export function LocationList(): React.ReactElement {
                 <tr>
                   <th>Name</th>
                   <th>Address</th>
+                  <th>Time zone</th>
                   <th>Seating capacity</th>
                   <th />
                 </tr>
@@ -142,6 +144,7 @@ export function LocationList(): React.ReactElement {
                         </>
                       )}
                     </td>
+                    <td>{zoneName(l.timeZone ?? DEFAULT_TIME_ZONE)}</td>
                     <td className="cell-num">{l.seatingCapacity.toLocaleString()}</td>
                     <td className="cell-action">
                       <Link to={`/locations/${l.id}/edit`} className="rowlink">

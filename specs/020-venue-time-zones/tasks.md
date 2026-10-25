@@ -539,7 +539,7 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
 
 ### Tests (write first, confirm they fail)
 
-- [ ] T032 [P] [US2] [US3] Create `admin-app/test/event-form.tz.test.tsx` (mocked API): choosing an
+- [x] T032 [P] [US2] [US3] Create `admin-app/test/event-form.tz.test.tsx` (mocked API): choosing an
   Eastern venue shows "Times are in the venue's time zone: Eastern Time (EDT)." (EST for a December
   date); typing 2026-10-01T19:00–22:00 sends `2026-10-01T19:00:00-04:00` and `…22:00:00-04:00`;
   switching to the Phoenix venue keeps the inputs and sends `-07:00`; 2027-03-14T02:30 shows R9's
@@ -548,11 +548,14 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   shows 01:30 with EST chosen; editing any event shows its venue-local values; `LOCAL_TIME_SKIPPED`
   and `UTC_OFFSET_MISMATCH` from the API appear in the banner with every value kept; the conflict
   line shows "7:00 PM EDT – 10:00 PM EDT".
-- [ ] T033 [P] [US2] Create `admin-app/test/times.tz.test.tsx`: the event list, event page, venue
+  **Done**: 12 tests; failed first (commit 5c86de4), pass after T035.
+- [x] T033 [P] [US2] Create `admin-app/test/times.tz.test.tsx`: the event list, event page, venue
   page events, attendees' "checked in" time, and Reports' event dates show the exact venue-local
   strings with abbreviations for venues in three zones; Reports' "as of" ends with the process
   zone's abbreviation; the event search sends `fromDate`/`toDate` exactly as typed.
-- [ ] T034 [P] [US4] [US5] Create `admin-app/test/venue-time-zone.test.tsx`: the venue list's Time
+  **Done**: 9 tests; failed first (commit 5c86de4); one test-path fix (attendees are
+  `/events/{id}/attendees`); pass after T036.
+- [x] T034 [P] [US4] [US5] Create `admin-app/test/venue-time-zone.test.tsx`: the venue list's Time
   zone column and the venue page's "Time zone: Eastern Time, from the address." (all four sources);
   the form's select sends `timeZone` only when picked; after `ADDRESS_NOT_FOUND` in KY, Save anyway
   is refused by the form until Eastern or Central is chosen and then sends `timeZone`; in OH no
@@ -563,16 +566,32 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   and changes to "Work it out from the new address" once any address field differs (R14, review
   round 1 m3); on an edit of a KY venue stored in Eastern that is saved anyway, the state's radio
   group starts with Eastern selected (m4).
+  **Done**: 18 tests; failed first except the 3 noted in commit 5c86de4; pass after T037.
 
 ### Implementation
 
-- [ ] T035 [US2] [US3] Change `admin-app/src/format.ts` (`when(iso, zone)`) and `EventForm.tsx`
+- [x] T035 [US2] [US3] Change `admin-app/src/format.ts` (`when(iso, zone)`) and `EventForm.tsx`
   (R13). Run T032 until it passes.
-- [ ] T036 [US2] Change `EventList.tsx`, `EventDetail.tsx`, `LocationDetail.tsx`, `Attendees.tsx`,
+  **Done**: `when(iso, zone)` and `until(start, end, zone)` (shared formatters); the form keeps
+  local strings, resolves them in the chosen venue's zone (Eastern until one is chosen), shows the
+  zone line, the skipped message (`data-testid=startsAt-skipped`), and the "Which 1:30 AM?" radio
+  group, refuses Save before sending, and sends `toOffsetDateTime`; changing the venue keeps the
+  strings and asks a repeated hour again. T032 passes.
+- [x] T036 [US2] Change `EventList.tsx`, `EventDetail.tsx`, `LocationDetail.tsx`, `Attendees.tsx`,
   and `Reports.tsx` (R12, R15). Run T033 until it passes.
-- [ ] T037 [US4] [US5] Change `LocationForm.tsx`, `LocationList.tsx`, `LocationDetail.tsx`, and
+  **Done**: the event list (`formatEventDate`, `formatTimeOfDay` – `until`), event page, venue page,
+  attendees, and Reports (event dates in `EventSales.timeZone`, "as of" `formatViewerTime` with the
+  date); the search sends `fromDate`/`toDate`. T033 passes. Existing tests updated to the new
+  behavior: `EventDetail.test` (the page's formatter), `search.test` (`fromDate`/`toDate`).
+- [x] T037 [US4] [US5] Change `LocationForm.tsx`, `LocationList.tsx`, `LocationDetail.tsx`, and
   `ErrorBanner` if needed (R14), with existing classes only. Run T034 until it passes, then the
   whole Admin suite and the theme drift check.
+  **Done**: Time zone select, split-state radio group (stored zone preselected on edit), the R14
+  note, the saved notice's zone, the list column, the venue page line, and `TIME_ZONE_HAS_ORDERS`
+  events as links in `ErrorBanner`; existing classes only (`field`, `field__hint`, `choice`,
+  `note`). T034 passes; four `venue-address.test` cases now choose Eastern before saving a Kentucky
+  address anyway, and expect the notice's zone. Whole Admin suite 239 tests green, the theme drift
+  test included.
 
 ---
 

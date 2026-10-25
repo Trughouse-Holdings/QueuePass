@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import type { Event, Location } from '@queuepass/shared';
+import {
+  DEFAULT_TIME_ZONE,
+  formatEventDate,
+  formatTimeOfDay,
+  type Event,
+  type Location,
+} from '@queuepass/shared';
 import { listEvents, type EventFilters } from '../api/events';
 import { listLocations } from '../api/locations';
 import { Notice } from '../components/Notice';
+import { until } from '../format';
 
-const day = (iso: string): string =>
-  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-const clock = (iso: string): string =>
-  new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-
-/** Local midnight of a `YYYY-MM-DD` calendar day, plus `addDays`, as an ISO instant. */
-function localMidnight(date: string, addDays = 0): string {
-  const [y, m, d] = date.split('-').map(Number);
-  return new Date(y, m - 1, d + addDays).toISOString();
-}
+/** Spec 020 research R12: an event's date and start in its venue's zone, with the abbreviation. */
+const zoneOf = (e: Event): string => e.location.timeZone ?? DEFAULT_TIME_ZONE;
+const day = (e: Event): string => formatEventDate(e.startsAt, zoneOf(e));
+const clock = (e: Event): string => formatTimeOfDay(e.startsAt, zoneOf(e));
 
 /** The filters as they appear in the address: human dates, `venue` for the venue id. */
 interface UrlFilters {
@@ -33,14 +34,14 @@ const readUrl = (params: URLSearchParams): UrlFilters => ({
 });
 
 /**
- * Spec 004 research R5: the Admin's calendar days become instants. The "to" day is included
- * whole, so its bound is the next local midnight.
+ * Spec 020 FR-020 (research R15): the days are sent as typed, `fromDate` and `toDate`; the Backend
+ * matches each event's start date in its venue's zone, both days included.
  */
 const toApi = (f: UrlFilters): EventFilters => ({
   q: f.q.trim() || undefined,
   locationId: f.venue || undefined,
-  from: f.from ? localMidnight(f.from) : undefined,
-  to: f.to ? localMidnight(f.to, 1) : undefined,
+  fromDate: f.from || undefined,
+  toDate: f.to || undefined,
 });
 
 /**
@@ -240,9 +241,9 @@ export function EventList(): React.ReactElement {
                     <td>
                       <span className="pill">{e.location.name}</span>
                     </td>
-                    <td className="cell-time">{day(e.startsAt)}</td>
+                    <td className="cell-time">{day(e)}</td>
                     <td className="cell-time">
-                      {clock(e.startsAt)} – {clock(e.endsAt)}
+                      {clock(e)} – {until(e.startsAt, e.endsAt, zoneOf(e))}
                     </td>
                     <td className="cell-num">{e.totalTicketCapacity.toLocaleString()}</td>
                     <td className="price">${e.basePrice}</td>

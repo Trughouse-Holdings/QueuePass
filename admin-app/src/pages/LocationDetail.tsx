@@ -7,7 +7,7 @@ import { deleteLocation, getLocation } from '../api/locations';
 import { listEvents } from '../api/events';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { LayoutCard } from '../components/LayoutCard';
-import { when } from '../format';
+import { venueZone, when } from '../format';
 import { useDelete } from '../hooks/use-delete';
 
 type Load =
@@ -81,6 +81,8 @@ function VenueView({ venue, events }: { venue: Location; events: Event[] }): Rea
           {!venue.addressVerified && (
             <p className="note">Address not verified. Edit the venue to verify it.</p>
           )}
+          {/* Spec 020 FR-024 (research R14). */}
+          <p className="note">{`Time zone: ${venueZone(venue)}.`}</p>
         </div>
         <div className="form__actions">
           <Link to={`/locations/${venue.id}/edit`} className="btn">
@@ -121,8 +123,12 @@ function VenueView({ venue, events }: { venue: Location; events: Event[] }): Rea
                         {e.name}
                       </Link>
                     </td>
-                    <td className="cell-time">{when(e.startsAt)}</td>
-                    <td className="cell-time">{when(e.endsAt)}</td>
+                    <td className="cell-time">
+                      {when(e.startsAt, e.location?.timeZone ?? venue.timeZone)}
+                    </td>
+                    <td className="cell-time">
+                      {when(e.endsAt, e.location?.timeZone ?? venue.timeZone)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

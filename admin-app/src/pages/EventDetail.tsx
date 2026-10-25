@@ -152,9 +152,9 @@ function EventView({
             </Link>
           </dd>
           <dt>Starts</dt>
-          <dd className="cell-time">{when(event.startsAt)}</dd>
+          <dd className="cell-time">{when(event.startsAt, event.location.timeZone)}</dd>
           <dt>Ends</dt>
-          <dd className="cell-time">{when(event.endsAt)}</dd>
+          <dd className="cell-time">{when(event.endsAt, event.location.timeZone)}</dd>
           <dt>Tickets</dt>
           <dd className="cell-num">{event.totalTicketCapacity.toLocaleString()}</dd>
           {/* Spec 016 FR-011: a missing value is no limit (research R9). */}
