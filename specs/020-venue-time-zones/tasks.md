@@ -708,17 +708,25 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   locally against the spec, plan, constitution 3.4.1, and #42 (Constitution III), including the
   quality-gate 7 list. Fix every finding in `Review 020:` commits. Record the findings (must,
   should, minor), fixes, and anything left open with the reason, here.
+  **Left for Mahdi** (the independent review rounds are run outside the implementing session).
 - [ ] T048 **Review round 2**, by another session that did not write the code (and not the round 1
   reviewer if possible), on the fixed branch. Fix and record as T047. **If round 2 finds anything
   more than minor issues, run round 3, and so on, until a round finds only minor issues**; record
   each round here.
+  **Left for Mahdi**, as T047.
 
 ---
 
 ## Phase 12: Verification, several times (after the last code change)
 
-- [ ] T049 Run `npm run ci` locally from a clean `npm ci`; green. Record the date, the commit, and
+- [x] T049 Run `npm run ci` locally from a clean `npm ci`; green. Record the date, the commit, and
   each workspace's test count and coverage.
+  **Done** 2026-10-24, commit c6b6b73, in a fresh clone of the branch (this checkout's `npm ci` is
+  blocked by the leftover Vite server, T001): `npm ci` 22 s, then `npm run ci` green in 407 s.
+  Tests: scripts/test 44, shared 590, backend 940 (93 suites), admin 241, customer 306, booth 73,
+  seed 8; the closing Los Angeles `--quick` run: shared 122, admin 21, customer 9, booth 6, all
+  passed. Line coverage: shared 93.13%, backend 97.01%, admin 97.05%, customer 97.46%, booth 92.28%,
+  seed 71.25% (unchanged; the floor is not enforced until `010`).
 - [ ] T050 **Three times in a row** (flake check), with no change in between, run each affected
   suite and record the three results (passed/failed, counts, duration) in a table here:
   `npm run test --workspace @queuepass/shared`, `… @queuepass/backend`, `… @queuepass/admin-app`,
@@ -729,11 +737,30 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   --workspace @queuepass/backend`), because locally it otherwise runs in New York, the demo
   venues' zone, and in CI in UTC (R20, review round 1 m13). Any failure, even once: find the
   cause, fix it, and restart T049–T050.
+  **Run 2026-10-24/25, same clone, commit c6b6b73, no change in between.** Three runs in a row,
+  every one passed: shared 590/590/590 (19 s, 20 s, 19 s); backend 940/940/940 in 93 suites (135 s,
+  134 s, 137 s); admin 241 ×3 (29 s each); customer 306 ×3 (26 s, 25 s, 25 s); booth 73 ×3 (33 s
+  each); `node --test scripts/test/*.test.mjs` 44 ×3 (44 s, 44 s, 43 s). `npm run test:tz`: all 20
+  runs passed (shared 590, backend unit 139, admin 241, customer 306, booth 73 in each of
+  America/New_York, UTC, America/Los_Angeles, Pacific/Honolulu). `node scripts/test-tz.mjs --zones
+  America/Los_Angeles --backend-full`: **run 1 failed one test**, `CORS and API documentation ›
+  serves the committed contract byte for byte` (`cors-docs.e2e-spec.ts`), with `read ECONNRESET` on
+  `GET /docs/openapi.yaml` (939 of 940 passed; full log kept in the session scratchpad,
+  `logs/t050/backend-full-la-run1-FAIL-ECONNRESET.log`). It did not reproduce: that file passed 5
+  times in a row in Los Angeles, and run 2 of the full suite passed, 940/940 in 93 suites (124 s).
+  The test reads a static file the feature does not touch; a connection reset while reading the 138
+  KB answer points at the test transport, not at time zones, but the cause was not found. **Left
+  open for Mahdi**: the ground rule says to fix and restart T049–T050 after any failure.
 - [ ] T051 Report coverage for every workspace in the PR description; each new file is covered by
   its tests, and each workspace stays at or above 80% lines (Constitution VI, `010`).
+  Coverage at c6b6b73 (T049): shared 93.13%, backend 97.01%, admin 97.05%, customer 97.46%, booth
+  92.28%. New files: `time-zone.ts` 100%, `venue-time-zone.ts` 100%, `event-time.ts` 100%,
+  `venue-lock.ts` 100%, `time-zone-finder.ts` 83% (the logged `catch`), demo data 84%; the changed
+  front-end files 97.8–100%. **Left for the PR description** (T056).
 - [ ] T052 Running-system gate, part 1: quickstart **S1**, the migration on a copy of the running
   stack's real data. Record the event count and checksums before and after, the venue zone query,
   and `condeferrable`.
+  **Left for Mahdi** (running-system gate, quickstart S1, at a time agreed for `main`'s stack).
 - [ ] T053 Running-system gate, part 2. Path A where images build (`docker compose up --build`
   from a fresh clone of the branch); otherwise quickstart **path B**: at a time agreed with whoever
   uses `main`'s stack, stop it, start the gate's own `docker compose -p qp020gate up -d database
@@ -746,22 +773,29 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   sign out of all three apps. Then **Mahdi** repeats the steps marked **(two zones)** by hand with
   Chrome DevTools → Sensors → time zone override, in UTC and America/Los_Angeles; record his
   results here. Record everything, with anything unexpected.
+  **Left for Mahdi** (browser walk and the second browser zones; `scripts/run-host.mjs` is ready,
+  T058). T013's image checks are "to do where images build".
 
 ---
 
 ## Phase 13: Pull request
 
 - [ ] T054 Mark every task done here, with its results, and update the README status row.
+  Tasks recorded as they were done; the README status row says 47/58 done, reviews and walk pending.
+  **Left for Mahdi** to finish after the reviews and the walk.
 - [ ] T055 Open the follow-up issue (research R18): "Contract: make the 020 time-zone fields
   required" (`Location.timeZone`, `Location.timeZoneSource`, `OrderEvent.location.timeZone`,
   `EventSales.timeZone`, `EntryTicket.event.timeZone`), to do after this PR merges.
+  **Left for Mahdi** (opens an issue on GitHub).
 - [ ] T056 Push `020-venue-time-zones-impl` and open the PR (only after the spec and plan PR has
   merged and the branch is rebased onto `main`, ground rules). The description says `fixes #42`,
   lists the review rounds with their findings and anything left open, the three-run and four-zone
   results (T050), the running-system results (T052, T053), coverage (T051), and the shared surface
   touched (every member approves).
+  **Left for Mahdi** (push and pull request).
 - [ ] T057 Wait for **CI green on GitHub** for the PR's last commit (the required `test` check,
   `011`); a red run is fixed, never skipped (quality gate 4). Merge only when green and approved.
+  **Left for Mahdi** (CI on GitHub).
 
 ## Dependencies
 
