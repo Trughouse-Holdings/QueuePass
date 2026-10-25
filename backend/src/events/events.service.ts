@@ -217,7 +217,17 @@ export class EventsService {
           LOCKING_TX,
         );
       } catch (err) {
-        if (!(err instanceof VenueMoved) || attempt >= DEADLOCK_ATTEMPTS) throw err;
+        if (!(err instanceof VenueMoved)) throw err;
+        // Review round 1, m1: still moving after every retry is a race with other writes, the
+        // same 409 the database's overlap race gives, never a 500.
+        if (attempt >= DEADLOCK_ATTEMPTS) {
+          throw conflict(
+            'SCHEDULING_CONFLICT',
+            'This event was moved to another venue while it was being saved. Reload it and try ' +
+              'again.',
+            { bufferMinutes: SCHEDULING_BUFFER_MINUTES, conflictingEvent: null },
+          );
+        }
       }
     }
   }
