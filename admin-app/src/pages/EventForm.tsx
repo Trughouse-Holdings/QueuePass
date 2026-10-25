@@ -491,6 +491,11 @@ export function EventForm(): React.ReactElement {
         return;
       }
     }
+    // Review round 2, m2: times mean nothing until a venue gives them a zone.
+    if (!selected) {
+      setError(validationError("Choose a venue first: times are in the venue's local time."));
+      return;
+    }
     // Spec 020 FR-016, FR-017 (research R13): a preview of the Backend's zone checks, with the
     // same message for a skipped time; a repeated time is sent only once its occurrence is chosen.
     const sent: Record<TimeField, string> = { startsAt, endsAt };
