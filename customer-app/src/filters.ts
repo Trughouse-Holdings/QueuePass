@@ -8,7 +8,10 @@ export interface Filters {
   q: string;
   /** A venue id; only sent once it is known to be one of the listed venues. */
   venue: string;
-  /** Whole days, `YYYY-MM-DD`, in the customer's own time zone; '' when absent or invalid. */
+  /**
+   * Whole days, `YYYY-MM-DD`, at each event's venue (spec 020 FR-020); '' when absent or
+   * invalid.
+   */
   from: string;
   to: string;
   /** Applied in the app: it changes only what is shown (FR-002). */
@@ -17,18 +20,18 @@ export interface Filters {
 
 export const NO_FILTERS: Filters = { q: '', venue: '', from: '', to: '', hideCancelled: false };
 
-/** `YYYY-MM-DD` as a local calendar day, or null when it is not a real date. */
-function localDay(value: string): Date | null {
+/** Whether `value` is a real calendar day, `YYYY-MM-DD` (no time zone involved). */
+function isDay(value: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!m) return null;
+  if (!m) return false;
   const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const day = new Date(y, mo - 1, d);
-  return day.getFullYear() === y && day.getMonth() === mo - 1 && day.getDate() === d ? day : null;
+  const day = new Date(Date.UTC(y, mo - 1, d));
+  return day.getUTCFullYear() === y && day.getUTCMonth() === mo - 1 && day.getUTCDate() === d;
 }
 
 export function readFilters(params: URLSearchParams): Filters {
-  const from = localDay(params.get('from') ?? '') ? (params.get('from') as string) : '';
-  let to = localDay(params.get('to') ?? '') ? (params.get('to') as string) : '';
+  const from = isDay(params.get('from') ?? '') ? (params.get('from') as string) : '';
+  let to = isDay(params.get('to') ?? '') ? (params.get('to') as string) : '';
   // An end before the start describes no days at all; drop it rather than fail.
   if (from && to && to < from) to = '';
   return {
@@ -53,19 +56,19 @@ export function writeFilters(f: Filters): URLSearchParams {
 export const isFiltered = (f: Filters): boolean =>
   Boolean(f.q || f.venue || f.from || f.to || f.hideCancelled);
 
-/** The `GET /events` query (spec 004's search). `to` is exclusive, so it is the next day. */
+/**
+ * The `GET /events` query (spec 004's search). Spec 020 FR-020 (research R15): the days are sent
+ * as chosen, `fromDate` and `toDate`, both included; the Backend matches each event's start date
+ * in its venue's zone, so no conversion happens here.
+ */
 export function eventQuery(
   f: Filters,
   venueIds: ReadonlySet<string> | null,
-): { q?: string; locationId?: string; from?: string; to?: string } {
-  const from = localDay(f.from);
-  const to = localDay(f.to);
+): { q?: string; locationId?: string; fromDate?: string; toDate?: string } {
   return {
     ...(f.q ? { q: f.q } : {}),
     ...(f.venue && venueIds?.has(f.venue) ? { locationId: f.venue } : {}),
-    ...(from ? { from: from.toISOString() } : {}),
-    ...(to
-      ? { to: new Date(to.getFullYear(), to.getMonth(), to.getDate() + 1).toISOString() }
-      : {}),
+    ...(isDay(f.from) ? { fromDate: f.from } : {}),
+    ...(isDay(f.to) ? { toDate: f.to } : {}),
   };
 }

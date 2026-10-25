@@ -599,16 +599,23 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
 
 **Goal**: FR-020 to FR-023 in the Customer app; SC-002, SC-003.
 
-- [ ] T038 [P] [US1] **Test first.** Create `customer-app/test/times.tz.test.tsx` and update
+- [x] T038 [P] [US1] **Test first.** Create `customer-app/test/times.tz.test.tsx` and update
   `format.test.ts`, `filters.test.ts`, and every test T006 recorded: event cards (Events list and
   venue page), the event page, My tickets (start, ordered at, used at), the live entry code page,
   and the printable ticket show the exact venue-local strings with abbreviations for venues in
   three zones; a missing `location.timeZone` falls back to Eastern; the seat-cooldown message ends
   with the process zone's abbreviation; the filters send `fromDate`/`toDate` exactly as chosen.
-- [ ] T039 [US1] Change `customer-app/src/format.ts`, `filters.ts`, `EventCard.tsx`,
+  **Done**: 9 new tests, all failed first (commit 0da7a91), with `format.test`, `filters.test`, and
+  `seat-holds.test` updated (the cooldown assertion lives there: it needs the seat flow).
+  `browse.test`'s midnight case asserts dates only, which pass in every zone once formatting is the
+  venue's, so it is unchanged.
+- [x] T039 [US1] Change `customer-app/src/format.ts`, `filters.ts`, `EventCard.tsx`,
   `GetTickets.tsx`, `EventDetail.tsx`, `MyTickets.tsx`, `PrintTicket.tsx`, and `EntryCode.tsx`
   (R12, R15). Run T038 until it passes, then the whole Customer suite under the four zones
   (`npm run test:tz -- --zones …`): every T006 failure is gone.
+  **Done**: T038 passes. Customer suite with `QP_TEST_TZ` set to America/New_York, UTC,
+  America/Los_Angeles, and Pacific/Honolulu, 2026-10-24: 306 passed in each; every T006 failure is
+  gone.
 
 ---
 

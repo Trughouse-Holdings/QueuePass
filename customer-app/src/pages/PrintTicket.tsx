@@ -49,7 +49,7 @@ export function PrintTicket() {
           <dt>Venue</dt>
           <dd>{order.event.location.name}</dd>
           <dt>Starts</dt>
-          <dd>{when(order.event.startsAt)}</dd>
+          <dd>{when(order.event.startsAt, order.event.location.timeZone)}</dd>
           {ticket.seat && (
             <>
               <dt>Seat</dt>

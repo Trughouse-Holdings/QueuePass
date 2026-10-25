@@ -49,9 +49,9 @@ export function EventDetail() {
             <Link to={`/venues/${e.locationId}`}>{e.location.name}</Link>
           </dd>
           <dt>Starts</dt>
-          <dd>{when(e.startsAt)}</dd>
+          <dd>{when(e.startsAt, e.location.timeZone)}</dd>
           <dt>Ends</dt>
-          <dd>{when(e.endsAt)}</dd>
+          <dd>{when(e.endsAt, e.location.timeZone)}</dd>
           <dt>Tickets</dt>
           <dd>{count(e.totalTicketCapacity)}</dd>
           <dt>Base price</dt>

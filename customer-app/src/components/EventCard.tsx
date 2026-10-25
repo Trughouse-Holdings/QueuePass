@@ -30,9 +30,9 @@ export function EventCard({ event: e }: { event: Event }) {
       </div>
       <dl className="event-card__facts">
         <dt>Starts</dt>
-        <dd>{when(e.startsAt)}</dd>
+        <dd>{when(e.startsAt, e.location.timeZone)}</dd>
         <dt>Ends</dt>
-        <dd>{when(e.endsAt)}</dd>
+        <dd>{when(e.endsAt, e.location.timeZone)}</dd>
         <dt>Venue</dt>
         <dd>
           <Link to={`/venues/${e.locationId}`} className="tap">

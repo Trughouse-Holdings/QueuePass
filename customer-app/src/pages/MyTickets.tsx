@@ -58,7 +58,7 @@ function OrderCard({ order: o, loadedAt }: { order: MyOrder; loadedAt: number })
         <dt>Venue</dt>
         <dd>{o.event.location.name}</dd>
         <dt>Starts</dt>
-        <dd>{when(o.event.startsAt)}</dd>
+        <dd>{when(o.event.startsAt, o.event.location.timeZone)}</dd>
         {o.tierName && (
           <>
             <dt>Tier</dt>
@@ -73,7 +73,7 @@ function OrderCard({ order: o, loadedAt }: { order: MyOrder; loadedAt: number })
         <dt>Total</dt>
         <dd>{usd(o.totalPrice)}</dd>
         <dt>Placed</dt>
-        <dd>{when(o.createdAt)}</dd>
+        <dd>{when(o.createdAt, o.event.location.timeZone)}</dd>
         <dt>Status</dt>
         <dd>{o.status === 'REFUNDED' ? 'Refunded' : 'Confirmed'}</dd>
       </dl>
@@ -82,7 +82,7 @@ function OrderCard({ order: o, loadedAt }: { order: MyOrder; loadedAt: number })
       <ul aria-label="Tickets" className="ticket-list">
         {o.tickets.map((t) => (
           <li key={t.id}>
-            {`${t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}: ${ticketState(t)}`}
+            {`${t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}: ${ticketState(t, o.event.location.timeZone)}`}
             {/* Spec 017 FR-012 and spec 018 FR-001: for each valid, unused ticket, a printable
                 view and its live entry code. */}
             {t.status === 'VALID' && t.checkedInAt === null && (
@@ -106,5 +106,6 @@ function OrderCard({ order: o, loadedAt }: { order: MyOrder; loadedAt: number })
   );
 }
 
-const ticketState = (t: Ticket): string =>
-  t.status === 'VOID' ? 'Void' : t.checkedInAt ? `Used ${when(t.checkedInAt)}` : 'Valid';
+/** Spec 020 FR-021: the time a ticket was used belongs to its event: the venue's zone. */
+const ticketState = (t: Ticket, timeZone?: string): string =>
+  t.status === 'VOID' ? 'Void' : t.checkedInAt ? `Used ${when(t.checkedInAt, timeZone)}` : 'Valid';

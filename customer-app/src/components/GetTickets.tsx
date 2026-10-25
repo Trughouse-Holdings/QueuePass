@@ -11,6 +11,7 @@ import {
   type Reservation,
   type SeatLabel,
   type TicketTier,
+  formatViewerTime,
 } from '@queuepass/shared';
 import {
   useAuth,
@@ -348,11 +349,9 @@ export function GetTickets({ event }: { event: Event }) {
       setNotice(e.message);
       refresh();
     } else if (e?.code === 'SEAT_COOLDOWN') {
-      // FR-004a: when, in the customer's own time zone.
+      // FR-004a: when, in the customer's own time zone; spec 020 FR-023: with its abbreviation.
       const waiting = (e.details?.seats ?? []) as SeatLabel[];
-      const at = new Date(String(e.details?.availableAt)).toLocaleTimeString('en-US', {
-        timeStyle: 'short',
-      });
+      const at = formatViewerTime(String(e.details?.availableAt));
       setNotice(
         `You released ${waiting.map(seatLabel).join('; ')} less than 2 minutes ago. You can ` +
           `reserve ${waiting.length === 1 ? 'it' : 'them'} again at ${at}.`,
