@@ -178,6 +178,34 @@ describe('the Time zone select (R4, R14)', () => {
   });
 });
 
+describe('the zone-change note (R14)', () => {
+  it('is not shown on a venue without events', async () => {
+    stubApi({
+      [`GET ${PATH}`]: json(venue),
+      [`GET ${PATH}/layout`]: json({ sections: [] }),
+      'GET /events': json([]),
+    });
+    renderAt(`${PATH}/edit`);
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Rupp Arena'));
+    set('Time zone', 'America/Chicago');
+    // The venue's events have loaded (none): nothing moves, so nothing is said.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText(/keeps each event's local time/)).toBeNull();
+  });
+
+  it('is shown on a venue with events', async () => {
+    stubApi({
+      [`GET ${PATH}`]: json(venue),
+      [`GET ${PATH}/layout`]: json({ sections: [] }),
+      'GET /events': json([{ id: 'e1', name: 'Fall Concert' }]),
+    });
+    renderAt(`${PATH}/edit`);
+    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Rupp Arena'));
+    set('Time zone', 'America/Chicago');
+    expect(await screen.findByText(/keeps each event's local time/)).toBeInTheDocument();
+  });
+});
+
 describe('a state with more than one zone (FR-003)', () => {
   it('after ADDRESS_NOT_FOUND in Kentucky, Save anyway needs Eastern or Central', async () => {
     const api = stubApi({
