@@ -4,6 +4,25 @@ import { agent, customer, eventAroundNow, orderWithTickets, venue } from '../set
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor } from '../setup/tokens';
+import { PLACES } from '../setup/fake-geocoder';
+
+/** Spec 020: a venue placed in Phoenix by the fake address service (Arizona time). */
+async function phoenixVenue(ctx: TestContext, name = 'Phoenix Hall'): Promise<string> {
+  ctx.geocoder.placeAt(PLACES.phoenix);
+  const res = await asAdmin(ctx)
+    .post('/locations')
+    .send({
+      name,
+      street: '201 E Jefferson St',
+      city: 'Phoenix',
+      state: 'AZ',
+      zip: '85004',
+      seatingCapacity: 500,
+    })
+    .expect(201);
+  ctx.geocoder.reset();
+  return res.body.id;
+}
 
 /** Spec 017 US1 (FR-015, FR-015a, FR-018): admitTicket, contract-checked. */
 describe('admitTicket', () => {
@@ -147,5 +166,24 @@ describe('admitTicket', () => {
       o.tickets.filter((t) => t.checkedInAt !== null),
     );
     expect(myTickets).toHaveLength(2);
+  });
+
+  it("names another venue's zone for a ticket of its event: lookup and OTHER_EVENT (spec 020 R16)", async () => {
+    const other = await eventAroundNow(ctx, await phoenixVenue(ctx), {
+      startsInSeconds: 3600,
+      lastsSeconds: 10800,
+      name: 'Desert Show',
+    });
+    const { tickets } = await orderWithTickets(ctx, other, { quantity: 1 });
+    const look = await lookup(tickets[0].code);
+    expect(look.status).toBe(200);
+    expect(look.body.state).toBe('OTHER_EVENT');
+    expect(look.body.event).toMatchObject({ name: 'Desert Show', timeZone: 'America/Phoenix' });
+    const refused = await admit(tickets[0].id);
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.details).toMatchObject({
+      reason: 'OTHER_EVENT',
+      event: { name: 'Desert Show', timeZone: 'America/Phoenix' },
+    });
   });
 });
