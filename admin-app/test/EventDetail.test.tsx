@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventDetail } from '../src/pages/EventDetail';
+import { when } from '../src/format';
 import { json, stubApi } from './helpers/api-stub';
 
 /** Spec 002 FR-025, FR-031; research R6. */
@@ -33,8 +34,8 @@ const EVENT = {
   updatedAt: VENUE.updatedAt,
 };
 const PATH = `/events/${EVENT.id}`;
-const fmt = (iso: string) =>
-  new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+// Spec 020: the page formats in the venue's zone (none in this fixture: Eastern, the default).
+const fmt = (iso: string) => when(iso);
 
 const renderPage = () =>
   render(

@@ -1,3 +1,5 @@
+import type { TimeZoneSource, UsTimeZone } from './time-zone.js';
+
 /**
  * The 50 US states and the District of Columbia, by two-letter postal code (spec 013 FR-001).
  * Mirrors `UsState` in contracts/openapi.yaml; a Backend test keeps the two equal. The Admin app
@@ -80,6 +82,13 @@ export interface Location {
   zip?: string | null;
   /** Spec 013 FR-020: the address service matched this address. */
   addressVerified?: boolean;
+  /**
+   * Spec 020 FR-001, FR-007: the venue's time zone and how it was set. Always sent; optional here
+   * only until the contract's follow-up makes them required (research R18). A client treats a
+   * missing zone as `DEFAULT_TIME_ZONE`.
+   */
+  timeZone?: UsTimeZone;
+  timeZoneSource?: TimeZoneSource;
   seatingCapacity: number;
   createdAt: string;
   updatedAt: string;
@@ -93,6 +102,8 @@ export interface LocationInput {
   zip: string;
   /** Spec 013 FR-019 "save anyway", sent only after a not-found or ambiguous refusal. */
   acceptUnverifiedAddress?: boolean;
+  /** Spec 020 FR-004 (research R4): an admin's explicit choice, sent only when picked. */
+  timeZone?: UsTimeZone;
   seatingCapacity: number;
 }
 

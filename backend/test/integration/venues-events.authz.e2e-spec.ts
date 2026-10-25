@@ -35,8 +35,8 @@ describe('Venue and event endpoints: authorization', () => {
       .send({
         name: 'Opener',
         locationId: venueId,
-        startsAt: '2026-10-01T18:00:00Z',
-        endsAt: '2026-10-01T21:00:00Z',
+        startsAt: '2026-10-01T14:00:00-04:00',
+        endsAt: '2026-10-01T17:00:00-04:00',
         totalTicketCapacity: 100,
         basePrice: '10.00',
       })
@@ -64,8 +64,8 @@ describe('Venue and event endpoints: authorization', () => {
         c.post('/events').send({
           name: 'Late',
           locationId: venueId,
-          startsAt: '2026-10-02T18:00:00Z',
-          endsAt: '2026-10-02T21:00:00Z',
+          startsAt: '2026-10-02T14:00:00-04:00',
+          endsAt: '2026-10-02T17:00:00-04:00',
           totalTicketCapacity: 10,
           basePrice: '5.00',
         }),

@@ -151,7 +151,7 @@ export function EntryCode() {
           <dt>Name on ticket</dt>
           <dd>{order.holderName ?? 'No name on ticket'}</dd>
           <dt>Starts</dt>
-          <dd>{when(order.event.startsAt)}</dd>
+          <dd>{when(order.event.startsAt, order.event.location.timeZone)}</dd>
           {ticket?.seat && (
             <>
               <dt>Seat</dt>

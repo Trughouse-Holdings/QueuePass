@@ -8,13 +8,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Location, Prisma } from '@prisma/client';
-import { formatAddress } from '@queuepass/shared';
+import { formatAddress, type UsTimeZone } from '@queuepass/shared';
 import {
   ADDRESS_GEOCODER,
   AddressGeocoder,
   AddressParts,
   AddressServiceUnavailableError,
+  Place,
 } from '../address/address-geocoder';
+import { TIME_ZONE_FINDER, TimeZoneFinder } from '../address/time-zone-finder';
 import { LOCKING_TX } from '../common/event-lock';
 import { searchText } from '../common/search-text';
 import { lockVenueAndEvents } from '../common/venue-lock';
@@ -22,6 +24,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { matchesTyped } from './address-match';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
+import {
+  assertNoOrders,
+  decideZone,
+  moveEventsToZone,
+  type ZoneDecision,
+  type ZoneQuestion,
+} from './venue-time-zone';
 
 type Db = PrismaService | Prisma.TransactionClient;
 
@@ -72,6 +81,17 @@ const checked = (parts: AddressParts, addressVerified: boolean): CheckedAddress 
  */
 export interface CreateOptions {
   whenServiceUnavailable?: 'refuse' | 'saveUnverified';
+  /**
+   * Spec 020 research R19: when no zone can be worked out and none was sent (an address saved
+   * offline in a split state), America/New_York as DEFAULT instead of TIME_ZONE_REQUIRED.
+   */
+  fallbackToDefaultTimeZone?: boolean;
+}
+
+/** A checked address, and the matched place beside it (never inside it: not stored, R1). */
+interface CheckedWithPlace {
+  address: CheckedAddress;
+  location: Place | null;
 }
 
 /** Research R6: every failure to get an answer; the cause goes to the log, not the response. */
@@ -96,20 +116,33 @@ export class LocationsService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(ADDRESS_GEOCODER) private readonly geocoder: AddressGeocoder,
+    @Inject(TIME_ZONE_FINDER) private readonly finder: TimeZoneFinder,
   ) {}
+
+  /** Spec 020 research R7: the zone this request decides, or null when it leaves it alone. */
+  private decide(question: ZoneQuestion): ZoneDecision | null {
+    return decideZone(question, (latitude, longitude) => this.finder.zoneAt(latitude, longitude));
+  }
 
   /**
    * Spec 013 FR-002: the address is checked before anything is saved. A new row has nothing to
-   * race with, so it is one insert after the lookup (research R7).
+   * race with, so it is one insert after the lookup (research R7). Spec 020: then its zone is
+   * decided (R7): sent, else from the matched place, else from the state, else refused.
    */
   async create(dto: CreateLocationDto, options: CreateOptions = {}): Promise<Location> {
     const { name, seatingCapacity, acceptUnverifiedAddress } = dto;
-    const address = await this.checkAddress(
+    const { address, location } = await this.checkAddress(
       dto,
       acceptUnverifiedAddress === true,
       options.whenServiceUnavailable === 'saveUnverified',
     );
-    return this.prisma.location.create({ data: { name, seatingCapacity, ...address } });
+    const zone = this.decide({
+      sent: dto.timeZone,
+      address: { state: address.state, location },
+      fallbackToDefault: options.fallbackToDefaultTimeZone === true,
+    }) as ZoneDecision;
+    // `location` (the place) is never part of `data`: it is not stored (R1).
+    return this.prisma.location.create({ data: { name, seatingCapacity, ...address, ...zone } });
   }
 
   /** Spec 004 FR-007: `q` matches name or address, ignoring case; name order is unchanged. */
@@ -158,24 +191,47 @@ export class LocationsService {
 
     await this.assertCapacityRules(this.prisma, id, dto.seatingCapacity);
 
-    let address: CheckedAddress | undefined;
+    // Spec 020 research R8: an explicit zone change at a venue with orders is refused before the
+    // address lookup, with no lock, so the refusal never waits on the network. Checked again
+    // under the lock.
+    if (dto.timeZone && dto.timeZone !== existing.timeZone) {
+      await assertNoOrders(this.prisma, existing, existing.timeZone as UsTimeZone, dto.timeZone);
+    }
+
+    let checkedAddress: CheckedWithPlace | undefined;
     if (sent.length > 0) {
       const parts = dto as AddressParts;
       // FR-008: an unchanged address is not checked again and keeps its verified state.
       if (!sameAddress(parts, existing)) {
-        address = await this.checkAddress(parts, dto.acceptUnverifiedAddress === true);
+        checkedAddress = await this.checkAddress(parts, dto.acceptUnverifiedAddress === true);
       }
     }
+    const address = checkedAddress?.address;
+
+    // Spec 020 research R7: the zone is decided only when sent, or when the address changed.
+    const zone = this.decide({
+      sent: dto.timeZone,
+      address: checkedAddress
+        ? { state: checkedAddress.address.state, location: checkedAddress.location }
+        : undefined,
+    });
 
     return this.prisma.$transaction(async (tx) => {
-      await lockVenueAndEvents(tx, id);
+      // Spec 020 research R8: every event of the venue is locked, and the zone compared and
+      // converted from is the one read under this lock, never the row read before it
+      // (review round 1, M2).
+      const locked = await lockVenueAndEvents(tx, id, { allStatuses: true });
       await this.assertCapacityRules(tx, id, dto.seatingCapacity);
+      if (zone && zone.timeZone !== locked.timeZone) {
+        await moveEventsToZone(tx, { id, name: locked.name }, locked.timeZone, zone.timeZone);
+      }
       return tx.location.update({
         where: { id },
         data: {
           ...(dto.name !== undefined ? { name: dto.name } : {}),
           ...(dto.seatingCapacity !== undefined ? { seatingCapacity: dto.seatingCapacity } : {}),
           ...address,
+          ...zone,
         },
       });
     }, LOCKING_TX);
@@ -218,8 +274,9 @@ export class LocationsService {
     input: AddressParts,
     acceptUnverified: boolean,
     saveUnverifiedWhenUnavailable = false,
-  ): Promise<CheckedAddress> {
+  ): Promise<CheckedWithPlace> {
     const sent = asSent(input);
+    const unverified = (): CheckedWithPlace => ({ address: checked(sent, false), location: null });
     let result;
     try {
       result = await this.geocoder.lookup(sent);
@@ -227,7 +284,7 @@ export class LocationsService {
       if (!(err instanceof AddressServiceUnavailableError)) throw err;
       const cause = err.cause instanceof Error ? `: ${err.cause.message}` : '';
       this.logger.warn(`Address service unavailable: ${err.message}${cause}`);
-      if (saveUnverifiedWhenUnavailable) return checked(sent, false);
+      if (saveUnverifiedWhenUnavailable) return unverified();
       throw serviceUnavailable();
     }
 
@@ -235,8 +292,11 @@ export class LocationsService {
       result.kind === 'match'
         ? { street: result.street, city: result.city, state: result.state, zip: result.zip }
         : undefined;
-    if (match && matchesTyped(sent, match)) return checked(match, true);
-    if (acceptUnverified) return checked(sent, false);
+    // Spec 020 R1: only a verified match's place is used to find the zone.
+    if (result.kind === 'match' && match && matchesTyped(sent, match)) {
+      return { address: checked(match, true), location: result.location };
+    }
+    if (acceptUnverified) return unverified();
 
     const typed = formatAddress(sent);
     if (result.kind === 'none') {

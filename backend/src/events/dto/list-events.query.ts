@@ -1,4 +1,6 @@
-import { IsISO8601, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsISO8601, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
+
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * GET /events filters (spec 002 `locationId`; spec 004 FR-006 `q`, `from`, `to`). Unknown
@@ -21,4 +23,18 @@ export class ListEventsQuery {
   @IsOptional()
   @IsISO8601({ strict: true }, { message: 'to must be an ISO-8601 timestamp' })
   to?: string;
+
+  /**
+   * Spec 020 FR-020 (research R15): days, `YYYY-MM-DD`, both included, matched against each
+   * event's start date in its venue's zone. Not combinable with `from`/`to`.
+   */
+  @IsOptional()
+  @Matches(DATE_ONLY, { message: 'fromDate must be a date, YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'fromDate must be a date, YYYY-MM-DD' })
+  fromDate?: string;
+
+  @IsOptional()
+  @Matches(DATE_ONLY, { message: 'toDate must be a date, YYYY-MM-DD' })
+  @IsISO8601({ strict: true }, { message: 'toDate must be a date, YYYY-MM-DD' })
+  toDate?: string;
 }

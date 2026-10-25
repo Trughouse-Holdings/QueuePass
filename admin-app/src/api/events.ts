@@ -1,12 +1,15 @@
 import type { Event, EventInput, EventUpdate } from '@queuepass/shared';
 import { api, unwrap } from './client';
 
-/** Spec 004 FR-006 filters; every one optional. `from` and `to` are ISO instants. */
+/**
+ * Spec 004 FR-006 filters; every one optional. Spec 020 (research R15): `fromDate` and `toDate`
+ * are days (`YYYY-MM-DD`), matched against each event's start date in its venue's zone.
+ */
 export interface EventFilters {
   locationId?: string;
   q?: string;
-  from?: string;
-  to?: string;
+  fromDate?: string;
+  toDate?: string;
 }
 
 export const listEvents = (filters: EventFilters = {}): Promise<Event[]> => {

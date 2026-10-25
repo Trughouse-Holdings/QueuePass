@@ -1,7 +1,26 @@
 import { asAdmin } from '../setup/authed-request';
 import { HOLDER, customer, event, tier, venue, windowAt } from '../setup/fixtures';
+import { PLACES } from '../setup/fake-geocoder';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
+
+/** Spec 020: a venue placed in Phoenix by the fake address service (Arizona time). */
+async function phoenixVenue(ctx: TestContext, name = 'Phoenix Hall'): Promise<string> {
+  ctx.geocoder.placeAt(PLACES.phoenix);
+  const res = await asAdmin(ctx)
+    .post('/locations')
+    .send({
+      name,
+      street: '201 E Jefferson St',
+      city: 'Phoenix',
+      state: 'AZ',
+      zip: '85004',
+      seatingCapacity: 500,
+    })
+    .expect(201);
+  ctx.geocoder.reset();
+  return res.body.id;
+}
 
 /** Spec 005 US2 (FR-005): the sales report, compared with the data it summarizes. */
 describe('Sales report', () => {
@@ -89,6 +108,8 @@ describe('Sales report', () => {
     expect(o).toMatchObject({
       eventId: opener,
       venueName: 'Yum Center',
+      // Spec 020 FR-022 (research R16).
+      timeZone: 'America/New_York',
       status: 'SCHEDULED',
       ticketCapacity: 100,
       ticketsSold: 5,
@@ -122,5 +143,13 @@ describe('Sales report', () => {
     expect((await asAdmin(ctx).get('/reports/sales')).body.totals.ticketsSold).toBe(0);
     await buy(eventId, { quantity: 1 });
     expect((await asAdmin(ctx).get('/reports/sales')).body.totals.ticketsSold).toBe(1);
+  });
+
+  it("gives each event its venue's zone (spec 020 FR-022, R16)", async () => {
+    const phoenix = await phoenixVenue(ctx);
+    const id = await event(ctx, phoenix, windowAt(390, 19, 'America/Phoenix'));
+    const res = await asAdmin(ctx).get('/reports/sales').expect(200);
+    const line = res.body.events.find((e: { eventId: string }) => e.eventId === id);
+    expect(line).toMatchObject({ venueName: 'Phoenix Hall', timeZone: 'America/Phoenix' });
   });
 });

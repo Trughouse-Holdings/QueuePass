@@ -85,6 +85,7 @@ describe('CensusGeocoder', () => {
       city: 'LEXINGTON',
       state: 'KY',
       zip: '40507',
+      location: { latitude: 38, longitude: -84.5 },
     });
   });
 
@@ -96,6 +97,7 @@ describe('CensusGeocoder', () => {
       city: 'SPRINGFIELD',
       state: 'IL',
       zip: '62701',
+      location: { latitude: 38, longitude: -84.5 },
     });
   });
 
@@ -158,6 +160,7 @@ describe('CensusGeocoder', () => {
       city,
       state: 'KY',
       zip: '40507',
+      location: { latitude: 38, longitude: -84.5 },
     });
   });
 
@@ -246,5 +249,58 @@ describe('CensusGeocoder', () => {
 
   it('defaults to a 5-second limit', () => {
     expect(new CensusGeocoder({ baseUrl: 'http://127.0.0.1:1' }).timeoutMs).toBe(5000);
+  });
+  // Spec 020 research R1: the match carries the matched place, used once to find the zone.
+  const withCoordinates = (...entries: { matchedAddress: string; coordinates?: unknown }[]) =>
+    json({ result: { input: {}, addressMatches: entries } });
+  const LEX = '430 W VINE ST, LEXINGTON, KY, 40507';
+
+  it('returns the matched place as latitude and longitude (R1)', async () => {
+    const g = await geocoder(
+      withCoordinates({
+        matchedAddress: LEX,
+        coordinates: { x: -84.500968562869, y: 38.049429848416 },
+      }),
+    );
+    await expect(g.lookup(ADDRESS)).resolves.toEqual({
+      kind: 'match',
+      street: '430 W VINE ST',
+      city: 'LEXINGTON',
+      state: 'KY',
+      zip: '40507',
+      location: { latitude: 38.049429848416, longitude: -84.500968562869 },
+    });
+  });
+
+  it("takes the first entry's place when entries share the one matched address", async () => {
+    const g = await geocoder(
+      withCoordinates(
+        { matchedAddress: LEX, coordinates: { x: -84.5, y: 38.05 } },
+        { matchedAddress: LEX, coordinates: { x: -112.07, y: 33.45 } },
+      ),
+    );
+    await expect(g.lookup(ADDRESS)).resolves.toMatchObject({
+      kind: 'match',
+      location: { latitude: 38.05, longitude: -84.5 },
+    });
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['a string', '-84.5,38.0'],
+    ['null', null],
+    ['NaN numbers', { x: Number.NaN, y: 38 }],
+    ['string numbers', { x: '-84.5', y: '38.0' }],
+    ['one number missing', { x: -84.5 }],
+  ])('gives location null, still a match, for coordinates %s', async (_label, coordinates) => {
+    const g = await geocoder(withCoordinates({ matchedAddress: LEX, coordinates }));
+    await expect(g.lookup(ADDRESS)).resolves.toEqual({
+      kind: 'match',
+      street: '430 W VINE ST',
+      city: 'LEXINGTON',
+      state: 'KY',
+      zip: '40507',
+      location: null,
+    });
   });
 });

@@ -1,4 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
+import { formatViewerTime } from '@queuepass/shared';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { Reservation, SeatMap } from '@queuepass/shared';
 import {
@@ -455,6 +456,7 @@ describe('refusals keep the picks (US1-2; FR-002, FR-004a)', () => {
     await waitFor(() => expect(picks()).toEqual(['Section A, Row 1, Seat 1']));
   });
 
+  // Spec 020 FR-023: not an event time, so the customer's own zone, with its abbreviation.
   it('says when a seat in the 2-minute wait can be reserved again, in local time', async () => {
     const availableAt = '2026-10-20T23:02:30.000Z';
     stubApi(
@@ -473,9 +475,12 @@ describe('refusals keep the picks (US1-2; FR-002, FR-004a)', () => {
 
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent('Section A, Row 1, Seat 1');
-    expect(alert).toHaveTextContent(
-      new Date(availableAt).toLocaleTimeString('en-US', { timeStyle: 'short' }),
-    );
+    expect(alert).toHaveTextContent(`again at ${formatViewerTime(availableAt)}.`);
+    const own = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const abbr = new Intl.DateTimeFormat('en-US', { timeZone: own, timeZoneName: 'short' })
+      .formatToParts(new Date(availableAt))
+      .find((p) => p.type === 'timeZoneName')?.value;
+    expect(formatViewerTime(availableAt).endsWith(` ${abbr}`)).toBe(true);
     expect(picks()).toEqual(['Section A, Row 1, Seat 1']);
   });
 

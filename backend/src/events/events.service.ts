@@ -6,10 +6,11 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Location, Prisma } from '@prisma/client';
-import { SCHEDULING_BUFFER_MINUTES } from '@queuepass/shared';
+import { SCHEDULING_BUFFER_MINUTES, localDate, type UsTimeZone } from '@queuepass/shared';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
 import { searchText } from '../common/search-text';
+import { lockVenueShared } from '../common/venue-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { closeHolds, closeRunOut, toChanges } from '../reservations/holds';
 import { SeatEventsService } from '../seating/seat-events.service';
@@ -17,6 +18,7 @@ import type { SeatLabel } from '../seating/seat-rules';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventsQuery } from './dto/list-events.query';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { checkEventTime } from './event-time';
 import { SchedulingConflictException } from './scheduling-conflict.exception';
 
 /**
@@ -58,6 +60,9 @@ async function retryOnDeadlock<T>(write: () => Promise<T>): Promise<T> {
   }
 }
 
+/** Spec 020 research R10: the event moved to another venue between the read and its lock. */
+class VenueMoved extends Error {}
+
 /** API shape: basePrice serialized as a decimal string (never a JSON number). */
 export interface EventResponse extends Omit<EventWithLocation, 'basePrice'> {
   basePrice: string;
@@ -78,19 +83,34 @@ export class EventsService {
     return retryOnDeadlock(() => this.createOnce(dto));
   }
 
-  private async createOnce(dto: CreateEventDto): Promise<EventResponse> {
-    const startsAt = new Date(dto.startsAt);
-    const endsAt = new Date(dto.endsAt);
+  /**
+   * Spec 020 research R10: one transaction that first takes the venue row FOR SHARE, so the zone
+   * the times are checked against is the zone the event is saved under (a zone change, FOR
+   * UPDATE, waits for it or it waits for the zone change). The conflict pre-check and the insert
+   * run in it too; the event_no_overlap constraint is still the guarantee.
+   */
+  private createOnce(dto: CreateEventDto): Promise<EventResponse> {
+    this.assertWindowOrdered(new Date(dto.startsAt), new Date(dto.endsAt));
+    return this.prisma.$transaction((tx) => this.createLocked(tx, dto), LOCKING_TX);
+  }
 
-    this.assertWindowOrdered(startsAt, endsAt);
-    const location = await this.requireLocation(dto.locationId);
+  private async createLocked(
+    tx: Prisma.TransactionClient,
+    dto: CreateEventDto,
+  ): Promise<EventResponse> {
+    await lockVenueShared(tx, [dto.locationId]);
+    const location = await this.requireLocation(dto.locationId, tx);
+    // Spec 020 FR-018 (research R9): each time in the venue's zone, start then end.
+    const zone = location.timeZone as UsTimeZone;
+    const startsAt = checkEventTime('startsAt', dto.startsAt, zone, location.name);
+    const endsAt = checkEventTime('endsAt', dto.endsAt, zone, location.name);
     // Spec 007 FR-019: left out, the event can sell as many tickets as the venue holds.
     const capacity = dto.totalTicketCapacity ?? location.seatingCapacity;
     this.assertCapacityWithinVenue(capacity, location);
     this.assertLimitWithinCapacity(dto.maxTicketsPerCustomer, null, capacity);
-    await this.assertNoConflict(dto.locationId, startsAt, endsAt, null);
+    await this.assertNoConflict(dto.locationId, zone, startsAt, endsAt, null, tx);
 
-    const created = await this.prisma.event.create({
+    const created = await tx.event.create({
       data: {
         name: dto.name,
         locationId: dto.locationId,
@@ -112,6 +132,7 @@ export class EventsService {
     if (from && to && from >= to) {
       throw new BadRequestException({ message: ['from must be earlier than to'] });
     }
+    const days = this.venueDays(query);
     const q = searchText(query.q);
     // Spec 004 FR-006: filters combine; the soonest-first order is unchanged.
     const where: Prisma.EventWhereInput = {
@@ -120,13 +141,45 @@ export class EventsService {
       ...(from || to
         ? { startsAt: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } }
         : {}),
+      ...(days ? { startsAt: days.window } : {}),
     };
     const events = await this.prisma.event.findMany({
       where,
       include: EVENT_INCLUDE,
       orderBy: { startsAt: 'asc' },
     });
-    return events.map((e) => this.toResponse(e));
+    // Spec 020 research R15: the venue's local start date decides, by the shared module.
+    const kept = days
+      ? events.filter((e) => {
+          const date = localDate(e.startsAt, e.location.timeZone);
+          return (!days.fromDate || date >= days.fromDate) && (!days.toDate || date <= days.toDate);
+        })
+      : events;
+    return kept.map((e) => this.toResponse(e));
+  }
+
+  /**
+   * Spec 020 FR-020 (research R15): `fromDate`/`toDate` as a wide instant window that holds every
+   * local day of every US zone (offsets -4 to -10 hours), `[fromDate 00:00Z, toDate + 1 day
+   * 12:00Z)`; the exact local dates are kept afterwards. Not combinable with `from`/`to`.
+   */
+  private venueDays(
+    query: ListEventsQuery,
+  ): { fromDate?: string; toDate?: string; window: Prisma.DateTimeFilter } | null {
+    const { fromDate, toDate } = query;
+    if (!fromDate && !toDate) return null;
+    if (query.from || query.to) {
+      throw new BadRequestException({
+        message: ['fromDate and toDate cannot be sent with from or to'],
+      });
+    }
+    if (fromDate && toDate && fromDate > toDate) {
+      throw new BadRequestException({ message: ['fromDate must be on or before toDate'] });
+    }
+    const window: Prisma.DateTimeFilter = {};
+    if (fromDate) window.gte = new Date(`${fromDate}T00:00:00Z`);
+    if (toDate) window.lt = new Date(Date.parse(`${toDate}T12:00:00Z`) + 86_400_000);
+    return { fromDate, toDate, window };
   }
 
   async findOne(id: string): Promise<EventResponse> {
@@ -145,17 +198,49 @@ export class EventsService {
   /**
    * Runs in one transaction that first locks the event row, the same lock tier writes take
    * (spec 004 research R2), so a capacity cut and a tier change can never both slip through.
+   *
+   * Spec 020 research R10: before the event row, the event's current venue and its destination
+   * are taken FOR SHARE in id order (venue, then event, the order venue-lock.ts documents). The
+   * current venue is read without a lock first; if the event moved meanwhile, the transaction is
+   * retried, at most twice more.
    */
-  private updateOnce(id: string, dto: UpdateEventDto): Promise<EventResponse> {
-    return this.prisma.$transaction((tx) => this.updateLocked(tx, id, dto), LOCKING_TX);
+  private async updateOnce(id: string, dto: UpdateEventDto): Promise<EventResponse> {
+    for (let attempt = 1; ; attempt++) {
+      const before = await this.prisma.event.findUnique({
+        where: { id },
+        select: { locationId: true },
+      });
+      if (!before) throw new NotFoundException(`No event exists with id ${id}.`);
+      try {
+        return await this.prisma.$transaction(
+          (tx) => this.updateLocked(tx, id, dto, before.locationId),
+          LOCKING_TX,
+        );
+      } catch (err) {
+        if (!(err instanceof VenueMoved)) throw err;
+        // Review round 1, m1: still moving after every retry is a race with other writes, the
+        // same 409 the database's overlap race gives, never a 500.
+        if (attempt >= DEADLOCK_ATTEMPTS) {
+          throw conflict(
+            'SCHEDULING_CONFLICT',
+            'This event was moved to another venue while it was being saved. Reload it and try ' +
+              'again.',
+            { bufferMinutes: SCHEDULING_BUFFER_MINUTES, conflictingEvent: null },
+          );
+        }
+      }
+    }
   }
 
   private async updateLocked(
     tx: Prisma.TransactionClient,
     id: string,
     dto: UpdateEventDto,
+    venueBefore: string,
   ): Promise<EventResponse> {
+    await lockVenueShared(tx, [venueBefore, dto.locationId ?? venueBefore]);
     const locked = await lockEvent(tx, id);
+    if (locked.locationId !== venueBefore) throw new VenueMoved();
     if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
     // Spec 007 research R3: a seated event's sections belong to its venue, so it cannot move.
     if (locked.reservedSeating && dto.locationId && dto.locationId !== locked.locationId) {
@@ -176,11 +261,32 @@ export class EventsService {
     // The conflict check runs against the DESTINATION venue and DESTINATION window —
     // an edit that only moves the venue must be checked where it is going, not where it was.
     const locationId = dto.locationId ?? existing.locationId;
-    const startsAt = dto.startsAt ? new Date(dto.startsAt) : existing.startsAt;
-    const endsAt = dto.endsAt ? new Date(dto.endsAt) : existing.endsAt;
-
-    this.assertWindowOrdered(startsAt, endsAt);
+    this.assertWindowOrdered(
+      dto.startsAt ? new Date(dto.startsAt) : existing.startsAt,
+      dto.endsAt ? new Date(dto.endsAt) : existing.endsAt,
+    );
     const location = await this.requireLocation(locationId, tx);
+    const zone = location.timeZone as UsTimeZone;
+
+    // Spec 020 FR-019 (research R9): a move to a venue in another zone must say both local times.
+    if (locationId !== existing.locationId && (!dto.startsAt || !dto.endsAt)) {
+      const current = await this.requireLocation(existing.locationId, tx);
+      if (current.timeZone !== location.timeZone) {
+        throw new BadRequestException({
+          message: [
+            'Send startsAt and endsAt when moving an event to a venue in another time zone, so ' +
+              'its local times are clear.',
+          ],
+        });
+      }
+    }
+    // Spec 020 FR-018: only the times sent are checked, in the destination venue's zone.
+    const startsAt = dto.startsAt
+      ? checkEventTime('startsAt', dto.startsAt, zone, location.name)
+      : existing.startsAt;
+    const endsAt = dto.endsAt
+      ? checkEventTime('endsAt', dto.endsAt, zone, location.name)
+      : existing.endsAt;
 
     const capacity = dto.totalTicketCapacity ?? existing.totalTicketCapacity;
     this.assertCapacityWithinVenue(capacity, location);
@@ -196,7 +302,7 @@ export class EventsService {
 
     // `id` is excluded so an event never conflicts with itself (FR-025) — saving an
     // unchanged event must always succeed.
-    await this.assertNoConflict(locationId, startsAt, endsAt, id, tx);
+    await this.assertNoConflict(locationId, zone, startsAt, endsAt, id, tx);
 
     const updated = await tx.event.update({
       where: { id },
@@ -424,6 +530,7 @@ export class EventsService {
    */
   private async assertNoConflict(
     locationId: string,
+    zone: UsTimeZone,
     startsAt: Date,
     endsAt: Date,
     excludeEventId: string | null,
@@ -451,7 +558,7 @@ export class EventsService {
     });
 
     if (clash) {
-      throw new SchedulingConflictException(clash);
+      throw new SchedulingConflictException(clash, zone);
     }
   }
 }

@@ -1,5 +1,6 @@
 export * from './errors.js';
 export * from './location.js';
+export * from './time-zone.js';
 export * from './event.js';
 export * from './event-image.js';
 export * from './tier.js';

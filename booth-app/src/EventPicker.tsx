@@ -49,7 +49,7 @@ export function EventPicker({
           {events.map((e) => (
             <li key={e.id}>
               <button type="button" className="btn event-choice" onClick={() => onChoose(e)}>
-                {`${e.name} · ${when(e.startsAt)}`}
+                {`${e.name} · ${when(e.startsAt, e.location?.timeZone)}`}
               </button>
             </li>
           ))}

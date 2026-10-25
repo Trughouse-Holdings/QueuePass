@@ -1,5 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
-import type { FakeAnswer } from '../setup/fake-geocoder';
+import { PLACES, type FakeAnswer } from '../setup/fake-geocoder';
 import { ADDRESS, event, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
@@ -44,6 +44,7 @@ describe('Venue address check on edit (spec 013)', () => {
         zip: '40202',
         seatingCapacity: 22090,
         acceptUnverifiedAddress: true,
+        timeZone: 'America/New_York',
       })
       .expect(201);
     ctx.geocoder.reset();
@@ -109,6 +110,7 @@ describe('Venue address check on edit (spec 013)', () => {
       city: 'LOUISVILLE',
       state: 'KY',
       zip: '40213',
+      location: PLACES.louisville,
     });
     const res = await patch(moved).expect(400);
     expect(res.body.error.code).toBe('ADDRESS_AMBIGUOUS');
@@ -123,8 +125,13 @@ describe('Venue address check on edit (spec 013)', () => {
       city: 'LOUISVILLE',
       state: 'KY',
       zip: '40209',
+      location: PLACES.louisville,
     });
-    const res = await patch({ ...moved, acceptUnverifiedAddress: true }).expect(200);
+    const res = await patch({
+      ...moved,
+      acceptUnverifiedAddress: true,
+      timeZone: 'America/New_York',
+    }).expect(200);
     expect(res.body).toMatchObject({
       address: '937 Phillips Ln, Louisville, KY 40209',
       addressVerified: false,
@@ -133,7 +140,11 @@ describe('Venue address check on edit (spec 013)', () => {
 
   it('saves a changed address anyway after no match: as typed, not verified', async () => {
     ctx.geocoder.next({ kind: 'none' });
-    const res = await patch({ ...moved, acceptUnverifiedAddress: true }).expect(200);
+    const res = await patch({
+      ...moved,
+      acceptUnverifiedAddress: true,
+      timeZone: 'America/New_York',
+    }).expect(200);
     expect(res.body).toMatchObject({
       street: '937 Phillips Ln',
       city: 'Louisville',

@@ -118,7 +118,7 @@ export function Attendees(): React.ReactElement {
                               {t.status === 'VOID'
                                 ? ' (void)'
                                 : t.checkedInAt
-                                  ? ` ✓ checked in ${when(t.checkedInAt)}`
+                                  ? ` ✓ checked in ${when(t.checkedInAt, load.event.location.timeZone)}`
                                   : ''}
                             </li>
                           ))}

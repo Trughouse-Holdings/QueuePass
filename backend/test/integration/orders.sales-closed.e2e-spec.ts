@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { HOLDER, customer, event, venue } from '../setup/fixtures';
+import { atInstant, customer, event, HOLDER, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -29,8 +29,8 @@ describe('Sales close at the start time', () => {
   const startingIn = (offsetMs: number) => {
     const start = Date.now() + offsetMs;
     return {
-      startsAt: new Date(start).toISOString(),
-      endsAt: new Date(start + 3 * 3_600_000).toISOString(),
+      startsAt: atInstant(start),
+      endsAt: atInstant(start + 3 * 3_600_000),
     };
   };
 

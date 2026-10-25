@@ -4,6 +4,7 @@ import type { Location } from '@queuepass/shared';
 import { AddressLink } from '@queuepass/shared/web';
 import { listLocations } from '../api/locations';
 import { Notice } from '../components/Notice';
+import { venueZone } from '../format';
 
 /**
  * Spec 002 FR-024 — the venue list; spec 004 US3 — search by name or address, kept in the
@@ -120,6 +121,7 @@ export function LocationList(): React.ReactElement {
                 <tr>
                   <th>Name</th>
                   <th>Address</th>
+                  <th>Time zone</th>
                   <th>Seating capacity</th>
                   <th />
                 </tr>
@@ -142,6 +144,8 @@ export function LocationList(): React.ReactElement {
                         </>
                       )}
                     </td>
+                    {/* Spec 020 FR-024: the zone and how it was set. */}
+                    <td>{venueZone(l)}</td>
                     <td className="cell-num">{l.seatingCapacity.toLocaleString()}</td>
                     <td className="cell-action">
                       <Link to={`/locations/${l.id}/edit`} className="rowlink">

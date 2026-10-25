@@ -5,6 +5,7 @@ import {
   AddressParts,
   AddressServiceUnavailableError,
   GeocodeResult,
+  Place,
 } from './address-geocoder';
 
 const STATE_CODES: ReadonlySet<string> = new Set(US_STATES.map((s) => s.code));
@@ -91,7 +92,7 @@ export class CensusGeocoder implements AddressGeocoder {
     if (distinct.length === 0) return { kind: 'none' };
     if (distinct.length === 1) {
       const split = splitMatched(distinct[0]);
-      if (split) return { kind: 'match', ...split };
+      if (split) return { kind: 'match', ...split, location: placeOf(found, distinct[0]) };
       // A match we cannot read is no better than no match (research R3).
       this.logger.warn(`Address service match cannot be split: "${distinct[0]}"`);
       return { kind: 'none' };
@@ -104,6 +105,23 @@ export class CensusGeocoder implements AddressGeocoder {
       }),
     };
   }
+}
+
+/**
+ * Spec 020 research R1: the place of the first entry with this matched address, from the
+ * service's `coordinates: { x: longitude, y: latitude }`; null unless both are finite numbers.
+ * Missing coordinates are not a failure: the zone then comes from the state (R3).
+ */
+function placeOf(found: unknown[], matched: string): Place | null {
+  const entry = found.find(
+    (m) => (m as { matchedAddress?: unknown } | null)?.matchedAddress === matched,
+  ) as { coordinates?: unknown } | undefined;
+  const c = entry?.coordinates;
+  if (typeof c !== 'object' || c === null) return null;
+  const { x, y } = c as { x?: unknown; y?: unknown };
+  if (typeof x !== 'number' || typeof y !== 'number') return null;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { latitude: y, longitude: x };
 }
 
 /**

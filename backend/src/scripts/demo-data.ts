@@ -1,5 +1,6 @@
 import type { INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { localDate, resolveLocal, toOffsetDateTime, type UsTimeZone } from '@queuepass/shared';
 import { AppModule } from '../app.module';
 import type { Principal } from '../auth/principal';
 import { EventImagesService } from '../events/event-images.service';
@@ -99,12 +100,31 @@ const buyer = (n: number): Principal => ({
   expiresAt: 0,
 });
 
-/** Midnight UTC `days` from now, plus `hour` hours. */
-function at(days: number, hour: number): string {
-  const d = new Date();
-  d.setUTCHours(0, 0, 0, 0);
-  return new Date(d.getTime() + days * 86_400_000 + hour * 3_600_000).toISOString();
+/**
+ * Spec 020 research R19: the venue's local date `days` from today there, at the local `time`
+ * (`HH:mm`). On a fall-back night the first of a repeated time is taken, on a spring-forward
+ * night the next hour, so the script never fails on a daylight-saving date.
+ */
+function atLocal(days: number, time: string, zone: UsTimeZone): Date {
+  const [y, m, d] = localDate(new Date(), zone).split('-').map(Number);
+  const day = new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+  const r = resolveLocal(`${day}T${time}`, zone);
+  if (r.kind === 'ok') return r.moment.instant;
+  if (r.kind === 'repeated') return r.first.instant;
+  const [hh, mm] = time.split(':').map(Number);
+  return atLocal(days, `${String(hh + 1).padStart(2, '0')}:${String(mm).padStart(2, '0')}`, zone);
 }
+
+const HOUR = 3_600_000;
+
+/**
+ * Spec 020 research R9, R19: every demo time is sent in the venue's offset, never
+ * `toISOString()` (a `Z`, which the Backend refuses). An instant has exactly one offset in a zone.
+ */
+const timesAt = (start: Date | number, hours: number, zone: UsTimeZone) => ({
+  startsAt: toOffsetDateTime(start, zone),
+  endsAt: toOffsetDateTime(new Date(start).getTime() + hours * HOUR, zone),
+});
 
 export async function runDemoData(app: INestApplicationContext): Promise<DemoSummary> {
   const prisma = app.get(PrismaService);
@@ -128,7 +148,11 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const orders = app.get(OrdersService);
   const images = app.get(EventImagesService);
 
-  const offline = { whenServiceUnavailable: 'saveUnverified' } as const;
+  // Spec 020 research R19: offline, a Kentucky venue gets the default zone instead of a refusal.
+  const offline = {
+    whenServiceUnavailable: 'saveUnverified',
+    fallbackToDefaultTimeZone: true,
+  } as const;
   const hall = await locations.create(
     {
       name: 'Demo Riverside Hall',
@@ -152,11 +176,14 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
     offline,
   );
 
+  const hallZone = hall.timeZone as UsTimeZone;
+  const arenaZone = arena.timeZone as UsTimeZone;
+
   const concert = await events.create({
     name: 'Fall Concert',
     locationId: arena.id,
-    startsAt: at(14, 23),
-    endsAt: at(15, 2),
+    // 7:00 PM to 10:00 PM at the venue, whatever the season (R19).
+    ...timesAt(atLocal(14, '19:00', arenaZone), 3, arenaZone),
     totalTicketCapacity: 500,
     basePrice: '45.00',
   });
@@ -170,8 +197,8 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const comedy = await events.create({
     name: 'Comedy Night',
     locationId: hall.id,
-    startsAt: at(21, 24),
-    endsAt: at(22, 2),
+    // 8:00 PM to 11:00 PM at the venue.
+    ...timesAt(atLocal(21, '20:00', hallZone), 3, hallZone),
     totalTicketCapacity: 200,
     // Spec 016 research R10: a per-customer limit to show live; every demo order fits under it.
     maxTicketsPerCustomer: 4,
@@ -184,8 +211,9 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const tonight = await events.create({
     name: 'Demo Tonight',
     locationId: hall.id,
-    startsAt: new Date(Date.now() + 3_600_000).toISOString(),
-    endsAt: new Date(Date.now() + 4 * 3_600_000).toISOString(),
+    // An instant, not a local time (spec 017 research R13), in the venue's offset (R19).
+    // On the whole minute (review round 2, m1): an edit form shows minutes only.
+    ...timesAt(Math.floor(Date.now() / 60_000) * 60_000 + HOUR, 3, hallZone),
     totalTicketCapacity: 100,
     basePrice: '20.00',
   });
@@ -193,8 +221,8 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const gala = await events.create({
     name: 'Holiday Gala',
     locationId: arena.id,
-    startsAt: at(30, 23),
-    endsAt: at(31, 3),
+    // 7:00 PM to 10:00 PM at the venue.
+    ...timesAt(atLocal(30, '19:00', arenaZone), 3, arenaZone),
     totalTicketCapacity: 300,
     basePrice: '80.00',
   });

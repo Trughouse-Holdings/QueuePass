@@ -1,9 +1,28 @@
 import { expectToMatchContract } from '../contract/expect-to-match-contract';
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { HOLDER, customer, event, tier, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, tier, venue, windowAt } from '../setup/fixtures';
+import { PLACES } from '../setup/fake-geocoder';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, tokenFor } from '../setup/tokens';
+
+/** Spec 020: a venue placed in Phoenix by the fake address service (Arizona time). */
+async function phoenixVenue(ctx: TestContext, name = 'Phoenix Hall'): Promise<string> {
+  ctx.geocoder.placeAt(PLACES.phoenix);
+  const res = await asAdmin(ctx)
+    .post('/locations')
+    .send({
+      name,
+      street: '201 E Jefferson St',
+      city: 'Phoenix',
+      state: 'AZ',
+      zip: '85004',
+      seatingCapacity: 500,
+    })
+    .expect(201);
+  ctx.geocoder.reset();
+  return res.body.id;
+}
 
 /** Spec 006 US3 (FR-007, SC-003; research R4): a customer's own orders, and no one else's. */
 describe('My orders', () => {
@@ -53,6 +72,21 @@ describe('My orders', () => {
     expect(res.body[1].tickets.map((t: { code: string }) => t.code).sort()).toEqual(
       first.body.tickets.map((t: { code: string }) => t.code).sort(),
     );
+  });
+
+  it("carries the event's venue zone for each order (spec 020 FR-021, R16)", async () => {
+    const phoenix = await phoenixVenue(ctx);
+    const eastEvent = await event(ctx, venueId);
+    const westEvent = await event(ctx, phoenix, windowAt(380, 19, 'America/Phoenix'));
+    await buy(eastEvent, { quantity: 1 });
+    await buy(westEvent, { quantity: 1 });
+    const zones = Object.fromEntries(
+      (await mine()).body.map((o: { event: { id: string; location: { timeZone: string } } }) => [
+        o.event.id,
+        o.event.location.timeZone,
+      ]),
+    );
+    expect(zones).toEqual({ [eastEvent]: 'America/New_York', [westEvent]: 'America/Phoenix' });
   });
 
   it("never shows one customer another customer's orders", async () => {
@@ -119,13 +153,21 @@ describe('My orders', () => {
         id: venueId,
         name: 'Yum Center',
         address: '430 W VINE ST, LEXINGTON, KY 40507',
+        // Spec 020 FR-021 (research R16).
+        timeZone: 'America/New_York',
       });
       expect(order.event.location.address).toBe(venueRow.address);
     });
 
     it('sends the stored text for a venue from before 013 (no address parts)', async () => {
       const legacy = await ctx.prisma.location.create({
-        data: { name: 'Old Hall', address: '1 Demo Plaza, Louisville, KY', seatingCapacity: 500 },
+        data: {
+          name: 'Old Hall',
+          address: '1 Demo Plaza, Louisville, KY',
+          seatingCapacity: 500,
+          timeZone: 'America/New_York',
+          timeZoneSource: 'DEFAULT',
+        },
       });
       const eventId = await event(ctx, legacy.id);
       await buy(eventId, { quantity: 1 });
@@ -137,6 +179,7 @@ describe('My orders', () => {
         id: legacy.id,
         name: 'Old Hall',
         address: '1 Demo Plaza, Louisville, KY',
+        timeZone: 'America/New_York',
       });
     });
 
@@ -167,8 +210,19 @@ describe('My orders', () => {
       );
 
       expect(byName).toEqual({
-        Here: { id: venueId, name: 'Yum Center', address: '430 W VINE ST, LEXINGTON, KY 40507' },
-        There: { id: other, name: 'River Hall', address: '1 ARENA PLAZA, LOUISVILLE, KY 40202' },
+        // Spec 020 R16: each with its venue's zone.
+        Here: {
+          id: venueId,
+          name: 'Yum Center',
+          address: '430 W VINE ST, LEXINGTON, KY 40507',
+          timeZone: 'America/New_York',
+        },
+        There: {
+          id: other,
+          name: 'River Hall',
+          address: '1 ARENA PLAZA, LOUISVILLE, KY 40202',
+          timeZone: 'America/New_York',
+        },
       });
     });
 

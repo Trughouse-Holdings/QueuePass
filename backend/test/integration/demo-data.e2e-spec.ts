@@ -1,4 +1,4 @@
-import { sniffImageType } from '@queuepass/shared';
+import { sniffImageType, toLocalDateTime } from '@queuepass/shared';
 import { runDemoData } from '../../src/scripts/demo-data';
 import { asAdmin } from '../setup/authed-request';
 import { ADDRESS } from '../setup/fixtures';
@@ -156,6 +156,45 @@ describe('Demo data', () => {
       expect(hall.createdAt.getTime()).toBeLessThanOrEqual(arena.createdAt.getTime());
     });
 
+    /** Spec 020 research R19: online, both get Eastern from their verified addresses. */
+    it('gives both venues Eastern time, from the address', async () => {
+      // Created by the first test of this file, with the fake matching (placed in Lexington).
+      for (const v of await venues()) {
+        expect([v.name, v.timeZone, v.timeZoneSource]).toEqual([
+          v.name,
+          'America/New_York',
+          'ADDRESS',
+        ]);
+      }
+    });
+
+    /**
+     * Spec 020 research R19: the concert, comedy night, and gala start at 7:00 PM, 8:00 PM, and
+     * 7:00 PM Eastern on their dates, whatever the season, and end 3 hours later; Demo Tonight
+     * still starts about an hour after the run.
+     */
+    it('schedules the demo events at round local times in the venue zone', async () => {
+      const events = await ctx.prisma.event.findMany({ include: { location: true } });
+      const local = (name: string) => {
+        const e = events.find((x) => x.name === name)!;
+        return {
+          start: toLocalDateTime(e.startsAt, e.location.timeZone).slice(11),
+          hours: (e.endsAt.getTime() - e.startsAt.getTime()) / 3_600_000,
+        };
+      };
+      expect(local('Fall Concert')).toEqual({ start: '19:00', hours: 3 });
+      expect(local('Comedy Night')).toEqual({ start: '20:00', hours: 3 });
+      expect(local('Holiday Gala')).toEqual({ start: '19:00', hours: 3 });
+      const tonight = events.find((e) => e.name === 'Demo Tonight')!;
+      const inMinutes = (tonight.startsAt.getTime() - Date.now()) / 60_000;
+      // An hour after the run, which happened earlier in this file.
+      expect(inMinutes).toBeLessThanOrEqual(60);
+      expect(inMinutes).toBeGreaterThan(0);
+      // Review round 2, m1: on the whole minute, so an edit form never sees seconds.
+      expect(tonight.startsAt.getTime() % 60_000).toBe(0);
+      expect(tonight.endsAt.getTime() % 60_000).toBe(0);
+    });
+
     it('completes while the address service is down, saving the venues not verified', async () => {
       await resetDb(ctx.prisma);
       ctx.geocoder.reset();
@@ -182,6 +221,10 @@ describe('Demo data', () => {
           address: '937 Phillips Ln, Louisville, KY 40209',
           addressVerified: false,
         });
+        // Spec 020 research R19: Kentucky has two zones; offline, demo data takes the default.
+        for (const v of [hall, arena]) {
+          expect([v.timeZone, v.timeZoneSource]).toEqual(['America/New_York', 'DEFAULT']);
+        }
 
         // The API rule is unchanged: a request is still refused (FR-006).
         const res = await asAdmin(ctx)
@@ -189,6 +232,21 @@ describe('Demo data', () => {
           .send({ name: 'Walk-in Hall', ...ADDRESS, seatingCapacity: 10 })
           .expect(503);
         expect(res.body.error.code).toBe('ADDRESS_SERVICE_UNAVAILABLE');
+
+        // Spec 020 research R19: no request can use the default fallback either: a Kentucky
+        // address saved anyway still needs a zone.
+        ctx.geocoder.reset();
+        ctx.geocoder.always({ kind: 'none' });
+        const refused = await asAdmin(ctx)
+          .post('/locations')
+          .send({
+            name: 'Walk-in Hall',
+            ...ADDRESS,
+            seatingCapacity: 10,
+            acceptUnverifiedAddress: true,
+          })
+          .expect(400);
+        expect(refused.body.error.code).toBe('TIME_ZONE_REQUIRED');
       } finally {
         ctx.geocoder.reset();
       }

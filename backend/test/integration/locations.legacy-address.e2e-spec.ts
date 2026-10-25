@@ -25,7 +25,15 @@ describe('Venue address storage (spec 013)', () => {
 
   const insert = (data: Record<string, unknown>) =>
     ctx.prisma.location.create({
-      data: { name: 'Hall', address: 'x', seatingCapacity: 10, ...data },
+      // Spec 020: both required after the venue_time_zones migration (T015).
+      data: {
+        name: 'Hall',
+        address: 'x',
+        seatingCapacity: 10,
+        timeZone: 'America/New_York',
+        timeZoneSource: 'DEFAULT',
+        ...data,
+      },
     });
 
   it('accepts a venue with only the one-line address, not verified by default', async () => {
@@ -151,7 +159,7 @@ describe('Venue address storage (spec 013)', () => {
       ctx.geocoder.next({ kind: 'none' });
       const res = await asAdmin(ctx)
         .patch(`/locations/${id}`)
-        .send({ ...moved, acceptUnverifiedAddress: true })
+        .send({ ...moved, acceptUnverifiedAddress: true, timeZone: 'America/New_York' })
         .expect(200);
       expect(res.body).toMatchObject({
         address: '937 Phillips Ln, Louisville, KY 40209',

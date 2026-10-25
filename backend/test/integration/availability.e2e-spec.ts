@@ -1,5 +1,5 @@
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { HOLDER, customer, event, tier, venue } from '../setup/fixtures';
+import { atInstant, customer, event, HOLDER, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, CUSTOMER, tokenFor } from '../setup/tokens';
@@ -32,8 +32,8 @@ describe('Event availability', () => {
   const started = () => {
     const start = Date.now() - 60_000;
     return {
-      startsAt: new Date(start).toISOString(),
-      endsAt: new Date(start + 3 * 3_600_000).toISOString(),
+      startsAt: atInstant(start),
+      endsAt: atInstant(start + 3 * 3_600_000),
     };
   };
 

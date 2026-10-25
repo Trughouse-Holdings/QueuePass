@@ -81,6 +81,11 @@ describe('SCHEDULING_CONFLICT error contract', () => {
 
     expect(res.body.error.message).toContain('Season Opener');
     expect(res.body.error.message).toContain('60 minutes');
+    // Spec 020 FR-022 (research R9): the venue's local time with its abbreviation, not UTC.
+    expect(res.body.error.message).toBe(
+      "This venue is already committed from Oct 1, 2026, 6:00 PM EDT to 9:00 PM EDT by 'Season " +
+        "Opener'. Events at the same venue must be at least 60 minutes apart.",
+    );
   });
 
   it('is rejected identically when submitted directly to the API (FR-028, SC-008)', async () => {

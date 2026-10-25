@@ -1,11 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { SalesReport } from '@queuepass/shared';
+import {
+  DEFAULT_TIME_ZONE,
+  formatEventDate,
+  formatViewerTime,
+  type SalesReport,
+} from '@queuepass/shared';
 import { getSalesReport } from '../api/reports';
 import { usd } from '../money';
 
-const day = (iso: string): string =>
-  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+/** Spec 020 FR-022: an event's date in its venue's zone (research R12). */
+const day = (iso: string, timeZone?: string): string =>
+  formatEventDate(iso, timeZone ?? DEFAULT_TIME_ZONE);
 const share = (part: number, whole: number): number =>
   whole > 0 ? Math.round((part / whole) * 100) : 0;
 
@@ -50,7 +56,8 @@ export function Reports(): React.ReactElement {
         <div>
           <h1 className="page-title">Reports</h1>
           <p className="page-sub">
-            Live sales across every event · as of {new Date(report.generatedAt).toLocaleString()}
+            Live sales across every event · as of{' '}
+            {formatViewerTime(report.generatedAt, { date: true })}
           </p>
         </div>
       </div>
@@ -118,7 +125,7 @@ export function Reports(): React.ReactElement {
                         {cancelled && <span className="pill pill--danger">Cancelled</span>}
                       </td>
                       <td className="cell-muted">{e.venueName}</td>
-                      <td className="cell-time">{day(e.startsAt)}</td>
+                      <td className="cell-time">{day(e.startsAt, e.timeZone)}</td>
                       <td className="cell-meter">
                         <span className="cell-num">
                           {`${e.ticketsSold.toLocaleString()} of ${e.ticketCapacity.toLocaleString()} (${pct}%)`}

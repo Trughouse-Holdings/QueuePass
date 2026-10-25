@@ -47,6 +47,8 @@ describe('lookupEntryTicket', () => {
         name: 'Around Now',
         startsAt: expect.any(String),
         endsAt: expect.any(String),
+        // Spec 020 FR-021 (research R16).
+        timeZone: 'America/New_York',
       },
       tierName: null,
       seat: null,

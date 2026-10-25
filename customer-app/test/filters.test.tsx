@@ -53,7 +53,9 @@ describe('filters (US1-1 to US1-4)', () => {
     await vi.waitFor(() => expect(lastQuery(calls).get('locationId')).toBe('v2'));
   });
 
-  it("filters by whole days in the customer's time zone, the end day included", async () => {
+  // Spec 020 FR-020 (research R15): the days as chosen; the Backend matches each event's start
+  // date in its venue's zone, both days included, whatever the customer's own zone.
+  it("filters by whole days at each event's venue, the end day included", async () => {
     const { calls } = stubApi(routes());
     renderCustomer({ at: '/events' });
 
@@ -62,8 +64,10 @@ describe('filters (US1-1 to US1-4)', () => {
 
     await vi.waitFor(() => {
       const q = lastQuery(calls);
-      expect(q.get('from')).toBe('2026-12-01T05:00:00.000Z');
-      expect(q.get('to')).toBe('2027-01-01T05:00:00.000Z');
+      expect(q.get('fromDate')).toBe('2026-12-01');
+      expect(q.get('toDate')).toBe('2026-12-31');
+      expect(q.has('from')).toBe(false);
+      expect(q.has('to')).toBe(false);
     });
   });
 
@@ -100,8 +104,8 @@ describe('the page address (US1-5; FR-003)', () => {
       expect(Object.fromEntries(q)).toEqual({
         q: 'open',
         locationId: 'v1',
-        from: '2026-12-01T05:00:00.000Z',
-        to: '2027-01-01T05:00:00.000Z',
+        fromDate: '2026-12-01',
+        toDate: '2026-12-31',
       });
     });
   });

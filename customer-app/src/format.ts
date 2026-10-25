@@ -1,9 +1,12 @@
+import { DEFAULT_TIME_ZONE, formatEventTime } from '@queuepass/shared';
+
 /**
- * An instant in the customer's own time zone, always with its date (spec 003 FR-006), so an
- * event from 22:00 to 02:00 the next day shows two different dates.
+ * An event time in its venue's zone, always with its date (spec 003 FR-006) and the zone's
+ * abbreviation (spec 020 FR-021, research R12): "Oct 1, 2026, 7:00 PM EDT", whatever the
+ * customer's own zone. A response without a zone is read as `DEFAULT_TIME_ZONE`.
  */
-export const when = (iso: string): string =>
-  new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+export const when = (iso: string, timeZone?: string | null): string =>
+  formatEventTime(iso, timeZone || DEFAULT_TIME_ZONE);
 
 /**
  * A decimal-string price as US dollars (spec 003 FR-007). Built from the string's digits, never

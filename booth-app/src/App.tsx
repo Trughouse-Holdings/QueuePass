@@ -135,6 +135,8 @@ function Booth() {
                 message: refusalText(ticket.state, {
                   eventName: ticket.event.name,
                   eventStartsAt: ticket.event.startsAt,
+                  eventTimeZone: ticket.event.timeZone,
+                  timeZone: chosen.location?.timeZone,
                   usedAt: ticket.usedAt ?? undefined,
                   entryOpensAt: ticket.entryOpensAt,
                 }),
@@ -183,13 +185,15 @@ function Booth() {
           reason?: string;
           usedAt?: string;
           entryOpensAt?: string;
-          event?: { name?: string; startsAt?: string };
+          event?: { name?: string; startsAt?: string; timeZone?: string };
         };
         setOutcome({
           kind: 'refused',
           message: refusalText(d.reason, {
             eventName: d.event?.name,
             eventStartsAt: d.event?.startsAt,
+            eventTimeZone: d.event?.timeZone,
+            timeZone: chosen.location?.timeZone,
             usedAt: d.usedAt,
             entryOpensAt: d.entryOpensAt,
           }),
@@ -271,6 +275,7 @@ function Booth() {
               onAdmit={(wholeOrder) => void admit(wholeOrder)}
               onRefuse={refuse}
               onAnother={another}
+              timeZone={chosen?.location?.timeZone}
             />
           </>
         )}

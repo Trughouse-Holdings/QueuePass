@@ -11,6 +11,7 @@ import {
   holderNameProblem,
   normalizeHolderName,
   type SeatStateChange,
+  type UsTimeZone,
 } from '@queuepass/shared';
 import type { Principal } from '../auth/principal';
 import { conflict, eventCancelled } from '../common/conflict';
@@ -108,7 +109,7 @@ export interface MyOrderResponse extends OrderResponse {
     endsAt: Date;
     status: EventStatus;
     /** Spec 019 FR-012 (research R2): `address` is the venue's one-line `Location.address`. */
-    location: { id: string; name: string; address: string };
+    location: { id: string; name: string; address: string; timeZone: UsTimeZone };
   };
 }
 
@@ -458,6 +459,8 @@ export class OrdersService {
           id: o.event.location.id,
           name: o.event.location.name,
           address: o.event.location.address,
+          // Spec 020 FR-021 (research R16).
+          timeZone: o.event.location.timeZone as UsTimeZone,
         },
       },
     }));

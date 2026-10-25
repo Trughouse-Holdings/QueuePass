@@ -32,10 +32,15 @@ describe('Event search', () => {
         .post('/events')
         .send({ name, locationId, startsAt, endsAt, totalTicketCapacity: 100, basePrice: '1.00' })
         .expect(201);
-    await event('Spring Show', yum, '2026-04-10T18:00:00Z', '2026-04-10T21:00:00Z');
-    await event('Summer SHOWCASE', freedom, '2026-07-01T18:00:00Z', '2026-07-01T21:00:00Z');
-    await event('Autumn Gala', yum, '2026-10-01T00:00:00Z', '2026-10-01T03:00:00Z');
-    await event('Winter Gala', freedom, '2026-12-20T18:00:00Z', '2026-12-20T21:00:00Z');
+    await event('Spring Show', yum, '2026-04-10T14:00:00-04:00', '2026-04-10T17:00:00-04:00');
+    await event(
+      'Summer SHOWCASE',
+      freedom,
+      '2026-07-01T14:00:00-04:00',
+      '2026-07-01T17:00:00-04:00',
+    );
+    await event('Autumn Gala', yum, '2026-09-30T20:00:00-04:00', '2026-09-30T23:00:00-04:00');
+    await event('Winter Gala', freedom, '2026-12-20T13:00:00-05:00', '2026-12-20T16:00:00-05:00');
   });
 
   const names = (body: { name: string }[]) => body.map((e) => e.name);

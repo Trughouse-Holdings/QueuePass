@@ -15,6 +15,9 @@ export default defineConfig({
     // coverage/coverage-summary.json feeds scripts/coverage-report.mjs (R11). No thresholds
     // until 010-test-coverage.
     coverage: { provider: 'v8', include: ['src/**'], reporter: ['text-summary', 'json-summary'] },
+    // Spec 020 research R20: no zone pin; QP_TEST_TZ (set by scripts/test-tz.mjs) runs the suite
+    // under another device zone.
+    env: { ...(process.env.QP_TEST_TZ ? { TZ: process.env.QP_TEST_TZ } : {}) },
   },
   resolve: {
     // Exact-match aliases: a plain '@queuepass/shared' key would also capture '/web' as a prefix.
