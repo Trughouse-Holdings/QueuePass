@@ -101,6 +101,17 @@ describe('Event times in the venue zone (spec 020 FR-018)', () => {
       expect(res.body.error.message).toMatch(/^endsAt is stated with offset -07:00/);
     });
 
+    // Review round 2, m4: in 1850 Eastern is local mean time (-04:56:02); the time is refused,
+    // never accepted as UTC (SC-007).
+    it('refuses a Z time in 1850, whose offset cannot be stated, saving nothing', async () => {
+      const res = await at(east, '1850-06-01T12:00:00Z', '1850-06-01T14:00:00Z').expect(400);
+      expect(res.body.error.code).toBe('VALIDATION_FAILED');
+      expect(JSON.stringify(res.body.error)).toContain(
+        'startsAt is outside the times QueuePass can place in Eastern Time',
+      );
+      expect(await ctx.prisma.event.count()).toBe(0);
+    });
+
     it('uses EST in December', async () => {
       await at(east, '2026-12-05T20:00:00-05:00', '2026-12-05T23:00:00-05:00').expect(201);
       const res = await at(east, '2026-12-12T20:00:00-04:00', '2026-12-12T23:00:00-05:00').expect(

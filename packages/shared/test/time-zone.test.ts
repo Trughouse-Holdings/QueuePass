@@ -396,3 +396,19 @@ describe('R9 message helpers', () => {
     );
   });
 });
+
+/**
+ * Review round 2, m4: before standard time (1883) ICU gives local mean time, such as
+ * `GMT-04:56:02`; an offset the module cannot read is unknown, never 0 (+00:00).
+ */
+describe('an offset ICU gives in seconds', () => {
+  it('is refused as unknown, not read as UTC', () => {
+    expect(() => offsetAt('1850-06-01T12:00:00Z', 'America/New_York')).toThrow(RangeError);
+    expect(() => toOffsetDateTime('1850-06-01T12:00:00Z', 'America/New_York')).toThrow(RangeError);
+    expect(() => resolveLocal('1850-06-01T08:00', 'America/New_York')).toThrow(RangeError);
+  });
+
+  it('still reads UTC itself as 0', () => {
+    expect(offsetAt('2026-10-01T12:00:00Z', 'UTC')).toBe(0);
+  });
+});
