@@ -12,6 +12,7 @@ import {
   type UsTimeZone,
 } from '@queuepass/shared';
 import { SOURCE_TEXT, venueZone } from '../format';
+import { listEvents } from '../api/events';
 import { createLocation, getLocation, updateLocation } from '../api/locations';
 import { getLayout, replaceLayout } from '../api/seating';
 import { ApiError } from '../api/client';
@@ -108,6 +109,8 @@ export function LocationForm(): React.ReactElement {
   /** The zones of a TIME_ZONE_REQUIRED refusal, until the state changes. */
   const [requiredZones, setRequiredZones] = useState<UsTimeZone[] | null>(null);
   const [zoneProblem, setZoneProblem] = useState<string | null>(null);
+  /** Spec 020 R14: whether the venue has events (null while unknown: the note is shown). */
+  const [hasEvents, setHasEvents] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -128,6 +131,9 @@ export function LocationForm(): React.ReactElement {
     getLayout(id)
       .then((layout) => setSetByLayout(layout.sections.length > 0))
       .catch(() => setSetByLayout(false));
+    listEvents({ locationId: id })
+      .then((events) => setHasEvents(events.length > 0))
+      .catch(() => setHasEvents(null));
   }, [id]);
 
   // Spec 013 US4: a venue from before 013 has a one-line address and no parts.
@@ -380,9 +386,12 @@ export function LocationForm(): React.ReactElement {
                 </option>
               ))}
             </select>
-            {loaded && zoneChoice && zoneChoice !== (loaded.timeZone ?? DEFAULT_TIME_ZONE) && (
-              <span className="field__hint">{ZONE_CHANGE_NOTE}</span>
-            )}
+            {loaded &&
+              hasEvents !== false &&
+              zoneChoice &&
+              zoneChoice !== (loaded.timeZone ?? DEFAULT_TIME_ZONE) && (
+                <span className="field__hint">{ZONE_CHANGE_NOTE}</span>
+              )}
           </div>
 
           {splitZones && (
