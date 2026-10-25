@@ -91,13 +91,17 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function lookUp(routes: Record<string, () => Response>) {
-  stubApi({ 'GET /events': () => json(EVENTS), ...routes });
+async function lookUp(
+  routes: Record<string, () => Response>,
+  events = EVENTS,
+  gate = /Demo Tonight/,
+) {
+  stubApi({ 'GET /events': () => json(events), ...routes });
   const user = userEvent.setup();
   render(
     <App userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))} />,
   );
-  await user.click(await screen.findByRole('button', { name: /Demo Tonight/ }));
+  await user.click(await screen.findByRole('button', { name: gate }));
   await user.type(await screen.findByLabelText('Ticket code'), '7KQ2M9XWAB4C');
   await user.click(screen.getByRole('button', { name: 'Look up' }));
   return user;
@@ -203,6 +207,74 @@ describe('admit results', () => {
     await user.click(await screen.findByRole('button', { name: 'Admit all 2' }));
     expect(
       await screen.findByText('✓ 1 admitted · 1 already used at Oct 1, 2026, 6:05 PM EDT'),
+    ).toBeInTheDocument();
+  });
+});
+
+/**
+ * Review round 2, S1: the gate event's own zone, not the Eastern fallback, for the times of a
+ * ticket of this event: at a Phoenix gate every time reads MST (US6 scenario 3).
+ */
+describe('at a Phoenix gate', () => {
+  // The gate event is at Phoenix Hall, 7:00 PM MST on Oct 1 (02:00Z on Oct 2).
+  const PHX_GATE = [
+    evt(GATE, 'Desert Gate', PHX, '2026-10-02T02:00:00.000Z', '2026-10-02T05:00:00.000Z'),
+  ];
+  const gateTicket = (over: Record<string, unknown>) =>
+    ticket({
+      event: {
+        id: GATE,
+        name: 'Desert Gate',
+        startsAt: PHX_GATE[0].startsAt,
+        endsAt: PHX_GATE[0].endsAt,
+        timeZone: 'America/Phoenix',
+      },
+      entryOpensAt: '2026-10-02T00:00:00.000Z', // 5:00 PM MST
+      ...over,
+    });
+
+  it('says when a used ticket was used, in MST', async () => {
+    await lookUp(
+      { [LOOKUP]: () => json(gateTicket({ state: 'USED', usedAt: '2026-10-01T23:12:00.000Z' })) },
+      PHX_GATE,
+      /Desert Gate/,
+    );
+    expect(
+      await screen.findByText('✕ Already used at Oct 1, 2026, 4:12 PM MST'),
+    ).toBeInTheDocument();
+  });
+
+  it('says when entry opens, in MST', async () => {
+    await lookUp(
+      { [LOOKUP]: () => json(gateTicket({ state: 'NOT_OPEN' })) },
+      PHX_GATE,
+      /Desert Gate/,
+    );
+    expect(
+      await screen.findByText('✕ Entry opens at Oct 1, 2026, 5:00 PM MST'),
+    ).toBeInTheDocument();
+  });
+
+  it("says when the order's other tickets were used, in MST", async () => {
+    const user = await lookUp(
+      {
+        [LOOKUP]: () => json(gateTicket({})),
+        [ADMIT]: () =>
+          json({
+            admitted: [
+              { ticketId: 't1', code: '7KQ2M9XWAB4C', usedAt: '2026-10-01T22:30:00.000Z' },
+            ],
+            alreadyUsed: [
+              { ticketId: 't2', code: 'AAAA2222BBBB', usedAt: '2026-10-01T22:05:00.000Z' },
+            ],
+          }),
+      },
+      PHX_GATE,
+      /Desert Gate/,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Admit all 2' }));
+    expect(
+      await screen.findByText('✓ 1 admitted · 1 already used at Oct 1, 2026, 3:05 PM MST'),
     ).toBeInTheDocument();
   });
 });
