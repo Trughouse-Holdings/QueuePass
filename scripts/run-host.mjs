@@ -163,7 +163,13 @@ export async function run(options, deps = {}) {
 
   const running = [];
   const start = (c) => {
-    const child = spawn(c.command, { cwd: ROOT, env: childEnv(c.env), shell: true });
+    // Elsewhere than Windows, its own process group, so stopping reaches the whole tree.
+    const child = spawn(c.command, {
+      cwd: ROOT,
+      env: childEnv(c.env),
+      shell: true,
+      detached: process.platform !== 'win32',
+    });
     if (!deps.quiet) {
       pipe(c.name, child.stdout, process.stdout);
       pipe(c.name, child.stderr, process.stderr);
@@ -178,11 +184,17 @@ export async function run(options, deps = {}) {
   const stopAll = () => {
     for (const child of running) {
       if (child.exitCode !== null) continue;
-      // npm under a shell starts a process tree: on Windows only taskkill /T stops all of it.
+      // npm under a shell starts a process tree: on Windows only taskkill /T stops all of it;
+      // elsewhere the signal goes to the child's process group (a shell such as Ubuntu's sh
+      // does not pass SIGINT on to the command it runs).
       if (process.platform === 'win32') {
         spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
       } else {
-        child.kill('SIGINT');
+        try {
+          process.kill(-child.pid, 'SIGINT');
+        } catch {
+          // The group is already gone.
+        }
       }
     }
   };

@@ -159,7 +159,9 @@ test('stops the Backend when /health never answers', async () => {
   const started = [];
   const backend = {
     name: 'backend',
-    command: `"${process.execPath}" -e "setInterval(() => {}, 1000)"`,
+    // `|| exit 1` keeps the shell as the parent on every platform, a process tree like npm's
+    // (issue: Ubuntu's sh left the Node child running and CI waited 30 minutes).
+    command: `"${process.execPath}" -e "setInterval(() => {}, 1000)" || exit 1`,
     env: {},
   };
   await assert.rejects(
@@ -177,14 +179,28 @@ test('stops the Backend when /health never answers', async () => {
   );
   assert.equal(started.length, 1);
   const child = started[0];
-  if (child.exitCode === null && child.signalCode === null) {
-    // At most 5 s: a child left running fails the test instead of hanging it.
-    await Promise.race([
-      new Promise((resolve) => child.once('exit', resolve)),
-      new Promise((resolve) => setTimeout(resolve, 5000)),
-    ]);
+  // The output pipe closes only once every process in the tree has exited, the shell and the
+  // Node process under it. At most 5 s: a process left running fails the test instead of
+  // hanging it.
+  const closed = await Promise.race([
+    new Promise((resolve) => {
+      if (child.stdout.closed) resolve(true);
+      else child.stdout.once('close', () => resolve(true));
+    }),
+    new Promise((resolve) => setTimeout(() => resolve(false), 5000)),
+  ]);
+  if (!closed) {
+    if (process.platform === 'win32') {
+      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    } else {
+      try {
+        process.kill(-child.pid, 'SIGKILL');
+      } catch {
+        child.kill('SIGKILL');
+      }
+    }
+    child.stdout.destroy();
+    child.stderr.destroy();
   }
-  const stopped = child.exitCode !== null || child.signalCode !== null;
-  if (!stopped) child.kill();
-  assert.ok(stopped, 'the Backend still runs');
+  assert.ok(closed, 'the Backend still runs');
 });
