@@ -141,8 +141,11 @@ const LONG_OFFSET = { timeZoneName: 'longOffset' } as unknown as Intl.DateTimeFo
 /** Minutes from UTC at that instant in that zone (`-240` for EDT). */
 export function offsetAt(instant: InstantLike, zone: string): number {
   const text = part(formatter(zone, 'offset', LONG_OFFSET), toDate(instant), 'timeZoneName');
+  if (text === 'GMT') return 0; // UTC itself
   const m = /^GMT([+-])(\d{2}):(\d{2})$/.exec(text);
-  if (!m) return 0; // "GMT": UTC itself
+  // Review round 2, m4: anything else (before 1883, local mean time such as GMT-04:56:02) is an
+  // offset no time can be stated in; unknown, never 0.
+  if (!m) throw new RangeError(`No whole-minute UTC offset in ${zone} at that time: ${text}`);
   const minutes = Number(m[2]) * 60 + Number(m[3]);
   return m[1] === '-' ? -minutes : minutes;
 }

@@ -36,7 +36,16 @@ export function checkEventTime(
   // The DTO already refuses a time without an offset; this is the same refusal, kept for safety.
   if (!parsed) throw new BadRequestException({ message: [needsOffset(field)] });
   const localTime = parsed.local.slice(0, 16);
-  const resolved = resolveLocal(parsed.local, zone);
+  let resolved;
+  try {
+    resolved = resolveLocal(parsed.local, zone);
+  } catch (err) {
+    // Review round 2, m4: the zone has no whole-minute offset then (before 1883): refused.
+    if (!(err instanceof RangeError)) throw err;
+    throw new BadRequestException({
+      message: [`${field} is outside the times QueuePass can place in ${zoneName(zone)}`],
+    });
+  }
 
   if (resolved.kind === 'skipped') {
     throw refused(
