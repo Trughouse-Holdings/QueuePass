@@ -169,7 +169,7 @@ coordinates, the zone finder, and the test helpers every story uses.
   midnight both of its dates"; in America/Los_Angeles and Pacific/Honolulu those 4 plus
   `format.test.ts` "gives an event crossing midnight its own end date". These are today's
   viewer-zone dependencies, fixed in Phase 8.
-- [ ] T007 [P] **Test first.** Create `backend/test/integration/migration.time-zones.e2e-spec.ts`
+- [x] T007 [P] **Test first.** Create `backend/test/integration/migration.time-zones.e2e-spec.ts`
   (R6, US7, SC-001): on a fresh Testcontainers database migrated up to the migration **before**
   `venue_time_zones` (`prisma migrate deploy` against a copy of the migrations folder without it),
   insert three venues (one pre-`013`, one verified, one not verified) and five events (one
@@ -178,14 +178,24 @@ coordinates, the zone finder, and the test helpers every story uses.
   unchanged, `location_time_zone_known` refuses `'America/Kentucky/Louisville'` and `'UTC'`, an
   insert without `timeZone` fails (no default), and `event_no_overlap` is deferrable and still
   refuses an overlapping insert immediately.
-- [ ] T008 Add the `TimeZoneSource` enum and `Location.timeZone`/`timeZoneSource` to
+  **Done**: 6 tests; failed first because no `*_venue_time_zones` migration existed (commit after
+  f4677e6).
+- [x] T008 Add the `TimeZoneSource` enum and `Location.timeZone`/`timeZoneSource` to
   `backend/prisma/schema.prisma` and the migration `backend/prisma/migrations/<timestamp>_venue_time_zones/migration.sql`
   exactly as data-model.md. Run T007 until it passes.
-- [ ] T009 [P] **Test first, written before T003 and T008** (so it is seen failing: neither list
+  **Done**: migration `20261024120000_venue_time_zones`. T007 passes after two fixes to the test
+  itself (a cancelled row needs `cancelledAt`; a NOT NULL refusal names no column, so the test
+  asserts SQLSTATE 23502). T009 passes. Until T019, `LocationsService.create` writes
+  America/New_York/`DEFAULT`, and the two tests that insert a `Location` directly
+  (`locations.legacy-address`, `me-orders`) set both columns, so the Backend suite stays green: 86
+  suites, 753 tests.
+- [x] T009 [P] **Test first, written before T003 and T008** (so it is seen failing: neither list
   nor migration exists yet). Create `backend/test/unit/time-zone-lists.spec.ts` (R2): the
   contract's `UsTimeZone` enum, `US_TIME_ZONES` ids, and the CHECK list parsed from the
   `venue_time_zones` migration file are equal; `TimeZoneSource` in the contract equals the Prisma
   enum's values. Run it again after T008: it passes.
+  **Done**: written before T003 and T008 and seen failing (no `US_TIME_ZONES`, no Prisma
+  `TimeZoneSource`; commit f02c1de); passes after T008.
 - [ ] T010 [P] **Test first.** Extend `backend/test/unit/census-geocoder.spec.ts` (R1): a one-match
   answer with `coordinates: { x: -84.500968562869, y: 38.049429848416 }` returns `location:
   { latitude: 38.0494…, longitude: -84.5009… }`; two entries with the same `matchedAddress` and

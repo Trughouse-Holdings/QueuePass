@@ -107,8 +107,9 @@ describe('migration venue_time_zones (R6)', () => {
     for (const [id, loc, s, e, status] of rows) {
       await db.$executeRawUnsafe(`
         INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt",
-                             "totalTicketCapacity", "basePrice", "status", "updatedAt")
-        VALUES ('${id}', 'E', '${loc}', '${s}', '${e}', 10, 45.00, '${status}', now())`);
+                             "totalTicketCapacity", "basePrice", "status", "cancelledAt", "updatedAt")
+        VALUES ('${id}', 'E', '${loc}', '${s}', '${e}', 10, 45.00, '${status}',
+                ${status === 'CANCELLED' ? 'now()' : 'NULL'}, now())`);
     }
   });
 
@@ -147,12 +148,12 @@ describe('migration venue_time_zones (R6)', () => {
       db.$executeRawUnsafe(`
         INSERT INTO "Location" ("id", "name", "address", "seatingCapacity", "updatedAt", "timeZoneSource")
         VALUES ('${randomUUID()}', 'New', 'x', 10, now(), 'ADMIN')`),
-    ).rejects.toThrow(/timeZone/);
+    ).rejects.toThrow(/23502/); // not_null_violation
     await expect(
       db.$executeRawUnsafe(`
         INSERT INTO "Location" ("id", "name", "address", "seatingCapacity", "updatedAt", "timeZone")
         VALUES ('${randomUUID()}', 'New', 'x', 10, now(), 'America/Chicago')`),
-    ).rejects.toThrow(/timeZoneSource/);
+    ).rejects.toThrow(/23502/);
   });
 
   it('makes event_no_overlap deferrable, initially immediate', async () => {

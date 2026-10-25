@@ -31,6 +31,17 @@ model Location {
   updatedAt       DateTime @updatedAt @db.Timestamptz(6)
   // Spec 007: the venue's seating layout.
   sections Section[]
+  // Spec 020 FR-001, FR-007: one of US_TIME_ZONES (CHECK location_time_zone_known), and how it
+  // was set. Both have no default: the Backend always decides (FR-008).
+  timeZone       String         @db.VarChar(40)
+  timeZoneSource TimeZoneSource
+}
+
+enum TimeZoneSource {
+  ADDRESS // worked out from the verified address's place (spec 020 research R1)
+  STATE // worked out from the state, which has one zone (R3)
+  ADMIN // chosen by an admin (R4)
+  DEFAULT // America/New_York by default: existing venues (R6), and demo data offline (R19)
 }
 
 model Event {

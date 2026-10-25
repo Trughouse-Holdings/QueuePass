@@ -125,7 +125,13 @@ describe('My orders', () => {
 
     it('sends the stored text for a venue from before 013 (no address parts)', async () => {
       const legacy = await ctx.prisma.location.create({
-        data: { name: 'Old Hall', address: '1 Demo Plaza, Louisville, KY', seatingCapacity: 500 },
+        data: {
+          name: 'Old Hall',
+          address: '1 Demo Plaza, Louisville, KY',
+          seatingCapacity: 500,
+          timeZone: 'America/New_York',
+          timeZoneSource: 'DEFAULT',
+        },
       });
       const eventId = await event(ctx, legacy.id);
       await buy(eventId, { quantity: 1 });

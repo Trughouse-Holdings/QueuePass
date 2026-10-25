@@ -8,7 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Location, Prisma } from '@prisma/client';
-import { formatAddress } from '@queuepass/shared';
+import { DEFAULT_TIME_ZONE, formatAddress } from '@queuepass/shared';
 import {
   ADDRESS_GEOCODER,
   AddressGeocoder,
@@ -109,7 +109,16 @@ export class LocationsService {
       acceptUnverifiedAddress === true,
       options.whenServiceUnavailable === 'saveUnverified',
     );
-    return this.prisma.location.create({ data: { name, seatingCapacity, ...address } });
+    // Spec 020 T008: the zone every existing venue got, until T019 decides it per R7.
+    return this.prisma.location.create({
+      data: {
+        name,
+        seatingCapacity,
+        ...address,
+        timeZone: DEFAULT_TIME_ZONE,
+        timeZoneSource: 'DEFAULT',
+      },
+    });
   }
 
   /** Spec 004 FR-007: `q` matches name or address, ignoring case; name order is unchanged. */
