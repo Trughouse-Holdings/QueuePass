@@ -116,7 +116,10 @@ test('--quick runs only the time tests: no Backend run, so no build or generate'
     'test/time-zone.test.ts',
   ]);
   for (const app of ['admin-app', 'customer-app', 'booth-app']) {
-    assert.ok(suiteCommand(app, { quick: true }).args.includes('.tz.test.tsx'), app);
+    const { args } = suiteCommand(app, { quick: true });
+    assert.ok(args.includes('.tz.test.tsx'), app);
+    // Review round 1, m2: a renamed or missing time test must fail the run, not pass it.
+    assert.ok(!args.includes('--passWithNoTests'), app);
   }
 });
 
