@@ -1,7 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { seatLabel, totalUsd, usd, when } from '../src/format';
 
-/** Spec 003 FR-006, FR-007; research R5. TZ is pinned to America/New_York in vitest.config.ts. */
+/**
+ * Spec 003 FR-006, FR-007; research R5. Spec 020 (research R12): an event time is shown in its
+ * venue's zone with the abbreviation, whatever the device's zone (`npm run test:tz`).
+ */
 describe('usd', () => {
   it.each([
     ['45.5', '$45.50'],
@@ -15,14 +18,17 @@ describe('usd', () => {
 });
 
 describe('when', () => {
-  it('shows the local date and time', () => {
-    const shown = when('2026-12-01T23:00:00.000Z');
-    expect(shown).toContain('Dec 1, 2026');
-    expect(shown).toContain('6:00');
+  it("shows the venue's local date and time with the zone's abbreviation", () => {
+    expect(when('2026-12-01T23:00:00.000Z', 'America/New_York')).toBe('Dec 1, 2026, 6:00 PM EST');
+    expect(when('2026-12-01T23:00:00.000Z', 'America/Phoenix')).toBe('Dec 1, 2026, 4:00 PM MST');
+  });
+
+  it('reads a missing zone as Eastern (contract Location)', () => {
+    expect(when('2026-12-01T23:00:00.000Z', undefined)).toBe('Dec 1, 2026, 6:00 PM EST');
   });
 
   it('gives an event crossing midnight its own end date', () => {
-    expect(when('2026-12-02T07:00:00.000Z')).toContain('Dec 2, 2026');
+    expect(when('2026-12-02T07:00:00.000Z', 'America/New_York')).toBe('Dec 2, 2026, 2:00 AM EST');
   });
 });
 
