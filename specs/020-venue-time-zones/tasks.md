@@ -800,6 +800,14 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   backend unit 140, admin 244, customer 306, booth 73 in each of the four zones). `--backend-full`
   in America/Los_Angeles: 941/941 in 94 suites (130 s). The earlier `cors-docs` ECONNRESET was issue
   #86, fixed on `main` (the test now uses `fetch`); it did not recur.
+  **Rerun after review round 2** (2026-10-25, fresh clone at e108e3e, no change in between): `npm
+  ci` 21 s; `npm run ci` green in 414 s (scripts/test 45, shared 592, backend 942 in 94 suites,
+  admin 249, customer 306, booth 76, seed 8; Los Angeles quick run passed: shared 124, admin 29,
+  customer 9, booth 9; coverage shared 93.13%, backend 97.02%, admin 97.06%, customer 97.46%, booth
+  92.28%). Three in a row, all passed: shared 592 ×3 (19, 20, 20 s); backend 942 ×3 (138 s each);
+  admin 249 ×3 (30, 29, 29 s); booth 76 ×3 (33 s each). `npm run test:tz` (378 s): all 20 runs
+  passed (shared 592, backend unit 140, admin 249, customer 306, booth 76 in each zone). No Backend
+  test failed.
 - [ ] T051 Report coverage for every workspace in the PR description; each new file is covered by
   its tests, and each workspace stays at or above 80% lines (Constitution VI, `010`).
   Coverage at c6b6b73 (T049): shared 93.13%, backend 97.01%, admin 97.05%, customer 97.46%, booth
