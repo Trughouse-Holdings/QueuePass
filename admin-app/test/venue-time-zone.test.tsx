@@ -72,19 +72,40 @@ function fill(values: Record<string, string> = {}): void {
 const create = () => fireEvent.click(screen.getByRole('button', { name: 'Create venue' }));
 
 describe('venue list and page (FR-024)', () => {
-  it('has a Time zone column', async () => {
+  // FR-024, US4 scenario 8 (review round 1, M1): the list shows the zone and how it was set.
+  it('has a Time zone column with the zone and how it was set, for all four sources', async () => {
     stubApi({
       'GET /locations': json([
-        venue,
-        { ...venue, id: 'v2', name: 'Phoenix Hall', timeZone: 'America/Phoenix' },
+        { ...venue, id: 'v1', name: 'Address Hall', timeZoneSource: 'ADDRESS' },
+        {
+          ...venue,
+          id: 'v2',
+          name: 'Phoenix Hall',
+          timeZone: 'America/Phoenix',
+          timeZoneSource: 'STATE',
+        },
+        {
+          ...venue,
+          id: 'v3',
+          name: 'Admin Hall',
+          timeZone: 'America/Chicago',
+          timeZoneSource: 'ADMIN',
+        },
+        { ...venue, id: 'v4', name: 'Old Hall', timeZoneSource: 'DEFAULT' },
       ]),
     });
     renderAt('/locations');
-    const row = (await screen.findByRole('link', { name: 'Phoenix Hall' })).closest('tr')!;
+    await screen.findByRole('link', { name: 'Old Hall' });
     expect(screen.getByRole('columnheader', { name: 'Time zone' })).toBeInTheDocument();
-    expect(
-      within(row as HTMLElement).getByText('Arizona Time (no daylight saving)'),
-    ).toBeInTheDocument();
+    for (const [name, text] of [
+      ['Address Hall', 'Eastern Time, from the address'],
+      ['Phoenix Hall', 'Arizona Time (no daylight saving), from the state'],
+      ['Admin Hall', 'Central Time, chosen by an admin'],
+      ['Old Hall', 'Eastern Time, the default'],
+    ]) {
+      const row = screen.getByRole('link', { name }).closest('tr') as HTMLElement;
+      expect(within(row).getByText(text)).toBeInTheDocument();
+    }
   });
 
   it.each([
