@@ -10,6 +10,7 @@ import { SCHEDULING_BUFFER_MINUTES, type UsTimeZone } from '@queuepass/shared';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
 import { searchText } from '../common/search-text';
+import { lockVenueShared } from '../common/venue-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { closeHolds, closeRunOut, toChanges } from '../reservations/holds';
 import { SeatEventsService } from '../seating/seat-events.service';
@@ -59,6 +60,9 @@ async function retryOnDeadlock<T>(write: () => Promise<T>): Promise<T> {
   }
 }
 
+/** Spec 020 research R10: the event moved to another venue between the read and its lock. */
+class VenueMoved extends Error {}
+
 /** API shape: basePrice serialized as a decimal string (never a JSON number). */
 export interface EventResponse extends Omit<EventWithLocation, 'basePrice'> {
   basePrice: string;
@@ -79,9 +83,23 @@ export class EventsService {
     return retryOnDeadlock(() => this.createOnce(dto));
   }
 
-  private async createOnce(dto: CreateEventDto): Promise<EventResponse> {
+  /**
+   * Spec 020 research R10: one transaction that first takes the venue row FOR SHARE, so the zone
+   * the times are checked against is the zone the event is saved under (a zone change, FOR
+   * UPDATE, waits for it or it waits for the zone change). The conflict pre-check and the insert
+   * run in it too; the event_no_overlap constraint is still the guarantee.
+   */
+  private createOnce(dto: CreateEventDto): Promise<EventResponse> {
     this.assertWindowOrdered(new Date(dto.startsAt), new Date(dto.endsAt));
-    const location = await this.requireLocation(dto.locationId);
+    return this.prisma.$transaction((tx) => this.createLocked(tx, dto), LOCKING_TX);
+  }
+
+  private async createLocked(
+    tx: Prisma.TransactionClient,
+    dto: CreateEventDto,
+  ): Promise<EventResponse> {
+    await lockVenueShared(tx, [dto.locationId]);
+    const location = await this.requireLocation(dto.locationId, tx);
     // Spec 020 FR-018 (research R9): each time in the venue's zone, start then end.
     const zone = location.timeZone as UsTimeZone;
     const startsAt = checkEventTime('startsAt', dto.startsAt, zone, location.name);
@@ -90,9 +108,9 @@ export class EventsService {
     const capacity = dto.totalTicketCapacity ?? location.seatingCapacity;
     this.assertCapacityWithinVenue(capacity, location);
     this.assertLimitWithinCapacity(dto.maxTicketsPerCustomer, null, capacity);
-    await this.assertNoConflict(dto.locationId, zone, startsAt, endsAt, null);
+    await this.assertNoConflict(dto.locationId, zone, startsAt, endsAt, null, tx);
 
-    const created = await this.prisma.event.create({
+    const created = await tx.event.create({
       data: {
         name: dto.name,
         locationId: dto.locationId,
@@ -147,17 +165,39 @@ export class EventsService {
   /**
    * Runs in one transaction that first locks the event row, the same lock tier writes take
    * (spec 004 research R2), so a capacity cut and a tier change can never both slip through.
+   *
+   * Spec 020 research R10: before the event row, the event's current venue and its destination
+   * are taken FOR SHARE in id order (venue, then event, the order venue-lock.ts documents). The
+   * current venue is read without a lock first; if the event moved meanwhile, the transaction is
+   * retried, at most twice more.
    */
-  private updateOnce(id: string, dto: UpdateEventDto): Promise<EventResponse> {
-    return this.prisma.$transaction((tx) => this.updateLocked(tx, id, dto), LOCKING_TX);
+  private async updateOnce(id: string, dto: UpdateEventDto): Promise<EventResponse> {
+    for (let attempt = 1; ; attempt++) {
+      const before = await this.prisma.event.findUnique({
+        where: { id },
+        select: { locationId: true },
+      });
+      if (!before) throw new NotFoundException(`No event exists with id ${id}.`);
+      try {
+        return await this.prisma.$transaction(
+          (tx) => this.updateLocked(tx, id, dto, before.locationId),
+          LOCKING_TX,
+        );
+      } catch (err) {
+        if (!(err instanceof VenueMoved) || attempt >= DEADLOCK_ATTEMPTS) throw err;
+      }
+    }
   }
 
   private async updateLocked(
     tx: Prisma.TransactionClient,
     id: string,
     dto: UpdateEventDto,
+    venueBefore: string,
   ): Promise<EventResponse> {
+    await lockVenueShared(tx, [venueBefore, dto.locationId ?? venueBefore]);
     const locked = await lockEvent(tx, id);
+    if (locked.locationId !== venueBefore) throw new VenueMoved();
     if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
     // Spec 007 research R3: a seated event's sections belong to its venue, so it cannot move.
     if (locked.reservedSeating && dto.locationId && dto.locationId !== locked.locationId) {

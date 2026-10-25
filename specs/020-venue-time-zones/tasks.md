@@ -477,12 +477,19 @@ US2 scenario 7, US3 scenarios 6–8.
   `moveEventsToZone` in `venue-time-zone.ts`; the update compares with and converts from the locked
   zone; the explicit-zone orders check runs before the lookup; T019's guard is removed. T024 passes
   (13).
-- [ ] T027 [US5] Add `lockVenueShared(tx, ids)` to `backend/src/common/venue-lock.ts` (`FOR SHARE`
+- [x] T027 [US5] Add `lockVenueShared(tx, ids)` to `backend/src/common/venue-lock.ts` (`FOR SHARE`
   in id order) and make `EventsService.create`/`update` run in one `LOCKING_TX` transaction that
   takes it first (R10: both venues on a move; re-read `locationId` after `lockEvent` and retry once
   if it changed). Make sure a `23P01` raised at commit maps to `409 SCHEDULING_CONFLICT` with
   `conflictingEvent: null`. Run T025 until it passes, then the whole Backend suite (including the
   existing `events.concurrency` and `seats.concurrency` tests).
+  **Done**: `lockVenueShared` (FOR SHARE, id order); create and update in one `LOCKING_TX`
+  transaction that takes it first (on update both venues, then `lockEvent`; retried when the event
+  moved meanwhile, at most three attempts in all). A test added to T024's file commits two
+  overlapping rows with the constraint deferred and passes the commit's error to
+  `AllExceptionsFilter`: `409 SCHEDULING_CONFLICT`, `conflictingEvent: null` (it passed at once: the
+  filter already matches `event_no_overlap` in the message). T024 and T025 pass (21); whole Backend
+  suite green, `events.concurrency` and `seats.concurrency` included: 92 suites, 925 tests.
 
 **Checkpoint**: zone changes keep local times and never move a sold event.
 

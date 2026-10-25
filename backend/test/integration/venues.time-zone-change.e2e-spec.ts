@@ -1,3 +1,7 @@
+import { randomUUID } from 'node:crypto';
+import type { ArgumentsHost } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
+import { AllExceptionsFilter } from '../../src/common/filters/prisma-exception.filter';
 import { asAdmin } from '../setup/authed-request';
 import { ADDRESS, orderWithTickets } from '../setup/fixtures';
 import { PLACES } from '../setup/fake-geocoder';
@@ -264,5 +268,42 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
     expect(refused.body.error.code).toBe('TIME_ZONE_HAS_ORDERS');
     const after = await ctx.prisma.location.findUniqueOrThrow({ where: { id: v } });
     expect([after.timeZone, after.city]).toEqual(['America/Phoenix', 'PHOENIX']);
+  });
+
+  it('maps an overlap found only at commit (the deferred constraint) to 409 SCHEDULING_CONFLICT', async () => {
+    const v = await venue();
+    const insert = (tx: Prisma.TransactionClient, name: string, start: string, end: string) =>
+      tx.$executeRaw`
+        INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt",
+                             "totalTicketCapacity", "basePrice", "updatedAt")
+        VALUES (${randomUUID()}::uuid, ${name}, ${v}::uuid, ${start}::timestamptz,
+                ${end}::timestamptz, 10, 1.00, now())`;
+    const err = await ctx.prisma
+      .$transaction(async (tx) => {
+        await tx.$executeRaw`SET CONSTRAINTS "event_no_overlap" DEFERRED`;
+        await insert(tx, 'A', '2026-10-01T23:00:00Z', '2026-10-02T02:00:00Z');
+        await insert(tx, 'B', '2026-10-02T02:30:00Z', '2026-10-02T04:00:00Z');
+      })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect(await ctx.prisma.event.count()).toBe(0);
+
+    const out = { status: 0, body: undefined as unknown };
+    const response = {
+      status: (code: number) => ((out.status = code), response),
+      json: (body: unknown) => ((out.body = body), response),
+      setHeader: () => response,
+    };
+    const host = {
+      switchToHttp: () => ({ getResponse: () => response }),
+    } as unknown as ArgumentsHost;
+    new AllExceptionsFilter().catch(err, host);
+    expect(out.status).toBe(409);
+    expect(out.body).toMatchObject({
+      error: {
+        code: 'SCHEDULING_CONFLICT',
+        details: { bufferMinutes: 60, conflictingEvent: null },
+      },
+    });
   });
 });
