@@ -346,6 +346,19 @@ US3's tests are here because the same component decides both.
   reader, and phone width (S8); and the sign-in, use, and sign-out smoke test of all three front
   ends (S9). Record each step's result here. A step that does not behave as written is a spec
   defect: correct quickstart.md or the spec in a spec PR (Constitution III).
+  - 2026-10-24, partly done. `docker compose up --build` is blocked on this machine (TLS
+    interception stops image builds, as 011's T028 recorded), so the Backend from this branch ran on
+    the host against the existing database and Keycloak containers, with the Customer app from Vite.
+    `customer1` placed one order each for Comedy Night (E1) and Drake FOMO Tour (E2). Both order
+    cards showed the group; each `.ics` was CRLF-only, longest line 67 octets, `METHOD:PUBLISH`,
+    `UID:queuepass-event-<id>`, `DTSTART`/`DTEND` equal to the events' times in UTC, and
+    `LOCATION` the venue name and full address with escaped commas, saved as `comedy-night.ics`
+    and `drake-fomo-tour.ics`, type `text/calendar;charset=utf-8`. The Google links carried the same
+    title, dates, and location. Mahdi imported both files into his calendar app and opened the
+    Google link: the entries came in right. Phone width (375 px): both controls inside the card,
+    44 px tall, no sideways scroll. Not done here: the fresh-clone build, adding again (S6), the
+    browser time zone check (S7, covered by the CALENDAR_TEST_TZ runs), a screen reader pass, and
+    the three-app smoke test (S9).
 
 ---
 
