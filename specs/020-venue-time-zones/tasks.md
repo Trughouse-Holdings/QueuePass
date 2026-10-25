@@ -146,7 +146,7 @@ coordinates, the zone finder, and the test helpers every story uses.
   unchanged, `011` R12; `scripts/test/ci-workflow.test.mjs` still passes). Run T004 until it
   passes.
   **Done**: T004 passes. `--quick` runs no Backend suite, so it skips the build and generate steps,
-  and passes `--passWithNoTests` to the apps' `.tz.test.tsx` filter (until Phases 7–9 add them). The
+  and passed `--passWithNoTests` to the apps' `.tz.test.tsx` filter until Phases 7–9 added them (removed in review round 1, m2). The
   root `npm test` ends with the Los Angeles quick run; `ci-workflow.test.mjs` still passes.
 - [x] T006 Make each Vitest config take the override (R20): `customer-app/vitest.config.ts`
   `env: { TZ: process.env.QP_TEST_TZ || 'America/New_York' }` (the `019` pin stays as the default);
@@ -645,7 +645,7 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   start at 19:00, 20:00, and 19:00 local Eastern on their dates and end 3 hours later; "Demo
   Tonight" still starts about an hour after the run; a controller request can never use the
   fallback (a KY save anyway through the API is still `TIME_ZONE_REQUIRED`).
-  **Done**: failed first on the local times (commit after bd13abd); the zone cases passed already
+  **Done**: failed first on the local times (commit bd1d16d); the zone cases passed already
   through T019's internal option.
 - [x] T043 Change `backend/src/scripts/demo-data.ts` (`atLocal`, `fallbackToDefaultTimeZone`, and
   every time, Demo Tonight's included, sent as `toOffsetDateTime(instant, venueZone)`, never
