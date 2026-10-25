@@ -210,8 +210,19 @@ describe('My orders', () => {
       );
 
       expect(byName).toEqual({
-        Here: { id: venueId, name: 'Yum Center', address: '430 W VINE ST, LEXINGTON, KY 40507' },
-        There: { id: other, name: 'River Hall', address: '1 ARENA PLAZA, LOUISVILLE, KY 40202' },
+        // Spec 020 R16: each with its venue's zone.
+        Here: {
+          id: venueId,
+          name: 'Yum Center',
+          address: '430 W VINE ST, LEXINGTON, KY 40507',
+          timeZone: 'America/New_York',
+        },
+        There: {
+          id: other,
+          name: 'River Hall',
+          address: '1 ARENA PLAZA, LOUISVILLE, KY 40202',
+          timeZone: 'America/New_York',
+        },
       });
     });
 

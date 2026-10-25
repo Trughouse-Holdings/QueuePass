@@ -16,6 +16,7 @@ interface EventSalesResponse {
   name: string;
   venueName: string;
   startsAt: Date;
+  timeZone: string;
   status: EventStatus;
   ticketCapacity: number;
   ticketsSold: number;
@@ -105,6 +106,8 @@ export class ReportsService {
         name: e.name,
         venueName: e.location.name,
         startsAt: e.startsAt,
+        // Spec 020 FR-022 (research R16): the event's date is shown in its venue's zone.
+        timeZone: e.location.timeZone,
         status: e.status,
         ticketCapacity: e.totalTicketCapacity,
         ticketsSold: eventSold,

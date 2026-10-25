@@ -52,6 +52,8 @@ describe('lookupEntryTicket with a live code', () => {
         name: 'Around Now',
         startsAt: expect.any(String),
         endsAt: expect.any(String),
+        // Spec 020 R16.
+        timeZone: 'America/New_York',
       },
       tierName: null,
       seat: null,

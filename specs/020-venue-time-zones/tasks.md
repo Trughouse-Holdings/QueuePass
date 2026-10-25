@@ -501,23 +501,32 @@ US2 scenario 7, US3 scenarios 6–8.
 
 ### Tests (write first, confirm they fail)
 
-- [ ] T028 [P] [US1] Create `backend/test/integration/events.date-filter.e2e-spec.ts`: with a 9:00
+- [x] T028 [P] [US1] Create `backend/test/integration/events.date-filter.e2e-spec.ts`: with a 9:00
   PM PDT event on Oct 1 at a Los Angeles venue (Oct 2 04:00Z), a 7:00 PM EDT event on Oct 1, and an
   00:30 EDT event on Oct 2: `fromDate=2026-10-01&toDate=2026-10-01` returns the first two;
   `fromDate=2026-10-02` the third (and not the LA one); Honolulu and Anchorage cases; `fromDate`
   after `toDate` → `400`; `fromDate` with `from` → `400`; `from`/`to` unchanged.
-- [ ] T029 [P] [US1] [US6] Extend `me-orders.e2e-spec.ts`, `reports.e2e-spec.ts`,
+  **Done**: 10 tests, 5 failed first (the parameters were unknown, so every query was refused; the 5
+  refusal cases passed for that reason; commit 9e5a091). One test-data fix: the `from`/`to` window
+  also caught the 04:30Z event.
+- [x] T029 [P] [US1] [US6] Extend `me-orders.e2e-spec.ts`, `reports.e2e-spec.ts`,
   `entry.lookup.e2e-spec.ts`, and `entry.admit.e2e-spec.ts`: `OrderEvent.location.timeZone`,
   `EventSales.timeZone`, `EntryTicket.event.timeZone`, and `ENTRY_REFUSED` `OTHER_EVENT`'s
   `details.event.timeZone` are the venue's zone (a Phoenix venue in at least one case).
+  **Done**: the 7 new or changed assertions failed first (commit 9e5a091). Two more existing exact
+  assertions gained the field when the zone was sent: `me-orders` (each order's venue) and
+  `entry.live-code` (the EntryTicket).
 
 ### Implementation
 
-- [ ] T030 [US1] Add `fromDate`/`toDate` to `list-events.query.ts` (`IsISO8601` date-only) and R15's
+- [x] T030 [US1] Add `fromDate`/`toDate` to `list-events.query.ts` (`IsISO8601` date-only) and R15's
   wide window plus `localDate` filter in `EventsService.findAll`. Run T028 until it passes.
-- [ ] T031 [US1] [US6] Add the zone to the my-orders mapping in `orders.service.ts`, to
+  **Done**: T028 passes.
+- [x] T031 [US1] [US6] Add the zone to the my-orders mapping in `orders.service.ts`, to
   `reports.service.ts`, and to `entry.service.ts` (lookup query and refusal details). Run T029
   until it passes, then the whole Backend suite.
+  **Done**: T029 passes; whole Backend suite: 93 suites, 938 tests, green after the
+  `entry.live-code` assertion gained the zone (it was the one failure).
 
 **Checkpoint**: the Backend side is complete; every response validates against the contract.
 

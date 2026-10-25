@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Location, Prisma } from '@prisma/client';
-import { SCHEDULING_BUFFER_MINUTES, type UsTimeZone } from '@queuepass/shared';
+import { SCHEDULING_BUFFER_MINUTES, localDate, type UsTimeZone } from '@queuepass/shared';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
 import { searchText } from '../common/search-text';
@@ -132,6 +132,7 @@ export class EventsService {
     if (from && to && from >= to) {
       throw new BadRequestException({ message: ['from must be earlier than to'] });
     }
+    const days = this.venueDays(query);
     const q = searchText(query.q);
     // Spec 004 FR-006: filters combine; the soonest-first order is unchanged.
     const where: Prisma.EventWhereInput = {
@@ -140,13 +141,45 @@ export class EventsService {
       ...(from || to
         ? { startsAt: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } }
         : {}),
+      ...(days ? { startsAt: days.window } : {}),
     };
     const events = await this.prisma.event.findMany({
       where,
       include: EVENT_INCLUDE,
       orderBy: { startsAt: 'asc' },
     });
-    return events.map((e) => this.toResponse(e));
+    // Spec 020 research R15: the venue's local start date decides, by the shared module.
+    const kept = days
+      ? events.filter((e) => {
+          const date = localDate(e.startsAt, e.location.timeZone);
+          return (!days.fromDate || date >= days.fromDate) && (!days.toDate || date <= days.toDate);
+        })
+      : events;
+    return kept.map((e) => this.toResponse(e));
+  }
+
+  /**
+   * Spec 020 FR-020 (research R15): `fromDate`/`toDate` as a wide instant window that holds every
+   * local day of every US zone (offsets -4 to -10 hours), `[fromDate 00:00Z, toDate + 1 day
+   * 12:00Z)`; the exact local dates are kept afterwards. Not combinable with `from`/`to`.
+   */
+  private venueDays(
+    query: ListEventsQuery,
+  ): { fromDate?: string; toDate?: string; window: Prisma.DateTimeFilter } | null {
+    const { fromDate, toDate } = query;
+    if (!fromDate && !toDate) return null;
+    if (query.from || query.to) {
+      throw new BadRequestException({
+        message: ['fromDate and toDate cannot be sent with from or to'],
+      });
+    }
+    if (fromDate && toDate && fromDate > toDate) {
+      throw new BadRequestException({ message: ['fromDate must be on or before toDate'] });
+    }
+    const window: Prisma.DateTimeFilter = {};
+    if (fromDate) window.gte = new Date(`${fromDate}T00:00:00Z`);
+    if (toDate) window.lt = new Date(Date.parse(`${toDate}T12:00:00Z`) + 86_400_000);
+    return { fromDate, toDate, window };
   }
 
   async findOne(id: string): Promise<EventResponse> {

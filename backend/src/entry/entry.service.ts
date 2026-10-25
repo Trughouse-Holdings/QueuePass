@@ -7,6 +7,7 @@ import {
   type EntryState,
   type EntryTicket,
   type EntryTicketRef,
+  type UsTimeZone,
   type TicketEntryKey,
 } from '@queuepass/shared';
 import type { Principal } from '../auth/principal';
@@ -30,6 +31,8 @@ interface LookupRow {
   eventName: string;
   startsAt: Date;
   endsAt: Date;
+  /** Spec 020 research R16: the event's venue's zone. */
+  timeZone: string;
   tierName: string | null;
   seatSection: string | null;
   seatRow: number | null;
@@ -192,6 +195,7 @@ export class EntryService {
       SELECT t."id" AS "ticketId", t."code", t."orderId",
              ${stateCase(gateEventId)} AS "state",
              e."id" AS "eventId", e."name" AS "eventName", e."startsAt", e."endsAt",
+             l."timeZone",
              tier."name" AS "tierName",
              t."seatSection", t."seatRow", t."seatNumber",
              o."holderName", t."checkedInAt",
@@ -202,6 +206,7 @@ export class EntryService {
       FROM "Ticket" t
       JOIN "Order" o ON o."id" = t."orderId"
       JOIN "Event" e ON e."id" = t."eventId"
+      JOIN "Location" l ON l."id" = e."locationId"
       LEFT JOIN "TicketTier" tier ON tier."id" = t."tierId"
       WHERE ${where}`;
   }
@@ -225,7 +230,12 @@ export class EntryService {
       case 'OTHER_EVENT':
         return conflict('ENTRY_REFUSED', `This ticket is for ${t.eventName}, not this event.`, {
           reason: 'OTHER_EVENT',
-          event: { id: t.eventId, name: t.eventName, startsAt: iso(t.startsAt) },
+          event: {
+            id: t.eventId,
+            name: t.eventName,
+            startsAt: iso(t.startsAt),
+            timeZone: t.timeZone,
+          },
         });
       case 'NOT_OPEN':
         return conflict('ENTRY_REFUSED', 'Entry has not opened for this event.', {
@@ -280,7 +290,13 @@ function toEntryTicket(r: LookupRow, verifiedBy: 'LIVE_CODE' | 'TICKET_CODE'): E
     code: r.code,
     orderId: r.orderId,
     state: r.state,
-    event: { id: r.eventId, name: r.eventName, startsAt: iso(r.startsAt), endsAt: iso(r.endsAt) },
+    event: {
+      id: r.eventId,
+      name: r.eventName,
+      startsAt: iso(r.startsAt),
+      endsAt: iso(r.endsAt),
+      timeZone: r.timeZone as UsTimeZone,
+    },
     tierName: r.tierName,
     seat:
       r.seatSection !== null && r.seatRow !== null && r.seatNumber !== null

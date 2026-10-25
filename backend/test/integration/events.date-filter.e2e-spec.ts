@@ -119,6 +119,6 @@ describe('Event date filters by venue day (spec 020 FR-020)', () => {
   });
 
   it('leaves from/to (instants) unchanged', async () => {
-    expect(await names('from=2026-10-02T04:00:00Z&to=2026-10-02T05:00:00Z')).toEqual(['LA Late']);
+    expect(await names('from=2026-10-02T04:00:00Z&to=2026-10-02T04:15:00Z')).toEqual(['LA Late']);
   });
 });
