@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import type { AddressInfo } from 'node:net';
 import request from 'supertest';
 import { CONTRACT_PATH, operations } from '../contract/expect-to-match-contract';
 import { createTestApp, TestContext } from '../setup/test-app';
@@ -88,7 +89,13 @@ describe('CORS and API documentation', () => {
   });
 
   it('serves the committed contract byte for byte', async () => {
-    const res = await request(ctx.app.getHttpServer()).get('/docs/openapi.yaml').expect(200);
-    expect(res.text).toBe(readFileSync(CONTRACT_PATH, 'utf8'));
+    // Issue #86: fetched over a kept-alive connection. Supertest asks for Connection: close, and
+    // Node's HTTP server on Windows sometimes resets the socket when it closes right after this
+    // ~140 KB body (about 4 in 100 under repeated runs); fetch keeps the connection open.
+    const { port } = ctx.app.getHttpServer().address() as AddressInfo;
+    const res = await fetch(`http://127.0.0.1:${port}/docs/openapi.yaml`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toMatch(/application\/yaml/);
+    expect(Buffer.from(await res.arrayBuffer()).equals(readFileSync(CONTRACT_PATH))).toBe(true);
   });
 });
