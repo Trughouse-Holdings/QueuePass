@@ -16,6 +16,12 @@ export interface TimeZoneFinder {
  * package: no network call. `find-now` merges zones whose rules agree from now on, so US land
  * comes back as one of the eight zones. Anything off the list, an out-of-range place, or an error
  * gives null, and the state rule (R3) applies instead of a 500.
+ *
+ * `find-now` reads the boundary tiles it needs with synchronous file reads, on the request's
+ * thread, and keeps them in memory: a few milliseconds on a venue save, only when an address
+ * changes (review round 1, m5; measured 27 lookups in 10 ms). Not preloaded at startup:
+ * `preCache()` took the process from 33 MB to 831 MB on 2026-10-25, too much for a lookup made
+ * on venue saves only.
  */
 export class GeoTzFinder implements TimeZoneFinder {
   private readonly logger = new Logger(GeoTzFinder.name);
