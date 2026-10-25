@@ -196,21 +196,25 @@ coordinates, the zone finder, and the test helpers every story uses.
   enum's values. Run it again after T008: it passes.
   **Done**: written before T003 and T008 and seen failing (no `US_TIME_ZONES`, no Prisma
   `TimeZoneSource`; commit f02c1de); passes after T008.
-- [ ] T010 [P] **Test first.** Extend `backend/test/unit/census-geocoder.spec.ts` (R1): a one-match
+- [x] T010 [P] **Test first.** Extend `backend/test/unit/census-geocoder.spec.ts` (R1): a one-match
   answer with `coordinates: { x: -84.500968562869, y: 38.049429848416 }` returns `location:
   { latitude: 38.0494…, longitude: -84.5009… }`; two entries with the same `matchedAddress` and
   different coordinates give the **first** entry's; missing `coordinates`, a string, `NaN`, or
   `null` gives `location: null` and is still a match (not "unavailable").
-- [ ] T011 Add `location` to the `match` result in `backend/src/address/address-geocoder.ts` and
+  **Done**: 10 new tests failed first (no `location` on the match; commit e227170).
+- [x] T011 Add `location` to the `match` result in `backend/src/address/address-geocoder.ts` and
   read it in `census-geocoder.ts`. Run T010 until it passes.
-- [ ] T012 [P] **Test first.** Create `backend/test/unit/time-zone-finder.spec.ts` (R1): with the
+  **Done**: T010 passes (36); one more existing exact-match assertion (the 200-character street)
+  gained the location its stub sends.
+- [x] T012 [P] **Test first.** Create `backend/test/unit/time-zone-finder.spec.ts` (R1): with the
   real `geo-tz` data (offline), `GeoTzFinder.zoneAt` returns R1's table for the eight Census
   addresses and the border towns (Indianapolis, Tell City, Pensacola, El Paso, Boise, Ontario OR,
   Window Rock, West Wendover, Juneau, Adak); `null` for (30, -70) in the Atlantic (`Etc/GMT+5`),
   Mexico City (`America/Mexico_City`), and San Juan PR (`America/Caracas`), zones not on the list
   (not Toronto: `find-now` merges it into America/New_York); `null`, not an exception, for latitude
   91, longitude -181, and `NaN` (R1, review round 1 m6).
-- [ ] T013 Add `geo-tz` 8.1.10 to `backend/package.json` (exact version), create
+  **Done**: 25 tests; failed first (no `time-zone-finder` module; commit e227170).
+- [x] T013 Add `geo-tz` 8.1.10 to `backend/package.json` (exact version), create
   `backend/src/address/time-zone-finder.ts` (`TIME_ZONE_FINDER`, `TimeZoneFinder`, `GeoTzFinder`
   importing `geo-tz/dist/find-now`, with R1's range check and `try`/`catch`), and provide it in
   `address.module.ts`. Run T012 until it passes.
@@ -229,9 +233,20 @@ coordinates, the zone finder, and the test helpers every story uses.
     check the seed install on the host instead: in a scratch copy of the repository, run that same
     `npm ci` line and confirm `node_modules/geo-tz` is absent and `npm run build --workspace
     @queuepass/seed` (its `tsc --noEmit`) passes.
-- [ ] T014 [P] Update `backend/test/setup/fake-geocoder.ts`: the default `match` carries Lexington's
+  **Done**: `geo-tz` 8.1.10 exact (npm: 19 packages added, the `text-encoding` deprecation warning
+  as R1 says); T012 passes with the real data, R1's whole table. Seed image: `seed-image.test.mjs`
+  failed first (3 of 4), passes after the Dockerfile change. Images cannot build on this machine
+  (TLS interception): `docker compose build backend seed` and the image's missing `geo-tz` are **to
+  do where images build**. Host check instead, 2026-10-24: in a scratch copy (root and every
+  workspace's `package.json`, the lock file, `scripts/seed`), `npm ci --ignore-scripts --workspace
+  @queuepass/seed --include-workspace-root` installed 313 packages with no `node_modules/geo-tz`,
+  and `npm run build --workspace @queuepass/seed` (`tsc --noEmit`) exited 0.
+- [x] T014 [P] Update `backend/test/setup/fake-geocoder.ts`: the default `match` carries Lexington's
   coordinates (38.0494, -84.5010); a test can set a match with any `location` or `null`.
   `createTestApp()` keeps the real `GeoTzFinder`.
+  **Done** with T011 (the match type now needs `location`): default place Lexington; `placeAt(place
+  | null)`; `PLACES`; `createTestApp()` keeps the real `GeoTzFinder` (only `ADDRESS_GEOCODER` is
+  overridden).
 - [ ] T015 Update `backend/test/setup/fixtures.ts`: `windowAt(days, hour = 18, zone =
   'America/New_York')` returns the venue's local `hour`:00 on that day with its offset
   (`toOffsetDateTime`), 3 hours long; add `atInstant(date, zone = 'America/New_York')`, which
