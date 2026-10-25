@@ -48,8 +48,9 @@ export function suiteCommand(workspace, { quick = false } = {}) {
   if (workspace === 'shared') {
     return { command: node, args: [VITEST, 'run', 'test/time-zone.test.ts'], cwd };
   }
-  // A filter, not a glob: every test file whose path contains `.tz.test.tsx`.
-  return { command: node, args: [VITEST, 'run', '--passWithNoTests', '.tz.test.tsx'], cwd };
+  // A filter, not a glob: every test file whose path contains `.tz.test.tsx`. No
+  // --passWithNoTests: each app has one, and a renamed one must fail the run (review round 1, m2).
+  return { command: node, args: [VITEST, 'run', '.tz.test.tsx'], cwd };
 }
 
 const npm = (script) => ({ command: `npm run ${script}`, args: [], cwd: ROOT, shell: true });
