@@ -673,7 +673,7 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   remains; every remaining `new Date(` is the current time, an instant from the API or a DTO already
   required to carry an offset, milliseconds, or `Date.UTC` arithmetic (customer `filters.ts` day
   check, demo data, the shared module). The calendar files (`019`) take instants only.
-- [ ] T058 (added in spec review round 2, N2) **Test first.** Create
+- [x] T058 (added in spec review round 2, N2) **Test first.** Create
   `scripts/test/run-host.test.mjs` (`node --test`): `node scripts/run-host.mjs --print
   --backend-tz America/Los_Angeles` prints, without starting anything, the setup steps in order
   (shared build, `prisma generate`, `migrate deploy`, seed; demo data only with `--demo-data`),
@@ -689,7 +689,16 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   place of service names. See it fail, then create `scripts/run-host.mjs` (explicit environment per
   child; output prefixed by name; waits for `/health`; Ctrl+C stops all four; `--demo-data`;
   `--geocoder-url`) and run it until it passes. Run it for real once in quickstart path B and record the result here.
-- [ ] T046 Run `npm run ci` and `npm run test:tz`; everything passes. Fix before the reviews.
+  **Done**: the test failed first (7 of 8; commit 2ec303f) and passes (8). The real run in path B is
+  part of the running-system gate (T053), **left for Mahdi's walk**: it needs `main`'s stack stopped
+  at an agreed time.
+- [x] T046 Run `npm run ci` and `npm run test:tz`; everything passes. Fix before the reviews.
+  **Done** 2026-10-24 (at a78c00e): `npm run ci` green in 404 s (scripts/test 44, shared 590,
+  backend 940 in 93 suites, admin 239, customer 306, booth 73, seed 8; the closing Los Angeles
+  `--quick` run passed in all four front-end workspaces). Then one more change (f7c9747, R14's note
+  only at a venue with events, test first), and `npm run test:tz`: every run passed: shared 590,
+  backend unit 139, admin 241, customer 306, booth 73, in each of America/New_York, UTC,
+  America/Los_Angeles, and Pacific/Honolulu.
 
 ---
 
