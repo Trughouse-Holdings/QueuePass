@@ -814,10 +814,16 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   92.28%. New files: `time-zone.ts` 100%, `venue-time-zone.ts` 100%, `event-time.ts` 100%,
   `venue-lock.ts` 100%, `time-zone-finder.ts` 83% (the logged `catch`), demo data 84%; the changed
   front-end files 97.8–100%. **Left for the PR description** (T056).
-- [ ] T052 Running-system gate, part 1: quickstart **S1**, the migration on a copy of the running
+- [x] T052 Running-system gate, part 1: quickstart **S1**, the migration on a copy of the running
   stack's real data. Record the event count and checksums before and after, the venue zone query,
   and `condeferrable`.
   **Left for Mahdi** (running-system gate, quickstart S1, at a time agreed for `main`'s stack).
+  - 2026-10-25, on a copy of the team's running database (`main`'s data: 7 venues, 4 events), in a
+    throwaway `postgres:17-alpine` on port 55432, migrated from this branch at `ff190fe`: the
+    migration applied once (`20261024120000_venue_time_zones`); event count and checksum the same
+    before and after (`4 | a72fb0b199b284d28672314f2c9932c1`); every venue `America/New_York |
+    DEFAULT`; `event_no_overlap` deferrable (`t`); a second `migrate deploy` had no pending
+    migrations. The copy and the dump were removed.
 - [ ] T053 Running-system gate, part 2. Path A where images build (`docker compose up --build`
   from a fresh clone of the branch); otherwise quickstart **path B**: at a time agreed with whoever
   uses `main`'s stack, stop it, start the gate's own `docker compose -p qp020gate up -d database
