@@ -1,10 +1,10 @@
-import { DEFAULT_TIME_ZONE, zoneName } from '@queuepass/shared';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import type { Location } from '@queuepass/shared';
 import { AddressLink } from '@queuepass/shared/web';
 import { listLocations } from '../api/locations';
 import { Notice } from '../components/Notice';
+import { venueZone } from '../format';
 
 /**
  * Spec 002 FR-024 — the venue list; spec 004 US3 — search by name or address, kept in the
@@ -144,7 +144,8 @@ export function LocationList(): React.ReactElement {
                         </>
                       )}
                     </td>
-                    <td>{zoneName(l.timeZone ?? DEFAULT_TIME_ZONE)}</td>
+                    {/* Spec 020 FR-024: the zone and how it was set. */}
+                    <td>{venueZone(l)}</td>
                     <td className="cell-num">{l.seatingCapacity.toLocaleString()}</td>
                     <td className="cell-action">
                       <Link to={`/locations/${l.id}/edit`} className="rowlink">
