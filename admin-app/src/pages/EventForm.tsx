@@ -226,7 +226,12 @@ export function EventForm(): React.ReactElement {
           const value = toLocalDateTime(iso, zone);
           const r = resolveField(value, zone);
           if (r?.kind !== 'repeated') return [value, ''];
-          return [value, r.first.instant.getTime() === Date.parse(iso) ? 'first' : 'second'];
+          // Review round 2, m1: the stored instant's own offset names its occurrence, so seconds
+          // (which the minute-precise input drops) cannot turn the first time into the second.
+          return [
+            value,
+            toOffsetDateTime(iso, zone).slice(-6) === r.first.offset ? 'first' : 'second',
+          ];
         };
         const [start, startOcc] = local(e.startsAt);
         const [end, endOcc] = local(e.endsAt);

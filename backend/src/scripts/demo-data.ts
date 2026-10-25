@@ -212,7 +212,8 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
     name: 'Demo Tonight',
     locationId: hall.id,
     // An instant, not a local time (spec 017 research R13), in the venue's offset (R19).
-    ...timesAt(Date.now() + HOUR, 3, hallZone),
+    // On the whole minute (review round 2, m1): an edit form shows minutes only.
+    ...timesAt(Math.floor(Date.now() / 60_000) * 60_000 + HOUR, 3, hallZone),
     totalTicketCapacity: 100,
     basePrice: '20.00',
   });
