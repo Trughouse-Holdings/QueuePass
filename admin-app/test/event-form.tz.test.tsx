@@ -231,6 +231,29 @@ describe('editing (US2 scenario 4, US3 scenario 4)', () => {
     expect(screen.getByLabelText('Ends')).toHaveValue('2026-10-01T22:00');
   });
 
+  // Review round 2, m1: an instant with seconds still picks its own occurrence.
+  it.each([
+    ['2027-11-07T05:30:30.000Z', '1:30 AM EDT (the first time)', '-04:00'],
+    ['2027-11-07T06:30:30.000Z', '1:30 AM EST (the second time)', '-05:00'],
+  ])('loads %s, stored with seconds, as %s', async (startsAt, chosen, offset) => {
+    const api = editForm({
+      locationId: EAST.id,
+      location: EAST,
+      startsAt,
+      endsAt: '2027-11-07T09:30:00.000Z', // 4:30 AM EST
+    });
+    await vi.waitFor(() => expect(screen.getByLabelText('Starts')).toHaveValue('2027-11-07T01:30'));
+    expect(screen.getByLabelText(chosen)).toBeChecked();
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('General'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Event page', {}, { timeout: 3000 });
+    expect(api.calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
+      startsAt: `2027-11-07T01:30:00${offset}`,
+    });
+  });
+
   it('shows 1:30 AM with EST chosen for an event stored at 06:30Z on 2027-11-07', async () => {
     const api = editForm({
       locationId: EAST.id,

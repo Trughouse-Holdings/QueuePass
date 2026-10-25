@@ -190,6 +190,9 @@ describe('Demo data', () => {
       // An hour after the run, which happened earlier in this file.
       expect(inMinutes).toBeLessThanOrEqual(60);
       expect(inMinutes).toBeGreaterThan(0);
+      // Review round 2, m1: on the whole minute, so an edit form never sees seconds.
+      expect(tonight.startsAt.getTime() % 60_000).toBe(0);
+      expect(tonight.endsAt.getTime() % 60_000).toBe(0);
     });
 
     it('completes while the address service is down, saving the venues not verified', async () => {
