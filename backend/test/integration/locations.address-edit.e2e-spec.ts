@@ -1,5 +1,5 @@
 import { asAdmin } from '../setup/authed-request';
-import type { FakeAnswer } from '../setup/fake-geocoder';
+import { PLACES, type FakeAnswer } from '../setup/fake-geocoder';
 import { ADDRESS, event, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
@@ -109,6 +109,7 @@ describe('Venue address check on edit (spec 013)', () => {
       city: 'LOUISVILLE',
       state: 'KY',
       zip: '40213',
+      location: PLACES.louisville,
     });
     const res = await patch(moved).expect(400);
     expect(res.body.error.code).toBe('ADDRESS_AMBIGUOUS');
@@ -123,6 +124,7 @@ describe('Venue address check on edit (spec 013)', () => {
       city: 'LOUISVILLE',
       state: 'KY',
       zip: '40209',
+      location: PLACES.louisville,
     });
     const res = await patch({ ...moved, acceptUnverifiedAddress: true }).expect(200);
     expect(res.body).toMatchObject({

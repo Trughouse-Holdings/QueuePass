@@ -2,6 +2,7 @@ import { HttpException } from '@nestjs/common';
 import { LocationsService } from '../../src/locations/locations.service';
 import { asAdmin } from '../setup/authed-request';
 import { ADDRESS } from '../setup/fixtures';
+import { PLACES } from '../setup/fake-geocoder';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -130,6 +131,7 @@ describe('Venue address check on create (spec 013)', () => {
       city: 'LOUISVILLE',
       state: 'KY',
       zip: '40208',
+      location: PLACES.louisville,
     });
     const res = await asAdmin(ctx)
       .post('/locations')
@@ -165,6 +167,7 @@ describe('Venue address check on create (spec 013)', () => {
       city: 'LEXINGTON',
       state: 'KY',
       zip: '40503',
+      location: PLACES.louisville,
     } as const;
 
     it('refuses a match with another ZIP code as ambiguous, offering it, nothing saved', async () => {

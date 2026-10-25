@@ -160,6 +160,7 @@ describe('CensusGeocoder', () => {
       city,
       state: 'KY',
       zip: '40507',
+      location: { latitude: 38, longitude: -84.5 },
     });
   });
 
