@@ -432,3 +432,25 @@ describe('changing the venue after choosing a repeated hour', () => {
     expect(posted(api)[0]).toMatchObject({ startsAt: '2027-11-07T01:30:00-06:00' });
   });
 });
+
+/** Review round 2, m2: with no venue chosen, the form asks for one instead of judging in Eastern. */
+describe('saving with no venue chosen', () => {
+  it.each([
+    ['a repeated time', '2027-11-07T01:30', '2027-11-07T03:30'],
+    ['a skipped time', '2027-03-14T02:30', '2027-03-14T04:00'],
+  ])('asks for a venue first for %s, and sends nothing', async (_label, starts, ends) => {
+    const api = newForm();
+    await screen.findByRole('option', { name: /Phoenix Hall/ });
+    set('Event name', 'Fall Concert');
+    set('Starts', starts);
+    set('Ends', ends);
+    set('Ticket type 1 name', 'General');
+    set('Ticket type 1 price', '45.00');
+    set('Ticket type 1 quantity', '10');
+    save();
+    const banner = await screen.findByTestId('error-banner');
+    expect(banner).toHaveTextContent("Choose a venue first: times are in the venue's local time.");
+    expect(banner).not.toHaveTextContent(/Eastern|Which|Choose which/);
+    expect(posted(api)).toHaveLength(0);
+  });
+});
