@@ -143,8 +143,13 @@ async function waitForHealth(url, timeoutMs = 120_000) {
   throw new Error(`${url} did not answer within ${timeoutMs / 1000} s`);
 }
 
-async function run(options) {
-  const { setup, children } = plan(options);
+/**
+ * Runs the plan. `deps` exists for scripts/test/run-host.test.mjs: another plan, the health URL
+ * and how long to wait for it, a callback per started child, and quiet output.
+ */
+export async function run(options, deps = {}) {
+  const { setup, children } = deps.plan ?? plan(options);
+  const healthUrl = deps.healthUrl ?? `${API}/health`;
   for (const step of setup) {
     console.log(`\n=== ${step.name}: ${step.command}`);
     const r = spawnSync(step.command, {
@@ -159,10 +164,16 @@ async function run(options) {
   const running = [];
   const start = (c) => {
     const child = spawn(c.command, { cwd: ROOT, env: childEnv(c.env), shell: true });
-    pipe(c.name, child.stdout, process.stdout);
-    pipe(c.name, child.stderr, process.stderr);
-    child.on('exit', (code) => console.log(`[${c.name}] exited (${code})`));
+    if (!deps.quiet) {
+      pipe(c.name, child.stdout, process.stdout);
+      pipe(c.name, child.stderr, process.stderr);
+      child.on('exit', (code) => console.log(`[${c.name}] exited (${code})`));
+    } else {
+      child.stdout.resume();
+      child.stderr.resume();
+    }
     running.push(child);
+    deps.onStart?.(child);
   };
   const stopAll = () => {
     for (const child of running) {
@@ -183,8 +194,14 @@ async function run(options) {
 
   const [backend, ...apps] = children;
   start(backend);
-  await waitForHealth(`${API}/health`);
-  console.log(`[backend] healthy at ${API}/health`);
+  try {
+    await waitForHealth(healthUrl, deps.healthTimeoutMs);
+  } catch (err) {
+    // Review round 1, m3: never leave the Backend running when giving up.
+    stopAll();
+    throw err;
+  }
+  console.log(`[backend] healthy at ${healthUrl}`);
   for (const a of apps) start(a);
   console.log(
     'Admin http://localhost:5173 · Customer http://localhost:5174 · Booth http://localhost:5175 (Ctrl+C stops all four)',
