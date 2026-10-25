@@ -418,7 +418,7 @@ US2 scenario 7, US3 scenarios 6–8.
 
 ### Tests (write first, confirm they fail)
 
-- [ ] T024 [P] [US5] Create `backend/test/integration/venues.time-zone-change.e2e-spec.ts`:
+- [x] T024 [P] [US5] Create `backend/test/integration/venues.time-zone-change.e2e-spec.ts`:
   - Eastern → Central with two events at 7:00 PM local and no orders: both move one hour later in
     UTC and still read 19:00 locally; a cancelled event without orders moves too; changing back
     restores the original instants exactly;
@@ -435,7 +435,10 @@ US2 scenario 7, US3 scenarios 6–8.
   - an explicit `timeZone` change on a venue with orders is refused **before** the address lookup
     (the fake geocoder is not called) when sent with an address change;
   - an address change that re-derives a different zone follows the same rules.
-- [ ] T025 [P] [US5] Create `backend/test/integration/venues.time-zone-change.concurrency.e2e-spec.ts`
+  **Done**: 13 tests, all failed first (commit 78688a7). Two test bugs fixed while making them pass:
+  a refunded order needs `refundedAt` (CHECK `order_refunded_at_matches_status`), and the deferred
+  case's expected hour overflowed past 24.
+- [x] T025 [P] [US5] Create `backend/test/integration/venues.time-zone-change.concurrency.e2e-spec.ts`
   (genuinely concurrent requests, each case repeated 10 times):
   - a zone change racing `createOrder` on one of the venue's events: either the order succeeds and
     the change is `409 TIME_ZONE_HAS_ORDERS`, or the change succeeds and the order is placed against
@@ -454,10 +457,13 @@ US2 scenario 7, US3 scenarios 6–8.
     zone;
   - a zone change racing an event **delete** of a cancelled event without orders at the venue: no
     `404`/`500` from the zone change (review round 1 m2).
+  **Done**: 7 cases, each 10 times, all failed first (commit 78688a7). Before T027, the event-create
+  race failed for the reason R10 gives: an event created at the old offset was saved after the zone
+  change without being moved (stored 18:00 in Central, not 19:00).
 
 ### Implementation
 
-- [ ] T026 [US5] Make `lockVenueAndEvents` also return `timeZone` and `timeZoneSource` from its
+- [x] T026 [US5] Make `lockVenueAndEvents` also return `timeZone` and `timeZoneSource` from its
   locked `SELECT`, and take an option `{ allStatuses: true }` that locks every event of the venue,
   any status, in **one** query in id order; `LocationsService.update` uses it, layout saves keep
   the scheduled-only default; say in `backend/src/common/venue-lock.ts` why (R8, review round 2
@@ -466,6 +472,11 @@ US2 scenario 7, US3 scenarios 6–8.
   `lockVenueAndEvents`, comparing with and converting from the **locked** zone (R8: orders, new moments, pairwise 60-minute check, `SET CONSTRAINTS "event_no_overlap"
   DEFERRED`, the writes); add the pre-lookup orders check for an explicit `timeZone`; remove T019's
   guard. Run T024 until it passes.
+  **Done**: `lockVenueAndEvents` returns `timeZone`/`timeZoneSource` from its locked SELECT and
+  takes `{ allStatuses: true }` (one query, id order; why in `venue-lock.ts`); `assertNoOrders` and
+  `moveEventsToZone` in `venue-time-zone.ts`; the update compares with and converts from the locked
+  zone; the explicit-zone orders check runs before the lookup; T019's guard is removed. T024 passes
+  (13).
 - [ ] T027 [US5] Add `lockVenueShared(tx, ids)` to `backend/src/common/venue-lock.ts` (`FOR SHARE`
   in id order) and make `EventsService.create`/`update` run in one `LOCKING_TX` transaction that
   takes it first (R10: both venues on a move; re-read `locationId` after `lockEvent` and retry once

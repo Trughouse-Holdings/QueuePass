@@ -101,7 +101,10 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
       await event(v, 'Free Show', '2026-10-03T19:00:00-04:00', '2026-10-03T22:00:00-04:00');
       const { orderId } = await orderWithTickets(ctx, sold.id, { quantity: 1 });
       if (kind === 'refunded') {
-        await ctx.prisma.order.update({ where: { id: orderId }, data: { status: 'REFUNDED' } });
+        await ctx.prisma.order.update({
+          where: { id: orderId },
+          data: { status: 'REFUNDED', refundedAt: new Date() },
+        });
       }
       if (kind === 'on a cancelled event') {
         await asAdmin(ctx).post(`/events/${sold.id}/cancel`).expect(200);
@@ -212,20 +215,21 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
 
   it('moves every event an hour later when consecutive ones are exactly 60 minutes apart (deferred)', async () => {
     const v = await venue();
-    const ids: string[] = [];
+    const created: { id: string; startsAt: string }[] = [];
     for (let i = 0; i < 4; i++) {
       // 3-hour events, each starting 4 hours after the last: exactly 60 minutes apart.
       const h = String(8 + i * 4).padStart(2, '0');
       const end = String(11 + i * 4).padStart(2, '0');
-      ids.push(
-        (await event(v, `E${i}`, `2026-10-10T${h}:00:00-04:00`, `2026-10-10T${end}:00:00-04:00`))
-          .id,
+      created.push(
+        await event(v, `E${i}`, `2026-10-10T${h}:00:00-04:00`, `2026-10-10T${end}:00:00-04:00`),
       );
     }
     await patch(v, { timeZone: 'America/Chicago' }).expect(200);
-    for (let i = 0; i < 4; i++) {
-      const h = 8 + i * 4 + 5;
-      expect((await stored(ids[i]))[0]).toBe(`2026-10-10T${String(h).padStart(2, '0')}:00:00.000Z`);
+    for (const e of created) {
+      // Each moves one hour later in UTC, keeping its local time.
+      expect((await stored(e.id))[0]).toBe(
+        new Date(Date.parse(e.startsAt) + 3_600_000).toISOString(),
+      );
     }
   });
 

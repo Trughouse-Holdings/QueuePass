@@ -4,12 +4,11 @@ import {
   HttpStatus,
   Inject,
   Injectable,
-  InternalServerErrorException,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { Location, Prisma } from '@prisma/client';
-import { formatAddress } from '@queuepass/shared';
+import { formatAddress, type UsTimeZone } from '@queuepass/shared';
 import {
   ADDRESS_GEOCODER,
   AddressGeocoder,
@@ -25,7 +24,13 @@ import { PrismaService } from '../prisma/prisma.service';
 import { matchesTyped } from './address-match';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
-import { decideZone, type ZoneDecision, type ZoneQuestion } from './venue-time-zone';
+import {
+  assertNoOrders,
+  decideZone,
+  moveEventsToZone,
+  type ZoneDecision,
+  type ZoneQuestion,
+} from './venue-time-zone';
 
 type Db = PrismaService | Prisma.TransactionClient;
 
@@ -186,6 +191,13 @@ export class LocationsService {
 
     await this.assertCapacityRules(this.prisma, id, dto.seatingCapacity);
 
+    // Spec 020 research R8: an explicit zone change at a venue with orders is refused before the
+    // address lookup, with no lock, so the refusal never waits on the network. Checked again
+    // under the lock.
+    if (dto.timeZone && dto.timeZone !== existing.timeZone) {
+      await assertNoOrders(this.prisma, existing, existing.timeZone as UsTimeZone, dto.timeZone);
+    }
+
     let checkedAddress: CheckedWithPlace | undefined;
     if (sent.length > 0) {
       const parts = dto as AddressParts;
@@ -205,20 +217,13 @@ export class LocationsService {
     });
 
     return this.prisma.$transaction(async (tx) => {
-      await lockVenueAndEvents(tx, id);
+      // Spec 020 research R8: every event of the venue is locked, and the zone compared and
+      // converted from is the one read under this lock, never the row read before it
+      // (review round 1, M2).
+      const locked = await lockVenueAndEvents(tx, id, { allStatuses: true });
       await this.assertCapacityRules(tx, id, dto.seatingCapacity);
-      if (zone) {
-        const stored = await tx.location.findUniqueOrThrow({ where: { id } });
-        // Spec 020 T019: moving events comes with T026. Until then a zone change at a venue
-        // with events fails closed, so no event is left with a different local time.
-        if (
-          zone.timeZone !== stored.timeZone &&
-          (await tx.event.count({ where: { locationId: id } })) > 0
-        ) {
-          throw new InternalServerErrorException(
-            'Changing the zone of a venue with events is not implemented yet.',
-          );
-        }
+      if (zone && zone.timeZone !== locked.timeZone) {
+        await moveEventsToZone(tx, { id, name: locked.name }, locked.timeZone, zone.timeZone);
       }
       return tx.location.update({
         where: { id },
