@@ -704,11 +704,29 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
 
 ## Phase 11: Independent reviews (at least two rounds, Mahdi 2026-10-24)
 
-- [ ] T047 **Review round 1**: a Claude session that did not write the code reviews the branch
+- [x] T047 **Review round 1**: a Claude session that did not write the code reviews the branch
   locally against the spec, plan, constitution 3.4.1, and #42 (Constitution III), including the
   quality-gate 7 list. Fix every finding in `Review 020:` commits. Record the findings (must,
   should, minor), fixes, and anything left open with the reason, here.
-  **Left for Mahdi** (the independent review rounds are run outside the implementing session).
+  **Round 1 done 2026-10-25** (independent session, at b7cc97c): must 1, should 1, minor 5; 15
+  mutations, all caught. Every finding fixed, test first where testable, in `Review 020:` commits:
+  **M1** (must): the Admin venue list showed the zone without how it was set (FR-024, US4 scenario
+  8; R12 and R14 had narrowed the column). `Clarify 020` (532b181) aligns R12, R14, and quickstart
+  S3 with the spec; T034's list test covers all four sources and failed first (11df60c); fix
+  392c790, the column renders `venueZone(l)`.
+  **S1** (should): editing an event while `GET /locations` failed or had not answered read the times
+  in Eastern and said "Choose a venue first". Three tests (a Pacific event with the list failing and
+  unreachable, and a Central event at the first 1:30 AM of 2027-11-07) failed first (1cf98bb); fix
+  e3b2d37: the form keeps the event's own `location` as the selected venue until the list has it.
+  **m1**: an update whose event kept moving venue answered 500; a unit test failed first (31ab1a4);
+  fix 2e1a640: 409 `SCHEDULING_CONFLICT`, `conflictingEvent: null`, after the retries. **m2**:
+  `test:tz --quick` no longer passes `--passWithNoTests` (test b829b3e failed first; fix fba2794).
+  **m3**: `run-host.mjs` stops the Backend when `/health` times out (test c177a7b failed first; fix
+  ab1630c, `run()` exported with injectable plan and timeout). **m4**: T042 now cites bd1d16d
+  (2bc5500). **m5**: comment on `find-now`'s synchronous reads; `preCache()` measured at 33 → 831
+  MB, so not preloaded (5aa357a).
+  Left open: nothing. The reviewer's note of one idle combined Backend run through another `node` on
+  PATH was not reproduced and not attributed to the branch.
 - [ ] T048 **Review round 2**, by another session that did not write the code (and not the round 1
   reviewer if possible), on the fixed branch. Fix and record as T047. **If round 2 finds anything
   more than minor issues, run round 3, and so on, until a round finds only minor issues**; record
@@ -727,7 +745,12 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   seed 8; the closing Los Angeles `--quick` run: shared 122, admin 21, customer 9, booth 6, all
   passed. Line coverage: shared 93.13%, backend 97.01%, admin 97.05%, customer 97.46%, booth 92.28%,
   seed 71.25% (unchanged; the floor is not enforced until `010`).
-- [ ] T050 **Three times in a row** (flake check), with no change in between, run each affected
+  **Rerun after review round 1** (2026-10-25, commit 2bc5500, on main's #86 fix merged at 8898346),
+  in a fresh clone: `npm ci` 21 s, `npm run ci` green in 421 s: scripts/test 45, shared 590, backend
+  941 in 94 suites, admin 244, customer 306, booth 73, seed 8; the closing Los Angeles quick run
+  passed (shared 122, admin 24, customer 9, booth 6). Coverage: shared 93.13%, backend 97.02%, admin
+  97.05%, customer 97.46%, booth 92.28%, seed 71.25%.
+- [x] T050 **Three times in a row** (flake check), with no change in between, run each affected
   suite and record the three results (passed/failed, counts, duration) in a table here:
   `npm run test --workspace @queuepass/shared`, `… @queuepass/backend`, `… @queuepass/admin-app`,
   `… @queuepass/customer-app`, `… @queuepass/booth-app`, and `node --test "scripts/test/*.test.mjs"`.
@@ -751,6 +774,13 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   The test reads a static file the feature does not touch; a connection reset while reading the 138
   KB answer points at the test transport, not at time zones, but the cause was not found. **Left
   open for Mahdi**: the ground rule says to fix and restart T049–T050 after any failure.
+  **Rerun after review round 1** (2026-10-25, same clone, commit 2bc5500, no change in between):
+  every run passed. Three in a row: shared 590 ×3 (20 s each); backend 941 ×3 in 94 suites (142,
+  142, 141 s); admin 244 ×3 (30 s each); customer 306 ×3 (26 s each); booth 73 ×3 (34, 33, 33 s);
+  `scripts/test` 45 ×3 (45, 44, 44 s). `npm run test:tz` (381 s): all 20 runs passed (shared 590,
+  backend unit 140, admin 244, customer 306, booth 73 in each of the four zones). `--backend-full`
+  in America/Los_Angeles: 941/941 in 94 suites (130 s). The earlier `cors-docs` ECONNRESET was issue
+  #86, fixed on `main` (the test now uses `fetch`); it did not recur.
 - [ ] T051 Report coverage for every workspace in the PR description; each new file is covered by
   its tests, and each workspace stays at or above 80% lines (Constitution VI, `010`).
   Coverage at c6b6b73 (T049): shared 93.13%, backend 97.01%, admin 97.05%, customer 97.46%, booth
