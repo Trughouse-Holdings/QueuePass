@@ -621,13 +621,19 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
 
 ## Phase 9: User Story 6 - Ticket Booth App (P2)
 
-- [ ] T040 [P] [US6] **Test first.** Create `booth-app/test/times.tz.test.tsx`: the event picker,
+- [x] T040 [P] [US6] **Test first.** Create `booth-app/test/times.tz.test.tsx`: the event picker,
   "Already used at", "Entry opens at", "For {event} on …, not this event" (with another venue's
   zone from `EntryTicket.event.timeZone` and from `details.event.timeZone`), and admit results show
   the exact venue-local strings with abbreviations; live code windows and countdowns unchanged
   (existing tests still pass).
-- [ ] T041 [US6] Change `booth-app/src/format.ts`, `EntryResult.tsx`, `EventPicker.tsx`, and
+  **Done**: 6 tests, all failed first (commit dc81176). Existing live code window and countdown
+  tests unchanged and passing.
+- [x] T041 [US6] Change `booth-app/src/format.ts`, `EntryResult.tsx`, `EventPicker.tsx`, and
   `App.tsx` (R12, R16). Run T040 until it passes, then the Booth suite.
+  **Done**: `when(iso, zone)`; the picker uses each event's venue zone; `refusalText` takes the
+  ticket's event zone (`EntryTicket.event.timeZone` or `details.event.timeZone`) for OTHER_EVENT and
+  the gate event's zone for USED and NOT_OPEN; `EntryResult` takes the gate zone for an admit's
+  already-used times. T040 passes; Booth suite 73 tests green.
 
 ---
 

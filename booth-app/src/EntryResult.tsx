@@ -14,7 +14,16 @@ export type Outcome =
  */
 export function refusalText(
   state: string | undefined,
-  info: { eventName?: string; eventStartsAt?: string; usedAt?: string; entryOpensAt?: string },
+  info: {
+    eventName?: string;
+    eventStartsAt?: string;
+    /** Spec 020 R16: the ticket's own event's venue zone (another venue's, for OTHER_EVENT). */
+    eventTimeZone?: string;
+    usedAt?: string;
+    entryOpensAt?: string;
+    /** Spec 020 R12: the gate event's venue zone, for the times of a ticket of this event. */
+    timeZone?: string;
+  },
 ): string {
   // A reason the app doesn't know, or one missing its time, never becomes "Invalid Date" or a
   // made-up reason: the agent is told plainly to look the ticket up again (FR-011's tone).
@@ -26,12 +35,14 @@ export function refusalText(
       return 'This event has ended';
     case 'OTHER_EVENT':
       return info.eventName && info.eventStartsAt
-        ? `For ${info.eventName} on ${when(info.eventStartsAt)}, not this event`
+        ? `For ${info.eventName} on ${when(info.eventStartsAt, info.eventTimeZone)}, not this event`
         : fallback;
     case 'USED':
-      return info.usedAt ? `Already used at ${when(info.usedAt)}` : fallback;
+      return info.usedAt ? `Already used at ${when(info.usedAt, info.timeZone)}` : fallback;
     case 'NOT_OPEN':
-      return info.entryOpensAt ? `Entry opens at ${when(info.entryOpensAt)}` : fallback;
+      return info.entryOpensAt
+        ? `Entry opens at ${when(info.entryOpensAt, info.timeZone)}`
+        : fallback;
     default:
       return fallback;
   }
@@ -58,8 +69,11 @@ export function EntryResult({
   onAdmit,
   onRefuse,
   onAnother,
+  timeZone,
 }: {
   outcome: Outcome | null;
+  /** Spec 020 R12: the gate event's venue zone. */
+  timeZone?: string;
   busy: boolean;
   onAdmit: (wholeOrder: boolean) => void;
   onRefuse: () => void;
@@ -94,7 +108,7 @@ export function EntryResult({
             ? '✓ Admitted'
             : `✓ ${n} admitted` +
               (used.length > 0
-                ? ` · ${used.length} already used at ${used.map((t) => when(t.usedAt)).join(', ')}`
+                ? ` · ${used.length} already used at ${used.map((t) => when(t.usedAt, timeZone)).join(', ')}`
                 : '');
         return (
           <section className="card card--padded result result--admitted">
