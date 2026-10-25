@@ -654,15 +654,25 @@ Hawaii zones. Name each new file that asserts formatted times `*.tz.test.tsx` (R
   **Done**: `atLocal(days, 'HH:mm', zone)` (first of a repeated time, next hour if skipped) and
   every time sent as `toOffsetDateTime` in the venue's zone; Demo Tonight is now + 1 hour to + 4
   hours, an instant. `fallbackToDefaultTimeZone` has been passed since T019. T042 passes (10).
-- [ ] T044 [P] Update `README.md`: the `020` status row; "Today": every venue has a time zone from
+- [x] T044 [P] Update `README.md`: the `020` status row; "Today": every venue has a time zone from
   its address and every app shows event times in the venue's local time; `npm run test:tz`
   (`QP_TEST_TZ`), its relation to `019`'s `CALENDAR_TEST_TZ`, and why `TZ=` in Git Bash does not
   work on Windows; quickstart path B (host-run) for machines whose images do not build; the boundary data attribution ("Time zone boundaries:
   timezone-boundary-builder, © OpenStreetMap contributors, ODbL 1.0, via geo-tz").
-- [ ] T045 [P] Grep app sources for `toLocaleString(`, `toLocaleDateString(`,
+  **Done**: the `020` status row and status line, a "Today" sentence, `npm run test:tz` with
+  `QP_TEST_TZ`, its relation to `CALENDAR_TEST_TZ`, and why `TZ=` in Git Bash does not reach Node on
+  Windows (under Run the tests), the host-run path (under Start the system), and a "Venue time
+  zones" section with the boundary data attribution.
+- [x] T045 [P] Grep app sources for `toLocaleString(`, `toLocaleDateString(`,
   `toLocaleTimeString(`, `getTimezoneOffset(`, and `new Date(` with a local string or
   `(y, m, d)` arguments (ground rules); each remaining use is not an event time (record which) or is
   replaced.
+  **Done** (2026-10-24, `admin-app/src`, `customer-app/src`, `booth-app/src`, `packages/shared/src`,
+  `backend/src`): nothing to replace. Every remaining `toLocaleString(` formats a number (counts,
+  capacities, seats); no `toLocaleDateString(`, `toLocaleTimeString(`, or `getTimezoneOffset(`
+  remains; every remaining `new Date(` is the current time, an instant from the API or a DTO already
+  required to carry an offset, milliseconds, or `Date.UTC` arithmetic (customer `filters.ts` day
+  check, demo data, the shared module). The calendar files (`019`) take instants only.
 - [ ] T058 (added in spec review round 2, N2) **Test first.** Create
   `scripts/test/run-host.test.mjs` (`node --test`): `node scripts/run-host.mjs --print
   --backend-tz America/Los_Angeles` prints, without starting anything, the setup steps in order
