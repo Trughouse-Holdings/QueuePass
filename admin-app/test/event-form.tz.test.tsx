@@ -37,9 +37,18 @@ const TIER = {
   updatedAt: EVENT.updatedAt,
 };
 
+const CENTRAL = {
+  ...VENUE,
+  id: 'v-central',
+  name: 'Prairie Hall',
+  timeZone: 'America/Chicago',
+  timeZoneSource: 'ADDRESS',
+};
+
 function newForm(post: () => Response = () => json({ ...EVENT, locationId: EAST.id }, 201)) {
   const api = stubApi({
-    'GET /locations': json([EAST, PHX]),
+    'GET /locations': json([EAST, PHX, CENTRAL]),
+    [`GET /locations/${CENTRAL.id}/layout`]: json(NO_LAYOUT(CENTRAL.id)),
     [`GET /locations/${EAST.id}/layout`]: json(NO_LAYOUT(EAST.id)),
     [`GET /locations/${PHX.id}/layout`]: json(NO_LAYOUT(PHX.id)),
     'POST /events': post,
@@ -375,5 +384,28 @@ describe('editing while the venue list is unavailable', () => {
       startsAt: '2027-11-07T01:30:00-05:00',
       endsAt: '2027-11-07T03:30:00-06:00',
     });
+  });
+});
+
+/** Review round 2, m3: a repeated hour is asked again when the venue changes (R13, FR-015). */
+describe('changing the venue after choosing a repeated hour', () => {
+  it('clears the choice, refuses Save until it is made again, and sends the new zone offset', async () => {
+    const api = newForm();
+    await fill(EAST.id, '2027-11-07T01:30', '2027-11-07T03:30');
+    fireEvent.click(screen.getByLabelText('1:30 AM EST (the second time)'));
+    set('Venue', CENTRAL.id);
+    const first = screen.getByLabelText('1:30 AM CDT (the first time)');
+    const second = screen.getByLabelText('1:30 AM CST (the second time)');
+    expect(first).not.toBeChecked();
+    expect(second).not.toBeChecked();
+    save();
+    expect(await screen.findByTestId('error-banner')).toHaveTextContent(
+      'Choose which 1:30 AM you mean.',
+    );
+    expect(posted(api)).toHaveLength(0);
+    fireEvent.click(second);
+    save();
+    await screen.findByText('Event page', {}, { timeout: 3000 });
+    expect(posted(api)[0]).toMatchObject({ startsAt: '2027-11-07T01:30:00-06:00' });
   });
 });
