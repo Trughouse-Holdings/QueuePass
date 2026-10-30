@@ -18,6 +18,7 @@
     "build": "npm run build --workspaces --if-present",
     "test": "node scripts/coverage-report.mjs --clean && node --test \"scripts/test/*.test.mjs\" && node scripts/check-boundary.mjs && node scripts/check-contract-drift.mjs && npm run test --workspace @queuepass/shared && npm run test --workspace @queuepass/backend && npm run test --workspace @queuepass/admin-app && npm run test --workspace @queuepass/customer-app && npm run test --workspace @queuepass/booth-app && npm run test --workspace @queuepass/seed && node scripts/test-tz.mjs --zones America/Los_Angeles --quick",
     "test:tz": "node scripts/test-tz.mjs",
+    "e2e": "node scripts/e2e.mjs",
     "seed": "npm run seed --workspace scripts/seed",
     "lint": "eslint .",
     "format": "prettier --write .",
