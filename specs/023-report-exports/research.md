@@ -50,9 +50,9 @@ but bundles its fonts as a large virtual file system).
 
 **Decision**: `admin-app/src/export/` with:
 
-- `attendee-rows.ts`: `attendeeTable(event, orders, madeAt, madeBy)` → `{ title, columns, rows }`, one row per
+- `attendee-rows.ts`: `attendeeTable(event, orders, madeAt, madeBy, adminZone?)` → `{ title, columns, rows }`, one row per
   ticket (FR-004), cells typed as `{ kind: 'text' | 'dateTime' | 'money' | 'count', value }`;
-- `sales-rows.ts`: `salesTable(report, madeBy)` → the same shape, one row per event plus Total (FR-005);
+- `sales-rows.ts`: `salesTable(report, madeBy, adminZone?)` → the same shape, one row per event plus Total (FR-005);
 - `csv.ts`, `xlsx.ts`, `pdf.ts`: each takes the table model and returns a `Blob`;
 - `file-name.ts` (FR-012) and `save.ts` (the `Blob` link, as `019`);
 - `ExportMenu.tsx`: the Download control (FR-001, FR-002, FR-011, FR-014, FR-015).
@@ -95,7 +95,8 @@ dates are never text.
 
 **Decision**: Reports uses `SalesReport.generatedAt`, which the Backend sets when it computes the
 report (a UTC `Z` string; the files show it converted to the admin's own zone with its offset, through
-`toOffsetDateTime(instant, adminZone)`). Attendees records the time its `listAttendees` answer arrived (`Date.now()` when the load
+`toOffsetDateTime(instant, adminZone)`; both builders take `adminZone` as an optional last argument,
+the device zone by default, so tests fix it). Attendees records the time its `listAttendees` answer arrived (`Date.now()` when the load
 finishes); a reload refreshes both data and time.
 
 ## R8. File names (FR-012)
@@ -121,16 +122,23 @@ Regular and Bold (SIL Open Font License; static TTFs from the Noto project, comm
 made and registered with `addFileToVFS`/`addFont`. It covers Latin, Greek, and Cyrillic and common
 punctuation. jsPDF's built-in Helvetica is not used: one character above U+00FF switches a whole string
 to two-byte codes and garbles it, and curly apostrophes are lost (review round 1, finding 2, run on
-jspdf 4.2.1). `pdfText(s)` replaces any character the font lacks (checked against the font's character
-map, built once) with `?` and reports whether it replaced any; if so, the heading adds "Some
+jspdf 4.2.1). `pdfText(s, glyphs)` replaces any character the font lacks (checked against the font's character
+map, `fontGlyphs(ttf)` reading its `cmap` formats 4 and 12, built once; text is NFC-composed first) with `?` and reports whether it replaced any; if so, the heading adds "Some
 characters are shown as ?; the CSV and Excel files have the exact text.";
 heading: report title, event name (attendees), made at; body 9 pt, header bold with the theme's
-accent as text, not a fill; `autoTable` with `showHead: 'everyPage'`, `overflow: 'linebreak'`, column
-widths fixed for codes, dates, and numbers; footer "Page n of m" through `putTotalPages`. With an
+accent as text, not a fill; `autoTable` with `showHead: 'everyPage'`, `overflow: 'linebreak'`,
+`rowPageBreak: 'avoid'`; codes, dates, and numbers sized to their content (`cellWidth: 'wrap'`, the
+column's `nowrap`), text columns wrapped with a floor of 3.6 pt per character of their Excel width (so
+one long word cannot squeeze "customer3" or "Confirmed" into pieces; implementation, Review 023);
+footer "Page n of m" written on each page once the table is drawn and the page count known (the
+same result as `putTotalPages`). With an
 embedded font the page text is glyph codes, not readable in the raw file, so tests check the layout
-model (`pdfLayout(table)`: heading lines, head, body strings, column widths, all pure) exactly, and the
-PDF bytes only for structure: `%PDF`, the letter landscape `MediaBox`, the page count, the embedded
-font.
+model (`pdfLayout(table, glyphs)`: heading lines, head, body strings, which columns are `nowrap`, all
+pure) exactly, and the
+PDF bytes only for structure: `%PDF`, the letter landscape `MediaBox` (jsPDF 4.2.1 writes it as
+`[0 0 792. 612.]`, so tests compare the numbers), the page count, the embedded
+font. `toPdf(table, loadFonts?)` takes the font loader: the app fetches the Vite asset URLs; tests
+read the TTFs from disk, since a Vite asset URL cannot be fetched under jsdom (Review 023).
 
 ## R11. The Download control (FR-001, FR-002, FR-011, FR-014, FR-015)
 
@@ -154,7 +162,10 @@ in 10 s) fails (Constitution VIII).
 ## R13a. Who made it
 
 **Decision**: both pages pass `useAuth().username` (the token's `preferred_username`) as `madeBy` to
-their table builder; it appears on the Excel About sheet and in the PDF heading (FR-008).
+their table builder; it appears on the Excel About sheet and in the PDF heading (FR-008). `App`
+calls `useAuth()` and hands the username to `<Attendees>` and `<Reports>` as a `username` prop: the
+pages themselves cannot call `useAuth()`, which throws outside `<AuthProvider>`, and every existing
+page test renders them without one (implementation, Review 023).
 
 ## R13b. Small rules from review round 1
 

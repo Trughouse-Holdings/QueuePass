@@ -273,6 +273,14 @@ body {
 .btn:active {
   transform: translateY(1px);
 }
+/* A <summary> styled as a button (spec 023's Download, review round 1 finding 5): no browser
+   disclosure triangle beside the button's own; Safari draws one unless told not to. */
+summary.btn {
+  list-style: none;
+}
+summary.btn::-webkit-details-marker {
+  display: none;
+}
 .btn--primary {
   background: var(--accent);
   color: var(--accent-text);

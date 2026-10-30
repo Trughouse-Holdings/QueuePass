@@ -13,7 +13,7 @@ Features `001` through `008` and `012` through `018` are built and verified. `01
 reviewed; part of its running-system walk is still to do. `020` is built, reviewed, and walked
 on the running system (path B; the image checks wait for a machine where images build). `011` is built; its first runs on
 GitHub and its running-system walk are pending. `021` is built, reviewed, and walked in the
-browser.
+browser. `023` is built and reviewed; its running-system walk is pending.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                | Spec             | Plan and tasks     | Code                         |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------------- |
@@ -36,6 +36,7 @@ browser.
 | [`019-add-to-calendar`](specs/019-add-to-calendar/spec.md)                   | From My tickets, customers add an event they hold tickets for to Apple Calendar or Outlook (a calendar file) or Google Calendar, as a one-time copy; offered only while the event is ahead or under way         | Draft            | Done (22/25 tasks) | **Built (walk partly done)** |
 | [`020-venue-time-zones`](specs/020-venue-time-zones/spec.md)                 | Every venue has a time zone, worked out from its checked address; every app shows and takes event times in the venue's local time with the zone's abbreviation (7:00 PM EDT), whatever the viewer's device zone | Draft            | Done (58 tasks)    | **Built and verified**       |
 | [`021-sign-in-screens`](specs/021-sign-in-screens/spec.md)                   | Each app's sign-in screen names the app in its tab title and heading, says who it is for, and has its own accent (indigo, teal, amber), in the shared theme's look; the Customer app is now QueuePass Tickets   | Draft            | Done (33/33 tasks) | **Built and verified**       |
+| [`023-report-exports`](specs/023-report-exports/spec.md)                     | Admins download an event's attendee list and the sales report as CSV, Excel (XLSX), or PDF, with the screen's figures and the time they were made                                                               | Draft            | Done (25/28 tasks) | **Built (walk pending)**     |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -70,7 +71,9 @@ local time, and a time that a daylight-saving change skips or repeats is refused
 (`020`). Every sign-in screen says which app it is for: "Sign in to QueuePass Admin", "Sign in
 to QueuePass Tickets" (the Customer app's name), or "Sign in to QueuePass Ticket Booth", with a
 line saying who the app is for and the app's own accent, on the first screen and after a wrong
-password alike (`021`).
+password alike (`021`). Admins download an event's attendee list (one row per ticket) and the
+sales report as CSV, Excel, or PDF, made from what the page shows and saying when it was made
+(`023`).
 
 The Admin and Customer apps take their whole look from one shared theme (`012`).
 
@@ -334,6 +337,11 @@ unchanged.
 - **Sales dashboard** — admins see tickets sold against capacity, revenue, and check-ins, overall
   and per event and tier, always current (`005`)
 - **Attendee lists** — every order for an event, with ticket codes and check-in state (`005`)
+- **Report exports** — **Download** on the Attendees and Reports pages saves the list or report as
+  CSV, Excel (XLSX), or PDF, made in the browser from the page's own figures: one row per ticket
+  or per event, times in the venue's zone, typed cells in Excel, the header on every PDF page, and
+  the time it was made in every file and file name. Formula-looking text never runs. Exports are
+  not yet recorded; the audit log (#51) will record them (`023`)
 - **Safe cancellation** — cancelling an event voids its tickets, refunds its orders, frees the
   venue time, and shows customers it was cancelled; events and tiers with orders can't be
   deleted (`005`)
