@@ -84,17 +84,38 @@ description: "Task list for Test Coverage Floor"
 
 ## Phase 4: User Story 3 and polish
 
-- [ ] T013 [US3] Quickstart F5; record.
-- [ ] T014 README: the `010` status row; the testing section says the 80% floor is enforced per
+- [x] T013 [US3] Quickstart F5; record. Result: the only `exclude` in the six configs (and
+  `backend/jest.unit.config.ts`) is `src/api-schema.ts` in `packages/shared`, with its reason;
+  Jest has no `coveragePathIgnorePatterns` (SC-003).
+- [x] T014 README: the `010` status row; the testing section says the 80% floor is enforced per
   workspace, that a filtered run (`npm test --workspace X -- somefile`) fails the floor because it
   measures only part of the suite (run the workspace's whole suite, or `npx vitest run somefile`
   without coverage), and that `npm run coverage:report` prints the table after a failing run.
+  Result: the `010` row (Built, review pending); "Today" names the floor; the testing section has
+  "The 80% floor" paragraph (both runners' messages, the filtered-run note, checked: a filtered
+  seed run measured 17.71% and failed, the report after a failure, the one exclusion, the fake);
+  the pull request check paragraph no longer says the floor waits for `010`.
 - [ ] T015 Independent review by a separate Claude session; fix; record here.
-- [ ] T016 `npm run ci` green locally; record each workspace's coverage and the `test` job's duration
-  against `main`'s (SC-004).
+- [x] T016 `npm run ci` green locally; record each workspace's coverage and the `test` job's duration
+  against `main`'s (SC-004). Result: green locally in 194 s (218 s before, T001), Keycloak pointed
+  away as in CI. Lines after: `packages/shared` 93.13%, `backend` 97.02%, `admin-app` 97.06%,
+  `customer-app` 97.46%, `booth-app` 92.28%, `scripts/seed` 100.00% (254/254). The seed's tests add
+  under 2 s, so the `test` job's duration (main's run for 67e17c4: 5 min 30 s) is unchanged within
+  SC-004's 2 minutes; the CI number is for the PR.
 - [ ] T017 Quickstart F2–F4 (F3 on a draft PR, closed unmerged afterwards); record.
+  Result so far: **F2** done locally: `booth-app/src/untested.ts` with 60 small functions made the
+  root `npm test` fail at `booth-app` (`ERROR: Coverage for lines (65.78%) does not meet global
+  threshold (80%)`, `npm error workspace @queuepass/booth-app@0.1.0`), and `npm run
+  coverage:report` then marked it `below 80%` and the seed not measured; 250 functions in
+  `backend/src/untested.ts` failed the Backend (`Jest: "global" coverage threshold for lines (80%)
+  not met: 71.65%`). Both files removed. F2 as first written (60 lines) could not fail: corrected in
+  a `Review 010` commit. **F3** not done: no PR may be opened before spec PR #99 merges. **F4** not
+  run: the Keycloak reachable at localhost:9000 was another session's `021` stack, whose
+  `customer-app` client name `021` changes, so the seed's live tests would have re-converged it;
+  left for a human with a stack of this branch.
 - [ ] T018 Push; open the implementation PR after the spec PR merges: `fixes #22`, coverage before and
-  after, the review. CI green; merge when green and approved.
+  after, the review. CI green; merge when green and approved. Result so far: branch pushed; the PR
+  waits for spec PR #99.
 
 ## Dependencies
 
