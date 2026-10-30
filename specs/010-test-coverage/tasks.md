@@ -16,7 +16,9 @@ description: "Task list for Test Coverage Floor"
 - Fresh session on `010-test-coverage-impl`, cut from the spec branch while its PR is open.
 - Commits: `Impl 010: <what> (T0xx, #22)`.
 - If spec `021`'s implementation has merged and added seed tests or changed `provision-realm.ts` /
-  `provision-clients.ts`, build on it: keep its tests, test its new paths too.
+  `provision-clients.ts`, build on it: keep its tests, test its new paths too. If `010` merges first,
+  `021`'s implementer adds `realms.findOne` and `realms.update` to the fake; the fake's error names
+  them (R4).
 
 ## Phase 1: Setup
 
@@ -26,14 +28,17 @@ description: "Task list for Test Coverage Floor"
 
 ## Phase 2: User Story 2 - The seed without Keycloak (P1)
 
-- [ ] T003 [US2] List every Keycloak admin client method `scripts/seed/src/*.ts` calls; write
-  `scripts/seed/test/fake-keycloak.ts` (R4) implementing exactly those, in memory, recording calls.
+- [ ] T003 [US2] List every Keycloak admin client method `scripts/seed/src/*.ts` calls (R4's list);
+  write `scripts/seed/test/fake-keycloak.ts` (R4) implementing exactly those, in memory, recording
+  calls, as a `Proxy` that throws `fake Keycloak: <group>.<method> is not implemented` for anything
+  else.
 - [ ] T004 [P] [US2] `scripts/seed/test/realm-roles.unit.test.ts` (R4).
 - [ ] T005 [P] [US2] `scripts/seed/test/users.unit.test.ts` (R4).
 - [ ] T006 [P] [US2] `scripts/seed/test/clients.unit.test.ts` (R4).
 - [ ] T007 [P] [US2] `scripts/seed/test/keycloak-client.unit.test.ts` (R4).
-- [ ] T008 [P] [US2] `scripts/seed/test/index.unit.test.ts` (R4); if the entry-point check cannot be
-  tested as written, move it into an exported function and test that (no behavior change).
+- [ ] T008 [P] [US2] `scripts/seed/test/index.unit.test.ts` (R4): `seed()` in order, and the entry
+  point in process (set `process.argv[1]`, `vi.resetModules()`, mock the client so the seed rejects,
+  stub `process.exit`, import), never by spawning a child process (its coverage is not counted).
 - [ ] T009 [US2] With no Keycloak: `npm test --workspace @queuepass/seed` at or above 80% lines (aim
   higher, so a small later change does not drop it below); record the number. Every test passes 3 runs
   in a row.
@@ -55,7 +60,9 @@ description: "Task list for Test Coverage Floor"
 
 - [ ] T013 [US3] Quickstart F5; record.
 - [ ] T014 README: the `010` status row; the testing section says the 80% floor is enforced per
-  workspace.
+  workspace, that a filtered run (`npm test --workspace X -- somefile`) fails the floor because it
+  measures only part of the suite (run the workspace's whole suite, or `npx vitest run somefile`
+  without coverage), and that `npm run coverage:report` prints the table after a failing run.
 - [ ] T015 Independent review by a separate Claude session; fix; record here.
 - [ ] T016 `npm run ci` green locally; record each workspace's coverage and the `test` job's duration
   against `main`'s (SC-004).
@@ -66,3 +73,14 @@ description: "Task list for Test Coverage Floor"
 ## Dependencies
 
 T001–T002 → T003 → T004–T008 → T009 → T010–T012 → T013–T018.
+
+## Review record (spec branch)
+
+- **Round 1** (independent Claude session, 2026-10-30; it ran Vitest 3.2.7 and Jest 29.7.0 with an 80%
+  lines threshold and the seed's suite without Keycloak, 24.01%): 0 must-fix, 3 should-fix, 4 minor;
+  all fixed in the `Review 010` commit: the entry point is tested in process (R4, T008); FR-004 and R2
+  say when the table appears (only after a passing `npm test` in CI; `npm run coverage:report` locally);
+  the fake names any missing method, for whichever of `010`/`021` merges second (R4, T003); R4's method
+  list and three error paths; fake timers for the fixed 2-second wait; R3's wording on
+  `jest.unit.config.ts`; the README notes that a filtered run fails the floor (T014).
+- **Open findings**: none.

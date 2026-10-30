@@ -128,7 +128,9 @@ every excluded file is generated.
 - **A workspace exactly at 80.00%**: passes (the floor is "at least").
 - **Flaky coverage**: line coverage is deterministic for a given test set; a change in coverage
   between runs is a defect to fix.
-- **Spec `021` (open) also adds seed tests**: both features' tests are kept when the second merges.
+- **Spec `021` (open) also adds seed tests and seed calls**: whichever merges second keeps both
+  features' tests and adds any new Keycloak call to the fake, which names a missing method when called
+  (research R4).
 
 ## Requirements *(mandatory)*
 
@@ -137,8 +139,9 @@ every excluded file is generated.
 - **FR-001**: Each of the six workspaces MUST fail its own test run when its line coverage is below 80%.
 - **FR-002**: `npm test` and the CI `test` check MUST therefore fail when any workspace is below 80%.
 - **FR-003**: The failure MUST name the workspace, its line coverage, and the floor.
-- **FR-004**: The coverage table printed after the tests MUST say the floor is enforced, and keep
-  marking any workspace below it.
+- **FR-004**: The coverage table printed after the tests MUST say the floor is enforced. It is printed
+  after a passing `npm test` (in CI, only then); after a failing one, `npm run coverage:report` prints
+  it locally and still marks any workspace below 80%.
 - **FR-005**: The seed workspace MUST reach at least 80% line coverage with no Keycloak available, from
   tests that check the requests the seed makes and how it handles Keycloak's answers and failures.
 - **FR-006**: The seed's live tests MUST still run, and pass, when Keycloak is available.
