@@ -107,6 +107,38 @@ describe('the dark set', () => {
   });
 });
 
+// Spec 021 research R5 (FR-006; Constitution VII as amended in 3.5.0): the Customer (tickets) and
+// Ticket Booth (booth) accents for the sign-in screens only, light and dark.
+const SIGN_IN_ACCENTS: Record<string, [string, string]> = {
+  'accent-tickets': ['#0f766e', '#2dd4bf'],
+  'accent-tickets-hover': ['#115e59', '#5eead4'],
+  'accent-tickets-soft': ['#f0fdfa', '#042f2e'],
+  'accent-tickets-text': ['#ffffff', '#0f1115'],
+  'brand-mark-end-tickets': ['#0d9488', '#14b8a6'],
+  'brand-mark-text-tickets': ['#ffffff', '#0f1115'],
+  'accent-booth': ['#b45309', '#fbbf24'],
+  'accent-booth-hover': ['#92400e', '#fcd34d'],
+  'accent-booth-soft': ['#fffbeb', '#451a03'],
+  'accent-booth-text': ['#ffffff', '#0f1115'],
+  'brand-mark-end-booth': ['#c2410c', '#f59e0b'],
+  'brand-mark-text-booth': ['#ffffff', '#0f1115'],
+};
+
+describe('the sign-in screen accents (spec 021 research R5)', () => {
+  it.each(Object.entries(SIGN_IN_ACCENTS))('defines --%s in the light set', (name, [value]) => {
+    expect(light[name]).toBe(value);
+  });
+  it.each(Object.entries(SIGN_IN_ACCENTS))('defines --%s in the dark set', (name, [, value]) => {
+    expect(dark[name]).toBe(value);
+  });
+  it('uses none of them in the theme outside the token blocks (the apps keep one accent)', () => {
+    const outside = css
+      .replace(/(^|\n):root\s*\{[^}]*\}/, '')
+      .replace(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{[^}]*\}\s*\}/, '');
+    expect(outside).not.toMatch(/--(accent|brand-mark-(end|text))-(tickets|booth)/);
+  });
+});
+
 // Moved from customer-app/test/shared-look.test.ts (spec 008 US4): the block now exists once.
 describe('shared detail layout', () => {
   it.each([
