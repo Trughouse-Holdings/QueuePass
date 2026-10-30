@@ -263,7 +263,7 @@ and the layout editor.
   (spec `024`). T012 and T013 pass.
   **Result**: `SectionLines.tsx` as research R8: the hint once; per line `<fieldset className="form__row form__row--section">`, `<legend id>`, three `.field`s with visible `<label id htmlFor>`, inputs named by `aria-labelledby="{legend} {label}"` (ids from `useId()` and the index), `×` in an `aria-hidden` span, the count as R8; a private `lineSeats` that `totalSeats` now sums (same result). Admin 328 passed (T012, T013 included).
 - [x] T015 [US3] `admin-app/src/styles.css` (research R8): a new `.form__row--section` rule after
-  `.form__row`'s: columns for name, rows, ×, seats per row, count, and Remove; at `max-width: 640px`
+  `.form__row`'s: columns for name, rows, ×, seats per row, count, and Remove (under them, research R16.1); at `max-width: 640px`
   the name full width, then rows × seats per row, then the count and Remove; theme values only
   (`var(--space-…)`). The `.form__row` rules themselves are not changed (`git diff` shows none): the
   event form's ticket-type lines (`EventForm.tsx`) and the tier mapping (`SeatingCard.tsx`) use them. The shared theme's drift test
@@ -278,59 +278,73 @@ and the layout editor.
 
 ## Phase 6: Browser tests (Constitution VI)
 
-- [ ] T016 [P] `e2e/stack/geocoder-stub/server.mjs` (research R10, data-model.md): before matching
+- [x] T016 [P] `e2e/stack/geocoder-stub/server.mjs` (research R10, data-model.md): before matching
   `addresses.json`, a lookup whose `street` equals `0 Outage Way` ignoring case and surrounding spaces
   answers `503` with `{ "errors": ["stand-in outage"] }` and logs `lookup "…": outage`; update the
   file's header comment (spec `024`). `addresses.json` unchanged.
-- [ ] T017 [P] `e2e/fixtures/data.ts`: export `UNKNOWN_PLACE` (`1 Nowhere Blvd`, `Louisville`, `KY`,
+  **Result**: `server.mjs`: `OUTAGE_STREET = '0 Outage Way'`, checked with the file's `same()` (case and surrounding spaces ignored) before matching; answers `503` `{ "errors": ["stand-in outage"] }` and logs `lookup "0 Outage Way, Louisville, KY 40202": outage` (seen in the stack log); header comment names spec 024. `addresses.json` unchanged.
+- [x] T017 [P] `e2e/fixtures/data.ts`: export `UNKNOWN_PLACE` (`1 Nowhere Blvd`, `Louisville`, `KY`,
   `40202`) and `OUTAGE_PLACE` (`0 Outage Way`, `Louisville`, `KY`, `40202`) as `Place`, with a comment
   saying what the stand-in answers for each; `PLACES` unchanged.
-- [ ] T018 `e2e/tests/003-venue-event.spec.ts`: in `003 C1`'s first step, choose **Eastern Time** in
+  **Result**: `UNKNOWN_PLACE` and `OUTAGE_PLACE` exported as `Place`, each with a comment saying what the stand-in answers; `PLACES` unchanged.
+- [x] T018 `e2e/tests/003-venue-event.spec.ts`: in `003 C1`'s first step, choose **Eastern Time** in
   the Time zone select before Create venue; the comment "spec 020: its zone from the address" becomes
   "spec 024: the zone the admin chose"; the assertions stay. Title unchanged.
-- [ ] T019 `e2e/tests/024-venue-form.spec.ts`, test `'024 V1/V2/V3: an admin creates a seated venue in
+  **Result**: `003 C1` selects Eastern Time before Create venue; the comment says "spec 024: the zone the admin chose"; assertions and title unchanged; passes.
+- [x] T019 `e2e/tests/024-venue-form.spec.ts`, test `'024 V1/V2/V3: an admin creates a seated venue in
   one press, at an address the service does not know, in the zone they pick'` exactly as research R10
   item 1, signed in as `adminFor(testInfo)`, names from `uniqueName`; record the `POST /locations`
   requests with `page.on('request')` and assert exactly one, after the zone is chosen, whose
   `postDataJSON()` has `acceptUnverifiedAddress: true` and `timeZone: 'America/Chicago'`.
-- [ ] T020 Same file, test `'024 V4/V5: with the address service down a venue is saved not verified,
+  **Result**: As research R10 item 1, with `page.on('request')` recording `POST /locations`: none after the first press (1 s wait, as `020 S7`), exactly one after choosing Central, whose `postDataJSON()` has `acceptUnverifiedAddress: true` and `timeZone: 'America/Chicago'`; options, the hint once, labels and `×` per line, "= 200 seats"/"= 50 seats"/"Total: 250 seats", the zone message as an alert, R6's notice in a status (no success state, no Save anyway), the row's "Not verified" and "Central Time, chosen by an admin", the venue page's "Total: 250 seats", and Edit layout's hint, named boxes, and counts.
+- [x] T020 Same file, test `'024 V4/V5: with the address service down a venue is saved not verified,
   and a new address keeps its zone'` exactly as research R10 item 2.
-- [ ] T021 See each `024` test fail once against a deliberate break, then restore it (as `022`
+  **Result**: As research R10 item 2: `OUTAGE_PLACE`, Pacific, capacity 300 → R6's notice for "0 Outage Way, Louisville, KY 40202" with "Pacific Time, chosen by an admin", the row "Not verified"; the row's **Edit** link (the venue page's link is also named "Edit", and the list has one per row) → Edit venue: the select on `America/Los_Angeles`, "Pacific Time, chosen by an admin.", "This address is not verified. Saving checks it again."; `PLACES.louisville` typed → the "doesn't change the time zone" hint; Save changes → the success notice "Venue saved. Address: 1 ARENA PLZ, LOUISVILLE, KY 40202. Time zone: Pacific Time, chosen by an admin.", the row without "Not verified". The first full run failed here on an ambiguous `Edit` locator (16 rows); fixed by taking the row's link.
+- [x] T021 See each `024` test fail once against a deliberate break, then restore it (as `022`
   T031): T019 with `acceptUnverifiedAddress` removed from `LocationForm`'s create, T020 with T008's
   change reverted. Record both failures (the assertion that failed) here.
-- [ ] T022 `specs/024-venue-form-simplify/quickstart.md` Automation table: rows V1–V5 exactly as
+  **Result**: Break 1, `LocationForm` sending the flag only on edit: `npm run e2e -- -g "024 V1"` → `024 V1/V2/V3` failed at `expect(getByRole('heading', { level: 1, name: 'Venues' })).toBeVisible()` (line 112: the create was refused, the form stayed). Break 2, `checkAddress` back to `if (saveUnverifiedWhenUnavailable) return unverified();`: `npm run e2e -- -g "024 V4"` → `024 V4/V5` failed at the not-verified status notice (line 163); the page showed "We can't verify the address right now. Nothing was saved. Try again in a minute." and the stand-in logged the outage. Both restored with `git checkout` (working tree clean), no `qpe2e` container left.
+- [x] T022 `specs/024-venue-form-simplify/quickstart.md` Automation table: rows V1–V5 exactly as
   research R11 lists them (V0, V6–V10 unchanged), and the paragraph above the table loses its
   "On the spec branch …" sentences. `node scripts/check-quickstart-marks.mjs` passes.
+  **Result**: Rows V1–V5 exactly as research R11; V0, V6–V10 unchanged; the "On the spec branch …" sentences removed. `node scripts/check-quickstart-marks.mjs`: "23 quickstarts marked; every browser test has its row".
 
 ---
 
 ## Phase 7: Polish & cross-cutting
 
-- [ ] T023 [P] `README.md` (research R14): the features table's `024` row (spec link, scope, "Draft",
+- [x] T023 [P] `README.md` (research R14): the features table's `024` row (spec link, scope, "Draft",
   "Done (N/32 tasks)", the code status); the `013` row's "with an explicit save anyway" and the `020`
   row's "worked out from its checked address" rewritten as R14 says; the Status paragraph names `024`;
   the **Today** paragraph's Save anyway and "worked out from its verified address" sentences; the
   **Venue address checks** item; the **Venue time zones** section. `npx prettier --check README.md`.
-- [ ] T024 [P] Search the repository for the old behavior in user-facing text and comments: `rg -n
+  **Result**: README: the `024` row ("Draft", "Done (29/32 tasks)", "Built (review pending)"), the `013` and `020` rows as R14, the Status paragraph names `024`, the Today paragraph's address and zone sentences, the Venue address checks item (one press; other callers still refused without the flag), and the Venue time zones section. Prettier realigned the table; `npx prettier --check README.md` passes.
+- [x] T024 [P] Search the repository for the old behavior in user-facing text and comments: `rg -n
   "Save anyway|save anyway|Work it out|work it out|worked out from the new address"` over `admin-app/`,
   `backend/src/`, `e2e/`, `README.md`. Each hit is updated to the new behavior, or is a record (specs
   `013`, `020`, the contract's "feature 013" wording, `demo-data.ts`'s internal option) and is listed
   here with why it stays.
-- [ ] T025 [P] Confirm `specs/013-venue-address-validation/{spec,quickstart}.md` and
+  **Result**: Updated: `backend/src/locations/dto/create-location.dto.ts`'s flag comment (now names feature 024 and the unavailable case). Kept, with why: `backend/src/locations/venue-time-zone.ts` lines 33 and 54 ("saved anyway": the Backend's rule for a not-verified address and a caller that sends no zone, unchanged, FR-007); `locations.service.ts` (the "save-anyway flag" in `update`'s doc, the flag's name; `CreateOptions`' "an address saved offline", the demo-data option, R9); the Admin tests and `024-venue-form.spec.ts` that assert no Save anyway button or "work it out" option exists. No hit in `admin-app/src`, `e2e/stack`, or README.
+- [x] T025 [P] Confirm `specs/013-venue-address-validation/{spec,quickstart}.md` and
   `specs/020-venue-time-zones/{spec,quickstart}.md` carry the "Superseded in part by `024`" note (spec
   PR) and that its scenario and requirement numbers match what was built; fix the note only.
-- [ ] T026 Coverage: `admin-app` and `backend` stay at or above 80% line coverage, and the removed
+  **Result**: All four notes present. Checked against what was built: `013` spec (FR-006, FR-008, FR-011, FR-019) and quickstart (S1b, S2, S2b, S4, S5, S7: the refusals, Save anyway, edits, the seated create, the outage); `020` spec (FR-002 and FR-003 for the Admin app, FR-024, SC-006, R4, R14) and quickstart (S3, S4). No fix needed.
+- [x] T026 Coverage: `admin-app` and `backend` stay at or above 80% line coverage, and the removed
   Save anyway and split-state code leaves no untested branch in `LocationForm.tsx`; record each
   workspace's figure here.
-- [ ] T027 `npx tsc --noEmit -p e2e` and `npm run lint` clean for the new and changed `e2e/` files.
-- [ ] T028 `npm run e2e` locally, green: every test, `024`'s two included; record the count and
+  **Result**: Line coverage after the change: admin-app 97.22% (3572/3674), backend 97.05% (2075/2138); `LocationForm.tsx` 100% lines, 127/128 branches (the one left is `sameAsStored`'s `s ?? ''`, unchanged since `013`, for a city that is null while the street is not); `SectionLines.tsx` 100% lines and branches once T012 gained an empty Seats per row case (it was 22/23); `locations.service.ts` 100% lines, 62/64 branches (the rethrow of an error that is not "unavailable" and an error with a cause, moved unchanged from `checkAddress` into `logUnavailable`). No Save anyway or split-state branch remains.
+- [x] T027 `npx tsc --noEmit -p e2e` and `npm run lint` clean for the new and changed `e2e/` files.
+  **Result**: `npx tsc --noEmit -p e2e/tsconfig.json` and `npx eslint e2e` clean; `npm run lint` (which also type-checks `e2e/`) green in T030's run.
+- [x] T028 `npm run e2e` locally, green: every test, `024`'s two included; record the count and
   time here; the stack left stopped.
+  **Result**: `docker compose -p qp023walk stop` first (a manual-testing stack held the ports; stopped, not removed). `npm run e2e`: **14 passed** (14.0 s of tests, 1.3 min in all, stack healthy after 0.9 min), `024`'s two included; no `qpe2e` container or volume left.
 - [ ] T029 Independent review by a separate Claude session (Constitution III) of the branch against
   spec, plan, research, and contract 1.15.0; fix the findings, tests first where a finding is a
   defect; record the round here (counts by severity, each fix, and any finding left open with the
   reason).
-- [ ] T030 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;
+- [x] T030 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;
   record the counts per workspace and the coverage figures.
+  **Result**: Before the review (T029 not yet run; repeat after its fixes): `origin/main` already contained; `npm run ci` green: format, lint (with the `e2e/` type-check), build; scripts 75, "23 quickstarts marked; every browser test has its row", contract drift clean, shared 681, backend 954 (943 + 11), admin 328 (314 before; 329 with T026's extra case, run alone), customer 308, booth 76, seed 91 passed and 20 skipped (Keycloak down), test:tz quick passed. Coverage: shared 93.13%, backend 97.05%, admin 97.22%, customer 97.46%, booth 92.28%, seed 100%.
 - [ ] T031 Running-system walk, quickstart V0–V10, on a stack built from this branch: Nate walks it
   (V4 needs the Backend pointed at an unreachable address service and back; V9 needs VoiceOver).
   Record each scenario's result as Nate reports it; his "pass" closes the walk.

@@ -236,8 +236,8 @@ venue form and the venue page's layout editor (`LayoutCard.tsx`) both get it:
   `= {n.toLocaleString()} {n === 1 ? 'seat' : 'seats'}` with `n = (Number(rows) || 0) *
   (Number(seatsPerRow) || 0)`, the same rule as `totalSeats`. Then "Remove section {i}", unchanged.
 - `admin-app/src/styles.css`: a new modifier `.form__row--section` (its own rules, after `.form__row`'s)
-  sets the columns name, rows, ×, seats per row, count, remove; at 640 px and below, the name takes
-  the full width, then rows × seats per row, then the count and Remove. Theme values only (`012`'s
+  sets the columns name, rows, ×, seats per row, count, with Remove under them (R16.1); at 640 px
+  and below, the name takes the full width, then rows × seats per row, then the count and Remove. Theme values only (`012`'s
   drift check). `.form__row` itself is **not** changed: the Schedule and Edit event form's ticket-type
   lines (`EventForm.tsx`) and the seated-event tier mapping (`SeatingCard.tsx`) also use it (spec
   review round 1, M1).
@@ -432,3 +432,19 @@ behavior.
   on New venue a zone chosen); an Event form test asserting a ticket-type line's class is exactly
   `form__row` (M1).
 - **Browser** (`npm run e2e`): R10.
+
+## R16. Decisions made while implementing
+
+1. **Remove section goes under the line at desktop width.** With all six on one row (R8 as
+   planned), the Admin form's width left the Rows and Seats per row boxes about 60 px wide, and
+   "200" did not fit (checked in Chromium, T015). The line is now name, rows, ×, seats per row,
+   and the count, with Remove section N under them; phone width is as planned. FR-018 to FR-023 are
+   unchanged.
+2. **An edit's flag lands with the zone rule (T003), the create's with T010.** T002's edit bodies
+   (R3) already carry `acceptUnverifiedAddress: true`, so T003 sends it with every address on an
+   edit; T010 sends it on create and removes Save anyway. T002's Kentucky test ("no Save anyway")
+   therefore passes at T010, not T003.
+3. **The ticket-type class guard (M1) is in `theme-classes.test.tsx`**, which renders the New event
+   form, rather than `event-form.tz.test.tsx`, which `test:tz` reruns under four device zones and is
+   about times (T013 allowed either).
+
