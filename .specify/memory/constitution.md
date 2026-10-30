@@ -1,14 +1,16 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.4.1 -> 3.4.2 (PATCH): three roadmap rows reserved; nothing that is required changes.
-Problem: issues #92 (sign-in screens), #93 (quickstart browser tests in CI), and #52 (exports)
-  need spec numbers before their spec and plan PRs (each issue's Process section), and reserving
-  them together lets the three be specified in parallel.
+Version: 3.4.2 -> 3.5.0 (MINOR): a new requirement on future features; the stack table gains a
+  row. (Spec 021's PR also proposes 3.5.0; whichever merges second renumbers to 3.6.0.)
+Problem: issue #93: the quickstarts' running-system scenarios are walked by hand once and never in
+  CI, so broken wiring between the pieces can pass every check (spec 022 research R14).
 Changed:
-  - Roadmap: rows 021-sign-in-screens (#92, depends on 001, 012), 022-quickstart-browser-tests
-    (#93, depends on 011), and 023-report-exports (#52, depends on 005). The next free number
-    is 024.
-Impact: none on existing code, specs, or controls. The README's version reference follows.
+  - Principle VI: from feature 023 on, a feature's implementation PR includes browser tests for its
+    quickstart's main journey, and its quickstart marks each scenario Automated or Manual.
+  - Language and Stack: a "Browser tests" row (Playwright, Chromium, e2e/ at the repository root);
+    the "Continuous integration" row names the e2e job.
+Impact: spec 022 builds the browser tests, the e2e job, and the marks in every quickstart. Features
+  001-022 are not retrofitted beyond 022's own scope. The README's version reference follows.
   Templates: none need updating.
 -->
 
@@ -196,6 +198,9 @@ after it.
 - Before an implementation PR is merged, the system MUST be brought up with
   `docker compose up --build`, and each front end MUST be signed into, used, and signed out of as
   a smoke test.
+- From feature `023` on, a feature's implementation PR MUST include browser tests (`e2e/`, run by
+  `npm run e2e` and the `e2e` check) for its quickstart's main journey, and its quickstart MUST mark
+  each scenario Automated or Manual, with the test's name or the reason (spec `022`).
 
 Recorded deferral (Principle VIII): the CI run becomes merge-blocking once `011-ci-test-runs` is
 merged and its check is required on `main`, which a repository admin turns on right after that
@@ -262,7 +267,8 @@ These choices are fixed for every feature. Changing one requires amending this c
 | Backend tests | Jest, with Testcontainers for PostgreSQL |
 | Front-end tests | Vitest with React Testing Library |
 | Lint and format | ESLint and Prettier |
-| Continuous integration | GitHub Actions, running `npm test` with coverage on every pull request open and update |
+| Browser tests | Playwright (Chromium) in `e2e/` at the repository root, against the Compose stack (`npm run e2e`) |
+| Continuous integration | GitHub Actions on every pull request open and update: the `test` job runs `npm test` with coverage; the `e2e` job runs the browser tests |
 | Orchestration | Docker Compose v2 |
 
 ## Security and Data Constraints
@@ -372,4 +378,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.4.2 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-30
+**Version**: 3.5.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-30
