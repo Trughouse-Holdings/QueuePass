@@ -22,7 +22,8 @@ export function App() {
     <div className="app">
       <header className="topbar">
         <div className="topbar__inner">
-          <p className="brand">QueuePass</p>
+          {/* Spec 021 FR-003: the name its sign-in screen shows (the seed's client name). */}
+          <p className="brand">QueuePass Tickets</p>
           <nav className="navlinks">
             <NavLink to="/events" className={navClass}>
               Events

@@ -257,17 +257,20 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
 - [ ] T026 [US4] Check in a browser at 360 px, light and dark, keyboard only, VoiceOver (quickstart
   S5, S6); fix `login.css` or `template.ftl` for anything that fails (sideways scroll, focus ring,
   heading order, autofocus on username from `base`'s `login.ftl`). Record what was checked here.
+  **Result**: **partly done headlessly, needs Nate's browser walk.** Checked in headless Chrome 2026-10-30 over the DevTools protocol, for admin, customer, booth (and account console) at 360 px and 1280 px, light and dark, on the first screen and after a wrong password typed and sent with Enter: no sideways scroll (scrollWidth = width in all 34 renders); focus starts in `#username` (also after the error); Tab goes username → password → Show → Sign In; Show and Sign In draw a 3 px outline in the app's accent, the fields the shared accent border and ring; Space on Show reveals the password, its `aria-label` turns to "Hide password" and it shows "Hide"; one `<h1>` and the `<title>` name the app; computed contrast on the rendered pages: heading 17.63 / 14.45, audience line 5.23 / 6.83, labels 17.63 / 14.45, button text on accent 5.02–6.29 / 6.09–11.32, field error 6.57 / 8.97 (light / dark), brand letter ≥ 3.1. Screenshots looked over by eye: the band, mark and button take each app's accent. No fix was needed. **Not checked**: VoiceOver (the title and heading are right in the markup; whether the wrong-password text, which arrives with a full page load in base's `aria-live` span that the username field does not reference with `aria-describedby`, is actually read out needs a person to hear it; if it is not, `login.ftl` would need an override, a plan change), a real phone, and DevTools' own contrast panel.
 
 ---
 
 ## Phase 7: The Customer app's name (FR-003)
 
-- [ ] T027 [P] Test in `customer-app/test/` (the app shell test that renders `App`): the header brand
+- [x] T027 [P] Test in `customer-app/test/` (the app shell test that renders `App`): the header brand
   reads "QueuePass Tickets"; and a test that reads `customer-app/index.html` and expects
   `<title>QueuePass Tickets</title>`. Must fail.
-- [ ] T028 `customer-app/index.html` title and `customer-app/src/App.tsx` header brand to
+  **Result**: 2 cases in `customer-app/test/app.test.tsx` (header brand, `index.html` title); both failed.
+- [x] T028 `customer-app/index.html` title and `customer-app/src/App.tsx` header brand to
   "QueuePass Tickets"; product mentions ("Can't reach QueuePass", the calendar `PRODID`) unchanged
   (R10). T027 passes; update any other Customer test that expected the old brand.
+  **Result**: both renamed; "Can't reach QueuePass" and the calendar `PRODID` unchanged; no other Customer test expected the old brand. Customer: 308 passed.
 
 ---
 
