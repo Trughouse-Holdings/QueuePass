@@ -164,7 +164,7 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   `@media (prefers-color-scheme: dark) { .qp-app--x { … } }` too. Then scan
   `keycloak/themes/queuepass/login/resources/css/login.css` with the app stylesheets and expect no
   violations. The rule cases must fail before the checker changes.
-  **Result**: `cssViolations` takes `{ signInAccents: true }` for `login.css` only, so an app stylesheet still may not map accents (a case proves it). 20 rule cases: the mapping allowed in `.qp-app--x` and in `@media`; still reported: a literal, a color function, a `var()` fallback with a literal, another custom property, a non-token value, a token of another kind (`--accent: var(--danger)`), another role's token, a written-out color, and the roles under another rule, a compound selector, a selector list, a nested rule, `body.qp-app--x`, and another rule in `@media`. The three allow cases failed before T018; then `login.css` is scanned and only the customer and booth rules may set `--accent`.
+  **Result**: `cssViolations` takes `{ signInAccents: { tokens } }` (the theme's token-block names) for `login.css` only, so an app stylesheet still may not map accents (a case proves it). 24 rule cases (4 added in review round 1, finding 2: `--accent: var(--accent-soft)`, `var(--accent-text)`, `var(--accent-nope)`, and a rule mixing the tickets and booth sets, each failing first): the mapping allowed in `.qp-app--x` and in `@media`; still reported: a literal, a color function, a `var()` fallback with a literal, another custom property, a non-token value, a token of another kind (`--accent: var(--danger)`), another role's token, a written-out color, and the roles under another rule, a compound selector, a selector list, a nested rule, `body.qp-app--x`, and another rule in `@media`. The three allow cases failed before T018; then `login.css` is scanned and only the customer and booth rules may set `--accent`.
 - [x] T016 [US1] Live test `scripts/seed/test/sign-in-screens.test.ts` (Keycloak reachable, else
   skipped with the reason, as `seed-idempotence.test.ts`): for each of `admin-app`, `customer-app`,
   `booth-app`, GET `/realms/queuepass/protocol/openid-connect/auth` with `client_id`,
@@ -187,7 +187,7 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   drops the selector at `{` today, so first make the parser track each declaration's enclosing rule
   selector (through `@media` blocks), then add the exception (R4). T015's rule cases pass, and every
   existing drift case still passes.
-  **Result**: `declarations()` keeps a stack of open blocks' selectors (through `@media` and nesting) and gives each declaration its innermost one; the exception (selector exactly `.qp-app--[a-z0-9-]+`, role → `var(--<role with app>)` of the same role) applies only with `signInAccents`. All 318 shared theme cases pass.
+  **Result**: `declarations()` keeps a stack of open blocks' selectors (through `@media` and nesting) and gives each declaration its innermost one; the exception (selector exactly `.qp-app--[a-z0-9-]+`, role → `var()` of the same role's token for one app, the same app throughout the rule, all six of that app's tokens defined in the theme's token blocks; tightened in review round 1) applies only with `signInAccents`. All 322 shared theme cases pass.
 - [x] T019 [US1] `keycloak/themes/queuepass/login/resources/css/login.css` (R4): a centered card on
   `--bg` (max width about 400 px, full width under 480 px), the top band (`--accent`, 6 px), the
   audience line in `--text-muted`, the `h2` page header, spacing from `--space-*`; `.qp-field-error`
@@ -216,7 +216,7 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   same title, `<h1>`, audience line, and body class, plus "Invalid username or password." inside
   `#input-error` with `aria-live="polite"` and class `qp-field-error` (a field error, not a page
   message: R9), and the username field's value kept (FR-004, FR-011).
-  **Result**: 3 cases: after `admin1`/`wrong`, same title, one `<h1>`, audience line, body class; "Invalid username or password." in `#input-error` with `class="qp-field-error"` and `aria-live="polite"`; no `role="alert"` banner repeating it; username kept and `aria-invalid="true"`.
+  **Result**: 3 cases: after `admin1`/`wrong`, same title, one `<h1>`, audience line, body class; "Invalid username or password." in `#input-error` with `class="qp-field-error"` and `aria-live="polite"`; no `role="alert"` banner repeating it; username kept and `aria-invalid="true"`; after review round 1, `#username` and `#password` carry `aria-describedby="input-error"` on this page and not on the first one.
 - [x] T022 [US2] Extend the same test: GET the authorization URL with `client_id=account-console`,
   `redirect_uri=http://localhost:8080/realms/queuepass/account/`, `response_type=code`,
   `scope=openid`, a `state`, and an S256 `code_challenge` (not `/realms/queuepass/account`, which
@@ -260,7 +260,7 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
 - [ ] T026 [US4] Check in a browser at 360 px, light and dark, keyboard only, VoiceOver (quickstart
   S5, S6); fix `login.css` or `template.ftl` for anything that fails (sideways scroll, focus ring,
   heading order, autofocus on username from `base`'s `login.ftl`). Record what was checked here.
-  **Result**: **partly done headlessly, needs Nate's browser walk.** Checked in headless Chrome 2026-10-30 over the DevTools protocol, for admin, customer, booth (and account console) at 360 px and 1280 px, light and dark, on the first screen and after a wrong password typed and sent with Enter: no sideways scroll (scrollWidth = width in all 34 renders); focus starts in `#username` (also after the error); Tab goes username → password → Show → Sign In; Show and Sign In draw a 3 px outline in the app's accent, the fields the shared accent border and ring; Space on Show reveals the password, its `aria-label` turns to "Hide password" and it shows "Hide"; one `<h1>` and the `<title>` name the app; computed contrast on the rendered pages: heading 17.63 / 14.45, audience line 5.23 / 6.83, labels 17.63 / 14.45, button text on accent 5.02–6.29 / 6.09–11.32, field error 6.57 / 8.97 (light / dark), brand letter ≥ 3.1. Screenshots looked over by eye: the band, mark and button take each app's accent. No fix was needed. **Not checked**: VoiceOver (the title and heading are right in the markup; whether the wrong-password text, which arrives with a full page load in base's `aria-live` span that the username field does not reference with `aria-describedby`, is actually read out needs a person to hear it; if it is not, `login.ftl` would need an override, a plan change), a real phone, and DevTools' own contrast panel.
+  **Result**: **partly done headlessly, needs Nate's browser walk.** Checked in headless Chrome 2026-10-30 over the DevTools protocol, for admin, customer, booth (and account console) at 360 px and 1280 px, light and dark, on the first screen and after a wrong password typed and sent with Enter: no sideways scroll (scrollWidth = width in all 34 renders); focus starts in `#username` (also after the error); Tab goes username → password → Show → Sign In; Show and Sign In draw a 3 px outline in the app's accent, the fields the shared accent border and ring; Space on Show reveals the password, its `aria-label` turns to "Hide password" and it shows "Hide"; one `<h1>` and the `<title>` name the app; computed contrast on the rendered pages: heading 17.63 / 14.45, audience line 5.23 / 6.83, labels 17.63 / 14.45, button text on accent 5.02–6.29 / 6.09–11.32, field error 6.57 / 8.97 (light / dark), brand letter ≥ 3.1. Screenshots looked over by eye: the band, mark and button take each app's accent. No fix was needed. **Not checked**: VoiceOver (the title and heading are right in the markup; the wrong-password text is now named by the fields' `aria-describedby`, review round 1 finding 1, but a person still has to hear it read out), a real phone, and DevTools' own contrast panel.
 
 ---
 
@@ -282,10 +282,27 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
 - [x] T029 README: the `021` status row in the features table (spec link, scope, status) and the
   "Today" paragraph; the constitution reference already reads v3.5.0.
   **Result**: status paragraph and a `021` row (`Built (walk pending)`, 29/33 tasks), a sentence in **Today**, a note in **One shared look**, `keycloak/` in the repository layout; the constitution reference already reads v3.5.0.
-- [ ] T030 Independent review by a separate Claude session (Constitution 3.3.0) of the
+- [x] T030 Independent review by a separate Claude session (Constitution 3.3.0) of the
   implementation against spec.md, plan.md, and research.md; fix the findings; record the round, its
   findings, and any left open here.
-  **Result**: not done here: left for the independent review session.
+  **Result**: round 1 (separate Claude session, 2026-10-30, at 472ea8d): 1 must-fix, 1 should-fix,
+  3 minor; all fixed in the `Impl 021: announce the wrong-password error…` and `Review 021: …`
+  commits:
+  - must (FR-012): the wrong-password error, in base's `aria-live` span present on page load, was
+    likely never announced. Fixed: `keycloak/themes/queuepass/login/login.ftl`, base 26.0.8's word
+    for word but for `aria-describedby="input-error"` on `#username` and `#password` while the
+    error shows; R2, R9, plan and data-model record the one overridden form template; the live test
+    and the theme-file test check it (failed first). Live test 14 of 14 after a rebuild.
+  - should (R4): the drift exception let `--accent: var(--accent-soft)`, `var(--accent-text)`,
+    `var(--accent-nope)` and a rule mixing two apps' sets pass. Fixed: one app per rule, all six of
+    its tokens defined in the theme's token blocks; the four cases added and failing first; T015's
+    record reworded.
+  - minor: each app's accent on `--warn-bg` and `--danger-bg` added to the contrast test (lowest:
+    booth on danger-bg, 4.62); the audience line looked up only for a client ID matching
+    `[a-z0-9-]+`, since `msg()` runs `MessageFormat` (tried live: a client `Odd's app` renders 200
+    with no audience line; a client ID with `{` fails inside Keycloak before the theme, so that is
+    not ours, R3); the live test's form-action lookup fails with a message instead of a `!`.
+  - **Open findings**: none.
 - [x] T031 `npm run ci` locally, green; record the counts per workspace.
   **Result**: `npm run ci` green on 2026-10-30 (exit 0) with Keycloak up: format, lint, build; root node tests 45; shared 669 (21 files); backend 942 (94 suites); admin 249 (27 files); customer 308 (22 files); booth 76 (5 files); seed 54 (5 files, all live: 14 sign-in screen and 6 idempotence cases run; without Keycloak, as in GitHub CI, those 20 skip with their reason); test:tz quick pass. Coverage: shared 93.13%, backend 97.02%, admin 97.06%, customer 97.46%, booth 92.28%, seed 75.37% (floor not enforced until 010).
 - [ ] T032 Running-system walk, quickstart S0–S9, on a stack built from this branch; record each

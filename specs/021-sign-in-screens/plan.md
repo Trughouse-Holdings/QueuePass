@@ -8,7 +8,8 @@
 ## Summary
 
 - **A Keycloak login theme `queuepass`** (research R1), in `keycloak/themes/queuepass/login/`:
-  `parent=base`, its own `template.ftl` page frame, `base`'s form templates unchanged, Keycloak's
+  `parent=base`, its own `template.ftl` page frame, `base`'s form templates unchanged but for
+  `login.ftl`'s field errors named by `aria-describedby` (R2, R9), Keycloak's
   class hooks mapped to the shared theme's classes (R2). The realm's login theme, set by the seed
   (R7).
 - **App identity per client** (R3): the heading and tab title are "Sign in to {client name}"
@@ -101,6 +102,7 @@ keycloak/
 └── themes/queuepass/login/
     ├── theme.properties                         # NEW (R2)
     ├── template.ftl                             # NEW (R3, R9)
+    ├── login.ftl                                # NEW: base's, plus aria-describedby (R2, R9)
     ├── messages/messages_en.properties          # NEW (R3)
     └── resources/css/login.css                  # NEW (R4)
 docker-compose.yml                               # keycloak: build instead of image (R6)
