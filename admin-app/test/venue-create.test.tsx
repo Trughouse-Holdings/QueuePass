@@ -31,7 +31,8 @@ const fillNameAndAddress = () => {
   fireEvent.change(screen.getByLabelText('Time zone'), { target: { value: 'America/New_York' } });
 };
 const SENT_ADDRESS = { street: '1 Seat St', city: 'Louisville', state: 'KY', zip: '40202' };
-const SENT_ZONE = { timeZone: 'America/New_York' };
+// Spec 024 research R3, R4: a create sends the chosen zone and the save-even-if-unverified flag.
+const SENT_ZONE = { acceptUnverifiedAddress: true, timeZone: 'America/New_York' };
 
 const addSection = (n: number, name: string, rows: string, seats: string) => {
   fireEvent.click(screen.getByRole('button', { name: 'Add section' }));

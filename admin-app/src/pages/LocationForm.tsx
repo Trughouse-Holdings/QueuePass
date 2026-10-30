@@ -24,9 +24,6 @@ import {
 } from '../components/SectionLines';
 import type { NoticeState } from '../hooks/use-delete';
 
-/** Spec 013 FR-011: the only refusals that offer "Save anyway". */
-const SAVE_ANYWAY_CODES = ['ADDRESS_NOT_FOUND', 'ADDRESS_AMBIGUOUS'];
-
 interface Address {
   street: string;
   city: string;
@@ -50,14 +47,22 @@ function addressProblems(a: Address): string[] {
   return problems;
 }
 
-/** Spec 013 FR-012: the address as saved, from the response; spec 020 R14: and its zone. */
-const savedNotice = (v: Location): NoticeState['notice'] => ({
-  kind: 'success',
-  text:
-    (v.addressVerified
-      ? `Venue saved. Address: ${v.address}.`
-      : `Venue saved. Address (not verified): ${v.address}.`) + ` Time zone: ${venueZone(v)}.`,
-});
+/**
+ * Spec 013 FR-012: the address as saved, from the response; spec 020 R14: and its zone. Spec 024
+ * FR-014 (research R6): a not-verified address gets a plain notice, not the success one, saying
+ * why it matters and how to verify it later.
+ */
+const savedNotice = (v: Location): NoticeState['notice'] =>
+  v.addressVerified
+    ? { kind: 'success', text: `Venue saved. Address: ${v.address}. Time zone: ${venueZone(v)}.` }
+    : {
+        kind: 'info',
+        text:
+          `Venue saved, but its address is not verified: ${v.address}. The US address service ` +
+          "couldn't confirm it, so check that it's right: customers see this address and its map " +
+          "link. To verify it later, edit the venue and save it, correcting the address if it's " +
+          `wrong. Time zone: ${venueZone(v)}.`,
+      };
 
 const ZONE_CHANGE_NOTE =
   "Changing the time zone keeps each event's local time (7:00 PM stays 7:00 PM), so their times " +
@@ -99,8 +104,6 @@ export function LocationForm(): React.ReactElement {
   );
   const [error, setError] = useState<ApiError | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
-  // Spec 013 FR-011: offered only after a not-found or ambiguous refusal of this address.
-  const [offerSaveAnyway, setOfferSaveAnyway] = useState(false);
   const [busy, setBusy] = useState(false);
   // Spec 024 research R1: the zone in the select; '' (none chosen yet) only on New venue, where
   // one is required; on edit it starts on the stored zone.
@@ -139,8 +142,6 @@ export function LocationForm(): React.ReactElement {
 
   function changeAddress(key: keyof Address, value: string): void {
     setAddress((a) => ({ ...a, [key]: value }));
-    // The confirmation applies only to the address the admin saw refused.
-    setOfferSaveAnyway(false);
   }
 
   const addressChanged = !sameAsStored(address, loaded);
@@ -159,10 +160,9 @@ export function LocationForm(): React.ReactElement {
     zoneChoice === storedZone &&
     loaded.timeZoneSource !== 'ADMIN';
 
-  async function save(acceptUnverifiedAddress: boolean): Promise<void> {
+  async function save(): Promise<void> {
     setError(null);
     setLayoutRefused(null);
-    setOfferSaveAnyway(false);
 
     // Spec 024 R1: one press names every problem: the address fields and the missing zone.
     const found = sendAddress ? addressProblems(address) : [];
@@ -178,7 +178,9 @@ export function LocationForm(): React.ReactElement {
       city: address.city,
       state: address.state as UsState,
       zip: address.zip.trim(),
-      ...(acceptUnverifiedAddress || isEdit ? { acceptUnverifiedAddress: true } : {}),
+      // Spec 024 FR-009 (research R4): every address sent is saved even if it can't be verified;
+      // the Backend still checks it and decides whether it is.
+      acceptUnverifiedAddress: true,
     };
     const sentParts = sendAddress ? parts : {};
     // Spec 024 R3: the zone on every create, with the address on an edit, and otherwise only
@@ -214,9 +216,7 @@ export function LocationForm(): React.ReactElement {
     } catch (err) {
       // FR-035: surface the rejection but keep every entered value — an admin should
       // never retype a whole form to correct one field.
-      const refusal = err as ApiError;
-      setError(refusal);
-      setOfferSaveAnyway(SAVE_ANYWAY_CODES.includes(refusal.code));
+      setError(err as ApiError);
     } finally {
       setBusy(false);
     }
@@ -224,7 +224,7 @@ export function LocationForm(): React.ReactElement {
 
   function handleSubmit(e: React.FormEvent): void {
     e.preventDefault();
-    void save(false);
+    void save();
   }
 
   return (
@@ -252,17 +252,6 @@ export function LocationForm(): React.ReactElement {
         </div>
       )}
       {error && <ErrorBanner error={error} />}
-      {offerSaveAnyway && (
-        <div className="form__actions">
-          <button type="button" className="btn" disabled={busy} onClick={() => void save(true)}>
-            Save anyway (address not verified)
-          </button>
-          <p className="note">
-            Use this only if you are sure the address is right. The venue will be marked not
-            verified.
-          </p>
-        </div>
-      )}
       {layoutRefused && (
         <div role="alert" className="banner banner--error">
           <div className="banner__body">
@@ -294,7 +283,7 @@ export function LocationForm(): React.ReactElement {
             </p>
           )}
           {!legacy && loaded?.addressVerified === false && (
-            <p className="note">This address is not verified.</p>
+            <p className="note">This address is not verified. Saving checks it again.</p>
           )}
 
           <div className="field">
