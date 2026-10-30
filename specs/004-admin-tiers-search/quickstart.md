@@ -44,4 +44,4 @@ manual. `npm test` checks this table against `e2e/tests`.
 | T1 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | T2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | T3 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
-| T4 | Manual: the Customer app's lists, walked by the `003 C1` browser test |
+| T4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |

@@ -30,6 +30,8 @@ test('002 D1: an admin deletes an event, and its time at the venue is free again
   page.once('dialog', (d) => void d.dismiss());
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
+  // Long enough for a request the press might have sent late to have gone out (review minor 5).
+  await page.waitForTimeout(1_000);
   expect(deletes).toEqual([]);
 
   // Delete, then OK: back on the event list, told so, and the event is gone.

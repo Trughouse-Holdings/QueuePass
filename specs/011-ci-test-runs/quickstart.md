@@ -172,4 +172,4 @@ manual. `npm test` checks this table against `e2e/tests`.
 | Q3 | Manual: a throwaway pull request on GitHub |
 | Q4 | Manual: the check on `main` on GitHub |
 | Q5 | Manual: a repository setting, changed by an admin |
-| Q6 | Manual: the running system, walked by every browser test |
+| Q6 | Manual: the running-system walk of an implementation PR, by hand |

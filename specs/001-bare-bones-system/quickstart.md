@@ -156,7 +156,7 @@ manual. `npm test` checks this table against `e2e/tests`.
 | V1 | Manual: timing the first start by hand; every `npm run e2e` starts the stack the same way |
 | V2 | Manual: seed idempotence, covered by the seed's own tests against Keycloak |
 | V3 | Automated: `001 V3: sign in, the signed-in page, and logout in each app` |
-| V4 | Automated: `001 V4: a customer is refused in the Admin app` |
+| V4 | Automated: `001 V4: each app refuses an account without its role` |
 | V5 | Manual: browser storage inspected in developer tools |
 | V6 | Manual: token tampering, covered by Backend tests |
 | V7 | Manual: the contract browsing page, covered by Backend tests |

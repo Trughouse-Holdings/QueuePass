@@ -16,12 +16,17 @@ export async function signIn(
 ): Promise<void> {
   await page.goto(`${APPS[app].url}${path}`);
   await expect(signInHeading(page, app)).toBeVisible();
-  await page.getByLabel(/^Username/).fill(username);
-  await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-  await page.getByRole('button', { name: /^Sign in$/i }).click();
+  await submitSignIn(page, username, PASSWORD);
   // Every signed-in page, the wrong-role page included, offers Log out (spec 001 FR-015).
   await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
   await expect(page).toHaveURL(new RegExp(`^${APPS[app].url}/`));
+}
+
+/** Fills Keycloak's form, already open, and presses Sign In. */
+export async function submitSignIn(page: Page, username: string, password: string): Promise<void> {
+  await page.getByLabel(/^Username/).fill(username);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: /^Sign in$/i }).click();
 }
 
 /** Log out ends the app's and Keycloak's session: the app sends you back to Keycloak's page. */

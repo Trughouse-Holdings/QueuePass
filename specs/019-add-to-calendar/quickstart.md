@@ -151,11 +151,11 @@ manual. `npm test` checks this table against `e2e/tests`.
 | --- | --- |
 | S0 | Manual: set-up for the scenarios below; each browser test sets up its own data through the API |
 | S1 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
-| S2 | Automated: `019 S2: a customer downloads the calendar file, with the event, its times, and its venue` |
+| S2 | Automated: `019 S2: a customer downloads the calendar file, with the event, its times, and its venue`; rest Manual: opening the file in a real calendar app, and the network panel showing no request |
 | S3 | Manual: opening the file in a real calendar app |
 | S4 | Manual: Google Calendar in a Google account |
 | S5 | Manual: Google Calendar in a Google account |
 | S6 | Manual: record only, in a real calendar app |
 | S7 | Manual: the device's time zone, checked in a real calendar app |
 | S8 | Manual: keyboard, screen reader, and phone width |
-| S9 | Manual: sign in, use, sign out, walked by the `001 V3` browser test |
+| S9 | Manual: sign in, use, and sign out of each front end, by hand |

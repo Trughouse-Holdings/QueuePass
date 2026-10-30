@@ -104,7 +104,7 @@ manual. `npm test` checks this table against `e2e/tests`.
 | --- | --- |
 | S0 | Manual: set-up for the scenarios below; each browser test sets up its own data through the API |
 | S1 | Manual: a timing goal measured with a person (90 seconds, SC-005) |
-| S2 | Automated: `015 S2: live gray-out, seats one customer reserves turn unavailable for another within 2 seconds` |
+| S2 | Automated: `015 S2: live gray-out, seats one customer reserves turn unavailable for another within 2 seconds`; rest Manual: the reserved look (a dashed outline with an R, unlike sold), by eye |
 | S3 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S4 | Manual: the same seat at the same moment, covered by the Backend's concurrency test |
 | S5 | Manual: the hold runs out after 5 real minutes |
@@ -113,4 +113,4 @@ manual. `npm test` checks this table against `e2e/tests`.
 | S8 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S9 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S10 | Manual: needs the connection cut and restored |
-| S11 | Manual: sign in, use, sign out, walked by the `001 V3` browser test |
+| S11 | Manual: sign in, use, and sign out of each front end, by hand |

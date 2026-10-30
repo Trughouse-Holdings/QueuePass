@@ -58,4 +58,4 @@ manual. `npm test` checks this table against `e2e/tests`.
 | S3 | Automated: `007 S3: a customer chooses seats and gets them` |
 | S4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S5 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
-| S6 | Manual: general admission, walked by the `006 P1/P4` browser test |
+| S6 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |

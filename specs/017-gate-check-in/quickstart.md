@@ -133,7 +133,7 @@ manual. `npm test` checks this table against `e2e/tests`.
 | S0 | Manual: set-up for the scenarios below; each browser test sets up its own data through the API |
 | S1 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S2 | Manual: printing |
-| S3 | Automated: `017 S3: a gate agent types a code and admits it once; again, it is already used` |
+| S3 | Automated: `017 S3: a gate agent types a code and admits it once; again, it is already used`; rest Manual: Admit all on a 3-ticket order, the screen reader's announcement, and the 15-second goal (SC-003), by a person |
 | S4 | Manual: camera scanning with a webcam |
 | S5 | Manual: two gates racing, covered by the Backend's concurrency test |
 | S6 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |

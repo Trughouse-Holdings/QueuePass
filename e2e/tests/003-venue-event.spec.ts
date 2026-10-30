@@ -2,18 +2,23 @@
 // and an event in the Admin app; a customer finds the event, with its venue and times.
 import { expect, test } from '@playwright/test';
 import { adminFor, customerFor } from '../fixtures/apps';
+import { apiFor, createEvent, createVenue, type Location } from '../fixtures/api';
 import { PLACES, uniqueName } from '../fixtures/data';
 import { signIn } from '../fixtures/sign-in';
 import { atLocal, eventTime, localDate } from '../fixtures/time';
 
 const ZONE = 'America/New_York'; // Louisville, KY: Eastern.
 
-test('003 C1: an admin adds a venue and an event; a customer finds it with its venue and times', async ({
+test('003 C1: events appear soonest first, with their venues, times, and prices', async ({
   browser,
 }, testInfo) => {
-  const venueName = uniqueName(testInfo, 'hall');
-  const eventName = uniqueName(testInfo, 'early show');
+  // One search finds this test's three events: Early Show, Late Show, and Matinee.
+  const base = uniqueName(testInfo, 'c1');
+  const venueName = `${base} Alpha Arena`;
+  const eventName = `${base} Early Show`;
   const day = localDate(ZONE, 1);
+  const nextWeek = localDate(ZONE, 7);
+  const dayAfterNextWeek = localDate(ZONE, 8);
 
   await test.step('the admin adds a venue at a checked address', async () => {
     const admin = await (await browser.newContext()).newPage();
@@ -51,20 +56,53 @@ test('003 C1: an admin adds a venue and an event; a customer finds it with its v
     await admin.context().close();
   });
 
-  await test.step('a customer finds it by name, with its venue, times, and price', async () => {
-    const page = await (await browser.newContext()).newPage();
-    await signIn(page, 'customer', customerFor(testInfo, 8));
+  // C1 step 1's other venue and event, and step 3's Matinee, are set up through the API.
+  const admin = await apiFor(browser, 'admin', adminFor(testInfo));
+  const zeta = await createVenue(admin.api, PLACES.louisville, `${base} Zeta Hall`);
+  await createEvent(admin.api, zeta, {
+    name: `${base} Late Show`,
+    startsAt: atLocal(`${nextWeek}T22:00`, ZONE),
+    endsAt: atLocal(`${dayAfterNextWeek}T02:00`, ZONE),
+    basePrice: '1200',
+  });
+  const alpha = (await admin.api.call<Location[]>('GET', '/locations')).find(
+    (v) => v.name === venueName,
+  )!;
+
+  const page = await (await browser.newContext()).newPage();
+  await signIn(page, 'customer', customerFor(testInfo, 8));
+  const titles = () =>
+    page.getByRole('list', { name: 'Events' }).getByRole('heading', { level: 2 });
+  const card = (name: string) =>
+    page.getByRole('article').filter({ has: page.getByRole('heading', { name, exact: true }) });
+
+  await test.step('a customer finds them, soonest first, with venues, times, and prices', async () => {
     // The landing page is the event list (C1 step 2).
     await expect(page.getByRole('heading', { level: 1, name: 'Events' })).toBeVisible();
-    await page.getByLabel('Search events').fill(eventName);
-    const card = page
-      .getByRole('article')
-      .filter({ has: page.getByRole('heading', { name: eventName }) });
-    await expect(card).toHaveCount(1);
-    await expect(card.getByRole('link', { name: venueName })).toBeVisible();
-    await expect(card).toContainText(eventTime(atLocal(`${day}T18:00`, ZONE), ZONE));
-    await expect(card).toContainText(eventTime(atLocal(`${day}T21:00`, ZONE), ZONE));
-    await expect(card).toContainText('$45.50');
-    await page.context().close();
+    await page.getByLabel('Search events').fill(base);
+    await expect(titles()).toHaveText([eventName, `${base} Late Show`]);
+    const early = card(eventName);
+    await expect(early.getByRole('link', { name: venueName })).toBeVisible();
+    await expect(early).toContainText(eventTime(atLocal(`${day}T18:00`, ZONE), ZONE));
+    await expect(early).toContainText(eventTime(atLocal(`${day}T21:00`, ZONE), ZONE));
+    await expect(early).toContainText('$45.50');
+    const late = card(`${base} Late Show`);
+    await expect(late.getByRole('link', { name: `${base} Zeta Hall` })).toBeVisible();
+    await expect(late).toContainText(eventTime(atLocal(`${nextWeek}T22:00`, ZONE), ZONE));
+    // The end is on the next day, and says so.
+    await expect(late).toContainText(eventTime(atLocal(`${dayAfterNextWeek}T02:00`, ZONE), ZONE));
+    await expect(late).toContainText('$1,200.00');
   });
+
+  await test.step('a Matinee added tomorrow at noon appears at the top after a reload', async () => {
+    await createEvent(admin.api, alpha, {
+      name: `${base} Matinee`,
+      startsAt: atLocal(`${day}T12:00`, ZONE),
+      endsAt: atLocal(`${day}T14:00`, ZONE),
+    });
+    await page.reload();
+    await expect(titles()).toHaveText([`${base} Matinee`, eventName, `${base} Late Show`]);
+  });
+  await admin.close();
+  await page.context().close();
 });

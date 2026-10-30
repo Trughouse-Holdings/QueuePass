@@ -102,4 +102,4 @@ manual. `npm test` checks this table against `e2e/tests`.
 | S6 | Manual: keyboard and screen reader pass |
 | S7 | Manual: Keycloak's own account page; outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S8 | Manual: needs a stack from before `021` |
-| S9 | Manual: the header's name, read by the `001 V3` browser test |
+| S9 | Manual: the tab title and the header's name, by eye |

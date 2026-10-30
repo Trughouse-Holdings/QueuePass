@@ -112,10 +112,10 @@ manual. `npm test` checks this table against `e2e/tests`.
 
 | Scenario | Browser test |
 | --- | --- |
-| D1 | Automated: `002 D1: an admin deletes an event, and its time at the venue is free again` |
+| D1 | Automated: `002 D1: an admin deletes an event, and its time at the venue is free again`; rest Manual: the detail page's fields and its Edit button (step 3), by eye; the test sets up the venue and event through the API |
 | D2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | D3 | Manual: two admins at once; outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | D4 | Manual: role checks on the API, covered by Backend tests |
 | D5 | Manual: the API's refusal body, covered by Backend tests |
-| D6 | Manual: a regression walk by hand; the other browser tests walk the rest |
+| D6 | Manual: a regression walk, by hand |
 | D7 | Manual: the full suite, run by the `test` check on every pull request |

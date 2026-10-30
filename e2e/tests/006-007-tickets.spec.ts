@@ -3,7 +3,14 @@
 // Customer app.
 import { expect, test } from '@playwright/test';
 import { adminFor, customerFor } from '../fixtures/apps';
-import { addTier, apiFor, createEvent, createVenue, seatedEvent } from '../fixtures/api';
+import {
+  addTier,
+  apiFor,
+  buyTickets,
+  createEvent,
+  createVenue,
+  seatedEvent,
+} from '../fixtures/api';
 import { PLACES, startsInHours, uniqueName } from '../fixtures/data';
 import { signIn } from '../fixtures/sign-in';
 
@@ -24,7 +31,17 @@ test('006 P1/P4: a customer gets 2 tickets in a tier and sees them in My tickets
     basePrice: '30.00',
   });
   await addTier(admin.api, event, { name: 'Balcony', price: '30.00', quantity: 40 });
-  await admin.close();
+  // An earlier order of this customer's (set-up), so My tickets has two to put in order.
+  const earlierName = uniqueName(testInfo, 'earlier show');
+  const earlier = await createEvent(admin.api, venue, {
+    name: earlierName,
+    startsAt: startsInHours(24 * 9),
+    endsAt: startsInHours(24 * 9 + 3),
+    capacity: 10,
+  });
+  const customer = await apiFor(browser, 'customer', customerFor(testInfo, 0));
+  await buyTickets(customer.api, earlier, { quantity: 1, holderName: 'Jordan Lee' });
+  await customer.close();
 
   await signIn(page, 'customer', customerFor(testInfo, 0), `/events/${event.id}`);
   await expect(page.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
@@ -49,16 +66,32 @@ test('006 P1/P4: a customer gets 2 tickets in a tier and sees them in My tickets
   for (const c of codes) expect(c).toMatch(CODE);
   expect(new Set(codes).size).toBe(2);
 
-  // P4: My tickets lists the order with its codes.
+  // P4: My tickets lists the orders newest first, this one with its codes.
   await page.getByRole('link', { name: 'My tickets', exact: true }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'My tickets' })).toBeVisible();
+  // This customer may hold orders from earlier runs in the same stack (--repeat-each): only
+  // these two are compared.
+  const mine = page.getByRole('article').getByRole('heading', { level: 2 });
+  await expect(mine.filter({ hasText: earlierName })).toHaveCount(1);
+  const shown = await mine.allTextContents();
+  expect(shown.indexOf(eventName)).toBeLessThan(shown.indexOf(earlierName));
+  expect(shown.indexOf(eventName)).toBeGreaterThanOrEqual(0);
   const order = page
     .getByRole('article')
     .filter({ has: page.getByRole('heading', { name: eventName }) });
-  await expect(order).toHaveCount(1);
   await expect(order).toContainText('Balcony');
   for (const c of codes)
     await expect(order.getByRole('list', { name: 'Tickets' })).toContainText(`${c}: Valid`);
+
+  // P4: the admin cancels the event; on reload the order is Refunded, the event Cancelled, and
+  // its tickets Void.
+  await admin.api.call('POST', `/events/${event.id}/cancel`);
+  await admin.close();
+  await page.reload();
+  await expect(order.getByText('This event has been cancelled.')).toBeVisible();
+  await expect(order.getByRole('definition').filter({ hasText: /^Refunded$/ })).toHaveCount(1);
+  for (const c of codes)
+    await expect(order.getByRole('list', { name: 'Tickets' })).toContainText(`${c}: Void`);
 });
 
 test('007 S3: a customer chooses seats and gets them', async ({ browser, page }, testInfo) => {

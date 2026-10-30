@@ -245,13 +245,13 @@ manual. `npm test` checks this table against `e2e/tests`.
 | --- | --- |
 | S1 | Manual: the migration on a copy of real data |
 | S2 | Manual: the stack starting, which every `npm run e2e` does |
-| S3 | Manual: the zone from a real address; the `020 S6` browser test checks one from the stand-in |
+| S3 | Manual: the zone from a real address service's match, by hand |
 | S4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S5 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
-| S6 | Automated: `020 S6: a customer sees event times in the venue zone, whatever the browser zone` |
-| S7 | Automated: `020 S7: a start time the venue zone skips is refused, and nothing is sent` |
+| S6 | Automated: `020 S6: a customer sees event times in the venue zone, whatever the browser zone`; rest Manual: the live entry code page, the printable ticket, the Booth's entry-window messages, and the America/Los_Angeles and UTC zones, by hand |
+| S7 | Automated: `020 S7: a start time the venue zone skips is refused and nothing is sent; an Arizona venue takes it`; rest Manual: the API's own refusals (`LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`), covered by Backend tests |
 | S8 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S9 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S10 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S11 | Manual: an empty database; every `npm run e2e` loads the demo data |
-| S12 | Manual: sign in, use, sign out, walked by the `001 V3` browser test |
+| S12 | Manual: sign in, use, and sign out of each front end, by hand |

@@ -45,12 +45,21 @@ test('019 S2: a customer downloads the calendar file, with the event, its times,
   const download = page.waitForEvent('download');
   await order.getByRole('button', { name: /^Add to Apple Calendar or Outlook/ }).click();
   const file = await download;
-  expect(file.suggestedFilename()).toMatch(/\.ics$/);
+  // Named after the event: lower case, each run of other characters one dash (FR-009).
+  expect(file.suggestedFilename()).toMatch(
+    /^e2e-\d-[a-z0-9]{6}-rock-paper-scissors-live-[a-z0-9]{4}\.ics$/,
+  );
   const raw = await readFile((await file.path())!, 'utf8');
-  // Every line ends CRLF; long lines are folded with CRLF and one space (RFC 5545 3.1).
+  // Every line ends CRLF and is at most 75 octets; longer ones are folded with CRLF and one
+  // space (RFC 5545 3.1).
   expect(raw).not.toMatch(/[^\r]\n/);
+  for (const line of raw.split('\r\n'))
+    expect(Buffer.byteLength(line, 'utf8')).toBeLessThanOrEqual(75);
   const lines = raw.replace(/\r\n /g, '').split('\r\n');
 
+  // One entry to add, not a meeting to answer, identified by the event.
+  expect(lines).toContain('METHOD:PUBLISH');
+  expect(lines).toContain(`UID:queuepass-event-${event.id}`);
   expect(lines).toContain(`SUMMARY:${escape(eventName)}`);
   expect(lines).toContain(`DTSTART:${icsUtc(startsAt)}`);
   expect(lines).toContain(`DTEND:${icsUtc(endsAt)}`);

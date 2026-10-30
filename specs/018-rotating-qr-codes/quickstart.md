@@ -133,4 +133,4 @@ manual. `npm test` checks this table against `e2e/tests`.
 | S5 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
 | S6 | Manual: needs the phone's signal cut |
 | S7 | Manual: covered by Backend tests |
-| S8 | Manual: sign in, use, sign out, walked by the `001 V3` browser test |
+| S8 | Manual: sign in, use, and sign out of each front end, by hand |

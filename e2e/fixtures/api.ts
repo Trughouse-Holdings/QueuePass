@@ -41,6 +41,8 @@ export class Api {
    */
   static async as(page: Page, signInFn: () => Promise<void>): Promise<Api> {
     const first = page.waitForRequest(authorized, { timeout: 30_000 });
+    // If sign-in itself fails, `first` is never awaited; its rejection is not an extra error.
+    first.catch(() => undefined);
     await signInFn();
     let header: string | undefined;
     try {
@@ -53,6 +55,7 @@ export class Api {
 
   private static async tokenFromReload(page: Page): Promise<string> {
     const next = page.waitForRequest(authorized, { timeout: 30_000 });
+    next.catch(() => undefined);
     await page.reload();
     return (await next).headers()['authorization'];
   }
