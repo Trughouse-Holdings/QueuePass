@@ -295,6 +295,7 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   date with `main`): description says `fixes #92`, lists the review, the walk, the test counts, and
   the shared surface touched (`docker-compose.yml`, `packages/shared/`, the constitution was in the
   spec PR). Wait for CI green on GitHub on the final commit; merge only when green and approved.
+  **Result**: branch pushed (`git push -u origin 021-sign-in-screens-impl`) on 2026-10-30; no pull request opened yet, since the spec PR (#96) has not merged; CI on GitHub runs once the PR is open.
 
 ---
 
