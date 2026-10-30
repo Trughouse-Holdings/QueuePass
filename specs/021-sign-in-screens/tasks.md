@@ -83,21 +83,30 @@ confirm they **fail** before the implementation tasks below them.
 - [ ] T008 [P] `keycloak/themes/queuepass/login/theme.properties` (R2): `parent=base`,
   `import=common/keycloak`, `styles=css/theme.css css/login.css`, the class mappings, every other
   `kc*Class` that `base`'s `login.ftl`, `error.ftl`, `info.ftl`, and `logout-confirm.ftl` use set to
-  empty or to a shared class, `locales=en`.
+  empty or to a shared class, `locales=en`; `kcInputErrorMessageClass=qp-field-error`; the
+  show-password mappings of R2 (`kcFormPasswordVisibilityButtonClass=btn btn--ghost qp-reveal`,
+  `kcFormPasswordVisibilityIconShow=qp-reveal--show`, `kcFormPasswordVisibilityIconHide=qp-reveal--hide`).
 - [ ] T009 [P] `keycloak/themes/queuepass/login/messages/messages_en.properties`: `qpSignInTo` and the
   three audience lines, word for word as T003.
-- [ ] T010 `keycloak/themes/queuepass/login/template.ftl` (R3, R9): copy `base`'s `template.ftl`
-  macro signature (`registrationLayout` with `bodyClass`, `displayInfo`, `displayMessage`,
-  `displayRequiredFields`, and the `header`, `form`, `info`, `socialProviders` sections), then:
-  `<html lang="en">`; `appName` = `advancedMsg(client.name)` when `client??` and the name is not
-  empty, else `realm.displayName`; `<title>${msg("qpSignInTo", appName)}</title>`;
+- [ ] T010 `keycloak/themes/queuepass/login/template.ftl` (R3, R9): start from `base`'s whole
+  `template.ftl` (extract it from the Keycloak 26.0 image's
+  `/opt/keycloak/lib/lib/main/org.keycloak.keycloak-themes-*.jar`, `theme/base/login/template.ftl`)
+  and keep all of its behavior: the `registrationLayout` macro signature (`bodyClass`, `displayInfo`,
+  `displayMessage`, `displayRequiredFields`, sections `header`, `form`, `info`, `socialProviders`,
+  `show-username`), the `auth.showUsername()` branch with the attempted username and restart link,
+  try-another-way, the scripts and import map, and the footer import. Then change the frame:
+  `<html lang="en">`; `appName` = `advancedMsg(client.name)` when `client??` and
+  `client.name?has_content` (`ClientBean.getName` can be null), else `realm.displayName`; `<title>${msg("qpSignInTo", appName)}</title>`;
   `<body class="qp-app--${(client.clientId)!''}">`; a top band; `.brand` with `.brand__mark`
   (`aria-hidden="true"`, "Q"); the one `<h1>` with `msg("qpSignInTo", appName)`; the audience line
   `msg("qpAudience." + client.clientId)` only when that key exists (compare the message to its key);
-  the page's own `header` section dropped when `pageId == "login.ftl"`, otherwise shown in an `<h2>`;
+  the page's own `header` section captured with `<#assign pageHeader><#nested "header"></#assign>` and
+  dropped when `pageHeader?trim == msg("loginAccountTitle")`, otherwise shown in an `<h2>` (Keycloak 26
+  has no `pageId`, R9);
   messages: `error` in `<div class="banner banner--error" role="alert">`, `success` in
   `banner--success` and `warning`/`info` in a `banner` with `role="status"`; the form, info, and
-  social sections as `base` has them. T003 passes.
+  social sections as `base` has them. Field errors stay where `base`'s `login.ftl` puts them
+  (`#input-error`, R9). T003 passes.
 - [ ] T011 `keycloak/Dockerfile` (R6): `FROM quay.io/keycloak/keycloak:26.0`; `COPY
   keycloak/themes/queuepass /opt/keycloak/themes/queuepass`; `COPY packages/shared/src/web/theme.css
   /opt/keycloak/themes/queuepass/login/resources/css/theme.css`. A comment says the build context is
@@ -135,7 +144,8 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   `drift.test.ts` (R4): new rule cases proved on small inputs first: inside `.qp-app--x { }`, the
   six roles `--accent`, `--accent-hover`, `--accent-soft`, `--accent-text`, `--brand-mark-end`,
   `--brand-mark-text` set to `var(--<token>)` are allowed; a literal color there, another custom
-  property there, or the same roles outside such a rule are still C1/C2 violations. Then scan
+  property there, or the same roles outside such a rule are still C1/C2 violations; cases inside
+  `@media (prefers-color-scheme: dark) { .qp-app--x { … } }` too. Then scan
   `keycloak/themes/queuepass/login/resources/css/login.css` with the app stylesheets and expect no
   violations. The rule cases must fail before the checker changes.
 - [ ] T016 [US1] Live test `scripts/seed/test/sign-in-screens.test.ts` (Keycloak reachable, else
@@ -144,8 +154,9 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   `redirect_uri=http://localhost:<port>/`, `response_type=code`, `scope=openid`, a `state`, and an
   S256 `code_challenge`; parse the HTML and expect `<title>` and the only `<h1>` to read "Sign in to
   {name}" (contracts/README.md table), the audience line text, and `body` class
-  `qp-app--<clientId>`; expect no PatternFly stylesheet link and the two theme stylesheets. Must
-  fail against today's stock theme.
+  `qp-app--<clientId>`; expect no PatternFly stylesheet link and the two theme stylesheets; expect the
+  form's show-password button to have the `aria-label` "Show password" and the class `qp-reveal`.
+  Must fail against today's stock theme.
 
 ### Implementation
 
@@ -153,11 +164,15 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   in the dark block, after the existing accent and brand-mark tokens, with a comment that they are
   for the sign-in screens only (Constitution VII as amended, R8). T013, T014 pass; no other token
   changes; the existing contrast, drift, and load tests stay green.
-- [ ] T018 [US1] `packages/shared/test/theme/check-theme.ts`: the exception of T015. T015's rule
-  cases pass.
+- [ ] T018 [US1] `packages/shared/test/theme/check-theme.ts`: the exception of T015. `declarations()`
+  drops the selector at `{` today, so first make the parser track each declaration's enclosing rule
+  selector (through `@media` blocks), then add the exception (R4). T015's rule cases pass, and every
+  existing drift case still passes.
 - [ ] T019 [US1] `keycloak/themes/queuepass/login/resources/css/login.css` (R4): a centered card on
   `--bg` (max width about 400 px, full width under 480 px), the top band (`--accent`, 6 px), the
-  audience line in `--text-muted`, the `h2` page header, spacing from `--space-*`; the two
+  audience line in `--text-muted`, the `h2` page header, spacing from `--space-*`; `.qp-field-error`
+  in `var(--danger)`; `.qp-reveal--show::before { content: "Show" }` and `.qp-reveal--hide::before {
+  content: "Hide" }` (R2); the two
   `.qp-app--customer-app` and `.qp-app--booth-app` rules mapping the six roles to their tokens;
   nothing else defines a color. T015's scan passes.
 - [ ] T020 [US1] Rebuild (`docker compose up --build keycloak seed`) and run T016. It passes for all
@@ -175,12 +190,15 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
 
 - [ ] T021 [US2] Extend `scripts/seed/test/sign-in-screens.test.ts`: for each client, take the form's
   `action` and the cookies from T016's page, POST `username=admin1&password=wrong`, and expect the
-  same title, `<h1>`, audience line, and body class, plus "Invalid username or password." inside the
-  `role="alert"` element, and the username field's value kept (FR-004, FR-011). Must fail if
-  template.ftl drops the message region (check by removing it once).
-- [ ] T022 [US2] Extend the same test: GET `/realms/queuepass/account` and follow redirects to the
-  sign-in page: expect "Sign in to Account Console", no audience line, body class
-  `qp-app--account-console` (FR-008, contracts/README.md).
+  same title, `<h1>`, audience line, and body class, plus "Invalid username or password." inside
+  `#input-error` with `aria-live="polite"` and class `qp-field-error` (a field error, not a page
+  message: R9), and the username field's value kept (FR-004, FR-011).
+- [ ] T022 [US2] Extend the same test: GET the authorization URL with `client_id=account-console`,
+  `redirect_uri=http://localhost:8080/realms/queuepass/account/`, `response_type=code`,
+  `scope=openid`, a `state`, and an S256 `code_challenge` (not `/realms/queuepass/account`, which
+  answers 200 with a single-page app that redirects only in JavaScript, R11): expect "Sign in to
+  Account Console", no audience line, body class `qp-app--account-console` (FR-008,
+  contracts/README.md).
 - [ ] T023 [US2] Fix anything T021 or T022 finds in `template.ftl` or `login.css`. Both pass.
 
 **Checkpoint**: quickstart S3, S4, S7 hold.
@@ -265,3 +283,22 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   solves the issue's problem.
 - Then US2 (errors and fallback), US3 (existing stacks), US4 (accessibility pass), the Customer
   name, and the PR.
+
+## Review record (spec branch)
+
+- **Round 1** (independent Claude session, 2026-10-30, checked against the Keycloak 26.0.8 theme and
+  services jars and a running 26.0 container): 3 must-fix, 4 should-fix, 3 minor; all fixed in the
+  `Review 021` commit:
+  - must: `pageId` does not exist in Keycloak 26 (R9 now captures the header and compares it to
+    `loginAccountTitle`); the wrong-password message is a field error in `#input-error`
+    (`aria-live="polite"`), not a page message (R9, T021); `/realms/queuepass/account` is a
+    single-page app that redirects in JavaScript (T022 calls the authorization URL for
+    `account-console` directly).
+  - should: the spec contradicted itself on the account page's heading (now "Sign in to Account
+    Console" everywhere); the drift checker needs selector tracking first (T018); `field__error` does
+    not exist (now `qp-field-error` in `login.css`); the show-password toggle would have been an
+    invisible focusable button (R2, T008, T019, quickstart S6).
+  - minor: the spec said the constitution "is not amended"; the amendment now calls itself the one
+    exception to "no per-app variants"; T010 keeps all of `base`'s `template.ftl` (show-username,
+    try-another-way, footer, a null client name).
+- **Open findings**: none.

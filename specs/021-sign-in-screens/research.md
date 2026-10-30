@@ -29,9 +29,20 @@ frame: `<title>`, the band, the brand mark, the heading, the audience line, the 
 keeps `base`'s form templates (`login.ftl`, `error.ftl`, `info.ftl`, `logout-confirm.ftl`, and the
 rest). `theme.properties` maps Keycloak's class hooks to the shared theme's classes:
 `kcFormGroupClass=field`, `kcButtonClass=btn`, `kcButtonPrimaryClass=btn--primary`,
-`kcButtonBlockClass=` (empty), `kcInputErrorMessageClass=field__error`, `kcAlertClass=banner`,
+`kcButtonBlockClass=` (empty), `kcInputErrorMessageClass=qp-field-error`, `kcAlertClass=banner`,
 `kcAlertTitleClass=banner__body`, and empties the PatternFly-only ones. No PatternFly stylesheet is
-loaded.
+loaded. `qp-field-error` is a `login.css` rule using `var(--danger)` (the shared theme has no field
+error class).
+
+The show-password toggle (`base` `login.ftl`: a button with `aria-label` "Show password" holding an
+icon `<i>` whose class `passwordVisibility.js` swaps between `kcFormPasswordVisibilityIconShow` and
+`…Hide`) stays (FR-011): `kcFormPasswordVisibilityButtonClass=btn btn--ghost qp-reveal`,
+`kcFormPasswordVisibilityIconShow=qp-reveal--show`, `kcFormPasswordVisibilityIconHide=qp-reveal--hide`,
+and `login.css` gives the icon visible text with `::before` ("Show" / "Hide"). Its accessible name is
+the button's `aria-label`, unchanged. Tab order: username, password, Show, Sign in.
+
+(Review round 1, findings 6 and 7: an unmapped error class left the error unstyled; an empty icon
+class left an invisible focusable button.)
 
 **Rationale**: `base` has the forms with no styling, so the shared theme's `.field`, `.btn`,
 `.btn--primary`, `.banner`, and `.brand__mark` apply without fighting another stylesheet (FR-007).
@@ -89,7 +100,9 @@ and the drift and contrast tests (spec `012`) could not check them.
 - The `012` drift checker (`packages/shared/test/theme/check-theme.ts`) scans `login.css` as it scans
   an app stylesheet, with one exception: inside a `.qp-app--<clientId>` rule, setting the six
   accent roles to `var(--…)` of a theme token is allowed. Any color literal or any other redefinition
-  still fails.
+  still fails. Today's parser (`declarations()` in `check-theme.ts`) drops the selector at `{`,
+  so it must first track the enclosing rule's selector, including rules nested in `@media` (review
+  round 1, finding 5).
 
 **Rationale**: Constitution VII (as amended, R8) keeps every color in the shared theme and checked
 by its tests; the apps keep one accent, and the sign-in look is the only place the three meet.
@@ -177,10 +190,21 @@ but does not meet the meeting's "visually distinct" requirement.
 **Decision**: `template.ftl` renders `<title>` and the page's one `<h1>` as
 `msg("qpSignInTo", appName)` with `qpSignInTo=Sign in to {0}` (FR-001). The page's own header (the
 `header` section each `base` template passes, such as "Sign in to your account" or "We are sorry...")
-is dropped on the sign-in form (`pageId == "login.ftl"`) and shown as an `<h2>` on every other page,
-so error and info pages keep the app's identity and still say what happened (FR-004). Messages and
-errors keep `base`'s text, in a `role="alert"` region for errors and `role="status"` for other
-notices (FR-012).
+is captured (`<#assign pageHeader><#nested "header"></#assign>`) and dropped when its trimmed text
+equals `msg("loginAccountTitle")` (the sign-in form), and shown as an `<h2>` on every other page, so
+error and info pages keep the app's identity and still say what happened (FR-004). Keycloak 26's
+login templates have no `pageId` variable (review round 1, finding 1).
+
+Two kinds of message (review round 1, finding 2):
+
+- **Page messages** (`message`, shown when the page passes `displayMessage`): `error` in
+  `<div class="banner banner--error" role="alert">`, `success` in `banner--success`, and
+  `warning`/`info` in a `banner`, the last two with `role="status"`.
+- **Field errors**: on the sign-in form a wrong username or password is a field error, not a page
+  message: `base`'s `login.ftl` passes `displayMessage=!messagesPerField.existsError('username',
+  'password')` and renders the text in `<span id="input-error" class="${properties.kcInputErrorMessageClass}"
+  aria-live="polite">`. That is announced (`aria-live`) and stays as `base` renders it, styled by
+  `qp-field-error` (R2). The live test expects the text there (R11).
 
 **Rationale**: one heading per page that names the app, on every page of the flow, without
 rewriting each page template.
@@ -207,8 +231,12 @@ than the app ("Can't reach QueuePass right now", the calendar file's `PRODID`) s
   Keycloak is not reachable, as `seed-idempotence.test.ts`, spec `011` research R16): for each client,
   GET the authorization URL with PKCE parameters and check `<title>`, the one `<h1>`, the audience
   line, and the body class; POST a wrong password to the form's action with the session cookies and
-  check the page keeps all three and shows the error in an alert region; GET the account console's
-  sign-in for the no-app fallback (FR-008). The seed idempotence test adds the login theme to what it
+  check the page keeps all three and shows "Invalid username or password." in `#input-error`
+  (`aria-live="polite"`, R9); GET the authorization URL for `client_id=account-console` with
+  `redirect_uri=http://localhost:8080/realms/queuepass/account/` and PKCE for the no-app fallback
+  (FR-008). `GET /realms/queuepass/account` itself returns the account console's single-page app,
+  which redirects only in JavaScript (review round 1, finding 3), so the Node test cannot use it; the
+  browser walk (quickstart S7) does. The seed idempotence test adds the login theme to what it
   checks on a second run.
 - **Theme files** (CI, no Keycloak): a Node test reads `theme.properties` and `messages_en.properties`
   and checks the parent, the styles list, and an audience line for each of the three client IDs.

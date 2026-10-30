@@ -227,8 +227,8 @@ layout that works at phone width, touch target size, WCAG contrast, states that 
 color alone, keyboard access), is usability work, not custom visual design. New branding and
 decoration remain out of scope.
 
-The sign-in screens (Keycloak's pages, styled from the shared theme) MAY show each app's name, a
-line saying who it is for, and its own accent color, so a person can tell at a glance which app
+The one exception to "no per-app variants": the sign-in screens (Keycloak's pages, styled from the
+shared theme) MAY show each app's name, a line saying who it is for, and its own accent color, so a person can tell at a glance which app
 they are signing in to (spec `021`). Those accents are tokens in the shared theme, defined only in
 its token blocks and checked by its contrast tests. The apps themselves keep the one shared accent.
 

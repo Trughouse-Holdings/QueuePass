@@ -34,8 +34,8 @@ which is which. **Expected**: 3 of 3 right, within 5 seconds each.
 ## S3. A wrong password (US2; FR-004, FR-011, FR-012)
 
 On each screen, sign in as `admin1` with the password `wrong`. **Expected**: the same app identity;
-the error "Invalid username or password." in an alert (a screen reader announces it); the username
-kept. Then sign in with `test123` (`admin1`, `customer1`, `agent1` for each app). **Expected**:
+the error "Invalid username or password." under the fields, in the danger color (a screen reader
+announces it); the username kept. Then sign in with `test123` (`admin1`, `customer1`, `agent1` for each app). **Expected**:
 back in the app, signed in, as before.
 
 ## S4. Signing out and back in; a session that ended (US2)
@@ -55,12 +55,14 @@ AA for the heading, audience line, labels, button, and error.
 ## S6. Keyboard and screen reader (US4; FR-012)
 
 On one screen per app: **Expected**: focus starts in the username field; Tab goes username →
-password → Sign in, with a visible focus ring; Enter submits. With VoiceOver: the page title and
+password → Show → Sign in, with a visible focus ring; Show reveals the password and reads "Hide";
+Enter submits. With VoiceOver: the page title and
 the one heading name the app.
 
 ## S7. The no-app fallback (FR-008)
 
-Open http://localhost:8080/realms/queuepass/account. **Expected**: "Sign in to Account Console",
+Open http://localhost:8080/realms/queuepass/account in a browser (its page redirects to sign-in in
+JavaScript). **Expected**: "Sign in to Account Console",
 the QueuePass look, the indigo accent, no audience line.
 
 ## S8. A stack from before this feature (US3; FR-010, SC-004)

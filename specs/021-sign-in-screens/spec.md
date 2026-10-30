@@ -32,8 +32,9 @@ colors, and gives each app its own identity on it: its name in the heading and t
 saying who it is for, and its own accent color. The look ships with the repository and is applied by
 the seed, so a clean clone gets it from one command.
 
-The constitution's roadmap row for `021` (Constitution 3.4.2) already describes this feature, so it
-is not amended.
+The constitution's roadmap row for `021` (Constitution 3.4.2) already describes this feature and is
+not changed. Principle VII is amended in this PR (3.5.0) to allow per-app identity on the sign-in
+screens (plan, research R8).
 
 ## Clarifications
 
@@ -58,9 +59,10 @@ recorded here so the team can overturn it in review of the spec PR.
 - Q: Do the apps themselves change color after sign-in? → A: No. Only the sign-in screens get
   per-app accents; the apps keep the shared theme as it is. The only change inside an app is the
   Customer app's name (out of scope, Assumptions).
-- Q: What about a Keycloak page reached with no app in view (for example the account page opened
-  directly)? → A: It uses the QueuePass look with no app identity: "Sign in to QueuePass" and the
-  shared indigo (FR-008).
+- Q: What about a Keycloak page reached with no QueuePass app in view (for example the account page
+  opened directly)? → A: It uses the QueuePass look with no app identity: the shared indigo, no
+  audience line, and the heading "Sign in to {name}" when Keycloak names the client (the account
+  page: "Sign in to Account Console"), else "Sign in to QueuePass" (FR-008).
 - Q: Should a person signing in to the wrong app be stopped on the sign-in screen? → A: No. The
   screen makes the app obvious; what each role may do is still decided after sign-in, as today
   (`001`'s wrong-role page). Out of scope.
@@ -173,8 +175,9 @@ the keyboard only, and with a screen reader.
 
 ### Edge Cases
 
-- **A Keycloak page reached with no app in view** (the realm's account page opened directly, or an
-  error before Keycloak knows the app): the QueuePass look, no app identity (FR-008).
+- **A Keycloak page reached with no QueuePass app in view** (the realm's account page opened
+  directly: "Sign in to Account Console"; an error before Keycloak knows the client: "Sign in to
+  QueuePass"): the QueuePass look, the shared accent, no audience line (FR-008).
 - **An app whose name changes later in the seed**: the screen follows the name Keycloak holds for
   that app, so renaming in one place renames the screen (FR-002).
 - **An unrecognized app** (a client added later without an identity): the QueuePass look with that
@@ -228,7 +231,8 @@ the keyboard only, and with a screen reader.
   app after sign-in. Only the look and text around the form change.
 - **FR-012**: Every sign-in screen MUST meet WCAG 2.1 AA contrast in light and dark schemes, work at
   360 px wide with no sideways scrolling, start focus on the username field, keep a visible focus,
-  be fully usable by keyboard, and announce errors to assistive technology (as `008`).
+  be fully usable by keyboard, and announce errors to assistive technology (as `008`). The show-password
+  control Keycloak offers stays, visible and labelled.
 - **FR-013**: The Keycloak admin console MUST NOT change.
 
 ### Key Entities

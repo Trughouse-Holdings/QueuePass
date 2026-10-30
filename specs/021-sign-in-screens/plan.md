@@ -13,8 +13,9 @@
   (R7).
 - **App identity per client** (R3): the heading and tab title are "Sign in to {client name}"
   (`advancedMsg(client.name)`), the audience line comes from the theme's messages keyed by client
-  ID, and the accent comes from a body class `qp-app--<clientId>`. No client or an unknown one falls
-  back to "Sign in to QueuePass", no audience line, the shared accent (FR-008).
+  ID, and the accent comes from a body class `qp-app--<clientId>`. A client with no audience line
+  (Keycloak's own account console) gets "Sign in to {its name}", no audience line, and the shared
+  accent; no client at all gets "Sign in to QueuePass" (FR-008).
 - **One shared theme** (R4, R5): `packages/shared/src/web/theme.css` gains twelve tokens, a teal set
   for the Customer app and an amber set for the Ticket Booth, in both color schemes; the Admin keeps
   the shared indigo. The Keycloak image copies the shared file into the theme at build; `login.css`
