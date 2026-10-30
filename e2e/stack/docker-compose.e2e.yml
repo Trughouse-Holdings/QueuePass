@@ -1,0 +1,20 @@
+# Spec 022 (research R4, FR-010): the browser-test stack only. `npm run e2e` starts Compose project
+# `qpe2e` with docker-compose.yml and this file; venue addresses are answered by a local stand-in
+# with fixed answers, so a test never depends on an outside service. docker-compose.yml itself
+# keeps the real US Census Geocoder.
+services:
+  geocoder-stub:
+    build:
+      context: e2e/stack/geocoder-stub
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:8081/health || exit 1']
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  backend:
+    environment:
+      ADDRESS_GEOCODER_URL: http://geocoder-stub:8081
+    depends_on:
+      geocoder-stub:
+        condition: service_healthy
