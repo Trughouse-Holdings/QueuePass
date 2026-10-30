@@ -120,29 +120,35 @@ fail before the implementation below them.
 
 ### Tests first
 
-- [ ] T014 [P] [US1] `admin-app/test/export/export-menu.test.tsx`: `ExportMenu` renders a `<details>`
+- [x] T014 [P] [US1] `admin-app/test/export/export-menu.test.tsx`: `ExportMenu` renders a `<details>`
   with summary "Download" and buttons "CSV", "Excel (XLSX)", "PDF"; keyboard: Tab to the summary,
   Enter opens, Tab to a button, Enter starts it; while a writer's promise is pending all three are
   disabled and a `role="status"` says "Preparing the <format>…"; a rejected writer shows a
   `role="alert"` "Couldn't make the <format>. Try again." and re-enables the buttons; a resolved one
   calls `save` with the file name and the `Blob` (FR-014, FR-015). Must fail.
-- [ ] T015 [P] [US1] `admin-app/test/attendees-export.test.tsx` (tests are flat in `admin-app/test/`) (extend the existing Attendees
+  **Done**: 8 tests (writers and `save` mocked); jsdom has no Enter-opens-`<summary>` behavior, so a click stands in for that one key (Tab to the summary, Tab to a button, and Enter on it are real keys; E5 checks Enter in a browser). A failure to save also shows the alert. Failed before T017.
+- [x] T015 [P] [US1] `admin-app/test/attendees-export.test.tsx` (tests are flat in `admin-app/test/`) (extend the existing Attendees
   test if there is one): with orders, the Download control and the note "The file contains customers'
   names and usernames. Keep it private." are shown; with no orders, while loading, and on a load
   error, neither is (FR-001, FR-011); choosing CSV saves a file built from the page's own orders and
   load time (FR-003, the stubbed API called once). Must fail.
-- [ ] T016 [P] [US2] `admin-app/test/reports-export.test.tsx`: the control on Reports when the
+  **Done**: 4 tests (new file; the existing `attendees.test.tsx` is untouched); failed before T018.
+- [x] T016 [P] [US2] `admin-app/test/reports-export.test.tsx`: the control on Reports when the
   report is shown; CSV saved with `generatedAt` as made at (FR-002, FR-003). Must fail.
+  **Done**: 4 tests, one through `App` and `AuthProvider` reading "Made by admin1" back from the Excel About sheet (R13a); failed before T019.
 
 ### Implementation
 
-- [ ] T017 [US1] `admin-app/src/export/ExportMenu.tsx` (R11): props `{ label, makeTable, fileName,
+- [x] T017 [US1] `admin-app/src/export/ExportMenu.tsx` (R11): props `{ label, makeTable, fileName,
   note? }`; shared classes only. T014 passes.
-- [ ] T018 [US1] `admin-app/src/pages/Attendees.tsx`: record the load time; pass
+  **Done**: `ExportMenu.tsx`: `<details>` with `.btn` summary, `.btn--ghost` buttons in a labelled group, `.note`, `role="status"`, `.banner--error` alert; writers loaded by dynamic import. T014 passes.
+- [x] T018 [US1] `admin-app/src/pages/Attendees.tsx`: record the load time; pass
   `useAuth().username` as made by (R13a: from `App` as a `username` prop); place `ExportMenu` in the page head beside "Back to …", only
   when orders exist. T015 passes.
-- [ ] T019 [US2] `admin-app/src/pages/Reports.tsx`: `ExportMenu` in the page head with the signed-in
+  **Done**: load time kept with the data; `username` prop from `App` (Review 023); Download in a `.form__actions` row beside "Back to …". T015 passes.
+- [x] T019 [US2] `admin-app/src/pages/Reports.tsx`: `ExportMenu` in the page head with the signed-in
   admin's username as made by (from `useAuth()` in `App`, as a `username` prop, R13a). T016 passes.
+  **Done**: Download in the page head; made at `generatedAt`; `username` prop from `App`. T016 passes.
 
 ## Phase 5: User Story 4, size, polish
 
