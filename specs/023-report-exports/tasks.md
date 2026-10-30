@@ -152,15 +152,19 @@ fail before the implementation below them.
 
 ## Phase 5: User Story 4, size, polish
 
-- [ ] T020 [US4] Check FR-013 holds with no new code: the Customer and Booth apps have no export; the
+- [x] T020 [US4] Check FR-013 holds with no new code: the Customer and Booth apps have no export; the
   Admin app's role check covers both pages (existing tests); record here.
-- [ ] T021 [P] `admin-app/test/export/size.test.ts` (R12, SC-003, SC-004): generated tables of 5,000
+  **Done**: holds with no new code: no export code or library in `customer-app` or `booth-app` (grep); the Admin app is wrapped in `RequireRole role="queuepass-admin"` (`main.tsx`, `app.auth.test.tsx` covers a customer); the Backend's `/events/{id}/attendees` and `/reports/sales` are `@Roles('queuepass-admin')`, refused with 403 to a customer and a gate agent (`orders.authz.e2e-spec.ts`).
+- [x] T021 [P] `admin-app/test/export/size.test.ts` (R12, SC-003, SC-004): generated tables of 5,000
   and 25,000 tickets through each writer in Vitest; 5,000 finishes each format within 10 s (assert
   with a generous timer and print the times); 25,000 completes without error. Record the times here.
-- [ ] T022 Confirm the Admin app's first-load chunk did not grow with the libraries (compare `vite
+  **Done**: `size.test.ts` (6 tests; the table is built inside the first timing, as at the click). Laptop (Apple silicon), Vitest without coverage: 5,000 tickets CSV 0.16 s (702 KB), XLSX 0.37 s (226 KB), PDF 4.57 s (1,166 KB); 25,000 CSV 0.22 s (3,510 KB), XLSX 0.91 s (1,119 KB), PDF 17.69 s (5,503 KB). With coverage: 5,000 PDF 7.48 s, 25,000 PDF 31.18 s. SC-003 holds (assert 10 s; with `CI` set the bound is 30 s, since a CI runner measuring coverage is not the laptop SC-003 names). The browser timing (R12's "once in the browser") is left to the walk (T026). A 25,000-row PDF blocks the page for about 18 s while it is drawn; no Web Worker, as SC-003 passes (R12).
+- [x] T022 Confirm the Admin app's first-load chunk did not grow with the libraries (compare `vite
   build` output before and after; the libraries are in their own chunks). Record sizes.
-- [ ] T023 README: the `023` status row and "Today" paragraph; one line in the Admin app section
+  **Done**: first-load chunk `index-*.js` 435.67 kB (gzip 131.82) before, 441.81 kB (gzip 134.15) after: +6.1 kB of the control, builders, and file names, none of the libraries. Lazy chunks: `csv` 0.54 kB, `xlsx` 1.34 kB, `pdf` 4.06 kB, write-excel-file `browser` 11.60 kB + its zip `index` 60.65 kB, `jspdf.es.min` 384.23 kB, `jspdf.plugin.autotable` 31.12 kB, `html2canvas.esm` 202.38 kB, `index.es` 159.98 kB and `purify.es` 30.47 kB (jsPDF's optional dependencies, split out, never imported by this code); the two TTFs are 431 kB and 432 kB assets fetched only for a PDF.
+- [x] T023 README: the `023` status row and "Today" paragraph; one line in the Admin app section
   about Download.
+  **Done**: README: the `023` status row (24/28 tasks), the Status line, a "Today" sentence, and a **Report exports** item in What the system does.
 - [ ] T024 Independent review by a separate Claude session (Constitution 3.3.0) against spec, plan,
   research; fix findings; record the round here.
 - [ ] T025 `npm run ci` locally green; record counts.
