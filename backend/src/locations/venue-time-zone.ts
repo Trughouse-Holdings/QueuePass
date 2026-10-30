@@ -9,6 +9,7 @@ import {
   formatEventTime,
   formatLocalDateTime,
   resolveLocal,
+  toLocalDateTime,
   toOffsetDateTime,
   zoneName,
   type TimeZoneSource,
@@ -153,22 +154,41 @@ export async function moveEventsToZone(
   });
   const moved = events.map((e) => {
     const at = (field: 'startsAt' | 'endsAt'): Date => {
-      const local = localOf(e[field], from);
-      const r = resolveLocal(local, to);
+      const refuse = (
+        localTime: string,
+        words: string,
+        zone: UsTimeZone,
+        reason: 'SKIPPED' | 'REPEATED' | 'OUT_OF_RANGE',
+      ): never => {
+        throw conflict(
+          'EVENT_TIME_NOT_IN_ZONE',
+          `Can't change the time zone: ${e.name}'s ${FIELD_WORD[field]}, ` +
+            `${formatLocalDateTime(localTime)}, ${words} ${zoneName(zone)}.`,
+          { event: { id: e.id, name: e.name }, field, localTime, proposedTimeZone: to, reason },
+        );
+      };
+      // #88 (review round 3, n1): a legacy time from before a zone adopted standard time has no
+      // whole-minute offset there (RangeError), so it can't be placed; refused, not a 500. The
+      // message names the zone that can't place it.
+      const placed = <T>(zone: UsTimeZone, place: () => T): T => {
+        try {
+          return place();
+        } catch (err) {
+          if (!(err instanceof RangeError)) throw err;
+          return refuse(
+            toLocalDateTime(e[field], from),
+            'is from before standard time in',
+            zone,
+            'OUT_OF_RANGE',
+          );
+        }
+      };
+      const local = placed(from, () => localOf(e[field], from));
+      const r = placed(to, () => resolveLocal(local, to));
       if (r.kind === 'ok') return r.moment.instant;
-      const shown = formatLocalDateTime(local.slice(0, 16));
-      throw conflict(
-        'EVENT_TIME_NOT_IN_ZONE',
-        `Can't change the time zone: ${e.name}'s ${FIELD_WORD[field]}, ${shown}, ` +
-          `${r.kind === 'skipped' ? "doesn't exist in" : 'happens twice in'} ${zoneName(to)}.`,
-        {
-          event: { id: e.id, name: e.name },
-          field,
-          localTime: local.slice(0, 16),
-          proposedTimeZone: to,
-          reason: r.kind === 'skipped' ? 'SKIPPED' : 'REPEATED',
-        },
-      );
+      return r.kind === 'skipped'
+        ? refuse(local.slice(0, 16), "doesn't exist in", to, 'SKIPPED')
+        : refuse(local.slice(0, 16), 'happens twice in', to, 'REPEATED');
     };
     return { ...e, startsAt: at('startsAt'), endsAt: at('endsAt') };
   });

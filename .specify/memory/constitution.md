@@ -1,7 +1,7 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.4.2 -> 3.5.0 (MINOR): a new requirement on future features; the stack table gains a
-  row. (Spec 021's PR also proposes 3.5.0; whichever merges second renumbers to 3.6.0.)
+Version: 3.5.0 -> 3.6.0 (MINOR): a new requirement on future features; the stack table gains a
+  row. (Proposed as 3.5.0; renumbered because spec 021's 3.5.0 merged first, #96.)
 Problem: issue #93: the quickstarts' running-system scenarios are walked by hand once and never in
   CI, so broken wiring between the pieces can pass every check (spec 022 research R14).
 Changed:
@@ -233,6 +233,11 @@ layout that works at phone width, touch target size, WCAG contrast, states that 
 color alone, keyboard access), is usability work, not custom visual design. New branding and
 decoration remain out of scope.
 
+The one exception to "no per-app variants": the sign-in screens (Keycloak's pages, styled from the
+shared theme) MAY show each app's name, a line saying who it is for, and its own accent color, so a person can tell at a glance which app
+they are signing in to (spec `021`). Those accents are tokens in the shared theme, defined only in
+its token blocks and checked by its contrast tests. The apps themselves keep the one shared accent.
+
 Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
 without anyone spending time on visual design, and a change to the look is made once.
 
@@ -380,4 +385,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.5.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-30
+**Version**: 3.6.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-30

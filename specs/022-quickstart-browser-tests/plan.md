@@ -22,8 +22,8 @@
 - **Every quickstart gets an Automation table** (R10), checked against the test titles by a fast
   script in `npm test`.
 - **CI**: a second job `e2e` (R11), required on `main` after it passes there (R12). No retries (R13).
-- **Constitution 3.5.0** (R14): features whose implementation PR opens after this one merges ship browser tests for their main journey;
-  Playwright joins the stack table. Renumbered to 3.6.0 if `021`'s spec PR merges first.
+- **Constitution 3.6.0** (R14): features whose implementation PR opens after this one merges ship browser tests for their main journey;
+  Playwright joins the stack table. (Renumbered from 3.5.0 after `021`'s spec PR merged first.)
 - **No API, database, or Keycloak change** (data-model.md, contracts/README.md).
 
 ## Technical Context
@@ -95,7 +95,7 @@ scripts/test/ci-workflow.test.mjs     # two jobs (R11)
 package.json                          # devDependency, "e2e" script, marks check in "test"
 .gitignore, .prettierignore, eslint.config.mjs   # e2e output folders; lint e2e/
 specs/*/quickstart.md                 # Automation tables (R10)
-.specify/memory/constitution.md       # 3.5.0 (R14) — this spec PR
+.specify/memory/constitution.md       # 3.6.0 (R14) — this spec PR
 README.md                             # how to run; 022 status row
 ```
 

@@ -243,8 +243,8 @@ its quickstart's main journey, and its quickstart MUST mark each scenario Automa
 at the repository root, against the Compose stack", and the "Continuous integration" row names the
 `e2e` job. MINOR (a new requirement on future features).
 
-Version: written as 3.4.2 → **3.5.0** against `main`. `021`'s spec PR also proposes 3.5.0 (its
-Principle VII change); whichever merges second renumbers to **3.6.0** and rewrites its Sync Impact
+Version: **3.5.0 → 3.6.0**. Written first as 3.4.2 → 3.5.0; `021`'s spec PR (#96, Principle VII)
+merged first at 3.5.0, so this one was renumbered to **3.6.0** with its Sync Impact
 Report, as `017`/3.2.1 did after `#67`.
 
 ## R15. What stays manual (FR-007)
