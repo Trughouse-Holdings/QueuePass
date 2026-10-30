@@ -32,7 +32,9 @@ fail before the implementation below them.
 
 - [ ] T001 Cut the branch; `npm ci`; `npm run ci` green. Add to `admin-app/package.json` exactly
   `write-excel-file` `4.1.1`, `jspdf` `4.2.1`, `jspdf-autotable` `5.0.8`, and as a dev dependency
-  `read-excel-file` at its newest version at least two weeks old (record it here) (R2). `npm ci`
+  `read-excel-file` and `fflate` at their newest versions at least two weeks old (record them here)
+  (R2). Add the Noto Sans Regular and Bold TTFs and `OFL.txt` under `admin-app/src/export/fonts/`
+  (R10), from the Noto project's release, recording the version and source URL here. `npm ci`
   green; the build still passes.
 - [ ] T002 `admin-app/src/export/table.ts`: the `Cell` and `ExportTable` types exactly as
   data-model.md.
@@ -41,9 +43,10 @@ fail before the implementation below them.
 
 ### Tests first
 
-- [ ] T003 [P] `admin-app/test/export/attendee-rows.test.ts`: `attendeeTable(event, orders, madeAt)`
+- [ ] T003 [P] `admin-app/test/export/attendee-rows.test.ts`: `attendeeTable(event, orders, madeAt, madeBy)`
   on fixtures with two tiers, a general-admission order, a seated order, a refunded order with a void
-  ticket, an order with no holder name, a checked-in ticket, and a venue in `America/Chicago`:
+  ticket, an order with no holder name, a checked-in ticket, and a venue in `America/Chicago`, and a void ticket that has a check-in time (its Checked in
+  stays empty, R13b):
   exact columns and rows as data-model.md (one per ticket, orders oldest first, tickets in order;
   "General admission", "No name on ticket", "Valid"/"Void", "Confirmed"/"Refunded"; Price =
   `unitPrice`; Order = first 8 characters of the id upper-cased; date-times as `YYYY-MM-DDTHH:mm` in
@@ -51,7 +54,7 @@ fail before the implementation below them.
   made by, and "Times are in Central Time (the venue's time zone)." Must fail.
 - [ ] T004 [P] `admin-app/test/export/sales-rows.test.ts`: `salesTable(report, madeBy)` with events in
   two zones, one cancelled: one row per event in order, Time zone `zoneName`, Status, counts, revenue;
-  last row Total with `totals` and Status "`<n>` scheduled events"; `madeAt` = `generatedAt` (R7).
+  last row Total with `totals` and Status "`<n>` scheduled events"; made at = `generatedAt` shown in a given admin zone with its offset (R7).
   Must fail.
 
 ### Implementation
@@ -72,20 +75,26 @@ fail before the implementation below them.
 - [ ] T007 [P] [US1] `admin-app/test/export/xlsx.test.ts`: `toXlsx(table)` → `Blob`; read back with
   `read-excel-file` (both sheets): sheet 1 named per `sheetName`, header row then rows; date-time cells
   are `Date` with the venue wall-clock parts in UTC fields (R4); money cells are numbers (45 for
-  `45.00`) with format `"$"#,##0.00`; counts numbers; `=1+1` read back as the string `=1+1`; sheet
-  "About" holds title, subtitle lines, and made at (FR-008, FR-010). Must fail.
-- [ ] T008 [P] [US2] `admin-app/test/export/pdf.test.ts`: `toPdf(table, { compress: false })` →
-  `Blob` starting `%PDF`; the raw text contains the title, made at, every header, a sample of cells,
-  "Page 1 of" and, for a 200-row table, "Page 2 of"; page size letter landscape (R10, FR-009). Must
-  fail.
-- [ ] T009 [P] [US1] `admin-app/test/export/file-name.test.ts`: R8's examples: "Export Test, Café" →
-  `attendees-export-test-cafe-2026-10-30-1405.csv`; empty-after-cleaning → `event`; 61+ characters
+  `45.00`); counts numbers; `=SUM(1,1)` read back as the string `=SUM(1,1)`; sheet "About" holds title,
+  subtitle lines, made at, and made by (FR-008, FR-010). Then unzip the file with `fflate`: in
+  `xl/styles.xml` the money column's number format is `"$"#,##0.00` and the date columns'
+  `yyyy-mm-dd hh:mm`; in `xl/worksheets/sheet1.xml` a frozen pane on row 1 (`state="frozen"`); the name
+  cell is a shared string (`t="s"`), never a formula (`<f>`). Must fail.
+- [ ] T008 [P] [US2] `admin-app/test/export/pdf.test.ts` (R10, FR-009): `pdfLayout(table)` returns
+  exactly the heading lines (title, event, made at, made by), the head, and the body strings;
+  `pdfText` keeps `Zoë – Łukasz O’Brien Ελένη Пётр` unchanged and turns a character outside the font
+  (for example `山`) into `?`, setting the flag that adds the heading note; `toPdf(table)` → a `Blob`
+  starting `%PDF`, with `/MediaBox [0 0 792 612]`, the embedded Noto Sans font, one page for 10 rows
+  and at least two for 200 rows (count `/Type /Page` objects). Must fail.
+- [ ] T009 [P] [US1] `admin-app/test/export/file-name.test.ts`: R8's examples with an explicit zone:
+  "Export Test, Café", made at `2026-10-30T18:05:00Z`, zone `America/New_York` →
+  `attendees-export-test-cafe-2026-10-30-1405.csv`; the same in `America/Los_Angeles` → `…-1105.csv`; empty-after-cleaning → `event`; 61+ characters
   cut to 60; `sales-report-…`. Must fail.
 
 ### Implementation
 
 - [ ] T010 [US1] `admin-app/src/export/csv.ts` (R6, R9). T006 passes.
-- [ ] T011 [US1] `admin-app/src/export/xlsx.ts` (R2, R4, R5): dynamic `import('write-excel-file')`;
+- [ ] T011 [US1] `admin-app/src/export/xlsx.ts` (R2, R4, R5): dynamic `import('write-excel-file/browser')`;
   two sheets; column widths from the table; frozen header row; typed cells. T007 passes.
 - [ ] T012 [US2] `admin-app/src/export/pdf.ts` (R10): dynamic `import('jspdf')` and
   `import('jspdf-autotable')`; letter landscape; heading; table with repeated header, line-break
@@ -104,20 +113,21 @@ fail before the implementation below them.
   disabled and a `role="status"` says "Preparing the <format>…"; a rejected writer shows a
   `role="alert"` "Couldn't make the <format>. Try again." and re-enables the buttons; a resolved one
   calls `save` with the file name and the `Blob` (FR-014, FR-015). Must fail.
-- [ ] T015 [P] [US1] `admin-app/test/pages/attendees-export.test.tsx` (extend the existing Attendees
+- [ ] T015 [P] [US1] `admin-app/test/attendees-export.test.tsx` (tests are flat in `admin-app/test/`) (extend the existing Attendees
   test if there is one): with orders, the Download control and the note "The file contains customers'
   names and usernames. Keep it private." are shown; with no orders, while loading, and on a load
   error, neither is (FR-001, FR-011); choosing CSV saves a file built from the page's own orders and
   load time (FR-003, the stubbed API called once). Must fail.
-- [ ] T016 [P] [US2] `admin-app/test/pages/reports-export.test.tsx`: the control on Reports when the
+- [ ] T016 [P] [US2] `admin-app/test/reports-export.test.tsx`: the control on Reports when the
   report is shown; CSV saved with `generatedAt` as made at (FR-002, FR-003). Must fail.
 
 ### Implementation
 
 - [ ] T017 [US1] `admin-app/src/export/ExportMenu.tsx` (R11): props `{ label, makeTable, fileName,
   note? }`; shared classes only. T014 passes.
-- [ ] T018 [US1] `admin-app/src/pages/Attendees.tsx`: record the load time; place `ExportMenu` in the
-  page head beside "Back to …", only when orders exist. T015 passes.
+- [ ] T018 [US1] `admin-app/src/pages/Attendees.tsx`: record the load time; pass
+  `useAuth().username` as made by (R13a); place `ExportMenu` in the page head beside "Back to …", only
+  when orders exist. T015 passes.
 - [ ] T019 [US2] `admin-app/src/pages/Reports.tsx`: `ExportMenu` in the page head with the signed-in
   admin's username as made by (from `useAuth()`). T016 passes.
 
@@ -152,3 +162,20 @@ fail before the implementation below them.
 
 - **MVP**: T001–T018: the attendee list downloads in three formats.
 - Then Reports (T019), size and bundle checks, the review, the walk, the PR.
+
+## Review record (spec branch)
+
+- **Round 1** (independent Claude session, 2026-10-30; it ran jspdf 4.2.1, write-excel-file 4.1.1 and
+  read-excel-file in Node): 2 must-fix, 5 should-fix, 4 minor; all fixed in the `Review 023` commit:
+  - must: the test name `=1+1` is refused by `017` FR-003 (no letter), now `=SUM(1,1)`; jspdf's
+    built-in font garbles any string with a character above U+00FF and drops curly apostrophes, so the
+    PDF embeds Noto Sans and replaces characters outside it with `?`, noted in its heading (FR-009,
+    R10, T001, T008).
+  - should: the libraries' entry points are `write-excel-file/browser` and `read-excel-file/node`
+    (R2, T011); number formats and the frozen row are checked by unzipping with `fflate` (T007); the
+    CSV formula guard's apostrophe is visible on import and is now specified as such (FR-010, R6,
+    SC-006); made by reaches both tables (R13a, T003, T018); file names use the made-at time with an
+    explicit zone (FR-012, R8, T009), and `generatedAt` is shown in the admin's zone (R7).
+  - minor: T021 for size; the default-zone fallback and a void ticket's empty check-in (R13b); SC-002
+    sorts the attendee list only; flat test paths (T015, T016).
+- **Open findings**: none.

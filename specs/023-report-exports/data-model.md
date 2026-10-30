@@ -15,7 +15,7 @@ type Cell =
 
 interface ExportTable {
   title: string;               // 'Attendees: Season Opener' | 'Sales report'
-  subtitle: string[];          // made at, made by, zone note
+  subtitle: string[];          // made at, made by (useAuth().username), zone note
   madeAt: string;              // RFC 3339 with offset (R7)
   sheetName: string;           // 'Attendees' | 'Sales'
   columns: { header: string; kind: Cell['kind']; width: number }[];

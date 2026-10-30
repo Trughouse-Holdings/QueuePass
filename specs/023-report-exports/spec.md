@@ -141,9 +141,10 @@ is shown as text, not run.
 1. **Given** someone without the admin role, **When** they try to reach either page or its data,
    **Then** they are refused as today (the Admin app and the Backend both require the admin role),
    so they cannot export.
-2. **Given** a name on tickets that starts with `=`, `+`, `-`, `@`, a tab, or a carriage return,
-   **When** exported to CSV or Excel and opened, **Then** the cell shows the text as typed and no
-   formula runs.
+2. **Given** a name on tickets that starts with `=`, `+`, `-`, `@`, a tab, or a carriage return
+   (for example `=SUM(1,1)`; a name needs a letter, `017` FR-003), **When** exported and opened,
+   **Then** no formula runs: the Excel cell shows the text as typed, and the CSV cell shows it after a
+   leading apostrophe (`'=SUM(1,1)`), the standard guard, which spreadsheets display on import.
 
 ---
 
@@ -156,7 +157,10 @@ is shown as text, not run.
   page.
 - **General admission**: Tier says "General admission", Seat is empty.
 - **Commas, quotes, line breaks, and non-English letters** in names: CSV quoting per RFC 4180, UTF-8
-  with a byte-order mark so Excel reads the letters right; Excel and PDF show them as typed.
+  with a byte-order mark so Excel reads the letters right; Excel shows them as typed; the PDF shows
+  Latin, Greek, and Cyrillic letters and common punctuation (curly quotes, dashes) as typed, and any
+  other character as `?`, with a note in its heading that the CSV and Excel files have the exact text
+  (FR-009).
 - **Events in several time zones** (sales report): each row's date and time in its own venue's zone,
   with the zone named in its own column.
 - **A very long event or venue name**: the PDF wraps it within its column.
@@ -195,14 +199,19 @@ is shown as text, not run.
   attendees), when it was made, by which admin, and that times are in the venue's zone.
 - **FR-009**: PDF files MUST be letter size, landscape when needed to fit the columns, with a heading
   (report, event, made at), the table with its header repeated on every page, "Page n of m" on each
-  page, text at least 9 points, and no text cut off.
-- **FR-010**: CSV and Excel cells whose text starts with `=`, `+`, `-`, `@`, a tab, or a carriage
-  return MUST be written so that a spreadsheet shows the text and never evaluates it.
+  page, text at least 9 points, no text cut off, and a font that shows Latin, Greek, and Cyrillic
+  letters and common punctuation as typed; any other character MUST appear as `?`, and the heading
+  then says the CSV and Excel files have the exact text.
+- **FR-010**: No text cell MUST ever be evaluated as a formula: Excel text is always a text cell; in
+  CSV, a text cell whose first character is `=`, `+`, `-`, `@`, a tab, or a carriage return MUST be
+  written with a leading apostrophe (shown in the cell on import; the one place a CSV differs from the
+  page, SC-001).
 - **FR-011**: The attendee list's Download control MUST say the file contains customers' names and
   usernames.
 - **FR-012**: File names MUST be `attendees-<event name>-<YYYY-MM-DD-HHmm>.<ext>` and
   `sales-report-<YYYY-MM-DD-HHmm>.<ext>`, with the event name reduced to letters, digits, and
-  hyphens, the time in the admin's own zone.
+  hyphens, the time being the file's made-at time (FR-003) in the admin's own zone, so every download
+  from one page load has the same name.
 - **FR-013**: Only signed-in admins can export: the Download control exists only in the Admin app,
   which requires the admin role, and the data comes only from operations the Backend restricts to
   admins.
@@ -222,15 +231,18 @@ is shown as text, not run.
 ### Measurable Outcomes
 
 - **SC-001**: For a test event with every edge case above, every value in each of the six files (two
-  reports × three formats) equals the page's value: 100% match.
+  reports × three formats) equals the page's value, apart from the CSV formula guard (FR-010): 100%
+  match.
 - **SC-002**: Opening the CSV and Excel files in a spreadsheet, summing the price column gives the sum
-  of the page's order totals to the cent, and sorting by date-time sorts chronologically.
+  of the page's order totals to the cent, and sorting the attendee list by Order placed sorts it
+  chronologically (the sales report's times are each in their own venue's zone).
 - **SC-003**: For an event with 5,000 tickets, each of the three formats is saved within 10 seconds of
   the click on a laptop.
 - **SC-004**: An attendee list of 25,000 tickets exports in every format without error.
 - **SC-005**: A printed PDF of the sales report with 60 events is readable: no cut-off text, header on
   every page, page numbers.
-- **SC-006**: A name on tickets of `=1+1` shows as `=1+1` in CSV and Excel, never `2`.
+- **SC-006**: A name on tickets of `=SUM(1,1)` shows as `=SUM(1,1)` in Excel and as `'=SUM(1,1)` in
+  the CSV, never `2`.
 
 ## Assumptions
 
