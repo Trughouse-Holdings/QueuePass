@@ -15,6 +15,16 @@ describe('desired front-end client settings', () => {
     ]);
   });
 
+  // Spec 021 FR-002: the name each sign-in screen shows comes from here, and only from here.
+  it('names the three front ends as their sign-in screens do', () => {
+    expect(FRONTEND_CLIENTS.map((c) => [c.clientId, c.name])).toEqual([
+      ['admin-app', 'QueuePass Admin'],
+      ['customer-app', 'QueuePass Tickets'],
+      ['booth-app', 'QueuePass Ticket Booth'],
+    ]);
+    for (const c of FRONTEND_CLIENTS) expect(desiredClient(c).name).toBe(c.name);
+  });
+
   for (const c of FRONTEND_CLIENTS) {
     const origin = `http://localhost:${c.port}`;
 

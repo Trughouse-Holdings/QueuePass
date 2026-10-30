@@ -23,7 +23,12 @@ services:
 
   # ---------------------------------------------------------------- keycloak
   keycloak:
-    image: quay.io/keycloak/keycloak:26.0
+    # Keycloak 26.0 with the QueuePass sign-in look built in (spec 021 research R6); rebuild with
+    # --build after a change under keycloak/themes or to the shared theme. start-dev keeps
+    # Keycloak's theme cache off.
+    build:
+      context: .
+      dockerfile: keycloak/Dockerfile
     command: ['start-dev']
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}

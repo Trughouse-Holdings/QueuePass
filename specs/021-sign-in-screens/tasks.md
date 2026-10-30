@@ -37,12 +37,14 @@ confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `021-sign-in-screens-impl` from `021-sign-in-screens-spec` (or from `main` once the
+- [x] T001 Cut `021-sign-in-screens-impl` from `021-sign-in-screens-spec` (or from `main` once the
   spec PR has merged); `npm ci`; `npm run ci` green before any change, so a later failure is this
   feature's.
-- [ ] T002 Create the folders `keycloak/themes/queuepass/login/{messages,resources/css}` and confirm
+  **Result**: worktree branch cut from `021-sign-in-screens-spec` (bae1d74); `npm ci` clean; `npm run ci` before any source change: format, lint, build green; shared 592, backend 942, admin 249, customer 306, booth 76 passed (seed then held only the new T003 tests, failing as expected).
+- [x] T002 Create the folders `keycloak/themes/queuepass/login/{messages,resources/css}` and confirm
   `.dockerignore` keeps `node_modules`, `dist`, and `.git` out of a root-context build (plan,
   Project Structure).
+  **Result**: folders created; `.dockerignore` already excludes `node_modules/`, `**/node_modules/`, `dist/`, `.git/` (and `specs/`, which the image does not need).
 
 ---
 
@@ -52,7 +54,7 @@ confirm they **fail** before the implementation tasks below them.
 
 ### Tests first
 
-- [ ] T003 [P] Theme-file test `scripts/seed/test/login-theme-files.test.ts` (Node, no Keycloak):
+- [x] T003 [P] Theme-file test `scripts/seed/test/login-theme-files.test.ts` (Node, no Keycloak):
   reads `keycloak/themes/queuepass/login/theme.properties` and expects `parent=base`,
   `import=common/keycloak`, `styles=css/theme.css css/login.css`, and the class mappings of research
   R2 (`kcFormGroupClass=field`, `kcButtonClass=btn`, `kcButtonPrimaryClass=btn--primary`,
@@ -62,33 +64,40 @@ confirm they **fail** before the implementation tasks below them.
   tickets.`, `qpAudience.booth-app=For gate agents checking tickets in at the door.`; expects
   `template.ftl` to exist and to contain `advancedMsg(client.name)`, `qp-app--`, `role="alert"`,
   and `role="status"`. Must fail (no files yet).
-- [ ] T004 [P] Realm settings test `scripts/seed/test/provision-realm.test.ts` (no Keycloak, a fake
+  **Result**: 24 cases; all failed with no theme files, all pass after T008–T010.
+- [x] T004 [P] Realm settings test `scripts/seed/test/provision-realm.test.ts` (no Keycloak, a fake
   `kc.realms`): on create, the realm has `loginTheme: 'queuepass'`, `displayName: 'QueuePass'`,
   `registrationAllowed: false`; on an existing realm with no or another login theme, one
   `realms.update` with `{ loginTheme: 'queuepass' }` and the log `set login theme 'queuepass'`; on an
   existing realm already at `queuepass`, no update and the log `login theme already 'queuepass'`
   (research R7, FR-010). Must fail.
-- [ ] T005 [P] Client names in `scripts/seed/test/provision-clients.test.ts`: `FRONTEND_CLIENTS` names
+  **Result**: 5 cases with a fake `kc.realms`; failed (no `LOGIN_THEME`, no update), pass after T006.
+- [x] T005 [P] Client names in `scripts/seed/test/provision-clients.test.ts`: `FRONTEND_CLIENTS` names
   are exactly `QueuePass Admin`, `QueuePass Tickets`, `QueuePass Ticket Booth` for `admin-app`,
   `customer-app`, `booth-app` (FR-002). Must fail on `customer-app`.
+  **Result**: new case in `provision-clients.test.ts`; failed on `customer-app` (`QueuePass`), passes after T007.
 
 ### Implementation
 
-- [ ] T006 `scripts/seed/src/provision-realm.ts`: create with `loginTheme: 'queuepass'`; on an
+- [x] T006 `scripts/seed/src/provision-realm.ts`: create with `loginTheme: 'queuepass'`; on an
   existing realm, read it (`kc.realms.findOne`) and update only `loginTheme` when it differs, with
   the two log lines of T004 (R7). Export the login theme name as a constant used by the tests.
   T004 passes.
-- [ ] T007 `scripts/seed/src/provision-clients.ts`: `customer-app` name `QueuePass Tickets` (R7).
+  **Result**: `LOGIN_THEME` exported; create sets it; an existing realm is read with `findOne` and only `{ loginTheme }` is written when it differs. T004 passes.
+- [x] T007 `scripts/seed/src/provision-clients.ts`: `customer-app` name `QueuePass Tickets` (R7).
   T005 passes; the existing convergence renames an existing client.
-- [ ] T008 [P] `keycloak/themes/queuepass/login/theme.properties` (R2): `parent=base`,
+  **Result**: `customer-app` is `QueuePass Tickets`. T005 passes.
+- [x] T008 [P] `keycloak/themes/queuepass/login/theme.properties` (R2): `parent=base`,
   `import=common/keycloak`, `styles=css/theme.css css/login.css`, the class mappings, every other
   `kc*Class` that `base`'s `login.ftl`, `error.ftl`, `info.ftl`, and `logout-confirm.ftl` use set to
   empty or to a shared class, `locales=en`; `kcInputErrorMessageClass=qp-field-error`; the
   show-password mappings of R2 (`kcFormPasswordVisibilityButtonClass=btn btn--ghost qp-reveal`,
   `kcFormPasswordVisibilityIconShow=qp-reveal--show`, `kcFormPasswordVisibilityIconHide=qp-reveal--hide`).
-- [ ] T009 [P] `keycloak/themes/queuepass/login/messages/messages_en.properties`: `qpSignInTo` and the
+  **Result**: as R2, plus `kcInputGroup=qp-input-group` (the password row, laid out by `login.css`), `stylesCommon=` and `meta=viewport==width=device-width,initial-scale=1` (base writes no viewport tag; without it a phone renders the page at desktop width, FR-012); every other `kc*` hook of base's `template.ftl`, `login.ftl`, `error.ftl`, `info.ftl`, `logout-confirm.ftl` set empty.
+- [x] T009 [P] `keycloak/themes/queuepass/login/messages/messages_en.properties`: `qpSignInTo` and the
   three audience lines, word for word as T003.
-- [ ] T010 `keycloak/themes/queuepass/login/template.ftl` (R3, R9): start from `base`'s whole
+  **Result**: word for word as T003.
+- [x] T010 `keycloak/themes/queuepass/login/template.ftl` (R3, R9): start from `base`'s whole
   `template.ftl` (extract it from the Keycloak 26.0 image's
   `/opt/keycloak/lib/lib/main/org.keycloak.keycloak-themes-*.jar`, `theme/base/login/template.ftl`)
   and keep all of its behavior: the `registrationLayout` macro signature (`bodyClass`, `displayInfo`,
@@ -107,13 +116,16 @@ confirm they **fail** before the implementation tasks below them.
   `banner--success` and `warning`/`info` in a `banner` with `role="status"`; the form, info, and
   social sections as `base` has them. Field errors stay where `base`'s `login.ftl` puts them
   (`#input-error`, R9). T003 passes.
-- [ ] T011 `keycloak/Dockerfile` (R6): `FROM quay.io/keycloak/keycloak:26.0`; `COPY
+  **Result**: from Keycloak 26.0.8's `theme/base/login/template.ftl`. Keycloak renders with HTML auto-escaping, so the captured header can be markup output: the template takes `?markup_string` when `?is_markup_output`, then `?trim`, before comparing; warnings use the shared `banner--conflict` (warn colors), info a `qp-banner--info`. Verified live: no `<h2>` on the sign-in form.
+- [x] T011 `keycloak/Dockerfile` (R6): `FROM quay.io/keycloak/keycloak:26.0`; `COPY
   keycloak/themes/queuepass /opt/keycloak/themes/queuepass`; `COPY packages/shared/src/web/theme.css
   /opt/keycloak/themes/queuepass/login/resources/css/theme.css`. A comment says the build context is
   the repository root and why (one copy of the shared theme).
-- [ ] T012 `docker-compose.yml` `keycloak` service: `build: { context: ., dockerfile:
+  **Result**: done; build context is the repository root.
+- [x] T012 `docker-compose.yml` `keycloak` service: `build: { context: ., dockerfile:
   keycloak/Dockerfile }` in place of `image:`, everything else unchanged (command `start-dev`,
   environment, ports, volume, health check). `docker compose config` is valid.
+  **Result**: `build:` in place of `image:`, with a comment; `docker compose config -q` valid. Checkpoint: `docker compose -p qp021 up --build keycloak seed` healthy, seed logged `created realm 'queuepass'` and `set login theme 'queuepass'`; `npm test --workspace @queuepass/seed` 38 passed with Keycloak up.
 
 **Checkpoint**: `npm test --workspace @queuepass/seed` green (T003–T005); `docker compose up --build`
 starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
