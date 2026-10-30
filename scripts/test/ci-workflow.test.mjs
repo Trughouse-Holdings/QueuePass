@@ -1,6 +1,7 @@
 // Spec 011 (research R13): the pull request check's workflow is configuration whose mistakes
 // (a wrong trigger, a write permission, a step missing from the local command) fail no other
 // test, so its shape is asserted here. Run by the root `npm test` through `node --test`.
+// Spec 022 (research R11): a second job, `e2e`, runs the browser tests beside `test`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -19,9 +20,11 @@ function readWorkflow() {
   return parse(readWorkflowText());
 }
 
-function steps(workflow) {
-  return workflow.jobs.test.steps;
+function steps(workflow, job = 'test') {
+  return workflow.jobs[job].steps;
 }
+
+const JOBS = ['test', 'e2e'];
 
 test('the workflow is CI, on every pull request open, update, and reopen and every push to main (R1)', () => {
   const workflow = readWorkflow();
@@ -64,37 +67,41 @@ test('a newer push to a pull request cancels its older run, never on main (R14)'
   );
 });
 
-test('one job, test, on ubuntu-24.04 with a 30-minute limit (R2, R17, R18)', () => {
+test('two jobs, test and e2e, each on ubuntu-24.04 with a 30-minute limit (011 R2, R17, R18; 022 R11)', () => {
   const workflow = readWorkflow();
-  assert.deepEqual(Object.keys(workflow.jobs), ['test']);
-  assert.equal(workflow.jobs.test['runs-on'], 'ubuntu-24.04');
-  assert.equal(workflow.jobs.test['timeout-minutes'], 30);
-});
-
-test("only GitHub's own actions; checkout keeps no credentials; Node from .nvmrc with the npm cache (R2, R3)", () => {
-  const all = steps(readWorkflow());
-  const uses = all.filter((step) => step.uses);
-  for (const step of uses) {
-    assert.ok(step.uses.startsWith('actions/'), `third-party action: ${step.uses}`);
+  assert.deepEqual(Object.keys(workflow.jobs), JOBS);
+  for (const name of JOBS) {
+    assert.equal(workflow.jobs[name]['runs-on'], 'ubuntu-24.04', `job ${name}`);
+    assert.equal(workflow.jobs[name]['timeout-minutes'], 30, `job ${name}`);
   }
-  const checkout = uses.find((step) => step.uses.startsWith('actions/checkout@'));
-  assert.ok(checkout, 'no actions/checkout step');
-  assert.equal(checkout.with?.['persist-credentials'], false);
-  const setupNode = uses.find((step) => step.uses.startsWith('actions/setup-node@'));
-  assert.ok(setupNode, 'no actions/setup-node step');
-  assert.equal(setupNode.with?.['node-version-file'], '.nvmrc');
-  assert.equal(setupNode.with?.cache, 'npm');
 });
 
-test('every run step is named, and the first one is npm ci (R3, R4)', () => {
-  const runSteps = steps(readWorkflow()).filter((step) => step.run !== undefined);
-  for (const step of runSteps) {
-    assert.ok(step.name, `run step without a name: ${step.run}`);
-  }
-  assert.equal(runSteps[0]?.run, 'npm ci');
-});
+for (const job of JOBS) {
+  test(`${job}: only GitHub's own actions; checkout keeps no credentials; Node from .nvmrc with the npm cache (R2, R3)`, () => {
+    const all = steps(readWorkflow(), job);
+    const uses = all.filter((step) => step.uses);
+    for (const step of uses) {
+      assert.ok(step.uses.startsWith('actions/'), `third-party action: ${step.uses}`);
+    }
+    const checkout = uses.find((step) => step.uses.startsWith('actions/checkout@'));
+    assert.ok(checkout, 'no actions/checkout step');
+    assert.equal(checkout.with?.['persist-credentials'], false);
+    const setupNode = uses.find((step) => step.uses.startsWith('actions/setup-node@'));
+    assert.ok(setupNode, 'no actions/setup-node step');
+    assert.equal(setupNode.with?.['node-version-file'], '.nvmrc');
+    assert.equal(setupNode.with?.cache, 'npm');
+  });
 
-test('the job is exactly checkout, setup-node, then named run steps, none skippable or allowed to fail (FR-004, R3, R4)', () => {
+  test(`${job}: every run step is named, and the first one is npm ci (R3, R4)`, () => {
+    const runSteps = steps(readWorkflow(), job).filter((step) => step.run !== undefined);
+    for (const step of runSteps) {
+      assert.ok(step.name, `run step without a name: ${step.run}`);
+    }
+    assert.equal(runSteps[0]?.run, 'npm ci');
+  });
+}
+
+test('the test job is exactly checkout, setup-node, then named run steps, none skippable or allowed to fail (FR-004, R3, R4)', () => {
   const job = readWorkflow().jobs.test;
   assert.deepEqual(Object.keys(job).sort(), ['runs-on', 'steps', 'timeout-minutes']);
   const all = job.steps;
@@ -110,6 +117,50 @@ test('the job is exactly checkout, setup-node, then named run steps, none skippa
   }
   const runSteps = all.filter((step) => step.run !== undefined);
   assert.equal(all.length, 2 + runSteps.length);
+});
+
+test('the e2e job is checkout, setup-node, npm ci, npm run e2e, then the failure upload; nothing may fail or be skipped (022 R11, FR-009)', () => {
+  const job = readWorkflow().jobs.e2e;
+  assert.deepEqual(Object.keys(job).sort(), ['runs-on', 'steps', 'timeout-minutes']);
+  const all = job.steps;
+  assert.equal(all.length, 5);
+  assert.match(all[0]?.uses ?? '', /^actions\/checkout@/);
+  assert.match(all[1]?.uses ?? '', /^actions\/setup-node@/);
+  assert.deepEqual(
+    all.filter((step) => step.run !== undefined).map((step) => step.run),
+    ['npm ci', 'npm run e2e'],
+  );
+  for (const [index, step] of all.slice(0, 4).entries()) {
+    const label = step.name ?? step.uses ?? step.run;
+    const allowed = index < 2 ? ['name', 'uses', 'with'] : ['name', 'run'];
+    for (const key of Object.keys(step)) {
+      assert.ok(allowed.includes(key), `step ${index} (${label}) has key ${key}`);
+    }
+  }
+  // The one conditional step: a failing run keeps its report, traces, screenshots, and logs.
+  const upload = all[4];
+  assert.match(upload.uses ?? '', /^actions\/upload-artifact@v\d+$/);
+  assert.ok(upload.name, 'the upload step has no name');
+  assert.equal(upload.if, 'failure()');
+  assert.deepEqual(Object.keys(upload).sort(), ['if', 'name', 'uses', 'with']);
+  assert.deepEqual(
+    String(upload.with?.path ?? '')
+      .split('\n')
+      .map((p) => p.trim())
+      .filter(Boolean),
+    ['e2e/playwright-report', 'e2e/test-results'],
+  );
+  assert.equal(upload.with?.['retention-days'], 14);
+  assert.ok(upload.with?.name, 'the artifact has no name');
+});
+
+test('the e2e job uses the same checkout and setup-node versions as test (022 R11)', () => {
+  const workflow = readWorkflow();
+  const version = (job, action) =>
+    steps(workflow, job).find((step) => step.uses?.startsWith(`actions/${action}@`))?.uses;
+  for (const action of ['checkout', 'setup-node']) {
+    assert.equal(version('e2e', action), version('test', action), action);
+  }
 });
 
 test('the workflow uses no secret and no token (R15)', () => {
@@ -133,7 +184,7 @@ function ciScriptParts() {
   return root.scripts.ci.split(' && ');
 }
 
-test("the workflow's steps after npm ci are exactly the root ci script's parts, in order (R12)", () => {
+test("the test job's steps after npm ci are exactly the root ci script's parts, in order (R12)", () => {
   const runs = steps(readWorkflow())
     .filter((step) => step.run !== undefined)
     .map((step) => step.run);
