@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fontGlyphs, pdfLayout, pdfText, toPdf, REPLACED_NOTE } from '../../src/export/pdf';
-import { REGULAR, loadFontsFromDisk } from './fonts';
+import { BOLD, REGULAR, loadFontsFromDisk } from './fonts';
 import { SAMPLE, sampleOf } from './sample';
 
 /** Spec 023 FR-009 (research R10). */
@@ -105,5 +105,29 @@ describe('toPdf', () => {
   it('breaks 200 rows across pages', async () => {
     const raw = await latin1(await toPdf(sampleOf(200), loadFontsFromDisk));
     expect(pages(raw)).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('the app font loader', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('fetches both fonts the first time a PDF is made, and refuses a file that is not a font', async () => {
+    vi.resetModules();
+    const fresh = await import('../../src/export/pdf');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('<!doctype html>', { status: 200 })),
+    );
+    await expect(fresh.toPdf(SAMPLE)).rejects.toThrow(/Font not loaded/);
+
+    const fetchMock = vi.fn(
+      async (url: string) => new Response(Uint8Array.from(url.includes('Bold') ? BOLD : REGULAR)),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const blob = await fresh.toPdf(SAMPLE);
+    expect(blob.type).toBe('application/pdf');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await fresh.toPdf(SAMPLE);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

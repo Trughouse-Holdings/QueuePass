@@ -16,7 +16,16 @@ export interface Fonts {
 
 /** The app's font source: the committed TTFs as Vite asset URLs, fetched only for a PDF. */
 async function fetchFonts(): Promise<Fonts> {
-  const get = async (url: string) => new Uint8Array(await (await fetch(url)).arrayBuffer());
+  const get = async (url: string) => {
+    const res = await fetch(url);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    // A missing asset can come back as the app's index.html with 200; a TrueType file starts
+    // 00 01 00 00.
+    if (!res.ok || bytes.length < 12 || new DataView(bytes.buffer).getUint32(0) !== 0x00010000) {
+      throw new Error(`Font not loaded: ${url}`);
+    }
+    return bytes;
+  };
   const [regular, bold] = await Promise.all([get(regularUrl), get(boldUrl)]);
   return { regular, bold };
 }

@@ -18,6 +18,17 @@ const WRITERS: Record<ExportFormat, () => Promise<(table: ExportTable) => Blob |
   pdf: () => import('./pdf').then((m) => m.toPdf),
 };
 
+/**
+ * FR-014: let the browser paint "Preparing…" before a writer runs; a large PDF is drawn in one
+ * synchronous stretch (research R12).
+ */
+const afterPaint = (): Promise<void> =>
+  new Promise((resolve) =>
+    typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame(() => setTimeout(resolve, 0))
+      : setTimeout(resolve, 0),
+  );
+
 export interface ExportMenuProps {
   /** The group's accessible name: "Download the attendee list". */
   label: string;
@@ -47,6 +58,7 @@ export function ExportMenu({ label, makeTable, fileName, note }: ExportMenuProps
     setFailed(null);
     try {
       const write = await WRITERS[format.ext]();
+      await afterPaint();
       save(await write(makeTable()), fileName(format.ext));
     } catch {
       setFailed(format.name);
