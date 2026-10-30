@@ -109,6 +109,20 @@ description: "Task list for Test Coverage Floor"
   `customer-app` 97.46%, `booth-app` 92.28%, `scripts/seed` 100.00% (254/254). The seed's tests add
   under 2 s, so the `test` job's duration (main's run for 67e17c4: 5 min 30 s) is unchanged within
   SC-004's 2 minutes; the CI number is for the PR.
+  **After merging `main` with `021` (PR #100):** 021's seed reads and sets the realm's login theme
+  (`realms.findOne`, `realms.update`) and renames `customer-app` to "QueuePass Tickets"; the fake
+  failed naming `realms.findOne`, as R4 intended. The fake now implements both (a partial update,
+  as Keycloak's PUT); `realm-roles.unit.test.ts` covers the theme created, set over none or the
+  stock theme, already set, a second run, and `KEYCLOAK_REALM`; `clients.unit.test.ts` pins each
+  client's name and renames a pre-021 `customer-app` in place; `fake-keycloak.unit.test.ts` covers
+  the two methods (each new test seen failing against a broken seed, then reverted). 021's own
+  `provision-realm.test.ts` is kept. `npm run ci` green in 269 s, Keycloak pointed away: root 45,
+  `packages/shared` 681 tests, 93.13% (1696/1821); `backend` 943, 97.03% (2061/2124);
+  `admin-app` 249, 97.06% (3040/3132); `customer-app` 308, 97.46% (1616/1658); `booth-app` 76,
+  92.28% (550/596); `scripts/seed` 91 passed and 20 live tests skipped with their reason, 100.00%
+  (264/264); `test:tz --quick` passed. The first run failed in `customer-app`'s
+  `entry-code.test.tsx` (018) on a 5 s timeout with the machine's load average at 58 on 8 cores;
+  that file passed 2 of 3 runs alone and the whole rerun: load, not coverage, and not 010's code.
 - [ ] T017 Quickstart F2–F4 (F3 on a draft PR, closed unmerged afterwards); record.
   Result so far: **F2** done locally: `booth-app/src/untested.ts` with 60 small functions made the
   root `npm test` fail at `booth-app` (`ERROR: Coverage for lines (65.78%) does not meet global
@@ -121,8 +135,9 @@ description: "Task list for Test Coverage Floor"
   `customer-app` client name `021` changes, so the seed's live tests would have re-converged it;
   left for a human with a stack of this branch.
 - [ ] T018 Push; open the implementation PR after the spec PR merges: `fixes #22`, coverage before and
-  after, the review. CI green; merge when green and approved. Result so far: branch pushed; the PR
-  waits for spec PR #99.
+  after, the review. CI green; merge when green and approved. Result so far: spec PR #99 merged;
+  `main` (021, PR #100) merged in and reconciled (T016); branch pushed; the implementation PR opens
+  next.
 
 ## Dependencies
 
