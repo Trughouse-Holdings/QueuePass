@@ -28,15 +28,22 @@ const AUDIENCE_MAPPER = {
 /**
  * The constitution's OIDC clients rule, pinned to fixed values rather than to `desiredClient`
  * (review round 1): public, Authorization Code with PKCE S256 only, no password, implicit, or
- * service-account grant, and exact redirect URIs, post-logout URIs, and web origins.
+ * service-account grant, and exact redirect URIs, post-logout URIs, and web origins. The names
+ * are the ones each sign-in screen shows, "Sign in to {name}" (spec 021 FR-002).
  */
 const PORTS = { 'admin-app': 5173, 'customer-app': 5174, 'booth-app': 5175 } as const;
+const NAMES = {
+  'admin-app': 'QueuePass Admin',
+  'customer-app': 'QueuePass Tickets',
+  'booth-app': 'QueuePass Ticket Booth',
+} as const;
 
 function expectConstitutionalClient(c: ClientRepresentation): void {
   const port = PORTS[c.clientId as keyof typeof PORTS];
   expect(port, `unexpected client ${c.clientId}`).toBeDefined();
   const origin = `http://localhost:${port}`;
   expect(c, c.clientId).toMatchObject({
+    name: NAMES[c.clientId as keyof typeof NAMES],
     protocol: 'openid-connect',
     enabled: true,
     publicClient: true,
@@ -195,6 +202,33 @@ describe('provisionClients', () => {
     const [target] = fake.callsTo('clients.update')[0];
     expect(target).toEqual({ realm: 'queuepass', id });
     expectConstitutionalClient(after);
+  });
+
+  // Spec 021 FR-002 and R7: a realm seeded before 021 has the Customer app as "QueuePass"; the
+  // next run renames it in place, and a name already right is written unchanged.
+  it('renames a client seeded under an older name, in place, and keeps the rest', async () => {
+    const state = await converged();
+    const customer = client(state, 'customer-app');
+    const id = customer.id;
+    Object.assign(customer, { name: 'QueuePass', description: 'kept: not a seed setting' });
+    const fake = createFakeKeycloak(state);
+
+    await provisionClients(fake.kc);
+
+    const after = client(state, 'customer-app');
+    expect(after).toMatchObject({
+      id,
+      name: 'QueuePass Tickets',
+      description: 'kept: not a seed setting',
+    });
+    expectConstitutionalClient(after);
+    const renamed = fake
+      .callsTo('clients.update')
+      .find(([target]) => (target as { id: string }).id === id)!;
+    expect(renamed[1]).toMatchObject({ name: 'QueuePass Tickets' });
+    expect(fake.callsTo('clients.create')).toEqual([]);
+    for (const c of state.clients)
+      expect(c.name, c.clientId).toBe(NAMES[c.clientId as keyof typeof NAMES]);
   });
 
   it('adds only the default scope a client is missing', async () => {

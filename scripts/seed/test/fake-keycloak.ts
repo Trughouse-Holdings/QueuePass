@@ -11,8 +11,8 @@ import type UserRepresentation from '@keycloak/keycloak-admin-client/lib/defs/us
  * no Keycloak. It implements exactly the methods `scripts/seed/src/*.ts` calls, over in-memory
  * state, and records every call. It is a Proxy: calling any other method throws
  * `fake Keycloak: <group>.<method> is not implemented`, so a change to the seed that calls
- * something new (for example spec 021's `realms.findOne` and `realms.update`) fails with a
- * message naming what to add here.
+ * something new fails with a message naming what to add here (spec 021's `realms.findOne` and
+ * `realms.update`, for the realm's login theme, were added that way).
  *
  * One realm's worth of state: the seed only ever works in one realm. Every call is recorded, and a
  * call whose `realm` argument names another realm than the fake's (`queuepass` unless given)
@@ -103,9 +103,17 @@ export function createFakeKeycloak(
   const groups: Record<string, Record<string, (...args: never[]) => unknown>> = {
     realms: {
       find: () => state.realms,
+      // Keycloak answers 404 for an absent realm; the admin client turns that into undefined.
+      findOne: ({ realm: name }: { realm: string }) => state.realms.find((r) => r.realm === name),
       create: (rep: RealmRepresentation) => {
         state.realms.push(rep);
         return { realmName: rep.realm };
+      },
+      // A partial update, as Keycloak's PUT /admin/realms/{realm}: only the fields sent change.
+      update: ({ realm: name }: { realm: string }, rep: RealmRepresentation) => {
+        const found = state.realms.find((r) => r.realm === name);
+        if (!found) throw new Error(`fake Keycloak: no realm '${name}'`);
+        Object.assign(found, rep);
       },
     },
     roles: {
