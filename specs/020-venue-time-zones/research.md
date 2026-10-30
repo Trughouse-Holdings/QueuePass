@@ -292,8 +292,8 @@ today. Then, when the proposed zone differs from the locked one:
    (`resolveLocal`). Any `skipped` or `repeated` → `409 EVENT_TIME_NOT_IN_ZONE`, message "Can't
    change the time zone: {event}'s {start|end}, {Mar 14, 2027, 2:30 AM}, doesn't exist in Mountain
    Time." (or "happens twice in …"), `details: { event: { id, name }, field, localTime,
-   proposedTimeZone, reason: 'SKIPPED' | 'REPEATED' }`. The first such event in start order is
-   named.
+   proposedTimeZone, reason: 'SKIPPED' | 'REPEATED' | 'OUT_OF_RANGE' }` (`OUT_OF_RANGE` from #88).
+   The first such event in start order is named.
 3. **60-minute rule** (FR-012): among the venue's **scheduled** events at their new moments, find
    the first pair, in start order, whose windows `[start − 60 min, end)` overlap → `409
    SCHEDULING_CONFLICT` with the existing shape: `details.conflictingEvent` is the earlier event,
@@ -642,6 +642,13 @@ To keep `main` green (as `013` R11 and `016` R9 did):
 
 **Follow-up**: once the implementation merges, a small contract PR moves the new response fields
 into `required`; the implementation opens its issue as its last task (as `013`).
+
+Done in #88 (contract 1.14.0): the five response fields are in `required`. The same PR fixes
+review round 3's n1: a venue zone change that meets a legacy event from before either zone
+adopted standard time (no whole-minute offset: before 1883 in most zones, 1896 in Honolulu, 1900
+in Alaska) is refused with `409 EVENT_TIME_NOT_IN_ZONE`,
+`details.reason` `OUT_OF_RANGE`, instead of a 500. The apps keep their defensive fallback to
+`DEFAULT_TIME_ZONE`; it is no longer reached.
 
 **Rationale**: Constitution I (contract before code) and III (`main` demo-ready at every merge).
 
