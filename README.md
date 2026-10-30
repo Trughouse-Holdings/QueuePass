@@ -290,8 +290,9 @@ Beside **CI / test**, every pull request and push to `main` runs **CI / e2e** (`
 in on Keycloak's own page with the seed's test accounts, against a fresh copy of the Compose stack.
 Each test is named after the quickstart scenario it walks (`017 S3: …`), and every
 `specs/*/quickstart.md` ends with an **Automation** table marking each scenario Automated (with the
-test's name) or Manual (with the reason: a camera, printing, a screen reader, a wait of minutes);
-`npm test` fails when a test and its row disagree. To run them on your laptop, with Docker running:
+test's name, and what of the scenario stays manual when the test walks only part of it) or Manual
+(with the reason: a camera, printing, a screen reader, a wait of minutes); `npm test` fails when a
+test and its row disagree, and `npm run lint` type-checks `e2e/`. To run them on your laptop, with Docker running:
 
 ```bash
 docker compose down                      # your own stack must be down: the tests need its ports

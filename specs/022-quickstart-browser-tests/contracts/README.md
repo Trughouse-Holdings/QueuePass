@@ -10,4 +10,6 @@ The interfaces this feature adds are for developers:
   stack's ports are in use, the stack fails to start, or any test fails.
 - **The `e2e` check** in `.github/workflows/ci.yml`: research R11. Required on `main` after the
   implementation merges (R12).
-- **The automation table** in every quickstart and its check in `npm test`: research R10.
+- **The automation table** in every quickstart and its check in `npm test`: research R10, with
+  the row formats of [data-model.md](../data-model.md) (an Automated row may end `; rest Manual:
+  <what and why>` when its test walks only part of the scenario, review round 1).

@@ -296,3 +296,12 @@ and tools actually do.
 12. **Quickstarts merged after the spec**: `010` and `023` merged after this spec was written, so
     22 quickstarts are marked, not 19. `023` is not built on this branch; its rows are Manual, for
     its own implementation PR to replace (Constitution VI as amended).
+13. **Review round 1** (T033): `npm run e2e` removes a leftover `qpe2e` stack *before* the port
+    check, so a run killed past its clean-up (a hang-up, `kill -9`) never makes the next run blame
+    a teammate's stack; SIGHUP is handled like SIGINT and SIGTERM; the final removal runs in its
+    own process group, so a second Ctrl-C cannot stop it partway; a port counts as busy when
+    127.0.0.1 or ::1 answers. A row whose test walks only part of its scenario reads
+    ``Automated: `<title>`; rest Manual: <what and why>``; the check ties a row's label to its
+    title's labels and refuses titles in backticks. `npm run lint` also type-checks `e2e/`
+    (`tsc -p e2e/tsconfig.json`), so the contract-typed set-up bodies are checked in CI. The CI
+    upload also runs when the job is cancelled at its time limit.

@@ -9,8 +9,8 @@ The browser-test stack is created and destroyed by every run (research R3).
 
 | Thing | Shape | Rule |
 | --- | --- | --- |
-| Browser test | `test('NNN <label>: <description>', …)` in `e2e/tests/*.spec.ts` | Title starts with a built feature's number and a scenario label from that feature's quickstart (FR-003); creates its own data (R8) |
-| Automation table | `## Automation` at the end of each `specs/*/quickstart.md`; rows `\| <label> \| Automated: \`<test title>\` \|` or `\| <label> \| Manual: <reason> \|` | One row per scenario heading label (`^#{2,3} ([A-Z]{1,2}\d+)\b`), exactly once (FR-007, R10) |
+| Browser test | `test('NNN <label>: <description>', …)` in `e2e/tests/*.spec.ts`, the title quoted with `'` or `"` (never backticks); a test of two scenarios names both, `NNN P1/P4: …` | Title starts with a built feature's number and scenario labels from that feature's quickstart (FR-003); creates its own data (R8) |
+| Automation table | `## Automation` at the end of each `specs/*/quickstart.md`; rows `\| <label> \| Automated: \`<test title>\` \|`, `\| <label> \| Automated: \`<test title>\`; rest Manual: <what and why> \|` when the test walks only part of the scenario, or `\| <label> \| Manual: <reason> \|` | One row per scenario heading label (`^#{2,3} ([A-Z]{1,2}\d+[a-z]?)\b`, R16.1), exactly once (FR-007, R10); an Automated row's label is one of its test title's labels, and its title is a test in `e2e/tests` (FR-008); a reason is never empty |
 | Address stand-in data | `e2e/stack/geocoder-stub/addresses.json`: `[{ street, city, state, zip, matchedAddress, x, y }]` | The four addresses of R4, real coordinates (`x` longitude, `y` latitude, as the Census answer) |
 
 ## Test accounts (seed, unchanged)
