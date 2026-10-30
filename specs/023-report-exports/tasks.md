@@ -1,0 +1,154 @@
+---
+description: "Task list for Report Exports"
+---
+
+# Tasks: Report Exports
+
+**Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R13),
+[data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) (no API change),
+[quickstart.md](./quickstart.md) (E0–E6)
+
+**Issue**: [#52](https://github.com/Trughouse-Holdings/QueuePass/issues/52). The implementation
+PR's **description** says `fixes #52` on its own line. No commit message may contain "fixes #52",
+"closes #52", or "resolves #52".
+
+**Tests**: **REQUIRED and written first** (Constitution VI). Write each phase's tests and see them
+fail before the implementation below them.
+
+## Ground rules
+
+- **Fresh session** (Constitution III) on `023-report-exports-impl`, cut from the spec branch while
+  its PR is open.
+- **Commits**: `Impl 023: <what> (T0xx, #52)`.
+- One independent review (T024), `npm run ci` green (T025), CI green on GitHub (T028).
+- If spec `022`'s browser tests are on `main` when this is implemented, Constitution VI (as amended
+  there) requires browser tests for this feature's main journey: add `e2e/tests/023-exports.spec.ts`
+  (download each format from both pages, check the file name and a row) and the quickstart's
+  Automation table (T027).
+
+---
+
+## Phase 1: Setup
+
+- [ ] T001 Cut the branch; `npm ci`; `npm run ci` green. Add to `admin-app/package.json` exactly
+  `write-excel-file` `4.1.1`, `jspdf` `4.2.1`, `jspdf-autotable` `5.0.8`, and as a dev dependency
+  `read-excel-file` at its newest version at least two weeks old (record it here) (R2). `npm ci`
+  green; the build still passes.
+- [ ] T002 `admin-app/src/export/table.ts`: the `Cell` and `ExportTable` types exactly as
+  data-model.md.
+
+## Phase 2: Foundational (the table model)
+
+### Tests first
+
+- [ ] T003 [P] `admin-app/test/export/attendee-rows.test.ts`: `attendeeTable(event, orders, madeAt)`
+  on fixtures with two tiers, a general-admission order, a seated order, a refunded order with a void
+  ticket, an order with no holder name, a checked-in ticket, and a venue in `America/Chicago`:
+  exact columns and rows as data-model.md (one per ticket, orders oldest first, tickets in order;
+  "General admission", "No name on ticket", "Valid"/"Void", "Confirmed"/"Refunded"; Price =
+  `unitPrice`; Order = first 8 characters of the id upper-cased; date-times as `YYYY-MM-DDTHH:mm` in
+  Chicago time; empty Checked in when null); title "Attendees: <event>"; subtitle lines with made at,
+  made by, and "Times are in Central Time (the venue's time zone)." Must fail.
+- [ ] T004 [P] `admin-app/test/export/sales-rows.test.ts`: `salesTable(report, madeBy)` with events in
+  two zones, one cancelled: one row per event in order, Time zone `zoneName`, Status, counts, revenue;
+  last row Total with `totals` and Status "`<n>` scheduled events"; `madeAt` = `generatedAt` (R7).
+  Must fail.
+
+### Implementation
+
+- [ ] T005 `admin-app/src/export/attendee-rows.ts` and `sales-rows.ts` (R3, R4, R7), using
+  `toLocalDateTime` and `zoneName` from `@queuepass/shared` and `seatLabel` from `../format`. T003,
+  T004 pass.
+
+## Phase 3: User Story 1 + 2 - The three formats (P1) 🎯 MVP
+
+### Tests first
+
+- [ ] T006 [P] [US1] `admin-app/test/export/csv.test.ts`: `toCsv(table)` returns a `Blob` whose text is
+  exactly: BOM, header row, rows, CRLF line ends, `Exported at` last on every row; quoting of commas,
+  quotes (doubled), CR and LF; dates `YYYY-MM-DD HH:MM`; money `45.00`; counts plain; a text cell
+  starting with each of `=`, `+`, `-`, `@`, tab, CR gets a leading `'`, and money/count/date cells never
+  do (R6, R9, FR-007, FR-010). Must fail.
+- [ ] T007 [P] [US1] `admin-app/test/export/xlsx.test.ts`: `toXlsx(table)` → `Blob`; read back with
+  `read-excel-file` (both sheets): sheet 1 named per `sheetName`, header row then rows; date-time cells
+  are `Date` with the venue wall-clock parts in UTC fields (R4); money cells are numbers (45 for
+  `45.00`) with format `"$"#,##0.00`; counts numbers; `=1+1` read back as the string `=1+1`; sheet
+  "About" holds title, subtitle lines, and made at (FR-008, FR-010). Must fail.
+- [ ] T008 [P] [US2] `admin-app/test/export/pdf.test.ts`: `toPdf(table, { compress: false })` →
+  `Blob` starting `%PDF`; the raw text contains the title, made at, every header, a sample of cells,
+  "Page 1 of" and, for a 200-row table, "Page 2 of"; page size letter landscape (R10, FR-009). Must
+  fail.
+- [ ] T009 [P] [US1] `admin-app/test/export/file-name.test.ts`: R8's examples: "Export Test, Café" →
+  `attendees-export-test-cafe-2026-10-30-1405.csv`; empty-after-cleaning → `event`; 61+ characters
+  cut to 60; `sales-report-…`. Must fail.
+
+### Implementation
+
+- [ ] T010 [US1] `admin-app/src/export/csv.ts` (R6, R9). T006 passes.
+- [ ] T011 [US1] `admin-app/src/export/xlsx.ts` (R2, R4, R5): dynamic `import('write-excel-file')`;
+  two sheets; column widths from the table; frozen header row; typed cells. T007 passes.
+- [ ] T012 [US2] `admin-app/src/export/pdf.ts` (R10): dynamic `import('jspdf')` and
+  `import('jspdf-autotable')`; letter landscape; heading; table with repeated header, line-break
+  overflow, 9 pt; footer "Page n of m". List any character the built-in font replaced in the test.
+  T008 passes.
+- [ ] T013 [US1] `admin-app/src/export/file-name.ts` (R8) and `save.ts` (a `Blob` URL on a temporary
+  `<a download>`, revoked after the click, as `019`'s `AddToCalendar.tsx`). T009 passes.
+
+## Phase 4: The Download control on both pages (US1, US2, US3)
+
+### Tests first
+
+- [ ] T014 [P] [US1] `admin-app/test/export/export-menu.test.tsx`: `ExportMenu` renders a `<details>`
+  with summary "Download" and buttons "CSV", "Excel (XLSX)", "PDF"; keyboard: Tab to the summary,
+  Enter opens, Tab to a button, Enter starts it; while a writer's promise is pending all three are
+  disabled and a `role="status"` says "Preparing the <format>…"; a rejected writer shows a
+  `role="alert"` "Couldn't make the <format>. Try again." and re-enables the buttons; a resolved one
+  calls `save` with the file name and the `Blob` (FR-014, FR-015). Must fail.
+- [ ] T015 [P] [US1] `admin-app/test/pages/attendees-export.test.tsx` (extend the existing Attendees
+  test if there is one): with orders, the Download control and the note "The file contains customers'
+  names and usernames. Keep it private." are shown; with no orders, while loading, and on a load
+  error, neither is (FR-001, FR-011); choosing CSV saves a file built from the page's own orders and
+  load time (FR-003, the stubbed API called once). Must fail.
+- [ ] T016 [P] [US2] `admin-app/test/pages/reports-export.test.tsx`: the control on Reports when the
+  report is shown; CSV saved with `generatedAt` as made at (FR-002, FR-003). Must fail.
+
+### Implementation
+
+- [ ] T017 [US1] `admin-app/src/export/ExportMenu.tsx` (R11): props `{ label, makeTable, fileName,
+  note? }`; shared classes only. T014 passes.
+- [ ] T018 [US1] `admin-app/src/pages/Attendees.tsx`: record the load time; place `ExportMenu` in the
+  page head beside "Back to …", only when orders exist. T015 passes.
+- [ ] T019 [US2] `admin-app/src/pages/Reports.tsx`: `ExportMenu` in the page head with the signed-in
+  admin's username as made by (from `useAuth()`). T016 passes.
+
+## Phase 5: User Story 4, size, polish
+
+- [ ] T020 [US4] Check FR-013 holds with no new code: the Customer and Booth apps have no export; the
+  Admin app's role check covers both pages (existing tests); record here.
+- [ ] T021 [P] `admin-app/test/export/size.test.ts` (R12, SC-003, SC-004): generated tables of 5,000
+  and 25,000 tickets through each writer in Vitest; 5,000 finishes each format within 10 s (assert
+  with a generous timer and print the times); 25,000 completes without error. Record the times here.
+- [ ] T022 Confirm the Admin app's first-load chunk did not grow with the libraries (compare `vite
+  build` output before and after; the libraries are in their own chunks). Record sizes.
+- [ ] T023 README: the `023` status row and "Today" paragraph; one line in the Admin app section
+  about Download.
+- [ ] T024 Independent review by a separate Claude session (Constitution 3.3.0) against spec, plan,
+  research; fix findings; record the round here.
+- [ ] T025 `npm run ci` locally green; record counts.
+- [ ] T026 Running-system walk, quickstart E0–E6 (Excel or Numbers, and a PDF print preview), on a
+  stack built from this branch; record each result.
+- [ ] T027 If `022` is on `main`: `e2e/tests/023-exports.spec.ts` and the Automation table in this
+  quickstart (ground rules).
+- [ ] T028 Push; open the implementation PR (after the spec PR merges and the branch is up to date):
+  `fixes #52`, the review, test counts, sizes and times, the walk. CI green on GitHub; merge when
+  green and approved.
+
+## Dependencies & Execution Order
+
+- T001–T002 → T003–T005 → T006–T013 → T014–T019 → T020–T028.
+- T003/T004, T006–T009, T014–T016 are separate files: parallel.
+
+## Implementation Strategy
+
+- **MVP**: T001–T018: the attendee list downloads in three formats.
+- Then Reports (T019), size and bundle checks, the review, the walk, the PR.
