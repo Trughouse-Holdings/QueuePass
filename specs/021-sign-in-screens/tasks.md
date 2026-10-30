@@ -234,13 +234,15 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
 
 **Independent Test**: quickstart S0, S8.
 
-- [ ] T024 [US3] `scripts/seed/test/seed-idempotence.test.ts` (live Keycloak): after a second seed
+- [x] T024 [US3] `scripts/seed/test/seed-idempotence.test.ts` (live Keycloak): after a second seed
   run, the realm's `loginTheme` is `queuepass` and `customer-app`'s name is `QueuePass Tickets`; a new
   case sets the realm's `loginTheme` back to `keycloak` and the client's name back to `QueuePass`, runs
   the seed, and expects both restored (FR-010, SC-004). Must fail before T006/T007 are in the running
   seed image (rebuild).
-- [ ] T025 [US3] README "Running it" section: one line that the sign-in screens come from
+  **Result**: 2 cases: after two runs, `loginTheme` is `queuepass` and `customer-app` is `QueuePass Tickets`; a realm set back to `keycloak` and a client renamed `QueuePass` by hand are both restored by the next run, with the same user counts and client ids. Both failed with the seed source put back to its pre-T006/T007 behavior, and pass with it. The rebuilt seed image, run again (`docker compose -p qp021 run --rm seed`), logs `login theme already 'queuepass'`.
+- [x] T025 [US3] README "Running it" section: one line that the sign-in screens come from
   `keycloak/themes/queuepass` and need `--build` after a theme change (Keycloak's own image).
+  **Result**: README has no "Running it" section; the line is in **Start the system**, after the startup order paragraph.
 
 **Checkpoint**: quickstart S0 and S8 hold.
 

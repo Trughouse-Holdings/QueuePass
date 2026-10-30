@@ -119,6 +119,10 @@ address is refused with "We can't verify the address right now"; everything else
 Startup order is gated on health: the Backend waits for PostgreSQL and applies migrations, the
 seed waits for Keycloak's `/health/ready`, and the front ends wait for the Backend.
 
+The sign-in screens come from [`keycloak/themes/queuepass`](keycloak/themes/queuepass), built into
+Keycloak's own image (`keycloak/Dockerfile`) with the shared theme, so run `docker compose up
+--build` after changing either (`021`). The seed sets the realm's login theme on every run.
+
 > The stack uses ports 3000, 5173–5175, 8080, 9000, and 5432. Stop anything else using them
 > first, or `docker compose up` fails with "port is already allocated".
 
