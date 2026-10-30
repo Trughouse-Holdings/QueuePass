@@ -173,6 +173,13 @@ export class LocationsService {
    * Then the address lookup, only if the address changed, still with no lock. Then one short
    * transaction locks the venue and its scheduled events (the same order as layout saves),
    * re-runs the capacity rules on what is stored now, and writes.
+   *
+   * Feature 024 (research R7): the same address resent with `acceptUnverifiedAddress: true` for a
+   * venue whose address is not verified is looked up again in the same place. A match is written
+   * verified, in standard form, only if the row read again under the lock still has that address,
+   * not verified; any other answer, the service being down included, writes nothing about the
+   * address and never refuses. This check never decides the zone. Without the flag, an unchanged
+   * address is still never looked up (013 FR-008).
    */
   async update(id: string, dto: UpdateLocationDto): Promise<Location> {
     const existing = await this.findOne(id);
@@ -199,11 +206,15 @@ export class LocationsService {
     }
 
     let checkedAddress: CheckedWithPlace | undefined;
+    let recheckedAddress: CheckedAddress | undefined;
+    const parts = dto as AddressParts;
     if (sent.length > 0) {
-      const parts = dto as AddressParts;
-      // FR-008: an unchanged address is not checked again and keeps its verified state.
+      // FR-008: an unchanged address is not checked again and keeps its verified state, except
+      // a not-verified one resent with the flag (feature 024, research R7).
       if (!sameAddress(parts, existing)) {
         checkedAddress = await this.checkAddress(parts, dto.acceptUnverifiedAddress === true);
+      } else if (dto.acceptUnverifiedAddress === true && !existing.addressVerified) {
+        recheckedAddress = await this.recheckAddress(parts);
       }
     }
     const address = checkedAddress?.address;
@@ -225,12 +236,20 @@ export class LocationsService {
       if (zone && zone.timeZone !== locked.timeZone) {
         await moveEventsToZone(tx, { id, name: locked.name }, locked.timeZone, zone.timeZone);
       }
+      // Feature 024 R7: the re-check's upgrade only over the address it looked up, still not
+      // verified; another edit's address saved during the lookup stands.
+      let upgrade: CheckedAddress | undefined;
+      if (recheckedAddress) {
+        const now = await tx.location.findUniqueOrThrow({ where: { id } });
+        if (sameAddress(parts, now) && now.addressVerified === false) upgrade = recheckedAddress;
+      }
       return tx.location.update({
         where: { id },
         data: {
           ...(dto.name !== undefined ? { name: dto.name } : {}),
           ...(dto.seatingCapacity !== undefined ? { seatingCapacity: dto.seatingCapacity } : {}),
           ...address,
+          ...upgrade,
           ...zone,
         },
       });
@@ -283,9 +302,7 @@ export class LocationsService {
     try {
       result = await this.geocoder.lookup(sent);
     } catch (err) {
-      if (!(err instanceof AddressServiceUnavailableError)) throw err;
-      const cause = err.cause instanceof Error ? `: ${err.cause.message}` : '';
-      this.logger.warn(`Address service unavailable: ${err.message}${cause}`);
+      this.logUnavailable(err);
       if (saveUnverifiedWhenUnavailable || acceptUnverified) return unverified();
       throw serviceUnavailable();
     }
@@ -322,6 +339,37 @@ export class LocationsService {
       `${typed} matches more than one US address. Enter one of these.`,
       { address: typed, candidates: result.candidates },
     );
+  }
+
+  /**
+   * Feature 024 research R7: a not-verified venue's unchanged address looked up again. Only a
+   * match that keeps the typed ZIP code and house number counts, as in `checkAddress`; anything
+   * else, the service being unavailable included, is no upgrade, never a refusal.
+   */
+  private async recheckAddress(input: AddressParts): Promise<CheckedAddress | undefined> {
+    const sent = asSent(input);
+    let result;
+    try {
+      result = await this.geocoder.lookup(sent);
+    } catch (err) {
+      this.logUnavailable(err);
+      return undefined;
+    }
+    if (result.kind !== 'match') return undefined;
+    const match = {
+      street: result.street,
+      city: result.city,
+      state: result.state,
+      zip: result.zip,
+    };
+    return matchesTyped(sent, match) ? checked(match, true) : undefined;
+  }
+
+  /** Research R6: an unavailable service is logged with its cause; anything else is rethrown. */
+  private logUnavailable(err: unknown): void {
+    if (!(err instanceof AddressServiceUnavailableError)) throw err;
+    const cause = err.cause instanceof Error ? `: ${err.cause.message}` : '';
+    this.logger.warn(`Address service unavailable: ${err.message}${cause}`);
   }
 
   /**
