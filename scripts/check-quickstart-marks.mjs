@@ -28,12 +28,27 @@ export function scenarioLabels(markdown) {
   return labels;
 }
 
-/** The first argument of every `test('…')` or `test("…")` call: the browser tests' titles. */
+/** A browser test call: `test(`, or `test.only(`, `.skip(`, `.fixme(`, `.fail(`, then its title. */
+const CALL = /(?<![.\w])test(?:\.(?:only|skip|fixme|fail))?\(\s*/g;
+
+/** The first argument of every test call, quoted '…' or "…": the browser tests' titles. */
 export function testTitles(source) {
   const titles = [];
-  const call = /(?<![.\w])test\(\s*(['"])((?:\\.|(?!\1)[^\\\n])*)\1/g;
+  const call = new RegExp(`${CALL.source}(['"])((?:\\\\.|(?!\\1)[^\\\\\\n])*)\\1`, 'g');
   for (const m of source.matchAll(call)) titles.push(m[2].replace(/\\(.)/g, '$1'));
   return titles;
+}
+
+/** Titles written as template literals, which the check cannot read reliably (review S3). */
+export function templateTitles(source) {
+  const call = new RegExp(`${CALL.source}\`([^\`]*)\``, 'g');
+  return [...source.matchAll(call)].map((m) => m[1]);
+}
+
+/** `015 S1/S2: …` → feature `015`, labels `S1`, `S2`; null when not named so (FR-003). */
+export function titleParts(title) {
+  const m = /^(\d{3}) ((?:[A-Z]{1,2}\d+[a-z]?)(?:\/[A-Z]{1,2}\d+[a-z]?)*): \S/.exec(title);
+  return m ? { feature: m[1], labels: m[2].split('/') } : null;
 }
 
 /** The rows of the `## Automation` table, or null when the file has no such section. */
@@ -68,6 +83,9 @@ export function checkMarks({ quickstarts, specs }) {
   const titles = new Map();
   for (const { file, text } of specs) {
     for (const title of testTitles(text)) titles.set(title, file);
+    for (const title of templateTitles(text)) {
+      problems.push(`${file}: test \`${title}\` has its title in backticks; quote it with ' or "`);
+    }
   }
   /** feature number → the test titles its quickstart marks Automated. */
   const automated = new Map();
@@ -91,16 +109,24 @@ export function checkMarks({ quickstarts, specs }) {
       } else if (!labels.includes(label)) {
         say(`row ${label} is not a scenario heading in this quickstart`);
       }
-      const auto = /^Automated: `([^`]+)`$/.exec(mark);
+      // Review S1: a test that walks only part of the scenario says what is left, and why.
+      const auto = /^Automated: `([^`]+)`(?:; rest Manual:(.*))?$/.exec(mark);
       const manual = /^Manual:(.*)$/.exec(mark);
       if (auto) {
         marked.add(auto[1]);
         if (!titles.has(auto[1]))
           say(`row ${label} names "${auto[1]}", but there is no such test in e2e/tests`);
+        const parts = titleParts(auto[1]);
+        if (parts && label !== NO_SCENARIOS && !parts.labels.includes(label))
+          say(`row ${label} names "${auto[1]}", a test of ${parts.labels.join('/')}`);
+        if (auto[2] !== undefined && auto[2].trim() === '')
+          say(`row ${label}'s "rest Manual:" has no reason`);
       } else if (manual) {
         if (manual[1].trim() === '') say(`row ${label} is Manual with no reason`);
       } else {
-        say(`row ${label} must be Automated: \`<test title>\` or Manual: <reason>`);
+        say(
+          `row ${label} must be Automated: \`<test title>\` or Manual: <reason> (an Automated row may end \`; rest Manual: <why>\`)`,
+        );
       }
     }
     for (const [label, n] of counts) {
@@ -115,7 +141,7 @@ export function checkMarks({ quickstarts, specs }) {
   }
 
   for (const [title, file] of titles) {
-    const feature = /^(\d{3}) [A-Z]{1,2}\d+[a-z]?\b[^:]*: ./.exec(title)?.[1];
+    const feature = titleParts(title)?.feature;
     if (!feature) {
       problems.push(`${file}: test "${title}" is not named "NNN <label>: <description>" (FR-003)`);
     } else if (!automated.get(feature)?.has(title)) {

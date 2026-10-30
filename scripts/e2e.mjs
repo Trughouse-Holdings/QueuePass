@@ -1,9 +1,9 @@
 // Spec 022 (research R3, FR-013): `npm run e2e [-- <playwright args>]`, the one command that runs
-// the browser tests. It refuses while the stack's ports are in use; removes any leftover `qpe2e`
-// stack; starts a fresh one from clean data exactly as `docker compose up --build` builds it, with
+// the browser tests. It removes any leftover `qpe2e` stack; refuses while the stack's ports are
+// still in use (someone else's stack); starts a fresh one from clean data exactly as `docker compose up --build` builds it, with
 // the address stand-in of e2e/stack/docker-compose.e2e.yml (FR-010); loads the README's demo
 // data; runs Playwright; keeps every service's log when something failed; and always removes the
-// stack and its volumes (SC-006). Exit code: Playwright's, or 1 when the ports are busy or the
+// stack and its volumes (SC-006), also on Ctrl-C, SIGTERM, or a hang-up. Exit code: Playwright's, or 1 when the ports are busy or the
 // stack did not start.
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -28,7 +28,10 @@ export const COMPOSE = [
 ];
 const LOG_DIR = join(ROOT, 'e2e', 'test-results', 'stack-logs');
 
-/** True when something accepts a TCP connection on the port (within a second). */
+/** The signals that end a run early; each still removes the stack (review round 1, M1). */
+export const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'];
+
+/** True when something accepts a TCP connection on the port at `host` (within a second). */
 export function tcpConnect(port, host = '127.0.0.1') {
   return new Promise((resolve) => {
     const socket = createConnection({ port, host });
@@ -42,8 +45,14 @@ export function tcpConnect(port, host = '127.0.0.1') {
   });
 }
 
+/** True when the port answers on either loopback, IPv4 or IPv6 (review round 1, minor 6). */
+export async function listening(port, connect = tcpConnect) {
+  const [v4, v6] = await Promise.all([connect(port, '127.0.0.1'), connect(port, '::1')]);
+  return v4 || v6;
+}
+
 /** The ports, in the order given, whose `connect` succeeds. */
-export async function busyPorts(ports, connect = tcpConnect) {
+export async function busyPorts(ports, connect = listening) {
   const open = await Promise.all(ports.map((p) => connect(p)));
   return ports.filter((_, i) => open[i]);
 }
@@ -59,13 +68,16 @@ export function portsMessage(busy) {
   ].join('\n');
 }
 
-/** Runs a command with the terminal's stdio; resolves its exit code. `track` sees the child. */
-function run(command, args, { track, quiet = false, env } = {}) {
+/**
+ * Runs a command with the terminal's stdio; resolves its exit code. `track` sees the child.
+ * `detached` puts it in its own process group, so a Ctrl-C at the terminal does not reach it.
+ */
+function runCommand(command, args, { track, quiet = false, detached = false } = {}) {
   return new Promise((resolve) => {
     const child = spawn(command, args, {
       cwd: ROOT,
       stdio: quiet ? 'ignore' : 'inherit',
-      env: env ?? process.env,
+      detached,
       shell: process.platform === 'win32',
     });
     track?.(child);
@@ -105,10 +117,23 @@ async function saveLogs() {
   console.error(`npm run e2e: service logs saved to e2e/test-results/stack-logs/`);
 }
 
-export async function main(argv = process.argv.slice(2)) {
-  const busy = await busyPorts(E2E_PORTS);
-  if (busy.length > 0) {
-    console.error(portsMessage(busy));
+/**
+ * The whole run. `deps` replaces the commands, the port check, and the output in tests.
+ */
+export async function main(argv = process.argv.slice(2), deps = {}) {
+  const run = deps.run ?? runCommand;
+  const busy = deps.busy ?? (() => busyPorts(E2E_PORTS));
+  const error = deps.error ?? ((text) => console.error(text));
+  const log = deps.log ?? ((text) => console.log(text));
+  const keepLogs = deps.saveLogs ?? saveLogs;
+  const down = (opts) => run('docker', [...COMPOSE, 'down', '-v', '--remove-orphans'], opts);
+
+  // A leftover `qpe2e` stack from a killed run (spec edge case, FR-013) goes first, with its data,
+  // so the port check below only ever finds someone else's stack (review round 1, M1).
+  await down({ quiet: true });
+  const ports = await busy();
+  if (ports.length > 0) {
+    error(portsMessage(ports));
     return 1;
   }
 
@@ -118,21 +143,20 @@ export async function main(argv = process.argv.slice(2)) {
   const onSignal = (signal) => {
     if (interrupted) return;
     interrupted = true;
-    console.error(`\nnpm run e2e: ${signal}, stopping and removing the ${PROJECT} stack…`);
+    error(`\nnpm run e2e: ${signal}, stopping and removing the ${PROJECT} stack…`);
     child?.kill(signal);
   };
-  process.on('SIGINT', onSignal);
-  process.on('SIGTERM', onSignal);
+  for (const signal of SIGNALS) process.on(signal, onSignal);
+  // After a hang-up the terminal is gone; writing to it must not end the run before clean-up.
+  const ignore = () => undefined;
+  process.stdout.on('error', ignore);
+  process.stderr.on('error', ignore);
 
   let code = 1;
   const started = Date.now();
   const minutes = () => `${((Date.now() - started) / 60_000).toFixed(1)} min`;
   try {
-    // A leftover from a killed run (spec edge case) goes first, with its data.
-    await run('docker', [...COMPOSE, 'down', '-v', '--remove-orphans'], { track, quiet: true });
-    if (interrupted) return 130;
-
-    console.log(`npm run e2e: building and starting the ${PROJECT} stack from clean data…`);
+    log(`npm run e2e: building and starting the ${PROJECT} stack from clean data…`);
     const up = await run(
       'docker',
       [...COMPOSE, 'up', '--build', '--detach', '--wait', '--wait-timeout', '600'],
@@ -140,11 +164,11 @@ export async function main(argv = process.argv.slice(2)) {
     );
     if (interrupted) return 130;
     if (up !== 0) {
-      console.error('npm run e2e: the stack did not start. The seed job said:');
+      error('npm run e2e: the stack did not start. The seed job said:');
       await run('docker', [...COMPOSE, 'logs', '--no-color', 'seed'], { track });
       return 1;
     }
-    console.log(`npm run e2e: stack healthy after ${minutes()}; loading the demo data…`);
+    log(`npm run e2e: stack healthy after ${minutes()}; loading the demo data…`);
     const demo = await run(
       'docker',
       [...COMPOSE, 'exec', '-T', 'backend', 'node', 'backend/dist/scripts/demo-data.js'],
@@ -152,7 +176,7 @@ export async function main(argv = process.argv.slice(2)) {
     );
     if (interrupted) return 130;
     if (demo !== 0) {
-      console.error('npm run e2e: the demo data did not load.');
+      error('npm run e2e: the demo data did not load.');
       return 1;
     }
 
@@ -171,12 +195,15 @@ export async function main(argv = process.argv.slice(2)) {
     if (interrupted) return 130;
     return code;
   } finally {
-    if (code !== 0) await saveLogs();
-    console.log(`npm run e2e: removing the ${PROJECT} stack and its volumes…`);
-    await run('docker', [...COMPOSE, 'down', '-v', '--remove-orphans'], { quiet: true });
-    console.log(`npm run e2e: done in ${minutes()}.`);
-    process.off('SIGINT', onSignal);
-    process.off('SIGTERM', onSignal);
+    if (code !== 0) await keepLogs();
+    log(`npm run e2e: removing the ${PROJECT} stack and its volumes…`);
+    // Its own process group, and the handlers stay on meanwhile: a second Ctrl-C cannot stop
+    // the removal partway (review round 1, minor 7).
+    await down({ quiet: true, detached: true });
+    log(`npm run e2e: done in ${minutes()}.`);
+    for (const signal of SIGNALS) process.off(signal, onSignal);
+    process.stdout.off('error', ignore);
+    process.stderr.off('error', ignore);
   }
 }
 
