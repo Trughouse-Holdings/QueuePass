@@ -30,14 +30,16 @@ fail before the implementation below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut the branch; `npm ci`; `npm run ci` green. Add to `admin-app/package.json` exactly
+- [x] T001 Cut the branch; `npm ci`; `npm run ci` green. Add to `admin-app/package.json` exactly
   `write-excel-file` `4.1.1`, `jspdf` `4.2.1`, `jspdf-autotable` `5.0.8`, and as a dev dependency
   `read-excel-file` and `fflate` at their newest versions at least two weeks old (record them here)
   (R2). Add the Noto Sans Regular and Bold TTFs and `OFL.txt` under `admin-app/src/export/fonts/`
   (R10), from the Noto project's release, recording the version and source URL here. `npm ci`
   green; the build still passes.
-- [ ] T002 `admin-app/src/export/table.ts`: the `Cell` and `ExportTable` types exactly as
+  **Done**: pinned `write-excel-file` 4.1.1, `jspdf` 4.2.1, `jspdf-autotable` 5.0.8; dev `read-excel-file` 9.3.12 (2026-10-07; 9.3.13+ are under two weeks old) and `fflate` 0.8.3 (2026-05-16). Fonts: Noto Sans v2.015 (unhinted static TTFs, 2024-11-20) from https://github.com/notofonts/latin-greek-cyrillic/releases/download/NotoSans-v2.015/NotoSans-v2.015.zip (`NotoSans/unhinted/ttf/NotoSans-{Regular,Bold}.ttf`, `OFL.txt`); sha256 Regular `f3961a9c…48b0e8`, Bold `87cb2d84…2529d9`. `npm ci` and the build green.
+- [x] T002 `admin-app/src/export/table.ts`: the `Cell` and `ExportTable` types exactly as
   data-model.md.
+  **Done**: `table.ts` as data-model.md, plus an optional `nowrap` on a column (Review 023, R10).
 
 ## Phase 2: Foundational (the table model)
 
