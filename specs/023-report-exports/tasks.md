@@ -72,12 +72,13 @@ fail before the implementation below them.
 
 ### Tests first
 
-- [ ] T006 [P] [US1] `admin-app/test/export/csv.test.ts`: `toCsv(table)` returns a `Blob` whose text is
+- [x] T006 [P] [US1] `admin-app/test/export/csv.test.ts`: `toCsv(table)` returns a `Blob` whose text is
   exactly: BOM, header row, rows, CRLF line ends, `Exported at` last on every row; quoting of commas,
   quotes (doubled), CR and LF; dates `YYYY-MM-DD HH:MM`; money `45.00`; counts plain; a text cell
   starting with each of `=`, `+`, `-`, `@`, tab, CR gets a leading `'`, and money/count/date cells never
   do (R6, R9, FR-007, FR-010). Must fail.
-- [ ] T007 [P] [US1] `admin-app/test/export/xlsx.test.ts`: `toXlsx(table)` → `Blob`; read back with
+  **Done**: 10 tests on a shared sample table (`test/export/sample.ts`); failed (no module) before T010.
+- [x] T007 [P] [US1] `admin-app/test/export/xlsx.test.ts`: `toXlsx(table)` → `Blob`; read back with
   `read-excel-file` (both sheets): sheet 1 named per `sheetName`, header row then rows; date-time cells
   are `Date` with the venue wall-clock parts in UTC fields (R4); money cells are numbers (45 for
   `45.00`); counts numbers; `=SUM(1,1)` read back as the string `=SUM(1,1)`; sheet "About" holds title,
@@ -85,28 +86,35 @@ fail before the implementation below them.
   `xl/styles.xml` the money column's number format is `"$"#,##0.00` and the date columns'
   `yyyy-mm-dd hh:mm`; in `xl/worksheets/sheet1.xml` a frozen pane on row 1 (`state="frozen"`); the name
   cell is a shared string (`t="s"`), never a formula (`<f>`). Must fail.
-- [ ] T008 [P] [US2] `admin-app/test/export/pdf.test.ts` (R10, FR-009): `pdfLayout(table, glyphs)` returns
+  **Done**: 4 tests: read back with read-excel-file, then unzipped with fflate for formats, the frozen pane, and `t="s"`; failed before T011.
+- [x] T008 [P] [US2] `admin-app/test/export/pdf.test.ts` (R10, FR-009): `pdfLayout(table, glyphs)` returns
   exactly the heading lines (title, event, made at, made by), the head, and the body strings;
   `pdfText` keeps `Zoë – Łukasz O’Brien Ελένη Пётр` unchanged and turns a character outside the font
   (for example `山`) into `?`, setting the flag that adds the heading note; `toPdf(table)` → a `Blob`
   starting `%PDF`, with a `/MediaBox` of `0 0 792 612` (jsPDF writes `[0 0 792. 612.]`; compare the numbers), the embedded Noto Sans font, one page for 10 rows
   and at least two for 200 rows (count `/Type /Page` objects). Must fail.
-- [ ] T009 [P] [US1] `admin-app/test/export/file-name.test.ts`: R8's examples with an explicit zone:
+  **Done**: 7 tests; fonts read from disk (`test/export/fonts.ts`); failed before T012.
+- [x] T009 [P] [US1] `admin-app/test/export/file-name.test.ts`: R8's examples with an explicit zone:
   "Export Test, Café", made at `2026-10-30T18:05:00Z`, zone `America/New_York` →
   `attendees-export-test-cafe-2026-10-30-1405.csv`; the same in `America/Los_Angeles` → `…-1105.csv`; empty-after-cleaning → `event`; 61+ characters
   cut to 60; `sales-report-…`. Must fail.
+  **Done**: 6 tests (`fileName` and `slug`); per R8, "Zoë’s" becomes `zoe-s`; failed before T013.
 
 ### Implementation
 
-- [ ] T010 [US1] `admin-app/src/export/csv.ts` (R6, R9). T006 passes.
-- [ ] T011 [US1] `admin-app/src/export/xlsx.ts` (R2, R4, R5): dynamic `import('write-excel-file/browser')`;
+- [x] T010 [US1] `admin-app/src/export/csv.ts` (R6, R9). T006 passes.
+  **Done**: `csv.ts`; T006 passes.
+- [x] T011 [US1] `admin-app/src/export/xlsx.ts` (R2, R4, R5): dynamic `import('write-excel-file/browser')`;
   two sheets; column widths from the table; frozen header row; typed cells. T007 passes.
-- [ ] T012 [US2] `admin-app/src/export/pdf.ts` (R10): dynamic `import('jspdf')` and
+  **Done**: `xlsx.ts` (bold frozen header, column widths, About sheet ending `Exported at <made at>`); T007 passes.
+- [x] T012 [US2] `admin-app/src/export/pdf.ts` (R10): dynamic `import('jspdf')` and
   `import('jspdf-autotable')`; letter landscape; heading; table with repeated header, line-break
   overflow, 9 pt; footer "Page n of m". List any character the built-in font replaced in the test.
   T008 passes.
-- [ ] T013 [US1] `admin-app/src/export/file-name.ts` (R8) and `save.ts` (a `Blob` URL on a temporary
+  **Done**: `pdf.ts` with `fontGlyphs`, `pdfText`, `pdfLayout`, `toPdf`; checked visually (PDFKit render: header on every page, Page n of m, long names wrapped). No character of the test strings is replaced; `山` and emoji become `?`. T008 passes.
+- [x] T013 [US1] `admin-app/src/export/file-name.ts` (R8) and `save.ts` (a `Blob` URL on a temporary
   `<a download>`, revoked after the click, as `019`'s `AddToCalendar.tsx`). T009 passes.
+  **Done**: `file-name.ts` and `save.ts`; T009 passes.
 
 ## Phase 4: The Download control on both pages (US1, US2, US3)
 
