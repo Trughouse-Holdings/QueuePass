@@ -197,7 +197,7 @@ fail before the implementation below them.
 - [ ] T028 Push; open the implementation PR (after the spec PR merges and the branch is up to date):
   `fixes #52`, the review, test counts, sizes and times, the walk. CI green on GitHub; merge when
   green and approved.
-  **Not done**: branch pushed (`023-report-exports-impl`). The PR waits for the spec PR (#98) to merge and the branch to be brought up to date; its description says `fixes #52` and carries the review, the counts (T025), sizes and times (T021, T022), and the walk (T026).
+  **Not done**: spec PR #98 merged; branch brought up to date with `main` (`52ee98d`) and pushed; implementation PR #102 opened as a draft (its description says `fixes #52` and carries the review, the counts (T025), sizes and times (T021, T022), and the walk (T026), pending Nate). Waits for CI green on GitHub, the walk, and approval.
 
 ## Dependencies & Execution Order
 
