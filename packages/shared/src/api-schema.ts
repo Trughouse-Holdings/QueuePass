@@ -293,8 +293,8 @@ export interface paths {
          *     and nothing is saved, with `409 TIME_ZONE_HAS_ORDERS` when any event at the venue has any
          *     order (`details.events`); with `409 EVENT_TIME_NOT_IN_ZONE` when an event's local start or
          *     end does not exist, or happens twice, in the new zone (`details.event`, `details.reason`
-         *     `SKIPPED` or `REPEATED`), or is a legacy time from before 1883 that no zone offset can
-         *     state (`details.reason` `OUT_OF_RANGE`, #88); and with `409 SCHEDULING_CONFLICT` when the moved scheduled
+         *     `SKIPPED` or `REPEATED`), or is a legacy time from before either zone adopted standard
+         *     time, which no whole-minute offset can state (`details.reason` `OUT_OF_RANGE`, #88); and with `409 SCHEDULING_CONFLICT` when the moved scheduled
          *     events would be closer than 60 minutes (`details.conflictingEvent` and `details.event`).
          *     All or nothing: the events and the venue change together.
          */
