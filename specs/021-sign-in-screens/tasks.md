@@ -172,7 +172,7 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   `qp-app--<clientId>`; expect no PatternFly stylesheet link and the two theme stylesheets; expect the
   form's show-password button to have the `aria-label` "Show password" and the class `qp-reveal`.
   Must fail against today's stock theme.
-  **Result**: `scripts/seed/test/sign-in-screens.test.ts`, 9 cases (3 clients × title/one `<h1`>/audience/body class; the two stylesheets, each served 200, no PatternFly; the form with autofocus, `aria-label="Show password"` + `qp-reveal`, primary button, no registration). Parsed with regular expressions (no new package). Proved against the stock look by setting the realm's `loginTheme` to `keycloak` by hand: 9 of 9 failed; set back.
+  **Result**: `scripts/seed/test/sign-in-screens.test.ts`, 9 cases (3 clients × title/one `<h1>`/audience/body class; the two stylesheets, each served 200, no PatternFly; the form with autofocus, `aria-label="Show password"` + `qp-reveal`, primary button, no registration). Parsed with regular expressions (no new package). Proved against the stock look by setting the realm's `loginTheme` to `keycloak` by hand: 9 of 9 failed; set back.
 
 ### Implementation
 
@@ -208,18 +208,21 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
 
 **Independent Test**: quickstart S3, S4; the live test below.
 
-- [ ] T021 [US2] Extend `scripts/seed/test/sign-in-screens.test.ts`: for each client, take the form's
+- [x] T021 [US2] Extend `scripts/seed/test/sign-in-screens.test.ts`: for each client, take the form's
   `action` and the cookies from T016's page, POST `username=admin1&password=wrong`, and expect the
   same title, `<h1>`, audience line, and body class, plus "Invalid username or password." inside
   `#input-error` with `aria-live="polite"` and class `qp-field-error` (a field error, not a page
   message: R9), and the username field's value kept (FR-004, FR-011).
-- [ ] T022 [US2] Extend the same test: GET the authorization URL with `client_id=account-console`,
+  **Result**: 3 cases: after `admin1`/`wrong`, same title, one `<h1>`, audience line, body class; "Invalid username or password." in `#input-error` with `class="qp-field-error"` and `aria-live="polite"`; no `role="alert"` banner repeating it; username kept and `aria-invalid="true"`.
+- [x] T022 [US2] Extend the same test: GET the authorization URL with `client_id=account-console`,
   `redirect_uri=http://localhost:8080/realms/queuepass/account/`, `response_type=code`,
   `scope=openid`, a `state`, and an S256 `code_challenge` (not `/realms/queuepass/account`, which
   answers 200 with a single-page app that redirects only in JavaScript, R11): expect "Sign in to
   Account Console", no audience line, body class `qp-app--account-console` (FR-008,
   contracts/README.md).
-- [ ] T023 [US2] Fix anything T021 or T022 finds in `template.ftl` or `login.css`. Both pass.
+  **Result**: 1 case as written ("Sign in to Account Console", no audience line, `qp-app--account-console`), plus 1 for the contracts table's no-client row: `GET /realms/queuepass/login-actions/authenticate` with no sign-in under way renders "Sign in to QueuePass", body class `qp-app--`, no audience line, and the page's own `<h2>` "We are sorry...". All 14 live cases fail with the realm set to the stock look by hand (set back after).
+- [x] T023 [US2] Fix anything T021 or T022 finds in `template.ftl` or `login.css`. Both pass.
+  **Result**: nothing to fix: 14 of 14 pass against the rebuilt image.
 
 **Checkpoint**: quickstart S3, S4, S7 hold.
 

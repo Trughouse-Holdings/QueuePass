@@ -70,6 +70,18 @@ async function authorize(clientId: string, redirectUri: string): Promise<Page> {
   return { status: res.status, html: await res.text(), cookies: cookiesOf(res) };
 }
 
+/** POST the sign-in form of `page` with a username and password, cookies included. */
+async function submit(page: Page, username: string, password: string): Promise<Page> {
+  const action = decode(page.html.match(/<form id="kc-form-login"[^>]*action="([^"]+)"/)![1]!);
+  const res = await fetch(action, {
+    method: 'POST',
+    redirect: 'manual',
+    headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: page.cookies },
+    body: new URLSearchParams({ username, password, credentialId: '' }),
+  });
+  return { status: res.status, html: await res.text(), cookies: page.cookies };
+}
+
 const cookiesOf = (res: Response): string =>
   res.headers
     .getSetCookie()
@@ -85,19 +97,20 @@ const decode = (s: string): string =>
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>');
 
-const text = (s: string): string => decode(s.replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim();
+const text = (s: string): string =>
+  decode(s.replace(/<[^>]*>/g, ''))
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /** What the tests read from a sign-in page. */
 function read(html: string) {
   return {
     title: text(html.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? ''),
     h1: [...html.matchAll(/<h1\b[^>]*>([\s\S]*?)<\/h1>/g)].map((m) => text(m[1]!)),
-    audience: [...html.matchAll(/<p class="qp-audience">([\s\S]*?)<\/p>/g)].map((m) =>
-      text(m[1]!),
-    ),
+    audience: [...html.matchAll(/<p class="qp-audience">([\s\S]*?)<\/p>/g)].map((m) => text(m[1]!)),
     bodyClass: html.match(/<body\b[^>]*class="([^"]*)"/)?.[1] ?? null,
-    stylesheets: [...html.matchAll(/<link\b[^>]*href="([^"]+)"[^>]*rel="stylesheet"/g)].map(
-      (m) => decode(m[1]!),
+    stylesheets: [...html.matchAll(/<link\b[^>]*href="([^"]+)"[^>]*rel="stylesheet"/g)].map((m) =>
+      decode(m[1]!),
     ),
   };
 }
@@ -157,5 +170,60 @@ describe('the sign-in screens (spec 021)', () => {
       expect(html).toMatch(/<input[^>]*class="btn btn--primary[^"]*"[^>]*id="kc-login"/);
       expect(html).not.toMatch(/registration/i);
     });
+
+    it('keeps the identity after a wrong password and says so under the fields (US2, FR-004, R9)', async ({
+      skip,
+    }) => {
+      skip(!available, SKIP_REASON);
+      const first = await authorize(clientId, redirectUri);
+      const page = await submit(first, 'admin1', 'wrong');
+      expect(page.status).toBe(200);
+      const got = read(page.html);
+      expect(got.title).toBe(want.heading);
+      expect(got.h1).toEqual([want.heading]);
+      expect(got.audience).toEqual([want.audience]);
+      expect(got.bodyClass).toBe(`qp-app--${clientId}`);
+
+      // A field error, not a page message: base's #input-error, announced, in the danger color.
+      const error = page.html.match(/<span id="input-error"([^>]*)>([\s\S]*?)<\/span>/);
+      expect(error, '#input-error').not.toBeNull();
+      expect(error![1]).toMatch(/class="qp-field-error"/);
+      expect(error![1]).toMatch(/aria-live="polite"/);
+      expect(text(error![2]!)).toBe('Invalid username or password.');
+      // The same message for a wrong username or password; no banner repeats it (FR-011).
+      expect(page.html).not.toMatch(/role="alert"/);
+      expect(page.html).toMatch(/<input[^>]*id="username"[^>]*value="admin1"/);
+      expect(page.html).toMatch(/<input[^>]*id="username"[^>]*aria-invalid="true"/);
+    });
+  });
+
+  it('shows a client with no QueuePass identity under its own name, with no audience line (FR-008)', async ({
+    skip,
+  }) => {
+    skip(!available, SKIP_REASON);
+    // Not /realms/<realm>/account itself: that answers 200 with a single-page app that sends the
+    // browser to sign in only from JavaScript (R11).
+    const page = await authorize('account-console', `${KEYCLOAK}/realms/${realm}/account/`);
+    expect(page.status).toBe(200);
+    const got = read(page.html);
+    expect(got.title).toBe('Sign in to Account Console');
+    expect(got.h1).toEqual(['Sign in to Account Console']);
+    expect(got.audience).toEqual([]);
+    expect(got.bodyClass).toBe('qp-app--account-console');
+  });
+
+  it('shows a page with no client as "Sign in to QueuePass", with the page\'s own header (FR-008, R9)', async ({
+    skip,
+  }) => {
+    skip(!available, SKIP_REASON);
+    // A sign-in step reached with no sign-in under way: Keycloak knows no client.
+    const res = await fetch(`${KEYCLOAK}/realms/${realm}/login-actions/authenticate`);
+    const html = await res.text();
+    const got = read(html);
+    expect(got.title).toBe('Sign in to QueuePass');
+    expect(got.h1).toEqual(['Sign in to QueuePass']);
+    expect(got.audience).toEqual([]);
+    expect(got.bodyClass).toBe('qp-app--');
+    expect(text(html.match(/<h2\b[^>]*>([\s\S]*?)<\/h2>/)?.[1] ?? '')).toBe('We are sorry...');
   });
 });
