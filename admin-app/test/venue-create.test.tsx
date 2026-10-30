@@ -36,13 +36,13 @@ const SENT_ZONE = { acceptUnverifiedAddress: true, timeZone: 'America/New_York' 
 
 const addSection = (n: number, name: string, rows: string, seats: string) => {
   fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
-  fireEvent.change(screen.getByRole('textbox', { name: `Section ${n} name` }), {
+  fireEvent.change(screen.getByRole('textbox', { name: `Section ${n} Section name` }), {
     target: { value: name },
   });
-  fireEvent.change(screen.getByRole('spinbutton', { name: `Section ${n} rows` }), {
+  fireEvent.change(screen.getByRole('spinbutton', { name: `Section ${n} Rows` }), {
     target: { value: rows },
   });
-  fireEvent.change(screen.getByRole('spinbutton', { name: `Section ${n} seats per row` }), {
+  fireEvent.change(screen.getByRole('spinbutton', { name: `Section ${n} Seats per row` }), {
     target: { value: seats },
   });
 };
@@ -63,6 +63,10 @@ describe('New venue: seated or general admission', () => {
     expect(screen.queryByLabelText('Seating capacity')).toBeNull();
     addSection(1, 'A', '3', '10');
     addSection(2, 'B', '2', '20');
+    // Spec 024 FR-019, FR-022: each line's seats, and the total their sum.
+    const line = (n: number) => within(screen.getByRole('group', { name: `Section ${n}` }));
+    expect(line(1).getByText('= 30 seats')).toBeInTheDocument();
+    expect(line(2).getByText('= 40 seats')).toBeInTheDocument();
     expect(screen.getByText('Total: 70 seats')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove section 1' }));

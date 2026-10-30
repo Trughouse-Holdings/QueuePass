@@ -375,13 +375,13 @@ describe('Seated venue in one step', () => {
   const addSection = () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Seated' }));
     fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Section 1 name' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Section 1 Section name' }), {
       target: { value: 'A' },
     });
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 1 rows' }), {
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 1 Rows' }), {
       target: { value: '2' },
     });
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 1 seats per row' }), {
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 1 Seats per row' }), {
       target: { value: '10' },
     });
   };

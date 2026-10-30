@@ -57,6 +57,14 @@ it('the New event form saves with the primary button and cancels with the second
   expect(screen.getByRole('link', { name: 'Cancel' })).toHaveClass('btn', 'btn--ghost');
 });
 
+// Spec 024 review round 1, M1: the section lines' modifier never reaches the ticket-type lines.
+it("the New event form's ticket-type line keeps exactly the form__row class", async () => {
+  stubApi({ 'GET /locations': json([]) });
+  renderAt('/events/new');
+  const name = await screen.findByLabelText('Ticket type 1 name');
+  expect((name.parentElement as HTMLElement).className).toBe('form__row');
+});
+
 // US3-4: a status badge looks the same in both apps; Cancelled is the danger badge everywhere.
 describe('the Cancelled badge (US3-4)', () => {
   it('is the danger badge on the Events list', async () => {
