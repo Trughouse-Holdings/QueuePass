@@ -169,7 +169,7 @@ fail before the implementation below them.
   research; fix findings; record the round here.
   **Not done**: left for a separate Claude session (Constitution 3.3.0); the implementer does not review its own work.
 - [x] T025 `npm run ci` locally green; record counts.
-  **Done**: `npm run ci` green at `8e28d8a` (format, lint, build, all tests). Counts: root scripts 45 pass; shared 592; backend 942; admin-app 309 (was 254 before 023: +55); customer-app 306; booth-app 76; seed 4 passed, 4 skipped; zone re-run (America/Los_Angeles, quick) 124 + 29 + 9 + 9. Line coverage: shared 93.13%, backend 97.02%, admin-app 97.22%, customer-app 97.46%, booth-app 92.28%, seed 24.01% (unchanged; the floor waits for 010). Size times in this run, with coverage: 5,000 PDF 4.80 s, 25,000 PDF 20.01 s.
+  **Done**: `npm run ci` green at `8e28d8a` (format, lint, build, all tests). Counts: root scripts 45 pass; shared 592; backend 942; admin-app 309 (249 before 023: +60); customer-app 306; booth-app 76; seed 4 passed, 4 skipped; zone re-run (America/Los_Angeles, quick) 124 + 29 + 9 + 9. Line coverage: shared 93.13%, backend 97.02%, admin-app 97.22%, customer-app 97.46%, booth-app 92.28%, seed 24.01% (unchanged; the floor waits for 010). Size times in this run, with coverage: 5,000 PDF 4.80 s, 25,000 PDF 20.01 s.
 - [ ] T026 Running-system walk, quickstart E0–E6 (Excel or Numbers, and a PDF print preview), on a
   stack built from this branch; record each result.
   **Not done**: needs Nate: quickstart E0–E6 on a stack built from this branch, opening the files in Excel or Numbers and a PDF print preview, Enter on the Download summary in a browser (E5), and one browser timing of the 5,000-ticket PDF (R12).
