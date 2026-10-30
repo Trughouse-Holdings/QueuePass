@@ -136,8 +136,8 @@ description: "Task list for Test Coverage Floor"
   left for a human with a stack of this branch.
 - [ ] T018 Push; open the implementation PR after the spec PR merges: `fixes #22`, coverage before and
   after, the review. CI green; merge when green and approved. Result so far: spec PR #99 merged;
-  `main` (021, PR #100) merged in and reconciled (T016); branch pushed; the implementation PR opens
-  next.
+  `main` (021, PR #100) merged in and reconciled (T016); branch pushed; implementation PR #103 opened,
+  ready for review (F3 and F4 of T017 still open).
 
 ## Dependencies
 
