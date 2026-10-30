@@ -234,8 +234,9 @@ the keyboard only, and with a screen reader.
 ### Key Entities
 
 - **App identity**: per front end, its name (FR-002), its audience line (FR-005), and its accent
-  color (FR-006). Held with the app's sign-in client, so the seed sets it and the sign-in screen
-  reads it.
+  color (FR-006). The name is the one the seed gives the app's sign-in client; the audience line
+  and accent are kept with the sign-in look and the shared theme, matched to the app (plan,
+  research R3).
 - **QueuePass sign-in look**: the realm's sign-in screens styled in the shared theme, with a place
   for the app identity. Ships in the repository.
 
