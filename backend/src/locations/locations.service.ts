@@ -266,9 +266,11 @@ export class LocationsService {
    * Asks the address service (spec 013 research R2, R3). Exactly one match that keeps the typed
    * ZIP code and house number is saved in the service's standard form and verified, whatever the
    * flag says; one that moves either is refused as ambiguous, listing it (FR-021). No match or
-   * several are refused, unless the admin confirmed "save anyway": then the address is saved as
-   * sent and not verified. When the service cannot be asked, the save is refused with 503 whatever the
-   * flag says (research R6), except through `create`'s internal demo-data option (R14).
+   * several are refused, unless the request asked to save it even if unverified: then the address
+   * is saved as sent and not verified. When the service cannot be asked, the save is refused with
+   * 503 (research R6), unless the request sent that flag (feature 024, research R5) or came
+   * through `create`'s internal demo-data option (013 R14): then it too is saved as sent, not
+   * verified.
    */
   private async checkAddress(
     input: AddressParts,
@@ -284,7 +286,7 @@ export class LocationsService {
       if (!(err instanceof AddressServiceUnavailableError)) throw err;
       const cause = err.cause instanceof Error ? `: ${err.cause.message}` : '';
       this.logger.warn(`Address service unavailable: ${err.message}${cause}`);
-      if (saveUnverifiedWhenUnavailable) return unverified();
+      if (saveUnverifiedWhenUnavailable || acceptUnverified) return unverified();
       throw serviceUnavailable();
     }
 
