@@ -85,11 +85,11 @@ fail before the implementation below them.
   `xl/styles.xml` the money column's number format is `"$"#,##0.00` and the date columns'
   `yyyy-mm-dd hh:mm`; in `xl/worksheets/sheet1.xml` a frozen pane on row 1 (`state="frozen"`); the name
   cell is a shared string (`t="s"`), never a formula (`<f>`). Must fail.
-- [ ] T008 [P] [US2] `admin-app/test/export/pdf.test.ts` (R10, FR-009): `pdfLayout(table)` returns
+- [ ] T008 [P] [US2] `admin-app/test/export/pdf.test.ts` (R10, FR-009): `pdfLayout(table, glyphs)` returns
   exactly the heading lines (title, event, made at, made by), the head, and the body strings;
   `pdfText` keeps `Zoë – Łukasz O’Brien Ελένη Пётр` unchanged and turns a character outside the font
   (for example `山`) into `?`, setting the flag that adds the heading note; `toPdf(table)` → a `Blob`
-  starting `%PDF`, with `/MediaBox [0 0 792 612]`, the embedded Noto Sans font, one page for 10 rows
+  starting `%PDF`, with a `/MediaBox` of `0 0 792 612` (jsPDF writes `[0 0 792. 612.]`; compare the numbers), the embedded Noto Sans font, one page for 10 rows
   and at least two for 200 rows (count `/Type /Page` objects). Must fail.
 - [ ] T009 [P] [US1] `admin-app/test/export/file-name.test.ts`: R8's examples with an explicit zone:
   "Export Test, Café", made at `2026-10-30T18:05:00Z`, zone `America/New_York` →
@@ -131,10 +131,10 @@ fail before the implementation below them.
 - [ ] T017 [US1] `admin-app/src/export/ExportMenu.tsx` (R11): props `{ label, makeTable, fileName,
   note? }`; shared classes only. T014 passes.
 - [ ] T018 [US1] `admin-app/src/pages/Attendees.tsx`: record the load time; pass
-  `useAuth().username` as made by (R13a); place `ExportMenu` in the page head beside "Back to …", only
+  `useAuth().username` as made by (R13a: from `App` as a `username` prop); place `ExportMenu` in the page head beside "Back to …", only
   when orders exist. T015 passes.
 - [ ] T019 [US2] `admin-app/src/pages/Reports.tsx`: `ExportMenu` in the page head with the signed-in
-  admin's username as made by (from `useAuth()`). T016 passes.
+  admin's username as made by (from `useAuth()` in `App`, as a `username` prop, R13a). T016 passes.
 
 ## Phase 5: User Story 4, size, polish
 

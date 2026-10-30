@@ -31,7 +31,7 @@
 
 **Testing**: Vitest + React Testing Library in `admin-app`: the table builders with exact expected
 rows; each writer on the same small table (CSV text exactly; XLSX read back with `read-excel-file`
-for types and values; PDF raw text uncompressed); the Download control (keyboard, states, the save
+for types and values; PDF: the layout model exactly and the bytes for structure, R10); the Download control (keyboard, states, the save
 call); size runs at 5,000 and 25,000 tickets.
 
 **Target Platform**: the Admin app in desktop browsers and at phone width; Excel, Numbers, Google
