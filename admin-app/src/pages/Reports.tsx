@@ -8,6 +8,10 @@ import {
 } from '@queuepass/shared';
 import { getSalesReport } from '../api/reports';
 import { usd } from '../money';
+import { ExportMenu } from '../export/ExportMenu';
+import { fileName } from '../export/file-name';
+import { deviceZone } from '../export/made';
+import { salesTable } from '../export/sales-rows';
 
 /** Spec 020 FR-022: an event's date in its venue's zone (research R12). */
 const day = (iso: string, timeZone?: string): string =>
@@ -27,9 +31,11 @@ function Meter({ value, label }: { value: number; label: string }): React.ReactE
 
 /**
  * Spec 005 US2 (FR-005, FR-006): what's going on, right now. The Backend computes the report on
- * every request, so reloading the page always shows current figures.
+ * every request, so reloading the page always shows current figures. Spec 023 US2: Download saves
+ * the report as CSV, Excel, or PDF, made at `generatedAt`; `username` (from `App`'s `useAuth()`,
+ * research R13a) is the file's made by.
  */
-export function Reports(): React.ReactElement {
+export function Reports({ username }: { username?: string }): React.ReactElement {
   const [report, setReport] = useState<SalesReport | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -49,6 +55,8 @@ export function Reports(): React.ReactElement {
   const { totals } = report;
   const soldPct = share(totals.ticketsSold, totals.ticketCapacity);
   const checkedPct = share(totals.checkedIn, totals.ticketsSold);
+  const zone = deviceZone();
+  const makeTable = () => salesTable(report, username ?? 'unknown', zone);
 
   return (
     <section>
@@ -59,6 +67,14 @@ export function Reports(): React.ReactElement {
             Live sales across every event · as of{' '}
             {formatViewerTime(report.generatedAt, { date: true })}
           </p>
+        </div>
+        {/* Spec 023 FR-002: whenever the report is shown. */}
+        <div className="form__actions">
+          <ExportMenu
+            label="Download the sales report"
+            makeTable={makeTable}
+            fileName={(ext) => fileName('sales-report', null, report.generatedAt, zone, ext)}
+          />
         </div>
       </div>
 

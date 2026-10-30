@@ -14,8 +14,12 @@ const config: Config = {
   collectCoverageFrom: ['src/**/*.(t|j)s'],
   coverageDirectory: './coverage',
   // Spec 011 research R10: npm test measures coverage; a short summary in the log, and
-  // coverage/coverage-summary.json for scripts/coverage-report.mjs (R11). No threshold until 010.
+  // coverage/coverage-summary.json for scripts/coverage-report.mjs (R11).
   coverageReporters: ['text-summary', 'json-summary'],
+  // Constitution VI floor (spec 010 research R1): the run fails below 80% of lines. It applies
+  // only when coverage is collected (`npm test` passes --coverage); jest.unit.config.ts turns
+  // collection off (R3).
+  coverageThreshold: { global: { lines: 80 } },
   testEnvironment: 'node',
   testTimeout: 120_000,
   globalSetup: '<rootDir>/test/setup/global-setup.ts',

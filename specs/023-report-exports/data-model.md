@@ -15,10 +15,12 @@ type Cell =
 
 interface ExportTable {
   title: string;               // 'Attendees: Season Opener' | 'Sales report'
-  subtitle: string[];          // made at, made by (useAuth().username), zone note
+  subtitle: string[];          // made at, made by (useAuth().username, R13a), zone note
   madeAt: string;              // RFC 3339 with offset (R7)
   sheetName: string;           // 'Attendees' | 'Sales'
-  columns: { header: string; kind: Cell['kind']; width: number }[];
+  columns: { header: string; kind: Cell['kind']; width: number; nowrap?: boolean }[];
+                               // width in characters (Excel); nowrap: the PDF sizes the column
+                               // to its content (codes; dates, money, counts always)
   rows: Cell[][];
 }
 ```

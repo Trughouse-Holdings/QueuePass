@@ -22,53 +22,127 @@ description: "Task list for Test Coverage Floor"
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut the branch; `npm ci`; `npm run ci` green; record each workspace's line coverage here.
-- [ ] T002 Check R3 and R5: how `scripts/test-tz.mjs` runs each workspace (coverage or not), and that
+- [x] T001 Cut the branch; `npm ci`; `npm run ci` green; record each workspace's line coverage here.
+  Result: `010-test-coverage-impl` cut from `010-test-coverage-spec` (f0deb7d); `npm run ci` green
+  in 218 s, with Keycloak pointed at an unreachable port as in CI. Lines before: `packages/shared`
+  93.13% (1696/1821), `backend` 97.02% (2055/2118), `admin-app` 97.06% (3040/3132), `customer-app`
+  97.46% (1616/1658), `booth-app` 92.28% (550/596), `scripts/seed` 24.01% (61/254), as the spec says.
+- [x] T002 Check R3 and R5: how `scripts/test-tz.mjs` runs each workspace (coverage or not), and that
   `src/api-schema.ts` is the only exclusion. Record.
+  Result: confirmed. `suiteCommand` runs `vitest run` (never `--coverage`) and Jest with
+  `jest.unit.config.ts` (`collectCoverage: false`) or, for `--backend-full`, plain `jest
+  --runInBand` (no `--coverage`, and `jest.config.ts` does not set `collectCoverage`), so no
+  threshold applies there. The only `exclude` across the six configs is `src/api-schema.ts` in
+  `packages/shared`, with its comment.
 
 ## Phase 2: User Story 2 - The seed without Keycloak (P1)
 
-- [ ] T003 [US2] List every Keycloak admin client method `scripts/seed/src/*.ts` calls (R4's list);
+- [x] T003 [US2] List every Keycloak admin client method `scripts/seed/src/*.ts` calls (R4's list);
   write `scripts/seed/test/fake-keycloak.ts` (R4) implementing exactly those, in memory, recording
   calls, as a `Proxy` that throws `fake Keycloak: <group>.<method> is not implemented` for anything
-  else.
-- [ ] T004 [P] [US2] `scripts/seed/test/realm-roles.unit.test.ts` (R4).
-- [ ] T005 [P] [US2] `scripts/seed/test/users.unit.test.ts` (R4).
-- [ ] T006 [P] [US2] `scripts/seed/test/clients.unit.test.ts` (R4).
-- [ ] T007 [P] [US2] `scripts/seed/test/keycloak-client.unit.test.ts` (R4).
-- [ ] T008 [P] [US2] `scripts/seed/test/index.unit.test.ts` (R4): `seed()` in order, and the entry
+  else. Result: the code calls exactly R4's 18 methods (plus `auth`, which `createKeycloakClient`
+  calls on the real client, stubbed in T007). `fake-keycloak.unit.test.ts` (3 tests) checks the
+  not-implemented message, that the fake is not a thenable, and that it hands out copies.
+- [x] T004 [P] [US2] `scripts/seed/test/realm-roles.unit.test.ts` (R4). Result: 5 tests.
+- [x] T005 [P] [US2] `scripts/seed/test/users.unit.test.ts` (R4). Result: 10 tests; an account
+  already present is left as it is, its roles included (the code does not re-role it).
+- [x] T006 [P] [US2] `scripts/seed/test/clients.unit.test.ts` (R4). Result: 11 tests.
+- [x] T007 [P] [US2] `scripts/seed/test/keycloak-client.unit.test.ts` (R4). Result: 11 tests.
+- [x] T008 [P] [US2] `scripts/seed/test/index.unit.test.ts` (R4): `seed()` in order, and the entry
   point in process (set `process.argv[1]`, `vi.resetModules()`, mock the client so the seed rejects,
   stub `process.exit`, import), never by spawning a child process (its coverage is not counted).
-- [ ] T009 [US2] With no Keycloak: `npm test --workspace @queuepass/seed` at or above 80% lines (aim
+  Result: 7 tests; `seed()` runs end to end against the fake, and the entry point's failure exit
+  (Error and non-Error, POSIX and Windows paths), success, and not-an-entry-point are covered.
+- [x] T009 [US2] With no Keycloak: `npm test --workspace @queuepass/seed` at or above 80% lines (aim
   higher, so a small later change does not drop it below); record the number. Every test passes 3 runs
-  in a row.
+  in a row. Result: 100.00% lines (254/254), 51 passed and the 4 live tests skipped with their
+  reason, 3 runs in a row. Each new file was seen to fail against a deliberately broken seed (a
+  temporary password, a 1-second wait, a kept stray mapper, exit code 2, a skipped role), then
+  reverted.
 
 ## Phase 3: User Story 1 - The floor (P1)
 
-- [ ] T010 [US1] Prove the runners fail first (R6): set the threshold in `booth-app/vitest.config.ts`
+- [x] T010 [US1] Prove the runners fail first (R6): set the threshold in `booth-app/vitest.config.ts`
   to 99 temporarily: `npm test --workspace @queuepass/booth-app` fails naming lines and the numbers.
   Revert. Same for `backend/jest.config.ts` with `coverageThreshold.global.lines: 99`. Record the
-  messages.
-- [ ] T011 [US1] Set `coverage.thresholds: { lines: 80 }` in the five `vitest.config.ts` and
+  messages. Result: both exit 1. Vitest: `ERROR: Coverage for lines (92.28%) does not meet global
+  threshold (99%)`; Jest: `Jest: "global" coverage threshold for lines (99%) not met: 97.02%`; npm
+  then names the workspace (`npm error workspace @queuepass/booth-app@0.1.0`, `…/backend@0.1.0`).
+  Both still wrote `coverage/coverage-summary.json` (R2). Reverted.
+- [x] T011 [US1] Set `coverage.thresholds: { lines: 80 }` in the five `vitest.config.ts` and
   `coverageThreshold: { global: { lines: 80 } }` in `backend/jest.config.ts` (not in
   `jest.unit.config.ts`, R3); replace each "No thresholds until 010" comment with one naming the floor
-  and Constitution VI (FR-009).
-- [ ] T012 [US1] `scripts/coverage-report.mjs` note (R2), test first in `scripts/test/` for the new
-  text. `npm test` and `npm run test:tz` green.
+  and Constitution VI (FR-009). Result: done; the Jest comment also says the threshold applies
+  only when coverage is collected. No "until 010" comment is left outside `specs/`.
+- [x] T012 [US1] `scripts/coverage-report.mjs` note (R2), test first in `scripts/test/` for the new
+  text. `npm test` and `npm run test:tz` green. Result: the test's new note failed first (8 pass, 1
+  fail), then passed with the script's; header comments updated. `npm run ci` green (194 s).
+  `npm run test:tz`: green on a rerun; the first run failed once, Admin `images-field.test.tsx`
+  ("previews a PNG, a JPEG, and a WebP…", no `img` "Image 1") in Pacific/Honolulu, which then
+  passed 3 runs alone and the whole rerun. Unrelated to coverage (`test:tz` collects none, R3): a
+  flaky test, left for a human.
 
 ## Phase 4: User Story 3 and polish
 
-- [ ] T013 [US3] Quickstart F5; record.
-- [ ] T014 README: the `010` status row; the testing section says the 80% floor is enforced per
+- [x] T013 [US3] Quickstart F5; record. Result: the only `exclude` in the six configs (and
+  `backend/jest.unit.config.ts`) is `src/api-schema.ts` in `packages/shared`, with its reason;
+  Jest has no `coveragePathIgnorePatterns` (SC-003).
+- [x] T014 README: the `010` status row; the testing section says the 80% floor is enforced per
   workspace, that a filtered run (`npm test --workspace X -- somefile`) fails the floor because it
   measures only part of the suite (run the workspace's whole suite, or `npx vitest run somefile`
   without coverage), and that `npm run coverage:report` prints the table after a failing run.
-- [ ] T015 Independent review by a separate Claude session; fix; record here.
-- [ ] T016 `npm run ci` green locally; record each workspace's coverage and the `test` job's duration
-  against `main`'s (SC-004).
-- [ ] T017 Quickstart F2–F4 (F3 on a draft PR, closed unmerged afterwards); record.
+  Result: the `010` row (Built, review pending); "Today" names the floor; the testing section has
+  "The 80% floor" paragraph (both runners' messages, the filtered-run note, checked: a filtered
+  seed run measured 17.71% and failed, the report after a failure, the one exclusion, the fake);
+  the pull request check paragraph no longer says the floor waits for `010`.
+- [x] T015 Independent review by a separate Claude session; fix; record here. Result: round 1,
+  0 must-fix, 1 should-fix, 2 minor, all fixed. Should-fix: `clients.unit.test.ts` compared the
+  create request to `desiredClient`, the function under test, so a password grant or PKCE `plain`
+  set there still passed; the created, updated, and converged clients are now checked against
+  fixed values (public, Authorization Code only, PKCE `S256`, no password, implicit, or
+  service-account grant, no secret, exact redirect, post-logout, and web origin), and the
+  reviewer's mutation fails 3 tests. Minor: the README's task count matches tasks.md (16/18 with
+  this task ticked); the fake now refuses a call for another realm than its own.
+- [x] T016 `npm run ci` green locally; record each workspace's coverage and the `test` job's duration
+  against `main`'s (SC-004). Result: green locally in 194 s (218 s before, T001), Keycloak pointed
+  away as in CI. Lines after: `packages/shared` 93.13%, `backend` 97.02%, `admin-app` 97.06%,
+  `customer-app` 97.46%, `booth-app` 92.28%, `scripts/seed` 100.00% (254/254). The seed's tests add
+  under 2 s, so the `test` job's duration (main's run for 67e17c4: 5 min 30 s) is unchanged within
+  SC-004's 2 minutes; the CI number is for the PR.
+  **After merging `main` with `021` (PR #100):** 021's seed reads and sets the realm's login theme
+  (`realms.findOne`, `realms.update`) and renames `customer-app` to "QueuePass Tickets"; the fake
+  failed naming `realms.findOne`, as R4 intended. The fake now implements both (a partial update,
+  as Keycloak's PUT); `realm-roles.unit.test.ts` covers the theme created, set over none or the
+  stock theme, already set, a second run, and `KEYCLOAK_REALM`; `clients.unit.test.ts` pins each
+  client's name and renames a pre-021 `customer-app` in place; `fake-keycloak.unit.test.ts` covers
+  the two methods (each new test seen failing against a broken seed, then reverted). 021's own
+  `provision-realm.test.ts` is kept. `npm run ci` green in 269 s, Keycloak pointed away: root 45,
+  `packages/shared` 681 tests, 93.13% (1696/1821); `backend` 943, 97.03% (2061/2124);
+  `admin-app` 249, 97.06% (3040/3132); `customer-app` 308, 97.46% (1616/1658); `booth-app` 76,
+  92.28% (550/596); `scripts/seed` 91 passed and 20 live tests skipped with their reason, 100.00%
+  (264/264); `test:tz --quick` passed. The first run failed in `customer-app`'s
+  `entry-code.test.tsx` (018) on a 5 s timeout with the machine's load average at 58 on 8 cores;
+  that file passed 2 of 3 runs alone and the whole rerun: load, not coverage, and not 010's code.
+- [x] T017 Quickstart F2–F4 (F3 on a draft PR, closed unmerged afterwards); record.
+  Result so far: **F2** done locally: `booth-app/src/untested.ts` with 60 small functions made the
+  root `npm test` fail at `booth-app` (`ERROR: Coverage for lines (65.78%) does not meet global
+  threshold (80%)`, `npm error workspace @queuepass/booth-app@0.1.0`), and `npm run
+  coverage:report` then marked it `below 80%` and the seed not measured; 250 functions in
+  `backend/src/untested.ts` failed the Backend (`Jest: "global" coverage threshold for lines (80%)
+  not met: 71.65%`). Both files removed. F2 as first written (60 lines) could not fail: corrected in
+  a `Review 010` commit. **F3** done 2026-10-30: draft PR #104 with 60 untested functions in
+  `booth-app/src/untested.ts`; the `test` check failed at booth-app (`ERROR: Coverage for lines
+  (70.87%) does not meet global threshold (80%)`, run 41126664383); closed unmerged, branch deleted. **F4** not
+  run: the Keycloak reachable at localhost:9000 was another session's `021` stack, whose
+  `customer-app` client name `021` changes, so the seed's live tests would have re-converged it;
+  left for a human with a stack of this branch.
+  **F4** done 2026-10-30 on a Keycloak built from this branch (`-p qp010f4`, removed afterwards):
+  `npm test --workspace @queuepass/seed` ran all 11 files, 111 tests passed (the 20 live ones
+  included, none skipped), lines 100% (264/264).
 - [ ] T018 Push; open the implementation PR after the spec PR merges: `fixes #22`, coverage before and
-  after, the review. CI green; merge when green and approved.
+  after, the review. CI green; merge when green and approved. Result so far: spec PR #99 merged;
+  `main` (021, PR #100) merged in and reconciled (T016); branch pushed; implementation PR #103 opened,
+  ready for review (F3 and F4 of T017 still open).
 
 ## Dependencies
 

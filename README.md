@@ -14,7 +14,8 @@ reviewed; part of its running-system walk is still to do. `020` is built, review
 on the running system (path B; the image checks wait for a machine where images build). `011` is built; its first runs on
 GitHub and its running-system walk are pending. `021` is built, reviewed, and walked in the
 browser. `022` is built and reviewed: browser tests walk the main journey of ten features on
-every pull request, green on GitHub.
+every pull request, green on GitHub. `023` is built and reviewed; its running-system walk is
+pending.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                | Spec             | Plan and tasks     | Code                         |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------------- |
@@ -26,6 +27,7 @@ every pull request, green on GitHub.
 | [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                                                                                                              | Draft            | Done (29/29 tasks) | **Built and verified**       |
 | [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice                                                                                     | Draft            | Done (30/30 tasks) | **Built and verified**       |
 | [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look                                                                                       | Draft            | Done (19/19 tasks) | **Built and verified**       |
+| [`010-test-coverage`](specs/010-test-coverage/spec.md)                       | Each workspace's own test run fails below 80% line coverage, so `npm test` and the pull request check do too; the seed is tested without Keycloak against a recording fake                                      | Draft            | Done (16/18 tasks) | **Built and reviewed**       |
 | [`011-ci-test-runs`](specs/011-ci-test-runs/spec.md)                         | Every pull request and push to `main` runs formatting, lint, build, and all tests in GitHub Actions, showing each workspace's coverage; `npm run ci` runs the same steps locally                                | Draft            | Done (32/34 tasks) | **Built (walk pending)**     |
 | [`012-shared-theme`](specs/012-shared-theme/spec.md)                         | One shared theme in `packages/shared/` for the Admin and Customer apps; a test fails when an app defines its own look                                                                                           | Draft            | Done (29/30 tasks) | **Built and verified**       |
 | [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps                                                                    | Draft            | Done (47/48 tasks) | **Built and verified**       |
@@ -38,6 +40,7 @@ every pull request, green on GitHub.
 | [`020-venue-time-zones`](specs/020-venue-time-zones/spec.md)                 | Every venue has a time zone, worked out from its checked address; every app shows and takes event times in the venue's local time with the zone's abbreviation (7:00 PM EDT), whatever the viewer's device zone | Draft            | Done (58 tasks)    | **Built and verified**       |
 | [`021-sign-in-screens`](specs/021-sign-in-screens/spec.md)                   | Each app's sign-in screen names the app in its tab title and heading, says who it is for, and has its own accent (indigo, teal, amber), in the shared theme's look; the Customer app is now QueuePass Tickets   | Draft            | Done (33/33 tasks) | **Built and verified**       |
 | [`022-quickstart-browser-tests`](specs/022-quickstart-browser-tests/spec.md) | Playwright browser tests sign in on Keycloak and walk the main journey of ten features against a fresh Compose stack in the `e2e` check; every quickstart marks each scenario Automated or Manual               | Draft            | Done (34/36 tasks) | **Built and reviewed**       |
+| [`023-report-exports`](specs/023-report-exports/spec.md)                     | Admins download an event's attendee list and the sales report as CSV, Excel (XLSX), or PDF, with the screen's figures and the time they were made                                                               | Draft            | Done (25/28 tasks) | **Built (walk pending)**     |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -75,12 +78,14 @@ line saying who the app is for and the app's own accent, on the first screen and
 password alike (`021`). Every pull request also runs browser tests that sign in on Keycloak's page
 and walk those journeys through the three apps against a fresh stack, from venues and events to
 tickets, seats held live, the ticket limit, gate check-in, the calendar file, and venue time zones
-(`022`).
+(`022`). Admins download an event's attendee list (one row per ticket) and the
+sales report as CSV, Excel, or PDF, made from what the page shows and saying when it was made
+(`023`).
 
 The Admin and Customer apps take their whole look from one shared theme (`012`).
 
-Feature `010` is reserved in the constitution's roadmap and not yet built: the 80% test coverage
-floor, enforced by `npm test` and the pull request check.
+Every workspace must keep at least 80% line coverage: its own test run fails below that, so
+`npm test` and the pull request check fail too (`010`).
 
 ### How a feature is delivered
 
@@ -233,6 +238,18 @@ npm test
 the repository scripts' own tests, the boundary and contract-drift checks, then every workspace's
 tests, and measures each workspace's line coverage (a short summary after each).
 
+**The 80% floor** (Constitution VI, `010`): each workspace's test run fails when its line coverage is
+below 80%, printing the number and the floor (Vitest: `ERROR: Coverage for lines (78.50%) does not
+meet global threshold (80%)`; Jest: `coverage threshold for lines (80%) not met`), and npm names the
+workspace. `npm test` stops at the first such workspace; `npm run coverage:report` then prints the
+table from the numbers measured so far. A filtered run, such as `npm test --workspace
+@queuepass/seed -- provision-clients`, fails the floor because it measures only part of the suite:
+run the workspace's whole suite, or run one file without coverage (`npx vitest run
+provision-clients` in the workspace, or `npx jest <file>` in `backend`). The only excluded source is
+the generated `packages/shared/src/api-schema.ts`. The seed's tests need no Keycloak: they run
+against a recording fake of the Keycloak admin client (`scripts/seed/test/fake-keycloak.ts`), which
+names any method the seed calls that it does not implement yet.
+
 Backend tests provision a **real PostgreSQL 17** through Testcontainers, so Docker must be
 running. The scheduling rule is a PostgreSQL exclusion constraint, and SQLite has no
 `tstzrange`, `EXCLUDE`, or `btree_gist`, so a substitute could not express the feature.
@@ -259,7 +276,7 @@ so CI, which runs in UTC, checks a second zone too.
 
 Every pull request (when opened, updated, or reopened) and every push to `main` runs the **CI /
 test** check in GitHub Actions. Each run's summary page shows every workspace's line coverage;
-below 80% is marked but does not fail the run until `010` enforces the floor. To run exactly what
+a workspace below 80% fails the **Test** step, before the table is printed. To run exactly what
 the check runs:
 
 ```bash
@@ -377,6 +394,11 @@ unchanged.
 - **Sales dashboard** — admins see tickets sold against capacity, revenue, and check-ins, overall
   and per event and tier, always current (`005`)
 - **Attendee lists** — every order for an event, with ticket codes and check-in state (`005`)
+- **Report exports** — **Download** on the Attendees and Reports pages saves the list or report as
+  CSV, Excel (XLSX), or PDF, made in the browser from the page's own figures: one row per ticket
+  or per event, times in the venue's zone, typed cells in Excel, the header on every PDF page, and
+  the time it was made in every file and file name. Formula-looking text never runs. Exports are
+  not yet recorded; the audit log (#51) will record them (`023`)
 - **Safe cancellation** — cancelling an event voids its tickets, refunds its orders, frees the
   venue time, and shows customers it was cancelled; events and tiers with orders can't be
   deleted (`005`)

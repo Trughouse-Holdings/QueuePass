@@ -6,27 +6,39 @@ import { getEvent } from '../api/events';
 import { listAttendees } from '../api/orders';
 import { seatLabel, when } from '../format';
 import { usd } from '../money';
+import { attendeeTable } from '../export/attendee-rows';
+import { ExportMenu } from '../export/ExportMenu';
+import { fileName } from '../export/file-name';
+import { deviceZone } from '../export/made';
 
 type Load =
   | { kind: 'loading' }
-  | { kind: 'ok'; event: Event; orders: Order[] }
+  /** Spec 023 FR-003: `loadedAt` is when the answer arrived, every file's made-at time. */
+  | { kind: 'ok'; event: Event; orders: Order[]; loadedAt: number }
   | { kind: 'missing' }
   | { kind: 'unreachable' };
 
 const STATUS: Record<Order['status'], string> = { CONFIRMED: 'Confirmed', REFUNDED: 'Refunded' };
 
+const PRIVATE_NOTE = "The file contains customers' names and usernames. Keep it private.";
+
 /**
  * Spec 005 US3 (FR-007): who has tickets for an event, every ticket code, and which tickets have
- * been checked in. Refunded orders stay listed, marked as such.
+ * been checked in. Refunded orders stay listed, marked as such. Spec 023 US1: Download saves the
+ * list as CSV, Excel, or PDF, made from what the page shows; `username` (from `App`'s
+ * `useAuth()`, research R13a) is the file's made by.
  */
-export function Attendees(): React.ReactElement {
+export function Attendees({ username }: { username?: string }): React.ReactElement {
   const { id = '' } = useParams();
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([getEvent(id), listAttendees(id)])
-      .then(([event, orders]) => !cancelled && setLoad({ kind: 'ok', event, orders }))
+      .then(
+        ([event, orders]) =>
+          !cancelled && setLoad({ kind: 'ok', event, orders, loadedAt: Date.now() }),
+      )
       .catch((err: unknown) => {
         if (cancelled) return;
         setLoad(
@@ -58,7 +70,10 @@ export function Attendees(): React.ReactElement {
     );
   }
 
-  const { event, orders } = load;
+  const { event, orders, loadedAt } = load;
+  // Spec 023 FR-012: one zone for the made-at time and the file name, the admin's own.
+  const zone = deviceZone();
+  const makeTable = () => attendeeTable(event, orders, loadedAt, username ?? 'unknown', zone);
   const valid = orders.flatMap((o) => o.tickets).filter((t) => t.status === 'VALID');
   const checkedIn = valid.filter((t) => t.checkedInAt).length;
 
@@ -71,9 +86,22 @@ export function Attendees(): React.ReactElement {
             {`${orders.length} ${orders.length === 1 ? 'order' : 'orders'} · ${valid.length} valid ${valid.length === 1 ? 'ticket' : 'tickets'} · ${checkedIn} checked in`}
           </p>
         </div>
-        <Link to={`/events/${event.id}`} className="btn">
-          Back to {event.name}
-        </Link>
+        <div className="form__actions">
+          {/* Spec 023 FR-001, FR-011: only when there is at least one order. */}
+          {orders.length > 0 && (
+            <ExportMenu
+              label="Download the attendee list"
+              makeTable={makeTable}
+              fileName={(ext) =>
+                fileName('attendees', event.name, new Date(loadedAt).toISOString(), zone, ext)
+              }
+              note={PRIVATE_NOTE}
+            />
+          )}
+          <Link to={`/events/${event.id}`} className="btn">
+            Back to {event.name}
+          </Link>
+        </div>
       </div>
 
       <div className="card">

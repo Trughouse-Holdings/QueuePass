@@ -52,10 +52,10 @@ manual. `npm test` checks this table against `e2e/tests`.
 
 | Scenario | Browser test |
 | --- | --- |
-| E0 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
-| E1 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
-| E2 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
-| E3 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
-| E4 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
-| E5 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
-| E6 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
+| E0 | Manual: set-up for E1–E5 |
+| E1 | Manual: the downloaded files are checked in Excel or Numbers and a PDF viewer by a person |
+| E2 | Manual: the files are checked in Excel or Numbers and in a PDF print preview by a person |
+| E3 | Manual: `023`'s implementation PR opened before `022` merged, so Constitution VI's browser-test rule does not cover it; a later test may automate it |
+| E4 | Manual: `023`'s implementation PR opened before `022` merged, so Constitution VI's browser-test rule does not cover it; a later test may automate it |
+| E5 | Manual: keyboard, phone width, dark mode, and a screen reader, checked by a person |
+| E6 | Manual: the Vitest size test (T021), not a browser journey |

@@ -16,7 +16,7 @@ const navClass = ({ isActive }: { isActive: boolean }): string =>
 export function App(): React.ReactElement {
   // Connect synchronously during render, not in an effect: child pages fire their first
   // request in their own effects, which run before a parent's.
-  const { accessToken, signIn } = useAuth();
+  const { accessToken, signIn, username } = useAuth();
   connectAuth({ accessToken, signIn: () => void signIn() });
 
   return (
@@ -57,8 +57,8 @@ export function App(): React.ReactElement {
           {/* After /events/new, so "new" is never read as an id. */}
           <Route path="/events/:id" element={<EventDetail />} />
           <Route path="/events/:id/edit" element={<EventForm />} />
-          <Route path="/events/:id/attendees" element={<Attendees />} />
-          <Route path="/reports" element={<Reports />} />
+          <Route path="/events/:id/attendees" element={<Attendees username={username} />} />
+          <Route path="/reports" element={<Reports username={username} />} />
         </Routes>
       </main>
     </div>
