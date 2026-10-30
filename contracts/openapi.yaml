@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.13.0
+  version: 1.14.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -408,7 +408,8 @@ paths:
         and nothing is saved, with `409 TIME_ZONE_HAS_ORDERS` when any event at the venue has any
         order (`details.events`); with `409 EVENT_TIME_NOT_IN_ZONE` when an event's local start or
         end does not exist, or happens twice, in the new zone (`details.event`, `details.reason`
-        `SKIPPED` or `REPEATED`); and with `409 SCHEDULING_CONFLICT` when the moved scheduled
+        `SKIPPED` or `REPEATED`), or is a legacy time from before 1883 that no zone offset can
+        state (`details.reason` `OUT_OF_RANGE`, #88); and with `409 SCHEDULING_CONFLICT` when the moved scheduled
         events would be closer than 60 minutes (`details.conflictingEvent` and `details.event`).
         All or nothing: the events and the venue change together.
       operationId: updateLocation
@@ -1631,11 +1632,10 @@ components:
         The five fields are always sent from feature 013 on, but are not in `required`, so this
         contract can merge before the Backend sends them (feature 013 research R11).
 
-        Feature 020: `timeZone` and `timeZoneSource` are always sent once feature 020 is
-        implemented; they are not in `required` so this contract can merge first (feature 020
-        research R18). Clients treat a missing `timeZone` as `America/New_York`.
+        Feature 020: `timeZone` and `timeZoneSource` are always sent, and required from 1.14.0
+        (#88; feature 020 research R18 left them optional until every app read them).
       type: object
-      required: [id, name, address, seatingCapacity, createdAt, updatedAt]
+      required: [id, name, address, timeZone, timeZoneSource, seatingCapacity, createdAt, updatedAt]
       properties:
         id: { type: string, format: uuid }
         name: { type: string, minLength: 1, maxLength: 200, example: 'KFC Yum! Center' }
@@ -2189,7 +2189,7 @@ components:
         status: { type: string, enum: [SCHEDULED, CANCELLED] }
         location:
           type: object
-          required: [id, name, address]
+          required: [id, name, address, timeZone]
           properties:
             id: { type: string, format: uuid }
             name: { type: string, example: KFC Yum! Center }
@@ -2202,8 +2202,8 @@ components:
             timeZone:
               allOf: [{ $ref: '#/components/schemas/UsTimeZone' }]
               description: |
-                Feature 020. The venue's time zone, for showing the event's times. Always sent once
-                020 is implemented; clients treat a missing value as `America/New_York`.
+                Feature 020. The venue's time zone, for showing the event's times. Required from
+                1.14.0 (#88).
 
     Availability:
       description: |
@@ -2504,6 +2504,7 @@ components:
           name,
           venueName,
           startsAt,
+          timeZone,
           status,
           ticketCapacity,
           ticketsSold,
@@ -2519,8 +2520,8 @@ components:
         timeZone:
           allOf: [{ $ref: '#/components/schemas/UsTimeZone' }]
           description: |
-            Feature 020. The venue's time zone, for showing `startsAt`. Always sent once 020 is
-            implemented; clients treat a missing value as `America/New_York`.
+            Feature 020. The venue's time zone, for showing `startsAt`. Required from 1.14.0
+            (#88).
         status: { type: string, enum: [SCHEDULED, CANCELLED] }
         ticketCapacity: { type: integer, minimum: 1 }
         ticketsSold: { type: integer, minimum: 0 }
@@ -2591,7 +2592,7 @@ components:
         event:
           description: The ticket's own event (another event's when `state` is `OTHER_EVENT`).
           type: object
-          required: [id, name, startsAt, endsAt]
+          required: [id, name, startsAt, endsAt, timeZone]
           properties:
             id: { type: string, format: uuid }
             name: { type: string, example: Season Opener }
@@ -2601,8 +2602,7 @@ components:
               allOf: [{ $ref: '#/components/schemas/UsTimeZone' }]
               description: |
                 Feature 020. The event's venue's time zone, for showing its times, `usedAt`, and
-                `entryOpensAt`. Always sent once 020 is implemented; clients treat a missing value
-                as `America/New_York`.
+                `entryOpensAt`. Required from 1.14.0 (#88).
         tierName:
           type: [string, 'null']
           description: '`null` for an event sold at its base price.'

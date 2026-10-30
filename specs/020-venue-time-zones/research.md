@@ -643,6 +643,12 @@ To keep `main` green (as `013` R11 and `016` R9 did):
 **Follow-up**: once the implementation merges, a small contract PR moves the new response fields
 into `required`; the implementation opens its issue as its last task (as `013`).
 
+Done in #88 (contract 1.14.0): the five response fields are in `required`. The same PR fixes
+review round 3's n1: a venue zone change that meets a legacy event from before 1883 (no
+whole-minute offset in either zone) is refused with `409 EVENT_TIME_NOT_IN_ZONE`,
+`details.reason` `OUT_OF_RANGE`, instead of a 500. The apps keep their defensive fallback to
+`DEFAULT_TIME_ZONE`; it is no longer reached.
+
 **Rationale**: Constitution I (contract before code) and III (`main` demo-ready at every merge).
 
 ## R19. Demo data

@@ -9,6 +9,7 @@ import {
   formatEventTime,
   formatLocalDateTime,
   resolveLocal,
+  toLocalDateTime,
   toOffsetDateTime,
   zoneName,
   type TimeZoneSource,
@@ -153,22 +154,33 @@ export async function moveEventsToZone(
   });
   const moved = events.map((e) => {
     const at = (field: 'startsAt' | 'endsAt'): Date => {
-      const local = localOf(e[field], from);
-      const r = resolveLocal(local, to);
+      const refuse = (localTime: string, words: string, reason: string): never => {
+        throw conflict(
+          'EVENT_TIME_NOT_IN_ZONE',
+          `Can't change the time zone: ${e.name}'s ${FIELD_WORD[field]}, ` +
+            `${formatLocalDateTime(localTime)}, ${words} ${zoneName(to)}.`,
+          { event: { id: e.id, name: e.name }, field, localTime, proposedTimeZone: to, reason },
+        );
+      };
+      let local: string;
+      let r: ReturnType<typeof resolveLocal>;
+      try {
+        local = localOf(e[field], from);
+        r = resolveLocal(local, to);
+      } catch (err) {
+        // #88 (review round 3, n1): before 1883 a zone has no whole-minute offset, so a legacy
+        // event's time can't be placed; refused like a skipped time, not a 500.
+        if (!(err instanceof RangeError)) throw err;
+        return refuse(
+          toLocalDateTime(e[field], from),
+          'is outside the times QueuePass can place in',
+          'OUT_OF_RANGE',
+        );
+      }
       if (r.kind === 'ok') return r.moment.instant;
-      const shown = formatLocalDateTime(local.slice(0, 16));
-      throw conflict(
-        'EVENT_TIME_NOT_IN_ZONE',
-        `Can't change the time zone: ${e.name}'s ${FIELD_WORD[field]}, ${shown}, ` +
-          `${r.kind === 'skipped' ? "doesn't exist in" : 'happens twice in'} ${zoneName(to)}.`,
-        {
-          event: { id: e.id, name: e.name },
-          field,
-          localTime: local.slice(0, 16),
-          proposedTimeZone: to,
-          reason: r.kind === 'skipped' ? 'SKIPPED' : 'REPEATED',
-        },
-      );
+      return r.kind === 'skipped'
+        ? refuse(local.slice(0, 16), "doesn't exist in", 'SKIPPED')
+        : refuse(local.slice(0, 16), 'happens twice in', 'REPEATED');
     };
     return { ...e, startsAt: at('startsAt'), endsAt: at('endsAt') };
   });

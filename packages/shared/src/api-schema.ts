@@ -293,7 +293,8 @@ export interface paths {
          *     and nothing is saved, with `409 TIME_ZONE_HAS_ORDERS` when any event at the venue has any
          *     order (`details.events`); with `409 EVENT_TIME_NOT_IN_ZONE` when an event's local start or
          *     end does not exist, or happens twice, in the new zone (`details.event`, `details.reason`
-         *     `SKIPPED` or `REPEATED`); and with `409 SCHEDULING_CONFLICT` when the moved scheduled
+         *     `SKIPPED` or `REPEATED`), or is a legacy time from before 1883 that no zone offset can
+         *     state (`details.reason` `OUT_OF_RANGE`, #88); and with `409 SCHEDULING_CONFLICT` when the moved scheduled
          *     events would be closer than 60 minutes (`details.conflictingEvent` and `details.event`).
          *     All or nothing: the events and the venue change together.
          */
@@ -1109,9 +1110,8 @@ export interface components {
          *     The five fields are always sent from feature 013 on, but are not in `required`, so this
          *     contract can merge before the Backend sends them (feature 013 research R11).
          *
-         *     Feature 020: `timeZone` and `timeZoneSource` are always sent once feature 020 is
-         *     implemented; they are not in `required` so this contract can merge first (feature 020
-         *     research R18). Clients treat a missing `timeZone` as `America/New_York`.
+         *     Feature 020: `timeZone` and `timeZoneSource` are always sent, and required from 1.14.0
+         *     (#88; feature 020 research R18 left them optional until every app read them).
          */
         Location: {
             /** Format: uuid */
@@ -1132,8 +1132,8 @@ export interface components {
             zip?: string | null;
             /** @description Whether the address service matched this address. Clients mark `false` as "Address not verified". */
             addressVerified?: boolean;
-            timeZone?: components["schemas"]["UsTimeZone"];
-            timeZoneSource?: components["schemas"]["TimeZoneSource"];
+            timeZone: components["schemas"]["UsTimeZone"];
+            timeZoneSource: components["schemas"]["TimeZoneSource"];
             /** @example 22090 */
             seatingCapacity: number;
             /** Format: date-time */
@@ -1518,10 +1518,10 @@ export interface components {
                  */
                 address: string;
                 /**
-                 * @description Feature 020. The venue's time zone, for showing the event's times. Always sent once
-                 *     020 is implemented; clients treat a missing value as `America/New_York`.
+                 * @description Feature 020. The venue's time zone, for showing the event's times. Required from
+                 *     1.14.0 (#88).
                  */
-                timeZone?: components["schemas"]["UsTimeZone"];
+                timeZone: components["schemas"]["UsTimeZone"];
             };
         };
         /**
@@ -1739,10 +1739,10 @@ export interface components {
             /** Format: date-time */
             startsAt: string;
             /**
-             * @description Feature 020. The venue's time zone, for showing `startsAt`. Always sent once 020 is
-             *     implemented; clients treat a missing value as `America/New_York`.
+             * @description Feature 020. The venue's time zone, for showing `startsAt`. Required from 1.14.0
+             *     (#88).
              */
-            timeZone?: components["schemas"]["UsTimeZone"];
+            timeZone: components["schemas"]["UsTimeZone"];
             /** @enum {string} */
             status: "SCHEDULED" | "CANCELLED";
             ticketCapacity: number;
@@ -1797,10 +1797,9 @@ export interface components {
                 endsAt: string;
                 /**
                  * @description Feature 020. The event's venue's time zone, for showing its times, `usedAt`, and
-                 *     `entryOpensAt`. Always sent once 020 is implemented; clients treat a missing value
-                 *     as `America/New_York`.
+                 *     `entryOpensAt`. Required from 1.14.0 (#88).
                  */
-                timeZone?: components["schemas"]["UsTimeZone"];
+                timeZone: components["schemas"]["UsTimeZone"];
             };
             /** @description `null` for an event sold at its base price. */
             tierName: string | null;
