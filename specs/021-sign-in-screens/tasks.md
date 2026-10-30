@@ -276,14 +276,18 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
 
 ## Phase 8: Polish, review, pull request
 
-- [ ] T029 README: the `021` status row in the features table (spec link, scope, status) and the
+- [x] T029 README: the `021` status row in the features table (spec link, scope, status) and the
   "Today" paragraph; the constitution reference already reads v3.5.0.
+  **Result**: status paragraph and a `021` row (`Built (walk pending)`, 29/33 tasks), a sentence in **Today**, a note in **One shared look**, `keycloak/` in the repository layout; the constitution reference already reads v3.5.0.
 - [ ] T030 Independent review by a separate Claude session (Constitution 3.3.0) of the
   implementation against spec.md, plan.md, and research.md; fix the findings; record the round, its
   findings, and any left open here.
-- [ ] T031 `npm run ci` locally, green; record the counts per workspace.
+  **Result**: not done here: left for the independent review session.
+- [x] T031 `npm run ci` locally, green; record the counts per workspace.
+  **Result**: `npm run ci` green on 2026-10-30 (exit 0) with Keycloak up: format, lint, build; root node tests 45; shared 669 (21 files); backend 942 (94 suites); admin 249 (27 files); customer 308 (22 files); booth 76 (5 files); seed 54 (5 files, all live: 14 sign-in screen and 6 idempotence cases run; without Keycloak, as in GitHub CI, those 20 skip with their reason); test:tz quick pass. Coverage: shared 93.13%, backend 97.02%, admin 97.06%, customer 97.46%, booth 92.28%, seed 75.37% (floor not enforced until 010).
 - [ ] T032 Running-system walk, quickstart S0–S9, on a stack built from this branch; record each
   scenario's result here (Constitution VI smoke test: each front end signed into, used, signed out).
+  **Result**: **partly done headlessly, needs Nate's browser walk.** The apps' ports 5173–5175 were held by another session's stack (`qp018walk`), which was left running, so only Keycloak and the seed ran here (`-p qp021`). Done: **S0** from an empty volume, the seed logged `created realm 'queuepass'` and `set login theme 'queuepass'`, no console step. **S1** by each app's authorization request (as the apps send it): titles, headings, audience lines and accents (band, mark, button computed colors) as the table, no registration link. **S3** wrong password for each app keeps the identity with the error under the fields, username kept; then `admin1`/`customer1`/`agent1` with `test123` return 302 to `http://localhost:517x/?…code=…`. **S5/S6** as T026 (no VoiceOver). **S7** headless Chrome opened `/realms/queuepass/account`; its script landed on "Sign in to Account Console", `qp-app--account-console`, no audience line. **S8** a stack started from `bae1d74` (stock look, `QueuePass` customer client), then rebuilt from this branch on the same Keycloak data: seed logged `set login theme 'queuepass'` and converged `customer-app`; the 14 live sign-in cases pass; all three test accounts still sign in; a third run logged `login theme already 'queuepass'`. Not done: S1 through the running apps, **S2** (a person matching covered screens), **S4** (sign out and an ended session, through the apps), **S6** VoiceOver, **S9** the Customer app's tab and header in a browser (covered by T027's tests only).
 - [ ] T033 Push and open the implementation PR (after the spec PR has merged and the branch is up to
   date with `main`): description says `fixes #92`, lists the review, the walk, the test counts, and
   the shared surface touched (`docker-compose.yml`, `packages/shared/`, the constitution was in the

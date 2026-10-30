@@ -12,7 +12,8 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 Features `001` through `008` and `012` through `018` are built and verified. `019` is built and
 reviewed; part of its running-system walk is still to do. `020` is built, reviewed, and walked
 on the running system (path B; the image checks wait for a machine where images build). `011` is built; its first runs on
-GitHub and its running-system walk are pending.
+GitHub and its running-system walk are pending. `021` is built and checked against a running
+Keycloak; its independent review and its browser walk are pending.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                | Spec             | Plan and tasks     | Code                         |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------------- |
@@ -34,6 +35,7 @@ GitHub and its running-system walk are pending.
 | [`018-rotating-qr-codes`](specs/018-rotating-qr-codes/spec.md)               | Customers show a live QR code per ticket that changes every 30 seconds and needs no ID check at the gate; a copy expires within 35 seconds; printed and typed codes keep the ID check                           | Draft            | Done (41 tasks)    | **Built and verified**       |
 | [`019-add-to-calendar`](specs/019-add-to-calendar/spec.md)                   | From My tickets, customers add an event they hold tickets for to Apple Calendar or Outlook (a calendar file) or Google Calendar, as a one-time copy; offered only while the event is ahead or under way         | Draft            | Done (22/25 tasks) | **Built (walk partly done)** |
 | [`020-venue-time-zones`](specs/020-venue-time-zones/spec.md)                 | Every venue has a time zone, worked out from its checked address; every app shows and takes event times in the venue's local time with the zone's abbreviation (7:00 PM EDT), whatever the viewer's device zone | Draft            | Done (58 tasks)    | **Built and verified**       |
+| [`021-sign-in-screens`](specs/021-sign-in-screens/spec.md)                   | Each app's sign-in screen names the app in its tab title and heading, says who it is for, and has its own accent (indigo, teal, amber), in the shared theme's look; the Customer app is now QueuePass Tickets   | Draft            | Done (29/33 tasks) | **Built (walk pending)**     |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -65,7 +67,10 @@ worked out from its verified address (or from its state, or chosen by an admin),
 time in all three apps is the venue's local time with the zone's abbreviation, such as "Oct 1,
 2026, 7:00 PM EDT", whatever the zone of the viewer's device; admins type times in the venue's
 local time, and a time that a daylight-saving change skips or repeats is refused or asked about
-(`020`).
+(`020`). Every sign-in screen says which app it is for: "Sign in to QueuePass Admin", "Sign in
+to QueuePass Tickets" (the Customer app's name), or "Sign in to QueuePass Ticket Booth", with a
+line saying who the app is for and the app's own accent, on the first screen and after a wrong
+password alike (`021`).
 
 The Admin and Customer apps take their whole look from one shared theme (`012`).
 
@@ -431,6 +436,8 @@ its own screens' rules, using the theme's values. `npm test` fails, naming the f
 an app writes a color, typeface, radius, shadow, or off-step spacing of its own, or redefines a
 theme value (`012`). A change to the theme changes `packages/shared/`, so it needs every team
 member's approval. The Ticket Booth app adopted the theme with its first functionality (`017`).
+Keycloak's sign-in screens load the same file (`keycloak/themes/queuepass`), and are the one place
+each app has its own accent, from tokens in the theme's two blocks (Constitution VII; `021`).
 
 ### Venue time zones
 
@@ -498,7 +505,8 @@ customer-app/     React + Vite Customer app       (role customer)
 booth-app/        React + Vite Ticket Booth app   (role gate-agent)
 contracts/        OpenAPI contract shared by every app
 packages/shared/  Request and response types, sign-in, and the theme shared by the apps
-scripts/seed/     Idempotent Keycloak seed: realm, roles, clients, accounts
+scripts/seed/     Idempotent Keycloak seed: realm, roles, clients, accounts, login theme
+keycloak/         Keycloak's image and the QueuePass sign-in look (spec 021)
 .github/workflows/ The pull request check, CI / test (spec 011)
 specs/            Specifications, plans, contracts, tasks
 ```
