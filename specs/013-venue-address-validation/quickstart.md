@@ -1,5 +1,10 @@
 # Quickstart: Validating Venue Addresses and Map Links
 
+**Superseded in part by `024`** ([spec](../024-venue-form-simplify/spec.md#superseded-requirements),
+#107): the Admin app has no Save anyway button; an address is saved in one press, not verified when
+the service can't confirm it, also when the service is down (S2, S2b, S4, S5, S7). `024`'s quickstart
+walks the new behavior. The text below is this feature's walk as built.
+
 The running-system gate for `013`. Run after the implementation with every service healthy and
 the laptop online (S1–S6 use the real US Census Geocoder):
 
