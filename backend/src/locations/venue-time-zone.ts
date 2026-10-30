@@ -154,33 +154,41 @@ export async function moveEventsToZone(
   });
   const moved = events.map((e) => {
     const at = (field: 'startsAt' | 'endsAt'): Date => {
-      const refuse = (localTime: string, words: string, reason: string): never => {
+      const refuse = (
+        localTime: string,
+        words: string,
+        zone: UsTimeZone,
+        reason: 'SKIPPED' | 'REPEATED' | 'OUT_OF_RANGE',
+      ): never => {
         throw conflict(
           'EVENT_TIME_NOT_IN_ZONE',
           `Can't change the time zone: ${e.name}'s ${FIELD_WORD[field]}, ` +
-            `${formatLocalDateTime(localTime)}, ${words} ${zoneName(to)}.`,
+            `${formatLocalDateTime(localTime)}, ${words} ${zoneName(zone)}.`,
           { event: { id: e.id, name: e.name }, field, localTime, proposedTimeZone: to, reason },
         );
       };
-      let local: string;
-      let r: ReturnType<typeof resolveLocal>;
-      try {
-        local = localOf(e[field], from);
-        r = resolveLocal(local, to);
-      } catch (err) {
-        // #88 (review round 3, n1): before 1883 a zone has no whole-minute offset, so a legacy
-        // event's time can't be placed; refused like a skipped time, not a 500.
-        if (!(err instanceof RangeError)) throw err;
-        return refuse(
-          toLocalDateTime(e[field], from),
-          'is outside the times QueuePass can place in',
-          'OUT_OF_RANGE',
-        );
-      }
+      // #88 (review round 3, n1): a legacy time from before a zone adopted standard time has no
+      // whole-minute offset there (RangeError), so it can't be placed; refused, not a 500. The
+      // message names the zone that can't place it.
+      const placed = <T>(zone: UsTimeZone, place: () => T): T => {
+        try {
+          return place();
+        } catch (err) {
+          if (!(err instanceof RangeError)) throw err;
+          return refuse(
+            toLocalDateTime(e[field], from),
+            'is from before standard time in',
+            zone,
+            'OUT_OF_RANGE',
+          );
+        }
+      };
+      const local = placed(from, () => localOf(e[field], from));
+      const r = placed(to, () => resolveLocal(local, to));
       if (r.kind === 'ok') return r.moment.instant;
       return r.kind === 'skipped'
-        ? refuse(local.slice(0, 16), "doesn't exist in", 'SKIPPED')
-        : refuse(local.slice(0, 16), 'happens twice in', 'REPEATED');
+        ? refuse(local.slice(0, 16), "doesn't exist in", to, 'SKIPPED')
+        : refuse(local.slice(0, 16), 'happens twice in', to, 'REPEATED');
     };
     return { ...e, startsAt: at('startsAt'), endsAt: at('endsAt') };
   });

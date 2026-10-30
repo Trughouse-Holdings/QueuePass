@@ -168,8 +168,9 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
     });
   });
 
-  // #88 (020 review round 3, n1): a legacy event from before 1883 has no whole-minute offset in
-  // either zone; the change is refused with 409, not a 500.
+  // #88 (020 review round 3, n1): a legacy event from before the zones adopted standard time has
+  // no whole-minute offset; the change is refused with 409, not a 500, naming the zone that
+  // can't place it.
   it('a legacy event dated before 1883: 409 EVENT_TIME_NOT_IN_ZONE, OUT_OF_RANGE, nothing changed', async () => {
     const v = await venue();
     const legacy = await ctx.prisma.event.create({
@@ -187,8 +188,8 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
     expect(res.body.error).toEqual({
       code: 'EVENT_TIME_NOT_IN_ZONE',
       message:
-        "Can't change the time zone: Old Show's start, Jun 1, 1880, 6:03 PM, is outside the " +
-        'times QueuePass can place in Central Time.',
+        "Can't change the time zone: Old Show's start, Jun 1, 1880, 6:03 PM, is from before " +
+        'standard time in Eastern Time.',
       details: {
         event: { id: legacy.id, name: 'Old Show' },
         field: 'startsAt',
