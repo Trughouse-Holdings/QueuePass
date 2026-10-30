@@ -1,15 +1,16 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.4.1 -> 3.4.2 (PATCH): three roadmap rows reserved; nothing that is required changes.
-Problem: issues #92 (sign-in screens), #93 (quickstart browser tests in CI), and #52 (exports)
-  need spec numbers before their spec and plan PRs (each issue's Process section), and reserving
-  them together lets the three be specified in parallel.
+Version: 3.4.2 -> 3.5.0 (MINOR): Principle VII materially expanded; no control removed.
+Problem: issue #92 and the team meeting ask for the Admin, Customer, and Ticket Booth sign-in
+  screens to be visually distinct, so nobody signs in to the wrong app. Principle VII forbade
+  per-app variants and per-app accent colors and put branding out of scope (spec 021 research R8).
 Changed:
-  - Roadmap: rows 021-sign-in-screens (#92, depends on 001, 012), 022-quickstart-browser-tests
-    (#93, depends on 011), and 023-report-exports (#52, depends on 005). The next free number
-    is 024.
-Impact: none on existing code, specs, or controls. The README's version reference follows.
-  Templates: none need updating.
+  - Principle VII: a new paragraph lets the sign-in screens (Keycloak's pages, styled from the
+    shared theme) show each app's name, a line saying who it is for, and its own accent color.
+    Those accents are tokens in the shared theme, checked by its contrast tests; the apps keep
+    the one shared accent.
+Impact: spec 021 adds the tokens and the Keycloak login theme. No existing code or spec changes.
+  The README's version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -226,6 +227,11 @@ layout that works at phone width, touch target size, WCAG contrast, states that 
 color alone, keyboard access), is usability work, not custom visual design. New branding and
 decoration remain out of scope.
 
+The sign-in screens (Keycloak's pages, styled from the shared theme) MAY show each app's name, a
+line saying who it is for, and its own accent color, so a person can tell at a glance which app
+they are signing in to (spec `021`). Those accents are tokens in the shared theme, defined only in
+its token blocks and checked by its contrast tests. The apps themselves keep the one shared accent.
+
 Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
 without anyone spending time on visual design, and a change to the look is made once.
 
@@ -372,4 +378,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.4.2 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-30
+**Version**: 3.5.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-30
