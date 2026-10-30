@@ -23,8 +23,15 @@
 </#if>
 <#assign qpAppId = (client.clientId)!"">
 <#assign qpTitle = msg("qpSignInTo", qpAppName)>
+<#-- msg() formats with MessageFormat, where a ' or { in the key garbles it or fails the page, so
+     only a plain client ID (as the seed's three) is looked up; any other shows no audience line
+     (FR-008; review round 1, finding 4). -->
 <#assign qpAudienceKey = "qpAudience." + qpAppId>
-<#assign qpAudience = msg(qpAudienceKey)>
+<#if qpAppId?matches("[a-z0-9-]+")>
+    <#assign qpAudience = msg(qpAudienceKey)>
+<#else>
+    <#assign qpAudience = qpAudienceKey>
+</#if>
 <#-- Keycloak 26 has no pageId: the page's own header is captured and compared instead (R9). -->
 <#assign qpPageHeader><#nested "header"></#assign>
 <#if qpPageHeader?is_markup_output>

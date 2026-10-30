@@ -90,3 +90,27 @@ describe('template.ftl (research R3, R9)', () => {
     expect(existsSync(path) ? readFileSync(path, 'utf8') : '').toContain(text);
   });
 });
+
+// Review round 1, finding 1 (FR-012, research R2, R9): the one form template overridden. The
+// wrong-password text comes with a full page load, where base's aria-live span is not announced,
+// so the fields name it with aria-describedby while it is shown.
+describe('login.ftl (research R2, R9)', () => {
+  const path = resolve(THEME, 'login.ftl');
+  const source = () => (existsSync(path) ? readFileSync(path, 'utf8') : '');
+
+  it.each(['username', 'password'])(
+    'points #%s at #input-error only while there is an error',
+    (id) => {
+      const tag = source().match(new RegExp(`<input[^>]*id="${id}"[\\s\\S]*?/>`))?.[0] ?? '';
+      expect(tag).toMatch(
+        /<#if messagesPerField\.existsError\('username','password'\)> aria-describedby="input-error"<\/#if>/,
+      );
+    },
+  );
+
+  it('keeps the error text where base puts it, in #input-error', () => {
+    expect(source()).toContain(
+      '<span id="input-error" class="${properties.kcInputErrorMessageClass!}" aria-live="polite">',
+    );
+  });
+});

@@ -72,7 +72,9 @@ async function authorize(clientId: string, redirectUri: string): Promise<Page> {
 
 /** POST the sign-in form of `page` with a username and password, cookies included. */
 async function submit(page: Page, username: string, password: string): Promise<Page> {
-  const action = decode(page.html.match(/<form id="kc-form-login"[^>]*action="([^"]+)"/)![1]!);
+  const form = page.html.match(/<form id="kc-form-login"[^>]*action="([^"]+)"/);
+  expect(form, 'the sign-in form (#kc-form-login) and its action').not.toBeNull();
+  const action = decode(form![1]!);
   const res = await fetch(action, {
     method: 'POST',
     redirect: 'manual',
@@ -81,6 +83,10 @@ async function submit(page: Page, username: string, password: string): Promise<P
   });
   return { status: res.status, html: await res.text(), cookies: page.cookies };
 }
+
+/** The `<input>` tag with `id`, attributes and all ('' when absent). */
+const input = (html: string, id: string): string =>
+  html.match(new RegExp(`<input\\b[^>]*\\bid="${id}"[^>]*>`))?.[0] ?? '';
 
 const cookiesOf = (res: Response): string =>
   res.headers
@@ -169,6 +175,10 @@ describe('the sign-in screens (spec 021)', () => {
       expect(reveal).toMatch(/class="[^"]*\bqp-reveal\b[^"]*"/);
       expect(html).toMatch(/<input[^>]*class="btn btn--primary[^"]*"[^>]*id="kc-login"/);
       expect(html).not.toMatch(/registration/i);
+      // No error yet, so no field points at one.
+      for (const field of ['username', 'password']) {
+        expect(input(html, field), field).not.toMatch(/aria-describedby/);
+      }
     });
 
     it('keeps the identity after a wrong password and says so under the fields (US2, FR-004, R9)', async ({
@@ -194,6 +204,11 @@ describe('the sign-in screens (spec 021)', () => {
       expect(page.html).not.toMatch(/role="alert"/);
       expect(page.html).toMatch(/<input[^>]*id="username"[^>]*value="admin1"/);
       expect(page.html).toMatch(/<input[^>]*id="username"[^>]*aria-invalid="true"/);
+      // The error arrives with a full page load, where an aria-live region already on the page is
+      // not announced: the focused field names it instead (FR-012, review round 1, finding 1).
+      for (const field of ['username', 'password']) {
+        expect(input(page.html, field), field).toMatch(/aria-describedby="input-error"/);
+      }
     });
   });
 

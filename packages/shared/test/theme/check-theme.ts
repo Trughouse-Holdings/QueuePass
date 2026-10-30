@@ -20,8 +20,10 @@
  *
  * Spec 021 (research R4): the sign-in look's stylesheet is scanned with `signInAccents`, which
  * allows one thing more: inside a rule whose selector is exactly one `.qp-app--<clientId>` class,
- * the six accent roles may each point at that app's token of the same role with `var()`
- * (`--accent-hover: var(--accent-booth-hover)`). Anything else there is still reported.
+ * the six accent roles may point, with `var()`, at one app's token of the same role
+ * (`--accent-hover: var(--accent-booth-hover)`), the same app for every role in the rule, and only
+ * when the theme's token blocks define all six of that app's tokens (review round 1, finding 2).
+ * Anything else there is still reported.
  */
 export interface Violation {
   path: string;
@@ -36,11 +38,13 @@ interface Declaration {
   value: string;
   /** The selector (or at-rule prelude) of the innermost enclosing block; '' at the top. */
   selector?: string;
+  /** Which block that is: each `{` opens a new one, so two rules with one selector differ. */
+  block?: number;
 }
 
 export interface CssOptions {
   /** Spec 021: allow the per-app accent mapping of the sign-in look (keycloak/themes). */
-  signInAccents?: boolean;
+  signInAccents?: { tokens: ReadonlySet<string> };
 }
 
 // CSS Color Module Level 4 named colors, without transparent and currentcolor (allowed).
@@ -102,7 +106,8 @@ function declarations(css: string): Declaration[] {
   const text = stripComments(css);
   const out: Declaration[] = [];
   // The selector or at-rule prelude of each open block, innermost last.
-  const blocks: string[] = [];
+  const blocks: { selector: string; block: number }[] = [];
+  let opened = 0;
   let start = 0;
   let parens = 0;
   // Characters inside a quoted string (with \ escapes) end nothing and open nothing.
@@ -116,7 +121,7 @@ function declarations(css: string): Declaration[] {
     else if (ch === '(') parens++;
     else if (ch === ')') parens = Math.max(0, parens - 1);
     else if (ch === '{') {
-      blocks.push(text.slice(start, i).replace(/\s+/g, ' ').trim());
+      blocks.push({ selector: text.slice(start, i).replace(/\s+/g, ' ').trim(), block: opened++ });
       start = i + 1;
       parens = 0;
     } else if (ch === '}' || (ch === ';' && parens === 0)) {
@@ -132,7 +137,8 @@ function declarations(css: string): Declaration[] {
             .slice(colon + 1)
             .replace(/\s+/g, ' ')
             .trim(),
-          selector: blocks[blocks.length - 1] ?? '',
+          selector: blocks[blocks.length - 1]?.selector ?? '',
+          block: blocks[blocks.length - 1]?.block ?? -1,
         });
       }
       if (ch === '}') blocks.pop();
@@ -144,18 +150,48 @@ function declarations(css: string): Declaration[] {
 
 /** Spec 021 R4: the one rule that maps a sign-in screen's accent roles to its app's tokens. */
 const SIGN_IN_RULE = /^\.qp-app--[a-z0-9-]+$/;
-/** Each accent role and the shape of the app token it may point at. */
-const SIGN_IN_ROLES: Record<string, RegExp> = {
-  '--accent': /^var\(--accent-[a-z]+\)$/,
-  '--accent-hover': /^var\(--accent-[a-z]+-hover\)$/,
-  '--accent-soft': /^var\(--accent-[a-z]+-soft\)$/,
-  '--accent-text': /^var\(--accent-[a-z]+-text\)$/,
-  '--brand-mark-end': /^var\(--brand-mark-end-[a-z]+\)$/,
-  '--brand-mark-text': /^var\(--brand-mark-text-[a-z]+\)$/,
+/** Each accent role and its app token, `<app>` standing for the app's name. */
+const SIGN_IN_ROLES: Record<string, string> = {
+  '--accent': '--accent-<app>',
+  '--accent-hover': '--accent-<app>-hover',
+  '--accent-soft': '--accent-<app>-soft',
+  '--accent-text': '--accent-<app>-text',
+  '--brand-mark-end': '--brand-mark-end-<app>',
+  '--brand-mark-text': '--brand-mark-text-<app>',
 };
 
-const isSignInMapping = (d: Declaration): boolean =>
-  SIGN_IN_RULE.test(d.selector ?? '') && (SIGN_IN_ROLES[d.prop]?.test(d.value) ?? false);
+/** The app a role's `var(--…)` value names, or null when it is not that role's app token. */
+function signInApp(d: Declaration): string | null {
+  const token = SIGN_IN_ROLES[d.prop];
+  const name = /^var\((--[a-z0-9-]+)\)$/.exec(d.value)?.[1];
+  if (!token || !name) return null;
+  const [before, after] = token.split('<app>') as [string, string];
+  if (!name.startsWith(before) || !name.endsWith(after)) return null;
+  const app = name.slice(before.length, name.length - after.length);
+  return /^[a-z]+$/.test(app) ? app : null;
+}
+
+/**
+ * The sign-in mappings allowed in `decls`: in a `.qp-app--<clientId>` rule, a role pointed at the
+ * app token of the rule's first mapped app, whose six tokens the theme all defines.
+ */
+function allowedSignInMappings(
+  decls: Declaration[],
+  tokens: ReadonlySet<string>,
+): Set<Declaration> {
+  const allowed = new Set<Declaration>();
+  const ruleApp = new Map<number, string>();
+  for (const d of decls) {
+    if (!SIGN_IN_RULE.test(d.selector ?? '')) continue;
+    const app = signInApp(d);
+    if (app === null) continue;
+    const first = ruleApp.get(d.block ?? -1) ?? app;
+    ruleApp.set(d.block ?? -1, first);
+    const complete = Object.values(SIGN_IN_ROLES).every((t) => tokens.has(t.replace('<app>', app)));
+    if (app === first && complete) allowed.add(d);
+  }
+  return allowed;
+}
 
 /** The value split on spaces and commas outside parentheses. */
 function parts(value: string): string[] {
@@ -220,8 +256,12 @@ function ruleFor(d: Declaration): Violation['rule'] | null {
 
 /** C1–C6 over an app stylesheet, or over the sign-in look with `signInAccents`. */
 export function cssViolations(path: string, css: string, options: CssOptions = {}): Violation[] {
-  return declarations(css).flatMap((d) => {
-    if (options.signInAccents && isSignInMapping(d)) return [];
+  const decls = declarations(css);
+  const allowed = options.signInAccents
+    ? allowedSignInMappings(decls, options.signInAccents.tokens)
+    : new Set<Declaration>();
+  return decls.flatMap((d) => {
+    if (allowed.has(d)) return [];
     const rule = ruleFor(d);
     return rule ? [{ path, line: d.line, rule, text: `${d.prop}: ${d.value}` }] : [];
   });

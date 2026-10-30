@@ -253,12 +253,23 @@ describe('the checker, round 2 (FR-005, FR-006)', () => {
   });
 });
 
+/** Every custom property the theme's two token blocks define (spec 021: the sign-in tokens). */
+function themeTokens(): Set<string> {
+  const theme = readFileSync(resolve(ROOT, 'packages/shared/src/web/theme.css'), 'utf8');
+  const blocks = [
+    theme.match(/(?:^|\n):root\s*\{([^}]*)\}/)?.[1] ?? '',
+    theme.match(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{([^}]*)\}/)?.[1] ?? '',
+  ];
+  return new Set(blocks.flatMap((b) => [...b.matchAll(/(--[a-z0-9-]+)\s*:/g)].map((m) => m[1]!)));
+}
+const SIGN_IN = { signInAccents: { tokens: themeTokens() } };
+
 // Spec 021 research R4: the sign-in look (keycloak/themes/queuepass/login/resources/css/login.css)
 // is scanned like an app stylesheet, with one exception: inside a rule whose selector is exactly
-// one `.qp-app--<clientId>` class, the six accent roles may point at a theme token with var().
+// one `.qp-app--<clientId>` class, the six accent roles may point at one app's set of tokens, all
+// defined in the theme's token blocks (review round 1, finding 2).
 describe('the checker, sign-in accent mapping (spec 021 R4)', () => {
-  const signIn = (body: string): string[] =>
-    brief(cssViolations('login.css', body, { signInAccents: true }));
+  const signIn = (body: string): string[] => brief(cssViolations('login.css', body, SIGN_IN));
 
   const SIX = [
     '  --accent: var(--accent-booth);',
@@ -292,8 +303,20 @@ describe('the checker, sign-in accent mapping (spec 021 R4)', () => {
     ['a role set to a value that is not a token', '--accent: inherit', 'C1'],
     ['a role set to a token of another kind', '--accent: var(--danger)', 'C1'],
     ['a role set to another role of the app', '--accent-text: var(--accent-booth)', 'C1'],
+    // Review round 1, finding 2: shapes that looked like an app's set but are not one.
+    ['the shared soft accent', '--accent: var(--accent-soft)', 'C1'],
+    ['the shared text-on-accent color', '--accent: var(--accent-text)', 'C1'],
+    ['a token the theme does not define', '--accent: var(--accent-nope)', 'C1'],
   ])('still reports %s inside .qp-app--<clientId>', (_, decl, rule) => {
     expect(signIn(`.qp-app--booth-app {\n  ${decl};\n}`)).toEqual([`${rule} 2 ${decl}`]);
+  });
+
+  it("still reports a role pointed at another app's set than the rule's first (finding 2)", () => {
+    expect(
+      signIn(
+        '.qp-app--booth-app {\n  --accent: var(--accent-tickets);\n  --accent-hover: var(--accent-booth-hover);\n}',
+      ),
+    ).toEqual(['C1 3 --accent-hover: var(--accent-booth-hover)']);
   });
 
   it('still reports a color written out inside .qp-app--<clientId>', () => {
@@ -377,7 +400,7 @@ describe('the sign-in look (spec 021)', () => {
   const path = 'keycloak/themes/queuepass/login/resources/css/login.css';
 
   it('defines no look of its own beyond the per-app accent mapping', () => {
-    expect(listing(cssViolations(path, read(path), { signInAccents: true }))).toEqual([]);
+    expect(listing(cssViolations(path, read(path), SIGN_IN))).toEqual([]);
   });
 
   it('maps the Customer and Ticket Booth apps to their accents, and no other app', () => {

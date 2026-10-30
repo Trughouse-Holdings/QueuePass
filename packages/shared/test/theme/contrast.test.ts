@@ -134,9 +134,13 @@ describe.each([
       expect(contrast(tok(fg), tok(bg))).toBeGreaterThanOrEqual(4.5);
     });
 
-    it.each(['surface', 'bg'])('shows the accent as text on --%s at 4.5:1 or more', (bg) => {
-      expect(contrast(tok('accent'), t[bg])).toBeGreaterThanOrEqual(4.5);
-    });
+    // As the shared accent: links inside a warning or error banner (review round 1, finding 3).
+    it.each(['surface', 'bg', 'warn-bg', 'danger-bg'])(
+      'shows the accent as text on --%s at 4.5:1 or more',
+      (bg) => {
+        expect(contrast(tok('accent'), t[bg])).toBeGreaterThanOrEqual(4.5);
+      },
+    );
 
     it.each(['accent', 'brand-mark-end'])(
       'shows the brand mark letter on --%s at 3:1 or more',
