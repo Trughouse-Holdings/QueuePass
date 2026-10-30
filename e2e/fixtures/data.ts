@@ -24,6 +24,22 @@ export const PLACES = {
   losAngeles: place('Los Angeles'), // Pacific
 } as const;
 
+/** Spec 024 (research R10): an address the stand-in has no match for. */
+export const UNKNOWN_PLACE: Place = {
+  street: '1 Nowhere Blvd',
+  city: 'Louisville',
+  state: 'KY',
+  zip: '40202',
+};
+
+/** Spec 024 (research R10): an address the stand-in answers 503 for: the service is "down". */
+export const OUTAGE_PLACE: Place = {
+  street: '0 Outage Way',
+  city: 'Louisville',
+  state: 'KY',
+  zip: '40202',
+};
+
 /** An instant `h` hours from now, on a whole minute. */
 export function startsInHours(h: number): Date {
   return new Date(Math.floor((Date.now() + h * 3_600_000) / 60_000) * 60_000);

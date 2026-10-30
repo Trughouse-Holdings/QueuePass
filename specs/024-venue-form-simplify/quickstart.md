@@ -113,17 +113,16 @@ Sign in to each of the three apps, use it, and sign out.
 ## Automation
 
 Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
-manual. `npm test` checks this table against `e2e/tests`. On the spec branch V1 to V5 are Manual:
-their tests come with the implementation PR, which marks them Automated as research R11 lists.
+manual. `npm test` checks this table against `e2e/tests`.
 
 | Scenario | Browser test |
 | --- | --- |
 | V0 | Manual: set-up for V1–V10 |
-| V1 | Manual: to be automated by `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick` in the implementation PR (research R10, R11) |
-| V2 | Manual: to be automated by `024 V1/V2/V3: …` in the implementation PR, phone width and a screen reader staying manual (research R11) |
-| V3 | Manual: to be automated by `024 V1/V2/V3: …` in the implementation PR (research R10, R11) |
-| V4 | Manual: to be automated by `024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone` in the implementation PR, the 6-second bound staying manual (research R11) |
-| V5 | Manual: to be automated in part by `024 V4/V5: …` in the implementation PR; the re-check of an unchanged address stays covered by Backend tests (research R10, R11) |
+| V1 | Automated: `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick` |
+| V2 | Automated: `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick`; rest Manual: phone width and a screen reader, by a person (V9); the "= 0 seats" and "= 20,000 seats" counts and the renumbering after Remove are covered by the Admin app's `section-lines.test.tsx` (T012) |
+| V3 | Automated: `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick` |
+| V4 | Automated: `024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone`; rest Manual: the 6-second bound against a service that never answers, by hand |
+| V5 | Automated: `024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone`; rest Manual: the re-check of an unchanged not-verified address and a name-only edit, covered by Backend tests (the stand-in never changes its answer) |
 | V6 | Manual: the browser tests' address stand-in answers exact addresses only, so it never finds a different one; Backend tests cover it |
 | V7 | Manual: unchanged from `013` and covered by the Admin app's tests; the zone message is in the `024 V1/V2/V3` test once it exists |
 | V8 | Manual: an API behavior, covered by Backend tests; every browser test's set-up creates venues through the API without a zone |
