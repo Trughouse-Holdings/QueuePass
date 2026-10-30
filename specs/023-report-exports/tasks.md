@@ -167,14 +167,19 @@ fail before the implementation below them.
   **Done**: README: the `023` status row (24/28 tasks), the Status line, a "Today" sentence, and a **Report exports** item in What the system does.
 - [ ] T024 Independent review by a separate Claude session (Constitution 3.3.0) against spec, plan,
   research; fix findings; record the round here.
-- [ ] T025 `npm run ci` locally green; record counts.
+  **Not done**: left for a separate Claude session (Constitution 3.3.0); the implementer does not review its own work.
+- [x] T025 `npm run ci` locally green; record counts.
+  **Done**: `npm run ci` green at `8e28d8a` (format, lint, build, all tests). Counts: root scripts 45 pass; shared 592; backend 942; admin-app 309 (was 254 before 023: +55); customer-app 306; booth-app 76; seed 4 passed, 4 skipped; zone re-run (America/Los_Angeles, quick) 124 + 29 + 9 + 9. Line coverage: shared 93.13%, backend 97.02%, admin-app 97.22%, customer-app 97.46%, booth-app 92.28%, seed 24.01% (unchanged; the floor waits for 010). Size times in this run, with coverage: 5,000 PDF 4.80 s, 25,000 PDF 20.01 s.
 - [ ] T026 Running-system walk, quickstart E0–E6 (Excel or Numbers, and a PDF print preview), on a
   stack built from this branch; record each result.
+  **Not done**: needs Nate: quickstart E0–E6 on a stack built from this branch, opening the files in Excel or Numbers and a PDF print preview, Enter on the Download summary in a browser (E5), and one browser timing of the 5,000-ticket PDF (R12).
 - [ ] T027 If `022` is on `main`: `e2e/tests/023-exports.spec.ts` and the Automation table in this
   quickstart (ground rules).
+  **Not done**: not applicable yet: spec `022` is not on `main`. When it is, add `e2e/tests/023-exports.spec.ts` and the quickstart Automation table.
 - [ ] T028 Push; open the implementation PR (after the spec PR merges and the branch is up to date):
   `fixes #52`, the review, test counts, sizes and times, the walk. CI green on GitHub; merge when
   green and approved.
+  **Not done**: branch pushed (`023-report-exports-impl`). The PR waits for the spec PR (#98) to merge and the branch to be brought up to date; its description says `fixes #52` and carries the review, the counts (T025), sizes and times (T021, T022), and the walk (T026).
 
 ## Dependencies & Execution Order
 
