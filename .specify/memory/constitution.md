@@ -1,16 +1,18 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.4.2 -> 3.5.0 (MINOR): Principle VII materially expanded; no control removed.
-Problem: issue #92 and the team meeting ask for the Admin, Customer, and Ticket Booth sign-in
-  screens to be visually distinct, so nobody signs in to the wrong app. Principle VII forbade
-  per-app variants and per-app accent colors and put branding out of scope (spec 021 research R8).
+Version: 3.5.0 -> 3.6.0 (MINOR): a new requirement on future features; the stack table gains a
+  row. (Proposed as 3.5.0; renumbered because spec 021's 3.5.0 merged first, #96.)
+Problem: issue #93: the quickstarts' running-system scenarios are walked by hand once and never in
+  CI, so broken wiring between the pieces can pass every check (spec 022 research R14).
 Changed:
-  - Principle VII: a new paragraph lets the sign-in screens (Keycloak's pages, styled from the
-    shared theme) show each app's name, a line saying who it is for, and its own accent color.
-    Those accents are tokens in the shared theme, checked by its contrast tests; the apps keep
-    the one shared accent.
-Impact: spec 021 adds the tokens and the Keycloak login theme. No existing code or spec changes.
-  The README's version reference follows. Templates: none need updating.
+  - Principle VI: for every feature whose implementation PR opens after 022's implementation merges,
+    the implementation PR includes browser tests for its quickstart's main journey, and its
+    quickstart marks each scenario Automated or Manual.
+  - Language and Stack: a "Browser tests" row (Playwright, Chromium, e2e/ at the repository root);
+    the "Continuous integration" row names the e2e job.
+Impact: spec 022 builds the browser tests, the e2e job, and the marks in every quickstart. Features
+  001-022 are not retrofitted beyond 022's own scope. The README's version reference follows.
+  Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -197,6 +199,10 @@ after it.
 - Before an implementation PR is merged, the system MUST be brought up with
   `docker compose up --build`, and each front end MUST be signed into, used, and signed out of as
   a smoke test.
+- For every feature whose implementation PR opens after `022`'s implementation has merged, the
+  implementation PR MUST include browser tests (`e2e/`, run by
+  `npm run e2e` and the `e2e` check) for its quickstart's main journey, and its quickstart MUST mark
+  each scenario Automated or Manual, with the test's name or the reason (spec `022`).
 
 Recorded deferral (Principle VIII): the CI run becomes merge-blocking once `011-ci-test-runs` is
 merged and its check is required on `main`, which a repository admin turns on right after that
@@ -268,7 +274,8 @@ These choices are fixed for every feature. Changing one requires amending this c
 | Backend tests | Jest, with Testcontainers for PostgreSQL |
 | Front-end tests | Vitest with React Testing Library |
 | Lint and format | ESLint and Prettier |
-| Continuous integration | GitHub Actions, running `npm test` with coverage on every pull request open and update |
+| Browser tests | Playwright (Chromium) in `e2e/` at the repository root, against the Compose stack (`npm run e2e`) |
+| Continuous integration | GitHub Actions on every pull request open and update: the `test` job runs `npm test` with coverage; the `e2e` job runs the browser tests |
 | Orchestration | Docker Compose v2 |
 
 ## Security and Data Constraints
@@ -378,4 +385,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.5.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-30
+**Version**: 3.6.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-30
