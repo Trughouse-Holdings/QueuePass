@@ -20,6 +20,9 @@ export default defineConfig({
     ...(CI ? ([['github']] as const) : []),
   ],
   use: {
+    // An action waits as long as an expectation, so a missing control fails with its own name, not
+    // the 60-second test timeout (T031).
+    actionTimeout: 10_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'off',

@@ -13,7 +13,8 @@ Features `001` through `008` and `012` through `018` are built and verified. `01
 reviewed; part of its running-system walk is still to do. `020` is built, reviewed, and walked
 on the running system (path B; the image checks wait for a machine where images build). `011` is built; its first runs on
 GitHub and its running-system walk are pending. `021` is built and checked against a running
-Keycloak and reviewed; its browser walk is pending.
+Keycloak and reviewed; its browser walk is pending. `022` is built: browser tests walk the main
+journey of ten features on every pull request; its independent review and first CI runs are pending.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                | Spec             | Plan and tasks     | Code                         |
 | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------------- |
@@ -36,6 +37,7 @@ Keycloak and reviewed; its browser walk is pending.
 | [`019-add-to-calendar`](specs/019-add-to-calendar/spec.md)                   | From My tickets, customers add an event they hold tickets for to Apple Calendar or Outlook (a calendar file) or Google Calendar, as a one-time copy; offered only while the event is ahead or under way         | Draft            | Done (22/25 tasks) | **Built (walk partly done)** |
 | [`020-venue-time-zones`](specs/020-venue-time-zones/spec.md)                 | Every venue has a time zone, worked out from its checked address; every app shows and takes event times in the venue's local time with the zone's abbreviation (7:00 PM EDT), whatever the viewer's device zone | Draft            | Done (58 tasks)    | **Built and verified**       |
 | [`021-sign-in-screens`](specs/021-sign-in-screens/spec.md)                   | Each app's sign-in screen names the app in its tab title and heading, says who it is for, and has its own accent (indigo, teal, amber), in the shared theme's look; the Customer app is now QueuePass Tickets   | Draft            | Done (30/33 tasks) | **Built (walk pending)**     |
+| [`022-quickstart-browser-tests`](specs/022-quickstart-browser-tests/spec.md) | Playwright browser tests sign in on Keycloak and walk the main journey of ten features against a fresh Compose stack in the `e2e` check; every quickstart marks each scenario Automated or Manual               | Draft            | Done (33/36 tasks) | **Built (review pending)**   |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -70,7 +72,10 @@ local time, and a time that a daylight-saving change skips or repeats is refused
 (`020`). Every sign-in screen says which app it is for: "Sign in to QueuePass Admin", "Sign in
 to QueuePass Tickets" (the Customer app's name), or "Sign in to QueuePass Ticket Booth", with a
 line saying who the app is for and the app's own accent, on the first screen and after a wrong
-password alike (`021`).
+password alike (`021`). Every pull request also runs browser tests that sign in on Keycloak's page
+and walk those journeys through the three apps against a fresh stack, from venues and events to
+tickets, seats held live, the ticket limit, gate check-in, the calendar file, and venue time zones
+(`022`).
 
 The Admin and Customer apps take their whole look from one shared theme (`012`).
 
@@ -277,6 +282,43 @@ check failed: **Check formatting** (run `npm run format`), **Lint**, **Build**, 
 **Report coverage** (a workspace whose coverage was not measured). The step's output names the file
 and line, or the failing test. A Testcontainers "could not pull image" error in the **Test** step
 is the runner, not the code: use **Re-run failed jobs**.
+
+### Browser tests
+
+Beside **CI / test**, every pull request and push to `main` runs **CI / e2e** (`022`): Playwright
+(Chromium) tests that walk the main journey of each built feature through the three apps, signing
+in on Keycloak's own page with the seed's test accounts, against a fresh copy of the Compose stack.
+Each test is named after the quickstart scenario it walks (`017 S3: …`), and every
+`specs/*/quickstart.md` ends with an **Automation** table marking each scenario Automated (with the
+test's name) or Manual (with the reason: a camera, printing, a screen reader, a wait of minutes);
+`npm test` fails when a test and its row disagree. To run them on your laptop, with Docker running:
+
+```bash
+docker compose down                      # your own stack must be down: the tests need its ports
+npm run e2e                              # every test; about 2 minutes once the images are built
+npm run e2e -- -g "015 S2"               # one scenario, by its name
+npm run e2e -- --repeat-each=3           # every test three times in a row
+```
+
+`npm run e2e` refuses to start, naming the ports, while anything holds 5173–5175, 3000, 8080, 9000,
+or 5432, and touches nothing. Otherwise it starts Compose project `qpe2e` from clean data with
+`docker compose up --build` plus `e2e/stack/docker-compose.e2e.yml`, loads the demo data, installs
+Chromium if needed, runs the tests, and always removes the stack and its volumes; a killed run's
+leftover is removed by the next. In that stack only, venue addresses are answered by a small local
+stand-in (`e2e/stack/geocoder-stub/`) with fixed answers for the addresses the tests use, so no test
+calls the US Census Geocoder; `docker-compose.yml` is unchanged. The report is written to
+`e2e/playwright-report/` (open it with `npx playwright show-report e2e/playwright-report`); a failing
+test's screenshot and trace, and every service's log, go to `e2e/test-results/` (`npx playwright
+show-trace <trace.zip>`), and CI keeps both as the run's artifact for 14 days. Tests are never
+retried: a flaky test is fixed, not retried into green.
+
+**Adding a feature** (Constitution VI): its implementation PR adds a test for its quickstart's main
+journey in `e2e/tests/NNN-<name>.spec.ts`, named `NNN <label>: <what it walks>` after the scenario,
+and appends the quickstart's **Automation** table, one row per scenario. A test signs in with
+`signIn` from `e2e/fixtures/sign-in.ts`, makes its own venue and events with unique names (setting
+up through the API, with `apiFor` from `e2e/fixtures/api.ts`, what the scenario does not itself
+walk), and takes its accounts from `e2e/fixtures/apps.ts`, so tests run in any order and in
+parallel.
 
 ---
 
@@ -506,8 +548,9 @@ booth-app/        React + Vite Ticket Booth app   (role gate-agent)
 contracts/        OpenAPI contract shared by every app
 packages/shared/  Request and response types, sign-in, and the theme shared by the apps
 scripts/seed/     Idempotent Keycloak seed: realm, roles, clients, accounts, login theme
+e2e/              Playwright browser tests over the whole stack, run by npm run e2e (spec 022)
 keycloak/         Keycloak's image and the QueuePass sign-in look (spec 021)
-.github/workflows/ The pull request check, CI / test (spec 011)
+.github/workflows/ The pull request checks, CI / test (spec 011) and CI / e2e (spec 022)
 specs/            Specifications, plans, contracts, tasks
 ```
 
