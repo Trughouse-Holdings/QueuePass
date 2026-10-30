@@ -2,9 +2,17 @@
 // Backend's API, with the access token the app itself sent after a real sign-in on Keycloak's
 // page. No other credential, no direct-grant client, no bypass. Request shapes are the contract's
 // (contracts/openapi.yaml), through the generated types.
-import { expect, request, type APIRequestContext, type Page, type Request } from '@playwright/test';
+import {
+  expect,
+  request,
+  type APIRequestContext,
+  type Browser,
+  type Page,
+  type Request,
+} from '@playwright/test';
 import type { components } from '../../packages/shared/src/api-schema';
-import { API_BASE } from './apps';
+import { API_BASE, type AppName } from './apps';
+import { signIn } from './sign-in';
 import { zoned } from './time';
 
 type Schemas = components['schemas'];
@@ -13,7 +21,8 @@ export type SeatingLayout = Schemas['SeatingLayout'];
 export type Event = Schemas['Event'];
 export type TicketTier = Schemas['TicketTier'];
 export type Order = Schemas['Order'];
-export type Place = Pick<Schemas['LocationInput'], 'street' | 'city' | 'state' | 'zip'>;
+/** A venue's address as the Admin form takes it (spec 013): all four fields. */
+export type Place = Required<Pick<Schemas['LocationInput'], 'street' | 'city' | 'state' | 'zip'>>;
 
 /** The app's first request to the API that carries a token. */
 const authorized = (req: Request): boolean =>
@@ -166,3 +175,57 @@ export function buyTickets(
 /** Research R6's name for `Api.as`. */
 export const apiAs = (page: Page, signInFn: () => Promise<void>): Promise<Api> =>
   Api.as(page, signInFn);
+
+/**
+ * A signed-in user's API in a context of its own (an admin setting up, or a customer buying for
+ * set-up), so the test's own pages keep their own sessions. Close it when done.
+ */
+export async function apiFor(
+  browser: Browser,
+  app: AppName,
+  username: string,
+): Promise<{ api: Api; page: Page; close: () => Promise<void> }> {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const api = await apiAs(page, () => signIn(page, app, username));
+  return {
+    api,
+    page,
+    close: async () => {
+      await api.dispose();
+      await context.close();
+    },
+  };
+}
+
+/**
+ * A seated event (spec 007): a venue with `sections`, an event there, reserved seating on, one
+ * tier per entry of `tiers`, and every section mapped to the tier `map` names (by index).
+ */
+export async function seatedEvent(
+  api: Api,
+  setup: {
+    venueName: string;
+    place: Place;
+    sections: Schemas['SectionInput'][];
+    event: EventSetup;
+    tiers: { name: string; price: string }[];
+    map: number[];
+  },
+): Promise<{ venue: Location; event: Event; tiers: TicketTier[]; layout: SeatingLayout }> {
+  const venue = await createVenue(api, setup.place, setup.venueName, setup.sections);
+  const layout = venue.layout!;
+  const event = await createEvent(api, venue, setup.event);
+  await api.call('PUT', `/events/${event.id}/seating`, {
+    reservedSeating: true,
+    sections: [],
+  } satisfies Schemas['SeatingInput']);
+  const tiers: TicketTier[] = [];
+  for (const t of setup.tiers) tiers.push(await addTier(api, event, t));
+  await setSeating(
+    api,
+    event,
+    layout.sections.map((s, i) => ({ sectionId: s.id, tierId: tiers[setup.map[i]].id })),
+  );
+  return { venue, event, tiers, layout };
+}

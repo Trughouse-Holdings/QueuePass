@@ -64,3 +64,24 @@ export function icsUtc(instant: Date): string {
     .replace(/[-:]/g, '')
     .replace(/\.\d{3}/, '');
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** The zone's short name at that instant, as the apps show it: `EDT`, `MST`. */
+export function abbreviation(instant: Date, zone: string): string {
+  const f = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'short' });
+  return f.formatToParts(instant).find((p) => p.type === 'timeZoneName')?.value ?? '';
+}
+
+/** `7:00 PM MST`: a time of day in the zone, as spec 020 shows every event time. */
+export function timeOfDay(instant: Date, zone: string): string {
+  const p = parts(instant, zone);
+  const h12 = p.hour % 12 === 0 ? 12 : p.hour % 12;
+  return `${h12}:${pad(p.minute)} ${p.hour < 12 ? 'AM' : 'PM'} ${abbreviation(instant, zone)}`;
+}
+
+/** `Oct 31, 2026, 7:00 PM EDT`: an event time in its venue's zone (spec 020 FR-021). */
+export function eventTime(instant: Date, zone: string): string {
+  const p = parts(instant, zone);
+  return `${MONTHS[p.month - 1]} ${p.day}, ${p.year}, ${timeOfDay(instant, zone)}`;
+}
