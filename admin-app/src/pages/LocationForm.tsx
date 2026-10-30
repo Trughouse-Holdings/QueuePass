@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   DEFAULT_TIME_ZONE,
-  STATE_TIME_ZONES,
   US_STATES,
   US_TIME_ZONES,
   ZIP_PATTERN,
@@ -11,7 +10,7 @@ import {
   type UsState,
   type UsTimeZone,
 } from '@queuepass/shared';
-import { SOURCE_TEXT, venueZone } from '../format';
+import { venueZone } from '../format';
 import { listEvents } from '../api/events';
 import { createLocation, getLocation, updateLocation } from '../api/locations';
 import { getLayout, replaceLayout } from '../api/seating';
@@ -64,7 +63,7 @@ const ZONE_CHANGE_NOTE =
   "Changing the time zone keeps each event's local time (7:00 PM stays 7:00 PM), so their times " +
   'move. Not possible once tickets are sold.';
 
-const stateName = (code: string): string => US_STATES.find((s) => s.code === code)?.name ?? code;
+const ZONE_REQUIRED = "Choose the venue's time zone.";
 
 /** Spec 013 FR-008's "same address", on the form's side: ignoring case and extra spaces. */
 function sameAsStored(a: Address, v: Location | null): boolean {
@@ -103,11 +102,9 @@ export function LocationForm(): React.ReactElement {
   // Spec 013 FR-011: offered only after a not-found or ambiguous refusal of this address.
   const [offerSaveAnyway, setOfferSaveAnyway] = useState(false);
   const [busy, setBusy] = useState(false);
-  // Spec 020 research R14: an explicit zone ('' works it out), and a split state's choice.
+  // Spec 024 research R1: the zone in the select; '' (none chosen yet) only on New venue, where
+  // one is required; on edit it starts on the stored zone.
   const [zoneChoice, setZoneChoice] = useState<UsTimeZone | ''>('');
-  const [stateZone, setStateZone] = useState<UsTimeZone | ''>('');
-  /** The zones of a TIME_ZONE_REQUIRED refusal, until the state changes. */
-  const [requiredZones, setRequiredZones] = useState<UsTimeZone[] | null>(null);
   const [zoneProblem, setZoneProblem] = useState<string | null>(null);
   /** Spec 020 R14: whether the venue has events (null while unknown: the note is shown). */
   const [hasEvents, setHasEvents] = useState<boolean | null>(null);
@@ -126,6 +123,7 @@ export function LocationForm(): React.ReactElement {
           zip: l.zip ?? '',
         });
         setSeatingCapacity(String(l.seatingCapacity));
+        setZoneChoice(l.timeZone ?? DEFAULT_TIME_ZONE);
       })
       .catch((err: ApiError) => setError(err));
     getLayout(id)
@@ -143,43 +141,35 @@ export function LocationForm(): React.ReactElement {
     setAddress((a) => ({ ...a, [key]: value }));
     // The confirmation applies only to the address the admin saw refused.
     setOfferSaveAnyway(false);
-    // Spec 020 R14: a split state's choice belongs to that state.
-    if (key === 'state') {
-      setStateZone('');
-      setRequiredZones(null);
-      setZoneProblem(null);
-    }
   }
 
-  // Spec 020 FR-003 (research R14): the state's zones, asked when Save anyway is offered in a
-  // split state, or after TIME_ZONE_REQUIRED.
-  const splitZones =
-    requiredZones ??
-    (offerSaveAnyway && (STATE_TIME_ZONES[address.state as UsState]?.length ?? 0) > 1
-      ? [...STATE_TIME_ZONES[address.state as UsState]]
-      : null);
-  // On edit, the stored zone starts selected when it is one of them (review round 1, m4).
-  const storedInState =
-    splitZones && loaded?.timeZone && splitZones.includes(loaded.timeZone) ? loaded.timeZone : '';
-  const chosenStateZone = splitZones ? stateZone || storedInState : '';
   const addressChanged = !sameAsStored(address, loaded);
+  const storedZone = loaded?.timeZone ?? DEFAULT_TIME_ZONE;
+  // Spec 024 research R3: on edit the address is sent only when it changed from the venue as
+  // loaded (a venue from before 013 whose fields were filled in included, research R13 of 013),
+  // or when the loaded venue's address is not verified, so it is checked again (R7).
+  const sendAddress =
+    !isEdit || addressChanged || (loaded?.addressVerified === false && loaded.street != null);
+  // Spec 024 R1, R3: the zone shown goes with the address, and the Backend records it as chosen
+  // by an admin; said before saving when it was set another way.
+  const recordsAdminZone =
+    isEdit &&
+    loaded !== null &&
+    sendAddress &&
+    zoneChoice === storedZone &&
+    loaded.timeZoneSource !== 'ADMIN';
 
   async function save(acceptUnverifiedAddress: boolean): Promise<void> {
-    if (acceptUnverifiedAddress && splitZones && !zoneChoice && !chosenStateZone) {
-      setZoneProblem("Choose this venue's time zone first.");
-      return;
-    }
-    setZoneProblem(null);
     setError(null);
     setLayoutRefused(null);
     setOfferSaveAnyway(false);
 
-    // A venue from before 013 may keep its old address: the four fields are sent only once one
-    // is filled in, and then all four are needed (research R13).
-    const sendAddress = !legacy || Object.values(address).some((v) => v.trim() !== '');
+    // Spec 024 R1: one press names every problem: the address fields and the missing zone.
     const found = sendAddress ? addressProblems(address) : [];
     setProblems(found);
-    if (found.length > 0) return;
+    const missingZone = !isEdit && !zoneChoice;
+    setZoneProblem(missingZone ? ZONE_REQUIRED : null);
+    if (found.length > 0 || missingZone) return;
 
     setBusy(true);
     const seated = !isEdit && kind === 'seated';
@@ -188,12 +178,13 @@ export function LocationForm(): React.ReactElement {
       city: address.city,
       state: address.state as UsState,
       zip: address.zip.trim(),
-      ...(acceptUnverifiedAddress ? { acceptUnverifiedAddress: true } : {}),
+      ...(acceptUnverifiedAddress || isEdit ? { acceptUnverifiedAddress: true } : {}),
     };
     const sentParts = sendAddress ? parts : {};
-    // Spec 020 R4: a zone is sent only when the admin picked one, in the select or for the state.
-    const zone = zoneChoice || chosenStateZone;
-    const zonePart = zone ? { timeZone: zone } : {};
+    // Spec 024 R3: the zone on every create, with the address on an edit, and otherwise only
+    // when the admin picked another one.
+    const zonePart =
+      zoneChoice && (sendAddress || zoneChoice !== storedZone) ? { timeZone: zoneChoice } : {};
     // Spec 008 R8: the contract needs a capacity; the layout saved next sets it for good.
     const capacity = seated ? totalSeats(lines) : Number(seatingCapacity);
 
@@ -225,15 +216,7 @@ export function LocationForm(): React.ReactElement {
       // never retype a whole form to correct one field.
       const refusal = err as ApiError;
       setError(refusal);
-      // Spec 020 R14: after TIME_ZONE_REQUIRED, the state's zones are asked, and a save anyway
-      // that was refused for it is offered again.
-      if (refusal.code === 'TIME_ZONE_REQUIRED') {
-        setRequiredZones((refusal.details?.timeZones as UsTimeZone[] | undefined) ?? null);
-      }
-      setOfferSaveAnyway(
-        SAVE_ANYWAY_CODES.includes(refusal.code) ||
-          (refusal.code === 'TIME_ZONE_REQUIRED' && acceptUnverifiedAddress),
-      );
+      setOfferSaveAnyway(SAVE_ANYWAY_CODES.includes(refusal.code));
     } finally {
       setBusy(false);
     }
@@ -365,55 +348,52 @@ export function LocationForm(): React.ReactElement {
             />
           </div>
 
-          {/* Spec 020 FR-004, FR-024 (research R4, R14): worked out unless the admin picks one. */}
+          {/* Spec 024 FR-001 to FR-004 (research R1): the admin's pick, required on create. */}
           <div className="field">
             <label htmlFor="timeZone">Time zone</label>
             <select
               id="timeZone"
               value={zoneChoice}
-              onChange={(e) => setZoneChoice(e.target.value as UsTimeZone | '')}
+              aria-invalid={zoneProblem ? true : undefined}
+              aria-describedby={zoneProblem ? 'timeZone-problem' : undefined}
+              onChange={(e) => {
+                setZoneChoice(e.target.value as UsTimeZone | '');
+                setZoneProblem(null);
+              }}
             >
-              <option value="">
-                {!loaded
-                  ? 'Work it out from the address'
-                  : addressChanged
-                    ? 'Work it out from the new address'
-                    : `Keep ${zoneName(loaded.timeZone ?? DEFAULT_TIME_ZONE)} (${SOURCE_TEXT[loaded.timeZoneSource ?? 'DEFAULT']})`}
-              </option>
+              {!isEdit && <option value="">Choose a time zone</option>}
               {US_TIME_ZONES.map((z) => (
                 <option key={z.id} value={z.id}>
                   {z.name}
                 </option>
               ))}
             </select>
-            {loaded &&
-              hasEvents !== false &&
-              zoneChoice &&
-              zoneChoice !== (loaded.timeZone ?? DEFAULT_TIME_ZONE) && (
-                <span className="field__hint">{ZONE_CHANGE_NOTE}</span>
-              )}
+            {zoneProblem && (
+              <span className="field__hint" role="alert" id="timeZone-problem">
+                {zoneProblem}
+              </span>
+            )}
+            {!isEdit && (
+              <span className="field__hint">
+                Event times at this venue are shown and entered in this zone.
+              </span>
+            )}
+            {loaded && <span className="field__hint">{`${venueZone(loaded)}.`}</span>}
+            {loaded && addressChanged && (
+              <span className="field__hint">
+                Changing the address doesn&apos;t change the time zone. Choose another zone here if
+                the venue is in a different one.
+              </span>
+            )}
+            {recordsAdminZone && (
+              <span className="field__hint">
+                {`Saving records ${zoneName(storedZone)} as chosen by an admin.`}
+              </span>
+            )}
+            {loaded && hasEvents !== false && zoneChoice && zoneChoice !== storedZone && (
+              <span className="field__hint">{ZONE_CHANGE_NOTE}</span>
+            )}
           </div>
-
-          {splitZones && (
-            <fieldset className="field">
-              <legend>{`${stateName(address.state)} has more than one time zone. Choose this venue's time zone:`}</legend>
-              {splitZones.map((z) => (
-                <label key={z} className="choice">
-                  <input
-                    type="radio"
-                    name="stateZone"
-                    checked={chosenStateZone === z}
-                    onChange={() => {
-                      setStateZone(z);
-                      setZoneProblem(null);
-                    }}
-                  />
-                  {zoneName(z)}
-                </label>
-              ))}
-              {zoneProblem && <span className="field__hint">{zoneProblem}</span>}
-            </fieldset>
-          )}
 
           {!isEdit && (
             <fieldset className="field">

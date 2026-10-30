@@ -97,6 +97,8 @@ function fill(values: Partial<Record<string, string>> = {}): void {
     State: 'KY',
     'ZIP code': '40202',
     'Seating capacity': '22090',
+    // Spec 024 FR-002: a new venue needs its zone chosen.
+    'Time zone': 'America/New_York',
     ...values,
   };
   for (const [label, value] of Object.entries(v)) set(label, value ?? '');
@@ -140,6 +142,7 @@ describe('Venue form address fields', () => {
       city: 'Louisville',
       state: 'KY',
       zip: '40202',
+      timeZone: 'America/New_York',
       seatingCapacity: 22090,
     });
   });
@@ -311,7 +314,7 @@ describe('Address refusals and Save anyway', () => {
 });
 
 describe('Editing a venue address', () => {
-  it('prefills the four fields from the venue and sends all four', async () => {
+  it('prefills the four fields from the venue, and a name edit sends none of them (024 R3)', async () => {
     const api = stubApi({
       [`GET ${PATH}`]: json(verified),
       [`PATCH ${PATH}`]: json(verified),
@@ -326,17 +329,14 @@ describe('Editing a venue address', () => {
     set('Name', 'Rupp Arena at Central Bank Center');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(writes(api)).toHaveLength(1));
+    // Spec 024 research R3: a verified venue's unchanged address is not sent.
     expect(writes(api)[0].body).toEqual({
       name: 'Rupp Arena at Central Bank Center',
-      street: '430 W VINE ST',
-      city: 'LEXINGTON',
-      state: 'KY',
-      zip: '40507',
       seatingCapacity: 20500,
     });
   });
 
-  it('sends a laid-out venue its name and four fields, never capacity or address', async () => {
+  it('sends a laid-out verified venue its name only, never capacity or address (024 R3)', async () => {
     const api = stubApi({
       [`GET ${PATH}`]: json(verified),
       [`GET ${PATH}/layout`]: json({
@@ -352,13 +352,7 @@ describe('Editing a venue address', () => {
     await waitFor(() => expect(field('Street address').value).toBe('430 W VINE ST'));
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(writes(api)).toHaveLength(1));
-    expect(writes(api)[0].body).toEqual({
-      name: 'Rupp Arena',
-      street: '430 W VINE ST',
-      city: 'LEXINGTON',
-      state: 'KY',
-      zip: '40507',
-    });
+    expect(writes(api)[0].body).toEqual({ name: 'Rupp Arena' });
   });
 });
 

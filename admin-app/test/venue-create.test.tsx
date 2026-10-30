@@ -27,8 +27,11 @@ const fillNameAndAddress = () => {
   fireEvent.change(screen.getByLabelText('City'), { target: { value: 'Louisville' } });
   fireEvent.change(screen.getByLabelText('State'), { target: { value: 'KY' } });
   fireEvent.change(screen.getByLabelText('ZIP code'), { target: { value: '40202' } });
+  // Spec 024 FR-002: a new venue needs its zone chosen.
+  fireEvent.change(screen.getByLabelText('Time zone'), { target: { value: 'America/New_York' } });
 };
 const SENT_ADDRESS = { street: '1 Seat St', city: 'Louisville', state: 'KY', zip: '40202' };
+const SENT_ZONE = { timeZone: 'America/New_York' };
 
 const addSection = (n: number, name: string, rows: string, seats: string) => {
   fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
@@ -87,6 +90,7 @@ describe('New venue: seated or general admission', () => {
     expect(writes[0].body).toEqual({
       name: 'Seat Hall',
       ...SENT_ADDRESS,
+      ...SENT_ZONE,
       seatingCapacity: 70,
     });
     expect(writes[1].body).toEqual({
@@ -134,6 +138,7 @@ describe('New venue: seated or general admission', () => {
     expect(writes[0].body).toEqual({
       name: 'Seat Hall',
       ...SENT_ADDRESS,
+      ...SENT_ZONE,
       seatingCapacity: 500,
     });
   });

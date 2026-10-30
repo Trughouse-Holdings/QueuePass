@@ -30,9 +30,10 @@ fail before the implementation below them. Browser tests are required too (Const
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut the branch; `npm ci`; `npm run ci` green before any change; record the counts per
+- [x] T001 Cut the branch; `npm ci`; `npm run ci` green before any change; record the counts per
   workspace here. Confirm the contract is 1.15.0 and `node scripts/check-contract-drift.mjs` passes
   (both on the spec branch already; nothing to regenerate).
+  **Result**: worktree branch `024-venue-form-simplify-impl` cut from the spec branch at c352b8c (spec PR #108 open); `npm ci` clean; `npm run ci` before any change green: format, lint, build; scripts 75, "23 quickstarts marked; every browser test has its row", shared 681, backend 943, admin 314, customer 308, booth 76, seed 111 (0 skipped: a local Keycloak was up), test:tz quick passed; coverage shared 93.13%, backend 97.03%, admin 97.22%, customer 97.46%, booth 92.28%, seed 100%. Contract `info.version` 1.15.0; `check-contract-drift.mjs`: "api-schema.ts matches contracts/openapi.yaml".
 
 ## Phase 2: Foundational
 
@@ -51,7 +52,7 @@ zone on edit, and the zone is sent per research R3.
 
 ### Tests first
 
-- [ ] T002 [US1] Rewrite the zone tests in `admin-app/test/venue-time-zone.test.tsx` (keep the venue
+- [x] T002 [US1] Rewrite the zone tests in `admin-app/test/venue-time-zone.test.tsx` (keep the venue
   list and page tests and the zone-change tests as they are). Must fail on today's form:
   - New venue: the Time zone options are exactly `['Choose a time zone', 'Eastern Time', 'Central
     Time', 'Mountain Time', 'Arizona Time (no daylight saving)', 'Pacific Time', 'Alaska Time',
@@ -77,10 +78,11 @@ zone on edit, and the zone is sent per research R3.
     named "more than one time zone" and no "Save anyway" button.
   **Fails because**: today's first option is "Work it out from the address", and a create without a
   zone is sent.
+  **Result**: `venue-time-zone.test.tsx`: the old select and split-state describes replaced by three: New venue (options exactly "Choose a time zone" and the eight, value `''`, no "Work it out"; the hint; no zone → `role="alert"` span named by the select's `aria-describedby`, `aria-invalid="true"`, values kept, no write, cleared on choosing, then one `POST` with `America/Chicago`; zone and address problems in one press; the saved notice; Kentucky `400 ADDRESS_NOT_FOUND` → no "more than one time zone" group, no Save anyway), Edit venue (the eight, stored value, "Eastern Time, from the address.", both hints after a City change and neither after changing back, only the first on an `ADMIN` zone), and R3's sending rule by exact `PATCH` body (four cases). The list/page, zone-change note, and refusal tests kept. 11 of 22 failed on the old form.
 
 ### Implementation
 
-- [ ] T003 [US1] `admin-app/src/pages/LocationForm.tsx` per research R1 and R3: the select (create:
+- [x] T003 [US1] `admin-app/src/pages/LocationForm.tsx` per research R1 and R3: the select (create:
   `<option value="">Choose a time zone</option>` then `US_TIME_ZONES`; edit: the eight only,
   `zoneChoice` initialised from `loaded.timeZone ?? DEFAULT_TIME_ZONE`); the required check in
   `save()` alongside `addressProblems`, with `zoneProblem` "Choose the venue's time zone." in a
@@ -95,7 +97,8 @@ zone on edit, and the zone is sent per research R3.
   `requiredZones`, `splitZones`, `storedInState`, `chosenStateZone`, `stateName`, the split-state
   fieldset, and the `TIME_ZONE_REQUIRED` handling; drop the imports this leaves unused (`STATE_TIME_ZONES`, `SOURCE_TEXT`;
   `npm run lint` names any other). T002 passes.
-- [ ] T004 [US1] Every other Admin test that creates a venue through the form now chooses a zone
+  **Result**: `LocationForm.tsx` as the task: the select (`Choose a time zone` on create only), `zoneChoice` from the loaded zone, `ZONE_REQUIRED` in `#timeZone-problem` with `aria-invalid`/`aria-describedby`, cleared on change, checked in the same press as the address problems; the four hints (`recordsAdminZone` when the address goes with the stored zone and the source is not `ADMIN`); `sendAddress` per R3 and `timeZone` with it, else only when changed; the split-state code, `TIME_ZONE_REQUIRED` handling, `STATE_TIME_ZONES`, `SOURCE_TEXT`, and `stateName` removed. An edit that sends the address already sends `acceptUnverifiedAddress: true` here, since T002's edit bodies expect it (R3, R4); the create side and the Save anyway removal are T010's. T002: 21 of 22 pass; the Kentucky test's "no Save anyway" assertion passes with T010, which removes the button.
+- [x] T004 [US1] Every other Admin test that creates a venue through the form now chooses a zone
   before Create venue: `admin-app/test/venue-create.test.tsx` (`fillNameAndAddress`, and its two
   `expect(writes[0].body).toEqual({ name: 'Seat Hall', ...SENT_ADDRESS, seatingCapacity: … })`
   assertions gain the chosen `timeZone`), `admin-app/test/venue-address.test.tsx` (its fill helper,
@@ -103,6 +106,7 @@ zone on edit, and the zone is sent per research R3.
   live validation rejection`). Edit bodies that change with R3 (no address fields for a verified
   venue's name or capacity edit, e.g. `admin-app/test/capacity.test.tsx`) are updated here too. `npm run test --workspace @queuepass/admin-app` green except the US2/US3 tests still to
   be written.
+  **Result**: `venue-create.test.tsx` (`fillNameAndAddress` chooses Eastern; both exact create bodies gain `timeZone`), `venue-address.test.tsx` (`fill` chooses Eastern; the create body gains `timeZone`; the two edit-body tests now expect a verified venue's name edit to send no address: `{ name, seatingCapacity }` and, laid out, `{ name }`), `pages.live-fixtures.test.tsx` (selects Eastern). `capacity.test.tsx` passed unchanged. Admin suite: 312 passed, 4 failed, all Save anyway tests T007 replaces.
 
 **Checkpoint**: US1 works on its own: quickstart V1 passes in the browser.
 
