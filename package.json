@@ -20,7 +20,7 @@
     "test:tz": "node scripts/test-tz.mjs",
     "e2e": "node scripts/e2e.mjs",
     "seed": "npm run seed --workspace scripts/seed",
-    "lint": "eslint .",
+    "lint": "eslint . && tsc -p e2e/tsconfig.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "ci": "npm run prisma:generate --workspace @queuepass/backend && npm run format:check && npm run lint && npm run build && npm test && npm run coverage:report",

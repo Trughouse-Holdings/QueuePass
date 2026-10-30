@@ -65,7 +65,7 @@ jobs:
       - name: Browser tests
         run: npm run e2e
       - name: Keep the report, traces, screenshots, and service logs
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
           name: e2e-results
