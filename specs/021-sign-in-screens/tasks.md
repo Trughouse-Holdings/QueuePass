@@ -257,10 +257,11 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
 
 **Independent Test**: quickstart S5, S6.
 
-- [ ] T026 [US4] Check in a browser at 360 px, light and dark, keyboard only, VoiceOver (quickstart
+- [x] T026 [US4] Check in a browser at 360 px, light and dark, keyboard only, VoiceOver (quickstart
   S5, S6); fix `login.css` or `template.ftl` for anything that fails (sideways scroll, focus ring,
   heading order, autofocus on username from `base`'s `login.ftl`). Record what was checked here.
   **Result**: **partly done headlessly, needs Nate's browser walk.** Checked in headless Chrome 2026-10-30 over the DevTools protocol, for admin, customer, booth (and account console) at 360 px and 1280 px, light and dark, on the first screen and after a wrong password typed and sent with Enter: no sideways scroll (scrollWidth = width in all 34 renders); focus starts in `#username` (also after the error); Tab goes username → password → Show → Sign In; Show and Sign In draw a 3 px outline in the app's accent, the fields the shared accent border and ring; Space on Show reveals the password, its `aria-label` turns to "Hide password" and it shows "Hide"; one `<h1>` and the `<title>` name the app; computed contrast on the rendered pages: heading 17.63 / 14.45, audience line 5.23 / 6.83, labels 17.63 / 14.45, button text on accent 5.02–6.29 / 6.09–11.32, field error 6.57 / 8.97 (light / dark), brand letter ≥ 3.1. Screenshots looked over by eye: the band, mark and button take each app's accent. No fix was needed. **Not checked**: VoiceOver (the title and heading are right in the markup; the wrong-password text is now named by the fields' `aria-describedby`, review round 1 finding 1, but a person still has to hear it read out), a real phone, and DevTools' own contrast panel.
+  **Result (Nate's browser walk, 2026-10-30)**: Nate walked the screens in Safari on a stack built from this branch (`-p qp021walk`) and confirmed "it all works"; recorded on his word.
 
 ---
 
@@ -306,14 +307,16 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
 - [x] T031 `npm run ci` locally, green; record the counts per workspace.
   **Result**: `npm run ci` green on 2026-10-30 (exit 0) with Keycloak up: format, lint, build; root node tests 45; shared 669 (21 files); backend 942 (94 suites); admin 249 (27 files); customer 308 (22 files); booth 76 (5 files); seed 54 (5 files, all live: 14 sign-in screen and 6 idempotence cases run; without Keycloak, as in GitHub CI, those 20 skip with their reason); test:tz quick pass. Coverage: shared 93.13%, backend 97.02%, admin 97.06%, customer 97.46%, booth 92.28%, seed 75.37% (floor not enforced until 010).
   **Result (after review round 1 and merging `main` at 9702cb3)**: `npm run ci` green (exit 0) with Keycloak up and re-seeded from this branch: root node tests 45; shared 681 (21 files); backend 943 (94 suites); admin 249; customer 308; booth 76; seed 57 (5 files, all live: 14 sign-in screen and 6 idempotence cases; they skip without Keycloak); test:tz quick pass.
-- [ ] T032 Running-system walk, quickstart S0–S9, on a stack built from this branch; record each
+- [x] T032 Running-system walk, quickstart S0–S9, on a stack built from this branch; record each
   scenario's result here (Constitution VI smoke test: each front end signed into, used, signed out).
   **Result**: **partly done headlessly, needs Nate's browser walk.** The apps' ports 5173–5175 were held by another session's stack (`qp018walk`), which was left running, so only Keycloak and the seed ran here (`-p qp021`). Done: **S0** from an empty volume, the seed logged `created realm 'queuepass'` and `set login theme 'queuepass'`, no console step. **S1** by each app's authorization request (as the apps send it): titles, headings, audience lines and accents (band, mark, button computed colors) as the table, no registration link. **S3** wrong password for each app keeps the identity with the error under the fields, username kept; then `admin1`/`customer1`/`agent1` with `test123` return 302 to `http://localhost:517x/?…code=…`. **S5/S6** as T026 (no VoiceOver). **S7** headless Chrome opened `/realms/queuepass/account`; its script landed on "Sign in to Account Console", `qp-app--account-console`, no audience line. **S8** a stack started from `bae1d74` (stock look, `QueuePass` customer client), then rebuilt from this branch on the same Keycloak data: seed logged `set login theme 'queuepass'` and converged `customer-app`; the 14 live sign-in cases pass; all three test accounts still sign in; a third run logged `login theme already 'queuepass'`. Not done: S1 through the running apps, **S2** (a person matching covered screens), **S4** (sign out and an ended session, through the apps), **S6** VoiceOver, **S9** the Customer app's tab and header in a browser (covered by T027's tests only).
-- [ ] T033 Push and open the implementation PR (after the spec PR has merged and the branch is up to
+  **Result (Nate's browser walk, 2026-10-30)**: stack rebuilt from this branch at 28ebdcd as `-p qp021walk` from an empty volume (seed: `created realm 'queuepass'`, `set login theme 'queuepass'`); the three apps opened in Safari at 5173, 5174, 5175. Nate walked them (S1, S2, S3, S4, S9 and the rest through the running apps) and confirmed "it all works"; recorded on his word.
+- [x] T033 Push and open the implementation PR (after the spec PR has merged and the branch is up to
   date with `main`): description says `fixes #92`, lists the review, the walk, the test counts, and
   the shared surface touched (`docker-compose.yml`, `packages/shared/`, the constitution was in the
   spec PR). Wait for CI green on GitHub on the final commit; merge only when green and approved.
   **Result**: branch pushed (`git push -u origin 021-sign-in-screens-impl`) on 2026-10-30; no pull request opened yet, since the spec PR (#96) has not merged; CI on GitHub runs once the PR is open.
+  **Result (after #96 merged)**: merged `main`, opened draft PR #100 (`fixes #92` in its description); marked ready for review after Nate's walk. Merging is left to the team once CI is green.
 
 ---
 
