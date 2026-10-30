@@ -123,7 +123,7 @@ description: "Task list for Test Coverage Floor"
   (264/264); `test:tz --quick` passed. The first run failed in `customer-app`'s
   `entry-code.test.tsx` (018) on a 5 s timeout with the machine's load average at 58 on 8 cores;
   that file passed 2 of 3 runs alone and the whole rerun: load, not coverage, and not 010's code.
-- [ ] T017 Quickstart F2–F4 (F3 on a draft PR, closed unmerged afterwards); record.
+- [x] T017 Quickstart F2–F4 (F3 on a draft PR, closed unmerged afterwards); record.
   Result so far: **F2** done locally: `booth-app/src/untested.ts` with 60 small functions made the
   root `npm test` fail at `booth-app` (`ERROR: Coverage for lines (65.78%) does not meet global
   threshold (80%)`, `npm error workspace @queuepass/booth-app@0.1.0`), and `npm run
@@ -136,6 +136,9 @@ description: "Task list for Test Coverage Floor"
   run: the Keycloak reachable at localhost:9000 was another session's `021` stack, whose
   `customer-app` client name `021` changes, so the seed's live tests would have re-converged it;
   left for a human with a stack of this branch.
+  **F4** done 2026-10-30 on a Keycloak built from this branch (`-p qp010f4`, removed afterwards):
+  `npm test --workspace @queuepass/seed` ran all 11 files, 111 tests passed (the 20 live ones
+  included, none skipped), lines 100% (264/264).
 - [ ] T018 Push; open the implementation PR after the spec PR merges: `fixes #22`, coverage before and
   after, the review. CI green; merge when green and approved. Result so far: spec PR #99 merged;
   `main` (021, PR #100) merged in and reconciled (T016); branch pushed; implementation PR #103 opened,
