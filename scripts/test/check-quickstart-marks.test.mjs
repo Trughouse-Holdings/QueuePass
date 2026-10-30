@@ -167,3 +167,52 @@ test('the — row is refused where the quickstart does have scenario headings', 
   assert.equal(problems.length, 1);
   assert.match(problems[0], /—.*has scenario headings/);
 });
+
+// Review round 1 (S1): a test that walks only part of its scenario says what is left, and why.
+test('an Automated row may carry the rest of the scenario as "; rest Manual: <what and why>"', () => {
+  const partly =
+    '| S1 | Manual: printing |\n| S2 | Automated: `015 S2: live gray-out`; rest Manual: the Admin seat map, by eye |';
+  assert.deepEqual(check(quickstart(BODY, partly)), []);
+  const empty =
+    '| S1 | Manual: printing |\n| S2 | Automated: `015 S2: live gray-out`; rest Manual: |';
+  const problems = check(quickstart(BODY, empty));
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /S2.*rest Manual.*no reason/);
+  const other = '| S1 | Manual: printing |\n| S2 | Automated: `015 S2: live gray-out`; and more |';
+  assert.match(check(quickstart(BODY, other)).join('\n'), /S2.*must be Automated/);
+});
+
+// Review round 1 (S3): a title in backticks, or on test.only/test.skip, is still a test.
+test('test.only, test.skip, test.fixme, and test.fail titles are titles too', () => {
+  const src = [
+    "test.only('015 S2: only', async () => {});",
+    "test.skip('015 S2: skipped', async () => {});",
+    "test.fixme('015 S2: fixme', async () => {});",
+    "test.fail('015 S2: fail', async () => {});",
+  ].join('\n');
+  assert.deepEqual(testTitles(src), [
+    '015 S2: only',
+    '015 S2: skipped',
+    '015 S2: fixme',
+    '015 S2: fail',
+  ]);
+});
+
+test('a title in backticks fails, naming the test file', () => {
+  const problems = check(
+    quickstart(BODY, CLEAN_TABLE),
+    `${CLEAN_SPEC}test(\`015 S2: a template\`, async () => {});\n`,
+  );
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /^e2e\/tests\/015-seat-holds\.spec\.ts: .*backticks/);
+});
+
+test("a row's label must be one of the labels its test is named after", () => {
+  const body = `${BODY}\n## S3: A pick taken\n`;
+  const table = `${CLEAN_TABLE}\n| S3 | Automated: \`015 S2: live gray-out\` |`;
+  const problems = check(quickstart(body, table));
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /row S3 names "015 S2: live gray-out", a test of S2/);
+  const both = `| S1 | Automated: \`015 S1/S2: both\` |\n| S2 | Automated: \`015 S1/S2: both\` |`;
+  assert.deepEqual(check(quickstart(BODY, both), "test('015 S1/S2: both', async () => {});\n"), []);
+});
