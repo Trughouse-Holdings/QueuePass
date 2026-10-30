@@ -52,11 +52,16 @@ scripts/check-quickstart-marks.mjs   # R10
    starting anything (FR-013).
 2. `docker compose -p qpe2e -f docker-compose.yml -f e2e/stack/docker-compose.e2e.yml down -v
    --remove-orphans` (a leftover from a killed run).
-3. Same files: `up --build --detach --wait` (every service healthy), then `docker compose ... wait
-   seed` and checks its exit code is 0.
+3. Same files: `up --build --detach --wait --wait-timeout 600`. `--wait` returns once every service
+   is healthy and the one-shot seed has exited 0 (the apps start only after it completes); a seed
+   that keeps failing (it has `restart: on-failure`) makes `--wait` time out instead of hanging. On a
+   non-zero exit the runner prints `logs seed` and stops. No separate `wait seed`: once the seed has
+   exited, `docker compose wait seed` finds no running container and returns 1 (review round 1,
+   finding 1).
 4. Loads the demo data: `docker compose ... exec -T backend node backend/dist/scripts/demo-data.js`
    (README's command) (FR-002).
-5. `npx playwright install chromium` (CI adds `--with-deps`), then `npx playwright test -c
+5. `npx playwright install chromium` (`--with-deps` when `CI` is set; the CI job does not install
+   the browser itself), then `npx playwright test -c
    e2e/playwright.config.ts` with any arguments passed through (a scenario name with `-g`, FR-013).
 6. Always (in `finally`, and on SIGINT/SIGTERM): saves every service's log to
    `e2e/test-results/stack-logs/` when tests failed or the stack did not start, then `down -v
@@ -77,7 +82,7 @@ stack); Testcontainers' Compose module (another layer over the same command, har
 (`node:22-alpine`, the repository's Node version), serving `GET /geocoder/locations/address` the way
 the Census Geocoder answers it (`backend/src/address/census-geocoder.ts`): a 200 with
 `result.addressMatches`, one match with `matchedAddress` and `coordinates` for each address in
-`addresses.json`, and an empty list for anything else. Addresses: one in Louisville, KY (Eastern),
+`addresses.json`, and an empty list for anything else. Addresses: the two demo-data venues (`430 W Vine St, Lexington, KY 40507` and `937 Phillips Ln, Louisville, KY 40209`, which `demo-data.ts` creates and which would otherwise get `ADDRESS_NOT_FOUND`, review round 1, finding 2), one in Louisville, KY (Eastern),
 one in Chicago, IL (Central), one in Phoenix, AZ (Arizona), one in Los Angeles, CA (Pacific), with
 real coordinates so the Backend's time-zone lookup (`GeoTzFinder`, offline) gives the right zone.
 `docker-compose.e2e.yml` adds the service (with a health check) and sets the Backend's
@@ -108,9 +113,11 @@ catches broken wiring (US1). Labels, not CSS, so `021`'s new look does not break
 
 ## R6. Setting up data through the API
 
-**Decision**: `apiAs(page)` in `e2e/fixtures/api.ts`: after `signIn`, waits for the app's first
-request to the Backend (`page.waitForRequest` on `http://localhost:3000/` with an `authorization`
-header) and builds a Playwright `APIRequestContext` with that `Authorization: Bearer …` header.
+**Decision**: `apiAs(page)` in `e2e/fixtures/api.ts`: starts listening **before** sign-in
+(`page.waitForRequest` on `http://localhost:3000/` with an `authorization` header, created first and
+awaited after `signIn`), because the app's first authorized call is usually sent before `signIn`
+returns and tokens are in memory only (review round 1, finding 4); if none came, it reloads the page
+and captures the reload's first call and builds a Playwright `APIRequestContext` with that `Authorization: Bearer …` header.
 Helpers: `createVenue`, `createEvent`, `addTier`, `setTicketLimit`, `buyTickets` (for setup only,
 when the scenario is not itself the purchase). On a 401 (an expired token), the helper reloads the
 page to capture a fresh one, once.
@@ -141,8 +148,10 @@ fixed default zone makes non-`020` tests independent of the runner's zone.
 **Decision**: every test creates its own venue (one of R4's addresses, name `e2e <test id> <short
 random>`), its own events at that venue, and its own tiers, so tests never share an event and never
 meet the 60-minute rule. Test accounts are picked so no two tests running at the same time share one:
-customers `customer{100 + workerIndex * 20 + n}`, agents `agent{10 + workerIndex * 5 + n}`, admins
-`admin{2 + workerIndex}` (workers ≤ 3); `customer1`–`customer99`, `agent1`–`agent9`, and `admin1`
+customers `customer{100 + parallelIndex * 20 + n}`, agents `agent{10 + parallelIndex * 5 + n}`,
+admins `admin{2 + parallelIndex}` (workers ≤ 3). `testInfo.parallelIndex` (0 to workers − 1), not
+`workerIndex`, which grows each time Playwright replaces a worker after a failure (review round 1,
+finding 3); `customer1`–`customer99`, `agent1`–`agent9`, and `admin1`
 are left for people. The `016` limit counts per customer per event, so a new event per test resets
 it. Demo data is loaded (FR-002) but no test changes or depends on it, except `003`'s browse test,
 which only reads.
@@ -154,9 +163,9 @@ runs every test three times in one stack (FR-011).
 
 | Test name | Walks |
 | --- | --- |
-| `001 V3: sign in, hello, and sign out of the Admin app` (and Customer, Ticket Booth) | Keycloak sign-in, the app's page, Sign out ends the session (a reload shows Keycloak's page) |
+| `001 V3: sign in, hello, and sign out of each app` (one test, the three apps in turn) | Keycloak sign-in, the app's page, Sign out ends the session (a reload shows Keycloak's page) |
 | `001 V4: a customer is refused in the Admin app` | wrong-role page, no data, Sign out offered |
-| `002 …` / `003 …: an admin creates a venue and an event; a customer finds it` | Admin UI venue + event; Customer search shows it with its venue and time |
+| `003 C1: an admin creates a venue and an event; a customer finds it` (`002`'s quickstart covers only deletion, D1–D7; its rules keep their Backend tests) | Admin UI venue + event; Customer search shows it with its venue and time |
 | `006 P1/P4: a customer gets tickets in a tier and sees them in My tickets` | event set up by API; purchase in the Customer UI; My tickets |
 | `007 …: a customer chooses seats and gets them` | seated event by API; seat map; purchase; My tickets lists the seats |
 | `015 S2: live gray-out` | two customer contexts on one seated event; one reserves; the other's seats show unavailable within 2 s (`expect(...).toHaveAttribute(..., { timeout: 2_000 })`), no reload |
@@ -165,7 +174,9 @@ runs every test three times in one stack (FR-011).
 | `019 …: the calendar file` | `waitForEvent('download')`; the file's `SUMMARY`, `DTSTART`, `DTEND`, `LOCATION` |
 | `020 …: times stay in the venue's zone` | a Phoenix venue and an event; Customer pages in `timezoneId` `America/New_York` and `Asia/Tokyo` show the Phoenix time with its abbreviation; the Admin event form refuses a start that a spring-forward night skips in an Eastern venue |
 
-The exact scenario labels are taken from each quickstart by T020–T029, which also write the marks
+The exact scenario labels (`001` V3/V4, `003` C1, `006` P1/P4, `007` S3, `015` S2, `016` S2, `017`
+S3, `019` S2, `020` S6/S7, checked in review round 1) are confirmed against each quickstart by
+T015–T022, and T027 writes the marks
 (R10). `018` (rotating code by camera) and `015` S5 (a hold running out after 5 minutes) stay manual
 (spec Clarifications).
 
@@ -224,7 +235,8 @@ race.
 
 ## R14. Constitution amendment (FR-014)
 
-**Decision**: in this spec PR. Principle VI gains a bullet: "From feature `023` on, a feature's
+**Decision**: in this spec PR. Principle VI gains a bullet: "For every feature whose implementation
+PR opens after `022`'s implementation has merged, a feature's
 implementation PR MUST include browser tests (`e2e/`, run by `npm run e2e` and the `e2e` check) for
 its quickstart's main journey, and its quickstart MUST mark each scenario Automated or Manual (spec
 `022`)." The Language and Stack table gains a row "Browser tests | Playwright (Chromium), in `e2e/`

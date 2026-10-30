@@ -22,7 +22,7 @@
 - **Every quickstart gets an Automation table** (R10), checked against the test titles by a fast
   script in `npm test`.
 - **CI**: a second job `e2e` (R11), required on `main` after it passes there (R12). No retries (R13).
-- **Constitution 3.5.0** (R14): from `023` on, features ship browser tests for their main journey;
+- **Constitution 3.5.0** (R14): features whose implementation PR opens after this one merges ship browser tests for their main journey;
   Playwright joins the stack table. Renumbered to 3.6.0 if `021`'s spec PR merges first.
 - **No API, database, or Keycloak change** (data-model.md, contracts/README.md).
 
@@ -49,7 +49,7 @@ under 60 seconds.
 **Constraints**: standard ports only (exact redirect URIs); seed accounts only; no retries; no outside
 service; `npm test` gains only the marks check.
 
-**Scale/Scope**: about 12 tests in 9 files; 18 quickstarts get a table.
+**Scale/Scope**: about 12 tests in 8 files; every quickstart (19 today) gets a table.
 
 ## Constitution Check
 
@@ -83,7 +83,7 @@ specs/022-quickstart-browser-tests/
 e2e/                                  # NEW (R2)
 ├── playwright.config.ts, tsconfig.json
 ├── fixtures/{apps,sign-in,api,data}.ts
-├── tests/001-sign-in.spec.ts, 002-003-venue-event.spec.ts, 006-007-tickets.spec.ts,
+├── tests/001-sign-in.spec.ts, 003-venue-event.spec.ts, 006-007-tickets.spec.ts,
 │   015-seat-holds.spec.ts, 016-ticket-limit.spec.ts, 017-check-in.spec.ts,
 │   019-calendar.spec.ts, 020-time-zones.spec.ts
 └── stack/docker-compose.e2e.yml, stack/geocoder-stub/{Dockerfile,server.mjs,addresses.json}

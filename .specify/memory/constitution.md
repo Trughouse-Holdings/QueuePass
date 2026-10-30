@@ -5,8 +5,9 @@ Version: 3.4.2 -> 3.5.0 (MINOR): a new requirement on future features; the stack
 Problem: issue #93: the quickstarts' running-system scenarios are walked by hand once and never in
   CI, so broken wiring between the pieces can pass every check (spec 022 research R14).
 Changed:
-  - Principle VI: from feature 023 on, a feature's implementation PR includes browser tests for its
-    quickstart's main journey, and its quickstart marks each scenario Automated or Manual.
+  - Principle VI: for every feature whose implementation PR opens after 022's implementation merges,
+    the implementation PR includes browser tests for its quickstart's main journey, and its
+    quickstart marks each scenario Automated or Manual.
   - Language and Stack: a "Browser tests" row (Playwright, Chromium, e2e/ at the repository root);
     the "Continuous integration" row names the e2e job.
 Impact: spec 022 builds the browser tests, the e2e job, and the marks in every quickstart. Features
@@ -198,7 +199,8 @@ after it.
 - Before an implementation PR is merged, the system MUST be brought up with
   `docker compose up --build`, and each front end MUST be signed into, used, and signed out of as
   a smoke test.
-- From feature `023` on, a feature's implementation PR MUST include browser tests (`e2e/`, run by
+- For every feature whose implementation PR opens after `022`'s implementation has merged, the
+  implementation PR MUST include browser tests (`e2e/`, run by
   `npm run e2e` and the `e2e` check) for its quickstart's main journey, and its quickstart MUST mark
   each scenario Automated or Manual, with the test's name or the reason (spec `022`).
 

@@ -47,7 +47,8 @@ recorded here so the team can overturn it in review of the spec PR.
   FR-005), not every scenario. Every quickstart is still marked scenario by scenario (FR-007), so
   later work can automate more.
 - Q: Should new features' quickstarts be written with their browser tests from now on? (open
-  question 4) → A: **Yes**, by a constitution amendment: from feature `023` on, a feature's
+  question 4) → A: **Yes**, by a constitution amendment: for every feature whose implementation PR opens after this
+  feature's implementation has merged, a feature's
   implementation PR includes browser tests for its quickstart's main journey, and its quickstart
   marks each scenario automated or manual (FR-014).
 - Q: The venue address service is an outside service on the internet. Does the browser-test stack
@@ -65,7 +66,7 @@ recorded here so the team can overturn it in review of the spec PR.
 
 A teammate changes the Customer app's sign-in wiring. Every unit and integration test still passes,
 but customers can no longer reach **My tickets** after signing in. The pull request's browser-test
-check fails, naming the scenario ("006 S2: a customer buys tickets") and showing a screenshot and a
+check fails, naming the scenario ("006 P1: a customer gets tickets in a tier") and showing a screenshot and a
 trace of the step that broke. The teammate fixes it before merging.
 
 **Why this priority**: This is the issue's purpose: catch broken wiring between the pieces that no
@@ -223,7 +224,8 @@ it passes and leaves no containers or volumes behind.
 - **FR-013**: One documented command MUST run the browser tests locally: it refuses to start, naming
   the ports, if the stack's ports are in use; removes any leftover browser-test stack; starts a fresh
   one; runs the tests (all, or one by name); writes a report; and removes the stack and its data.
-- **FR-014**: The constitution MUST require, from feature `023` on, that a feature's implementation PR
+- **FR-014**: The constitution MUST require, for every feature whose implementation PR opens after this
+  feature's implementation has merged, that a feature's implementation PR
   include browser tests for its quickstart's main journey, and that its quickstart mark each scenario
   Automated or Manual.
 - **FR-015**: The `test` check and `npm test` MUST NOT run the browser tests or start any stack; the
@@ -242,7 +244,7 @@ it passes and leaves no containers or volumes behind.
 
 - **SC-001**: A deliberate break in any one covered journey turns the pull request's browser-test
   check red, naming the scenario; reverting it turns it green.
-- **SC-002**: Every journey listed in User Story 2 has a named test: at least 10 tests over 9
+- **SC-002**: Every journey listed in User Story 2 has a named test: at least 10 tests over 10
   features.
 - **SC-003**: The browser-test check finishes within 30 minutes on GitHub's standard runner,
   including building and starting the stack.
