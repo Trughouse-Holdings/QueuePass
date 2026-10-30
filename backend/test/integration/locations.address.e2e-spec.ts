@@ -242,6 +242,7 @@ describe('Venue address check on create (spec 013)', () => {
     expect(ctx.geocoder.calls).toHaveLength(0);
   });
 
+  // Spec 013 FR-006; spec 024 FR-012 (research R5): refused without the flag, saved with it.
   describe('when the address service is unavailable (US2, FR-006)', () => {
     const UNAVAILABLE = {
       code: 'ADDRESS_SERVICE_UNAVAILABLE',
@@ -255,13 +256,60 @@ describe('Venue address check on create (spec 013)', () => {
       expect(await ctx.prisma.location.count()).toBe(0);
     });
 
-    it('ignores save anyway: still 503, nothing saved', async () => {
+    // Spec 024 research R5 (FR-012): with the flag, an unavailable service saves as sent.
+    it('saves as sent, not verified, with save anyway and a zone (spec 024)', async () => {
       ctx.geocoder.next({ kind: 'unavailable' });
       const res = await asAdmin(ctx)
         .post('/locations')
-        .send({ ...arena, acceptUnverifiedAddress: true, timeZone: 'America/New_York' })
-        .expect(503);
-      expect(res.body.error.code).toBe('ADDRESS_SERVICE_UNAVAILABLE');
+        .send({
+          ...arena,
+          street: ' 1  Arena Plaza ',
+          zip: '40202-1234',
+          acceptUnverifiedAddress: true,
+          timeZone: 'America/New_York',
+        })
+        .expect(201);
+      expect(ctx.geocoder.calls).toHaveLength(1);
+      expect(res.body).toMatchObject({
+        street: '1 Arena Plaza',
+        city: 'Louisville',
+        state: 'KY',
+        zip: '40202',
+        address: '1 Arena Plaza, Louisville, KY 40202',
+        addressVerified: false,
+        timeZone: 'America/New_York',
+        timeZoneSource: 'ADMIN',
+      });
+      expect(await ctx.prisma.location.count()).toBe(1);
+    });
+
+    it("with save anyway and no zone in a one-zone state, takes the state's zone (spec 024)", async () => {
+      ctx.geocoder.next({ kind: 'unavailable' });
+      const res = await asAdmin(ctx)
+        .post('/locations')
+        .send({
+          ...arena,
+          street: '1 Arena Plaza',
+          city: 'Columbus',
+          state: 'OH',
+          zip: '43215',
+          acceptUnverifiedAddress: true,
+        })
+        .expect(201);
+      expect(res.body).toMatchObject({
+        addressVerified: false,
+        timeZone: 'America/New_York',
+        timeZoneSource: 'STATE',
+      });
+    });
+
+    it('with save anyway and no zone in a two-zone state, still needs one (spec 024)', async () => {
+      ctx.geocoder.next({ kind: 'unavailable' });
+      const res = await asAdmin(ctx)
+        .post('/locations')
+        .send({ ...arena, acceptUnverifiedAddress: true })
+        .expect(400);
+      expect(res.body.error.code).toBe('TIME_ZONE_REQUIRED');
       expect(await ctx.prisma.location.count()).toBe(0);
     });
 

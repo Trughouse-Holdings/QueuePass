@@ -7,7 +7,10 @@ import { LocationForm } from '../src/pages/LocationForm';
 import { LocationList } from '../src/pages/LocationList';
 import { json, stubApi } from './helpers/api-stub';
 
-/** Spec 013 US1 (FR-011 to FR-013, FR-019); research R13. */
+/**
+ * Spec 013 US1 (FR-012, FR-013, FR-019); research R13. Spec 024 US2 (FR-008 to FR-017; research
+ * R3, R4, R6): no Save anyway; the flag with every address sent; the not-verified notice.
+ */
 afterEach(() => vi.unstubAllGlobals());
 
 const ID = '6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e';
@@ -130,7 +133,7 @@ describe('Venue form address fields', () => {
     expect(screen.getByRole('option', { name: 'Kentucky (KY)' })).toBeInTheDocument();
   });
 
-  it('sends the four fields, with no address and no save-anyway flag', async () => {
+  it('sends the four fields and the flag (spec 024 R4), with no one-line address', async () => {
     const api = stubApi({ 'POST /locations': json(savedAnyway, 201), 'GET /locations': json([]) });
     renderAt('/locations/new');
     fill();
@@ -142,6 +145,7 @@ describe('Venue form address fields', () => {
       city: 'Louisville',
       state: 'KY',
       zip: '40202',
+      acceptUnverifiedAddress: true,
       timeZone: 'America/New_York',
       seatingCapacity: 22090,
     });
@@ -172,126 +176,85 @@ describe('Venue form address fields', () => {
   });
 });
 
-describe('Address refusals and Save anyway', () => {
-  it('shows ADDRESS_NOT_FOUND, keeps every value, and offers Save anyway', async () => {
-    stubApi({ 'POST /locations': json(NOT_FOUND, 400) });
-    renderAt('/locations/new');
-    fill();
-    create();
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveAttribute('data-code', 'ADDRESS_NOT_FOUND');
-    expect(banner).toHaveTextContent(NOT_FOUND.error.message);
-    expectValuesKept();
-    expect(screen.getByRole('button', { name: SAVE_ANYWAY })).toBeInTheDocument();
-  });
+/** Spec 024 research R6: the notice after a save whose address is not verified. */
+const NOT_VERIFIED_NOTICE =
+  'Venue saved, but its address is not verified: 1 Arena Plaza, Louisville, KY 40202. The US ' +
+  "address service couldn't confirm it, so check that it's right: customers see this address " +
+  "and its map link. To verify it later, edit the venue and save it, correcting the address if it's " +
+  'wrong. Time zone: Eastern Time, chosen by an admin.';
+const notVerified: Location = {
+  ...savedAnyway,
+  timeZone: 'America/New_York',
+  timeZoneSource: 'ADMIN',
+};
 
-  it('shows ADDRESS_AMBIGUOUS with each candidate as a list item, and Save anyway', async () => {
+describe('One press saves the address (spec 024 US2, FR-008 to FR-011, FR-014, FR-015)', () => {
+  it.each([
+    ['400 ADDRESS_NOT_FOUND', NOT_FOUND, 400],
+    ['400 ADDRESS_AMBIGUOUS', AMBIGUOUS, 400],
+    [
+      '400 VALIDATION_FAILED',
+      {
+        error: {
+          code: 'VALIDATION_FAILED',
+          message: 'Request validation failed.',
+          details: { fields: ['name must be between 1 and 200 characters'] },
+        },
+      },
+      400,
+    ],
+    ['503 ADDRESS_SERVICE_UNAVAILABLE', UNAVAILABLE, 503],
+  ])(
+    'shows a %s refusal, keeps every value, and offers no Save anyway',
+    async (_l, body, status) => {
+      stubApi({ 'POST /locations': json(body, status) });
+      renderAt('/locations/new');
+      fill();
+      create();
+      const banner = await screen.findByTestId('error-banner');
+      expect(banner).toHaveTextContent(body.error.message);
+      expectValuesKept();
+      expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
+    },
+  );
+
+  it('shows ADDRESS_AMBIGUOUS with each candidate as a list item', async () => {
     stubApi({ 'POST /locations': json(AMBIGUOUS, 400) });
     renderAt('/locations/new');
     fill();
     create();
     const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveTextContent(AMBIGUOUS.error.message);
     const items = within(banner).getAllByRole('listitem');
     expect(items.map((li) => li.textContent)).toEqual(CANDIDATES);
-    expectValuesKept();
-    expect(screen.getByRole('button', { name: SAVE_ANYWAY })).toBeInTheDocument();
   });
 
-  it('shows a single different match as "did you mean", with Save anyway (FR-021)', async () => {
-    const moved = {
-      error: {
-        code: 'ADDRESS_AMBIGUOUS',
-        message:
-          'We found a different US address for 1540 University Dr, Lexington, KY 40508. ' +
-          'Did you mean this one? Enter it to use it.',
-        details: {
-          address: '1540 University Dr, Lexington, KY 40508',
-          candidates: ['1540 UNIVERSITY CT, LEXINGTON, KY 40503'],
-        },
-      },
-    };
-    stubApi({ 'POST /locations': json(moved, 400) });
-    renderAt('/locations/new');
-    fill({
-      Name: 'Kroger Field',
-      'Street address': '1540 University Dr',
-      City: 'Lexington',
-      'ZIP code': '40508',
-    });
-    create();
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveTextContent('Did you mean this one?');
-    expect(
-      within(banner)
-        .getAllByRole('listitem')
-        .map((li) => li.textContent),
-    ).toEqual(['1540 UNIVERSITY CT, LEXINGTON, KY 40503']);
-    expect(field('Street address').value).toBe('1540 University Dr');
-    expect(field('ZIP code').value).toBe('40508');
-    expect(screen.getByRole('button', { name: SAVE_ANYWAY })).toBeInTheDocument();
-  });
-
-  it('resends the same values with the flag, and the list shows the not-verified notice', async () => {
-    let n = 0;
-    const api = stubApi({
-      'POST /locations': () => (n++ === 0 ? json(NOT_FOUND, 400) : json(savedAnyway, 201)),
-      'GET /locations': json([savedAnyway]),
-    });
+  it.each([
+    ['not verified', notVerified],
+    ['verified', { ...verified, timeZone: 'America/New_York', timeZoneSource: 'ADMIN' as const }],
+  ])('offers no Save anyway after a %s save', async (_l, saved) => {
+    stubApi({ 'POST /locations': json(saved, 201), 'GET /locations': json([saved]) });
     renderAt('/locations/new');
     fill();
     create();
-    await screen.findByRole('button', { name: SAVE_ANYWAY });
-    // Spec 020 FR-003: Kentucky has two time zones, so Save anyway needs one chosen.
-    fireEvent.click(screen.getByLabelText('Eastern Time'));
-    fireEvent.click(screen.getByRole('button', { name: SAVE_ANYWAY }));
-
-    expect(
-      await screen.findByText(
-        // Spec 020 R14: the notice also names the zone (the fixture has none: the default).
-        'Venue saved. Address (not verified): 1 Arena Plaza, Louisville, KY 40202. Time zone: Eastern Time, the default.',
-      ),
-    ).toBeInTheDocument();
-    const [first, second] = writes(api);
-    expect(second.body).toEqual({
-      ...(first.body as object),
-      acceptUnverifiedAddress: true,
-      timeZone: 'America/New_York',
-    });
-    expect(first.body).not.toHaveProperty('acceptUnverifiedAddress');
-  });
-
-  it.each(['Street address', 'City', 'State', 'ZIP code'])(
-    'hides Save anyway again when %s changes',
-    async (label) => {
-      stubApi({ 'POST /locations': json(NOT_FOUND, 400) });
-      renderAt('/locations/new');
-      fill();
-      create();
-      await screen.findByRole('button', { name: SAVE_ANYWAY });
-      set(label, label === 'State' ? 'IN' : `${field(label).value}1`);
-      expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
-    },
-  );
-
-  it('does not offer Save anyway for VALIDATION_FAILED', async () => {
-    stubApi({
-      'POST /locations': json(
-        {
-          error: {
-            code: 'VALIDATION_FAILED',
-            message: 'Request validation failed.',
-            details: { fields: ['name must be between 1 and 200 characters'] },
-          },
-        },
-        400,
-      ),
-    });
-    renderAt('/locations/new');
-    fill();
-    create();
-    await screen.findByTestId('error-banner');
+    await screen.findByRole('heading', { name: 'Venues' });
     expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
+  });
+
+  it('after a not-verified save, says so in a plain notice: why, and how to verify it', async () => {
+    const api = stubApi({
+      'POST /locations': json(notVerified, 201),
+      'GET /locations': json([notVerified]),
+    });
+    renderAt('/locations/new');
+    fill();
+    create();
+    const notice = await screen.findByText(NOT_VERIFIED_NOTICE);
+    const status = notice.closest('[role="status"]') as HTMLElement;
+    expect(status).not.toBeNull();
+    expect(status).not.toHaveClass('banner--success');
+    expect(screen.queryByTestId('success-state')).toBeNull();
+    // One press, one request.
+    expect(writes(api)).toHaveLength(1);
   });
 
   it('after a verified save, goes to the list with the saved address from the response', async () => {
@@ -304,12 +267,64 @@ describe('Address refusals and Save anyway', () => {
       'ZIP code': '40507',
     });
     create();
-    expect(
-      await screen.findByText(
-        'Venue saved. Address: 430 W VINE ST, LEXINGTON, KY 40507. Time zone: Eastern Time, the default.',
-      ),
-    ).toBeInTheDocument();
+    const notice = await screen.findByText(
+      'Venue saved. Address: 430 W VINE ST, LEXINGTON, KY 40507. Time zone: Eastern Time, the default.',
+    );
+    expect(notice.closest('[data-testid="success-state"]')).not.toBeNull();
     expect(screen.getByRole('heading', { name: 'Venues' })).toBeInTheDocument();
+  });
+});
+
+describe('What a save sends with the address (spec 024 research R3, R4)', () => {
+  it('sends the flag with the address on an edit that changes it', async () => {
+    const api = stubApi({
+      [`GET ${PATH}`]: json(verified),
+      [`PATCH ${PATH}`]: json(verified),
+      'GET /locations': json([verified]),
+    });
+    renderAt(`${PATH}/edit`);
+    await waitFor(() => expect(field('Street address').value).toBe('430 W VINE ST'));
+    set('Street address', '1 Nowhere Blvd');
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    expect(writes(api)[0].body).toMatchObject({
+      street: '1 Nowhere Blvd',
+      acceptUnverifiedAddress: true,
+    });
+  });
+
+  it('sends a not-verified venue its address again with the flag, so it is checked again', async () => {
+    const api = stubApi({
+      [`GET ${PATH}`]: json(notVerified),
+      [`PATCH ${PATH}`]: json(notVerified),
+      'GET /locations': json([notVerified]),
+    });
+    renderAt(`${PATH}/edit`);
+    await waitFor(() => expect(field('Street address').value).toBe('1 Arena Plaza'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    expect(writes(api)[0].body).toMatchObject({
+      street: '1 Arena Plaza',
+      city: 'Louisville',
+      state: 'KY',
+      zip: '40202',
+      acceptUnverifiedAddress: true,
+    });
+  });
+
+  it('sends neither the address nor the flag on a verified venue name edit', async () => {
+    const api = stubApi({
+      [`GET ${PATH}`]: json(verified),
+      [`PATCH ${PATH}`]: json(verified),
+      'GET /locations': json([verified]),
+    });
+    renderAt(`${PATH}/edit`);
+    await waitFor(() => expect(field('Street address').value).toBe('430 W VINE ST'));
+    set('Name', 'Rupp');
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    expect(writes(api)[0].body).not.toHaveProperty('street');
+    expect(writes(api)[0].body).not.toHaveProperty('acceptUnverifiedAddress');
   });
 });
 
@@ -371,47 +386,27 @@ describe('Seated venue in one step', () => {
     });
   };
 
-  it('sends no layout when the address is refused, and the layout after Save anyway', async () => {
-    let n = 0;
+  it('saves the layout of a venue whose address is not verified (008 FR-017)', async () => {
     const api = stubApi({
-      'POST /locations': () => (n++ === 0 ? json(NOT_FOUND, 400) : json(savedAnyway, 201)),
+      'POST /locations': json(notVerified, 201),
       [`PUT ${PATH}/layout`]: json({ locationId: ID, totalSeats: 20, sections: [] }),
-      'GET /locations': json([savedAnyway]),
+      'GET /locations': json([notVerified]),
     });
     renderAt('/locations/new');
     fill({ 'Seating capacity': undefined });
     addSection();
     create();
-    await screen.findByRole('button', { name: SAVE_ANYWAY });
-    expect(writes(api).map((c) => c.method)).toEqual(['POST']);
-
-    // Spec 020 FR-003: Kentucky has two time zones, so Save anyway needs one chosen.
-    fireEvent.click(screen.getByLabelText('Eastern Time'));
-    fireEvent.click(screen.getByRole('button', { name: SAVE_ANYWAY }));
-    await screen.findByText(/Venue saved\. Address \(not verified\)/);
+    await screen.findByText(NOT_VERIFIED_NOTICE);
     expect(writes(api).map((c) => `${c.method} ${c.path}`)).toEqual([
-      'POST /locations',
       'POST /locations',
       `PUT ${PATH}/layout`,
     ]);
+    expect(writes(api)[0].body).toMatchObject({ acceptUnverifiedAddress: true });
   });
 });
 
 describe('The address service is down (US2)', () => {
-  const MESSAGE = UNAVAILABLE.error.message;
-
-  it('shows the try-again message on create, keeps every value, and offers no Save anyway', async () => {
-    stubApi({ 'POST /locations': json(UNAVAILABLE, 503) });
-    renderAt('/locations/new');
-    fill();
-    create();
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveTextContent(MESSAGE);
-    expectValuesKept();
-    expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
-  });
-
-  it('shows the same on edit, with no Save anyway', async () => {
+  it('shows a 503 on edit in the banner, keeping every value, with no Save anyway', async () => {
     stubApi({
       [`GET ${PATH}`]: json(verified),
       [`PATCH ${PATH}`]: json(UNAVAILABLE, 503),
@@ -420,26 +415,9 @@ describe('The address service is down (US2)', () => {
     await waitFor(() => expect(field('Street address').value).toBe('430 W VINE ST'));
     set('Street address', '1 Nowhere Blvd');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-    expect(await screen.findByTestId('error-banner')).toHaveTextContent(MESSAGE);
+    expect(await screen.findByTestId('error-banner')).toHaveTextContent(UNAVAILABLE.error.message);
     expect(field('Street address').value).toBe('1 Nowhere Blvd');
     expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
-  });
-
-  it('hides Save anyway when pressing it meets a 503', async () => {
-    let n = 0;
-    stubApi({
-      'POST /locations': () => (n++ === 0 ? json(NOT_FOUND, 400) : json(UNAVAILABLE, 503)),
-    });
-    renderAt('/locations/new');
-    fill();
-    create();
-    await screen.findByRole('button', { name: SAVE_ANYWAY });
-    // Spec 020 FR-003: Kentucky has two time zones, so Save anyway needs one chosen.
-    fireEvent.click(screen.getByLabelText('Eastern Time'));
-    fireEvent.click(screen.getByRole('button', { name: SAVE_ANYWAY }));
-    await waitFor(() => expect(screen.getByTestId('error-banner')).toHaveTextContent(MESSAGE));
-    expect(screen.queryByRole('button', { name: SAVE_ANYWAY })).toBeNull();
-    expectValuesKept();
   });
 });
 
@@ -540,10 +518,10 @@ describe('Venues whose address is not verified (US4, FR-017)', () => {
     expect(writes(api)).toHaveLength(0);
   });
 
-  it('says a saved-anyway venue is not verified above its prefilled fields', async () => {
+  it('says a saved-anyway venue is not verified, and that saving checks it again (024 FR-017)', async () => {
     stubApi({ [`GET ${PATH}`]: json(savedAnyway) });
     renderAt(`${PATH}/edit`);
-    const note = await screen.findByText('This address is not verified.');
+    const note = await screen.findByText('This address is not verified. Saving checks it again.');
     expect(note).toHaveClass('note');
     await waitFor(() => expect(field('Street address').value).toBe('1 Arena Plaza'));
   });
