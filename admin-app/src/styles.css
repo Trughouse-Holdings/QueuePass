@@ -128,6 +128,50 @@
   }
 }
 
+/* Spec 024 (research R8): a seating section line, "Section name", "Rows × Seats per row", and
+   its seats, with Remove under them. A modifier, so the event form's ticket-type lines and the
+   tier mapping keep .form__row as it is. At phone width: the name, then rows × seats per row,
+   then the seats and Remove. */
+.form__row--section {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 6.5rem) auto minmax(0, 6.5rem) auto;
+  align-items: end;
+}
+.form__row--section > .btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.form__row--section input {
+  width: 100%;
+  min-width: 0;
+}
+.section-line__times,
+.section-line__seats {
+  padding-bottom: var(--space-2);
+}
+.section-line__seats {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .form__row--section {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+  .form__row--section > .field:first-of-type {
+    grid-column: 1 / -1;
+  }
+  .form__row--section > .section-line__seats {
+    grid-column: 1;
+  }
+  .form__row--section > .btn {
+    grid-column: 2 / -1;
+    justify-self: end;
+  }
+  .form__row--section > .section-line__seats {
+    align-self: center;
+    padding-bottom: 0;
+  }
+}
+
 /* ---------------------------------------------------------------- event images (spec 014) */
 /* The Images control of the event form: a list of previews, the first marked Cover. */
 .image-list {

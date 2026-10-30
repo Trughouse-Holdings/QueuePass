@@ -121,7 +121,7 @@ an unchanged not-verified address is checked again on edit; the not-verified not
 
 ### Tests first
 
-- [ ] T005 [P] [US2] `backend/test/integration/locations.address.e2e-spec.ts` (research R5, R15):
+- [x] T005 [P] [US2] `backend/test/integration/locations.address.e2e-spec.ts` (research R5, R15):
   replace "ignores save anyway: still 503, nothing saved" with, for a create with the fake address
   service unavailable:
   - `acceptUnverifiedAddress: true` and `timeZone: 'America/New_York'` → `201`; the address as sent
@@ -131,7 +131,8 @@ an unchanged not-verified address is checked again on edit; the not-verified not
   - the flag, no `timeZone`, a Kentucky address → `400 TIME_ZONE_REQUIRED`, no row;
   - no flag → `503 ADDRESS_SERVICE_UNAVAILABLE`, the exact message, no row (keep the existing test).
   Every response validated against the contract as the file already does. Must fail (today: `503`).
-- [ ] T006 [P] [US2] `backend/test/integration/locations.address-edit.e2e-spec.ts` (research R5, R7,
+  **Result**: "ignores save anyway: still 503" replaced by three tests in the unavailable describe: the flag and Eastern → `201`, as sent (`' 1  Arena Plaza '` → `1 Arena Plaza`, ZIP+4 cut), not verified, `ADMIN`, one row; the flag, no zone, Ohio → `201`, `America/New_York`/`STATE`; the flag, no zone, Kentucky → `400 TIME_ZONE_REQUIRED`, no row. The `503` test without the flag kept. All 3 failed (`503`) before T008.
+- [x] T006 [P] [US2] `backend/test/integration/locations.address-edit.e2e-spec.ts` (research R5, R7,
   R15). Must fail (all but the cases marked unchanged):
   - `when the address service is unavailable (US2)`: an address change **with** the flag → `200`,
     saved as sent, not verified, the zone decided as for a create; **without** the flag → `503`,
@@ -156,7 +157,8 @@ an unchanged not-verified address is checked again on edit; the not-verified not
       (the upgrade is dropped).
   - Rewrite "stays not verified when the same address is resent, even with the flag" to the
     no-match case above (it now asks the service once).
-- [ ] T007 [P] [US2] `admin-app/test/venue-address.test.tsx` (research R3, R4, R6, R15). Must fail:
+  **Result**: Unavailable describe: the flag (whitespace and ZIP+4 tidied) with Central → `200`, as sent, not verified, `ADMIN`; the flag without a zone in Kentucky → `400 TIME_ZONE_REQUIRED`, venue unchanged; the `it.each` without the flag kept (its "with save anyway" row became "without the flag, with a zone"). New `re-check …` describe on a venue saved not verified (`America/New_York`/`ADMIN`), resent as `1 ARENA  PLAZA`/`louisville`: a match at a Chicago place → verified, standard form, zone and source unchanged, name saved, one lookup; `it.each` no match, several, a match at another ZIP, unavailable → `200`, stored address unchanged, not verified, name saved, one lookup; no flag → no lookup; a verified venue with the flag → no lookup; the race (paused re-check, another `PATCH` saves 937 Phillips Ln not verified, release with a match) → `200`, the second address stands, not verified. The old "stays not verified … even with the flag" test removed (now the no-match row). The existing name-only test kept. 8 failed before T008/T009 (the race by timeout: no lookup was made).
+- [x] T007 [P] [US2] `admin-app/test/venue-address.test.tsx` (research R3, R4, R6, R15). Must fail:
   - every create body has `acceptUnverifiedAddress: true`; every edit body with the four fields has
     it; an edit body without them (a verified venue's name edit; a venue from before `013` with its
     fields left empty) has neither the fields nor the flag;
@@ -177,14 +179,16 @@ an unchanged not-verified address is checked again on edit; the not-verified not
   changes`, `sends no layout when the address is refused, and the layout after Save anyway`, `hides
   Save anyway when pressing it meets a 503`, and the Save anyway parts of the others), replacing each
   with the new behavior above.
+  **Result**: `venue-address.test.tsx`: the create body has the flag; the Save anyway describes replaced by "One press saves the address" (`400 ADDRESS_NOT_FOUND`/`ADDRESS_AMBIGUOUS`/`VALIDATION_FAILED` and `503` shown with values kept and no Save anyway; candidates still listed; no Save anyway after a verified or not-verified `201`; R6's exact notice in a `role="status"` that is not `banner--success`, one request; the verified notice in the success state) and "What a save sends" (an address change and a not-verified venue's unchanged address carry the flag; a verified name edit has neither fields nor flag; T004's legacy test covers the empty-fields case); the seated test now: a not-verified `201` still sends the layout `PUT`; the edit note test expects "This address is not verified. Saving checks it again."; the edit `503` test kept. 6 failed before T010 (the edit-flag tests already passed after T003).
 
 ### Implementation
 
-- [ ] T008 [US2] `backend/src/locations/locations.service.ts` `checkAddress` (research R5): on
+- [x] T008 [US2] `backend/src/locations/locations.service.ts` `checkAddress` (research R5): on
   `AddressServiceUnavailableError`, return `unverified()` when `saveUnverifiedWhenUnavailable ||
   acceptUnverified`; else throw `serviceUnavailable()` as today; the warning log unchanged. Update
   the method's doc comment (feature 024). T005 passes; T006's unavailable cases pass.
-- [ ] T009 [US2] `backend/src/locations/locations.service.ts` `update` (research R7): when the four
+  **Result**: `checkAddress`: `if (saveUnverifiedWhenUnavailable || acceptUnverified) return unverified();` on `AddressServiceUnavailableError`, the log line unchanged; doc comment names feature 024. T005 passes (19/19 in the file).
+- [x] T009 [US2] `backend/src/locations/locations.service.ts` `update` (research R7): when the four
   fields are sent with `dto.acceptUnverifiedAddress === true`, `sameAddress(parts, existing)` is true,
   and `existing.addressVerified` is false, look the address up once (a new private method beside
   `checkAddress`, e.g. `recheckAddress`): a match that passes `matchesTyped` returns `checked(match,
@@ -195,17 +199,20 @@ an unchanged not-verified address is checked again on edit; the not-verified not
   `decide()` for this case, so the check never decides the zone. Update `update`'s doc comment. T006 passes; every
   other test in `backend/test/integration/locations*.e2e-spec.ts`, `venues*.e2e-spec.ts`, and
   `demo-data.e2e-spec.ts` passes unchanged (SC-005).
-- [ ] T010 [US2] `admin-app/src/pages/LocationForm.tsx` (research R4, R6): add
+  **Result**: `update`: `recheckedAddress = await this.recheckAddress(parts)` when the four fields are the same, the flag is `true`, and the venue is not verified; `recheckAddress` (new, beside `checkAddress`) returns `checked(match, true)` for a match passing `matchesTyped`, else `undefined`, logging an unavailable service through a shared `logUnavailable`; in the transaction, after `lockVenueAndEvents`, `tx.location.findUniqueOrThrow` and the upgrade written only if `sameAddress(parts, now) && now.addressVerified === false`; `decide()` still gets `address: undefined` (no `checkedAddress`). Doc comment updated. Address tests 59/59; `locations*`, `venues*`, `demo-data`, and contract suites 242/242 unchanged; the whole backend 954 passed (943 + 11 new).
+- [x] T010 [US2] `admin-app/src/pages/LocationForm.tsx` (research R4, R6): add
   `acceptUnverifiedAddress: true` to the address parts whenever they are sent; remove
   `SAVE_ANYWAY_CODES`, `offerSaveAnyway`, the Save anyway block, and `save()`'s parameter
   (`handleSubmit` calls `save()`); `savedNotice` returns `{ kind: 'info', text }` with R6's exact text
   when `addressVerified` is false, and today's success notice otherwise; the not-verified edit note
   becomes "This address is not verified. Saving checks it again." T007 passes.
-- [ ] T011 [US2] Admin tests that assert an exact request body or the old notice now include the flag
+  **Result**: `acceptUnverifiedAddress: true` in `parts` (sent whenever the address is); `SAVE_ANYWAY_CODES`, `offerSaveAnyway`, the Save anyway block, and `save()`'s parameter removed; `savedNotice` returns `{ kind: 'info', text }` with R6's text when `addressVerified` is false; the edit note "This address is not verified. Saving checks it again." T007 passes, and T002's Kentucky test.
+- [x] T011 [US2] Admin tests that assert an exact request body or the old notice now include the flag
   (with the address fields, R3) or the new text, nothing else: `admin-app/test/capacity.test.tsx`,
   `admin-app/test/venue-create.test.tsx` (`SENT_ADDRESS` bodies), `admin-app/test/venue-time-zone.test.tsx`
   (bodies), and any other the workspace's run names. `npm run test --workspace @queuepass/admin-app`
   and `npm run test --workspace @queuepass/backend` green.
+  **Result**: Only `venue-create.test.tsx`'s two exact create bodies needed the flag (`SENT_ZONE` now carries it); `capacity.test.tsx` and `venue-time-zone.test.tsx` passed as they were. Admin 316 passed; backend 954 passed.
 
 **Checkpoint**: US1 and US2 work: quickstart V3–V6 pass in the browser.
 
@@ -220,7 +227,7 @@ and the layout editor.
 
 ### Tests first
 
-- [ ] T012 [P] [US3] New `admin-app/test/section-lines.test.tsx` (research R8), rendering
+- [x] T012 [P] [US3] New `admin-app/test/section-lines.test.tsx` (research R8), rendering
   `SectionLines` with a small stateful wrapper. Must fail:
   - the hint "A section is a grid of seats: rows run front to back, and every row has the same number
     of seats across." appears exactly once, with zero, one, and two lines;
@@ -233,7 +240,8 @@ and the layout editor.
     seats"; 100 × 200 → "= 20,000 seats";
   - Remove section 1 of two: the remaining line's legend is "Section 1" and its boxes' names follow;
     Add section adds a 1 × 1 line ("= 1 seat").
-- [ ] T013 [P] [US3] Update the box names in `admin-app/test/venue-create.test.tsx` (`addSection`),
+  **Result**: `admin-app/test/section-lines.test.tsx`, 11 tests on a stateful wrapper: the hint once with 0, 1, 2 lines; per line (`within` the `Section N` group) the three labels, `×` `aria-hidden`, classes `form__row form__row--section`; names "Section 1 Section name"/"Rows"/"Seats per row", no `aria-label`, `min`/`max` 1–100 and 1–200; counts 10 × 20, 1 × 1, empty, `abc`, 100 × 200; Remove section 1 renumbers (names and count follow) and Add section gives "= 1 seat". All 11 failed before T014.
+- [x] T013 [P] [US3] Update the box names in `admin-app/test/venue-create.test.tsx` (`addSection`),
   `admin-app/test/venue-address.test.tsx`, and `admin-app/test/layout.test.tsx` to "Section N Section
   name", "Section N Rows", "Section N Seats per row", and add to `layout.test.tsx` that the layout
   editor shows the hint and "= 200 seats" for a 10 × 20 section, and to `venue-create.test.tsx` that
@@ -241,10 +249,11 @@ and the layout editor.
   `admin-app/test/event-form.tz.test.tsx` (or the Event form test that renders ticket types), assert
   the first ticket-type line's element has `className` exactly `form__row` (spec review round 1, M1:
   the section modifier must not reach it). Must fail on the old names.
+  **Result**: New names in `venue-create.test.tsx`, `venue-address.test.tsx`, `layout.test.tsx`; `layout.test.tsx` checks the hint once and "= 40 seats" on a 2 × 20 line in the editor; `venue-create.test.tsx` checks "= 30 seats" and "= 40 seats" beside "Total: 70 seats". The ticket-type check went into `theme-classes.test.tsx` (it renders the New event form; `event-form.tz.test.tsx` is rerun under four zones by `test:tz` and is about times): the first ticket-type line's `className` is exactly `form__row` (passes before and after, as a guard). 5 of these failed on the old names.
 
 ### Implementation
 
-- [ ] T014 [US3] `admin-app/src/components/SectionLines.tsx` (research R8): the hint once above the
+- [x] T014 [US3] `admin-app/src/components/SectionLines.tsx` (research R8): the hint once above the
   lines; per line a `<fieldset className="form__row form__row--section">` with `<legend id>` "Section {i}"; three
   `.field` wrappers with visible `<label id htmlFor>` "Section name", "Rows", "Seats per row";
   inputs named by `aria-labelledby="{legend id} {label id}"` (ids from `useId()` plus the index), no
@@ -252,7 +261,8 @@ and the layout editor.
   `= {n.toLocaleString()} {n === 1 ? 'seat' : 'seats'}` with `n = (Number(rows) || 0) *
   (Number(seatsPerRow) || 0)`; Remove section {i} unchanged. Update the component's doc comment
   (spec `024`). T012 and T013 pass.
-- [ ] T015 [US3] `admin-app/src/styles.css` (research R8): a new `.form__row--section` rule after
+  **Result**: `SectionLines.tsx` as research R8: the hint once; per line `<fieldset className="form__row form__row--section">`, `<legend id>`, three `.field`s with visible `<label id htmlFor>`, inputs named by `aria-labelledby="{legend} {label}"` (ids from `useId()` and the index), `×` in an `aria-hidden` span, the count as R8; a private `lineSeats` that `totalSeats` now sums (same result). Admin 328 passed (T012, T013 included).
+- [x] T015 [US3] `admin-app/src/styles.css` (research R8): a new `.form__row--section` rule after
   `.form__row`'s: columns for name, rows, ×, seats per row, count, and Remove; at `max-width: 640px`
   the name full width, then rows × seats per row, then the count and Remove; theme values only
   (`var(--space-…)`). The `.form__row` rules themselves are not changed (`git diff` shows none): the
@@ -260,6 +270,7 @@ and the layout editor.
   (`npm run test --workspace @queuepass/shared`) and the Admin app's `theme-classes.test.tsx` pass.
   Check at 360 px in a browser that nothing scrolls sideways, and that the Schedule event form's
   ticket-type lines look as before (record here).
+  **Result**: `.form__row--section` after `.form__row`'s rules: name, rows, ×, seats per row (rows and seats `minmax(0, 6.5rem)`), the count, with Remove under them; at 640 px and below the name full width, then rows × seats per row, then the count and Remove; `.section-line__times`/`.section-line__seats` for the × and the count; theme values only. `git diff` shows no line of `.form__row` changed. Shared drift test 681 passed; `theme-classes.test.tsx` passed. Checked in Chromium (Playwright) on a page built from `theme.css`, `styles.css`, and the component's markup with two lines (100 × 200 and a long name) and a ticket-type line: at 360 px, light and dark, `scrollWidth` 360 (no sideways scroll), each label above its box; at 1024 px one line per section with Remove under it, and the ticket-type line's columns as before (`2fr 1fr 1fr auto`). A first layout with Remove on the same row truncated "200" at desktop width, so Remove moved under the line. The real app at 360 px is part of Nate's walk (V9).
 
 **Checkpoint**: all three stories work: quickstart V1–V7 pass in the browser.
 
