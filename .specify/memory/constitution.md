@@ -1,11 +1,13 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.4.0 -> 3.4.1 (PATCH): two roadmap rows reserved; nothing that is required changes.
-Problem: issues #50 (add to calendar) and #42 (venue time zones) need spec numbers before their
-  spec and plan PRs (each issue's Process section).
+Version: 3.4.1 -> 3.4.2 (PATCH): three roadmap rows reserved; nothing that is required changes.
+Problem: issues #92 (sign-in screens), #93 (quickstart browser tests in CI), and #52 (exports)
+  need spec numbers before their spec and plan PRs (each issue's Process section), and reserving
+  them together lets the three be specified in parallel.
 Changed:
-  - Roadmap: rows 019-add-to-calendar (#50, depends on 006) and 020-venue-time-zones (#42,
-    depends on 002, 003, 013). The next free number is 021.
+  - Roadmap: rows 021-sign-in-screens (#92, depends on 001, 012), 022-quickstart-browser-tests
+    (#93, depends on 011), and 023-report-exports (#52, depends on 005). The next free number
+    is 024.
 Impact: none on existing code, specs, or controls. The README's version reference follows.
   Templates: none need updating.
 -->
@@ -291,7 +293,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `021`.
+number is a pull request against this table. The next free number is `024`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -315,6 +317,9 @@ number is a pull request against this table. The next free number is `021`.
 | `018-rotating-qr-codes` | The Customer app shows each ticket as a QR code that changes every 30 seconds; the Ticket Booth app accepts it only in its own window, with no ID check, and still admits each ticket exactly once (#41) | `017` |
 | `019-add-to-calendar` | From My tickets, a customer adds an event they hold tickets for to their own calendar (Google, Apple, Outlook): a one-time snapshot with the event's name, start and end, and venue address, offered only for events not cancelled or ended (#50) | `006` |
 | `020-venue-time-zones` | Every venue has a time zone, worked out from its checked address; event times are shown and entered in the venue's local time, with the zone made clear, in every app (#42) | `002`, `003`, `013` |
+| `021-sign-in-screens` | The Admin, Customer, and Ticket Booth sign-in screens are visually distinct and each names the app it is for, in its heading and browser tab title, on every screen the apps reach (sign in, errors, signing back in), set up from a clean clone with no manual Keycloak steps (#92) | `001`, `012` |
+| `022-quickstart-browser-tests` | The quickstart scenarios become browser end-to-end tests run in GitHub Actions against the full stack with the seed and demo data; each quickstart marks which scenarios are automated and which stay manual, and why (#93) | `011` |
+| `023-report-exports` | Admins download an event's attendee list and the sales report as CSV, XLSX, or PDF, with the same figures as the screen and the time each file was made; CSV and XLSX keep numbers, dates, and exact money as data (#52) | `005` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -367,4 +372,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.4.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-24
+**Version**: 3.4.2 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-30
