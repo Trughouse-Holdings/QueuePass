@@ -3,10 +3,13 @@ import type ClientRepresentation from '@keycloak/keycloak-admin-client/lib/defs/
 import type ProtocolMapperRepresentation from '@keycloak/keycloak-admin-client/lib/defs/protocolMapperRepresentation';
 import { loadConfig } from './keycloak-client';
 
-/** One public OIDC client per front end (spec 001 FR-005, research R6). */
+/**
+ * One public OIDC client per front end (spec 001 FR-005, research R6). Each name is the one its
+ * sign-in screen shows, "Sign in to {name}" (spec 021 FR-002), held only here.
+ */
 export const FRONTEND_CLIENTS = [
   { clientId: 'admin-app', name: 'QueuePass Admin', port: 5173 },
-  { clientId: 'customer-app', name: 'QueuePass', port: 5174 },
+  { clientId: 'customer-app', name: 'QueuePass Tickets', port: 5174 },
   { clientId: 'booth-app', name: 'QueuePass Ticket Booth', port: 5175 },
 ] as const;
 

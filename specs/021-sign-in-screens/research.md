@@ -26,13 +26,19 @@ Keycloak's supported theming (FreeMarker templates, messages, and static resourc
 
 **Decision**: `parent=base`, `import=common/keycloak`. The theme overrides `template.ftl` (the page
 frame: `<title>`, the band, the brand mark, the heading, the audience line, the message area) and
-keeps `base`'s form templates (`login.ftl`, `error.ftl`, `info.ftl`, `logout-confirm.ftl`, and the
-rest). `theme.properties` maps Keycloak's class hooks to the shared theme's classes:
+keeps `base`'s form templates (`error.ftl`, `info.ftl`, `logout-confirm.ftl`, and the rest). The one
+deliberate exception is `login.ftl`: a copy of Keycloak 26.0.8's, word for word but for
+`aria-describedby="input-error"` on `#username` and `#password` while the wrong-password error is
+shown, so the error is read out (R9; review round 1 of the implementation, finding 1). `theme.properties` maps Keycloak's class hooks to the shared theme's classes:
 `kcFormGroupClass=field`, `kcButtonClass=btn`, `kcButtonPrimaryClass=btn--primary`,
 `kcButtonBlockClass=` (empty), `kcInputErrorMessageClass=qp-field-error`, `kcAlertClass=banner`,
 `kcAlertTitleClass=banner__body`, and empties the PatternFly-only ones. No PatternFly stylesheet is
 loaded. `qp-field-error` is a `login.css` rule using `var(--danger)` (the shared theme has no field
-error class).
+error class). `base`'s `template.ftl` writes no viewport tag (the PatternFly themes add one through
+the `meta` property), so `theme.properties` sets `meta=viewport==width=device-width,initial-scale=1`;
+without it a phone lays the page out at desktop width (FR-012). The shared theme's
+`input:focus { outline: none }` also reaches the Sign In button (an `<input type="submit">`), so
+`login.css` gives `#kc-login:focus-visible` the shared focus ring back (implementation, 2026-10-30).
 
 The show-password toggle (`base` `login.ftl`: a button with `aria-label` "Show password" holding an
 icon `<i>` whose class `passwordVisibility.js` swaps between `kcFormPasswordVisibilityIconShow` and
@@ -63,13 +69,17 @@ same error, same submit, no self-registration (the realm already has `registrati
 | Part | Held in | Read by the template as |
 | --- | --- | --- |
 | Name | the client's name, set by the seed (`provision-clients.ts`) | `advancedMsg(client.name)` |
-| Audience line | the theme's `messages_en.properties`, key `qpAudience.<clientId>` | `msg("qpAudience." + client.clientId)` |
+| Audience line | the theme's `messages_en.properties`, key `qpAudience.<clientId>` | `msg("qpAudience." + client.clientId)`, only for a client ID matching `[a-z0-9-]+` |
 | Accent | the shared theme's tokens (R4), chosen by a body class `qp-app--<clientId>` | CSS |
 
 With no `client` in the page, or a client with no name, the heading is "Sign in to QueuePass" (the
 realm's display name); a client with no `qpAudience.*` key shows no audience line; a body class
 with no accent rule falls back to the shared accent (FR-008). `advancedMsg` resolves Keycloak's
-built-in clients' localized names (`${client_account-console}` → "Account Console").
+built-in clients' localized names (`${client_account-console}` → "Account Console"). `msg()` formats
+its text with Java's `MessageFormat`, where a `'` in the key garbles it, so the audience line is
+looked up only for a plain client ID (`[a-z0-9-]+`, as the seed's three and Keycloak's built-in
+clients); any other client shows none (implementation review round 1, finding 4; a client ID with
+`{` already fails inside Keycloak's own URL handling, before the theme).
 
 **Rationale**: The name stays in the one place it is already set (FR-002), so renaming a client in
 the seed renames its screen. The audience lines are page text, which Keycloak keeps in message
@@ -98,9 +108,12 @@ and the drift and contrast tests (spec `012`) could not check them.
   `.qp-app--customer-app { --accent: var(--accent-tickets); --accent-hover: …; --accent-soft: …;
   --accent-text: …; --brand-mark-end: …; --brand-mark-text: …; }`, and the same for `booth-app`.
 - The `012` drift checker (`packages/shared/test/theme/check-theme.ts`) scans `login.css` as it scans
-  an app stylesheet, with one exception: inside a `.qp-app--<clientId>` rule, setting the six
-  accent roles to `var(--…)` of a theme token is allowed. Any color literal or any other redefinition
-  still fails. Today's parser (`declarations()` in `check-theme.ts`) drops the selector at `{`,
+  an app stylesheet, with one exception: inside a `.qp-app--<clientId>` rule, each of the six
+  accent roles may be set to `var()` of one app's token of the same role (`--accent-hover:
+  var(--accent-booth-hover)`), the same app for every role in the rule, and only when the theme's
+  token blocks define all six of that app's tokens (so `var(--accent-soft)` or a mix of two apps
+  fails; implementation review round 1, finding 2). The exception applies to `login.css` only, never
+  to an app stylesheet. Any color literal or any other redefinition still fails. Today's parser (`declarations()` in `check-theme.ts`) drops the selector at `{`,
   so it must first track the enclosing rule's selector, including rules nested in `@media` (review
   round 1, finding 5).
 
@@ -193,7 +206,11 @@ but does not meet the meeting's "visually distinct" requirement.
 is captured (`<#assign pageHeader><#nested "header"></#assign>`) and dropped when its trimmed text
 equals `msg("loginAccountTitle")` (the sign-in form), and shown as an `<h2>` on every other page, so
 error and info pages keep the app's identity and still say what happened (FR-004). Keycloak 26's
-login templates have no `pageId` variable (review round 1, finding 1).
+login templates have no `pageId` variable (review round 1, finding 1). Keycloak renders with HTML
+auto-escaping, so the capture is markup output, not a string: `pageHeader?trim` fails the page
+with a 500 (`NonStringException: … evaluated to a markup_output`, seen on Keycloak 26.0.8). The text
+is `pageHeader?markup_string?trim` (when `pageHeader?is_markup_output`), and the `<h2>` prints that
+trimmed text with `?no_esc`, since it is already escaped (implementation, 2026-10-30).
 
 Two kinds of message (review round 1, finding 2):
 
@@ -203,8 +220,13 @@ Two kinds of message (review round 1, finding 2):
 - **Field errors**: on the sign-in form a wrong username or password is a field error, not a page
   message: `base`'s `login.ftl` passes `displayMessage=!messagesPerField.existsError('username',
   'password')` and renders the text in `<span id="input-error" class="${properties.kcInputErrorMessageClass}"
-  aria-live="polite">`. That is announced (`aria-live`) and stays as `base` renders it, styled by
-  `qp-field-error` (R2). The live test expects the text there (R11).
+  aria-live="polite">`, styled by `qp-field-error` (R2). That span is already on the page when it
+  loads (the wrong password is a full page load after the POST), so its `aria-live` does not make
+  a screen reader announce it, and the focused username field only says "invalid". The theme's
+  `login.ftl` (R2) therefore adds `aria-describedby="input-error"` to `#username` and `#password`
+  while the error is shown, so the focused field reads the message out (FR-012). The live test
+  expects the text there and the attribute on both fields (R11). (Corrected in implementation
+  review round 1, finding 1: this said the span "is announced".)
 
 **Rationale**: one heading per page that names the app, on every page of the flow, without
 rewriting each page template.

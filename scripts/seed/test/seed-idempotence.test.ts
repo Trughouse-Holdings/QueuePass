@@ -4,6 +4,7 @@ import { seed } from '../src/index';
 import { createKeycloakClient } from '../src/keycloak-client';
 import { EXPECTED_COUNTS, USER_GROUPS } from '../src/provision-users';
 import { FRONTEND_CLIENTS, AUDIENCE_SCOPE } from '../src/provision-clients';
+import { LOGIN_THEME } from '../src/provision-realm';
 
 /**
  * Spec 001 FR-004 through FR-007 and FR-034 — the seed must be idempotent AND deterministic,
@@ -148,6 +149,41 @@ describe('Keycloak seed idempotence', () => {
       expect(after.attributes?.['post.logout.redirect.uris'], clientId).toBe(`${origin}/`);
       expectNoWildcard(after);
     }
+  });
+
+  // Spec 021 FR-010, SC-004 (research R7): the sign-in look and the names arrive on a realm made
+  // before them, and a second run leaves them in place.
+  it('keeps the login theme and the Tickets name across runs', async ({ skip }) => {
+    skip(!available, SKIP_REASON);
+
+    await seed();
+    await seed();
+    const kc = await createKeycloakClient();
+    expect((await kc.realms.findOne({ realm }))?.loginTheme).toBe(LOGIN_THEME);
+    const [customer] = await kc.clients.find({ realm, clientId: 'customer-app' });
+    expect(customer.name).toBe('QueuePass Tickets');
+  });
+
+  it('brings a realm from before spec 021 to the login theme and the new name, losing nothing', async ({
+    skip,
+  }) => {
+    skip(!available, SKIP_REASON);
+
+    await seed();
+    const kc = await createKeycloakClient();
+    const before = { users: await countUsers(), clients: await clientIds(kc) };
+    await kc.realms.update({ realm }, { loginTheme: 'keycloak' });
+    const [customer] = await kc.clients.find({ realm, clientId: 'customer-app' });
+    await kc.clients.update({ realm, id: customer.id! }, { ...customer, name: 'QueuePass' });
+    expect((await kc.realms.findOne({ realm }))?.loginTheme).toBe('keycloak');
+
+    await seed();
+
+    expect((await kc.realms.findOne({ realm }))?.loginTheme).toBe(LOGIN_THEME);
+    const [after] = await kc.clients.find({ realm, clientId: 'customer-app' });
+    expect(after.name).toBe('QueuePass Tickets');
+    expect(await countUsers()).toEqual(before.users);
+    expect(await clientIds(kc)).toEqual(before.clients);
   });
 });
 

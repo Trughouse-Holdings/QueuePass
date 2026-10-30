@@ -40,6 +40,7 @@ in research R5. No existing token changes, and no app stylesheet uses the new on
 | --- | --- |
 | `theme.properties` | `parent=base`, `import=common/keycloak`, `styles=css/theme.css css/login.css`, class mappings (R2) |
 | `template.ftl` | The page frame: `<title>`, band, brand mark, the one `<h1>`, audience line, page header as `<h2>`, message regions, body class `qp-app--<clientId>` (R3, R9) |
+| `login.ftl` | Keycloak 26.0.8's base `login.ftl`, word for word but for `aria-describedby="input-error"` on the two fields while the error shows (R2, R9) |
 | `messages/messages_en.properties` | `qpSignInTo=Sign in to {0}`, `qpAudience.admin-app`, `qpAudience.customer-app`, `qpAudience.booth-app` |
 | `resources/css/login.css` | The sign-in layout and the per-app accent mapping (R4) |
 | `resources/css/theme.css` | Not in the repository: copied from the shared theme by `keycloak/Dockerfile` (R6) |
