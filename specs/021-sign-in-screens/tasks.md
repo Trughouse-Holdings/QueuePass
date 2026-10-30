@@ -1,0 +1,267 @@
+---
+description: "Task list for Sign-in Screens"
+---
+
+# Tasks: Sign-in Screens
+
+**Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R11),
+[data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) (no API change),
+[quickstart.md](./quickstart.md) (S0–S9)
+
+**Issue**: [#92](https://github.com/Trughouse-Holdings/QueuePass/issues/92). The implementation
+PR's **description** says `fixes #92` on its own line. No commit message on either branch may contain
+"fixes #92", "closes #92", or "resolves #92".
+
+**Tests**: **REQUIRED and written first** (Constitution VI). In each phase, write the test tasks and
+confirm they **fail** before the implementation tasks below them.
+
+## Ground rules
+
+- **Fresh session** (Constitution III): implement on branch `021-sign-in-screens-impl` in a Claude
+  session that starts from these files only. While the spec and plan PR is open, cut it from
+  `021-sign-in-screens-spec` and carry in every change that PR's review makes; once it merges, bring
+  it up to `main`. A gap in the spec or plan is fixed there, not worked around in code.
+- **Commits** cite the spec, the task IDs, and the issue: `Impl 021: per-app accent tokens
+  (T004–T006, #92)`.
+- **One independent review** (Constitution 3.3.0) of the implementation branch before its PR (T030).
+- **`npm run ci` locally** before pushing (T031), then **CI green on GitHub** before merge (T033).
+- **Docker**: the Keycloak image is built by `docker compose up --build`. Backend tests still run with
+  `--runInBand` (`npm test` does).
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: can run in parallel (different files, no dependency on an unfinished task)
+- **[Story]**: US1–US4 from spec.md
+
+---
+
+## Phase 1: Setup
+
+- [ ] T001 Cut `021-sign-in-screens-impl` from `021-sign-in-screens-spec` (or from `main` once the
+  spec PR has merged); `npm ci`; `npm run ci` green before any change, so a later failure is this
+  feature's.
+- [ ] T002 Create the folders `keycloak/themes/queuepass/login/{messages,resources/css}` and confirm
+  `.dockerignore` keeps `node_modules`, `dist`, and `.git` out of a root-context build (plan,
+  Project Structure).
+
+---
+
+## Phase 2: Foundational (blocks every story)
+
+**Purpose**: the theme files, the image, and the seed settings every story's screens need.
+
+### Tests first
+
+- [ ] T003 [P] Theme-file test `scripts/seed/test/login-theme-files.test.ts` (Node, no Keycloak):
+  reads `keycloak/themes/queuepass/login/theme.properties` and expects `parent=base`,
+  `import=common/keycloak`, `styles=css/theme.css css/login.css`, and the class mappings of research
+  R2 (`kcFormGroupClass=field`, `kcButtonClass=btn`, `kcButtonPrimaryClass=btn--primary`,
+  `kcAlertClass=banner`); reads `messages/messages_en.properties` and expects `qpSignInTo=Sign in to
+  {0}` and exactly these audience lines (data-model.md): `qpAudience.admin-app=For administrators
+  managing venues, events, and sales.`, `qpAudience.customer-app=For customers buying and viewing
+  tickets.`, `qpAudience.booth-app=For gate agents checking tickets in at the door.`; expects
+  `template.ftl` to exist and to contain `advancedMsg(client.name)`, `qp-app--`, `role="alert"`,
+  and `role="status"`. Must fail (no files yet).
+- [ ] T004 [P] Realm settings test `scripts/seed/test/provision-realm.test.ts` (no Keycloak, a fake
+  `kc.realms`): on create, the realm has `loginTheme: 'queuepass'`, `displayName: 'QueuePass'`,
+  `registrationAllowed: false`; on an existing realm with no or another login theme, one
+  `realms.update` with `{ loginTheme: 'queuepass' }` and the log `set login theme 'queuepass'`; on an
+  existing realm already at `queuepass`, no update and the log `login theme already 'queuepass'`
+  (research R7, FR-010). Must fail.
+- [ ] T005 [P] Client names in `scripts/seed/test/provision-clients.test.ts`: `FRONTEND_CLIENTS` names
+  are exactly `QueuePass Admin`, `QueuePass Tickets`, `QueuePass Ticket Booth` for `admin-app`,
+  `customer-app`, `booth-app` (FR-002). Must fail on `customer-app`.
+
+### Implementation
+
+- [ ] T006 `scripts/seed/src/provision-realm.ts`: create with `loginTheme: 'queuepass'`; on an
+  existing realm, read it (`kc.realms.findOne`) and update only `loginTheme` when it differs, with
+  the two log lines of T004 (R7). Export the login theme name as a constant used by the tests.
+  T004 passes.
+- [ ] T007 `scripts/seed/src/provision-clients.ts`: `customer-app` name `QueuePass Tickets` (R7).
+  T005 passes; the existing convergence renames an existing client.
+- [ ] T008 [P] `keycloak/themes/queuepass/login/theme.properties` (R2): `parent=base`,
+  `import=common/keycloak`, `styles=css/theme.css css/login.css`, the class mappings, every other
+  `kc*Class` that `base`'s `login.ftl`, `error.ftl`, `info.ftl`, and `logout-confirm.ftl` use set to
+  empty or to a shared class, `locales=en`.
+- [ ] T009 [P] `keycloak/themes/queuepass/login/messages/messages_en.properties`: `qpSignInTo` and the
+  three audience lines, word for word as T003.
+- [ ] T010 `keycloak/themes/queuepass/login/template.ftl` (R3, R9): copy `base`'s `template.ftl`
+  macro signature (`registrationLayout` with `bodyClass`, `displayInfo`, `displayMessage`,
+  `displayRequiredFields`, and the `header`, `form`, `info`, `socialProviders` sections), then:
+  `<html lang="en">`; `appName` = `advancedMsg(client.name)` when `client??` and the name is not
+  empty, else `realm.displayName`; `<title>${msg("qpSignInTo", appName)}</title>`;
+  `<body class="qp-app--${(client.clientId)!''}">`; a top band; `.brand` with `.brand__mark`
+  (`aria-hidden="true"`, "Q"); the one `<h1>` with `msg("qpSignInTo", appName)`; the audience line
+  `msg("qpAudience." + client.clientId)` only when that key exists (compare the message to its key);
+  the page's own `header` section dropped when `pageId == "login.ftl"`, otherwise shown in an `<h2>`;
+  messages: `error` in `<div class="banner banner--error" role="alert">`, `success` in
+  `banner--success` and `warning`/`info` in a `banner` with `role="status"`; the form, info, and
+  social sections as `base` has them. T003 passes.
+- [ ] T011 `keycloak/Dockerfile` (R6): `FROM quay.io/keycloak/keycloak:26.0`; `COPY
+  keycloak/themes/queuepass /opt/keycloak/themes/queuepass`; `COPY packages/shared/src/web/theme.css
+  /opt/keycloak/themes/queuepass/login/resources/css/theme.css`. A comment says the build context is
+  the repository root and why (one copy of the shared theme).
+- [ ] T012 `docker-compose.yml` `keycloak` service: `build: { context: ., dockerfile:
+  keycloak/Dockerfile }` in place of `image:`, everything else unchanged (command `start-dev`,
+  environment, ports, volume, health check). `docker compose config` is valid.
+
+**Checkpoint**: `npm test --workspace @queuepass/seed` green (T003–T005); `docker compose up --build`
+starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
+
+---
+
+## Phase 3: User Story 1 - Three screens, three identities (P1) 🎯 MVP
+
+**Goal**: each app's sign-in screen names it, says who it is for, and uses its own accent.
+
+**Independent Test**: quickstart S1, S2; the live test below.
+
+### Tests first
+
+- [ ] T013 [P] [US1] Token test in `packages/shared/test/theme/tokens.test.ts`: the twelve new
+  tokens exist in both blocks with the values of research R5 (`--accent-tickets` `#0f766e` /
+  `#2dd4bf`, `--accent-tickets-hover` `#115e59` / `#5eead4`, `--accent-tickets-soft` `#f0fdfa` /
+  `#042f2e`, `--accent-tickets-text` `#ffffff` / `#0f1115`, `--brand-mark-end-tickets` `#0d9488` /
+  `#14b8a6`, `--brand-mark-text-tickets` `#ffffff` / `#0f1115`; `--accent-booth` `#b45309` /
+  `#fbbf24`, `--accent-booth-hover` `#92400e` / `#fcd34d`, `--accent-booth-soft` `#fffbeb` /
+  `#451a03`, `--accent-booth-text` `#ffffff` / `#0f1115`, `--brand-mark-end-booth` `#c2410c` /
+  `#f59e0b`, `--brand-mark-text-booth` `#ffffff` / `#0f1115`; light / dark). Must fail.
+- [ ] T014 [P] [US1] Contrast test in `packages/shared/test/theme/contrast.test.ts`: for `tickets` and
+  `booth`, light and dark, at least 4.5:1 for accent-text on accent and on hover, accent on surface
+  and on bg, accent on its soft; at least 3:1 for the brand-mark text on the accent and on the
+  brand-mark end (R5, FR-012). Must fail (tokens missing).
+- [ ] T015 [P] [US1] Drift checker in `packages/shared/test/theme/check-theme.ts` and
+  `drift.test.ts` (R4): new rule cases proved on small inputs first: inside `.qp-app--x { }`, the
+  six roles `--accent`, `--accent-hover`, `--accent-soft`, `--accent-text`, `--brand-mark-end`,
+  `--brand-mark-text` set to `var(--<token>)` are allowed; a literal color there, another custom
+  property there, or the same roles outside such a rule are still C1/C2 violations. Then scan
+  `keycloak/themes/queuepass/login/resources/css/login.css` with the app stylesheets and expect no
+  violations. The rule cases must fail before the checker changes.
+- [ ] T016 [US1] Live test `scripts/seed/test/sign-in-screens.test.ts` (Keycloak reachable, else
+  skipped with the reason, as `seed-idempotence.test.ts`): for each of `admin-app`, `customer-app`,
+  `booth-app`, GET `/realms/queuepass/protocol/openid-connect/auth` with `client_id`,
+  `redirect_uri=http://localhost:<port>/`, `response_type=code`, `scope=openid`, a `state`, and an
+  S256 `code_challenge`; parse the HTML and expect `<title>` and the only `<h1>` to read "Sign in to
+  {name}" (contracts/README.md table), the audience line text, and `body` class
+  `qp-app--<clientId>`; expect no PatternFly stylesheet link and the two theme stylesheets. Must
+  fail against today's stock theme.
+
+### Implementation
+
+- [ ] T017 [US1] `packages/shared/src/web/theme.css`: the twelve tokens in the light `:root` block and
+  in the dark block, after the existing accent and brand-mark tokens, with a comment that they are
+  for the sign-in screens only (Constitution VII as amended, R8). T013, T014 pass; no other token
+  changes; the existing contrast, drift, and load tests stay green.
+- [ ] T018 [US1] `packages/shared/test/theme/check-theme.ts`: the exception of T015. T015's rule
+  cases pass.
+- [ ] T019 [US1] `keycloak/themes/queuepass/login/resources/css/login.css` (R4): a centered card on
+  `--bg` (max width about 400 px, full width under 480 px), the top band (`--accent`, 6 px), the
+  audience line in `--text-muted`, the `h2` page header, spacing from `--space-*`; the two
+  `.qp-app--customer-app` and `.qp-app--booth-app` rules mapping the six roles to their tokens;
+  nothing else defines a color. T015's scan passes.
+- [ ] T020 [US1] Rebuild (`docker compose up --build keycloak seed`) and run T016. It passes for all
+  three clients. Fix the template, not the test, on a mismatch.
+
+**Checkpoint**: quickstart S1 holds in a browser.
+
+---
+
+## Phase 4: User Story 2 - Every screen keeps the identity (P1)
+
+**Goal**: errors, notices, sign-out, and an ended session keep the app's identity.
+
+**Independent Test**: quickstart S3, S4; the live test below.
+
+- [ ] T021 [US2] Extend `scripts/seed/test/sign-in-screens.test.ts`: for each client, take the form's
+  `action` and the cookies from T016's page, POST `username=admin1&password=wrong`, and expect the
+  same title, `<h1>`, audience line, and body class, plus "Invalid username or password." inside the
+  `role="alert"` element, and the username field's value kept (FR-004, FR-011). Must fail if
+  template.ftl drops the message region (check by removing it once).
+- [ ] T022 [US2] Extend the same test: GET `/realms/queuepass/account` and follow redirects to the
+  sign-in page: expect "Sign in to Account Console", no audience line, body class
+  `qp-app--account-console` (FR-008, contracts/README.md).
+- [ ] T023 [US2] Fix anything T021 or T022 finds in `template.ftl` or `login.css`. Both pass.
+
+**Checkpoint**: quickstart S3, S4, S7 hold.
+
+---
+
+## Phase 5: User Story 3 - A clean clone, no manual steps (P1)
+
+**Goal**: the look arrives from one command on new and existing Keycloak data.
+
+**Independent Test**: quickstart S0, S8.
+
+- [ ] T024 [US3] `scripts/seed/test/seed-idempotence.test.ts` (live Keycloak): after a second seed
+  run, the realm's `loginTheme` is `queuepass` and `customer-app`'s name is `QueuePass Tickets`; a new
+  case sets the realm's `loginTheme` back to `keycloak` and the client's name back to `QueuePass`, runs
+  the seed, and expects both restored (FR-010, SC-004). Must fail before T006/T007 are in the running
+  seed image (rebuild).
+- [ ] T025 [US3] README "Running it" section: one line that the sign-in screens come from
+  `keycloak/themes/queuepass` and need `--build` after a theme change (Keycloak's own image).
+
+**Checkpoint**: quickstart S0 and S8 hold.
+
+---
+
+## Phase 6: User Story 4 - Reads well for everyone (P2)
+
+**Goal**: phone width, both color schemes, keyboard, screen reader.
+
+**Independent Test**: quickstart S5, S6.
+
+- [ ] T026 [US4] Check in a browser at 360 px, light and dark, keyboard only, VoiceOver (quickstart
+  S5, S6); fix `login.css` or `template.ftl` for anything that fails (sideways scroll, focus ring,
+  heading order, autofocus on username from `base`'s `login.ftl`). Record what was checked here.
+
+---
+
+## Phase 7: The Customer app's name (FR-003)
+
+- [ ] T027 [P] Test in `customer-app/test/` (the app shell test that renders `App`): the header brand
+  reads "QueuePass Tickets"; and a test that reads `customer-app/index.html` and expects
+  `<title>QueuePass Tickets</title>`. Must fail.
+- [ ] T028 `customer-app/index.html` title and `customer-app/src/App.tsx` header brand to
+  "QueuePass Tickets"; product mentions ("Can't reach QueuePass", the calendar `PRODID`) unchanged
+  (R10). T027 passes; update any other Customer test that expected the old brand.
+
+---
+
+## Phase 8: Polish, review, pull request
+
+- [ ] T029 README: the `021` status row in the features table (spec link, scope, status) and the
+  "Today" paragraph; the constitution reference already reads v3.5.0.
+- [ ] T030 Independent review by a separate Claude session (Constitution 3.3.0) of the
+  implementation against spec.md, plan.md, and research.md; fix the findings; record the round, its
+  findings, and any left open here.
+- [ ] T031 `npm run ci` locally, green; record the counts per workspace.
+- [ ] T032 Running-system walk, quickstart S0–S9, on a stack built from this branch; record each
+  scenario's result here (Constitution VI smoke test: each front end signed into, used, signed out).
+- [ ] T033 Push and open the implementation PR (after the spec PR has merged and the branch is up to
+  date with `main`): description says `fixes #92`, lists the review, the walk, the test counts, and
+  the shared surface touched (`docker-compose.yml`, `packages/shared/`, the constitution was in the
+  spec PR). Wait for CI green on GitHub on the final commit; merge only when green and approved.
+
+---
+
+## Dependencies & Execution Order
+
+- **Setup (T001–T002)** → **Foundational (T003–T012)** → every story.
+- **US1 (T013–T020)** needs the foundation. **US2 (T021–T023)** needs T016's test harness and the
+  template. **US3 (T024–T025)** needs T006/T007. **US4 (T026)** needs US1's stylesheet. **Phase 7
+  (T027–T028)** is independent of the theme and can go any time after T001.
+- **Polish (T029–T033)** after every story.
+
+### Parallel opportunities
+
+- T003, T004, T005 (three test files); T008, T009 (two theme files).
+- T013, T014, T015 (three shared test files).
+- T027–T028 alongside any phase after Setup.
+
+## Implementation Strategy
+
+- **MVP**: Setup + Foundational + US1 (T001–T020): the three screens show their identity. Already
+  solves the issue's problem.
+- Then US2 (errors and fallback), US3 (existing stacks), US4 (accessibility pass), the Customer
+  name, and the PR.
