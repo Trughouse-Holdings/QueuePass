@@ -45,7 +45,7 @@ fail before the implementation below them.
 
 ### Tests first
 
-- [ ] T003 [P] `admin-app/test/export/attendee-rows.test.ts`: `attendeeTable(event, orders, madeAt, madeBy)`
+- [x] T003 [P] `admin-app/test/export/attendee-rows.test.ts`: `attendeeTable(event, orders, madeAt, madeBy)`
   on fixtures with two tiers, a general-admission order, a seated order, a refunded order with a void
   ticket, an order with no holder name, a checked-in ticket, and a venue in `America/Chicago`, and a void ticket that has a check-in time (its Checked in
   stays empty, R13b):
@@ -54,16 +54,19 @@ fail before the implementation below them.
   `unitPrice`; Order = first 8 characters of the id upper-cased; date-times as `YYYY-MM-DDTHH:mm` in
   Chicago time; empty Checked in when null); title "Attendees: <event>"; subtitle lines with made at,
   made by, and "Times are in Central Time (the venue's time zone)." Must fail.
-- [ ] T004 [P] `admin-app/test/export/sales-rows.test.ts`: `salesTable(report, madeBy)` with events in
+  **Done**: 6 tests; failed (no module) before T005.
+- [x] T004 [P] `admin-app/test/export/sales-rows.test.ts`: `salesTable(report, madeBy)` with events in
   two zones, one cancelled: one row per event in order, Time zone `zoneName`, Status, counts, revenue;
   last row Total with `totals` and Status "`<n>` scheduled events"; made at = `generatedAt` shown in a given admin zone with its offset (R7).
   Must fail.
+  **Done**: 4 tests; failed (no module) before T005.
 
 ### Implementation
 
-- [ ] T005 `admin-app/src/export/attendee-rows.ts` and `sales-rows.ts` (R3, R4, R7), using
+- [x] T005 `admin-app/src/export/attendee-rows.ts` and `sales-rows.ts` (R3, R4, R7), using
   `toLocalDateTime` and `zoneName` from `@queuepass/shared` and `seatLabel` from `../format`. T003,
   T004 pass.
+  **Done**: `attendee-rows.ts`, `sales-rows.ts`, and `made.ts` (made-at and made-by lines); T003, T004 pass.
 
 ## Phase 3: User Story 1 + 2 - The three formats (P1) 🎯 MVP
 
