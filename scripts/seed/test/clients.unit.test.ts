@@ -5,6 +5,7 @@ import {
   desiredClient,
   provisionClients,
 } from '../src/provision-clients';
+import type ClientRepresentation from '@keycloak/keycloak-admin-client/lib/defs/clientRepresentation';
 import { createFakeKeycloak, provisionedRealmState, type FakeState } from './fake-keycloak';
 
 /**
@@ -23,6 +24,33 @@ const AUDIENCE_MAPPER = {
     'introspection.token.claim': 'true',
   },
 };
+
+/**
+ * The constitution's OIDC clients rule, pinned to fixed values rather than to `desiredClient`
+ * (review round 1): public, Authorization Code with PKCE S256 only, no password, implicit, or
+ * service-account grant, and exact redirect URIs, post-logout URIs, and web origins.
+ */
+const PORTS = { 'admin-app': 5173, 'customer-app': 5174, 'booth-app': 5175 } as const;
+
+function expectConstitutionalClient(c: ClientRepresentation): void {
+  const port = PORTS[c.clientId as keyof typeof PORTS];
+  expect(port, `unexpected client ${c.clientId}`).toBeDefined();
+  const origin = `http://localhost:${port}`;
+  expect(c, c.clientId).toMatchObject({
+    protocol: 'openid-connect',
+    enabled: true,
+    publicClient: true,
+    standardFlowEnabled: true,
+    directAccessGrantsEnabled: false,
+    implicitFlowEnabled: false,
+    serviceAccountsEnabled: false,
+    redirectUris: [`${origin}/`],
+    webOrigins: [origin],
+  });
+  expect(c.secret, c.clientId).toBeUndefined();
+  expect(c.attributes?.['pkce.code.challenge.method'], c.clientId).toBe('S256');
+  expect(c.attributes?.['post.logout.redirect.uris'], c.clientId).toBe(`${origin}/`);
+}
 
 const audienceScope = (state: FakeState) =>
   state.clientScopes.find((s) => s.name === AUDIENCE_SCOPE);
@@ -82,6 +110,9 @@ describe('provisionClients', () => {
       FRONTEND_CLIENTS.map((c) => [{ realm: 'queuepass', ...desiredClient(c) }]),
     );
     expect(fake.callsTo('clients.update')).toEqual([]);
+    const created = fake.callsTo('clients.create').map(([rep]) => rep as ClientRepresentation);
+    expect(created.map((c) => c.clientId)).toEqual(['admin-app', 'customer-app', 'booth-app']);
+    for (const c of created) expectConstitutionalClient(c);
     for (const c of FRONTEND_CLIENTS) {
       expect(console.log).toHaveBeenCalledWith(`[seed] created client '${c.clientId}'`);
     }
@@ -122,6 +153,9 @@ describe('provisionClients', () => {
     }
     expect(state.clients.map((c) => c.id)).toEqual(ids);
     expect(fake.callsTo('clients.update')).toHaveLength(FRONTEND_CLIENTS.length);
+    for (const [, rep] of fake.callsTo('clients.update')) {
+      expectConstitutionalClient(rep as ClientRepresentation);
+    }
     expect(console.log).toHaveBeenCalledWith(
       "[seed] client 'admin-app' already present — converged to desired settings",
     );
@@ -160,6 +194,7 @@ describe('provisionClients', () => {
     });
     const [target] = fake.callsTo('clients.update')[0];
     expect(target).toEqual({ realm: 'queuepass', id });
+    expectConstitutionalClient(after);
   });
 
   it('adds only the default scope a client is missing', async () => {
@@ -252,7 +287,7 @@ describe('provisionClients', () => {
 
   it('works in the realm KEYCLOAK_REALM names', async () => {
     vi.stubEnv('KEYCLOAK_REALM', 'other');
-    const fake = createFakeKeycloak(provisionedRealmState('other'));
+    const fake = createFakeKeycloak(provisionedRealmState('other'), { realm: 'other' });
 
     await provisionClients(fake.kc);
 

@@ -18,6 +18,17 @@ describe('the fake Keycloak admin client', () => {
     expect(fake.methods()).toEqual(['realms.update', 'groups.find']);
   });
 
+  it('refuses a request for another realm than its own', async () => {
+    const fake = createFakeKeycloak();
+
+    await expect(fake.kc.roles.find({ realm: 'master' })).rejects.toThrow(
+      "fake Keycloak: roles.find asked for realm 'master', not 'queuepass'",
+    );
+    await expect(
+      createFakeKeycloak(undefined, { realm: 'other' }).kc.roles.find({ realm: 'other' }),
+    ).resolves.toEqual([]);
+  });
+
   it('is not a thenable, so it can be returned from an async function', async () => {
     const fake = createFakeKeycloak();
 

@@ -95,7 +95,14 @@ description: "Task list for Test Coverage Floor"
   "The 80% floor" paragraph (both runners' messages, the filtered-run note, checked: a filtered
   seed run measured 17.71% and failed, the report after a failure, the one exclusion, the fake);
   the pull request check paragraph no longer says the floor waits for `010`.
-- [ ] T015 Independent review by a separate Claude session; fix; record here.
+- [x] T015 Independent review by a separate Claude session; fix; record here. Result: round 1,
+  0 must-fix, 1 should-fix, 2 minor, all fixed. Should-fix: `clients.unit.test.ts` compared the
+  create request to `desiredClient`, the function under test, so a password grant or PKCE `plain`
+  set there still passed; the created, updated, and converged clients are now checked against
+  fixed values (public, Authorization Code only, PKCE `S256`, no password, implicit, or
+  service-account grant, no secret, exact redirect, post-logout, and web origin), and the
+  reviewer's mutation fails 3 tests. Minor: the README's task count matches tasks.md (16/18 with
+  this task ticked); the fake now refuses a call for another realm than its own.
 - [x] T016 `npm run ci` green locally; record each workspace's coverage and the `test` job's duration
   against `main`'s (SC-004). Result: green locally in 194 s (218 s before, T001), Keycloak pointed
   away as in CI. Lines after: `packages/shared` 93.13%, `backend` 97.02%, `admin-app` 97.06%,

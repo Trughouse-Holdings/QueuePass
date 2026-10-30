@@ -14,8 +14,9 @@ import type UserRepresentation from '@keycloak/keycloak-admin-client/lib/defs/us
  * something new (for example spec 021's `realms.findOne` and `realms.update`) fails with a
  * message naming what to add here.
  *
- * One realm's worth of state: the seed only ever works in one realm, and every call's `realm`
- * argument is recorded, so a test can check it.
+ * One realm's worth of state: the seed only ever works in one realm. Every call is recorded, and a
+ * call whose `realm` argument names another realm than the fake's (`queuepass` unless given)
+ * throws, so a request sent to the wrong realm fails the test.
  */
 
 export interface FakeUser extends UserRepresentation {
@@ -86,7 +87,10 @@ export function provisionedRealmState(realm = 'queuepass'): FakeState {
   return state;
 }
 
-export function createFakeKeycloak(initial: FakeState = emptyState()): FakeKeycloak {
+export function createFakeKeycloak(
+  initial: FakeState = emptyState(),
+  { realm = 'queuepass' }: { realm?: string } = {},
+): FakeKeycloak {
   const state = initial;
   const calls: FakeCall[] = [];
 
@@ -183,6 +187,12 @@ export function createFakeKeycloak(initial: FakeState = emptyState()): FakeKeycl
           return async (...args: unknown[]) => {
             calls.push({ method: `${group}.${method}`, args: copy(args) });
             if (!impl) throw new Error(`fake Keycloak: ${group}.${method} is not implemented`);
+            const asked = (args[0] as { realm?: unknown } | undefined)?.realm;
+            if (asked !== undefined && asked !== realm) {
+              throw new Error(
+                `fake Keycloak: ${group}.${method} asked for realm '${String(asked)}', not '${realm}'`,
+              );
+            }
             // Copies in and out, as over HTTP: the seed can never alias the fake's state.
             return copy(await (impl as (...a: unknown[]) => unknown)(...copy(args)));
           };

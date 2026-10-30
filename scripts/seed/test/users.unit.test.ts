@@ -150,7 +150,7 @@ describe('provisionUsers', () => {
   it('uses SEED_USER_PASSWORD and KEYCLOAK_REALM', async () => {
     vi.stubEnv('SEED_USER_PASSWORD', 'other-pass');
     vi.stubEnv('KEYCLOAK_REALM', 'other');
-    const fake = createFakeKeycloak(provisionedRealmState('other'));
+    const fake = createFakeKeycloak(provisionedRealmState('other'), { realm: 'other' });
 
     await provisionUsers(fake.kc);
 

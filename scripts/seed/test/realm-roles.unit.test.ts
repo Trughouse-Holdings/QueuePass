@@ -94,7 +94,7 @@ describe('provisionRealm', () => {
 
   it('uses KEYCLOAK_REALM for the realm name and every role request', async () => {
     vi.stubEnv('KEYCLOAK_REALM', 'other');
-    const fake = createFakeKeycloak();
+    const fake = createFakeKeycloak(emptyState(), { realm: 'other' });
 
     await provisionRealm(fake.kc);
 
