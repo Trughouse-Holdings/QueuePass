@@ -92,7 +92,8 @@ confirm they **fail** before the implementation tasks below them.
   `kc*Class` that `base`'s `login.ftl`, `error.ftl`, `info.ftl`, and `logout-confirm.ftl` use set to
   empty or to a shared class, `locales=en`; `kcInputErrorMessageClass=qp-field-error`; the
   show-password mappings of R2 (`kcFormPasswordVisibilityButtonClass=btn btn--ghost qp-reveal`,
-  `kcFormPasswordVisibilityIconShow=qp-reveal--show`, `kcFormPasswordVisibilityIconHide=qp-reveal--hide`).
+  `kcFormPasswordVisibilityIconShow=qp-reveal--show`, `kcFormPasswordVisibilityIconHide=qp-reveal--hide`);
+  `meta=viewport==width=device-width,initial-scale=1` (`base` writes no viewport tag, R2).
   **Result**: as R2, plus `kcInputGroup=qp-input-group` (the password row, laid out by `login.css`), `stylesCommon=` and `meta=viewport==width=device-width,initial-scale=1` (base writes no viewport tag; without it a phone renders the page at desktop width, FR-012); every other `kc*` hook of base's `template.ftl`, `login.ftl`, `error.ftl`, `info.ftl`, `logout-confirm.ftl` set empty.
 - [x] T009 [P] `keycloak/themes/queuepass/login/messages/messages_en.properties`: `qpSignInTo` and the
   three audience lines, word for word as T003.
@@ -110,13 +111,14 @@ confirm they **fail** before the implementation tasks below them.
   (`aria-hidden="true"`, "Q"); the one `<h1>` with `msg("qpSignInTo", appName)`; the audience line
   `msg("qpAudience." + client.clientId)` only when that key exists (compare the message to its key);
   the page's own `header` section captured with `<#assign pageHeader><#nested "header"></#assign>` and
-  dropped when `pageHeader?trim == msg("loginAccountTitle")`, otherwise shown in an `<h2>` (Keycloak 26
+  dropped when `pageHeader?markup_string?trim == msg("loginAccountTitle")` (the capture is markup
+  output; a plain `?trim` is a 500, R9), otherwise shown in an `<h2>` (Keycloak 26
   has no `pageId`, R9);
   messages: `error` in `<div class="banner banner--error" role="alert">`, `success` in
   `banner--success` and `warning`/`info` in a `banner` with `role="status"`; the form, info, and
   social sections as `base` has them. Field errors stay where `base`'s `login.ftl` puts them
   (`#input-error`, R9). T003 passes.
-  **Result**: from Keycloak 26.0.8's `theme/base/login/template.ftl`. Keycloak renders with HTML auto-escaping, so the captured header can be markup output: the template takes `?markup_string` when `?is_markup_output`, then `?trim`, before comparing; warnings use the shared `banner--conflict` (warn colors), info a `qp-banner--info`. Verified live: no `<h2>` on the sign-in form.
+  **Result**: from Keycloak 26.0.8's `theme/base/login/template.ftl`. Keycloak renders with HTML auto-escaping, so the captured header is markup output: the template takes `?markup_string` when `?is_markup_output`, then `?trim`, before comparing (tried: a plain `?trim` answers 500 with `NonStringException`; R9 and this task corrected in a `Review 021` commit); warnings use the shared `banner--conflict` (warn colors), info a `qp-banner--info`. Verified live: no `<h2>` on the sign-in form.
 - [x] T011 `keycloak/Dockerfile` (R6): `FROM quay.io/keycloak/keycloak:26.0`; `COPY
   keycloak/themes/queuepass /opt/keycloak/themes/queuepass`; `COPY packages/shared/src/web/theme.css
   /opt/keycloak/themes/queuepass/login/resources/css/theme.css`. A comment says the build context is
@@ -192,6 +194,7 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   in `var(--danger)`; `.qp-reveal--show::before { content: "Show" }` and `.qp-reveal--hide::before {
   content: "Hide" }` (R2); the two
   `.qp-app--customer-app` and `.qp-app--booth-app` rules mapping the six roles to their tokens;
+  `#kc-login:focus-visible` with the shared focus ring (the shared `input:focus` removes it, R2);
   nothing else defines a color. T015's scan passes.
   **Result**: as specified, plus: `#kc-login` full width and its focus ring restored (the shared `input:focus { outline: none }` would otherwise remove it from the submit input), `.qp-input-group` for the password row, the empty options row hidden with `:has()`, `.qp-banner--info`, phone rules under 480 px. Drift scan clean.
 - [x] T020 [US1] Rebuild (`docker compose up --build keycloak seed`) and run T016. It passes for all

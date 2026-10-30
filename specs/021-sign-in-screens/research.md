@@ -32,7 +32,11 @@ rest). `theme.properties` maps Keycloak's class hooks to the shared theme's clas
 `kcButtonBlockClass=` (empty), `kcInputErrorMessageClass=qp-field-error`, `kcAlertClass=banner`,
 `kcAlertTitleClass=banner__body`, and empties the PatternFly-only ones. No PatternFly stylesheet is
 loaded. `qp-field-error` is a `login.css` rule using `var(--danger)` (the shared theme has no field
-error class).
+error class). `base`'s `template.ftl` writes no viewport tag (the PatternFly themes add one through
+the `meta` property), so `theme.properties` sets `meta=viewport==width=device-width,initial-scale=1`;
+without it a phone lays the page out at desktop width (FR-012). The shared theme's
+`input:focus { outline: none }` also reaches the Sign In button (an `<input type="submit">`), so
+`login.css` gives `#kc-login:focus-visible` the shared focus ring back (implementation, 2026-10-30).
 
 The show-password toggle (`base` `login.ftl`: a button with `aria-label` "Show password" holding an
 icon `<i>` whose class `passwordVisibility.js` swaps between `kcFormPasswordVisibilityIconShow` and
@@ -193,7 +197,11 @@ but does not meet the meeting's "visually distinct" requirement.
 is captured (`<#assign pageHeader><#nested "header"></#assign>`) and dropped when its trimmed text
 equals `msg("loginAccountTitle")` (the sign-in form), and shown as an `<h2>` on every other page, so
 error and info pages keep the app's identity and still say what happened (FR-004). Keycloak 26's
-login templates have no `pageId` variable (review round 1, finding 1).
+login templates have no `pageId` variable (review round 1, finding 1). Keycloak renders with HTML
+auto-escaping, so the capture is markup output, not a string: `pageHeader?trim` fails the page
+with a 500 (`NonStringException: … evaluated to a markup_output`, seen on Keycloak 26.0.8). The text
+is `pageHeader?markup_string?trim` (when `pageHeader?is_markup_output`), and the `<h2>` prints that
+trimmed text with `?no_esc`, since it is already escaped (implementation, 2026-10-30).
 
 Two kinds of message (review round 1, finding 2):
 
