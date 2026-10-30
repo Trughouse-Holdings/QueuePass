@@ -104,3 +104,18 @@ retry up to 3 times on a deadlock, so the retry's pre-check returns a normal
 `409 SCHEDULING_CONFLICT` naming the winner; the error filter maps any remaining deadlock to
 the same race-path `409`. The concurrency test then passed 15 of 15 runs. No double booking was
 ever accepted: the constraint held throughout. Only the error code was wrong.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| D1 | Automated: `002 D1: an admin deletes an event, and its time at the venue is free again` |
+| D2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| D3 | Manual: two admins at once; outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| D4 | Manual: role checks on the API, covered by Backend tests |
+| D5 | Manual: the API's refusal body, covered by Backend tests |
+| D6 | Manual: a regression walk by hand; the other browser tests walk the rest |
+| D7 | Manual: the full suite, run by the `test` check on every pull request |

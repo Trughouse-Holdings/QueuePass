@@ -141,3 +141,21 @@ again. **Expect**: `diff` against the S6 file shows only the `DTSTAMP` line.
 
 Sign in to, use, and sign out of the Admin app, the Customer app, and the Ticket Booth app. Delete the
 test entries from the calendar app and Google Calendar.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| S0 | Manual: set-up for the scenarios below; each browser test sets up its own data through the API |
+| S1 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S2 | Automated: `019 S2: a customer downloads the calendar file, with the event, its times, and its venue` |
+| S3 | Manual: opening the file in a real calendar app |
+| S4 | Manual: Google Calendar in a Google account |
+| S5 | Manual: Google Calendar in a Google account |
+| S6 | Manual: record only, in a real calendar app |
+| S7 | Manual: the device's time zone, checked in a real calendar app |
+| S8 | Manual: keyboard, screen reader, and phone width |
+| S9 | Manual: sign in, use, sign out, walked by the `001 V3` browser test |

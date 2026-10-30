@@ -45,3 +45,17 @@ event. **Expect**: the layout can now be edited, and the event's seat map shows 
 ## S6: General admission unchanged (SC-005)
 
 As `customer1`, open a demo event. **Expect**: the `006` Get tickets form, with no seat map.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| S1 | Manual: the layout editor; outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S3 | Automated: `007 S3: a customer chooses seats and gets them` |
+| S4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S5 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S6 | Manual: general admission, walked by the `006 P1/P4` browser test |

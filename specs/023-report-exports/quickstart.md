@@ -44,3 +44,18 @@ mode it is readable. A screen reader announces "Preparing the PDF…" while it w
 
 Run the size test (tasks T021). **Expected**: 5,000 tickets in each format within 10 s; 25,000
 without error.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| E0 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
+| E1 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
+| E2 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
+| E3 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
+| E4 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
+| E5 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |
+| E6 | Manual: not built on this branch yet: `023`'s implementation PR adds its browser test and marks (Constitution VI) |

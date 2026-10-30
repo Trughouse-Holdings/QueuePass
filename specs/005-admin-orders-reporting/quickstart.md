@@ -40,3 +40,17 @@ an event that has orders (from its page). **Expect**: refused, suggesting cancel
 
 Log out, sign in to http://localhost:5174 as `customer1`. **Expect**: the cancelled events are
 marked "Cancelled" in the event list and on their pages.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| O1 | Manual: demo data counts checked by hand; every `npm run e2e` loads the demo data |
+| O2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| O3 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| O4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| O5 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| O6 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |

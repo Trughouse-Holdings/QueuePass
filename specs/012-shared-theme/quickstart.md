@@ -110,3 +110,18 @@ line, and the color. Revert it.
 
 Sign in, use, and sign out of each front end, including the Booth app (http://localhost:5175,
 `agent1` / `test123`). **Expect**: the Booth app looks exactly as before (browser defaults).
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| S1 | Manual: a side-by-side look, by eye |
+| S2 | Manual: computed styles in the browser console; the theme's own tests check the tokens |
+| S3 | Manual: dark mode, by eye |
+| S4 | Manual: needs the Backend stopped |
+| S5 | Manual: a phone-width layout, checked by eye |
+| S5b | Manual: dense Admin screens, by eye |
+| S6 | Manual: a scratch-branch theme change, by eye |

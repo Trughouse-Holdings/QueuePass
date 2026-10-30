@@ -85,3 +85,21 @@ The Admin and Ticket Booth apps are unchanged.
   theme files; the Customer app's name.
 - With the stack up: `npm test --workspace @queuepass/seed` also runs the live sign-in screen test
   (title, heading, audience line, body class, wrong password, account console).
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| S0 | Manual: a clean stack, which every `npm run e2e` starts |
+| S1 | Manual: each screen's look checked by eye; every browser test signs in on it by its heading |
+| S2 | Manual: told apart by a person |
+| S3 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S5 | Manual: phone width and color schemes, checked by eye |
+| S6 | Manual: keyboard and screen reader pass |
+| S7 | Manual: Keycloak's own account page; outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S8 | Manual: needs a stack from before `021` |
+| S9 | Manual: the header's name, read by the `001 V3` browser test |

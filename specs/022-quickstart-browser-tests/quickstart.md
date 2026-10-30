@@ -40,3 +40,16 @@ reported. Record the counts in tasks.md.
    from `main`'s last run (within normal variation).
 2. After merge, on `main`'s push run: `e2e` passes. A repository admin adds `e2e` to the ruleset.
    **Expected**: a PR whose `e2e` fails shows as blocked.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| B1 | Manual: a laptop run with a teammate's own stack up, by hand |
+| B2 | Manual: `npm run e2e -- --repeat-each=3`, run by hand before the implementation merges |
+| B3 | Manual: a throwaway pull request on GitHub |
+| B4 | Manual: a test renamed by hand to see the check fail |
+| B5 | Manual: CI timing and the ruleset, on GitHub |

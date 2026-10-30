@@ -247,3 +247,24 @@ page in both apps, at desktop width, at about 1,000 pixels (three columns of nar
   full screen still does.
 
 Finally, sign in, use, and sign out of each front end (Constitution VI smoke test).
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| S1 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S3 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S5 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S6 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S7 | Manual: reduced motion and phone width, checked by eye |
+| S8 | Manual: API rules, covered by Backend tests |
+| S9 | Manual: an empty database; every `npm run e2e` loads the demo data |
+| S10 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S11 | Manual: a load with large images, timed by a person |
+| S12 | Manual: needs a failure forced in developer tools |
+| S13 | Manual: whole pictures, checked by eye |

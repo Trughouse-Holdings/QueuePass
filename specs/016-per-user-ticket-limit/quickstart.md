@@ -70,3 +70,19 @@ the event and telling the admin to lower its limit first; the layout is unchange
 Every event created before `016` shows "Per customer: No limit" and sells as before (FR-017). After
 `docker compose exec backend node backend/dist/scripts/demo-data.js`, one demo event has a
 limit of 4.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| S1 | Manual: a timing goal measured with a person (SC-003) |
+| S2 | Automated: `016 S2: buy up to the per-customer limit; more is refused with the reason` |
+| S3 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S5 | Manual: the Backend's own refusal, covered by Backend tests |
+| S6 | Manual: simultaneous orders, covered by the Backend's concurrency test |
+| S7 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S8 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |

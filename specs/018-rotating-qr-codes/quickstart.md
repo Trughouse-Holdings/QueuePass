@@ -117,3 +117,20 @@ gate agents, and bad tokens (SC-007).
 
 Sign in to, use, and sign out of each front end. The Ticket Booth app's sign-out returns to its
 sign-in page; the Customer app's sign-out drops the live code screen with it.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| S0 | Manual: set-up for the scenarios below; each browser test sets up its own data through the API |
+| S1 | Manual: a live code watched changing over time; outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S2 | Manual: camera scanning on a real phone |
+| S3 | Manual: camera scanning of a photo on a real phone |
+| S4 | Manual: camera scanning of a printed ticket |
+| S5 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S6 | Manual: needs the phone's signal cut |
+| S7 | Manual: covered by Backend tests |
+| S8 | Manual: sign in, use, sign out, walked by the `001 V3` browser test |

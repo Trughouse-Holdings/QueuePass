@@ -123,3 +123,22 @@ Then reset the database (`docker compose down -v && docker compose up --build -d
 Backend at `http://10.255.255.1` as in S7, and run the script again. **Expect**: it finishes,
 prints that the demo venues are not verified, and the Admin app shows both marked "Address not
 verified". Restore the default URL afterwards.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| S1 | Manual: the real address service's standard form; the `003 C1` browser test saves a venue through the stand-in |
+| S1b | Manual: needs the real address service's answers |
+| S2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S2b | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S3 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S5 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S6 | Manual: opens an outside map site |
+| S7 | Manual: needs the Backend restarted with an address service that never answers |
+| S8 | Manual: needs a database from before `013` |
+| S9 | Manual: an empty database; every `npm run e2e` loads the demo data |
