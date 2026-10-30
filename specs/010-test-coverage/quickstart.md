@@ -27,3 +27,16 @@ the live tests run and pass too.
 
 Search the six configs for `exclude`. **Expected**: only `src/api-schema.ts` in `packages/shared`, with
 its reason.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| F1 | Manual: a check of the `test` job's coverage, not a browser journey |
+| F2 | Manual: a check of the `test` job's coverage, not a browser journey |
+| F3 | Manual: a throwaway pull request on GitHub |
+| F4 | Manual: a check of the `test` job's coverage, not a browser journey |
+| F5 | Manual: a check of the `test` job's coverage, not a browser journey |

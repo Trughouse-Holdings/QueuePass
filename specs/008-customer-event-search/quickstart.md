@@ -39,3 +39,16 @@ On a seated event, choose two seats. **Expect**: open, chosen (✓), and taken (
 look different. Turn on the system's grayscale filter. **Expect**: still different. Using only
 Tab, Space, and Enter, choose a tier, a section, a seat, and confirm. **Expect**: every step works
 and the focused control is outlined.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| E1 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| E2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| E3 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| E4 | Manual: a phone-width layout, checked by eye |
+| E5 | Manual: keyboard and screen reader pass |

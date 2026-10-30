@@ -159,3 +159,17 @@ sign out of the Admin app (http://localhost:5173, `admin1` / `test123`), the Cus
 (http://localhost:5174, `customer1` / `test123`), and the Ticket Booth app (http://localhost:5175,
 `agent1` / `test123`). With the stack up, `npm test --workspace @queuepass/seed` runs the two
 Keycloak tests instead of skipping them, and they pass.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| Q1 | Manual: a local run of the `test` job, not a browser journey |
+| Q2 | Manual: the implementation PR's own check on GitHub |
+| Q3 | Manual: a throwaway pull request on GitHub |
+| Q4 | Manual: the check on `main` on GitHub |
+| Q5 | Manual: a repository setting, changed by an admin |
+| Q6 | Manual: the running-system walk of an implementation PR, by hand |

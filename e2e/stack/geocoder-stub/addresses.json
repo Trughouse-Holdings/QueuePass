@@ -1,0 +1,56 @@
+[
+  {
+    "street": "430 W Vine St",
+    "city": "Lexington",
+    "state": "KY",
+    "zip": "40507",
+    "matchedAddress": "430 W VINE ST, LEXINGTON, KY, 40507",
+    "x": -84.4993,
+    "y": 38.0466
+  },
+  {
+    "street": "937 Phillips Ln",
+    "city": "Louisville",
+    "state": "KY",
+    "zip": "40209",
+    "matchedAddress": "937 PHILLIPS LN, LOUISVILLE, KY, 40209",
+    "x": -85.7417,
+    "y": 38.1953
+  },
+  {
+    "street": "1 Arena Plz",
+    "city": "Louisville",
+    "state": "KY",
+    "zip": "40202",
+    "matchedAddress": "1 ARENA PLZ, LOUISVILLE, KY, 40202",
+    "x": -85.7539,
+    "y": 38.2575
+  },
+  {
+    "street": "1901 W Madison St",
+    "city": "Chicago",
+    "state": "IL",
+    "zip": "60612",
+    "matchedAddress": "1901 W MADISON ST, CHICAGO, IL, 60612",
+    "x": -87.6742,
+    "y": 41.8807
+  },
+  {
+    "street": "201 E Jefferson St",
+    "city": "Phoenix",
+    "state": "AZ",
+    "zip": "85004",
+    "matchedAddress": "201 E JEFFERSON ST, PHOENIX, AZ, 85004",
+    "x": -112.0712,
+    "y": 33.4457
+  },
+  {
+    "street": "1111 S Figueroa St",
+    "city": "Los Angeles",
+    "state": "CA",
+    "zip": "90015",
+    "matchedAddress": "1111 S FIGUEROA ST, LOS ANGELES, CA, 90015",
+    "x": -118.2673,
+    "y": 34.043
+  }
+]

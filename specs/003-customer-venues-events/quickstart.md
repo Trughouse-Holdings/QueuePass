@@ -49,3 +49,16 @@ Network tab, every request to `localhost:3000` is a `GET` carrying `Authorizatio
    control; no venue or event data.
 
 Clean up in **A** by deleting the quickstart venues.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| C1 | Automated: `003 C1: events appear soonest first, with their venues, times, and prices` |
+| C2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| C3 | Manual: read-only rules, covered by Backend role tests; outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| C4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| C5 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |

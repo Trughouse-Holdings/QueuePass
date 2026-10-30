@@ -94,3 +94,23 @@ its own when the Backend is back, without a page reload.
 
 Sign in to, use, and sign out of the Admin, Customer, and Ticket Booth apps. **Expect**: general-
 admission events still sell exactly as before (SC-006), and the Booth app is unchanged.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| S0 | Manual: set-up for the scenarios below; each browser test sets up its own data through the API |
+| S1 | Manual: a timing goal measured with a person (90 seconds, SC-005) |
+| S2 | Automated: `015 S2: live gray-out, seats one customer reserves turn unavailable for another within 2 seconds`; rest Manual: the reserved look (a dashed outline with an R, unlike sold), by eye |
+| S3 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S4 | Manual: the same seat at the same moment, covered by the Backend's concurrency test |
+| S5 | Manual: the hold runs out after 5 real minutes |
+| S6 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S7 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S8 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S9 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S10 | Manual: needs the connection cut and restored |
+| S11 | Manual: sign in, use, and sign out of each front end, by hand |

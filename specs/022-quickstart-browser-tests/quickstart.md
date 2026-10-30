@@ -21,10 +21,13 @@ reported. Record the counts in tasks.md.
 
 ## B3. A broken journey turns the check red (US1; SC-001)
 
-1. On a throwaway branch, break one wire: in `customer-app/src/pages/MyTickets.tsx` (or wherever My
-   tickets calls the API), change the path to one that does not exist. Open a draft PR.
-   **Expected**: `test` still passes (the component tests stub the API); `e2e` fails, naming `006 P4`
-   (and any other test that opens My tickets), with a screenshot and trace in the run's artifacts.
+1. On a throwaway branch, break one wire that no unit test reads: in `customer-app/src/main.tsx`,
+   pass the sign-in provider an `apiBaseUrl` the Backend does not serve (for example
+   `` `${import.meta.env.VITE_API_BASE_URL}/api` ``). Open a draft PR. **Expected**: `test` still
+   passes; `e2e` fails, naming `006 P1/P4` and the other scenarios that call the API from the
+   Customer app, with a screenshot and trace in the run's artifacts. (A wrong path in
+   `MyTickets.tsx` fails the Customer app's component tests too, and a wrong `VITE_API_BASE_URL`
+   in `docker-compose.yml` fails `scripts/test/run-host.test.mjs`: research R16.11.)
 2. Revert. **Expected**: `e2e` passes. Close the draft PR unmerged and delete its branch (as `011`'s
    #78).
 
@@ -40,3 +43,16 @@ reported. Record the counts in tasks.md.
    from `main`'s last run (within normal variation).
 2. After merge, on `main`'s push run: `e2e` passes. A repository admin adds `e2e` to the ruleset.
    **Expected**: a PR whose `e2e` fails shows as blocked.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| B1 | Manual: a laptop run with a teammate's own stack up, by hand |
+| B2 | Manual: `npm run e2e -- --repeat-each=3`, run by hand before the implementation merges |
+| B3 | Manual: a throwaway pull request on GitHub |
+| B4 | Manual: a test renamed by hand to see the check fail |
+| B5 | Manual: CI timing and the ruleset, on GitHub |

@@ -49,7 +49,8 @@ under 60 seconds.
 **Constraints**: standard ports only (exact redirect URIs); seed accounts only; no retries; no outside
 service; `npm test` gains only the marks check.
 
-**Scale/Scope**: about 12 tests in 8 files; every quickstart (19 today) gets a table.
+**Scale/Scope**: 12 tests in 9 files (research R16.4); every quickstart (22 as built, 19 when this
+plan was written) gets a table.
 
 ## Constitution Check
 
@@ -82,8 +83,8 @@ specs/022-quickstart-browser-tests/
 ```text
 e2e/                                  # NEW (R2)
 ├── playwright.config.ts, tsconfig.json
-├── fixtures/{apps,sign-in,api,data}.ts
-├── tests/001-sign-in.spec.ts, 003-venue-event.spec.ts, 006-007-tickets.spec.ts,
+├── fixtures/{apps,sign-in,api,data,time}.ts
+├── tests/001-sign-in.spec.ts, 002-delete-event.spec.ts, 003-venue-event.spec.ts, 006-007-tickets.spec.ts,
 │   015-seat-holds.spec.ts, 016-ticket-limit.spec.ts, 017-check-in.spec.ts,
 │   019-calendar.spec.ts, 020-time-zones.spec.ts
 └── stack/docker-compose.e2e.yml, stack/geocoder-stub/{Dockerfile,server.mjs,addresses.json}

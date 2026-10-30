@@ -2,6 +2,9 @@
 # The run steps after `npm ci` MUST be exactly the parts of the root `ci` script in package.json,
 # in the same order (R12); scripts/test/ci-workflow.test.mjs fails when they differ.
 # The job name `test` is the required check's name on main (R18): do not rename it.
+# Spec 022 (research R11): the job `e2e` runs the browser tests (`npm run e2e`) against a throwaway
+# Compose stack, beside `test`, so image builds never push `test` past its limit. It becomes a
+# required check on main once it has passed there (R12). Do not rename it either.
 name: CI
 
 on:
@@ -43,3 +46,30 @@ jobs:
         run: npm test
       - name: Report coverage
         run: npm run coverage:report
+
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      # Installs Chromium with its system libraries (CI is set), starts the qpe2e stack from clean
+      # data, runs every browser test with no retries, and removes the stack (research R3).
+      - name: Browser tests
+        run: npm run e2e
+      - name: Keep the report, traces, screenshots, and service logs
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 14

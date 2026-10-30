@@ -145,3 +145,20 @@ in the Admin app.
 
 The browser checks were driven by Playwright against the installed Chrome, from outside the
 repository. Playwright is not part of the project's stack.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| V1 | Manual: timing the first start by hand; every `npm run e2e` starts the stack the same way |
+| V2 | Manual: seed idempotence, covered by the seed's own tests against Keycloak |
+| V3 | Automated: `001 V3: sign in, the signed-in page, and logout in each app` |
+| V4 | Automated: `001 V4: each app refuses an account without its role` |
+| V5 | Manual: browser storage inspected in developer tools |
+| V6 | Manual: token tampering, covered by Backend tests |
+| V7 | Manual: the contract browsing page, covered by Backend tests |
+| V8 | Manual: the full suite, run by the `test` check on every pull request |
+| V9 | Manual: a stack restart |

@@ -12,6 +12,9 @@ export default tseslint.config(
       'build/',
       'coverage/',
       '**/coverage/',
+      // Spec 022: the browser tests' generated report and output.
+      'e2e/playwright-report/',
+      'e2e/test-results/',
       '**/*.min.js',
       'specs/',
       '.specify/',
@@ -32,7 +35,13 @@ export default tseslint.config(
   },
   {
     // Plain Node scripts run by npm test (boundary and contract-drift checks).
-    files: ['scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'e2e/stack/**/*.mjs'],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    // Spec 022: the browser tests run in Node (Playwright Test); the TypeScript rules above apply,
+    // no React rules.
+    files: ['e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
 );

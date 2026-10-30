@@ -33,3 +33,15 @@ same.
 Sign in to http://localhost:5174 as `customer1`. **Expect**: events and venues still listed.
 
 Clean up by deleting the test events and venue.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| T1 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| T2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| T3 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| T4 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |

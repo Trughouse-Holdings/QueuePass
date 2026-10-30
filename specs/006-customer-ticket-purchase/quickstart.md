@@ -40,3 +40,16 @@ order Refunded, its event Cancelled, its tickets Void.
 
 Log out and sign in as `customer2`. **Expect**: My tickets says there are no tickets yet, and
 none of `customer1`'s orders appear.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| P1 | Automated: `006 P1/P4: a customer gets 2 tickets in a tier and sees them in My tickets` |
+| P2 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| P3 | Manual: needs an event that has already started; outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| P4 | Automated: `006 P1/P4: a customer gets 2 tickets in a tier and sees them in My tickets` |
+| P5 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |

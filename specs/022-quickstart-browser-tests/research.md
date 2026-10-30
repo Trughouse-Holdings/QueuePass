@@ -254,3 +254,54 @@ Camera scanning on a real phone (`017`, `018`), printing (`017`), screen reader 
 purchase), waits of minutes (`015` S5), restarts of the stack (`001` V9), the contract browsing page
 and token tampering already covered by Backend tests (`001` V6, V7), and anything that needs the
 Keycloak admin console. Each gets its reason in its quickstart's table.
+
+## R16. Decisions made during implementation (2026-10-30)
+
+Recorded by the implementation session; each is the smallest change that matched what the code
+and tools actually do.
+
+1. **Scenario labels with a letter** (R10, T008): `012` (S5b) and `013` (S1b, S2b) label
+   sub-scenarios with a trailing lower-case letter, which R10's pattern `^#{2,3} ([A-Z]{1,2}\d+)\b`
+   does not match (no word boundary between `1` and `b`). The pattern is
+   `^#{2,3} ([A-Z]{1,2}\d+[a-z]?)\b`, so those scenarios get rows too.
+2. **Names checked by feature** (FR-003, FR-008): the marks check also fails a test title that
+   does not start `NNN <label>: `, and looks for a title's Automated row in its own feature's
+   quickstart (`specs/NNN-*/quickstart.md`), not in any quickstart.
+3. **"Log out", not "Sign out"** (R5, T011): every app's control is **Log out** (spec `001`
+   FR-015); the fixtures use that name. Keycloak's page is found by its heading, "Sign in to
+   <app name>" (spec `021`), its fields by the labels "Username or email" and "Password", and its
+   button "Sign In".
+4. **A `002` test** (R9, SC-002): R9 walked `002`'s pages only inside `003 C1`, which leaves nine
+   features. `002`'s quickstart D1 (delete an event, after cancelling the confirmation once; its
+   time is free again) is a browser walk, so it has its own test: 12 tests over 10 features.
+5. **`020` as two tests**, `020 S6` and `020 S7`, one label each, instead of one test over both.
+6. **`016 S2` follows its quickstart**: limit 3, "You can get 3 more", the largest quantity offered,
+   get 2, "1 more", get 1, then "You have reached the limit of 3 tickets for this event." with no
+   confirm control. At the limit the Customer app offers no way to ask for more, so the refusal
+   the test sees is that reason (the Backend's own refusal keeps its Backend tests).
+7. **Request shapes from the contract**: the set-up helpers type their bodies with a type-only
+   import of `packages/shared/src/api-schema.ts` (generated from `contracts/openapi.yaml`); it is
+   erased when Playwright loads the tests, so nothing needs `@queuepass/shared` built (T012).
+8. **Accounts per test**: each test file takes its own customer number `n` (`customerFor(testInfo,
+   n)`), so one customer's seat reservation or ticket limit never meets another test's.
+9. **The 2-second window of `015 S2`** starts at Customer 1's **Reserve seats** press; the test
+   checks Customer 2's page before waiting for Customer 1's own confirmation.
+10. **`actionTimeout: 10_000`** (R7, found by T031): a missing control made an action wait for the
+    60-second test timeout; it now fails after 10 seconds, naming the control, like an expectation.
+11. **The red-check break** (T026, quickstart B3): B3's example, a wrong API path in
+    `MyTickets.tsx`, is caught by the Customer app's own component tests (their stub API answers by
+    path, and they assert the path), and a wrong `VITE_API_BASE_URL` in `docker-compose.yml` is
+    caught by `scripts/test/run-host.test.mjs`. The proof used a wire no unit test reads: the
+    Customer app's `main.tsx` passing a wrong `apiBaseUrl` to the sign-in provider.
+12. **Quickstarts merged after the spec**: `010` and `023` merged after this spec was written, so
+    22 quickstarts are marked, not 19. `023` is not built on this branch; its rows are Manual, for
+    its own implementation PR to replace (Constitution VI as amended).
+13. **Review round 1** (T033): `npm run e2e` removes a leftover `qpe2e` stack *before* the port
+    check, so a run killed past its clean-up (a hang-up, `kill -9`) never makes the next run blame
+    a teammate's stack; SIGHUP is handled like SIGINT and SIGTERM; the final removal runs in its
+    own process group, so a second Ctrl-C cannot stop it partway; a port counts as busy when
+    127.0.0.1 or ::1 answers. A row whose test walks only part of its scenario reads
+    ``Automated: `<title>`; rest Manual: <what and why>``; the check ties a row's label to its
+    title's labels and refuses titles in backticks. `npm run lint` also type-checks `e2e/`
+    (`tsc -p e2e/tsconfig.json`), so the contract-typed set-up bodies are checked in CI. The CI
+    upload also runs when the job is cancelled at its time limit.

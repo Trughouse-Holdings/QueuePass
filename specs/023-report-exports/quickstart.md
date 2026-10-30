@@ -44,3 +44,18 @@ mode it is readable. A screen reader announces "Preparing the PDF…" while it w
 
 Run the size test (tasks T021). **Expected**: 5,000 tickets in each format within 10 s; 25,000
 without error.
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| E0 | Manual: set-up for E1–E5 |
+| E1 | Manual: the downloaded files are checked in Excel or Numbers and a PDF viewer by a person |
+| E2 | Manual: the files are checked in Excel or Numbers and in a PDF print preview by a person |
+| E3 | Manual: `023`'s implementation PR opened before `022` merged, so Constitution VI's browser-test rule does not cover it; a later test may automate it |
+| E4 | Manual: `023`'s implementation PR opened before `022` merged, so Constitution VI's browser-test rule does not cover it; a later test may automate it |
+| E5 | Manual: keyboard, phone width, dark mode, and a screen reader, checked by a person |
+| E6 | Manual: the Vitest size test (T021), not a browser journey |

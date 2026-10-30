@@ -122,3 +122,22 @@ can't do this step (research R10).
 | S7 | attendee list and report figures after admits |
 | S8 | `401`/`403` on both operations |
 | S9 | states, controls, and the live region are tested in the apps; width and wrapping are checked by eye |
+
+## Automation
+
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`.
+
+| Scenario | Browser test |
+| --- | --- |
+| S0 | Manual: set-up for the scenarios below; each browser test sets up its own data through the API |
+| S1 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S2 | Manual: printing |
+| S3 | Automated: `017 S3: a gate agent types a code and admits it once; again, it is already used`; rest Manual: Admit all on a 3-ticket order, the screen reader's announcement, and the 15-second goal (SC-003), by a person |
+| S4 | Manual: camera scanning with a webcam |
+| S5 | Manual: two gates racing, covered by the Backend's concurrency test |
+| S6 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S7 | Manual: outside the main journey the browser tests walk (spec 022 FR-005); walked by hand |
+| S8 | Manual: role checks on the API, covered by Backend tests |
+| S9 | Manual: phone width, keyboard, and long names, checked by a person |
+| S10 | Manual: camera scanning on a real Android phone |
