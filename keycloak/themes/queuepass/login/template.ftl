@@ -29,8 +29,10 @@
 <#assign qpPageHeader><#nested "header"></#assign>
 <#if qpPageHeader?is_markup_output>
     <#assign qpPageHeaderText = qpPageHeader?markup_string?trim>
+    <#assign qpPageHeaderOut = qpPageHeaderText?no_esc>
 <#else>
     <#assign qpPageHeaderText = qpPageHeader?trim>
+    <#assign qpPageHeaderOut = qpPageHeaderText>
 </#if>
 <#assign qpShowPageHeader = qpPageHeaderText?has_content && qpPageHeaderText != msg("loginAccountTitle")>
 <!DOCTYPE html>
@@ -115,7 +117,7 @@
             </#if>
         <#if !(auth?has_content && auth.showUsername() && !auth.showResetCredentials())>
             <#if qpShowPageHeader>
-                <h2 id="kc-page-title" class="qp-page-title">${qpPageHeader}</h2>
+                <h2 id="kc-page-title" class="qp-page-title">${qpPageHeaderOut}</h2>
             </#if>
         <#else>
             <#nested "show-username">

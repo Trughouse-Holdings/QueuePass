@@ -140,7 +140,7 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
 
 ### Tests first
 
-- [ ] T013 [P] [US1] Token test in `packages/shared/test/theme/tokens.test.ts`: the twelve new
+- [x] T013 [P] [US1] Token test in `packages/shared/test/theme/tokens.test.ts`: the twelve new
   tokens exist in both blocks with the values of research R5 (`--accent-tickets` `#0f766e` /
   `#2dd4bf`, `--accent-tickets-hover` `#115e59` / `#5eead4`, `--accent-tickets-soft` `#f0fdfa` /
   `#042f2e`, `--accent-tickets-text` `#ffffff` / `#0f1115`, `--brand-mark-end-tickets` `#0d9488` /
@@ -148,11 +148,13 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   `#fbbf24`, `--accent-booth-hover` `#92400e` / `#fcd34d`, `--accent-booth-soft` `#fffbeb` /
   `#451a03`, `--accent-booth-text` `#ffffff` / `#0f1115`, `--brand-mark-end-booth` `#c2410c` /
   `#f59e0b`, `--brand-mark-text-booth` `#ffffff` / `#0f1115`; light / dark). Must fail.
-- [ ] T014 [P] [US1] Contrast test in `packages/shared/test/theme/contrast.test.ts`: for `tickets` and
+  **Result**: 24 cases (12 tokens × light/dark) plus one that no rule outside the token blocks uses them; failed, pass after T017.
+- [x] T014 [P] [US1] Contrast test in `packages/shared/test/theme/contrast.test.ts`: for `tickets` and
   `booth`, light and dark, at least 4.5:1 for accent-text on accent and on hover, accent on surface
   and on bg, accent on its soft; at least 3:1 for the brand-mark text on the accent and on the
   brand-mark end (R5, FR-012). Must fail (tokens missing).
-- [ ] T015 [P] [US1] Drift checker in `packages/shared/test/theme/check-theme.ts` and
+  **Result**: 32 cases (2 apps × 2 schemes × 8: six roles defined, accent-text on accent and on hover, accent on soft, accent on surface and on bg at 4.5:1, brand letter on accent and on the mark end at 3:1); failed with no tokens, pass after T017.
+- [x] T015 [P] [US1] Drift checker in `packages/shared/test/theme/check-theme.ts` and
   `drift.test.ts` (R4): new rule cases proved on small inputs first: inside `.qp-app--x { }`, the
   six roles `--accent`, `--accent-hover`, `--accent-soft`, `--accent-text`, `--brand-mark-end`,
   `--brand-mark-text` set to `var(--<token>)` are allowed; a literal color there, another custom
@@ -160,7 +162,8 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   `@media (prefers-color-scheme: dark) { .qp-app--x { … } }` too. Then scan
   `keycloak/themes/queuepass/login/resources/css/login.css` with the app stylesheets and expect no
   violations. The rule cases must fail before the checker changes.
-- [ ] T016 [US1] Live test `scripts/seed/test/sign-in-screens.test.ts` (Keycloak reachable, else
+  **Result**: `cssViolations` takes `{ signInAccents: true }` for `login.css` only, so an app stylesheet still may not map accents (a case proves it). 20 rule cases: the mapping allowed in `.qp-app--x` and in `@media`; still reported: a literal, a color function, a `var()` fallback with a literal, another custom property, a non-token value, a token of another kind (`--accent: var(--danger)`), another role's token, a written-out color, and the roles under another rule, a compound selector, a selector list, a nested rule, `body.qp-app--x`, and another rule in `@media`. The three allow cases failed before T018; then `login.css` is scanned and only the customer and booth rules may set `--accent`.
+- [x] T016 [US1] Live test `scripts/seed/test/sign-in-screens.test.ts` (Keycloak reachable, else
   skipped with the reason, as `seed-idempotence.test.ts`): for each of `admin-app`, `customer-app`,
   `booth-app`, GET `/realms/queuepass/protocol/openid-connect/auth` with `client_id`,
   `redirect_uri=http://localhost:<port>/`, `response_type=code`, `scope=openid`, a `state`, and an
@@ -169,26 +172,31 @@ starts Keycloak healthy and the seed logs `set login theme 'queuepass'`.
   `qp-app--<clientId>`; expect no PatternFly stylesheet link and the two theme stylesheets; expect the
   form's show-password button to have the `aria-label` "Show password" and the class `qp-reveal`.
   Must fail against today's stock theme.
+  **Result**: `scripts/seed/test/sign-in-screens.test.ts`, 9 cases (3 clients × title/one `<h1`>/audience/body class; the two stylesheets, each served 200, no PatternFly; the form with autofocus, `aria-label="Show password"` + `qp-reveal`, primary button, no registration). Parsed with regular expressions (no new package). Proved against the stock look by setting the realm's `loginTheme` to `keycloak` by hand: 9 of 9 failed; set back.
 
 ### Implementation
 
-- [ ] T017 [US1] `packages/shared/src/web/theme.css`: the twelve tokens in the light `:root` block and
+- [x] T017 [US1] `packages/shared/src/web/theme.css`: the twelve tokens in the light `:root` block and
   in the dark block, after the existing accent and brand-mark tokens, with a comment that they are
   for the sign-in screens only (Constitution VII as amended, R8). T013, T014 pass; no other token
   changes; the existing contrast, drift, and load tests stay green.
-- [ ] T018 [US1] `packages/shared/test/theme/check-theme.ts`: the exception of T015. `declarations()`
+  **Result**: the twelve tokens after `--brand-mark-*` in both blocks, with comments; the dark block notes the dark brand letter. T013, T014 pass; tokens, contrast, load: 222 passed.
+- [x] T018 [US1] `packages/shared/test/theme/check-theme.ts`: the exception of T015. `declarations()`
   drops the selector at `{` today, so first make the parser track each declaration's enclosing rule
   selector (through `@media` blocks), then add the exception (R4). T015's rule cases pass, and every
   existing drift case still passes.
-- [ ] T019 [US1] `keycloak/themes/queuepass/login/resources/css/login.css` (R4): a centered card on
+  **Result**: `declarations()` keeps a stack of open blocks' selectors (through `@media` and nesting) and gives each declaration its innermost one; the exception (selector exactly `.qp-app--[a-z0-9-]+`, role → `var(--<role with app>)` of the same role) applies only with `signInAccents`. All 318 shared theme cases pass.
+- [x] T019 [US1] `keycloak/themes/queuepass/login/resources/css/login.css` (R4): a centered card on
   `--bg` (max width about 400 px, full width under 480 px), the top band (`--accent`, 6 px), the
   audience line in `--text-muted`, the `h2` page header, spacing from `--space-*`; `.qp-field-error`
   in `var(--danger)`; `.qp-reveal--show::before { content: "Show" }` and `.qp-reveal--hide::before {
   content: "Hide" }` (R2); the two
   `.qp-app--customer-app` and `.qp-app--booth-app` rules mapping the six roles to their tokens;
   nothing else defines a color. T015's scan passes.
-- [ ] T020 [US1] Rebuild (`docker compose up --build keycloak seed`) and run T016. It passes for all
+  **Result**: as specified, plus: `#kc-login` full width and its focus ring restored (the shared `input:focus { outline: none }` would otherwise remove it from the submit input), `.qp-input-group` for the password row, the empty options row hidden with `:has()`, `.qp-banner--info`, phone rules under 480 px. Drift scan clean.
+- [x] T020 [US1] Rebuild (`docker compose up --build keycloak seed`) and run T016. It passes for all
   three clients. Fix the template, not the test, on a mismatch.
+  **Result**: `docker compose -p qp021 up -d --build --wait keycloak`; T016 9 of 9 pass, no template change needed.
 
 **Checkpoint**: quickstart S1 holds in a browser.
 

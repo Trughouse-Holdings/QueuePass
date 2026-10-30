@@ -253,6 +253,85 @@ describe('the checker, round 2 (FR-005, FR-006)', () => {
   });
 });
 
+// Spec 021 research R4: the sign-in look (keycloak/themes/queuepass/login/resources/css/login.css)
+// is scanned like an app stylesheet, with one exception: inside a rule whose selector is exactly
+// one `.qp-app--<clientId>` class, the six accent roles may point at a theme token with var().
+describe('the checker, sign-in accent mapping (spec 021 R4)', () => {
+  const signIn = (body: string): string[] =>
+    brief(cssViolations('login.css', body, { signInAccents: true }));
+
+  const SIX = [
+    '  --accent: var(--accent-booth);',
+    '  --accent-hover: var(--accent-booth-hover);',
+    '  --accent-soft: var(--accent-booth-soft);',
+    '  --accent-text: var(--accent-booth-text);',
+    '  --brand-mark-end: var(--brand-mark-end-booth);',
+    '  --brand-mark-text: var(--brand-mark-text-booth);',
+  ];
+
+  it('allows the six roles set to theme tokens inside .qp-app--<clientId>', () => {
+    expect(signIn(['.qp-app--booth-app {', ...SIX, '}'].join('\n'))).toEqual([]);
+  });
+
+  it('allows them inside @media too', () => {
+    const body = [
+      '@media (prefers-color-scheme: dark) {',
+      '  .qp-app--booth-app {',
+      ...SIX,
+      '  }',
+      '}',
+    ];
+    expect(signIn(body.join('\n'))).toEqual([]);
+  });
+
+  it.each([
+    ['a color literal', '--accent: #b45309', 'C1'],
+    ['a color function', '--accent: rgb(180 83 9)', 'C1'],
+    ['a fallback with a literal', '--accent: var(--accent-booth, #b45309)', 'C1'],
+    ['another custom property', '--bg: var(--surface)', 'C1'],
+    ['a role set to a value that is not a token', '--accent: inherit', 'C1'],
+    ['a role set to a token of another kind', '--accent: var(--danger)', 'C1'],
+    ['a role set to another role of the app', '--accent-text: var(--accent-booth)', 'C1'],
+  ])('still reports %s inside .qp-app--<clientId>', (_, decl, rule) => {
+    expect(signIn(`.qp-app--booth-app {\n  ${decl};\n}`)).toEqual([`${rule} 2 ${decl}`]);
+  });
+
+  it('still reports a color written out inside .qp-app--<clientId>', () => {
+    expect(signIn('.qp-app--booth-app {\n  color: #b45309;\n}')).toEqual(['C2 2 color: #b45309']);
+  });
+
+  it.each([
+    ['another rule', '.card'],
+    ['a compound selector', '.qp-app--booth-app .btn'],
+    ['a selector list', '.qp-app--booth-app, .card'],
+    ['a nested rule', '.qp-app--booth-app {\n  &:hover'],
+    ['an element with the class', 'body.qp-app--booth-app'],
+  ])('still reports the roles in %s', (_, selector) => {
+    const closing = selector.includes('{') ? '\n  }\n}' : '\n}';
+    const found = signIn(`${selector} {\n  --accent: var(--accent-booth);${closing}`);
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(/^C1 \d+ --accent: var\(--accent-booth\)$/);
+  });
+
+  it('still reports the roles outside such a rule inside @media', () => {
+    expect(
+      signIn('@media (max-width: 480px) {\n  .card {\n    --accent: var(--accent-booth);\n  }\n}'),
+    ).toEqual(['C1 3 --accent: var(--accent-booth)']);
+  });
+
+  it('allows nothing of the kind in an app stylesheet', () => {
+    expect(css('.qp-app--booth-app {\n  --accent: var(--accent-booth);\n}')).toEqual([
+      'C1 2 --accent: var(--accent-booth)',
+    ]);
+  });
+
+  it('keeps reading after the mapping', () => {
+    expect(
+      signIn(['.qp-app--booth-app {', ...SIX, '}', '.a {', '  margin: 6px;', '}'].join('\n')),
+    ).toEqual(['C5 10 margin: 6px']);
+  });
+});
+
 /** Every file under `dir` (relative to the repository root) ending in one of `exts`. */
 function files(dir: string, exts: string[]): string[] {
   const abs = resolve(ROOT, dir);
@@ -289,6 +368,23 @@ describe('the apps (FR-005, FR-015, SC-001)', () => {
   it('set no look of their own in inline styles', () => {
     const found = screens.flatMap((f) => inlineStyleViolations(f, read(f)));
     expect(listing(found)).toEqual([]);
+  });
+});
+
+// Spec 021 research R4 (FR-007): the sign-in look uses only the theme's values, but for its one
+// mapping of each app's accent.
+describe('the sign-in look (spec 021)', () => {
+  const path = 'keycloak/themes/queuepass/login/resources/css/login.css';
+
+  it('defines no look of its own beyond the per-app accent mapping', () => {
+    expect(listing(cssViolations(path, read(path), { signInAccents: true }))).toEqual([]);
+  });
+
+  it('maps the Customer and Ticket Booth apps to their accents, and no other app', () => {
+    const selectors = [...read(path).matchAll(/([^{}]*)\{[^{}]*--accent:/g)].map((m) =>
+      m[1]!.replace(/\/\*[\s\S]*?\*\//g, '').trim(),
+    );
+    expect(selectors.sort()).toEqual(['.qp-app--booth-app', '.qp-app--customer-app']);
   });
 });
 

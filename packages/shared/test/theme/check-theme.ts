@@ -15,7 +15,13 @@
  * - inline: a `style={{ ... }}` entry that would break any rule above (a number counts as
  *   pixels), or sets a typeface at all.
  *
- * Declarations are read at any depth, including beside a nested rule.
+ * Declarations are read at any depth, including beside a nested rule, each with the selector of
+ * the rule it is in.
+ *
+ * Spec 021 (research R4): the sign-in look's stylesheet is scanned with `signInAccents`, which
+ * allows one thing more: inside a rule whose selector is exactly one `.qp-app--<clientId>` class,
+ * the six accent roles may each point at that app's token of the same role with `var()`
+ * (`--accent-hover: var(--accent-booth-hover)`). Anything else there is still reported.
  */
 export interface Violation {
   path: string;
@@ -28,6 +34,13 @@ interface Declaration {
   line: number;
   prop: string;
   value: string;
+  /** The selector (or at-rule prelude) of the innermost enclosing block; '' at the top. */
+  selector?: string;
+}
+
+export interface CssOptions {
+  /** Spec 021: allow the per-app accent mapping of the sign-in look (keycloak/themes). */
+  signInAccents?: boolean;
 }
 
 // CSS Color Module Level 4 named colors, without transparent and currentcolor (allowed).
@@ -88,6 +101,8 @@ const lineAt = (text: string, index: number): number => text.slice(0, index).spl
 function declarations(css: string): Declaration[] {
   const text = stripComments(css);
   const out: Declaration[] = [];
+  // The selector or at-rule prelude of each open block, innermost last.
+  const blocks: string[] = [];
   let start = 0;
   let parens = 0;
   // Characters inside a quoted string (with \ escapes) end nothing and open nothing.
@@ -101,6 +116,7 @@ function declarations(css: string): Declaration[] {
     else if (ch === '(') parens++;
     else if (ch === ')') parens = Math.max(0, parens - 1);
     else if (ch === '{') {
+      blocks.push(text.slice(start, i).replace(/\s+/g, ' ').trim());
       start = i + 1;
       parens = 0;
     } else if (ch === '}' || (ch === ';' && parens === 0)) {
@@ -116,13 +132,30 @@ function declarations(css: string): Declaration[] {
             .slice(colon + 1)
             .replace(/\s+/g, ' ')
             .trim(),
+          selector: blocks[blocks.length - 1] ?? '',
         });
       }
+      if (ch === '}') blocks.pop();
       start = i + 1;
     }
   }
   return out;
 }
+
+/** Spec 021 R4: the one rule that maps a sign-in screen's accent roles to its app's tokens. */
+const SIGN_IN_RULE = /^\.qp-app--[a-z0-9-]+$/;
+/** Each accent role and the shape of the app token it may point at. */
+const SIGN_IN_ROLES: Record<string, RegExp> = {
+  '--accent': /^var\(--accent-[a-z]+\)$/,
+  '--accent-hover': /^var\(--accent-[a-z]+-hover\)$/,
+  '--accent-soft': /^var\(--accent-[a-z]+-soft\)$/,
+  '--accent-text': /^var\(--accent-[a-z]+-text\)$/,
+  '--brand-mark-end': /^var\(--brand-mark-end-[a-z]+\)$/,
+  '--brand-mark-text': /^var\(--brand-mark-text-[a-z]+\)$/,
+};
+
+const isSignInMapping = (d: Declaration): boolean =>
+  SIGN_IN_RULE.test(d.selector ?? '') && (SIGN_IN_ROLES[d.prop]?.test(d.value) ?? false);
 
 /** The value split on spaces and commas outside parentheses. */
 function parts(value: string): string[] {
@@ -185,9 +218,10 @@ function ruleFor(d: Declaration): Violation['rule'] | null {
   return null;
 }
 
-/** C1–C6 over an app stylesheet. */
-export function cssViolations(path: string, css: string): Violation[] {
+/** C1–C6 over an app stylesheet, or over the sign-in look with `signInAccents`. */
+export function cssViolations(path: string, css: string, options: CssOptions = {}): Violation[] {
   return declarations(css).flatMap((d) => {
+    if (options.signInAccents && isSignInMapping(d)) return [];
     const rule = ruleFor(d);
     return rule ? [{ path, line: d.line, rule, text: `${d.prop}: ${d.value}` }] : [];
   });

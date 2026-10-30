@@ -101,6 +101,52 @@ describe.each([
   });
 });
 
+// Spec 021 research R5 (FR-006, FR-012): each sign-in accent set meets the rules the shared accent
+// meets, in light and dark. The brand mark's "Q" is large bold decoration, so 3:1.
+describe.each([
+  ['light', light],
+  ['dark', dark],
+])('%s sign-in accents (spec 021)', (_, t) => {
+  describe.each(['tickets', 'booth'])('%s', (app) => {
+    /** The app's token for a shared role: --accent-hover → --accent-booth-hover, and so on. */
+    const name = (role: string): string =>
+      role.startsWith('accent') ? role.replace(/^accent/, `accent-${app}`) : `${role}-${app}`;
+    const tok = (role: string): string => t[name(role)] ?? '';
+
+    it('defines all six roles', () => {
+      for (const role of [
+        'accent',
+        'accent-hover',
+        'accent-soft',
+        'accent-text',
+        'brand-mark-end',
+        'brand-mark-text',
+      ]) {
+        expect(tok(role), `--${name(role)}`).toMatch(/^#[0-9a-f]{6}$/i);
+      }
+    });
+
+    it.each([
+      ['accent-text', 'accent'],
+      ['accent-text', 'accent-hover'],
+      ['accent', 'accent-soft'],
+    ])('shows --%s text on --%s at 4.5:1 or more', (fg, bg) => {
+      expect(contrast(tok(fg), tok(bg))).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it.each(['surface', 'bg'])('shows the accent as text on --%s at 4.5:1 or more', (bg) => {
+      expect(contrast(tok('accent'), t[bg])).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it.each(['accent', 'brand-mark-end'])(
+      'shows the brand mark letter on --%s at 3:1 or more',
+      (bg) => {
+        expect(contrast(tok('brand-mark-text'), tok(bg))).toBeGreaterThanOrEqual(3);
+      },
+    );
+  });
+});
+
 it('never uses --text-faint for text, since it is below 4.5:1', () => {
   expect(css).not.toMatch(/(^|[^-])color:\s*var\(--text-faint\)/m);
 });
