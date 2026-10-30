@@ -68,6 +68,7 @@ describe('SectionLines (spec 024 US3)', () => {
     ['10', '20', '= 200 seats'],
     ['1', '1', '= 1 seat'],
     ['', '20', '= 0 seats'],
+    ['10', '', '= 0 seats'],
     ['abc', '20', '= 0 seats'],
     ['100', '200', '= 20,000 seats'],
   ])('shows %s × %s as "%s"', (rows, seats, text) => {
