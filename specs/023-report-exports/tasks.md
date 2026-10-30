@@ -187,12 +187,13 @@ fail before the implementation below them.
   Open findings: none.
 - [x] T025 `npm run ci` locally green; record counts.
   **Done**: `npm run ci` green after review round 1 and the merge of `origin/main` (`4bd19b8`): format, lint, build, all tests. Counts: root scripts 45 pass; shared 592; backend 943; admin-app 314 (249 before 023: +65); customer-app 306; booth-app 76; seed 4 passed, 4 skipped; zone re-run (America/Los_Angeles, quick) 124 + 30 + 9 + 9 (admin's includes `xlsx.tz.test.tsx`). Line coverage: shared 93.13%, backend 97.03%, admin-app 97.22%, customer-app 97.46%, booth-app 92.28%, seed 24.01% (unchanged; the floor waits for 010). Size times in this run, with coverage: 5,000 PDF 5.19 s, 25,000 PDF 19.44 s.
+  **Again** after the merge of `origin/main` with 021's implementation and the 010 and 022 specs (`52ee98d`; README conflicts only, both sides kept): `npm run ci` green without Keycloak (the seed's live tests skip). Counts: root scripts 45 pass; shared 681 (+89, 021's theme tests); backend 943; admin-app 314; customer-app 308 (+2, 021); booth-app 76; seed 37 passed, 20 skipped (021's sign-in tests); zone re-run 124 + 30 + 9 + 9. Line coverage: shared 93.13%, backend 97.03%, admin-app 97.22%, customer-app 97.46%, booth-app 92.28%, seed 39.39% (the floor waits for 010). Size times, with coverage: 5,000 PDF 8.35 s, 25,000 PDF 21.74 s.
 - [ ] T026 Running-system walk, quickstart E0–E6 (Excel or Numbers, and a PDF print preview), on a
   stack built from this branch; record each result.
   **Not done**: needs Nate: quickstart E0–E6 on a stack built from this branch, opening the files in Excel or Numbers and a PDF print preview, Enter on the Download summary in a browser (E5), and one browser timing of the 5,000-ticket PDF (R12).
 - [ ] T027 If `022` is on `main`: `e2e/tests/023-exports.spec.ts` and the Automation table in this
   quickstart (ground rules).
-  **Not done**: not applicable yet: spec `022` is not on `main`. When it is, add `e2e/tests/023-exports.spec.ts` and the quickstart Automation table.
+  **Not done**: not applicable yet: `022`'s spec is on `main` (#97) but its browser tests are not (no `e2e/`; Constitution VI applies to implementation PRs opened after `022`'s implementation merges). When they are, add `e2e/tests/023-exports.spec.ts` and the quickstart Automation table.
 - [ ] T028 Push; open the implementation PR (after the spec PR merges and the branch is up to date):
   `fixes #52`, the review, test counts, sizes and times, the walk. CI green on GitHub; merge when
   green and approved.
