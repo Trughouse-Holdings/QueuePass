@@ -21,9 +21,11 @@ overturn in review of the spec PR.
 - **Edit venue**: the select lists only the eight zones and starts on the stored `timeZone` (every
   venue has one since `020`; `DEFAULT_TIME_ZONE` stands in only if a response lacks it, as today).
   Under it, the hint "{Eastern Time, from the address}." (`venueZone(loaded)`), so a venue still on
-  "the default" says so. While any address field differs from the stored address (`sameAsStored`, as
+  "the default" says so. While any address field differs from the venue as loaded (`sameAsStored`, as
   today), a second hint: "Changing the address doesn't change the time zone. Choose another zone here
-  if the venue is in a different one." The zone-change note (`020` R14) is unchanged.
+  if the venue is in a different one." Whenever the save will send the address (R3) with the zone the
+  venue already has and its source is not `ADMIN`, a third: "Saving records {Eastern Time} as chosen
+  by an admin." (spec review round 1, S4). The zone-change note (`020` R14) is unchanged.
 - **Removed**: the split-state fieldset (`splitZones`, `stateZone`, `requiredZones`, `storedInState`,
   `chosenStateZone`, `stateName`), the `TIME_ZONE_REQUIRED` handling in `save()`, and the
   "Work it out" / "Keep …" first option.
@@ -47,8 +49,9 @@ announced the same way in every browser, and does not match the form's other mes
 request that sends none gets the zone from the matched place, else the state, else
 `400 TIME_ZONE_REQUIRED`. `LocationInput.timeZone`'s description says the Admin app always sends it
 on create (feature 024). The demo-data script (`020` R19, `fallbackToDefaultTimeZone`) and the
-browser tests' set-up (`e2e/fixtures/api.ts` `createVenue`, which asserts worked-out zones) keep
-working unchanged.
+browser tests' set-up (`e2e/fixtures/api.ts` `createVenue`, which sends no zone and asserts the
+address is verified; tests such as `020 S6` and `020 S7` then assert the zone worked out) keep working
+unchanged.
 
 **Rationale**: Constitution VIII (the smallest change that meets the issue): #107 is about the form.
 Requiring `timeZone` in the API would break the demo-data script, the browser tests' fixtures, and
@@ -59,30 +62,46 @@ venue request since `013`.
 code (`TimeZoneFinder`, `geo-tz`) once nothing in the Admin app uses it (demo data and the browser
 tests still do; a later cleanup can, when no caller relies on it).
 
-## R3. On edit, the Admin app sends the zone only when the zone or the address changed
+## R3. On edit: the address only when it needs checking, and the zone with it
 
-**Decision**: `LocationForm` sends `timeZone` on every create, and on an edit when the selected zone
-differs from the stored one **or** the address fields differ from the stored address
-(`!sameAsStored(address, loaded)`). A name-only or capacity-only edit sends no `timeZone`.
+**Decision**: `LocationForm` sends `timeZone` on every create. On an edit it sends:
 
-**Rationale**: FR-004, FR-005. On an edit that changes the address, the Backend works the zone out
-again unless a zone is sent (`020` FR-005, R7), so sending the selected zone is what keeps it. On an
-edit that changes neither, sending the stored zone would record it as `ADMIN` (`020` research R4:
-"Sending the zone the venue already has records ADMIN and moves nothing"), relabelling a zone worked
-out from the address as "chosen by an admin" on every name edit. With an address change, the kept zone
-is recorded as `ADMIN`; that is accurate: the new address did not set it, the admin kept it.
+- the four address fields (with the flag, R4) when they differ from the venue as the form loaded it
+  (`!sameAsStored(address, loaded)`), or when the loaded venue's `addressVerified` is false and its
+  fields are set (so R7 checks it again); otherwise no address fields (a verified venue's unchanged
+  address is not sent, where today's form resends it and the Backend skips it);
+- `timeZone`, the zone shown in the select, whenever it sends the address fields, and otherwise only
+  when the selected zone differs from the stored one.
 
-**Alternatives considered**: always sending the zone on edit and teaching the Backend to keep the
-source when the sent zone equals the stored one (a change to `020` R4 for every caller, for one
-label); never sending it on an address change (the zone would be worked out again from the new
-address, against #107's "an edit starts on the stored zone").
+A name-only or capacity-only edit of a verified venue sends neither. When the address is sent with
+the zone the venue already has, the Backend records it as `ADMIN` (`020` R4); the form says so first
+(R1's third hint).
+
+**Rationale**: FR-004, FR-005. On an edit that sends the address, the Backend works the zone out
+again unless a zone is sent (`020` FR-005, R7), so sending the zone shown is what keeps it. The zone
+shown is the admin's choice in the plain sense: they saved with it on screen and were told (spec
+review round 1, S4). On an edit that sends no address, sending the stored zone would relabel a zone
+worked out from the address as "chosen by an admin" on every name edit.
+
+**A form opened before someone else changed the address** (spec review round 1): the form compares
+with the venue as it loaded it. If the admin left the address alone, a verified venue's address is
+not sent, so the other change stands; a not-verified venue's loaded address is resent (last write
+wins, as for the name and capacity) and always with the zone, so the Backend never works a zone out
+from it or answers `TIME_ZONE_REQUIRED`. This is the simplest rule that never sends an address
+without a zone; no refusal handling for `TIME_ZONE_REQUIRED` is needed in the form.
+
+**Alternatives considered**: sending the address on every edit as today, with the zone only when the
+address changed (a form opened before another admin's address change sends the old address with no
+zone: the zone worked out again, or `TIME_ZONE_REQUIRED` in a two-zone state); always sending the
+zone on edit and teaching the Backend to keep the source when the sent zone equals the stored one (a
+change to `020` R4 for every caller, for one label); showing `TIME_ZONE_REQUIRED` on the zone field
+(handles a case the rule above never produces).
 
 ## R4. One press saves the address: the Admin app always sends `acceptUnverifiedAddress: true`
 
 **Decision** (decided by Nate, #107 item 2): `LocationForm.save()` adds `acceptUnverifiedAddress:
 true` to every request that carries the four address fields: every create, and every edit that sends
-them (all edits except a venue from before `013` whose four fields are left empty, `013` R13, since
-the Backend refuses the flag without the fields, `013` FR-019). Removed: `SAVE_ANYWAY_CODES`,
+them (R3; never without the fields, which the Backend refuses, `013` FR-019). Removed: `SAVE_ANYWAY_CODES`,
 `offerSaveAnyway`, the "Save anyway (address not verified)" button and its note, and the
 `save(acceptUnverifiedAddress)` parameter. `ErrorBanner` still shows every refusal that can still
 happen (`VALIDATION_FAILED`, `CAPACITY_EXCEEDED`, the zone-change refusals, `NOT_FOUND`, a network
@@ -163,16 +182,25 @@ plain words do not rely on color, Constitution VII).
 
 ## R7. An unchanged, not-verified address is checked again on an edit
 
-**Decision**: in `LocationsService.update`, when the four address fields are sent and equal the
-stored ones (`sameAddress`) and the venue's `addressVerified` is false (its fields are set, since
-`sameAddress` is false for a venue from before `013`), the address is looked up again, with no lock,
-in the place today's lookup runs (after the cheap checks, before the transaction, `013` R7):
+**Decision**: in `LocationsService.update`, when the four address fields are sent with
+`acceptUnverifiedAddress: true` and equal the stored ones (`sameAddress`), and the venue's
+`addressVerified` is false (its fields are set, since `sameAddress` is false for a venue from before
+`013`), the address is looked up again, with no lock, in the place today's lookup runs (after the
+cheap checks, before the transaction, `013` R7):
 
-- one match that keeps the ZIP code and house number (`matchesTyped`) → the address is written in the
-  service's standard form with `addressVerified: true`;
+- one match that keeps the ZIP code and house number (`matchesTyped`) → the upgrade is written in
+  the service's standard form with `addressVerified: true`, **only if**, inside the transaction after
+  `lockVenueAndEvents`, the venue row read again (`tx.location.findUniqueOrThrow`) still has the same
+  address (`sameAddress`) and `addressVerified: false`; otherwise the upgrade is dropped and the rest
+  of the edit is written (spec review round 1: another admin's address change during the lookup is
+  never overwritten by this check);
 - anything else (no match, several, a moved match, `AddressServiceUnavailableError`) → nothing about
-  the address is written, and the edit goes on; never a refusal, with or without the flag. An
-  unavailable service is logged as today.
+  the address is written, and the edit goes on; never a refusal. An unavailable service is logged as
+  today.
+
+Without the flag, the same address is never looked up, as today (`013` FR-008): only the Admin app
+sends the flag, so every other caller's behavior is literally unchanged (spec review round 1, S1;
+SC-005).
 
 The re-check never decides the zone: `decide()` gets `address: undefined` for it, so the zone changes
 only when sent (R3) or when the address changed (`020` R7, unchanged). A verified venue with the same
@@ -181,13 +209,14 @@ address, and an edit without address fields, still never call the service (`013`
 **Rationale**: FR-016, SC-004. R5 lets a correct address be saved unverified while the service is
 down; without a re-check, the only way to verify it would be to change the address and change it
 back. Opening Edit venue and pressing Save changes is what the venue page already tells the admin to
-do ("Edit the venue to verify it"). Never refusing keeps every edit that works today working, for
-every caller (SC-005).
+do ("Edit the venue to verify it"). Never refusing keeps every edit that works today working; tying
+the re-check to the flag keeps every other caller's requests exactly as before (SC-005).
 
 **Alternatives considered**: a "Check the address again" button on the venue page (a new operation
-and control); re-checking only when the flag is sent (the Admin app always sends it, so only other
-callers would differ, for no reason); refusing an unchanged not-found address (breaks name-only
-edits of venues saved anyway, `013` SC-006).
+and control); re-checking without the flag too (a direct `PATCH` resending the same address would
+start calling the address service, a change for callers that did not ask for it); refusing an
+unchanged not-found address (breaks name-only edits of venues saved anyway, `013` SC-006); writing
+the upgrade without re-reading under the lock (a race with another admin's address change).
 
 **Cost**: one lookup per save of a not-verified venue, up to 5 seconds while the service is down
 (spec Edge Cases). `013` SC-006 (name-only edits succeed while the service is down) still holds.
@@ -199,16 +228,19 @@ venue form and the venue page's layout editor (`LayoutCard.tsx`) both get it:
 
 - Above the lines, once: `<p className="field__hint">A section is a grid of seats: rows run front to
   back, and every row has the same number of seats across.</p>`.
-- Each line stays a `<fieldset className="form__row">` with `<legend id="{p}-{i}">Section {i}</legend>`
+- Each line becomes a `<fieldset className="form__row form__row--section">` with `<legend id="{p}-{i}">Section {i}</legend>`
   (`p` from `useId()`). Its three boxes are each in a `.field` with a visible `<label>`: "Section
   name", "Rows", "Seats per row". Each input's name comes from `aria-labelledby="{legend id} {label
   id}"`: "Section 1 Section name", "Section 1 Rows", "Section 1 Seats per row". Between Rows and Seats
   per row, `<span aria-hidden="true">×</span>`. After them, the line's seat count as text,
   `= {n.toLocaleString()} {n === 1 ? 'seat' : 'seats'}` with `n = (Number(rows) || 0) *
   (Number(seatsPerRow) || 0)`, the same rule as `totalSeats`. Then "Remove section {i}", unchanged.
-- `admin-app/src/styles.css`: `.form__row`'s columns become name, rows, ×, seats per row, count,
-  remove; at 640 px and below, the name takes the full width, then rows × seats per row, then the count
-  and Remove. Theme values only (`012`'s drift check).
+- `admin-app/src/styles.css`: a new modifier `.form__row--section` (its own rules, after `.form__row`'s)
+  sets the columns name, rows, ×, seats per row, count, remove; at 640 px and below, the name takes
+  the full width, then rows × seats per row, then the count and Remove. Theme values only (`012`'s
+  drift check). `.form__row` itself is **not** changed: the Schedule and Edit event form's ticket-type
+  lines (`EventForm.tsx`) and the seated-event tier mapping (`SeatingCard.tsx`) also use it (spec
+  review round 1, M1).
 - Unchanged: `NEW_LINE` (1 × 1), `toSectionInputs`, `totalSeats`, the input limits (`min`/`max` 1–100,
   1–200), Add section, the New venue form's "Total: N seats", and `LayoutCard`'s table and total.
 
@@ -305,7 +337,7 @@ changes those rows to exactly:
 | Scenario | Browser test |
 | --- | --- |
 | V1 | Automated: `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick` |
-| V2 | Automated: `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick`; rest Manual: phone width and a screen reader, by a person (V9) |
+| V2 | Automated: `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick`; rest Manual: phone width and a screen reader, by a person (V9); the "= 0 seats" and "= 20,000 seats" counts and the renumbering after Remove are covered by the Admin app's `section-lines.test.tsx` (T012) |
 | V3 | Automated: `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick` |
 | V4 | Automated: `024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone`; rest Manual: the 6-second bound against a service that never answers, by hand |
 | V5 | Automated: `024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone`; rest Manual: the re-check of an unchanged not-verified address and a name-only edit, covered by Backend tests (the stand-in never changes its answer) |
@@ -378,21 +410,25 @@ behavior.
   one-zone state (OH), `STATE`; without a zone in a two-zone state (KY), `400 TIME_ZONE_REQUIRED`, and
   nothing saved; without the flag, `503` and nothing saved (unchanged). In
   `locations.address-edit.e2e-spec.ts`: an address change with the flag while unavailable is saved
-  not verified (`200`), without the flag still `503`; R7's re-check: a not-verified venue resent with
-  the same address and a match → verified, standard form, zone and source unchanged even when the
-  matched place is in another zone; with no match, several, a moved match, or unavailable → `200`, the
-  stored address unchanged and not verified, with and without the flag; the lookup is made exactly
-  once; a verified venue resent with the same address and a name-only edit make no lookup. The
-  existing "stays not verified when the same address is resent, even with the flag" is rewritten to
-  the re-check (it now looks up). Every other `013` and `020` test passes unchanged (SC-005).
+  not verified (`200`), without the flag still `503`; R7's re-check, with the flag: a not-verified
+  venue resent with the same address and a match → verified, standard form, zone and source unchanged
+  even when the matched place is in another zone; with no match, several, a moved match, or
+  unavailable → `200`, the stored address unchanged and not verified; the lookup made exactly once;
+  the same resend **without** the flag → no lookup (unchanged); a verified venue resent with the same
+  address and a name-only edit → no lookup; another admin's address change during a paused re-check
+  lookup stands (the upgrade is dropped). The existing "stays not verified when the same address is
+  resent, even with the flag" is rewritten to the flagged no-match re-check (it now looks up once). Every other `013` and `020` test passes unchanged (SC-005).
 - **Admin app** (Vitest, RTL, the stubbed API): `venue-time-zone.test.tsx` (the select's options on
-  create and edit, the required message and no request, the zone sent on create, not sent on a
-  name-only edit, sent as the stored zone on an address-only edit, the hints; the split-state tests
-  replaced by "no second question in Kentucky"); `venue-address.test.tsx` (the flag on every create
-  and every edit with address fields, not on a pre-`013` edit with empty fields; no "Save anyway"
+  create and edit, the required message and no request, the zone sent on create; on edit, R3's
+  rule: a verified venue's name-only edit sends neither address nor zone, an address change sends both,
+  a not-verified venue's name-only edit sends both; the hints; the split-state tests replaced by "no
+  second question in Kentucky"); `venue-address.test.tsx` (the flag on every create and every edit
+  that sends address fields, never without them; no "Save anyway"
   button after any response; the not-verified notice's exact text and its `info` look; the verified
   notice unchanged; the not-verified edit note; refusals still shown with values kept);
   `section-lines.test.tsx` (new: labels, names, "×", each line's count, singular, 0 for empty,
-  thousands separator, the hint once, renumbering on Remove); `venue-create.test.tsx` and
-  `layout.test.tsx` (the new names, the counts, and on New venue a zone chosen).
+  thousands separator, the hint once, renumbering on Remove, the line's classes `form__row
+  form__row--section`); `venue-create.test.tsx` and `layout.test.tsx` (the new names, the counts, and
+  on New venue a zone chosen); an Event form test asserting a ticket-type line's class is exactly
+  `form__row` (M1).
 - **Browser** (`npm run e2e`): R10.

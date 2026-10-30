@@ -10,13 +10,16 @@
 - **The admin picks the time zone** (research R1–R3): `LocationForm`'s Time zone select lists the
   eight zones only; on create it starts on "Choose a time zone" and the form refuses to send without
   one ("Choose the venue's time zone."); on edit it starts on the stored zone with how it was set, and
-  says an address change does not change it. The zone is sent on every create, and on an edit only
-  when the zone or the address changed. The split-state question goes. The API keeps `timeZone`
+  says an address change does not change it. The zone is sent on every create; on an edit the address
+  is sent only when it changed or is not verified, always with the zone shown, which the form says is
+  then recorded as chosen by an admin; otherwise the zone only when the admin picked another (R3). The
+  split-state question goes. The API keeps `timeZone`
   optional and keeps working the zone out for other callers (R2).
 - **One press saves the address** (R4–R7): the Admin app sends `acceptUnverifiedAddress: true` with
   every address; the Save anyway button goes. The Backend's flag now also covers the address service
   being down (one branch in `checkAddress`, R5), and an edit that resends a not-verified venue's same
-  address checks it again, upgrading it on a match and never refusing (R7). After a not-verified save,
+  address with the flag checks it again, upgrading it on a match (re-read under the venue lock) and
+  never refusing; without the flag, nothing changes (R7). After a not-verified save,
   a plain information notice says so, why it matters, and how to verify it later (R6).
 - **Labelled section lines** (R8): `SectionLines` (used by the New venue form and the venue page's
   layout editor) shows "Section name", "Rows × Seats per row", the line's "= N seats", and one hint;
@@ -66,11 +69,11 @@ version, two browser tests and one stand-in rule, six test files.
 | --- | --- | --- |
 | I. Contract first | 1.15.0 in this PR: descriptions of `createLocation`, `updateLocation`, `Location`, `LocationInput.timeZone`, `AcceptUnverifiedAddress`, `AddressServiceUnavailable`; `api-schema.ts` regenerated; drift check passes; no shape change | Pass |
 | II. One command | No new service, variable, or setup; the stand-in change is inside the browser-test stack | Pass |
-| III. Spec-driven | Spec + plan PR with the constitution row, independent review, fresh implementer; commits cite `024` and #107; `fixes #107` only in the implementation PR's description | Pass |
+| III. Spec-driven | Spec + plan PR with the constitution row, independent review, fresh implementer; commits cite `024` and #107; `fixes #107` only in the implementation PR's description. The spec PR changes shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`, `packages/shared/src/api-schema.ts`), so it needs every team member's approval (Constitution, Feature Roadmap); the implementation PR touches none | Pass |
 | IV. Server-authoritative | The Backend still checks every new or changed address and alone decides `addressVerified` (`013` FR-018); refusals still shown with values kept; the re-check never refuses (R7) | Pass |
 | V. Least privilege | No operation or role change; both operations stay `queuepass-admin` | Pass |
 | VI. Test-first, browser tests | Backend, Admin app, and browser tests written first and seen to fail (R15); the quickstart's Automation table marks every scenario, Automated rows added with the tests (R11) | Pass |
-| VII. Shared look | `.field`, `.field__hint`, `.form__row`, `.banner`, `.note` only; `.form__row`'s grid in `admin-app/src/styles.css` with theme values | Pass |
+| VII. Shared look | `.field`, `.field__hint`, `.form__row`, `.banner`, `.note` only; a new `.form__row--section` modifier in `admin-app/src/styles.css` with theme values, `.form__row` itself unchanged (it also lays out the event form's ticket types and the tier mapping) | Pass |
 | VIII. Simplicity | API keeps `timeZone` optional (R2); the existing flag widened instead of a new one (R5); demo data untouched (R9); no deferral of a control | Pass |
 
 Post-design: unchanged, all pass. Constitution amended to 3.6.1 (PATCH, roadmap row only).
@@ -106,7 +109,7 @@ admin-app/
 ├── src/pages/LocationForm.tsx                 # the select, the required zone, the flag, the notice;
 │                                              # Save anyway and the split-state question removed
 ├── src/components/SectionLines.tsx            # labels, ×, the line's seats, the hint, names
-├── src/styles.css                             # .form__row columns, phone-width wrap
+├── src/styles.css                             # .form__row--section (new), phone-width wrap
 └── test/
     ├── venue-time-zone.test.tsx, venue-address.test.tsx   # rewritten for R1–R4, R6
     ├── section-lines.test.tsx                 # new
@@ -123,7 +126,10 @@ README.md                                      # the 024 row; Save anyway and "w
 
 **Structure Decision**: the change stays where each behavior already lives: the form in the Admin
 app's venue page and its shared section component, the address rule in `LocationsService`, the
-browser tests in `e2e/`. Nothing new is shared, since only the Admin app edits venues.
+browser tests in `e2e/`. No new module is shared between apps, since only the Admin app edits venues.
+Inside the Admin app, `SectionLines` is already shared by the New venue form and the layout editor,
+and `.form__row` by them, the event form's ticket-type lines, and the tier mapping: the section
+layout goes in a modifier so the other two keep theirs (research R8).
 
 ## Complexity Tracking
 

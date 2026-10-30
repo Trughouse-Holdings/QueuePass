@@ -400,17 +400,19 @@ paths:
         on this request and before anything is saved, including `acceptUnverifiedAddress` (and,
         feature 024, its saving the address not verified when the service is unavailable). An
         edit without address fields never calls the address service. An edit with the same
-        address never calls it for a verified venue, and keeps `addressVerified` as it is.
+        address never calls it for a verified venue, nor without `acceptUnverifiedAddress`, and
+        keeps `addressVerified` as it is.
         `acceptUnverifiedAddress` without the four address fields is `400`. A venue saved before
         feature 013 keeps its `address`, has `null` parts, and has `addressVerified: false` until
         its address is changed.
 
-        Feature 024: an edit with the same address for a venue whose address is not verified (its
-        four fields set) checks it again, at the same point. Exactly one match that keeps the ZIP
-        code and house number is saved in the service's standard form with
-        `addressVerified: true`. Any other answer, the service being unavailable included, leaves
-        the address as stored and not verified, with or without `acceptUnverifiedAddress`; it is
-        never a refusal.
+        Feature 024: an edit that sends the same address with `acceptUnverifiedAddress: true`, for
+        a venue whose address is not verified (its four fields set), checks it again, at the same
+        point. Exactly one match that keeps the ZIP code and house number is saved in the
+        service's standard form with `addressVerified: true`, unless the stored address changed
+        while the check ran (then the address is left as it is now). Any other answer, the service
+        being unavailable included, leaves the address as stored and not verified; it is never a
+        refusal. Without the flag, the same address is never checked again.
 
         Feature 020: `timeZone`, when sent, becomes the venue's zone (`timeZoneSource: ADMIN`),
         also together with an address change. Otherwise, when the address is checked because it

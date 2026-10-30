@@ -64,10 +64,14 @@ zone on edit, and the zone is sent per research R3.
   - Edit venue (stored `America/New_York`, `ADDRESS`): the options are exactly the eight zones, the
     select's value is `America/New_York`, and "Eastern Time, from the address." is shown under it;
     after changing City, "Changing the address doesn't change the time zone. Choose another zone here
-    if the venue is in a different one." is shown, and after changing it back it is not.
-  - Edit, name only → the `PATCH` body has no `timeZone`; Edit, street changed and zone untouched →
-    the body has `timeZone: 'America/New_York'`; Edit, zone changed to Central → `timeZone:
-    'America/Chicago'` and the zone-change note as today.
+    if the venue is in a different one." and "Saving records Eastern Time as chosen by an admin." are
+    shown, and after changing it back neither is; on a venue whose source is `ADMIN`, only the first.
+  - Research R3's sending rule, by `PATCH` body: a verified venue, name only → no `timeZone` and no
+    address fields; a verified venue, street changed, zone untouched → the four fields, the flag, and
+    `timeZone: 'America/New_York'`; a not-verified venue (fields set, source `STATE`), name only → the
+    four fields as loaded, the flag, and `timeZone`, with "Saving records Eastern Time as chosen by an
+    admin." shown before saving; any venue, zone changed to Central → `timeZone: 'America/Chicago'`
+    and the zone-change note as today.
   - Replace the `a state with more than one zone (FR-003)` describe with: a Kentucky create whose
     response is a `400 ADDRESS_NOT_FOUND` (an API stub; the form no longer causes it) shows no group
     named "more than one time zone" and no "Save anyway" button.
@@ -82,16 +86,22 @@ zone on edit, and the zone is sent per research R3.
   `save()` alongside `addressProblems`, with `zoneProblem` "Choose the venue's time zone." in a
   `<span className="field__hint" role="alert" id="timeZone-problem">`, `aria-invalid` and
   `aria-describedby` on the select, cleared on change; the hints (create; edit `${venueZone(loaded)}.`;
-  edit while `!sameAsStored(address, loaded)`); `timeZone` sent on create, and on edit only when
-  `zoneChoice !== storedZone || !sameAsStored(address, loaded)`. Remove `stateZone`,
+  edit while `!sameAsStored(address, loaded)`; edit when the address will be sent with the stored zone
+  and `loaded.timeZoneSource !== 'ADMIN'`: "Saving records {zone} as chosen by an admin."); research
+  R3's sending rule: on edit, `sendAddress = !sameAsStored(address, loaded) || (loaded.addressVerified
+  === false && loaded.street != null)`; the four fields and `timeZone: zoneChoice` together when
+  `sendAddress`, else `timeZone` only when `zoneChoice !== storedZone`; on create always `timeZone`.
+  Remove `stateZone`,
   `requiredZones`, `splitZones`, `storedInState`, `chosenStateZone`, `stateName`, the split-state
   fieldset, and the `TIME_ZONE_REQUIRED` handling; drop the imports this leaves unused (`STATE_TIME_ZONES`, `SOURCE_TEXT`;
   `npm run lint` names any other). T002 passes.
 - [ ] T004 [US1] Every other Admin test that creates a venue through the form now chooses a zone
-  before Create venue, with no other change to what it asserts: `admin-app/test/venue-create.test.tsx`
-  (`fillNameAndAddress`), `admin-app/test/venue-address.test.tsx` (its fill helper),
-  `admin-app/test/pages.live-fixtures.test.tsx` (`LocationForm against a live validation
-  rejection`). `npm run test --workspace @queuepass/admin-app` green except the US2/US3 tests still to
+  before Create venue: `admin-app/test/venue-create.test.tsx` (`fillNameAndAddress`, and its two
+  `expect(writes[0].body).toEqual({ name: 'Seat Hall', ...SENT_ADDRESS, seatingCapacity: … })`
+  assertions gain the chosen `timeZone`), `admin-app/test/venue-address.test.tsx` (its fill helper,
+  and any exact create body), `admin-app/test/pages.live-fixtures.test.tsx` (`LocationForm against a
+  live validation rejection`). Edit bodies that change with R3 (no address fields for a verified
+  venue's name or capacity edit, e.g. `admin-app/test/capacity.test.tsx`) are updated here too. `npm run test --workspace @queuepass/admin-app` green except the US2/US3 tests still to
   be written.
 
 **Checkpoint**: US1 works on its own: quickstart V1 passes in the browser.
@@ -118,27 +128,34 @@ an unchanged not-verified address is checked again on edit; the not-verified not
   - no flag → `503 ADDRESS_SERVICE_UNAVAILABLE`, the exact message, no row (keep the existing test).
   Every response validated against the contract as the file already does. Must fail (today: `503`).
 - [ ] T006 [P] [US2] `backend/test/integration/locations.address-edit.e2e-spec.ts` (research R5, R7,
-  R15). Must fail:
+  R15). Must fail (all but the cases marked unchanged):
   - `when the address service is unavailable (US2)`: an address change **with** the flag → `200`,
     saved as sent, not verified, the zone decided as for a create; **without** the flag → `503`,
     venue unchanged (keep the existing `it.each` for the cases without the flag).
   - New `describe('re-check of the same address on a not-verified venue (024 R7)')`: on a venue saved
     not verified (its four fields set) with `timeZone` `America/New_York` / `ADMIN`, a `PATCH` that
-    resends the same four fields (in other case and spacing) and a new name:
+    resends the same four fields (in other case and spacing), `acceptUnverifiedAddress: true`, and a
+    new name:
     - the fake answers one match keeping ZIP and house number, at a place whose zone is
       `America/Chicago` → `200`, the standard form, `addressVerified: true`, `timeZone` still
       `America/New_York` and `timeZoneSource` still `ADMIN`, the new name saved; the fake asked
       exactly once;
     - the fake answers no match, several, a moved match, or unavailable → `200`, the stored address
-      unchanged and `addressVerified: false`, the new name saved; the same without the flag;
-    - a verified venue resent with its same address → the fake not asked; a name-only `PATCH` on the
-      not-verified venue → the fake not asked.
+      unchanged and `addressVerified: false`, the new name saved;
+    - the same resend **without** the flag → the fake not asked, the address unchanged (unchanged
+      behavior, SC-005); a verified venue resent with its same address and the flag → the fake not
+      asked; a name-only `PATCH` on the not-verified venue → the fake not asked;
+    - race (as the file's `concurrency during a slow lookup` tests, `ctx.geocoder.pause()`): while the
+      re-check's lookup is paused, another `PATCH` changes the venue's address to one the fake then
+      answers with no match (saved with the flag, not verified); release the paused lookup with a
+      match → the first `PATCH` answers `200` and the venue keeps the second address, not verified
+      (the upgrade is dropped).
   - Rewrite "stays not verified when the same address is resent, even with the flag" to the
     no-match case above (it now asks the service once).
-- [ ] T007 [P] [US2] `admin-app/test/venue-address.test.tsx` (research R4, R6, R15). Must fail:
-  - every create body has `acceptUnverifiedAddress: true`; an edit body with the four fields has it;
-    an edit of a venue from before `013` with its fields left empty has neither the fields nor the
-    flag;
+- [ ] T007 [P] [US2] `admin-app/test/venue-address.test.tsx` (research R3, R4, R6, R15). Must fail:
+  - every create body has `acceptUnverifiedAddress: true`; every edit body with the four fields has
+    it; an edit body without them (a verified venue's name edit; a venue from before `013` with its
+    fields left empty) has neither the fields nor the flag;
   - after any response (`201` verified or not, `400 ADDRESS_NOT_FOUND`, `400 ADDRESS_AMBIGUOUS`,
     `400 VALIDATION_FAILED`, `503`), no button named "Save anyway (address not verified)" exists;
     refusals are still shown in the error banner with every value kept;
@@ -164,12 +181,14 @@ an unchanged not-verified address is checked again on edit; the not-verified not
   acceptUnverified`; else throw `serviceUnavailable()` as today; the warning log unchanged. Update
   the method's doc comment (feature 024). T005 passes; T006's unavailable cases pass.
 - [ ] T009 [US2] `backend/src/locations/locations.service.ts` `update` (research R7): when the four
-  fields are sent, `sameAddress(parts, existing)` is true, and `existing.addressVerified` is false,
-  look the address up once (a new private method beside `checkAddress`, e.g. `recheckAddress`):
-  a match that passes `matchesTyped` returns `checked(match, true)`, written with the update; any
-  other result, and `AddressServiceUnavailableError` (logged as in `checkAddress`), returns nothing
-  and writes nothing about the address; never throws a refusal. Pass `address: undefined` to
-  `decide()` for this case, so the zone is untouched. Update `update`'s doc comment. T006 passes; every
+  fields are sent with `dto.acceptUnverifiedAddress === true`, `sameAddress(parts, existing)` is true,
+  and `existing.addressVerified` is false, look the address up once (a new private method beside
+  `checkAddress`, e.g. `recheckAddress`): a match that passes `matchesTyped` returns `checked(match,
+  true)`; any other result, and `AddressServiceUnavailableError` (logged as in `checkAddress`),
+  returns nothing; never throws a refusal. Inside the transaction, after `lockVenueAndEvents`, read the
+  venue row again (`tx.location.findUniqueOrThrow({ where: { id } })`) and write the upgrade only if
+  `sameAddress(parts, row)` and `row.addressVerified === false`. Pass `address: undefined` to
+  `decide()` for this case, so the check never decides the zone. Update `update`'s doc comment. T006 passes; every
   other test in `backend/test/integration/locations*.e2e-spec.ts`, `venues*.e2e-spec.ts`, and
   `demo-data.e2e-spec.ts` passes unchanged (SC-005).
 - [ ] T010 [US2] `admin-app/src/pages/LocationForm.tsx` (research R4, R6): add
@@ -179,7 +198,7 @@ an unchanged not-verified address is checked again on edit; the not-verified not
   when `addressVerified` is false, and today's success notice otherwise; the not-verified edit note
   becomes "This address is not verified. Saving checks it again." T007 passes.
 - [ ] T011 [US2] Admin tests that assert an exact request body or the old notice now include the flag
-  or the new text, nothing else: `admin-app/test/capacity.test.tsx`,
+  (with the address fields, R3) or the new text, nothing else: `admin-app/test/capacity.test.tsx`,
   `admin-app/test/venue-create.test.tsx` (`SENT_ADDRESS` bodies), `admin-app/test/venue-time-zone.test.tsx`
   (bodies), and any other the workspace's run names. `npm run test --workspace @queuepass/admin-app`
   and `npm run test --workspace @queuepass/backend` green.
@@ -201,8 +220,9 @@ and the layout editor.
   `SectionLines` with a small stateful wrapper. Must fail:
   - the hint "A section is a grid of seats: rows run front to back, and every row has the same number
     of seats across." appears exactly once, with zero, one, and two lines;
-  - each line has visible labels "Section name", "Rows", "Seats per row" (`getByText`) and a "×" that
-    is `aria-hidden`; the boxes are found as `getByRole('textbox', { name: 'Section 1 Section name' })`,
+  - within each line (`within(screen.getByRole('group', { name: 'Section 1' }))`, and Section 2),
+    the visible labels "Section name", "Rows", "Seats per row" (`getByText`) and a "×" that is
+    `aria-hidden`; each line's fieldset has the classes `form__row form__row--section`; the boxes are found as `getByRole('textbox', { name: 'Section 1 Section name' })`,
     `getByRole('spinbutton', { name: 'Section 1 Rows' })`, `getByRole('spinbutton', { name: 'Section
     1 Seats per row' })`; `min`/`max` stay 1–100 and 1–200;
   - counts: 10 × 20 → "= 200 seats"; 1 × 1 → "= 1 seat"; Rows empty → "= 0 seats"; "abc" → "= 0
@@ -213,23 +233,29 @@ and the layout editor.
   `admin-app/test/venue-address.test.tsx`, and `admin-app/test/layout.test.tsx` to "Section N Section
   name", "Section N Rows", "Section N Seats per row", and add to `layout.test.tsx` that the layout
   editor shows the hint and "= 200 seats" for a 10 × 20 section, and to `venue-create.test.tsx` that
-  the New venue form's lines show their counts beside "Total: 70 seats". Must fail on the old names.
+  the New venue form's lines show their counts beside "Total: 70 seats". In
+  `admin-app/test/event-form.tz.test.tsx` (or the Event form test that renders ticket types), assert
+  the first ticket-type line's element has `className` exactly `form__row` (spec review round 1, M1:
+  the section modifier must not reach it). Must fail on the old names.
 
 ### Implementation
 
 - [ ] T014 [US3] `admin-app/src/components/SectionLines.tsx` (research R8): the hint once above the
-  lines; per line a `<fieldset className="form__row">` with `<legend id>` "Section {i}"; three
+  lines; per line a `<fieldset className="form__row form__row--section">` with `<legend id>` "Section {i}"; three
   `.field` wrappers with visible `<label id htmlFor>` "Section name", "Rows", "Seats per row";
   inputs named by `aria-labelledby="{legend id} {label id}"` (ids from `useId()` plus the index), no
   `aria-label`; `<span aria-hidden="true">×</span>` between Rows and Seats per row; the count
   `= {n.toLocaleString()} {n === 1 ? 'seat' : 'seats'}` with `n = (Number(rows) || 0) *
   (Number(seatsPerRow) || 0)`; Remove section {i} unchanged. Update the component's doc comment
   (spec `024`). T012 and T013 pass.
-- [ ] T015 [US3] `admin-app/src/styles.css` `.form__row` (research R8): columns for name, rows, ×,
-  seats per row, count, and Remove; at `max-width: 640px` the name full width, then rows × seats per
-  row, then the count and Remove; theme values only (`var(--space-…)`). The shared theme's drift test
+- [ ] T015 [US3] `admin-app/src/styles.css` (research R8): a new `.form__row--section` rule after
+  `.form__row`'s: columns for name, rows, ×, seats per row, count, and Remove; at `max-width: 640px`
+  the name full width, then rows × seats per row, then the count and Remove; theme values only
+  (`var(--space-…)`). The `.form__row` rules themselves are not changed (`git diff` shows none): the
+  event form's ticket-type lines (`EventForm.tsx`) and the tier mapping (`SeatingCard.tsx`) use them. The shared theme's drift test
   (`npm run test --workspace @queuepass/shared`) and the Admin app's `theme-classes.test.tsx` pass.
-  Check at 360 px in a browser that nothing scrolls sideways (record here).
+  Check at 360 px in a browser that nothing scrolls sideways, and that the Schedule event form's
+  ticket-type lines look as before (record here).
 
 **Checkpoint**: all three stories work: quickstart V1–V7 pass in the browser.
 
@@ -324,3 +350,35 @@ and the layout editor.
 - **MVP**: T001–T004: the admin picks every new venue's zone (US1), the first item of #107.
 - Then US2 (one-press save, Backend and form), US3 (section lines), the browser tests, and the polish.
 - Each story's checkpoint is a quickstart walk of its scenarios; the full walk (T031) is Nate's.
+
+## Review record (spec branch)
+
+- **Round 1** (independent Claude session, 2026-10-30, at `5aa5a4b`): 1 must-fix, 4 should-fix, 7
+  minor; all fixed in the `Review 024` commit:
+  - must M1: `.form__row` also lays out the event form's ticket-type lines and the tier mapping, so
+    restyling it would break them. The section lines get a modifier `.form__row--section`;
+    `.form__row` is unchanged; T012 checks the section line's classes and T013 that a ticket-type
+    line keeps exactly `form__row` (research R8, plan, T014, T015).
+  - should S1: SC-005 said "or" and the re-check changed direct API callers. The re-check now runs
+    only with `acceptUnverifiedAddress: true` (only the Admin app sends it), so callers without the
+    flag are literally unchanged; SC-005 says exactly which two outcomes change for flagged requests
+    (FR-016, SC-005, Assumptions, research R7, contract 1.15.0 `updateLocation`, contracts/README.md,
+    data-model.md, T006, T009).
+  - should S2: after T003 the create body carries `timeZone`, so `venue-create.test.tsx`'s exact
+    bodies would fail; T004 adds it (and covers the edit bodies R3 changes).
+  - should S3: `020` SC-006 (0 extra steps to set the zone) is superseded; added to the table and to
+    `020`'s superseded note.
+  - should S4: an address sent with the zone shown records that zone as chosen by an admin; the spec
+    says so (Clarifications, US1 scenario 5, Edge Cases, FR-004), and the edit form says it before
+    saving: "Saving records {zone} as chosen by an admin." (research R1, R3, T002, T003, quickstart
+    V5).
+  - minor: R2's claim about `createVenue` corrected (it asserts the address is verified; tests such as
+    `020 S6`/`S7` assert the zone). R11's V2 row names the counts and renumbering covered by T012.
+    T012 finds labels within each line's group, not with a bare `getByText`. R7's upgrade is written
+    only if the row re-read under the venue lock still has the same not-verified address (T006 race
+    test, T009). Stale edit form: decided in R3 that the edit sends the address only when it differs
+    from the loaded venue or the loaded venue is not verified, and always with the zone shown, so no
+    save sends an address without a zone (spec Edge Cases, FR-005, data-model.md). `013`'s quickstart
+    note adds S1b. The plan's Constitution Check says the spec PR touches shared surface
+    (constitution, contract, `api-schema.ts`) and needs every team member's approval.
+- **Open findings**: none.

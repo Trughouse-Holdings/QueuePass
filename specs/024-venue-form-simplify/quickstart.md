@@ -75,7 +75,10 @@ Edit "Zone Test Hall" (V1, Central). Change the street to 1540 University Dr and
 **Expected**: under Time zone, "Changing the address doesn't change the time zone. …". Save.
 **Expected**: saved not verified (V6), Time zone still Central Time. Edit a demo venue ("Demo Riverside
 Hall", from the address) and change only its name. **Expected**: saved; the list still says "Eastern
-Time, from the address" (no `timeZone` in the `PATCH` body).
+Time, from the address" (the `PATCH` body has neither `timeZone` nor address fields). Edit it again
+and change the address to 937 Phillips Ln, Louisville, KY, 40209. **Expected**: under Time zone,
+"Saving records Eastern Time as chosen by an admin."; saved verified, "Eastern Time, chosen by an
+admin".
 
 ## V6. A different address found, or several (US2 scenario 3; FR-011, FR-015)
 

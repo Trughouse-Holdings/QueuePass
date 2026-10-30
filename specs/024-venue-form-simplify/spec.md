@@ -70,11 +70,16 @@ it in review of the spec PR.
   Backend stores it as chosen by an admin, as today. Other callers (the demo-data script, the
   browser tests' set-up) keep `020`'s rules unchanged, including `TIME_ZONE_REQUIRED` (FR-007;
   research R2; Constitution VIII, the smallest change).
-- Q: On **Edit venue**, does the Admin app send the zone with every save? → A: **Only when the admin
-  changed the zone or the address.** Sending the stored zone on a name-only edit would relabel a zone
-  worked out from the address as "chosen by an admin" (`020` research R4); sending it with an address
-  change is what keeps the zone from being worked out again from the new address (FR-005; research
-  R3).
+- Q: On **Edit venue**, what does the Admin app send? → A: **The address only when it needs
+  checking, and the zone with it.** The four address fields go only when they differ from the venue
+  as the form loaded it, or when the venue's address is not verified (so it is checked again); a
+  verified venue's unchanged address is not sent. Whenever the address goes, the zone shown in the
+  select goes with it, so the zone is never worked out again from the address, and it is then
+  recorded as chosen by an admin, since the admin saved with that zone shown; the form says so
+  before saving. Otherwise the zone goes only when the admin picked another. A name-only edit of a
+  verified venue therefore keeps "from the address" (`020` research R4), and a form left open while
+  someone else changed the address never sends an address without a zone (FR-005; research R3; spec
+  review round 1, S4 and the stale-form finding).
 - Q: How is the address saved? → A: In one step (decided by Nate, issue item 2): every save from the
   Admin app that sends an address asks for it to be saved even if it can't be verified, so there is
   no separate "Save anyway" button or step. The address is still checked: a match is saved verified,
@@ -90,12 +95,13 @@ it in review of the spec PR.
   FR-021 showed before a save anyway; the notice says to check the address and correct it by editing
   (FR-014, FR-015; research R6 records the trade-off).
 - Q: The notice says the address "can be verified later by editing". How, when `013` FR-008 never
-  checks an unchanged address again? → A: **An edit that sends the same address for a venue whose
-  address is not verified checks it again.** A match makes it verified (in the service's standard
-  form); any other answer, the service being down included, leaves it as stored and is never a
-  refusal; the zone is not touched. So an address saved while the service was down is verified by
-  opening **Edit venue** and pressing **Save changes** once the service is back (FR-016; research
-  R7). Edits of verified venues still never call the service.
+  checks an unchanged address again? → A: **An edit that sends the same address, with the "save
+  even if unverified" request, for a venue whose address is not verified checks it again.** Only the
+  Admin app sends that request, so other callers see no change. A match makes it verified (in the
+  service's standard form); any other answer, the service being down included, leaves it as stored
+  and is never a refusal; the check does not decide the zone. So an address saved while the service
+  was down is verified by opening **Edit venue** and pressing **Save changes** once the service is
+  back (FR-016; research R7). Edits of verified venues still never call the service.
 - Q: What does a section line show? → A: Visible labels "Section name", "Rows", and "Seats per
   row", with rows and seats per row side by side so the line reads "Rows × Seats per row", then the
   line's seat count ("= 200 seats"), and one short hint that a section is a grid of rows front to
@@ -141,10 +147,12 @@ to another Louisville address and save (still Central).
    admin".
 4. **Given** a venue in Eastern Time, **When** an admin opens Edit venue, **Then** the select shows
    Eastern Time, and a line under it says how the zone was set ("Eastern Time, from the address").
-5. **Given** Edit venue, **When** the admin changes any address field, **Then** a note says the time
-   zone does not change with the address, and **When** they save, **Then** the venue keeps its zone.
-6. **Given** Edit venue, **When** the admin changes only the name (or the capacity) and saves,
-   **Then** the zone and how it was set are unchanged.
+5. **Given** Edit venue of a venue whose zone was worked out ("Eastern Time, from the address"),
+   **When** the admin changes any address field, **Then** a note says the time zone does not change
+   with the address and that saving records Eastern Time as chosen by an admin, and **When** they
+   save, **Then** the venue keeps Eastern Time, now "chosen by an admin".
+6. **Given** Edit venue of a venue whose address is verified, **When** the admin changes only the
+   name (or the capacity) and saves, **Then** the zone and how it was set are unchanged.
 7. **Given** Edit venue of a venue with events, **When** the admin picks a different zone, **Then**
    the form says the events keep their local times, as today (`020` FR-009), and a refusal
    (`020` FR-010 to FR-012) is shown with every value kept.
@@ -242,15 +250,24 @@ read each line's labels and seat count, and the total; check each box's name wit
 - **A venue from before `013`** (one-line address, no fields): Edit venue keeps the address unless the
   admin fills in the four fields, as today (`013` FR-016); filling them in saves the address in one
   step like any other. Its zone (Eastern, "the default", `020` FR-006) shows in the select with that
-  source, so the admin can see it may need changing; entering the address does not change it.
+  source, so the admin can see it may need changing; entering the address does not change it, and
+  saving records the zone shown as chosen by an admin, as the form says before saving.
+- **The zone shown is saved as the admin's choice** whenever the address is sent on an edit (changed,
+  or not verified and checked again): the admin saved with that zone shown, and the form says so
+  under the select before saving (FR-004).
+- **The form was opened before someone else changed the venue's address**: the form compares with
+  the venue as it loaded it, so it sends its own address only when the admin changed it there (or the
+  loaded venue was not verified), always with the zone shown; the last save wins for the address, as
+  for every other field, and no save sends an address without a zone, so it is never refused for a
+  missing zone or given a worked-out one (FR-005).
 - **The admin picks a zone that does not match the address** (Pacific Time for a Louisville venue):
   saved as picked, as `020` FR-004 already allows; the venue's page says "chosen by an admin".
 - **A different address found** (`013` FR-021, "1540 University Dr", 40508 → "1540 UNIVERSITY CT",
   40503): saved as typed and not verified; the suggestion is not shown (Clarifications).
 - **The address service is slow**: the save waits up to the service's 5-second limit, then saves not
   verified; the Create button says "Saving…" and cannot be pressed twice, as today.
-- **Name-only edit of a not-verified venue while the service is down**: the address is checked
-  again (FR-016), the service does not answer within 5 seconds, and the edit is saved with the
+- **Name-only edit of a not-verified venue while the service is down**: the address is sent and
+  checked again (FR-016), the service does not answer within 5 seconds, and the edit is saved with the
   address unchanged, after up to 5 seconds; `013` SC-006 (name-only edits succeed while the service
   is down) still holds.
 - **Another caller** (the demo-data script, a direct API request): without the "save even if
@@ -278,12 +295,16 @@ read each line's labels and seat count, and the total; check each box's name wit
   value, and send nothing.
 - **FR-003**: On Edit venue, the time zone MUST start on the venue's stored zone and MUST say how it
   was set ("Eastern Time, from the address"; `020` FR-007).
-- **FR-004**: On Edit venue, while any address field differs from the stored address, the form MUST
-  say that changing the address does not change the time zone. Saving MUST NOT change the zone
-  unless the admin picked another one.
-- **FR-005**: The Admin app MUST send the chosen zone on every create, and on every edit that changes
-  the zone or the address. An edit that changes neither MUST NOT send it, so the zone and how it was
-  set stay as they are.
+- **FR-004**: On Edit venue, while any address field differs from the venue as loaded, the form MUST
+  say that changing the address does not change the time zone. Whenever the save will send the
+  address with the zone the venue already has, and that zone was not chosen by an admin, the form MUST
+  say before saving that the zone shown will be recorded as chosen by an admin. Saving MUST NOT
+  change the zone unless the admin picked another one.
+- **FR-005**: The Admin app MUST send the chosen zone on every create. On an edit it MUST send the
+  four address fields only when they differ from the venue as the form loaded it, or when the loaded
+  venue's address is not verified and has its four fields; it MUST send the zone shown whenever it
+  sends the address fields, and otherwise only when the admin picked a different zone. An edit that
+  sends neither leaves the zone and how it was set as they are.
 - **FR-006**: The Admin app's venue form MUST NOT ask a second question about a state's time zones
   (`020` FR-003's choice); the select is the only place the zone is chosen.
 - **FR-007**: The Backend's zone rules for a request that sends no zone MUST be unchanged (`020`
@@ -317,12 +338,14 @@ read each line's labels and seat count, and the total; check each box's name wit
   it, correcting the address if it is wrong), then the time zone, as today. After a save whose address
   is verified, the notice MUST be unchanged (`013` FR-012, `020` research R14).
 - **FR-015**: The not-verified notice MUST NOT show the address service's other matches.
-- **FR-016**: An edit that sends the same address (ignoring case and extra spaces, `013` FR-008) for
-  a venue whose address is not verified and has its four fields MUST check it again. A match MUST be
-  saved verified, in the service's standard form. Any other answer, the service being unavailable
-  included, MUST leave the address as stored, not verified, and MUST NOT refuse the edit. This check
-  MUST NOT change the venue's zone. An edit that sends no address, or the same address for a verified
-  venue, MUST still never call the address service (`013` FR-008).
+- **FR-016**: An edit that sends the same address (ignoring case and extra spaces, `013` FR-008)
+  with the request to save it even if unverified, for a venue whose address is not verified and has
+  its four fields, MUST check it again. A match MUST be saved verified, in the service's standard
+  form, unless the stored address changed while the check ran (then it is not written). Any other
+  answer, the service being unavailable included, MUST leave the address as stored, not verified,
+  and MUST NOT refuse the edit. This check MUST NOT decide the venue's zone. Without that request, an
+  edit with the same address MUST still never call the address service, nor MUST an edit that sends
+  no address or the same address for a verified venue (`013` FR-008).
 - **FR-017**: Edit venue of a venue whose address is not verified MUST say so and that saving checks
   it again. The "Not verified" marks on the venue list and page (`013` FR-017) MUST be unchanged.
 
@@ -353,13 +376,14 @@ This spec changes these requirements of earlier specs; the earlier text stays as
 | Spec | Requirement | Now |
 | --- | --- | --- |
 | `013` | FR-006 (refused when the service is down, even with save anyway) | Only without the request to save it unverified; with it, saved not verified (FR-012) |
-| `013` | FR-008 (an unchanged address is never checked again) | Except a not-verified one, checked again without refusal (FR-016) |
+| `013` | FR-008 (an unchanged address is never checked again) | Except a not-verified one sent with the request to save it unverified, checked again without refusal (FR-016) |
 | `013` | FR-011 (a "Save anyway (address not verified)" control after a not-found or ambiguous refusal) | No such control; the Admin app always asks to save unverified (FR-008, FR-009) |
 | `013` | FR-019 (save anyway does not change the outcome when the service is unavailable) | It does: saved not verified (FR-012) |
 | `013` | SC-002, SC-003 (a save refused while the service is down, "try again" within 6 seconds) | For the Admin app, saved not verified within 6 seconds (SC-003 below) |
 | `020` | FR-002 (zone worked out from the address "without asking the admin"), for the Admin app | The admin picks every new venue's zone (FR-001, FR-002); the API still works it out for other callers (FR-007) |
 | `020` | FR-003 (in a two-zone state, the admin's choice asked by the form) | No second question; the select is required (FR-006) |
 | `020` | FR-024 (the form lets the admin choose a zone and shows FR-003's choice) | The form requires a zone on create and starts on the stored one on edit (FR-002, FR-003) |
+| `020` | SC-006 (a verified address: 0 extra steps to set the zone) | One step: the admin picks the zone on every create (FR-002) |
 | `020` | Research R4 ("The Admin app sends `timeZone` only when the admin picks one"), R14 (the select's first option, the split-state question) | Research R1, R3 |
 | `007`, `008` | `008` FR-017's section lines "as on the venue page" (name, rows, seats per row, unlabelled) | Labelled lines with a seat count, in both places (FR-018 to FR-021) |
 
@@ -386,9 +410,12 @@ This spec changes these requirements of earlier specs; the earlier text stays as
   seconds of pressing Create venue.
 - **SC-004**: A venue saved not verified while the service was down becomes verified with one Save
   changes on Edit venue once the service answers, with its zone unchanged.
-- **SC-005**: For every request that does not ask to save unverified or does not send a zone (other
-  callers), the outcome is the same as before this feature: 100% of `013`'s and `020`'s Backend tests
-  for those requests pass unchanged.
+- **SC-005**: For every request that does not ask to save the address even if unverified (every
+  caller but the Admin app), the outcome is the same as before this feature, with or without a zone:
+  100% of `013`'s and `020`'s Backend tests for those requests pass unchanged. For requests that ask
+  it, exactly two outcomes change: the address service being unavailable saves the address not
+  verified instead of refusing (FR-012), and resending a not-verified venue's same address checks it
+  again (FR-016).
 - **SC-006**: On every section line, in both places, the seat count shown equals rows × seats per row
   and the total equals the sum of the lines, for 100% of whole-number entries in the limits.
 - **SC-007**: Every section box has a visible label, and its name for assistive technology contains
@@ -396,8 +423,9 @@ This spec changes these requirements of earlier specs; the earlier text stays as
 
 ## Assumptions
 
-- Only the Admin app changes how it sends a venue; every other client of the venue operations is a
-  script or test in this repository and keeps today's behavior (FR-007, FR-012).
+- Only the Admin app changes how it sends a venue, and only it sends the request to save an address
+  even if unverified; every other client of the venue operations is a script or test in this
+  repository, sends no such request, and keeps today's behavior (FR-007, FR-012, FR-016, SC-005).
 - The address service's 5-second limit (`013` research R6) is unchanged, so a save while it is down
   waits up to that long.
 - Verifying a not-verified address on an edit (FR-016) costs one address lookup per save of such a

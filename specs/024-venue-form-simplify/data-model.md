@@ -15,9 +15,9 @@ which requests write them, and how.
 | same | **unavailable** (no answer in 5 s, error status, unreadable) | **as sent, `addressVerified: false`** (was `503`, research R5) | as the row above |
 | Create or address change, no flag | unavailable | nothing; `503 ADDRESS_SERVICE_UNAVAILABLE` (unchanged) | — |
 | Create or address change, no flag | none, several, a moved match | nothing; `400 ADDRESS_NOT_FOUND` / `ADDRESS_AMBIGUOUS` (unchanged) | — |
-| **Edit, same address, venue not verified** (fields set) | one match keeping ZIP and house number | **standard form, `addressVerified: true`** (research R7) | **unchanged** unless `timeZone` is sent |
-| same | anything else, unavailable included | **nothing about the address; never refused** | unchanged unless sent |
-| Edit, same address, venue verified; edit without address fields | not asked | nothing about the address (unchanged, `013` FR-008) | unchanged unless sent |
+| **Edit, same address, venue not verified** (fields set), `acceptUnverifiedAddress: true` | one match keeping ZIP and house number | **standard form, `addressVerified: true`**, if the row re-read under the venue lock still has that address and is not verified; else nothing about the address (research R7) | **not decided by the check**; changes only if `timeZone` is sent |
+| same | anything else, unavailable included | **nothing about the address; never refused** | as the row above |
+| Edit, same address, venue not verified, **no flag**; same address, venue verified; no address fields | not asked | nothing about the address (unchanged, `013` FR-008) | unchanged unless sent |
 
 "Same address" is `013`'s rule: the four fields equal the stored ones, ignoring case and extra
 spaces, the ZIP code compared on its first 5 digits; a venue from before `013` (no fields) never has
@@ -25,11 +25,16 @@ the same address.
 
 ## What the Admin app sends (`LocationForm`)
 
-| Save | `acceptUnverifiedAddress` | `timeZone` |
-| --- | --- | --- |
-| Create | `true` | the chosen zone; required by the form (research R1) |
-| Edit, address fields sent (any non-legacy venue, or a legacy one whose fields were filled in) | `true` | the selected zone when it differs from the stored one or the address differs from the stored one; else not sent (research R3) |
-| Edit of a venue from before `013` with its four fields left empty | not sent (the Backend refuses it without the fields) | as the row above (the address is unchanged) |
+| Save | Address fields | `acceptUnverifiedAddress` | `timeZone` |
+| --- | --- | --- | --- |
+| Create | always | `true` | the chosen zone; required by the form (research R1) |
+| Edit, the address differs from the venue as loaded (a pre-`013` venue whose fields were filled in included) | sent | `true` | the zone shown, always (research R3) |
+| Edit, the address as loaded, the loaded venue not verified and its fields set | sent (checked again, R7) | `true` | the zone shown, always |
+| Edit, the address as loaded, the loaded venue verified; or a pre-`013` venue with its fields left empty | not sent | not sent | only when the admin picked a zone other than the stored one |
+
+When `timeZone` is sent with the zone the venue already has, the Backend records it as `ADMIN`
+(`020` R4); the form says so under the select before saving when the stored source is not `ADMIN`
+(research R1).
 
 The form's other values (name, capacity, the seated layout on create) are sent as today.
 

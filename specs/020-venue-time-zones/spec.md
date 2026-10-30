@@ -10,9 +10,9 @@
 
 **Superseded in part by `024`** ([spec](../024-venue-form-simplify/spec.md#superseded-requirements),
 #107): the Admin app's venue form has no "work it out from the address" choice and no split-state
-question; the admin picks every new venue's zone (FR-002 and FR-003 for the Admin app, FR-024;
-research R4, R14). The API still works the zone out for other callers. The text below is this
-feature's record as built.
+question; the admin picks every new venue's zone (FR-002 and FR-003 for the Admin app, FR-024, SC-006; research
+R4, R14). The API still works the zone out for other callers. The text below is this feature's
+record as built.
 
 **Input**: User description: "Show event times in the venue's time zone. Every venue has a time
 zone. Wherever an event's time is shown or entered (Admin app, Customer app, and later the Ticket

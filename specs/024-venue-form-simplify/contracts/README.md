@@ -16,7 +16,7 @@ R11, `020` research R18): a documented request now succeeds where it was refused
 |---|---|
 | `info.version` | 1.14.0 → 1.15.0 |
 | `createLocation` | The "Save anyway" paragraph: with `acceptUnverifiedAddress: true`, an address service that cannot be reached, does not answer within 5 seconds, or answers with an error also saves the venue as sent with `addressVerified: false` (feature 024). The `503` paragraph: only without the flag. The zone paragraph: the Admin app always sends `timeZone` (feature 024); other callers may leave it out. |
-| `updateLocation` | Feature 013's paragraph: an edit with the same address never calls the address service **unless the venue's address is not verified**: then it is checked again; a match is saved verified in the service's standard form, and any other answer (service unavailable included) leaves the address as stored, never refused, and does not decide the zone (feature 024). Feature 020's paragraph: the zone is decided again only when the address changed, never on that re-check. The unavailable case with the flag as in `createLocation`. |
+| `updateLocation` | Feature 013's paragraph: an edit with the same address never calls the address service **unless it sends `acceptUnverifiedAddress: true` and the venue's address is not verified**: then it is checked again; a match is saved verified in the service's standard form (unless the stored address changed while the check ran), and any other answer (service unavailable included) leaves the address as stored, never refused, and does not decide the zone (feature 024). Without the flag, unchanged. Feature 020's paragraph: the zone is decided again only when the address changed, never on that re-check. The unavailable case with the flag as in `createLocation`. |
 | `Location` | The `addressVerified: false` with fields bullet: saved with `acceptUnverifiedAddress` because the address service did not match it or could not be asked (feature 024). |
 | `LocationInput.timeZone` | Adds: the Admin app always sends it (feature 024); optional for other callers. |
 | `AcceptUnverifiedAddress` | Reworded: "save even if unverified". The Admin app sends it with every address (feature 024). With no match, several, a moved match, **or the service unavailable**, the venue is saved as sent, not verified; with a verified match it is saved verified. |
@@ -47,6 +47,7 @@ A create the Admin app sends while the address service is down (1.15.0):
 `"timeZone": "America/New_York"`, `"timeZoneSource": "ADMIN"`. The same request without
 `acceptUnverifiedAddress` is still `503 ADDRESS_SERVICE_UNAVAILABLE`, and nothing is saved.
 
-An edit of that venue, sending the same four fields and nothing else changed, once the service
+An edit of that venue, sending the same four fields with `acceptUnverifiedAddress: true` (as the
+Admin app does) and nothing else changed, once the service
 is back and matches it: `200`, `"address": "430 W VINE ST, LEXINGTON, KY 40507"`,
 `"addressVerified": true`, the zone and `timeZoneSource` unchanged.
