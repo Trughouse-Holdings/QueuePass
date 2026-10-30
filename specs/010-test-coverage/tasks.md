@@ -130,7 +130,9 @@ description: "Task list for Test Coverage Floor"
   coverage:report` then marked it `below 80%` and the seed not measured; 250 functions in
   `backend/src/untested.ts` failed the Backend (`Jest: "global" coverage threshold for lines (80%)
   not met: 71.65%`). Both files removed. F2 as first written (60 lines) could not fail: corrected in
-  a `Review 010` commit. **F3** not done: no PR may be opened before spec PR #99 merges. **F4** not
+  a `Review 010` commit. **F3** done 2026-10-30: draft PR #104 with 60 untested functions in
+  `booth-app/src/untested.ts`; the `test` check failed at booth-app (`ERROR: Coverage for lines
+  (70.87%) does not meet global threshold (80%)`, run 41126664383); closed unmerged, branch deleted. **F4** not
   run: the Keycloak reachable at localhost:9000 was another session's `021` stack, whose
   `customer-app` client name `021` changes, so the seed's live tests would have re-converged it;
   left for a human with a stack of this branch.
