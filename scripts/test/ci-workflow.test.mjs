@@ -141,7 +141,8 @@ test('the e2e job is checkout, setup-node, npm ci, npm run e2e, then the failure
   const upload = all[4];
   assert.match(upload.uses ?? '', /^actions\/upload-artifact@v\d+$/);
   assert.ok(upload.name, 'the upload step has no name');
-  assert.equal(upload.if, 'failure()');
+  // Review round 1, minor 4: a run stopped at its 30-minute limit is cancelled, not failed.
+  assert.equal(upload.if, 'failure() || cancelled()');
   assert.deepEqual(Object.keys(upload).sort(), ['if', 'name', 'uses', 'with']);
   assert.deepEqual(
     String(upload.with?.path ?? '')
