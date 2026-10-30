@@ -1,9 +1,10 @@
 // Spec 011 FR-005 to FR-007 (research R11): print each workspace's line coverage from the
 // coverage-summary.json that this run's `npm test` wrote, and append the same table to the
 // GitHub Actions step summary when GITHUB_STEP_SUMMARY is set. Report only: a workspace below
-// 80% is marked, never failed (010-test-coverage enforces the floor through the test runners'
-// thresholds). Exits 1, naming the workspace, when a summary is missing, unreadable, or counts
-// no lines, because that workspace's coverage was not measured.
+// 80% is marked, never failed here; each workspace's own test run fails below the floor (spec 010
+// research R1, R2), so after a passing `npm test` every row is at or above it. Exits 1, naming
+// the workspace, when a summary is missing, unreadable, or counts no lines, because that
+// workspace's coverage was not measured.
 //
 //   node scripts/coverage-report.mjs          print the table (root script coverage:report)
 //   node scripts/coverage-report.mjs --clean  delete every workspace's coverage/ (start of npm test)
@@ -21,7 +22,7 @@ export const WORKSPACES = [
 ];
 
 const FLOOR = 80;
-const NOTE = 'The 80% floor is not enforced until 010-test-coverage is merged.';
+const NOTE = "The 80% floor is enforced by each workspace's test run (010-test-coverage).";
 const SUMMARY_FILE = join('coverage', 'coverage-summary.json');
 
 export function cleanCoverage(rootDir) {

@@ -1,6 +1,7 @@
 // Spec 011 (research R11, R13): the coverage report prints and publishes each workspace's line
-// coverage, marks a workspace below 80% without failing (until 010-test-coverage), and fails
-// naming a workspace whose coverage was not measured. Run by the root `npm test`.
+// coverage, marks a workspace below 80% without failing (each workspace's own test run enforces the
+// floor, spec 010 research R1 and R2, and the note says so), and fails naming a workspace whose
+// coverage was not measured. Run by the root `npm test`.
 import { test } from 'node:test';
 import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
@@ -27,7 +28,7 @@ import {
   run,
 } from '../coverage-report.mjs';
 
-const NOTE = 'The 80% floor is not enforced until 010-test-coverage is merged.';
+const NOTE = "The 80% floor is enforced by each workspace's test run (010-test-coverage).";
 
 function tempRoot(t) {
   const dir = mkdtempSync(join(tmpdir(), 'qp-coverage-'));

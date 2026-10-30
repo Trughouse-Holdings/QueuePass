@@ -25,6 +25,7 @@ browser. `023` is built and reviewed; its running-system walk is pending.
 | [`006-customer-ticket-purchase`](specs/006-customer-ticket-purchase/spec.md) | Customers get tickets and see them on My tickets; sales close when an event starts                                                                                                                              | Draft            | Done (29/29 tasks) | **Built and verified**       |
 | [`007-seat-selection`](specs/007-seat-selection/spec.md)                     | Venue seating layouts; reserved seating per event with sections mapped to tiers; customers choose seats; no seat sold twice                                                                                     | Draft            | Done (30/30 tasks) | **Built and verified**       |
 | [`008-customer-event-search`](specs/008-customer-event-search/spec.md)       | Customer event search and filters; the Customer app usable on a phone (cards, contrast, keyboard) in the Admin app's look                                                                                       | Draft            | Done (19/19 tasks) | **Built and verified**       |
+| [`010-test-coverage`](specs/010-test-coverage/spec.md)                       | Each workspace's own test run fails below 80% line coverage, so `npm test` and the pull request check do too; the seed is tested without Keycloak against a recording fake                                      | Draft            | Done (16/18 tasks) | **Built and reviewed**       |
 | [`011-ci-test-runs`](specs/011-ci-test-runs/spec.md)                         | Every pull request and push to `main` runs formatting, lint, build, and all tests in GitHub Actions, showing each workspace's coverage; `npm run ci` runs the same steps locally                                | Draft            | Done (32/34 tasks) | **Built (walk pending)**     |
 | [`012-shared-theme`](specs/012-shared-theme/spec.md)                         | One shared theme in `packages/shared/` for the Admin and Customer apps; a test fails when an app defines its own look                                                                                           | Draft            | Done (29/30 tasks) | **Built and verified**       |
 | [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, with an explicit save anyway; addresses open Google Maps                                                                    | Draft            | Done (47/48 tasks) | **Built and verified**       |
@@ -77,8 +78,8 @@ sales report as CSV, Excel, or PDF, made from what the page shows and saying whe
 
 The Admin and Customer apps take their whole look from one shared theme (`012`).
 
-Feature `010` is reserved in the constitution's roadmap and not yet built: the 80% test coverage
-floor, enforced by `npm test` and the pull request check.
+Every workspace must keep at least 80% line coverage: its own test run fails below that, so
+`npm test` and the pull request check fail too (`010`).
 
 ### How a feature is delivered
 
@@ -231,6 +232,18 @@ npm test
 the repository scripts' own tests, the boundary and contract-drift checks, then every workspace's
 tests, and measures each workspace's line coverage (a short summary after each).
 
+**The 80% floor** (Constitution VI, `010`): each workspace's test run fails when its line coverage is
+below 80%, printing the number and the floor (Vitest: `ERROR: Coverage for lines (78.50%) does not
+meet global threshold (80%)`; Jest: `coverage threshold for lines (80%) not met`), and npm names the
+workspace. `npm test` stops at the first such workspace; `npm run coverage:report` then prints the
+table from the numbers measured so far. A filtered run, such as `npm test --workspace
+@queuepass/seed -- provision-clients`, fails the floor because it measures only part of the suite:
+run the workspace's whole suite, or run one file without coverage (`npx vitest run
+provision-clients` in the workspace, or `npx jest <file>` in `backend`). The only excluded source is
+the generated `packages/shared/src/api-schema.ts`. The seed's tests need no Keycloak: they run
+against a recording fake of the Keycloak admin client (`scripts/seed/test/fake-keycloak.ts`), which
+names any method the seed calls that it does not implement yet.
+
 Backend tests provision a **real PostgreSQL 17** through Testcontainers, so Docker must be
 running. The scheduling rule is a PostgreSQL exclusion constraint, and SQLite has no
 `tstzrange`, `EXCLUDE`, or `btree_gist`, so a substitute could not express the feature.
@@ -257,7 +270,7 @@ so CI, which runs in UTC, checks a second zone too.
 
 Every pull request (when opened, updated, or reopened) and every push to `main` runs the **CI /
 test** check in GitHub Actions. Each run's summary page shows every workspace's line coverage;
-below 80% is marked but does not fail the run until `010` enforces the floor. To run exactly what
+a workspace below 80% fails the **Test** step, before the table is printed. To run exactly what
 the check runs:
 
 ```bash
