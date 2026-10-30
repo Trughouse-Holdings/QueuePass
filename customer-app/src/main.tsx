@@ -16,6 +16,7 @@ createRoot(document.getElementById('root') as HTMLElement).render(
     <AuthProvider
       authority={import.meta.env.VITE_OIDC_AUTHORITY}
       clientId={import.meta.env.VITE_OIDC_CLIENT_ID}
+      apiBaseUrl={`${import.meta.env.VITE_API_BASE_URL}/api`}
       beforeLogout={releaseOnLogout}
     >
       <RequireRole role="customer">
