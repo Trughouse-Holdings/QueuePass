@@ -8,9 +8,11 @@ reported skipped with their reason.
 
 ## F2. A drop fails (US1; SC-002)
 
-Add `booth-app/src/untested.ts` with 60 lines of exported functions and no tests. `npm test`.
-**Expected**: fails at `booth-app`, naming lines, its percentage, and 80. Remove the file: green. Repeat
-once for `backend` (Jest).
+Add `booth-app/src/untested.ts` with 60 small exported functions (about 240 lines) and no tests.
+`npm test`. **Expected**: fails at `booth-app`, naming lines, its percentage, and 80. Remove the file:
+green. Repeat once for `backend` (Jest), with 250 such functions. The file must be large enough to
+cross the floor: at today's sizes `booth-app` (596 lines) needs more than about 92 uncovered lines
+(60 lines left it at 83.84%), and `backend` (2118 lines) more than about 450.
 
 ## F3. In CI (US1)
 
