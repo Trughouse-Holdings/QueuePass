@@ -9,8 +9,8 @@ export default defineConfig({
     setupFiles: ['./test/setup.ts'],
     include: ['test/**/*.test.ts', 'test/**/*.test.tsx'],
     // Spec 011 research R10: npm test measures line coverage of this workspace's own source;
-    // coverage/coverage-summary.json feeds scripts/coverage-report.mjs (R11). No thresholds
-    // until 010-test-coverage.
+    // coverage/coverage-summary.json feeds scripts/coverage-report.mjs (R11). Constitution VI
+    // floor (spec 010 research R1): the run fails when this workspace is below 80% of lines.
     coverage: {
       provider: 'v8',
       include: ['src/**'],
@@ -18,6 +18,7 @@ export default defineConfig({
       // Constitution VI allows excluding generated code.
       exclude: [...coverageConfigDefaults.exclude, 'src/api-schema.ts'],
       reporter: ['text-summary', 'json-summary'],
+      thresholds: { lines: 80 },
     },
     // Spec 020 research R20: no zone pin; QP_TEST_TZ (set by scripts/test-tz.mjs) runs the suite
     // under another device zone.

@@ -62,16 +62,25 @@ description: "Task list for Test Coverage Floor"
 
 ## Phase 3: User Story 1 - The floor (P1)
 
-- [ ] T010 [US1] Prove the runners fail first (R6): set the threshold in `booth-app/vitest.config.ts`
+- [x] T010 [US1] Prove the runners fail first (R6): set the threshold in `booth-app/vitest.config.ts`
   to 99 temporarily: `npm test --workspace @queuepass/booth-app` fails naming lines and the numbers.
   Revert. Same for `backend/jest.config.ts` with `coverageThreshold.global.lines: 99`. Record the
-  messages.
-- [ ] T011 [US1] Set `coverage.thresholds: { lines: 80 }` in the five `vitest.config.ts` and
+  messages. Result: both exit 1. Vitest: `ERROR: Coverage for lines (92.28%) does not meet global
+  threshold (99%)`; Jest: `Jest: "global" coverage threshold for lines (99%) not met: 97.02%`; npm
+  then names the workspace (`npm error workspace @queuepass/booth-app@0.1.0`, `…/backend@0.1.0`).
+  Both still wrote `coverage/coverage-summary.json` (R2). Reverted.
+- [x] T011 [US1] Set `coverage.thresholds: { lines: 80 }` in the five `vitest.config.ts` and
   `coverageThreshold: { global: { lines: 80 } }` in `backend/jest.config.ts` (not in
   `jest.unit.config.ts`, R3); replace each "No thresholds until 010" comment with one naming the floor
-  and Constitution VI (FR-009).
-- [ ] T012 [US1] `scripts/coverage-report.mjs` note (R2), test first in `scripts/test/` for the new
-  text. `npm test` and `npm run test:tz` green.
+  and Constitution VI (FR-009). Result: done; the Jest comment also says the threshold applies
+  only when coverage is collected. No "until 010" comment is left outside `specs/`.
+- [x] T012 [US1] `scripts/coverage-report.mjs` note (R2), test first in `scripts/test/` for the new
+  text. `npm test` and `npm run test:tz` green. Result: the test's new note failed first (8 pass, 1
+  fail), then passed with the script's; header comments updated. `npm run ci` green (194 s).
+  `npm run test:tz`: green on a rerun; the first run failed once, Admin `images-field.test.tsx`
+  ("previews a PNG, a JPEG, and a WebP…", no `img` "Image 1") in Pacific/Honolulu, which then
+  passed 3 runs alone and the whole rerun. Unrelated to coverage (`test:tz` collects none, R3): a
+  flaky test, left for a human.
 
 ## Phase 4: User Story 3 and polish
 
