@@ -189,6 +189,20 @@ describe('New venue: the admin picks the zone (spec 024 US1, FR-001, FR-002, FR-
     expect(writes(api)[0].body).toMatchObject({ timeZone: 'America/Chicago' });
   });
 
+  it('describes the select with the problem and the hint on New venue', () => {
+    stubApi({});
+    renderAt('/locations/new');
+    const select = screen.getByLabelText('Time zone');
+    expect(select).toHaveAccessibleDescription(
+      'Event times at this venue are shown and entered in this zone.',
+    );
+    fill();
+    create();
+    expect(select).toHaveAccessibleDescription(
+      `${ZONE_PROBLEM} Event times at this venue are shown and entered in this zone.`,
+    );
+  });
+
   it('names the zone problem and the address problems in the same press', () => {
     const api = stubApi({});
     renderAt('/locations/new');
@@ -246,6 +260,17 @@ describe('Edit venue: the stored zone (spec 024 US1, FR-003, FR-004)', () => {
     set('City', 'LEXINGTON');
     expect(screen.queryByText(ADDRESS_HINT)).toBeNull();
     expect(screen.queryByText(RECORDS_ADMIN)).toBeNull();
+  });
+
+  // Spec 024 review round 1, minor 6: the hints describe the select for assistive technology.
+  it('describes the select with the zone line and the hints shown', async () => {
+    await loadEdit(venue);
+    const select = screen.getByLabelText('Time zone');
+    expect(select).toHaveAccessibleDescription('Eastern Time, from the address.');
+    set('City', 'Louisville');
+    expect(select).toHaveAccessibleDescription(
+      `Eastern Time, from the address. ${ADDRESS_HINT} ${RECORDS_ADMIN}`,
+    );
   });
 
   it('on a zone an admin chose, says only that the address does not change it', async () => {

@@ -258,6 +258,40 @@ describe('Venue address check on edit (spec 013)', () => {
       expect((await row()).addressVerified).toBe(true);
     });
 
+    // Spec 024 review round 1, minor 2: an upgrade only over a row that is still not verified.
+    it('writes no second upgrade when another re-check verified the venue during the lookup', async () => {
+      const anyway = await savedAnyway();
+      const gate = ctx.geocoder.pause();
+      const slow = patch({ ...SAME_AGAIN, acceptUnverifiedAddress: true }, anyway).then((r) => r);
+      await gate.started;
+      // Another admin's re-check finds it first, in the service's standard form.
+      ctx.geocoder.next({
+        kind: 'match',
+        street: '1 ARENA PLAZA',
+        city: 'LOUISVILLE',
+        state: 'KY',
+        zip: '40202',
+        location: PLACES.louisville,
+      });
+      await patch({ ...SAME_AGAIN, acceptUnverifiedAddress: true }, anyway).expect(200);
+      // The paused lookup then answers with the city corrected (same ZIP and house number).
+      ctx.geocoder.next({
+        kind: 'match',
+        street: '1 ARENA PLAZA',
+        city: 'JEFFERSONTOWN',
+        state: 'KY',
+        zip: '40202',
+        location: PLACES.louisville,
+      });
+      gate.release();
+      expect((await slow).status).toBe(200);
+      expect(await rowOf(anyway)).toMatchObject({
+        city: 'LOUISVILLE',
+        address: '1 ARENA PLAZA, LOUISVILLE, KY 40202',
+        addressVerified: true,
+      });
+    });
+
     it('drops the upgrade when another edit changed the address during the lookup', async () => {
       const anyway = await savedAnyway();
       const gate = ctx.geocoder.pause();

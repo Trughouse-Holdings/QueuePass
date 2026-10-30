@@ -405,6 +405,46 @@ describe('Seated venue in one step', () => {
   });
 });
 
+describe('Seated venue whose layout is refused (spec 024 review round 1, minor 4)', () => {
+  it('says the address is not verified beside "Seating layout not saved"', async () => {
+    stubApi({
+      'POST /locations': json(notVerified, 201),
+      [`PUT ${PATH}/layout`]: json(
+        { error: { code: 'VALIDATION_FAILED', message: 'section names must be unique' } },
+        400,
+      ),
+    });
+    renderAt('/locations/new');
+    fill({ 'Seating capacity': undefined });
+    fireEvent.click(screen.getByRole('radio', { name: 'Seated' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
+    create();
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Seating layout not saved');
+    expect(alert).toHaveTextContent(
+      "Its address is saved but not verified: 1 Arena Plaza, Louisville, KY 40202. The US address service couldn't confirm it, so check that it's right.",
+    );
+  });
+
+  it('says nothing about the address when it is verified', async () => {
+    stubApi({
+      'POST /locations': json(verified, 201),
+      [`PUT ${PATH}/layout`]: json(
+        { error: { code: 'VALIDATION_FAILED', message: 'section names must be unique' } },
+        400,
+      ),
+    });
+    renderAt('/locations/new');
+    fill({ 'Seating capacity': undefined });
+    fireEvent.click(screen.getByRole('radio', { name: 'Seated' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
+    create();
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Seating layout not saved');
+    expect(alert).not.toHaveTextContent('not verified');
+  });
+});
+
 describe('The address service is down (US2)', () => {
   it('shows a 503 on edit in the banner, keeping every value, with no Save anyway', async () => {
     stubApi({
@@ -504,6 +544,57 @@ describe('Venues whose address is not verified (US4, FR-017)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(writes(api)).toHaveLength(1));
     expect(writes(api)[0].body).toEqual({ name: 'Demo Arena II', seatingCapacity: 20500 });
+  });
+
+  // Spec 024 review round 1, minor 3: saving again never verifies a venue from before 013.
+  it('after a legacy venue name edit, says to enter the four fields to verify it', async () => {
+    stubApi({
+      [`GET ${PATH}`]: json(legacy),
+      [`PATCH ${PATH}`]: json({ ...legacy, name: 'Demo Arena II' }),
+      'GET /locations': json([legacy]),
+    });
+    renderAt(`${PATH}/edit`);
+    await waitFor(() => expect(field('Name').value).toBe('Demo Arena'));
+    set('Name', 'Demo Arena II');
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    const notice = await screen.findByText(
+      'Venue saved, but its address is not verified: 1 Demo Plaza, Louisville, KY. To verify ' +
+        'it, edit the venue and enter its street, city, state, and ZIP code. Time zone: Eastern ' +
+        'Time, the default.',
+    );
+    expect(notice.closest('[role="status"]')).not.toBeNull();
+  });
+
+  // Spec 024 review round 1, minor 7: filled in, the four go with the flag and the zone shown.
+  it('sends a legacy venue its filled-in fields, the flag, and the zone shown', async () => {
+    const old = { ...legacy, timeZone: 'America/New_York', timeZoneSource: 'DEFAULT' as const };
+    const api = stubApi({
+      [`GET ${PATH}`]: json(old),
+      [`PATCH ${PATH}`]: json(old),
+      'GET /locations': json([old]),
+    });
+    renderAt(`${PATH}/edit`);
+    await waitFor(() => expect(field('Name').value).toBe('Demo Arena'));
+    expect(screen.queryByText('Saving records Eastern Time as chosen by an admin.')).toBeNull();
+    set('Street address', '937 Phillips Ln');
+    set('City', 'Louisville');
+    set('State', 'KY');
+    set('ZIP code', '40209');
+    expect(
+      screen.getByText('Saving records Eastern Time as chosen by an admin.'),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    expect(writes(api)[0].body).toEqual({
+      name: 'Demo Arena',
+      street: '937 Phillips Ln',
+      city: 'Louisville',
+      state: 'KY',
+      zip: '40209',
+      acceptUnverifiedAddress: true,
+      timeZone: 'America/New_York',
+      seatingCapacity: 20500,
+    });
   });
 
   it('requires all four once a legacy venue address field is filled in', async () => {
