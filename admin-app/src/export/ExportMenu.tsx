@@ -68,30 +68,34 @@ export function ExportMenu({ label, makeTable, fileName, note }: ExportMenuProps
     }
   };
 
+  // Review round 1, finding 4: the status and the error sit outside the disclosure, so closing
+  // it never hides them.
   return (
-    <details>
-      <summary className="btn">
-        Download <span aria-hidden="true">▾</span>
-      </summary>
-      <div role="group" aria-label={label} className="form__actions">
-        {FORMATS.map((f) => (
-          <button
-            key={f.ext}
-            type="button"
-            className="btn btn--ghost"
-            disabled={busy !== null}
-            aria-describedby={note ? noteId : undefined}
-            onClick={() => void download(f)}
-          >
-            {f.button}
-          </button>
-        ))}
-      </div>
-      {note && (
-        <p id={noteId} className="note">
-          {note}
-        </p>
-      )}
+    <div>
+      <details>
+        <summary className="btn">
+          Download <span aria-hidden="true">▾</span>
+        </summary>
+        <div role="group" aria-label={label} className="form__actions">
+          {FORMATS.map((f) => (
+            <button
+              key={f.ext}
+              type="button"
+              className="btn btn--ghost"
+              disabled={busy !== null}
+              aria-describedby={note ? noteId : undefined}
+              onClick={() => void download(f)}
+            >
+              {f.button}
+            </button>
+          ))}
+        </div>
+        {note && (
+          <p id={noteId} className="note">
+            {note}
+          </p>
+        )}
+      </details>
       <p role="status" className="note">
         {busy ? `Preparing the ${busy}…` : ''}
       </p>
@@ -100,6 +104,6 @@ export function ExportMenu({ label, makeTable, fileName, note }: ExportMenuProps
           {`Couldn't make the ${failed}. Try again.`}
         </p>
       )}
-    </details>
+    </div>
   );
 }

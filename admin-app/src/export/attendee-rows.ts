@@ -22,14 +22,14 @@ const ORDER_STATUS: Record<Order['status'], string> = {
 
 const COLUMNS: ExportColumn[] = [
   { header: 'Order placed', kind: 'dateTime', width: 18 },
-  { header: 'Customer', kind: 'text', width: 16 },
+  { header: 'Customer', kind: 'text', width: 17 },
   { header: 'Name on tickets', kind: 'text', width: 22 },
   { header: 'Tier', kind: 'text', width: 18 },
   { header: 'Seat', kind: 'text', width: 22 },
   { header: 'Ticket code', kind: 'text', width: 15, nowrap: true },
   { header: 'Ticket status', kind: 'text', width: 13 },
   { header: 'Checked in', kind: 'dateTime', width: 18 },
-  { header: 'Order status', kind: 'text', width: 15 },
+  { header: 'Order status', kind: 'text', width: 17 },
   { header: 'Price', kind: 'money', width: 11 },
   { header: 'Order', kind: 'text', width: 11, nowrap: true },
 ];

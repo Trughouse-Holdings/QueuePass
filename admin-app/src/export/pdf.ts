@@ -159,8 +159,10 @@ const MARGIN = 36; // half an inch
 /**
  * A text column never gets narrower than this many points per character of its Excel width, so
  * one very long word elsewhere cannot squeeze short words ("customer3", "Confirmed") into pieces.
+ * With the widest codes, dates, and prices, the attendee list's minimums still leave the table
+ * inside the 720 pt between the margins (review round 1, finding 1; `pdf.fit.test.ts`).
  */
-const MIN_PT_PER_CHAR = 3.6;
+const MIN_PT_PER_CHAR = 3.0;
 const BODY_PT = 9; // FR-009: never below 9 points
 const ACCENT: [number, number, number] = [79, 70, 229]; // the theme's --accent, as text
 const INK: [number, number, number] = [17, 24, 39];

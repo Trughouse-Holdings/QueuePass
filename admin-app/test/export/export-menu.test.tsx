@@ -90,6 +90,7 @@ describe('ExportMenu', () => {
     await user.click(screen.getByRole('button', { name: 'PDF' }));
 
     expect(await screen.findByRole('status')).toHaveTextContent('Preparing the PDF…');
+    expect(screen.getByRole('status').closest('details')).toBeNull();
     formats().forEach((b) => expect(b).toBeDisabled());
     await user.click(screen.getByRole('button', { name: 'CSV' }));
     expect(toCsv).not.toHaveBeenCalled();
@@ -112,6 +113,8 @@ describe('ExportMenu', () => {
     expect(alert).toHaveClass('banner', 'banner--error');
     expect(save).not.toHaveBeenCalled();
     formats().forEach((b) => expect(b).toBeEnabled());
+    // Review round 1, finding 4: closing the disclosure never hides the message.
+    expect(alert.closest('details')).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Excel (XLSX)' }));
     await waitFor(() => expect(save).toHaveBeenCalledWith(XLSX, 'attendees-x.xlsx'));

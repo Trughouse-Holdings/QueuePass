@@ -161,13 +161,30 @@ fail before the implementation below them.
   **Done**: `size.test.ts` (6 tests; the table is built inside the first timing, as at the click). Laptop (Apple silicon), Vitest without coverage: 5,000 tickets CSV 0.16 s (702 KB), XLSX 0.37 s (226 KB), PDF 4.57 s (1,166 KB); 25,000 CSV 0.22 s (3,510 KB), XLSX 0.91 s (1,119 KB), PDF 17.69 s (5,503 KB). With coverage: 5,000 PDF 7.48 s, 25,000 PDF 31.18 s. SC-003 holds (assert 10 s; with `CI` set the bound is 30 s, since a CI runner measuring coverage is not the laptop SC-003 names). The browser timing (R12's "once in the browser") is left to the walk (T026). A 25,000-row PDF blocks the page for about 18 s while it is drawn; no Web Worker, as SC-003 passes (R12).
 - [x] T022 Confirm the Admin app's first-load chunk did not grow with the libraries (compare `vite
   build` output before and after; the libraries are in their own chunks). Record sizes.
-  **Done**: first-load chunk `index-*.js` 435.67 kB (gzip 131.82) before, 441.81 kB (gzip 134.15) after: +6.1 kB of the control, builders, and file names, none of the libraries. Lazy chunks: `csv` 0.54 kB, `xlsx` 1.34 kB, `pdf` 4.06 kB, write-excel-file `browser` 11.60 kB + its zip `index` 60.65 kB, `jspdf.es.min` 384.23 kB, `jspdf.plugin.autotable` 31.12 kB, `html2canvas.esm` 202.38 kB, `index.es` 159.98 kB and `purify.es` 30.47 kB (jsPDF's optional dependencies, split out, never imported by this code); the two TTFs are 431 kB and 432 kB assets fetched only for a PDF.
+  **Done**: first-load chunk `index-*.js` 435.67 kB (gzip 131.82) before, 441.97 kB (gzip 134.21) after review round 1: +6.3 kB of the control, builders, and file names, none of the libraries. Lazy chunks: `csv` 0.54 kB, `xlsx` 1.34 kB, `pdf` 4.19 kB (since `8e28d8a`; 4.06 kB before), write-excel-file `browser` 11.60 kB + its zip `index` 60.65 kB, `jspdf.es.min` 384.23 kB, `jspdf.plugin.autotable` 31.12 kB, `html2canvas.esm` 202.38 kB, `index.es` 159.98 kB and `purify.es` 30.47 kB (jsPDF's optional dependencies, split out, never imported by this code); the two TTFs are 431 kB and 432 kB assets fetched only for a PDF.
 - [x] T023 README: the `023` status row and "Today" paragraph; one line in the Admin app section
   about Download.
   **Done**: README: the `023` status row (24/28 tasks), the Status line, a "Today" sentence, and a **Report exports** item in What the system does.
-- [ ] T024 Independent review by a separate Claude session (Constitution 3.3.0) against spec, plan,
+- [x] T024 Independent review by a separate Claude session (Constitution 3.3.0) against spec, plan,
   research; fix findings; record the round here.
-  **Not done**: left for a separate Claude session (Constitution 3.3.0); the implementer does not review its own work.
+  **Done**: round 1 by a separate Claude session (2026-10-30): 0 must-fix, 1 should-fix, 6 minor; fixed
+  in the implementer's worktree, tests first:
+  - should 1: the attendee PDF overflowed the right margin with the widest values (29 pt, logged by
+    autotable). The text-column floor is now 3.0 pt per character (was 3.6) and Customer and Order
+    status are 17 characters wide (were 16, 15); `pdf.fit.test.ts` fails if autotable says the
+    table "could not fit" or the columns are wider than 720 pt, for the sample, the widest values,
+    and a large sales report.
+  - minor 2: `pdf.fit.test.ts` records jsPDF's text calls and checks "Page n of m" on every page of
+    a 200-row table (fails with the footer loop removed).
+  - minor 3: `xlsx.tz.test.tsx`, run by the zone re-run, sets a non-UTC zone itself, so a date cell
+    built from device-local time fails even on a UTC runner (checked).
+  - minor 4: the status and error lines sit after `</details>`, so closing it never hides them;
+    `export-menu.test.tsx` checks.
+  - minor 5: `summary.btn { list-style: none }` and `::-webkit-details-marker { display: none }` in
+    the shared theme (no color); Safari is still for the walk to see.
+  - minor 6: T022's `pdf` chunk size corrected. Minor 7 (the 25,000-row PDF blocks about 18–20 s)
+    accepted as recorded in T021.
+  Open findings: none.
 - [x] T025 `npm run ci` locally green; record counts.
   **Done**: `npm run ci` green at `8e28d8a` (format, lint, build, all tests). Counts: root scripts 45 pass; shared 592; backend 942; admin-app 309 (249 before 023: +60); customer-app 306; booth-app 76; seed 4 passed, 4 skipped; zone re-run (America/Los_Angeles, quick) 124 + 29 + 9 + 9. Line coverage: shared 93.13%, backend 97.02%, admin-app 97.22%, customer-app 97.46%, booth-app 92.28%, seed 24.01% (unchanged; the floor waits for 010). Size times in this run, with coverage: 5,000 PDF 4.80 s, 25,000 PDF 20.01 s.
 - [ ] T026 Running-system walk, quickstart E0–E6 (Excel or Numbers, and a PDF print preview), on a
