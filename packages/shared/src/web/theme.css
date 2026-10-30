@@ -40,6 +40,22 @@
   --brand-mark-end: #7c6cf7;
   --brand-mark-text: #ffffff;
 
+  /* Spec 021 (Constitution VII, the sign-in exception): the Customer (tickets, teal) and Ticket
+     Booth (booth, amber) accents, for the sign-in screens only. No app stylesheet uses them; the
+     sign-in look points the six accent roles above at one set per app (research R4, R5). */
+  --accent-tickets: #0f766e;
+  --accent-tickets-hover: #115e59;
+  --accent-tickets-soft: #f0fdfa;
+  --accent-tickets-text: #ffffff;
+  --brand-mark-end-tickets: #0d9488;
+  --brand-mark-text-tickets: #ffffff;
+  --accent-booth: #b45309;
+  --accent-booth-hover: #92400e;
+  --accent-booth-soft: #fffbeb;
+  --accent-booth-text: #ffffff;
+  --brand-mark-end-booth: #c2410c;
+  --brand-mark-text-booth: #ffffff;
+
   /* Spec 014: the full-screen image backdrop and the text on it, dark in both sets. */
   --scrim: rgb(0 0 0 / 92%);
   --scrim-text: #ffffff;
@@ -94,6 +110,21 @@
 
     --brand-mark-end: #7c6cf7;
     --brand-mark-text: #ffffff;
+
+    /* Spec 021: the sign-in accents. The brand letter is dark here: white on these lighter
+       accents would fall under 2:1 (research R5). */
+    --accent-tickets: #2dd4bf;
+    --accent-tickets-hover: #5eead4;
+    --accent-tickets-soft: #042f2e;
+    --accent-tickets-text: #0f1115;
+    --brand-mark-end-tickets: #14b8a6;
+    --brand-mark-text-tickets: #0f1115;
+    --accent-booth: #fbbf24;
+    --accent-booth-hover: #fcd34d;
+    --accent-booth-soft: #451a03;
+    --accent-booth-text: #0f1115;
+    --brand-mark-end-booth: #f59e0b;
+    --brand-mark-text-booth: #0f1115;
 
     --scrim: rgb(0 0 0 / 92%);
     --scrim-text: #ffffff;

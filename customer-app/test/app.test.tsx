@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import { availability, event, json, renderCustomer, stubApi, venue } from './helpers';
@@ -56,6 +58,22 @@ describe('Customer app sign-in', () => {
     expect(screen.getByText('Signing in…')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull();
     expect(calls).toHaveLength(0);
+  });
+});
+
+// Spec 021 FR-003 (research R10): the name a customer signs in to is the name the app shows.
+describe('Customer app name', () => {
+  it('reads "QueuePass Tickets" in its header', async () => {
+    everyRoute();
+    renderCustomer();
+    const brand = await screen.findByText('QueuePass Tickets');
+    expect(brand).toHaveClass('brand');
+  });
+
+  it('reads "QueuePass Tickets" in its browser tab title', () => {
+    // Vitest runs each workspace from its own folder (customer-app/).
+    const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+    expect(html).toMatch(/<title>QueuePass Tickets<\/title>/);
   });
 });
 

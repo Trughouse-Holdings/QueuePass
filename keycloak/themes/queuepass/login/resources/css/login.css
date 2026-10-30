@@ -1,0 +1,178 @@
+/* ============================================================================
+   QueuePass sign-in look (spec 021, research R4). Loaded after css/theme.css, the shared theme
+   copied in by keycloak/Dockerfile, and holds only the sign-in layout, in the theme's values.
+   The one exception (Constitution VII, 3.5.0) is at the end: each app's accent, pointed at its
+   set in the shared theme. packages/shared/test/theme/drift.test.ts checks this file.
+   ========================================================================== */
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The band across the top of the screen, in the app's accent (FR-006). */
+.qp-band {
+  flex: none;
+  height: 6px;
+  background: var(--accent);
+}
+
+/* A centered card on the page background. */
+.qp-login {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-8) var(--space-4);
+}
+.qp-card {
+  width: 100%;
+  max-width: 400px;
+  padding: var(--space-8) var(--space-6);
+}
+
+/* The brand mark, the app's name, and who it is for (FR-001, FR-005). */
+.qp-head {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+.qp-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius);
+  font-size: 20px;
+}
+.qp-title {
+  margin: var(--space-2) 0 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+.qp-audience {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+/* The page's own header on every page but the sign-in form ("We are sorry...", R9). */
+.qp-page-title {
+  margin: var(--space-3) 0 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.qp-required {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.qp-required .required {
+  color: var(--danger);
+}
+/* The attempted username and its restart link, on pages after the username step. */
+.qp-username {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+/* Page text on error and info pages. */
+#kc-content-wrapper p {
+  margin: 0 0 var(--space-3);
+}
+
+/* -------------------------------------------------------------------- form */
+#kc-form-login {
+  display: grid;
+  gap: var(--space-4);
+}
+/* base's options row holds nothing while the realm offers no "remember me" or password reset. */
+#kc-form-login > .field:not(:has(input, a)) {
+  display: none;
+}
+
+/* A wrong username or password, under the fields (R9: base's #input-error, aria-live). */
+.qp-field-error {
+  color: var(--danger);
+  font-size: 13.5px;
+  font-weight: 560;
+}
+
+/* The password and its Show/Hide button on one row (FR-012). The button's accessible name is
+   base's aria-label ("Show password", "Hide password"); the word drawn here is what it shows. */
+.qp-input-group {
+  display: flex;
+  gap: var(--space-2);
+}
+.qp-input-group > input {
+  flex: 1;
+  min-width: 0;
+}
+.qp-reveal {
+  flex: none;
+}
+.qp-reveal i {
+  font-style: normal;
+}
+.qp-reveal--show::before {
+  content: 'Show';
+}
+.qp-reveal--hide::before {
+  content: 'Hide';
+}
+
+/* The Sign In button across the card. The shared input:focus rule (for text fields) would remove
+   this button's focus ring, so it gets the shared ring back (spec 008 FR-009). */
+#kc-login {
+  width: 100%;
+  justify-content: center;
+}
+#kc-login:hover {
+  border-color: transparent;
+}
+#kc-login:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* A notice that is neither an error, a warning, nor a success. */
+.qp-banner--info {
+  background: var(--surface-alt);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+/* Phone width (FR-012): the card takes the width, with less space around it. */
+@media (max-width: 480px) {
+  .qp-login {
+    padding: var(--space-4) var(--space-3);
+  }
+  .qp-card {
+    padding: var(--space-6) var(--space-4);
+  }
+}
+
+/* ------------------------------------------------- each app's accent (FR-006) */
+/* Constitution VII's one exception: the shared accent roles pointed at the app's own set, which
+   the shared theme defines and its contrast test checks (research R4, R5). The Admin app, and any
+   client without a rule here, keeps the shared accent (FR-008). */
+.qp-app--customer-app {
+  --accent: var(--accent-tickets);
+  --accent-hover: var(--accent-tickets-hover);
+  --accent-soft: var(--accent-tickets-soft);
+  --accent-text: var(--accent-tickets-text);
+  --brand-mark-end: var(--brand-mark-end-tickets);
+  --brand-mark-text: var(--brand-mark-text-tickets);
+}
+.qp-app--booth-app {
+  --accent: var(--accent-booth);
+  --accent-hover: var(--accent-booth-hover);
+  --accent-soft: var(--accent-booth-soft);
+  --accent-text: var(--accent-booth-text);
+  --brand-mark-end: var(--brand-mark-end-booth);
+  --brand-mark-text: var(--brand-mark-text-booth);
+}
