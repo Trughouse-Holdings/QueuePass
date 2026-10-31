@@ -187,6 +187,7 @@ test('024 V4/V5: with the address service down a venue is saved not verified, an
         'Venue saved. Address: 1 ARENA PLZ, LOUISVILLE, KY 40202. Time zone: Pacific Time, chosen by an admin.',
     }),
   ).toBeVisible();
-  await expect(row.getByText('Not verified', { exact: true })).toHaveCount(0);
+  // The row is rendered before its missing mark counts for anything (review round 1, minor 5).
   await expect(row.getByText('Pacific Time, chosen by an admin', { exact: true })).toBeVisible();
+  await expect(row.getByText('Not verified', { exact: true })).toHaveCount(0);
 });

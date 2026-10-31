@@ -121,10 +121,10 @@ manual. `npm test` checks this table against `e2e/tests`.
 | V1 | Automated: `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick` |
 | V2 | Automated: `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick`; rest Manual: phone width and a screen reader, by a person (V9); the "= 0 seats" and "= 20,000 seats" counts and the renumbering after Remove are covered by the Admin app's `section-lines.test.tsx` (T012) |
 | V3 | Automated: `024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick` |
-| V4 | Automated: `024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone`; rest Manual: the 6-second bound against a service that never answers, by hand |
-| V5 | Automated: `024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone`; rest Manual: the re-check of an unchanged not-verified address and a name-only edit, covered by Backend tests (the stand-in never changes its answer) |
+| V4 | Automated: `024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone`; rest Manual: the 6-second bound against a service that never answers, by hand; the request without the flag (`503`, no venue "No Flag") is covered by the Backend's 503-without-the-flag tests (`locations.address.e2e-spec.ts`, `locations.address-edit.e2e-spec.ts`) |
+| V5 | Automated: `024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone`; rest Manual: the re-check of an unchanged not-verified address, covered by Backend tests (the stand-in never changes its answer); a name-only edit keeping "from the address" and the "Saving records Eastern Time as chosen by an admin." hint, covered by the Admin app's `venue-time-zone.test.tsx` (the browser test's venue is chosen by an admin) |
 | V6 | Manual: the browser tests' address stand-in answers exact addresses only, so it never finds a different one; Backend tests cover it |
-| V7 | Manual: unchanged from `013` and covered by the Admin app's tests; the zone message is in the `024 V1/V2/V3` test once it exists |
+| V7 | Manual: unchanged from `013` and covered by the Admin app's tests; the zone message is in the `024 V1/V2/V3` test |
 | V8 | Manual: an API behavior, covered by Backend tests; every browser test's set-up creates venues through the API without a zone |
 | V9 | Manual: keyboard, a screen reader, phone width, and dark mode, checked by a person |
 | V10 | Manual: sign in, use, and sign out of each front end, by hand |
