@@ -58,10 +58,15 @@ const savedNotice = (v: Location): NoticeState['notice'] =>
     : {
         kind: 'info',
         text:
-          `Venue saved, but its address is not verified: ${v.address}. The US address service ` +
-          "couldn't confirm it, so check that it's right: customers see this address and its map " +
-          "link. To verify it later, edit the venue and save it, correcting the address if it's " +
-          `wrong. Time zone: ${venueZone(v)}.`,
+          `Venue saved, but its address is not verified: ${v.address}. ` +
+          // Spec 024 research R16.4: a venue from before 013 is verified only by entering its
+          // four fields; saving it again does not check its one-line address.
+          (v.street == null
+            ? 'To verify it, edit the venue and enter its street, city, state, and ZIP code. '
+            : "The US address service couldn't confirm it, so check that it's right: customers " +
+              'see this address and its map link. To verify it later, edit the venue and save ' +
+              "it, correcting the address if it's wrong. ") +
+          `Time zone: ${venueZone(v)}.`,
       };
 
 const ZONE_CHANGE_NOTE =
@@ -99,7 +104,7 @@ export function LocationForm(): React.ReactElement {
   // Spec 008 US5: a new venue is seated (sections, capacity calculated) or general admission.
   const [kind, setKind] = useState<'general' | 'seated'>('general');
   const [lines, setLines] = useState<SectionLine[]>([]);
-  const [layoutRefused, setLayoutRefused] = useState<{ venueId: string; error: ApiError } | null>(
+  const [layoutRefused, setLayoutRefused] = useState<{ venue: Location; error: ApiError } | null>(
     null,
   );
   const [error, setError] = useState<ApiError | null>(null);
@@ -207,7 +212,7 @@ export function LocationForm(): React.ReactElement {
             await replaceLayout(venue.id, { sections: toSectionInputs(lines) });
           } catch (err) {
             // The venue exists; only its layout was refused. Say so, and where to add it.
-            setLayoutRefused({ venueId: venue.id, error: err as ApiError });
+            setLayoutRefused({ venue, error: err as ApiError });
             return;
           }
         }
@@ -221,6 +226,32 @@ export function LocationForm(): React.ReactElement {
       setBusy(false);
     }
   }
+
+  // Spec 024 R1 (review round 1, minor 6): what is said under the select, in order, each also
+  // naming the select for assistive technology.
+  const zoneHints = [
+    zoneProblem && { id: 'timeZone-problem', text: zoneProblem },
+    !isEdit && {
+      id: 'timeZone-hint',
+      text: 'Event times at this venue are shown and entered in this zone.',
+    },
+    loaded && { id: 'timeZone-stored', text: `${venueZone(loaded)}.` },
+    loaded &&
+      addressChanged && {
+        id: 'timeZone-address',
+        text:
+          "Changing the address doesn't change the time zone. Choose another zone here if the " +
+          'venue is in a different one.',
+      },
+    recordsAdminZone && {
+      id: 'timeZone-records',
+      text: `Saving records ${zoneName(storedZone)} as chosen by an admin.`,
+    },
+    loaded &&
+      hasEvents !== false &&
+      zoneChoice &&
+      zoneChoice !== storedZone && { id: 'timeZone-change', text: ZONE_CHANGE_NOTE },
+  ].filter((h): h is { id: string; text: string } => Boolean(h));
 
   function handleSubmit(e: React.FormEvent): void {
     e.preventDefault();
@@ -259,8 +290,15 @@ export function LocationForm(): React.ReactElement {
             <p>{layoutRefused.error.envelope.error.message}</p>
             <p>
               The venue was created without its seating layout.{' '}
-              <Link to={`/locations/${layoutRefused.venueId}`}>Add the layout on its page</Link>
+              <Link to={`/locations/${layoutRefused.venue.id}`}>Add the layout on its page</Link>
             </p>
+            {/* Spec 024 research R16.5: the not-verified notice is not reached from here. */}
+            {!layoutRefused.venue.addressVerified && (
+              <p>
+                {`Its address is saved but not verified: ${layoutRefused.venue.address}. The US ` +
+                  "address service couldn't confirm it, so check that it's right."}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -344,7 +382,7 @@ export function LocationForm(): React.ReactElement {
               id="timeZone"
               value={zoneChoice}
               aria-invalid={zoneProblem ? true : undefined}
-              aria-describedby={zoneProblem ? 'timeZone-problem' : undefined}
+              aria-describedby={zoneHints.map((h) => h.id).join(' ') || undefined}
               onChange={(e) => {
                 setZoneChoice(e.target.value as UsTimeZone | '');
                 setZoneProblem(null);
@@ -357,31 +395,16 @@ export function LocationForm(): React.ReactElement {
                 </option>
               ))}
             </select>
-            {zoneProblem && (
-              <span className="field__hint" role="alert" id="timeZone-problem">
-                {zoneProblem}
+            {zoneHints.map((h) => (
+              <span
+                key={h.id}
+                id={h.id}
+                className="field__hint"
+                role={h.id === 'timeZone-problem' ? 'alert' : undefined}
+              >
+                {h.text}
               </span>
-            )}
-            {!isEdit && (
-              <span className="field__hint">
-                Event times at this venue are shown and entered in this zone.
-              </span>
-            )}
-            {loaded && <span className="field__hint">{`${venueZone(loaded)}.`}</span>}
-            {loaded && addressChanged && (
-              <span className="field__hint">
-                Changing the address doesn&apos;t change the time zone. Choose another zone here if
-                the venue is in a different one.
-              </span>
-            )}
-            {recordsAdminZone && (
-              <span className="field__hint">
-                {`Saving records ${zoneName(storedZone)} as chosen by an admin.`}
-              </span>
-            )}
-            {loaded && hasEvents !== false && zoneChoice && zoneChoice !== storedZone && (
-              <span className="field__hint">{ZONE_CHANGE_NOTE}</span>
-            )}
+            ))}
           </div>
 
           {!isEdit && (

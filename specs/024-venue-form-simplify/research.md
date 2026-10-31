@@ -155,6 +155,8 @@ the venue list with an `info` notice (the existing `Notice` kind: a plain `.bann
 > Venue saved, but its address is not verified: {address}. The US address service couldn't confirm
 > it, so check that it's right: customers see this address and its map link. To verify it later,
 > edit the venue and save it, correcting the address if it's wrong. Time zone: {zone, source}.
+>
+> (A venue from before `013`, with no address fields, gets R16.4's wording instead.)
 
 A verified save keeps today's `success` notice: "Venue saved. Address: {address}. Time zone: {zone,
 source}." The edit form of a not-verified venue says "This address is not verified. Saving checks it
@@ -447,4 +449,19 @@ behavior.
 3. **The ticket-type class guard (M1) is in `theme-classes.test.tsx`**, which renders the New event
    form, rather than `event-form.tz.test.tsx`, which `test:tz` reruns under four device zones and is
    about times (T013 allowed either).
+4. **A venue from before `013` is told how it gets verified** (review round 1, minor 3). Its
+   name-only edit is saved not verified, and saving again never checks its one-line address (only
+   entering the four fields does, `013` FR-016), so R6's "To verify it later, edit the venue and
+   save it" would be wrong for it. For a not-verified response with no `street`, the notice reads:
+   "Venue saved, but its address is not verified: {address}. To verify it, edit the venue and
+   enter its street, city, state, and ZIP code. Time zone: {zone, source}."
+5. **A refused layout says the address is not verified** (review round 1, minor 4). A seated
+   create whose layout is refused stays on the form with "Seating layout not saved" (`008` US5), so
+   it never reaches R6's notice. When the saved venue is not verified, that banner adds: "Its
+   address is saved but not verified: {address}. The US address service couldn't confirm it, so
+   check that it's right."
+6. **The select is described by what is under it** (review round 1, minor 6): the problem message
+   (when shown), the New venue hint, the stored zone line, the address hint, the "Saving records"
+   hint, and the zone-change note, each in its own element named by the select's
+   `aria-describedby`, in that order.
 
