@@ -37,7 +37,11 @@ export class CreateLocationDto {
   @Matches(ZIP_PATTERN, { message: MESSAGES.zip })
   zip!: string;
 
-  /** Spec 013 FR-019 "save anyway"; never skips the lookup (research R2). */
+  /**
+   * Spec 013 FR-019 "save even if unverified"; never skips the lookup (research R2). Feature 024:
+   * also saves the address not verified when the service is unavailable; the Admin app sends it
+   * with every address.
+   */
   @ValidateIf((o: CreateLocationDto) => o.acceptUnverifiedAddress !== undefined)
   @IsBoolean({ message: MESSAGES.acceptUnverifiedAddress })
   acceptUnverifiedAddress?: boolean;

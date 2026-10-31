@@ -6,7 +6,8 @@ import { resetDb } from '../setup/reset-db';
 
 /**
  * Spec 013 US1 on edit: FR-007, FR-008, FR-009, FR-019; research R7. Name-only and unchanged
- * edits never ask the address service; a changed address is checked with no lock held, and the
+ * edits never ask the address service, except a not-verified venue's same address resent with
+ * the flag, which is checked again (spec 024 FR-016, research R7); a changed address is checked with no lock held, and the
  * write re-checks capacity under the venue lock, so a slow lookup cannot break capacity.
  */
 describe('Venue address check on edit (spec 013)', () => {
@@ -161,25 +162,6 @@ describe('Venue address check on edit (spec 013)', () => {
       expect(res.body.addressVerified).toBe(false);
     });
 
-    it('stays not verified when the same address is resent, even with the flag', async () => {
-      const anyway = await savedAnyway();
-      const res = await patch(
-        {
-          street: '1 ARENA  PLAZA',
-          city: 'louisville',
-          state: 'KY',
-          zip: '40202',
-          acceptUnverifiedAddress: true,
-        },
-        anyway,
-      ).expect(200);
-      expect(ctx.geocoder.calls).toHaveLength(0);
-      expect(res.body).toMatchObject({
-        address: '1 Arena Plaza, Louisville, KY 40202',
-        addressVerified: false,
-      });
-    });
-
     it('becomes verified when its address is changed to one the service matches', async () => {
       const anyway = await savedAnyway();
       const res = await patch(moved, anyway).expect(200);
@@ -187,6 +169,160 @@ describe('Venue address check on edit (spec 013)', () => {
       expect(res.body).toMatchObject({
         address: '937 PHILLIPS LN, LOUISVILLE, KY 40209',
         addressVerified: true,
+      });
+    });
+  });
+
+  /** The saved-anyway venue's four fields, resent in other case and spacing. */
+  const SAME_AGAIN = { street: '1 ARENA  PLAZA', city: 'louisville', state: 'KY', zip: '40202' };
+
+  describe('re-check of the same address on a not-verified venue (024 R7)', () => {
+    const rowOf = (venueId: string) =>
+      ctx.prisma.location.findUniqueOrThrow({ where: { id: venueId } });
+
+    it('saves a match verified, in standard form, keeping the zone and its source', async () => {
+      const anyway = await savedAnyway();
+      ctx.geocoder.next({
+        kind: 'match',
+        street: '1 ARENA PLAZA',
+        city: 'LOUISVILLE',
+        state: 'KY',
+        zip: '40202',
+        // A place in another zone: the re-check never decides the zone.
+        location: PLACES.chicago,
+      });
+      const res = await patch(
+        { ...SAME_AGAIN, acceptUnverifiedAddress: true, name: 'Yum! Center' },
+        anyway,
+      ).expect(200);
+      expect(ctx.geocoder.calls).toHaveLength(1);
+      expect(res.body).toMatchObject({
+        name: 'Yum! Center',
+        street: '1 ARENA PLAZA',
+        city: 'LOUISVILLE',
+        address: '1 ARENA PLAZA, LOUISVILLE, KY 40202',
+        addressVerified: true,
+        timeZone: 'America/New_York',
+        timeZoneSource: 'ADMIN',
+      });
+      expect(await rowOf(anyway)).toMatchObject({ addressVerified: true, timeZoneSource: 'ADMIN' });
+    });
+
+    it.each<[string, FakeAnswer]>([
+      ['no match', { kind: 'none' }],
+      ['several matches', { kind: 'many', candidates: ['A', 'B'] }],
+      [
+        'a match at another ZIP code',
+        {
+          kind: 'match',
+          street: '1 ARENA PLAZA',
+          city: 'LOUISVILLE',
+          state: 'KY',
+          zip: '40203',
+          location: PLACES.louisville,
+        },
+      ],
+      ['the service unavailable', { kind: 'unavailable' }],
+    ])('with %s, keeps the stored address, not verified, and saves the rest', async (_l, a) => {
+      const anyway = await savedAnyway();
+      const before = await rowOf(anyway);
+      ctx.geocoder.next(a);
+      const res = await patch(
+        { ...SAME_AGAIN, acceptUnverifiedAddress: true, name: 'Yum! Center' },
+        anyway,
+      ).expect(200);
+      expect(ctx.geocoder.calls).toHaveLength(1);
+      expect(res.body.name).toBe('Yum! Center');
+      expect(await rowOf(anyway)).toMatchObject({
+        street: before.street,
+        city: before.city,
+        state: before.state,
+        zip: before.zip,
+        address: '1 Arena Plaza, Louisville, KY 40202',
+        addressVerified: false,
+        timeZone: before.timeZone,
+        timeZoneSource: before.timeZoneSource,
+      });
+    });
+
+    it('without the flag, does not ask the service (unchanged, SC-005)', async () => {
+      const anyway = await savedAnyway();
+      const res = await patch(SAME_AGAIN, anyway).expect(200);
+      expect(ctx.geocoder.calls).toHaveLength(0);
+      expect(res.body.addressVerified).toBe(false);
+    });
+
+    it('on a verified venue, does not ask the service, even with the flag', async () => {
+      await patch({ ...ADDRESS, acceptUnverifiedAddress: true }).expect(200);
+      expect(ctx.geocoder.calls).toHaveLength(0);
+      expect((await row()).addressVerified).toBe(true);
+    });
+
+    // Spec 024 review round 1, minor 2: an upgrade only over a row that is still not verified.
+    it('writes no second upgrade when another re-check verified the venue during the lookup', async () => {
+      const anyway = await savedAnyway();
+      const gate = ctx.geocoder.pause();
+      const slow = patch({ ...SAME_AGAIN, acceptUnverifiedAddress: true }, anyway).then((r) => r);
+      await gate.started;
+      // Another admin's re-check finds it first, in the service's standard form.
+      ctx.geocoder.next({
+        kind: 'match',
+        street: '1 ARENA PLAZA',
+        city: 'LOUISVILLE',
+        state: 'KY',
+        zip: '40202',
+        location: PLACES.louisville,
+      });
+      await patch({ ...SAME_AGAIN, acceptUnverifiedAddress: true }, anyway).expect(200);
+      // The paused lookup then answers with the city corrected (same ZIP and house number).
+      ctx.geocoder.next({
+        kind: 'match',
+        street: '1 ARENA PLAZA',
+        city: 'JEFFERSONTOWN',
+        state: 'KY',
+        zip: '40202',
+        location: PLACES.louisville,
+      });
+      gate.release();
+      expect((await slow).status).toBe(200);
+      expect(await rowOf(anyway)).toMatchObject({
+        city: 'LOUISVILLE',
+        address: '1 ARENA PLAZA, LOUISVILLE, KY 40202',
+        addressVerified: true,
+      });
+    });
+
+    it('drops the upgrade when another edit changed the address during the lookup', async () => {
+      const anyway = await savedAnyway();
+      const gate = ctx.geocoder.pause();
+      const slow = patch(
+        { ...SAME_AGAIN, acceptUnverifiedAddress: true, name: 'Yum! Center' },
+        anyway,
+      ).then((r) => r);
+      await gate.started;
+      // The other edit's lookup answers no match; it is saved anyway, not verified.
+      ctx.geocoder.next({ kind: 'none' });
+      await patch(
+        { ...moved, acceptUnverifiedAddress: true, timeZone: 'America/New_York' },
+        anyway,
+      ).expect(200);
+      // The paused re-check then finds its address.
+      ctx.geocoder.next({
+        kind: 'match',
+        street: '1 ARENA PLAZA',
+        city: 'LOUISVILLE',
+        state: 'KY',
+        zip: '40202',
+        location: PLACES.louisville,
+      });
+      gate.release();
+      const res = await slow;
+      expect(res.status).toBe(200);
+      expect(await rowOf(anyway)).toMatchObject({
+        name: 'Yum! Center',
+        street: '937 Phillips Ln',
+        address: '937 Phillips Ln, Louisville, KY 40209',
+        addressVerified: false,
       });
     });
   });
@@ -302,12 +438,40 @@ describe('Venue address check on edit (spec 013)', () => {
   describe('when the address service is unavailable (US2)', () => {
     it.each([
       ['without the flag', {}],
-      ['with save anyway', { acceptUnverifiedAddress: true }],
+      ['without the flag, with a zone', { timeZone: 'America/Chicago' }],
     ])('refuses an address change %s with 503, venue unchanged', async (_l, extra) => {
       const before = await row();
       ctx.geocoder.next({ kind: 'unavailable' });
       const res = await patch({ ...moved, ...extra }).expect(503);
       expect(res.body.error.code).toBe('ADDRESS_SERVICE_UNAVAILABLE');
+      expect(await row()).toEqual(before);
+    });
+
+    // Spec 024 FR-012 (research R5): with the flag, saved as sent and not verified.
+    it('saves an address change with the flag as sent, not verified, in the zone sent', async () => {
+      ctx.geocoder.next({ kind: 'unavailable' });
+      const res = await patch({
+        ...moved,
+        street: ' 937  Phillips Ln ',
+        zip: '40209-1234',
+        acceptUnverifiedAddress: true,
+        timeZone: 'America/Chicago',
+      }).expect(200);
+      expect(res.body).toMatchObject({
+        street: '937 Phillips Ln',
+        zip: '40209',
+        address: '937 Phillips Ln, Louisville, KY 40209',
+        addressVerified: false,
+        timeZone: 'America/Chicago',
+        timeZoneSource: 'ADMIN',
+      });
+    });
+
+    it('with the flag and no zone in a two-zone state, still needs one, venue unchanged', async () => {
+      const before = await row();
+      ctx.geocoder.next({ kind: 'unavailable' });
+      const res = await patch({ ...moved, acceptUnverifiedAddress: true }).expect(400);
+      expect(res.body.error.code).toBe('TIME_ZONE_REQUIRED');
       expect(await row()).toEqual(before);
     });
 

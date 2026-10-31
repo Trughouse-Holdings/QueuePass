@@ -67,17 +67,26 @@ describe('Seating layout card', () => {
     renderPage();
 
     fireEvent.click(await within(await card()).findByRole('button', { name: 'Edit layout' }));
-    expect(screen.getByRole('textbox', { name: 'Section 1 name' })).toHaveValue('A');
+    expect(screen.getByRole('textbox', { name: 'Section 1 Section name' })).toHaveValue('A');
     fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
-    fireEvent.change(screen.getByRole('textbox', { name: 'Section 3 name' }), {
+    fireEvent.change(screen.getByRole('textbox', { name: 'Section 3 Section name' }), {
       target: { value: 'C' },
     });
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 3 rows' }), {
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 3 Rows' }), {
       target: { value: '1' },
     });
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 3 seats per row' }), {
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 3 Seats per row' }), {
       target: { value: '5' },
     });
+    // Spec 024 FR-019, FR-021: the hint once, and each line's seats.
+    expect(
+      screen.getAllByText(
+        'A section is a grid of seats: rows run front to back, and every row has the same number of seats across.',
+      ),
+    ).toHaveLength(1);
+    expect(
+      within(screen.getByRole('group', { name: 'Section 2' })).getByText('= 40 seats'),
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save layout' }));
 
     expect(await within(await card()).findByText('Total: 75 seats')).toBeInTheDocument();

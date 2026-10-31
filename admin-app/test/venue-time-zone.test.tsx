@@ -8,8 +8,10 @@ import { LocationList } from '../src/pages/LocationList';
 import { json, stubApi } from './helpers/api-stub';
 
 /**
- * Spec 020 US4, US5 (FR-003, FR-004, FR-024, FR-026; research R14): the venue's zone on the list,
- * the venue page, and the form; the split-state question; zone-change refusals.
+ * Spec 020 US4, US5 (FR-004, FR-024, FR-026; research R14): the venue's zone on the list, the
+ * venue page, and the form; zone-change refusals. Spec 024 US1 (FR-001 to FR-006; research R1,
+ * R3): the admin picks the zone, required on create, the stored one on edit; no split-state
+ * question; what an edit sends.
  */
 afterEach(() => vi.unstubAllGlobals());
 
@@ -38,7 +40,6 @@ const NOT_FOUND = {
     details: { address: '1 Arena Plaza, Louisville, KY 40202' },
   },
 };
-const SAVE_ANYWAY = 'Save anyway (address not verified)';
 
 function renderAt(path: string): void {
   render(
@@ -120,72 +121,214 @@ describe('venue list and page (FR-024)', () => {
   });
 });
 
-describe('the Time zone select (R4, R14)', () => {
-  it('works it out from the address unless a zone is picked', async () => {
-    const api = stubApi({ 'POST /locations': json(venue, 201), 'GET /locations': json([venue]) });
+const ZONES = [
+  'Eastern Time',
+  'Central Time',
+  'Mountain Time',
+  'Arizona Time (no daylight saving)',
+  'Pacific Time',
+  'Alaska Time',
+  'Hawaii-Aleutian Time',
+  'Hawaii Time',
+];
+const ZONE_PROBLEM = "Choose the venue's time zone.";
+const ADDRESS_HINT =
+  "Changing the address doesn't change the time zone. Choose another zone here if the venue is in a different one.";
+const RECORDS_ADMIN = 'Saving records Eastern Time as chosen by an admin.';
+const options = () =>
+  within(screen.getByLabelText('Time zone'))
+    .getAllByRole('option')
+    .map((o) => o.textContent);
+const loadEdit = async (stored: Location, extra: Record<string, Response> = {}) => {
+  const api = stubApi({
+    [`GET ${PATH}`]: json(stored),
+    [`GET ${PATH}/layout`]: json({ sections: [] }),
+    [`PATCH ${PATH}`]: json(stored),
+    'GET /locations': json([stored]),
+    ...extra,
+  });
+  renderAt(`${PATH}/edit`);
+  await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue(stored.name));
+  return api;
+};
+const saveChanges = () => fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+describe('New venue: the admin picks the zone (spec 024 US1, FR-001, FR-002, FR-005)', () => {
+  it('offers "Choose a time zone" and the eight zones, nothing that works one out', () => {
+    stubApi({});
     renderAt('/locations/new');
-    const select = screen.getByLabelText('Time zone');
-    const options = within(select).getAllByRole('option');
-    expect(options.map((o) => o.textContent)).toEqual([
-      'Work it out from the address',
-      'Eastern Time',
-      'Central Time',
-      'Mountain Time',
-      'Arizona Time (no daylight saving)',
-      'Pacific Time',
-      'Alaska Time',
-      'Hawaii-Aleutian Time',
-      'Hawaii Time',
-    ]);
-    fill();
-    create();
-    await waitFor(() => expect(writes(api)).toHaveLength(1));
-    expect(writes(api)[0].body).not.toHaveProperty('timeZone');
+    expect(options()).toEqual(['Choose a time zone', ...ZONES]);
+    expect(screen.getByLabelText('Time zone')).toHaveValue('');
+    expect(options().some((o) => /work it out/i.test(o ?? ''))).toBe(false);
+    expect(
+      screen.getByText('Event times at this venue are shown and entered in this zone.'),
+    ).toBeInTheDocument();
   });
 
-  it('sends the picked zone', async () => {
+  it('sends nothing without a zone, says so by the field, and sends the zone once chosen', async () => {
     const api = stubApi({ 'POST /locations': json(venue, 201), 'GET /locations': json([venue]) });
     renderAt('/locations/new');
     fill();
+    create();
+    const problem = screen.getByRole('alert');
+    expect(problem).toHaveTextContent(ZONE_PROBLEM);
+    const select = screen.getByLabelText('Time zone');
+    expect(select).toHaveAttribute('aria-invalid', 'true');
+    expect(select.getAttribute('aria-describedby')?.split(' ')).toContain(problem.id);
+    expect(screen.getByLabelText('Name')).toHaveValue('KFC Yum! Center');
+    expect(screen.getByLabelText('Street address')).toHaveValue('1 Arena Plaza');
+    expect(screen.getByLabelText('Seating capacity')).toHaveValue(22090);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(writes(api)).toHaveLength(0);
+
     set('Time zone', 'America/Chicago');
+    expect(screen.queryByText(ZONE_PROBLEM)).toBeNull();
+    expect(screen.getByLabelText('Time zone')).not.toHaveAttribute('aria-invalid');
     create();
     await waitFor(() => expect(writes(api)).toHaveLength(1));
     expect(writes(api)[0].body).toMatchObject({ timeZone: 'America/Chicago' });
   });
 
+  it('describes the select with the problem and the hint on New venue', () => {
+    stubApi({});
+    renderAt('/locations/new');
+    const select = screen.getByLabelText('Time zone');
+    expect(select).toHaveAccessibleDescription(
+      'Event times at this venue are shown and entered in this zone.',
+    );
+    fill();
+    create();
+    expect(select).toHaveAccessibleDescription(
+      `${ZONE_PROBLEM} Event times at this venue are shown and entered in this zone.`,
+    );
+  });
+
+  it('names the zone problem and the address problems in the same press', () => {
+    const api = stubApi({});
+    renderAt('/locations/new');
+    fill({ 'ZIP code': '4050' });
+    create();
+    expect(screen.getByText(ZONE_PROBLEM)).toBeInTheDocument();
+    expect(screen.getByText('Check the address')).toBeInTheDocument();
+    expect(writes(api)).toHaveLength(0);
+  });
+
   it('names the zone and its source in the saved notice', async () => {
-    stubApi({ 'POST /locations': json(venue, 201), 'GET /locations': json([venue]) });
+    stubApi({
+      'POST /locations': json({ ...venue, timeZoneSource: 'ADMIN' }, 201),
+      'GET /locations': json([venue]),
+    });
     renderAt('/locations/new');
     fill();
+    set('Time zone', 'America/New_York');
     create();
     expect(
       await screen.findByText(
-        'Venue saved. Address: 430 W VINE ST, LEXINGTON, KY 40507. Time zone: Eastern Time, from the address.',
+        'Venue saved. Address: 430 W VINE ST, LEXINGTON, KY 40507. Time zone: Eastern Time, chosen by an admin.',
       ),
     ).toBeInTheDocument();
   });
 
-  it('on edit, keeps the stored zone, until any address field changes', async () => {
-    stubApi({ [`GET ${PATH}`]: json(venue), [`GET ${PATH}/layout`]: json({ sections: [] }) });
-    renderAt(`${PATH}/edit`);
-    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Rupp Arena'));
-    const first = () => within(screen.getByLabelText('Time zone')).getAllByRole('option')[0];
-    expect(first()).toHaveTextContent('Keep Eastern Time (from the address)');
-    set('City', 'Louisville');
-    expect(first()).toHaveTextContent('Work it out from the new address');
-    set('City', 'LEXINGTON');
-    expect(first()).toHaveTextContent('Keep Eastern Time (from the address)');
+  // FR-006, US1 scenario 8: the form no longer asks a state's zones; a refusal is just shown.
+  it('asks no second question in Kentucky, whatever the response, and offers no Save anyway', async () => {
+    stubApi({ 'POST /locations': json(NOT_FOUND, 400) });
+    renderAt('/locations/new');
+    fill();
+    set('Time zone', 'America/New_York');
+    create();
+    await screen.findByTestId('error-banner');
+    expect(screen.queryByRole('group', { name: /more than one time zone/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Save anyway/ })).toBeNull();
+  });
+});
+
+describe('Edit venue: the stored zone (spec 024 US1, FR-003, FR-004)', () => {
+  it('starts on the stored zone, says how it was set, and offers only the eight', async () => {
+    await loadEdit(venue);
+    expect(options()).toEqual(ZONES);
+    expect(screen.getByLabelText('Time zone')).toHaveValue('America/New_York');
+    expect(screen.getByText('Eastern Time, from the address.')).toBeInTheDocument();
   });
 
-  it('on edit, picking another zone says what happens to the events', async () => {
-    const api = stubApi({
-      [`GET ${PATH}`]: json(venue),
-      [`GET ${PATH}/layout`]: json({ sections: [] }),
-      [`PATCH ${PATH}`]: json({ ...venue, timeZone: 'America/Chicago', timeZoneSource: 'ADMIN' }),
-      'GET /locations': json([venue]),
+  it('says an address change does not change the zone, and that saving records it', async () => {
+    await loadEdit(venue);
+    expect(screen.queryByText(ADDRESS_HINT)).toBeNull();
+    expect(screen.queryByText(RECORDS_ADMIN)).toBeNull();
+    set('City', 'Louisville');
+    expect(screen.getByText(ADDRESS_HINT)).toBeInTheDocument();
+    expect(screen.getByText(RECORDS_ADMIN)).toBeInTheDocument();
+    set('City', 'LEXINGTON');
+    expect(screen.queryByText(ADDRESS_HINT)).toBeNull();
+    expect(screen.queryByText(RECORDS_ADMIN)).toBeNull();
+  });
+
+  // Spec 024 review round 1, minor 6: the hints describe the select for assistive technology.
+  it('describes the select with the zone line and the hints shown', async () => {
+    await loadEdit(venue);
+    const select = screen.getByLabelText('Time zone');
+    expect(select).toHaveAccessibleDescription('Eastern Time, from the address.');
+    set('City', 'Louisville');
+    expect(select).toHaveAccessibleDescription(
+      `Eastern Time, from the address. ${ADDRESS_HINT} ${RECORDS_ADMIN}`,
+    );
+  });
+
+  it('on a zone an admin chose, says only that the address does not change it', async () => {
+    await loadEdit({ ...venue, timeZoneSource: 'ADMIN' });
+    set('City', 'Louisville');
+    expect(screen.getByText(ADDRESS_HINT)).toBeInTheDocument();
+    expect(screen.queryByText(/as chosen by an admin\.$/)).toBeNull();
+  });
+});
+
+describe('What an edit sends (spec 024 research R3, FR-005)', () => {
+  it('a verified venue, name only: neither the address nor the zone', async () => {
+    const api = await loadEdit(venue);
+    set('Name', 'Rupp Arena II');
+    saveChanges();
+    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    expect(writes(api)[0].body).toEqual({ name: 'Rupp Arena II', seatingCapacity: 20500 });
+  });
+
+  it('a verified venue, street changed: the four fields, the flag, and the zone shown', async () => {
+    const api = await loadEdit(venue);
+    set('Street address', '431 W Vine St');
+    saveChanges();
+    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    expect(writes(api)[0].body).toEqual({
+      name: 'Rupp Arena',
+      street: '431 W Vine St',
+      city: 'LEXINGTON',
+      state: 'KY',
+      zip: '40507',
+      acceptUnverifiedAddress: true,
+      timeZone: 'America/New_York',
+      seatingCapacity: 20500,
     });
-    renderAt(`${PATH}/edit`);
-    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Rupp Arena'));
+  });
+
+  it('a not-verified venue, name only: the four fields as loaded, the flag, and the zone', async () => {
+    const api = await loadEdit({ ...venue, addressVerified: false, timeZoneSource: 'STATE' });
+    expect(screen.getByText(RECORDS_ADMIN)).toBeInTheDocument();
+    set('Name', 'Rupp Arena II');
+    saveChanges();
+    await waitFor(() => expect(writes(api)).toHaveLength(1));
+    expect(writes(api)[0].body).toEqual({
+      name: 'Rupp Arena II',
+      street: '430 W VINE ST',
+      city: 'LEXINGTON',
+      state: 'KY',
+      zip: '40507',
+      acceptUnverifiedAddress: true,
+      timeZone: 'America/New_York',
+      seatingCapacity: 20500,
+    });
+  });
+
+  it('any venue, zone changed: the new zone, with the zone-change note', async () => {
+    const api = await loadEdit(venue, {
+      [`PATCH ${PATH}`]: json({ ...venue, timeZone: 'America/Chicago', timeZoneSource: 'ADMIN' }),
+    });
     expect(screen.queryByText(/keeps each event's local time/)).toBeNull();
     set('Time zone', 'America/Chicago');
     expect(
@@ -193,9 +336,13 @@ describe('the Time zone select (R4, R14)', () => {
         "Changing the time zone keeps each event's local time (7:00 PM stays 7:00 PM), so their times move. Not possible once tickets are sold.",
       ),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    saveChanges();
     await waitFor(() => expect(writes(api)).toHaveLength(1));
-    expect(writes(api)[0].body).toMatchObject({ timeZone: 'America/Chicago' });
+    expect(writes(api)[0].body).toEqual({
+      name: 'Rupp Arena',
+      timeZone: 'America/Chicago',
+      seatingCapacity: 20500,
+    });
   });
 });
 
@@ -224,110 +371,6 @@ describe('the zone-change note (R14)', () => {
     await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Rupp Arena'));
     set('Time zone', 'America/Chicago');
     expect(await screen.findByText(/keeps each event's local time/)).toBeInTheDocument();
-  });
-});
-
-describe('a state with more than one zone (FR-003)', () => {
-  it('after ADDRESS_NOT_FOUND in Kentucky, Save anyway needs Eastern or Central', async () => {
-    const api = stubApi({
-      'POST /locations': () =>
-        writes(api).length === 1
-          ? json(NOT_FOUND, 400)
-          : json({ ...venue, addressVerified: false, timeZoneSource: 'ADMIN' }, 201),
-      'GET /locations': json([venue]),
-    });
-    renderAt('/locations/new');
-    fill();
-    create();
-    await screen.findByRole('button', { name: SAVE_ANYWAY });
-    const group = screen.getByRole('group', { name: /Kentucky has more than one time zone/ });
-    expect(group).toHaveTextContent(
-      "Kentucky has more than one time zone. Choose this venue's time zone:",
-    );
-    const radios = within(group).getAllByRole('radio');
-    expect(radios.map((r) => r.closest('label')?.textContent)).toEqual([
-      'Eastern Time',
-      'Central Time',
-    ]);
-    fireEvent.click(screen.getByRole('button', { name: SAVE_ANYWAY }));
-    expect(await screen.findByText("Choose this venue's time zone first.")).toBeInTheDocument();
-    expect(writes(api)).toHaveLength(1);
-
-    fireEvent.click(within(group).getByLabelText('Eastern Time'));
-    fireEvent.click(screen.getByRole('button', { name: SAVE_ANYWAY }));
-    await waitFor(() => expect(writes(api)).toHaveLength(2));
-    expect(writes(api)[1].body).toMatchObject({
-      acceptUnverifiedAddress: true,
-      timeZone: 'America/New_York',
-    });
-  });
-
-  it('in Ohio, Save anyway asks nothing', async () => {
-    const api = stubApi({
-      'POST /locations': () => (writes(api).length === 1 ? json(NOT_FOUND, 400) : json(venue, 201)),
-      'GET /locations': json([venue]),
-    });
-    renderAt('/locations/new');
-    fill({ City: 'Columbus', State: 'OH', 'ZIP code': '43215' });
-    create();
-    await screen.findByRole('button', { name: SAVE_ANYWAY });
-    expect(screen.queryByRole('group', { name: /more than one time zone/ })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: SAVE_ANYWAY }));
-    await waitFor(() => expect(writes(api)).toHaveLength(2));
-    expect(writes(api)[1].body).not.toHaveProperty('timeZone');
-  });
-
-  it("shows TIME_ZONE_REQUIRED's zones and sends the choice", async () => {
-    const required = {
-      error: {
-        code: 'TIME_ZONE_REQUIRED',
-        message:
-          "Tennessee has more than one time zone. Choose this venue's time zone: Central Time or Eastern Time.",
-        details: { state: 'TN', timeZones: ['America/Chicago', 'America/New_York'] },
-      },
-    };
-    const api = stubApi({
-      'POST /locations': () => (writes(api).length === 1 ? json(required, 400) : json(venue, 201)),
-      'GET /locations': json([venue]),
-    });
-    renderAt('/locations/new');
-    fill({ City: 'Nashville', State: 'TN', 'ZIP code': '37201' });
-    create();
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveTextContent(required.error.message);
-    const group = screen.getByRole('group', { name: /Tennessee has more than one time zone/ });
-    fireEvent.click(within(group).getByLabelText('Central Time'));
-    create();
-    await waitFor(() => expect(writes(api)).toHaveLength(2));
-    expect(writes(api)[1].body).toMatchObject({ timeZone: 'America/Chicago' });
-  });
-
-  it('changing the state clears the choice', async () => {
-    const api = stubApi({ 'POST /locations': json(NOT_FOUND, 400) });
-    renderAt('/locations/new');
-    fill();
-    create();
-    await screen.findByRole('button', { name: SAVE_ANYWAY });
-    fireEvent.click(screen.getByLabelText('Central Time'));
-    set('State', 'IN');
-    expect(screen.queryByLabelText('Central Time')).toBeNull();
-    expect(writes(api)).toHaveLength(1);
-  });
-
-  it('on edit of a Kentucky venue stored in Eastern, Eastern starts selected (m4)', async () => {
-    const stored = { ...venue, addressVerified: false, timeZoneSource: 'ADMIN' as const };
-    stubApi({
-      [`GET ${PATH}`]: json(stored),
-      [`GET ${PATH}/layout`]: json({ sections: [] }),
-      [`PATCH ${PATH}`]: json(NOT_FOUND, 400),
-    });
-    renderAt(`${PATH}/edit`);
-    await waitFor(() => expect(screen.getByLabelText('Name')).toHaveValue('Rupp Arena'));
-    set('Street address', '1 Arena Plaza');
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
-    await screen.findByRole('button', { name: SAVE_ANYWAY });
-    expect(screen.getByLabelText('Eastern Time')).toBeChecked();
-    expect(screen.getByLabelText('Central Time')).not.toBeChecked();
   });
 });
 

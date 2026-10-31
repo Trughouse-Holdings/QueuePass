@@ -31,8 +31,9 @@ test('003 C1: events appear soonest first, with their venues, times, and prices'
     await admin.getByLabel('State', { exact: true }).selectOption(PLACES.louisville.state);
     await admin.getByLabel('ZIP code', { exact: true }).fill(PLACES.louisville.zip);
     await admin.getByLabel('Seating capacity', { exact: true }).fill('500');
+    await admin.getByLabel('Time zone', { exact: true }).selectOption({ label: 'Eastern Time' });
     await admin.getByRole('button', { name: 'Create venue' }).click();
-    // Spec 013: saved in the address service's standard form; spec 020: its zone from the address.
+    // Spec 013: saved in the address service's standard form; spec 024: the zone the admin chose.
     await expect(
       admin.getByText(/^Venue saved\. Address: 1 ARENA PLZ, LOUISVILLE, KY 40202\./),
     ).toBeVisible();

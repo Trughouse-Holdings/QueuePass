@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   DEFAULT_TIME_ZONE,
-  STATE_TIME_ZONES,
   US_STATES,
   US_TIME_ZONES,
   ZIP_PATTERN,
@@ -11,7 +10,7 @@ import {
   type UsState,
   type UsTimeZone,
 } from '@queuepass/shared';
-import { SOURCE_TEXT, venueZone } from '../format';
+import { venueZone } from '../format';
 import { listEvents } from '../api/events';
 import { createLocation, getLocation, updateLocation } from '../api/locations';
 import { getLayout, replaceLayout } from '../api/seating';
@@ -24,9 +23,6 @@ import {
   type SectionLine,
 } from '../components/SectionLines';
 import type { NoticeState } from '../hooks/use-delete';
-
-/** Spec 013 FR-011: the only refusals that offer "Save anyway". */
-const SAVE_ANYWAY_CODES = ['ADDRESS_NOT_FOUND', 'ADDRESS_AMBIGUOUS'];
 
 interface Address {
   street: string;
@@ -51,20 +47,33 @@ function addressProblems(a: Address): string[] {
   return problems;
 }
 
-/** Spec 013 FR-012: the address as saved, from the response; spec 020 R14: and its zone. */
-const savedNotice = (v: Location): NoticeState['notice'] => ({
-  kind: 'success',
-  text:
-    (v.addressVerified
-      ? `Venue saved. Address: ${v.address}.`
-      : `Venue saved. Address (not verified): ${v.address}.`) + ` Time zone: ${venueZone(v)}.`,
-});
+/**
+ * Spec 013 FR-012: the address as saved, from the response; spec 020 R14: and its zone. Spec 024
+ * FR-014 (research R6): a not-verified address gets a plain notice, not the success one, saying
+ * why it matters and how to verify it later.
+ */
+const savedNotice = (v: Location): NoticeState['notice'] =>
+  v.addressVerified
+    ? { kind: 'success', text: `Venue saved. Address: ${v.address}. Time zone: ${venueZone(v)}.` }
+    : {
+        kind: 'info',
+        text:
+          `Venue saved, but its address is not verified: ${v.address}. ` +
+          // Spec 024 research R16.4: a venue from before 013 is verified only by entering its
+          // four fields; saving it again does not check its one-line address.
+          (v.street == null
+            ? 'To verify it, edit the venue and enter its street, city, state, and ZIP code. '
+            : "The US address service couldn't confirm it, so check that it's right: customers " +
+              'see this address and its map link. To verify it later, edit the venue and save ' +
+              "it, correcting the address if it's wrong. ") +
+          `Time zone: ${venueZone(v)}.`,
+      };
 
 const ZONE_CHANGE_NOTE =
   "Changing the time zone keeps each event's local time (7:00 PM stays 7:00 PM), so their times " +
   'move. Not possible once tickets are sold.';
 
-const stateName = (code: string): string => US_STATES.find((s) => s.code === code)?.name ?? code;
+const ZONE_REQUIRED = "Choose the venue's time zone.";
 
 /** Spec 013 FR-008's "same address", on the form's side: ignoring case and extra spaces. */
 function sameAsStored(a: Address, v: Location | null): boolean {
@@ -95,19 +104,15 @@ export function LocationForm(): React.ReactElement {
   // Spec 008 US5: a new venue is seated (sections, capacity calculated) or general admission.
   const [kind, setKind] = useState<'general' | 'seated'>('general');
   const [lines, setLines] = useState<SectionLine[]>([]);
-  const [layoutRefused, setLayoutRefused] = useState<{ venueId: string; error: ApiError } | null>(
+  const [layoutRefused, setLayoutRefused] = useState<{ venue: Location; error: ApiError } | null>(
     null,
   );
   const [error, setError] = useState<ApiError | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
-  // Spec 013 FR-011: offered only after a not-found or ambiguous refusal of this address.
-  const [offerSaveAnyway, setOfferSaveAnyway] = useState(false);
   const [busy, setBusy] = useState(false);
-  // Spec 020 research R14: an explicit zone ('' works it out), and a split state's choice.
+  // Spec 024 research R1: the zone in the select; '' (none chosen yet) only on New venue, where
+  // one is required; on edit it starts on the stored zone.
   const [zoneChoice, setZoneChoice] = useState<UsTimeZone | ''>('');
-  const [stateZone, setStateZone] = useState<UsTimeZone | ''>('');
-  /** The zones of a TIME_ZONE_REQUIRED refusal, until the state changes. */
-  const [requiredZones, setRequiredZones] = useState<UsTimeZone[] | null>(null);
   const [zoneProblem, setZoneProblem] = useState<string | null>(null);
   /** Spec 020 R14: whether the venue has events (null while unknown: the note is shown). */
   const [hasEvents, setHasEvents] = useState<boolean | null>(null);
@@ -126,6 +131,7 @@ export function LocationForm(): React.ReactElement {
           zip: l.zip ?? '',
         });
         setSeatingCapacity(String(l.seatingCapacity));
+        setZoneChoice(l.timeZone ?? DEFAULT_TIME_ZONE);
       })
       .catch((err: ApiError) => setError(err));
     getLayout(id)
@@ -141,45 +147,34 @@ export function LocationForm(): React.ReactElement {
 
   function changeAddress(key: keyof Address, value: string): void {
     setAddress((a) => ({ ...a, [key]: value }));
-    // The confirmation applies only to the address the admin saw refused.
-    setOfferSaveAnyway(false);
-    // Spec 020 R14: a split state's choice belongs to that state.
-    if (key === 'state') {
-      setStateZone('');
-      setRequiredZones(null);
-      setZoneProblem(null);
-    }
   }
 
-  // Spec 020 FR-003 (research R14): the state's zones, asked when Save anyway is offered in a
-  // split state, or after TIME_ZONE_REQUIRED.
-  const splitZones =
-    requiredZones ??
-    (offerSaveAnyway && (STATE_TIME_ZONES[address.state as UsState]?.length ?? 0) > 1
-      ? [...STATE_TIME_ZONES[address.state as UsState]]
-      : null);
-  // On edit, the stored zone starts selected when it is one of them (review round 1, m4).
-  const storedInState =
-    splitZones && loaded?.timeZone && splitZones.includes(loaded.timeZone) ? loaded.timeZone : '';
-  const chosenStateZone = splitZones ? stateZone || storedInState : '';
   const addressChanged = !sameAsStored(address, loaded);
+  const storedZone = loaded?.timeZone ?? DEFAULT_TIME_ZONE;
+  // Spec 024 research R3: on edit the address is sent only when it changed from the venue as
+  // loaded (a venue from before 013 whose fields were filled in included, research R13 of 013),
+  // or when the loaded venue's address is not verified, so it is checked again (R7).
+  const sendAddress =
+    !isEdit || addressChanged || (loaded?.addressVerified === false && loaded.street != null);
+  // Spec 024 R1, R3: the zone shown goes with the address, and the Backend records it as chosen
+  // by an admin; said before saving when it was set another way.
+  const recordsAdminZone =
+    isEdit &&
+    loaded !== null &&
+    sendAddress &&
+    zoneChoice === storedZone &&
+    loaded.timeZoneSource !== 'ADMIN';
 
-  async function save(acceptUnverifiedAddress: boolean): Promise<void> {
-    if (acceptUnverifiedAddress && splitZones && !zoneChoice && !chosenStateZone) {
-      setZoneProblem("Choose this venue's time zone first.");
-      return;
-    }
-    setZoneProblem(null);
+  async function save(): Promise<void> {
     setError(null);
     setLayoutRefused(null);
-    setOfferSaveAnyway(false);
 
-    // A venue from before 013 may keep its old address: the four fields are sent only once one
-    // is filled in, and then all four are needed (research R13).
-    const sendAddress = !legacy || Object.values(address).some((v) => v.trim() !== '');
+    // Spec 024 R1: one press names every problem: the address fields and the missing zone.
     const found = sendAddress ? addressProblems(address) : [];
     setProblems(found);
-    if (found.length > 0) return;
+    const missingZone = !isEdit && !zoneChoice;
+    setZoneProblem(missingZone ? ZONE_REQUIRED : null);
+    if (found.length > 0 || missingZone) return;
 
     setBusy(true);
     const seated = !isEdit && kind === 'seated';
@@ -188,12 +183,15 @@ export function LocationForm(): React.ReactElement {
       city: address.city,
       state: address.state as UsState,
       zip: address.zip.trim(),
-      ...(acceptUnverifiedAddress ? { acceptUnverifiedAddress: true } : {}),
+      // Spec 024 FR-009 (research R4): every address sent is saved even if it can't be verified;
+      // the Backend still checks it and decides whether it is.
+      acceptUnverifiedAddress: true,
     };
     const sentParts = sendAddress ? parts : {};
-    // Spec 020 R4: a zone is sent only when the admin picked one, in the select or for the state.
-    const zone = zoneChoice || chosenStateZone;
-    const zonePart = zone ? { timeZone: zone } : {};
+    // Spec 024 R3: the zone on every create, with the address on an edit, and otherwise only
+    // when the admin picked another one.
+    const zonePart =
+      zoneChoice && (sendAddress || zoneChoice !== storedZone) ? { timeZone: zoneChoice } : {};
     // Spec 008 R8: the contract needs a capacity; the layout saved next sets it for good.
     const capacity = seated ? totalSeats(lines) : Number(seatingCapacity);
 
@@ -214,7 +212,7 @@ export function LocationForm(): React.ReactElement {
             await replaceLayout(venue.id, { sections: toSectionInputs(lines) });
           } catch (err) {
             // The venue exists; only its layout was refused. Say so, and where to add it.
-            setLayoutRefused({ venueId: venue.id, error: err as ApiError });
+            setLayoutRefused({ venue, error: err as ApiError });
             return;
           }
         }
@@ -223,25 +221,41 @@ export function LocationForm(): React.ReactElement {
     } catch (err) {
       // FR-035: surface the rejection but keep every entered value — an admin should
       // never retype a whole form to correct one field.
-      const refusal = err as ApiError;
-      setError(refusal);
-      // Spec 020 R14: after TIME_ZONE_REQUIRED, the state's zones are asked, and a save anyway
-      // that was refused for it is offered again.
-      if (refusal.code === 'TIME_ZONE_REQUIRED') {
-        setRequiredZones((refusal.details?.timeZones as UsTimeZone[] | undefined) ?? null);
-      }
-      setOfferSaveAnyway(
-        SAVE_ANYWAY_CODES.includes(refusal.code) ||
-          (refusal.code === 'TIME_ZONE_REQUIRED' && acceptUnverifiedAddress),
-      );
+      setError(err as ApiError);
     } finally {
       setBusy(false);
     }
   }
 
+  // Spec 024 R1 (review round 1, minor 6): what is said under the select, in order, each also
+  // naming the select for assistive technology.
+  const zoneHints = [
+    zoneProblem && { id: 'timeZone-problem', text: zoneProblem },
+    !isEdit && {
+      id: 'timeZone-hint',
+      text: 'Event times at this venue are shown and entered in this zone.',
+    },
+    loaded && { id: 'timeZone-stored', text: `${venueZone(loaded)}.` },
+    loaded &&
+      addressChanged && {
+        id: 'timeZone-address',
+        text:
+          "Changing the address doesn't change the time zone. Choose another zone here if the " +
+          'venue is in a different one.',
+      },
+    recordsAdminZone && {
+      id: 'timeZone-records',
+      text: `Saving records ${zoneName(storedZone)} as chosen by an admin.`,
+    },
+    loaded &&
+      hasEvents !== false &&
+      zoneChoice &&
+      zoneChoice !== storedZone && { id: 'timeZone-change', text: ZONE_CHANGE_NOTE },
+  ].filter((h): h is { id: string; text: string } => Boolean(h));
+
   function handleSubmit(e: React.FormEvent): void {
     e.preventDefault();
-    void save(false);
+    void save();
   }
 
   return (
@@ -269,17 +283,6 @@ export function LocationForm(): React.ReactElement {
         </div>
       )}
       {error && <ErrorBanner error={error} />}
-      {offerSaveAnyway && (
-        <div className="form__actions">
-          <button type="button" className="btn" disabled={busy} onClick={() => void save(true)}>
-            Save anyway (address not verified)
-          </button>
-          <p className="note">
-            Use this only if you are sure the address is right. The venue will be marked not
-            verified.
-          </p>
-        </div>
-      )}
       {layoutRefused && (
         <div role="alert" className="banner banner--error">
           <div className="banner__body">
@@ -287,8 +290,15 @@ export function LocationForm(): React.ReactElement {
             <p>{layoutRefused.error.envelope.error.message}</p>
             <p>
               The venue was created without its seating layout.{' '}
-              <Link to={`/locations/${layoutRefused.venueId}`}>Add the layout on its page</Link>
+              <Link to={`/locations/${layoutRefused.venue.id}`}>Add the layout on its page</Link>
             </p>
+            {/* Spec 024 research R16.5: the not-verified notice is not reached from here. */}
+            {!layoutRefused.venue.addressVerified && (
+              <p>
+                {`Its address is saved but not verified: ${layoutRefused.venue.address}. The US ` +
+                  "address service couldn't confirm it, so check that it's right."}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -311,7 +321,7 @@ export function LocationForm(): React.ReactElement {
             </p>
           )}
           {!legacy && loaded?.addressVerified === false && (
-            <p className="note">This address is not verified.</p>
+            <p className="note">This address is not verified. Saving checks it again.</p>
           )}
 
           <div className="field">
@@ -365,55 +375,37 @@ export function LocationForm(): React.ReactElement {
             />
           </div>
 
-          {/* Spec 020 FR-004, FR-024 (research R4, R14): worked out unless the admin picks one. */}
+          {/* Spec 024 FR-001 to FR-004 (research R1): the admin's pick, required on create. */}
           <div className="field">
             <label htmlFor="timeZone">Time zone</label>
             <select
               id="timeZone"
               value={zoneChoice}
-              onChange={(e) => setZoneChoice(e.target.value as UsTimeZone | '')}
+              aria-invalid={zoneProblem ? true : undefined}
+              aria-describedby={zoneHints.map((h) => h.id).join(' ') || undefined}
+              onChange={(e) => {
+                setZoneChoice(e.target.value as UsTimeZone | '');
+                setZoneProblem(null);
+              }}
             >
-              <option value="">
-                {!loaded
-                  ? 'Work it out from the address'
-                  : addressChanged
-                    ? 'Work it out from the new address'
-                    : `Keep ${zoneName(loaded.timeZone ?? DEFAULT_TIME_ZONE)} (${SOURCE_TEXT[loaded.timeZoneSource ?? 'DEFAULT']})`}
-              </option>
+              {!isEdit && <option value="">Choose a time zone</option>}
               {US_TIME_ZONES.map((z) => (
                 <option key={z.id} value={z.id}>
                   {z.name}
                 </option>
               ))}
             </select>
-            {loaded &&
-              hasEvents !== false &&
-              zoneChoice &&
-              zoneChoice !== (loaded.timeZone ?? DEFAULT_TIME_ZONE) && (
-                <span className="field__hint">{ZONE_CHANGE_NOTE}</span>
-              )}
+            {zoneHints.map((h) => (
+              <span
+                key={h.id}
+                id={h.id}
+                className="field__hint"
+                role={h.id === 'timeZone-problem' ? 'alert' : undefined}
+              >
+                {h.text}
+              </span>
+            ))}
           </div>
-
-          {splitZones && (
-            <fieldset className="field">
-              <legend>{`${stateName(address.state)} has more than one time zone. Choose this venue's time zone:`}</legend>
-              {splitZones.map((z) => (
-                <label key={z} className="choice">
-                  <input
-                    type="radio"
-                    name="stateZone"
-                    checked={chosenStateZone === z}
-                    onChange={() => {
-                      setStateZone(z);
-                      setZoneProblem(null);
-                    }}
-                  />
-                  {zoneName(z)}
-                </label>
-              ))}
-              {zoneProblem && <span className="field__hint">{zoneProblem}</span>}
-            </fieldset>
-          )}
 
           {!isEdit && (
             <fieldset className="field">

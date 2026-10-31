@@ -154,6 +154,8 @@ describe('LocationForm against a live validation rejection', () => {
     await user.type(screen.getByLabelText('City'), 'y');
     await user.selectOptions(screen.getByLabelText('State'), 'KY');
     await user.type(screen.getByLabelText('ZIP code'), '40202');
+    // Spec 024 FR-002: a new venue needs its zone chosen.
+    await user.selectOptions(screen.getByLabelText('Time zone'), 'America/New_York');
     await user.type(screen.getByLabelText('Seating capacity'), '1');
     await user.click(screen.getByRole('button', { name: /Create venue/i }));
 
