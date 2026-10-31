@@ -347,13 +347,15 @@ and the layout editor.
   record the counts per workspace and the coverage figures.
   **Result**: After review round 1 (T029): `origin/main` still contained; `npm run ci` green: format, lint (with the `e2e/` type-check), build; scripts 75, "23 quickstarts marked; every browser test has its row", contract drift clean, shared 681, backend 955, admin 335, customer 308, booth 76, seed 111 (none skipped: `qp024walk`'s Keycloak was up), test:tz quick passed. Coverage: shared 93.13%, backend 97.05%, admin 97.23%, customer 97.46%, booth 92.28%, seed 100%. `npm run e2e` was not re-run after the review (the ports are held by `qp024walk` for Nate's walk); the one browser-test change (minor 5) runs in GitHub's `e2e` check on the PR.
   Before the review: `origin/main` already contained; `npm run ci` green: format, lint (with the `e2e/` type-check), build; scripts 75, "23 quickstarts marked; every browser test has its row", contract drift clean, shared 681, backend 954 (943 + 11), admin 328 (314 before; 329 with T026's extra case, run alone), customer 308, booth 76, seed 91 passed and 20 skipped (Keycloak down), test:tz quick passed. Coverage: shared 93.13%, backend 97.05%, admin 97.22%, customer 97.46%, booth 92.28%, seed 100%.
-- [ ] T031 Running-system walk, quickstart V0–V10, on a stack built from this branch: Nate walks it
+- [x] T031 Running-system walk, quickstart V0–V10, on a stack built from this branch: Nate walks it
   (V4 needs the Backend pointed at an unreachable address service and back; V9 needs VoiceOver).
   Record each scenario's result as Nate reports it; his "pass" closes the walk.
-- [ ] T032 Push; open the implementation PR after the spec PR has merged and the branch is rebased
+  **Result (Nate's walk, 2026-10-30)**: on the stack built from this branch (`-p qp024walk`), Nate walked quickstart V0–V10 and confirmed "everything works as expected"; recorded on his word. Scenario-by-scenario results were not reported separately.
+- [x] T032 Push; open the implementation PR after the spec PR has merged and the branch is rebased
   onto `main`: its description says `fixes #107` on its own line and carries the review (T029), the
   counts and coverage (T030), the browser tests and their deliberate failures (T021, T028), and the
   walk (T031). CI green on GitHub (the `test` and `e2e` checks); merge when green and approved.
+  **Result**: implementation PR #109 (`fixes #107`) opened after #108 merged; CI green on GitHub (`e2e` and `test`, run 41148231076); merged 2026-10-30, closing #107. The walk (T031) was recorded after the merge, in this follow-up.
 
 ---
 
