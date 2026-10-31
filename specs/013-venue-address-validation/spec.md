@@ -8,6 +8,12 @@
 
 **Issue**: [#25](https://github.com/Trughouse-Holdings/QueuePass/issues/25)
 
+**Superseded in part by `024`** ([spec](../024-venue-form-simplify/spec.md#superseded-requirements),
+#107): the Admin app no longer offers Save anyway; it always asks to save the address even if
+unverified, which now also covers the address service being down (FR-006, FR-011, FR-019); an
+unchanged address that is not verified is checked again on an edit (FR-008). The text below is this
+feature's record as built.
+
 **Input**: User description: "When an admin creates or edits a venue, the address must be a real US
 address. The venue address is a Google Maps link in both the Admin and Customer apps."
 

@@ -1,5 +1,10 @@
 # Quickstart: Validating Venue Time Zones
 
+**Superseded in part by `024`** ([spec](../024-venue-form-simplify/spec.md#superseded-requirements),
+#107): the Admin app's Time zone select has no "work it out" choice and no split-state question; the
+admin picks the zone (S3, S4). `024`'s quickstart walks the new behavior. The text below is this
+feature's walk as built.
+
 The running-system gate for `020` (Constitution VI, quality gate 5), repeated as Mahdi asked
 (2026-10-24): the migration on a copy of real data first (S1), then the browser walk for **two
 venues in different zones** and **DST-boundary dates**, each under **two browser time zones**.

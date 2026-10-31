@@ -218,15 +218,18 @@ export interface paths {
          *     `400 ADDRESS_NOT_FOUND`; several matches, or one match at a different ZIP code or house
          *     number, are `400 ADDRESS_AMBIGUOUS`, listing them.
          *
-         *     Save anyway: with `acceptUnverifiedAddress: true`, no match, several matches, or one
-         *     match at a different ZIP code or house number instead save the venue with the four fields
-         *     as sent (trimmed, runs of whitespace collapsed to one space, ZIP cut to 5 digits) and
-         *     `addressVerified: false`. The address service is still asked first, and the flag changes
-         *     nothing when it finds exactly one match that keeps the ZIP code and house number.
+         *     Save even if unverified: with `acceptUnverifiedAddress: true`, no match, several matches,
+         *     or one match at a different ZIP code or house number instead save the venue with the four
+         *     fields as sent (trimmed, runs of whitespace collapsed to one space, ZIP cut to 5 digits)
+         *     and `addressVerified: false`. Feature 024: so does an address service that cannot be
+         *     reached, does not answer within 5 seconds, or answers with an error. The address service
+         *     is still asked first, and the flag changes nothing when it finds exactly one match that
+         *     keeps the ZIP code and house number. The Admin app sends the flag with every address
+         *     (feature 024).
          *
-         *     When the service cannot be reached, does not answer within 5 seconds, or answers with an
-         *     error, the save is refused with `503 ADDRESS_SERVICE_UNAVAILABLE` and nothing is saved,
-         *     with or without `acceptUnverifiedAddress`.
+         *     Without `acceptUnverifiedAddress`, when the service cannot be reached, does not answer
+         *     within 5 seconds, or answers with an error, the save is refused with
+         *     `503 ADDRESS_SERVICE_UNAVAILABLE` and nothing is saved.
          *
          *     Feature 020: the venue's `timeZone` is decided after the address, in this order: the
          *     `timeZone` sent (`timeZoneSource: ADMIN`); else, for a verified address, the zone at the
@@ -234,6 +237,8 @@ export interface paths {
          *     one (`STATE`). In a state with more than one zone (AK, AZ, FL, ID, IN, KS, KY, MI, NE, NV,
          *     ND, OR, SD, TN, TX) the create is refused with `400 TIME_ZONE_REQUIRED`, listing the
          *     state's zones in `details.timeZones`, and nothing is saved; resend with `timeZone`.
+         *     Feature 024: the Admin app always sends `timeZone`, the admin's pick; other callers may
+         *     leave it out.
          */
         post: operations["createLocation"];
         delete?: never;
@@ -277,16 +282,28 @@ export interface paths {
          *     Feature 013: `street`, `city`, `state`, and `zip` are sent all together or not at all
          *     (`400`). When they are sent and differ from the stored ones (ignoring case and extra
          *     spaces), the address is checked exactly as in `createLocation`, after every other check
-         *     on this request and before anything is saved, including `acceptUnverifiedAddress`. An
-         *     edit without address fields, or with the same address, never calls the address service
-         *     and keeps `addressVerified` as it is. `acceptUnverifiedAddress` without the four address
-         *     fields is `400`. A venue saved before feature 013 keeps its `address`, has `null` parts,
-         *     and has `addressVerified: false` until its address is changed.
+         *     on this request and before anything is saved, including `acceptUnverifiedAddress` (and,
+         *     feature 024, its saving the address not verified when the service is unavailable). An
+         *     edit without address fields never calls the address service. An edit with the same
+         *     address never calls it for a verified venue, nor without `acceptUnverifiedAddress`, and
+         *     keeps `addressVerified` as it is.
+         *     `acceptUnverifiedAddress` without the four address fields is `400`. A venue saved before
+         *     feature 013 keeps its `address`, has `null` parts, and has `addressVerified: false` until
+         *     its address is changed.
+         *
+         *     Feature 024: an edit that sends the same address with `acceptUnverifiedAddress: true`, for
+         *     a venue whose address is not verified (its four fields set), checks it again, at the same
+         *     point. Exactly one match that keeps the ZIP code and house number is saved in the
+         *     service's standard form with `addressVerified: true`, unless the stored address changed
+         *     while the check ran (then the address is left as it is now). Any other answer, the service
+         *     being unavailable included, leaves the address as stored and not verified; it is never a
+         *     refusal. Without the flag, the same address is never checked again.
          *
          *     Feature 020: `timeZone`, when sent, becomes the venue's zone (`timeZoneSource: ADMIN`),
-         *     also together with an address change. Otherwise, when the address is checked (it was sent
-         *     and differs), the zone is decided again exactly as in `createLocation`, including
-         *     `400 TIME_ZONE_REQUIRED`. An edit that sends neither never changes the zone.
+         *     also together with an address change. Otherwise, when the address is checked because it
+         *     was sent and differs, the zone is decided again exactly as in `createLocation`, including
+         *     `400 TIME_ZONE_REQUIRED`; feature 024's re-check of the same address never decides the
+         *     zone. An edit that sends neither never changes the zone.
          *
          *     When the zone changes, every event at the venue (scheduled or cancelled) keeps its local
          *     start and end date and time, so its `startsAt` and `endsAt` move. The change is refused,
@@ -1102,8 +1119,9 @@ export interface components {
          *
          *     - `addressVerified: true`: the address service matched it; the four fields are its
          *       standard (upper-case) form.
-         *     - `addressVerified: false` with the four fields set: an admin saved it anyway
-         *       (`acceptUnverifiedAddress`); the fields are as the admin sent them.
+         *     - `addressVerified: false` with the four fields set: saved with
+         *       `acceptUnverifiedAddress` because the address service did not match it or, feature
+         *       024, could not be asked; the fields are as the admin sent them.
          *     - `addressVerified: false` with the four fields `null`: saved before feature 013 and not
          *       re-addressed since; `address` is the one-line text it was saved with.
          *
@@ -1174,7 +1192,7 @@ export interface components {
              * @description Feature 020. Optional: the admin's explicit choice of the venue's time zone, used
              *     instead of the zone worked out from the address or state (`timeZoneSource: ADMIN`).
              *     Needed for an address saved anyway in a state with more than one zone
-             *     (`400 TIME_ZONE_REQUIRED` otherwise).
+             *     (`400 TIME_ZONE_REQUIRED` otherwise). Feature 024: the Admin app always sends it.
              */
             timeZone?: components["schemas"]["UsTimeZone"];
             /** @description Must be a positive whole number. */
@@ -1201,13 +1219,15 @@ export interface components {
             seatingCapacity?: number;
         };
         /**
-         * @description Feature 013 "save anyway": the admin confirmed the address after an `ADDRESS_NOT_FOUND`
-         *     or `ADDRESS_AMBIGUOUS` refusal. The address service is still asked. With no match,
-         *     several matches, or one match at a different ZIP code or house number, the venue is saved
-         *     as sent (trimmed, runs of whitespace collapsed to one space, ZIP cut to 5 digits) with
-         *     `addressVerified: false`. With exactly one match that keeps the ZIP code and house number,
-         *     it is saved verified, as without the flag. When the service is unavailable,
-         *     the request is still refused with `503 ADDRESS_SERVICE_UNAVAILABLE`.
+         * @description Feature 013 "save anyway", feature 024 "save even if unverified": save the address even
+         *     if the address service cannot verify it. The Admin app sends it with every address
+         *     (feature 024); feature 013's Admin app sent it after an `ADDRESS_NOT_FOUND` or
+         *     `ADDRESS_AMBIGUOUS` refusal. The address service is still asked. With no match, several
+         *     matches, or one match at a different ZIP code or house number, or (feature 024) when the
+         *     service cannot be reached, does not answer within 5 seconds, or answers with an error, the
+         *     venue is saved as sent (trimmed, runs of whitespace collapsed to one space, ZIP cut to 5
+         *     digits) with `addressVerified: false`. With exactly one match that keeps the ZIP code and
+         *     house number, it is saved verified, as without the flag.
          * @default false
          */
         AcceptUnverifiedAddress: boolean;
@@ -1994,7 +2014,8 @@ export interface components {
         /**
          * @description Feature 013: the address service could not be reached, did not answer within 5 seconds,
          *     or answered with an error, so the address could not be verified. Nothing was saved. The
-         *     same request may succeed later.
+         *     same request may succeed later. Feature 024: returned only when the request did not send
+         *     `acceptUnverifiedAddress: true`; with it, the venue is saved not verified.
          */
         AddressServiceUnavailable: {
             headers: {
