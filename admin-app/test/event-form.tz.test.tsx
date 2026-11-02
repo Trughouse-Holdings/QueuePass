@@ -178,6 +178,33 @@ describe('daylight saving (FR-016, FR-017)', () => {
     expect(screen.getByLabelText('Event name')).toHaveValue('Fall Concert');
   });
 
+  // Spec 025 (PR #116 CI, 020 S7): the skipped start gave Doors open nothing to follow; once the
+  // venue changes to one where the start names a moment, Doors open follows it (untouched).
+  it('refused at Eastern, then saved at Phoenix: Doors open follows the start in the new zone', async () => {
+    const api = newForm();
+    await fill(EAST.id, '2027-03-14T02:30', '2027-03-14T04:00');
+    expect(screen.getByLabelText('Doors open')).toHaveValue('');
+    save();
+    await screen.findByTestId('error-banner');
+    expect(posted(api)).toHaveLength(0);
+    set('Venue', PHX.id);
+    expect(screen.getByLabelText('Doors open')).toHaveValue('2027-03-14T01:30');
+    save();
+    await screen.findByText('Event page', {}, { timeout: 3000 });
+    expect(posted(api)[0]).toMatchObject({
+      startsAt: '2027-03-14T02:30:00-07:00',
+      doorsOpenAt: '2027-03-14T01:30:00-07:00',
+    });
+  });
+
+  it('keeps Doors open as the admin typed it when the venue changes', async () => {
+    newForm();
+    await fill(EAST.id, '2026-10-01T19:00', '2026-10-01T22:00');
+    set('Doors open', '2026-10-01T17:30');
+    set('Venue', PHX.id);
+    expect(screen.getByLabelText('Doors open')).toHaveValue('2026-10-01T17:30');
+  });
+
   it('accepts the same time at Phoenix (no daylight saving)', async () => {
     const api = newForm();
     await fill(PHX.id, '2027-03-14T02:30', '2027-03-14T04:00');

@@ -138,7 +138,10 @@ one has reported).
   new event and `storedStart - storedDoors` on an edit; the instant is turned back into the venue's
   local string (`toLocalDateTime`) and, when that local time is repeated, its occurrence is set from
   the instant's own offset (as the edit form already does on load, `020` review round 2, m1). A
-  change of venue keeps the typed local strings (`020` FR-015), Doors open included. The form sends
+  change of venue keeps the typed local strings (`020` FR-015), Doors open included once the admin
+  has changed it; while untouched, Doors open follows the start in the new venue's zone, so a start
+  skipped in the old zone and valid in the new one gets its doors (found by PR #116's `020 S7`
+  browser test). The form sends
   `doorsOpenAt` on every create and every edit, like `startsAt` and `endsAt`, with the venue's
   offset (`toOffsetDateTime`).
 - **Form checks before sending** (FR-005), after the start and end checks and with their banner: an

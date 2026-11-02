@@ -639,18 +639,18 @@ export function EventForm(): React.ReactElement {
    * minus the gap, until the admin has changed Doors open themselves. The occurrence of a repeated
    * doors time is the one the instant is.
    */
-  function followStart(local: string, chosen: Occurrence): void {
+  function followStart(local: string, chosen: Occurrence, zone: UsTimeZone = venueZone): void {
     if (doorsTouched) return;
-    const r = resolveField(local, venueZone);
+    const r = resolveField(local, zone);
     const m = r ? momentOf(r, chosen) : null;
     if (!m) return;
     const instant = new Date(m.instant.getTime() - doorsGapMs);
-    const value = toLocalDateTime(instant, venueZone);
-    const doors = resolveField(value, venueZone);
+    const value = toLocalDateTime(instant, zone);
+    const doors = resolveField(value, zone);
     const occ: Occurrence =
       doors?.kind !== 'repeated'
         ? ''
-        : toOffsetDateTime(instant, venueZone).slice(-6) === doors.first.offset
+        : toOffsetDateTime(instant, zone).slice(-6) === doors.first.offset
           ? 'first'
           : 'second';
     setDoorsOpenAt(value);
@@ -903,6 +903,10 @@ export function EventForm(): React.ReactElement {
                 setLocationId(e.target.value);
                 // Spec 020 FR-015: the typed times stay; a repeated hour is asked again.
                 setOccurrence({ startsAt: '', endsAt: '', doorsOpenAt: '' });
+                // Spec 025 FR-003: Doors open the admin has not changed follows the start in the
+                // new venue's zone (a start skipped in the old zone may name a moment here).
+                const next = venues.find((v) => v.id === e.target.value);
+                if (next) followStart(startsAt, '', next.timeZone ?? DEFAULT_TIME_ZONE);
               }}
             >
               <option value="">Select a venue…</option>
