@@ -117,7 +117,7 @@ helper in `backend/src/common/venue-lock.ts`.
   `addressVerified?: boolean`), mirroring the contract: required shared fields fail both front
   ends' `tsc` against the generated types, whose fields are optional (found in the
   implementation). The Backend always sends them. The follow-up (tasks.md T044) makes them
-  required here too.
+  required here too: done in #36 (research R15).
 - `LocationInput`: `{ name; street; city; state: UsState; zip; acceptUnverifiedAddress?: boolean;
   seatingCapacity }` (no `address`). `LocationUpdate = Partial<LocationInput>`.
 - `LOCATION_LIMITS`: adds `streetMaxLength: 200`, `cityMaxLength: 100`; `ZIP_PATTERN =
