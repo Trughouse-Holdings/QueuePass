@@ -86,7 +86,8 @@ Every other question below took the recommended answer, written unattended and r
   light text**, still meeting the contrast targets; a test catches a changed or missing image
   (recommended answer, open to review) (FR-009, FR-010).
 - Q: Does anything move? → A: **No.** The background is still: no animation, no parallax
-  (recommended answer, open to review) (FR-013).
+  (recommended answer, open to review) (FR-013). **Reversed** in implementation session 3: the
+  lines pulse gently, with a pause button.
 
 ### Session 2026-11-02 (spec review)
 
@@ -137,6 +138,25 @@ Mahdi saw the pages with no card and reversed that decision.
   Constitution 3.8.0 (MINOR), in the implementation PR, adds the realm-name header to the sign-in
   exception and rewords the row; every team member approves it there (tasks T038).
 
+### Session 2026-11-02 (implementation, session 3)
+
+Mahdi walked the card and the header ("much better") and asked for one more change; he chose both
+answers below from the options he was offered.
+
+- Q: Should anything move? → A: **The color in the lines pulses gently, forever.** The lines rest at
+  the dim level he chose (alpha 160 of 255) and slowly glow up to full strength and back, a whole
+  cycle about every 4 s, eased in and out; a smooth fade only, nothing that flashes (decided by
+  Mahdi) (FR-013).
+- Q: How can it be stopped? → A: **A small pause button** in the page's bottom corner, a real
+  button reading "Pause animation" or "Play animation", its state also given by `aria-pressed`,
+  last in the Tab order after the form, remembered in the browser (decided by Mahdi) (FR-013;
+  WCAG 2.2.2).
+- Q: Reduced motion, forced colors, and no scripts? → A: With reduced motion asked for, nothing
+  moves (the lines stay at their resting level) and the button is not shown, since there is nothing
+  to pause; in forced colors the button is hidden with the backdrop; without scripts the lines do
+  not move and the button stays hidden, since a pulse with no way to pause it would fail WCAG 2.2.2
+  (recommended answers, open to review) (FR-013, research R10).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Each App's Sign-in Shows the Stones in Its Own Color (Priority: P1)
@@ -168,6 +188,11 @@ Keycloak's card on them.
 5. **Given** any of the three pages, **When** it opens, **Then** the tab title and the one heading
    read "Sign in to {app name}", the audience line is there, and the Sign In button is in the app's
    accent, as in `021`.
+6. **Given** any of the three pages, **When** it opens, **Then** the lines glow gently up to full
+   strength and back, about every 4 s, and a small "Pause animation" button sits in the bottom
+   corner; **When** someone presses it, **Then** the lines stop, the button reads "Play animation",
+   and the choice holds after a reload; **and** with reduced motion asked for, nothing moves and no
+   button shows.
 
 ---
 
@@ -277,6 +302,11 @@ for the image; read the derived image's notice.
   browsers, Chromium among them, keep image backgrounds in that mode); the page uses the system's
   colors and stays usable.
 - **Keycloak's admin console, and the account console after sign-in**: not changed.
+- **Reduced motion asked for** (the system setting): the lines do not move, at their resting level,
+  and the pause button is not shown (FR-013).
+- **Scripts off, or the browser's storage unavailable**: without scripts, nothing moves and the
+  button stays hidden; with storage refused, the button still pauses and plays, and the choice is
+  not remembered (FR-013).
 - **A client with no accent of its own**: the shared accent in the lines, as `021` FR-008.
 
 ## Requirements *(mandatory)*
@@ -337,7 +367,17 @@ for the image; read the derived image's notice.
   Constitution II).
 - **FR-012**: The apps themselves MUST NOT change: no background, no new colors, and no use of the
   sign-in look's colors (Constitution VII).
-- **FR-013**: The background MUST be still: no animation, transition, or movement.
+- **FR-013**: The lines between the stones MUST pulse gently: from their resting strength (the dim
+  level of FR-003) up to full strength and back, a whole cycle about every 4 s, eased in and out,
+  a smooth fade with no flash (WCAG 2.3.1); nothing else in the backdrop moves. A small pause
+  button in the page's bottom corner MUST stop and restart the pulse (WCAG 2.2.2): a real button,
+  last in the Tab order after the form, reading "Pause animation" or "Play animation" with its
+  state in `aria-pressed`, at least 24 × 24 px, with 4.5:1 text and a 3:1 focus ring against what
+  is behind them wherever it sits, on every page that shows the stones. The choice MUST be
+  remembered in the browser, and the page MUST work when storage is refused. With reduced motion
+  asked for, the lines MUST NOT move and the button MUST NOT show; in forced colors the button is
+  hidden with the backdrop; without scripts the lines do not move and the button is not shown.
+  (Until implementation session 3: "the background MUST be still".)
 
 ### Key Entities
 
@@ -375,6 +415,11 @@ for the image; read the derived image's notice.
 - **SC-005**: With the stones image blocked, the same check as SC-002 finds 0 failures.
 - **SC-006**: Shown the three sign-in pages with the app names covered, a tester still matches each
   to its app within 5 seconds per page, 3 of 3 (`021` SC-002).
+- **SC-007**: For each of the three apps, an automated browser check finds the lines pulsing
+  (a 4 s eased cycle between the resting and full strength), the pause button reached by Tab after
+  Sign In, pressing it pausing the pulse and switching its label and `aria-pressed`, the choice
+  kept after a reload, the button's text at 4.5:1 and its ring at 3:1 against its own backdrop,
+  and, with reduced motion emulated, no animation and no button: 0 failures.
 
 ## Assumptions
 
