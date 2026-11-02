@@ -24,12 +24,13 @@ Open each app signed out, in its own private window, on a desktop-size window:
 
 **Expected**: Keycloak's grey stones cover the whole window, lighter at the top left, near black at
 the bottom right; the stones are grey and only the lines between them are colored, each line on an
-edge between two stones; a darker band behind the form fades out towards the sides, and beside it
-the stones and lines are at full strength; no card behind the form. Everything of `021` S1 is still
+edge between two stones; a darker band behind the form fades out within about 120 px on each side,
+and beyond it the stones and lines are at full strength (on any window 800 px wide or wider); no card
+behind the form. Everything of `021` S1 is still
 there: the tab title and heading "Sign in to {app}", the audience line, the accent band at the top,
 the brand mark, and the Sign In button in the app's accent. Switch the system to the other color
-scheme and reload. **Expected**: the backdrop and its text look the same; the fields and the button
-follow the scheme.
+scheme and reload. **Expected**: the backdrop, its lines, and its text look the same; the fields
+and the button follow the scheme.
 
 ## S2. Told apart at a glance (SC-006)
 
@@ -46,8 +47,11 @@ For each app, in light and dark schemes, at 360×800 (DevTools device mode), 768
 2. DevTools' contrast check on the heading, the audience line, the labels, and the Sign In button's
    text. **Expected**: AA passes.
 3. At 360 px. **Expected**: no sideways scrolling; every control usable.
-4. Browser zoom to 200% and 400% on the 1280-wide window. **Expected**: the page reflows; no
-   sideways scrolling; still readable.
+4. Browser zoom to 200% and 400% on a 1440-wide window (400% is then 360 CSS px). **Expected**: the
+   page reflows; no sideways scrolling; still readable.
+5. On Windows, turn on a contrast theme (forced colors), or emulate it in DevTools (Rendering →
+   Emulate CSS media feature `forced-colors: active`). **Expected**: no stones, lines, or shade; the
+   page in the system's colors, usable.
 
 ## S4. Every page has the stones (US3; FR-001, FR-003, FR-005)
 
@@ -73,8 +77,8 @@ background is not announced.
 ## S6. Without the stones (FR-009, SC-005)
 
 In DevTools, block the request for `keycloak-bg.png` (Network → right-click → Block request URL) and
-reload each app's page. **Expected**: a plain dark grey page, no lines, the same light text, every
-text and control readable; signing in works.
+reload each app's page. **Expected**: a plain stone grey page with the lines still drawn under the
+shade, the same light text, every text and control readable; signing in works.
 
 ## S7. Keycloak's image, not a copy; the lines image made again (US4; FR-002, FR-010, SC-004)
 
@@ -82,13 +86,15 @@ text and control readable; signing in works.
    stylesheet links (`/resources/{version}/login/queuepass/css/login.css`), then
    `curl -o keycloak-bg.png http://localhost:8080/resources/{version}/login/keycloak/img/keycloak-bg.png`
    (outside the repository).
-2. `npm run stone-lines --workspace @queuepass/seed -- <path to keycloak-bg.png>`. **Expected**: it
-   writes `keycloak/themes/queuepass/login/resources/img/stone-lines.png`, and `git status` shows no
-   change: the committed file is reproduced byte for byte.
+2. `npm run stone-lines --workspace @queuepass/seed -- --check <path to keycloak-bg.png>`.
+   **Expected**: it reports that the committed
+   `keycloak/themes/queuepass/login/resources/img/stone-lines.png` has the same pixels and the same
+   `Source` chunk as a fresh run (the file's bytes may differ from a fresh run on another machine,
+   so the check compares the decoded image, not the bytes).
 3. Run it on any other PNG. **Expected**: it refuses, naming the SHA-256 it expected.
 4. Read `keycloak/themes/queuepass/NOTICE`. **Expected**: it names Keycloak's image as the source,
-   its copyright holder, the Apache License 2.0, and the change made; `LICENSE-keycloak.txt` is
-   beside it.
+   its SHA-256, its copyright holder, the Apache License 2.0, and the change made;
+   `LICENSE-keycloak.txt` is beside it.
 
 ## S8. Sign in, use, sign out (Constitution VI)
 

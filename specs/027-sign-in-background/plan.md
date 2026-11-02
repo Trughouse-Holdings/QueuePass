@@ -13,18 +13,21 @@
 - **The lines between the stones in the app's accent** (R2, R3): a lines image
   (`keycloak/themes/queuepass/login/resources/img/stone-lines.png`, white with alpha on the edges
   between the stones), derived once from Keycloak's image by a TypeScript generator in
-  `scripts/seed` that finds the image's flat facets and draws their boundaries; no new dependency.
-  The page fills a layer with `var(--accent)` and shows it through that image (`mask`). The PNG and a
-  `NOTICE` carry Keycloak's Apache 2.0 notice.
+  `scripts/seed` that finds the image's flat facets and draws their boundaries, reading and writing
+  PNG with `fast-png` (already in the lockfile). The page fills a layer with the app's lighter accent
+  (`var(--stone-accent)`, the same in both schemes) and shows it through that image (`mask`). A
+  `NOTICE` and `LICENSE-keycloak.txt` beside the theme carry Keycloak's Apache 2.0 license; a
+  `--check` mode proves the committed image is what the generator makes (same pixels and metadata).
 - **Layers** (R4): one fixed, `aria-hidden` element behind the page holds the stones, the lines
   (`::before`), and the shade (`::after`), all `center / cover` on the same box, so the lines stay on
   the edges at every size; the page color under them is a plain stone grey for when the image is
-  missing.
+  missing; in forced-colors mode the backdrop is hidden.
 - **Readable on the stones** (R5): a shade (black at 60%) across a 560 px band behind the form,
-  fading out to the window's edges; light text, a light error color, a light field edge, and focus
-  rings in the app's lighter accent, meeting 4.5:1 and 3:1 over the lightest stone and the brightest
-  line, in both schemes.
-- **Tokens** (R6): nine `--stone-*` tokens in both of the shared theme's token blocks, the same in
+  fading out over 120 px on each side, so from 800 px wide the stones beyond it are at full strength;
+  light text, a light error color, a light field edge, and every control's focus ring in the app's
+  lighter accent, meeting 4.5:1 and 3:1 over the lightest stone and the brightest line, the same in
+  both schemes.
+- **Tokens** (R6): eight `--stone-*` tokens in both of the shared theme's token blocks, the same in
   both; the `021` drift exception gains one role, `--stone-accent`.
 - **No card** (R7): `template.ftl` drops the card wrapper and gains the backdrop element;
   `login.css` gives every text on the backdrop a backdrop color. Band, brand mark, heading,
@@ -40,8 +43,9 @@
 **Language/Version**: TypeScript 5.7 (strict) on Node.js 22 LTS for the generator and tests;
 FreeMarker, CSS, and properties files for the Keycloak theme.
 
-**Primary Dependencies**: Keycloak 26.0 (unchanged); `node:zlib` for the generator's PNG reading and
-writing. No new npm package.
+**Primary Dependencies**: Keycloak 26.0 (unchanged); `fast-png` 6.4.0 (MIT) as a `devDependency` of
+`scripts/seed` for the generator's PNG reading and writing. It is already in `package-lock.json` (a
+dependency of `jspdf`), so no new package enters the lockfile.
 
 **Storage**: none. Files in the repository (data-model.md).
 
@@ -57,14 +61,15 @@ and Safari, desktop and phone, light and dark schemes.
 **Project Type**: web application (one Backend, three front ends, Keycloak, a seed job).
 
 **Performance Goals**: none beyond today: the sign-in page loads two images (Keycloak's 82 KB stones
-and the lines image, about 70–100 KB), both cacheable.
+and the lines image, about 70–100 KB). Both are cacheable in production; Keycloak's `start-dev`, which
+the Compose stack runs, sends `Cache-Control: no-cache`, so the browser revalidates them there.
 
 **Constraints**: Constitution VII as amended (colors only in the shared theme's token blocks; the
 background only on the sign-in screens), Constitution II (no manual step), Keycloak's image not
 copied, WCAG 2.1 AA (spec FR-006).
 
 **Scale/Scope**: one template, one stylesheet, one derived image and its notice, one generator,
-nine tokens, about fifteen files.
+eight tokens, about fifteen files.
 
 ## Constitution Check
 
@@ -73,7 +78,7 @@ nine tokens, about fifteen files.
 | Principle | Check | Result |
 | --- | --- | --- |
 | I. API-only boundary, contract first | No API change | Pass (n/a) |
-| II. One command, reproducible | Files in the Keycloak image via the existing `COPY`; `docker compose up --build` from a clean clone; the generator's output is committed, and running it again gives the same bytes (R3) | Pass |
+| II. One command, reproducible | Files in the Keycloak image via the existing `COPY`; `docker compose up --build` from a clean clone; the generator's output is committed, and `--check` confirms it gives the same pixels and metadata (R3) | Pass |
 | III. Spec-driven, reviewed | Spec + plan PR first, independent review before it opens; impl in a fresh session | Pass |
 | IV. Server-authoritative rules | No domain rule involved | Pass (n/a) |
 | V. Sign-in everywhere | Sign-in stays on Keycloak's page; same form, same flow (spec FR-005) | Pass |
@@ -111,24 +116,24 @@ keycloak/themes/queuepass/
     └── resources/
         ├── css/login.css                        # layers, shade, backdrop colors, 7th role (R4–R7)
         └── img/stone-lines.png                  # NEW: generated (R2, R3)
-packages/shared/src/web/theme.css                # nine --stone-* tokens in both blocks (R6)
+packages/shared/src/web/theme.css                # eight --stone-* tokens in both blocks (R6)
 packages/shared/test/theme/
 ├── check-theme.ts                               # SIGN_IN_ROLES gains --stone-accent (R6)
 ├── drift.test.ts                                # seventh-role cases; apps use no --stone-* (R8)
 ├── contrast.test.ts                             # the sign-in backdrop (R5, R8)
-└── tokens.test.ts                               # the nine tokens (R6, R8)
+└── tokens.test.ts                               # the eight tokens (R6, R8)
 scripts/seed/
-├── package.json                                 # "stone-lines" script (R3)
+├── package.json                                 # "stone-lines" script; fast-png devDependency (R3)
 ├── src/stone-lines/
-│   ├── png.ts                                   # NEW: PNG decode/encode, node:zlib (R3)
 │   ├── facets.ts                                # NEW: flat regions (R3)
 │   ├── lines.ts                                 # NEW: facet boundaries → alpha (R3)
-│   └── cli.ts                                   # NEW: SHA check, write the file (R3)
+│   └── cli.ts                                   # NEW: SHA check, write or --check (R3)
 └── test/
     ├── stone-lines.test.ts                      # NEW: the generator (R8)
     ├── login-theme-files.test.ts                # backdrop, lines image, notice, no copy (R8)
     └── sign-in-screens.test.ts                  # live: images served, SHA-256 (R8)
 e2e/tests/027-sign-in-background.spec.ts         # NEW: S1, S3, S6 (R8)
+package-lock.json                                # the seed workspace lists fast-png; no new package (R3)
 .specify/memory/constitution.md                  # 3.7.0, Principle VII, roadmap 027 (R9) — this spec PR
 README.md                                        # version reference; 027 status row; the generator
 ```
@@ -147,6 +152,6 @@ drawn by.
 | Deviation | Why needed | Simpler alternative rejected because |
 | --- | --- | --- |
 | Constitution VII amended (a background on the sign-in screens) | Issue #122 asks for Keycloak's stone background with the app's accent between the stones; Principle VII rules out decoration | No amendment: the code would contradict the principle's words |
-| A generated image and a PNG reader and writer in `scripts/seed` | Only the lines may be colored, and CSS cannot find an image's edges (R2) | Tinting the whole image (not chosen by Mahdi); three colored copies (copies Keycloak's image, colors outside the theme); an image library (a new dependency for one file) |
+| A generated image, its generator in `scripts/seed`, and `fast-png` as a seed `devDependency` | Only the lines may be colored, and CSS cannot find an image's edges (R2) | Tinting the whole image (not chosen by Mahdi); three colored copies (copies Keycloak's image, colors outside the theme); a hand-written PNG codec on `node:zlib` (more code and tests to keep than a library already in the lockfile, Principle VIII) |
 | A shade behind the form | White text on the lightest stone is 3.5:1, and on a bright line 1.7:1 (R5) | A text shadow is not measurable against WCAG; an even shade over the whole window dims every line |
-| Nine new tokens and a seventh drift role | Every color stays in the shared theme and under its tests (Constitution VII, R6) | Colors in `login.css` (fails the drift test); forcing the dark scheme (the controls would stop following the scheme) |
+| Eight new tokens and a seventh drift role | Every color stays in the shared theme and under its tests (Constitution VII, R6) | Colors in `login.css` (fails the drift test); forcing the dark scheme (the controls would stop following the scheme) |
