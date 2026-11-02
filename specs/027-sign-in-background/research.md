@@ -47,8 +47,9 @@ seed test and, in CI, by the browser test S1 (R8), and the page falls back to a 
 ## R2. Coloring only the lines between the stones: a derived lines image as a mask
 
 **Decision**: a **lines image** derived once from Keycloak's image: a 1920×1080 PNG, every pixel
-white, whose alpha is about 63% (160 of 255; spec Clarifications, implementation session) on the
-edges between the stones and clear elsewhere. The page draws a
+white, whose alpha is opaque on the edges between the stones and clear elsewhere; the page shows
+it at about 63% at rest (the layer's opacity, 160/255; spec Clarifications, implementation sessions
+1 and 3), pulsing to full strength (R10). The page draws a
 layer filled with the app's accent in its lighter shade (`var(--stone-accent)`, R6) and shows it
 only through that image (`mask-image`), over the stones, both sized `center / cover` on the same box
 so they line up (R4). The file is `keycloak/themes/queuepass/login/resources/img/stone-lines.png`.
@@ -119,7 +120,9 @@ prototype).
   from previews of all three apps' lines, and Mahdi approves the preview before the file is
   committed (tasks T010). The values are recorded in `lines.ts` and in the `Source` chunk. Chosen
   (T010): `minArea` 64 (a flat region of 64 px or more is a facet), `MIN_STEP` 1 (at 2 or more, visible stone edges lose their lines), no widening (2 px), a
-  1 px softened edge at 50%, and strength 160 of 255 (about 63%), the "dim" preview.
+  1 px softened edge at 50%, and strength 160 of 255 (about 63%), the "dim" preview. Since the
+  pulse (R10), the image is made at strength 255 and the page sets the dim level with the layer's
+  opacity, which draws the same pixels at rest.
 - License (FR-010): `keycloak/themes/queuepass/LICENSE-keycloak.txt` is the Apache License 2.0 text
   as Keycloak ships it (`/opt/keycloak/LICENSE.txt` in the image), and
   `keycloak/themes/queuepass/NOTICE` names `login/resources/img/stone-lines.png` as derived from
@@ -156,7 +159,8 @@ files beside the theme, where a reader looks for it; a PNG chunk is easy to stri
 - `body`: `background: var(--stone-base)` (a plain stone grey, R6), under all three: what shows when
   the stones image is missing (FR-009). The lines and the shade do not depend on the stones image,
   so they are still drawn over the grey.
-- No `animation` or `transition` on any of them (FR-013).
+- No `transition` on any of them, and no animation but R10's pulse of the lines layer's opacity
+  (FR-013).
 
 The stones and the lines are one box with the same position and sizing, and the image and the lines
 image are both 1920×1080, so `cover` scales and crops them identically at every window size and
@@ -204,9 +208,9 @@ session 2), the only text on the stones is the realm header ("QUEUEPASS", 29 px 
 above the card, about 230 px wide), always inside the full-strength band. The stones behind it,
 under the full shade, lie between pure black (the darkest stone) and the lighter of the lightest
 stone (`#898989`) and the page's line color at full strength (as if the mask were opaque). The lines
-are drawn at about 63% (T010), which only darkens them, so the figures below bound the backdrop from
-above and every contrast from below (with the 63% lines the Booth's brightest line under the shade is
-`#53441d`, and the header's lowest figure rises to 9.44). The lines are the lighter accents in both
+rest at about 63% (T010) and pulse up to full strength (R10), so the figures below, taken at full
+strength, are those of the pulse's peak and hold throughout it (at rest the Booth's brightest line
+under the shade is `#53441d`, and the header's lowest figure rises to 9.44). The lines are the lighter accents in both
 schemes (`#8b85f5`, `#2dd4bf`, `#fbbf24`; Clarifications, decision b), so the backdrop, and the
 figure below, is the same in both schemes. Under 60% black, the lightest stone is `#373737`; the
 brightest line is the Booth's amber, `#644c0e`. The fallback grey `--stone-base` (`#3a3a3a`) under
@@ -257,10 +261,10 @@ rendered pages rather than trusting the arithmetic.
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--stone-base` | `#3a3a3a` | The page color under the stones (FR-009) |
+| `--stone-base` | `#3a3a3a` | The page color under the stones (FR-009); the pause button's panel (R10) |
 | `--stone-scrim` | `rgb(0 0 0 / 60%)` | The shade behind the header and the card (R5) |
-| `--stone-text` | `#ffffff` | The realm header on the backdrop |
-| `--stone-accent` | `#8b85f5` | The lines: the shared accent's lighter shade |
+| `--stone-text` | `#ffffff` | The realm header on the backdrop; the pause button's text (R10) |
+| `--stone-accent` | `#8b85f5` | The lines: the shared accent's lighter shade; the pause button's ring (R10) |
 | `--stone-accent-tickets` | `#2dd4bf` | The same for the Customer app |
 | `--stone-accent-booth` | `#fbbf24` | The same for the Ticket Booth app |
 
@@ -354,7 +358,7 @@ top-level name on the page, against `021` FR-001's one heading).
     `--stone-` or the per-app accent tokens (FR-012).
 - **Seed, theme files** (CI, `scripts/seed/test/login-theme-files.test.ts`): `login.css` loads
   `../../keycloak/img/keycloak-bg.png` and `../img/stone-lines.png`, has the forced-colors rule of
-  R4, and no `animation` or `transition` in any `.qp-stones` rule (FR-013); `template.ftl` has
+  R4, no `transition` in any `.qp-stones` rule and R10's pulse as the only animation (FR-013); `template.ftl` has
   `<div class="qp-stones" aria-hidden="true">` as `<body>`'s first child, the realm header
   (`.qp-realm`, `aria-hidden`, not a heading) and then the card (`card card--padded qp-card`) in `main`; the card
   is at most 500 px wide with a 4 px top edge in `var(--accent)`, the header in `--stone-text`, and
@@ -460,3 +464,68 @@ separate PATCH keeps one PR for one feature's constitution change, as `021` did 
 **Alternatives considered**: no amendment (the drift test would pass, since the colors are tokens,
 but the code would contradict Principle VII's words); a broader "sign-in screens may have a
 background" (more than the issue asks).
+
+## R10. The pulse in the lines, and its pause button
+
+**Decision** (spec Clarifications, implementation session 3; FR-013):
+
+- **Rest and peak through opacity, not the image.** `stone-lines.png` is made at full strength
+  (alpha 255 on the edges, 128 on the softened rim), and the lines layer (`.qp-stones::before`)
+  rests at `opacity: 0.6275` (160/255). At rest that draws exactly what the dim image drew (255 ×
+  0.6275 = 160, 128 × 0.6275 = 80), so the look Mahdi chose is unchanged; at the peak, opacity 1
+  shows the lines at full strength. A brighter peak cannot come from a 160 image (opacity cannot go
+  above 1), and two images or a filter would be more to keep for the same result.
+- **The pulse**: `@keyframes qp-lines-pulse` from `opacity: 0.6275` to `opacity: 1`, run as
+  `2s ease-in-out infinite alternate`, so a whole cycle (up and back) is 4 s. It changes only the
+  lines layer's opacity; the stones, the shade, and the page do not move.
+- **Only with the pause button.** The animation applies only under `html.qp-animate`, a class the
+  page's script sets; without scripts there is no button, so there is no animation either (an
+  animation that starts by itself, runs more than 5 s beside other content, and cannot be paused
+  fails WCAG 2.2.2). The paused state is `html.qp-paused`, which sets
+  `animation-play-state: paused` on the lines layer: the pulse stops where it is and resumes from
+  there.
+- **The button**: after `main`, `<div class="qp-motion" hidden><button type="button"
+  class="qp-motion__toggle" aria-pressed="false">Pause animation</button></div>`, so it is last in
+  the Tab order, in normal flow at the bottom right of the page (not fixed, so it never covers the
+  form or a focused control, WCAG 2.4.11). The script removes `hidden` and keeps the label ("Pause
+  animation" / "Play animation") and `aria-pressed` ("false" while it plays, "true" while paused)
+  in step with the state. The label naming the action and `aria-pressed` both come from Mahdi's
+  choice; screen readers then hear, for example, "Play animation, toggle button, pressed", which
+  says the same thing twice (alternative recorded: a fixed label "Pause animation" with
+  `aria-pressed` only).
+- **Its own backdrop.** The button can sit off the shade, over full-strength lines, so it sits on a
+  small panel in `--stone-base`, padded by `--space-2` (8 px), wider than its focus ring (3 px at a
+  2 px offset), so the ring is drawn on the panel, never on the stones: its text is
+  `--stone-text` (white on `#3a3a3a`, 11.4:1) at 13 px, and its ring `--stone-accent` (3.68 Admin,
+  6.13 Tickets, 6.84 Booth). The shared `button` rule makes it at least 44 px tall (over 24 × 24).
+- **Remembered**: `localStorage` key `qp-sign-in-motion` (`paused` or absent), read and written in
+  `try`/`catch`; if storage throws, the button still pauses and plays, and nothing is remembered.
+- **Reduced motion and forced colors**: `@media (prefers-reduced-motion: reduce)` removes the
+  animation (the lines stay at 0.6275) and hides `.qp-motion`; `@media (forced-colors: active)`
+  hides `.qp-motion` with the backdrop.
+- **Wiring**: `theme.properties` `scripts=js/motion.js`, a file in the theme, which `template.ftl`
+  already loads in `<head>`. There it can set `qp-animate` and `qp-paused` on `<html>` before the
+  page is drawn, so a paused page never starts moving; the button is wired on `DOMContentLoaded`.
+  Keycloak 26.0's sign-in pages send `Content-Security-Policy: frame-src 'self'; frame-ancestors
+  'self'; object-src 'none';` (checked on the running stack), with no `script-src`, so either an
+  inline script or a file works; a file is chosen because it keeps working if Keycloak ever adds
+  `script-src 'self'`, and because Keycloak's own themes load their scripts this way.
+
+**WCAG**: 2.2.2 Pause, Stop, Hide (A): the pulse starts by itself and runs forever beside the form,
+so it needs, and has, a pause control; without scripts it does not run. 2.3.1 Three Flashes (A):
+one smooth fade every 4 s (0.25 Hz), on lines about 7% of the window, is not a flash. 2.3.3
+Animation from Interactions (AAA): the pulse is not triggered by interaction; reduced motion stops
+it anyway. 1.4.3 / 1.4.11: R5's figures already take the line at full strength, so the header holds
+at the peak (8.08:1 lowest); the button and its ring are on their own panel.
+
+**Tests**: theme-file (the keyframes and their timing, the rest opacity, the play-state rule, the
+reduced-motion and forced-colors rules, the panel, the markup, `scripts=js/motion.js`, and the
+script's storage in `try`/`catch`); live (the button's markup and the script on every page); shared
+contrast (the panel's text and ring); browser test `027 S9` (running, paused, remembered, Tab
+order, reduced motion, storage refused, the panel's contrast and ring); S3 and S6 freeze the lines
+at their peak while measuring.
+
+**Alternatives considered**: the pulse in the image's strength (a 160 image cannot reach full
+strength); a pause control that is a link or an icon (a text button is clearer and is what Mahdi
+chose); a fixed button in the window's corner (it would cover the form on a phone); an inline
+script (works today, but not under a stricter policy).

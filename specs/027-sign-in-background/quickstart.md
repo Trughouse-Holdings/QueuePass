@@ -69,7 +69,7 @@ For each app, in light and dark schemes, at 360×800 (DevTools device mode), 768
 ## S5. Keyboard and screen reader (US2; FR-005, FR-008)
 
 On one page per app, in both schemes. **Expected**: focus starts in the username field; Tab goes
-username → password → Show → Sign In; every focus ring is clearly visible on the card, in the
+username → password → Show → Sign In → Pause animation; every focus ring is clearly visible on the card, in the
 app's accent; Show reveals the password; Enter submits. With VoiceOver: the page title and the one
 heading name the app; after a wrong password, the focused field reads the message out; neither
 the background nor the "QUEUEPASS" header is announced.
@@ -101,6 +101,18 @@ shade, the same header and card, every text and control readable; signing in wor
 Sign in to each front end on its new page, use it briefly, and sign out. **Expected**: as before;
 signing in takes the same steps as before `027`.
 
+## S9. The lines pulse, and pause (FR-013, SC-007)
+
+1. Open each app's page. **Expected**: the lines glow gently up to full strength and back, about
+   every 4 s, with no flash; nothing else moves. A small "Pause animation" button sits at the
+   bottom right of the page, on its own dark panel.
+2. Tab past Sign In to the button and press Enter. **Expected**: the lines stop; the button reads
+   "Play animation". Reload. **Expected**: still paused. Press it again. **Expected**: the lines
+   pulse again.
+3. Turn on reduced motion (system settings, or DevTools → Rendering → `prefers-reduced-motion:
+   reduce`) and reload. **Expected**: nothing moves, at the dim level; no button.
+4. Turn off JavaScript and reload. **Expected**: nothing moves; no button; signing in still works.
+
 ## Tests that run without a browser
 
 - `npm test` (CI): the shared theme's tokens, the backdrop's contrast, and the drift check with the
@@ -126,3 +138,4 @@ manual. `npm test` checks this table against `e2e/tests`.
 | S6 | Automated: `027 S6: with the stones image blocked, the sign-in page stays readable`; rest Manual: signing in with the image blocked, by hand |
 | S7 | Manual: needs Keycloak's image outside the repository; the generator is covered by `scripts/seed`'s tests |
 | S8 | Manual: sign in, use, and sign out of each front end, by hand |
+| S9 | Automated: `027 S9: the lines pulse, and the pause button stops them, is remembered, and is gone under reduced motion`; rest Manual: JavaScript turned off, and the pulse looked at by eye |

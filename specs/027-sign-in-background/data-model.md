@@ -11,10 +11,10 @@ is files in the repository.
 
 | Token | Value | Use (research) |
 | --- | --- | --- |
-| `--stone-base` | `#3a3a3a` | Page color under the stones; the fallback (R4, FR-009) |
+| `--stone-base` | `#3a3a3a` | Page color under the stones; the fallback (R4, FR-009); the pause button's panel (R10) |
 | `--stone-scrim` | `rgb(0 0 0 / 60%)` | The shade behind the header and the card (R5) |
-| `--stone-text` | `#ffffff` | The realm header on the backdrop |
-| `--stone-accent` | `#8b85f5` | The lines (Admin, and pages with no app) |
+| `--stone-text` | `#ffffff` | The realm header on the backdrop; the pause button's text (R10) |
+| `--stone-accent` | `#8b85f5` | The lines and the pause button's ring (Admin, and pages with no app) |
 | `--stone-accent-tickets` | `#2dd4bf` | The lines (Customer app) |
 | `--stone-accent-booth` | `#fbbf24` | The lines (Ticket Booth app) |
 
@@ -51,7 +51,7 @@ and are the same in both schemes (FR-003, FR-007).
 | --- | --- |
 | Size | 1920×1080, the same as Keycloak's `keycloak-bg.png` |
 | Format | 8-bit grey and alpha PNG; grey 255 wherever alpha is above 0 |
-| Alpha | 160 of 255 (about 63%, Mahdi's choice from the T010 previews) on the edges between facets (flat regions of at least `minArea`, 64 px) whose greys differ by at least `MIN_STEP` (1), 2 px wide, with a 1 px softened edge at half that (80); clear elsewhere |
+| Alpha | 255 on the edges between facets (flat regions of at least `minArea`, 64 px) whose greys differ by at least `MIN_STEP` (1), 2 px wide, with a 1 px softened edge at half that (128); clear elsewhere. The page shows it at opacity 0.6275 at rest (160 and 80, the dim look Mahdi chose in T010) and pulses it to 1 (R10) |
 | Text chunk | One, `Source`: the input (`keycloak-bg.png`, Keycloak 26.0.8, SHA-256 `0825175291be11f7689e8718295e422bb6fa4f8fefccc5610292b720c701ac4e`) and the generator settings. The license is in `NOTICE` and `LICENSE-keycloak.txt`, not in the PNG |
 | Made by | `npm run stone-lines --workspace @queuepass/seed -- <keycloak-bg.png>`; `--check` confirms the committed file has the same decoded pixels and text chunk as a fresh run (bytes may differ between machines) |
 
