@@ -42,7 +42,8 @@ is shared surface, so every team member approves this PR.
 ### Session 2026-11-02
 
 Mahdi took the decisions marked "decided by Mahdi" (he previewed the options on the running stack).
-The questions they leave open are answered in the clarify step that follows.
+Every other question below took the recommended answer, written unattended and recorded here as
+**recommended answer, open to review**, so the team can overturn it in review of the spec PR.
 
 - Q: Which background? → A: **Keycloak's own stones image**, the one its stock sign-in page shows,
   served by Keycloak from its own theme. QueuePass keeps no copy of it (decided by Mahdi) (FR-001,
@@ -57,6 +58,31 @@ The questions they leave open are answered in the clarify step that follows.
   the tab title, the audience line, the accent on the Sign In button and on focus rings, the
   wrong-password message read out by assistive technology, phone width, and keyboard use (decided by
   Mahdi) (FR-005, FR-008).
+- Q: How do text and controls stay readable over the stones? → A: **A darkening shade behind the
+  column the form sits in**, strong enough that the contrast targets hold over the lightest stone
+  and the brightest line the page can show, fading out towards the sides of a wide window so the
+  stones and lines beside the form show at full strength. The shade has no edge, border, or box, so
+  it is not a card (recommended answer, open to review) (FR-004, FR-006).
+- Q: Which contrast targets, and where? → A: **WCAG 2.1 AA everywhere the form can sit**: 4.5:1 for
+  every piece of text, and 3:1 for each text field's boundary and each focus ring, against the
+  lightest and the darkest point of the background behind them, at every window size, in light and
+  dark schemes (recommended answer, open to review) (FR-006, SC-002).
+- Q: Light and dark schemes? → A: **The background is dark in both**, so the text on it is light in
+  both. The controls (text fields, buttons, notices) still follow the scheme as in `021`
+  (recommended answer, open to review) (FR-007).
+- Q: The light scheme's accents are dark (indigo, teal, amber at their light-scheme shades); a focus
+  ring in them is too dark against the darkest stones. → A: **Focus rings drawn over the stones use
+  the app's accent in its lighter shade** (the dark scheme's value) in both schemes. The Sign In
+  button and the lines between the stones keep the scheme's accent (recommended answer, open to
+  review) (FR-006).
+- Q: Keep `021`'s accent band at the top and the brand mark? → A: **Yes**, unchanged (`021`
+  FR-006); the issue does not ask to drop them (recommended answer, open to review).
+- Q: What if the stones cannot be shown (Keycloak stops shipping the image, or it fails to load)? →
+  A: **The page is a plain dark stone grey with the same light text**, still meeting the contrast
+  targets; a test catches a changed or missing image (recommended answer, open to review) (FR-009,
+  FR-010).
+- Q: Does anything move? → A: **No.** The background is still: no animation, no parallax
+  (recommended answer, open to review) (FR-013).
 
 ## User Scenarios & Testing *(mandatory)*
 
