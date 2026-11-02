@@ -69,7 +69,11 @@ test('026 S2: a customer over the hold limit sees a countdown and keeps their se
   // Step 4: another seat, at once, within the wait: refused for the limit.
   await seats.getByRole('button', { name: 'Row 1, Seat 2', exact: true }).click();
   await reserve.click();
-  const message = tickets.getByText(/^Too many tries\. You can try again in \d+ seconds?\.$/);
+  // The visible banner; a visually hidden live region carries the same words for screen readers
+  // (review M2), so the text alone matches twice.
+  const message = tickets.locator('p.banner', {
+    hasText: /^Too many tries\. You can try again in \d+ seconds?\.$/,
+  });
   await expect(message).toBeVisible();
   const n = Number((await message.textContent())?.match(/\d+/)?.[0]);
   expect(n).toBeGreaterThanOrEqual(1);
