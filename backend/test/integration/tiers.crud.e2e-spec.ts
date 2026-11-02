@@ -142,10 +142,10 @@ describe('Ticket tier CRUD', () => {
 
   // Issue #117: `@IsOptional` let a null through to the database, a 500 (as #36 for venues).
   it.each([
-    ['a null name', { name: null }, /name/],
-    ['a null price', { price: null }, /price/],
-    ['a null quantity', { quantity: null }, /quantity/],
-    ['a null name beside a valid price', { name: null, price: '1.00' }, /name/],
+    ['a null name', { name: null }, /^name /],
+    ['a null price', { price: null }, /^price /],
+    ['a null quantity', { quantity: null }, /^quantity /],
+    ['a null name beside a valid price', { name: null, price: '1.00' }, /^name /],
   ])('refuses %s on an edit with VALIDATION_FAILED, tier unchanged', async (_l, body, field) => {
     const { body: tier } = await asAdmin(ctx)
       .post(tiers())
@@ -154,7 +154,10 @@ describe('Ticket tier CRUD', () => {
     const before = await ctx.prisma.ticketTier.findUniqueOrThrow({ where: { id: tier.id } });
     const res = await asAdmin(ctx).patch(`${tiers()}/${tier.id}`).send(body).expect(400);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
-    expect(JSON.stringify(res.body.error.details?.fields)).toMatch(field);
+    // Every message is about the one field sent as null (review M3).
+    const fields: string[] = res.body.error.details?.fields ?? [];
+    expect(fields.length).toBeGreaterThan(0);
+    for (const message of fields) expect(message).toMatch(field);
     expect(await ctx.prisma.ticketTier.findUniqueOrThrow({ where: { id: tier.id } })).toEqual(
       before,
     );
@@ -166,7 +169,9 @@ describe('Ticket tier CRUD', () => {
       .send({ name: 'VIP', price: '120.00', quantity: null })
       .expect(400);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
-    expect(JSON.stringify(res.body.error.details?.fields)).toMatch(/quantity/);
+    const fields: string[] = res.body.error.details?.fields ?? [];
+    expect(fields.length).toBeGreaterThan(0);
+    for (const message of fields) expect(message).toMatch(/^quantity /);
     expect(await ctx.prisma.ticketTier.count()).toBe(0);
   });
 });

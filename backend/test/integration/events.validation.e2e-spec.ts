@@ -80,19 +80,22 @@ describe('Event field validation', () => {
 
   // Issue #117: `@IsOptional` let a null through, to the database (a 500) or silently ignored.
   it.each([
-    ['a null name', { name: null }, /name/],
-    ['a null locationId', { locationId: null }, /locationId/],
-    ['a null startsAt', { startsAt: null }, /startsAt/],
-    ['a null endsAt', { endsAt: null }, /endsAt/],
-    ['a null totalTicketCapacity', { totalTicketCapacity: null }, /totalTicketCapacity/],
-    ['a null basePrice', { basePrice: null }, /basePrice/],
-    ['a null name beside a valid price', { name: null, basePrice: '50.00' }, /name/],
+    ['a null name', { name: null }, /^name /],
+    ['a null locationId', { locationId: null }, /^locationId /],
+    ['a null startsAt', { startsAt: null }, /^startsAt /],
+    ['a null endsAt', { endsAt: null }, /^endsAt /],
+    ['a null totalTicketCapacity', { totalTicketCapacity: null }, /^totalTicketCapacity /],
+    ['a null basePrice', { basePrice: null }, /^basePrice /],
+    ['a null name beside a valid price', { name: null, basePrice: '50.00' }, /^name /],
   ])('rejects %s on an edit with VALIDATION_FAILED, event unchanged', async (_l, body, field) => {
     const created = await asAdmin(ctx).post('/events').send(base()).expect(201);
     const before = await ctx.prisma.event.findUniqueOrThrow({ where: { id: created.body.id } });
     const res = await asAdmin(ctx).patch(`/events/${created.body.id}`).send(body).expect(400);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
-    expect(JSON.stringify(res.body.error.details?.fields)).toMatch(field);
+    // Every message is about the one field sent as null (review M3).
+    const fields: string[] = res.body.error.details?.fields ?? [];
+    expect(fields.length).toBeGreaterThan(0);
+    for (const message of fields) expect(message).toMatch(field);
     expect(await ctx.prisma.event.findUniqueOrThrow({ where: { id: created.body.id } })).toEqual(
       before,
     );
