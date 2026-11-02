@@ -192,62 +192,53 @@ linear-gradient(to right,
 ```
 
 `--stone-scrim` is black at 60%. The shade is at full strength across a centered band 560 px wide
-(the form's column is at most 400 px plus 16 px of padding a side, so at most 432 px), fades over
+(it was sized for a form on the stones at most 432 px wide; since implementation session 2 it sits
+behind the realm header, at most about 230 px wide, and the 500 px card), fades over
 120 px on each side, and is clear beyond 400 px from the center. So **on a window 800 px wide or
 wider, the stones and lines beyond the fade are at full strength** (FR-004, US2 AS6); on a narrower
 window the fade runs off the edges, and below 560 px the whole width is at full strength. It runs
 the window's full height.
 
-**Worst case** (FR-006): the backdrop behind the form, under the full shade, lies between pure
-black (the darkest stone) and the lighter of the lightest stone (`#898989`) and the page's line
-color at full strength (as if the mask were opaque). The lines are drawn at about 63% (T010),
-which only darkens them, so the figures below bound the backdrop from above and every contrast from
-below: with the 63% lines the Booth's brightest line under the shade is `#53441d`, and the lowest
-figures rise to 9.44 (text), 6.40 (muted text and field edges), 6.52 (danger), and 3.74 / 5.34 /
-5.65 (Admin / Tickets / Booth rings). The lines are the lighter accents in both schemes
-(`#8b85f5`, `#2dd4bf`, `#fbbf24`; Clarifications, decision b), so the backdrop, and every figure
-below, is the same in both schemes. Under 60% black, the lightest stone is `#373737`; the brightest
-line is the Booth's amber, `#644c0e`. The fallback grey `--stone-base` (`#3a3a3a`) under the shade is
-`#171717`.
+**Worst case** (FR-006): since Mahdi brought the card back (spec Clarifications, implementation
+session 2), the only text on the stones is the realm header ("QUEUEPASS", 29 px capitals, centred
+above the card, about 230 px wide), always inside the full-strength band. The stones behind it,
+under the full shade, lie between pure black (the darkest stone) and the lighter of the lightest
+stone (`#898989`) and the page's line color at full strength (as if the mask were opaque). The lines
+are drawn at about 63% (T010), which only darkens them, so the figures below bound the backdrop from
+above and every contrast from below (with the 63% lines the Booth's brightest line under the shade is
+`#53441d`, and the header's lowest figure rises to 9.44). The lines are the lighter accents in both
+schemes (`#8b85f5`, `#2dd4bf`, `#fbbf24`; Clarifications, decision b), so the backdrop, and the
+figure below, is the same in both schemes. Under 60% black, the lightest stone is `#373737`; the
+brightest line is the Booth's amber, `#644c0e`. The fallback grey `--stone-base` (`#3a3a3a`) under
+the shade is `#171717`.
 
-**Colors drawn on the backdrop** (R6) and their lowest contrast over all of those backgrounds, in
+**The color drawn on the backdrop** (R6) and its lowest contrast over all of those backgrounds, in
 either scheme, computed with the `012` contrast test's formula (the lower of compositing in exact
 values and in rounded 8-bit values, which differ by at most 0.05):
 
 | What | Token | Value | Lowest (app) | Target |
 | --- | --- | --- | --- | --- |
-| Heading, labels, page text, links | `--stone-text` | `#ffffff` | 8.08 (Booth) | 4.5 |
-| Audience line, required-fields note | `--stone-text-muted` | `#d0d5dd` | 5.48 (Booth) | 4.5 |
-| Wrong-password message, the `*` | `--stone-danger` | `#fecaca` | 5.59 (Booth) | 4.5 |
-| Lines and focus rings (Admin / Tickets / Booth) | `--stone-accent`, `-tickets`, `-booth` | `#8b85f5` / `#2dd4bf` / `#fbbf24` | 3.65 / 4.64 / 4.84 | 3 (rings) |
-| Text field edge | `--stone-text-muted` | `#d0d5dd` | 5.48 (Booth) | 3 |
-| Text field fill (light scheme) | shared `--surface` | `#ffffff` | 8.08 (Booth) | 3 |
+| The realm header | `--stone-text` | `#ffffff` | 8.08 (Booth) | 4.5 |
 
-The text inside the fields, the buttons, and the notices is on their own fills, which `021` and
-`012`'s contrast tests already cover in both schemes. A button is identified by its text, so its
-fill needs no contrast with the backdrop (WCAG 1.4.11); a text field has no text until typed in, so
-its edge does. Every control's focus ring (each text field, Show, Sign In, each link) is drawn in
-the app's `--stone-accent` (R7).
+Everything else is on the card, in the shared theme's colors, which `012`'s and `021`'s contrast
+tests already cover in both schemes (text on `--surface`, field edges in `--border-strong`, focus
+rings in each app's `--accent` on `--surface`). The card's own edge against the stones needs no
+contrast: a container's edge is not a control boundary (WCAG 1.4.11).
 
 Why these numbers:
 
-- **60%** is the lightest shade at which every row passes. At 50%, the Booth's muted text falls to
-  3.99–4.02 and the Admin ring to 2.88–2.91. A darker shade passes too but hides the stones behind
-  the form: at 78%, the lightest stone behind the form is `#1e1e1e`.
-- **The lighter accents, for the rings and the lines**: the light scheme's accents against the
-  lightest backdrop (`#373737`) are 1.89 (indigo), 2.17 (teal), and 2.37 (amber), under 3:1, and as
-  lines they barely show on the near-black stones. So neither the rings nor the lines use them; the
-  light scheme's accent stays on the Sign In button, which sits on its own fill.
-- **The field edge** needs a backdrop color: in the dark scheme, neither the shared `--border-strong`
-  (`#6f7887`) nor the field's fill (`#171a21`) reaches 3:1 next to a line under the shade (as low as
-  2.01:1 next to a Tickets line). The muted text color passes as an edge with room to spare, so it
-  serves for both (no separate edge token).
+- **60%** was the lightest shade at which every row passed when the form sat on the stones (at 50%,
+  the Booth's muted text fell to 3.99–4.02). For the header alone, 50% would pass (white over the
+  Booth's line at full strength under 50% black is about 5.9:1), but the shade is kept unchanged (recommended answer,
+  open to review): it is already tested, and it keeps the header and the card's surroundings calm.
+- **The lighter accents, for the lines**: the light scheme's accents barely show on the near-black
+  stones, so the lines use the lighter ones in both schemes.
 
 **Rationale**: FR-004 allows a shade with no edge and asks for the stones at full strength beside
-the form; a band at full strength only where text can be, with a fade of fixed width, keeps the
-most of the stones visible on wide windows. Every point text can sit on is inside the full-strength
-band at every width (the column is centered and at most 432 px wide), so the table holds everywhere
-(SC-002), and the browser test (R8) checks the rendered pages rather than trusting the arithmetic.
+the header and the card; a band at full strength only where the header can be, with a fade of fixed
+width, keeps the most of the stones visible on wide windows. The header is centred and narrower than
+the band at every width, so the table holds everywhere (SC-002), and the browser test (R8) checks the
+rendered pages rather than trusting the arithmetic.
 
 **Alternatives considered**:
 
@@ -267,13 +258,16 @@ band at every width (the column is centered and at most 432 px wide), so the tab
 | Token | Value | Use |
 | --- | --- | --- |
 | `--stone-base` | `#3a3a3a` | The page color under the stones (FR-009) |
-| `--stone-scrim` | `rgb(0 0 0 / 60%)` | The shade behind the form's column (R5) |
-| `--stone-text` | `#ffffff` | Text on the backdrop |
-| `--stone-text-muted` | `#d0d5dd` | The audience line, the required-fields note, text field edges |
-| `--stone-danger` | `#fecaca` | The wrong-password message and the required `*` |
-| `--stone-accent` | `#8b85f5` | The lines and the focus rings: the shared accent's lighter shade |
+| `--stone-scrim` | `rgb(0 0 0 / 60%)` | The shade behind the header and the card (R5) |
+| `--stone-text` | `#ffffff` | The realm header on the backdrop |
+| `--stone-accent` | `#8b85f5` | The lines: the shared accent's lighter shade |
 | `--stone-accent-tickets` | `#2dd4bf` | The same for the Customer app |
 | `--stone-accent-booth` | `#fbbf24` | The same for the Ticket Booth app |
+
+Six tokens. Until implementation session 2 there were eight: `--stone-text-muted` (`#d0d5dd`) and
+`--stone-danger` (`#fecaca`) colored the audience line, the field edges, and the error text on the
+stones, and `--stone-accent` also colored the focus rings; with the card back, all of that is on the
+card in the shared colors, so the two tokens are removed and the rings return to `--accent`.
 
 The per-app rules in `login.css` gain a seventh role:
 `.qp-app--customer-app { …; --stone-accent: var(--stone-accent-tickets); }` and the same for
@@ -287,9 +281,8 @@ schemes (FR-003, FR-007).
 contrast tests; the sign-in look already works this way (`021` research R4). The values are the
 same in both blocks because the backdrop is dark in both schemes (FR-007). The three accent shades
 equal the dark scheme's `--accent`, `--accent-tickets`, and `--accent-booth` today, but they are a
-separate role: a later change to the dark scheme's accents should not silently move the lines and
-rings on the stones, whose contrast test is separate. The field edge shares the muted text color
-(review finding 14): one token fewer, and the edge still clears 3:1 with room.
+separate role: a later change to the dark scheme's accents should not silently move the lines on
+the stones.
 
 **Alternatives considered**: writing the colors in `login.css` (the drift test forbids it, rightly);
 reusing the dark scheme's tokens by forcing the dark scheme on the sign-in pages (the dark set lives
@@ -298,54 +291,60 @@ the scheme, which `021` FR-012 and FR-007 here keep); the lines in `var(--accent
 the backdrop would differ between schemes, against FR-007, and the light scheme's lines would barely
 show).
 
-## R7. The page frame: no card, colors on the stones
+## R7. The page frame: Keycloak's card and its header, styled from the shared theme
 
-**Decision**:
+**Decision** (spec Clarifications, implementation session 2; the first decision, no card, is
+superseded):
 
-- `template.ftl`: the `.qp-stones` element (R4); the `<div class="card card--padded qp-card">` around
-  the form becomes `<div class="qp-form">` (no shared card class, FR-004). Everything else in the
-  frame stays: the band, the brand mark, the one `<h1>`, the audience line, the page's own header as
-  `<h2>`, the message banners, the body class (`021` R3, R9). `login.ftl` is unchanged.
+- **Keycloak's original**, read from Keycloak 26.0.8's themes jar
+  (`theme/keycloak/login/resources/css/login.css`): `#kc-header-wrapper` is the realm's name, 29 px,
+  uppercase, letter-spacing 3 px, line-height 1.2em, padding 62 px 10 px 20 px, `#ededed`, centred;
+  `.card-pf` is centred, `max-width: 500px`, with a large shadow and `border-top: 4px solid` in the
+  primary color. On a phone (under 768 px) Keycloak drops the stones for white and the card's edge;
+  QueuePass keeps the stones and the card's edge at every width (FR-001).
+- `template.ftl`: the `.qp-stones` element (R4); then `021`'s band; then, in `main`, the realm header
+  `<div class="qp-realm" aria-hidden="true">${realm name}</div>` (decoration, not a heading: the
+  app's name stays the one `<h1>`), and the card `<div class="card qp-card">` holding everything that
+  was in `021`'s card: the brand mark, the `<h1>`, the audience line, the page's own header as
+  `<h2>`, the message banners, the form. `login.ftl` is unchanged.
 - `login.css`:
-  - `body { color: var(--stone-text); background: var(--stone-base); }`; `.qp-form` keeps the
-    card's width and padding (max 400 px) with no background, border, radius, or shadow.
-  - On the backdrop only: `.qp-audience` and `.qp-required` in `--stone-text-muted`;
-    `.qp-field-error` and `.qp-required .required` in `--stone-danger`; the form's labels
-    (`#kc-form-login label`, since the shared `.field label` is `var(--text)`) and the attempted
-    username in `--stone-text`; links that are not inside a notice (`a:not(.banner a)`) in
-    `--stone-text`, underlined, since the shared link color is the scheme's accent. Links inside
-    notices keep the shared colors, which `021`'s contrast test covers on the notices' fills.
-  - Text fields: `#kc-form-login input:not(:focus):not(:hover)` take
-    `border-color: var(--stone-text-muted)`; the shared hover state is left as it is.
-  - Focus indicators, every control on the backdrop:
-    - `#kc-form-login input:focus-visible { outline: 3px solid var(--stone-accent); outline-offset:
-      2px; }`. The shared `input:focus` rule removes the outline and shows the focus as an accent
-      edge and a soft glow on the field's own fill; that edge is fine against the fill, but nothing
-      in it is measured against the stones, so the fields get the same ring as every other control.
-    - `:focus-visible { outline-color: var(--stone-accent); }` for the Show button, the Sign In
-      button (`021`'s `#kc-login:focus-visible` rule), and links: 3 px, offset 2 px, as the shared
-      rule.
+  - `body { background: var(--stone-base); }`; the text color stays the shared `--text`.
+  - `.qp-realm`: `--stone-text`, 29 px, uppercase, letter-spacing 3 px, line-height 1.2, centred,
+    with the space above it from the theme's steps (`--space-8` twice, about Keycloak's 62 px).
+  - `.qp-card`: the shared `.card` (surface, border, radius), `max-width: 500px`, centred, padding
+    `--space-8`, the shared `--shadow-lg`, and `border-top: 4px solid var(--accent)`, the app's accent
+    through `021`'s per-app roles, in the scheme's shade.
+  - Inside the card, the shared colors as in `021`: `.qp-audience` and `.qp-required` in
+    `--text-muted`, `.qp-field-error` and the required `*` in `--danger`, labels and links shared.
+  - Focus rings: the shared ring (`:focus-visible`, 3 px `--accent`, offset 2 px). The shared
+    `input:focus` rule removes a ring from every input, which `021` gave back to Sign In only; found
+    in T022, Keycloak's logout confirmation has its own submit input (`#kc-logout`) with no ring, so
+    `.qp-card input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }` gives
+    every input in the card the ring (FR-006, FR-008).
   - The `.qp-banner--info` rule and the notices' own colors are unchanged.
 - Nothing in `theme.properties` changes: `styles=css/theme.css css/login.css` already loads both.
 
-**Rationale**: the issue's "keep everything `021` added" with the least change to the frame; every
-text and ring that sits on the backdrop gets a backdrop color (R6), and nothing that sits on its own
-fill changes. `login.css` is the sign-in look's own stylesheet, so restyling the label and field
-colors there does not touch the apps (FR-012).
+**Rationale**: Mahdi's choice, Keycloak's own look with QueuePass's colors: the card is the shared
+theme's card, so it follows the scheme, and every color on it is already under the shared contrast
+tests; the only text left on the stones is the header, which gets the one light token. `login.css` is
+the sign-in look's own stylesheet, so nothing here touches the apps (FR-012).
+
+**Alternatives considered**: no card, the form on the stones in light text (the first decision,
+implemented and shown to Mahdi, who reversed it); the header as a heading (it would be a second
+top-level name on the page, against `021` FR-001's one heading).
 
 ## R8. Tests
 
 **Decision**:
 
 - **Shared** (CI, `packages/shared/test/theme/`):
-  - `tokens.test.ts`: the eight tokens, with R6's values, in both blocks; used by no rule in
-    `theme.css` outside the token blocks.
+  - `tokens.test.ts`: the six tokens, with R6's values, in both blocks, and no other `--stone-*`;
+    used by no rule in `theme.css` outside the token blocks.
   - `contrast.test.ts`, "the sign-in backdrop (spec 027)": the backdrop colors over R5's worst cases,
     computed from the theme: for each app, the backgrounds are black, the lightest stone, the app's
     `--stone-accent[-<app>]` (the line color), and `--stone-base`, each under `--stone-scrim`;
-    `--stone-text`, `--stone-text-muted`, and `--stone-danger` at 4.5:1 or more; the app's
-    `--stone-accent[-<app>]` (rings) and `--stone-text-muted` (field edges) at 3:1 or more; the light
-    scheme's `--surface` (the field fill) at 3:1 or more. The tokens are the same in both blocks, so
+    `--stone-text` (the realm header) at 4.5:1 or more. Everything on the card is covered by the
+    shared theme's existing contrast tests. The tokens are the same in both blocks, so
     one pass covers both schemes, plus an assertion that they are the same. The image's lightest and
     darkest greys (`#898989`, `#000000`) are constants in the test, citing R2; the live and browser
     tests (below) keep them true by checking the image's SHA-256.
@@ -356,7 +355,10 @@ colors there does not touch the apps (FR-012).
 - **Seed, theme files** (CI, `scripts/seed/test/login-theme-files.test.ts`): `login.css` loads
   `../../keycloak/img/keycloak-bg.png` and `../img/stone-lines.png`, has the forced-colors rule of
   R4, and no `animation` or `transition` in any `.qp-stones` rule (FR-013); `template.ftl` has
-  `<div class="qp-stones" aria-hidden="true">` as `<body>`'s first child and no `card` class;
+  `<div class="qp-stones" aria-hidden="true">` as `<body>`'s first child, the realm header
+  (`.qp-realm`, `aria-hidden`, not a heading) and then the card (`card qp-card`) in `main`; the card
+  is at most 500 px wide with a 4 px top edge in `var(--accent)`, the header in `--stone-text`, and
+  every input in the card gets the shared ring;
   `stone-lines.png` (decoded with `fast-png`) is 1920×1080 grey and alpha, grey 255 wherever its
   alpha is not 0, with alpha above 0 on between 2% and 15% of pixels, and a `Source` chunk naming
   the source SHA-256; `NOTICE` and `LICENSE-keycloak.txt` exist and say what R3 says; no file under
@@ -369,7 +371,8 @@ colors there does not touch the apps (FR-012).
   repository root.
 - **Seed, live Keycloak** (`scripts/seed/test/sign-in-screens.test.ts`, skipped with its reason
   without Keycloak, as `021`): for each client and for the account console and the no-client page,
-  the page has the `.qp-stones` element; from the page's `login.css` link, the stones image's URL
+  the page has the `.qp-stones` element, the realm header, and the card; from the page's
+  `login.css` link, the stones image's URL
   answers `200 image/png` with the recorded SHA-256 (FR-010), and the lines image's URL answers
   `200 image/png`.
 - **Browser tests** (`e2e/tests/027-sign-in-background.spec.ts`, the CI `e2e` job, against the
@@ -380,24 +383,30 @@ colors there does not touch the apps (FR-012).
     it has `naturalWidth` 1920; the `::before` layer's computed `background-color` equals the
     computed `color` of a probe element styled `color: var(--stone-accent)` in the same page (so the
     comparison is between two resolved colors, not token strings), in both schemes; its `mask-image`
-    names `stone-lines.png`; no `.card` in the page.
+    names `stone-lines.png`; one `.qp-card`, at most 500 px wide, whose 4 px top edge is the
+    computed color of a probe styled `var(--accent)`, in each scheme; the `.qp-realm` header reads
+    the realm's name in capitals, is hidden from assistive technology, and the page has one `<h1>`.
   - `027 S3: …`: one test (the quickstart check allows one titled test per scenario row), with
     `test.setTimeout(10 * 60_000)` and a `test.step` per app, scheme, and size. It visits 60 page
     states (3 apps × 2 schemes × 5 sizes × 2 pages), about 3–5 s each, so it should take about 5
     minutes on one of CI's two e2e workers, while the other worker runs the rest of the suite. For each app, light and dark
     (`page.emulateMedia`), at 360×800, 768×1024, 1280×800, 1920×1080, and 2560×1440, on the first page
     and after a wrong password:
-    - record each visible text element's box and computed color (scrolled into view first, since at
-      360×800 the form can be taller than the window), each text field's box and edge color (and fill
-      in the light scheme), and each control's focus ring: Tab through every control (username,
-      password, Show, Sign In, and each link) and record its box and computed `outline-color`;
-    - hide the page's content (`visibility: hidden` on `main` and the band, and nothing else) and
-      screenshot the window at that scroll position: that is the backdrop alone; decode it in a blank
-      page (`createImageBitmap` and a canvas, so the test needs no image library);
-    - text: 4.5:1 or more against the lightest and darkest backdrop pixel in its box; field edges:
-      3:1 or more against the lightest and darkest pixel in a 3 px ring around the box; focus rings:
-      3:1 or more against the lightest and darkest pixel where the ring is drawn (2–5 px outside the
-      box) and next to it (5–8 px outside);
+    - record the realm header's box and color, each visible text element's box and computed color in
+      the card (scrolled into view first, since at 360×800 the card can be taller than the window),
+      each text field's box and edge color, and each control's focus ring: Tab through every control
+      (username, password, Show, Sign In, and each link) and record its box and computed
+      `outline-color`;
+    - two screenshots of the window, decoded in a blank page (`createImageBitmap` and a canvas, so
+      the test needs no image library): the backdrop alone (`visibility: hidden` on `main` and the
+      band), and the card alone (the band, the header, and everything inside the card hidden, the
+      card itself shown). The backdrop and the card do not move with the page's scroll position
+      relative to the measured boxes, which are read at the same scroll position;
+    - the header: 4.5:1 or more against the lightest and darkest backdrop pixel in its box; the card's
+      text: 4.5:1 or more against the lightest and darkest card pixel in its box; field edges: 3:1 or
+      more against the lightest and darkest card pixel in a 3 px ring around the box; focus rings:
+      3:1 or more against the lightest and darkest card pixel where the ring is drawn (2–5 px outside
+      the box) and next to it (5–8 px outside);
     - at 360 px, `scrollWidth <= innerWidth`;
     - at 1920×1080, the full-strength-beyond-the-fade check (FR-004): screenshot the backdrop again
       with the shade hidden (an injected `.qp-stones::after { display: none }`); the pixels more than

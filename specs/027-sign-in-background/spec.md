@@ -13,7 +13,8 @@ Keycloak's stone background, with each app's colour in the cracks)
 amendment, Constitution 3.7.0). From the issue: bring back Keycloak's low-poly "stones" background
 on every sign-in page, for all three apps; the stones stay grey and the lines between them take the
 app's accent; no card, the form sits straight on the stones with light text; keep everything `021`
-added; still meet `021`'s usability targets on the stones.
+added; still meet `021`'s usability targets on the stones. (Changed in implementation: Mahdi brought
+back Keycloak's card and its realm-name header, see Clarifications, implementation session 2.)
 
 ## Context
 
@@ -28,9 +29,9 @@ Keycloak's stock sign-in page showed a background of grey low-poly "stones", lig
 and near black at the bottom right, with no color between them.
 
 This feature puts the stones back behind every sign-in page and draws the lines between the stones
-in the app's accent, so the stones themselves say which app this is. The card goes: the form sits on
-the stones with light text, as on Keycloak's original page. Everything else `021` gave the pages
-stays.
+in the app's accent, so the stones themselves say which app this is. As on Keycloak's original page,
+the form sits on a card on the stones, with the realm's name in large capitals above it; the card is
+styled from the shared theme and follows the scheme. Everything else `021` gave the pages stays.
 
 Principle VII says no effort goes into decoration, and a background is decoration. This PR amends
 it (3.7.0, MINOR) to widen the sign-in exception to Keycloak's stock background with the app's
@@ -54,7 +55,8 @@ Every other question below took the recommended answer, written unattended and r
   previewed; the lines were chosen (decided by Mahdi) (FR-003). The shade of the accent is settled
   below (spec review).
 - Q: Keep the card behind the form? → A: **No card.** The form sits straight on the stones with
-  light text, like Keycloak's original page (decided by Mahdi) (FR-004).
+  light text, like Keycloak's original page (decided by Mahdi) (FR-004). **Reversed** in
+  implementation: see the implementation session 2 below.
 - Q: What stays from `021`? → A: **All of it**: the app's name as the one top-level heading and in
   the tab title, the audience line, the accent on the Sign In button and on focus rings, the
   wrong-password message read out by assistive technology, phone width, and keyboard use (decided by
@@ -106,16 +108,46 @@ three apps (tasks T010).
   line between the stones. Dimmer lines only darken the brightest point of the backdrop, so every
   contrast figure of research R5 still holds, with room (decided by Mahdi) (FR-003, FR-006).
 
+### Session 2026-11-02 (implementation, session 2)
+
+Mahdi saw the pages with no card and reversed that decision.
+
+- Q: Card or no card? → A: **Keycloak's card is back**, modelled on Keycloak 26.0's stock `keycloak`
+  login theme (`.card-pf`: centred, at most 500 px wide, with a 4 px top edge in the primary color),
+  styled from the shared theme: the shared surface, text, field, and focus-ring colors, so the card
+  follows the light or dark scheme; its top edge is in the app's accent. The brand mark, the app's
+  name as the one `<h1>`, the audience line, the page's own header, notices, and the form all sit in
+  the card. `021`'s accent band at the top of the page stays (decided by Mahdi) (FR-004, FR-005).
+- Q: Anything above the card? → A: **The realm's name in large capitals**, on the stones above the
+  card, as Keycloak's original `#kc-header-wrapper` ("QUEUEPASS"). It is decoration, hidden from
+  assistive technology, not a heading: the app's name stays the one `<h1>` and the tab title. It is
+  the only text on the stones, and it meets 4.5:1 there, on the shade, at every width (decided by
+  Mahdi) (FR-004, FR-006).
+- Q: What happens to the colors made for text on the stones? → A: Only the header's light text
+  (`--stone-text`) stays; the muted text, field edge, and error colors made for the stones
+  (`--stone-text-muted`, `--stone-danger`) go, since that text is now on the card. The focus rings
+  are in the card, so they return to the scheme's `--accent`; `--stone-accent` colors only the lines.
+  The shade stays as it is, behind the header and the card (recommended answer, open to review)
+  (research R5–R7).
+- Constitution (open, for the team): the card itself needs no change to Constitution 3.7.0 (it is
+  the shared theme's card, as in `021`). Two things do not match its words: roadmap row `027` says
+  "the form sits on the stones with no card", and Principle VII's sign-in exception says Keycloak's
+  background "is the only decoration allowed", while the "QUEUEPASS" header is decoration. Both need
+  an amendment (the row's wording, and the header added to the exception, a MINOR change) in a pull
+  request every team member approves, before the implementation PR merges (tasks T038).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Each App's Sign-in Shows the Stones in Its Own Color (Priority: P1)
 
 An admin opens the Admin app signed out. Keycloak's sign-in page fills the window with grey stones,
-lighter at the top left, with indigo lines between them. Over the stones, in light text, the page
-says "Sign in to QueuePass Admin", who the app is for, and asks for a username and password. On the
+lighter at the top left, with indigo lines between them. Over the stones, "QUEUEPASS" in large
+capitals; below it a card with an indigo top edge says "Sign in to QueuePass Admin", who the app is
+for, and asks for a username and password. On the
 booth laptop next to them, the Ticket Booth's sign-in page shows the same stones with amber lines.
 
-**Why this priority**: This is the issue: the stones back, the lines in the app's color, no card.
+**Why this priority**: This is the issue: the stones back, the lines in the app's color, and
+Keycloak's card on them.
 
 **Independent Test**: Start the stack, open each app signed out, and look at the page.
 
@@ -123,7 +155,8 @@ booth laptop next to them, the Ticket Booth's sign-in page shows the same stones
 
 1. **Given** the stack started from a clean clone, **When** someone opens the Admin app signed out,
    **Then** the sign-in page shows Keycloak's grey stones behind the whole page, with the lines
-   between the stones in the Admin accent (indigo), and the form on the stones with no card.
+   between the stones in the Admin accent (indigo), "QUEUEPASS" in large capitals on the stones, and
+   below it the form on a card with an indigo top edge.
 2. **Given** the same, **When** someone opens the Customer app signed out, **Then** the same stones
    show with teal lines; **and** the Ticket Booth app's page shows amber lines.
 3. **Given** any of the three pages, **When** it opens, **Then** the stones themselves stay grey;
@@ -143,8 +176,9 @@ A customer signs in on a phone in light mode, sitting in the sun; an admin signs
 monitor in dark mode with the keyboard. Both read every word, see every field, and see where the
 keyboard focus is, wherever the form lands on the stones.
 
-**Why this priority**: The stones run from mid grey to black and the lines are bright; light text
-on them is unreadable unless the page is built for it. `021`'s usability targets (Constitution VII:
+**Why this priority**: The stones run from mid grey to black and the lines are bright; text on
+them is unreadable unless the page is built for it, and the card must still meet the shared theme's
+targets. `021`'s usability targets (Constitution VII:
 usability work, not decoration) must still hold.
 
 **Independent Test**: Open each sign-in page at phone width and on a wide window, in light and dark
@@ -154,20 +188,22 @@ background behind it, and sign in with the keyboard only.
 **Acceptance Scenarios**:
 
 1. **Given** any sign-in page at any window size from 360 px wide up to 2560 px wide, in light or
-   dark scheme, **When** it opens, **Then** every piece of text (heading, audience line, labels, page
-   text, links, notices, the wrong-password message) meets 4.5:1 against the lightest and the
-   darkest point of the background behind it.
+   dark scheme, **When** it opens, **Then** the realm header on the stones meets 4.5:1 against the
+   lightest and the darkest point of the stones behind it, and every piece of text in the card
+   (heading, audience line, labels, page text, links, the wrong-password message) meets 4.5:1
+   against the lightest and the darkest point behind it in the card.
 2. **Given** the same, **When** it opens, **Then** each text field's boundary meets 3:1 against the
-   background next to it.
+   card next to it.
 3. **Given** the same, **When** someone moves through the page with the keyboard, **Then** the focus
-   ring on each control meets 3:1 against the background next to it, and focus moves username →
+   ring on each control meets 3:1 against the card next to it, and focus moves username →
    password → Show → Sign In as in `021`.
 4. **Given** a phone-width window (360 px wide), **When** any sign-in page opens, **Then** it needs no
    sideways scrolling and every control is usable.
-5. **Given** a wrong password, **When** the page comes back, **Then** the message is shown on the
-   stones in a readable color and read out by assistive technology, as in `021`.
+5. **Given** a wrong password, **When** the page comes back, **Then** the message is shown in the
+   card in a readable color and read out by assistive technology, as in `021`.
 6. **Given** a window 800 px wide or wider, **When** the page opens, **Then** the stones and lines
-   beyond the shade's fade show at full strength; only the column behind the form is darkened.
+   beyond the shade's fade show at full strength; only the column behind the header and the card
+   is darkened.
 
 ---
 
@@ -225,8 +261,8 @@ for the image; read the derived image's notice.
 ### Edge Cases
 
 - **The stones image cannot be loaded** (a Keycloak upgrade drops it, or the request fails): the
-  page is a plain stone grey, with the lines still drawn on it under the shade; every text and
-  control still meets FR-006 (FR-009).
+  page is a plain stone grey, with the lines still drawn on it under the shade; the header, the
+  card, and every text and control still meet FR-006 (FR-009).
 - **A browser that cannot draw the colored lines**: the stones show without lines; nothing else
   changes, and readability does not depend on the lines.
 - **Very wide, very tall, or portrait windows** (a 2560 px monitor, a phone held upright): the stones
@@ -257,27 +293,33 @@ for the image; read the derived image's notice.
   app and for pages with no QueuePass app, the Tickets accent for the Customer app, the Ticket Booth
   accent for the Ticket Booth app, all from the shared theme. The lines MUST sit on the edges between
   the stones at every window size and shape.
-- **FR-004**: There MUST be no card: no box, panel, border, or rounded surface behind the form. The
-  form's heading, text, and labels sit directly on the stones. A shade that darkens the stones behind
-  the form, with no visible edge, is allowed. It MUST fade out over a fixed width, and on a window
-  800 px wide or wider it MUST leave the stones and lines beyond that fade at full strength.
-- **FR-005**: Everything `021` requires of the sign-in pages MUST still hold, except the card and the
-  flat page color this feature replaces: the app's name as the one top-level heading and in the tab
+- **FR-004**: The form MUST sit on a card modelled on Keycloak 26.0's stock sign-in card: centred,
+  at most 500 px wide, with a 4 px top edge in the app's accent, in the shared theme's surface, so it
+  follows the scheme. The brand mark, the app's name as the one top-level heading, the audience line,
+  the page's own header, the notices, and the form are on the card. Above the card, on the stones,
+  the realm's name MUST show in large capitals, as Keycloak's original header; it is decoration,
+  hidden from assistive technology, and not a heading. A shade that darkens the stones behind the
+  header and the card, with no visible edge, is allowed. It MUST fade out over a fixed width, and on
+  a window 800 px wide or wider it MUST leave the stones and lines beyond that fade at full
+  strength. (Mahdi reversed the earlier "no card" in implementation; Clarifications.)
+- **FR-005**: Everything `021` requires of the sign-in pages MUST still hold, except the flat page
+  color this feature replaces: the app's name as the one top-level heading and in the tab
   title (`021` FR-001, FR-002), the audience line (FR-005), the accent on the band, the brand mark,
   and the Sign In button (FR-006), the shared fonts and controls (FR-007), the no-app fallback
   (FR-008), the form's behavior (FR-011), the accessibility targets (FR-012), and the admin console
   unchanged (FR-013).
 - **FR-006**: On every sign-in page, at every window size from 360 px to 2560 px wide, in light and
-  dark schemes, against the lightest and the darkest point of the background that can be behind it
-  (the lightest stone and the brightest line color the page can show, both under any shade):
-  every piece of text (the heading, the audience line, the page's own header, labels, page text,
-  links, the required-fields note, and the wrong-password message) MUST meet 4.5:1; each text
-  field's boundary MUST meet 3:1; and the focus ring of every control (each text field, Show, Sign
-  In, and each link) MUST meet 3:1. Text inside a control or a
-  notice keeps `021`'s rule (4.5:1 against that control's or notice's own color).
-- **FR-007**: The background and the text drawn on it MUST be the same in light and dark schemes
-  (dark background, light text). The controls (text fields, buttons, notices) MUST follow the
-  scheme, as in `021`.
+  dark schemes: the realm header MUST meet 4.5:1 against the lightest and the darkest point of the
+  stones that can be behind it (the lightest stone and the brightest line color the page can show,
+  both under the shade); and against the card behind them, every piece of text on the card (the
+  heading, the audience line, the page's own header, labels, page text, links, the required-fields
+  note, and the wrong-password message) MUST meet 4.5:1, each text field's boundary MUST meet 3:1,
+  and the focus ring of every control (each text field, Show, Sign In, each other button, and each
+  link) MUST meet 3:1. Text inside a control or a notice keeps `021`'s rule (4.5:1 against that
+  control's or notice's own color).
+- **FR-007**: The background and the header drawn on it MUST be the same in light and dark schemes
+  (dark background, light header). The card and everything on it (text, text fields, buttons,
+  notices) MUST follow the scheme, as in `021`.
 - **FR-008**: Every sign-in page MUST work at 360 px wide with no sideways scrolling, start focus on
   the username field, keep a visible focus, be fully usable by keyboard, and announce errors to
   assistive technology (`021` FR-012).
@@ -303,23 +345,27 @@ for the image; read the derived image's notice.
 - **Lines image**: an image QueuePass derives from the stones image, marking where the edges between
   the stones are, so they can be drawn in the app's accent. In the repository, beside Keycloak's
   license and a notice, with the steps that made it.
-- **Sign-in backdrop**: what is behind the form: the stones, the lines in the app's accent, and the
-  shade behind the form's column; with a plain stone grey under them for when the image is missing.
-- **Backdrop colors**: the colors the sign-in look draws on the backdrop (its light text, its muted
-  text and field edge, its error text, the lighter accent for the lines and focus rings, the shade,
-  the stone grey), held in the shared theme beside `021`'s accents.
+- **Sign-in backdrop**: what is behind the card: the stones, the lines in the app's accent, and the
+  shade behind the header and the card; with a plain stone grey under them for when the image is
+  missing.
+- **Sign-in card**: Keycloak's card, styled from the shared theme, with the app's accent as its top
+  edge; it holds the form and everything `021` added. Above it, the realm header on the stones.
+- **Backdrop colors**: the colors the sign-in look draws on the backdrop (the header's light text,
+  the lighter accent for the lines, the shade, the stone grey), held in the shared theme beside
+  `021`'s accents.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
 - **SC-001**: For each of the three apps, in light and dark schemes, the sign-in page shows the grey
-  stones with the lines in that app's accent and no card: 6 of 6.
+  stones with the lines in that app's accent, the realm header, and the card with that app's accent
+  as its top edge: 6 of 6.
 - **SC-002**: An automated check of the rendered pages, for the three apps, in light and dark
   schemes, at no fewer than five window sizes (360×800, 768×1024, 1280×800, 1920×1080, 2560×1440),
-  on the first page and after a wrong password, finds every text at 4.5:1 or more and every text
-  field boundary and every control's focus ring at 3:1 or more against the background behind it: 0
-  failures; and at 1920×1080 the backdrop beyond the shade's fade is the unshaded stones.
+  on the first page and after a wrong password, finds the realm header at 4.5:1 or more against the
+  stones behind it, and every text on the card at 4.5:1 or more and every text field boundary and
+  every control's focus ring at 3:1 or more against the card behind it: 0 failures; and at 1920×1080 the backdrop beyond the shade's fade is the unshaded stones.
 - **SC-003**: At 360 px wide, no sign-in page scrolls sideways, and signing in with the keyboard only
   takes the same steps as before (`021` SC-006).
 - **SC-004**: The repository holds no file identical to Keycloak's stones image; the derived lines
@@ -338,6 +384,7 @@ for the image; read the derived image's notice.
   shape in a color; one that cannot shows the stones without lines (Edge Cases).
 - The sign-in pages are the only place the stones appear. The apps keep the one shared look
   (Constitution VII as amended).
-- The text and wording on the pages do not change; only what is behind them, and the colors of the
-  text drawn on the stones.
+- The text and wording on the pages do not change, except the realm header above the card, which
+  shows the realm's existing display name ("QueuePass") as Keycloak's own theme does; only what is
+  behind them changes.
 - English only, as the rest of QueuePass. The test accounts and passwords are unchanged.
