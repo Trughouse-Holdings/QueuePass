@@ -78,20 +78,20 @@ so the team can overturn it in review of the spec PR.
   be worked. The Backend is the authority; the Booth's list is a convenience (decided by Mahdi, 6)
   (FR-014 to FR-018).
 - Q: Where is the doors-open time shown? → A: **With the event, in the Customer app and the Admin
-  app** (decided by Mahdi, 7). Recommended answer, open to review, for exactly where: in the Customer
+  app** (decided by Mahdi, 7). Exactly where (confirmed by Mahdi on 2026-11-02): in the Customer
   app on event cards, the event page, My tickets, and the printed ticket; in the Admin app on the
   event page and in the event form. Not in the Admin event list, the reports, or the exports
   (FR-019 to FR-021).
 - Q: Does this replace the doors-open item of #49? → A: **Yes**; #49 keeps its other items
   (decided by Mahdi, 8).
 - Q: Do the doors-open time and the hour before it count toward the venue's 60-minute rule
-  (`002`)? → A: **No** (recommended answer, open to review). Scheduling stays on the start and end
+  (`002`)? → A: **No** (confirmed by Mahdi on 2026-11-02). Scheduling stays on the start and end
   only. A 6-hour doors-open allowance would otherwise block a venue for an afternoon before every
   evening event, and the 60-minute buffer already stands for set-up. The consequence: one event's
   doors, and its check-in window, may open while the venue's previous event is still on; a venue
   that cannot do that sets its doors later (FR-006; research R3).
 - Q: When an admin moves the start in an edit, what happens to doors-open? → A: **It keeps the
-  same time before the start** (recommended answer, open to review). In the form, the doors-open
+  same time before the start** (confirmed by Mahdi on 2026-11-02). In the form, the doors-open
   field follows the start, keeping its gap, until the admin changes the doors-open field themselves;
   the admin sees the new value before saving. In the API, an edit that sends a new start without a
   doors-open time moves doors-open by the same amount, so it is never pushed out of range; an edit
@@ -111,19 +111,17 @@ so the team can overturn it in review of the spec PR.
   over, can still be edited within the range; a doors-open time in the past is allowed. Moving
   doors-open later can close an open check-in window again; entries already recorded stay
   (Edge Cases).
-- Q: What does the API look like? → A: (recommended answer, open to review; plan research R6)
-  every event carries `doorsOpenAt` (stored) and `entryOpensAt` (1 hour before `doorsOpenAt`,
-  worked out by the Backend), and My tickets' event carries `doorsOpenAt`. On create and update,
-  `doorsOpenAt` is optional in the API: the Admin app always sends it on create; another caller that
-  leaves it out (the demo-data script, the browser tests' set-up) gets the start minus 1 hour. An
-  out-of-range time is refused with a new code, `DOORS_OPEN_OUT_OF_RANGE`. The doors-open time is
-  still required in the sense that matters: every stored event has one (FR-001, FR-010).
-- Q: How does the Booth know when an event's window opens? → A: **From the events list**, which
-  now carries each event's `entryOpensAt`, so the rule "1 hour before doors open" lives only in the
-  Backend (recommended answer, open to review). The Booth compares it with the device's clock to grey
-  events out, and refreshes the list and checks again every 30 seconds, so an event becomes
-  choosable when its window opens, or when an admin moves its doors earlier, without reloading; the
-  Backend's clock decides every lookup and admit (FR-015, FR-016; research R8).
+- Q: Must every way of creating an event give a doors-open time? → A: **No; every stored event
+  has one** (recommended answer, open to review). The Admin app always gives one. Other ways of
+  creating events (the demo data, test set-up) that give none get the start minus 1 hour, and an
+  out-of-range time is refused with its own clear reason. Field names and codes are in the plan
+  (research R6) (FR-001, FR-008, FR-010).
+- Q: How does the Booth know when an event's window opens? → A: **The Backend tells it** with the
+  list of events, so the rule "1 hour before doors open" is decided in one place (recommended
+  answer, open to review). The Booth compares it with the device's clock to grey events out, and
+  refreshes the list and checks again every 30 seconds, so an event becomes choosable when its window
+  opens, or when an admin moves its doors earlier, without reloading; the Backend's clock decides
+  every lookup and admit (FR-015, FR-016; how, research R8).
 - Q: Do the demo data, the seed, `019`'s calendar, `023`'s exports, and `022`'s browser tests need
   changes? → A: (recommended answer, open to review) **Demo data and seed: no.** Demo events are
   created through the Backend, so they get start minus 1 hour, and "Demo Tonight" (starts 1 hour after
@@ -418,7 +416,8 @@ This spec changes these requirements of earlier specs; the earlier text stays as
 - **SC-006**: The doors-open time is shown in all 5 places of FR-019 and FR-020, in the venue's
   zone with its abbreviation.
 - **SC-007**: Every Backend test of `002`'s scheduling rule, `017`'s and `018`'s refusals other than
-  the window, `019`, and `023` passes unchanged.
+  the window, `019`, and `023` passes with no change to its assertions; a test's set-up may add a
+  doors-open time, or move it with a start it moves.
 
 ## Assumptions
 
