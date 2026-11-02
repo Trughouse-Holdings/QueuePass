@@ -114,3 +114,21 @@
   max-width: 420px;
   border-radius: var(--radius-sm);
 }
+
+/*
+ * Spec 025 FR-015 (research R8): an event not open for entry yet. Not a control: muted text and a
+ * dashed border, its state also in words ("Not open yet · Opens …"), the same size as a choice.
+ */
+.event-choice--waiting {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-4);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.event-choice__state {
+  font-weight: 650;
+}

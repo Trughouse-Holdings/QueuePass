@@ -9,7 +9,7 @@ import {
 } from '@queuepass/shared/web';
 import { admitTicket, listEvents, lookupEntryTicket } from './api';
 import { EntryResult, LIVE_CODE_REFUSALS, refusalText, type Outcome } from './EntryResult';
-import { EventPicker, openForEntry, saveEventId, savedEventId } from './EventPicker';
+import { EventPicker, forTheGate, saveEventId, savedEventId } from './EventPicker';
 import { Scanner } from './Scanner';
 import { TicketLookup } from './TicketLookup';
 
@@ -43,12 +43,17 @@ const UNREACHABLE = "Can't reach QueuePass right now. Nothing was recorded; try 
  * A failed admit can't say "Nothing was recorded": the Backend may have recorded the entry and
  * only its answer was lost (Constitution IV). Looking the ticket up again tells which.
  */
+/** Spec 025 FR-016 (research R8): how often the list is fetched again while it is shown. */
+export const LIST_REFRESH_MS = 30_000;
+
 const ADMIT_UNKNOWN =
   "Can't reach QueuePass right now, so this entry may not have been recorded. Look the ticket up again before admitting.";
 
 function Booth() {
   const { api, signIn } = useAuth();
   const [events, setEvents] = useState<Event[] | null>(null);
+  /** Spec 025 FR-016: the device's time the list is greyed against, refreshed with the list. */
+  const [now, setNow] = useState(() => Date.now());
   const [eventsFailed, setEventsFailed] = useState(false);
   const [reloads, setReloads] = useState(0);
   const [chosen, setChosen] = useState<Event | null>(null);
@@ -59,33 +64,52 @@ function Booth() {
   // Spec 017 FR-009 (US5): whether the camera panel is open.
   const [scanning, setScanning] = useState(false);
 
+  // Spec 025 FR-016 (research R8): while no event is chosen, the list is fetched on load, after
+  // Try again or Change event, and again every 30 seconds. Only a failed first load shows the
+  // error; a failed refetch keeps the list and tries again at the next tick. A 401 signs in again.
+  const picking = chosen === null;
   useEffect(() => {
+    if (!picking) return;
     let cancelled = false;
     setEventsFailed(false);
-    void (async () => {
+    let loaded = false;
+    const load = async (): Promise<void> => {
       try {
         const { data, response } = await listEvents(api);
         if (cancelled) return;
         if (response.ok && data) {
-          const open = openForEntry(data as Event[]);
-          setEvents(open);
-          // FR-007: the choice survives a remount or a fresh sign-in in this tab.
+          const at = Date.now();
+          const list = data as Event[];
+          loaded = true;
+          setNow(at);
+          setEvents(list);
+          // FR-007, spec 025 FR-017: the choice survives a remount or a fresh sign-in in this
+          // tab, but only while its event is open for entry; otherwise it is forgotten.
           const saved = savedEventId();
-          const found = saved ? open.find((e) => e.id === saved) : undefined;
-          if (found) setChosen((c) => c ?? found);
+          if (saved) {
+            const found = forTheGate(list, at).find((g) => g.event.id === saved);
+            if (found?.open) setChosen((c) => c ?? found.event);
+            else saveEventId(null);
+          }
         } else if (response.status === 401) {
           await signIn();
-        } else {
+        } else if (!loaded) {
           setEventsFailed(true);
         }
       } catch {
-        if (!cancelled) setEventsFailed(true);
+        if (!cancelled && !loaded) setEventsFailed(true);
       }
-    })();
+    };
+    void load();
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      void load();
+    }, LIST_REFRESH_MS);
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
-  }, [api, signIn, reloads]);
+  }, [api, signIn, reloads, picking]);
 
   const choose = (e: Event): void => {
     setChosen(e);
@@ -252,7 +276,7 @@ function Booth() {
           ) : events === null ? (
             <p>Loading events…</p>
           ) : (
-            <EventPicker events={events} onChoose={choose} />
+            <EventPicker events={forTheGate(events, now)} now={now} onChoose={choose} />
           )
         ) : (
           <>

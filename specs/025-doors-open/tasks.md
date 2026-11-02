@@ -280,7 +280,7 @@ only when open.
 
 ### Tests first
 
-- [ ] T017 [US3] New `booth-app/test/event-picker.test.tsx` (research R8), with Vitest's fake timers
+- [x] T017 [US3] New `booth-app/test/event-picker.test.tsx` (research R8), with Vitest's fake timers
   and the stubbed `listEvents`; events carry `entryOpensAt`. Must fail:
   - an open event is a button "{name} · {start}"; a not-open one is not a button
     (no button whose name starts with its name), and its item reads "{name} · {start}",
@@ -298,15 +298,27 @@ only when open.
   - an event without `entryOpensAt` is a button (today's behavior).
   Update `booth-app/test/app.test.tsx` and `check-in.test.tsx` fixtures to carry `entryOpensAt` in
   the past where they choose an event.
+  **Done**: `booth-app/test/event-picker.test.tsx`, 11 tests with fake timers; 8 failed first (the 3
+  that passed describe behavior kept from 017: an event without `entryOpensAt`, an open remembered
+  choice, the empty list). Tab order is checked as the page's buttons (Log out and the open event
+  only) and no focusable element in a waiting item. `check-in.test.tsx` and `scanner.test.tsx` give
+  Demo Tonight `entryOpensAt` an hour ago; `app.test.tsx` lists no event, so it needs none.
 
 ### Implementation
 
-- [ ] T018 [US3] `booth-app/src/EventPicker.tsx` and `booth-app/src/App.tsx` per research R8:
+- [x] T018 [US3] `booth-app/src/EventPicker.tsx` and `booth-app/src/App.tsx` per research R8:
   `forTheGate(events, now)`, the waiting item, the two messages, the 30-second interval (refetch and
   `now`), the restore rule, the refetch on **Change event**; doc comments say spec 025. T017 passes.
-- [ ] T019 [US3] `booth-app/src/styles.css`: `.event-choice--waiting` with theme tokens only
+  **Done**: T017 passes; booth 87 tests green. `openForEntry` is replaced by `forTheGate`; the list
+  effect runs while no event is chosen, so Change event refetches by clearing the choice (no
+  `reloads` bump needed); the interval is cleared on choosing and on unmount.
+- [x] T019 [US3] `booth-app/src/styles.css`: `.event-choice--waiting` with theme tokens only
   (muted text, dashed border, the same size as a choice); the shared theme's drift test and the
   Booth's theme test pass. Check at 360 px that nothing scrolls sideways (record here).
+  **Done**: theme tokens only; the shared theme suites (drift included) pass, 330. The 360 px check
+  needs the running stack (the Booth shows the list only after Keycloak sign-in), which this machine
+  cannot build: left for the walk (quickstart S9); the item has no fixed width and wraps
+  (`overflow-wrap: anywhere`).
 
 **Checkpoint**: quickstart S5 passes in the browser.
 
