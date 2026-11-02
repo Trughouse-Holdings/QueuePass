@@ -306,19 +306,20 @@ export interface paths {
          *     zone. An edit that sends neither never changes the zone.
          *
          *     When the zone changes, every event at the venue (scheduled or cancelled) keeps its local
-         *     start and end date and time, so its `startsAt` and `endsAt` move; feature 025: its
-         *     `doorsOpenAt` keeps its local date and time too, and is checked like the start and end
-         *     (`details.field: doorsOpenAt`). Feature 025 also refuses the change with `409
-         *     EVENT_TIME_NOT_IN_ZONE`, `details.reason` `DOORS_OUT_OF_RANGE`, when an event's moved
-         *     `doorsOpenAt` would be more than 6 hours before its moved `startsAt`, or after it (a
-         *     daylight-saving change between them in one zone only). The change is refused,
-         *     and nothing is saved, with `409 TIME_ZONE_HAS_ORDERS` when any event at the venue has any
-         *     order (`details.events`); with `409 EVENT_TIME_NOT_IN_ZONE` when an event's local start or
-         *     end does not exist, or happens twice, in the new zone (`details.event`, `details.reason`
-         *     `SKIPPED` or `REPEATED`), or is a legacy time from before either zone adopted standard
-         *     time, which no whole-minute offset can state (`details.reason` `OUT_OF_RANGE`, #88); and with `409 SCHEDULING_CONFLICT` when the moved scheduled
-         *     events would be closer than 60 minutes (`details.conflictingEvent` and `details.event`).
-         *     All or nothing: the events and the venue change together.
+         *     start and end date and time, and, feature 025, its local doors-open date and time, so its
+         *     `startsAt`, `endsAt`, and `doorsOpenAt` move. The change is refused, and nothing is saved,
+         *     with `409 TIME_ZONE_HAS_ORDERS` when any event at the venue has any order
+         *     (`details.events`); with `409 EVENT_TIME_NOT_IN_ZONE` (`details.event`, `details.field`
+         *     `startsAt`, `endsAt`, or `doorsOpenAt`, and `details.reason`) when one of an event's local
+         *     times does not exist in the new zone (`SKIPPED`), happens twice there (`REPEATED`), or is a
+         *     legacy time from before either zone adopted standard time, which no whole-minute offset can
+         *     state (`OUT_OF_RANGE`, #88), or, feature 025, when its moved `doorsOpenAt` would be more than
+         *     6 hours before its moved `startsAt`, or after it, because a daylight-saving change falls
+         *     between them in one zone only (`DOORS_OUT_OF_RANGE`, `details.field` `doorsOpenAt`: the
+         *     doors-open time exists in the new zone but breaks the doors-open range, unlike
+         *     `OUT_OF_RANGE`, which is about the time itself); and with `409 SCHEDULING_CONFLICT` when the
+         *     moved scheduled events would be closer than 60 minutes (`details.conflictingEvent` and
+         *     `details.event`). All or nothing: the events and the venue change together.
          */
         patch: operations["updateLocation"];
         trace?: never;
