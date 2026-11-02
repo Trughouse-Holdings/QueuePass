@@ -69,4 +69,28 @@ describe('Live code window boundaries', () => {
     expect(res.status).toBe(200);
     expect(res.body.admitted).toHaveLength(1);
   });
+
+  // Spec 025 FR-011, FR-012 (research R7): a live code meets the same entry window as a typed
+  // code, `[doorsOpenAt - 1 hour, endsAt)` on the database's clock, here with doors 3 hours
+  // before the start, so entry opens 4 hours before it.
+  it.each([
+    ['30 seconds before entry opens: NOT_OPEN', 4 * 3600 + 30, 'NOT_OPEN'],
+    ['30 seconds after entry opens: ADMITTABLE', 4 * 3600 - 30, 'ADMITTABLE'],
+  ])('doors 180 minutes before the start, %s', async (_label, startsInSeconds, state) => {
+    const doorsEvent = await eventAroundNow(ctx, await venue(ctx, 'Doors Hall'), {
+      startsInSeconds,
+      lastsSeconds: 3600,
+      doorsBeforeStartSeconds: 3 * 3600,
+    });
+    const ticket = (await orderWithTickets(ctx, doorsEvent, { quantity: 1 })).tickets[0].id;
+    const code = await liveCodeFor(ctx, ticket, liveWindowAt(Date.now()));
+    const res = await (await agent(ctx)).post(`/events/${doorsEvent}/entry/lookup`).send({ code });
+    expect(res.status).toBe(200);
+    expect(res.body.state).toBe(state);
+    expect(res.body.verifiedBy).toBe('LIVE_CODE');
+    const stored = await ctx.prisma.event.findUniqueOrThrow({ where: { id: doorsEvent } });
+    expect(new Date(res.body.entryOpensAt).getTime()).toBe(
+      stored.doorsOpenAt.getTime() - 3600 * 1000,
+    );
+  });
 });

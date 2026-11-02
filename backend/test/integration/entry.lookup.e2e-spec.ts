@@ -59,9 +59,28 @@ describe('lookupEntryTicket', () => {
       // Spec 018 FR-011: a typed or printed code always needs the ID check.
       verifiedBy: 'TICKET_CODE',
     });
-    // FR-019: entry opens exactly 2 hours before the start.
+    // Spec 025 FR-011: entry opens exactly 1 hour before doors open (here the default doors, so
+    // 2 hours before the start, as 017 FR-019 had it).
+    const stored = await ctx.prisma.event.findUniqueOrThrow({ where: { id: eventId } });
+    expect(new Date(res.body.entryOpensAt).getTime()).toBe(
+      stored.doorsOpenAt.getTime() - 3600 * 1000,
+    );
     expect(new Date(res.body.entryOpensAt).getTime()).toBe(
       new Date(res.body.event.startsAt).getTime() - 2 * 3600 * 1000,
+    );
+  });
+
+  it('gives entryOpensAt 1 hour before the start for an event whose doors open at its start (spec 025)', async () => {
+    const atStart = await eventAroundNow(ctx, await venue(ctx, 'Doors Hall'), {
+      startsInSeconds: 3600,
+      lastsSeconds: 10800,
+      doorsBeforeStartSeconds: 0,
+    });
+    const { tickets } = await orderWithTickets(ctx, atStart, { quantity: 1 });
+    const res = await lookup(tickets[0].code, atStart);
+    expect(res.status).toBe(200);
+    expect(new Date(res.body.entryOpensAt).getTime()).toBe(
+      new Date(res.body.event.startsAt).getTime() - 3600 * 1000,
     );
   });
 

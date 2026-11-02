@@ -63,6 +63,11 @@ describe('lookupEntryTicket with a live code', () => {
       unusedOnOrder: 1,
       verifiedBy: 'LIVE_CODE',
     });
+    // Spec 025 FR-011: entry opens 1 hour before doors open.
+    const stored = await ctx.prisma.event.findUniqueOrThrow({ where: { id: eventId } });
+    expect(new Date(res.body.entryOpensAt).getTime()).toBe(
+      stored.doorsOpenAt.getTime() - 3600 * 1000,
+    );
   });
 
   it('accepts the code in lower case', async () => {
