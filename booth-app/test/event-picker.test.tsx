@@ -269,3 +269,12 @@ describe('the messages (FR-018)', () => {
     expect(screen.queryByText('No event is open for entry yet.')).toBeNull();
   });
 });
+
+describe('a venue without a zone in the response (T035)', () => {
+  it('reads "Opens" in Eastern Time, the default', async () => {
+    stubApi({ 'GET /events': json([{ ...CONCERT, location: { id: 'l1', name: 'Old Hall' } }]) });
+    renderApp();
+    await settle();
+    expect(item('Fall Concert')).toHaveTextContent('Opens 4:30 PM EST');
+  });
+});

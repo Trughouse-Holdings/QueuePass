@@ -268,3 +268,49 @@ describe('what is sent (FR-007)', () => {
     expect(screen.getByLabelText('Starts')).toHaveValue('2026-11-20T19:00');
   });
 });
+
+describe('following, the remaining cases (T035)', () => {
+  it('sets a repeated doors time to its second occurrence when that is the moment', async () => {
+    newForm();
+    // 2:30 AM CST on 2027-11-07 is 08:30Z; an hour before is 07:30Z, the second 1:30 AM (CST).
+    await fill('2027-11-07T02:30', '2027-11-07T04:00');
+    expect(doors()).toHaveValue('2027-11-07T01:30');
+    expect(
+      within(screen.getByTestId('doorsOpenAt-occurrence')).getByLabelText(
+        '1:30 AM CST (the second time)',
+      ),
+    ).toBeChecked();
+  });
+
+  it('leaves Doors open as it is when the start is cleared', async () => {
+    newForm();
+    await fill('2026-11-20T19:00', '2026-11-20T22:00');
+    set('Starts', '');
+    expect(doors()).toHaveValue('2026-11-20T18:00');
+  });
+
+  it('on edit of an event without doorsOpenAt (a Backend before 025), starts empty and follows 1 hour before', async () => {
+    const { doorsOpenAt: _d, entryOpensAt: _e, ...old } = STORED;
+    stubApi({
+      'GET /locations': json([CENTRAL]),
+      [`GET /events/${EVENT.id}`]: json(old),
+      [`GET /events/${EVENT.id}/tiers`]: json([TIER]),
+      [`GET /events/${EVENT.id}/seats`]: json({
+        eventId: EVENT.id,
+        reservedSeating: false,
+        sections: [],
+      }),
+    });
+    render(
+      <MemoryRouter initialEntries={[`/events/${EVENT.id}/edit`]}>
+        <Routes>
+          <Route path="/events/:id/edit" element={<EventForm />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await vi.waitFor(() => expect(screen.getByLabelText('Starts')).toHaveValue('2026-11-20T19:00'));
+    expect(doors()).toHaveValue('');
+    set('Starts', '2026-11-20T20:00');
+    expect(doors()).toHaveValue('2026-11-20T19:00');
+  });
+});
