@@ -9,6 +9,7 @@ import {
   Length,
   Matches,
   Min,
+  ValidateIf,
 } from 'class-validator';
 import { OFFSET_DATE_TIME, needsOffset } from '../event-time';
 
@@ -18,25 +19,32 @@ const trim = ({ value }: { value: unknown }): unknown =>
 const LIMIT_MESSAGE =
   'maxTicketsPerCustomer must be a whole number of at least 1, or empty for no limit';
 
-/** Partial update — every field optional, same rules as create when supplied. */
+/**
+ * Partial update — every field optional, same rules as create when supplied.
+ *
+ * Issue #117 (as #36 for venues): a field that cannot be empty may be left out but never sent as
+ * null; `@ValidateIf` (not `@IsOptional`) makes null fail its rule, a 400. Null keeps its meaning
+ * only where it has one: `maxTicketsPerCustomer` (016, clears the limit) and `doorsOpenAt` (025
+ * research R6, counts as left out).
+ */
 export class UpdateEventDto {
-  @IsOptional()
+  @ValidateIf((o: UpdateEventDto) => o.name !== undefined)
   @Transform(trim)
   @IsString({ message: 'name must be a string' })
   @Length(1, 200, { message: 'name must be between 1 and 200 characters' })
   name?: string;
 
-  @IsOptional()
+  @ValidateIf((o: UpdateEventDto) => o.locationId !== undefined)
   @IsUUID('4', { message: 'locationId must be a UUID' })
   locationId?: string;
 
   /** Spec 020 research R9: the destination venue's local time with its offset. */
-  @IsOptional()
+  @ValidateIf((o: UpdateEventDto) => o.startsAt !== undefined)
   @IsISO8601({ strict: true }, { message: 'startsAt must be an ISO-8601 timestamp' })
   @Matches(OFFSET_DATE_TIME, { message: needsOffset('startsAt') })
   startsAt?: string;
 
-  @IsOptional()
+  @ValidateIf((o: UpdateEventDto) => o.endsAt !== undefined)
   @IsISO8601({ strict: true }, { message: 'endsAt must be an ISO-8601 timestamp' })
   @Matches(OFFSET_DATE_TIME, { message: needsOffset('endsAt') })
   endsAt?: string;
@@ -50,7 +58,7 @@ export class UpdateEventDto {
   @Matches(OFFSET_DATE_TIME, { message: needsOffset('doorsOpenAt') })
   doorsOpenAt?: string;
 
-  @IsOptional()
+  @ValidateIf((o: UpdateEventDto) => o.totalTicketCapacity !== undefined)
   @IsInt({ message: 'totalTicketCapacity must be a whole number' })
   @IsPositive({ message: 'totalTicketCapacity must be a positive whole number' })
   totalTicketCapacity?: number;
@@ -61,7 +69,7 @@ export class UpdateEventDto {
   @Min(1, { message: LIMIT_MESSAGE })
   maxTicketsPerCustomer?: number | null;
 
-  @IsOptional()
+  @ValidateIf((o: UpdateEventDto) => o.basePrice !== undefined)
   @IsString({ message: 'basePrice must be a decimal string such as "45.00"' })
   @Matches(/^\d+(\.\d{1,2})?$/, {
     message: 'basePrice must be a non-negative decimal string with at most 2 decimal places',
