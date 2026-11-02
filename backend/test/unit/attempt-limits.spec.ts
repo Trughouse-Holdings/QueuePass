@@ -61,6 +61,17 @@ describe('AttemptLimitsService', () => {
       expect(at(T + 5_000)).toEqual(ok);
     });
 
+    it('tells exactly 5 seconds on a clock with fractional milliseconds', () => {
+      // performance.now() is fractional: `t + 5000 - t` can be a hair over 5000 in floating point.
+      for (const frac of [0.1, 1_234.567, 98_765_432.123, 3_600_000.7]) {
+        const sub = `frac-${frac}`;
+        for (let i = 0; i < 3; i++) expect(at(frac, sub)).toEqual(ok);
+        expect(at(frac, sub)).toEqual(wait(5));
+        expect(at(frac + 4_000, sub)).toEqual(wait(1));
+        expect(at(frac + 5_000, sub)).toEqual(ok);
+      }
+    });
+
     it('rounds a part second up', () => {
       for (let i = 0; i < 3; i++) expect(at(T)).toEqual(ok);
       expect(at(T + 1)).toEqual(wait(5));

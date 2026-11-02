@@ -57,6 +57,14 @@ seconds, oldest first. `tryAttempt(sub, kind)` runs **synchronously, with no `aw
    = Math.ceil(wait / 1000)` (1 to 60, the contract's range); **record nothing** (FR-003). Otherwise
    append `now` and let the request through.
 
+**Computed as ages** (found by the implementation, T010): the monotonic clock's milliseconds are
+fractional, and in floating point `t + 5_000 - now` for an attempt made at `now` can come out a
+hair over `5_000`, which rounds up to a wait of 6 seconds. Each step is therefore computed from the
+age `now - t`, which is exact for two nearby readings: keep `0 <= age < 60_000`, `recent` is
+`age < 5_000`, and the waits are `60_000 - age(times[len - perMinute])` and `5_000 -
+age(recent[len - perFiveSeconds])`; the same rule, written so it holds to the millisecond on a real
+clock. A unit test runs the boundaries on fractional times.
+
 An attempt waited out exactly is let through: with 3 attempts at `t`, an attempt at `t + 5000` sees
 none of them in `recent`. A refused attempt is not recorded, so `retryAfterSeconds` is exact: after
 waiting it, with no other attempt of that kind, step 4 finds `wait <= 0` (SC-003). Rounding up
@@ -360,7 +368,10 @@ customer account (`e2e/fixtures/apps.ts` `customerFor`), and must pass with no r
     second all `200`; the buy allowance used up → a hold is still handled, and the other way round.
   - `rate-limits.ordinary.e2e-spec.ts`: an ordinary sequence on the attempt clock, advanced 2 seconds
     between actions (hold, add, release, hold, buy, then a second event's buy) → no `429` (SC-004's Backend
-    half).
+    half). The two releases come back to back, with no time between them, as a person pressing
+    Release on several seats one after another (spec Clarifications): with 2 seconds between every
+    action, no 5 seconds would ever hold 4 hold-kind requests, so the test could not fail if
+    releases were counted (found by the implementation, T014).
   - `backend/test/contract/route-coverage.e2e-spec.ts`: the routes with `@AttemptLimit(kind)` are
     exactly the operations with `x-attempt-limit: kind`, and each has a `'429'` response (R4).
   - Every other Backend test passes unchanged with `createTestApp()`'s large numbers.

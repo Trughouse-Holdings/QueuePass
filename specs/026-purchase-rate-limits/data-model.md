@@ -24,6 +24,10 @@ with its `loggedUntil` (research R3).
 | 3 | `recent = times > now - 5_000`; `waitBurst = recent.length >= perFiveSeconds ? recent[recent.length - perFiveSeconds] + 5_000 - now : 0` |
 | 4 | `wait = min(60_000, max(...))`; `> 0` → refused, `retryAfterSeconds = ceil(wait / 1000)` (1–60), nothing recorded; else append `now`, let through |
 
+Each comparison and wait is computed from the age `now - t`, not as `t + window - now`: the clock's
+milliseconds are fractional, and the sum can land a hair over the window and round up a second too
+many (research R2, "Computed as ages").
+
 ## Configuration (`ATTEMPT_LIMITS`, read once at start-up)
 
 | Variable | Default | Valid | Meaning |

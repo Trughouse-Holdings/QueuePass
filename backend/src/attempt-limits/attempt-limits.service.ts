@@ -57,19 +57,24 @@ export class AttemptLimitsService implements OnModuleInit, OnModuleDestroy {
     const key = `${sub}:${kind}`;
     const now = this.clock.now();
 
+    // Ages, not sums: the clock's milliseconds are fractional, and `t + 5000 - now` can come out a
+    // hair over 5000 for an attempt made at `now`, which would round up to a wait of 6 seconds.
+    // `now - t` is exact for two nearby readings.
+    const age = (t: number): number => now - t;
+
     // 1. An attempt counts in [t, t + 60 s). A time after now is impossible on a monotonic clock;
     //    dropped all the same, so no account is ever shut out by one.
-    const times = (this.attempts.get(key) ?? []).filter((t) => t > now - MINUTE_MS && t <= now);
+    const times = (this.attempts.get(key) ?? []).filter((t) => age(t) < MINUTE_MS && age(t) >= 0);
 
     // 2. The minute: the wait until the attempt that fills it is a minute old.
     const { perMinute, perFiveSeconds } = this.limits;
     const waitMinute =
-      times.length >= perMinute ? times[times.length - perMinute] + MINUTE_MS - now : 0;
+      times.length >= perMinute ? MINUTE_MS - age(times[times.length - perMinute]) : 0;
     // 3. The same for the last 5 seconds.
-    const recent = times.filter((t) => t > now - FIVE_SECONDS_MS);
+    const recent = times.filter((t) => age(t) < FIVE_SECONDS_MS);
     const waitBurst =
       recent.length >= perFiveSeconds
-        ? recent[recent.length - perFiveSeconds] + FIVE_SECONDS_MS - now
+        ? FIVE_SECONDS_MS - age(recent[recent.length - perFiveSeconds])
         : 0;
 
     // 4. Refused: nothing recorded. Let through: recorded.
@@ -87,9 +92,9 @@ export class AttemptLimitsService implements OnModuleInit, OnModuleDestroy {
 
   /** Research R3: forgets every key whose newest attempt is a minute old. */
   sweepOnce(): void {
-    const cutoff = this.clock.now() - MINUTE_MS;
+    const now = this.clock.now();
     for (const [key, times] of this.attempts) {
-      if (times[times.length - 1] <= cutoff) this.forget(key);
+      if (now - times[times.length - 1] >= MINUTE_MS) this.forget(key);
     }
   }
 
