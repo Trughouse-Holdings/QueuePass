@@ -191,6 +191,16 @@ describe('the sign-in backdrop (spec 027)', () => {
     for (const [sel, body] of pseudo) expect(body, sel).toMatch(/content:\s*''/);
   });
 
+  it('shades the form column with --stone-scrim, fading out by 400 px from the center (R5)', () => {
+    const body = rules(css())
+      .filter(([sel]) => sel === '.qp-stones::after')
+      .map(([, b]) => b.replace(/\s+/g, ' '))
+      .join('\n');
+    expect(body).toContain(
+      'linear-gradient( to right, transparent calc(50% - 400px), var(--stone-scrim) calc(50% - 280px), var(--stone-scrim) calc(50% + 280px), transparent calc(50% + 400px) )',
+    );
+  });
+
   it('hides the whole backdrop in forced colors (R4)', () => {
     const hidden = rules(css()).filter(
       ([sel, body, at]) =>

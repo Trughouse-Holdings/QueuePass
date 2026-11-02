@@ -186,7 +186,7 @@ them in the light scheme; US2 fixes it).
 
 ### Tests first
 
-- [ ] T017 [US2] In `e2e/tests/027-sign-in-background.spec.ts`, title `027 S3: every text, field edge
+- [x] T017 [US2] In `e2e/tests/027-sign-in-background.spec.ts`, title `027 S3: every text, field edge
   and focus ring on the stones meets its contrast at five window sizes, light and dark` (R8). One
   test, as the quickstart check needs one titled test per scenario row, with
   `test.setTimeout(10 * 60_000)` and a `test.step` per app, scheme, and size: 60 page states at about
@@ -215,24 +215,34 @@ them in the light scheme; US2 fixes it).
 
 ### Implementation
 
-- [ ] T018 [US2] `login.css`: `.qp-stones::after` (`content: ''`), the shade of R5 with its fixed-width
+- [x] T018 [US2] `login.css`: `.qp-stones::after` (`content: ''`), the shade of R5 with its fixed-width
   fade (`linear-gradient(to right, transparent calc(50% - 400px), var(--stone-scrim) calc(50% -
   280px), var(--stone-scrim) calc(50% + 280px), transparent calc(50% + 400px))`), above the lines.
-- [ ] T019 [US2] `login.css` (R7): `body` text `--stone-text`; `.qp-audience` and `.qp-required` in
+- [x] T019 [US2] `login.css` (R7): `body` text `--stone-text`; `.qp-audience` and `.qp-required` in
   `--stone-text-muted`; `.qp-field-error` and `.qp-required .required` in `--stone-danger`;
   `#kc-form-login label` and the attempted username in `--stone-text`; `a:not(.banner a)` in
   `--stone-text`, underlined. Notices and links inside them unchanged.
-- [ ] T020 [US2] `login.css` (R7): text fields' edge `--stone-text-muted` when neither hovered nor
+- [x] T020 [US2] `login.css` (R7): text fields' edge `--stone-text-muted` when neither hovered nor
   focused (the shared hover state untouched); `#kc-form-login input:focus-visible { outline: 3px solid
   var(--stone-accent); outline-offset: 2px; }`; `:focus-visible` rings in `--stone-accent` on every
   other control and link on the backdrop, `021`'s `#kc-login:focus-visible` included, width and offset
   unchanged. T017 passes, three runs in a row (`npm run e2e -- --grep "027 S3"`).
-- [ ] T021 [US2] Mark S3 Automated in the Automation table (rest Manual: zoom and forced colors).
+  **Done**: S3 passed three runs in a row locally (31.2 s, 29.9 s, 29.3 s; Chrome, one worker,
+  against a Keycloak built from this branch). The run before T018–T020 failed on dark labels, the
+  light scheme's edges, and rings in the light accents. A first green attempt caught a field's edge
+  mid-transition (the shared 0.12 s border ease), so the fixture waits for running transitions.
+- [x] T021 [US2] Mark S3 Automated in the Automation table (rest Manual: zoom and forced colors).
   Then, in a browser, each app at 360 px and at 200% and 400% zoom (on a 1440 px window), both
   schemes, keyboard only, and with forced colors emulated (quickstart S3, S5): focus starts in the
   username field, Tab order username → password → Show → Sign In, every ring visible, Enter submits;
   no backdrop in forced colors; fix `login.css` for anything that fails and record what was checked
   here.
+  **Checked** (Chrome against a Keycloak built from this branch, all three apps, light and dark):
+  at 360×800 and at 200% and 400% zoom on a 1440×900 window (720 and 360 CSS px wide), no
+  sideways scrolling; focus starts in the username field; Tab goes username → password → Show →
+  Sign In, each with a 3 px ring in the app's lighter accent; Show reveals the password; Enter
+  submits; with `forced-colors: active` emulated, `.qp-stones` is not displayed and the page is in
+  the system's colors, usable. Nothing needed fixing. A screen reader pass is left for S5 (Mahdi).
 
 ---
 
@@ -248,12 +258,15 @@ them in the light scheme; US2 fixes it).
 
 ## Phase 6: User Story 4 and the fallback (P2)
 
-- [ ] T023 [US4] In `e2e/tests/027-sign-in-background.spec.ts`, title `027 S6: with the stones image
+- [x] T023 [US4] In `e2e/tests/027-sign-in-background.spec.ts`, title `027 S6: with the stones image
   blocked, the sign-in page stays readable` (FR-009, SC-005): `page.route` aborts requests for
   `keycloak-bg.png`; the T017 checks (contrast, not the fade) at 360×800 and 1920×1080, light and
   dark, for the Ticket Booth app (its lines are the brightest); the lines and the shade are still
   drawn over `--stone-base`. Its own `test.setTimeout(3 * 60_000)` (8 page states). See it fail by
   pointing `body`'s background at the shared `--bg` for a moment, then restore `--stone-base`.
+  **Done**: with `body` pointed at the shared `--bg` for a moment, S6 failed (the audience line
+  4.08:1 and the error text 4.16:1 over the light page color, and the page color check); restored to
+  `--stone-base`, it passes (2.6–3.7 s locally).
 - [ ] T024 [US4] Mark S6 Automated in the Automation table. Quickstart S7 by hand: `--check` on
   T002's file passes; another PNG is refused; the notice reads right. Record it here.
 

@@ -1,9 +1,10 @@
 // Spec 027 quickstart S1 (research R1, R2, R4, R8; FR-001–FR-005, FR-010, SC-001): Keycloak's
 // stones behind every app's sign-in page, the lines between them in the app's lighter accent, the
 // same in both schemes, and no card.
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Browser, type Page } from '@playwright/test';
 import { APPS, type AppName } from '../fixtures/apps';
-import { signInHeading } from '../fixtures/sign-in';
+import { signInHeading, submitSignIn } from '../fixtures/sign-in';
+import { blankPage, compareColumns, backdropShot, contrastFailures } from '../fixtures/backdrop';
 
 /** Research R1: Keycloak 26.0.8's keycloak-bg.png, the image the lines were made from. */
 const KEYCLOAK_BG_SHA256 = '0825175291be11f7689e8718295e422bb6fa4f8fefccc5610292b720c701ac4e';
@@ -85,4 +86,135 @@ test("027 S1: each app's sign-in page shows the stones with its accent in the li
     expect(lineColors[`${app} light`]).toBe(lineColors[`${app} dark`]);
   }
   expect(new Set(Object.keys(APPS).map((app) => lineColors[`${app} light`])).size).toBe(3);
+});
+
+/** SC-002's five window sizes. */
+const SIZES = [
+  [360, 800],
+  [768, 1024],
+  [1280, 800],
+  [1920, 1080],
+  [2560, 1440],
+] as const;
+
+/** A name no account has: a wrong sign-in that touches no test account. */
+const NO_SUCH_USER = 'no-such-user-027';
+
+/**
+ * Opens `app`'s sign-in page in its own context at `width`×`height` in `colorScheme`, checks the
+ * first page and the page after a wrong password, and returns every failure (empty when none).
+ */
+async function checkReadable(
+  browser: Browser,
+  app: AppName,
+  colorScheme: 'light' | 'dark',
+  [width, height]: readonly [number, number],
+  { blockStones = false, fade = false } = {},
+): Promise<string[]> {
+  const context = await browser.newContext({
+    colorScheme,
+    viewport: { width, height },
+    deviceScaleFactor: 1,
+  });
+  if (blockStones) await context.route('**/keycloak-bg.png', (route) => route.abort());
+  const page = await context.newPage();
+  const blank = await blankPage(context);
+  const failures: string[] = [];
+  try {
+    await page.goto(APPS[app].url);
+    await expect(signInHeading(page, app)).toBeVisible();
+    for (const when of ['first page', 'after a wrong password'] as const) {
+      if (when === 'after a wrong password') {
+        await submitSignIn(page, NO_SUCH_USER, 'wrong');
+        await expect(page.getByText('Invalid username or password.')).toBeVisible();
+      }
+      const found = await contrastFailures(page, blank, { fill: colorScheme === 'light' });
+      failures.push(...found.map((f) => `${when}: ${f}`));
+      if (width === 360) {
+        const [scrollWidth, innerWidth] = await page.evaluate(() => [
+          document.documentElement.scrollWidth,
+          window.innerWidth,
+        ]);
+        if (scrollWidth > innerWidth) {
+          failures.push(`${when}: scrolls sideways (${scrollWidth} > ${innerWidth})`);
+        }
+      }
+    }
+    if (fade) {
+      // FR-004: more than 400 px either side of the center, the stones and lines are unshaded;
+      // at the center the shade darkens them.
+      const shaded = await backdropShot(page);
+      const bare = await backdropShot(page, '.qp-stones::after { display: none !important; }');
+      const center = width / 2;
+      const { sameColumnsDiffer, otherColumnsDiffer } = await compareColumns(
+        blank,
+        shaded,
+        bare,
+        (x) => Math.abs(x + 0.5 - center) > 400,
+      );
+      if (sameColumnsDiffer > 0) {
+        failures.push(`the shade reaches beyond 400 px of the center (${sameColumnsDiffer} px)`);
+      }
+      if (otherColumnsDiffer === 0) failures.push('no shade behind the form');
+    }
+    if (blockStones) {
+      // FR-009: the plain stone grey shows, with the lines and the shade still drawn on it.
+      const probe = await page.evaluate(() => {
+        const span = document.createElement('span');
+        span.style.color = 'var(--stone-base)';
+        document.body.append(span);
+        const base = getComputedStyle(span).color;
+        span.remove();
+        const stones = document.querySelector('.qp-stones');
+        return {
+          base,
+          body: getComputedStyle(document.body).backgroundColor,
+          lines: stones ? getComputedStyle(stones, '::before').maskImage : '',
+          shade: stones ? getComputedStyle(stones, '::after').backgroundImage : '',
+        };
+      });
+      if (probe.body !== probe.base) failures.push(`page color ${probe.body}, not ${probe.base}`);
+      if (!probe.lines.includes('stone-lines.png')) failures.push('no lines over the grey');
+      if (!probe.shade.includes('gradient')) failures.push('no shade over the grey');
+    }
+  } finally {
+    await context.close();
+  }
+  return failures;
+}
+
+test('027 S3: every text, field edge and focus ring on the stones meets its contrast at five window sizes, light and dark', async ({
+  browser,
+}) => {
+  // R8: 60 page states at about 3–5 s each.
+  test.setTimeout(10 * 60_000);
+  for (const app of Object.keys(APPS) as AppName[]) {
+    for (const colorScheme of SCHEMES) {
+      for (const size of SIZES) {
+        await test.step(`${app}, ${colorScheme}, ${size.join('×')}`, async () => {
+          const failures = await checkReadable(browser, app, colorScheme, size, {
+            fade: size[0] === 1920,
+          });
+          expect(failures).toEqual([]);
+        });
+      }
+    }
+  }
+});
+
+test('027 S6: with the stones image blocked, the sign-in page stays readable', async ({
+  browser,
+}) => {
+  // R8: 8 page states. The Ticket Booth's lines are the brightest.
+  test.setTimeout(3 * 60_000);
+  for (const colorScheme of SCHEMES) {
+    for (const size of [SIZES[0], SIZES[3]]) {
+      await test.step(`booth, ${colorScheme}, ${size.join('×')}, no stones`, async () => {
+        const failures = await checkReadable(browser, 'booth', colorScheme, size, {
+          blockStones: true,
+        });
+        expect(failures).toEqual([]);
+      });
+    }
+  }
 });
