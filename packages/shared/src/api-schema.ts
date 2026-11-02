@@ -1422,7 +1422,7 @@ export interface components {
             basePrice: string;
         };
         /**
-         * @description Partial update; supply only the fields being changed. From 1.18.2 (#117), a field may be
+         * @description Partial update; supply only the fields being changed. From 1.19.0 (#117), a field may be
          *     left out but not sent as `null` (`400 VALIDATION_FAILED` naming it, nothing changed),
          *     except `maxTicketsPerCustomer` (`null` clears the limit) and `doorsOpenAt` (`null` counts
          *     as left out).
@@ -1449,9 +1449,10 @@ export interface components {
              * Format: date-time
              * @description Feature 025. In the destination venue's local time and offset; checked against the
              *     `startsAt` in force after the update. Left out while `startsAt` changes, it moves by
-             *     the same amount.
+             *     the same amount. `null` counts as left out (feature 025 accepted it; listed in the type
+             *     from 1.19.0, #117).
              */
-            doorsOpenAt?: string;
+            doorsOpenAt?: string | null;
             totalTicketCapacity?: number;
             /** @description Feature 016. `null` clears the limit. */
             maxTicketsPerCustomer?: number | null;
@@ -1520,13 +1521,13 @@ export interface components {
             price: string;
             /**
              * @description The event's tiers together may not exceed its `totalTicketCapacity`. Required without
-             *     reserved seating; omitted with it (feature 007). Never `null` (`400`, from 1.18.2,
+             *     reserved seating; omitted with it (feature 007). Never `null` (`400`, from 1.19.0,
              *     #117).
              */
             quantity?: number;
         };
         /**
-         * @description Partial update; supply only the fields being changed. From 1.18.2 (#117), a field may be
+         * @description Partial update; supply only the fields being changed. From 1.19.0 (#117), a field may be
          *     left out but not sent as `null` (`400 VALIDATION_FAILED` naming it, nothing changed).
          */
         TicketTierUpdate: {
