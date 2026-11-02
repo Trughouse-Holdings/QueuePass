@@ -272,6 +272,51 @@ them in the light scheme; US2 fixes it).
 
 ---
 
+## Phase 6b: Keycloak's card and the QUEUEPASS header (implementation session 2)
+
+**Why**: Mahdi saw the pages with no card and brought Keycloak's card back, with the realm header
+above it (spec Clarifications, implementation session 2; research R5–R8). T011–T021 were done for
+the page with no card; the tasks below change what they built. Stones, lines, the shade, the
+fallback, and the generator are unchanged.
+
+### Tests first
+
+- [ ] T032 [P] `packages/shared/test/theme/tokens.test.ts` and `contrast.test.ts`: six `--stone-*`
+  tokens (no `--stone-text-muted`, no `--stone-danger`); the backdrop's contrast check keeps
+  `--stone-text` at 4.5:1 over R5's backgrounds and drops the muted, danger, ring, edge, and fill
+  rows. Must fail while the two tokens are in the theme.
+- [ ] T033 [P] `scripts/seed/test/login-theme-files.test.ts`: the "no card" cases become: in `main`,
+  `<div class="qp-realm" aria-hidden="true">` with the realm's name, then the card
+  `<div class="card qp-card">` holding the `<h1>`; `.qp-card` at most 500 px wide with
+  `border-top: 4px solid var(--accent)`; `.qp-realm` in `--stone-text`, uppercase, 29 px; every
+  input in the card ringed in `var(--accent)` (T022's fix); `login.css` uses no `--stone-text-muted`
+  or `--stone-danger`. `sign-in-screens.test.ts` (live): every page has the header and the card.
+  Must fail on the page with no card.
+- [ ] T034 `e2e/tests/027-sign-in-background.spec.ts` and `e2e/fixtures/backdrop.ts`: S1 renamed
+  `027 S1: each app's sign-in page shows the stones with its accent in the lines, the QUEUEPASS
+  header, and its card`, checking one `.qp-card` at most 500 px wide whose 4 px top edge equals a
+  probe of `var(--accent)` in each scheme, and the header (`QUEUEPASS`, `aria-hidden`, one `<h1>`).
+  S3 renamed `027 S3: the header on the stones and every text, field edge and focus ring on the card
+  meet their contrast at five window sizes, light and dark`, measuring the header against the
+  backdrop alone and the card's text, field edges, and rings against the card alone (R8); its
+  `test.setTimeout(10 * 60_000)` and S6's `3 * 60_000` stay. Must fail on the page with no card.
+
+### Implementation
+
+- [ ] T035 `packages/shared/src/web/theme.css`: remove `--stone-text-muted` and `--stone-danger` from
+  both token blocks; the comment names six tokens. T032 passes.
+- [ ] T036 `template.ftl` and `login.css` (R7): the realm header and Keycloak's card in the shared
+  theme; the text in the card back to the shared colors; every input's ring in `var(--accent)`; the
+  stones-colored text, field-edge, and ring rules removed. T033 and T034 pass, S3 three runs in a row.
+- [ ] T037 Quickstart's S1 and S3 rows name the new titles (`npm test` checks them). Look at the
+  three pages in both schemes, at 360×800 and 1920×1080, and record what was seen here.
+- [ ] T038 **Open, for the team**: Constitution 3.7.0's roadmap row `027` says "no card", and
+  Principle VII calls the background the only decoration allowed, which the header is not. An
+  amendment (the row's wording; the header added to the sign-in exception, MINOR) in a pull request
+  every team member approves, before the implementation PR merges (spec Clarifications).
+
+---
+
 ## Phase 7: Polish, review, pull request
 
 - [ ] T025 README: the `027` status row (status and task count), a sentence in **Today** (the sign-in
@@ -304,7 +349,9 @@ them in the light scheme; US2 fixes it).
 - **US1 (T011–T016)** needs T007 (tokens), T008 (seventh role), and T010 (the lines image). **US2
   (T017–T021)** needs US1's layers. **US3 (T022)** needs US2. **US4 (T023–T024)** needs T017's
   measuring fixture and T015's page color.
-- **Polish (T025–T031)** after every story.
+- **Card (T032–T037)** after US4; T022's ring fix carries into T036. T038 is the team's and blocks
+  the merge, not the work.
+- **Polish (T025–T031)** after every story and the card.
 
 ### Parallel opportunities
 
