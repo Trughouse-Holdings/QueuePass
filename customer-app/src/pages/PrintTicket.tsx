@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import type { MyOrder } from '@queuepass/shared';
 import { ServiceUnreachable } from '@queuepass/shared/web';
 import { TicketQr } from '../components/TicketQr';
-import { seatLabel, when } from '../format';
+import { doorsOpen, seatLabel, when } from '../format';
 import { useLoad } from '../use-load';
 
 /**
@@ -48,6 +48,18 @@ export function PrintTicket() {
           <dd>{order.holderName ?? 'No name on ticket'}</dd>
           <dt>Venue</dt>
           <dd>{order.event.location.name}</dd>
+          {order.event.doorsOpenAt && (
+            <>
+              <dt>Doors open</dt>
+              <dd>
+                {doorsOpen(
+                  order.event.startsAt,
+                  order.event.doorsOpenAt,
+                  order.event.location.timeZone,
+                )}
+              </dd>
+            </>
+          )}
           <dt>Starts</dt>
           <dd>{when(order.event.startsAt, order.event.location.timeZone)}</dd>
           {ticket.seat && (

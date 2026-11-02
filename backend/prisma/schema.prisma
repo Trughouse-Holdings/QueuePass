@@ -51,6 +51,9 @@ model Event {
   locationId          String   @db.Uuid
   startsAt            DateTime @db.Timestamptz(6)
   endsAt              DateTime @db.Timestamptz(6)
+  // Spec 025 FR-001, FR-004: when doors open; between 6 hours before startsAt and startsAt, both
+  // allowed (the event_doors_open_range CHECK, migration SQL). Only the Backend decides it.
+  doorsOpenAt         DateTime @db.Timestamptz(6)
   totalTicketCapacity Int
   // Spec 016 FR-001: the most valid tickets one customer may hold; NULL is no limit. The range
   // (1 to totalTicketCapacity) is the event_max_tickets_per_customer_range CHECK (migration SQL).

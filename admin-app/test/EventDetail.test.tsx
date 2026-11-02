@@ -92,3 +92,67 @@ describe('EventDetail', () => {
     expect(await screen.findByText("Can't reach the QueuePass service.")).toBeInTheDocument();
   });
 });
+
+/** Spec 025 FR-020, FR-021, FR-023 (research R9) (T021): Doors open just before Starts. */
+describe('EventDetail: Doors open', () => {
+  const EAST = { ...VENUE, timeZone: 'America/New_York' };
+  const terms = () => Array.from(document.querySelectorAll('dt')).map((dt) => dt.textContent);
+  const doors = () =>
+    Array.from(document.querySelectorAll('dt')).find((dt) => dt.textContent === 'Doors open')
+      ?.nextElementSibling?.textContent;
+
+  it.each([
+    // 7:00 PM EST start, doors 5:30 PM EST.
+    [
+      'the time alone on the start’s date',
+      '2026-11-21T00:00:00.000Z',
+      '2026-11-20T22:30:00.000Z',
+      '5:30 PM EST',
+    ],
+    // 1:00 AM EST start, doors 11:30 PM EST the day before.
+    [
+      'the date the day before',
+      '2026-11-20T06:00:00.000Z',
+      '2026-11-20T04:30:00.000Z',
+      'Nov 19, 2026, 11:30 PM EST',
+    ],
+  ])('shows %s, just before Starts', async (_label, startsAt, doorsOpenAt, shown) => {
+    stubApi({
+      [`GET ${PATH}`]: json({
+        ...EVENT,
+        location: EAST,
+        startsAt,
+        endsAt: new Date(Date.parse(startsAt) + 3 * 3_600_000).toISOString(),
+        doorsOpenAt,
+      }),
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: 'Late Show' });
+    expect(terms().indexOf('Doors open')).toBe(terms().indexOf('Starts') - 1);
+    expect(doors()).toBe(shown);
+  });
+
+  it('shows it for a cancelled event too', async () => {
+    stubApi({
+      [`GET ${PATH}`]: json({
+        ...EVENT,
+        location: EAST,
+        startsAt: '2026-11-21T00:00:00.000Z',
+        endsAt: '2026-11-21T03:00:00.000Z',
+        doorsOpenAt: '2026-11-20T22:30:00.000Z',
+        status: 'CANCELLED',
+        cancelledAt: '2026-11-01T12:00:00.000Z',
+      }),
+    });
+    renderPage();
+    await screen.findByRole('heading', { name: /^Late Show/ });
+    expect(doors()).toBe('5:30 PM EST');
+  });
+
+  it('shows nothing without doorsOpenAt (a Backend before 025)', async () => {
+    stubApi({ [`GET ${PATH}`]: json(EVENT) });
+    renderPage();
+    await screen.findByRole('heading', { name: 'Late Show' });
+    expect(terms()).not.toContain('Doors open');
+  });
+});

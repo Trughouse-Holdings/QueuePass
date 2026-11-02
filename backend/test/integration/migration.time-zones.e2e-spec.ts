@@ -53,11 +53,18 @@ describe('migration venue_time_zones (R6)', () => {
     base.pathname = `/${dbName}`;
     url = base.toString();
 
-    // A copy of prisma/ without the new migration: the database as it is before 020.
+    // A copy of prisma/ without the new migration and every later one (spec 025's doors_open makes
+    // a column these inserts don't know NOT NULL): the database as it is before 020.
     work = mkdtempSync(path.join(tmpdir(), 'qp-migration-'));
+    const migrations = path.join(PRISMA_DIR, 'migrations');
     cpSync(PRISMA_DIR, work, {
       recursive: true,
-      filter: (src) => !src.includes(NEW_MIGRATION as string),
+      filter: (src) => {
+        const rel = path.relative(migrations, src);
+        if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return true;
+        const dir = rel.split(path.sep)[0];
+        return dir === 'migration_lock.toml' || dir < (NEW_MIGRATION as string);
+      },
     });
     deploy(work, url);
 
@@ -164,12 +171,13 @@ describe('migration venue_time_zones (R6)', () => {
   });
 
   it('still refuses an overlapping insert at once', async () => {
+    // Every migration is deployed by now, spec 025's too: the insert gives its doors-open time.
     await expect(
       db.$executeRawUnsafe(`
-        INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt",
+        INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt", "doorsOpenAt",
                              "totalTicketCapacity", "basePrice", "updatedAt")
         VALUES ('${randomUUID()}', 'Overlap', '${venues.legacy}', '2026-10-02 00:00:00+00',
-                '2026-10-02 01:00:00+00', 10, 45.00, now())`),
+                '2026-10-02 01:00:00+00', '2026-10-01 23:00:00+00', 10, 45.00, now())`),
     ).rejects.toThrow(/event_no_overlap/);
   });
 });

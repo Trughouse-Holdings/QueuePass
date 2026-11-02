@@ -44,9 +44,12 @@ must now keep the column valid, all in Backend tests, updated in the implementat
   window never opens and the retry test fails). Each sets `"doorsOpenAt"` in the same statement
   (`"doorsOpenAt" = "doorsOpenAt" - interval '1 minute'`, or, for an absolute new start, the new
   start minus the event's gap). An implementer finding another such write applies the same rule.
-- The raw inserts of `backend/test/integration/migration.time-zones.e2e-spec.ts` run on a database
-  migrated only up to before `020`, so they need no column; any later migrations it deploys
-  backfill them.
+- `backend/test/integration/migration.time-zones.e2e-spec.ts` (found by the implementation): its
+  copy of `prisma/` leaves out only `020`'s migration, so its first deploy also applied every later
+  one, `doors_open` included, and its raw inserts then failed `NOT NULL`. Its copy now leaves out
+  `020`'s migration **and every later one**, so the inserts run on the database as it was before
+  `020` and the second deploy backfills them; its last insert ("still refuses an overlapping
+  insert at once"), which runs after every migration, gives `"doorsOpenAt"`.
 
 The same task also gives `EventsService.updateLocked` R4's keep-the-gap rule for an update that moves
 the start without sending doors (the rest of R4, sent doors and their checks, comes with US1), and
@@ -135,7 +138,10 @@ one has reported).
   new event and `storedStart - storedDoors` on an edit; the instant is turned back into the venue's
   local string (`toLocalDateTime`) and, when that local time is repeated, its occurrence is set from
   the instant's own offset (as the edit form already does on load, `020` review round 2, m1). A
-  change of venue keeps the typed local strings (`020` FR-015), Doors open included. The form sends
+  change of venue keeps the typed local strings (`020` FR-015), Doors open included once the admin
+  has changed it; while untouched, Doors open follows the start in the new venue's zone, so a start
+  skipped in the old zone and valid in the new one gets its doors (found by PR #116's `020 S7`
+  browser test). The form sends
   `doorsOpenAt` on every create and every edit, like `startsAt` and `endsAt`, with the venue's
   offset (`toOffsetDateTime`).
 - **Form checks before sending** (FR-005), after the start and end checks and with their banner: an
@@ -173,6 +179,11 @@ The first three apply to `startsAt`, `endsAt`, and `doorsOpenAt` alike; the last
 "after its start"). All before any write, so nothing is saved; the CHECK is the guarantee if this
 check were wrong. The contract's `updateLocation` description lists the four in one sentence.
 
+An existing `020` test whose event starts less than an hour after a skipped hour in the new zone now
+meets the doors refusal first, since its default doors (start minus 1 hour) fall in that hour; such
+a test's set-up gives doors at the start, and its assertions stay (SC-007; found by the
+implementation: two in `venues.time-zone-change.e2e-spec.ts`, tasks T010).
+
 **Rationale**: FR-009, `020` FR-009 (local times are what the admin entered). A zone change is
 already refused once any event has an order (`020` FR-010), so this touches only unsold events.
 
@@ -189,9 +200,10 @@ time can't move to the new zone"; one more `reason` keeps clients' handling in o
   `OrderEvent` (My tickets) gains `doorsOpenAt` (`OrdersService.mine`). Names mirror `startsAt` and
   `EntryTicket.entryOpensAt`.
 - `EventInput.doorsOpenAt` and `EventUpdate.doorsOpenAt`: optional `date-time`, stated like
-  `startsAt` (the venue's local time and offset, `020`). Left out: R4's defaults. The Admin app always
-  sends it (the "required" of Mahdi's item 2 is the form's and the database's, not the API's): the
-  demo-data script (`backend/src/scripts/demo-data.ts`), the browser tests' `createEvent`, and every
+  `startsAt` (the venue's local time and offset, `020`). Left out: R4's defaults; `null` is
+  treated as left out (`@IsOptional`, as for every other optional field; review M5). The Admin app
+  always sends it (the "required" of Mahdi's item 2 is the form's and the database's, not the
+  API's): the demo-data script (`backend/src/scripts/demo-data.ts`), the browser tests' `createEvent`, and every
   Backend test that schedules an event keep working unchanged, as `024` R2 kept `timeZone` optional.
 - **Refusal order** on create and update: request shape; unknown venue; `startsAt`, `endsAt`, then
   `doorsOpenAt` against the venue's zone (`LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`, with
@@ -209,7 +221,9 @@ time can't move to the new zone"; one more `reason` keeps clients' handling in o
   implementation merges and the contract tests validate responses. New request properties are
   optional. No new operation, so no `x-planned` marker. **The implementation PR** moves
   `Event.doorsOpenAt`, `Event.entryOpensAt`, and `OrderEvent.doorsOpenAt` into `required` and sets
-  **1.16.1**, in the same PR that makes the Backend send them, so no follow-up issue is left (the
+  **1.18.1** (not 1.16.1: `026`'s spec PR took 1.17.0, `026` research R13, and #114 then 1.18.0,
+  on `main` first), in the
+  same PR that makes the Backend send them, so no follow-up issue is left (the
   gap `#88` closed for `020`).
 - **Minor version** 1.15.0 → 1.16.0: new properties, a new refusal, and a narrower window for
   `lookupEntryTicket` and `admitTicket` (their descriptions), one minor per feature (`013` R11,
@@ -228,8 +242,9 @@ to know "1 hour before doors", a second copy of the rule, R8); a `doorsOpenOffse
 `[doorsOpenAt - 1 hour, endsAt)` on the database's `now()` (`017` R5 unchanged otherwise). The three
 places that say `e."startsAt" - interval '2 hours'` today (`ticket-state.ts` `stateCase`,
 `entry.service.ts` `tryAdmit`'s `WHERE`, and `select`'s `"entryOpensAt"`) use one exported fragment,
-`entryOpens = Prisma.sql\`(e."doorsOpenAt" - make_interval(mins => ${ENTRY_OPENS_BEFORE_DOORS_MINUTES}))\``
-in `ticket-state.ts`, with the constant from `@queuepass/shared` (R2), so the SQL, `Event.entryOpensAt`
+`entryOpens = Prisma.sql\`(e."doorsOpenAt" - make_interval(mins => ${ENTRY_OPENS_BEFORE_DOORS_MINUTES}::int))\``
+in `ticket-state.ts` (the `::int` cast is needed: a bare parameter fails `make_interval`, found by the
+implementation), with the constant from `@queuepass/shared` (R2), so the SQL, `Event.entryOpensAt`
 (R6), and the contract say the same thing. Typed codes, printed codes, and live codes all go through
 `select` and `tryAdmit`, so FR-012 needs no live-code change (`018`'s own 30-second window and grace
 are untouched).

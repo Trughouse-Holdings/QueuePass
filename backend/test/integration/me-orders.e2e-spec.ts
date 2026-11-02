@@ -89,6 +89,17 @@ describe('My orders', () => {
     expect(zones).toEqual({ [eastEvent]: 'America/New_York', [westEvent]: 'America/Phoenix' });
   });
 
+  it("carries the event's doors-open time for each order (spec 025 FR-010, FR-019)", async () => {
+    const eventId = await event(ctx, venueId);
+    const stored = await ctx.prisma.event.findUniqueOrThrow({ where: { id: eventId } });
+    await buy(eventId, { quantity: 1 });
+    const [order] = (await mine()).body;
+    expect(order.event.doorsOpenAt).toBe(stored.doorsOpenAt.toISOString());
+    expect(order.event.doorsOpenAt).toBe(
+      new Date(stored.startsAt.getTime() - 3_600_000).toISOString(),
+    );
+  });
+
   it("never shows one customer another customer's orders", async () => {
     const eventId = await event(ctx, venueId);
     await buy(eventId, { quantity: 1 }, 1);

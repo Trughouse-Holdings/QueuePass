@@ -3,7 +3,7 @@ import type { MyOrder, Ticket } from '@queuepass/shared';
 import { ServiceUnreachable } from '@queuepass/shared/web';
 import { calendarEligible } from '../calendar';
 import { AddToCalendar } from '../components/AddToCalendar';
-import { seatLabel, usd, when } from '../format';
+import { doorsOpen, seatLabel, usd, when } from '../format';
 import { useLoad } from '../use-load';
 
 /** The orders, and when they arrived: spec 019 FR-002 decides eligibility at that moment. */
@@ -57,6 +57,12 @@ function OrderCard({ order: o, loadedAt }: { order: MyOrder; loadedAt: number })
       <dl>
         <dt>Venue</dt>
         <dd>{o.event.location.name}</dd>
+        {o.event.doorsOpenAt && (
+          <>
+            <dt>Doors open</dt>
+            <dd>{doorsOpen(o.event.startsAt, o.event.doorsOpenAt, o.event.location.timeZone)}</dd>
+          </>
+        )}
         <dt>Starts</dt>
         <dd>{when(o.event.startsAt, o.event.location.timeZone)}</dd>
         {o.tierName && (

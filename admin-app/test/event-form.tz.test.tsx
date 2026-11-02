@@ -69,7 +69,10 @@ function editForm(
   event: object,
   locations: Parameters<typeof stubApi>[0][string] = json([EAST, PHX]),
 ) {
-  const e = { ...EVENT, ...event } as typeof EVENT;
+  // Spec 025: an event stored with a start of its own has doors 1 hour before it, unless given.
+  const start = (event as { startsAt?: string }).startsAt;
+  const doors = start ? { doorsOpenAt: new Date(Date.parse(start) - 3_600_000).toISOString() } : {};
+  const e = { ...EVENT, ...doors, ...event } as typeof EVENT;
   const api = stubApi({
     'GET /locations': locations,
     [`GET /events/${EVENT.id}`]: json(e),
@@ -175,6 +178,33 @@ describe('daylight saving (FR-016, FR-017)', () => {
     expect(screen.getByLabelText('Event name')).toHaveValue('Fall Concert');
   });
 
+  // Spec 025 (PR #116 CI, 020 S7): the skipped start gave Doors open nothing to follow; once the
+  // venue changes to one where the start names a moment, Doors open follows it (untouched).
+  it('refused at Eastern, then saved at Phoenix: Doors open follows the start in the new zone', async () => {
+    const api = newForm();
+    await fill(EAST.id, '2027-03-14T02:30', '2027-03-14T04:00');
+    expect(screen.getByLabelText('Doors open')).toHaveValue('');
+    save();
+    await screen.findByTestId('error-banner');
+    expect(posted(api)).toHaveLength(0);
+    set('Venue', PHX.id);
+    expect(screen.getByLabelText('Doors open')).toHaveValue('2027-03-14T01:30');
+    save();
+    await screen.findByText('Event page', {}, { timeout: 3000 });
+    expect(posted(api)[0]).toMatchObject({
+      startsAt: '2027-03-14T02:30:00-07:00',
+      doorsOpenAt: '2027-03-14T01:30:00-07:00',
+    });
+  });
+
+  it('keeps Doors open as the admin typed it when the venue changes', async () => {
+    newForm();
+    await fill(EAST.id, '2026-10-01T19:00', '2026-10-01T22:00');
+    set('Doors open', '2026-10-01T17:30');
+    set('Venue', PHX.id);
+    expect(screen.getByLabelText('Doors open')).toHaveValue('2026-10-01T17:30');
+  });
+
   it('accepts the same time at Phoenix (no daylight saving)', async () => {
     const api = newForm();
     await fill(PHX.id, '2027-03-14T02:30', '2027-03-14T04:00');
@@ -243,7 +273,7 @@ describe('editing (US2 scenario 4, US3 scenario 4)', () => {
       endsAt: '2027-11-07T09:30:00.000Z', // 4:30 AM EST
     });
     await vi.waitFor(() => expect(screen.getByLabelText('Starts')).toHaveValue('2027-11-07T01:30'));
-    expect(screen.getByLabelText(chosen)).toBeChecked();
+    expect(within(screen.getByTestId('startsAt-occurrence')).getByLabelText(chosen)).toBeChecked();
     await vi.waitFor(() =>
       expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('General'),
     );
@@ -262,8 +292,16 @@ describe('editing (US2 scenario 4, US3 scenario 4)', () => {
       endsAt: '2027-11-07T08:30:00.000Z',
     });
     await vi.waitFor(() => expect(screen.getByLabelText('Starts')).toHaveValue('2027-11-07T01:30'));
-    expect(screen.getByLabelText('1:30 AM EST (the second time)')).toBeChecked();
-    expect(screen.getByLabelText('1:30 AM EDT (the first time)')).not.toBeChecked();
+    expect(
+      within(screen.getByTestId('startsAt-occurrence')).getByLabelText(
+        '1:30 AM EST (the second time)',
+      ),
+    ).toBeChecked();
+    expect(
+      within(screen.getByTestId('startsAt-occurrence')).getByLabelText(
+        '1:30 AM EDT (the first time)',
+      ),
+    ).not.toBeChecked();
     await vi.waitFor(() =>
       expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('General'),
     );
@@ -417,8 +455,12 @@ describe('changing the venue after choosing a repeated hour', () => {
     await fill(EAST.id, '2027-11-07T01:30', '2027-11-07T03:30');
     fireEvent.click(screen.getByLabelText('1:30 AM EST (the second time)'));
     set('Venue', CENTRAL.id);
-    const first = screen.getByLabelText('1:30 AM CDT (the first time)');
-    const second = screen.getByLabelText('1:30 AM CST (the second time)');
+    const first = within(screen.getByTestId('startsAt-occurrence')).getByLabelText(
+      '1:30 AM CDT (the first time)',
+    );
+    const second = within(screen.getByTestId('startsAt-occurrence')).getByLabelText(
+      '1:30 AM CST (the second time)',
+    );
     expect(first).not.toBeChecked();
     expect(second).not.toBeChecked();
     save();

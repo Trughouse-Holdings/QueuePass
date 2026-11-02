@@ -224,7 +224,10 @@ describe('Admin changes end reservations', () => {
     const { eventId } = await tiered();
     await reserve(eventId, [seat(sectionA, 1, 4)]);
     await ctx.prisma.$executeRaw`
-      UPDATE "Event" SET "startsAt" = now() - interval '1 minute' WHERE "id" = ${eventId}::uuid`;
+      UPDATE "Event"
+      SET "doorsOpenAt" = "doorsOpenAt" + (now() - interval '1 minute' - "startsAt"),
+          "startsAt" = now() - interval '1 minute'
+      WHERE "id" = ${eventId}::uuid`;
     listen(eventId);
 
     await ctx.app.get(HoldSweeper).sweepOnce();

@@ -85,6 +85,8 @@ describe('Concurrent conflicting creates', () => {
         locationId: venueId,
         startsAt: new Date('2026-10-01T18:00:00-04:00'),
         endsAt: new Date('2026-10-01T21:00:00-04:00'),
+        // Spec 025 (research R1): a direct write gives the doors-open time itself.
+        doorsOpenAt: new Date('2026-10-01T17:00:00-04:00'),
         totalTicketCapacity: 100,
         basePrice: '10.00',
       },
@@ -98,6 +100,7 @@ describe('Concurrent conflicting creates', () => {
           locationId: venueId,
           startsAt: new Date('2026-10-01T20:00:00-04:00'),
           endsAt: new Date('2026-10-01T23:00:00-04:00'),
+          doorsOpenAt: new Date('2026-10-01T19:00:00-04:00'),
           totalTicketCapacity: 100,
           basePrice: '10.00',
         },

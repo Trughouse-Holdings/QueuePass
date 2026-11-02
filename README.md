@@ -15,8 +15,8 @@ on the running system (path B; the image checks wait for a machine where images 
 GitHub and its running-system walk are pending. `021` is built, reviewed, and walked in the
 browser. `022` is built and reviewed: browser tests walk the main journey of ten features on
 every pull request, green on GitHub. `023` is built and reviewed; its running-system walk is
-pending. `024` is built, reviewed, and walked on the running system. `026` is built; its
-independent review and running-system walk are pending.
+pending. `024` is built, reviewed, and walked on the running system. `025` and `026` are
+built, reviewed, and walked on the running system (path B; their browser tests run in CI).
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                       | Spec             | Plan and tasks     | Code                         |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------------- |
@@ -43,6 +43,7 @@ independent review and running-system walk are pending.
 | [`022-quickstart-browser-tests`](specs/022-quickstart-browser-tests/spec.md) | Playwright browser tests sign in on Keycloak and walk the main journey of ten features against a fresh Compose stack in the `e2e` check; every quickstart marks each scenario Automated or Manual                                                                      | Draft            | Done (34/36 tasks) | **Built and reviewed**       |
 | [`023-report-exports`](specs/023-report-exports/spec.md)                     | Admins download an event's attendee list and the sales report as CSV, Excel (XLSX), or PDF, with the screen's figures and the time they were made                                                                                                                      | Draft            | Done (25/28 tasks) | **Built (walk pending)**     |
 | [`024-venue-form-simplify`](specs/024-venue-form-simplify/spec.md)           | The Admin venue form: the admin picks the time zone; an address is saved in one step, marked not verified when the address service can't confirm it, even when it's down; section lines read Rows × Seats per row with their seats                                     | Draft            | Done (32/32 tasks) | **Built and verified**       |
+| [`025-doors-open`](specs/025-doors-open/spec.md)                             | Every event has a doors-open time, set by admins (1 hour before the start by default, up to 6 hours before); customers and admins see it; check-in opens 1 hour before doors, and the Ticket Booth greys out events not open yet                                       | Draft            | Done (38/41 tasks) | **Built and walked**         |
 | [`026-purchase-rate-limits`](specs/026-purchase-rate-limits/spec.md)         | Each customer account may try to buy, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds; over a limit, the Customer app counts down until they can try again                                                                        | Draft            | Done (24/26 tasks) | **Built (walk partly done)** |
 
 **Today** all three front ends sign in through Keycloak and log out,
@@ -64,9 +65,11 @@ address in both apps opens Google Maps. Admins add up to 5 pictures to an event 
 WebP, up to 5 MB each) and put them in order; customers see them as a rotating gallery on the
 event's card and across the top of its page, and can open one full screen. Every new order carries
 the buyer's name, typed at purchase and never changed, shown on My tickets, the attendee list, and
-at the gate; customers print a QR code for each valid ticket. In the Ticket Booth app, gate agents
-choose their event and check people in by scanning that QR with the camera or typing the
-12-character code, see the ticket and the holder's name, check a government-issued photo ID
+at the gate; customers print a QR code for each valid ticket. Every event has a doors-open time,
+which admins set (1 hour before the start unless they change it, never more than 6 hours before)
+and customers see with the event (`025`). In the Ticket Booth app, gate agents choose their event,
+from 1 hour before its doors open, and check people in by scanning that QR with the camera or
+typing the 12-character code, see the ticket and the holder's name, check a government-issued photo ID
 against it, and admit — once per ticket, even when several gates try at the same moment — or
 refuse, with every refusal explained. Admin reports and attendee lists count the real entries,
 with their times. From **My tickets**, customers can instead show a live entry code that changes
@@ -193,11 +196,12 @@ all through the real Backend rules. Running it again changes nothing. It is neve
 automatically. Its orders belong to stand-in identities, so they don't appear on any customer's
 **My tickets**; buy in the Customer app to see that page filled.
 
-**Demo Tonight** starts 1 hour after the demo data loads and ends 4 hours after it, so its entry
-window (2 hours before the start until the end) is open at once and **closes 4 hours after the
-data loads**. Running the demo data again changes nothing, so it doesn't move Demo Tonight or add
-a new one. To demo check-in later, create an event in the Admin app that starts within the next 2
-hours, buy tickets for it in the Customer app, and choose it in the Ticket Booth
+**Demo Tonight** starts 1 hour after the demo data loads and ends 4 hours after it; its doors
+open at load time (the start minus 1 hour), so its entry window (1 hour before doors open until
+the end, `025`) is open at once and **closes 4 hours after the data loads**. Running the demo data
+again changes nothing, so it doesn't move Demo Tonight or add a new one. To demo check-in later,
+create an event in the Admin app that starts within the next 2 hours (or set its doors to open
+within the next hour), buy tickets for it in the Customer app, and choose it in the Ticket Booth
 ([quickstart](specs/017-gate-check-in/quickstart.md) S0).
 
 Its two venues have real addresses, verified by the address service. It also works offline: when
@@ -475,15 +479,20 @@ Every new order carries one holder's name — the buyer's own, typed at purchase
 page with a QR code (it encodes only the 12-character ticket code), the code in text, the name,
 the event, venue, time, and seat.
 
-In the Ticket Booth app, a gate agent chooses the event they are working, then scans a ticket's QR
-code with the camera or types its code (case, spaces, and dashes are ignored). The app shows the
+In the Ticket Booth app, a gate agent chooses the event they are working from a list of every
+scheduled event that has not ended; events not open for entry yet are listed greyed, "Not open
+yet · Opens 4:30 PM EST", can't be chosen, and become choosable within 30 seconds of opening,
+without a reload (`025`). The agent then scans a ticket's QR code with the camera or types its
+code (case, spaces, and dashes are ignored). The app shows the
 ticket and the holder's name and prompts the agent to check a government-issued photo ID that
 shows that name — a printed or typed code is only as secret as the code itself, so the ID check is
 what ties it to a person. **Admit** records the entry (time and agent); **Admit all N** admits an
 order's remaining tickets after one ID check; **Refuse** records nothing, and the ticket stays
 usable. A ticket is admitted exactly once — simultaneous admits from any number of gates leave one
-entry, guaranteed by the database — and entry is open from 2 hours before the event's start until
-its end. Tickets from before `017` have no name; the agent is asked to check any valid photo ID.
+entry, guaranteed by the database — and entry is open from 1 hour before the event's doors open
+until its end (`025`; doors open 1 hour before the start unless an admin sets them, up to 6 hours
+before, so events from before `025` keep their window of 2 hours before the start). Tickets from
+before `017` have no name; the agent is asked to check any valid photo ID.
 Refusals always say why: no such code, cancelled and refunded, already used (with the time), for
 another event (named), or outside the entry window.
 

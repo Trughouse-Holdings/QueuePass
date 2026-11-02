@@ -107,6 +107,8 @@ export interface MyOrderResponse extends OrderResponse {
     name: string;
     startsAt: Date;
     endsAt: Date;
+    /** Spec 025 FR-010: when the venue's doors open. */
+    doorsOpenAt: Date;
     status: EventStatus;
     /** Spec 019 FR-012 (research R2): `address` is the venue's one-line `Location.address`. */
     location: { id: string; name: string; address: string; timeZone: UsTimeZone };
@@ -454,6 +456,8 @@ export class OrdersService {
         name: o.event.name,
         startsAt: o.event.startsAt,
         endsAt: o.event.endsAt,
+        // Spec 025 FR-010, FR-019: for My tickets and the printed ticket.
+        doorsOpenAt: o.event.doorsOpenAt,
         status: o.event.status,
         location: {
           id: o.event.location.id,

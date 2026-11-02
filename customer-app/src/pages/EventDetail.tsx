@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import type { Event } from '@queuepass/shared';
 import { ImageGallery, ServiceUnreachable } from '@queuepass/shared/web';
 import { GetTickets } from '../components/GetTickets';
-import { count, usd, when } from '../format';
+import { count, doorsOpen, usd, when } from '../format';
 import { useLoad } from '../use-load';
 
 /**
@@ -48,6 +48,12 @@ export function EventDetail() {
           <dd>
             <Link to={`/venues/${e.locationId}`}>{e.location.name}</Link>
           </dd>
+          {e.doorsOpenAt && (
+            <>
+              <dt>Doors open</dt>
+              <dd>{doorsOpen(e.startsAt, e.doorsOpenAt, e.location.timeZone)}</dd>
+            </>
+          )}
           <dt>Starts</dt>
           <dd>{when(e.startsAt, e.location.timeZone)}</dd>
           <dt>Ends</dt>

@@ -1,6 +1,7 @@
 // Spec 017 quickstart S3: a gate agent types a ticket's code, checks the ID, refuses, then admits
 // it once; a third look-up shows it already used. The event starts in an hour, so its entry
-// window (from 2 hours before the start) is open; the ticket is bought through the API.
+// window (from 1 hour before doors open, which default to 1 hour before the start, spec 025) is
+// open; the ticket is bought through the API.
 import { expect, test } from '@playwright/test';
 import { adminFor, agentFor, customerFor } from '../fixtures/apps';
 import { addTier, apiFor, buyTickets, createEvent, createVenue } from '../fixtures/api';

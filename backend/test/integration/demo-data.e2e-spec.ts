@@ -68,7 +68,8 @@ describe('Demo data', () => {
     // Created by the first test of this file.
     const rows = await ctx.prisma.$queryRaw<
       { id: string; open: boolean; startsAt: Date }[]
-    >`SELECT "id", now() >= "startsAt" - interval '2 hours' AND now() < "endsAt" AS "open", "startsAt"
+      // Spec 025 FR-011: the window opens 1 hour before doors open.
+    >`SELECT "id", now() >= "doorsOpenAt" - interval '1 hour' AND now() < "endsAt" AS "open", "startsAt"
       FROM "Event" WHERE "name" = 'Demo Tonight'`;
     expect(rows).toHaveLength(1);
     expect(rows[0].open).toBe(true);
@@ -82,6 +83,18 @@ describe('Demo data', () => {
       where: { eventId: rows[0].id },
     });
     expect(orders.map((o) => o.quantity)).toContain(4);
+  });
+
+  /** Spec 025 research R11 (T024): demo events take the default doors, start minus 1 hour. */
+  it('gives every demo event doors 1 hour before its start, and Demo Tonight open for entry', async () => {
+    const events = await ctx.prisma.event.findMany();
+    expect(events.length).toBe(4);
+    for (const e of events) {
+      expect(e.startsAt.getTime() - e.doorsOpenAt.getTime()).toBe(3_600_000);
+    }
+    const listed = await asAdmin(ctx).get('/events').expect(200);
+    const tonight = listed.body.find((e: { name: string }) => e.name === 'Demo Tonight');
+    expect(Date.parse(tonight.entryOpensAt)).toBeLessThan(Date.now());
   });
 
   /** Spec 017 research R13 (T044): the demo check-ins record an agent, like real entries. */

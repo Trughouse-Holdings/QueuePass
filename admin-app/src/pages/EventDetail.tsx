@@ -10,7 +10,7 @@ import { SalesCard } from '../components/SalesCard';
 import { SeatingCard } from '../components/SeatingCard';
 import { SuccessState } from '../components/SuccessState';
 import { TierSection } from '../components/TierSection';
-import { when } from '../format';
+import { doorsOpen, when } from '../format';
 import { useDelete } from '../hooks/use-delete';
 
 type Load =
@@ -151,6 +151,14 @@ function EventView({
               {event.location.name}
             </Link>
           </dd>
+          {event.doorsOpenAt && (
+            <>
+              <dt>Doors open</dt>
+              <dd className="cell-time">
+                {doorsOpen(event.startsAt, event.doorsOpenAt, event.location.timeZone)}
+              </dd>
+            </>
+          )}
           <dt>Starts</dt>
           <dd className="cell-time">{when(event.startsAt, event.location.timeZone)}</dd>
           <dt>Ends</dt>

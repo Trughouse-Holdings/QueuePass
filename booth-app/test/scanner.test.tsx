@@ -66,6 +66,9 @@ function stubApi(extra: Record<string, Response | (() => Promise<Response>)> = {
             name: 'Demo Tonight',
             startsAt: iso(1),
             endsAt: iso(4),
+            // Spec 025: open for entry since an hour ago.
+            doorsOpenAt: iso(0),
+            entryOpensAt: iso(-1),
             status: 'SCHEDULED',
             cancelledAt: null,
           },

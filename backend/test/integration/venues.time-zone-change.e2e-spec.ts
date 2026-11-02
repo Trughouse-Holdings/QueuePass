@@ -49,10 +49,25 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
     return res.body.id;
   }
 
-  async function event(locationId: string, name: string, startsAt: string, endsAt: string) {
+  /** Spec 025: `doorsOpenAt` sent only when given; left out, the start minus 1 hour. */
+  async function event(
+    locationId: string,
+    name: string,
+    startsAt: string,
+    endsAt: string,
+    doorsOpenAt?: string,
+  ) {
     const res = await asAdmin(ctx)
       .post('/events')
-      .send({ name, locationId, startsAt, endsAt, totalTicketCapacity: 10, basePrice: '1.00' })
+      .send({
+        name,
+        locationId,
+        startsAt,
+        endsAt,
+        ...(doorsOpenAt ? { doorsOpenAt } : {}),
+        totalTicketCapacity: 10,
+        basePrice: '1.00',
+      })
       .expect(201);
     return res.body as { id: string; startsAt: string; endsAt: string };
   }
@@ -68,7 +83,7 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
       orderBy: { id: 'asc' },
     }),
     events: await ctx.prisma.event.findMany({
-      select: { id: true, startsAt: true, endsAt: true },
+      select: { id: true, startsAt: true, endsAt: true, doorsOpenAt: true },
       orderBy: { id: 'asc' },
     }),
   });
@@ -179,6 +194,8 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
         locationId: v,
         startsAt: new Date('1880-06-01T23:00:00Z'),
         endsAt: new Date('1880-06-02T01:00:00Z'),
+        // Spec 025 (research R1): a direct write gives the doors-open time itself.
+        doorsOpenAt: new Date('1880-06-01T22:00:00Z'),
         totalTicketCapacity: 10,
         basePrice: '1.00',
       },
@@ -212,7 +229,14 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
   it('Phoenix to Denver bringing Late A and Late B within 60 minutes: SCHEDULING_CONFLICT', async () => {
     const v = await venue('phoenix');
     const a = await event(v, 'Late A', '2027-03-13T23:00:00-07:00', '2027-03-14T01:30:00-07:00');
-    const b = await event(v, 'Late B', '2027-03-14T03:00:00-07:00', '2027-03-14T04:00:00-07:00');
+    // Spec 025: doors at the start; the default, 2:00 AM, is skipped in Denver and refused first.
+    const b = await event(
+      v,
+      'Late B',
+      '2027-03-14T03:00:00-07:00',
+      '2027-03-14T04:00:00-07:00',
+      '2027-03-14T03:00:00-07:00',
+    );
     const before = await snapshot();
     const res = await patch(v, { timeZone: 'America/Denver' }).expect(409);
     expect(res.body.error.code).toBe('SCHEDULING_CONFLICT');
@@ -246,7 +270,9 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
     const v = await venue('phoenix');
     // In Mountain time 01:30 MST is 08:30Z and 03:30 MDT is 09:30Z: 60 minutes; 03:29 is 59.
     await event(v, 'A', '2027-03-14T00:00:00-07:00', '2027-03-14T01:30:00-07:00');
-    await event(v, 'B', `2027-03-14T${bStart}:00-07:00`, '2027-03-14T05:00:00-07:00');
+    // Spec 025: doors at the start; the default (2:30 or 2:29 AM) is skipped in Denver.
+    const bAt = `2027-03-14T${bStart}:00-07:00`;
+    await event(v, 'B', bAt, '2027-03-14T05:00:00-07:00', bAt);
     await patch(v, { timeZone: 'America/Denver' }).expect(status);
   });
 
@@ -307,10 +333,10 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
     const v = await venue();
     const insert = (tx: Prisma.TransactionClient, name: string, start: string, end: string) =>
       tx.$executeRaw`
-        INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt",
+        INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt", "doorsOpenAt",
                              "totalTicketCapacity", "basePrice", "updatedAt")
         VALUES (${randomUUID()}::uuid, ${name}, ${v}::uuid, ${start}::timestamptz,
-                ${end}::timestamptz, 10, 1.00, now())`;
+                ${end}::timestamptz, ${start}::timestamptz - interval '1 hour', 10, 1.00, now())`;
     const err = await ctx.prisma
       .$transaction(async (tx) => {
         await tx.$executeRaw`SET CONSTRAINTS "event_no_overlap" DEFERRED`;
@@ -337,6 +363,126 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
         code: 'SCHEDULING_CONFLICT',
         details: { bufferMinutes: 60, conflictingEvent: null },
       },
+    });
+  });
+
+  // Spec 025 FR-009 (research R5, T007): doors keep their local time; skipped, repeated, or then
+  // out-of-range doors refuse the change, nothing saved.
+  describe('doors-open times (spec 025 FR-009)', () => {
+    async function withDoors(
+      locationId: string,
+      name: string,
+      startsAt: string,
+      endsAt: string,
+      doorsOpenAt: string,
+    ) {
+      const res = await asAdmin(ctx)
+        .post('/events')
+        .send({
+          name,
+          locationId,
+          startsAt,
+          endsAt,
+          doorsOpenAt,
+          totalTicketCapacity: 10,
+          basePrice: '1.00',
+        })
+        .expect(201);
+      return res.body as { id: string };
+    }
+    const doors = async (id: string) =>
+      (await ctx.prisma.event.findUniqueOrThrow({ where: { id } })).doorsOpenAt.toISOString();
+
+    it('Eastern to Central keeps doors at 5:30 PM local', async () => {
+      const v = await venue();
+      const e = await withDoors(
+        v,
+        'Doors',
+        '2026-12-05T19:00:00-05:00',
+        '2026-12-05T22:00:00-05:00',
+        '2026-12-05T17:30:00-05:00',
+      );
+      await patch(v, { timeZone: 'America/Chicago' }).expect(200);
+      // 5:30 PM CST is 23:30Z.
+      expect(await doors(e.id)).toBe('2026-12-05T23:30:00.000Z');
+    });
+
+    it('Phoenix to Central with doors at 2:30 AM on 2027-03-14: SKIPPED, doors named', async () => {
+      const v = await venue('phoenix');
+      const e = await withDoors(
+        v,
+        'Early Doors',
+        '2027-03-14T03:30:00-07:00',
+        '2027-03-14T05:00:00-07:00',
+        '2027-03-14T02:30:00-07:00',
+      );
+      const before = await snapshot();
+      const res = await patch(v, { timeZone: 'America/Chicago' }).expect(409);
+      expect(res.body.error).toEqual({
+        code: 'EVENT_TIME_NOT_IN_ZONE',
+        message:
+          "Can't change the time zone: Early Doors's doors-open time, Mar 14, 2027, 2:30 AM, " +
+          "doesn't exist in Central Time.",
+        details: {
+          event: { id: e.id, name: 'Early Doors' },
+          field: 'doorsOpenAt',
+          localTime: '2027-03-14T02:30',
+          proposedTimeZone: 'America/Chicago',
+          reason: 'SKIPPED',
+        },
+      });
+      expect(await snapshot()).toEqual(before);
+    });
+
+    it('Phoenix to Central with doors at 1:30 AM on 2027-11-07: REPEATED', async () => {
+      const v = await venue('phoenix');
+      const e = await withDoors(
+        v,
+        'Fall Doors',
+        '2027-11-07T02:30:00-07:00',
+        '2027-11-07T04:00:00-07:00',
+        '2027-11-07T01:30:00-07:00',
+      );
+      const before = await snapshot();
+      const res = await patch(v, { timeZone: 'America/Chicago' }).expect(409);
+      expect(res.body.error.message).toBe(
+        "Can't change the time zone: Fall Doors's doors-open time, Nov 7, 2027, 1:30 AM, " +
+          'happens twice in Central Time.',
+      );
+      expect(res.body.error.details).toMatchObject({
+        event: { id: e.id, name: 'Fall Doors' },
+        field: 'doorsOpenAt',
+        reason: 'REPEATED',
+      });
+      expect(await snapshot()).toEqual(before);
+    });
+
+    it('Phoenix to Central with doors 6 hours before across the fall-back night: DOORS_OUT_OF_RANGE', async () => {
+      const v = await venue('phoenix');
+      // 12:30 AM CDT (05:30Z) to 6:30 AM CST (12:30Z) is 7 hours once moved.
+      const e = await withDoors(
+        v,
+        'Dawn Show',
+        '2027-11-07T06:30:00-07:00',
+        '2027-11-07T08:00:00-07:00',
+        '2027-11-07T00:30:00-07:00',
+      );
+      const before = await snapshot();
+      const res = await patch(v, { timeZone: 'America/Chicago' }).expect(409);
+      expect(res.body.error).toEqual({
+        code: 'EVENT_TIME_NOT_IN_ZONE',
+        message:
+          "Can't change the time zone: Dawn Show's doors-open time, Nov 7, 2027, 12:30 AM, " +
+          'would be more than 6 hours before its start in Central Time.',
+        details: {
+          event: { id: e.id, name: 'Dawn Show' },
+          field: 'doorsOpenAt',
+          localTime: '2027-11-07T00:30',
+          proposedTimeZone: 'America/Chicago',
+          reason: 'DOORS_OUT_OF_RANGE',
+        },
+      });
+      expect(await snapshot()).toEqual(before);
     });
   });
 });

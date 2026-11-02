@@ -9,8 +9,9 @@ No new operation, so no `x-planned` marker. Every new response property is docum
 but left out of `required`, and every new request property is optional, so `main` stays green
 between this PR and the implementation (`020` research R18). **The implementation PR** moves
 `Event.doorsOpenAt`, `Event.entryOpensAt`, and `OrderEvent.doorsOpenAt` into `required`, sets
-**1.16.1**, and regenerates, in the same PR that makes the Backend send them (research R6; tasks
-T025).
+**1.18.1** (not 1.16.1: `026`'s spec PR took 1.17.0, `026` research R13, and #114 then 1.18.0,
+on `main` first), and
+regenerates, in the same PR that makes the Backend send them (research R6; tasks T025).
 
 | Where | Change |
 |---|---|
