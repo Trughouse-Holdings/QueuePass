@@ -389,7 +389,7 @@ every caller, before anything else.
     worked again when it ended.
   - Not walked by hand: S1, S3 to S8 (covered by the automated tests: T007 to T016, and `026 S2` in
     CI's `e2e`); the VoiceOver pass in S7 is to do.
-- [ ] T026 Push; open the implementation PR after the spec PR has merged and the branch is rebased
+- [x] T026 Push; open the implementation PR after the spec PR has merged and the branch is rebased
   onto `main`: its description says `fixes #56` on its own line and carries the review (T023), the
   counts and coverage (T024), the browser test and its deliberate failures (T017, T022), the browser
   tests' accounts (T015), and the walk (T025). Review gate 7: the description also states the
@@ -398,7 +398,10 @@ every caller, before anything else.
   than one Backend would multiply it). CI green on GitHub (the `test` and `e2e` checks); merge
   when green and approved by every team member (shared surface: `packages/shared/`,
   `docker-compose.yml`, `.env.example`, and `contracts/openapi.yaml` if the rebase renumbered it).
-  **Left for the orchestrator** (push, PR, CI).
+  PR #115. First `e2e` run: 14 of 15 passed; 026 S2 matched the message twice (review M2's hidden
+  live region and the visible banner): the test now reads the banner. Second run green (`test`,
+  `e2e`), so T017's and T022's browser runs happened in CI. Merged by Mahdi on 2026-11-02 after
+  the review rounds, without waiting for Nate. #56 closed.
 
 ---
 

@@ -496,12 +496,16 @@ only when open.
     (S7).
   - **Mahdi walked it in the browser and reports it works** (2026-11-02); the scenarios he covered
     were not itemised. Not done: the VoiceOver pass in S9.
-- [ ] T041 Push; open the implementation PR after the spec PR has merged and the branch is rebased
+- [x] T041 Push; open the implementation PR after the spec PR has merged and the branch is rebased
   onto `main`: its description says `fixes #91` on its own line and carries the review (T038), the
   counts and coverage (T039), the browser tests and their deliberate failures (T030, T037), and the
   walk (T040). CI green on GitHub (the `test` and `e2e` checks); merge when green and approved by
   every team member (shared surface: `backend/prisma/`, `packages/shared/`, `contracts/openapi.yaml`).
-  **Left for the orchestrator**: push, PR, CI on GitHub.
+  PR #116. First `e2e` run: 2 of 16 failed (025 S1's test expected the refused-press banner to go
+  when the time came back in range: test corrected; 020 S7: Doors open left empty by a start in the
+  skipped hour blocked the venue switch: fixed, component test first). `main` merged twice (#114
+  took 1.18.0, so the contract ships 1.18.1; #115's README rows). CI green (`test`, `e2e`); merged by
+  Mahdi on 2026-11-02 after the review rounds, without waiting for Nate. #91 closed.
 
 ---
 
