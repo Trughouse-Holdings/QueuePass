@@ -2,13 +2,13 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import readExcelFile from 'read-excel-file/node';
 import { AuthProvider } from '@queuepass/shared/web';
 import type { SalesReport } from '@queuepass/shared';
 import { App } from '../src/App';
 import { Reports } from '../src/pages/Reports';
 import { save } from '../src/export/save';
 import { toCsv } from '../src/export/csv';
-import { toXlsx } from '../src/export/xlsx';
 import { salesTable } from '../src/export/sales-rows';
 import { json, stubApi } from './helpers/api-stub';
 import { REPORT } from './fixtures-005';
@@ -16,14 +16,6 @@ import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-u
 
 /** Spec 023 US2, US3 (FR-002, FR-003, R13a): Download on the Reports page. */
 vi.mock('../src/export/save', () => ({ save: vi.fn() }));
-// Issue #118: the made-by test checks the table the App hands the Excel writer, not the file.
-// Writing and reading back a real XLSX here (first import of write-excel-file, then parsing it)
-// put the heaviest work of this file inside the 5 s test timeout; xlsx.test.ts already proves
-// the table's subtitle lands on the About sheet.
-vi.mock('../src/export/xlsx', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/export/xlsx')>()),
-  toXlsx: vi.fn(async () => new Blob(['xlsx'])),
-}));
 
 beforeEach(() => vi.mocked(save).mockReset());
 afterEach(() => vi.unstubAllGlobals());
@@ -85,7 +77,8 @@ describe('Download on the Reports page', () => {
     await user.click(screen.getByRole('button', { name: 'Excel (XLSX)' }));
 
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(toXlsx)).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(toXlsx).mock.calls[0][0].subtitle).toContain('Made by admin1');
+    const [blob] = vi.mocked(save).mock.calls[0];
+    const sheets = await readExcelFile(Buffer.from(await blob.arrayBuffer()));
+    expect(sheets[1].data.map((r) => r[0])).toContain('Made by admin1');
   });
 });
