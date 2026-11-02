@@ -86,3 +86,34 @@ configs, which are not source (FR-008). No other exclusion is added.
 **Decision**: T010 proves each runner fails below the floor by temporarily lowering a workspace (a
 throwaway untested file), once locally per runner kind (Jest, Vitest) and once on a draft PR in CI,
 then removes it.
+
+## R7. Flaky front-end tests under load (issue #118, 2026-11-02)
+
+**Measured**: the `admin-app` and `customer-app` suites (`vitest run --coverage`) run side by side,
+on a 16-thread, 16 GB laptop with another session's Backend tests running. Before: `admin-app`
+failed 6 of 10 runs (8 failures: 7 timeouts, each in a different test, and 1 from the images
+preview race), `customer-app` passed 10 of 10. After: both passed 10 of 10. `admin-app` takes
+about 51 s instead of 43 s in this setting; `customer-app` about 25 s instead of 30 s.
+
+**Cause**: Vitest starts one worker per CPU thread less one (15 here), each its own jsdom process.
+Two suites at once ran 30, free memory fell to about 2 GB, and a worker paged out for seconds
+missed the 5 s test timeout: tests that take 20 ms alone were reported at 10 s, whichever happened
+to be running. The issue's two timeouts (`reports-export`, under 0.5 s alone, of which 0.35 s is
+the XLSX library's first import, the write, and the read back; `times.tz`, 0.3 s) are this stall;
+neither recurred in the runs above, which caught seven other tests instead.
+
+**Decision**: each jsdom workspace's `vitest.config.ts` runs at most 4 workers (one per thread less
+one below that, so CI's 4-CPU runner keeps 3). Separately, the races found while looking:
+
+- `customer-app/test/app.test.tsx` "offers no change control at /events/e1": waits for the Get
+  tickets form, then leaves out its "Name on tickets" field (the buyer's own name, not a change).
+- `admin-app/test/images-field.test.tsx` (three tests): waits for each new picture's preview,
+  which is set in an effect after its row appears.
+- `admin-app/test/event-types-edit.test.tsx` and `ticket-limit.test.tsx`: the edit form loads the
+  event and its ticket types in separate requests; the tests now wait for both.
+- `admin-app/test/venue-time-zone.test.tsx`: waits for the zone-change note to go instead of a
+  fixed 50 ms.
+- `admin-app/test/reports-export.test.tsx` "names the signed-in admin as made by": checks the table
+  the App hands the Excel writer; `xlsx.test.ts` already proves that table reaches the file.
+
+No test timeout was raised and nothing retries.
