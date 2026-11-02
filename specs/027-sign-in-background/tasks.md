@@ -248,11 +248,19 @@ them in the light scheme; US2 fixes it).
 
 ## Phase 5: User Story 3 - Every sign-in page has the stones (P1)
 
-- [ ] T022 [US3] In a browser on the `qp027` stack, reach every page of quickstart S4 (wrong
+- [x] T022 [US3] In a browser on the `qp027` stack, reach every page of quickstart S4 (wrong
   password, sign out and back in, the account console, an expired or broken sign-in URL, Keycloak's
   logout confirmation if shown) for each app: each has the stones, the right lines, and readable
   text; Keycloak's admin console is unchanged. Fix the template or the stylesheet for any that does
   not, with a case added to T012's live test for it first. Record each page checked here.
+  **Done** (Chrome against a Keycloak built from this branch, light and dark, each app): the
+  sign-in form, a wrong password, Keycloak's logout confirmation, "You are logged out", signing in
+  again, a broken `client_id` (the error page, shared accent), the account console, and the
+  no-client page each had the stones, the right lines, and no contrast failure; the admin console
+  (master realm, Keycloak's own theme) has no stones. One defect: the logout confirmation's
+  `#kc-logout` submit input had no focus ring (the shared `input:focus` rule, as `021`'s Sign In);
+  every input now gets the ring, with a theme-file case added first, and the live test checks the
+  logout confirmation's backdrop. The ring's color moves to `--accent` on the card (T036).
 
 ---
 
