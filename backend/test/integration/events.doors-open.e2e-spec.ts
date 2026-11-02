@@ -89,6 +89,11 @@ describe('Doors-open time on events (spec 025 US1)', () => {
       });
     });
 
+    it('doorsOpenAt null is treated as left out: the start minus 1 hour (review M5)', async () => {
+      const res = await post({ doorsOpenAt: null }).expect(201);
+      expect(res.body.doorsOpenAt).toBe('2026-11-20T23:00:00.000Z');
+    });
+
     it('doors at 5:30 PM as sent; entry at 4:30 PM', async () => {
       const res = await post({ doorsOpenAt: '2026-11-20T17:30:00-05:00' }).expect(201);
       expect(res.body.doorsOpenAt).toBe('2026-11-20T22:30:00.000Z');

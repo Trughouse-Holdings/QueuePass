@@ -197,9 +197,10 @@ time can't move to the new zone"; one more `reason` keeps clients' handling in o
   `OrderEvent` (My tickets) gains `doorsOpenAt` (`OrdersService.mine`). Names mirror `startsAt` and
   `EntryTicket.entryOpensAt`.
 - `EventInput.doorsOpenAt` and `EventUpdate.doorsOpenAt`: optional `date-time`, stated like
-  `startsAt` (the venue's local time and offset, `020`). Left out: R4's defaults. The Admin app always
-  sends it (the "required" of Mahdi's item 2 is the form's and the database's, not the API's): the
-  demo-data script (`backend/src/scripts/demo-data.ts`), the browser tests' `createEvent`, and every
+  `startsAt` (the venue's local time and offset, `020`). Left out: R4's defaults; `null` is
+  treated as left out (`@IsOptional`, as for every other optional field; review M5). The Admin app
+  always sends it (the "required" of Mahdi's item 2 is the form's and the database's, not the
+  API's): the demo-data script (`backend/src/scripts/demo-data.ts`), the browser tests' `createEvent`, and every
   Backend test that schedules an event keep working unchanged, as `024` R2 kept `timeZone` optional.
 - **Refusal order** on create and update: request shape; unknown venue; `startsAt`, `endsAt`, then
   `doorsOpenAt` against the venue's zone (`LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`, with
