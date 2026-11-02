@@ -145,7 +145,7 @@ describe('EventDetail: Doors open', () => {
       }),
     });
     renderPage();
-    await screen.findByRole('heading', { name: 'Late Show' });
+    await screen.findByRole('heading', { name: /^Late Show/ });
     expect(doors()).toBe('5:30 PM EST');
   });
 

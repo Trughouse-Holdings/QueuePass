@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Event } from '@queuepass/shared';
 import { ImageGallery } from '@queuepass/shared/web';
-import { usd, when } from '../format';
+import { doorsOpen, usd, when } from '../format';
 
 /**
  * Spec 008 FR-005 (research R3): one event as a card, built only from what the event list already
@@ -29,6 +29,12 @@ export function EventCard({ event: e }: { event: Event }) {
         {e.status === 'CANCELLED' && <span className="pill pill--danger">Cancelled</span>}
       </div>
       <dl className="event-card__facts">
+        {e.doorsOpenAt && (
+          <>
+            <dt>Doors open</dt>
+            <dd>{doorsOpen(e.startsAt, e.doorsOpenAt, e.location.timeZone)}</dd>
+          </>
+        )}
         <dt>Starts</dt>
         <dd>{when(e.startsAt, e.location.timeZone)}</dd>
         <dt>Ends</dt>

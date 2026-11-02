@@ -1,4 +1,4 @@
-import { DEFAULT_TIME_ZONE, formatEventTime } from '@queuepass/shared';
+import { DEFAULT_TIME_ZONE, formatEventTime, formatDoorsOpen } from '@queuepass/shared';
 
 /**
  * An event time in its venue's zone, always with its date (spec 003 FR-006) and the zone's
@@ -39,3 +39,13 @@ export function totalUsd(price: string, quantity: number): string {
 /** A seat as customers read it (spec 007 FR-011): "Section A, Row 3, Seat 7". */
 export const seatLabel = (s: { section: string; row: number; seat: number }): string =>
   `Section ${s.section}, Row ${s.row}, Seat ${s.seat}`;
+
+/**
+ * Spec 025 FR-021 (research R9): an event's doors-open time next to its start, in its venue's
+ * zone: "5:30 PM EST" on the start's local date, "Nov 19, 2026, 11:30 PM EST" otherwise.
+ */
+export const doorsOpen = (
+  startsAt: string,
+  doorsOpenAt: string,
+  timeZone?: string | null,
+): string => formatDoorsOpen(startsAt, doorsOpenAt, timeZone || DEFAULT_TIME_ZONE);

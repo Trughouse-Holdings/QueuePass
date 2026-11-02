@@ -49,6 +49,8 @@ export interface OrderEvent {
   name: string;
   startsAt: string;
   endsAt: string;
+  /** Spec 025 FR-010: when the venue's doors open; required from contract 1.16.1. */
+  doorsOpenAt?: string;
   status: EventStatus;
   location: {
     id: string;

@@ -5,6 +5,7 @@ import {
   zoneName,
   type Location,
   type TimeZoneSource,
+  formatDoorsOpen,
 } from '@queuepass/shared';
 
 /**
@@ -34,3 +35,13 @@ export const SOURCE_TEXT: Record<TimeZoneSource, string> = {
 /** "Eastern Time, from the address" (spec 020 FR-024). */
 export const venueZone = (v: Pick<Location, 'timeZone' | 'timeZoneSource'>): string =>
   `${zoneName(v.timeZone ?? DEFAULT_TIME_ZONE)}, ${SOURCE_TEXT[v.timeZoneSource ?? 'DEFAULT']}`;
+
+/**
+ * Spec 025 FR-021 (research R9): an event's doors-open time next to its start, in its venue's
+ * zone: "5:30 PM EST" on the start's local date, "Nov 19, 2026, 11:30 PM EST" otherwise.
+ */
+export const doorsOpen = (
+  startsAt: string,
+  doorsOpenAt: string,
+  timeZone?: string | null,
+): string => formatDoorsOpen(startsAt, doorsOpenAt, timeZone || DEFAULT_TIME_ZONE);

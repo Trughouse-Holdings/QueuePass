@@ -332,19 +332,31 @@ only when open.
 
 ### Tests first
 
-- [ ] T020 [P] [US4] `backend/test/integration/me-orders.e2e-spec.ts`: each order's `event` has
+- [x] T020 [P] [US4] `backend/test/integration/me-orders.e2e-spec.ts`: each order's `event` has
   `doorsOpenAt`, validated against the contract. Must fail.
-- [ ] T021 [P] [US4] New `customer-app/test/doors-open.test.tsx` and an added case in
+  **Done**: 1 test (every response is contract-checked by the customer client); failed first
+  (`doorsOpenAt` undefined).
+- [x] T021 [P] [US4] New `customer-app/test/doors-open.test.tsx` and an added case in
   `admin-app/test/EventDetail.test.tsx` (research R9): the event card, the event page, My tickets,
   and the printed ticket (Customer) and the event page (Admin) show a "Doors open" term before
   "Starts", "5:30 PM EST" on the start's date, "Nov 19, 2026, 11:30 PM EST" the day before, and
   nothing for a response without `doorsOpenAt`; a cancelled event still shows it. Must fail.
+  **Done**: `customer-app/test/doors-open.test.tsx` (14: the four places × same day, day before,
+  none; cancelled page and card) and 4 cases in `admin-app/test/EventDetail.test.tsx`; the 12
+  showing doors failed first ("Doors open" term not found), the "nothing without it" cases passed
+  (nothing to show yet).
 
 ### Implementation
 
-- [ ] T022 [US4] `backend/src/orders/orders.service.ts` `mine()`: `event.doorsOpenAt`. T020 passes.
-- [ ] T023 [US4] The five views (research R9) with `formatDoorsOpen`. T021 passes; the Customer
+- [x] T022 [US4] `backend/src/orders/orders.service.ts` `mine()`: `event.doorsOpenAt`. T020 passes.
+  **Done**: T020 passes; `MyOrderResponse.event` gains `doorsOpenAt`; the shared `OrderEvent` gains
+  optional `doorsOpenAt`.
+- [x] T023 [US4] The five views (research R9) with `formatDoorsOpen`. T021 passes; the Customer
   app's `theme-classes` and phone-width tests pass.
+  **Done**: a `doorsOpen()` helper beside `when()` in each app's `format.ts` (over
+  `formatDoorsOpen`, venue zone or the default); the five views show the pair only when
+  `doorsOpenAt` is sent. T021 passes; customer 322 (97.51%), admin 354 (97.25%), `theme-classes` and
+  phone-width tests included.
 
 ---
 
