@@ -61,8 +61,11 @@ test('025 S1/S2/S6: an admin sets when doors open, and customers see it', async 
   expect(posted).toHaveLength(0);
 
   // Back to 5:30 PM: saved, and the event page says so.
+  // The note under the field goes as soon as the value is in range; the banner of the refused
+  // press stays until the next press, as for every refusal on this form (020's skipped time too).
   await doors.fill(`${day}T17:30`);
-  await expect(page.getByText(range)).toHaveCount(0);
+  await expect(page.getByTestId('doorsOpenAt-range')).toHaveCount(0);
+  await expect(page.getByText(range)).toHaveCount(1);
   await page.getByRole('button', { name: 'Schedule event' }).click();
   await expect(page.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
   expect(posted).toHaveLength(1);

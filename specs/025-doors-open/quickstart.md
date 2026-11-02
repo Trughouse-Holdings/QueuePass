@@ -20,8 +20,8 @@ an end at 10:00 PM. **Expected**: **Doors open**, before Starts, shows the same 
 the same zone line as the other times. Change Doors open to 12:59 PM; press **Create event**.
 **Expected**: "Doors must open no more than 6 hours before the start and not after it: between {date},
 1:00 PM EST and 7:00 PM EST." next to the field, every value kept, no `POST /events`. Try 7:01 PM:
-the same message. Try 1:00 PM: no message. Set 5:30 PM and create (name it "Doors Test", add a
-ticket type). **Expected**: one `POST /events` with `"doorsOpenAt": "…T17:30:00-05:00"`; the event
+the same message. Try 1:00 PM: no message under the field (the banner from the refused press
+stays until the next press). Set 5:30 PM and create (name it "Doors Test", add a ticket type). **Expected**: one `POST /events` with `"doorsOpenAt": "…T17:30:00-05:00"`; the event
 page shows **Doors open** "5:30 PM EST" before Starts. Clear Doors open on a new form and press
 Create event. **Expected**: "Enter when doors open." and nothing sent.
 
