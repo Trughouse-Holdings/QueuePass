@@ -236,8 +236,9 @@ to know "1 hour before doors", a second copy of the rule, R8); a `doorsOpenOffse
 `[doorsOpenAt - 1 hour, endsAt)` on the database's `now()` (`017` R5 unchanged otherwise). The three
 places that say `e."startsAt" - interval '2 hours'` today (`ticket-state.ts` `stateCase`,
 `entry.service.ts` `tryAdmit`'s `WHERE`, and `select`'s `"entryOpensAt"`) use one exported fragment,
-`entryOpens = Prisma.sql\`(e."doorsOpenAt" - make_interval(mins => ${ENTRY_OPENS_BEFORE_DOORS_MINUTES}))\``
-in `ticket-state.ts`, with the constant from `@queuepass/shared` (R2), so the SQL, `Event.entryOpensAt`
+`entryOpens = Prisma.sql\`(e."doorsOpenAt" - make_interval(mins => ${ENTRY_OPENS_BEFORE_DOORS_MINUTES}::int))\``
+in `ticket-state.ts` (the `::int` cast is needed: a bare parameter fails `make_interval`, found by the
+implementation), with the constant from `@queuepass/shared` (R2), so the SQL, `Event.entryOpensAt`
 (R6), and the contract say the same thing. Typed codes, printed codes, and live codes all go through
 `select` and `tryAdmit`, so FR-012 needs no live-code change (`018`'s own 30-second window and grace
 are untouched).

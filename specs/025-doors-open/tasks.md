@@ -230,7 +230,7 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
 
 ### Tests first
 
-- [ ] T013 [P] [US2] `backend/test/integration/entry.window.e2e-spec.ts` (research R7): rewrite its
+- [x] T013 [P] [US2] `backend/test/integration/entry.window.e2e-spec.ts` (research R7): rewrite its
   `startsAt - 2 hours` boundaries to `doorsOpenAt - 1 hour`, and add events with doors 0 and 180
   minutes before the start (`eventAroundNow`'s `doorsBeforeStartSeconds`): for each, a lookup and an
   admit 30 seconds before `doorsOpenAt - 1 hour` → `NOT_OPEN` / `409 ENTRY_REFUSED` `NOT_OPEN` with
@@ -238,23 +238,34 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
   admitted. An event open for entry whose doors an update moves 2 hours later → the next lookup is
   `NOT_OPEN` with the new `entryOpensAt`; its already admitted ticket stays admitted. Must fail for the
   0- and 180-minute events (today's window is 2 hours before the start).
-- [ ] T014 [P] [US2] `backend/test/integration/entry.live-boundaries.e2e-spec.ts`: a live code for a
+  **Done**: the two default-doors boundary tests renamed (same instants), 4 new boundary tests
+  (doors 0 and 180 minutes) and the doors-moved test; 4 failed first (doors 0 minutes, 30 s after,
+  already passed under the 2-hour rule, as expected). `entryOpensAt` is compared with the stored
+  `doorsOpenAt` minus 1 hour.
+- [x] T014 [P] [US2] `backend/test/integration/entry.live-boundaries.e2e-spec.ts`: a live code for a
   ticket of an event with doors 180 minutes before its start, 30 seconds before and after
   `doorsOpenAt - 1 hour` → `NOT_OPEN` then `ADMITTABLE` with `verifiedBy: LIVE_CODE` (FR-012). Must
   fail.
-- [ ] T015 [P] [US2] `entry.lookup.e2e-spec.ts`, `entry.live-code.e2e-spec.ts`, `entry-key.e2e-spec.ts`:
+  **Done**: 2 tests; both failed first (NOT_OPEN was ADMITTABLE and back, on the 2-hour rule).
+- [x] T015 [P] [US2] `entry.lookup.e2e-spec.ts`, `entry.live-code.e2e-spec.ts`, `entry-key.e2e-spec.ts`:
   every expectation of `entryOpensAt` becomes `doorsOpenAt - 1 hour` (the same instant for their
   default doors); add one lookup of an event with doors at the start whose `entryOpensAt` is 1 hour
   before the start. Must fail on that one.
+  **Done**: `entry.lookup` and `entry.live-code` compare `entryOpensAt` with the stored doors minus
+  1 hour (`entry-key` has no `entryOpensAt`); the new doors-at-start lookup failed first.
 
 ### Implementation
 
-- [ ] T016 [US2] `backend/src/entry/ticket-state.ts`: the exported `entryOpens` fragment (research
+- [x] T016 [US2] `backend/src/entry/ticket-state.ts`: the exported `entryOpens` fragment (research
   R7) with `ENTRY_OPENS_BEFORE_DOORS_MINUTES`; `stateCase` uses it; `entry.service.ts` `tryAdmit` and
   `select` use it; doc comments say spec 025. No `'2 hours'` left in `backend/src`. T013–T015 pass;
   `entry.concurrency`, `entry.live-race`, and every other entry test pass with no change to their
   assertions (`entry.window`'s retry test passes because T005 made its mocked `UPDATE` shift
   `doorsOpenAt` with the start).
+  **Done**: T013–T015 pass; every entry test passes (82 in the entry files), backend 994 in 96
+  suites. The fragment needs `::int` on the minutes parameter (else 500: `make_interval` with an
+  untyped parameter), now in research R7. The only "2 hours" left in `backend/src` is the doc
+  comment naming what 025 replaced.
 
 **Checkpoint**: the window is enforced; quickstart S4's API steps pass.
 

@@ -15,7 +15,7 @@ import { CLOCK, type Clock } from '../common/clock';
 import { conflict } from '../common/conflict';
 import { PrismaService } from '../prisma/prisma.service';
 import { checkLiveCode } from './live-code-check';
-import { normalizeCode, stateCase } from './ticket-state';
+import { entryOpens, normalizeCode, stateCase } from './ticket-state';
 
 /** A 404 in the standard envelope with its own code (contracts/openapi.yaml `EntryNotFound`). */
 const ticketNotFound = (message: string): HttpException =>
@@ -172,7 +172,10 @@ export class EntryService {
     if (!event) throw new NotFoundException(`No event exists with id ${eventId}.`);
   }
 
-  /** Exactly the UPDATE … RETURNING of research R4; the window sits in the same WHERE. */
+  /**
+   * Exactly the UPDATE … RETURNING of research R4; the window sits in the same WHERE (spec 025
+   * research R7: from `entryOpens`, 1 hour before doors open, until the end).
+   */
   private tryAdmit(eventId: string, match: Prisma.Sql, agent: Principal): Promise<AdmittedRow[]> {
     return this.prisma.$queryRaw<AdmittedRow[]>`
       UPDATE "Ticket" t
@@ -184,7 +187,7 @@ export class EntryService {
         AND ${match}
         AND t."status" = 'VALID'
         AND t."checkedInAt" IS NULL
-        AND now() >= e."startsAt" - interval '2 hours'
+        AND now() >= ${entryOpens}
         AND now() < e."endsAt"
       RETURNING t."id", t."code", t."checkedInAt"`;
   }
@@ -199,7 +202,7 @@ export class EntryService {
              tier."name" AS "tierName",
              t."seatSection", t."seatRow", t."seatNumber",
              o."holderName", t."checkedInAt",
-             e."startsAt" - interval '2 hours' AS "entryOpensAt",
+             ${entryOpens} AS "entryOpensAt",
              (SELECT count(*)::int FROM "Ticket" u
               WHERE u."orderId" = t."orderId" AND u."eventId" = t."eventId"
                 AND u."status" = 'VALID' AND u."checkedInAt" IS NULL) AS "unusedOnOrder"
