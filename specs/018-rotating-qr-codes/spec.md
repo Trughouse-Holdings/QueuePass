@@ -9,6 +9,11 @@
 **Issue**: [#41](https://github.com/Trughouse-Holdings/QueuePass/issues/41) (rotating QR codes in
 the Customer app, valid only in their 30-second window)
 
+**Superseded in part by `025`** ([spec](../025-doors-open/spec.md#superseded-requirements), #91):
+the entry window a live code is checked in is now from 1 hour before the event's doors open until
+the end, not `017`'s 2 hours before the start (FR-005, FR-011). The text below is this feature's
+record as built.
+
 **Input**: User description: "018" (the roadmap entry reserved for #41). From the issue: the
 Customer app shows each ticket as a QR code that changes every 30 seconds, with how long the current
 code has left. A gate agent scans it with the Ticket Booth app, and the customer is admitted or

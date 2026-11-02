@@ -69,6 +69,9 @@ export const ERROR_CODES = [
   'EVENT_TIME_NOT_IN_ZONE',
   'LOCAL_TIME_SKIPPED',
   'UTC_OFFSET_MISMATCH',
+  // Spec 025: an event's doors-open time more than 6 hours before its start, or after it. Added
+  // ahead of the implementation, so the list matches the contract.
+  'DOORS_OPEN_OUT_OF_RANGE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

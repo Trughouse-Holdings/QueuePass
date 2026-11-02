@@ -1,12 +1,13 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.6.0 -> 3.6.1 (PATCH): one roadmap row reserved; nothing that is required changes.
-Problem: issue #107 (the Admin venue form: pick the time zone, always save the address, clear
-  section sizes) needs a spec number before its spec and plan PR (the issue names `024`).
+Version: 3.6.1 -> 3.6.2 (PATCH): one roadmap row reserved; nothing that is required changes.
+Problem: issue #91 (a doors-open time on events; the Ticket Booth works an event only from 1 hour
+  before its doors open) needs a spec number before its spec and plan PR.
 Changed:
-  - Roadmap: row 024-venue-form-simplify (#107, depends on 007, 013, 020). The next free number
-    is 025. The 013 and 020 rows are not reworded: they record what those features built; spec
-    024 says which of their requirements it changes (spec 024 research R13).
+  - Roadmap: row 025-doors-open (#91, depends on 017, 018, 020). The next free number is 026. The
+    017 and 018 rows are not reworded: they record what those features built; spec 025 lists the
+    requirements it changes (spec 025 research R14). #49 keeps its other items (description, age
+    restriction, category); 025 takes over only its doors-open item.
 Impact: none on existing code, specs, or controls. The README's version reference follows.
   Templates: none need updating.
 -->
@@ -302,7 +303,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `025`.
+number is a pull request against this table. The next free number is `026`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -330,6 +331,7 @@ number is a pull request against this table. The next free number is `025`.
 | `022-quickstart-browser-tests` | The quickstart scenarios become browser end-to-end tests run in GitHub Actions against the full stack with the seed and demo data; each quickstart marks which scenarios are automated and which stay manual, and why (#93) | `011` |
 | `023-report-exports` | Admins download an event's attendee list and the sales report as CSV, XLSX, or PDF, with the same figures as the screen and the time each file was made; CSV and XLSX keep numbers, dates, and exact money as data (#52) | `005` |
 | `024-venue-form-simplify` | The Admin app's venue form: the admin always picks the venue's time zone from the list, with no option to work it out from the address; a well-formed address is always saved in one step, verified when the address service matches it, otherwise saved as typed and marked not verified, also when the service is down; each section line reads Rows × Seats per row with its seat count (#107) | `007`, `013`, `020` |
+| `025-doors-open` | Every event has a doors-open time, set by admins in the venue's time zone (by default 1 hour before the start, no more than 6 hours before it and not after it, refused otherwise); customers and admins see it with the event; check-in, by any code, is open from 1 hour before doors open until the event ends, and the Ticket Booth app lists events not yet open greyed out, with when they open (#91; the doors-open item of #49) | `017`, `018`, `020` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -382,4 +384,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.6.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-10-30
+**Version**: 3.6.2 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-02

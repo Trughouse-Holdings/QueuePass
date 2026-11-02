@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.15.0
+  version: 1.16.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -26,11 +26,18 @@ info:
 
     **Venue time zones** (feature 020): every venue has a `timeZone`, one of `UsTimeZone`.
     Responses send instants in UTC; clients show every event time in its venue's `timeZone`, with
-    the zone's abbreviation. An event time sent to the API (`startsAt`, `endsAt`) states the
-    venue's local time with the venue's UTC offset at that time; the Backend refuses a local time
+    the zone's abbreviation. An event time sent to the API (`startsAt`, `endsAt`, and, feature 025,
+    `doorsOpenAt`) states the venue's local time with the venue's UTC offset at that time; the Backend refuses a local time
     the venue's zone skips (`LOCAL_TIME_SKIPPED`) and a time stated with any other offset,
     including `Z` (`UTC_OFFSET_MISMATCH`). A local time the zone repeats (clocks fall back) is
     accepted with either of its two offsets, which says which occurrence is meant.
+
+    **Doors open** (feature 025): every event has a `doorsOpenAt`, from 6 hours before `startsAt`
+    to `startsAt`, both allowed (`400 DOORS_OPEN_OUT_OF_RANGE` otherwise), and an `entryOpensAt`,
+    1 hour before `doorsOpenAt`. Tickets can be admitted at the gate in `[entryOpensAt, endsAt)`,
+    by any kind of code. A caller that leaves `doorsOpenAt` out of `createEvent` gets 1 hour before
+    the start; an `updateEvent` that moves the start without it keeps the same time before the
+    start. The doors-open time takes no part in the venue's 60-minute scheduling rule.
 
     **Errors**: every non-2xx response is an `ErrorEnvelope`. Branch on `error.code`, never on
     `error.message`.
@@ -421,14 +428,20 @@ paths:
         zone. An edit that sends neither never changes the zone.
 
         When the zone changes, every event at the venue (scheduled or cancelled) keeps its local
-        start and end date and time, so its `startsAt` and `endsAt` move. The change is refused,
-        and nothing is saved, with `409 TIME_ZONE_HAS_ORDERS` when any event at the venue has any
-        order (`details.events`); with `409 EVENT_TIME_NOT_IN_ZONE` when an event's local start or
-        end does not exist, or happens twice, in the new zone (`details.event`, `details.reason`
-        `SKIPPED` or `REPEATED`), or is a legacy time from before either zone adopted standard
-        time, which no whole-minute offset can state (`details.reason` `OUT_OF_RANGE`, #88); and with `409 SCHEDULING_CONFLICT` when the moved scheduled
-        events would be closer than 60 minutes (`details.conflictingEvent` and `details.event`).
-        All or nothing: the events and the venue change together.
+        start and end date and time, and, feature 025, its local doors-open date and time, so its
+        `startsAt`, `endsAt`, and `doorsOpenAt` move. The change is refused, and nothing is saved,
+        with `409 TIME_ZONE_HAS_ORDERS` when any event at the venue has any order
+        (`details.events`); with `409 EVENT_TIME_NOT_IN_ZONE` (`details.event`, `details.field`
+        `startsAt`, `endsAt`, or `doorsOpenAt`, and `details.reason`) when one of an event's local
+        times does not exist in the new zone (`SKIPPED`), happens twice there (`REPEATED`), or is a
+        legacy time from before either zone adopted standard time, which no whole-minute offset can
+        state (`OUT_OF_RANGE`, #88), or, feature 025, when its moved `doorsOpenAt` would be more than
+        6 hours before its moved `startsAt`, or after it, because a daylight-saving change falls
+        between them in one zone only (`DOORS_OUT_OF_RANGE`, `details.field` `doorsOpenAt`: the
+        doors-open time exists in the new zone but breaks the doors-open range, unlike
+        `OUT_OF_RANGE`, which is about the time itself); and with `409 SCHEDULING_CONFLICT` when the
+        moved scheduled events would be closer than 60 minutes (`details.conflictingEvent` and
+        `details.event`). All or nothing: the events and the venue change together.
       operationId: updateLocation
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -616,6 +629,10 @@ paths:
         Feature 020: `fromDate` and `toDate` filter by the day an event starts **in its venue's
         time zone**, both inclusive; the Admin and Customer apps' date filters use them. They
         cannot be combined with `from` or `to` (`400`), and `fromDate` after `toDate` is `400`.
+
+        Feature 025: each event carries `doorsOpenAt` and `entryOpensAt`. The Ticket Booth app
+        lists scheduled events that have not ended and lets a gate agent choose only those whose
+        `entryOpensAt` has passed; `lookupEntryTicket` and `admitTicket` enforce the window.
       operationId: listEvents
       x-required-roles: []
       parameters:
@@ -685,6 +702,13 @@ paths:
         is `400 UTC_OFFSET_MISMATCH`. A local time the zone repeats is accepted with either of its
         two offsets. The scheduling conflict message names the conflicting event's times in the
         venue's local time.
+
+        Feature 025: `doorsOpenAt` is optional. Left out, it is `startsAt` minus 1 hour. Sent, it is
+        checked against the venue's `timeZone` after `endsAt`, like the start and end
+        (`details.field: doorsOpenAt`), and then must be from 6 hours before `startsAt` to
+        `startsAt`, both allowed: otherwise `400 DOORS_OPEN_OUT_OF_RANGE`, whose message names the
+        allowed range in the venue's local time. This comes before the capacity checks. The Admin
+        app always sends it.
       operationId: createEvent
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -749,6 +773,13 @@ paths:
         venue's `timeZone` as in `createEvent`. Moving the event to a venue in a different time
         zone must send both `startsAt` and `endsAt` (`400 VALIDATION_FAILED` otherwise), so its
         local times are explicit; a move within the same zone without times keeps the instants.
+
+        Feature 025: `doorsOpenAt`, when sent, is checked as in `createEvent`, against the
+        `startsAt` in force after the update (sent, else stored). When the update changes
+        `startsAt` and does not send `doorsOpenAt`, `doorsOpenAt` moves by the same amount, keeping
+        the same time before the start (also when moving to a venue in another zone, which does not
+        have to send it). Otherwise an update without it leaves it unchanged. Moving
+        `doorsOpenAt` later can close an open check-in window; entries already recorded stay.
       operationId: updateEvent
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -1314,8 +1345,11 @@ paths:
         A ticket that exists is always `200`, with `state` saying what the agent may do:
         `ADMITTABLE`; `USED` (with `usedAt`); `VOID` (its order was refunded, for example because
         the event was cancelled); `OTHER_EVENT` (the ticket's own event is in `event`); `NOT_OPEN`
-        (entry opens at `entryOpensAt`, 2 hours before the start); or `ENDED`. The window is
-        half-open, `[startsAt - 2 hours, endsAt)`, on the database's clock. Nothing is recorded.
+        (entry opens at `entryOpensAt`, 1 hour before the event's `doorsOpenAt`, feature 025); or
+        `ENDED`. The window is half-open, `[doorsOpenAt - 1 hour, endsAt)`, on the database's clock,
+        for ticket codes and live codes alike (until feature 025, `[startsAt - 2 hours, endsAt)`;
+        events from before 025 have `doorsOpenAt` 1 hour before the start, so their window is the
+        same). Nothing is recorded.
 
         `unusedOnOrder` counts the valid, unused tickets of this ticket's order for this event,
         including this one, so the agent can offer to admit them all after one ID check.
@@ -1368,7 +1402,8 @@ paths:
 
         Refused with `409 ENTRY_REFUSED` when nothing could be admitted. `details.reason` is
         `USED` (with `details.usedAt`), `VOID`, `OTHER_EVENT` (with `details.event`), `NOT_OPEN`
-        (with `details.entryOpensAt`), or `ENDED`, the same states `lookupEntryTicket` reports.
+        (with `details.entryOpensAt`), or `ENDED`, the same states `lookupEntryTicket` reports, in
+        the same window (feature 025: `[doorsOpenAt - 1 hour, endsAt)`).
         Feature 020: `details.event` also carries the event's venue `timeZone`, as
         `EntryTicket.event` does.
         A refused ID check is not sent to the Backend: the client simply does not call this.
@@ -1899,6 +1934,25 @@ components:
           description: The venue, embedded so lists need no second request.
         startsAt: { type: string, format: date-time, example: '2026-10-01T18:00:00-04:00' }
         endsAt: { type: string, format: date-time, example: '2026-10-01T21:00:00-04:00' }
+        doorsOpenAt:
+          type: string
+          format: date-time
+          example: '2026-10-01T17:00:00-04:00'
+          description: |
+            Feature 025. When the venue's doors open: from 6 hours before `startsAt` to `startsAt`.
+            Events from before feature 025 have `startsAt` minus 1 hour. Always sent once 025 is
+            implemented; not listed as required so this contract can merge ahead of the
+            implementation with the suite green (the implementation lists it, 1.16.1). Clients
+            treat a missing value as not known and show nothing for it.
+        entryOpensAt:
+          type: string
+          format: date-time
+          example: '2026-10-01T16:00:00-04:00'
+          description: |
+            Feature 025. When gate check-in opens: 1 hour before `doorsOpenAt`. Tickets can be
+            admitted in `[entryOpensAt, endsAt)`. Worked out by the Backend, never sent to it.
+            Always sent once 025 is implemented; not listed as required for the same reason as
+            `doorsOpenAt`. The Ticket Booth app treats a missing value as already open.
         totalTicketCapacity: { type: integer, minimum: 1, example: 18000 }
         maxTicketsPerCustomer:
           type: [integer, 'null']
@@ -1951,6 +2005,14 @@ components:
           description: |
             Must be strictly after `startsAt`. Feature 020: stated like `startsAt`, in the venue's
             local time and offset.
+        doorsOpenAt:
+          type: string
+          format: date-time
+          example: '2026-10-01T18:00:00-04:00'
+          description: |
+            Feature 025. Optional; left out, `startsAt` minus 1 hour. Stated like `startsAt`, in
+            the venue's local time and offset. From 6 hours before `startsAt` to `startsAt`, both
+            allowed (`400 DOORS_OPEN_OUT_OF_RANGE` otherwise). The Admin app always sends it.
         totalTicketCapacity:
           type: integer
           minimum: 1
@@ -1986,6 +2048,13 @@ components:
           type: string
           format: date-time
           description: Feature 020. In the destination venue's local time and offset.
+        doorsOpenAt:
+          type: string
+          format: date-time
+          description: |
+            Feature 025. In the destination venue's local time and offset; checked against the
+            `startsAt` in force after the update. Left out while `startsAt` changes, it moves by
+            the same amount.
         totalTicketCapacity: { type: integer, minimum: 1 }
         maxTicketsPerCustomer:
           type: [integer, 'null']
@@ -2206,6 +2275,14 @@ components:
         name: { type: string, example: Season Opener }
         startsAt: { type: string, format: date-time }
         endsAt: { type: string, format: date-time }
+        doorsOpenAt:
+          type: string
+          format: date-time
+          description: |
+            Feature 025. When the venue's doors open, as `Event.doorsOpenAt`, shown on My tickets
+            and the printed ticket. Always sent once 025 is implemented; not listed as required so
+            this contract can merge ahead of the implementation (the implementation lists it,
+            1.16.1).
         status: { type: string, enum: [SCHEDULED, CANCELLED] }
         location:
           type: object
@@ -2640,7 +2717,9 @@ components:
         entryOpensAt:
           type: string
           format: date-time
-          description: Two hours before the ticket's event starts.
+          description: |
+            1 hour before the ticket's event's `doorsOpenAt` (feature 025; until then, 2 hours
+            before its start).
         unusedOnOrder:
           type: integer
           minimum: 0
@@ -2756,6 +2835,7 @@ components:
                 - EVENT_TIME_NOT_IN_ZONE
                 - LOCAL_TIME_SKIPPED
                 - UTC_OFFSET_MISMATCH
+                - DOORS_OPEN_OUT_OF_RANGE
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -2807,7 +2887,10 @@ components:
         event time without a UTC offset or a date only), or, feature 020, an event time does not
         fit the venue's time zone: the local time is skipped by a daylight-saving
         change (`LOCAL_TIME_SKIPPED`), or it is stated with an offset other than the venue's at
-        that local time (`UTC_OFFSET_MISMATCH`). Nothing was saved.
+        that local time (`UTC_OFFSET_MISMATCH`); `details.field` is `startsAt`, `endsAt`, or,
+        feature 025, `doorsOpenAt`. Or, feature 025, the doors-open time is more than 6 hours
+        before the start or after it (`DOORS_OPEN_OUT_OF_RANGE`, with `details.field`,
+        `doorsOpenAt`, `startsAt`, `earliest`, `latest`, and `timeZone`). Nothing was saved.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
@@ -2854,6 +2937,19 @@ components:
                     timeZone: America/New_York
                     sentOffset: '-07:00'
                     expectedOffsets: ['-04:00']
+            doorsOpenOutOfRange:
+              summary: Feature 025. Doors open more than 6 hours before the start
+              value:
+                error:
+                  code: DOORS_OPEN_OUT_OF_RANGE
+                  message: 'Doors must open no more than 6 hours before the start and not after it: between Nov 20, 2026, 1:00 PM EST and 7:00 PM EST.'
+                  details:
+                    field: doorsOpenAt
+                    doorsOpenAt: '2026-11-20T17:30:00.000Z'
+                    startsAt: '2026-11-21T00:00:00.000Z'
+                    earliest: '2026-11-20T18:00:00.000Z'
+                    latest: '2026-11-21T00:00:00.000Z'
+                    timeZone: America/New_York
 
     OrderRejected:
       description: |
