@@ -351,12 +351,24 @@ fallback, and the generator are unchanged.
   (`npm run test:tz`); record the counts, and the e2e job's time on GitHub for this branch: it must
   stay under about 15 minutes (on `main` it is 6 min 10 s, run 41520953833), well inside the job's
   `timeout-minutes: 30` and spec `022` SC-003 (R8). Record `027 S3`'s and `027 S6`'s own times too.
+  **Partly done (left open)**: `npm run e2e` cannot run on the implementing machine (the team
+  stack holds its ports and its images download packages), so the whole suite three times, and the
+  e2e job's time, are left for CI on GitHub. Locally, against a Keycloak built from this branch,
+  in the installed Chrome, opening Keycloak's sign-in URL directly instead of the apps: `027 S1`,
+  `027 S3`, and `027 S6` passed three runs in a row (S1 about 1.5 s, S3 about 1.1–1.2 min with
+  two screenshots per page state, S6 5–8 s). `npm run test:tz`: all four zones (New York, UTC,
+  Los Angeles, Honolulu) pass for shared, backend, and the three apps.
 - [x] T027 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round, its findings, and
   any left open here.
   **Done**: round 1, findings and their fixes in the review record below; two left open there.
-- [ ] T028 `npm run ci` locally, green, with Keycloak up so the live tests run; record the counts per
+- [x] T028 `npm run ci` locally, green, with Keycloak up so the live tests run; record the counts per
   workspace and each workspace's line coverage.
+  **Done** (after the review fixes, with a Keycloak built from this branch so the live seed tests
+  ran, none skipped): format, lint, the e2e typecheck, and the build pass; `npm test`: root scripts
+  75 passed; shared 781 (lines 96.72%); backend 1088 (97.24%); admin-app 361 (97.31%);
+  customer-app 335 (97.65%); booth-app 94 (93.44%); seed 166 (99.29%); the quick Los Angeles
+  time-zone run passes. Every workspace is above the 80% floor.
 - [ ] T029 Running-system walk, quickstart S0–S8, on a stack built from this branch; record each
   scenario's result here (Constitution VI smoke test: each front end signed into, used, signed out).
 - [ ] T030 Mahdi walks the sign-in pages in his own browser and approves the look (the issue's
