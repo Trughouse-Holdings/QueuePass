@@ -9,6 +9,12 @@
 **Issues**: [#39](https://github.com/Trughouse-Holdings/QueuePass/issues/39) (names on tickets),
 [#40](https://github.com/Trughouse-Holdings/QueuePass/issues/40) (Ticket Booth check-in)
 
+**Superseded in part by `025`** ([spec](../025-doors-open/spec.md#superseded-requirements), #91):
+a ticket is admittable from 1 hour before its event's doors open until the end, not from 2 hours
+before the start (FR-019, FR-011, the "Entry window" assumption); the Ticket Booth lists events not
+yet open greyed out and lets the agent choose only open ones (FR-007). The text below is this
+feature's record as built.
+
 **Input**: User description: "Names on tickets plus Ticket Booth check-in. Every valid ticket
 carries the name of the person expected to use it, set when bought; an order without the required
 name(s) is refused with a clear message; the name is shown to the customer on My tickets, to admins
