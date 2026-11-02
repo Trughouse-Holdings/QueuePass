@@ -395,19 +395,23 @@ a customer over the hold limit sees a countdown and keeps their seats'`:
 2. The customer (`customerFor(testInfo, n)` with an `n` no other browser test uses, chosen in tasks
    T015) signs in to the event page, fills **Name on tickets** (so Confirm purchase can be enabled;
    `canConfirm` needs a valid name), and holds one seat with **Reserve seats**.
-3. Through the same customer's API context (`apiFor`), three hold attempts for the held seat again,
-   back to back. Each is answered `400` (already in the reservation) or, when step 2's hold falls in
-   the same 5 seconds, `429` for the third; the test asserts each status is `400` or `429`, nothing
-   more.
+3. Through the same customer's API context (the page's own token), hold attempts for the held seat
+   again, back to back, each answered `400` (already in the reservation) or `429`, until one is
+   refused for the limit with `Retry-After` of at least 3 (at most 20 tries): the window is then full
+   of attempts made just now, so on a slow runner step 2's hold ageing out cannot let step 4 through
+   (independent review, M1).
 4. In the page, pick another seat and press **Reserve seats** at once. **Expected**: "Too many tries.
    You can try again in N seconds." (N from 1 to 5, read from the page), Reserve seats
    `aria-disabled="true"`, the first seat still under **Reserved for you**, Confirm purchase enabled.
 5. Wait for the message to go (Playwright's `toBeHidden` with a 10-second timeout). **Expected**:
    Reserve seats no longer `aria-disabled`; pressing it adds the second seat.
 
-Steps 2 to 4 make at least four hold attempts within a few seconds, so the press in step 4 is refused
-under the default 3-in-5-seconds limit, whether step 2's hold or step 3's third attempt is the one
-that used the allowance up. The stack runs with the defaults whatever a developer's `.env` says (R5).
+Step 3 ends with the 3-in-5-seconds allowance used up by attempts at most 2 seconds old, so the press
+in step 4 is refused. Each repeat of the test (`npm run e2e -- --repeat-each=N`, `022` R13) signs
+in as an account of its own, `customerFor(testInfo, 11 + testInfo.repeatEachIndex)`, checked to
+stay within `022` R8's 0 to 19 (so at most 9 repeats), above the 0 to 10 the other tests use:
+about 4 to 6 hold attempts a run would otherwise put one account over 10 a minute by the third
+repeat (independent review, S1). The stack runs with the defaults whatever a developer's `.env` says (R5).
 The test passes in any time zone (it reads no times).
 
 The buy countdown, Check again, and the exact ticks are covered by the Customer app's tests (R10);

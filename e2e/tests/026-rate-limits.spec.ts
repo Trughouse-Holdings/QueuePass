@@ -27,9 +27,14 @@ test('026 S2: a customer over the hold limit sees a countdown and keeps their se
   });
   await admin.close();
 
+  // An account per repeat (review S1): `--repeat-each` (022 R13) would otherwise send one account
+  // past 10 hold attempts in a minute by the third run. 11 to 19 are free; 0 to 10 are the other
+  // tests' (tasks T015).
+  const index = 11 + testInfo.repeatEachIndex;
+  expect(index, 'at most 9 repeats: customerFor allows indices up to 19 (022 R8)').toBeLessThan(20);
   // The customer's own page, and the API with the token that page signed in with.
   const customer = await apiAs(page, () =>
-    signIn(page, 'customer', customerFor(testInfo, 11), `/events/${event.id}`),
+    signIn(page, 'customer', customerFor(testInfo, index), `/events/${event.id}`),
   );
   const tickets = page.getByRole('region', { name: 'Get tickets' });
   await tickets.getByRole('radio', { name: /^General, \$20\.00/ }).check();
@@ -43,18 +48,25 @@ test('026 S2: a customer over the hold limit sees a countdown and keeps their se
   await reserve.click();
   await expect(held).toContainText('Section A, Row 1, Seat 1');
 
-  // Step 3: three more hold attempts straight to the API, back to back, for the held seat: each
-  // refused as already held (400), or for the limit (429) when step 2 fell in the same 5 seconds.
+  // Step 3: hold attempts straight to the API, back to back, for the held seat, each refused as
+  // already held (400) or for the limit (429), until one is refused for the limit with at least
+  // 3 seconds to wait: the window is then full of attempts made just now, whatever the runner's
+  // speed, so step 4 cannot slip in as the oldest ages out (review M1).
   const sectionId = layout.sections[0].id;
-  for (let i = 0; i < 3; i++) {
-    const status = await customer.status('POST', `/events/${event.id}/reservation`, {
-      seats: [{ sectionId, row: 1, seat: 1 }],
-    });
+  let full = false;
+  for (let i = 0; i < 20 && !full; i++) {
+    const { status, retryAfter } = await customer.attempt(
+      'POST',
+      `/events/${event.id}/reservation`,
+      { seats: [{ sectionId, row: 1, seat: 1 }] },
+    );
     expect([400, 429]).toContain(status);
+    full = status === 429 && (retryAfter ?? 0) >= 3;
   }
+  expect(full, 'the hold allowance was filled through the API').toBe(true);
   await customer.dispose();
 
-  // Step 4: another seat, at once. At least four attempts in a few seconds: refused for the limit.
+  // Step 4: another seat, at once, within the wait: refused for the limit.
   await seats.getByRole('button', { name: 'Row 1, Seat 2', exact: true }).click();
   await reserve.click();
   const message = tickets.getByText(/^Too many tries\. You can try again in \d+ seconds?\.$/);
