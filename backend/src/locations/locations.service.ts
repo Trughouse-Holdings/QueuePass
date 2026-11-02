@@ -251,9 +251,12 @@ export class LocationsService {
         const stored = await tx.location.findUniqueOrThrow({ where: { id } });
         const same = sameAddress(parts, stored);
         const looked = checkedAddress?.address ?? recheckedAddress;
-        changed = !same && checkedAddress !== undefined;
-        if (changed) address = checkedAddress?.address;
-        else if (same && !stored.addressVerified && looked?.addressVerified) address = looked;
+        if (checkedAddress && !same) {
+          changed = true;
+          address = checkedAddress.address;
+        } else if (same && !stored.addressVerified && looked?.addressVerified) {
+          address = looked;
+        }
       }
       // A zone worked out from the address only goes with a changed address (020 R7).
       const zone = changed || dto.timeZone !== undefined ? decided : null;

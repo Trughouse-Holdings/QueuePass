@@ -398,6 +398,24 @@ describe('Venue address check on edit (spec 013)', () => {
       });
     });
 
+    it('verifies the same address another edit saved not verified during the lookup', async () => {
+      const gate = ctx.geocoder.pause();
+      const slow = patch(moved).then((r) => r);
+      await gate.started;
+      ctx.geocoder.next({ kind: 'none' });
+      await patch({ ...moved, acceptUnverifiedAddress: true, timeZone: 'America/New_York' }).expect(
+        200,
+      );
+      gate.release();
+      expect((await slow).status).toBe(200);
+      expect(await row()).toMatchObject({
+        address: '937 PHILLIPS LN, LOUISVILLE, KY 40209',
+        addressVerified: true,
+        timeZone: 'America/New_York',
+        timeZoneSource: 'ADMIN',
+      });
+    });
+
     it('lets the later write win when another edit saved a different address during the lookup', async () => {
       const gate = ctx.geocoder.pause();
       const slow = patch(moved).then((r) => r);
