@@ -33,9 +33,16 @@ const at = (path: string, route: string) =>
     </MemoryRouter>,
   );
 
-/** The edit form has loaded the event's ticket types (section selects show their names too). */
+/**
+ * The edit form has loaded the event's ticket types (section selects show their names too) and,
+ * issue #118, the event itself: they are separate requests, and the event decides reserved
+ * seating (so whether quantities show) and what Save sends.
+ */
 const typesLoaded = () =>
-  vi.waitFor(() => expect(screen.getByLabelText('Ticket type 2 name')).toHaveValue('Balcony'));
+  vi.waitFor(() => {
+    expect(screen.getByLabelText('Ticket type 2 name')).toHaveValue('Balcony');
+    expect(screen.getByLabelText('Event name')).toHaveValue(EVENT.name);
+  });
 
 const typeLine = (n: number, name: string, price: string, quantity?: string) => {
   fireEvent.change(screen.getByLabelText(`Ticket type ${n} name`), { target: { value: name } });
