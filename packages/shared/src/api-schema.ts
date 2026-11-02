@@ -1421,7 +1421,12 @@ export interface components {
             /** @description Non-negative decimal string. */
             basePrice: string;
         };
-        /** @description Partial update; supply only the fields being changed. */
+        /**
+         * @description Partial update; supply only the fields being changed. From 1.18.2 (#117), a field may be
+         *     left out but not sent as `null` (`400 VALIDATION_FAILED` naming it, nothing changed),
+         *     except `maxTicketsPerCustomer` (`null` clears the limit) and `doorsOpenAt` (`null` counts
+         *     as left out).
+         */
         EventUpdate: {
             name?: string;
             /**
@@ -1515,11 +1520,15 @@ export interface components {
             price: string;
             /**
              * @description The event's tiers together may not exceed its `totalTicketCapacity`. Required without
-             *     reserved seating; omitted with it (feature 007).
+             *     reserved seating; omitted with it (feature 007). Never `null` (`400`, from 1.18.2,
+             *     #117).
              */
             quantity?: number;
         };
-        /** @description Partial update; supply only the fields being changed. */
+        /**
+         * @description Partial update; supply only the fields being changed. From 1.18.2 (#117), a field may be
+         *     left out but not sent as `null` (`400 VALIDATION_FAILED` naming it, nothing changed).
+         */
         TicketTierUpdate: {
             name?: string;
             price?: string;
