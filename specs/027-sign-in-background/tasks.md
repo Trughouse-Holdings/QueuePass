@@ -343,6 +343,52 @@ fallback, and the generator are unchanged.
 
 ---
 
+## Phase 6c: The pulse and its pause button (implementation session 3)
+
+**Why**: Mahdi asked for the lines to pulse gently, with a pause button (spec Clarifications,
+implementation session 3; FR-013, SC-007; research R10).
+
+### Tests first
+
+- [ ] T039 [P] `scripts/seed/test/login-theme-files.test.ts`: `@keyframes qp-lines-pulse` from
+  `opacity: 0.6275` to `opacity: 1`; the lines layer rests at `opacity: 0.6275` and runs it as
+  `2s ease-in-out infinite alternate` only under `.qp-animate`; `.qp-paused` sets
+  `animation-play-state: paused`; reduced motion removes it and hides `.qp-motion`; forced colors
+  hide `.qp-motion`; `.qp-motion[hidden]` stays hidden; the panel in `--stone-base` with
+  `--space-2` padding, the button's text in `--stone-text` and its ring in `--stone-accent`; no
+  `transition` on the backdrop; `template.ftl` has the hidden panel and the button after `</main>`;
+  `theme.properties` has `scripts=js/motion.js`; `motion.js` uses the key `qp-sign-in-motion` inside
+  `try`/`catch`. `stone-lines.png` is opaque (alpha 255) on its edges. `sign-in-screens.test.ts`
+  (live): every page with the stones has the panel, the button, and the script. Must fail.
+- [ ] T040 [P] `packages/shared/test/theme/contrast.test.ts`: `--stone-text` on `--stone-base` at
+  4.5:1 or more, and each app's `--stone-accent` on `--stone-base` at 3:1 or more (the pause
+  button's text and ring, R10). The tokens already pass, so this is a guard: seen failing by
+  pointing it at a token that does not (`--stone-scrim`'s black) for a moment.
+- [ ] T041 `e2e/tests/027-sign-in-background.spec.ts`: `027 S9: the lines pulse, and the pause
+  button stops them, is remembered, and is gone under reduced motion` (each app): the lines layer's
+  `animation-name` `qp-lines-pulse`, 2 s, infinite, alternate, running; the button visible, reading
+  "Pause animation", `aria-pressed="false"`, reached by Tab right after Sign In; pressing it pauses
+  the animation, switches the label and `aria-pressed`, and survives a reload; pressing it again
+  resumes; the button's text 4.5:1 and its ring 3:1 against its panel, the panel padded wider than
+  the ring; with `localStorage` throwing, the button still works; with reduced motion emulated, no
+  animation and no button. S3 and S6 freeze the lines at their peak while measuring. Its own
+  `test.setTimeout(2 * 60_000)`. Must fail.
+
+### Implementation
+
+- [ ] T042 `scripts/seed/src/stone-lines/lines.ts`: `SETTINGS.strength` 255; regenerate
+  `stone-lines.png` and `--check` it; `NOTICE` says opaque edges.
+- [ ] T043 `login.css`, `template.ftl`, `theme.properties`, `login/resources/js/motion.js` (R10).
+  T039 and T041 pass; S3 three runs in a row.
+- [ ] T044 Constitution: check 3.8.0's wording covers animated lines and a pause control; amend if
+  not, at 3.8.0 (unreleased, in this PR).
+- [ ] T045 Quickstart S5 and S9, the S9 Automation row; README count.
+- [ ] T046 `npm run ci` and the 027 browser tests three times locally.
+- [ ] T047 Independent review of this delta (round 2); fix and record it below; retake the
+  screenshots.
+
+---
+
 ## Phase 7: Polish, review, pull request
 
 - [x] T025 README: the `027` status row (status and task count), a sentence in **Today** (the sign-in
