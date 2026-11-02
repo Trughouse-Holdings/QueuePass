@@ -72,16 +72,14 @@ export interface Location {
   address: string;
   /**
    * Spec 013: `null` for a venue from before the feature that was not re-addressed since.
-   * The Backend always sends these five fields. They are optional here only because the
-   * contract leaves them out of `required` until its follow-up tightening (research R11);
-   * both become required together with the contract.
+   * Required, as in the contract from 1.18.0 (#36, research R11).
    */
-  street?: string | null;
-  city?: string | null;
-  state?: UsState | null;
-  zip?: string | null;
+  street: string | null;
+  city: string | null;
+  state: UsState | null;
+  zip: string | null;
   /** Spec 013 FR-020: the address service matched this address. */
-  addressVerified?: boolean;
+  addressVerified: boolean;
   /**
    * Spec 020 FR-001, FR-007: the venue's time zone and how it was set. Always sent; optional here
    * only until the contract's follow-up makes them required (research R18). A client treats a
