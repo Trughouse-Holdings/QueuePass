@@ -68,3 +68,19 @@ describe('An ordinary customer and the attempt limits', () => {
     expect(statuses).toEqual([201, 200, 200, 200, 200, 201, 201, 200]);
   });
 });
+
+/** Spec 026 FR-017 (independent review M5): the whole app refuses to start on a wrong setting. */
+describe('The Backend with a wrong attempt-limit setting', () => {
+  it.each([
+    [
+      { perMinute: 0, perFiveSeconds: 3 },
+      "RATE_LIMIT_PER_MINUTE must be a whole number of at least 1, got '0'",
+    ],
+    [
+      { perMinute: 2, perFiveSeconds: 3 },
+      "RATE_LIMIT_PER_5_SECONDS ('3') must not be more than RATE_LIMIT_PER_MINUTE ('2')",
+    ],
+  ])('does not start with %j', async (attemptLimits, message) => {
+    await expect(createTestApp({ attemptLimits })).rejects.toThrow(message);
+  });
+});

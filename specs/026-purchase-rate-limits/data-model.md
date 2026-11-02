@@ -9,24 +9,24 @@ counts are kept in the Backend's memory and forgotten on a restart (research R3;
 
 | Name | Shape | Rule |
 | --- | --- | --- |
-| attempts | `Map<string, number[]>`, key `` `${sub}:${kind}` ``, `kind` `BUY` or `HOLD` | The `ATTEMPT_CLOCK` times (ms, monotonic `performance.now()`, research R2) of the attempts let through, oldest first; only those with `t > now - 60_000`; at most `perMinute` (research R2). A key with none left is deleted by the sweep (a check always leaves times: a refusal has some, and a let-through attempt adds one). |
+| attempts | `Map<string, number[]>`, key `` `${sub}:${kind}` ``, `kind` `BUY` or `HOLD` | The `ATTEMPT_CLOCK` times (ms, monotonic `performance.now()`, research R2) of the attempts let through, oldest first; only those with `now - t < 60_000`; at most `perMinute` (research R2). A key with none left is deleted by the sweep (a check always leaves times: a refusal has some, and a let-through attempt adds one). |
 | loggedUntil | `Map<string, number>`, same key | The end of the wait already logged for this key; a refusal before it writes no log line (research R8). Deleted with its key. |
 
-Swept every 60 seconds (`sweepOnce()`): every key whose newest time is `<= now - 60_000` is deleted
+Swept every 60 seconds (`sweepOnce()`): every key whose newest time `t` has `now - t >= 60_000` is deleted
 with its `loggedUntil` (research R3).
 
 ## The rule (`tryAttempt(sub, kind)`, synchronous)
 
 | Step | What |
 | --- | --- |
-| 1 | `now = attemptClock.now()`; drop times `<= now - 60_000`, and any `> now` (a guard; impossible on a monotonic clock) |
-| 2 | `waitMinute = len >= perMinute ? times[len - perMinute] + 60_000 - now : 0` |
-| 3 | `recent = times > now - 5_000`; `waitBurst = recent.length >= perFiveSeconds ? recent[recent.length - perFiveSeconds] + 5_000 - now : 0` |
-| 4 | `wait = min(60_000, max(...))`; `> 0` → refused, `retryAfterSeconds = ceil(wait / 1000)` (1–60), nothing recorded; else append `now`, let through |
+| 1 | `now = attemptClock.now()`; `age(t) = now - t`; keep the times with `0 <= age(t) < 60_000` (drops a minute old or more, and any after `now`, a guard; impossible on a monotonic clock) |
+| 2 | `waitMinute = len >= perMinute ? 60_000 - age(times[len - perMinute]) : 0` |
+| 3 | `recent = times with age(t) < 5_000`; `waitBurst = recent.length >= perFiveSeconds ? 5_000 - age(recent[recent.length - perFiveSeconds]) : 0` |
+| 4 | `wait = min(60_000, max(waitMinute, waitBurst))`; `> 0` → refused, `retryAfterSeconds = ceil(wait / 1000)` (1–60), nothing recorded; else append `now`, let through |
 
-Each comparison and wait is computed from the age `now - t`, not as `t + window - now`: the clock's
-milliseconds are fractional, and the sum can land a hair over the window and round up a second too
-many (research R2, "Computed as ages").
+Ages, never sums like `t + 5_000 - now`: the clock's milliseconds are fractional, a sum can land a
+hair over the window and round up a second too many, and `now - t` is exact for two nearby readings
+(research R2).
 
 ## Configuration (`ATTEMPT_LIMITS`, read once at start-up)
 

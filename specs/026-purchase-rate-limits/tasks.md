@@ -347,11 +347,24 @@ every caller, before anything else.
   browser test refused with `429` is a finding against FR-016, not a reason to raise the limits.
   **Left for the orchestrator / CI**: this machine cannot build the stack's images (TLS
   interception), so the browser tests, `026 S2` included, run first in CI's `e2e` check.
-- [ ] T023 Independent review by a separate Claude session (Constitution III) of the branch against
+- [x] T023 Independent review by a separate Claude session (Constitution III) of the branch against
   spec, plan, research, and contract 1.17.0; fix the findings, tests first where a finding is a
   defect; record the round here (counts by severity, each fix, and any finding left open with the
   reason). The reviewer is asked to confirm the plan's Complexity Tracking entry (Principle IV).
-  **Left for the orchestrator.**
+  **Done 2026-11-02**, one round on b6d15bb: **0 must, 1 should, 6 minor**, nothing left open. The
+  reviewer confirmed concurrency, the window math and rounding, the guard order, and memory.
+  - S1 (browser test under `--repeat-each`, one account over 10 a minute by the third run): each
+    repeat signs in as `customerFor(testInfo, 11 + repeatEachIndex)`, checked below 20 (`022` R8;
+    at most 9 repeats), research R11.
+  - M1 (step 4 could slip in on a slow runner): step 3 sends attempts until one is refused with
+    `Retry-After` of at least 3; `Api.attempt` returns the status and `Retry-After`.
+  - M2 (Check again's message could be announced twice): one live region at the top of Get
+    tickets says each refusal once; the unknown-outcome banner stays mounted while Check again is
+    sent. Tests first (failed: no live region).
+  - M3 (a wait re-announced when its button comes back): the same live region; test first.
+  - M4: a test that the countdown's interval is cleared on unmount.
+  - M5: two app-level tests that a wrong setting stops `createTestApp` (the whole app) from starting.
+  - M6: research R2 and data-model.md give the formulas as ages, not sums with a note.
 - [ ] T024 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;
   record the counts per workspace and the coverage figures.
   **Left for the orchestrator** (after T023). Before the review, at 2b27c58 (`main` unmoved since

@@ -47,23 +47,21 @@ account); `@nestjs/throttler` (R3).
 (milliseconds, from a **monotonic** clock, below) of the attempts it let through in the last 60
 seconds, oldest first. `tryAttempt(sub, kind)` runs **synchronously, with no `await`**:
 
-1. `now = clock.now()`. Drop the times `t` with `t <= now - 60_000` (an attempt counts in `[t, t +
-   60 s)`, half-open like every window in QueuePass), and, as a guard, any `t > now` (impossible on a
-   monotonic clock). (A key left with none is forgotten by the sweep below: every check ends with a time in it.)
-2. `waitMinute = times.length >= perMinute ? times[times.length - perMinute] + 60_000 - now : 0`.
-3. `recent` = the times with `t > now - 5_000`; `waitBurst = recent.length >= perFiveSeconds ?
-   recent[recent.length - perFiveSeconds] + 5_000 - now : 0`.
+1. `now = clock.now()`, and an attempt's age is `age(t) = now - t`. Keep the times with `0 <= age(t)
+   < 60_000` (an attempt counts in `[t, t + 60 s)`, half-open like every window in QueuePass; an
+   age below 0, a time after `now`, is a guard, impossible on a monotonic clock). (A key left with
+   none is forgotten by the sweep below: every check ends with a time in it.)
+2. `waitMinute = times.length >= perMinute ? 60_000 - age(times[times.length - perMinute]) : 0`.
+3. `recent` = the times with `age(t) < 5_000`; `waitBurst = recent.length >= perFiveSeconds ?
+   5_000 - age(recent[recent.length - perFiveSeconds]) : 0`.
 4. `wait = min(60_000, max(waitMinute, waitBurst))`. If `wait > 0`: refuse with `retryAfterSeconds
    = Math.ceil(wait / 1000)` (1 to 60, the contract's range); **record nothing** (FR-003). Otherwise
    append `now` and let the request through.
 
-**Computed as ages** (found by the implementation, T010): the monotonic clock's milliseconds are
-fractional, and in floating point `t + 5_000 - now` for an attempt made at `now` can come out a
-hair over `5_000`, which rounds up to a wait of 6 seconds. Each step is therefore computed from the
-age `now - t`, which is exact for two nearby readings: keep `0 <= age < 60_000`, `recent` is
-`age < 5_000`, and the waits are `60_000 - age(times[len - perMinute])` and `5_000 -
-age(recent[len - perFiveSeconds])`; the same rule, written so it holds to the millisecond on a real
-clock. A unit test runs the boundaries on fractional times.
+**Ages, never sums** (found by the implementation, T010): the monotonic clock's milliseconds are
+fractional, and in floating point a sum such as `t + 5_000 - now`, for an attempt made at `now`,
+can come out a hair over `5_000` and round up to a wait of 6 seconds; `now - t` is exact for two
+nearby readings. A unit test runs the boundaries on fractional times.
 
 An attempt waited out exactly is let through: with 3 attempts at `t`, an attempt at `t + 5000` sees
 none of them in `recent`. A refused attempt is not recorded, so `retryAfterSeconds` is exact: after
