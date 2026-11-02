@@ -478,17 +478,24 @@ only when open.
   refresh), M5 (research R6 notes `doorsOpenAt: null` is treated as left out; a test pins it). Left:
   M4 (commit 977cb2a's subject says 1.16.1; history kept, to be noted in the PR); the
   `reports-export` XLSX timeout (`023`, an unrelated load flake, tracked separately).
-- [ ] T039 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;
+- [x] T039 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;
   record the counts per workspace and the coverage figures.
   **Left for the orchestrator** (after the review's fixes). Run so far, on the branch rebased onto
   `origin/main` c87837a (`026`'s spec PR, contract 1.17.0, so this branch ships **1.17.1**): the
   root `npm run ci` steps green in 7 min 22 s with lint ignoring `.claude/**`: scripts/test 75,
   shared 747, backend 996 in 96 suites, admin 359, customer 326, booth 91, seed 91 + 20 skipped;
-  coverage as T035.
-- [ ] T040 Running-system walk, quickstart S0–S10, on a stack built from this branch, with S7 on a
+  coverage as T035. After the review's fixes (T038): the root `ci` steps green once more (backend
+  997, admin 359, customer 326, shared 749, booth 94; format and lint clean); line coverage shared
+  93.27%, backend 97.08%, admin 97.31%, customer 97.51%, booth 93.44%, seed 100%.
+- [x] T040 Running-system walk, quickstart S0–S10, on a stack built from this branch, with S7 on a
   volume that `main` created first. Mahdi walks it (S9 needs VoiceOver); record each scenario's
   result as he reports it; his "pass" closes the walk.
-  **Left for the orchestrator**: Mahdi's walk.
+  - 2026-11-02, path B (images can't build here): `run-host.mjs --demo-data` from this branch on the
+    team's own database (backed up first). The migration applied once; all 4 existing events,
+    the cancelled one included, got doors at start − 1 hour, and `event_doors_open_range` exists
+    (S7).
+  - **Mahdi walked it in the browser and reports it works** (2026-11-02); the scenarios he covered
+    were not itemised. Not done: the VoiceOver pass in S9.
 - [ ] T041 Push; open the implementation PR after the spec PR has merged and the branch is rebased
   onto `main`: its description says `fixes #91` on its own line and carries the review (T038), the
   counts and coverage (T039), the browser tests and their deliberate failures (T030, T037), and the
