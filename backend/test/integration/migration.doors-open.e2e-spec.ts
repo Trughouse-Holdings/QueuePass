@@ -53,9 +53,17 @@ describe('migration doors_open (R1)', () => {
 
     // A copy of prisma/ without the new migration: the database as it is before 025.
     work = mkdtempSync(path.join(tmpdir(), 'qp-migration-'));
+    // Review S1: every migration named before doors_open, none after it, so a later migration
+    // never runs before the inserts below.
+    const migrations = path.join(PRISMA_DIR, 'migrations');
     cpSync(PRISMA_DIR, work, {
       recursive: true,
-      filter: (src) => !src.includes(NEW_MIGRATION as string),
+      filter: (src) => {
+        const rel = path.relative(migrations, src);
+        if (rel === '' || rel.startsWith('..') || path.isAbsolute(rel)) return true;
+        const dir = rel.split(path.sep)[0];
+        return dir === 'migration_lock.toml' || dir < (NEW_MIGRATION as string);
+      },
     });
     deploy(work, url);
 
