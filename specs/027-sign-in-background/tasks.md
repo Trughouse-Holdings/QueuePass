@@ -102,12 +102,16 @@ confirm they **fail** before the implementation tasks below them.
   SHA-256, and writes `keycloak/themes/queuepass/login/resources/img/stone-lines.png` with the one
   `Source` chunk, or with `--check` compares instead of writing. T006 passes; the workspace stays at or
   above its coverage floor.
-- [ ] T010 Run the generator on T002's file with a few `MIN_STEP`, widening, and softening values;
+- [x] T010 Run the generator on T002's file with a few `MIN_STEP`, widening, and softening values;
   for each, make previews of the stones with the lines in each app's `--stone-accent` color (scratch
   files, outside the repository) and show them to Mahdi; he picks one. Record the values in
   `lines.ts` and here. Commit `stone-lines.png`, `keycloak/themes/queuepass/NOTICE`, and
   `keycloak/themes/queuepass/LICENSE-keycloak.txt` (the Apache License 2.0 text from
   `/opt/keycloak/LICENSE.txt` in the image) (FR-010). Then `--check` passes on the committed file.
+  **Done**: four previews (fine, soft, bold, dim), each composited for all three apps; Mahdi chose
+  **dim**: `MIN_STEP` 1, no widening, softening 50%, strength 160 (spec Clarifications,
+  implementation session). The committed image is byte-identical to the previewed one; alpha above
+  0 on 7.31% of pixels; `--check` passes.
 
 **Checkpoint**: `npm test --workspace @queuepass/shared` and `--workspace @queuepass/seed` green.
 

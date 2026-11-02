@@ -22,15 +22,16 @@ export interface LineSettings {
 
 /**
  * The settings the committed stone-lines.png is made with. minStep 1: every boundary between two
- * facets of different greys is a stone's edge (minStep 2 already drops visible edges). Thickness
- * and strength are chosen from previews (tasks T010).
+ * facets of different greys is a stone's edge (minStep 2 already drops visible edges). The rest
+ * is the "dim" preview Mahdi chose (tasks T010; spec Clarifications, implementation session):
+ * 2 px lines with a 1 px softened edge at half strength, at 160 of 255 (about 63%).
  */
 export const SETTINGS: LineSettings = {
   minArea: 64,
   minStep: 1,
   widen: 0,
   soften: 50,
-  strength: 255,
+  strength: 160,
 };
 
 /** The one text chunk the image carries. */
