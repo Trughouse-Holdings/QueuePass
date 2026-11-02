@@ -47,15 +47,21 @@ account); `@nestjs/throttler` (R3).
 (milliseconds, from a **monotonic** clock, below) of the attempts it let through in the last 60
 seconds, oldest first. `tryAttempt(sub, kind)` runs **synchronously, with no `await`**:
 
-1. `now = clock.now()`. Drop the times `t` with `t <= now - 60_000` (an attempt counts in `[t, t +
-   60 s)`, half-open like every window in QueuePass), and, as a guard, any `t > now` (impossible on a
-   monotonic clock). Delete the key if none is left.
-2. `waitMinute = times.length >= perMinute ? times[times.length - perMinute] + 60_000 - now : 0`.
-3. `recent` = the times with `t > now - 5_000`; `waitBurst = recent.length >= perFiveSeconds ?
-   recent[recent.length - perFiveSeconds] + 5_000 - now : 0`.
+1. `now = clock.now()`, and an attempt's age is `age(t) = now - t`. Keep the times with `0 <= age(t)
+   < 60_000` (an attempt counts in `[t, t + 60 s)`, half-open like every window in QueuePass; an
+   age below 0, a time after `now`, is a guard, impossible on a monotonic clock). (A key left with
+   none is forgotten by the sweep below: every check ends with a time in it.)
+2. `waitMinute = times.length >= perMinute ? 60_000 - age(times[times.length - perMinute]) : 0`.
+3. `recent` = the times with `age(t) < 5_000`; `waitBurst = recent.length >= perFiveSeconds ?
+   5_000 - age(recent[recent.length - perFiveSeconds]) : 0`.
 4. `wait = min(60_000, max(waitMinute, waitBurst))`. If `wait > 0`: refuse with `retryAfterSeconds
    = Math.ceil(wait / 1000)` (1 to 60, the contract's range); **record nothing** (FR-003). Otherwise
    append `now` and let the request through.
+
+**Ages, never sums** (found by the implementation, T010): the monotonic clock's milliseconds are
+fractional, and in floating point a sum such as `t + 5_000 - now`, for an attempt made at `now`,
+can come out a hair over `5_000` and round up to a wait of 6 seconds; `now - t` is exact for two
+nearby readings. A unit test runs the boundaries on fractional times.
 
 An attempt waited out exactly is let through: with 3 attempts at `t`, an attempt at `t + 5000` sees
 none of them in `recent`. A refused attempt is not recorded, so `retryAfterSeconds` is exact: after
@@ -255,9 +261,16 @@ FR-014), in `customer-app/src/components/GetTickets.tsx`:
 - **The message**: `rateLimitMessage(secondsLeft)` in a `p.banner.banner--error` placed directly
   above the disabled button: above **Reserve seats**; above **Confirm order**; inside **Reserved for
   you** above **Confirm purchase**; inside the unknown-outcome banner above **Check again**. The
-  visible text has `aria-live="off"` (as `015`'s `role="timer"`), and a `.visually-hidden` `role="alert"`
-  element next to it holds the first message only (the N at the moment of refusal) and is not changed
-  by the ticks, so a screen reader hears it once (FR-013). At 0 both are removed.
+  visible text has `aria-live="off"` (as `015`'s `role="timer"`). The announcement is made by **one**
+  `.visually-hidden` live region (`aria-live="assertive"`, `aria-atomic`) at the top of Get tickets,
+  always mounted: at a refusal it is given the first message (the N at that moment), which the ticks
+  never change, and it is emptied when that wait ends, so a screen reader hears each refusal once
+  (FR-013). Not an alert beside each countdown, as first planned (independent review M2, M3): a
+  countdown unmounts and mounts again during a wait (Confirm purchase goes when seats are released
+  and comes back when they are held again), and its own alert would then be said again. For the
+  same reason the unknown-outcome banner (itself an alert) stays mounted while Check again is
+  sent, instead of giving way to the form, so it is not announced again either. At 0 the countdown
+  is removed.
 - **A reload** loses the waits: the buttons are enabled, and a press before the wait ends is refused
   again with the seconds left (spec US2-6).
 
@@ -360,7 +373,10 @@ customer account (`e2e/fixtures/apps.ts` `customerFor`), and must pass with no r
     second all `200`; the buy allowance used up → a hold is still handled, and the other way round.
   - `rate-limits.ordinary.e2e-spec.ts`: an ordinary sequence on the attempt clock, advanced 2 seconds
     between actions (hold, add, release, hold, buy, then a second event's buy) → no `429` (SC-004's Backend
-    half).
+    half). The two releases come back to back, with no time between them, as a person pressing
+    Release on several seats one after another (spec Clarifications): with 2 seconds between every
+    action, no 5 seconds would ever hold 4 hold-kind requests, so the test could not fail if
+    releases were counted (found by the implementation, T014).
   - `backend/test/contract/route-coverage.e2e-spec.ts`: the routes with `@AttemptLimit(kind)` are
     exactly the operations with `x-attempt-limit: kind`, and each has a `'429'` response (R4).
   - Every other Backend test passes unchanged with `createTestApp()`'s large numbers.
@@ -384,19 +400,23 @@ a customer over the hold limit sees a countdown and keeps their seats'`:
 2. The customer (`customerFor(testInfo, n)` with an `n` no other browser test uses, chosen in tasks
    T015) signs in to the event page, fills **Name on tickets** (so Confirm purchase can be enabled;
    `canConfirm` needs a valid name), and holds one seat with **Reserve seats**.
-3. Through the same customer's API context (`apiFor`), three hold attempts for the held seat again,
-   back to back. Each is answered `400` (already in the reservation) or, when step 2's hold falls in
-   the same 5 seconds, `429` for the third; the test asserts each status is `400` or `429`, nothing
-   more.
+3. Through the same customer's API context (the page's own token), hold attempts for the held seat
+   again, back to back, each answered `400` (already in the reservation) or `429`, until one is
+   refused for the limit with `Retry-After` of at least 3 (at most 20 tries): the window is then full
+   of attempts made just now, so on a slow runner step 2's hold ageing out cannot let step 4 through
+   (independent review, M1).
 4. In the page, pick another seat and press **Reserve seats** at once. **Expected**: "Too many tries.
    You can try again in N seconds." (N from 1 to 5, read from the page), Reserve seats
    `aria-disabled="true"`, the first seat still under **Reserved for you**, Confirm purchase enabled.
 5. Wait for the message to go (Playwright's `toBeHidden` with a 10-second timeout). **Expected**:
    Reserve seats no longer `aria-disabled`; pressing it adds the second seat.
 
-Steps 2 to 4 make at least four hold attempts within a few seconds, so the press in step 4 is refused
-under the default 3-in-5-seconds limit, whether step 2's hold or step 3's third attempt is the one
-that used the allowance up. The stack runs with the defaults whatever a developer's `.env` says (R5).
+Step 3 ends with the 3-in-5-seconds allowance used up by attempts at most 2 seconds old, so the press
+in step 4 is refused. Each repeat of the test (`npm run e2e -- --repeat-each=N`, `022` R13) signs
+in as an account of its own, `customerFor(testInfo, 11 + testInfo.repeatEachIndex)`, checked to
+stay within `022` R8's 0 to 19 (so at most 9 repeats), above the 0 to 10 the other tests use:
+about 4 to 6 hold attempts a run would otherwise put one account over 10 a minute by the third
+repeat (independent review, S1). The stack runs with the defaults whatever a developer's `.env` says (R5).
 The test passes in any time zone (it reads no times).
 
 The buy countdown, Check again, and the exact ticks are covered by the Customer app's tests (R10);

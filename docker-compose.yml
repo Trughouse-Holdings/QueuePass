@@ -76,6 +76,10 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:5175}
       # Spec 013: the address service that checks venue addresses (research R12).
       ADDRESS_GEOCODER_URL: ${ADDRESS_GEOCODER_URL:-https://geocoding.geo.census.gov}
+      # Spec 026 (research R5): each customer account's buy and seat-hold attempts, per kind, in
+      # any 60 seconds and in any 5 seconds. Whole numbers of at least 1; nothing turns them off.
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-10}
+      RATE_LIMIT_PER_5_SECONDS: ${RATE_LIMIT_PER_5_SECONDS:-3}
     ports:
       - '3000:3000'
     depends_on:

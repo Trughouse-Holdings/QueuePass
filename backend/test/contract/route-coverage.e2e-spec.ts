@@ -2,9 +2,10 @@ import { RequestMethod } from '@nestjs/common';
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { DiscoveryService, MetadataScanner, Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../../src/auth/public.decorator';
+import { ATTEMPT_LIMIT_KEY } from '../../src/attempt-limits/attempt-limit.decorator';
 import { ROLES_KEY } from '../../src/auth/roles.decorator';
 import { createTestApp, TestContext } from '../setup/test-app';
-import { operations } from './expect-to-match-contract';
+import { contract, operations } from './expect-to-match-contract';
 
 /**
  * Spec 001 FR-027, SC-009 — every route is in the contract and every contract operation is a
@@ -22,6 +23,9 @@ describe('Contract route and role coverage', () => {
   afterAll(async () => {
     await ctx.app.close();
   });
+
+  /** Spec 026: filled by `routes()`, the routes marked `@AttemptLimit` and their kinds. */
+  const limits = new Map<string, string>();
 
   function routes(): Map<string, 'public' | string[]> {
     const discovery = ctx.app.get(DiscoveryService);
@@ -45,6 +49,9 @@ describe('Contract route and role coverage', () => {
         const isPublic = reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [handler, metatype]);
         const roles = reflector.getAllAndOverride<string[]>(ROLES_KEY, [handler, metatype]) ?? [];
         found.set(`${method} ${path}`, isPublic ? 'public' : [...roles].sort());
+        // Spec 026: the attempt kind a route is limited by, if any.
+        const kind = reflector.get<string | undefined>(ATTEMPT_LIMIT_KEY, handler);
+        if (kind) limits.set(`${method} ${path}`, kind);
       }
     }
     return found;
@@ -62,6 +69,25 @@ describe('Contract route and role coverage', () => {
       unimplemented: implemented.map(key).filter((d) => !actual.includes(d)),
       plannedButImplemented: planned.map(key).filter((d) => actual.includes(d)),
     }).toEqual({ undocumented: [], unimplemented: [], plannedButImplemented: [] });
+  });
+
+  /**
+   * Spec 026 research R4, R10: the routes marked `@AttemptLimit(kind)` are exactly the operations
+   * with `x-attempt-limit: kind`, and each of those declares its `429`.
+   */
+  it('limits exactly the operations the contract marks with x-attempt-limit', () => {
+    routes();
+    const declared = operations.flatMap((o) => {
+      const node = contract.paths[o.path][o.method.toLowerCase()];
+      const kind = node['x-attempt-limit'] as string | undefined;
+      return kind ? [{ route: key(o), kind, has429: '429' in node.responses }] : [];
+    });
+    expect(declared.filter((d) => !d.has429)).toEqual([]);
+    expect(Object.fromEntries([...limits].sort())).toEqual(
+      Object.fromEntries(declared.map((d) => [d.route, d.kind]).sort()),
+    );
+    // The feature's two operations, so an empty match on both sides cannot pass.
+    expect([...limits.values()].sort()).toEqual(['BUY', 'HOLD']);
   });
 
   it('enforces exactly the roles the contract declares for each operation', () => {

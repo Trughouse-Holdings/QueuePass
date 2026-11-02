@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import type { Reservation } from '@queuepass/shared';
 import type { Response } from 'express';
+import { AttemptLimit } from '../attempt-limits/attempt-limit.decorator';
 import { CurrentPrincipal, type Principal } from '../auth/principal';
 import { Roles } from '../auth/roles.decorator';
 import { ReservationInputDto } from './dto/reservation-input.dto';
@@ -21,9 +22,13 @@ import { ReservationsService } from './reservations.service';
 export class ReservationsController {
   constructor(private readonly reservations: ReservationsService) {}
 
-  /** `201` for a new reservation, `200` when the seats were added to the active one. */
+  /**
+   * `201` for a new reservation, `200` when the seats were added to the active one. Spec 026:
+   * either is a hold attempt, limited before anything else; releasing never is (FR-004).
+   */
   @Post()
   @Roles('customer')
+  @AttemptLimit('HOLD')
   @HttpCode(HttpStatus.CREATED)
   async reserve(
     @Param('id', ParseUUIDPipe) eventId: string,
