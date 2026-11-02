@@ -406,3 +406,11 @@ export function formatEventEnd(start: InstantLike, end: InstantLike, zone: strin
     ? formatTimeOfDay(end, zone)
     : formatEventTime(end, zone);
 }
+
+/**
+ * Spec 025 FR-021 (research R9): an event's doors-open time next to its start, by the same rule
+ * as its end: `5:30 PM EST` on the start's local date, else `Nov 19, 2026, 11:30 PM EST`.
+ */
+export function formatDoorsOpen(start: InstantLike, doorsOpen: InstantLike, zone: string): string {
+  return formatEventEnd(start, doorsOpen, zone);
+}
