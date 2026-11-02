@@ -10,6 +10,7 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { AttemptLimit } from '../attempt-limits/attempt-limit.decorator';
 import { CurrentPrincipal, type Principal } from '../auth/principal';
 import { Roles } from '../auth/roles.decorator';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -23,9 +24,11 @@ export class OrdersController {
   /**
    * The buyer is always the signed-in customer: nothing in the body can name someone else.
    * A repeated `requestId` returns the earlier order with 200 instead of 201 (spec 006 FR-005).
+   * Spec 026: every request, a repeat included, is a buy attempt, limited before anything else.
    */
   @Post('orders')
   @Roles('customer')
+  @AttemptLimit('BUY')
   @HttpCode(HttpStatus.CREATED)
   async create(
     @Param('id', ParseUUIDPipe) eventId: string,

@@ -81,6 +81,21 @@ export class Api {
     return (text ? JSON.parse(text) : undefined) as T;
   }
 
+  /**
+   * Spec 026 (research R11): one call whose refusal is the point, so its status and `Retry-After`
+   * are returned and nothing is asserted. No reload on a 401: the test that sends it has just
+   * signed in.
+   */
+  async attempt(
+    method: 'POST',
+    path: string,
+    data?: unknown,
+  ): Promise<{ status: number; retryAfter: number | null }> {
+    const res = await this.ctx.fetch(path, { method, data });
+    const header = res.headers()['retry-after'];
+    return { status: res.status(), retryAfter: header === undefined ? null : Number(header) };
+  }
+
   async dispose(): Promise<void> {
     await this.ctx.dispose();
   }

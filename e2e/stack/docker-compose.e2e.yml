@@ -15,6 +15,10 @@ services:
   backend:
     environment:
       ADDRESS_GEOCODER_URL: http://geocoder-stub:8081
+      # Spec 026 FR-018 (research R5): the browser tests always run with the default limits,
+      # written here literally so a developer's .env or shell cannot change them.
+      RATE_LIMIT_PER_MINUTE: '10'
+      RATE_LIMIT_PER_5_SECONDS: '3'
     depends_on:
       geocoder-stub:
         condition: service_healthy
