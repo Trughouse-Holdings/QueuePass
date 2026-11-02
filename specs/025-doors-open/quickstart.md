@@ -47,13 +47,17 @@ Time…" for Doors open.
 
 ## S4: Check-in opens 1 hour before doors (US2; FR-011 to FR-013, SC-003)
 
-Admin: create "Gate Window" at Demo Riverside Hall starting 2 hours 30 minutes from now, 3 hours long,
-with **Doors open at the start** (so check-in opens 1 hour 30 minutes from now), base price only.
+Admin: create "Gate Window" at **QueuePass Demo Arena** (not Demo Riverside Hall, where Demo Tonight runs
+from 1 to 4 hours after the demo data loads and the 60-minute rule would refuse it) starting 2 hours
+30 minutes from now, 3 hours long, with **Doors open at the start** (so check-in opens 1 hour 30
+minutes from now), base price only. If the Arena has an event then, use a new venue.
 Customer: get 1 ticket for it and read its code on My tickets. With the Gate session's token,
 `POST /events/{id}/entry/lookup` with the code (the Booth won't offer the event yet, S5).
-**Expected**: `200`, `"state": "NOT_OPEN"`, `entryOpensAt` 1 hour before `doorsOpenAt`. Admin: edit
-"Gate Window" and set Doors open to 3 hours before the start (check-in opened 30 minutes ago); save.
-Gate: the event is now choosable (within 30 seconds, S5); choose it, type the code. **Expected**:
+**Expected**: `200`, `"state": "NOT_OPEN"`, `entryOpensAt` 1 hour before `doorsOpenAt`. Gate: if an
+event is chosen, press **Change event**, so the list is shown; **Expected**: Gate Window greyed. Admin:
+edit "Gate Window" and set Doors open to 3 hours before the start (doors opened 30 minutes ago, so
+check-in opened 1 hour 30 minutes ago); save. Gate: within 30 seconds, without a reload, Gate Window
+becomes choosable (S5); choose it, type the code. **Expected**:
 admittable; admit it. Admin: set Doors open back to the start. Customer: get a second ticket; Gate:
 look it up in the Booth (still chosen). **Expected**: "Not admitted: Entry opens at {time} EST"
 (US3 scenario 4), no Admit.
@@ -63,7 +67,7 @@ look it up in the Booth (still chosen). **Expected**: "Not admitted: Entry opens
 Gate: sign out and in again. **Expected**: "Demo Tonight" (open since the demo data loaded) is a
 button; "Gate Window" (doors at the start, S4) is listed, greyed, "Not open yet · Opens {time} EST",
 and is not a button (it can't be reached with Tab or clicked); "Doors Test" (3 days ahead) is listed
-greyed with "Opens {date}, 6:00 PM EST" (its date, since that is not today). Admin: move Gate Window's
+greyed with "Opens {date}, 6:00 PM EST" (its date, since that is not today; doors 7:00 PM, S2). Admin: move Gate Window's
 doors to 3 hours before the start. Gate: wait on the same screen. **Expected**: within 30 seconds,
 without a reload, Gate Window is a button. Second Gate session: choose Gate Window; Admin: move its doors back to the start; second Gate: reload.
 **Expected**: the remembered choice is not restored; the list shows Gate Window greyed. With only
@@ -72,8 +76,8 @@ event is open for entry yet." above the greyed list.
 
 ## S6: Customers and admins see when doors open (US4; FR-019 to FR-021, SC-006)
 
-Customer: Events. **Expected**: Doors Test's card says **Doors open** "6:30 PM EST" (S2) before
-Starts; its page the same. Get a ticket; My tickets and **Print ticket** show Doors open next to the
+Customer: Events. **Expected**: Doors Test's card says **Doors open** "7:00 PM EST" (S2 left doors at
+7:00 PM with a 9:00 PM start) before Starts; its page the same. Get a ticket; My tickets and **Print ticket** show Doors open next to the
 start. Admin: the event page shows it; the events list does not (unchanged). An event whose doors are
 on the day before its start (doors 11:30 PM for a 1:00 AM start): **Expected**: the full date and time.
 Cancel an event with doors: its page still shows Doors open.
