@@ -464,11 +464,20 @@ only when open.
   here; the stack left stopped.
   **Left for the orchestrator**: `npm run e2e` cannot run on this machine (images do not build
   behind TLS interception; no Playwright browsers); to run in CI and record here.
-- [ ] T038 Independent review by a separate Claude session (Constitution III) of the branch against
+- [x] T038 Independent review by a separate Claude session (Constitution III) of the branch against
   spec, plan, research, and contract 1.16.0/1.17.1; fix the findings, tests first where a finding is
   a defect; record the round here (counts by severity, each fix, and any finding left open with the
   reason).
   **Left for the orchestrator**: the independent review by a separate session.
+  **Done**: one round by a separate session on 60dabc4: 0 must-fix, 2 should, 5 minor; verdict
+  "correct and well tested". Fixed, test-first: S1 (`migration.doors-open` copies only migrations
+  named before `doors_open`; seen failing with a probe migration after it), S2 (shared
+  `Event.doorsOpenAt`/`entryOpensAt` and `OrderEvent.doorsOpenAt` required, as in 1.17.1; a
+  type-level test failed first; front-end guards kept), M1 (the Booth sets `now` when the list
+  effect starts), M2 (numbered list requests; a stale answer is ignored), M3 (a test for a 401 on a
+  refresh), M5 (research R6 notes `doorsOpenAt: null` is treated as left out; a test pins it). Left:
+  M4 (commit 977cb2a's subject says 1.16.1; history kept, to be noted in the PR); the
+  `reports-export` XLSX timeout (`023`, an unrelated load flake, tracked separately).
 - [ ] T039 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;
   record the counts per workspace and the coverage figures.
   **Left for the orchestrator** (after the review's fixes). Run so far, on the branch rebased onto
