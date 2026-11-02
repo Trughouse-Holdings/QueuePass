@@ -344,9 +344,10 @@ paths:
         address service (the US Census Geocoder) before anything is saved. Exactly one match
         that keeps the sent ZIP code (first 5 digits) and house number is accepted, and the venue
         is saved with the service's standard form of the four fields and `addressVerified: true`;
-        `address` is built from them as `STREET, CITY, ST ZIP`. From 1.18.0 (#36), a hyphen in
-        the house number is not compared (Queens: `10724` keeps `107-24`), and a suite or unit
-        sent at the end of `street` that the service leaves out is kept at the end of the saved
+        `address` is built from them as `STREET, CITY, ST ZIP`. From 1.18.0 (#36), a house
+        number with one hyphen equals the same digits without it (Queens: `10724` keeps
+        `107-24`), and a suite or unit sent at the end of `street` that the service leaves out
+        is kept at the end of the saved
         `street` (`430 W Vine St Ste 2` is saved as `430 W VINE ST STE 2`). No match is
         `400 ADDRESS_NOT_FOUND`; several matches, or one match at a different ZIP code or house
         number, are `400 ADDRESS_AMBIGUOUS`, listing them.
@@ -429,8 +430,9 @@ paths:
         keeps `addressVerified` as it is.
         From 1.18.0 (#36), whether the address is the same is decided again on the venue as stored
         when the change is written: an address another edit saved meanwhile that equals the one
-        sent is left as it is, with its `addressVerified`; a different one is replaced (the later
-        edit wins). `name` and `seatingCapacity` may be left out but never sent as `null` (`400`).
+        sent (ignoring case and extra spaces, as above) is left as it is, with its
+        `addressVerified`; any other, including another spelling of the same place such as the
+        service's standard form, is replaced (the later edit wins). `name` and `seatingCapacity` may be left out but never sent as `null` (`400`).
         `acceptUnverifiedAddress` without the four address fields is `400`. A venue saved before
         feature 013 keeps its `address`, has `null` parts, and has `addressVerified: false` until
         its address is changed.

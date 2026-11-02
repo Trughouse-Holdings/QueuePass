@@ -522,7 +522,9 @@ the network (fails on demo day offline).
 ## R15. Follow-ups from the review (#36, 2026-11-02)
 
 **Decision**: T044's contract tightening and Nate's minor notes from #34's review, fixed in one PR
-against `main` as of `026`'s spec (contract 1.17.0). Each item was checked against that `main`
+against `main` as of `026`'s spec (contract 1.17.0). As a follow-up fix with no new spec, the
+contract change and the code ship together in that one PR, as `020`'s follow-up did (#88, PR #95),
+rather than a contract PR first (Constitution I). Each item was checked against that `main`
 first: since #36 was written, `020` (venue time zones) and `024` (one-step save, re-check on edit)
 changed this code, and `024` removed the Admin app's Save anyway step.
 
@@ -544,24 +546,34 @@ changed this code, and `024` removed the Admin app's Save anyway step.
   different address is still replaced (the later write wins, R7). A verified answer upgrades
   only that same address while it is not verified (`024` R7, unchanged), and a zone worked out
   from the address goes only with a changed address. Test: `locations.address-edit`, a lookup
-  held while another edit saves the same address. **Limit**: a stale form whose request starts
-  after another admin's change committed still overwrites it, as any venue field does; closing
-  that needs a version check on every edit (a contract change for all venue fields), out of scope.
+  held while another edit saves the same address. **Limits**: "the same" is FR-008's compare,
+  the text as sent ignoring case and extra spaces, not the same place (review, S1). When the
+  other edit was verified, its street is the service's form (`937 PHILLIPS LN`), so a request
+  that typed another spelling (`937 Phillips Lane`) and whose own lookup then failed still
+  writes its spelling back, not verified (a test pins this). Only the service can tell that two
+  spellings are one place, and in that case its answer is what is missing; comparing just the
+  ZIP code and house number instead would also take `430 E Vine St` for `430 W Vine St`, so the
+  later write keeps winning there, as R7 says, and a save of the venue re-checks it (`024` R7).
+  And a stale form whose request starts after another admin's change committed still
+  overwrites it, as any venue field does; closing that needs a version check on every edit (a
+  contract change for all venue fields), out of scope.
 - **Suites** (FR-003, R3): the live service answers `430 W Vine St Ste 2` with `430 W VINE ST`
   (checked 2026-11-02, also for `Suite 200`). Kept: a suite or unit typed at the end of the street
   (`Apt`, `Bldg`, `Dept`, `Fl`, `Lot`, `Ofc`, `Rm`, `Spc`, `Ste`, `Unit`, their long forms, or
   `#`, followed by a number with a digit or one letter) is put back at the end of the verified
   street, upper case and as typed: `430 W VINE ST STE 2`. Not when the match already ends with
-  that number, or when the street would pass 200 characters. Nothing the admin typed is lost, no
-  contract field is added, and FR-008 then treats the same typed address as unchanged
+  a unit designator and that number (`100 ROUTE 9` still gets `STE 9`, review M1), or when the
+  street would pass 200 characters. Nothing the admin typed is lost, no contract field is
+  added, and FR-008 then treats the same typed address as unchanged
   (`backend/src/locations/address-match.ts`, `keepUnit`).
 - **FR-021 false refusals**: since `024` the Admin app sends `acceptUnverifiedAddress` with every
   address, so none of the three is a refusal any more: each is saved as typed, not verified, with
   `024`'s notice. Rechecked against the live service on 2026-11-02 (one batch request), all three
   answers are unchanged:
   - **Queens numbers, fixed**: `10724 71st Ave, Forest Hills, NY 11375` → `107-24 71ST AVE`. The
-    house number is now compared without its hyphens, so this is verified in the service's form.
-    Nothing typed is lost (the digits are the same).
+    house number with one hyphen now equals the same digits without it (`107-24` = `10724`, but
+    never `12-34` = `1-234`, review M2), so this is verified in the service's form. Nothing
+    typed is lost (the digits are the same).
   - **Ranges, moot**: `430-432 W Vine St` → `432 W VINE ST`. Accepting it would save half of what
     was typed; it stays not verified, as typed, and is no longer refused.
   - **Unique ZIP codes, moot**: UofL's `2301 S 3rd St, 40292` → `40208`. A moved ZIP code is a

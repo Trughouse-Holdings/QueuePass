@@ -77,6 +77,16 @@ describe('matchesTyped', () => {
     expect(matchesTyped({ ...queens, street: '107-24 71st Ave' }, census)).toBe(true);
   });
 
+  // Issue #36 review, M2: only a hyphenated number against the same digits without one.
+  it('does not equate two hyphenated numbers that differ (12-34 vs 1-234)', () => {
+    expect(
+      matchesTyped(
+        { street: '12-34 Main St', city: 'Queens', state: 'NY', zip: '11375' },
+        { street: '1-234 MAIN ST', city: 'QUEENS', state: 'NY', zip: '11375' },
+      ),
+    ).toBe(false);
+  });
+
   it('still refuses a range answered with one of its numbers (430-432 → 432)', () => {
     expect(
       matchesTyped(
@@ -102,6 +112,9 @@ describe('keepUnit', () => {
     ['430 W Vine St Fl 3', '430 W VINE ST', '430 W VINE ST FL 3'],
     ['430 W Vine St  Room 12A', '430 W VINE ST', '430 W VINE ST ROOM 12A'],
     ['430 W Vine St Bldg 4-B', '430 W VINE ST', '430 W VINE ST BLDG 4-B'],
+    // Issue #36 review, M1: a street that ends in the unit's number still gets the unit.
+    ['100 Route 9 Ste 9', '100 ROUTE 9', '100 ROUTE 9 STE 9'],
+    ['100 Pilot Rd Lot 9', '100 PILOT 9', '100 PILOT 9 LOT 9'],
   ])('keeps the unit of %p on %p', (typed, matched, expected) => {
     expect(keepUnit(typed, matched)).toBe(expected);
   });
