@@ -112,11 +112,11 @@ manual. `npm test` checks this table against `e2e/tests`.
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: a stack with the new look, which every `npm run e2e` starts |
-| S1 | Manual: until T016 adds `027 S1: each app's sign-in page shows the stones with its accent in the lines and no card`; the look is also checked by eye |
+| S1 | Manual: until T013 adds `027 S1: each app's sign-in page shows the stones with its accent in the lines and no card`; the look is also checked by eye |
 | S2 | Manual: told apart by a person |
-| S3 | Manual: until T021 adds `027 S3: every text, field edge and focus ring on the stones meets its contrast at five window sizes, light and dark`; zoom is checked by hand |
+| S3 | Manual: until T017 adds `027 S3: every text, field edge and focus ring on the stones meets its contrast at five window sizes, light and dark`; zoom is checked by hand |
 | S4 | Manual: the wrong-password page is in S3's test; the other pages are covered by the live seed test and walked by hand |
 | S5 | Manual: keyboard and screen reader pass |
-| S6 | Manual: until T027 adds `027 S6: with the stones image blocked, the sign-in page stays readable` |
+| S6 | Manual: until T023 adds `027 S6: with the stones image blocked, the sign-in page stays readable` |
 | S7 | Manual: needs Keycloak's image outside the repository; the generator is covered by `scripts/seed`'s tests |
 | S8 | Manual: sign in, use, and sign out of each front end, by hand |
