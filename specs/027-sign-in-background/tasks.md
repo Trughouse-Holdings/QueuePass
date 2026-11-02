@@ -77,7 +77,7 @@ confirm they **fail** before the implementation tasks below them.
   that no stylesheet of the Admin, Customer, or Ticket Booth app (the files the drift test already
   scans) contains `--stone-` or `--accent-tickets`/`--accent-booth`/`--brand-mark-*-tickets|booth`
   (FR-012). Must fail on the allowed case.
-- [ ] T006 [P] `scripts/seed/test/stone-lines.test.ts` (research R3, R8), images made in the test
+- [x] T006 [P] `scripts/seed/test/stone-lines.test.ts` (research R3, R8), images made in the test
   and read and written with `fast-png`: two flat facets with a one-pixel anti-aliased seam give one
   continuous line along the seam (no gap anywhere along it); two facets closer than `MIN_STEP` give
   none; the output is grey 255 wherever alpha is above 0; two encodes in one process give the same
@@ -95,7 +95,7 @@ confirm they **fail** before the implementation tasks below them.
 - [x] T008 `packages/shared/test/theme/check-theme.ts`: `SIGN_IN_ROLES` gains `'--stone-accent':
   '--stone-accent-<app>'`; the header comment names spec 027. T005 passes; `login.css` as it is still
   passes the drift test.
-- [ ] T009 `scripts/seed/src/stone-lines/` (`facets.ts`, `lines.ts`, `cli.ts`), `fast-png` (6.4.0,
+- [x] T009 `scripts/seed/src/stone-lines/` (`facets.ts`, `lines.ts`, `cli.ts`), `fast-png` (6.4.0,
   the version already in `package-lock.json`) in `scripts/seed`'s `devDependencies`, and the
   `stone-lines` script in `scripts/seed/package.json` (R3). `npm install` changes only the workspace's
   entry in `package-lock.json`, no new package (check the diff). The CLI takes a file path, checks the
