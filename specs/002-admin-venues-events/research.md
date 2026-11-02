@@ -170,8 +170,11 @@ or `endsAt` as `null` was silently ignored (`200`). All six seen in tests first.
 **Decision**: the six use `@ValidateIf(... !== undefined)`, as the venue edit does, so `null` fails
 its rule: `400 VALIDATION_FAILED` naming the field, the event unchanged (FR-009, FR-011). Fields
 where `null` has a meaning keep `@IsOptional`: `maxTicketsPerCustomer` (`016` FR-001, clears the
-limit) and `doorsOpenAt` (`025` R6, counts as left out); a test pins both. Contract 1.18.2 says
-so on `EventUpdate`.
+limit) and `doorsOpenAt` (`025` R6, counts as left out, kept for compatibility: see the #117 note
+there); a test pins both. Contract 1.19.0 says so on `EventUpdate`, and lists `null` in
+`EventUpdate.doorsOpenAt`'s type (a schema change, hence a minor version). On a seated event,
+`totalTicketCapacity: null` was already `400`; only its message changed, from the seated-event
+one to the generic "totalTicketCapacity must be a whole number" (`004` R8 says why that is kept).
 
 **Other endpoints checked**: `createEvent` treats `null` as left out (`doorsOpenAt`, `025` R6;
 `totalTicketCapacity`, the venue's capacity; `maxTicketsPerCustomer`, no limit), with no `500`;

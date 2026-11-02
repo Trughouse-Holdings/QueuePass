@@ -80,6 +80,11 @@ Remove asks `window.confirm`, like `002`'s deletes. Backend refusals show in the
 null` on an event without reserved seating did the same. All seen in tests first.
 
 **Decision**: these fields use `@ValidateIf(... !== undefined)`: `400 VALIDATION_FAILED` naming the
-field, nothing changed (FR-001, FR-005). A `null` quantity on a seated event's new tier was already
-`400` (`007` FR-006) and is now the same `VALIDATION_FAILED`. No tier field gives `null` a meaning.
-Contract 1.18.2 says so on `TicketTierUpdate` and `TicketTierInput.quantity`.
+field, nothing changed (FR-001, FR-005). On a seated event, `quantity: null` on a new tier or an
+edit was already `400 VALIDATION_FAILED` (`007` FR-006); only the message changed, from the
+seated-event one ("quantity must be omitted: it follows this tier's sections…" on create, "quantity
+follows this tier's sections…" on an edit) to the generic "quantity must be a whole number". Accepted: keeping the seated message would mean letting `null`
+past the DTO and refusing it in the service at each place, unlike every other field and the venue
+fix; no client sends `null` (the Admin app leaves `quantity` out on a seated event), and the
+refusal still names the field. No tier field gives `null` a meaning. Contract 1.19.0 says so on
+`TicketTierUpdate` and `TicketTierInput.quantity`.

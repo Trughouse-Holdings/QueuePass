@@ -201,7 +201,11 @@ time can't move to the new zone"; one more `reason` keeps clients' handling in o
   `EntryTicket.entryOpensAt`.
 - `EventInput.doorsOpenAt` and `EventUpdate.doorsOpenAt`: optional `date-time`, stated like
   `startsAt` (the venue's local time and offset, `020`). Left out: R4's defaults; `null` is
-  treated as left out (`@IsOptional`, as for every other optional field; review M5). The Admin app
+  treated as left out (`@IsOptional`, as for every other optional field; review M5).
+  **Note, 2026-11-02 (#117)**: no longer the general rule. On an edit, a field that cannot be empty
+  sent as `null` is now `400` (`002` R11, `004` R8); `doorsOpenAt: null` keeps counting as left out
+  for compatibility, an exception, and contract 1.19.0 lists `null` in `EventUpdate.doorsOpenAt`'s
+  type. The Admin app
   always sends it (the "required" of Mahdi's item 2 is the form's and the database's, not the
   API's): the demo-data script (`backend/src/scripts/demo-data.ts`), the browser tests' `createEvent`, and every
   Backend test that schedules an event keep working unchanged, as `024` R2 kept `timeZone` optional.
