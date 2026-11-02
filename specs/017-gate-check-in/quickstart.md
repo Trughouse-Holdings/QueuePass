@@ -1,5 +1,11 @@
 # Quickstart: Validating Names on Tickets and Gate Check-In
 
+**Superseded in part by `025`** ([spec](../025-doors-open/spec.md#superseded-requirements), #91):
+check-in opens 1 hour before an event's doors open, not 2 hours before its start; events created
+without a doors-open time get doors 1 hour before the start, so S0's "starts within 2 hours" still
+gives an open window. The Ticket Booth greys out events not open yet (S3, S6). `025`'s quickstart
+walks the new behavior. The text below is this feature's walk as built.
+
 The running-system gate for `017`. Run after the implementation with every service healthy and the
 demo data loaded:
 

@@ -306,7 +306,12 @@ export interface paths {
          *     zone. An edit that sends neither never changes the zone.
          *
          *     When the zone changes, every event at the venue (scheduled or cancelled) keeps its local
-         *     start and end date and time, so its `startsAt` and `endsAt` move. The change is refused,
+         *     start and end date and time, so its `startsAt` and `endsAt` move; feature 025: its
+         *     `doorsOpenAt` keeps its local date and time too, and is checked like the start and end
+         *     (`details.field: doorsOpenAt`). Feature 025 also refuses the change with `409
+         *     EVENT_TIME_NOT_IN_ZONE`, `details.reason` `DOORS_OUT_OF_RANGE`, when an event's moved
+         *     `doorsOpenAt` would be more than 6 hours before its moved `startsAt`, or after it (a
+         *     daylight-saving change between them in one zone only). The change is refused,
          *     and nothing is saved, with `409 TIME_ZONE_HAS_ORDERS` when any event at the venue has any
          *     order (`details.events`); with `409 EVENT_TIME_NOT_IN_ZONE` when an event's local start or
          *     end does not exist, or happens twice, in the new zone (`details.event`, `details.reason`
@@ -382,6 +387,10 @@ export interface paths {
          *     Feature 020: `fromDate` and `toDate` filter by the day an event starts **in its venue's
          *     time zone**, both inclusive; the Admin and Customer apps' date filters use them. They
          *     cannot be combined with `from` or `to` (`400`), and `fromDate` after `toDate` is `400`.
+         *
+         *     Feature 025: each event carries `doorsOpenAt` and `entryOpensAt`. The Ticket Booth app
+         *     lists scheduled events that have not ended and lets a gate agent choose only those whose
+         *     `entryOpensAt` has passed; `lookupEntryTicket` and `admitTicket` enforce the window.
          */
         get: operations["listEvents"];
         put?: never;
@@ -401,6 +410,13 @@ export interface paths {
          *     is `400 UTC_OFFSET_MISMATCH`. A local time the zone repeats is accepted with either of its
          *     two offsets. The scheduling conflict message names the conflicting event's times in the
          *     venue's local time.
+         *
+         *     Feature 025: `doorsOpenAt` is optional. Left out, it is `startsAt` minus 1 hour. Sent, it is
+         *     checked against the venue's `timeZone` after `endsAt`, like the start and end
+         *     (`details.field: doorsOpenAt`), and then must be from 6 hours before `startsAt` to
+         *     `startsAt`, both allowed: otherwise `400 DOORS_OPEN_OUT_OF_RANGE`, whose message names the
+         *     allowed range in the venue's local time. This comes before the capacity checks. The Admin
+         *     app always sends it.
          */
         post: operations["createEvent"];
         delete?: never;
@@ -457,6 +473,13 @@ export interface paths {
          *     venue's `timeZone` as in `createEvent`. Moving the event to a venue in a different time
          *     zone must send both `startsAt` and `endsAt` (`400 VALIDATION_FAILED` otherwise), so its
          *     local times are explicit; a move within the same zone without times keeps the instants.
+         *
+         *     Feature 025: `doorsOpenAt`, when sent, is checked as in `createEvent`, against the
+         *     `startsAt` in force after the update (sent, else stored). When the update changes
+         *     `startsAt` and does not send `doorsOpenAt`, `doorsOpenAt` moves by the same amount, keeping
+         *     the same time before the start (also when moving to a venue in another zone, which does not
+         *     have to send it). Otherwise an update without it leaves it unchanged. Moving
+         *     `doorsOpenAt` later can close an open check-in window; entries already recorded stay.
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -882,8 +905,11 @@ export interface paths {
          *     A ticket that exists is always `200`, with `state` saying what the agent may do:
          *     `ADMITTABLE`; `USED` (with `usedAt`); `VOID` (its order was refunded, for example because
          *     the event was cancelled); `OTHER_EVENT` (the ticket's own event is in `event`); `NOT_OPEN`
-         *     (entry opens at `entryOpensAt`, 2 hours before the start); or `ENDED`. The window is
-         *     half-open, `[startsAt - 2 hours, endsAt)`, on the database's clock. Nothing is recorded.
+         *     (entry opens at `entryOpensAt`, 1 hour before the event's `doorsOpenAt`, feature 025); or
+         *     `ENDED`. The window is half-open, `[doorsOpenAt - 1 hour, endsAt)`, on the database's clock,
+         *     for ticket codes and live codes alike (until feature 025, `[startsAt - 2 hours, endsAt)`;
+         *     events from before 025 have `doorsOpenAt` 1 hour before the start, so their window is the
+         *     same). Nothing is recorded.
          *
          *     `unusedOnOrder` counts the valid, unused tickets of this ticket's order for this event,
          *     including this one, so the agent can offer to admit them all after one ID check.
@@ -920,7 +946,8 @@ export interface paths {
          *
          *     Refused with `409 ENTRY_REFUSED` when nothing could be admitted. `details.reason` is
          *     `USED` (with `details.usedAt`), `VOID`, `OTHER_EVENT` (with `details.event`), `NOT_OPEN`
-         *     (with `details.entryOpensAt`), or `ENDED`, the same states `lookupEntryTicket` reports.
+         *     (with `details.entryOpensAt`), or `ENDED`, the same states `lookupEntryTicket` reports, in
+         *     the same window (feature 025: `[doorsOpenAt - 1 hour, endsAt)`).
          *     Feature 020: `details.event` also carries the event's venue `timeZone`, as
          *     `EntryTicket.event` does.
          *     A refused ID check is not sent to the Backend: the client simply does not call this.
@@ -1284,6 +1311,25 @@ export interface components {
              * @example 2026-10-01T21:00:00-04:00
              */
             endsAt: string;
+            /**
+             * Format: date-time
+             * @description Feature 025. When the venue's doors open: from 6 hours before `startsAt` to `startsAt`.
+             *     Events from before feature 025 have `startsAt` minus 1 hour. Always sent once 025 is
+             *     implemented; not listed as required so this contract can merge ahead of the
+             *     implementation with the suite green (the implementation lists it, 1.16.1). Clients
+             *     treat a missing value as not known and show nothing for it.
+             * @example 2026-10-01T17:00:00-04:00
+             */
+            doorsOpenAt?: string;
+            /**
+             * Format: date-time
+             * @description Feature 025. When gate check-in opens: 1 hour before `doorsOpenAt`. Tickets can be
+             *     admitted in `[entryOpensAt, endsAt)`. Worked out by the Backend, never sent to it.
+             *     Always sent once 025 is implemented; not listed as required for the same reason as
+             *     `doorsOpenAt`. The Ticket Booth app treats a missing value as already open.
+             * @example 2026-10-01T16:00:00-04:00
+             */
+            entryOpensAt?: string;
             /** @example 18000 */
             totalTicketCapacity: number;
             /**
@@ -1333,6 +1379,14 @@ export interface components {
              */
             endsAt: string;
             /**
+             * Format: date-time
+             * @description Feature 025. Optional; left out, `startsAt` minus 1 hour. Stated like `startsAt`, in
+             *     the venue's local time and offset. From 6 hours before `startsAt` to `startsAt`, both
+             *     allowed (`400 DOORS_OPEN_OUT_OF_RANGE` otherwise). The Admin app always sends it.
+             * @example 2026-10-01T18:00:00-04:00
+             */
+            doorsOpenAt?: string;
+            /**
              * @description Must not exceed the venue's `seatingCapacity`. Feature 007: optional; when left out it
              *     is the venue's `seatingCapacity`.
              */
@@ -1364,6 +1418,13 @@ export interface components {
              * @description Feature 020. In the destination venue's local time and offset.
              */
             endsAt?: string;
+            /**
+             * Format: date-time
+             * @description Feature 025. In the destination venue's local time and offset; checked against the
+             *     `startsAt` in force after the update. Left out while `startsAt` changes, it moves by
+             *     the same amount.
+             */
+            doorsOpenAt?: string;
             totalTicketCapacity?: number;
             /** @description Feature 016. `null` clears the limit. */
             maxTicketsPerCustomer?: number | null;
@@ -1525,6 +1586,14 @@ export interface components {
             startsAt: string;
             /** Format: date-time */
             endsAt: string;
+            /**
+             * Format: date-time
+             * @description Feature 025. When the venue's doors open, as `Event.doorsOpenAt`, shown on My tickets
+             *     and the printed ticket. Always sent once 025 is implemented; not listed as required so
+             *     this contract can merge ahead of the implementation (the implementation lists it,
+             *     1.16.1).
+             */
+            doorsOpenAt?: string;
             /** @enum {string} */
             status: "SCHEDULED" | "CANCELLED";
             location: {
@@ -1833,7 +1902,8 @@ export interface components {
             usedAt: string | null;
             /**
              * Format: date-time
-             * @description Two hours before the ticket's event starts.
+             * @description 1 hour before the ticket's event's `doorsOpenAt` (feature 025; until then, 2 hours
+             *     before its start).
              */
             entryOpensAt: string;
             /** @description Valid, unused tickets of this ticket's order for this event, this one included. */
@@ -1886,7 +1956,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -1966,7 +2036,10 @@ export interface components {
          *     event time without a UTC offset or a date only), or, feature 020, an event time does not
          *     fit the venue's time zone: the local time is skipped by a daylight-saving
          *     change (`LOCAL_TIME_SKIPPED`), or it is stated with an offset other than the venue's at
-         *     that local time (`UTC_OFFSET_MISMATCH`). Nothing was saved.
+         *     that local time (`UTC_OFFSET_MISMATCH`); `details.field` is `startsAt`, `endsAt`, or,
+         *     feature 025, `doorsOpenAt`. Or, feature 025, the doors-open time is more than 6 hours
+         *     before the start or after it (`DOORS_OPEN_OUT_OF_RANGE`, with `details.field`,
+         *     `doorsOpenAt`, `startsAt`, `earliest`, `latest`, and `timeZone`). Nothing was saved.
          */
         EventTimeRejected: {
             headers: {

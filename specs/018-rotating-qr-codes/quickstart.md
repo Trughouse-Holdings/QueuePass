@@ -1,5 +1,10 @@
 # Quickstart: Validating Rotating QR Codes
 
+**Superseded in part by `025`** ([spec](../025-doors-open/spec.md#superseded-requirements), #91):
+live codes are checked in the window that now opens 1 hour before the event's doors open; S0's
+"starts within 2 hours" still gives an open window with the default doors. The text below is this
+feature's walk as built.
+
 The running-system gate for `018`. Run after the implementation with every service healthy and the
 demo data loaded:
 
