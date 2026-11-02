@@ -37,7 +37,7 @@ Principle VII says no effort goes into decoration, and a background is decoratio
 amended it (3.7.0, MINOR) to widen the sign-in exception to Keycloak's stock background with the app's
 accent between the stones, and reserves `027` in the roadmap (plan, research R9). The constitution
 is shared surface, so every team member approved that PR. The realm header added in
-implementation needs a further amendment (Clarifications, implementation session 2; tasks T038).
+implementation is allowed by Constitution 3.8.0, in the implementation PR (tasks T038).
 
 ## Clarifications
 
@@ -131,12 +131,11 @@ Mahdi saw the pages with no card and reversed that decision.
   are in the card, so they return to the scheme's `--accent`; `--stone-accent` colors only the lines.
   The shade stays as it is, behind the header and the card (recommended answer, open to review)
   (research R5–R7).
-- Constitution (open, for the team): the card itself needs no change to Constitution 3.7.0 (it is
-  the shared theme's card, as in `021`). Two things do not match its words: roadmap row `027` says
-  "the form sits on the stones with no card", and Principle VII's sign-in exception says Keycloak's
-  background "is the only decoration allowed", while the "QUEUEPASS" header is decoration. Both need
-  an amendment (the row's wording, and the header added to the exception, a MINOR change) in a pull
-  request every team member approves, before the implementation PR merges (tasks T038).
+- Constitution: the card itself needed no change to Constitution 3.7.0 (it is the shared theme's
+  card, as in `021`). The realm header is decoration, which 3.7.0 did not allow beside the
+  background, and roadmap row `027` said "no card". Mahdi decided both the card and the header, so
+  Constitution 3.8.0 (MINOR), in the implementation PR, adds the realm-name header to the sign-in
+  exception and rewords the row; every team member approves it there (tasks T038).
 
 ## User Scenarios & Testing *(mandatory)*
 

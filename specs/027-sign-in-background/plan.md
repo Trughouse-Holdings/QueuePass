@@ -36,7 +36,8 @@
   unchanged.
 - **Constitution 3.7.0** (R9): Principle VII's sign-in exception allows Keycloak's stock background
   with the app's accent between the stones; roadmap row `027`. In the spec PR. The realm header and
-  the roadmap row's "no card" need a further amendment (tasks T038, open, blocks the merge).
+  the roadmap row's "no card" are covered by Constitution 3.8.0, in this implementation PR
+  (tasks T038).
 - **No API change, no database change, no seed change** (contracts/README.md, data-model.md). The
   realm already uses the `queuepass` login theme (`021`); a rebuilt Keycloak image carries the new
   files.
@@ -86,7 +87,7 @@ six tokens, about fifteen files.
 | IV. Server-authoritative rules | No domain rule involved | Pass (n/a) |
 | V. Sign-in everywhere | Sign-in stays on Keycloak's page; same form, same flow (spec FR-005) | Pass |
 | VI. Test-first, real database | Tests first for tokens, contrast, drift, theme files, the generator; live Keycloak test; browser test in the `e2e` job; the generator counts toward `scripts/seed`'s coverage | Pass |
-| VII. Function over finish, one shared look | **Needs amendment**: a background is decoration. Amended to 3.7.0 in this PR (R9); colors stay in the shared theme's token blocks, contrast is a stated, tested target, and the apps are untouched | Pass after amendment; the realm header and roadmap row `027` need a further amendment (T038, open, blocks the merge) |
+| VII. Function over finish, one shared look | **Needs amendment**: a background is decoration. Amended to 3.7.0 in this PR (R9); colors stay in the shared theme's token blocks, contrast is a stated, tested target, and the apps are untouched | Pass after amendment; the realm header and roadmap row `027` by 3.8.0 in the implementation PR (T038) |
 | VIII. Staged simplicity | One image derived once; no runtime work; no animation; no per-app images | Pass |
 
 Re-check after design: unchanged. The amendment is the only deviation and is made, not worked

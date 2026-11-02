@@ -334,10 +334,12 @@ fallback, and the generator are unchanged.
   accent, white in light and dark grey in dark; inside it the brand mark, "Sign in to …", the
   audience line, the fields, and Sign In in the app's accent; the stones and lines beyond the shade
   at full strength on a wide window. The rows were renamed in the Clarify commit.
-- [ ] T038 **Open, for the team**: Constitution 3.7.0's roadmap row `027` says "no card", and
-  Principle VII calls the background the only decoration allowed, which the header is not. An
-  amendment (the row's wording; the header added to the sign-in exception, MINOR) in a pull request
-  every team member approves, before the implementation PR merges (spec Clarifications).
+- [x] T038 Constitution 3.8.0 (MINOR), in this branch as 3.7.0 was in the spec PR: Principle VII's
+  sign-in exception also allows, above the sign-in card, the realm's name as Keycloak's own login
+  page shows it, and the background and that header are the only decoration allowed; roadmap row
+  `027` describes the card and the header instead of "no card"; a new Sync Impact Report, the
+  version and Last Amended lines, and the README's version reference. Shared surface: every team
+  member approves it in the implementation PR (spec Clarifications).
 
 ---
 
@@ -375,7 +377,7 @@ fallback, and the generator are unchanged.
   Process: "The user walks it before merging"); record it here.
 - [ ] T031 Push and open the implementation PR (after the spec PR has merged and the branch is up to
   date with `main`): description says `fixes #122`, lists the review, the walk, the test counts, and
-  the shared surface touched (`packages/shared/`; the constitution was in the spec PR, and T038's amendment PR is merged first). Wait for CI
+  the shared surface touched (`packages/shared/`; 3.7.0 was in the spec PR; 3.8.0, T038, is in this one). Wait for CI
   green on GitHub (`test` and `e2e`) on the final commit; merge only when green and approved.
 
 ---
@@ -386,8 +388,7 @@ fallback, and the generator are unchanged.
 - **US1 (T011–T016)** needs T007 (tokens), T008 (seventh role), and T010 (the lines image). **US2
   (T017–T021)** needs US1's layers. **US3 (T022)** needs US2. **US4 (T023–T024)** needs T017's
   measuring fixture and T015's page color.
-- **Card (T032–T037)** after US4; T022's ring fix carries into T036. T038 is the team's and blocks
-  the merge, not the work.
+- **Card (T032–T037)** after US4; T022's ring fix carries into T036. T038 after T037.
 - **Polish (T025–T031)** after every story and the card.
 
 ### Parallel opportunities
@@ -451,13 +452,10 @@ fallback, and the generator are unchanged.
     marked, the spec's Context on the amendment, quickstart S4 step 3, T031's amendment PR, an
     empty realm display name, the no-copy check over every tracked file, the FR-012 check over the
     apps' code, and a shorter README status so the table is not re-padded.
-- **Open findings**:
-  - must 2: Constitution 3.7.0's roadmap row `027` ("no card") and Principle VII ("the only
-    decoration allowed") need an amendment for the card and the realm header, in a pull request
-    every team member approves, merged before the implementation PR (T038).
-  - should 6: the commit `WIP Impl 027: every input on the stones gets its ring; …` does not start
-    with `Impl 027:`. It was made as a WIP on request when work paused; rewording it rewrites every
-    later commit, so it is left for the author to squash or reword before the PR, or to record in
-    the PR description.
+- **Open findings** (left open in round 1, resolved since):
+  - must 2, since resolved: the constitution amendment for the card and the realm header is
+    Constitution 3.8.0, in this branch (T038).
+  - should 6, since resolved: the WIP commit's subject was reworded to `Impl 027: …` with a
+    message-only rewrite of the unpushed branch (the tree is unchanged).
   - nit 16, in part: the no-card tasks (T013, T015, T019, T020) keep their wording as history; the
     Phase 6b note says T032–T037 changed what they built.
