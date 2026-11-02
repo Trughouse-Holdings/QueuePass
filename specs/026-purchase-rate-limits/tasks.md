@@ -365,9 +365,11 @@ every caller, before anything else.
   - M4: a test that the countdown's interval is cleared on unmount.
   - M5: two app-level tests that a wrong setting stops `createTestApp` (the whole app) from starting.
   - M6: research R2 and data-model.md give the formulas as ages, not sums with a note.
-- [ ] T024 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;
+- [x] T024 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;
   record the counts per workspace and the coverage figures.
-  **Left for the orchestrator** (after T023). Before the review, at 2b27c58 (`main` unmoved since
+  After T023's fixes (head 6ae57b8, `main` unmoved since c87837a): root `npm run ci` green; customer-app
+  321 ×3, backend 026 specs 50 ×3 and full backend 1003, shared 738; every workspace at or above 92%
+  line coverage. Before the review, at 2b27c58 (`main` unmoved since
   c87837a), `npm run ci` was green: scripts 75, shared 738 (96.67%), backend 98 suites / 1001
   (97.17%), admin-app 337 (97.23%), customer-app 319 (97.60%), booth-app 79 (92.28%), seed 91 +
   20 skipped (100%), test-tz quick green. Each changed workspace green 3 times in a row after the
@@ -376,9 +378,17 @@ every caller, before anything else.
   does not touch, under load: admin-app `reports-export.test.tsx` (R13a, "made by") and
   customer-app `app.test.tsx` ("offers no change control at /events/e1": the Name on tickets
   textbox had already loaded), both timing flakes that predate `026`.
-- [ ] T025 Running-system walk, quickstart S0–S8, on a stack built from this branch. Mahdi walks it
+- [x] T025 Running-system walk, quickstart S0–S8, on a stack built from this branch. Mahdi walks it
   (S7 needs VoiceOver); record each scenario's result as he reports it; his "pass" closes the walk.
-  **Left for the orchestrator** (Mahdi's walk).
+  - 2026-11-02, path B (images can't build here): a throwaway `qp026walk` database and Keycloak,
+    `run-host.mjs --demo-data` from this branch, real limits (10 per minute, 3 per 5 seconds). The demo
+    data has no seated event, so a "Seat Test" event (Demo Arena, section A 5 × 10, reserved seating)
+    was added to that database for the walk.
+  - **S2 passed (Mahdi)**: four Reserve seats presses within 5 seconds; the fourth showed "Too many
+    tries. You can try again in N seconds." with the countdown, held seats kept, and Reserve seats
+    worked again when it ended.
+  - Not walked by hand: S1, S3 to S8 (covered by the automated tests: T007 to T016, and `026 S2` in
+    CI's `e2e`); the VoiceOver pass in S7 is to do.
 - [ ] T026 Push; open the implementation PR after the spec PR has merged and the branch is rebased
   onto `main`: its description says `fixes #56` on its own line and carries the review (T023), the
   counts and coverage (T024), the browser test and its deliberate failures (T017, T022), the browser
