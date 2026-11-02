@@ -45,7 +45,9 @@ that are let through. Constitution 3.6.3 reserves the number; no principle chang
 
 ### Session 2026-11-02
 
-Mahdi took the decisions marked "decided by Mahdi".
+Mahdi took the decisions marked "decided by Mahdi". Every other question below took the
+recommended answer, written unattended and recorded here as **recommended answer, open to review**,
+so the team can overturn it in review of the spec PR.
 
 - Q: Limited per what: account, network address, event, or a mix? → A: **Per customer account**
   (buying and holding seats already need sign-in). **No network-address limit** (decided by Mahdi,
@@ -60,6 +62,71 @@ Mahdi took the decisions marked "decided by Mahdi".
 - Q: What does a customer over a limit see? → A: **"Too many tries. You can try again in N
   seconds."** The button stays disabled with a **countdown**, then works again. Seats already held
   stay held; nothing they had is lost (decided by Mahdi, 4) (FR-007, FR-011 to FR-014).
+- Q: What counts as an attempt? → A: **Every buy or seat-hold request from a signed-in customer that
+  gets past sign-in and the role check, whatever its outcome**: placed or held, refused by any
+  existing rule (sold out, seat taken, the ticket limit, sales closed, …), malformed, or naming an
+  unknown event (recommended answer, open to review). Counting only successes would let a script
+  hammer refusals (a sold-out tier, a taken seat) for free, and those still cost QueuePass the work of
+  an order. Adding seats to a hold already held is a hold attempt; many seats in one request are one
+  attempt (FR-001, FR-003).
+- Q: Does an attempt refused for the limit count? → A: **No** (recommended answer, open to review).
+  Pressing again early then never makes the wait longer, and the wait the customer is told stays
+  exact; a script gets exactly its allowance and no more either way (FR-003, FR-008).
+- Q: Does releasing seats count toward the hold allowance? → A: **No; releasing is never limited**
+  (recommended answer, open to review). It only gives seats back, which is what the limits are for;
+  logging out must always release (`015` FR-008); and an ordinary customer pressing **Release** on
+  three or four held seats one after another would otherwise meet the 3-in-5-seconds limit. Releases
+  still do some work; protecting every operation from floods is not this issue (FR-004).
+- Q: Does a repeat of the same confirmation (`006`'s request id, "Check again") count? → A: **Yes,
+  like any request** (recommended answer, open to review). A repeat is still a request QueuePass
+  must look up; a person presses Check again far less often than the limit; and when it is refused,
+  the next press still repeats the same confirmation, so no second order is possible (FR-003,
+  FR-014).
+- Q: Fixed windows (each clock minute) or rolling ones? → A: **Rolling**: "no more than 3 in any 5
+  seconds" and 10 in any 60 seconds, each attempt counting for exactly 5 and 60 seconds from when it
+  was handled (recommended answer, open to review). Fixed windows would let an account make 6
+  attempts within a moment across a window's edge, against Mahdi's "any 5 seconds", and make the wait
+  depend on the clock rather than on the account's own attempts (FR-002).
+- Q: One allowance per event, or for all events? → A: **One per account for all events together**
+  (recommended answer, open to review): a script spreading attempts over many events loads QueuePass
+  just as much (FR-005).
+- Q: Where are the counts kept, and what does a Backend restart do? → A: **In the running Backend,
+  not with QueuePass's stored data; a restart forgets them**, and every account starts again with its
+  whole allowance (recommended answer, open to review). Deciding a refusal without touching stored
+  data is what keeps QueuePass responsive while an account is far over its allowance (the issue's last
+  requirement); QueuePass runs one Backend, as `015`'s live seat map already relies on. How, and why
+  this meets Constitution IV, is in the plan (FR-015; Assumptions).
+- Q: How does a caller of the API learn the wait? → A: **A refusal with its own code, the wait as a
+  whole number of seconds in the error, and the standard "retry after" signal** that HTTP clients
+  and scripts understand (recommended answer, open to review). Status, code, and field names are in
+  the plan (FR-008).
+- Q: How does the Customer app show it? → A: (recommended answer, open to review) The message in
+  the same place as other refusals, announced once; N counts down each second without being
+  announced each time, as `015`'s hold countdown is; only that kind's buttons are disabled (buying:
+  Confirm order, Confirm purchase, Check again; holding: Reserve seats); Release, seat picking, and the
+  hold's countdown keep working; "1 second", not "1 seconds" (FR-011 to FR-013).
+- Q: Is a hold extended while its customer waits out a buy refusal? → A: **No** (recommended answer,
+  open to review). The wait is at most 60 seconds, ordinary use never meets it, and extending holds on
+  request would give a script a way to keep seats longer (Edge Cases).
+- Q: How do tests and demos set their numbers, and which numbers do they use? → A: (recommended
+  answer, open to review) **Two settings, attempts per minute and attempts per 5 seconds, one pair for
+  both kinds**, with the defaults (10 and 3) in the repository's configuration, so the one-command
+  start uses them with nothing set by hand. Backend tests about other features set large numbers in
+  the test set-up, so their concurrency tests still send many orders at once; this feature's tests set
+  the defaults; the browser tests run the stack with the defaults unchanged, which is the proof that
+  ordinary journeys never meet the limits. A setting that is not a whole number of at least 1 stops
+  the Backend from starting; there is no "off" (FR-017, FR-018, SC-004).
+- Q: How is it proved that the limits work and ordinary use is unaffected? → A: (recommended answer,
+  open to review) Concurrency tests against a real database: many attempts from one account at the
+  same moment, exactly 3 handled and the rest refused with nothing recorded; the rolling windows'
+  boundaries to the millisecond on a test clock; another account buying while one is far over, with
+  the refused attempts counted as doing no database work; and the earlier features' browser tests, plus
+  this feature's own, run with the real numbers (SC-001 to SC-006).
+- Q: What is logged? → A: **One line each time an account goes over**, with the account, the kind,
+  and the wait, not one per refused request, so a flood cannot flood the logs; never a token
+  (recommended answer, open to review) (FR-019).
+- Q: Is "only the Customer app may buy" (#58) part of this? → A: **No**; it is its own issue. These
+  limits apply to every caller of the API, whichever app (recommended answer, open to review).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -214,7 +281,7 @@ refused attempts did no work on stored data.
   or refused for the limits.
 - **FR-005**: Each account MUST have one allowance of each kind for all events together, shared by
   all its sessions and devices, and applied however the API is called.
-- **FR-006**: No account, role, or caller MUST be exempt from the limits.
+- **FR-006**: The limits MUST apply to every account, role, and caller; none is exempt.
 
 **The refusal (US1, US2)**
 
