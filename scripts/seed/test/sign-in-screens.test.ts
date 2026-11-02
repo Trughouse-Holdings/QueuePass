@@ -249,6 +249,16 @@ describe('the sign-in screens (spec 021)', () => {
         async () => (await fetch(`${KEYCLOAK}/realms/${realm}/login-actions/authenticate`)).text(),
       ],
       [
+        // T022: Keycloak's logout confirmation, reached with no id_token_hint.
+        'the logout confirmation (booth-app)',
+        async () =>
+          (
+            await fetch(
+              `${KEYCLOAK}/realms/${realm}/protocol/openid-connect/logout?client_id=booth-app`,
+            )
+          ).text(),
+      ],
+      [
         'a wrong password (admin-app)',
         async () => {
           const c = FRONTEND_CLIENTS.find((f) => f.clientId === 'admin-app')!;

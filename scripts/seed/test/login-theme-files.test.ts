@@ -201,6 +201,14 @@ describe('the sign-in backdrop (spec 027)', () => {
     );
   });
 
+  // T022: Keycloak's logout confirmation has its own submit input (#kc-logout), whose ring the
+  // shared input:focus rule removed, as it did #kc-login's: every input on the stones gets it.
+  it('rings every input on the stones, submit inputs included, in --stone-accent (R7, FR-006)', () => {
+    const body = bodiesNaming('.qp-form input:focus-visible');
+    expect(body).toMatch(/outline:\s*3px solid var\(--stone-accent\)/);
+    expect(body).toMatch(/outline-offset:\s*2px/);
+  });
+
   it('hides the whole backdrop in forced colors (R4)', () => {
     const hidden = rules(css()).filter(
       ([sel, body, at]) =>
