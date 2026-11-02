@@ -74,7 +74,8 @@ describe('Entry window and the order of reasons', () => {
     const select = jest.spyOn(service, 'select').mockImplementationOnce(async (...args) => {
       await ctx.prisma.$executeRaw`
         UPDATE "Event"
-        SET "startsAt" = "startsAt" - interval '1 minute', "endsAt" = "endsAt" - interval '1 minute'
+        SET "startsAt" = "startsAt" - interval '1 minute', "endsAt" = "endsAt" - interval '1 minute',
+            "doorsOpenAt" = "doorsOpenAt" - interval '1 minute'
         WHERE "id" = ${eventId}::uuid`;
       return realSelect(...args);
     });

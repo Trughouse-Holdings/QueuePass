@@ -6,7 +6,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { Location, Prisma } from '@prisma/client';
-import { SCHEDULING_BUFFER_MINUTES, localDate, type UsTimeZone } from '@queuepass/shared';
+import {
+  DEFAULT_DOORS_BEFORE_START_MINUTES,
+  SCHEDULING_BUFFER_MINUTES,
+  localDate,
+  type UsTimeZone,
+} from '@queuepass/shared';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
 import { searchText } from '../common/search-text';
@@ -36,6 +41,8 @@ const EVENT_INCLUDE = {
 type EventWithLocation = Prisma.EventGetPayload<{ include: typeof EVENT_INCLUDE }>;
 /** The service's own client or a transaction's; the rule helpers work with either. */
 type Db = PrismaService | Prisma.TransactionClient;
+
+const MINUTE_MS = 60_000;
 
 /** PostgreSQL SQLSTATE for a detected deadlock. */
 const PG_DEADLOCK = '40P01';
@@ -116,6 +123,7 @@ export class EventsService {
         locationId: dto.locationId,
         startsAt,
         endsAt,
+        doorsOpenAt: new Date(startsAt.getTime() - DEFAULT_DOORS_BEFORE_START_MINUTES * MINUTE_MS),
         totalTicketCapacity: capacity,
         maxTicketsPerCustomer: dto.maxTicketsPerCustomer ?? null,
         basePrice: dto.basePrice,
@@ -287,6 +295,11 @@ export class EventsService {
     const endsAt = dto.endsAt
       ? checkEventTime('endsAt', dto.endsAt, zone, location.name)
       : existing.endsAt;
+    // Spec 025 FR-008 (research R4): a start that moves takes its doors with it, keeping the gap,
+    // so a doors-open time never falls out of range for a field the caller did not send.
+    const doorsOpenAt = new Date(
+      existing.doorsOpenAt.getTime() + (startsAt.getTime() - existing.startsAt.getTime()),
+    );
 
     const capacity = dto.totalTicketCapacity ?? existing.totalTicketCapacity;
     this.assertCapacityWithinVenue(capacity, location);
@@ -311,6 +324,7 @@ export class EventsService {
         ...(dto.locationId !== undefined ? { locationId: dto.locationId } : {}),
         ...(dto.startsAt !== undefined ? { startsAt } : {}),
         ...(dto.endsAt !== undefined ? { endsAt } : {}),
+        ...(doorsOpenAt.getTime() !== existing.doorsOpenAt.getTime() ? { doorsOpenAt } : {}),
         ...(dto.totalTicketCapacity !== undefined
           ? { totalTicketCapacity: dto.totalTicketCapacity }
           : {}),

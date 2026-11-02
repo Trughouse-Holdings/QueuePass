@@ -133,20 +133,30 @@ export const HOLDER = 'Test Holder';
  * Spec 017 (research R5): an event placed relative to the DATABASE's `now()`, inserted directly
  * with `ctx.prisma`, so a test can put it in the past or inside the entry window, which the API's
  * own rules (scheduling buffer, sales-closed) would refuse. Negative `startsInSeconds` is the
- * past. Returns the event's id.
+ * past. Returns the event's id. Spec 025 (research R1): doors open `doorsBeforeStartSeconds`
+ * before the start, 1 hour unless given, so every caller from before 025 keeps its entry window
+ * (`[startsAt - 2 hours, endsAt)`).
  */
 export async function eventAroundNow(
   ctx: TestContext,
   venueId: string,
-  opts: { startsInSeconds: number; lastsSeconds: number; name?: string; capacity?: number },
+  opts: {
+    startsInSeconds: number;
+    lastsSeconds: number;
+    name?: string;
+    capacity?: number;
+    doorsBeforeStartSeconds?: number;
+  },
 ): Promise<string> {
   const id = randomUUID();
+  const doors = opts.startsInSeconds - (opts.doorsBeforeStartSeconds ?? 3600);
   await ctx.prisma.$executeRaw`
-    INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt", "totalTicketCapacity",
-                         "basePrice", "updatedAt")
+    INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt", "doorsOpenAt",
+                         "totalTicketCapacity", "basePrice", "updatedAt")
     VALUES (${id}::uuid, ${opts.name ?? 'Around Now'}, ${venueId}::uuid,
             now() + make_interval(secs => ${opts.startsInSeconds}),
             now() + make_interval(secs => ${opts.startsInSeconds + opts.lastsSeconds}),
+            now() + make_interval(secs => ${doors}),
             ${opts.capacity ?? 100}, 45.00, now())`;
   return id;
 }

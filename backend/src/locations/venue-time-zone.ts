@@ -149,7 +149,7 @@ export async function moveEventsToZone(
 
   const events = await tx.event.findMany({
     where: { locationId: venue.id },
-    select: { id: true, name: true, status: true, startsAt: true, endsAt: true },
+    select: { id: true, name: true, status: true, startsAt: true, endsAt: true, doorsOpenAt: true },
     orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
   });
   const moved = events.map((e) => {
@@ -190,7 +190,12 @@ export async function moveEventsToZone(
         ? refuse(local.slice(0, 16), "doesn't exist in", to, 'SKIPPED')
         : refuse(local.slice(0, 16), 'happens twice in', to, 'REPEATED');
     };
-    return { ...e, startsAt: at('startsAt'), endsAt: at('endsAt') };
+    const startsAt = at('startsAt');
+    // Spec 025 (T005, interim): doors move by the same interval as the start.
+    const doorsOpenAt = new Date(
+      e.doorsOpenAt.getTime() + startsAt.getTime() - e.startsAt.getTime(),
+    );
+    return { ...e, startsAt, endsAt: at('endsAt'), doorsOpenAt };
   });
 
   // FR-012: the first pair, in start order, whose windows [start - 60 min, end) overlap.
@@ -220,7 +225,7 @@ export async function moveEventsToZone(
   for (const e of moved) {
     await tx.event.update({
       where: { id: e.id },
-      data: { startsAt: e.startsAt, endsAt: e.endsAt },
+      data: { startsAt: e.startsAt, endsAt: e.endsAt, doorsOpenAt: e.doorsOpenAt },
     });
   }
 }

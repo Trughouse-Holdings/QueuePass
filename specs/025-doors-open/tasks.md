@@ -33,9 +33,15 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut the branch; `npm ci`; `npm run ci` green before any change; record the counts per
+- [x] T001 Cut the branch; `npm ci`; `npm run ci` green before any change; record the counts per
   workspace here. Confirm the contract is 1.16.0 and `node scripts/check-contract-drift.mjs` passes
   (both on the spec branch already).
+  **Done 2026-11-02** on `025-doors-open-spec` d95f07b: `npm ci` clean (Node 22.20.0). Root `npm run
+  ci` stopped at `eslint .` on an untracked `.claude/worktrees/` (another session's worktree, not
+  in ESLint's ignores); the same steps with `eslint . --ignore-pattern ".claude/**"` passed in 7 min
+  52 s: scripts/test 75, shared 681 (93.08% lines), backend 955 in 94 suites (97.05%), admin-app
+  335 (97.23%), customer-app 308 (97.46%), booth-app 76 (92.28%), seed 91 + 20 skipped (100%),
+  test:tz --quick (Los Angeles) pass. Contract 1.16.0; the drift check passes.
 
 ---
 
@@ -45,7 +51,7 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
 
 ### Tests first
 
-- [ ] T002 [P] Shared tests (research R2, R9) in `packages/shared/test/` (next to the existing
+- [x] T002 [P] Shared tests (research R2, R9) in `packages/shared/test/` (next to the existing
   `time-zone` tests). Must fail (nothing exists):
   - `DEFAULT_DOORS_BEFORE_START_MINUTES === 60`, `DOORS_OPEN_MAX_BEFORE_START_MINUTES === 360`,
     `ENTRY_OPENS_BEFORE_DOORS_MINUTES === 60`;
@@ -58,16 +64,21 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
     ("…between Nov 20, 2026, 9:00 PM EST and Nov 21, 2026, 3:00 AM EST.");
   - `formatDoorsOpen(start, doors, zone)`: "5:30 PM EST" on the start's local date; "Nov 19, 2026,
     11:30 PM EST" for doors the day before.
+  **Done**: `packages/shared/test/doors-open.test.ts`, 12 tests; failed first with
+  "doorsOpenProblem / doorsOpenRangeMessage / formatDoorsOpen is not a function".
 
 ### Implementation
 
-- [ ] T003 `packages/shared/src/event.ts`: the three constants, `doorsOpenProblem`,
+- [x] T003 `packages/shared/src/event.ts`: the three constants, `doorsOpenProblem`,
   `doorsOpenRangeMessage` (research R2); `packages/shared/src/time-zone.ts`: `formatDoorsOpen` as a
   documented alias of `formatEventEnd` (R9); export them from `index.ts`. T002 passes.
+  **Done**: T002 passes (12); `index.ts` already re-exports both modules. `Event` and `EventInput`
+  in `event.ts` gain optional `doorsOpenAt`/`entryOpensAt` (the hand-written mirror of the
+  contract).
 
 ### The column
 
-- [ ] T004 New `backend/test/integration/migration.doors-open.e2e-spec.ts` (research R1, R15), in the
+- [x] T004 New `backend/test/integration/migration.doors-open.e2e-spec.ts` (research R1, R15), in the
   style of `migration.time-zones.e2e-spec.ts`: a database migrated up to the migration before
   `doors_open`, with a scheduled future event, a scheduled past event, and a cancelled event; then the
   migration. Must fail (no migration):
@@ -77,7 +88,8 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
     second` fail with `event_doors_open_range`; `startsAt` and `startsAt - 6 hours` succeed;
   - `pg_get_constraintdef` of `event_doors_open_range` mentions `'06:00:00'` and agrees with
     `DOORS_OPEN_MAX_BEFORE_START_MINUTES` (R2).
-- [ ] T005 `backend/prisma/migrations/20261102000000_doors_open/migration.sql` exactly as research R1,
+  **Done**: 5 tests; all failed first on `expect(NEW_MIGRATION).toBeDefined()` (no migration).
+- [x] T005 `backend/prisma/migrations/20261102000000_doors_open/migration.sql` exactly as research R1,
   with its comments; `backend/prisma/schema.prisma` `Event.doorsOpenAt` (data-model.md); `npm run
   prisma:generate --workspace @queuepass/backend`. Then every direct write of an event keeps the
   column valid (research R1): `backend/test/setup/fixtures.ts` `eventAroundNow` gains
@@ -86,12 +98,17 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
   `events.concurrency.e2e-spec.ts`; and the three writes that move a start move `doorsOpenAt` by the
   same interval in the same statement: `orders.sales-closed.e2e-spec.ts` (the start moved into the
   past), `reservations.admin-changes.e2e-spec.ts` (the raw `UPDATE` before the sweep), and
-  `entry.window.e2e-spec.ts` (the raw `UPDATE` inside the mocked `select`). In the service, so the
+  `entry.window.e2e-spec.ts` (the raw `UPDATE` inside the mocked `select`); and
+  `migration.time-zones.e2e-spec.ts` leaves out `020`'s migration and every later one from its
+  copy of `prisma/`, and its last insert gives `"doorsOpenAt"` (research R1). In the service, so the
   CHECK is never hit as a `500`: `EventsService.createLocked` sets `doorsOpenAt: startsAt - 60
   minutes`; `updateLocked` applies research R4's keep-the-gap rule when the start changes (`doorsOpenAt
   = stored doorsOpenAt + (new startsAt - stored startsAt)`); `moveEventsToZone` moves `doorsOpenAt` by
   the same interval as each event's start (T009 and T010 complete both). T004 passes; `npm run test
   --workspace @queuepass/backend` green apart from tests that are still to be written.
+  **Done**: T004 passes. The first full run failed only `migration.time-zones` (6 tests, `23502` on
+  its raw inserts: its copy of `prisma/` also deployed `doors_open`), a gap in research R1 fixed
+  there and in this task's text; then the backend suite passed, 960 in 95 suites (97.05%).
 
 **Checkpoint**: every event has a doors-open time; nothing visible has changed yet.
 

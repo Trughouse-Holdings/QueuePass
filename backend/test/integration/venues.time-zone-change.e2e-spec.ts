@@ -179,6 +179,8 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
         locationId: v,
         startsAt: new Date('1880-06-01T23:00:00Z'),
         endsAt: new Date('1880-06-02T01:00:00Z'),
+        // Spec 025 (research R1): a direct write gives the doors-open time itself.
+        doorsOpenAt: new Date('1880-06-01T22:00:00Z'),
         totalTicketCapacity: 10,
         basePrice: '1.00',
       },
@@ -307,10 +309,10 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
     const v = await venue();
     const insert = (tx: Prisma.TransactionClient, name: string, start: string, end: string) =>
       tx.$executeRaw`
-        INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt",
+        INSERT INTO "Event" ("id", "name", "locationId", "startsAt", "endsAt", "doorsOpenAt",
                              "totalTicketCapacity", "basePrice", "updatedAt")
         VALUES (${randomUUID()}::uuid, ${name}, ${v}::uuid, ${start}::timestamptz,
-                ${end}::timestamptz, 10, 1.00, now())`;
+                ${end}::timestamptz, ${start}::timestamptz - interval '1 hour', 10, 1.00, now())`;
     const err = await ctx.prisma
       .$transaction(async (tx) => {
         await tx.$executeRaw`SET CONSTRAINTS "event_no_overlap" DEFERRED`;

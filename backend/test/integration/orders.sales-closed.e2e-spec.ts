@@ -65,11 +65,13 @@ describe('Sales close at the start time', () => {
     const body = { quantity: 1, requestId: randomUUID() };
     const first = await order(eventId, body);
     expect(first.status).toBe(201);
-    // Move the start into the past, as if the hour had passed.
-    await ctx.prisma.event.update({
-      where: { id: eventId },
-      data: { startsAt: new Date(Date.now() - 60_000) },
-    });
+    // Move the start into the past, as if the hour had passed; doors move with it, keeping their
+    // gap (spec 025 research R1: the event_doors_open_range CHECK).
+    await ctx.prisma.$executeRaw`
+      UPDATE "Event"
+      SET "doorsOpenAt" = "doorsOpenAt" + (now() - interval '1 minute' - "startsAt"),
+          "startsAt" = now() - interval '1 minute'
+      WHERE "id" = ${eventId}::uuid`;
 
     const repeat = await order(eventId, body);
 
