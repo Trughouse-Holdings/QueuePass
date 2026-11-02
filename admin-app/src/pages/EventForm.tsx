@@ -10,7 +10,10 @@ import type {
 import {
   DEFAULT_TIME_ZONE,
   EVENT_IMAGE_LIMITS,
+  DEFAULT_DOORS_BEFORE_START_MINUTES,
   abbreviationAt,
+  doorsOpenProblem,
+  doorsOpenRangeMessage,
   formatLocalTime,
   resolveLocal,
   skippedTimeMessage,
@@ -34,7 +37,10 @@ import { SuccessState } from '../components/SuccessState';
 
 /** Spec 020 research R13: which of a repeated local time's two moments the admin chose. */
 type Occurrence = '' | 'first' | 'second';
-type TimeField = 'startsAt' | 'endsAt';
+type TimeField = 'startsAt' | 'endsAt' | 'doorsOpenAt';
+
+/** Spec 025 research R4: on a new event, Doors open follows the start 1 hour earlier. */
+const DEFAULT_DOORS_GAP_MS = DEFAULT_DOORS_BEFORE_START_MINUTES * 60_000;
 
 /**
  * A `datetime-local` value read in the venue's zone (research R11, R13): null while it is not a
@@ -137,9 +143,17 @@ export function EventForm(): React.ReactElement {
   // Spec 020 research R13: plain local strings, read in the chosen venue's zone.
   const [startsAt, setStartsAt] = useState('');
   const [endsAt, setEndsAt] = useState('');
+  // Spec 025 research R4: Doors open, a local string like the start, following the start (same
+  // gap) until the admin changes it themselves.
+  const [doorsOpenAt, setDoorsOpenAt] = useState('');
+  const [doorsTouched, setDoorsTouched] = useState(false);
+  const [doorsGapMs, setDoorsGapMs] = useState(DEFAULT_DOORS_GAP_MS);
+  /** Once a save was tried, the range message under Doors open is announced (role="alert"). */
+  const [doorsChecked, setDoorsChecked] = useState(false);
   const [occurrence, setOccurrence] = useState<Record<TimeField, Occurrence>>({
     startsAt: '',
     endsAt: '',
+    doorsOpenAt: '',
   });
   const [totalTicketCapacity, setTotalTicketCapacity] = useState('');
   // Spec 016 FR-008: blank is no limit.
@@ -235,9 +249,18 @@ export function EventForm(): React.ReactElement {
         };
         const [start, startOcc] = local(e.startsAt);
         const [end, endOcc] = local(e.endsAt);
+        // Spec 025 FR-002 (research R4): the stored doors, and their gap to the stored start.
+        const [doors, doorsOcc]: [string, Occurrence] = e.doorsOpenAt
+          ? local(e.doorsOpenAt)
+          : ['', ''];
         setStartsAt(start);
         setEndsAt(end);
-        setOccurrence({ startsAt: startOcc, endsAt: endOcc });
+        setDoorsOpenAt(doors);
+        setDoorsTouched(false);
+        setDoorsGapMs(
+          e.doorsOpenAt ? Date.parse(e.startsAt) - Date.parse(e.doorsOpenAt) : DEFAULT_DOORS_GAP_MS,
+        );
+        setOccurrence({ startsAt: startOcc, endsAt: endOcc, doorsOpenAt: doorsOcc });
         setTotalTicketCapacity(String(e.totalTicketCapacity));
         setMaxPerCustomer(e.maxTicketsPerCustomer == null ? '' : String(e.maxTicketsPerCustomer));
         setSeated(e.reservedSeating);
@@ -498,8 +521,15 @@ export function EventForm(): React.ReactElement {
     }
     // Spec 020 FR-016, FR-017 (research R13): a preview of the Backend's zone checks, with the
     // same message for a skipped time; a repeated time is sent only once its occurrence is chosen.
-    const sent: Record<TimeField, string> = { startsAt, endsAt };
-    for (const field of ['startsAt', 'endsAt'] as const) {
+    // Spec 025 FR-005 (research R4): Doors open after the start and end, then its range.
+    const sent: Record<TimeField, string> = { startsAt, endsAt, doorsOpenAt };
+    const instants: Partial<Record<TimeField, Date>> = {};
+    setDoorsChecked(true);
+    for (const field of ['startsAt', 'endsAt', 'doorsOpenAt'] as const) {
+      if (field === 'doorsOpenAt' && !doorsOpenAt) {
+        setError(validationError('Enter when doors open.'));
+        return;
+      }
       const r = resolveField(sent[field], venueZone);
       if (!r) continue;
       if (r.kind === 'skipped') {
@@ -514,6 +544,15 @@ export function EventForm(): React.ReactElement {
         return;
       }
       sent[field] = toOffsetDateTime(m.instant, venueZone);
+      instants[field] = m.instant;
+    }
+    if (
+      instants.startsAt &&
+      instants.doorsOpenAt &&
+      doorsOpenProblem(instants.startsAt, instants.doorsOpenAt)
+    ) {
+      setError(validationError(doorsOpenRangeMessage(instants.startsAt, venueZone)));
+      return;
     }
     setBusy(true);
 
@@ -522,6 +561,8 @@ export function EventForm(): React.ReactElement {
       locationId,
       startsAt: sent.startsAt,
       endsAt: sent.endsAt,
+      // Spec 025 FR-007 (research R4): always sent, like the start and end.
+      doorsOpenAt: sent.doorsOpenAt,
       // FR-019: blank means the venue's capacity; seated events never send one (FR-018).
       ...(!seated && !reserved && totalTicketCapacity.trim() !== ''
         ? { totalTicketCapacity: Number(totalTicketCapacity) }
@@ -589,7 +630,52 @@ export function EventForm(): React.ReactElement {
   const resolved: Record<TimeField, ResolvedLocal | null> = {
     startsAt: resolveField(startsAt, venueZone),
     endsAt: resolveField(endsAt, venueZone),
+    doorsOpenAt: resolveField(doorsOpenAt, venueZone),
   };
+  const typed: Record<TimeField, string> = { startsAt, endsAt, doorsOpenAt };
+
+  /**
+   * Spec 025 FR-003 (research R4): a start that names one moment moves Doors open to that moment
+   * minus the gap, until the admin has changed Doors open themselves. The occurrence of a repeated
+   * doors time is the one the instant is.
+   */
+  function followStart(local: string, chosen: Occurrence): void {
+    if (doorsTouched) return;
+    const r = resolveField(local, venueZone);
+    const m = r ? momentOf(r, chosen) : null;
+    if (!m) return;
+    const instant = new Date(m.instant.getTime() - doorsGapMs);
+    const value = toLocalDateTime(instant, venueZone);
+    const doors = resolveField(value, venueZone);
+    const occ: Occurrence =
+      doors?.kind !== 'repeated'
+        ? ''
+        : toOffsetDateTime(instant, venueZone).slice(-6) === doors.first.offset
+          ? 'first'
+          : 'second';
+    setDoorsOpenAt(value);
+    setOccurrence((o) => ({ ...o, doorsOpenAt: occ }));
+  }
+
+  /** Spec 025 FR-005: the range message under Doors open once both times name one moment. */
+  function doorsRangeNote(): React.ReactElement | null {
+    const start = resolved.startsAt ? momentOf(resolved.startsAt, occurrence.startsAt) : null;
+    const doors = resolved.doorsOpenAt
+      ? momentOf(resolved.doorsOpenAt, occurrence.doorsOpenAt)
+      : null;
+    if (!selected || !start || !doors || !doorsOpenProblem(start.instant, doors.instant)) {
+      return null;
+    }
+    return (
+      <span
+        className="field__hint"
+        data-testid="doorsOpenAt-range"
+        role={doorsChecked ? 'alert' : undefined}
+      >
+        {doorsOpenRangeMessage(start.instant, venueZone)}
+      </span>
+    );
+  }
 
   /** "Times are in the venue's time zone: Eastern Time (EDT)." with the typed start's abbreviation. */
   function zoneLine(): string {
@@ -608,7 +694,7 @@ export function EventForm(): React.ReactElement {
   /** Under a time field: a skipped time's message, or the question for a repeated one. */
   function timeNote(field: TimeField): React.ReactElement | null {
     const r = selected ? resolved[field] : null;
-    const local = field === 'startsAt' ? startsAt : endsAt;
+    const local = typed[field];
     if (!r) return null;
     if (r.kind === 'skipped') {
       return (
@@ -619,7 +705,11 @@ export function EventForm(): React.ReactElement {
     }
     if (r.kind !== 'repeated') return null;
     const time = formatLocalTime(local);
-    const choose = (value: Occurrence) => setOccurrence((o) => ({ ...o, [field]: value }));
+    const choose = (value: Occurrence) => {
+      setOccurrence((o) => ({ ...o, [field]: value }));
+      if (field === 'startsAt') followStart(startsAt, value);
+      if (field === 'doorsOpenAt') setDoorsTouched(true);
+    };
     return (
       <fieldset className="field" data-testid={`${field}-occurrence`}>
         <legend>{`Which ${time}?`}</legend>
@@ -812,7 +902,7 @@ export function EventForm(): React.ReactElement {
               onChange={(e) => {
                 setLocationId(e.target.value);
                 // Spec 020 FR-015: the typed times stay; a repeated hour is asked again.
-                setOccurrence({ startsAt: '', endsAt: '' });
+                setOccurrence({ startsAt: '', endsAt: '', doorsOpenAt: '' });
               }}
             >
               <option value="">Select a venue…</option>
@@ -824,6 +914,21 @@ export function EventForm(): React.ReactElement {
             </select>
           </div>
 
+          <div className="field">
+            <label htmlFor="doorsOpenAt">Doors open</label>
+            <input
+              id="doorsOpenAt"
+              type="datetime-local"
+              value={doorsOpenAt}
+              onChange={(e) => {
+                setDoorsOpenAt(e.target.value);
+                setDoorsTouched(true);
+                setOccurrence((o) => ({ ...o, doorsOpenAt: '' }));
+              }}
+            />
+            {timeNote('doorsOpenAt')}
+            {doorsRangeNote()}
+          </div>
           <div className="field-row">
             <div className="field">
               <label htmlFor="startsAt">Starts</label>
@@ -834,6 +939,7 @@ export function EventForm(): React.ReactElement {
                 onChange={(e) => {
                   setStartsAt(e.target.value);
                   setOccurrence((o) => ({ ...o, startsAt: '' }));
+                  followStart(e.target.value, '');
                 }}
               />
               {timeNote('startsAt')}

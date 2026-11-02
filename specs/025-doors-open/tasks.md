@@ -122,7 +122,7 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
 
 ### Tests first
 
-- [ ] T006 [P] [US1] New `backend/test/integration/events.doors-open.e2e-spec.ts` (research R4, R6,
+- [x] T006 [P] [US1] New `backend/test/integration/events.doors-open.e2e-spec.ts` (research R4, R6,
   R15), every response validated against the contract. Must fail:
   - create without `doorsOpenAt` → `201`, `doorsOpenAt = startsAt - 1 h`, `entryOpensAt = startsAt -
     2 h`; with it at `startsAt` and at `startsAt - 6 h` → `201` as sent; `get` and `list` carry both;
@@ -143,7 +143,9 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
   - two events at one venue 1:00–4:00 PM and 5:00–8:00 PM, the second's doors at 3:00 PM → `201`
     (FR-006); the 60-minute rule's own tests (`events.buffer-boundary`, `events.conflict*`) pass
     unchanged.
-- [ ] T007 [P] [US1] `backend/test/integration/venues.time-zone-change.e2e-spec.ts` and
+  **Done**: 22 tests; all failed first (no `entryOpensAt`; `doorsOpenAt` refused by the whitelist as
+  400). The 60-minute tests pass unchanged.
+- [x] T007 [P] [US1] `backend/test/integration/venues.time-zone-change.e2e-spec.ts` and
   `backend/test/unit/venue-time-zone.spec.ts` (research R5). Must fail:
   - a zone change moves each event's `doorsOpenAt` to the same local time in the new zone;
   - an event in Arizona Time on 2027-03-14 at 3:30 AM with doors at 2:30 AM, changed to Central →
@@ -153,7 +155,10 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
   - an event in Arizona Time on 2027-11-07 from 6:30 AM, doors at 12:30 AM (6 hours), changed to
     Central, where clocks fall back at 2:00 AM that night (12:30 AM CDT to 6:30 AM CST is 7 hours) →
     `reason: 'DOORS_OUT_OF_RANGE'`, nothing saved.
-- [ ] T008 [P] [US1] New `admin-app/test/event-doors-open.test.tsx` (research R4), with the stubbed
+  **Done**: 4 tests in the integration file (the unit file has no `moveEventsToZone` tests; it needs
+  a database); `snapshot()` now also reads `doorsOpenAt`. All 4 failed first (doors refused by the
+  DTO).
+- [x] T008 [P] [US1] New `admin-app/test/event-doors-open.test.tsx` (research R4), with the stubbed
   API and a Central venue. Must fail:
   - New event: a **Doors open** field (label "Doors open"), before **Starts**, empty; typing a start
     of 2026-11-20T19:00 → Doors open `2026-11-20T18:00`; changing the start to 20:00 → 19:00; typing
@@ -169,10 +174,12 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
     body has it too;
   - a `400 DOORS_OPEN_OUT_OF_RANGE` from the Backend is shown in the error banner with every value
     kept.
+  **Done**: 15 tests; all failed first ("Unable to find a label with the text of: Doors open"). The
+  submit button is **Schedule event**, not "Create event".
 
 ### Implementation
 
-- [ ] T009 [US1] Backend (research R4, R6): `CreateEventDto` and `UpdateEventDto` gain optional
+- [x] T009 [US1] Backend (research R4, R6): `CreateEventDto` and `UpdateEventDto` gain optional
   `doorsOpenAt` (`@IsISO8601`, `@Matches(OFFSET_DATE_TIME)`, `needsOffset('doorsOpenAt')`);
   `event-time.ts` `EventTimeField` gains `'doorsOpenAt'`; `EventsService.createLocked` checks a sent
   `doorsOpenAt` after `endsAt` with `checkEventTime`, else defaults it, then
@@ -181,20 +188,35 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
   checked against the start in force; start changed and not sent → same gap, from T005; else
   unchanged) and writes it;
   `toResponse` adds `entryOpensAt`. Update the doc comments (spec 025). T006 passes.
-- [ ] T010 [US1] `backend/src/locations/venue-time-zone.ts` `moveEventsToZone` (research R5),
+  **Done**: T006 passes (22). `EventResponse` gains `entryOpensAt`; `assertDoorsInRange` throws the
+  R2 details. Backend 986 in 96 suites green.
+- [x] T010 [US1] `backend/src/locations/venue-time-zone.ts` `moveEventsToZone` (research R5),
   replacing T005's interim same-interval move: select `doorsOpenAt`; move it with `at('doorsOpenAt')` (`FIELD_WORD` gains `doorsOpenAt:
   'doors-open time'`); after moving, `doorsOpenProblem` → `EVENT_TIME_NOT_IN_ZONE` with `reason:
   'DOORS_OUT_OF_RANGE'` and R5's message; write `doorsOpenAt` with the others. T007 passes; every
-  other `venues.time-zone-change*` test passes unchanged.
-- [ ] T011 [US1] `admin-app/src/pages/EventForm.tsx` (research R4): the `doorsOpenAt` field, its
+  other `venues.time-zone-change*` test passes with no change to its assertions. Two set-ups give
+  doors at the start (research R5, found by the implementation): "Late A and Late B" and "the
+  boundary pair" move Phoenix events starting at 3:00 and 3:29/3:30 AM on 2027-03-14 to Denver,
+  where their default doors (2:00, 2:29, 2:30 AM) are skipped and would be refused first.
+  **Done**: T007 passes; venues.time-zone* 103 green, with the two set-ups above (a gap found by the
+  implementation, fixed in research R5 and here).
+- [x] T011 [US1] `admin-app/src/pages/EventForm.tsx` (research R4): the `doorsOpenAt` field, its
   occurrence, `doorsTouched`, the gap, the follow rule, the checks before sending (empty, skipped,
   unchosen repeated, `doorsOpenProblem` → `doorsOpenRangeMessage`, shown under the field and in the
   banner), and `doorsOpenAt` in every payload. T008 passes.
-- [ ] T012 [US1] Admin tests that assert an exact create or update body or fill the event form now
+  **Done**: T008 passes (15). The range note shows under the field as soon as both times name one
+  moment, with `role="alert"` once a save was tried.
+- [x] T012 [US1] Admin tests that assert an exact create or update body or fill the event form now
   include or fill Doors open, nothing else: `admin-app/test/event-form.tz.test.tsx`,
   `EventForm.conflict.test.tsx`, `event-seating-create.test.tsx`, `event-types-edit.test.tsx`, and any
   other the workspace's run names. `npm run test --workspace @queuepass/admin-app` and `npm run test
   --workspace @queuepass/backend` green.
+  **Done**: `fixtures-005.ts` `EVENT` gains `doorsOpenAt`/`entryOpensAt` (start minus 1 and 2
+  hours), which fixes every edit test using it (capacity, event-types-edit, images-field,
+  ticket-limit); `event-form.tz.test.tsx` `editForm` gives an overridden start doors 1 hour before
+  it, and its repeated-time choices are found within `startsAt-occurrence` (doors 1 hour before a
+  1:30 AM EST start are the repeated 1:30 AM EDT, so the label appears twice). No assertion changed.
+  Admin 350 in 41 files (97.24%); backend 986 in 96 (97.07%).
 
 **Checkpoint**: US1 works on its own: quickstart S1–S3 pass in the browser.
 

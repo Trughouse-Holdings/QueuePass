@@ -20,6 +20,9 @@ export const EVENT = {
   location: VENUE,
   startsAt: '2026-11-01T23:00:00.000Z',
   endsAt: '2026-11-02T02:00:00.000Z',
+  // Spec 025: doors 1 hour before the start, check-in from 1 hour before doors.
+  doorsOpenAt: '2026-11-01T22:00:00.000Z',
+  entryOpensAt: '2026-11-01T21:00:00.000Z',
   totalTicketCapacity: 100,
   maxTicketsPerCustomer: null,
   basePrice: '45.00',
