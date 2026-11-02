@@ -115,14 +115,13 @@ Sign in to each of the three apps, use it, and sign out.
 ## Automation
 
 Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
-manual. `npm test` checks this table against `e2e/tests`. On the spec branch S2 is Manual: its test
-comes with the implementation PR, which marks it Automated as research R12 lists.
+manual. `npm test` checks this table against `e2e/tests`.
 
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: set-up for the scenarios below; the browser test sets up its own data through the API |
 | S1 | Manual: walked by every browser test that buys or holds seats (`006`/`007`, `015`, `016`, `017`, `019`, `020`), which run with the default limits (research R9) |
-| S2 | Manual: to be automated by `026 S2: a customer over the hold limit sees a countdown and keeps their seats` in the implementation PR (research R11, R12) |
+| S2 | Automated: `026 S2: a customer over the hold limit sees a countdown and keeps their seats`; rest Manual: the buy buttons and Check again, covered by the Customer app's tests |
 | S3 | Manual: the buy countdown and Check again, covered by the Customer app's tests (research R10) |
 | S4 | Manual: an API behavior, covered by Backend tests with genuinely concurrent requests and a test clock |
 | S5 | Manual: another account's speed is judged by a person; no database work for refusals, releases, and the log line are covered by Backend tests |
