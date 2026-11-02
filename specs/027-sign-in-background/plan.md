@@ -22,16 +22,18 @@
   (`::before`), and the shade (`::after`), all `center / cover` on the same box, so the lines stay on
   the edges at every size; the page color under them is a plain stone grey for when the image is
   missing; in forced-colors mode the backdrop is hidden.
-- **Readable on the stones** (R5): a shade (black at 60%) across a 560 px band behind the form,
-  fading out over 120 px on each side, so from 800 px wide the stones beyond it are at full strength;
-  light text, a light error color, a light field edge, and every control's focus ring in the app's
-  lighter accent, meeting 4.5:1 and 3:1 over the lightest stone and the brightest line, the same in
-  both schemes.
-- **Tokens** (R6): eight `--stone-*` tokens in both of the shared theme's token blocks, the same in
-  both; the `021` drift exception gains one role, `--stone-accent`.
-- **No card** (R7): `template.ftl` drops the card wrapper and gains the backdrop element;
-  `login.css` gives every text on the backdrop a backdrop color. Band, brand mark, heading,
-  audience line, banners, and form unchanged.
+- **Readable on the stones** (R5): a shade (black at 60%) across a 560 px band behind the header and
+  the card, fading out over 120 px on each side, so from 800 px wide the stones beyond it are at full
+  strength; the realm header, the only text on the stones, in light text meeting 4.5:1 over the
+  lightest stone and the brightest line, the same in both schemes. Everything else is on the card.
+- **Tokens** (R6): six `--stone-*` tokens in both of the shared theme's token blocks, the same in
+  both (eight until the card came back); the `021` drift exception gains one role, `--stone-accent`.
+- **Keycloak's card and header** (R7; Mahdi reversed the first "no card" in implementation, spec
+  Clarifications): `template.ftl` gains the backdrop element, the realm header ("QUEUEPASS", as
+  Keycloak's `#kc-header-wrapper`, decoration), and keeps `021`'s frame on a card modelled on
+  Keycloak's `.card-pf` (at most 500 px wide, a 4 px top edge in the app's accent), styled from the
+  shared theme so it follows the scheme. Band, brand mark, heading, audience line, banners, and form
+  unchanged.
 - **Constitution 3.7.0** (R9): Principle VII's sign-in exception allows Keycloak's stock background
   with the app's accent between the stones; roadmap row `027`. In this spec PR.
 - **No API change, no database change, no seed change** (contracts/README.md, data-model.md). The
@@ -112,9 +114,9 @@ keycloak/themes/queuepass/
 ├── NOTICE                                       # NEW: the lines image's source and license (R3)
 ├── LICENSE-keycloak.txt                         # NEW: Apache License 2.0, as Keycloak ships it (R3)
 └── login/
-    ├── template.ftl                             # .qp-stones; card wrapper → .qp-form (R4, R7)
+    ├── template.ftl                             # .qp-stones; realm header; Keycloak's card (R4, R7)
     └── resources/
-        ├── css/login.css                        # layers, shade, backdrop colors, 7th role (R4–R7)
+        ├── css/login.css                        # layers, shade, header, card, 7th role (R4–R7)
         └── img/stone-lines.png                  # NEW: generated (R2, R3)
 packages/shared/src/web/theme.css                # eight --stone-* tokens in both blocks (R6)
 packages/shared/test/theme/
@@ -154,4 +156,4 @@ drawn by.
 | Constitution VII amended (a background on the sign-in screens) | Issue #122 asks for Keycloak's stone background with the app's accent between the stones; Principle VII rules out decoration | No amendment: the code would contradict the principle's words |
 | A generated image, its generator in `scripts/seed`, and `fast-png` as a seed `devDependency` | Only the lines may be colored, and CSS cannot find an image's edges (R2) | Tinting the whole image (not chosen by Mahdi); three colored copies (copies Keycloak's image, colors outside the theme); a hand-written PNG codec on `node:zlib` (more code and tests to keep than a library already in the lockfile, Principle VIII) |
 | A shade behind the form | White text on the lightest stone is 3.5:1, and on a bright line 1.7:1 (R5) | A text shadow is not measurable against WCAG; an even shade over the whole window dims every line |
-| Eight new tokens and a seventh drift role | Every color stays in the shared theme and under its tests (Constitution VII, R6) | Colors in `login.css` (fails the drift test); forcing the dark scheme (the controls would stop following the scheme) |
+| Six new tokens and a seventh drift role | Every color stays in the shared theme and under its tests (Constitution VII, R6) | Colors in `login.css` (fails the drift test); forcing the dark scheme (the controls would stop following the scheme) |
