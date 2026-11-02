@@ -152,6 +152,13 @@
   max-width: 100%;
   height: auto;
 }
+/* Issue #37: black on white in light and dark, from the theme's QR tokens. */
+.ticket-qr__light {
+  fill: var(--qr-light);
+}
+.ticket-qr__dark {
+  fill: var(--qr-dark);
+}
 
 /* Spec 018 FR-004: the live code as large as the screen allows, up to 320 CSS pixels. */
 .ticket-qr--live {

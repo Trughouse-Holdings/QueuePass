@@ -187,6 +187,18 @@ describe('the image scrim tokens (spec 014)', () => {
   });
 });
 
+// Issue #37 (research R13): a QR code is black on white in both sets, so it scans from paper or
+// from a dark screen (spec 017 research R8); the Customer app draws it with these, not with hex.
+describe('the QR code tokens (#37)', () => {
+  it.each([
+    ['qr-dark', '#000000'],
+    ['qr-light', '#ffffff'],
+  ])('defines --%s as %s in both sets', (name, value) => {
+    expect(light[name]).toBe(value);
+    expect(dark[name]).toBe(value);
+  });
+});
+
 /** The bodies of every innermost rule in `source` whose selector is exactly `selector`. */
 function bodiesOf(source: string, selector: string): string[] {
   return [...source.matchAll(/([^{}]*)\{([^{}]*)\}/g)]

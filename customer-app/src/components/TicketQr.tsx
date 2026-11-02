@@ -32,8 +32,9 @@ function pathOf(matrix: boolean[][]): string {
 
 /**
  * The matrix as one SVG path of the dark modules with a 4-module quiet zone, black on white:
- * no HTML strings, and it prints sharply at any size (research R8). Its accessible name is 017's
- * "QR code for ticket <code>" unless `label` says otherwise.
+ * no HTML strings, and it prints sharply at any size (research R8). The black and white are the
+ * theme's `--qr-dark` and `--qr-light`, through `styles.css` (issue #37). Its accessible name is
+ * 017's "QR code for ticket <code>" unless `label` says otherwise.
  */
 export function TicketQr({
   code,
@@ -53,8 +54,8 @@ export function TicketQr({
       role="img"
       aria-label={label ?? `QR code for ticket ${code}`}
     >
-      <rect width={size} height={size} fill="#fff" />
-      <path d={pathOf(matrix)} fill="#000" />
+      <rect className="ticket-qr__light" width={size} height={size} />
+      <path className="ticket-qr__dark" d={pathOf(matrix)} />
     </svg>
   );
 }

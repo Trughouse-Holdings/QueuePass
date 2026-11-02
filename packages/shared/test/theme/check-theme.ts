@@ -15,6 +15,20 @@
  * - inline: a `style={{ ... }}` entry that would break any rule above (a number counts as
  *   pixels), or sets a typeface at all.
  *
+ * Issue #37 (research R13) added:
+ *
+ * - C2 also reports a CSS system color (`Canvas`, `CanvasText`, `ButtonFace`, ...) as a named
+ *   color;
+ * - inline also follows a `style` value that is not an object written in place: each branch of a
+ *   condition (`c ? {...} : undefined`, `c && {...}`), and a variable to the object it holds in
+ *   the same file. A value it can't follow (a prop, a call) is reported, since it can't be judged;
+ * - attr: an SVG color attribute (`fill`, `stroke`, `color`, `stopColor`, `floodColor`,
+ *   `lightingColor`) on an element (not a component) is other than `currentColor`, `none`,
+ *   `transparent`, `inherit`, a `var(--...)` token, or a `url(#...)` paint reference;
+ * - C7: an app rule whose subject is a class the theme styles (a shared control such as `.btn` or
+ *   `.card`) sets a color, typeface, rounding, shadow, or padding: apps place shared controls,
+ *   they don't restyle them, even with theme tokens (Constitution VII).
+ *
  * Declarations are read at any depth, including beside a nested rule, each with the selector of
  * the rule it is in.
  *
@@ -25,10 +39,12 @@
  * when the theme's token blocks define all six of that app's tokens (review round 1, finding 2).
  * Anything else there is still reported.
  */
+import ts from 'typescript';
+
 export interface Violation {
   path: string;
   line: number;
-  rule: 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6' | 'inline';
+  rule: 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6' | 'C7' | 'inline' | 'attr';
   text: string;
 }
 
@@ -40,6 +56,11 @@ interface Declaration {
   selector?: string;
   /** Which block that is: each `{` opens a new one, so two rules with one selector differ. */
   block?: number;
+  /**
+   * The innermost style rule's selector with nesting resolved (`&` replaced by, or a descendant
+   * of, the enclosing rule's selector); '' outside any style rule. At-rule preludes are skipped.
+   */
+  rule?: string;
 }
 
 export interface CssOptions {
@@ -66,7 +87,15 @@ const NAMED_COLORS = new Set(
     'palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff peru pink plum ' +
     'powderblue purple rebeccapurple red rosybrown royalblue saddlebrown salmon sandybrown ' +
     'seagreen seashell sienna silver skyblue slateblue slategray slategrey snow springgreen ' +
-    'steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen'
+    'steelblue tan teal thistle tomato turquoise violet wheat white whitesmoke yellow yellowgreen ' +
+    // Issue #37: CSS system colors (CSS Color 4), current and deprecated, which follow the
+    // device's or browser's colors instead of the theme's.
+    'accentcolor accentcolortext activetext buttonborder buttonface buttontext canvas canvastext ' +
+    'field fieldtext graytext highlight highlighttext linktext mark marktext selecteditem ' +
+    'selecteditemtext visitedtext activeborder activecaption appworkspace background ' +
+    'buttonhighlight buttonshadow captiontext inactiveborder inactivecaption inactivecaptiontext ' +
+    'infobackground infotext menu menutext scrollbar threeddarkshadow threedface threedhighlight ' +
+    'threedlightshadow threedshadow window windowframe windowtext'
   ).split(' '),
 );
 
@@ -97,6 +126,35 @@ function stripComments(css: string): string {
 
 const lineAt = (text: string, index: number): number => text.slice(0, index).split('\n').length;
 
+/** `list` split at commas outside parentheses and brackets, each part trimmed. */
+function selectorList(list: string): string[] {
+  const out: string[] = [];
+  let depth = 0;
+  let current = '';
+  for (const ch of list) {
+    if (ch === '(' || ch === '[') depth++;
+    if (ch === ')' || ch === ']') depth--;
+    if (ch === ',' && depth === 0) {
+      out.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  out.push(current.trim());
+  return out.filter((s) => s !== '');
+}
+
+/** A nested rule's selector resolved against its parent's (CSS nesting: `&`, or a descendant). */
+function nest(parent: string, child: string): string {
+  if (parent === '') return child;
+  return selectorList(parent)
+    .flatMap((p) =>
+      selectorList(child).map((c) => (c.includes('&') ? c.replace(/&/g, p) : `${p} ${c}`)),
+    )
+    .join(', ');
+}
+
 /**
  * Every declaration at any depth, with its line. Text that ends at a `{` is a selector or an
  * at-rule prelude and is skipped; text that ends at a `;` or `}` is a declaration if it has a
@@ -106,7 +164,7 @@ function declarations(css: string): Declaration[] {
   const text = stripComments(css);
   const out: Declaration[] = [];
   // The selector or at-rule prelude of each open block, innermost last.
-  const blocks: { selector: string; block: number }[] = [];
+  const blocks: { selector: string; block: number; rule: string }[] = [];
   let opened = 0;
   let start = 0;
   let parens = 0;
@@ -121,7 +179,10 @@ function declarations(css: string): Declaration[] {
     else if (ch === '(') parens++;
     else if (ch === ')') parens = Math.max(0, parens - 1);
     else if (ch === '{') {
-      blocks.push({ selector: text.slice(start, i).replace(/\s+/g, ' ').trim(), block: opened++ });
+      const selector = text.slice(start, i).replace(/\s+/g, ' ').trim();
+      const parent = blocks[blocks.length - 1]?.rule ?? '';
+      const rule = selector.startsWith('@') ? parent : nest(parent, selector);
+      blocks.push({ selector, block: opened++, rule });
       start = i + 1;
       parens = 0;
     } else if (ch === '}' || (ch === ';' && parens === 0)) {
@@ -139,6 +200,7 @@ function declarations(css: string): Declaration[] {
             .trim(),
           selector: blocks[blocks.length - 1]?.selector ?? '',
           block: blocks[blocks.length - 1]?.block ?? -1,
+          rule: blocks[blocks.length - 1]?.rule ?? '',
         });
       }
       if (ch === '}') blocks.pop();
@@ -274,6 +336,63 @@ export function colorLiteralViolations(path: string, css: string): Violation[] {
     .map((d) => ({ path, line: d.line, rule: 'C2' as const, text: `${d.prop}: ${d.value}` }));
 }
 
+/** The classes of a selector's subject: its last compound, outside :not(), :is(), and the like. */
+function subjectClasses(selector: string): string[] {
+  let bare = selector.replace(/\[[^\]]*\]/g, '');
+  for (let before = ''; before !== bare;) {
+    before = bare;
+    bare = bare.replace(/\([^()]*\)/g, '');
+  }
+  const compounds = bare.split(/\s*[>+~]\s*|\s+/).filter((c) => c !== '');
+  const subject = compounds[compounds.length - 1] ?? '';
+  return [...subject.matchAll(/\.([a-zA-Z0-9_-]+)/g)].map((m) => m[1]!);
+}
+
+/**
+ * Issue #37 (C7): the classes the theme styles, as the subject of one of its rules: the shared
+ * controls and page parts (`btn`, `btn--primary`, `card`, `banner`, ...). A class the theme only
+ * names inside `:not()` or as an ancestor is not one.
+ */
+export function themeClasses(themeCss: string): Set<string> {
+  const out = new Set<string>();
+  for (const d of declarations(themeCss)) {
+    for (const s of selectorList(d.rule ?? '')) for (const c of subjectClasses(s)) out.add(c);
+  }
+  return out;
+}
+
+/** What C7 keeps for the theme: color, typeface, rounding, shadow, and inner spacing. */
+const LOOK_PROPERTY = (prop: string): boolean =>
+  COLOR_PROPERTY.test(prop) ||
+  /^font(-|$)/.test(prop) ||
+  RADIUS_PROPERTY.test(prop) ||
+  SHADOW_PROPERTY.test(prop) ||
+  /^padding(-|$)/.test(prop);
+
+/**
+ * C7 over an app stylesheet: a rule whose subject is one of `classes` (from `themeClasses`) sets a
+ * look property. Placing a shared control (`grid-column`, `margin`, `width`, ...) is allowed.
+ */
+export function sharedClassViolations(
+  path: string,
+  css: string,
+  classes: ReadonlySet<string>,
+): Violation[] {
+  return declarations(css)
+    .filter(
+      (d) =>
+        !d.prop.startsWith('--') &&
+        LOOK_PROPERTY(d.prop) &&
+        selectorList(d.rule ?? '').some((s) => subjectClasses(s).some((c) => classes.has(c))),
+    )
+    .map((d) => ({
+      path,
+      line: d.line,
+      rule: 'C7' as const,
+      text: `${d.rule} { ${d.prop}: ${d.value} }`,
+    }));
+}
+
 /** `text` split at top-level commas (outside brackets and quotes), each with its offset. */
 function entries(text: string): { at: number; text: string }[] {
   const out: { at: number; text: string }[] = [];
@@ -376,20 +495,149 @@ function styleObject(path: string, tsx: string, body: string, offset: number): V
   return out;
 }
 
-/** The inline rule over screen code: a `style={{ ... }}` follows the stylesheet rules. */
-export function inlineStyleViolations(path: string, tsx: string): Violation[] {
-  const out: Violation[] = [];
-  for (const m of tsx.matchAll(/style=\{\s*\{/g)) {
-    const start = (m.index ?? 0) + m[0].length;
-    // The object ends where its braces balance.
-    let depth = 1;
-    let end = start;
-    while (end < tsx.length && depth > 0) {
-      if (tsx[end] === '{') depth++;
-      if (tsx[end] === '}') depth--;
-      end++;
-    }
-    out.push(...styleObject(path, tsx, tsx.slice(start, end - 1), start));
-  }
+/** Screen code parsed as TSX (TypeScript is already a dev dependency of the repository). */
+const parse = (path: string, tsx: string): ts.SourceFile =>
+  ts.createSourceFile(path, tsx, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+
+/** Every JSX attribute in `sf` named one of `names`. */
+function jsxAttributes(sf: ts.SourceFile, names: ReadonlySet<string>): ts.JsxAttribute[] {
+  const out: ts.JsxAttribute[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxAttribute(node) && names.has(node.name.getText(sf))) out.push(node);
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
   return out;
+}
+
+/** The initializers of every variable named `name` in `sf`, at any scope. */
+function variablesNamed(sf: ts.SourceFile, name: string): ts.Expression[] {
+  const out: ts.Expression[] = [];
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isVariableDeclaration(node) &&
+      ts.isIdentifier(node.name) &&
+      node.name.text === name &&
+      node.initializer
+    ) {
+      out.push(node.initializer);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return out;
+}
+
+const lineOf = (sf: ts.SourceFile, node: ts.Node): number =>
+  sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+
+/**
+ * The violations in a `style` value: an object written in place is walked; a condition's
+ * branches and a variable's object are followed (issue #37); anything else is reported.
+ */
+function styleValue(
+  path: string,
+  sf: ts.SourceFile,
+  e: ts.Expression,
+  seen: ReadonlySet<string>,
+): Violation[] {
+  const follow = (next: ts.Expression, names = seen): Violation[] =>
+    styleValue(path, sf, next, names);
+  if (
+    ts.isParenthesizedExpression(e) ||
+    ts.isAsExpression(e) ||
+    ts.isSatisfiesExpression(e) ||
+    ts.isNonNullExpression(e) ||
+    ts.isTypeAssertionExpression(e)
+  ) {
+    return follow(e.expression);
+  }
+  if (ts.isObjectLiteralExpression(e)) {
+    const start = e.getStart(sf) + 1;
+    return styleObject(path, sf.text, sf.text.slice(start, e.end - 1), start);
+  }
+  if (ts.isConditionalExpression(e)) return [...follow(e.whenTrue), ...follow(e.whenFalse)];
+  if (ts.isBinaryExpression(e)) {
+    const op = e.operatorToken.kind;
+    // `a && b` is false (no style) or b; `a || b` and `a ?? b` may be either.
+    if (op === ts.SyntaxKind.AmpersandAmpersandToken) return follow(e.right);
+    if (op === ts.SyntaxKind.BarBarToken || op === ts.SyntaxKind.QuestionQuestionToken) {
+      return [...follow(e.left), ...follow(e.right)];
+    }
+  }
+  if (e.kind === ts.SyntaxKind.NullKeyword || e.kind === ts.SyntaxKind.FalseKeyword) return [];
+  if (ts.isIdentifier(e)) {
+    if (e.text === 'undefined') return [];
+    const held = seen.has(e.text) ? [] : variablesNamed(sf, e.text);
+    if (held.length > 0) {
+      const names = new Set(seen).add(e.text);
+      return held.flatMap((h) => follow(h, names));
+    }
+  }
+  // A prop, a call, a member: its value can't be judged here.
+  return [
+    {
+      path,
+      line: lineOf(sf, e),
+      rule: 'inline',
+      text: `style: ${e.getText(sf).replace(/\s+/g, ' ')}`,
+    },
+  ];
+}
+
+/**
+ * The inline rule over screen code: every `style` value follows the stylesheet rules, whether
+ * written in place (`style={{ ... }}`) or reached through a condition or a variable.
+ */
+export function inlineStyleViolations(path: string, tsx: string): Violation[] {
+  const sf = parse(path, tsx);
+  return jsxAttributes(sf, new Set(['style'])).flatMap((attr) => {
+    const init = attr.initializer;
+    if (!init || !ts.isJsxExpression(init) || !init.expression) return [];
+    return styleValue(path, sf, init.expression, new Set());
+  });
+}
+
+/** SVG presentation attributes that take a color (issue #37). */
+const COLOR_ATTRIBUTES = new Set([
+  'fill',
+  'stroke',
+  'color',
+  'stopColor',
+  'floodColor',
+  'lightingColor',
+]);
+const ALLOWED_ATTRIBUTE =
+  /^(currentcolor|none|transparent|inherit|var\(--[a-z0-9-]+\)|url\(#[^)]*\))$/i;
+
+/**
+ * The attr rule over screen code (issue #37): an SVG color attribute on an element (a lower-case
+ * tag, not a component's prop) is `currentColor`, `none`, `transparent`, `inherit`, a theme token,
+ * or a paint reference. A value from an expression can't be judged, so it is reported.
+ */
+export function colorAttributeViolations(path: string, tsx: string): Violation[] {
+  const sf = parse(path, tsx);
+  return jsxAttributes(sf, COLOR_ATTRIBUTES).flatMap((attr) => {
+    const element = attr.parent.parent;
+    const tag =
+      ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)
+        ? element.tagName.getText(sf)
+        : '';
+    if (!/^[a-z]/.test(tag)) return [];
+    let init: ts.Node | undefined = attr.initializer;
+    if (init && ts.isJsxExpression(init)) init = init.expression;
+    const value =
+      init && (ts.isStringLiteral(init) || ts.isNoSubstitutionTemplateLiteral(init))
+        ? init.text.trim()
+        : undefined;
+    if (value !== undefined && ALLOWED_ATTRIBUTE.test(value)) return [];
+    return [
+      {
+        path,
+        line: lineOf(sf, attr),
+        rule: 'attr' as const,
+        text: attr.getText(sf).replace(/\s+/g, ' '),
+      },
+    ];
+  });
 }
