@@ -153,6 +153,60 @@ describe('Venue address check on create (spec 013)', () => {
     });
   });
 
+  // Issue #36 (research R15): the live service answers `430 W VINE ST` for a suite.
+  it('keeps the typed suite at the end of the verified street, and an edit resending it is unchanged', async () => {
+    ctx.geocoder.next({
+      kind: 'match',
+      street: '430 W VINE ST',
+      city: 'LEXINGTON',
+      state: 'KY',
+      zip: '40507',
+      location: PLACES.lexington,
+    });
+    const res = await asAdmin(ctx)
+      .post('/locations')
+      .send({ ...venue, street: '430 W Vine St Ste 2' })
+      .expect(201);
+    expect(res.body).toMatchObject({
+      street: '430 W VINE ST STE 2',
+      address: '430 W VINE ST STE 2, LEXINGTON, KY 40507',
+      addressVerified: true,
+    });
+    ctx.geocoder.reset();
+    await asAdmin(ctx)
+      .patch(`/locations/${res.body.id}`)
+      .send({ ...ADDRESS, street: '430 W Vine St Ste 2', name: 'Rupp Arena, Suite 2' })
+      .expect(200);
+    expect(ctx.geocoder.calls).toHaveLength(0);
+  });
+
+  // Issue #36 (research R15): Queens numbers come back with their hyphen.
+  it('verifies a Queens house number the service writes with a hyphen', async () => {
+    ctx.geocoder.next({
+      kind: 'match',
+      street: '107-24 71ST AVE',
+      city: 'FOREST HILLS',
+      state: 'NY',
+      zip: '11375',
+      location: null,
+    });
+    const res = await asAdmin(ctx)
+      .post('/locations')
+      .send({
+        ...venue,
+        street: '10724 71st Ave',
+        city: 'Forest Hills',
+        state: 'NY',
+        zip: '11375',
+        timeZone: 'America/New_York',
+      })
+      .expect(201);
+    expect(res.body).toMatchObject({
+      address: '107-24 71ST AVE, FOREST HILLS, NY 11375',
+      addressVerified: true,
+    });
+  });
+
   describe('one match that moves the ZIP code or house number (FR-021)', () => {
     const kroger = {
       name: 'Kroger Field',

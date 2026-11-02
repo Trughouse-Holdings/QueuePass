@@ -373,6 +373,44 @@ describe('Venue address check on edit (spec 013)', () => {
   });
 
   describe('concurrency during a slow lookup (research R7)', () => {
+    // Issue #36 (research R15): "the same address" is decided against the row read under the
+    // lock, not the one read before the lookup.
+    it('keeps the verified address another edit saved during the lookup when it is the one sent', async () => {
+      const gate = ctx.geocoder.pause();
+      const slow = patch({
+        ...moved,
+        name: 'Freedom Hall',
+        acceptUnverifiedAddress: true,
+        timeZone: 'America/New_York',
+      }).then((r) => r);
+      await gate.started;
+      // Another admin moves the venue to the same address first, and the service verifies it.
+      await patch({ ...moved, timeZone: 'America/New_York' }).expect(200);
+      // The paused lookup then cannot reach the service.
+      ctx.geocoder.next({ kind: 'unavailable' });
+      gate.release();
+      expect((await slow).status).toBe(200);
+      expect(await row()).toMatchObject({
+        name: 'Freedom Hall',
+        street: '937 PHILLIPS LN',
+        address: '937 PHILLIPS LN, LOUISVILLE, KY 40209',
+        addressVerified: true,
+      });
+    });
+
+    it('lets the later write win when another edit saved a different address during the lookup', async () => {
+      const gate = ctx.geocoder.pause();
+      const slow = patch(moved).then((r) => r);
+      await gate.started;
+      await patch({ ...ADDRESS, street: '431 W Vine St' }).expect(200);
+      gate.release();
+      expect((await slow).status).toBe(200);
+      expect(await row()).toMatchObject({
+        address: '937 PHILLIPS LN, LOUISVILLE, KY 40209',
+        addressVerified: true,
+      });
+    });
+
     it('re-checks the layout rule after a layout saved during the lookup', async () => {
       const gate = ctx.geocoder.pause();
       const slow = patch({ ...moved, seatingCapacity: 500 }).then((r) => r);
