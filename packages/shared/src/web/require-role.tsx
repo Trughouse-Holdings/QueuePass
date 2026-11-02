@@ -10,6 +10,15 @@ import { WrongRole } from './wrong-role.js';
 export function RequireRole({ role, children }: { role: Role; children: ReactNode }) {
   const { status, roles } = useAuth();
   if (status !== 'signed-in') return <p>Signing in…</p>;
-  if (!roles.includes(role)) return <WrongRole />;
+  // Issue #37: the refusal is the whole page, so it gets the theme's page layout around it.
+  if (!roles.includes(role)) {
+    return (
+      <div className="app">
+        <main className="main">
+          <WrongRole />
+        </main>
+      </div>
+    );
+  }
   return <>{children}</>;
 }

@@ -46,6 +46,21 @@ describe('QueuePass Ticket Booth app', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  // Issue #37: the refusal wears the shared theme (spec 012), not the browser's defaults.
+  it('shows the wrong-role page in the shared theme', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json({})),
+    );
+    render(
+      <App userManager={fakeUserManager(makeUser({ username: 'someone', roles: ['customer'] }))} />,
+    );
+    const text = await screen.findByText("Your account can't use this app.");
+    expect(screen.getByRole('main')).toHaveClass('main');
+    expect(text.closest('.app .main .card')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Log out' })).toHaveClass('btn', 'btn--primary');
+  });
+
   it('shows nothing but "Signing in…" to a signed-out visitor', () => {
     render(<App userManager={fakeUserManager(null)} />);
     expect(screen.getByText('Signing in…')).toBeInTheDocument();

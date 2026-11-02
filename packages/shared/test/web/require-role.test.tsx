@@ -37,6 +37,19 @@ describe('RequireRole', () => {
     expect(screen.queryByText('app content')).toBeNull();
   });
 
+  // Issue #37: the refusal wears the shared theme (spec 012), in every app: the theme's page
+  // layout, a card, and a theme button, with its text unchanged.
+  it('shows the refusal in the theme: the page layout, a card, and a theme button', async () => {
+    renderAs(makeUser({ username: 'customer1', roles: ['customer'] }), 'queuepass-admin');
+    const text = await screen.findByText("Your account can't use this app.");
+    const main = screen.getByRole('main');
+    expect(main).toHaveClass('main');
+    expect(main.parentElement).toHaveClass('app');
+    expect(text.closest('.card')).not.toBeNull();
+    expect(main).toContainElement(text.closest('.card') as HTMLElement);
+    expect(screen.getByRole('button', { name: 'Log out' })).toHaveClass('btn', 'btn--primary');
+  });
+
   it.each([
     ['customer', true],
     ['gate-agent', true],

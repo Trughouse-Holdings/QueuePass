@@ -66,6 +66,10 @@ describe('HelloPage', () => {
       vi.fn(async () => json({ error: { code: 'FORBIDDEN', message: 'x' } }, 403)),
     );
     renderHello();
-    expect(await screen.findByText("Your account can't use this app.")).toBeInTheDocument();
+    const text = await screen.findByText("Your account can't use this app.");
+    // Issue #37: in the theme's card, inside the app's own page layout (no second <main>).
+    expect(text.closest('.card')).not.toBeNull();
+    expect(screen.queryByRole('main')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Log out' })).toHaveClass('btn', 'btn--primary');
   });
 });
