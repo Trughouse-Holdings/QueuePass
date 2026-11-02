@@ -59,6 +59,9 @@ describe('Customer app sign-in', () => {
     expect(screen.getByRole('main')).toHaveClass('main');
     expect(text.closest('.app .main .card')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Log out' })).toHaveClass('btn', 'btn--primary');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      "Your account can't use this app.",
+    );
   });
 
   it('shows a signed-out visitor nothing but "Signing in…"', () => {

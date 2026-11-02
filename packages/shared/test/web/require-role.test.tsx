@@ -48,6 +48,10 @@ describe('RequireRole', () => {
     expect(text.closest('.card')).not.toBeNull();
     expect(main).toContainElement(text.closest('.card') as HTMLElement);
     expect(screen.getByRole('button', { name: 'Log out' })).toHaveClass('btn', 'btn--primary');
+    // Review round 1, S3: the refusal is the page's heading.
+    expect(
+      screen.getByRole('heading', { level: 1, name: "Your account can't use this app." }),
+    ).toHaveClass('page-title');
   });
 
   it.each([
