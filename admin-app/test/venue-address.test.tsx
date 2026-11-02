@@ -26,7 +26,7 @@ const verified: Location = {
   zip: '40507',
   addressVerified: true,
   timeZone: 'America/New_York',
-  timeZoneSource: 'ADDRESS',
+  timeZoneSource: 'DEFAULT',
   seatingCapacity: 20500,
   createdAt: '2026-10-11T12:00:00.000Z',
   updatedAt: '2026-10-11T12:00:00.000Z',

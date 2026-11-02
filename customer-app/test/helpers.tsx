@@ -106,7 +106,7 @@ export const venue = (over: Partial<Location> = {}): Location => ({
   zip: '40507',
   addressVerified: true,
   timeZone: 'America/New_York',
-  timeZoneSource: 'ADDRESS',
+  timeZoneSource: 'DEFAULT',
   seatingCapacity: 22090,
   createdAt: stamp,
   updatedAt: stamp,
