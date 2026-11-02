@@ -12,6 +12,8 @@ Changed:
     accent. It is the only decoration allowed, and every text, label, and control on it MUST keep
     the contrast its spec states. The colors the sign-in screens draw on it are tokens in the
     shared theme, like the accents, and the apps use none of them.
+    The paragraph's opening now names both exceptions it makes ("no per-app variants" and "no
+    decoration").
   - Roadmap: row 027-sign-in-background (#122, depends on 021). The next free number is 028. The
     021 row is not reworded: it records what 021 built.
 Impact: spec 027 adds the backdrop tokens, the lines image, and the sign-in look's changes. No
@@ -237,7 +239,7 @@ layout that works at phone width, touch target size, WCAG contrast, states that 
 color alone, keyboard access), is usability work, not custom visual design. New branding and
 decoration remain out of scope.
 
-The one exception to "no per-app variants": the sign-in screens (Keycloak's pages, styled from the
+The one exception to "no per-app variants" and to "no decoration": the sign-in screens (Keycloak's pages, styled from the
 shared theme) MAY show each app's name, a line saying who it is for, and its own accent color, so a person can tell at a glance which app
 they are signing in to (spec `021`). They MAY also show Keycloak's stock low-poly background,
 served from Keycloak's own theme, with the lines between the stones in the app's accent (spec
