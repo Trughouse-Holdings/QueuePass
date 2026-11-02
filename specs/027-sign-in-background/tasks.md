@@ -40,10 +40,10 @@ confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `027-sign-in-background-impl` from `027-sign-in-background-spec` (or from `main` once
+- [x] T001 Cut `027-sign-in-background-impl` from `027-sign-in-background-spec` (or from `main` once
   the spec PR has merged); `npm ci`; `npm run ci` green before any change, so a later failure is this
   feature's.
-- [ ] T002 Start Keycloak from this branch (`docker compose -p qp027 up --build keycloak seed`) and
+- [x] T002 Start Keycloak from this branch (`docker compose -p qp027 up --build keycloak seed`) and
   fetch Keycloak's image as quickstart S7 step 1 into a folder outside the repository. Confirm its
   SHA-256 is `0825175291be11f7689e8718295e422bb6fa4f8fefccc5610292b720c701ac4e` and that it is the
   1920×1080 grey image of research R1, R2. A different SHA-256 means Keycloak's image changed: stop
@@ -57,10 +57,10 @@ confirm they **fail** before the implementation tasks below them.
 
 ### Tests first
 
-- [ ] T003 [P] `packages/shared/test/theme/tokens.test.ts`: the eight `--stone-*` tokens of research
+- [x] T003 [P] `packages/shared/test/theme/tokens.test.ts`: the eight `--stone-*` tokens of research
   R6 with those exact values in the light block and in the dark block (the same in both); none of
   them used by any rule in `theme.css` outside the token blocks (as `021`'s accents). Must fail.
-- [ ] T004 [P] `packages/shared/test/theme/contrast.test.ts`, a new `describe` "the sign-in backdrop
+- [x] T004 [P] `packages/shared/test/theme/contrast.test.ts`, a new `describe` "the sign-in backdrop
   (spec 027)": the image's lightest and darkest greys as constants (`#898989`, `#000000`, citing
   research R2); a helper that composites `--stone-scrim` (`rgb(r g b / a%)`, as the existing scrim
   helper) over a `#rrggbb`. The `--stone-*` tokens are the same in both blocks (asserted), so one pass
@@ -70,7 +70,7 @@ confirm they **fail** before the implementation tasks below them.
   `--stone-text-muted`, `--stone-danger` at 4.5:1 or more against every one; the app's
   `--stone-accent[-<app>]` (rings) and `--stone-text-muted` (field edges) at 3:1 or more; the light
   scheme's `--surface` (the field fill) at 3:1 or more (R5). Must fail (no tokens yet).
-- [ ] T005 [P] `packages/shared/test/theme/drift.test.ts`: checker cases in "the checker, sign-in
+- [x] T005 [P] `packages/shared/test/theme/drift.test.ts`: checker cases in "the checker, sign-in
   accent mapping": `--stone-accent: var(--stone-accent-booth)` allowed inside `.qp-app--booth-app`
   beside the six roles; `--stone-accent: var(--accent-booth)`, `--stone-accent: var(--stone-accent-nope)`,
   and a rule whose `--stone-accent` names another app than its other roles each reported; a new test
@@ -90,9 +90,9 @@ confirm they **fail** before the implementation tasks below them.
 
 ### Implementation
 
-- [ ] T007 `packages/shared/src/web/theme.css`: the eight tokens in both token blocks with a comment
+- [x] T007 `packages/shared/src/web/theme.css`: the eight tokens in both token blocks with a comment
   citing spec 027 and Constitution VII's sign-in exception (R6). T003 and T004 pass.
-- [ ] T008 `packages/shared/test/theme/check-theme.ts`: `SIGN_IN_ROLES` gains `'--stone-accent':
+- [x] T008 `packages/shared/test/theme/check-theme.ts`: `SIGN_IN_ROLES` gains `'--stone-accent':
   '--stone-accent-<app>'`; the header comment names spec 027. T005 passes; `login.css` as it is still
   passes the drift test.
 - [ ] T009 `scripts/seed/src/stone-lines/` (`facets.ts`, `lines.ts`, `cli.ts`), `fast-png` (6.4.0,

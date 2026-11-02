@@ -42,6 +42,10 @@
  * (`--accent-hover: var(--accent-booth-hover)`), the same app for every role in the rule, and only
  * when the theme's token blocks define all six of that app's tokens (review round 1, finding 2).
  * Anything else there is still reported.
+ *
+ * Spec 027 (research R6): a seventh role, `--stone-accent` → `--stone-accent-<app>`, the lighter
+ * accent the lines between the stones and the focus rings on them are drawn in. The same rules
+ * hold: one app per rule, and the theme must define all seven of that app's tokens.
  */
 import ts from 'typescript';
 
@@ -224,6 +228,8 @@ const SIGN_IN_ROLES: Record<string, string> = {
   '--accent-text': '--accent-<app>-text',
   '--brand-mark-end': '--brand-mark-end-<app>',
   '--brand-mark-text': '--brand-mark-text-<app>',
+  // Spec 027 R6: the lines and focus rings on the stones.
+  '--stone-accent': '--stone-accent-<app>',
 };
 
 /** The app a role's `var(--…)` value names, or null when it is not that role's app token. */

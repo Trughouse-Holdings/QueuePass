@@ -139,6 +139,44 @@ describe('the sign-in screen accents (spec 021 research R5)', () => {
   });
 });
 
+// Spec 027 research R6 (FR-003, FR-007, FR-009; Constitution VII 3.7.0, the sign-in exception):
+// the colors the sign-in look draws on Keycloak's stones, the same in both sets because the
+// backdrop is dark in both.
+const STONE: Record<string, string> = {
+  'stone-base': '#3a3a3a',
+  'stone-scrim': 'rgb(0 0 0 / 60%)',
+  'stone-text': '#ffffff',
+  'stone-text-muted': '#d0d5dd',
+  'stone-danger': '#fecaca',
+  'stone-accent': '#8b85f5',
+  'stone-accent-tickets': '#2dd4bf',
+  'stone-accent-booth': '#fbbf24',
+};
+
+describe('the sign-in backdrop tokens (spec 027 research R6)', () => {
+  it.each(Object.entries(STONE))('defines --%s as %s in the light set', (name, value) => {
+    expect(light[name]).toBe(value);
+  });
+  it.each(Object.entries(STONE))('defines --%s as %s in the dark set', (name, value) => {
+    expect(dark[name]).toBe(value);
+  });
+  it('defines no other --stone-* token', () => {
+    for (const set of [light, dark]) {
+      expect(
+        Object.keys(set)
+          .filter((k) => k.startsWith('stone-'))
+          .sort(),
+      ).toEqual(Object.keys(STONE).sort());
+    }
+  });
+  it('uses none of them in the theme outside the token blocks (the apps use none of them)', () => {
+    const outside = css
+      .replace(/(^|\n):root\s*\{[^}]*\}/, '')
+      .replace(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{[^}]*\}\s*\}/, '');
+    expect(outside).not.toMatch(/--stone-/);
+  });
+});
+
 // Moved from customer-app/test/shared-look.test.ts (spec 008 US4): the block now exists once.
 describe('shared detail layout', () => {
   it.each([

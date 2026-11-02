@@ -357,6 +357,39 @@ describe('the checker, sign-in accent mapping (spec 021 R4)', () => {
       signIn(['.qp-app--booth-app {', ...SIX, '}', '.a {', '  margin: 6px;', '}'].join('\n')),
     ).toEqual(['C5 10 margin: 6px']);
   });
+
+  // Spec 027 research R6: a seventh role, the lighter accent the lines and focus rings on the
+  // stones are drawn in.
+  it('allows the seventh role, --stone-accent, beside the six (spec 027 R6)', () => {
+    expect(
+      signIn(
+        ['.qp-app--booth-app {', ...SIX, '  --stone-accent: var(--stone-accent-booth);', '}'].join(
+          '\n',
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it.each([
+    ["the app's accent of another role", '--stone-accent: var(--accent-booth)'],
+    ['a stone token the theme does not define', '--stone-accent: var(--stone-accent-nope)'],
+    ['a stone token of another kind', '--stone-accent: var(--stone-text)'],
+  ])('still reports %s as --stone-accent (spec 027 R6)', (_, decl) => {
+    expect(signIn(`.qp-app--booth-app {\n  ${decl};\n}`)).toEqual([`C1 2 ${decl}`]);
+  });
+
+  it("still reports --stone-accent naming another app than the rule's other roles (spec 027 R6)", () => {
+    expect(
+      signIn(
+        [
+          '.qp-app--booth-app {',
+          ...SIX,
+          '  --stone-accent: var(--stone-accent-tickets);',
+          '}',
+        ].join('\n'),
+      ),
+    ).toEqual(['C1 8 --stone-accent: var(--stone-accent-tickets)']);
+  });
 });
 
 /** Every file under `dir` (relative to the repository root) ending in one of `exts`. */
@@ -407,6 +440,17 @@ describe('the apps (FR-005, FR-015, SC-001)', () => {
     const classes = themeClasses(read('packages/shared/src/web/theme.css'));
     const found = stylesheets.flatMap((f) => sharedClassViolations(f, read(f), classes));
     expect(listing(found)).toEqual([]);
+  });
+
+  // Spec 027 FR-012 (Constitution VII): the sign-in look's colors stay on the sign-in screens.
+  it("use none of the sign-in look's tokens in their stylesheets (spec 027 FR-012)", () => {
+    const signInToken = /--stone-|--accent-(tickets|booth)|--brand-mark-(end|text)-(tickets|booth)/;
+    const found = stylesheets.flatMap((f) =>
+      read(f)
+        .split(/\r?\n/)
+        .flatMap((line, i) => (signInToken.test(line) ? [`${f}:${i + 1} ${line.trim()}`] : [])),
+    );
+    expect(found).toEqual([]);
   });
 });
 
