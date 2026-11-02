@@ -443,26 +443,49 @@ only when open.
   **Done**: all four notes present; their requirement and scenario numbers (017 FR-007, FR-011,
   FR-019, the Entry window assumption, S0, S3, S6; 018 FR-005, FR-011, S0) match what was built. No
   change.
-- [ ] T035 Coverage: every workspace stays at or above 80% line coverage; the new form branches
+- [x] T035 Coverage: every workspace stays at or above 80% line coverage; the new form branches
   (follow, touched, the four checks) and the picker's waiting item have no untested branch; record
   each workspace's figure here.
-- [ ] T036 `npx tsc --noEmit -p e2e` and `npm run lint` clean for the new and changed files.
+  **Done**: after tests for the last form and picker branches (repeated doors to the second
+  occurrence, a cleared start, an edit without `doorsOpenAt`, a waiting event with no zone): shared
+  93.27%, backend 97.08%, admin-app 97.31%, customer-app 97.51%, booth-app 93.08%, seed 100%. Each
+  suite green 3 times before the rebase onto `origin/main` (shared 693, backend 996 in 96 suites,
+  admin 354, customer 322, booth 87, seed 91 + 20 skipped) and 3 times after it (`npm run ci` and
+  two more rounds: shared 747, backend 996, admin 359, customer 326, booth 91, seed 91 + 20 skipped;
+  the new counts are 026's spec-PR tests). `npm run test:tz` (four zones): every run passed except
+  `reports-export.test.tsx` "names the signed-in admin as made by" (`023`, untouched here), which
+  timed out on its XLSX save in 3 of 8 admin-app runs under load and passes alone in Los Angeles 3
+  of 3.
+- [x] T036 `npx tsc --noEmit -p e2e` and `npm run lint` clean for the new and changed files.
+  **Done**: `npx tsc -p e2e/tsconfig.json` clean; `eslint . --ignore-pattern ".claude/**"` clean
+  (the root `eslint .` also scans an untracked `.claude/worktrees/` from another session, so `npm
+  run lint` fails on this machine for that reason only); `npm run format:check` clean.
 - [ ] T037 `npm run e2e` locally, green: every test, `025`'s two included; record the count and time
   here; the stack left stopped.
+  **Left for the orchestrator**: `npm run e2e` cannot run on this machine (images do not build
+  behind TLS interception; no Playwright browsers); to run in CI and record here.
 - [ ] T038 Independent review by a separate Claude session (Constitution III) of the branch against
   spec, plan, research, and contract 1.16.0/1.17.1; fix the findings, tests first where a finding is
   a defect; record the round here (counts by severity, each fix, and any finding left open with the
   reason).
+  **Left for the orchestrator**: the independent review by a separate session.
 - [ ] T039 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;
   record the counts per workspace and the coverage figures.
+  **Left for the orchestrator** (after the review's fixes). Run so far, on the branch rebased onto
+  `origin/main` c87837a (`026`'s spec PR, contract 1.17.0, so this branch ships **1.17.1**): the
+  root `npm run ci` steps green in 7 min 22 s with lint ignoring `.claude/**`: scripts/test 75,
+  shared 747, backend 996 in 96 suites, admin 359, customer 326, booth 91, seed 91 + 20 skipped;
+  coverage as T035.
 - [ ] T040 Running-system walk, quickstart S0–S10, on a stack built from this branch, with S7 on a
   volume that `main` created first. Mahdi walks it (S9 needs VoiceOver); record each scenario's
   result as he reports it; his "pass" closes the walk.
+  **Left for the orchestrator**: Mahdi's walk.
 - [ ] T041 Push; open the implementation PR after the spec PR has merged and the branch is rebased
   onto `main`: its description says `fixes #91` on its own line and carries the review (T038), the
   counts and coverage (T039), the browser tests and their deliberate failures (T030, T037), and the
   walk (T040). CI green on GitHub (the `test` and `e2e` checks); merge when green and approved by
   every team member (shared surface: `backend/prisma/`, `packages/shared/`, `contracts/openapi.yaml`).
+  **Left for the orchestrator**: push, PR, CI on GitHub.
 
 ---
 
