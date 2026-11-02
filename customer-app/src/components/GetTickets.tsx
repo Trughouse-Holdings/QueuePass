@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ORDER_LIMITS,
@@ -180,8 +180,9 @@ export function GetTickets({ event }: { event: Event }) {
   }, [waiting]);
 
   // FR-013: a button natively disabled while confirming may have lost focus to the page; once
-  // it is back, focus returns to it.
-  useEffect(() => {
+  // it is back, focus returns to it. A layout effect, so focus moves in the same commit that shows
+  // the wait, never a frame later.
+  useLayoutEffect(() => {
     const target = refocus.current?.current;
     if (!target) return;
     refocus.current = null;
