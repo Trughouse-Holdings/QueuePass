@@ -366,10 +366,13 @@ describe('a buy refused as too many tries (US2-3, US2-4; FR-011, FR-012)', () =>
     await typeHolderName();
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm order' }));
     await waitFor(() => expect(countdown()).toHaveTextContent(message(3)));
-    const ticks = set.mock.results
-      .filter((_, i) => set.mock.calls[i][1] === 250)
-      .map((r) => r.value as unknown);
-    expect(ticks).toHaveLength(1);
+    const started = () =>
+      set.mock.results
+        .filter((_, i) => set.mock.calls[i][1] === 250)
+        .map((r) => r.value as unknown);
+    // The interval starts in a passive effect, which may run just after the commit waitFor saw.
+    await waitFor(() => expect(started()).toHaveLength(1));
+    const ticks = started();
     expect(clear.mock.calls.map(([id]) => id)).not.toContain(ticks[0]);
 
     unmount();
