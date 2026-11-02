@@ -299,7 +299,7 @@ fallback, and the generator are unchanged.
   rows. Must fail while the two tokens are in the theme.
 - [x] T033 [P] `scripts/seed/test/login-theme-files.test.ts`: the "no card" cases become: in `main`,
   `<div class="qp-realm" aria-hidden="true">` with the realm's name, then the card
-  `<div class="card qp-card">` holding the `<h1>`; `.qp-card` at most 500 px wide with
+  `<div class="card card--padded qp-card">` holding the `<h1>`; `.qp-card` at most 500 px wide with
   `border-top: 4px solid var(--accent)`; `.qp-realm` in `--stone-text`, uppercase, 29 px; every
   input in the card ringed in `var(--accent)` (T022's fix); `login.css` uses no `--stone-text-muted`
   or `--stone-danger`. `sign-in-screens.test.ts` (live): every page has the header and the card.
@@ -351,9 +351,10 @@ fallback, and the generator are unchanged.
   (`npm run test:tz`); record the counts, and the e2e job's time on GitHub for this branch: it must
   stay under about 15 minutes (on `main` it is 6 min 10 s, run 41520953833), well inside the job's
   `timeout-minutes: 30` and spec `022` SC-003 (R8). Record `027 S3`'s and `027 S6`'s own times too.
-- [ ] T027 Independent review by a separate Claude session (Constitution III) of the implementation
+- [x] T027 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round, its findings, and
   any left open here.
+  **Done**: round 1, findings and their fixes in the review record below; two left open there.
 - [ ] T028 `npm run ci` locally, green, with Keycloak up so the live tests run; record the counts per
   workspace and each workspace's line coverage.
 - [ ] T029 Running-system walk, quickstart S0–S8, on a stack built from this branch; record each
@@ -362,7 +363,7 @@ fallback, and the generator are unchanged.
   Process: "The user walks it before merging"); record it here.
 - [ ] T031 Push and open the implementation PR (after the spec PR has merged and the branch is up to
   date with `main`): description says `fixes #122`, lists the review, the walk, the test counts, and
-  the shared surface touched (`packages/shared/`; the constitution was in the spec PR). Wait for CI
+  the shared surface touched (`packages/shared/`; the constitution was in the spec PR, and T038's amendment PR is merged first). Wait for CI
   green on GitHub (`test` and `e2e`) on the final commit; merge only when green and approved.
 
 ---
@@ -418,3 +419,33 @@ fallback, and the generator are unchanged.
   R3's reason for comparing decoded pixels; T006's CLI tests never write the committed image; the
   constitution paragraph rewrapped.
 - **Open findings**: none.
+
+## Review record (implementation branch)
+
+- **Round 1** (T027, an independent Claude session that did not write the code, read-only,
+  2026-11-02, on the branch with the card): 2 must-fix, 7 should-fix, 12 nits. Fixed in the
+  `Review 027: implementation review round 1` commit:
+  - must: the card had lost `card--padded`, so the shared theme padded its content a second time
+    (56 px a side; the class is back, the theme-file and live tests match it, and S1 checks the
+    heading sits at the card's own padding, which failed with 24 px extra before the fix).
+  - should: S6 counts the aborted image requests and checks the window's edge is the plain grey;
+    S3 fails when the heading, audience line, labels, fields, or the error message are not measured,
+    and on any visible text in `main` off the card and the header; the text it measures is scoped
+    to the card; `--check` reports a fresh run as expected and the committed file as found; stale
+    comments in the drift checker ("focus rings", "six tokens") and plan.md (eight tokens, the
+    constitution row, the new fixture).
+  - nits: the lines image's comment (63%), the test comments, R8's wording of the two screenshots
+    and the ring region, `minArea` 64 in R3 and the data model, the superseded ring clarification
+    marked, the spec's Context on the amendment, quickstart S4 step 3, T031's amendment PR, an
+    empty realm display name, the no-copy check over every tracked file, the FR-012 check over the
+    apps' code, and a shorter README status so the table is not re-padded.
+- **Open findings**:
+  - must 2: Constitution 3.7.0's roadmap row `027` ("no card") and Principle VII ("the only
+    decoration allowed") need an amendment for the card and the realm header, in a pull request
+    every team member approves, merged before the implementation PR (T038).
+  - should 6: the commit `WIP Impl 027: every input on the stones gets its ring; …` does not start
+    with `Impl 027:`. It was made as a WIP on request when work paused; rewording it rewrites every
+    later commit, so it is left for the author to squash or reword before the PR, or to record in
+    the PR description.
+  - nit 16, in part: the no-card tasks (T013, T015, T019, T020) keep their wording as history; the
+    Phase 6b note says T032–T037 changed what they built.

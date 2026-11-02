@@ -125,7 +125,8 @@ export function main(
     io.error(`${target}: no image to check; run the command without --check to make it`);
     return 1;
   }
-  const found = differences(decode(committed), decode(fresh));
+  // A fresh run is what is expected; the committed file is what was found.
+  const found = differences(decode(fresh), decode(committed));
   if (found.length > 0) {
     io.error(`${target} is not what the generator makes from ${input}:`);
     for (const line of found) io.error(`  ${line}`);

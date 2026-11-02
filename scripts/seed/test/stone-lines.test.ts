@@ -235,7 +235,9 @@ describe('the command (cli.ts)', () => {
     );
     const check = io();
     expect(main(['--check', input, '--out', target], check, source, crisp)).toBe(1);
-    expect(check.err.join('\n')).toMatch(/text chunk Source: expected "elsewhere"/);
+    expect(check.err.join('\n')).toMatch(
+      /text chunk Source: expected "[^"]*minStep[^"]*", got "elsewhere"/,
+    );
   });
 
   it('--check fails when there is no image to check', () => {

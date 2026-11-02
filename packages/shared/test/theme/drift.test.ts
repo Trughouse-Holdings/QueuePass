@@ -358,8 +358,8 @@ describe('the checker, sign-in accent mapping (spec 021 R4)', () => {
     ).toEqual(['C5 10 margin: 6px']);
   });
 
-  // Spec 027 research R6: a seventh role, the lighter accent the lines and focus rings on the
-  // stones are drawn in.
+  // Spec 027 research R6: a seventh role, the lighter accent the lines between the stones are
+  // drawn in.
   it('allows the seventh role, --stone-accent, beside the six (spec 027 R6)', () => {
     expect(
       signIn(
@@ -443,9 +443,12 @@ describe('the apps (FR-005, FR-015, SC-001)', () => {
   });
 
   // Spec 027 FR-012 (Constitution VII): the sign-in look's colors stay on the sign-in screens.
-  it("use none of the sign-in look's tokens in their stylesheets (spec 027 FR-012)", () => {
+  // Their code too, where an inline style could name a token (review round 1, 20).
+  it("use none of the sign-in look's tokens in their stylesheets or code (spec 027 FR-012)", () => {
     const signInToken = /--stone-|--accent-(tickets|booth)|--brand-mark-(end|text)-(tickets|booth)/;
-    const found = stylesheets.flatMap((f) =>
+    const code = APPS.flatMap((dir) => files(dir, ['.ts', '.tsx']));
+    expect(code.length).toBeGreaterThan(0);
+    const found = [...stylesheets, ...code].flatMap((f) =>
       read(f)
         .split(/\r?\n/)
         .flatMap((line, i) => (signInToken.test(line) ? [`${f}:${i + 1} ${line.trim()}`] : [])),

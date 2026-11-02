@@ -28,6 +28,12 @@
     <#assign qpAppName = realm.displayName!"QueuePass">
 </#if>
 <#assign qpAppId = (client.clientId)!"">
+<#-- Spec 027: the realm header above the card, as Keycloak's own theme. -->
+<#if realm.displayName?has_content>
+    <#assign qpRealmName = realm.displayName>
+<#else>
+    <#assign qpRealmName = "QueuePass">
+</#if>
 <#assign qpTitle = msg("qpSignInTo", qpAppName)>
 <#-- msg() formats with MessageFormat, where a ' or { in the key garbles it or fails the page, so
      only a plain client ID (as the seed's three) is looked up; any other shows no audience line
@@ -104,8 +110,8 @@
 <div class="qp-stones" aria-hidden="true"></div>
 <div class="qp-band" aria-hidden="true"></div>
 <main class="qp-login">
-    <div class="qp-realm" aria-hidden="true">${(realm.displayName)!"QueuePass"}</div>
-    <div class="card qp-card">
+    <div class="qp-realm" aria-hidden="true">${qpRealmName}</div>
+    <div class="card card--padded qp-card">
         <header class="qp-head">
             <span class="brand__mark qp-mark" aria-hidden="true">Q</span>
             <h1 class="qp-title">${qpTitle}</h1>

@@ -35,7 +35,8 @@
   shared theme so it follows the scheme. Band, brand mark, heading, audience line, banners, and form
   unchanged.
 - **Constitution 3.7.0** (R9): Principle VII's sign-in exception allows Keycloak's stock background
-  with the app's accent between the stones; roadmap row `027`. In this spec PR.
+  with the app's accent between the stones; roadmap row `027`. In the spec PR. The realm header and
+  the roadmap row's "no card" need a further amendment (tasks T038, open, blocks the merge).
 - **No API change, no database change, no seed change** (contracts/README.md, data-model.md). The
   realm already uses the `queuepass` login theme (`021`); a rebuilt Keycloak image carries the new
   files.
@@ -71,7 +72,7 @@ background only on the sign-in screens), Constitution II (no manual step), Keycl
 copied, WCAG 2.1 AA (spec FR-006).
 
 **Scale/Scope**: one template, one stylesheet, one derived image and its notice, one generator,
-eight tokens, about fifteen files.
+six tokens, about fifteen files.
 
 ## Constitution Check
 
@@ -85,7 +86,7 @@ eight tokens, about fifteen files.
 | IV. Server-authoritative rules | No domain rule involved | Pass (n/a) |
 | V. Sign-in everywhere | Sign-in stays on Keycloak's page; same form, same flow (spec FR-005) | Pass |
 | VI. Test-first, real database | Tests first for tokens, contrast, drift, theme files, the generator; live Keycloak test; browser test in the `e2e` job; the generator counts toward `scripts/seed`'s coverage | Pass |
-| VII. Function over finish, one shared look | **Needs amendment**: a background is decoration. Amended to 3.7.0 in this PR (R9); colors stay in the shared theme's token blocks, contrast is a stated, tested target, and the apps are untouched | Pass after amendment |
+| VII. Function over finish, one shared look | **Needs amendment**: a background is decoration. Amended to 3.7.0 in this PR (R9); colors stay in the shared theme's token blocks, contrast is a stated, tested target, and the apps are untouched | Pass after amendment; the realm header and roadmap row `027` need a further amendment (T038, open, blocks the merge) |
 | VIII. Staged simplicity | One image derived once; no runtime work; no animation; no per-app images | Pass |
 
 Re-check after design: unchanged. The amendment is the only deviation and is made, not worked
@@ -118,12 +119,12 @@ keycloak/themes/queuepass/
     └── resources/
         ├── css/login.css                        # layers, shade, header, card, 7th role (R4–R7)
         └── img/stone-lines.png                  # NEW: generated (R2, R3)
-packages/shared/src/web/theme.css                # eight --stone-* tokens in both blocks (R6)
+packages/shared/src/web/theme.css                # six --stone-* tokens in both blocks (R6)
 packages/shared/test/theme/
 ├── check-theme.ts                               # SIGN_IN_ROLES gains --stone-accent (R6)
 ├── drift.test.ts                                # seventh-role cases; apps use no --stone-* (R8)
 ├── contrast.test.ts                             # the sign-in backdrop (R5, R8)
-└── tokens.test.ts                               # the eight tokens (R6, R8)
+└── tokens.test.ts                               # the six tokens (R6, R8)
 scripts/seed/
 ├── package.json                                 # "stone-lines" script; fast-png devDependency (R3)
 ├── src/stone-lines/
@@ -135,6 +136,7 @@ scripts/seed/
     ├── login-theme-files.test.ts                # backdrop, lines image, notice, no copy (R8)
     └── sign-in-screens.test.ts                  # live: images served, SHA-256 (R8)
 e2e/tests/027-sign-in-background.spec.ts         # NEW: S1, S3, S6 (R8)
+e2e/fixtures/backdrop.ts                         # NEW: measuring the header and the card (R8)
 package-lock.json                                # the seed workspace lists fast-png; no new package (R3)
 .specify/memory/constitution.md                  # 3.7.0, Principle VII, roadmap 027 (R9) — this spec PR
 README.md                                        # version reference; 027 status row; the generator

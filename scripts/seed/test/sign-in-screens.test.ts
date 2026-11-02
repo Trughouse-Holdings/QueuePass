@@ -279,7 +279,7 @@ describe('the sign-in screens (spec 021)', () => {
         // Implementation session 2 (FR-004): the realm's name above Keycloak's card.
         const main = html.split(/<main\b[^>]*>/)[1] ?? '';
         expect(main.trimStart()).toMatch(
-          /^<div class="qp-realm" aria-hidden="true">QueuePass<\/div>\s*<div class="card qp-card">/,
+          /^<div class="qp-realm" aria-hidden="true">QueuePass<\/div>\s*<div class="card card--padded qp-card">/,
         );
         expect(html.match(/<h1\b/g)).toHaveLength(1);
       },

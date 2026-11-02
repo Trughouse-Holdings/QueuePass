@@ -118,7 +118,7 @@ prototype).
 - `MIN_STEP`, the widening, the softening, and the line's strength are chosen in implementation
   from previews of all three apps' lines, and Mahdi approves the preview before the file is
   committed (tasks T010). The values are recorded in `lines.ts` and in the `Source` chunk. Chosen
-  (T010): `MIN_STEP` 1 (at 2 or more, visible stone edges lose their lines), no widening (2 px), a
+  (T010): `minArea` 64 (a flat region of 64 px or more is a facet), `MIN_STEP` 1 (at 2 or more, visible stone edges lose their lines), no widening (2 px), a
   1 px softened edge at 50%, and strength 160 of 255 (about 63%), the "dim" preview.
 - License (FR-010): `keycloak/themes/queuepass/LICENSE-keycloak.txt` is the Apache License 2.0 text
   as Keycloak ships it (`/opt/keycloak/LICENSE.txt` in the image), and
@@ -304,7 +304,7 @@ superseded):
   QueuePass keeps the stones and the card's edge at every width (FR-001).
 - `template.ftl`: the `.qp-stones` element (R4); then `021`'s band; then, in `main`, the realm header
   `<div class="qp-realm" aria-hidden="true">${realm name}</div>` (decoration, not a heading: the
-  app's name stays the one `<h1>`), and the card `<div class="card qp-card">` holding everything that
+  app's name stays the one `<h1>`), and the card `<div class="card card--padded qp-card">` holding everything that
   was in `021`'s card: the brand mark, the `<h1>`, the audience line, the page's own header as
   `<h2>`, the message banners, the form. `login.ftl` is unchanged.
 - `login.css`:
@@ -356,7 +356,7 @@ top-level name on the page, against `021` FR-001's one heading).
   `../../keycloak/img/keycloak-bg.png` and `../img/stone-lines.png`, has the forced-colors rule of
   R4, and no `animation` or `transition` in any `.qp-stones` rule (FR-013); `template.ftl` has
   `<div class="qp-stones" aria-hidden="true">` as `<body>`'s first child, the realm header
-  (`.qp-realm`, `aria-hidden`, not a heading) and then the card (`card qp-card`) in `main`; the card
+  (`.qp-realm`, `aria-hidden`, not a heading) and then the card (`card card--padded qp-card`) in `main`; the card
   is at most 500 px wide with a 4 px top edge in `var(--accent)`, the header in `--stone-text`, and
   every input in the card gets the shared ring;
   `stone-lines.png` (decoded with `fast-png`) is 1920×1080 grey and alpha, grey 255 wherever its
@@ -397,16 +397,19 @@ top-level name on the page, against `021` FR-001's one heading).
       each text field's box and edge color, and each control's focus ring: Tab through every control
       (username, password, Show, Sign In, and each link) and record its box and computed
       `outline-color`;
-    - two screenshots of the window, decoded in a blank page (`createImageBitmap` and a canvas, so
-      the test needs no image library): the backdrop alone (`visibility: hidden` on `main` and the
-      band), and the card alone (the band, the header, and everything inside the card hidden, the
-      card itself shown). The backdrop and the card do not move with the page's scroll position
-      relative to the measured boxes, which are read at the same scroll position;
+    - two screenshots, decoded in a blank page (`createImageBitmap` and a canvas, so the test needs
+      no image library): the backdrop alone, of the window (`visibility: hidden` on `main` and the
+      band), matched with the header's box in window coordinates, since the backdrop is fixed to
+      the window; and the card alone, of the whole page (the band, the header, and everything
+      inside the card hidden, the card itself shown), matched with the card's boxes in page
+      coordinates. A visible text in `main` outside the card and the header fails, and so does a
+      page where the heading, the audience line, the two labels and fields, or (after a wrong
+      password) its message are not measured;
     - the header: 4.5:1 or more against the lightest and darkest backdrop pixel in its box; the card's
       text: 4.5:1 or more against the lightest and darkest card pixel in its box; field edges: 3:1 or
       more against the lightest and darkest card pixel in a 3 px ring around the box; focus rings:
-      3:1 or more against the lightest and darkest card pixel where the ring is drawn (2–5 px outside
-      the box) and next to it (5–8 px outside);
+      3:1 or more against the lightest and darkest card pixel where the ring is drawn and next to it
+      (one region, 2–8 px outside the box);
     - at 360 px, `scrollWidth <= innerWidth`;
     - at 1920×1080, the full-strength-beyond-the-fade check (FR-004): screenshot the backdrop again
       with the shade hidden (an injected `.qp-stones::after { display: none }`); the pixels more than

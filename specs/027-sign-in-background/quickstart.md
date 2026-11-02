@@ -61,7 +61,7 @@ For each app, in light and dark schemes, at 360×800 (DevTools device mode), 768
 2. In each app, sign in (`admin1`, `customer1`, `agent1`, password `test123`), sign out, and choose to
    sign in again. **Expected**: that app's page, with the stones.
 3. Open http://localhost:8080/realms/queuepass/account. **Expected**: "Sign in to Account Console"
-   on the stones with indigo lines.
+   on the card, over the stones with indigo lines.
 4. Open the sign-in page's URL again after it has expired (or with a broken `client_id`).
    **Expected**: Keycloak's notice or error page, on the stones, on the card.
 5. Open http://localhost:8080/admin. **Expected**: Keycloak's admin console, unchanged.

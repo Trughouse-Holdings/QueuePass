@@ -33,10 +33,11 @@ in the app's accent, so the stones themselves say which app this is. As on Keycl
 the form sits on a card on the stones, with the realm's name in large capitals above it; the card is
 styled from the shared theme and follows the scheme. Everything else `021` gave the pages stays.
 
-Principle VII says no effort goes into decoration, and a background is decoration. This PR amends
-it (3.7.0, MINOR) to widen the sign-in exception to Keycloak's stock background with the app's
+Principle VII says no effort goes into decoration, and a background is decoration. The spec PR
+amended it (3.7.0, MINOR) to widen the sign-in exception to Keycloak's stock background with the app's
 accent between the stones, and reserves `027` in the roadmap (plan, research R9). The constitution
-is shared surface, so every team member approves this PR.
+is shared surface, so every team member approved that PR. The realm header added in
+implementation needs a further amendment (Clarifications, implementation session 2; tasks T038).
 
 ## Clarifications
 
@@ -78,7 +79,8 @@ Every other question below took the recommended answer, written unattended and r
 - Q: The light scheme's accents are dark (indigo, teal, amber at their light-scheme shades); a focus
   ring in them is too dark against the darkest stones. → A: **Focus rings drawn over the stones use
   the app's accent in its lighter shade** (the dark scheme's value) in both schemes. The Sign In
-  button keeps the scheme's accent (recommended answer, open to review) (FR-006).
+  button keeps the scheme's accent (recommended answer, open to review) (FR-006). **Superseded** in
+  implementation session 2: the rings are on the card, in the scheme's `--accent`.
 - Q: What if the stones cannot be shown (Keycloak stops shipping the image, or it fails to load)? →
   A: **The page is a plain dark stone grey, with the lines still drawn under the shade and the same
   light text**, still meeting the contrast targets; a test catches a changed or missing image

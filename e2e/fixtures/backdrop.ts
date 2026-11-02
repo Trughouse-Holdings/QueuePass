@@ -62,11 +62,13 @@ interface Found {
   header: { name: string; color: string; box: Box }[];
   texts: { name: string; color: string; box: Box }[];
   fields: { name: string; edge: string; box: Box }[];
+  /** Visible text in main that is neither on the card nor the header. */
+  stray: string[];
 }
 
 /**
- * The realm header, every visible text on the card (not inside a field, button, or notice), and
- * every text field, each scrolled into view before its box is read.
+ * The realm header (scrolled into view, in window coordinates), every visible text on the card
+ * (not inside a field, button, or notice), and every text field (both in page coordinates).
  */
 export async function findTargets(page: Page): Promise<Found> {
   return page.evaluate(async () => {
@@ -98,23 +100,34 @@ export async function findTargets(page: Page): Promise<Found> {
     const header = [...document.querySelectorAll('.qp-realm')]
       .filter(visible)
       .map((el) => ({ name: describe(el), color: getComputedStyle(el).color, box: textBox(el) }));
+    // Texts on the card only: they are measured against a shot of the card (review round 1, 5).
     const textSelector = [
-      'main h1',
-      'main h2',
-      'main .qp-audience',
-      'main .qp-required',
-      'main label',
-      'main a',
-      'main p',
+      'h1',
+      'h2',
+      '.qp-audience',
+      '.qp-required',
+      'label',
+      'a',
+      'p',
       '#input-error',
-    ].join(', ');
+    ]
+      .map((s) => `.qp-card ${s}`)
+      .join(', ');
     const texts = [...document.querySelectorAll(textSelector)]
       .filter((el) => !el.closest('.banner, button, .btn'))
       .filter((el) => (el.textContent ?? '').trim() !== '' && visible(el))
       .map((el) => ({ name: describe(el), color: getComputedStyle(el).color, box: box(el) }));
+    // Any other visible text in main would be on the stones, measured against nothing.
+    const stray = [...document.querySelectorAll('main *')]
+      .filter((el) => !el.closest('.qp-card, .qp-realm'))
+      .filter((el) =>
+        [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent!.trim()),
+      )
+      .filter(visible)
+      .map(describe);
     const fields = [
       ...document.querySelectorAll<HTMLInputElement>(
-        'main input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=checkbox])',
+        '.qp-card input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=checkbox])',
       ),
     ]
       .filter(visible)
@@ -122,7 +135,7 @@ export async function findTargets(page: Page): Promise<Found> {
         const style = getComputedStyle(el);
         return { name: `input#${el.id}`, edge: style.borderTopColor, box: box(el) };
       });
-    return { header, texts, fields };
+    return { header, texts, fields, stray };
   });
 }
 
@@ -251,6 +264,28 @@ export async function extremes(
   );
 }
 
+/** The commonest pixel color in `box` of a PNG decoded in `blank`. */
+export async function commonest(blank: Page, png: Buffer, box: Box): Promise<Rgb> {
+  return blank.evaluate(
+    async ({ b64, box }) => {
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const bitmap = await createImageBitmap(new Blob([bytes], { type: 'image/png' }));
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(bitmap, 0, 0);
+      const { data } = ctx.getImageData(box.x, box.y, box.width, box.height);
+      const counts = new Map<number, number>();
+      for (let i = 0; i < data.length; i += 4) {
+        const key = (data[i]! << 16) | (data[i + 1]! << 8) | data[i + 2]!;
+        counts.set(key, (counts.get(key) ?? 0) + 1);
+      }
+      const [key] = [...counts].sort((a, b) => b[1] - a[1])[0]!;
+      return [(key >> 16) & 255, (key >> 8) & 255, key & 255] as [number, number, number];
+    },
+    { b64: png.toString('base64'), box },
+  );
+}
+
 /** How two screenshots of the same size differ: in the columns given, and elsewhere. */
 export async function compareColumns(
   blank: Page,
@@ -315,9 +350,15 @@ export async function cardShot(page: Page): Promise<Buffer> {
  * Every contrast failure on the page as it is now (research R8): the realm header 4.5:1 against
  * the lightest and darkest pixel of the backdrop behind it; on the card, texts 4.5:1, field edges
  * 3:1, and focus rings 3:1 against the lightest and darkest pixel of the card behind them. Returns
- * one line per failure; empty when all pass.
+ * one line per failure; empty when all pass. It fails, too, when what it must measure is not there
+ * (the heading, the audience line, both labels and fields, and after a wrong password its message),
+ * so a changed page cannot pass by measuring nothing (review round 1, 4).
  */
-export async function contrastFailures(page: Page, blank: Page): Promise<string[]> {
+export async function contrastFailures(
+  page: Page,
+  blank: Page,
+  { wrongPassword = false } = {},
+): Promise<string[]> {
   // No field in its hover state: the mouse rests where it last clicked.
   await page.mouse.move(0, 0);
   const found = await findTargets(page);
@@ -358,6 +399,22 @@ export async function contrastFailures(page: Page, blank: Page): Promise<string[
   ];
   const failures: string[] = [];
   if (found.header.length !== 1) failures.push(`${found.header.length} realm headers, not 1`);
+  for (const s of found.stray) failures.push(`text outside the card and the header: ${s}`);
+  const measured = (re: RegExp) => found.texts.filter((t) => re.test(t.name)).length;
+  const floors: [string, RegExp, number][] = [
+    ['the heading', /^h1\b/, 1],
+    ['the audience line', /\.qp-audience\b/, 1],
+    ['the two labels', /^label\b/, 2],
+    ...(wrongPassword
+      ? ([['the wrong-password message', /#input-error\b/, 1]] as [string, RegExp, number][])
+      : []),
+  ];
+  for (const [what, re, n] of floors) {
+    if (measured(re) < n) failures.push(`${what} not measured (${measured(re)} of ${n})`);
+  }
+  for (const want of ['input#username', 'input#password']) {
+    if (!found.fields.some((f) => f.name === want)) failures.push(`no field edge for ${want}`);
+  }
   const names = rings.map((r) => r.name);
   for (const want of ['input#username', 'input#password', 'input#kc-login']) {
     if (!names.includes(want)) failures.push(`no focus ring found on ${want} (focused: ${names})`);

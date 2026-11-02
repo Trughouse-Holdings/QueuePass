@@ -2,9 +2,9 @@ import { decode, encode, type DecodedPng } from 'fast-png';
 import { findFacets, type Facets, type GreyImage } from './facets';
 
 /**
- * Spec 027 research R2, R3 (FR-003, FR-010): the lines image. White everywhere, opaque on the
- * edges between the stones of Keycloak's image and clear elsewhere, so the sign-in page can show
- * the app's accent through it as a mask.
+ * Spec 027 research R2, R3 (FR-003, FR-010): the lines image. White everywhere, at `strength`
+ * alpha (160, about 63%, the T010 choice) on the edges between the stones of Keycloak's image and
+ * clear elsewhere, so the sign-in page can show the app's accent through it as a mask.
  */
 
 export interface LineSettings {

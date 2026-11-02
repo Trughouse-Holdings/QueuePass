@@ -1,5 +1,6 @@
+import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { decode } from 'fast-png';
@@ -119,7 +120,7 @@ describe('login.ftl (research R2, R9)', () => {
 });
 
 // Spec 027 research R2–R4, R7, R8 (FR-001–FR-004, FR-009, FR-010, FR-013, SC-004): the stones
-// behind every sign-in page, the lines between them in the app's accent, and no card.
+// behind every sign-in page, the lines between them in the app's accent, the realm header, and the card.
 describe('the sign-in backdrop (spec 027)', () => {
   const ROOT = resolve(process.cwd(), '../..');
   const css = () => readFileSync(resolve(THEME, 'resources/css/login.css'), 'utf8');
@@ -202,7 +203,7 @@ describe('the sign-in backdrop (spec 027)', () => {
   });
 
   // T022: Keycloak's logout confirmation has its own submit input (#kc-logout), whose ring the
-  // shared input:focus rule removed, as it did #kc-login's: every input on the stones gets it.
+  // shared input:focus rule removed, as it did #kc-login's: every input in the card gets it.
   it("rings every input in the card, submit inputs included, in the app's --accent (R7, FR-006)", () => {
     const body = bodiesNaming('.qp-card input:focus-visible');
     expect(body).toMatch(/outline:\s*3px solid var\(--accent\)/);
@@ -248,9 +249,13 @@ describe('the sign-in backdrop (spec 027)', () => {
         .split(/<main\b[^>]*>/)[1]
         ?.split('</main>')[0] ?? '';
     expect(main.trimStart()).toMatch(
-      /^<div class="qp-realm" aria-hidden="true">\$\{\(realm\.displayName\)!"QueuePass"\}<\/div>\s*<div class="card qp-card">/,
+      /^<div class="qp-realm" aria-hidden="true">\$\{qpRealmName\}<\/div>\s*<div class="card card--padded qp-card">/,
     );
-    const card = main.split('<div class="card qp-card">')[1] ?? '';
+    // An empty display name still shows "QueuePass" (review round 1, nit 18).
+    expect(template()).toMatch(
+      /<#if realm\.displayName\?has_content>\s*<#assign qpRealmName = realm\.displayName>\s*<#else>\s*<#assign qpRealmName = "QueuePass">/,
+    );
+    const card = main.split('<div class="card card--padded qp-card">')[1] ?? '';
     expect(card).toContain('<h1 class="qp-title">');
     expect(template().match(/<h1\b/g)).toHaveLength(1);
   });
@@ -327,12 +332,14 @@ describe('the sign-in backdrop (spec 027)', () => {
     });
   });
 
-  it("holds no copy of Keycloak's stones image (FR-002, SC-004)", () => {
-    const dir = resolve(ROOT, 'keycloak');
-    const files = (readdirSync(dir, { recursive: true }) as string[])
-      .map((f) => resolve(dir, f))
-      .filter((f) => statSync(f).isFile());
-    expect(files.length).toBeGreaterThan(0);
+  // Every file the repository tracks, not only keycloak/ (review round 1, 19).
+  it("holds no copy of Keycloak's stones image anywhere in the repository (FR-002, SC-004)", () => {
+    const files = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' })
+      .split('\0')
+      .filter((f) => f !== '')
+      .map((f) => resolve(ROOT, f))
+      .filter((f) => existsSync(f) && statSync(f).isFile());
+    expect(files).toContain(resolve(THEME, 'resources/img/stone-lines.png'));
     for (const f of files) {
       const sha = createHash('sha256').update(readFileSync(f)).digest('hex');
       expect(sha, f).not.toBe(KEYCLOAK_BG_SHA256);

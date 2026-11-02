@@ -4,7 +4,18 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { APPS, type AppName } from '../fixtures/apps';
 import { signInHeading, submitSignIn } from '../fixtures/sign-in';
-import { blankPage, compareColumns, backdropShot, contrastFailures } from '../fixtures/backdrop';
+import {
+  backdropShot,
+  blankPage,
+  commonest,
+  compareColumns,
+  contrastFailures,
+  parseColor,
+  type Rgb,
+} from '../fixtures/backdrop';
+
+/** A color under the full shade, --stone-scrim, black at 60% (research R5). */
+const shaded = (c: Rgb): Rgb => c.map((v) => Math.round(v * 0.4)) as Rgb;
 
 /** Research R1: Keycloak 26.0.8's keycloak-bg.png, the image the lines were made from. */
 const KEYCLOAK_BG_SHA256 = '0825175291be11f7689e8718295e422bb6fa4f8fefccc5610292b720c701ac4e';
@@ -58,6 +69,14 @@ async function backdrop(page: Page) {
       cardWidth: card?.getBoundingClientRect().width ?? 0,
       cardEdge: cardStyle ? `${cardStyle.borderTopWidth} ${cardStyle.borderTopColor}` : '',
       cardHoldsH1: !!card?.querySelector('h1'),
+      // How far the heading sits inside the card's left edge, and the card's own padding: the
+      // card pads itself once (card--padded; review round 1, 1).
+      h1Inset: card
+        ? card.querySelector('h1')!.getBoundingClientRect().left -
+          card.getBoundingClientRect().left -
+          parseFloat(cardStyle!.borderLeftWidth)
+        : -1,
+      cardPadding: cardStyle ? parseFloat(cardStyle.paddingLeft) : -1,
       header: header?.innerText ?? null,
       headerHidden: header?.getAttribute('aria-hidden') ?? null,
       headerBeforeCard:
@@ -99,6 +118,7 @@ test("027 S1: each app's sign-in page shows the stones with its accent in the li
         expect(got!.cardWidth).toBeLessThanOrEqual(500);
         expect(got!.cardEdge).toBe(`4px ${got!.accent}`);
         expect(got!.cardHoldsH1).toBe(true);
+        expect(Math.abs(got!.h1Inset - got!.cardPadding)).toBeLessThanOrEqual(1);
         expect(got!.header).toBe('QUEUEPASS');
         expect(got!.headerHidden).toBe('true');
         expect(got!.headerBeforeCard).toBe(true);
@@ -142,7 +162,15 @@ async function checkReadable(
     viewport: { width, height },
     deviceScaleFactor: 1,
   });
-  if (blockStones) await context.route('**/keycloak-bg.png', (route) => route.abort());
+  // Counted, so S6 fails if the pattern stops matching and the stones load after all (review
+  // round 1, 3).
+  let aborted = 0;
+  if (blockStones) {
+    await context.route('**/keycloak-bg.png', (route) => {
+      aborted++;
+      return route.abort();
+    });
+  }
   const page = await context.newPage();
   const blank = await blankPage(context);
   const failures: string[] = [];
@@ -154,7 +182,9 @@ async function checkReadable(
         await submitSignIn(page, NO_SUCH_USER, 'wrong');
         await expect(page.getByText('Invalid username or password.')).toBeVisible();
       }
-      const found = await contrastFailures(page, blank);
+      const found = await contrastFailures(page, blank, {
+        wrongPassword: when === 'after a wrong password',
+      });
       failures.push(...found.map((f) => `${when}: ${f}`));
       if (width === 360) {
         const [scrollWidth, innerWidth] = await page.evaluate(() => [
@@ -202,6 +232,19 @@ async function checkReadable(
       if (probe.body !== probe.base) failures.push(`page color ${probe.body}, not ${probe.base}`);
       if (!probe.lines.includes('stone-lines.png')) failures.push('no lines over the grey');
       if (!probe.shade.includes('gradient')) failures.push('no shade over the grey');
+      if (aborted === 0) failures.push("Keycloak's image was never requested, so never blocked");
+      // What shows at the window's left edge is the plain grey, not stones: unshaded from 800 px
+      // wide, under the full shade below 560 px (R5).
+      const want = width >= 800 ? parseColor(probe.base) : shaded(parseColor(probe.base));
+      const got = await commonest(blank, await backdropShot(page), {
+        x: 0,
+        y: 0,
+        width: Math.min(100, width),
+        height,
+      });
+      if (got.some((c, i) => Math.abs(c - want[i]!) > 1)) {
+        failures.push(`the left edge is mostly rgb(${got}), not the grey rgb(${want})`);
+      }
     }
   } finally {
     await context.close();
