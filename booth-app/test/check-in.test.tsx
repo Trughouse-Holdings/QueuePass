@@ -86,7 +86,8 @@ const ADMIT = `POST /events/${EVENT_ID}/entry/admit`;
 const threeEvents = () =>
   json([
     evt('e-later', 'Holiday Gala', 48),
-    evt(EVENT_ID, 'Demo Tonight', 1),
+    // Spec 025: open for entry since an hour ago (doors at the start minus 1 hour).
+    { ...evt(EVENT_ID, 'Demo Tonight', 1), doorsOpenAt: iso(0), entryOpensAt: iso(-1) },
     evt('e-cancelled', 'Cancelled Gala', 24, 'CANCELLED'),
     evt('e-ended', 'Last Week', -50),
   ]);
