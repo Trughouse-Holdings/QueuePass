@@ -275,8 +275,12 @@ them in the light scheme; US2 fixes it).
   **Done**: with `body` pointed at the shared `--bg` for a moment, S6 failed (the audience line
   4.08:1 and the error text 4.16:1 over the light page color, and the page color check); restored to
   `--stone-base`, it passes (2.6–3.7 s locally).
-- [ ] T024 [US4] Mark S6 Automated in the Automation table. Quickstart S7 by hand: `--check` on
+- [x] T024 [US4] Mark S6 Automated in the Automation table. Quickstart S7 by hand: `--check` on
   T002's file passes; another PNG is refused; the notice reads right. Record it here.
+  **Done**: Keycloak's image fetched from a Keycloak built from this branch, as S7 step 1, has the
+  recorded SHA-256; `--check` on it reports the same pixels and `Source` chunk; another PNG is
+  refused, naming the SHA-256 expected; `NOTICE` names the source, its SHA-256, Red Hat, the Apache
+  License 2.0, and the change, with `LICENSE-keycloak.txt` beside it.
 
 ---
 
@@ -339,7 +343,7 @@ fallback, and the generator are unchanged.
 
 ## Phase 7: Polish, review, pull request
 
-- [ ] T025 README: the `027` status row (status and task count), a sentence in **Today** (the sign-in
+- [x] T025 README: the `027` status row (status and task count), a sentence in **Today** (the sign-in
   pages show Keycloak's stones with each app's color between them), a note under the shared look that
   the sign-in look's backdrop colors are `--stone-*` tokens, and the `stone-lines` command beside the
   Keycloak rebuild note; the constitution reference already reads v3.7.0.
