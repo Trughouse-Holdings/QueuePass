@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.16.0
+  version: 1.17.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -38,6 +38,20 @@ info:
     by any kind of code. A caller that leaves `doorsOpenAt` out of `createEvent` gets 1 hour before
     the start; an `updateEvent` that moves the start without it keeps the same time before the
     start. The doors-open time takes no part in the venue's 60-minute scheduling rule.
+
+    **Attempt limits** (feature 026): each customer account may have at most 10 attempts to buy
+    (`createOrder`) and, separately, 10 attempts to hold seats (`reserveSeats`) handled in any 60
+    seconds, and no more than 3 of each in any 5 seconds. An operation that counts says which
+    allowance in `x-attempt-limit` (`BUY` or `HOLD`). Every request to it from a signed-in customer
+    counts once it is past the token and role checks, whatever its outcome (placed, held, refused for
+    any other reason, malformed, or a repeated `requestId`); a request refused for the limit does not
+    count. An attempt over an allowance is refused with `429 RATE_LIMITED` before anything else is
+    checked or done, with the wait in whole seconds in `details.retryAfterSeconds` and in the
+    `Retry-After` header; after waiting that long, with no other attempt of that kind between, the
+    next one is not refused for the limit. Browser clients read `details.retryAfterSeconds`: the CORS
+    policy does not expose `Retry-After`. No caller or role is exempt; releasing seats and reading are
+    never limited. The numbers are the Backend's configuration (`RATE_LIMIT_PER_MINUTE`,
+    `RATE_LIMIT_PER_5_SECONDS`; defaults 10 and 3).
 
     **Errors**: every non-2xx response is an `ErrorEnvelope`. Branch on `error.code`, never on
     `error.message`.
@@ -214,6 +228,7 @@ paths:
         Releases every active reservation of the signed-in customer, for every event (feature
         015). The Customer app calls it when the customer logs out. Each released seat is open to
         others at once, and this customer can't reserve it again for 2 minutes. Safe to repeat.
+        Feature 026: never limited and never counted toward the attempt limits.
       operationId: releaseAllMyReservations
       x-required-roles: [customer]
       responses:
@@ -1117,8 +1132,14 @@ paths:
 
         There is no `tierId` in the request: the reservation's tier is the tier of the sections its
         seats are in (`null` for an event without tiers), and is returned as `tierId`.
+
+        Feature 026: a seat-hold attempt (`x-attempt-limit: HOLD`), new or adding seats, however
+        many seats it names. Over the caller's hold allowance it is refused with `429 RATE_LIMITED`
+        (`details.action: HOLD`) before any rule above is checked: no seat is reserved, and the
+        caller's active reservation keeps its seats and `expiresAt`.
       operationId: reserveSeats
       x-required-roles: [customer]
+      x-attempt-limit: HOLD
       requestBody:
         required: true
         content:
@@ -1140,6 +1161,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
 
   /events/{id}/reservation/release:
     parameters:
@@ -1156,7 +1178,8 @@ paths:
         015): the listed `seats`, or all of them when `seats` is omitted. Released seats are open
         to others at once, and this customer can't reserve them again for 2 minutes. The rest
         keep their `expiresAt`. A seat not in the reservation is `400`. With no active reservation,
-        nothing happens and `reservation` is `null`, so a repeat is harmless.
+        nothing happens and `reservation` is `null`, so a repeat is harmless. Feature 026: never
+        limited and never counted toward the attempt limits.
       operationId: releaseSeats
       x-required-roles: [customer]
       requestBody:
@@ -1234,8 +1257,14 @@ paths:
         contain no control characters; otherwise `400 HOLDER_NAME_INVALID` (`details.reason`).
         It cannot be changed after the order is placed. A repeated `requestId` must also name the
         same `holderName`.
+
+        Feature 026: a buy attempt (`x-attempt-limit: BUY`), a repeated `requestId` included. Over
+        the caller's buy allowance it is refused with `429 RATE_LIMITED` (`details.action: BUY`)
+        before any rule above is checked, so nothing is recorded and the caller's seat reservations
+        are unchanged; a later repeat of the same `requestId` is handled as above.
       operationId: createOrder
       x-required-roles: [customer]
+      x-attempt-limit: BUY
       requestBody:
         required: true
         content:
@@ -1259,6 +1288,7 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooManyAttempts' }
 
   /events/{id}/attendees:
     parameters:
@@ -2836,6 +2866,7 @@ components:
                 - LOCAL_TIME_SKIPPED
                 - UTC_OFFSET_MISMATCH
                 - DOORS_OPEN_OUT_OF_RANGE
+                - RATE_LIMITED
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -3144,6 +3175,41 @@ components:
                 error:
                   code: LIVE_CODE_INVALID
                   message: This is not a valid QueuePass code.
+
+    TooManyAttempts:
+      description: |
+        Feature 026. The caller's account is over its attempt allowance for this operation
+        (`x-attempt-limit`): 10 in any 60 seconds or 3 in any 5 seconds. Nothing was checked or
+        done, and this refusal does not count as an attempt. `details.action` is `BUY` or `HOLD`;
+        `details.retryAfterSeconds` (an integer, 1 to 60) is how long to wait, rounded up, and
+        `Retry-After` carries the same number; after that wait, with no other attempt of the same
+        kind between, the next attempt is not refused for the limit.
+      headers:
+        Retry-After:
+          description: Seconds to wait; the same as `details.retryAfterSeconds`.
+          schema: { type: integer, minimum: 1, maximum: 60, example: 3 }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          examples:
+            holdLimited:
+              summary: Too many seat-hold attempts in 5 seconds
+              value:
+                error:
+                  code: RATE_LIMITED
+                  message: Too many tries. You can try again in 3 seconds.
+                  details:
+                    action: HOLD
+                    retryAfterSeconds: 3
+            buyLimited:
+              summary: Too many buy attempts in a minute
+              value:
+                error:
+                  code: RATE_LIMITED
+                  message: Too many tries. You can try again in 47 seconds.
+                  details:
+                    action: BUY
+                    retryAfterSeconds: 47
 
     Conflict:
       description: |

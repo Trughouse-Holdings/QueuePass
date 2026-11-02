@@ -72,6 +72,9 @@ export const ERROR_CODES = [
   // Spec 025: an event's doors-open time more than 6 hours before its start, or after it. Added
   // ahead of the implementation, so the list matches the contract.
   'DOORS_OPEN_OUT_OF_RANGE',
+  // Spec 026: an account over its allowance of buy or seat-hold attempts (429). Added ahead of the
+  // implementation, so the list matches the contract.
+  'RATE_LIMITED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

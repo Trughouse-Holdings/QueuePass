@@ -132,6 +132,7 @@ export interface paths {
          * @description Releases every active reservation of the signed-in customer, for every event (feature
          *     015). The Customer app calls it when the customer logs out. Each released seat is open to
          *     others at once, and this customer can't reserve it again for 2 minutes. Safe to repeat.
+         *     Feature 026: never limited and never counted toward the attempt limits.
          */
         post: operations["releaseAllMyReservations"];
         delete?: never;
@@ -719,6 +720,11 @@ export interface paths {
          *
          *     There is no `tierId` in the request: the reservation's tier is the tier of the sections its
          *     seats are in (`null` for an event without tiers), and is returned as `tierId`.
+         *
+         *     Feature 026: a seat-hold attempt (`x-attempt-limit: HOLD`), new or adding seats, however
+         *     many seats it names. Over the caller's hold allowance it is refused with `429 RATE_LIMITED`
+         *     (`details.action: HOLD`) before any rule above is checked: no seat is reserved, and the
+         *     caller's active reservation keeps its seats and `expiresAt`.
          */
         post: operations["reserveSeats"];
         delete?: never;
@@ -745,7 +751,8 @@ export interface paths {
          *     015): the listed `seats`, or all of them when `seats` is omitted. Released seats are open
          *     to others at once, and this customer can't reserve them again for 2 minutes. The rest
          *     keep their `expiresAt`. A seat not in the reservation is `400`. With no active reservation,
-         *     nothing happens and `reservation` is `null`, so a repeat is harmless.
+         *     nothing happens and `reservation` is `null`, so a repeat is harmless. Feature 026: never
+         *     limited and never counted toward the attempt limits.
          */
         post: operations["releaseSeats"];
         delete?: never;
@@ -816,6 +823,11 @@ export interface paths {
          *     contain no control characters; otherwise `400 HOLDER_NAME_INVALID` (`details.reason`).
          *     It cannot be changed after the order is placed. A repeated `requestId` must also name the
          *     same `holderName`.
+         *
+         *     Feature 026: a buy attempt (`x-attempt-limit: BUY`), a repeated `requestId` included. Over
+         *     the caller's buy allowance it is refused with `429 RATE_LIMITED` (`details.action: BUY`)
+         *     before any rule above is checked, so nothing is recorded and the caller's seat reservations
+         *     are unchanged; a later repeat of the same `requestId` is handled as above.
          */
         post: operations["createOrder"];
         delete?: never;
@@ -1957,7 +1969,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -2192,6 +2204,24 @@ export interface components {
          */
         EntryNotFound: {
             headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /**
+         * @description Feature 026. The caller's account is over its attempt allowance for this operation
+         *     (`x-attempt-limit`): 10 in any 60 seconds or 3 in any 5 seconds. Nothing was checked or
+         *     done, and this refusal does not count as an attempt. `details.action` is `BUY` or `HOLD`;
+         *     `details.retryAfterSeconds` (an integer, 1 to 60) is how long to wait, rounded up, and
+         *     `Retry-After` carries the same number; after that wait, with no other attempt of the same
+         *     kind between, the next attempt is not refused for the limit.
+         */
+        TooManyAttempts: {
+            headers: {
+                /** @description Seconds to wait; the same as `details.retryAfterSeconds`. */
+                "Retry-After"?: number;
                 [name: string]: unknown;
             };
             content: {
@@ -3134,6 +3164,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyAttempts"];
         };
     };
     releaseSeats: {
@@ -3209,6 +3240,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyAttempts"];
         };
     };
     listAttendees: {
