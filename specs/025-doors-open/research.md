@@ -44,9 +44,12 @@ must now keep the column valid, all in Backend tests, updated in the implementat
   window never opens and the retry test fails). Each sets `"doorsOpenAt"` in the same statement
   (`"doorsOpenAt" = "doorsOpenAt" - interval '1 minute'`, or, for an absolute new start, the new
   start minus the event's gap). An implementer finding another such write applies the same rule.
-- The raw inserts of `backend/test/integration/migration.time-zones.e2e-spec.ts` run on a database
-  migrated only up to before `020`, so they need no column; any later migrations it deploys
-  backfill them.
+- `backend/test/integration/migration.time-zones.e2e-spec.ts` (found by the implementation): its
+  copy of `prisma/` leaves out only `020`'s migration, so its first deploy also applied every later
+  one, `doors_open` included, and its raw inserts then failed `NOT NULL`. Its copy now leaves out
+  `020`'s migration **and every later one**, so the inserts run on the database as it was before
+  `020` and the second deploy backfills them; its last insert ("still refuses an overlapping
+  insert at once"), which runs after every migration, gives `"doorsOpenAt"`.
 
 The same task also gives `EventsService.updateLocked` R4's keep-the-gap rule for an update that moves
 the start without sending doors (the rest of R4, sent doors and their checks, comes with US1), and
