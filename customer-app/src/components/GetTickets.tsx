@@ -27,7 +27,9 @@ import { SeatPicker, type ChosenSeat } from './SeatPicker';
 
 type Phase =
   | { kind: 'choosing' }
-  | { kind: 'confirming' }
+  // `checking`: Check again from the unknown outcome, which keeps its banner mounted meanwhile, so
+  // the banner (an alert) is not announced again (spec 026, independent review M2).
+  | { kind: 'confirming'; checking?: boolean }
   | { kind: 'done'; order: Order }
   // No answer, or a server error: the order may or may not exist (spec 006 edge cases).
   | { kind: 'unknown' };
@@ -41,13 +43,11 @@ const placeKey = (s: { sectionId: string; row: number; seat: number }): string =
 
 /**
  * Spec 026 (research R6): a wait out of a refusal for the limit. `deadline` is by this browser's
- * monotonic clock, from the Backend's seconds; `left` is the N shown; `first` is the message as it
- * was at the refusal, announced once.
+ * monotonic clock, from the Backend's seconds; `left` is the N shown.
  */
 interface Wait {
   deadline: number;
   left: number;
-  first: string;
 }
 type Waits = Partial<Record<RateLimitedAction, Wait>>;
 
@@ -59,20 +59,16 @@ function limitedFor(response: Response, error: ErrorEnvelope | undefined): numbe
 }
 
 /**
- * Spec 026 FR-011, FR-013: the countdown, not announced each second (aria-live off), after a
- * visually hidden alert that holds the first message only, so a screen reader hears it once. The
- * countdown comes last, directly above the button it explains.
+ * Spec 026 FR-011, FR-013: the countdown, directly above the button it explains, not announced
+ * each second (aria-live off). The refusal is announced once, by the component's one live region,
+ * not here: this may unmount and mount again during a wait (seats released and held again), and
+ * an alert of its own would then be said again (independent review, M2, M3).
  */
 function WaitMessage({ wait }: { wait: Wait }) {
   return (
-    <>
-      <span role="alert" className="visually-hidden">
-        {wait.first}
-      </span>
-      <p className="banner banner--error" aria-live="off">
-        {rateLimitMessage(wait.left)}
-      </p>
-    </>
+    <p className="banner banner--error" aria-live="off">
+      {rateLimitMessage(wait.left)}
+    </p>
   );
 }
 
@@ -179,6 +175,17 @@ export function GetTickets({ event }: { event: Event }) {
     return () => clearInterval(timer);
   }, [waiting]);
 
+  // FR-013 (independent review M2, M3): what the one live region says: the message of the latest
+  // refusal for the limit, as it was then, kept until that wait ends, so it is said once however
+  // often the countdown above its button unmounts and mounts again.
+  const [announcement, setAnnouncement] = useState<{
+    kind: RateLimitedAction;
+    text: string;
+  } | null>(null);
+  useEffect(() => {
+    if (announcement && !waits[announcement.kind]) setAnnouncement(null);
+  }, [waits, announcement]);
+
   // FR-013: a button natively disabled while confirming may have lost focus to the page; once
   // it is back, focus returns to it. A layout effect, so focus moves in the same commit that shows
   // the wait, never a frame later.
@@ -195,11 +202,11 @@ export function GetTickets({ event }: { event: Event }) {
     seconds: number,
     pressed: RefObject<HTMLButtonElement | null>,
   ): void => {
-    const first = rateLimitMessage(seconds);
     setWaits((all) => ({
       ...all,
-      [kind]: { deadline: performance.now() + seconds * 1000, left: seconds, first },
+      [kind]: { deadline: performance.now() + seconds * 1000, left: seconds },
     }));
+    setAnnouncement({ kind, text: rateLimitMessage(seconds) });
     const active = document.activeElement;
     if (active === null || active === document.body) refocus.current = pressed;
   };
@@ -546,7 +553,7 @@ export function GetTickets({ event }: { event: Event }) {
         : seated
           ? confirmPurchaseButton
           : confirmOrderButton;
-    setPhase({ kind: 'confirming' });
+    setPhase({ kind: 'confirming', checking: phase.kind === 'unknown' });
     // Spec 015 FR-006: a seated order buys the reserved seats.
     const buying = seated ? mine : [];
     try {
@@ -622,6 +629,18 @@ export function GetTickets({ event }: { event: Event }) {
   return (
     <section className="card card--padded get-tickets" aria-labelledby="get-tickets">
       <h2 id="get-tickets">Get tickets</h2>
+      {/* Spec 026 FR-013 (independent review M2, M3): the one live region for refusals for the
+          limit, always mounted, so each refusal is said once, when its text is set, and never
+          again while that wait runs. An assertive region rather than role="alert", so it is not
+          one of the page's alerts while it is empty. */}
+      <p
+        className="visually-hidden"
+        aria-live="assertive"
+        aria-atomic="true"
+        data-announces="rate-limit"
+      >
+        {announcement?.text}
+      </p>
       {/* Spec 008 FR-005: the lowest tier price, compared in whole cents. */}
       {tierList.length > 0 && (
         <p className="price">{`From ${usd(
@@ -644,7 +663,7 @@ export function GetTickets({ event }: { event: Event }) {
           minutes if they are still open.
         </p>
       )}
-      {phase.kind === 'unknown' ? (
+      {phase.kind === 'unknown' || (phase.kind === 'confirming' && phase.checking) ? (
         <div role="alert" className="banner banner--conflict">
           <div className="banner__body">
             <p>We couldn&apos;t confirm whether your order went through.</p>

@@ -74,7 +74,7 @@ applies to `BUY` and `HOLD`, each counted separately. Window lengths (60 s, 5 s)
 | `waits` | `{ BUY: number \| null; HOLD: number \| null }`, `performance.now()` deadlines | Set from `retryAfterSeconds` on a `429 RATE_LIMITED`; cleared when it passes (research R6) |
 | seconds left | per kind, ticked every 250 ms | The shown N; at 0 the message goes and the kind's buttons are enabled |
 | button state | per kind | While waiting: `aria-disabled="true"`, clicks ignored, focus kept (and moved back to the pressed button if it had gone to `body` while confirming) (research R6) |
-| first message | per kind | The `role="alert"` text, fixed at the refusal, so it is announced once |
+| announcement | one, `{ kind, text } \| null` | The one live region's text (`aria-live="assertive"`): the latest refusal's message, fixed at the refusal, emptied when that kind's wait ends, so each refusal is announced once (research R6; review M2, M3) |
 
 Nothing else in the app's state changes on a refusal for the limit: picks, the reservation and its
 countdown, the holder's name, the quantity, the tier, and `requestId` are kept.

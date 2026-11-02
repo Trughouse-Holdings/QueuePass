@@ -263,9 +263,16 @@ FR-014), in `customer-app/src/components/GetTickets.tsx`:
 - **The message**: `rateLimitMessage(secondsLeft)` in a `p.banner.banner--error` placed directly
   above the disabled button: above **Reserve seats**; above **Confirm order**; inside **Reserved for
   you** above **Confirm purchase**; inside the unknown-outcome banner above **Check again**. The
-  visible text has `aria-live="off"` (as `015`'s `role="timer"`), and a `.visually-hidden` `role="alert"`
-  element next to it holds the first message only (the N at the moment of refusal) and is not changed
-  by the ticks, so a screen reader hears it once (FR-013). At 0 both are removed.
+  visible text has `aria-live="off"` (as `015`'s `role="timer"`). The announcement is made by **one**
+  `.visually-hidden` live region (`aria-live="assertive"`, `aria-atomic`) at the top of Get tickets,
+  always mounted: at a refusal it is given the first message (the N at that moment), which the ticks
+  never change, and it is emptied when that wait ends, so a screen reader hears each refusal once
+  (FR-013). Not an alert beside each countdown, as first planned (independent review M2, M3): a
+  countdown unmounts and mounts again during a wait (Confirm purchase goes when seats are released
+  and comes back when they are held again), and its own alert would then be said again. For the
+  same reason the unknown-outcome banner (itself an alert) stays mounted while Check again is
+  sent, instead of giving way to the form, so it is not announced again either. At 0 the countdown
+  is removed.
 - **A reload** loses the waits: the buttons are enabled, and a press before the wait ends is refused
   again with the seconds left (spec US2-6).
 

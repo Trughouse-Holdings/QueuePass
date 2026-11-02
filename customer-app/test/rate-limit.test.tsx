@@ -342,7 +342,7 @@ describe('a buy refused as too many tries (US2-3, US2-4; FR-011, FR-012)', () =>
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Confirm purchase' })).toBeNull(),
     );
-    expect(screen.queryByText(/^Too many tries/)).toBeNull();
+    expect(document.querySelector('p[aria-live="off"].banner')).toBeNull();
 
     // Hold again within the wait: Confirm purchase comes back waiting, shown but not said again.
     await advance(1_000);
