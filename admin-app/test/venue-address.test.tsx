@@ -25,6 +25,8 @@ const verified: Location = {
   state: 'KY',
   zip: '40507',
   addressVerified: true,
+  timeZone: 'America/New_York',
+  timeZoneSource: 'ADDRESS',
   seatingCapacity: 20500,
   createdAt: '2026-10-11T12:00:00.000Z',
   updatedAt: '2026-10-11T12:00:00.000Z',

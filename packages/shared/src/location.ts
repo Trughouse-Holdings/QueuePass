@@ -81,12 +81,11 @@ export interface Location {
   /** Spec 013 FR-020: the address service matched this address. */
   addressVerified: boolean;
   /**
-   * Spec 020 FR-001, FR-007: the venue's time zone and how it was set. Always sent; optional here
-   * only until the contract's follow-up makes them required (research R18). A client treats a
-   * missing zone as `DEFAULT_TIME_ZONE`.
+   * Spec 020 FR-001, FR-007: the venue's time zone and how it was set. Always sent, and required
+   * as in the contract since 1.14.0 (research R18; made required here in #36's review).
    */
-  timeZone?: UsTimeZone;
-  timeZoneSource?: TimeZoneSource;
+  timeZone: UsTimeZone;
+  timeZoneSource: TimeZoneSource;
   seatingCapacity: number;
   createdAt: string;
   updatedAt: string;
