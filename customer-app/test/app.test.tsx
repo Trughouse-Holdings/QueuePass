@@ -117,10 +117,8 @@ describe('Customer app changes no venue, event, or tier (spec 003 US3-1; spec 00
     expect(changeLinks).toHaveLength(0);
     // Spec 017 FR-001: the one text field is the buyer's name for their own order, which
     // changes no venue, event, or tier.
-    const textboxes = screen
-      .queryAllByRole('textbox')
-      .filter((t) => (t as HTMLInputElement).labels?.[0]?.textContent !== 'Name on tickets');
-    expect(textboxes).toHaveLength(0);
+    const nameField = screen.queryByRole('textbox', { name: 'Name on tickets' });
+    expect(screen.queryAllByRole('textbox').filter((t) => t !== nameField)).toHaveLength(0);
     expect(calls.length).toBeGreaterThan(0);
     expect(calls.every((c) => c.method === 'GET')).toBe(true);
   });
