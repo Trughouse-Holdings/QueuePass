@@ -50,8 +50,9 @@ Every other question below took the recommended answer, written unattended and r
   FR-002).
 - Q: Tint the whole image in the app's accent, or color only the lines between the stones? → A:
   **The stones stay grey; only the lines between them take the app's accent**: Admin the shared
-  accent (indigo), Tickets its teal, Ticket Booth its amber, from the shared theme's accent tokens.
-  Both were previewed; the lines were chosen (decided by Mahdi) (FR-003).
+  accent (indigo), Tickets its teal, Ticket Booth its amber, from the shared theme. Both were
+  previewed; the lines were chosen (decided by Mahdi) (FR-003). The shade of the accent is settled
+  below (spec review).
 - Q: Keep the card behind the form? → A: **No card.** The form sits straight on the stones with
   light text, like Keycloak's original page (decided by Mahdi) (FR-004).
 - Q: What stays from `021`? → A: **All of it**: the app's name as the one top-level heading and in
@@ -60,11 +61,13 @@ Every other question below took the recommended answer, written unattended and r
   Mahdi) (FR-005, FR-008).
 - Q: How do text and controls stay readable over the stones? → A: **A darkening shade behind the
   column the form sits in**, strong enough that the contrast targets hold over the lightest stone
-  and the brightest line the page can show, fading out towards the sides of a wide window so the
-  stones and lines beside the form show at full strength. The shade has no edge, border, or box, so
-  it is not a card (recommended answer, open to review) (FR-004, FR-006).
+  and the brightest line the page can show, fading out over a fixed width on each side, so that on
+  a window 800 px wide or wider the stones and lines beyond the fade show at full strength. The
+  shade has no edge, border, or box, so it is not a card (recommended answer, open to review)
+  (FR-004, FR-006).
 - Q: Which contrast targets, and where? → A: **WCAG 2.1 AA everywhere the form can sit**: 4.5:1 for
-  every piece of text, and 3:1 for each text field's boundary and each focus ring, against the
+  every piece of text, and 3:1 for each text field's boundary and the focus ring of every control
+  (text fields, Show, Sign In, links), against the
   lightest and the darkest point of the background behind them, at every window size, in light and
   dark schemes (recommended answer, open to review) (FR-006, SC-002).
 - Q: Light and dark schemes? → A: **The background is dark in both**, so the text on it is light in
@@ -73,16 +76,25 @@ Every other question below took the recommended answer, written unattended and r
 - Q: The light scheme's accents are dark (indigo, teal, amber at their light-scheme shades); a focus
   ring in them is too dark against the darkest stones. → A: **Focus rings drawn over the stones use
   the app's accent in its lighter shade** (the dark scheme's value) in both schemes. The Sign In
-  button and the lines between the stones keep the scheme's accent (recommended answer, open to
-  review) (FR-006).
-- Q: Keep `021`'s accent band at the top and the brand mark? → A: **Yes**, unchanged (`021`
-  FR-006); the issue does not ask to drop them (recommended answer, open to review).
+  button keeps the scheme's accent (recommended answer, open to review) (FR-006).
 - Q: What if the stones cannot be shown (Keycloak stops shipping the image, or it fails to load)? →
-  A: **The page is a plain dark stone grey with the same light text**, still meeting the contrast
-  targets; a test catches a changed or missing image (recommended answer, open to review) (FR-009,
-  FR-010).
+  A: **The page is a plain dark stone grey, with the lines still drawn under the shade and the same
+  light text**, still meeting the contrast targets; a test catches a changed or missing image
+  (recommended answer, open to review) (FR-009, FR-010).
 - Q: Does anything move? → A: **No.** The background is still: no animation, no parallax
   (recommended answer, open to review) (FR-013).
+
+### Session 2026-11-02 (spec review)
+
+The independent review of the spec branch raised two questions for Mahdi; he decided both.
+
+- Q: Keep `021`'s accent band at the top and the brand mark? → A: **Yes**, unchanged (`021`
+  FR-006) (decided by Mahdi).
+- Q: In which shade of the accent are the lines drawn? → A: **Always the app's accent in its lighter
+  shade** (the dark scheme's value: indigo `#8b85f5`, teal `#2dd4bf`, amber `#fbbf24`), in both
+  schemes, the same shade as the focus rings on the stones. The backdrop is then truly the same in
+  both schemes (FR-007), and the light scheme's darker accents, which barely show on the near-black
+  stones, are not used on it (decided by Mahdi) (FR-003).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -144,8 +156,8 @@ background behind it, and sign in with the keyboard only.
    sideways scrolling and every control is usable.
 5. **Given** a wrong password, **When** the page comes back, **Then** the message is shown on the
    stones in a readable color and read out by assistive technology, as in `021`.
-6. **Given** a wide window, **When** the page opens, **Then** the stones and lines beside the form
-   show at full strength; only the column behind the form is darkened.
+6. **Given** a window 800 px wide or wider, **When** the page opens, **Then** the stones and lines
+   beyond the shade's fade show at full strength; only the column behind the form is darkened.
 
 ---
 
@@ -202,9 +214,9 @@ for the image; read the derived image's notice.
 
 ### Edge Cases
 
-- **The stones image cannot be loaded** (a Keycloak upgrade drops it, the request fails, or the
-  browser blocks images): the page is a plain dark stone grey; the lines are not drawn; every text
-  and control still meets FR-006 (FR-009).
+- **The stones image cannot be loaded** (a Keycloak upgrade drops it, or the request fails): the
+  page is a plain stone grey, with the lines still drawn on it under the shade; every text and
+  control still meets FR-006 (FR-009).
 - **A browser that cannot draw the colored lines**: the stones show without lines; nothing else
   changes, and readability does not depend on the lines.
 - **Very wide, very tall, or portrait windows** (a 2560 px monitor, a phone held upright): the stones
@@ -212,9 +224,11 @@ for the image; read the derived image's notice.
   size (FR-003).
 - **A page longer than the window** (a small phone, browser zoom): the stones stay put behind the
   page while it scrolls; the text stays readable all the way down (FR-006).
-- **Browser zoom up to 400%**: as a narrower window; no sideways scrolling at 320 CSS px (FR-008).
-- **Windows high-contrast (forced colors) mode**: the browser drops the background; the page uses the
-  system's colors and stays usable.
+- **Browser zoom up to 400%** (a 1440 px window at 400% is 360 CSS px wide): as a narrower
+  window; no sideways scrolling at 360 CSS px (FR-008).
+- **Windows high-contrast (forced colors) mode**: the sign-in look hides the whole backdrop (some
+  browsers, Chromium among them, keep image backgrounds in that mode); the page uses the system's
+  colors and stays usable.
 - **Keycloak's admin console, and the account console after sign-in**: not changed.
 - **A client with no accent of its own**: the shared accent in the lines, as `021` FR-008.
 
@@ -229,13 +243,14 @@ for the image; read the derived image's notice.
 - **FR-002**: The stones image MUST be the one Keycloak itself ships and serves. The repository MUST
   NOT hold a copy of it.
 - **FR-003**: The stones MUST stay grey. The lines between the stones MUST be drawn in the app's
-  accent: the shared accent for the Admin app and for pages with no QueuePass app, the Tickets accent
-  for the Customer app, the Ticket Booth accent for the Ticket Booth app, all from the shared theme.
-  The lines MUST sit on the edges between the stones at every window size and shape.
+  accent, in its lighter shade (the dark scheme's) in both schemes: the shared accent for the Admin
+  app and for pages with no QueuePass app, the Tickets accent for the Customer app, the Ticket Booth
+  accent for the Ticket Booth app, all from the shared theme. The lines MUST sit on the edges between
+  the stones at every window size and shape.
 - **FR-004**: There MUST be no card: no box, panel, border, or rounded surface behind the form. The
   form's heading, text, and labels sit directly on the stones. A shade that darkens the stones behind
-  the form, with no visible edge, is allowed, and MUST leave the stones and lines beside the form at
-  full strength on a window wider than the form's column.
+  the form, with no visible edge, is allowed. It MUST fade out over a fixed width, and on a window
+  800 px wide or wider it MUST leave the stones and lines beyond that fade at full strength.
 - **FR-005**: Everything `021` requires of the sign-in pages MUST still hold, except the card and the
   flat page color this feature replaces: the app's name as the one top-level heading and in the tab
   title (`021` FR-001, FR-002), the audience line (FR-005), the accent on the band, the brand mark,
@@ -247,7 +262,8 @@ for the image; read the derived image's notice.
   (the lightest stone and the brightest line color the page can show, both under any shade):
   every piece of text (the heading, the audience line, the page's own header, labels, page text,
   links, the required-fields note, and the wrong-password message) MUST meet 4.5:1; each text
-  field's boundary MUST meet 3:1; and each focus ring MUST meet 3:1. Text inside a control or a
+  field's boundary MUST meet 3:1; and the focus ring of every control (each text field, Show, Sign
+  In, and each link) MUST meet 3:1. Text inside a control or a
   notice keeps `021`'s rule (4.5:1 against that control's or notice's own color).
 - **FR-007**: The background and the text drawn on it MUST be the same in light and dark schemes
   (dark background, light text). The controls (text fields, buttons, notices) MUST follow the
@@ -256,11 +272,13 @@ for the image; read the derived image's notice.
   the username field, keep a visible focus, be fully usable by keyboard, and announce errors to
   assistive technology (`021` FR-012).
 - **FR-009**: When the stones image cannot be shown, the page MUST show a plain dark stone-grey
-  background instead and still meet FR-006 and FR-008.
-- **FR-010**: Any image QueuePass derives from Keycloak's (the lines between the stones) MUST carry
-  Keycloak's Apache 2.0 license notice and say what was changed, and the repository MUST hold the
-  steps to make it again from Keycloak's image, giving the same result. A test MUST fail when the
-  image Keycloak serves is no longer the one the lines were made from.
+  background instead (the lines may still be drawn on it, under the shade) and still meet FR-006 and
+  FR-008.
+- **FR-010**: Any image QueuePass derives from Keycloak's (the lines between the stones) MUST ship
+  with Keycloak's Apache 2.0 license and a notice saying what it came from and what was changed, and
+  the repository MUST hold the steps to make it again from Keycloak's image, giving the same result:
+  identical pixels and the same metadata. A test MUST fail when the image Keycloak serves is no
+  longer the one the lines were made from.
 - **FR-011**: The new look MUST ship in the repository and be applied when the stack starts from a
   clean clone or is restarted with the documented command, with no manual step (`021` FR-009,
   Constitution II).
@@ -273,13 +291,13 @@ for the image; read the derived image's notice.
 - **Stones image**: Keycloak's stock low-poly background, grey, served by Keycloak from its own
   theme. Not in the repository.
 - **Lines image**: an image QueuePass derives from the stones image, marking where the edges between
-  the stones are, so they can be drawn in the app's accent. In the repository, with Keycloak's
-  license notice and the steps that made it.
+  the stones are, so they can be drawn in the app's accent. In the repository, beside Keycloak's
+  license and a notice, with the steps that made it.
 - **Sign-in backdrop**: what is behind the form: the stones, the lines in the app's accent, and the
   shade behind the form's column; with a plain stone grey under them for when the image is missing.
 - **Backdrop colors**: the colors the sign-in look draws on the backdrop (its light text, its muted
-  text, its error text, its field edge, the lighter accent for focus rings, the shade, the stone
-  grey), held in the shared theme beside `021`'s accents.
+  text and field edge, its error text, the lighter accent for the lines and focus rings, the shade,
+  the stone grey), held in the shared theme beside `021`'s accents.
 
 ## Success Criteria *(mandatory)*
 
@@ -290,12 +308,13 @@ for the image; read the derived image's notice.
 - **SC-002**: An automated check of the rendered pages, for the three apps, in light and dark
   schemes, at no fewer than five window sizes (360×800, 768×1024, 1280×800, 1920×1080, 2560×1440),
   on the first page and after a wrong password, finds every text at 4.5:1 or more and every text
-  field boundary and focus ring at 3:1 or more against the background behind it: 0 failures.
+  field boundary and every control's focus ring at 3:1 or more against the background behind it: 0
+  failures; and at 1920×1080 the backdrop beyond the shade's fade is the unshaded stones.
 - **SC-003**: At 360 px wide, no sign-in page scrolls sideways, and signing in with the keyboard only
   takes the same steps as before (`021` SC-006).
-- **SC-004**: The repository holds no file identical to Keycloak's stones image, and the derived
-  lines image carries Keycloak's license notice; regenerating it from Keycloak's image gives the
-  same file.
+- **SC-004**: The repository holds no file identical to Keycloak's stones image; the derived lines
+  image ships beside Keycloak's license and a notice; regenerating it from Keycloak's image gives
+  identical pixels and the same metadata.
 - **SC-005**: With the stones image blocked, the same check as SC-002 finds 0 failures.
 - **SC-006**: Shown the three sign-in pages with the app names covered, a tester still matches each
   to its app within 5 seconds per page, 3 of 3 (`021` SC-002).
