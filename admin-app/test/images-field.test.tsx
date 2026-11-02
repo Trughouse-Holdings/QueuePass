@@ -184,6 +184,16 @@ const choose = (...files: File[]) =>
 const items = () =>
   within(screen.getByRole('group', { name: 'Images' })).queryAllByRole('listitem');
 
+/**
+ * Issue #118: `count` items, each with its preview. A new picture's row appears first; its preview
+ * (a blob: URL) is set in an effect after, so waiting for the rows alone raced the previews.
+ */
+const previewsShown = (count: number) =>
+  vi.waitFor(() => {
+    expect(items()).toHaveLength(count);
+    items().forEach((item, i) => within(item).getByRole('img', { name: `Image ${i + 1}` }));
+  });
+
 const editLoaded = async (count: number) => {
   await screen.findByRole('heading', { name: 'Edit event' });
   await vi.waitFor(() => expect(screen.getByLabelText('Event name')).toHaveValue('Season Opener'));
@@ -212,7 +222,7 @@ describe('the Images control', () => {
     await screen.findByRole('group', { name: 'Images' });
     choose(pngFile('a.png'), jpegFile('b.jpg'), webpFile('c.webp'));
 
-    await vi.waitFor(() => expect(items()).toHaveLength(3));
+    await previewsShown(3);
     items().forEach((item, i) => {
       const img = within(item).getByRole('img', { name: `Image ${i + 1}` });
       expect(img.getAttribute('src')).toMatch(/^blob:/);
@@ -409,7 +419,7 @@ describe('saving', () => {
     const view = renderAt(`/events/${ID}/edit`);
     await editLoaded(0);
     choose(pngFile('a.png'), pngFile('b.png'));
-    await vi.waitFor(() => expect(items()).toHaveLength(2));
+    await previewsShown(2);
     const thumb = () => within(items()[0]!).getByRole('img', { name: 'Image 1' });
     const before = thumb().getAttribute('src');
     expect(before).toMatch(/^blob:/);
@@ -798,7 +808,7 @@ describe('previews show the whole picture (FR-041)', () => {
     renderAt('/events/new');
     await screen.findByRole('group', { name: 'Images' });
     choose(pngFile('a.png'));
-    await vi.waitFor(() => expect(items()).toHaveLength(1));
+    await previewsShown(1);
     const img = within(items()[0]!).getByRole('img', { name: 'Image 1' });
     expect(img.tagName).toBe('IMG');
     expect(img).toHaveClass('image-item__thumb', 'image-item__thumb--loading');
