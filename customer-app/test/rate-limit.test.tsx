@@ -4,6 +4,7 @@ import type { Reservation, SeatMap } from '@queuepass/shared';
 import {
   availability,
   event,
+  fakeClock,
   json,
   order,
   renderCustomer,
@@ -90,11 +91,6 @@ const losingFocus = (reply: Response): (() => Response) => {
   };
 };
 
-const fakeClock = () =>
-  vi.useFakeTimers({
-    shouldAdvanceTime: true,
-    toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'performance', 'Date'],
-  });
 const advance = (ms: number) => act(async () => vi.advanceTimersByTimeAsync(ms));
 const button = (name: string) => screen.getByRole('button', { name });
 const seatButton = (row: number, seat: number) =>

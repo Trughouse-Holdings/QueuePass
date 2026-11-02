@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { availableParallelism } from 'node:os';
 
 const shared = (p: string): string =>
   new URL(`../packages/shared/src/${p}`, import.meta.url).pathname;
@@ -11,6 +12,11 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./test/setup.ts'],
     include: ['test/**/*.test.tsx', 'test/**/*.test.ts'],
+    // Issue #118 (spec 010 research R7): at most 4 test workers. Vitest's default is one per CPU
+    // thread less one (15 on a 16-thread laptop), each its own jsdom process. Two suites at once
+    // then ran 30 of them, memory ran short, and a worker paged out for seconds
+    // missed the 5 s test timeout (a 20 ms test reported at 10 s). CI's 4-CPU runner uses 3.
+    maxWorkers: Math.max(1, Math.min(4, availableParallelism() - 1)),
     // Spec 011 research R10: npm test measures line coverage of this workspace's own source;
     // coverage/coverage-summary.json feeds scripts/coverage-report.mjs (R11). Constitution VI
     // floor (spec 010 research R1): the run fails when this workspace is below 80% of lines.

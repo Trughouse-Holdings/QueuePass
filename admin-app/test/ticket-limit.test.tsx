@@ -117,6 +117,8 @@ describe('event form: Tickets per customer', () => {
     at(`/events/${EVENT.id}/edit`, '/events/:id/edit', <EventForm />);
 
     await vi.waitFor(() => expect(limitField()).toHaveValue(4));
+    // Issue #118: the ticket types are a separate request from the event.
+    await screen.findByLabelText('Ticket type 1 name');
     setLimit('');
     fireEvent.change(screen.getByLabelText('Ticket type 1 name'), { target: { value: 'General' } });
     fireEvent.change(screen.getByLabelText('Ticket type 1 price'), { target: { value: '10.00' } });
@@ -166,6 +168,9 @@ describe('event form: Tickets per customer', () => {
     });
     at(`/events/${EVENT.id}/edit`, '/events/:id/edit', <EventForm />);
 
+    // Issue #118: the event (its limit, name, and times) and the ticket types load separately;
+    // a limit typed before the event arrived would be overwritten by the stored one.
+    await vi.waitFor(() => expect(screen.getByLabelText('Event name')).toHaveValue(EVENT.name));
     fireEvent.click(await screen.findByLabelText('Reserved seating'));
     setLimit('120');
     submit(/Save changes/);
