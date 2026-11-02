@@ -111,16 +111,36 @@ const posts = (calls: { method: string; path: string; body: unknown }[], path: s
   calls.filter((c) => c.method === 'POST' && c.path === path);
 const message = (seconds: number) =>
   `Too many tries. You can try again in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`;
-/** The visible countdown: not the one-time alert, which keeps its first text. */
+/** The visible countdown, which is not a live region (aria-live off). */
 const countdown = () =>
   screen.getByText(
     (_, el) =>
       el?.tagName === 'P' &&
       /^Too many tries/.test(el.textContent ?? '') &&
-      el.getAttribute('role') !== 'alert',
+      el.getAttribute('aria-live') === 'off',
   );
-const refusalAlerts = () =>
-  screen.queryAllByRole('alert').filter((a) => /^Too many tries/.test(a.textContent ?? ''));
+/** FR-013 (review M2, M3): the one live region that announces a refusal for the limit. */
+const announcer = (): HTMLElement => {
+  const all = document.querySelectorAll<HTMLElement>('[data-announces="rate-limit"]');
+  expect(all).toHaveLength(1);
+  return all[0];
+};
+/**
+ * Every text the live region is given while the test runs: each is one announcement. Attached once
+ * the page has loaded, as the region stays mounted from then on.
+ */
+const watchAnnouncements = (): string[] => {
+  const said: string[] = [];
+  const region = announcer();
+  new MutationObserver(() => {
+    const text = region.textContent ?? '';
+    if (text !== '' && text !== said.at(-1)) said.push(text);
+  }).observe(region, { childList: true, characterData: true, subtree: true });
+  return said;
+};
+/** No alert anywhere else says it: the banners' own alerts never carry it (review M2). */
+const otherAlerts = () =>
+  screen.queryAllByRole('alert').filter((a) => /Too many tries/.test(a.textContent ?? ''));
 
 describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013)', () => {
   it('counts down above Reserve seats, keeps everything, then lets the customer try again', async () => {
@@ -145,6 +165,7 @@ describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013)', ()
     renderCustomer({ at: '/events/e1' });
 
     fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+    const said = watchAnnouncements();
     await typeHolderName();
     fireEvent.click(seatButton(1, 1));
     fireEvent.click(button('Reserve seats'));
@@ -174,19 +195,20 @@ describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013)', ()
     fireEvent.keyDown(reserve, { key: 'Enter' });
     expect(posts(calls, '/events/e1/reservation')).toHaveLength(2);
 
-    // Announced once: one alert, whose text stays the first N; the countdown is not live.
-    expect(refusalAlerts()).toHaveLength(1);
-    expect(refusalAlerts()[0]).toHaveTextContent(message(3));
+    // Announced once, by the one live region, which keeps the first N; the countdown is not live.
+    expect(announcer()).toHaveTextContent(message(3));
+    expect(otherAlerts()).toHaveLength(0);
     expect(countdown().closest('[aria-live]')).toHaveAttribute('aria-live', 'off');
 
     await advance(1_000);
     expect(countdown()).toHaveTextContent(message(2));
     await advance(1_000);
     expect(countdown()).toHaveTextContent(message(1));
-    expect(refusalAlerts()[0]).toHaveTextContent(message(3));
+    expect(announcer()).toHaveTextContent(message(3));
+    expect(said).toEqual([message(3)]);
     await advance(1_000);
     expect(screen.queryByText(/^Too many tries/)).toBeNull();
-    expect(refusalAlerts()).toHaveLength(0);
+    expect(announcer()).toBeEmptyDOMElement();
     expect(reserve).not.toHaveAttribute('aria-disabled');
     expect(document.activeElement).toBe(reserve);
 
@@ -296,6 +318,63 @@ describe('a buy refused as too many tries (US2-3, US2-4; FR-011, FR-012)', () =>
     await advance(1_000);
     expect(button('Confirm purchase')).not.toHaveAttribute('aria-disabled');
   });
+
+  it('does not announce a wait again when its button comes back during it (review M3)', async () => {
+    fakeClock();
+    stubApi(
+      seatedRoutes({
+        'GET /me/reservations': json([reservation([[1, 1]], { secondsLeft: 200 })]),
+        'POST /events/e1/orders': limited('BUY', 5),
+        'POST /events/e1/reservation/release': json({ reservation: null }),
+        'POST /events/e1/reservation': json(reservation([[1, 4]], { secondsLeft: 300 }), 201),
+      }),
+    );
+    renderCustomer({ at: '/events/e1' });
+
+    await screen.findByRole('timer');
+    const said = watchAnnouncements();
+    await typeHolderName();
+    fireEvent.click(button('Confirm purchase'));
+    await waitFor(() => expect(countdown()).toHaveTextContent(message(5)));
+
+    // Release everything: Confirm purchase and its countdown go; the wait goes on.
+    fireEvent.click(button('Release seats'));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Confirm purchase' })).toBeNull(),
+    );
+    expect(screen.queryByText(/^Too many tries/)).toBeNull();
+
+    // Hold again within the wait: Confirm purchase comes back waiting, shown but not said again.
+    await advance(1_000);
+    fireEvent.click(seatButton(1, 4));
+    fireEvent.click(button('Reserve seats'));
+    await waitFor(() =>
+      expect(button('Confirm purchase')).toHaveAttribute('aria-disabled', 'true'),
+    );
+    expect(countdown()).toHaveTextContent(message(4));
+    expect(said).toEqual([message(5)]);
+    expect(announcer()).toHaveTextContent(message(5));
+  });
+
+  it('stops counting down when the page goes away (review M4)', async () => {
+    fakeClock();
+    const set = vi.spyOn(globalThis, 'setInterval');
+    const clear = vi.spyOn(globalThis, 'clearInterval');
+    stubApi(generalRoutes(limited('BUY', 3)));
+    const { unmount } = renderCustomer({ at: '/events/e1' });
+
+    await typeHolderName();
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm order' }));
+    await waitFor(() => expect(countdown()).toHaveTextContent(message(3)));
+    const ticks = set.mock.results
+      .filter((_, i) => set.mock.calls[i][1] === 250)
+      .map((r) => r.value as unknown);
+    expect(ticks).toHaveLength(1);
+    expect(clear.mock.calls.map(([id]) => id)).not.toContain(ticks[0]);
+
+    unmount();
+    expect(clear.mock.calls.map(([id]) => id)).toContain(ticks[0]);
+  });
 });
 
 describe('Check again refused as too many tries (US2-5; FR-014)', () => {
@@ -313,13 +392,22 @@ describe('Check again refused as too many tries (US2-5; FR-014)', () => {
     renderCustomer({ at: '/events/e1' });
 
     await typeHolderName();
+    const said = watchAnnouncements();
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm order' }));
     const unknown = "We couldn't confirm whether your order went through.";
     await screen.findByText(unknown);
+    const banner = screen.getByText(unknown).closest('[role="alert"]');
     fireEvent.click(button('Check again'));
 
     await waitFor(() => expect(countdown()).toHaveTextContent(message(2)));
     expect(screen.getByText(unknown)).toBeInTheDocument();
+    // Review M2: the banner stays mounted through Check again, so it is not announced again, and
+    // the refusal is said once, by the one live region, never by an alert of its own.
+    expect(screen.getByText(unknown).closest('[role="alert"]')).toBe(banner);
+    expect(said).toEqual([message(2)]);
+    expect(
+      screen.queryAllByRole('alert').filter((a) => /^Too many tries/.test(a.textContent ?? '')),
+    ).toHaveLength(0);
     const again = button('Check again');
     expect(again.previousElementSibling).toBe(countdown());
     expect(again).toHaveAttribute('aria-disabled', 'true');
