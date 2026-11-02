@@ -91,26 +91,39 @@ describe('Customer app name', () => {
 });
 
 describe('Customer app changes no venue, event, or tier (spec 003 US3-1; spec 006 FR-009)', () => {
-  it.each(['/', '/events/e1', '/venues', '/venues/v1'])(
-    'offers no change control at %s and sends only GETs',
-    async (at) => {
-      const { calls } = everyRoute();
-      renderCustomer({ at });
+  // Issue #118: each page is checked once everything it loads has arrived. The event page loads
+  // its Get tickets form (availability and tiers) after the event itself, so "Alpha Arena" alone
+  // was not enough: the check passed only when it ran before the form appeared.
+  const loaded: Record<string, () => Promise<unknown>> = {
+    '/': () => screen.findByRole('link', { name: 'Early Show' }),
+    '/events/e1': () => screen.findByRole('textbox', { name: 'Name on tickets' }),
+    '/venues': () => screen.findByRole('link', { name: 'Alpha Arena' }),
+    '/venues/v1': () => screen.findByRole('link', { name: 'Early Show' }),
+  };
 
-      expect(await screen.findAllByText(/Alpha Arena/)).not.toHaveLength(0);
-      const changeWord = /\b(add|new|edit|save|delete|schedule|create|update|remove)\b/i;
-      expect(screen.queryAllByRole('button', { name: changeWord })).toHaveLength(0);
-      // Spec 013: an address link says it "opens Google Maps in a new tab"; "new" there is
-      // not a change control, so links to Google Maps are left out.
-      const changeLinks = screen
-        .queryAllByRole('link', { name: changeWord })
-        .filter((l) => !(l.getAttribute('href') ?? '').startsWith('https://www.google.com/maps/'));
-      expect(changeLinks).toHaveLength(0);
-      expect(screen.queryAllByRole('textbox')).toHaveLength(0);
-      expect(calls.length).toBeGreaterThan(0);
-      expect(calls.every((c) => c.method === 'GET')).toBe(true);
-    },
-  );
+  it.each(Object.keys(loaded))('offers no change control at %s and sends only GETs', async (at) => {
+    const { calls } = everyRoute();
+    renderCustomer({ at });
+
+    await loaded[at]();
+    expect(screen.getAllByText(/Alpha Arena/)).not.toHaveLength(0);
+    const changeWord = /\b(add|new|edit|save|delete|schedule|create|update|remove)\b/i;
+    expect(screen.queryAllByRole('button', { name: changeWord })).toHaveLength(0);
+    // Spec 013: an address link says it "opens Google Maps in a new tab"; "new" there is
+    // not a change control, so links to Google Maps are left out.
+    const changeLinks = screen
+      .queryAllByRole('link', { name: changeWord })
+      .filter((l) => !(l.getAttribute('href') ?? '').startsWith('https://www.google.com/maps/'));
+    expect(changeLinks).toHaveLength(0);
+    // Spec 017 FR-001: the one text field is the buyer's name for their own order, which
+    // changes no venue, event, or tier.
+    const textboxes = screen
+      .queryAllByRole('textbox')
+      .filter((t) => (t as HTMLInputElement).labels?.[0]?.textContent !== 'Name on tickets');
+    expect(textboxes).toHaveLength(0);
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((c) => c.method === 'GET')).toBe(true);
+  });
 
   it('shows a plain message for an unknown address', async () => {
     everyRoute();
