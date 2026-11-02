@@ -227,7 +227,8 @@ every caller, before anything else.
 
 - [ ] T014 [P] [US3] New `backend/test/integration/rate-limits.ordinary.e2e-spec.ts` (research R9,
   R10), `'defaults'`, one customer of its own, on `ctx.attemptClock` advanced 2 seconds between
-  actions: hold 2 seats, add 1,
+  actions, except the two releases, which come back to back (with 2 seconds between every action,
+  counted releases could never reach 4 in 5 seconds; research R10): hold 2 seats, add 1,
   release 1, release 1, hold 1, buy the held seats, then buy 2 general-admission tickets on a second
   event, then repeat the buy's `requestId` → no `429` anywhere (FR-016). Passes once T010 is in; it
   must fail if the guard counted releases (check by temporarily marking `release` and seeing it fail;
