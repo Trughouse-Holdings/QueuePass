@@ -1,14 +1,24 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.6.2 -> 3.6.3 (PATCH): one roadmap row reserved; nothing that is required changes.
-Problem: issue #56 (limit how fast and how often anyone can try to buy tickets or hold seats) needs
-  a spec number before its spec and plan PR.
+Version: 3.6.3 -> 3.7.0 (MINOR): Principle VII's sign-in exception materially expanded; one
+  roadmap row reserved; no control removed.
+Problem: issue #122 asks for Keycloak's stock low-poly "stones" background back on every sign-in
+  page, with the lines between the stones in each app's accent. A background is decoration, which
+  Principle VII rules out, and the sign-in exception allowed only an app's name, audience line,
+  and accent (spec 027 research R9). The issue also needs a spec number.
 Changed:
-  - Roadmap: row 026-purchase-rate-limits (#56, depends on 006, 015, 016). The next free number
-    is 027. The 006, 015, and 016 rows are not reworded: they record what those features built.
-    "Only the Customer app may buy" (#58) is not part of 026.
-Impact: none on existing code, specs, or controls. The README's version reference follows.
-  Templates: none need updating.
+  - Principle VII, the sign-in exception: the sign-in screens MAY also show Keycloak's stock
+    background, served from Keycloak's own theme, with the lines between the stones in the app's
+    accent. It is the only decoration allowed, and every text, label, and control on it MUST keep
+    the contrast its spec states. The colors the sign-in screens draw on it are tokens in the
+    shared theme, like the accents, and the apps use none of them.
+    The paragraph's opening now names both exceptions it makes ("no per-app variants" and "no
+    decoration").
+  - Roadmap: row 027-sign-in-background (#122, depends on 021). The next free number is 028. The
+    021 row is not reworded: it records what 021 built.
+Impact: spec 027 adds the backdrop tokens, the lines image, and the sign-in look's changes. No
+  existing code or spec changes. The README's version reference follows. Templates: none need
+  updating.
 -->
 
 # QueuePass Constitution
@@ -229,10 +239,15 @@ layout that works at phone width, touch target size, WCAG contrast, states that 
 color alone, keyboard access), is usability work, not custom visual design. New branding and
 decoration remain out of scope.
 
-The one exception to "no per-app variants": the sign-in screens (Keycloak's pages, styled from the
-shared theme) MAY show each app's name, a line saying who it is for, and its own accent color, so a person can tell at a glance which app
-they are signing in to (spec `021`). Those accents are tokens in the shared theme, defined only in
-its token blocks and checked by its contrast tests. The apps themselves keep the one shared accent.
+The one exception to "no per-app variants" and to "no decoration": the sign-in screens (Keycloak's
+pages, styled from the shared theme) MAY show each app's name, a line saying who it is for, and its
+own accent color, so a person can tell at a glance which app they are signing in to (spec `021`).
+They MAY also show Keycloak's stock low-poly background, served from Keycloak's own theme, with the
+lines between the stones in the app's accent (spec `027`). That background is the only decoration
+allowed, and every text, label, and control on it MUST keep the contrast its spec states. Those
+accents, and the colors the sign-in screens draw on that background, are tokens in the shared theme,
+defined only in its token blocks and checked by its contrast tests. The apps themselves keep the one
+shared accent and use none of them.
 
 Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
 without anyone spending time on visual design, and a change to the look is made once.
@@ -302,7 +317,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `027`.
+number is a pull request against this table. The next free number is `028`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -332,6 +347,7 @@ number is a pull request against this table. The next free number is `027`.
 | `024-venue-form-simplify` | The Admin app's venue form: the admin always picks the venue's time zone from the list, with no option to work it out from the address; a well-formed address is always saved in one step, verified when the address service matches it, otherwise saved as typed and marked not verified, also when the service is down; each section line reads Rows × Seats per row with its seat count (#107) | `007`, `013`, `020` |
 | `025-doors-open` | Every event has a doors-open time, set by admins in the venue's time zone (by default 1 hour before the start, no more than 6 hours before it and not after it, refused otherwise); customers and admins see it with the event; check-in, by any code, is open from 1 hour before doors open until the event ends, and the Ticket Booth app lists events not yet open greyed out, with when they open (#91; the doors-open item of #49) | `017`, `018`, `020` |
 | `026-purchase-rate-limits` | Each customer account may try to buy tickets, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds, however the API is called, with no one exempt; a customer over a limit is told plainly and when they can try again, with a countdown, and keeps what they had; ordinary buying never meets the limits, and QueuePass stays responsive for everyone else (#56) | `006`, `015`, `016` |
+| `027-sign-in-background` | Every sign-in page shows Keycloak's own low-poly stones background, served by Keycloak, with the stones grey and the lines between them in the app's accent; the form sits on the stones with no card, and every text, field, and focus ring stays readable at every window size, in light and dark schemes (#122) | `021` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -384,4 +400,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.6.3 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-02
+**Version**: 3.7.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-02

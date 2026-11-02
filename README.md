@@ -3,7 +3,7 @@
 Venue and event management with sign-in for every user and guaranteed conflict-free scheduling.
 
 Built from the specifications in [`specs/`](specs/) under the project constitution at
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.6.3).
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.7.0).
 
 ---
 
@@ -16,7 +16,8 @@ GitHub and its running-system walk are pending. `021` is built, reviewed, and wa
 browser. `022` is built and reviewed: browser tests walk the main journey of ten features on
 every pull request, green on GitHub. `023` is built and reviewed; its running-system walk is
 pending. `024` is built, reviewed, and walked on the running system. `025` and `026` are
-built, reviewed, and walked on the running system (path B; their browser tests run in CI).
+built, reviewed, and walked on the running system (path B; their browser tests run in CI). `027`
+is specified and planned; its implementation has not started.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                       | Spec             | Plan and tasks     | Code                         |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------------- |
@@ -45,6 +46,7 @@ built, reviewed, and walked on the running system (path B; their browser tests r
 | [`024-venue-form-simplify`](specs/024-venue-form-simplify/spec.md)           | The Admin venue form: the admin picks the time zone; an address is saved in one step, marked not verified when the address service can't confirm it, even when it's down; section lines read Rows × Seats per row with their seats                                     | Draft            | Done (32/32 tasks) | **Built and verified**       |
 | [`025-doors-open`](specs/025-doors-open/spec.md)                             | Every event has a doors-open time, set by admins (1 hour before the start by default, up to 6 hours before); customers and admins see it; check-in opens 1 hour before doors, and the Ticket Booth greys out events not open yet                                       | Draft            | Done (39/41 tasks) | **Built and walked**         |
 | [`026-purchase-rate-limits`](specs/026-purchase-rate-limits/spec.md)         | Each customer account may try to buy, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds; over a limit, the Customer app counts down until they can try again                                                                        | Draft            | Done (25/26 tasks) | **Built (walk partly done)** |
+| [`027-sign-in-background`](specs/027-sign-in-background/spec.md)             | Keycloak's stone background on every sign-in page, the lines between the stones in each app's accent; the form on the stones with no card, readable at every size in light and dark                                                                                    | Draft            | Done (0/31 tasks)  | Not started                  |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
