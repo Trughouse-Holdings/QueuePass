@@ -15,7 +15,8 @@ on the running system (path B; the image checks wait for a machine where images 
 GitHub and its running-system walk are pending. `021` is built, reviewed, and walked in the
 browser. `022` is built and reviewed: browser tests walk the main journey of ten features on
 every pull request, green on GitHub. `023` is built and reviewed; its running-system walk is
-pending. `024` is built, reviewed, and walked on the running system.
+pending. `024` is built, reviewed, and walked on the running system. `026` is built; its
+independent review and running-system walk are pending.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                       | Spec             | Plan and tasks     | Code                         |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------------- |
@@ -42,6 +43,7 @@ pending. `024` is built, reviewed, and walked on the running system.
 | [`022-quickstart-browser-tests`](specs/022-quickstart-browser-tests/spec.md) | Playwright browser tests sign in on Keycloak and walk the main journey of ten features against a fresh Compose stack in the `e2e` check; every quickstart marks each scenario Automated or Manual                                                                      | Draft            | Done (34/36 tasks) | **Built and reviewed**       |
 | [`023-report-exports`](specs/023-report-exports/spec.md)                     | Admins download an event's attendee list and the sales report as CSV, Excel (XLSX), or PDF, with the screen's figures and the time they were made                                                                                                                      | Draft            | Done (25/28 tasks) | **Built (walk pending)**     |
 | [`024-venue-form-simplify`](specs/024-venue-form-simplify/spec.md)           | The Admin venue form: the admin picks the time zone; an address is saved in one step, marked not verified when the address service can't confirm it, even when it's down; section lines read Rows × Seats per row with their seats                                     | Draft            | Done (32/32 tasks) | **Built and verified**       |
+| [`026-purchase-rate-limits`](specs/026-purchase-rate-limits/spec.md)         | Each customer account may try to buy, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds; over a limit, the Customer app counts down until they can try again                                                                        | Draft            | Done (20/26 tasks) | **Built (review pending)**   |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. In the Admin app, admins
@@ -132,6 +134,13 @@ One command from a clean clone. No manual configuration steps.
 Saving a new venue address needs internet: the Backend checks it with the US Census Geocoder
 (`ADDRESS_GEOCODER_URL`, default `https://geocoding.geo.census.gov`, no key). Offline, a new
 address is refused with "We can't verify the address right now"; everything else works.
+
+Purchase rate limits (`026`) are two settings in `.env` (see `.env.example`):
+`RATE_LIMIT_PER_MINUTE` (default `10`) and `RATE_LIMIT_PER_5_SECONDS` (default `3`), the buy
+attempts, and separately the seat-hold attempts, each customer account may make in any 60 seconds
+and in any 5 seconds. A demo may raise them; any value that is not a whole number of at least 1,
+or a 5-second number above the minute's, stops the Backend at start-up, and nothing turns the
+limits off. The browser tests always use the defaults.
 
 Startup order is gated on health: the Backend waits for PostgreSQL and applies migrations, the
 seed waits for Keycloak's `/health/ready`, and the front ends wait for the Backend.
@@ -427,6 +436,11 @@ unchanged.
 - **Ticket limit per customer** — admins may set the most tickets one customer can hold for an
   event, across all their orders, or leave it blank for no limit. Customers see how many more they
   can get, and the Backend refuses an order over the limit, including simultaneous ones (`016`)
+- **Purchase rate limits** — each customer account may try to buy at most 10 times a minute and
+  3 times in any 5 seconds, and separately the same to reserve seats, however the API is called,
+  with no one exempt; releasing seats is never limited. Over a limit, nothing is done and the
+  Customer app says "Too many tries. You can try again in N seconds." above the button, counting
+  down until it works again; nothing the customer had is lost (`026`)
 - **Event images** — admins add up to 5 pictures to an event in its form, move them, and remove
   them; the first is the cover. The Backend accepts only JPG, PNG, and WebP by their content, up to
   5 MB and 40 megapixels, removes location and camera metadata, and never lets an event have more
