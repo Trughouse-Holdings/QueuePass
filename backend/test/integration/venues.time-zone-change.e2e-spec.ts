@@ -68,7 +68,7 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
       orderBy: { id: 'asc' },
     }),
     events: await ctx.prisma.event.findMany({
-      select: { id: true, startsAt: true, endsAt: true },
+      select: { id: true, startsAt: true, endsAt: true, doorsOpenAt: true },
       orderBy: { id: 'asc' },
     }),
   });
@@ -339,6 +339,126 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
         code: 'SCHEDULING_CONFLICT',
         details: { bufferMinutes: 60, conflictingEvent: null },
       },
+    });
+  });
+
+  // Spec 025 FR-009 (research R5, T007): doors keep their local time; skipped, repeated, or then
+  // out-of-range doors refuse the change, nothing saved.
+  describe('doors-open times (spec 025 FR-009)', () => {
+    async function withDoors(
+      locationId: string,
+      name: string,
+      startsAt: string,
+      endsAt: string,
+      doorsOpenAt: string,
+    ) {
+      const res = await asAdmin(ctx)
+        .post('/events')
+        .send({
+          name,
+          locationId,
+          startsAt,
+          endsAt,
+          doorsOpenAt,
+          totalTicketCapacity: 10,
+          basePrice: '1.00',
+        })
+        .expect(201);
+      return res.body as { id: string };
+    }
+    const doors = async (id: string) =>
+      (await ctx.prisma.event.findUniqueOrThrow({ where: { id } })).doorsOpenAt.toISOString();
+
+    it('Eastern to Central keeps doors at 5:30 PM local', async () => {
+      const v = await venue();
+      const e = await withDoors(
+        v,
+        'Doors',
+        '2026-12-05T19:00:00-05:00',
+        '2026-12-05T22:00:00-05:00',
+        '2026-12-05T17:30:00-05:00',
+      );
+      await patch(v, { timeZone: 'America/Chicago' }).expect(200);
+      // 5:30 PM CST is 23:30Z.
+      expect(await doors(e.id)).toBe('2026-12-05T23:30:00.000Z');
+    });
+
+    it('Phoenix to Central with doors at 2:30 AM on 2027-03-14: SKIPPED, doors named', async () => {
+      const v = await venue('phoenix');
+      const e = await withDoors(
+        v,
+        'Early Doors',
+        '2027-03-14T03:30:00-07:00',
+        '2027-03-14T05:00:00-07:00',
+        '2027-03-14T02:30:00-07:00',
+      );
+      const before = await snapshot();
+      const res = await patch(v, { timeZone: 'America/Chicago' }).expect(409);
+      expect(res.body.error).toEqual({
+        code: 'EVENT_TIME_NOT_IN_ZONE',
+        message:
+          "Can't change the time zone: Early Doors's doors-open time, Mar 14, 2027, 2:30 AM, " +
+          "doesn't exist in Central Time.",
+        details: {
+          event: { id: e.id, name: 'Early Doors' },
+          field: 'doorsOpenAt',
+          localTime: '2027-03-14T02:30',
+          proposedTimeZone: 'America/Chicago',
+          reason: 'SKIPPED',
+        },
+      });
+      expect(await snapshot()).toEqual(before);
+    });
+
+    it('Phoenix to Central with doors at 1:30 AM on 2027-11-07: REPEATED', async () => {
+      const v = await venue('phoenix');
+      const e = await withDoors(
+        v,
+        'Fall Doors',
+        '2027-11-07T02:30:00-07:00',
+        '2027-11-07T04:00:00-07:00',
+        '2027-11-07T01:30:00-07:00',
+      );
+      const before = await snapshot();
+      const res = await patch(v, { timeZone: 'America/Chicago' }).expect(409);
+      expect(res.body.error.message).toBe(
+        "Can't change the time zone: Fall Doors's doors-open time, Nov 7, 2027, 1:30 AM, " +
+          'happens twice in Central Time.',
+      );
+      expect(res.body.error.details).toMatchObject({
+        event: { id: e.id, name: 'Fall Doors' },
+        field: 'doorsOpenAt',
+        reason: 'REPEATED',
+      });
+      expect(await snapshot()).toEqual(before);
+    });
+
+    it('Phoenix to Central with doors 6 hours before across the fall-back night: DOORS_OUT_OF_RANGE', async () => {
+      const v = await venue('phoenix');
+      // 12:30 AM CDT (05:30Z) to 6:30 AM CST (12:30Z) is 7 hours once moved.
+      const e = await withDoors(
+        v,
+        'Dawn Show',
+        '2027-11-07T06:30:00-07:00',
+        '2027-11-07T08:00:00-07:00',
+        '2027-11-07T00:30:00-07:00',
+      );
+      const before = await snapshot();
+      const res = await patch(v, { timeZone: 'America/Chicago' }).expect(409);
+      expect(res.body.error).toEqual({
+        code: 'EVENT_TIME_NOT_IN_ZONE',
+        message:
+          "Can't change the time zone: Dawn Show's doors-open time, Nov 7, 2027, 12:30 AM, " +
+          'would be more than 6 hours before its start in Central Time.',
+        details: {
+          event: { id: e.id, name: 'Dawn Show' },
+          field: 'doorsOpenAt',
+          localTime: '2027-11-07T00:30',
+          proposedTimeZone: 'America/Chicago',
+          reason: 'DOORS_OUT_OF_RANGE',
+        },
+      });
+      expect(await snapshot()).toEqual(before);
     });
   });
 });
