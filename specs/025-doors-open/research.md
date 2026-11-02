@@ -27,14 +27,32 @@ No column default: a default cannot refer to `startsAt`, and a constant one woul
 Backend decides the value (R6), as `020` did for a venue's zone. No index: nothing filters on it
 (the Booth filters the event list it already fetches, R8).
 
-Every direct insert of an event outside `EventsService` into a database at the latest migration
-must now give the column. There are five, all in Backend tests, updated in the implementation (tasks
-T005): `backend/test/setup/fixtures.ts` `eventAroundNow` (gains an optional
-`doorsBeforeStartSeconds`, default 3600, so every existing caller keeps today's window), the raw
-insert and the `prisma.event.create` of `backend/test/integration/venues.time-zone-change.e2e-spec.ts`,
-and the two `prisma.event.create` of `backend/test/integration/events.concurrency.e2e-spec.ts`. The
-raw inserts of `backend/test/integration/migration.time-zones.e2e-spec.ts` run on a database migrated
-only up to before `020`, so they need no column; any later migrations it deploys backfill them.
+Every direct write of an event outside `EventsService` into a database at the latest migration
+must now keep the column valid, all in Backend tests, updated in the implementation (tasks T005):
+
+- **Inserts** must give it: `backend/test/setup/fixtures.ts` `eventAroundNow` (gains an optional
+  `doorsBeforeStartSeconds`, default 3600, so every existing caller keeps today's window), the raw
+  insert and the `prisma.event.create` of `backend/test/integration/venues.time-zone-change.e2e-spec.ts`,
+  and the two `prisma.event.create` of `backend/test/integration/events.concurrency.e2e-spec.ts`.
+- **Updates that move `startsAt`** must move `doorsOpenAt` by the same interval, or the CHECK
+  refuses them once the start passes the doors: `orders.sales-closed.e2e-spec.ts` (the
+  `prisma.event.update` that moves the start 1 minute into the past, "as if the hour had passed"),
+  `reservations.admin-changes.e2e-spec.ts` (the raw `UPDATE "Event" SET "startsAt" = now() -
+  interval '1 minute'` before the sweep), and `entry.window.e2e-spec.ts` (the raw `UPDATE` inside the
+  mocked `select` that shifts `startsAt` and `endsAt` 1 minute earlier to open the window between the
+  admit's `UPDATE` and its re-read: with the window on doors it must shift `doorsOpenAt` too, or the
+  window never opens and the retry test fails). Each sets `"doorsOpenAt"` in the same statement
+  (`"doorsOpenAt" = "doorsOpenAt" - interval '1 minute'`, or, for an absolute new start, the new
+  start minus the event's gap). An implementer finding another such write applies the same rule.
+- The raw inserts of `backend/test/integration/migration.time-zones.e2e-spec.ts` run on a database
+  migrated only up to before `020`, so they need no column; any later migrations it deploys
+  backfill them.
+
+The same task also gives `EventsService.updateLocked` R4's keep-the-gap rule for an update that moves
+the start without sending doors (the rest of R4, sent doors and their checks, comes with US1), and
+`moveEventsToZone` an interim rule moving doors by the same interval as the start (R5's local-time
+rule replaces it in US1): without them an edit or a zone change that moves a start earlier than its
+stored doors would hit the CHECK as a `500`, and the suite would not be green after the migration.
 
 **Rationale**: FR-001, FR-024. A required column says "every event has one" in the place no caller
 can bypass. Backfilling with `startsAt - 1 hour` keeps every existing window (SC-004).
@@ -139,16 +157,21 @@ in the form, always follow the start even after the admin typed doors (overwrite
 
 **Decision** (recommended, open to review): `moveEventsToZone` (`backend/src/locations/venue-time-zone.ts`)
 treats `doorsOpenAt` as a third field next to `startsAt` and `endsAt`: it keeps its local date and
-time, and a local time skipped or repeated in the new zone, or from before standard time, refuses the
-change with `409 EVENT_TIME_NOT_IN_ZONE`, `details.field: 'doorsOpenAt'`, the same `reason`s, and the
-message word "doors-open time" (`FIELD_WORD`). After the three are moved, an event whose moved doors
-break the range (only possible when a daylight-saving change falls between doors and start in one
-zone and not the other, for example doors 6 hours before the start in Arizona Time, moved to Central
-Time across the fall-back night, where the same local times are 7 hours apart) refuses the change
-with the same code, `details.reason: 'DOORS_OUT_OF_RANGE'`, and the message "Can't change the time
-zone: {name}'s doors-open time, {local}, would be more than 6 hours before its start in {zone}." (or
+time. Every refusal is `409 EVENT_TIME_NOT_IN_ZONE` with `details.field: 'doorsOpenAt'` and the
+message word "doors-open time" (`FIELD_WORD`), and one `details.reason` from a single list:
+
+| `reason` | When | Since |
+| --- | --- | --- |
+| `SKIPPED` | the local time does not exist in the new zone | `020` |
+| `REPEATED` | the local time happens twice in the new zone | `020` |
+| `OUT_OF_RANGE` | the local time is from before standard time, so no whole-minute offset states it (the time itself can't be placed) | `#88` |
+| `DOORS_OUT_OF_RANGE` | the doors-open time can be placed, but once moved it is more than 6 hours before the moved start, or after it (a daylight-saving change between them in one zone only: for example doors 6 hours before the start in Arizona Time, moved to Central Time across the fall-back night, where the same local times are 7 hours apart) | `025` |
+
+The first three apply to `startsAt`, `endsAt`, and `doorsOpenAt` alike; the last only to
+`doorsOpenAt`, checked after the three are moved, with the message "Can't change the time zone:
+{name}'s doors-open time, {local}, would be more than 6 hours before its start in {zone}." (or
 "after its start"). All before any write, so nothing is saved; the CHECK is the guarantee if this
-check were wrong.
+check were wrong. The contract's `updateLocation` description lists the four in one sentence.
 
 **Rationale**: FR-009, `020` FR-009 (local times are what the admin entered). A zone change is
 already refused once any event has an order (`020` FR-010), so this touches only unsold events.
@@ -174,7 +197,10 @@ time can't move to the new zone"; one more `reason` keeps clients' handling in o
   `doorsOpenAt` against the venue's zone (`LOCAL_TIME_SKIPPED`, `UTC_OFFSET_MISMATCH`, with
   `details.field: doorsOpenAt`; `checkEventTime`'s `EventTimeField` gains `'doorsOpenAt'`); then
   `DOORS_OPEN_OUT_OF_RANGE`; then capacity, the limit, and the scheduling conflict, as today. The
-  existing `endsAt must be later than startsAt` check keeps its place.
+  existing `endsAt must be later than startsAt` check (`assertWindowOrdered`) keeps its place:
+  it runs first, before the venue lookup and every zone check, on the instants as sent (create) or
+  in force (update), so a request with the end before the start is refused for that before any
+  doors-open check.
 - **New code** `DOORS_OPEN_OUT_OF_RANGE` (`400`, in the `EventTimeRejected` response), added to
   `ErrorEnvelope.code` and to `packages/shared/src/errors.ts`'s `ERROR_CODES` in this PR, after
   `UTC_OFFSET_MISMATCH` (the Backend's list test fails when they differ).
@@ -244,7 +270,10 @@ application code (two clocks, `017` R5).
   device's clock and fetches the list again, so an event becomes a button within 30 seconds of its
   window opening, and a doors-open time an admin moved meanwhile is picked up (SC-005). A failed
   refetch keeps the list shown and tries again at the next tick; only a failed first load shows
-  today's "Can't reach QueuePass right now" with **Try again**. The list is also fetched after
+  today's "Can't reach QueuePass right now" with **Try again**. A `401` on any fetch, the first or a
+  refetch, signs in again as today's code does (the session expired; the remembered choice is kept
+  per tab, so the agent comes back to the same screen); "a failed refetch" means a network error or
+  any other non-2xx. The list is also fetched after
   **Change event** (new: `changeEvent` bumps `reloads`).
 - The remembered choice (`savedEventId`) is restored only when its event is in the list and open;
   otherwise the stored id is cleared and the picker is shown (FR-017).
@@ -297,7 +326,12 @@ exactly):
 2. `025 S4/S5: the Ticket Booth works an event only from an hour before its doors open` — set-up
    through the API: event A starting in 1 hour (doors left out: start minus 1 hour, so check-in opened
    an hour ago) and event B, at a second venue, starting in 5 hours with `doorsOpenAt` start minus 1 hour
-   (check-in opens in 3 hours). As `agentFor`: A is a button; B's item says "Not open yet" and "Opens {time}" and is
+   (check-in opens in 3 hours). As `agentFor`: A is a button; B's item says "Not open yet" and
+   "Opens {when}", where `{when}` follows FR-015's rule, built with `e2e/fixtures/time.ts`: with
+   `opens = doorsOpenAt - 1 hour`, `timeOfDay(opens, zone)` when the venue's local date of `opens`
+   equals `localDate(zone)` (today there; a small `localDateOf(instant, zone)` helper beside
+   `localDate` gives the first), else `eventTime(opens, zone)` (a run late in the
+   evening opens after local midnight); no time or abbreviation is written in the test; B is
    not a button (`getByRole('button', { name: … B … })` has count 0); choose A; look up a ticket of A
    bought through the API: admittable.
 

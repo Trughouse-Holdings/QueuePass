@@ -79,13 +79,19 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
     `DOORS_OPEN_MAX_BEFORE_START_MINUTES` (R2).
 - [ ] T005 `backend/prisma/migrations/20261102000000_doors_open/migration.sql` exactly as research R1,
   with its comments; `backend/prisma/schema.prisma` `Event.doorsOpenAt` (data-model.md); `npm run
-  prisma:generate --workspace @queuepass/backend`. Then every direct insert of an event gives the
-  column (research R1): `backend/test/setup/fixtures.ts` `eventAroundNow` gains
+  prisma:generate --workspace @queuepass/backend`. Then every direct write of an event keeps the
+  column valid (research R1): `backend/test/setup/fixtures.ts` `eventAroundNow` gains
   `doorsBeforeStartSeconds` (default 3600) and inserts `"doorsOpenAt"`; the raw insert and
   `prisma.event.create` in `venues.time-zone-change.e2e-spec.ts`; the two `prisma.event.create` in
-  `events.concurrency.e2e-spec.ts`. `EventsService.createLocked` sets `doorsOpenAt: startsAt - 60
-  minutes` for now (T009 completes it). T004 passes; `npm run test --workspace @queuepass/backend`
-  green apart from tests that are still to be written.
+  `events.concurrency.e2e-spec.ts`; and the three writes that move a start move `doorsOpenAt` by the
+  same interval in the same statement: `orders.sales-closed.e2e-spec.ts` (the start moved into the
+  past), `reservations.admin-changes.e2e-spec.ts` (the raw `UPDATE` before the sweep), and
+  `entry.window.e2e-spec.ts` (the raw `UPDATE` inside the mocked `select`). In the service, so the
+  CHECK is never hit as a `500`: `EventsService.createLocked` sets `doorsOpenAt: startsAt - 60
+  minutes`; `updateLocked` applies research R4's keep-the-gap rule when the start changes (`doorsOpenAt
+  = stored doorsOpenAt + (new startsAt - stored startsAt)`); `moveEventsToZone` moves `doorsOpenAt` by
+  the same interval as each event's start (T009 and T010 complete both). T004 passes; `npm run test
+  --workspace @queuepass/backend` green apart from tests that are still to be written.
 
 **Checkpoint**: every event has a doors-open time; nothing visible has changed yet.
 
@@ -154,11 +160,12 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
   `event-time.ts` `EventTimeField` gains `'doorsOpenAt'`; `EventsService.createLocked` checks a sent
   `doorsOpenAt` after `endsAt` with `checkEventTime`, else defaults it, then
   `assertDoorsInRange(startsAt, doorsOpenAt, zone)` (throwing `400 DOORS_OPEN_OUT_OF_RANGE` with R2's
-  details) before the capacity checks; `updateLocked` applies R4's rule (sent → checked against the
-  start in force; start changed and not sent → same gap; else unchanged) and writes it;
+  details) before the capacity checks; `updateLocked` adds the rest of R4's rule to T005's gap (sent →
+  checked against the start in force; start changed and not sent → same gap, from T005; else
+  unchanged) and writes it;
   `toResponse` adds `entryOpensAt`. Update the doc comments (spec 025). T006 passes.
-- [ ] T010 [US1] `backend/src/locations/venue-time-zone.ts` `moveEventsToZone` (research R5):
-  select `doorsOpenAt`; move it with `at('doorsOpenAt')` (`FIELD_WORD` gains `doorsOpenAt:
+- [ ] T010 [US1] `backend/src/locations/venue-time-zone.ts` `moveEventsToZone` (research R5),
+  replacing T005's interim same-interval move: select `doorsOpenAt`; move it with `at('doorsOpenAt')` (`FIELD_WORD` gains `doorsOpenAt:
   'doors-open time'`); after moving, `doorsOpenProblem` → `EVENT_TIME_NOT_IN_ZONE` with `reason:
   'DOORS_OUT_OF_RANGE'` and R5's message; write `doorsOpenAt` with the others. T007 passes; every
   other `venues.time-zone-change*` test passes unchanged.
@@ -206,7 +213,9 @@ required (Constitution VI): `025`'s implementation PR opens after `022`'s merged
 - [ ] T016 [US2] `backend/src/entry/ticket-state.ts`: the exported `entryOpens` fragment (research
   R7) with `ENTRY_OPENS_BEFORE_DOORS_MINUTES`; `stateCase` uses it; `entry.service.ts` `tryAdmit` and
   `select` use it; doc comments say spec 025. No `'2 hours'` left in `backend/src`. T013–T015 pass;
-  `entry.concurrency`, `entry.live-race`, and every other entry test pass unchanged.
+  `entry.concurrency`, `entry.live-race`, and every other entry test pass with no change to their
+  assertions (`entry.window`'s retry test passes because T005 made its mocked `UPDATE` shift
+  `doorsOpenAt` with the start).
 
 **Checkpoint**: the window is enforced; quickstart S4's API steps pass.
 
@@ -299,10 +308,13 @@ only when open.
   nothing else.
 - [ ] T028 `e2e/tests/025-doors-open.spec.ts`, test `'025 S1/S2/S6: an admin sets when doors open,
   and customers see it'` exactly as research R10 item 1; record `POST /events` with
-  `page.on('request')` and assert none while the range message shows, then exactly one with
-  `doorsOpenAt` ending `-06:00`.
+  `page.on('request')` and assert none while the range message shows, then exactly one whose
+  `doorsOpenAt` is `zoned(atLocal('{day}T17:30', zone), zone)`. Every expected time, abbreviation,
+  and offset is built with `e2e/fixtures/time.ts`, never written out, so the test passes in standard
+  and daylight time.
 - [ ] T029 Same file, test `'025 S4/S5: the Ticket Booth works an event only from an hour before its
-  doors open'` exactly as research R10 item 2.
+  doors open'` exactly as research R10 item 2, its "Opens {when}" built by FR-015's today-or-date
+  rule (add `localDateOf(instant, zone)` to `e2e/fixtures/time.ts` if needed).
 - [ ] T030 See each `025` test fail once against a deliberate break, then restore it (as `022`
   T031): T028 with the form's prefill removed; T029 with `forTheGate` treating every event as open.
   Record both failures (the assertion that failed) here.
