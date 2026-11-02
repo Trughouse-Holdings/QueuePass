@@ -1,13 +1,12 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.6.1 -> 3.6.2 (PATCH): one roadmap row reserved; nothing that is required changes.
-Problem: issue #91 (a doors-open time on events; the Ticket Booth works an event only from 1 hour
-  before its doors open) needs a spec number before its spec and plan PR.
+Version: 3.6.2 -> 3.6.3 (PATCH): one roadmap row reserved; nothing that is required changes.
+Problem: issue #56 (limit how fast and how often anyone can try to buy tickets or hold seats) needs
+  a spec number before its spec and plan PR.
 Changed:
-  - Roadmap: row 025-doors-open (#91, depends on 017, 018, 020). The next free number is 026. The
-    017 and 018 rows are not reworded: they record what those features built; spec 025 lists the
-    requirements it changes (spec 025 research R14). #49 keeps its other items (description, age
-    restriction, category); 025 takes over only its doors-open item.
+  - Roadmap: row 026-purchase-rate-limits (#56, depends on 006, 015, 016). The next free number
+    is 027. The 006, 015, and 016 rows are not reworded: they record what those features built.
+    "Only the Customer app may buy" (#58) is not part of 026.
 Impact: none on existing code, specs, or controls. The README's version reference follows.
   Templates: none need updating.
 -->
@@ -303,7 +302,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `026`.
+number is a pull request against this table. The next free number is `027`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -332,6 +331,7 @@ number is a pull request against this table. The next free number is `026`.
 | `023-report-exports` | Admins download an event's attendee list and the sales report as CSV, XLSX, or PDF, with the same figures as the screen and the time each file was made; CSV and XLSX keep numbers, dates, and exact money as data (#52) | `005` |
 | `024-venue-form-simplify` | The Admin app's venue form: the admin always picks the venue's time zone from the list, with no option to work it out from the address; a well-formed address is always saved in one step, verified when the address service matches it, otherwise saved as typed and marked not verified, also when the service is down; each section line reads Rows × Seats per row with its seat count (#107) | `007`, `013`, `020` |
 | `025-doors-open` | Every event has a doors-open time, set by admins in the venue's time zone (by default 1 hour before the start, no more than 6 hours before it and not after it, refused otherwise); customers and admins see it with the event; check-in, by any code, is open from 1 hour before doors open until the event ends, and the Ticket Booth app lists events not yet open greyed out, with when they open (#91; the doors-open item of #49) | `017`, `018`, `020` |
+| `026-purchase-rate-limits` | Each customer account may try to buy tickets, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds, however the API is called, with no one exempt; a customer over a limit is told plainly and when they can try again, with a countdown, and keeps what they had; ordinary buying never meets the limits, and QueuePass stays responsive for everyone else (#56) | `006`, `015`, `016` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -384,4 +384,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.6.2 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-02
+**Version**: 3.6.3 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-02
