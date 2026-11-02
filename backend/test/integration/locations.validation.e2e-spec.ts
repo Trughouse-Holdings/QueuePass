@@ -103,4 +103,20 @@ describe('Location validation', () => {
       .send({ ...valid, ...change })
       .expect(201);
   });
+
+  // Issue #36: a null was let through to the database, a 500.
+  it.each([
+    ['a null name', { name: null }, /name/],
+    ['a null seatingCapacity', { seatingCapacity: null }, /seatingCapacity/],
+    ['a null name beside a valid capacity', { name: null, seatingCapacity: 100 }, /name/],
+  ])('rejects %s on an edit with VALIDATION_FAILED, venue unchanged', async (_l, body, field) => {
+    const created = await asAdmin(ctx).post('/locations').send(valid).expect(201);
+    const before = await ctx.prisma.location.findUniqueOrThrow({ where: { id: created.body.id } });
+    const res = await asAdmin(ctx).patch(`/locations/${created.body.id}`).send(body).expect(400);
+    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    expect(JSON.stringify(res.body.error.details?.fields)).toMatch(field);
+    expect(await ctx.prisma.location.findUniqueOrThrow({ where: { id: created.body.id } })).toEqual(
+      before,
+    );
+  });
 });

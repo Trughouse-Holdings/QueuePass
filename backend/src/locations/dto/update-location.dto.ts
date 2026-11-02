@@ -3,7 +3,6 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
-  IsOptional,
   IsPositive,
   IsString,
   Length,
@@ -20,10 +19,11 @@ import { MESSAGES, STATE_CODES, TIME_ZONE_IDS, TIME_ZONE_MESSAGE, trim } from '.
  *
  * Spec 013 FR-009, FR-019: the four address fields come all together or not at all, and
  * `acceptUnverifiedAddress` only with them; LocationsService checks both. They may be left
- * out, but never sent as null: `@ValidateIf` (not `@IsOptional`) makes null fail its rule.
+ * out, but never sent as null: `@ValidateIf` (not `@IsOptional`) makes null fail its rule. The
+ * same holds for `name` and `seatingCapacity` (issue #36: a null reached the database, a 500).
  */
 export class UpdateLocationDto {
-  @IsOptional()
+  @ValidateIf((o: UpdateLocationDto) => o.name !== undefined)
   @Transform(trim)
   @IsString({ message: 'name must be a string' })
   @Length(1, 200, { message: 'name must be between 1 and 200 characters' })
@@ -54,7 +54,7 @@ export class UpdateLocationDto {
   @IsBoolean({ message: MESSAGES.acceptUnverifiedAddress })
   acceptUnverifiedAddress?: boolean;
 
-  @IsOptional()
+  @ValidateIf((o: UpdateLocationDto) => o.seatingCapacity !== undefined)
   @IsInt({ message: 'seatingCapacity must be a whole number' })
   @IsPositive({ message: 'seatingCapacity must be a positive whole number' })
   seatingCapacity?: number;
