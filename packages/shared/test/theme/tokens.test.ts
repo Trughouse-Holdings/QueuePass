@@ -199,6 +199,15 @@ describe('the QR code tokens (#37)', () => {
   });
 });
 
+// Issue #37 (found in 012's running-system check): the Admin event page's actions (Attendees,
+// Edit, Cancel event, Delete) were 15 pixels wider than a 375-pixel screen. Beside a page title
+// they wrap onto a second line instead.
+it('wraps the actions beside a page title when they do not fit (#37)', () => {
+  const rules = bodiesOf(css, '.page-head .form__actions');
+  expect(rules.length).toBeGreaterThan(0);
+  expect(rules.join('\n')).toMatch(/flex-wrap:\s*wrap/);
+});
+
 /** The bodies of every innermost rule in `source` whose selector is exactly `selector`. */
 function bodiesOf(source: string, selector: string): string[] {
   return [...source.matchAll(/([^{}]*)\{([^{}]*)\}/g)]

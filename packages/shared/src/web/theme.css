@@ -746,11 +746,13 @@ dd {
   margin-top: 18px;
 }
 
-/* Actions beside a page title: no form divider above them. */
+/* Actions beside a page title: no form divider above them, and onto a second line when they don't
+   fit (issue #37: the Admin event page's four were 15px too wide at 375px). */
 .page-head .form__actions {
   border-top: none;
   margin-top: 0;
   padding-top: 0;
+  flex-wrap: wrap;
 }
 
 /* ------------------------------------------------------------ event images */
