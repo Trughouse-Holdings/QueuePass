@@ -416,7 +416,8 @@ implementation has merged, a small contract PR tightens them: `Location.required
 `city`, `state`, `zip`, and `addressVerified` (the parts stay nullable), and
 `LocationInput.required` gains `street`, `city`, `state`, and `zip`, with `api-schema.ts`
 regenerated. The implementation session opens a GitHub issue for it as its last task (tasks.md);
-it is not opened now, because it cannot be done until the implementation merges.
+it is not opened now, because it cannot be done until the implementation merges. **Done** in #36,
+contract 1.18.0 (R15).
 
 **Rationale**: Constitution I (contract first) and III (`main` green and demo-ready at every
 merge).
@@ -517,3 +518,64 @@ demo-data test runs with the fake, once matching and once unavailable (R9).
 venue rule, which `demo-data` exists to obey). An environment variable that saves unverified when
 the service is down (would reach the API in the running system). Leaving demo-data dependent on
 the network (fails on demo day offline).
+
+## R15. Follow-ups from the review (#36, 2026-11-02)
+
+**Decision**: T044's contract tightening and Nate's minor notes from #34's review, fixed in one PR
+against `main` as of `026`'s spec (contract 1.17.0). Each item was checked against that `main`
+first: since #36 was written, `020` (venue time zones) and `024` (one-step save, re-check on edit)
+changed this code, and `024` removed the Admin app's Save anyway step.
+
+- **Contract 1.18.0** (R11 follow-up): `Location.required` gains `street`, `city`, `state`, `zip`,
+  and `addressVerified` (the four parts stay nullable); `LocationInput.required` gains the four
+  parts. Every caller already sends them: the Admin form (`024`), the e2e set-up
+  (`e2e/fixtures/api.ts`, typed by `LocationInput`), and demo data (through
+  `LocationsService.create`, not the contract); the Backend has sent the five since 013. The
+  shared `Location` type makes the same five required; every workspace still compiles unchanged.
+  `api-schema.ts` is regenerated; the drift check passes. A minor version: it changes what the
+  contract promises (and documents the behavior changes below), as `020`'s 1.14.0 did for its
+  own `required` follow-up.
+- **R7, the same address decided under the lock**: whether the sent address is the stored one
+  (FR-008) was decided only on the row read before the lookup. It is still decided there, to
+  choose whether to look up, and now decided again on the row read under the venue lock, as
+  `020` R8 does for the zone. The same address as stored at write time is not written, so
+  another edit's address saved during the lookup that equals the one sent keeps its verified
+  state and its zone (before: a lookup that failed would write it back not verified). A
+  different address is still replaced (the later write wins, R7). A verified answer upgrades
+  only that same address while it is not verified (`024` R7, unchanged), and a zone worked out
+  from the address goes only with a changed address. Test: `locations.address-edit`, a lookup
+  held while another edit saves the same address. **Limit**: a stale form whose request starts
+  after another admin's change committed still overwrites it, as any venue field does; closing
+  that needs a version check on every edit (a contract change for all venue fields), out of scope.
+- **Suites** (FR-003, R3): the live service answers `430 W Vine St Ste 2` with `430 W VINE ST`
+  (checked 2026-11-02, also for `Suite 200`). Kept: a suite or unit typed at the end of the street
+  (`Apt`, `Bldg`, `Dept`, `Fl`, `Lot`, `Ofc`, `Rm`, `Spc`, `Ste`, `Unit`, their long forms, or
+  `#`, followed by a number with a digit or one letter) is put back at the end of the verified
+  street, upper case and as typed: `430 W VINE ST STE 2`. Not when the match already ends with
+  that number, or when the street would pass 200 characters. Nothing the admin typed is lost, no
+  contract field is added, and FR-008 then treats the same typed address as unchanged
+  (`backend/src/locations/address-match.ts`, `keepUnit`).
+- **FR-021 false refusals**: since `024` the Admin app sends `acceptUnverifiedAddress` with every
+  address, so none of the three is a refusal any more: each is saved as typed, not verified, with
+  `024`'s notice. Rechecked against the live service on 2026-11-02 (one batch request), all three
+  answers are unchanged:
+  - **Queens numbers, fixed**: `10724 71st Ave, Forest Hills, NY 11375` → `107-24 71ST AVE`. The
+    house number is now compared without its hyphens, so this is verified in the service's form.
+    Nothing typed is lost (the digits are the same).
+  - **Ranges, moot**: `430-432 W Vine St` → `432 W VINE ST`. Accepting it would save half of what
+    was typed; it stays not verified, as typed, and is no longer refused.
+  - **Unique ZIP codes, moot**: UofL's `2301 S 3rd St, 40292` → `40208`. A moved ZIP code is a
+    different place to FR-021, and saving the service's would drop the ZIP the admin typed; it
+    stays not verified, as typed, and is no longer refused.
+- **Null on an edit**: `PATCH /locations/{id}` with `name: null` or `seatingCapacity: null` gave
+  500 (`@IsOptional` lets null through). Both now use `@ValidateIf(... !== undefined)` like the
+  address fields: `400 VALIDATION_FAILED`, the venue unchanged.
+
+**Rationale**: Constitution I (the contract says what the Backend does), IV (keep what the admin
+typed), VI (each fix proved by its own failing test first).
+
+**Alternatives considered**: A second address line in the contract and form for the suite (a
+contract shape, a form field, and a migration for what one rule at save time keeps). A clearer
+notice that the suite was dropped (still loses it). Accepting a range or a moved unique ZIP as
+verified (saves something other than what was typed). Taking the lock across the lookup for R7
+(R7's alternative, rejected for blocking layout saves and sales).

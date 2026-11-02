@@ -531,12 +531,12 @@ its name without a check, and is verified when its address is filled in.
 - [x] T043 Open the implementation PR against `main` with `fixes #25` in its description. It
   touches the shared surface (`packages/shared/`, `backend/prisma/`, `.env.example`,
   `docker-compose.yml`), so every team member approves it.
-- [ ] T044 After the implementation PR merges, open a follow-up GitHub issue to tighten the
+- [x] T044 After the implementation PR merges, open a follow-up GitHub issue to tighten the
   contract (research R11 Follow-up): add `street`, `city`, `state`, `zip`, and `addressVerified`
   to `Location.required`, and `street`, `city`, `state`, `zip` to `LocationInput.required`, then
   regenerate `api-schema.ts`, and make the same five `Location` fields required in
   `packages/shared/src/location.ts` (optional there until then, data-model.md). Link it from the
-  PR.
+  PR. Opened as #36; done there, contract 1.18.0 (research R15).
 
 ---
 
