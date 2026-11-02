@@ -49,7 +49,7 @@ seconds, oldest first. `tryAttempt(sub, kind)` runs **synchronously, with no `aw
 
 1. `now = clock.now()`. Drop the times `t` with `t <= now - 60_000` (an attempt counts in `[t, t +
    60 s)`, half-open like every window in QueuePass), and, as a guard, any `t > now` (impossible on a
-   monotonic clock). Delete the key if none is left.
+   monotonic clock). (A key left with none is forgotten by the sweep below: every check ends with a time in it.)
 2. `waitMinute = times.length >= perMinute ? times[times.length - perMinute] + 60_000 - now : 0`.
 3. `recent` = the times with `t > now - 5_000`; `waitBurst = recent.length >= perFiveSeconds ?
    recent[recent.length - perFiveSeconds] + 5_000 - now : 0`.

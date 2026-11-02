@@ -77,16 +77,18 @@ export class AttemptLimitsService implements OnModuleInit, OnModuleDestroy {
         ? FIVE_SECONDS_MS - age(recent[recent.length - perFiveSeconds])
         : 0;
 
-    // 4. Refused: nothing recorded. Let through: recorded.
+    // 4. Refused: nothing recorded (a refusal always has times left, so the pruned list is kept).
+    //    Let through: recorded. Either way the key holds times, so a key is forgotten only by the
+    //    sweep, once its newest time is a minute old.
     const wait = Math.min(MINUTE_MS, Math.max(waitMinute, waitBurst));
     if (wait > 0) {
-      this.store(key, times);
+      this.attempts.set(key, times);
       const retryAfterSeconds = Math.ceil(wait / 1000);
       this.logOnce(key, sub, kind, now, wait, waitMinute >= waitBurst);
       return { ok: false, retryAfterSeconds };
     }
     times.push(now);
-    this.store(key, times);
+    this.attempts.set(key, times);
     return { ok: true };
   }
 
@@ -101,12 +103,6 @@ export class AttemptLimitsService implements OnModuleInit, OnModuleDestroy {
   /** The keys with attempts in memory, for tests and diagnostics. */
   trackedKeys(): string[] {
     return [...this.attempts.keys()];
-  }
-
-  /** Keeps the pruned times, or forgets a key with none left. */
-  private store(key: string, times: number[]): void {
-    if (times.length === 0) this.forget(key);
-    else this.attempts.set(key, times);
   }
 
   private forget(key: string): void {

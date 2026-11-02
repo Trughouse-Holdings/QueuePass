@@ -306,6 +306,14 @@ describe('attemptLimitsFromEnv (FR-017, research R5)', () => {
     );
   });
 
+  it('refuses a 5-second number above the default minute, naming both', () => {
+    expect(() => attemptLimitsFromEnv({ RATE_LIMIT_PER_5_SECONDS: '11' })).toThrow(
+      new Error(
+        "RATE_LIMIT_PER_5_SECONDS ('11') must not be more than RATE_LIMIT_PER_MINUTE ('10')",
+      ),
+    );
+  });
+
   it('refuses a 5-second number above the minute, naming both', () => {
     expect(() =>
       attemptLimitsFromEnv({ RATE_LIMIT_PER_MINUTE: '10', RATE_LIMIT_PER_5_SECONDS: '11' }),

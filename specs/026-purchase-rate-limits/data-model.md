@@ -9,7 +9,7 @@ counts are kept in the Backend's memory and forgotten on a restart (research R3;
 
 | Name | Shape | Rule |
 | --- | --- | --- |
-| attempts | `Map<string, number[]>`, key `` `${sub}:${kind}` ``, `kind` `BUY` or `HOLD` | The `ATTEMPT_CLOCK` times (ms, monotonic `performance.now()`, research R2) of the attempts let through, oldest first; only those with `t > now - 60_000`; at most `perMinute` (research R2). A key with none left is deleted. |
+| attempts | `Map<string, number[]>`, key `` `${sub}:${kind}` ``, `kind` `BUY` or `HOLD` | The `ATTEMPT_CLOCK` times (ms, monotonic `performance.now()`, research R2) of the attempts let through, oldest first; only those with `t > now - 60_000`; at most `perMinute` (research R2). A key with none left is deleted by the sweep (a check always leaves times: a refusal has some, and a let-through attempt adds one). |
 | loggedUntil | `Map<string, number>`, same key | The end of the wait already logged for this key; a refusal before it writes no log line (research R8). Deleted with its key. |
 
 Swept every 60 seconds (`sweepOnce()`): every key whose newest time is `<= now - 60_000` is deleted
