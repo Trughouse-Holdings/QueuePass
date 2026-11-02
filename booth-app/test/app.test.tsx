@@ -59,6 +59,24 @@ describe('QueuePass Ticket Booth app', () => {
     expect(screen.getByRole('main')).toHaveClass('main');
     expect(text.closest('.app .main .card')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Log out' })).toHaveClass('btn', 'btn--primary');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      "Your account can't use this app.",
+    );
+  });
+
+  // Issue #37 (added in review): the header's Log out is a theme button, like Change event.
+  it('shows Log out in the header as a theme ghost button', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json([])),
+    );
+    render(
+      <App
+        userManager={fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }))}
+      />,
+    );
+    await screen.findByText(/Choose the event/);
+    expect(screen.getByRole('button', { name: 'Log out' })).toHaveClass('btn', 'btn--ghost');
   });
 
   it('shows nothing but "Signing in…" to a signed-out visitor', () => {

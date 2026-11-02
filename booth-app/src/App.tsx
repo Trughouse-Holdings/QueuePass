@@ -229,7 +229,8 @@ function Booth() {
               Change event
             </button>
           )}
-          <LogoutButton />
+          {/* Issue #37: not in a .topbar, so it takes the theme button classes itself. */}
+          <LogoutButton className="btn btn--ghost" />
         </div>
       </header>
       <main className="booth-main">
