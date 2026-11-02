@@ -41,6 +41,15 @@ export class UpdateEventDto {
   @Matches(OFFSET_DATE_TIME, { message: needsOffset('endsAt') })
   endsAt?: string;
 
+  /**
+   * Spec 025 FR-008: checked against the start in force after the update; left out while the
+   * start moves, doors move by the same amount.
+   */
+  @IsOptional()
+  @IsISO8601({ strict: true }, { message: 'doorsOpenAt must be an ISO-8601 timestamp' })
+  @Matches(OFFSET_DATE_TIME, { message: needsOffset('doorsOpenAt') })
+  doorsOpenAt?: string;
+
   @IsOptional()
   @IsInt({ message: 'totalTicketCapacity must be a whole number' })
   @IsPositive({ message: 'totalTicketCapacity must be a positive whole number' })

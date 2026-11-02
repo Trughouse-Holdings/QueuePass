@@ -8,7 +8,11 @@ import {
 import type { Location, Prisma } from '@prisma/client';
 import {
   DEFAULT_DOORS_BEFORE_START_MINUTES,
+  DOORS_OPEN_MAX_BEFORE_START_MINUTES,
+  ENTRY_OPENS_BEFORE_DOORS_MINUTES,
   SCHEDULING_BUFFER_MINUTES,
+  doorsOpenProblem,
+  doorsOpenRangeMessage,
   localDate,
   type UsTimeZone,
 } from '@queuepass/shared';
@@ -70,9 +74,13 @@ async function retryOnDeadlock<T>(write: () => Promise<T>): Promise<T> {
 /** Spec 020 research R10: the event moved to another venue between the read and its lock. */
 class VenueMoved extends Error {}
 
-/** API shape: basePrice serialized as a decimal string (never a JSON number). */
+/**
+ * API shape: basePrice serialized as a decimal string (never a JSON number). Spec 025 FR-010:
+ * `entryOpensAt`, when gate check-in opens, worked out from `doorsOpenAt`, never stored.
+ */
 export interface EventResponse extends Omit<EventWithLocation, 'basePrice'> {
   basePrice: string;
+  entryOpensAt: Date;
 }
 
 @Injectable()
@@ -83,7 +91,14 @@ export class EventsService {
   ) {}
 
   private toResponse(event: EventWithLocation): EventResponse {
-    return { ...event, basePrice: event.basePrice.toFixed(2) };
+    return {
+      ...event,
+      basePrice: event.basePrice.toFixed(2),
+      // Spec 025 research R6, R7: the same rule as the entry SQL's `entryOpens` fragment.
+      entryOpensAt: new Date(
+        event.doorsOpenAt.getTime() - ENTRY_OPENS_BEFORE_DOORS_MINUTES * MINUTE_MS,
+      ),
+    };
   }
 
   create(dto: CreateEventDto): Promise<EventResponse> {
@@ -107,10 +122,15 @@ export class EventsService {
   ): Promise<EventResponse> {
     await lockVenueShared(tx, [dto.locationId]);
     const location = await this.requireLocation(dto.locationId, tx);
-    // Spec 020 FR-018 (research R9): each time in the venue's zone, start then end.
+    // Spec 020 FR-018 (research R9): each time in the venue's zone, start then end; spec 025
+    // research R6: then doors, else the start minus 1 hour, then the doors' range.
     const zone = location.timeZone as UsTimeZone;
     const startsAt = checkEventTime('startsAt', dto.startsAt, zone, location.name);
     const endsAt = checkEventTime('endsAt', dto.endsAt, zone, location.name);
+    const doorsOpenAt = dto.doorsOpenAt
+      ? checkEventTime('doorsOpenAt', dto.doorsOpenAt, zone, location.name)
+      : new Date(startsAt.getTime() - DEFAULT_DOORS_BEFORE_START_MINUTES * MINUTE_MS);
+    this.assertDoorsInRange(startsAt, doorsOpenAt, zone);
     // Spec 007 FR-019: left out, the event can sell as many tickets as the venue holds.
     const capacity = dto.totalTicketCapacity ?? location.seatingCapacity;
     this.assertCapacityWithinVenue(capacity, location);
@@ -123,7 +143,7 @@ export class EventsService {
         locationId: dto.locationId,
         startsAt,
         endsAt,
-        doorsOpenAt: new Date(startsAt.getTime() - DEFAULT_DOORS_BEFORE_START_MINUTES * MINUTE_MS),
+        doorsOpenAt,
         totalTicketCapacity: capacity,
         maxTicketsPerCustomer: dto.maxTicketsPerCustomer ?? null,
         basePrice: dto.basePrice,
@@ -295,11 +315,18 @@ export class EventsService {
     const endsAt = dto.endsAt
       ? checkEventTime('endsAt', dto.endsAt, zone, location.name)
       : existing.endsAt;
-    // Spec 025 FR-008 (research R4): a start that moves takes its doors with it, keeping the gap,
-    // so a doors-open time never falls out of range for a field the caller did not send.
-    const doorsOpenAt = new Date(
-      existing.doorsOpenAt.getTime() + (startsAt.getTime() - existing.startsAt.getTime()),
-    );
+    // Spec 025 FR-008 (research R4): doors sent are checked against the start in force after the
+    // update; else a start that moves takes its doors with it, keeping the gap, so a doors-open
+    // time never falls out of range for a field the caller did not send; else unchanged.
+    let doorsOpenAt: Date;
+    if (dto.doorsOpenAt) {
+      doorsOpenAt = checkEventTime('doorsOpenAt', dto.doorsOpenAt, zone, location.name);
+      this.assertDoorsInRange(startsAt, doorsOpenAt, zone);
+    } else {
+      doorsOpenAt = new Date(
+        existing.doorsOpenAt.getTime() + (startsAt.getTime() - existing.startsAt.getTime()),
+      );
+    }
 
     const capacity = dto.totalTicketCapacity ?? existing.totalTicketCapacity;
     this.assertCapacityWithinVenue(capacity, location);
@@ -423,6 +450,33 @@ export class EventsService {
     if (endsAt <= startsAt) {
       throw new BadRequestException({ message: ['endsAt must be later than startsAt'] });
     }
+  }
+
+  /**
+   * Spec 025 FR-004, FR-005 (research R2): doors from 6 hours before the start to the start, or
+   * 400 DOORS_OPEN_OUT_OF_RANGE naming the range in the venue's zone. The event_doors_open_range
+   * CHECK is the guarantee; this check is why an admin never sees it.
+   */
+  private assertDoorsInRange(startsAt: Date, doorsOpenAt: Date, zone: UsTimeZone): void {
+    if (!doorsOpenProblem(startsAt, doorsOpenAt)) return;
+    const earliest = new Date(startsAt.getTime() - DOORS_OPEN_MAX_BEFORE_START_MINUTES * MINUTE_MS);
+    throw new HttpException(
+      {
+        error: {
+          code: 'DOORS_OPEN_OUT_OF_RANGE',
+          message: doorsOpenRangeMessage(startsAt, zone),
+          details: {
+            field: 'doorsOpenAt',
+            doorsOpenAt: doorsOpenAt.toISOString(),
+            startsAt: startsAt.toISOString(),
+            earliest: earliest.toISOString(),
+            latest: startsAt.toISOString(),
+            timeZone: zone,
+          },
+        },
+      },
+      HttpStatus.BAD_REQUEST,
+    );
   }
 
   private async requireLocation(locationId: string, db: Db = this.prisma): Promise<Location> {

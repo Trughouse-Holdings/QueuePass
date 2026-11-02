@@ -49,10 +49,25 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
     return res.body.id;
   }
 
-  async function event(locationId: string, name: string, startsAt: string, endsAt: string) {
+  /** Spec 025: `doorsOpenAt` sent only when given; left out, the start minus 1 hour. */
+  async function event(
+    locationId: string,
+    name: string,
+    startsAt: string,
+    endsAt: string,
+    doorsOpenAt?: string,
+  ) {
     const res = await asAdmin(ctx)
       .post('/events')
-      .send({ name, locationId, startsAt, endsAt, totalTicketCapacity: 10, basePrice: '1.00' })
+      .send({
+        name,
+        locationId,
+        startsAt,
+        endsAt,
+        ...(doorsOpenAt ? { doorsOpenAt } : {}),
+        totalTicketCapacity: 10,
+        basePrice: '1.00',
+      })
       .expect(201);
     return res.body as { id: string; startsAt: string; endsAt: string };
   }
@@ -214,7 +229,14 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
   it('Phoenix to Denver bringing Late A and Late B within 60 minutes: SCHEDULING_CONFLICT', async () => {
     const v = await venue('phoenix');
     const a = await event(v, 'Late A', '2027-03-13T23:00:00-07:00', '2027-03-14T01:30:00-07:00');
-    const b = await event(v, 'Late B', '2027-03-14T03:00:00-07:00', '2027-03-14T04:00:00-07:00');
+    // Spec 025: doors at the start; the default, 2:00 AM, is skipped in Denver and refused first.
+    const b = await event(
+      v,
+      'Late B',
+      '2027-03-14T03:00:00-07:00',
+      '2027-03-14T04:00:00-07:00',
+      '2027-03-14T03:00:00-07:00',
+    );
     const before = await snapshot();
     const res = await patch(v, { timeZone: 'America/Denver' }).expect(409);
     expect(res.body.error.code).toBe('SCHEDULING_CONFLICT');
@@ -248,7 +270,9 @@ describe('Changing a venue time zone (spec 020 US5)', () => {
     const v = await venue('phoenix');
     // In Mountain time 01:30 MST is 08:30Z and 03:30 MDT is 09:30Z: 60 minutes; 03:29 is 59.
     await event(v, 'A', '2027-03-14T00:00:00-07:00', '2027-03-14T01:30:00-07:00');
-    await event(v, 'B', `2027-03-14T${bStart}:00-07:00`, '2027-03-14T05:00:00-07:00');
+    // Spec 025: doors at the start; the default (2:30 or 2:29 AM) is skipped in Denver.
+    const bAt = `2027-03-14T${bStart}:00-07:00`;
+    await event(v, 'B', bAt, '2027-03-14T05:00:00-07:00', bAt);
     await patch(v, { timeZone: 'America/Denver' }).expect(status);
   });
 

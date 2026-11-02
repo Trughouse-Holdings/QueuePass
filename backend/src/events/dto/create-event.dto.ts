@@ -36,6 +36,15 @@ export class CreateEventDto {
   @Matches(OFFSET_DATE_TIME, { message: needsOffset('endsAt') })
   endsAt!: string;
 
+  /**
+   * Spec 025 FR-007, FR-008: optional, the venue's local time with its offset; left out, the
+   * start minus 1 hour.
+   */
+  @IsOptional()
+  @IsISO8601({ strict: true }, { message: 'doorsOpenAt must be an ISO-8601 timestamp' })
+  @Matches(OFFSET_DATE_TIME, { message: needsOffset('doorsOpenAt') })
+  doorsOpenAt?: string;
+
   /** Spec 007 FR-019: optional; when left out, the venue's seating capacity. */
   @IsOptional()
   @IsInt({ message: 'totalTicketCapacity must be a whole number' })

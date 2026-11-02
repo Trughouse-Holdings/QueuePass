@@ -2,9 +2,11 @@ import { HttpException, HttpStatus } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import {
   DEFAULT_TIME_ZONE,
+  DOORS_OPEN_MAX_BEFORE_START_MINUTES,
   SCHEDULING_BUFFER_MINUTES,
   STATE_TIME_ZONES,
   US_STATES,
+  doorsOpenProblem,
   formatEventEnd,
   formatEventTime,
   formatLocalDateTime,
@@ -129,12 +131,13 @@ export async function assertNoOrders(
 const localOf = (instant: Date, zone: UsTimeZone): string =>
   `${toOffsetDateTime(instant, zone).slice(0, 19)}.${String(instant.getUTCMilliseconds()).padStart(3, '0')}`;
 
-const FIELD_WORD = { startsAt: 'start', endsAt: 'end' } as const;
+const FIELD_WORD = { startsAt: 'start', endsAt: 'end', doorsOpenAt: 'doors-open time' } as const;
 
 /**
  * Spec 020 FR-009 to FR-012 (research R8, steps 1 to 4), inside the venue update's transaction,
  * after `lockVenueAndEvents(tx, id, { allStatuses: true })`, converting from the zone read under
- * that lock. Every event (scheduled or cancelled) keeps its local start and end; refused when any
+ * that lock. Every event (scheduled or cancelled) keeps its local start and end, and (spec 025
+ * FR-009) its local doors-open time, which must then still be in range; refused when any
  * event has an order, when a local time is skipped or repeated in the new zone, or when the
  * scheduled events at their new moments break the 60-minute rule. Then the overlap constraint is
  * deferred to commit and every event is moved. The caller writes the venue.
@@ -153,20 +156,22 @@ export async function moveEventsToZone(
     orderBy: [{ startsAt: 'asc' }, { id: 'asc' }],
   });
   const moved = events.map((e) => {
-    const at = (field: 'startsAt' | 'endsAt'): Date => {
-      const refuse = (
-        localTime: string,
-        words: string,
-        zone: UsTimeZone,
-        reason: 'SKIPPED' | 'REPEATED' | 'OUT_OF_RANGE',
-      ): never => {
-        throw conflict(
-          'EVENT_TIME_NOT_IN_ZONE',
-          `Can't change the time zone: ${e.name}'s ${FIELD_WORD[field]}, ` +
-            `${formatLocalDateTime(localTime)}, ${words} ${zoneName(zone)}.`,
-          { event: { id: e.id, name: e.name }, field, localTime, proposedTimeZone: to, reason },
-        );
-      };
+    type Field = keyof typeof FIELD_WORD;
+    const refuse = (
+      field: Field,
+      localTime: string,
+      words: string,
+      zone: UsTimeZone,
+      reason: 'SKIPPED' | 'REPEATED' | 'OUT_OF_RANGE' | 'DOORS_OUT_OF_RANGE',
+    ): never => {
+      throw conflict(
+        'EVENT_TIME_NOT_IN_ZONE',
+        `Can't change the time zone: ${e.name}'s ${FIELD_WORD[field]}, ` +
+          `${formatLocalDateTime(localTime)}, ${words} ${zoneName(zone)}.`,
+        { event: { id: e.id, name: e.name }, field, localTime, proposedTimeZone: to, reason },
+      );
+    };
+    const at = (field: Field): Date => {
       // #88 (review round 3, n1): a legacy time from before a zone adopted standard time has no
       // whole-minute offset there (RangeError), so it can't be placed; refused, not a 500. The
       // message names the zone that can't place it.
@@ -176,6 +181,7 @@ export async function moveEventsToZone(
         } catch (err) {
           if (!(err instanceof RangeError)) throw err;
           return refuse(
+            field,
             toLocalDateTime(e[field], from),
             'is from before standard time in',
             zone,
@@ -187,15 +193,27 @@ export async function moveEventsToZone(
       const r = placed(to, () => resolveLocal(local, to));
       if (r.kind === 'ok') return r.moment.instant;
       return r.kind === 'skipped'
-        ? refuse(local.slice(0, 16), "doesn't exist in", to, 'SKIPPED')
-        : refuse(local.slice(0, 16), 'happens twice in', to, 'REPEATED');
+        ? refuse(field, local.slice(0, 16), "doesn't exist in", to, 'SKIPPED')
+        : refuse(field, local.slice(0, 16), 'happens twice in', to, 'REPEATED');
     };
     const startsAt = at('startsAt');
-    // Spec 025 (T005, interim): doors move by the same interval as the start.
-    const doorsOpenAt = new Date(
-      e.doorsOpenAt.getTime() + startsAt.getTime() - e.startsAt.getTime(),
-    );
-    return { ...e, startsAt, endsAt: at('endsAt'), doorsOpenAt };
+    const endsAt = at('endsAt');
+    // Spec 025 FR-009 (research R5): doors keep their local time too, and must then still be in
+    // range: a daylight-saving change between doors and start in one zone only can break it.
+    const doorsOpenAt = at('doorsOpenAt');
+    const problem = doorsOpenProblem(startsAt, doorsOpenAt);
+    if (problem) {
+      refuse(
+        'doorsOpenAt',
+        toLocalDateTime(e.doorsOpenAt, from),
+        problem === 'TOO_EARLY'
+          ? `would be more than ${DOORS_OPEN_MAX_BEFORE_START_MINUTES / 60} hours before its start in`
+          : 'would be after its start in',
+        to,
+        'DOORS_OUT_OF_RANGE',
+      );
+    }
+    return { ...e, startsAt, endsAt, doorsOpenAt };
   });
 
   // FR-012: the first pair, in start order, whose windows [start - 60 min, end) overlap.
