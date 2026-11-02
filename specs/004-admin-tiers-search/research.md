@@ -71,3 +71,20 @@ A **Ticket tiers** card on the event page: a table (name, price, quantity, Edit,
 "Allocated N of M" line, and an add form. Editing turns a row into inputs with Save and Cancel.
 Remove asks `window.confirm`, like `002`'s deletes. Backend refusals show in the existing
 `ErrorBanner`, keeping the typed values (Constitution IV).
+
+## R8: Null on a tier edit or a new tier's quantity (2026-11-02, issue #117)
+
+**Found** with `002` R11 (the same bug as #36 for venues). `UpdateTierDto` used `@IsOptional`, so
+`PATCH /events/{id}/tiers/{tierId}` with `name`, `price` or `quantity` as `null` reached
+`assertNameFree`, `assertFits` and the database (`500`); `POST /events/{id}/tiers` with `quantity:
+null` on an event without reserved seating did the same. All seen in tests first.
+
+**Decision**: these fields use `@ValidateIf(... !== undefined)`: `400 VALIDATION_FAILED` naming the
+field, nothing changed (FR-001, FR-005). On a seated event, `quantity: null` on a new tier or an
+edit was already `400 VALIDATION_FAILED` (`007` FR-006); only the message changed, from the
+seated-event one ("quantity must be omitted: it follows this tier's sections…" on create, "quantity
+follows this tier's sections…" on an edit) to the generic "quantity must be a whole number". Accepted: keeping the seated message would mean letting `null`
+past the DTO and refusing it in the service at each place, unlike every other field and the venue
+fix; no client sends `null` (the Admin app leaves `quantity` out on a seated event), and the
+refusal still names the field. No tier field gives `null` a meaning. Contract 1.19.0 says so on
+`TicketTierUpdate` and `TicketTierInput.quantity`.

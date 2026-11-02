@@ -139,4 +139,39 @@ describe('Ticket tier CRUD', () => {
       .send({ name: 'VIP', price: '120.00', quantity: 100 });
     await asAdmin(ctx).patch(`${tiers()}/${body.id}`).send({}).expect(400);
   });
+
+  // Issue #117: `@IsOptional` let a null through to the database, a 500 (as #36 for venues).
+  it.each([
+    ['a null name', { name: null }, /^name /],
+    ['a null price', { price: null }, /^price /],
+    ['a null quantity', { quantity: null }, /^quantity /],
+    ['a null name beside a valid price', { name: null, price: '1.00' }, /^name /],
+  ])('refuses %s on an edit with VALIDATION_FAILED, tier unchanged', async (_l, body, field) => {
+    const { body: tier } = await asAdmin(ctx)
+      .post(tiers())
+      .send({ name: 'VIP', price: '120.00', quantity: 100 })
+      .expect(201);
+    const before = await ctx.prisma.ticketTier.findUniqueOrThrow({ where: { id: tier.id } });
+    const res = await asAdmin(ctx).patch(`${tiers()}/${tier.id}`).send(body).expect(400);
+    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    // Every message is about the one field sent as null (review M3).
+    const fields: string[] = res.body.error.details?.fields ?? [];
+    expect(fields.length).toBeGreaterThan(0);
+    for (const message of fields) expect(message).toMatch(field);
+    expect(await ctx.prisma.ticketTier.findUniqueOrThrow({ where: { id: tier.id } })).toEqual(
+      before,
+    );
+  });
+
+  it('refuses a null quantity on a new tier with VALIDATION_FAILED, adding none (#117)', async () => {
+    const res = await asAdmin(ctx)
+      .post(tiers())
+      .send({ name: 'VIP', price: '120.00', quantity: null })
+      .expect(400);
+    expect(res.body.error.code).toBe('VALIDATION_FAILED');
+    const fields: string[] = res.body.error.details?.fields ?? [];
+    expect(fields.length).toBeGreaterThan(0);
+    for (const message of fields) expect(message).toMatch(/^quantity /);
+    expect(await ctx.prisma.ticketTier.count()).toBe(0);
+  });
 });
