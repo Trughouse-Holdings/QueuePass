@@ -84,7 +84,9 @@ confirm they **fail** before the implementation tasks below them.
   bytes; `--check` passes on the generator's own output and fails, naming what differs, on an image
   with one pixel changed and on one with another `Source` chunk; `cli.ts` refuses an input whose
   SHA-256 is not the recorded one, naming the one it expected; the input path resolves against
-  `INIT_CWD` and the output against the repository root. Must fail (no generator yet).
+  `INIT_CWD` and the output against the repository root. The CLI tests write only into a temporary
+  folder (an output path the test passes in) or check how a path resolves without writing; no test
+  ever writes to, or overwrites, the committed `stone-lines.png`. Must fail (no generator yet).
 
 ### Implementation
 
@@ -177,9 +179,9 @@ them in the light scheme; US2 fixes it).
 
 - [ ] T017 [US2] In `e2e/tests/027-sign-in-background.spec.ts`, title `027 S3: every text, field edge
   and focus ring on the stones meets its contrast at five window sizes, light and dark` (R8). One
-  test, as the quickstart check needs one titled test per scenario row: `test.setTimeout` raised to
-  what its loops need (measure one run and set about twice that; the whole `npm run e2e` stays inside
-  spec `022` SC-003's 30 minutes), and a `test.step` per app, scheme, and size. For each app, scheme
+  test, as the quickstart check needs one titled test per scenario row, with
+  `test.setTimeout(10 * 60_000)` and a `test.step` per app, scheme, and size: 60 page states at about
+  3–5 s each, so about 5 minutes on one of CI's two e2e workers (R8). For each app, scheme
   (`page.emulateMedia({ colorScheme })`), and size (360×800, 768×1024, 1280×800, 1920×1080,
   2560×1440), on the first page and after a wrong password:
   - record the boxes and computed colors of every visible text element outside the fields, buttons,
@@ -241,8 +243,8 @@ them in the light scheme; US2 fixes it).
   blocked, the sign-in page stays readable` (FR-009, SC-005): `page.route` aborts requests for
   `keycloak-bg.png`; the T017 checks (contrast, not the fade) at 360×800 and 1920×1080, light and
   dark, for the Ticket Booth app (its lines are the brightest); the lines and the shade are still
-  drawn over `--stone-base`. See it fail by pointing `body`'s background at the shared `--bg` for a
-  moment, then restore `--stone-base`.
+  drawn over `--stone-base`. Its own `test.setTimeout(3 * 60_000)` (8 page states). See it fail by
+  pointing `body`'s background at the shared `--bg` for a moment, then restore `--stone-base`.
 - [ ] T024 [US4] Mark S6 Automated in the Automation table. Quickstart S7 by hand: `--check` on
   T002's file passes; another PNG is refused; the notice reads right. Record it here.
 
@@ -255,7 +257,9 @@ them in the light scheme; US2 fixes it).
   the sign-in look's backdrop colors are `--stone-*` tokens, and the `stone-lines` command beside the
   Keycloak rebuild note; the constitution reference already reads v3.7.0.
 - [ ] T026 Run `npm run e2e` three times in a row, all green, and `npm test` under a second time zone
-  (`npm run test:tz`); record the counts.
+  (`npm run test:tz`); record the counts, and the e2e job's time on GitHub for this branch: it must
+  stay under about 15 minutes (on `main` it is 6 min 10 s, run 41520953833), well inside the job's
+  `timeout-minutes: 30` and spec `022` SC-003 (R8). Record `027 S3`'s and `027 S6`'s own times too.
 - [ ] T027 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round, its findings, and
   any left open here.
@@ -315,4 +319,9 @@ them in the light scheme; US2 fixes it).
     (eight tokens); `content: ''`, a probe element for color comparison, the ring's sample area,
     `INIT_CWD` and repository-root paths, a no-animation check, the 400% zoom case at 360 px, and
     caching only outside `start-dev`.
+- **Round 2** (independent Claude session, 2026-11-02): approves once 1 should-fix and 4 nits are
+  fixed, all in the `Review 027: spec review round 2` commit: the S3 and S6 timeouts, expected times,
+  and the e2e job's budget stated (R8, T017, T023, T026); R5's 50% Admin ring figure (2.88–2.91);
+  R3's reason for comparing decoded pixels; T006's CLI tests never write the committed image; the
+  constitution paragraph rewrapped.
 - **Open findings**: none.

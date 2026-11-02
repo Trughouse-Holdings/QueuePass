@@ -239,14 +239,15 @@ layout that works at phone width, touch target size, WCAG contrast, states that 
 color alone, keyboard access), is usability work, not custom visual design. New branding and
 decoration remain out of scope.
 
-The one exception to "no per-app variants" and to "no decoration": the sign-in screens (Keycloak's pages, styled from the
-shared theme) MAY show each app's name, a line saying who it is for, and its own accent color, so a person can tell at a glance which app
-they are signing in to (spec `021`). They MAY also show Keycloak's stock low-poly background,
-served from Keycloak's own theme, with the lines between the stones in the app's accent (spec
-`027`). That background is the only decoration allowed, and every text, label, and control on it
-MUST keep the contrast its spec states. Those accents, and the colors the sign-in screens draw on
-that background, are tokens in the shared theme, defined only in its token blocks and checked by its
-contrast tests. The apps themselves keep the one shared accent and use none of them.
+The one exception to "no per-app variants" and to "no decoration": the sign-in screens (Keycloak's
+pages, styled from the shared theme) MAY show each app's name, a line saying who it is for, and its
+own accent color, so a person can tell at a glance which app they are signing in to (spec `021`).
+They MAY also show Keycloak's stock low-poly background, served from Keycloak's own theme, with the
+lines between the stones in the app's accent (spec `027`). That background is the only decoration
+allowed, and every text, label, and control on it MUST keep the contrast its spec states. Those
+accents, and the colors the sign-in screens draw on that background, are tokens in the shared theme,
+defined only in its token blocks and checked by its contrast tests. The apps themselves keep the one
+shared accent and use none of them.
 
 Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
 without anyone spending time on visual design, and a change to the look is made once.

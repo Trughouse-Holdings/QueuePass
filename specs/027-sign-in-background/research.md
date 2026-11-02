@@ -105,9 +105,11 @@ prototype).
   recorded one (R1), so the lines always match the image Keycloak serves.
 - `--check` regenerates in memory and compares with the committed file: identical decoded pixels
   (size, channels, every byte of pixel data) and the same text chunks; it exits non-zero and says
-  what differs otherwise. That is what "the same result" means (FR-010, SC-004). Encoded bytes may
-  differ between machines (the zlib build can compress differently), so byte equality is promised
-  only within one process: two runs of the encoder in the same test give the same bytes.
+  what differs otherwise. That is what "the same result" means (FR-010, SC-004). It compares the
+  decoded image rather than the file's bytes because the question is what the image is, not how it
+  is compressed: a later `fast-png` (or `pako`, its pure-JavaScript zlib) may compress the same
+  pixels differently, and that is not a different image. Byte equality is still tested within one
+  process: two runs of the encoder in the same test give the same bytes.
 - One `tEXt` chunk, `Source`, records the input's file name, Keycloak version (26.0.8), and SHA-256,
   and the generator's settings. No license text in the PNG.
 - The source file is taken from the running Keycloak (`curl` the URL of R1, with the `{version}` the
@@ -223,7 +225,7 @@ the app's `--stone-accent` (R7).
 Why these numbers:
 
 - **60%** is the lightest shade at which every row passes. At 50%, the Booth's muted text falls to
-  3.99–4.02 and the Admin ring to 2.90–2.92. A darker shade passes too but hides the stones behind
+  3.99–4.02 and the Admin ring to 2.88–2.91. A darker shade passes too but hides the stones behind
   the form: at 78%, the lightest stone behind the form is `#1e1e1e`.
 - **The lighter accents, for the rings and the lines**: the light scheme's accents against the
   lightest backdrop (`#373737`) are 1.89 (indigo), 2.17 (teal), and 2.37 (amber), under 3:1, and as
@@ -373,8 +375,9 @@ colors there does not touch the apps (FR-012).
     comparison is between two resolved colors, not token strings), in both schemes; its `mask-image`
     names `stone-lines.png`; no `.card` in the page.
   - `027 S3: …`: one test (the quickstart check allows one titled test per scenario row), with
-    `test.setTimeout` raised to fit its loops (well inside spec `022` SC-003's 30-minute budget for
-    the whole run) and a `test.step` per app, scheme, and size. For each app, light and dark
+    `test.setTimeout(10 * 60_000)` and a `test.step` per app, scheme, and size. It visits 60 page
+    states (3 apps × 2 schemes × 5 sizes × 2 pages), about 3–5 s each, so it should take about 5
+    minutes on one of CI's two e2e workers, while the other worker runs the rest of the suite. For each app, light and dark
     (`page.emulateMedia`), at 360×800, 768×1024, 1280×800, 1920×1080, and 2560×1440, on the first page
     and after a wrong password:
     - record each visible text element's box and computed color (scrolled into view first, since at
@@ -395,7 +398,11 @@ colors there does not touch the apps (FR-012).
       differ.
   - `027 S6: …`: the same checks as S3 at 360×800 and 1920×1080, light and dark, with the stones image
     request aborted (`page.route`), for the Ticket Booth app (its lines are the brightest); the lines
-    and the shade are still drawn over `--stone-base` (SC-005).
+    and the shade are still drawn over `--stone-base` (SC-005). Its own `test.setTimeout(3 * 60_000)`
+    (8 page states).
+  - **The e2e job's time**: on `main` it takes 6 min 10 s (run 41520953833). With S3 and S6 it should
+    stay under about 15 minutes, well inside the job's `timeout-minutes: 30` and spec `022` SC-003;
+    the implementation measures it (tasks T026).
 - **Running system**: [quickstart.md](./quickstart.md): the look by eye, telling the apps apart, the
   keyboard and a screen reader, and the generator's output checked with `--check`.
 
