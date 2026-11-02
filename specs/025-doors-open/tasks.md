@@ -417,19 +417,32 @@ only when open.
 
 ## Phase 9: Polish & cross-cutting
 
-- [ ] T032 [P] `README.md` (research R14): the features table's `025` row (spec link, "Every event
+- [x] T032 [P] `README.md` (research R14): the features table's `025` row (spec link, "Every event
   has a doors-open time, set by admins (1 hour before the start by default, up to 6 hours before);
   customers and admins see it; check-in opens 1 hour before doors, and the Ticket Booth greys out
   events not open yet", "Draft", "Done (N/41 tasks)", the code status); the `017` row's check-in
   wording if it names the 2-hour window; the Status paragraph names `025`; the check-in and Ticket
   Booth sections of "What the system does". `npx prettier --check README.md`.
-- [ ] T033 [P] Search for the old rule in user-facing text and comments: `rg -n "2 hours|two hours|interval '2"`
+  **Done**: the `025` row ("Done (35/41 tasks)", "Built (review pending)"), the Status paragraph,
+  the feature summary, the demo-data note on Demo Tonight's window, and the Gate check-in section
+  (the greyed list and the window). The `017` row names no window, so it is unchanged. `npx prettier
+  --check README.md` passes.
+- [x] T033 [P] Search for the old rule in user-facing text and comments: `rg -n "2 hours|two hours|interval '2"`
   over `backend/src/`, `booth-app/src/`, `customer-app/src/`, `admin-app/src/`, `e2e/`, `README.md`,
   `contracts/openapi.yaml`. Each hit is updated to the new rule, or is a record (specs `017`, `018`,
   the contract's "until feature 025" wording) and is listed here with why it stays.
-- [ ] T034 [P] Confirm `specs/017-gate-check-in/{spec,quickstart}.md` and
+  **Done**: the hits left are records: `README.md` "starts within the next 2 hours" (still true with
+  default doors, and the note now says so) and "events from before `025` keep their window of 2
+  hours before the start"; the contract's "until feature 025, `[startsAt - 2 hours, endsAt)`" and
+  "until then, 2 hours before its start"; `ticket-state.ts`'s doc comment naming what 025 replaced.
+  `reservations.service.ts`'s `interval '2 minutes'` is another rule. Nothing in `booth-app/src`,
+  `customer-app/src`, `admin-app/src`, or `e2e/`.
+- [x] T034 [P] Confirm `specs/017-gate-check-in/{spec,quickstart}.md` and
   `specs/018-rotating-qr-codes/{spec,quickstart}.md` carry the "Superseded in part by `025`" note and
   that its requirement and scenario numbers match what was built; fix the note only.
+  **Done**: all four notes present; their requirement and scenario numbers (017 FR-007, FR-011,
+  FR-019, the Entry window assumption, S0, S3, S6; 018 FR-005, FR-011, S0) match what was built. No
+  change.
 - [ ] T035 Coverage: every workspace stays at or above 80% line coverage; the new form branches
   (follow, touched, the four checks) and the picker's waiting item have no untested branch; record
   each workspace's figure here.
