@@ -47,7 +47,8 @@ seed test and, in CI, by the browser test S1 (R8), and the page falls back to a 
 ## R2. Coloring only the lines between the stones: a derived lines image as a mask
 
 **Decision**: a **lines image** derived once from Keycloak's image: a 1920×1080 PNG, every pixel
-white, whose alpha is opaque on the edges between the stones and clear elsewhere. The page draws a
+white, whose alpha is about 63% (160 of 255; spec Clarifications, implementation session) on the
+edges between the stones and clear elsewhere. The page draws a
 layer filled with the app's accent in its lighter shade (`var(--stone-accent)`, R6) and shows it
 only through that image (`mask-image`), over the stones, both sized `center / cover` on the same box
 so they line up (R4). The file is `keycloak/themes/queuepass/login/resources/img/stone-lines.png`.
@@ -94,7 +95,7 @@ prototype).
   `facets.ts` (label the flat regions; give each anti-aliasing pixel to the facet of the nearest
   large region), `lines.ts` (mark the pixels on a boundary between two facets whose greys differ by
   at least `MIN_STEP` levels; widen to about 2 px; soften by at most 1 px; alpha from the result,
-  grey 255), and `cli.ts`. PNG reading and writing is `fast-png` (6.4.0, MIT), added to
+  at most the line's strength, grey 255), and `cli.ts`. PNG reading and writing is `fast-png` (6.4.0, MIT), added to
   `scripts/seed`'s `devDependencies`. It is already in `package-lock.json` as a dependency of
   `jspdf`, so the lockfile gains no new package. Its encoder writes `tEXt` chunks and its decoder
   reads them back.
@@ -114,9 +115,11 @@ prototype).
   and the generator's settings. No license text in the PNG.
 - The source file is taken from the running Keycloak (`curl` the URL of R1, with the `{version}` the
   sign-in page's stylesheet links show) or from the jar; quickstart S7 gives the commands.
-- `MIN_STEP`, the widening, and the softening are chosen in implementation from previews of all
-  three apps' lines, and Mahdi approves the preview before the file is committed (tasks T010). The
-  values are recorded in `lines.ts` and in the `Source` chunk.
+- `MIN_STEP`, the widening, the softening, and the line's strength are chosen in implementation
+  from previews of all three apps' lines, and Mahdi approves the preview before the file is
+  committed (tasks T010). The values are recorded in `lines.ts` and in the `Source` chunk. Chosen
+  (T010): `MIN_STEP` 1 (at 2 or more, visible stone edges lose their lines), no widening (2 px), a
+  1 px softened edge at 50%, and strength 160 of 255 (about 63%), the "dim" preview.
 - License (FR-010): `keycloak/themes/queuepass/LICENSE-keycloak.txt` is the Apache License 2.0 text
   as Keycloak ships it (`/opt/keycloak/LICENSE.txt` in the image), and
   `keycloak/themes/queuepass/NOTICE` names `login/resources/img/stone-lines.png` as derived from
@@ -197,7 +200,11 @@ the window's full height.
 
 **Worst case** (FR-006): the backdrop behind the form, under the full shade, lies between pure
 black (the darkest stone) and the lighter of the lightest stone (`#898989`) and the page's line
-color at full strength (the mask's opaque core). The lines are the lighter accents in both schemes
+color at full strength (as if the mask were opaque). The lines are drawn at about 63% (T010),
+which only darkens them, so the figures below bound the backdrop from above and every contrast from
+below: with the 63% lines the Booth's brightest line under the shade is `#53441d`, and the lowest
+figures rise to 9.44 (text), 6.40 (muted text and field edges), 6.52 (danger), and 3.74 / 5.34 /
+5.65 (Admin / Tickets / Booth rings). The lines are the lighter accents in both schemes
 (`#8b85f5`, `#2dd4bf`, `#fbbf24`; Clarifications, decision b), so the backdrop, and every figure
 below, is the same in both schemes. Under 60% black, the lightest stone is `#373737`; the brightest
 line is the Booth's amber, `#644c0e`. The fallback grey `--stone-base` (`#3a3a3a`) under the shade is

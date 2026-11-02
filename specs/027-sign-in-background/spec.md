@@ -96,6 +96,16 @@ The independent review of the spec branch raised two questions for Mahdi; he dec
   both schemes (FR-007), and the light scheme's darker accents, which barely show on the near-black
   stones, are not used on it (decided by Mahdi) (FR-003).
 
+### Session 2026-11-02 (implementation, T010)
+
+Mahdi chose from previews of four lines images (fine, soft, bold, and dim), each composited for all
+three apps (tasks T010).
+
+- Q: How thick and how strong are the lines? → A: **The dim lines**: 2 px with a 1 px softened
+  edge, at about 63% strength (alpha 160 of 255), not opaque, so the accent shows as a quieter
+  line between the stones. Dimmer lines only darken the brightest point of the backdrop, so every
+  contrast figure of research R5 still holds, with room (decided by Mahdi) (FR-003, FR-006).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Each App's Sign-in Shows the Stones in Its Own Color (Priority: P1)

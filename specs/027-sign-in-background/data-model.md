@@ -50,7 +50,7 @@ and are the same in both schemes (FR-003, FR-007).
 | --- | --- |
 | Size | 1920×1080, the same as Keycloak's `keycloak-bg.png` |
 | Format | 8-bit grey and alpha PNG; grey 255 wherever alpha is above 0 |
-| Alpha | Opaque on the edges between facets whose greys differ by at least `MIN_STEP`, about 2 px wide, softened by at most 1 px; clear elsewhere |
+| Alpha | 160 of 255 (about 63%, Mahdi's choice from the T010 previews) on the edges between facets whose greys differ by at least `MIN_STEP` (1), 2 px wide, with a 1 px softened edge at half that (80); clear elsewhere |
 | Text chunk | One, `Source`: the input (`keycloak-bg.png`, Keycloak 26.0.8, SHA-256 `0825175291be11f7689e8718295e422bb6fa4f8fefccc5610292b720c701ac4e`) and the generator settings. The license is in `NOTICE` and `LICENSE-keycloak.txt`, not in the PNG |
 | Made by | `npm run stone-lines --workspace @queuepass/seed -- <keycloak-bg.png>`; `--check` confirms the committed file has the same decoded pixels and text chunk as a fresh run (bytes may differ between machines) |
 
