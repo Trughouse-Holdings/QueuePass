@@ -176,6 +176,11 @@ The first three apply to `startsAt`, `endsAt`, and `doorsOpenAt` alike; the last
 "after its start"). All before any write, so nothing is saved; the CHECK is the guarantee if this
 check were wrong. The contract's `updateLocation` description lists the four in one sentence.
 
+An existing `020` test whose event starts less than an hour after a skipped hour in the new zone now
+meets the doors refusal first, since its default doors (start minus 1 hour) fall in that hour; such
+a test's set-up gives doors at the start, and its assertions stay (SC-007; found by the
+implementation: two in `venues.time-zone-change.e2e-spec.ts`, tasks T010).
+
 **Rationale**: FR-009, `020` FR-009 (local times are what the admin entered). A zone change is
 already refused once any event has an order (`020` FR-010), so this touches only unsold events.
 
