@@ -120,6 +120,9 @@ export const event = (over: Partial<Event> = {}): Event => {
     location,
     startsAt: '2026-12-01T23:00:00.000Z', // 6:00 PM in New York
     endsAt: '2026-12-02T02:00:00.000Z', //   9:00 PM in New York
+    // Spec 025: doors 1 hour before the start, check-in from 1 hour before doors.
+    doorsOpenAt: '2026-12-01T22:00:00.000Z',
+    entryOpensAt: '2026-12-01T21:00:00.000Z',
     totalTicketCapacity: 18000,
     maxTicketsPerCustomer: null,
     basePrice: '45.5',
@@ -187,6 +190,7 @@ export const myOrder = (over: Partial<MyOrder> = {}): MyOrder => {
       name: e.name,
       startsAt: e.startsAt,
       endsAt: e.endsAt,
+      doorsOpenAt: e.doorsOpenAt,
       status: e.status,
       // Spec 019 FR-012: the venue's one-line address.
       location: { id: e.location.id, name: e.location.name, address: e.location.address },

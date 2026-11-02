@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
-import type { Event, MyOrder } from '@queuepass/shared';
+import type { Event, MyOrder, OrderEvent } from '@queuepass/shared';
 import { event, json, myOrder, renderCustomer, stubApi, venue } from './helpers';
 
 /**
@@ -39,7 +39,7 @@ const orderFor = (e: Event): MyOrder =>
         address: EAST.address,
         timeZone: 'America/New_York',
       },
-    },
+    } as OrderEvent,
   });
 
 /** The terms of a `dl` in order, and the value after "Doors open". */
@@ -106,7 +106,9 @@ describe.each(places)('Doors open on $where (FR-019, FR-021)', ({ show }) => {
   });
 
   it('shows nothing for an event without doorsOpenAt (a Backend before 025)', async () => {
-    const scope = await show(withDoors({ startsAt: SAME_DAY.startsAt }));
+    // Required from contract 1.17.1; an older Backend leaves it out.
+    const { doorsOpenAt: _doors, ...old } = withDoors({ startsAt: SAME_DAY.startsAt });
+    const scope = await show(old as Event);
     expect(terms(scope).names).not.toContain('Doors open');
     expect(terms(scope).names).toContain('Starts');
   });

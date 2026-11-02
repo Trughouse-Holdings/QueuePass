@@ -54,6 +54,7 @@ const orderEvent = (over: Partial<OrderEvent> = {}): OrderEvent => ({
   id: EVENT_ID,
   name: 'Season Opener',
   startsAt: '2026-10-31T23:30:00.000Z',
+  doorsOpenAt: '2026-10-31T22:30:00.000Z',
   endsAt: '2026-11-01T02:45:00.000Z',
   status: 'SCHEDULED',
   location: { id: 'v1', name: 'KFC Yum! Center', address: '1 ARENA PLAZA, LOUISVILLE, KY 40202' },

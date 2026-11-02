@@ -110,6 +110,7 @@ describe('My tickets, the live entry code, and the printable ticket', () => {
       name: E_PHX.name,
       startsAt: E_PHX.startsAt,
       endsAt: E_PHX.endsAt,
+      doorsOpenAt: new Date(Date.parse(E_PHX.startsAt) - 3_600_000).toISOString(),
       status: 'SCHEDULED',
       location: { id: PHX.id, name: PHX.name, address: PHX.address, timeZone: 'America/Phoenix' },
     },

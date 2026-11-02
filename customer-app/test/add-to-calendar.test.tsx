@@ -23,6 +23,7 @@ const ev = (id: string, name: string, over: Partial<OrderEvent> = {}): OrderEven
   name,
   startsAt: iso(NOW + 7 * 24 * HOUR),
   endsAt: iso(NOW + 7 * 24 * HOUR + 3 * HOUR),
+  doorsOpenAt: iso(NOW + 7 * 24 * HOUR - HOUR),
   status: 'SCHEDULED',
   location: {
     id: `v-${id}`,

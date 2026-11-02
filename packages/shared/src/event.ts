@@ -17,14 +17,15 @@ export interface Event {
   endsAt: string;
   /**
    * Spec 025 FR-001: when the venue's doors open, from 6 hours before `startsAt` to `startsAt`.
-   * Required from contract 1.16.1; optional here so a client of an older Backend shows nothing.
+   * Required from contract 1.17.1 (clients still guard against an older Backend that omits it).
    */
-  doorsOpenAt?: string;
+  doorsOpenAt: string;
   /**
    * Spec 025 FR-010: when gate check-in opens, 1 hour before `doorsOpenAt`, worked out by the
-   * Backend. The Ticket Booth treats a missing value as already open (research R8).
+   * Backend. Required from contract 1.17.1; the Ticket Booth treats a missing value (an older
+   * Backend) as already open (research R8).
    */
-  entryOpensAt?: string;
+  entryOpensAt: string;
   totalTicketCapacity: number;
   /**
    * Spec 016: the most valid tickets one customer may hold; `null` for no limit. Always sent by the
