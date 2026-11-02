@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ORDER_LIMITS,
   holderNameMessage,
   holderNameProblem,
+  rateLimitMessage,
   type Availability,
   type ErrorEnvelope,
   type Event,
   type Order,
+  type RateLimitedAction,
   type Reservation,
   type SeatLabel,
   type TicketTier,
@@ -36,6 +38,43 @@ const seatKey = (s: SeatLabel): string => `${s.section}-${s.row}-${s.seat}`;
 /** A seat by section id, as live changes name it. */
 const placeKey = (s: { sectionId: string; row: number; seat: number }): string =>
   `${s.sectionId}-${s.row}-${s.seat}`;
+
+/**
+ * Spec 026 (research R6): a wait out of a refusal for the limit. `deadline` is by this browser's
+ * monotonic clock, from the Backend's seconds; `left` is the N shown; `first` is the message as it
+ * was at the refusal, announced once.
+ */
+interface Wait {
+  deadline: number;
+  left: number;
+  first: string;
+}
+type Waits = Partial<Record<RateLimitedAction, Wait>>;
+
+/** Spec 026 FR-008: the seconds to wait, when a refusal is one for the limit; otherwise null. */
+function limitedFor(response: Response, error: ErrorEnvelope | undefined): number | null {
+  if (response.status !== 429 || error?.error?.code !== 'RATE_LIMITED') return null;
+  const n = error.error.details?.retryAfterSeconds;
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.ceil(n) : null;
+}
+
+/**
+ * Spec 026 FR-011, FR-013: the countdown, not announced each second (aria-live off), after a
+ * visually hidden alert that holds the first message only, so a screen reader hears it once. The
+ * countdown comes last, directly above the button it explains.
+ */
+function WaitMessage({ wait }: { wait: Wait }) {
+  return (
+    <>
+      <span role="alert" className="visually-hidden">
+        {wait.first}
+      </span>
+      <p className="banner banner--error" aria-live="off">
+        {rateLimitMessage(wait.left)}
+      </p>
+    </>
+  );
+}
 
 /** Spec 015 FR-005: the countdown as `m:ss`. */
 const clock = (seconds: number): string =>
@@ -107,6 +146,62 @@ export function GetTickets({ event }: { event: Event }) {
   const requestId = useRef<string | null>(null);
   // Set synchronously, so a second click before React re-renders sends nothing.
   const sending = useRef(false);
+  // Spec 026 (research R6): the waits out of refusals for the limit, buying and holding apart.
+  const [waits, setWaits] = useState<Waits>({});
+  const waiting = waits.BUY !== undefined || waits.HOLD !== undefined;
+  // FR-013: the buttons a wait applies to, so focus can go back to the one pressed.
+  const reserveButton = useRef<HTMLButtonElement>(null);
+  const confirmOrderButton = useRef<HTMLButtonElement>(null);
+  const confirmPurchaseButton = useRef<HTMLButtonElement>(null);
+  const checkAgainButton = useRef<HTMLButtonElement>(null);
+  const refocus = useRef<RefObject<HTMLButtonElement | null> | null>(null);
+
+  // FR-011: N counts down once a second, measured from the Backend's N; at 0 the wait ends.
+  useEffect(() => {
+    if (!waiting) return;
+    const tick = (): void =>
+      setWaits((all) => {
+        const next: Waits = {};
+        let changed = false;
+        for (const kind of ['BUY', 'HOLD'] as const) {
+          const w = all[kind];
+          if (!w) continue;
+          const left = Math.ceil((w.deadline - performance.now()) / 1000);
+          if (left <= 0) changed = true;
+          else if (left !== w.left) {
+            next[kind] = { ...w, left };
+            changed = true;
+          } else next[kind] = w;
+        }
+        return changed ? next : all;
+      });
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+  }, [waiting]);
+
+  // FR-013: a button natively disabled while confirming may have lost focus to the page; once
+  // it is back, focus returns to it.
+  useEffect(() => {
+    const target = refocus.current?.current;
+    if (!target) return;
+    refocus.current = null;
+    target.focus();
+  });
+
+  /** Spec 026 FR-011: starts a kind's wait; `pressed` gets focus back if it had gone to the page. */
+  const startWait = (
+    kind: RateLimitedAction,
+    seconds: number,
+    pressed: RefObject<HTMLButtonElement | null>,
+  ): void => {
+    const first = rateLimitMessage(seconds);
+    setWaits((all) => ({
+      ...all,
+      [kind]: { deadline: performance.now() + seconds * 1000, left: seconds, first },
+    }));
+    const active = document.activeElement;
+    if (active === null || active === document.body) refocus.current = pressed;
+  };
 
   /** Shows a reservation; the countdown starts only for a new one, never restarts (FR-004). */
   const adopt = useCallback((r: Reservation | null) => {
@@ -375,7 +470,8 @@ export function GetTickets({ event }: { event: Event }) {
   }
 
   async function reserve(): Promise<void> {
-    if (sending.current) return;
+    // Spec 026 FR-013: waiting out the limit, the button does nothing.
+    if (sending.current || waits.HOLD) return;
     sending.current = true;
     inFlight.current = seats.map(placeKey);
     try {
@@ -383,6 +479,7 @@ export function GetTickets({ event }: { event: Event }) {
         params: { path: { id } },
         body: { seats: seats.map((c) => ({ sectionId: c.sectionId, row: c.row, seat: c.seat })) },
       });
+      const limited = limitedFor(response, error);
       if (response.ok && data) {
         setNotice(null);
         setSeats([]);
@@ -390,6 +487,9 @@ export function GetTickets({ event }: { event: Event }) {
         adopt(data);
       } else if (response.status === 401) {
         await signIn();
+      } else if (limited !== null) {
+        // Spec 026 FR-012: nothing was done; the picks, the reservation, and the notice stay.
+        startWait('HOLD', limited, reserveButton);
       } else {
         refused(error);
       }
@@ -433,9 +533,18 @@ export function GetTickets({ event }: { event: Event }) {
   }
 
   async function confirm(): Promise<void> {
-    if (sending.current) return;
+    // Spec 026 FR-013: waiting out the limit, the buying buttons do nothing.
+    if (sending.current || waits.BUY) return;
     sending.current = true;
     requestId.current ??= crypto.randomUUID();
+    // Spec 026 FR-014: a refusal for the limit returns to where the press came from.
+    const from: Phase = phase.kind === 'unknown' ? { kind: 'unknown' } : { kind: 'choosing' };
+    const pressed =
+      phase.kind === 'unknown'
+        ? checkAgainButton
+        : seated
+          ? confirmPurchaseButton
+          : confirmOrderButton;
     setPhase({ kind: 'confirming' });
     // Spec 015 FR-006: a seated order buys the reserved seats.
     const buying = seated ? mine : [];
@@ -452,11 +561,17 @@ export function GetTickets({ event }: { event: Event }) {
             : {}),
         },
       });
+      const limited = limitedFor(response, error);
       if (response.ok && data) {
         setNotice(null);
         lastWrite.current = performance.now();
         adopt(null);
         setPhase({ kind: 'done', order: data as Order });
+      } else if (limited !== null) {
+        // Spec 026 FR-012, FR-014: nothing was recorded. The same confirmation (its requestId)
+        // is kept, so Check again still never places a second order; nothing is loaded again.
+        setPhase(from);
+        startWait('BUY', limited, pressed);
       } else if (response.status === 401) {
         // The token is checked before any ordering rule, so nothing was recorded.
         setPhase({ kind: 'choosing' });
@@ -536,7 +651,14 @@ export function GetTickets({ event }: { event: Event }) {
               Check again, which never places a second order, or look for it in{' '}
               <Link to="/my-tickets">My tickets</Link>.
             </p>
-            <button type="button" className="btn btn--ghost" onClick={() => void confirm()}>
+            {waits.BUY && <WaitMessage wait={waits.BUY} />}
+            <button
+              ref={checkAgainButton}
+              type="button"
+              className="btn btn--ghost"
+              aria-disabled={waits.BUY ? true : undefined}
+              onClick={() => void confirm()}
+            >
               Check again
             </button>
           </div>
@@ -668,10 +790,15 @@ export function GetTickets({ event }: { event: Event }) {
                   </li>
                 ))}
               </ul>
+              {/* Spec 026 FR-011, FR-013: the wait, above the button it explains, which stays
+                  focusable (aria-disabled) and does nothing until the wait ends. */}
+              {waits.HOLD && <WaitMessage wait={waits.HOLD} />}
               <button
+                ref={reserveButton}
                 type="button"
                 className={reservation ? 'btn' : 'btn btn--primary'}
                 disabled={!canReserve}
+                aria-disabled={waits.HOLD ? true : undefined}
                 onClick={() => void reserve()}
               >
                 Reserve seats
@@ -708,11 +835,14 @@ export function GetTickets({ event }: { event: Event }) {
         {price !== undefined && (
           <p>{`Total: ${totalUsd(price, seated && reservation ? mine.length : chosenCount)}`}</p>
         )}
+        {!seated && waits.BUY && <WaitMessage wait={waits.BUY} />}
         {!seated && (
           <button
+            ref={confirmOrderButton}
             type="button"
             className="btn btn--primary"
             disabled={!canConfirm}
+            aria-disabled={waits.BUY ? true : undefined}
             onClick={() => void confirm()}
           >
             {phase.kind === 'confirming' ? 'Confirming…' : 'Confirm order'}
@@ -745,11 +875,14 @@ export function GetTickets({ event }: { event: Event }) {
             </li>
           ))}
         </ul>
+        {waits.BUY && <WaitMessage wait={waits.BUY} />}
         <div className="form__actions">
           <button
+            ref={confirmPurchaseButton}
             type="button"
             className="btn btn--primary"
             disabled={!canConfirm}
+            aria-disabled={waits.BUY ? true : undefined}
             onClick={() => void confirm()}
           >
             {phase.kind === 'confirming' ? 'Confirming…' : 'Confirm purchase'}
