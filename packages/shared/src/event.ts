@@ -17,12 +17,12 @@ export interface Event {
   endsAt: string;
   /**
    * Spec 025 FR-001: when the venue's doors open, from 6 hours before `startsAt` to `startsAt`.
-   * Required from contract 1.17.1 (clients still guard against an older Backend that omits it).
+   * Required from contract 1.18.1 (clients still guard against an older Backend that omits it).
    */
   doorsOpenAt: string;
   /**
    * Spec 025 FR-010: when gate check-in opens, 1 hour before `doorsOpenAt`, worked out by the
-   * Backend. Required from contract 1.17.1; the Ticket Booth treats a missing value (an older
+   * Backend. Required from contract 1.18.1; the Ticket Booth treats a missing value (an older
    * Backend) as already open (research R8).
    */
   entryOpensAt: string;

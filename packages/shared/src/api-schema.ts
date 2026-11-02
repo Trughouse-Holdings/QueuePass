@@ -215,7 +215,11 @@ export interface paths {
          *     address service (the US Census Geocoder) before anything is saved. Exactly one match
          *     that keeps the sent ZIP code (first 5 digits) and house number is accepted, and the venue
          *     is saved with the service's standard form of the four fields and `addressVerified: true`;
-         *     `address` is built from them as `STREET, CITY, ST ZIP`. No match is
+         *     `address` is built from them as `STREET, CITY, ST ZIP`. From 1.18.0 (#36), a house
+         *     number with one hyphen equals the same digits without it (Queens: `10724` keeps
+         *     `107-24`), and a suite or unit sent at the end of `street` that the service leaves out
+         *     is kept at the end of the saved
+         *     `street` (`430 W Vine St Ste 2` is saved as `430 W VINE ST STE 2`). No match is
          *     `400 ADDRESS_NOT_FOUND`; several matches, or one match at a different ZIP code or house
          *     number, are `400 ADDRESS_AMBIGUOUS`, listing them.
          *
@@ -288,6 +292,11 @@ export interface paths {
          *     edit without address fields never calls the address service. An edit with the same
          *     address never calls it for a verified venue, nor without `acceptUnverifiedAddress`, and
          *     keeps `addressVerified` as it is.
+         *     From 1.18.0 (#36), whether the address is the same is decided again on the venue as stored
+         *     when the change is written: an address another edit saved meanwhile that equals the one
+         *     sent (ignoring case and extra spaces, as above) is left as it is, with its
+         *     `addressVerified`; any other, including another spelling of the same place such as the
+         *     service's standard form, is replaced (the later edit wins). `name` and `seatingCapacity` may be left out but never sent as `null` (`400`).
          *     `acceptUnverifiedAddress` without the four address fields is `400`. A venue saved before
          *     feature 013 keeps its `address`, has `null` parts, and has `addressVerified: false` until
          *     its address is changed.
@@ -1158,15 +1167,18 @@ export interface components {
          *     built from them as `STREET, CITY, ST ZIP`. Three kinds of venue:
          *
          *     - `addressVerified: true`: the address service matched it; the four fields are its
-         *       standard (upper-case) form.
+         *       standard (upper-case) form. From 1.18.0 (#36), a suite or unit the admin typed at the
+         *       end of the street, which the service leaves out, is kept at the end of `street`, upper
+         *       case (`430 W VINE ST STE 2`).
          *     - `addressVerified: false` with the four fields set: saved with
          *       `acceptUnverifiedAddress` because the address service did not match it or, feature
          *       024, could not be asked; the fields are as the admin sent them.
          *     - `addressVerified: false` with the four fields `null`: saved before feature 013 and not
          *       re-addressed since; `address` is the one-line text it was saved with.
          *
-         *     The five fields are always sent from feature 013 on, but are not in `required`, so this
-         *     contract can merge before the Backend sends them (feature 013 research R11).
+         *     The five fields are always sent from feature 013 on, and required from 1.18.0 (#36;
+         *     feature 013 research R11 left them optional until the Backend sent them). The four
+         *     parts stay nullable.
          *
          *     Feature 020: `timeZone` and `timeZoneSource` are always sent, and required from 1.14.0
          *     (#88; feature 020 research R18 left them optional until every app read them).
@@ -1182,14 +1194,14 @@ export interface components {
              */
             address: string;
             /** @example 430 W VINE ST */
-            street?: string | null;
+            street: string | null;
             /** @example LEXINGTON */
-            city?: string | null;
-            state?: components["schemas"]["UsState"] | null;
+            city: string | null;
+            state: components["schemas"]["UsState"] | null;
             /** @example 40507 */
-            zip?: string | null;
+            zip: string | null;
             /** @description Whether the address service matched this address. Clients mark `false` as "Address not verified". */
-            addressVerified?: boolean;
+            addressVerified: boolean;
             timeZone: components["schemas"]["UsTimeZone"];
             timeZoneSource: components["schemas"]["TimeZoneSource"];
             /** @example 22090 */
@@ -1203,10 +1215,9 @@ export interface components {
          * @description Feature 013: the address is sent as four fields and checked with the address service.
          *     `address` is not accepted; the Backend builds it.
          *
-         *     `street`, `city`, `state`, and `zip` are **required**: the Backend refuses a create
-         *     without any of them with `400 VALIDATION_FAILED`. They are left out of `required` only so
-         *     the Admin app's generated request types still compile on `main` between this contract
-         *     and its implementation (feature 013 research R11).
+         *     `street`, `city`, `state`, and `zip` are required: the Backend refuses a create without
+         *     any of them with `400 VALIDATION_FAILED`. Listed in `required` from 1.18.0 (#36; feature
+         *     013 research R11 left them out until the Admin app sent them).
          */
         LocationInput: {
             /** @description Rejected when empty or whitespace-only after trimming. */
@@ -1215,18 +1226,18 @@ export interface components {
              * @description House number and street. Trimmed; rejected when empty.
              * @example 430 W Vine St
              */
-            street?: string;
+            street: string;
             /**
              * @description Trimmed; rejected when empty.
              * @example Lexington
              */
-            city?: string;
-            state?: components["schemas"]["UsState"];
+            city: string;
+            state: components["schemas"]["UsState"];
             /**
              * @description 5 digits, or ZIP+4. The saved value is the address service's 5-digit ZIP.
              * @example 40507
              */
-            zip?: string;
+            zip: string;
             acceptUnverifiedAddress?: components["schemas"]["AcceptUnverifiedAddress"];
             /**
              * @description Feature 020. Optional: the admin's explicit choice of the venue's time zone, used
@@ -1327,7 +1338,7 @@ export interface components {
             /**
              * Format: date-time
              * @description Feature 025. When the venue's doors open: from 6 hours before `startsAt` to `startsAt`.
-             *     Events from before feature 025 have `startsAt` minus 1 hour. Required from 1.17.1.
+             *     Events from before feature 025 have `startsAt` minus 1 hour. Required from 1.18.1.
              *     Clients of an older Backend treat a missing value as not known and show nothing for it.
              * @example 2026-10-01T17:00:00-04:00
              */
@@ -1336,7 +1347,7 @@ export interface components {
              * Format: date-time
              * @description Feature 025. When gate check-in opens: 1 hour before `doorsOpenAt`. Tickets can be
              *     admitted in `[entryOpensAt, endsAt)`. Worked out by the Backend, never sent to it.
-             *     Required from 1.17.1. The Ticket Booth app treats a missing value (an older Backend)
+             *     Required from 1.18.1. The Ticket Booth app treats a missing value (an older Backend)
              *     as already open.
              * @example 2026-10-01T16:00:00-04:00
              */
@@ -1600,7 +1611,7 @@ export interface components {
             /**
              * Format: date-time
              * @description Feature 025. When the venue's doors open, as `Event.doorsOpenAt`, shown on My tickets
-             *     and the printed ticket. Required from 1.17.1.
+             *     and the printed ticket. Required from 1.18.1.
              */
             doorsOpenAt: string;
             /** @enum {string} */

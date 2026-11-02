@@ -367,12 +367,12 @@ only when open.
   (research R11). Passes with no change to `demo-data.ts`; if it does not, fix the data, not the test.
   **Done**: one new test, passing with no change to `demo-data.ts`; the existing "Demo Tonight open"
   test's SQL now states the window as `doorsOpenAt - 1 hour` (same instant for default doors).
-- [x] T025 `contracts/openapi.yaml` 1.17.1 (research R6, contracts/README.md): `Event.required`
+- [x] T025 `contracts/openapi.yaml` 1.18.1 (research R6, contracts/README.md): `Event.required`
   gains `doorsOpenAt` and `entryOpensAt`, `OrderEvent.required` gains `doorsOpenAt`; their
-  descriptions lose "not listed as required …" and say "Required from 1.17.1"; `npm run generate:api`;
+  descriptions lose "not listed as required …" and say "Required from 1.18.1"; `npm run generate:api`;
   `node scripts/check-contract-drift.mjs` passes; the Backend's contract tests pass (every event and
   order response now has them).
-  **Done**: 1.17.1; `npm run generate:api`; the drift check passes; backend 996 in 96 suites green
+  **Done**: 1.18.1; `npm run generate:api`; the drift check passes; backend 996 in 96 suites green
   with every event and order response validated against the new required lists; the four apps and
   `e2e` type-check.
 
@@ -465,14 +465,14 @@ only when open.
   **Left for the orchestrator**: `npm run e2e` cannot run on this machine (images do not build
   behind TLS interception; no Playwright browsers); to run in CI and record here.
 - [x] T038 Independent review by a separate Claude session (Constitution III) of the branch against
-  spec, plan, research, and contract 1.16.0/1.17.1; fix the findings, tests first where a finding is
+  spec, plan, research, and contract 1.16.0/1.18.1; fix the findings, tests first where a finding is
   a defect; record the round here (counts by severity, each fix, and any finding left open with the
   reason).
   **Left for the orchestrator**: the independent review by a separate session.
   **Done**: one round by a separate session on 60dabc4: 0 must-fix, 2 should, 5 minor; verdict
   "correct and well tested". Fixed, test-first: S1 (`migration.doors-open` copies only migrations
   named before `doors_open`; seen failing with a probe migration after it), S2 (shared
-  `Event.doorsOpenAt`/`entryOpensAt` and `OrderEvent.doorsOpenAt` required, as in 1.17.1; a
+  `Event.doorsOpenAt`/`entryOpensAt` and `OrderEvent.doorsOpenAt` required, as in 1.18.1; a
   type-level test failed first; front-end guards kept), M1 (the Booth sets `now` when the list
   effect starts), M2 (numbered list requests; a stale answer is ignored), M3 (a test for a 401 on a
   refresh), M5 (research R6 notes `doorsOpenAt: null` is treated as left out; a test pins it). Left:
@@ -481,7 +481,7 @@ only when open.
 - [x] T039 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;
   record the counts per workspace and the coverage figures.
   **Left for the orchestrator** (after the review's fixes). Run so far, on the branch rebased onto
-  `origin/main` c87837a (`026`'s spec PR, contract 1.17.0, so this branch ships **1.17.1**): the
+  `origin/main` c87837a (`026`'s spec PR, contract 1.17.0, so this branch ships **1.18.1**): the
   root `npm run ci` steps green in 7 min 22 s with lint ignoring `.claude/**`: scripts/test 75,
   shared 747, backend 996 in 96 suites, admin 359, customer 326, booth 91, seed 91 + 20 skipped;
   coverage as T035. After the review's fixes (T038): the root `ci` steps green once more (backend

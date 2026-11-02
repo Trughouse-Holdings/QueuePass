@@ -132,9 +132,10 @@ describe('attendeeTable', () => {
   });
 
   it('reads a venue without a zone as the default zone (R13b)', () => {
+    // The type requires the zone (#36 review); the fallback still guards a response without it.
     const event = {
       ...CHICAGO_EVENT,
-      location: { ...CHICAGO_EVENT.location, timeZone: undefined },
+      location: { ...CHICAGO_EVENT.location, timeZone: undefined as unknown as 'America/New_York' },
     };
     const t = attendeeTable(event, EXPORT_ORDERS.slice(0, 1), MADE_AT, 'admin1', 'UTC');
     expect(t.rows[0][0]).toEqual(d('2026-09-30T11:00'));

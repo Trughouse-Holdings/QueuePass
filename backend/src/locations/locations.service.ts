@@ -21,7 +21,7 @@ import { LOCKING_TX } from '../common/event-lock';
 import { searchText } from '../common/search-text';
 import { lockVenueAndEvents } from '../common/venue-lock';
 import { PrismaService } from '../prisma/prisma.service';
-import { matchesTyped } from './address-match';
+import { keepUnit, matchesTyped } from './address-match';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import {
@@ -74,6 +74,10 @@ const checked = (parts: AddressParts, addressVerified: boolean): CheckedAddress 
   address: formatAddress(parts),
   addressVerified,
 });
+
+/** A match the service vouched for, with the suite or unit the admin typed kept (issue #36, R15). */
+const verified = (sent: AddressParts, match: AddressParts): CheckedAddress =>
+  checked({ ...match, street: keepUnit(sent.street, match.street) }, true);
 
 /**
  * Spec 013 research R14: an internal option of `create`, passed only by the dev-only
@@ -180,6 +184,9 @@ export class LocationsService {
    * not verified; any other answer, the service being down included, writes nothing about the
    * address and never refuses. This check never decides the zone. Without the flag, an unchanged
    * address is still never looked up (013 FR-008).
+   *
+   * Issue #36 (013 research R15): whether to look the address up is decided on the row read
+   * before the lock; whether to write it is decided again on the row read under the lock.
    */
   async update(id: string, dto: UpdateLocationDto): Promise<Location> {
     const existing = await this.findOne(id);
@@ -217,10 +224,9 @@ export class LocationsService {
         recheckedAddress = await this.recheckAddress(parts);
       }
     }
-    const address = checkedAddress?.address;
 
     // Spec 020 research R7: the zone is decided only when sent, or when the address changed.
-    const zone = this.decide({
+    const decided = this.decide({
       sent: dto.timeZone,
       address: checkedAddress
         ? { state: checkedAddress.address.state, location: checkedAddress.location }
@@ -233,15 +239,29 @@ export class LocationsService {
       // (review round 1, M2).
       const locked = await lockVenueAndEvents(tx, id, { allStatuses: true });
       await this.assertCapacityRules(tx, id, dto.seatingCapacity);
+      // Issue #36 (research R15), like the zone above: whether the sent address is "the same"
+      // (FR-008) is decided again against the row read under this lock. The same address as
+      // stored now is not written, so an address another edit saved during the lookup keeps its
+      // verified state; a different one is written (the later write wins, R7). Feature 024 R7:
+      // a verified answer upgrades only the same address, still not verified, and never
+      // decides the zone.
+      let address: CheckedAddress | undefined;
+      let changed = false;
+      if (sent.length > 0) {
+        const stored = await tx.location.findUniqueOrThrow({ where: { id } });
+        const same = sameAddress(parts, stored);
+        const looked = checkedAddress?.address ?? recheckedAddress;
+        if (checkedAddress && !same) {
+          changed = true;
+          address = checkedAddress.address;
+        } else if (same && !stored.addressVerified && looked?.addressVerified) {
+          address = looked;
+        }
+      }
+      // A zone worked out from the address only goes with a changed address (020 R7).
+      const zone = changed || dto.timeZone !== undefined ? decided : null;
       if (zone && zone.timeZone !== locked.timeZone) {
         await moveEventsToZone(tx, { id, name: locked.name }, locked.timeZone, zone.timeZone);
-      }
-      // Feature 024 R7: the re-check's upgrade only over the address it looked up, still not
-      // verified; another edit's address saved during the lookup stands.
-      let upgrade: CheckedAddress | undefined;
-      if (recheckedAddress) {
-        const now = await tx.location.findUniqueOrThrow({ where: { id } });
-        if (sameAddress(parts, now) && now.addressVerified === false) upgrade = recheckedAddress;
       }
       return tx.location.update({
         where: { id },
@@ -249,7 +269,6 @@ export class LocationsService {
           ...(dto.name !== undefined ? { name: dto.name } : {}),
           ...(dto.seatingCapacity !== undefined ? { seatingCapacity: dto.seatingCapacity } : {}),
           ...address,
-          ...upgrade,
           ...zone,
         },
       });
@@ -313,7 +332,7 @@ export class LocationsService {
         : undefined;
     // Spec 020 R1: only a verified match's place is used to find the zone.
     if (result.kind === 'match' && match && matchesTyped(sent, match)) {
-      return { address: checked(match, true), location: result.location };
+      return { address: verified(sent, match), location: result.location };
     }
     if (acceptUnverified) return unverified();
 
@@ -362,7 +381,7 @@ export class LocationsService {
       state: result.state,
       zip: result.zip,
     };
-    return matchesTyped(sent, match) ? checked(match, true) : undefined;
+    return matchesTyped(sent, match) ? verified(sent, match) : undefined;
   }
 
   /** Research R6: an unavailable service is logged with its cause; anything else is rethrown. */

@@ -180,6 +180,47 @@ describe('Venue address check on edit (spec 013)', () => {
     const rowOf = (venueId: string) =>
       ctx.prisma.location.findUniqueOrThrow({ where: { id: venueId } });
 
+    // Issue #36 review, M5: the re-check keeps a typed suite too (research R15).
+    it('keeps a typed suite when the re-check verifies the address', async () => {
+      ctx.geocoder.next({ kind: 'none' });
+      const created = await asAdmin(ctx)
+        .post('/locations')
+        .send({
+          name: 'Suite Hall',
+          street: '1 Arena Plaza Ste 2',
+          city: 'Louisville',
+          state: 'KY',
+          zip: '40202',
+          seatingCapacity: 500,
+          acceptUnverifiedAddress: true,
+          timeZone: 'America/New_York',
+        })
+        .expect(201);
+      ctx.geocoder.next({
+        kind: 'match',
+        street: '1 ARENA PLAZA',
+        city: 'LOUISVILLE',
+        state: 'KY',
+        zip: '40202',
+        location: PLACES.louisville,
+      });
+      const res = await patch(
+        {
+          street: '1 Arena Plaza Ste 2',
+          city: 'Louisville',
+          state: 'KY',
+          zip: '40202',
+          acceptUnverifiedAddress: true,
+        },
+        created.body.id,
+      ).expect(200);
+      expect(res.body).toMatchObject({
+        street: '1 ARENA PLAZA STE 2',
+        address: '1 ARENA PLAZA STE 2, LOUISVILLE, KY 40202',
+        addressVerified: true,
+      });
+    });
+
     it('saves a match verified, in standard form, keeping the zone and its source', async () => {
       const anyway = await savedAnyway();
       ctx.geocoder.next({
@@ -373,6 +414,85 @@ describe('Venue address check on edit (spec 013)', () => {
   });
 
   describe('concurrency during a slow lookup (research R7)', () => {
+    // Issue #36 (research R15): "the same address" is decided against the row read under the
+    // lock, not the one read before the lookup.
+    it('keeps the verified address another edit saved during the lookup when it is the one sent', async () => {
+      const gate = ctx.geocoder.pause();
+      const slow = patch({
+        ...moved,
+        name: 'Freedom Hall',
+        acceptUnverifiedAddress: true,
+        timeZone: 'America/New_York',
+      }).then((r) => r);
+      await gate.started;
+      // Another admin moves the venue to the same address first, and the service verifies it.
+      await patch({ ...moved, timeZone: 'America/New_York' }).expect(200);
+      // The paused lookup then cannot reach the service.
+      ctx.geocoder.next({ kind: 'unavailable' });
+      gate.release();
+      expect((await slow).status).toBe(200);
+      expect(await row()).toMatchObject({
+        name: 'Freedom Hall',
+        street: '937 PHILLIPS LN',
+        address: '937 PHILLIPS LN, LOUISVILLE, KY 40209',
+        addressVerified: true,
+      });
+    });
+
+    // Issue #36 review, S1: "the same" is the typed text ignoring case and spaces, not the same
+    // place. The service's standard form of another spelling differs, so the later write wins.
+    it('writes a differently spelled address over the verified one saved during the lookup (limit)', async () => {
+      const gate = ctx.geocoder.pause();
+      const slow = patch({
+        street: '937 Phillips Lane',
+        city: 'Louisville',
+        state: 'KY',
+        zip: '40209',
+        acceptUnverifiedAddress: true,
+        timeZone: 'America/New_York',
+      }).then((r) => r);
+      await gate.started;
+      await patch({ ...moved, timeZone: 'America/New_York' }).expect(200);
+      ctx.geocoder.next({ kind: 'unavailable' });
+      gate.release();
+      expect((await slow).status).toBe(200);
+      expect(await row()).toMatchObject({
+        street: '937 Phillips Lane',
+        addressVerified: false,
+      });
+    });
+
+    it('verifies the same address another edit saved not verified during the lookup', async () => {
+      const gate = ctx.geocoder.pause();
+      const slow = patch(moved).then((r) => r);
+      await gate.started;
+      ctx.geocoder.next({ kind: 'none' });
+      await patch({ ...moved, acceptUnverifiedAddress: true, timeZone: 'America/New_York' }).expect(
+        200,
+      );
+      gate.release();
+      expect((await slow).status).toBe(200);
+      expect(await row()).toMatchObject({
+        address: '937 PHILLIPS LN, LOUISVILLE, KY 40209',
+        addressVerified: true,
+        timeZone: 'America/New_York',
+        timeZoneSource: 'ADMIN',
+      });
+    });
+
+    it('lets the later write win when another edit saved a different address during the lookup', async () => {
+      const gate = ctx.geocoder.pause();
+      const slow = patch(moved).then((r) => r);
+      await gate.started;
+      await patch({ ...ADDRESS, street: '431 W Vine St' }).expect(200);
+      gate.release();
+      expect((await slow).status).toBe(200);
+      expect(await row()).toMatchObject({
+        address: '937 PHILLIPS LN, LOUISVILLE, KY 40209',
+        addressVerified: true,
+      });
+    });
+
     it('re-checks the layout rule after a layout saved during the lookup', async () => {
       const gate = ctx.geocoder.pause();
       const slow = patch({ ...moved, seatingCapacity: 500 }).then((r) => r);

@@ -14,6 +14,13 @@ unverified, which now also covers the address service being down (FR-006, FR-011
 unchanged address that is not verified is checked again on an edit (FR-008). The text below is this
 feature's record as built.
 
+**Amended by #36** (2026-11-02, [research R15](research.md#r15-follow-ups-from-the-review-36-2026-11-02)):
+FR-003, a suite or unit typed at the end of the street, which the service leaves out, is kept at
+the end of the verified street (`430 W VINE ST STE 2`); FR-021, a house number with one hyphen
+equals the same digits without it, so a Queens `10724` matches `107-24`; FR-008, "the same
+address" (as typed, ignoring case and spaces) is decided again on the venue read under the lock
+before the write.
+
 **Input**: User description: "When an admin creates or edits a venue, the address must be a real US
 address. The venue address is a Google Maps link in both the Admin and Customer apps."
 

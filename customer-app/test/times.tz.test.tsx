@@ -61,7 +61,12 @@ describe('event cards (Events list)', () => {
   });
 
   it('read a missing zone as Eastern (contract Location)', async () => {
-    const legacy = venue({ id: 'v-old', name: 'Old Hall' });
+    // The type requires the zone (#36 review); the fallback still guards a response without it.
+    const legacy = {
+      ...venue({ id: 'v-old', name: 'Old Hall' }),
+      timeZone: undefined,
+      timeZoneSource: undefined,
+    } as unknown as Location;
     expect(legacy.timeZone).toBeUndefined();
     stubApi({
       'GET /events': json([
