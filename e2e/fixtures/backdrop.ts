@@ -1,8 +1,10 @@
 // Spec 027 research R8 (FR-004, FR-006, FR-008, FR-009, SC-002, SC-005): measures what a person
-// sees on a sign-in page: every text, text field edge, and focus ring against the lightest and the
-// darkest pixel of the backdrop behind it. The backdrop is fixed to the window, so one screenshot
-// of it alone (the page's content hidden) serves every scroll position. Screenshots are decoded in
-// a blank page with createImageBitmap and a canvas, so no image library is needed.
+// sees on a sign-in page: the realm header against the lightest and the darkest pixel of the
+// stones behind it, and every text, text field edge, and focus ring on the card against the
+// lightest and the darkest pixel of the card behind it. Each is measured from a screenshot of what
+// is behind it alone (the backdrop, or the card with its content hidden), taken at the scroll
+// position the boxes were read at. Screenshots are decoded in a blank page with createImageBitmap
+// and a canvas, so no image library is needed.
 import type { BrowserContext, Page } from '@playwright/test';
 
 export type Rgb = [number, number, number];
@@ -17,7 +19,9 @@ export interface Box {
 
 /** A text, field, or focus ring to check, and where. */
 export interface Target {
-  kind: 'text' | 'edge' | 'fill' | 'ring';
+  kind: 'text' | 'edge' | 'ring';
+  /** What is behind it: the stones (the realm header) or the card (everything else). */
+  on: 'stones' | 'card';
   /** What it is, for the failure message. */
   name: string;
   color: Rgb;
@@ -53,15 +57,16 @@ export function parseColor(css: string): Rgb {
   return [Number(m[1]), Number(m[2]), Number(m[3])];
 }
 
-/** What the page shows on the stones: texts, fields, and the controls' order. */
+/** What the page shows: the realm header, the card's texts, and its fields. */
 interface Found {
+  header: { name: string; color: string; box: Box }[];
   texts: { name: string; color: string; box: Box }[];
-  fields: { name: string; edge: string; fill: string; box: Box }[];
+  fields: { name: string; edge: string; box: Box }[];
 }
 
 /**
- * Every visible text on the backdrop (not inside a field, button, or notice) and every text
- * field, each scrolled into view before its box is read.
+ * The realm header, every visible text on the card (not inside a field, button, or notice), and
+ * every text field, each scrolled into view before its box is read.
  */
 export async function findTargets(page: Page): Promise<Found> {
   return page.evaluate(async () => {
@@ -72,16 +77,27 @@ export async function findTargets(page: Page): Promise<Found> {
     const visible = (el: Element) =>
       el.checkVisibility({ visibilityProperty: true, opacityProperty: true }) &&
       el.getBoundingClientRect().width > 0;
+    // On the card: page coordinates, matched against a full-page screenshot of the card.
     const box = (el: Element) => {
-      el.scrollIntoView({ block: 'center', inline: 'nearest' });
       const r = el.getBoundingClientRect();
-      return { x: r.x, y: r.y, width: r.width, height: r.height };
+      return { x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height };
     };
     const describe = (el: Element) =>
       `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}${
         el.className && typeof el.className === 'string' ? `.${el.className.split(' ')[0]}` : ''
       } "${(el.textContent ?? '').trim().slice(0, 40)}"`;
 
+    // The header's own text, not its block (which spans the column): where the letters are.
+    const textBox = (el: Element) => {
+      el.scrollIntoView({ block: 'center', inline: 'nearest' });
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const r = range.getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    };
+    const header = [...document.querySelectorAll('.qp-realm')]
+      .filter(visible)
+      .map((el) => ({ name: describe(el), color: getComputedStyle(el).color, box: textBox(el) }));
     const textSelector = [
       'main h1',
       'main h2',
@@ -104,14 +120,9 @@ export async function findTargets(page: Page): Promise<Found> {
       .filter(visible)
       .map((el) => {
         const style = getComputedStyle(el);
-        return {
-          name: `input#${el.id}`,
-          edge: style.borderTopColor,
-          fill: style.backgroundColor,
-          box: box(el),
-        };
+        return { name: `input#${el.id}`, edge: style.borderTopColor, box: box(el) };
       });
-    return { texts, fields };
+    return { header, texts, fields };
   });
 }
 
@@ -150,7 +161,8 @@ export async function findRings(
         color: s.outlineColor,
         style: s.outlineStyle,
         width: parseFloat(s.outlineWidth),
-        box: { x: r.x, y: r.y, width: r.width, height: r.height },
+        // Page coordinates, as the card's other targets.
+        box: { x: r.x + scrollX, y: r.y + scrollY, width: r.width, height: r.height },
       };
     });
     if (!got) {
@@ -288,47 +300,55 @@ export async function blankPage(context: BrowserContext): Promise<Page> {
   return blank;
 }
 
+/** A full-page screenshot with the card's content, the header and the band hidden: the card alone. */
+export async function cardShot(page: Page): Promise<Buffer> {
+  const style = await page.addStyleTag({
+    content: `.qp-band, .qp-realm, .qp-card * { visibility: hidden !important; }`,
+  });
+  // The whole page, so a card taller than the window is measured all the way down.
+  const shot = await page.screenshot({ animations: 'disabled', caret: 'hide', fullPage: true });
+  await style.evaluate((el) => (el as Element).remove());
+  return shot;
+}
+
 /**
- * Every contrast failure on the page as it is now: texts 4.5:1, field edges and the light fill
- * 3:1, focus rings 3:1, each against the lightest and the darkest backdrop pixel behind it
- * (research R8). Returns one line per failure; empty when all pass.
+ * Every contrast failure on the page as it is now (research R8): the realm header 4.5:1 against
+ * the lightest and darkest pixel of the backdrop behind it; on the card, texts 4.5:1, field edges
+ * 3:1, and focus rings 3:1 against the lightest and darkest pixel of the card behind them. Returns
+ * one line per failure; empty when all pass.
  */
-export async function contrastFailures(
-  page: Page,
-  blank: Page,
-  { fill }: { fill: boolean },
-): Promise<string[]> {
+export async function contrastFailures(page: Page, blank: Page): Promise<string[]> {
   // No field in its hover state: the mouse rests where it last clicked.
   await page.mouse.move(0, 0);
   const found = await findTargets(page);
   const rings = await findRings(page);
   const targets: Target[] = [
+    ...found.header.map((t) => ({
+      kind: 'text' as const,
+      on: 'stones' as const,
+      name: t.name,
+      color: parseColor(t.color),
+      box: t.box,
+    })),
     ...found.texts.map((t) => ({
       kind: 'text' as const,
+      on: 'card' as const,
       name: t.name,
       color: parseColor(t.color),
       box: t.box,
     })),
     ...found.fields.map((f) => ({
       kind: 'edge' as const,
+      on: 'card' as const,
       name: f.name,
       color: parseColor(f.edge),
       box: f.box,
       inner: 0,
       outer: 3,
     })),
-    ...(fill
-      ? found.fields.map((f) => ({
-          kind: 'fill' as const,
-          name: f.name,
-          color: parseColor(f.fill),
-          box: f.box,
-          inner: 0,
-          outer: 3,
-        }))
-      : []),
     ...rings.map((r) => ({
       kind: 'ring' as const,
+      on: 'card' as const,
       name: r.name,
       color: parseColor(r.color),
       box: r.box,
@@ -337,6 +357,7 @@ export async function contrastFailures(
     })),
   ];
   const failures: string[] = [];
+  if (found.header.length !== 1) failures.push(`${found.header.length} realm headers, not 1`);
   const names = rings.map((r) => r.name);
   for (const want of ['input#username', 'input#password', 'input#kc-login']) {
     if (!names.includes(want)) failures.push(`no focus ring found on ${want} (focused: ${names})`);
@@ -349,27 +370,30 @@ export async function contrastFailures(
       failures.push(`${r.name}: focus ring ${r.style} ${r.width}px, not a visible ring`);
     }
   }
-  const shot = await backdropShot(page);
-  const regions = await extremes(blank, shot, targets);
-  targets.forEach((t, i) => {
-    const { light, dark, count } = regions[i]!;
-    if (count === 0) {
-      failures.push(`${t.kind} ${t.name}: no backdrop pixels at ${JSON.stringify(t.box)}`);
-      return;
-    }
-    const min = t.kind === 'text' ? 4.5 : 3;
-    for (const [what, bg] of [
-      ['lightest', light],
-      ['darkest', dark],
-    ] as const) {
-      const ratio = contrast(t.color, bg);
-      if (ratio < min) {
-        failures.push(
-          `${t.kind} ${t.name}: rgb(${t.color}) on the ${what} backdrop pixel rgb(${bg}) is ` +
-            `${ratio.toFixed(2)}:1, under ${min}:1`,
-        );
+  const shots = { stones: await backdropShot(page), card: await cardShot(page) };
+  for (const on of ['stones', 'card'] as const) {
+    const these = targets.filter((t) => t.on === on);
+    const regions = await extremes(blank, shots[on], these);
+    these.forEach((t, i) => {
+      const { light, dark, count } = regions[i]!;
+      if (count === 0) {
+        failures.push(`${t.kind} ${t.name}: no ${on} pixels at ${JSON.stringify(t.box)}`);
+        return;
       }
-    }
-  });
+      const min = t.kind === 'text' ? 4.5 : 3;
+      for (const [what, bg] of [
+        ['lightest', light],
+        ['darkest', dark],
+      ] as const) {
+        const ratio = contrast(t.color, bg);
+        if (ratio < min) {
+          failures.push(
+            `${t.kind} ${t.name}: rgb(${t.color}) on the ${what} ${on} pixel rgb(${bg}) is ` +
+              `${ratio.toFixed(2)}:1, under ${min}:1`,
+          );
+        }
+      }
+    });
+  }
   return failures;
 }

@@ -141,13 +141,12 @@ describe('the sign-in screen accents (spec 021 research R5)', () => {
 
 // Spec 027 research R6 (FR-003, FR-007, FR-009; Constitution VII 3.7.0, the sign-in exception):
 // the colors the sign-in look draws on Keycloak's stones, the same in both sets because the
-// backdrop is dark in both.
+// backdrop is dark in both. Six since the card came back (implementation session 2): no muted text,
+// field edge, or error color on the stones any more.
 const STONE: Record<string, string> = {
   'stone-base': '#3a3a3a',
   'stone-scrim': 'rgb(0 0 0 / 60%)',
   'stone-text': '#ffffff',
-  'stone-text-muted': '#d0d5dd',
-  'stone-danger': '#fecaca',
   'stone-accent': '#8b85f5',
   'stone-accent-tickets': '#2dd4bf',
   'stone-accent-booth': '#fbbf24',

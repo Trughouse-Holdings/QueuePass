@@ -289,18 +289,18 @@ fallback, and the generator are unchanged.
 
 ### Tests first
 
-- [ ] T032 [P] `packages/shared/test/theme/tokens.test.ts` and `contrast.test.ts`: six `--stone-*`
+- [x] T032 [P] `packages/shared/test/theme/tokens.test.ts` and `contrast.test.ts`: six `--stone-*`
   tokens (no `--stone-text-muted`, no `--stone-danger`); the backdrop's contrast check keeps
   `--stone-text` at 4.5:1 over R5's backgrounds and drops the muted, danger, ring, edge, and fill
   rows. Must fail while the two tokens are in the theme.
-- [ ] T033 [P] `scripts/seed/test/login-theme-files.test.ts`: the "no card" cases become: in `main`,
+- [x] T033 [P] `scripts/seed/test/login-theme-files.test.ts`: the "no card" cases become: in `main`,
   `<div class="qp-realm" aria-hidden="true">` with the realm's name, then the card
   `<div class="card qp-card">` holding the `<h1>`; `.qp-card` at most 500 px wide with
   `border-top: 4px solid var(--accent)`; `.qp-realm` in `--stone-text`, uppercase, 29 px; every
   input in the card ringed in `var(--accent)` (T022's fix); `login.css` uses no `--stone-text-muted`
   or `--stone-danger`. `sign-in-screens.test.ts` (live): every page has the header and the card.
   Must fail on the page with no card.
-- [ ] T034 `e2e/tests/027-sign-in-background.spec.ts` and `e2e/fixtures/backdrop.ts`: S1 renamed
+- [x] T034 `e2e/tests/027-sign-in-background.spec.ts` and `e2e/fixtures/backdrop.ts`: S1 renamed
   `027 S1: each app's sign-in page shows the stones with its accent in the lines, the QUEUEPASS
   header, and its card`, checking one `.qp-card` at most 500 px wide whose 4 px top edge equals a
   probe of `var(--accent)` in each scheme, and the header (`QUEUEPASS`, `aria-hidden`, one `<h1>`).
@@ -311,13 +311,25 @@ fallback, and the generator are unchanged.
 
 ### Implementation
 
-- [ ] T035 `packages/shared/src/web/theme.css`: remove `--stone-text-muted` and `--stone-danger` from
+- [x] T035 `packages/shared/src/web/theme.css`: remove `--stone-text-muted` and `--stone-danger` from
   both token blocks; the comment names six tokens. T032 passes.
-- [ ] T036 `template.ftl` and `login.css` (R7): the realm header and Keycloak's card in the shared
+- [x] T036 `template.ftl` and `login.css` (R7): the realm header and Keycloak's card in the shared
   theme; the text in the card back to the shared colors; every input's ring in `var(--accent)`; the
   stones-colored text, field-edge, and ring rules removed. T033 and T034 pass, S3 three runs in a row.
-- [ ] T037 Quickstart's S1 and S3 rows name the new titles (`npm test` checks them). Look at the
+  **Done**: S1, S3, and S6 pass against a Keycloak built from this branch (Chrome, one worker); S3
+  three runs in a row (58.8 s, 58.3 s, 57.0 s, now two screenshots per page state), S6 6.9 s. Before
+  T035–T036 all three failed, as did 5 theme-file cases and 7 live cases. T021's checks redone on
+  the card (360 px, 200% and 400% zoom, Tab order and 3 px rings in each app's `--accent`, forced
+  colors): 18 of 18 states pass. T022's walk redone: every page has the stones, the right lines,
+  one card, and no contrast failure.
+- [x] T037 Quickstart's S1 and S3 rows name the new titles (`npm test` checks them). Look at the
   three pages in both schemes, at 360×800 and 1920×1080, and record what was seen here.
+  **Seen** (Chrome, 360×800 and 1920×1080, light and dark, each app, first page and after a wrong
+  password): "QUEUEPASS" in light capitals on the shaded stones; below it the card, 500 px wide on
+  a wide window and the full width less 12 px a side on a phone, with a 4 px top edge in the app's
+  accent, white in light and dark grey in dark; inside it the brand mark, "Sign in to …", the
+  audience line, the fields, and Sign In in the app's accent; the stones and lines beyond the shade
+  at full strength on a wide window. The rows were renamed in the Clarify commit.
 - [ ] T038 **Open, for the team**: Constitution 3.7.0's roadmap row `027` says "no card", and
   Principle VII calls the background the only decoration allowed, which the header is not. An
   amendment (the row's wording; the header added to the sign-in exception, MINOR) in a pull request

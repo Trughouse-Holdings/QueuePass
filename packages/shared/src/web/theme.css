@@ -57,14 +57,13 @@
   --brand-mark-text-booth: #ffffff;
 
   /* Spec 027 (Constitution VII, the sign-in exception): what the sign-in screens draw on
-     Keycloak's stones, dark in both sets: the page color under them, the shade behind the form,
-     its text, muted text and field edges, error text, and the lines and focus rings in each
-     app's lighter accent (Admin, tickets, booth). No app stylesheet uses them (research R5, R6). */
+     Keycloak's stones, dark in both sets: the page color under them, the shade behind the
+     header and the card, the realm header's text, and the lines in each app's lighter accent
+     (Admin, tickets, booth). Everything else is on the card, in the colors above. No app
+     stylesheet uses them (research R5, R6). */
   --stone-base: #3a3a3a;
   --stone-scrim: rgb(0 0 0 / 60%);
   --stone-text: #ffffff;
-  --stone-text-muted: #d0d5dd;
-  --stone-danger: #fecaca;
   --stone-accent: #8b85f5;
   --stone-accent-tickets: #2dd4bf;
   --stone-accent-booth: #fbbf24;
@@ -148,8 +147,6 @@
     --stone-base: #3a3a3a;
     --stone-scrim: rgb(0 0 0 / 60%);
     --stone-text: #ffffff;
-    --stone-text-muted: #d0d5dd;
-    --stone-danger: #fecaca;
     --stone-accent: #8b85f5;
     --stone-accent-tickets: #2dd4bf;
     --stone-accent-booth: #fbbf24;

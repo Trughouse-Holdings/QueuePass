@@ -229,7 +229,8 @@ describe('the sign-in screens (spec 021)', () => {
   });
 
   // Spec 027 research R1, R4, R7, R8 (FR-001, FR-002, FR-004, FR-010): every page the sign-in look
-  // shows has the stones element and no card, and Keycloak serves both images beside our stylesheet.
+  // shows has the stones element, the realm header and the card, and Keycloak serves both images
+  // beside our stylesheet.
   describe('the stones behind every page (spec 027)', () => {
     const pages: [string, () => Promise<string>][] = [
       ...FRONTEND_CLIENTS.map(
@@ -269,13 +270,18 @@ describe('the sign-in screens (spec 021)', () => {
     ];
 
     it.for(pages)(
-      '%s: has the backdrop element first in <body> and no card',
+      '%s: has the backdrop element first in <body>, the QUEUEPASS header, and the card',
       async ([, get], { skip }) => {
         skip(!available, SKIP_REASON);
         const html = await get();
         const afterBody = html.split(/<body\b[^>]*>/)[1] ?? '';
         expect(afterBody.trimStart()).toMatch(/^<div class="qp-stones" aria-hidden="true"><\/div>/);
-        expect(html).not.toMatch(/class="[^"]*\bcard\b/);
+        // Implementation session 2 (FR-004): the realm's name above Keycloak's card.
+        const main = html.split(/<main\b[^>]*>/)[1] ?? '';
+        expect(main.trimStart()).toMatch(
+          /^<div class="qp-realm" aria-hidden="true">QueuePass<\/div>\s*<div class="card qp-card">/,
+        );
+        expect(html.match(/<h1\b/g)).toHaveLength(1);
       },
     );
 

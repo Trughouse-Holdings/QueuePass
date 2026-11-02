@@ -4,21 +4,20 @@
    The one exception (Constitution VII, 3.5.0) is at the end: each app's accent, pointed at its
    set in the shared theme. packages/shared/test/theme/drift.test.ts checks this file.
 
-   Spec 027 (Constitution VII, 3.7.0): the form sits with no card on Keycloak's own stones
-   (served from its stock `keycloak` theme, not copied), with the lines between the stones in the
-   app's lighter accent (--stone-accent, the seventh role at the end) and a shade behind the
-   form's column. Every color drawn on the stones is a --stone-* token of the shared theme
-   (research R4–R7). scripts/seed/test/login-theme-files.test.ts checks the layers.
+   Spec 027 (Constitution VII, 3.7.0): Keycloak's own stones (served from its stock `keycloak`
+   theme, not copied), with the lines between them in the app's lighter accent (--stone-accent,
+   the seventh role at the end) and a shade behind the realm header and the card, which are
+   modelled on Keycloak's own login page and styled from the shared theme. Every color drawn on
+   the stones is a --stone-* token of the shared theme (research R4–R7).
+   scripts/seed/test/login-theme-files.test.ts checks the layers.
    ========================================================================== */
 
 body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  /* Under the stones: what shows when Keycloak's image is missing (FR-009). The text on the
-     stones is light in both schemes (FR-007, R7). */
+  /* Under the stones: what shows when Keycloak's image is missing (FR-009). */
   background: var(--stone-base);
-  color: var(--stone-text);
 }
 
 /* ------------------------------------------------------ the backdrop (spec 027 R4) */
@@ -42,10 +41,10 @@ body {
     mask: url(../img/stone-lines.png) center / cover no-repeat;
   }
 }
-/* The shade behind the form's column (R5): black at --stone-scrim across a band 560 px wide at
-   full strength, fading out over 120 px on each side, so from 800 px wide the stones and lines
-   beyond 400 px of the center are untouched (FR-004). Above the lines, so a bright line under
-   the text is darkened too. */
+/* The shade behind the realm header and the card (R5): black at --stone-scrim across a band
+   560 px wide at full strength, fading out over 120 px on each side, so from 800 px wide the
+   stones and lines beyond 400 px of the center are untouched (FR-004). Above the lines, so a
+   bright line under the header is darkened too. */
 .qp-stones::after {
   content: '';
   position: absolute;
@@ -73,19 +72,36 @@ body {
   background: var(--accent);
 }
 
-/* A centered column on the stones, with no card (spec 027 FR-004, R7): the card's width and
-   padding, and no surface, border, radius, or shadow. */
+/* ------------------------------------- Keycloak's header and card (spec 027 FR-004, R7) */
+/* As Keycloak 26.0's own `keycloak` theme: the realm's name above a centred card. */
 .qp-login {
   flex: 1;
   display: flex;
-  align-items: flex-start;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   padding: var(--space-8) var(--space-4);
 }
-.qp-form {
+/* Keycloak's #kc-header-wrapper: the realm's name, 29 px capitals, letter-spaced, light on the
+   stones (decoration, hidden from assistive technology; the app's name is the one <h1>). The only
+   text on the stones, inside the shade at every width (R5). */
+.qp-realm {
+  padding: var(--space-8) var(--space-3) var(--space-5);
+  color: var(--stone-text);
+  font-size: 29px;
+  line-height: 1.2;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  text-align: center;
+}
+/* Keycloak's .card-pf: centred, at most 500 px, a large shadow and a 4 px top edge in the
+   primary color, here the app's accent; the shared card's surface, so it follows the scheme. */
+.qp-card {
   width: 100%;
-  max-width: 400px;
-  padding: var(--space-8) var(--space-6);
+  max-width: 500px;
+  margin: 0 auto;
+  padding: var(--space-8);
+  border-top: 4px solid var(--accent);
+  box-shadow: var(--shadow-lg);
 }
 
 /* The brand mark, the app's name, and who it is for (FR-001, FR-005). */
@@ -110,7 +126,7 @@ body {
 }
 .qp-audience {
   margin: 0;
-  color: var(--stone-text-muted);
+  color: var(--text-muted);
   font-size: 14px;
 }
 /* The page's own header on every page but the sign-in form ("We are sorry...", R9). */
@@ -121,11 +137,11 @@ body {
 }
 .qp-required {
   margin: 0;
-  color: var(--stone-text-muted);
+  color: var(--text-muted);
   font-size: 13px;
 }
 .qp-required .required {
-  color: var(--stone-danger);
+  color: var(--danger);
 }
 /* The attempted username and its restart link, on pages after the username step. */
 .qp-username {
@@ -153,7 +169,7 @@ body {
 
 /* A wrong username or password, under the fields (R9: base's #input-error, aria-live). */
 .qp-field-error {
-  color: var(--stone-danger);
+  color: var(--danger);
   font-size: 13.5px;
   font-weight: 560;
 }
@@ -181,9 +197,7 @@ body {
   content: 'Hide';
 }
 
-/* The Sign In button across the column. The shared input:focus rule (for text fields) would
-   remove this button's focus ring, so it gets the ring back (spec 008 FR-009), in the app's
-   lighter accent, as every ring on the stones (spec 027 R7). */
+/* The Sign In button across the card. */
 #kc-login {
   width: 100%;
   justify-content: center;
@@ -191,39 +205,12 @@ body {
 #kc-login:hover {
   border-color: transparent;
 }
-#kc-login:focus-visible {
-  outline: 3px solid var(--stone-accent);
+/* The shared input:focus rule (for text fields) removes the focus ring of every input, the
+   submit inputs too (Sign In; the logout confirmation's Log out, found in spec 027 T022): every
+   input in the card gets the shared ring back (spec 008 FR-009, spec 027 FR-006). */
+.qp-card input:focus-visible {
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
-}
-
-/* ------------------------------------------- on the stones (spec 027 R7, FR-006) */
-/* Every text, field edge, and focus ring that sits on the backdrop takes a backdrop color; what
-   sits on its own fill (the text in fields, buttons, and notices) keeps the shared colors. */
-#kc-form-login label,
-#kc-attempted-username {
-  color: var(--stone-text);
-}
-/* Links on the stones are light and underlined, since the shared link color is the scheme's
-   accent; links inside a notice keep the shared colors, on the notice's own fill. */
-a:not(.banner a) {
-  color: var(--stone-text);
-  text-decoration: underline;
-}
-/* A text field's edge, unless hovered or focused (the shared hover state is left as it is). */
-#kc-form-login input:not([type='submit']):not(:focus):not(:hover) {
-  border-color: var(--stone-text-muted);
-}
-/* The shared input:focus rule shows a field's focus as an edge and a glow on the field's own
-   fill, measured against nothing on the stones, and removes the ring of a submit input (Sign In,
-   the logout confirmation's Log out): every input gets the same ring as every control (T022). */
-.qp-form input:focus-visible {
-  outline: 3px solid var(--stone-accent);
-  outline-offset: 2px;
-}
-/* Every other control and link on the stones: the shared ring (3 px, offset 2 px) in the app's
-   lighter accent. */
-.qp-form :focus-visible:not(.banner *) {
-  outline-color: var(--stone-accent);
 }
 
 /* A notice that is neither an error, a warning, nor a success. */
@@ -233,12 +220,15 @@ a:not(.banner a) {
   color: var(--text);
 }
 
-/* Phone width (FR-012): the column takes the width, with less space around it. */
+/* Phone width (FR-012): the card takes the width, with less space around it. */
 @media (max-width: 480px) {
   .qp-login {
     padding: var(--space-4) var(--space-3);
   }
-  .qp-form {
+  .qp-realm {
+    padding: var(--space-4) var(--space-2) var(--space-4);
+  }
+  .qp-card {
     padding: var(--space-6) var(--space-4);
   }
 }
@@ -247,7 +237,7 @@ a:not(.banner a) {
 /* Constitution VII's one exception: the shared accent roles pointed at the app's own set, which
    the shared theme defines and its contrast test checks (research R4, R5). The Admin app, and any
    client without a rule here, keeps the shared accent (FR-008). Spec 027 (R6) adds a seventh
-   role: --stone-accent, the lighter accent of the lines and focus rings on the stones. */
+   role: --stone-accent, the lighter accent of the lines between the stones. */
 .qp-app--customer-app {
   --accent: var(--accent-tickets);
   --accent-hover: var(--accent-tickets-hover);

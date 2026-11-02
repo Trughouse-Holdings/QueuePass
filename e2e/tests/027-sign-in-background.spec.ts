@@ -1,6 +1,6 @@
-// Spec 027 quickstart S1 (research R1, R2, R4, R8; FR-001–FR-005, FR-010, SC-001): Keycloak's
+// Spec 027 quickstart S1 (research R1, R2, R4, R7, R8; FR-001–FR-005, FR-010, SC-001): Keycloak's
 // stones behind every app's sign-in page, the lines between them in the app's lighter accent, the
-// same in both schemes, and no card.
+// same in both schemes, the realm header, and Keycloak's card with the app's accent as its top edge.
 import { expect, test, type Browser, type Page } from '@playwright/test';
 import { APPS, type AppName } from '../fixtures/apps';
 import { signInHeading, submitSignIn } from '../fixtures/sign-in';
@@ -32,26 +32,43 @@ async function backdrop(page: Page) {
     const image = new Image();
     image.src = url;
     await image.decode();
-    // A probe styled with the token, so two resolved colors are compared, not token strings.
-    const probe = document.createElement('span');
-    probe.style.color = 'var(--stone-accent)';
-    document.body.append(probe);
-    const accent = getComputedStyle(probe).color;
-    probe.remove();
+    // Probes styled with the tokens, so resolved colors are compared, not token strings.
+    const resolve = (value: string) => {
+      const probe = document.createElement('span');
+      probe.style.color = value;
+      document.body.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    };
+    const cards = [...document.querySelectorAll('.qp-card')];
+    const card = cards[0];
+    const cardStyle = card ? getComputedStyle(card) : null;
+    const header = document.querySelector('.qp-realm') as HTMLElement | null;
     return {
       url,
       digest,
       width: image.naturalWidth,
       linesColor: lines.backgroundColor,
       linesMask: lines.maskImage || lines.getPropertyValue('-webkit-mask-image'),
-      accent,
+      stoneAccent: resolve('var(--stone-accent)'),
+      accent: resolve('var(--accent)'),
       ariaHidden: stones.getAttribute('aria-hidden'),
-      cards: document.querySelectorAll('.card').length,
+      cards: cards.length,
+      cardWidth: card?.getBoundingClientRect().width ?? 0,
+      cardEdge: cardStyle ? `${cardStyle.borderTopWidth} ${cardStyle.borderTopColor}` : '',
+      cardHoldsH1: !!card?.querySelector('h1'),
+      header: header?.innerText ?? null,
+      headerHidden: header?.getAttribute('aria-hidden') ?? null,
+      headerBeforeCard:
+        !!header &&
+        !!card &&
+        !!(header.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING),
     };
   });
 }
 
-test("027 S1: each app's sign-in page shows the stones with its accent in the lines and no card", async ({
+test("027 S1: each app's sign-in page shows the stones with its accent in the lines, the QUEUEPASS header, and its card", async ({
   browser,
 }) => {
   const lineColors: Record<string, string> = {};
@@ -72,10 +89,19 @@ test("027 S1: each app's sign-in page shows the stones with its accent in the li
         // FR-010: the Dockerfile's 26.0 tag floats; the lines match only this image.
         expect(got!.digest).toBe(KEYCLOAK_BG_SHA256);
         expect(got!.width).toBe(1920);
-        expect(got!.linesColor).toBe(got!.accent);
+        expect(got!.linesColor).toBe(got!.stoneAccent);
         expect(got!.linesMask).toContain('stone-lines.png');
         expect(got!.ariaHidden).toBe('true');
-        expect(got!.cards).toBe(0);
+        // FR-004 (implementation session 2): Keycloak's card, its top edge in the app's accent,
+        // holding the one heading, under the realm header.
+        expect(got!.cards).toBe(1);
+        expect(got!.cardWidth).toBeGreaterThan(0);
+        expect(got!.cardWidth).toBeLessThanOrEqual(500);
+        expect(got!.cardEdge).toBe(`4px ${got!.accent}`);
+        expect(got!.cardHoldsH1).toBe(true);
+        expect(got!.header).toBe('QUEUEPASS');
+        expect(got!.headerHidden).toBe('true');
+        expect(got!.headerBeforeCard).toBe(true);
         lineColors[`${app} ${colorScheme}`] = got!.linesColor;
         await context.close();
       });
@@ -128,7 +154,7 @@ async function checkReadable(
         await submitSignIn(page, NO_SUCH_USER, 'wrong');
         await expect(page.getByText('Invalid username or password.')).toBeVisible();
       }
-      const found = await contrastFailures(page, blank, { fill: colorScheme === 'light' });
+      const found = await contrastFailures(page, blank);
       failures.push(...found.map((f) => `${when}: ${f}`));
       if (width === 360) {
         const [scrollWidth, innerWidth] = await page.evaluate(() => [
@@ -183,7 +209,7 @@ async function checkReadable(
   return failures;
 }
 
-test('027 S3: every text, field edge and focus ring on the stones meets its contrast at five window sizes, light and dark', async ({
+test('027 S3: the header on the stones and every text, field edge and focus ring on the card meet their contrast at five window sizes, light and dark', async ({
   browser,
 }) => {
   // R8: 60 page states at about 3–5 s each.

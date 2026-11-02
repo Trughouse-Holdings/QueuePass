@@ -155,8 +155,8 @@ it('never uses --text-faint for text, since it is below 4.5:1', () => {
   expect(css).not.toMatch(/(^|[^-])color:\s*var\(--text-faint\)/m);
 });
 
-// Spec 027 research R5, R6 (FR-006, FR-007, FR-009, SC-002): the colors the sign-in look draws on
-// Keycloak's stones, against the worst backdrops behind the form's column: the darkest and the
+// Spec 027 research R5, R6 (FR-006, FR-007, FR-009, SC-002): the color the sign-in look draws on
+// Keycloak's stones (the realm header's), against the worst backdrops behind it: the darkest and the
 // lightest stone, the app's line color (the mask's opaque core), and the fallback stone grey, each
 // under the shade. The tokens are the same in both sets (asserted), so one pass covers both.
 describe('the sign-in backdrop (spec 027)', () => {
@@ -175,8 +175,6 @@ describe('the sign-in backdrop (spec 027)', () => {
     'stone-base',
     'stone-scrim',
     'stone-text',
-    'stone-text-muted',
-    'stone-danger',
     'stone-accent',
     'stone-accent-tickets',
     'stone-accent-booth',
@@ -231,27 +229,11 @@ describe('the sign-in backdrop (spec 027)', () => {
       ['--stone-base', lightRaw('stone-base')],
     ];
 
-    it.each(['stone-text', 'stone-text-muted', 'stone-danger'])(
-      'shows --%s at 4.5:1 or more over every backdrop under the shade',
-      (fg) => {
-        for (const [what, under] of backdrops()) {
-          expect(onShade(lightRaw(fg), under), `over ${what}`).toBeGreaterThanOrEqual(4.5);
-        }
-      },
-    );
-
-    it.each([
-      [accent, 'its focus rings'],
-      ['stone-text-muted', 'text field edges'],
-    ])('draws --%s (%s) at 3:1 or more over every backdrop under the shade', (token) => {
+    // Implementation session 2: the realm header is the only text on the stones; everything else
+    // is on the card, in the shared colors the tests above already check.
+    it('shows --stone-text (the realm header) at 4.5:1 or more over every backdrop under the shade', () => {
       for (const [what, under] of backdrops()) {
-        expect(onShade(lightRaw(token), under), `over ${what}`).toBeGreaterThanOrEqual(3);
-      }
-    });
-
-    it("shows the light set's --surface (a text field's fill) at 3:1 or more under the shade", () => {
-      for (const [what, under] of backdrops()) {
-        expect(onShade(light['surface']!, under), `over ${what}`).toBeGreaterThanOrEqual(3);
+        expect(onShade(lightRaw('stone-text'), under), `over ${what}`).toBeGreaterThanOrEqual(4.5);
       }
     });
   });

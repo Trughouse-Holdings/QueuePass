@@ -203,9 +203,9 @@ describe('the sign-in backdrop (spec 027)', () => {
 
   // T022: Keycloak's logout confirmation has its own submit input (#kc-logout), whose ring the
   // shared input:focus rule removed, as it did #kc-login's: every input on the stones gets it.
-  it('rings every input on the stones, submit inputs included, in --stone-accent (R7, FR-006)', () => {
-    const body = bodiesNaming('.qp-form input:focus-visible');
-    expect(body).toMatch(/outline:\s*3px solid var\(--stone-accent\)/);
+  it("rings every input in the card, submit inputs included, in the app's --accent (R7, FR-006)", () => {
+    const body = bodiesNaming('.qp-card input:focus-visible');
+    expect(body).toMatch(/outline:\s*3px solid var\(--accent\)/);
     expect(body).toMatch(/outline-offset:\s*2px/);
   });
 
@@ -241,9 +241,43 @@ describe('the sign-in backdrop (spec 027)', () => {
     expect(afterBody.trimStart()).toMatch(/^<div class="qp-stones" aria-hidden="true"><\/div>/);
   });
 
-  it('has no card (FR-004)', () => {
-    expect(template()).not.toMatch(/class="[^"]*\bcard\b/);
-    expect(template()).toContain('<div class="qp-form">');
+  // Implementation session 2 (FR-004, R7): Keycloak's realm header, then its card, in main.
+  it('shows the realm header, then the card holding the one <h1>, in main (FR-004)', () => {
+    const main =
+      template()
+        .split(/<main\b[^>]*>/)[1]
+        ?.split('</main>')[0] ?? '';
+    expect(main.trimStart()).toMatch(
+      /^<div class="qp-realm" aria-hidden="true">\$\{\(realm\.displayName\)!"QueuePass"\}<\/div>\s*<div class="card qp-card">/,
+    );
+    const card = main.split('<div class="card qp-card">')[1] ?? '';
+    expect(card).toContain('<h1 class="qp-title">');
+    expect(template().match(/<h1\b/g)).toHaveLength(1);
+  });
+
+  it("models the card on Keycloak's .card-pf: at most 500 px, a 4 px top edge in the app's accent", () => {
+    const body = bodiesNaming('.qp-card');
+    expect(body).toMatch(/max-width:\s*500px/);
+    expect(body).toMatch(/margin:\s*0 auto/);
+    expect(body).toMatch(/border-top:\s*4px solid var\(--accent\)/);
+    expect(body).toMatch(/box-shadow:\s*var\(--shadow-lg\)/);
+  });
+
+  it("writes the realm header as Keycloak's #kc-header-wrapper, in --stone-text", () => {
+    const body = bodiesNaming('.qp-realm');
+    expect(body).toMatch(/color:\s*var\(--stone-text\)/);
+    expect(body).toMatch(/font-size:\s*29px/);
+    expect(body).toMatch(/text-transform:\s*uppercase/);
+    expect(body).toMatch(/letter-spacing:\s*3px/);
+    expect(body).toMatch(/text-align:\s*center/);
+  });
+
+  it('draws no text, edge, or ring in a stones color on the card (R6)', () => {
+    expect(css()).not.toMatch(/--stone-text-muted|--stone-danger/);
+    const ringsOrText = rules(css()).filter(
+      ([sel, body]) => !sel.startsWith('.qp-stones') && /var\(--stone-accent\)/.test(body),
+    );
+    expect(ringsOrText.map(([sel]) => sel)).toEqual([]);
   });
 
   describe('stone-lines.png (R2, R3)', () => {
