@@ -92,18 +92,24 @@ then removes it.
 **Measured**: the `admin-app` and `customer-app` suites (`vitest run --coverage`) run side by side,
 on a 16-thread, 16 GB laptop with another session's Backend tests running. Before: `admin-app`
 failed 6 of 10 runs (8 failures: 7 timeouts, each in a different test, and 1 from the images
-preview race), `customer-app` passed 10 of 10. After: both passed 10 of 10. `admin-app` takes
-about 51 s instead of 43 s in this setting; `customer-app` about 25 s instead of 30 s.
+preview race), `customer-app` passed 10 of 10. After: both passed 10 of 10, and again 10 of 10
+after the review fixes below. `admin-app` takes about 48 to 51 s instead of 43 s in this setting;
+`customer-app` about 24 s instead of 30 s.
 
 **Cause**: Vitest starts one worker per CPU thread less one (15 here), each its own jsdom process.
 Two suites at once ran 30, free memory fell to about 2 GB, and a worker paged out for seconds
 missed the 5 s test timeout: tests that take 20 ms alone were reported at 10 s, whichever happened
-to be running. The issue's two timeouts (`reports-export`, under 0.5 s alone, of which 0.35 s is
-the XLSX library's first import, the write, and the read back; `times.tz`, 0.3 s) are this stall;
-neither recurred in the runs above, which caught seven other tests instead.
+to be running. The two tests the issue names never failed in these runs (`reports-export` takes
+about 0.2 s alone, `times.tz` about 0.3 s), so that the same stall timed them out is an inference
+from the seven tests it did catch, not an observation.
 
 **Decision**: each jsdom workspace's `vitest.config.ts` runs at most 4 workers (one per thread less
-one below that, so CI's 4-CPU runner keeps 3). Separately, the races found while looking:
+one below that, so CI's 4-CPU runner keeps 3). The four configs repeat the same one-line expression.
+Only `admin-app` and `customer-app` were measured; `booth-app` and `packages/shared` are capped
+for the same reason without their own runs. The cap keeps two suites at once within memory; three
+or more at once (12+ jsdom workers, plus whatever else runs) can still run short.
+
+Separately, the races found while looking:
 
 - `customer-app/test/app.test.tsx` "offers no change control at /events/e1": waits for the Get
   tickets form, then leaves out its "Name on tickets" field (the buyer's own name, not a change).
@@ -113,7 +119,13 @@ one below that, so CI's 4-CPU runner keeps 3). Separately, the races found while
   event and its ticket types in separate requests; the tests now wait for both.
 - `admin-app/test/venue-time-zone.test.tsx`: waits for the zone-change note to go instead of a
   fixed 50 ms.
-- `admin-app/test/reports-export.test.tsx` "names the signed-in admin as made by": checks the table
-  the App hands the Excel writer; `xlsx.test.ts` already proves that table reaches the file.
+- `customer-app/test/rate-limit.test.tsx` and `seat-holds.test.tsx`: the fake clock had
+  `shouldAdvanceTime`, so it also moved with real time, and a test that ran 1 s slower read a
+  countdown 1 s off (shown by adding 1.5 s of real waiting before `advance(239_000)`: the old clock
+  failed, the new one passed). The clock now moves only when a test advances it, and Testing
+  Library's `waitFor` steps it through its Jest hook (`fakeClock` in `test/helpers.tsx`).
+
+`reports-export`'s "names the signed-in admin as made by" keeps its real XLSX write and read back:
+replacing the writer with a spy saved about 55 ms and checked less (review of #118, S1).
 
 No test timeout was raised and nothing retries.
