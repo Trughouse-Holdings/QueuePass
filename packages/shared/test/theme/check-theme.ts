@@ -18,16 +18,20 @@
  * Issue #37 (research R13) added:
  *
  * - C2 also reports a CSS system color (`Canvas`, `CanvasText`, `ButtonFace`, ...) as a named
- *   color;
+ *   color (not inside `url()` or a quoted string);
  * - inline also follows a `style` value that is not an object written in place: each branch of a
- *   condition (`c ? {...} : undefined`, `c && {...}`), and a variable to the object it holds in
- *   the same file. A value it can't follow (a prop, a call) is reported, since it can't be judged;
+ *   condition (`c ? {...} : undefined`, `c && {...}`), and a `const` (plain or spread) to the
+ *   object it holds, when it is the file's only binding of that name and nothing writes to it.
+ *   Any other value (a `let`, a prop, a call) is reported, since it can't be judged. Comments
+ *   are not judged;
  * - attr: an SVG color attribute (`fill`, `stroke`, `color`, `stopColor`, `floodColor`,
- *   `lightingColor`) on an element (not a component) is other than `currentColor`, `none`,
- *   `transparent`, `inherit`, a `var(--...)` token, or a `url(#...)` paint reference;
+ *   `lightingColor`, or their hyphenated names) on an element (not a component) is other than
+ *   `currentColor`, `none`, `transparent`, `inherit`, or a `url(#...)` paint reference; a spread
+ *   of attributes onto an SVG element is reported too;
  * - C7: an app rule whose subject is a class the theme styles (a shared control such as `.btn` or
  *   `.card`) sets a color, typeface, rounding, shadow, or padding: apps place shared controls,
- *   they don't restyle them, even with theme tokens (Constitution VII).
+ *   they don't restyle them, even with theme tokens (Constitution VII). Element subjects the
+ *   theme styles (`button`, `.topbar button`) are not checked.
  *
  * Declarations are read at any depth, including beside a nested rule, each with the selector of
  * the rule it is in.
@@ -277,7 +281,10 @@ function parts(value: string): string[] {
 function hasColor(d: Declaration): boolean {
   if (COLOR_LITERAL.test(d.value)) return true;
   if (!COLOR_PROPERTY.test(d.prop)) return false;
+  // Review round 1 (#37), S2: a file name in url() or a quoted string is not a color word.
   return d.value
+    .replace(/url\((?:"[^"]*"|'[^']*'|[^)]*)\)/gi, ' ')
+    .replace(/"[^"]*"|'[^']*'/g, ' ')
     .toLowerCase()
     .split(/[^a-z0-9-]+/)
     .some((word) => NAMED_COLORS.has(word));
@@ -361,9 +368,14 @@ export function themeClasses(themeCss: string): Set<string> {
   return out;
 }
 
-/** What C7 keeps for the theme: color, typeface, rounding, shadow, and inner spacing. */
+/**
+ * What C7 keeps for the theme: color, typeface, rounding, shadow, and inner spacing. A size,
+ * offset, or position in a color property's family (`outline-offset`, `background-size`) is
+ * placement, not the look (review round 1, M4).
+ */
+const PLACEMENT = /-(offset|size|position(-[xy])?|repeat|attachment|origin|clip|blend-mode)$/;
 const LOOK_PROPERTY = (prop: string): boolean =>
-  COLOR_PROPERTY.test(prop) ||
+  (COLOR_PROPERTY.test(prop) && !PLACEMENT.test(prop)) ||
   /^font(-|$)/.test(prop) ||
   RADIUS_PROPERTY.test(prop) ||
   SHADOW_PROPERTY.test(prop) ||
@@ -459,7 +471,13 @@ function inlineBreaks(key: string, raw: string | undefined): boolean {
 }
 
 /** The violations in one style object's body, which starts at `offset` in `tsx`. */
-function styleObject(path: string, tsx: string, body: string, offset: number): Violation[] {
+function styleObject(
+  path: string,
+  tsx: string,
+  body: string,
+  offset: number,
+  spreadOf: (name: string) => Violation[] | null = () => null,
+): Violation[] {
   const out: Violation[] = [];
   for (const entry of entries(body)) {
     const trimmed = entry.text.trim();
@@ -470,10 +488,16 @@ function styleObject(path: string, tsx: string, body: string, offset: number): V
       out.push({ path, line: lineAt(tsx, at), rule: 'inline', text });
     if (trimmed.startsWith('...')) {
       const spread = trimmed.slice(3).trim();
-      // A spread object literal is walked; any other spread can't be judged, so it is reported.
+      // A spread object literal is walked, and a spread const followed like a plain one (review
+      // round 1, M5); any other spread can't be judged, so it is reported.
+      const followed = /^[A-Za-z_$][\w$]*$/.test(spread) ? spreadOf(spread) : null;
       if (spread.startsWith('{') && spread.endsWith('}')) {
         const inner = entry.text.indexOf('{', entry.text.indexOf('...')) + 1;
-        out.push(...styleObject(path, tsx, spread.slice(1, -1), offset + entry.at + inner));
+        out.push(
+          ...styleObject(path, tsx, spread.slice(1, -1), offset + entry.at + inner, spreadOf),
+        );
+      } else if (followed) {
+        out.push(...followed);
       } else {
         report(trimmed.replace(/\s+/g, ' '));
       }
@@ -510,22 +534,99 @@ function jsxAttributes(sf: ts.SourceFile, names: ReadonlySet<string>): ts.JsxAtt
   return out;
 }
 
-/** The initializers of every variable named `name` in `sf`, at any scope. */
-function variablesNamed(sf: ts.SourceFile, name: string): ts.Expression[] {
-  const out: ts.Expression[] = [];
+/** The identifier an assignment target or update writes through (`s`, `s.a`, `s['a'].b`). */
+function rootName(target: ts.Expression): string | undefined {
+  let e = target;
+  while (
+    ts.isPropertyAccessExpression(e) ||
+    ts.isElementAccessExpression(e) ||
+    ts.isParenthesizedExpression(e) ||
+    ts.isNonNullExpression(e)
+  ) {
+    e = e.expression;
+  }
+  return ts.isIdentifier(e) ? e.text : undefined;
+}
+
+const ASSIGNMENTS = new Set([
+  ts.SyntaxKind.EqualsToken,
+  ts.SyntaxKind.PlusEqualsToken,
+  ts.SyntaxKind.MinusEqualsToken,
+  ts.SyntaxKind.AsteriskEqualsToken,
+  ts.SyntaxKind.SlashEqualsToken,
+  ts.SyntaxKind.BarBarEqualsToken,
+  ts.SyntaxKind.AmpersandAmpersandEqualsToken,
+  ts.SyntaxKind.QuestionQuestionEqualsToken,
+]);
+
+/**
+ * The object a style variable holds, when that can be trusted (review round 1, S1): the name is
+ * bound once in the file, by a `const` with an initializer, and nothing writes to it or through
+ * it (`s = ...`, `s.color = ...`, `s.n++`, `delete s.a`). A `let` or `var`, a parameter, a
+ * destructured binding, an import, a function, or a second binding of the name anywhere in the
+ * file (which could shadow it) is not trusted, so the style is reported instead.
+ */
+function trustedConst(sf: ts.SourceFile, name: string): ts.Expression | undefined {
+  let bindings = 0;
+  let initializer: ts.Expression | undefined;
+  let written = false;
   const visit = (node: ts.Node): void => {
-    if (
-      ts.isVariableDeclaration(node) &&
+    const declared =
+      (ts.isVariableDeclaration(node) ||
+        ts.isParameter(node) ||
+        ts.isBindingElement(node) ||
+        ts.isFunctionDeclaration(node) ||
+        ts.isClassDeclaration(node) ||
+        ts.isImportSpecifier(node) ||
+        ts.isImportClause(node) ||
+        ts.isNamespaceImport(node)) &&
+      node.name !== undefined &&
       ts.isIdentifier(node.name) &&
-      node.name.text === name &&
-      node.initializer
+      node.name.text === name;
+    if (declared) {
+      bindings++;
+      if (
+        ts.isVariableDeclaration(node) &&
+        ts.isVariableDeclarationList(node.parent) &&
+        node.parent.flags & ts.NodeFlags.Const
+      ) {
+        initializer = node.initializer;
+      }
+    }
+    if (
+      (ts.isBinaryExpression(node) &&
+        ASSIGNMENTS.has(node.operatorToken.kind) &&
+        rootName(node.left) === name) ||
+      ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+        (node.operator === ts.SyntaxKind.PlusPlusToken ||
+          node.operator === ts.SyntaxKind.MinusMinusToken) &&
+        rootName(node.operand) === name) ||
+      (ts.isDeleteExpression(node) && rootName(node.expression) === name)
     ) {
-      out.push(node.initializer);
+      written = true;
     }
     ts.forEachChild(node, visit);
   };
   visit(sf);
-  return out;
+  return bindings === 1 && !written ? initializer : undefined;
+}
+
+/**
+ * `sf`'s text with every comment blanked (newlines kept, so offsets and lines still match): a
+ * comment in a style value is not judged (review round 1, M6).
+ */
+function withoutComments(sf: ts.SourceFile): string {
+  const text = sf.text.split('');
+  const blank = (r: ts.CommentRange): void => {
+    for (let i = r.pos; i < r.end; i++) if (text[i] !== '\n' && text[i] !== '\r') text[i] = ' ';
+  };
+  const visit = (node: ts.Node): void => {
+    ts.getLeadingCommentRanges(sf.text, node.pos)?.forEach(blank);
+    ts.getTrailingCommentRanges(sf.text, node.end)?.forEach(blank);
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  return text.join('');
 }
 
 const lineOf = (sf: ts.SourceFile, node: ts.Node): number =>
@@ -538,11 +639,17 @@ const lineOf = (sf: ts.SourceFile, node: ts.Node): number =>
 function styleValue(
   path: string,
   sf: ts.SourceFile,
+  code: string,
   e: ts.Expression,
   seen: ReadonlySet<string>,
 ): Violation[] {
   const follow = (next: ts.Expression, names = seen): Violation[] =>
-    styleValue(path, sf, next, names);
+    styleValue(path, sf, code, next, names);
+  /** The violations in the trusted const `name` holds, or null when it can't be followed. */
+  const held = (name: string): Violation[] | null => {
+    const value = seen.has(name) ? undefined : trustedConst(sf, name);
+    return value ? follow(value, new Set(seen).add(name)) : null;
+  };
   if (
     ts.isParenthesizedExpression(e) ||
     ts.isAsExpression(e) ||
@@ -554,7 +661,7 @@ function styleValue(
   }
   if (ts.isObjectLiteralExpression(e)) {
     const start = e.getStart(sf) + 1;
-    return styleObject(path, sf.text, sf.text.slice(start, e.end - 1), start);
+    return styleObject(path, code, code.slice(start, e.end - 1), start, held);
   }
   if (ts.isConditionalExpression(e)) return [...follow(e.whenTrue), ...follow(e.whenFalse)];
   if (ts.isBinaryExpression(e)) {
@@ -568,11 +675,8 @@ function styleValue(
   if (e.kind === ts.SyntaxKind.NullKeyword || e.kind === ts.SyntaxKind.FalseKeyword) return [];
   if (ts.isIdentifier(e)) {
     if (e.text === 'undefined') return [];
-    const held = seen.has(e.text) ? [] : variablesNamed(sf, e.text);
-    if (held.length > 0) {
-      const names = new Set(seen).add(e.text);
-      return held.flatMap((h) => follow(h, names));
-    }
+    const found = held(e.text);
+    if (found) return found;
   }
   // A prop, a call, a member: its value can't be judged here.
   return [
@@ -591,14 +695,15 @@ function styleValue(
  */
 export function inlineStyleViolations(path: string, tsx: string): Violation[] {
   const sf = parse(path, tsx);
+  const code = withoutComments(sf);
   return jsxAttributes(sf, new Set(['style'])).flatMap((attr) => {
     const init = attr.initializer;
     if (!init || !ts.isJsxExpression(init) || !init.expression) return [];
-    return styleValue(path, sf, init.expression, new Set());
+    return styleValue(path, sf, code, init.expression, new Set());
   });
 }
 
-/** SVG presentation attributes that take a color (issue #37). */
+/** SVG presentation attributes that take a color (issue #37), in React's and SVG's spelling. */
 const COLOR_ATTRIBUTES = new Set([
   'fill',
   'stroke',
@@ -606,24 +711,45 @@ const COLOR_ATTRIBUTES = new Set([
   'stopColor',
   'floodColor',
   'lightingColor',
+  'stop-color',
+  'flood-color',
+  'lighting-color',
 ]);
-const ALLOWED_ATTRIBUTE =
-  /^(currentcolor|none|transparent|inherit|var\(--[a-z0-9-]+\)|url\(#[^)]*\))$/i;
+// Review round 1, M2: no var(); browsers don't resolve it in an SVG attribute, so a theme color
+// reaches SVG through CSS (a class), as the Customer QR code does.
+const ALLOWED_ATTRIBUTE = /^(currentcolor|none|transparent|inherit|url\(#[^)]*\))$/i;
+
+/** SVG's element names, for the spread check (review round 1, M1). */
+const SVG_ELEMENTS = new Set(
+  (
+    'svg g defs symbol use path rect circle ellipse line polyline polygon text tspan textPath ' +
+    'linearGradient radialGradient stop pattern mask clipPath marker image foreignObject filter'
+  ).split(' '),
+);
+
+const tagOf = (sf: ts.SourceFile, element: ts.Node): string =>
+  ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)
+    ? element.tagName.getText(sf)
+    : '';
 
 /**
  * The attr rule over screen code (issue #37): an SVG color attribute on an element (a lower-case
- * tag, not a component's prop) is `currentColor`, `none`, `transparent`, `inherit`, a theme token,
- * or a paint reference. A value from an expression can't be judged, so it is reported.
+ * tag, not a component's prop) is `currentColor`, `none`, `transparent`, `inherit`, or a paint
+ * reference. A value from an expression can't be judged, so it is reported, and so is a spread of
+ * attributes onto an SVG element (review round 1, M1).
  */
 export function colorAttributeViolations(path: string, tsx: string): Violation[] {
   const sf = parse(path, tsx);
-  return jsxAttributes(sf, COLOR_ATTRIBUTES).flatMap((attr) => {
-    const element = attr.parent.parent;
-    const tag =
-      ts.isJsxOpeningElement(element) || ts.isJsxSelfClosingElement(element)
-        ? element.tagName.getText(sf)
-        : '';
-    if (!/^[a-z]/.test(tag)) return [];
+  const spreads: Violation[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isJsxSpreadAttribute(node) && SVG_ELEMENTS.has(tagOf(sf, node.parent.parent))) {
+      spreads.push({ path, line: lineOf(sf, node), rule: 'attr', text: node.getText(sf) });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sf);
+  const attributes = jsxAttributes(sf, COLOR_ATTRIBUTES).flatMap((attr) => {
+    if (!/^[a-z]/.test(tagOf(sf, attr.parent.parent))) return [];
     let init: ts.Node | undefined = attr.initializer;
     if (init && ts.isJsxExpression(init)) init = init.expression;
     const value =
@@ -640,4 +766,5 @@ export function colorAttributeViolations(path: string, tsx: string): Violation[]
       },
     ];
   });
+  return [...spreads, ...attributes].sort((a, b) => a.line - b.line);
 }

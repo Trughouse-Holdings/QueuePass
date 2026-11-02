@@ -390,24 +390,38 @@ All six still applied on that `main`.
 
 - **Indirect inline styles** (FR-005): the inline rule now reads screen code with the TypeScript
   parser (already a root dev dependency; R6 ruled out only a new one) and follows every `style`
-  value: an object written in place, each branch of `?:`, `&&`, `||`, and `??`, and a variable to
-  the object it holds in the same file. A value it can't follow (a prop, a call, a member) is
-  reported, because it can't be judged; give a state a class instead. No code on `main` was
-  affected.
+  value: an object written in place, each branch of `?:`, `&&`, `||`, and `??`, and a `const`
+  (named, or spread as `{ ...base }`) to the object it holds, but only when it is the file's one
+  binding of that name and nothing assigns to it or writes through it (review round 1, S1, M5).
+  A `let` or `var`, a parameter, a destructured binding, a name bound twice in the file, a prop,
+  a call, or a member is reported, because it can't be judged; give a state a class instead.
+  Comments in a style value are not judged (M6). No code on `main` was affected.
 - **SVG color attributes and system colors**: a new rule, `attr`, accepts on an element's `fill`,
-  `stroke`, `color`, `stopColor`, `floodColor`, or `lightingColor` only `currentColor`, `none`,
-  `transparent`, `inherit`, `var(--...)`, or `url(#...)`; a component's prop of the same name is
-  not checked. C2 counts the CSS system colors (`Canvas`, `CanvasText`, `ButtonFace`, and the
-  deprecated ones) as named colors. The one hit on `main`, the Customer QR code's `fill="#fff"` and
-  `fill="#000"`, now uses two new theme tokens, `--qr-dark` (`#000000`) and `--qr-light`
-  (`#ffffff`), the same in both sets like `--scrim`, through `.ticket-qr__dark` and
+  `stroke`, `color`, `stopColor`, `floodColor`, or `lightingColor` (or the hyphenated names) only
+  `currentColor`, `none`, `transparent`, `inherit`, or `url(#...)`; not `var(--...)`, which
+  browsers don't resolve in an SVG attribute, so a theme color reaches SVG through a class (review
+  round 1, M2). A spread of attributes onto an SVG element is reported (M1); a component's prop
+  of the same name is not checked. C2 counts the CSS system colors (`Canvas`, `CanvasText`,
+  `ButtonFace`, and the deprecated ones) as named colors, but not words inside `url()` or a
+  quoted string (`url(/img/background.png)`, S2). The one hit on `main`, the Customer QR code's
+  `fill="#fff"` and `fill="#000"`, now uses two new theme tokens, `--qr-dark` (`#000000`) and
+  `--qr-light` (`#ffffff`), the same in both sets like `--scrim`, through `.ticket-qr__dark` and
   `.ticket-qr__light` in `customer-app/src/styles.css`: still black on white (017 R8).
+  **Accepted** (M3): if the Customer app's stylesheet failed to load, both would fall back to
+  SVG's default black and the code would not scan; before, its hex attributes kept it readable.
+  No form within the rules keeps that fallback (a hex or `var()` attribute is refused, and the
+  CSS is the only way to a color), and the stylesheet is bundled with the app's script like the
+  theme, so a page without it is broken anyway.
 - **Restyling shared controls** (Constitution VII): a new rule, C7, reports an app rule whose
   subject (last compound selector, outside `:not()` and the like, with nesting resolved) is a class
   the theme styles as a subject, when it sets a color, typeface, rounding, shadow, or padding, even
-  with theme tokens. Placing a shared control (`grid-column`, `justify-self`, `margin`, `width`) is
-  still allowed, which keeps 024's `.form__row--section > .btn` and the Customer
-  `.event-card > .gallery--card`.
+  with theme tokens. Placing a shared control (`grid-column`, `justify-self`, `margin`, `width`,
+  and sizes or offsets in a color property's family such as `outline-offset` or
+  `background-size`, review round 1, M4) is still allowed, which keeps 024's
+  `.form__row--section > .btn` and the Customer `.event-card > .gallery--card`. **Limit**: only
+  classes count; an app rule restyling an element the theme styles (`button`, `select`,
+  `.topbar button`) is not reported, since element selectors are also how apps lay out their own
+  screens. The CSS rules C1 to C6 still hold for it.
 - **Where the scan runs**: each app has `test/theme-drift.test.ts`, which runs the same scan
   (`packages/shared/test/theme/scan.ts`) over its own `src`, so `npm test -w admin-app` alone
   catches drift. `drift.test.ts` still scans every app first in the root `npm test`, as R6 says;
@@ -416,10 +430,13 @@ All six still applied on that `main`.
   page's Attendees, Edit, Cancel event, and Delete, 15px wider than a 375px screen, take a second
   line. jsdom has no layout, so the test checks the rule (`tokens.test.ts`); a 375px browser check
   of the theme with that markup showed 390px of page before and 375px after.
-- **Wrong-role page**: `WrongRole` is a theme `.card` with the same text and a `btn btn--primary`
-  Log out (`LogoutButton` takes an optional `className`); `RequireRole` puts it in `.app` and
-  `.main` when it is the whole page, in all three apps. Inside the hello page it sits in the app's
-  own layout, with no second `<main>`.
+- **Wrong-role page**: `WrongRole` is a theme `.card` with the same text, now its `h1`
+  (`.page-title`, review round 1, S3), and a `btn btn--primary` Log out (`LogoutButton` takes an
+  optional `className`); `RequireRole` puts it in `.app` and `.main` when it is the whole page, in
+  all three apps. Inside the hello page it sits in the app's own layout, with no second `<main>`.
+- **Ticket Booth Log out** (added in review at Mahdi's request): the Booth header is its own
+  `.booth-header`, not a `.topbar`, so the theme's `.topbar button` rule never reached the shared
+  Log out; it now takes `btn btn--ghost`, like Change event beside it.
 
 **Rationale**: Constitution VII (the theme is the only place the look is defined) and VI (each
 check proved by its own failing test first).

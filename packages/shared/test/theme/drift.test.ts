@@ -493,18 +493,88 @@ describe('the checker, #37 follow-ups (FR-005, FR-006)', () => {
     expect(attrs(`export const A = () => (\n  ${code}\n);`)).toEqual([expected]);
   });
 
-  it('attr: accepts currentColor, none, transparent, theme tokens, and paint references', () => {
+  it('attr: accepts currentColor, none, transparent, inherit, and paint references', () => {
     const code = [
       'export const A = () => (',
-      '  <svg color="var(--accent)">',
+      '  <svg color="inherit">',
       '    <rect fill="currentColor" stroke="none" />',
-      '    <path fill={\'transparent\'} stroke="var(--border)" />',
+      "    <path fill={'transparent'} />",
       '    <circle fill="url(#g)" fillOpacity="0.5" />',
-      '    <Icon fill="#f00" />',
+      '    <Icon fill="#f00" {...props} />',
       '  </svg>',
       ');',
     ].join('\n');
     expect(attrs(code)).toEqual([]);
+  });
+
+  // Review round 1 (#37): M1 spreads and hyphenated names, M2 var() (browsers don't resolve it
+  // in an SVG attribute; an SVG color goes through CSS).
+  it.each([
+    ['<path {...p} />', 'attr 2 {...p}'],
+    ['<stop stop-color="red" />', 'attr 2 stop-color="red"'],
+    ['<rect fill="var(--accent)" />', 'attr 2 fill="var(--accent)"'],
+  ])('attr: reports %s (review round 1)', (code, expected) => {
+    expect(attrs(`export const A = () => (\n  ${code}\n);`)).toEqual([expected]);
+  });
+
+  it('attr: leaves a spread on an HTML element alone (review round 1)', () => {
+    expect(attrs('export const A = (p: object) => <div {...p} />;')).toEqual([]);
+  });
+
+  // Review round 1, S1: a variable is followed only when it is a const that is never written to
+  // and no other binding in the file shares its name.
+  it.each([
+    [
+      'a reassigned let',
+      ['let s = {};', "s = { color: 'red' };", 'export const A = () => <p style={s}>x</p>;'],
+      ['inline 3 style: s'],
+    ],
+    [
+      'a property write',
+      ['const s = {};', "s.color = 'red';", 'export const A = () => <p style={s}>x</p>;'],
+      ['inline 3 style: s'],
+    ],
+    [
+      'a parameter shadowing a const',
+      ['const s = {};', 'export const A = (s: object) => <p style={s}>x</p>;'],
+      ['inline 2 style: s'],
+    ],
+    [
+      'a destructured binding of the same name',
+      ['const s = {};', 'export const A = ({ s }: { s: object }) => <p style={s}>x</p>;'],
+      ['inline 2 style: s'],
+    ],
+  ])('inline: reports a variable it cannot trust: %s (review round 1)', (_, lines, expected) => {
+    expect(tsx(lines.join('\n'))).toEqual(expected);
+  });
+
+  // Review round 1, M5 and M6.
+  it('inline: follows a spread const like a plain one (review round 1)', () => {
+    const code = [
+      "const base = { color: 'red' };",
+      'const size = { height: 4 };',
+      'export const A = () => <p style={{ ...size, ...base }}>x</p>;',
+    ].join('\n');
+    expect(tsx(code)).toEqual(["inline 1 color: 'red'"]);
+  });
+
+  it('inline: ignores comments in a style value (review round 1)', () => {
+    const code = [
+      'export const A = () => (',
+      '  <p style={{ width: 1 /* #fff */, height: 2, // red',
+      '  }}>x</p>',
+      ');',
+    ].join('\n');
+    expect(tsx(code)).toEqual([]);
+  });
+
+  // Review round 1, S2: words inside url() and quoted strings are not colors.
+  it.each([
+    ['background-image: url(/img/background.png)'],
+    ['mask-image: url(mark.svg)'],
+    ['background: url("menu-window.svg") no-repeat'],
+  ])('C2: accepts %s (review round 1)', (decl) => {
+    expect(css(`.a {\n  ${decl};\n}`)).toEqual([]);
   });
 
   it.each([
@@ -549,6 +619,10 @@ describe('the checker, #37 follow-ups (FR-005, FR-006)', () => {
       '.form__row--section > .btn {',
       '  grid-column: 1 / -1;',
       '  justify-self: start;',
+      // Review round 1, M4: sizes and offsets in a color property's family are not the look.
+      '  outline-offset: 4px;',
+      '  background-size: cover;',
+      '  background-position: center;',
       '}',
       '.event-card > .card {',
       '  margin: calc(-1 * var(--space-4)) 0 var(--space-3);',
