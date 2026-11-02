@@ -13,6 +13,10 @@
   - the page's own header ("We are sorry...", "Page has expired") as an <h2>, except on the sign-in
     form, whose "Sign in to your account" the <h1> replaces (FR-004);
   - page messages in the shared theme's banners, announced to assistive technology (FR-012).
+
+  Spec 027 (research R4, R7): the first element in <body> is .qp-stones, the decorative backdrop
+  (Keycloak's stones, the lines between them in the app's accent, and the shade behind the form),
+  hidden from assistive technology; the form sits on it in .qp-form, with no card (FR-004).
 -->
 <#import "footer.ftl" as loginFooter>
 <#macro registrationLayout bodyClass="" displayInfo=false displayMessage=true displayRequiredFields=false>
@@ -95,9 +99,10 @@
 </head>
 
 <body class="qp-app--${qpAppId}">
+<div class="qp-stones" aria-hidden="true"></div>
 <div class="qp-band" aria-hidden="true"></div>
 <main class="qp-login">
-    <div class="card card--padded qp-card">
+    <div class="qp-form">
         <header class="qp-head">
             <span class="brand__mark qp-mark" aria-hidden="true">Q</span>
             <h1 class="qp-title">${qpTitle}</h1>

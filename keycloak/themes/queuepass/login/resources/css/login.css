@@ -3,12 +3,49 @@
    copied in by keycloak/Dockerfile, and holds only the sign-in layout, in the theme's values.
    The one exception (Constitution VII, 3.5.0) is at the end: each app's accent, pointed at its
    set in the shared theme. packages/shared/test/theme/drift.test.ts checks this file.
+
+   Spec 027 (Constitution VII, 3.7.0): the form sits with no card on Keycloak's own stones
+   (served from its stock `keycloak` theme, not copied), with the lines between the stones in the
+   app's lighter accent (--stone-accent, the seventh role at the end) and a shade behind the
+   form's column. Every color drawn on the stones is a --stone-* token of the shared theme
+   (research R4–R7). scripts/seed/test/login-theme-files.test.ts checks the layers.
    ========================================================================== */
 
 body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  /* Under the stones: what shows when Keycloak's image is missing (FR-009). */
+  background: var(--stone-base);
+}
+
+/* ------------------------------------------------------ the backdrop (spec 027 R4) */
+/* One fixed box behind the page, so the stones and the lines (both 1920×1080, both
+   center / cover) line up at every window size and stay put while a long page scrolls. Still:
+   no animation or transition (FR-013). */
+.qp-stones {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: url(../../keycloak/img/keycloak-bg.png) center / cover no-repeat;
+}
+/* The lines between the stones, in the app's lighter accent, shown through the lines image. A
+   browser without masks would fill the window with the accent, so it gets no lines (R4). */
+@supports (mask-image: none) {
+  .qp-stones::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--stone-accent);
+    mask: url(../img/stone-lines.png) center / cover no-repeat;
+  }
+}
+/* Forced colors keep url() backgrounds in Chromium while forcing the text to system colors:
+   the page shows the system's colors only (R4). */
+@media (forced-colors: active) {
+  .qp-stones {
+    display: none;
+  }
 }
 
 /* The band across the top of the screen, in the app's accent (FR-006). */
@@ -18,7 +55,8 @@ body {
   background: var(--accent);
 }
 
-/* A centered card on the page background. */
+/* A centered column on the stones, with no card (spec 027 FR-004, R7): the card's width and
+   padding, and no surface, border, radius, or shadow. */
 .qp-login {
   flex: 1;
   display: flex;
@@ -26,7 +64,7 @@ body {
   justify-content: center;
   padding: var(--space-8) var(--space-4);
 }
-.qp-card {
+.qp-form {
   width: 100%;
   max-width: 400px;
   padding: var(--space-8) var(--space-6);
@@ -146,12 +184,12 @@ body {
   color: var(--text);
 }
 
-/* Phone width (FR-012): the card takes the width, with less space around it. */
+/* Phone width (FR-012): the column takes the width, with less space around it. */
 @media (max-width: 480px) {
   .qp-login {
     padding: var(--space-4) var(--space-3);
   }
-  .qp-card {
+  .qp-form {
     padding: var(--space-6) var(--space-4);
   }
 }
@@ -159,7 +197,8 @@ body {
 /* ------------------------------------------------- each app's accent (FR-006) */
 /* Constitution VII's one exception: the shared accent roles pointed at the app's own set, which
    the shared theme defines and its contrast test checks (research R4, R5). The Admin app, and any
-   client without a rule here, keeps the shared accent (FR-008). */
+   client without a rule here, keeps the shared accent (FR-008). Spec 027 (R6) adds a seventh
+   role: --stone-accent, the lighter accent of the lines and focus rings on the stones. */
 .qp-app--customer-app {
   --accent: var(--accent-tickets);
   --accent-hover: var(--accent-tickets-hover);
@@ -167,6 +206,7 @@ body {
   --accent-text: var(--accent-tickets-text);
   --brand-mark-end: var(--brand-mark-end-tickets);
   --brand-mark-text: var(--brand-mark-text-tickets);
+  --stone-accent: var(--stone-accent-tickets);
 }
 .qp-app--booth-app {
   --accent: var(--accent-booth);
@@ -175,4 +215,5 @@ body {
   --accent-text: var(--accent-booth-text);
   --brand-mark-end: var(--brand-mark-end-booth);
   --brand-mark-text: var(--brand-mark-text-booth);
+  --stone-accent: var(--stone-accent-booth);
 }

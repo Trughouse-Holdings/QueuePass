@@ -123,7 +123,7 @@ confirm they **fail** before the implementation tasks below them.
 
 ### Tests first
 
-- [ ] T011 [P] [US1] `scripts/seed/test/login-theme-files.test.ts` (R8): `login.css` contains
+- [x] T011 [P] [US1] `scripts/seed/test/login-theme-files.test.ts` (R8): `login.css` contains
   `url(../../keycloak/img/keycloak-bg.png)` and `url(../img/stone-lines.png)`, the lines layer inside
   `@supports (mask-image: none)` and filled with `var(--stone-accent)`, `content: ''` on both
   pseudo-elements, `@media (forced-colors: active)` hiding `.qp-stones`, no `animation` or
@@ -136,13 +136,13 @@ confirm they **fail** before the implementation tasks below them.
   License 2.0, and the change; `LICENSE-keycloak.txt` starts with the Apache License 2.0 heading; no
   file under `keycloak/` has the SHA-256 of Keycloak's image (SC-004). Must fail on the template, the
   stylesheet, and the notice.
-- [ ] T012 [P] [US1] `scripts/seed/test/sign-in-screens.test.ts` (live; skipped without Keycloak as
+- [x] T012 [P] [US1] `scripts/seed/test/sign-in-screens.test.ts` (live; skipped without Keycloak as
   today): for each client, the account console, and the no-client page, the HTML has the
   `.qp-stones` element and no `card` class; from the page's `login.css` link, resolving
   `../../keycloak/img/keycloak-bg.png` gives `200`, `image/png`, and the recorded SHA-256 (FR-010);
   resolving `../img/stone-lines.png` gives `200`, `image/png`. Must fail against a Keycloak built from
   `main`.
-- [ ] T013 [US1] Browser test `e2e/tests/027-sign-in-background.spec.ts`, title `027 S1: each app's
+- [x] T013 [US1] Browser test `e2e/tests/027-sign-in-background.spec.ts`, title `027 S1: each app's
   sign-in page shows the stones with its accent in the lines and no card` (R8): for each app, in
   light and dark: the `.qp-stones` element's computed `background-image` is Keycloak's image;
   fetching that URL in the page gives the recorded SHA-256 (`crypto.subtle.digest`), since the
@@ -155,10 +155,10 @@ confirm they **fail** before the implementation tasks below them.
 
 ### Implementation
 
-- [ ] T014 [US1] `keycloak/themes/queuepass/login/template.ftl` (R4, R7): the `.qp-stones` element
+- [x] T014 [US1] `keycloak/themes/queuepass/login/template.ftl` (R4, R7): the `.qp-stones` element
   first in `<body>`; `<div class="card card--padded qp-card">` becomes `<div class="qp-form">`;
   update the header comment (spec 027). Everything else unchanged.
-- [ ] T015 [US1] `keycloak/themes/queuepass/login/resources/css/login.css` (R4, R6, R7): `body`
+- [x] T015 [US1] `keycloak/themes/queuepass/login/resources/css/login.css` (R4, R6, R7): `body`
   background `--stone-base`; `.qp-stones` fixed full-window with the stones `center / cover
   no-repeat`; `::before` the lines (`content: ''`, `background: var(--stone-accent)`,
   `mask: url(../img/stone-lines.png) center / cover no-repeat`) inside `@supports (mask-image:
@@ -166,9 +166,14 @@ confirm they **fail** before the implementation tasks below them.
   transition; `.qp-form` with the card's width and padding and no surface; the seventh role in the
   two app rules; update the header comment. T011, T012 (after a rebuild), and T013 pass; the drift
   test passes.
-- [ ] T016 [US1] Mark S1 `Automated: \`027 S1: …\`; rest Manual: the look checked by eye` in
+- [x] T016 [US1] Mark S1 `Automated: \`027 S1: …\`; rest Manual: the look checked by eye` in
   quickstart.md's Automation table (`npm test` checks it). Look at the three pages at 1280×800 and
   1920×1080 in both schemes (screenshots kept outside the repository) and record what was seen here.
+  **Seen** (Chrome, a Keycloak built from this branch on spare ports, 1280×800 and 1920×1080,
+  light and dark, all three apps): the stones cover the window, lighter top left; the lines sit on
+  the stones' edges in indigo, teal, and amber, at the dim strength Mahdi chose, the same in both
+  schemes; no card; band, brand mark, heading, audience line, and Sign In button as in `021`. As
+  the checkpoint says, the light scheme's dark text is not yet readable on the stones.
 
 **Checkpoint**: the three pages show the stones and their lines (the text is not yet readable on
 them in the light scheme; US2 fixes it).

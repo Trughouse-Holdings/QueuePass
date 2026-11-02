@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { describe, it, expect, beforeAll } from 'vitest';
 import { FRONTEND_CLIENTS } from '../src/provision-clients';
+import { SOURCE } from '../src/stone-lines/cli';
 
 /**
  * Spec 021 research R11 (FR-001, FR-002, FR-005, FR-006, FR-007, FR-008, FR-011, FR-012): the
@@ -225,6 +226,69 @@ describe('the sign-in screens (spec 021)', () => {
     expect(got.h1).toEqual(['Sign in to Account Console']);
     expect(got.audience).toEqual([]);
     expect(got.bodyClass).toBe('qp-app--account-console');
+  });
+
+  // Spec 027 research R1, R4, R7, R8 (FR-001, FR-002, FR-004, FR-010): every page the sign-in look
+  // shows has the stones element and no card, and Keycloak serves both images beside our stylesheet.
+  describe('the stones behind every page (spec 027)', () => {
+    const pages: [string, () => Promise<string>][] = [
+      ...FRONTEND_CLIENTS.map(
+        (c) =>
+          [
+            c.clientId,
+            async () => (await authorize(c.clientId, `http://localhost:${c.port}/`)).html,
+          ] as [string, () => Promise<string>],
+      ),
+      [
+        'account-console',
+        async () =>
+          (await authorize('account-console', `${KEYCLOAK}/realms/${realm}/account/`)).html,
+      ],
+      [
+        'a page with no client',
+        async () => (await fetch(`${KEYCLOAK}/realms/${realm}/login-actions/authenticate`)).text(),
+      ],
+      [
+        'a wrong password (admin-app)',
+        async () => {
+          const c = FRONTEND_CLIENTS.find((f) => f.clientId === 'admin-app')!;
+          const first = await authorize(c.clientId, `http://localhost:${c.port}/`);
+          return (await submit(first, 'admin1', 'wrong')).html;
+        },
+      ],
+    ];
+
+    it.for(pages)(
+      '%s: has the backdrop element first in <body> and no card',
+      async ([, get], { skip }) => {
+        skip(!available, SKIP_REASON);
+        const html = await get();
+        const afterBody = html.split(/<body\b[^>]*>/)[1] ?? '';
+        expect(afterBody.trimStart()).toMatch(/^<div class="qp-stones" aria-hidden="true"><\/div>/);
+        expect(html).not.toMatch(/class="[^"]*\bcard\b/);
+      },
+    );
+
+    it("serves Keycloak's stones image and the lines image beside login.css", async ({ skip }) => {
+      skip(!available, SKIP_REASON);
+      const { html } = await authorize('admin-app', 'http://localhost:5173/');
+      const sheet = read(html).stylesheets.find((s) => s.endsWith('/css/login.css'));
+      expect(sheet, 'the login.css link').toBeDefined();
+      const base = new URL(sheet!, KEYCLOAK);
+
+      const stones = await fetch(new URL('../../keycloak/img/keycloak-bg.png', base));
+      expect(stones.status).toBe(200);
+      expect(stones.headers.get('content-type')).toMatch(/^image\/png/);
+      const sha = createHash('sha256')
+        .update(Buffer.from(await stones.arrayBuffer()))
+        .digest('hex');
+      // FR-010: the lines were made from this image; a changed one fails here.
+      expect(sha).toBe(SOURCE.sha256);
+
+      const lines = await fetch(new URL('../img/stone-lines.png', base));
+      expect(lines.status).toBe(200);
+      expect(lines.headers.get('content-type')).toMatch(/^image\/png/);
+    });
   });
 
   it('shows a page with no client as "Sign in to QueuePass", with the page\'s own header (FR-008, R9)', async ({
