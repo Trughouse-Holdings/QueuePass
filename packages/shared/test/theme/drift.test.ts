@@ -2,11 +2,15 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import {
+  colorAttributeViolations,
   colorLiteralViolations,
   cssViolations,
   inlineStyleViolations,
+  sharedClassViolations,
+  themeClasses,
   type Violation,
 } from './check-theme';
+import { appDrift, driftOf } from './scan';
 
 /**
  * Spec 012 US2 (FR-005, FR-006, FR-015, SC-001, SC-005; research R6): no app defines its own
@@ -392,6 +396,18 @@ describe('the apps (FR-005, FR-015, SC-001)', () => {
     const found = screens.flatMap((f) => inlineStyleViolations(f, read(f)));
     expect(listing(found)).toEqual([]);
   });
+
+  // Issue #37 (research R13).
+  it('write no color in an SVG attribute', () => {
+    const found = screens.flatMap((f) => colorAttributeViolations(f, read(f)));
+    expect(listing(found)).toEqual([]);
+  });
+
+  it('restyle no shared control in their stylesheets', () => {
+    const classes = themeClasses(read('packages/shared/src/web/theme.css'));
+    const found = stylesheets.flatMap((f) => sharedClassViolations(f, read(f), classes));
+    expect(listing(found)).toEqual([]);
+  });
 });
 
 // Spec 021 research R4 (FR-007): the sign-in look uses only the theme's values, but for its one
@@ -421,4 +437,244 @@ it('the theme writes colors out only in its two token blocks (research R3)', () 
     .replace(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{[^}]*\}\s*\}/, blank);
   expect(outside).not.toMatch(/--bg:/);
   expect(listing(colorLiteralViolations(path, outside))).toEqual([]);
+});
+
+// Issue #37 (FR-005; research R13): the gaps found in 012's review. Inline styles reached through
+// a condition or a variable, SVG color attributes, system colors, and app rules that restyle a
+// shared control.
+describe('the checker, #37 follow-ups (FR-005, FR-006)', () => {
+  const attrs = (body: string): string[] => brief(colorAttributeViolations('test.tsx', body));
+  const shared = (body: string): string[] =>
+    brief(sharedClassViolations('test.css', body, new Set(['btn', 'btn--primary', 'card'])));
+
+  it.each([
+    ["style={c ? { color: 'red' } : undefined}", ["inline 2 color: 'red'"]],
+    ["style={c ? undefined : { fontFamily: 'serif' }}", ["inline 2 fontFamily: 'serif'"]],
+    ["style={c && { background: '#fff' }}", ["inline 2 background: '#fff'"]],
+    ['style={(c ? { padding: 18 } : null) as object}', ['inline 2 padding: 18']],
+    ["style={s ?? { color: 'red' }}", ['inline 2 style: s', "inline 2 color: 'red'"]],
+    ['style={s}', ['inline 2 style: s']],
+    ['style={c ? s : undefined}', ['inline 2 style: s']],
+    ['style={styleFor(c)}', ['inline 2 style: styleFor(c)']],
+  ])('inline: reports %s', (code, expected) => {
+    expect(tsx(`export const A = () => (\n  <p ${code}>x</p>\n);`)).toEqual(expected);
+  });
+
+  it('inline: follows a variable to the object it holds, and reports it there', () => {
+    const code = [
+      "const warn = { color: 'red' };",
+      "const s = c ? warn : { borderRadius: 'var(--radius)' };",
+      'export const A = () => <p style={s}>x</p>;',
+    ].join('\n');
+    expect(tsx(code)).toEqual(["inline 1 color: 'red'"]);
+  });
+
+  it('inline: accepts a condition or variable that holds only allowed values', () => {
+    const code = [
+      'const size = { height: 40 };',
+      'export const A = ({ h, c }: { h?: number; c: boolean }) => (',
+      '  <>',
+      '    <p style={h === undefined ? undefined : { height: h }}>x</p>',
+      '    <p style={c ? size : null}>y</p>',
+      "    <p style={c && { width: '40%' }}>z</p>",
+      '  </>',
+      ');',
+    ].join('\n');
+    expect(tsx(code)).toEqual([]);
+  });
+
+  it.each([
+    ['<rect fill="#fff" />', 'attr 2 fill="#fff"'],
+    ['<path stroke="red" />', 'attr 2 stroke="red"'],
+    ["<stop stopColor={'rgb(0 0 0)'} />", "attr 2 stopColor={'rgb(0 0 0)'}"],
+    ['<circle fill={c} />', 'attr 2 fill={c}'],
+    ['<svg color="Canvas" />', 'attr 2 color="Canvas"'],
+  ])('attr: reports %s', (code, expected) => {
+    expect(attrs(`export const A = () => (\n  ${code}\n);`)).toEqual([expected]);
+  });
+
+  it('attr: accepts currentColor, none, transparent, inherit, and paint references', () => {
+    const code = [
+      'export const A = () => (',
+      '  <svg color="inherit">',
+      '    <rect fill="currentColor" stroke="none" />',
+      "    <path fill={'transparent'} />",
+      '    <circle fill="url(#g)" fillOpacity="0.5" />',
+      '    <Icon fill="#f00" {...props} />',
+      '  </svg>',
+      ');',
+    ].join('\n');
+    expect(attrs(code)).toEqual([]);
+  });
+
+  // Review round 1 (#37): M1 spreads and hyphenated names, M2 var() (browsers don't resolve it
+  // in an SVG attribute; an SVG color goes through CSS).
+  it.each([
+    ['<path {...p} />', 'attr 2 {...p}'],
+    ['<stop stop-color="red" />', 'attr 2 stop-color="red"'],
+    ['<rect fill="var(--accent)" />', 'attr 2 fill="var(--accent)"'],
+  ])('attr: reports %s (review round 1)', (code, expected) => {
+    expect(attrs(`export const A = () => (\n  ${code}\n);`)).toEqual([expected]);
+  });
+
+  it('attr: leaves a spread on an HTML element alone (review round 1)', () => {
+    expect(attrs('export const A = (p: object) => <div {...p} />;')).toEqual([]);
+  });
+
+  // Review round 1, S1: a variable is followed only when it is a const that is never written to
+  // and no other binding in the file shares its name.
+  it.each([
+    [
+      'a reassigned let',
+      ['let s = {};', "s = { color: 'red' };", 'export const A = () => <p style={s}>x</p>;'],
+      ['inline 3 style: s'],
+    ],
+    [
+      'a property write',
+      ['const s = {};', "s.color = 'red';", 'export const A = () => <p style={s}>x</p>;'],
+      ['inline 3 style: s'],
+    ],
+    [
+      'a parameter shadowing a const',
+      ['const s = {};', 'export const A = (s: object) => <p style={s}>x</p>;'],
+      ['inline 2 style: s'],
+    ],
+    [
+      'a destructured binding of the same name',
+      ['const s = {};', 'export const A = ({ s }: { s: object }) => <p style={s}>x</p>;'],
+      ['inline 2 style: s'],
+    ],
+  ])('inline: reports a variable it cannot trust: %s (review round 1)', (_, lines, expected) => {
+    expect(tsx(lines.join('\n'))).toEqual(expected);
+  });
+
+  // Review round 1, M5 and M6.
+  it('inline: follows a spread const like a plain one (review round 1)', () => {
+    const code = [
+      "const base = { color: 'red' };",
+      'const size = { height: 4 };',
+      'export const A = () => <p style={{ ...size, ...base }}>x</p>;',
+    ].join('\n');
+    expect(tsx(code)).toEqual(["inline 1 color: 'red'"]);
+  });
+
+  it('inline: ignores comments in a style value (review round 1)', () => {
+    const code = [
+      'export const A = () => (',
+      '  <p style={{ width: 1 /* #fff */, height: 2, // red',
+      '  }}>x</p>',
+      ');',
+    ].join('\n');
+    expect(tsx(code)).toEqual([]);
+  });
+
+  // Review round 1, S2: words inside url() and quoted strings are not colors.
+  it.each([
+    ['background-image: url(/img/background.png)'],
+    ['mask-image: url(mark.svg)'],
+    ['background: url("menu-window.svg") no-repeat'],
+  ])('C2: accepts %s (review round 1)', (decl) => {
+    expect(css(`.a {\n  ${decl};\n}`)).toEqual([]);
+  });
+
+  it.each([
+    ['color: Canvas'],
+    ['background: CanvasText'],
+    ['border: 1px solid ButtonBorder'],
+    ['outline-color: highlight'],
+    ['fill: GrayText'],
+  ])('C2: reports a system color: %s', (decl) => {
+    expect(css(`.a {\n  ${decl};\n}`)).toEqual([`C2 2 ${decl}`]);
+  });
+
+  it('C2: reports a system color the theme writes out of its token blocks', () => {
+    expect(brief(colorLiteralViolations('theme.css', '.a {\n  color: Canvas;\n}'))).toEqual([
+      'C2 2 color: Canvas',
+    ]);
+  });
+
+  it.each([
+    [
+      '.btn--primary {\n  background: var(--danger);\n}',
+      'C7 2 .btn--primary { background: var(--danger) }',
+    ],
+    [
+      '.page .btn:hover {\n  color: var(--accent);\n}',
+      'C7 2 .page .btn:hover { color: var(--accent) }',
+    ],
+    ['.mine.card {\n  padding: var(--space-2);\n}', 'C7 2 .mine.card { padding: var(--space-2) }'],
+    ['.x, .card {\n  border-radius: 0;\n}', 'C7 2 .x, .card { border-radius: 0 }'],
+    ['.x > button.btn {\n  font-weight: 700;\n}', 'C7 2 .x > button.btn { font-weight: 700 }'],
+    ['.btn {\n  &:hover {\n    box-shadow: none;\n  }\n}', 'C7 3 .btn:hover { box-shadow: none }'],
+    [
+      '@media (max-width: 640px) {\n  .card {\n    border: none;\n  }\n}',
+      'C7 3 .card { border: none }',
+    ],
+  ])('C7: reports an app rule restyling a shared control: %s', (body, expected) => {
+    expect(shared(body)).toEqual([expected]);
+  });
+
+  it('C7: accepts placing a shared control, and styling an app class beside or inside one', () => {
+    const ok = [
+      '.form__row--section > .btn {',
+      '  grid-column: 1 / -1;',
+      '  justify-self: start;',
+      // Review round 1, M4: sizes and offsets in a color property's family are not the look.
+      '  outline-offset: 4px;',
+      '  background-size: cover;',
+      '  background-position: center;',
+      '}',
+      '.event-card > .card {',
+      '  margin: calc(-1 * var(--space-4)) 0 var(--space-3);',
+      '  width: 100%;',
+      '}',
+      '.card .mine {',
+      '  color: var(--accent);',
+      '}',
+      '.mine:not(.btn) {',
+      '  background: var(--surface);',
+      '}',
+      '.btn-like {',
+      '  color: var(--text);',
+      '}',
+    ].join('\n');
+    expect(shared(ok)).toEqual([]);
+  });
+
+  it("C7: takes the shared classes from the theme's rules, not from a :not() or an ancestor", () => {
+    const classes = themeClasses(
+      '.btn { color: red; }\n.banner__body > .btn--primary { color: red; }\n' +
+        '.card:not(.card--padded) > :not(.stats) { margin: 0; }\n.page-band .x { margin: 0; }',
+    );
+    expect([...classes].sort()).toEqual(['btn', 'btn--primary', 'x']);
+  });
+});
+
+// Issue #37 item 4 (research R13): each app's own `npm test` runs the same scan over its own
+// files (`<app>/test/theme-drift.test.ts`); this workspace still runs it over every app (R6).
+describe('the scan an app runs over itself (research R13)', () => {
+  it.each(['admin-app', 'customer-app', 'booth-app'])('reads %s and finds nothing', (app) => {
+    const scan = appDrift(ROOT, app);
+    expect(scan.stylesheets).toContain(`${app}/src/styles.css`);
+    expect(scan.screens.length).toBeGreaterThan(0);
+    expect(listing(scan.violations)).toEqual([]);
+  });
+
+  it('runs every rule: C1 to C7, inline, and attr', () => {
+    const found = driftOf(
+      new Set(['btn--primary']),
+      [{ path: 'x-app/src/styles.css', text: '.btn--primary {\n  background: var(--danger);\n}' }],
+      [
+        {
+          path: 'x-app/src/A.tsx',
+          text: 'export const A = () => <rect fill="#000" style={c ? { color: \'red\' } : undefined} />;',
+        },
+      ],
+    );
+    expect(listing(found)).toEqual([
+      'x-app/src/styles.css:2 C7 .btn--primary { background: var(--danger) }',
+      "x-app/src/A.tsx:1 inline color: 'red'",
+      'x-app/src/A.tsx:1 attr fill="#000"',
+    ]);
+  });
 });

@@ -1,7 +1,9 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import qrcode from 'qrcode-generator';
-import { qrMatrix } from '../src/components/TicketQr';
+import { qrMatrix, TicketQr } from '../src/components/TicketQr';
 import { json, myOrder, renderCustomer, stubApi } from './helpers';
 
 /**
@@ -92,6 +94,25 @@ describe('the printable view (US5-1)', () => {
     renderCustomer({ at: '/my-tickets/k2/print' });
     expect(await screen.findByText("This ticket can't be printed.")).toBeInTheDocument();
     expect(screen.queryByRole('img', { name: /QR code/ })).not.toBeInTheDocument();
+  });
+});
+
+// Issue #37 (spec 012 FR-005): black on white from the theme's QR tokens, not from hex attributes.
+describe('the QR code colors (#37)', () => {
+  it('draws the quiet zone and the modules with classes, with no color of its own', () => {
+    const { container } = render(<TicketQr code={CODE} />);
+    const rect = container.querySelector('rect');
+    const path = container.querySelector('path');
+    expect(rect).toHaveClass('ticket-qr__light');
+    expect(path).toHaveClass('ticket-qr__dark');
+    expect(rect).not.toHaveAttribute('fill');
+    expect(path).not.toHaveAttribute('fill');
+  });
+
+  it("colors those classes with the theme's QR tokens", () => {
+    const styles = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    expect(styles).toMatch(/\.ticket-qr__light\s*\{\s*fill:\s*var\(--qr-light\);\s*\}/);
+    expect(styles).toMatch(/\.ticket-qr__dark\s*\{\s*fill:\s*var\(--qr-dark\);\s*\}/);
   });
 });
 

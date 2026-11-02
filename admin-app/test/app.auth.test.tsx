@@ -68,6 +68,22 @@ describe('Admin app sign-in', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  // Issue #37: the refusal wears the shared theme (spec 012), not the browser's defaults.
+  it('shows the wrong-role page in the shared theme', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => json([])),
+    );
+    renderAdmin(['customer'], '/locations');
+    const text = await screen.findByText("Your account can't use this app.");
+    expect(screen.getByRole('main')).toHaveClass('main');
+    expect(text.closest('.app .main .card')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Log out' })).toHaveClass('btn', 'btn--primary');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      "Your account can't use this app.",
+    );
+  });
+
   it.each([
     '/locations/6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e',
     '/events/b92fc02c-6013-470d-a3bf-bf53648b0ebc',

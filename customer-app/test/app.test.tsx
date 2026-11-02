@@ -51,6 +51,19 @@ describe('Customer app sign-in', () => {
     },
   );
 
+  // Issue #37: the refusal wears the shared theme (spec 012), not the browser's defaults.
+  it('shows the wrong-role page in the shared theme', async () => {
+    everyRoute();
+    renderCustomer({ at: '/venues/v1', roles: ['queuepass-admin'], username: 'someone' });
+    const text = await screen.findByText("Your account can't use this app.");
+    expect(screen.getByRole('main')).toHaveClass('main');
+    expect(text.closest('.app .main .card')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Log out' })).toHaveClass('btn', 'btn--primary');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
+      "Your account can't use this app.",
+    );
+  });
+
   it('shows a signed-out visitor nothing but "Signing in…"', () => {
     const { calls } = everyRoute();
     renderCustomer({ at: '/venues/v1', signedIn: false });
