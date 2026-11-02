@@ -217,7 +217,8 @@ time can't move to the new zone"; one more `reason` keeps clients' handling in o
   implementation merges and the contract tests validate responses. New request properties are
   optional. No new operation, so no `x-planned` marker. **The implementation PR** moves
   `Event.doorsOpenAt`, `Event.entryOpensAt`, and `OrderEvent.doorsOpenAt` into `required` and sets
-  **1.16.1**, in the same PR that makes the Backend send them, so no follow-up issue is left (the
+  **1.17.1** (not 1.16.1: `026`'s spec PR took 1.17.0 on `main` first, `026` research R13), in the
+  same PR that makes the Backend send them, so no follow-up issue is left (the
   gap `#88` closed for `020`).
 - **Minor version** 1.15.0 → 1.16.0: new properties, a new refusal, and a narrower window for
   `lookupEntryTicket` and `admitTicket` (their descriptions), one minor per feature (`013` R11,

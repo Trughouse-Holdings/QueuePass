@@ -362,14 +362,19 @@ only when open.
 
 ## Phase 7: Demo data, and the contract's required lists
 
-- [ ] T024 `backend/test/integration/demo-data.e2e-spec.ts`: every demo event has `doorsOpenAt =
+- [x] T024 `backend/test/integration/demo-data.e2e-spec.ts`: every demo event has `doorsOpenAt =
   startsAt - 1 hour`, and "Demo Tonight" is open for entry when loaded (`entryOpensAt` before now)
   (research R11). Passes with no change to `demo-data.ts`; if it does not, fix the data, not the test.
-- [ ] T025 `contracts/openapi.yaml` 1.16.1 (research R6, contracts/README.md): `Event.required`
+  **Done**: one new test, passing with no change to `demo-data.ts`; the existing "Demo Tonight open"
+  test's SQL now states the window as `doorsOpenAt - 1 hour` (same instant for default doors).
+- [x] T025 `contracts/openapi.yaml` 1.17.1 (research R6, contracts/README.md): `Event.required`
   gains `doorsOpenAt` and `entryOpensAt`, `OrderEvent.required` gains `doorsOpenAt`; their
-  descriptions lose "not listed as required …" and say "Required from 1.16.1"; `npm run generate:api`;
+  descriptions lose "not listed as required …" and say "Required from 1.17.1"; `npm run generate:api`;
   `node scripts/check-contract-drift.mjs` passes; the Backend's contract tests pass (every event and
   order response now has them).
+  **Done**: 1.17.1; `npm run generate:api`; the drift check passes; backend 996 in 96 suites green
+  with every event and order response validated against the new required lists; the four apps and
+  `e2e` type-check.
 
 ---
 
@@ -420,7 +425,7 @@ only when open.
 - [ ] T037 `npm run e2e` locally, green: every test, `025`'s two included; record the count and time
   here; the stack left stopped.
 - [ ] T038 Independent review by a separate Claude session (Constitution III) of the branch against
-  spec, plan, research, and contract 1.16.0/1.16.1; fix the findings, tests first where a finding is
+  spec, plan, research, and contract 1.16.0/1.17.1; fix the findings, tests first where a finding is
   a defect; record the round here (counts by severity, each fix, and any finding left open with the
   reason).
 - [ ] T039 `npm run ci` locally green after the review's fixes and the latest merge of `origin/main`;

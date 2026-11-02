@@ -1327,22 +1327,20 @@ export interface components {
             /**
              * Format: date-time
              * @description Feature 025. When the venue's doors open: from 6 hours before `startsAt` to `startsAt`.
-             *     Events from before feature 025 have `startsAt` minus 1 hour. Always sent once 025 is
-             *     implemented; not listed as required so this contract can merge ahead of the
-             *     implementation with the suite green (the implementation lists it, 1.16.1). Clients
-             *     treat a missing value as not known and show nothing for it.
+             *     Events from before feature 025 have `startsAt` minus 1 hour. Required from 1.17.1.
+             *     Clients of an older Backend treat a missing value as not known and show nothing for it.
              * @example 2026-10-01T17:00:00-04:00
              */
-            doorsOpenAt?: string;
+            doorsOpenAt: string;
             /**
              * Format: date-time
              * @description Feature 025. When gate check-in opens: 1 hour before `doorsOpenAt`. Tickets can be
              *     admitted in `[entryOpensAt, endsAt)`. Worked out by the Backend, never sent to it.
-             *     Always sent once 025 is implemented; not listed as required for the same reason as
-             *     `doorsOpenAt`. The Ticket Booth app treats a missing value as already open.
+             *     Required from 1.17.1. The Ticket Booth app treats a missing value (an older Backend)
+             *     as already open.
              * @example 2026-10-01T16:00:00-04:00
              */
-            entryOpensAt?: string;
+            entryOpensAt: string;
             /** @example 18000 */
             totalTicketCapacity: number;
             /**
@@ -1602,11 +1600,9 @@ export interface components {
             /**
              * Format: date-time
              * @description Feature 025. When the venue's doors open, as `Event.doorsOpenAt`, shown on My tickets
-             *     and the printed ticket. Always sent once 025 is implemented; not listed as required so
-             *     this contract can merge ahead of the implementation (the implementation lists it,
-             *     1.16.1).
+             *     and the printed ticket. Required from 1.17.1.
              */
-            doorsOpenAt?: string;
+            doorsOpenAt: string;
             /** @enum {string} */
             status: "SCHEDULED" | "CANCELLED";
             location: {

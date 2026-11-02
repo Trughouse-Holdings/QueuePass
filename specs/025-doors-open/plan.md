@@ -27,7 +27,7 @@
   and printed ticket, and on the Admin event page.
 - **Contract 1.16.0** (R6, contracts/README.md): new optional properties and a new code;
   `api-schema.ts` regenerated and `ERROR_CODES` updated in this PR; the implementation moves the new
-  response properties into `required` (1.16.1).
+  response properties into `required` (1.17.1).
 - **Browser tests** (R10, R12): `e2e/tests/025-doors-open.spec.ts`, two tests; `017 S3` unchanged
   but its comment.
 - **Constitution 3.6.2** (R14): the `025` roadmap row, in this PR. `017`'s and `018`'s specs and
@@ -74,7 +74,7 @@ front-end views and one form, one picker, one contract version, two browser test
 | --- | --- | --- |
 | I. Contract first | 1.16.0 in this PR: `Event.doorsOpenAt`, `Event.entryOpensAt`, `OrderEvent.doorsOpenAt`, optional `EventInput`/`EventUpdate.doorsOpenAt`, `DOORS_OPEN_OUT_OF_RANGE`, the window in the entry operations' descriptions; `api-schema.ts` regenerated; drift check passes; front ends use the generated types | Pass |
 | II. One command | No new service or variable; the migration runs with `prisma migrate deploy` at start-up as every other; the seed and demo data are unchanged (R11) | Pass |
-| III. Spec-driven | Spec + plan PR with the constitution row, independent review, fresh implementer; commits cite `025` and #91; `fixes #91` only in the implementation PR's description. The spec PR changes shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`, `packages/shared/`), and the implementation PR does too (`backend/prisma/`, `packages/shared/`, the contract's 1.16.1), so both need every team member's approval | Pass |
+| III. Spec-driven | Spec + plan PR with the constitution row, independent review, fresh implementer; commits cite `025` and #91; `fixes #91` only in the implementation PR's description. The spec PR changes shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`, `packages/shared/`), and the implementation PR does too (`backend/prisma/`, `packages/shared/`, the contract's 1.17.1), so both need every team member's approval | Pass |
 | IV. Server-authoritative | The range is refused by the Backend with a clear message and guaranteed by a CHECK; the window is decided on the database's clock inside the admit's `UPDATE` (R7); the Booth's greying and the form's check are conveniences; every refusal is shown with values kept | Pass |
 | V. Least privilege | No operation or role change: events stay `queuepass-admin` to write and any signed-in user to read; entry stays `gate-agent` | Pass |
 | VI. Test-first, browser tests | Backend, shared, and front-end tests written first and seen to fail (R15); boundaries 30 seconds either side; the quickstart's Automation table marks every scenario, Automated rows added with the tests (R12) | Pass |
@@ -98,7 +98,7 @@ specs/025-doors-open/
 ### Source Code
 
 ```text
-contracts/openapi.yaml                         # 1.16.0 (this PR); 1.16.1 required lists (impl)
+contracts/openapi.yaml                         # 1.16.0 (this PR); 1.17.1 required lists (impl)
 packages/shared/src/api-schema.ts              # regenerated (this PR, and again in the impl)
 packages/shared/src/errors.ts                  # DOORS_OPEN_OUT_OF_RANGE (this PR)
 .specify/memory/constitution.md                # 3.6.2, the 025 row (this PR)
