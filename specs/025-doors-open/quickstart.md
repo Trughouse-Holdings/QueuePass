@@ -112,19 +112,17 @@ Sign in to each of the three apps, use it, and sign out.
 ## Automation
 
 Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
-manual. `npm test` checks this table against `e2e/tests`. On the spec branch S1, S2, S4, S5, and S6
-are Manual: their tests come with the implementation PR, which marks them Automated as research R12
-lists.
+manual. `npm test` checks this table against `e2e/tests`.
 
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: set-up for the scenarios below; each browser test sets up its own data through the API |
-| S1 | Manual: to be automated by `025 S1/S2/S6: an admin sets when doors open, and customers see it` in the implementation PR, the skipped and repeated times staying covered by the Admin app's tests (research R10, R12) |
-| S2 | Manual: to be automated by `025 S1/S2/S6: …` in the implementation PR (research R10, R12) |
+| S1 | Automated: `025 S1/S2/S6: an admin sets when doors open, and customers see it`; rest Manual: the skipped and repeated local times, covered by the Admin app's tests |
+| S2 | Automated: `025 S1/S2/S6: an admin sets when doors open, and customers see it` |
 | S3 | Manual: an API behavior, covered by Backend tests; the Admin form's zone messages by the Admin app's tests |
-| S4 | Manual: to be automated in part by `025 S4/S5: the Ticket Booth works an event only from an hour before its doors open` in the implementation PR; the boundaries and live codes stay covered by Backend tests (research R10, R12) |
-| S5 | Manual: to be automated in part by `025 S4/S5: …` in the implementation PR; an event opening while the list is shown stays covered by the Booth's tests with a fake clock (research R10, R12) |
-| S6 | Manual: to be automated in part by `025 S1/S2/S6: …` in the implementation PR; My tickets and printing by a person (research R10, R12) |
+| S4 | Automated: `025 S4/S5: the Ticket Booth works an event only from an hour before its doors open`; rest Manual: the boundary to the second and live codes, covered by Backend tests |
+| S5 | Automated: `025 S4/S5: the Ticket Booth works an event only from an hour before its doors open`; rest Manual: an event becoming choosable when its window opens, covered by the Booth's tests with a fake clock |
+| S6 | Automated: `025 S1/S2/S6: an admin sets when doors open, and customers see it`; rest Manual: My tickets and the printed ticket, by a person |
 | S7 | Manual: needs a database from before the migration; covered by the Backend's migration test |
 | S8 | Manual: a venue zone change, covered by Backend tests |
 | S9 | Manual: keyboard, a screen reader, phone width, and dark mode, checked by a person |

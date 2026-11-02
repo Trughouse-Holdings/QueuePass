@@ -380,26 +380,38 @@ only when open.
 
 ## Phase 8: Browser tests (Constitution VI)
 
-- [ ] T026 [P] `e2e/fixtures/api.ts`: `EventSetup` gains optional `doorsOpenAt: Date`, sent with
+- [x] T026 [P] `e2e/fixtures/api.ts`: `EventSetup` gains optional `doorsOpenAt: Date`, sent with
   `zoned(…, venue.timeZone)` when given (research R10).
-- [ ] T027 [P] `e2e/tests/017-check-in.spec.ts`: the header comment's "from 2 hours before the
+  **Done**: done; `e2e/fixtures/time.ts` gains `localDateOf(instant, zone)` for T029.
+- [x] T027 [P] `e2e/tests/017-check-in.spec.ts`: the header comment's "from 2 hours before the
   start" becomes "from 1 hour before doors open, which default to 1 hour before the start (spec 025)";
   nothing else.
-- [ ] T028 `e2e/tests/025-doors-open.spec.ts`, test `'025 S1/S2/S6: an admin sets when doors open,
+  **Done**: the header comment only.
+- [x] T028 `e2e/tests/025-doors-open.spec.ts`, test `'025 S1/S2/S6: an admin sets when doors open,
   and customers see it'` exactly as research R10 item 1; record `POST /events` with
   `page.on('request')` and assert none while the range message shows, then exactly one whose
   `doorsOpenAt` is `zoned(atLocal('{day}T17:30', zone), zone)`. Every expected time, abbreviation,
   and offset is built with `e2e/fixtures/time.ts`, never written out, so the test passes in standard
   and daylight time.
-- [ ] T029 Same file, test `'025 S4/S5: the Ticket Booth works an event only from an hour before its
+  **Done**: written as research R10 item 1; `npx tsc -p e2e/tsconfig.json` and ESLint clean. Not run
+  here: no Playwright browsers and no Compose images on this machine (image builds fail on TLS); to
+  run in CI (`e2e` check).
+- [x] T029 Same file, test `'025 S4/S5: the Ticket Booth works an event only from an hour before its
   doors open'` exactly as research R10 item 2, its "Opens {when}" built by FR-015's today-or-date
   rule (add `localDateOf(instant, zone)` to `e2e/fixtures/time.ts` if needed).
+  **Done**: written as research R10 item 2 (agent slot 1, customer slot 4); type-checks. To run in
+  CI, as T028.
 - [ ] T030 See each `025` test fail once against a deliberate break, then restore it (as `022`
   T031): T028 with the form's prefill removed; T029 with `forTheGate` treating every event as open.
   Record both failures (the assertion that failed) here.
-- [ ] T031 `specs/025-doors-open/quickstart.md` Automation table: rows S1, S2, S4, S5, S6 exactly as
+  **Left for the orchestrator**: the deliberate breaks need `npm run e2e`, which cannot run on this
+  machine (no stack images, no Playwright browsers); run them where the stack runs and record the
+  failing assertions here.
+- [x] T031 `specs/025-doors-open/quickstart.md` Automation table: rows S1, S2, S4, S5, S6 exactly as
   research R12 lists them (S0, S3, S7–S10 unchanged), and the paragraph above the table loses its
   "On the spec branch …" sentence. `node scripts/check-quickstart-marks.mjs` passes.
+  **Done**: rows S1, S2, S4, S5, S6 as research R12; the "On the spec branch …" sentence removed;
+  `node scripts/check-quickstart-marks.mjs` passes (24 quickstarts).
 
 ---
 

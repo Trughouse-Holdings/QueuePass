@@ -57,6 +57,12 @@ export function localDate(zone: string, days = 0): string {
   return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
 }
 
+/** Spec 025: the local date of an instant in the zone, as `YYYY-MM-DD`. */
+export function localDateOf(instant: Date, zone: string): string {
+  const p = parts(instant, zone);
+  return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
+}
+
 /** iCalendar's UTC form, `20261031T230000Z`. */
 export function icsUtc(instant: Date): string {
   return instant

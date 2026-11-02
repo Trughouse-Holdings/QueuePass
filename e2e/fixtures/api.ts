@@ -113,6 +113,8 @@ export interface EventSetup {
   capacity?: number;
   basePrice?: string;
   maxTicketsPerCustomer?: number;
+  /** Spec 025: when doors open; left out, the Backend takes the start minus 1 hour. */
+  doorsOpenAt?: Date;
 }
 
 /** An event at the venue, its times sent in the venue's zone with its offset (spec 020). */
@@ -122,6 +124,7 @@ export function createEvent(api: Api, venue: Location, e: EventSetup): Promise<E
     locationId: venue.id,
     startsAt: zoned(e.startsAt, venue.timeZone),
     endsAt: zoned(e.endsAt, venue.timeZone),
+    ...(e.doorsOpenAt ? { doorsOpenAt: zoned(e.doorsOpenAt, venue.timeZone) } : {}),
     basePrice: e.basePrice ?? '25.00',
     ...(e.capacity !== undefined ? { totalTicketCapacity: e.capacity } : {}),
     ...(e.maxTicketsPerCustomer !== undefined
