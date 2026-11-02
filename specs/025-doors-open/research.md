@@ -29,7 +29,7 @@ Backend decides the value (R6), as `020` did for a venue's zone. No index: nothi
 
 Every direct insert of an event outside `EventsService` into a database at the latest migration
 must now give the column. There are five, all in Backend tests, updated in the implementation (tasks
-T004): `backend/test/setup/fixtures.ts` `eventAroundNow` (gains an optional
+T005): `backend/test/setup/fixtures.ts` `eventAroundNow` (gains an optional
 `doorsBeforeStartSeconds`, default 3600, so every existing caller keeps today's window), the raw
 insert and the `prisma.event.create` of `backend/test/integration/venues.time-zone-change.e2e-spec.ts`,
 and the two `prisma.event.create` of `backend/test/integration/events.concurrency.e2e-spec.ts`. The
@@ -143,7 +143,8 @@ time, and a local time skipped or repeated in the new zone, or from before stand
 change with `409 EVENT_TIME_NOT_IN_ZONE`, `details.field: 'doorsOpenAt'`, the same `reason`s, and the
 message word "doors-open time" (`FIELD_WORD`). After the three are moved, an event whose moved doors
 break the range (only possible when a daylight-saving change falls between doors and start in one
-zone and not the other, for example a 6-hour gap across the spring-forward night) refuses the change
+zone and not the other, for example doors 6 hours before the start in Arizona Time, moved to Central
+Time across the fall-back night, where the same local times are 7 hours apart) refuses the change
 with the same code, `details.reason: 'DOORS_OUT_OF_RANGE'`, and the message "Can't change the time
 zone: {name}'s doors-open time, {local}, would be more than 6 hours before its start in {zone}." (or
 "after its start"). All before any write, so nothing is saved; the CHECK is the guarantee if this
@@ -295,8 +296,8 @@ exactly):
    and page show "Doors open" "6:30 PM CST".
 2. `025 S4/S5: the Ticket Booth works an event only from an hour before its doors open` — set-up
    through the API: event A starting in 1 hour (doors left out: start minus 1 hour, so check-in opened
-   an hour ago) and event B starting in 5 hours with `doorsOpenAt` start minus 1 hour (check-in opens
-   in 3 hours). As `agentFor`: A is a button; B's item says "Not open yet" and "Opens {time}" and is
+   an hour ago) and event B, at a second venue, starting in 5 hours with `doorsOpenAt` start minus 1 hour
+   (check-in opens in 3 hours). As `agentFor`: A is a button; B's item says "Not open yet" and "Opens {time}" and is
    not a button (`getByRole('button', { name: … B … })` has count 0); choose A; look up a ticket of A
    bought through the API: admittable.
 
@@ -352,7 +353,7 @@ now also apply to doors), so it gets no note.
 depends on `017`, `018`, `020`), the next free number `026`, the Sync Impact Report replaced, the
 README's version reference. The `017` and `018` rows are not reworded (`024` R13). The README's
 features table gains the `025` row in the implementation PR, with the status paragraph and the
-check-in and Booth text, as `024` R14 did (tasks T030).
+check-in and Booth text, as `024` R14 did (tasks T032).
 
 ## R15. Testing
 

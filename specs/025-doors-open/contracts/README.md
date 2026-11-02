@@ -10,7 +10,7 @@ but left out of `required`, and every new request property is optional, so `main
 between this PR and the implementation (`020` research R18). **The implementation PR** moves
 `Event.doorsOpenAt`, `Event.entryOpensAt`, and `OrderEvent.doorsOpenAt` into `required`, sets
 **1.16.1**, and regenerates, in the same PR that makes the Backend send them (research R6; tasks
-T027).
+T025).
 
 | Where | Change |
 |---|---|
