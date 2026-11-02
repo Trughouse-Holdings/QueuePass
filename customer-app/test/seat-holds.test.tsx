@@ -5,6 +5,7 @@ import type { Reservation, SeatMap } from '@queuepass/shared';
 import {
   availability,
   event,
+  fakeClock,
   json,
   order,
   renderCustomer,
@@ -99,12 +100,6 @@ const reserved = () =>
   within(screen.getByRole('list', { name: 'Reserved seats' }))
     .queryAllByRole('listitem')
     .map((li) => li.firstChild?.textContent);
-/** Fake timers that still let Testing Library's polling run; `performance` drives the countdown. */
-const fakeClock = () =>
-  vi.useFakeTimers({
-    shouldAdvanceTime: true,
-    toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'performance', 'Date'],
-  });
 const advance = (ms: number) => act(async () => vi.advanceTimersByTimeAsync(ms));
 
 describe('reserving seats (US1-1; FR-001, FR-005)', () => {

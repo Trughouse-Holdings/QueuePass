@@ -86,6 +86,20 @@ export function renderCustomer({
   };
 }
 
+/**
+ * Issue #118: a fake clock that moves only when the test advances it, so a countdown reads the
+ * exact second however busy the machine is (`shouldAdvanceTime` also moved it with real time, so
+ * a test that ran 1 s slower read a countdown 1 s ahead). Testing Library's `waitFor` and
+ * `findBy*` step a fake clock themselves, 50 ms at a time, when they see Jest's; the `jest` global
+ * is that hook for Vitest's clock. `performance` drives the countdowns; `vi.unstubAllGlobals()` removes the hook.
+ */
+export function fakeClock() {
+  vi.useFakeTimers({
+    toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'performance', 'Date'],
+  });
+  vi.stubGlobal('jest', { advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms) });
+}
+
 /** Spec 017 FR-001: types a valid holder's name, so Confirm can enable. */
 export async function typeHolderName(name = 'Jordan Lee') {
   fireEvent.change(await screen.findByRole('textbox', { name: 'Name on tickets' }), {
