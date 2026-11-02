@@ -12,7 +12,8 @@ Stack up from the implementation branch (`docker compose up --build`), demo data
 **Customer** (http://localhost:5174, `customer1` / `test123`) and **Customer 2** (`customer2`).
 Keep the Customer session's network panel open. For S4 and S5, copy `customer1`'s and `customer2`'s
 access tokens from the Customer app (`001` quickstart V6 shows how) into `TOKEN1` and `TOKEN2` in a
-shell, and pick a demo event that sells general admission (`EVENT`, its id) and one with reserved
+shell, and later, for S4's one-a-minute check, `customer3`'s into `TOKEN3` (an account that has made
+no attempt yet), and pick a demo event that sells general admission (`EVENT`, its id) and one with reserved
 seating (`SEATED`). "Within 5 seconds" below means pressing quickly, one press after another.
 
 ## S1: Ordinary buying never meets the limits (US3 scenario 1; FR-016, SC-004)
@@ -28,7 +29,8 @@ anywhere; no `429` in the network panel.
 Customer: on the `SEATED` event, hold one seat with **Reserve seats** and note it (section id, row,
 seat: the network panel shows them in the request). Pick another seat but don't press yet. In the
 shell, send three hold attempts for the held seat, which `015` refuses (`400`, already in your
-reservation), then press **Reserve seats** within the next 5 seconds:
+reservation), then press **Reserve seats** immediately, the moment the third `400` prints (the four
+attempts must fall within 5 seconds; have the seat picked and the pointer on the button first):
 
 ```bash
 for i in 1 2 3; do curl -s -o /dev/null -w '%{http_code}\n' -X POST \
@@ -70,9 +72,11 @@ seq 20 | xargs -P 20 -I{} curl -s -o /dev/null -w '%{http_code}\n' -X POST \
 (For an event with tiers, add `"tierId"`; `requestId` only needs to differ per request.)
 **Expected**: 3 lines that are not `429` (normally `201`), 17 `429`; My tickets shows 3 new orders,
 no more. Run it again at once: 20 × `429`. Wait for the seconds the last answer said, then send one:
-not `429`. Send one order every 7 seconds for a minute (`for i in $(seq 11); do …; sleep 7; done`):
-**Expected**: the eleventh within 60 seconds of the first is `429`, with `retryAfterSeconds` the
-seconds until the first is a minute old. The same twenty at once to `POST /events/$SEATED/reservation`
+not `429`. Then, with `TOKEN3` (a fresh account, so nothing earlier counts), send one order every 5
+seconds (`for i in $(seq 11); do …; sleep 5; done`; never 3 in 5 seconds, so only the minute's
+limit applies). **Expected**: the first ten are not `429`; the eleventh, about 50 seconds after the
+first, is `429` with `retryAfterSeconds` about 10, the seconds until the first is a minute old; one
+more after that wait is not `429`. The same twenty at once to `POST /events/$SEATED/reservation`
 (each with its own seat): 3 handled, 17 `429` with `"action":"HOLD"`; seats held before keep their
 `expiresAt` (`GET /me/reservations`). Right after using up the buy allowance, a hold is handled, and
 the other way round. With an admin's token, `POST /events/$EVENT/orders` → `403`, not `429`.
@@ -98,8 +102,10 @@ counts).
 ## S7: Keyboard, screen reader, phone width, dark mode (FR-013)
 
 Repeat S2 with the keyboard only and VoiceOver: the message is read once when it appears, not every
-second; Reserve seats is announced as dimmed (disabled) and focus is not lost; when the message goes,
-Reserve seats can be pressed with Enter. At 360 px wide the message wraps above the button with
+second; Reserve seats is announced as dimmed (unavailable) and focus stays on it (it is not moved to
+the page); pressing Enter on it during the wait does nothing; when the message goes, Enter on Reserve
+seats sends the hold. The same with Confirm order in S3: after the refusal, focus is on Confirm
+order. At 360 px wide the message wraps above the button with
 nothing scrolling sideways. Repeat in dark mode.
 
 ## S8: Sign in, use, sign out (Constitution VI)

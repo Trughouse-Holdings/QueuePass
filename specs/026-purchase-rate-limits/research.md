@@ -44,23 +44,35 @@ account); `@nestjs/throttler` (R3).
 
 **Decision** (decided by Mahdi, item 2; FR-002, FR-003, FR-008, FR-010): a new
 `AttemptLimitsService` (`attempt-limits.service.ts`) keeps, per key `` `${sub}:${kind}` ``, the times
-(milliseconds, from the injected `CLOCK`, `backend/src/common/clock.ts`) of the attempts it let
-through in the last 60 seconds, oldest first. `tryAttempt(principal, kind)` runs **synchronously, with no
-`await`**:
+(milliseconds, from a **monotonic** clock, below) of the attempts it let through in the last 60
+seconds, oldest first. `tryAttempt(sub, kind)` runs **synchronously, with no `await`**:
 
 1. `now = clock.now()`. Drop the times `t` with `t <= now - 60_000` (an attempt counts in `[t, t +
-   60 s)`, half-open like every window in QueuePass). Delete the key if none is left.
+   60 s)`, half-open like every window in QueuePass), and, as a guard, any `t > now` (impossible on a
+   monotonic clock). Delete the key if none is left.
 2. `waitMinute = times.length >= perMinute ? times[times.length - perMinute] + 60_000 - now : 0`.
 3. `recent` = the times with `t > now - 5_000`; `waitBurst = recent.length >= perFiveSeconds ?
    recent[recent.length - perFiveSeconds] + 5_000 - now : 0`.
-4. `wait = max(waitMinute, waitBurst)`. If `wait > 0`: refuse with `retryAfterSeconds =
-   Math.ceil(wait / 1000)` (at least 1, since `wait > 0`); **record nothing** (FR-003). Otherwise
+4. `wait = min(60_000, max(waitMinute, waitBurst))`. If `wait > 0`: refuse with `retryAfterSeconds
+   = Math.ceil(wait / 1000)` (1 to 60, the contract's range); **record nothing** (FR-003). Otherwise
    append `now` and let the request through.
 
 An attempt waited out exactly is let through: with 3 attempts at `t`, an attempt at `t + 5000` sees
 none of them in `recent`. A refused attempt is not recorded, so `retryAfterSeconds` is exact: after
 waiting it, with no other attempt of that kind, step 4 finds `wait <= 0` (SC-003). Rounding up
 means an attempt 1 second before the wait ends is still refused.
+
+**The clock**: not the existing `CLOCK` (`backend/src/common/clock.ts`), which is wall-clock
+`Date.now()` and can step back (a time correction), leaving recorded times "in the future": waits
+over 60 seconds, and an account shut out until the clock caught up. A new provider,
+`ATTEMPT_CLOCK` (`attempt-limits.clock.ts`, `{ now: () => performance.now() }`), monotonic, is
+provided by `AttemptLimitsModule` itself (`CLOCK` is provided only inside `EntryModule`, so it would
+not reach this module anyway). Being separate, it also keeps tests that fix the live-code `CLOCK`
+(`FakeClock.set`, spec `018`) from moving these windows. Step 1's `t > now` pruning and step 4's
+60-second cap make the rule safe even if a clock misbehaved. In tests, `createTestApp` overrides
+`ATTEMPT_CLOCK` with a `FakeAttemptClock` (`backend/test/setup/fake-attempt-clock.ts`) that starts
+at real `performance.now()` and only moves forward (`advance(ms)`, no `set`), so a test can step to a
+window's boundary without ever sending time backwards (R10).
 
 **Concurrency (FR-010)**: Node runs one request's guard at a time on its single thread, and steps 1
 to 4 have no `await`, so no other request can run between the check and the record. Of 20
@@ -78,7 +90,7 @@ attempts too (pressing early would lengthen the wait, and the wait told would be
 
 ## R3. Where the counts live: in the Backend's memory, not PostgreSQL
 
-**Decision** (recommended, open to review; FR-015, spec Assumptions): the times live in a `Map` in
+**Decision** (decided by Mahdi, 5, confirmed 2026-11-02; FR-015, spec Assumptions): the times live in a `Map` in
 `AttemptLimitsService`, a singleton in the one Backend process. Nothing is stored in PostgreSQL;
 `backend/prisma/` is unchanged.
 
@@ -95,14 +107,16 @@ attempts too (pressing early would lengthen the wait, and the wait told would be
   last minute. A sweep every 60 seconds (an `unref`'d `setInterval`, cleared in `onModuleDestroy`;
   `sweepOnce()` callable by tests, as `015`'s `HoldSweeper`) deletes keys whose newest time is a
   minute old. The seed's 200 customers at 10 attempts each is under 2,000 numbers.
-- **Constitution IV**: IV asks that a rule which must hold under concurrency be guaranteed by the
-  database, because an application check-then-write across transactions races. This rule has no
-  stored data and no transaction: its check and record are one synchronous step in the only process
-  that holds the counts (R2), which no concurrent request can interleave, and the concurrency test
-  proves it with genuinely concurrent requests (Constitution VI). Putting the counts in PostgreSQL
+- **Constitution IV: a recorded deviation, accepted by Mahdi on 2026-11-02.** IV asks that a rule
+  which must hold under concurrency be guaranteed by the database. This rule is not: its counts are
+  in one process's memory. Within that process the check and record are one synchronous step that no
+  concurrent request can interleave (R2), and the concurrency test proves it with genuinely
+  concurrent requests (Constitution VI), but that is not IV's database guarantee. What is given up: a
+  restart grants every account a fresh allowance, and more than one Backend would multiply every
+  allowance. Mahdi accepted it because the stack runs one Backend, and because counts in PostgreSQL
   would add a lock and a write to every attempt, including every attempt of a flood, which is exactly
-  the load FR-015 keeps off the database. The plan records this in Complexity Tracking for the
-  reviewers to confirm.
+  the load FR-015 keeps off the database. The plan's Complexity Tracking records it, and both PR
+  descriptions must justify it (review gate 7).
 
 **Alternatives considered**:
 
@@ -172,23 +186,30 @@ source for the same number); a `Retry-After` HTTP date (clock skew between Backe
   pair for both kinds. Read once at start-up by a provider factory `ATTEMPT_LIMITS`
   (`attempt-limits.config.ts`): missing → the default; otherwise it must match `^[1-9][0-9]*$`, or the
   factory throws `Error("RATE_LIMIT_PER_MINUTE must be a whole number of at least 1, got '0'")` and
-  the Backend does not start. No value turns the limits off (no `0`, no "disabled"), so there is no
-  test-only bypass to guard (Constitution VIII). The window lengths, 60 and 5 seconds, are constants,
+  the Backend does not start. `RATE_LIMIT_PER_5_SECONDS` must also not exceed
+  `RATE_LIMIT_PER_MINUTE` (a 5-second allowance above the minute's could never be used, so it is a
+  mistake), or the factory throws naming both. No value turns the limits off (no `0`, no
+  "disabled"), so there is no test-only bypass to guard (Constitution VIII). The window lengths, 60 and 5 seconds, are constants,
   not settings.
 - **`docker-compose.yml`**, backend `environment`: `RATE_LIMIT_PER_MINUTE:
   ${RATE_LIMIT_PER_MINUTE:-10}` and `RATE_LIMIT_PER_5_SECONDS: ${RATE_LIMIT_PER_5_SECONDS:-3}`, with a
   comment (spec 026). **`.env.example`**: both, with the defaults and a line saying a demo may raise
   them and nothing may switch them off. `docker compose up --build` needs nothing set (Constitution
   II). `scripts/run-host.mjs` passes the environment through, so the code's defaults apply.
-- **`e2e/stack/docker-compose.e2e.yml`**: unchanged, so the browser tests run with the defaults
-  (FR-018, SC-004). A comment there says so.
+- **`e2e/stack/docker-compose.e2e.yml`**: the backend's `environment` sets `RATE_LIMIT_PER_MINUTE:
+  '10'` and `RATE_LIMIT_PER_5_SECONDS: '3'` literally, with a comment (spec 026 FR-018). Compose would
+  otherwise fill `docker-compose.yml`'s `${RATE_LIMIT_…:-10}` from a developer's `.env` or shell, so
+  someone who raised the limits for a demo would run `npm run e2e` with them; the literal values in
+  the override win over the base file, so the browser tests always run with the defaults (FR-018,
+  SC-004).
 - **Backend tests**: `createTestApp(options?)` (`backend/test/setup/test-app.ts`) sets both
   variables before compiling the app: to `'1000'` by default, so every existing test, including the
   concurrency tests that send 20 orders from one customer at once, runs unchanged with the check still
   on; to the given values with `createTestApp({ attemptLimits: { perMinute: 10, perFiveSeconds: 3
   } })`; or deletes them with `createTestApp({ attemptLimits: 'defaults' })`, so the code's defaults
   apply. This feature's integration tests use `'defaults'`. The values are assigned, never `??=`, so
-  one test file's app never inherits another's.
+  one test file's app never inherits another's. `createTestApp` also overrides `ATTEMPT_CLOCK` with a
+  `FakeAttemptClock` (R2), returned in the context as `attemptClock`; it is not the live-code `clock`.
 - **Demo data** (`backend/src/scripts/demo-data.ts`): unchanged. It places its orders by calling
   `OrdersService.create` inside the Backend's own module at load time, not through the API, so no
   guard runs and nothing is counted; it is not a caller of the API, and it runs before any customer
@@ -221,9 +242,16 @@ FR-014), in `customer-app/src/components/GetTickets.tsx`:
   for Check again; today it sets `confirming` first, so it remembers the phase it came from); **keeps
   `requestId`** (nothing was recorded, and Check again must repeat the same confirmation, FR-014);
   does not call `refresh()`.
-- **Disabled**: `canConfirm` and Check again also need no `BUY` wait; `canReserve` needs no `HOLD`
-  wait. Native `disabled`, as every other disabled button in the app (FR-013). Release, Release seats,
-  the seat picker, and the tier and quantity controls are untouched (FR-012).
+- **Disabled, and focus kept** (FR-013): while a kind waits, its buttons get `aria-disabled="true"`
+  and their click handlers return at once, rather than the native `disabled` attribute, as `015`
+  keeps unavailable seats focusable (`SeatPicker`, FR-012 there). A natively disabled button that has
+  focus loses it to `body`; an `aria-disabled` one keeps it, is announced as dimmed, and can be pressed
+  with Enter the moment the wait ends. The other reasons a button is disabled today (nothing picked,
+  no valid name, `confirming`) keep native `disabled`. Because Confirm order and Confirm purchase are
+  natively disabled while `confirming` (as today), focus may already have gone to `body` when a `429`
+  arrives: if `document.activeElement` is `body` at that moment, the app moves focus back to the
+  button that was pressed (a ref per button). Release, Release seats, the seat picker, and the tier
+  and quantity controls are untouched (FR-012).
 - **The message**: `rateLimitMessage(secondsLeft)` in a `p.banner.banner--error` placed directly
   above the disabled button: above **Reserve seats**; above **Confirm order**; inside **Reserved for
   you** above **Confirm purchase**; inside the unknown-outcome banner above **Check again**. The
@@ -264,11 +292,11 @@ releasing is never limited, FR-004).
 until which it has already logged. On a refusal at `now` with no log line for this key covering
 `now`, it writes one `Logger.warn` line and remembers `now + wait`:
 
-`Attempt limit: customer <sub> (<username>) over the HOLD allowance (3 in 5 seconds); try again in 3 s.`
+`Attempt limit: customer <sub> over the HOLD allowance (3 in 5 seconds); try again in 3 s.`
 
 The window named is the one that set the wait (the larger). Further refusals during that wait write
-nothing. The token is never logged (as `AuthGuard`, which logs reasons only). The username is the
-token's display copy (Constitution V).
+nothing. The token is never logged (as `AuthGuard`, which logs reasons only), and neither is the username:
+the `sub` identifies the account, and the username is personal data the log does not need.
 
 **Alternatives considered**: a line per refused request (a flood floods the logs and the disk, the
 opposite of FR-015); no log (operators could not see that limits are being met); a metrics endpoint
@@ -291,43 +319,57 @@ customer account (`e2e/fixtures/apps.ts` `customerFor`), and must pass with no r
 
 - **Shared** (Vitest, `packages/shared/test/rate-limit.test.ts`): `rateLimitMessage(1)` → "Too many
   tries. You can try again in 1 second."; `(3)` → "… in 3 seconds."; `(60)`.
-- **Backend unit** (Jest, `backend/test/unit/attempt-limits.spec.ts`, a `FakeClock`):
+- **Backend unit** (Jest, `backend/test/unit/attempt-limits.spec.ts`, the service built directly with
+  a hand-moved clock stub, which a unit test may move backwards):
   - 3 attempts at `t` → the 4th at `t` refused with `retryAfterSeconds: 5`; at `t + 4001` refused with
     `1`; at `t + 4999` refused with `1`; at `t + 5000` let through;
   - 10 attempts, 3, 3, 3, 1, spaced so no 5 seconds holds 4 → the 11th at `t + 59_999` refused with
     `1`; at `t + 60_000` let through; the wait is the larger of the two windows' when both bind;
   - refused attempts are not recorded (20 refusals, then the wait, then let through);
+  - **the clock going backwards**: 3 attempts at `t`, then the clock stub moved to `t - 30_000` → the
+    next attempt is not refused with more than 60 seconds (step 1 drops the "future" times, so it is
+    let through), and after 10 attempts at `t` with the clock moved to `t - 3_600_000`, no refusal
+    ever says more than 60; the production `ATTEMPT_CLOCK` is `performance.now()` (a test checks the
+    module provides that, not `Date.now()`);
   - kinds and accounts are separate; a key with no time left is deleted; `sweepOnce()` deletes stale
     keys and keeps live ones;
   - the log: one `warn` for the first refusal of a wait, none for the next ones, one again after the
-    wait and a new refusal; no token in any line;
+    wait and a new refusal; the line holds the `sub`, not the username and no token;
   - config (`attempt-limits.config.ts`): unset → 10 and 3; `'7'` → 7; `'0'`, `'-1'`, `'1.5'`, `'abc'`,
-    `''`, `' 3'` → throws naming the variable.
+    `''`, `' 3'` → throws naming the variable; per-5-seconds `'11'` with per-minute `'10'` → throws
+    naming both; `'10'` and `'10'` → allowed.
 - **Backend integration** (Jest, Testcontainers PostgreSQL, `backend/test/integration/`, every
-  response validated against the contract; `createTestApp({ attemptLimits: 'defaults' })`):
+  response validated against the contract; `createTestApp({ attemptLimits: 'defaults' })`). The
+  counts are in the app instance's memory and shared by every `it` in a file, so **each test case
+  uses customer accounts of its own** (`tokenFor({ username: 'rl-buy-<case>', roles: ['customer']
+  })`, a distinct `sub` each), never `CUSTOMER`, so no case inherits another's counts. Time is moved
+  only with `ctx.attemptClock.advance(ms)`, which never goes backwards; the live-code `ctx.clock` is
+  never used for these windows:
   - `rate-limits.buy.e2e-spec.ts`: 20 genuinely concurrent `createOrder` from one customer for a
     general-admission event (distinct `requestId`s, plenty of tickets) → exactly 3 `201` and 17 `429
     RATE_LIMITED` with `details.action: BUY`, `retryAfterSeconds` 1–5 and `Retry-After` equal to it;
     exactly 3 orders in the database; a second customer's order at the same moment → `201`. A
     refused request does not call `OrdersService.create` (`jest.spyOn`), the only path from it to the
-    database; the guard and `AttemptLimitsService` take no `PrismaService` (SC-005). Boundaries on the test clock (FR-002). Refusal order: no token → `401`, an admin token →
+    database; the guard and `AttemptLimitsService` take no `PrismaService` (SC-005). Boundaries on
+    the attempt clock (FR-002). Refusal order: no token → `401`, an admin token →
     `403`, neither counted (afterwards the customer still has 3); a malformed body counts (3 malformed
     `400`, then a valid order → `429`); a repeated `requestId` counts.
   - `rate-limits.hold.e2e-spec.ts`: the same for `reserveSeats` (20 concurrent holds of distinct seats
     → exactly 3 handled, 17 `429` with `action: HOLD`); a customer holding 2 seats who is then refused
     keeps them with the same `expiresAt` and no seat-stream change is published; 10 releases in one
     second all `200`; the buy allowance used up → a hold is still handled, and the other way round.
-  - `rate-limits.ordinary.e2e-spec.ts`: an ordinary sequence on the test clock, one action every 2
-    seconds (hold, add, release, hold, buy, then a second event's buy) → no `429` (SC-004's Backend
+  - `rate-limits.ordinary.e2e-spec.ts`: an ordinary sequence on the attempt clock, advanced 2 seconds
+    between actions (hold, add, release, hold, buy, then a second event's buy) → no `429` (SC-004's Backend
     half).
   - `backend/test/contract/route-coverage.e2e-spec.ts`: the routes with `@AttemptLimit(kind)` are
     exactly the operations with `x-attempt-limit: kind`, and each has a `'429'` response (R4).
   - Every other Backend test passes unchanged with `createTestApp()`'s large numbers.
 - **Customer app** (Vitest, RTL, fake timers, `customer-app/test/rate-limit.test.tsx`): a `429` on
-  Reserve seats → the message with N, Reserve seats disabled, picks and held seats kept, Confirm
-  purchase and Release enabled; after 1 s "… 2 seconds", "1 second", then removed and enabled; one
+  Reserve seats → the message with N, Reserve seats `aria-disabled` (clicking it sends nothing) and
+  still focused, picks and held seats kept, Confirm purchase and Release enabled; after 1 s "… 2 seconds", "1 second", then removed and enabled; one
   `role="alert"` whose text never changes; a `429` on Confirm order and on Confirm purchase → the buy
-  buttons disabled, Reserve seats enabled; Check again after an unknown outcome → still unknown, the
+  buttons disabled, Reserve seats enabled; after a `429` on Confirm order (natively disabled while
+  `confirming`, so focus went to `body`), focus is back on Confirm order; Check again after an unknown outcome → still unknown, the
   countdown above Check again, and the next press sends the same `requestId`; a `429` without
   `retryAfterSeconds` → today's refusal message; the hold's own countdown keeps running.
 - **Browser test** (R11).
@@ -339,19 +381,23 @@ a customer over the hold limit sees a countdown and keeps their seats'`:
 
 1. Set-up through the API (`e2e/fixtures/api.ts`): a venue with a layout, a seated event a week
    ahead, as `006-007-tickets.spec.ts` does.
-2. The customer (`customerFor(testInfo, n)` with an `n` no other test uses; 13 at the time of
-   writing) signs in to the event page and holds one seat with **Reserve seats**.
-3. Through the same customer's API context (`apiFor`), three hold attempts that are refused for
-   their own reason (the held seat again, `400`), back to back.
+2. The customer (`customerFor(testInfo, n)` with an `n` no other browser test uses, chosen in tasks
+   T015) signs in to the event page, fills **Name on tickets** (so Confirm purchase can be enabled;
+   `canConfirm` needs a valid name), and holds one seat with **Reserve seats**.
+3. Through the same customer's API context (`apiFor`), three hold attempts for the held seat again,
+   back to back. Each is answered `400` (already in the reservation) or, when step 2's hold falls in
+   the same 5 seconds, `429` for the third; the test asserts each status is `400` or `429`, nothing
+   more.
 4. In the page, pick another seat and press **Reserve seats** at once. **Expected**: "Too many tries.
-   You can try again in N seconds." (N from 1 to 5, read from the page), Reserve seats disabled, the
-   first seat still under **Reserved for you**, Confirm purchase enabled.
+   You can try again in N seconds." (N from 1 to 5, read from the page), Reserve seats
+   `aria-disabled="true"`, the first seat still under **Reserved for you**, Confirm purchase enabled.
 5. Wait for the message to go (Playwright's `toBeHidden` with a 10-second timeout). **Expected**:
-   Reserve seats enabled; pressing it adds the second seat.
+   Reserve seats no longer `aria-disabled`; pressing it adds the second seat.
 
-Steps 3 and 4 make four hold attempts within a second or two, so the fourth is refused under the
-default 3-in-5-seconds limit; the earlier hold of step 2 may or may not fall in the same 5 seconds,
-which does not change the outcome. The test passes in any time zone (it reads no times).
+Steps 2 to 4 make at least four hold attempts within a few seconds, so the press in step 4 is refused
+under the default 3-in-5-seconds limit, whether step 2's hold or step 3's third attempt is the one
+that used the allowance up. The stack runs with the defaults whatever a developer's `.env` says (R5).
+The test passes in any time zone (it reads no times).
 
 The buy countdown, Check again, and the exact ticks are covered by the Customer app's tests (R10);
 "ordinary customers never notice" by every other browser test on the defaults (R9).
@@ -374,6 +420,12 @@ a new extension: a minor version, one per feature, `025` R6). `025`'s implementa
 minor bump above whatever `main` has: after 1.16.1, still **1.17.0**; if another feature has taken
 1.17.0, **1.18.0**, with `npm run generate:api` run again and the `info.version` line and this
 paragraph's numbers updated in the rebase (tasks T001).
+
+The other order: if **this** spec PR merges first, `main` is at 1.17.0 before `025`'s implementation
+(under way, planning 1.16.1 to make its new response fields required). `025`'s implementation then
+cannot ship 1.16.1, which would be lower than `main`; it ships **1.17.1** instead (a patch on top of
+1.17.0), with its rebase updating `info.version`, regenerating `api-schema.ts`, and noting the number
+in its own contracts README. The coordinator tells `025`'s implementer; nothing in `026` changes.
 
 ## R14. Constitution 3.6.3; README
 

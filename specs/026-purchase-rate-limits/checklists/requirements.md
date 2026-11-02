@@ -31,10 +31,12 @@
 
 ## Notes
 
-- Mahdi took the four decisions marked "decided by Mahdi" (per customer account, no network-address
+- Mahdi took the six decisions marked "decided by Mahdi" (per customer account, no network-address
   limit; 10 a minute and 3 in any 5 seconds, buying and holding separately; no one exempt, tests and
   demos configure their own numbers; the message, the disabled button with a countdown, nothing
-  lost). Every other question took the recommended answer and is marked "recommended answer, open to
+  lost; and, confirmed on 2026-11-02, counts kept in the Backend's memory and reset by a restart,
+  accepted as a recorded deviation from Constitution IV because the stack runs one Backend; releases
+  not limited). Every other question took the recommended answer and is marked "recommended answer, open to
   review" in Clarifications, for the team to confirm in review of the spec PR.
 - "The Backend", "configuration", "stored data", and "database queries" (SC-005) are named because
   the issue's requirements ("however the API is called", "stays responsive") and Constitution II and

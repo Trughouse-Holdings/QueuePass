@@ -12,10 +12,11 @@
   `@AttemptLimit('HOLD')` (`reserveSeats`), keyed by the token's `sub`. It runs before validation and
   the handler, so every request past sign-in and the role check counts and a refused one does nothing.
 - **Rolling windows in memory** (R2, R3): `AttemptLimitsService` keeps each account's handled attempt
-  times for the last minute per kind and decides synchronously (no `await`, so concurrent requests
-  cannot interleave): at most 10 in 60 seconds and 3 in 5 seconds; refused attempts are not recorded;
-  the wait is exact, rounded up to whole seconds. Counts live in the one Backend; a restart forgets
-  them; nothing in PostgreSQL.
+  times for the last minute per kind, on a monotonic clock, and decides synchronously (no `await`, so
+  concurrent requests cannot interleave): at most 10 in 60 seconds and 3 in 5 seconds; refused
+  attempts are not recorded; the wait is exact, rounded up to whole seconds, never over 60. Counts
+  live in the one Backend; a restart forgets them; nothing in PostgreSQL (decided by Mahdi; a
+  recorded deviation from Principle IV, Complexity Tracking).
 - **The refusal** (R4): `429 RATE_LIMITED`, "Too many tries. You can try again in N seconds." (one
   shared helper), `details: { action, retryAfterSeconds }`, and `Retry-After: N`. CORS unchanged: the
   app reads the body.
@@ -39,14 +40,17 @@
 Vite 6 (Customer app).
 
 **Primary Dependencies**: none new. `@queuepass/shared` (the generated API types, the new
-`rateLimitMessage`); Nest's `Reflector` and `APP_GUARD`; the existing `CLOCK` provider
-(`backend/src/common/clock.ts`); Playwright for the browser test (`022`).
+`rateLimitMessage`); Nest's `Reflector` and `APP_GUARD`; a new monotonic clock provider,
+`ATTEMPT_CLOCK` (`performance.now()`), provided by `AttemptLimitsModule` itself and replaced in tests
+(research R2; the existing `CLOCK` is provided only inside `EntryModule` and is wall-clock time);
+Playwright for the browser test (`022`).
 
 **Storage**: none. No migration; `backend/prisma/` unchanged. The counts are in the Backend's memory
 (research R3; data-model.md).
 
-**Testing**: Jest (Backend unit tests with a `FakeClock`; integration tests with Testcontainers
-PostgreSQL and genuinely concurrent requests); Vitest with React Testing Library and fake timers
+**Testing**: Jest (Backend unit tests with a hand-moved clock stub; integration tests with
+Testcontainers PostgreSQL, genuinely concurrent requests, a customer of their own per case, and a
+forward-only `FakeAttemptClock`); Vitest with React Testing Library and fake timers
 (Customer app, shared); Playwright against the `qpe2e` Compose stack with the default limits
 (`npm run e2e`). Research R10, R11.
 
@@ -75,9 +79,9 @@ one shared helper, one Customer app component, one contract version, one browser
 | Principle | Check | Result |
 | --- | --- | --- |
 | I. Contract first | 1.17.0 in this PR: `RATE_LIMITED`, `TooManyAttempts` (`429`, `Retry-After`) on `createOrder` and `reserveSeats`, `x-attempt-limit`, the descriptions; `api-schema.ts` regenerated; drift check passes; the route-coverage test ties `@AttemptLimit` to the contract (R4, R10); the refusal uses the standard envelope with structured details | Pass |
-| II. One command | Two variables with defaults in `docker-compose.yml`, `.env.example`, and the code; no new service; the e2e stack uses the defaults (R5) | Pass |
+| II. One command | Two variables with defaults in `docker-compose.yml`, `.env.example`, and the code; no new service; the e2e stack sets the defaults literally, so a developer's `.env` cannot change them (R5) | Pass |
 | III. Spec-driven | Spec + plan PR with the constitution row, independent review, fresh implementer; commits cite `026` and #56; `fixes #56` only in the implementation PR's description. Both PRs change shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`, `packages/shared/`; the implementation also `docker-compose.yml`, `.env.example`), so both need every team member's approval | Pass |
-| IV. Server-authoritative | Enforced in the Backend for every caller before any other work; the Customer app's countdown is a convenience from the Backend's number. Not guaranteed by the database: see Complexity Tracking (R3) | Pass, with the justification below |
+| IV. Server-authoritative | Enforced in the Backend for every caller before any other work; the Customer app's countdown is a convenience from the Backend's number. Not guaranteed by the database: the counts live in the one Backend's memory (R3) | Deviation, accepted by Mahdi (2026-11-02); see Complexity Tracking. Gate 7: the implementation PR's description (and this spec PR's) MUST state and justify it |
 | V. Least privilege | Keyed by the validated token's `sub`; `AuthGuard` and `RolesGuard` run first, unchanged; no role exempt; no operation's roles change | Pass |
 | VI. Test-first, browser tests | Unit, integration, Customer app, and browser tests written first and seen to fail (R10, R11); boundaries on both sides on a test clock; 20 concurrent requests per kind against Testcontainers PostgreSQL; the quickstart's Automation table marks every scenario | Pass |
 | VII. Shared look | `banner banner--error`, `.visually-hidden` from the shared theme; no new style | Pass |
@@ -110,7 +114,8 @@ packages/shared/src/index.ts                    # exports it
 packages/shared/test/rate-limit.test.ts         # new
 backend/
 ├── src/attempt-limits/
-│   ├── attempt-limits.module.ts                # provides the service and ATTEMPT_LIMITS
+│   ├── attempt-limits.module.ts                # provides the service, ATTEMPT_LIMITS, ATTEMPT_CLOCK
+│   ├── attempt-limits.clock.ts                 # ATTEMPT_CLOCK: monotonic performance.now() (R2)
 │   ├── attempt-limits.config.ts                # ATTEMPT_LIMITS factory: env, defaults, checks (R5)
 │   ├── attempt-limits.service.ts               # tryAttempt, sweepOnce, the log (R2, R3, R8)
 │   ├── attempt-limit.decorator.ts              # @AttemptLimit('BUY' | 'HOLD'), ATTEMPT_LIMIT_KEY (R1)
@@ -119,7 +124,8 @@ backend/
 ├── src/orders/orders.controller.ts             # @AttemptLimit('BUY') on create
 ├── src/reservations/reservations.controller.ts # @AttemptLimit('HOLD') on reserve
 └── test/
-    ├── setup/test-app.ts                       # options.attemptLimits; 1000 by default (R5)
+    ├── setup/test-app.ts                       # options.attemptLimits (1000 by default); attemptClock (R5)
+    ├── setup/fake-attempt-clock.ts             # new: a monotonic test clock that only moves forward
     ├── unit/attempt-limits.spec.ts             # new: the rule, the log, the config
     ├── integration/rate-limits.buy.e2e-spec.ts       # new
     ├── integration/rate-limits.hold.e2e-spec.ts      # new
@@ -131,7 +137,7 @@ customer-app/
 docker-compose.yml                              # backend: the two variables with defaults (R5)
 .env.example                                    # the two variables, documented (R5)
 e2e/
-├── stack/docker-compose.e2e.yml                # a comment only: the defaults apply (R5)
+├── stack/docker-compose.e2e.yml                # backend: the two variables set to '10' and '3' (R5)
 └── tests/026-rate-limits.spec.ts               # new: 026 S2 (R11)
 specs/026-purchase-rate-limits/quickstart.md    # Automation row S2 → Automated (R12)
 README.md                                       # the 026 row, the limits, the two settings (R14)
@@ -150,4 +156,8 @@ so the Backend and the Customer app say the same words. No change to `OrdersServ
 
 | Deviation | Why it is needed | Simpler alternative rejected because |
 | --- | --- | --- |
-| Principle IV asks that a rule which must hold under concurrency also be guaranteed by the database. The attempt limits are kept and decided in the Backend's memory (research R3). | The rule has no stored data and no transaction: its check and its record are one synchronous step in the only process holding the counts, so concurrent requests cannot interleave (R2); the concurrency test proves it with 20 genuinely concurrent requests per kind. Deciding a refusal without the database is what keeps QueuePass responsive while an account floods it (FR-015, the issue's last requirement). | Counts in PostgreSQL with a lock per account: a transaction, a lock, and a pooled connection for every attempt, including each one of a flood, queueing on that account's lock and taking connections other customers need; it would satisfy IV's letter by defeating FR-015. It also survives restarts, which the spec accepts losing (Assumptions). Reviewers are asked to confirm this reading in the spec PR. |
+| Principle IV asks that a rule which must hold under concurrency also be guaranteed by the database. The attempt counts are kept and decided in the Backend's memory (research R3). **Accepted by Mahdi on 2026-11-02** (spec Clarifications, decided by Mahdi, 5), because the Compose stack runs one Backend. | The rule has no stored data and no transaction: its check and its record are one synchronous step in the only process holding the counts, so concurrent requests cannot interleave (R2); the concurrency test proves it with 20 genuinely concurrent requests per kind. Deciding a refusal without the database is what keeps QueuePass responsive while an account floods it (FR-015, the issue's last requirement). **What is given up**: a Backend restart grants every account a fresh allowance (at most one extra minute's worth per restart, which no customer can cause); and running more than one Backend would give each its own counts, multiplying every allowance by the number of Backends, so a second Backend would first need the counts moved into PostgreSQL. | Counts in PostgreSQL with a lock per account: a transaction, a lock, and a pooled connection for every attempt, including each one of a flood, queueing on that account's lock and taking connections other customers need; it would satisfy IV's letter by defeating FR-015. |
+
+Review gate 7 requires every deviation to be justified in the PR description: the spec PR's and the
+implementation PR's descriptions each state this one, Mahdi's acceptance, and what is given up (tasks
+T026).

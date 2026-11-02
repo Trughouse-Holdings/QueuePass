@@ -5,7 +5,9 @@ This feature moves it from **1.16.0 to 1.17.0** in the spec and plan PR, with
 `packages/shared/src/api-schema.ts` regenerated (`npm run generate:api`) and
 `node scripts/check-contract-drift.mjs` passing (research R4). If `025`'s implementation has set
 1.16.1 on `main` by the time this branch rebases, this stays 1.17.0; if another feature has taken
-1.17.0, it becomes 1.18.0 (research R13).
+1.17.0, it becomes 1.18.0. The other way round: if this PR merges first, `025`'s implementation
+(which planned 1.16.1 for its required fields) ships **1.17.1** instead, since `main` is then already
+at 1.17.0 (research R13).
 
 No new operation, so no `x-planned` marker. No schema changes shape: the refusal uses the existing
 `ErrorEnvelope`. A `429` declared before the Backend sends it is safe for `main`: the contract tests

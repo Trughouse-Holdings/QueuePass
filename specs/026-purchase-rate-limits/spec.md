@@ -73,7 +73,7 @@ so the team can overturn it in review of the spec PR.
   Pressing again early then never makes the wait longer, and the wait the customer is told stays
   exact; a script gets exactly its allowance and no more either way (FR-003, FR-008).
 - Q: Does releasing seats count toward the hold allowance? → A: **No; releasing is never limited**
-  (recommended answer, open to review). It only gives seats back, which is what the limits are for;
+  (decided by Mahdi, 6, confirmed 2026-11-02). It only gives seats back, which is what the limits are for;
   logging out must always release (`015` FR-008); and an ordinary customer pressing **Release** on
   three or four held seats one after another would otherwise meet the 3-in-5-seconds limit. Releases
   still do some work; protecting every operation from floods is not this issue (FR-004).
@@ -92,19 +92,23 @@ so the team can overturn it in review of the spec PR.
   just as much (FR-005).
 - Q: Where are the counts kept, and what does a Backend restart do? → A: **In the running Backend,
   not with QueuePass's stored data; a restart forgets them**, and every account starts again with its
-  whole allowance (recommended answer, open to review). Deciding a refusal without touching stored
-  data is what keeps QueuePass responsive while an account is far over its allowance (the issue's last
-  requirement); QueuePass runs one Backend, as `015`'s live seat map already relies on. How, and why
-  this meets Constitution IV, is in the plan (FR-015; Assumptions).
+  whole allowance (decided by Mahdi, 5, confirmed 2026-11-02). Deciding a refusal without touching
+  stored data is what keeps QueuePass responsive while an account is far over its allowance (the
+  issue's last requirement); QueuePass runs one Backend, as `015`'s live seat map already relies on.
+  This is a recorded deviation from Constitution IV, which asks for a database guarantee: Mahdi
+  accepted it because the stack runs one Backend; what is given up is that a restart grants every
+  account a fresh allowance, and that more than one Backend would multiply it. The plan records it in
+  Complexity Tracking (FR-015; Assumptions).
 - Q: How does a caller of the API learn the wait? → A: **A refusal with its own code, the wait as a
   whole number of seconds in the error, and the standard "retry after" signal** that HTTP clients
   and scripts understand (recommended answer, open to review). Status, code, and field names are in
   the plan (FR-008).
-- Q: How does the Customer app show it? → A: (recommended answer, open to review) The message in
-  the same place as other refusals, announced once; N counts down each second without being
+- Q: How does the Customer app show it? → A: (recommended answer, open to review) The message
+  directly above the button it explains, announced once; N counts down each second without being
   announced each time, as `015`'s hold countdown is; only that kind's buttons are disabled (buying:
-  Confirm order, Confirm purchase, Check again; holding: Reserve seats); Release, seat picking, and the
-  hold's countdown keep working; "1 second", not "1 seconds" (FR-011 to FR-013).
+  Confirm order, Confirm purchase, Check again; holding: Reserve seats), and they stay focusable, as
+  `015`'s unavailable seats do, so keyboard focus is never lost; Release, seat picking, and the hold's
+  countdown keep working; "1 second", not "1 seconds" (FR-011 to FR-013).
 - Q: Is a hold extended while its customer waits out a buy refusal? → A: **No** (recommended answer,
   open to review). The wait is at most 60 seconds, ordinary use never meets it, and extending holds on
   request would give a script a way to keep seats longer (Edge Cases).
@@ -113,9 +117,10 @@ so the team can overturn it in review of the spec PR.
   both kinds**, with the defaults (10 and 3) in the repository's configuration, so the one-command
   start uses them with nothing set by hand. Backend tests about other features set large numbers in
   the test set-up, so their concurrency tests still send many orders at once; this feature's tests set
-  the defaults; the browser tests run the stack with the defaults unchanged, which is the proof that
-  ordinary journeys never meet the limits. A setting that is not a whole number of at least 1 stops
-  the Backend from starting; there is no "off" (FR-017, FR-018, SC-004).
+  the defaults; the browser-test stack sets the defaults itself, whatever a developer's own
+  configuration says, which is the proof that ordinary journeys never meet the limits. A setting that
+  is not a whole number of at least 1, or a 5-second number above the minute's, stops the Backend from
+  starting; there is no "off" (FR-017, FR-018, SC-004).
 - Q: How is it proved that the limits work and ordinary use is unaffected? → A: (recommended answer,
   open to review) Concurrency tests against a real database: many attempts from one account at the
   same moment, exactly 3 handled and the rest refused with nothing recorded; the rolling windows'
@@ -159,8 +164,9 @@ recorded. Repeat for seat holds, then for both kinds mixed.
    **Then** that hold is handled (the allowances are separate), and the other way round.
 5. **Given** two accounts, **When** one has used its allowance, **Then** the other's attempts are
    handled as if the first did not exist.
-6. **Given** any account, of any role, **When** it calls the API directly rather than through the
-   Customer app, **Then** the same allowances apply.
+6. **Given** any customer account, **When** it calls the API directly rather than through the
+   Customer app, **Then** the same allowances apply. (A caller without the customer role is refused
+   for that, as today, and not counted.)
 7. **Given** a refused attempt, **Then** no order, ticket, or hold is created, no seat is released,
    and the account's existing holds keep their seats and their end time.
 
@@ -168,8 +174,9 @@ recorded. Repeat for seat holds, then for both kinds mixed.
 
 ### User Story 2 - A Customer Over a Limit Is Told When to Try Again (Priority: P1)
 
-Alex has two seats held for "Winter Gala" and wants a third. Two seats Alex picks are taken by
-someone else first, and Alex presses **Reserve seats** again and again. The fourth press within 5
+Alex has two seats held for "Winter Gala" and wants a third. On a busy on-sale every seat Alex picks
+is taken by someone else first: each **Reserve seats** is refused as taken, the app drops that seat
+from Alex's picks, and Alex quickly picks another and presses again. The fourth press within 5
 seconds says "Too many tries. You can try again in 3 seconds." Reserve seats is disabled, and the
 message counts down: 2 seconds, 1 second. Then the message goes away and Reserve seats works again.
 Alex's two held seats, and the time left to confirm them, never changed, and **Confirm purchase**
@@ -251,6 +258,8 @@ refused attempts did no work on stored data.
   wait longer; the wait told is still right.
 - **The Backend restarts**: the counts start again from nothing; each account has its whole
   allowance (Assumptions).
+- **The Backend's clock is set back** (for example by a time correction): an account is never kept
+  waiting longer than 60 seconds, and the wait told never exceeds 60 seconds.
 - **The device's clock is wrong**: the countdown measures elapsed time from the Backend's number of
   seconds, not the device's clock.
 - **A wait longer than 5 seconds**: after 10 attempts in a minute, the wait can be up to 60 seconds;
@@ -272,8 +281,8 @@ refused attempts did no work on stored data.
   moment.
 - **FR-003**: Every buy or hold request from a signed-in customer account MUST count as an attempt of
   its kind when it is handled, whatever its outcome: placed or held; refused by any rule of `006`,
-  `007`, `015`, or `016`; refused as malformed or for an unknown event; or a repeat of an earlier
-  confirmation that returns the earlier order. A request refused for the limit MUST NOT count. A
+  `007`, `015`, or `016`, or of any other feature (for example `025`); refused as malformed or for
+  an unknown event; or a repeat of an earlier confirmation that returns the earlier order. A request refused for the limit MUST NOT count. A
   request refused because the caller is not signed in, or is not a customer, is refused as today and
   MUST NOT count.
 - **FR-004**: Releasing seats (some, all of an event's, or all on logout), and every request that
@@ -289,7 +298,7 @@ refused attempts did no work on stored data.
   or done: no order, ticket, or hold is created, no seat is released, and the account's existing holds
   keep their seats and end times.
 - **FR-008**: The refusal MUST say "Too many tries. You can try again in N seconds." ("1 second" when
-  N is 1), where N is the whole number of seconds, rounded up and at least 1, after which an attempt of
+  N is 1), where N is the whole number of seconds, rounded up, at least 1 and at most 60, after which an attempt of
   that kind, with no other attempt of that kind between, will not be refused for the limit. It MUST
   carry N as a number, say which allowance (buy or hold), and have its own stable code, distinct from
   every other refusal.
@@ -308,8 +317,10 @@ refused attempts did no work on stored data.
   value; the other kind's buttons, **Release**, **Release seats**, seat picking, and the hold's own
   countdown (`015` FR-005) MUST keep working unchanged.
 - **FR-013**: The message MUST be announced to assistive technology once, when it appears; the
-  countdown's changes MUST NOT be announced each second; the disabled buttons MUST be disabled
-  controls, not only greyed.
+  countdown's changes MUST NOT be announced each second. A button waiting out the limit MUST be
+  announced as unavailable and MUST do nothing when pressed, not only look greyed, and MUST stay
+  focusable, so focus stays on it when it becomes unavailable and the customer can press it again with
+  the keyboard as soon as the wait ends.
 - **FR-014**: A **Check again** (`006`) refused for the limit MUST leave the app in its "We couldn't
   confirm whether your order went through" state, with the countdown, and its next press MUST repeat
   the same confirmation, so no second order is ever placed (`006` FR-005).
@@ -327,7 +338,8 @@ refused attempts did no work on stored data.
 - **FR-017**: The two numbers, attempts per minute and attempts per 5 seconds, MUST be set through
   configuration kept in the repository, one pair for both kinds, defaulting to 10 and 3; the
   one-command start MUST use the defaults with no manual step. Each MUST be a whole number of at least
-  1, otherwise the Backend MUST refuse to start and say which setting is wrong. No value MUST turn the
+  1, and attempts per 5 seconds MUST NOT exceed attempts per minute; otherwise the Backend MUST refuse
+  to start and say which setting is wrong. No value MUST turn the
   limits off. The window lengths, 60 and 5 seconds, are fixed.
 - **FR-018**: Automated tests that are not about the limits MAY set larger numbers; this feature's
   tests and every browser test MUST run with the defaults.
@@ -373,8 +385,9 @@ refused attempts did no work on stored data.
 - **One Backend.** QueuePass runs one Backend (the Compose stack; `015` relies on it for live
   seat-map updates too). The counts live in that Backend while it runs. Running several Backends
   would give each its own counts, and would need shared counts; that is not supported today, as for
-  `015`'s live updates, and is not a deferred control here.
-- **A restart forgets the counts.** After the Backend restarts, every account has its whole
+  `015`'s live updates, and is not a deferred control here. Keeping the counts in the Backend rather
+  than the database is a deviation from Constitution IV that Mahdi accepted (decided by Mahdi, 5).
+- **A restart forgets the counts** (decided by Mahdi, 5). After the Backend restarts, every account has its whole
   allowance. A restart cannot be caused by a customer, takes longer than the 5-second window, and
   gives at most one extra minute's allowance, so the limits still do their job.
 - **No limit by network address** (decided by Mahdi, 1): every attempt needs a signed-in customer, so
