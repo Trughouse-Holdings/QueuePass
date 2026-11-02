@@ -87,7 +87,7 @@ const KEY = 'queuepass.booth.eventId';
 
 function renderApp() {
   const um = fakeUserManager(makeUser({ username: 'agent1', roles: ['gate-agent'] }));
-  return render(<App userManager={um} />);
+  return { um, ...render(<App userManager={um} />) };
 }
 
 /** Lets pending promises (fetch, React updates) settle under the fake clock. */
@@ -276,5 +276,70 @@ describe('a venue without a zone in the response (T035)', () => {
     renderApp();
     await settle();
     expect(item('Fall Concert')).toHaveTextContent('Opens 4:30 PM EST');
+  });
+});
+
+/** A reply the test answers later, to hold a request in flight. */
+function deferred(): { reply: Promise<Response>; answer: (r: Response) => void } {
+  let answer!: (r: Response) => void;
+  const reply = new Promise<Response>((resolve) => (answer = resolve));
+  return { reply, answer };
+}
+
+describe('review findings (M1 to M3)', () => {
+  it('M1: after Change event, greys against the time now, before the list comes back', async () => {
+    let calls = 0;
+    const slow = deferred();
+    stubApi({
+      'GET /events': () => ((calls += 1) === 1 ? json([CONCERT, MATINEE]) : slow.reply),
+    });
+    renderApp();
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: /^Afternoon Show/ }));
+    await settle();
+    // Two hours later (5:00 PM EST): the concert's window opened at 4:30 PM.
+    vi.setSystemTime(new Date('2026-11-20T22:00:00.000Z'));
+    fireEvent.click(screen.getByRole('button', { name: 'Change event' }));
+    await settle();
+    expect(choosable('Fall Concert')).toBe(true);
+    slow.answer(json([CONCERT, MATINEE]));
+    await settle();
+  });
+
+  it('M2: an older answer that arrives after a newer one is ignored', async () => {
+    let calls = 0;
+    const slow = deferred();
+    stubApi({
+      'GET /events': () => {
+        calls += 1;
+        if (calls === 2) return slow.reply; // the first refresh, held
+        if (calls === 3) return json([{ ...CONCERT, entryOpensAt: '2026-11-20T19:30:00.000Z' }]);
+        return json([CONCERT]);
+      },
+    });
+    renderApp();
+    await settle();
+    await tick(30_000); // request 2 starts and hangs
+    await tick(30_000); // request 3 answers: doors moved earlier, now open
+    expect(choosable('Fall Concert')).toBe(true);
+    slow.answer(json([CONCERT])); // the older answer: not open
+    await settle();
+    expect(choosable('Fall Concert')).toBe(true);
+  });
+
+  it('M3: a 401 on a refresh signs in again and shows no error', async () => {
+    let calls = 0;
+    stubApi({
+      'GET /events': () =>
+        (calls += 1) === 1
+          ? json([CONCERT, MATINEE])
+          : json({ error: { code: 'UNAUTHORIZED', message: 'expired' } }, 401),
+    });
+    const { um } = renderApp();
+    await settle();
+    expect(um.signinRedirect).not.toHaveBeenCalled();
+    await tick(30_000);
+    expect(um.signinRedirect).toHaveBeenCalled();
+    expect(screen.queryByText(/Can't reach QueuePass/)).toBeNull();
   });
 });

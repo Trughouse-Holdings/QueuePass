@@ -72,12 +72,19 @@ function Booth() {
     if (!picking) return;
     let cancelled = false;
     setEventsFailed(false);
+    // Review M1: grey the list against the time now, not the time it was last shown.
+    setNow(Date.now());
     let loaded = false;
+    // Review M2: requests are numbered; an answer older than one already shown is ignored.
+    let sent = 0;
+    let shown = 0;
     const load = async (): Promise<void> => {
+      const n = (sent += 1);
       try {
         const { data, response } = await listEvents(api);
-        if (cancelled) return;
+        if (cancelled || n < shown) return;
         if (response.ok && data) {
+          shown = n;
           const at = Date.now();
           const list = data as Event[];
           loaded = true;
