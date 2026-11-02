@@ -121,9 +121,9 @@ so the team can overturn it in review of the spec PR.
 - Q: How does the Booth know when an event's window opens? → A: **From the events list**, which
   now carries each event's `entryOpensAt`, so the rule "1 hour before doors open" lives only in the
   Backend (recommended answer, open to review). The Booth compares it with the device's clock to grey
-  events out, and checks again every 30 seconds so an event becomes choosable when its window opens
-  without reloading; the Backend's clock decides every lookup and admit (FR-015, FR-016; research
-  R8).
+  events out, and refreshes the list and checks again every 30 seconds, so an event becomes
+  choosable when its window opens, or when an admin moves its doors earlier, without reloading; the
+  Backend's clock decides every lookup and admit (FR-015, FR-016; research R8).
 - Q: Do the demo data, the seed, `019`'s calendar, `023`'s exports, and `022`'s browser tests need
   changes? → A: (recommended answer, open to review) **Demo data and seed: no.** Demo events are
   created through the Backend, so they get start minus 1 hour, and "Demo Tonight" (starts 1 hour after
@@ -349,9 +349,10 @@ arrive.
   the date otherwise ("Opens Nov 21, 2026, 11:00 AM EST").
   It MUST NOT be choosable by pointer, keyboard, or touch, and assistive technology MUST hear that
   it is not available and when it opens.
-- **FR-016**: The Booth MUST take when each window opens from the Backend, not work it out, and
-  MUST re-check the list against the time at least every 30 seconds, so an event becomes choosable
-  without a reload.
+- **FR-016**: The Booth MUST take when each window opens from the Backend, not work it out, and,
+  while the list is shown, MUST refresh it from the Backend and re-check it against the time at least
+  every 30 seconds, so an event becomes choosable without a reload, also after an admin moves its
+  doors-open time.
 - **FR-017**: A choice remembered in the tab (`017` FR-007) MUST be restored only when that event's
   window is open; otherwise the list is shown.
 - **FR-018**: When no listed event is open, the Booth MUST say so ("No event is open for entry yet.")
