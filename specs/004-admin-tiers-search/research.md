@@ -71,3 +71,15 @@ A **Ticket tiers** card on the event page: a table (name, price, quantity, Edit,
 "Allocated N of M" line, and an add form. Editing turns a row into inputs with Save and Cancel.
 Remove asks `window.confirm`, like `002`'s deletes. Backend refusals show in the existing
 `ErrorBanner`, keeping the typed values (Constitution IV).
+
+## R8: Null on a tier edit or a new tier's quantity (2026-11-02, issue #117)
+
+**Found** with `002` R11 (the same bug as #36 for venues). `UpdateTierDto` used `@IsOptional`, so
+`PATCH /events/{id}/tiers/{tierId}` with `name`, `price` or `quantity` as `null` reached
+`assertNameFree`, `assertFits` and the database (`500`); `POST /events/{id}/tiers` with `quantity:
+null` on an event without reserved seating did the same. All seen in tests first.
+
+**Decision**: these fields use `@ValidateIf(... !== undefined)`: `400 VALIDATION_FAILED` naming the
+field, nothing changed (FR-001, FR-005). A `null` quantity on a seated event's new tier was already
+`400` (`007` FR-006) and is now the same `VALIDATION_FAILED`. No tier field gives `null` a meaning.
+Contract 1.18.2 says so on `TicketTierUpdate` and `TicketTierInput.quantity`.
