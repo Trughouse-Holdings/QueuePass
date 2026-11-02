@@ -350,7 +350,7 @@ implementation session 3; FR-013, SC-007; research R10).
 
 ### Tests first
 
-- [ ] T039 [P] `scripts/seed/test/login-theme-files.test.ts`: `@keyframes qp-lines-pulse` from
+- [x] T039 [P] `scripts/seed/test/login-theme-files.test.ts`: `@keyframes qp-lines-pulse` from
   `opacity: 0.6275` to `opacity: 1`; the lines layer rests at `opacity: 0.6275` and runs it as
   `2s ease-in-out infinite alternate` only under `.qp-animate`; `.qp-paused` sets
   `animation-play-state: paused`; reduced motion removes it and hides `.qp-motion`; forced colors
@@ -360,11 +360,11 @@ implementation session 3; FR-013, SC-007; research R10).
   `theme.properties` has `scripts=js/motion.js`; `motion.js` uses the key `qp-sign-in-motion` inside
   `try`/`catch`. `stone-lines.png` is opaque (alpha 255) on its edges. `sign-in-screens.test.ts`
   (live): every page with the stones has the panel, the button, and the script. Must fail.
-- [ ] T040 [P] `packages/shared/test/theme/contrast.test.ts`: `--stone-text` on `--stone-base` at
+- [x] T040 [P] `packages/shared/test/theme/contrast.test.ts`: `--stone-text` on `--stone-base` at
   4.5:1 or more, and each app's `--stone-accent` on `--stone-base` at 3:1 or more (the pause
   button's text and ring, R10). The tokens already pass, so this is a guard: seen failing by
-  pointing it at a token that does not (`--stone-scrim`'s black) for a moment.
-- [ ] T041 `e2e/tests/027-sign-in-background.spec.ts`: `027 S9: the lines pulse, and the pause
+  measuring each ring against the ring's own color for a moment.
+- [x] T041 `e2e/tests/027-sign-in-background.spec.ts`: `027 S9: the lines pulse, and the pause
   button stops them, is remembered, and is gone under reduced motion` (each app): the lines layer's
   `animation-name` `qp-lines-pulse`, 2 s, infinite, alternate, running; the button visible, reading
   "Pause animation", `aria-pressed="false"`, reached by Tab right after Sign In; pressing it pauses
@@ -376,13 +376,24 @@ implementation session 3; FR-013, SC-007; research R10).
 
 ### Implementation
 
-- [ ] T042 `scripts/seed/src/stone-lines/lines.ts`: `SETTINGS.strength` 255; regenerate
+- [x] T042 `scripts/seed/src/stone-lines/lines.ts`: `SETTINGS.strength` 255; regenerate
   `stone-lines.png` and `--check` it; `NOTICE` says opaque edges.
-- [ ] T043 `login.css`, `template.ftl`, `theme.properties`, `login/resources/js/motion.js` (R10).
+- [x] T043 `login.css`, `template.ftl`, `theme.properties`, `login/resources/js/motion.js` (R10).
   T039 and T041 pass; S3 three runs in a row.
-- [ ] T044 Constitution: check 3.8.0's wording covers animated lines and a pause control; amend if
+  **Done**: before T042–T043, 9 theme-file cases, 7 live cases, and `027 S9` failed; now all
+  pass against a Keycloak built from this branch, with S1, S3 (the lines held at their peak while
+  measuring), and S6. The regenerated image is the dim one exactly scaled: its alpha values are
+  0, 128, 255, and 160/255 of each is the T010 file's 0, 80, 160, pixel for pixel. The panel's
+  contrast guard (T040) was seen failing with its ring measured against itself, then restored.
+  Keycloak's sign-in pages send `Content-Security-Policy: frame-src 'self'; frame-ancestors
+  'self'; object-src 'none';` (no `script-src`), checked on the running stack.
+- [x] T044 Constitution: check 3.8.0's wording covers animated lines and a pause control; amend if
   not, at 3.8.0 (unreleased, in this PR).
-- [ ] T045 Quickstart S5 and S9, the S9 Automation row; README count.
+  **Done**: 3.8.0's words allowed the background, still, as "the only decoration allowed"; a
+  follow-up `Constitution: 3.8.0, …` commit adds the pulse (only with a pause control, never under
+  reduced motion) to the sign-in exception and to row 027. It stays 3.8.0: an amendment takes
+  effect when merged, and 3.8.0 is not merged yet.
+- [x] T045 Quickstart S5 and S9, the S9 Automation row; README count.
 - [ ] T046 `npm run ci` and the 027 browser tests three times locally.
 - [ ] T047 Independent review of this delta (round 2); fix and record it below; retake the
   screenshots.

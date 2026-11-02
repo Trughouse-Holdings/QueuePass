@@ -208,6 +208,11 @@
         <@loginFooter.content/>
     </div>
 </main>
+<#-- Spec 027 (FR-013, research R10): the pause button for the pulse in the lines, last in the Tab
+     order, on its own panel. Hidden until js/motion.js runs; without it nothing moves. -->
+<div class="qp-motion" hidden>
+    <button type="button" class="qp-motion__toggle" aria-pressed="false">Pause animation</button>
+</div>
 </body>
 </html>
 </#macro>

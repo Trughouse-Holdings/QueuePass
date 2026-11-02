@@ -9,10 +9,20 @@ import {
   blankPage,
   commonest,
   compareColumns,
+  contrast,
   contrastFailures,
   parseColor,
   type Rgb,
 } from '../fixtures/backdrop';
+
+/** In the page: hold the lines at full strength, still, for measuring (research R10). */
+function freezeLinesAtPeak(): void {
+  document.addEventListener('DOMContentLoaded', () => {
+    const style = document.createElement('style');
+    style.textContent = '.qp-stones::before { animation: none !important; opacity: 1 !important; }';
+    document.head.append(style);
+  });
+}
 
 /** A color under the full shade, --stone-scrim, black at 60% (research R5). */
 const shaded = (c: Rgb): Rgb => c.map((v) => Math.round(v * 0.4)) as Rgb;
@@ -162,6 +172,9 @@ async function checkReadable(
     viewport: { width, height },
     deviceScaleFactor: 1,
   });
+  // R10: the lines pulse; measure them held at their peak, the brightest they get (R5's bound),
+  // on every page this context opens.
+  await context.addInitScript(freezeLinesAtPeak);
   // Counted, so S6 fails if the pattern stops matching and the stones load after all (review
   // round 1, 3).
   let aborted = 0;
@@ -285,5 +298,158 @@ test('027 S6: with the stones image blocked, the sign-in page stays readable', a
         expect(failures).toEqual([]);
       });
     }
+  }
+});
+
+/** The lines layer's animation, as computed now. */
+async function pulse(page: Page) {
+  return page.evaluate(() => {
+    const s = getComputedStyle(document.querySelector('.qp-stones')!, '::before');
+    return {
+      name: s.animationName,
+      duration: s.animationDuration,
+      timing: s.animationTimingFunction,
+      count: s.animationIterationCount,
+      direction: s.animationDirection,
+      state: s.animationPlayState,
+      opacity: Number(s.opacity),
+    };
+  });
+}
+
+/** The pause button's colors, its panel's, and their geometry, with the button focused. */
+async function pauseLook(page: Page) {
+  await page.locator('#kc-login').focus();
+  await page.keyboard.press('Tab');
+  return page.evaluate(() => {
+    const button = document.querySelector<HTMLButtonElement>('.qp-motion__toggle')!;
+    const b = getComputedStyle(button);
+    const panel = getComputedStyle(button.parentElement!);
+    const r = button.getBoundingClientRect();
+    return {
+      focused: document.activeElement === button,
+      text: b.color,
+      panel: panel.backgroundColor,
+      ring: b.outlineColor,
+      ringStyle: b.outlineStyle,
+      ringReach: parseFloat(b.outlineOffset) + parseFloat(b.outlineWidth),
+      padding: Math.min(
+        ...['top', 'right', 'bottom', 'left'].map((side) =>
+          parseFloat(panel.getPropertyValue(`padding-${side}`)),
+        ),
+      ),
+      width: r.width,
+      height: r.height,
+    };
+  });
+}
+
+test('027 S9: the lines pulse, and the pause button stops them, is remembered, and is gone under reduced motion', async ({
+  browser,
+}) => {
+  // R10: three apps, each through a handful of reloads and contexts.
+  test.setTimeout(2 * 60_000);
+  for (const app of Object.keys(APPS) as AppName[]) {
+    await test.step(`${app}: pulse, pause, remember`, async () => {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(APPS[app].url);
+      await expect(signInHeading(page, app)).toBeVisible();
+
+      // FR-013: a 4 s eased cycle, running.
+      const running = await pulse(page);
+      expect(running).toMatchObject({
+        name: 'qp-lines-pulse',
+        duration: '2s',
+        timing: 'ease-in-out',
+        count: 'infinite',
+        direction: 'alternate',
+        state: 'running',
+      });
+      const first = running.opacity;
+      await page.waitForTimeout(700);
+      expect((await pulse(page)).opacity).not.toBe(first);
+
+      // Last in the Tab order: right after Sign In.
+      const toggle = page.locator('.qp-motion__toggle');
+      await expect(toggle).toBeVisible();
+      await expect(toggle).toHaveText('Pause animation');
+      await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      await page.locator('#kc-login').focus();
+      await page.keyboard.press('Tab');
+      await expect(toggle).toBeFocused();
+
+      // Pressed: paused, its label and aria-pressed switched, the lines still.
+      await page.keyboard.press('Enter');
+      await expect(toggle).toHaveText('Play animation');
+      await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect((await pulse(page)).state).toBe('paused');
+      // Let the pause reach the compositor before sampling.
+      await page.waitForTimeout(200);
+      const still = (await pulse(page)).opacity;
+      await page.waitForTimeout(700);
+      expect((await pulse(page)).opacity).toBe(still);
+
+      // Remembered across a reload, and undone.
+      await page.reload();
+      await expect(toggle).toHaveText('Play animation');
+      expect((await pulse(page)).state).toBe('paused');
+      await toggle.click();
+      await expect(toggle).toHaveText('Pause animation');
+      await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      await page.reload();
+      await expect(toggle).toHaveText('Pause animation');
+      expect((await pulse(page)).state).toBe('running');
+
+      // WCAG 1.4.3, 1.4.11, 2.5.8: on its own panel, its ring drawn on the panel.
+      const look = await pauseLook(page);
+      expect(look.focused).toBe(true);
+      expect(contrast(parseColor(look.text), parseColor(look.panel))).toBeGreaterThanOrEqual(4.5);
+      expect(look.ringStyle).not.toBe('none');
+      expect(contrast(parseColor(look.ring), parseColor(look.panel))).toBeGreaterThanOrEqual(3);
+      expect(look.padding).toBeGreaterThan(look.ringReach);
+      expect(look.width).toBeGreaterThanOrEqual(24);
+      expect(look.height).toBeGreaterThanOrEqual(24);
+      expect(errors).toEqual([]);
+      await context.close();
+    });
+
+    await test.step(`${app}: storage refused`, async () => {
+      const context = await browser.newContext();
+      await context.addInitScript(() => {
+        Object.defineProperty(window, 'localStorage', {
+          get() {
+            throw new Error('storage refused');
+          },
+        });
+      });
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(APPS[app].url);
+      const toggle = page.locator('.qp-motion__toggle');
+      await expect(toggle).toHaveText('Pause animation');
+      await toggle.click();
+      await expect(toggle).toHaveText('Play animation');
+      expect((await pulse(page)).state).toBe('paused');
+      expect(errors).toEqual([]);
+      await context.close();
+    });
+
+    await test.step(`${app}: reduced motion and forced colors`, async () => {
+      const context = await browser.newContext({ reducedMotion: 'reduce' });
+      const page = await context.newPage();
+      await page.goto(APPS[app].url);
+      await expect(signInHeading(page, app)).toBeVisible();
+      const still = await pulse(page);
+      expect(still.name).toBe('none');
+      expect(still.opacity).toBeCloseTo(160 / 255, 3);
+      await expect(page.locator('.qp-motion__toggle')).toBeHidden();
+      await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'active' });
+      await expect(page.locator('.qp-motion__toggle')).toBeHidden();
+      await context.close();
+    });
   }
 });

@@ -10,7 +10,7 @@ Copyright Red Hat, Inc. and/or its affiliates.
 Licensed under the Apache License, Version 2.0; see LICENSE-keycloak.txt beside this file.
 
 Change made: the image was reduced to the edges between the stones, as an alpha mask (white,
-about 63% opaque on the edges and clear elsewhere), by the generator in
+opaque on the edges, with a half-opaque rim, and clear elsewhere), by the generator in
 scripts/seed/src/stone-lines/ (spec 027 research R3). Make it again, or check it, with:
 
   npm run stone-lines --workspace @queuepass/seed -- [--check] <keycloak-bg.png>

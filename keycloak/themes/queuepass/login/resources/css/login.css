@@ -39,6 +39,24 @@ body {
     inset: 0;
     background: var(--stone-accent);
     mask: url(../img/stone-lines.png) center / cover no-repeat;
+    /* At rest, the dim look Mahdi chose: the full-strength image at 160/255 (R10). */
+    opacity: 0.6275;
+  }
+  /* The pulse (FR-013, R10): up to full strength and back, 4 s a cycle, only while the page's
+     script runs, since it is what offers the pause button (WCAG 2.2.2). */
+  .qp-animate .qp-stones::before {
+    animation: qp-lines-pulse 2s ease-in-out infinite alternate;
+  }
+  .qp-paused .qp-stones::before {
+    animation-play-state: paused;
+  }
+}
+@keyframes qp-lines-pulse {
+  from {
+    opacity: 0.6275;
+  }
+  to {
+    opacity: 1;
   }
 }
 /* The shade behind the realm header and the card (R5): black at --stone-scrim across a band
@@ -63,6 +81,45 @@ body {
   .qp-stones {
     display: none;
   }
+  .qp-motion {
+    display: none;
+  }
+}
+/* Reduced motion asked for: nothing moves, the lines stay at rest, and there is nothing to
+   pause (FR-013, R10). */
+@media (prefers-reduced-motion: reduce) {
+  .qp-animate .qp-stones::before {
+    animation: none;
+  }
+  .qp-motion {
+    display: none;
+  }
+}
+
+/* The pause button (FR-013, R10): last on the page, at its bottom right, in flow so it never
+   covers the form; on its own panel, padded wider than its focus ring, so its text and ring hold
+   over any line or stone. */
+.qp-motion {
+  align-self: flex-end;
+  margin: 0 var(--space-4) var(--space-4);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--stone-base);
+}
+.qp-motion[hidden] {
+  display: none;
+}
+.qp-motion__toggle {
+  padding: var(--space-1) var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--stone-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.qp-motion__toggle:focus-visible {
+  outline: 3px solid var(--stone-accent);
+  outline-offset: 2px;
 }
 
 /* The band across the top of the screen, in the app's accent (FR-006). */

@@ -282,6 +282,13 @@ describe('the sign-in screens (spec 021)', () => {
           /^<div class="qp-realm" aria-hidden="true">QueuePass<\/div>\s*<div class="card card--padded qp-card">/,
         );
         expect(html.match(/<h1\b/g)).toHaveLength(1);
+        // Implementation session 3 (FR-013, R10): the pause button, hidden until the script runs,
+        // after main, and the script that runs it.
+        const afterMain = html.split('</main>')[1] ?? '';
+        expect(afterMain).toMatch(
+          /<div class="qp-motion" hidden>\s*<button type="button" class="qp-motion__toggle" aria-pressed="false">Pause animation<\/button>/,
+        );
+        expect(html).toMatch(/<script src="[^"]*\/login\/queuepass\/js\/motion\.js"/);
       },
     );
 

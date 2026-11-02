@@ -2,9 +2,9 @@ import { decode, encode, type DecodedPng } from 'fast-png';
 import { findFacets, type Facets, type GreyImage } from './facets';
 
 /**
- * Spec 027 research R2, R3 (FR-003, FR-010): the lines image. White everywhere, at `strength`
- * alpha (160, about 63%, the T010 choice) on the edges between the stones of Keycloak's image and
- * clear elsewhere, so the sign-in page can show the app's accent through it as a mask.
+ * Spec 027 research R2, R3, R10 (FR-003, FR-010, FR-013): the lines image. White everywhere, at
+ * `strength` alpha on the edges between the stones of Keycloak's image and clear elsewhere, so the
+ * sign-in page can show the app's accent through it as a mask.
  */
 
 export interface LineSettings {
@@ -23,15 +23,16 @@ export interface LineSettings {
 /**
  * The settings the committed stone-lines.png is made with. minStep 1: every boundary between two
  * facets of different greys is a stone's edge (minStep 2 already drops visible edges). The rest
- * is the "dim" preview Mahdi chose (tasks T010; spec Clarifications, implementation session):
- * 2 px lines with a 1 px softened edge at half strength, at 160 of 255 (about 63%).
+ * is the "dim" preview Mahdi chose (tasks T010): 2 px lines with a 1 px softened edge at half
+ * strength. Made at full strength since the pulse (research R10): the page rests the lines layer
+ * at opacity 160/255, which draws exactly the dim preview, and pulses it up to 1.
  */
 export const SETTINGS: LineSettings = {
   minArea: 64,
   minStep: 1,
   widen: 0,
   soften: 50,
-  strength: 160,
+  strength: 255,
 };
 
 /** The one text chunk the image carries. */

@@ -187,7 +187,7 @@ describe('the sign-in backdrop (spec 027)', () => {
   });
 
   it("gives every pseudo-element of .qp-stones content: '' so it is drawn", () => {
-    const pseudo = rules(css()).filter(([sel]) => /\.qp-stones::(before|after)/.test(sel));
+    const pseudo = rules(css()).filter(([sel]) => /^\.qp-stones::(before|after)$/.test(sel));
     expect(pseudo.length).toBeGreaterThan(0);
     for (const [sel, body] of pseudo) expect(body, sel).toMatch(/content:\s*''/);
   });
@@ -220,10 +220,104 @@ describe('the sign-in backdrop (spec 027)', () => {
     expect(hidden).toHaveLength(1);
   });
 
-  it('keeps the backdrop still: no animation or transition on it (FR-013)', () => {
-    for (const [sel, body] of rules(css()).filter(([s]) => s.includes('.qp-stones'))) {
-      expect(body, sel).not.toMatch(/animation|transition/);
-    }
+  // Implementation session 3 (FR-013, R10): the lines pulse, pausable, and nothing else moves.
+  describe('the pulse and its pause button (FR-013, R10)', () => {
+    const REST = '0.6275';
+    const all = () => rules(css());
+    const inside = (at: string) => (r: [string, string, string[]]) =>
+      r[2].some((a) => a.startsWith(at));
+
+    it('fades the lines from their resting opacity to full strength and back', () => {
+      const frames = all().filter(inside('@keyframes qp-lines-pulse'));
+      expect(frames.map(([sel, body]) => `${sel}: ${body.trim()}`)).toEqual([
+        `from: opacity: ${REST};`,
+        'to: opacity: 1;',
+      ]);
+    });
+
+    it('rests the lines at the dim level, and pulses them only under .qp-animate, 4 s a cycle', () => {
+      const lines = all().filter(([sel]) => sel === '.qp-stones::before');
+      expect(lines.map(([, body]) => body).join('\n')).toMatch(
+        new RegExp(`opacity:\\s*${REST.replace('.', '\\.')}`),
+      );
+      const pulse = all().filter(
+        (r) =>
+          r[0] === '.qp-animate .qp-stones::before' && !inside('@media (prefers-reduced-motion')(r),
+      );
+      expect(pulse).toHaveLength(1);
+      expect(pulse[0]![1]).toMatch(/animation:\s*qp-lines-pulse 2s ease-in-out infinite alternate/);
+      const paused = all().filter(([sel]) => sel === '.qp-paused .qp-stones::before');
+      expect(paused.map(([, b]) => b).join('\n')).toMatch(/animation-play-state:\s*paused/);
+    });
+
+    it('moves nothing else: no other animation and no transition on the backdrop', () => {
+      const moving = all().filter(
+        ([sel, body]) =>
+          sel.includes('.qp-stones') &&
+          (/transition/.test(body) ||
+            (/animation(?!-play-state)/.test(body) &&
+              sel !== '.qp-animate .qp-stones::before' &&
+              !/animation:\s*none/.test(body))),
+      );
+      expect(moving.map(([sel]) => sel)).toEqual([]);
+    });
+
+    it('stops the pulse and hides the button under reduced motion', () => {
+      const reduced = all().filter(inside('@media (prefers-reduced-motion: reduce)'));
+      const by = (sel: string) =>
+        reduced
+          .filter(([s]) => s === sel)
+          .map(([, b]) => b)
+          .join('\n');
+      expect(by('.qp-animate .qp-stones::before')).toMatch(/animation:\s*none/);
+      expect(by('.qp-motion')).toMatch(/display:\s*none/);
+    });
+
+    it('hides the button with the backdrop in forced colors', () => {
+      const forced = all().filter(inside('@media (forced-colors: active)'));
+      const sels = forced.filter(([, b]) => /display:\s*none/.test(b)).map(([s]) => s);
+      expect(sels.join(',')).toMatch(/\.qp-motion/);
+      expect(sels.join(',')).toMatch(/\.qp-stones/);
+    });
+
+    it('keeps the panel hidden while it has the hidden attribute', () => {
+      expect(bodiesNaming('.qp-motion[hidden]')).toMatch(/display:\s*none/);
+    });
+
+    it('puts the button on its own panel, wider than its ring, in the stones colors', () => {
+      const panel = bodiesNaming('.qp-motion');
+      expect(panel).toMatch(/background:\s*var\(--stone-base\)/);
+      expect(panel).toMatch(/padding:\s*var\(--space-2\)/);
+      expect(bodiesNaming('.qp-motion__toggle')).toMatch(/color:\s*var\(--stone-text\)/);
+      const ring = bodiesNaming('.qp-motion__toggle:focus-visible');
+      expect(ring).toMatch(/outline:\s*3px solid var\(--stone-accent\)/);
+      expect(ring).toMatch(/outline-offset:\s*2px/);
+    });
+
+    it('has the hidden panel and its button after main, last in the Tab order', () => {
+      const afterMain = template().split('</main>')[1] ?? '';
+      expect(afterMain).toMatch(
+        /<div class="qp-motion" hidden>\s*<button type="button" class="qp-motion__toggle" aria-pressed="false">Pause animation<\/button>\s*<\/div>/,
+      );
+      expect(afterMain).not.toMatch(/<(a|input|select|textarea)\b/);
+    });
+
+    it('loads the script from the theme, and remembers the choice only inside try/catch', () => {
+      expect(properties(resolve(THEME, 'theme.properties'))['scripts']).toBe('js/motion.js');
+      // Code only: the header comment names localStorage too.
+      const js = readFileSync(resolve(THEME, 'resources/js/motion.js'), 'utf8').replace(
+        /\/\/.*$/gm,
+        '',
+      );
+      expect(js).toContain("'qp-sign-in-motion'");
+      const uses = [...js.matchAll(/localStorage/g)].length;
+      expect(uses).toBeGreaterThan(0);
+      // Every use of localStorage sits in a try block.
+      for (const m of js.matchAll(/localStorage/g)) {
+        const before = js.slice(0, m.index);
+        expect(before.lastIndexOf('try {')).toBeGreaterThan(before.lastIndexOf('}'));
+      }
+    });
   });
 
   it('puts the plain stone grey under the stones, for when the image is missing (FR-009)', () => {
@@ -279,8 +373,13 @@ describe('the sign-in backdrop (spec 027)', () => {
 
   it('draws no text, edge, or ring in a stones color on the card (R6)', () => {
     expect(css()).not.toMatch(/--stone-text-muted|--stone-danger/);
+    // The lines, and the pause button on its own stones-colored panel (R10), are not on the card.
     const ringsOrText = rules(css()).filter(
-      ([sel, body]) => !sel.startsWith('.qp-stones') && /var\(--stone-accent\)/.test(body),
+      ([sel, body]) =>
+        !/^\.qp-(stones|motion)/.test(sel) &&
+        !sel.startsWith('.qp-animate') &&
+        !sel.startsWith('.qp-paused') &&
+        /var\(--stone-accent\)/.test(body),
     );
     expect(ringsOrText.map(([sel]) => sel)).toEqual([]);
   });
@@ -300,6 +399,12 @@ describe('the sign-in backdrop (spec 027)', () => {
         }
       }
       expect(notWhite).toBe(0);
+      // R10: made at full strength; the page sets the resting level with the layer's opacity.
+      let peak = 0;
+      for (let i = 0; i < image.width * image.height; i++) {
+        peak = Math.max(peak, image.data[i * 2 + 1]!);
+      }
+      expect(peak).toBe(255);
       const share = shown / (image.width * image.height);
       expect(share).toBeGreaterThanOrEqual(0.02);
       expect(share).toBeLessThanOrEqual(0.15);
