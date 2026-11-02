@@ -15,7 +15,7 @@ counts are kept in the Backend's memory and forgotten on a restart (research R3;
 Swept every 60 seconds (`sweepOnce()`): every key whose newest time is `<= now - 60_000` is deleted
 with its `loggedUntil` (research R3).
 
-## The rule (`tryAttempt(sub, kind)`, synchronous)
+## The rule (`tryAttempt(principal, kind)`, synchronous)
 
 | Step | What |
 | --- | --- |

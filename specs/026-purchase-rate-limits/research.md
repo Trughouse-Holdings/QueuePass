@@ -45,7 +45,7 @@ account); `@nestjs/throttler` (R3).
 **Decision** (decided by Mahdi, item 2; FR-002, FR-003, FR-008, FR-010): a new
 `AttemptLimitsService` (`attempt-limits.service.ts`) keeps, per key `` `${sub}:${kind}` ``, the times
 (milliseconds, from the injected `CLOCK`, `backend/src/common/clock.ts`) of the attempts it let
-through in the last 60 seconds, oldest first. `tryAttempt(sub, kind)` runs **synchronously, with no
+through in the last 60 seconds, oldest first. `tryAttempt(principal, kind)` runs **synchronously, with no
 `await`**:
 
 1. `now = clock.now()`. Drop the times `t` with `t <= now - 60_000` (an attempt counts in `[t, t +
@@ -309,8 +309,8 @@ customer account (`e2e/fixtures/apps.ts` `customerFor`), and must pass with no r
     general-admission event (distinct `requestId`s, plenty of tickets) → exactly 3 `201` and 17 `429
     RATE_LIMITED` with `details.action: BUY`, `retryAfterSeconds` 1–5 and `Retry-After` equal to it;
     exactly 3 orders in the database; a second customer's order at the same moment → `201`. A
-    refused request does not call `OrdersService.create` (`jest.spyOn`) or `PrismaService.$transaction`
-    (SC-005). Boundaries on the test clock (FR-002). Refusal order: no token → `401`, an admin token →
+    refused request does not call `OrdersService.create` (`jest.spyOn`), the only path from it to the
+    database; the guard and `AttemptLimitsService` take no `PrismaService` (SC-005). Boundaries on the test clock (FR-002). Refusal order: no token → `401`, an admin token →
     `403`, neither counted (afterwards the customer still has 3); a malformed body counts (3 malformed
     `400`, then a valid order → `429`); a repeated `requestId` counts.
   - `rate-limits.hold.e2e-spec.ts`: the same for `reserveSeats` (20 concurrent holds of distinct seats
@@ -381,4 +381,4 @@ paragraph's numbers updated in the rebase (tasks T001).
 `026-purchase-rate-limits` (#56, depends on `006`, `015`, `016`), the next free number `027`, the Sync
 Impact Report replaced, the README's version reference. The README's features table gains the `026`
 row in the implementation PR, with a line under "What the system does" on the limits and the two
-settings in the configuration notes (tasks T026).
+settings in the configuration notes (tasks T019).
