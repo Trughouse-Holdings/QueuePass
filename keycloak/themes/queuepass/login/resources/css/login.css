@@ -42,18 +42,44 @@ body {
     /* At rest, the dim look Mahdi chose: the full-strength image at 160/255 (R10). */
     opacity: 0.6275;
   }
-  /* The pulse (FR-013, R10): up to full strength and back, 4 s a cycle, only while the page's
-     script runs, since it is what offers the pause button (WCAG 2.2.2). */
+  /* The pulse (FR-013, R10; Mahdi's strong glow, implementation session 4): from faint to full
+     strength and back, 3 s a cycle, only while the page's script runs, since it is what offers
+     the pause button (WCAG 2.2.2). */
   .qp-animate .qp-stones::before {
-    animation: qp-lines-pulse 2s ease-in-out infinite alternate;
+    animation: qp-lines-pulse 1.5s ease-in-out infinite alternate;
   }
+  /* The glow: the same accent through the same mask, blurred on its parent (a filter on the
+     masked layer itself would be clipped by the mask), in step with the lines. */
+  .qp-glow::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--stone-accent);
+    mask: url(../img/stone-lines.png) center / cover no-repeat;
+  }
+  .qp-animate .qp-glow {
+    display: block;
+    animation: qp-lines-pulse 1.5s ease-in-out infinite alternate;
+  }
+  /* Paused: the dim look, with no glow. */
   .qp-paused .qp-stones::before {
-    animation-play-state: paused;
+    animation: none;
   }
+  .qp-paused .qp-glow {
+    display: none;
+  }
+}
+/* The glow's layer, the backdrop's one child: between the lines (::before) and the shade
+   (::after), so the shade darkens it too. Shown only while the pulse runs (R10). */
+.qp-glow {
+  position: absolute;
+  inset: 0;
+  display: none;
+  filter: blur(6px);
 }
 @keyframes qp-lines-pulse {
   from {
-    opacity: 0.6275;
+    opacity: 0.1;
   }
   to {
     opacity: 1;
@@ -90,6 +116,9 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .qp-animate .qp-stones::before {
     animation: none;
+  }
+  .qp-animate .qp-glow {
+    display: none;
   }
   .qp-motion {
     display: none;

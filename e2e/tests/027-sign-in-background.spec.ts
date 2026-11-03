@@ -19,7 +19,10 @@ import {
 function freezeLinesAtPeak(): void {
   document.addEventListener('DOMContentLoaded', () => {
     const style = document.createElement('style');
-    style.textContent = '.qp-stones::before { animation: none !important; opacity: 1 !important; }';
+    // The lines and their glow at full strength, still (research R5, R10).
+    style.textContent =
+      '.qp-stones::before, .qp-glow { animation: none !important; opacity: 1 !important; }' +
+      ' .qp-glow { display: block !important; }';
     document.head.append(style);
   });
 }
@@ -301,20 +304,44 @@ test('027 S6: with the stones image blocked, the sign-in page stays readable', a
   }
 });
 
-/** The lines layer's animation, as computed now. */
+/** The lines layer's animation and the glow's, as computed now (research R10). */
 async function pulse(page: Page) {
   return page.evaluate(() => {
     const s = getComputedStyle(document.querySelector('.qp-stones')!, '::before');
+    const glowEl = document.querySelector('.qp-glow');
+    const g = glowEl ? getComputedStyle(glowEl) : null;
+    // The two running animations' clocks, to see they run in step.
+    const clocks = document
+      .getAnimations()
+      .filter((a) => (a as CSSAnimation).animationName === 'qp-lines-pulse')
+      .map((a) => Number(a.currentTime));
     return {
       name: s.animationName,
       duration: s.animationDuration,
       timing: s.animationTimingFunction,
       count: s.animationIterationCount,
       direction: s.animationDirection,
-      state: s.animationPlayState,
       opacity: Number(s.opacity),
+      glow: g && {
+        display: g.display,
+        filter: g.filter,
+        name: g.animationName,
+        duration: g.animationDuration,
+        timing: g.animationTimingFunction,
+        count: g.animationIterationCount,
+        direction: g.animationDirection,
+      },
+      clocks,
     };
   });
+}
+
+/** The look at rest: no animation, the lines at Mahdi's dim level, no glow (R10). */
+async function expectAtRest(page: Page): Promise<void> {
+  const rest = await pulse(page);
+  expect(rest.name).toBe('none');
+  expect(rest.opacity).toBeCloseTo(160 / 255, 3);
+  expect(rest.glow?.display).toBe('none');
 }
 
 /** The pause button's colors, its panel's, and their geometry, with the button focused. */
@@ -361,16 +388,19 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
       await page.goto(APPS[app].url);
       await expect(signInHeading(page, app)).toBeVisible();
 
-      // FR-013: a 4 s eased cycle, running.
+      // FR-013: a 3 s eased cycle, running on the lines and on their 6 px glow, in step.
       const running = await pulse(page);
-      expect(running).toMatchObject({
+      const timing = {
         name: 'qp-lines-pulse',
-        duration: '2s',
+        duration: '1.5s',
         timing: 'ease-in-out',
         count: 'infinite',
         direction: 'alternate',
-        state: 'running',
-      });
+      };
+      expect(running).toMatchObject(timing);
+      expect(running.glow).toMatchObject({ ...timing, display: 'block', filter: 'blur(6px)' });
+      expect(running.clocks).toHaveLength(2);
+      expect(Math.abs(running.clocks[0]! - running.clocks[1]!)).toBeLessThan(50);
       // Three samples, so a symmetric pair around the turn cannot look still (review round 2, 16).
       const samples = [running.opacity];
       for (let i = 0; i < 2; i++) {
@@ -390,31 +420,23 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
       await page.keyboard.press('Tab');
       await expect(toggle).toBeFocused();
 
-      // Pressed: paused, its name switched, the lines still.
+      // Pressed: paused, its name switched, the lines at rest with no glow (session 4).
       await page.keyboard.press('Enter');
       await expect(toggle).toHaveText('Play animation');
       await expect(toggle).toHaveAccessibleName('Play animation');
       await expect(toggle).not.toHaveAttribute('aria-pressed');
-      expect((await pulse(page)).state).toBe('paused');
-      // Let the pause reach the compositor before sampling.
-      await page.waitForTimeout(200);
-      const still = (await pulse(page)).opacity;
-      await page.waitForTimeout(700);
-      expect((await pulse(page)).opacity).toBe(still);
+      await expectAtRest(page);
 
-      // Remembered across a reload, and undone.
+      // Remembered across a reload, and undone: a remembered pause never starts moving.
       await page.reload();
       await expect(toggle).toHaveText('Play animation');
-      // A remembered pause never starts moving: still at rest (R10; review round 2, 7).
-      const reloaded = await pulse(page);
-      expect(reloaded.state).toBe('paused');
-      expect(reloaded.opacity).toBeCloseTo(160 / 255, 3);
+      await expectAtRest(page);
       await toggle.click();
       await expect(toggle).toHaveText('Pause animation');
       await expect(toggle).toHaveAccessibleName('Pause animation');
       await page.reload();
       await expect(toggle).toHaveText('Pause animation');
-      expect((await pulse(page)).state).toBe('running');
+      expect((await pulse(page)).name).toBe('qp-lines-pulse');
 
       // WCAG 1.4.3, 1.4.11, 2.5.8: on its own panel, its ring drawn on the panel.
       const look = await pauseLook(page);
@@ -449,11 +471,11 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
       await expect(toggle).toHaveText('Pause animation');
       await toggle.click();
       await expect(toggle).toHaveText('Play animation');
-      expect((await pulse(page)).state).toBe('paused');
+      await expectAtRest(page);
       // Nothing was remembered (review round 2, 15).
       await page.reload();
       await expect(toggle).toHaveText('Pause animation');
-      expect((await pulse(page)).state).toBe('running');
+      expect((await pulse(page)).name).toBe('qp-lines-pulse');
       expect(errors).toEqual([]);
       await context.close();
     });
@@ -463,9 +485,7 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
       const page = await context.newPage();
       await page.goto(APPS[app].url);
       await expect(signInHeading(page, app)).toBeVisible();
-      const still = await pulse(page);
-      expect(still.name).toBe('none');
-      expect(still.opacity).toBeCloseTo(160 / 255, 3);
+      await expectAtRest(page);
       await expect(page.locator('.qp-motion__toggle')).toBeHidden();
       await page.emulateMedia({ reducedMotion: 'no-preference', forcedColors: 'active' });
       await expect(page.locator('.qp-motion__toggle')).toBeHidden();

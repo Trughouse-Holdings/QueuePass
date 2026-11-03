@@ -275,7 +275,9 @@ describe('the sign-in screens (spec 021)', () => {
         skip(!available, SKIP_REASON);
         const html = await get();
         const afterBody = html.split(/<body\b[^>]*>/)[1] ?? '';
-        expect(afterBody.trimStart()).toMatch(/^<div class="qp-stones" aria-hidden="true"><\/div>/);
+        expect(afterBody.trimStart()).toMatch(
+          /^<div class="qp-stones" aria-hidden="true"><div class="qp-glow"><\/div><\/div>/,
+        );
         // Implementation session 2 (FR-004): the realm's name above Keycloak's card.
         const main = html.split(/<main\b[^>]*>/)[1] ?? '';
         expect(main.trimStart()).toMatch(

@@ -107,7 +107,7 @@
 </head>
 
 <body class="qp-app--${qpAppId}">
-<div class="qp-stones" aria-hidden="true"></div>
+<div class="qp-stones" aria-hidden="true"><div class="qp-glow"></div></div>
 <div class="qp-band" aria-hidden="true"></div>
 <main class="qp-login">
     <div class="qp-realm" aria-hidden="true">${qpRealmName}</div>

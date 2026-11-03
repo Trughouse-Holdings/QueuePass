@@ -415,23 +415,28 @@ Clarifications, implementation session 4; FR-013, SC-007; research R4, R5, R10).
 
 ### Tests first
 
-- [ ] T048 [P] `login-theme-files.test.ts`: `@keyframes qp-lines-pulse` from `opacity: 0.1` to
+- [x] T048 [P] `login-theme-files.test.ts`: `@keyframes qp-lines-pulse` from `opacity: 0.1` to
   `opacity: 1`; `1.5s ease-in-out infinite alternate` on the lines and on `.qp-glow`; the template's
   backdrop is `<div class="qp-stones" aria-hidden="true"><div class="qp-glow"></div></div>`;
   `.qp-glow` is hidden by default, `filter: blur(6px)`, its `::before` the accent through
   `stone-lines.png` (inside `@supports`), shown only under `.qp-animate`; paused removes the
   animation and hides the glow; reduced motion hides the glow. `sign-in-screens.test.ts` (live):
   the glow element inside the backdrop on every page. Must fail.
-- [ ] T049 `027 S9`: the glow layer shown, blurred 6 px, running the same keyframes and timing as
+- [x] T049 `027 S9`: the glow layer shown, blurred 6 px, running the same keyframes and timing as
   the lines and in step with them; paused and reduced motion: no animation, no glow, the lines at
   0.6275. S3 and S6 hold the lines and the glow at their peak. Must fail.
 
 ### Implementation
 
-- [ ] T050 `template.ftl` and `login.css` (R4, R10). T048 and T049 pass.
-- [ ] T051 R5's worst case with the peak glow (a mix of a stone and the line color is no lighter
+- [x] T050 `template.ftl` and `login.css` (R4, R10). T048 and T049 pass.
+- [x] T051 R5's worst case with the peak glow (a mix of a stone and the line color is no lighter
   than the lighter of the two: the bound and the shared contrast test stand); the constitution's
   "pulse gently" checked against a strong glow, reworded at 3.8.0 if needed.
+  **Done**: at the peak the glow only mixes the line color into the stones around the lines, and
+  a mix is never lighter than the lighter of the two, so R5's bound (and the shared contrast test)
+  stands: the header's lowest is still 8.08:1 (Booth). S3 and S6, measuring with the lines and the
+  glow held at full strength, pass. The constitution's "pulse gently" no longer fit: a second
+  `Constitution: 3.8.0, …` follow-up says the lines may pulse and glow, smoothly and with no flash.
 - [ ] T052 `npm run ci` and the 027 browser tests three times locally.
 - [ ] T053 Independent review of this delta (round 3); fix and record it below.
 - [ ] T054 Screenshots of the peak and the rest for the three apps; README count.

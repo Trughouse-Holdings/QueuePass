@@ -227,36 +227,71 @@ describe('the sign-in backdrop (spec 027)', () => {
     const inside = (at: string) => (r: [string, string, string[]]) =>
       r[2].some((a) => a.startsWith(at));
 
-    it('fades the lines from their resting opacity to full strength and back', () => {
+    // Implementation session 4: from faint to full, a 3 s cycle (Mahdi's strong glow).
+    it('fades the lines from faint to full strength and back', () => {
       const frames = all().filter(inside('@keyframes qp-lines-pulse'));
       expect(frames.map(([sel, body]) => `${sel}: ${body.trim()}`)).toEqual([
-        `from: opacity: ${REST};`,
+        'from: opacity: 0.1;',
         'to: opacity: 1;',
       ]);
     });
 
-    it('rests the lines at the dim level, and pulses them only under .qp-animate, 4 s a cycle', () => {
+    const outsideReduced = (sel: string) =>
+      all().filter((r) => r[0] === sel && !inside('@media (prefers-reduced-motion')(r));
+    const PULSE = /animation:\s*qp-lines-pulse 1\.5s ease-in-out infinite alternate/;
+
+    it('rests the lines at the dim level, and pulses them only under .qp-animate, 3 s a cycle', () => {
       const lines = all().filter(([sel]) => sel === '.qp-stones::before');
       expect(lines.map(([, body]) => body).join('\n')).toMatch(
         new RegExp(`opacity:\\s*${REST.replace('.', '\\.')}`),
       );
-      const pulse = all().filter(
-        (r) =>
-          r[0] === '.qp-animate .qp-stones::before' && !inside('@media (prefers-reduced-motion')(r),
-      );
+      const pulse = outsideReduced('.qp-animate .qp-stones::before');
       expect(pulse).toHaveLength(1);
-      expect(pulse[0]![1]).toMatch(/animation:\s*qp-lines-pulse 2s ease-in-out infinite alternate/);
-      const paused = all().filter(([sel]) => sel === '.qp-paused .qp-stones::before');
-      expect(paused.map(([, b]) => b).join('\n')).toMatch(/animation-play-state:\s*paused/);
+      expect(pulse[0]![1]).toMatch(PULSE);
+      expect(pulse[0]![2]).toContain('@supports (mask-image: none)');
+    });
+
+    it('glows: a 6 px blurred copy of the lines, hidden unless the pulse runs, in step with it', () => {
+      const glow = all().filter(([sel]) => sel === '.qp-glow');
+      expect(glow.map(([, b]) => b).join('\n')).toMatch(/filter:\s*blur\(6px\)/);
+      expect(glow.map(([, b]) => b).join('\n')).toMatch(/display:\s*none/);
+      const fill = all().filter(([sel]) => sel === '.qp-glow::before');
+      expect(fill.length).toBeGreaterThan(0);
+      for (const [, body, at] of fill) {
+        expect(at).toContain('@supports (mask-image: none)');
+        expect(body).toMatch(/content:\s*''/);
+        expect(body).toMatch(/background:\s*var\(--stone-accent\)/);
+        expect(body).toMatch(
+          /mask:\s*url\(\.\.\/img\/stone-lines\.png\)\s*center\s*\/\s*cover\s*no-repeat/,
+        );
+      }
+      const shown = outsideReduced('.qp-animate .qp-glow');
+      expect(shown).toHaveLength(1);
+      expect(shown[0]![1]).toMatch(/display:\s*block/);
+      expect(shown[0]![1]).toMatch(PULSE);
+      expect(shown[0]![2]).toContain('@supports (mask-image: none)');
+    });
+
+    it('paused: the lines back at rest, and no glow', () => {
+      expect(bodiesNaming('.qp-paused .qp-stones::before')).toMatch(/animation:\s*none/);
+      expect(bodiesNaming('.qp-paused .qp-glow')).toMatch(/display:\s*none/);
+    });
+
+    it('has the glow inside the backdrop, after the lines and before the shade', () => {
+      const afterBody = template().split(/<body\b[^>]*>/)[1] ?? '';
+      expect(afterBody.trimStart()).toMatch(
+        /^<div class="qp-stones" aria-hidden="true"><div class="qp-glow"><\/div><\/div>/,
+      );
     });
 
     it('moves nothing else: no other animation and no transition on the backdrop', () => {
       const moving = all().filter(
         ([sel, body]) =>
-          sel.includes('.qp-stones') &&
+          /\.qp-(stones|glow)/.test(sel) &&
           (/transition/.test(body) ||
             (/animation(?!-play-state)/.test(body) &&
               sel !== '.qp-animate .qp-stones::before' &&
+              sel !== '.qp-animate .qp-glow' &&
               !/animation:\s*none/.test(body))),
       );
       expect(moving.map(([sel]) => sel)).toEqual([]);
@@ -271,6 +306,7 @@ describe('the sign-in backdrop (spec 027)', () => {
           .join('\n');
       expect(by('.qp-animate .qp-stones::before')).toMatch(/animation:\s*none/);
       expect(by('.qp-motion')).toMatch(/display:\s*none/);
+      expect(by('.qp-animate .qp-glow')).toMatch(/display:\s*none/);
     });
 
     it('hides the button with the backdrop in forced colors', () => {
@@ -339,7 +375,10 @@ describe('the sign-in backdrop (spec 027)', () => {
 
   it('has the backdrop element first in <body>, hidden from assistive technology (R4)', () => {
     const afterBody = template().split(/<body\b[^>]*>/)[1] ?? '';
-    expect(afterBody.trimStart()).toMatch(/^<div class="qp-stones" aria-hidden="true"><\/div>/);
+    // Its one child is the glow (R10), so it is still decoration only, hidden as a whole.
+    expect(afterBody.trimStart()).toMatch(
+      /^<div class="qp-stones" aria-hidden="true"><div class="qp-glow"><\/div><\/div>/,
+    );
   });
 
   // Implementation session 2 (FR-004, R7): Keycloak's realm header, then its card, in main.
@@ -379,10 +418,10 @@ describe('the sign-in backdrop (spec 027)', () => {
 
   it('draws no text, edge, or ring in a stones color on the card (R6)', () => {
     expect(css()).not.toMatch(/--stone-text-muted|--stone-danger/);
-    // The lines, and the pause button on its own stones-colored panel (R10), are not on the card.
+    // The lines, their glow, and the pause button on its own stones-colored panel (R10), are not on the card.
     const ringsOrText = rules(css()).filter(
       ([sel, body]) =>
-        !/^\.qp-(stones|motion)/.test(sel) &&
+        !/^\.qp-(stones|glow|motion)/.test(sel) &&
         !sel.startsWith('.qp-animate') &&
         !sel.startsWith('.qp-paused') &&
         /var\(--stone-accent\)/.test(body),

@@ -252,8 +252,8 @@ no flash, only with a control on the page that pauses them, and never when the p
 for reduced motion. That background, its pulse, and that header are the only decoration allowed,
 and every text, label, and control on them MUST keep the contrast its spec states. Those accents,
 and the colors the sign-in screens draw on that background, are tokens in the shared theme, defined
-only in its token blocks and checked by its contrast tests. The apps themselves keep the one shared accent and use none of
-them.
+only in its token blocks and checked by its contrast tests. The apps themselves keep the one
+shared accent and use none of them.
 
 Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
 without anyone spending time on visual design, and a change to the look is made once.
