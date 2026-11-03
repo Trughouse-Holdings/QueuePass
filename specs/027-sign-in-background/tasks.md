@@ -408,6 +408,36 @@ implementation session 3; FR-013, SC-007; research R10).
 
 ---
 
+## Phase 6d: A stronger pulse with a glow (implementation session 4)
+
+**Why**: Mahdi could not see the session-3 pulse and chose a strong glow from a live mock-up (spec
+Clarifications, implementation session 4; FR-013, SC-007; research R4, R5, R10).
+
+### Tests first
+
+- [ ] T048 [P] `login-theme-files.test.ts`: `@keyframes qp-lines-pulse` from `opacity: 0.1` to
+  `opacity: 1`; `1.5s ease-in-out infinite alternate` on the lines and on `.qp-glow`; the template's
+  backdrop is `<div class="qp-stones" aria-hidden="true"><div class="qp-glow"></div></div>`;
+  `.qp-glow` is hidden by default, `filter: blur(6px)`, its `::before` the accent through
+  `stone-lines.png` (inside `@supports`), shown only under `.qp-animate`; paused removes the
+  animation and hides the glow; reduced motion hides the glow. `sign-in-screens.test.ts` (live):
+  the glow element inside the backdrop on every page. Must fail.
+- [ ] T049 `027 S9`: the glow layer shown, blurred 6 px, running the same keyframes and timing as
+  the lines and in step with them; paused and reduced motion: no animation, no glow, the lines at
+  0.6275. S3 and S6 hold the lines and the glow at their peak. Must fail.
+
+### Implementation
+
+- [ ] T050 `template.ftl` and `login.css` (R4, R10). T048 and T049 pass.
+- [ ] T051 R5's worst case with the peak glow (a mix of a stone and the line color is no lighter
+  than the lighter of the two: the bound and the shared contrast test stand); the constitution's
+  "pulse gently" checked against a strong glow, reworded at 3.8.0 if needed.
+- [ ] T052 `npm run ci` and the 027 browser tests three times locally.
+- [ ] T053 Independent review of this delta (round 3); fix and record it below.
+- [ ] T054 Screenshots of the peak and the rest for the three apps; README count.
+
+---
+
 ## Phase 7: Polish, review, pull request
 
 - [x] T025 README: the `027` status row (status and task count), a sentence in **Today** (the sign-in
@@ -455,6 +485,7 @@ implementation session 3; FR-013, SC-007; research R10).
   measuring fixture and T015's page color.
 - **Card (T032–T037)** after US4; T022's ring fix carries into T036. T038 after T037.
 - **Pulse (T039–T047)** after T038; T039–T041 (tests) before T042–T043.
+- **Glow (T048–T054)** after T047; T048–T049 (tests) before T050.
 - **Polish (T025–T031)** after every story, the card, and the pulse.
 
 ### Parallel opportunities

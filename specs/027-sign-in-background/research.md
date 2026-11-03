@@ -156,6 +156,8 @@ files beside the theme, where a reader looks for it; a PNG chunk is easy to stri
 - `.qp-stones::before` (the lines): `content: ''`, the same box (`position: absolute; inset: 0`),
   `background: var(--stone-accent)`, `mask: url(../img/stone-lines.png) center / cover no-repeat`.
 - `.qp-stones::after` (the shade, R5): `content: ''`, the same box, above the lines.
+- `.qp-glow`, the backdrop's one child (R10): the glow of the pulse, a blurred copy of the lines,
+  between the lines and the shade.
 - `body`: `background: var(--stone-base)` (a plain stone grey, R6), under all three: what shows when
   the stones image is missing (FR-009). The lines and the shade do not depend on the stones image,
   so they are still drawn over the grey.
@@ -467,7 +469,7 @@ background" (more than the issue asks).
 
 ## R10. The pulse in the lines, and its pause button
 
-**Decision** (spec Clarifications, implementation session 3; FR-013):
+**Decision** (spec Clarifications, implementation sessions 3 and 4; FR-013):
 
 - **Rest and peak through opacity, not the image.** `stone-lines.png` is made at full strength
   (alpha 255 on the edges, 128 on the softened rim), and the lines layer (`.qp-stones::before`)
@@ -475,15 +477,26 @@ background" (more than the issue asks).
   0.6275 = 160, 128 × 0.6275 = 80), so the look Mahdi chose is unchanged; at the peak, opacity 1
   shows the lines at full strength. A brighter peak cannot come from a 160 image (opacity cannot go
   above 1), and two images or a filter would be more to keep for the same result.
-- **The pulse**: `@keyframes qp-lines-pulse` from `opacity: 0.6275` to `opacity: 1`, run as
-  `2s ease-in-out infinite alternate`, so a whole cycle (up and back) is 4 s. It changes only the
-  lines layer's opacity; the stones, the shade, and the page do not move.
+- **The pulse** (session 4, Mahdi's strong glow; session 3's 0.6275 to 1 every 4 s could not be
+  seen): `@keyframes qp-lines-pulse` from `opacity: 0.1` to `opacity: 1`, run as
+  `1.5s ease-in-out infinite alternate`, so a whole cycle (up and back) is 3 s. It changes only
+  the opacity of the lines layer and of the glow; the stones, the shade, and the page do not move.
+- **The glow**: a second copy of the lines, the same `var(--stone-accent)` fill shown through the
+  same `stone-lines.png` mask, blurred by 6 px. The blur must sit on a parent of the masked layer:
+  a filter on the masked element itself is applied before its own mask clips it, so the halo would
+  be cut off. So `.qp-stones` holds one child, `<div class="qp-glow"></div>` (inside the already
+  `aria-hidden` backdrop, in `template.ftl`), with `filter: blur(6px)`, and its `::before` is the
+  masked fill. Positioned layers paint in tree order, so the order is the stones (the backdrop's
+  background), the lines (`::before`), the glow (the child), and the shade (`::after`), which keeps
+  the glow under the shade like the lines. The glow is `display: none` unless the pulse runs
+  (`html.qp-animate:not(.qp-paused)`, inside `@supports (mask-image: none)`), and runs the same
+  keyframes with the same timing, starting with the lines, so the two stay in step.
 - **Only with the pause button.** The animation applies only under `html.qp-animate`, a class the
   page's script sets; without scripts there is no button, so there is no animation either (an
   animation that starts by itself, runs more than 5 s beside other content, and cannot be paused
-  fails WCAG 2.2.2). The paused state is `html.qp-paused`, which sets
-  `animation-play-state: paused` on the lines layer: the pulse stops where it is and resumes from
-  there.
+  fails WCAG 2.2.2). The paused state is `html.qp-paused`, which removes the animation from the
+  lines (back to their resting 0.6275) and hides the glow (session 4: paused is the dim look, not a
+  frozen moment of the pulse).
 - **The button**: after `main`, `<footer class="qp-motion" hidden><button type="button"
   class="qp-motion__toggle">Pause animation</button></footer>` (a footer, so
   it sits in a landmark), so it is last in
@@ -507,7 +520,7 @@ background" (more than the issue asks).
 - **Remembered**: `localStorage` key `qp-sign-in-motion` (`paused` or absent), read and written in
   `try`/`catch`; if storage throws, the button still pauses and plays, and nothing is remembered.
 - **Reduced motion and forced colors**: `@media (prefers-reduced-motion: reduce)` removes the
-  animation (the lines stay at 0.6275) and hides `.qp-motion`; `@media (forced-colors: active)`
+  animation (the lines stay at 0.6275), hides the glow, and hides `.qp-motion`; `@media (forced-colors: active)`
   hides `.qp-motion` with the backdrop.
 - **Wiring**: `theme.properties` `scripts=js/motion.js`, a file in the theme, which `template.ftl`
   already loads in `<head>`. There it can set `qp-animate` and `qp-paused` on `<html>` before the
@@ -519,19 +532,27 @@ background" (more than the issue asks).
 
 **WCAG**: 2.2.2 Pause, Stop, Hide (A): the pulse starts by itself and runs forever beside the form,
 so it needs, and has, a pause control; without scripts it does not run. 2.3.1 Three Flashes (A):
-one smooth fade every 4 s (0.25 Hz), on lines about 7% of the window, is not a flash. 2.3.3
+one smooth fade up and down every 3 s (0.33 Hz), on the lines and their glow, is not a flash:
+far below the threshold of three a second, with no abrupt change in luminance. 2.3.3
 Animation from Interactions (AAA): the pulse is not triggered by interaction; reduced motion stops
-it anyway. 1.4.3 / 1.4.11: R5's figures already take the line at full strength, so the header holds
-at the peak (8.08:1 lowest); the button and its ring are on their own panel.
+it anyway. 1.4.3 / 1.4.11: at the peak the glow adds the accent's light around the lines, but
+every pixel it touches becomes a mix of a stone and the line color, and a mix is never lighter than
+the lighter of the two; R5's worst case (the lightest stone or the full line color, whichever is
+lighter, under the shade) already bounds it, so the header holds at the peak with the glow (8.08:1
+lowest, Booth) and R5's figure and the shared contrast test stand. The button and its ring are on
+their own panel.
 
-**Tests**: theme-file (the keyframes and their timing, the rest opacity, the play-state rule, the
+**Tests**: theme-file (the keyframes and their timing, the rest opacity, the glow layer, its blur
+and its place under the shade, the paused rule, the
 reduced-motion and forced-colors rules, the panel, the markup, `scripts=js/motion.js`, and the
 script's storage in `try`/`catch`); live (the button's markup and the script on every page); shared
-contrast (the panel's text and ring); browser test `027 S9` (running, paused, remembered, Tab
-order, reduced motion, storage refused, the panel's contrast and ring); S3 and S6 freeze the lines
-at their peak while measuring.
+contrast (the panel's text and ring); browser test `027 S9` (running on both layers in step,
+paused at rest with no glow, remembered, Tab order, reduced motion, storage refused, the panel's
+contrast and ring); S3 and S6 freeze the lines and the glow at their peak while measuring.
 
-**Alternatives considered**: the pulse in the image's strength (a 160 image cannot reach full
+**Alternatives considered**: a blur on the masked layer itself (clipped by its own mask); a
+`drop-shadow` filter on the lines (the same clipping, and a shadow, not a halo); the pulse in the
+image's strength (a 160 image cannot reach full
 strength); a pause control that is a link or an icon (a text button is clearer and is what Mahdi
 chose); a fixed button in the window's corner (it would cover the form on a phone); an inline
 script (works today, but not under a stricter policy).

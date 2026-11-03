@@ -103,11 +103,11 @@ signing in takes the same steps as before `027`.
 
 ## S9. The lines pulse, and pause (FR-013, SC-007)
 
-1. Open each app's page. **Expected**: the lines glow gently up to full strength and back, about
-   every 4 s, with no flash; nothing else moves. A small "Pause animation" button sits at the
+1. Open each app's page. **Expected**: the lines pulse from faint to full strength and back
+   every 3 s, with a soft glow around them, smoothly, with no flash; nothing else moves. A small "Pause animation" button sits at the
    bottom right of the page, on its own dark panel.
-2. Tab past Sign In to the button and press Enter. **Expected**: the lines stop; the button reads
-   "Play animation". Reload. **Expected**: still paused. Press it again. **Expected**: the lines
+2. Tab past Sign In to the button and press Enter. **Expected**: the lines stop at the dim look,
+   with no glow; the button reads "Play animation". Reload. **Expected**: still paused. Press it again. **Expected**: the lines
    pulse again.
 3. Turn on reduced motion (system settings, or DevTools → Rendering → `prefers-reduced-motion:
    reduce`) and reload. **Expected**: nothing moves, at the dim level; no button.

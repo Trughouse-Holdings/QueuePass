@@ -38,7 +38,7 @@ and are the same in both schemes (FR-003, FR-007).
 
 | File | Change |
 | --- | --- |
-| `login/template.ftl` | `<div class="qp-stones" aria-hidden="true"></div>` first in `<body>`; in `main`, the realm header `<div class="qp-realm" aria-hidden="true">` and the card `<div class="card card--padded qp-card">` holding `021`'s frame and the form (R4, R7) |
+| `login/template.ftl` | `<div class="qp-stones" aria-hidden="true"><div class="qp-glow"></div></div>` first in `<body>`; in `main`, the realm header `<div class="qp-realm" aria-hidden="true">` and the card `<div class="card card--padded qp-card">` holding `021`'s frame and the form (R4, R7) |
 | `login/resources/css/login.css` | The three layers, the shade, the realm header, Keycloak's card in the shared theme with the app's accent as its top edge, every input's focus ring, the seventh role (R4–R7) |
 | `login/resources/img/stone-lines.png` | **New**: the lines image (below) |
 | `NOTICE` | **New**: the lines image's source (with its SHA-256), copyright, license, and change (R3) |
@@ -51,7 +51,7 @@ and are the same in both schemes (FR-003, FR-007).
 | --- | --- |
 | Size | 1920×1080, the same as Keycloak's `keycloak-bg.png` |
 | Format | 8-bit grey and alpha PNG; grey 255 wherever alpha is above 0 |
-| Alpha | 255 on the edges between facets (flat regions of at least `minArea`, 64 px) whose greys differ by at least `MIN_STEP` (1), 2 px wide, with a 1 px softened edge at half that (128); clear elsewhere. The page shows it at opacity 0.6275 at rest (160 and 80, the dim look Mahdi chose in T010) and pulses it to 1 (R10) |
+| Alpha | 255 on the edges between facets (flat regions of at least `minArea`, 64 px) whose greys differ by at least `MIN_STEP` (1), 2 px wide, with a 1 px softened edge at half that (128); clear elsewhere. The page shows it at opacity 0.6275 at rest (160 and 80, the dim look Mahdi chose in T010); while the pulse runs, from 0.1 to 1 every 3 s, with a 6 px blurred copy as a glow (R10) |
 | Text chunk | One, `Source`: the input (`keycloak-bg.png`, Keycloak 26.0.8, SHA-256 `0825175291be11f7689e8718295e422bb6fa4f8fefccc5610292b720c701ac4e`) and the generator settings. The license is in `NOTICE` and `LICENSE-keycloak.txt`, not in the PNG |
 | Made by | `npm run stone-lines --workspace @queuepass/seed -- <keycloak-bg.png>`; `--check` confirms the committed file has the same decoded pixels and text chunk as a fresh run (bytes may differ between machines) |
 

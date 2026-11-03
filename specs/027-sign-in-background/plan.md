@@ -27,7 +27,8 @@
   strength; the realm header, the only text on the stones, in light text meeting 4.5:1 over the
   lightest stone and the brightest line, the same in both schemes. Everything else is on the card.
 - **The pulse** (R10; Mahdi, implementation session 3): the lines layer rests at opacity
-  0.6275 (the dim look) and pulses to 1 every 4 s, eased, only when the page's script runs, with a
+  0.6275 (the dim look) and, only when the page's script runs, pulses from 0.1 to 1 every 3 s with
+  a 6 px blurred glow (Mahdi, session 4), with a
   "Pause animation" button on its own panel at the bottom of the page, remembered in the browser;
   none of it under reduced motion or in forced colors. `stone-lines.png` is made at strength 255.
 - **Tokens** (R6): six `--stone-*` tokens in both of the shared theme's token blocks, the same in
