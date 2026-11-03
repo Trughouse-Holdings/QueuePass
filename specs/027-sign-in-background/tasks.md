@@ -367,8 +367,8 @@ implementation session 3; FR-013, SC-007; research R10).
 - [x] T041 `e2e/tests/027-sign-in-background.spec.ts`: `027 S9: the lines pulse, and the pause
   button stops them, is remembered, and is gone under reduced motion` (each app): the lines layer's
   `animation-name` `qp-lines-pulse`, 2 s, infinite, alternate, running; the button visible, reading
-  "Pause animation", `aria-pressed="false"`, reached by Tab right after Sign In; pressing it pauses
-  the animation, switches the label and `aria-pressed`, and survives a reload; pressing it again
+  "Pause animation", reached by Tab right after Sign In; pressing it pauses the animation,
+  switches its name (no `aria-pressed`, review round 2), and survives a reload; pressing it again
   resumes; the button's text 4.5:1 and its ring 3:1 against its panel, the panel padded wider than
   the ring; with `localStorage` throwing, the button still works; with reduced motion emulated, no
   animation and no button. S3 and S6 freeze the lines at their peak while measuring. Its own
@@ -543,8 +543,9 @@ implementation session 3; FR-013, SC-007; research R10).
   - Left: nit 12 (the button's two labels are English in the template and the script, not in
     `messages_en.properties`; English only, as the rest of QueuePass); nit 17 (the Impl commit's
     subject cites T044 and T045, whose work other commits carry).
-- **Open, for Mahdi** (round 2, must 1): the button changes its label ("Pause animation" / "Play
-  animation") and also sets `aria-pressed`, as he chose; a screen reader then hears, paused, "Play
-  animation, toggle button, pressed", which contradicts itself, and the ARIA toggle-button pattern
-  keeps the name fixed. Recorded in R10; the fix is one of a fixed name with `aria-pressed`, or the
-  changing label without it.
+- **Must 1, resolved** (round 2): the button changed its name ("Pause animation" / "Play
+  animation") and also set `aria-pressed`, from the brief's wording, not a choice of Mahdi's; a
+  screen reader then heard, paused, "Play animation, toggle button, pressed". Fixed in the
+  `Review 027: implementation review round 2: the pause button's name alone carries its state`
+  commit: the changing name is kept and `aria-pressed` is gone (FR-013, SC-007, R10, S9; the
+  theme-file, live, and browser tests were seen failing first).

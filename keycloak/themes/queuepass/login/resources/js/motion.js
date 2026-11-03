@@ -26,9 +26,10 @@
     }
   }
 
+  // The button's name says what pressing it does, and alone carries the state: no aria-pressed,
+  // which with a changing name would announce "Play animation, pressed" (review round 2).
   function show(button) {
     var paused = root.classList.contains('qp-paused');
-    button.setAttribute('aria-pressed', paused ? 'true' : 'false');
     button.textContent = paused ? 'Play animation' : 'Pause animation';
   }
 

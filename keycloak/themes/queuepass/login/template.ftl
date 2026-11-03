@@ -212,7 +212,7 @@
      order, on its own panel, a footer landmark (contentinfo). Hidden until js/motion.js runs;
      without it nothing moves. -->
 <footer class="qp-motion" hidden>
-    <button type="button" class="qp-motion__toggle" aria-pressed="false">Pause animation</button>
+    <button type="button" class="qp-motion__toggle">Pause animation</button>
 </footer>
 </body>
 </html>

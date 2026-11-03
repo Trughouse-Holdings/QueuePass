@@ -299,7 +299,7 @@ describe('the sign-in backdrop (spec 027)', () => {
     it('has the hidden panel and its button after main, last in the Tab order', () => {
       const afterMain = template().split('</main>')[1] ?? '';
       expect(afterMain).toMatch(
-        /<footer class="qp-motion" hidden>\s*<button type="button" class="qp-motion__toggle" aria-pressed="false">Pause animation<\/button>\s*<\/footer>/,
+        /<footer class="qp-motion" hidden>\s*<button type="button" class="qp-motion__toggle">Pause animation<\/button>\s*<\/footer>/,
       );
       expect(afterMain).not.toMatch(/<(a|input|select|textarea)\b/);
     });
@@ -312,6 +312,8 @@ describe('the sign-in backdrop (spec 027)', () => {
         '',
       );
       expect(js).toContain("'qp-sign-in-motion'");
+      // Its changing name alone carries the state (review round 2, must 1).
+      expect(js).not.toContain('aria-pressed');
       // No pulse, so no pause button, where masks are not supported (review round 2, 10).
       expect(js).toMatch(/CSS\.supports\('mask-image', 'none'\)/);
       const uses = [...js.matchAll(/localStorage/g)].length;

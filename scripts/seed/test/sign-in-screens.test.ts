@@ -286,7 +286,7 @@ describe('the sign-in screens (spec 021)', () => {
         // after main, and the script that runs it.
         const afterMain = html.split('</main>')[1] ?? '';
         expect(afterMain).toMatch(
-          /<footer class="qp-motion" hidden>\s*<button type="button" class="qp-motion__toggle" aria-pressed="false">Pause animation<\/button>/,
+          /<footer class="qp-motion" hidden>\s*<button type="button" class="qp-motion__toggle">Pause animation<\/button>/,
         );
         expect(html).toMatch(/<script src="[^"]*\/login\/queuepass\/js\/motion\.js"/);
       },

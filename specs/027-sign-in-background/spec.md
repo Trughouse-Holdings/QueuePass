@@ -148,9 +148,11 @@ answers below from the options he was offered.
   cycle about every 4 s, eased in and out; a smooth fade only, nothing that flashes (decided by
   Mahdi) (FR-013).
 - Q: How can it be stopped? → A: **A small pause button** in the page's bottom corner, a real
-  button reading "Pause animation" or "Play animation", its state also given by `aria-pressed`,
-  last in the Tab order after the form, remembered in the browser (decided by Mahdi) (FR-013;
-  WCAG 2.2.2).
+  button reading "Pause animation" or "Play animation", last in the Tab order after the form,
+  remembered in the browser (decided by Mahdi) (FR-013; WCAG 2.2.2). Its changing name alone says
+  its state, with no `aria-pressed`: that follows the implementation's review round 2 (a changing
+  name together with `aria-pressed` reads "Play animation, pressed" to a screen reader), not a
+  choice of Mahdi's; the brief had named both.
 - Q: Reduced motion, forced colors, and no scripts? → A: With reduced motion asked for, nothing
   moves (the lines stay at their resting level) and the button is not shown, since there is nothing
   to pause; in forced colors the button is hidden with the backdrop; without scripts the lines do
@@ -371,8 +373,8 @@ for the image; read the derived image's notice.
   160 of 255, the dim level Mahdi chose in T010) up to full strength and back, a whole cycle about
   every 4 s, eased in and out, a smooth fade with no flash (WCAG 2.3.1); nothing else in the backdrop moves. A small pause
   button in the page's bottom corner MUST stop and restart the pulse (WCAG 2.2.2): a real button,
-  last in the Tab order after the form, reading "Pause animation" or "Play animation" with its
-  state in `aria-pressed`, at least 24 × 24 px, with 4.5:1 text and a 3:1 focus ring against what
+  last in the Tab order after the form, whose name, "Pause animation" or "Play animation", alone
+  says its state (no `aria-pressed`), at least 24 × 24 px, with 4.5:1 text and a 3:1 focus ring against what
   is behind them wherever it sits, on every page that shows the stones. The choice MUST be
   remembered in the browser, and the page MUST work when storage is refused. With reduced motion
   asked for, the lines MUST NOT move and the button MUST NOT show; in forced colors the button is
@@ -417,7 +419,7 @@ for the image; read the derived image's notice.
   to its app within 5 seconds per page, 3 of 3 (`021` SC-002).
 - **SC-007**: For each of the three apps, an automated browser check finds the lines pulsing
   (a 4 s eased cycle between the resting and full strength), the pause button reached by Tab after
-  Sign In, pressing it pausing the pulse and switching its label and `aria-pressed`, the choice
+  Sign In, pressing it pausing the pulse and switching its name (with no `aria-pressed`), the choice
   kept after a reload, the button's text at 4.5:1 and its ring at 3:1 against its own backdrop,
   and, with reduced motion emulated, no animation and no button: 0 failures.
 

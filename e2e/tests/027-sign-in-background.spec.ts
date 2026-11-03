@@ -383,15 +383,18 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
       const toggle = page.locator('.qp-motion__toggle');
       await expect(toggle).toBeVisible();
       await expect(toggle).toHaveText('Pause animation');
-      await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      // The name alone carries the state: no aria-pressed (review round 2, must 1).
+      await expect(toggle).not.toHaveAttribute('aria-pressed');
+      await expect(toggle).toHaveAccessibleName('Pause animation');
       await page.locator('#kc-login').focus();
       await page.keyboard.press('Tab');
       await expect(toggle).toBeFocused();
 
-      // Pressed: paused, its label and aria-pressed switched, the lines still.
+      // Pressed: paused, its name switched, the lines still.
       await page.keyboard.press('Enter');
       await expect(toggle).toHaveText('Play animation');
-      await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      await expect(toggle).toHaveAccessibleName('Play animation');
+      await expect(toggle).not.toHaveAttribute('aria-pressed');
       expect((await pulse(page)).state).toBe('paused');
       // Let the pause reach the compositor before sampling.
       await page.waitForTimeout(200);
@@ -408,7 +411,7 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
       expect(reloaded.opacity).toBeCloseTo(160 / 255, 3);
       await toggle.click();
       await expect(toggle).toHaveText('Pause animation');
-      await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+      await expect(toggle).toHaveAccessibleName('Pause animation');
       await page.reload();
       await expect(toggle).toHaveText('Pause animation');
       expect((await pulse(page)).state).toBe('running');

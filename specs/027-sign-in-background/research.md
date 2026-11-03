@@ -485,18 +485,17 @@ background" (more than the issue asks).
   `animation-play-state: paused` on the lines layer: the pulse stops where it is and resumes from
   there.
 - **The button**: after `main`, `<footer class="qp-motion" hidden><button type="button"
-  class="qp-motion__toggle" aria-pressed="false">Pause animation</button></footer>` (a footer, so
+  class="qp-motion__toggle">Pause animation</button></footer>` (a footer, so
   it sits in a landmark), so it is last in
   the Tab order, in normal flow at the bottom right of the page (not fixed, so it never covers the
-  form or a focused control, WCAG 2.4.11). The script removes `hidden` and keeps the label ("Pause
-  animation" / "Play animation") and `aria-pressed` ("false" while it plays, "true" while paused)
-  in step with the state. The label naming the action and `aria-pressed` both come from Mahdi's
-  choice, and they contradict each other: paused, a screen reader announces "Play animation,
-  toggle button, pressed", where "pressed" means paused and the name names the opposite action.
-  The ARIA Authoring Practices' toggle-button pattern keeps a toggle's name fixed while its state
-  changes. Kept as Mahdi chose it, with this risk recorded, until he decides (review round 2,
-  finding 1; open, tasks T047); the fix is one of: a fixed name "Pause animation" with
-  `aria-pressed` (true while paused), or the changing label with no `aria-pressed`.
+  form or a focused control, WCAG 2.4.11). The script removes `hidden` and keeps the name ("Pause
+  animation" while it plays, "Play animation" while paused) in step with the state. The name
+  alone carries the state, with no `aria-pressed`: a changing name together with `aria-pressed`
+  contradicts itself (paused, a screen reader would announce "Play animation, toggle button,
+  pressed"), and the ARIA Authoring Practices' toggle-button pattern keeps a toggle's name fixed
+  while its state changes (review round 2, must 1, resolved). Alternative considered: a fixed name
+  "Pause animation" with `aria-pressed`; the changing name is kept because it says plainly what
+  pressing the button does.
 - **Its own backdrop.** The button can sit off the shade, over full-strength lines, so it sits on a
   small panel in `--stone-base`, padded by `--space-2` (8 px), wider than its focus ring (3 px at a
   2 px offset), so the ring is drawn on the panel, never on the stones: its text is
