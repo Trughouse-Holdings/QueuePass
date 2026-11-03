@@ -5,8 +5,8 @@ Version: 3.7.0 -> 3.8.0 (MINOR): Principle VII's sign-in exception materially ex
 Problem: in spec 027's implementation (issue #122), Mahdi brought back Keycloak's sign-in card and
   the realm's name above it, as Keycloak's own login page shows them, and then asked for the lines
   between the stones to pulse, with a pause button, then for a stronger pulse with a glow (spec 027
-  Clarifications, implementation sessions 2 to 4). The card is the shared theme's card, which the exception already allows. The
-  realm-name header is decoration, and moving lines are more decoration than the still background
+  Clarifications, implementation sessions 2 to 4). The card is the shared theme's card, which the
+  exception already allows. The realm-name header is decoration, and moving lines are more decoration than the still background
   3.7.0 allowed, which it called "the only decoration allowed"; roadmap row 027 still said the form
   sits on the stones with no card.
 Changed:
@@ -17,10 +17,10 @@ Changed:
     only decoration allowed, and every text, label, and control on them keeps the contrast its
     spec states.
   - Roadmap: row 027-sign-in-background reworded to what is built: the form on Keycloak's card,
-    styled from the shared theme, under the realm's name, instead of "no card", and the pulse
-    with its pause control. The next free number stays 028.
-Impact: spec 027's implementation (the card, the header, the pulse and its pause button, the
-  --stone-* tokens, their contrast tests) is the code this allows; no other code or spec changes.
+    styled from the shared theme, under the realm's name, instead of "no card", and the pulse and
+    glow with its pause control. The next free number stays 028.
+Impact: spec 027's implementation (the card, the header, the pulse, its glow and its pause
+  button, the --stone-* tokens, their contrast tests) is the code this allows; no other code or spec changes.
   The README's version reference follows. Templates: none need updating.
 -->
 
@@ -406,4 +406,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.8.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-02
+**Version**: 3.8.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-03
