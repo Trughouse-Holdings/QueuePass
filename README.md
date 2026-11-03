@@ -17,7 +17,7 @@ browser. `022` is built and reviewed: browser tests walk the main journey of ten
 every pull request, green on GitHub. `023` is built and reviewed; its running-system walk is
 pending. `024` is built, reviewed, and walked on the running system. `025` and `026` are
 built, reviewed, and walked on the running system (path B; their browser tests run in CI). `027`
-is built and reviewed (with Constitution 3.8.0 for its header); its walk is pending.
+is built and reviewed (with Constitution 3.8.0 for its header and its pulse); its walk is pending.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                       | Spec             | Plan and tasks     | Code                         |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------------- |
@@ -51,8 +51,8 @@ is built and reviewed (with Constitution 3.8.0 for its header); its walk is pend
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. Every sign-in page
 shows Keycloak's grey stones with the lines between them in the app's own color, "QUEUEPASS" above,
-and the form on Keycloak's card (`027`). In the Admin app, admins
-list, view, create, edit, and delete venues and events. Deleting asks for confirmation first,
+and the form on Keycloak's card; the lines pulse gently, with a pause button (`027`). In the
+Admin app, admins list, view, create, edit, and delete venues and events. Deleting asks for confirmation first,
 and a venue that still has events is refused with a count of what blocks it. In the Customer app,
 customers find events by name, venue, and dates, browse them as cards on any screen, and see
 every venue with what is on there; get tickets

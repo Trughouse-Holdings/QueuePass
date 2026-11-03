@@ -75,7 +75,13 @@ export async function findTargets(page: Page): Promise<Found> {
     // A field's edge is measured at rest: when focused, its focus ring is what is measured. The
     // shared field style eases its edge color, so wait for that to end.
     (document.activeElement as HTMLElement | null)?.blur();
-    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => undefined)));
+    // Finite ones only: the lines' pulse never finishes (review round 2, 5).
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => undefined)),
+    );
     const visible = (el: Element) =>
       el.checkVisibility({ visibilityProperty: true, opacityProperty: true }) &&
       el.getBoundingClientRect().width > 0;

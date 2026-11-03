@@ -6,7 +6,7 @@ description: "Task list for Sign-in Background"
 
 **Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R9),
 [data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) (no API change),
-[quickstart.md](./quickstart.md) (S0–S8)
+[quickstart.md](./quickstart.md) (S0–S9)
 
 **Issue**: [#122](https://github.com/Trughouse-Holdings/QueuePass/issues/122). The implementation
 PR's **description** says `fixes #122` on its own line. No commit message on either branch may
@@ -428,7 +428,7 @@ implementation session 3; FR-013, SC-007; research R10).
   75 passed; shared 781 (lines 96.72%); backend 1088 (97.24%); admin-app 361 (97.31%);
   customer-app 335 (97.65%); booth-app 94 (93.44%); seed 166 (99.29%); the quick Los Angeles
   time-zone run passes. Every workspace is above the 80% floor.
-- [ ] T029 Running-system walk, quickstart S0–S8, on a stack built from this branch; record each
+- [ ] T029 Running-system walk, quickstart S0–S9, on a stack built from this branch; record each
   scenario's result here (Constitution VI smoke test: each front end signed into, used, signed out).
 - [ ] T030 Mahdi walks the sign-in pages in his own browser and approves the look (the issue's
   Process: "The user walks it before merging"); record it here.
@@ -446,7 +446,8 @@ implementation session 3; FR-013, SC-007; research R10).
   (T017–T021)** needs US1's layers. **US3 (T022)** needs US2. **US4 (T023–T024)** needs T017's
   measuring fixture and T015's page color.
 - **Card (T032–T037)** after US4; T022's ring fix carries into T036. T038 after T037.
-- **Polish (T025–T031)** after every story and the card.
+- **Pulse (T039–T047)** after T038; T039–T041 (tests) before T042–T043.
+- **Polish (T025–T031)** after every story, the card, and the pulse.
 
 ### Parallel opportunities
 
@@ -516,3 +517,26 @@ implementation session 3; FR-013, SC-007; research R10).
     message-only rewrite of the unpushed branch (the tree is unchanged).
   - nit 16, in part: the no-card tasks (T013, T015, T019, T020) keep their wording as history; the
     Phase 6b note says T032–T037 changed what they built.
+- **Round 2** (T047, an independent read-only Claude session, 2026-11-02, the pulse's delta
+  `bcef955..`): 1 must-fix, 7 should-fix, 11 nits; it found the core sound (WCAG 2.2.2 and 2.3.1,
+  reduced motion, forced colors, storage, the rest opacity, R5's peak bound, the README count, and
+  keeping the constitution at 3.8.0). Fixed in the `Review 027: implementation review round 2`
+  commit:
+  - should: the backdrop comment in `login.css` named "still"; plan.md (Constitution Check VIII,
+    the source tree with `motion.js`, `theme.properties` and `eslint.config.mjs`, S9); tasks.md and
+    README (S0–S9, the Phase 6c dependency, the pulse in Today and in the status line); the shared
+    fixture no longer waits on infinite animations; S9 checks the ring is the theme's (solid, 3 px,
+    the app's `--stone-accent`), that a remembered pause starts at rest, and samples the running
+    pulse three times; FR-013 states the resting level.
+  - nits: the button inherits the theme's typeface; no pause button (and no pulse) where masks are
+    not supported; the panel is a `<footer>` landmark; the forced-colors test matches exact
+    selectors; the panel contrast guard reads the parsed tokens; the storage-refused step checks
+    nothing was remembered; the constitution and quickstart rewrapped.
+  - Left: nit 12 (the button's two labels are English in the template and the script, not in
+    `messages_en.properties`; English only, as the rest of QueuePass); nit 17 (the Impl commit's
+    subject cites T044 and T045, whose work other commits carry).
+- **Open, for Mahdi** (round 2, must 1): the button changes its label ("Pause animation" / "Play
+  animation") and also sets `aria-pressed`, as he chose; a screen reader then hears, paused, "Play
+  animation, toggle button, pressed", which contradicts itself, and the ARIA toggle-button pattern
+  keeps the name fixed. Recorded in R10; the fix is one of a fixed name with `aria-pressed`, or the
+  changing label without it.

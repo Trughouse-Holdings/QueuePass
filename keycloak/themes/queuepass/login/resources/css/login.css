@@ -22,8 +22,8 @@ body {
 
 /* ------------------------------------------------------ the backdrop (spec 027 R4) */
 /* One fixed box behind the page, so the stones and the lines (both 1920×1080, both
-   center / cover) line up at every window size and stay put while a long page scrolls. Still:
-   no animation or transition (FR-013). */
+   center / cover) line up at every window size and stay put while a long page scrolls. No
+   transition; the only animation is the lines' pulse below (R10, FR-013). */
 .qp-stones {
   position: fixed;
   inset: 0;
@@ -114,6 +114,7 @@ body {
   border: 0;
   background: transparent;
   color: var(--stone-text);
+  font: inherit;
   font-size: 13px;
   cursor: pointer;
 }

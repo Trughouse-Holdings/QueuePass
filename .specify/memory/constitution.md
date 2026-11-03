@@ -19,8 +19,8 @@ Changed:
     styled from the shared theme, under the realm's name, instead of "no card", and the pulse
     with its pause control. The next free number stays 028.
 Impact: spec 027's implementation (the card, the header, the pulse and its pause button, the
-  --stone-* tokens, their contrast tests) is the code this allows; no other code or spec changes. The README's version reference
-  follows. Templates: none need updating.
+  --stone-* tokens, their contrast tests) is the code this allows; no other code or spec changes.
+  The README's version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -249,9 +249,10 @@ lines between the stones in the app's accent, and, above the sign-in card, the r
 Keycloak's own login page shows it (spec `027`). The lines MAY pulse gently, only with a control
 on the page that pauses them, and never when the person's system asks for reduced motion. That
 background, its pulse, and that header are the only decoration allowed, and every text, label, and
-control on them MUST keep the contrast its spec states. Those accents, and the colors the sign-in screens draw on that background, are tokens in the
-shared theme, defined only in its token blocks and checked by its contrast tests. The apps
-themselves keep the one shared accent and use none of them.
+control on them MUST keep the contrast its spec states. Those accents, and the colors the sign-in
+screens draw on that background, are tokens in the shared theme, defined only in its token blocks
+and checked by its contrast tests. The apps themselves keep the one shared accent and use none of
+them.
 
 Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
 without anyone spending time on visual design, and a change to the look is made once.

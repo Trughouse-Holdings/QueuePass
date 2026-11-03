@@ -242,10 +242,7 @@ describe('the sign-in backdrop (spec 027)', () => {
 // Spec 027 research R10 (FR-013): the pause button sits on its own --stone-base panel, so its
 // text and its focus ring hold over any line, in either scheme (the tokens are the same in both).
 describe('the pause button panel (spec 027 R10)', () => {
-  const stone = (name: string) => {
-    const block = css.match(/(?:^|\n):root\s*\{([^}]*)\}/)?.[1] ?? '';
-    return block.split(`--${name}:`)[1]?.split(';')[0]?.trim() ?? '';
-  };
+  const stone = (name: string): string => light[name] ?? '';
 
   it('shows --stone-text on --stone-base at 4.5:1 or more', () => {
     expect(contrast(stone('stone-text'), stone('stone-base'))).toBeGreaterThanOrEqual(4.5);

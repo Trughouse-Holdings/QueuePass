@@ -69,8 +69,8 @@ For each app, in light and dark schemes, at 360×800 (DevTools device mode), 768
 ## S5. Keyboard and screen reader (US2; FR-005, FR-008)
 
 On one page per app, in both schemes. **Expected**: focus starts in the username field; Tab goes
-username → password → Show → Sign In → Pause animation; every focus ring is clearly visible on the card, in the
-app's accent; Show reveals the password; Enter submits. With VoiceOver: the page title and the one
+username → password → Show → Sign In → Pause animation; every focus ring is clearly visible, in the
+app's accent on the card and its lighter accent on the pause button's panel; Show reveals the password; Enter submits. With VoiceOver: the page title and the one
 heading name the app; after a wrong password, the focused field reads the message out; neither
 the background nor the "QUEUEPASS" header is announced.
 

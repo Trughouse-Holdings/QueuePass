@@ -276,8 +276,8 @@ describe('the sign-in backdrop (spec 027)', () => {
     it('hides the button with the backdrop in forced colors', () => {
       const forced = all().filter(inside('@media (forced-colors: active)'));
       const sels = forced.filter(([, b]) => /display:\s*none/.test(b)).map(([s]) => s);
-      expect(sels.join(',')).toMatch(/\.qp-motion/);
-      expect(sels.join(',')).toMatch(/\.qp-stones/);
+      expect(sels).toContain('.qp-motion');
+      expect(sels).toContain('.qp-stones');
     });
 
     it('keeps the panel hidden while it has the hidden attribute', () => {
@@ -289,6 +289,8 @@ describe('the sign-in backdrop (spec 027)', () => {
       expect(panel).toMatch(/background:\s*var\(--stone-base\)/);
       expect(panel).toMatch(/padding:\s*var\(--space-2\)/);
       expect(bodiesNaming('.qp-motion__toggle')).toMatch(/color:\s*var\(--stone-text\)/);
+      // The theme's typeface, not the browser's button font (review round 2, 9).
+      expect(bodiesNaming('.qp-motion__toggle')).toMatch(/font:\s*inherit/);
       const ring = bodiesNaming('.qp-motion__toggle:focus-visible');
       expect(ring).toMatch(/outline:\s*3px solid var\(--stone-accent\)/);
       expect(ring).toMatch(/outline-offset:\s*2px/);
@@ -297,7 +299,7 @@ describe('the sign-in backdrop (spec 027)', () => {
     it('has the hidden panel and its button after main, last in the Tab order', () => {
       const afterMain = template().split('</main>')[1] ?? '';
       expect(afterMain).toMatch(
-        /<div class="qp-motion" hidden>\s*<button type="button" class="qp-motion__toggle" aria-pressed="false">Pause animation<\/button>\s*<\/div>/,
+        /<footer class="qp-motion" hidden>\s*<button type="button" class="qp-motion__toggle" aria-pressed="false">Pause animation<\/button>\s*<\/footer>/,
       );
       expect(afterMain).not.toMatch(/<(a|input|select|textarea)\b/);
     });
@@ -310,6 +312,8 @@ describe('the sign-in backdrop (spec 027)', () => {
         '',
       );
       expect(js).toContain("'qp-sign-in-motion'");
+      // No pulse, so no pause button, where masks are not supported (review round 2, 10).
+      expect(js).toMatch(/CSS\.supports\('mask-image', 'none'\)/);
       const uses = [...js.matchAll(/localStorage/g)].length;
       expect(uses).toBeGreaterThan(0);
       // Every use of localStorage sits in a try block.

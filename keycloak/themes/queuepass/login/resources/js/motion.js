@@ -32,6 +32,9 @@
     button.textContent = paused ? 'Play animation' : 'Pause animation';
   }
 
+  // A browser without masks draws no lines (login.css), so there is nothing to pulse or pause.
+  if (!(window.CSS && CSS.supports('mask-image', 'none'))) return;
+
   root.classList.add('qp-animate');
   if (rememberedPaused()) root.classList.add('qp-paused');
 

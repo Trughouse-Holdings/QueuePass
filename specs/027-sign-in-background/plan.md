@@ -92,7 +92,7 @@ six tokens, about fifteen files.
 | V. Sign-in everywhere | Sign-in stays on Keycloak's page; same form, same flow (spec FR-005) | Pass |
 | VI. Test-first, real database | Tests first for tokens, contrast, drift, theme files, the generator; live Keycloak test; browser test in the `e2e` job; the generator counts toward `scripts/seed`'s coverage | Pass |
 | VII. Function over finish, one shared look | **Needs amendment**: a background is decoration. Amended to 3.7.0 in this PR (R9); colors stay in the shared theme's token blocks, contrast is a stated, tested target, and the apps are untouched | Pass after amendment; the realm header and roadmap row `027` by 3.8.0 in the implementation PR (T038) |
-| VIII. Staged simplicity | One image derived once; no runtime work; no animation; no per-app images | Pass |
+| VIII. Staged simplicity | One image derived once; no per-app images; one small script, for the pulse's pause button (R10), and one animation of one layer's opacity | Pass |
 
 Re-check after design: unchanged. The amendment is the only deviation and is made, not worked
 around.
@@ -107,7 +107,7 @@ specs/027-sign-in-background/
 ├── plan.md              # this file
 ├── research.md          # R1–R9
 ├── data-model.md        # tokens, theme files, the lines image
-├── quickstart.md        # S0–S8, the running-system gate
+├── quickstart.md        # S0–S9, the running-system gate
 ├── contracts/README.md  # no API change
 ├── checklists/requirements.md
 └── tasks.md             # /speckit-tasks
@@ -120,9 +120,11 @@ keycloak/themes/queuepass/
 ├── NOTICE                                       # NEW: the lines image's source and license (R3)
 ├── LICENSE-keycloak.txt                         # NEW: Apache License 2.0, as Keycloak ships it (R3)
 └── login/
-    ├── template.ftl                             # .qp-stones; realm header; Keycloak's card (R4, R7)
+    ├── template.ftl                             # .qp-stones; realm header; Keycloak's card; pause button (R4, R7, R10)
+    ├── theme.properties                         # scripts=js/motion.js (R10)
     └── resources/
-        ├── css/login.css                        # layers, shade, header, card, 7th role (R4–R7)
+        ├── css/login.css                        # layers, shade, pulse, header, card, 7th role (R4–R7, R10)
+        ├── js/motion.js                         # NEW: the pause button, and the pulse only with it (R10)
         └── img/stone-lines.png                  # NEW: generated (R2, R3)
 packages/shared/src/web/theme.css                # six --stone-* tokens in both blocks (R6)
 packages/shared/test/theme/
@@ -140,14 +142,15 @@ scripts/seed/
     ├── stone-lines.test.ts                      # NEW: the generator (R8)
     ├── login-theme-files.test.ts                # backdrop, lines image, notice, no copy (R8)
     └── sign-in-screens.test.ts                  # live: images served, SHA-256 (R8)
-e2e/tests/027-sign-in-background.spec.ts         # NEW: S1, S3, S6 (R8)
+e2e/tests/027-sign-in-background.spec.ts         # NEW: S1, S3, S6, S9 (R8, R10)
 e2e/fixtures/backdrop.ts                         # NEW: measuring the header and the card (R8)
 package-lock.json                                # the seed workspace lists fast-png; no new package (R3)
 .specify/memory/constitution.md                  # 3.7.0, Principle VII, roadmap 027 (R9) — this spec PR
 README.md                                        # version reference; 027 status row; the generator
+eslint.config.mjs                                # the theme's script is a browser script (R10)
 ```
 
-`keycloak/Dockerfile`, `theme.properties`, `login.ftl`, `messages_en.properties`, the seed's
+`keycloak/Dockerfile`, `login.ftl`, `messages_en.properties`, the seed's
 provisioning, `docker-compose.yml`, and the apps are not changed. The existing
 `COPY keycloak/themes/queuepass …` puts the new files in the image.
 

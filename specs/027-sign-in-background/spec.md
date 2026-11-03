@@ -367,9 +367,9 @@ for the image; read the derived image's notice.
   Constitution II).
 - **FR-012**: The apps themselves MUST NOT change: no background, no new colors, and no use of the
   sign-in look's colors (Constitution VII).
-- **FR-013**: The lines between the stones MUST pulse gently: from their resting strength (the dim
-  level of FR-003) up to full strength and back, a whole cycle about every 4 s, eased in and out,
-  a smooth fade with no flash (WCAG 2.3.1); nothing else in the backdrop moves. A small pause
+- **FR-013**: The lines between the stones MUST pulse gently: from their resting strength (alpha
+  160 of 255, the dim level Mahdi chose in T010) up to full strength and back, a whole cycle about
+  every 4 s, eased in and out, a smooth fade with no flash (WCAG 2.3.1); nothing else in the backdrop moves. A small pause
   button in the page's bottom corner MUST stop and restart the pulse (WCAG 2.2.2): a real button,
   last in the Tab order after the form, reading "Pause animation" or "Play animation" with its
   state in `aria-pressed`, at least 24 × 24 px, with 4.5:1 text and a 3:1 focus ring against what

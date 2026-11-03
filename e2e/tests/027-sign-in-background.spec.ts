@@ -332,6 +332,9 @@ async function pauseLook(page: Page) {
       panel: panel.backgroundColor,
       ring: b.outlineColor,
       ringStyle: b.outlineStyle,
+      ringWidth: b.outlineWidth,
+      // The app's --stone-accent, as the lines are drawn in it.
+      accent: getComputedStyle(document.querySelector('.qp-stones')!, '::before').backgroundColor,
       ringReach: parseFloat(b.outlineOffset) + parseFloat(b.outlineWidth),
       padding: Math.min(
         ...['top', 'right', 'bottom', 'left'].map((side) =>
@@ -368,9 +371,13 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
         direction: 'alternate',
         state: 'running',
       });
-      const first = running.opacity;
-      await page.waitForTimeout(700);
-      expect((await pulse(page)).opacity).not.toBe(first);
+      // Three samples, so a symmetric pair around the turn cannot look still (review round 2, 16).
+      const samples = [running.opacity];
+      for (let i = 0; i < 2; i++) {
+        await page.waitForTimeout(350);
+        samples.push((await pulse(page)).opacity);
+      }
+      expect(new Set(samples).size).toBeGreaterThanOrEqual(2);
 
       // Last in the Tab order: right after Sign In.
       const toggle = page.locator('.qp-motion__toggle');
@@ -395,7 +402,10 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
       // Remembered across a reload, and undone.
       await page.reload();
       await expect(toggle).toHaveText('Play animation');
-      expect((await pulse(page)).state).toBe('paused');
+      // A remembered pause never starts moving: still at rest (R10; review round 2, 7).
+      const reloaded = await pulse(page);
+      expect(reloaded.state).toBe('paused');
+      expect(reloaded.opacity).toBeCloseTo(160 / 255, 3);
       await toggle.click();
       await expect(toggle).toHaveText('Pause animation');
       await expect(toggle).toHaveAttribute('aria-pressed', 'false');
@@ -407,7 +417,10 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
       const look = await pauseLook(page);
       expect(look.focused).toBe(true);
       expect(contrast(parseColor(look.text), parseColor(look.panel))).toBeGreaterThanOrEqual(4.5);
-      expect(look.ringStyle).not.toBe('none');
+      // The theme's ring, not the browser's own (review round 2, 6).
+      expect(look.ringStyle).toBe('solid');
+      expect(look.ringWidth).toBe('3px');
+      expect(look.ring).toBe(look.accent);
       expect(contrast(parseColor(look.ring), parseColor(look.panel))).toBeGreaterThanOrEqual(3);
       expect(look.padding).toBeGreaterThan(look.ringReach);
       expect(look.width).toBeGreaterThanOrEqual(24);
@@ -434,6 +447,10 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
       await toggle.click();
       await expect(toggle).toHaveText('Play animation');
       expect((await pulse(page)).state).toBe('paused');
+      // Nothing was remembered (review round 2, 15).
+      await page.reload();
+      await expect(toggle).toHaveText('Pause animation');
+      expect((await pulse(page)).state).toBe('running');
       expect(errors).toEqual([]);
       await context.close();
     });
