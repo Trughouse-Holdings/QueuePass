@@ -39,6 +39,12 @@ export default tseslint.config(
     languageOptions: { globals: globals.node },
   },
   {
+    // Spec 027 (research R10): the sign-in look's one script, a classic browser script that
+    // Keycloak loads in the page.
+    files: ['keycloak/themes/**/*.js'],
+    languageOptions: { globals: globals.browser, sourceType: 'script' },
+  },
+  {
     // Spec 022: the browser tests run in Node (Playwright Test); the TypeScript rules above apply,
     // no React rules.
     files: ['e2e/**/*.ts'],

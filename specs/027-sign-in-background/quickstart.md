@@ -24,12 +24,13 @@ Open each app signed out, in its own private window, on a desktop-size window:
 
 **Expected**: Keycloak's grey stones cover the whole window, lighter at the top left, near black at
 the bottom right; the stones are grey and only the lines between them are colored, each line on an
-edge between two stones; a darker band behind the form fades out within about 120 px on each side,
-and beyond it the stones and lines are at full strength (on any window 800 px wide or wider); no card
-behind the form. Everything of `021` S1 is still
-there: the tab title and heading "Sign in to {app}", the audience line, the accent band at the top,
-the brand mark, and the Sign In button in the app's accent. Switch the system to the other color
-scheme and reload. **Expected**: the backdrop, its lines, and its text look the same; the fields
+edge between two stones; "QUEUEPASS" in large light capitals on the stones, and below it a card, at
+most 500 px wide, with a 4 px top edge in the app's accent; a darker band behind them fades out
+within about 120 px on each side, and beyond it the stones and lines are at full strength (on any
+window 800 px wide or wider). Everything of `021` S1 is still there, on the card: the tab title and
+heading "Sign in to {app}", the audience line, the accent band at the top, the brand mark, and the
+Sign In button in the app's accent. Switch the system to the other color scheme and reload.
+**Expected**: the backdrop, its lines, and the header look the same; the card, its text, the fields,
 and the button follow the scheme.
 
 ## S2. Told apart at a glance (SC-006)
@@ -44,8 +45,8 @@ For each app, in light and dark schemes, at 360×800 (DevTools device mode), 768
 
 1. **Expected**: the stones cover the window, cropped, never stretched; the lines stay on the
    stones' edges.
-2. DevTools' contrast check on the heading, the audience line, the labels, and the Sign In button's
-   text. **Expected**: AA passes.
+2. DevTools' contrast check on the header, the heading, the audience line, the labels, and the Sign
+   In button's text. **Expected**: AA passes.
 3. At 360 px. **Expected**: no sideways scrolling; every control usable.
 4. Browser zoom to 200% and 400% on a 1440-wide window (400% is then 360 CSS px). **Expected**: the
    page reflows; no sideways scrolling; still readable.
@@ -56,35 +57,36 @@ For each app, in light and dark schemes, at 360×800 (DevTools device mode), 768
 ## S4. Every page has the stones (US3; FR-001, FR-003, FR-005)
 
 1. On each app's page, sign in as `admin1` with the password `wrong`. **Expected**: the stones and
-   that app's lines; the message "Invalid username or password." under the fields, light red on the
-   stones, readable; the username kept.
-2. In each app, sign in (`admin1`, `customer1`, `agent1`, password `test123`), sign out, and choose to
-   sign in again. **Expected**: that app's page, with the stones.
+   that app's lines and card; the message "Invalid username or password." under the fields, in the
+   card's error color, readable; the username kept.
+2. In each app, sign in (`admin1`, `customer1`, `agent1`, password `test123`), sign out, and choose
+   to sign in again. **Expected**: that app's page, with the stones.
 3. Open http://localhost:8080/realms/queuepass/account. **Expected**: "Sign in to Account Console"
-   on the stones with indigo lines.
+   on the card, over the stones with indigo lines.
 4. Open the sign-in page's URL again after it has expired (or with a broken `client_id`).
-   **Expected**: Keycloak's notice or error page, on the stones, with the light text.
+   **Expected**: Keycloak's notice or error page, on the stones, on the card.
 5. Open http://localhost:8080/admin. **Expected**: Keycloak's admin console, unchanged.
 
 ## S5. Keyboard and screen reader (US2; FR-005, FR-008)
 
 On one page per app, in both schemes. **Expected**: focus starts in the username field; Tab goes
-username → password → Show → Sign In; every focus ring is clearly visible on the stones, in the
-app's accent; Show reveals the password; Enter submits. With VoiceOver: the page title and the one
-heading name the app; after a wrong password, the focused field reads the message out; the
-background is not announced.
+username → password → Show → Sign In → Pause animation; every focus ring is clearly visible, in the
+app's accent on the card and its lighter accent on the pause button's panel; Show reveals the
+password; Enter submits. With VoiceOver: the page title and the one heading name the app; after a
+wrong password, the focused field reads the message out; neither the background nor the "QUEUEPASS"
+header is announced.
 
 ## S6. Without the stones (FR-009, SC-005)
 
 In DevTools, block the request for `keycloak-bg.png` (Network → right-click → Block request URL) and
 reload each app's page. **Expected**: a plain stone grey page with the lines still drawn under the
-shade, the same light text, every text and control readable; signing in works.
+shade, the same header and card, every text and control readable; signing in works.
 
 ## S7. Keycloak's image, not a copy; the lines image made again (US4; FR-002, FR-010, SC-004)
 
 1. Get Keycloak's image from the running stack: open any sign-in page, read the version in its
-   stylesheet links (`/resources/{version}/login/queuepass/css/login.css`), then
-   `curl -o keycloak-bg.png http://localhost:8080/resources/{version}/login/keycloak/img/keycloak-bg.png`
+   stylesheet links (`/resources/{version}/login/queuepass/css/login.css`), then `curl -o
+   keycloak-bg.png http://localhost:8080/resources/{version}/login/keycloak/img/keycloak-bg.png`
    (outside the repository).
 2. `npm run stone-lines --workspace @queuepass/seed -- --check <path to keycloak-bg.png>`.
    **Expected**: it reports that the committed
@@ -100,6 +102,18 @@ shade, the same light text, every text and control readable; signing in works.
 
 Sign in to each front end on its new page, use it briefly, and sign out. **Expected**: as before;
 signing in takes the same steps as before `027`.
+
+## S9. The lines pulse, and pause (FR-013, SC-007)
+
+1. Open each app's page. **Expected**: the lines pulse from faint to full strength and back every 3
+   s, with a soft glow around them, smoothly, with no flash; nothing else moves. A small "Pause
+   animation" button sits at the bottom right of the page, on its own dark panel.
+2. Tab past Sign In to the button and press Enter. **Expected**: the lines stop at the dim look,
+   with no glow; the button reads "Play animation". Reload. **Expected**: still paused. Press it
+   again. **Expected**: the lines pulse again.
+3. Turn on reduced motion (system settings, or DevTools → Rendering → `prefers-reduced-motion:
+   reduce`) and reload. **Expected**: nothing moves, at the dim level; no button.
+4. Turn off JavaScript and reload. **Expected**: nothing moves; no button; signing in still works.
 
 ## Tests that run without a browser
 
@@ -118,11 +132,12 @@ manual. `npm test` checks this table against `e2e/tests`.
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: a stack with the new look, which every `npm run e2e` starts |
-| S1 | Manual: until T013 adds `027 S1: each app's sign-in page shows the stones with its accent in the lines and no card`; the look is also checked by eye |
+| S1 | Automated: `027 S1: each app's sign-in page shows the stones with its accent in the lines, the QUEUEPASS header, and its card`; rest Manual: the look checked by eye |
 | S2 | Manual: told apart by a person |
-| S3 | Manual: until T017 adds `027 S3: every text, field edge and focus ring on the stones meets its contrast at five window sizes, light and dark`; zoom is checked by hand |
+| S3 | Automated: `027 S3: the header on the stones and every text, field edge and focus ring on the card meet their contrast at five window sizes, light and dark`; rest Manual: zoom and forced colors, checked by hand |
 | S4 | Manual: the wrong-password page is in S3's test; the other pages are covered by the live seed test and walked by hand |
 | S5 | Manual: keyboard and screen reader pass |
-| S6 | Manual: until T023 adds `027 S6: with the stones image blocked, the sign-in page stays readable` |
+| S6 | Automated: `027 S6: with the stones image blocked, the sign-in page stays readable`; rest Manual: signing in with the image blocked, by hand |
 | S7 | Manual: needs Keycloak's image outside the repository; the generator is covered by `scripts/seed`'s tests |
 | S8 | Manual: sign in, use, and sign out of each front end, by hand |
+| S9 | Automated: `027 S9: the lines pulse, and the pause button stops them, is remembered, and is gone under reduced motion`; rest Manual: JavaScript turned off, and the pulse looked at by eye |

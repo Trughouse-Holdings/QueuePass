@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "seed": "tsx src/index.ts",
+    "stone-lines": "tsx src/stone-lines/cli.ts",
     "build": "tsc --noEmit",
     "test": "vitest run --coverage"
   },
@@ -12,6 +13,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "fast-png": "^6.4.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^3.2.7"

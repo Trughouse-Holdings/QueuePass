@@ -6,7 +6,7 @@ description: "Task list for Sign-in Background"
 
 **Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R9),
 [data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) (no API change),
-[quickstart.md](./quickstart.md) (S0–S8)
+[quickstart.md](./quickstart.md) (S0–S9)
 
 **Issue**: [#122](https://github.com/Trughouse-Holdings/QueuePass/issues/122). The implementation
 PR's **description** says `fixes #122` on its own line. No commit message on either branch may
@@ -40,10 +40,10 @@ confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `027-sign-in-background-impl` from `027-sign-in-background-spec` (or from `main` once
+- [x] T001 Cut `027-sign-in-background-impl` from `027-sign-in-background-spec` (or from `main` once
   the spec PR has merged); `npm ci`; `npm run ci` green before any change, so a later failure is this
   feature's.
-- [ ] T002 Start Keycloak from this branch (`docker compose -p qp027 up --build keycloak seed`) and
+- [x] T002 Start Keycloak from this branch (`docker compose -p qp027 up --build keycloak seed`) and
   fetch Keycloak's image as quickstart S7 step 1 into a folder outside the repository. Confirm its
   SHA-256 is `0825175291be11f7689e8718295e422bb6fa4f8fefccc5610292b720c701ac4e` and that it is the
   1920×1080 grey image of research R1, R2. A different SHA-256 means Keycloak's image changed: stop
@@ -57,10 +57,10 @@ confirm they **fail** before the implementation tasks below them.
 
 ### Tests first
 
-- [ ] T003 [P] `packages/shared/test/theme/tokens.test.ts`: the eight `--stone-*` tokens of research
+- [x] T003 [P] `packages/shared/test/theme/tokens.test.ts`: the eight `--stone-*` tokens of research
   R6 with those exact values in the light block and in the dark block (the same in both); none of
   them used by any rule in `theme.css` outside the token blocks (as `021`'s accents). Must fail.
-- [ ] T004 [P] `packages/shared/test/theme/contrast.test.ts`, a new `describe` "the sign-in backdrop
+- [x] T004 [P] `packages/shared/test/theme/contrast.test.ts`, a new `describe` "the sign-in backdrop
   (spec 027)": the image's lightest and darkest greys as constants (`#898989`, `#000000`, citing
   research R2); a helper that composites `--stone-scrim` (`rgb(r g b / a%)`, as the existing scrim
   helper) over a `#rrggbb`. The `--stone-*` tokens are the same in both blocks (asserted), so one pass
@@ -70,14 +70,14 @@ confirm they **fail** before the implementation tasks below them.
   `--stone-text-muted`, `--stone-danger` at 4.5:1 or more against every one; the app's
   `--stone-accent[-<app>]` (rings) and `--stone-text-muted` (field edges) at 3:1 or more; the light
   scheme's `--surface` (the field fill) at 3:1 or more (R5). Must fail (no tokens yet).
-- [ ] T005 [P] `packages/shared/test/theme/drift.test.ts`: checker cases in "the checker, sign-in
+- [x] T005 [P] `packages/shared/test/theme/drift.test.ts`: checker cases in "the checker, sign-in
   accent mapping": `--stone-accent: var(--stone-accent-booth)` allowed inside `.qp-app--booth-app`
   beside the six roles; `--stone-accent: var(--accent-booth)`, `--stone-accent: var(--stone-accent-nope)`,
   and a rule whose `--stone-accent` names another app than its other roles each reported; a new test
   that no stylesheet of the Admin, Customer, or Ticket Booth app (the files the drift test already
   scans) contains `--stone-` or `--accent-tickets`/`--accent-booth`/`--brand-mark-*-tickets|booth`
   (FR-012). Must fail on the allowed case.
-- [ ] T006 [P] `scripts/seed/test/stone-lines.test.ts` (research R3, R8), images made in the test
+- [x] T006 [P] `scripts/seed/test/stone-lines.test.ts` (research R3, R8), images made in the test
   and read and written with `fast-png`: two flat facets with a one-pixel anti-aliased seam give one
   continuous line along the seam (no gap anywhere along it); two facets closer than `MIN_STEP` give
   none; the output is grey 255 wherever alpha is above 0; two encodes in one process give the same
@@ -90,24 +90,28 @@ confirm they **fail** before the implementation tasks below them.
 
 ### Implementation
 
-- [ ] T007 `packages/shared/src/web/theme.css`: the eight tokens in both token blocks with a comment
+- [x] T007 `packages/shared/src/web/theme.css`: the eight tokens in both token blocks with a comment
   citing spec 027 and Constitution VII's sign-in exception (R6). T003 and T004 pass.
-- [ ] T008 `packages/shared/test/theme/check-theme.ts`: `SIGN_IN_ROLES` gains `'--stone-accent':
+- [x] T008 `packages/shared/test/theme/check-theme.ts`: `SIGN_IN_ROLES` gains `'--stone-accent':
   '--stone-accent-<app>'`; the header comment names spec 027. T005 passes; `login.css` as it is still
   passes the drift test.
-- [ ] T009 `scripts/seed/src/stone-lines/` (`facets.ts`, `lines.ts`, `cli.ts`), `fast-png` (6.4.0,
+- [x] T009 `scripts/seed/src/stone-lines/` (`facets.ts`, `lines.ts`, `cli.ts`), `fast-png` (6.4.0,
   the version already in `package-lock.json`) in `scripts/seed`'s `devDependencies`, and the
   `stone-lines` script in `scripts/seed/package.json` (R3). `npm install` changes only the workspace's
   entry in `package-lock.json`, no new package (check the diff). The CLI takes a file path, checks the
   SHA-256, and writes `keycloak/themes/queuepass/login/resources/img/stone-lines.png` with the one
   `Source` chunk, or with `--check` compares instead of writing. T006 passes; the workspace stays at or
   above its coverage floor.
-- [ ] T010 Run the generator on T002's file with a few `MIN_STEP`, widening, and softening values;
+- [x] T010 Run the generator on T002's file with a few `MIN_STEP`, widening, and softening values;
   for each, make previews of the stones with the lines in each app's `--stone-accent` color (scratch
   files, outside the repository) and show them to Mahdi; he picks one. Record the values in
   `lines.ts` and here. Commit `stone-lines.png`, `keycloak/themes/queuepass/NOTICE`, and
   `keycloak/themes/queuepass/LICENSE-keycloak.txt` (the Apache License 2.0 text from
   `/opt/keycloak/LICENSE.txt` in the image) (FR-010). Then `--check` passes on the committed file.
+  **Done**: four previews (fine, soft, bold, dim), each composited for all three apps; Mahdi chose
+  **dim**: `MIN_STEP` 1, no widening, softening 50%, strength 160 (spec Clarifications,
+  implementation session). The committed image is byte-identical to the previewed one; alpha above
+  0 on 7.31% of pixels; `--check` passes.
 
 **Checkpoint**: `npm test --workspace @queuepass/shared` and `--workspace @queuepass/seed` green.
 
@@ -119,7 +123,7 @@ confirm they **fail** before the implementation tasks below them.
 
 ### Tests first
 
-- [ ] T011 [P] [US1] `scripts/seed/test/login-theme-files.test.ts` (R8): `login.css` contains
+- [x] T011 [P] [US1] `scripts/seed/test/login-theme-files.test.ts` (R8): `login.css` contains
   `url(../../keycloak/img/keycloak-bg.png)` and `url(../img/stone-lines.png)`, the lines layer inside
   `@supports (mask-image: none)` and filled with `var(--stone-accent)`, `content: ''` on both
   pseudo-elements, `@media (forced-colors: active)` hiding `.qp-stones`, no `animation` or
@@ -132,13 +136,13 @@ confirm they **fail** before the implementation tasks below them.
   License 2.0, and the change; `LICENSE-keycloak.txt` starts with the Apache License 2.0 heading; no
   file under `keycloak/` has the SHA-256 of Keycloak's image (SC-004). Must fail on the template, the
   stylesheet, and the notice.
-- [ ] T012 [P] [US1] `scripts/seed/test/sign-in-screens.test.ts` (live; skipped without Keycloak as
+- [x] T012 [P] [US1] `scripts/seed/test/sign-in-screens.test.ts` (live; skipped without Keycloak as
   today): for each client, the account console, and the no-client page, the HTML has the
   `.qp-stones` element and no `card` class; from the page's `login.css` link, resolving
   `../../keycloak/img/keycloak-bg.png` gives `200`, `image/png`, and the recorded SHA-256 (FR-010);
   resolving `../img/stone-lines.png` gives `200`, `image/png`. Must fail against a Keycloak built from
   `main`.
-- [ ] T013 [US1] Browser test `e2e/tests/027-sign-in-background.spec.ts`, title `027 S1: each app's
+- [x] T013 [US1] Browser test `e2e/tests/027-sign-in-background.spec.ts`, title `027 S1: each app's
   sign-in page shows the stones with its accent in the lines and no card` (R8): for each app, in
   light and dark: the `.qp-stones` element's computed `background-image` is Keycloak's image;
   fetching that URL in the page gives the recorded SHA-256 (`crypto.subtle.digest`), since the
@@ -151,10 +155,10 @@ confirm they **fail** before the implementation tasks below them.
 
 ### Implementation
 
-- [ ] T014 [US1] `keycloak/themes/queuepass/login/template.ftl` (R4, R7): the `.qp-stones` element
+- [x] T014 [US1] `keycloak/themes/queuepass/login/template.ftl` (R4, R7): the `.qp-stones` element
   first in `<body>`; `<div class="card card--padded qp-card">` becomes `<div class="qp-form">`;
   update the header comment (spec 027). Everything else unchanged.
-- [ ] T015 [US1] `keycloak/themes/queuepass/login/resources/css/login.css` (R4, R6, R7): `body`
+- [x] T015 [US1] `keycloak/themes/queuepass/login/resources/css/login.css` (R4, R6, R7): `body`
   background `--stone-base`; `.qp-stones` fixed full-window with the stones `center / cover
   no-repeat`; `::before` the lines (`content: ''`, `background: var(--stone-accent)`,
   `mask: url(../img/stone-lines.png) center / cover no-repeat`) inside `@supports (mask-image:
@@ -162,9 +166,14 @@ confirm they **fail** before the implementation tasks below them.
   transition; `.qp-form` with the card's width and padding and no surface; the seventh role in the
   two app rules; update the header comment. T011, T012 (after a rebuild), and T013 pass; the drift
   test passes.
-- [ ] T016 [US1] Mark S1 `Automated: \`027 S1: …\`; rest Manual: the look checked by eye` in
+- [x] T016 [US1] Mark S1 `Automated: \`027 S1: …\`; rest Manual: the look checked by eye` in
   quickstart.md's Automation table (`npm test` checks it). Look at the three pages at 1280×800 and
   1920×1080 in both schemes (screenshots kept outside the repository) and record what was seen here.
+  **Seen** (Chrome, a Keycloak built from this branch on spare ports, 1280×800 and 1920×1080,
+  light and dark, all three apps): the stones cover the window, lighter top left; the lines sit on
+  the stones' edges in indigo, teal, and amber, at the dim strength Mahdi chose, the same in both
+  schemes; no card; band, brand mark, heading, audience line, and Sign In button as in `021`. As
+  the checkpoint says, the light scheme's dark text is not yet readable on the stones.
 
 **Checkpoint**: the three pages show the stones and their lines (the text is not yet readable on
 them in the light scheme; US2 fixes it).
@@ -177,7 +186,7 @@ them in the light scheme; US2 fixes it).
 
 ### Tests first
 
-- [ ] T017 [US2] In `e2e/tests/027-sign-in-background.spec.ts`, title `027 S3: every text, field edge
+- [x] T017 [US2] In `e2e/tests/027-sign-in-background.spec.ts`, title `027 S3: every text, field edge
   and focus ring on the stones meets its contrast at five window sizes, light and dark` (R8). One
   test, as the quickstart check needs one titled test per scenario row, with
   `test.setTimeout(10 * 60_000)` and a `test.step` per app, scheme, and size: 60 page states at about
@@ -206,53 +215,247 @@ them in the light scheme; US2 fixes it).
 
 ### Implementation
 
-- [ ] T018 [US2] `login.css`: `.qp-stones::after` (`content: ''`), the shade of R5 with its fixed-width
+- [x] T018 [US2] `login.css`: `.qp-stones::after` (`content: ''`), the shade of R5 with its fixed-width
   fade (`linear-gradient(to right, transparent calc(50% - 400px), var(--stone-scrim) calc(50% -
   280px), var(--stone-scrim) calc(50% + 280px), transparent calc(50% + 400px))`), above the lines.
-- [ ] T019 [US2] `login.css` (R7): `body` text `--stone-text`; `.qp-audience` and `.qp-required` in
+- [x] T019 [US2] `login.css` (R7): `body` text `--stone-text`; `.qp-audience` and `.qp-required` in
   `--stone-text-muted`; `.qp-field-error` and `.qp-required .required` in `--stone-danger`;
   `#kc-form-login label` and the attempted username in `--stone-text`; `a:not(.banner a)` in
   `--stone-text`, underlined. Notices and links inside them unchanged.
-- [ ] T020 [US2] `login.css` (R7): text fields' edge `--stone-text-muted` when neither hovered nor
+- [x] T020 [US2] `login.css` (R7): text fields' edge `--stone-text-muted` when neither hovered nor
   focused (the shared hover state untouched); `#kc-form-login input:focus-visible { outline: 3px solid
   var(--stone-accent); outline-offset: 2px; }`; `:focus-visible` rings in `--stone-accent` on every
   other control and link on the backdrop, `021`'s `#kc-login:focus-visible` included, width and offset
   unchanged. T017 passes, three runs in a row (`npm run e2e -- --grep "027 S3"`).
-- [ ] T021 [US2] Mark S3 Automated in the Automation table (rest Manual: zoom and forced colors).
+  **Done**: S3 passed three runs in a row locally (31.2 s, 29.9 s, 29.3 s; Chrome, one worker,
+  against a Keycloak built from this branch). The run before T018–T020 failed on dark labels, the
+  light scheme's edges, and rings in the light accents. A first green attempt caught a field's edge
+  mid-transition (the shared 0.12 s border ease), so the fixture waits for running transitions.
+- [x] T021 [US2] Mark S3 Automated in the Automation table (rest Manual: zoom and forced colors).
   Then, in a browser, each app at 360 px and at 200% and 400% zoom (on a 1440 px window), both
   schemes, keyboard only, and with forced colors emulated (quickstart S3, S5): focus starts in the
   username field, Tab order username → password → Show → Sign In, every ring visible, Enter submits;
   no backdrop in forced colors; fix `login.css` for anything that fails and record what was checked
   here.
+  **Checked** (Chrome against a Keycloak built from this branch, all three apps, light and dark):
+  at 360×800 and at 200% and 400% zoom on a 1440×900 window (720 and 360 CSS px wide), no
+  sideways scrolling; focus starts in the username field; Tab goes username → password → Show →
+  Sign In, each with a 3 px ring in the app's lighter accent; Show reveals the password; Enter
+  submits; with `forced-colors: active` emulated, `.qp-stones` is not displayed and the page is in
+  the system's colors, usable. Nothing needed fixing. A screen reader pass is left for S5 (Mahdi).
 
 ---
 
 ## Phase 5: User Story 3 - Every sign-in page has the stones (P1)
 
-- [ ] T022 [US3] In a browser on the `qp027` stack, reach every page of quickstart S4 (wrong
+- [x] T022 [US3] In a browser on the `qp027` stack, reach every page of quickstart S4 (wrong
   password, sign out and back in, the account console, an expired or broken sign-in URL, Keycloak's
   logout confirmation if shown) for each app: each has the stones, the right lines, and readable
   text; Keycloak's admin console is unchanged. Fix the template or the stylesheet for any that does
   not, with a case added to T012's live test for it first. Record each page checked here.
+  **Done** (Chrome against a Keycloak built from this branch, light and dark, each app): the
+  sign-in form, a wrong password, Keycloak's logout confirmation, "You are logged out", signing in
+  again, a broken `client_id` (the error page, shared accent), the account console, and the
+  no-client page each had the stones, the right lines, and no contrast failure; the admin console
+  (master realm, Keycloak's own theme) has no stones. One defect: the logout confirmation's
+  `#kc-logout` submit input had no focus ring (the shared `input:focus` rule, as `021`'s Sign In);
+  every input now gets the ring, with a theme-file case added first, and the live test checks the
+  logout confirmation's backdrop. The ring's color moves to `--accent` on the card (T036).
 
 ---
 
 ## Phase 6: User Story 4 and the fallback (P2)
 
-- [ ] T023 [US4] In `e2e/tests/027-sign-in-background.spec.ts`, title `027 S6: with the stones image
+- [x] T023 [US4] In `e2e/tests/027-sign-in-background.spec.ts`, title `027 S6: with the stones image
   blocked, the sign-in page stays readable` (FR-009, SC-005): `page.route` aborts requests for
   `keycloak-bg.png`; the T017 checks (contrast, not the fade) at 360×800 and 1920×1080, light and
   dark, for the Ticket Booth app (its lines are the brightest); the lines and the shade are still
   drawn over `--stone-base`. Its own `test.setTimeout(3 * 60_000)` (8 page states). See it fail by
   pointing `body`'s background at the shared `--bg` for a moment, then restore `--stone-base`.
-- [ ] T024 [US4] Mark S6 Automated in the Automation table. Quickstart S7 by hand: `--check` on
+  **Done**: with `body` pointed at the shared `--bg` for a moment, S6 failed (the audience line
+  4.08:1 and the error text 4.16:1 over the light page color, and the page color check); restored to
+  `--stone-base`, it passes (2.6–3.7 s locally).
+- [x] T024 [US4] Mark S6 Automated in the Automation table. Quickstart S7 by hand: `--check` on
   T002's file passes; another PNG is refused; the notice reads right. Record it here.
+  **Done**: Keycloak's image fetched from a Keycloak built from this branch, as S7 step 1, has the
+  recorded SHA-256; `--check` on it reports the same pixels and `Source` chunk; another PNG is
+  refused, naming the SHA-256 expected; `NOTICE` names the source, its SHA-256, Red Hat, the Apache
+  License 2.0, and the change, with `LICENSE-keycloak.txt` beside it.
+
+---
+
+## Phase 6b: Keycloak's card and the QUEUEPASS header (implementation session 2)
+
+**Why**: Mahdi saw the pages with no card and brought Keycloak's card back, with the realm header
+above it (spec Clarifications, implementation session 2; research R5–R8). T011–T021 were done for
+the page with no card; the tasks below change what they built. Stones, lines, the shade, the
+fallback, and the generator are unchanged.
+
+### Tests first
+
+- [x] T032 [P] `packages/shared/test/theme/tokens.test.ts` and `contrast.test.ts`: six `--stone-*`
+  tokens (no `--stone-text-muted`, no `--stone-danger`); the backdrop's contrast check keeps
+  `--stone-text` at 4.5:1 over R5's backgrounds and drops the muted, danger, ring, edge, and fill
+  rows. Must fail while the two tokens are in the theme.
+- [x] T033 [P] `scripts/seed/test/login-theme-files.test.ts`: the "no card" cases become: in `main`,
+  `<div class="qp-realm" aria-hidden="true">` with the realm's name, then the card
+  `<div class="card card--padded qp-card">` holding the `<h1>`; `.qp-card` at most 500 px wide with
+  `border-top: 4px solid var(--accent)`; `.qp-realm` in `--stone-text`, uppercase, 29 px; every
+  input in the card ringed in `var(--accent)` (T022's fix); `login.css` uses no `--stone-text-muted`
+  or `--stone-danger`. `sign-in-screens.test.ts` (live): every page has the header and the card.
+  Must fail on the page with no card.
+- [x] T034 `e2e/tests/027-sign-in-background.spec.ts` and `e2e/fixtures/backdrop.ts`: S1 renamed
+  `027 S1: each app's sign-in page shows the stones with its accent in the lines, the QUEUEPASS
+  header, and its card`, checking one `.qp-card` at most 500 px wide whose 4 px top edge equals a
+  probe of `var(--accent)` in each scheme, and the header (`QUEUEPASS`, `aria-hidden`, one `<h1>`).
+  S3 renamed `027 S3: the header on the stones and every text, field edge and focus ring on the card
+  meet their contrast at five window sizes, light and dark`, measuring the header against the
+  backdrop alone and the card's text, field edges, and rings against the card alone (R8); its
+  `test.setTimeout(10 * 60_000)` and S6's `3 * 60_000` stay. Must fail on the page with no card.
+
+### Implementation
+
+- [x] T035 `packages/shared/src/web/theme.css`: remove `--stone-text-muted` and `--stone-danger` from
+  both token blocks; the comment names six tokens. T032 passes.
+- [x] T036 `template.ftl` and `login.css` (R7): the realm header and Keycloak's card in the shared
+  theme; the text in the card back to the shared colors; every input's ring in `var(--accent)`; the
+  stones-colored text, field-edge, and ring rules removed. T033 and T034 pass, S3 three runs in a row.
+  **Done**: S1, S3, and S6 pass against a Keycloak built from this branch (Chrome, one worker); S3
+  three runs in a row (58.8 s, 58.3 s, 57.0 s, now two screenshots per page state), S6 6.9 s. Before
+  T035–T036 all three failed, as did 5 theme-file cases and 7 live cases. T021's checks redone on
+  the card (360 px, 200% and 400% zoom, Tab order and 3 px rings in each app's `--accent`, forced
+  colors): 18 of 18 states pass. T022's walk redone: every page has the stones, the right lines,
+  one card, and no contrast failure.
+- [x] T037 Quickstart's S1 and S3 rows name the new titles (`npm test` checks them). Look at the
+  three pages in both schemes, at 360×800 and 1920×1080, and record what was seen here.
+  **Seen** (Chrome, 360×800 and 1920×1080, light and dark, each app, first page and after a wrong
+  password): "QUEUEPASS" in light capitals on the shaded stones; below it the card, 500 px wide on
+  a wide window and the full width less 12 px a side on a phone, with a 4 px top edge in the app's
+  accent, white in light and dark grey in dark; inside it the brand mark, "Sign in to …", the
+  audience line, the fields, and Sign In in the app's accent; the stones and lines beyond the shade
+  at full strength on a wide window. The rows were renamed in the Clarify commit.
+- [x] T038 Constitution 3.8.0 (MINOR), in this branch as 3.7.0 was in the spec PR: Principle VII's
+  sign-in exception also allows, above the sign-in card, the realm's name as Keycloak's own login
+  page shows it, and the background and that header are the only decoration allowed; roadmap row
+  `027` describes the card and the header instead of "no card"; a new Sync Impact Report, the
+  version and Last Amended lines, and the README's version reference. Shared surface: every team
+  member approves it in the implementation PR (spec Clarifications).
+
+---
+
+## Phase 6c: The pulse and its pause button (implementation session 3)
+
+**Why**: Mahdi asked for the lines to pulse gently, with a pause button (spec Clarifications,
+implementation session 3; FR-013, SC-007; research R10).
+
+### Tests first
+
+- [x] T039 [P] `scripts/seed/test/login-theme-files.test.ts`: `@keyframes qp-lines-pulse` from
+  `opacity: 0.6275` to `opacity: 1`; the lines layer rests at `opacity: 0.6275` and runs it as
+  `2s ease-in-out infinite alternate` only under `.qp-animate`; `.qp-paused` sets
+  `animation-play-state: paused`; reduced motion removes it and hides `.qp-motion`; forced colors
+  hide `.qp-motion`; `.qp-motion[hidden]` stays hidden; the panel in `--stone-base` with
+  `--space-2` padding, the button's text in `--stone-text` and its ring in `--stone-accent`; no
+  `transition` on the backdrop; `template.ftl` has the hidden panel and the button after `</main>`;
+  `theme.properties` has `scripts=js/motion.js`; `motion.js` uses the key `qp-sign-in-motion` inside
+  `try`/`catch`. `stone-lines.png` is opaque (alpha 255) on its edges. `sign-in-screens.test.ts`
+  (live): every page with the stones has the panel, the button, and the script. Must fail.
+- [x] T040 [P] `packages/shared/test/theme/contrast.test.ts`: `--stone-text` on `--stone-base` at
+  4.5:1 or more, and each app's `--stone-accent` on `--stone-base` at 3:1 or more (the pause
+  button's text and ring, R10). The tokens already pass, so this is a guard: seen failing by
+  measuring each ring against the ring's own color for a moment.
+- [x] T041 `e2e/tests/027-sign-in-background.spec.ts`: `027 S9: the lines pulse, and the pause
+  button stops them, is remembered, and is gone under reduced motion` (each app): the lines layer's
+  `animation-name` `qp-lines-pulse`, 2 s, infinite, alternate, running; the button visible, reading
+  "Pause animation", reached by Tab right after Sign In; pressing it pauses the animation,
+  switches its name (no `aria-pressed`, review round 2), and survives a reload; pressing it again
+  resumes; the button's text 4.5:1 and its ring 3:1 against its panel, the panel padded wider than
+  the ring; with `localStorage` throwing, the button still works; with reduced motion emulated, no
+  animation and no button. S3 and S6 freeze the lines at their peak while measuring. Its own
+  `test.setTimeout(2 * 60_000)`. Must fail.
+
+### Implementation
+
+- [x] T042 `scripts/seed/src/stone-lines/lines.ts`: `SETTINGS.strength` 255; regenerate
+  `stone-lines.png` and `--check` it; `NOTICE` says opaque edges.
+- [x] T043 `login.css`, `template.ftl`, `theme.properties`, `login/resources/js/motion.js` (R10).
+  T039 and T041 pass; S3 three runs in a row.
+  **Done**: before T042–T043, 9 theme-file cases, 7 live cases, and `027 S9` failed; now all
+  pass against a Keycloak built from this branch, with S1, S3 (the lines held at their peak while
+  measuring), and S6. The regenerated image is the dim one exactly scaled: its alpha values are
+  0, 128, 255, and 160/255 of each is the T010 file's 0, 80, 160, pixel for pixel. The panel's
+  contrast guard (T040) was seen failing with its ring measured against itself, then restored.
+  Keycloak's sign-in pages send `Content-Security-Policy: frame-src 'self'; frame-ancestors
+  'self'; object-src 'none';` (no `script-src`), checked on the running stack.
+- [x] T044 Constitution: check 3.8.0's wording covers animated lines and a pause control; amend if
+  not, at 3.8.0 (unreleased, in this PR).
+  **Done**: 3.8.0's words allowed the background, still, as "the only decoration allowed"; a
+  follow-up `Constitution: 3.8.0, …` commit adds the pulse (only with a pause control, never under
+  reduced motion) to the sign-in exception and to row 027. It stays 3.8.0: an amendment takes
+  effect when merged, and 3.8.0 is not merged yet.
+- [x] T045 Quickstart S5 and S9, the S9 Automation row; README count.
+- [x] T046 `npm run ci` and the 027 browser tests three times locally.
+  **Done** (after round 2's fixes, live seed tests against a Keycloak built from this branch, none
+  skipped): format, lint, the e2e typecheck, and the build pass; `npm test`: root scripts 75;
+  shared 785 (lines 96.72%); backend 1088 (97.24%); admin-app 361 (97.31%); customer-app 335
+  (97.65%); booth-app 94 (93.44%); seed 174 (99.29%); the quick time-zone run passes. `027 S1`,
+  `S3`, `S6`, and `S9` passed three runs in a row locally (S3 40–46 s, S9 about 7 s).
+- [x] T047 Independent review of this delta (round 2); fix and record it below; retake the
+  screenshots.
+  **Done**: round 2 in the review record below, one finding left for Mahdi; 14 screenshots (each
+  app, light and dark, 1920×1080 and 360×800, plus paused and reduced motion) kept outside the
+  repository.
+
+---
+
+## Phase 6d: A stronger pulse with a glow (implementation session 4)
+
+**Why**: Mahdi could not see the session-3 pulse and chose a strong glow from a live mock-up (spec
+Clarifications, implementation session 4; FR-013, SC-007; research R4, R5, R10).
+
+### Tests first
+
+- [x] T048 [P] `login-theme-files.test.ts`: `@keyframes qp-lines-pulse` from `opacity: 0.1` to
+  `opacity: 1`; `1.5s ease-in-out infinite alternate` on the lines and on `.qp-glow`; the template's
+  backdrop is `<div class="qp-stones" aria-hidden="true"><div class="qp-glow"></div></div>`;
+  `.qp-glow` is hidden by default, `filter: blur(6px)`, its `::before` the accent through
+  `stone-lines.png` (inside `@supports`), shown only under `.qp-animate`; paused removes the
+  animation and hides the glow; reduced motion hides the glow. `sign-in-screens.test.ts` (live):
+  the glow element inside the backdrop on every page. Must fail.
+- [x] T049 `027 S9`: the glow layer shown, blurred 6 px, running the same keyframes and timing as
+  the lines and in step with them; paused and reduced motion: no animation, no glow, the lines at
+  0.6275. S3 and S6 hold the lines and the glow at their peak. Must fail.
+  **Done**: `027 S9` failed on a Keycloak built before T050 (`toMatchObject`: no 1.5 s timing, no
+  glow), and passed after it (2026-11-03), with S1, S3, and S6, one run before T052's three.
+
+### Implementation
+
+- [x] T050 `template.ftl` and `login.css` (R4, R10). T048 and T049 pass.
+- [x] T051 R5's worst case with the peak glow (a mix of a stone and the line color is no lighter
+  than the lighter of the two: the bound and the shared contrast test stand); the constitution's
+  "pulse gently" checked against a strong glow, reworded at 3.8.0 if needed.
+  **Done**: at the peak the glow only mixes the line color into the stones around the lines, and
+  a mix is never lighter than the lighter of the two, so R5's bound (and the shared contrast test)
+  stands: the header's lowest is still 8.08:1 (Booth). S3 and S6, measuring with the lines and the
+  glow held at full strength, passed (one run, 2026-11-03; T052 has the three). The constitution's "pulse gently" no longer fit: a second
+  `Constitution: 3.8.0, …` follow-up says the lines may pulse and glow, smoothly and with no flash.
+- [x] T052 `npm run ci` and the 027 browser tests three times locally.
+  **Done** (after round 3's fixes, the live seed tests against a Keycloak built from this branch,
+  none skipped): format, lint, the e2e typecheck, and the build pass; `npm test`: root scripts 75;
+  shared 785 (lines 96.72%); backend 1088 (97.24%); admin-app 361 (97.31%); customer-app 335
+  (97.65%); booth-app 94 (93.44%); seed 177 (99.29%); the quick time-zone run passes. `027 S1`,
+  `S3`, `S6`, and `S9` passed three runs in a row (S3 1.4–1.5 min with the glow, S9 about 5 s).
+- [x] T053 Independent review of this delta (round 3); fix and record it below.
+  **Done**: round 3 in the review record below; nothing left open but nit 8 (history).
+- [x] T054 Screenshots of the peak and the rest for the three apps; README count.
+  **Done**: each app, light and dark, 1920×1080, at the peak (held, with the glow) and at rest
+  (paused), plus the standard set, kept outside the repository; README 50/54.
 
 ---
 
 ## Phase 7: Polish, review, pull request
 
-- [ ] T025 README: the `027` status row (status and task count), a sentence in **Today** (the sign-in
+- [x] T025 README: the `027` status row (status and task count), a sentence in **Today** (the sign-in
   pages show Keycloak's stones with each app's color between them), a note under the shared look that
   the sign-in look's backdrop colors are `--stone-*` tokens, and the `stone-lines` command beside the
   Keycloak rebuild note; the constitution reference already reads v3.7.0.
@@ -260,18 +463,31 @@ them in the light scheme; US2 fixes it).
   (`npm run test:tz`); record the counts, and the e2e job's time on GitHub for this branch: it must
   stay under about 15 minutes (on `main` it is 6 min 10 s, run 41520953833), well inside the job's
   `timeout-minutes: 30` and spec `022` SC-003 (R8). Record `027 S3`'s and `027 S6`'s own times too.
-- [ ] T027 Independent review by a separate Claude session (Constitution III) of the implementation
+  **Partly done (left open)**: `npm run e2e` cannot run on the implementing machine (the team
+  stack holds its ports and its images download packages), so the whole suite three times, and the
+  e2e job's time, are left for CI on GitHub. Locally, against a Keycloak built from this branch,
+  in the installed Chrome, opening Keycloak's sign-in URL directly instead of the apps: `027 S1`,
+  `027 S3`, and `027 S6` passed three runs in a row (S1 about 1.5 s, S3 about 1.1–1.2 min with
+  two screenshots per page state, S6 5–8 s). `npm run test:tz`: all four zones (New York, UTC,
+  Los Angeles, Honolulu) pass for shared, backend, and the three apps.
+- [x] T027 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round, its findings, and
   any left open here.
-- [ ] T028 `npm run ci` locally, green, with Keycloak up so the live tests run; record the counts per
+  **Done**: round 1, findings and their fixes in the review record below; two left open there.
+- [x] T028 `npm run ci` locally, green, with Keycloak up so the live tests run; record the counts per
   workspace and each workspace's line coverage.
-- [ ] T029 Running-system walk, quickstart S0–S8, on a stack built from this branch; record each
+  **Done** (after the review fixes, with a Keycloak built from this branch so the live seed tests
+  ran, none skipped): format, lint, the e2e typecheck, and the build pass; `npm test`: root scripts
+  75 passed; shared 781 (lines 96.72%); backend 1088 (97.24%); admin-app 361 (97.31%);
+  customer-app 335 (97.65%); booth-app 94 (93.44%); seed 166 (99.29%); the quick Los Angeles
+  time-zone run passes. Every workspace is above the 80% floor.
+- [ ] T029 Running-system walk, quickstart S0–S9, on a stack built from this branch; record each
   scenario's result here (Constitution VI smoke test: each front end signed into, used, signed out).
 - [ ] T030 Mahdi walks the sign-in pages in his own browser and approves the look (the issue's
   Process: "The user walks it before merging"); record it here.
 - [ ] T031 Push and open the implementation PR (after the spec PR has merged and the branch is up to
   date with `main`): description says `fixes #122`, lists the review, the walk, the test counts, and
-  the shared surface touched (`packages/shared/`; the constitution was in the spec PR). Wait for CI
+  the shared surface touched (`packages/shared/`; 3.7.0 was in the spec PR; 3.8.0, T038, is in this one). Wait for CI
   green on GitHub (`test` and `e2e`) on the final commit; merge only when green and approved.
 
 ---
@@ -282,7 +498,10 @@ them in the light scheme; US2 fixes it).
 - **US1 (T011–T016)** needs T007 (tokens), T008 (seventh role), and T010 (the lines image). **US2
   (T017–T021)** needs US1's layers. **US3 (T022)** needs US2. **US4 (T023–T024)** needs T017's
   measuring fixture and T015's page color.
-- **Polish (T025–T031)** after every story.
+- **Card (T032–T037)** after US4; T022's ring fix carries into T036. T038 after T037.
+- **Pulse (T039–T047)** after T038; T039–T041 (tests) before T042–T043.
+- **Glow (T048–T054)** after T047; T048–T049 (tests) before T050.
+- **Polish (T025–T031)** after every story, the card, and the pulse.
 
 ### Parallel opportunities
 
@@ -325,3 +544,75 @@ them in the light scheme; US2 fixes it).
   R3's reason for comparing decoded pixels; T006's CLI tests never write the committed image; the
   constitution paragraph rewrapped.
 - **Open findings**: none.
+
+## Review record (implementation branch)
+
+- **Round 1** (T027, an independent Claude session that did not write the code, read-only,
+  2026-11-02, on the branch with the card): 2 must-fix, 7 should-fix, 12 nits. Fixed in the
+  `Review 027: implementation review round 1` commit:
+  - must: the card had lost `card--padded`, so the shared theme padded its content a second time
+    (56 px a side; the class is back, the theme-file and live tests match it, and S1 checks the
+    heading sits at the card's own padding, which failed with 24 px extra before the fix).
+  - should: S6 counts the aborted image requests and checks the window's edge is the plain grey;
+    S3 fails when the heading, audience line, labels, fields, or the error message are not measured,
+    and on any visible text in `main` off the card and the header; the text it measures is scoped
+    to the card; `--check` reports a fresh run as expected and the committed file as found; stale
+    comments in the drift checker ("focus rings", "six tokens") and plan.md (eight tokens, the
+    constitution row, the new fixture).
+  - nits: the lines image's comment (63%), the test comments, R8's wording of the two screenshots
+    and the ring region, `minArea` 64 in R3 and the data model, the superseded ring clarification
+    marked, the spec's Context on the amendment, quickstart S4 step 3, T031's amendment PR, an
+    empty realm display name, the no-copy check over every tracked file, the FR-012 check over the
+    apps' code, and a shorter README status so the table is not re-padded.
+- **Open findings** (left open in round 1, resolved since):
+  - must 2, since resolved: the constitution amendment for the card and the realm header is
+    Constitution 3.8.0, in this branch (T038).
+  - should 6, since resolved: the WIP commit's subject was reworded to `Impl 027: …` with a
+    message-only rewrite of the unpushed branch (the tree is unchanged).
+  - nit 16, in part: the no-card tasks (T013, T015, T019, T020) keep their wording as history; the
+    Phase 6b note says T032–T037 changed what they built.
+- **Round 2** (T047, an independent read-only Claude session, 2026-11-02, the pulse's delta
+  `bcef955..`): 1 must-fix, 7 should-fix, 11 nits; it found the core sound (WCAG 2.2.2 and 2.3.1,
+  reduced motion, forced colors, storage, the rest opacity, R5's peak bound, the README count, and
+  keeping the constitution at 3.8.0). Fixed in the `Review 027: implementation review round 2`
+  commit:
+  - should: the backdrop comment in `login.css` named "still"; plan.md (Constitution Check VIII,
+    the source tree with `motion.js`, `theme.properties` and `eslint.config.mjs`, S9); tasks.md and
+    README (S0–S9, the Phase 6c dependency, the pulse in Today and in the status line); the shared
+    fixture no longer waits on infinite animations; S9 checks the ring is the theme's (solid, 3 px,
+    the app's `--stone-accent`), that a remembered pause starts at rest, and samples the running
+    pulse three times; FR-013 states the resting level.
+  - nits: the button inherits the theme's typeface; no pause button (and no pulse) where masks are
+    not supported; the panel is a `<footer>` landmark; the forced-colors test matches exact
+    selectors; the panel contrast guard reads the parsed tokens; the storage-refused step checks
+    nothing was remembered; the constitution and quickstart rewrapped.
+  - Left: nit 12 (the button's two labels are English in the template and the script, not in
+    `messages_en.properties`; English only, as the rest of QueuePass); nit 17 (the Impl commit's
+    subject cites T044 and T045, whose work other commits carry).
+- **Must 1, resolved** (round 2): the button changed its name ("Pause animation" / "Play
+  animation") and also set `aria-pressed`, from the brief's wording, not a choice of Mahdi's; a
+  screen reader then heard, paused, "Play animation, toggle button, pressed". Fixed in the
+  `Review 027: implementation review round 2: the pause button's name alone carries its state`
+  commit: the changing name is kept and `aria-pressed` is gone (FR-013, SC-007, R10, S9; the
+  theme-file, live, and browser tests were seen failing first).
+- **Round 3** (T053, an independent read-only Claude session, 2026-11-03, the glow's delta
+  `3afe96c..`): no must-fix, 3 should-fix, 10 nits. It found the cascade, the paint order (lines,
+  glow, shade), no overflow from the blur, the two layers in step, WCAG 2.3.1 and 2.2.2, R5's bound
+  with the glow, S3 and S6 measuring at the peak with the glow, S9's in-step check, the README
+  count, and keeping 3.8.0 all sound. Fixed in the `Review 027: implementation review round 3`
+  and the following `Constitution: 3.8.0, …` commits:
+  - should: the README's Today still said "pulse gently"; the glow's cost is now measured and
+    recorded in R10 (Chrome at 1920×1080, 240 fps and a 4.3 ms 95th-percentile frame with the glow,
+    without it, and with nothing moving alike; headless, so a low-end device check belongs to the
+    walk) with a pre-blurred mask image as the fallback in its alternatives; T049 and T051 record
+    S9's fail-first result and the run that passed.
+  - nits: S9 reads the glow's opacity at each sample and both animations' targets and play state;
+    the backdrop test no longer exempts `animation-play-state`; the base `.qp-glow` rule sits above
+    the rules that override it, and the CSS header names the glow; R10 describes the rules as
+    written, and that pause and play are single steps the person makes; R5 points to R10's glow
+    argument, made exact (compositing in sRGB is a convex mix); the data model counts four layers;
+    R4's "under all of them"; the spec's session-3 note mentions the glow; the Sync Impact Report
+    names the glow, and Last Amended is 2026-11-03; overlong lines in the spec set rewrapped.
+  - Left (nit 8): the `Plan 027` commit also added T048–T054 (no separate `Tasks 027` commit this
+    round), and the `Impl 027` commit rewrapped a constitution line the `Constitution` follow-up
+    left too long; the branch history is kept as it is.

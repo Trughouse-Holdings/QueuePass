@@ -155,6 +155,107 @@ it('never uses --text-faint for text, since it is below 4.5:1', () => {
   expect(css).not.toMatch(/(^|[^-])color:\s*var\(--text-faint\)/m);
 });
 
+// Spec 027 research R5, R6 (FR-006, FR-007, FR-009, SC-002): the color the sign-in look draws on
+// Keycloak's stones (the realm header's), against the worst backdrops behind it: the darkest and the
+// lightest stone, the app's line color (the mask's opaque core), and the fallback stone grey, each
+// under the shade. The tokens are the same in both sets (asserted), so one pass covers both.
+describe('the sign-in backdrop (spec 027)', () => {
+  // Research R2: Keycloak's keycloak-bg.png (SHA-256 0825…ac4e) is grey only, its lightest pixel
+  // #898989 and its darkest #000000. The live seed test and the browser test S1 check that SHA-256.
+  const LIGHTEST_STONE = '#898989';
+  const DARKEST_STONE = '#000000';
+
+  /** A token, whatever its notation, from the block `selector` matches. */
+  const raw = (selector: RegExp) => (name: string) =>
+    (css.match(selector)?.[1] ?? '').split(`--${name}:`)[1]?.split(';')[0]?.trim() ?? '';
+  const lightRaw = raw(/(?:^|\n):root\s*\{([^}]*)\}/);
+  const darkRaw = raw(/prefers-color-scheme:\s*dark\)\s*\{\s*:root\s*\{([^}]*)\}/);
+
+  const STONE = [
+    'stone-base',
+    'stone-scrim',
+    'stone-text',
+    'stone-accent',
+    'stone-accent-tickets',
+    'stone-accent-booth',
+  ];
+
+  it.each(STONE)('defines --%s the same in both sets', (name) => {
+    expect(lightRaw(name), `--${name}`).not.toBe('');
+    expect(darkRaw(name)).toBe(lightRaw(name));
+  });
+
+  /**
+   * `rgb(r g b / a%)` over an opaque `#rrggbb`, as two colors: in exact values and rounded to 8
+   * bits, so a check takes the lower of the two contrasts (research R5).
+   */
+  function over(rgba: string, under: string): [number[], string] {
+    const m = rgba.match(/^rgb\((\d+) (\d+) (\d+) \/ (\d+)%\)$/);
+    if (!m) throw new Error(`not rgb(r g b / a%): ${rgba}`);
+    const a = Number(m[4]) / 100;
+    const base = [1, 3, 5].map((i) => parseInt(under.slice(i, i + 2), 16));
+    const exact = [m[1], m[2], m[3]].map((c, i) => a * Number(c) + (1 - a) * base[i]!);
+    const hex = `#${exact.map((c) => Math.round(c).toString(16).padStart(2, '0')).join('')}`;
+    return [exact, hex];
+  }
+
+  /** WCAG relative luminance of 8-bit channel values, not rounded. */
+  function luminanceOf(channels: number[]): number {
+    const [r, g, b] = channels.map((v) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+  }
+
+  /** The lower contrast of `fg` against the shaded `under`, exact or rounded. */
+  function onShade(fg: string, under: string): number {
+    const [exact, hex] = over(lightRaw('stone-scrim'), under);
+    const l = luminance(fg);
+    const e = luminanceOf(exact);
+    const exactRatio = (Math.max(l, e) + 0.05) / (Math.min(l, e) + 0.05);
+    return Math.min(exactRatio, contrast(fg, hex));
+  }
+
+  describe.each([
+    ['admin', 'stone-accent'],
+    ['tickets', 'stone-accent-tickets'],
+    ['booth', 'stone-accent-booth'],
+  ])('%s', (_, accent) => {
+    const backdrops = (): [string, string][] => [
+      ['the darkest stone', DARKEST_STONE],
+      ['the lightest stone', LIGHTEST_STONE],
+      ['its line color', lightRaw(accent)],
+      ['--stone-base', lightRaw('stone-base')],
+    ];
+
+    // Implementation session 2: the realm header is the only text on the stones; everything else
+    // is on the card, in the shared colors the tests above already check.
+    it('shows --stone-text (the realm header) at 4.5:1 or more over every backdrop under the shade', () => {
+      for (const [what, under] of backdrops()) {
+        expect(onShade(lightRaw('stone-text'), under), `over ${what}`).toBeGreaterThanOrEqual(4.5);
+      }
+    });
+  });
+});
+
+// Spec 027 research R10 (FR-013): the pause button sits on its own --stone-base panel, so its
+// text and its focus ring hold over any line, in either scheme (the tokens are the same in both).
+describe('the pause button panel (spec 027 R10)', () => {
+  const stone = (name: string): string => light[name] ?? '';
+
+  it('shows --stone-text on --stone-base at 4.5:1 or more', () => {
+    expect(contrast(stone('stone-text'), stone('stone-base'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(['stone-accent', 'stone-accent-tickets', 'stone-accent-booth'])(
+    'draws the --%s focus ring on --stone-base at 3:1 or more',
+    (ring) => {
+      expect(contrast(stone(ring), stone('stone-base'))).toBeGreaterThanOrEqual(3);
+    },
+  );
+});
+
 // Spec 014 research R13: the full-screen position label (--scrim-text) on the backdrop (--scrim,
 // partly transparent), composited over the lightest and the darkest page behind it.
 describe('the image scrim', () => {

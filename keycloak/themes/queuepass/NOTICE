@@ -1,0 +1,19 @@
+QueuePass sign-in theme (keycloak/themes/queuepass)
+
+login/resources/img/stone-lines.png is derived from Keycloak's keycloak-bg.png
+(theme/keycloak/login/resources/img/keycloak-bg.png in Keycloak 26.0.8's
+org.keycloak.keycloak-themes jar; SHA-256
+0825175291be11f7689e8718295e422bb6fa4f8fefccc5610292b720c701ac4e).
+
+Keycloak
+Copyright Red Hat, Inc. and/or its affiliates.
+Licensed under the Apache License, Version 2.0; see LICENSE-keycloak.txt beside this file.
+
+Change made: the image was reduced to the edges between the stones, as an alpha mask (white,
+opaque on the edges, with a half-opaque rim, and clear elsewhere), by the generator in
+scripts/seed/src/stone-lines/ (spec 027 research R3). Make it again, or check it, with:
+
+  npm run stone-lines --workspace @queuepass/seed -- [--check] <keycloak-bg.png>
+
+The sign-in pages load keycloak-bg.png itself from Keycloak's own theme; this repository holds no
+copy of it.

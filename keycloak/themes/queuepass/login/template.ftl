@@ -13,6 +13,12 @@
   - the page's own header ("We are sorry...", "Page has expired") as an <h2>, except on the sign-in
     form, whose "Sign in to your account" the <h1> replaces (FR-004);
   - page messages in the shared theme's banners, announced to assistive technology (FR-012).
+
+  Spec 027 (research R4, R7): the first element in <body> is .qp-stones, the decorative backdrop
+  (Keycloak's stones, the lines between them in the app's accent, and the shade behind the
+  header and the card), hidden from assistive technology. In main, as Keycloak's own theme: the
+  realm's name in large capitals (.qp-realm, decoration, not a heading), then the card, which holds
+  everything above (FR-004).
 -->
 <#import "footer.ftl" as loginFooter>
 <#macro registrationLayout bodyClass="" displayInfo=false displayMessage=true displayRequiredFields=false>
@@ -22,6 +28,12 @@
     <#assign qpAppName = realm.displayName!"QueuePass">
 </#if>
 <#assign qpAppId = (client.clientId)!"">
+<#-- Spec 027: the realm header above the card, as Keycloak's own theme. -->
+<#if realm.displayName?has_content>
+    <#assign qpRealmName = realm.displayName>
+<#else>
+    <#assign qpRealmName = "QueuePass">
+</#if>
 <#assign qpTitle = msg("qpSignInTo", qpAppName)>
 <#-- msg() formats with MessageFormat, where a ' or { in the key garbles it or fails the page, so
      only a plain client ID (as the seed's three) is looked up; any other shows no audience line
@@ -95,8 +107,10 @@
 </head>
 
 <body class="qp-app--${qpAppId}">
+<div class="qp-stones" aria-hidden="true"><div class="qp-glow"></div></div>
 <div class="qp-band" aria-hidden="true"></div>
 <main class="qp-login">
+    <div class="qp-realm" aria-hidden="true">${qpRealmName}</div>
     <div class="card card--padded qp-card">
         <header class="qp-head">
             <span class="brand__mark qp-mark" aria-hidden="true">Q</span>
@@ -194,6 +208,12 @@
         <@loginFooter.content/>
     </div>
 </main>
+<#-- Spec 027 (FR-013, research R10): the pause button for the pulse in the lines, last in the Tab
+     order, on its own panel, a footer landmark (contentinfo). Hidden until js/motion.js runs;
+     without it nothing moves. -->
+<footer class="qp-motion" hidden>
+    <button type="button" class="qp-motion__toggle">Pause animation</button>
+</footer>
 </body>
 </html>
 </#macro>

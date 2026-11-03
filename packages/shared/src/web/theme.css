@@ -56,6 +56,18 @@
   --brand-mark-end-booth: #c2410c;
   --brand-mark-text-booth: #ffffff;
 
+  /* Spec 027 (Constitution VII, the sign-in exception): what the sign-in screens draw on
+     Keycloak's stones, dark in both sets: the page color under them, the shade behind the
+     header and the card, the realm header's text, and the lines in each app's lighter accent
+     (Admin, tickets, booth). Everything else is on the card, in the colors above. No app
+     stylesheet uses them (research R5, R6). */
+  --stone-base: #3a3a3a;
+  --stone-scrim: rgb(0 0 0 / 60%);
+  --stone-text: #ffffff;
+  --stone-accent: #8b85f5;
+  --stone-accent-tickets: #2dd4bf;
+  --stone-accent-booth: #fbbf24;
+
   /* Spec 014: the full-screen image backdrop and the text on it, dark in both sets. */
   --scrim: rgb(0 0 0 / 92%);
   --scrim-text: #ffffff;
@@ -130,6 +142,14 @@
     --accent-booth-text: #0f1115;
     --brand-mark-end-booth: #f59e0b;
     --brand-mark-text-booth: #0f1115;
+
+    /* Spec 027: the sign-in backdrop, the same as the light set. */
+    --stone-base: #3a3a3a;
+    --stone-scrim: rgb(0 0 0 / 60%);
+    --stone-text: #ffffff;
+    --stone-accent: #8b85f5;
+    --stone-accent-tickets: #2dd4bf;
+    --stone-accent-booth: #fbbf24;
 
     --scrim: rgb(0 0 0 / 92%);
     --scrim-text: #ffffff;
