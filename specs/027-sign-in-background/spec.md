@@ -159,6 +159,20 @@ answers below from the options he was offered.
   not move and the button stays hidden, since a pulse with no way to pause it would fail WCAG 2.2.2
   (recommended answers, open to review) (FR-013, research R10).
 
+### Session 2026-11-03 (implementation, session 4)
+
+Mahdi walked the pulse on the team stack: it ran (63% to 100% every 4 s), but he could not see it.
+From a live mock-up in the browser he chose a **strong glow** (decided by Mahdi):
+
+- Q: How strong is the pulse? → A: **From faint to full**: the lines' opacity runs from 0.1 to 1
+  and back, 1.5 s each way (a 3 s cycle), eased in and out (FR-013).
+- Q: Anything besides the lines? → A: **A glow**: a second copy of the lines, in the same accent,
+  blurred by 6 px, pulsing in step with them, under the shade like them (FR-013, research R4,
+  R10).
+- Q: And at rest? → A: Paused, under reduced motion, without scripts, or without mask support,
+  the lines stay at the dim look he chose (160 of 255) and there is no glow; forced colors still
+  hide everything (FR-013).
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Each App's Sign-in Shows the Stones in Its Own Color (Priority: P1)
@@ -190,8 +204,8 @@ Keycloak's card on them.
 5. **Given** any of the three pages, **When** it opens, **Then** the tab title and the one heading
    read "Sign in to {app name}", the audience line is there, and the Sign In button is in the app's
    accent, as in `021`.
-6. **Given** any of the three pages, **When** it opens, **Then** the lines glow gently up to full
-   strength and back, about every 4 s, and a small "Pause animation" button sits in the bottom
+6. **Given** any of the three pages, **When** it opens, **Then** the lines pulse from faint to full
+   strength and back with a soft glow around them, every 3 s, and a small "Pause animation" button sits in the bottom
    corner; **When** someone presses it, **Then** the lines stop, the button reads "Play animation",
    and the choice holds after a reload; **and** with reduced motion asked for, nothing moves and no
    button shows.
@@ -369,9 +383,12 @@ for the image; read the derived image's notice.
   Constitution II).
 - **FR-012**: The apps themselves MUST NOT change: no background, no new colors, and no use of the
   sign-in look's colors (Constitution VII).
-- **FR-013**: The lines between the stones MUST pulse gently: from their resting strength (alpha
-  160 of 255, the dim level Mahdi chose in T010) up to full strength and back, a whole cycle about
-  every 4 s, eased in and out, a smooth fade with no flash (WCAG 2.3.1); nothing else in the backdrop moves. A small pause
+- **FR-013**: The lines between the stones MUST pulse, with a glow: their opacity from 0.1 up to 1
+  and back, a whole cycle every 3 s, eased in and out, a smooth fade with no flash (WCAG 2.3.1),
+  with a copy of the lines blurred by 6 px glowing in step with them, under the shade; nothing else
+  in the backdrop moves. At rest (paused, reduced motion, no scripts, no mask support) the lines
+  show at their resting strength (alpha 160 of 255, the dim level Mahdi chose in T010) with no
+  glow. A small pause
   button in the page's bottom corner MUST stop and restart the pulse (WCAG 2.2.2): a real button,
   last in the Tab order after the form, whose name, "Pause animation" or "Play animation", alone
   says its state (no `aria-pressed`), at least 24 × 24 px, with 4.5:1 text and a 3:1 focus ring against what
@@ -379,7 +396,8 @@ for the image; read the derived image's notice.
   remembered in the browser, and the page MUST work when storage is refused. With reduced motion
   asked for, the lines MUST NOT move and the button MUST NOT show; in forced colors the button is
   hidden with the backdrop; without scripts the lines do not move and the button is not shown.
-  (Until implementation session 3: "the background MUST be still".)
+  (Until implementation session 3: "the background MUST be still"; until session 4, a gentle pulse
+  from 160 of 255 to full every 4 s, with no glow.)
 
 ### Key Entities
 
@@ -418,10 +436,11 @@ for the image; read the derived image's notice.
 - **SC-006**: Shown the three sign-in pages with the app names covered, a tester still matches each
   to its app within 5 seconds per page, 3 of 3 (`021` SC-002).
 - **SC-007**: For each of the three apps, an automated browser check finds the lines pulsing
-  (a 4 s eased cycle between the resting and full strength), the pause button reached by Tab after
+  (a 3 s eased cycle from 0.1 to full strength, the glow layer blurred and in step with them), the pause button reached by Tab after
   Sign In, pressing it pausing the pulse and switching its name (with no `aria-pressed`), the choice
   kept after a reload, the button's text at 4.5:1 and its ring at 3:1 against its own backdrop,
-  and, with reduced motion emulated, no animation and no button: 0 failures.
+  and, paused or with reduced motion emulated, no animation, no glow, the lines at rest, and (with
+  reduced motion) no button: 0 failures.
 
 ## Assumptions
 
