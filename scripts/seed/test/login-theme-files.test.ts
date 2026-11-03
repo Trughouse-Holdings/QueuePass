@@ -289,7 +289,7 @@ describe('the sign-in backdrop (spec 027)', () => {
         ([sel, body]) =>
           /\.qp-(stones|glow)/.test(sel) &&
           (/transition/.test(body) ||
-            (/animation(?!-play-state)/.test(body) &&
+            (/animation/.test(body) &&
               sel !== '.qp-animate .qp-stones::before' &&
               sel !== '.qp-animate .qp-glow' &&
               !/animation:\s*none/.test(body))),

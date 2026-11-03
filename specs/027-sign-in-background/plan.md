@@ -14,17 +14,17 @@
   (`keycloak/themes/queuepass/login/resources/img/stone-lines.png`, white with alpha on the edges
   between the stones), derived once from Keycloak's image by a TypeScript generator in
   `scripts/seed` that finds the image's flat facets and draws their boundaries, reading and writing
-  PNG with `fast-png` (already in the lockfile). The page fills a layer with the app's lighter accent
-  (`var(--stone-accent)`, the same in both schemes) and shows it through that image (`mask`). A
-  `NOTICE` and `LICENSE-keycloak.txt` beside the theme carry Keycloak's Apache 2.0 license; a
+  PNG with `fast-png` (already in the lockfile). The page fills a layer with the app's lighter
+  accent (`var(--stone-accent)`, the same in both schemes) and shows it through that image (`mask`).
+  A `NOTICE` and `LICENSE-keycloak.txt` beside the theme carry Keycloak's Apache 2.0 license; a
   `--check` mode proves the committed image is what the generator makes (same pixels and metadata).
 - **Layers** (R4): one fixed, `aria-hidden` element behind the page holds the stones, the lines
-  (`::before`), and the shade (`::after`), all `center / cover` on the same box, so the lines stay on
-  the edges at every size; the page color under them is a plain stone grey for when the image is
+  (`::before`), and the shade (`::after`), all `center / cover` on the same box, so the lines stay
+  on the edges at every size; the page color under them is a plain stone grey for when the image is
   missing; in forced-colors mode the backdrop is hidden.
 - **Readable on the stones** (R5): a shade (black at 60%) across a 560 px band behind the header and
-  the card, fading out over 120 px on each side, so from 800 px wide the stones beyond it are at full
-  strength; the realm header, the only text on the stones, in light text meeting 4.5:1 over the
+  the card, fading out over 120 px on each side, so from 800 px wide the stones beyond it are at
+  full strength; the realm header, the only text on the stones, in light text meeting 4.5:1 over the
   lightest stone and the brightest line, the same in both schemes. Everything else is on the card.
 - **The pulse** (R10; Mahdi, implementation session 3): the lines layer rests at opacity
   0.6275 (the dim look) and, only when the page's script runs, pulses from 0.1 to 1 every 3 s with
@@ -70,8 +70,9 @@ and Safari, desktop and phone, light and dark schemes.
 **Project Type**: web application (one Backend, three front ends, Keycloak, a seed job).
 
 **Performance Goals**: none beyond today: the sign-in page loads two images (Keycloak's 82 KB stones
-and the lines image, about 70–100 KB). Both are cacheable in production; Keycloak's `start-dev`, which
-the Compose stack runs, sends `Cache-Control: no-cache`, so the browser revalidates them there.
+and the lines image, about 70–100 KB). Both are cacheable in production; Keycloak's `start-dev`,
+which the Compose stack runs, sends `Cache-Control: no-cache`, so the browser revalidates them
+there.
 
 **Constraints**: Constitution VII as amended (colors only in the shared theme's token blocks; the
 background only on the sign-in screens), Constitution II (no manual step), Keycloak's image not

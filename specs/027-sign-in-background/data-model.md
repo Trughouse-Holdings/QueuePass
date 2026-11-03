@@ -39,7 +39,7 @@ and are the same in both schemes (FR-003, FR-007).
 | File | Change |
 | --- | --- |
 | `login/template.ftl` | `<div class="qp-stones" aria-hidden="true"><div class="qp-glow"></div></div>` first in `<body>`; in `main`, the realm header `<div class="qp-realm" aria-hidden="true">` and the card `<div class="card card--padded qp-card">` holding `021`'s frame and the form (R4, R7) |
-| `login/resources/css/login.css` | The three layers, the shade, the realm header, Keycloak's card in the shared theme with the app's accent as its top edge, every input's focus ring, the seventh role (R4–R7) |
+| `login/resources/css/login.css` | The four layers (the stones, the lines, their glow, the shade), the realm header, Keycloak's card in the shared theme with the app's accent as its top edge, every input's focus ring, the seventh role (R4–R7) |
 | `login/resources/img/stone-lines.png` | **New**: the lines image (below) |
 | `NOTICE` | **New**: the lines image's source (with its SHA-256), copyright, license, and change (R3) |
 | `LICENSE-keycloak.txt` | **New**: the Apache License 2.0 text, as Keycloak ships it (R3) |

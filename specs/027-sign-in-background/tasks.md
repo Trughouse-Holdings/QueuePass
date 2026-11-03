@@ -425,6 +425,8 @@ Clarifications, implementation session 4; FR-013, SC-007; research R4, R5, R10).
 - [x] T049 `027 S9`: the glow layer shown, blurred 6 px, running the same keyframes and timing as
   the lines and in step with them; paused and reduced motion: no animation, no glow, the lines at
   0.6275. S3 and S6 hold the lines and the glow at their peak. Must fail.
+  **Done**: `027 S9` failed on a Keycloak built before T050 (`toMatchObject`: no 1.5 s timing, no
+  glow), and passed after it (2026-11-03), with S1, S3, and S6, one run before T052's three.
 
 ### Implementation
 
@@ -435,11 +437,19 @@ Clarifications, implementation session 4; FR-013, SC-007; research R4, R5, R10).
   **Done**: at the peak the glow only mixes the line color into the stones around the lines, and
   a mix is never lighter than the lighter of the two, so R5's bound (and the shared contrast test)
   stands: the header's lowest is still 8.08:1 (Booth). S3 and S6, measuring with the lines and the
-  glow held at full strength, pass. The constitution's "pulse gently" no longer fit: a second
+  glow held at full strength, passed (one run, 2026-11-03; T052 has the three). The constitution's "pulse gently" no longer fit: a second
   `Constitution: 3.8.0, …` follow-up says the lines may pulse and glow, smoothly and with no flash.
-- [ ] T052 `npm run ci` and the 027 browser tests three times locally.
-- [ ] T053 Independent review of this delta (round 3); fix and record it below.
-- [ ] T054 Screenshots of the peak and the rest for the three apps; README count.
+- [x] T052 `npm run ci` and the 027 browser tests three times locally.
+  **Done** (after round 3's fixes, the live seed tests against a Keycloak built from this branch,
+  none skipped): format, lint, the e2e typecheck, and the build pass; `npm test`: root scripts 75;
+  shared 785 (lines 96.72%); backend 1088 (97.24%); admin-app 361 (97.31%); customer-app 335
+  (97.65%); booth-app 94 (93.44%); seed 177 (99.29%); the quick time-zone run passes. `027 S1`,
+  `S3`, `S6`, and `S9` passed three runs in a row (S3 1.4–1.5 min with the glow, S9 about 5 s).
+- [x] T053 Independent review of this delta (round 3); fix and record it below.
+  **Done**: round 3 in the review record below; nothing left open but nit 8 (history).
+- [x] T054 Screenshots of the peak and the rest for the three apps; README count.
+  **Done**: each app, light and dark, 1920×1080, at the peak (held, with the glow) and at rest
+  (paused), plus the standard set, kept outside the repository; README 50/54.
 
 ---
 
@@ -585,3 +595,24 @@ Clarifications, implementation session 4; FR-013, SC-007; research R4, R5, R10).
   `Review 027: implementation review round 2: the pause button's name alone carries its state`
   commit: the changing name is kept and `aria-pressed` is gone (FR-013, SC-007, R10, S9; the
   theme-file, live, and browser tests were seen failing first).
+- **Round 3** (T053, an independent read-only Claude session, 2026-11-03, the glow's delta
+  `3afe96c..`): no must-fix, 3 should-fix, 10 nits. It found the cascade, the paint order (lines,
+  glow, shade), no overflow from the blur, the two layers in step, WCAG 2.3.1 and 2.2.2, R5's bound
+  with the glow, S3 and S6 measuring at the peak with the glow, S9's in-step check, the README
+  count, and keeping 3.8.0 all sound. Fixed in the `Review 027: implementation review round 3`
+  and the following `Constitution: 3.8.0, …` commits:
+  - should: the README's Today still said "pulse gently"; the glow's cost is now measured and
+    recorded in R10 (Chrome at 1920×1080, 240 fps and a 4.3 ms 95th-percentile frame with the glow,
+    without it, and with nothing moving alike; headless, so a low-end device check belongs to the
+    walk) with a pre-blurred mask image as the fallback in its alternatives; T049 and T051 record
+    S9's fail-first result and the run that passed.
+  - nits: S9 reads the glow's opacity at each sample and both animations' targets and play state;
+    the backdrop test no longer exempts `animation-play-state`; the base `.qp-glow` rule sits above
+    the rules that override it, and the CSS header names the glow; R10 describes the rules as
+    written, and that pause and play are single steps the person makes; R5 points to R10's glow
+    argument, made exact (compositing in sRGB is a convex mix); the data model counts four layers;
+    R4's "under all of them"; the spec's session-3 note mentions the glow; the Sync Impact Report
+    names the glow, and Last Amended is 2026-11-03; overlong lines in the spec set rewrapped.
+  - Left (nit 8): the `Plan 027` commit also added T048–T054 (no separate `Tasks 027` commit this
+    round), and the `Impl 027` commit rewrapped a constitution line the `Constitution` follow-up
+    left too long; the branch history is kept as it is.

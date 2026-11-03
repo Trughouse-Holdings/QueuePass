@@ -21,8 +21,9 @@ relative URL: `url(../../keycloak/img/keycloak-bg.png)`. The repository holds no
 - Keycloak serves any theme's resources at `/resources/{version}/login/{theme}/...`. Our stylesheet
   is `/resources/rh29r/login/queuepass/css/login.css`; `GET
   /resources/rh29r/login/keycloak/img/keycloak-bg.png` answers `200`, `Content-Type: image/png`, and
-  the same 81,862 bytes with the same SHA-256 as the jar's file. So `../../keycloak/img/keycloak-bg.png`,
-  resolved against the stylesheet, reaches it, whatever `{version}` is.
+  the same 81,862 bytes with the same SHA-256 as the jar's file. So
+  `../../keycloak/img/keycloak-bg.png`, resolved against the stylesheet, reaches it, whatever
+  `{version}` is.
 - Keycloak's own `keycloak` theme draws it the same way: `.login-pf body { background:
   url("../img/keycloak-bg.png") no-repeat center center fixed; background-size: cover; }`.
 - Keycloak's sign-in pages send no `img-src` limit in their content security policy, and the image
@@ -36,8 +37,8 @@ seed test and, in CI, by the browser test S1 (R8), and the page falls back to a 
 
 **Alternatives considered**:
 
-- A copy in `keycloak/themes/queuepass/login/resources/img/`: what the issue asks to avoid; two copies
-  that can drift.
+- A copy in `keycloak/themes/queuepass/login/resources/img/`: what the issue asks to avoid; two
+  copies that can drift.
 - Extracting it from the jar in `keycloak/Dockerfile` at build time: the Keycloak image has no
   `unzip`, so it would need a second build stage; more to maintain than a relative URL that already
   works.
@@ -80,8 +81,9 @@ prototype).
 
 - **An SVG of the edges** (polygon edges traced from the facets, as a mask or an inline image):
   crisp at any size and a few KB, but tracing 190 facets into polygons that land exactly on the
-  bitmap's anti-aliased edges is more code and more ways to drift by a pixel. Worth revisiting if the
-  PNG's lines look soft on very large screens; not needed for 1920×1080 artwork shown with `cover`.
+  bitmap's anti-aliased edges is more code and more ways to drift by a pixel. Worth revisiting if
+  the PNG's lines look soft on very large screens; not needed for 1920×1080 artwork shown with
+  `cover`.
 - **Tinting the whole image** (a blend mode with the accent): previewed and not chosen by Mahdi.
 - **Three pre-colored copies of the image**: copies Keycloak's image three times and writes colors
   outside the shared theme's token blocks (Constitution VII).
@@ -95,11 +97,11 @@ prototype).
 - `scripts/seed/src/stone-lines/` holds the generator as pure functions plus a small command:
   `facets.ts` (label the flat regions; give each anti-aliasing pixel to the facet of the nearest
   large region), `lines.ts` (mark the pixels on a boundary between two facets whose greys differ by
-  at least `MIN_STEP` levels; widen to about 2 px; soften by at most 1 px; alpha from the result,
-  at most the line's strength, grey 255), and `cli.ts`. PNG reading and writing is `fast-png` (6.4.0, MIT), added to
-  `scripts/seed`'s `devDependencies`. It is already in `package-lock.json` as a dependency of
-  `jspdf`, so the lockfile gains no new package. Its encoder writes `tEXt` chunks and its decoder
-  reads them back.
+  at least `MIN_STEP` levels; widen to about 2 px; soften by at most 1 px; alpha from the result, at
+  most the line's strength, grey 255), and `cli.ts`. PNG reading and writing is `fast-png` (6.4.0,
+  MIT), added to `scripts/seed`'s `devDependencies`. It is already in `package-lock.json` as a
+  dependency of `jspdf`, so the lockfile gains no new package. Its encoder writes `tEXt` chunks and
+  its decoder reads them back.
 - `npm run stone-lines --workspace @queuepass/seed -- <keycloak-bg.png>` writes
   `keycloak/themes/queuepass/login/resources/img/stone-lines.png`. The input path is resolved
   against `INIT_CWD` (the folder npm was run from, not the workspace folder); the output path is
@@ -116,13 +118,13 @@ prototype).
   and the generator's settings. No license text in the PNG.
 - The source file is taken from the running Keycloak (`curl` the URL of R1, with the `{version}` the
   sign-in page's stylesheet links show) or from the jar; quickstart S7 gives the commands.
-- `MIN_STEP`, the widening, the softening, and the line's strength are chosen in implementation
-  from previews of all three apps' lines, and Mahdi approves the preview before the file is
-  committed (tasks T010). The values are recorded in `lines.ts` and in the `Source` chunk. Chosen
-  (T010): `minArea` 64 (a flat region of 64 px or more is a facet), `MIN_STEP` 1 (at 2 or more, visible stone edges lose their lines), no widening (2 px), a
-  1 px softened edge at 50%, and strength 160 of 255 (about 63%), the "dim" preview. Since the
-  pulse (R10), the image is made at strength 255 and the page sets the dim level with the layer's
-  opacity, which draws the same pixels at rest.
+- `MIN_STEP`, the widening, the softening, and the line's strength are chosen in implementation from
+  previews of all three apps' lines, and Mahdi approves the preview before the file is committed
+  (tasks T010). The values are recorded in `lines.ts` and in the `Source` chunk. Chosen (T010):
+  `minArea` 64 (a flat region of 64 px or more is a facet), `MIN_STEP` 1 (at 2 or more, visible
+  stone edges lose their lines), no widening (2 px), a 1 px softened edge at 50%, and strength 160
+  of 255 (about 63%), the "dim" preview. Since the pulse (R10), the image is made at strength 255
+  and the page sets the dim level with the layer's opacity, which draws the same pixels at rest.
 - License (FR-010): `keycloak/themes/queuepass/LICENSE-keycloak.txt` is the Apache License 2.0 text
   as Keycloak ships it (`/opt/keycloak/LICENSE.txt` in the image), and
   `keycloak/themes/queuepass/NOTICE` names `login/resources/img/stone-lines.png` as derived from
@@ -142,7 +144,8 @@ files beside the theme, where a reader looks for it; a PNG chunk is easy to stri
 - A hand-written PNG reader and writer on `node:zlib`: no new direct dependency, but about a
   hundred lines of codec and its filter tests for a one-off tool.
 - Generate at image build time in `keycloak/Dockerfile`: needs Node and the source image inside a
-  build stage, on every build, for a file that never changes; and CI's tests could not see the result.
+  build stage, on every build, for a file that never changes; and CI's tests could not see the
+  result.
 - A Python script: outside the fixed stack.
 - Other image libraries (`sharp`, `pngjs`): new packages in the lockfile.
 
@@ -158,9 +161,9 @@ files beside the theme, where a reader looks for it; a PNG chunk is easy to stri
 - `.qp-stones::after` (the shade, R5): `content: ''`, the same box, above the lines.
 - `.qp-glow`, the backdrop's one child (R10): the glow of the pulse, a blurred copy of the lines,
   between the lines and the shade.
-- `body`: `background: var(--stone-base)` (a plain stone grey, R6), under all three: what shows when
-  the stones image is missing (FR-009). The lines and the shade do not depend on the stones image,
-  so they are still drawn over the grey.
+- `body`: `background: var(--stone-base)` (a plain stone grey, R6), under all of them: what shows
+  when the stones image is missing (FR-009). The lines and the shade do not depend on the stones
+  image, so they are still drawn over the grey.
 - No `transition` on any of them, and no animation but R10's pulse of the lines layer's opacity
   (FR-013).
 
@@ -210,13 +213,14 @@ session 2), the only text on the stones is the realm header ("QUEUEPASS", 29 px 
 above the card, about 230 px wide), always inside the full-strength band. The stones behind it,
 under the full shade, lie between pure black (the darkest stone) and the lighter of the lightest
 stone (`#898989`) and the page's line color at full strength (as if the mask were opaque). The lines
-rest at about 63% (T010) and pulse up to full strength (R10), so the figures below, taken at full
+rest at about 63% (T010) and pulse up to full strength with a glow (R10, whose argument shows the
+glow cannot make any pixel lighter than the line color), so the figures below, taken at full
 strength, are those of the pulse's peak and hold throughout it (at rest the Booth's brightest line
-under the shade is `#53441d`, and the header's lowest figure rises to 9.44). The lines are the lighter accents in both
-schemes (`#8b85f5`, `#2dd4bf`, `#fbbf24`; Clarifications, decision b), so the backdrop, and the
-figure below, is the same in both schemes. Under 60% black, the lightest stone is `#373737`; the
-brightest line is the Booth's amber, `#644c0e`. The fallback grey `--stone-base` (`#3a3a3a`) under
-the shade is `#171717`.
+under the shade is `#53441d`, and the header's lowest figure rises to 9.44). The lines are the
+lighter accents in both schemes (`#8b85f5`, `#2dd4bf`, `#fbbf24`; Clarifications, decision b), so
+the backdrop, and the figure below, is the same in both schemes. Under 60% black, the lightest stone
+is `#373737`; the brightest line is the Booth's amber, `#644c0e`. The fallback grey `--stone-base`
+(`#3a3a3a`) under the shade is `#171717`.
 
 **The color drawn on the backdrop** (R6) and its lowest contrast over all of those backgrounds, in
 either scheme, computed with the `012` contrast test's formula (the lower of compositing in exact
@@ -235,16 +239,17 @@ Why these numbers:
 
 - **60%** was the lightest shade at which every row passed when the form sat on the stones (at 50%,
   the Booth's muted text fell to 3.99–4.02). For the header alone, 50% would pass (white over the
-  Booth's line at full strength under 50% black is about 5.9:1), but the shade is kept unchanged (recommended answer,
-  open to review): it is already tested, and it keeps the header and the card's surroundings calm.
+  Booth's line at full strength under 50% black is about 5.9:1), but the shade is kept unchanged
+  (recommended answer, open to review): it is already tested, and it keeps the header and the card's
+  surroundings calm.
 - **The lighter accents, for the lines**: the light scheme's accents barely show on the near-black
   stones, so the lines use the lighter ones in both schemes.
 
 **Rationale**: FR-004 allows a shade with no edge and asks for the stones at full strength beside
 the header and the card; a band at full strength only where the header can be, with a fade of fixed
 width, keeps the most of the stones visible on wide windows. The header is centred and narrower than
-the band at every width, so the table holds everywhere (SC-002), and the browser test (R8) checks the
-rendered pages rather than trusting the arithmetic.
+the band at every width, so the table holds everywhere (SC-002), and the browser test (R8) checks
+the rendered pages rather than trusting the arithmetic.
 
 **Alternatives considered**:
 
@@ -292,10 +297,10 @@ the stones.
 
 **Alternatives considered**: writing the colors in `login.css` (the drift test forbids it, rightly);
 reusing the dark scheme's tokens by forcing the dark scheme on the sign-in pages (the dark set lives
-in a media query on `:root`, so it would have to be duplicated, and the controls would stop following
-the scheme, which `021` FR-012 and FR-007 here keep); the lines in `var(--accent)` (the first draft:
-the backdrop would differ between schemes, against FR-007, and the light scheme's lines would barely
-show).
+in a media query on `:root`, so it would have to be duplicated, and the controls would stop
+following the scheme, which `021` FR-012 and FR-007 here keep); the lines in `var(--accent)` (the
+first draft: the backdrop would differ between schemes, against FR-007, and the light scheme's lines
+would barely show).
 
 ## R7. The page frame: Keycloak's card and its header, styled from the shared theme
 
@@ -308,18 +313,18 @@ superseded):
   `.card-pf` is centred, `max-width: 500px`, with a large shadow and `border-top: 4px solid` in the
   primary color. On a phone (under 768 px) Keycloak drops the stones for white and the card's edge;
   QueuePass keeps the stones and the card's edge at every width (FR-001).
-- `template.ftl`: the `.qp-stones` element (R4); then `021`'s band; then, in `main`, the realm header
-  `<div class="qp-realm" aria-hidden="true">${realm name}</div>` (decoration, not a heading: the
-  app's name stays the one `<h1>`), and the card `<div class="card card--padded qp-card">` holding everything that
-  was in `021`'s card: the brand mark, the `<h1>`, the audience line, the page's own header as
-  `<h2>`, the message banners, the form. `login.ftl` is unchanged.
+- `template.ftl`: the `.qp-stones` element (R4); then `021`'s band; then, in `main`, the realm
+  header `<div class="qp-realm" aria-hidden="true">${realm name}</div>` (decoration, not a heading:
+  the app's name stays the one `<h1>`), and the card `<div class="card card--padded qp-card">`
+  holding everything that was in `021`'s card: the brand mark, the `<h1>`, the audience line, the
+  page's own header as `<h2>`, the message banners, the form. `login.ftl` is unchanged.
 - `login.css`:
   - `body { background: var(--stone-base); }`; the text color stays the shared `--text`.
   - `.qp-realm`: `--stone-text`, 29 px, uppercase, letter-spacing 3 px, line-height 1.2, centred,
     with the space above it from the theme's steps (`--space-8` twice, about Keycloak's 62 px).
   - `.qp-card`: the shared `.card` (surface, border, radius), `max-width: 500px`, centred, padding
-    `--space-8`, the shared `--shadow-lg`, and `border-top: 4px solid var(--accent)`, the app's accent
-    through `021`'s per-app roles, in the scheme's shade.
+    `--space-8`, the shared `--shadow-lg`, and `border-top: 4px solid var(--accent)`, the app's
+    accent through `021`'s per-app roles, in the scheme's shade.
   - Inside the card, the shared colors as in `021`: `.qp-audience` and `.qp-required` in
     `--text-muted`, `.qp-field-error` and the required `*` in `--danger`, labels and links shared.
   - Focus rings: the shared ring (`:focus-visible`, 3 px `--accent`, offset 2 px). The shared
@@ -332,8 +337,8 @@ superseded):
 
 **Rationale**: Mahdi's choice, Keycloak's own look with QueuePass's colors: the card is the shared
 theme's card, so it follows the scheme, and every color on it is already under the shared contrast
-tests; the only text left on the stones is the header, which gets the one light token. `login.css` is
-the sign-in look's own stylesheet, so nothing here touches the apps (FR-012).
+tests; the only text left on the stones is the header, which gets the one light token. `login.css`
+is the sign-in look's own stylesheet, so nothing here touches the apps (FR-012).
 
 **Alternatives considered**: no card, the form on the stones in light text (the first decision,
 implemented and shown to Mahdi, who reversed it); the header as a heading (it would be a second
@@ -346,29 +351,29 @@ top-level name on the page, against `021` FR-001's one heading).
 - **Shared** (CI, `packages/shared/test/theme/`):
   - `tokens.test.ts`: the six tokens, with R6's values, in both blocks, and no other `--stone-*`;
     used by no rule in `theme.css` outside the token blocks.
-  - `contrast.test.ts`, "the sign-in backdrop (spec 027)": the backdrop colors over R5's worst cases,
-    computed from the theme: for each app, the backgrounds are black, the lightest stone, the app's
-    `--stone-accent[-<app>]` (the line color), and `--stone-base`, each under `--stone-scrim`;
+  - `contrast.test.ts`, "the sign-in backdrop (spec 027)": the backdrop colors over R5's worst
+    cases, computed from the theme: for each app, the backgrounds are black, the lightest stone, the
+    app's `--stone-accent[-<app>]` (the line color), and `--stone-base`, each under `--stone-scrim`;
     `--stone-text` (the realm header) at 4.5:1 or more. Everything on the card is covered by the
-    shared theme's existing contrast tests. The tokens are the same in both blocks, so
-    one pass covers both schemes, plus an assertion that they are the same. The image's lightest and
-    darkest greys (`#898989`, `#000000`) are constants in the test, citing R2; the live and browser
-    tests (below) keep them true by checking the image's SHA-256.
+    shared theme's existing contrast tests. The tokens are the same in both blocks, so one pass
+    covers both schemes, plus an assertion that they are the same. The image's lightest and darkest
+    greys (`#898989`, `#000000`) are constants in the test, citing R2; the live and browser tests
+    (below) keep them true by checking the image's SHA-256.
   - `drift.test.ts`: `login.css` still passes with `signInAccents`; new checker cases: the seventh
-    role allowed only with all seven of one app's tokens defined; `--stone-accent: var(--accent-booth)`
-    and a rule mixing apps still fail. A new check that no app stylesheet (Admin, Customer, Booth) uses
-    `--stone-` or the per-app accent tokens (FR-012).
+    role allowed only with all seven of one app's tokens defined; `--stone-accent:
+    var(--accent-booth)` and a rule mixing apps still fail. A new check that no app stylesheet
+    (Admin, Customer, Booth) uses `--stone-` or the per-app accent tokens (FR-012).
 - **Seed, theme files** (CI, `scripts/seed/test/login-theme-files.test.ts`): `login.css` loads
   `../../keycloak/img/keycloak-bg.png` and `../img/stone-lines.png`, has the forced-colors rule of
-  R4, no `transition` in any `.qp-stones` rule and R10's pulse as the only animation (FR-013); `template.ftl` has
-  `<div class="qp-stones" aria-hidden="true">` as `<body>`'s first child, the realm header
-  (`.qp-realm`, `aria-hidden`, not a heading) and then the card (`card card--padded qp-card`) in `main`; the card
-  is at most 500 px wide with a 4 px top edge in `var(--accent)`, the header in `--stone-text`, and
-  every input in the card gets the shared ring;
-  `stone-lines.png` (decoded with `fast-png`) is 1920×1080 grey and alpha, grey 255 wherever its
-  alpha is not 0, with alpha above 0 on between 2% and 15% of pixels, and a `Source` chunk naming
-  the source SHA-256; `NOTICE` and `LICENSE-keycloak.txt` exist and say what R3 says; no file under
-  `keycloak/` has the stones image's SHA-256 (FR-002, SC-004).
+  R4, no `transition` in any `.qp-stones` rule and R10's pulse as the only animation (FR-013);
+  `template.ftl` has `<div class="qp-stones" aria-hidden="true">` as `<body>`'s first child, the
+  realm header (`.qp-realm`, `aria-hidden`, not a heading) and then the card (`card card--padded
+  qp-card`) in `main`; the card is at most 500 px wide with a 4 px top edge in `var(--accent)`, the
+  header in `--stone-text`, and every input in the card gets the shared ring; `stone-lines.png`
+  (decoded with `fast-png`) is 1920×1080 grey and alpha, grey 255 wherever its alpha is not 0, with
+  alpha above 0 on between 2% and 15% of pixels, and a `Source` chunk naming the source SHA-256;
+  `NOTICE` and `LICENSE-keycloak.txt` exist and say what R3 says; no file under `keycloak/` has the
+  stones image's SHA-256 (FR-002, SC-004).
 - **Seed, the generator** (CI, `scripts/seed/test/stone-lines.test.ts`): on small made-up images,
   two flat facets with an anti-aliased seam give one continuous line along the seam; facets closer
   than `MIN_STEP` give none; two encodes in one process give the same bytes; `--check` passes on its
@@ -395,9 +400,9 @@ top-level name on the page, against `021` FR-001's one heading).
   - `027 S3: …`: one test (the quickstart check allows one titled test per scenario row), with
     `test.setTimeout(10 * 60_000)` and a `test.step` per app, scheme, and size. It visits 60 page
     states (3 apps × 2 schemes × 5 sizes × 2 pages), about 3–5 s each, so it should take about 5
-    minutes on one of CI's two e2e workers, while the other worker runs the rest of the suite. For each app, light and dark
-    (`page.emulateMedia`), at 360×800, 768×1024, 1280×800, 1920×1080, and 2560×1440, on the first page
-    and after a wrong password:
+    minutes on one of CI's two e2e workers, while the other worker runs the rest of the suite. For
+    each app, light and dark (`page.emulateMedia`), at 360×800, 768×1024, 1280×800, 1920×1080, and
+    2560×1440, on the first page and after a wrong password:
     - record the realm header's box and color, each visible text element's box and computed color in
       the card (scrolled into view first, since at 360×800 the card can be taller than the window),
       each text field's box and edge color, and each control's focus ring: Tab through every control
@@ -411,23 +416,23 @@ top-level name on the page, against `021` FR-001's one heading).
       coordinates. A visible text in `main` outside the card and the header fails, and so does a
       page where the heading, the audience line, the two labels and fields, or (after a wrong
       password) its message are not measured;
-    - the header: 4.5:1 or more against the lightest and darkest backdrop pixel in its box; the card's
-      text: 4.5:1 or more against the lightest and darkest card pixel in its box; field edges: 3:1 or
-      more against the lightest and darkest card pixel in a 3 px ring around the box; focus rings:
-      3:1 or more against the lightest and darkest card pixel where the ring is drawn and next to it
-      (one region, 2–8 px outside the box);
+    - the header: 4.5:1 or more against the lightest and darkest backdrop pixel in its box; the
+      card's text: 4.5:1 or more against the lightest and darkest card pixel in its box; field
+      edges: 3:1 or more against the lightest and darkest card pixel in a 3 px ring around the box;
+      focus rings: 3:1 or more against the lightest and darkest card pixel where the ring is drawn
+      and next to it (one region, 2–8 px outside the box);
     - at 360 px, `scrollWidth <= innerWidth`;
     - at 1920×1080, the full-strength-beyond-the-fade check (FR-004): screenshot the backdrop again
-      with the shade hidden (an injected `.qp-stones::after { display: none }`); the pixels more than
-      400 px left and right of the center are the same in both screenshots, and at the center they
-      differ.
-  - `027 S6: …`: the same checks as S3 at 360×800 and 1920×1080, light and dark, with the stones image
-    request aborted (`page.route`), for the Ticket Booth app (its lines are the brightest); the lines
-    and the shade are still drawn over `--stone-base` (SC-005). Its own `test.setTimeout(3 * 60_000)`
-    (8 page states).
-  - **The e2e job's time**: on `main` it takes 6 min 10 s (run 41520953833). With S3 and S6 it should
-    stay under about 15 minutes, well inside the job's `timeout-minutes: 30` and spec `022` SC-003;
-    the implementation measures it (tasks T026).
+      with the shade hidden (an injected `.qp-stones::after { display: none }`); the pixels more
+      than 400 px left and right of the center are the same in both screenshots, and at the center
+      they differ.
+  - `027 S6: …`: the same checks as S3 at 360×800 and 1920×1080, light and dark, with the stones
+    image request aborted (`page.route`), for the Ticket Booth app (its lines are the brightest);
+    the lines and the shade are still drawn over `--stone-base` (SC-005). Its own `test.setTimeout(3
+    * 60_000)` (8 page states).
+  - **The e2e job's time**: on `main` it takes 6 min 10 s (run 41520953833). With S3 and S6 it
+    should stay under about 15 minutes, well inside the job's `timeout-minutes: 30` and spec `022`
+    SC-003; the implementation measures it (tasks T026).
 - **Running system**: [quickstart.md](./quickstart.md): the look by eye, telling the apps apart, the
   keyboard and a screen reader, and the generator's output checked with `--check`.
 
@@ -452,9 +457,10 @@ contrast its spec states." The tokens sentence becomes: "Those accents, and the 
 screens draw on that background, are tokens in the shared theme, defined only in its token blocks
 and checked by its contrast tests. The apps themselves keep the one shared accent and use none of
 them." The paragraph's opening becomes "The one exception to "no per-app variants" and to "no
-decoration": …", since it now makes both. The roadmap gains row `027-sign-in-background` (#122, depends on `021`); the next free number
-becomes `028`. Version 3.6.3 → **3.7.0** (MINOR: guidance materially expanded; no control removed).
-The Sync Impact Report is replaced; the README's version reference follows.
+decoration": …", since it now makes both. The roadmap gains row `027-sign-in-background` (#122,
+depends on `021`); the next free number becomes `028`. Version 3.6.3 → **3.7.0** (MINOR: guidance
+materially expanded; no control removed). The Sync Impact Report is replaced; the README's version
+reference follows.
 
 **Rationale**: the background is decoration, which Principle VII rules out, so it needs the
 constitution to say so rather than a quiet exception; keeping it to the sign-in screens, to
@@ -488,9 +494,18 @@ background" (more than the issue asks).
   `aria-hidden` backdrop, in `template.ftl`), with `filter: blur(6px)`, and its `::before` is the
   masked fill. Positioned layers paint in tree order, so the order is the stones (the backdrop's
   background), the lines (`::before`), the glow (the child), and the shade (`::after`), which keeps
-  the glow under the shade like the lines. The glow is `display: none` unless the pulse runs
-  (`html.qp-animate:not(.qp-paused)`, inside `@supports (mask-image: none)`), and runs the same
-  keyframes with the same timing, starting with the lines, so the two stay in step.
+  the glow under the shade like the lines. The glow is `display: none` by default; inside
+  `@supports (mask-image: none)`, `.qp-animate .qp-glow` shows it and runs the same keyframes with
+  the same timing, starting with the lines, so the two stay in step; the later
+  `.qp-paused .qp-glow` and the reduced-motion rule hide it again.
+- **Cost**: the glow is a full-window layer with `filter: blur(6px)` whose opacity animates, so a
+  browser may redraw the blur every frame. Measured in Chrome at 1920×1080 on the implementing
+  laptop (`requestAnimationFrame` over 5 s): 240 fps, 95th-percentile frame 4.3 ms, with the glow,
+  without it, and with nothing moving alike; headless, so this does not show the GPU's work, and a
+  check on a low-end device belongs to the walk (T029). If it proves costly, the alternative is a
+  pre-blurred mask image made by the generator, shown with no runtime filter (below).
+- **Pause and play are single steps**: pausing sets the lines at once to the dim look and drops the
+  glow; playing restarts both from 0.1. Each is one change the person makes, not a flash.
 - **Only with the pause button.** The animation applies only under `html.qp-animate`, a class the
   page's script sets; without scripts there is no button, so there is no animation either (an
   animation that starts by itself, runs more than 5 s beside other content, and cannot be paused
@@ -520,8 +535,8 @@ background" (more than the issue asks).
 - **Remembered**: `localStorage` key `qp-sign-in-motion` (`paused` or absent), read and written in
   `try`/`catch`; if storage throws, the button still pauses and plays, and nothing is remembered.
 - **Reduced motion and forced colors**: `@media (prefers-reduced-motion: reduce)` removes the
-  animation (the lines stay at 0.6275), hides the glow, and hides `.qp-motion`; `@media (forced-colors: active)`
-  hides `.qp-motion` with the backdrop.
+  animation (the lines stay at 0.6275), hides the glow, and hides `.qp-motion`; `@media
+  (forced-colors: active)` hides `.qp-motion` with the backdrop.
 - **Wiring**: `theme.properties` `scripts=js/motion.js`, a file in the theme, which `template.ftl`
   already loads in `<head>`. There it can set `qp-animate` and `qp-paused` on `<html>` before the
   page is drawn, so a paused page never starts moving; the button is wired on `DOMContentLoaded`.
@@ -531,16 +546,18 @@ background" (more than the issue asks).
   `script-src 'self'`, and because Keycloak's own themes load their scripts this way.
 
 **WCAG**: 2.2.2 Pause, Stop, Hide (A): the pulse starts by itself and runs forever beside the form,
-so it needs, and has, a pause control; without scripts it does not run. 2.3.1 Three Flashes (A):
-one smooth fade up and down every 3 s (0.33 Hz), on the lines and their glow, is not a flash:
-far below the threshold of three a second, with no abrupt change in luminance. 2.3.3
-Animation from Interactions (AAA): the pulse is not triggered by interaction; reduced motion stops
-it anyway. 1.4.3 / 1.4.11: at the peak the glow adds the accent's light around the lines, but
-every pixel it touches becomes a mix of a stone and the line color, and a mix is never lighter than
-the lighter of the two; R5's worst case (the lightest stone or the full line color, whichever is
-lighter, under the shade) already bounds it, so the header holds at the peak with the glow (8.08:1
-lowest, Booth) and R5's figure and the shared contrast test stand. The button and its ring are on
-their own panel.
+so it needs, and has, a pause control; without scripts it does not run. 2.3.1 Three Flashes (A): one
+smooth fade up and down every 3 s (0.33 Hz), on the lines and their glow, is not a flash: far below
+the threshold of three a second, with no abrupt change in luminance. 2.3.3 Animation from
+Interactions (AAA): the pulse is not triggered by interaction; reduced motion stops it anyway. 1.4.3
+/ 1.4.11: at the peak the glow adds the accent's light around the lines, but every pixel it touches
+becomes a mix of a stone and the line color, and a mix is never lighter than the lighter of the two;
+R5's worst case (the lightest stone or the full line color, whichever is lighter, under the shade)
+already bounds it, so the header holds at the peak with the glow (8.08:1 lowest, Booth) and R5's
+figure and the shared contrast test stand. (Exactly: browsers composite in gamma-encoded sRGB, each
+composite is a convex mix of the two colors there, and relative luminance is increasing in each sRGB
+channel, so the mix is never lighter than the lighter color.) The button and its ring are on their
+own panel.
 
 **Tests**: theme-file (the keyframes and their timing, the rest opacity, the glow layer, its blur
 and its place under the shade, the paused rule, the
@@ -550,7 +567,10 @@ contrast (the panel's text and ring); browser test `027 S9` (running on both lay
 paused at rest with no glow, remembered, Tab order, reduced motion, storage refused, the panel's
 contrast and ring); S3 and S6 freeze the lines and the glow at their peak while measuring.
 
-**Alternatives considered**: a blur on the masked layer itself (clipped by its own mask); a
+**Alternatives considered**: a pre-blurred second mask image (`stone-lines-glow.png`) from the
+generator, shown with no runtime `filter`: cheaper to draw, but a second derived image to keep
+and check; kept as the fallback if the runtime blur proves costly. A blur on the masked layer
+itself (clipped by its own mask); a
 `drop-shadow` filter on the lines (the same clipping, and a shadow, not a halo); the pulse in the
 image's strength (a 160 image cannot reach full
 strength); a pause control that is a link or an icon (a text button is clearer and is what Mahdi

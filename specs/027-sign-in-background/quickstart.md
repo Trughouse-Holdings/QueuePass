@@ -27,10 +27,11 @@ the bottom right; the stones are grey and only the lines between them are colore
 edge between two stones; "QUEUEPASS" in large light capitals on the stones, and below it a card, at
 most 500 px wide, with a 4 px top edge in the app's accent; a darker band behind them fades out
 within about 120 px on each side, and beyond it the stones and lines are at full strength (on any
-window 800 px wide or wider). Everything of `021` S1 is still there, on the card: the tab title and heading "Sign in to {app}", the audience line, the accent band at the top,
-the brand mark, and the Sign In button in the app's accent. Switch the system to the other color
-scheme and reload. **Expected**: the backdrop, its lines, and the header look the same; the card,
-its text, the fields, and the button follow the scheme.
+window 800 px wide or wider). Everything of `021` S1 is still there, on the card: the tab title and
+heading "Sign in to {app}", the audience line, the accent band at the top, the brand mark, and the
+Sign In button in the app's accent. Switch the system to the other color scheme and reload.
+**Expected**: the backdrop, its lines, and the header look the same; the card, its text, the fields,
+and the button follow the scheme.
 
 ## S2. Told apart at a glance (SC-006)
 
@@ -58,8 +59,8 @@ For each app, in light and dark schemes, at 360×800 (DevTools device mode), 768
 1. On each app's page, sign in as `admin1` with the password `wrong`. **Expected**: the stones and
    that app's lines and card; the message "Invalid username or password." under the fields, in the
    card's error color, readable; the username kept.
-2. In each app, sign in (`admin1`, `customer1`, `agent1`, password `test123`), sign out, and choose to
-   sign in again. **Expected**: that app's page, with the stones.
+2. In each app, sign in (`admin1`, `customer1`, `agent1`, password `test123`), sign out, and choose
+   to sign in again. **Expected**: that app's page, with the stones.
 3. Open http://localhost:8080/realms/queuepass/account. **Expected**: "Sign in to Account Console"
    on the card, over the stones with indigo lines.
 4. Open the sign-in page's URL again after it has expired (or with a broken `client_id`).
@@ -70,9 +71,10 @@ For each app, in light and dark schemes, at 360×800 (DevTools device mode), 768
 
 On one page per app, in both schemes. **Expected**: focus starts in the username field; Tab goes
 username → password → Show → Sign In → Pause animation; every focus ring is clearly visible, in the
-app's accent on the card and its lighter accent on the pause button's panel; Show reveals the password; Enter submits. With VoiceOver: the page title and the one
-heading name the app; after a wrong password, the focused field reads the message out; neither
-the background nor the "QUEUEPASS" header is announced.
+app's accent on the card and its lighter accent on the pause button's panel; Show reveals the
+password; Enter submits. With VoiceOver: the page title and the one heading name the app; after a
+wrong password, the focused field reads the message out; neither the background nor the "QUEUEPASS"
+header is announced.
 
 ## S6. Without the stones (FR-009, SC-005)
 
@@ -83,8 +85,8 @@ shade, the same header and card, every text and control readable; signing in wor
 ## S7. Keycloak's image, not a copy; the lines image made again (US4; FR-002, FR-010, SC-004)
 
 1. Get Keycloak's image from the running stack: open any sign-in page, read the version in its
-   stylesheet links (`/resources/{version}/login/queuepass/css/login.css`), then
-   `curl -o keycloak-bg.png http://localhost:8080/resources/{version}/login/keycloak/img/keycloak-bg.png`
+   stylesheet links (`/resources/{version}/login/queuepass/css/login.css`), then `curl -o
+   keycloak-bg.png http://localhost:8080/resources/{version}/login/keycloak/img/keycloak-bg.png`
    (outside the repository).
 2. `npm run stone-lines --workspace @queuepass/seed -- --check <path to keycloak-bg.png>`.
    **Expected**: it reports that the committed
@@ -103,12 +105,12 @@ signing in takes the same steps as before `027`.
 
 ## S9. The lines pulse, and pause (FR-013, SC-007)
 
-1. Open each app's page. **Expected**: the lines pulse from faint to full strength and back
-   every 3 s, with a soft glow around them, smoothly, with no flash; nothing else moves. A small "Pause animation" button sits at the
-   bottom right of the page, on its own dark panel.
+1. Open each app's page. **Expected**: the lines pulse from faint to full strength and back every 3
+   s, with a soft glow around them, smoothly, with no flash; nothing else moves. A small "Pause
+   animation" button sits at the bottom right of the page, on its own dark panel.
 2. Tab past Sign In to the button and press Enter. **Expected**: the lines stop at the dim look,
-   with no glow; the button reads "Play animation". Reload. **Expected**: still paused. Press it again. **Expected**: the lines
-   pulse again.
+   with no glow; the button reads "Play animation". Reload. **Expected**: still paused. Press it
+   again. **Expected**: the lines pulse again.
 3. Turn on reduced motion (system settings, or DevTools → Rendering → `prefers-reduced-motion:
    reduce`) and reload. **Expected**: nothing moves, at the dim level; no button.
 4. Turn off JavaScript and reload. **Expected**: nothing moves; no button; signing in still works.

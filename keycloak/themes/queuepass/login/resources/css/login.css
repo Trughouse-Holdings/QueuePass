@@ -23,12 +23,20 @@ body {
 /* ------------------------------------------------------ the backdrop (spec 027 R4) */
 /* One fixed box behind the page, so the stones and the lines (both 1920×1080, both
    center / cover) line up at every window size and stay put while a long page scrolls. No
-   transition; the only animation is the lines' pulse below (R10, FR-013). */
+   transition; the only animation is the lines' pulse and its glow below (R10, FR-013). */
 .qp-stones {
   position: fixed;
   inset: 0;
   z-index: -1;
   background: url(../../keycloak/img/keycloak-bg.png) center / cover no-repeat;
+}
+/* The glow's layer, the backdrop's one child: between the lines (::before) and the shade
+   (::after), so the shade darkens it too. Shown only while the pulse runs (R10). */
+.qp-glow {
+  position: absolute;
+  inset: 0;
+  display: none;
+  filter: blur(6px);
 }
 /* The lines between the stones, in the app's lighter accent, shown through the lines image. A
    browser without masks would fill the window with the accent, so it gets no lines (R4). */
@@ -68,14 +76,6 @@ body {
   .qp-paused .qp-glow {
     display: none;
   }
-}
-/* The glow's layer, the backdrop's one child: between the lines (::before) and the shade
-   (::after), so the shade darkens it too. Shown only while the pulse runs (R10). */
-.qp-glow {
-  position: absolute;
-  inset: 0;
-  display: none;
-  filter: blur(6px);
 }
 @keyframes qp-lines-pulse {
   from {

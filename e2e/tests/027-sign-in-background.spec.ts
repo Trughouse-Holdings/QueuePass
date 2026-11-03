@@ -311,10 +311,17 @@ async function pulse(page: Page) {
     const glowEl = document.querySelector('.qp-glow');
     const g = glowEl ? getComputedStyle(glowEl) : null;
     // The two running animations' clocks, to see they run in step.
-    const clocks = document
+    const pulses = document
       .getAnimations()
-      .filter((a) => (a as CSSAnimation).animationName === 'qp-lines-pulse')
-      .map((a) => Number(a.currentTime));
+      .filter((a) => (a as CSSAnimation).animationName === 'qp-lines-pulse');
+    const clocks = pulses.map((a) => Number(a.currentTime));
+    // Which layer each runs on, and whether it runs (review round 3, nit 1).
+    const targets = pulses
+      .map((a) => {
+        const effect = a.effect as KeyframeEffect;
+        return `${(effect.target as Element).className}${effect.pseudoElement ?? ''}:${a.playState}`;
+      })
+      .sort();
     return {
       name: s.animationName,
       duration: s.animationDuration,
@@ -330,8 +337,10 @@ async function pulse(page: Page) {
         timing: g.animationTimingFunction,
         count: g.animationIterationCount,
         direction: g.animationDirection,
+        opacity: Number(g.opacity),
       },
       clocks,
+      targets,
     };
   });
 }
@@ -401,13 +410,18 @@ test('027 S9: the lines pulse, and the pause button stops them, is remembered, a
       expect(running.glow).toMatchObject({ ...timing, display: 'block', filter: 'blur(6px)' });
       expect(running.clocks).toHaveLength(2);
       expect(Math.abs(running.clocks[0]! - running.clocks[1]!)).toBeLessThan(50);
-      // Three samples, so a symmetric pair around the turn cannot look still (review round 2, 16).
-      const samples = [running.opacity];
+      expect(running.targets).toEqual(['qp-glow:running', 'qp-stones::before:running']);
+      // Three samples, so a symmetric pair around the turn cannot look still (review round 2, 16);
+      // the glow's opacity follows the lines' at each (review round 3, nit 1).
+      const samples = [running];
       for (let i = 0; i < 2; i++) {
         await page.waitForTimeout(350);
-        samples.push((await pulse(page)).opacity);
+        samples.push(await pulse(page));
       }
-      expect(new Set(samples).size).toBeGreaterThanOrEqual(2);
+      expect(new Set(samples.map((s) => s.opacity)).size).toBeGreaterThanOrEqual(2);
+      for (const s of samples) {
+        expect(Math.abs(s.glow!.opacity - s.opacity)).toBeLessThan(0.05);
+      }
 
       // Last in the Tab order: right after Sign In.
       const toggle = page.locator('.qp-motion__toggle');

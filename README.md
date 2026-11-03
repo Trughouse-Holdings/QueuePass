@@ -46,12 +46,12 @@ is built and reviewed (with Constitution 3.8.0 for its header and its pulse); it
 | [`024-venue-form-simplify`](specs/024-venue-form-simplify/spec.md)           | The Admin venue form: the admin picks the time zone; an address is saved in one step, marked not verified when the address service can't confirm it, even when it's down; section lines read Rows × Seats per row with their seats                                     | Draft            | Done (32/32 tasks) | **Built and verified**       |
 | [`025-doors-open`](specs/025-doors-open/spec.md)                             | Every event has a doors-open time, set by admins (1 hour before the start by default, up to 6 hours before); customers and admins see it; check-in opens 1 hour before doors, and the Ticket Booth greys out events not open yet                                       | Draft            | Done (39/41 tasks) | **Built and walked**         |
 | [`026-purchase-rate-limits`](specs/026-purchase-rate-limits/spec.md)         | Each customer account may try to buy, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds; over a limit, the Customer app counts down until they can try again                                                                        | Draft            | Done (25/26 tasks) | **Built (walk partly done)** |
-| [`027-sign-in-background`](specs/027-sign-in-background/spec.md)             | Keycloak's stone background on every sign-in page, the lines between the stones in each app's accent; "QUEUEPASS" above Keycloak's card, readable at every size in light and dark                                                                                      | Draft            | Done (47/54 tasks) | **Built (walk pending)**     |
+| [`027-sign-in-background`](specs/027-sign-in-background/spec.md)             | Keycloak's stone background on every sign-in page, the lines between the stones in each app's accent; "QUEUEPASS" above Keycloak's card, readable at every size in light and dark                                                                                      | Draft            | Done (50/54 tasks) | **Built (walk pending)**     |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. Every sign-in page
 shows Keycloak's grey stones with the lines between them in the app's own color, "QUEUEPASS" above,
-and the form on Keycloak's card; the lines pulse gently, with a pause button (`027`). In the
+and the form on Keycloak's card; the lines pulse and glow, with a pause button (`027`). In the
 Admin app, admins list, view, create, edit, and delete venues and events. Deleting asks for confirmation first,
 and a venue that still has events is refused with a count of what blocks it. In the Customer app,
 customers find events by name, venue, and dates, browse them as cards on any screen, and see
