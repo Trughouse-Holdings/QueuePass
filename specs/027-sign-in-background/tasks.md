@@ -459,7 +459,7 @@ Clarifications, implementation session 4; FR-013, SC-007; research R4, R5, R10).
   pages show Keycloak's stones with each app's color between them), a note under the shared look that
   the sign-in look's backdrop colors are `--stone-*` tokens, and the `stone-lines` command beside the
   Keycloak rebuild note; the constitution reference already reads v3.7.0.
-- [ ] T026 Run `npm run e2e` three times in a row, all green, and `npm test` under a second time zone
+- [x] T026 Run `npm run e2e` three times in a row, all green, and `npm test` under a second time zone
   (`npm run test:tz`); record the counts, and the e2e job's time on GitHub for this branch: it must
   stay under about 15 minutes (on `main` it is 6 min 10 s, run 41520953833), well inside the job's
   `timeout-minutes: 30` and spec `022` SC-003 (R8). Record `027 S3`'s and `027 S6`'s own times too.
@@ -470,6 +470,11 @@ Clarifications, implementation session 4; FR-013, SC-007; research R4, R5, R10).
   `027 S3`, and `027 S6` passed three runs in a row (S1 about 1.5 s, S3 about 1.1–1.2 min with
   two screenshots per page state, S6 5–8 s). `npm run test:tz`: all four zones (New York, UTC,
   Los Angeles, Honolulu) pass for shared, backend, and the three apps.
+  **Done on GitHub** (PR #124, run 41666130036, final commit `569906c`): the whole e2e suite, 21
+  browser tests, passed in 2.1 min of test time; the e2e job took 6 min 17 s, under the 15-minute
+  target and its 30-minute limit. `027 S1` 2.2 s, `027 S3` 1.5 min, `027 S6` 11.9 s, `027 S9`
+  8.7 s. The whole suite ran once there, not three times; the four `027` tests passed three runs in
+  a row locally after the glow (T051–T054).
 - [x] T027 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round, its findings, and
   any left open here.
@@ -483,12 +488,21 @@ Clarifications, implementation session 4; FR-013, SC-007; research R4, R5, R10).
   time-zone run passes. Every workspace is above the 80% floor.
 - [ ] T029 Running-system walk, quickstart S0–S9, on a stack built from this branch; record each
   scenario's result here (Constitution VI smoke test: each front end signed into, used, signed out).
-- [ ] T030 Mahdi walks the sign-in pages in his own browser and approves the look (the issue's
+  **Partly done (left open)**: Mahdi walked the sign-in pages of all three apps on the team stack
+  with Keycloak built from this branch (2026-11-02 and 2026-11-03), through the card, the pulse
+  ("the animation does not seem to be playing" led to the strong glow, T048–T054) and the pause
+  button. Not yet walked by hand: S5's screen-reader pass, S9's no-JS check, and forced colors;
+  their automated parts run in `027 S3`, `S6`, and `S9`.
+- [x] T030 Mahdi walks the sign-in pages in his own browser and approves the look (the issue's
   Process: "The user walks it before merging"); record it here.
-- [ ] T031 Push and open the implementation PR (after the spec PR has merged and the branch is up to
+  **Done**: Mahdi approved the card and header ("much better") and the strong glow ("absolutely
+  fire") on the team stack before the PR was merged.
+- [x] T031 Push and open the implementation PR (after the spec PR has merged and the branch is up to
   date with `main`): description says `fixes #122`, lists the review, the walk, the test counts, and
   the shared surface touched (`packages/shared/`; 3.7.0 was in the spec PR; 3.8.0, T038, is in this one). Wait for CI
   green on GitHub (`test` and `e2e`) on the final commit; merge only when green and approved.
+  **Done**: PR #124 (`fixes #122`, Nate requested for the shared surface), `test` and `e2e` green on
+  `569906c`, merged on Mahdi's approval 2026-11-03; #122 closed.
 
 ---
 
