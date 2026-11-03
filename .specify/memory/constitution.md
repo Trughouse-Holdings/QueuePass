@@ -4,17 +4,18 @@ Version: 3.7.0 -> 3.8.0 (MINOR): Principle VII's sign-in exception materially ex
   roadmap row reworded; no control removed.
 Problem: in spec 027's implementation (issue #122), Mahdi brought back Keycloak's sign-in card and
   the realm's name above it, as Keycloak's own login page shows them, and then asked for the lines
-  between the stones to pulse gently, with a pause button (spec 027 Clarifications, implementation
-  sessions 2 and 3). The card is the shared theme's card, which the exception already allows. The
+  between the stones to pulse, with a pause button, then for a stronger pulse with a glow (spec 027
+  Clarifications, implementation sessions 2 to 4). The card is the shared theme's card, which the exception already allows. The
   realm-name header is decoration, and moving lines are more decoration than the still background
   3.7.0 allowed, which it called "the only decoration allowed"; roadmap row 027 still said the form
   sits on the stones with no card.
 Changed:
   - Principle VII, the sign-in exception: the sign-in screens MAY also show, above the sign-in card,
-    the realm's name as Keycloak's own login page does; the lines MAY pulse gently, only with a
-    control on the page that pauses them, and never when the person's system asks for reduced
-    motion. The background, its pulse, and that header are the only decoration allowed, and every
-    text, label, and control on them keeps the contrast its spec states.
+    the realm's name as Keycloak's own login page does; the lines MAY pulse and glow, smoothly
+    and with no flash, only with a control on the page that pauses them, and never when the
+    person's system asks for reduced motion. The background, its pulse, and that header are the
+    only decoration allowed, and every text, label, and control on them keeps the contrast its
+    spec states.
   - Roadmap: row 027-sign-in-background reworded to what is built: the form on Keycloak's card,
     styled from the shared theme, under the realm's name, instead of "no card", and the pulse
     with its pause control. The next free number stays 028.
@@ -246,12 +247,12 @@ pages, styled from the shared theme) MAY show each app's name, a line saying who
 own accent color, so a person can tell at a glance which app they are signing in to (spec `021`).
 They MAY also show Keycloak's stock low-poly background, served from Keycloak's own theme, with the
 lines between the stones in the app's accent, and, above the sign-in card, the realm's name as
-Keycloak's own login page shows it (spec `027`). The lines MAY pulse gently, only with a control
-on the page that pauses them, and never when the person's system asks for reduced motion. That
-background, its pulse, and that header are the only decoration allowed, and every text, label, and
-control on them MUST keep the contrast its spec states. Those accents, and the colors the sign-in
-screens draw on that background, are tokens in the shared theme, defined only in its token blocks
-and checked by its contrast tests. The apps themselves keep the one shared accent and use none of
+Keycloak's own login page shows it (spec `027`). The lines MAY pulse and glow, smoothly and with
+no flash, only with a control on the page that pauses them, and never when the person's system asks
+for reduced motion. That background, its pulse, and that header are the only decoration allowed,
+and every text, label, and control on them MUST keep the contrast its spec states. Those accents,
+and the colors the sign-in screens draw on that background, are tokens in the shared theme, defined
+only in its token blocks and checked by its contrast tests. The apps themselves keep the one shared accent and use none of
 them.
 
 Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
@@ -352,7 +353,7 @@ number is a pull request against this table. The next free number is `028`.
 | `024-venue-form-simplify` | The Admin app's venue form: the admin always picks the venue's time zone from the list, with no option to work it out from the address; a well-formed address is always saved in one step, verified when the address service matches it, otherwise saved as typed and marked not verified, also when the service is down; each section line reads Rows × Seats per row with its seat count (#107) | `007`, `013`, `020` |
 | `025-doors-open` | Every event has a doors-open time, set by admins in the venue's time zone (by default 1 hour before the start, no more than 6 hours before it and not after it, refused otherwise); customers and admins see it with the event; check-in, by any code, is open from 1 hour before doors open until the event ends, and the Ticket Booth app lists events not yet open greyed out, with when they open (#91; the doors-open item of #49) | `017`, `018`, `020` |
 | `026-purchase-rate-limits` | Each customer account may try to buy tickets, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds, however the API is called, with no one exempt; a customer over a limit is told plainly and when they can try again, with a countdown, and keeps what they had; ordinary buying never meets the limits, and QueuePass stays responsive for everyone else (#56) | `006`, `015`, `016` |
-| `027-sign-in-background` | Every sign-in page shows Keycloak's own low-poly stones background, served by Keycloak, with the stones grey and the lines between them in the app's accent; the form on Keycloak's card, styled from the shared theme, under the realm's name as Keycloak's own header; the lines pulse gently, with a pause button, and are still under reduced motion; every text, field, and focus ring stays readable at every window size, in light and dark schemes (#122) | `021` |
+| `027-sign-in-background` | Every sign-in page shows Keycloak's own low-poly stones background, served by Keycloak, with the stones grey and the lines between them in the app's accent; the form on Keycloak's card, styled from the shared theme, under the realm's name as Keycloak's own header; the lines pulse and glow, with a pause button, and are still under reduced motion; every text, field, and focus ring stays readable at every window size, in light and dark schemes (#122) | `021` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
