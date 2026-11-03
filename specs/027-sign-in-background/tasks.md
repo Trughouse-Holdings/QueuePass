@@ -394,9 +394,17 @@ implementation session 3; FR-013, SC-007; research R10).
   reduced motion) to the sign-in exception and to row 027. It stays 3.8.0: an amendment takes
   effect when merged, and 3.8.0 is not merged yet.
 - [x] T045 Quickstart S5 and S9, the S9 Automation row; README count.
-- [ ] T046 `npm run ci` and the 027 browser tests three times locally.
-- [ ] T047 Independent review of this delta (round 2); fix and record it below; retake the
+- [x] T046 `npm run ci` and the 027 browser tests three times locally.
+  **Done** (after round 2's fixes, live seed tests against a Keycloak built from this branch, none
+  skipped): format, lint, the e2e typecheck, and the build pass; `npm test`: root scripts 75;
+  shared 785 (lines 96.72%); backend 1088 (97.24%); admin-app 361 (97.31%); customer-app 335
+  (97.65%); booth-app 94 (93.44%); seed 174 (99.29%); the quick time-zone run passes. `027 S1`,
+  `S3`, `S6`, and `S9` passed three runs in a row locally (S3 40–46 s, S9 about 7 s).
+- [x] T047 Independent review of this delta (round 2); fix and record it below; retake the
   screenshots.
+  **Done**: round 2 in the review record below, one finding left for Mahdi; 14 screenshots (each
+  app, light and dark, 1920×1080 and 360×800, plus paused and reduced motion) kept outside the
+  repository.
 
 ---
 
