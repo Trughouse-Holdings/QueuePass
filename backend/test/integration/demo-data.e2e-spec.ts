@@ -1,4 +1,4 @@
-import { sniffImageType, toLocalDateTime } from '@queuepass/shared';
+import { localDate, sniffImageType, toLocalDateTime } from '@queuepass/shared';
 import { runDemoData } from '../../src/scripts/demo-data';
 import { asAdmin } from '../setup/authed-request';
 import { ADDRESS } from '../setup/fixtures';
@@ -23,9 +23,10 @@ describe('Demo data', () => {
     expect(summary).toMatchObject({
       created: true,
       venues: 2,
-      // Spec 017: Demo Tonight joins the three (research R13).
-      events: 4,
+      // Spec 017: Demo Tonight joins the three (research R13); spec 029: Season Opener (R5).
+      events: 5,
       cancelled: 'Holiday Gala',
+      past: 'Season Opener',
       unverifiedVenues: 0,
       // Spec 014 research R15: 3 on the concert and 1 on the comedy night. (R15 and T039 say 6,
       // which does not match 3 + 1 + 0; the summary counts what was made.)
@@ -35,7 +36,8 @@ describe('Demo data', () => {
     expect(summary.checkedIn).toBeGreaterThan(0);
 
     const report = (await asAdmin(ctx).get('/reports/sales').expect(200)).body;
-    expect(report.totals.events).toBe(3);
+    // Scheduled events: the gala is cancelled (spec 029 research R5).
+    expect(report.totals.events).toBe(4);
     expect(report.totals.ticketsSold).toBeGreaterThan(0);
     expect(report.totals.checkedIn).toBe(summary.checkedIn);
     const gala = report.events.find((e: { name: string }) => e.name === 'Holiday Gala');
@@ -88,7 +90,7 @@ describe('Demo data', () => {
   /** Spec 025 research R11 (T024): demo events take the default doors, start minus 1 hour. */
   it('gives every demo event doors 1 hour before its start, and Demo Tonight open for entry', async () => {
     const events = await ctx.prisma.event.findMany();
-    expect(events.length).toBe(4);
+    expect(events.length).toBe(5);
     for (const e of events) {
       expect(e.startsAt.getTime() - e.doorsOpenAt.getTime()).toBe(3_600_000);
     }
@@ -133,6 +135,29 @@ describe('Demo data', () => {
     expect(new Set(concert.images.map((i) => Buffer.from(i.bytes).toString('base64'))).size).toBe(
       3,
     );
+  });
+
+  /**
+   * Spec 029 FR-007 (research R5, T002): an event that is over, at the Hall, 7:00 PM to 10:00 PM
+   * local on the run's local date minus 7 days, scheduled, with no orders or tickets.
+   */
+  it('creates Season Opener, over, at the Hall a week before the run, with no tickets', async () => {
+    // Created by the first test of this file.
+    const opener = await ctx.prisma.event.findFirstOrThrow({
+      where: { name: 'Season Opener' },
+      include: { location: true, _count: { select: { orders: true, tickets: true } } },
+    });
+    const zone = opener.location.timeZone;
+    expect(opener.location.name).toBe('Demo Riverside Hall');
+    expect(opener.status).toBe('SCHEDULED');
+    expect(opener._count).toEqual({ orders: 0, tickets: 0 });
+    const [y, m, d] = localDate(new Date(), zone).split('-').map(Number);
+    const weekAgo = new Date(Date.UTC(y, m - 1, d - 7)).toISOString().slice(0, 10);
+    expect(toLocalDateTime(opener.startsAt, zone)).toBe(`${weekAgo}T19:00`);
+    expect(toLocalDateTime(opener.endsAt, zone)).toBe(`${weekAgo}T22:00`);
+    const [{ over }] = await ctx.prisma.$queryRaw<{ over: boolean }[]>`
+      SELECT "endsAt" < now() AS "over" FROM "Event" WHERE "id" = ${opener.id}::uuid`;
+    expect(over).toBe(true);
   });
 
   it('changes nothing when run again', async () => {
@@ -198,6 +223,8 @@ describe('Demo data', () => {
       expect(local('Fall Concert')).toEqual({ start: '19:00', hours: 3 });
       expect(local('Comedy Night')).toEqual({ start: '20:00', hours: 3 });
       expect(local('Holiday Gala')).toEqual({ start: '19:00', hours: 3 });
+      // Spec 029 FR-007 (research R5): Season Opener, 7:00 PM to 10:00 PM at the Hall.
+      expect(local('Season Opener')).toEqual({ start: '19:00', hours: 3 });
       const tonight = events.find((e) => e.name === 'Demo Tonight')!;
       const inMinutes = (tonight.startsAt.getTime() - Date.now()) / 60_000;
       // An hour after the run, which happened earlier in this file.
@@ -217,8 +244,9 @@ describe('Demo data', () => {
         expect(summary).toMatchObject({
           created: true,
           venues: 2,
-          events: 4,
+          events: 5,
           cancelled: 'Holiday Gala',
+          past: 'Season Opener',
           unverifiedVenues: 2,
         });
         expect(ctx.geocoder.calls.map((c) => c.street)).toEqual([
