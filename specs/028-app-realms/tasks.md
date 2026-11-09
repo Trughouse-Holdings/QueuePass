@@ -33,7 +33,9 @@ confirm they **fail** before the implementation tasks below them.
   restarting it between them: stop the host processes holding ports 3000 and 5173–5175 (Ctrl+C in
   `run-host.mjs`'s terminal stops all four; if it runs in the background, stop that process), then
   `docker compose -p queuepass-team stop` (never `down`, never `-v`: its volumes and data must
-  stay). Restore it after every stretch: `docker compose -p qp028 stop`,
+  stay). Restore it after every stretch: stop your own stretch's stack (`qp028clean`:
+  `docker compose -p qp028clean down -v`, its own throwaway volumes; `qp028` in T002 and
+  T026–T028: `docker compose -p qp028 stop`, never `down`), then
   `docker compose -p queuepass-team start database keycloak` (**only those two**: the project also
   holds old exited `backend`, `seed` and app containers that a bare `start` would run), and
   `node scripts/run-host.mjs` from the main checkout **until T032**, and from this branch from
@@ -49,9 +51,9 @@ confirm they **fail** before the implementation tasks below them.
 - **Tools on this machine**: Node is portable
   (`C:\Users\mahdi\AppData\Local\Temp\claude\C--Users-mahdi-hello-world\bb4be332-7a80-48b1-bcc8-df6f8f8ff81d\scratchpad\node22`,
   prepend it to `PATH`); its `npx` works (repaired 2026-11-09), so `npm run ci` runs. Run Playwright
-  with the repository's config: `node node_modules/@playwright/test/cli.js test -c
-  e2e/playwright.config.ts …` (it caps workers at 3 and sets the
-  locale and time zone that the fixtures need).
+  with the repository's config, which caps workers at 3 and sets the locale and time zone that the
+  fixtures need:
+  `node node_modules/@playwright/test/cli.js test -c e2e/playwright.config.ts …`
 - **Nothing is deleted from Keycloak** (FR-007): no test, script or manual step deletes a realm,
   client or user (old copies are disabled). Throwaway realms made by a probe are the only exception,
   and are named `probe…`.
@@ -127,9 +129,8 @@ of work).
      not called);
   6. a token without `iss`: 401.
 - [ ] T007 [US4] `backend/test/unit/oidc-config.spec.ts` (new; match the folder's file naming): the
-  Backend
-  refuses to start without `OIDC_ISSUER_BASE`, `OIDC_JWKS_BASE` or `OIDC_AUDIENCE`, naming the
-  missing ones; trailing slashes on the bases are tolerated.
+  Backend refuses to start without `OIDC_ISSUER_BASE`, `OIDC_JWKS_BASE` or `OIDC_AUDIENCE`, naming
+  the missing ones; trailing slashes on the bases are tolerated.
 
 ### Implementation
 
@@ -205,9 +206,9 @@ of work).
   client, users; then `disableOldCopies`. The final log line names the three realms and the counts.
 
 **Checkpoint** (stretch, Ground rules): `npm test --workspace @queuepass/seed` green, with the live
-seed tests running against a clean `qp028clean` Keycloak (`docker compose -p qp028clean up -d
-keycloak`, no switch needed), then `docker compose -p qp028clean down -v` and restore the team
-stack. `qp028` is not started.
+seed tests running against a clean `qp028clean` Keycloak, no switch needed:
+`docker compose -p qp028clean up -d --build keycloak`
+then `docker compose -p qp028clean down -v` and restore the team stack. `qp028` is not started.
 
 ---
 
@@ -232,9 +233,8 @@ stack. `qp028` is not started.
   4. each app's **own** renewal: set up `page.waitForResponse` on each realm's
      `/protocol/openid-connect/token` request with `grant_type=refresh_token` answering 200, then
      `context.clock.runFor('04:05')`, started right after the **last** sign-in and within about 55 s
-     of the **first** (research R10: otherwise the first app's token also expires during the run
-     and refreshes twice); assert all three refreshes answered 200, and that each app's next API
-     request
+     of the **first** (research R10: otherwise the first app's token also expires during the run and
+     refreshes twice); assert all three refreshes answered 200, and that each app's next API request
      carries a **new** `Authorization` token (the Backend checks expiry in real time, so a call
      alone proves nothing) (FR-002);
   5. log out of Customer: Customer shows its sign-in page; run the clock again as in step 4: Admin
@@ -268,12 +268,12 @@ stack. `qp028` is not started.
   for quickstart S1/S2 until a Mac walk (T032).
 
 **Checkpoint** (stretch 2, Ground rules): with `qp028` **stopped, not removed** (T026 needs its
-data), a clean stack of its own: `docker compose -p qp028clean up -d database keycloak` and
-`node scripts/run-host.mjs` from this branch: the seed creates three realms;
+data), a clean stack of its own: `docker compose -p qp028clean up -d --build database keycloak`
+and `node scripts/run-host.mjs` from this branch: the seed creates three realms;
 `node node_modules/@playwright/test/cli.js test -c e2e/playwright.config.ts 028 001` passes three
-times in a row, and once more in WebKit
-as the Safari stand-in (T025a). Then `docker compose -p qp028clean down -v` (its own throwaway
-volumes only) and restore the team stack.
+times in a row, and once more in WebKit as the Safari stand-in (T025a). Then
+`docker compose -p qp028clean down -v` (its own throwaway volumes only) and restore the team
+stack.
 
 ---
 
@@ -422,3 +422,11 @@ volumes only) and restore the team stack.
     Ground rules say where Node is and how to run Playwright.
   - N1: old built images count as pre-028 code (T029). N2: a "moving" leftover in plan.md. N3: long
     lines rewrapped. N4: the README row's count is 36 tasks (T029).
+- **Round 5** (independent Claude session, 2026-11-09, round 4's commit only): no must-fix; 1
+  should-fix, 4 nits; fixed in the `Review 028` commit that follows it. Verdict: only minor
+  findings remain.
+  - S1: R13 and the restore step still named `qp028` for every stretch → `qp028clean` for the clean
+    stretches (`down -v`), `qp028` only in T002 and T026–T028.
+  - N1: `--build` on the `qp028clean` starts, so the Keycloak theme is current. N2: orphan words
+    from the automatic rewrap reflowed. N3: commands kept on one line. N4: a few long lines left
+    where they cannot break (links, a path, tables).

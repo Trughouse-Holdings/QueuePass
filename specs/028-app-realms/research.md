@@ -101,10 +101,8 @@ the seed image was rejected: it reverses a reviewed decision of `020` for three 
 ## R5. Keeping identifiers: rename, not copy
 
 **Question**: QueuePass stores Keycloak subjects: `Order.customerSub`,
-`SeatReservation.customerSub`,
-the in-memory attempt limits, keyed by subject (all customers), and `Ticket.checkedInBySub` (the
-agent, next to
-`checkedInByUsername`). A user made in a new realm gets a new random subject. How do existing users
+`SeatReservation.customerSub`, the in-memory attempt limits, keyed by subject (all customers), and
+`Ticket.checkedInBySub` (the agent, next to `checkedInByUsername`). A user made in a new realm gets a new random subject. How do existing users
 keep theirs?
 
 **Observed** (throwaway realms, all deleted afterwards; realm `queuepass` never touched):
@@ -185,8 +183,7 @@ realm: an issuer that is not exactly one of the three is a 401 before any key is
 the audience and expiry as today. A token signed by one realm's key but claiming another realm's
 issuer fails signature verification. Roles: of `realm_access.roles`, keep only the realm's own role
 (`APP_REALMS[*].role`); everything else is dropped, so `RolesGuard` answers 403 where another role
-is
-needed (FR-011).
+is needed (FR-011).
 
 **Startup**: the Backend refuses to start without `OIDC_ISSUER_BASE`, `OIDC_JWKS_BASE` and
 `OIDC_AUDIENCE` (as `001` FR-019 does for today's three).
@@ -246,9 +243,8 @@ one per app.
   app's account and expected the wrong-role page. After `028` those accounts are not in that realm:
   V4 becomes "each app's sign-in page refuses another app's account" (on CI's clean stack,
   Keycloak's "Invalid username or password"; the app not signed in). The wrong-role page itself
-  stays covered without a browser
-  sign-in by `packages/shared/test/web/require-role.test.tsx`, which gives the page a user without
-  the role.
+  stays covered without a browser sign-in by `packages/shared/test/web/require-role.test.tsx`,
+  which gives the page a user without the role.
 - **Existing tests and files that name realm `queuepass`**:
   `packages/shared/test/web/auth-provider.test.tsx` (the authority, twice),
   `backend/test/setup/tokens.ts` (`TEST_ISSUER`), `backend/test/integration/auth.e2e-spec.ts` (a
@@ -306,10 +302,12 @@ from the host with `node scripts/run-host.mjs`.
    that need a running stack, with Mahdi's agreement (given 2026-11-09 for the test stretches):
    stop the host-run processes holding ports 3000 and 5173–5175, then
    `docker compose -p queuepass-team stop` (never `down`, never `-v`: its volumes and data stay).
-   Their own stack is `docker compose -p qp028 up -d database keycloak` plus
-   `node scripts/run-host.mjs` from the right checkout. Between stretches, and at the end, the team
-   stack comes back (from the main checkout until the walk, T032; from 028's code after it):
-   `docker compose -p qp028 stop`,
+   Their own stack: for the clean stretches a throwaway
+   `docker compose -p qp028clean up -d --build database keycloak` (removed afterwards with
+   `down -v`); for the pre-028 database only (tasks T002, T026–T028) `qp028`, stopped, never
+   removed, in between; each with `node scripts/run-host.mjs` from the right checkout. Between
+   stretches, and at the end, the team stack comes back (from the main checkout until the walk,
+   T032; from 028's code after it): stop the stretch's own stack,
    `docker compose -p queuepass-team start database keycloak` (**only those two**: the project also
    holds old, exited `backend`, `seed` and app containers from weeks ago, which a bare `start` would
    run, taking the ports and running a pre-028 seed), and `node scripts/run-host.mjs` from the main

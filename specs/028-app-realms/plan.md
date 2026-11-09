@@ -44,8 +44,7 @@ per realm (three small fetches at first use instead of one).
 
 **Constraints**: no front end handles a password; tokens in memory only; nothing deleted from
 Keycloak; the rename is atomic and the rest idempotent; `main` stays demo-ready (a database made
-before
-this feature keeps working after the update, US3).
+before this feature keeps working after the update, US3).
 
 **Scale/Scope**: 3 realms, 3 clients, 235 users, as today.
 
