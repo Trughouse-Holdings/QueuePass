@@ -186,8 +186,11 @@ of work).
 
 ### Tests first
 
-- [ ] T022 [US1] [US2] `e2e/tests/028-app-realms.spec.ts` (quickstart S1, S2; Automation table), in
-  **one** browser context:
+- [ ] T022 [US1] [US2] `e2e/tests/028-app-realms.spec.ts` (quickstart S1, S2), one test titled
+  exactly `028 S1/S2: three apps signed in as three users in one browser window stay signed in
+  through their own renewals, and logging out of one leaves the others signed in`; then change the
+  quickstart's S1 and S2 rows from "Manual: until T022 adds" to "Automated:" with that title
+  (`npm test` checks it). In **one** browser context:
   1. sign in to Admin as `admin1`, then open Customer: its own sign-in page (not the wrong-role
      page); sign in as `customer1`; then Booth as `agent1` (FR-003);
   2. each app makes an authorized call (`GET /me` through the app, or a visible signed-in page whose
@@ -205,6 +208,8 @@ of work).
   Booth): Keycloak's "Invalid username or password", the app not signed in, no wrong-role page.
   The wrong-role page stays covered by `packages/shared/test/web/require-role.test.tsx`; confirm it
   still gives the page a user without the role, and add that case if it does not.
+  If the test's title changes, change its row in `specs/001-bare-bones-system/quickstart.md` to
+  match (`npm test` checks every title has its row).
 - [ ] T023a [P] `packages/shared/test/web/auth-provider.test.tsx`: its two authorities move to an
   app realm. (The e2e fixtures name no realm; they use the `KEYCLOAK` origin only.)
 

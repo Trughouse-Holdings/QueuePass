@@ -74,14 +74,18 @@ Each front end passes the smoke test from a fresh clone: sign in, one action, si
 
 ## Automation
 
-| Scenario | Automated | How |
-|---|---|---|
-| S0 clean | Yes | CI's stack start; seed tests (clean run) |
-| S0/S3 upgraded | Partly | Seed tests: a run over a shared realm moves every user with the same subject and turns it off; a second run changes nothing; a clash is left alone; a stopped run finishes. The by-hand walk on a real pre-028 database is recorded in tasks |
-| S1 | Yes (Chromium) | `e2e/tests/028-app-realms.spec.ts`: one browser context, three users; each app calls the API after the others sign in; each app's own renewal fires under Playwright's clock (`page.clock`, R10) and the app stays its user. Safari by hand |
-| S2 | Yes | Same spec: each app logs out in turn; the other two still call the API and renew |
-| S3 by hand | No | Needs a database made before the feature; walked once by hand |
-| S4 | Yes | Backend integration tests: each realm's token on each role's endpoints; another realm's issuer with this realm's key; the old realm; an unknown issuer. `001` V4 (rewritten): each app's sign-in page refuses another app's account |
-| S5 | No | Same-app behaviour is unchanged from today |
-| S6 | Yes | `027`'s e2e tests on the new realms |
-| S7 | Yes | Existing quickstart e2e tests (`022`), with `001` V4 rewritten for FR-012 |
+Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
+manual. `npm test` checks this table against `e2e/tests`. The Backend's realm and role checks
+(S4) and the seed's move (S0, S3) are covered by their own workspaces' tests (tasks T006, T012 to
+T015a), not by browser tests.
+
+| Scenario | Browser test |
+| --- | --- |
+| S0 | Manual: the clean start is every `npm run e2e`; the upgraded start needs a database made before 028, walked by hand (T026); the move is covered by the seed's tests |
+| S1 | Manual: until T022 adds `028 S1/S2: three apps signed in as three users in one browser window stay signed in through their own renewals, and logging out of one leaves the others signed in`; Safari and the 15-minute run by hand |
+| S2 | Manual: until T022 adds `028 S1/S2: three apps signed in as three users in one browser window stay signed in through their own renewals, and logging out of one leaves the others signed in`; the back button by hand |
+| S3 | Manual: needs a database made before 028 (T027, T028); the move is covered by the seed's tests |
+| S4 | Manual: the Backend's integration tests cover each realm's token and role (T006); another app's account on a sign-in page is `001` V4, rewritten in T023 |
+| S5 | Manual: the same app in two tabs behaves as before 028 |
+| S6 | Manual: the sign-in pages are `027`'s browser tests, which run on the new realms |
+| S7 | Manual: sign in, use, and sign out of each front end, by hand; the main journeys are `022`'s browser tests |
