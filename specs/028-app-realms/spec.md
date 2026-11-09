@@ -186,15 +186,20 @@ signed in.
   Unchanged from today, and not a cross-app conflict.
 - **Signing in to the same app as a different user in a second tab**: as today, the newer sign-in
   replaces the older one for that app only. The other apps are unaffected.
-- **A tab still open from before the update**: its next renewal is refused, because the old realm
-  no longer exists under its old name, and it shows its own app's sign-in page (`001` FR-013,
-  unchanged).
+- **A tab still open from before the update**: it still runs the old build, which signs in through
+  the old realm's name; that name no longer exists, so its next renewal is refused and it lands on
+  Keycloak's "realm does not exist" page. **Reloading the tab** loads the new build, which shows its
+  own app's sign-in page. Old tabs are reloaded after the update (quickstart S0, S3).
 - **Keycloak restarts or is unreachable**: unchanged from `001`/`018` (renewals are retried; a
   refused renewal ends that app's sign-in only).
-- **Both the old realm and a Customer app realm exist** (only possible after hand edits in
-  Keycloak's console, or a Customer realm made by hand): the seed cannot rename, so it stops with an
-  error naming both realms and changes nothing. It never merges, overwrites or deletes a realm or an
-  account, and never silently cuts customers off from their orders (research R6).
+- **Both the old realm and a Customer app realm exist**: the seed cannot rename, so it stops with
+  an error naming both realms, changes nothing, and says how to recover (rename the extra
+  `queuepass` aside in Keycloak's console, for example to `queuepass-recreated`; never delete it).
+  It never merges, overwrites or deletes a realm or an account, and never silently cuts customers
+  off from their orders (research R6). The likely cause is **code from before this feature run
+  against an upgraded Keycloak**: its seed (for example `run-host.mjs`, or the live seed test, from
+  an older checkout) recreates `queuepass` with 235 new accounts. That is why an upgraded stack is
+  only ever run from this feature's code onwards (research R13).
 - **An account of another app** (`customer1` at the Admin app, `admin1` at the Customer app): on a
   clean system it is not in that app's realm, so the sign-in page refuses it as an unknown username
   or password. On an upgraded system, the old copies of admins and agents are in the Customer
@@ -241,8 +246,8 @@ signed in.
 - **FR-008**: Every app realm MUST use the QueuePass login theme and the display name "QueuePass",
   so every sign-in page looks as it does after `021` and `027`, and names its app.
 - **FR-009**: The seed MUST be idempotent: running it any number of times, on a clean system or
-  after the rename, MUST converge on the same three realms, clients and users, and MUST NOT change an
-  account that is already right. If both the old shared realm and the Customer app's realm exist,
+  after the rename, MUST converge on the same three realms, clients and users, and MUST NOT change
+  an account that is already right. If both the old shared realm and the Customer app's realm exist,
   the seed MUST fail with a message naming both and change nothing.
 
 **Token checks**
@@ -255,9 +260,9 @@ signed in.
   `gate-agent` from the Ticket Booth's realm). Any other QueuePass role in the token MUST be
   ignored, so the call is refused with 403 where that role would be required.
 - **FR-012**: Each app's sign-in page MUST refuse an account that belongs to another app, because
-  that account is not in its realm, or is there only as a disabled old copy. Each app MUST keep its wrong-role page (`001`) for a signed-in
-  token without the app's role; no seeded account reaches it any more, so it is tested without a
-  browser sign-in (research R10).
+  that account is not in its realm, or is there only as a disabled old copy. Each app MUST keep its
+  wrong-role page (`001`) for a signed-in token without the app's role; no seeded account reaches it
+  any more, so it is tested without a browser sign-in (research R10).
 
 **Unchanged**
 
@@ -288,10 +293,10 @@ signed in.
   their existing username and password; **100%** of the 200 customers keep their identifier, and
   the number of orders, tickets and seat holds each customer is linked to is **unchanged**; every
   past check-in still shows its agent's username.
-- **SC-005**: A token from the wrong realm for an endpoint is refused in **100%** of the combinations
-  tested (each realm's token against each role's endpoints, and the old realm's token).
-- **SC-006**: From a clean clone, `docker compose up --build` seeds the three realms on the first run,
-  and a second run changes nothing.
+- **SC-005**: A token from the wrong realm for an endpoint is refused in **100%** of the
+  combinations tested (each realm's token against each role's endpoints, and the old realm's token).
+- **SC-006**: From a clean clone, `docker compose up --build` seeds the three realms on the first
+  run, and a second run changes nothing.
 
 ## Assumptions
 

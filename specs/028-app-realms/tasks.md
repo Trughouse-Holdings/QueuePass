@@ -30,11 +30,14 @@ confirm they **fail** before the implementation tasks below them.
   (`node scripts/run-host.mjs`). The team stack (compose project `queuepass-team`, its host
   processes started from `C:\Users\mahdi\hello_world\QueuePass-team`) holds every fixed port.
   **Mahdi agreed (2026-11-09)** to stopping it during the stretches that need a running stack, and
-  restarting it between them: stop the host processes holding ports 3000 and 5173–5175, then
+  restarting it between them: stop the host processes holding ports 3000 and 5173–5175 (Ctrl+C in
+  `run-host.mjs`'s terminal stops all four; if it runs in the background, stop that process), then
   `docker compose -p queuepass-team stop` (never `down`, never `-v`: its volumes and data must
   stay). Restore it after every stretch: `docker compose -p qp028 stop`,
-  `docker compose -p queuepass-team start`, and `node scripts/run-host.mjs` from the main checkout,
-  then check http://localhost:5173 answers. Its realm is renamed only in T032, after Mahdi says go.
+  `docker compose -p queuepass-team start database keycloak` (**only those two**: the project also
+  holds old exited `backend`, `seed` and app containers that a bare `start` would run), and
+  `node scripts/run-host.mjs` from the main checkout, then check http://localhost:5173 answers. Its
+  realm is renamed only in T032, after Mahdi says go.
 - **Live seed tests**: they reach whatever Keycloak is up. T015a's guard lands **before** T019–T021,
   so no `npm test` / `npm run ci` can rename a stack's realm unless `QP_SEED_ALLOW_RENAME=1` is set;
   set it only against your own `qp028` stack.
@@ -56,7 +59,8 @@ confirm they **fail** before the implementation tasks below them.
 - [ ] T001 Cut `028-app-realms-impl` from `028-app-realms-spec` (or from `main` once the spec PR has
   merged); `npm ci`; `npm run ci` green before any change, so a later failure is this feature's.
 - [ ] T002 Stretch 1 (Ground rules): stop the team stack, then make the **pre-028 database** from
-  a worktree of `main`: `docker compose -p qp028 up -d database keycloak`, then
+  a worktree of `main` (with the Keycloak image built: `docker compose -p qp028 build keycloak`):
+  `docker compose -p qp028 up -d database keycloak`, then
   `node scripts/run-host.mjs --demo-data` from that worktree; through the apps, one order for
   `customer1` and one check-in by `agent1`. Record `customer1`'s subject (Keycloak admin console)
   and ticket codes. Stop the host processes and `docker compose -p qp028 stop` (never `down`: T026
@@ -137,7 +141,9 @@ of work).
 ### Tests first
 
 - [ ] T011 [US3] `scripts/seed/test/fake-keycloak.ts` (+ its unit test): several realms; realm
-  rename through `realms.update({ realm: old }, { realm: new })` keeping every user, client and role;
+  rename through `realms.update({ realm: old }, { realm: new })` (the minimal call; observed to
+  work) keeping every user, client, role and scope, and the default-roles composite under its old
+  name (`default-roles-queuepass`: Keycloak does not rename it);
   user and client `enabled` read and update; user ids **unique across all realms**, as Keycloak
   makes them (a create or import with an id that exists in any realm fails with 409, research R5);
   a realm, client or user delete fails the test (Ground rules: nothing deleted).
@@ -156,7 +162,8 @@ of work).
   nothing (FR-009); (b) a run that stops right after the rename (the fake throws on the next call)
   is finished by the next run: the old copies get disabled, the other realms built; (c) a customer
   deleted by hand from the customer realm after the rename is recreated (a new id: expected, and
-  logged).
+  logged); (d) the both-present error message tells how to recover (rename the extra `queuepass`
+  aside, never delete it).
 - [ ] T015 [US3] Move every existing seed test off `KEYCLOAK_REALM` / realm `queuepass`
   (`provision-realm`, `realm-roles`, `users`, `clients`, `provision-clients`, `index`,
   `keycloak-client`, `seed-idempotence`, `sign-in-screens`, `login-theme-files`, and the comment in
@@ -210,8 +217,9 @@ of work).
   3. each app makes an authorized call as its own user (FR-001);
   4. each app's **own** renewal: set up `page.waitForResponse` on each realm's
      `/protocol/openid-connect/token` request with `grant_type=refresh_token` answering 200, then
-     `context.clock.runFor('04:05')` (under oidc-client-ts's 10 s request timeout, which also runs on
-     the fake clock); assert all three refreshes answered 200, and that each app's next API request
+     `context.clock.runFor('04:05')`, started right after the **last** sign-in and within about 55 s
+     of the **first** (research R10: otherwise the first app's token also expires during the run
+     and refreshes twice); assert all three refreshes answered 200, and that each app's next API request
      carries a **new** `Authorization` token (the Backend checks expiry in real time, so a call
      alone proves nothing) (FR-002);
   5. log out of Customer: Customer shows its sign-in page; run the clock again as in step 4: Admin
@@ -258,9 +266,12 @@ restore the team stack.
   clients disabled. Record the log lines.
 - [ ] T027 [US3] Quickstart S3 steps 1–5 on that stack: `customer1` sees the same ticket codes and
   has the same subject; Admin shows the same orders and check-in, which still names `agent1`;
-  `agent1` signs in; `admin1` is refused on the Customer app's sign-in page. Record the results.
+  `agent1` signs in; `admin1` with the seed password is refused on the Customer app's sign-in page
+  as a disabled account ("Account is disabled, contact your administrator."). Reload any tab left
+  open from before. Record the results.
 - [ ] T028 [US3] Run the seed again on that stack: nothing changes (S3 step 6). Record the log. Then
-  stop it (`docker compose -p qp028 stop`) and restore the team stack.
+  stop it (`docker compose -p qp028 stop`) and restore the team stack (Ground rules: `start
+  database keycloak` only).
 
 ---
 
@@ -271,7 +282,8 @@ restore the team stack.
   sign-in; three users in one browser window; another app's account is refused on the sign-in
   page; an upgraded system's old realm becomes the Customer app's), the troubleshooting row about
   `401` with a valid login (now the issuer **base**), the `QP_SEED_ALLOW_RENAME` switch for the live
-  seed tests, the `028` status row (status and task count). The constitution reference already
+  seed tests, a warning that once a Keycloak is upgraded it must only be run with 028's code or
+  later (an older seed recreates `queuepass`; the both-present error says how to recover), the `028` status row (status and task count). The constitution reference already
   reads v3.9.0.
 - [ ] T030 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round, its findings, and
@@ -280,7 +292,10 @@ restore the team stack.
   Keycloak up so the live seed tests run (not the team stack's); `npm run test:tz`; record the
   counts per workspace and each workspace's line coverage (80% floor).
 - [ ] T032 Running-system walk on the **team stack** (`queuepass-team`), **after Mahdi says go**
-  (this renames its realm): restart its host processes from this branch (path B), then quickstart
+  (this renames its realm): restart its host processes from this branch (path B). **From then until
+  the merge, the team stack runs only from this branch**, and no pre-028 `npm test` or
+  `run-host.mjs` runs while it is up (research R13); if that cannot hold, do this walk after the
+  merge instead. Then quickstart
   S1–S3 and S5–S7 by hand in one browser window, **15 minutes** for S1 (SC-001); record each
   scenario's result. Mahdi walks S1 and S2 in his own browser and approves; record it. Safari: Nate
   or Mahdi walks S1 and S2 on a Mac running the branch if one is available before merge; otherwise
@@ -356,3 +371,18 @@ restore the team stack.
   - S4: no Safari on this machine → a Mac walk by Nate or Mahdi, WebKit as the stand-in.
   - N1: `sign-in-screens` does not run `seed()` → R13, T015a reworded. N2: T019's retire rule →
     gone with the rename. N3: R13 moved to the end; "R1–R13".
+- **Round 3** (independent Claude session, 2026-11-09): 2 must-fix, 4 should-fix, 4 nits; the
+  rename itself verified on Keycloak 26.0.8 with the minimal call (ids, passwords, roles, clients,
+  scopes, mapper, theme, signing keys kept). All fixed in the `Review 028` commit that follows it.
+  - M1: pre-028 code against an upgraded Keycloak recreates `queuepass` → Edge Case, R6's error
+    says how to recover, R13 step 3 and T032 (team stack runs only from 028's code), T029 warning.
+  - M2: a bare `start` wakes old exited containers in the team project (confirmed) → `start
+    database keycloak` only, everywhere.
+  - S1: an old tab lands on Keycloak's 404, not its sign-in page → Edge Case reworded; reload old
+    tabs (S0, T027).
+  - S2: `runFor('04:05')` reasoning wrong (no request timeout in background renewal) → corrected,
+    with the real 55 s limit (R10, T022).
+  - S3: a disabled copy is refused as "Account is disabled" → S3, S4, T027.
+  - S4: plan said "enabled" realm → "exists".
+  - N1: FR-012 rewrapped. N2: attempt limits are in memory → R5. N3: `default-roles-queuepass`
+    keeps its name → T011. N4: how to stop the host processes → Ground rules.

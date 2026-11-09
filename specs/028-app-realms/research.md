@@ -101,7 +101,7 @@ the seed image was rejected: it reverses a reviewed decision of `020` for three 
 ## R5. Keeping identifiers: rename, not copy
 
 **Question**: QueuePass stores Keycloak subjects: `Order.customerSub`, `SeatReservation.customerSub`,
-the attempt-limit records (all customers), and `Ticket.checkedInBySub` (the agent, next to
+the in-memory attempt limits, keyed by subject (all customers), and `Ticket.checkedInBySub` (the agent, next to
 `checkedInByUsername`). A user made in a new realm gets a new random subject. How do existing users
 keep theirs?
 
@@ -139,8 +139,11 @@ the agent's username, which is what is shown.
 **Decision**, per run of the seed:
 
 1. **Rename** if realm `queuepass` exists and realm `queuepass-customer-app` does not. If **both**
-   exist, fail with a message naming both realms and change nothing (FR-009): merging is not
-   attempted. If only the customer realm exists (clean system after its first run, or after the
+   exist, fail with a message naming both realms, change nothing (FR-009), and say how to recover:
+   rename the extra `queuepass` aside in the admin console (for example `queuepass-recreated`),
+   never delete it, then run the seed again. Merging is not attempted. Both exist when code from
+   before 028 runs against an upgraded Keycloak: its seed recreates `queuepass` with 235 new
+   accounts (R13). If only the customer realm exists (clean system after its first run, or after the
    rename), go on.
 2. Converge the three app realms as on a clean system: realm settings, the app's role, the audience
    scope, the app's client, and the app's users (created when missing; an existing user is left
@@ -222,10 +225,14 @@ one per app.
   share it): `context.clock.install()` **once**, before the first page loads (installing again
   resets every page's time). Before moving the clock, wait on each realm's refresh:
   `page.waitForResponse` for `POST /realms/<realm>/protocol/openid-connect/token` with
-  `grant_type=refresh_token` answering 200. Then `context.clock.runFor('04:05')`: just past the
-  expiring point (renewal starts about 60 s before the 300 s token expires) and under
-  oidc-client-ts's 10 s request timeout, which also runs on the fake clock, so the real refresh
-  request is not aborted. One `runFor` renews every signed-in app at once. Assert that each realm's
+  `grant_type=refresh_token` answering 200. Then `context.clock.runFor('04:05')`, started right
+  after the **last** sign-in: renewal is due 240 s after each app's sign-in (60 s before the 300 s
+  token expires; each app's timer checks every 5 s), so one `runFor` renews every signed-in app at
+  once. (oidc-client-ts 3.5.0's background renewal sets no request timeout, so the real request is
+  not aborted by the fake clock.) The limit: if more than about 55 s pass between the **first**
+  sign-in and the `runFor`, the first app's token also passes its 300 s expiry during the `runFor`
+  and `accessTokenExpired` triggers a second refresh; keep the sign-ins quick, or tolerate a second
+  refresh in the assertions. Assert that each realm's
   refresh answered 200, and that the next API request's `Authorization` header carries the **new**
   access token: the Backend checks expiry in real time, so an API call alone would pass with the
   old token and prove nothing. A call to Keycloak's token endpoint from the test would only prove
@@ -295,7 +302,13 @@ from the host with `node scripts/run-host.mjs`.
    `docker compose -p queuepass-team stop` (never `down`, never `-v`: its volumes and data stay).
    Their own stack is `docker compose -p qp028 up -d database keycloak` plus
    `node scripts/run-host.mjs` from the right checkout. Between stretches, and at the end, the team
-   stack comes back: `docker compose -p qp028 stop`, `docker compose -p queuepass-team start`, and
-   `node scripts/run-host.mjs` from the main checkout (`C:\Users\mahdi\hello_world\QueuePass-team`).
+   stack comes back: `docker compose -p qp028 stop`,
+   `docker compose -p queuepass-team start database keycloak` (**only those two**: the project also
+   holds old, exited `backend`, `seed` and app containers from weeks ago, which a bare `start` would
+   run, taking the ports and running a pre-028 seed), and `node scripts/run-host.mjs` from the main
+   checkout (`C:\Users\mahdi\hello_world\QueuePass-team`).
 3. The team stack is upgraded from the branch only in the walk (T032), after Mahdi says go, and
-   that is the moment its realm is renamed.
+   that is the moment its realm is renamed. **From then on it runs only from 028's code** (the
+   branch until it merges, then `main`): code from before 028 (an older `run-host.mjs`, or the
+   live seed test from another branch) would recreate `queuepass` (R6). If T032 cannot be held
+   until the merge, the team-stack upgrade waits until after the merge.

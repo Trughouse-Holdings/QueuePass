@@ -11,7 +11,9 @@ otherwise. Test accounts and the seed password are in the README.
   for `customer1` and one check-in by `agent1`. Note `customer1`'s ticket codes and subject, and the
   event's "checked in" count. Update to this version and start it again. The seed log shows realm
   `queuepass` renamed to `queuepass-customer-app`, 5 admins and 30 agents created in their realms,
-  and 35 old copies and 2 clients disabled in the customer realm.
+  and 35 old copies and 2 clients disabled in the customer realm. **Reload** any app tab left open
+  from before the update (an old tab still signs in through the old realm's name, spec Edge
+  Cases).
 
 ## S1. Three apps, three users, one window (US1; FR-001 to FR-003, SC-001, SC-003)
 
@@ -54,14 +56,17 @@ On the **upgraded** stack from S0:
    `queuepass` any more; `queuepass-customer-app` holds the 200 customers (enabled) and the old
    admins and agents (**disabled**), and its `admin-app` and `booth-app` clients are disabled; the
    Admin and Booth realms hold only their own users.
-5. On the Customer app's sign-in page, try `admin1`. **Expected**: refused (a disabled account).
+5. On the Customer app's sign-in page, try `admin1` with the seed password. **Expected**: refused,
+   "Account is disabled, contact your administrator." (the old copy is disabled; a wrong password
+   gives "Invalid username or password").
 6. Run the seed again. **Expected**: the log says everything is already present; nothing changes.
 
 ## S4. Wrong realm, wrong role (US4; FR-010, FR-011, SC-005)
 
-Covered by Backend integration tests (see Automation). By hand: the Customer app's sign-in page
-refuses `admin1` ("Invalid username or password"), because `admin1` is not in the Customer app's
-realm (FR-012); the same for `customer1` at the Admin app and `admin1` at the Ticket Booth.
+Covered by Backend integration tests (see Automation). By hand, on a **clean** stack: the Customer
+app's sign-in page refuses `admin1` ("Invalid username or password"), because `admin1` is not in
+the Customer app's realm (FR-012); the same for `customer1` at the Admin app and `admin1` at the
+Ticket Booth. (On an upgraded stack, the Customer app refuses `admin1` as a disabled account: S3.)
 
 ## S5. Same app in two tabs (Edge Cases)
 

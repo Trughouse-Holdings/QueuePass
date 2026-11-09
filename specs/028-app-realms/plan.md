@@ -131,7 +131,7 @@ copies checked equal by one test (R4).
 
 ## Working safely beside the team stack
 
-The live seed tests skip on a Keycloak that still has an enabled realm `queuepass` unless
+The live seed tests skip on a Keycloak where realm `queuepass` exists unless
 `QP_SEED_ALLOW_RENAME=1`, and the implementer stops the team stack (never `down`, never `-v`) only
 during the test stretches Mahdi agreed to, using path B (research R13).
 
