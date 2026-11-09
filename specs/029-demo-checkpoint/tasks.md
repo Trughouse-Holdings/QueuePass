@@ -50,21 +50,26 @@ confirm they **fail** before the implementation tasks of Phase 3.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `029-demo-checkpoint-impl` from `029-demo-checkpoint-spec` (or from `main` once the spec
+- [x] T001 Cut `029-demo-checkpoint-impl` from `029-demo-checkpoint-spec` (or from `main` once the spec
   PR has merged); `npm ci`; `npm run ci` green before any change, so a later failure is this
   feature's.
+  **Done** (2026-11-09): cut from `029-demo-checkpoint-spec`, rebased onto `main` once PR #141
+  merged (`fab44fb`). `npm ci`; `npm run ci` on the untouched branch: 3 Backend suites failed on
+  this machine's load (the Testcontainers database briefly unreachable, one deadlock), all three
+  green when rerun alone (13/13); every other check green.
 
 ---
 
 ## Phase 2: Tests first (all must fail before Phase 3)
 
-- [ ] T002 [P] [US1] `backend/test/integration/demo-data.e2e-spec.ts` (FR-007, research R5): the
+- [x] T002 [P] [US1] `backend/test/integration/demo-data.e2e-spec.ts` (FR-007, research R5): the
   summary has `events: 5` and `past: 'Season Opener'`; the sales report's `totals.events` is 4; Season
   Opener is at Demo Riverside Hall, `SCHEDULED`, starts 7:00 PM and ends 10:00 PM local on the run's
   local date minus 7 days, has no orders or tickets, and its `endsAt` is before `now()`; the existing
   "every demo event has doors 1 hour before its start" test now counts 5 events; the round local
   times test includes Season Opener (`19:00`, 3 hours). Must fail (no past event yet).
-- [ ] T003 [P] [US3] `backend/test/unit/demo-reset-guard.spec.ts` (new; FR-009, FR-011, SC-004,
+  **Done**: failed before T008 (5 of 12), passes after.
+- [x] T003 [P] [US3] `backend/test/unit/demo-reset-guard.spec.ts` (new; FR-009, FR-011, SC-004,
   research R7): `checkResetAllowed(env)` throws `ResetRefused` naming `QUEUEPASS_ALLOW_RESET=1` when it
   is absent, `''`, `0`, `true`, ` 1`, or `yes`; with `1`, accepts hosts `localhost`, `LOCALHOST`,
   `127.0.0.1`, `[::1]`, and `database` with `{ inContainer: true }`, and returns `{ host, port,
@@ -75,6 +80,7 @@ confirm they **fail** before the implementation tasks of Phase 3.
   each message naming the host (or saying it is missing) and never the password. And `main()` with a
   refused guard sets a failure exit code and never calls `NestFactory.createApplicationContext` (a
   Jest spy). Must fail (no module yet).
+  **Done**: failed before T009 (no module), 27/27 after.
 - [ ] T004 [US1] [US2] `backend/test/integration/demo-reset.e2e-spec.ts` (new; FR-004 to FR-006,
   SC-001, SC-003, research R2, R12), with `createTestApp()` and the fake geocoder:
   - a `fingerprint(prisma)` helper as research R12 describes (no ids or foreign keys, codes,
@@ -93,14 +99,21 @@ confirm they **fail** before the implementation tasks of Phase 3.
   - reset twice in a row: equal fingerprints;
   - `_prisma_migrations` has the same rows before and after.
   Must fail (no reset yet).
-- [ ] T005 [US3] Same file (FR-010, SC-005, research R7): `assertMigrated(prisma, migrationsDir)`
+  **Written, not passing: spec gap.** Every case but the fingerprint equality passes. The
+  fingerprint (R12) keys tickets by tier and checked-in, but `runDemoData` checks in the first 40% of
+  Fall Concert's tickets in ticket `code` order across both tiers, and codes are random, so how many
+  General and how many VIP tickets are checked in differs from run to run (seen: "after extra data"
+  and "two resets in a row" differ only in Fall Concert's General/VIP checked-in split). Fixed in the
+  spec, not in code; open (see the report).
+- [x] T005 [US3] Same file (FR-010, SC-005, research R7): `assertMigrated(prisma, migrationsDir)`
   refuses, and nothing is removed (a marker venue survives a `runDemoReset` given that directory),
   when: `_prisma_migrations` is missing (a second database created in the same container with `CREATE
   DATABASE`, connected through its own PrismaClient, dropped afterwards); `migrationsDir` is a
   temporary copy of the folder names plus `29991231000000_not_applied`, which has no row; that name has
   a row with `finished_at` NULL, and then one with `rolled_back_at` set (rows inserted by the test and
   deleted afterwards; the suites run in band). With the real directory it passes. Must fail.
-- [ ] T006 [US1] Same file (FR-012, FR-013, FR-014, SC-002, research R9 to R11): the summary's removed
+  **Done**: failed before T010, passes after.
+- [x] T006 [US1] Same file (FR-012, FR-013, FR-014, SC-002, research R9 to R11): the summary's removed
   counts equal the rows that were there (per table, and the checked-in tickets), its created counts
   equal `runDemoData`'s summary, `target` has no password, and the printed lines (captured from the
   logger the reset is given) contain each count, Demo Tonight's closing time, the reload reminder,
@@ -116,7 +129,9 @@ confirm they **fail** before the implementation tasks of Phase 3.
   or `55P03` during one reset's wipe is correct behaviour); the real assertion is that the two never
   both resolve leaving two demo sets: if both resolve, the database holds exactly one demo set (2
   venues, one `QueuePass Demo Arena`). Must fail.
-- [ ] T007 [P] [US3] Root scripts (FR-002, FR-003, SC-007, research R6, R12):
+  **Done**: failed before T010/T011, passes after (busy refusal about 3 s; two at once never
+  leaves two demo sets).
+- [x] T007 [P] [US3] Root scripts (FR-002, FR-003, SC-007, research R6, R12):
   `scripts/test/run-host.test.mjs`: `--print --demo-reset` lists exactly one setup step,
   `demo-reset`, `npm run demo-reset --workspace @queuepass/backend`, whose environment is the Backend
   child's (`--print` without the flag), with no `QUEUEPASS_ALLOW_RESET` of its own, and no children;
@@ -126,15 +141,17 @@ confirm they **fail** before the implementation tasks of Phase 3.
   `docker-compose.yml`, `e2e/stack/docker-compose.e2e.yml`, `.env.example`, and every file in
   `.github/workflows/` contain neither `QUEUEPASS_ALLOW_RESET` nor `demo-reset`. The `run-host` cases must fail (no mode
   yet); the safety test passes from the start, as expected: it guards against a later change.
+  **Done**: the three `run-host` cases failed before T012, pass after; the safety test passes from
+  the start, as planned.
 
 ---
 
 ## Phase 3: Implementation
 
-- [ ] T008 [US1] `backend/src/scripts/demo-data.ts` (research R5): Season Opener after Holiday Gala,
+- [x] T008 [US1] `backend/src/scripts/demo-data.ts` (research R5): Season Opener after Holiday Gala,
   exactly as R5's snippet; `DemoSummary.past`; `events: 5`; the "already present" summary has `past:
   null`; `main()`'s line names it ("…; "Holiday Gala" cancelled; "Season Opener" over."). T002 passes.
-- [ ] T009 [US3] `backend/src/scripts/demo-reset.ts` (new): `ResetRefused` and `checkResetAllowed(env,
+- [x] T009 [US3] `backend/src/scripts/demo-reset.ts` (new): `ResetRefused` and `checkResetAllowed(env,
   { inContainer = existsSync('/.dockerenv') })` per research R7 (Node's `URL`; strip IPv6 brackets;
   lower-case; `database` only in a container; query keys percent-decoded and lower-cased, `host` and
   `hostaddr` refused; port defaulting to 5432; database from the path). T003's guard cases pass.
@@ -147,13 +164,15 @@ confirm they **fail** before the implementation tasks of Phase 3.
   `err.meta.code` is `55P03` or `40P01`, become "the database is busy; try again", R10); `runDemoReset(app, { log, migrationsDir?, afterWipe? })` (assert, wipe, `afterWipe` for tests only, then
   `runDemoData`, then the check that `QueuePass Demo Arena` exists exactly once and there are exactly 2
   venues; `created: false`, a failed check, or a throw becomes FR-013's error). T004, T005, and T006's busy and two-at-once cases pass.
-- [ ] T011 [US1] Same file: the output of research R11 (the label map, Demo Tonight's close in its
+  **Written**; its tests pass except T004's fingerprint equality, blocked by the spec gap
+  under T004.
+- [x] T011 [US1] Same file: the output of research R11 (the label map, Demo Tonight's close in its
   venue's zone with `@queuepass/shared`, the duration, the reminders) and `main()` (guard first, then
   `NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] })`, `runDemoReset`,
   `app.close()` in `finally`, exit code 1 with the message on any refusal or failure). Add
   `"demo-reset": "node dist/scripts/demo-reset.js"` to `backend/package.json` beside `demo-data`. T003's
   `main()` case and T006 pass.
-- [ ] T012 [US1] `scripts/run-host.mjs` (research R6): parse `--demo-reset`; refuse it with
+- [x] T012 [US1] `scripts/run-host.mjs` (research R6): parse `--demo-reset`; refuse it with
   `--demo-data`; `plan()` returns, for it, `setup: [{ name: 'demo-reset', command: 'npm run demo-reset
   --workspace @queuepass/backend', env: { ...backendEnv } }]` (the person's `QUEUEPASS_ALLOW_RESET`
   comes through the parent environment; never set or defaulted here) and no children; `run()` checks
@@ -168,18 +187,21 @@ confirm they **fail** before the implementation tasks of Phase 3.
 
 ## Phase 4: The browser harness and test (research R13)
 
-- [ ] T013 [US1] `scripts/e2e.mjs`: load the demo state with `[...COMPOSE, 'exec', '-T', '-e',
+- [x] T013 [US1] `scripts/e2e.mjs`: load the demo state with `[...COMPOSE, 'exec', '-T', '-e',
   'QUEUEPASS_ALLOW_RESET=1', 'backend', 'node', 'backend/dist/scripts/demo-reset.js']` in place of the
   demo data's command; log "loading the demo state (reset)…"; on failure "npm run e2e: the demo state
   did not load." Update the header comment and the README's e2e paragraph ("loads the demo data" →
   "loads the demo state with the reset").
+  **Code done**; it runs only in `npm run e2e` (a stack), not run here yet.
 - [ ] T014 [US1] `e2e/tests/029-demo-checkpoint.spec.ts` (new): `029 S2: after the reset, the Ticket
   Booth offers Demo Tonight open and the Customer app shows Season Opener with sales closed`. Sign in
   to the Booth as a gate agent from `e2e/fixtures/apps.ts`: Demo Tonight is listed and choosable, Season
   Opener is not listed. Sign in to the Customer app as a customer: Season Opener's page shows "Sales
   closed"; Fall Concert's page offers tickets. Read only; admit nothing. Run it three times in a row
   locally if a stack can run here, else on CI.
-- [ ] T015 `specs/029-demo-checkpoint/quickstart.md`: the Automation row S2 becomes `Automated: \`029
+  **Written, not run**: needs a running stack (`npm run e2e` or CI); scheduled when the stack
+  ports are free.
+- [x] T015 `specs/029-demo-checkpoint/quickstart.md`: the Automation row S2 becomes `Automated: \`029
   S2: …\`; rest Manual: admitting a ticket by hand`, with T014's exact title; `npm test`'s
   quickstart-marks check passes.
 
@@ -193,6 +215,7 @@ confirm they **fail** before the implementation tasks of Phase 3.
   it never runs by itself, the reload and attempt-limit notes, and that save/restore checkpoints are
   not built (research R8). In "Demo data": five events with Season Opener, and "To demo check-in later"
   points to the reset first. The `029` status row: tasks count and code status.
+  **Section and Demo data done**; the status row waits for the final counts.
 - [ ] T017 `npm run ci` locally, green; record the counts per workspace and each workspace's line
   coverage (Backend at or above 80% with the new script).
 - [ ] T018 Run the Backend suite three times in a row and `npm run test:tz` (several zones: the
