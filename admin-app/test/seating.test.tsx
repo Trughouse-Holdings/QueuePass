@@ -97,22 +97,66 @@ describe('Seating card', () => {
     });
   });
 
-  it('disables the switch, saying why, when the venue has no layout', async () => {
+  // Issue #136 (research R12): a switch that can never be used is not shown.
+  it('shows general admission, with no switch or Save, when the venue has no layout', async () => {
     stubApi(routes({ seatMap: { eventId: EVENT.id, reservedSeating: false, sections: [] } }));
     renderPage();
 
-    expect(await checkbox()).toBeDisabled();
-    expect(within(await card()).getByText('This venue has no seating layout.')).toBeInTheDocument();
+    const region = await card();
+    expect(
+      await within(region).findByText('General admission: this venue has no seating layout.'),
+    ).toBeInTheDocument();
+    expect(within(region).queryByRole('checkbox')).toBeNull();
+    expect(within(region).queryByText('Reserved seating')).toBeNull();
+    expect(within(region).queryByRole('button', { name: 'Save seating' })).toBeNull();
   });
 
-  it('disables the switch, saying why, once tickets are sold', async () => {
+  it('shows general admission, with no switch or Save, once tickets are sold with it off', async () => {
     stubApi(routes({ ticketsLeft: EVENT.totalTicketCapacity - 1 }));
     renderPage();
 
-    expect(await checkbox()).toBeDisabled();
+    const region = await card();
     expect(
-      within(await card()).getByText("Seats can't change after tickets are sold."),
+      await within(region).findByText(
+        "General admission: tickets have been sold, so reserved seating can't be turned on.",
+      ),
     ).toBeInTheDocument();
+    expect(within(region).queryByRole('checkbox')).toBeNull();
+    expect(within(region).queryByRole('combobox', { name: 'Section A tier' })).toBeNull();
+    expect(within(region).queryByRole('button', { name: 'Save seating' })).toBeNull();
+  });
+
+  it('keeps the switch, checked and disabled with the reason, once tickets are sold with it on', async () => {
+    stubApi(routes({ seatMap: map(true, 1), ticketsLeft: EVENT.totalTicketCapacity - 1 }));
+    renderPage();
+
+    const box = await checkbox();
+    expect(box).toBeChecked();
+    expect(box).toBeDisabled();
+    const region = await card();
+    expect(
+      within(region).getByText("Seats can't change after tickets are sold."),
+    ).toBeInTheDocument();
+    expect(within(region).queryByText(/^General admission/)).toBeNull();
+    // Unsold sections can still change tier, so Save stays.
+    expect(within(region).getByRole('button', { name: 'Save seating' })).toBeEnabled();
+  });
+
+  it.each([
+    ['off', false],
+    ['on', true],
+  ])('keeps the switch usable, %s, at a venue with a layout and no sales', async (_, on) => {
+    stubApi(routes({ seatMap: map(on) }));
+    renderPage();
+
+    const box = await checkbox();
+    expect(box).toBeEnabled();
+    if (on) expect(box).toBeChecked();
+    else expect(box).not.toBeChecked();
+    const region = await card();
+    expect(within(region).queryByText(/^General admission/)).toBeNull();
+    expect(within(region).queryByText("Seats can't change after tickets are sold.")).toBeNull();
+    expect(within(region).getByRole('button', { name: 'Save seating' })).toBeEnabled();
   });
 
   it('warns which tiers have no section, so they sell nothing', async () => {
