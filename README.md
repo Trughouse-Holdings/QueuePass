@@ -205,8 +205,9 @@ app (`006`), but to fill the Admin pages quickly for a demo, run once after `doc
 docker compose exec backend node backend/dist/scripts/demo-data.js
 ```
 
-It adds two venues, four events (three with tiers, plus Demo Tonight, open for gate check-in as
-soon as the data loads, `017`), named orders from `customer1`…`customer25`, some check-ins, one
+It adds two venues, five events (three with tiers; Demo Tonight, open for gate check-in as
+soon as the data loads, `017`; and Season Opener, a week ago and over, so the apps show an event
+whose sales are closed, `029`), named orders from `customer1`…`customer25`, some check-ins, one
 cancelled event, and generated striped pictures (three on the concert, one on the comedy night),
 all through the real Backend rules. Running it again changes nothing. It is never run
 automatically. Its orders belong to stand-in identities, so they don't appear on any customer's
@@ -216,12 +217,59 @@ automatically. Its orders belong to stand-in identities, so they don't appear on
 open at load time (the start minus 1 hour), so its entry window (1 hour before doors open until
 the end, `025`) is open at once and **closes 4 hours after the data loads**. Running the demo data
 again changes nothing, so it doesn't move Demo Tonight or add a new one. To demo check-in later,
-create an event in the Admin app that starts within the next 2 hours (or set its doors to open
+reset to the demo state ([Demo checkpoint](#demo-checkpoint)), which places a new Demo Tonight
+an hour after the reset. Or create an event in the Admin app that starts within the next 2 hours (or set its doors to open
 within the next hour), buy tickets for it in the Customer app, and choose it in the Ticket Booth
 ([quickstart](specs/017-gate-check-in/quickstart.md) S0).
 
 Its two venues have real addresses, verified by the address service. It also works offline: when
 the service can't be reached, it saves them with their addresses not verified and says so.
+
+---
+
+## Demo checkpoint
+
+Before a demo, one command brings a **local** database back to the demo state (`029`): it removes
+every venue, seating section, event, tier, image, order, ticket (with its check-in), and seat hold,
+keeps the schema and its migration record, and loads the [demo data](#demo-data) again through the
+Backend's rules. Every reset ends in the same state, with times relative to the moment it ran:
+Fall Concert and Comedy Night on sale, Demo Tonight open at the Ticket Booth (for 4 hours),
+Holiday Gala cancelled, and Season Opener over, its sales closed. It takes a few seconds. Keycloak
+is not touched: every account, role, and sign-in stays as it was.
+
+It deletes everything, so it is refused unless you give the permission `QUEUEPASS_ALLOW_RESET=1`
+on the command line, and the database host is local (`localhost`, `127.0.0.1`, `::1`, or the
+Compose stack's own `database` from inside its container). It is also refused, before removing
+anything, when the database is not a QueuePass database with every migration applied, or when it
+stays busy for more than a few seconds. It never runs by itself: nothing in `docker compose up`,
+the seed, `.env.example`, or the workflows gives the permission.
+
+With the Compose stack running:
+
+```bash
+docker compose exec -e QUEUEPASS_ALLOW_RESET=1 backend node backend/dist/scripts/demo-reset.js
+```
+
+With the Backend run from the host ([path B](#start-the-system)), in a second terminal while the
+stack runs (it needs the Backend built, and stops nothing):
+
+```bash
+QUEUEPASS_ALLOW_RESET=1 node scripts/run-host.mjs --demo-reset
+```
+
+```powershell
+$env:QUEUEPASS_ALLOW_RESET='1'; node scripts/run-host.mjs --demo-reset; Remove-Item Env:QUEUEPASS_ALLOW_RESET
+```
+
+On path B it resets whichever database publishes port 5432 on the laptop. It prints the database it
+worked on (never the password), the rows it removed of each kind, what it created, when Demo
+Tonight's check-in closes, and how long it took. Afterwards **reload any open app**. Purchase
+attempt limits (`026`) counted before the reset live in the running Backend's memory and clear
+within a minute, or when the Backend restarts. If it fails after removing the data (for example,
+two resets at once), it says the demo state is incomplete: run it again.
+
+Saving and restoring a hand-made checkpoint (`pg_dump`/`pg_restore`) is not built: a restored state
+brings back old times, so Demo Tonight would no longer be open ([research R8](specs/029-demo-checkpoint/research.md)).
 
 ---
 
@@ -351,7 +399,8 @@ npm run e2e -- --repeat-each=3           # every test three times in a row
 
 `npm run e2e` refuses to start, naming the ports, while anything holds 5173–5175, 3000, 8080, 9000,
 or 5432, and touches nothing. Otherwise it starts Compose project `qpe2e` from clean data with
-`docker compose up --build` plus `e2e/stack/docker-compose.e2e.yml`, loads the demo data, installs
+`docker compose up --build` plus `e2e/stack/docker-compose.e2e.yml`, loads the demo state with the
+reset ([Demo checkpoint](#demo-checkpoint)), installs
 Chromium if needed, runs the tests, and always removes the stack and its volumes; a killed run's
 leftover is removed by the next. In that stack only, venue addresses are answered by a small local
 stand-in (`e2e/stack/geocoder-stub/`) with fixed answers for the addresses the tests use, so no test
