@@ -1,9 +1,19 @@
 import { Module } from '@nestjs/common';
 import { ADDRESS_GEOCODER } from './address-geocoder';
 import { CensusGeocoder } from './census-geocoder';
-import { MAP_SEARCH, NoMapSearch } from './map-search';
+import { MAP_SEARCH, MapSearch, NoMapSearch } from './map-search';
 import { NominatimSearch } from './nominatim-search';
 import { GeoTzFinder, TIME_ZONE_FINDER } from './time-zone-finder';
+
+/**
+ * Research R16: the map search for an `ADDRESS_MAP_URL` value. `off` (any case, spaces around it
+ * ignored) is none; unset or blank is the public Nominatim; anything else is its base URL.
+ */
+export function mapSearchFrom(value: string | undefined): MapSearch {
+  const url = value?.trim();
+  if (url?.toLowerCase() === 'off') return new NoMapSearch();
+  return new NominatimSearch({ baseUrl: url || 'https://nominatim.openstreetmap.org' });
+}
 
 /**
  * The address service (spec 013 research R1, R12). `ADDRESS_GEOCODER_URL` is not a secret; the
@@ -26,14 +36,7 @@ import { GeoTzFinder, TIME_ZONE_FINDER } from './time-zone-finder';
           baseUrl: process.env.ADDRESS_GEOCODER_URL || 'https://geocoding.geo.census.gov',
         }),
     },
-    {
-      provide: MAP_SEARCH,
-      useFactory: () => {
-        const url = process.env.ADDRESS_MAP_URL?.trim();
-        if (url?.toLowerCase() === 'off') return new NoMapSearch();
-        return new NominatimSearch({ baseUrl: url || 'https://nominatim.openstreetmap.org' });
-      },
-    },
+    { provide: MAP_SEARCH, useFactory: () => mapSearchFrom(process.env.ADDRESS_MAP_URL) },
     { provide: TIME_ZONE_FINDER, useClass: GeoTzFinder },
   ],
   exports: [ADDRESS_GEOCODER, MAP_SEARCH, TIME_ZONE_FINDER],

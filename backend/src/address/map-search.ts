@@ -9,6 +9,8 @@ export const MAP_SEARCH = Symbol('MAP_SEARCH');
  */
 export interface MapPlace {
   name: string | null;
+  /** The map's category (`amenity`, `leisure`, `building`, `highway`, `place`, …). */
+  kind: string | null;
   houseNumber: string | null;
   state: string | null;
   zip: string | null;

@@ -71,77 +71,6 @@ export function withoutUnit(street: string): string {
   return found ? tidy.slice(0, found.index) : tidy;
 }
 
-/**
- * Research R16: the USPS short form of a direction or street type, so that a street typed in
- * full and the address service's standard form compare equal ("West Vine Street" = "W VINE ST").
- */
-const SHORT: Readonly<Record<string, string>> = {
-  NORTH: 'N',
-  SOUTH: 'S',
-  EAST: 'E',
-  WEST: 'W',
-  NORTHEAST: 'NE',
-  NORTHWEST: 'NW',
-  SOUTHEAST: 'SE',
-  SOUTHWEST: 'SW',
-  ALLEY: 'ALY',
-  AVENUE: 'AVE',
-  AV: 'AVE',
-  BOULEVARD: 'BLVD',
-  CIRCLE: 'CIR',
-  COURT: 'CT',
-  CROSSING: 'XING',
-  DRIVE: 'DR',
-  EXPRESSWAY: 'EXPY',
-  FREEWAY: 'FWY',
-  HIGHWAY: 'HWY',
-  LANE: 'LN',
-  PARKWAY: 'PKWY',
-  PLACE: 'PL',
-  PLAZA: 'PLZ',
-  POINT: 'PT',
-  ROAD: 'RD',
-  SQUARE: 'SQ',
-  STREET: 'ST',
-  TERRACE: 'TER',
-  TRAIL: 'TRL',
-};
-
-/**
- * Research R16: the street without its house number or unit, upper case, with punctuation
- * dropped and every direction and street type in its short form ("430 West Vine Street, Ste 2"
- * → "W VINE ST").
- */
-export function streetName(street: string): string {
-  const words = withoutUnit(street)
-    .toUpperCase()
-    .replace(/[^0-9A-Z/-]+/g, ' ')
-    .trim()
-    .split(' ')
-    .filter(Boolean);
-  if (words.length > 0 && /^\d/.test(words[0])) words.shift();
-  return words.map((w) => SHORT[w] ?? w).join(' ');
-}
-
-/**
- * Research R16 (issue #25): the address service's one match at another ZIP code is the typed
- * address when the house number and the street name are the same, in the same state, and the two
- * ZIP codes share their first 3 digits (one postal area). UofL's `2301 S 3rd St, 40292`, matched
- * at `40208`.
- */
-export function sameStreetNearby(typed: AddressParts, match: AddressParts): boolean {
-  const number = houseNumber(typed.street);
-  const name = streetName(typed.street);
-  return (
-    number !== '' &&
-    name !== '' &&
-    typed.state === match.state &&
-    typed.zip.slice(0, 3) === match.zip.slice(0, 3) &&
-    sameHouseNumber(number, houseNumber(match.street)) &&
-    name === streetName(match.street)
-  );
-}
-
 /** Research R16: a venue name compared as words: upper case, "&" as "AND", a leading "THE" and punctuation dropped. */
 const nameWords = (name: string): string =>
   name
@@ -152,16 +81,40 @@ const nameWords = (name: string): string =>
     .replace(/^THE /, '');
 
 /**
- * Research R16: a place on the map confirms the typed address when it is in the typed state and
- * ZIP code, and it has the typed house number, or it has no house number on the map and the
- * venue's name (KFC Yum! Center: house number 1 in 40202; Kroger Field: no number, 40506).
+ * Research R16: map results that name a road, a town, or an area, never a building or venue. A
+ * venue named "Broadway" or after its city is not confirmed by the road or the city.
  */
-export function placeConfirms(typed: AddressParts, venueName: string, place: MapPlace): boolean {
-  if (place.state !== typed.state || place.zip !== typed.zip.slice(0, 5)) return false;
-  if (place.houseNumber !== null) {
-    const number = houseNumber(typed.street);
-    return number !== '' && sameHouseNumber(number, houseNumber(place.houseNumber));
-  }
-  const name = nameWords(venueName);
-  return name !== '' && place.name !== null && nameWords(place.name) === name;
+const NOT_A_VENUE: ReadonlySet<string> = new Set(['highway', 'place', 'boundary']);
+
+/**
+ * Research R16: a place the map found at the typed street confirms the address when it is in the
+ * typed state and ZIP code and has the typed house number.
+ */
+export function placeAtAddress(typed: AddressParts, place: MapPlace): boolean {
+  const number = houseNumber(typed.street);
+  return (
+    inTypedArea(typed, place) &&
+    number !== '' &&
+    place.houseNumber !== null &&
+    sameHouseNumber(number, houseNumber(place.houseNumber))
+  );
 }
+
+/**
+ * Research R16: a place the map found by the venue's name confirms the address when it is that
+ * venue (the same name, and not a road, town, or area), in the typed state and ZIP code, and has
+ * the typed house number or none on the map (KFC Yum! Center: number 1 in 40202; Kroger Field:
+ * no number, 40506). The name alone never vouches for another house number.
+ */
+export function placeByName(typed: AddressParts, venueName: string, place: MapPlace): boolean {
+  const name = nameWords(venueName);
+  if (name === '' || place.name === null || nameWords(place.name) !== name) return false;
+  if (place.kind !== null && NOT_A_VENUE.has(place.kind)) return false;
+  if (!inTypedArea(typed, place)) return false;
+  if (place.houseNumber === null) return true;
+  const number = houseNumber(typed.street);
+  return number !== '' && sameHouseNumber(number, houseNumber(place.houseNumber));
+}
+
+const inTypedArea = (typed: AddressParts, place: MapPlace): boolean =>
+  place.state === typed.state && place.zip === typed.zip.slice(0, 5);

@@ -592,7 +592,7 @@ notice that the suite was dropped (still loses it). Accepting a range or a moved
 verified (saves something other than what was typed). Taking the lock across the lookup for R7
 (R7's alternative, rejected for blocking layout saves and sales).
 
-## R16. After the Census: a nearby ZIP code, then OpenStreetMap (#25, 2026-11-09)
+## R16. After the Census, OpenStreetMap (#25, 2026-11-09)
 
 **Problem**: #25 was reopened (Mahdi): venues Google Maps finds are not verified. The Census
 Geocoder matches street address ranges only, so it misses new or private streets, campus
@@ -603,80 +603,90 @@ which is what the issue is about.
 **Decision**: the user chose a free second check over Google's APIs (2026-11-09: Google's
 Geocoding and Address Validation APIs need a billing account with a card, even inside their
 monthly free use). When the Census answers and vouches for no match (no match, several, or one
-that moves the ZIP code or house number, R2, FR-021), two more checks run, in order. The first one
-that confirms the address verifies it **as typed** (R3's "as sent": trimmed, runs of spaces
-collapsed, the admin's case, ZIP cut to 5 digits), and its place decides the zone (`020` R1):
+that moves the ZIP code or house number, R2, FR-021), OpenStreetMap's Nominatim is searched
+(`MapSearch`, `NominatimSearch`): `/search`, limited to the US,
+`format=jsonv2&addressdetails=1&limit=5`, in two steps. The first place that confirms the address
+verifies it **as typed** (R3's "as sent": trimmed, runs of spaces collapsed, the admin's case, ZIP
+cut to 5 digits), and its place decides the zone (`020` R1).
 
-1. **Nearby ZIP code** (`sameStreetNearby`, issue #25 option 3): the Census's one match has the
-   same house number (R15's hyphen rule included) and the same street name, in the same state,
-   at a ZIP code with the same first 3 digits (one postal area). The street name is compared
-   without house number or unit, upper case, punctuation dropped, directions and USPS street
-   types in short form (`2301 South 3rd Street` = `2301 S 3RD ST`; `N` ≠ `S`, `ST` ≠ `AVE`). The
-   typed ZIP code is kept: UofL's `40292` is its own ZIP code, which the Census files under
-   `40208`. This reverses R15's "unique ZIP codes, moot".
-2. **OpenStreetMap** (`MapSearch`, `NominatimSearch`): Nominatim's `/search`, limited to the US,
-   `format=jsonv2&addressdetails=1&limit=5`. First by `street` (without a typed unit, R15),
-   `city`, and the state's name; then, if no place there confirms it, by `q=<venue name>, <city>,
-   <state name>`. A place confirms the address (`placeConfirms`) when its state
-   (`ISO3166-2-lvl4`) and ZIP code (`postcode`, first 5 digits) are the typed ones, and it has the
-   typed house number, or has no house number on the map and the venue's name (compared as
-   words: case, punctuation, a leading "The" ignored, "&" = "and"). The name used is the one the
-   venue will have: on an edit, the name sent, else the stored one.
+1. **At the address** (`placeAtAddress`): by `street` (without a typed unit, R15), `city`, and the
+   state's name. A place confirms when its state (`ISO3166-2-lvl4`) and ZIP code (`postcode`,
+   first 5 digits) are the typed ones and it has the typed house number (R15's hyphen rule
+   included). A road or a place with no house number never confirms here.
+2. **By the venue's name** (`placeByName`): `q=<venue name>, <city>, <state name>`. A place
+   confirms when it is that venue: its name is the venue's name (compared as words: case,
+   punctuation, a leading "The" ignored, "&" = "and"), it is not a road, town, or area (jsonv2
+   `category` `highway`, `place`, or `boundary`: a venue named "Broadway" is not confirmed by
+   the road), it is in the typed state and ZIP code, and it has the typed house number or none on
+   the map. The name used is the one the venue will have: on an edit, the name sent, else the
+   stored one.
 
 Checked against the live service on 2026-11-09 (one request at a time, over a second apart):
 
 | Typed | Census | OpenStreetMap |
 | --- | --- | --- |
-| `1 Arena Plaza, Louisville, KY 40202` (KFC Yum! Center) | no match | by street: nothing; by name: house number 1, `40202` (its road is "Escalator", which is why the typed street is saved) |
-| `2301 S 3rd St, Louisville, KY 40292` (UofL) | one match at `40208` | by street: `2301 South 3rd Street`, `40292` |
+| `1 Arena Plaza, Louisville, KY 40202` (KFC Yum! Center) | no match | at the address: nothing; by name: house number 1, `40202` (its road is "Escalator", which is why the typed street is saved) |
+| `2301 S 3rd St, Louisville, KY 40292` (UofL) | one match at `40208` | at the address: `2301 South 3rd Street`, `40292` |
 | `430 W Vine St, Lexington, KY 40507` (Rupp Arena) | one match | not asked |
-| Rupp Arena, by name | — | `432 West Vine Street`, `40507` |
 | Kroger Field, by name | — | no house number, `40506` |
-| `1540 University Dr, Lexington, KY` | — | by street: the road only, no house number, not confirmed |
+| `1540 University Dr, Lexington, KY` | — | at the address: the road only, no house number, not confirmed |
 
 **When OpenStreetMap is asked**: only after the Census answered. A Census that cannot be asked is
 still `503` or, with the flag, saved not verified (R6, `024`), and the map is not asked: every
 outage behavior and test stays as it was. A map search that fails (no answer within 4 seconds, a
-non-2xx answer, a redirect, a body that is not a JSON list) is logged and finds nothing; the
-Census's own answer then decides, as before R16. Both searches run in the `024` R7 re-check too,
-so saving a not-verified venue again can verify it.
+non-2xx answer, a redirect, a body that is not a JSON list, or a busy queue, below) is logged and
+finds nothing; the Census's own answer then decides, as before R16. Both searches run in the
+`024` R7 re-check too, so saving a not-verified venue again can verify it.
 
 **OpenStreetMap's usage policy** (Nominatim): at most one request a second, a User-Agent that
 names the application, and credit to OpenStreetMap. The client starts its calls at least 1.1
 seconds apart (one queue per Backend), sends `QueuePass/1.0 (+repository URL)` (a project, never
 a person's address), and the README credits "© OpenStreetMap contributors, ODbL 1.0". The map is
-asked only on a venue save that the Census did not verify: at most two requests per save. Worst
-case, a save waits 5 + 2 × 4 seconds plus the spacing.
+asked only on a venue save that the Census did not verify: at most two requests per save. A call
+that would wait 3 seconds or more in the queue is not queued and finds nothing (review S3), so a
+save waits at most 5 (Census) + 2 × (3 + 4) seconds. Results are not cached: saves are rare.
 
 **Configuration** (R12): `ADDRESS_MAP_URL`, default `https://nominatim.openstreetmap.org` in the
-code, `.env.example`, and `docker-compose.yml`; `off` turns the map search off (`NoMapSearch`).
-Not a secret. The browser-test stack sets `off`, so no browser test reaches it (`022` FR-010).
-Tests replace `MAP_SEARCH` with `FakeMapSearch`, which finds nothing unless a test queues places
-(R9); `NominatimSearch` is tested against a local server, like `CensusGeocoder`.
+code, `.env.example`, and `docker-compose.yml`; `off` (any case) turns the map search off
+(`NoMapSearch`, `mapSearchFrom`). Not a secret. The browser-test stack sets `off`, so no browser
+test reaches it (`022` FR-010). `scripts/run-host.mjs` leaves it at the default. Tests replace
+`MAP_SEARCH` with `FakeMapSearch`, which finds nothing unless a test queues places (R9);
+`NominatimSearch` is tested against a local server, like `CensusGeocoder`.
 
-**Contract 1.20.0**: `createLocation` and `Location` say an address can also be verified by these
-checks, saved as sent. No shape changes; a minor version, as 1.18.0 was for R15's behavior.
-**Constitution 3.8.1**: roadmap row 013 names OpenStreetMap after the Census (PATCH, wording to
-what is built).
+**Contract 1.20.0**: `createLocation` and `Location` say an address can also be verified by the
+map, saved as sent; `updateLocation` checks as `createLocation` does. No shape changes; a minor
+version, as 1.18.0 was for R15's behavior. **Constitution 3.8.1**: roadmap row 013 names
+OpenStreetMap after the Census (PATCH, wording to what is built).
 
-**What "verified" means now**: an address service, or the map, places this house number (or this
-named venue) in this ZIP code and state. The street text itself is only compared for the nearby
-ZIP code; a map place at the typed number and ZIP code is trusted, as FR-021 trusts the Census.
-FR-008's compare is unchanged; a verified address saved as typed is "the same" when resent.
+**What "verified" means now**: the Census, or the map, places this house number (or this named
+venue) in this ZIP code and state. FR-008's compare is unchanged; a verified address saved as
+typed is "the same" when resent.
 
-**Limits**: OpenStreetMap has fewer US house numbers than Google, so some real venues stay not
-verified (Kroger Field typed with a house number the map lacks, but with another name than the
-map's). The name rule trusts a named place with no number in the typed ZIP code, whatever street
-was typed. The admin can always save it not verified (`024`), as before.
+**Limits**:
+
+- The map's street is not compared. A by-name match with the venue's own name, house number, and
+  ZIP code verifies the street as typed, even a mistyped one (`432 W Pine St` for Rupp Arena's
+  `432 W Vine St`; review M1). Comparing it would refuse the KFC Yum! Center, which the map files
+  on a path called "Escalator".
+- The name rule trusts a named venue with no house number on the map in the typed ZIP code,
+  whatever number and street were typed (Kroger Field).
+- A venue verified by its name stays verified after a name-only edit (FR-008: an edit without
+  address fields never checks the address).
+- OpenStreetMap has fewer US house numbers than Google, so some real venues stay not verified.
+  A house-number list on the map (`1;3`) is read as its first number. The admin can always save it
+  not verified (`024`), as before.
 
 **Rationale**: issue #25 (a venue Google finds should be accepted, as far as free data allows);
 Constitution Security (no secret, no billing); VI (no test uses the network); IV (keep what the
 admin typed).
 
 **Alternatives considered**: Google's Geocoding or Address Validation API behind
-`AddressGeocoder` (#25 option 1; needs a key, a billing account and a card; the user declined).
-OpenStreetMap only, replacing the Census (fewer US house numbers than the Census's ranges, and
-the Census's standard form is worth keeping). Photon or other OpenStreetMap front ends (the same
-data, less documented policy). Saving OpenStreetMap's street (its road names are sometimes paths,
-as "Escalator" above). Asking the map when the Census is down (would change every outage test and
-`024`'s walk for little gain).
+`AddressGeocoder` (#25 option 1; needs a key, a billing account, and a card; the user declined).
+#25 option 3, a Census match at a nearby ZIP code (same first 3 digits) with the same number and
+street: built first, then dropped after the independent review (S1), because it also verified a
+mistyped ZIP code (`40214` for `40208`), and the map already finds UofL at `40292`. OpenStreetMap
+only, replacing the Census (fewer US house numbers than the Census's ranges, and the Census's
+standard form is worth keeping). Photon or other OpenStreetMap front ends (the same data, less
+documented policy). Saving OpenStreetMap's street (sometimes a path, as "Escalator" above).
+Asking the map when the Census is down (would change every outage test and `024`'s walk for little
+gain).

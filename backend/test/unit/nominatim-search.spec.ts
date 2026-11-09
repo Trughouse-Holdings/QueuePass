@@ -4,6 +4,7 @@ import type { AddressInfo } from 'node:net';
 import { AddressServiceUnavailableError } from '../../src/address/address-geocoder';
 import { NoMapSearch } from '../../src/address/map-search';
 import { NominatimSearch, USER_AGENT } from '../../src/address/nominatim-search';
+import { mapSearchFrom } from '../../src/address/address.module';
 
 /**
  * Spec 013 research R16: the real map client, against a local HTTP server on 127.0.0.1. No test
@@ -23,6 +24,7 @@ const YUM = {
   lat: '38.2577',
   lon: '-85.7539',
   name: 'KFC Yum! Center',
+  category: 'leisure',
   address: {
     leisure: 'KFC Yum! Center',
     house_number: '1',
@@ -98,6 +100,7 @@ describe('NominatimSearch', () => {
     expect(found).toEqual([
       {
         name: 'KFC Yum! Center',
+        kind: 'leisure',
         houseNumber: '1',
         state: 'KY',
         zip: '40202',
@@ -122,6 +125,7 @@ describe('NominatimSearch', () => {
     expect(await s.byAddress({ street: 'x', city: 'y', state: 'ZZ' })).toEqual([
       {
         name: null,
+        kind: null,
         houseNumber: null,
         state: null,
         zip: '40202',
@@ -129,6 +133,7 @@ describe('NominatimSearch', () => {
       },
       {
         name: null,
+        kind: null,
         houseNumber: null,
         state: null,
         zip: null,
@@ -136,6 +141,7 @@ describe('NominatimSearch', () => {
       },
       {
         name: null,
+        kind: null,
         houseNumber: null,
         state: null,
         zip: null,
@@ -218,10 +224,38 @@ describe('NominatimSearch', () => {
     expect(starts[2] - starts[1]).toBeGreaterThanOrEqual(140);
   });
 
-  it('defaults to a 4-second limit and calls 1.1 seconds apart', () => {
+  it('throws unavailable at once, without asking, when the queue would hold a call too long (review S3)', async () => {
+    let asked = 0;
+    const s = new NominatimSearch({
+      baseUrl: await serve((req, res) => {
+        asked += 1;
+        json([])(req, res);
+      }),
+      minIntervalMs: 100,
+      maxWaitMs: 250,
+    });
+    const where = { city: 'y', state: 'KY' };
+    const results = await Promise.allSettled([1, 2, 3, 4, 5].map((n) => s.byName(`v${n}`, where)));
+    expect(results.map((r) => r.status)).toEqual([
+      'fulfilled',
+      'fulfilled',
+      'fulfilled',
+      'rejected',
+      'rejected',
+    ]);
+    expect((results[3] as PromiseRejectedResult).reason).toBeInstanceOf(
+      AddressServiceUnavailableError,
+    );
+    expect(asked).toBe(3);
+    // Once the queue has drained, calls are taken again.
+    await expect(s.byName('again', where)).resolves.toEqual([]);
+  });
+
+  it('defaults to a 4-second limit, calls 1.1 seconds apart, and at most 3 seconds queued', () => {
     const s = new NominatimSearch({ baseUrl: 'http://127.0.0.1:1/' });
     expect(s.timeoutMs).toBe(4000);
     expect(s.minIntervalMs).toBe(1100);
+    expect(s.maxWaitMs).toBe(3000);
   });
 });
 
@@ -230,5 +264,24 @@ describe('NoMapSearch', () => {
     const s = new NoMapSearch();
     expect(await s.byAddress()).toEqual([]);
     expect(await s.byName()).toEqual([]);
+  });
+});
+
+describe('mapSearchFrom (ADDRESS_MAP_URL)', () => {
+  it.each(['off', 'OFF', '  Off  '])('turns the map search off for %p', (value) => {
+    expect(mapSearchFrom(value)).toBeInstanceOf(NoMapSearch);
+  });
+
+  it.each([undefined, '', '   '])('uses the public Nominatim for %p', (value) => {
+    const s = mapSearchFrom(value);
+    expect(s).toBeInstanceOf(NominatimSearch);
+    expect((s as unknown as { baseUrl: string }).baseUrl).toBe(
+      'https://nominatim.openstreetmap.org',
+    );
+  });
+
+  it('uses any other value as the base URL, without a trailing slash', () => {
+    const s = mapSearchFrom(' http://nominatim.local:8080/ ');
+    expect((s as unknown as { baseUrl: string }).baseUrl).toBe('http://nominatim.local:8080');
   });
 });

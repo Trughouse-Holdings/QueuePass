@@ -5,13 +5,12 @@ Version: 3.8.0 -> 3.8.1 (PATCH): one roadmap row reworded to what is built; no p
 Problem: issue #25 was reopened because real venues that Google Maps finds are not verified: the
   Census Geocoder, the only address service in roadmap row 013, misses many of them (the KFC Yum!
   Center, campus addresses, unique ZIP codes). The user chose a free second check over Google's
-  paid APIs (2026-11-09): when the Census vouches for no match, the same street at a nearby ZIP
-  code, or an OpenStreetMap place at the address or with the venue's name, verifies it (spec 013
-  research R16).
+  paid APIs (2026-11-09): when the Census vouches for no match, an OpenStreetMap place at the
+  address, or the venue found by its name, verifies it (spec 013 research R16).
 Changed:
   - Roadmap: row 013-venue-address-validation says the address is checked by the Census
     Geocoder and then by OpenStreetMap, which needs no key either. The next free number stays 028.
-Impact: spec 013's research R16 and its code (the map search, the nearby-ZIP rule); no other
+Impact: spec 013's research R16 and its code (the map search); no other
   spec changes. The README's version reference follows. Templates: none need updating.
 -->
 

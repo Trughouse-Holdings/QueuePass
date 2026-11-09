@@ -6,9 +6,8 @@ import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
 /**
- * Spec 013 research R16 (issue #25): when the address service vouches for no match, a match at a
- * nearby ZIP code with the same house number and street, or a place on the map at the typed
- * address or by the venue's name, verifies the address as typed. Every response is also checked
+ * Spec 013 research R16 (issue #25): when the address service vouches for no match, a place on
+ * the map at the typed address, or the venue found by its name, verifies the address as typed. Every response is also checked
  * against the contract by `asAdmin`.
  */
 describe('Venue address checks after the address service (spec 013 R16)', () => {
@@ -24,6 +23,7 @@ describe('Venue address checks after the address service (spec 013 R16)', () => 
   /** The KFC Yum! Center as OpenStreetMap has it: house number 1, on a path it calls Escalator. */
   const yum: MapPlace = {
     name: 'KFC Yum! Center',
+    kind: 'leisure',
     houseNumber: '1',
     state: 'KY',
     zip: '40202',
@@ -86,6 +86,7 @@ describe('Venue address checks after the address service (spec 013 R16)', () => 
       ctx.map.next([]).next([
         {
           name: 'Kroger Field',
+          kind: 'leisure',
           houseNumber: null,
           state: 'KY',
           zip: '40506',
@@ -128,6 +129,16 @@ describe('Venue address checks after the address service (spec 013 R16)', () => 
       const res = await asAdmin(ctx).post('/locations').send(arena).expect(400);
       expect(res.body.error.code).toBe('ADDRESS_NOT_FOUND');
       expect(await ctx.prisma.location.count()).toBe(0);
+    });
+
+    it.each([
+      ['another name at the typed number (review M1)', { name: 'Arena Garage' }],
+      ['a road with the venue name', { kind: 'highway', houseNumber: null }],
+    ])('does not verify, by name, %s', async (_label, change) => {
+      ctx.geocoder.next({ kind: 'none' });
+      ctx.map.next([]).next([{ ...yum, ...change }]);
+      const res = await asAdmin(ctx).post('/locations').send(arena).expect(400);
+      expect(res.body.error.code).toBe('ADDRESS_NOT_FOUND');
     });
 
     it('saves anyway, not verified, when the map finds nothing either', async () => {
@@ -174,7 +185,7 @@ describe('Venue address checks after the address service (spec 013 R16)', () => 
     expect(ctx.map.calls).toHaveLength(0);
   });
 
-  describe('one match at a nearby ZIP code', () => {
+  describe('one match at another ZIP code (UofL: 40292 filed under 40208)', () => {
     const at40208 = {
       kind: 'match',
       street: '2301 S 3RD ST',
@@ -183,51 +194,36 @@ describe('Venue address checks after the address service (spec 013 R16)', () => 
       zip: '40208',
       location: PLACES.louisville,
     } as const;
+    const onMap: MapPlace = {
+      name: 'University of Louisville',
+      kind: 'amenity',
+      houseNumber: '2301',
+      state: 'KY',
+      zip: '40292',
+      location: PLACES.louisville,
+    };
 
-    it('verifies the same house number and street as typed, keeping the typed ZIP (UofL)', async () => {
+    it('is verified as typed, keeping the typed ZIP, when the map has it there', async () => {
       ctx.geocoder.next(at40208);
-      const res = await asAdmin(ctx)
-        .post('/locations')
-        .send({ ...uofl, street: '2301 South 3rd Street' })
-        .expect(201);
-      expect(res.body).toMatchObject({
-        street: '2301 South 3rd Street',
-        zip: '40292',
-        address: '2301 South 3rd Street, Louisville, KY 40292',
-        addressVerified: true,
-        timeZoneSource: 'ADDRESS',
-      });
-      expect(ctx.map.calls).toHaveLength(0);
-    });
-
-    it.each([
-      ['another direction', '2301 N 3RD ST', '40208'],
-      ['another street type', '2301 S 3RD AVE', '40208'],
-      ['another postal area', '2301 S 3RD ST', '41208'],
-    ])('does not verify %s: refused as ambiguous, as before', async (_label, street, zip) => {
-      ctx.geocoder.next({ ...at40208, street, zip });
-      const res = await asAdmin(ctx).post('/locations').send(uofl).expect(400);
-      expect(res.body.error.code).toBe('ADDRESS_AMBIGUOUS');
-      expect(ctx.map.calls).toHaveLength(2);
-    });
-
-    it('lets the map verify it when the street differs', async () => {
-      ctx.geocoder.next({ ...at40208, street: '2301 S 3RD AVE' });
-      ctx.map.next([
-        {
-          name: 'University of Louisville',
-          houseNumber: '2301',
-          state: 'KY',
-          zip: '40292',
-          location: PLACES.louisville,
-        },
-      ]);
+      ctx.map.next([onMap]);
       const res = await asAdmin(ctx).post('/locations').send(uofl).expect(201);
       expect(res.body).toMatchObject({
         street: '2301 S 3rd St',
         zip: '40292',
+        address: '2301 S 3rd St, Louisville, KY 40292',
         addressVerified: true,
+        timeZoneSource: 'ADDRESS',
       });
+    });
+
+    it('is refused as ambiguous, as before, when the map does not (a mistyped ZIP, review S1)', async () => {
+      ctx.geocoder.next(at40208);
+      const res = await asAdmin(ctx)
+        .post('/locations')
+        .send({ ...uofl, zip: '40214' })
+        .expect(400);
+      expect(res.body.error.code).toBe('ADDRESS_AMBIGUOUS');
+      expect(ctx.map.calls).toHaveLength(2);
     });
   });
 
