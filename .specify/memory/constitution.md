@@ -1,27 +1,17 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.8.1 -> 3.9.0 (MINOR): Principle V and "Security and Data Constraints" materially
-  changed (one Keycloak realm per front end instead of one realm for all); no control removed.
-Problem: issue #138. Keycloak keeps one signed-in user per browser for each realm. With one realm
-  shared by the three apps, signing in or out of one app ends or replaces the others' sign-in at
-  their next renewal, so the apps knock each other out (reproduced, spec 028 research R1); a probe
-  showed no app-side change inside one realm can avoid it (R2). The user chose one realm per app
-  (2026-11-09).
+Version: 3.9.0 -> 3.9.1 (PATCH): one roadmap row reserved; no principle changed and no control
+  removed.
+Problem: issue #139. The demo data only adds, so everything made while testing or demoing stays in
+  the local database until removed by hand, and Demo Tonight's check-in window closes 4 hours after
+  the demo data loads. Before a demo the team needs one command that brings a local database back to
+  a known demo state, relative to now, in seconds.
 Changed:
-  - Principle V: each front end signs in through its own Keycloak realm, so signing in, renewing or
-    logging out of one app never changes another's sign-in; logout ends the app's own session and
-    its realm's Keycloak session; the Backend accepts tokens only from the three app realms, checks
-    each against its own realm's keys and issuer, and honours from each realm only that app's role.
-  - Security and Data Constraints, "Roles and test accounts": each group of test accounts lives in
-    its app's realm. "OIDC clients": one per front end, in that front end's realm.
-  - Principle II: "The Keycloak realms" (plural) are created by the seed.
-  - Language and Stack: Identity is one realm per front end, each with its one client; Backend
-    token validation uses the JWKS endpoint of the token's own app realm.
-  - Roadmap: row 028-app-realms reserved (the old realm renamed to the Customer app's realm, so
-    customers keep their identifiers; spec 028 review round 2); the next free number is 029.
-Impact: spec 001's single-realm setup (seed, Backend token checks, app authorities) is replaced by
-  spec 028; the contract's authentication text (1.21.0). No other spec changes. The README's
-  version reference follows. Templates: none need updating.
+  - Roadmap: row 029-demo-checkpoint reserved (a reset command, refused unless explicitly allowed and
+    pointed at a local QueuePass database, never run by docker compose up; Keycloak untouched; save
+    and restore checkpoints deferred, spec 029 research R8). The next free number is 030.
+Impact: spec 029 only; spec 005's demo data gains a past event (spec 029 research R5). No other spec
+  changes. The README's version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -332,7 +322,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `029`.
+number is a pull request against this table. The next free number is `030`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -364,6 +354,7 @@ number is a pull request against this table. The next free number is `029`.
 | `026-purchase-rate-limits` | Each customer account may try to buy tickets, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds, however the API is called, with no one exempt; a customer over a limit is told plainly and when they can try again, with a countdown, and keeps what they had; ordinary buying never meets the limits, and QueuePass stays responsive for everyone else (#56) | `006`, `015`, `016` |
 | `027-sign-in-background` | Every sign-in page shows Keycloak's own low-poly stones background, served by Keycloak, with the stones grey and the lines between them in the app's accent; the form on Keycloak's card, styled from the shared theme, under the realm's name as Keycloak's own header; the lines pulse and glow, with a pause button, and are still under reduced motion; every text, field, and focus ring stays readable at every window size, in light and dark schemes (#122) | `021` |
 | `028-app-realms` | Each app signs in through its own Keycloak realm, so signing in to, renewing, or logging out of one app never signs another out, and three different users can use the three apps in one browser window; on a system made before it, the seed renames the old shared realm to the Customer app's realm, so customers keep their identifiers and their orders, tickets, and holds, and admins and gate agents get new accounts in their own realms, their old copies disabled, never deleted; the Backend accepts the three realms only, and from each only its app's role (#138) | `001`, `021`, `027` |
+| `029-demo-checkpoint` | One command, refused unless explicitly allowed and pointed at a local QueuePass database, removes all app data (venues, seating, events, tiers, images, orders, tickets and their check-ins, seat holds), keeps the schema, and loads the demo data again through the Backend's rules, with times relative to the run: events on sale, one open at the Ticket Booth, one cancelled, one over; the same state every run, in seconds, saying what it removed and created; Keycloak untouched; never run by `docker compose up`; saving and restoring a hand-made checkpoint deferred (#139) | `005`, `017`, `025` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -416,4 +407,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.9.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09
+**Version**: 3.9.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09
