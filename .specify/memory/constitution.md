@@ -1,17 +1,23 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.8.0 -> 3.8.1 (PATCH): one roadmap row reworded to what is built; no principle changed
-  and no control removed.
-Problem: issue #25 was reopened because real venues that Google Maps finds are not verified: the
-  Census Geocoder, the only address service in roadmap row 013, misses many of them (the KFC Yum!
-  Center, campus addresses, unique ZIP codes). The user chose a free second check over Google's
-  paid APIs (2026-11-09): when the Census vouches for no match, an OpenStreetMap place at the
-  address, or the venue found by its name, verifies it (spec 013 research R16).
+Version: 3.8.1 -> 3.9.0 (MINOR): Principle V and "Security and Data Constraints" materially
+  changed (one Keycloak realm per front end instead of one realm for all); no control removed.
+Problem: issue #138. Keycloak keeps one signed-in user per browser for each realm. With one realm
+  shared by the three apps, signing in or out of one app ends or replaces the others' sign-in at
+  their next renewal, so the apps knock each other out (reproduced, spec 028 research R1); a probe
+  showed no app-side change inside one realm can avoid it (R2). The user chose one realm per app
+  (2026-11-09).
 Changed:
-  - Roadmap: row 013-venue-address-validation says the address is checked by the Census
-    Geocoder and then by OpenStreetMap, which needs no key either. The next free number stays 028.
-Impact: spec 013's research R16 and its code (the map search); no other
-  spec changes. The README's version reference follows. Templates: none need updating.
+  - Principle V: each front end signs in through its own Keycloak realm, so signing in, renewing or
+    logging out of one app never changes another's sign-in; logout ends the app's own session and
+    its realm's Keycloak session; the Backend accepts tokens only from the three app realms, checks
+    each against its own realm's keys and issuer, and honours from each realm only that app's role.
+  - Security and Data Constraints, "Roles and test accounts": each group of test accounts lives in
+    its app's realm. "OIDC clients": one per front end, in that front end's realm.
+  - Roadmap: row 028-app-realms reserved; the next free number is 029.
+Impact: spec 001's single-realm setup (seed, Backend token checks, app authorities) is replaced by
+  spec 028; the contract's authentication text (1.21.0). No other spec changes. The README's
+  version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -154,14 +160,21 @@ feature `001` onward:
   every signed-in page MUST offer a logout control.
 - Users sign in on Keycloak's login page using the OIDC Authorization Code flow with PKCE. No
   front end ever accepts, handles, or stores a password.
-- Logging out MUST end both the front end's session and the Keycloak session.
+- Each front end signs in through its own Keycloak realm (`queuepass-admin-app`,
+  `queuepass-customer-app`, `queuepass-booth-app`), so signing in to, renewing, or logging out of
+  one app never ends, changes, or replaces another app's sign-in in the same browser.
+- Logging out MUST end both the front end's session and its realm's Keycloak session.
 - Front ends MUST hold tokens in memory only, never in `localStorage` or `sessionStorage`, and
   MUST send the signed-in user's own access token as a `Bearer` token on every API call.
-- The Backend MUST validate the access token (a JWT) on every endpoint except health: its
-  signature against the realm's published keys, its issuer, its audience, and its expiry. A
-  missing, expired, malformed, or wrongly signed token MUST be refused with `401`.
+- The Backend MUST validate the access token (a JWT) on every endpoint except health: its issuer,
+  which MUST be one of the three app realms, its signature against that realm's own published
+  keys, its audience, and its expiry. A missing, expired, malformed, or wrongly signed token, or
+  one from any other issuer, MUST be refused with `401`.
 - The Backend MUST enforce role permissions on the server, reading roles from the validated
-  token, and refuse with `403`. Hiding a control in a UI is never the enforcement.
+  token, and refuse with `403`. From each realm it honours only that app's role (`queuepass-admin`
+  from the Admin app's realm, `customer` from the Customer app's, `gate-agent` from the Ticket
+  Booth's); any other role in the token is ignored. Hiding a control in a UI is never the
+  enforcement.
 - The Admin app requires `queuepass-admin`, the Customer app requires `customer`, and the Ticket
   Booth app requires `gate-agent`. A signed-in user without the required role is told so plainly,
   shown no data, and offered logout.
@@ -288,13 +301,14 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Security and Data Constraints
 
 - **Roles and test accounts**: The seed provisions 5 QueuePass Admins (`admin1`–`admin5`, realm
-  role `queuepass-admin`), 30 Gate Agents (`agent1`–`agent30`, `gate-agent`), and 200 Customers
-  (`customer1`–`customer200`, `customer`). Self-enrollment, password reset, and MFA are out of
+  role `queuepass-admin`, in realm `queuepass-admin-app`), 30 Gate Agents (`agent1`–`agent30`,
+  `gate-agent`, in `queuepass-booth-app`), and 200 Customers (`customer1`–`customer200`,
+  `customer`, in `queuepass-customer-app`). Self-enrollment, password reset, and MFA are out of
   scope.
 - **Test credentials**: The shared seed password `test123` is for local development only. It MUST
   NOT be used in any shared, staging, or production environment, and MUST NOT be reused as a
   default for real accounts.
-- **OIDC clients**: Front-end clients are public (no client secret), allow only the Authorization
+- **OIDC clients**: One client per front end, in that front end's realm. Front-end clients are public (no client secret), allow only the Authorization
   Code flow with PKCE (`S256`), and list exact redirect URIs and web origins; wildcards are not
   allowed. Direct-access (password) grants are disabled on front-end clients.
 - **Secrets**: No secret, key, or non-seed credential may be committed. Configuration reaches
@@ -313,7 +327,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `028`.
+number is a pull request against this table. The next free number is `029`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -344,6 +358,7 @@ number is a pull request against this table. The next free number is `028`.
 | `025-doors-open` | Every event has a doors-open time, set by admins in the venue's time zone (by default 1 hour before the start, no more than 6 hours before it and not after it, refused otherwise); customers and admins see it with the event; check-in, by any code, is open from 1 hour before doors open until the event ends, and the Ticket Booth app lists events not yet open greyed out, with when they open (#91; the doors-open item of #49) | `017`, `018`, `020` |
 | `026-purchase-rate-limits` | Each customer account may try to buy tickets, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds, however the API is called, with no one exempt; a customer over a limit is told plainly and when they can try again, with a countdown, and keeps what they had; ordinary buying never meets the limits, and QueuePass stays responsive for everyone else (#56) | `006`, `015`, `016` |
 | `027-sign-in-background` | Every sign-in page shows Keycloak's own low-poly stones background, served by Keycloak, with the stones grey and the lines between them in the app's accent; the form on Keycloak's card, styled from the shared theme, under the realm's name as Keycloak's own header; the lines pulse and glow, with a pause button, and are still under reduced motion; every text, field, and focus ring stays readable at every window size, in light and dark schemes (#122) | `021` |
+| `028-app-realms` | Each app signs in through its own Keycloak realm, so signing in to, renewing, or logging out of one app never signs another out, and three different users can use the three apps in one browser window; the seed moves existing users into their app's realm with the same identifier, so their orders, tickets, and check-ins stay theirs, and turns the old shared realm off without deleting it; the Backend accepts the three realms only, and from each only its app's role (#138) | `001`, `021`, `027` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -396,4 +411,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.8.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09
+**Version**: 3.9.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09
