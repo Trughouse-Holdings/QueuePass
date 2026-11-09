@@ -167,6 +167,8 @@ signed in.
    realm, **When** it calls any endpoint but health, **Then** the Backend refuses it with 401.
 3. **Given** a valid token from each app's realm, **When** it calls an endpoint its app's role
    allows, **Then** the call succeeds, as before this feature.
+4. **Given** `customer1`, **When** it tries to sign in on the Admin app's sign-in page, **Then** the
+   page refuses it (unknown username or password), and no app's sign-in changes.
 
 ---
 
@@ -181,9 +183,15 @@ signed in.
   turned off, and it shows its own app's sign-in page (`001` FR-013, unchanged).
 - **Keycloak restarts or is unreachable**: unchanged from `001`/`018` (renewals are retried; a
   refused renewal ends that app's sign-in only).
-- **A user moved by the seed whose username already exists in the new realm**: the seed leaves the
-  existing account as it is and reports the clash; it never overwrites or deletes an account
-  (research R6).
+- **A username already in an app realm with a different identifier from the old realm's** (only
+  possible after hand edits in Keycloak's console): the seed stops with an error naming the user,
+  leaves both accounts as they are, and does not turn the old realm off. It never overwrites or
+  deletes an account, and never silently cuts a user off from their orders (research R6).
+- **An account of another app** (`customer1` at the Admin app, `admin1` at the Customer app): it is
+  not in that app's realm, so the app's sign-in page refuses it as an unknown username or password.
+  Before this feature such an account signed in and was shown the wrong-role page; that page now
+  only appears for an account in the app's realm without the app's role, which the seed does not
+  create (FR-012).
 - **The seed is stopped half way through the move**: running it again finishes the move; users
   already moved are skipped (research R6).
 - **A database made from a clean clone**: there is no old realm; the seed creates the three realms
@@ -221,7 +229,9 @@ signed in.
   so every sign-in page looks as it does after `021` and `027`, and names its app.
 - **FR-009**: The seed MUST be idempotent: running it any number of times, on a clean system or
   after the move, MUST converge on the same three realms, clients and users, and MUST NOT change an
-  account that is already right.
+  account that is already right. If a username is already in its app realm with a different
+  identifier from the old realm's, the seed MUST fail with a message naming the user and MUST NOT
+  turn the old realm off.
 
 **Token checks**
 
@@ -232,8 +242,10 @@ signed in.
   (`queuepass-admin` from the Admin app's realm, `customer` from the Customer app's realm,
   `gate-agent` from the Ticket Booth's realm). Any other QueuePass role in the token MUST be
   ignored, so the call is refused with 403 where that role would be required.
-- **FR-012**: Each app MUST keep refusing a signed-in user without its role as today (`001`): the
-  wrong-role page stays, for an account in the app's realm that lacks the role.
+- **FR-012**: Each app's sign-in page MUST refuse an account that belongs to another app, because
+  that account is not in its realm. Each app MUST keep its wrong-role page (`001`) for a signed-in
+  token without the app's role; no seeded account reaches it any more, so it is tested without a
+  browser sign-in (research R10).
 
 **Unchanged**
 

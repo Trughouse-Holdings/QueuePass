@@ -14,6 +14,9 @@ otherwise. Test accounts and the seed password are in the README.
 
 ## S1. Three apps, three users, one window (US1; FR-001 to FR-003, SC-001, SC-003)
 
+Walk S1 and S2 in **Chrome and in Safari** (the issue's Done when; Keycloak's cookies on
+`http://localhost` are `Secure; SameSite=None`, which Safari treats differently from Chrome).
+
 1. Open the Admin app (http://localhost:5173) and sign in as `admin1`.
 2. In a new tab, open the Customer app (http://localhost:5174). **Expected**: its own sign-in page
    ("Sign in to QueuePass Tickets"), not "Your account can't use this app". Sign in as `customer1`.
@@ -50,9 +53,9 @@ On the **upgraded** stack from S0:
 
 ## S4. Wrong realm, wrong role (US4; FR-010, FR-011, SC-005)
 
-Covered by Backend integration tests (see Automation). By hand, optionally: the Admin app signed in
-as `admin1` cannot be used to sign in to the Customer app; the Customer app's sign-in page refuses
-`admin1` ("Invalid username or password"), because `admin1` is not in the Customer app's realm.
+Covered by Backend integration tests (see Automation). By hand: the Customer app's sign-in page
+refuses `admin1` ("Invalid username or password"), because `admin1` is not in the Customer app's
+realm (FR-012); the same for `customer1` at the Admin app and `admin1` at the Ticket Booth.
 
 ## S5. Same app in two tabs (Edge Cases)
 
@@ -75,10 +78,10 @@ Each front end passes the smoke test from a fresh clone: sign in, one action, si
 |---|---|---|
 | S0 clean | Yes | CI's stack start; seed tests (clean run) |
 | S0/S3 upgraded | Partly | Seed tests: a run over a shared realm moves every user with the same subject and turns it off; a second run changes nothing; a clash is left alone; a stopped run finishes. The by-hand walk on a real pre-028 database is recorded in tasks |
-| S1 | Yes | `e2e/tests/028-app-realms.spec.ts`: one browser context, three users; each app calls the API after the others sign in; each app's refresh token renews after the others signed in (driven at the token endpoint, not by waiting) |
+| S1 | Yes (Chromium) | `e2e/tests/028-app-realms.spec.ts`: one browser context, three users; each app calls the API after the others sign in; each app's own renewal fires under Playwright's clock (`page.clock`, R10) and the app stays its user. Safari by hand |
 | S2 | Yes | Same spec: each app logs out in turn; the other two still call the API and renew |
 | S3 by hand | No | Needs a database made before the feature; walked once by hand |
-| S4 | Yes | Backend integration tests: each realm's token on each role's endpoints; another realm's issuer with this realm's key; the old realm; an unknown issuer |
+| S4 | Yes | Backend integration tests: each realm's token on each role's endpoints; another realm's issuer with this realm's key; the old realm; an unknown issuer. `001` V4 (rewritten): each app's sign-in page refuses another app's account |
 | S5 | No | Same-app behaviour is unchanged from today |
 | S6 | Yes | `027`'s e2e tests on the new realms |
-| S7 | Yes | Existing quickstart e2e tests (`022`) |
+| S7 | Yes | Existing quickstart e2e tests (`022`), with `001` V4 rewritten for FR-012 |

@@ -86,8 +86,17 @@ the Backend's `x-required-roles`, every test account and the README credentials 
 
 Each realm is created like the shared one today (`provisionRealm`): enabled, display name
 "QueuePass", login theme `queuepass`, Keycloak's default token lifespans, and the `queuepass-api`
-audience scope (`provisionClients`). The realm names are one constant in `packages/shared`
-(`APP_REALMS`), used by the seed, the Backend and the tests, so they are written down once.
+audience scope (`provisionClients`).
+
+**Where the table lives.** `packages/shared/src/realms.ts` (`APP_REALMS`, `LEGACY_REALM`) is the
+source for the Backend and the apps' tests. The seed **cannot** import it: the seed image never
+copies or builds `packages/shared` on purpose (spec `020` review round 2, n6; asserted by
+`scripts/test/seed-image.test.mjs`), and `scripts/seed/package.json` has no dependency on it. The
+e2e tests do not build it either (`e2e/fixtures/time.ts`). So the seed keeps its own copy,
+`scripts/seed/src/app-realms.ts`, and the e2e tests theirs, `e2e/fixtures/realms.ts`, both
+import-free. One test in `packages/shared/test/realms.test.ts` imports both copies by relative path
+(Vitest transpiles them) and fails when either differs from `APP_REALMS`. Adding the dependency to
+the seed image was rejected: it reverses a reviewed decision of `020` for three short rows.
 
 ## R5. Moving users with their identifiers
 
@@ -122,18 +131,26 @@ exposes partial import as `kc.realms.partialImport({ realm, rep })`.
 
 1. Create or converge the three app realms, their role, the audience scope and their client
    (as today, per realm).
-2. If realm `queuepass` exists **and is enabled**, read each seeded username from it (`admin1`–`5`,
-   `agent1`–`30`, `customer1`–`200`).
-3. For each app-realm user (R5): skip it if the app realm already has that username; otherwise
-   import it, moved or new. A username present in the app realm with a **different** subject from
-   the shared realm's is reported as a clash and left alone (never overwritten, never deleted).
-4. When all 235 are present in their app realms, turn realm `queuepass` off
-   (`enabled: false`). It is never deleted, and nothing in it is changed or removed.
+2. If realm `queuepass` exists, **enabled or not**, read each seeded username's id from it
+   (`admin1`–`5`, `agent1`–`30`, `customer1`–`200`). The admin API reads a disabled realm, so a user
+   missing from an app realm after the move (deleted by hand later) is recreated with its old
+   subject, not a new one.
+3. For each app-realm user (R5): skip it if the app realm already has that username **with the old
+   realm's id** (or the old realm has no such user); import it, moved or new, if it is missing. A
+   username present in the app realm with a **different** id from the old realm's is a clash: the
+   seed collects every clash, then **fails** with a message naming each user, before step 4. Nothing
+   is overwritten or deleted. Only a hand edit in Keycloak's console can cause a clash; failing is
+   loud (the apps wait for the seed to succeed), whereas carrying on would silently cut the user off
+   from their orders (FR-009).
+4. When all 235 are present in their app realms with the right ids, turn realm `queuepass` off
+   (`enabled: false`) if it is on. It is never deleted, and nothing in it is changed or removed.
 
-**Why this order**: the old realm stays usable until the new realms are complete, so a seed stopped
-half way leaves a system that still works the old way; the next run finishes the move (users
-already moved are skipped). A turned-off realm refuses every sign-in and token request, and its
-tokens fail the Backend's issuer check anyway (FR-010).
+**Why this order**: the subjects are read from the old realm, so it must exist; turning it off last,
+and only after a complete move, means a run stopped half way (or failed on a clash) changes nothing
+that the next run cannot finish. While the move is incomplete the apps cannot sign in at all (they
+point at the new realms and wait for the seed to succeed), so there is no half-working state to
+protect. A turned-off realm refuses every sign-in and token request, and its tokens fail the
+Backend's issuer check anyway (FR-010).
 
 **Why not delete**: deleting is irreversible and the spec forbids it (FR-007). A team member who
 needs the old realm back can turn it on in the admin console.
@@ -184,21 +201,63 @@ one per app.
 ## R10. Tests
 
 - **Backend** (`backend/test/setup/tokens.ts` mints tokens with a local key pair; `test-app.ts`
-  wires a local key set): a key pair and issuer per realm. New integration tests: each realm's token
-  on each role's endpoint (allowed only for its own role); a token whose `iss` is another realm's
-  but signed by this realm's key (401); the old realm's issuer (401); an unknown issuer (401, no
-  key fetch).
+  wires a local key set): a key pair and issuer per realm. `tokenFor` picks the realm of the first
+  QueuePass role in `roles`, and the **customer** realm when `roles` has none (as in
+  `me.e2e-spec.ts`'s `roles: []`), unless a realm is given. New integration tests: each realm's
+  token on each role's endpoint (allowed only for its own role); a token whose `iss` is another
+  realm's but signed by this realm's key (401); the old realm's issuer (401); an unknown issuer
+  (401, no key fetch). **Changed by design**: `hello.e2e-spec.ts`'s "a user holding two roles calls
+  both greetings" (one token with `customer` and `gate-agent`) becomes FR-011's case: the token's
+  realm's role works, the other is 403. `auth.e2e-spec.ts` builds the issuer literally; it uses
+  `issuerFor(realm)`.
 - **Seed** (`scripts/seed/test/fake-keycloak.ts` fakes the admin API): add partial import with
   `SKIP` and ids, realm enable/disable, and several realms. Tests: clean run creates three realms
   and 235 users in the right realms; a run over a shared realm moves every user with the same
   subject and turns the shared realm off; a second run changes nothing; a clash is reported and
   left alone; a run stopped after N users finishes on the next run.
-- **Browser (e2e)**: one browser context, three pages, three users (S1 below in quickstart); each
-  app makes an authorized API call after the others sign in and after one logs out; and each app's
-  refresh token still renews after the others signed in (the renewal is driven through Keycloak's
-  token endpoint from the test, so the test does not wait 4 minutes for the timer).
-- **Existing tests** that name realm `queuepass` (seed tests, `e2e/fixtures/backdrop.ts`, `027`'s
-  e2e, `scripts/test/run-host.test.mjs`) move to the app realms.
+- **Browser (e2e)**: one browser context, three pages, three users (quickstart S1, S2); each app
+  makes an authorized API call after the others sign in and after one logs out. **The app's own
+  renewal** is driven with Playwright's clock: `page.clock.install()` before each app page loads,
+  then `page.clock.runFor('04:30')` after the other apps have signed in (or logged out), so the
+  app's own timer (`automaticSilentRenew`, which renews before the 300 s access token expires)
+  fires and renews with its refresh token against the real Keycloak; then the page makes an API
+  call and must still show its own user. Calling Keycloak's token endpoint from the test instead
+  would only prove Keycloak accepts the token, not that the app stays signed in. The tokens are in
+  memory and `UserManager` is not exposed to the page, so there is no other handle.
+- **Another app's account** (FR-012): `001`'s browser test V4 signed in to each app with another
+  app's account and expected the wrong-role page. After `028` those accounts are not in that realm:
+  V4 becomes "each app's sign-in page refuses another app's account" (Keycloak's "Invalid username
+  or password", the app not signed in). The wrong-role page itself stays covered without a browser
+  sign-in by `packages/shared/test/web/require-role.test.tsx`, which gives the page a user without
+  the role.
+- **Existing tests and files that name realm `queuepass`**:
+  `packages/shared/test/web/auth-provider.test.tsx` (the authority, twice),
+  `backend/test/setup/tokens.ts` (`TEST_ISSUER`), `backend/test/integration/auth.e2e-spec.ts` (a
+  literal issuer), the seed tests and `scripts/seed/vitest.config.ts` (a comment),
+  `scripts/test/run-host.test.mjs`, and the README. The e2e fixtures do not name it (they use the
+  `KEYCLOAK` origin and the `.qp-realm` class only).
+
+## R13. Keeping the team stack safe while building and testing
+
+**Problem**: the live seed tests (`scripts/seed/test/seed-idempotence.test.ts`,
+`sign-in-screens.test.ts`) run `seed()` against whatever Keycloak answers on `localhost:8080` /
+`9000` whenever it is up. On a developer laptop that is often the team stack. Once the seed moves
+users, any `npm test` or `npm run ci` would move the team stack's users and turn its realm
+`queuepass` off, without anyone agreeing to it. A second stack cannot run beside the team stack:
+the ports (5432, 8080, 9000, 3000, 5173–5175) and `KC_HOSTNAME` are fixed.
+
+**Decision**:
+
+1. **Guard in the live tests**: before calling `seed()`, a live test checks the Keycloak it reaches.
+   If realm `queuepass` exists and is **enabled**, the test is skipped with the reason "this
+   Keycloak still has the shared realm; set QP_SEED_ALLOW_MOVE=1 to let the tests move its users",
+   unless `QP_SEED_ALLOW_MOVE=1`. A clean Keycloak (CI, a fresh `-p` stack) has no such realm, so
+   the tests run there unchanged.
+2. **One stack at a time**: the implementer works on a stack of their own (`-p qp028`) only after
+   stopping the team stack with Mahdi's agreement (`docker compose -p queuepass-team stop`: never
+   `down -v`, so its volumes and data stay), and starts the team stack again when done.
+3. The team stack is rebuilt from the branch only in the walk (T032), with Mahdi's agreement, and
+   that is the moment its users move.
 
 ## R11. Documentation and configuration
 
@@ -219,6 +278,9 @@ Principle V and "Security and Data Constraints" speak of one realm ("the realm's
   role; logging out ends the app's own session and its realm's Keycloak session.
 - Security and Data Constraints, "Roles and test accounts": each group of test accounts lives in
   its app's realm.
+- Principle II ("The Keycloak realms … are created by a deterministic, idempotent seed") and
+  Language and Stack (Identity: one realm per front end; Backend token validation against the
+  JWKS of the token's own app realm), so the stack table does not still say one realm.
 - Roadmap: row `028-app-realms`; the next free number is `029`.
 
 The constitution, the contract, `packages/shared`, `docker-compose.yml` and `.env.example` are

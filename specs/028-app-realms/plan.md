@@ -82,15 +82,18 @@ specs/028-app-realms/
 packages/shared/src/
 ├── realms.ts                    # NEW: APP_REALMS (app → realm, client, role), LEGACY_REALM
 └── index.ts                     # exports realms.ts
+packages/shared/test/realms.test.ts   # NEW: the seed's and e2e's copies equal APP_REALMS (R4)
 
 scripts/seed/src/
+├── app-realms.ts                # NEW: the seed's import-free copy of the table (R4)
 ├── index.ts                     # per realm: realm, users, clients; then the move's last step
 ├── keycloak-client.ts           # loadConfig without KEYCLOAK_REALM
 ├── provision-realm.ts           # provisionRealm(kc, realm, role) for each app realm
 ├── provision-users.ts           # users of one realm through partialImport (moved or new, R5)
 ├── provision-clients.ts         # one client and the audience scope in its own realm
 └── retire-legacy-realm.ts       # NEW: read the shared realm's users; turn it off when done (R6)
-scripts/seed/test/               # fake-keycloak: partialImport, realm enable, several realms
+scripts/seed/test/               # fake-keycloak: partialImport, realm enable, several realms;
+                                 # the live tests' guard against moving a stack's users (R13)
 
 backend/src/auth/
 ├── jwks.provider.ts             # OIDC_ISSUER_BASE, OIDC_JWKS_BASE; a key set per realm
@@ -100,13 +103,15 @@ backend/test/setup/              # a key pair and issuer per realm; tokenFor pic
 admin-app/Dockerfile, customer-app/Dockerfile, booth-app/Dockerfile   # default authority per app
 docker-compose.yml, .env.example, scripts/run-host.mjs                # new env, per-app authority
 contracts/openapi.yaml, packages/shared/src/api-schema.ts             # text only (this PR)
-e2e/tests/028-app-realms.spec.ts                                      # NEW
-e2e/fixtures/backdrop.ts, e2e/tests/027-sign-in-background.spec.ts    # realm paths
+e2e/tests/028-app-realms.spec.ts                                      # NEW (Playwright clock, R10)
+e2e/fixtures/realms.ts                                                # NEW: e2e's copy of the table
+e2e/tests/001-sign-in.spec.ts                                         # V4: another app's account refused
 README.md                                                             # URLs, realms
 ```
 
-**Structure Decision**: no new package or service. The realm table lives once in
-`packages/shared` because the seed, the Backend and the tests all need it (R4).
+**Structure Decision**: no new package or service. The realm table's source is
+`packages/shared`; the seed and the e2e tests, which do not build that package, keep import-free
+copies checked equal by one test (R4).
 
 ## Order of work
 
@@ -118,6 +123,12 @@ README.md                                                             # URLs, re
 4. Configuration: compose, `.env.example`, Dockerfiles, `run-host.mjs`.
 5. e2e: the new spec, and the realm paths in the existing ones.
 6. README, quickstart walk on a database made before the feature (US3), and the fresh-clone gate.
+
+## Working safely beside the team stack
+
+The live seed tests skip on a Keycloak that still has an enabled realm `queuepass` unless
+`QP_SEED_ALLOW_MOVE=1`, and the implementer stops the team stack (never `down -v`) only with
+Mahdi's agreement before starting a stack of their own (research R13).
 
 ## Complexity Tracking
 

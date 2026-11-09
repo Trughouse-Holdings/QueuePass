@@ -5,7 +5,9 @@ configuration (made by the seed) and the Backend's token configuration.
 
 ## The realm table (`packages/shared/src/realms.ts`)
 
-One constant, read by the seed, the Backend and the tests (research R4):
+One constant, read by the Backend and the apps' tests; the seed (`scripts/seed/src/app-realms.ts`)
+and the e2e tests (`e2e/fixtures/realms.ts`) keep import-free copies that one test checks are equal
+(research R4):
 
 ```ts
 export const APP_REALMS = [
