@@ -1,4 +1,5 @@
 import type { AddressParts } from '../address/address-geocoder';
+import type { MapPlace } from '../address/map-search';
 
 /**
  * The leading house number of a street ("1540 University Dr" → "1540"), or "" when none. Letters,
@@ -20,11 +21,17 @@ export function matchesTyped(typed: AddressParts, match: AddressParts): boolean 
   // Issue #36 (research R15): a number with one hyphen equals the same digits without it, so a
   // Queens number typed "10724" matches the service's "107-24". A range ("430-432") still
   // differs from one of its numbers, and "12-34" never equals "1-234" (review, M2).
-  const a = houseNumber(typed.street);
-  const b = houseNumber(match.street);
+  return (
+    typed.zip.slice(0, 5) === match.zip &&
+    sameHouseNumber(houseNumber(typed.street), houseNumber(match.street))
+  );
+}
+
+/** Two house numbers from `houseNumber` are the same number (FR-021, research R15). */
+function sameHouseNumber(a: string, b: string): boolean {
   const queens = (x: string, y: string): boolean =>
     /^\d+-\d+$/.test(x) && /^\d+$/.test(y) && x.replace('-', '') === y;
-  return typed.zip.slice(0, 5) === match.zip && (a === b || queens(a, b) || queens(b, a));
+  return a === b || queens(a, b) || queens(b, a);
 }
 
 /**
@@ -55,4 +62,106 @@ export function keepUnit(typedStreet: string, matchStreet: string): string {
   if (kept.test(matchStreet)) return matchStreet;
   const street = `${matchStreet} ${unit.toUpperCase()}`;
   return street.length > STREET_MAX_LENGTH ? matchStreet : street;
+}
+
+/** A street with a suite or unit at its end left off ("430 W Vine St Ste 2" → "430 W Vine St"). */
+export function withoutUnit(street: string): string {
+  const tidy = street.trim().replace(/\s+/g, ' ');
+  const found = UNIT.exec(tidy);
+  return found ? tidy.slice(0, found.index) : tidy;
+}
+
+/**
+ * Research R16: the USPS short form of a direction or street type, so that a street typed in
+ * full and the address service's standard form compare equal ("West Vine Street" = "W VINE ST").
+ */
+const SHORT: Readonly<Record<string, string>> = {
+  NORTH: 'N',
+  SOUTH: 'S',
+  EAST: 'E',
+  WEST: 'W',
+  NORTHEAST: 'NE',
+  NORTHWEST: 'NW',
+  SOUTHEAST: 'SE',
+  SOUTHWEST: 'SW',
+  ALLEY: 'ALY',
+  AVENUE: 'AVE',
+  AV: 'AVE',
+  BOULEVARD: 'BLVD',
+  CIRCLE: 'CIR',
+  COURT: 'CT',
+  CROSSING: 'XING',
+  DRIVE: 'DR',
+  EXPRESSWAY: 'EXPY',
+  FREEWAY: 'FWY',
+  HIGHWAY: 'HWY',
+  LANE: 'LN',
+  PARKWAY: 'PKWY',
+  PLACE: 'PL',
+  PLAZA: 'PLZ',
+  POINT: 'PT',
+  ROAD: 'RD',
+  SQUARE: 'SQ',
+  STREET: 'ST',
+  TERRACE: 'TER',
+  TRAIL: 'TRL',
+};
+
+/**
+ * Research R16: the street without its house number or unit, upper case, with punctuation
+ * dropped and every direction and street type in its short form ("430 West Vine Street, Ste 2"
+ * → "W VINE ST").
+ */
+export function streetName(street: string): string {
+  const words = withoutUnit(street)
+    .toUpperCase()
+    .replace(/[^0-9A-Z/-]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean);
+  if (words.length > 0 && /^\d/.test(words[0])) words.shift();
+  return words.map((w) => SHORT[w] ?? w).join(' ');
+}
+
+/**
+ * Research R16 (issue #25): the address service's one match at another ZIP code is the typed
+ * address when the house number and the street name are the same, in the same state, and the two
+ * ZIP codes share their first 3 digits (one postal area). UofL's `2301 S 3rd St, 40292`, matched
+ * at `40208`.
+ */
+export function sameStreetNearby(typed: AddressParts, match: AddressParts): boolean {
+  const number = houseNumber(typed.street);
+  const name = streetName(typed.street);
+  return (
+    number !== '' &&
+    name !== '' &&
+    typed.state === match.state &&
+    typed.zip.slice(0, 3) === match.zip.slice(0, 3) &&
+    sameHouseNumber(number, houseNumber(match.street)) &&
+    name === streetName(match.street)
+  );
+}
+
+/** Research R16: a venue name compared as words: upper case, "&" as "AND", a leading "THE" and punctuation dropped. */
+const nameWords = (name: string): string =>
+  name
+    .toUpperCase()
+    .replace(/&/g, ' AND ')
+    .replace(/[^0-9A-Z]+/g, ' ')
+    .trim()
+    .replace(/^THE /, '');
+
+/**
+ * Research R16: a place on the map confirms the typed address when it is in the typed state and
+ * ZIP code, and it has the typed house number, or it has no house number on the map and the
+ * venue's name (KFC Yum! Center: house number 1 in 40202; Kroger Field: no number, 40506).
+ */
+export function placeConfirms(typed: AddressParts, venueName: string, place: MapPlace): boolean {
+  if (place.state !== typed.state || place.zip !== typed.zip.slice(0, 5)) return false;
+  if (place.houseNumber !== null) {
+    const number = houseNumber(typed.street);
+    return number !== '' && sameHouseNumber(number, houseNumber(place.houseNumber));
+  }
+  const name = nameWords(venueName);
+  return name !== '' && place.name !== null && nameWords(place.name) === name;
 }

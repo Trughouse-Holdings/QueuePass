@@ -1,4 +1,13 @@
-import { houseNumber, keepUnit, matchesTyped } from '../../src/locations/address-match';
+import type { MapPlace } from '../../src/address/map-search';
+import {
+  houseNumber,
+  keepUnit,
+  matchesTyped,
+  placeConfirms,
+  sameStreetNearby,
+  streetName,
+  withoutUnit,
+} from '../../src/locations/address-match';
 
 /**
  * Spec 013 FR-021, research R3: a single match is trusted only when it keeps the typed ZIP code
@@ -132,5 +141,126 @@ describe('keepUnit', () => {
   it('leaves the match as it is when the unit would make the street longer than 200', () => {
     const matched = `430 ${'W'.repeat(190)} ST`;
     expect(keepUnit('430 W Vine St Suite 12345', matched)).toBe(matched);
+  });
+});
+
+/** Research R16 (issue #25): the checks after the address service. */
+describe('withoutUnit', () => {
+  it.each([
+    ['430 W Vine St Ste 2', '430 W Vine St'],
+    ['430 W Vine St, Suite 200', '430 W Vine St'],
+    ['1 Arena Plaza #5', '1 Arena Plaza'],
+    [' 123  Unit Rd ', '123 Unit Rd'],
+    ['430 W Vine St', '430 W Vine St'],
+  ])('reads %p as %p', (street, expected) => {
+    expect(withoutUnit(street)).toBe(expected);
+  });
+});
+
+describe('streetName', () => {
+  it.each([
+    ['430 West Vine Street', 'W VINE ST'],
+    ['430 W VINE ST', 'W VINE ST'],
+    ['2301 South 3rd Street, Ste 2', 'S 3RD ST'],
+    ['10 N. Main Ave.', 'N MAIN AVE'],
+    ['107-24 71st Avenue', '71ST AVE'],
+    ['One Arena Plaza', 'ONE ARENA PLZ'],
+    ['', ''],
+  ])('reads %p as %p', (street, expected) => {
+    expect(streetName(street)).toBe(expected);
+  });
+});
+
+describe('sameStreetNearby', () => {
+  const typed = { street: '2301 South 3rd Street', city: 'Louisville', state: 'KY', zip: '40292' };
+  const match = (street: string, zip: string, state = 'KY') => ({
+    street,
+    city: 'LOUISVILLE',
+    state,
+    zip,
+  });
+
+  it('accepts the same number and street at a ZIP code in the same postal area (UofL)', () => {
+    expect(sameStreetNearby(typed, match('2301 S 3RD ST', '40208'))).toBe(true);
+  });
+
+  it.each([
+    ['another postal area', match('2301 S 3RD ST', '41208')],
+    ['another state', match('2301 S 3RD ST', '40208', 'IN')],
+    ['another house number', match('2303 S 3RD ST', '40208')],
+    ['another direction', match('2301 N 3RD ST', '40208')],
+    ['another street type', match('2301 S 3RD AVE', '40208')],
+  ])('refuses %s', (_label, m) => {
+    expect(sameStreetNearby(typed, m)).toBe(false);
+  });
+
+  it('refuses a typed street with no house number', () => {
+    expect(sameStreetNearby({ ...typed, street: 'Arena Plaza' }, match('ARENA PLZ', '40208'))).toBe(
+      false,
+    );
+  });
+});
+
+describe('placeConfirms', () => {
+  const typed = { street: '1 Arena Plaza', city: 'Louisville', state: 'KY', zip: '40202-1234' };
+  const place = (over: Partial<MapPlace> = {}): MapPlace => ({
+    name: 'KFC Yum! Center',
+    houseNumber: '1',
+    state: 'KY',
+    zip: '40202',
+    location: { latitude: 38.25, longitude: -85.75 },
+    ...over,
+  });
+
+  it('accepts the typed house number in the typed state and ZIP code', () => {
+    expect(placeConfirms(typed, 'Any name', place({ name: null }))).toBe(true);
+  });
+
+  it('accepts a Queens number the map writes without its hyphen', () => {
+    expect(
+      placeConfirms(
+        { street: '107-24 71st Ave', city: 'Forest Hills', state: 'NY', zip: '11375' },
+        '',
+        place({ houseNumber: '10724', state: 'NY', zip: '11375' }),
+      ),
+    ).toBe(true);
+  });
+
+  it.each([
+    ['another house number', place({ houseNumber: '10' })],
+    ['another ZIP code', place({ zip: '40203' })],
+    ['no ZIP code', place({ zip: null })],
+    ['another state', place({ state: 'IN' })],
+    ['no state', place({ state: null })],
+  ])('refuses a place with %s', (_label, p) => {
+    expect(placeConfirms(typed, 'KFC Yum! Center', p)).toBe(false);
+  });
+
+  it('refuses a house number when none was typed', () => {
+    expect(placeConfirms({ ...typed, street: 'Arena Plaza' }, 'KFC Yum! Center', place())).toBe(
+      false,
+    );
+  });
+
+  describe('a place with no house number on the map', () => {
+    const noNumber = (name: string | null) => place({ houseNumber: null, name });
+
+    it.each([
+      ['KFC Yum! Center', 'KFC Yum! Center'],
+      ['kfc yum center', 'KFC Yum! Center'],
+      ['The Louisville Palace', 'Louisville Palace'],
+      ['Rock & Roll Hall', 'Rock and Roll Hall'],
+    ])('accepts the venue name %p as %p', (venue, onMap) => {
+      expect(placeConfirms(typed, venue, noNumber(onMap))).toBe(true);
+    });
+
+    it.each([
+      ['another name', 'KFC Yum! Center', 'Louisville Arena'],
+      ['no name on the map', 'KFC Yum! Center', null],
+      ['no venue name', '  ', 'KFC Yum! Center'],
+      ['a name that is only punctuation', '!!', '??'],
+    ])('refuses %s', (_label, venue, onMap) => {
+      expect(placeConfirms(typed, venue, noNumber(onMap))).toBe(false);
+    });
   });
 });

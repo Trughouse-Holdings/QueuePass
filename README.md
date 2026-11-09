@@ -3,7 +3,7 @@
 Venue and event management with sign-in for every user and guaranteed conflict-free scheduling.
 
 Built from the specifications in [`specs/`](specs/) under the project constitution at
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.8.0).
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.8.1).
 
 ---
 
@@ -32,7 +32,7 @@ is built, reviewed, and walked in the browser (with Constitution 3.8.0 for its h
 | [`010-test-coverage`](specs/010-test-coverage/spec.md)                       | Each workspace's own test run fails below 80% line coverage, so `npm test` and the pull request check do too; the seed is tested without Keycloak against a recording fake                                                                                             | Draft            | Done (16/18 tasks) | **Built and reviewed**       |
 | [`011-ci-test-runs`](specs/011-ci-test-runs/spec.md)                         | Every pull request and push to `main` runs formatting, lint, build, and all tests in GitHub Actions, showing each workspace's coverage; `npm run ci` runs the same steps locally                                                                                       | Draft            | Done (32/34 tasks) | **Built (walk pending)**     |
 | [`012-shared-theme`](specs/012-shared-theme/spec.md)                         | One shared theme in `packages/shared/` for the Admin and Customer apps; a test fails when an app defines its own look                                                                                                                                                  | Draft            | Done (29/30 tasks) | **Built and verified**       |
-| [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, saved not verified when the service can't confirm it (`024`); addresses open Google Maps                                                                                           | Draft            | Done (47/48 tasks) | **Built and verified**       |
+| [`013-venue-address-validation`](specs/013-venue-address-validation/spec.md) | Venue addresses as street, city, state, and ZIP, checked by the US Census Geocoder, then OpenStreetMap (#25), saved not verified when the service can't confirm it (`024`); addresses open Google Maps                                                                 | Draft            | Done (52/54 tasks) | **Built and verified**       |
 | [`014-event-images`](specs/014-event-images/spec.md)                         | Up to 5 images per event, added, ordered, and removed in the Admin event form; a rotating gallery on Customer event cards and on the event page of both apps, with full screen                                                                                         | Draft            | Done (56/57 tasks) | **Built and verified**       |
 | [`015-seat-holds`](specs/015-seat-holds/spec.md)                             | Customers reserve picked seats for 5 minutes, then confirm; no seat reserved twice; reserved and sold seats shown live in both apps                                                                                                                                    | Draft            | Done (50 tasks)    | **Built and verified**       |
 | [`016-per-user-ticket-limit`](specs/016-per-user-ticket-limit/spec.md)       | An optional per-customer ticket limit on each event, held under concurrent orders; shown to admins and customers                                                                                                                                                       | Draft            | Done (36 tasks)    | **Built and verified**       |
@@ -62,7 +62,8 @@ others reserve or buy change live; and find every order they placed on **My tick
 venues seating layouts and see each seated event's seat map. Admins can cap how many tickets one
 customer may hold for an event; customers see how many more they can get, and the Backend refuses
 an order over the cap, even when two arrive at once. A venue's address is checked by
-the US Census Geocoder when it is saved, in one press: an address the service does not confirm,
+the US Census Geocoder when it is saved, then, if the Census doesn't confirm it, against
+OpenStreetMap by street and by the venue's name (#25), in one press: an address neither confirms,
 or cannot be asked about, is saved as typed and marked not verified, and the admin is told to
 check it; saving the venue again once the service knows it verifies it (`013`, `024`). Every venue
 address in both apps opens Google Maps. Admins add up to 5 pictures to an event (JPG, PNG, or
@@ -140,7 +141,11 @@ One command from a clean clone. No manual configuration steps.
 
 Saving a new venue address needs internet: the Backend checks it with the US Census Geocoder
 (`ADDRESS_GEOCODER_URL`, default `https://geocoding.geo.census.gov`, no key). Offline, a new
-address is refused with "We can't verify the address right now"; everything else works.
+address is refused with "We can't verify the address right now"; everything else works. When the
+Census finds no match it vouches for, the Backend also searches OpenStreetMap's Nominatim
+(`ADDRESS_MAP_URL`, default `https://nominatim.openstreetmap.org`, no key, at most one request a
+second; `off` turns it off), so venues the Census misses, such as the KFC Yum! Center, are still
+verified (spec 013 research R16).
 
 Purchase rate limits (`026`) are two settings in `.env` (see `.env.example`):
 `RATE_LIMIT_PER_MINUTE` (default `10`) and `RATE_LIMIT_PER_5_SECONDS` (default `3`), the buy
@@ -395,7 +400,9 @@ unchanged.
 - **Venue catalog** — admins create, view, edit, and delete venues with name, address, and
   seating capacity (`002`)
 - **Venue address checks** — a venue's address is entered as street, city, state, and ZIP code
-  and checked by the US Census Geocoder before it is saved, in the service's standard form. In
+  and checked by the US Census Geocoder before it is saved, in the service's standard form. When
+  the Census misses it, the same street at a nearby ZIP code, or an OpenStreetMap place at that
+  address or with the venue's name, verifies it as typed (#25). In
   the Admin app one press saves it: an address the service does not find, finds more than once,
   or cannot be asked about (the service is down) is saved as typed and marked "Address not
   verified", and the notice says to check it; saving the venue again checks it again (`024`).
@@ -553,7 +560,7 @@ service matched, or from the state when the place gives none and the state has o
 keeps its events' local times and is refused once any of them has an order (`020`).
 
 Time zone boundaries: timezone-boundary-builder, © OpenStreetMap contributors, ODbL 1.0, via
-`geo-tz`.
+`geo-tz`. Venue address checks: Nominatim search, data © OpenStreetMap contributors, ODbL 1.0.
 
 ### Scheduling rule
 

@@ -105,17 +105,18 @@ describe('Venue address check on edit (spec 013)', () => {
 
   it('refuses a changed address whose one match moves the ZIP code, venue unchanged (FR-021)', async () => {
     const before = await row();
+    // In another postal area: the same street at a nearby ZIP code is verified (research R16).
     ctx.geocoder.next({
       kind: 'match',
       street: '937 PHILLIPS LN',
       city: 'LOUISVILLE',
       state: 'KY',
-      zip: '40213',
+      zip: '41213',
       location: PLACES.louisville,
     });
     const res = await patch(moved).expect(400);
     expect(res.body.error.code).toBe('ADDRESS_AMBIGUOUS');
-    expect(res.body.error.details.candidates).toEqual(['937 PHILLIPS LN, LOUISVILLE, KY 40213']);
+    expect(res.body.error.details.candidates).toEqual(['937 PHILLIPS LN, LOUISVILLE, KY 41213']);
     expect(await row()).toEqual(before);
   });
 
@@ -253,13 +254,13 @@ describe('Venue address check on edit (spec 013)', () => {
       ['no match', { kind: 'none' }],
       ['several matches', { kind: 'many', candidates: ['A', 'B'] }],
       [
-        'a match at another ZIP code',
+        'a match at a ZIP code in another postal area (R16)',
         {
           kind: 'match',
           street: '1 ARENA PLAZA',
           city: 'LOUISVILLE',
           state: 'KY',
-          zip: '40203',
+          zip: '41203',
           location: PLACES.louisville,
         },
       ],
