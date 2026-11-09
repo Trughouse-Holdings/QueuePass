@@ -123,7 +123,7 @@ of work).
 
 ### Tests first
 
-- [ ] T005 `backend/test/setup/keys.ts`, `tokens.ts`, `test-app.ts`: a trusted key pair **per app
+- [x] T005 `backend/test/setup/keys.ts`, `tokens.ts`, `test-app.ts`: a trusted key pair **per app
   realm** (plus the existing rogue key); `tokenFor` signs with the key of the realm it is given, and
   when no realm is given picks the realm of the first QueuePass role in `roles`, or the customer
   realm when there is none (`me.e2e-spec.ts`'s `roles: []`); `TEST_ISSUER` replaced by
@@ -131,7 +131,12 @@ of work).
   per-realm key sets with local ones (research R10). Existing tests keep passing unchanged
   **except** `hello.e2e-spec.ts`'s "a user holding two roles calls both greetings", which changes by
   design to FR-011's rule: only the token's realm's role works, the other greeting is 403.
-- [ ] T006 [US4] `backend/test/integration/auth.realms.e2e-spec.ts`, against `GET /me` and one
+  **Done**: a key pair per app realm plus the rogue key; `tokenFor` takes `realm`, else the realm
+  of the first QueuePass role, else the customer realm; `issuerFor(realm)` and `REALM`; the test
+  app overrides the per-realm key sets (each a `jest.fn` around a local key set, so T006 sees which
+  were asked). `hello.e2e-spec.ts`'s two-role case now expects FR-011's 403. With T006–T007, failed
+  first: 47 of 47 in the touched files.
+- [x] T006 [US4] `backend/test/integration/auth.realms.e2e-spec.ts`, against `GET /me` and one
   endpoint per role (`queuepass-admin`, `customer`, `gate-agent`):
   1. each realm's token with its own role: allowed; `GET /me` returns only that role;
   2. each realm's token listing **all three** roles: allowed only on its own role's endpoint, 403 on
@@ -142,24 +147,30 @@ of work).
   5. an unknown issuer: 401, and no key set is fetched (assert the per-realm key-set providers are
      not called);
   6. a token without `iss`: 401.
-- [ ] T007 [US4] `backend/test/unit/oidc-config.spec.ts` (new; match the folder's file naming): the
+  **Done**: 12 tests (each realm: own endpoints and `/me`; all three roles listed; another realm's key), the retired realm, unknown issuers (no key set asked), only the token's realm asked, no `iss`.
+- [x] T007 [US4] `backend/test/unit/oidc-config.spec.ts` (new; match the folder's file naming): the
   Backend refuses to start without `OIDC_ISSUER_BASE`, `OIDC_JWKS_BASE` or `OIDC_AUDIENCE`, naming
   the missing ones; trailing slashes on the bases are tolerated.
+  **Done**: `backend/test/unit/oidc-config.spec.ts`, 7 tests.
 
 ### Implementation
 
-- [ ] T008 [US4] `backend/src/auth/jwks.provider.ts`: `oidcConfig()` reads `OIDC_ISSUER_BASE`,
+- [x] T008 [US4] `backend/src/auth/jwks.provider.ts`: `oidcConfig()` reads `OIDC_ISSUER_BASE`,
   `OIDC_JWKS_BASE`, `OIDC_AUDIENCE`; the provider builds one cached remote key set per realm in
   `APP_REALMS` (same cooldown and timeout as today), keyed by realm (research R8, data-model.md).
-- [ ] T009 [US4] `backend/src/auth/auth.guard.ts`: `decodeJwt` to read `iss` (untrusted); an
+  **Done**.
+- [x] T009 [US4] `backend/src/auth/auth.guard.ts`: `decodeJwt` to read `iss` (untrusted); an
   issuer not exactly `${OIDC_ISSUER_BASE}/${realm}` for one of the three realms is a 401 before any
   key is fetched; `jwtVerify` with that realm's key set and `issuer`, the audience and expiry rules
   unchanged; roles = `realm_access.roles` filtered to that realm's one role (FR-010, FR-011). Keep
   the refusal message the same for every failure (contract `Unauthenticated`).
-- [ ] T010 [US4] Every other reader of `OIDC_ISSUER` / `OIDC_JWKS_URL` in the Backend (grep), the
+  **Done**: the same refusal for every failure; the issuer is read with `decodeJwt` only to pick the realm.
+- [x] T010 [US4] Every other reader of `OIDC_ISSUER` / `OIDC_JWKS_URL` in the Backend (grep), the
   Backend's `.env`-style defaults, and its Dockerfile if it names them.
+  **Done**: no other reader in the Backend's source or Dockerfile; `run-host.mjs`, Compose and `.env.example` in T025.
 
 **Checkpoint**: `npm test --workspace @queuepass/backend` green, the existing suites unchanged.
+**Reached**: 104 suites, 1181 tests (1161 before, +20), lines 97.34%.
 
 ---
 

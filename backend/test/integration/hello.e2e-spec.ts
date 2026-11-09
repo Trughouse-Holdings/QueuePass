@@ -62,10 +62,12 @@ describe('Greeting endpoints', () => {
     });
   });
 
-  it('lets a user holding two roles call both greetings', async () => {
+  // Spec 028 FR-011 (research R10), changed by design from spec 001's "calls both greetings": a
+  // token's realm grants only its own app's role, so of two roles only the realm's one counts.
+  it("honours only the token's realm's role from a token holding two", async () => {
     const token = await tokenFor({ username: 'multi1', roles: ['customer', 'gate-agent'] });
     await as(ctx, token).get('/hello/customer').expect(200);
-    await as(ctx, token).get('/hello/booth').expect(200);
+    await as(ctx, token).get('/hello/booth').expect(403);
     await as(ctx, token).get('/hello/admin').expect(403);
   });
 });

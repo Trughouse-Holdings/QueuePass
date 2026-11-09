@@ -1,8 +1,10 @@
+import { APP_REALMS } from '@queuepass/shared';
 import { exportJWK, generateKeyPair, type JWK, type KeyLike } from 'jose';
 
 /**
- * RS256 key pairs for signing test tokens (research R11). The test app trusts only
- * `test-key`; `rogue-key` is deliberately unpublished, for the unknown-key case.
+ * RS256 key pairs for signing test tokens (research R11). Spec 028 (research R10): one trusted
+ * pair per app realm, as each Keycloak realm has its own signing keys; the test app trusts each
+ * only for its own realm. `rogue` is deliberately unpublished, for the unknown-key case.
  *
  * Generated once per Jest worker and cached, so every suite in a worker shares them.
  */
@@ -12,7 +14,13 @@ export interface TestKey {
   publicJwk: JWK;
 }
 
-let cached: Promise<{ trusted: TestKey; rogue: TestKey }> | undefined;
+export interface TestKeys {
+  /** Realm name → that realm's trusted key pair. */
+  realms: Record<string, TestKey>;
+  rogue: TestKey;
+}
+
+let cached: Promise<TestKeys> | undefined;
 
 async function makeKey(kid: string): Promise<TestKey> {
   const { privateKey, publicKey } = await generateKeyPair('RS256');
@@ -20,10 +28,11 @@ async function makeKey(kid: string): Promise<TestKey> {
   return { kid, privateKey, publicJwk };
 }
 
-export function testKeys(): Promise<{ trusted: TestKey; rogue: TestKey }> {
-  cached ??= Promise.all([makeKey('test-key'), makeKey('rogue-key')]).then(([trusted, rogue]) => ({
-    trusted,
-    rogue,
-  }));
+export function testKeys(): Promise<TestKeys> {
+  cached ??= (async () => {
+    const realms: Record<string, TestKey> = {};
+    for (const { realm } of APP_REALMS) realms[realm] = await makeKey(`${realm}-key`);
+    return { realms, rogue: await makeKey('rogue-key') };
+  })();
   return cached;
 }
