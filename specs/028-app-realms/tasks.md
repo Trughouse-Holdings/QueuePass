@@ -69,15 +69,27 @@ confirm they **fail** before the implementation tasks below them.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `028-app-realms-impl` from `028-app-realms-spec` (or from `main` once the spec PR has
+- [x] T001 Cut `028-app-realms-impl` from `028-app-realms-spec` (or from `main` once the spec PR has
   merged); `npm ci`; `npm run ci` green before any change, so a later failure is this feature's.
-- [ ] T002 Stretch 1 (Ground rules): stop the team stack, then make the **pre-028 database** from
+  **Done** (2026-11-09, cut from `main` at `3110518`, the spec PR merged): `npm ci`; `npm run ci`
+  green with the live seed tests skipped (no Keycloak reached, so the team stack was not touched):
+  root scripts 75; shared 785 (lines 96.72%); backend 1161 (97.33%); admin-app 361 (97.31%);
+  customer-app 335 (97.65%); booth-app 94 (93.44%); seed 149 + 28 skipped (99.29%).
+- [x] T002 Stretch 1 (Ground rules): stop the team stack, then make the **pre-028 database** from
   a worktree of `main` (with the Keycloak image built: `docker compose -p qp028 build keycloak`):
   `docker compose -p qp028 up -d database keycloak`, then
   `node scripts/run-host.mjs --demo-data` from that worktree; through the apps, one order for
   `customer1` and one check-in by `agent1`. Record `customer1`'s subject (Keycloak admin console)
   and ticket codes. Stop the host processes and `docker compose -p qp028 stop` (never `down`: T026
   needs this data), and restore the team stack.
+  **Done** (stretch 1, 18:00–18:03, from this worktree while it was still `main` at `3110518`):
+  demo data loaded ("2 venues, 4 events, 53 orders, 121 tickets (24 checked in)"); then, through
+  the apps (a throwaway Playwright script, not committed: `admin1` made an event starting in an
+  hour, `customer1` bought 2 tickets with the Customer app's token, `agent1` admitted one at the
+  Booth): `customer1` subject `2c07cefe-def5-45d1-a7a2-c4cd48aa98d9`, tickets `AE5NWZMKEVC5`
+  (checked in by `agent1`, subject `21676f0a-9ec9-405d-9ea6-b0e256397309`) and `EQ4U8MVFJA7F`;
+  `agent1` has 25 check-ins in all; old `admin1` subject `86e153bd-4e00-40e5-b191-4e2873f2d68f`.
+  `qp028` stopped; the team stack restarted and answering at 18:02:44.
 
 ---
 
@@ -87,18 +99,20 @@ confirm they **fail** before the implementation tasks below them.
 
 ### Tests first
 
-- [ ] T003 `packages/shared/test/realms.test.ts`: `APP_REALMS` has exactly the three rows of
+- [x] T003 `packages/shared/test/realms.test.ts`: `APP_REALMS` has exactly the three rows of
   data-model.md (realm, clientId, role, prefix, count); realm names are unique and none equals a
   role name or `LEGACY_REALM`; every `role` is a `Role`; the counts add to 235; and the seed's copy
   (`../../../scripts/seed/src/app-realms`) and the e2e copy (`../../../e2e/fixtures/realms`),
   imported by relative path, are deep-equal to `APP_REALMS` and `LEGACY_REALM` (research R4).
+  **Done**: 8 tests; failed first (no `src/realms.ts`).
 
 ### Implementation
 
-- [ ] T004 `packages/shared/src/realms.ts` and its export from `packages/shared/src/index.ts`; the
+- [x] T004 `packages/shared/src/realms.ts` and its export from `packages/shared/src/index.ts`; the
   import-free copies `scripts/seed/src/app-realms.ts` and `e2e/fixtures/realms.ts` (data-model.md,
   research R4). The seed keeps importing nothing from `packages/shared`
   (`scripts/test/seed-image.test.mjs` unchanged). `npm run build --workspace @queuepass/shared`.
+  **Done**: T003's 8 tests pass; `seed-image.test.mjs` unchanged and passing.
 
 ---
 
