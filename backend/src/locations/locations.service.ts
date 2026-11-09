@@ -14,14 +14,16 @@ import {
   AddressGeocoder,
   AddressParts,
   AddressServiceUnavailableError,
+  GeocodeResult,
   Place,
 } from '../address/address-geocoder';
+import { MAP_SEARCH, MapSearch } from '../address/map-search';
 import { TIME_ZONE_FINDER, TimeZoneFinder } from '../address/time-zone-finder';
 import { LOCKING_TX } from '../common/event-lock';
 import { searchText } from '../common/search-text';
 import { lockVenueAndEvents } from '../common/venue-lock';
 import { PrismaService } from '../prisma/prisma.service';
-import { keepUnit, matchesTyped } from './address-match';
+import { keepUnit, matchesTyped, placeAtAddress, placeByName, withoutUnit } from './address-match';
 import { CreateLocationDto } from './dto/create-location.dto';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import {
@@ -80,6 +82,12 @@ const verified = (sent: AddressParts, match: AddressParts): CheckedAddress =>
   checked({ ...match, street: keepUnit(sent.street, match.street) }, true);
 
 /**
+ * Research R16: what the address checks found. Either a verified address with its place, or
+ * the address service's own answer, which no check turned into a verified address.
+ */
+type Lookup = { found: CheckedWithPlace } | { result: GeocodeResult };
+
+/**
  * Spec 013 research R14: an internal option of `create`, passed only by the dev-only
  * `demo-data` script. No request can set it: the controller never passes it and no DTO has it.
  */
@@ -120,6 +128,7 @@ export class LocationsService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(ADDRESS_GEOCODER) private readonly geocoder: AddressGeocoder,
+    @Inject(MAP_SEARCH) private readonly map: MapSearch,
     @Inject(TIME_ZONE_FINDER) private readonly finder: TimeZoneFinder,
   ) {}
 
@@ -137,6 +146,7 @@ export class LocationsService {
     const { name, seatingCapacity, acceptUnverifiedAddress } = dto;
     const { address, location } = await this.checkAddress(
       dto,
+      name,
       acceptUnverifiedAddress === true,
       options.whenServiceUnavailable === 'saveUnverified',
     );
@@ -215,13 +225,19 @@ export class LocationsService {
     let checkedAddress: CheckedWithPlace | undefined;
     let recheckedAddress: CheckedAddress | undefined;
     const parts = dto as AddressParts;
+    // Research R16: the map search may look the venue up by the name it will have.
+    const venueName = dto.name ?? existing.name;
     if (sent.length > 0) {
       // FR-008: an unchanged address is not checked again and keeps its verified state, except
       // a not-verified one resent with the flag (feature 024, research R7).
       if (!sameAddress(parts, existing)) {
-        checkedAddress = await this.checkAddress(parts, dto.acceptUnverifiedAddress === true);
+        checkedAddress = await this.checkAddress(
+          parts,
+          venueName,
+          dto.acceptUnverifiedAddress === true,
+        );
       } else if (dto.acceptUnverifiedAddress === true && !existing.addressVerified) {
-        recheckedAddress = await this.recheckAddress(parts);
+        recheckedAddress = await this.recheckAddress(parts, venueName);
       }
     }
 
@@ -303,7 +319,8 @@ export class LocationsService {
   /**
    * Asks the address service (spec 013 research R2, R3). Exactly one match that keeps the typed
    * ZIP code and house number is saved in the service's standard form and verified, whatever the
-   * flag says; one that moves either is refused as ambiguous, listing it (FR-021). No match or
+   * flag says. Research R16: so is one a place on the map confirms, saved as sent.
+   * One that moves the ZIP code or house number is refused as ambiguous, listing it (FR-021). No match or
    * several are refused, unless the request asked to save it even if unverified: then the address
    * is saved as sent and not verified. When the service cannot be asked, the save is refused with
    * 503 (research R6), unless the request sent that flag (feature 024, research R5) or came
@@ -312,29 +329,25 @@ export class LocationsService {
    */
   private async checkAddress(
     input: AddressParts,
+    venueName: string,
     acceptUnverified: boolean,
     saveUnverifiedWhenUnavailable = false,
   ): Promise<CheckedWithPlace> {
     const sent = asSent(input);
     const unverified = (): CheckedWithPlace => ({ address: checked(sent, false), location: null });
-    let result;
+    let looked: Lookup;
     try {
-      result = await this.geocoder.lookup(sent);
+      looked = await this.lookUp(sent, venueName);
     } catch (err) {
       this.logUnavailable(err);
       if (saveUnverifiedWhenUnavailable || acceptUnverified) return unverified();
       throw serviceUnavailable();
     }
-
-    const match =
-      result.kind === 'match'
-        ? { street: result.street, city: result.city, state: result.state, zip: result.zip }
-        : undefined;
-    // Spec 020 R1: only a verified match's place is used to find the zone.
-    if (result.kind === 'match' && match && matchesTyped(sent, match)) {
-      return { address: verified(sent, match), location: result.location };
-    }
+    // Spec 020 R1: only a verified address's place is used to find the zone.
+    if ('found' in looked) return looked.found;
     if (acceptUnverified) return unverified();
+
+    const { result } = looked;
 
     const typed = formatAddress(sent);
     if (result.kind === 'none') {
@@ -365,23 +378,63 @@ export class LocationsService {
    * match that keeps the typed ZIP code and house number counts, as in `checkAddress`; anything
    * else, the service being unavailable included, is no upgrade, never a refusal.
    */
-  private async recheckAddress(input: AddressParts): Promise<CheckedAddress | undefined> {
+  private async recheckAddress(
+    input: AddressParts,
+    venueName: string,
+  ): Promise<CheckedAddress | undefined> {
     const sent = asSent(input);
-    let result;
     try {
-      result = await this.geocoder.lookup(sent);
+      const looked = await this.lookUp(sent, venueName);
+      return 'found' in looked ? looked.found.address : undefined;
     } catch (err) {
       this.logUnavailable(err);
       return undefined;
     }
-    if (result.kind !== 'match') return undefined;
-    const match = {
-      street: result.street,
-      city: result.city,
-      state: result.state,
-      zip: result.zip,
-    };
-    return matchesTyped(sent, match) ? verified(sent, match) : undefined;
+  }
+
+  /**
+   * Research R16, in order: the address service's one match that keeps the typed ZIP code and
+   * house number is verified in its standard form (FR-021). Otherwise a place on the map at the
+   * typed street (`placeAtAddress`), then one found by the venue's name (`placeByName`),
+   * verifies the address as typed. The map is asked only after the address service answered;
+   * when the address service cannot be asked, this throws, as before (R6). A map search that
+   * fails is logged and finds nothing.
+   */
+  private async lookUp(sent: AddressParts, venueName: string): Promise<Lookup> {
+    const result = await this.geocoder.lookup(sent);
+    if (result.kind === 'match') {
+      const match = {
+        street: result.street,
+        city: result.city,
+        state: result.state,
+        zip: result.zip,
+      };
+      if (matchesTyped(sent, match)) {
+        return { found: { address: verified(sent, match), location: result.location } };
+      }
+    }
+    const place = await this.searchMap(sent, venueName);
+    if (place) return { found: { address: checked(sent, true), location: place } };
+    return { result };
+  }
+
+  /** Research R16: the place of the first map result that confirms the address, if any. */
+  private async searchMap(sent: AddressParts, venueName: string): Promise<Place | undefined> {
+    const name = venueName.trim();
+    try {
+      const street = withoutUnit(sent.street);
+      const atAddress = await this.map.byAddress({ street, city: sent.city, state: sent.state });
+      const found = atAddress.find((p) => placeAtAddress(sent, p));
+      if (found) return found.location;
+      if (name === '') return undefined;
+      const named = await this.map.byName(name, sent);
+      return named.find((p) => placeByName(sent, name, p))?.location;
+    } catch (err) {
+      if (!(err instanceof AddressServiceUnavailableError)) throw err;
+      const cause = err.cause instanceof Error ? `: ${err.cause.message}` : '';
+      this.logger.warn(`Map search unavailable: ${err.message}${cause}`);
+      return undefined;
+    }
   }
 
   /** Research R6: an unavailable service is logged with its cause; anything else is rethrown. */

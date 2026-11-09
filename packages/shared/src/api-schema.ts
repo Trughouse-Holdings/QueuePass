@@ -219,7 +219,18 @@ export interface paths {
          *     number with one hyphen equals the same digits without it (Queens: `10724` keeps
          *     `107-24`), and a suite or unit sent at the end of `street` that the service leaves out
          *     is kept at the end of the saved
-         *     `street` (`430 W Vine St Ste 2` is saved as `430 W VINE ST STE 2`). No match is
+         *     `street` (`430 W Vine St Ste 2` is saved as `430 W VINE ST STE 2`).
+         *
+         *     From 1.20.0 (#25), when the address service vouches for no match, OpenStreetMap may
+         *     still verify the address. The venue is then saved with the four fields as sent (trimmed,
+         *     runs of whitespace collapsed to one space, ZIP cut to 5 digits) and
+         *     `addressVerified: true`. OpenStreetMap is searched at the sent street, where a place
+         *     counts when it is in the sent state and ZIP code and has the sent house number; then by
+         *     the venue's `name` in the sent city and state, where a place counts when it has that
+         *     name, is not a road, town, or area, is in the sent state and ZIP code, and has the sent
+         *     house number or none on the map. The refusals below apply only when neither search
+         *     verifies the address. OpenStreetMap is asked only after the address service answered,
+         *     and it being unreachable is never `503`: it then finds nothing. No match is
          *     `400 ADDRESS_NOT_FOUND`; several matches, or one match at a different ZIP code or house
          *     number, are `400 ADDRESS_AMBIGUOUS`, listing them.
          *
@@ -1169,7 +1180,8 @@ export interface components {
          *     - `addressVerified: true`: the address service matched it; the four fields are its
          *       standard (upper-case) form. From 1.18.0 (#36), a suite or unit the admin typed at the
          *       end of the street, which the service leaves out, is kept at the end of `street`, upper
-         *       case (`430 W VINE ST STE 2`).
+         *       case (`430 W VINE ST STE 2`). From 1.20.0 (#25), also an address verified by
+         *       OpenStreetMap (`createLocation`, `updateLocation`); its four fields are as sent.
          *     - `addressVerified: false` with the four fields set: saved with
          *       `acceptUnverifiedAddress` because the address service did not match it or, feature
          *       024, could not be asked; the fields are as the admin sent them.

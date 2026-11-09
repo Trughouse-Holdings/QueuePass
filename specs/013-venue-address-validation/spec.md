@@ -21,6 +21,13 @@ equals the same digits without it, so a Queens `10724` matches `107-24`; FR-008,
 address" (as typed, ignoring case and spaces) is decided again on the venue read under the lock
 before the write.
 
+**Amended by #25** (2026-11-09, [research R16](research.md#r16-after-the-census-openstreetmap-25-2026-11-09)):
+FR-003 and FR-021, when the address service vouches for no match, the address is still verified,
+and saved as typed, when OpenStreetMap has a place in the typed state and ZIP code with the typed
+house number at the typed street, or has the venue, found by its name, with the typed house number
+or none on the map. FR-004 and FR-005's refusals apply only when the map does not verify it;
+OpenStreetMap is asked only after the address service answered (FR-006 unchanged).
+
 **Input**: User description: "When an admin creates or edits a venue, the address must be a real US
 address. The venue address is a Google Maps link in both the Admin and Customer apps."
 

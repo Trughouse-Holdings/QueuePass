@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { createLocalJWKSet } from 'jose';
 import { ADDRESS_GEOCODER } from '../../src/address/address-geocoder';
+import { MAP_SEARCH } from '../../src/address/map-search';
 import { AppModule } from '../../src/app.module';
 import { ATTEMPT_CLOCK } from '../../src/attempt-limits/attempt-limits.clock';
 import { JWKS } from '../../src/auth/jwks.provider';
@@ -12,6 +13,7 @@ import { PrismaService } from '../../src/prisma/prisma.service';
 import { FakeAttemptClock } from './fake-attempt-clock';
 import { FakeClock } from './fake-clock';
 import { FakeGeocoder } from './fake-geocoder';
+import { FakeMapSearch } from './fake-map-search';
 import { testKeys } from './keys';
 import { ADMIN, TEST_AUDIENCE, TEST_ISSUER, tokenFor } from './tokens';
 
@@ -22,6 +24,8 @@ export interface TestContext {
   adminToken: string;
   /** Spec 013 research R9: the address service's stand-in; no test uses the network. */
   geocoder: FakeGeocoder;
+  /** Spec 013 research R16: the map search's stand-in; finds nothing unless a test queues it. */
+  map: FakeMapSearch;
   /** Spec 018 research R3: the live-code clock, real time unless a test sets it. */
   clock: FakeClock;
   /**
@@ -69,6 +73,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestC
 
   const { trusted } = await testKeys();
   const geocoder = new FakeGeocoder();
+  const map = new FakeMapSearch();
   const clock = new FakeClock();
   const attemptClock = new FakeAttemptClock();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -78,6 +83,8 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestC
     .useValue(createLocalJWKSet({ keys: [trusted.publicJwk] }))
     .overrideProvider(ADDRESS_GEOCODER)
     .useValue(geocoder)
+    .overrideProvider(MAP_SEARCH)
+    .useValue(map)
     .overrideProvider(CLOCK)
     .useValue(clock)
     // Spec 015 research R4: no sweep timer in tests; they call HoldSweeper.sweepOnce().
@@ -96,6 +103,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestC
     prisma: app.get(PrismaService),
     adminToken: await tokenFor(ADMIN),
     geocoder,
+    map,
     clock,
     attemptClock,
   };

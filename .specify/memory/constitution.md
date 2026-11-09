@@ -1,27 +1,17 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.7.0 -> 3.8.0 (MINOR): Principle VII's sign-in exception materially expanded; one
-  roadmap row reworded; no control removed.
-Problem: in spec 027's implementation (issue #122), Mahdi brought back Keycloak's sign-in card and
-  the realm's name above it, as Keycloak's own login page shows them, and then asked for the lines
-  between the stones to pulse, with a pause button, then for a stronger pulse with a glow (spec 027
-  Clarifications, implementation sessions 2 to 4). The card is the shared theme's card, which the
-  exception already allows. The realm-name header is decoration, and moving lines are more decoration than the still background
-  3.7.0 allowed, which it called "the only decoration allowed"; roadmap row 027 still said the form
-  sits on the stones with no card.
+Version: 3.8.0 -> 3.8.1 (PATCH): one roadmap row reworded to what is built; no principle changed
+  and no control removed.
+Problem: issue #25 was reopened because real venues that Google Maps finds are not verified: the
+  Census Geocoder, the only address service in roadmap row 013, misses many of them (the KFC Yum!
+  Center, campus addresses, unique ZIP codes). The user chose a free second check over Google's
+  paid APIs (2026-11-09): when the Census vouches for no match, an OpenStreetMap place at the
+  address, or the venue found by its name, verifies it (spec 013 research R16).
 Changed:
-  - Principle VII, the sign-in exception: the sign-in screens MAY also show, above the sign-in card,
-    the realm's name as Keycloak's own login page does; the lines MAY pulse and glow, smoothly
-    and with no flash, only with a control on the page that pauses them, and never when the
-    person's system asks for reduced motion. The background, its pulse, and that header are the
-    only decoration allowed, and every text, label, and control on them keeps the contrast its
-    spec states.
-  - Roadmap: row 027-sign-in-background reworded to what is built: the form on Keycloak's card,
-    styled from the shared theme, under the realm's name, instead of "no card", and the pulse and
-    glow with its pause control. The next free number stays 028.
-Impact: spec 027's implementation (the card, the header, the pulse, its glow and its pause
-  button, the --stone-* tokens, their contrast tests) is the code this allows; no other code or spec changes.
-  The README's version reference follows. Templates: none need updating.
+  - Roadmap: row 013-venue-address-validation says the address is checked by the Census
+    Geocoder and then by OpenStreetMap, which needs no key either. The next free number stays 028.
+Impact: spec 013's research R16 and its code (the map search); no other
+  spec changes. The README's version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -339,7 +329,7 @@ number is a pull request against this table. The next free number is `028`.
 | `010-test-coverage` | Tests for every existing feature, so each workspace reaches 80% line coverage; turns the floor on, so `npm test` and the CI run fail when a workspace is below it | `001`–`008`, `011` |
 | `011-ci-test-runs` | GitHub Actions workflow that runs the format and lint checks, the build, and the full suite with coverage on every pull request open and update and every push to `main`; fails on any failed check or test and reports each workspace's line coverage; fails below the floor once `010` is merged | `001` |
 | `012-shared-theme` | One shared theme in `packages/shared/` (accent color, fonts, spacing, shared control styles) used by the Admin and Customer apps | `008` |
-| `013-venue-address-validation` | Admin venue create and edit accept only a real US address, checked by the Census Geocoder, unless an admin explicitly confirms an unmatched address, which is then marked not verified; a Google Maps link on the address in the Admin and Customer apps | `002`, `003` |
+| `013-venue-address-validation` | Admin venue create and edit accept only a real US address, checked by the Census Geocoder and, when it vouches for no match, by OpenStreetMap (#25), unless an admin explicitly confirms an unmatched address, which is then marked not verified; a Google Maps link on the address in the Admin and Customer apps | `002`, `003` |
 | `014-event-images` | Admins upload up to 5 images per event; customers see them on the event, for example as a rotating gallery | `002`, `003` |
 | `015-seat-holds` | Seats a customer selects are held so no one else can take them before checkout; released on deselect or logout; other customers see held seats update live without refreshing | `007` |
 | `016-per-user-ticket-limit` | Admins set a maximum number of tickets per customer per event; the limit counts across all of that customer's orders | `005`, `006` |
@@ -406,4 +396,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.8.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-03
+**Version**: 3.8.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09

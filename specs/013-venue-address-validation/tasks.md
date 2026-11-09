@@ -540,6 +540,41 @@ its name without a check, and is verified when its address is filled in.
 
 ---
 
+## Phase 8: Follow-up #25, verified after the Census misses (research R16)
+
+- [x] T049 **Test first.** `backend/test/unit/address-match.spec.ts`: `withoutUnit`,
+  `placeAtAddress` (house number, Queens hyphen, ZIP, state; a road refused), `placeByName` (the
+  name as words; another name, a road, town, or area, another number, ZIP, or state refused; the
+  street not compared, a limit). Then the functions in `backend/src/locations/address-match.ts`.
+- [x] T050 **Test first.** `backend/test/unit/nominatim-search.spec.ts` against a local server:
+  the query by street and by name, the User-Agent, the fields read (category, state code, 5-digit
+  ZIP, nulls), skipped results, at most 5, every failure unavailable, the 1.1-second spacing, the
+  3-second queue cap, and `mapSearchFrom` for `ADDRESS_MAP_URL` (`off`, blank, a URL). Then
+  `backend/src/address/map-search.ts` (`MAP_SEARCH`, `MapSearch`, `NoMapSearch`),
+  `nominatim-search.ts`, and `AddressModule`.
+- [x] T051 **Test first.** `backend/test/setup/fake-map-search.ts` (finds nothing unless queued),
+  overriding `MAP_SEARCH` in `createTestApp()` as `ctx.map`, and
+  `backend/test/integration/locations.map-search.e2e-spec.ts`: verified as typed by the map at
+  the address, by name, with no number by name, a unit left out of the search and kept; not
+  verified for another ZIP, state, number, or name, or a road with the venue's name; a map that
+  is down finds nothing; the map is not asked after a Census match or when the Census is down;
+  UofL verified at its own ZIP by the map, a mistyped ZIP still ambiguous; an edit by the name
+  sent; the `024` R7 re-check by the stored name. Then `LocationsService.lookUp` and `searchMap`.
+- [x] T052 Contract 1.20.0 (`createLocation`, `Location`) and `api-schema.ts` regenerated;
+  `ADDRESS_MAP_URL` in `.env.example`, `docker-compose.yml`, and `off` in
+  `e2e/stack/docker-compose.e2e.yml`; README (address checks, configuration, credit to
+  OpenStreetMap); Constitution 3.8.1 (roadmap row 013); quickstart S10.
+- [x] T053 Independent review (Constitution III) by a separate Claude session: 1 must, 4 should,
+  6 minor. Fixed: M1 (a place found by name must be the venue), S1 (the nearby-ZIP rule dropped),
+  S2 (roads, towns, areas never confirm by name), S3 (3-second queue cap), S4 (`mapSearchFrom`
+  tested), and the minors as R16 limits or contract wording. M1's street typo stays a recorded
+  limit (R16).
+- [ ] T054 Running-system check: quickstart S10 against the live services. Then the PR against
+  `main` with `fixes #25`; it changes the shared surface (`contracts/`, `packages/shared/`,
+  `.env.example`, `docker-compose.yml`, the constitution), so every team member approves it.
+
+---
+
 ## Dependencies & Execution Order
 
 - **Phase 1 → Phase 2** before any story.
