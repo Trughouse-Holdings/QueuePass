@@ -85,8 +85,9 @@ confirm they **fail** before the implementation tasks of Phase 3.
   SC-001, SC-003, research R2, R12), with `createTestApp()` and the fake geocoder:
   - a `fingerprint(prisma)` helper as research R12 describes (no ids or foreign keys, codes,
     secrets, or `requestId`; no timestamp but an event's start, end, and doors, nullable ones only as
-    set or not; tickets by event, tier, status, checked in or not, `checkedInBy`, and seat, with no
-    order link; dated events by local date relative to the created Fall Concert's, local time,
+    set or not; tickets by event, tier, status, and seat, with no order link and no
+    check-in; check-ins as a count per event with who checked them in, since the demo data picks
+    Fall Concert's check-ins by random `code` order across its tiers (R12); dated events by local date relative to the created Fall Concert's, local time,
     duration, and doors offset; Demo Tonight by duration and doors offset only; image bytes as
     SHA-256; sorted), and after each reset a separate check that Demo Tonight's `startsAt − runAt` is
     more than 59 and at most 61 minutes (`runAt` taken just before the reset);
