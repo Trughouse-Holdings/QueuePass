@@ -15,6 +15,7 @@ import { PNG, upload } from '../setup/images';
 import { agent, atInstant, customer, event, HOLDER, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
+import type { PrismaService } from '../../src/prisma/prisma.service';
 
 const MIGRATIONS = path.resolve(__dirname, '../../prisma/migrations');
 const DEMO_VENUES = ['Demo Riverside Hall', 'QueuePass Demo Arena'];
@@ -35,7 +36,7 @@ const DAY = 86_400_000;
  * and doors offset; Demo Tonight by duration and doors offset only. Tickets have no link to their
  * order. Image bytes as SHA-256. Every list sorted.
  */
-async function fingerprint(prisma: PrismaClient) {
+async function fingerprint(prisma: PrismaService) {
   const sorted = <T>(rows: T[]) => rows.map((r) => JSON.stringify(r)).sort();
   const locations = await prisma.location.findMany();
   const venueName = new Map(locations.map((l) => [l.id, l.name]));
@@ -176,14 +177,14 @@ async function fingerprint(prisma: PrismaClient) {
 }
 
 /** Every table but the migration record, from the catalog, as the reset lists them. */
-async function appTables(prisma: PrismaClient): Promise<string[]> {
+async function appTables(prisma: PrismaService): Promise<string[]> {
   const rows = await prisma.$queryRaw<{ tablename: string }[]>`
     SELECT tablename FROM pg_tables
     WHERE schemaname = current_schema() AND tablename <> '_prisma_migrations' ORDER BY tablename`;
   return rows.map((r) => r.tablename);
 }
 
-async function counts(prisma: PrismaClient): Promise<Record<string, number>> {
+async function counts(prisma: PrismaService): Promise<Record<string, number>> {
   const out: Record<string, number> = {};
   for (const t of await appTables(prisma)) {
     const [row] = await prisma.$queryRawUnsafe<{ n: bigint }[]>(`SELECT count(*) AS n FROM "${t}"`);
@@ -192,7 +193,7 @@ async function counts(prisma: PrismaClient): Promise<Record<string, number>> {
   return out;
 }
 
-const migrationRows = (prisma: PrismaClient) =>
+const migrationRows = (prisma: PrismaService) =>
   prisma.$queryRaw<unknown[]>`SELECT * FROM "_prisma_migrations" ORDER BY "migration_name"`;
 
 describe('Demo reset (spec 029)', () => {
@@ -289,7 +290,8 @@ describe('Demo reset (spec 029)', () => {
     const start = Math.floor(Date.now() / 60_000) * 60_000 + 30 * 60_000;
     const open = await event(ctx, hall, {
       name: 'Walk-in Test',
-      capacity: 50,
+      // At most the layout's 20 seats, the venue's capacity once it has one (spec 007).
+      capacity: 10,
       startsAt: atInstant(start),
       endsAt: atInstant(start + 2 * 3_600_000),
     });
@@ -472,7 +474,8 @@ describe('Demo reset (spec 029)', () => {
         port: Number(url.port),
         database: url.pathname.slice(1),
       });
-      expect(JSON.stringify(summary.target)).not.toContain(url.password);
+      const credentials = `${url.username}:${url.password}@`;
+      expect(Object.keys(summary.target).sort()).toEqual(['database', 'host', 'port']);
 
       // Created: what runDemoData's summary says, and what is there.
       const c = summary.created;
@@ -491,7 +494,7 @@ describe('Demo reset (spec 029)', () => {
       expect(await ctx.prisma.eventImage.count()).toBe(c.images);
 
       const out = lines.join('\n');
-      expect(out).not.toContain(url.password);
+      expect(out).not.toContain(credentials);
       expect(out).toContain(
         `Resetting ${url.hostname}:${url.port}/${url.pathname.slice(1)} to the demo state.`,
       );
