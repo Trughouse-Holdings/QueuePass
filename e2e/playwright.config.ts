@@ -10,9 +10,11 @@ const CI = !!process.env.CI;
  * stay Chromium-only. Its browser: `node node_modules/playwright/cli.js install webkit`.
  */
 const argv = process.argv;
-const WEBKIT = argv.some(
-  (a, i) => a === '--project=webkit' || (a === '--project' && argv[i + 1] === 'webkit'),
-);
+const WEBKIT =
+  process.env.QP_E2E_WEBKIT === '1' ||
+  argv.some((a, i) => a === '--project=webkit' || (a === '--project' && argv[i + 1] === 'webkit'));
+// Workers load this file again with their own arguments: they learn of the project from here.
+if (WEBKIT) process.env.QP_E2E_WEBKIT = '1';
 
 export default defineConfig({
   testDir: 'tests',
