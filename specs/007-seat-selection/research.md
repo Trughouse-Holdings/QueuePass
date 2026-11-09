@@ -222,4 +222,3 @@ change for sections without sales (FR-004).
 
 Only the Admin app changes. The Backend's refusals (FR-002) and the spec's requirements are
 unchanged; spec US4 never named the checkbox. T023's test now checks the table above.
-
