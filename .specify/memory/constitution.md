@@ -14,6 +14,9 @@ Changed:
     each against its own realm's keys and issuer, and honours from each realm only that app's role.
   - Security and Data Constraints, "Roles and test accounts": each group of test accounts lives in
     its app's realm. "OIDC clients": one per front end, in that front end's realm.
+  - Principle II: "The Keycloak realms" (plural) are created by the seed.
+  - Language and Stack: Identity is one realm per front end, each with its one client; Backend
+    token validation uses the JWKS endpoint of the token's own app realm.
   - Roadmap: row 028-app-realms reserved; the next free number is 029.
 Impact: spec 001's single-realm setup (seed, Backend token checks, app authorities) is replaced by
   spec 028; the contract's authentication text (1.21.0). No other spec changes. The README's
@@ -66,7 +69,7 @@ front ends, and a one-shot seed job.
 - Every service MUST expose a health check, and startup order MUST be gated on health, not on
   timing.
 - PostgreSQL MUST use a mapped volume so data survives a full stop and restart.
-- The Keycloak realm, roles, OIDC clients, and test accounts MUST be created by a deterministic,
+- The Keycloak realms, roles, OIDC clients, and test accounts MUST be created by a deterministic,
   idempotent seed script. Rerunning it converges on the same state instead of duplicating it or
   failing.
 
@@ -160,7 +163,7 @@ feature `001` onward:
   every signed-in page MUST offer a logout control.
 - Users sign in on Keycloak's login page using the OIDC Authorization Code flow with PKCE. No
   front end ever accepts, handles, or stores a password.
-- Each front end signs in through its own Keycloak realm (`queuepass-admin-app`,
+- Each front end MUST sign in through its own Keycloak realm (`queuepass-admin-app`,
   `queuepass-customer-app`, `queuepass-booth-app`), so signing in to, renewing, or logging out of
   one app never ends, changes, or replaces another app's sign-in in the same browser.
 - Logging out MUST end both the front end's session and its realm's Keycloak session.
@@ -171,9 +174,9 @@ feature `001` onward:
   keys, its audience, and its expiry. A missing, expired, malformed, or wrongly signed token, or
   one from any other issuer, MUST be refused with `401`.
 - The Backend MUST enforce role permissions on the server, reading roles from the validated
-  token, and refuse with `403`. From each realm it honours only that app's role (`queuepass-admin`
-  from the Admin app's realm, `customer` from the Customer app's, `gate-agent` from the Ticket
-  Booth's); any other role in the token is ignored. Hiding a control in a UI is never the
+  token, and refuse with `403`. From each realm it MUST honour only that app's role
+  (`queuepass-admin` from the Admin app's realm, `customer` from the Customer app's, `gate-agent`
+  from the Ticket Booth's) and ignore any other role in the token. Hiding a control in a UI is never the
   enforcement.
 - The Admin app requires `queuepass-admin`, the Customer app requires `customer`, and the Ticket
   Booth app requires `gate-agent`. A signed-in user without the required role is told so plainly,
@@ -288,9 +291,9 @@ These choices are fixed for every feature. Changing one requires amending this c
 | Persistence | PostgreSQL 17 through Prisma 6. Schema changes only through committed migrations (`prisma migrate deploy`, never `prisma db push`) |
 | API contract | OpenAPI 3.1 at `contracts/openapi.yaml`, served by the Backend at `/docs` |
 | Front ends | React 19 with Vite 6, one app per container |
-| Identity | Keycloak 26, realm `queuepass`, one public OIDC client per front end (`admin-app`, `customer-app`, `booth-app`) |
+| Identity | Keycloak 26, one realm per front end (`queuepass-admin-app`, `queuepass-customer-app`, `queuepass-booth-app`), each with that front end's one public OIDC client (`admin-app`, `customer-app`, `booth-app`) |
 | Front-end sign-in | A standards-based OIDC client library, not a Keycloak-only adapter |
-| Backend token validation | JWT verification against the realm's JWKS endpoint, using a standards-based JOSE library |
+| Backend token validation | JWT verification against the JWKS endpoint of the token's own app realm, using a standards-based JOSE library |
 | Backend tests | Jest, with Testcontainers for PostgreSQL |
 | Front-end tests | Vitest with React Testing Library |
 | Lint and format | ESLint and Prettier |
@@ -308,9 +311,10 @@ These choices are fixed for every feature. Changing one requires amending this c
 - **Test credentials**: The shared seed password `test123` is for local development only. It MUST
   NOT be used in any shared, staging, or production environment, and MUST NOT be reused as a
   default for real accounts.
-- **OIDC clients**: One client per front end, in that front end's realm. Front-end clients are public (no client secret), allow only the Authorization
-  Code flow with PKCE (`S256`), and list exact redirect URIs and web origins; wildcards are not
-  allowed. Direct-access (password) grants are disabled on front-end clients.
+- **OIDC clients**: One client per front end, in that front end's realm. Front-end clients are
+  public (no client secret), allow only the Authorization Code flow with PKCE (`S256`), and list
+  exact redirect URIs and web origins; wildcards are not allowed. Direct-access (password) grants
+  are disabled on front-end clients.
 - **Secrets**: No secret, key, or non-seed credential may be committed. Configuration reaches
   services through environment variables, with working defaults in `.env.example`.
 - **CORS**: The Backend allows only the three front-end origins.
