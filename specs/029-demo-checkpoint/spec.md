@@ -84,17 +84,21 @@ the team can overturn it in review of the spec PR.
   full Compose stack, `docker compose exec -e QUEUEPASS_ALLOW_RESET=1 backend node
   backend/dist/scripts/demo-reset.js` (like the demo data's command today); with the Backend run from
   the host (README "When the images can't be built", path B), `node scripts/run-host.mjs
-  --demo-reset`, which runs the reset alone and exits, in a second terminal while the stack runs. No
-  root `package.json` script (shared surface; it could not set the Backend's environment on every
-  shell) (recommended answer, open to review) (FR-001, FR-002; research R6).
+  --demo-reset` with the permission typed in front of it (bash: `QUEUEPASS_ALLOW_RESET=1 node
+  scripts/run-host.mjs --demo-reset`; PowerShell: `$env:QUEUEPASS_ALLOW_RESET='1'; node
+  scripts/run-host.mjs --demo-reset; Remove-Item Env:QUEUEPASS_ALLOW_RESET`), which runs the reset
+  alone and exits, in a second terminal while the stack runs. No root `package.json` script (shared
+  surface; it could not set the Backend's environment on every shell) (recommended answer, open to
+  review) (FR-001, FR-002; research R6).
 - Q: What counts as "explicitly allowed" and "local"? → A: **Both checks, before anything is
   connected to**: the variable `QUEUEPASS_ALLOW_RESET` set to exactly `1`, and the database host in
-  the database address the Backend uses being `localhost`, `127.0.0.1`, `::1`, or `database` (the
-  Compose stack's own service name, reachable only inside that stack's network). Then, connected but
-  before removing anything: the database is a QueuePass database with every migration applied.
-  `run-host.mjs --demo-reset` sets the variable itself, because typing `--demo-reset` is the explicit
-  request and `run-host.mjs` only ever targets `localhost` (recommended answer, open to review)
-  (FR-009, FR-010; research R7).
+  the database address the Backend uses being `localhost`, `127.0.0.1`, or `::1`, or `database` (the
+  Compose stack's own service name) only when the reset runs inside a container. Then, connected but
+  before removing anything: the database is a QueuePass database with every migration applied. On
+  path B too the person types the permission: `run-host.mjs --demo-reset` passes it on from its own
+  environment and never sets it (decided for safety in spec review round 1, on Mahdi's behalf by the
+  orchestrating session; the first draft let `--demo-reset` set it) (FR-002, FR-009, FR-010;
+  research R6, R7).
 - Q: Save and restore checkpoints (`pg_dump`/`pg_restore`)? → A: **Deferred, not built** (Principle
   VIII). A restored dump brings back its times as they were when saved, so Demo Tonight's check-in
   window, open for 4 hours after the save, would be closed at a demo a day later: the main thing the
@@ -211,9 +215,8 @@ refused with its reason and every row is still there.
   action on something removed is refused as not found, as when an admin deletes it. A customer's
   live seat map for a removed event stops updating. The output reminds the presenter to reload the
   apps. If the database stays busy past the wait, the reset refuses and changes nothing.
-- **Two resets at once.** The second one's demo data finds the first one's already loading and
-  stops; the reset says another reset ran at the same time and asks for one more run. One more run
-  ends in the demo state.
+- **Two resets at once.** One of them fails and says to run it again (FR-013); one more run ends in
+  the demo state.
 - **The reset stops halfway.** Removing the data is all or nothing. Loading the demo data is not: a
   failure there (the database went away) leaves part of the demo state. The reset says so and fails;
   running it again removes the part and loads it all.
@@ -229,8 +232,15 @@ refused with its reason and every row is still there.
   reset again opens a new one.
 - **Daylight-saving dates.** Event times follow the demo data's existing rule (`020` research R19):
   a local time that does not exist that day moves an hour later, a repeated one takes the first.
-- **A database address with a host in its options** (a socket path or a `host=` parameter) or that
-  cannot be read: refused as not local.
+- **A database address with a host in its options** (a socket path, or a `host` or `hostaddr`
+  parameter in any letter case or percent-encoding) or that cannot be read: refused as not local.
+- **The host `database` outside a container** (a hosts-file entry or a DNS search domain could make
+  it resolve to another machine): refused as not local; it is accepted only inside a container,
+  where it is the Compose stack's own service.
+- **The team's own stack.** Its database is local, so the reset accepts it. On path B the command
+  resets whichever stack publishes port 5432 on the laptop, the team's included. The team's stack is
+  reset only deliberately, when Mahdi asks for it (the issue's "run before John's demo"; tasks T022);
+  walks and tests use a stack of their own.
 - **A local address that leads elsewhere** (an SSH tunnel on `localhost` to a remote server): the
   reset cannot tell; the permission variable is the guard. Recorded as an accepted risk.
 
@@ -244,11 +254,14 @@ refused with its reason and every row is still there.
   uses: run inside the Backend's container, with the permission given on that command line.
 - **FR-002**: With the Backend run from the host (path B), one command MUST reset the database the
   host-run Backend uses, with the same environment the host-run Backend gets, without stopping or
-  starting the Backend or the apps, and then exit. It MUST NOT rebuild anything; when the Backend has
-  not been built it MUST say so and stop.
+  starting the Backend or the apps, and then exit. The person MUST give the permission on that
+  command line as on path A; the command MUST NOT give it itself. It MUST NOT rebuild anything; when
+  the Backend has not been built it MUST say so and stop.
 - **FR-003**: Nothing that starts the system (`docker compose up` with or without `--build`, the
   one-shot seed job, `run-host.mjs` without its reset option) MUST ever run the reset, and no
-  Compose file, `.env.example`, or workflow MUST give the permission (Constitution VIII).
+  Compose file, `.env.example`, or workflow MUST give the permission (Constitution VIII). The one
+  place that gives it without a person typing it is the browser test harness, `scripts/e2e.mjs`, on
+  the command that loads the demo state into its own throwaway `qpe2e` stack (research R13).
 
 **What it does**
 
@@ -272,7 +285,8 @@ refused with its reason and every row is still there.
 - **FR-009**: Before connecting to anything, the reset MUST refuse, with a failure status and a
   message saying why and how to proceed, unless both: the permission `QUEUEPASS_ALLOW_RESET` is set
   to exactly `1`; and the database address it would use names its host as `localhost`, `127.0.0.1`,
-  `::1`, or `database`, with no other host given in its options.
+  or `::1`, or as `database` only when the reset runs inside a container, with no other host given
+  in its options.
 - **FR-010**: Connected, and before removing anything, the reset MUST refuse, with a failure status
   and a message, unless the database holds QueuePass's migration record with every migration the
   Backend ships applied and none failed.
@@ -332,6 +346,8 @@ refused with its reason and every row is still there.
 - **Local only.** The reset is for laptops running QueuePass for development and demos. There is no
   shared, staging, or production database today; if one is ever added, its address will not be one of
   the local hosts in FR-009, and the permission is never set there.
+- **The team stack is local too.** The reset cannot tell the team's stack from a throwaway one: both
+  are local. Which one it resets is decided by the person typing the permission (Edge Cases).
 - **The demo data is the checkpoint.** The known state is whatever the demo data creates; changing
   the demo data changes the checkpoint, for `npm run demo-data` and the reset alike.
 - **Times relative to the run.** Fall Concert, Comedy Night, and Holiday Gala keep their local times

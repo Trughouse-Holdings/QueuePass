@@ -9,7 +9,7 @@ interface is the command line:
 | Stack | Command | Permission |
 | --- | --- | --- |
 | Compose (path A) | `docker compose exec -e QUEUEPASS_ALLOW_RESET=1 backend node backend/dist/scripts/demo-reset.js` | `-e QUEUEPASS_ALLOW_RESET=1` on the command |
-| Host-run (path B) | `node scripts/run-host.mjs --demo-reset` | given by `--demo-reset` (research R6) |
+| Host-run (path B) | bash: `QUEUEPASS_ALLOW_RESET=1 node scripts/run-host.mjs --demo-reset`; PowerShell: `$env:QUEUEPASS_ALLOW_RESET='1'; node scripts/run-host.mjs --demo-reset; Remove-Item Env:QUEUEPASS_ALLOW_RESET` | typed by the person; `run-host.mjs` passes it on and never sets it (research R6) |
 | Either, inside the Backend's environment | `npm run demo-reset --workspace @queuepass/backend` | `QUEUEPASS_ALLOW_RESET=1` in that environment |
 
 Exit status: `0` when the demo state is loaded; `1` on any refusal (permission, host, migrations,

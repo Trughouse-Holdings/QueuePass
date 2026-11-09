@@ -37,14 +37,19 @@ on every shell (R6).
 
 ## R2. Removing the data: one `TRUNCATE` of every table but the migration record
 
-**Decision**: in one transaction:
+**Decision**: in one interactive transaction, `prisma.$transaction(fn, { timeout: 15_000, maxWait:
+5_000 })` (Prisma's defaults, 5 s and 2 s, would expire the transaction before or with the lock wait;
+R10):
 
-1. `SET LOCAL lock_timeout = '5s'` (R10).
+1. `SET LOCAL lock_timeout = '3s'` (R10).
 2. List the tables: `SELECT tablename FROM pg_tables WHERE schemaname = current_schema() AND
    tablename <> '_prisma_migrations' ORDER BY tablename`.
-3. Count each one's rows (`SELECT count(*)`), for the output (FR-012). At demo size this is
-   milliseconds.
-4. `TRUNCATE TABLE <every listed table, quoted> RESTART IDENTITY CASCADE`.
+3. `LOCK TABLE <every listed table, quoted> IN ACCESS EXCLUSIVE MODE`: every lock the `TRUNCATE`
+   needs, taken at once before anything is read, so no lock is upgraded table by table (which could
+   deadlock with the running Backend) and no row can be added between the counts and the removal.
+4. Count each one's rows (`SELECT count(*)`), for the output (FR-012). At demo size this is
+   milliseconds, and the counts are exactly what step 5 removes.
+5. `TRUNCATE TABLE <every listed table, quoted> RESTART IDENTITY CASCADE`.
 
 The schema is the one in the `DATABASE_URL`'s `schema` parameter (`public` in every stack), which is
 what Prisma's connection sets as `current_schema()`. The removed counts are reported under the
@@ -149,10 +154,16 @@ Hall is the smaller, busier venue in the demo.
 - **Compose stack** (path A): `docker compose exec -e QUEUEPASS_ALLOW_RESET=1 backend node
   backend/dist/scripts/demo-reset.js`. The Backend's container has every variable the Backend needs,
   its `DATABASE_URL` points at host `database`, and `-e` gives the permission for this one command.
-- **Host-run stack** (path B): `node scripts/run-host.mjs --demo-reset`. A new mode of
-  `run-host.mjs`: it runs one step, `npm run demo-reset --workspace @queuepass/backend`, with the
-  Backend's environment from `plan()` (`backendEnv`, the same object the Backend child gets) plus
-  `QUEUEPASS_ALLOW_RESET=1`, then exits with that step's status. No setup steps (no build, no
+- **Host-run stack** (path B), with the permission typed in front of it:
+  - bash: `QUEUEPASS_ALLOW_RESET=1 node scripts/run-host.mjs --demo-reset`
+  - PowerShell: `$env:QUEUEPASS_ALLOW_RESET='1'; node scripts/run-host.mjs --demo-reset; Remove-Item
+    Env:QUEUEPASS_ALLOW_RESET` (one line; the last part takes the permission back out of the shell).
+
+  A new mode of `run-host.mjs`: it runs one step, `npm run demo-reset --workspace
+  @queuepass/backend`, with the Backend's environment from `plan()` (`backendEnv`, the same object the
+  Backend child gets) on top of its own environment, which carries the person's
+  `QUEUEPASS_ALLOW_RESET` through. It never sets or defaults that variable itself (spec review round
+  1), so without it the reset's guard refuses as on path A. Then it exits with that step's status. No setup steps (no build, no
   migration, no seed: FR-002, SC-002) and no children. Before running, it checks
   `backend/dist/scripts/demo-reset.js` exists, and otherwise prints "Build the Backend first: npm run
   build --workspace @queuepass/backend" and exits 1. `--demo-reset` with `--demo-data` is refused
@@ -163,19 +174,22 @@ Hall is the smaller, busier venue in the demo.
 **Why**: both stacks need the Backend's full environment, which a bare `npm run` on the host does not
 have (`oidcConfig()` refuses to boot without `OIDC_*`). `run-host.mjs` already owns that environment
 for path B (`plan()` is the one place it is written), so the reset reuses it rather than copying it
-into a third place. With `--demo-reset` typed, the person has asked for a reset of the host-run stack,
-whose database is always `localhost:5432` (R7).
+into a third place. The host-run stack's database is always `localhost:5432`, which is whichever stack
+publishes that port on the laptop, the team's stack included (spec Edge Cases). That is why the
+permission is still typed by the person on this path too: `--demo-reset` alone could be typed by habit
+in the team stack's terminal.
 
 **Alternatives**: a root `npm run demo:reset` as the issue's example: root `package.json` is shared
 surface, and an npm script cannot set `QUEUEPASS_ALLOW_RESET` the same way on PowerShell and POSIX
 shells without a new dependency; on the Compose path the host need not have `node_modules` at all.
-Requiring the variable for `run-host.mjs --demo-reset` too (`$env:QUEUEPASS_ALLOW_RESET=1` first):
-safer by one step but two commands in PowerShell, and `--demo-reset` already says the same thing;
-open to review.
+Letting `--demo-reset` set the permission itself (the first draft's recommendation): one less thing to
+type, but then nothing but the flag stands between a habit and the team's data. Reversed in spec
+review round 1 (decided for safety by the orchestrating session on Mahdi's behalf).
 
-**Conflict note**: spec `028` (PR #140) also changes `run-host.mjs` (its realm and OIDC values). The
-implementation of `029` adds a mode and does not touch those values, so a rebase merges cleanly or
-with a small conflict in `plan()`; whichever merges second keeps both.
+**Conflict note**: spec `028` (its spec merged; its implementation in progress) changes
+`run-host.mjs` (its realm and OIDC values). The implementation of `029` adds a mode and does not touch
+those values, so a rebase merges cleanly or with a small conflict in `plan()`; whichever merges second
+keeps both.
 
 ## R7. The safety checks
 
@@ -186,10 +200,13 @@ wipe):
    order and ticket. To reset a local QueuePass database, set QUEUEPASS_ALLOW_RESET=1 for this command
    (see README, Demo checkpoint)."
 2. `DATABASE_URL` MUST parse as a `postgresql:` or `postgres:` URL whose hostname, lower-cased and
-   without IPv6 brackets, is one of `localhost`, `127.0.0.1`, `::1`, `database`, and whose query has
-   no `host` parameter (libpq's override, which would send the connection elsewhere). Otherwise:
-   "Refused: the database host `<host>` is not local (allowed: localhost, 127.0.0.1, ::1, database)."
-   A missing or unreadable `DATABASE_URL` is refused the same way.
+   without IPv6 brackets, is one of `localhost`, `127.0.0.1`, `::1`, or `database` only when the
+   reset runs inside a container (the file `/.dockerenv` exists; `checkResetAllowed(env, {
+   inContainer })` takes it as an option, defaulting to that file check, so tests can set it). Its
+   query MUST have no `host` or `hostaddr` key (libpq's overrides, which would send the connection
+   elsewhere), compared after percent-decoding and lower-casing each key (`HOST=`, `h%6Fst=` refused).
+   Otherwise: "Refused: the database host `<host>` is not local (allowed: localhost, 127.0.0.1, ::1,
+   and database inside a container)." A missing or unreadable `DATABASE_URL` is refused the same way.
 3. Connected: the table `_prisma_migrations` MUST exist in the current schema; every migration folder
    name in `backend/prisma/migrations` (found from the script's own location,
    `../../prisma/migrations` from `dist/scripts`, present in the image and on the host) MUST appear in
@@ -198,7 +215,9 @@ wipe):
    them), then reset."
 
 `database` is allowed because inside the Compose network it is the stack's own Postgres service (and
-the e2e stack's, R12); outside a Compose network it does not resolve. Both checks 1 and 2 run before
+the e2e stack's, R13). Outside a container it is refused: a hosts-file entry or a DNS search domain
+could resolve it to another machine. Only the Backend's container uses that host, and Docker creates
+`/.dockerenv` in every container it runs. Both checks 1 and 2 run before
 the Nest application context is created, so a refusal opens no connection (SC-004). The password is
 never printed; the output names `host:port/database` only (FR-011).
 
@@ -239,17 +258,22 @@ both venues are in Kentucky, Eastern by address or by default. The test measures
 
 ## R10. A running Backend, and two resets at once
 
-**Decision**: the wipe sets `lock_timeout` to 5 seconds. `TRUNCATE` needs every listed table to
-itself, so it waits for transactions in flight (each a few milliseconds); if the database stays busy
-past 5 seconds, the transaction fails, nothing is removed, and the reset says "the database is busy;
-try again" (exit 1).
+**Decision**: the wipe sets `lock_timeout` to 3 seconds inside a Prisma transaction allowed 15 seconds
+(`timeout: 15_000`) and 5 seconds to get a connection (`maxWait: 5_000`), so the lock wait always ends
+first. The `LOCK TABLE … IN ACCESS EXCLUSIVE MODE` of R2 waits for transactions in flight (each a few
+milliseconds); if the database stays busy past 3 seconds, the transaction fails and is rolled back,
+nothing is removed, and the reset says "the database is busy; try again" (exit 1). That message is
+given for PostgreSQL's `55P03` (lock not available), `40P01` (deadlock detected), and Prisma's `P2028`
+(the transaction could not start or expired), whichever surfaces; any other error is reported as
+itself. A test holds `LOCK TABLE "Event" IN ACCESS SHARE MODE` from a second client in an open
+transaction and checks the reset refuses as busy with a marker row still there (tasks T006).
 
 The running Backend keeps working: requests for removed rows get its usual not-found answers; the
 hold sweeper finds nothing to sweep; a seat-map stream for a removed event stops getting changes.
 Open pages show their last state until reloaded, hence FR-014's reminder.
 
 Two resets at once: the second's wipe waits for the first's (or removes what the first loaded so
-far); one of them then finds the demo venue missing mid-load or already present. `runDemoData`
+far); one of them then fails, finding the demo venue missing mid-load or already present. `runDemoData`
 returns `created: false` when the demo venue exists, and the reset treats that as FR-013's "another
 reset ran at the same time; run it again" (exit 1). Any other failure reports the same way. No lock
 is added: it is one person's laptop, and one more run fixes it.
@@ -296,20 +320,26 @@ with `@queuepass/shared`'s formatting.
     test hook, so `runDemoData` returns `created: false`) is reported as FR-013 says.
 - **Backend, Jest unit** (`backend/test/unit/demo-reset-guard.spec.ts`, new): `checkResetAllowed` with
   the permission absent, `0`, `true`, ` 1`, `1`; hosts `localhost`, `LOCALHOST`, `127.0.0.1`, `[::1]`,
-  `database`, `db.example.com`, `10.0.0.5`, `127.0.0.2`, `localhost.example.com`; a `host=` query
-  parameter; a missing and an unreadable `DATABASE_URL`; the returned `host:port/database` has no
+  `database` inside a container (accepted) and outside one (refused), `db.example.com`, `10.0.0.5`,
+  `127.0.0.2`, `localhost.example.com`; query keys `host=`, `HOST=`, `h%6Fst=`, and `hostaddr=`; a
+  missing and an unreadable `DATABASE_URL`; the returned `host:port/database` has no
   password (FR-009, FR-011, SC-004). And `main()` with a refused guard never constructs the Nest
   application context (a spy on the factory).
 - **Root scripts** (`scripts/test/run-host.test.mjs`): `--print --demo-reset` lists exactly one step,
-  `demo-reset`, with the Backend child's environment plus `QUEUEPASS_ALLOW_RESET=1`, and no children;
-  `--demo-reset --demo-data` is refused. (`scripts/test/demo-reset-safety.test.mjs`, new):
+  `demo-reset`, with the Backend child's environment and no `QUEUEPASS_ALLOW_RESET` of its own, and no
+  children; `--demo-reset --demo-data` is refused; `run()` through `deps` with a missing compiled
+  script prints "Build the Backend first" and fails without running the step (FR-002). (`scripts/test/demo-reset-safety.test.mjs`, new):
   `docker-compose.yml`, `e2e/stack/docker-compose.e2e.yml`, `.env.example`, and every workflow under
   `.github/workflows` never contain `QUEUEPASS_ALLOW_RESET` or `demo-reset` (FR-003, SC-007).
 - **Fingerprint**: a helper in the test that reads every demo table and maps each row to its
   meaningful fields, dropping identifiers, ticket codes, entry secrets, and `createdAt`/`updatedAt`/
-  `checkedInAt`/`cancelledAt`; event times as (local date minus the run's local date in days, local
-  time) for the fixed-date events and as minutes from the run for Demo Tonight; image bytes as a
-  SHA-256; sorted. Equal fingerprints are SC-001 and SC-003.
+  `checkedInAt`/`cancelledAt`; event times as (local date minus Fall Concert's local date in days,
+  local time, duration, doors offset) for the dated events (Fall Concert, Comedy Night, Holiday Gala,
+  Season Opener), taking the reference date from the created Fall Concert (`d` + 14) rather than the
+  test's clock, so a run across midnight cannot shift it; and for Demo Tonight its duration and doors
+  offset only. Separately, each run asserts Demo Tonight's `startsAt − runAt` is more than 59 and at
+  most 61 minutes, `runAt` taken just before the reset, so a minute boundary cannot flake it. Image
+  bytes as a SHA-256; sorted. Equal fingerprints are SC-001 and SC-003.
 - **Browser test** (`e2e/tests/029-demo-checkpoint.spec.ts`, new): R13.
 
 The guard is a pure function, so its cases need no database. The Testcontainers database's host is
@@ -322,7 +352,9 @@ The guard is a pure function, so its cases need no database. The Testcontainers 
 backend/dist/scripts/demo-reset.js` in place of the demo data's command, and stops with "the demo
 state did not load" when it fails. On the fresh `qpe2e` stack this removes nothing and loads the demo
 data, the same state as before plus Season Opener. So every pull request's `e2e` check runs the reset
-on the Compose path (host `database`, the permission given with `-e`, never in a Compose file).
+on the Compose path (host `database` inside the Backend's container, the permission given with
+`-e`, never in a Compose file). The harness is the one place that gives the permission without a
+person typing it, and only for its own throwaway `qpe2e` stack (spec FR-003).
 
 One browser test, `029 S2: after the reset, the Ticket Booth offers Demo Tonight open and the Customer
 app shows Season Opener with sales closed`, checks the demo state a presenter relies on, in the apps.
@@ -340,8 +372,7 @@ Compose path (`database` host, `-e`) would be checked only by hand.
 ## R14. Constitution and README
 
 **Decision**: the spec PR amends the constitution to 3.9.1 (PATCH): roadmap row `029-demo-checkpoint`
-and "The next free number is `030`". It applies on top of PR #140 (3.9.0, row `028`), which merges
-first; this branch is rebased onto `main` then, and the version line conflicts until it is. No
+and "The next free number is `030`", on top of 3.9.0 (spec `028`, row `028`). No
 principle changes: the reset is never run by `docker compose up` (II, VIII), touches no API (I), and
 no Keycloak (V). The README gets the `029` status row and v3.9.1 here; the implementation adds a "Demo
 checkpoint" section after "Demo data" (both commands, the permission, what is removed and kept, the

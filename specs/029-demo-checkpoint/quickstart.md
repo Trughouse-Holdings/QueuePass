@@ -9,9 +9,13 @@ it proves.
 
 ## S0. A stack of its own, with some extra data
 
-1. Path A: `docker compose -p qp029 up --build`. Path B (this machine): stop anything holding the
-   stack's ports, then `docker compose -p qp029 up -d database keycloak` and `node
-   scripts/run-host.mjs --backend-tz America/Los_Angeles --demo-data`.
+1. Path A: `docker compose -p qp029 up --build`. Path B (this machine): the team's stack (Compose
+   project `queuepass-team`, its Backend and apps run with `run-host.mjs` from the main checkout)
+   holds the ports. **Ask Mahdi before touching it.** With his go: stop its `run-host.mjs` (Ctrl+C in
+   its terminal) and `docker compose -p queuepass-team stop` (never `down`, never `-v`). Then `docker
+   compose -p qp029 up -d database keycloak` and `node scripts/run-host.mjs --backend-tz
+   America/Los_Angeles --demo-data`. On path B the reset acts on whatever publishes port 5432, so
+   check `docker ps` shows `qp029`'s database on it, not the team's, before every reset.
 2. In the Admin app, add a venue with a seating layout and an event there with a tier; in the Customer
    app, as `customer1`, buy tickets for it and for Fall Concert, and pick seats at a seated event but
    leave them held; in the Ticket Booth, admit a Demo Tonight ticket.
@@ -20,7 +24,8 @@ it proves.
 ## S1. Reset to the demo state (US1; FR-001, FR-002, FR-004 to FR-007, FR-012, FR-014, SC-001, SC-002)
 
 1. In a second terminal, path A: `docker compose -p qp029 exec -e QUEUEPASS_ALLOW_RESET=1 backend node
-   backend/dist/scripts/demo-reset.js`. Path B: `node scripts/run-host.mjs --demo-reset`.
+   backend/dist/scripts/demo-reset.js`. Path B, bash: `QUEUEPASS_ALLOW_RESET=1 node scripts/run-host.mjs --demo-reset`; PowerShell:
+   `$env:QUEUEPASS_ALLOW_RESET='1'; node scripts/run-host.mjs --demo-reset; Remove-Item Env:QUEUEPASS_ALLOW_RESET`.
 2. **Expected**: within about 10 seconds it prints the database (`database:5432/queuepass` or
    `localhost:5432/queuepass`, no password), the rows removed per kind (the extra venue, sections,
    events, orders, tickets with one checked in, seat reservations and holds among them), what it
@@ -61,6 +66,9 @@ it proves.
    backend/dist/scripts/demo-reset.js`. **Expected**: refused: not a QueuePass database, or its
    migrations are not all applied; exit 1. (Path B has no Backend container; the same case is in the
    Backend's tests, T005.)
+5. Path B without the permission: `node scripts/run-host.mjs --demo-reset` (in a shell where
+   `QUEUEPASS_ALLOW_RESET` is not set). **Expected**: refused as in step 1; `run-host.mjs` does not
+   give it; exit 1; nothing changed.
 
 ## S5. Never run by starting the system (FR-003, SC-007)
 
@@ -80,7 +88,9 @@ it proves.
 ## S7. Sign in, use, sign out (Constitution VI)
 
 Sign in to each front end, use it briefly on the demo state, and sign out. **Expected**: as before
-`029`. Afterwards `docker compose -p qp029 down -v` removes this stack and its data.
+`029`. Afterwards `docker compose -p qp029 down -v` removes this stack and its data. On path B, restore the team's
+stack: `docker compose -p queuepass-team start database keycloak` (only those two) and its
+`run-host.mjs` from the main checkout.
 
 ## Automation
 

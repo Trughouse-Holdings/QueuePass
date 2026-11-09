@@ -26,6 +26,8 @@ confirm they **fail** before the implementation tasks of Phase 3.
 - **One independent review** (Constitution III) of the implementation branch before its PR (T019).
 - **`npm run ci` locally** before pushing (T017), then **CI green on GitHub**, the `test` and `e2e`
   checks, before merge (T021).
+- **The permission is always typed by a person**, on both paths; no code but `scripts/e2e.mjs` (for
+  its throwaway `qpe2e` stack) sets it (FR-002, FR-003).
 - **Never reset a database you did not create.** The reset removes every venue, event, and order.
   Walk it only on a Compose project of your own (`-p qp029`). The team stack (compose project
   `queuepass-team`, its Backend and apps run from `C:\Users\mahdi\hello_world\QueuePass-team` with
@@ -36,7 +38,7 @@ confirm they **fail** before the implementation tasks of Phase 3.
   checkout.
 - **Path B on this machine** (README "When the images can't be built"): the app images cannot be built
   here, so the Compose path (A) is walked by CI's `e2e` job (T013, R13) and the hand walk uses path B.
-- **Spec `028`** (PR #140) also changes `scripts/run-host.mjs`; if it has merged, rebase first and keep
+- **Spec `028`**'s implementation also changes `scripts/run-host.mjs`; if it has merged, rebase first and keep
   both changes (research R6).
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -65,16 +67,21 @@ confirm they **fail** before the implementation tasks of Phase 3.
 - [ ] T003 [P] [US3] `backend/test/unit/demo-reset-guard.spec.ts` (new; FR-009, FR-011, SC-004,
   research R7): `checkResetAllowed(env)` throws `ResetRefused` naming `QUEUEPASS_ALLOW_RESET=1` when it
   is absent, `''`, `0`, `true`, ` 1`, or `yes`; with `1`, accepts hosts `localhost`, `LOCALHOST`,
-  `127.0.0.1`, `[::1]`, `database` and returns `{ host, port, database }` (no password anywhere in the
-  value or the message); refuses `db.example.com`, `10.0.0.5`, `127.0.0.2`, `localhost.example.com`,
-  a URL with a `host=` query parameter, a `mysql:` URL, and a missing or unparseable `DATABASE_URL`,
+  `127.0.0.1`, `[::1]`, and `database` with `{ inContainer: true }`, and returns `{ host, port,
+  database }` (no password anywhere in the value or the message); refuses `database` with `{
+  inContainer: false }`, `db.example.com`, `10.0.0.5`, `127.0.0.2`, `localhost.example.com`, URLs
+  whose query has `host=`, `HOST=`, `h%6Fst=`, or `hostaddr=`, a `mysql:` URL, and a missing or
+  unparseable `DATABASE_URL`,
   each message naming the host (or saying it is missing) and never the password. And `main()` with a
   refused guard sets a failure exit code and never calls `NestFactory.createApplicationContext` (a
   Jest spy). Must fail (no module yet).
 - [ ] T004 [US1] [US2] `backend/test/integration/demo-reset.e2e-spec.ts` (new; FR-004 to FR-006,
   SC-001, SC-003, research R2, R12), with `createTestApp()` and the fake geocoder:
-  - a `fingerprint(prisma, runAt)` helper as research R12 describes (no ids, codes, secrets, or
-    timestamps; event times relative to the run; image bytes as SHA-256; sorted);
+  - a `fingerprint(prisma)` helper as research R12 describes (no ids, codes, secrets, or
+    timestamps; dated events by local date relative to the created Fall Concert's, local time,
+    duration, and doors offset; Demo Tonight by duration and doors offset only; image bytes as
+    SHA-256; sorted), and after each reset a separate check that Demo Tonight's `startsAt − runAt` is
+    more than 59 and at most 61 minutes (`runAt` taken just before the reset);
   - reset an empty database (after `resetDb`) and take the fingerprint F0;
   - fill extra data: a venue with two sections (layout service), a seated event with tiers mapped to
     sections, an unseated event, an image, orders by a real-looking subject, one ticket admitted
@@ -97,12 +104,18 @@ confirm they **fail** before the implementation tasks of Phase 3.
   logger the reset is given) contain each count, Demo Tonight's closing time, the reload reminder,
   and the attempt-limit note; the wipe alone under 1 s and the whole reset under 10 s; and when the
   demo venue already exists after the wipe (an `afterWipe` hook in the options inserts it, test only),
-  `runDemoReset` rejects with FR-013's message ("removed … incomplete … run it again"). Must fail.
+  `runDemoReset` rejects with FR-013's message ("removed … incomplete … run it again"). And busy
+  (R10): a second client (its own PrismaClient) opens a transaction holding `LOCK TABLE "Event" IN
+  ACCESS SHARE MODE`; `runDemoReset` rejects with "the database is busy; try again" within about 3
+  s (well before Prisma's 15 s), and after the second client commits, a marker venue made before is
+  still there. Must fail.
 - [ ] T007 [P] [US3] Root scripts (FR-002, FR-003, SC-007, research R6, R12):
   `scripts/test/run-host.test.mjs`: `--print --demo-reset` lists exactly one setup step,
   `demo-reset`, `npm run demo-reset --workspace @queuepass/backend`, whose environment is the Backend
-  child's (`--print` without the flag) plus `QUEUEPASS_ALLOW_RESET=1`, and no children;
-  `--demo-reset --demo-data` exits non-zero naming both. New `scripts/test/demo-reset-safety.test.mjs`:
+  child's (`--print` without the flag), with no `QUEUEPASS_ALLOW_RESET` of its own, and no children;
+  `--demo-reset --demo-data` exits non-zero naming both; `run()` through `deps` (a plan with the
+  reset step and a compiled-script path that does not exist) prints "Build the Backend first: npm run
+  build --workspace @queuepass/backend", rejects, and never runs the step (FR-002). New `scripts/test/demo-reset-safety.test.mjs`:
   `docker-compose.yml`, `e2e/stack/docker-compose.e2e.yml`, `.env.example`, and every file in
   `.github/workflows/` contain neither `QUEUEPASS_ALLOW_RESET` nor `demo-reset`. The `run-host` cases must fail (no mode
   yet); the safety test passes from the start, as expected: it guards against a later change.
@@ -114,16 +127,18 @@ confirm they **fail** before the implementation tasks of Phase 3.
 - [ ] T008 [US1] `backend/src/scripts/demo-data.ts` (research R5): Season Opener after Holiday Gala,
   exactly as R5's snippet; `DemoSummary.past`; `events: 5`; the "already present" summary has `past:
   null`; `main()`'s line names it ("…; "Holiday Gala" cancelled; "Season Opener" over."). T002 passes.
-- [ ] T009 [US3] `backend/src/scripts/demo-reset.ts` (new): `ResetRefused` and `checkResetAllowed` per
-  research R7 (Node's `URL`; strip IPv6 brackets; lower-case; port defaulting to 5432; database from
-  the path). T003's guard cases pass.
+- [ ] T009 [US3] `backend/src/scripts/demo-reset.ts` (new): `ResetRefused` and `checkResetAllowed(env,
+  { inContainer = existsSync('/.dockerenv') })` per research R7 (Node's `URL`; strip IPv6 brackets;
+  lower-case; `database` only in a container; query keys percent-decoded and lower-cased, `host` and
+  `hostaddr` refused; port defaulting to 5432; database from the path). T003's guard cases pass.
 - [ ] T010 [US1] [US2] [US3] Same file: `assertMigrated(prisma, migrationsDir)` (R7: `to_regclass`
   for `_prisma_migrations` in `current_schema()`, then the folder names under
   `path.resolve(__dirname, '../../prisma/migrations')`, directories only); `wipeAppData(prisma)` (R2:
-  one interactive transaction, `SET LOCAL lock_timeout = '5s'`, the `pg_tables` list, counts, one
-  quoted `TRUNCATE … RESTART IDENTITY CASCADE`; a lock timeout becomes "the database is busy; try
-  again", R10); `runDemoReset(app, { log, migrationsDir?, afterWipe? })` (assert, wipe, `afterWipe` for tests only, then
-  `runDemoData`; `created: false` or a throw becomes FR-013's error). T004, T005 pass.
+  `prisma.$transaction(fn, { timeout: 15_000, maxWait: 5_000 })`, `SET LOCAL lock_timeout = '3s'`,
+  the `pg_tables` list, one `LOCK TABLE … IN ACCESS EXCLUSIVE MODE` of them all, then the counts, then
+  one quoted `TRUNCATE … RESTART IDENTITY CASCADE`; PostgreSQL `55P03` and `40P01` and Prisma `P2028`
+  become "the database is busy; try again", R10); `runDemoReset(app, { log, migrationsDir?, afterWipe? })` (assert, wipe, `afterWipe` for tests only, then
+  `runDemoData`; `created: false` or a throw becomes FR-013's error). T004, T005, and T006's busy case pass.
 - [ ] T011 [US1] Same file: the output of research R11 (the label map, Demo Tonight's close in its
   venue's zone with `@queuepass/shared`, the duration, the reminders) and `main()` (guard first, then
   `NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] })`, `runDemoReset`,
@@ -132,9 +147,11 @@ confirm they **fail** before the implementation tasks of Phase 3.
   `main()` case and T006 pass.
 - [ ] T012 [US1] `scripts/run-host.mjs` (research R6): parse `--demo-reset`; refuse it with
   `--demo-data`; `plan()` returns, for it, `setup: [{ name: 'demo-reset', command: 'npm run demo-reset
-  --workspace @queuepass/backend', env: { ...backendEnv, QUEUEPASS_ALLOW_RESET: '1' } }]` and no
-  children; `run()` checks `backend/dist/scripts/demo-reset.js` exists first (else the "Build the
-  Backend first" message, exit 1), runs the step, and exits with its status without starting anything.
+  --workspace @queuepass/backend', env: { ...backendEnv } }]` (the person's `QUEUEPASS_ALLOW_RESET`
+  comes through the parent environment; never set or defaulted here) and no children; `run()` checks
+  the compiled script (`backend/dist/scripts/demo-reset.js`, a path `deps` can replace) exists first
+  (else the "Build the Backend first" message, exit 1), runs the step, and exits with its status
+  without starting anything.
   Update the header comment. T007 passes.
 
 ---
@@ -181,8 +198,8 @@ confirm they **fail** before the implementation tasks of Phase 3.
   that no shared surface is touched. Wait for CI green on GitHub (`test` and `e2e`) on the final
   commit; merge only when green and approved.
 - [ ] T022 The issue's "run before John's demo": after the implementation PR merges, and only when
-  Mahdi says go, run `node scripts/run-host.mjs --demo-reset` from the main checkout against the team
-  stack (it removes the "EDIS Showcase Night" event and every other test row); record the output here.
+  Mahdi says go, run `QUEUEPASS_ALLOW_RESET=1 node scripts/run-host.mjs --demo-reset` (PowerShell form
+  in the README) from the main checkout against the team stack (it removes the "EDIS Showcase Night" event and every other test row); record the output here.
 
 ---
 
@@ -209,7 +226,36 @@ confirm they **fail** before the implementation tasks of Phase 3.
 
 ## Review record (spec branch)
 
-_Left for the independent review session._
+- **Round 1** (independent Claude session, 2026-11-09): 1 must-fix, 4 should-fix, 4 nits; all fixed
+  in the `Review 029` commit that follows it. The branch was rebased onto `main` after PR #140 (spec
+  `028`, Constitution 3.9.0) merged; the amendment is now 3.9.0 -> 3.9.1.
+  - M1: Prisma's interactive transaction defaults (`timeout` 5 s, `maxWait` 2 s) raced the 5 s
+    `lock_timeout`, so a busy database gave `P2028`, never the busy message → `$transaction(fn, {
+    timeout: 15_000, maxWait: 5_000 })` with `lock_timeout` 3 s; `55P03`, `40P01`, `P2028` all give
+    "the database is busy; try again"; a test holds `ACCESS SHARE` on `"Event"` from a second client
+    and checks the refusal and a surviving marker row (R2, R10, T006, T010).
+  - S1: counting before `TRUNCATE` upgraded locks table by table (deadlock risk, counts that could
+    differ from what is removed) → one `LOCK TABLE … IN ACCESS EXCLUSIVE MODE` of every listed table
+    first, then count, then truncate (R2, T010).
+  - S2: the team's stack is a local database the reset accepts, and on path B the command resets
+    whatever publishes 5432 → spec Edge Cases and Assumptions say so, it is reset only deliberately
+    (T022); **decision** (the orchestrating session, on Mahdi's behalf, for safety): `run-host.mjs
+    --demo-reset` no longer sets the permission, the person types it on path B too, bash and
+    PowerShell forms documented (spec Clarifications, FR-002, R6, data model, contracts, quickstart
+    S0, S1, S4 step 5, S7, T007, T012, T022, ground rules); quickstart S0 asks Mahdi before touching
+    the team stack and stops it with `stop`, never `down`.
+  - S3: `database` could resolve through a hosts file or a DNS search domain → accepted only inside a
+    container (`/.dockerenv`), with tests for both (FR-009, R7, T003, T009).
+  - S4: the fingerprint could flake at a minute or midnight boundary → Demo Tonight by duration and
+    doors offset only, its start checked separately at more than 59 and at most 61 minutes after the
+    run; dated events relative to the created Fall Concert's local date (R12, T004).
+  - N1: FR-003 names `scripts/e2e.mjs` as the one place that gives the permission automatically, for
+    its throwaway `qpe2e` stack (also R13).
+  - N2: Edge Case "Two resets at once" reworded: one fails and says to run it again (FR-013, R10).
+  - N3: `host` and `hostaddr` query keys refused in any case after percent-decoding; `HOST=` and
+    `h%6Fst=` test cases (R7, T003).
+  - N4: a `run()` test through `deps` for FR-002's "Backend not built" message (R12, T007).
+- **Open findings**: none.
 
 ## Review record (implementation branch)
 

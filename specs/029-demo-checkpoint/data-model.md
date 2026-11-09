@@ -66,8 +66,8 @@ from the fixed list (`017` research R13). Every event's doors open 1 hour before
 
 | Variable | Where it is set | Value |
 | --- | --- | --- |
-| `QUEUEPASS_ALLOW_RESET` | on the command line only (`docker compose exec -e …`; `run-host.mjs --demo-reset` sets it for its one step; `scripts/e2e.mjs`'s exec) | exactly `1` allows; anything else refuses |
-| `DATABASE_URL` | as for the Backend (Compose: host `database`; path B: `localhost`) | host must be `localhost`, `127.0.0.1`, `::1`, or `database` |
+| `QUEUEPASS_ALLOW_RESET` | on the command line only (`docker compose exec -e …`; typed in front of `run-host.mjs --demo-reset`, which passes it on and never sets it; `scripts/e2e.mjs`'s exec, the one automatic place, for its throwaway `qpe2e` stack) | exactly `1` allows; anything else refuses |
+| `DATABASE_URL` | as for the Backend (Compose: host `database`; path B: `localhost`) | host must be `localhost`, `127.0.0.1`, `::1`, or (inside a container only) `database` |
 
 Never in `docker-compose.yml`, `e2e/stack/docker-compose.e2e.yml`, `.env.example`, or a workflow
 (FR-003; a root script test checks it).

@@ -15,15 +15,16 @@
 - **The demo state gains a past event** (R5): `runDemoData` creates **Season Opener** at Demo
   Riverside Hall, 7 days before the run, 7:00–10:00 PM local, no tickets; `DemoSummary.past`.
 - **Two one-line commands** (R6): Compose, `docker compose exec -e QUEUEPASS_ALLOW_RESET=1 backend
-  node backend/dist/scripts/demo-reset.js`; path B, `node scripts/run-host.mjs --demo-reset` (a new
-  one-step mode with the Backend's environment).
+  node backend/dist/scripts/demo-reset.js`; path B, `QUEUEPASS_ALLOW_RESET=1 node scripts/run-host.mjs
+  --demo-reset` (a new one-step mode with the Backend's environment; the person types the permission,
+  `run-host.mjs` never sets it; PowerShell form in R6).
 - **Out**: Keycloak (R4), the in-memory attempt limits (R3), save and restore checkpoints (R8,
   deferred, no control deferred).
 - **Tests** (R12, R13): Backend integration (Testcontainers) and unit tests; root script tests for
   `run-host.mjs --demo-reset` and that no Compose file, `.env.example`, or workflow gives the
   permission; the e2e harness loads the demo state through the reset; one browser test of the demo
   state in the apps.
-- **Constitution 3.9.1** (R14): roadmap row `029`, on top of PR #140's 3.9.0.
+- **Constitution 3.9.1** (R14): roadmap row `029`, on top of 3.9.0 (spec `028`).
 
 ## Technical Context
 
@@ -68,7 +69,7 @@ browser test, the README.
 | --- | --- | --- |
 | I. Contract first | No API operation; contract untouched (contracts/README.md). The reset is Backend code using the Backend's services; no front end touches the database | Pass |
 | II. One command | `docker compose up --build` unchanged, still seeded and usable with no manual step; the reset is a separate, optional command and never part of start-up (FR-003, SC-007); the Keycloak seed untouched | Pass |
-| III. Spec-driven | Spec + plan PR with the constitution row (3.9.1, on top of #140), independent review, fresh implementer; commits cite `029` and #139; `fixes #139` only in the implementation PR's description. Shared surface in the spec PR: the constitution (every member approves). The implementation PR touches no shared surface (`backend/package.json` is the workspace's, not the root's; no Compose file, `.env.example`, workflow, `backend/prisma/`, or `packages/shared/` change) | Pass |
+| III. Spec-driven | Spec + plan PR with the constitution row (3.9.1, on top of 3.9.0), independent review, fresh implementer; commits cite `029` and #139; `fixes #139` only in the implementation PR's description. Shared surface in the spec PR: the constitution (every member approves). The implementation PR touches no shared surface (`backend/package.json` is the workspace's, not the root's; no Compose file, `.env.example`, workflow, `backend/prisma/`, or `packages/shared/` change) | Pass |
 | IV. Server-authoritative | Every demo row, the past event included, is made by the Backend's services and their rules; the wipe is one transaction (all or nothing) | Pass |
 | V. Least privilege | No role, token, or Keycloak change; the reset is not reachable through the API, only by whoever runs the laptop's containers or host processes | Pass |
 | VI. Test-first, real database | Integration tests on Testcontainers PostgreSQL written first (wipe, repeatability, refusals, migration check); guard unit tests; root script tests; a browser test of the demo state; the harness runs the reset on every PR (R12, R13) | Pass |
