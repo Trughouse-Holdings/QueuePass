@@ -9,10 +9,12 @@
 
 Split the one Keycloak realm, `queuepass`, into three, one per app (`queuepass-admin-app`,
 `queuepass-customer-app`, `queuepass-booth-app`), because Keycloak keeps one browser session per
-realm (research R1, R2). The seed builds the three realms as it builds the shared one today, then
-**moves** each existing user into its app's realm through Keycloak's partial import, keeping the
-user's subject, so nothing in the QueuePass database changes (R5, R6). Once all 235 users are in
-place it turns the old realm off; it never deletes it. The Backend accepts tokens from the three
+realm (research R1, R2). On a system made before this feature, the seed **renames** the old realm
+to the Customer app's realm, so the 200 customers keep their subjects and every order, ticket and
+hold stays theirs; Keycloak user identifiers are unique across the server, so they cannot be copied
+(R5). Admins and gate agents get new accounts in their own realms; their old copies, and the other
+two apps' clients, are disabled in the customer realm, never deleted (R6). On a clean system the
+seed simply builds the three realms. The Backend accepts tokens from the three
 realms only, each checked against its own realm's keys and issuer, and honours from each realm only
 its app's role (R8). Each app's default authority points at its own realm (R9); the sign-in code in
 the apps does not change. Constitution 3.9.0 rewrites Principle V for three realms and reserves
@@ -23,7 +25,8 @@ the apps does not change. Constitution 3.9.0 rewrites Principle V for three real
 **Language/Version**: TypeScript 5 on Node 22 (Backend, seed, apps), as today
 
 **Primary Dependencies**: NestJS + `jose` (Backend token checks), `@keycloak/keycloak-admin-client`
-26.7.4 (seed; `realms.partialImport`), `oidc-client-ts` (apps, unchanged), Playwright (e2e).
+26.7.4 (seed; `realms.update` to rename), `oidc-client-ts` (apps, unchanged), Playwright (e2e,
+with its browser-context clock).
 No new dependency.
 
 **Storage**: Keycloak's own database (realms, users). The QueuePass PostgreSQL schema is
@@ -40,7 +43,7 @@ Backend against a local key set), one new Playwright spec (`e2e/tests/028-app-re
 per realm (three small fetches at first use instead of one).
 
 **Constraints**: no front end handles a password; tokens in memory only; nothing deleted from
-Keycloak; the move is idempotent and resumable; `main` stays demo-ready (a database made before
+Keycloak; the rename is atomic and the rest idempotent; `main` stays demo-ready (a database made before
 this feature keeps working after the update, US3).
 
 **Scale/Scope**: 3 realms, 3 clients, 235 users, as today.
@@ -50,7 +53,7 @@ this feature keeps working after the update, US3).
 | Principle | Check | Status |
 |---|---|---|
 | I. API-only, contract first | The contract's authentication text and `Me.roles` description change in this PR (no operation, schema shape or error code changes); `api-schema.ts` regenerated | ✅ |
-| II. One command | `docker compose up --build` still builds, seeds (now three realms) and starts everything from a clean clone; the move runs inside the same seed | ✅ |
+| II. One command | `docker compose up --build` still builds, seeds (now three realms) and starts everything from a clean clone; the rename runs inside the same seed | ✅ |
 | III. Spec-driven | Issue #138 → this spec PR → implementation PR by a fresh session, each independently reviewed | ✅ |
 | IV. Server-authoritative | Role per realm enforced by the Backend's guard, not the apps | ✅ |
 | V. Sign-in everywhere | **Amended (3.9.0)**: one realm per app; tokens from the three realms only; one role per realm; logout ends the app's own Keycloak session. Every other rule (PKCE, memory-only tokens, 401/403, wrong-role page) unchanged | ✅ after amendment |
@@ -67,9 +70,9 @@ this feature keeps working after the update, US3).
 ```text
 specs/028-app-realms/
 ├── spec.md               # the feature
-├── research.md           # R1–R12: the bug, the probes, the decisions
+├── research.md           # R1–R13: the bug, the probes, the decisions
 ├── plan.md               # this file
-├── data-model.md         # realms, users, the move, Backend configuration
+├── data-model.md         # realms, users, the rename, Backend configuration
 ├── quickstart.md         # S0–S7 and the Automation table
 ├── contracts/README.md   # what the contract change is (text only)
 ├── checklists/requirements.md
@@ -86,13 +89,15 @@ packages/shared/test/realms.test.ts   # NEW: the seed's and e2e's copies equal A
 
 scripts/seed/src/
 ├── app-realms.ts                # NEW: the seed's import-free copy of the table (R4)
-├── index.ts                     # per realm: realm, users, clients; then the move's last step
+├── index.ts                     # the rename (if due), then per realm: realm, client, users
 ├── keycloak-client.ts           # loadConfig without KEYCLOAK_REALM
 ├── provision-realm.ts           # provisionRealm(kc, realm, role) for each app realm
-├── provision-users.ts           # users of one realm through partialImport (moved or new, R5)
+├── provision-users.ts           # the users of one realm, created when missing (as today)
 ├── provision-clients.ts         # one client and the audience scope in its own realm
-└── retire-legacy-realm.ts       # NEW: read the shared realm's users; turn it off when done (R6)
-scripts/seed/test/               # fake-keycloak: partialImport, realm enable, several realms;
+└── legacy-realm.ts              # NEW: rename `queuepass` to the customer realm; disable the old
+                                 # admin/agent copies and other clients there (R6)
+scripts/seed/test/               # fake-keycloak: several realms, rename, enable/disable, ids
+                                 # unique across realms (R5);
                                  # the live tests' guard against moving a stack's users (R13)
 
 backend/src/auth/
@@ -118,7 +123,7 @@ copies checked equal by one test (R4).
 1. `packages/shared/src/realms.ts` (the table everything else reads).
 2. Backend token checks (tests first), so the Backend accepts the new realms before any app uses
    them.
-3. Seed: three realms, users through partial import, the move, turning the old realm off (tests
+3. Seed: three realms, the rename of the old realm, the old copies disabled (tests
    first against the fake).
 4. Configuration: compose, `.env.example`, Dockerfiles, `run-host.mjs`.
 5. e2e: the new spec, and the realm paths in the existing ones.
@@ -127,13 +132,13 @@ copies checked equal by one test (R4).
 ## Working safely beside the team stack
 
 The live seed tests skip on a Keycloak that still has an enabled realm `queuepass` unless
-`QP_SEED_ALLOW_MOVE=1`, and the implementer stops the team stack (never `down -v`) only with
-Mahdi's agreement before starting a stack of their own (research R13).
+`QP_SEED_ALLOW_RENAME=1`, and the implementer stops the team stack (never `down`, never `-v`) only
+during the test stretches Mahdi agreed to, using path B (research R13).
 
 ## Complexity Tracking
 
 | Choice | Why | Simpler alternative rejected because |
 |---|---|---|
 | Three realms instead of one | Keycloak has one browser session per realm (R1, R2) | One realm with per-app tokens: observed not to work (R2) |
-| A move through partial import | Keeps every subject QueuePass already stores (R5) | Fresh users in new realms: cuts customers off from their orders |
-| The old realm turned off, not deleted | FR-007; reversible | Deleting it: irreversible, and nothing needs it gone |
+| The old realm renamed to the customer realm | Keeps every customer's subject (R5); one atomic call | Copying users: impossible with the same ids (server-wide); copy-then-delete deletes accounts; a database rewrite touches every laptop's data |
+| Old admin and agent copies disabled, not deleted | FR-007; reversible | Deleting them: irreversible, and nothing needs them gone |

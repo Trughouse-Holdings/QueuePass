@@ -55,11 +55,18 @@ review of this PR.
   in the Customer app's. No account is copied into two realms, because no seeded user has two roles
   (recommended answer, open to review) (FR-005).
 - Q: What happens to the accounts, orders and tickets already in a database made before this
-  feature? → A: **They are kept.** The seed moves each existing user from the old shared realm into
-  its app's realm with the **same subject identifier**, so every order, ticket, hold and check-in
-  that names a user still names the same user, and nothing in the QueuePass database changes. The
-  old realm is then **turned off, not deleted** (recommended answer, open to review) (FR-006,
-  FR-007, research R5, R6).
+  feature? → A: **The old shared realm is renamed to become the Customer app's realm.** Keycloak
+  user identifiers are unique across the whole server, so a user cannot be copied into a second
+  realm with the same identifier while the original stays (observed, research R5). Renaming keeps
+  every user's identifier: the 200 customers stay where they are, and every order, ticket, seat
+  hold and purchase-limit record, all tied to the customer's identifier, still belongs to the same
+  customer. Admins and gate agents get **new accounts** in their own realms, with the same
+  usernames and password; their old copies stay in the customer realm, **disabled, never
+  deleted**. Nothing in QueuePass ties an admin or agent to their identifier except the
+  `checkedInBySub` note on past check-ins, which is kept beside the agent's username, and the
+  username is what every screen shows (decided by Mahdi, 2026-11-09, over copying and then
+  deleting the originals, or new identifiers with a database rewrite) (FR-006, FR-007, research
+  R5, R6).
 - Q: Does a role only count in its own app's realm? → A: **Yes.** The Backend accepts tokens from
   the three app realms only, and from each realm honours only that app's role. A customer-realm
   token that somehow carried `queuepass-admin` is still not an admin (recommended answer, open to
@@ -140,10 +147,10 @@ the same tickets; the Admin app shows the same orders and check-in.
 1. **Given** a system made before this feature, **When** the updated system starts, **Then** every
    account signs in to its own app with its existing username and password.
 2. **Given** `customer1` had orders before the update, **When** `customer1` signs in after it,
-   **Then** My tickets shows the same tickets, and the Admin app shows the same orders, attendees
-   and check-ins.
+   **Then** My tickets shows the same tickets, with the same identifier as before, and the Admin
+   app shows the same orders, attendees and check-ins (each check-in still names its agent).
 3. **Given** the update has run, **When** the start command is run again, **Then** nothing changes
-   (the move runs once and is safe to repeat).
+   (the rename runs once and is safe to repeat).
 
 ---
 
@@ -179,26 +186,29 @@ signed in.
   Unchanged from today, and not a cross-app conflict.
 - **Signing in to the same app as a different user in a second tab**: as today, the newer sign-in
   replaces the older one for that app only. The other apps are unaffected.
-- **A tab still open from before the update**: its next renewal is refused, because the old realm is
-  turned off, and it shows its own app's sign-in page (`001` FR-013, unchanged).
+- **A tab still open from before the update**: its next renewal is refused, because the old realm
+  no longer exists under its old name, and it shows its own app's sign-in page (`001` FR-013,
+  unchanged).
 - **Keycloak restarts or is unreachable**: unchanged from `001`/`018` (renewals are retried; a
   refused renewal ends that app's sign-in only).
-- **A username already in an app realm with a different identifier from the old realm's** (only
-  possible after hand edits in Keycloak's console): the seed stops with an error naming the user,
-  leaves both accounts as they are, and does not turn the old realm off. It never overwrites or
-  deletes an account, and never silently cuts a user off from their orders (research R6).
-- **An account of another app** (`customer1` at the Admin app, `admin1` at the Customer app): it is
-  not in that app's realm, so the app's sign-in page refuses it as an unknown username or password.
+- **Both the old realm and a Customer app realm exist** (only possible after hand edits in
+  Keycloak's console, or a Customer realm made by hand): the seed cannot rename, so it stops with an
+  error naming both realms and changes nothing. It never merges, overwrites or deletes a realm or an
+  account, and never silently cuts customers off from their orders (research R6).
+- **An account of another app** (`customer1` at the Admin app, `admin1` at the Customer app): on a
+  clean system it is not in that app's realm, so the sign-in page refuses it as an unknown username
+  or password. On an upgraded system, the old copies of admins and agents are in the Customer
+  app's realm but disabled, so the Customer app's sign-in page refuses them as disabled accounts.
   Before this feature such an account signed in and was shown the wrong-role page; that page now
-  only appears for an account in the app's realm without the app's role, which the seed does not
-  create (FR-012).
-- **The seed is stopped half way through the move**: running it again finishes the move; users
-  already moved are skipped (research R6).
+  only appears for an enabled account in the app's realm without the app's role, which the seed
+  does not create (FR-012).
+- **The seed is stopped half way**: the rename is one step, done or not done; everything after it
+  converges on the next run (research R6).
 - **A database made from a clean clone**: there is no old realm; the seed creates the three realms
   and their users directly.
-- **Subject identifiers in different realms**: a subject is unique within a realm; QueuePass keys
-  data by subject alone. Moved users keep their globally unique identifiers and new users get fresh
-  random ones, so two realms never share one in practice (research R7).
+- **Subject identifiers in different realms**: Keycloak makes every user identifier unique across
+  the whole server (research R5), so QueuePass, which keys data by subject alone, never sees two
+  users with the same one (research R7).
 
 ## Requirements *(mandatory)*
 
@@ -215,23 +225,25 @@ signed in.
 - **FR-004**: Logging out of an app MUST end that app's sign-in in the app and in Keycloak, as
   `001` requires, and only that app's.
 
-**Realms, users and the move**
+**Realms, users and the rename**
 
 - **FR-005**: The seed MUST provision the three app realms, each with its app's client, its app's
   role, and the users of that role (5 admins, 30 gate agents, 200 customers, as today), with the
   same usernames, the same seed password, and the same token settings as the shared realm has today.
-- **FR-006**: When the old shared realm exists, the seed MUST move each of its users into the realm
-  of that user's role, keeping the user's subject identifier, username, profile and role, with the
-  seed password, so that every record in QueuePass that names a user still names the same user.
-- **FR-007**: After the move the seed MUST turn the old shared realm off, so no sign-in or token
-  from it works. It MUST NOT delete the old realm or any account in it.
+- **FR-006**: When the old shared realm exists and the Customer app's realm does not, the seed MUST
+  rename the old realm to the Customer app's realm, so every customer keeps their identifier,
+  username, password and role, and every order, ticket, seat hold and purchase-limit record still
+  belongs to the same customer.
+- **FR-007**: In that renamed realm the seed MUST disable, and MUST NOT delete, every account that
+  is not a customer (the old copies of admins and gate agents) and the clients of the other two
+  apps, so none of them can sign in there. The seed MUST NOT delete any realm, client or account.
+  Admins and gate agents get new accounts in their own realms (FR-005).
 - **FR-008**: Every app realm MUST use the QueuePass login theme and the display name "QueuePass",
   so every sign-in page looks as it does after `021` and `027`, and names its app.
 - **FR-009**: The seed MUST be idempotent: running it any number of times, on a clean system or
-  after the move, MUST converge on the same three realms, clients and users, and MUST NOT change an
-  account that is already right. If a username is already in its app realm with a different
-  identifier from the old realm's, the seed MUST fail with a message naming the user and MUST NOT
-  turn the old realm off.
+  after the rename, MUST converge on the same three realms, clients and users, and MUST NOT change an
+  account that is already right. If both the old shared realm and the Customer app's realm exist,
+  the seed MUST fail with a message naming both and change nothing.
 
 **Token checks**
 
@@ -243,7 +255,7 @@ signed in.
   `gate-agent` from the Ticket Booth's realm). Any other QueuePass role in the token MUST be
   ignored, so the call is refused with 403 where that role would be required.
 - **FR-012**: Each app's sign-in page MUST refuse an account that belongs to another app, because
-  that account is not in its realm. Each app MUST keep its wrong-role page (`001`) for a signed-in
+  that account is not in its realm, or is there only as a disabled old copy. Each app MUST keep its wrong-role page (`001`) for a signed-in
   token without the app's role; no seeded account reaches it any more, so it is tested without a
   browser sign-in (research R10).
 
@@ -257,10 +269,10 @@ signed in.
 
 - **App realm**: one per app. Holds that app's client, its one role, and the users with that role.
   Each has its own sign-in session in the browser, its own signing keys, and its own issuer.
-- **Old shared realm**: the single realm before this feature. After the move it is turned off and
-  kept, untouched otherwise.
-- **User subject**: the user's identifier in Keycloak, the only identity QueuePass stores
-  (Constitution V). Kept unchanged by the move.
+- **Old shared realm**: the single realm before this feature. Renamed to become the Customer app's
+  realm; its non-customer accounts and other apps' clients disabled there, never deleted.
+- **User subject**: the user's identifier in Keycloak, unique across the server, the only identity
+  QueuePass stores (Constitution V). Customers keep theirs; admins and agents get new ones.
 
 ## Success Criteria *(mandatory)*
 
@@ -272,9 +284,10 @@ signed in.
   in **100%** of the 3 combinations (each app logs out once).
 - **SC-003**: Opening any app while another is signed in shows that app's own sign-in page in
   **100%** of the 6 orderings of two apps.
-- **SC-004**: After the move, **100%** of the 235 seeded accounts sign in to their own app with
-  their existing username and password, and the number of orders, tickets and check-ins each
-  customer and agent is linked to is **unchanged**.
+- **SC-004**: After the upgrade, **100%** of the 235 seeded accounts sign in to their own app with
+  their existing username and password; **100%** of the 200 customers keep their identifier, and
+  the number of orders, tickets and seat holds each customer is linked to is **unchanged**; every
+  past check-in still shows its agent's username.
 - **SC-005**: A token from the wrong realm for an endpoint is refused in **100%** of the combinations
   tested (each realm's token against each role's endpoints, and the old realm's token).
 - **SC-006**: From a clean clone, `docker compose up --build` seeds the three realms on the first run,
@@ -285,11 +298,9 @@ signed in.
 - Keycloak keeps one browser session per realm, scoped to the realm's path, and a new sign-in as a
   different user ends the previous user's session in that realm (observed on the stack's Keycloak
   26.0.8, research R2).
-- Keycloak's partial import keeps a user's identifier, role and password when given them, and skips
-  a user already present (observed, research R5). Keycloak never hands out password hashes, so a
-  moved account gets the seed password again. Every account in the old realm is a seeded one
-  (self-enrollment and password reset are out of scope, Constitution "Security and Data
-  Constraints"); a password changed by hand in Keycloak's console goes back to the seed password.
+- Keycloak user identifiers are unique across the whole server, and renaming a realm keeps its
+  users' identifiers, passwords, roles, login theme and display name, while its issuer changes to
+  the new name (both observed on Keycloak 26.0.8, research R5).
 - No seeded or demo account needs two roles. If one ever does, it gets one account per realm; that
   is not in scope here.
 - The browser is a normal one that sends cookies to `localhost:8080` (private windows work the same

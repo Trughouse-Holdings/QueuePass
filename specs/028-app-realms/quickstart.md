@@ -8,14 +8,17 @@ otherwise. Test accounts and the seed password are in the README.
 - **Clean**: a fresh clone, `docker compose up --build`. The seed log shows the three app realms
   created and `admin: 5, agent: 30, customer: 200` users added.
 - **Upgraded** (US3): a stack made **before** this feature, with demo data and at least one order
-  for `customer1` and one check-in by `agent1`. Note `customer1`'s ticket codes and the event's
-  "checked in" count. Update to this version and run `docker compose up --build` again. The seed log
-  shows 235 users moved and realm `queuepass` turned off.
+  for `customer1` and one check-in by `agent1`. Note `customer1`'s ticket codes and subject, and the
+  event's "checked in" count. Update to this version and start it again. The seed log shows realm
+  `queuepass` renamed to `queuepass-customer-app`, 5 admins and 30 agents created in their realms,
+  and 35 old copies and 2 clients disabled in the customer realm.
 
 ## S1. Three apps, three users, one window (US1; FR-001 to FR-003, SC-001, SC-003)
 
-Walk S1 and S2 in **Chrome and in Safari** (the issue's Done when; Keycloak's cookies on
-`http://localhost` are `Secure; SameSite=None`, which Safari treats differently from Chrome).
+Walk S1 and S2 in **Chrome**, and in **Safari** on a Mac (the issue's Done when; Keycloak's cookies
+on `http://localhost` are `Secure; SameSite=None`, which Safari treats differently from Chrome).
+This laptop has no Safari: the Safari walk is Nate's or Mahdi's on a Mac running the branch, and
+until then a Playwright **WebKit** run of the `028` test stands in for it (tasks T032, T033).
 
 1. Open the Admin app (http://localhost:5173) and sign in as `admin1`.
 2. In a new tab, open the Customer app (http://localhost:5174). **Expected**: its own sign-in page
@@ -42,14 +45,17 @@ Walk S1 and S2 in **Chrome and in Safari** (the issue's Done when; Keycloak's co
 On the **upgraded** stack from S0:
 
 1. Sign in to the Customer app as `customer1`. **Expected**: My tickets shows the same ticket codes
-   as before the update.
-2. Sign in to the Admin app as `admin1`. **Expected**: the event's sales, attendees and "checked in"
-   count are the same as before.
+   as before the update, and `customer1`'s subject is unchanged (Keycloak admin console, Users).
+2. Sign in to the Admin app as `admin1` (a new account, same username and password). **Expected**:
+   the event's sales, attendees and "checked in" count are the same as before; the check-in still
+   names `agent1`.
 3. Sign in to the Ticket Booth app as `agent1`. **Expected**: signs in; the event list is as before.
-4. Open http://localhost:8080/admin (Keycloak admin console, `admin`/`admin`): realm `queuepass` is
-   still listed and is **disabled**; the three app realms each hold only their own users.
-5. Run the seed again (`docker compose up --build` or `npm run seed`). **Expected**: the log says
-   everything is already present; nothing changes.
+4. Open http://localhost:8080/admin (Keycloak admin console, `admin`/`admin`): there is no realm
+   `queuepass` any more; `queuepass-customer-app` holds the 200 customers (enabled) and the old
+   admins and agents (**disabled**), and its `admin-app` and `booth-app` clients are disabled; the
+   Admin and Booth realms hold only their own users.
+5. On the Customer app's sign-in page, try `admin1`. **Expected**: refused (a disabled account).
+6. Run the seed again. **Expected**: the log says everything is already present; nothing changes.
 
 ## S4. Wrong realm, wrong role (US4; FR-010, FR-011, SC-005)
 
@@ -76,15 +82,15 @@ Each front end passes the smoke test from a fresh clone: sign in, one action, si
 
 Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
 manual. `npm test` checks this table against `e2e/tests`. The Backend's realm and role checks
-(S4) and the seed's move (S0, S3) are covered by their own workspaces' tests (tasks T006, T012 to
+(S4) and the seed's rename (S0, S3) are covered by their own workspaces' tests (tasks T006, T012 to
 T015a), not by browser tests.
 
 | Scenario | Browser test |
 | --- | --- |
-| S0 | Manual: the clean start is every `npm run e2e`; the upgraded start needs a database made before 028, walked by hand (T026); the move is covered by the seed's tests |
+| S0 | Manual: the clean start is every `npm run e2e`; the upgraded start needs a database made before 028, walked by hand (T026); the rename is covered by the seed's tests |
 | S1 | Manual: until T022 adds `028 S1/S2: three apps signed in as three users in one browser window stay signed in through their own renewals, and logging out of one leaves the others signed in`; Safari and the 15-minute run by hand |
 | S2 | Manual: until T022 adds `028 S1/S2: three apps signed in as three users in one browser window stay signed in through their own renewals, and logging out of one leaves the others signed in`; the back button by hand |
-| S3 | Manual: needs a database made before 028 (T027, T028); the move is covered by the seed's tests |
+| S3 | Manual: needs a database made before 028 (T027, T028); the rename is covered by the seed's tests |
 | S4 | Manual: the Backend's integration tests cover each realm's token and role (T006); another app's account on a sign-in page is `001` V4, rewritten in T023 |
 | S5 | Manual: the same app in two tabs behaves as before 028 |
 | S6 | Manual: the sign-in pages are `027`'s browser tests, which run on the new realms |

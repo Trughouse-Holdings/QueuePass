@@ -16,7 +16,7 @@ export const APP_REALMS = [
   { app: 'booth',    realm: 'queuepass-booth-app',    clientId: 'booth-app',    role: 'gate-agent',      prefix: 'agent',    count: 30 },
 ] as const;
 
-/** The single realm before 028; read only by the seed's move, then turned off (research R6). */
+/** The single realm before 028; renamed by the seed to the customer realm (research R6). */
 export const LEGACY_REALM = 'queuepass';
 ```
 
@@ -37,24 +37,15 @@ needs per client (name, port) stays in `FRONTEND_CLIENTS` (`021`).
 | Client | the app's one client, `desiredClient` as today (public, PKCE S256, exact URIs, refresh tokens, front-channel logout) |
 | Users | `prefix1`…`prefixN`, enabled, email `<username>@queuepass.local` verified, first name = prefix, last name = number, the app's role, the seed password (non-temporary) |
 
-## A user, moved (partial import, `ifResourceExists: SKIP`)
+## The rename, on a system made before 028 (research R5, R6)
 
-| Field | From |
+| Step | What |
 |---|---|
-| `id` | the shared realm's user id (the subject QueuePass stores) |
-| `username`, `email`, `emailVerified`, `firstName`, `lastName`, `enabled` | the shared realm's user |
-| `realmRoles` | `[APP_REALMS[*].role]` |
-| `credentials` | `[{ type: 'password', value: <seed password>, temporary: false }]` |
-
-A new user (no shared realm, or the username is not in it) has the same fields from the seed's
-defaults and no `id`.
-
-## The shared realm `queuepass`, after the move
-
-| Setting | Value |
-|---|---|
-| `enabled` | `false`, set once every app-realm user is present |
-| Everything else | untouched; never deleted |
+| Condition | realm `queuepass` exists and `queuepass-customer-app` does not (both: fail, change nothing) |
+| Rename | `queuepass` → `queuepass-customer-app` (`realms.update` with the new `realm`); every user keeps its `id` (subject), password, roles; theme and display name stay |
+| Converge | the customer realm like a clean one: settings, `customer` role, audience scope, `customer-app` client; the customers already exist and are left alone |
+| Disable, in the customer realm only | every enabled user without the `customer` role (old `admin1`–`5`, `agent1`–`30`), and the clients `admin-app` and `booth-app`: `enabled: false`; nothing deleted |
+| Admin and Booth realms | created as on a clean system, with new accounts (new subjects) |
 
 ## Backend configuration (environment)
 

@@ -4,7 +4,7 @@ description: "Task list for A Separate Sign-in for Each App"
 
 # Tasks: A Separate Sign-in for Each App
 
-**Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R12),
+**Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R13),
 [data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) (text only, 1.21.0),
 [quickstart.md](./quickstart.md) (S0–S7)
 
@@ -25,17 +25,22 @@ confirm they **fail** before the implementation tasks below them.
 - **One independent review** (Constitution III) of the implementation branch before its PR (T030).
 - **`npm run ci` locally** before pushing (T031), then **CI green on GitHub**, the `test` and `e2e`
   checks, before merge (T034).
-- **Docker and the team stack** (research R13): the team stack (compose project `queuepass-team`)
-  holds every fixed port, so a stack of your own (`-p qp028`) cannot run beside it. **Ask Mahdi**
-  before stopping it; stop it with `docker compose -p queuepass-team stop` (never `down`, never
-  `-v`: its volumes and data must stay), and start it again (`docker compose -p queuepass-team
-  start`) when you are done or Mahdi needs it. Its users move only in T032, with his agreement.
-- **Live seed tests**: they run `seed()` against whatever Keycloak is up. Before T019–T021 land,
-  T015a's guard must be in place, so no `npm test` / `npm run ci` can move a stack's users unless
-  `QP_SEED_ALLOW_MOVE=1` is set; set it only against your own `qp028` stack.
-- **Nothing is deleted from Keycloak** (FR-007): no test, script or manual step deletes realm
-  `queuepass` or a user in it. Throwaway realms made by a probe are the only exception, and are named
-  `probe…`.
+- **Docker and the team stack, path B** (research R13): this machine cannot build the app images,
+  so every stack runs `database` and `keycloak` in Docker and the Backend and apps from the host
+  (`node scripts/run-host.mjs`). The team stack (compose project `queuepass-team`, its host
+  processes started from `C:\Users\mahdi\hello_world\QueuePass-team`) holds every fixed port.
+  **Mahdi agreed (2026-11-09)** to stopping it during the stretches that need a running stack, and
+  restarting it between them: stop the host processes holding ports 3000 and 5173–5175, then
+  `docker compose -p queuepass-team stop` (never `down`, never `-v`: its volumes and data must
+  stay). Restore it after every stretch: `docker compose -p qp028 stop`,
+  `docker compose -p queuepass-team start`, and `node scripts/run-host.mjs` from the main checkout,
+  then check http://localhost:5173 answers. Its realm is renamed only in T032, after Mahdi says go.
+- **Live seed tests**: they reach whatever Keycloak is up. T015a's guard lands **before** T019–T021,
+  so no `npm test` / `npm run ci` can rename a stack's realm unless `QP_SEED_ALLOW_RENAME=1` is set;
+  set it only against your own `qp028` stack.
+- **Nothing is deleted from Keycloak** (FR-007): no test, script or manual step deletes a realm,
+  client or user (old copies are disabled). Throwaway realms made by a probe are the only exception,
+  and are named `probe…`.
 - **Shared surface**: `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`
   (if touched) need every team member's approval in the PR.
 
@@ -50,11 +55,12 @@ confirm they **fail** before the implementation tasks below them.
 
 - [ ] T001 Cut `028-app-realms-impl` from `028-app-realms-spec` (or from `main` once the spec PR has
   merged); `npm ci`; `npm run ci` green before any change, so a later failure is this feature's.
-- [ ] T002 With Mahdi's agreement, stop the team stack (Ground rules), then start a stack of your
-  own from `main` (`docker compose -p qp028 up --build -d`), with demo
-  data (`docker compose -p qp028 exec backend node backend/dist/scripts/demo-data.js`) and one order
-  for `customer1` and one check-in by `agent1` made through the apps. This is the **pre-028
-  database** for US3 (T026–T028, T032). Record `customer1`'s subject and ticket codes.
+- [ ] T002 Stretch 1 (Ground rules): stop the team stack, then make the **pre-028 database** from
+  a worktree of `main`: `docker compose -p qp028 up -d database keycloak`, then
+  `node scripts/run-host.mjs --demo-data` from that worktree; through the apps, one order for
+  `customer1` and one check-in by `agent1`. Record `customer1`'s subject (Keycloak admin console)
+  and ticket codes. Stop the host processes and `docker compose -p qp028 stop` (never `down`: T026
+  needs this data), and restore the team stack.
 
 ---
 
@@ -131,31 +137,34 @@ of work).
 ### Tests first
 
 - [ ] T011 [US3] `scripts/seed/test/fake-keycloak.ts` (+ its unit test): several realms; realm
-  `enabled` read and update; `realms.partialImport` with `ifResourceExists: SKIP` that keeps a given
-  `id`, applies `realmRoles` and a password credential, and reports `ADDED`/`SKIPPED` per user;
-  refuse a realm delete or user delete with a test failure (Ground rules: nothing deleted).
+  rename through `realms.update({ realm: old }, { realm: new })` keeping every user, client and role;
+  user and client `enabled` read and update; user ids **unique across all realms**, as Keycloak
+  makes them (a create or import with an id that exists in any realm fails with 409, research R5);
+  a realm, client or user delete fails the test (Ground rules: nothing deleted).
 - [ ] T012 [P] [US3] `scripts/seed/test/realms.test.ts` (clean system): one seed run creates the
   three realms (display name "QueuePass", login theme `queuepass`, enabled), each with its one role,
   the `queuepass-api` audience scope and mapper, its one client (`desiredClient`), and exactly its
   users (5 / 200 / 30) with the right role and the seed password; no realm `queuepass` is created.
-- [ ] T013 [P] [US3] `scripts/seed/test/move.test.ts` (over a shared realm with the 235 users and
-  known ids): after one run every user is in its app realm **with the same id**, username, email and
-  names, its role, and the seed password; realm `queuepass` is **disabled** and still holds all 235
-  users unchanged; a second run makes no change (no `ADDED`, no update to any realm or user).
-- [ ] T014 [P] [US3] `scripts/seed/test/move-edge.test.ts`: (a) a run stopped after N users (the
-  fake throws on user N+1) leaves realm `queuepass` **enabled**; the next run finishes the move and
-  then disables it; (b) a username already in an app realm with a different id from the shared
-  realm's makes the seed **fail** with a message naming that user (every clash listed), both
-  accounts unchanged, realm `queuepass` **not** disabled (FR-009); (c) a username missing from the
-  shared realm is created new (no id); (d) after the move, a user deleted from its app realm is
-  recreated with its **old** id, read from the now **disabled** realm `queuepass` (R6 step 2).
+- [ ] T013 [P] [US3] `scripts/seed/test/rename.test.ts` (over a realm `queuepass` holding the 235
+  users with known ids and the three clients): after one run there is no realm `queuepass`;
+  `queuepass-customer-app` holds the 200 customers **with the same ids**, enabled, and the 35 old
+  admin and agent copies **disabled**, and its `admin-app` and `booth-app` clients **disabled**, its
+  `customer-app` client converged; the Admin and Booth realms hold new accounts for `admin1`–`5`
+  and `agent1`–`30`; nothing was deleted; a second run makes no change at all.
+- [ ] T014 [P] [US3] `scripts/seed/test/rename-edge.test.ts`: (a) realms `queuepass` **and**
+  `queuepass-customer-app` both present: the seed fails with a message naming both and changes
+  nothing (FR-009); (b) a run that stops right after the rename (the fake throws on the next call)
+  is finished by the next run: the old copies get disabled, the other realms built; (c) a customer
+  deleted by hand from the customer realm after the rename is recreated (a new id: expected, and
+  logged).
 - [ ] T015 [US3] Move every existing seed test off `KEYCLOAK_REALM` / realm `queuepass`
   (`provision-realm`, `realm-roles`, `users`, `clients`, `provision-clients`, `index`,
   `keycloak-client`, `seed-idempotence`, `sign-in-screens`, `login-theme-files`, and the comment in
   `scripts/seed/vitest.config.ts`): each now checks its realm-level behaviour once per app realm.
-- [ ] T015a [US3] **Before T019–T021**: the live seed tests (`seed-idempotence`, `sign-in-screens`)
-  skip, with the reason of research R13, when the Keycloak they reach has an **enabled** realm
-  `queuepass`, unless `QP_SEED_ALLOW_MOVE=1`; a unit test covers the guard both ways (R13).
+- [ ] T015a [US3] **Before T019–T021**: the live seed tests (`seed-idempotence`, which runs
+  `seed()`, and `sign-in-screens`, which fetches the new realms' sign-in pages) skip, with the
+  reason of research R13, when the Keycloak they reach has a realm `queuepass`, unless
+  `QP_SEED_ALLOW_RENAME=1`; a unit test covers the guard both ways (R13).
 
 ### Implementation
 
@@ -165,17 +174,16 @@ of work).
   check-then-create and login-theme convergence as today, per realm.
 - [ ] T018 [US3] `scripts/seed/src/provision-clients.ts`: `provisionClient(kc, realm, client)`: the
   audience scope and the one client in its own realm (`desiredClient` unchanged).
-- [ ] T019 [US3] `scripts/seed/src/retire-legacy-realm.ts` (new): `legacyUsers(kc)` returns the
-  shared realm's users by username whenever it exists, **enabled or not**, else none;
-  `retireLegacyRealm(kc)` sets `enabled: false`, if it is on, only when every username in the table
-  is present in its app realm with the old realm's id (R6).
-- [ ] T020 [US3] `scripts/seed/src/provision-users.ts`: per realm, for each username: skip if present
-  with the old realm's id (or the old realm lacks it); collect a clash if present with another id;
-  else `kc.realms.partialImport` with `SKIP`, moved (id and profile from the shared realm) or new
-  (data-model.md). Log per realm: added, moved, already present. After every realm, fail with every
-  clash named, before the old realm is touched (R6 step 3, FR-009).
-- [ ] T021 [US3] `scripts/seed/src/index.ts`: for each app realm: realm, client, users; then
-  `retireLegacyRealm`. The final log line names the three realms and the counts.
+- [ ] T019 [US3] `scripts/seed/src/legacy-realm.ts` (new): `renameLegacyRealm(kc)`: if `queuepass`
+  exists and `queuepass-customer-app` does not, rename it; if both exist, throw naming both;
+  otherwise do nothing. `disableOldCopies(kc)`: in the customer realm only, set `enabled: false` on
+  every enabled user without the `customer` role, and on the clients `admin-app` and `booth-app`
+  when present; never delete (R6). Log what was renamed and disabled.
+- [ ] T020 [US3] `scripts/seed/src/provision-users.ts`: the users of one realm (from the seed's
+  table), created when missing exactly as today, an existing user left alone. Log per realm:
+  created, already present.
+- [ ] T021 [US3] `scripts/seed/src/index.ts`: `renameLegacyRealm`; then for each app realm: realm,
+  client, users; then `disableOldCopies`. The final log line names the three realms and the counts.
 
 **Checkpoint**: `npm test --workspace @queuepass/seed` green; the live seed tests run against your
 `qp028` Keycloak.
@@ -188,24 +196,33 @@ of work).
 
 - [ ] T022 [US1] [US2] `e2e/tests/028-app-realms.spec.ts` (quickstart S1, S2), one test titled
   exactly `028 S1/S2: three apps signed in as three users in one browser window stay signed in
-  through their own renewals, and logging out of one leaves the others signed in`; then change the
-  quickstart's S1 and S2 rows from "Manual: until T022 adds" to "Automated:" with that title
-  (`npm test` checks it). In **one** browser context:
-  1. sign in to Admin as `admin1`, then open Customer: its own sign-in page (not the wrong-role
-     page); sign in as `customer1`; then Booth as `agent1` (FR-003);
-  2. each app makes an authorized call (`GET /me` through the app, or a visible signed-in page whose
-     data came from the API), as its own user (FR-001);
-  3. each app's **own** renewal still works after the others signed in: `page.clock.install()` on
-     each page before it loads, then `page.clock.runFor('04:30')` on it after the other apps have
-     signed in, so the app's own renewal timer fires against the real Keycloak; then the page makes
-     an API call and still shows its own user (FR-002; R10: no real 4-minute wait, and not a
-     token-endpoint call from the test, which would not prove the app stays signed in);
-  4. log out of Customer: Customer shows its sign-in page; Admin and Booth renew (clock again) and
-     call the API again successfully; sign in to Customer as `customer2` (US2);
-  5. repeat step 4 for Admin and for Booth (SC-002).
+  through their own renewals, and logging out of one leaves the others signed in`. Accounts from
+  the per-worker fixtures of `e2e/fixtures/apps.ts` (spec `022` R8), never `admin1` (kept for
+  people): `adminFor(testInfo)`, `customerFor(testInfo, n)` for two values of n, `agentFor(testInfo,
+  n)`. Then change the quickstart's rows to exactly
+  ``| S1 | Automated: `<title>`; rest Manual: Safari and the 15-minute run by hand |`` and
+  ``| S2 | Automated: `<title>`; rest Manual: the back button by hand |`` (`npm test`'s
+  quickstart-marks check accepts only that form). In **one** browser context:
+  1. `context.clock.install()` **once**, before the first page (the clock is the context's; a second
+     install resets every page's time, research R10);
+  2. sign in to Admin, then open Customer: its own sign-in page (not the wrong-role page); sign in;
+     then Booth (FR-003);
+  3. each app makes an authorized call as its own user (FR-001);
+  4. each app's **own** renewal: set up `page.waitForResponse` on each realm's
+     `/protocol/openid-connect/token` request with `grant_type=refresh_token` answering 200, then
+     `context.clock.runFor('04:05')` (under oidc-client-ts's 10 s request timeout, which also runs on
+     the fake clock); assert all three refreshes answered 200, and that each app's next API request
+     carries a **new** `Authorization` token (the Backend checks expiry in real time, so a call
+     alone proves nothing) (FR-002);
+  5. log out of Customer: Customer shows its sign-in page; run the clock again as in step 4: Admin
+     and Booth renew and call the API with new tokens; sign in to Customer as the second customer
+     (US2);
+  6. repeat step 5 for Admin and for Booth (SC-002).
 - [ ] T023 [P] [US4] `e2e/tests/001-sign-in.spec.ts` V4 rewritten for FR-012: each app's sign-in
   page refuses another app's account (a customer at Admin, an agent at Customer, an admin at the
-  Booth): Keycloak's "Invalid username or password", the app not signed in, no wrong-role page.
+  Booth): on CI's clean stack, Keycloak's "Invalid username or password", the app not signed in, no
+  wrong-role page. (On an upgraded stack the old copies in the customer realm are refused as
+  disabled instead; walked in T027.)
   The wrong-role page stays covered by `packages/shared/test/web/require-role.test.tsx`; confirm it
   still gives the page a user without the role, and add that case if it does not.
   If the test's title changes, change its row in `specs/001-bare-bones-system/quickstart.md` to
@@ -223,41 +240,54 @@ of work).
   `KEYCLOAK_REALM` removed. `.env.example` to match, with the comments brought up to date.
   `scripts/run-host.mjs` (+ `scripts/test/run-host.test.mjs`): the same, per app.
 
-**Checkpoint**: on `qp028` (clean volumes), `docker compose -p qp028 up --build` seeds three realms;
-`npx playwright test 028` passes three times in a row.
+**Checkpoint** (stretch 2, Ground rules): with `qp028` **stopped, not removed** (T026 needs its
+data), a clean stack of its own: `docker compose -p qp028clean up -d database keycloak` and
+`node scripts/run-host.mjs` from this branch: the seed creates three realms;
+`npx playwright test 028 001` passes three times in a row, and once more with
+`--project=webkit` if the WebKit browser is installed (`npx playwright install webkit`), as the
+Safari stand-in. Then `docker compose -p qp028clean down -v` (its own throwaway volumes only) and
+restore the team stack.
 
 ---
 
-## Phase 6: The move on a real pre-028 database (US3)
+## Phase 6: The rename on a real pre-028 database (US3)
 
-- [ ] T026 [US3] On T002's stack, rebuild from this branch (`docker compose -p qp028 up --build`):
-  the seed log shows 235 users moved and realm `queuepass` turned off. Record the log lines.
-- [ ] T027 [US3] Quickstart S3 steps 1–4 on that stack: `customer1` sees the same ticket codes and
-  has the same subject (Keycloak admin console, Users); Admin shows the same orders and check-in;
-  `agent1` signs in. Record the results.
-- [ ] T028 [US3] Run the seed again on that stack: nothing changes (S3 step 5). Record the log.
+- [ ] T026 [US3] Stretch 3: stop the team stack; `docker compose -p qp028 start`; then
+  `node scripts/run-host.mjs` from **this branch** (it seeds first): the seed log shows realm
+  `queuepass` renamed, 35 accounts created in the Admin and Booth realms, and 35 old copies and 2
+  clients disabled. Record the log lines.
+- [ ] T027 [US3] Quickstart S3 steps 1–5 on that stack: `customer1` sees the same ticket codes and
+  has the same subject; Admin shows the same orders and check-in, which still names `agent1`;
+  `agent1` signs in; `admin1` is refused on the Customer app's sign-in page. Record the results.
+- [ ] T028 [US3] Run the seed again on that stack: nothing changes (S3 step 6). Record the log. Then
+  stop it (`docker compose -p qp028 stop`) and restore the team stack.
 
 ---
 
 ## Phase 7: Polish, review, pull request
 
-- [ ] T029 README: service URLs (each app's realm; the admin console note says the three app realms
-  and that `queuepass` is the retired one, disabled), the **Today** paragraph (each app has its own
+- [ ] T029 README: service URLs (each app's realm; the admin console note names the three app
+  realms), the **Today** paragraph (each app has its own
   sign-in; three users in one browser window; another app's account is refused on the sign-in
-  page), the troubleshooting row about `401` with a valid login (now the issuer **base**), the
-  `QP_SEED_ALLOW_MOVE` switch for the live seed tests, the `028` status row (status and task
-  count). The constitution reference already reads v3.9.0.
+  page; an upgraded system's old realm becomes the Customer app's), the troubleshooting row about
+  `401` with a valid login (now the issuer **base**), the `QP_SEED_ALLOW_RENAME` switch for the live
+  seed tests, the `028` status row (status and task count). The constitution reference already
+  reads v3.9.0.
 - [ ] T030 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round, its findings, and
   any left open here.
-- [ ] T031 `npm run ci` locally, green, with your `qp028` Keycloak up so the live seed tests run;
-  `npm run test:tz`; record the counts per workspace and each workspace's line coverage (80% floor).
-- [ ] T032 Running-system walk on the **team stack** (`queuepass-team`), after Mahdi agrees: rebuild
-  from this branch, then quickstart S1–S3 and S5–S7 by hand in one browser window, **15 minutes**
-  for S1 (SC-001), and S1 and S2 again **in Safari** (the issue's Done when); record each
-  scenario's result. Mahdi walks S1 and S2 in his own browser and approves; record it.
-- [ ] T033 Run `npx playwright test` (the whole e2e suite) three times in a row, green; record the
-  counts and the `028` spec's time.
+- [ ] T031 `npm run ci` locally, green, three times, during a stretch with a clean `qp028clean`
+  Keycloak up so the live seed tests run (not the team stack's); `npm run test:tz`; record the
+  counts per workspace and each workspace's line coverage (80% floor).
+- [ ] T032 Running-system walk on the **team stack** (`queuepass-team`), **after Mahdi says go**
+  (this renames its realm): restart its host processes from this branch (path B), then quickstart
+  S1–S3 and S5–S7 by hand in one browser window, **15 minutes** for S1 (SC-001); record each
+  scenario's result. Mahdi walks S1 and S2 in his own browser and approves; record it. Safari: Nate
+  or Mahdi walks S1 and S2 on a Mac running the branch if one is available before merge; otherwise
+  record it as open, with the Phase 5 checkpoint's WebKit run as the stand-in.
+- [ ] T033 The whole e2e suite needs the Compose stack's geocoder stub and images, so it runs in
+  CI's `e2e` check on the PR (record the run, its counts and the `028` test's time); locally,
+  `028` and `001` three times in a row (the Phase 5 checkpoint).
 - [ ] T034 Push and open the implementation PR (after the spec PR has merged and the branch is up to
   date with `main`): description says `fixes #138`, lists the review, the walk, the test counts, and
   the shared surface touched (`packages/shared/`, `docker-compose.yml`, `.env.example`; Nate
@@ -272,7 +302,7 @@ of work).
 - **US4 (T005–T010)** before the seed and the apps change, so the Backend accepts the new realms.
 - **US3 seed (T011–T021)** after T004. T011 before T012–T015; **T015a before T019–T021**.
 - **US1/US2 (T022–T025)** after T010 and T021.
-- **The move on a real database (T026–T028)** after T025.
+- **The rename on a real database (T026–T028)** after T025.
 - **Polish (T029–T034)** last; T032 needs Mahdi's go-ahead to touch the team stack.
 
 ### Parallel opportunities
@@ -284,7 +314,7 @@ of work).
 
 - **MVP**: Setup, Foundational, US4, US3's seed, US1/US2 (T001–T025): three realms, the Backend
   accepts them, the apps use them. Not shippable without Phase 6: a laptop with data must keep it.
-- Then the move on a real database, the README, the review, the walk, and the PR.
+- Then the rename on a real database, the README, the review, the walk, and the PR.
 
 ## Review record (spec branch)
 
@@ -309,3 +339,20 @@ of work).
   - S6: the new Principle V rules lacked MUST → added.
   - N1: the list of files naming realm `queuepass` was wrong → corrected (R10, T015, T023a).
   - N2: an over-long constitution line → rewrapped. N3: quickstart S7's row → fixed with M1.
+- **Round 2** (independent Claude session, 2026-11-09): 3 must-fix, 4 should-fix, 3 nits; all fixed
+  in the `Review 028` and `Constitution` commits that follow it.
+  - M1: Keycloak user ids are unique across the server (409 on import into a second realm, even
+    with the first disabled; confirmed): the copy-with-same-id move cannot work → **Mahdi chose to
+    rename** realm `queuepass` to the customer realm; admins and agents get new accounts, their
+    old copies disabled (spec Clarifications, FR-006, FR-007, FR-009, R5–R7, data model, T011–T021,
+    T026–T028, roadmap row).
+  - M2: the clock design could pass with no renewal (context-wide clock, re-install resets it,
+    `runFor('04:30')` past the 10 s request timeout, real-time expiry on the Backend) → one
+    install, wait for each refresh, `runFor('04:05')`, assert a new token (R10, T022).
+  - M3: the Phase 5 checkpoint wiped T002's database → a separate `qp028clean` project.
+  - S1: path B (images cannot be built here) → R13, Ground rules, T002, T026–T028, T031–T033.
+  - S2: T022 used `admin1` and fixed accounts → the per-worker fixtures.
+  - S3: the quickstart rows' exact form spelled out in T022.
+  - S4: no Safari on this machine → a Mac walk by Nate or Mahdi, WebKit as the stand-in.
+  - N1: `sign-in-screens` does not run `seed()` → R13, T015a reworded. N2: T019's retire rule →
+    gone with the rename. N3: R13 moved to the end; "R1–R13".

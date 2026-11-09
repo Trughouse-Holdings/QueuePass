@@ -98,70 +98,69 @@ import-free. One test in `packages/shared/test/realms.test.ts` imports both copi
 (Vitest transpiles them) and fails when either differs from `APP_REALMS`. Adding the dependency to
 the seed image was rejected: it reverses a reviewed decision of `020` for three short rows.
 
-## R5. Moving users with their identifiers
+## R5. Keeping identifiers: rename, not copy
 
-**Question**: QueuePass stores Keycloak subjects (`Order.customerSub`, `Ticket.checkedInBySub`, seat
-reservations, attempt-limit records). Users made in a new realm get new random subjects, which would
-cut every existing customer off from their orders. Can a user be created with a chosen subject?
+**Question**: QueuePass stores Keycloak subjects: `Order.customerSub`, `SeatReservation.customerSub`,
+the attempt-limit records (all customers), and `Ticket.checkedInBySub` (the agent, next to
+`checkedInByUsername`). A user made in a new realm gets a new random subject. How do existing users
+keep theirs?
 
-**Observed** in a throwaway realm (`probe138`, deleted afterwards):
+**Observed** (throwaway realms, all deleted afterwards; realm `queuepass` never touched):
 
 - `POST /admin/realms/{realm}/users` with an `id` → 201, but the `id` is **ignored** (a random one).
-- `POST /admin/realms/{realm}/partialImport` with `ifResourceExists: SKIP` and a user carrying `id`,
-  `realmRoles: ["customer"]` and a plain-text password credential → 200, `ADDED`; the user signs in
-  with that password and the access token has that `sub` and `realm_access.roles: ["customer"]`.
-- The same import again → 200, `SKIPPED`: nothing changed.
+- `POST /admin/realms/{realm}/partialImport` with a user carrying `id`, a role and a password → 200,
+  `ADDED`, that `sub` in the token; again → `SKIPPED`.
+- **But user identifiers are unique across the whole server.** Importing a user whose `id` already
+  exists in **another** realm → **409 "Duplicate resource error"**, even with that other realm
+  disabled (spec review round 2, confirmed). So a copy with the same identifier is impossible while
+  the original exists: keeping subjects and never deleting an account cannot both hold for a copy.
+- **Renaming a realm** (`PUT /admin/realms/{old}` with `realm: <new>`) → 204; the old name is gone
+  (404), every user keeps its `id`, password and roles, the login theme and display name stay, and
+  a sign-in on the new name issues a token with the **same `sub`** and the new issuer.
 
-Keycloak's admin API never returns password hashes, so a moved user's password is set again from
-the seed password. That is safe because every account in the shared realm is a seeded one
-(Constitution: no self-enrollment, no password reset). The keycloak-admin-client in the lockfile
-exposes partial import as `kc.realms.partialImport({ realm, rep })`.
+**What depends on whose identifier** (code read, 2026-11-09): customers: orders, tickets (through
+the order), seat holds, attempt limits; gate agents: only `Ticket.checkedInBySub`, written at
+admission and never read back (every screen shows `checkedInByUsername`); admins: nothing.
 
-**Decision**: the seed creates **every** app-realm user through partial import with `SKIP`:
+**Decision** (Mahdi, 2026-11-09): **rename** realm `queuepass` to `queuepass-customer-app`. The 200
+customers keep everything. Admins and gate agents get **new** accounts (new subjects, same usernames
+and seed password) in their own realms, created as `provisionUsers` creates users today. Their old
+copies stay in the customer realm, **disabled**. Past check-ins keep the old agent subject beside
+the agent's username, which is what is shown.
 
-- **Moved user** (the shared realm exists and has the username): `id`, `username`, `email`,
-  `emailVerified`, `firstName`, `lastName`, `enabled` copied from the shared realm; `realmRoles`
-  the app's role; `credentials` the seed password.
-- **New user** (clean clone, or a username missing from the shared realm): the same fields as
-  `provisionUsers` writes today, no `id` (Keycloak picks one).
+**Rejected**:
+- *Copy, then delete each original*: keeps every subject, but deletes accounts (against the
+  constitution's spirit and FR-007), and a half-done run is harder to reason about.
+- *New identifiers and a database rewrite by username*: touches QueuePass data on every laptop,
+  the riskiest option before a demo.
 
-## R6. The move: order, safety, and turning the old realm off
+## R6. The rename: order, safety, convergence
 
 **Decision**, per run of the seed:
 
-1. Create or converge the three app realms, their role, the audience scope and their client
-   (as today, per realm).
-2. If realm `queuepass` exists, **enabled or not**, read each seeded username's id from it
-   (`admin1`–`5`, `agent1`–`30`, `customer1`–`200`). The admin API reads a disabled realm, so a user
-   missing from an app realm after the move (deleted by hand later) is recreated with its old
-   subject, not a new one.
-3. For each app-realm user (R5): skip it if the app realm already has that username **with the old
-   realm's id** (or the old realm has no such user); import it, moved or new, if it is missing. A
-   username present in the app realm with a **different** id from the old realm's is a clash: the
-   seed collects every clash, then **fails** with a message naming each user, before step 4. Nothing
-   is overwritten or deleted. Only a hand edit in Keycloak's console can cause a clash; failing is
-   loud (the apps wait for the seed to succeed), whereas carrying on would silently cut the user off
-   from their orders (FR-009).
-4. When all 235 are present in their app realms with the right ids, turn realm `queuepass` off
-   (`enabled: false`) if it is on. It is never deleted, and nothing in it is changed or removed.
+1. **Rename** if realm `queuepass` exists and realm `queuepass-customer-app` does not. If **both**
+   exist, fail with a message naming both realms and change nothing (FR-009): merging is not
+   attempted. If only the customer realm exists (clean system after its first run, or after the
+   rename), go on.
+2. Converge the three app realms as on a clean system: realm settings, the app's role, the audience
+   scope, the app's client, and the app's users (created when missing; an existing user is left
+   alone). In the renamed customer realm the customers are already there, so nothing is created
+   for them.
+3. **In the customer realm only**, disable (never delete) every user who is enabled and lacks the
+   `customer` role (the old `admin1`–`5` and `agent1`–`30`), and the clients `admin-app` and
+   `booth-app` (`enabled: false`). The roles `queuepass-admin` and `gate-agent` stay defined there,
+   unused; the Backend ignores them from this realm anyway (FR-011).
 
-**Why this order**: the subjects are read from the old realm, so it must exist; turning it off last,
-and only after a complete move, means a run stopped half way (or failed on a clash) changes nothing
-that the next run cannot finish. While the move is incomplete the apps cannot sign in at all (they
-point at the new realms and wait for the seed to succeed), so there is no half-working state to
-protect. A turned-off realm refuses every sign-in and token request, and its tokens fail the
-Backend's issuer check anyway (FR-010).
-
-**Why not delete**: deleting is irreversible and the spec forbids it (FR-007). A team member who
-needs the old realm back can turn it on in the admin console.
+**Why this is safe**: the rename is one atomic call; a run stopped before it changed nothing, and a
+run stopped after it is finished by the next run's convergence (step 2 and step 3 are idempotent).
+Nothing is ever deleted. A Keycloak admin who needs the old realm back can rename it back in the
+admin console.
 
 ## R7. Subjects across realms
 
-A Keycloak subject is unique within a realm. QueuePass keys data by subject alone. Moved users keep
-their (random, version 4 UUID) subjects, which were unique in the shared realm; new users get fresh
-random UUIDs. A collision between realms has the probability of a UUID collision. Scoping every
-stored subject by realm would change the database for no practical gain (Constitution VIII).
-Recorded, not built.
+Keycloak makes every user identifier unique across the server (R5), so QueuePass, which keys data by
+subject alone, never sees two users with one subject, even across realms. No change to the
+database.
 
 ## R8. The Backend: three issuers, one role each
 
@@ -210,24 +209,31 @@ one per app.
   both greetings" (one token with `customer` and `gate-agent`) becomes FR-011's case: the token's
   realm's role works, the other is 403. `auth.e2e-spec.ts` builds the issuer literally; it uses
   `issuerFor(realm)`.
-- **Seed** (`scripts/seed/test/fake-keycloak.ts` fakes the admin API): add partial import with
-  `SKIP` and ids, realm enable/disable, and several realms. Tests: clean run creates three realms
-  and 235 users in the right realms; a run over a shared realm moves every user with the same
-  subject and turns the shared realm off; a second run changes nothing; a clash is reported and
-  left alone; a run stopped after N users finishes on the next run.
+- **Seed** (`scripts/seed/test/fake-keycloak.ts` fakes the admin API): add several realms, realm
+  rename (`realms.update` with a new `realm` keeps the users), user and client enable/disable, and
+  make user identifiers unique across **all** realms as Keycloak does (R5). Tests: a clean run
+  creates three realms and 235 users in the right realms; a run over a shared realm renames it to
+  the customer realm with every customer's id unchanged, creates the admins and agents in their own
+  realms, and disables the old admin and agent copies and the other two clients in the customer
+  realm; a second run changes nothing; both realms present fails and changes nothing.
 - **Browser (e2e)**: one browser context, three pages, three users (quickstart S1, S2); each app
   makes an authorized API call after the others sign in and after one logs out. **The app's own
-  renewal** is driven with Playwright's clock: `page.clock.install()` before each app page loads,
-  then `page.clock.runFor('04:30')` after the other apps have signed in (or logged out), so the
-  app's own timer (`automaticSilentRenew`, which renews before the 300 s access token expires)
-  fires and renews with its refresh token against the real Keycloak; then the page makes an API
-  call and must still show its own user. Calling Keycloak's token endpoint from the test instead
-  would only prove Keycloak accepts the token, not that the app stays signed in. The tokens are in
-  memory and `UserManager` is not exposed to the page, so there is no other handle.
+  renewal** is driven with Playwright's clock, which belongs to the **browser context** (all pages
+  share it): `context.clock.install()` **once**, before the first page loads (installing again
+  resets every page's time). Before moving the clock, wait on each realm's refresh:
+  `page.waitForResponse` for `POST /realms/<realm>/protocol/openid-connect/token` with
+  `grant_type=refresh_token` answering 200. Then `context.clock.runFor('04:05')`: just past the
+  expiring point (renewal starts about 60 s before the 300 s token expires) and under
+  oidc-client-ts's 10 s request timeout, which also runs on the fake clock, so the real refresh
+  request is not aborted. One `runFor` renews every signed-in app at once. Assert that each realm's
+  refresh answered 200, and that the next API request's `Authorization` header carries the **new**
+  access token: the Backend checks expiry in real time, so an API call alone would pass with the
+  old token and prove nothing. A call to Keycloak's token endpoint from the test would only prove
+  Keycloak accepts the token, not that the app renews and stays signed in.
 - **Another app's account** (FR-012): `001`'s browser test V4 signed in to each app with another
   app's account and expected the wrong-role page. After `028` those accounts are not in that realm:
-  V4 becomes "each app's sign-in page refuses another app's account" (Keycloak's "Invalid username
-  or password", the app not signed in). The wrong-role page itself stays covered without a browser
+  V4 becomes "each app's sign-in page refuses another app's account" (on CI's clean stack,
+  Keycloak's "Invalid username or password"; the app not signed in). The wrong-role page itself stays covered without a browser
   sign-in by `packages/shared/test/web/require-role.test.tsx`, which gives the page a user without
   the role.
 - **Existing tests and files that name realm `queuepass`**:
@@ -237,35 +243,13 @@ one per app.
   `scripts/test/run-host.test.mjs`, and the README. The e2e fixtures do not name it (they use the
   `KEYCLOAK` origin and the `.qp-realm` class only).
 
-## R13. Keeping the team stack safe while building and testing
-
-**Problem**: the live seed tests (`scripts/seed/test/seed-idempotence.test.ts`,
-`sign-in-screens.test.ts`) run `seed()` against whatever Keycloak answers on `localhost:8080` /
-`9000` whenever it is up. On a developer laptop that is often the team stack. Once the seed moves
-users, any `npm test` or `npm run ci` would move the team stack's users and turn its realm
-`queuepass` off, without anyone agreeing to it. A second stack cannot run beside the team stack:
-the ports (5432, 8080, 9000, 3000, 5173–5175) and `KC_HOSTNAME` are fixed.
-
-**Decision**:
-
-1. **Guard in the live tests**: before calling `seed()`, a live test checks the Keycloak it reaches.
-   If realm `queuepass` exists and is **enabled**, the test is skipped with the reason "this
-   Keycloak still has the shared realm; set QP_SEED_ALLOW_MOVE=1 to let the tests move its users",
-   unless `QP_SEED_ALLOW_MOVE=1`. A clean Keycloak (CI, a fresh `-p` stack) has no such realm, so
-   the tests run there unchanged.
-2. **One stack at a time**: the implementer works on a stack of their own (`-p qp028`) only after
-   stopping the team stack with Mahdi's agreement (`docker compose -p queuepass-team stop`: never
-   `down -v`, so its volumes and data stay), and starts the team stack again when done.
-3. The team stack is rebuilt from the branch only in the walk (T032), with Mahdi's agreement, and
-   that is the moment its users move.
-
 ## R11. Documentation and configuration
 
 `README.md` (service URLs: three realm sign-in pages and the admin console; the note that each app
 has its own sign-in), `.env.example` (the new Backend bases, three authorities, `KEYCLOAK_REALM`
 retired), `docker-compose.yml` (Backend env, each app's build arg, the seed's env). The seed's
 `KEYCLOAK_REALM` is retired: the app realms come from `APP_REALMS`, and the shared realm's name
-`queuepass` is a constant (`LEGACY_REALM`) used only by the move.
+`queuepass` is a constant (`LEGACY_REALM`) used only by the rename (R6).
 
 ## R12. Constitution
 
@@ -285,3 +269,33 @@ Principle V and "Security and Data Constraints" speak of one realm ("the realm's
 
 The constitution, the contract, `packages/shared`, `docker-compose.yml` and `.env.example` are
 shared surface: every team member approves this PR and the implementation PR.
+
+## R13. Keeping the team stack safe while building and testing
+
+**Problem**: the live seed tests run against whatever Keycloak answers on `localhost:8080` / `9000`
+whenever it is up. `scripts/seed/test/seed-idempotence.test.ts` runs `seed()`, which would rename
+the team stack's realm `queuepass` and create accounts without anyone agreeing to it;
+`sign-in-screens.test.ts` fetches the sign-in pages of the new realms, which do not exist on an
+un-upgraded Keycloak, so it would fail. A second stack cannot run beside the team stack: the ports
+(5432, 8080, 9000, 3000, 5173–5175) and `KC_HOSTNAME` are fixed. And on this machine the app images
+cannot be built (a network that intercepts TLS; README "When the images can't be built", path B):
+the team stack runs only `database` and `keycloak` in Docker, and the Backend and the three apps
+from the host with `node scripts/run-host.mjs`.
+
+**Decision**:
+
+1. **Guard in the live tests**: before anything else, a live test checks the Keycloak it reaches.
+   If realm `queuepass` exists, the test is skipped with the reason "this Keycloak still has the
+   shared realm; set QP_SEED_ALLOW_RENAME=1 to let the tests rename it", unless
+   `QP_SEED_ALLOW_RENAME=1`. A clean Keycloak (CI, a fresh `-p` stack) has no such realm, so the
+   tests run there unchanged.
+2. **One stack at a time, path B**: the implementer stops the team stack only during the stretches
+   that need a running stack, with Mahdi's agreement (given 2026-11-09 for the test stretches):
+   stop the host-run processes holding ports 3000 and 5173–5175, then
+   `docker compose -p queuepass-team stop` (never `down`, never `-v`: its volumes and data stay).
+   Their own stack is `docker compose -p qp028 up -d database keycloak` plus
+   `node scripts/run-host.mjs` from the right checkout. Between stretches, and at the end, the team
+   stack comes back: `docker compose -p qp028 stop`, `docker compose -p queuepass-team start`, and
+   `node scripts/run-host.mjs` from the main checkout (`C:\Users\mahdi\hello_world\QueuePass-team`).
+3. The team stack is upgraded from the branch only in the walk (T032), after Mahdi says go, and
+   that is the moment its realm is renamed.
