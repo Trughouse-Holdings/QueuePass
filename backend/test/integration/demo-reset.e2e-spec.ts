@@ -34,7 +34,7 @@ const DAY = 86_400_000;
  * every timestamp but an event's start, end, and doors; a nullable timestamp only as set or not.
  * Dated events by their local date relative to the created Fall Concert's, local time, duration,
  * and doors offset; Demo Tonight by duration and doors offset only. Tickets have no link to their
- * order. Image bytes as SHA-256. Every list sorted.
+ * order and no check-in; check-ins are a count per event with who checked them in (R12). Image bytes as SHA-256. Every list sorted.
  */
 async function fingerprint(prisma: PrismaService) {
   const sorted = <T>(rows: T[]) => rows.map((r) => JSON.stringify(r)).sort();
@@ -140,9 +140,6 @@ async function fingerprint(prisma: PrismaService) {
             eventId: true,
             tierId: true,
             status: true,
-            checkedInAt: true,
-            checkedInBySub: true,
-            checkedInByUsername: true,
             seatSection: true,
             seatRow: true,
             seatNumber: true,
@@ -152,9 +149,22 @@ async function fingerprint(prisma: PrismaService) {
         event: eventName.get(t.eventId),
         tier: t.tierId ? tierName.get(t.tierId) : null,
         status: t.status,
-        checkedIn: t.checkedInAt !== null,
-        by: [t.checkedInBySub, t.checkedInByUsername],
         seat: [t.seatSection, t.seatRow, t.seatNumber],
+      })),
+    ),
+    // R12 (clarified): check-ins as a count per event, with who checked them in. Which of Fall
+    // Concert's tickets are checked in follows random code order across its tiers.
+    checkIns: sorted(
+      (
+        await prisma.ticket.groupBy({
+          by: ['eventId', 'checkedInBySub', 'checkedInByUsername'],
+          where: { checkedInAt: { not: null } },
+          _count: { _all: true },
+        })
+      ).map((g) => ({
+        event: eventName.get(g.eventId),
+        by: [g.checkedInBySub, g.checkedInByUsername],
+        count: g._count._all,
       })),
     ),
     reservations: sorted(
@@ -334,6 +344,13 @@ describe('Demo reset (spec 029)', () => {
       f0 = await fingerprint(ctx.prisma);
       expect(f0.locations).toHaveLength(2);
       expect(f0.events).toHaveLength(5);
+      expect(f0.checkIns).toEqual([
+        JSON.stringify({
+          event: 'Fall Concert',
+          by: ['demo-agent1', 'agent1'],
+          count: summary.created.checkedIn,
+        }),
+      ]);
     });
 
     it('after extra data, leaves only demo rows, equal to the empty reset (SC-001)', async () => {
