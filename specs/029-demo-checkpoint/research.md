@@ -291,8 +291,9 @@ Demo Arena` exists exactly once and there are exactly 2 venues. Otherwise, or wh
 returned `created: false` (the demo venue already there), it fails with FR-013's "another reset ran at
 the same time; run it again" (exit 1). Any other failure reports the same way. No lock is added: it
 is one person's laptop, and one more run fixes it. A test runs two `runDemoReset` calls at once and
-checks that at least one of them fails this way unless the database ends with exactly one demo set
-(tasks T006).
+accepts a rejection with this message or with the busy message (a `40P01` or `55P03` during one
+reset's wipe is correct), and asserts the two never both resolve leaving two demo sets: if both
+resolve, exactly one demo set exists (tasks T006).
 
 ## R11. Output
 
@@ -333,7 +334,11 @@ with `@queuepass/shared`'s formatting.
     SC-005);
   - `_prisma_migrations` still holds every row after a reset (FR-005);
   - a failure while loading the demo data (the demo venue inserted between wipe and load through a
-    test hook, so `runDemoData` returns `created: false`) is reported as FR-013 says.
+    test hook, so `runDemoData` returns `created: false`) is reported as FR-013 says;
+  - busy: a second client holding `ACCESS SHARE` on `"Event"` makes the reset refuse as busy, with
+    nothing removed (R10);
+  - two resets at once: never both resolve leaving two demo sets; a rejection is FR-013's or the busy
+    message (R10).
 - **Backend, Jest unit** (`backend/test/unit/demo-reset-guard.spec.ts`, new): `checkResetAllowed` with
   the permission absent, `0`, `true`, ` 1`, `1`; hosts `localhost`, `LOCALHOST`, `127.0.0.1`, `[::1]`,
   `database` inside a container (accepted) and outside one (refused), `db.example.com`, `10.0.0.5`,
@@ -350,7 +355,7 @@ with `@queuepass/shared`'s formatting.
 - **Fingerprint**: a helper in the test that reads every demo table and maps each row to its
   meaningful fields. Dropped: identifiers and foreign keys, ticket codes, entry secrets, `requestId`,
   and every timestamp column except an event's `startsAt`, `endsAt`, `doorsOpenAt`; of a nullable
-  timestamp (`cancelledAt`, `Order.refundedAt`, `Ticket.checkedInAt`, a hold's `releasedAt`) only
+  timestamp (`cancelledAt`, `Order.refundedAt`, `Ticket.checkedInAt`, `SeatReservation.endedAt`, a hold's `releasedAt`) only
   whether it is set is kept, since its value is the moment of the run. Tickets are fingerprinted by
   (event name, tier name, status, checked in or not, `checkedInBySub`/`checkedInByUsername`, seat),
   with no link to their order: which concert tickets are checked in is chosen by ticket `code` order,

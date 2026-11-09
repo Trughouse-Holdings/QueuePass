@@ -112,8 +112,10 @@ confirm they **fail** before the implementation tasks of Phase 3.
   ACCESS SHARE MODE`; `runDemoReset` rejects with "the database is busy; try again" within about 3
   s (well before Prisma's 15 s), and after the second client commits, a marker venue made before is
   still there. And two at once (R10): two `runDemoReset` calls started together with `Promise.allSettled`;
-  either at least one rejects with FR-013's message, or both resolve and the database holds exactly one
-  demo set (2 venues, one `QueuePass Demo Arena`); never two demo sets with both resolved. Must fail.
+  a rejection is accepted with FR-013's message or with "the database is busy; try again" (a `40P01`
+  or `55P03` during one reset's wipe is correct behaviour); the real assertion is that the two never
+  both resolve leaving two demo sets: if both resolve, the database holds exactly one demo set (2
+  venues, one `QueuePass Demo Arena`). Must fail.
 - [ ] T007 [P] [US3] Root scripts (FR-002, FR-003, SC-007, research R6, R12):
   `scripts/test/run-host.test.mjs`: `--print --demo-reset` lists exactly one setup step,
   `demo-reset`, `npm run demo-reset --workspace @queuepass/backend`, whose environment is the Backend
@@ -144,7 +146,7 @@ confirm they **fail** before the implementation tasks of Phase 3.
   one quoted `TRUNCATE … RESTART IDENTITY CASCADE`; Prisma `P2028` (`err.code`), and `P2010` whose
   `err.meta.code` is `55P03` or `40P01`, become "the database is busy; try again", R10); `runDemoReset(app, { log, migrationsDir?, afterWipe? })` (assert, wipe, `afterWipe` for tests only, then
   `runDemoData`, then the check that `QueuePass Demo Arena` exists exactly once and there are exactly 2
-  venues; `created: false`, a failed check, or a throw becomes FR-013's error). T004, T005, and T006's busy case pass.
+  venues; `created: false`, a failed check, or a throw becomes FR-013's error). T004, T005, and T006's busy and two-at-once cases pass.
 - [ ] T011 [US1] Same file: the output of research R11 (the label map, Demo Tonight's close in its
   venue's zone with `@queuepass/shared`, the duration, the reminders) and `main()` (guard first, then
   `NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] })`, `runDemoReset`,
@@ -285,6 +287,15 @@ confirm they **fail** before the implementation tasks of Phase 3.
     the SIGINT handler; a failed step exits 1 through the existing `throw`; R6 and T012 agree.
   - N3: the busy test's second client holds its lock in `$transaction(fn, { timeout: 20_000 })` (R10,
     T006).
+- **Round 3** (independent Claude session, 2026-11-09): no must-fix, 1 should-fix, 3 nits; the
+  reviewer's verdict: only minor findings remain. All fixed in the `Review 029: spec review round 3`
+  commit.
+  - S1: the two-at-once test also accepts a rejection with the busy message (a `40P01` or `55P03`
+    during one reset's wipe is correct); the assertion is that the two never both resolve leaving
+    two demo sets, and if both resolve exactly one demo set exists (R10, T006).
+  - N1: R12's Backend test list has a line each for the busy and two-at-once tests, pointing to R10.
+  - N2: T010 lists T006's two-at-once case among the tests it makes pass.
+  - N3: R12's nullable timestamps include `SeatReservation.endedAt`.
 - **Open findings**: none.
 
 ## Review record (implementation branch)
