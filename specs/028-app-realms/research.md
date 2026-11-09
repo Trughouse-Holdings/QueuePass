@@ -100,8 +100,10 @@ the seed image was rejected: it reverses a reviewed decision of `020` for three 
 
 ## R5. Keeping identifiers: rename, not copy
 
-**Question**: QueuePass stores Keycloak subjects: `Order.customerSub`, `SeatReservation.customerSub`,
-the in-memory attempt limits, keyed by subject (all customers), and `Ticket.checkedInBySub` (the agent, next to
+**Question**: QueuePass stores Keycloak subjects: `Order.customerSub`,
+`SeatReservation.customerSub`,
+the in-memory attempt limits, keyed by subject (all customers), and `Ticket.checkedInBySub` (the
+agent, next to
 `checkedInByUsername`). A user made in a new realm gets a new random subject. How do existing users
 keep theirs?
 
@@ -173,7 +175,8 @@ database.
 - `OIDC_JWKS_BASE` = `http://keycloak:8080/realms` (the Compose network address)
 
 and `OIDC_AUDIENCE` unchanged. For each realm in `APP_REALMS` the issuer is
-`${OIDC_ISSUER_BASE}/${realm}` and the key set `${OIDC_JWKS_BASE}/${realm}/protocol/openid-connect/certs`,
+`${OIDC_ISSUER_BASE}/${realm}` and the key set
+`${OIDC_JWKS_BASE}/${realm}/protocol/openid-connect/certs`,
 one cached remote key set per realm (same cooldown and timeout as today).
 
 The guard reads the token's `iss` **without trusting it** (jose `decodeJwt`), only to pick the
@@ -181,7 +184,8 @@ realm: an issuer that is not exactly one of the three is a 401 before any key is
 `jwtVerify` checks the token against **that realm's** keys with `issuer` set to that realm's issuer,
 the audience and expiry as today. A token signed by one realm's key but claiming another realm's
 issuer fails signature verification. Roles: of `realm_access.roles`, keep only the realm's own role
-(`APP_REALMS[*].role`); everything else is dropped, so `RolesGuard` answers 403 where another role is
+(`APP_REALMS[*].role`); everything else is dropped, so `RolesGuard` answers 403 where another role
+is
 needed (FR-011).
 
 **Startup**: the Backend refuses to start without `OIDC_ISSUER_BASE`, `OIDC_JWKS_BASE` and
@@ -194,7 +198,8 @@ tokens from any realm a Keycloak admin creates later.
 
 The shared `AuthProvider` already takes `authority` and `clientId` as props; each app passes
 `VITE_OIDC_AUTHORITY`. Only the defaults change: each app's Dockerfile, `docker-compose.yml` and
-`scripts/run-host.mjs` point it at its own realm (`http://localhost:8080/realms/queuepass-admin-app`,
+`scripts/run-host.mjs` point it at its own realm
+(`http://localhost:8080/realms/queuepass-admin-app`,
 …). No change to `auth-provider.tsx` is needed: renewal, logout (`signoutRedirect` with the ID
 token, which ends only that realm's session), the back-button rule and `beforeLogout` work per
 realm as they did for the shared one. `.env.example`'s single `VITE_OIDC_AUTHORITY` becomes three,
@@ -240,7 +245,8 @@ one per app.
 - **Another app's account** (FR-012): `001`'s browser test V4 signed in to each app with another
   app's account and expected the wrong-role page. After `028` those accounts are not in that realm:
   V4 becomes "each app's sign-in page refuses another app's account" (on CI's clean stack,
-  Keycloak's "Invalid username or password"; the app not signed in). The wrong-role page itself stays covered without a browser
+  Keycloak's "Invalid username or password"; the app not signed in). The wrong-role page itself
+  stays covered without a browser
   sign-in by `packages/shared/test/web/require-role.test.tsx`, which gives the page a user without
   the role.
 - **Existing tests and files that name realm `queuepass`**:
@@ -302,7 +308,8 @@ from the host with `node scripts/run-host.mjs`.
    `docker compose -p queuepass-team stop` (never `down`, never `-v`: its volumes and data stay).
    Their own stack is `docker compose -p qp028 up -d database keycloak` plus
    `node scripts/run-host.mjs` from the right checkout. Between stretches, and at the end, the team
-   stack comes back: `docker compose -p qp028 stop`,
+   stack comes back (from the main checkout until the walk, T032; from 028's code after it):
+   `docker compose -p qp028 stop`,
    `docker compose -p queuepass-team start database keycloak` (**only those two**: the project also
    holds old, exited `backend`, `seed` and app containers from weeks ago, which a bare `start` would
    run, taking the ports and running a pre-028 seed), and `node scripts/run-host.mjs` from the main

@@ -43,7 +43,8 @@ Backend against a local key set), one new Playwright spec (`e2e/tests/028-app-re
 per realm (three small fetches at first use instead of one).
 
 **Constraints**: no front end handles a password; tokens in memory only; nothing deleted from
-Keycloak; the rename is atomic and the rest idempotent; `main` stays demo-ready (a database made before
+Keycloak; the rename is atomic and the rest idempotent; `main` stays demo-ready (a database made
+before
 this feature keeps working after the update, US3).
 
 **Scale/Scope**: 3 realms, 3 clients, 235 users, as today.
@@ -98,7 +99,7 @@ scripts/seed/src/
                                  # admin/agent copies and other clients there (R6)
 scripts/seed/test/               # fake-keycloak: several realms, rename, enable/disable, ids
                                  # unique across realms (R5);
-                                 # the live tests' guard against moving a stack's users (R13)
+                                 # the live tests' guard against renaming a stack's realm (R13)
 
 backend/src/auth/
 ├── jwks.provider.ts             # OIDC_ISSUER_BASE, OIDC_JWKS_BASE; a key set per realm
