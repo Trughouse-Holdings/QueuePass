@@ -17,7 +17,8 @@ Changed:
   - Principle II: "The Keycloak realms" (plural) are created by the seed.
   - Language and Stack: Identity is one realm per front end, each with its one client; Backend
     token validation uses the JWKS endpoint of the token's own app realm.
-  - Roadmap: row 028-app-realms reserved; the next free number is 029.
+  - Roadmap: row 028-app-realms reserved (the old realm renamed to the Customer app's realm, so
+    customers keep their identifiers; spec 028 review round 2); the next free number is 029.
 Impact: spec 001's single-realm setup (seed, Backend token checks, app authorities) is replaced by
   spec 028; the contract's authentication text (1.21.0). No other spec changes. The README's
   version reference follows. Templates: none need updating.
@@ -362,7 +363,7 @@ number is a pull request against this table. The next free number is `029`.
 | `025-doors-open` | Every event has a doors-open time, set by admins in the venue's time zone (by default 1 hour before the start, no more than 6 hours before it and not after it, refused otherwise); customers and admins see it with the event; check-in, by any code, is open from 1 hour before doors open until the event ends, and the Ticket Booth app lists events not yet open greyed out, with when they open (#91; the doors-open item of #49) | `017`, `018`, `020` |
 | `026-purchase-rate-limits` | Each customer account may try to buy tickets, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds, however the API is called, with no one exempt; a customer over a limit is told plainly and when they can try again, with a countdown, and keeps what they had; ordinary buying never meets the limits, and QueuePass stays responsive for everyone else (#56) | `006`, `015`, `016` |
 | `027-sign-in-background` | Every sign-in page shows Keycloak's own low-poly stones background, served by Keycloak, with the stones grey and the lines between them in the app's accent; the form on Keycloak's card, styled from the shared theme, under the realm's name as Keycloak's own header; the lines pulse and glow, with a pause button, and are still under reduced motion; every text, field, and focus ring stays readable at every window size, in light and dark schemes (#122) | `021` |
-| `028-app-realms` | Each app signs in through its own Keycloak realm, so signing in to, renewing, or logging out of one app never signs another out, and three different users can use the three apps in one browser window; the seed moves existing users into their app's realm with the same identifier, so their orders, tickets, and check-ins stay theirs, and turns the old shared realm off without deleting it; the Backend accepts the three realms only, and from each only its app's role (#138) | `001`, `021`, `027` |
+| `028-app-realms` | Each app signs in through its own Keycloak realm, so signing in to, renewing, or logging out of one app never signs another out, and three different users can use the three apps in one browser window; on a system made before it, the seed renames the old shared realm to the Customer app's realm, so customers keep their identifiers and their orders, tickets, and holds, and admins and gate agents get new accounts in their own realms, their old copies disabled, never deleted; the Backend accepts the three realms only, and from each only its app's role (#138) | `001`, `021`, `027` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
