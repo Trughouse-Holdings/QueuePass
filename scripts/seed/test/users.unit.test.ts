@@ -1,16 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { EXPECTED_COUNTS, USER_GROUPS, provisionUsers } from '../src/provision-users';
-import { createFakeKeycloak, provisionedRealmState } from './fake-keycloak';
+import { APP_REALMS } from '../src/app-realms';
+import { EXPECTED_COUNTS, provisionUsers } from '../src/provision-users';
+import { createFakeKeycloak, fakeUser, provisionedRealmState } from './fake-keycloak';
 
 /**
  * Spec 001 FR-003 to FR-006 through spec 010 research R4: every test account is created once,
- * enabled, with its group's role and a non-temporary password; a second run creates nothing.
- * Needs no Keycloak (a recording fake).
+ * enabled, with its role and a non-temporary password; a second run creates nothing. Spec 028
+ * (FR-005, tasks T015): each app realm holds exactly its own users. Needs no Keycloak (a
+ * recording fake).
  */
-describe('provisionUsers', () => {
+describe('the seeded accounts', () => {
+  it('are 5 admins, 30 gate agents and 200 customers: 235', () => {
+    expect(EXPECTED_COUNTS).toEqual({ admin: 5, agent: 30, customer: 200, total: 235 });
+  });
+});
+
+describe.each(APP_REALMS.map((r) => [r.realm, r] as const))('provisionUsers: %s', (realm, app) => {
+  const { prefix, count, role } = app;
+  const state = () => provisionedRealmState(realm, [role]);
+
   beforeEach(() => {
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
-    vi.stubEnv('KEYCLOAK_REALM', undefined);
     vi.stubEnv('SEED_USER_PASSWORD', undefined);
   });
   afterEach(() => {
@@ -18,149 +28,138 @@ describe('provisionUsers', () => {
     vi.unstubAllEnvs();
   });
 
-  it('creates all 235 accounts, each once, with its group role', async () => {
-    const state = provisionedRealmState();
-    const fake = createFakeKeycloak(state);
+  it(`creates its ${count} accounts, each once, with its role`, async () => {
+    const s = state();
+    const fake = createFakeKeycloak(s);
 
-    await provisionUsers(fake.kc);
+    await provisionUsers(fake.kc, app);
 
-    expect(state.users).toHaveLength(EXPECTED_COUNTS.total);
-    for (const group of USER_GROUPS) {
-      const members = state.users.filter((u) =>
-        new RegExp(`^${group.prefix}\\d+$`).test(u.username!),
-      );
-      expect(members, group.key).toHaveLength(group.count);
-      expect(new Set(members.map((u) => u.username)).size).toBe(group.count);
-      for (const u of members) expect(u.realmRoles, u.username).toEqual([group.role]);
-      expect(console.log).toHaveBeenCalledWith(
-        `[seed] ${group.prefix}: ${group.count} created, 0 already present ` +
-          `(expected total ${group.count})`,
-      );
-    }
-    expect(state.users.map((u) => u.username)).toContain('customer200');
-    expect(state.users.map((u) => u.username)).not.toContain('customer201');
+    const users = s.realms[0]!.users;
+    expect(users.map((u) => u.username)).toEqual(
+      Array.from({ length: count }, (_, i) => `${prefix}${i + 1}`),
+    );
+    for (const u of users) expect(u.realmRoles, u.username).toEqual([role]);
+    expect(console.log).toHaveBeenCalledWith(
+      `[seed] ${realm}: ${prefix}: ${count} created, 0 already present (expected total ${count})`,
+    );
   });
 
-  it('creates each account enabled, verified, with a non-temporary password', async () => {
-    const fake = createFakeKeycloak(provisionedRealmState());
+  it('creates each account enabled, verified, with a non-temporary password, in its realm', async () => {
+    const fake = createFakeKeycloak(state());
 
-    await provisionUsers(fake.kc);
+    await provisionUsers(fake.kc, app);
 
-    const [first] = fake.callsTo('users.create')[0];
+    const [first] = fake.callsTo('users.create')[0]!;
     expect(first).toEqual({
-      realm: 'queuepass',
-      username: 'admin1',
+      realm,
+      username: `${prefix}1`,
       enabled: true,
       emailVerified: true,
-      email: 'admin1@queuepass.local',
-      firstName: 'admin',
+      email: `${prefix}1@queuepass.local`,
+      firstName: prefix,
       lastName: '1',
       credentials: [{ type: 'password', value: 'test123', temporary: false }],
     });
-    expect(fake.callsTo('users.find')[0]).toEqual([
-      { realm: 'queuepass', username: 'admin1', exact: true },
-    ]);
+    expect(fake.callsTo('users.find')[0]).toEqual([{ realm, username: `${prefix}1`, exact: true }]);
+    for (const call of fake.calls) {
+      expect((call.args[0] as { realm?: string }).realm, call.method).toBe(realm);
+    }
   });
 
   it('maps the role by id and name', async () => {
-    const state = provisionedRealmState();
-    const fake = createFakeKeycloak(state);
-    const admin = state.roles.find((r) => r.name === 'queuepass-admin')!;
+    const s = state();
+    const fake = createFakeKeycloak(s);
+    const mapped = s.realms[0]!.roles.find((r) => r.name === role)!;
 
-    await provisionUsers(fake.kc);
+    await provisionUsers(fake.kc, app);
 
     const [mapping] = fake.callsTo('users.addRealmRoleMappings')[0] as [
       { realm: string; id: string; roles: unknown[] },
     ];
-    expect(mapping.realm).toBe('queuepass');
-    expect(mapping.id).toBe(state.users[0].id);
-    expect(mapping.roles).toEqual([{ id: admin.id, name: 'queuepass-admin' }]);
+    expect(mapping.realm).toBe(realm);
+    expect(mapping.id).toBe(s.realms[0]!.users[0]!.id);
+    expect(mapping.roles).toEqual([{ id: mapped.id, name: role }]);
   });
 
   it('a second run creates nothing', async () => {
-    const state = provisionedRealmState();
-    await provisionUsers(createFakeKeycloak(state).kc);
-    const fake = createFakeKeycloak(state);
+    const s = state();
+    await provisionUsers(createFakeKeycloak(s).kc, app);
+    const fake = createFakeKeycloak(s);
 
-    await provisionUsers(fake.kc);
+    await provisionUsers(fake.kc, app);
 
     expect(fake.callsTo('users.create')).toEqual([]);
     expect(fake.callsTo('users.addRealmRoleMappings')).toEqual([]);
-    expect(state.users).toHaveLength(EXPECTED_COUNTS.total);
+    expect(s.realms[0]!.users).toHaveLength(count);
     expect(console.log).toHaveBeenCalledWith(
-      '[seed] customer: 0 created, 200 already present (expected total 200)',
+      `[seed] ${realm}: ${prefix}: 0 created, ${count} already present (expected total ${count})`,
     );
   });
 
   it('leaves an account that is already present as it is, roles included', async () => {
-    const state = provisionedRealmState();
-    state.users.push({ id: 'u-old', username: 'agent7', realmRoles: [] });
-    const fake = createFakeKeycloak(state);
+    const s = state();
+    s.realms[0]!.users.push({ ...fakeUser('u-old', `${prefix}3`, []), enabled: false });
+    const fake = createFakeKeycloak(s);
 
-    await provisionUsers(fake.kc);
+    await provisionUsers(fake.kc, app);
 
-    // The seed checks presence by username only: it neither recreates nor re-roles the account.
-    expect(state.users.filter((u) => u.username === 'agent7')).toEqual([
-      { id: 'u-old', username: 'agent7', realmRoles: [] },
+    // Presence is checked by username only: the account is neither recreated, re-roled nor enabled.
+    expect(s.realms[0]!.users.filter((u) => u.username === `${prefix}3`)).toEqual([
+      { id: 'u-old', username: `${prefix}3`, enabled: false, realmRoles: [] },
     ]);
-    expect(fake.callsTo('users.create')).toHaveLength(EXPECTED_COUNTS.total - 1);
+    expect(fake.callsTo('users.create')).toHaveLength(count - 1);
     expect(console.log).toHaveBeenCalledWith(
-      '[seed] agent: 29 created, 1 already present (expected total 30)',
+      `[seed] ${realm}: ${prefix}: ${count - 1} created, 1 already present (expected total ${count})`,
+    );
+    expect(console.log).toHaveBeenCalledWith(
+      `[seed] ${realm}: made missing accounts, each with a new id: ${Array.from(
+        { length: count },
+        (_, i) => `${prefix}${i + 1}`,
+      )
+        .filter((u) => u !== `${prefix}3`)
+        .join(', ')}`,
     );
   });
 
-  it('matches usernames exactly: agent1 present does not hide agent10', async () => {
-    const state = provisionedRealmState();
-    state.users.push({ id: 'u-1', username: 'agent1', realmRoles: ['gate-agent'] });
-    const fake = createFakeKeycloak(state);
+  it('matches usernames exactly: the first account present does not hide the tenth', async () => {
+    const s = state();
+    s.realms[0]!.users.push(fakeUser('u-1', `${prefix}1`, [role]));
+    const fake = createFakeKeycloak(s);
 
-    await provisionUsers(fake.kc);
+    await provisionUsers(fake.kc, app);
 
-    expect(state.users.filter((u) => u.username === 'agent10')).toHaveLength(1);
+    expect(s.realms[0]!.users.filter((u) => u.username === `${prefix}10`).length).toBe(
+      count >= 10 ? 1 : 0,
+    );
+    expect(s.realms[0]!.users).toHaveLength(count);
   });
 
-  it('fails with the seed message, creating no one, when a role is missing', async () => {
-    const state = provisionedRealmState();
-    state.roles = state.roles.filter((r) => r.name !== 'queuepass-admin');
-    const fake = createFakeKeycloak(state);
+  it('fails with the seed message, creating no one, when its role is missing', async () => {
+    const fake = createFakeKeycloak(provisionedRealmState(realm));
 
-    await expect(provisionUsers(fake.kc)).rejects.toThrow(
-      "Role 'queuepass-admin' missing — provisionRealm must run first.",
+    await expect(provisionUsers(fake.kc, app)).rejects.toThrow(
+      `Role '${role}' missing from realm '${realm}' — provisionRealm must run first.`,
     );
     expect(fake.callsTo('users.create')).toEqual([]);
   });
 
-  it('fails at the group whose role is missing, after the groups before it', async () => {
-    const state = provisionedRealmState();
-    state.roles = state.roles.filter((r) => r.name !== 'customer');
-    const fake = createFakeKeycloak(state);
-
-    await expect(provisionUsers(fake.kc)).rejects.toThrow("Role 'customer' missing");
-    expect(state.users).toHaveLength(EXPECTED_COUNTS.admin + EXPECTED_COUNTS.agent);
-  });
-
   it('treats a role without an id as missing', async () => {
-    const state = provisionedRealmState();
-    state.roles = state.roles.map((r) => (r.name === 'gate-agent' ? { name: r.name } : r));
-    const fake = createFakeKeycloak(state);
+    const s = state();
+    s.realms[0]!.roles = s.realms[0]!.roles.map((r) => (r.name === role ? { name: r.name } : r));
+    const fake = createFakeKeycloak(s);
 
-    await expect(provisionUsers(fake.kc)).rejects.toThrow("Role 'gate-agent' missing");
+    await expect(provisionUsers(fake.kc, app)).rejects.toThrow(`Role '${role}' missing`);
   });
 
-  it('uses SEED_USER_PASSWORD and KEYCLOAK_REALM', async () => {
+  it('uses SEED_USER_PASSWORD', async () => {
     vi.stubEnv('SEED_USER_PASSWORD', 'other-pass');
-    vi.stubEnv('KEYCLOAK_REALM', 'other');
-    const fake = createFakeKeycloak(provisionedRealmState('other'), { realm: 'other' });
+    const fake = createFakeKeycloak(state());
 
-    await provisionUsers(fake.kc);
+    await provisionUsers(fake.kc, app);
 
-    const [first] = fake.callsTo('users.create')[0] as [{ realm: string; credentials: unknown }];
-    expect(first.realm).toBe('other');
+    const [first] = fake.callsTo('users.create')[0] as [{ credentials: unknown }];
     expect(first.credentials).toEqual([
       { type: 'password', value: 'other-pass', temporary: false },
-    ]);
-    expect(fake.callsTo('roles.findOneByName')[0]).toEqual([
-      { realm: 'other', name: 'queuepass-admin' },
     ]);
   });
 });

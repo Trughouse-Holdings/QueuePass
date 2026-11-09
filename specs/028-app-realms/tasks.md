@@ -147,7 +147,7 @@ of work).
   5. an unknown issuer: 401, and no key set is fetched (assert the per-realm key-set providers are
      not called);
   6. a token without `iss`: 401.
-  **Done**: 12 tests (each realm: own endpoints and `/me`; all three roles listed; another realm's key), the retired realm, unknown issuers (no key set asked), only the token's realm asked, no `iss`.
+  **Done**: 13 tests (each realm: own endpoints and `/me`; all three roles listed; another realm's key), the retired realm, unknown issuers (no key set asked), only the token's realm asked, no `iss`.
 - [x] T007 [US4] `backend/test/unit/oidc-config.spec.ts` (new; match the folder's file naming): the
   Backend refuses to start without `OIDC_ISSUER_BASE`, `OIDC_JWKS_BASE` or `OIDC_AUDIENCE`, naming
   the missing ones; trailing slashes on the bases are tolerated.
@@ -178,62 +178,76 @@ of work).
 
 ### Tests first
 
-- [ ] T011 [US3] `scripts/seed/test/fake-keycloak.ts` (+ its unit test): several realms; realm
+- [x] T011 [US3] `scripts/seed/test/fake-keycloak.ts` (+ its unit test): several realms; realm
   rename through `realms.update({ realm: old }, { realm: new })` (the minimal call; observed to
   work) keeping every user, client, role and scope, and the default-roles composite under its old
   name (`default-roles-queuepass`: Keycloak does not rename it);
   user and client `enabled` read and update; user ids **unique across all realms**, as Keycloak
   makes them (a create or import with an id that exists in any realm fails with 409, research R5);
   a realm, client or user delete fails the test (Ground rules: nothing deleted).
-- [ ] T012 [P] [US3] `scripts/seed/test/realms.test.ts` (clean system): one seed run creates the
+  **Done**: `createFakeKeycloak(state)` over `{ realms: FakeRealm[] }`, `stopAfter(method)` to cut a run short; its unit test, 17 tests.
+- [x] T012 [P] [US3] `scripts/seed/test/realms.test.ts` (clean system): one seed run creates the
   three realms (display name "QueuePass", login theme `queuepass`, enabled), each with its one role,
   the `queuepass-api` audience scope and mapper, its one client (`desiredClient`), and exactly its
   users (5 / 200 / 30) with the right role and the seed password; no realm `queuepass` is created.
-- [ ] T013 [P] [US3] `scripts/seed/test/rename.test.ts` (over a realm `queuepass` holding the 235
+  **Done**: 15 tests.
+- [x] T013 [P] [US3] `scripts/seed/test/rename.test.ts` (over a realm `queuepass` holding the 235
   users with known ids and the three clients): after one run there is no realm `queuepass`;
   `queuepass-customer-app` holds the 200 customers **with the same ids**, enabled, and the 35 old
   admin and agent copies **disabled**, and its `admin-app` and `booth-app` clients **disabled**, its
   `customer-app` client converged; the Admin and Booth realms hold new accounts for `admin1`–`5`
   and `agent1`–`30`; nothing was deleted; a second run makes no change at all.
-- [ ] T014 [P] [US3] `scripts/seed/test/rename-edge.test.ts`: (a) realms `queuepass` **and**
+  **Done**: 9 tests, over `legacy-state.ts` (realm `queuepass`, 235 users with ids `old-<username>`, the three clients).
+- [x] T014 [P] [US3] `scripts/seed/test/rename-edge.test.ts`: (a) realms `queuepass` **and**
   `queuepass-customer-app` both present: the seed fails with a message naming both and changes
   nothing (FR-009); (b) a run that stops right after the rename (the fake throws on the next call)
   is finished by the next run: the old copies get disabled, the other realms built; (c) a customer
   deleted by hand from the customer realm after the rename is recreated (a new id: expected, and
   logged); (d) the both-present error message tells how to recover (rename the extra `queuepass`
   aside, never delete it).
-- [ ] T015 [US3] Move every existing seed test off `KEYCLOAK_REALM` / realm `queuepass`
+  **Done**: 4 tests ((a) and (d) together in one `describe`).
+- [x] T015 [US3] Move every existing seed test off `KEYCLOAK_REALM` / realm `queuepass`
   (`provision-realm`, `realm-roles`, `users`, `clients`, `provision-clients`, `index`,
   `keycloak-client`, `seed-idempotence`, `sign-in-screens`, `login-theme-files`, and the comment in
   `scripts/seed/vitest.config.ts`): each now checks its realm-level behaviour once per app realm.
-- [ ] T015a [US3] **Before T019–T021**: the live seed tests (`seed-idempotence`, which runs
+  **Done**: `provision-realm`, `realm-roles`, `users`, `clients` run once per app realm; `index` checks the order (rename check, each realm's realm, client, users, then the old copies); `keycloak-client` checks `KEYCLOAK_REALM` is no longer read; `seed-idempotence` and `sign-in-screens` check the three realms; `provision-clients` (pure) and `login-theme-files` name no realm and are unchanged. With T012–T015a, failed first: 9 files, 128 tests.
+- [x] T015a [US3] **Before T019–T021**: the live seed tests (`seed-idempotence`, which runs
   `seed()`, and `sign-in-screens`, which fetches the new realms' sign-in pages) skip, with the
   reason of research R13, when the Keycloak they reach has a realm `queuepass`, unless
   `QP_SEED_ALLOW_RENAME=1`; a unit test covers the guard both ways (R13).
+  **Done**: `scripts/seed/test/live-guard.ts` (`GET /realms/queuepass`: anything but 404, or no answer, counts as present) and `live-guard.unit.test.ts`, 8 tests. Against the team stack's Keycloak the live tests now report `[skip] this Keycloak still has the shared realm; …`.
 
 ### Implementation
 
-- [ ] T016 [US3] `scripts/seed/src/keycloak-client.ts`: `loadConfig` without `realm`;
+- [x] T016 [US3] `scripts/seed/src/keycloak-client.ts`: `loadConfig` without `realm`;
   `KEYCLOAK_REALM` no longer read.
-- [ ] T017 [US3] `scripts/seed/src/provision-realm.ts`: `provisionRealm(kc, realm, role)`, the same
+  **Done**.
+- [x] T017 [US3] `scripts/seed/src/provision-realm.ts`: `provisionRealm(kc, realm, role)`, the same
   check-then-create and login-theme convergence as today, per realm.
-- [ ] T018 [US3] `scripts/seed/src/provision-clients.ts`: `provisionClient(kc, realm, client)`: the
+  **Done**.
+- [x] T018 [US3] `scripts/seed/src/provision-clients.ts`: `provisionClient(kc, realm, client)`: the
   audience scope and the one client in its own realm (`desiredClient` unchanged).
-- [ ] T019 [US3] `scripts/seed/src/legacy-realm.ts` (new): `renameLegacyRealm(kc)`: if `queuepass`
+  **Done**.
+- [x] T019 [US3] `scripts/seed/src/legacy-realm.ts` (new): `renameLegacyRealm(kc)`: if `queuepass`
   exists and `queuepass-customer-app` does not, rename it; if both exist, throw naming both;
   otherwise do nothing. `disableOldCopies(kc)`: in the customer realm only, set `enabled: false` on
   every enabled user without the `customer` role, and on the clients `admin-app` and `booth-app`
   when present; never delete (R6). Log what was renamed and disabled.
-- [ ] T020 [US3] `scripts/seed/src/provision-users.ts`: the users of one realm (from the seed's
+  **Done**: users paged 100 at a time, role members through `roles.findUsersWithRole`; a user is disabled by writing back its full representation with `enabled: false` (as clients are converged), never a partial one.
+- [x] T020 [US3] `scripts/seed/src/provision-users.ts`: the users of one realm (from the seed's
   table), created when missing exactly as today, an existing user left alone. Log per realm:
   created, already present.
-- [ ] T021 [US3] `scripts/seed/src/index.ts`: `renameLegacyRealm`; then for each app realm: realm,
+  **Done**.
+- [x] T021 [US3] `scripts/seed/src/index.ts`: `renameLegacyRealm`; then for each app realm: realm,
   client, users; then `disableOldCopies`. The final log line names the three realms and the counts.
+  **Done**: seed suite 262 passed, 28 live skipped (above), lines 99.4%.
 
 **Checkpoint** (stretch, Ground rules): `npm test --workspace @queuepass/seed` green, with the live
 seed tests running against a clean `qp028clean` Keycloak, no switch needed:
 `docker compose -p qp028clean up -d --build keycloak`
 then `docker compose -p qp028clean down -v` and restore the team stack. `qp028` is not started.
+**Reached** in stretch 2 (batched with the Phase 5 checkpoint, so the team stack stops once): see
+there.
 
 ---
 

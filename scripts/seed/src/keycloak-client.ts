@@ -5,10 +5,13 @@ export interface SeedConfig {
   healthUrl: string;
   adminUser: string;
   adminPassword: string;
-  realm: string;
   userPassword: string;
 }
 
+/**
+ * The seed's settings. Spec 028 (research R11): no realm; the app realms come from `APP_REALMS`,
+ * and `KEYCLOAK_REALM` is no longer read.
+ */
 export function loadConfig(): SeedConfig {
   return {
     url: process.env.KEYCLOAK_URL ?? 'http://localhost:8080',
@@ -18,7 +21,6 @@ export function loadConfig(): SeedConfig {
     healthUrl: process.env.KEYCLOAK_HEALTH_URL ?? 'http://localhost:9000',
     adminUser: process.env.KEYCLOAK_ADMIN ?? 'admin',
     adminPassword: process.env.KEYCLOAK_ADMIN_PASSWORD ?? 'admin',
-    realm: process.env.KEYCLOAK_REALM ?? 'queuepass',
     // LOCAL DEVELOPMENT ONLY — see README and the constitution's security constraints.
     userPassword: process.env.SEED_USER_PASSWORD ?? 'test123',
   };
