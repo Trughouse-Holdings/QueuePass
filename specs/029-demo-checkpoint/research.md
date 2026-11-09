@@ -45,8 +45,10 @@ R10):
 2. List the tables: `SELECT tablename FROM pg_tables WHERE schemaname = current_schema() AND
    tablename <> '_prisma_migrations' ORDER BY tablename`.
 3. `LOCK TABLE <every listed table, quoted> IN ACCESS EXCLUSIVE MODE`: every lock the `TRUNCATE`
-   needs, taken at once before anything is read, so no lock is upgraded table by table (which could
-   deadlock with the running Backend) and no row can be added between the counts and the removal.
+   needs, taken before anything is read, so no lock is upgraded table by table and no row can be
+   added between the counts and the removal. Taking them all up front makes a deadlock with the running
+   Backend less likely, not impossible (the tables are still locked one after another); a deadlock
+   (`40P01`) is mapped to the busy message anyway (R10).
 4. Count each one's rows (`SELECT count(*)`), for the output (FR-012). At demo size this is
    milliseconds, and the counts are exactly what step 5 removes.
 5. `TRUNCATE TABLE <every listed table, quoted> RESTART IDENTITY CASCADE`.
@@ -163,7 +165,10 @@ Hall is the smaller, busier venue in the demo.
   @queuepass/backend`, with the Backend's environment from `plan()` (`backendEnv`, the same object the
   Backend child gets) on top of its own environment, which carries the person's
   `QUEUEPASS_ALLOW_RESET` through. It never sets or defaults that variable itself (spec review round
-  1), so without it the reset's guard refuses as on path A. Then it exits with that step's status. No setup steps (no build, no
+  1), so without it the reset's guard refuses as on path A. In reset mode `run()` returns right after
+  that step, so it never reaches `start(backend)`, the health wait, or the SIGINT handler; the script
+  then exits 0. A failed step goes through `run()`'s existing `throw` (`<name> failed (exit N)`), so
+  the script exits 1. No setup steps (no build, no
   migration, no seed: FR-002, SC-002) and no children. Before running, it checks
   `backend/dist/scripts/demo-reset.js` exists, and otherwise prints "Build the Backend first: npm run
   build --workspace @queuepass/backend" and exits 1. `--demo-reset` with `--demo-data` is refused
@@ -259,24 +264,35 @@ both venues are in Kentucky, Eastern by address or by default. The test measures
 ## R10. A running Backend, and two resets at once
 
 **Decision**: the wipe sets `lock_timeout` to 3 seconds inside a Prisma transaction allowed 15 seconds
-(`timeout: 15_000`) and 5 seconds to get a connection (`maxWait: 5_000`), so the lock wait always ends
-first. The `LOCK TABLE … IN ACCESS EXCLUSIVE MODE` of R2 waits for transactions in flight (each a few
-milliseconds); if the database stays busy past 3 seconds, the transaction fails and is rolled back,
-nothing is removed, and the reset says "the database is busy; try again" (exit 1). That message is
-given for PostgreSQL's `55P03` (lock not available), `40P01` (deadlock detected), and Prisma's `P2028`
-(the transaction could not start or expired), whichever surfaces; any other error is reported as
-itself. A test holds `LOCK TABLE "Event" IN ACCESS SHARE MODE` from a second client in an open
-transaction and checks the reset refuses as busy with a marker row still there (tasks T006).
+(`timeout: 15_000`) and 5 seconds to get a connection (`maxWait: 5_000`). `lock_timeout` applies to
+each lock, so one `LOCK TABLE` over ten tables could wait up to about 30 seconds in the worst case: a
+lock wait usually ends first (`55P03`), and otherwise the transaction's 15 seconds run out (`P2028`),
+which is mapped the same way. The `LOCK TABLE … IN ACCESS EXCLUSIVE MODE` of R2 waits for
+transactions in flight (each a few milliseconds); if the database stays busy, the transaction fails
+and is rolled back, nothing is removed, and the reset says "the database is busy; try again" (exit 1).
+
+How the errors arrive in Prisma 6: a failed raw query (`$executeRaw`, `$queryRaw`) is a
+`PrismaClientKnownRequestError` with `code: 'P2010'` and PostgreSQL's SQLSTATE in `err.meta.code`; an
+expired or unstartable interactive transaction is one with `code: 'P2028'`. So the busy message is
+given for `err.code === 'P2028'`, and for `err.code === 'P2010'` with `err.meta?.code` `55P03` (lock
+not available) or `40P01` (deadlock detected). Any other error is reported as itself. A test holds `LOCK TABLE "Event" IN ACCESS SHARE MODE` from a second client in an open
+transaction (its own `$transaction(fn, { timeout: 20_000 })`, so it outlives the reset's 3-second
+wait) and checks the reset refuses as busy with a marker row still there (tasks T006).
 
 The running Backend keeps working: requests for removed rows get its usual not-found answers; the
 hold sweeper finds nothing to sweep; a seat-map stream for a removed event stops getting changes.
 Open pages show their last state until reloaded, hence FR-014's reminder.
 
 Two resets at once: the second's wipe waits for the first's (or removes what the first loaded so
-far); one of them then fails, finding the demo venue missing mid-load or already present. `runDemoData`
-returns `created: false` when the demo venue exists, and the reset treats that as FR-013's "another
-reset ran at the same time; run it again" (exit 1). Any other failure reports the same way. No lock
-is added: it is one person's laptop, and one more run fixes it.
+far). Neither is guaranteed to fail on its own: `Location.name` is not unique and `runDemoData`'s
+`findFirst`-then-create is not atomic, so both can pass the "demo venue exists" check and each create
+a full demo set. So after `runDemoData`, `runDemoReset` checks the result: the venue named `QueuePass
+Demo Arena` exists exactly once and there are exactly 2 venues. Otherwise, or when `runDemoData`
+returned `created: false` (the demo venue already there), it fails with FR-013's "another reset ran at
+the same time; run it again" (exit 1). Any other failure reports the same way. No lock is added: it
+is one person's laptop, and one more run fixes it. A test runs two `runDemoReset` calls at once and
+checks that at least one of them fails this way unless the database ends with exactly one demo set
+(tasks T006).
 
 ## R11. Output
 
@@ -332,8 +348,14 @@ with `@queuepass/shared`'s formatting.
   `docker-compose.yml`, `e2e/stack/docker-compose.e2e.yml`, `.env.example`, and every workflow under
   `.github/workflows` never contain `QUEUEPASS_ALLOW_RESET` or `demo-reset` (FR-003, SC-007).
 - **Fingerprint**: a helper in the test that reads every demo table and maps each row to its
-  meaningful fields, dropping identifiers, ticket codes, entry secrets, and `createdAt`/`updatedAt`/
-  `checkedInAt`/`cancelledAt`; event times as (local date minus Fall Concert's local date in days,
+  meaningful fields. Dropped: identifiers and foreign keys, ticket codes, entry secrets, `requestId`,
+  and every timestamp column except an event's `startsAt`, `endsAt`, `doorsOpenAt`; of a nullable
+  timestamp (`cancelledAt`, `Order.refundedAt`, `Ticket.checkedInAt`, a hold's `releasedAt`) only
+  whether it is set is kept, since its value is the moment of the run. Tickets are fingerprinted by
+  (event name, tier name, status, checked in or not, `checkedInBySub`/`checkedInByUsername`, seat),
+  with no link to their order: which concert tickets are checked in is chosen by ticket `code` order,
+  and codes are random. Orders by (event name, tier name, customer username, holder name, quantity,
+  prices, status, refunded or not). Event times as (local date minus Fall Concert's local date in days,
   local time, duration, doors offset) for the dated events (Fall Concert, Comedy Night, Holiday Gala,
   Season Opener), taking the reference date from the created Fall Concert (`d` + 14) rather than the
   test's clock, so a run across midnight cannot shift it; and for Demo Tonight its duration and doors

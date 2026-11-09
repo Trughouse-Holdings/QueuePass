@@ -28,12 +28,14 @@ it proves.
    `$env:QUEUEPASS_ALLOW_RESET='1'; node scripts/run-host.mjs --demo-reset; Remove-Item Env:QUEUEPASS_ALLOW_RESET`.
 2. **Expected**: within about 10 seconds it prints the database (`database:5432/queuepass` or
    `localhost:5432/queuepass`, no password), the rows removed per kind (the extra venue, sections,
-   events, orders, tickets with one checked in, seat reservations and holds among them), what it
+   events, orders, tickets with 25 checked in (the demo's 24 plus the one admitted in S0), seat
+   reservations and holds among them), what it
    created (2 venues, 5 events, Holiday Gala cancelled, Season Opener over, 53 orders, 121 tickets, 24
    checked in, 4 images), when Demo Tonight's check-in closes, the time taken, and the reminder to
    reload apps and about attempt limits. Exit status 0. The Backend and apps keep running.
 3. Reload the Admin app. **Expected**: exactly Demo Riverside Hall and QueuePass Demo Arena; exactly
-   the five demo events; the extra venue and event are gone; Reports show only the demo events.
+   the five demo events; the extra venue and event are gone; Reports show only the demo events. Note
+   the Reports figures now, before S2 admits a ticket: S3 compares against them.
 
 ## S2. The demo state in the apps (US1; FR-007, SC-006)
 
@@ -46,9 +48,10 @@ it proves.
 
 ## S3. The same state again (US2; SC-003)
 
-1. Note the Admin app's Reports figures. Buy and admit a few tickets as in S0.
+1. Buy and admit a few tickets as in S0 (S2 admitted one already).
 2. Run the reset again (S1 step 1). **Expected**: the same "Created" line as in S1; the Reports
-   figures equal the noted ones; Demo Tonight's times moved to the new run.
+   figures equal those noted at the end of S1 (24 checked in, not counting S2's admission); Demo
+   Tonight's times moved to the new run.
 
 ## S4. Refusals (US3; FR-009, FR-010, FR-011, SC-004, SC-005)
 

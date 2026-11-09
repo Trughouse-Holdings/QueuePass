@@ -215,8 +215,9 @@ refused with its reason and every row is still there.
   action on something removed is refused as not found, as when an admin deletes it. A customer's
   live seat map for a removed event stops updating. The output reminds the presenter to reload the
   apps. If the database stays busy past the wait, the reset refuses and changes nothing.
-- **Two resets at once.** One of them fails and says to run it again (FR-013); one more run ends in
-  the demo state.
+- **Two resets at once.** Both may load the demo data, so after loading, the reset checks that
+  exactly one set of demo venues exists; when not, it fails and says to run it again (FR-013). One
+  more run ends in the demo state.
 - **The reset stops halfway.** Removing the data is all or nothing. Loading the demo data is not: a
   failure there (the database went away) leaves part of the demo state. The reset says so and fails;
   running it again removes the part and loads it all.
@@ -300,8 +301,9 @@ refused with its reason and every row is still there.
   long it took.
 - **FR-013**: When loading the demo data fails after the data was removed, the reset MUST say that the
   data was removed, that the demo state is incomplete, and that running it again finishes it, and end
-  with a failure status. When the demo data finds another reset's data already loading, it MUST say so
-  the same way.
+  with a failure status. When the demo data finds another reset's data already loading, or after
+  loading there is not exactly one set of demo venues (two resets ran at once), it MUST say so the
+  same way.
 - **FR-014**: The reset MUST end its output by telling the presenter to reload any open app, and that
   purchase attempt limits counted before the reset clear within a minute or when the Backend
   restarts.

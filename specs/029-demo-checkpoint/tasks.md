@@ -77,8 +77,10 @@ confirm they **fail** before the implementation tasks of Phase 3.
   Jest spy). Must fail (no module yet).
 - [ ] T004 [US1] [US2] `backend/test/integration/demo-reset.e2e-spec.ts` (new; FR-004 to FR-006,
   SC-001, SC-003, research R2, R12), with `createTestApp()` and the fake geocoder:
-  - a `fingerprint(prisma)` helper as research R12 describes (no ids, codes, secrets, or
-    timestamps; dated events by local date relative to the created Fall Concert's, local time,
+  - a `fingerprint(prisma)` helper as research R12 describes (no ids or foreign keys, codes,
+    secrets, or `requestId`; no timestamp but an event's start, end, and doors, nullable ones only as
+    set or not; tickets by event, tier, status, checked in or not, `checkedInBy`, and seat, with no
+    order link; dated events by local date relative to the created Fall Concert's, local time,
     duration, and doors offset; Demo Tonight by duration and doors offset only; image bytes as
     SHA-256; sorted), and after each reset a separate check that Demo Tonight's `startsAt − runAt` is
     more than 59 and at most 61 minutes (`runAt` taken just before the reset);
@@ -105,10 +107,13 @@ confirm they **fail** before the implementation tasks of Phase 3.
   and the attempt-limit note; the wipe alone under 1 s and the whole reset under 10 s; and when the
   demo venue already exists after the wipe (an `afterWipe` hook in the options inserts it, test only),
   `runDemoReset` rejects with FR-013's message ("removed … incomplete … run it again"). And busy
-  (R10): a second client (its own PrismaClient) opens a transaction holding `LOCK TABLE "Event" IN
+  (R10): a second client (its own PrismaClient) opens a transaction, `$transaction(fn, { timeout:
+  20_000 })` so it holds its lock past the reset's 3-second wait, holding `LOCK TABLE "Event" IN
   ACCESS SHARE MODE`; `runDemoReset` rejects with "the database is busy; try again" within about 3
   s (well before Prisma's 15 s), and after the second client commits, a marker venue made before is
-  still there. Must fail.
+  still there. And two at once (R10): two `runDemoReset` calls started together with `Promise.allSettled`;
+  either at least one rejects with FR-013's message, or both resolve and the database holds exactly one
+  demo set (2 venues, one `QueuePass Demo Arena`); never two demo sets with both resolved. Must fail.
 - [ ] T007 [P] [US3] Root scripts (FR-002, FR-003, SC-007, research R6, R12):
   `scripts/test/run-host.test.mjs`: `--print --demo-reset` lists exactly one setup step,
   `demo-reset`, `npm run demo-reset --workspace @queuepass/backend`, whose environment is the Backend
@@ -136,9 +141,10 @@ confirm they **fail** before the implementation tasks of Phase 3.
   `path.resolve(__dirname, '../../prisma/migrations')`, directories only); `wipeAppData(prisma)` (R2:
   `prisma.$transaction(fn, { timeout: 15_000, maxWait: 5_000 })`, `SET LOCAL lock_timeout = '3s'`,
   the `pg_tables` list, one `LOCK TABLE … IN ACCESS EXCLUSIVE MODE` of them all, then the counts, then
-  one quoted `TRUNCATE … RESTART IDENTITY CASCADE`; PostgreSQL `55P03` and `40P01` and Prisma `P2028`
-  become "the database is busy; try again", R10); `runDemoReset(app, { log, migrationsDir?, afterWipe? })` (assert, wipe, `afterWipe` for tests only, then
-  `runDemoData`; `created: false` or a throw becomes FR-013's error). T004, T005, and T006's busy case pass.
+  one quoted `TRUNCATE … RESTART IDENTITY CASCADE`; Prisma `P2028` (`err.code`), and `P2010` whose
+  `err.meta.code` is `55P03` or `40P01`, become "the database is busy; try again", R10); `runDemoReset(app, { log, migrationsDir?, afterWipe? })` (assert, wipe, `afterWipe` for tests only, then
+  `runDemoData`, then the check that `QueuePass Demo Arena` exists exactly once and there are exactly 2
+  venues; `created: false`, a failed check, or a throw becomes FR-013's error). T004, T005, and T006's busy case pass.
 - [ ] T011 [US1] Same file: the output of research R11 (the label map, Demo Tonight's close in its
   venue's zone with `@queuepass/shared`, the duration, the reminders) and `main()` (guard first, then
   `NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] })`, `runDemoReset`,
@@ -150,8 +156,10 @@ confirm they **fail** before the implementation tasks of Phase 3.
   --workspace @queuepass/backend', env: { ...backendEnv } }]` (the person's `QUEUEPASS_ALLOW_RESET`
   comes through the parent environment; never set or defaulted here) and no children; `run()` checks
   the compiled script (`backend/dist/scripts/demo-reset.js`, a path `deps` can replace) exists first
-  (else the "Build the Backend first" message, exit 1), runs the step, and exits with its status
-  without starting anything.
+  (else the "Build the Backend first" message, exit 1), runs the step, and returns right after it:
+  reset mode never reaches `start(backend)`, the health wait, or the SIGINT handler (the code after the
+  setup loop in `run()`). Success exits 0; a failed step goes through the setup loop's existing
+  `throw`, so the script exits 1 (research R6).
   Update the header comment. T007 passes.
 
 ---
@@ -255,6 +263,28 @@ confirm they **fail** before the implementation tasks of Phase 3.
   - N3: `host` and `hostaddr` query keys refused in any case after percent-decoding; `HOST=` and
     `h%6Fst=` test cases (R7, T003).
   - N4: a `run()` test through `deps` for FR-002's "Backend not built" message (R12, T007).
+- **Round 2** (independent Claude session, 2026-11-09): no must-fix, 4 should-fix, 3 nits; the
+  reviewer's verdict: after these, only minor findings remain. All fixed in the `Review 029: spec
+  review round 2` commit.
+  - S1: Prisma 6 reports a failed raw query as `P2010` with the SQLSTATE in `err.meta.code`, not as
+    `55P03`/`40P01` directly; and `lock_timeout` is per lock, so one `LOCK TABLE` over ten tables can
+    outlast the 15 s transaction → map `P2028` and `P2010` with `meta.code` `55P03` or `40P01`; "a lock
+    wait ends first, otherwise `P2028`, also mapped"; R2 says locking up front makes a deadlock less
+    likely, not impossible (R2, R10, T010).
+  - S2: two resets at once are not guaranteed to fail (`Location.name` is not unique; `runDemoData`'s
+    check-then-create is not atomic), so both could load a demo set → after loading, `runDemoReset`
+    checks the demo venue exists exactly once and there are exactly 2 venues, else FR-013's error; a
+    T006 case runs two resets at once (spec Edge Cases, FR-013, R10, T006, T010).
+  - S3: the fingerprint would not match (`refundedAt` and other moments, `requestId`, check-ins chosen
+    by random code order) → every timestamp but an event's start, end, and doors dropped, nullable ones
+    kept only as set or not, `requestId` dropped, tickets fingerprinted without their order (R12, T004).
+  - S4: quickstart S3 compared against figures noted after S2's admission → noted at the end of S1, S3
+    compares to them (quickstart S1, S3).
+  - N1: quickstart S1's removed check-ins are the demo's 24 plus S0's one (25).
+  - N2: reset mode returns right after its step, never reaching `start(backend)`, the health wait, or
+    the SIGINT handler; a failed step exits 1 through the existing `throw`; R6 and T012 agree.
+  - N3: the busy test's second client holds its lock in `$transaction(fn, { timeout: 20_000 })` (R10,
+    T006).
 - **Open findings**: none.
 
 ## Review record (implementation branch)
