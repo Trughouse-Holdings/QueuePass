@@ -129,6 +129,21 @@ Backend at `http://10.255.255.1` as in S7, and run the script again. **Expect**:
 prints that the demo venues are not verified, and the Admin app shows both marked "Address not
 verified". Restore the default URL afterwards.
 
+## S10: Venues the Census misses are verified by OpenStreetMap (#25, research R16)
+
+Online, with `ADDRESS_MAP_URL` at its default. Checked against the live services on 2026-11-09.
+As `admin1`, create each venue below (any capacity, time zone Eastern) and save once.
+
+| Name | Street, city, state, ZIP | **Expect** |
+| --- | --- | --- |
+| KFC Yum! Center | 1 Arena Plaza, Louisville, KY 40202 | Verified, saved as typed (OpenStreetMap by name) |
+| University of Louisville | 2301 S 3rd St, Louisville, KY 40292 | Verified, saved as typed, ZIP `40292` kept |
+| Rupp Arena | 430 W Vine St, Lexington, KY 40507 | Verified in the Census's form, `430 W VINE ST` (unchanged) |
+| Test Hall | 1 Nowhere Blvd, Louisville, KY 40202 | "Address not verified" (no service knows it) |
+
+The Backend log shows no "Map search unavailable" line. With `ADDRESS_MAP_URL=off`, the first two
+are saved "Address not verified" again.
+
 ## Automation
 
 Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
@@ -147,3 +162,4 @@ manual. `npm test` checks this table against `e2e/tests`.
 | S7 | Manual: needs the Backend restarted with an address service that never answers |
 | S8 | Manual: needs a database from before `013` |
 | S9 | Manual: an empty database; every `npm run e2e` loads the demo data |
+| S10 | Manual: needs the real Census and OpenStreetMap services; the browser-test stack turns the map off |

@@ -540,6 +540,39 @@ its name without a check, and is verified when its address is filled in.
 
 ---
 
+## Phase 8: Follow-up #25, verified after the Census misses (research R16)
+
+- [x] T049 **Test first.** `backend/test/unit/address-match.spec.ts`: `withoutUnit`,
+  `streetName`, `sameStreetNearby` (UofL `40292` against `40208`; another postal area, state,
+  house number, direction, or street type refused), `placeConfirms` (house number, Queens hyphen,
+  ZIP, state, a place with no number and the venue's name). Then the functions in
+  `backend/src/locations/address-match.ts`.
+- [x] T050 **Test first.** `backend/test/unit/nominatim-search.spec.ts` against a local server:
+  the query by street and by name, the User-Agent, the fields read (state code, 5-digit ZIP,
+  nulls), skipped results, at most 5, every failure unavailable, the 1.1-second spacing. Then
+  `backend/src/address/map-search.ts` (`MAP_SEARCH`, `MapSearch`, `NoMapSearch`) and
+  `nominatim-search.ts`; `AddressModule` reads `ADDRESS_MAP_URL` (`off` turns it off).
+- [x] T051 **Test first.** `backend/test/setup/fake-map-search.ts` (finds nothing unless queued),
+  overriding `MAP_SEARCH` in `createTestApp()` as `ctx.map`, and
+  `backend/test/integration/locations.map-search.e2e-spec.ts`: verified as typed by the map at
+  the address, by name, with no number by name, a unit left out of the search and kept; not
+  verified for another ZIP, state, number, or name; a map that is down finds nothing; the map is
+  not asked after a Census match or when the Census is down; the nearby ZIP code; an edit by the
+  name sent; the `024` R7 re-check by the stored name. Then `LocationsService.lookUp` and
+  `searchMap`. Two `locations.address-edit` tests that moved the ZIP code within its postal area
+  now move it to another (`41213`, `41203`), as R16 verifies the first.
+- [x] T052 Contract 1.20.0 (`createLocation`, `Location`) and `api-schema.ts` regenerated;
+  `ADDRESS_MAP_URL` in `.env.example`, `docker-compose.yml`, and `off` in
+  `e2e/stack/docker-compose.e2e.yml`; README (address checks, configuration, credit to
+  OpenStreetMap); Constitution 3.8.1 (roadmap row 013); quickstart S10.
+- [ ] T053 Independent review (Constitution III) by a separate Claude session; findings fixed or
+  recorded in the PR.
+- [ ] T054 Running-system check: quickstart S10 against the live services. Then the PR against
+  `main` with `fixes #25`; it changes the shared surface (`contracts/`, `packages/shared/`,
+  `.env.example`, `docker-compose.yml`, the constitution), so every team member approves it.
+
+---
+
 ## Dependencies & Execution Order
 
 - **Phase 1 → Phase 2** before any story.
