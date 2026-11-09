@@ -3,7 +3,7 @@
 Venue and event management with sign-in for every user and guaranteed conflict-free scheduling.
 
 Built from the specifications in [`specs/`](specs/) under the project constitution at
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.8.1).
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.9.0).
 
 ---
 
@@ -47,6 +47,7 @@ is built, reviewed, and walked in the browser (with Constitution 3.8.0 for its h
 | [`025-doors-open`](specs/025-doors-open/spec.md)                             | Every event has a doors-open time, set by admins (1 hour before the start by default, up to 6 hours before); customers and admins see it; check-in opens 1 hour before doors, and the Ticket Booth greys out events not open yet                                       | Draft            | Done (39/41 tasks) | **Built and walked**         |
 | [`026-purchase-rate-limits`](specs/026-purchase-rate-limits/spec.md)         | Each customer account may try to buy, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds; over a limit, the Customer app counts down until they can try again                                                                        | Draft            | Done (25/26 tasks) | **Built (walk partly done)** |
 | [`027-sign-in-background`](specs/027-sign-in-background/spec.md)             | Keycloak's stone background on every sign-in page, the lines between the stones in each app's accent; "QUEUEPASS" above Keycloak's card, readable at every size in light and dark                                                                                      | Draft            | Done (53/54 tasks) | **Built and walked**         |
+| [`028-app-realms`](specs/028-app-realms/spec.md)                             | Each app has its own Keycloak sign-in, so three different users can use the three apps in one browser window and logging out of one leaves the others signed in; existing accounts and their orders carry over                                                         | Draft            | In review          | Not started                  |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. Every sign-in page

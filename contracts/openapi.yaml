@@ -1,22 +1,26 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.20.0
+  version: 1.21.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
     before it is implemented.
 
     **Authentication**: every operation except `getHealth` requires
-    `Authorization: Bearer <access token>`, where the token is a JWT issued by the Keycloak realm
-    `queuepass`. The Backend checks its signature against the realm's published keys, its issuer
-    (`http://localhost:8080/realms/queuepass`), that its audience includes `queuepass-api`, and
-    that it is not expired (30-second clock tolerance). Any failure is `401 UNAUTHENTICATED`.
+    `Authorization: Bearer <access token>`, where the token is a JWT issued by one of the three app
+    realms, one per front end (feature 028): `queuepass-admin-app`, `queuepass-customer-app` and
+    `queuepass-booth-app`. The Backend checks its signature against that realm's own published
+    keys, its issuer (`http://localhost:8080/realms/<realm>`), that its audience includes
+    `queuepass-api`, and that it is not expired (30-second clock tolerance). A token from any other
+    issuer, the retired realm `queuepass` included, fails. Any failure is `401 UNAUTHENTICATED`.
 
     **Authorization**: `x-required-roles` on each operation lists the Keycloak realm roles that
     may call it. An empty list means any signed-in user. Roles are read from the token's
-    `realm_access.roles`. A valid token without a listed role is `403 FORBIDDEN`. A test fails if
-    the Backend's role checks differ from this document.
+    `realm_access.roles`, and from each realm only its app's role counts: `queuepass-admin` from
+    `queuepass-admin-app`, `customer` from `queuepass-customer-app`, `gate-agent` from
+    `queuepass-booth-app`; any other role in the token is ignored. A valid token without a listed
+    role is `403 FORBIDDEN`. A test fails if the Backend's role checks differ from this document.
 
     **Authority**: this API is the only path to persistent state. No front end holds a database
     connection. Every business rule, including the scheduling conflict rule, is enforced here.
@@ -1662,8 +1666,9 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: |
-        A Keycloak access token for realm `queuepass`, obtained by a front end through the OIDC
-        Authorization Code flow with PKCE. Audience must include `queuepass-api`.
+        A Keycloak access token from one of the three app realms (feature 028), obtained by a front
+        end through the OIDC Authorization Code flow with PKCE. Audience must include
+        `queuepass-api`.
 
   schemas:
     Role:
@@ -1685,7 +1690,7 @@ components:
           example: admin1
         roles:
           type: array
-          description: The caller's QueuePass realm roles. Other realm roles are omitted.
+          description: The caller's QueuePass role, the one its app's realm grants (feature 028). Other realm roles are omitted.
           items: { $ref: '#/components/schemas/Role' }
           uniqueItems: true
           example: [queuepass-admin]

@@ -1147,7 +1147,7 @@ export interface components {
              */
             username: string;
             /**
-             * @description The caller's QueuePass realm roles. Other realm roles are omitted.
+             * @description The caller's QueuePass role, the one its app's realm grants (feature 028). Other realm roles are omitted.
              * @example [
              *       "queuepass-admin"
              *     ]
