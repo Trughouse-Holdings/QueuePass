@@ -18,6 +18,7 @@ every pull request, green on GitHub. `023` is built and reviewed; its running-sy
 pending. `024` is built, reviewed, and walked on the running system. `025` and `026` are
 built, reviewed, and walked on the running system (path B; their browser tests run in CI). `027`
 is built, reviewed, and walked in the browser (with Constitution 3.8.0 for its header and its pulse).
+`028` is built; its independent review and its walk on the running system are still to do.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                       | Spec             | Plan and tasks     | Code                         |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------------- |
@@ -47,10 +48,14 @@ is built, reviewed, and walked in the browser (with Constitution 3.8.0 for its h
 | [`025-doors-open`](specs/025-doors-open/spec.md)                             | Every event has a doors-open time, set by admins (1 hour before the start by default, up to 6 hours before); customers and admins see it; check-in opens 1 hour before doors, and the Ticket Booth greys out events not open yet                                       | Draft            | Done (39/41 tasks) | **Built and walked**         |
 | [`026-purchase-rate-limits`](specs/026-purchase-rate-limits/spec.md)         | Each customer account may try to buy, and separately to hold seats, at most 10 times a minute and 3 times in any 5 seconds; over a limit, the Customer app counts down until they can try again                                                                        | Draft            | Done (25/26 tasks) | **Built (walk partly done)** |
 | [`027-sign-in-background`](specs/027-sign-in-background/spec.md)             | Keycloak's stone background on every sign-in page, the lines between the stones in each app's accent; "QUEUEPASS" above Keycloak's card, readable at every size in light and dark                                                                                      | Draft            | Done (53/54 tasks) | **Built and walked**         |
-| [`028-app-realms`](specs/028-app-realms/spec.md)                             | Each app has its own Keycloak sign-in, so three different users can use the three apps in one browser window and logging out of one leaves the others signed in; existing accounts and their orders carry over                                                         | Draft            | In review          | Not started                  |
+| [`028-app-realms`](specs/028-app-realms/spec.md)                             | Each app has its own Keycloak sign-in, so three different users can use the three apps in one browser window and logging out of one leaves the others signed in; existing accounts and their orders carry over                                                         | Draft            | Done (33/37 tasks) | **Built**                    |
 
 **Today** all three front ends sign in through Keycloak and log out,
-and the Backend refuses any request without a valid token and the right role. Every sign-in page
+and the Backend refuses any request without a valid token and the right role. Each app has its
+own sign-in, in its own Keycloak realm (`028`): three different users can use the three apps in
+one browser window, logging out of one leaves the others signed in, and another app's account is
+refused on an app's sign-in page. On a system made before `028`, the old shared realm becomes the
+Customer app's, so customers keep their orders and tickets. Every sign-in page
 shows Keycloak's grey stones with the lines between them in the app's own color, "QUEUEPASS" above,
 and the form on Keycloak's card; the lines pulse and glow, with a pause button (`027`). In the
 Admin app, admins list, view, create, edit, and delete venues and events. Deleting asks for confirmation first,
@@ -131,14 +136,14 @@ docker compose up --build
 
 One command from a clean clone. No manual configuration steps.
 
-| Service          | URL                   | Sign in as        | Notes                                                              |
-| ---------------- | --------------------- | ----------------- | ------------------------------------------------------------------ |
-| Admin app        | http://localhost:5173 | `admin1`          | role `queuepass-admin`                                             |
-| Customer app     | http://localhost:5174 | `customer1`       | role `customer`; find and browse events, get tickets, choose seats |
-| Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`; check tickets in by camera scan or typed code   |
-| Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs`       |
-| Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realm `queuepass`                                   |
-| PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                                   |
+| Service          | URL                   | Sign in as        | Notes                                                                                              |
+| ---------------- | --------------------- | ----------------- | -------------------------------------------------------------------------------------------------- |
+| Admin app        | http://localhost:5173 | `admin1`          | role `queuepass-admin`; realm `queuepass-admin-app`                                                |
+| Customer app     | http://localhost:5174 | `customer1`       | role `customer`, realm `queuepass-customer-app`; find and browse events, get tickets, choose seats |
+| Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`, realm `queuepass-booth-app`; check tickets in by camera scan or typed code      |
+| Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs`                                       |
+| Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realms `queuepass-admin-app`, `queuepass-customer-app`, `queuepass-booth-app`       |
+| PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                                                                   |
 
 Saving a new venue address needs internet: the Backend checks it with the US Census Geocoder
 (`ADDRESS_GEOCODER_URL`, default `https://geocoding.geo.census.gov`, no key). Offline, a new
@@ -160,12 +165,23 @@ seed waits for Keycloak's `/health/ready`, and the front ends wait for the Backe
 
 The sign-in screens come from [`keycloak/themes/queuepass`](keycloak/themes/queuepass), built into
 Keycloak's own image (`keycloak/Dockerfile`) with the shared theme, so run `docker compose up
---build` after changing either (`021`). The seed sets the realm's login theme on every run. The
+--build` after changing either (`021`). The seed sets each realm's login theme on every run. The
 sign-in pages show Keycloak's own stones image, served by Keycloak (no copy is kept here); the lines
 between the stones come from `keycloak/themes/queuepass/login/resources/img/stone-lines.png`,
 derived from it under Keycloak's Apache 2.0 license (`NOTICE`, `LICENSE-keycloak.txt` beside the
 theme). To make it again, or check it, from Keycloak's image (`027`, quickstart S7):
 `npm run stone-lines --workspace @queuepass/seed -- [--check] <keycloak-bg.png>`.
+
+**Upgrading a system made before `028`**: on its next start the seed renames the old shared
+realm `queuepass` to `queuepass-customer-app`, so the 200 customers keep their identifiers and every
+order, ticket and hold stays theirs; admins and gate agents get new accounts, with the same
+usernames and password, in their own realms, and their old copies, and the other two apps' clients,
+are disabled in the customer realm, never deleted. Reload any app tab left open from before. Once
+a Keycloak is upgraded, run it **only with `028`'s code or later**: an older seed recreates
+`queuepass` with 235 new accounts, and that includes old built images and their exited `seed`
+container, and any `docker compose up` without `--build`. The seed then stops, naming both realms;
+to recover, rename the extra `queuepass` aside in the admin console (for example to
+`queuepass-recreated`), never delete it, and start again.
 
 > The stack uses ports 3000, 5173–5175, 8080, 9000, and 5432. Stop anything else using them
 > first, or `docker compose up` fails with "port is already allocated".
@@ -232,17 +248,20 @@ Every front end requires sign-in, and the Backend trusts nothing without a valid
 1. You open a front end. It is not signed in, so it sends you to **Keycloak's login page**. No
    QueuePass app ever sees your password.
 2. You sign in. Keycloak sends you back with a one-time code, and the front end exchanges it for
-   tokens using the **OIDC Authorization Code flow with PKCE**. Each front end has its own public
-   client in the `queuepass` realm: `admin-app`, `customer-app`, and `booth-app`.
+   tokens using the **OIDC Authorization Code flow with PKCE**. Each front end has its own
+   Keycloak realm, with its own public client: `admin-app` in `queuepass-admin-app`,
+   `customer-app` in `queuepass-customer-app`, and `booth-app` in `queuepass-booth-app`. Keycloak
+   keeps one signed-in user per realm in a browser, so each app's sign-in is its own (`028`).
 3. The front end keeps the tokens **in memory only** and sends the access token as
    `Authorization: Bearer <token>` on every API call. It renews the token before it expires.
-4. The Backend **validates the JWT** on every request except `/health`: signature against the
-   realm's published keys (JWKS), issuer, audience (the QueuePass API), and expiry. Failures get
-   `401`.
-5. The Backend reads your **realm roles** from the token and enforces them. The wrong role gets
-   `403`. Hiding a button in a front end is never the enforcement.
-6. **Logout** discards the tokens and ends your Keycloak session, so reopening the app shows the
-   login page again.
+4. The Backend **validates the JWT** on every request except `/health`: its issuer must be one
+   of the three app realms, its signature is checked against that realm's published keys (JWKS),
+   then its audience (the QueuePass API) and expiry. Failures get `401`.
+5. The Backend reads your **realm roles** from the token and enforces them, honouring from each
+   realm only its app's role. The wrong role gets `403`. Hiding a button in a front end is never
+   the enforcement.
+6. **Logout** discards the tokens and ends your Keycloak session in that app's realm, so reopening
+   the app shows the login page again, and the other apps stay signed in.
 
 | Who                         | Can use          | Can do through the API                                                                                 |
 | --------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------ |
@@ -320,7 +339,9 @@ workspace, which type-checks the front ends), `npm test`, and `npm run coverage:
 coverage table). The check runs the same steps, and a test fails if the two ever differ. Docker must
 be running. To reproduce a pull request's run, first merge or rebase the branch onto the latest
 `main` (the check tests the branch merged with `main`), and keep the Docker Compose stack down (with
-it up, the seed's four Keycloak tests run instead of being skipped). `npm run coverage:report` is
+it up, the seed's live Keycloak tests run instead of being skipped). Those tests run the seed, so
+they also skip, saying why, on a Keycloak that still has the old realm `queuepass`, which they would
+rename (`028`); set `QP_SEED_ALLOW_RENAME=1` to let them, only on a throwaway stack. `npm run coverage:report` is
 meant to follow the root `npm test` or `npm run ci`: after a single workspace's tests it can mix
 this run's numbers with older ones.
 
@@ -372,14 +393,14 @@ parallel.
 
 ## Seeded test credentials
 
-The seed provisions **235 accounts** in the `queuepass` realm, plus one OIDC client per front
-end:
+The seed provisions **235 accounts**, each in its app's realm with that app's one OIDC client
+(`028`):
 
-| Accounts           | Usernames                   | Realm role        |
-| ------------------ | --------------------------- | ----------------- |
-| 5 QueuePass Admins | `admin1` … `admin5`         | `queuepass-admin` |
-| 30 Gate Agents     | `agent1` … `agent30`        | `gate-agent`      |
-| 200 Customers      | `customer1` … `customer200` | `customer`        |
+| Accounts           | Usernames                   | Realm role        | Realm                    |
+| ------------------ | --------------------------- | ----------------- | ------------------------ |
+| 5 QueuePass Admins | `admin1` … `admin5`         | `queuepass-admin` | `queuepass-admin-app`    |
+| 30 Gate Agents     | `agent1` … `agent30`        | `gate-agent`      | `queuepass-booth-app`    |
+| 200 Customers      | `customer1` … `customer200` | `customer`        | `queuepass-customer-app` |
 
 **Password for every seeded account: `test123`**
 
@@ -628,16 +649,18 @@ specs/            Specifications, plans, contracts, tasks
 
 ## Troubleshooting
 
-| Symptom                                                     | Fix                                                                                                                                                                              |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `port is already allocated` on startup                      | Another program or Compose project is using one of the ports listed under _Start the system_. Stop it.                                                                           |
-| Seed fails with connection refused                          | Keycloak wasn't ready; the job retries. Confirm `KC_HEALTH_ENABLED=true`.                                                                                                        |
-| Every API call returns `401` with a valid login             | The token's issuer is the browser's Keycloak address (`localhost:8080`), not the in-container one. The Backend must expect that issuer while fetching keys from `keycloak:8080`. |
-| `401` with "invalid audience"                               | The front-end client is missing the audience mapper for the QueuePass API. Re-run the seed.                                                                                      |
-| Login redirects fail with "Invalid redirect uri"            | The client's redirect URI must match the front end's address exactly. Re-run the seed.                                                                                           |
-| Signed in but "your account cannot use this app"            | You are using the wrong role for that app. See the table under _Start the system_.                                                                                               |
-| All same-venue bookings rejected                            | Buffer applied to both interval bounds; it belongs on the lower bound only.                                                                                                      |
-| `constraint "event_no_overlap" does not exist`              | Someone ran `prisma db push`. Use `prisma migrate deploy`.                                                                                                                       |
-| Data gone after restart                                     | `docker compose down -v` deletes volumes; omit `-v`.                                                                                                                             |
-| Saving a venue says "We can't verify the address right now" | The Backend can't reach the US Census Geocoder. Check the laptop's internet and `ADDRESS_GEOCODER_URL`. Name-only edits still work.                                              |
-| Tests fail to start                                         | Docker must be running for Testcontainers.                                                                                                                                       |
+| Symptom                                                               | Fix                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `port is already allocated` on startup                                | Another program or Compose project is using one of the ports listed under _Start the system_. Stop it.                                                                                                                                                    |
+| Seed fails with connection refused                                    | Keycloak wasn't ready; the job retries. Confirm `KC_HEALTH_ENABLED=true`.                                                                                                                                                                                 |
+| Every API call returns `401` with a valid login                       | A token's issuer is the browser's Keycloak address (`localhost:8080/realms/<realm>`), not the in-container one. The Backend's `OIDC_ISSUER_BASE` must be `http://localhost:8080/realms` while `OIDC_JWKS_BASE` fetches keys from `keycloak:8080` (`028`). |
+| `401` with "invalid audience"                                         | The front-end client is missing the audience mapper for the QueuePass API. Re-run the seed.                                                                                                                                                               |
+| Login redirects fail with "Invalid redirect uri"                      | The client's redirect URI must match the front end's address exactly. Re-run the seed.                                                                                                                                                                    |
+| Signed in but "your account cannot use this app"                      | You are using the wrong role for that app. See the table under _Start the system_.                                                                                                                                                                        |
+| Seed fails: both realm `queuepass` and `queuepass-customer-app` exist | Code from before `028` recreated `queuepass` on an upgraded Keycloak. Rename the extra `queuepass` aside in the admin console (for example `queuepass-recreated`), never delete it, then start again.                                                     |
+| "Invalid username or password" for a seeded account                   | Each app's sign-in page takes only its own app's accounts (`028`): `admin1` at the Admin app, `customer1` at the Customer app, `agent1` at the Ticket Booth.                                                                                              |
+| All same-venue bookings rejected                                      | Buffer applied to both interval bounds; it belongs on the lower bound only.                                                                                                                                                                               |
+| `constraint "event_no_overlap" does not exist`                        | Someone ran `prisma db push`. Use `prisma migrate deploy`.                                                                                                                                                                                                |
+| Data gone after restart                                               | `docker compose down -v` deletes volumes; omit `-v`.                                                                                                                                                                                                      |
+| Saving a venue says "We can't verify the address right now"           | The Backend can't reach the US Census Geocoder. Check the laptop's internet and `ADDRESS_GEOCODER_URL`. Name-only edits still work.                                                                                                                       |
+| Tests fail to start                                                   | Docker must be running for Testcontainers.                                                                                                                                                                                                                |

@@ -1,8 +1,8 @@
-// Spec 001 quickstart V3 and V4: sign-in, the signed-in page, and logout in each app; the wrong
-// role refused.
+// Spec 001 quickstart V3 and V4: sign-in, the signed-in page, and logout in each app; another
+// app's account refused (spec 028 FR-012).
 import { expect, test, type Page } from '@playwright/test';
 import { APPS, PASSWORD, adminFor, agentFor, customerFor, type AppName } from '../fixtures/apps';
-import { signIn, signInHeading, signOut, submitSignIn } from '../fixtures/sign-in';
+import { signInHeading, signOut, submitSignIn } from '../fixtures/sign-in';
 
 /** What each app shows once signed in (V3's "hello-world page", as each app has it today). */
 async function expectSignedIn(page: Page, app: AppName, username: string): Promise<void> {
@@ -63,25 +63,32 @@ test('001 V3: sign in, the signed-in page, and logout in each app', async ({
   }
 });
 
-test('001 V4: each app refuses an account without its role', async ({ browser }, testInfo) => {
+// Spec 028 FR-012 (research R10): each app signs in through its own realm, which holds only its
+// own app's accounts, so another app's account is refused on the sign-in page itself. The
+// wrong-role page is covered by packages/shared/test/web/require-role.test.tsx.
+test("001 V4: each app's sign-in page refuses another app's account", async ({
+  browser,
+}, testInfo) => {
   // V4: a customer at the Admin app, a gate agent at the Customer app, an admin at the Booth.
-  const refused: [AppName, string, string][] = [
-    ['admin', customerFor(testInfo, 10), 'Venues'],
-    ['customer', agentFor(testInfo, 1), 'My tickets'],
-    ['booth', adminFor(testInfo), 'Choose the event you are working'],
+  const refused: [AppName, string][] = [
+    ['admin', customerFor(testInfo, 10)],
+    ['customer', agentFor(testInfo, 1)],
+    ['booth', adminFor(testInfo)],
   ];
-  for (const [app, username, appContent] of refused) {
+  for (const [app, username] of refused) {
     await test.step(`${app}: ${username}`, async () => {
       const context = await browser.newContext();
       const page = await context.newPage();
-      await signIn(page, app, username);
-      await expect(page.getByText("Your account can't use this app.")).toBeVisible();
-      await expect(page.getByText(`You are signed in as ${username}.`)).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Log out' })).toHaveCount(1);
-      // Nothing else: none of the app's own pages or data.
-      await expect(page.getByText(appContent)).toHaveCount(0);
-      await expect(page.getByRole('link')).toHaveCount(0);
-      await signOut(page, app);
+      await page.goto(APPS[app].url);
+      await expect(signInHeading(page, app)).toBeVisible();
+      await submitSignIn(page, username, PASSWORD);
+      // On CI's clean stack the account is not in this app's realm at all.
+      await expect(signInHeading(page, app)).toBeVisible();
+      await expect(page.getByText('Invalid username or password.')).toBeVisible();
+      // Not signed in: no app page, and never the wrong-role page.
+      await expect(page).not.toHaveURL(new RegExp(`^${APPS[app].url}/`));
+      await expect(page.getByRole('button', { name: 'Log out' })).toHaveCount(0);
+      await expect(page.getByText("Your account can't use this app.")).toHaveCount(0);
       await context.close();
     });
   }

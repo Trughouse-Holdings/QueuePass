@@ -27,7 +27,10 @@ afterEach(() => window.history.replaceState(null, '', '/'));
 
 describe('createUserManager', () => {
   it('uses the Authorization Code flow, silent renew, and an in-memory user store', () => {
-    const um = createUserManager('http://localhost:8080/realms/queuepass', 'customer-app');
+    const um = createUserManager(
+      'http://localhost:8080/realms/queuepass-customer-app',
+      'customer-app',
+    );
     expect(um.settings.response_type).toBe('code');
     expect(um.settings.client_id).toBe('customer-app');
     expect(um.settings.automaticSilentRenew).toBe(true);
@@ -39,7 +42,10 @@ describe('createUserManager', () => {
   });
 
   it('never writes a token to localStorage or sessionStorage', async () => {
-    const um = createUserManager('http://localhost:8080/realms/queuepass', 'customer-app');
+    const um = createUserManager(
+      'http://localhost:8080/realms/queuepass-customer-app',
+      'customer-app',
+    );
     const fake = makeUser({ username: 'customer1', roles: ['customer'] });
     await um.storeUser(new User({ ...fake, profile: fake.profile }));
     expect((await um.getUser())?.profile.preferred_username).toBe('customer1');

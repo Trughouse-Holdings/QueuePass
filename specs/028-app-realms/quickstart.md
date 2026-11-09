@@ -93,8 +93,8 @@ T015a), not by browser tests.
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: the clean start is every `npm run e2e`; the upgraded start needs a database made before 028, walked by hand (T026); the rename is covered by the seed's tests |
-| S1 | Manual: until T022 adds `028 S1/S2: three apps signed in as three users in one browser window stay signed in through their own renewals, and logging out of one leaves the others signed in`; Safari and the 15-minute run by hand |
-| S2 | Manual: until T022 adds `028 S1/S2: three apps signed in as three users in one browser window stay signed in through their own renewals, and logging out of one leaves the others signed in`; the back button by hand |
+| S1 | Automated: `028 S1/S2: three apps signed in as three users in one browser window stay signed in through their own renewals, and logging out of one leaves the others signed in`; rest Manual: Safari and the 15-minute run by hand |
+| S2 | Automated: `028 S1/S2: three apps signed in as three users in one browser window stay signed in through their own renewals, and logging out of one leaves the others signed in`; rest Manual: the back button by hand |
 | S3 | Manual: needs a database made before 028 (T027, T028); the rename is covered by the seed's tests |
 | S4 | Manual: the Backend's integration tests cover each realm's token and role (T006); another app's account on a sign-in page is `001` V4, rewritten in T023 |
 | S5 | Manual: the same app in two tabs behaves as before 028 |

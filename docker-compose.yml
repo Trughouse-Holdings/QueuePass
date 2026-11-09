@@ -68,10 +68,12 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-queuepass}:${POSTGRES_PASSWORD:-queuepass}@database:5432/${POSTGRES_DB:-queuepass}?schema=public
       PORT: '3000'
-      # Token validation (spec 001 FR-019). Issuer is the browser-facing address; keys are
-      # fetched over the Compose network (research R4). There is no switch to disable this.
-      OIDC_ISSUER: ${OIDC_ISSUER:-http://localhost:8080/realms/queuepass}
-      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/realms/queuepass/protocol/openid-connect/certs}
+      # Token validation (spec 001 FR-019). Spec 028 (research R8): one realm per app; a realm's
+      # issuer is ${OIDC_ISSUER_BASE}/<realm> (the browser-facing address) and its keys are
+      # fetched from ${OIDC_JWKS_BASE}/<realm>/protocol/openid-connect/certs (the Compose
+      # network, spec 001 research R4). There is no switch to disable this.
+      OIDC_ISSUER_BASE: ${OIDC_ISSUER_BASE:-http://localhost:8080/realms}
+      OIDC_JWKS_BASE: ${OIDC_JWKS_BASE:-http://keycloak:8080/realms}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-queuepass-api}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:5175}
       # Spec 013: the address service that checks venue addresses (research R12).
@@ -105,7 +107,8 @@ services:
       dockerfile: admin-app/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
-        VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass}
+        # Spec 028: the app's own realm, so its sign-in is its own in the browser.
+        VITE_OIDC_AUTHORITY: ${VITE_ADMIN_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass-admin-app}
         VITE_OIDC_CLIENT_ID: admin-app
     ports:
       - '5173:5173'
@@ -129,7 +132,8 @@ services:
       dockerfile: customer-app/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
-        VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass}
+        # Spec 028: the app's own realm, so its sign-in is its own in the browser.
+        VITE_OIDC_AUTHORITY: ${VITE_CUSTOMER_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass-customer-app}
         VITE_OIDC_CLIENT_ID: customer-app
     ports:
       - '5174:5174'
@@ -153,7 +157,8 @@ services:
       dockerfile: booth-app/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
-        VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass}
+        # Spec 028: the app's own realm, so its sign-in is its own in the browser.
+        VITE_OIDC_AUTHORITY: ${VITE_BOOTH_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass-booth-app}
         VITE_OIDC_CLIENT_ID: booth-app
     ports:
       - '5175:5175'
@@ -180,7 +185,6 @@ services:
       KEYCLOAK_HEALTH_URL: http://keycloak:9000
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-queuepass}
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-test123}
     depends_on:
       keycloak:

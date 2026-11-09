@@ -13,7 +13,7 @@ RUN npm ci --ignore-scripts
 FROM deps AS build
 # Baked in at build time; Compose fixes the ports, so these never vary per environment.
 ARG VITE_API_BASE_URL=http://localhost:3000
-ARG VITE_OIDC_AUTHORITY=http://localhost:8080/realms/queuepass
+ARG VITE_OIDC_AUTHORITY=http://localhost:8080/realms/queuepass-admin-app
 ARG VITE_OIDC_CLIENT_ID=admin-app
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_OIDC_AUTHORITY=$VITE_OIDC_AUTHORITY \
