@@ -95,6 +95,21 @@ describe('checkResetAllowed (spec 029)', () => {
       expect(message).toContain('not local');
     });
 
+    // Code review round 1, n5: shapes that could name another host than they seem to.
+    it.each([
+      ['a second @ in the authority', `postgresql://u:${SECRET}@localhost@evil.com:5432/q`],
+      ['a trailing dot', `postgresql://u:${SECRET}@localhost.:5432/q`],
+      ['a host list', `postgresql://u:${SECRET}@localhost,evil.com:5432/q`],
+      ['a percent-encoded host', `postgresql://u:${SECRET}@%6Cocalhost:5432/q`],
+      ['HOSTADDR= in capitals', `postgresql://u:${SECRET}@localhost:5432/q?HOSTADDR=10.0.0.5`],
+      [
+        'a percent-encoded hostaddr=',
+        `postgresql://u:${SECRET}@localhost:5432/q?ho%73taddr=10.0.0.5`,
+      ],
+    ])('refuses %s', (_, databaseUrl) => {
+      expect(refusal(env({ DATABASE_URL: databaseUrl }))).toContain('not local');
+    });
+
     it('refuses a mysql: URL', () => {
       expect(refusal(env({ DATABASE_URL: `mysql://root:${SECRET}@localhost:3306/q` }))).toContain(
         'not local',

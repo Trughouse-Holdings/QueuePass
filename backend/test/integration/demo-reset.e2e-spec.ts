@@ -468,6 +468,24 @@ describe('Demo reset (spec 029)', () => {
         WHERE "migration_name" = ${fakeName}`;
       await expectRefusedKeepingMarker();
     });
+
+    // Code review round 1, s1 (FR-010 "none failed"): a failed migration the Backend does not ship,
+    // from another branch, say, still refuses, with the real migrations folder.
+    it('refuses when any migration failed, even one the Backend does not ship', async () => {
+      const failed = '29991231000001_failed_elsewhere';
+      await ctx.prisma.$executeRaw`
+        INSERT INTO "_prisma_migrations" ("id", "checksum", "migration_name", "started_at", "applied_steps_count")
+        VALUES (${randomUUID()}, 'x', ${failed}, now(), 0)`;
+      try {
+        await expect(assertMigrated(ctx.prisma, MIGRATIONS)).rejects.toThrow(NOT_MIGRATED);
+        const id = await marker();
+        await expect(runDemoReset(ctx.app, { log })).rejects.toThrow(NOT_MIGRATED);
+        expect(await ctx.prisma.location.findUnique({ where: { id } })).not.toBeNull();
+      } finally {
+        await ctx.prisma
+          .$executeRaw`DELETE FROM "_prisma_migrations" WHERE "migration_name" = ${failed}`;
+      }
+    });
   });
 
   describe('the output, the time, and failures (US1; FR-012 to FR-014, SC-002)', () => {

@@ -15,7 +15,6 @@ test('029 S2: after the reset, the Ticket Booth offers Demo Tonight open and the
   const tonight = page.getByRole('button', { name: /^Demo Tonight · / });
   await expect(tonight).toBeVisible();
   await expect(tonight).toBeEnabled();
-  await expect(page.getByRole('listitem').filter({ hasText: 'Season Opener' })).toHaveCount(0);
   await expect(page.getByText('Season Opener')).toHaveCount(0);
 
   // The Customer app: Season Opener's page says sales are closed; Fall Concert's offers tickets.

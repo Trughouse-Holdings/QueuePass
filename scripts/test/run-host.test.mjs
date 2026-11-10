@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createServer } from 'node:http';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -250,4 +251,45 @@ test('--demo-reset without a built Backend says to build it and runs nothing (FR
     /Build the Backend first: npm run build --workspace @queuepass\/backend/,
   );
   assert.equal(existsSync(marker), false, 'the step ran');
+});
+
+// Code review round 1, s2 (research R6): after its one step, reset mode returns; it starts no child
+// and never waits for the Backend's health.
+test('--demo-reset runs its step and returns: no child, no health wait (R6)', async () => {
+  const { run } = await import('../run-host.mjs');
+  const marker = join(tmpdir(), `qp-demo-reset-child-${process.pid}`);
+  let polled = 0;
+  const server = createServer((_, res) => {
+    polled += 1;
+    res.end('ok');
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const started = [];
+  try {
+    await run(
+      { demoReset: true },
+      {
+        plan: {
+          setup: [{ name: 'demo-reset', command: `"${process.execPath}" -e "0"`, env: {} }],
+          children: [
+            {
+              name: 'backend',
+              command: `"${process.execPath}" -e "require('fs').writeFileSync(process.argv[1], 'x')" "${marker}"`,
+              env: {},
+            },
+          ],
+        },
+        resetScript: SCRIPT,
+        healthUrl: `http://127.0.0.1:${server.address().port}/health`,
+        healthTimeoutMs: 1500,
+        onStart: (child) => started.push(child),
+        quiet: true,
+      },
+    );
+  } finally {
+    server.close();
+  }
+  assert.equal(started.length, 0, 'a child was started');
+  assert.equal(polled, 0, 'the health URL was polled');
+  assert.equal(existsSync(marker), false, 'the child ran');
 });

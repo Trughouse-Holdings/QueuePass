@@ -54,6 +54,18 @@ const NOT_MIGRATED =
 const BUSY = 'Refused: the database is busy; try again.';
 
 /**
+ * A database address's host (lower-cased, without IPv6 brackets), port (5432 when not given), and
+ * database name: what the guard checks and what the output names, never the password (FR-011).
+ */
+function targetOf(url: URL): ResetTarget {
+  return {
+    host: url.hostname.replace(/^\[(.*)\]$/, '$1').toLowerCase(),
+    port: url.port ? Number(url.port) : 5432,
+    database: decodeURIComponent(url.pathname.replace(/^\//, '')),
+  };
+}
+
+/**
  * Research R7, checks 1 and 2: the permission, then the database host, from the environment
  * alone. `inContainer` defaults to Docker's `/.dockerenv`: `database` is the Compose stack's own
  * service only inside its network; elsewhere a hosts file or a search domain could send it away.
@@ -78,7 +90,8 @@ export function checkResetAllowed(
       'Refused: DATABASE_URL cannot be read, so the database host is not known to be local.',
     );
   }
-  const host = url.hostname.replace(/^\[(.*)\]$/, '$1').toLowerCase();
+  const target = targetOf(url);
+  const host = target.host;
   if (url.protocol !== 'postgresql:' && url.protocol !== 'postgres:') throw notLocal(host);
   if (!(LOCAL_HOSTS.includes(host) || (host === 'database' && inContainer))) throw notLocal(host);
   // libpq's host overrides would send the connection elsewhere, whatever the URL's host says.
@@ -86,11 +99,7 @@ export function checkResetAllowed(
     const k = key.toLowerCase();
     if (k === 'host' || k === 'hostaddr') throw notLocal(`${host} (with ${k}= in its options)`);
   }
-  return {
-    host,
-    port: url.port ? Number(url.port) : 5432,
-    database: decodeURIComponent(url.pathname.replace(/^\//, '')),
-  };
+  return target;
 }
 
 /** The target as printed (`localhost:5432/queuepass`). */
@@ -103,8 +112,9 @@ export const MIGRATIONS_DIR = path.resolve(__dirname, '../../prisma/migrations')
 type Db = Pick<PrismaClient, '$queryRaw'>;
 
 /**
- * Research R7, check 3 (FR-010): the migration record exists in the current schema, and every
- * migration folder the Backend ships has a finished row that was not rolled back.
+ * Research R7, check 3 (FR-010): the migration record exists in the current schema, every
+ * migration folder the Backend ships has a finished row that was not rolled back, and no migration
+ * failed, shipped or not (a failed row is unfinished and not rolled back; code review round 1, s1).
  */
 export async function assertMigrated(
   prisma: Db,
@@ -121,6 +131,10 @@ export async function assertMigrated(
     WHERE "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL`;
   const names = new Set(applied.map((r) => r.migration_name));
   if (shipped.some((name) => !names.has(name))) throw new ResetRefused(NOT_MIGRATED);
+  const [{ failed }] = await prisma.$queryRaw<{ failed: bigint }[]>`
+    SELECT count(*) AS "failed" FROM "_prisma_migrations"
+    WHERE "finished_at" IS NULL AND "rolled_back_at" IS NULL`;
+  if (failed > 0n) throw new ResetRefused(NOT_MIGRATED);
 }
 
 /** Rows removed, per table (by its name), and the tickets among them that were checked in. */
@@ -232,14 +246,8 @@ function removedLine(removed: RemovedCounts): string {
 }
 
 /** DATABASE_URL's host, port, and name, without the guard's checks. */
-function targetFromEnv(): ResetTarget {
-  const url = new URL(process.env.DATABASE_URL ?? 'postgresql://localhost');
-  return {
-    host: url.hostname.replace(/^\[(.*)\]$/, '$1').toLowerCase(),
-    port: url.port ? Number(url.port) : 5432,
-    database: decodeURIComponent(url.pathname.replace(/^\//, '')),
-  };
-}
+const targetFromEnv = (): ResetTarget =>
+  targetOf(new URL(process.env.DATABASE_URL ?? 'postgresql://localhost'));
 
 const incomplete = (reason: string): ResetIncomplete =>
   new ResetIncomplete(
@@ -265,25 +273,28 @@ export async function runDemoReset(
   const removed = await wipeAppData(prisma);
   log(removedLine(removed));
 
+  // FR-013: from here on the data is gone, so every failure, the checks' own included, says the
+  // demo state is incomplete and to run it again (code review round 1, n3).
   let created: DemoSummary;
+  let tonight: { endsAt: Date; location: { timeZone: string } };
   try {
     await options.afterWipe?.();
     created = await runDemoData(app);
+    if (!created.created) throw new Error('another reset ran at the same time');
+    const [venues, arenas] = await Promise.all([
+      prisma.location.count(),
+      prisma.location.count({ where: { name: DEMO_VENUE } }),
+    ]);
+    if (venues !== 2 || arenas !== 1) throw new Error('another reset ran at the same time');
+    const found = await prisma.event.findFirst({
+      where: { name: 'Demo Tonight' },
+      include: { location: true },
+    });
+    if (!found) throw new Error('Demo Tonight is missing');
+    tonight = found;
   } catch (err) {
     throw incomplete(err instanceof Error ? err.message : String(err));
   }
-  if (!created.created) throw incomplete('another reset ran at the same time');
-  const [venues, arenas] = await Promise.all([
-    prisma.location.count(),
-    prisma.location.count({ where: { name: DEMO_VENUE } }),
-  ]);
-  if (venues !== 2 || arenas !== 1) throw incomplete('another reset ran at the same time');
-
-  const tonight = await prisma.event.findFirst({
-    where: { name: 'Demo Tonight' },
-    include: { location: true },
-  });
-  if (!tonight) throw incomplete('Demo Tonight is missing');
 
   log(
     `Created: ${created.venues} venues, ${created.events} events (${created.cancelled} cancelled, ` +

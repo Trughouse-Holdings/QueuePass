@@ -29,3 +29,17 @@ for (const file of files) {
     assert.equal(text.includes('demo-reset'), false, `${file} runs the reset`);
   });
 }
+
+// Code review round 1, n8 (FR-003, R13): the harness gives the permission once, on its exec of the
+// reset under its own COMPOSE, the throwaway `qpe2e` project.
+test('scripts/e2e.mjs gives the permission only to its reset, under -p qpe2e', async () => {
+  const { COMPOSE, PROJECT } = await import('../e2e.mjs');
+  assert.equal(PROJECT, 'qpe2e');
+  assert.equal(COMPOSE[COMPOSE.indexOf('-p') + 1], PROJECT);
+  const text = readFileSync(join(ROOT, 'scripts', 'e2e.mjs'), 'utf8');
+  assert.equal(text.split('QUEUEPASS_ALLOW_RESET=1').length - 1, 1, 'one place gives it');
+  assert.match(
+    text,
+    /\[\s*\.\.\.COMPOSE,\s*'exec',\s*'-T',\s*'-e',\s*'QUEUEPASS_ALLOW_RESET=1',\s*'backend',\s*'node',\s*'backend\/dist\/scripts\/demo-reset\.js',?\s*\]/,
+  );
+});

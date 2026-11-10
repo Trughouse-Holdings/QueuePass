@@ -233,8 +233,9 @@ confirm they **fail** before the implementation tasks of Phase 3.
   America/Los_Angeles, Pacific/Honolulu for shared, Backend, admin, customer, and booth. **Pending**:
   the `e2e` job on GitHub (the reset in the harness and `029 S2`) and its time; needs a pushed PR or a
   free stack.
-- [ ] T019 Independent review by a separate Claude session (Constitution III) of the implementation
+- [x] T019 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round here.
+  **Done**: round 1, recorded under "Review record (implementation branch)"; all findings fixed.
 - [ ] T020 Running-system walk, quickstart S0–S7, on Compose project `qp029` (path B on this machine;
   the team stack's ports are needed, so ask Mahdi before stopping it, ground rules); record each
   scenario's result here (Constitution VI smoke test).
@@ -335,4 +336,27 @@ confirm they **fail** before the implementation tasks of Phase 3.
 
 ## Review record (implementation branch)
 
-_Left for the implementation's review (T019)._
+- **Round 1** (independent Claude session, 2026-11-09): no must-fix, 2 should-fix, 6 nits; the
+  reviewer's verdict: only minor findings remain. All fixed in the `Impl 029: code review round 1`
+  commit; the new migration test failed before the fix.
+  - S1: `assertMigrated` accepted a failed migration the Backend does not ship (another branch's) →
+    it also refuses when any `_prisma_migrations` row is unfinished and not rolled back (FR-010 "none
+    failed"); a T005 test inserts one under an unshipped name and checks a marker venue survives.
+  - S2: reset mode's early return in `run()` was untested → a `run()` test with an existing reset
+    script, a succeeding step, and a child that would leave a marker: it resolves, starts no child,
+    and never polls the health URL (R6).
+  - N3: the post-load checks (one demo set, Demo Tonight present) now run inside the `try` that turns
+    every failure into FR-013's "incomplete … run it again".
+  - N4: `targetFromEnv` and the guard share one `targetOf(url)` helper.
+  - N5: the guard test pins `localhost@evil.com` after the user info, `localhost.`,
+    `localhost,evil.com`, `%6Cocalhost`, `?HOSTADDR=`, and `?ho%73taddr=` as refused (they already
+    were).
+  - N6: the browser test's redundant `listitem` assertion dropped.
+  - N7: README says `run-host.mjs --print --demo-reset` shows the step's environment, the local
+    default `DATABASE_URL` password included.
+  - N8: `demo-reset-safety.test.mjs` pins that `scripts/e2e.mjs` gives the permission in one place,
+    its `exec -e QUEUEPASS_ALLOW_RESET=1 … demo-reset.js` under `COMPOSE` (`-p qpe2e`).
+  - After the fixes, three runs each: Backend unit tests 279/279 (one run's `nominatim-search` fetch
+    timed out under load, unrelated to 029; a fourth run made three green in a row), the
+    `demo-reset` Testcontainers suite 16/16, root script tests 85/85.
+- **Open findings**: none.
