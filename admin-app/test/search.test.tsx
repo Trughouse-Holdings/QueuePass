@@ -7,6 +7,10 @@ import { LocationList } from '../src/pages/LocationList';
 import { json, stubApi } from './helpers/api-stub';
 import events from './fixtures/events.json';
 import locations from './fixtures/locations.json';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 004 US2 and US3 (FR-006–FR-009): event and venue search in the Admin app. */
 afterEach(() => vi.unstubAllGlobals());

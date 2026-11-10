@@ -3,13 +3,15 @@ import { api, unwrap } from './client';
 
 /**
  * Spec 004 FR-006 filters; every one optional. Spec 020 (research R15): `fromDate` and `toDate`
- * are days (`YYYY-MM-DD`), matched against each event's start date in its venue's zone.
+ * are days (`YYYY-MM-DD`), matched against each event's start date in its venue's zone. Spec 030
+ * (research R4): `includePast`, sent only when `true`; left out, the Backend leaves past events out.
  */
 export interface EventFilters {
   locationId?: string;
   q?: string;
   fromDate?: string;
   toDate?: string;
+  includePast?: boolean;
 }
 
 export const listEvents = (filters: EventFilters = {}): Promise<Event[]> => {

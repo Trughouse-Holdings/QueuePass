@@ -4,6 +4,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventDetail } from '../src/pages/EventDetail';
 import { when } from '../src/format';
 import { json, stubApi } from './helpers/api-stub';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 002 FR-025, FR-031; research R6. */
 const VENUE = {

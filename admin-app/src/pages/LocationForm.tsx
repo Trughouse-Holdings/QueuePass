@@ -137,7 +137,8 @@ export function LocationForm(): React.ReactElement {
     getLayout(id)
       .then((layout) => setSetByLayout(layout.sections.length > 0))
       .catch(() => setSetByLayout(false));
-    listEvents({ locationId: id })
+    // Spec 030 FR-010: changing the zone moves past events' times too, so they count.
+    listEvents({ locationId: id, includePast: true })
       .then((events) => setHasEvents(events.length > 0))
       .catch(() => setHasEvents(null));
   }, [id]);

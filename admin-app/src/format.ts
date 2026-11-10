@@ -45,3 +45,9 @@ export const doorsOpen = (
   doorsOpenAt: string,
   timeZone?: string | null,
 ): string => formatDoorsOpen(startsAt, doorsOpenAt, timeZone || DEFAULT_TIME_ZONE);
+
+/**
+ * Spec 030 FR-001 (research R6): an event is past from the instant `now` reaches its end
+ * (half-open), whatever its status.
+ */
+export const hasEnded = (endsAt: string, now: number): boolean => Date.parse(endsAt) <= now;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type { Event, Location } from '@queuepass/shared';
 import { AddressLink } from '@queuepass/shared/web';
 import { ApiError } from '../api/client';
@@ -7,27 +7,41 @@ import { deleteLocation, getLocation } from '../api/locations';
 import { listEvents } from '../api/events';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { LayoutCard } from '../components/LayoutCard';
-import { venueZone, when } from '../format';
+import { hasEnded, venueZone, when } from '../format';
 import { useDelete } from '../hooks/use-delete';
 
 type Load =
   | { kind: 'loading' }
-  | { kind: 'ok'; venue: Location; events: Event[] }
+  | { kind: 'ok'; venue: Location; events: Event[]; loadedAt: number }
   | { kind: 'missing' }
   | { kind: 'unreachable' };
 
 /**
  * Spec 002 FR-024, US1-2: one venue, the events scheduled there, and Edit and Delete. Delete
  * lives here rather than in list rows, where the admin can see what it would affect (research R3).
+ * Spec 030 FR-008, FR-009 (research R5): its own Show past events, kept in its address as `past=1`.
  */
 export function LocationDetail(): React.ReactElement {
   const { id = '' } = useParams();
+  const [params, setParams] = useSearchParams();
+  const past = params.get('past') === '1';
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
+
+  const showPast = (on: boolean) => {
+    const next = new URLSearchParams(params);
+    if (on) next.set('past', '1');
+    else next.delete('past');
+    setParams(next);
+  };
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getLocation(id), listEvents({ locationId: id })])
-      .then(([venue, events]) => !cancelled && setLoad({ kind: 'ok', venue, events }))
+    Promise.all([getLocation(id), listEvents({ locationId: id, includePast: past })])
+      .then(
+        ([venue, events]) =>
+          // Spec 030 FR-012 (research R6): the time is read when the events arrive.
+          !cancelled && setLoad({ kind: 'ok', venue, events, loadedAt: Date.now() }),
+      )
       .catch((err: unknown) => {
         if (cancelled) return;
         setLoad(
@@ -39,7 +53,7 @@ export function LocationDetail(): React.ReactElement {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, past]);
 
   if (load.kind === 'loading') return <p className="loading">Loading venue…</p>;
   if (load.kind === 'unreachable')
@@ -58,10 +72,30 @@ export function LocationDetail(): React.ReactElement {
       </section>
     );
   }
-  return <VenueView venue={load.venue} events={load.events} />;
+  return (
+    <VenueView
+      venue={load.venue}
+      events={load.events}
+      loadedAt={load.loadedAt}
+      past={past}
+      onPast={showPast}
+    />
+  );
 }
 
-function VenueView({ venue, events }: { venue: Location; events: Event[] }): React.ReactElement {
+function VenueView({
+  venue,
+  events,
+  loadedAt,
+  past,
+  onPast,
+}: {
+  venue: Location;
+  events: Event[];
+  loadedAt: number;
+  past: boolean;
+  onPast: (on: boolean) => void;
+}): React.ReactElement {
   const { remove, deleting, error } = useDelete({
     kind: 'venue',
     name: venue.name,
@@ -103,6 +137,12 @@ function VenueView({ venue, events }: { venue: Location; events: Event[] }): Rea
         </p>
 
         <h2>Events here</h2>
+        <label className="choice">
+          <input type="checkbox" checked={past} onChange={(e) => onPast(e.target.checked)} />
+          Show past events
+        </label>
+        {/* Spec 030 FR-009: said while the toggle is off, also when nothing is listed. */}
+        {!past && <p className="note">Past events are hidden.</p>}
         {events.length === 0 ? (
           <p className="note">Nothing is scheduled here.</p>
         ) : (
@@ -121,7 +161,12 @@ function VenueView({ venue, events }: { venue: Location; events: Event[] }): Rea
                     <td className="cell-strong">
                       <Link to={`/events/${e.id}`} className="rowlink">
                         {e.name}
-                      </Link>
+                      </Link>{' '}
+                      {e.status === 'CANCELLED' && (
+                        <span className="pill pill--danger">Cancelled</span>
+                      )}{' '}
+                      {/* Spec 030 FR-011 (research R6): in text, after Cancelled when both. */}
+                      {hasEnded(e.endsAt, loadedAt) && <span className="pill">Ended</span>}
                     </td>
                     <td className="cell-time">
                       {when(e.startsAt, e.location?.timeZone ?? venue.timeZone)}

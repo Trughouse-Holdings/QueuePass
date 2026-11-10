@@ -5,6 +5,10 @@ import { Reports } from '../src/pages/Reports';
 import { EventDetail } from '../src/pages/EventDetail';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, REPORT } from './fixtures-005';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 005 US2 (FR-005, FR-006): the Reports page and the event page's Sales card. */
 afterEach(() => vi.unstubAllGlobals());

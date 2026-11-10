@@ -10,7 +10,7 @@ import {
 import { listEvents, type EventFilters } from '../api/events';
 import { listLocations } from '../api/locations';
 import { Notice } from '../components/Notice';
-import { until } from '../format';
+import { hasEnded, until } from '../format';
 
 /** Spec 020 research R12: an event's date and start in its venue's zone, with the abbreviation. */
 const zoneOf = (e: Event): string => e.location.timeZone ?? DEFAULT_TIME_ZONE;
@@ -34,15 +34,27 @@ const readUrl = (params: URLSearchParams): UrlFilters => ({
 });
 
 /**
- * Spec 020 FR-020 (research R15): the days are sent as typed, `fromDate` and `toDate`; the Backend
- * matches each event's start date in its venue's zone, both days included.
+ * Spec 030 FR-008 (research R5): Show past events, kept in the address as `past=1` beside the
+ * filters but outside `KEYS`: it is applied at once, not by Search, and not counted as a filter.
  */
-const toApi = (f: UrlFilters): EventFilters => ({
+const PAST = 'past';
+const readPast = (params: URLSearchParams): boolean => params.get(PAST) === '1';
+
+/**
+ * Spec 020 FR-020 (research R15): the days are sent as typed, `fromDate` and `toDate`; the Backend
+ * matches each event's start date in its venue's zone, both days included. Spec 030 (research
+ * R4): `includePast` only while Show past events is on.
+ */
+const toApi = (f: UrlFilters, past: boolean): EventFilters => ({
   q: f.q.trim() || undefined,
   locationId: f.venue || undefined,
   fromDate: f.from || undefined,
   toDate: f.to || undefined,
+  includePast: past || undefined,
 });
+
+/** Spec 030 FR-009: said while Show past events is off, when the list is empty. */
+const PAST_HIDDEN_HINT = 'Past events are hidden; turn on Show past events to include them.';
 
 /**
  * Spec 002 FR-025 — the event list; spec 004 US2 — search by name, venue, and date range, kept
@@ -53,9 +65,12 @@ export function EventList(): React.ReactElement {
   const [params, setParams] = useSearchParams();
   const applied = readUrl(params);
   const filtered = KEYS.some((k) => applied[k]);
+  const past = readPast(params);
   const [form, setForm] = useState<UrlFilters>(applied);
   const [formError, setFormError] = useState<string | null>(null);
-  const [events, setEvents] = useState<Event[] | null>(null);
+  // Spec 030 FR-012 (research R6): the time is read when the events arrive and kept with them.
+  const [loaded, setLoaded] = useState<{ events: Event[]; at: number } | null>(null);
+  const events = loaded?.events ?? null;
   const [venues, setVenues] = useState<Location[]>([]);
   const [error, setError] = useState<string | null>(null);
   const key = params.toString();
@@ -68,10 +83,11 @@ export function EventList(): React.ReactElement {
 
   useEffect(() => {
     let cancelled = false;
-    setEvents(null);
+    setLoaded(null);
     setError(null);
-    listEvents(toApi(readUrl(new URLSearchParams(key))))
-      .then((e) => !cancelled && setEvents(e))
+    const url = new URLSearchParams(key);
+    listEvents(toApi(readUrl(url), readPast(url)))
+      .then((e) => !cancelled && setLoaded({ events: e, at: Date.now() }))
       .catch((err: Error) => !cancelled && setError(err.message));
     return () => {
       cancelled = true;
@@ -84,6 +100,15 @@ export function EventList(): React.ReactElement {
       const v = f[k].trim();
       if (v) next.set(k, v);
     }
+    // Spec 030 FR-008, FR-009 (research R5): Search and Clear keep Show past events as it is.
+    if (past) next.set(PAST, '1');
+    setParams(next);
+  };
+
+  const showPast = (on: boolean) => {
+    const next = new URLSearchParams(params);
+    if (on) next.set(PAST, '1');
+    else next.delete(PAST);
     setParams(next);
   };
 
@@ -111,7 +136,7 @@ export function EventList(): React.ReactElement {
           <h1 className="page-title">Events</h1>
           <p className="page-sub">
             {events
-              ? `${events.length} event${events.length === 1 ? '' : 's'} ${filtered ? 'match' : 'scheduled'}`
+              ? `${events.length} event${events.length === 1 ? '' : 's'} ${filtered ? 'match' : 'scheduled'}${past ? '' : ' · past events hidden'}`
               : 'Loading…'}
           </p>
         </div>
@@ -180,6 +205,11 @@ export function EventList(): React.ReactElement {
         </div>
       </form>
 
+      <label className="choice">
+        <input type="checkbox" checked={past} onChange={(e) => showPast(e.target.checked)} />
+        Show past events
+      </label>
+
       {error && (
         <div role="alert" className="banner banner--error">
           <span className="banner__icon" aria-hidden="true">
@@ -198,6 +228,7 @@ export function EventList(): React.ReactElement {
         ) : events.length === 0 && filtered ? (
           <div className="empty">
             <p className="empty__title">No events match these filters.</p>
+            {!past && <p className="empty__body">{PAST_HIDDEN_HINT}</p>}
             <button type="button" className="btn" onClick={clear}>
               Clear filters
             </button>
@@ -209,6 +240,7 @@ export function EventList(): React.ReactElement {
             </div>
             <p className="empty__title">No events scheduled</p>
             <p className="empty__body">Schedule one against a venue to get started.</p>
+            {!past && <p className="empty__body">{PAST_HIDDEN_HINT}</p>}
             <Link to="/events/new" className="btn btn--primary">
               Schedule event
             </Link>
@@ -236,6 +268,10 @@ export function EventList(): React.ReactElement {
                       </Link>{' '}
                       {e.status === 'CANCELLED' && (
                         <span className="pill pill--danger">Cancelled</span>
+                      )}{' '}
+                      {/* Spec 030 FR-011 (research R6): in text, after Cancelled when both. */}
+                      {loaded && hasEnded(e.endsAt, loaded.at) && (
+                        <span className="pill">Ended</span>
                       )}
                     </td>
                     <td>

@@ -13,6 +13,10 @@ import { salesTable } from '../src/export/sales-rows';
 import { json, stubApi } from './helpers/api-stub';
 import { REPORT } from './fixtures-005';
 import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-user-manager';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 023 US2, US3 (FR-002, FR-003, R13a): Download on the Reports page. */
 vi.mock('../src/export/save', () => ({ save: vi.fn() }));

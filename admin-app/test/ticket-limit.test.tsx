@@ -6,6 +6,10 @@ import type { SeatingLayout } from '@queuepass/shared';
 import { EventForm } from '../src/pages/EventForm';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, VENUE } from './fixtures-005';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 016 US3 (FR-008, FR-011; research R7): admins set, change, and clear the per-customer

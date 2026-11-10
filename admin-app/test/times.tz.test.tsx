@@ -8,6 +8,10 @@ import { LocationDetail } from '../src/pages/LocationDetail';
 import { Reports } from '../src/pages/Reports';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, ORDERS, REPORT, VENUE } from './fixtures-005';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 020 US2 scenario 5, FR-020 to FR-023 (research R12, R15): every Admin page shows an event
