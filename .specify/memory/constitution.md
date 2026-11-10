@@ -12,10 +12,11 @@ Changed:
     keeps past tickets in a Past section of My tickets and a past event's own page reachable with
     "This event has ended"; Admin detail, Attendees, Sales, and Reports always reachable). The next
     free number is 031.
-Impact: spec 030 only, and its contract change (listEvents gains includePast). Spec 029's browser
-  test reads the past demo event through the list, so it asks for past events (spec 030 research
-  R10). No other spec changes. The README's version reference follows. Templates: none need
-  updating.
+Impact: spec 030, and its contract change (listEvents gains includePast). Spec 029 (merged): its
+  browser test reads the past demo event through the list, so it asks for past events, and its spec,
+  quickstart, and the README's demo sections are reworded where the Customer app showed that event
+  in its list (spec 030 research R10; done in 030's implementation). No other spec changes. The
+  README's version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
