@@ -140,7 +140,10 @@ for seated events only; rejected.
   (availability says `CANCELLED` whatever the time, so a cancelled event that has ended still says
   so, as `030` FR-014 and this spec's edge case require), and never while `inProgress` is true.
   Before the first answer, or if none ever arrives, the page keeps `030`'s rule, so a past event's
-  page says it has ended at once. A browser clock a few minutes fast near the end can therefore no
+  page says it has ended at once; a reload that fails after a first answer keeps the last answer (the
+  callback is not called for it). An answer with `salesClosed: 'STARTED'` or without `inProgress`,
+  which only a Backend from before T012 sends, counts as no answer (`030`'s rule); once T014 has
+  landed the Backend never sends it and the type no longer has it. A browser clock a few minutes fast near the end can therefore no
   longer show "This event has ended." above a panel offering tickets. `030` FR-014 carries a dated
   note.
 

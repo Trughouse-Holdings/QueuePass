@@ -21,9 +21,9 @@
 - **Customer app** (R4, R5): the Get tickets panel shows the "already started" notice at its top
   from `inProgress`, with only its first sentence when the customer cannot buy, and "Sales closed:
   this event has ended." once ended; once availability has loaded, the page's `030` "This event has
-  ended." line follows it rather than the browser's clock (FR-017); the confirmation of an order
-  placed after the start says so; one helper in `format.ts` builds the text, times in the venue's
-  zone.
+  ended." line follows it rather than the browser's clock, except for a cancelled event, which still
+  needs the browser's clock to say it has ended (FR-017); the confirmation of an order placed after
+  the start says so; one helper in `format.ts` builds the text, times in the venue's zone.
 - **Unchanged** (R6, R7): the Ticket Booth, lists, My tickets, Add to calendar, the Admin app, reports,
   exports, the per-customer and attempt limits, the demo data's events.
 - **Tests** (R11): Backend integration first, both sides of the end; Customer Vitest; one browser test;

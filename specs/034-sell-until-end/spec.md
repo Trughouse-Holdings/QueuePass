@@ -254,7 +254,10 @@ values follow the rule.
   (FR-017); before, it follows `030`'s rule.
 - **A cancelled event in progress.** Refused as cancelled; the panel shows only that it is cancelled.
 - **A cancelled event that has ended.** As today: `CANCELLED` wins; its page says it has been
-  cancelled and (`030`) that it has ended.
+  cancelled and (`030`) that it has ended. Because availability says `CANCELLED` whatever the time,
+  the "ended" line for a cancelled event still follows the browser's clock (FR-017): a browser
+  clock running slow keeps it hidden for a little while after the Backend's end, until the page is
+  loaded again after the browser's clock passes the end.
 - **The per-customer limit and the attempt limits** (`016`, `026`) count orders and holds after the
   start exactly as before it.
 - **The cart (`033`).** A reservation, and so a cart entry, stays until its event ends rather than
@@ -315,9 +318,11 @@ values follow the rule.
   event has ended." line (`030` FR-014) MUST follow the last answer: shown when it says sales have
   `ENDED`, or when it says `CANCELLED` with the event not in progress and `030`'s rule (the
   browser's clock when the event loaded) says the event has ended; never while it says the event is
-  in progress. While availability is loading again after a first answer, the last answer MUST still
-  be used. Before any answer has arrived, or if none ever does, `030`'s rule applies. _(Added in
-  spec review round 1, cancelled events in round 2.)_
+  in progress. While availability is loading again after a first answer, or when such a reload
+  fails, the last answer MUST still be used. Before any answer has arrived, or if none ever does,
+  `030`'s rule applies. An answer saying `STARTED` or without `inProgress` (only from a Backend
+  before this feature's implementation, research R2) counts as no answer, so `030`'s rule applies.
+  _(Added in spec review round 1, cancelled events in round 2, reloads and `STARTED` in round 3.)_
 
 **Unchanged**
 

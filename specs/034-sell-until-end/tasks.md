@@ -125,8 +125,12 @@ confirm they **fail** before the implementation tasks that follow.
     `{ ENDED, false }`, "This event has ended." is shown, so the line follows availability, not the
     clock. A cancelled event whose end has passed by the browser clock, with `{ CANCELLED,
     inProgress: false }`, keeps the line; with `{ CANCELLED, inProgress: true }`, no line. Before
-    availability answers (a pending stub), the page follows `030`'s rule; after a first answer, a
-    reload of availability (a refusal) that is still pending keeps the last answer's line.
+    availability answers (a pending stub), the page follows `030`'s rule. **A reload keeps the last
+    answer**: with the browser clock 3 minutes past `endsAt` and availability `{ salesClosed: null,
+    inProgress: true }` (no line, the form offered), confirm an order the stub refuses (`409
+    SOLD_OUT`), leaving the availability reload that follows pending: still no line, and no fallback
+    to `030`'s clock; then let the reload answer `{ ENDED, false }`: the line appears. An answer `{
+    salesClosed: 'STARTED' }` without `inProgress` follows `030`'s rule.
   - `{ CANCELLED, inProgress: true }`: no "already started"; the cancelled message.
   - `{ null, false }`: no notice.
   - `{ ENDED, false }`: the "Sales closed" badge and "Sales closed: this event has ended."; no "already
@@ -305,4 +309,21 @@ confirm they **fail** before the implementation tasks that follow.
     (reloads, seatings), and use `030`'s rule when no answer ever arrives; T007 covers a pending
     reload.
   - N2: the `006` FR-014 dated note's long line rewrapped.
+- **Round 3** (independent Claude session, 2026-11-09): the reviewer's verdict: **only minor
+  findings remain**; FR-017's rule holds for every reachable combination. 1 should-fix, 5 nits. All
+  fixed in the `Review 034: spec review round 3` commit, and the Sync Impact Report's wording in a
+  `Constitution:` commit.
+  - S1: T007's "pending reload keeps the last answer" case could not be produced (`ENDED` and
+    `CANCELLED` show no purchase controls, so nothing triggers a reload) → rewritten: browser clock 3
+    minutes past `endsAt`, availability `{ null, inProgress: true }` (no line), a refused order whose
+    availability reload stays pending: still no line and no fallback to `030`'s clock; the reload
+    then answers `{ ENDED, false }` and the line appears.
+  - N1: `STARTED` (in the enum until T014): an answer saying `STARTED` or without `inProgress` counts
+    as no answer, so `030`'s rule applies (FR-017, R4, T007).
+  - N2: FR-017 and R4: a failed reload after a first answer also keeps the last answer.
+  - N3: the constitution's Impact line names the clock ("the browser's clock when the event loaded").
+  - N4: the cancelled-and-ended edge case: a slow browser clock keeps the line hidden for a while
+    after the Backend's end, because availability says `CANCELLED` whatever the time.
+  - N5: plan Summary: the line follows availability rather than the browser's clock, except for a
+    cancelled event.
 - **Open findings**: none.
