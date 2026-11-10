@@ -165,7 +165,7 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 - [ ] T021 Independent review (Constitution III) by a session that did not write the work, or a
   record in the pull request that this has not yet been run and is asked of Nathan or another
   session. Findings fixed, or left open with the reason.
-- [ ] T022 Push each branch (not `main`) and open two pull requests, following the repo's
+- [x] T022 Push each branch (not `main`) and open two pull requests, following the repo's
   spec-then-impl pattern: the spec PR (`035-event-form-flow-spec`) against `main`; the
   implementation PR (`035-event-form-flow-impl`) against the spec branch until that PR is merged,
   then retargeted to `main`. The implementation PR's body is in the same form as recent Impl PRs,
@@ -173,6 +173,10 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   asks for Nathan's review and approval before merging, with no claim of standing approval. The
   spec PR does not close the issue. Draft a PR if anything in T019–T021 is incomplete or
   unverified. Do not merge.
+  **Done** (2026-11-10): Spec PR #155 against `main`
+  (https://github.com/Trughouse-Holdings/QueuePass/pull/155). Impl PR #156 (draft) against
+  the spec branch (https://github.com/Trughouse-Holdings/QueuePass/pull/156), to be
+  retargeted after #155 merges. Neither was merged.
 
 ---
 
