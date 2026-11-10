@@ -413,6 +413,12 @@ export interface paths {
          *     Feature 025: each event carries `doorsOpenAt` and `entryOpensAt`. The Ticket Booth app
          *     lists scheduled events that have not ended and lets a gate agent choose only those whose
          *     `entryOpensAt` has passed; `lookupEntryTicket` and `admitTicket` enforce the window.
+         *
+         *     Feature 030: **past events are left out unless `includePast` is `true`**. An event is past
+         *     from the instant the Backend's clock, when it answers, reaches its `endsAt` (half-open: at
+         *     `endsAt` exactly it is past), whatever its `status`. `includePast` combines with every other
+         *     filter, and the order is unchanged. Any caller may send it. Reading one event (`getEvent`)
+         *     and every other operation are unaffected.
          */
         get: operations["listEvents"];
         put?: never;
@@ -2062,10 +2068,10 @@ export interface components {
                  *         "code": "VALIDATION_FAILED",
                  *         "message": "Request validation failed.",
                  *         "details": {
-                 *           "fields": {
-                 *             "endsAt": "must be later than startsAt",
-                 *             "seatingCapacity": "must be a positive whole number"
-                 *           }
+                 *           "fields": [
+                 *             "endsAt must be later than startsAt",
+                 *             "seatingCapacity must be a positive whole number"
+                 *           ]
                  *         }
                  *       }
                  *     }
@@ -2791,6 +2797,11 @@ export interface operations {
                  *     `timeZone`.
                  */
                 toDate?: string;
+                /**
+                 * @description Feature 030. `true` also lists events whose `endsAt` has been reached; `false`, the
+                 *     default, leaves them out. Any other value is `400 VALIDATION_FAILED`.
+                 */
+                includePast?: boolean;
             };
             header?: never;
             path?: never;
@@ -2798,7 +2809,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Matching events, ordered by start time. */
+            /** @description Matching events, ordered by start time; past events only with `includePast`. */
             200: {
                 headers: {
                     [name: string]: unknown;
