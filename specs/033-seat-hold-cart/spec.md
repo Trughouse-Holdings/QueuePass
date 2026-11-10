@@ -290,6 +290,8 @@ them taken by another customer first; it alone is refused and named.
   says the seats were bought, with a link to My tickets; otherwise "Your reservation for {event}
   ended." An entry whose purchase is in flight, or awaiting Check again, is kept until that purchase
   settles. A read refused as signed out stops the cart's reads and signs the customer in again.
+  _Amended 2026-11-09 by spec `034` (#126), FR-004: "the event ends", not "starts": a reservation
+  now ends at its event's end._
 - **The token expires**: a click or Buy tickets that gets `401` signs the customer in again, as
   today; held seats stay held until their 5 minutes end.
 - **No answer to a hold or release** (the connection drops): the seat goes back to what it was
@@ -315,7 +317,11 @@ them taken by another customer first; it alone is refused and named.
 - **General admission**: unchanged; it never appears in the cart.
 - **Spec `030`** (an ended event's page says "This event has ended."; implementation in flight): a
   reservation ends when its event starts (`015` FR-016), so an ended event is never in the cart.
-- **Issue #126** (sell until the event ends; not yet specced): see Assumptions.
+  _Amended 2026-11-09 by spec `034` (#126), FR-004: a reservation ends when its event ends, so a
+  started event stays in the cart until its end, and an ended one never is._
+- **Issue #126** (sell until the event ends; not yet specced): see Assumptions. _Amended 2026-11-09
+  by spec `034` (#126): specced as `034`; its Assumptions say which of the two implementations
+  merges what._
 
 ## Requirements *(mandatory)*
 
@@ -480,6 +486,8 @@ them taken by another customer first; it alone is refused and named.
 
 ## Out of scope
 
+  _Amended 2026-11-09 by spec `034` (#126): #126 is now specced as `034`; its research R10 says
+  which of `033`'s and `034`'s implementations merges what._
 - **One checkout for several events** (one order, one payment, across events): deferred; each event
   is bought on its own from the cart (Principle VIII). An order is for one event (`005`).
 - **General admission in the cart**, and holds on a quantity of unseated tickets.

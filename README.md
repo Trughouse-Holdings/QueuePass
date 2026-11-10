@@ -3,7 +3,7 @@
 Venue and event management with sign-in for every user and guaranteed conflict-free scheduling.
 
 Built from the specifications in [`specs/`](specs/) under the project constitution at
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.9.5).
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.9.6).
 
 ---
 
@@ -56,6 +56,7 @@ the running system and its browser test in CI are still to do.
 | [`031-atomic-event-create`](specs/031-atomic-event-create/spec.md)           | Scheduling an event saves it with its ticket types and seating in one step, or saves nothing; a refusal shows beside the ticket type or section at fault, and the form keeps everything typed; pictures still upload afterwards                                        | Draft            | Done (19/23 tasks) | **Built and reviewed**          |
 | [`032-drop-check-ins`](specs/032-drop-check-ins/spec.md)                     | One week after an event ends, who checked in and when is removed from its tickets; the event keeps its checked-in count, so its report reads the same; the Admin app says when the details were removed                                                                | Draft            | In review          | Not started                     |
 | [`033-seat-hold-cart`](specs/033-seat-hold-cart/spec.md)                     | Clicking a seat holds it and clicking it again lets it go; a prominent 5-minute countdown starts with the first seat; Add to cart, then buy each event's seats from the Cart before the countdown ends; general admission unchanged                                    | Draft            | In review          | Not started                     |
+| [`034-sell-until-end`](specs/034-sell-until-end/spec.md)                     | Tickets are on sale until an event ends, not when it starts; from the start to the end the Get tickets panel says it has already started and until when tickets are on sale; after the end, "Sales closed: this event has ended."                                      | Draft            | In review          | Not started                     |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. Each app has its
