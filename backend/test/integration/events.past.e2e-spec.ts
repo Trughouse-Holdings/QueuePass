@@ -1,4 +1,5 @@
 import { localDate } from '@queuepass/shared';
+import { expectToMatchContract } from '../contract/expect-to-match-contract';
 import { as, asAdmin } from '../setup/authed-request';
 import { atInstant, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
@@ -58,9 +59,11 @@ describe('The event list leaves past events out (spec 030)', () => {
     await ctx.app.close();
   });
 
+  // Every 200 also matches the contract (research R11), named here as well as in the client.
   const names = async (query = '', token?: string) => {
     const client = token ? as(ctx, token) : asAdmin(ctx);
     const res = await client.get(`/events${query ? `?${query}` : ''}`).expect(200);
+    expectToMatchContract(res, 'listEvents');
     return (res.body as { name: string }[]).map((e) => e.name);
   };
 

@@ -33,6 +33,8 @@ test('029 S2: after the reset, the Ticket Booth offers Demo Tonight open and the
   await customer.goto(`${APPS.customer.url}/events/${id('Season Opener')}`);
   await expect(customer.getByRole('heading', { level: 1, name: 'Season Opener' })).toBeVisible();
   await expect(customer.getByText('Sales closed', { exact: true })).toBeVisible();
+  // Spec 030 FR-014: Season Opener is over, and its page says so.
+  await expect(customer.getByText('This event has ended.')).toBeVisible();
   await expect(customer.getByText('Sales closed: this event has already started.')).toBeVisible();
 
   await customer.goto(`${APPS.customer.url}/events/${id('Fall Concert')}`);

@@ -95,7 +95,7 @@ describe('Event search', () => {
 
   it('refuses from at or after to', async () => {
     const res = await asAdmin(ctx)
-      .get('/events?from=2026-10-01T00:00:00Z&to=2026-10-01T00:00:00Z&includePast=true')
+      .get('/events?from=2026-10-01T00:00:00Z&to=2026-10-01T00:00:00Z')
       .expect(400);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
   });
@@ -107,6 +107,6 @@ describe('Event search', () => {
     [`q=${'x'.repeat(201)}`, 'q too long'],
     ['sort=name', 'unknown parameter'],
   ])('refuses %s (%s) with 400', async (query) => {
-    await asAdmin(ctx).get(`/events?${query}&includePast=true`).expect(400);
+    await asAdmin(ctx).get(`/events?${query}`).expect(400);
   });
 });

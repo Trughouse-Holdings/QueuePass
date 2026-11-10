@@ -379,4 +379,20 @@ confirm they **fail** before the implementation tasks that follow.
 
 ## Review record (implementation branch)
 
-_Left for the implementation's review (T023)._
+- **Round 1** (independent code review of PR #149, 2026-11-09): 1 must-fix, 1 should-fix, 3 nits;
+  the reviewer's verdict after the must-fix: only minor findings remain. All fixed.
+  - M1: the branch conflicted with `main` (specs `031`, #147, and `032`, #148, merged) → `main` merged
+    in: the README keeps `main`'s `031` and `032` rows and v3.9.4 with this branch's `030` row; 030's
+    spec keeps `032`'s four dated amendments (a Clarification, US2 scenario 2, the "event moved later"
+    edge case, FR-016), which apply once `032` removes check-in details, so no `030` code changes; the
+    constitution is `main`'s.
+  - S1: My tickets' `<h2>Past</h2>` was the same level as each order card's `<h2>`, so heading
+    navigation could not tell which orders are past (Constitution VII) → the past orders sit in a
+    `<section aria-labelledby>` under the Past heading, their card headings `h3`; a test asserts a past
+    card's heading is level 3 inside the Past region and an upcoming one is level 2 outside it.
+  - N1: the `400` refusal cases in `events.search.e2e-spec.ts` (and its "from at or after to" case)
+    and `events.date-filter.e2e-spec.ts` no longer send `includePast=true` (T010 covers list requests
+    that return events, not refusals).
+  - N2: `events.past.e2e-spec.ts` calls `expectToMatchContract(res, 'listEvents')` on every `200` it
+    reads (the default and `includePast=true` included), as well as the client's own check (R11).
+  - N3: `029 S2` also asserts "This event has ended." on Season Opener's page (FR-014).

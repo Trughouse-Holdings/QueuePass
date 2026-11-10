@@ -46,13 +46,16 @@ export function MyTickets() {
       ) : (
         upcoming.map((o) => <OrderCard key={o.id} order={o} loadedAt={loadedAt} ended={false} />)
       )}
+      {/* Spec 030 (implementation review round 1, S1; Constitution VII): the Past orders sit in
+          their own section, their headings one level below "Past", so heading navigation shows
+          which orders are past. */}
       {past.length > 0 && (
-        <>
-          <h2>Past</h2>
+        <section aria-labelledby="past-orders">
+          <h2 id="past-orders">Past</h2>
           {past.map((o) => (
             <OrderCard key={o.id} order={o} loadedAt={loadedAt} ended />
           ))}
-        </>
+        </section>
       )}
     </section>
   );
@@ -65,14 +68,18 @@ function OrderCard({
 }: {
   order: MyOrder;
   loadedAt: number;
-  /** Spec 030 FR-016: the event had ended when the page loaded; no entry code then. */
+  /**
+   * Spec 030 FR-016: the event had ended when the page loaded; no entry code then, and the card
+   * sits under the Past heading, so its own heading is one level lower.
+   */
   ended: boolean;
 }) {
+  const Heading = ended ? 'h3' : 'h2';
   return (
     <article className="card card--padded order-card" aria-labelledby={`order-${o.id}`}>
-      <h2 id={`order-${o.id}`}>
+      <Heading id={`order-${o.id}`}>
         <Link to={`/events/${o.event.id}`}>{o.event.name}</Link>
-      </h2>
+      </Heading>
       {o.event.status === 'CANCELLED' && (
         <p>
           <strong>This event has been cancelled.</strong>

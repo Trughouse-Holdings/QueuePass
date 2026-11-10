@@ -222,9 +222,11 @@ describe('upcoming, then Past (spec 030)', () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  /** The page's order-card names and section headings, top to bottom. */
+  /** The page's order-card names and the Past heading, top to bottom. */
   const outline = () =>
-    Array.from(document.querySelectorAll('section h1 ~ h2, article h2')).map((h) => h.textContent);
+    Array.from(document.querySelectorAll('#past-orders, article h2, article h3')).map(
+      (h) => h.textContent,
+    );
 
   it('lists upcoming orders first, then Past, keeping every order', async () => {
     stubApi({ 'GET /me/orders': json([ended, ahead]) });
@@ -233,6 +235,20 @@ describe('upcoming, then Past (spec 030)', () => {
     await screen.findByRole('heading', { name: 'Past', level: 2 });
     expect(outline()).toEqual(['Coming Soon', 'Past', 'Ended Show']);
     expect(await orders()).toHaveLength(2);
+  });
+
+  // Implementation review round 1, S1 (Constitution VII): heading navigation shows which orders
+  // are past.
+  it('puts past orders in the Past section, their headings one level below it', async () => {
+    stubApi({ 'GET /me/orders': json([ended, ahead]) });
+    renderCustomer({ at: '/my-tickets' });
+
+    const section = await screen.findByRole('region', { name: 'Past' });
+    expect(
+      within(section).getByRole('heading', { level: 3, name: 'Ended Show' }),
+    ).toBeInTheDocument();
+    expect(within(section).queryByRole('heading', { name: 'Coming Soon' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Coming Soon' })).toBeInTheDocument();
   });
 
   it('under Past, a valid unused ticket can be printed but offers no entry code', async () => {
