@@ -81,7 +81,7 @@ confirm they **fail** before the implementation tasks of Phase 3.
   refused guard sets a failure exit code and never calls `NestFactory.createApplicationContext` (a
   Jest spy). Must fail (no module yet).
   **Done**: failed before T009 (no module), 27/27 after.
-- [ ] T004 [US1] [US2] `backend/test/integration/demo-reset.e2e-spec.ts` (new; FR-004 to FR-006,
+- [x] T004 [US1] [US2] `backend/test/integration/demo-reset.e2e-spec.ts` (new; FR-004 to FR-006,
   SC-001, SC-003, research R2, R12), with `createTestApp()` and the fake geocoder:
   - a `fingerprint(prisma)` helper as research R12 describes (no ids or foreign keys, codes,
     secrets, or `requestId`; no timestamp but an event's start, end, and doors, nullable ones only as
@@ -100,12 +100,11 @@ confirm they **fail** before the implementation tasks of Phase 3.
   - reset twice in a row: equal fingerprints;
   - `_prisma_migrations` has the same rows before and after.
   Must fail (no reset yet).
-  **Written, not passing: spec gap.** Every case but the fingerprint equality passes. The
-  fingerprint (R12) keys tickets by tier and checked-in, but `runDemoData` checks in the first 40% of
-  Fall Concert's tickets in ticket `code` order across both tiers, and codes are random, so how many
-  General and how many VIP tickets are checked in differs from run to run (seen: "after extra data"
-  and "two resets in a row" differ only in Fall Concert's General/VIP checked-in split). Fixed in the
-  spec, not in code; open (see the report).
+  **Done**: failed before T010 (no module). Written first with tickets keyed by checked-in, it found a
+  spec gap: the demo data checks in Fall Concert's tickets in random `code` order across both tiers,
+  so the General/VIP split of check-ins differed per run (only that differed). Fixed in the spec
+  first (`Clarify 029`, R12: tickets without check-ins, check-ins as a count per event), then the
+  test; passes in every run since.
 - [x] T005 [US3] Same file (FR-010, SC-005, research R7): `assertMigrated(prisma, migrationsDir)`
   refuses, and nothing is removed (a marker venue survives a `runDemoReset` given that directory),
   when: `_prisma_migrations` is missing (a second database created in the same container with `CREATE
@@ -156,7 +155,7 @@ confirm they **fail** before the implementation tasks of Phase 3.
   { inContainer = existsSync('/.dockerenv') })` per research R7 (Node's `URL`; strip IPv6 brackets;
   lower-case; `database` only in a container; query keys percent-decoded and lower-cased, `host` and
   `hostaddr` refused; port defaulting to 5432; database from the path). T003's guard cases pass.
-- [ ] T010 [US1] [US2] [US3] Same file: `assertMigrated(prisma, migrationsDir)` (R7: `to_regclass`
+- [x] T010 [US1] [US2] [US3] Same file: `assertMigrated(prisma, migrationsDir)` (R7: `to_regclass`
   for `_prisma_migrations` in `current_schema()`, then the folder names under
   `path.resolve(__dirname, '../../prisma/migrations')`, directories only); `wipeAppData(prisma)` (R2:
   `prisma.$transaction(fn, { timeout: 15_000, maxWait: 5_000 })`, `SET LOCAL lock_timeout = '3s'`,
@@ -165,8 +164,7 @@ confirm they **fail** before the implementation tasks of Phase 3.
   `err.meta.code` is `55P03` or `40P01`, become "the database is busy; try again", R10); `runDemoReset(app, { log, migrationsDir?, afterWipe? })` (assert, wipe, `afterWipe` for tests only, then
   `runDemoData`, then the check that `QueuePass Demo Arena` exists exactly once and there are exactly 2
   venues; `created: false`, a failed check, or a throw becomes FR-013's error). T004, T005, and T006's busy and two-at-once cases pass.
-  **Written**; its tests pass except T004's fingerprint equality, blocked by the spec gap
-  under T004.
+  **Done**: T004, T005, and T006 pass.
 - [x] T011 [US1] Same file: the output of research R11 (the label map, Demo Tonight's close in its
   venue's zone with `@queuepass/shared`, the duration, the reminders) and `main()` (guard first, then
   `NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn'] })`, `runDemoReset`,
@@ -210,18 +208,31 @@ confirm they **fail** before the implementation tasks of Phase 3.
 
 ## Phase 5: Documentation, review, pull request
 
-- [ ] T016 README (FR-015): a **Demo checkpoint** section after "Demo data": both commands (path A and
+- [x] T016 README (FR-015): a **Demo checkpoint** section after "Demo data": both commands (path A and
   path B), the permission and why it is needed, what is removed (every venue, event, order, ticket,
   seat hold, image) and kept (the schema, Keycloak accounts), the demo state with Season Opener, that
   it never runs by itself, the reload and attempt-limit notes, and that save/restore checkpoints are
   not built (research R8). In "Demo data": five events with Season Opener, and "To demo check-in later"
   points to the reset first. The `029` status row: tasks count and code status.
-  **Section and Demo data done**; the status row waits for the final counts.
-- [ ] T017 `npm run ci` locally, green; record the counts per workspace and each workspace's line
+  **Done**: the section, Demo data, the e2e paragraph, and the status row (16/22 tasks).
+- [x] T017 `npm run ci` locally, green; record the counts per workspace and each workspace's line
   coverage (Backend at or above 80% with the new script).
+  **Done** (2026-11-09, head after `ce9a59e`): `npm run ci` green, exit 0, first try (no Testcontainers
+  flake this time, so no suite was rerun), run with `KEYCLOAK_URL` and `KEYCLOAK_HEALTH_URL` set to
+  `http://127.0.0.1:9` so the live seed tests skip instead of seeding another session's Keycloak on
+  8080 (28 skipped, "Keycloak not reachable"; unrelated to 029). Counts: root scripts 83; shared 785;
+  Backend 1204 (104 suites); admin-app 361; customer-app 335; booth-app 94; seed 149 passed, 28
+  skipped; quick test:tz (Los Angeles) pass. Line coverage: shared 96.72%, Backend 97.02%
+  (`demo-reset.ts` 91.12%, `demo-data.ts` 84.33%), admin-app 97.31%, customer-app 97.65%, booth-app
+  93.44%, seed 99.29%.
 - [ ] T018 Run the Backend suite three times in a row and `npm run test:tz` (several zones: the
   past event's local date math); record the counts. The `e2e` job on GitHub runs the reset (T013) and
   `029 S2`; record its time.
+  **Local part done**: Backend suite three times in a row, 1204/1204 each (104 suites, 97.02% lines);
+  root script tests three times, 83/83 each; `npm run test:tz` all pass in America/New_York, UTC,
+  America/Los_Angeles, Pacific/Honolulu for shared, Backend, admin, customer, and booth. **Pending**:
+  the `e2e` job on GitHub (the reset in the harness and `029 S2`) and its time; needs a pushed PR or a
+  free stack.
 - [ ] T019 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round here.
 - [ ] T020 Running-system walk, quickstart S0–S7, on Compose project `qp029` (path B on this machine;
