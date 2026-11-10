@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.21.0
+  version: 1.22.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -672,6 +672,12 @@ paths:
         Feature 025: each event carries `doorsOpenAt` and `entryOpensAt`. The Ticket Booth app
         lists scheduled events that have not ended and lets a gate agent choose only those whose
         `entryOpensAt` has passed; `lookupEntryTicket` and `admitTicket` enforce the window.
+
+        Feature 030: **past events are left out unless `includePast` is `true`**. An event is past
+        from the instant the Backend's clock, when it answers, reaches its `endsAt` (half-open: at
+        `endsAt` exactly it is past), whatever its `status`. `includePast` combines with every other
+        filter, and the order is unchanged. Any caller may send it. Reading one event (`getEvent`)
+        and every other operation are unaffected.
       operationId: listEvents
       x-required-roles: []
       parameters:
@@ -713,9 +719,16 @@ paths:
           description: |
             Feature 020. Keep only events that start on or before this day, in their venue's
             `timeZone`.
+        - name: includePast
+          in: query
+          required: false
+          schema: { type: boolean, default: false }
+          description: |
+            Feature 030. `true` also lists events whose `endsAt` has been reached; `false`, the
+            default, leaves them out. Any other value is `400 VALIDATION_FAILED`.
       responses:
         '200':
-          description: Matching events, ordered by start time.
+          description: Matching events, ordered by start time; past events only with `includePast`.
           content:
             application/json:
               schema:
