@@ -229,7 +229,8 @@ and its "Issue #126" line. `029`'s spec says Season Opener's sales are closed, w
     that started 1 minute ago succeeds (`201`); one for an event ending 10 seconds from now succeeds
     (just before the end); an event moved by SQL so `endsAt` is 1 second in the past (and `startsAt`,
     `doorsOpenAt` before it) refuses with `409 SALES_CLOSED`, message "Sales for {name} closed when it
-    ended.", and no order recorded; the same with `endsAt` set to the database's `now()` (at the end);
+    ended.", and no order recorded; the same with `endsAt` set to the test's own time just before the
+    request (at the end; the process clock, as the order check reads, not the database's `now()`);
     cancelled in progress → `EVENT_CANCELLED`; a repeated `requestId` after the end returns the earlier
     order (`200`).
   - `reservations.e2e-spec.ts`: a hold for an event in progress → `201`; an ended event → `409
