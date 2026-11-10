@@ -191,15 +191,22 @@ confirm they **fail** before the implementation tasks of Phase 3.
   demo data's command; log "loading the demo state (reset)…"; on failure "npm run e2e: the demo state
   did not load." Update the header comment and the README's e2e paragraph ("loads the demo data" →
   "loads the demo state with the reset").
-  **Code done**; it runs only in `npm run e2e` (a stack), not run here yet.
-- [ ] T014 [US1] `e2e/tests/029-demo-checkpoint.spec.ts` (new): `029 S2: after the reset, the Ticket
+  **Code done**; it runs only in `npm run e2e`, whose Compose images cannot be built on this machine
+  (path B), so the reset inside the harness is run by CI's `e2e` job on the implementation PR (T021).
+  The Compose-free parts are pinned by `demo-reset-safety.test.mjs` (code review round 1, n8).
+- [x] T014 [US1] `e2e/tests/029-demo-checkpoint.spec.ts` (new): `029 S2: after the reset, the Ticket
   Booth offers Demo Tonight open and the Customer app shows Season Opener with sales closed`. Sign in
   to the Booth as a gate agent from `e2e/fixtures/apps.ts`: Demo Tonight is listed and choosable, Season
   Opener is not listed. Sign in to the Customer app as a customer: Season Opener's page shows "Sales
   closed"; Fall Concert's page offers tickets. Read only; admit nothing. Run it three times in a row
   locally if a stack can run here, else on CI.
-  **Written, not run**: needs a running stack (`npm run e2e` or CI); scheduled when the stack
-  ports are free.
+  **Done** (stack stretch, 2026-11-09): run against Compose project `qp029` on path B (Vite dev
+  servers from `run-host.mjs`) right after a path-B reset, filtered by the exact file name
+  (`npx playwright test -c e2e/playwright.config.ts 029-demo-checkpoint.spec --workers=1`, since the
+  worktree path holds `029`): passed three times in a row (2.8 s, 2.7 s, 2.4 s), and once more after
+  S5's restart (4.4 s). The dev-server StrictMode refresh gap spec `028` found does not touch it (it
+  needs no token refresh), so no production build was needed. The full suite with it runs in CI's
+  `e2e` job on the PR.
 - [x] T015 `specs/029-demo-checkpoint/quickstart.md`: the Automation row S2 becomes `Automated: \`029
   S2: …\`; rest Manual: admitting a ticket by hand`, with T014's exact title; `npm test`'s
   quickstart-marks check passes.
@@ -231,14 +238,66 @@ confirm they **fail** before the implementation tasks of Phase 3.
   **Local part done**: Backend suite three times in a row, 1204/1204 each (104 suites, 97.02% lines);
   root script tests three times, 83/83 each; `npm run test:tz` all pass in America/New_York, UTC,
   America/Los_Angeles, Pacific/Honolulu for shared, Backend, admin, customer, and booth. **Pending**:
-  the `e2e` job on GitHub (the reset in the harness and `029 S2`) and its time; needs a pushed PR or a
-  free stack.
+  the `e2e` job on GitHub (the reset in the harness, the full suite with `029 S2`) and its time:
+  the Compose images cannot be built here, so it waits for the PR's CI run (T021).
 - [x] T019 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round here.
   **Done**: round 1, recorded under "Review record (implementation branch)"; all findings fixed.
-- [ ] T020 Running-system walk, quickstart S0–S7, on Compose project `qp029` (path B on this machine;
+- [x] T020 Running-system walk, quickstart S0–S7, on Compose project `qp029` (path B on this machine;
   the team stack's ports are needed, so ask Mahdi before stopping it, ground rules); record each
   scenario's result here (Constitution VI smoke test).
+  **Done** (stack stretch 2026-11-09, team stack stopped 19:31 to 19:40 with `docker compose -p
+  queuepass-team stop`, restored with `start database keycloak` and `run-host.mjs` from the main
+  checkout, 5173 and `/health` answering). Path B: `docker compose -p qp029 up -d --build database
+  keycloak`, `node scripts/run-host.mjs --backend-tz America/Los_Angeles --demo-data` from this
+  worktree ("Demo data created: 2 venues, 5 events, 53 orders, 121 tickets (24 checked in), 4 images;
+  "Holiday Gala" cancelled; "Season Opener" over."). Before every reset `docker ps` showed only
+  `qp029-database-1` on 5432. The UI steps were driven by temporary Playwright scripts (not
+  committed) through the apps' own sign-in.
+  - S0: as `admin1`, venue "Walk Extra Hall" with sections A and B, seated event "EDIS Showcase Walk"
+    with tier Floor mapped to both; as `customer1`, 2 seats bought there, a third left held, 2 Fall
+    Concert General tickets; in the Ticket Booth as `agent1`, one Demo Tonight ticket admitted. Counts:
+    3 venues, 2 sections, 6 events, 5 tiers, 2 section tiers, 4 images, 55 orders, 125 tickets (25
+    checked in), 2 seat reservations, 3 seat holds. **Pass.**
+  - S1: PowerShell form, exit 0 in 3.3 s wall ("Done in 1.1 s"): "Resetting localhost:5432/queuepass";
+    "Removed: 3 venues, 2 seating sections, 6 events, 5 tiers, 2 section tiers, 4 images, 55 orders,
+    125 tickets (25 checked in), 2 seat reservations, 3 seat holds."; "Created: 2 venues, 5 events
+    (Holiday Gala cancelled, Season Opener over), 53 orders, 121 tickets (24 checked in), 4 images.
+    Demo Tonight is open for check-in until 11:34 PM EST."; both reminders. Backend kept running
+    (`/health` 200). Admin app: exactly the two demo venues and five demo events, the extra venue and
+    event gone, Reports only demo events. Reports totals noted: 4 events, capacity 950, 105 sold, 24
+    checked in, $4,670.00. **Pass.**
+  - S2: Ticket Booth as `agent1`: Demo Tonight offered and open, Season Opener not listed; a Demo
+    Tonight ticket admitted. Customer app as `customer1`: Fall Concert and Comedy Night offer tickets,
+    Holiday Gala "No tickets: this event has been cancelled.", Season Opener "Sales closed: this event
+    has already started.", My tickets "You have no tickets yet.". **Pass.**
+  - S3: 3 more Demo Tonight tickets bought (`customer2`) and admitted (`agent2`); reset again (bash
+    form), exit 0: the same "Created" line, Demo Tonight now until 11:36 PM EST; Reports totals equal
+    S1's (4, 950, 105, 24, $4,670.00). **Pass.**
+  - S4 (path B): without the permission, `run-host.mjs --demo-reset` refused naming
+    `QUEUEPASS_ALLOW_RESET=1`, exit 1; with `QUEUEPASS_ALLOW_RESET=true`, the same; the compiled
+    script with `DATABASE_URL=postgresql://u:secret@db.example.com:5432/x` refused naming
+    `db.example.com`, never `secret`, exit 1; a local database that is not QueuePass's (`createdb
+    empty` in `qp029`'s database, the Backend's environment from `--print`) refused as not a QueuePass
+    database or not migrated, exit 1, and dropped afterwards. Counts unchanged after all four.
+    **Pass.** (The path A commands need the Backend's container, not run on path B; the guard and the
+    migration check are covered by T003 and T005, and path A runs in CI's `e2e` job.)
+  - S5 (path B): a marker venue inserted; `run-host.mjs` stopped, `docker compose -p qp029 stop`, then
+    `up -d database keycloak` and `run-host.mjs` without `--demo-reset`: the seed ran, the Backend and
+    apps came up, the marker venue and Demo Tonight's start were unchanged (not reset), `029 S2` passed
+    on it. No match for `QUEUEPASS_ALLOW_RESET` or `demo-reset` in `docker-compose.yml`,
+    `e2e/stack/docker-compose.e2e.yml`, `.env.example`, or `.github/workflows`. **Pass.**
+  - S6: signed in to all three apps (`admin1`, `customer3`, `agent3`), reset from the test, each app
+    reloaded: still signed in, no sign-in page, on the new demo state. Keycloak stopped (`docker
+    compose -p qp029 stop keycloak`, 8080 not answering): the reset completed, exit 0 ("Done in 1.2
+    s"); Keycloak started again and ready. **Pass.**
+  - S7: in the same session, each app used briefly (Admin events list with Season Opener, Customer
+    events with Fall Concert, Booth offering Demo Tonight) and signed out back to its Keycloak page.
+    **Pass.** Afterwards `docker compose -p qp029 down -v` (19:39).
+  - Notes: in the walk scripts a full-page `goto` right after sign-in on the dev servers sometimes
+    landed on the Customer app's Events page instead of the path (the sign-in callback still
+    navigating); the scripts waited for the callback or used the app's links. Not a 029 change and
+    not in the committed test.
 - [ ] T021 Push and open the implementation PR (after the spec PR has merged and the branch is up to
   date with `main`): description says `fixes #139`, lists the review, the walk, the test counts, and
   that no shared surface is touched. Wait for CI green on GitHub (`test` and `e2e`) on the final
