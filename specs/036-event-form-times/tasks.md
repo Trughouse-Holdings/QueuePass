@@ -135,8 +135,26 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   **Done** (2026-11-10): no Docker on this machine. Locally: `npm run lint`, `npm run format:check`,
   and 167 Admin tests covering the form, doors modes, and retargeted fills (all passed). First
   Backend integration and browser/WebKit run is CI.
-- [ ] T017 Independent review of each branch (Constitution III). If this delivery is one session,
+- [x] T017 Independent review of each branch (Constitution III). If this delivery is one session,
   leave the review record empty and say so in the PR: still to do.
+  **Done** (2026-11-10, round 1, a fresh Claude session per branch).
+  *Spec branch*: request changes (1 blocking, 6 should-fix, 5 nits), all fixed on the spec branch:
+  the plan's three-way draft on off-step switching replaced by FR-014; FR-015 (switching when one
+  side names no moment), FR-016 (polite live line), FR-004 (the day before), FR-010 (errors and
+  focus on split controls); 035 and 028 dated notes; research R9 names the WebKit mechanism (no
+  workflow change). Left as is: WebKit is limited by file, not by test title, so `025`'s Ticket
+  Booth journey also runs in WebKit; it passes there.
+  *Impl branch*: request changes (1 blocking, 4 should-fix, 3 nits), all fixed: time-field errors
+  focus the date control (or the time control when only the time is missing), the length select in
+  "Before the start" (`timeAwareFocusId`); clearing one half of a pair keeps the other
+  (`DateTimeFields`); switching to "Before the start" when doors name no moment derives them from
+  the start; the length select carries `aria-invalid`/`aria-describedby`; the resulting-time line
+  is always mounted as a polite live region and names the day before; with "Before the start" and a
+  length, a start that names no moment is not also a doors error. New tests in
+  `event-doors-open.test.tsx` (14) cover US1 AS4, US2 AS5, FR-004, FR-010, FR-014 to FR-016, and the
+  offset sent on a fall-back night; `025`'s `toHaveCount(2)` after Save is back.
+  Reruns: `npm run lint`, `npm run format:check`, Admin 451 tests (49 files), `npm run test:tz` (4
+  zones, all apps) all passed. Browser tests: CI.
 - [ ] T018 Open the spec PR against `main` and the impl PR (draft) against the spec branch. Impl
   PR body includes `fixes #130` and `fixes #128`. Neither PR is merged in this work. Update the
   README 036 status columns on the impl branch (tasks and build).

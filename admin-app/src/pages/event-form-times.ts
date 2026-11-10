@@ -5,6 +5,7 @@
 import {
   DEFAULT_DOORS_BEFORE_START_MINUTES,
   formatTimeOfDay,
+  toLocalDateTime,
   type InstantLike,
 } from '@queuepass/shared';
 
@@ -67,9 +68,19 @@ export function doorsInstantBeforeStart(start: InstantLike, minutes: number): Da
   return new Date(at.getTime() - minutes * 60_000);
 }
 
-/** "Doors open at 6:00 PM EDT" once the start names one moment. */
-export function doorsOpenAtPreview(instant: InstantLike, zone: string): string {
-  return `Doors open at ${formatTimeOfDay(instant, zone)}`;
+/**
+ * "Doors open at 6:00 PM EDT" once the start names one moment; "… the day before" when doors fall
+ * on the day before the start's local date (FR-004; at most 6 hours, so never two days).
+ */
+export function doorsOpenAtPreview(
+  instant: InstantLike,
+  zone: string,
+  start?: InstantLike,
+): string {
+  const line = `Doors open at ${formatTimeOfDay(instant, zone)}`;
+  if (start == null) return line;
+  const dayOf = (at: InstantLike) => toLocalDateTime(at, zone).slice(0, 10);
+  return dayOf(instant) < dayOf(start) ? `${line} the day before` : line;
 }
 
 export const doorsOffsetOptions = (): { minutes: number; label: string }[] =>

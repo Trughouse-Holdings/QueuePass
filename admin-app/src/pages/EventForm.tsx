@@ -60,6 +60,20 @@ import { ImagesField, type ImageItem } from '../components/ImagesField';
 import { SuccessState } from '../components/SuccessState';
 
 /**
+ * Spec 036 FR-010: a time field's error focuses its date control, or its time control when only
+ * the time is missing; in "Before the start" mode a doors error focuses the length select.
+ */
+function timeAwareFocusId(key: string): string {
+  if (key === 'doorsOpenAt' && document.getElementById('doorsOpenOffset')) return 'doorsOpenOffset';
+  if (key === 'startsAt' || key === 'endsAt' || key === 'doorsOpenAt') {
+    const date = document.getElementById(`${key}-date`) as HTMLInputElement | null;
+    const time = document.getElementById(`${key}-time`) as HTMLInputElement | null;
+    return date?.value && time && !time.value ? `${key}-time` : `${key}-date`;
+  }
+  return focusIdFor(key);
+}
+
+/**
  * One ticket type on the form (spec 008 US6, US7). `id` is set for a type the event already has;
  * `quantity` is typed only for general admission (a seated type's amount follows its sections).
  */
@@ -573,11 +587,12 @@ export function EventForm(): React.ReactElement {
       maxPerCustomer,
       sectionType,
       sections: layout?.sections,
+      doorsFromStart: doorsMode === 'before' && doorsOffsetMinutes != null,
     });
     if (all.size > 0) {
       const first = firstErrorKey(all, types.length);
       if (first) {
-        requestAnimationFrame(() => document.getElementById(focusIdFor(first))?.focus());
+        requestAnimationFrame(() => document.getElementById(timeAwareFocusId(first))?.focus());
       }
       return;
     }
@@ -670,7 +685,9 @@ export function EventForm(): React.ReactElement {
     if (!error) return;
     const first = firstPlacedKey(fieldErrors(error), types.length);
     if (!first) return;
-    const frame = requestAnimationFrame(() => document.getElementById(focusIdFor(first))?.focus());
+    const frame = requestAnimationFrame(() =>
+      document.getElementById(timeAwareFocusId(first))?.focus(),
+    );
     return () => cancelAnimationFrame(frame);
   }, [error, types.length]);
   const typeErrors = (i: number, section: boolean): TypeFieldError[] =>
@@ -729,6 +746,16 @@ export function EventForm(): React.ReactElement {
     minutes: number | null = doorsOffsetMinutes,
   ): void {
     if (doorsMode !== 'before' || minutes == null) return;
+    setDoorsFromStart(local, chosen, zone, minutes);
+  }
+
+  /** Doors at the start minus `minutes` (elapsed), once the start names one moment. */
+  function setDoorsFromStart(
+    local: string,
+    chosen: Occurrence,
+    zone: UsTimeZone,
+    minutes: number,
+  ): void {
     const r = resolveField(local, zone);
     const m = r ? momentOf(r, chosen) : null;
     if (!m) return;
@@ -755,24 +782,39 @@ export function EventForm(): React.ReactElement {
       ? momentOf(resolved.doorsOpenAt, occurrence.doorsOpenAt)
       : null;
     if (start && doors) {
+      // FR-002, FR-014: the same instant; an off-step gap shows no length and is not rounded.
       const minutes = (start.instant.getTime() - doors.instant.getTime()) / 60_000;
       setDoorsOffsetMinutes(isExactDoorsOffsetMinutes(minutes) ? minutes : null);
-    } else if (doorsOffsetMinutes == null) {
-      setDoorsOffsetMinutes(DEFAULT_DOORS_OFFSET_MINUTES);
+    } else {
+      // FR-015: doors that name no moment are derived from the start (kept length, else 1 hour).
+      const minutes = doorsOffsetMinutes ?? DEFAULT_DOORS_OFFSET_MINUTES;
+      setDoorsOffsetMinutes(minutes);
+      if (start) setDoorsFromStart(startsAt, occurrence.startsAt, venueZone, minutes);
     }
     setDoorsMode('before');
   }
 
-  /** Spec 036 FR-004: the resulting time next to the length, once the start names one moment. */
+  /**
+   * Spec 036 FR-004, FR-014: the resulting time next to the length, once the start names one
+   * moment; with no length chosen (an off-step gap), the kept doors time.
+   */
   function doorsPreview(): string | null {
-    if (doorsMode !== 'before' || doorsOffsetMinutes == null || !selected) return null;
+    if (doorsMode !== 'before' || !selected) return null;
     const start = resolved.startsAt ? momentOf(resolved.startsAt, occurrence.startsAt) : null;
     if (!start) return null;
-    return doorsOpenAtPreview(
-      doorsInstantBeforeStart(start.instant, doorsOffsetMinutes),
-      venueZone,
-    );
+    let instant: Date;
+    if (doorsOffsetMinutes == null) {
+      const doors = resolved.doorsOpenAt
+        ? momentOf(resolved.doorsOpenAt, occurrence.doorsOpenAt)
+        : null;
+      if (!doors) return null;
+      instant = doors.instant;
+    } else {
+      instant = doorsInstantBeforeStart(start.instant, doorsOffsetMinutes);
+    }
+    return doorsOpenAtPreview(instant, venueZone, start.instant);
   }
+  const doorsLine = doorsPreview();
 
   /** Spec 025 FR-005: the range message under Doors open once both times name one moment. */
   function doorsRangeNote(): React.ReactElement | null {
@@ -869,6 +911,7 @@ export function EventForm(): React.ReactElement {
     maxPerCustomer,
     sectionType,
     sections: layout?.sections,
+    doorsFromStart: doorsMode === 'before' && doorsOffsetMinutes != null,
   });
   const preview = visibleErrors(previewAll, touched, submitted);
   const totals = seatTotals({
@@ -1177,8 +1220,15 @@ export function EventForm(): React.ReactElement {
                         clearServer();
                         const minutes = Number(e.target.value);
                         setDoorsOffsetMinutes(minutes);
-                        applyDoorsOffset(startsAt, occurrence.startsAt, venueZone, minutes);
+                        setDoorsFromStart(startsAt, occurrence.startsAt, venueZone, minutes);
                       }}
+                      {...fieldProps('doorsOpenAt')}
+                      aria-describedby={[
+                        fieldProps('doorsOpenAt')['aria-describedby'],
+                        'doorsOpenAt-live',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
                     >
                       {doorsOffsetMinutes == null ? (
                         <option value="" disabled>
@@ -1192,11 +1242,10 @@ export function EventForm(): React.ReactElement {
                       ))}
                     </select>
                   </div>
-                  {doorsPreview() ? (
-                    <p className="note" data-testid="doorsOpenAt-preview" aria-live="polite">
-                      {doorsPreview()}
-                    </p>
-                  ) : null}
+                  {/* FR-016: mounted from the first render so the first value is announced. */}
+                  <p className="note" id="doorsOpenAt-live" aria-live="polite">
+                    {doorsLine ? <span data-testid="doorsOpenAt-preview">{doorsLine}</span> : null}
+                  </p>
                 </>
               ) : (
                 <DateTimeFields

@@ -3,7 +3,7 @@
  * venue-local value. Shared theme classes only. Each half is kept locally so filling the date and
  * then the time (as tests and typists do) does not lose the first half before both exist.
  */
-import { useEffect, useState, type InputHTMLAttributes } from 'react';
+import { useEffect, useRef, useState, type InputHTMLAttributes } from 'react';
 import { joinLocalDateTime, splitLocalDateTime } from './event-form-times';
 
 interface DateTimeFieldsProps {
@@ -26,7 +26,12 @@ export function DateTimeFields({
   const [date, setDate] = useState(() => splitLocalDateTime(value).date);
   const [time, setTime] = useState(() => splitLocalDateTime(value).time);
 
+  // The last value this pair sent up. A value that is only our own echo (for example '' after one
+  // half was cleared) must not reset the other half (036 FR-010); a value set from outside does.
+  const emitted = useRef(value);
   useEffect(() => {
+    if (value === emitted.current) return;
+    emitted.current = value;
     const next = splitLocalDateTime(value);
     setDate(next.date);
     setTime(next.time);
@@ -35,7 +40,9 @@ export function DateTimeFields({
   const set = (nextDate: string, nextTime: string) => {
     setDate(nextDate);
     setTime(nextTime);
-    onChange(joinLocalDateTime(nextDate, nextTime));
+    const joined = joinLocalDateTime(nextDate, nextTime);
+    emitted.current = joined;
+    onChange(joined);
   };
 
   return (

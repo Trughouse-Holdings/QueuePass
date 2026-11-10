@@ -62,6 +62,11 @@ export interface PreviewInput {
   maxPerCustomer: string;
   sectionType?: Record<string, string>;
   sections?: LayoutSection[];
+  /**
+   * Spec 036 FR-006, FR-010: doors are derived from the start ("Before the start" with a length).
+   * Then a start that names no moment is the start's problem only, not a doors one.
+   */
+  doorsFromStart?: boolean;
 }
 
 export const MSG = {
@@ -242,6 +247,7 @@ export function previewErrors(input: PreviewInput): Map<string, string> {
     ) {
       errors.set('doorsOpenAt', doorsOpenRangeMessage(instants.startsAt, input.venueZone));
     }
+    if (input.doorsFromStart && !instants.startsAt) errors.delete('doorsOpenAt');
   }
 
   if (input.typesLoaded) {

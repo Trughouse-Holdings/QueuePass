@@ -59,6 +59,8 @@ test('025 S1/S2/S6: an admin sets when doors open, and customers see it', async 
   await expect(page.getByTestId('doorsOpenAt-range')).toHaveText(range);
   await page.getByRole('button', { name: 'Schedule event' }).click();
   await expect(page.getByTestId('doorsOpenAt-range')).toHaveText(range);
+  // Under the field and in the form's polite status line (035 FR-007), as on main.
+  await expect(page.getByText(range)).toHaveCount(2);
   await expectEventDateTime(page, 'Doors open', `${day}T12:30`);
   await page.waitForTimeout(1_000);
   expect(posted).toHaveLength(0);
