@@ -1,9 +1,10 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { SeatMap } from '@queuepass/shared';
 import {
   availability,
   event,
+  holdBackend,
   json,
   order,
   renderCustomer,
@@ -16,7 +17,10 @@ import {
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
 fixTimeBeforeFixtures();
 
-/** Spec 007 US2 (FR-007, FR-008, FR-011): choosing seats in the Get tickets form. */
+/**
+ * Spec 007 US2 (FR-007, FR-008, FR-011): choosing seats in the Get tickets form; since spec 033
+ * each click holds the seat at once, and the seats are bought from the cart.
+ */
 afterEach(() => vi.unstubAllGlobals());
 
 const vip = tier({ id: 't-vip', name: 'VIP', price: '120.00', quantity: 30 });
@@ -60,7 +64,7 @@ const seatMap = (over: Partial<SeatMap> = {}): SeatMap => ({
   ...over,
 });
 
-type Reply = Response | (() => Response);
+type Reply = Response | ((req: Request) => Response | Promise<Response>);
 const routes = (
   map: Reply = json(seatMap()),
   orderReply?: Reply,
@@ -83,6 +87,24 @@ const routes = (
   // Spec 015 FR-006: seats are reserved before they are ordered.
   ...(reserveReply ? { 'POST /events/e1/reservation': reserveReply } : {}),
 });
+/** Spec 033: seat clicks answered by a hold backend, on top of `routes`. */
+const withHolds = (r: Record<string, Reply> = routes()) => {
+  const b = holdBackend({ sections: { 's-a': 'A', 's-c': 'C', 's-b': 'B' } });
+  return stubApi({
+    ...r,
+    ...b.routes,
+    ...Object.fromEntries(Object.entries(r).filter(([k]) => k === 'POST /events/e1/reservation')),
+  });
+};
+/** Clicks a seat and waits for it to be held. */
+const hold = async (row: number, seat: number) => {
+  fireEvent.click(seatButton(row, seat));
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: `Row ${row}, Seat ${seat}, reserved by you` }),
+    ).toBeInTheDocument(),
+  );
+};
 
 /** Spec 015: the reservation the Backend answers for these seats of section A. */
 const reservationOf = (seats: [number, number][]) =>
@@ -109,10 +131,14 @@ const chooseSection = (name: string) =>
 // Spec 015 FR-012: a sold seat's name ends ", sold" (and a reserved one's ", reserved").
 const seatButton = (row: number, seat: number) =>
   screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}(, [a-z ]+)?$`) });
-const chosen = () =>
-  within(screen.getByRole('list', { name: 'Chosen seats' }))
-    .queryAllByRole('listitem')
-    .map((li) => li.firstChild?.textContent);
+const chosen = () => {
+  const box = screen.queryByRole('region', { name: 'Your seats' });
+  return box
+    ? within(box)
+        .queryAllByRole('listitem')
+        .map((li) => li.textContent)
+    : [];
+};
 
 describe('choosing seats (US2-1, US2-2; FR-007)', () => {
   it("offers only the chosen tier's sections, then that section's seats", async () => {
@@ -133,18 +159,18 @@ describe('choosing seats (US2-1, US2-2; FR-007)', () => {
     );
   });
 
-  it('lists chosen seats, keeps them across sections of the tier, and totals them', async () => {
-    stubApi(routes());
+  it('lists held seats, keeps them across sections of the tier, and totals them', async () => {
+    withHolds();
     renderCustomer({ at: '/events/e1' });
 
     await chooseTier(/VIP/);
     chooseSection('A');
-    fireEvent.click(seatButton(1, 1));
-    fireEvent.click(seatButton(2, 3));
+    await hold(1, 1);
+    await hold(2, 3);
     expect(seatButton(1, 1)).toHaveAttribute('aria-pressed', 'true');
 
     chooseSection('C');
-    fireEvent.click(seatButton(1, 2));
+    await hold(1, 2);
 
     expect(chosen()).toEqual([
       'Section A, Row 1, Seat 1',
@@ -153,31 +179,34 @@ describe('choosing seats (US2-1, US2-2; FR-007)', () => {
     ]);
     expect(screen.getByText('Total: $360.00')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Section A, Row 2, Seat 3' }));
-    expect(chosen()).toHaveLength(2);
+    // Spec 033 FR-001: a click on a held seat releases it; there is no Remove.
+    chooseSection('A');
+    fireEvent.click(seatButton(2, 3));
+    await waitFor(() => expect(chosen()).toHaveLength(2));
     expect(screen.getByText('Total: $240.00')).toBeInTheDocument();
   });
 
-  it('clears chosen seats when the tier changes', async () => {
+  it('changes the tier freely while no seat is held', async () => {
     stubApi(routes());
     renderCustomer({ at: '/events/e1' });
 
     await chooseTier(/VIP/);
     chooseSection('A');
-    fireEvent.click(seatButton(1, 1));
     await chooseTier(/General/);
 
+    expect(screen.getByRole('radio', { name: /General/ })).toBeChecked();
+    expect(screen.getByRole('region', { name: 'Section B seats' })).toBeInTheDocument();
     expect(chosen()).toEqual([]);
   });
 
   it('allows no more seats than the tickets left (and never more than 10)', async () => {
-    stubApi(routes(json(seatMap()), undefined, 2));
+    withHolds(routes(json(seatMap()), undefined, 2));
     renderCustomer({ at: '/events/e1' });
 
     await chooseTier(/VIP/);
     chooseSection('A');
-    fireEvent.click(seatButton(1, 1));
-    fireEvent.click(seatButton(1, 3));
+    await hold(1, 1);
+    await hold(1, 3);
 
     expect(seatButton(2, 1)).toBeDisabled();
     expect(seatButton(1, 1)).toBeEnabled();
@@ -185,16 +214,16 @@ describe('choosing seats (US2-1, US2-2; FR-007)', () => {
 });
 
 describe('seat states beyond color (spec 008 US3; FR-008)', () => {
-  it('marks chosen seats with a check, taken seats with a cross, and keeps their names', async () => {
-    stubApi(routes());
+  it('marks held seats with a clock, taken seats with a cross, and keeps their names', async () => {
+    withHolds();
     renderCustomer({ at: '/events/e1' });
 
     await chooseTier(/VIP/);
     chooseSection('A');
-    fireEvent.click(seatButton(1, 1));
+    await hold(1, 1);
 
     expect(seatButton(1, 1)).toHaveAttribute('aria-pressed', 'true');
-    expect(seatButton(1, 1)).toHaveTextContent('✓1');
+    expect(seatButton(1, 1)).toHaveTextContent('⏱1');
     expect(seatButton(1, 2)).toBeDisabled();
     expect(seatButton(1, 2)).toHaveTextContent('✕');
     expect(seatButton(1, 2)).not.toHaveTextContent('2');
@@ -255,7 +284,7 @@ describe('a tier with no seats on sale (FR-006)', () => {
     renderCustomer({ at: '/events/e1' });
 
     expect(await screen.findByText('No seats are on sale for this event yet.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Reserve seats' })).toBeNull();
+    expect(screen.queryByRole('region', { name: /seats$/ })).toBeNull();
   });
 });
 
@@ -284,26 +313,17 @@ describe('confirming seats (US2-3; FR-008, FR-011)', () => {
         },
       ],
     });
-    const { calls } = stubApi(
-      routes(
-        json(seatMap()),
-        json(placed, 201),
-        56,
-        reservationOf([
-          [1, 1],
-          [1, 3],
-        ]),
-      ),
-    );
+    const { calls } = withHolds(routes(json(seatMap()), json(placed, 201)));
     renderCustomer({ at: '/events/e1' });
 
     await chooseTier(/VIP/);
     chooseSection('A');
-    fireEvent.click(seatButton(1, 1));
-    fireEvent.click(seatButton(1, 3));
-    fireEvent.click(screen.getByRole('button', { name: 'Reserve seats' }));
+    await hold(1, 1);
+    await hold(1, 3);
+    fireEvent.click(screen.getByRole('button', { name: 'Add to cart' }));
+    const entry = await screen.findByRole('region', { name: 'Early Show' });
     await typeHolderName();
-    fireEvent.click(await screen.findByRole('button', { name: 'Confirm purchase' }));
+    fireEvent.click(within(entry).getByRole('button', { name: 'Buy tickets' }));
 
     const done = await screen.findByRole('region', { name: 'Order confirmed' });
     const post = calls.find((c) => c.path === '/events/e1/orders');
@@ -325,38 +345,39 @@ describe('confirming seats (US2-3; FR-008, FR-011)', () => {
     ).toEqual(['AAAA2222BBBB, Section A, Row 1, Seat 1', 'CCCC3333DDDD, Section A, Row 1, Seat 3']);
   });
 
-  it('names taken seats, reloads the map, and keeps the seats still open', async () => {
+  it('names taken seats, reloads the map, and keeps the seats still held', async () => {
     let maps = 0;
     const reloaded = seatMap();
     reloaded.sections[0].taken = [
       { row: 1, seat: 2 },
       { row: 1, seat: 3 },
     ];
-    const { calls } = stubApi(
+    let holds = 0;
+    const taken = json(
+      {
+        error: {
+          code: 'SEAT_TAKEN',
+          message: 'Section A, Row 1, Seat 3 is already taken.',
+          details: { seats: [{ section: 'A', row: 1, seat: 3 }] },
+        },
+      },
+      409,
+    );
+    const { calls } = withHolds(
       routes(
         () => json(maps++ === 0 ? seatMap() : reloaded),
         undefined,
         56,
-        // Spec 015: the taken seat is now refused at Reserve seats.
-        json(
-          {
-            error: {
-              code: 'SEAT_TAKEN',
-              message: 'Section A, Row 1, Seat 3 is already taken.',
-              details: { seats: [{ section: 'A', row: 1, seat: 3 }] },
-            },
-          },
-          409,
-        ),
+        // Spec 015: the taken seat is refused when it is held (spec 033: when clicked).
+        () => (holds++ === 0 ? reservationOf([[1, 1]]) : taken),
       ),
     );
     renderCustomer({ at: '/events/e1' });
 
     await chooseTier(/VIP/);
     chooseSection('A');
-    fireEvent.click(seatButton(1, 1));
+    await hold(1, 1);
     fireEvent.click(seatButton(1, 3));
-    fireEvent.click(screen.getByRole('button', { name: 'Reserve seats' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Section A, Row 1, Seat 3 is already taken.',
