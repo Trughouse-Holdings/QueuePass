@@ -324,3 +324,6 @@ confirm they **fail** before the implementation tasks of Phase 3.
   - N5: the 409's date is in the zone of the event's current venue, also when the request moves it
     (code, a Backend test, research R6).
   - N6: contracts/README.md says the shared types keep the field optional on purpose.
+  - After the fixes: admin-app 397/397 and customer-app 338/338, three runs each; the Backend's unit
+    suites and the three new retention integration suites once, 342/342 (23 suites); the new
+    Attendees case seen to fail with the fix taken out; `prettier --check .` and ESLint clean.
