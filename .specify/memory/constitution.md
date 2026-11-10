@@ -17,10 +17,16 @@ Changed:
     admits a ticket bought after the start until the end, as today). The next free number is 035.
 Impact: spec 034, and its contract change (1.26.0: Availability.salesClosed gains ENDED, which
   replaces STARTED once 034 is implemented; Availability gains inProgress; createOrder's and
-  reserveSeats' sales-closed rule moves to endsAt; the SALES_CLOSED example). Spec 006 FR-014 and
-  its edge case, spec 015 FR-016 and its "Sales closed" entity, and spec 030's and 033's notes that
-  leave the Get tickets panel or the cart to #126 get dated notes. No other spec changes. The
-  README's version reference follows. Templates: none need updating.
+  reserveSeats' sales-closed rule moves to endsAt; the SALES_CLOSED example), with
+  packages/shared's api-schema.ts regenerated and order.ts's SalesClosedReason and Availability
+  widened to match in the spec PR. Every start-based sales rule in an earlier spec gets a dated
+  note: 006 (US2's narrative and scenario 6, its edge case, FR-014, SC-004), 007 (its "Events that
+  started or were cancelled" edge case), 015 (its "Sales closed" edge case and FR-016), 030 (the
+  clarification leaving the Get tickets panel to #126, and FR-014: once availability has loaded,
+  the page's "This event has ended." line follows it, 034 FR-017), and 033 (its edge cases on
+  ended events in the cart and on a reservation ending elsewhere, its #126 line, and its
+  coordination assumption). No other spec changes. The README's version reference follows.
+  Templates: none need updating.
 -->
 
 # QueuePass Constitution
