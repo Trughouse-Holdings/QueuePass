@@ -9,6 +9,10 @@ import { LocationDetail } from '../src/pages/LocationDetail';
 import { Reports } from '../src/pages/Reports';
 import { json, stubApi } from './helpers/api-stub';
 import { CANCELLED_EVENT } from './fixtures-005';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 012 FR-010, FR-014 (research R8, R10): key controls and "Can't reach the QueuePass

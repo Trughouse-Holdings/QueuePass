@@ -9,7 +9,11 @@ import {
   stubApi,
   tier,
   typeHolderName,
+  fixTimeBeforeFixtures,
 } from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 016 US4 (FR-012–FR-015; research R8): the Get tickets form shows the customer's limit,

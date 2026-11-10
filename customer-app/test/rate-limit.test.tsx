@@ -11,7 +11,11 @@ import {
   stubApi,
   tier,
   typeHolderName,
+  fixTimeBeforeFixtures,
 } from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 026 US2 (FR-011 to FR-014; research R6, R10): a buy or hold attempt refused as too many

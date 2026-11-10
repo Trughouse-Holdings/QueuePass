@@ -3,7 +3,7 @@ import type { MyOrder, Ticket } from '@queuepass/shared';
 import { ServiceUnreachable } from '@queuepass/shared/web';
 import { calendarEligible } from '../calendar';
 import { AddToCalendar } from '../components/AddToCalendar';
-import { doorsOpen, seatLabel, usd, when } from '../format';
+import { doorsOpen, hasEnded, seatLabel, usd, when } from '../format';
 import { useLoad } from '../use-load';
 
 /** The orders, and when they arrived: spec 019 FR-002 decides eligibility at that moment. */
@@ -14,7 +14,9 @@ interface Loaded {
 
 /**
  * Spec 006 US3 (FR-008): every order the signed-in customer placed, newest first, with each
- * ticket's code and state. The Backend returns only the caller's own orders (FR-007).
+ * ticket's code and state. The Backend returns only the caller's own orders (FR-007). Spec 030
+ * FR-015 (research R8): orders for events not ended first, then a Past section, each newest first,
+ * split by the moment the orders loaded; no order is left out.
  */
 export function MyTickets() {
   // Spec 019 research R10: Date.now() is read once, when the orders load, and kept with them, so
@@ -27,28 +29,57 @@ export function MyTickets() {
   if (load.kind === 'loading') return <p>Loading…</p>;
   if (load.kind !== 'ok') return <ServiceUnreachable />;
 
+  const { orders, loadedAt } = load.data;
+  const past = orders.filter((o) => hasEnded(o.event.endsAt, loadedAt));
+  const upcoming = orders.filter((o) => !hasEnded(o.event.endsAt, loadedAt));
   return (
     <section>
       <h1 className="page-title">My tickets</h1>
-      {load.data.orders.length === 0 ? (
+      {orders.length === 0 ? (
         <p>
           You have no tickets yet. <Link to="/events">Browse events</Link>
         </p>
+      ) : upcoming.length === 0 ? (
+        <p>
+          You have no upcoming tickets. <Link to="/events">Browse events</Link>
+        </p>
       ) : (
-        load.data.orders.map((o) => (
-          <OrderCard key={o.id} order={o} loadedAt={load.data.loadedAt} />
-        ))
+        upcoming.map((o) => <OrderCard key={o.id} order={o} loadedAt={loadedAt} ended={false} />)
+      )}
+      {/* Spec 030 (implementation review round 1, S1; Constitution VII): the Past orders sit in
+          their own section, their headings one level below "Past", so heading navigation shows
+          which orders are past. */}
+      {past.length > 0 && (
+        <section aria-labelledby="past-orders">
+          <h2 id="past-orders">Past</h2>
+          {past.map((o) => (
+            <OrderCard key={o.id} order={o} loadedAt={loadedAt} ended />
+          ))}
+        </section>
       )}
     </section>
   );
 }
 
-function OrderCard({ order: o, loadedAt }: { order: MyOrder; loadedAt: number }) {
+function OrderCard({
+  order: o,
+  loadedAt,
+  ended,
+}: {
+  order: MyOrder;
+  loadedAt: number;
+  /**
+   * Spec 030 FR-016: the event had ended when the page loaded; no entry code then, and the card
+   * sits under the Past heading, so its own heading is one level lower.
+   */
+  ended: boolean;
+}) {
+  const Heading = ended ? 'h3' : 'h2';
   return (
     <article className="card card--padded order-card" aria-labelledby={`order-${o.id}`}>
-      <h2 id={`order-${o.id}`}>
+      <Heading id={`order-${o.id}`}>
         <Link to={`/events/${o.event.id}`}>{o.event.name}</Link>
-      </h2>
+      </Heading>
       {o.event.status === 'CANCELLED' && (
         <p>
           <strong>This event has been cancelled.</strong>
@@ -94,12 +125,16 @@ function OrderCard({ order: o, loadedAt }: { order: MyOrder; loadedAt: number })
             {t.status === 'VALID' && t.checkedInAt === null && (
               <>
                 {' '}
-                <Link
-                  to={`/my-tickets/${t.id}/entry-code`}
-                  aria-label={`Show entry code for ticket ${t.code}`}
-                >
-                  Show entry code
-                </Link>{' '}
+                {!ended && (
+                  <>
+                    <Link
+                      to={`/my-tickets/${t.id}/entry-code`}
+                      aria-label={`Show entry code for ticket ${t.code}`}
+                    >
+                      Show entry code
+                    </Link>{' '}
+                  </>
+                )}
                 <Link to={`/my-tickets/${t.id}/print`} aria-label={`Print ticket ${t.code}`}>
                   Print ticket
                 </Link>

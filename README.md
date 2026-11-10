@@ -52,7 +52,7 @@ the running system and its browser test in CI are still to do.
 | [`027-sign-in-background`](specs/027-sign-in-background/spec.md)             | Keycloak's stone background on every sign-in page, the lines between the stones in each app's accent; "QUEUEPASS" above Keycloak's card, readable at every size in light and dark                                                                                      | Draft            | Done (53/54 tasks) | **Built and walked**            |
 | [`028-app-realms`](specs/028-app-realms/spec.md)                             | Each app has its own Keycloak sign-in, so three different users can use the three apps in one browser window and logging out of one leaves the others signed in; existing accounts and their orders carry over                                                         | Draft            | Done (34/37 tasks) | **Built**                       |
 | [`029-demo-checkpoint`](specs/029-demo-checkpoint/spec.md)                   | One command resets a local database to the demo state (events on sale, one open at the Ticket Booth, one over), the same every time, in seconds; refused unless explicitly allowed on a local database; Keycloak accounts untouched                                    | Draft            | Done (19/22 tasks) | **Built, reviewed, and walked** |
-| [`030-hide-past-events`](specs/030-hide-past-events/spec.md)                 | Events that have ended leave every event list in the Customer and Admin apps; admins turn on Show past events to see them, marked Ended; customers keep past tickets under Past on My tickets, and a past event's page says it has ended                               | Draft            | In review          | Not started                     |
+| [`030-hide-past-events`](specs/030-hide-past-events/spec.md)                 | Events that have ended leave every event list in the Customer and Admin apps; admins turn on Show past events to see them, marked Ended; customers keep past tickets under Past on My tickets, and a past event's page says it has ended                               | Draft            | Done (21/25 tasks) | **Built**                       |
 | [`031-atomic-event-create`](specs/031-atomic-event-create/spec.md)           | Scheduling an event saves it with its ticket types and seating in one step, or saves nothing; a refusal shows beside the ticket type or section at fault, and the form keeps everything typed; pictures still upload afterwards                                        | Draft            | Done (19/23 tasks) | **Built and reviewed**          |
 | [`032-drop-check-ins`](specs/032-drop-check-ins/spec.md)                     | One week after an event ends, who checked in and when is removed from its tickets; the event keeps its checked-in count, so its report reads the same; the Admin app says when the details were removed                                                                | Draft            | In review          | Not started                     |
 
@@ -228,7 +228,8 @@ docker compose exec backend node backend/dist/scripts/demo-data.js
 
 It adds two venues, five events (three with tiers; Demo Tonight, open for gate check-in as
 soon as the data loads, `017`; and Season Opener, a week ago and over, so the apps show an event
-whose sales are closed, `029`), named orders from `customer1`…`customer25`, some check-ins, one
+whose sales are closed, `029`; since `030` it is left out of the event lists, and its page, opened
+by its link, from Reports, or from the Admin list with Show past events on, shows its sales closed), named orders from `customer1`…`customer25`, some check-ins, one
 cancelled event, and generated striped pictures (three on the concert, one on the comedy night),
 all through the real Backend rules. Running it again changes nothing. It is never run
 automatically. Its orders belong to stand-in identities, so they don't appear on any customer's
@@ -255,7 +256,9 @@ every venue, seating section, event, tier, image, order, ticket (with its check-
 keeps the schema and its migration record, and loads the [demo data](#demo-data) again through the
 Backend's rules. Every reset ends in the same state, with times relative to the moment it ran:
 Fall Concert and Comedy Night on sale, Demo Tonight open at the Ticket Booth (for 4 hours),
-Holiday Gala cancelled, and Season Opener over, its sales closed. It takes a few seconds. Keycloak
+Holiday Gala cancelled, and Season Opener over, its sales closed (left out of the event lists since
+`030`; its page, by its link, from Reports, or from the Admin list with Show past events on, shows
+it). It takes a few seconds. Keycloak
 is not touched: every account, role, and sign-in stays as it was.
 
 It deletes everything, so it is refused unless you give the permission `QUEUEPASS_ALLOW_RESET=1`
@@ -496,12 +499,20 @@ unchanged.
   at fault, and keeps everything typed (`031`)
 - **Double-booking prevention** — events at the same venue must be at least **60 minutes**
   apart, enforced by a database constraint so no client can bypass it (`002`)
-- **Customer browsing** — customers see all venues and events, read-only (`003`)
+- **Customer browsing** — customers see all venues and the events that have not ended, read-only
+  (`003`, `030`)
 - **Ticket tiers** — admins split an event's tickets into tiers such as General and VIP, each
   with its own price and quantity; tiers never exceed the event's capacity, even under
   simultaneous edits (`004`)
 - **Admin search** — find events by name, venue, and date range, and venues by name or address;
   filters stay in the page address (`004`)
+- **Past events hidden** — an event is past once its end time is reached. Every event list leaves
+  past events out unless asked (`GET /events?includePast=true`): the Customer app's Events page,
+  search, filters, and venue pages never show them, and a past event's own page still opens and
+  says "This event has ended." The Admin app's Events page and each venue's page say past events
+  are hidden and have a **Show past events** toggle, kept in the page address, that lists them
+  marked **Ended**; an event's own page says Ended too, and its attendees, sales, exports, and
+  Reports work as before. The Ticket Booth is unchanged (`030`)
 - **Orders and tickets** — customers get tickets through the API, one unique code per seat; sales
   never exceed a tier or the event, even with many simultaneous buyers. Payment is simulated
   (`005`)
@@ -521,7 +532,9 @@ unchanged.
   events, and events that have started say why tickets aren't available; sales close when an
   event starts. Confirming twice, or a retried request, never places a second order (`006`)
 - **My tickets** — every order a customer placed, newest first, with its codes, and refunded
-  orders, cancelled events, and used tickets marked; never anyone else's orders (`006`)
+  orders, cancelled events, and used tickets marked; never anyone else's orders (`006`). Orders
+  for events that have ended move to a **Past** section below the upcoming ones, with Print ticket
+  but no entry code (`030`)
 - **Finding events** — customers search by name and filter by venue, dates, and cancelled
   events; filters stay in the page address, so a filtered list can be reloaded or shared (`008`)
 - **The Customer app on a phone** — events as cards, one column on a phone with no sideways

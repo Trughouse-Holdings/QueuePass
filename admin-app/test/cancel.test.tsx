@@ -6,6 +6,10 @@ import { EventDetail } from '../src/pages/EventDetail';
 import { EventList } from '../src/pages/EventList';
 import { json, stubApi } from './helpers/api-stub';
 import { CANCELLED_EVENT, EVENT, REPORT } from './fixtures-005';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 005 US4 (FR-008, FR-009): cancelling an event from its page. */
 afterEach(() => {

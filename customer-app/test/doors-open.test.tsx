@@ -1,7 +1,18 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import type { Event, MyOrder, OrderEvent } from '@queuepass/shared';
-import { event, json, myOrder, renderCustomer, stubApi, venue } from './helpers';
+import {
+  event,
+  json,
+  myOrder,
+  renderCustomer,
+  stubApi,
+  venue,
+  fixTimeBeforeFixtures,
+} from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 025 US4 (FR-019, FR-021, FR-023; research R9) (T021): the doors-open time next to the

@@ -3,7 +3,19 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Event, EventImage } from '@queuepass/shared';
 import { usd, when } from '../src/format';
-import { availability, blob, event, json, renderCustomer, stubApi, venue } from './helpers';
+import {
+  availability,
+  blob,
+  event,
+  json,
+  renderCustomer,
+  stubApi,
+  venue,
+  fixTimeBeforeFixtures,
+} from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 014 US2 (FR-021, FR-027; SC-007): the event page shows the event's images at the top. */
 afterEach(() => vi.unstubAllGlobals());

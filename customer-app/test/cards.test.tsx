@@ -1,7 +1,19 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { usd, when } from '../src/format';
-import { availability, event, json, renderCustomer, stubApi, tier, venue } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  renderCustomer,
+  stubApi,
+  tier,
+  venue,
+  fixTimeBeforeFixtures,
+} from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 008 US2 (FR-005, FR-006; research R3, R4): events as cards, from the list's own data. */
 afterEach(() => vi.unstubAllGlobals());

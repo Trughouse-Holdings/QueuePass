@@ -7,6 +7,10 @@ import { EventDetail } from '../src/pages/EventDetail';
 import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-user-manager';
 import { blob, json, stubApi } from './helpers/api-stub';
 import { EVENT } from './fixtures-005';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 014 FR-019: the Admin event page shows the event's images as customers see them. */
 afterEach(() => vi.unstubAllGlobals());

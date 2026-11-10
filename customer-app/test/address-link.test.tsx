@@ -1,7 +1,10 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { mapsUrl } from '@queuepass/shared';
-import { json, renderCustomer, stubApi, venue } from './helpers';
+import { json, renderCustomer, stubApi, venue, fixTimeBeforeFixtures } from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 013 US3 (FR-014, FR-015): every venue address in the Customer app opens Google Maps. */
 afterEach(() => vi.unstubAllGlobals());

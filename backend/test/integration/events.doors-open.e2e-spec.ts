@@ -82,7 +82,7 @@ describe('Doors-open time on events (spec 025 US1)', () => {
         '2026-11-20T23:00:00.000Z',
         '2026-11-20T22:00:00.000Z',
       ]);
-      const list = await asAdmin(ctx).get('/events').expect(200);
+      const list = await asAdmin(ctx).get('/events?includePast=true').expect(200);
       expect(list.body[0]).toMatchObject({
         doorsOpenAt: '2026-11-20T23:00:00.000Z',
         entryOpensAt: '2026-11-20T22:00:00.000Z',

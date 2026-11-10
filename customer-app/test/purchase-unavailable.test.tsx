@@ -10,7 +10,11 @@ import {
   stubApi,
   tier,
   typeHolderName,
+  fixTimeBeforeFixtures,
 } from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 006 US2 (FR-002, FR-006, FR-014): why tickets can't be had, and refusals explained. */
 afterEach(() => vi.unstubAllGlobals());

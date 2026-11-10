@@ -4,6 +4,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventDetail } from '../src/pages/EventDetail';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT } from './fixtures-005';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 007 US4 (FR-002, FR-004, FR-012): the event page's Seating card and seat map. */
 afterEach(() => vi.unstubAllGlobals());

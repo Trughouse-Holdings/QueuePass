@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { Availability, Event, Location, MyOrder, Order, TicketTier } from '@queuepass/shared';
@@ -94,10 +94,36 @@ export function renderCustomer({
  * is that hook for Vitest's clock. `performance` drives the countdowns; `vi.unstubAllGlobals()` removes the hook.
  */
 export function fakeClock() {
+  // Spec 030 (T011): keeps the time a file fixed with `fixTimeBeforeFixtures`; a second
+  // `useFakeTimers` would otherwise be ignored and leave the timers real.
+  const now = Date.now();
+  vi.useRealTimers();
   vi.useFakeTimers({
     toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'performance', 'Date'],
   });
+  vi.setSystemTime(now);
   vi.stubGlobal('jest', { advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms) });
+}
+
+/**
+ * Before every fixed-date fixture's end that a page test renders (the earliest, in
+ * `doors-open.test.tsx`, ends 2026-11-20), so no fixture is past whatever day the tests run.
+ */
+export const FIXTURE_NOW = Date.parse('2026-10-01T12:00:00.000Z');
+
+/**
+ * Spec 030 (research R10, tasks T011): the event page and My tickets decide "ended" from the
+ * time, so a test rendering them with fixed-date fixtures fixes the time first, as
+ * `add-to-calendar.test.tsx` does. Only `Date` is faked; `fakeClock()` keeps the time.
+ */
+export function fixTimeBeforeFixtures(now = FIXTURE_NOW): void {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(now);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 }
 
 /** Spec 017 FR-001: types a valid holder's name, so Confirm can enable. */
