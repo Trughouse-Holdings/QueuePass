@@ -17,7 +17,7 @@ import { subFor, tokenFor } from './tokens';
  * A three-hour window starting at the venue's local `hour`:00, `daysFromNow` days after today at
  * the venue, stated in the venue's offset (spec 020 research R9, R20): the Backend refuses an
  * event time in any other offset. Always relative to today, so events that take orders never
- * drift into the past, where sales are closed (spec 006 FR-014; research R2). On a fall-back
+ * drift into the past, where sales are closed (spec 034 FR-001: at the end). On a fall-back
  * night the first of a repeated hour is taken; on a spring-forward night, the next hour.
  */
 export function windowAt(
@@ -162,8 +162,24 @@ export async function eventAroundNow(
 }
 
 /**
+ * Spec 034 (tasks T002): moves an event's whole window so that it ends at `end`, as if time had
+ * passed: the start and doors move by the same amount, keeping the event's length and the doors'
+ * gap (spec 025 research R1: the event_doors_open_range CHECK). `end` is the test's own instant,
+ * sent as text so no session time zone is involved.
+ */
+export async function endEventAt(ctx: TestContext, eventId: string, end: Date): Promise<void> {
+  const at = end.toISOString();
+  await ctx.prisma.$executeRaw`
+    UPDATE "Event"
+    SET "doorsOpenAt" = "doorsOpenAt" + (${at}::timestamptz - "endsAt"),
+        "startsAt" = "startsAt" + (${at}::timestamptz - "endsAt"),
+        "endsAt" = ${at}::timestamptz
+    WHERE "id" = ${eventId}::uuid`;
+}
+
+/**
  * Spec 017: an order and its tickets inserted directly, for what the API would no longer sell
- * (an event that started) or no longer accepts (an order with no holder's name, as before 017).
+ * (an event that ended) or no longer accepts (an order with no holder's name, as before 017).
  */
 export async function orderWithTickets(
   ctx: TestContext,
