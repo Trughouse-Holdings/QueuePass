@@ -40,7 +40,8 @@ test('025 S1/S2/S6: an admin sets when doors open, and customers see it', async 
     .getByLabel('Venue', { exact: true })
     .selectOption({ label: `${venueName} (500 seats)` });
   await expect(page.getByLabel('Before the start', { exact: true })).toBeChecked();
-  await expect(page.getByTestId('doorsOpenAt-preview')).toHaveCount(0);
+  // Spec 036 FR-017: a new event opens with a start, so the line is already there.
+  await expect(page.getByTestId('doorsOpenAt-preview')).toHaveCount(1);
   await fillEventDateTime(page, 'Starts', `${day}T19:00`);
   await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
     `Doors open at ${timeOfDay(at('18:00'), CHICAGO)}`,

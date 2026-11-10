@@ -48,6 +48,8 @@ import {
 import { DateTimeFields } from './DateTimeFields';
 import {
   DEFAULT_DOORS_OFFSET_MINUTES,
+  DEFAULT_EVENT_LENGTH_MINUTES,
+  defaultEventInstants,
   doorsInstantBeforeStart,
   doorsModeForStoredGapMs,
   doorsOffsetOptions,
@@ -58,6 +60,37 @@ import {
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ImagesField, type ImageItem } from '../components/ImagesField';
 import { SuccessState } from '../components/SuccessState';
+
+/**
+ * A venue-local value for `instant`, and which occurrence it is when that local time repeats
+ * (spec 020). Used for the times the form fills in itself.
+ */
+function localWithOccurrence(instant: Date, zone: UsTimeZone): [string, Occurrence] {
+  const local = toLocalDateTime(instant, zone);
+  const r = resolveField(local, zone);
+  if (r?.kind !== 'repeated') return [local, ''];
+  return [local, toOffsetDateTime(instant, zone).slice(-6) === r.first.offset ? 'first' : 'second'];
+}
+
+/**
+ * Spec 036 FR-017 (#160): a new event's Starts (the next whole hour), Ends (4 hours later), and
+ * Doors open (036's default, 1 hour before the start), in `zone`.
+ */
+function newEventTimes(now: Date, zone: UsTimeZone) {
+  const { startsAt, endsAt } = defaultEventInstants(now);
+  const [start, startOcc] = localWithOccurrence(startsAt, zone);
+  const [end, endOcc] = localWithOccurrence(endsAt, zone);
+  const [doors, doorsOcc] = localWithOccurrence(
+    doorsInstantBeforeStart(startsAt, DEFAULT_DOORS_OFFSET_MINUTES),
+    zone,
+  );
+  return {
+    startsAt: start,
+    endsAt: end,
+    doorsOpenAt: doors,
+    occurrence: { startsAt: startOcc, endsAt: endOcc, doorsOpenAt: doorsOcc },
+  };
+}
 
 /**
  * Spec 036 FR-010: a time field's error focuses its date control, or its time control when only
@@ -145,12 +178,18 @@ export function EventForm(): React.ReactElement {
   const [eventVenue, setEventVenue] = useState<Location | null>(null);
   const [name, setName] = useState('');
   const [locationId, setLocationId] = useState('');
+  // Spec 036 FR-017 (#160): a new event opens on today's next whole hour, 4 hours long, in the
+  // default zone until a venue is chosen. An edit loads the stored times instead.
+  const [defaults] = useState(() => (isEdit ? null : newEventTimes(new Date(), DEFAULT_TIME_ZONE)));
   // Spec 020 research R13: plain local strings, read in the chosen venue's zone.
-  const [startsAt, setStartsAt] = useState('');
-  const [endsAt, setEndsAt] = useState('');
-  // Spec 025 research R4: Doors open, a local string like the start, following the start (same
-  // gap) until the admin changes it themselves.
-  const [doorsOpenAt, setDoorsOpenAt] = useState('');
+  const [startsAt, setStartsAt] = useState(defaults?.startsAt ?? '');
+  const [endsAt, setEndsAt] = useState(defaults?.endsAt ?? '');
+  // FR-017: until the admin changes Starts, a venue in another zone recomputes the defaults; until
+  // they change Ends, Ends follows the start, 4 hours later. An edit starts with both changed.
+  const [startsTouched, setStartsTouched] = useState(isEdit);
+  const [endsTouched, setEndsTouched] = useState(isEdit);
+  // Spec 025 research R4, 036: Doors open, a local string like the start.
+  const [doorsOpenAt, setDoorsOpenAt] = useState(defaults?.doorsOpenAt ?? '');
   // Spec 036: two ways to set doors open; a new event starts in "Before the start", 1 hour.
   const [doorsMode, setDoorsMode] = useState<DoorsMode>('before');
   const [doorsOffsetMinutes, setDoorsOffsetMinutes] = useState<number | null>(
@@ -158,11 +197,9 @@ export function EventForm(): React.ReactElement {
   );
   /** Once a save was tried, the range message under Doors open is announced (role="alert"). */
   const [doorsChecked, setDoorsChecked] = useState(false);
-  const [occurrence, setOccurrence] = useState<Record<TimeField, Occurrence>>({
-    startsAt: '',
-    endsAt: '',
-    doorsOpenAt: '',
-  });
+  const [occurrence, setOccurrence] = useState<Record<TimeField, Occurrence>>(
+    defaults?.occurrence ?? { startsAt: '', endsAt: '', doorsOpenAt: '' },
+  );
   const [totalTicketCapacity, setTotalTicketCapacity] = useState('');
   // Spec 016 FR-008: blank is no limit.
   const [maxPerCustomer, setMaxPerCustomer] = useState('');
@@ -772,6 +809,20 @@ export function EventForm(): React.ReactElement {
     setOccurrence((o) => ({ ...o, doorsOpenAt: occ }));
   }
 
+  /** Spec 036 FR-017: until Ends is changed, it follows a start that names one moment, +4 h. */
+  function followEnd(local: string, chosen: Occurrence, zone: UsTimeZone = venueZone): void {
+    if (endsTouched) return;
+    const r = resolveField(local, zone);
+    const m = r ? momentOf(r, chosen) : null;
+    if (!m) return;
+    const [end, occ] = localWithOccurrence(
+      new Date(m.instant.getTime() + DEFAULT_EVENT_LENGTH_MINUTES * 60_000),
+      zone,
+    );
+    setEndsAt(end);
+    setOccurrence((o) => ({ ...o, endsAt: occ }));
+  }
+
   function switchDoorsMode(next: DoorsMode): void {
     if (next === 'at-time') {
       setDoorsMode('at-time');
@@ -866,7 +917,13 @@ export function EventForm(): React.ReactElement {
     const time = formatLocalTime(local);
     const choose = (value: Occurrence) => {
       setOccurrence((o) => ({ ...o, [field]: value }));
-      if (field === 'startsAt') applyDoorsOffset(startsAt, value);
+      // FR-017: choosing which of a repeated time is a change to that field.
+      if (field === 'startsAt') {
+        setStartsTouched(true);
+        applyDoorsOffset(startsAt, value);
+        followEnd(startsAt, value);
+      }
+      if (field === 'endsAt') setEndsTouched(true);
     };
     return (
       <fieldset className="field" data-testid={`${field}-occurrence`}>
@@ -1168,7 +1225,24 @@ export function EventForm(): React.ReactElement {
                   setOccurrence({ startsAt: '', endsAt: '', doorsOpenAt: '' });
                   // Spec 036: in "Before the start" mode, recompute doors in the new venue's zone.
                   const next = venues.find((v) => v.id === e.target.value);
-                  if (next) applyDoorsOffset(startsAt, '', next.timeZone ?? DEFAULT_TIME_ZONE);
+                  if (!next) return;
+                  const zone = next.timeZone ?? DEFAULT_TIME_ZONE;
+                  if (!isEdit && !startsTouched && !endsTouched && doorsMode === 'before') {
+                    // Spec 036 FR-017: while no time has been changed, the defaults are
+                    // recomputed in the venue's zone. Once one has, every typed time stays (020).
+                    const fresh = newEventTimes(new Date(), zone);
+                    setStartsAt(fresh.startsAt);
+                    setEndsAt(fresh.endsAt);
+                    setOccurrence((o) => ({
+                      ...o,
+                      startsAt: fresh.occurrence.startsAt,
+                      endsAt: fresh.occurrence.endsAt,
+                    }));
+                    applyDoorsOffset(fresh.startsAt, fresh.occurrence.startsAt, zone);
+                    return;
+                  }
+                  applyDoorsOffset(startsAt, '', zone);
+                  followEnd(startsAt, '', zone);
                 }}
                 {...fieldProps('locationId')}
               >
@@ -1278,8 +1352,10 @@ export function EventForm(): React.ReactElement {
                   onChange={(value) => {
                     clearServer();
                     setStartsAt(value);
+                    setStartsTouched(true);
                     setOccurrence((o) => ({ ...o, startsAt: '' }));
                     applyDoorsOffset(value, '');
+                    followEnd(value, '');
                   }}
                   fieldProps={fieldProps('startsAt')}
                 />
@@ -1298,6 +1374,7 @@ export function EventForm(): React.ReactElement {
                   onChange={(value) => {
                     clearServer();
                     setEndsAt(value);
+                    setEndsTouched(true);
                     setOccurrence((o) => ({ ...o, endsAt: '' }));
                   }}
                   fieldProps={fieldProps('endsAt')}

@@ -134,6 +134,8 @@ describe('the Doors open field (036 FR-001, FR-003, FR-006, FR-007)', () => {
     set('Venue', CENTRAL.id);
     expect(screen.getByLabelText('Before the start')).toBeChecked();
     expect(screen.getByLabelText('How long before the start')).toHaveValue('60');
+    // A new event opens with a start (036 FR-017); with Starts cleared there is no line.
+    set('Starts', '');
     expect(screen.queryByTestId('doorsOpenAt-preview')).toBeNull();
     expect(
       screen
@@ -481,6 +483,7 @@ describe('review round 1: the resulting-time line (FR-004, FR-016)', () => {
     newForm();
     await screen.findByRole('option', { name: /Prairie Hall/ });
     set('Venue', CENTRAL.id);
+    set('Starts', '');
     const live = document.getElementById('doorsOpenAt-live');
     expect(live).toHaveAttribute('aria-live', 'polite');
     expect(live).toBeEmptyDOMElement();
