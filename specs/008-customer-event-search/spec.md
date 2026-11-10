@@ -296,6 +296,9 @@ and move an unsold section to it; save and see every change on the event page.
   on, create the ticket types, and map the sections, through the existing operations, then open
   the event's page. A refusal after the event exists MUST say what failed and link to the event.
   Venues without a layout and editing an event are unchanged.
+  *Superseded for scheduling by `031` (#127): the form now sends the event, its reserved seating,
+  and its ticket types in one request, saved all or nothing, so no refusal leaves an event behind
+  (`031` FR-003, FR-008). The rest of this requirement stands.*
 - **FR-019**: The Admin app's Schedule and Edit event forms MUST NOT ask for a base price; they
   MUST take at least one ticket type (name, price, and, for general admission, a quantity) and
   send the lowest ticket type price as the event's base price. The Edit form MUST show and apply

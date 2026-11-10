@@ -1,22 +1,26 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.9.1 -> 3.9.2 (PATCH): one roadmap row reserved; no principle changed and no control
-  removed.
-Problem: issue #133. Events stay listed after they have ended: customers still find them in the
-  event list, search, and venue pages, and admins see them among the events still coming up. The
-  Ticket Booth already leaves ended events out; the Customer and Admin apps do not.
+Version: 3.9.3 -> 3.9.4 (PATCH): one roadmap row reserved; no principle changed and no control
+  removed. Applies on top of spec 031's amendment (3.9.2 -> 3.9.3, row
+  031-atomic-event-create), merged to main as f9d083b.
+Problem: issue #129. Every admitted ticket keeps, forever, when it was admitted and which Ticket
+  Booth agent admitted it (spec 017 research R3). Once an event is over that is personal data with
+  no purpose; it should be dropped one week after the event ends, while each event's report keeps
+  how many tickets were used to enter it.
 Changed:
-  - Roadmap: row 030-hide-past-events reserved (an event is past once the current time reaches its
-    end; the event list leaves past events out unless asked for them; the Admin app's event and
-    venue pages get a Show past events toggle that marks them Ended; the Customer app has none, and
-    keeps past tickets in a Past section of My tickets and a past event's own page reachable with
-    "This event has ended"; Admin detail, Attendees, Sales, and Reports always reachable). The next
-    free number is 031.
-Impact: spec 030, and its contract change (listEvents gains includePast). Spec 029 (merged): its
-  browser test reads the past demo event through the list, so it asks for past events, and its spec,
-  quickstart, and the README's demo sections are reworded where the Customer app showed that event
-  in its list (spec 030 research R10; done in 030's implementation). No other spec changes. The
-  README's version reference follows. Templates: none need updating.
+  - Roadmap: row 032-drop-check-ins reserved (a Backend job removes every ticket's check-in details
+    once 7 days have passed since its event ended, cancelled events included, keeping each event's
+    checked-in count; the 7 days are one named constant; the Admin app's Attendees, Sales card,
+    Reports, and attendee export say when the details were removed; a removed event's times no
+    longer change). The next free number is 033.
+Impact: spec 032, and its contract change (1.24.0: checkInDetailsRemovedAt on Event, OrderEvent,
+  and EventSales; updateEvent's 409 CHECK_IN_DETAILS_REMOVED). Specs 005, 017, and 023 keep their
+  rules until an event's cutoff, then read the kept count (spec 032 research R4, R7). Spec 030
+  (merged) is amended for removed events only, with a dated note in its spec: its FR-016 (a Past
+  ticket keeps its state and printable ticket) gives way to 032 FR-014 ("Event over", no printable
+  ticket), and its edge case of an event moved later coming back gives way to 032 FR-008 (times
+  fixed once removed) (spec 032 research R9, R10). No other spec changes. The README's version
+  reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -327,7 +331,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `031`.
+number is a pull request against this table. The next free number is `033`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -361,6 +365,8 @@ number is a pull request against this table. The next free number is `031`.
 | `028-app-realms` | Each app signs in through its own Keycloak realm, so signing in to, renewing, or logging out of one app never signs another out, and three different users can use the three apps in one browser window; on a system made before it, the seed renames the old shared realm to the Customer app's realm, so customers keep their identifiers and their orders, tickets, and holds, and admins and gate agents get new accounts in their own realms, their old copies disabled, never deleted; the Backend accepts the three realms only, and from each only its app's role (#138) | `001`, `021`, `027` |
 | `029-demo-checkpoint` | One command, refused unless explicitly allowed and pointed at a local QueuePass database, removes all app data (venues, seating, events, tiers, images, orders, tickets and their check-ins, seat holds), keeps the schema, and loads the demo data again through the Backend's rules, with times relative to the run: events on sale, one open at the Ticket Booth, one cancelled, one over; the same state every run, in seconds, saying what it removed and created; Keycloak untouched; never run by `docker compose up`; saving and restoring a hand-made checkpoint deferred (#139) | `005`, `017`, `025` |
 | `030-hide-past-events` | An event is past once the current time reaches its end (`endsAt`); wherever events are listed, past events are left out by default, by the Backend for every client; the Admin app's event list and venue page have a Show past events toggle that lists them too, marked Ended; the Customer app has no toggle, keeps past tickets in a Past section of My tickets, and opens a past event's own page saying it has ended; an event's Admin page, attendees, sales, and Reports stay reachable (#133) | `002`, `003`, `004`, `005`, `006`, `008`, `019`, `020`, `025` |
+| `031-atomic-event-create` | Scheduling an event in the Admin app saves the event, its ticket types, and its reserved seating (which section sells which type) in one request, all or nothing: any refusal leaves no event, ticket type, or seating behind, and two schedules for one slot save one whole event; each refusal names the ticket type or section at fault, so the form shows it beside that field and keeps every value to fix and resubmit; pictures still upload after the event exists, as in `014`; existing callers that send only the event are unchanged; editing an event is unchanged (#127) | `004`, `007`, `008`, `014` |
+| `032-drop-check-ins` | One week after an event ends (`endsAt` + 7 days, one named constant), a Backend job that runs every hour removes when each of its tickets was admitted and which Ticket Booth agent admitted it, cancelled events included, and keeps the event's checked-in count, so its report reads the same afterwards; the Admin app's Attendees, Sales card, Reports, and attendee export say "Check-in details removed on …" instead of showing tickets as not checked in; My tickets no longer says when a ticket was used; once removed, the event's times can no longer change (#129) | `005`, `017`, `018`, `023`, `025`, `030` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -413,4 +419,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.9.2 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09
+**Version**: 3.9.4 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09

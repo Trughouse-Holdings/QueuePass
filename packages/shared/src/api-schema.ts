@@ -445,6 +445,52 @@ export interface paths {
          *     `startsAt`, both allowed: otherwise `400 DOORS_OPEN_OUT_OF_RANGE`, whose message names the
          *     allowed range in the venue's local time. This comes before the capacity checks. The Admin
          *     app always sends it.
+         *
+         *     Feature 031: **the event, its ticket types, and its reserved seating are saved together or
+         *     not at all.** `tiers` and `reservedSeating` are optional; a request with neither (or with
+         *     `tiers: []` and `reservedSeating: false`) is checked, saved, and answered exactly as
+         *     before. With them, the whole request is one transaction: any refusal, or any failure
+         *     before it commits, leaves no event, ticket type, or section mapping. Each part obeys the
+         *     rules `createTier` and `updateSeating` apply. The checks, in order:
+         *
+         *     - **Seating**, right after the event's times and doors are checked and before the
+         *       capacity checks, since the capacity depends on it: `reservedSeating: true` needs a
+         *       venue with a seating layout (`400` naming `reservedSeating`) and no
+         *       `totalTicketCapacity` (`400` naming `totalTicketCapacity`). The event's capacity is then
+         *       the layout's total seats, and the capacity and `maxTicketsPerCustomer` checks use
+         *       it.
+         *     - The event's other checks as before: capacity, `maxTicketsPerCustomer`, scheduling
+         *       conflict.
+         *     - **Each ticket type, in the order sent**: its name, trimmed, is not the name of an
+         *       earlier one ignoring case (`409 TIER_NAME_TAKEN`); without reserved seating `quantity`
+         *       is required and a non-empty `sectionIds` is refused, with it `quantity` must be left out
+         *       (`400` for each); every section in `sectionIds` is in the venue's layout and listed
+         *       under no earlier ticket type (`400`).
+         *     - **The ticket types together**: without reserved seating, their quantities add up to no
+         *       more than the event's `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`).
+         *
+         *     With reserved seating each ticket type's `quantity` becomes the seats of its sections, 0
+         *     when it lists none, and a section listed under no ticket type is not for sale, as after
+         *     `updateSeating`. The venue row is held for the whole transaction, so a layout change at
+         *     the venue runs entirely before or after it.
+         *
+         *     **Which field a refusal is about.** A rule refusal about one ticket type names it by path,
+         *     `tiers.<index>.<field>` (the zero-based index in `tiers`; the field `name`, `price`,
+         *     `quantity`, or `sectionIds`); one about the ticket types together names `tiers`; one
+         *     about seating names `reservedSeating` or `totalTicketCapacity`. On a `409`
+         *     (`TIER_NAME_TAKEN`, `CAPACITY_EXCEEDED`) the path is `details.field`. A `409
+         *     TIER_NAME_TAKEN` without `details.field` is the database's backstop (two names the
+         *     check took as different but the database's case folding did not) and names no ticket
+         *     type. On `400 VALIDATION_FAILED` every malformed field is listed at once in
+         *     `details.fields`, and each entry about the new fields starts with its place: an entry
+         *     about one field of ticket type *i* starts `tiers.<i>.<field> ` (`tiers.1.price must be
+         *     …`); an unknown field in ticket type *i* is `tiers.<i>.property <name> should not exist`;
+         *     any other entry about the ticket types (`tiers` not a list, an entry that is not an
+         *     object, more than 50) starts with `tiers` (an entry that is not an object reads
+         *     `tiers.tiers must be a list of ticket types, …`); one about seating starts with
+         *     `reservedSeating` or `totalTicketCapacity`. So a client places an entry on ticket type
+         *     *i* when it starts `tiers.<i>.`, on the ticket types when it otherwise starts `tiers`, and
+         *     on seating by those two names. The rest of each message is for people.
          */
         post: operations["createEvent"];
         delete?: never;
@@ -508,6 +554,13 @@ export interface paths {
          *     the same time before the start (also when moving to a venue in another zone, which does not
          *     have to send it). Otherwise an update without it leaves it unchanged. Moving
          *     `doorsOpenAt` later can close an open check-in window; entries already recorded stay.
+         *
+         *     Feature 032: once an event's check-in details have been removed (`checkInDetailsRemovedAt`
+         *     set), an update whose `startsAt`, `endsAt`, or `doorsOpenAt` in force after it differs from
+         *     the stored instant is refused with `409 CHECK_IN_DETAILS_REMOVED`
+         *     (`details.removedAt`), and nothing changes. Sending the stored instants again, or changing
+         *     only other fields, is allowed. Before removal, times change as above, and the removal
+         *     follows the `endsAt` in force.
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -1392,6 +1445,14 @@ export interface components {
              * @example 45.00
              */
             basePrice: string;
+            /**
+             * Format: date-time
+             * @description Feature 032. When the Backend removed the check-in details of this event's tickets, at
+             *     or after `endsAt` plus 7 days; `null` until then. Always sent once 032 is implemented;
+             *     not listed as required so this contract can merge ahead of the implementation with the
+             *     suite green. Clients treat a missing value as `null`.
+             */
+            checkInDetailsRemovedAt?: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1438,6 +1499,42 @@ export interface components {
             maxTicketsPerCustomer?: number | null;
             /** @description Non-negative decimal string. */
             basePrice: string;
+            /**
+             * @description Feature 031. Optional; left out, `false`. `true` schedules the event with reserved
+             *     seating at its venue's layout, as `updateSeating` would turn it on: the venue must have
+             *     a layout, and `totalTicketCapacity` must be left out (the capacity is the layout's total
+             *     seats). May be left out but not sent as `null` (`400`).
+             */
+            reservedSeating?: boolean;
+            /**
+             * @description Feature 031. Optional. The event's ticket types, saved with it in one transaction, all
+             *     or nothing (`createEvent`). Left out or empty, the event has none, as before. At most
+             *     50, as many as a layout's sections. May be left out but not sent as `null` (`400`).
+             */
+            tiers?: components["schemas"]["EventTierInput"][];
+        };
+        /**
+         * @description Feature 031. One ticket type in `createEvent`: the fields of `TicketTierInput`, and the
+         *     sections it sells when the event has reserved seating. Any other field is
+         *     `400 VALIDATION_FAILED`.
+         */
+        EventTierInput: {
+            /** @description Trimmed; unique within the request ignoring case. */
+            name: string;
+            /** @description Non-negative decimal string. */
+            price: string;
+            /**
+             * @description Required without reserved seating; left out with it (its quantity is then its
+             *     sections' seats). The ticket types together may not exceed the event's
+             *     `totalTicketCapacity`. Never `null`.
+             */
+            quantity?: number;
+            /**
+             * @description Only with `reservedSeating: true`. The sections of the venue's layout this ticket type
+             *     sells, each section under one ticket type at most. Left out or empty, it sells none
+             *     yet (quantity 0). May be left out but not sent as `null` (`400`).
+             */
+            sectionIds?: string[];
         };
         /**
          * @description Partial update; supply only the fields being changed. From 1.19.0 (#117), a field may be
@@ -1561,7 +1658,12 @@ export interface components {
             code: string;
             /** @enum {string} */
             status: "VALID" | "VOID";
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the ticket was admitted; `null` while unused. Feature 032: also `null` once its
+             *     event's check-in details have been removed (`checkInDetailsRemovedAt`), whether or not
+             *     it was used.
+             */
             checkedInAt: string | null;
             /** @description Feature 007. The seat this ticket is for; `null` for general admission. */
             seat: components["schemas"]["SeatLabel"] | null;
@@ -1644,6 +1746,13 @@ export interface components {
             doorsOpenAt: string;
             /** @enum {string} */
             status: "SCHEDULED" | "CANCELLED";
+            /**
+             * Format: date-time
+             * @description Feature 032. As `Event.checkInDetailsRemovedAt`. When set, My tickets shows the order's
+             *     valid tickets as "Event over", with no entry code or printable ticket. Not listed as
+             *     required until 032 is implemented; clients treat a missing value as `null`.
+             */
+            checkInDetailsRemovedAt?: string | null;
             location: {
                 /** Format: uuid */
                 id: string;
@@ -1884,7 +1993,18 @@ export interface components {
             status: "SCHEDULED" | "CANCELLED";
             ticketCapacity: number;
             ticketsSold: number;
+            /**
+             * @description Valid tickets admitted at the gate; 0 for a cancelled event. Feature 032: once the
+             *     event's check-in details have been removed, the count kept at that moment, so the
+             *     figure does not change.
+             */
             checkedIn: number;
+            /**
+             * Format: date-time
+             * @description Feature 032. As `Event.checkInDetailsRemovedAt`. Not listed as required until 032 is
+             *     implemented; clients treat a missing value as `null`.
+             */
+            checkInDetailsRemovedAt?: string | null;
             /** @example 45.00 */
             revenue: string;
             tiers: components["schemas"]["TierSales"][];
@@ -2004,7 +2124,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED" | "CHECK_IN_DETAILS_REMOVED";
                 message: string;
                 details?: {
                     [key: string]: unknown;

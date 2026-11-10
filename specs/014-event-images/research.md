@@ -422,6 +422,9 @@ modes, inside a `<fieldset>` with the legend "Images".
 
   Because each step updates the state as it succeeds, saving again after a refusal finishes what
   is left and never uploads a picture twice (FR-017).
+- *Note (`031`, #127): scheduling is now one request, all or nothing, so the "Seating setup not
+  finished" path below no longer exists; a refusal saves nothing and the form keeps every value.
+  The picture path, from "Only when the event … is refused", is unchanged (`031` FR-012).*
 - **After creating** (review round 1, narrowed after the PR review): the create flow of `008` is
   unchanged up to the pictures: event, then seating, then ticket types. When every step succeeds
   it goes to the event page, as today. If the seating or a ticket type is refused, it behaves
