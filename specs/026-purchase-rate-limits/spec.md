@@ -55,6 +55,8 @@ so the team can overturn it in review of the spec PR.
 - Q: What numbers? → A: Each account at most **10 buy attempts a minute and 10 seat-hold attempts a
   minute**, separate allowances, and **no more than 3 in any 5 seconds** for each (decided by Mahdi,
   2) (FR-002).
+  _Amended 2026-11-09 by spec `033` (#135), FR-008: seat holds have their own allowance, 30 a minute
+  and 10 in any 5 seconds, since each seat click is a hold; buying keeps 10 and 3._
 - Q: Is anyone exempt (admins, tests)? → A: **No one.** The limits apply to every caller of the API.
   Tests and demos set their own numbers through configuration kept in the repository, rather than
   skipping the check, and nothing has to be set by hand (decided by Mahdi, 3; Constitution II)
@@ -279,6 +281,8 @@ refused attempts did no work on stored data.
   handled in any 60 seconds and no more than **3** in any 5 seconds. An attempt counts toward each
   window from the moment it is handled until exactly 60 (or 5) seconds later, not including that
   moment.
+  _Amended 2026-11-09 by spec `033` (#135), FR-008: for holds, 30 in any 60 seconds and 10 in any 5
+  seconds._
 - **FR-003**: Every buy or hold request from a signed-in customer account MUST count as an attempt of
   its kind when it is handled, whatever its outcome: placed or held; refused by any rule of `006`,
   `007`, `015`, or `016`, or of any other feature (for example `025`); refused as malformed or for
@@ -313,9 +317,14 @@ refused attempts did no work on stored data.
   message with N counting down once a second, measured as elapsed time from the Backend's N, and MUST
   disable that kind's buttons until N reaches 0: **Confirm order**, **Confirm purchase**, and **Check
   again** for buying; **Reserve seats** for holding. At 0 it MUST remove the message and enable them.
+  _Amended 2026-11-09 by spec `033` (#135), FR-009: a hold refused for the limit shows the countdown
+  above the seat map, and open seats do nothing until it ends; Confirm purchase is Buy tickets in
+  the cart; there is no Reserve seats._
 - **FR-012**: While the countdown runs, the Customer app MUST keep every pick, held seat, and entered
   value; the other kind's buttons, **Release**, **Release seats**, seat picking, and the hold's own
   countdown (`015` FR-005) MUST keep working unchanged.
+  _Amended 2026-11-09 by spec `033` (#135), FR-009: there are no picks, Release, or Release seats;
+  clicking a held seat to release it keeps working._
 - **FR-013**: The message MUST be announced to assistive technology once, when it appears; the
   countdown's changes MUST NOT be announced each second. A button waiting out the limit MUST be
   announced as unavailable and MUST do nothing when pressed, not only look greyed, and MUST stay
@@ -341,6 +350,9 @@ refused attempts did no work on stored data.
   1, and attempts per 5 seconds MUST NOT exceed attempts per minute; otherwise the Backend MUST refuse
   to start and say which setting is wrong. No value MUST turn the
   limits off. The window lengths, 60 and 5 seconds, are fixed.
+  _Amended 2026-11-09 by spec `033` (#135), FR-008: holds read their own pair,
+  `RATE_LIMIT_HOLD_PER_MINUTE` and `RATE_LIMIT_HOLD_PER_5_SECONDS` (defaults 30 and 10), with the
+  same checks; this pair is buying's._
 - **FR-018**: Automated tests that are not about the limits MAY set larger numbers; this feature's
   tests and every browser test MUST run with the defaults.
 

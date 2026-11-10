@@ -108,6 +108,9 @@ export interface paths {
          * @description The signed-in customer's active reservations, for every event, newest first (feature 015).
          *     A reservation is active from when it is made until it is bought, released, or ended, or its
          *     5 minutes run out (`expiresAt`, exclusive). The customer is the token's subject.
+         *
+         *     Feature 033: the Customer app's cart is this list; nothing else is stored for it. Each entry
+         *     is bought with one `createOrder` for its event, naming its seats.
          */
         get: operations["listMyReservations"];
         put?: never;
@@ -131,7 +134,8 @@ export interface paths {
          * Release all my seat reservations
          * @description Releases every active reservation of the signed-in customer, for every event (feature
          *     015). The Customer app calls it when the customer logs out. Each released seat is open to
-         *     others at once, and this customer can't reserve it again for 2 minutes. Safe to repeat.
+         *     others at once, and this customer can't reserve it again until 2 minutes after its
+         *     reservation ended (feature 033). Safe to repeat.
          *     Feature 026: never limited and never counted toward the attempt limits.
          */
         post: operations["releaseAllMyReservations"];
@@ -779,7 +783,8 @@ export interface paths {
          * @description Reserves seats for the signed-in customer for 5 minutes (feature 015). With no active
          *     reservation for the event, it makes one (`201`) that ends at `expiresAt`, 5 minutes later;
          *     with one, it adds the seats to it (`200`) without changing `expiresAt`. All or nothing:
-         *     any refusal reserves no seat.
+         *     any refusal reserves no seat. Feature 033: the Customer app sends one seat per request, as
+         *     each seat is clicked, one request at a time.
          *
          *     Each seat follows the rules of `createOrder`'s seats: inside the venue's layout, in a
          *     section for sale and, for an event with tiers, all of one tier (`400`), and not repeated
@@ -792,9 +797,13 @@ export interface paths {
          *     Refused when the event has no reserved seating (`400`), is cancelled (`409
          *     EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or
          *     in another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
-         *     `details.reserved` listing the reserved ones); and for seats of this customer's own
-         *     reservation that ended unbought less than 2 minutes ago (`409 SEAT_COOLDOWN`,
-         *     `details.seats`, `details.availableAt`). No seat is ever in two active reservations, or in
+         *     `details.reserved` listing the reserved ones); and for seats that left one of this
+         *     customer's reservations released, run out, or on logout, when that reservation ended less
+         *     than 2 minutes ago (`409 SEAT_COOLDOWN`, `details.seats`, `details.availableAt`: the
+         *     reservation's end plus 2 minutes). Feature 033: the wait counts from the end of the
+         *     reservation, not of the seat's hold, so a seat released from the active reservation while
+         *     it keeps other seats can be reserved again at once, into it, with `expiresAt` unchanged;
+         *     bought seats, and seats ended by an admin change or cancellation, never wait. No seat is ever in two active reservations, or in
          *     one and on a valid ticket, including under concurrent requests.
          *
          *     There is no `tierId` in the request: the reservation's tier is the tier of the sections its
@@ -828,8 +837,10 @@ export interface paths {
          * Release reserved seats
          * @description Releases seats from the signed-in customer's active reservation for the event (feature
          *     015): the listed `seats`, or all of them when `seats` is omitted. Released seats are open
-         *     to others at once, and this customer can't reserve them again for 2 minutes. The rest
-         *     keep their `expiresAt`. A seat not in the reservation is `400`. With no active reservation,
+         *     to others at once. The rest keep their `expiresAt`. Releasing the last seat ends the
+         *     reservation; this customer can't then reserve any seat that left it unbought until 2
+         *     minutes after that end, while a seat released as others stay reserved can be reserved
+         *     again at once (feature 033; `reserveSeats`). A seat not in the reservation is `400`. With no active reservation,
          *     nothing happens and `reservation` is `null`, so a repeat is harmless. Feature 026: never
          *     limited and never counted toward the attempt limits.
          */
@@ -2367,7 +2378,8 @@ export interface components {
         };
         /**
          * @description Feature 026. The caller's account is over its attempt allowance for this operation
-         *     (`x-attempt-limit`): 10 in any 60 seconds or 3 in any 5 seconds. Nothing was checked or
+         *     (`x-attempt-limit`): for `BUY`, 10 in any 60 seconds or 3 in any 5 seconds; for `HOLD`, 30
+         *     in any 60 seconds or 10 in any 5 seconds (feature 033). Nothing was checked or
          *     done, and this refusal does not count as an attempt. `details.action` is `BUY` or `HOLD`;
          *     `details.retryAfterSeconds` (an integer, 1 to 60) is how long to wait, rounded up, and
          *     `Retry-After` carries the same number; after that wait, with no other attempt of the same

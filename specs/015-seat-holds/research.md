@@ -159,6 +159,9 @@ id in the path (a customer has at most one per event, so the event identifies it
 
 ## R6. The 2-minute wait is computed from ended holds
 
+_Amended 2026-11-09 by spec `033` (#135), research R4: a hold blocks its seat only once its
+reservation has ended, until 2 minutes after the reservation's end._
+
 **Decision**: A customer may not reserve a seat of an event while one of **their** holds on that
 seat, for that event, ended with `endReason` in (`EXPIRED`, `RELEASED`, `LOGOUT`) less than 2
 minutes ago: `now() < releasedAt + interval '2 minutes'`. The refusal is `409 SEAT_COOLDOWN`, with
@@ -387,6 +390,11 @@ in a spec PR, and the stubs would pass route coverage while doing nothing). Skip
 route-coverage test until the implementation merges (hides any other drift meanwhile).
 
 ## R13. Customer app: pick, reserve, confirm
+
+_Superseded 2026-11-09 by spec `033` (#135), research R6 to R10: seats are held as they are clicked,
+through a queue of one request at a time; the countdown, the seats, and Add to cart sit in a Your
+seats box; tickets are bought from the Cart page. The countdown from `secondsLeft`, the
+announcements, and the focus rules below stand._
 
 **Decision**: `GetTickets` keeps its tier, section, and seat-picker flow from spec 007, with:
 
