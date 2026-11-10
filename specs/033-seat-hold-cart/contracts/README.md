@@ -8,8 +8,11 @@ node_modules/openapi-typescript/bin/cli.js contracts/openapi.yaml -o
 packages/shared/src/api-schema.ts`, the same as `npm run generate:api`; only its comments change)
 and `node scripts/check-contract-drift.mjs` passing.
 
-**Version order**: on top of `main` at `796e9a9` (1.24.0, spec `032`). The implementations of `030`
-and `032`, in flight, do not change the contract.
+**Version order**: on top of `main` at `796e9a9` (1.24.0, spec `032`). `030`'s implementation, in
+flight, does not change the contract. `032`'s implementation, in flight, does: it makes
+`checkInDetailsRemovedAt` required (still 1.24.0) and regenerates `api-schema.ts`. Whichever of it
+and this feature lands second keeps both changes, regenerates `api-schema.ts`, and reruns `node
+scripts/check-contract-drift.mjs`.
 
 No new operation, so no `x-planned` marker. Until the implementation merges, `main`'s Backend still
 starts each seat's wait at its own release and uses 10 and 3 for holds; no client relies on the new
@@ -19,8 +22,8 @@ rule before then, so `main` stays green.
 | --- | --- |
 | `info.version` | 1.24.0 → 1.25.0 |
 | `info.description`, **Attempt limits** | Buying: 10 in any 60 seconds, 3 in any 5 (`RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_PER_5_SECONDS`). Holding seats: **30** in any 60 seconds, **10** in any 5 (`RATE_LIMIT_HOLD_PER_MINUTE`, `RATE_LIMIT_HOLD_PER_5_SECONDS`), because the Customer app holds each seat as it is clicked. |
-| `reserveSeats` description | **Feature 033**: the Customer app sends one seat per request, one at a time. `SEAT_COOLDOWN` is for seats that left one of the caller's reservations released, run out, or on logout, when that **reservation** ended less than 2 minutes ago; `details.availableAt` is the reservation's end plus 2 minutes; a seat released from the active reservation while it keeps other seats can be reserved again at once, into it, with `expiresAt` unchanged; bought seats and seats ended by an admin change or cancellation never wait. |
-| `releaseSeats` description | Releasing the last seat ends the reservation, after which its unbought seats wait 2 minutes from that end; a seat released as others stay reserved can be reserved again at once. |
+| `reserveSeats` description | **Feature 033**: the Customer app sends one seat per request, one at a time. `SEAT_COOLDOWN` is for seats that left one of the caller's reservations released, run out, or on logout, when that **reservation** ended less than 2 minutes ago; `details.availableAt` is the reservation's end plus 2 minutes; a seat released from the active reservation while it keeps other seats can be reserved again at once, into it, with `expiresAt` unchanged; bought seats and seats ended by an admin change or cancellation never wait; a seat both taken and waiting is refused as `SEAT_TAKEN` (the sold check runs first). |
+| `releaseSeats` description | Releasing the last seat ends the reservation, after which its seats that left released, run out, or on logout wait 2 minutes from that end (bought and admin-closed seats never wait); a seat released as others stay reserved can be reserved again at once. |
 | `releaseAllMyReservations` description | The wait counts from each reservation's end (the same instant here). |
 | `listMyReservations` description | **Feature 033**: the Customer app's cart is this list; nothing else is stored for it; each entry is bought with one `createOrder` for its event. |
 | `responses.TooManyAttempts` description | The numbers per kind: `BUY` 10 / 3, `HOLD` 30 / 10. |

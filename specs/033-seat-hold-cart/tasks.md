@@ -30,7 +30,10 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 - **Work in flight**: the implementations of `030` (`030-hide-past-events-impl`: the customer event
   page for ended events, My tickets' Past section) and `032` (`032-drop-check-ins-impl`: My tickets'
   "Event over") do not touch `GetTickets.tsx`, the reservation rules, or the limits; if either merges
-  first, bring this branch up to `main` and keep both. Issue #126 (sales open until `endsAt`, not yet
+  first, bring this branch up to `main` and keep both. `032`'s implementation also edits
+  `contracts/openapi.yaml` (it makes `checkInDetailsRemovedAt` required, still 1.24.0) and
+  regenerates `api-schema.ts`: whichever of it and this feature's spec PR lands second keeps both
+  contract changes, regenerates `api-schema.ts`, and reruns `node scripts/check-contract-drift.mjs`. Issue #126 (sales open until `endsAt`, not yet
   specced) will change `salesClosed`, the sweep, and the order check in the same files; whichever
   lands second keeps both (spec Assumptions).
 - **One independent review** (Constitution III) of the implementation branch before its PR (T027).
@@ -71,7 +74,9 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   another seat** is held again at once through the API (`200`, the same `expiresAt`; replaces "Re-adding
   the released seat … waits too"); a seat released at minute 1 of a reservation that then ends at
   minute 4 is refused until minute 6, not minute 3; `BOUGHT` and `CLOSED` start no wait; another
-  customer never waits. Must fail (today the re-hold is `409`, and the wait runs from the hold's
+  customer never waits; a seat released, held again, and bought in one reservation is refused later
+  as `409 SEAT_TAKEN`, not `SEAT_COOLDOWN` (the sold check runs first, research R4); a hold released
+  more than 7 minutes ago never blocks (the query's bound). Must fail (today the re-hold is `409`, and the wait runs from the hold's
   release).
 - [ ] T003 [P] [US5] The hold allowance (FR-008, research R5): `backend/test/unit/attempt-limits.spec.ts`
   (`attemptLimitsFromEnv` returns `{ BUY: { perMinute: 10, perFiveSeconds: 3 }, HOLD: {
@@ -102,7 +107,12 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   Release, Release seats, or Confirm purchase, and no Name on tickets field, on a seated event; three
   quick clicks send three requests one after another in click order (the second waits for the first
   answer); a second click on a queued, unsent seat sends nothing for it; a click on a seat whose hold
-  is in flight sends a release after the answer; a pending seat is named "…, holding";
+  is in flight sends a release after the answer; when a hold is refused, the release queued behind
+  it for that seat is dropped (nothing more is sent for it), and when a release is refused or gets
+  no answer, the hold queued behind it is dropped, including a double click on the only held seat
+  whose release is refused (the seat stays held, one request sent); a pending seat is named "…,
+  holding"; three quick clicks answered close together are three announcements in the status
+  region, in order (research R10: the region appends, keeps at most 5, clears after 10 seconds);
   `SEAT_TAKEN` drops that seat, names it in the alert, and the queue goes on; `SEAT_COOLDOWN` says
   "Your reservation of … ended less than 2 minutes ago. You can hold it again at {time} {zone}." in
   the viewer's zone; `429` shows "Too many tries. You can try again in N seconds." above the map,
@@ -121,8 +131,12 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   confirmation lists the codes and seats and the entry leaves the cart; `5xx` or no answer shows "We
   couldn't confirm whether your order went through" with Check again; `429 BUY` shows the countdown
   above that entry's button; `RESERVATION_REQUIRED` with `expired` drops the entry with the ran-out
-  message; at 0 the entry drops with the alert; a stream change that reloads `mine` without the
-  reservation drops the entry within the test's 2 seconds; the top bar has a Cart link. Must fail.
+  message; at 0 the entry drops with the alert; with fake timers, `GET /me/reservations` is read
+  again about every second while `document.visibilityState` is `visible`, not while `hidden`, and
+  at once on `visibilitychange` and `focus`; a read without a reservation drops its entry within 2
+  seconds; **no seat stream is opened** (no `EventSource` or `/seats/stream` request), with **4 or
+  more events** in the cart (each listed with its own countdown, event and tier reads made once per
+  event, Buy tickets on the fourth sends its order at once); the top bar has a Cart link. Must fail.
 - [ ] T007 [US1] Update the existing Customer app tests written against Reserve seats and Confirm
   purchase, keeping what each checks (SC-006): `seat-holds.test.tsx`, `seats.test.tsx`,
   `rate-limit.test.tsx` (the hold wait now on a seat click; the buy wait on Confirm order and on the
@@ -151,8 +165,10 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 ## Phase 3: Backend (US2, US5)
 
 - [ ] T010 [US2] `backend/src/reservations/reservations.service.ts` `assertNoWait` (research R4,
-  data-model): the query joins the reservation, requires `r."endedAt" IS NOT NULL`, and computes
-  `r."endedAt" + interval '2 minutes'` as `availableAt`; the message as T002. T002 and T004 pass;
+  data-model): the query joins the reservation, requires `r."endedAt" IS NOT NULL` and `h."releasedAt"
+  > now() - interval '7 minutes'`, and computes `r."endedAt" + interval '2 minutes'` as
+  `availableAt`; the message as T002; in `reserveLocked`, step 5 (sold or held by others) runs before
+  step 4 (the wait). T002 and T004 pass;
   every other `reservations.*`, `orders.*`, and `seat-holds.*` integration test passes unchanged.
 - [ ] T011 [US5] `backend/src/attempt-limits/attempt-limits.config.ts` (research R5):
   `AttemptLimits` is `Record<RateLimitedAction, { perMinute; perFiveSeconds }>`; `BUY` from
@@ -188,8 +204,9 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   numbers): the timer (not announced) and the 1-minute status region, used by T017 and T019; the
   theme drift test passes.
 - [ ] T019 [US1] [US3] [US4] `customer-app/src/pages/Cart.tsx` (new; research R8): the list from
-  `GET /me/reservations`, each entry's event and tiers, `useSeatStream(eventId, { withMine: true })`
-  per entry, the name field, Buy tickets through `use-buy.ts`, the confirmation in place, the
+  `GET /me/reservations` read again about every second while visible and on focus or becoming
+  visible (paused while hidden), each entry's event and tiers read once, **no seat stream**, the name
+  field, Buy tickets through `use-buy.ts`, the confirmation in place, the
   run-out and released messages, the empty state. T006 passes.
 - [ ] T020 [US1] `App.tsx`: the `/cart` route and the **Cart** nav link after My tickets.
 - [ ] T021 Run the whole Customer app suite: every test passes; `GetTickets.tsx`'s header comment
@@ -249,3 +266,35 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 - Then the browser tests' stack settings, the README, and the PR.
 
 ## Review record (spec branch)
+
+- **Round 1** (independent Claude session, 2026-11-09): 1 must-fix, 5 should-fix (one of them
+  Mahdi's decision), 3 nits. All fixed in the `Review 033: spec review round 1` commit.
+  - M1: one `useSeatStream` per cart entry could fill the browser's six HTTP/1.1 connections per
+    host (three events in two tabs), each downloading a full seat map and reloading
+    `listMyReservations` on any seat change → the cart opens no seat stream; it reads
+    `listMyReservations` about every second while visible, on focus and on becoming visible, and
+    not while hidden; the connection budget is stated (FR-017, research R8, plan Performance Goals,
+    data-model, T006 with 4+ events and no stream, T019).
+  - S1: the click queue dropped nothing behind a refused or unanswered action → the opposite action
+    queued for the same seat is dropped (FR-007, research R6, T005 with the double click on the
+    only held seat).
+  - S2: the new wait query no longer bounded `h."releasedAt"` → `AND h."releasedAt" > now() -
+    interval '7 minutes'`, exact since a hold ends at most 5 minutes before its reservation
+    (research R4, data-model, T002, T010).
+  - S3: `032`'s implementation does edit the contract (`checkInDetailsRemovedAt` required, still
+    1.24.0) and regenerates `api-schema.ts` → whichever lands second keeps both, regenerates, and
+    reruns `check-contract-drift` (spec Assumptions, research R13, plan, contracts/README, tasks
+    ground rules).
+  - S4: a seat released, held again, and bought left a `RELEASED` hold in an ended reservation, so a
+    later hold got `SEAT_COOLDOWN` instead of `SEAT_TAKEN` → the sold or taken check (step 5) runs
+    before the wait (step 4) (research R4, data-model, contract, contracts/README, T002, T010).
+  - S5: **Mahdi decided (2026-11-09, asked directly)**: holds get their own limit, 30 a minute and 10
+    in any 5 seconds; buying keeps 10 and 3 → recorded as decided by Mahdi in spec Clarifications
+    and Assumptions, research R5, the checklist, and `026`'s dated notes.
+  - N1: the contract's description lines touched by `033` rewrapped to 100 characters.
+  - N2: `releaseSeats` says the seats that left "released, run out, or on logout" wait; bought and
+    admin-closed seats never do.
+  - N3: the polite status region could drop announcements on fast clicks → it appends (keeps at most
+    5 lines, cleared 10 seconds after the last); three quick clicks are three announcements (FR-016,
+    research R10, T005).
+- **Open findings**: none.

@@ -96,13 +96,14 @@ so Mahdi and the team can overturn it in review of the spec PR.
   refused on the fourth. So **seat holds get their own allowance, 30 attempts a minute and 10 in any
   5 seconds**, two new settings beside the buy pair, which keeps 10 and 3; and **the app sends one
   hold request per click, one at a time, in click order**. Releases stay unlimited. Batching clicks
-  into one request is not needed at these numbers and is deferred. This overturns Mahdi's `026`
-  decision 2 for holds only, so it needs his confirmation (recommended answer, open to review)
-  (FR-008, FR-009, FR-021; research R5).
+  into one request is not needed at these numbers and is deferred. This replaces Mahdi's `026`
+  decision 2 for holds only (**decided by Mahdi, 2026-11-09**: holds 30 a minute and 10 in any 5
+  seconds; buying keeps 10 and 3) (FR-008, FR-009, FR-021; research R5).
 - Q: Clicks while a request is in flight? → A: **Queued in order, never the same seat twice**: a
   second click on a seat whose hold is still queued cancels it before it is sent; a click on a seat
-  whose hold is in flight releases it once the hold is answered; the seat shows "holding" meanwhile
-  (FR-007; research R6).
+  whose hold is in flight releases it once the hold is answered; when an action on a seat is refused
+  or unanswered, the opposite action queued behind it for that seat is dropped; the seat shows
+  "holding" meanwhile (FR-007; research R6).
 - Q: Changing the ticket type while seats are held? → A: **The other ticket types cannot be chosen
   while seats are held**, with a note saying to release the held seats first by clicking them. Today
   choosing another type silently releases them all, which is a Release seats button in disguise, ends
@@ -343,8 +344,9 @@ them taken by another customer first; it alone is refused and named.
 - **FR-007**: The Customer app MUST send hold and release requests one at a time, in the order the
   seats were clicked, and MUST NOT send a hold for a seat it holds or is already holding: a second
   click on a seat whose hold is not yet sent cancels it; a click on a seat whose hold is in flight
-  releases it after the hold is answered. A seat whose request is pending MUST show and be named as
-  holding or releasing.
+  releases it after the hold is answered; when a hold or release is refused or unanswered, the
+  opposite action queued behind it for the same seat MUST be dropped, not sent. A seat whose
+  request is pending MUST show and be named as holding or releasing.
 - **FR-008**: The Backend MUST count each seat hold attempt against the account's **hold**
   allowance, which MUST default to **30 attempts in any 60 seconds and 10 in any 5 seconds**, set
   by two settings of their own; the **buy** allowance keeps its settings and defaults (10 and 3).
@@ -378,12 +380,15 @@ them taken by another customer first; it alone is refused and named.
   region (`015` FR-012).
 - **FR-016**: Every hold and release MUST be announced in a polite status region, naming the seat,
   and, for a hold, the time left ("Section A, Row 1, Seat 12 held. 4:59 left."); a release that ends
-  the reservation MUST say the next seat starts a new 5 minutes. A refused click MUST be shown and
+  the reservation MUST say the next seat starts a new 5 minutes; answers arriving close together
+  MUST each be announced, in order, none replacing another. A refused click MUST be shown and
   announced as an alert naming the seat and the reason. The countdown MUST be a timer that is not
   announced each second. Seats MUST keep their keyboard behavior and focus (`007`, `015` FR-012).
-- **FR-017**: The event page and the cart MUST follow the Backend's reservation live, as the seat map
-  does today (`015` FR-010): a change made in another tab or device, by an admin, or by the 5 minutes
-  ending, MUST show within 2 seconds without a reload.
+- **FR-017**: The event page MUST follow the Backend's reservation live, as the seat map does today
+  (`015` FR-010); the cart MUST read the customer's reservations again about once a second while it
+  is visible, and when it becomes visible or gains focus, and not while it is hidden. A change made
+  in another tab or device, by an admin, or by the 5 minutes ending, MUST show on either page within
+  2 seconds without a reload. The cart MUST open no live seat stream of its own.
 
 **Unchanged**
 
@@ -445,9 +450,10 @@ them taken by another customer first; it alone is refused and named.
   holds on click and shows the cart from it.
 - **The 5 minutes and the 2 minutes** stay `015`'s constants (`RESERVATION_LIMITS`), and the 10-seat
   cap stays.
-- **The hold numbers** (30 and 10) are a judgment: 10 seats are the most one reservation holds, a
-  person clicks at most two or three a second, and a few mis-clicks and refusals fit in the minute;
-  a script is still held far below what it could send. The settings let a deployment change them.
+- **The hold numbers** (30 and 10) were decided by Mahdi on 2026-11-09: 10 seats are the most one
+  reservation holds, a person clicks at most two or three a second, and a few mis-clicks and
+  refusals fit in the minute; a script is still held far below what it could send. The settings let
+  a deployment change them.
 - **One request per click** is enough at those numbers; a click is answered in well under a second
   on the stack, so the queue rarely holds more than one or two.
 - **The cart page reads each listed event's details and ticket types** through the existing reads
@@ -459,8 +465,12 @@ them taken by another customer first; it alone is refused and named.
   both; the cart then lists a reservation until its event ends rather than starts. Spec **030**
   (implementation on `030-hide-past-events-impl`) changes the customer event page for ended events
   and My tickets' Past section; spec **032** (implementation on `032-drop-check-ins-impl`) shows
-  "Event over" in My tickets; neither touches `GetTickets.tsx`, the reservation rules, or the limits.
-  Constitution 3.9.5 and contract 1.25.0 apply on top of `main` (3.9.4, 1.24.0).
+  "Event over" in My tickets, and its implementation also edits `contracts/openapi.yaml` (it makes
+  `checkInDetailsRemovedAt` required, still 1.24.0) and regenerates `api-schema.ts`; neither touches
+  `GetTickets.tsx`, the reservation rules, or the limits. Whichever of `032`'s implementation and
+  this feature lands second keeps both contract changes, regenerates `api-schema.ts`, and reruns
+  `check-contract-drift`. Constitution 3.9.5 and contract 1.25.0 apply on top of `main` (3.9.4,
+  1.24.0).
 
 ## Out of scope
 

@@ -37,8 +37,9 @@
   operation, field, error code, or table; how the queue, the cart page, and the wait's query are
   built is left to the plan.
 - The 2-minute rule (FR-006) and the hold allowance (FR-008) are Backend rule changes the issue asks
-  the spec to settle; both are recorded as recommended answers, the second overturning a decision
-  Mahdi made in `026`, so it needs his confirmation.
+  the spec to settle. The first is a recommended answer; the second was decided by Mahdi on
+  2026-11-09 (holds 30 a minute and 10 in any 5 seconds, buying unchanged), replacing his `026`
+  decision 2 for holds.
 - Every open question took a recommended answer, recorded in Clarifications (Session 2026-11-09) as
   open to review: the cart is the active reservations (kept by the Backend), Add to cart opens it,
   every held event listed and bought on its own, general admission unchanged, one countdown per

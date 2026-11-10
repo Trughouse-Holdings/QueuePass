@@ -23,20 +23,23 @@
   box below the map has a large countdown, the seats, the total, and **Add to cart** (R9); every hold
   and release is announced (R10). A new **Cart** page lists the active reservations, each with its
   countdown and **Buy tickets**, one **Name on tickets** field, and live updates (R8); a **Cart**
-  link in the top bar. General admission is unchanged.
+  link in the top bar; the cart reads the reservations about once a second while visible and opens
+  no seat stream (R8). General admission is unchanged.
 - **Specs 007, 015, 026**: dated notes in this PR (R11).
 - **Tests** (R12): Backend first (the wait's new rule on both sides, the hold pair); Customer app
   first (two new files, existing ones moved from Reserve seats to clicks and the cart); browser: one
   new file, three updated.
-- **Constitution 3.9.5** (R13): roadmap row `033`, on top of 3.9.4.
+- **Constitution 3.9.5** (R13): roadmap row `033`, on top of 3.9.4. `032`'s implementation (in
+  flight) also edits the contract and regenerates `api-schema.ts`; whichever lands second keeps both
+  and reruns `check-contract-drift`.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.7 (strict), Node.js 22 LTS; NestJS 11, Prisma 6 (Backend); React
 19, Vite 6, React Router (Customer app).
 
-**Primary Dependencies**: none new. `useSeatStream` from `@queuepass/shared/web` (unchanged);
-`openapi-fetch` and the generated `api-schema.ts`.
+**Primary Dependencies**: none new. `useSeatStream` from `@queuepass/shared/web` (unchanged, on the
+event page only); `openapi-fetch` and the generated `api-schema.ts`.
 
 **Storage**: PostgreSQL 17. **No schema change** (data-model.md): `SeatReservation.endedAt` and
 `SeatHold.endReason` already say what the new wait needs; the query joins them as today's does.
@@ -50,7 +53,12 @@
 Customer app's ticket flow and a new page, the contract's descriptions.
 
 **Performance Goals**: a click answered as today's Reserve seats (one locked transaction); the cart
-opens with one `listMyReservations` plus two reads and one seat stream per listed event.
+opens with one `listMyReservations` plus two reads per listed event (made once), then reads
+`listMyReservations` about once a second while visible, never while hidden (research R8).
+**Connection budget**: the cart opens no seat stream, so it holds no long-lived connection however
+many events it lists or tabs show it; the event page keeps its single stream, as today. (A stream per
+listed event would fill the browser's six HTTP/1.1 connections per host with three events in two
+tabs, and Buy tickets would then wait.)
 
 **Constraints**: Constitution I (contract 1.25.0 in this PR), III (two PRs; shared surface in this
 one: the constitution, the contract, `api-schema.ts`, `.env.example`, `docker-compose.yml`), IV (the

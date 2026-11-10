@@ -795,16 +795,17 @@ export interface paths {
          *     hold).
          *
          *     Refused when the event has no reserved seating (`400`), is cancelled (`409
-         *     EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or
-         *     in another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
+         *     EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or in
+         *     another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
          *     `details.reserved` listing the reserved ones); and for seats that left one of this
          *     customer's reservations released, run out, or on logout, when that reservation ended less
          *     than 2 minutes ago (`409 SEAT_COOLDOWN`, `details.seats`, `details.availableAt`: the
          *     reservation's end plus 2 minutes). Feature 033: the wait counts from the end of the
-         *     reservation, not of the seat's hold, so a seat released from the active reservation while
-         *     it keeps other seats can be reserved again at once, into it, with `expiresAt` unchanged;
-         *     bought seats, and seats ended by an admin change or cancellation, never wait. No seat is ever in two active reservations, or in
-         *     one and on a valid ticket, including under concurrent requests.
+         *     reservation, not of the seat's hold, so a seat released from the active reservation while it
+         *     keeps other seats can be reserved again at once, into it, with `expiresAt` unchanged; bought
+         *     seats, and seats ended by an admin change or cancellation, never wait. A seat that is both
+         *     taken and waiting is refused as `SEAT_TAKEN`. No seat is ever in two active reservations, or
+         *     in one and on a valid ticket, including under concurrent requests.
          *
          *     There is no `tierId` in the request: the reservation's tier is the tier of the sections its
          *     seats are in (`null` for an event without tiers), and is returned as `tierId`.
@@ -835,14 +836,15 @@ export interface paths {
         put?: never;
         /**
          * Release reserved seats
-         * @description Releases seats from the signed-in customer's active reservation for the event (feature
-         *     015): the listed `seats`, or all of them when `seats` is omitted. Released seats are open
-         *     to others at once. The rest keep their `expiresAt`. Releasing the last seat ends the
-         *     reservation; this customer can't then reserve any seat that left it unbought until 2
-         *     minutes after that end, while a seat released as others stay reserved can be reserved
-         *     again at once (feature 033; `reserveSeats`). A seat not in the reservation is `400`. With no active reservation,
-         *     nothing happens and `reservation` is `null`, so a repeat is harmless. Feature 026: never
-         *     limited and never counted toward the attempt limits.
+         * @description Releases seats from the signed-in customer's active reservation for the event (feature 015):
+         *     the listed `seats`, or all of them when `seats` is omitted. Released seats are open to
+         *     others at once. The rest keep their `expiresAt`. Releasing the last seat ends the
+         *     reservation; this customer can't then reserve any seat that left it released, run out, or on
+         *     logout until 2 minutes after that end (bought seats, and seats ended by an admin change or
+         *     cancellation, never wait), while a seat released as others stay reserved can be reserved
+         *     again at once (feature 033; `reserveSeats`). A seat not in the reservation is `400`. With no
+         *     active reservation, nothing happens and `reservation` is `null`, so a repeat is harmless.
+         *     Feature 026: never limited and never counted toward the attempt limits.
          */
         post: operations["releaseSeats"];
         delete?: never;

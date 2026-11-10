@@ -89,7 +89,12 @@ the browser's clock (`015` R13).
 **Decision**: `assertNoWait` (`reservations.service.ts:191-222`) changes its query: a hold of this
 customer for this event blocks a seat when its `endReason` is `EXPIRED`, `RELEASED`, or `LOGOUT`,
 **its reservation has ended** (`r."endedAt" IS NOT NULL`), and `now() < r."endedAt" + interval '2
-minutes'`; `availableAt` is `r."endedAt" + 2 minutes`. So:
+minutes'`; `availableAt` is `r."endedAt" + 2 minutes`. The query keeps a bound on the hold's own
+end, `AND h."releasedAt" > now() - interval '7 minutes'`, so the `SeatHold (eventId, releasedAt)`
+index still narrows it by time and not only by event. The bound is exact: a hold's `releasedAt` is
+never more than 5 minutes before its reservation's end (a reservation lasts at most 5 minutes), so a
+hold that can still block (its reservation ended less than 2 minutes ago) was released less than 7
+minutes ago. So:
 
 - a seat released while its reservation still has live holds is not blocked: it can be held again
   at once, into the same reservation (`reserveLocked` step 7 adds it with `expiresAt` unchanged);
@@ -97,6 +102,14 @@ minutes'`; `availableAt` is `r."endedAt" + 2 minutes`. So:
   sets it to `expiresAt`), every seat that left it released, run out, or by logout waits 2 minutes
   from that end, including seats released earlier;
 - `BOUGHT` and `CLOSED` holds still block nothing.
+
+**The order of checks** (`reserveLocked`): step 5 (seats sold, or held by another customer, `409
+SEAT_TAKEN`) now runs **before** step 4 (the wait). Otherwise a seat the customer released, held
+again, and then bought leaves a `RELEASED` hold in an ended reservation, and holding it later would
+be refused as `SEAT_COOLDOWN` instead of `SEAT_TAKEN`. Taken is the truer reason whenever both
+apply (another customer holding a seat this customer must wait for is also refused as taken). The
+alternative, excluding seats with a `BOUGHT` hold in the same reservation from the wait, covers only
+this one case and adds a subquery. Rejected.
 
 For `EXPIRED` and `LOGOUT`, and for the last released seat, `releasedAt` equals `endedAt`, so those
 waits are unchanged. What changes: a seat released mid-reservation no longer waits while the
@@ -159,8 +172,10 @@ is unchanged: Buy tickets is one request per event.
 - **Fixed numbers without settings**: tests and deployments could not set them, against `026`
   FR-017 (tests set their own numbers through configuration). Rejected.
 
-This overturns Mahdi's `026` decision 2 ("10 seat-hold attempts a minute … no more than 3 in any 5
-seconds") for holds only; it needs his confirmation in review.
+**Decided by Mahdi, 2026-11-09** (asked directly in review of this spec): holds get their own
+limit, 30 a minute and 10 in any 5 seconds; buying keeps 10 a minute and 3 in any 5 seconds. This
+replaces his `026` decision 2 ("10 seat-hold attempts a minute … no more than 3 in any 5 seconds")
+for holds only.
 
 ## R6. The click queue
 
@@ -173,6 +188,11 @@ sends the head when nothing is in flight:
 - a click on a seat whose request is in flight appends the opposite action, sent after the answer;
 - a seat with a queued or in-flight action is shown pressed or not as it will be, named "Row N, Seat
   M, holding" or "…, releasing", and still clickable;
+- when an action is refused or unanswered, the opposite action queued behind it **for the same
+  seat** is dropped too: a release queued after a refused hold (the seat was never held), or a hold
+  queued after a refused or unanswered release (the seat is still held, or its state is reloaded);
+  so a double click on the only held seat whose release is refused leaves it held, with no second
+  hold sent;
 - on a refusal of a hold, that action is dropped and the queue goes on; on a hold-limit refusal
   (`429`) every queued `hold` is dropped (they would be refused too) and queued releases go on; on
   `401`, the queue is cleared and the customer signs in again; on no answer, the seat reverts and
@@ -214,21 +234,31 @@ event's `basePrice` when `tierId` is `null`). It shows:
 - the empty state: "Your cart is empty. Seats you hold on an event's page appear here for 5
   minutes."
 
-Each entry follows its event live through `useSeatStream(eventId, { withMine: true })`, the same
-hook the event page uses (`packages/shared/src/web/use-seat-stream.ts:80`), so a purchase, release,
-admin change, or run-out elsewhere drops it within 2 seconds (`015` FR-010). Buy tickets moves
+**The cart opens no seat stream.** It reads `GET /me/reservations` again about every second while
+the page is visible (`document.visibilityState === 'visible'`), at once on `visibilitychange` to
+visible and on window `focus`, and not at all while hidden (the timer stops). A purchase, release,
+admin change, or run-out elsewhere therefore drops an entry within 2 seconds (FR-017); the
+countdowns run between reads from each entry's `secondsLeft`, re-based only when a new reservation
+appears (an entry's end never moves). The event and tier reads are made once per event and kept
+while the page is open. **Connection budget**: the cart holds no long-lived connection, so its
+reads and Buy tickets each use one short request; the event page keeps its single seat stream
+(`useSeatStream`, one per open event page), as today. A stream per listed event would have used one
+of the browser's six HTTP/1.1 connections to the host each (three events in two tabs fill all six,
+and Buy tickets then waits), downloaded each event's full seat map, and fired a `GET
+/me/reservations` from every stream on any seat change. Buy tickets moves
 `confirm()`'s logic (`GetTickets.tsx:543-601`: request id, `401`, `429` wait, `5xx` and no answer to
 the unknown outcome with Check again, refusals) into a hook both pages could use, `use-buy.ts`; the
 event page now uses it only for general admission. The confirmation (`Confirmation`,
 `GetTickets.tsx:922-951`) moves to its own component file and shows in place of the cart entry.
 
 **Why**: a page of its own, reached from the nav and from Add to cart, is what "a cart" means to a
-customer; reusing the stream hook and `confirm()`'s logic keeps every `006`, `015`, `017`, and `026`
-behavior of buying. A seat stream per listed event is a handful of streams at most.
+customer; reusing `confirm()`'s logic keeps every `006`, `015`, `017`, and `026` behavior of
+buying. One small read a second while visible costs the Backend one indexed query per open cart and
+needs no connection held open.
 
 **Alternatives**: the cart as a panel on the event page (it could not list other events, and the
-issue says "including in the cart"); polling `/me/reservations` (slower, and the stream already
-exists). Rejected.
+issue says "including in the cart"); a `useSeatStream` per listed event (the connection budget
+above). Rejected.
 
 ## R9. The countdown, prominent
 
@@ -260,6 +290,12 @@ Backend's message; `SEAT_COOLDOWN` with `availableAt` in the viewer's zone, as `
 change says "Your held seats were released." as today. Seats remain `SeatPicker`'s toggle buttons,
 `aria-pressed` for held and holding seats; seats that become unavailable while focused keep
 `aria-disabled` (`015` FR-012).
+
+**Fast clicks**: a polite region announces only its latest text once a screen reader catches up,
+so replacing the text on each answer can drop announcements when answers arrive close together.
+The region therefore **appends**: each answer adds its sentence as a new line (a child element) to
+the region, which keeps the last few (at most 5) and is cleared 10 seconds after the last addition,
+so three quick clicks are three announcements, in order.
 
 **Why**: the issue's own example; each click changes the server, so each answer is said once.
 
@@ -297,5 +333,8 @@ hold numbers (R5).
 
 **Decision**: contract 1.24.0 → **1.25.0** (MINOR: rule and number changes in descriptions; no
 operation, schema, field, or code), with `api-schema.ts` regenerated; constitution 3.9.4 → **3.9.5**
-(PATCH, row `033`). On top of `main` at `796e9a9` (specs 028 to 032 merged). The implementations of
-`030` and `032`, in flight, change neither.
+(PATCH, row `033`). On top of `main` at `796e9a9` (specs 028 to 032 merged). `030`'s implementation,
+in flight, changes neither. `032`'s implementation (in flight) edits `contracts/openapi.yaml` (it
+makes `checkInDetailsRemovedAt` required, still 1.24.0) and regenerates `api-schema.ts`; whichever
+of it and this feature's PRs lands second keeps both changes, regenerates `api-schema.ts`, and
+reruns `check-contract-drift`.

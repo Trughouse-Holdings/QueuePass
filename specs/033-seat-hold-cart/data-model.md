@@ -26,13 +26,18 @@ A customer may not hold seat *s* of event *e* when a `SeatHold` of theirs for *e
 | `endReason` | `EXPIRED`, `RELEASED`, `LOGOUT` | the same |
 | its reservation | any | **ended** (`endedAt IS NOT NULL`) |
 | until | `releasedAt + 2 minutes` | **`endedAt` of its reservation + 2 minutes** |
+| bound on the hold | `now() < releasedAt + 2 minutes` | `releasedAt > now() - 7 minutes` (exact: a hold is released at most 5 minutes before its reservation ends) |
 
 `availableAt` in the refusal is the latest such end + 2 minutes over the refused seats. A hold
 released from the customer's active reservation therefore blocks nothing; the reservation's end
 blocks every seat that left it released, run out, or by logout. For `EXPIRED` and `LOGOUT` holds, and
 the last released seat, `releasedAt` equals the reservation's `endedAt`, so their waits are as
 before. Reads `SeatHold` joined to `SeatReservation` as today's query does; served by
-`SeatHold`'s `(eventId, releasedAt)` index and `SeatReservation`'s primary key.
+`SeatHold`'s `(eventId, releasedAt)` index, narrowed by the 7-minute bound, and
+`SeatReservation`'s primary key.
+
+The sold-or-taken check (`409 SEAT_TAKEN`) now runs before the wait, so a seat this customer
+released, held again, and bought is refused later as taken, not as `SEAT_COOLDOWN` (research R4).
 
 ## What guarantees what (Constitution IV)
 
@@ -65,5 +70,5 @@ Backend refuses to start, naming the setting. Releasing is never counted.
 | Ticket type and price | `GET /events/{id}/tiers`, the one with `tierId`; the event's `basePrice` when `tierId` is `null` |
 | Seats | `Reservation.seats` |
 | Countdown | `Reservation.secondsLeft` against `performance.now()` |
-| Live changes | `useSeatStream(eventId, { withMine: true })`: `mine` reloaded when a change touches the customer's seats |
+| Live changes | `GET /me/reservations` again about every second while the page is visible, and on focus or becoming visible; nothing while hidden; no seat stream (research R8) |
 | Name on tickets | typed in the cart, kept in the page's state, sent with each Buy tickets |

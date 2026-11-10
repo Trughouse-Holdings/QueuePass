@@ -45,19 +45,20 @@ info:
 
     **Attempt limits** (feature 026): each customer account may have at most 10 attempts to buy
     (`createOrder`) handled in any 60 seconds and no more than 3 in any 5 seconds, and, separately,
-    at most 30 attempts to hold seats (`reserveSeats`) in any 60 seconds and no more than 10 in any 5
-    seconds (feature 033: the Customer app holds each seat as it is clicked). An operation that counts says which
-    allowance in `x-attempt-limit` (`BUY` or `HOLD`). Every request to it from a signed-in customer
-    counts once it is past the token and role checks, whatever its outcome (placed, held, refused for
-    any other reason, malformed, or a repeated `requestId`); a request refused for the limit does not
-    count. An attempt over an allowance is refused with `429 RATE_LIMITED` before anything else is
-    checked or done, with the wait in whole seconds in `details.retryAfterSeconds` and in the
-    `Retry-After` header; after waiting that long, with no other attempt of that kind between, the
-    next one is not refused for the limit. Browser clients read `details.retryAfterSeconds`: the CORS
-    policy does not expose `Retry-After`. No caller or role is exempt; releasing seats and reading are
-    never limited. The numbers are the Backend's configuration: buying `RATE_LIMIT_PER_MINUTE` and
-    `RATE_LIMIT_PER_5_SECONDS` (defaults 10 and 3), holding `RATE_LIMIT_HOLD_PER_MINUTE` and
-    `RATE_LIMIT_HOLD_PER_5_SECONDS` (defaults 30 and 10).
+    at most 30 attempts to hold seats (`reserveSeats`) in any 60 seconds and no more than 10 in any
+    5 seconds (feature 033: the Customer app holds each seat as it is clicked). An operation that
+    counts says which allowance in `x-attempt-limit` (`BUY` or `HOLD`). Every request to it from a
+    signed-in customer counts once it is past the token and role checks, whatever its outcome
+    (placed, held, refused for any other reason, malformed, or a repeated `requestId`); a request
+    refused for the limit does not count. An attempt over an allowance is refused with `429
+    RATE_LIMITED` before anything else is checked or done, with the wait in whole seconds in
+    `details.retryAfterSeconds` and in the `Retry-After` header; after waiting that long, with no
+    other attempt of that kind between, the next one is not refused for the limit. Browser clients
+    read `details.retryAfterSeconds`: the CORS policy does not expose `Retry-After`. No caller or
+    role is exempt; releasing seats and reading are never limited. The numbers are the Backend's
+    configuration: buying `RATE_LIMIT_PER_MINUTE` and `RATE_LIMIT_PER_5_SECONDS` (defaults 10 and
+    3), holding `RATE_LIMIT_HOLD_PER_MINUTE` and `RATE_LIMIT_HOLD_PER_5_SECONDS` (defaults 30 and
+    10).
 
     **Check-in retention** (feature 032): a ticket's check-in details (when it was admitted, and
     which gate agent admitted it) are kept until its event's `endsAt` plus 7 days (7 × 24 hours,
@@ -1229,16 +1230,17 @@ paths:
         hold).
 
         Refused when the event has no reserved seating (`400`), is cancelled (`409
-        EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or
-        in another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
+        EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or in
+        another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
         `details.reserved` listing the reserved ones); and for seats that left one of this
         customer's reservations released, run out, or on logout, when that reservation ended less
         than 2 minutes ago (`409 SEAT_COOLDOWN`, `details.seats`, `details.availableAt`: the
         reservation's end plus 2 minutes). Feature 033: the wait counts from the end of the
-        reservation, not of the seat's hold, so a seat released from the active reservation while
-        it keeps other seats can be reserved again at once, into it, with `expiresAt` unchanged;
-        bought seats, and seats ended by an admin change or cancellation, never wait. No seat is ever in two active reservations, or in
-        one and on a valid ticket, including under concurrent requests.
+        reservation, not of the seat's hold, so a seat released from the active reservation while it
+        keeps other seats can be reserved again at once, into it, with `expiresAt` unchanged; bought
+        seats, and seats ended by an admin change or cancellation, never wait. A seat that is both
+        taken and waiting is refused as `SEAT_TAKEN`. No seat is ever in two active reservations, or
+        in one and on a valid ticket, including under concurrent requests.
 
         There is no `tierId` in the request: the reservation's tier is the tier of the sections its
         seats are in (`null` for an event without tiers), and is returned as `tierId`.
@@ -1284,14 +1286,15 @@ paths:
       tags: [seating]
       summary: Release reserved seats
       description: |
-        Releases seats from the signed-in customer's active reservation for the event (feature
-        015): the listed `seats`, or all of them when `seats` is omitted. Released seats are open
-        to others at once. The rest keep their `expiresAt`. Releasing the last seat ends the
-        reservation; this customer can't then reserve any seat that left it unbought until 2
-        minutes after that end, while a seat released as others stay reserved can be reserved
-        again at once (feature 033; `reserveSeats`). A seat not in the reservation is `400`. With no active reservation,
-        nothing happens and `reservation` is `null`, so a repeat is harmless. Feature 026: never
-        limited and never counted toward the attempt limits.
+        Releases seats from the signed-in customer's active reservation for the event (feature 015):
+        the listed `seats`, or all of them when `seats` is omitted. Released seats are open to
+        others at once. The rest keep their `expiresAt`. Releasing the last seat ends the
+        reservation; this customer can't then reserve any seat that left it released, run out, or on
+        logout until 2 minutes after that end (bought seats, and seats ended by an admin change or
+        cancellation, never wait), while a seat released as others stay reserved can be reserved
+        again at once (feature 033; `reserveSeats`). A seat not in the reservation is `400`. With no
+        active reservation, nothing happens and `reservation` is `null`, so a repeat is harmless.
+        Feature 026: never limited and never counted toward the attempt limits.
       operationId: releaseSeats
       x-required-roles: [customer]
       requestBody:
