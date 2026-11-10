@@ -97,10 +97,10 @@ async function fillGeneral() {
   fireEvent.change(screen.getByLabelText('Venue'), { target: { value: 'v-plain' } });
   fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
   fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
-  await screen.findByRole('group', { name: 'Ticket types' });
+  await screen.findByRole('group', { name: 'Tickets and seating' });
   typeLine(1, 'Floor', '80.00', '300');
   fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
-  typeLine(2, 'floor', ' 60.00 ', '200');
+  typeLine(2, 'Balcony', ' 60.00 ', '200');
 }
 
 async function fillSeated() {
@@ -128,7 +128,6 @@ const choosePicture = () =>
 const pictures = () =>
   within(screen.getByRole('group', { name: 'Images' })).queryAllByRole('listitem');
 const schedule = () => fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));
-const banner = () => screen.findByTestId('error-banner');
 
 /** The general-admission form's values, all still there. */
 const expectGeneralKept = () => {
@@ -137,7 +136,7 @@ const expectGeneralKept = () => {
   expect(screen.getByLabelText('Starts')).toHaveValue('2030-05-01T18:00');
   expect(screen.getByLabelText('Ends')).toHaveValue('2030-05-01T21:00');
   expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('Floor');
-  expect(screen.getByLabelText('Ticket type 2 name')).toHaveValue('floor');
+  expect(screen.getByLabelText('Ticket type 2 name')).toHaveValue('Balcony');
   expect(screen.getByLabelText('Ticket type 2 price')).toHaveValue(' 60.00 ');
   expect(screen.getByLabelText('Ticket type 2 quantity')).toHaveValue(200);
   expect(pictures()).toHaveLength(1);
@@ -198,11 +197,13 @@ describe('a refusal keeps every value and shows beside its field (FR-009, FR-010
     );
     renderNew();
     await fillGeneral();
+    typeLine(2, 'floor', ' 60.00 ', '200');
     choosePicture();
     await vi.waitFor(() => expect(pictures()).toHaveLength(1));
     schedule();
 
-    expect(await banner()).toHaveTextContent(NAME_TAKEN);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('type-2-error')).toHaveTextContent(NAME_TAKEN);
     const name2 = screen.getByLabelText('Ticket type 2 name');
     expect(name2).toHaveAttribute('aria-invalid', 'true');
     expect(name2).toHaveAccessibleDescription(NAME_TAKEN);
@@ -210,8 +211,9 @@ describe('a refusal keeps every value and shows beside its field (FR-009, FR-010
     expect(hint).toHaveAttribute('role', 'alert');
     expect(hint).toHaveClass('field__hint');
     expect(screen.getByLabelText('Ticket type 1 name')).not.toHaveAttribute('aria-invalid');
-    expectGeneralKept();
-    expect(writes(api)).toEqual(['POST /events']);
+    expect(screen.getByLabelText('Ticket type 2 name')).toHaveValue('floor');
+    expect(screen.getByLabelText('Event name')).toHaveValue('Season Opener');
+    expect(writes(api)).toEqual([]);
     expect(document.body).not.toHaveTextContent('Seating setup not finished');
   });
 
@@ -234,8 +236,8 @@ describe('a refusal keeps every value and shows beside its field (FR-009, FR-010
     await fillSeated();
     schedule();
 
-    expect(await banner()).toHaveTextContent(message);
-    const line = screen.getByTestId('seats-1');
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    const line = await screen.findByTestId('seats-1');
     expect(line).toHaveTextContent('Front: 10 seats');
     expect(within(line).getByRole('alert')).toHaveTextContent(message);
     expect(screen.getByTestId('seats-2')).not.toHaveTextContent(message);
@@ -260,78 +262,58 @@ describe('a refusal keeps every value and shows beside its field (FR-009, FR-010
     await fillGeneral();
     schedule();
 
-    await banner();
-    const group = screen.getByRole('group', { name: 'Ticket types' });
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    const group = await screen.findByRole('group', { name: 'Tickets and seating' });
     expect(within(group).getByTestId('tiers-error')).toHaveTextContent(message);
     expect(screen.getByTestId('tiers-error')).toHaveAttribute('role', 'alert');
   });
 
   it('clears them when scheduling again; a 201 then uploads the picture and opens the event', async () => {
-    const api = backend([
-      json(
-        {
-          error: {
-            code: 'TIER_NAME_TAKEN',
-            message: NAME_TAKEN,
-            details: { field: 'tiers.1.name' },
-          },
-        },
-        409,
-      ),
-      () => new Promise<Response>(() => {}),
-    ]);
+    const api = backend([() => new Promise<Response>(() => {})]);
     renderNew();
     await fillGeneral();
+    typeLine(2, 'floor', ' 60.00 ', '200');
     choosePicture();
     await vi.waitFor(() => expect(pictures()).toHaveLength(1));
     schedule();
-    await banner();
+    expect(await screen.findByTestId('type-2-error')).toHaveTextContent(NAME_TAKEN);
     expect(screen.getByLabelText('Ticket type 2 name')).toHaveAttribute('aria-invalid', 'true');
+    expect(api.count('POST', '/events')).toBe(0);
 
-    // The second answer never comes: the messages are already gone.
+    // The first schedule is sent only after the preview is clear; the answer never comes.
     typeLine(2, 'Balcony', '60.00', '200');
     schedule();
-    await vi.waitFor(() => expect(api.count('POST', '/events')).toBe(2));
+    await vi.waitFor(() => expect(api.count('POST', '/events')).toBe(1));
     expect(screen.queryByTestId('error-banner')).toBeNull();
     expect(screen.getByLabelText('Ticket type 2 name')).not.toHaveAttribute('aria-invalid');
     expect(screen.queryByText(NAME_TAKEN)).toBeNull();
   });
 
   it('after a refusal, a fixed schedule is sent once more and opens the event', async () => {
-    const api = backend([
-      json(
-        {
-          error: {
-            code: 'TIER_NAME_TAKEN',
-            message: NAME_TAKEN,
-            details: { field: 'tiers.1.name' },
-          },
-        },
-        409,
-      ),
-      json(EVENT, 201),
-    ]);
+    const api = backend([json(EVENT, 201)]);
     renderNew();
     await fillGeneral();
+    typeLine(2, 'floor', ' 60.00 ', '200');
     choosePicture();
     await vi.waitFor(() => expect(pictures()).toHaveLength(1));
     schedule();
-    await banner();
+    expect(await screen.findByTestId('type-2-error')).toHaveTextContent(NAME_TAKEN);
     typeLine(2, 'Balcony', '60.00', '200');
     schedule();
 
     expect(await screen.findByText('Event page', {}, { timeout: 3000 })).toBeInTheDocument();
-    expect(writes(api)).toEqual(['POST /events', 'POST /events', `POST /events/${ID}/images`]);
+    expect(writes(api)).toEqual(['POST /events', `POST /events/${ID}/images`]);
   });
 
-  it('shows a database-backstop name refusal (no field) in the banner only', async () => {
+  it('shows a database-backstop name refusal (no field) next to submit, not on a type', async () => {
     const message = 'Another tier of this event already has that name';
     backend(json({ error: { code: 'TIER_NAME_TAKEN', message } }, 409));
     renderNew();
     await fillGeneral();
     schedule();
 
-    expect(await banner()).toHaveTextContent(message);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('submit-error')).toHaveTextContent(message);
     expect(screen.getAllByText(message)).toHaveLength(1);
     for (const n of [1, 2]) {
       expect(screen.getByLabelText(`Ticket type ${n} name`)).not.toHaveAttribute('aria-invalid');
@@ -385,7 +367,10 @@ describe('no answer (FR-011)', () => {
     await fillGeneral();
     schedule();
 
-    expect(await banner()).toHaveTextContent('An unexpected error occurred.');
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('submit-error')).toHaveTextContent(
+      'An unexpected error occurred.',
+    );
     expect(screen.queryByTestId('no-answer')).toBeNull();
   });
 });
@@ -412,9 +397,9 @@ describe('each path lands beside its field, associated with it (FR-010)', () => 
     await fillGeneral();
     schedule();
 
-    await banner();
-    const price2 = screen.getByLabelText('Ticket type 2 price');
-    expect(price2).toHaveAttribute('aria-invalid', 'true');
+    const price2 = await screen.findByLabelText('Ticket type 2 price');
+    await vi.waitFor(() => expect(price2).toHaveAttribute('aria-invalid', 'true'));
+    expect(screen.queryByTestId('error-banner')).toBeNull();
     expect(price2).toHaveAccessibleDescription(entry);
     expect(screen.getByLabelText('Ticket type 2 name')).not.toHaveAttribute('aria-invalid');
     expect(screen.getByLabelText('Ticket type 2 quantity')).not.toHaveAttribute('aria-invalid');
@@ -428,10 +413,10 @@ describe('each path lands beside its field, associated with it (FR-010)', () => 
     await fillGeneral();
     schedule();
 
-    await banner();
+    expect(screen.queryByTestId('error-banner')).toBeNull();
     for (const field of ['name', 'price', 'quantity']) {
       const input = screen.getByLabelText(`Ticket type 1 ${field}`);
-      expect(input).toHaveAttribute('aria-invalid', 'true');
+      await vi.waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'));
       expect(input).toHaveAccessibleDescription(entry);
     }
     expect(screen.getByLabelText('Ticket type 2 name')).not.toHaveAttribute('aria-invalid');
@@ -445,8 +430,8 @@ describe('each path lands beside its field, associated with it (FR-010)', () => 
     await fillGeneral();
     schedule();
 
-    await banner();
-    expect(screen.getByTestId('tiers-error')).toHaveTextContent(entry);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('tiers-error')).toHaveTextContent(entry);
     expect(screen.queryByTestId('type-1-error')).toBeNull();
   });
 
@@ -457,9 +442,9 @@ describe('each path lands beside its field, associated with it (FR-010)', () => 
     await fillGeneral();
     schedule();
 
-    await banner();
-    const group = screen.getByRole('group', { name: 'Ticket types' });
-    expect(within(group).getByTestId('seating-error')).toHaveTextContent(entry);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    const group = screen.getByRole('group', { name: 'Tickets and seating' });
+    expect(await screen.findByTestId('seating-error')).toHaveTextContent(entry);
     expect(group).toHaveAccessibleDescription(entry);
   });
 
@@ -470,9 +455,8 @@ describe('each path lands beside its field, associated with it (FR-010)', () => 
     await fillSeated();
     schedule();
 
-    await banner();
-    const group = screen.getByRole('group', { name: 'Tickets and seating' });
-    expect(within(group).getByTestId('seating-error')).toHaveTextContent(entry);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('seating-error')).toHaveTextContent(entry);
     for (const name of ['Reserved seating', 'General admission']) {
       expect(screen.getByRole('radio', { name })).toHaveAccessibleDescription(entry);
     }
@@ -486,9 +470,9 @@ describe('each path lands beside its field, associated with it (FR-010)', () => 
     await fillSeated();
     schedule();
 
-    await banner();
+    expect(screen.queryByTestId('error-banner')).toBeNull();
     const front = screen.getByRole('combobox', { name: 'Section front ticket type' });
-    expect(front).toHaveAttribute('aria-invalid', 'true');
+    await vi.waitFor(() => expect(front).toHaveAttribute('aria-invalid', 'true'));
     expect(front).toHaveAccessibleDescription(entry);
     for (const name of ['middle', 'back']) {
       const select = screen.getByRole('combobox', { name: `Section ${name} ticket type` });
@@ -498,9 +482,9 @@ describe('each path lands beside its field, associated with it (FR-010)', () => 
   });
 });
 
-/** Code review round 1 (S3): FR-013, the Edit form shows refusals as before, banner only. */
-describe('editing is unchanged (FR-013)', () => {
-  it('shows no field hints on Edit, whatever the refusal names', async () => {
+/** Spec 035 FR-019: the Edit form places a refusal beside its field, like Schedule event. */
+describe('editing places refusals beside their fields (FR-019)', () => {
+  it('shows field hints on Edit when the refusal names them', async () => {
     const fields = [
       'totalTicketCapacity must be a positive whole number',
       'tiers.0.name must be between 1 and 100 characters',
@@ -543,10 +527,9 @@ describe('editing is unchanged (FR-013)', () => {
     await vi.waitFor(() => expect(screen.getByLabelText('Event name')).toHaveValue(EVENT.name));
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    expect(await banner()).toHaveTextContent(fields[0]!);
-    for (const id of ['seating-error', 'tiers-error', 'type-1-error']) {
-      expect(screen.queryByTestId(id)).toBeNull();
-    }
-    expect(screen.getByLabelText('Ticket type 1 name')).not.toHaveAttribute('aria-invalid');
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('seating-error')).toHaveTextContent(fields[0]!);
+    expect(screen.getByTestId('type-1-error')).toHaveTextContent(fields[1]!);
+    expect(screen.getByLabelText('Ticket type 1 name')).toHaveAttribute('aria-invalid', 'true');
   });
 });

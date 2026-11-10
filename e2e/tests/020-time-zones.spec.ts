@@ -106,10 +106,10 @@ test('020 S7: a start time the venue zone skips is refused and nothing is sent; 
   await page.getByLabel('Ticket type 1 name', { exact: true }).fill('General');
   await page.getByLabel('Ticket type 1 price', { exact: true }).fill('20');
   await page.getByLabel('Ticket type 1 quantity', { exact: true }).fill('50');
-  // Said under the field as soon as it is typed, and again when Save is pressed.
+  // Said under the field as soon as it is typed. Spec 035: no second copy in a banner.
   await expect(page.getByText(message).first()).toBeVisible();
   await page.getByRole('button', { name: 'Schedule event' }).click();
-  await expect(page.getByText(message)).toHaveCount(2);
+  await expect(page.getByText(message)).toHaveCount(1);
   // Every value kept; nothing sent.
   await expect(page.getByLabel('Starts', { exact: true })).toHaveValue(`${night}T02:30`);
   await expect(page.getByRole('heading', { level: 1, name: 'Schedule event' })).toBeVisible();

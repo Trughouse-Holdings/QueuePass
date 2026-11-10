@@ -1,6 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { conflict } from '../common/conflict';
+import type { SeatStateChange } from '@queuepass/shared';
+import { closeHolds, closeRunOut, toChanges } from '../reservations/holds';
+import { recalcSeatedTiers } from '../seating/tier-seats';
 
 /**
  * Spec 031 (research R4, R9): the ticket types and reserved seating a schedule brings, checked
@@ -12,6 +15,8 @@ import { conflict } from '../common/conflict';
 
 /** One ticket type as the request carries it (`EventTierInput`). */
 export interface SetupTier {
+  /** Spec 035: on an update, the existing type to keep; refused on a schedule. */
+  id?: string;
   name: string;
   price: string;
   quantity?: number;
@@ -205,4 +210,243 @@ export async function writeEventSetup(
     for (const sectionId of t.sectionIds) mappings.push({ eventId, sectionId, tierId: created.id });
   }
   if (mappings.length > 0) await tx.sectionTier.createMany({ data: mappings });
+}
+
+/** Spec 035 (research R8): `id` is only for `updateEvent`. */
+export function assertNoTierIdsOnCreate(input: SetupInput): void {
+  for (const [i, tier] of (input.tiers ?? []).entries()) {
+    if (tier.id !== undefined) {
+      throw refuse(`tiers.${i}.id is not allowed when scheduling`);
+    }
+  }
+}
+
+/** One existing ticket type, as the update planner reads it. */
+export interface ExistingSetupTier {
+  id: string;
+  name: string;
+}
+
+/** One current section mapping, with the section's name for hold-closing and refusals. */
+export interface ExistingSetupMapping {
+  sectionId: string;
+  sectionName: string;
+  tierId: string;
+}
+
+/** Sold-ticket counts the planner needs; gathered under the event lock. */
+export interface UpdateSetupCounts {
+  eventSold: number;
+  tierlessSold: number;
+  soldByTier: Map<string, number>;
+  ordersByTier: Map<string, number>;
+  soldBySection: Map<string, number>;
+}
+
+export interface PlannedUpdateTier extends PlannedTier {
+  /** Present when this entry keeps an existing type. */
+  id?: string;
+}
+
+export interface EventUpdatePlan extends EventSetupPlan {
+  tiers: PlannedUpdateTier[];
+  removed: ExistingSetupTier[];
+}
+
+export interface UpdateSetupInput {
+  eventName: string;
+  reservedSeatingBefore: boolean;
+  existingTiers: ExistingSetupTier[];
+  existingMappings: ExistingSetupMapping[];
+  counts: UpdateSetupCounts;
+  venue: SetupVenue;
+  sections: SetupSection[];
+  /** The event's ticket capacity in force after this update's detail checks. */
+  capacity: number;
+}
+
+/**
+ * Spec 035 (research R8): the complete new set of ticket types and seating for an update, checked
+ * before the first write. Ids, sold-ticket rules, then the same shape checks as `planEventSetup`.
+ */
+export function planEventUpdate(input: SetupInput, ctx: UpdateSetupInput): EventUpdatePlan {
+  const byId = new Map(ctx.existingTiers.map((t) => [t.id, t]));
+  const seen = new Set<string>();
+  for (const [i, tier] of (input.tiers ?? []).entries()) {
+    const path = `tiers.${i}.id`;
+    if (tier.id === undefined) continue;
+    if (!byId.has(tier.id)) {
+      throw refuse(`${path} is not a ticket type of this event`);
+    }
+    if (seen.has(tier.id)) {
+      throw refuse(`${path} lists a ticket type already listed in this request`);
+    }
+    seen.add(tier.id);
+  }
+
+  const reservedAfter = input.reservedSeating === true;
+  if (reservedAfter !== ctx.reservedSeatingBefore && ctx.counts.eventSold > 0) {
+    throw conflict(
+      'EVENT_HAS_ORDERS',
+      `${ctx.eventName} has sold tickets, so reserved seating can no longer be switched ` +
+        `${reservedAfter ? 'on' : 'off'}.`,
+      { field: 'reservedSeating', ticketsSold: ctx.counts.eventSold },
+    );
+  }
+
+  const kept = new Set((input.tiers ?? []).flatMap((t) => (t.id !== undefined ? [t.id] : [])));
+  const removed = ctx.existingTiers.filter((t) => !kept.has(t.id));
+  for (const t of removed) {
+    const orders = ctx.counts.ordersByTier.get(t.id) ?? 0;
+    if (orders > 0) {
+      throw conflict(
+        'TIER_HAS_ORDERS',
+        `Cannot remove the tier "${t.name}": it has ${orders} ${orders === 1 ? 'order' : 'orders'}.`,
+        { field: 'tiers', orderCount: orders },
+      );
+    }
+  }
+
+  if (
+    ctx.existingTiers.length === 0 &&
+    (input.tiers ?? []).length > 0 &&
+    ctx.counts.tierlessSold > 0
+  ) {
+    throw conflict(
+      'EVENT_HAS_ORDERS',
+      `${ctx.eventName} has already sold ${ctx.counts.tierlessSold} tickets without tiers, so ` +
+        'tiers cannot be added.',
+      { field: 'tiers', tierlessTicketsSold: ctx.counts.tierlessSold },
+    );
+  }
+
+  const planned = planEventSetup(input, ctx.venue, ctx.sections, ctx.capacity);
+  const withIds: PlannedUpdateTier[] = planned.tiers.map((t, i) => ({
+    ...t,
+    id: input.tiers![i]!.id,
+  }));
+
+  const beforeOwner = new Map(ctx.existingMappings.map((m) => [m.sectionId, m.tierId]));
+  const afterOwner = new Map<string, { index: number; id?: string }>();
+  for (const [i, tier] of withIds.entries()) {
+    for (const sectionId of tier.sectionIds) {
+      afterOwner.set(sectionId, { index: i, id: tier.id });
+    }
+  }
+  const sectionName = new Map(ctx.sections.map((s) => [s.id, s.name]));
+  for (const m of ctx.existingMappings) {
+    sectionName.set(m.sectionId, m.sectionName);
+  }
+  for (const [sectionId, before] of beforeOwner) {
+    const after = afterOwner.get(sectionId);
+    const afterKey = after?.id ?? (after ? `new:${after.index}` : null);
+    if ((before ?? null) === (after?.id ?? null) && afterKey !== `new:${after?.index ?? ''}`) {
+      // Same existing type still owns it, or both unmapped — wait, if before is set and after is
+      // the same id, skip. If after is a new type, that's a move even if... new types have no id.
+      if (after?.id === before) continue;
+    }
+    if (after?.id === before) continue;
+    const sold = ctx.counts.soldBySection.get(sectionId) ?? 0;
+    if (sold <= 0) continue;
+    const name = sectionName.get(sectionId) ?? 'section';
+    const field = after !== undefined ? `tiers.${after.index}.sectionIds` : 'tiers';
+    throw conflict('EVENT_HAS_ORDERS', `Section ${name} has sold seats, so it stays in its tier.`, {
+      field,
+      section: name,
+      ticketsSold: sold,
+    });
+  }
+
+  for (const [i, tier] of withIds.entries()) {
+    if (!tier.id) continue;
+    const sold = ctx.counts.soldByTier.get(tier.id) ?? 0;
+    if (tier.quantity < sold) {
+      throw conflict(
+        'CAPACITY_EXCEEDED',
+        `Cannot set ${tier.name} to ${tier.quantity} tickets; ${sold} are already sold.`,
+        { field: `tiers.${i}.quantity`, requested: tier.quantity, ticketsSold: sold },
+      );
+    }
+  }
+
+  return {
+    reservedSeating: planned.reservedSeating,
+    capacityFromLayout: planned.capacityFromLayout,
+    tiers: withIds,
+    removed,
+  };
+}
+
+/**
+ * Spec 035 (research R8): apply a planned update inside the event's update transaction. Closes
+ * holds on remapped sections or when reserved seating is turned off, as `updateSeating` does.
+ * Returns the seat changes to publish after commit.
+ */
+export async function writeEventUpdate(
+  tx: Prisma.TransactionClient,
+  eventId: string,
+  locationId: string,
+  plan: EventUpdatePlan,
+  before: { reservedSeating: boolean; mappings: ExistingSetupMapping[] },
+): Promise<SeatStateChange[]> {
+  const nextOwner = new Map<string, string>();
+  for (const [i, t] of plan.tiers.entries()) {
+    const key = t.id ?? `new:${i}`;
+    for (const sectionId of t.sectionIds) nextOwner.set(sectionId, key);
+  }
+  const moved = new Set(
+    before.mappings
+      .filter((m) => (nextOwner.get(m.sectionId) ?? null) !== m.tierId)
+      .map((m) => m.sectionName),
+  );
+  // A section newly mapped (not in before) does not need holds closed on a name it never had.
+  for (const m of before.mappings) {
+    if (!nextOwner.has(m.sectionId) && !moved.has(m.sectionName)) moved.add(m.sectionName);
+  }
+
+  const freed = [
+    ...(await closeRunOut(tx, eventId)),
+    ...(await closeHolds(tx, eventId, (h) => !plan.reservedSeating || moved.has(h.section))),
+  ];
+  const opened = await toChanges(tx, locationId, freed, 'open');
+
+  await tx.sectionTier.deleteMany({ where: { eventId } });
+
+  for (const t of plan.removed) {
+    await tx.ticketTier.delete({ where: { id: t.id } });
+  }
+
+  // Two-phase names so a swap cannot hit the unique index mid-update.
+  for (const t of plan.tiers) {
+    if (!t.id) continue;
+    await tx.ticketTier.update({
+      where: { id: t.id },
+      data: { name: `__qp035_${t.id}`, price: t.price, quantity: t.quantity },
+    });
+  }
+  const createdIds: string[] = [];
+  for (const t of plan.tiers) {
+    if (t.id) {
+      await tx.ticketTier.update({
+        where: { id: t.id },
+        data: { name: t.name, price: t.price, quantity: t.quantity },
+      });
+      createdIds.push(t.id);
+    } else {
+      const created = await tx.ticketTier.create({
+        data: { eventId, name: t.name, price: t.price, quantity: t.quantity },
+        select: { id: true },
+      });
+      createdIds.push(created.id);
+    }
+  }
+
+  const mappings: Prisma.SectionTierCreateManyInput[] = [];
+  for (const [i, t] of plan.tiers.entries()) {
+    const tierId = createdIds[i]!;
+    for (const sectionId of t.sectionIds) mappings.push({ eventId, sectionId, tierId });
+  }
+  if (mappings.length > 0) await tx.sectionTier.createMany({ data: mappings });
+  if (plan.reservedSeating) await recalcSeatedTiers(tx, eventId);
+  return opened;
 }

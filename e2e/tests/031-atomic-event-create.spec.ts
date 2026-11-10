@@ -40,11 +40,12 @@ test('031 S3: a refused ticket type on Schedule shows its error beside it, keeps
   await page.getByLabel('Ticket type 2 quantity', { exact: true }).fill('200');
   await page.getByRole('button', { name: 'Schedule event' }).click();
 
-  // The message beside ticket type 2, and in the banner.
+  // The message beside ticket type 2. Spec 035: no top error-banner for a field-mapped problem.
   const message =
     "Ticket type 2, 'floor', has the same name as ticket type 1, 'Floor'. Give each ticket type " +
     'its own name.';
-  await expect(page.getByTestId('error-banner')).toContainText(message);
+  await expect(page.getByTestId('error-banner')).toHaveCount(0);
+  await expect(page.getByTestId('type-2-error')).toContainText(message);
   await expect(name2).toHaveAttribute('aria-invalid', 'true');
   await expect(name2).toHaveAccessibleDescription(message);
 

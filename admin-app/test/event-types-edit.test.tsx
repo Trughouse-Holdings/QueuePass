@@ -70,6 +70,7 @@ describe('scheduling a general-admission event', () => {
     fireEvent.change(screen.getByLabelText('Venue'), { target: { value: 'v-plain' } });
     fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
     fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+    await screen.findByLabelText('Ticket type 1 name');
     typeLine(1, 'Floor', '80.00', '100');
     fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
     typeLine(2, 'Lawn', '25.00', '300');
@@ -94,11 +95,12 @@ describe('scheduling a general-admission event', () => {
 
     await screen.findByRole('option', { name: /Plain Hall/ });
     fireEvent.change(screen.getByLabelText('Venue'), { target: { value: 'v-plain' } });
+    await screen.findByLabelText('Ticket type 1 name');
     typeLine(1, 'Floor', '80.00');
     fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Give every ticket type a name, a price, and a quantity.',
+    expect(await screen.findByTestId('type-1-error')).toHaveTextContent(
+      'Give this ticket type a quantity.',
     );
     expect(api.calls.filter((c) => c.method !== 'GET')).toEqual([]);
   });
@@ -187,32 +189,29 @@ describe('editing a seated event', () => {
 
     expect(await screen.findByText('Event page', {}, { timeout: 3000 })).toBeInTheDocument();
     const writes = api.calls.filter((c) => c.method !== 'GET');
-    expect(writes.map((c) => `${c.method} ${c.path}`)).toEqual([
-      `PATCH ${PATH}`,
-      `POST ${PATH}/tiers`,
-      `PATCH ${PATH}/tiers/t-bal`,
-      `PUT ${PATH}/seating`,
-    ]);
-    expect(writes[0].body).toMatchObject({ basePrice: '35.00' });
-    expect(writes[0].body).not.toHaveProperty('totalTicketCapacity');
-    expect(writes[1].body).toEqual({ name: 'Box', price: '120.00' });
-    expect(writes[2].body).toEqual({ name: 'Upper', price: '35.00' });
-    expect(writes[3].body).toEqual({
+    expect(writes.map((c) => `${c.method} ${c.path}`)).toEqual([`PATCH ${PATH}`]);
+    expect(writes[0].body).toMatchObject({
+      basePrice: '35.00',
       reservedSeating: true,
-      sections: [
-        { sectionId: 's-front', tierId: 't-floor' },
-        { sectionId: 's-middle', tierId: 't-bal' },
-        { sectionId: 's-back', tierId: 't-box' },
+      tiers: [
+        { id: 't-floor', name: 'Floor', price: '80.00', sectionIds: ['s-front'] },
+        { id: 't-bal', name: 'Upper', price: '35.00', sectionIds: ['s-middle'] },
+        { name: 'Box', price: '120.00', sectionIds: ['s-back'] },
       ],
     });
+    expect(writes[0].body).not.toHaveProperty('totalTicketCapacity');
   });
 
   it("shows the Backend's reason for a refused change and keeps the form", async () => {
     const message = 'Section back has sold seats, so it stays in its tier.';
     stubApi(
       routes({
-        [`PATCH ${PATH}`]: json(SEATED),
-        [`PUT ${PATH}/seating`]: json({ error: { code: 'EVENT_HAS_ORDERS', message } }, 409),
+        [`PATCH ${PATH}`]: json(
+          {
+            error: { code: 'EVENT_HAS_ORDERS', message, details: { field: 'tiers.0.sectionIds' } },
+          },
+          409,
+        ),
       }),
     );
     at(`${PATH}/edit`, '/events/:id/edit');
@@ -223,7 +222,8 @@ describe('editing a seated event', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByText(message)).toBeInTheDocument();
     expect(screen.getByRole('combobox', { name: 'Section back ticket type' })).toHaveValue('0');
   });
 });

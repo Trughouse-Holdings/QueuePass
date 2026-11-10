@@ -8,6 +8,14 @@ import { CreateTierDto } from '../../tiers/dto/create-tier.dto';
  * (research R3); `null` is refused, not skipped (`@ValidateIf`, as #117).
  */
 export class EventTierDto extends CreateTierDto {
+  /**
+   * Spec 035 (research R8): optional, only on `updateEvent`; `createLocked` refuses it
+   * (`tiers.<i>.id is not allowed when scheduling`). Not `null`.
+   */
+  @ValidateIf((o: EventTierDto) => o.id !== undefined)
+  @IsUUID('all', { message: 'id must be a ticket type id (UUID)' })
+  id?: string;
+
   @ValidateIf((o: EventTierDto) => o.sectionIds !== undefined)
   @IsArray({ message: 'sectionIds must be a list of section ids' })
   @ArrayMaxSize(50, { message: 'sectionIds may list at most 50 sections' })
