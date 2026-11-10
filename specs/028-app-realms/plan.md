@@ -133,7 +133,10 @@ copies checked equal by one test (R4).
 
 The live seed tests skip on a Keycloak where realm `queuepass` exists unless
 `QP_SEED_ALLOW_RENAME=1`, and the implementer stops the team stack (never `down`, never `-v`) only
-during the test stretches Mahdi agreed to, using path B (research R13).
+during the test stretches Mahdi agreed to, using path B (research R13). The `028` browser test runs
+against built bundles (CI's `e2e` job, or `vite build` and `vite preview` beside `run-host.mjs`'s
+Backend), not Vite's dev server, whose `StrictMode` double sign-in effect stops every renewal
+(research R13 step 4).
 
 ## Complexity Tracking
 

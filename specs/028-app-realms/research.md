@@ -317,3 +317,13 @@ from the host with `node scripts/run-host.mjs`.
    branch until it merges, then `main`): code from before 028 (an older `run-host.mjs`, or the
    live seed test from another branch) would recreate `queuepass` (R6). If T032 cannot be held
    until the merge, the team-stack upgrade waits until after the merge.
+4. **The `028` browser test needs built bundles** (found in implementation, Phase 5 checkpoint):
+   `run-host.mjs` serves the apps from Vite's dev server, where React's `StrictMode` runs the
+   sign-in callback effect twice, so each sign-in exchanges its authorization code twice. Keycloak
+   refuses the second ("Code not valid") and drops the client from the user's session, so the
+   app's first refresh is refused ("Session doesn't have required client") and the app signs in
+   again through Keycloak instead of renewing. The test waits for each realm's refresh to answer
+   200 (R10), so it runs against built bundles: CI's `e2e` job (Compose, `npm run e2e`), or locally
+   `vite build` and `vite preview` on 5173–5175 beside `run-host.mjs`'s Backend. The double
+   exchange is a development-only behaviour from before 028 (one realm too); FR-013 keeps the
+   sign-in code out of 028's scope.
