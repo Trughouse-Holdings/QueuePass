@@ -357,9 +357,13 @@ with `@queuepass/shared`'s formatting.
   and every timestamp column except an event's `startsAt`, `endsAt`, `doorsOpenAt`; of a nullable
   timestamp (`cancelledAt`, `Order.refundedAt`, `Ticket.checkedInAt`, `SeatReservation.endedAt`, a hold's `releasedAt`) only
   whether it is set is kept, since its value is the moment of the run. Tickets are fingerprinted by
-  (event name, tier name, status, checked in or not, `checkedInBySub`/`checkedInByUsername`, seat),
-  with no link to their order: which concert tickets are checked in is chosen by ticket `code` order,
-  and codes are random. Orders by (event name, tier name, customer username, holder name, quantity,
+  (event name, tier name, status, seat), with no link to their order and without whether or by whom
+  they are checked in; check-ins are compared separately as a count per event, with
+  `checkedInBySub`/`checkedInByUsername` per event (Fall Concert's 24 by `demo-agent1`/`agent1`).
+  Why (clarified in implementation, 2026-11-09): the demo data checks in the first 40% of Fall
+  Concert's tickets in ticket `code` order across both its tiers, and codes are random, so how many
+  of the checked-in tickets are General and how many VIP differs from run to run, while the count
+  per event does not. The demo data stays as it is (FR-007). Orders by (event name, tier name, customer username, holder name, quantity,
   prices, status, refunded or not). Event times as (local date minus Fall Concert's local date in days,
   local time, duration, doors offset) for the dated events (Fall Concert, Comedy Night, Holiday Gala,
   Season Opener), taking the reference date from the created Fall Concert (`d` + 14) rather than the

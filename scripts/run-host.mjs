@@ -12,7 +12,17 @@
 // (start:prod), and, once http://localhost:3000/health answers, the three apps (vite on 5173,
 // 5174, 5175, the exact redirect URIs of their OIDC clients). Output is prefixed by name; Ctrl+C
 // stops all four. --print shows every step and child with its environment and starts nothing.
+//
+// Spec 029 (research R6): `--demo-reset` runs one step instead, the demo checkpoint (`npm run
+// demo-reset --workspace @queuepass/backend`) with the Backend's environment, in a second
+// terminal while the stack runs, and exits: no build, migration, seed, or child. The person gives
+// the permission on the command line; this script passes it on and never sets it:
+//
+//   QUEUEPASS_ALLOW_RESET=1 node scripts/run-host.mjs --demo-reset
+//
+// It needs the Backend built (`npm run build --workspace @queuepass/backend`) and says so if not.
 import { spawn, spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -21,15 +31,32 @@ const KEYCLOAK = 'http://localhost:8080';
 const REALM = `${KEYCLOAK}/realms/queuepass`;
 const API = 'http://localhost:3000';
 
+/** Spec 029 FR-002: the compiled reset, which `--demo-reset` needs and never builds. */
+const RESET_SCRIPT = fileURLToPath(
+  new URL('../backend/dist/scripts/demo-reset.js', import.meta.url),
+);
+
 function parseArgs(argv) {
-  const o = { print: false, demoData: false, backendTz: undefined, geocoderUrl: undefined };
+  const o = {
+    print: false,
+    demoData: false,
+    demoReset: false,
+    backendTz: undefined,
+    geocoderUrl: undefined,
+  };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--print') o.print = true;
     else if (a === '--demo-data') o.demoData = true;
+    else if (a === '--demo-reset') o.demoReset = true;
     else if (a === '--backend-tz') o.backendTz = argv[++i];
     else if (a === '--geocoder-url') o.geocoderUrl = argv[++i];
     else throw new Error(`Unknown argument: ${a}`);
+  }
+  if (o.demoReset && o.demoData) {
+    throw new Error(
+      '--demo-reset and --demo-data cannot be used together: the reset loads the demo data.',
+    );
   }
   return o;
 }
@@ -46,6 +73,20 @@ export function plan(options) {
     ADDRESS_GEOCODER_URL: options.geocoderUrl ?? 'https://geocoding.geo.census.gov',
     ...(options.backendTz ? { TZ: options.backendTz } : {}),
   };
+  if (options.demoReset) {
+    // Spec 029 research R6: the one step, with the Backend child's environment; the person's
+    // QUEUEPASS_ALLOW_RESET comes through the parent environment, never set or defaulted here.
+    return {
+      setup: [
+        {
+          name: 'demo-reset',
+          command: 'npm run demo-reset --workspace @queuepass/backend',
+          env: { ...backendEnv },
+        },
+      ],
+      children: [],
+    };
+  }
   const db = {
     DATABASE_URL: backendEnv.DATABASE_URL,
     ADDRESS_GEOCODER_URL: backendEnv.ADDRESS_GEOCODER_URL,
@@ -145,11 +186,16 @@ async function waitForHealth(url, timeoutMs = 120_000) {
 
 /**
  * Runs the plan. `deps` exists for scripts/test/run-host.test.mjs: another plan, the health URL
- * and how long to wait for it, a callback per started child, and quiet output.
+ * and how long to wait for it, a callback per started child, quiet output, and (spec 029) the
+ * compiled reset's path.
  */
 export async function run(options, deps = {}) {
   const { setup, children } = deps.plan ?? plan(options);
   const healthUrl = deps.healthUrl ?? `${API}/health`;
+  // Spec 029 FR-002: never rebuild; say so and stop when the Backend has not been built.
+  if (options.demoReset && !existsSync(deps.resetScript ?? RESET_SCRIPT)) {
+    throw new Error('Build the Backend first: npm run build --workspace @queuepass/backend');
+  }
   for (const step of setup) {
     console.log(`\n=== ${step.name}: ${step.command}`);
     const r = spawnSync(step.command, {
@@ -160,6 +206,8 @@ export async function run(options, deps = {}) {
     });
     if (r.status !== 0) throw new Error(`${step.name} failed (exit ${r.status})`);
   }
+  // Spec 029 research R6: reset mode ends after its step; no Backend, health wait, or SIGINT handler.
+  if (options.demoReset) return;
 
   const running = [];
   const start = (c) => {

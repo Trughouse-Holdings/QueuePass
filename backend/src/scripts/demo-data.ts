@@ -35,6 +35,8 @@ export interface DemoSummary {
   tickets: number;
   checkedIn: number;
   cancelled: string | null;
+  /** Spec 029 FR-007 (research R5): the event that is over, "Season Opener". */
+  past: string | null;
   /** Spec 013: demo venues saved not verified because the address service was unavailable. */
   unverifiedVenues: number;
   /** Spec 014: generated images added to the demo events. */
@@ -137,6 +139,7 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
       tickets: 0,
       checkedIn: 0,
       cancelled: null,
+      past: null,
       unverifiedVenues: 0,
       images: 0,
     };
@@ -229,6 +232,16 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   const floor = await tiers.create(gala.id, { name: 'Floor', price: '80.00', quantity: 200 });
   await tiers.create(gala.id, { name: 'Balcony', price: '50.00', quantity: 100 });
 
+  // Spec 029 FR-007 (research R5): an event that is over, so the apps show one; 7 days before the
+  // run at 7:00 PM to 10:00 PM at the Hall. Sales closed at its start (006), so it has no tickets.
+  const past = await events.create({
+    name: 'Season Opener',
+    locationId: hall.id,
+    ...timesAt(atLocal(-7, '19:00', hallZone), 3, hallZone),
+    totalTicketCapacity: 150,
+    basePrice: '30.00',
+  });
+
   // Spec 014 FR-034 (research R15): through the image rules, like an upload. Several pictures on
   // the concert, so it rotates; one on the comedy night; none on the gala, which looks as before.
   let imageCount = 0;
@@ -278,13 +291,14 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   return {
     created: true,
     venues: 2,
-    events: 4,
+    events: 5,
     orders: orderCount,
     tickets: await prisma.ticket.count({
       where: { eventId: { in: [concert.id, comedy.id, tonight.id, gala.id] } },
     }),
     checkedIn: toCheckIn.length,
     cancelled: gala.name,
+    past: past.name,
     unverifiedVenues: [hall, arena].filter((v) => !v.addressVerified).length,
     images: imageCount,
   };
@@ -298,7 +312,7 @@ async function main(): Promise<void> {
       s.created
         ? `Demo data created: ${s.venues} venues, ${s.events} events, ${s.orders} orders, ` +
             `${s.tickets} tickets (${s.checkedIn} checked in), ${s.images} images; ` +
-            `"${s.cancelled}" cancelled.`
+            `"${s.cancelled}" cancelled; "${s.past}" over.`
         : `Demo data already present ("${DEMO_VENUE}" exists); nothing changed.`,
     );
     if (s.unverifiedVenues > 0) {

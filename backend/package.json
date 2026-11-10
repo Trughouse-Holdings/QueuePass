@@ -9,6 +9,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
     "demo-data": "node dist/scripts/demo-data.js",
+    "demo-reset": "node dist/scripts/demo-reset.js",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy",
     "test": "jest --runInBand --coverage",
