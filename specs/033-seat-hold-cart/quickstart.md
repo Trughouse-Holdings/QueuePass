@@ -129,7 +129,7 @@ T004); the click queue, the countdown, and the cart by the Customer app's tests 
 | --- | --- |
 | S0 | Manual: setup by hand; the browser tests make their own venue and events through the API |
 | S1 | Automated: `033 S1/S2/S6: a customer holds seats by clicking them, lets one go and takes it back, adds them to the cart, and buys them there` |
-| S2 | Automated: `033 S1/S2/S6: a customer holds seats by clicking them, lets one go and takes it back, adds them to the cart, and buys them there`; the 2-minute refusal after the last release by the Backend's tests (T002) and the Customer app's (T005) |
+| S2 | Automated: `033 S1/S2/S6: a customer holds seats by clicking them, lets one go and takes it back, adds them to the cart, and buys them there`; rest Manual: the 2-minute refusal after the last release is covered by the Backend's tests (T002) and the Customer app's (T005) |
 | S3 | Manual: the hold runs out after 5 real minutes; the run-out in the cart is covered by the Customer app's tests (T006) |
 | S4 | Manual: a second tab or device by hand; the live cart is covered by the Customer app's tests (T006); other customers' live view by `015 S2` |
 | S5 | Manual: the click queue is covered by the Customer app's tests (T005), the allowance by the Backend's (T003) and `026 S2` |

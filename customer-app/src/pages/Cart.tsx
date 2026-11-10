@@ -390,6 +390,8 @@ function CartEntry({
 
   async function buy(): Promise<void> {
     if (!nameOk && phase.kind !== 'unknown') return;
+    // Spec 026 FR-013: waiting out the limit, the buying buttons do nothing.
+    if (waits.waits.BUY) return;
     onBusy(true);
     setNotice(null);
     const pressed = phase.kind === 'unknown' ? checkAgainButton : buyButton;
@@ -402,7 +404,8 @@ function CartEntry({
       },
       pressed,
     );
-    if (outcome.kind === 'unknown') return; // Still in progress: Check again settles it.
+    // Still in progress: Check again settles it, or the purchase already in flight does.
+    if (outcome.kind === 'unknown' || outcome.kind === 'busy') return;
     onBusy(false);
     if (outcome.kind === 'done') {
       settled.current = true;
