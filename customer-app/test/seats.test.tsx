@@ -10,7 +10,11 @@ import {
   stubApi,
   tier,
   typeHolderName,
+  fixTimeBeforeFixtures,
 } from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 007 US2 (FR-007, FR-008, FR-011): choosing seats in the Get tickets form. */
 afterEach(() => vi.unstubAllGlobals());

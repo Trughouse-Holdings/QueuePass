@@ -1,6 +1,9 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
-import { event, json, renderCustomer, stubApi, venue } from './helpers';
+import { event, json, renderCustomer, stubApi, venue, fixTimeBeforeFixtures } from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 008 US1 (FR-001–FR-004; research R1): find events by name, venue, dates, and status, with

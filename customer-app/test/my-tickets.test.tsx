@@ -1,7 +1,10 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { when } from '../src/format';
-import { event, json, myOrder, renderCustomer, stubApi } from './helpers';
+import { event, json, myOrder, renderCustomer, stubApi, fixTimeBeforeFixtures } from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 006 US3 (FR-008): every order the customer placed, newest first, and its tickets. */
 afterEach(() => vi.unstubAllGlobals());

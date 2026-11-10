@@ -10,7 +10,11 @@ import {
   stubApi,
   tier,
   typeHolderName,
+  fixTimeBeforeFixtures,
 } from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 012 FR-010, FR-014 (research R8, R10): key controls and every status message carry the

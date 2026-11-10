@@ -2,7 +2,19 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { SeatMap } from '@queuepass/shared';
-import { availability, event, json, renderCustomer, stubApi, tier, venue } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  renderCustomer,
+  stubApi,
+  tier,
+  venue,
+  fixTimeBeforeFixtures,
+} from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 008 US3 (FR-009, SC-004): everything works from the keyboard alone. */
 afterEach(() => vi.unstubAllGlobals());

@@ -4,7 +4,10 @@ import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import qrcode from 'qrcode-generator';
 import { qrMatrix, TicketQr } from '../src/components/TicketQr';
-import { json, myOrder, renderCustomer, stubApi } from './helpers';
+import { json, myOrder, renderCustomer, stubApi, fixTimeBeforeFixtures } from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 017 US5 (FR-012, FR-013): a printable view per valid, unused ticket — a QR code that
