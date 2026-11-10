@@ -75,6 +75,10 @@ function OrderCard({
   ended: boolean;
 }) {
   const Heading = ended ? 'h3' : 'h2';
+  // Spec 032 FR-014: once the event's check-in details are removed, a used ticket can no longer be
+  // told from an unused one, so its valid tickets read "Event over" and offer no links. A past
+  // event not yet removed keeps its printable ticket (spec 030 FR-016).
+  const removed = Boolean(o.event.checkInDetailsRemovedAt);
   return (
     <article className="card card--padded order-card" aria-labelledby={`order-${o.id}`}>
       <Heading id={`order-${o.id}`}>
@@ -119,10 +123,10 @@ function OrderCard({
       <ul aria-label="Tickets" className="ticket-list">
         {o.tickets.map((t) => (
           <li key={t.id}>
-            {`${t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}: ${ticketState(t, o.event.location.timeZone)}`}
+            {`${t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}: ${ticketState(t, o.event.location.timeZone, removed)}`}
             {/* Spec 017 FR-012 and spec 018 FR-001: for each valid, unused ticket, a printable
                 view and its live entry code. */}
-            {t.status === 'VALID' && t.checkedInAt === null && (
+            {t.status === 'VALID' && t.checkedInAt === null && !removed && (
               <>
                 {' '}
                 {!ended && (
@@ -147,6 +151,15 @@ function OrderCard({
   );
 }
 
-/** Spec 020 FR-021: the time a ticket was used belongs to its event: the venue's zone. */
-const ticketState = (t: Ticket, timeZone?: string): string =>
-  t.status === 'VOID' ? 'Void' : t.checkedInAt ? `Used ${when(t.checkedInAt, timeZone)}` : 'Valid';
+/**
+ * Spec 020 FR-021: the time a ticket was used belongs to its event: the venue's zone. Spec 032
+ * FR-014: a valid ticket of an event whose check-in details were removed is "Event over".
+ */
+const ticketState = (t: Ticket, timeZone?: string, removed = false): string =>
+  t.status === 'VOID'
+    ? 'Void'
+    : removed
+      ? 'Event over'
+      : t.checkedInAt
+        ? `Used ${when(t.checkedInAt, timeZone)}`
+        : 'Valid';

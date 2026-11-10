@@ -1,5 +1,7 @@
 import {
+  CHECK_IN_RETENTION_DAYS,
   DEFAULT_TIME_ZONE,
+  formatEventDate,
   formatEventEnd,
   formatEventTime,
   zoneName,
@@ -51,3 +53,15 @@ export const doorsOpen = (
  * (half-open), whatever its status.
  */
 export const hasEnded = (endsAt: string, now: number): boolean => Date.parse(endsAt) <= now;
+
+/**
+ * Spec 032 FR-010, FR-011 (research R7): "Check-in details removed on Nov 9, 2026 (kept for 7 days
+ * after the event).", the date in the venue's zone, the days from `CHECK_IN_RETENTION_DAYS`.
+ */
+export const removedNote = (removedAt: string, timeZone?: string | null): string =>
+  `Check-in details removed on ${formatEventDate(removedAt, timeZone || DEFAULT_TIME_ZONE)} ` +
+  `(kept for ${CHECK_IN_RETENTION_DAYS} days after the event).`;
+
+/** Spec 032 FR-011 (research R7): the short form beside a count on Reports. */
+export const removedShort = (removedAt: string, timeZone?: string | null): string =>
+  `Details removed ${formatEventDate(removedAt, timeZone || DEFAULT_TIME_ZONE)}`;

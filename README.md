@@ -20,8 +20,8 @@ built, reviewed, and walked on the running system (path B; their browser tests r
 is built, reviewed, and walked in the browser (with Constitution 3.8.0 for its header and its pulse).
 `028` is built and reviewed (code review rounds 1 and 2); its walk on the running system (T032) and
 its browser tests in CI (T033) are still to do. `031` is built and reviewed (code review round 1); its walk on
-the running system and its browser test in CI are still to do. `033` is built; its independent
-review, its walk on the running system, and its browser tests in CI are still to do.
+the running system and its browser test in CI are still to do. `033` is built and reviewed (code
+review rounds 1 to 3); its walk on the running system and its browser tests in CI are still to do.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                       | Spec             | Plan and tasks     | Code                            |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ------------------------------- |
@@ -55,8 +55,8 @@ review, its walk on the running system, and its browser tests in CI are still to
 | [`029-demo-checkpoint`](specs/029-demo-checkpoint/spec.md)                   | One command resets a local database to the demo state (events on sale, one open at the Ticket Booth, one over), the same every time, in seconds; refused unless explicitly allowed on a local database; Keycloak accounts untouched                                    | Draft            | Done (19/22 tasks) | **Built, reviewed, and walked** |
 | [`030-hide-past-events`](specs/030-hide-past-events/spec.md)                 | Events that have ended leave every event list in the Customer and Admin apps; admins turn on Show past events to see them, marked Ended; customers keep past tickets under Past on My tickets, and a past event's page says it has ended                               | Draft            | Done (21/25 tasks) | **Built**                       |
 | [`031-atomic-event-create`](specs/031-atomic-event-create/spec.md)           | Scheduling an event saves it with its ticket types and seating in one step, or saves nothing; a refusal shows beside the ticket type or section at fault, and the form keeps everything typed; pictures still upload afterwards                                        | Draft            | Done (19/23 tasks) | **Built and reviewed**          |
-| [`032-drop-check-ins`](specs/032-drop-check-ins/spec.md)                     | One week after an event ends, who checked in and when is removed from its tickets; the event keeps its checked-in count, so its report reads the same; the Admin app says when the details were removed                                                                | Draft            | In review          | Not started                     |
-| [`033-seat-hold-cart`](specs/033-seat-hold-cart/spec.md)                     | Clicking a seat holds it and clicking it again lets it go; a prominent 5-minute countdown starts with the first seat; Add to cart, then buy each event's seats from the Cart before the countdown ends; general admission unchanged                                    | Draft            | Done (25/29 tasks) | **Built**                       |
+| [`032-drop-check-ins`](specs/032-drop-check-ins/spec.md)                     | One week after an event ends, who checked in and when is removed from its tickets; the event keeps its checked-in count, so its report reads the same; the Admin app says when the details were removed                                                                | Draft            | Done (19/21 tasks) | **Built and reviewed**          |
+| [`033-seat-hold-cart`](specs/033-seat-hold-cart/spec.md)                     | Clicking a seat holds it and clicking it again lets it go; a prominent 5-minute countdown starts with the first seat; Add to cart, then buy each event's seats from the Cart before the countdown ends; general admission unchanged                                    | Draft            | Done (26/29 tasks) | **Built and reviewed**          |
 | [`034-sell-until-end`](specs/034-sell-until-end/spec.md)                     | Tickets are on sale until an event ends, not when it starts; from the start to the end the Get tickets panel says it has already started and until when tickets are on sale; after the end, "Sales closed: this event has ended."                                      | Draft            | In review          | Not started                     |
 
 **Today** all three front ends sign in through Keycloak and log out,
@@ -642,6 +642,24 @@ ticket is still admitted once whichever code is used. An old screenshot is refus
 a made-up code as not valid, with nothing about the ticket shown. To demonstrate it on one laptop,
 hold a phone's front camera up to the Customer window so the webcam reads the phone's screen; see
 [quickstart](specs/018-rotating-qr-codes/quickstart.md).
+
+### Check-in retention
+
+A ticket's check-in details, when it was admitted and which gate agent admitted it, are kept for
+one week after its event ends (`032`): until `endsAt` plus 7 × 24 hours, the constant
+`CHECK_IN_RETENTION_DAYS` in `packages/shared/src/event.ts`. A job in the Backend runs when the
+Backend starts serving the API and then every hour; it removes the three details from every ticket
+of each event past that cutoff, cancelled events included, after keeping the event's checked-in
+count, so the sales report, the Sales card, and the sales export read the same afterwards. The
+demo data and demo reset commands never run it. **The first start of a Backend with this feature
+removes the details of every event that ended more than a week before**, for good.
+
+For a removed event the Admin app's Attendees page, Sales card, and Reports say "Check-in details
+removed on Nov 9, 2026 (kept for 7 days after the event).", the Attendees summary gives the kept
+count, and no ticket or order shows a check-in; the attendee export keeps its Checked in column,
+empty, with the sentence and the count in its heading lines. Its start, end, and doors-open times
+can no longer change (`409 CHECK_IN_DETAILS_REMOVED`); other fields still can. On My tickets its
+valid tickets read "Event over", with no entry code or printable ticket.
 
 ### One shared look
 
