@@ -1,4 +1,4 @@
-import type { ApiComponents, Event, EventUpdate } from '@queuepass/shared';
+import type { ApiComponents, Event } from '@queuepass/shared';
 import { api, unwrap } from './client';
 
 /**
@@ -29,8 +29,10 @@ export const getEvent = (id: string): Promise<Event> =>
 export const createEvent = (input: ApiComponents['schemas']['EventInput']): Promise<Event> =>
   unwrap(api.POST('/events', { body: input }));
 
-export const updateEvent = (id: string, input: EventUpdate): Promise<Event> =>
-  unwrap(api.PATCH('/events/{id}', { params: { path: { id } }, body: input }));
+export const updateEvent = (
+  id: string,
+  input: ApiComponents['schemas']['EventUpdate'],
+): Promise<Event> => unwrap(api.PATCH('/events/{id}', { params: { path: { id } }, body: input }));
 
 /** Permanent. Frees the event's window at its venue (spec 002 FR-010). */
 export const deleteEvent = (id: string): Promise<void> =>

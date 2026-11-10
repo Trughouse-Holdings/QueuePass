@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Attendees } from '../src/pages/Attendees';
 import { EventDetail } from '../src/pages/EventDetail';
@@ -63,8 +63,26 @@ it('the New event form saves with the primary button and cancels with the second
 
 // Spec 024 review round 1, M1: the section lines' modifier never reaches the ticket-type lines.
 it("the New event form's ticket-type line keeps exactly the form__row class", async () => {
-  stubApi({ 'GET /locations': json([]) });
+  const plain = {
+    id: 'v-plain',
+    name: 'Plain Hall',
+    seatingCapacity: 500,
+    address: '',
+    street: '',
+    city: '',
+    state: '',
+    zip: '',
+    addressVerified: false,
+    createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: '2026-09-01T00:00:00Z',
+  };
+  stubApi({
+    'GET /locations': json([plain]),
+    'GET /locations/v-plain/layout': json({ locationId: 'v-plain', totalSeats: 0, sections: [] }),
+  });
   renderAt('/events/new');
+  await screen.findByRole('option', { name: /Plain Hall/ });
+  fireEvent.change(screen.getByLabelText('Venue'), { target: { value: 'v-plain' } });
   const name = await screen.findByLabelText('Ticket type 1 name');
   expect((name.parentElement as HTMLElement).className).toBe('form__row');
 });

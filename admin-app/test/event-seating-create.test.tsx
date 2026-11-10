@@ -146,7 +146,8 @@ describe('Schedule event at a venue with a layout', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));
 
-    expect(await screen.findByTestId('error-banner')).toHaveTextContent(message);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByText(message)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Finish on the event page' })).toBeNull();
     expect(api.calls.filter((c) => c.method !== 'GET').map((c) => c.path)).toEqual(['/events']);
     expect(screen.getByLabelText('Event name')).toHaveValue('Season Opener');
@@ -174,6 +175,7 @@ describe('Schedule event at a venue with a layout', () => {
     await fillBasics('v-plain');
 
     await vi.waitFor(() => expect(screen.getByLabelText('Total tickets')).toBeInTheDocument());
-    expect(screen.queryByRole('group', { name: 'Tickets and seating' })).toBeNull();
+    expect(screen.getByRole('group', { name: 'Tickets and seating' })).toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Reserved seating' })).toBeNull();
   });
 });

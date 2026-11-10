@@ -74,6 +74,7 @@ describe('event form', () => {
     fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
     fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
     fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+    await screen.findByLabelText('Ticket type 1 name');
     fireEvent.change(screen.getByLabelText('Ticket type 1 name'), { target: { value: 'General' } });
     fireEvent.change(screen.getByLabelText('Ticket type 1 price'), { target: { value: '10.00' } });
     fireEvent.change(screen.getByLabelText('Ticket type 1 quantity'), { target: { value: '10' } });
