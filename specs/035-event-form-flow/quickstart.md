@@ -82,7 +82,7 @@ ticket types.
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: setup by hand; the browser tests make their own venues through the API |
-| S1 | Automated: `035 S1: a seated event that fills the venue's layout is scheduled without a submit-time error` |
+| S1 | Manual: until T007 adds `035 S1: a seated event that fills the venue's layout is scheduled without a submit-time error` |
 | S2 | Manual: covered by the Admin app's tests (preview, focus, no send) |
 | S3 | Manual: covered by the Admin app's tests (the live total and over-capacity) |
 | S4 | Manual: covered by the Backend's tests (unchanged rows) and the Admin app's (placement, one request); a second browser test is not required |
