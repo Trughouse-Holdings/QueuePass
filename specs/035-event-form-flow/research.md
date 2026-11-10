@@ -154,7 +154,7 @@ scheduling`). On `updateEvent`:
 - The Admin Edit form always sends `tiers` and `reservedSeating` once types have loaded. If types
   failed to load, it sends details only, as today.
 
-Contract 1.25.0 → 1.26.0 (MINOR: optional request fields and `EventTierInput.id`). No new
+Contract 1.26.0 → 1.27.0 (MINOR: optional request fields and `EventTierInput.id`). No new
 operation, table, column, or error code. `createTier`, `updateTier`, `deleteTier`, and
 `updateSeating` stay for other callers (the event page, the demo data).
 
@@ -198,10 +198,11 @@ smallest extract that makes the checks testable; a further split can wait (Princ
 - `008` research R10, if it still describes the edit sequence as current: a one-line note
   pointing here.
 
-Work in flight: PR #152 (spec `033`) is merged on `main` (constitution 3.9.5, contract 1.25.0).
-Open PR #153 (spec `034-sell-until-end`) claims number 034 and contract 1.26.0; this branch
-claims 035 and, from `main`, 1.26.0 / 3.9.6, and rebases if #153 merges first (Assumptions). PRs
-#151 and #153 are not touched. `032` does not change this form's save path.
+Work in flight: PR #152 (spec `033`) and PR #153 (spec `034-sell-until-end`) are merged on
+`main` (constitution 3.9.6, contract 1.26.0). This branch claims 035 and takes constitution 3.9.7
+and contract 1.27.0 on top, keeping row 034 and 034's contract changes (Assumptions). Open
+implementation PRs #151 (032) and #154 (033), and branch `034-sell-until-end-impl`, are not
+touched. `032` does not change this form's save path.
 
 ## R11. Tests (Constitution VI)
 
@@ -228,9 +229,9 @@ claims 035 and, from `main`, 1.26.0 / 3.9.6, and rebases if #153 merges first (A
 
 ## R12. Contract, constitution, and README
 
-**Decision**: Constitution 3.9.5 → 3.9.6 (PATCH, roadmap row `035` only). The next free number is
-036. Row 034 is not added here; it belongs to PR #153. Contract 1.25.0 → 1.26.0, `api-schema.ts`
-regenerated, drift check green. README: version reference 3.9.6, status row 035 (Draft / In review
+**Decision**: Constitution 3.9.6 → 3.9.7 (PATCH, roadmap row `035` only). The next free number is
+036. Row 034 (merged PR #153) is kept. Contract 1.26.0 → 1.27.0, `api-schema.ts`
+regenerated, drift check green. README: version reference 3.9.7, status row 035 (Draft / In review
 / Not started on the spec PR; the implementation PR updates the task and build columns). Shared
 surface in the spec PR: the constitution, the contract, `api-schema.ts`, and the README version
 and row (every member approves). The implementation PR should not have to change those, except

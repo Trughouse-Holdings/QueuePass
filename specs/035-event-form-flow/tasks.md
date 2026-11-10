@@ -5,7 +5,7 @@ description: "Task list for Event Form Flow"
 # Tasks: Event Form Flow
 
 **Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R12),
-[data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) (contract 1.26.0),
+[data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) (contract 1.27.0),
 [quickstart.md](./quickstart.md) (S0–S8)
 
 **Issue**: [#134](https://github.com/Trughouse-Holdings/QueuePass/issues/134). The implementation
@@ -19,12 +19,12 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 
 - **Commits** cite the spec, the task IDs, and the issue: `Impl 035: preview checks and seat
   totals (T012–T014, #134)`.
-- **Contract first**: the contract (1.26.0) and `api-schema.ts` are part of this work's first
+- **Contract first**: the contract (1.27.0) and `api-schema.ts` are part of this work's first
   commits (the spec PR). If a later task must change them, it amends those files in a Plan or
   Clarify commit, not silently in an Impl commit.
-- **Spec `034` (PR #153)**: if it merges first, rebase, take constitution 3.9.7 and contract
-  1.27.0 on top, and keep both rows and both contract changes (research R10, R12). Do not touch
-  PRs #151 or #153 or their branches.
+- **Spec `034` (merged PR #153)**: this branch is rebased onto `main` with constitution 3.9.7
+  and contract 1.27.0 on top, keeping both rows and both contract changes (research R10, R12).
+  Do not touch PRs #151 or #154, or branch `034-sell-until-end-impl`.
 - **Two pull requests** (Constitution III): this branch is the spec PR; implementation is
   `035-event-form-flow-impl`. One independent review of each branch before it is asked to merge
   (T021). If a delivery was written in one session, the review is recorded as still to do.
@@ -95,7 +95,7 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 
 ## Phase 3: Backend and contract (US4)
 
-- [ ] T008 [US4] Contract 1.26.0 as `contracts/README.md` states: `EventUpdate.reservedSeating`
+- [ ] T008 [US4] Contract 1.27.0 as `contracts/README.md` states: `EventUpdate.reservedSeating`
   and `.tiers`, `EventTierInput.id`, `createEvent` and `updateEvent` descriptions, examples;
   regenerate `api-schema.ts`; `node scripts/check-contract-drift.mjs` passes (FR-020, R12). (May
   already be done in the spec commits of this branch; then mark done and move on.)

@@ -41,7 +41,7 @@ A request without `tiers` and `reservedSeating` writes only what today's `update
 | Doors within 6 hours before the start | as today (`025`) | `event_doors_open_range` CHECK, as today |
 | A seated event does not change venue while reserved seating is on | as today, using the reserved-seating value in force after this request | the event and venue locks |
 
-## The request (contract `EventUpdate` / `EventTierInput`, 1.26.0)
+## The request (contract `EventUpdate` / `EventTierInput`, 1.27.0)
 
 | Field | New | Meaning |
 | --- | --- | --- |

@@ -1,14 +1,13 @@
 # Contract Changes: Event Form Flow
 
 The single contract is [`contracts/openapi.yaml`](../../../contracts/openapi.yaml) (Constitution I).
-This feature moves it from **1.25.0 to 1.26.0** (MINOR: optional request fields and an optional
+This feature moves it from **1.26.0 to 1.27.0** (MINOR: optional request fields and an optional
 `id` on `EventTierInput`; no response, operation, or error code changes), with
 `packages/shared/src/api-schema.ts` regenerated (`npm run generate:api`) and
 `node scripts/check-contract-drift.mjs` passing.
 
-**Version order**: `main` is 1.25.0 (spec `033`'s contract, merged with its spec PR). Open PR
-#153 (spec `034`) also takes 1.26.0. If that PR merges first, this branch rebases and takes
-1.27.0 on top, keeping both changes (research R10, R12). Feature 032's existing text on
+**Version order**: `main` is 1.26.0 (spec `034`'s contract, merged PR #153). This branch takes
+1.27.0 on top, keeping 034's changes (research R10, R12). Feature 032's existing text on
 `updateEvent` (the `CHECK_IN_DETAILS_REMOVED` rule) is left as it is.
 
 No new operation, so no `x-planned` marker. Until the implementation is on `main`, the Backend
@@ -17,7 +16,7 @@ fields (`400 VALIDATION_FAILED`). No client sends them before then, so `main` st
 
 | Where | Change |
 | --- | --- |
-| `info.version` | 1.25.0 → 1.26.0 |
+| `info.version` | 1.26.0 → 1.27.0 |
 | `updateEvent` description | New paragraphs **Feature 035**: optional `reservedSeating` and `tiers`, the complete new set, all or nothing; without them, exactly as before; `id` on a type keeps it; a type without `id` is created; an existing type left out is removed; sold-ticket and hold rules as today's separate operations; the order of checks (details as today, then seating and ticket types as `031`, then sold-ticket rules); which field a refusal is about, the same paths as `031`, plus `tiers.<i>.id` and a removal on `tiers` |
 | `createEvent` description | A sentence: `EventTierInput.id` is not allowed on a schedule (`400`, `tiers.<i>.id`) |
 | `EventUpdate` | New optional `reservedSeating` (boolean; left out with `tiers` is `false`) and `tiers` (array of `EventTierInput`, at most 50); neither may be sent as `null` |

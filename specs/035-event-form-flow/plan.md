@@ -15,13 +15,13 @@
 - **`updateEvent` takes the setup** (R8): optional `reservedSeating` and `tiers` (`EventTierInput`
   plus optional `id`) on `PATCH /events/{id}`; without them, unchanged. With them, one transaction
   saves the details, the complete ticket types, and the seating, or saves none of that request.
-  `id` is refused on `createEvent`. Contract 1.25.0 → 1.26.0, on `main` as it stands. If spec
-  `034` (PR #153) merges first, this branch rebases and takes 1.27.0 on top (research R10, R12).
+  `id` is refused on `createEvent`. Contract 1.26.0 → 1.27.0, on top of spec `034` (merged
+  PR #153, contract 1.26.0; research R10, R12).
 - **Tests** (R11): Backend integration on real PostgreSQL, every refused setup-update leaving the
   event unchanged, a failure after the first write, planner unit tests; Admin tests for the
   preview, totals, focus, locks, and one update request; one browser test that fills a layout.
-- **Constitution 3.9.6** (R12): roadmap row `035`, on top of `033`'s 3.9.5. Number 034 is reserved
-  by open PR #153 and is not claimed here.
+- **Constitution 3.9.7** (R12): roadmap row `035`, on top of `034`'s 3.9.6 (merged PR #153).
+  Both rows are kept. The next free number is 036.
 
 ## Technical Context
 
@@ -69,16 +69,16 @@ updated; constitution, contract, README, and dated notes in `031` (and `008` res
 
 | Principle | Check | Result |
 | --- | --- | --- |
-| I. Contract first | `updateEvent`'s request gains two optional fields; `EventTierInput` gains optional `id`, refused on `createEvent`; descriptions give the order of checks and the field paths; examples on `400` and `409`; `info.version` 1.25.0 → 1.26.0; `api-schema.ts` regenerated, drift check green. Responses and error codes unchanged. The Admin app types the update from the generated schema | Pass |
+| I. Contract first | `updateEvent`'s request gains two optional fields; `EventTierInput` gains optional `id`, refused on `createEvent`; descriptions give the order of checks and the field paths; examples on `400` and `409`; `info.version` 1.26.0 → 1.27.0; `api-schema.ts` regenerated, drift check green. Responses and error codes unchanged. The Admin app types the update from the generated schema | Pass |
 | II. One command | No Compose, seed, or environment change; `docker compose up --build` unchanged | Pass |
-| III. Spec-driven | Spec, plan, constitution row (3.9.6), and contract are in this spec PR (`035-event-form-flow-spec`); the implementation follows in a second PR (`035-event-form-flow-impl`), as Constitution III requires. Commits cite `035` and #134; `fixes #134` only in the implementation pull request description, never in a commit subject or body. Shared surface: the constitution, the contract, `api-schema.ts`, README (every member approves). A second-session independent review is recorded as still to do and is asked of Nathan in the pull request | Pass |
+| III. Spec-driven | Spec, plan, constitution row (3.9.7), and contract are in this spec PR (`035-event-form-flow-spec`); the implementation follows in a second PR (`035-event-form-flow-impl`), as Constitution III requires. Commits cite `035` and #134; `fixes #134` only in the implementation pull request description, never in a commit subject or body. Shared surface: the constitution, the contract, `api-schema.ts`, README (every member approves). A second-session independent review is recorded as still to do and is asked of Nathan in the pull request | Pass |
 | IV. Server-authoritative | Every rule of `004`, `005`, `007`, `015`, `016`, `031` applied by the Backend inside the update transaction; under concurrency guaranteed by the same locks and constraints as today's update, tier, and seating writes; the form's checks are a preview; the form keeps every value and shows the refusal beside its field | Pass |
 | V. Least privilege | `updateEvent` stays `queuepass-admin` only; `getEventAvailability` is already open to any signed-in caller; no role, token, or realm change | Pass |
 | VI. Test-first, real database | Integration tests on Testcontainers PostgreSQL written first: each refused setup-update leaves the event unchanged, a failure after the first write leaves it unchanged; Admin tests; a browser test (research R11) | Pass |
 | VII. Shared look | Sections, totals, and messages use the theme's headings, `field__hint`, and existing banners/status; no new visual design (Principle VII, the issue's usability work) | Pass |
 | VIII. Simplicity | Optional fields on the existing update; no new operation, error code, column, or dependency; no request key; #128, #130, #49, #44 stay their own issues; no control removed | Pass |
 
-Post-design: unchanged, all pass. Constitution amended to 3.9.6 (PATCH, roadmap row only).
+Post-design: unchanged, all pass. Constitution amended to 3.9.7 (PATCH, roadmap row only).
 
 ## Project Structure
 
@@ -87,7 +87,7 @@ Post-design: unchanged, all pass. Constitution amended to 3.9.6 (PATCH, roadmap 
 ```text
 specs/035-event-form-flow/
 ├── spec.md, plan.md, research.md (R1–R12), data-model.md, quickstart.md (S0–S8)
-├── contracts/README.md          # updateEvent's new fields, EventTierInput.id, 1.26.0
+├── contracts/README.md          # updateEvent's new fields, EventTierInput.id, 1.27.0
 ├── checklists/requirements.md
 └── tasks.md
 ```
@@ -95,11 +95,11 @@ specs/035-event-form-flow/
 ### Source Code
 
 ```text
-.specify/memory/constitution.md                # 3.9.6, the 035 row
-contracts/openapi.yaml                         # 1.26.0: EventUpdate.reservedSeating, .tiers,
+.specify/memory/constitution.md                # 3.9.7, the 035 row
+contracts/openapi.yaml                         # 1.27.0: EventUpdate.reservedSeating, .tiers,
                                                # EventTierInput.id, updateEvent text, examples
 packages/shared/src/api-schema.ts              # regenerated
-README.md                                      # 035 status row, v3.9.6
+README.md                                      # 035 status row, v3.9.7
 specs/031-atomic-event-create/spec.md          # dated notes: FR-013, Out of scope, banner rules
 specs/008-customer-event-search/research.md    # dated note on R10's edit sequence, if still current
 

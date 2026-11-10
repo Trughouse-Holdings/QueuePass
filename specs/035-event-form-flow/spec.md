@@ -19,8 +19,8 @@ on an edit (scheduling was made all or nothing in `031`, which left editing to t
 we want: a form that is significantly easier to use — each problem shown next to its field as soon
 as it happens, a live total of seats assigned versus the venue's seats, a flow that follows how
 admins think, and a save that creates or updates the whole event or nothing. The roadmap number is
-reserved by this PR's amendment (Constitution 3.9.6). Number 034 is already reserved by open PR
-#153 (spec `034-sell-until-end`).
+reserved by this PR's amendment (Constitution 3.9.7). Number 034 is already reserved by merged
+PR #153 (spec `034-sell-until-end`).
 
 ## Context
 
@@ -485,13 +485,12 @@ names), and there is no error banner at the top of the page. The typed values re
 - **The base price** stays what the form sends, the lowest ticket type price, as today.
 - **Availability and the seat map** are enough to show sold counts; this feature does not add
   `ticketsSold` to the event or ticket type in the contract.
-- **Coordination with work in flight**: spec `033` is on `main` (merged PR #152, constitution
-  3.9.5, contract 1.25.0). Open PR #153 (spec `034-sell-until-end`) reserves roadmap number 034
-  and contract 1.26.0. This feature uses 035 and, on `main` as it stands, takes constitution 3.9.6
-  and contract 1.26.0. If #153 merges first, this branch rebases and takes 3.9.7 and 1.27.0 on
-  top, keeping both rows and both contract changes. Spec `032` has an open implementation PR
-  (#151) this feature does not touch; it does not change the event form's save path. This work
-  also does not touch PR #153 or its branch.
+- **Coordination with work in flight**: specs `033` and `034` are on `main` (merged PRs #152 and
+  #153, constitution 3.9.6, contract 1.26.0). This feature uses 035 and takes constitution 3.9.7
+  and contract 1.27.0 on top, keeping both rows and both contract changes. Spec `032` has an open
+  implementation PR (#151) this feature does not touch; it does not change the event form's save
+  path. This work also does not touch PR #154 (impl 033), PR #151, or branch
+  `034-sell-until-end-impl`.
 - **#130** may later change how doors are picked; this form still sends `doorsOpenAt` as today.
 
 ## Out of scope
