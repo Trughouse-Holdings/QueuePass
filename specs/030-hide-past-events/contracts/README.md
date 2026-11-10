@@ -49,10 +49,17 @@ GET /events?includePast=yes
   "error": {
     "code": "VALIDATION_FAILED",
     "message": "Request validation failed.",
-    "details": { "fields": { "includePast": "includePast must be true or false" } }
+    "details": { "fields": ["includePast must be true or false"] }
   }
 }
 ```
 
-The `400` body is the existing `ValidationFailed` response, shaped as the contract's example; its
-exact wording is the global validation pipe's, as for every other query parameter.
+The `400` body is the existing `ValidationFailed` response: `details.fields` is the list of
+messages the validation produced (`backend/src/common/filters/prisma-exception.filter.ts`).
+
+Also in this PR (spec review round 1): the contract's four `VALIDATION_FAILED` examples
+(`ValidationFailed`, `EventTimeRejected`'s `validationFailed` and `noUtcOffset`, and
+`OrderRejected`'s `validationFailed`) showed `details.fields` as a map from field to message; the Backend sends
+a list of messages. They now show lists. Example text only; the schema (`details`, any object) and the
+version (1.22.0) are unchanged; `api-schema.ts` is regenerated, and only the `ValidationFailed`
+example in a doc comment changes.

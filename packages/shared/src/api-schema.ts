@@ -2068,10 +2068,10 @@ export interface components {
                  *         "code": "VALIDATION_FAILED",
                  *         "message": "Request validation failed.",
                  *         "details": {
-                 *           "fields": {
-                 *             "endsAt": "must be later than startsAt",
-                 *             "seatingCapacity": "must be a positive whole number"
-                 *           }
+                 *           "fields": [
+                 *             "endsAt must be later than startsAt",
+                 *             "seatingCapacity must be a positive whole number"
+                 *           ]
                  *         }
                  *       }
                  *     }

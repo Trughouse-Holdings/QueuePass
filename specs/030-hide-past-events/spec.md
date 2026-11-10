@@ -353,4 +353,7 @@ minute ago and one in progress; the first is left out only without it.
 - Dropping check-in details after an event (`#129`).
 - Pagination of the event list (`#43`).
 - Archiving, deleting, or otherwise changing past events: they are only left out of lists.
+- The entry code page itself (`/my-tickets/<ticket>/entry-code`, spec `018`): only its link is left out
+  under Past (FR-016); opened by its address it still shows a code, and the gate refuses that ticket as
+  ended (spec `025`).
 - Changing Reports, exports, or the Ticket Booth.

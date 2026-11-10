@@ -66,12 +66,18 @@ confirm they **fail** before the implementation tasks that follow.
   - `?includePast=true`: all four, soonest start first.
   - The boundary: an event created ending at a whole minute `E` in the future; `ctx.clock.set(E)` →
     left out; `ctx.clock.set(E - 1)` → listed (SC-003).
-  - Combined: `locationId` (each venue), `q` (the ended event's name: empty without the parameter,
-    the event with it), `from`/`to` around the ended event's start, `fromDate`/`toDate` on its local
-    date: each empty without `includePast`, the ended event with it.
-  - `includePast=TRUE`, `1`, `yes`, and `includePast=` (empty): `400 VALIDATION_FAILED` whose details
-    name `includePast`.
+  - Combined: `q` (the ended event's name) and `from`/`to` (a one-hour range around the ended event's
+    start): each **empty** without `includePast`, exactly the ended event with it. `locationId` (the
+    ended event's venue) and `fromDate`/`toDate` (the ended event's local date): without the parameter
+    the ended event is **absent**, with it **present**; assert only that, never the whole list, because
+    the venue and the day can also hold the in-progress or ahead event (near midnight, and under
+    `npm run test:tz`).
+  - `includePast=TRUE`, `1`, `yes`, and `includePast=` (empty): `400`, `res.body.error.code` is
+    `VALIDATION_FAILED` and `JSON.stringify(res.body.error)` contains `includePast` (as
+    `events.date-filter.e2e-spec.ts` asserts its refusals).
   - Admin, customer, and gate-agent tokens each get `200` with `includePast=true` and the past events.
+    Use the token helpers on `main` (`backend/test/setup/tokens.ts`) for each role; spec `028`'s
+    implementation (PR #145) rewrites them, so whichever of the two merges second adapts these calls.
   - `GET /events/{id}` of the ended event: `200`, the event.
   - Every `200` matches the contract (`expectToMatchContract(res, 'listEvents')`).
   Must fail (no parameter yet: `400` for `includePast`, and past events listed by default).
@@ -84,6 +90,8 @@ confirm they **fail** before the implementation tasks that follow.
   - Checking it: a new request with `includePast=true`, without pressing Search; the address has
     `past=1`; the ended event's row has the text "Ended", the others do not; the hidden note is gone.
   - Opened at `/events?past=1`: checked, and the first request has `includePast=true`.
+  - With the toggle on, typing `q` and pressing Search keeps `past=1` in the address (with `q`), and
+    the request has both `q` and `includePast=true`.
   - With `q` typed and searched and the toggle on, Clear empties `q` and keeps `past=1`.
   - Off, a search that returns nothing: the empty state names Show past events.
   - Venue page (`/locations/:id`): the same four behaviors for its own list (request has `locationId`,
@@ -111,8 +119,12 @@ confirm they **fail** before the implementation tasks that follow.
   Past. Only upcoming → no "Past" heading. No orders → "You have no tickets yet." Must fail.
 - [ ] T007 [US1] [US2] [US3] `e2e/tests/030-hide-past-events.spec.ts` (new; research R11), with the
   fixtures in `e2e/fixtures/` (`apiFor`/`apiAs`, `createVenue`, `createEvent`, `addTier`, the
-  per-worker accounts of `apps.ts`), its own venue with a unique name, and through the API an event
-  that ended an hour ago, one in progress, and one ahead, at times that keep 60 minutes apart:
+  per-worker accounts of `apps.ts`), its own venue with a unique name, and through the API three events
+  at it whose times keep the 60-minute rule between neighbours (`events.service.ts`, the scheduling
+  conflict check): **ended** from 5 hours ago to 2 hours ago, **in progress** from 30 minutes ago to 2
+  hours from now (90 minutes after the ended one's end), and **ahead** 7 days from now, 7:00 PM to 10:00
+  PM venue-local, each time sent in the venue's zone with its offset (spec `020`), as the existing
+  fixtures do:
   - `030 S1/S2: the Customer app leaves an ended event out of the list, a search, and its venue page, and its own page says it has ended`:
     the Events page, a search for the ended event's name, and the venue's page show the in-progress and
     ahead events and not the ended one; the ended event's page (by its id) shows its name and "This
@@ -135,21 +147,34 @@ confirm they **fail** before the implementation tasks that follow.
   systemClock }`. `backend/src/events/events.service.ts`: inject `@Inject(CLOCK) private readonly clock:
   Clock` as the constructor's third argument; in `findAll`, add `...(query.includePast === 'true' ? {} :
   { endsAt: { gt: new Date(this.clock.now()) } })` to `where`, with a comment citing FR-001, FR-002 and
-  research R1, R2. `backend/src/common/clock.ts`: its header says the event list's past rule reads it
-  too. `backend/test/unit/events.venue-moved.spec.ts`: pass `systemClock` as the third argument. T002
+  research R1, R2. `backend/src/common/clock.ts`: replace its header's sentence "this clock decides only
+  which live-code window is current" with one saying it decides which live-code window is current and,
+  from spec 030, which events the event list counts as past (research R2). `backend/test/unit/events.venue-moved.spec.ts`: pass `systemClock` as the third argument. T002
   passes.
-- [ ] T010 [US4] Run the Backend suite. Every existing integration test that now fails because the
-  events it lists have ended (fixed dates before the run, research R10) adds `includePast=true` to those
-  list requests (`?includePast=true`, or `&includePast=true` after its other filters) and nothing else;
-  a failure for any other reason is investigated, not patched. The commit names every file changed.
-  Suite green.
-- [ ] T011 Admin and Customer apps: any existing test that now meets the Ended label, the hidden note,
-  or My tickets' Past section only because its fixture's dates are behind the run (research R10) moves
-  the fixture ahead, or fixes the time, so it tests what it tested before. Name each in the commit.
-- [ ] T012 `e2e/tests/029-demo-checkpoint.spec.ts`, if `029`'s implementation has merged (or merges
-  before this PR): its `api.call<Event[]>('GET', '/events')` becomes `'/events?includePast=true'`, with
-  a comment citing spec 030 research R10. If `030` merges first, leave a note in `029`'s PR instead
-  (Mahdi's call). `029`'s quickstart text is unchanged (Season Opener's page still shows sales closed).
+- [ ] T010 [US4] Every Backend list request in a test whose events are on **fixed dates**, past or still
+  ahead, gains `includePast=true` (`?includePast=true`, or `&includePast=true` after its other
+  filters) and nothing else (research R10). Find them by searching, not by running: every
+  `get('/events` and ``get(`/events?`` under `backend/test`. On `main` at `b293dc5` that is
+  `events.crud.e2e-spec.ts` (lines 69, 84, 131, 156), `events.date-filter.e2e-spec.ts` (82; its `400`
+  cases at 116 too), `events.doors-open.e2e-spec.ts` (85; events ending 2026-11-21),
+  `events.price-precision.e2e-spec.ts` (58), `events.search.e2e-spec.ts` (49 to 102, including its 2026-12
+  and 2027 events), and `events.ticket-limit.e2e-spec.ts` (83); check each one's dates, and any added
+  since. `demo-data.e2e-spec.ts` (95, times relative to now) adds it only if it counts the demo's past
+  event; `venues-events.authz.e2e-spec.ts` (103, 113: status and contract only) stays. Then run the
+  suite: a failure is investigated, not patched. The commit names every file changed. Suite green.
+- [ ] T011 Admin and Customer apps: every existing test whose outcome now depends on the date (the
+  Ended label, the list under the hidden note, My tickets' Past section, the ended notice) fixes the
+  time with `vi.setSystemTime` (fake `Date` only) or builds its fixtures relative to the time it runs,
+  so it tests what it tested before, today and on any later date (research R10). Moving a fixed date
+  further ahead is not enough: it only puts the failure off. Name each in the commit.
+- [ ] T012 Spec `029` after `030` (research R10). `029`'s implementation (PR #144) is expected to merge
+  first, so this PR carries both changes (if it has not merged when this PR opens, ask Mahdi):
+  - `e2e/tests/029-demo-checkpoint.spec.ts`: its `api.call<Event[]>('GET', '/events')` becomes
+    `'/events?includePast=true'`, with a comment citing spec 030 research R10.
+  - `specs/029-demo-checkpoint/spec.md` US1 acceptance scenario 3 and `quickstart.md` S2 step 2: where
+    the customer sees Season Opener with sales closed, reword to open Season Opener's page by its link
+    (it is not listed after spec `030`), which shows "Sales closed". Text only; `029`'s Automation table
+    and test title are unchanged.
 
 ---
 
@@ -161,7 +186,8 @@ confirm they **fail** before the implementation tasks that follow.
 - [ ] T014 [US3] `admin-app/src/pages/EventList.tsx` (research R5, R6): `past` read from the address
   beside `q`, `venue`, `from`, `to`, but outside `KEYS`' "filtered" test and outside the search form's
   submit; a checkbox labelled "Show past events" that sets or removes `past=1` at once (keeping the other
-  keys); `clear` keeps `past`; `toApi` sends `includePast: true` when on; the time read when the events
+  keys); `apply()`, which today rebuilds the address from `KEYS` alone, carries `past` over from the
+  current address, so Search and Clear keep it (FR-008); `clear` keeps `past`; `toApi` sends `includePast: true` when on; the time read when the events
   arrive (kept with them, as My tickets' `loadedAt`); `<span className="pill">Ended</span>` after the
   name (after Cancelled when both) when `hasEnded`; while off, the subtitle adds "past events hidden" and
   the empty states add the hint naming Show past events. T003's Events page cases pass.
@@ -236,7 +262,39 @@ confirm they **fail** before the implementation tasks that follow.
 
 ## Review record (spec branch)
 
-_Left for the independent review session._
+- **Round 1** (independent Claude session, 2026-11-09): 1 must-fix, 5 should-fix, 4 nits; all fixed in
+  the `Review 030: spec review round 1` commit, and N1 (the roadmap row) in its own `Constitution:`
+  commit.
+  - M1: T010 fixed only the Backend tests failing today, so tests on dates still ahead
+    (`events.doors-open.e2e-spec.ts`, ending 2026-11-21; `events.search.e2e-spec.ts`'s 2026-12 and 2027
+    events) would fail later, one by one; and T011's "move the fixture ahead" only put failures off →
+    T010 adds `includePast=true` to **every** list request on fixed dates, found by search (the list as
+    of `b293dc5`); T011 fixes the time (`vi.setSystemTime`) or builds fixtures relative to now
+    (research R10, T010, T011).
+  - S1: T002's combined cases expected empty results for `locationId` and `fromDate`/`toDate`, but the
+    venue and the day can also hold the in-progress or ahead event (flaky near midnight and under
+    `test:tz`) → those assert the ended event absent without the parameter and present with it; "empty"
+    only for `q` and a narrow `from`/`to` (T002).
+  - S2: T007's events had no exact times and could break the 60-minute venue rule → ended −5 h to −2 h,
+    in progress −30 min to +2 h, ahead +7 days 7–10 PM local (T007).
+  - S3: the Admin Events page's `apply()` rebuilds the address from `KEYS` only, so Search and Clear
+    would drop `past=1` (FR-008) → R5 and T014 say `apply` carries `past` over; T003 gains "toggle on,
+    search, `past=1` still in the address" (research R5, T003, T014).
+  - S4: the `400` example showed `details.fields` as a map; the Backend sends a list of messages →
+    contracts/README.md corrected, and the contract's four `VALIDATION_FAILED` examples too (example
+    text only, still 1.22.0); T002 asserts as `events.date-filter.e2e-spec.ts` does,
+    `JSON.stringify(res.body.error)` contains `includePast` (contracts/README.md, T002).
+  - S5: spec `029`'s US1 scenario 3 and quickstart S2 step 2 have the customer see Season Opener in the
+    Customer list, which `030` removes → T012 (this feature's implementation, since PR #144 merges first)
+    rewords them to open its page by its link, beside the `includePast=true` lookup (research R10, T012).
+  - N1: constitution row `030` "Depends on" adds `002`, `019`, `020`.
+  - N2: T002 uses `main`'s token helpers for the gate agent; PR #145 (spec `028`) rewrites
+    `backend/test/setup/tokens.ts`, and whichever merges second adapts (T002).
+  - N3: T009 replaces `clock.ts`'s header sentence "decides only which live-code window is current"
+    rather than adding a line after it (research R2, T009).
+  - N4: `/my-tickets/<ticket>/entry-code` still opens by its address for a past ticket (only its link is
+    left out); the gate refuses the ticket as ended anyway → listed in spec Out of scope.
+- **Open findings**: none.
 
 ## Review record (implementation branch)
 

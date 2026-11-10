@@ -42,7 +42,9 @@ spec `018` research R3), provided in `EventsModule` as `{ provide: CLOCK, useVal
 as `EntryModule` does. The integration tests' `createTestApp()` already overrides `CLOCK` with a
 `FakeClock` for every module, so a test can set it to an event's `endsAt` exactly, and one
 millisecond before, and check both sides of the boundary (Constitution VI; SC-003).
-`clock.ts`'s header comment gains a line: the event list's past rule reads it too.
+`clock.ts`'s header sentence "this clock decides only which live-code window is current" is replaced:
+it decides which live-code window is current and, from spec `030`, which events the event list
+counts as past.
 
 **Why**: the boundary must be tested on both sides, which needs a clock a test can stop. The
 database's `now()` cannot be set per test, and `new Date()` cannot be either without fake timers in a
@@ -106,7 +108,9 @@ and exports read by event id. None of them use the event list, so none change (F
 **Decision**: a checkbox labelled **Show past events** on the Events page and the venue page. On, the
 page's address carries `past=1` beside the existing filters (`q`, `venue`, `from`, `to`); off, no
 `past` key. It applies at once when changed, without pressing Search, so it is outside the search
-form's submit; Clear clears `q`, `venue`, `from`, and `to` and keeps `past`. The search form's
+form's submit; Clear clears `q`, `venue`, `from`, and `to` and keeps `past`. The Events page's
+`apply()` today rebuilds the address from `KEYS` alone, so Search and Clear would drop `past=1`; it
+must carry `past` over from the current address (FR-008). The search form's
 "filtered" state (which picks "No events match these filters" over "No events scheduled") does not
 count it. While it is off the page says past events are hidden: the Events page's subtitle reads,
 for example, "3 events scheduled · past events hidden", and the venue page's events section a line
@@ -197,21 +201,29 @@ the venue page says past events are hidden, and its toggle shows them (spec Edge
 
 ## R10. Existing tests and work in flight
 
-- **Backend tests with fixed dates.** Many integration tests create events on fixed dates that are now
-  behind us (2026-04 to 2026-10 in `events.search.e2e-spec.ts`, `events.date-filter.e2e-spec.ts`,
-  `events.crud.e2e-spec.ts`, and others) and then list them. With the default changed they would get
-  nothing. Each list request in those tests that is not about past events gains `includePast=true`, so
-  they keep testing what they test; no assertion otherwise changes (tasks T010). They are found by
-  running the Backend suite after T009; the commit names each file.
-- **Front-end tests** mock the API, so the default does not reach them; the Admin and Customer tests
-  that build events with fixed past dates and now meet the Ended label or My tickets' Past section
-  are updated the same way: the fixture's date moves ahead, or the test sets the time (T011).
+- **Backend tests with fixed dates.** Many integration tests create events on fixed dates and then
+  list them. Some are already behind us (2026-04 to 2026-10 in `events.search.e2e-spec.ts`,
+  `events.date-filter.e2e-spec.ts`, `events.crud.e2e-spec.ts`); others are still ahead but will pass
+  soon (`events.doors-open.e2e-spec.ts`, ending 2026-11-21; `events.search.e2e-spec.ts`'s 2026-12
+  event). Fixing only the tests that fail today would leave the rest to fail later, one by one, on
+  their dates. So **every** list request (`get('/events…')`) in a test whose events are on fixed dates
+  gains `includePast=true`, whether it fails today or not; they are found by searching the tests, not
+  by running them (tasks T010). A list request whose events are made relative to now is left as it is
+  unless it relies on a past event being listed (the demo data's past event, `029`). No assertion
+  otherwise changes; the commit names each file.
+- **Front-end tests** mock the API, so the Backend's default does not reach them. But wherever an Admin
+  or Customer test's outcome now depends on the date (the Ended label, the hidden note's list, My
+  tickets' Past section, the ended notice), the test fixes the time (`vi.setSystemTime`) or builds its
+  fixtures relative to the time it runs (T011). Moving a fixed date further ahead would only put the
+  failure off to that date.
 - **Spec `029` (demo checkpoint)**, implementation branch `029-demo-checkpoint-impl` (not merged at
   the time of writing): its browser test `029 S2` reads `GET /events` to find Season Opener, the demo's
   past event, by name. After `030` that list leaves it out, so the test asks with
-  `?includePast=true`. Whichever merges second makes the change (T012). Its quickstart's "the Customer
-  app shows Season Opener with sales closed" stays true on the event's page; Season Opener is no
-  longer in the Customer list, as `030` intends.
+  `?includePast=true`. `029`'s implementation (PR #144) is expected to merge first, so `030`'s
+  implementation PR carries the change (T012). It also rewords `029`'s text that has the customer find
+  Season Opener in the Customer app's list (spec `029` US1 scenario 3, quickstart S2 step 2): after
+  `030` it is not listed, so the customer opens Season Opener's page by its link, where it still shows
+  sales closed (T012).
 - **`#126` (sell until the event ends)**, not yet specified: the same boundary, `endsAt`. An event in
   progress is listed (here) and will be on sale (there). `030` does not touch the Get tickets panel, the
   `salesClosed` values, or the sales rules, so `#126` changes them without meeting this feature.
@@ -245,8 +257,9 @@ the venue page says past events are hidden, and its toggle shows them (spec Edge
   and one in progress does not; My tickets splits by `loadedAt`, keeps every order, leaves "Show entry
   code" out under Past and keeps "Print ticket", and its empty states.
 - **Browser** (`e2e/tests/030-hide-past-events.spec.ts`, against the Compose stack; spec `022`): the test
-  makes its own venue and, through the API, an event that ended an hour ago, one in progress, and one
-  ahead (the Backend accepts past times on create). `030 S1/S2`: the Customer app's list, a search for
+  makes its own venue and, through the API, an event that ended 2 hours ago (5 to 2 hours ago), one in
+  progress (30 minutes ago to 2 hours ahead), and one 7 days ahead, so neighbours keep the 60-minute
+  rule (the Backend accepts past times on create; tasks T007). `030 S1/S2`: the Customer app's list, a search for
   the past event's name, and its venue's page do not show it, and the other two are shown; its page
   opens with "This event has ended." `030 S4/S6`: the Admin Events page does not list it; with Show past
   events on it is listed with Ended; reloading keeps it; its page shows Ended, and its attendees page
