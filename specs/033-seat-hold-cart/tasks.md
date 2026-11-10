@@ -270,7 +270,7 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   time.
 - [x] T027 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, research.md, and the contract; fix the findings; record the round here.
-  **Done**: code review rounds 1 and 2 on PR #154, recorded below, every finding fixed.
+  **Done**: code review rounds 1 to 3 on PR #154, recorded below, every finding fixed.
 - [ ] T028 Running-system walk, quickstart S0–S11, on a stack of its own (`-p qp033`) or path B with
   Mahdi's go for the team stack's ports (ground rules), in a browser and with a screen reader or the
   accessibility tree for S1 and S2; record each scenario's result here (Constitution VI smoke test).
@@ -414,3 +414,18 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   - N5: `026 S2` checks the shown wait against the click's own `429` (`retryAfterSeconds`), not
     against 5 seconds, and waits for it to end accordingly.
   - After round 2: the Customer app suite three times, 403/403 each (28 files; lines 98.04%).
+- **Round 3** (code review on PR #154, 2026-11-10): verdict "only minor findings remain"; 1
+  should-fix and 4 nits. All fixed in the `Review 033: code review round 3` commit, the should-fix
+  test first (seen failing).
+  - S1 (FR-017): the page's own read of the seat map, made on a refusal or no answer even with the
+    stream live, could cover a newer change the stream applied while it was in flight → the read
+    notes the stream's map when it starts and drops its answer if the stream changed meanwhile.
+    Test: `seat-stream.test.tsx` "drops a seat map read that the stream changed while it was in
+    flight".
+  - N2: before the first map the form is not shown, so no click reads the map: the loading and
+    failed checks look at the stream's map alone, as a comment now says.
+  - N3: a reload of what is left or of the tiers that fails also keeps the last good answer on
+    screen, not only one in flight.
+  - N4: the cart's failure count is computed outside the state updater (a ref holds the counts).
+  - N5: a confirmation for an entry without its event's details says "this event". Test.
+

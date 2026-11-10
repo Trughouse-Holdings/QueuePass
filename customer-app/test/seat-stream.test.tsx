@@ -186,6 +186,32 @@ describe('live seat map (US3; FR-010)', () => {
     expect(seatButton(4)).toHaveFocus();
   });
 
+  it('drops a seat map read that the stream changed while it was in flight (review round 3, S1)', async () => {
+    let reads = 0;
+    let answer: (r: Response) => void = () => undefined;
+    const { stream } = setup({
+      'GET /events/e1/seats': () =>
+        reads++ === 0 ? json(seatMap()) : new Promise<Response>((r) => (answer = r)),
+      'POST /events/e1/reservation': () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+    await live(stream);
+
+    // No answer to a hold: the map is read again.
+    fireEvent.click(seatButton(2));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/didn.t go through/);
+    await waitFor(() => expect(reads).toBe(2));
+
+    // The stream says seat 5 is now reserved, then the older read answers with it open.
+    act(() => stream.send('seats', changes([5, 'reserved'])));
+    await waitFor(() => expect(seatButton(5)).toHaveAttribute('aria-disabled', 'true'));
+    await act(async () => answer(json(seatMap())));
+
+    expect(seatButton(5)).toHaveAccessibleName('Row 1, Seat 5, reserved');
+    expect(seatButton(5)).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('marks a seat a reconnect snapshot shows as taken, keeping it focusable (FR-011, T047)', async () => {
     const { stream, calls } = setup();
     await live(stream);

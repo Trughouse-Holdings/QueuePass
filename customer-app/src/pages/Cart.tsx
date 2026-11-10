@@ -78,6 +78,7 @@ export function Cart() {
   const requested = useRef(new Set<string>());
   // Review round 2 (S2): an event's failed reads, and when it may be read again (1, 2, 4 … 10 s).
   const [failures, setFailures] = useState<Record<string, number>>({});
+  const failuresRef = useRef<Record<string, number>>({});
   const retryAt = useRef(new Map<string, number>());
 
   const nameOf = (eventId: string): string => {
@@ -230,11 +231,10 @@ export function Cart() {
     /** A failed read: tried again after 1, 2, 4, … seconds, at most 10, with the reads. */
     const failed = (eventId: string): void => {
       requested.current.delete(eventId);
-      setFailures((all) => {
-        const n = (all[eventId] ?? 0) + 1;
-        retryAt.current.set(eventId, performance.now() + Math.min(1_000 * 2 ** (n - 1), 10_000));
-        return { ...all, [eventId]: n };
-      });
+      const n = (failuresRef.current[eventId] ?? 0) + 1;
+      failuresRef.current = { ...failuresRef.current, [eventId]: n };
+      retryAt.current.set(eventId, performance.now() + Math.min(1_000 * 2 ** (n - 1), 10_000));
+      setFailures(failuresRef.current);
     };
     for (const e of entries ?? []) {
       const eventId = e.reservation.eventId;
@@ -355,7 +355,8 @@ export function Cart() {
                 drop(entry.reservation);
                 setConfirmed((all) => [
                   ...all,
-                  { eventName: info?.event.name ?? DETAILS_UNAVAILABLE, order },
+                  // Review round 3 (N5): without its details, the event is "this event".
+                  { eventName: info?.event.name ?? 'this event', order },
                 ]);
               }}
               onRanOut={() => ranOut(entry.reservation)}

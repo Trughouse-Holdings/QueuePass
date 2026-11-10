@@ -178,8 +178,11 @@ export function GetTickets({ event }: { event: Event }) {
   const seatMap = mapRead ?? live.map;
   const mapRef = useRef<StreamSeatMap | null>(null);
   mapRef.current = seatMap;
-  // What is left and the tiers, as last loaded: a reload keeps them on screen meanwhile, so the
-  // form is never redrawn after the first load (review round 2, S1).
+  // The stream's own map, to tell whether it changed while a read of the map was in flight.
+  const streamMap = useRef<StreamSeatMap | null>(null);
+  streamMap.current = live.map;
+  // What is left and the tiers, as last loaded: a reload keeps them on screen meanwhile, and if
+  // it fails, so the form is never redrawn after the first load (review rounds 2 and 3, S1).
   const lastAvailability = useRef<Availability | null>(null);
   if (availability.kind === 'ok') lastAvailability.current = availability.data;
   const lastTiers = useRef<TicketTier[] | null>(null);
@@ -194,9 +197,12 @@ export function GetTickets({ event }: { event: Event }) {
   /** Reads the seat map again, keeping the one shown until the answer comes. */
   const readMap = async (): Promise<void> => {
     if (!event.reservedSeating) return;
+    const before = streamMap.current;
     try {
       const { data, response } = await api.GET('/events/{id}/seats', { params: { path: { id } } });
-      if (response.ok && data) setMapRead(data);
+      // A change the stream applied meanwhile is newer than this answer: the answer is dropped
+      // (review round 3, S1).
+      if (response.ok && data && streamMap.current === before) setMapRead(data);
     } catch {
       // The stream, or the next refusal, brings it.
     }
@@ -361,19 +367,17 @@ export function GetTickets({ event }: { event: Event }) {
     return () => clearInterval(timer);
   }, [reservation]);
 
+  // Before the first map the form is not shown, so no click reads the map; the stream (or a
+  // reload of the page) is what brings it. So these look at the stream's map alone (review
+  // round 3, N2).
   const seatsLoading =
     event.reservedSeating &&
     live.map === null &&
     (live.status === 'loading' || live.status === 'connecting');
   const seatsFailed = event.reservedSeating && live.map === null && !seatsLoading;
-  const leftNow =
-    availability.kind === 'ok'
-      ? availability.data
-      : availability.kind === 'loading'
-        ? lastAvailability.current
-        : null;
-  const tiersNow =
-    tiers.kind === 'ok' ? tiers.data : tiers.kind === 'loading' ? lastTiers.current : null;
+  // A reload in flight, or one that failed, keeps the last good answer (review round 3, N3).
+  const leftNow = availability.kind === 'ok' ? availability.data : lastAvailability.current;
+  const tiersNow = tiers.kind === 'ok' ? tiers.data : lastTiers.current;
   if (
     (availability.kind === 'loading' && leftNow === null) ||
     (tiers.kind === 'loading' && tiersNow === null) ||

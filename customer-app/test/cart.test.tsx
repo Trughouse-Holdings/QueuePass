@@ -549,7 +549,9 @@ describe('live (FR-017; research R8)', () => {
 
     await typeHolderName();
     fireEvent.click(within(box).getByRole('button', { name: 'Buy tickets' }));
-    await screen.findByRole('region', { name: 'Order confirmed' });
+    const done = await screen.findByRole('region', { name: 'Order confirmed' });
+    // Review round 3 (N5): the event is "this event", not "Details unavailable".
+    expect(within(done).getByText('this event')).toBeInTheDocument();
     expect(calls.find((c) => c.path === '/events/e1/orders')?.body).toEqual({
       tierId: 't-vip',
       holderName: 'Jordan Lee',
