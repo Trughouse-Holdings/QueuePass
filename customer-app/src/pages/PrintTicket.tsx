@@ -9,7 +9,8 @@ import { useLoad } from '../use-load';
  * Spec 017 US5 (FR-012, FR-013): one ticket on one printed page — the QR code, the code in text
  * for typing at the gate, the holder's name, the event, venue, start time, and seat. It reads
  * the caller's own orders, so it shows only their tickets. A used or void ticket has no printable
- * view: its link is never offered, and this page refuses a direct visit too.
+ * view: its link is never offered, and this page refuses a direct visit too. Spec 032 FR-014: nor
+ * has a ticket of an event whose check-in details were removed.
  */
 export function PrintTicket() {
   const { ticketId = '' } = useParams();
@@ -28,7 +29,11 @@ export function PrintTicket() {
       </section>
     );
   }
-  if (ticket.status !== 'VALID' || ticket.checkedInAt !== null) {
+  if (
+    ticket.status !== 'VALID' ||
+    ticket.checkedInAt !== null ||
+    order.event.checkInDetailsRemovedAt
+  ) {
     return (
       <section>
         <p>This ticket can&apos;t be printed.</p>

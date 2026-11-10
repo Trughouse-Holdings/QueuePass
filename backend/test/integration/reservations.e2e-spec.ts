@@ -1,4 +1,5 @@
 import type { Response } from 'supertest';
+import { expectToMatchContract } from '../contract/expect-to-match-contract';
 import { anon, as, asAdmin } from '../setup/authed-request';
 import { atInstant, customer, event, HOLDER, holdSeats, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
@@ -338,6 +339,75 @@ describe('Seat reservations', () => {
         expect(res.status).toBe(403);
       }
       await anon(ctx).post(`/events/${eventId}/reservation/release`).send().expect(401);
+    });
+  });
+
+  /**
+   * Spec 033 (quickstart S10; FR-003, FR-004, FR-006, FR-019): the requests the Customer app sends
+   * as a customer clicks seats, one seat per request, one at a time. Every response is also checked
+   * against the contract here, by name, beside the request helpers' own check.
+   */
+  describe('click by click (spec 033)', () => {
+    it('holds, adds, releases, holds again at once, ends, waits, starts anew, and buys', async () => {
+      const eventId = await tierless();
+      const click = async (s: number) => {
+        const res = await reserve(eventId, [seat(sectionA, 1, s)]);
+        expectToMatchContract(res, 'reserveSeats');
+        return res;
+      };
+      const unclick = async (s: number) => {
+        const res = await release(eventId, [seat(sectionA, 1, s)]);
+        expectToMatchContract(res, 'releaseSeats');
+        return res;
+      };
+      const seatsOf = (res: Response): number[] =>
+        (res.body.reservation ?? res.body).seats.map((s: { seat: number }) => s.seat);
+
+      const first = await click(5);
+      expect(first.status).toBe(201);
+      const { expiresAt } = first.body;
+
+      const second = await click(6);
+      expect(second.status).toBe(200);
+      expect(second.body.expiresAt).toBe(expiresAt);
+
+      const released = await unclick(6);
+      expect(released.status).toBe(200);
+      expect(seatsOf(released)).toEqual([5]);
+      expect(released.body.reservation.expiresAt).toBe(expiresAt);
+
+      const again = await click(6);
+      expect(again.status).toBe(200);
+      expect(again.body.expiresAt).toBe(expiresAt);
+      expect(seatsOf(again)).toEqual([5, 6]);
+
+      expect((await unclick(5)).status).toBe(200);
+      const last = await unclick(6);
+      expect(last.status).toBe(200);
+      expect(last.body.reservation).toBeNull();
+
+      const waiting = await click(5);
+      expect(waiting.status).toBe(409);
+      expect(code(waiting)).toBe('SEAT_COOLDOWN');
+
+      const before = Date.now();
+      const fresh = await click(8);
+      expect(fresh.status).toBe(201);
+      expect(fresh.body.expiresAt).not.toBe(expiresAt);
+      expect(Date.parse(fresh.body.expiresAt) - Date.parse(fresh.body.createdAt)).toBe(300_000);
+      expect(Date.parse(fresh.body.expiresAt)).toBeGreaterThanOrEqual(before + 300_000 - 5_000);
+      expect(seatsOf(fresh)).toEqual([8]);
+
+      const bought = await (
+        await customer(ctx)
+      )
+        .post(`/events/${eventId}/orders`)
+        .send({ holderName: HOLDER, quantity: 1, seats: [seat(sectionA, 1, 8)] });
+      expectToMatchContract(bought, 'createOrder');
+      expect(bought.status).toBe(201);
+      const mine = await (await customer(ctx)).get('/me/reservations').expect(200);
+      expectToMatchContract(mine, 'listMyReservations');
+      expect(mine.body).toEqual([]);
     });
   });
 

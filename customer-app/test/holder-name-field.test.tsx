@@ -157,32 +157,41 @@ describe('the seated flow (US4-4)', () => {
     secondsLeft: 300,
   };
 
-  it('sends holderName with a seated order too', async () => {
-    const { calls } = stubApi({
-      'GET /events/e1': json(event({ reservedSeating: true })),
-      'GET /events/e1/tiers': json([vip]),
-      'GET /events/e1/availability': json(
-        availability({ ticketsLeft: 12, tiers: [{ tierId: 't-vip', ticketsLeft: 12 }] }),
-      ),
-      'GET /events/e1/seats': json(seatMap),
-      'GET /me/reservations': json([]),
-      'POST /events/e1/reservation': json(reservation, 201),
-      'POST /events/e1/orders': json(
-        order({ tierId: 't-vip', tierName: 'VIP', quantity: 1, holderName: 'Jordan Lee' }),
-        201,
-      ),
-    });
+  const seatedRoutes = (extra: Record<string, Response> = {}) => ({
+    'GET /events/e1': json(event({ reservedSeating: true })),
+    'GET /events/e1/tiers': json([vip]),
+    'GET /events/e1/availability': json(
+      availability({ ticketsLeft: 12, tiers: [{ tierId: 't-vip', ticketsLeft: 12 }] }),
+    ),
+    'GET /events/e1/seats': json(seatMap),
+    'GET /me/reservations': json([reservation]),
+    ...extra,
+  });
+
+  it('asks for no name on the event page of a seated event (spec 033 FR-013)', async () => {
+    stubApi(seatedRoutes());
     renderCustomer({ at: '/events/e1' });
 
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Row 1, Seat 1(,|$)/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Reserve seats' }));
     await screen.findByRole('timer');
+    expect(screen.queryByRole('textbox', { name: /Name on tickets/ })).toBeNull();
+  });
 
+  it('sends holderName with a seated order too, from the cart (spec 033 FR-013)', async () => {
+    const { calls } = stubApi(
+      seatedRoutes({
+        'POST /events/e1/orders': json(
+          order({ tierId: 't-vip', tierName: 'VIP', quantity: 1, holderName: 'Jordan Lee' }),
+          201,
+        ),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+
+    expect(await nameField()).toHaveAccessibleDescription(HINT);
     fireEvent.change(await nameField(), { target: { value: 'Jordan Lee' } });
-    const confirm = screen.getByRole('button', { name: 'Confirm purchase' });
-    expect(confirm).toBeEnabled();
-    fireEvent.click(confirm);
+    const buy = await screen.findByRole('button', { name: 'Buy tickets' });
+    expect(buy).toBeEnabled();
+    fireEvent.click(buy);
 
     expect(await screen.findByRole('heading', { name: 'Order confirmed' })).toBeInTheDocument();
     const orderPost = calls.find((c) => c.method === 'POST' && c.path === '/events/e1/orders');
@@ -193,24 +202,35 @@ describe('the seated flow (US4-4)', () => {
     });
   });
 
-  it('keeps Confirm purchase disabled without a name', async () => {
-    stubApi({
-      'GET /events/e1': json(event({ reservedSeating: true })),
-      'GET /events/e1/tiers': json([vip]),
-      'GET /events/e1/availability': json(
-        availability({ ticketsLeft: 12, tiers: [{ tierId: 't-vip', ticketsLeft: 12 }] }),
-      ),
-      'GET /events/e1/seats': json(seatMap),
-      'GET /me/reservations': json([]),
-      'POST /events/e1/reservation': json(reservation, 201),
-    });
-    renderCustomer({ at: '/events/e1' });
+  it('keeps Buy tickets disabled without a name', async () => {
+    stubApi(seatedRoutes());
+    renderCustomer({ at: '/cart' });
 
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Row 1, Seat 1(,|$)/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Reserve seats' }));
-    await screen.findByRole('timer');
+    expect(await screen.findByRole('button', { name: 'Buy tickets' })).toBeDisabled();
+  });
 
-    expect(screen.getByRole('button', { name: 'Confirm purchase' })).toBeDisabled();
+  it("shows the Backend's HOLDER_NAME_INVALID in the cart, with the name kept", async () => {
+    stubApi(
+      seatedRoutes({
+        'POST /events/e1/orders': json(
+          {
+            error: {
+              code: 'HOLDER_NAME_INVALID',
+              message: 'The name on tickets must be 2 to 100 characters.',
+            },
+          },
+          400,
+        ),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+
+    fireEvent.change(await nameField(), { target: { value: 'Jordan Lee' } });
+    fireEvent.click(await screen.findByRole('button', { name: 'Buy tickets' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'The name on tickets must be 2 to 100 characters.',
+    );
+    expect(await nameField()).toHaveValue('Jordan Lee');
   });
 });

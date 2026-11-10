@@ -21,6 +21,8 @@ interface EventSalesResponse {
   ticketCapacity: number;
   ticketsSold: number;
   checkedIn: number;
+  /** Spec 032 FR-009: when the event's check-in details were removed, or `null`. */
+  checkInDetailsRemovedAt: Date | null;
   revenue: string;
   tiers: TierSalesResponse[];
 }
@@ -91,7 +93,14 @@ export class ReportsService {
     const rows = events.map((e): EventSalesResponse => {
       const eventSold = sumFor(soldBy, e.id, (a, b) => a + b, 0);
       const eventRevenue = sumFor(revenueBy, e.id, (a, b) => a.add(b), ZERO);
-      const eventChecked = checkedBy.get(e.id) ?? 0;
+      // Spec 032 FR-009 (research R4): 0 when cancelled (its tickets are void), else the count kept
+      // at the removal once the details are gone, else the live count.
+      const eventChecked =
+        e.status === 'CANCELLED'
+          ? 0
+          : e.checkInDetailsRemovedAt !== null
+            ? (e.keptCheckedInCount ?? 0)
+            : (checkedBy.get(e.id) ?? 0);
 
       if (e.status === 'SCHEDULED') {
         totals.events += 1;
@@ -112,6 +121,7 @@ export class ReportsService {
         ticketCapacity: e.totalTicketCapacity,
         ticketsSold: eventSold,
         checkedIn: eventChecked,
+        checkInDetailsRemovedAt: e.checkInDetailsRemovedAt,
         revenue: eventRevenue.toFixed(2),
         tiers: e.tiers.map((t) => ({
           tierId: t.id,

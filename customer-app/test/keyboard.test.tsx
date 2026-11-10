@@ -1,10 +1,11 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { SeatMap } from '@queuepass/shared';
 import {
   availability,
   event,
+  holdBackend,
   json,
   renderCustomer,
   stubApi,
@@ -66,6 +67,8 @@ describe('keyboard', () => {
         availability({ ticketsLeft: 2, tiers: [{ tierId: 't-vip', ticketsLeft: 2 }] }),
       ),
       'GET /events/e1/seats': json(map),
+      // Spec 033: a seat pressed is held at once.
+      ...holdBackend().routes,
     });
     renderCustomer({ at: '/events/e1' });
 
@@ -75,15 +78,16 @@ describe('keyboard', () => {
     expect(vip).toBeChecked();
 
     await user.tab();
-    // Spec 017: the Name on tickets field sits between the tiers and the section choice.
-    expect(screen.getByRole('textbox', { name: 'Name on tickets' })).toHaveFocus();
-    await user.tab();
+    // Spec 033 FR-013: a seated event asks for the name in the cart, not here.
     expect(screen.getByRole('combobox', { name: 'Section' })).toHaveFocus();
     await user.tab();
     const first = screen.getByRole('button', { name: 'Row 1, Seat 1' });
     expect(first).toHaveFocus();
     await user.keyboard(' ');
     expect(first).toHaveAttribute('aria-pressed', 'true');
+    // Held, and the focus stays on the seat (spec 033 FR-016).
+    await waitFor(() => expect(first).toHaveAccessibleName('Row 1, Seat 1, reserved by you'));
+    expect(first).toHaveFocus();
 
     await user.tab();
     expect(screen.getByRole('button', { name: 'Row 1, Seat 3' })).toHaveFocus();

@@ -24,7 +24,10 @@ describe('AttemptLimitsService', () => {
 
   beforeEach(() => {
     t = T;
-    service = new AttemptLimitsService({ perMinute: 10, perFiveSeconds: 3 }, clock);
+    service = new AttemptLimitsService(
+      { BUY: { perMinute: 10, perFiveSeconds: 3 }, HOLD: { perMinute: 10, perFiveSeconds: 3 } },
+      clock,
+    );
     warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
   });
   afterEach(() => {
@@ -153,6 +156,29 @@ describe('AttemptLimitsService', () => {
     for (let i = 0; i < 3; i++) expect(at(T, 'sub-b', 'HOLD')).toEqual(ok);
   });
 
+  it("uses each kind's own pair (spec 033 FR-008, research R5)", () => {
+    const own = new AttemptLimitsService(
+      { BUY: { perMinute: 10, perFiveSeconds: 3 }, HOLD: { perMinute: 30, perFiveSeconds: 10 } },
+      clock,
+    );
+    t = T;
+    for (let i = 0; i < 10; i++) expect(own.tryAttempt('sub-a', 'HOLD')).toEqual(ok);
+    expect(own.tryAttempt('sub-a', 'HOLD')).toEqual(wait(5));
+    expect(warn.mock.calls.at(-1)?.[0]).toBe(
+      'Attempt limit: customer sub-a over the HOLD allowance (10 in 5 seconds); try again in 5 s.',
+    );
+    for (let i = 0; i < 3; i++) expect(own.tryAttempt('sub-a', 'BUY')).toEqual(ok);
+    expect(own.tryAttempt('sub-a', 'BUY')).toEqual(wait(5));
+    // The minute: 30 holds spread 10 per 5 seconds, then the 31st waits for the oldest's minute.
+    for (const ms of [T + 5_000, T + 10_000]) {
+      t = ms;
+      for (let i = 0; i < 10; i++) expect(own.tryAttempt('sub-a', 'HOLD')).toEqual(ok);
+    }
+    t = T + 20_000;
+    expect(own.tryAttempt('sub-a', 'HOLD')).toEqual(wait(40));
+    expect(warn.mock.calls.at(-1)?.[0]).toContain('(30 in 60 seconds)');
+  });
+
   describe('memory (research R3)', () => {
     it('deletes a key with no time left in the last minute', () => {
       expect(at(T, 'sub-a')).toEqual(ok);
@@ -251,7 +277,10 @@ describe('AttemptLimitGuard (research R1)', () => {
         getResponse: () => ({ setHeader: jest.fn() }),
       }),
     }) as unknown as ExecutionContext;
-  const service = new AttemptLimitsService({ perMinute: 10, perFiveSeconds: 3 }, { now: () => 0 });
+  const service = new AttemptLimitsService(
+    { BUY: { perMinute: 10, perFiveSeconds: 3 }, HOLD: { perMinute: 30, perFiveSeconds: 10 } },
+    { now: () => 0 },
+  );
   const guard = new AttemptLimitGuard(new Reflector(), service);
 
   it('lets every unmarked handler through untouched', () => {
@@ -270,29 +299,53 @@ describe('AttemptLimitGuard (research R1)', () => {
   });
 });
 
-describe('attemptLimitsFromEnv (FR-017, research R5)', () => {
-  it('defaults to 10 a minute and 3 in 5 seconds when unset', () => {
-    expect(attemptLimitsFromEnv({})).toEqual({ perMinute: 10, perFiveSeconds: 3 });
+describe('attemptLimitsFromEnv (spec 026 FR-017, spec 033 FR-008, research R5)', () => {
+  const BUY = { perMinute: 10, perFiveSeconds: 3 };
+  const HOLD = { perMinute: 30, perFiveSeconds: 10 };
+
+  it('defaults to 10 and 3 for buying and 30 and 10 for holding when unset', () => {
+    expect(attemptLimitsFromEnv({})).toEqual({ BUY, HOLD });
   });
 
-  it('reads whole numbers', () => {
+  it('reads each of the four settings', () => {
     expect(attemptLimitsFromEnv({ RATE_LIMIT_PER_MINUTE: '7' })).toEqual({
-      perMinute: 7,
-      perFiveSeconds: 3,
+      BUY: { perMinute: 7, perFiveSeconds: 3 },
+      HOLD,
     });
     expect(attemptLimitsFromEnv({ RATE_LIMIT_PER_5_SECONDS: '2' })).toEqual({
-      perMinute: 10,
-      perFiveSeconds: 2,
+      BUY: { perMinute: 10, perFiveSeconds: 2 },
+      HOLD,
+    });
+    expect(attemptLimitsFromEnv({ RATE_LIMIT_HOLD_PER_MINUTE: '40' })).toEqual({
+      BUY,
+      HOLD: { perMinute: 40, perFiveSeconds: 10 },
+    });
+    expect(attemptLimitsFromEnv({ RATE_LIMIT_HOLD_PER_5_SECONDS: '4' })).toEqual({
+      BUY,
+      HOLD: { perMinute: 30, perFiveSeconds: 4 },
     });
     expect(
-      attemptLimitsFromEnv({ RATE_LIMIT_PER_MINUTE: '10', RATE_LIMIT_PER_5_SECONDS: '10' }),
-    ).toEqual({ perMinute: 10, perFiveSeconds: 10 });
+      attemptLimitsFromEnv({
+        RATE_LIMIT_PER_MINUTE: '10',
+        RATE_LIMIT_PER_5_SECONDS: '10',
+        RATE_LIMIT_HOLD_PER_MINUTE: '12',
+        RATE_LIMIT_HOLD_PER_5_SECONDS: '12',
+      }),
+    ).toEqual({
+      BUY: { perMinute: 10, perFiveSeconds: 10 },
+      HOLD: { perMinute: 12, perFiveSeconds: 12 },
+    });
   });
 
   it.each(['0', '-1', '1.5', 'abc', '', ' 3', '03', '1e3', '99999999999999999999'])(
-    'refuses %j for either setting, naming it and quoting the value',
+    'refuses %j for any of the four settings, naming it and quoting the value',
     (value) => {
-      for (const name of ['RATE_LIMIT_PER_MINUTE', 'RATE_LIMIT_PER_5_SECONDS']) {
+      for (const name of [
+        'RATE_LIMIT_PER_MINUTE',
+        'RATE_LIMIT_PER_5_SECONDS',
+        'RATE_LIMIT_HOLD_PER_MINUTE',
+        'RATE_LIMIT_HOLD_PER_5_SECONDS',
+      ]) {
         expect(() => attemptLimitsFromEnv({ [name]: value })).toThrow(
           new Error(`${name} must be a whole number of at least 1, got '${value}'`),
         );
@@ -304,12 +357,22 @@ describe('attemptLimitsFromEnv (FR-017, research R5)', () => {
     expect(() => attemptLimitsFromEnv({ RATE_LIMIT_PER_MINUTE: '2' })).toThrow(
       new Error("RATE_LIMIT_PER_5_SECONDS ('3') must not be more than RATE_LIMIT_PER_MINUTE ('2')"),
     );
+    expect(() => attemptLimitsFromEnv({ RATE_LIMIT_HOLD_PER_MINUTE: '9' })).toThrow(
+      new Error(
+        "RATE_LIMIT_HOLD_PER_5_SECONDS ('10') must not be more than RATE_LIMIT_HOLD_PER_MINUTE ('9')",
+      ),
+    );
   });
 
   it('refuses a 5-second number above the default minute, naming both', () => {
     expect(() => attemptLimitsFromEnv({ RATE_LIMIT_PER_5_SECONDS: '11' })).toThrow(
       new Error(
         "RATE_LIMIT_PER_5_SECONDS ('11') must not be more than RATE_LIMIT_PER_MINUTE ('10')",
+      ),
+    );
+    expect(() => attemptLimitsFromEnv({ RATE_LIMIT_HOLD_PER_5_SECONDS: '31' })).toThrow(
+      new Error(
+        "RATE_LIMIT_HOLD_PER_5_SECONDS ('31') must not be more than RATE_LIMIT_HOLD_PER_MINUTE ('30')",
       ),
     );
   });
@@ -320,6 +383,16 @@ describe('attemptLimitsFromEnv (FR-017, research R5)', () => {
     ).toThrow(
       new Error(
         "RATE_LIMIT_PER_5_SECONDS ('11') must not be more than RATE_LIMIT_PER_MINUTE ('10')",
+      ),
+    );
+    expect(() =>
+      attemptLimitsFromEnv({
+        RATE_LIMIT_HOLD_PER_MINUTE: '5',
+        RATE_LIMIT_HOLD_PER_5_SECONDS: '6',
+      }),
+    ).toThrow(
+      new Error(
+        "RATE_LIMIT_HOLD_PER_5_SECONDS ('6') must not be more than RATE_LIMIT_HOLD_PER_MINUTE ('5')",
       ),
     );
   });

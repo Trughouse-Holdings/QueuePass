@@ -14,6 +14,7 @@ import {
   SCHEDULING_BUFFER_MINUTES,
   doorsOpenProblem,
   doorsOpenRangeMessage,
+  formatEventDate,
   localDate,
   type UsTimeZone,
 } from '@queuepass/shared';
@@ -88,9 +89,11 @@ class VenueMoved extends Error {}
 
 /**
  * API shape: basePrice serialized as a decimal string (never a JSON number). Spec 025 FR-010:
- * `entryOpensAt`, when gate check-in opens, worked out from `doorsOpenAt`, never stored.
+ * `entryOpensAt`, when gate check-in opens, worked out from `doorsOpenAt`, never stored. Spec 032
+ * (research R7): `checkInDetailsRemovedAt` is sent; the kept count is not, it is an admin figure
+ * read from the sales report.
  */
-export interface EventResponse extends Omit<EventWithLocation, 'basePrice'> {
+export interface EventResponse extends Omit<EventWithLocation, 'basePrice' | 'keptCheckedInCount'> {
   basePrice: string;
   entryOpensAt: Date;
 }
@@ -104,8 +107,9 @@ export class EventsService {
   ) {}
 
   private toResponse(event: EventWithLocation): EventResponse {
+    const { keptCheckedInCount: _kept, ...sent } = event;
     return {
-      ...event,
+      ...sent,
       basePrice: event.basePrice.toFixed(2),
       // Spec 025 research R6, R7: the same rule as the entry SQL's `entryOpens` fragment.
       entryOpensAt: new Date(
@@ -367,6 +371,28 @@ export class EventsService {
     } else {
       doorsOpenAt = new Date(
         existing.doorsOpenAt.getTime() + (startsAt.getTime() - existing.startsAt.getTime()),
+      );
+    }
+    // Spec 032 FR-008 (research R6): once the check-in details are removed, the times in force
+    // after the update must equal the stored ones; after the checks above, so a malformed request
+    // still gets their 400, and before the capacity and conflict checks.
+    if (
+      existing.checkInDetailsRemovedAt !== null &&
+      (startsAt.getTime() !== existing.startsAt.getTime() ||
+        endsAt.getTime() !== existing.endsAt.getTime() ||
+        doorsOpenAt.getTime() !== existing.doorsOpenAt.getTime())
+    ) {
+      const removedAt = existing.checkInDetailsRemovedAt;
+      // The date in the zone of the venue the event is at (where its details were removed), not
+      // the destination of a move in the same request (review round 1).
+      const removedZone =
+        locationId === existing.locationId
+          ? zone
+          : ((await this.requireLocation(existing.locationId, tx)).timeZone as UsTimeZone);
+      throw conflict(
+        'CHECK_IN_DETAILS_REMOVED',
+        `The check-in details of ${existing.name} were removed on ${formatEventDate(removedAt, removedZone)}, so its times can no longer change.`,
+        { removedAt: removedAt.toISOString() },
       );
     }
 
