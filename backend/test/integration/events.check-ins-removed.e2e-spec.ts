@@ -32,7 +32,9 @@ describe('A removed event stays closed', () => {
     zone = (await ctx.prisma.location.findUniqueOrThrow({ where: { id: hall } }))
       .timeZone as UsTimeZone;
     id = await event(ctx, hall, { name: 'Fall Concert', capacity: 10 });
-    await (await customer(ctx, 1))
+    await (
+      await customer(ctx, 1)
+    )
       .post(`/events/${id}/orders`)
       .send({ holderName: HOLDER, quantity: 2 })
       .expect(201);

@@ -7,6 +7,7 @@ import {
   type SalesReport,
 } from '@queuepass/shared';
 import { getSalesReport } from '../api/reports';
+import { removedShort } from '../format';
 import { usd } from '../money';
 import { ExportMenu } from '../export/ExportMenu';
 import { fileName } from '../export/file-name';
@@ -149,7 +150,18 @@ export function Reports({ username }: { username?: string }): React.ReactElement
                         <Meter value={pct} label={`${pct}% sold`} />
                       </td>
                       <td className="price num">{usd(e.revenue)}</td>
-                      <td className="cell-num num">{e.checkedIn.toLocaleString()}</td>
+                      <td className="cell-num num">
+                        <span>{e.checkedIn.toLocaleString()}</span>
+                        {/* Spec 032 FR-011: the kept count, and when the details were removed. */}
+                        {e.checkInDetailsRemovedAt && (
+                          <>
+                            <br />
+                            <span className="note">
+                              {removedShort(e.checkInDetailsRemovedAt, e.timeZone)}
+                            </span>
+                          </>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}

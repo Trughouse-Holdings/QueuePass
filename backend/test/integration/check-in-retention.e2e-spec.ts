@@ -57,7 +57,9 @@ describe('Check-in retention', () => {
   ): Promise<{ id: string; tickets: string[] }> => {
     const id = await event(ctx, venueId, { name });
     if (n > 0) {
-      await (await customer(ctx, 1))
+      await (
+        await customer(ctx, 1)
+      )
         .post(`/events/${id}/orders`)
         .send({ holderName: HOLDER, quantity: n })
         .expect(201);
@@ -97,7 +99,9 @@ describe('Check-in retention', () => {
     });
   const eventRow = (id: string) => ctx.prisma.event.findUniqueOrThrow({ where: { id } });
   const snapshot = async (ids: string[]) =>
-    Promise.all(ids.map(async (id) => ({ event: await eventRow(id), tickets: await ticketRows(id) })));
+    Promise.all(
+      ids.map(async (id) => ({ event: await eventRow(id), tickets: await ticketRows(id) })),
+    );
 
   /**
    * E (ended at E_END; 4 tickets: one admitted with all three details, one with its time only,
@@ -165,11 +169,14 @@ describe('Check-in retention', () => {
       const { e, f, g } = await fixtures();
       ctx.clock.set(E_END + WEEK);
       await retention.removeDue();
-      const after = await snapshot([e, f, g]);
+      const after = await snapshot([e, g]);
 
-      ctx.clock.set(E_END + 8 * DAY);
+      ctx.clock.set(E_END + WEEK + MINUTE);
       await expect(retention.removeDue()).resolves.toEqual({ eventIds: [] });
-      expect(await snapshot([e, f, g])).toEqual(after);
+      // A day later F, which ended a day after E, is due; E keeps its instant and count.
+      ctx.clock.set(E_END + 8 * DAY);
+      await expect(retention.removeDue()).resolves.toEqual({ eventIds: [f] });
+      expect(await snapshot([e, g])).toEqual(after);
     });
 
     it('removes a cancelled event past its cutoff, with a count of 0', async () => {
@@ -198,10 +205,12 @@ describe('Check-in retention', () => {
     });
 
     it('follows an end moved later before the cutoff (US4-3; FR-008)', async () => {
-      const { e } = await fixtures();
-      const zone = (await eventRow(e).then((r) =>
-        ctx.prisma.location.findUniqueOrThrow({ where: { id: r.locationId } }),
-      )).timeZone as Parameters<typeof atInstant>[1];
+      const { e, f } = await fixtures();
+      const zone = (
+        await eventRow(e).then((r) =>
+          ctx.prisma.location.findUniqueOrThrow({ where: { id: r.locationId } }),
+        )
+      ).timeZone as Parameters<typeof atInstant>[1];
       await asAdmin(ctx)
         .patch(`/events/${e}`)
         .send({ endsAt: atInstant(E_END + 2 * DAY, zone) })
@@ -211,8 +220,9 @@ describe('Check-in retention', () => {
       await expect(retention.removeDue()).resolves.toEqual({ eventIds: [] });
       expect((await eventRow(e)).checkInDetailsRemovedAt).toBeNull();
 
+      // F, ending a day after E's old end, goes at its own cutoff in between.
       ctx.clock.set(E_END + 2 * DAY + WEEK - MINUTE);
-      await expect(retention.removeDue()).resolves.toEqual({ eventIds: [] });
+      await expect(retention.removeDue()).resolves.toEqual({ eventIds: [f] });
       ctx.clock.set(E_END + 2 * DAY + WEEK);
       await expect(retention.removeDue()).resolves.toEqual({ eventIds: [e] });
     });

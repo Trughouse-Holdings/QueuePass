@@ -46,6 +46,15 @@ const renderAt = (url: string) =>
   );
 
 const ATTENDEES = `/events/${EVENT.id}/attendees`;
+const TIER = {
+  id: 't1',
+  eventId: EVENT.id,
+  name: 'General',
+  price: '45.00',
+  quantity: 10,
+  createdAt: EVENT.createdAt,
+  updatedAt: EVENT.updatedAt,
+};
 
 describe('Attendees of a removed event (US3-1; FR-010)', () => {
   it('shows the sentence, the kept count in the summary, and no check-in per ticket or order', async () => {
@@ -122,7 +131,7 @@ describe('the Sales card (US2-2; FR-011)', () => {
 });
 
 describe('Reports (US2; FR-009, FR-011)', () => {
-  it("shows the kept count and \"Details removed\" in that event's row only", async () => {
+  it('shows the kept count and "Details removed" in that event\'s row only', async () => {
     stubApi({ 'GET /reports/sales': json(reportWith(REMOVED_AT)) });
     renderAt('/reports');
 
@@ -149,7 +158,7 @@ describe('the edit form (US4; FR-008, Constitution IV)', () => {
     stubApi({
       'GET /locations': json([EASTERN]),
       [`GET /events/${EVENT.id}`]: json(REMOVED),
-      [`GET /events/${EVENT.id}/tiers`]: json([]),
+      [`GET /events/${EVENT.id}/tiers`]: json([TIER]),
       [`GET /events/${EVENT.id}/seats`]: json({
         eventId: EVENT.id,
         reservedSeating: false,
@@ -173,7 +182,9 @@ describe('the edit form (US4; FR-008, Constitution IV)', () => {
     });
     renderAt(`/events/${EVENT.id}/edit`);
 
-    await vi.waitFor(() => expect(screen.getByLabelText('Ends')).not.toHaveValue(''));
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('General'),
+    );
     fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2026-11-01T23:00' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 

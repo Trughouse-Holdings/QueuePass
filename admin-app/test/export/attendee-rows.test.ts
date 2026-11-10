@@ -144,8 +144,7 @@ describe('attendeeTable', () => {
 
   describe('a removed event (spec 032 US3-2; FR-012, research R8)', () => {
     const REMOVED = { ...CHICAGO_EVENT, checkInDetailsRemovedAt: '2026-11-10T03:00:00Z' };
-    const SENTENCE =
-      'Check-in details removed on Nov 9, 2026 (kept for 7 days after the event).';
+    const SENTENCE = 'Check-in details removed on Nov 9, 2026 (kept for 7 days after the event).';
 
     it('keeps the Checked in column, empty in every row', () => {
       const t = attendeeTable(REMOVED, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York', 3);
@@ -178,9 +177,9 @@ describe('attendeeTable', () => {
 
     it('is as today for an event not removed (US3-3)', () => {
       const kept = { ...CHICAGO_EVENT, checkInDetailsRemovedAt: null };
-      expect(
-        attendeeTable(kept, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York', 3),
-      ).toEqual(table());
+      expect(attendeeTable(kept, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York', 3)).toEqual(
+        table(),
+      );
     });
   });
 });

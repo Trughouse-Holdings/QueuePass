@@ -4,7 +4,8 @@ import type { Event, Order } from '@queuepass/shared';
 import { ApiError } from '../api/client';
 import { getEvent } from '../api/events';
 import { listAttendees } from '../api/orders';
-import { seatLabel, when } from '../format';
+import { getSalesReport } from '../api/reports';
+import { removedNote, seatLabel, when } from '../format';
 import { usd } from '../money';
 import { attendeeTable } from '../export/attendee-rows';
 import { ExportMenu } from '../export/ExportMenu';
@@ -31,6 +32,26 @@ const PRIVATE_NOTE = "The file contains customers' names and usernames. Keep it 
 export function Attendees({ username }: { username?: string }): React.ReactElement {
   const { id = '' } = useParams();
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  /**
+   * Spec 032 FR-010 (research R7): a removed event's checked-in count, kept in the admin-only
+   * sales report; read only for a removed event, `null` until it arrives or when it fails.
+   */
+  const [kept, setKept] = useState<number | null>(null);
+  const removedAt = load.kind === 'ok' ? (load.event.checkInDetailsRemovedAt ?? null) : null;
+
+  useEffect(() => {
+    if (!removedAt) return;
+    let cancelled = false;
+    getSalesReport()
+      .then((r) => {
+        const row = r.events.find((e) => e.eventId === id);
+        if (!cancelled && row) setKept(row.checkedIn);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [id, removedAt]);
 
   useEffect(() => {
     let cancelled = false;
@@ -73,18 +94,24 @@ export function Attendees({ username }: { username?: string }): React.ReactEleme
   const { event, orders, loadedAt } = load;
   // Spec 023 FR-012: one zone for the made-at time and the file name, the admin's own.
   const zone = deviceZone();
-  const makeTable = () => attendeeTable(event, orders, loadedAt, username ?? 'unknown', zone);
+  const makeTable = () =>
+    attendeeTable(event, orders, loadedAt, username ?? 'unknown', zone, removedAt ? kept : null);
   const valid = orders.flatMap((o) => o.tickets).filter((t) => t.status === 'VALID');
-  const checkedIn = valid.filter((t) => t.checkedInAt).length;
+  // Spec 032 FR-010: once removed, the kept count, or no checked-in part while it is not known.
+  const checkedIn = removedAt ? kept : valid.filter((t) => t.checkedInAt).length;
+  const summary = [
+    `${orders.length} ${orders.length === 1 ? 'order' : 'orders'}`,
+    `${valid.length} valid ${valid.length === 1 ? 'ticket' : 'tickets'}`,
+    ...(checkedIn === null ? [] : [`${checkedIn} checked in`]),
+  ].join(' · ');
 
   return (
     <section>
       <div className="page-head">
         <div>
           <h1 className="page-title">Attendees: {event.name}</h1>
-          <p className="page-sub">
-            {`${orders.length} ${orders.length === 1 ? 'order' : 'orders'} · ${valid.length} valid ${valid.length === 1 ? 'ticket' : 'tickets'} · ${checkedIn} checked in`}
-          </p>
+          <p className="page-sub">{summary}</p>
+          {removedAt && <p className="note">{removedNote(removedAt, event.location.timeZone)}</p>}
         </div>
         <div className="form__actions">
           {/* Spec 023 FR-001, FR-011: only when there is at least one order. */}
@@ -145,14 +172,16 @@ export function Attendees({ username }: { username?: string }): React.ReactEleme
                               {/* Spec 017 FR-020: the time of each entry, from checkedInAt. */}
                               {t.status === 'VOID'
                                 ? ' (void)'
-                                : t.checkedInAt
+                                : t.checkedInAt && !removedAt
                                   ? ` ✓ checked in ${when(t.checkedInAt, load.event.location.timeZone)}`
                                   : ''}
                             </li>
                           ))}
                         </ul>
                       </td>
-                      <td className="cell-num">{`${checked} of ${o.tickets.length} checked in`}</td>
+                      <td className="cell-num">
+                        {removedAt ? '—' : `${checked} of ${o.tickets.length} checked in`}
+                      </td>
                     </tr>
                   );
                 })}
