@@ -43,6 +43,5 @@
 - Every open question took a recommended answer, recorded in Clarifications (Session 2026-11-09) as
   open to review: the cart is the active reservations (kept by the Backend), Add to cart opens it,
   every held event listed and bought on its own, general admission unchanged, one countdown per
-  event, the wait from the reservation's end, the hold allowance and one request per click, the
-  click queue, ticket types locked while holding, the name in the cart, where the countdown is, the
+  event, the wait from the reservation's end, the click queue, ticket types locked while holding, the name in the cart, where the countdown is, the
   announcements, and dated notes on `007`, `015`, and `026`.

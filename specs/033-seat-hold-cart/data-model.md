@@ -26,7 +26,7 @@ A customer may not hold seat *s* of event *e* when a `SeatHold` of theirs for *e
 | `endReason` | `EXPIRED`, `RELEASED`, `LOGOUT` | the same |
 | its reservation | any | **ended** (`endedAt IS NOT NULL`) |
 | until | `releasedAt + 2 minutes` | **`endedAt` of its reservation + 2 minutes** |
-| bound on the hold | `now() < releasedAt + 2 minutes` | `releasedAt > now() - 7 minutes` (exact: a hold is released at most 5 minutes before its reservation ends) |
+| bound on the hold | `now() < releasedAt + 2 minutes` | `releasedAt > now() - 8 minutes` (safe: a hold is released at most 5 minutes plus one transaction's length, under 15 seconds, before its reservation ends) |
 
 `availableAt` in the refusal is the latest such end + 2 minutes over the refused seats. A hold
 released from the customer's active reservation therefore blocks nothing; the reservation's end
@@ -43,7 +43,7 @@ released, held again, and bought is refused later as taken, not as `SEAT_COOLDOW
 
 | Rule | Checked by | Guaranteed under concurrency by |
 | --- | --- | --- |
-| One live hold per seat | `reserveLocked` step 5 | `seat_hold_one_live_per_seat` unique index (unchanged) |
+| One live hold per seat | `reserveLocked` step 4 (renumbered, research R4) | `seat_hold_one_live_per_seat` unique index (unchanged) |
 | One active reservation per customer per event | `reserveLocked` step 3 | `seat_reservation_one_active` unique index (unchanged) |
 | Exactly 5 minutes, never extended | the insert | `seat_reservation_five_minutes` CHECK (unchanged) |
 | The 2-minute wait | `assertNoWait`, under the event's row lock | the event lock: every hold write, release, sweep, and order for the event serializes on it, so the query sees every committed end |
@@ -70,5 +70,6 @@ Backend refuses to start, naming the setting. Releasing is never counted.
 | Ticket type and price | `GET /events/{id}/tiers`, the one with `tierId`; the event's `basePrice` when `tierId` is `null` |
 | Seats | `Reservation.seats` |
 | Countdown | `Reservation.secondsLeft` against `performance.now()` |
-| Live changes | `GET /me/reservations` again about every second while the page is visible, and on focus or becoming visible; nothing while hidden; no seat stream (research R8) |
+| Live changes | `GET /me/reservations` again about every second while the page is visible, and on focus or becoming visible; nothing while hidden; one read at a time; no seat stream (research R8) |
+| Why an entry vanished | `GET /me/orders` once: an order for that event since the cart loaded → "bought", else "ended" |
 | Name on tickets | typed in the cart, kept in the page's state, sent with each Buy tickets |

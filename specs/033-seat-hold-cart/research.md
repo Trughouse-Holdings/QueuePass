@@ -90,11 +90,13 @@ the browser's clock (`015` R13).
 customer for this event blocks a seat when its `endReason` is `EXPIRED`, `RELEASED`, or `LOGOUT`,
 **its reservation has ended** (`r."endedAt" IS NOT NULL`), and `now() < r."endedAt" + interval '2
 minutes'`; `availableAt` is `r."endedAt" + 2 minutes`. The query keeps a bound on the hold's own
-end, `AND h."releasedAt" > now() - interval '7 minutes'`, so the `SeatHold (eventId, releasedAt)`
-index still narrows it by time and not only by event. The bound is exact: a hold's `releasedAt` is
-never more than 5 minutes before its reservation's end (a reservation lasts at most 5 minutes), so a
-hold that can still block (its reservation ended less than 2 minutes ago) was released less than 7
-minutes ago. So:
+end, `AND h."releasedAt" > now() - interval '8 minutes'`, so the `SeatHold (eventId, releasedAt)`
+index still narrows it by time and not only by event. The bound is safe: a hold's `releasedAt` is
+at most 5 minutes plus one transaction's length before its reservation's end (a reservation lasts
+at most 5 minutes; `endHolds` sets `endedAt = greatest(now(), createdAt)`, which can trail a hold's
+`releasedAt` by up to `LOCKING_TX`'s 15-second timeout), so a hold that can still block (its
+reservation ended less than 2 minutes ago) was released less than 7 minutes 15 seconds ago, inside
+8 minutes. So:
 
 - a seat released while its reservation still has live holds is not blocked: it can be held again
   at once, into the same reservation (`reserveLocked` step 7 adds it with `expiresAt` unchanged);
@@ -103,8 +105,10 @@ minutes ago. So:
   from that end, including seats released earlier;
 - `BOUGHT` and `CLOSED` holds still block nothing.
 
-**The order of checks** (`reserveLocked`): step 5 (seats sold, or held by another customer, `409
-SEAT_TAKEN`) now runs **before** step 4 (the wait). Otherwise a seat the customer released, held
+**The order of checks** (`reserveLocked`): the steps are renumbered so that step 4 is now seats sold,
+or held by another customer (`409 SEAT_TAKEN`), and step 5 the 2-minute wait (until now the other
+way round); steps 1 to 3, 6, and 7 are unchanged, and the code's comments ("steps 1 to 7, in
+order" and each step's number) follow. Otherwise a seat the customer released, held
 again, and then bought leaves a `RELEASED` hold in an ended reservation, and holding it later would
 be refused as `SEAT_COOLDOWN` instead of `SEAT_TAKEN`. Taken is the truer reason whenever both
 apply (another customer holding a seat this customer must wait for is also refused as taken). The
@@ -240,7 +244,23 @@ visible and on window `focus`, and not at all while hidden (the timer stops). A 
 admin change, or run-out elsewhere therefore drops an entry within 2 seconds (FR-017); the
 countdowns run between reads from each entry's `secondsLeft`, re-based only when a new reservation
 appears (an entry's end never moves). The event and tier reads are made once per event and kept
-while the page is open. **Connection budget**: the cart holds no long-lived connection, so its
+while the page is open.
+
+**Polling rules**:
+
+- **One read at a time**: a tick while a read is in flight is skipped; each read carries a sequence
+  number, and an answer older than the latest applied one is ignored.
+- **A purchase in progress is kept**: an entry whose Buy tickets request is in flight, or which is
+  in the unknown outcome ("We couldn't confirm whether your order went through", Check again), is
+  not dropped by a read that lacks it until that purchase settles (confirmed, refused, or checked
+  again); the purchase's own answer decides what it shows.
+- **Why an entry vanished**: when a read no longer lists an entry (and it is not the run-out the
+  countdown is showing), the cart reads `GET /me/orders` (`listMyOrders`) once: if an order for
+  that event placed since the cart loaded is there, it says "Your seats for {event} were bought."
+  with a link to My tickets; otherwise "Your reservation for {event} ended." (released elsewhere,
+  an admin change, or the event starting), in the page's polite status region.
+- **Signed out**: a read answered `401` stops the reads and signs the customer in again, as every
+  other page does on `401`. **Connection budget**: the cart holds no long-lived connection, so its
 reads and Buy tickets each use one short request; the event page keeps its single seat stream
 (`useSeatStream`, one per open event page), as today. A stream per listed event would have used one
 of the browser's six HTTP/1.1 connections to the host each (three events in two tabs fill all six,
@@ -295,7 +315,10 @@ change says "Your held seats were released." as today. Seats remain `SeatPicker`
 so replacing the text on each answer can drop announcements when answers arrive close together.
 The region therefore **appends**: each answer adds its sentence as a new line (a child element) to
 the region, which keeps the last few (at most 5) and is cleared 10 seconds after the last addition,
-so three quick clicks are three announcements, in order.
+so three quick clicks are three announcements, in order. The region sets **`aria-atomic="false"`**
+explicitly, since `role="status"` implies `true`, which would read the whole region again on each
+addition (the rate-limit region at `GetTickets.tsx:639` is atomic on purpose; this one must not
+copy it).
 
 **Why**: the issue's own example; each click changes the server, so each answer is said once.
 

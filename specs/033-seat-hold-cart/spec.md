@@ -285,8 +285,11 @@ them taken by another customer first; it alone is refused and named.
 - **A seat released, and the reservation then ends by a purchase**: the released seat waits 2
   minutes from the purchase; a customer who wants it back can hold it again before buying.
 - **The reservation ends elsewhere** (bought or released in another tab, an admin change, the event
-  starts, logout in another tab): the event page and the cart drop it within 2 seconds and say the
-  seats were released (`015` FR-016), or, after a purchase elsewhere, that they were bought.
+  starts, logout in another tab): the event page and the cart drop it within 2 seconds. The cart
+  checks the customer's orders once: if an order for that event appeared since the cart loaded, it
+  says the seats were bought, with a link to My tickets; otherwise "Your reservation for {event}
+  ended." An entry whose purchase is in flight, or awaiting Check again, is kept until that purchase
+  settles. A read refused as signed out stops the cart's reads and signs the customer in again.
 - **The token expires**: a click or Buy tickets that gets `401` signs the customer in again, as
   today; held seats stay held until their 5 minutes end.
 - **No answer to a hold or release** (the connection drops): the seat goes back to what it was
@@ -381,14 +384,17 @@ them taken by another customer first; it alone is refused and named.
 - **FR-016**: Every hold and release MUST be announced in a polite status region, naming the seat,
   and, for a hold, the time left ("Section A, Row 1, Seat 12 held. 4:59 left."); a release that ends
   the reservation MUST say the next seat starts a new 5 minutes; answers arriving close together
-  MUST each be announced, in order, none replacing another. A refused click MUST be shown and
+  MUST each be announced, in order, none replacing another (a non-atomic region). A refused click MUST be shown and
   announced as an alert naming the seat and the reason. The countdown MUST be a timer that is not
   announced each second. Seats MUST keep their keyboard behavior and focus (`007`, `015` FR-012).
 - **FR-017**: The event page MUST follow the Backend's reservation live, as the seat map does today
   (`015` FR-010); the cart MUST read the customer's reservations again about once a second while it
   is visible, and when it becomes visible or gains focus, and not while it is hidden. A change made
   in another tab or device, by an admin, or by the 5 minutes ending, MUST show on either page within
-  2 seconds without a reload. The cart MUST open no live seat stream of its own.
+  2 seconds without a reload. The cart MUST open no live seat stream of its own, MUST have at most
+  one read in flight, MUST NOT drop an entry whose purchase is in flight or awaiting Check again,
+  and MUST say whether a vanished entry was bought (an order for that event since the cart loaded)
+  or otherwise ended.
 
 **Unchanged**
 
