@@ -87,13 +87,12 @@ describe('unavailable before trying (US2-1 to US2-3, US2-5, US2-6)', () => {
     expect(screen.queryByRole('button', { name: 'Confirm order' })).toBeNull();
   });
 
-  it('shows Sales closed, and no form, once the event has started', async () => {
-    stubApi(routes({ salesClosed: 'STARTED' }));
+  // Spec 034 FR-011 (research R8): sales close when the event ends, not when it starts.
+  it('shows Sales closed, and no form, once the event has ended', async () => {
+    stubApi(routes({ salesClosed: 'ENDED' }));
     renderCustomer({ at: '/events/e1' });
 
-    expect(
-      await screen.findByText('Sales closed: this event has already started.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Sales closed: this event has ended.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Confirm order' })).toBeNull();
   });
 });
@@ -115,7 +114,7 @@ describe('status badges (spec 008 US3-2)', () => {
   it.each([
     [{ ticketsLeft: 0 }, 'Sold out'],
     [{ salesClosed: 'CANCELLED' as const }, 'Cancelled'],
-    [{ salesClosed: 'STARTED' as const }, 'Sales closed'],
+    [{ salesClosed: 'ENDED' as const }, 'Sales closed'],
   ])('badges an unavailable event (%o) as %s, keeping its message', async (left, name) => {
     stubApi(routes(left));
     renderCustomer({ at: '/events/e1' });
@@ -127,7 +126,7 @@ describe('refused on confirm (US2-4; FR-006)', () => {
   it.each([
     ['SOLD_OUT', 'Only 1 ticket is left for Early Show; 2 were requested.'],
     ['EVENT_CANCELLED', 'Early Show is cancelled and can no longer be changed or sold.'],
-    ['SALES_CLOSED', 'Sales for Early Show closed when it started.'],
+    ['SALES_CLOSED', 'Sales for Early Show closed when it ended.'],
   ])(
     'shows the %s message, reloads what is left, and starts a new confirmation',
     async (c, message) => {

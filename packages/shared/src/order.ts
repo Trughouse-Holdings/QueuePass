@@ -73,11 +73,10 @@ export interface MyOrder extends Order {
 }
 
 /**
- * Spec 006: why tickets cannot be ordered, or `null` while they can. Spec 034: `ENDED` from the
- * event's end; `STARTED` is what a Backend from before 034's implementation sends, and that
- * implementation removes it (contracts/openapi.yaml 1.26.0).
+ * Spec 006: why tickets cannot be ordered, or `null` while they can. Spec 034: `CANCELLED`
+ * whatever the time, else `ENDED` from the event's end (contracts/openapi.yaml 1.26.0).
  */
-export type SalesClosedReason = 'CANCELLED' | 'ENDED' | 'STARTED';
+export type SalesClosedReason = 'CANCELLED' | 'ENDED';
 
 export interface TierAvailability {
   tierId: string;
@@ -98,11 +97,8 @@ export interface Availability {
   eventId: string;
   ticketsLeft: number;
   salesClosed: SalesClosedReason | null;
-  /**
-   * Spec 034: from the event's start until its end, by the Backend's clock. Sent once 034 is
-   * implemented, which makes it required; until then a missing value means `false`.
-   */
-  inProgress?: boolean;
+  /** Spec 034: from the event's start until its end, by the Backend's clock, whatever the status. */
+  inProgress: boolean;
   tiers: TierAvailability[];
   /**
    * Spec 016: `null` without a limit or for a non-customer. Always sent by the Backend; a missing

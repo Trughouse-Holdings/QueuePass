@@ -210,6 +210,46 @@ describe('buying (FR-014; US1-4)', () => {
     expect(screen.queryByRole('region', { name: 'Early Show' })).toBeNull();
   });
 
+  // Spec 034 FR-012 (research R5, R10): the cart confirms with the event page's confirmation, so
+  // an order placed after the start says how long the tickets admit; one before says nothing.
+  it('says the tickets admit until the end when bought after the start (spec 034)', async () => {
+    stubApi(
+      routes({
+        'GET /me/reservations': json([reservation('e1', [5, 6])]),
+        'POST /events/e1/orders': json({ ...placed, createdAt: '2026-12-01T23:30:00.000Z' }, 201),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+    const box = await entry('Early Show');
+    await typeHolderName();
+
+    fireEvent.click(within(box).getByRole('button', { name: 'Buy tickets' }));
+
+    const done = await screen.findByRole('region', { name: 'Order confirmed' });
+    expect(
+      within(done).getByText(
+        'This event has already started (began at 6:00 PM EST). Your tickets admit you until it ends at 9:00 PM EST.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing about a start when bought before it (spec 034)', async () => {
+    stubApi(
+      routes({
+        'GET /me/reservations': json([reservation('e1', [5, 6])]),
+        'POST /events/e1/orders': json(placed, 201),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+    const box = await entry('Early Show');
+    await typeHolderName();
+
+    fireEvent.click(within(box).getByRole('button', { name: 'Buy tickets' }));
+
+    const done = await screen.findByRole('region', { name: 'Order confirmed' });
+    expect(within(done).queryByText(/already started/)).toBeNull();
+  });
+
   it('omits the tier for an event without tiers', async () => {
     const { calls } = stubApi(
       routes({

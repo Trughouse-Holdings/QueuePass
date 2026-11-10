@@ -106,8 +106,8 @@ tests (T007).
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: setup by hand; the browser test makes its own venue and event through the API |
-| S1 | Manual: until T008 adds `034 S1/S2: a customer buys a ticket for an event that has already started and sees the notice on the panel and the confirmation` |
-| S2 | Manual: until T008 adds `034 S1/S2: a customer buys a ticket for an event that has already started and sees the notice on the panel and the confirmation`; the Admin figures by hand (reports unchanged, research R7) |
+| S1 | Automated: `034 S1/S2: a customer buys a ticket for an event that has already started and sees the notice on the panel and the confirmation` |
+| S2 | Automated: `034 S1/S2: a customer buys a ticket for an event that has already started and sees the notice on the panel and the confirmation`; rest Manual: the Admin figures by hand (reports unchanged, research R7) |
 | S3 | Manual: no notice before the start is covered by the Customer app's tests (T007) |
 | S4 | Manual: sold out and the limit after the start are covered by the Customer app's tests (T007) |
 | S5 | Manual: the end of a hold needs a real event end; covered by the Backend's tests (T004); seats bought after the start by T002 and T003 |

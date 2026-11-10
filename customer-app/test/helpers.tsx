@@ -196,6 +196,8 @@ export const availability = (over: Partial<Availability> = {}): Availability => 
   eventId: 'e1',
   ticketsLeft: 100,
   salesClosed: null,
+  // Spec 034 FR-007: not in progress unless a test says so.
+  inProgress: false,
   tiers: [],
   // Spec 016: no per-customer limit unless a test gives one.
   customerLimit: null,

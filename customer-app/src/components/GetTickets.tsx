@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ORDER_LIMITS,
@@ -20,7 +20,7 @@ import {
   type StreamSeatMap,
   type StreamSeatMapChange,
 } from '@queuepass/shared/web';
-import { cents, count, seatLabel, totalUsd, usd } from '../format';
+import { cents, count, seatLabel, startedNotice, totalUsd, usd } from '../format';
 import { useBuy, useWaits, type Wait } from '../use-buy';
 import { placeKey, useHoldQueue, type QueuedAction } from '../use-hold-queue';
 import { useLoad } from '../use-load';
@@ -71,9 +71,18 @@ export function cooldownMessage(details: Record<string, unknown> | undefined): s
  * once and a click on a held seat releases it, one request at a time in click order; the Your
  * seats box shows the countdown, the seats, the total, and Add to cart, which opens the cart, where
  * the seats are bought. General admission is unchanged. The Backend decides every rule (FR-003);
- * the counts, taken seats, locks, and countdown shown here are guidance.
+ * the counts, taken seats, locks, and countdown shown here are guidance. Spec 034 (research R4):
+ * while the event is in progress, a notice at the top says so; every answer about what is left is
+ * reported to the page through `onSales` (FR-017), never a load in progress, so the page keeps
+ * the last answer while a reload runs or if it fails.
  */
-export function GetTickets({ event }: { event: Event }) {
+export function GetTickets({
+  event,
+  onSales,
+}: {
+  event: Event;
+  onSales?: (answer: Availability) => void;
+}) {
   const { api, signIn, accessToken } = useAuth();
   const navigate = useNavigate();
   const id = event.id;
@@ -185,6 +194,20 @@ export function GetTickets({ event }: { event: Event }) {
   // it fails, so the form is never redrawn after the first load (review rounds 2 and 3, S1).
   const lastAvailability = useRef<Availability | null>(null);
   if (availability.kind === 'ok') lastAvailability.current = availability.data;
+  // Spec 034 FR-009 (research R4): when the answer shown was loaded, the reference instant for
+  // the notice's times, kept with it while a reload runs.
+  const loadedAt = useRef<{ answer: Availability | null; at: number }>({ answer: null, at: 0 });
+  if (availability.kind === 'ok' && loadedAt.current.answer !== availability.data) {
+    loadedAt.current = { answer: availability.data, at: Date.now() };
+  }
+  // Spec 034 FR-017: each answer, once, to the page; before the browser paints, so the page's
+  // ended line never shows beside a panel that already says the event is in progress.
+  const reportSales = useRef(onSales);
+  reportSales.current = onSales;
+  const answer = availability.kind === 'ok' ? availability.data : null;
+  useLayoutEffect(() => {
+    if (answer) reportSales.current?.(answer);
+  }, [answer]);
   const lastTiers = useRef<TicketTier[] | null>(null);
   if (tiers.kind === 'ok') lastTiers.current = tiers.data;
   // The seats of a reservation whose countdown just ran out: the Backend may close it up to a
@@ -492,12 +515,12 @@ export function GetTickets({ event }: { event: Event }) {
   }
 
   if (phase.kind === 'done')
-    return <OrderConfirmation eventName={event.name} order={phase.order} />;
+    return <OrderConfirmation eventName={event.name} order={phase.order} event={event} />;
 
   const closedBadge =
     left.salesClosed === 'CANCELLED'
       ? 'Cancelled'
-      : left.salesClosed === 'STARTED'
+      : left.salesClosed === 'ENDED'
         ? 'Sales closed'
         : left.ticketsLeft === 0
           ? 'Sold out'
@@ -505,8 +528,8 @@ export function GetTickets({ event }: { event: Event }) {
   const closed =
     left.salesClosed === 'CANCELLED'
       ? 'No tickets: this event has been cancelled.'
-      : left.salesClosed === 'STARTED'
-        ? 'Sales closed: this event has already started.'
+      : left.salesClosed === 'ENDED'
+        ? 'Sales closed: this event has ended.'
         : left.ticketsLeft === 0
           ? 'Sold out: no tickets are left for this event.'
           : seated && tierList.length > 0 && !tierList.some(onSale)
@@ -517,10 +540,24 @@ export function GetTickets({ event }: { event: Event }) {
     !closed && limit !== null && limit.remaining === 0
       ? `You have reached the limit of ${tickets(limit.limit)} for this event.`
       : null;
+  // Spec 034 FR-008, FR-010 (research R4): from the Backend's answer, never this browser's clock;
+  // its first sentence alone when the panel shows a reason it offers no way to get tickets.
+  const started =
+    left.inProgress === true && left.salesClosed === null
+      ? startedNotice(
+          event.startsAt,
+          event.endsAt,
+          event.location.timeZone,
+          loadedAt.current.at,
+          closed || (reached && !reservation) ? 'first' : 'buy',
+        )
+      : null;
 
   return (
     <section className="card card--padded get-tickets" aria-labelledby="get-tickets">
       <h2 id="get-tickets">Get tickets</h2>
+      {/* Spec 034 FR-008: a plain paragraph, read in order before the form (research R4). */}
+      {started && <p className="note">{started}</p>}
       {/* Spec 026 FR-013 (independent review M2, M3): the one live region for refusals for the
           limit, always mounted, so each refusal is said once, when its text is set, and never
           again while that wait runs. An assertive region rather than role="alert", so it is not

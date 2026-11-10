@@ -3,7 +3,7 @@ import type { Subscription } from 'rxjs';
 import { HoldSweeper } from '../../src/reservations/hold-sweeper';
 import { SeatEventsService } from '../../src/seating/seat-events.service';
 import { asAdmin } from '../setup/authed-request';
-import { customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
+import { customer, endEventAt, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor, tokenFor } from '../setup/tokens';
@@ -220,7 +220,9 @@ describe('Admin changes end reservations', () => {
     expect(opened()).toEqual(['A-2-2']);
   });
 
-  it('the sweep ends every hold once the event has started', async () => {
+  // Spec 034 FR-004, SC-003 (research R3): the sweep leaves a started event's holds alone and
+  // ends them at its end, without shortening expiresAt.
+  it('the sweep keeps the holds of an event that has started but not ended', async () => {
     const { eventId } = await tiered();
     await reserve(eventId, [seat(sectionA, 1, 4)]);
     await ctx.prisma.$executeRaw`
@@ -232,7 +234,24 @@ describe('Admin changes end reservations', () => {
 
     await ctx.app.get(HoldSweeper).sweepOnce();
 
+    expect(await activeReservations(eventId)).toBe(1);
+    expect((await holds(eventId)).map((h) => h.endReason)).toEqual([null]);
+    expect(opened()).toEqual([]);
+  });
+
+  it('the sweep ends every hold once the event has ended', async () => {
+    const { eventId } = await tiered();
+    const made = await reserve(eventId, [seat(sectionA, 1, 4)]);
+    // Past its end by a minute: the sweep reads the database's clock (research R1).
+    await endEventAt(ctx, eventId, new Date(Date.now() - 60_000));
+    listen(eventId);
+
+    await ctx.app.get(HoldSweeper).sweepOnce();
+
     expect((await holds(eventId)).map((h) => h.endReason)).toEqual(['CLOSED']);
+    const reservation = await ctx.prisma.seatReservation.findFirstOrThrow({ where: { eventId } });
+    expect(reservation.endedAt).not.toBeNull();
+    expect(reservation.expiresAt.getTime()).toBe(Date.parse(made.body.expiresAt));
     expect(opened()).toEqual(['A-1-4']);
   });
 
