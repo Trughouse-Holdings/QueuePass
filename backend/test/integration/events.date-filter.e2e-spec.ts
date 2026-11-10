@@ -79,9 +79,11 @@ describe('Event date filters by venue day (spec 020 FR-020)', () => {
   });
 
   const names = async (query: string) =>
-    ((await asAdmin(ctx).get(`/events?${query}`).expect(200)).body as { name: string }[]).map(
-      (e) => e.name,
-    );
+    (
+      (await asAdmin(ctx).get(`/events?${query}&includePast=true`).expect(200)).body as {
+        name: string;
+      }[]
+    ).map((e) => e.name);
 
   it('Oct 1 to Oct 1 is every event starting on Oct 1 at its venue, soonest first', async () => {
     expect(await names('fromDate=2026-10-01&toDate=2026-10-01')).toEqual([
@@ -113,7 +115,7 @@ describe('Event date filters by venue day (spec 020 FR-020)', () => {
     ['a date-time as fromDate', 'fromDate=2026-10-01T00:00:00Z', 'fromDate'],
     ['not a date', 'toDate=2026-02-30', 'toDate'],
   ])('refuses %s with 400', async (_label, query, field) => {
-    const res = await asAdmin(ctx).get(`/events?${query}`).expect(400);
+    const res = await asAdmin(ctx).get(`/events?${query}&includePast=true`).expect(400);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
     expect(JSON.stringify(res.body.error)).toContain(field);
   });

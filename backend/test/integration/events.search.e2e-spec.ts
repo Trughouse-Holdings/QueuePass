@@ -46,48 +46,56 @@ describe('Event search', () => {
   const names = (body: { name: string }[]) => body.map((e) => e.name);
 
   it('matches name text ignoring case and surrounding spaces, keeping start order', async () => {
-    const res = await asAdmin(ctx).get('/events?q=%20%20show%20').expect(200);
+    const res = await asAdmin(ctx).get('/events?q=%20%20show%20&includePast=true').expect(200);
     expect(names(res.body)).toEqual(['Spring Show', 'Summer SHOWCASE']);
   });
 
   it('ignores a blank q', async () => {
-    const res = await asAdmin(ctx).get('/events?q=%20%20').expect(200);
+    const res = await asAdmin(ctx).get('/events?q=%20%20&includePast=true').expect(200);
     expect(res.body).toHaveLength(4);
   });
 
   it('matches % and _ literally', async () => {
-    const res = await asAdmin(ctx).get('/events?q=%25').expect(200);
+    const res = await asAdmin(ctx).get('/events?q=%25&includePast=true').expect(200);
     expect(res.body).toEqual([]);
   });
 
   it('includes events starting exactly at from, and excludes those starting exactly at to', async () => {
     const res = await asAdmin(ctx)
-      .get('/events?from=2026-07-01T18:00:00Z&to=2026-10-01T00:00:00Z')
+      .get('/events?from=2026-07-01T18:00:00Z&to=2026-10-01T00:00:00Z&includePast=true')
       .expect(200);
     expect(names(res.body)).toEqual(['Summer SHOWCASE']);
   });
 
   it('accepts from alone and to alone', async () => {
     expect(
-      names((await asAdmin(ctx).get('/events?from=2026-10-01T00:00:00Z').expect(200)).body),
+      names(
+        (await asAdmin(ctx).get('/events?from=2026-10-01T00:00:00Z&includePast=true').expect(200))
+          .body,
+      ),
     ).toEqual(['Autumn Gala', 'Winter Gala']);
     expect(
-      names((await asAdmin(ctx).get('/events?to=2026-07-01T18:00:00Z').expect(200)).body),
+      names(
+        (await asAdmin(ctx).get('/events?to=2026-07-01T18:00:00Z&includePast=true').expect(200))
+          .body,
+      ),
     ).toEqual(['Spring Show']);
   });
 
   it('combines name, venue, and dates', async () => {
     const res = await asAdmin(ctx)
-      .get(`/events?q=gala&locationId=${yum}&from=2026-09-01T00:00:00Z`)
+      .get(`/events?q=gala&locationId=${yum}&from=2026-09-01T00:00:00Z&includePast=true`)
       .expect(200);
     expect(names(res.body)).toEqual(['Autumn Gala']);
-    const other = await asAdmin(ctx).get(`/events?q=gala&locationId=${freedom}`).expect(200);
+    const other = await asAdmin(ctx)
+      .get(`/events?q=gala&locationId=${freedom}&includePast=true`)
+      .expect(200);
     expect(names(other.body)).toEqual(['Winter Gala']);
   });
 
   it('refuses from at or after to', async () => {
     const res = await asAdmin(ctx)
-      .get('/events?from=2026-10-01T00:00:00Z&to=2026-10-01T00:00:00Z')
+      .get('/events?from=2026-10-01T00:00:00Z&to=2026-10-01T00:00:00Z&includePast=true')
       .expect(400);
     expect(res.body.error.code).toBe('VALIDATION_FAILED');
   });
@@ -99,6 +107,6 @@ describe('Event search', () => {
     [`q=${'x'.repeat(201)}`, 'q too long'],
     ['sort=name', 'unknown parameter'],
   ])('refuses %s (%s) with 400', async (query) => {
-    await asAdmin(ctx).get(`/events?${query}`).expect(400);
+    await asAdmin(ctx).get(`/events?${query}&includePast=true`).expect(400);
   });
 });

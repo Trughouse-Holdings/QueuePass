@@ -55,7 +55,7 @@ describe('basePrice precision', () => {
 
   it('never emits basePrice as a JSON number in list responses', async () => {
     await asAdmin(ctx).post('/events').send(priced('19.99')).expect(201);
-    const res = await asAdmin(ctx).get('/events').expect(200);
+    const res = await asAdmin(ctx).get('/events?includePast=true').expect(200);
     expect(typeof res.body[0].basePrice).toBe('string');
     expect(res.text).toContain('"basePrice":"19.99"');
   });

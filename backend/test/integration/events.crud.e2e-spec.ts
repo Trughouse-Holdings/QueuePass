@@ -66,7 +66,7 @@ describe('Event CRUD persistence', () => {
       .post('/events')
       .send({ ...event(), name: 'Earlier' })
       .expect(201);
-    const res = await asAdmin(ctx).get('/events').expect(200);
+    const res = await asAdmin(ctx).get('/events?includePast=true').expect(200);
     expect(res.body.map((e: { name: string }) => e.name)).toEqual(['Earlier', 'Later']);
   });
 
@@ -81,7 +81,9 @@ describe('Event CRUD persistence', () => {
       .send({ ...event(), locationId: other.id, name: 'Other Venue Show' })
       .expect(201);
 
-    const res = await asAdmin(ctx).get(`/events?locationId=${other.id}`).expect(200);
+    const res = await asAdmin(ctx)
+      .get(`/events?locationId=${other.id}&includePast=true`)
+      .expect(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0].name).toBe('Other Venue Show');
   });
@@ -128,7 +130,9 @@ describe('Event CRUD persistence', () => {
       expect(created.body.images).toEqual([]);
       const id = created.body.id;
       expect((await asAdmin(ctx).get(`/events/${id}`).expect(200)).body.images).toEqual([]);
-      expect((await asAdmin(ctx).get('/events').expect(200)).body[0].images).toEqual([]);
+      expect(
+        (await asAdmin(ctx).get('/events?includePast=true').expect(200)).body[0].images,
+      ).toEqual([]);
       const updated = await asAdmin(ctx).patch(`/events/${id}`).send({ name: 'Renamed' });
       expect(updated.status).toBe(200);
       expect(updated.body.images).toEqual([]);
@@ -153,7 +157,7 @@ describe('Event CRUD persistence', () => {
       const got = await asAdmin(ctx).get(`/events/${id}`).expect(200);
       expect(got.body.images).toEqual(expected);
       hasNoBytes(got.body);
-      const list = await asAdmin(ctx).get('/events').expect(200);
+      const list = await asAdmin(ctx).get('/events?includePast=true').expect(200);
       expect(list.body[0].images).toEqual(expected);
       hasNoBytes(list.body);
       const updated = await asAdmin(ctx).patch(`/events/${id}`).send({ name: 'Renamed' });
