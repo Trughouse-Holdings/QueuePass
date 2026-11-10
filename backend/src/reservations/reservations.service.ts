@@ -90,7 +90,7 @@ export class ReservationsService {
     // 2. The event itself. Sales close by the database's clock (research R3).
     if (event.status === 'CANCELLED') throw eventCancelled(event.name);
     if (await salesClosed(tx, eventId)) {
-      throw conflict('SALES_CLOSED', `Sales for ${event.name} closed when it started.`);
+      throw conflict('SALES_CLOSED', `Sales for ${event.name} closed when it ended.`);
     }
     if (!event.reservedSeating) {
       throw badSeats('seats can only be reserved for an event with reserved seating');
@@ -342,10 +342,13 @@ export class ReservationsService {
   }
 }
 
-/** Research R3: whether the event has started, by the database's clock. */
+/**
+ * Research R3: whether the event has ended, by the database's clock (spec 034 FR-001, FR-003;
+ * its research R1: sales close at `endsAt`, half-open).
+ */
 export async function salesClosed(tx: Tx, eventId: string): Promise<boolean> {
   const [row] = await tx.$queryRaw<{ closed: boolean }[]>`
-    SELECT now() >= "startsAt" AS "closed" FROM "Event" WHERE "id" = ${eventId}::uuid`;
+    SELECT now() >= "endsAt" AS "closed" FROM "Event" WHERE "id" = ${eventId}::uuid`;
   return row?.closed ?? false;
 }
 

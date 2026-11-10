@@ -235,9 +235,10 @@ export class OrdersService {
     }
 
     if (event.status === 'CANCELLED') throw eventCancelled(event.name);
-    // Spec 006 FR-014: sales close when the event starts; half-open, so at startsAt is closed.
-    if (new Date() >= event.startsAt) {
-      throw conflict('SALES_CLOSED', `Sales for ${event.name} closed when it started.`);
+    // Spec 034 FR-001, FR-002: sales close when the event ends, not when it starts; half-open,
+    // so at endsAt is closed. The Backend's process clock, as before (research R1).
+    if (new Date() >= event.endsAt) {
+      throw conflict('SALES_CLOSED', `Sales for ${event.name} closed when it ended.`);
     }
     // Spec 015 research R3, R7: run-out reservations end first, so their seats are free.
     const freed = await closeRunOut(tx, eventId);

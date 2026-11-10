@@ -5,9 +5,10 @@ import { customerHeld } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
- * Tickets left for an event and its tiers, and whether sales are closed (spec 006 FR-002, FR-014;
- * research R1). A plain read without the event lock: the numbers are guidance, and an order
- * decides under the lock. Sales-closed uses the Backend's clock, as ordering does.
+ * Tickets left for an event and its tiers (spec 006 FR-002; research R1), whether sales are
+ * closed, and whether the event is in progress (spec 034 FR-006, FR-007; its research R2). A plain
+ * read without the event lock: the numbers are guidance, and an order decides under the lock.
+ * Sales-closed and in-progress use one reading of the Backend's clock, as ordering does.
  */
 @Injectable()
 export class AvailabilityService {
@@ -31,15 +32,15 @@ export class AvailabilityService {
     const eventSold = sold.reduce((sum, g) => sum + g._count._all, 0);
     const ticketsLeft = Math.max(0, event.totalTicketCapacity - eventSold);
 
+    const now = new Date();
     return {
       eventId,
       ticketsLeft,
+      // Spec 034 FR-006: cancelled wins whatever the time; else closed from endsAt (half-open).
       salesClosed:
-        event.status === 'CANCELLED'
-          ? 'CANCELLED'
-          : new Date() >= event.startsAt
-            ? 'STARTED'
-            : null,
+        event.status === 'CANCELLED' ? 'CANCELLED' : now >= event.endsAt ? 'ENDED' : null,
+      // Spec 034 FR-007: the clock fact alone, whatever the status.
+      inProgress: event.startsAt <= now && now < event.endsAt,
       // Same order as listTicketTiers (TiersService.list).
       tiers: event.tiers.map((t) => ({
         tierId: t.id,
