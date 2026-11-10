@@ -210,7 +210,7 @@ when the venue has a layout (`008` US6, research R9):
 
 | Venue layout | Tickets sold | Reserved seating | Seating card |
 | --- | --- | --- | --- |
-| None | either | off | "General admission: this venue has no seating layout." No checkbox, no **Save seating** |
+| None | either | off (on can't happen: a layout can't be removed while a seated event uses it) | "General admission: this venue has no seating layout." No checkbox, no **Save seating** |
 | Yes | yes | off | "General admission: tickets have been sold, so reserved seating can't be turned on." No checkbox, no **Save seating** |
 | Yes | yes | on | Unchanged: checked, disabled, "Seats can't change after tickets are sold."; tiers and **Save seating** for unsold sections |
 | Yes | no | either | Unchanged: the checkbox, usable |

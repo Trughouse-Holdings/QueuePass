@@ -124,6 +124,7 @@ describe('Seating card', () => {
     expect(within(region).queryByRole('checkbox')).toBeNull();
     expect(within(region).queryByRole('combobox', { name: 'Section A tier' })).toBeNull();
     expect(within(region).queryByRole('button', { name: 'Save seating' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Seat map' })).toBeNull();
   });
 
   it('keeps the switch, checked and disabled with the reason, once tickets are sold with it on', async () => {
