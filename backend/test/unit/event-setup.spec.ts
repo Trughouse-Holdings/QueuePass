@@ -419,4 +419,55 @@ describe('planEventUpdate (035)', () => {
       ),
     ).toEqual(['tiers.0.id is not allowed when scheduling']);
   });
+
+  it('refuses remapping a sold section as EVENT_HAS_ORDERS, not quantity-below-sold', () => {
+    const seated = ctx({
+      reservedSeatingBefore: true,
+      existingTiers: [
+        { id: 't-front', name: 'Front' },
+        { id: 't-standard', name: 'Standard' },
+      ],
+      existingMappings: [
+        { sectionId: 'front', sectionName: 'front', tierId: 't-front' },
+        { sectionId: 'middle', sectionName: 'middle', tierId: 't-standard' },
+      ],
+      counts: {
+        ...emptyCounts,
+        eventSold: 1,
+        soldByTier: new Map([['t-front', 1]]),
+        soldBySection: new Map([['front', 1]]),
+      },
+      venue: { name: 'Seated Hall', seatingCapacity: 30 },
+      sections: [
+        { id: 'front', name: 'front', rows: 1, seatsPerRow: 10 },
+        { id: 'middle', name: 'middle', rows: 1, seatsPerRow: 10 },
+        { id: 'back', name: 'back', rows: 1, seatsPerRow: 10 },
+      ],
+      capacity: 30,
+    });
+    try {
+      planEventUpdate(
+        {
+          name: 'Season Opener',
+          reservedSeating: true,
+          tiers: [
+            { id: 't-front', name: 'Front', price: '120.00', sectionIds: [] },
+            { id: 't-standard', name: 'Standard', price: '70.00', sectionIds: ['front', 'middle'] },
+          ],
+        },
+        seated,
+      );
+      throw new Error('expected a refusal');
+    } catch (err) {
+      expect(err).toBeInstanceOf(HttpException);
+      const e = err as HttpException;
+      expect(e.getStatus()).toBe(409);
+      expect(e.getResponse()).toMatchObject({
+        error: {
+          code: 'EVENT_HAS_ORDERS',
+          details: { field: 'tiers.1.sectionIds' },
+        },
+      });
+    }
+  });
 });

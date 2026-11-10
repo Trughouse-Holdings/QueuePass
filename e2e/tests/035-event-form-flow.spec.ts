@@ -29,7 +29,7 @@ test("035 S1: a seated event that fills the venue's layout is scheduled without 
   await page.getByLabel('Event name', { exact: true }).fill(eventName);
   await page
     .getByLabel('Venue', { exact: true })
-    .selectOption({ label: `${venueName} (500 seats)` });
+    .selectOption({ label: `${venueName} (30 seats)` });
   await page.getByLabel('Starts', { exact: true }).fill(`${day}T19:00`);
   await page.getByLabel('Ends', { exact: true }).fill(`${day}T22:00`);
 

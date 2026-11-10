@@ -50,7 +50,7 @@ describe('Updating an event with its ticket types and seating (035)', () => {
     ...over,
   });
 
-  const createGeneral = async () => {
+  const createGeneral = async (over: object = {}) => {
     const res = await asAdmin(ctx)
       .post('/events')
       .send(
@@ -60,6 +60,7 @@ describe('Updating an event with its ticket types and seating (035)', () => {
             { name: 'Floor', price: '80.00', quantity: 300 },
             { name: 'Balcony', price: '60.00', quantity: 200 },
           ],
+          ...over,
         }),
       )
       .expect(201);
@@ -239,7 +240,10 @@ describe('Updating an event with its ticket types and seating (035)', () => {
       );
       expect(unknown.body.error.details.fields[0]).toMatch(/^tiers\.0\.id/);
 
-      const { event: other } = await createGeneral();
+      const { event: other } = await createGeneral({
+        name: 'Other Show',
+        ...windowAt(410),
+      });
       const { floor: foreignTier } = await (async () => {
         const tiers = await ctx.prisma.ticketTier.findMany({
           where: { eventId: other.id },
@@ -399,6 +403,7 @@ describe('Updating an event with its ticket types and seating (035)', () => {
           .set('Authorization', `Bearer ${ctx.adminToken}`)
           .send({
             name: 'Should roll back',
+            totalTicketCapacity: 510,
             tiers: [
               { id: floor.id, name: 'Floor', price: '80.00', quantity: 300 },
               { id: balcony.id, name: 'Balcony', price: '60.00', quantity: 200 },

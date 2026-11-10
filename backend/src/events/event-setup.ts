@@ -326,18 +326,6 @@ export function planEventUpdate(input: SetupInput, ctx: UpdateSetupInput): Event
     id: input.tiers![i]!.id,
   }));
 
-  for (const [i, tier] of withIds.entries()) {
-    if (!tier.id) continue;
-    const sold = ctx.counts.soldByTier.get(tier.id) ?? 0;
-    if (tier.quantity < sold) {
-      throw conflict(
-        'CAPACITY_EXCEEDED',
-        `Cannot set ${tier.name} to ${tier.quantity} tickets; ${sold} are already sold.`,
-        { field: `tiers.${i}.quantity`, requested: tier.quantity, ticketsSold: sold },
-      );
-    }
-  }
-
   const beforeOwner = new Map(ctx.existingMappings.map((m) => [m.sectionId, m.tierId]));
   const afterOwner = new Map<string, { index: number; id?: string }>();
   for (const [i, tier] of withIds.entries()) {
@@ -367,6 +355,18 @@ export function planEventUpdate(input: SetupInput, ctx: UpdateSetupInput): Event
       section: name,
       ticketsSold: sold,
     });
+  }
+
+  for (const [i, tier] of withIds.entries()) {
+    if (!tier.id) continue;
+    const sold = ctx.counts.soldByTier.get(tier.id) ?? 0;
+    if (tier.quantity < sold) {
+      throw conflict(
+        'CAPACITY_EXCEEDED',
+        `Cannot set ${tier.name} to ${tier.quantity} tickets; ${sold} are already sold.`,
+        { field: `tiers.${i}.quantity`, requested: tier.quantity, ticketsSold: sold },
+      );
+    }
   }
 
   return {
