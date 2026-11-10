@@ -31,6 +31,12 @@ export class ApiError extends Error {
   constructor(
     readonly status: number,
     readonly envelope: ErrorEnvelope,
+    /**
+     * Spec 031 (research R5, R6): whether the response carried the Backend's error envelope.
+     * `false` only from `unwrap`'s fallback, for a body without one (a proxy's gateway error, say),
+     * which may have come after the Backend saved the request.
+     */
+    readonly enveloped = true,
   ) {
     super(envelope.error.message);
     this.name = 'ApiError';
@@ -57,7 +63,14 @@ export async function unwrap<T>(
 
   if (response.status === 401) onUnauthorized();
   if (isErrorEnvelope(error)) throw new ApiError(response.status, error);
-  throw new ApiError(response.status, {
-    error: { code: 'VALIDATION_FAILED', message: `Request failed with status ${response.status}.` },
-  });
+  throw new ApiError(
+    response.status,
+    {
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: `Request failed with status ${response.status}.`,
+      },
+    },
+    false,
+  );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import type {
   ConflictingEventRef,
@@ -128,6 +128,57 @@ const savedItem = (image: EventImage, file?: File): ImageItem => ({
   ...(file ? { file } : {}),
 });
 
+/** One refusal message placed on a ticket type, with the field it names (spec 031 research R3). */
+interface TypeFieldError {
+  field: string;
+  message: string;
+}
+
+/** Spec 031 FR-010 (research R3, R5): a refusal's messages by the place in the form they name. */
+interface PlacedErrors {
+  /** By the ticket type's index in the request (ticket type i + 1 on the form). */
+  types: Map<number, TypeFieldError[]>;
+  /** The ticket types together (`tiers`). */
+  tiers: string[];
+  /** The seating choice (`reservedSeating`, `totalTicketCapacity`). */
+  seating: string[];
+}
+
+const TYPE_FIELDS = ['name', 'price', 'quantity', 'sectionIds'];
+
+/**
+ * Spec 031 (research R3, R5): reads the path a refusal names, from `details.field` (exactly the
+ * path) or from the start of each `details.fields` entry, as the contract says a client should:
+ * `tiers.<i>.` is ticket type i, any other start with `tiers` the ticket types, and
+ * `reservedSeating` or `totalTicketCapacity` the seating. Anything else stays in the banner only.
+ */
+function fieldErrors(error: ApiError | null): PlacedErrors {
+  const placed: PlacedErrors = { types: new Map(), tiers: [], seating: [] };
+  if (!error) return placed;
+  const place = (path: string, message: string, exact: boolean) => {
+    const type = /^tiers\.(\d+)\.(\w+)/.exec(path);
+    if (type) {
+      const i = Number(type[1]);
+      placed.types.set(i, [...(placed.types.get(i) ?? []), { field: type[2]!, message }]);
+    } else if (exact ? path === 'tiers' : /^tiers[ .]/.test(path)) {
+      placed.tiers.push(message);
+    } else if (/^(reservedSeating|totalTicketCapacity)$/.test(exact ? path : path.split(' ')[0]!)) {
+      placed.seating.push(message);
+    }
+  };
+  const field = error.details?.field;
+  if (typeof field === 'string') place(field, error.envelope.error.message, true);
+  const fields = error.details?.fields;
+  if (Array.isArray(fields)) {
+    for (const entry of fields) if (typeof entry === 'string') place(entry, entry, false);
+  }
+  return placed;
+}
+
+/** Spec 031 FR-011: a schedule that got no answer may or may not have been saved. */
+const noAnswerFrom = (err: unknown): boolean =>
+  !(err instanceof ApiError) || (err.status >= 500 && !err.enveloped);
+
 /** FR-032, FR-033, FR-034, FR-035 — create/edit an event. No removal control (API-only). */
 export function EventForm(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
@@ -172,10 +223,9 @@ export function EventForm(): React.ReactElement {
   const [typesFailed, setTypesFailed] = useState(false);
   /** Each section's ticket type, as an index into `types`; '' is Not for sale. */
   const [sectionType, setSectionType] = useState<Record<string, string>>({});
-  const [setupRefused, setSetupRefused] = useState<{ eventId: string; error: ApiError } | null>(
-    null,
-  );
   const [error, setError] = useState<ApiError | null>(null);
+  /** Spec 031 FR-011: the schedule request got no answer; the event may or may not exist. */
+  const [noAnswer, setNoAnswer] = useState(false);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
   // Spec 014 (research R9): the event's pictures in order; changes are made on Save.
@@ -322,18 +372,26 @@ export function EventForm(): React.ReactElement {
       .map((sec) => ({ sectionId: sec.id, tierId: tierIds[Number(sectionType[sec.id])] })),
   });
 
-  /** Spec 008 R10: create the event, then its seating and ticket types. */
-  async function scheduleEvent(payload: EventInput): Promise<string | null> {
-    const created = await createEvent(payload);
-    try {
-      if (reserved) await updateSeating(created.id, { reservedSeating: true, sections: [] });
-      const tierIds: string[] = [];
-      for (const t of types) tierIds.push((await createTier(created.id, tierInput(t))).id);
-      if (reserved) await updateSeating(created.id, seating(tierIds));
-    } catch (err) {
-      setSetupRefused({ eventId: created.id, error: err as ApiError });
-      return null;
-    }
+  /**
+   * Spec 031 (research R4, R5): the event, its ticket types, and its seating in one request, which
+   * the Backend saves all or nothing. With reserved seating, each type lists the sections whose
+   * select names it; a section set to Not for sale is in none.
+   */
+  async function scheduleEvent(payload: EventInput): Promise<string> {
+    const created = await createEvent({
+      ...payload,
+      ...(reserved ? { reservedSeating: true } : {}),
+      tiers: types.map((t, i) => ({
+        ...tierInput(t),
+        ...(reserved
+          ? {
+              sectionIds: (layout?.sections ?? [])
+                .filter((sec) => sectionType[sec.id] === String(i))
+                .map((sec) => sec.id),
+            }
+          : {}),
+      })),
+    });
     return created.id;
   }
 
@@ -483,7 +541,7 @@ export function EventForm(): React.ReactElement {
   async function handleSubmit(e: React.FormEvent): Promise<void> {
     e.preventDefault();
     setError(null);
-    setSetupRefused(null);
+    setNoAnswer(false);
     setSaved(false);
     setImagesNotice(null);
 
@@ -582,13 +640,24 @@ export function EventForm(): React.ReactElement {
     let eventId = id;
     try {
       if (isEdit && id) await saveEvent(id, payload);
-      else eventId = (await scheduleEvent(payload)) ?? undefined;
+      else {
+        try {
+          eventId = await scheduleEvent(payload);
+        } catch (err) {
+          // FR-011 (research R6): no answer, or a gateway's answer, is not a refusal. Every
+          // value stays; the admin checks the Events list before scheduling again.
+          if (!noAnswerFrom(err)) throw err;
+          setNoAnswer(true);
+          return;
+        }
+      }
       if (!eventId) return;
       try {
         await applyImages(eventId, list, toDelete);
       } catch (err) {
         if (!(err instanceof ImageStepError) || isEdit) throw err;
-        // Spec 014 FR-018: the event, its seating, and its ticket types are saved; the form
+        // Spec 014 FR-018: the event, its seating, and its ticket types are saved (031: in one
+        // request, so always together); the form
         // becomes that event's edit form with the pictures not yet added, so saving again
         // changes only this event.
         const [first, ...rest] = err.remaining;
@@ -614,6 +683,24 @@ export function EventForm(): React.ReactElement {
       setBusy(false);
     }
   }
+
+  // Spec 031 FR-010: cleared with the error when the admin schedules again.
+  const placed = fieldErrors(error);
+  const typeErrors = (i: number, section: boolean): TypeFieldError[] =>
+    (placed.types.get(i) ?? []).filter((e) => (e.field === 'sectionIds' && reserved) === section);
+  /** The type's input for `field` is invalid when a message names it, or names no known field. */
+  const invalid = (i: number, field: string): boolean =>
+    typeErrors(i, false).some((e) => e.field === field || !TYPE_FIELDS.includes(e.field));
+  const typeInputProps = (i: number, field: string) =>
+    invalid(i, field)
+      ? { 'aria-invalid': true as const, 'aria-describedby': `type-${i + 1}-error` }
+      : {};
+  const hint = (id: string, messages: string[]): React.ReactElement | null =>
+    messages.length > 0 ? (
+      <span className="field__hint" role="alert" id={id} data-testid={id}>
+        {messages.join(' ')}
+      </span>
+    ) : null;
 
   const conflict =
     error?.code === 'SCHEDULING_CONFLICT'
@@ -765,42 +852,52 @@ export function EventForm(): React.ReactElement {
   const typeLines = (
     <>
       {types.map((t, i) => (
-        <div key={i} className="form__row">
-          <input
-            aria-label={`Ticket type ${i + 1} name`}
-            placeholder="Floor"
-            value={t.name}
-            onChange={(e) => setType(i, { name: e.target.value })}
-          />
-          <input
-            aria-label={`Ticket type ${i + 1} price`}
-            inputMode="decimal"
-            placeholder="80.00"
-            value={t.price}
-            onChange={(e) => setType(i, { price: e.target.value })}
-          />
-          {!reserved && (
+        <Fragment key={i}>
+          <div className="form__row">
             <input
-              aria-label={`Ticket type ${i + 1} quantity`}
-              type="number"
-              min={1}
-              placeholder="100"
-              value={t.quantity}
-              onChange={(e) => setType(i, { quantity: e.target.value })}
+              aria-label={`Ticket type ${i + 1} name`}
+              placeholder="Floor"
+              value={t.name}
+              onChange={(e) => setType(i, { name: e.target.value })}
+              {...typeInputProps(i, 'name')}
             />
+            <input
+              aria-label={`Ticket type ${i + 1} price`}
+              inputMode="decimal"
+              placeholder="80.00"
+              value={t.price}
+              onChange={(e) => setType(i, { price: e.target.value })}
+              {...typeInputProps(i, 'price')}
+            />
+            {!reserved && (
+              <input
+                aria-label={`Ticket type ${i + 1} quantity`}
+                type="number"
+                min={1}
+                placeholder="100"
+                value={t.quantity}
+                onChange={(e) => setType(i, { quantity: e.target.value })}
+                {...typeInputProps(i, 'quantity')}
+              />
+            )}
+            {types.length > 1 && (
+              <button type="button" className="btn" onClick={() => removeType(i)}>
+                Remove ticket type {i + 1}
+              </button>
+            )}
+          </div>
+          {hint(
+            `type-${i + 1}-error`,
+            typeErrors(i, false).map((e) => e.message),
           )}
-          {types.length > 1 && (
-            <button type="button" className="btn" onClick={() => removeType(i)}>
-              Remove ticket type {i + 1}
-            </button>
-          )}
-        </div>
+        </Fragment>
       ))}
       <div>
         <button type="button" className="btn" onClick={() => setTypes([...types, NEW_TYPE])}>
           Add ticket type
         </button>
       </div>
+      {hint('tiers-error', placed.tiers)}
     </>
   );
 
@@ -832,10 +929,15 @@ export function EventForm(): React.ReactElement {
           const seats = l.sections
             .filter((sec) => sectionType[sec.id] === String(i))
             .reduce((n, sec) => n + sec.rows * sec.seatsPerRow, 0);
+          // Spec 031 FR-010: a refused section list shows beside its type's seats line.
           return (
-            <p
-              key={i}
-            >{`${t.name.trim() || `Ticket type ${i + 1}`}: ${seats.toLocaleString()} ${seats === 1 ? 'seat' : 'seats'}`}</p>
+            <p key={i} data-testid={`seats-${i + 1}`}>
+              {`${t.name.trim() || `Ticket type ${i + 1}`}: ${seats.toLocaleString()} ${seats === 1 ? 'seat' : 'seats'}`}{' '}
+              {hint(
+                `seats-${i + 1}-error`,
+                typeErrors(i, true).map((e) => e.message),
+              )}
+            </p>
           );
         })}
       </div>
@@ -860,14 +962,16 @@ export function EventForm(): React.ReactElement {
         </div>
       )}
       {error && <ErrorBanner error={error} />}
-      {setupRefused && (
-        <div role="alert" className="banner banner--error">
+      {noAnswer && (
+        <div role="alert" data-testid="no-answer" className="banner banner--error">
+          <span className="banner__icon" aria-hidden="true">
+            ✕
+          </span>
           <div className="banner__body">
-            <strong>Seating setup not finished</strong>
-            <p>{setupRefused.error.envelope.error.message}</p>
+            <strong>Could not save</strong>
             <p>
-              The event was created; its ticket types or sections were not all set up.{' '}
-              <Link to={`/events/${setupRefused.eventId}`}>Finish on the event page</Link>
+              No answer from QueuePass, so the event may or may not have been scheduled. Check the{' '}
+              <Link to="/events">Events list</Link> before scheduling it again.
             </p>
           </div>
         </div>
@@ -987,6 +1091,7 @@ export function EventForm(): React.ReactElement {
                 />
                 General admission
               </label>
+              {hint('seating-error', placed.seating)}
               {typeLines}
               {reserved && sectionSetup(layout)}
             </fieldset>
@@ -994,6 +1099,7 @@ export function EventForm(): React.ReactElement {
           {typesLoaded && !layout && (
             <fieldset className="field">
               <legend>Ticket types</legend>
+              {hint('seating-error', placed.seating)}
               {typeLines}
             </fieldset>
           )}
