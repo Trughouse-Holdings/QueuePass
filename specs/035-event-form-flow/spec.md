@@ -495,8 +495,10 @@ names), and there is no error banner at the top of the page. The typed values re
 
 ## Out of scope
 
-- Safari's missing time picker in the calendar popup (#128).
-- Picking doors open as a number of hours before the start (#130).
+- Safari's missing time picker in the calendar popup (#128). **Note (2026-11-10, spec `036`)**:
+  now in `036`, with #130.
+- Picking doors open as a number of hours before the start (#130). **Note (2026-11-10, spec
+  `036`)**: now in `036`, with #128.
 - Event description, age restriction, and category (#49; doors open is already `025`).
 - Draft and published events, on-sale and off-sale times (#44).
 - Pictures in the scheduling or update request (`014` keeps them separate on purpose).
