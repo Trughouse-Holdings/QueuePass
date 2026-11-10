@@ -75,6 +75,9 @@ export const ERROR_CODES = [
   // Spec 026: an account over its allowance of buy or seat-hold attempts (429). Added ahead of the
   // implementation, so the list matches the contract.
   'RATE_LIMITED',
+  // Spec 032: a change to the times of an event whose check-in details were removed. Added ahead
+  // of the implementation, so the list matches the contract.
+  'CHECK_IN_DETAILS_REMOVED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.23.0
+  version: 1.24.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -56,6 +56,15 @@ info:
     policy does not expose `Retry-After`. No caller or role is exempt; releasing seats and reading are
     never limited. The numbers are the Backend's configuration (`RATE_LIMIT_PER_MINUTE`,
     `RATE_LIMIT_PER_5_SECONDS`; defaults 10 and 3).
+
+    **Check-in retention** (feature 032): a ticket's check-in details (when it was admitted, and
+    which gate agent admitted it) are kept until its event's `endsAt` plus 7 days (7 × 24 hours,
+    `CHECK_IN_RETENTION_DAYS`), half-open: at that instant they are due. Within about an hour after
+    it, the Backend removes them from every ticket of the event, cancelled events included, and
+    records on the event when it did so (`checkInDetailsRemovedAt`) and how many of its valid
+    tickets had been admitted, which the sales report keeps as the event's `checkedIn`. From then
+    on every ticket of that event has `checkedInAt: null`, and the event's times cannot change
+    (`409 CHECK_IN_DETAILS_REMOVED`).
 
     **Errors**: every non-2xx response is an `ErrorEnvelope`. Branch on `error.code`, never on
     `error.message`.
@@ -878,6 +887,13 @@ paths:
         the same time before the start (also when moving to a venue in another zone, which does not
         have to send it). Otherwise an update without it leaves it unchanged. Moving
         `doorsOpenAt` later can close an open check-in window; entries already recorded stay.
+
+        Feature 032: once an event's check-in details have been removed (`checkInDetailsRemovedAt`
+        set), an update whose `startsAt`, `endsAt`, or `doorsOpenAt` in force after it differs from
+        the stored instant is refused with `409 CHECK_IN_DETAILS_REMOVED`
+        (`details.removedAt`), and nothing changes. Sending the stored instants again, or changing
+        only other fields, is allowed. Before removal, times change as above, and the removal
+        follows the `endsAt` in force.
       operationId: updateEvent
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -2109,6 +2125,14 @@ components:
           pattern: '^\d+\.\d{2}$'
           description: Decimal string in USD, never a JSON number, so no client loses precision.
           example: '45.00'
+        checkInDetailsRemovedAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Feature 032. When the Backend removed the check-in details of this event's tickets, at
+            or after `endsAt` plus 7 days; `null` until then. Always sent once 032 is implemented;
+            not listed as required so this contract can merge ahead of the implementation with the
+            suite green. Clients treat a missing value as `null`.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -2363,7 +2387,13 @@ components:
         id: { type: string, format: uuid }
         code: { type: string, pattern: '^[A-Z2-9]{12}$', example: 7KQ2M9XWAB4C }
         status: { type: string, enum: [VALID, VOID] }
-        checkedInAt: { type: [string, 'null'], format: date-time }
+        checkedInAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            When the ticket was admitted; `null` while unused. Feature 032: also `null` once its
+            event's check-in details have been removed (`checkInDetailsRemovedAt`), whether or not
+            it was used.
         seat:
           description: Feature 007. The seat this ticket is for; `null` for general admission.
           oneOf:
@@ -2471,6 +2501,13 @@ components:
             Feature 025. When the venue's doors open, as `Event.doorsOpenAt`, shown on My tickets
             and the printed ticket. Required from 1.18.1.
         status: { type: string, enum: [SCHEDULED, CANCELLED] }
+        checkInDetailsRemovedAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Feature 032. As `Event.checkInDetailsRemovedAt`. When set, My tickets shows the order's
+            valid tickets as "Event over", with no entry code or printable ticket. Not listed as
+            required until 032 is implemented; clients treat a missing value as `null`.
         location:
           type: object
           required: [id, name, address, timeZone]
@@ -2809,7 +2846,19 @@ components:
         status: { type: string, enum: [SCHEDULED, CANCELLED] }
         ticketCapacity: { type: integer, minimum: 1 }
         ticketsSold: { type: integer, minimum: 0 }
-        checkedIn: { type: integer, minimum: 0 }
+        checkedIn:
+          type: integer
+          minimum: 0
+          description: |
+            Valid tickets admitted at the gate; 0 for a cancelled event. Feature 032: once the
+            event's check-in details have been removed, the count kept at that moment, so the
+            figure does not change.
+        checkInDetailsRemovedAt:
+          type: [string, 'null']
+          format: date-time
+          description: |
+            Feature 032. As `Event.checkInDetailsRemovedAt`. Not listed as required until 032 is
+            implemented; clients treat a missing value as `null`.
         revenue: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
         tiers:
           type: array
@@ -3024,6 +3073,7 @@ components:
                 - UTC_OFFSET_MISMATCH
                 - DOORS_OPEN_OUT_OF_RANGE
                 - RATE_LIMITED
+                - CHECK_IN_DETAILS_REMOVED
             message: { type: string }
             details: { type: object, additionalProperties: true }
 
@@ -3408,6 +3458,14 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
           examples:
+            checkInDetailsRemoved:
+              summary: Feature 032. The event's check-in details were removed, so its times are fixed
+              value:
+                error:
+                  code: CHECK_IN_DETAILS_REMOVED
+                  message: The check-in details of Fall Concert were removed on Nov 9, 2026, so its times can no longer change.
+                  details:
+                    removedAt: '2026-11-10T03:00:00Z'
             entryRefusedUsed:
               summary: Feature 017. The ticket was already admitted
               value:
