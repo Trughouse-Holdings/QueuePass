@@ -225,7 +225,8 @@ docker compose exec backend node backend/dist/scripts/demo-data.js
 
 It adds two venues, five events (three with tiers; Demo Tonight, open for gate check-in as
 soon as the data loads, `017`; and Season Opener, a week ago and over, so the apps show an event
-whose sales are closed, `029`), named orders from `customer1`…`customer25`, some check-ins, one
+whose sales are closed, `029`; since `030` it is left out of the event lists, and its page, opened
+by its link, from Reports, or from the Admin list with Show past events on, shows its sales closed), named orders from `customer1`…`customer25`, some check-ins, one
 cancelled event, and generated striped pictures (three on the concert, one on the comedy night),
 all through the real Backend rules. Running it again changes nothing. It is never run
 automatically. Its orders belong to stand-in identities, so they don't appear on any customer's
@@ -252,7 +253,9 @@ every venue, seating section, event, tier, image, order, ticket (with its check-
 keeps the schema and its migration record, and loads the [demo data](#demo-data) again through the
 Backend's rules. Every reset ends in the same state, with times relative to the moment it ran:
 Fall Concert and Comedy Night on sale, Demo Tonight open at the Ticket Booth (for 4 hours),
-Holiday Gala cancelled, and Season Opener over, its sales closed. It takes a few seconds. Keycloak
+Holiday Gala cancelled, and Season Opener over, its sales closed (left out of the event lists since
+`030`; its page, by its link, from Reports, or from the Admin list with Show past events on, shows
+it). It takes a few seconds. Keycloak
 is not touched: every account, role, and sign-in stays as it was.
 
 It deletes everything, so it is refused unless you give the permission `QUEUEPASS_ALLOW_RESET=1`
@@ -491,12 +494,20 @@ unchanged.
   capacity, and base price (`002`)
 - **Double-booking prevention** — events at the same venue must be at least **60 minutes**
   apart, enforced by a database constraint so no client can bypass it (`002`)
-- **Customer browsing** — customers see all venues and events, read-only (`003`)
+- **Customer browsing** — customers see all venues and the events that have not ended, read-only
+  (`003`, `030`)
 - **Ticket tiers** — admins split an event's tickets into tiers such as General and VIP, each
   with its own price and quantity; tiers never exceed the event's capacity, even under
   simultaneous edits (`004`)
 - **Admin search** — find events by name, venue, and date range, and venues by name or address;
   filters stay in the page address (`004`)
+- **Past events hidden** — an event is past once its end time is reached. Every event list leaves
+  past events out unless asked (`GET /events?includePast=true`): the Customer app's Events page,
+  search, filters, and venue pages never show them, and a past event's own page still opens and
+  says "This event has ended." The Admin app's Events page and each venue's page say past events
+  are hidden and have a **Show past events** toggle, kept in the page address, that lists them
+  marked **Ended**; an event's own page says Ended too, and its attendees, sales, exports, and
+  Reports work as before. The Ticket Booth is unchanged (`030`)
 - **Orders and tickets** — customers get tickets through the API, one unique code per seat; sales
   never exceed a tier or the event, even with many simultaneous buyers. Payment is simulated
   (`005`)
@@ -516,7 +527,9 @@ unchanged.
   events, and events that have started say why tickets aren't available; sales close when an
   event starts. Confirming twice, or a retried request, never places a second order (`006`)
 - **My tickets** — every order a customer placed, newest first, with its codes, and refunded
-  orders, cancelled events, and used tickets marked; never anyone else's orders (`006`)
+  orders, cancelled events, and used tickets marked; never anyone else's orders (`006`). Orders
+  for events that have ended move to a **Past** section below the upcoming ones, with Print ticket
+  but no entry code (`030`)
 - **Finding events** — customers search by name and filter by venue, dates, and cancelled
   events; filters stay in the page address, so a filtered list can be reloaded or shared (`008`)
 - **The Customer app on a phone** — events as cards, one column on a phone with no sideways

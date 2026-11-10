@@ -112,12 +112,12 @@ T002); each app's behavior by its Vitest tests (T003 to T006).
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: setup by hand; the browser tests make their own venue and events through the API |
-| S1 | Manual: until T007 adds `030 S1/S2: the Customer app leaves an ended event out of the list, a search, and its venue page, and its own page says it has ended` |
-| S2 | Manual: until T007 adds `030 S1/S2: the Customer app leaves an ended event out of the list, a search, and its venue page, and its own page says it has ended` |
+| S1 | Automated: `030 S1/S2: the Customer app leaves an ended event out of the list, a search, and its venue page, and its own page says it has ended`; rest Manual: the venue and date filters (covered by the Customer app's tests, T005) |
+| S2 | Automated: `030 S1/S2: the Customer app leaves an ended event out of the list, a search, and its venue page, and its own page says it has ended`; rest Manual: the Get tickets panel's sales-closed text |
 | S3 | Manual: an order for an ended event cannot be placed through the rules in a test's time (sales close at the start, `006`); My tickets' Past section is covered by the Customer app's tests (T006) |
-| S4 | Manual: until T007 adds `030 S4/S6: the Admin app hides an ended event until Show past events is on, marks it Ended, and its page, attendees, and Reports row open` |
+| S4 | Automated: `030 S4/S6: the Admin app hides an ended event until Show past events is on, marks it Ended, and its page, attendees, and Reports row open`; rest Manual: Back, Clear, the empty-range hint, and the menu turning it off (covered by the Admin app's tests, T003) |
 | S5 | Manual: the venue page's toggle and the venue form's note are covered by the Admin app's tests (T003); the delete refusal by `002`'s |
-| S6 | Manual: until T007 adds `030 S4/S6: the Admin app hides an ended event until Show past events is on, marks it Ended, and its page, attendees, and Reports row open`; exports and the Sales card by hand |
+| S6 | Automated: `030 S4/S6: the Admin app hides an ended event until Show past events is on, marks it Ended, and its page, attendees, and Reports row open`; rest Manual: exports and the Sales card by hand |
 | S7 | Manual: the Ticket Booth's list is `025`'s browser test, unchanged |
 | S8 | Manual: API calls by hand; covered by the Backend's integration tests (T002) |
 | S9 | Manual: sign in, use, and sign out of each front end, by hand; the main journeys are `022`'s browser tests |
