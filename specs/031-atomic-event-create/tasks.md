@@ -111,7 +111,8 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   `planEventSetup` for every branch of R4 steps 2, 4, 5, with the paths and messages of T003, the
   seat sums, the capacity from the layout, and that it never throws for a request without `tiers`
   and `reservedSeating`. Must fail (no module).
-  **Done**: 16 cases, `seatingCapacity` and `planEventSetup`; failed (no module).
+  **Done**: 15 cases, `seatingCapacity` and `planEventSetup`; failed (no module). (17 after code
+  review round 1, which added `eventCapacity` and the capacity passed in.)
 - [x] T005 [P] [US3] `backend/test/integration/events.create-setup.concurrency.e2e-spec.ts` (new;
   FR-007, SC-006, research R11): ten rounds of two schedules for overlapping windows at one venue,
   each with three ticket types, sent at once: one `201` and one `409 SCHEDULING_CONFLICT` per round,
@@ -266,8 +267,9 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   375/375 each (43 files); `npm run test:tz` all pass in America/New_York, UTC,
   America/Los_Angeles, and Pacific/Honolulu for shared, Backend (unit), admin, customer, and booth.
   **Pending**: the `e2e` job on GitHub (T008) and its time.
-- [ ] T021 Independent review by a separate Claude session (Constitution III) of the implementation
+- [x] T021 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, research.md, and the contract; fix the findings; record the round here.
+  **Done**: round 1 below, every finding fixed.
 - [ ] T022 Running-system walk, quickstart S0–S10, on a stack of its own (`-p qp031`) or path B with
   Mahdi's go for the team stack's ports (ground rules); record each scenario's result here
   (Constitution VI smoke test).
@@ -345,4 +347,25 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 
 ## Review record (implementation branch)
 
-_Left for the implementation's review (T021)._
+- **Round 1** (independent Claude session, 2026-11-09, on PR #150): no must-fix, 3 should-fix, 3
+  nits; the reviewer's verdict: only minor findings remain. Tests first (`Review 031: tests for code
+  review round 1, S1–S3`: the association and Edit cases failed before the fix), then fixed in
+  `Review 031: code review round 1`.
+  - S1: `event-create-atomic.test.tsx` did not pin every path `fieldErrors` places → cases for a
+    type's price (`tiers.1.price …`: that input alone `aria-invalid`, described by the message), an
+    unknown property (every input of the type), `tiers.tiers must be …` (beside the ticket types),
+    and `totalTicketCapacity` / `reservedSeating` entries (the seating hint).
+  - S2: FR-010's "associated with the field" for the group hints → the Reserved seating and General
+    admission radios (or, at a venue without a layout, the Ticket types fieldset) are described by
+    `seating-error`, and each section select selling type *n* is `aria-invalid` and described by
+    `seats-<n>-error`; tested.
+  - S3: FR-013 → `fieldErrors` runs on Schedule only (`fieldErrors(isEdit ? null : error)`), so an
+    Edit refusal stays in the banner as before; a test that Edit shows no field hints.
+  - N1: one source of truth for the capacity → `eventCapacity` (the layout's, else typed, else the
+    venue's); `createLocked` passes the capacity it checked into `planEventSetup`, which only works
+    it out when called without one (unit tests). Two unit cases.
+  - N2: the comment on the picture step re-wrapped.
+  - N3: T004's case count corrected (15, 17 after this round).
+  - After the fixes: the Admin suite three times, 382/382 each (43 files); the Backend unit tests
+    304/304 (19 suites) and the `events.create-setup*` integration tests 29/29 (2 suites), in band.
+- **Open findings**: none.
