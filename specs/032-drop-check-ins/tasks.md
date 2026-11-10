@@ -55,8 +55,8 @@ confirm they **fail** before the implementation tasks of Phase 3.
 ## Phase 2: Tests first (all must fail before Phase 3)
 
 - [ ] T002 [US1] [US2] `backend/test/integration/check-in-retention.e2e-spec.ts` (new; FR-001 to
-  FR-006, FR-009, SC-001 to SC-004, research R4, R5, R11), with `createTestApp()` (interval 0) and its
-  `FakeClock`; fixtures made through the services, then times and check-ins set directly with
+  FR-006, FR-009, SC-001 to SC-004, research R4, R5, R11), with `createTestApp()` (which never starts the job) and
+  its `FakeClock`; fixtures made through the services, then times and check-ins set directly with
   `prisma` (an event E ended at a fixed instant; its tickets admitted with all three columns, one with
   `checkedInAt` only, one void with an admission time; F ending 1 day after E; G not ended):
   - clock at `E.endsAt + 7 d − 1 min`: `app.get(CheckInRetention).removeDue()` returns no ids; every
@@ -68,12 +68,23 @@ confirm they **fail** before the implementation tasks of Phase 3.
   - a cancelled event past its cutoff: removed, count 0; an event with no tickets: removed, count 0;
   - E's end moved 2 days later (through `PATCH`) before the cutoff: not removed at the old cutoff,
     removed at the new;
-  - two `removeDue()` at once (`Promise.all`): E removed once, rows as after one run;
+  - two removals at once, past the `running` flag (review round 1, S4): `removeEvent(E, now)` twice
+    with `Promise.all`: exactly one returns `true`, E's instant and count are one removal's; and a
+    second `CheckInRetention` instance's `removeDue()` beside the first's: the same;
+  - the bound in exact hours (review round 1, S3): `endsAt` 2026-10-31T23:00Z, the session's zone set to
+    `America/New_York`: kept at `endsAt + 7 × 86 400 000 ms − 1 min`, removed at `endsAt + 7 × 86 400 000
+    ms`;
   - `GET /reports/sales` before and after E's removal: deep-equal but `generatedAt` and E's
     `checkInDetailsRemovedAt`; then E cancelled: its `checkedIn` 0 and the total down by its count;
-  - a Nest testing module with `CHECK_IN_RETENTION_INTERVAL_MS` overridden to `60_000` and a due event:
-    after `app.init()` (and a wait of at most 2 s for the start-up run), the event is removed; the
-    module closed afterwards.
+  - `start()` on the test app's `CheckInRetention`: a due event is removed without calling `removeDue`
+    (polled for at most 2 s); `app.close()` clears the timer;
+  - never in the demo commands (SC-007, review round 1, M1): with a due event that has check-ins,
+    `NestFactory.createApplicationContext(AppModule)` against the test database (as `demo-data.ts` and
+    `demo-reset.ts` build it), `init()`, then `runDemoData(app)`: that event's check-ins and NULL removal
+    columns untouched; the context closed afterwards.
+  And `backend/test/unit/check-in-retention-start.spec.ts` (new): reads every `.ts` under
+  `backend/src`; fails if `CheckInRetention`'s `start()` is called from any file but `src/main.ts`, or
+  if `main.ts` does not call it.
   Must fail (no module yet).
 - [ ] T003 [P] [US1] `backend/test/integration/check-in-retention.constraints.e2e-spec.ts` (new;
   FR-015): raw SQL updates on an event: an instant without a count, a count without an instant, and a
@@ -84,7 +95,9 @@ confirm they **fail** before the implementation tasks of Phase 3.
   earlier `startsAt`, or a different `doorsOpenAt` → `409 CHECK_IN_DETAILS_REMOVED`,
   `details.removedAt` its instant, the message naming the date in the venue's zone, the event unchanged;
   `PATCH` with the stored three instants and a new name → `200`, name changed; on an event not removed,
-  a time change → `200`. Each response passes `expectToMatchContract(res, 'updateEvent')`. Also
+  a time change → `200`. Precedence (research R6): a removed event with `endsAt` before `startsAt` →
+  `400`; with a changed `endsAt` and a capacity below its sold tickets → `409 CHECK_IN_DETAILS_REMOVED`.
+  Each response passes `expectToMatchContract(res, 'updateEvent')`. Also
   `getEvent`, `listMyOrders`, and `getSalesReport` include `checkInDetailsRemovedAt` (`null`, then the
   instant) and match the contract. Must fail.
 - [ ] T005 [P] [US2] [US3] Admin app (Vitest; FR-009 to FR-013, research R7, R8):
@@ -117,17 +130,19 @@ confirm they **fail** before the implementation tasks of Phase 3.
   exactly as data-model.md; `schema.prisma` fields and comments; `npx prisma generate`. Makes T003
   pass.
 - [ ] T009 [US1] `backend/src/entry/check-in-retention.ts` (research R5): `CHECK_IN_RETENTION_INTERVAL_MS`
-  token, `CheckInRetention` with `onApplicationBootstrap` (one run, then the timer, when the interval
-  is above 0), `onModuleDestroy`, `removeDue(now?)` with the running flag, the due query, and the
-  per-event locked transaction (lock, re-check, count, empty the tickets, mark the event), each event's
-  failure logged and skipped; one log line per run that removed anything. `EntryModule` provides it
-  with `{ provide: CHECK_IN_RETENTION_INTERVAL_MS, useValue: 3_600_000 }`;
-  `backend/test/setup/test-app.ts` overrides it with 0. Makes T002's removal cases pass.
+  token, `CheckInRetention` with `start()` (one run, then the timer), `onModuleDestroy`, and **no
+  lifecycle hook that runs it**; `removeDue(now?)` with the running flag, the bound computed in
+  JavaScript (`now − CHECK_IN_RETENTION_DAYS × 86 400 000 ms`, never SQL interval arithmetic), the due
+  query; public `removeEvent(id, now)`, the locked transaction (lock, re-check against the same bound,
+  count, empty the tickets, mark the event); each event's failure logged and skipped; one log line per
+  run that removed anything. `EntryModule` provides it with `{ provide: CHECK_IN_RETENTION_INTERVAL_MS,
+  useValue: 3_600_000 }`. `backend/src/main.ts` calls `app.get(CheckInRetention).start()` after
+  `app.listen`, the only call. Makes T002's removal cases and the start-up unit test pass.
 - [ ] T010 [US2] `ReportsService.sales` (research R4): `checkedIn` is 0 for a cancelled event, else the
   kept count once removed, else the live count; `checkInDetailsRemovedAt` on each event row. Makes T002's
   report cases pass.
-- [ ] T011 [US4] `EventsService` (research R6): in `updateLocked`, after the `CANCELLED` check, the
-  `409 CHECK_IN_DETAILS_REMOVED` for a changed resolved `startsAt`, `endsAt`, or `doorsOpenAt` on a
+- [ ] T011 [US4] `EventsService` (research R6): in `updateLocked`, after `doorsOpenAt` is resolved and
+  before the capacity checks and `assertNoConflict`, the `409 CHECK_IN_DETAILS_REMOVED` for a changed resolved `startsAt`, `endsAt`, or `doorsOpenAt` on a
   removed event (message date in the venue's zone, `details.removedAt`); `toResponse` sends
   `checkInDetailsRemovedAt`; `OrdersService.mine` adds it to the event summary. Check
   `backend/test/integration/demo-reset.e2e-spec.ts`'s fingerprint still passes (the new columns are
@@ -181,7 +196,43 @@ confirm they **fail** before the implementation tasks of Phase 3.
 
 ## Review record (spec branch)
 
-_Left for the spec branch's independent review._
+- **Round 1** (independent Claude session, 2026-11-09): 2 must-fix, 3 should-fix, 4 nits; all fixed
+  in the `Review 032: spec review round 1` commit, and the roadmap row and Impact line in their own
+  `Constitution:` commit.
+  - M1: the removal ran from `onApplicationBootstrap`, which `NestFactory.createApplicationContext`
+    also calls, so the demo data and demo reset commands (`demo-data.ts`, `demo-reset.ts`, run by CI's
+    e2e harness) would have run it beside their `TRUNCATE` and `app.close()` → the job has no
+    lifecycle hook; `main.ts` calls `start()` after `listen`, the one call (chosen over an interval of
+    0 in the scripts, which cannot override a provider without a new variable); spec FR-006, SC-007;
+    a T002 case (the demo context leaves a due event untouched) and a unit test (only `main.ts` calls
+    `start()`) (research R5, R10, R11, plan, T002, T009).
+  - M2: spec `030` (merged) was amended without saying so → declared, for removed events only:
+    `030` FR-016 (a Past ticket keeps its state and printable ticket) is replaced by FR-014, and
+    `030`'s edge case of an event moved later coming back is overridden by FR-008 (decided by the
+    orchestrating session on Mahdi's standing approval); in the spec's Context, Clarifications,
+    FR-008, FR-014; research R6, R9 (its "Past section unchanged" corrected), R10; a dated note in
+    `specs/030-hide-past-events/spec.md`; the roadmap row depends on `018` and `030`, and the
+    constitution's Impact line names both amendments.
+  - S3: the due query added `make_interval(days => 7)` in SQL, calendar days in the session's zone (an
+    hour off across daylight saving) → the bound is computed in JavaScript and the re-check under the
+    lock uses it; a T002 case across the 2026-11-01 fall-back (research R5, T002, T009).
+  - S4: "two `removeDue()` at once" was stopped by the `running` flag before reaching the lock →
+    `removeEvent` is public and the test runs it twice at once, plus two instances (research R5, R11,
+    T002).
+  - S5: a venue time-zone change moves events without `updateLocked` → named as the one exception in
+    FR-008 (only events without orders move, so no ticket is affected); the check sits after
+    `doorsOpenAt` is resolved and before the capacity and conflict checks, with the error precedence
+    stated and tested (research R6, T004, T011).
+  - N6: US1's and US4's weekdays: Nov 2 and Nov 9, 2026 are Mondays.
+  - N7: Clarifications and R2 reworded: the record of which holders entered is dropped; buyer names
+    stay on orders as purchase data.
+  - N8: `018` in the roadmap row's Depends on (with M2).
+  - N9: `getTicketEntryKey` for a removed event's ticket: decided not to refuse it (a contract change
+    for a key that opens nothing; it already serves unused tickets of any ended event); research R6,
+    spec Clarifications.
+  - After the fixes, three runs each: `prettier --check .`, `check-quickstart-marks`,
+    `check-contract-drift`, root script tests.
+- **Open findings**: none.
 
 ## Review record (implementation branch)
 

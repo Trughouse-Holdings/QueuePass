@@ -29,6 +29,13 @@ check-in: `checkedInAt`, and who admitted it, `checkedInBySub` and `checkedInByU
 before doors open until the event ends), and, for the Customer app's My tickets, `030` (past orders
 under a **Past** heading, no "Show entry code" there).
 
+**Amends spec `030` (merged) for removed events only** (decided by the orchestrating session on Mahdi's
+standing approval; research R10): `030` FR-016 keeps a past ticket's state and its printable ticket
+under Past; once its event's details are removed a used ticket can no longer truthfully show "Used",
+so FR-014 here replaces it ("Event over", no printable ticket). And `030`'s edge case "an event moved
+later … brings it back into the lists" no longer applies to a removed event, whose times cannot change
+(FR-008). Both are noted in `030`'s spec, pointing here.
+
 Today:
 
 - A ticket admitted at the gate keeps its admission time, the admitting agent's Keycloak subject, and
@@ -56,12 +63,12 @@ answer, open to review**, so Mahdi and the team can overturn it in review of the
 - Q: Which details are removed? → A: **All three per-ticket check-in details**: when the ticket was
   admitted, the admitting agent's identifier, and the agent's username. A ticket of such an event then
   looks, in its own data, like a ticket nobody used (FR-002; research R1).
-- Q: Keep the names of the ticket holders who entered (the comment's two options)? → A: **No: dropped
-  with the other details; only the counts are kept** (the comment's first option). Keeping "who entered"
-  means keeping a per-ticket record of who walked through the door, which is what the issue removes.
-  The name on an order (`017`, for the ID check) is order data, not check-in data: it stays on the
-  order, as do the order's tickets, but nothing says any longer which of them entered (recommended
-  answer, open to review) (FR-002; research R2).
+- Q: Keep the names of the ticket holders who entered (the comment's two options)? → A: **No: the
+  record of which holders entered is dropped with the other details; only the counts are kept** (the
+  comment's first option). Keeping "who entered" means keeping a per-ticket record of who walked
+  through the door, which is what the issue removes. Buyer names stay on orders as purchase data
+  (`Order.holderName`, `017`, for the ID check), as do the orders' tickets, but nothing says any longer
+  which of them entered (recommended answer, open to review) (FR-002; research R2).
 - Q: What is kept? → A: **One checked-in count per event**, taken the moment its details are removed:
   the number of its valid tickets that had been admitted, the figure the sales report shows today. Not
   per tier: no screen or file shows check-ins per tier today, and adding one is not needed for the
@@ -71,7 +78,8 @@ answer, open to review**, so Mahdi and the team can overturn it in review of the
   window: at `endsAt` + 7 days − 1 minute the details are kept, at `endsAt` + 7 days they are due. The
   job runs every hour and once when the Backend starts, so they are gone within about an hour of that
   instant while the Backend runs, or at its next start. 7 days is exact hours, not calendar days in the
-  venue's zone (FR-001, FR-006; research R3, R5).
+  venue's zone. It runs only in the Backend serving the API, never in the demo data or demo reset
+  commands, which start the Backend's code without serving it (FR-001, FR-006; research R3, R5).
 - Q: The constant? → A: **`CHECK_IN_RETENTION_DAYS = 7`**, one constant beside `025`'s entry-window
   constant, read by the Backend's job and by the Admin app's "kept for 7 days after the event" (FR-007;
   research R3).
@@ -81,8 +89,10 @@ answer, open to review**, so Mahdi and the team can overturn it in review of the
   details stay longer; moved earlier, past the cutoff, they go at the next run. **After the details
   were removed, the event's start, end, and doors-open times can no longer change**: such a change is
   refused, naming the date the details were removed. Moving a removed event into the future would put
-  tickets that look unused back inside an entry window, and on sale again (recommended answer, open to
-  review) (FR-008; research R6).
+  tickets that look unused back inside an entry window, and on sale again. This overrides `030`'s "an
+  event moved later … brings it back" for removed events. The one way times still move is a venue's
+  time-zone change (`020`), which moves only events without orders, so no ticket is affected
+  (recommended answer, open to review) (FR-008; research R6).
 - Q: Can a removed event's ticket be admitted again? → A: **No.** Its entry window closed a week
   before (`025`), and its times can no longer change (FR-008), so the window cannot reopen. A lookup at
   the gate says the event has ended, as for an unused ticket (`017`'s "already used" is no longer
@@ -98,8 +108,11 @@ answer, open to review**, so Mahdi and the team can overturn it in review of the
   FR-013; research R8).
 - Q: Does the Customer app change? → A: **Only so it never misleads.** A valid ticket of an event whose
   details were removed reads "Event over" in place of "Used …" or "Valid", with no entry code and no
-  printable ticket, so a used ticket never turns back into one that looks usable. Nothing else changes
-  for customers (recommended answer, open to review) (FR-014; research R9).
+  printable ticket, so a used ticket never turns back into one that looks usable. This replaces `030`
+  FR-016 ("keep its state and its printable ticket") for removed events only. Nothing else changes for
+  customers. A live entry key asked for through the API is still handed out (its codes are refused at
+  the gate as ended); refusing it would add a refusal to `018`'s contract for no reachable case
+  (recommended answer, open to review) (FR-014; research R6, R9).
 - Q: The Ticket Booth? → A: **Unchanged.** It offers only events whose entry window has not closed
   (`025`), so it never reaches a removed event (research R6).
 
@@ -107,7 +120,7 @@ answer, open to review**, so Mahdi and the team can overturn it in review of the
 
 ### User Story 1 - Check-in Details Disappear a Week After the Event (Priority: P1)
 
-The Fall Concert ended on Sunday, November 2 at 10:00 PM. On Sunday, November 9 at 10:00 PM, with the
+The Fall Concert ended on Monday, November 2 at 10:00 PM. On Monday, November 9 at 10:00 PM, with the
 Backend running, the retention job removes from each of its 160 admitted tickets the time it was
 admitted and the gate agent who admitted it. Nobody does anything. A query of the Fall Concert's
 tickets afterwards finds no admission time and no agent on any of them; the Comedy Night, which ended
@@ -252,14 +265,17 @@ and changes nothing; one that sends the same times, or changes only other fields
   kept checked-in count: the number of its valid tickets that had an admission time.
 - **FR-005**: Removing MUST be idempotent: an event already removed is never removed again, and its
   removal instant and kept count never change.
-- **FR-006**: The removal MUST run when the Backend starts and then every hour while it runs. A run
-  that fails for one event MUST go on with the others, log the failure, and never stop the Backend.
+- **FR-006**: The removal MUST run when the Backend starts serving the API and then every hour while
+  it runs. A run that fails for one event MUST go on with the others, log the failure, and never stop
+  the Backend. The demo data and demo reset commands (`005`, `029`) MUST NOT run it.
 - **FR-007**: The retention period MUST be one named constant, shared by the Backend and the Admin
   app.
 - **FR-008**: Once an event's details have been removed, a change to its start, end, or doors-open
   time MUST be refused, naming the removal date, and change nothing. Sending a time equal to the
   stored one is not a change. Before removal, editing an event's times is as today, and the cutoff
-  follows its end.
+  follows its end. This overrides, for removed events, `030`'s edge case of an event moved later coming
+  back into the lists. A venue's time-zone change (`020`) still moves the local-time-preserved instants
+  of its events without orders, removed ones included; they have no tickets, so nothing is affected.
 
 **Admin app**
 
@@ -280,7 +296,8 @@ and changes nothing; one that sends the same times, or changes only other fields
 
 - **FR-014**: On My tickets, a valid ticket of a removed event MUST read "Event over", with no entry
   code link and no printable ticket; the printable ticket page MUST refuse it as it refuses a used one.
-  Void tickets read "Void" as today.
+  Void tickets read "Void" as today. For removed events this replaces `030` FR-016's "keep its state
+  and its printable ticket"; before removal `030` FR-016 holds unchanged.
 
 **Data guarantees**
 
@@ -308,7 +325,10 @@ and changes nothing; one that sends the same times, or changes only other fields
   (apart from its generated time and the event's removal date).
 - **SC-005**: For a removed event, Attendees, the Sales card, Reports, and the attendee export each
   show the removal sentence, and none shows any ticket as checked in or not checked in.
-- **SC-006**: A change to a removed event's times is refused in 100% of tries and changes nothing.
+- **SC-006**: A change to a removed event's times through the event's update is refused in 100% of
+  tries and changes nothing.
+- **SC-007**: Loading the demo data or resetting the demo never removes any check-in details, even
+  with events past their cutoff in the database.
 
 ## Assumptions
 

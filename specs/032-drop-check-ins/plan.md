@@ -8,8 +8,10 @@
 ## Summary
 
 - **A retention job beside entry** (research R5): `backend/src/entry/check-in-retention.ts`,
-  `CheckInRetention`, shaped like `HoldSweeper`: once at start and every hour, it finds events with
-  `endsAt + CHECK_IN_RETENTION_DAYS ≤ now` (the Backend's `CLOCK`) not yet removed and, per event under
+  `CheckInRetention`, shaped like `HoldSweeper`, started only by `main.ts` after `listen` (never by a
+  lifecycle hook, so the demo data and demo reset commands never run it): once at start and every
+  hour, it finds events with `endsAt ≤ now − CHECK_IN_RETENTION_DAYS × 24 h` (the Backend's `CLOCK`,
+  the bound computed in JavaScript) not yet removed and, per event under
   `lockEvent`, counts its valid admitted tickets, empties the three check-in columns on all its
   tickets, and sets `Event.checkInDetailsRemovedAt` and `Event.keptCheckedInCount`.
 - **One constant** (R3): `CHECK_IN_RETENTION_DAYS = 7` in `packages/shared/src/event.ts`.
@@ -19,7 +21,11 @@
 - **Report keeps the count** (R4): `ReportsService.sales` reads `keptCheckedInCount` for a removed
   event (0 if cancelled) and sends `checkInDetailsRemovedAt` per event.
 - **Times locked once removed** (R6): `EventsService.updateLocked` refuses a changed `startsAt`,
-  `endsAt`, or `doorsOpenAt` with `409 CHECK_IN_DETAILS_REMOVED`.
+  `endsAt`, or `doorsOpenAt` with `409 CHECK_IN_DETAILS_REMOVED`; a venue's time-zone change, which
+  moves only events without orders, is the stated exception.
+- **Amends spec `030` for removed events** (R9, R10): its FR-016 (Past tickets keep their state and
+  printable ticket) gives way to FR-014 here, and its "event moved later comes back" to FR-008; a dated
+  note in `030`'s spec points here.
 - **Admin app** (R7, R8): the sentence on Attendees, the Sales card, and Reports; Attendees' summary
   from the report's kept count; the attendee export's empty column and heading line; the edit form's
   409 banner. **Customer app** (R9): "Event over", no links, PrintTicket refuses.
@@ -68,7 +74,7 @@ four Admin app files and two export builders; two Customer app pages; shared con
 | III. Spec-driven | Spec + plan PR with the constitution row (3.9.4, on top of `031`'s 3.9.3), independent review, fresh implementer; commits cite `032` and #129; `fixes #129` only in the implementation PR's description. Shared surface in this PR: the constitution, `contracts/openapi.yaml`, `packages/shared/` (every member approves); in the implementation PR: `backend/prisma/`, `packages/shared/` | Pass |
 | IV. Server-authoritative | The removal and the time lock are the Backend's; both take `lockEvent` (`SELECT … FOR UPDATE`), so a removal and a time edit or cancellation never interleave; the pair CHECK guarantees count and instant together; the admit's `now() < endsAt` with the locked end keeps a removed event closed (R6). The Admin app shows the 409 and keeps the form's values | Pass |
 | V. Least privilege | No role or token change. Less identity data kept: `checkedInBySub` and `checkedInByUsername` emptied at the cutoff. The count is in the admin-only report, not on `Event` (R7) | Pass |
-| VI. Test-first, real database | Integration tests on Testcontainers PostgreSQL written first: both sides of the cutoff to the minute (`FakeClock`), other events untouched, a second run, two runs at once, kept counts and the report unchanged, the CHECK, the 409; Admin and Customer Vitest tests (R11) | Pass |
+| VI. Test-first, real database | Integration tests on Testcontainers PostgreSQL written first: both sides of the cutoff to the minute (`FakeClock`, also across a daylight-saving change), other events untouched, a second run, two removals of one event at once past the run flag, the demo commands never removing, kept counts and the report unchanged, the CHECK, the 409; Admin and Customer Vitest tests (R11) | Pass |
 | VII. Shared look | New text uses existing `note` and banner styles; no new style | Pass |
 | VIII. Simplicity | One constant, no setting; no per-tier counts, no trigger, no new dependency (R4, R5, R6); no deferred control | Pass |
 
@@ -102,11 +108,12 @@ backend/
 ├── prisma/migrations/20261110000000_check_in_retention/migration.sql
 ├── src/entry/check-in-retention.ts                   # new: CheckInRetention, interval token
 ├── src/entry/entry.module.ts                         # provides it, interval 3_600_000
+├── src/main.ts                                       # start() after listen: the only call
 ├── src/reports/reports.service.ts                    # kept count, checkInDetailsRemovedAt
 ├── src/events/events.service.ts                      # updateLocked: 409; toResponse: field
 ├── src/orders/orders.service.ts                      # mine(): the event summary's field
 └── test/
-    ├── setup/test-app.ts                             # interval 0
+    ├── unit/check-in-retention-start.spec.ts         # new: only main.ts calls start()
     └── integration/
         ├── check-in-retention.e2e-spec.ts            # new
         ├── check-in-retention.constraints.e2e-spec.ts # new

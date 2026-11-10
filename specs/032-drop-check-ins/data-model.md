@@ -56,4 +56,4 @@ Kept → Removed only, by the job, under the event lock; never back.
 | Name | Where | Value |
 | --- | --- | --- |
 | `CHECK_IN_RETENTION_DAYS` | `packages/shared/src/event.ts`, exported from `@queuepass/shared` | `7` (days of 24 hours) |
-| `CHECK_IN_RETENTION_INTERVAL_MS` | `backend/src/entry/check-in-retention.ts` (a Nest provider token) | `3_600_000` in `EntryModule`; `0` (no timer) in `createTestApp` |
+| `CHECK_IN_RETENTION_INTERVAL_MS` | `backend/src/entry/check-in-retention.ts` (a Nest provider token) | `3_600_000` in `EntryModule`; the timer runs only after `main.ts` calls `start()` |

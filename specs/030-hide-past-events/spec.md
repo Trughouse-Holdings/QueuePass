@@ -237,7 +237,9 @@ minute ago and one in progress; the first is left out only without it.
 - **Changing a venue's time zone** moves its past events' times too (`020`, `024`), so the venue
   form's note counts past events.
 - **An event moved later.** An admin who edits a past event's end to a later time brings it back
-  into the lists from the next load; nothing else is needed.
+  into the lists from the next load; nothing else is needed. _Amended 2026-11-09 by spec `032`
+  (#129), FR-008: not for an event whose check-in details have been removed (a week after its end);
+  its times can no longer change._
 - **A cancelled event that has ended.** Hidden like any past event; with the toggle on, marked both
   Cancelled and Ended. In the Customer app, its page says both it has been cancelled and that it has
   ended.
@@ -296,7 +298,8 @@ minute ago and one in progress; the first is left out only without it.
   newest order first; no order is left out. With no upcoming orders, it MUST say so and link to the
   Events page; with no past orders, it MUST show no Past heading.
 - **FR-016**: Under Past, a ticket MUST NOT offer "Show entry code"; it MUST keep its state and its
-  printable ticket.
+  printable ticket. _Amended 2026-11-09 by spec `032` (#129), FR-014: once its event's check-in
+  details have been removed, a valid ticket reads "Event over" and has no printable ticket._
 
 **The Ticket Booth**
 

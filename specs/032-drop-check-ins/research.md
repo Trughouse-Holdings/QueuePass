@@ -83,30 +83,49 @@ the count from an audit log (there is none); not keeping counts (refused by the 
 **Decision**: `backend/src/entry/check-in-retention.ts`, a provider of `EntryModule` (which already
 provides `CLOCK`), modelled on `backend/src/reservations/hold-sweeper.ts`:
 
-- `CHECK_IN_RETENTION_INTERVAL_MS` (a `Symbol` provider, `3_600_000` in `EntryModule`); `createTestApp`
-  overrides it with `0`, which starts no timer, as `HOLD_SWEEP_INTERVAL_MS`.
-- `onApplicationBootstrap()`: when the interval is above 0, one run right away (not awaited, errors
-  logged), then `setInterval`. `onModuleDestroy()` clears it. FR-006.
+- `CHECK_IN_RETENTION_INTERVAL_MS` (a `Symbol` provider, `3_600_000` in `EntryModule`).
+- **Started only by the HTTP Backend** (spec FR-006, SC-007): `start()` runs once right away (not
+  awaited, errors logged), then arms `setInterval`; `onModuleDestroy()` clears it. `backend/src/main.ts`
+  calls `app.get(CheckInRetention).start()` after `app.listen(…)`. There is **no lifecycle hook** that
+  runs it: the demo data (`backend/src/scripts/demo-data.ts`, `main()`) and the demo reset
+  (`demo-reset.ts`, `main()`) build the whole `AppModule` with `NestFactory.createApplicationContext`,
+  which calls every `onModuleInit` and `onApplicationBootstrap`, so a hook would run a removal inside
+  "reset to demo", racing its `TRUNCATE` and `app.close()` (CI's e2e harness runs the reset on every
+  pull request). `createTestApp` never calls `start()`, so tests need no override either.
+  **Why not an interval of 0 in the scripts**: `createApplicationContext(AppModule)` cannot override a
+  provider, so the scripts would need an environment variable or a second module, a configuration
+  surface for one case (Principle VIII); one call in `main.ts`, the only entry point that serves the
+  API, keeps every other entry point out by construction. A Backend unit test reads the sources and
+  fails if `start()` on `CheckInRetention` is called anywhere but `src/main.ts` (R11).
 - `removeDue(now = new Date(this.clock.now())): Promise<{ eventIds: string[] }>`: guarded by a
-  `running` flag like `sweepOnce`; selects due events:
+  `running` flag like `sweepOnce`. The bound is computed in JavaScript, in exact hours (R3), never with
+  SQL interval arithmetic (`timestamptz + interval 'N days'` adds calendar days in the session's zone,
+  an hour off across a daylight-saving change):
+  ```ts
+  const bound = new Date(now.getTime() - CHECK_IN_RETENTION_DAYS * 86_400_000);
+  ```
   ```sql
   SELECT "id" FROM "Event"
-  WHERE "checkInDetailsRemovedAt" IS NULL
-    AND "endsAt" + make_interval(days => ${CHECK_IN_RETENTION_DAYS}) <= ${now}
+  WHERE "checkInDetailsRemovedAt" IS NULL AND "endsAt" <= ${bound}
   ORDER BY "endsAt", "id"
   ```
-  then for each, in its own `$transaction(…, LOCKING_TX)`, one event failing never holds up the
-  others (logged, as in `sweepOnce`):
+  then calls `removeEvent(id, now)` for each; one event failing never holds up the others (logged, as
+  in `sweepOnce`).
+- `removeEvent(eventId, now): Promise<boolean>` (public, so tests can run it twice at once), in its own
+  `$transaction(…, LOCKING_TX)`:
   1. `lockEvent(tx, id)` (`backend/src/common/event-lock.ts`, `SELECT … FOR UPDATE`): every event
      write, `updateLocked` and `cancel` included, takes it, so the removal and a time edit or a
      cancellation run one at a time (Constitution IV: a row lock).
-  2. Re-read `endsAt` and `checkInDetailsRemovedAt` under the lock; skip if removed meanwhile or no
-     longer due (its end moved later). FR-005.
+  2. Re-read `endsAt` and `checkInDetailsRemovedAt` under the lock and apply the same test, `endsAt <=
+     bound` with the bound computed from `now` in JavaScript as above; return `false` if removed
+     meanwhile or no longer due (its end moved later). FR-005.
   3. `count` as R4.
   4. `UPDATE "Ticket" SET "checkedInAt" = NULL, "checkedInBySub" = NULL, "checkedInByUsername" = NULL
      WHERE "eventId" = $id AND ("checkedInAt" IS NOT NULL OR "checkedInBySub" IS NOT NULL)`.
-  5. `UPDATE "Event" SET "checkInDetailsRemovedAt" = $now, "keptCheckedInCount" = $count`.
-  Returns the ids removed (for tests and one log line: "Removed check-in details of N events").
+  5. `UPDATE "Event" SET "checkInDetailsRemovedAt" = $now, "keptCheckedInCount" = $count`; return
+     `true`.
+  `removeDue` returns the ids removed (for tests and one log line: "Removed check-in details of N
+  events").
 - A deleted event (404 from `lockEvent`) is skipped.
 
 The due query reads `Event` only; at proof-of-concept size (tens of events) no index is needed. An
@@ -114,7 +133,8 @@ event without tickets is marked too (count 0), so the rule and the sentence are 
 
 **Alternatives**: `@nestjs/schedule` cron (a new dependency for one timer; the hold sweeper shows the
 pattern); a database job (`pg_cron` is not in the image); running only at startup (the Compose stack
-runs for days); daily (lag up to a day; hourly costs one query an hour).
+runs for days); daily (lag up to a day; hourly costs one query an hour); `onApplicationBootstrap` or
+`onModuleInit` (they run inside the demo commands, above); an interval of 0 in the scripts (above).
 
 ## R6. Entry after removal, and why a removed event's times are locked
 
@@ -128,19 +148,36 @@ scheduled event's times, past ones included, and the Admin form sends `startsAt`
 can match (`now() < endsAt` is false for 7 days already). If the end could move into the future, a used
 ticket would be admittable again, and the event on sale again (sales close at `startsAt`, `006`).
 
-**Decision**: in `updateLocked`, after `lockEvent` and the `CANCELLED` check: if
-`existing.checkInDetailsRemovedAt` is set and the resolved `startsAt`, `endsAt`, or `doorsOpenAt`
-differs (by instant) from the stored one, throw `409 CHECK_IN_DETAILS_REMOVED` with `details:
+**Decision**: in `updateLocked`, **after `doorsOpenAt` is resolved and before the capacity checks
+and `assertNoConflict`**: if `existing.checkInDetailsRemovedAt` is set and the resolved `startsAt`,
+`endsAt`, or `doorsOpenAt` differs (by instant) from the stored one, throw `409 CHECK_IN_DETAILS_REMOVED` with `details:
 { removedAt }` and the message "The check-in details of ⟨name⟩ were removed on ⟨date⟩, so its times can
 no longer change." (the date in the venue's zone, as `020` words its other refusals; the instant
 in `details.removedAt`). Sending the same instants passes, so the
 form's save of a renamed event works. A venue move is a time change only if a time changes (a move to
 another zone must send both times, `020`, which then must equal the stored instants).
 
+**Which error wins**: the checks that run before it in `updateLocked` still come first, so a request
+that is also malformed gets their `400` (`endsAt` not after `startsAt`, a time not in the venue's zone,
+a skipped local time, a wrong offset, doors out of range, a zone move without both times), and a
+cancelled event its `409 EVENT_CANCELLED`; this `409` comes before `CAPACITY_EXCEEDED`,
+`maxTicketsPerCustomer`'s `400`, and `SCHEDULING_CONFLICT`. A test pins one case each way (R11).
+
+**The venue time-zone change** (`backend/src/locations/venue-time-zone.ts`, `020` and `024`) moves the
+instants of a venue's events to keep their local times, without `updateLocked`, and is refused when
+any of them has orders (`TIME_ZONE_HAS_ORDERS`). A removed event it moves therefore has no orders and
+no tickets, and still ended more than a week before (zones differ by hours), so nothing can be
+admitted or sold. It is left as is and named as the one exception in spec FR-008.
+
+**Overrides `030`**: `030`'s edge case "an event moved later … brings it back into the lists" does not
+apply to a removed event (spec FR-008; R10).
+
 No other change to entry: a lookup with a removed event as gate answers `ENDED` (unused) as for any
 ended event; `getTicketEntryKey` hands out a key for a valid ticket of a removed event (was `USED`), whose
 codes the gate refuses as `ENDED`. Both are recorded in the spec's Edge Cases; neither is reachable from
-the apps.
+the apps. **Decided: `getTicketEntryKey` is not changed to refuse it** (review round 1, N9): a refusal
+would add an `ENDED` reason to `018`'s operation in the contract, and a test, for a key that opens
+nothing; it already hands out keys for unused tickets of any ended event (`030` Out of scope).
 
 **Alternatives**: add `AND e."checkInDetailsRemovedAt" IS NULL` to `tryAdmit` and a `REMOVED` state to
 the CASE (a second guard for a state the lock already prevents, and a new refusal reason in the
@@ -187,21 +224,35 @@ column (breaks XLSX typing, `023` R5).
 **Decision**: `OrderEvent` (the event summary on `MyOrder`) gains `checkInDetailsRemovedAt`. In
 `pages/MyTickets.tsx`, `ticketState` returns "Event over" for a valid ticket when it is set; the "Show
 entry code" and "Print ticket" links appear only for a valid, unused ticket of an event not removed.
-`pages/PrintTicket.tsx` refuses such a ticket as it refuses a used one ("This ticket can't be printed."). Without it, a used ticket would read "Valid" and offer a printable ticket a week later.
-`030`'s Past section and its other rules are unchanged; this only changes labels inside it.
+`pages/PrintTicket.tsx` refuses such a ticket as it refuses a used one ("This ticket can't be
+printed."). Without it, a used ticket would read "Valid" and offer a printable ticket a week later.
+
+**Amends `030` FR-016 for removed events**: `030` keeps a past ticket's state and its printable
+ticket under Past. After removal a used ticket can no longer truthfully show "Used", and printing it
+would present it as unused, so for a removed event's valid tickets "Event over" and no printable
+ticket replace that (spec FR-014). Before removal `030` FR-016 holds unchanged, and `030`'s Past
+section, its order, and its other rules are untouched. Decided by the orchestrating session on Mahdi's
+standing approval (review round 1, M2); a dated note in `specs/030-hide-past-events/spec.md` points
+here.
 
 ## R10. Other specs
 
 - **`029` (demo checkpoint, merged)**: the demo data writes check-ins on Fall Concert (14 days ahead)
   and nothing on Season Opener (7 days before the run, no tickets). Season Opener reaches its cutoff at
   its own end + 7 days, the run's local date at 10:00 PM, and is then marked removed (count 0); nothing
-  in `029`'s tests asserts its new columns, and `createTestApp` runs no timer. The e2e stack's Backend
+  in `029`'s tests asserts its new columns, and `createTestApp` never starts the job. The demo data and
+  demo reset commands never run it (R5), so a reset never removes anything as a side effect. The e2e stack's Backend
   runs the job; `029 S2`'s browser test checks the Customer app's "Sales closed" and the Ticket Booth,
   which this feature does not change. The demo reset's `TRUNCATE` covers the new columns (they are on
   `Event`). `demo-reset.e2e-spec.ts`'s fingerprint: T011 checks it ignores or compares the new columns
   consistently (both null after a reset).
 - **`030` (merged spec, implementation pending)**: Attendees, Sales, and Reports stay reachable for past
-  events, where this feature's sentence appears; My tickets' Past section gets "Event over" (R9).
+  events, where this feature's sentence appears. **Two amendments, for removed events only**, noted
+  in `030`'s spec with the date and a pointer here: FR-016 (a Past ticket keeps its state and its
+  printable ticket) is replaced by spec FR-014 ("Event over", no printable ticket; R9); and its edge
+  case "an event moved later … brings it back" no longer applies, since a removed event's times cannot
+  change (spec FR-008; R6). Whichever implementation lands second (`030`'s or `032`'s) builds on the
+  other's My tickets.
 - **`031` (open, `031-atomic-event-create-spec`)**: changes `EventsService.create`; this feature changes
   `updateLocked` and `toResponse`. Different functions in one file; whichever merges second rebases.
   Its contract `1.23.0` and constitution `3.9.3` precede this branch's `1.24.0` and `3.9.4`.
@@ -222,17 +273,33 @@ Backend (Jest, Testcontainers PostgreSQL, `createTestApp`, `FakeClock`):
   - a cancelled event past its cutoff: removed, kept count 0.
   - an event with no tickets past its cutoff: marked, count 0.
   - an end moved later before the cutoff: not removed at the old cutoff, removed at the new.
-  - two `removeDue()` at once (`Promise.all`): one removal, same final rows.
+  - two removals of one event at once: `removeEvent(E, now)` twice with `Promise.all` (the `running`
+    flag guards only `removeDue`, so both reach the lock): exactly one returns `true`, and E's removal
+    instant and count are those of one removal; and, separately, a second `CheckInRetention` instance's
+    `removeDue()` beside the first's, with the same result.
+  - the bound in exact hours across a daylight-saving change: `endsAt` 2026-10-31T23:00Z (the week holds
+    the US fall-back of 2026-11-01): kept at `endsAt + 7 × 86 400 000 ms − 1 min`, removed at `endsAt +
+    7 × 86 400 000 ms`, with the session's zone set to `America/New_York` for the test (`SET TIME
+    ZONE`), where SQL calendar-day arithmetic would differ by an hour.
   - the sales report deep-equal before and after E's removal, but `generatedAt` and E's
     `checkInDetailsRemovedAt`; E cancelled after removal: `checkedIn` 0.
-  - `onApplicationBootstrap` with a positive interval runs once at start (a test module with interval
-    `60_000` and a due event: removed without calling `removeDue`; the module closed afterwards).
+  - `start()` runs once at once (a due event is removed without calling `removeDue`, polled for at most
+    2 s) and arms the timer; `app.close()` clears it.
+  - **never in the demo commands** (SC-007): with a due event that has check-ins, an application
+    context built as the demo scripts build it (`NestFactory.createApplicationContext(AppModule)`
+    against the test database, `init()` called), then `runDemoData(app)`, leaves that event's
+    check-ins and its NULL removal columns untouched.
+- `backend/test/unit/check-in-retention-start.spec.ts` (new): reads every `.ts` under `backend/src`
+  and fails if `CheckInRetention`'s `start()` is called from any file but `src/main.ts`, or if
+  `main.ts` does not call it.
 - `check-in-retention.constraints.e2e-spec.ts` (new): raw SQL: removal instant without count, count
   without instant, and a negative count each fail with `event_check_ins_removed_together`.
 - `events.check-ins-removed.e2e-spec.ts` (new): on a removed event, `PATCH` changing `startsAt`,
   `endsAt`, or `doorsOpenAt` → `409 CHECK_IN_DETAILS_REMOVED` with `details.removedAt`, nothing
   changed; `PATCH` with the same three instants and a new name → `200`; a not-removed event's times
-  change as before. Responses match the contract (`expectToMatchContract`).
+  change as before. Precedence (R6): a removed event with `endsAt` before `startsAt` → `400`; a removed
+  event with a changed `endsAt` and a capacity below its sold tickets → `409 CHECK_IN_DETAILS_REMOVED`.
+  Responses match the contract (`expectToMatchContract`).
 - Existing `reports.e2e-spec.ts`, `attendees.e2e-spec.ts`, `me-orders.e2e-spec.ts`: the new nullable
   fields are `null`; contract conformance covers their shapes.
 
