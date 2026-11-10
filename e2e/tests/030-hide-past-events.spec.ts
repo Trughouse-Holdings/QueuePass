@@ -105,7 +105,11 @@ test('030 S4/S6: the Admin app hides an ended event until Show past events is on
   });
 
   await test.step('Show past events lists it, marked Ended, and stays on after a reload', async () => {
-    await page.getByRole('checkbox', { name: 'Show past events' }).check();
+    // The checkbox follows the page address (past=1), which the router updates a moment after the
+    // click, so it is clicked and then waited for, not check()ed (which verifies at once).
+    const show = page.getByRole('checkbox', { name: 'Show past events' });
+    await show.click();
+    await expect(show).toBeChecked();
     await expect(row(ended.name)).toBeVisible();
     await expect(row(ended.name).getByText('Ended', { exact: true })).toBeVisible();
     await expect(row(inProgress.name).getByText('Ended', { exact: true })).toHaveCount(0);
