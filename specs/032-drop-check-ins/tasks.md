@@ -207,6 +207,10 @@ confirm they **fail** before the implementation tasks of Phase 3.
   each time: shared 793/793, Backend 1269/1269, admin-app 377/377, customer-app 338/338. `npm run
   test:tz`: all pass in America/New_York, UTC, America/Los_Angeles, Pacific/Honolulu for shared,
   Backend, admin, customer, booth. A second `npm run ci` with the README and tasks changes: green, the same counts.
+  After merging `main` with spec `031`'s implementation (`796e9a9`): `npm run ci` green (root 85, shared
+  793, Backend 1315 in 113 suites at 97.11% lines, admin-app 395 at 97.48%, customer-app 338, booth-app
+  94, seed 262 + 28 skipped), then the Backend and admin-app suites twice more, identical (three runs
+  each on the merged code).
 - [ ] T019 Walk the quickstart S0–S6 on `-p qp032` (or path B with Mahdi's go), recording each
   Expected as seen.
   **Pending**: not walked by the implementing session. `-p qp032` needs the fixed ports the team
