@@ -69,8 +69,12 @@ describe('An ordinary customer and the attempt limits', () => {
   });
 });
 
-/** Spec 026 FR-017 (independent review M5): the whole app refuses to start on a wrong setting. */
+/**
+ * Spec 026 FR-017 (independent review M5), spec 033 FR-008: the whole app refuses to start on a
+ * wrong setting, the hold pair's as the buy pair's.
+ */
 describe('The Backend with a wrong attempt-limit setting', () => {
+  const BUY = { perMinute: 10, perFiveSeconds: 3 };
   it.each([
     [
       { perMinute: 0, perFiveSeconds: 3 },
@@ -79,6 +83,18 @@ describe('The Backend with a wrong attempt-limit setting', () => {
     [
       { perMinute: 2, perFiveSeconds: 3 },
       "RATE_LIMIT_PER_5_SECONDS ('3') must not be more than RATE_LIMIT_PER_MINUTE ('2')",
+    ],
+    [
+      { BUY, HOLD: { perMinute: 0, perFiveSeconds: 10 } },
+      "RATE_LIMIT_HOLD_PER_MINUTE must be a whole number of at least 1, got '0'",
+    ],
+    [
+      { BUY, HOLD: { perMinute: 30, perFiveSeconds: 0 } },
+      "RATE_LIMIT_HOLD_PER_5_SECONDS must be a whole number of at least 1, got '0'",
+    ],
+    [
+      { BUY, HOLD: { perMinute: 9, perFiveSeconds: 10 } },
+      "RATE_LIMIT_HOLD_PER_5_SECONDS ('10') must not be more than RATE_LIMIT_HOLD_PER_MINUTE ('9')",
     ],
   ])('does not start with %j', async (attemptLimits, message) => {
     await expect(createTestApp({ attemptLimits })).rejects.toThrow(message);

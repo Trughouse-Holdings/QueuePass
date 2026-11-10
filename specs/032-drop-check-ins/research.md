@@ -154,8 +154,9 @@ ticket would be admittable again, and the event on sale again (sales close at `s
 and `assertNoConflict`**: if `existing.checkInDetailsRemovedAt` is set and the resolved `startsAt`,
 `endsAt`, or `doorsOpenAt` differs (by instant) from the stored one, throw `409 CHECK_IN_DETAILS_REMOVED` with `details:
 { removedAt }` and the message "The check-in details of ⟨name⟩ were removed on ⟨date⟩, so its times can
-no longer change." (the date in the venue's zone, as `020` words its other refusals; the instant
-in `details.removedAt`). Sending the same instants passes, so the
+no longer change." (the date in the zone of the venue the event is at before the update, where
+its details were removed, also when the same request moves it to a venue in another zone (review
+round 1); as `020` words its other refusals; the instant in `details.removedAt`). Sending the same instants passes, so the
 form's save of a renamed event works. A venue move is a time change only if a time changes (a move to
 another zone must send both times, `020`, which then must equal the stored instants).
 
@@ -254,7 +255,14 @@ here.
   printable ticket) is replaced by spec FR-014 ("Event over", no printable ticket; R9); and its edge
   case "an event moved later … brings it back" no longer applies, since a removed event's times cannot
   change (spec FR-008; R6). Whichever implementation lands second (`030`'s or `032`'s) builds on the
-  other's My tickets.
+  other's My tickets. **The intended merge** (implementation review round 1), if `030`'s lands first:
+  in `MyTickets.tsx` the links' condition is `t.status === 'VALID' && t.checkedInAt === null &&
+  !removed`, and inside it `030`'s `!ended` guards only "Show entry code", so a removed event shows
+  neither link and a past event not yet removed keeps "Print ticket" (`030` FR-016); `030`'s
+  `<section aria-labelledby="past-orders">` and its `h3` cards stay; `events.service.ts` keeps both
+  sides' imports and constructor (`030` injects `CLOCK`). `customer-app/test/check-ins-removed.test.tsx`'s
+  "as today for an event not removed" case expects both links on `myOrder()`, whose event ends
+  2026-12-02, so once `030`'s Past rule applies it uses `030`'s `fixTimeBeforeFixtures()`.
 - **`031` (PR #147, merged as `f9d083b`)**: changes `EventsService.create`; this feature changes
   `updateLocked` and `toResponse`, different functions in one file. As decided, `032` waited for `031`
   to merge and is rebased onto `main`: `031` holds constitution `3.9.3` and contract `1.23.0`, and this

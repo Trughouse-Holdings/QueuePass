@@ -26,7 +26,9 @@ a missing value as `null`. The implementation always sends them.
 contracts/openapi.yaml -o packages/shared/src/api-schema.ts`); `packages/shared/src/errors.ts` gains
 `CHECK_IN_DETAILS_REMOVED`, ahead of the implementation, so the list matches the contract. The
 hand-written types in `packages/shared/src/event.ts` and `order.ts` gain the fields in the
-implementation (tasks T007).
+implementation (tasks T007). They keep `checkInDetailsRemovedAt?` optional on purpose, though the
+contract lists it as required once implemented (T015): a client of an older Backend reads a missing
+value as `null` (implementation review round 1).
 
 This branch applies on top of `031`'s `1.23.0`, rebased onto `main` after `031` merged: `031`'s
 `createEvent` changes and this feature's changes are both kept, and the `Conflict` response's examples

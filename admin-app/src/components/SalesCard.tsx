@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { EventSales } from '@queuepass/shared';
 import { getSalesReport } from '../api/reports';
+import { removedNote } from '../format';
 import { usd } from '../money';
 
 /**
@@ -30,6 +31,10 @@ export function SalesCard({ eventId }: { eventId: string }): React.ReactElement 
       </p>
       <p className="price">{usd(sales.revenue)}</p>
       <p className="note">{`${sales.checkedIn.toLocaleString()} checked in`}</p>
+      {/* Spec 032 FR-011: the count above is the one kept when the details were removed. */}
+      {sales.checkInDetailsRemovedAt && (
+        <p className="note">{removedNote(sales.checkInDetailsRemovedAt, sales.timeZone)}</p>
+      )}
       {sales.tiers.length > 0 && (
         <div className="table-wrap">
           <table>

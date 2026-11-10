@@ -42,13 +42,17 @@ export interface TestContext {
   keySets: Record<string, jest.Mock<ReturnType<JWTVerifyGetKey>, Parameters<JWTVerifyGetKey>>>;
 }
 
+type LimitPair = { perMinute: number; perFiveSeconds: number };
+
 export interface TestAppOptions {
   /**
-   * Spec 026 research R5: the attempt limits. Unset, 1000 a minute and 1000 in 5 seconds, so tests
-   * about other features (20 orders from one customer at once, say) run unchanged with the check
-   * still on; `'defaults'`, the code's own 10 and 3, for this feature's tests; or the given pair.
+   * Spec 026 research R5, spec 033 research R5: the attempt limits, the same pair for both kinds.
+   * Unset, 1000 a minute and 1000 in 5 seconds, so tests about other features (20 orders from one
+   * customer at once, say) run unchanged with the check still on; `'defaults'`, the code's own
+   * pairs (buying 10 and 3, holding 30 and 10), for the limits' own tests; the given pair, set for
+   * buying and holding alike; or a pair for each kind.
    */
-  attemptLimits?: 'defaults' | { perMinute: number; perFiveSeconds: number };
+  attemptLimits?: 'defaults' | LimitPair | { BUY: LimitPair; HOLD: LimitPair };
 }
 
 /**
@@ -67,12 +71,19 @@ export interface TestAppOptions {
 export async function createTestApp(options: TestAppOptions = {}): Promise<TestContext> {
   // Spec 026 research R5: assigned, never `??=`, so no app inherits another test file's numbers.
   const limits = options.attemptLimits ?? { perMinute: 1000, perFiveSeconds: 1000 };
-  if (limits === 'defaults') {
-    delete process.env.RATE_LIMIT_PER_MINUTE;
-    delete process.env.RATE_LIMIT_PER_5_SECONDS;
-  } else {
-    process.env.RATE_LIMIT_PER_MINUTE = String(limits.perMinute);
-    process.env.RATE_LIMIT_PER_5_SECONDS = String(limits.perFiveSeconds);
+  const settings = [
+    ['BUY', 'RATE_LIMIT_PER_MINUTE', 'RATE_LIMIT_PER_5_SECONDS'],
+    ['HOLD', 'RATE_LIMIT_HOLD_PER_MINUTE', 'RATE_LIMIT_HOLD_PER_5_SECONDS'],
+  ] as const;
+  for (const [kind, perMinute, perFiveSeconds] of settings) {
+    if (limits === 'defaults') {
+      delete process.env[perMinute];
+      delete process.env[perFiveSeconds];
+    } else {
+      const pair = 'perMinute' in limits ? limits : limits[kind];
+      process.env[perMinute] = String(pair.perMinute);
+      process.env[perFiveSeconds] = String(pair.perFiveSeconds);
+    }
   }
   process.env.OIDC_ISSUER_BASE = TEST_ISSUER_BASE;
   process.env.OIDC_AUDIENCE = TEST_AUDIENCE;

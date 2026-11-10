@@ -18,9 +18,12 @@ services:
       # Spec 013 research R16: no map search either, so no test reaches OpenStreetMap.
       ADDRESS_MAP_URL: 'off'
       # Spec 026 FR-018 (research R5): the browser tests always run with the default limits,
-      # written here literally so a developer's .env or shell cannot change them.
+      # written here literally so a developer's .env or shell cannot change them. Spec 033
+      # (research R5): the hold allowance's own pair beside the buy pair.
       RATE_LIMIT_PER_MINUTE: '10'
       RATE_LIMIT_PER_5_SECONDS: '3'
+      RATE_LIMIT_HOLD_PER_MINUTE: '30'
+      RATE_LIMIT_HOLD_PER_5_SECONDS: '10'
     depends_on:
       geocoder-stub:
         condition: service_healthy

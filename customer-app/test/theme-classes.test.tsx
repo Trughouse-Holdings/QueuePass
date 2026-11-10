@@ -4,6 +4,7 @@ import type { CustomerLimit, SeatMap } from '@queuepass/shared';
 import {
   availability,
   event,
+  holdBackend,
   json,
   order,
   renderCustomer,
@@ -183,12 +184,15 @@ describe("016's ticket-limit lines (FR-010)", () => {
         }),
       ),
       'GET /events/e1/seats': json(map),
+      // Spec 033: each click holds the seat at once.
+      ...holdBackend().routes,
     });
     renderCustomer({ at: '/events/e1' });
 
     fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 1' }));
     fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 2' }));
+    await screen.findByRole('button', { name: 'Row 1, Seat 2, reserved by you' });
     expect(
       screen.getByText(
         'No more seats can be chosen: the limit of 3 tickets per customer allows you 2 more.',

@@ -177,6 +177,17 @@
   margin: 0;
 }
 
+.hold-countdown {
+  margin: 0;
+}
+
+/* Spec 033 FR-010 (research R9): the time left, twice the body text, in mono with even digits. */
+.hold-countdown__time {
+  font-family: var(--mono);
+  font-size: 32px;
+  font-variant-numeric: tabular-nums;
+}
+
 .print-ticket__page {
   max-width: 420px;
   display: grid;

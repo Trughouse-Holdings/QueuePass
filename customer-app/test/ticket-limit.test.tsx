@@ -1,9 +1,10 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { Availability, CustomerLimit, SeatMap } from '@queuepass/shared';
 import {
   availability,
   event,
+  holdBackend,
   json,
   renderCustomer,
   stubApi,
@@ -191,6 +192,8 @@ describe('choosing seats (US4-3)', () => {
         }),
       ),
       'GET /events/e1/seats': json(map),
+      // Spec 033: each click holds the seat at once.
+      ...holdBackend().routes,
     });
     renderCustomer({ at: '/events/e1' });
 
@@ -199,6 +202,9 @@ describe('choosing seats (US4-3)', () => {
     expect(screen.queryByText(/No more seats can be chosen/)).toBeNull();
     fireEvent.click(seat(1));
     fireEvent.click(seat(2));
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /, reserved by you$/ })).toHaveLength(2),
+    );
 
     expect(seat(3)).toBeDisabled();
     expect(
@@ -220,12 +226,17 @@ describe('choosing seats (US4-3)', () => {
         }),
       ),
       'GET /events/e1/seats': json(map),
+      // Spec 033: each click holds the seat at once.
+      ...holdBackend().routes,
     });
     renderCustomer({ at: '/events/e1' });
 
     fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 1' }));
     fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 2' }));
+    await waitFor(() =>
+      expect(screen.getAllByRole('button', { name: /, reserved by you$/ })).toHaveLength(2),
+    );
 
     expect(screen.getByRole('button', { name: 'Row 1, Seat 3' })).toBeDisabled();
     expect(screen.queryByText(/No more seats can be chosen/)).toBeNull();
