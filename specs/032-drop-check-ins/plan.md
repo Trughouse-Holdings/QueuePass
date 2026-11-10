@@ -30,9 +30,8 @@
   from the report's kept count; the attendee export's empty column and heading line; the edit form's
   409 banner. **Customer app** (R9): "Event over", no links, PrintTicket refuses.
 - **Contract 1.24.0** (contracts/README.md), **Constitution 3.9.4** (R12): on top of spec `031`'s
-  1.23.0 and 3.9.3 (branch `031-atomic-event-create-spec`, unmerged; spec `030` has merged). This branch
-  is rebased onto `main` once `031` merges; the version lines, the roadmap row, the next free number, and
-  the README's status table conflict until then and are resolved by keeping both.
+  1.23.0 and 3.9.3, merged to `main` as `f9d083b` (spec `030` merged before it). This branch is rebased
+  onto that `main`, keeping both specs' rows and contract changes.
 
 ## Technical Context
 

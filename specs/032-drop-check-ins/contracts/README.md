@@ -1,6 +1,6 @@
 # Contracts: Drop Check-in Details a Week After the Event
 
-`contracts/openapi.yaml` goes from `1.23.0` (spec `031`, unmerged; `main` is at `1.22.0`) to
+`contracts/openapi.yaml` goes from `1.23.0` (spec `031`, merged as `f9d083b`) to
 **`1.24.0`** (MINOR: new optional response fields and one new error code). No operation is added or
 removed; no request shape changes.
 
@@ -28,5 +28,6 @@ contracts/openapi.yaml -o packages/shared/src/api-schema.ts`); `packages/shared/
 hand-written types in `packages/shared/src/event.ts` and `order.ts` gain the fields in the
 implementation (tasks T007).
 
-This branch applies on top of `031`'s `1.23.0`; until `031` merges, the `version` line and any line
-both touch conflict on rebase and are resolved by keeping both changes.
+This branch applies on top of `031`'s `1.23.0`, rebased onto `main` after `031` merged: `031`'s
+`createEvent` changes and this feature's changes are both kept, and the `Conflict` response's examples
+hold both features' examples.

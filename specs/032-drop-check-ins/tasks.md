@@ -33,10 +33,10 @@ confirm they **fail** before the implementation tasks of Phase 3.
   data: do not start this branch's Backend against it, and do not stop it, without Mahdi saying so in
   the session (T019). If it must be stopped for a stretch, use `docker compose -p queuepass-team stop`
   (never `down`, never `-v`).
-- **Spec `031`** (PR #147) changes `EventsService.create` and the contract (1.23.0); this feature
-  changes `updateLocked`, `toResponse`, and the contract (1.24.0). **`032` waits for `031` to merge,
-  then rebases onto `main`** (decided), keeping both: `031` takes 3.9.3 and 1.23.0, `032` keeps 3.9.4
-  and 1.24.0 (research R10).
+- **Spec `031`** (PR #147, merged as `f9d083b`) changed the contract (1.23.0) and its implementation
+  changes `EventsService.create`; this feature changes `updateLocked`, `toResponse`, and the contract
+  (1.24.0, on top of 1.23.0). If `031`'s implementation merges first, rebase and keep both (research
+  R10).
 
 ## Format: `[ID] [P?] [Story] Description`
 

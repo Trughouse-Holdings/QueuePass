@@ -255,12 +255,10 @@ here.
   case "an event moved later … brings it back" no longer applies, since a removed event's times cannot
   change (spec FR-008; R6). Whichever implementation lands second (`030`'s or `032`'s) builds on the
   other's My tickets.
-- **`031` (PR #147, `031-atomic-event-create-spec`)**: changes `EventsService.create`; this feature
-  changes `updateLocked` and `toResponse`, different functions in one file. **Merge order (decided):
-  `032` waits for `031` to merge, then rebases onto `main`**: `031` takes constitution `3.9.3` and
-  contract `1.23.0`, and this branch keeps `3.9.4` and `1.24.0`, resolving the conflicting version
-  lines, roadmap row, next free number, Sync Impact Report, README status table, and the contract's
-  error-code list by keeping both changes.
+- **`031` (PR #147, merged as `f9d083b`)**: changes `EventsService.create`; this feature changes
+  `updateLocked` and `toResponse`, different functions in one file. As decided, `032` waited for `031`
+  to merge and is rebased onto `main`: `031` holds constitution `3.9.3` and contract `1.23.0`, and this
+  branch adds `3.9.4` and `1.24.0` on top, both specs' rows, README rows, and contract changes kept.
 - **`028` (realms, merged)**: agent subjects written before it belong to the retired realm; nothing
   reads them; removed at each event's cutoff.
 
@@ -322,7 +320,7 @@ the e2e harness does not do (quickstart Automation).
 
 ## R12. Constitution, contract, and README
 
-Constitution 3.9.4 (PATCH): roadmap row `032`, on top of `031`'s 3.9.3 (PR #147); `032` waits for it
-to merge, then rebases (R10). Contract 1.24.0 (MINOR): new response fields and one new error code (contracts/README.md), on
+Constitution 3.9.4 (PATCH): roadmap row `032`, on top of `031`'s 3.9.3 (PR #147, merged as
+`f9d083b`; R10). Contract 1.24.0 (MINOR): new response fields and one new error code (contracts/README.md), on
 top of `031`'s 1.23.0; `packages/shared/src/api-schema.ts` regenerated. README: the `032` status row and
 version reference (this PR); a "Check-in retention" paragraph in the implementation PR.
