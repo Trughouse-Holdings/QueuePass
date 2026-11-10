@@ -73,8 +73,9 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   `floor`, and `Floor` / ` Floor `; `409 TIER_NAME_TAKEN`, `tiers.1.name`); a missing quantity
   without reserved seating (`400`, `tiers.0.quantity`); a quantity with it (`tiers.0.quantity`);
   a non-empty `sectionIds` without it (`tiers.0.sectionIds`; `sectionIds: []` without it is
-  accepted); `null` for `reservedSeating`, `tiers`, and a type's `sectionIds` (each `400`, its entry
-  starting with its name); 51 ticket types (`tiers may hold at most 50 ticket types`); `tiers: [5]`
+  accepted); `null` for `reservedSeating`, `tiers`, and a type's `sectionIds` (each `400`; every
+  entry starts with the field's place; `tiers: null` gives three entries and `sectionIds: null`
+  four, as research R9 lists, which is accepted); 51 ticket types (`tiers may hold at most 50 ticket types`); `tiers: [5]`
   (an entry exactly `tiers.tiers must be a list of ticket types, each an object with a name and a
   price`); a section of another venue's layout and a random
   UUID (`tiers.0.sectionIds`, the message saying to reload); a section under two types
@@ -180,7 +181,9 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   `sectionIds` message beside type *i*'s seats line in the seating part); cleared when Schedule event
   is clicked again. T006's placement cases pass.
 - [ ] T015 [US1] `admin-app/src/api/client.ts` and `EventForm.tsx` (FR-011, research R5, R6):
-  `ApiError` gains `enveloped`, set by `unwrap` (`true` only when the body was the error envelope);
+  `ApiError` gains `enveloped`, a third constructor parameter defaulting to `true`, passed `false`
+  only by `unwrap`'s fallback for a body without the envelope (the other direct constructions stay
+  as they are);
   when the schedule request throws anything that is not an `ApiError`, or an `ApiError` with status
   `>= 500` and `enveloped` false, show in the banner "No answer from QueuePass, so the event may or may not
   have been scheduled. Check the Events list before scheduling it again." with a link to `/events`;
@@ -267,6 +270,18 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
     contract, spec Assumptions).
   - N3: `null` for `reservedSeating`, `tiers`, or `sectionIds` is refused (`@ValidateIf`, as #117),
     documented in the contract (R9, T003).
+- **Round 2** (independent Claude session, 2026-11-09; the reviewer ran the real Nest
+  `ValidationPipe`, and every promised string comes out exactly as written): no must-fix, 1
+  should-fix, 3 nits; the reviewer's verdict: only minor findings remain. All fixed in the `Review
+  031: spec review round 2` commit.
+  - S1: R4's backstop paragraph split the guarantee table → moved below it.
+  - N1: R3: `tiers` as a JSON object is validated as one ticket type (`tiers.property a should not
+    exist`, `tiers.name must be a string`; `@IsArray`'s message lost), `tiers: [[1]]` gives
+    `tiers.0.tiers must be a list …`; all still start with `tiers`.
+  - N2: `tiers: null` gives three entries and `sectionIds: null` four; listed in R9 and accepted in
+    T003 (the form never sends `null`).
+  - N3: `enveloped` is a constructor parameter defaulting to `true`; only `unwrap`'s fallback passes
+    `false` (R5, R9, T015).
 - **Open findings**: none.
 
 ## Review record (implementation branch)

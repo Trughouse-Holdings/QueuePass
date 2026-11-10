@@ -92,8 +92,13 @@ object or array`). Two entries keep another form, which the contract describes:
 - **An entry of `tiers` that is not an object** (`tiers: [5]`): the nested-validation error sits on
   the array's element, and the pipe prefixes it with `tiers.` but not the index, so it reads
   `tiers.` + `@ValidateNested`'s message. With R9's message, `tiers.tiers must be a list of ticket
-  types, each an object with a name and a price`. `tiers` that is not an array at all gives the same
-  message without the prefix (and `@IsArray`'s).
+  types, each an object with a name and a price`. An entry that is itself a list (`tiers: [[1]]`)
+  goes one level deeper: `tiers.0.tiers must be a list …`. `tiers` that is a scalar or `null` gives
+  `@IsArray`'s and `@ValidateNested`'s messages unprefixed (both start `tiers`). `tiers` that is a
+  JSON object (`{ "a": 1 }`) is validated as if it were one ticket type: `tiers.property a should not
+  exist`, `tiers.name must be a string`, and so on, and `@IsArray`'s own message is lost (the pipe
+  drops a parent's constraints when it has children). Every one of these still starts with `tiers`,
+  which is all the client's rule needs.
 
 So the rule a client follows is the contract's: an entry starting `tiers.<i>.` is about ticket type
 *i*; any other entry starting `tiers` is about the ticket types; `reservedSeating` and
@@ -160,6 +165,8 @@ concurrency (Constitution IV):
 | 60-minute rule at the venue | `event_no_overlap` exclusion constraint, as today |
 | Ticket type names unique per event ignoring case | the unique index on `("eventId", lower("name"))` (`004` research R3) |
 | One ticket type per section per event | `SectionTier`'s primary key `("eventId", "sectionId")` |
+| Ticket types within the capacity | the event is new and uncommitted: no other transaction can see it, so nothing can change its total between the check and the commit |
+| Sections from the venue's current layout | the venue row `FOR SHARE` for the whole transaction; a layout save needs it `FOR UPDATE` |
 
 The planner compares names with `toLowerCase()`; PostgreSQL's `lower()` can fold some non-ASCII
 letters differently, so two names the planner took as different can still collide in the index. That
@@ -169,8 +176,6 @@ that name") **without `details.field`**: the database's backstop, naming no tick
 saved (the transaction rolls back). The form shows it in the banner only, since it cannot tell
 which type; the admin renames and schedules again. A section listed twice cannot reach the database:
 the DTO's `@ArrayUnique` and the planner's check across types refuse it first.
-| Ticket types within the capacity | the event is new and uncommitted: no other transaction can see it, so nothing can change its total between the check and the commit |
-| Sections from the venue's current layout | the venue row `FOR SHARE` for the whole transaction; a layout save needs it `FOR UPDATE` |
 
 **Alternatives**: write the event and then check the ticket types, relying on the rollback (same
 result, but a refusal would cost a write and the order of errors would depend on write order);
@@ -201,8 +206,11 @@ insert). Rejected.
   which today would reach `ErrorBanner` without an envelope), **or** it is answered with a `5xx`
   whose body is not the error envelope. `unwrap` (`admin-app/src/api/client.ts`) turns any response
   without an envelope into an `ApiError` with code `VALIDATION_FAILED` and "Request failed with
-  status N.", so the form cannot tell those apart today; `ApiError` gains a read-only `enveloped`
-  (`true` when the body was the Backend's envelope), set by `unwrap`. A gateway error (`502`, `503`,
+  status N.", so the form cannot tell those apart today; `ApiError` gains a read-only `enveloped`, a
+  third constructor parameter defaulting to `true`. Only `unwrap`'s fallback, the branch that builds
+  an envelope for a body that had none, passes `false`; the other places that construct `ApiError`
+  directly (such as `EventForm.tsx`'s `validationError` and `ImageStepError`) keep their
+  calls unchanged. A gateway error (`502`, `503`,
   `504` from a proxy or the dev server's proxy) can arrive after the Backend committed, so it is
   treated like no answer. A `5xx` **with** the envelope is the Backend's own answer: its transaction
   rolled back and nothing was saved, so it is shown as an error as today. In the no-answer case the
@@ -271,7 +279,11 @@ much larger change for a case the form already handles honestly. The issue keeps
 - **Every decorator on the new fields has its own message, starting with its property name**
   (R3), and `null` is refused rather than skipped: `@IsOptional()` would let `null` through, so each
   new field uses `@ValidateIf((o) => o.<field> !== undefined)`, as `CreateTierDto.quantity` does
-  since #117.
+  since #117. A `null` array then fails every decorator on it, so it gives several entries at once:
+  `tiers: null` three (`must be a list of ticket types`, `may hold at most 50 ticket types`, and the
+  nested message), `sectionIds: null` four (`must be a list of section ids`, `may list at most 50
+  sections`, `lists a section more than once`, `must hold section ids (UUIDs)`), each starting with
+  the field's place. Accepted: the form never sends `null`, and every entry still names the field.
 - `backend/src/events/dto/create-event.dto.ts`:
   - `reservedSeating?: boolean`: `@ValidateIf(…)`, `@IsBoolean({ message: 'reservedSeating must be
     true or false' })`.
@@ -291,7 +303,8 @@ much larger change for a case the form already handles honestly. The issue keeps
   the refusals of R4 steps 2, 4, 5 (step 5 given the capacity); pure, unit-tested. And
   `writeEventSetup(tx, eventId, plan)`.
 - `backend/src/events/events.service.ts`: `createLocked` calls them (R4).
-- `admin-app/src/api/client.ts`: `ApiError.enveloped` set by `unwrap` (R5).
+- `admin-app/src/api/client.ts`: `ApiError.enveloped`, a constructor parameter defaulting to
+  `true`, passed `false` only by `unwrap`'s fallback (R5).
 - No change to `TiersService`, `SeatMapService`, `LayoutService`, the filter, `backend/prisma/`, or
   the hand-written types in `packages/shared/src/` (the Admin app uses the generated type, R5).
 - `contracts/openapi.yaml` and `packages/shared/src/api-schema.ts`: this PR.
