@@ -15,8 +15,12 @@ Changed:
     longer change). The next free number is 033.
 Impact: spec 032, and its contract change (1.24.0: checkInDetailsRemovedAt on Event, OrderEvent,
   and EventSales; updateEvent's 409 CHECK_IN_DETAILS_REMOVED). Specs 005, 017, and 023 keep their
-  rules until an event's cutoff, then read the kept count (spec 032 research R4, R7). No other spec
-  changes. The README's version reference follows. Templates: none need updating.
+  rules until an event's cutoff, then read the kept count (spec 032 research R4, R7). Spec 030
+  (merged) is amended for removed events only, with a dated note in its spec: its FR-016 (a Past
+  ticket keeps its state and printable ticket) gives way to 032 FR-014 ("Event over", no printable
+  ticket), and its edge case of an event moved later coming back gives way to 032 FR-008 (times
+  fixed once removed) (spec 032 research R9, R10). No other spec changes. The README's version
+  reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -362,7 +366,7 @@ number is a pull request against this table. The next free number is `033`.
 | `029-demo-checkpoint` | One command, refused unless explicitly allowed and pointed at a local QueuePass database, removes all app data (venues, seating, events, tiers, images, orders, tickets and their check-ins, seat holds), keeps the schema, and loads the demo data again through the Backend's rules, with times relative to the run: events on sale, one open at the Ticket Booth, one cancelled, one over; the same state every run, in seconds, saying what it removed and created; Keycloak untouched; never run by `docker compose up`; saving and restoring a hand-made checkpoint deferred (#139) | `005`, `017`, `025` |
 | `030-hide-past-events` | An event is past once the current time reaches its end (`endsAt`); wherever events are listed, past events are left out by default, by the Backend for every client; the Admin app's event list and venue page have a Show past events toggle that lists them too, marked Ended; the Customer app has no toggle, keeps past tickets in a Past section of My tickets, and opens a past event's own page saying it has ended; an event's Admin page, attendees, sales, and Reports stay reachable (#133) | `002`, `003`, `004`, `005`, `006`, `008`, `019`, `020`, `025` |
 | `031-atomic-event-create` | Scheduling an event in the Admin app saves the event, its ticket types, and its reserved seating (which section sells which type) in one request, all or nothing: any refusal leaves no event, ticket type, or seating behind, and two schedules for one slot save one whole event; each refusal names the ticket type or section at fault, so the form shows it beside that field and keeps every value to fix and resubmit; pictures still upload after the event exists, as in `014`; existing callers that send only the event are unchanged; editing an event is unchanged (#127) | `004`, `007`, `008`, `014` |
-| `032-drop-check-ins` | One week after an event ends (`endsAt` + 7 days, one named constant), a Backend job that runs every hour removes when each of its tickets was admitted and which Ticket Booth agent admitted it, cancelled events included, and keeps the event's checked-in count, so its report reads the same afterwards; the Admin app's Attendees, Sales card, Reports, and attendee export say "Check-in details removed on …" instead of showing tickets as not checked in; My tickets no longer says when a ticket was used; once removed, the event's times can no longer change (#129) | `005`, `017`, `023`, `025` |
+| `032-drop-check-ins` | One week after an event ends (`endsAt` + 7 days, one named constant), a Backend job that runs every hour removes when each of its tickets was admitted and which Ticket Booth agent admitted it, cancelled events included, and keeps the event's checked-in count, so its report reads the same afterwards; the Admin app's Attendees, Sales card, Reports, and attendee export say "Check-in details removed on …" instead of showing tickets as not checked in; My tickets no longer says when a ticket was used; once removed, the event's times can no longer change (#129) | `005`, `017`, `018`, `023`, `025`, `030` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
