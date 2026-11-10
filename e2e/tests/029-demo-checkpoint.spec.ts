@@ -21,7 +21,8 @@ test('029 S2: after the reset, the Ticket Booth offers Demo Tonight open and the
   const context = await browser.newContext();
   const customer = await context.newPage();
   const api = await apiAs(customer, () => signIn(customer, 'customer', customerFor(testInfo, 5)));
-  const events = await api.call<Event[]>('GET', '/events');
+  // Spec 030 research R10: Season Opener is over, so the list leaves it out unless asked.
+  const events = await api.call<Event[]>('GET', '/events?includePast=true');
   await api.dispose();
   const id = (name: string) => {
     const e = events.find((x) => x.name === name);

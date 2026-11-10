@@ -125,7 +125,8 @@ behind, and yesterday's Demo Tonight, whose check-in window closed long ago. He 
 In a few seconds it prints the database it worked on, how many rows of each kind it removed, and what
 it created: 2 venues, 5 events, their orders, tickets, check-ins and images. In the Admin app he sees
 exactly the demo venues and events and nothing else; in the Ticket Booth, Demo Tonight is open for
-check-in; in the Customer app, Fall Concert is on sale and Season Opener is over.
+check-in; in the Customer app, Fall Concert is on sale and Season Opener's page, opened by its link
+(after spec `030` it is no longer listed), says it is over.
 
 **Why this priority**: it is the feature. Every demo starts from a known state instead of whatever the
 last test left.
@@ -143,8 +144,8 @@ Booth offers Demo Tonight.
 2. **Given** the reset has just run, **When** a gate agent opens the Ticket Booth, **Then** Demo
    Tonight is offered and open for check-in, and its unused tickets can be admitted.
 3. **Given** the reset has just run, **When** a customer opens the Customer app, **Then** Fall
-   Concert and Comedy Night are on sale, Holiday Gala shows cancelled, and Season Opener shows that
-   sales are closed.
+   Concert and Comedy Night are on sale and Holiday Gala shows cancelled; Season Opener, over and so
+   no longer listed after spec `030`, opened by its link, shows that sales are closed.
 4. **Given** the reset has run, **Then** its output names the database it worked on (host, port, and
    name, never the password), the number of rows it removed of each kind, and what it created.
 5. **Given** Keycloak accounts and signed-in users, **When** the reset runs, **Then** every account,
@@ -339,7 +340,8 @@ refused with its reason and every row is still there.
 - **SC-005**: Against a database that is not QueuePass's or not fully migrated, the reset refuses in
   100% of tries with every row unchanged.
 - **SC-006**: Right after a reset, the Ticket Booth offers Demo Tonight open for check-in, and the
-  Customer app shows Season Opener with sales closed.
+  Customer app shows Season Opener with sales closed on its page, opened by its link (spec `030`
+  leaves it out of the lists).
 - **SC-007**: `docker compose up --build` on a clean clone gives the same running system as before
   this feature; nothing in it can run the reset.
 
