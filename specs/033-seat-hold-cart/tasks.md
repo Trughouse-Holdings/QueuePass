@@ -429,3 +429,11 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   - N4: the cart's failure count is computed outside the state updater (a ref holds the counts).
   - N5: a confirmation for an entry without its event's details says "this event". Test.
   - After round 3: the Customer app suite three times, 404/404 each (28 files; lines 98.04%).
+- **After merging `main` with `032`'s implementation** (`fbf2a65`, PR #151): `api-schema.ts`
+  regenerated (no change beyond `main`'s), `check-contract-drift` passes; `npm run ci` green
+  (exit 0, the `KEYCLOAK_URL` override): root scripts 85; shared 793; Backend 1347 (114 suites);
+  admin-app 417; customer-app 409 (29 files); booth-app 94; seed 262 passed, 28 skipped; lines:
+  shared 96.77%, Backend 97.12%, admin-app 97.50%, customer-app 98.05%, booth-app 93.44%, seed
+  99.41%. The Customer app suite once more: 409/409 (the Cart nav link case in
+  `my-tickets.test.tsx` passes).
+
