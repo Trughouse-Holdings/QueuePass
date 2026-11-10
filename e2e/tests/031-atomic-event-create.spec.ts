@@ -7,6 +7,7 @@ import { apiFor, createVenue, type Event, type TicketTier } from '../fixtures/ap
 import { PLACES, uniqueName } from '../fixtures/data';
 import { signIn } from '../fixtures/sign-in';
 import { localDate } from '../fixtures/time';
+import { expectEventDateTime, fillEventDateTime } from '../fixtures/event-times';
 
 const EASTERN = 'America/New_York';
 
@@ -28,8 +29,8 @@ test('031 S3: a refused ticket type on Schedule shows its error beside it, keeps
   await page
     .getByLabel('Venue', { exact: true })
     .selectOption({ label: `${venueName} (500 seats)` });
-  await page.getByLabel('Starts', { exact: true }).fill(`${day}T19:00`);
-  await page.getByLabel('Ends', { exact: true }).fill(`${day}T22:00`);
+  await fillEventDateTime(page, 'Starts', `${day}T19:00`);
+  await fillEventDateTime(page, 'Ends', `${day}T22:00`);
   await page.getByLabel('Ticket type 1 name', { exact: true }).fill('Floor');
   await page.getByLabel('Ticket type 1 price', { exact: true }).fill('80.00');
   await page.getByLabel('Ticket type 1 quantity', { exact: true }).fill('300');
@@ -51,8 +52,8 @@ test('031 S3: a refused ticket type on Schedule shows its error beside it, keeps
 
   // Every value still there; nothing saved.
   await expect(page.getByLabel('Event name', { exact: true })).toHaveValue(eventName);
-  await expect(page.getByLabel('Starts', { exact: true })).toHaveValue(`${day}T19:00`);
-  await expect(page.getByLabel('Ends', { exact: true })).toHaveValue(`${day}T22:00`);
+  await expectEventDateTime(page, 'Starts', `${day}T19:00`);
+  await expectEventDateTime(page, 'Ends', `${day}T22:00`);
   await expect(page.getByLabel('Ticket type 1 name', { exact: true })).toHaveValue('Floor');
   await expect(page.getByLabel('Ticket type 1 quantity', { exact: true })).toHaveValue('300');
   await expect(name2).toHaveValue('floor');

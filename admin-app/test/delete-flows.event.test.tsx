@@ -9,6 +9,7 @@ import { deleteEvent } from '../src/api/events';
 import conflict409 from './fixtures/conflict-409.json';
 import { json, stubApi } from './helpers/api-stub';
 import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+import { setLocalDateTime } from './helpers/event-times';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
 fixTimeBeforeFixtures();
@@ -150,8 +151,8 @@ describe('Deleting the blocking event frees its window', () => {
     await screen.findByRole('option', { name: /Yum Center/ });
     await user.type(screen.getByLabelText('Event name'), 'Clashing Show');
     await user.selectOptions(screen.getByLabelText('Venue'), VENUE.id);
-    await user.type(screen.getByLabelText('Starts'), '2026-10-01T20:00');
-    await user.type(screen.getByLabelText('Ends'), '2026-10-01T23:00');
+    setLocalDateTime('Starts', '2026-10-01T20:00');
+    setLocalDateTime('Ends', '2026-10-01T23:00');
     await user.type(screen.getByLabelText('Total tickets'), '500');
     // Spec 008 US7: priced by a ticket type instead of a base price.
     await user.type(screen.getByLabelText('Ticket type 1 name'), 'General');

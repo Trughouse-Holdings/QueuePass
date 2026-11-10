@@ -6,17 +6,24 @@ const CI = !!process.env.CI;
 
 /**
  * Spec 028 (tasks T025a): WebKit, Safari's engine, the stand-in for a Safari walk until one is
- * made on a Mac. Opt-in: listed only when asked for (`--project=webkit`), so `npm run e2e` and CI
- * stay Chromium-only. Its browser: `node node_modules/playwright/cli.js install webkit`.
+ * made on a Mac. Opt-in locally (`--project=webkit` or QP_E2E_WEBKIT=1). Spec 036 FR-012: in CI,
+ * WebKit also runs the event-form journeys only, so a Safari-only difference is caught there.
+ * The rest of the suite stays Chromium-only (`001` V3 fails in WebKit). Its browser:
+ * `node node_modules/playwright/cli.js install webkit`.
  */
 const argv = process.argv;
 const WEBKIT =
   process.env.QP_E2E_WEBKIT === '1' ||
   argv.some((a, i) => a === '--project=webkit' || (a === '--project' && argv[i + 1] === 'webkit'));
+const EVENT_FORM_WEBKIT = WEBKIT || !!process.env.CI;
 // Workers load this file again with their own arguments: they learn of the project from here.
 // So a QP_E2E_WEBKIT=1 left set in the shell makes a plain `npm run e2e` run WebKit too, where
 // `001 V3` fails (code review round 1); unset it after a WebKit run.
 if (WEBKIT) process.env.QP_E2E_WEBKIT = '1';
+
+/** Event-form journeys that pick Starts, Ends, or doors (036 FR-012). */
+const EVENT_FORM_TESTS =
+  /(?:003-venue-event|020-time-zones|025-doors-open|031-atomic-event-create|035-event-form-flow|036-event-form-times)\.spec\.ts$/;
 
 export default defineConfig({
   testDir: 'tests',
@@ -45,6 +52,15 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    ...(WEBKIT ? [{ name: 'webkit', use: { ...devices['Desktop Safari'] } }] : []),
+    ...(EVENT_FORM_WEBKIT
+      ? [
+          {
+            name: 'webkit',
+            use: { ...devices['Desktop Safari'] },
+            // A local `--project=webkit` of the whole suite would still fail 001 V3; limit it.
+            testMatch: EVENT_FORM_TESTS,
+          },
+        ]
+      : []),
   ],
 });

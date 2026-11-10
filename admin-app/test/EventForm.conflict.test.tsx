@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventForm } from '../src/pages/EventForm';
+import { expectLocalDateTime, setLocalDateTime } from './helpers/event-times';
 
 /** FR-034, FR-035, SC-006 — conflict treatment in the admin web app. */
 
@@ -78,8 +79,8 @@ async function fillAndSubmit(): Promise<void> {
 
   await user.type(screen.getByLabelText('Event name'), 'Clashing Show');
   await user.selectOptions(screen.getByLabelText('Venue'), VENUE.id);
-  await user.type(screen.getByLabelText('Starts'), '2026-10-01T20:00');
-  await user.type(screen.getByLabelText('Ends'), '2026-10-01T23:00');
+  setLocalDateTime('Starts', '2026-10-01T20:00');
+  setLocalDateTime('Ends', '2026-10-01T23:00');
   await user.type(screen.getByLabelText('Total tickets'), '500');
   // Spec 008 US7: priced by a ticket type instead of a base price.
   await user.type(screen.getByLabelText('Ticket type 1 name'), 'General');
@@ -136,8 +137,8 @@ describe('EventForm conflict handling', () => {
 
     expect(screen.getByLabelText('Event name')).toHaveValue('Clashing Show');
     expect(screen.getByLabelText('Venue')).toHaveValue(VENUE.id);
-    expect(screen.getByLabelText('Starts')).toHaveValue('2026-10-01T20:00');
-    expect(screen.getByLabelText('Ends')).toHaveValue('2026-10-01T23:00');
+    expectLocalDateTime('Starts', '2026-10-01T20:00');
+    expectLocalDateTime('Ends', '2026-10-01T23:00');
     expect(screen.getByLabelText('Total tickets')).toHaveValue(500);
     expect(screen.getByLabelText('Ticket type 1 price')).toHaveValue('45.00');
   });

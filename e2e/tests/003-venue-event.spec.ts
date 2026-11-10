@@ -6,6 +6,7 @@ import { apiFor, createEvent, createVenue, type Location } from '../fixtures/api
 import { PLACES, uniqueName } from '../fixtures/data';
 import { signIn } from '../fixtures/sign-in';
 import { atLocal, eventTime, localDate } from '../fixtures/time';
+import { fillEventDateTime } from '../fixtures/event-times';
 
 const ZONE = 'America/New_York'; // Louisville, KY: Eastern.
 
@@ -46,8 +47,8 @@ test('003 C1: events appear soonest first, with their venues, times, and prices'
       await admin
         .getByLabel('Venue', { exact: true })
         .selectOption({ label: `${venueName} (500 seats)` });
-      await admin.getByLabel('Starts', { exact: true }).fill(`${day}T18:00`);
-      await admin.getByLabel('Ends', { exact: true }).fill(`${day}T21:00`);
+      await fillEventDateTime(admin, 'Starts', `${day}T18:00`);
+      await fillEventDateTime(admin, 'Ends', `${day}T21:00`);
       await admin.getByLabel('Ticket type 1 name', { exact: true }).fill('General');
       await admin.getByLabel('Ticket type 1 price', { exact: true }).fill('45.5');
       await admin.getByLabel('Ticket type 1 quantity', { exact: true }).fill('100');

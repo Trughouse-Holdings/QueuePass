@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventForm } from '../src/pages/EventForm';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, VENUE } from './fixtures-005';
+import { expectLocalDateTime, setLocalDateTime } from './helpers/event-times';
 
 /**
  * Spec 020 US2, US3 (FR-014 to FR-017, FR-022, FR-026; research R13): the event form reads the
@@ -95,8 +96,25 @@ function editForm(
   return api;
 }
 
-const set = (label: string, value: string) =>
+const set = (label: string, value: string) => {
+  if (label === 'Starts' || label === 'Ends' || label === 'Doors open') {
+    if (label === 'Doors open') {
+      fireEvent.click(screen.getByLabelText('At a set time'));
+    }
+    if (value === '') {
+      fireEvent.change(screen.getByLabelText(`${label} date`, { exact: true }), {
+        target: { value: '' },
+      });
+      fireEvent.change(screen.getByLabelText(`${label} time`, { exact: true }), {
+        target: { value: '' },
+      });
+      return;
+    }
+    setLocalDateTime(label, value);
+    return;
+  }
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
+};
 
 async function fill(venue: string, starts: string, ends: string) {
   await screen.findByRole('option', { name: /Phoenix Hall/ });
@@ -150,8 +168,8 @@ describe('sending times in the venue zone (FR-014, FR-015)', () => {
     const api = newForm();
     await fill(EAST.id, '2026-10-01T19:00', '2026-10-01T22:00');
     set('Venue', PHX.id);
-    expect(screen.getByLabelText('Starts')).toHaveValue('2026-10-01T19:00');
-    expect(screen.getByLabelText('Ends')).toHaveValue('2026-10-01T22:00');
+    expectLocalDateTime('Starts', '2026-10-01T19:00');
+    expectLocalDateTime('Ends', '2026-10-01T22:00');
     expect(screen.getByTestId('zone-line')).toHaveTextContent(
       "Times are in the venue's time zone: Arizona Time (no daylight saving) (MST).",
     );
@@ -175,7 +193,7 @@ describe('daylight saving (FR-016, FR-017)', () => {
     expect(screen.queryByTestId('error-banner')).toBeNull();
     expect(screen.getByTestId('startsAt-skipped')).toHaveTextContent(message);
     expect(posted(api)).toHaveLength(0);
-    expect(screen.getByLabelText('Starts')).toHaveValue('2027-03-14T02:30');
+    expectLocalDateTime('Starts', '2027-03-14T02:30');
     expect(screen.getByLabelText('Event name')).toHaveValue('Fall Concert');
   });
 
@@ -184,12 +202,14 @@ describe('daylight saving (FR-016, FR-017)', () => {
   it('refused at Eastern, then saved at Phoenix: Doors open follows the start in the new zone', async () => {
     const api = newForm();
     await fill(EAST.id, '2027-03-14T02:30', '2027-03-14T04:00');
-    expect(screen.getByLabelText('Doors open')).toHaveValue('');
+    expect(screen.queryByTestId('doorsOpenAt-preview')).toBeNull();
     save();
     expect(screen.queryByTestId('error-banner')).toBeNull();
     expect(posted(api)).toHaveLength(0);
     set('Venue', PHX.id);
-    expect(screen.getByLabelText('Doors open')).toHaveValue('2027-03-14T01:30');
+    expect(screen.getByTestId('doorsOpenAt-preview')).toHaveTextContent(
+      'Doors open at 1:30 AM MST',
+    );
     save();
     await screen.findByText('Event page', {}, { timeout: 3000 });
     expect(posted(api)[0]).toMatchObject({
@@ -203,7 +223,7 @@ describe('daylight saving (FR-016, FR-017)', () => {
     await fill(EAST.id, '2026-10-01T19:00', '2026-10-01T22:00');
     set('Doors open', '2026-10-01T17:30');
     set('Venue', PHX.id);
-    expect(screen.getByLabelText('Doors open')).toHaveValue('2026-10-01T17:30');
+    expectLocalDateTime('Doors open', '2026-10-01T17:30');
   });
 
   it('accepts the same time at Phoenix (no daylight saving)', async () => {
@@ -259,8 +279,8 @@ describe('editing (US2 scenario 4, US3 scenario 4)', () => {
       startsAt: '2026-10-02T02:00:00.000Z',
       endsAt: '2026-10-02T05:00:00.000Z',
     });
-    await vi.waitFor(() => expect(screen.getByLabelText('Starts')).toHaveValue('2026-10-01T19:00'));
-    expect(screen.getByLabelText('Ends')).toHaveValue('2026-10-01T22:00');
+    await vi.waitFor(() => expectLocalDateTime('Starts', '2026-10-01T19:00'));
+    expectLocalDateTime('Ends', '2026-10-01T22:00');
   });
 
   // Review round 2, m1: an instant with seconds still picks its own occurrence.
@@ -274,7 +294,7 @@ describe('editing (US2 scenario 4, US3 scenario 4)', () => {
       startsAt,
       endsAt: '2027-11-07T09:30:00.000Z', // 4:30 AM EST
     });
-    await vi.waitFor(() => expect(screen.getByLabelText('Starts')).toHaveValue('2027-11-07T01:30'));
+    await vi.waitFor(() => expectLocalDateTime('Starts', '2027-11-07T01:30'));
     expect(within(screen.getByTestId('startsAt-occurrence')).getByLabelText(chosen)).toBeChecked();
     await vi.waitFor(() =>
       expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('General'),
@@ -293,7 +313,7 @@ describe('editing (US2 scenario 4, US3 scenario 4)', () => {
       startsAt: '2027-11-07T06:30:00.000Z',
       endsAt: '2027-11-07T08:30:00.000Z',
     });
-    await vi.waitFor(() => expect(screen.getByLabelText('Starts')).toHaveValue('2027-11-07T01:30'));
+    await vi.waitFor(() => expectLocalDateTime('Starts', '2027-11-07T01:30'));
     expect(
       within(screen.getByTestId('startsAt-occurrence')).getByLabelText(
         '1:30 AM EST (the second time)',
@@ -333,8 +353,8 @@ describe("the Backend's refusals (FR-026)", () => {
     save();
     expect(screen.queryByTestId('error-banner')).toBeNull();
     expect(await screen.findByTestId('startsAt-error')).toHaveTextContent(message);
-    expect(screen.getByLabelText('Starts')).toHaveValue('2026-10-01T19:00');
-    expect(screen.getByLabelText('Ends')).toHaveValue('2026-10-01T22:00');
+    expectLocalDateTime('Starts', '2026-10-01T19:00');
+    expectLocalDateTime('Ends', '2026-10-01T22:00');
     expect(screen.getByLabelText('Venue')).toHaveValue(EAST.id);
   });
 
@@ -403,9 +423,7 @@ describe('editing while the venue list is unavailable', () => {
         },
         reply,
       );
-      await vi.waitFor(() =>
-        expect(screen.getByLabelText('Starts')).toHaveValue('2026-10-01T19:00'),
-      );
+      await vi.waitFor(() => expectLocalDateTime('Starts', '2026-10-01T19:00'));
       expect(screen.getByTestId('zone-line')).toHaveTextContent(
         "Times are in the venue's time zone: Pacific Time (PDT).",
       );
@@ -431,7 +449,7 @@ describe('editing while the venue list is unavailable', () => {
       },
       'network-error',
     );
-    await vi.waitFor(() => expect(screen.getByLabelText('Starts')).toHaveValue('2027-11-07T01:30'));
+    await vi.waitFor(() => expectLocalDateTime('Starts', '2027-11-07T01:30'));
     expect(screen.getByTestId('zone-line')).toHaveTextContent(
       "Times are in the venue's time zone: Central Time (CDT).",
     );

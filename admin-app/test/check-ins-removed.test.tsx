@@ -7,6 +7,7 @@ import { EventForm } from '../src/pages/EventForm';
 import { Reports } from '../src/pages/Reports';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, ORDERS, REPORT, VENUE } from './fixtures-005';
+import { expectLocalDateTime, setLocalDateTime } from './helpers/event-times';
 
 /**
  * Spec 032 US2, US3 (FR-009 to FR-011, SC-005; research R7): a removed event's pages show the
@@ -222,12 +223,12 @@ describe('the edit form (US4; FR-008, Constitution IV)', () => {
     await vi.waitFor(() =>
       expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('General'),
     );
-    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2026-11-01T23:00' } });
+    setLocalDateTime('Ends', '2026-11-01T23:00');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     const banner = await screen.findByTestId('error-banner');
     expect(banner).toHaveAttribute('data-code', 'CHECK_IN_DETAILS_REMOVED');
     expect(banner).toHaveTextContent(message);
-    expect(screen.getByLabelText('Ends')).toHaveValue('2026-11-01T23:00');
+    expectLocalDateTime('Ends', '2026-11-01T23:00');
   });
 });

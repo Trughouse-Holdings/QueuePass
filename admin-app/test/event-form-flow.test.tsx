@@ -5,6 +5,7 @@ import { EventForm } from '../src/pages/EventForm';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, VENUE } from './fixtures-005';
 import { lockReason, MSG, repeatedTypeNameMessage } from '../src/pages/event-form-checks';
+import { setLocalDateTime } from './helpers/event-times';
 
 /**
  * Spec 035 (T006; FR-001 to FR-016, SC-002, SC-003, SC-006, research R11): three sections, tickets
@@ -55,8 +56,8 @@ async function chooseSeatedVenue() {
   fireEvent.change(await screen.findByLabelText('Event name'), { target: { value: 'Full House' } });
   await screen.findByRole('option', { name: /Yum Center/ });
   fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
-  fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
-  fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+  setLocalDateTime('Starts', '2030-05-01T18:00');
+  setLocalDateTime('Ends', '2030-05-01T21:00');
   await screen.findByRole('group', { name: 'Tickets and seating' });
 }
 

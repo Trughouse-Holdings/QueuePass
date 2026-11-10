@@ -7,6 +7,7 @@ import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-u
 import { json, stubApi } from './helpers/api-stub';
 import { pngFile, savedImage } from './helpers/images';
 import { EVENT, VENUE } from './fixtures-005';
+import { expectLocalDateTime, setLocalDateTime } from './helpers/event-times';
 
 /**
  * Spec 031 (FR-008 to FR-012, SC-003, SC-004; research R5, R11): Schedule event sends the event,
@@ -95,8 +96,8 @@ async function fillGeneral() {
   });
   await screen.findByRole('option', { name: /Plain Hall/ });
   fireEvent.change(screen.getByLabelText('Venue'), { target: { value: 'v-plain' } });
-  fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
-  fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+  setLocalDateTime('Starts', '2030-05-01T18:00');
+  setLocalDateTime('Ends', '2030-05-01T21:00');
   await screen.findByRole('group', { name: 'Tickets and seating' });
   typeLine(1, 'Floor', '80.00', '300');
   fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
@@ -109,8 +110,8 @@ async function fillSeated() {
   });
   await screen.findByRole('option', { name: /Plain Hall/ });
   fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
-  fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
-  fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+  setLocalDateTime('Starts', '2030-05-01T18:00');
+  setLocalDateTime('Ends', '2030-05-01T21:00');
   await screen.findByRole('group', { name: 'Tickets and seating' });
   typeLine(1, 'Front', '120.00');
   fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
@@ -133,8 +134,8 @@ const schedule = () => fireEvent.click(screen.getByRole('button', { name: 'Sched
 const expectGeneralKept = () => {
   expect(screen.getByLabelText('Event name')).toHaveValue('Season Opener');
   expect(screen.getByLabelText('Venue')).toHaveValue('v-plain');
-  expect(screen.getByLabelText('Starts')).toHaveValue('2030-05-01T18:00');
-  expect(screen.getByLabelText('Ends')).toHaveValue('2030-05-01T21:00');
+  expectLocalDateTime('Starts', '2030-05-01T18:00');
+  expectLocalDateTime('Ends', '2030-05-01T21:00');
   expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('Floor');
   expect(screen.getByLabelText('Ticket type 2 name')).toHaveValue('Balcony');
   expect(screen.getByLabelText('Ticket type 2 price')).toHaveValue(' 60.00 ');

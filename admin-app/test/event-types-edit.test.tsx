@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventForm } from '../src/pages/EventForm';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, VENUE } from './fixtures-005';
+import { setLocalDateTime } from './helpers/event-times';
 
 /**
  * Spec 008 US7 (FR-019; research R10): no base price; every event is priced by its ticket types,
@@ -68,8 +69,8 @@ describe('scheduling a general-admission event', () => {
     expect(screen.queryByLabelText('Base price')).toBeNull();
     fireEvent.change(screen.getByLabelText('Event name'), { target: { value: 'Fair' } });
     fireEvent.change(screen.getByLabelText('Venue'), { target: { value: 'v-plain' } });
-    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
-    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+    setLocalDateTime('Starts', '2030-05-01T18:00');
+    setLocalDateTime('Ends', '2030-05-01T21:00');
     await screen.findByLabelText('Ticket type 1 name');
     typeLine(1, 'Floor', '80.00', '100');
     fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
