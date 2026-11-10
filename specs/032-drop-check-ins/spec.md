@@ -339,7 +339,7 @@ and changes nothing; one that sends the same times, or changes only other fields
   which no one sees, since the job runs hourly.
 - **Hourly is enough.** "Hourly or daily" in the issue; hourly keeps the lag under an hour (SC-002) at
   the cost of one small indexed query an hour.
-- **One Backend.** The proof of concept runs one Backend; FR-005's event lock and re-check make a second
+- **One Backend.** The proof of concept runs one Backend; the event lock and re-check under it (Edge Cases; research R5) make a second
   one harmless anyway.
 - **Reading the date.** "Removed on" is a date in the venue's zone, as other event dates are (`020`);
   "kept for 7 days" is read from the constant.

@@ -33,9 +33,10 @@ confirm they **fail** before the implementation tasks of Phase 3.
   data: do not start this branch's Backend against it, and do not stop it, without Mahdi saying so in
   the session (T019). If it must be stopped for a stretch, use `docker compose -p queuepass-team stop`
   (never `down`, never `-v`).
-- **Spec `031`** (`031-atomic-event-create-spec`, open) changes `EventsService.create` and the
-  contract (1.23.0); this feature changes `updateLocked`, `toResponse`, and the contract (1.24.0).
-  Whichever merges second rebases and keeps both (research R10).
+- **Spec `031`** (PR #147) changes `EventsService.create` and the contract (1.23.0); this feature
+  changes `updateLocked`, `toResponse`, and the contract (1.24.0). **`032` waits for `031` to merge,
+  then rebases onto `main`** (decided), keeping both: `031` takes 3.9.3 and 1.23.0, `032` keeps 3.9.4
+  and 1.24.0 (research R10).
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -71,20 +72,23 @@ confirm they **fail** before the implementation tasks of Phase 3.
   - two removals at once, past the `running` flag (review round 1, S4): `removeEvent(E, now)` twice
     with `Promise.all`: exactly one returns `true`, E's instant and count are one removal's; and a
     second `CheckInRetention` instance's `removeDue()` beside the first's: the same;
-  - the bound in exact hours (review round 1, S3): `endsAt` 2026-10-31T23:00Z, the session's zone set to
-    `America/New_York`: kept at `endsAt + 7 × 86 400 000 ms − 1 min`, removed at `endsAt + 7 × 86 400 000
-    ms`;
+  - the bound in exact hours (review rounds 1 S3, 2 S1): `endsAt` 2026-10-31T23:00Z, on its own
+    `PrismaClient` (the test database's URL with `connection_limit=1`) with `SET TIME ZONE
+    'America/New_York'` and `new CheckInRetention(thatClient, clock, 0)`: kept at `endsAt + 7 × 86 400
+    000 ms − 1 min`, removed at `endsAt + 7 × 86 400 000 ms`; the client disconnected afterwards;
   - `GET /reports/sales` before and after E's removal: deep-equal but `generatedAt` and E's
     `checkInDetailsRemovedAt`; then E cancelled: its `checkedIn` 0 and the total down by its count;
   - `start()` on the test app's `CheckInRetention`: a due event is removed without calling `removeDue`
     (polled for at most 2 s); `app.close()` clears the timer;
-  - never in the demo commands (SC-007, review round 1, M1): with a due event that has check-ins,
-    `NestFactory.createApplicationContext(AppModule)` against the test database (as `demo-data.ts` and
-    `demo-reset.ts` build it), `init()`, then `runDemoData(app)`: that event's check-ins and NULL removal
-    columns untouched; the context closed afterwards.
-  And `backend/test/unit/check-in-retention-start.spec.ts` (new): reads every `.ts` under
-  `backend/src`; fails if `CheckInRetention`'s `start()` is called from any file but `src/main.ts`, or
-  if `main.ts` does not call it.
+  - no lifecycle hook runs it (SC-007, review rounds 1 M1, 2 S2): a due event with check-ins, then a
+    second `createTestApp()` (every `onModuleInit` and `onApplicationBootstrap` runs, as in the demo
+    commands' application context) and a 500 ms wait: its check-ins and NULL removal columns
+    untouched; that app closed afterwards. (Not `createApplicationContext(AppModule)`: its real address
+    services would use the network, spec `013` R9.)
+  And `backend/test/unit/check-in-retention-start.spec.ts` (new): `CheckInRetention.prototype` has no
+  `onModuleInit` and no `onApplicationBootstrap`; `backend/src/main.ts` calls its `start()`;
+  `retentionBound(now)` is `now − 604 800 000 ms` exactly for weeks holding the 2026-11-01 fall-back
+  and the 2027-03-14 spring-forward.
   Must fail (no module yet).
 - [ ] T003 [P] [US1] `backend/test/integration/check-in-retention.constraints.e2e-spec.ts` (new;
   FR-015): raw SQL updates on an event: an instant without a count, a count without an instant, and a
@@ -132,8 +136,8 @@ confirm they **fail** before the implementation tasks of Phase 3.
 - [ ] T009 [US1] `backend/src/entry/check-in-retention.ts` (research R5): `CHECK_IN_RETENTION_INTERVAL_MS`
   token, `CheckInRetention` with `start()` (one run, then the timer), `onModuleDestroy`, and **no
   lifecycle hook that runs it**; `removeDue(now?)` with the running flag, the bound computed in
-  JavaScript (`now − CHECK_IN_RETENTION_DAYS × 86 400 000 ms`, never SQL interval arithmetic), the due
-  query; public `removeEvent(id, now)`, the locked transaction (lock, re-check against the same bound,
+  JavaScript by the exported `retentionBound(now)` (`now − CHECK_IN_RETENTION_DAYS × 86 400 000 ms`,
+  never SQL interval arithmetic), passed as `${bound}::timestamptz`, the due query; public `removeEvent(id, now)`, the locked transaction (lock, re-check against the same bound,
   count, empty the tickets, mark the event); each event's failure logged and skipped; one log line per
   run that removed anything. `EntryModule` provides it with `{ provide: CHECK_IN_RETENTION_INTERVAL_MS,
   useValue: 3_600_000 }`. `backend/src/main.ts` calls `app.get(CheckInRetention).start()` after
@@ -230,6 +234,27 @@ confirm they **fail** before the implementation tasks of Phase 3.
   - N9: `getTicketEntryKey` for a removed event's ticket: decided not to refuse it (a contract change
     for a key that opens nothing; it already serves unused tickets of any ended event); research R6,
     spec Clarifications.
+  - After the fixes, three runs each: `prettier --check .`, `check-quickstart-marks`,
+    `check-contract-drift`, root script tests.
+- **Round 2** (independent Claude session, 2026-11-09): no must-fix, 2 should-fix, 4 nits; the
+  reviewer's verdict: only minor findings remain. All fixed in the `Review 032: spec review round 2`
+  commit.
+  - S1: `SET TIME ZONE` through the pooled `PrismaService` reaches one connection only, so the
+    daylight-saving case could not catch interval arithmetic → it runs on its own `PrismaClient` with
+    `connection_limit=1` and a `CheckInRetention` built on it; `retentionBound(now)` is exported and
+    unit-tested; the bound is passed as `${bound}::timestamptz` (research R5, R11, T002, T009).
+  - S2: the SC-007 case built `createApplicationContext(AppModule)`, whose real address services would
+    use the network (spec `013` R9), and a removal it started would not be awaited → a second
+    `createTestApp()` (every lifecycle hook runs) and a 500 ms wait leave a due event untouched; the
+    unit test asserts `CheckInRetention.prototype` has no `onModuleInit` or `onApplicationBootstrap`
+    and that `main.ts` calls `start()`, without scanning every file (research R5, R11, T002).
+  - N3: contracts/README.md said the hand-written shared types gain the fields in T013; it is T007.
+  - N4: merge order decided: `032` waits for `031` (PR #147) to merge, then rebases (`031` takes 3.9.3
+    and 1.23.0; `032` keeps 3.9.4 and 1.24.0) → ground rules, research R10 and R12 say so, as plan.md
+    and the Sync Impact Report.
+  - N5: `030`'s Clarification on My tickets and its US2 acceptance scenario 2 gain the same dated
+    note as its FR-016.
+  - N6: Assumptions' "One Backend" points to the Edge Cases and research R5, not FR-005.
   - After the fixes, three runs each: `prettier --check .`, `check-quickstart-marks`,
     `check-contract-drift`, root script tests.
 - **Open findings**: none.

@@ -95,18 +95,20 @@ provides `CLOCK`), modelled on `backend/src/reservations/hold-sweeper.ts`:
   **Why not an interval of 0 in the scripts**: `createApplicationContext(AppModule)` cannot override a
   provider, so the scripts would need an environment variable or a second module, a configuration
   surface for one case (Principle VIII); one call in `main.ts`, the only entry point that serves the
-  API, keeps every other entry point out by construction. A Backend unit test reads the sources and
-  fails if `start()` on `CheckInRetention` is called anywhere but `src/main.ts` (R11).
+  API, keeps every other entry point out by construction. A Backend unit test fails if
+  `CheckInRetention` gains an `onModuleInit` or `onApplicationBootstrap`, or if `main.ts` stops calling
+  `start()` (R11).
 - `removeDue(now = new Date(this.clock.now())): Promise<{ eventIds: string[] }>`: guarded by a
   `running` flag like `sweepOnce`. The bound is computed in JavaScript, in exact hours (R3), never with
   SQL interval arithmetic (`timestamptz + interval 'N days'` adds calendar days in the session's zone,
-  an hour off across a daylight-saving change):
+  an hour off across a daylight-saving change), by an exported pure function:
   ```ts
-  const bound = new Date(now.getTime() - CHECK_IN_RETENTION_DAYS * 86_400_000);
+  export const retentionBound = (now: Date): Date =>
+    new Date(now.getTime() - CHECK_IN_RETENTION_DAYS * 86_400_000);
   ```
   ```sql
   SELECT "id" FROM "Event"
-  WHERE "checkInDetailsRemovedAt" IS NULL AND "endsAt" <= ${bound}
+  WHERE "checkInDetailsRemovedAt" IS NULL AND "endsAt" <= ${bound}::timestamptz
   ORDER BY "endsAt", "id"
   ```
   then calls `removeEvent(id, now)` for each; one event failing never holds up the others (logged, as
@@ -253,9 +255,12 @@ here.
   case "an event moved later … brings it back" no longer applies, since a removed event's times cannot
   change (spec FR-008; R6). Whichever implementation lands second (`030`'s or `032`'s) builds on the
   other's My tickets.
-- **`031` (open, `031-atomic-event-create-spec`)**: changes `EventsService.create`; this feature changes
-  `updateLocked` and `toResponse`. Different functions in one file; whichever merges second rebases.
-  Its contract `1.23.0` and constitution `3.9.3` precede this branch's `1.24.0` and `3.9.4`.
+- **`031` (PR #147, `031-atomic-event-create-spec`)**: changes `EventsService.create`; this feature
+  changes `updateLocked` and `toResponse`, different functions in one file. **Merge order (decided):
+  `032` waits for `031` to merge, then rebases onto `main`**: `031` takes constitution `3.9.3` and
+  contract `1.23.0`, and this branch keeps `3.9.4` and `1.24.0`, resolving the conflicting version
+  lines, roadmap row, next free number, Sync Impact Report, README status table, and the contract's
+  error-code list by keeping both changes.
 - **`028` (realms, merged)**: agent subjects written before it belong to the retired realm; nothing
   reads them; removed at each event's cutoff.
 
@@ -279,19 +284,26 @@ Backend (Jest, Testcontainers PostgreSQL, `createTestApp`, `FakeClock`):
     `removeDue()` beside the first's, with the same result.
   - the bound in exact hours across a daylight-saving change: `endsAt` 2026-10-31T23:00Z (the week holds
     the US fall-back of 2026-11-01): kept at `endsAt + 7 × 86 400 000 ms − 1 min`, removed at `endsAt +
-    7 × 86 400 000 ms`, with the session's zone set to `America/New_York` for the test (`SET TIME
-    ZONE`), where SQL calendar-day arithmetic would differ by an hour.
+    7 × 86 400 000 ms`. `SET TIME ZONE` through the test app's pooled `PrismaService` reaches one
+    connection only, so this case runs on **its own `PrismaClient`** (the test database's URL with
+    `connection_limit=1`), with `SET TIME ZONE 'America/New_York'` on it and `new
+    CheckInRetention(thatClient, clock, 0)`; there SQL calendar-day arithmetic would be an hour off. The
+    client is disconnected afterwards.
   - the sales report deep-equal before and after E's removal, but `generatedAt` and E's
     `checkInDetailsRemovedAt`; E cancelled after removal: `checkedIn` 0.
   - `start()` runs once at once (a due event is removed without calling `removeDue`, polled for at most
     2 s) and arms the timer; `app.close()` clears it.
-  - **never in the demo commands** (SC-007): with a due event that has check-ins, an application
-    context built as the demo scripts build it (`NestFactory.createApplicationContext(AppModule)`
-    against the test database, `init()` called), then `runDemoData(app)`, leaves that event's
-    check-ins and its NULL removal columns untouched.
-- `backend/test/unit/check-in-retention-start.spec.ts` (new): reads every `.ts` under `backend/src`
-  and fails if `CheckInRetention`'s `start()` is called from any file but `src/main.ts`, or if
-  `main.ts` does not call it.
+  - **no lifecycle hook runs it** (SC-007): with a due event that has check-ins in the database before
+    a second `createTestApp()` (which runs every module's `onModuleInit` and `onApplicationBootstrap`,
+    as the demo commands' `createApplicationContext` does), after a wait of 500 ms the event's
+    check-ins and NULL removal columns are untouched. Not `createApplicationContext(AppModule)` itself:
+    its real geocoder and map search would reach the network (spec `013` R9: no test does), and a
+    removal it started would not be awaited.
+- `backend/test/unit/check-in-retention-start.spec.ts` (new): `CheckInRetention.prototype` has no
+  `onModuleInit` and no `onApplicationBootstrap`; `backend/src/main.ts`'s source calls
+  `CheckInRetention`'s `start()`. And `retentionBound`: for `now` 2026-11-07T23:00Z it is
+  2026-10-31T23:00Z exactly (a week holding the US fall-back), and for a week holding the spring-forward
+  of 2027-03-14 likewise `now − 604 800 000 ms`.
 - `check-in-retention.constraints.e2e-spec.ts` (new): raw SQL: removal instant without count, count
   without instant, and a negative count each fail with `event_check_ins_removed_together`.
 - `events.check-ins-removed.e2e-spec.ts` (new): on a removed event, `PATCH` changing `startsAt`,
@@ -310,7 +322,7 @@ the e2e harness does not do (quickstart Automation).
 
 ## R12. Constitution, contract, and README
 
-Constitution 3.9.4 (PATCH): roadmap row `032`, on top of `031`'s 3.9.3 (unmerged); rebased once it
-merges. Contract 1.24.0 (MINOR): new response fields and one new error code (contracts/README.md), on
+Constitution 3.9.4 (PATCH): roadmap row `032`, on top of `031`'s 3.9.3 (PR #147); `032` waits for it
+to merge, then rebases (R10). Contract 1.24.0 (MINOR): new response fields and one new error code (contracts/README.md), on
 top of `031`'s 1.23.0; `packages/shared/src/api-schema.ts` regenerated. README: the `032` status row and
 version reference (this PR); a "Check-in retention" paragraph in the implementation PR.

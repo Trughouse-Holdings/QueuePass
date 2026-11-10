@@ -26,7 +26,7 @@ a missing value as `null`. The implementation always sends them.
 contracts/openapi.yaml -o packages/shared/src/api-schema.ts`); `packages/shared/src/errors.ts` gains
 `CHECK_IN_DETAILS_REMOVED`, ahead of the implementation, so the list matches the contract. The
 hand-written types in `packages/shared/src/event.ts` and `order.ts` gain the fields in the
-implementation (tasks T013).
+implementation (tasks T007).
 
 This branch applies on top of `031`'s `1.23.0`; until `031` merges, the `version` line and any line
 both touch conflict on rebase and are resolved by keeping both changes.

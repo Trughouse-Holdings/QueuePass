@@ -113,7 +113,7 @@ backend/
 ├── src/events/events.service.ts                      # updateLocked: 409; toResponse: field
 ├── src/orders/orders.service.ts                      # mine(): the event summary's field
 └── test/
-    ├── unit/check-in-retention-start.spec.ts         # new: only main.ts calls start()
+    ├── unit/check-in-retention-start.spec.ts         # new: no lifecycle hook; main.ts calls start(); retentionBound
     └── integration/
         ├── check-in-retention.e2e-spec.ts            # new
         ├── check-in-retention.constraints.e2e-spec.ts # new
