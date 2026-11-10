@@ -71,10 +71,11 @@ the team can overturn it in review of the spec PR.
   ticket type or group, and in its error banner as today (recommended answer, open to review)
   (FR-006, FR-010; research R3).
 - Q: Which problem is reported first when there are several? → A: **Malformed fields all at once;
-  otherwise the first rule broken, in a fixed order**: the event's own checks as today (venue,
-  times, capacity, tickets per customer, scheduling conflict), then seating, then the ticket types
-  in the order sent. One refusal per attempt is how every other save works today (recommended answer,
-  open to review) (FR-005; research R4).
+  otherwise the first rule broken, in a fixed order**: the venue and the event's times as today, then
+  seating (which sets the capacity), then the event's capacity, tickets per customer, and scheduling
+  conflict as today, then each ticket type in the order sent, then the ticket types' total. One
+  refusal per attempt is how every other save works today (recommended answer, open to review)
+  (FR-005; research R4).
 - Q: Is editing in scope? → A: **No.** Saving an edit has the same weakness (the details are saved,
   then each ticket type and the seating separately, so a refused ticket type leaves the details
   changed, and saving again can be refused for a ticket type it already added), but the issue is
@@ -128,8 +129,8 @@ ticket type, or seating rows; fix it and schedule again; exactly one event exist
    the event is created once, with its ticket types and seating, and opens; it is not refused as a
    conflict with itself.
 4. **Given** a schedule refused for a reason that is not about the ticket types (a scheduling
-   conflict, a time outside the venue's day, doors out of range), **Then** nothing is saved and the
-   error shows as today.
+   conflict, a local time the venue's clocks skip, doors out of range), **Then** nothing is saved
+   and the error shows as today.
 
 ---
 
@@ -241,8 +242,9 @@ seating, valid and broken, and two at once; compare the database before and afte
   capacity is the layout's total, and tickets per customer fit that total. Sections may be listed only
   with reserved seating.
 - **FR-005**: Malformed fields MUST all be reported in one refusal. Otherwise the refusal MUST be the
-  first rule broken in this order: the event's checks as today, then seating, then each ticket type in
-  the order sent.
+  first rule broken in this order: the venue and the event's times and doors; seating; the event's
+  capacity, tickets per customer, and scheduling conflict; each ticket type in the order sent; the
+  ticket types' total.
 - **FR-006**: A refusal about one ticket type MUST name, in a machine-readable form the contract
   states, its position in the request and the field at fault (name, price, quantity, or sections); a
   refusal about the ticket types together, or about reserved seating, MUST name that group. The error
