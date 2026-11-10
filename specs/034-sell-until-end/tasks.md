@@ -55,7 +55,7 @@ confirm they **fail** before the implementation tasks that follow.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `034-sell-until-end-impl` from `034-sell-until-end-spec` (or from `main` once the spec
+- [x] T001 Cut `034-sell-until-end-impl` from `034-sell-until-end-spec` (or from `main` once the spec
   PR has merged), after deciding on `033` (ground rules); `npm ci`; `npm run ci` green before any
   change, so a later failure is this feature's. Confirm `api-schema.ts` has `salesClosed: "CANCELLED" |
   "ENDED" | "STARTED" | null` and `inProgress?: boolean` in `Availability`. Record which of `033`'s and
@@ -65,7 +65,7 @@ confirm they **fail** before the implementation tasks that follow.
 
 ## Phase 2: Tests first (all must fail before the implementation)
 
-- [ ] T002 [P] [US1] [US2] `backend/test/integration/orders.sales-closed.e2e-spec.ts`, rewritten as
+- [x] T002 [P] [US1] [US2] `backend/test/integration/orders.sales-closed.e2e-spec.ts`, rewritten as
   "Sales close at the end time" (FR-001, FR-002, FR-005, SC-001, SC-002; research R1, R8, R11). Events
   through the API, relative to the real time (a helper like today's `startingIn`, taking the start and
   the end offsets):
@@ -85,22 +85,22 @@ confirm they **fail** before the implementation tasks that follow.
     `200` with the same order id.
   - every response matches the contract (the authed client checks it).
   Must fail (today an order after the start is refused).
-- [ ] T003 [P] [US1] [US2] `backend/test/integration/reservations.e2e-spec.ts` (FR-003, FR-005): "is
+- [x] T003 [P] [US1] [US2] `backend/test/integration/reservations.e2e-spec.ts` (FR-003, FR-005): "is
   409 SALES_CLOSED once the event has started" becomes "…once it has ended" (moved past its end as
   in T002), with the new message; add "reserves seats for an event in progress" (`201`, the seats
   held) and "reserves seats for an event ending in 10 seconds" (`201`, just before the end). Must
   fail.
-- [ ] T004 [P] [US2] `backend/test/integration/reservations.admin-changes.e2e-spec.ts` (FR-004,
+- [x] T004 [P] [US2] `backend/test/integration/reservations.admin-changes.e2e-spec.ts` (FR-004,
   SC-003; research R3): "the sweep ends every hold once the event has started" becomes two cases: a
   reservation on an event moved by SQL to have started (not ended) survives `sweepOnce()` (still open,
   no `CLOSED` hold); moved past its end, the next `sweepOnce()` ends every hold `CLOSED`, sets
   `endedAt`, and the seat stream publishes the seats open (as the existing case asserts). `expiresAt`
   unchanged. Must fail (today the first case ends the holds).
-- [ ] T005 [P] [US4] `backend/test/integration/availability.e2e-spec.ts` (FR-006, FR-007): ahead → `{
+- [x] T005 [P] [US4] `backend/test/integration/availability.e2e-spec.ts` (FR-006, FR-007): ahead → `{
   salesClosed: null, inProgress: false }`; in progress → `{ null, true }`; ended (moved by SQL) → `{
   'ENDED', false }`; cancelled in progress → `{ 'CANCELLED', true }`; the existing `STARTED`
   expectation (line ~80) replaced; `inProgress` asserted on every case. Must fail.
-- [ ] T006 [P] [US1] An entry integration test (`backend/test/integration/entry.lookup.e2e-spec.ts` or
+- [x] T006 [P] [US1] An entry integration test (`backend/test/integration/entry.lookup.e2e-spec.ts` or
   `entry.admit.e2e-spec.ts`, whichever builds its fixture through the API) (FR-013, SC-006; research
   R6): an event that started 30 minutes ago and ends in 2 hours; a customer orders one ticket (after
   the start); as a gate agent, `lookupEntryTicket` with that event as the gate returns it admittable,
@@ -158,20 +158,20 @@ confirm they **fail** before the implementation tasks that follow.
 
 ## Phase 3: Backend (US1, US2, US4)
 
-- [ ] T009 [US2] `backend/src/common/event-lock.ts` (research R1): `LockedEvent.endsAt: Date` with the
+- [x] T009 [US2] `backend/src/common/event-lock.ts` (research R1): `LockedEvent.endsAt: Date` with the
   comment "Spec 034 FR-001: sales close at this instant." in place of `startsAt`; `lockEvent` selects
   `"endsAt"` in place of `"startsAt"`. The build shows every reader; today only `orders.service.ts`.
-- [ ] T010 [US1] [US2] `backend/src/orders/orders.service.ts` `createLocked`: `new Date() >=
+- [x] T010 [US1] [US2] `backend/src/orders/orders.service.ts` `createLocked`: `new Date() >=
   event.endsAt` → `conflict('SALES_CLOSED', \`Sales for ${event.name} closed when it ended.\`)`, the
   comment citing `034` FR-001 (half-open, at `endsAt` closed). T002 passes.
-- [ ] T011 [US1] [US2] `backend/src/reservations/reservations.service.ts`: `salesClosed()` selects
+- [x] T011 [US1] [US2] `backend/src/reservations/reservations.service.ts`: `salesClosed()` selects
   `now() >= "endsAt"`, its comment "whether the event has ended"; `reserveLocked`'s message "…closed when
   it ended."; `hold-sweeper.ts`: `e."endsAt" <= now()` in `sweepOnce`, and the two comments ("their event
   has ended", "Sales close when the event ends"). T003 and T004 pass.
-- [ ] T012 [US4] `backend/src/events/availability.service.ts` (research R2): one `now = new Date()`;
+- [x] T012 [US4] `backend/src/events/availability.service.ts` (research R2): one `now = new Date()`;
   `salesClosed`: `CANCELLED`, else `now >= event.endsAt ? 'ENDED' : null`; `inProgress: event.startsAt
   <= now && now < event.endsAt`; the header comment cites `034`. T005 passes.
-- [ ] T013 `backend/src/scripts/demo-data.ts`: Season Opener's comment as research R8. Run the
+- [x] T013 `backend/src/scripts/demo-data.ts`: Season Opener's comment as research R8. Run the
   Backend's whole suite: every test passes; T006 passes; no other test asserted the old instant (if one
   did, update it and record it here).
 
@@ -190,7 +190,7 @@ confirm they **fail** before the implementation tasks that follow.
 
 ## Phase 5: Customer app (US1–US3)
 
-- [ ] T015 [US1] `customer-app/src/format.ts` `startedNotice(startsAt, endsAt, timeZone, at, kind)`
+- [x] T015 [US1] `customer-app/src/format.ts` `startedNotice(startsAt, endsAt, timeZone, at, kind)`
   (research R4, R5): `{start}` and `{end}` by `formatEventEnd(at, …, zone)`; `kind` `'buy'` → "This event
   has already started (began at {start}). You can still buy tickets until it ends at {end}.", `'first'`
   → the first sentence, `'admit'` → "… Your tickets admit you until it ends at {end}."; or an equivalent
@@ -261,6 +261,35 @@ confirm they **fail** before the implementation tasks that follow.
   already buy after the start; the panel still lacks the notice.
 - Then the contract's tightening (T014), the notice and the confirmation (T015–T017), the browser tests,
   the README, and the PR.
+
+## Implementation record
+
+- **T001** (2026-11-09): cut from `main` at `89d2349` (the spec PR merged). Neither `033`'s
+  implementation (#135, branch `033-seat-hold-cart-impl`) nor `032`'s (PR #151) is on the base. The
+  orchestrating session decided to go in two phases: **Phase A** now (the Backend, the contract, and
+  Customer app files that `033` does not rework), **Phase B** once `033`'s implementation merges
+  (`main` merged in, then T007's panel and confirmation tests, T008, T014's `order.ts`, T016 to
+  T020 on top of `033`'s `GetTickets.tsx` and `OrderConfirmation.tsx`). `api-schema.ts` had
+  `salesClosed: "CANCELLED" | "ENDED" | "STARTED" | null` and `inProgress?: boolean`. Baseline
+  `npm run ci`: every existing test passed (Backend 105 suites; the only failures were the 16
+  rewritten or new `034` tests, edited while it ran).
+- **Tests first**: T002 to T006 failed on `main`'s source, 16 tests, each for the old instant
+  (T006's order refused `409`; checked again after giving it a venue of its own); `format.test.ts`'s
+  6 `startedNotice` cases failed before T015.
+- **T014, in two commits**: the contract (`STARTED` out, `inProgress` required, "Always sent.",
+  1.26.0) and `api-schema.ts` are done, `check-contract-drift` passes. `packages/shared/src/order.ts`'s
+  narrowing waits for Phase B: with `STARTED` gone from `SalesClosedReason`, `GetTickets.tsx`
+  (lines ~608, ~616), `test/helpers.tsx`'s `availability()`, and `purchase-unavailable.test.tsx` no
+  longer compile (TS2367, TS2322), and those are T016's and T007's files.
+- **Phase A runs** (2026-11-09/10, head `f4d9ad4`): Backend suite 4 times: 1303/1303, 1303 with 27
+  failed in one unrelated suite (`events.create-setup`, Prisma "Can't reach database server" on its
+  Testcontainers port, an infrastructure flake), 1303/1303, 1303/1303 (three in a row with `ci`'s
+  run); Customer app 3
+  times, 357/357 each; `npm run test:tz` passed in New_York, UTC, Los_Angeles, and Honolulu for every
+  workspace; `npm run ci` green (with `KEYCLOAK_URL`/`KEYCLOAK_HEALTH_URL` at `http://127.0.0.1:9`):
+  shared 793, Backend 1303, admin-app 402, customer-app 357, booth-app 94, seed 124 (and the
+  root's 85); line coverage shared 96.77%, Backend 97.17%, admin-app 97.46%, customer-app 97.70%,
+  booth-app 93.44%, seed 99.41%.
 
 ## Review record (spec branch)
 
