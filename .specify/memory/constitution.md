@@ -1,27 +1,23 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.9.6 -> 3.9.7 (PATCH): one roadmap row reserved; no principle changed and no control
-  removed. Applies on top of spec 034's amendment (3.9.5 -> 3.9.6, row 034-sell-until-end),
-  merged to main as 89d2349.
-Problem: issue #134. The Admin app's event form checks almost everything only on submit and shows
-  the first problem in one banner at the top; it does not help match ticket types and sections to
-  the venue's seats; its parts are one long page; and an edit of the event, its ticket types, and
-  its seating can still half-save (spec 031 research R7 left that gap to #134).
+Version: 3.9.7 -> 3.9.8 (PATCH): one roadmap row reserved; no principle changed and no control
+  removed. Applies on top of spec 035's amendment (3.9.6 -> 3.9.7, row 035-event-form-flow),
+  merged to main as d0eaf9f (implementation d821a96).
+Problem: issues #130 and #128, done together. Admins set Doors open as a third date and time
+  even though the only allowed values are 0 to 6 hours before the start, and Safari's calendar
+  popup for those date-time fields has no time picker, so the time is easy to miss.
 Changed:
-  - Roadmap: row 035-event-form-flow reserved (the Admin event form in three sections, venue and
-    times, tickets and seating, details; each problem shown beside its field as soon as it is
-    wrong and cleared when fixed; a live total of seats assigned that names what is left; submit
-    never sends a known problem and focuses the first field at fault; a Backend refusal shown
-    beside its field, focused, not in a banner at the top; locked fields on edit say why; an edit
-    of the event, its ticket types, and its seating saved all or nothing through the existing
-    update request; scheduling stays 031's one request). The next free number is 036.
-Impact: spec 035, and its contract change (1.27.0: EventUpdate.reservedSeating and .tiers,
-  EventTierInput.id, only on updateEvent; createEvent refuses id). Spec 031 (merged) is amended,
-  with dated notes in its spec: its FR-013 and Out of scope (editing all or nothing) give way to
-  035 FR-016 to FR-019; its FR-009, FR-010, and SC-003 (the refusal also in the banner at the top)
-  give way, for the Admin event form, to 035 FR-010 to FR-012. Spec 008 research R10's edit
-  sequence is superseded for the Edit event form by 035 FR-016. No other spec changes. The
-  README's version reference follows. Templates: none need updating.
+  - Roadmap: row 036-event-form-times reserved (the Admin event form offers two ways to set
+    doors open, one at a time: a length of time before the start, in 15-minute steps from 0 to
+    6 hours, default 1 hour on a new event, with the resulting time shown; or a date and a time;
+    switching keeps the same doors-open time; Starts and Ends, and Doors open in date-and-time
+    mode, are each a date control and a time control so every browser shows a clear time picker;
+    the form still sends doorsOpenAt; no contract change). The next free number is 037.
+Impact: spec 036. No OpenAPI change (the form still sends doorsOpenAt; research R3). Spec 025
+  (merged) is amended, with dated notes in its spec: its FR-002, FR-003, and the form part of
+  FR-005 give way to 036 for how the Admin event form picks doors open and start/end times.
+  Spec 035's Out of scope items for #128 and #130 give way to this feature. The README's version
+  reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -332,7 +328,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `036`.
+number is a pull request against this table. The next free number is `037`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -371,6 +367,7 @@ number is a pull request against this table. The next free number is `036`.
 | `033-seat-hold-cart` | On a seated event the seat map is the only control for choosing seats: clicking an open seat holds it for the customer at once, and clicking it again releases it; the first held seat starts the reservation's 5 minutes, further seats join it without restarting them, and releasing the last one ends it, so the next click starts a new 5:00; no Reserve seats, Remove, Release, or Release seats; the countdown is shown prominently on the event page and in the cart, and every hold and release is announced; Add to cart opens a Cart page that lists the customer's active reservations, kept by the Backend (so a refresh or another device shows them), each event bought on its own before its countdown ends, then removed and the customer told; a seat released while others stay held can be held again at once, and every seat of an ended reservation waits 2 minutes from its end; seat holds get their own attempt allowance (30 a minute, 10 in any 5 seconds); general admission unchanged; one checkout for several events deferred (#135) | `007`, `015`, `016`, `017`, `020`, `026` |
 | `034-sell-until-end` | Tickets are sold until an event ends, not when it starts: orders and seat holds are allowed until its end time (half-open) and refused as sales closed from then on, and holds end at the end; capacity, the per-customer limit, the attempt limits, and seat holds apply as before; from the start to the end the Customer app's Get tickets panel says the event has already started, when it began, and that tickets are on sale until it ends, in the venue's time zone, and the confirmation of an order placed after the start says so; after the end it says "Sales closed: this event has ended."; a ticket bought after the start is admitted at the Ticket Booth until the end, as today (#126) | `006`, `015`, `016`, `020`, `025`, `026`, `030`, `033` |
 | `035-event-form-flow` | The Admin app's Schedule event and Edit event form in three sections (venue and times; tickets and seating; details: tickets per customer and pictures), showing only what the choices so far make relevant; each problem the form can see is shown beside its field as soon as it is wrong (on leaving the field, then as the admin types) and cleared when fixed, announced politely without flooding a screen reader; submit never sends a known problem and moves focus to the first field at fault; a live total of seats assigned per ticket type and overall against the venue's layout (or the event's total tickets) names exactly what is left; a Backend refusal is shown beside its field and focused, not in a banner at the top, and every value is kept; on edit, controls the Backend would refuse because tickets are sold are locked with the reason beside them; an edit of the event, its ticket types, and its seating is saved all or nothing through the existing update request, as scheduling already is (`031`); pictures still upload afterwards (#134) | `002`, `004`, `005`, `007`, `008`, `014`, `015`, `016`, `020`, `025`, `031` |
+| `036-event-form-times` | The Admin event form offers two ways to set doors open, one at a time: a length of time before the start (15-minute steps from 0 to 6 hours, 1 hour by default on a new event) with the resulting time shown, or a date and a time; switching keeps the same doors-open time; Starts, Ends, and Doors open in date-and-time mode each use a date control and a time control so the time cannot be overlooked in any browser; the form still sends the existing doors-open timestamp (#130, #128) | `020`, `025`, `035` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -423,4 +420,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.9.7 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-10
+**Version**: 3.9.8 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-10
