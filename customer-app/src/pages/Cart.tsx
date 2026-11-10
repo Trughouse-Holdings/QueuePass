@@ -56,7 +56,9 @@ export function Cart() {
   const waits = useWaits();
   const [entries, setEntries] = useState<Entry[] | null>(null);
   const [infos, setInfos] = useState<Record<string, EventInfo>>({});
-  const [confirmed, setConfirmed] = useState<{ eventName: string; order: Order }[]>([]);
+  const [confirmed, setConfirmed] = useState<
+    { eventName: string; order: Order; event: Event | null }[]
+  >([]);
   // A reservation that ran out, or a refusal saying so: an alert (FR-015).
   const [alert, setAlert] = useState<string | null>(null);
   // Why an entry left the cart, when it left by itself (FR-017): polite.
@@ -305,7 +307,12 @@ export function Cart() {
         {status}
       </div>
       {confirmed.map((c) => (
-        <OrderConfirmation key={c.order.id} eventName={c.eventName} order={c.order} />
+        <OrderConfirmation
+          key={c.order.id}
+          eventName={c.eventName}
+          order={c.order}
+          event={c.event}
+        />
       ))}
       {entries === null || (pending && shown.length === 0) ? (
         <p>Loading your cart…</p>
@@ -356,7 +363,11 @@ export function Cart() {
                 setConfirmed((all) => [
                   ...all,
                   // Review round 3 (N5): without its details, the event is "this event".
-                  { eventName: info?.event.name ?? 'this event', order },
+                  {
+                    eventName: info?.event.name ?? 'this event',
+                    order,
+                    event: info?.event ?? null,
+                  },
                 ]);
               }}
               onRanOut={() => ranOut(entry.reservation)}
