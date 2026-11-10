@@ -89,7 +89,10 @@ const refusal = (code: string, message: string, details?: object, status = 409) 
   json({ error: { code, message, ...(details ? { details } : {}) } }, status);
 
 /** The hold backend's routes on top of this file's. */
-function withBackend(b: ReturnType<typeof holdBackend>, extra: Record<string, Reply> = {}) {
+function withBackend(
+  b: { routes: ReturnType<typeof holdBackend>['routes'] },
+  extra: Record<string, Reply> = {},
+) {
   return stubApi(routes({ ...b.routes, ...extra }));
 }
 const backend = (opts: { secondsLeft?: number; manual?: boolean } = {}) => {
@@ -545,7 +548,12 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
 
     click(2);
     click(3);
-    const wait = await screen.findByText('Too many tries. You can try again in 3 seconds.');
+    // The visible countdown (aria-live off); the live region says the same words once.
+    const wait = await screen.findByText(
+      (_, el) =>
+        el?.getAttribute('aria-live') === 'off' &&
+        el.textContent === 'Too many tries. You can try again in 3 seconds.',
+    );
     // Above the seat map.
     expect(wait.nextElementSibling).toBe(screen.getByRole('region', { name: 'Section A seats' }));
     expect(sent(calls)).toEqual(['hold 2']);

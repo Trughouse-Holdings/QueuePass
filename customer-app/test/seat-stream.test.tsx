@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import type { Reservation, SeatMap } from '@queuepass/shared';
 import {
   availability,

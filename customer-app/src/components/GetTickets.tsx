@@ -1,15 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ORDER_LIMITS,
+  RESERVATION_LIMITS,
   holderNameMessage,
   holderNameProblem,
   rateLimitMessage,
   type Availability,
   type ErrorEnvelope,
   type Event,
-  type Order,
-  type RateLimitedAction,
   type Reservation,
   type SeatLabel,
   type TicketTier,
@@ -22,49 +21,28 @@ import {
   type StreamSeatMapChange,
 } from '@queuepass/shared/web';
 import { cents, count, seatLabel, totalUsd, usd } from '../format';
+import { useBuy, useWaits, type Wait } from '../use-buy';
+import { placeKey, useHoldQueue, type QueuedAction } from '../use-hold-queue';
 import { useLoad } from '../use-load';
+import { HoldCountdown, ONE_MINUTE_LEFT, clock } from './HoldCountdown';
+import { OrderConfirmation } from './OrderConfirmation';
 import { SeatPicker, type ChosenSeat } from './SeatPicker';
-
-type Phase =
-  | { kind: 'choosing' }
-  // `checking`: Check again from the unknown outcome, which keeps its banner mounted meanwhile, so
-  // the banner (an alert) is not announced again (spec 026, independent review M2).
-  | { kind: 'confirming'; checking?: boolean }
-  | { kind: 'done'; order: Order }
-  // No answer, or a server error: the order may or may not exist (spec 006 edge cases).
-  | { kind: 'unknown' };
 
 const sameSeat = (a: SeatLabel, b: SeatLabel): boolean =>
   a.section === b.section && a.row === b.row && a.seat === b.seat;
 const seatKey = (s: SeatLabel): string => `${s.section}-${s.row}-${s.seat}`;
-/** A seat by section id, as live changes name it. */
-const placeKey = (s: { sectionId: string; row: number; seat: number }): string =>
-  `${s.sectionId}-${s.row}-${s.seat}`;
+
+/** Spec 033 research R10: the hold log keeps this many lines, cleared this long after the last. */
+const LOG_LINES = 5;
+const LOG_CLEAR_MS = 10_000;
 
 /**
- * Spec 026 (research R6): a wait out of a refusal for the limit. `deadline` is by this browser's
- * monotonic clock, from the Backend's seconds; `left` is the N shown.
- */
-interface Wait {
-  deadline: number;
-  left: number;
-}
-type Waits = Partial<Record<RateLimitedAction, Wait>>;
-
-/** Spec 026 FR-008: the seconds to wait, when a refusal is one for the limit; otherwise null. */
-function limitedFor(response: Response, error: ErrorEnvelope | undefined): number | null {
-  if (response.status !== 429 || error?.error?.code !== 'RATE_LIMITED') return null;
-  const n = error.error.details?.retryAfterSeconds;
-  return typeof n === 'number' && Number.isFinite(n) && n > 0 ? Math.ceil(n) : null;
-}
-
-/**
- * Spec 026 FR-011, FR-013: the countdown, directly above the button it explains, not announced
+ * Spec 026 FR-011, FR-013: the countdown, directly above the control it explains, not announced
  * each second (aria-live off). The refusal is announced once, by the component's one live region,
- * not here: this may unmount and mount again during a wait (seats released and held again), and
- * an alert of its own would then be said again (independent review, M2, M3).
+ * not here: this may unmount and mount again during a wait, and an alert of its own would then be
+ * said again (independent review, M2, M3).
  */
-function WaitMessage({ wait }: { wait: Wait }) {
+export function WaitMessage({ wait }: { wait: Wait }) {
   return (
     <p className="banner banner--error" aria-live="off">
       {rateLimitMessage(wait.left)}
@@ -72,19 +50,32 @@ function WaitMessage({ wait }: { wait: Wait }) {
   );
 }
 
-/** Spec 015 FR-005: the countdown as `m:ss`. */
-const clock = (seconds: number): string =>
-  `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+/**
+ * Spec 033 FR-006 (research R4): when seats of an ended reservation can be held again, in the
+ * customer's own time zone with its abbreviation (spec 020 FR-023).
+ */
+export function cooldownMessage(details: Record<string, unknown> | undefined): string {
+  const waiting = (details?.seats ?? []) as SeatLabel[];
+  const at = formatViewerTime(String(details?.availableAt));
+  return (
+    `Your reservation of ${waiting.map(seatLabel).join('; ')} ended less than 2 minutes ago. ` +
+    `You can hold ${waiting.length === 1 ? 'it' : 'them'} again at ${at}.`
+  );
+}
 
 /**
  * Spec 006 US1 and US2: choose a tier (or the base price), a quantity, see the exact total, and
  * confirm; or learn why tickets can't be had. Spec 007: for an event with reserved seating, choose
- * a tier, a section, and seats instead of a quantity. Spec 015 (research R13): picked seats are
- * reserved for 5 minutes with Reserve seats, then bought with Confirm purchase. The Backend decides
- * every rule (FR-003); the counts, taken seats, and countdown shown here are guidance.
+ * a tier, a section, and seats instead of a quantity. Spec 033 (research R6, R7, R9, R10; it
+ * replaces `015` research R13's Reserve seats): a click on an open seat holds it for 5 minutes at
+ * once and a click on a held seat releases it, one request at a time in click order; the Your
+ * seats box shows the countdown, the seats, the total, and Add to cart, which opens the cart, where
+ * the seats are bought. General admission is unchanged. The Backend decides every rule (FR-003);
+ * the counts, taken seats, locks, and countdown shown here are guidance.
  */
 export function GetTickets({ event }: { event: Event }) {
   const { api, signIn, accessToken } = useAuth();
+  const navigate = useNavigate();
   const id = event.id;
   // Bumped after a refusal, so what is left is loaded again.
   const [reloads, setReloads] = useState(0);
@@ -111,24 +102,22 @@ export function GetTickets({ event }: { event: Event }) {
 
   const [tierId, setTierId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
-  // Spec 017 FR-001 (research R2, R12): the buyer's name, on every ticket of the order. The
-  // shared rule is a preview; the Backend decides (Constitution IV).
+  // Spec 017 FR-001 (research R2, R12): the buyer's name, on every ticket of a general-admission
+  // order; a seated event asks for it in the cart (spec 033 FR-013).
   const [holderName, setHolderName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
-  const [phase, setPhase] = useState<Phase>({ kind: 'choosing' });
   // FR-006: the Backend's reason for the last refusal, in its own words.
   const [notice, setNotice] = useState<string | null>(null);
-  // Spec 007: the chosen section (null: the first offered) and the seats picked so far.
+  // Spec 007: the chosen section (null: the first offered).
   const [sectionId, setSectionId] = useState<string | null>(null);
-  const [seats, setSeats] = useState<ChosenSeat[]>([]);
   // Spec 015: the customer's active reservation for this event, and the countdown to its end.
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const [ranOut, setRanOut] = useState(false);
-  // FR-012: what the status region says (FR-011 and released messages), and the countdown's own
-  // status region for its 1-minute warning, both separate from the timer.
-  const [status, setStatus] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  // Spec 033 FR-016 (research R10): each hold and release said, appended, at most 5 lines.
+  const [log, setLog] = useState<{ id: number; text: string }[]>([]);
+  const logId = useRef(0);
   // Research R13: the deadline by this browser's monotonic clock, from the Backend's secondsLeft.
   const deadline = useRef<number | null>(null);
   const warned = useRef(false);
@@ -136,90 +125,40 @@ export function GetTickets({ event }: { event: Event }) {
   const [releasedHere, setReleasedHere] = useState<string[]>([]);
   // FR-012: seats that became unavailable while shown. They stay focusable (aria-disabled).
   const [lateGone, setLateGone] = useState<string[]>([]);
-  // Seats of a Reserve seats request in flight: their own `reserved` change is not someone else's.
-  const inFlight = useRef<string[]>([]);
-  // FR-005: one id per confirmation, created on the first press and kept for that confirmation.
-  const requestId = useRef<string | null>(null);
-  // Set synchronously, so a second click before React re-renders sends nothing.
-  const sending = useRef(false);
   // Spec 026 (research R6): the waits out of refusals for the limit, buying and holding apart.
-  const [waits, setWaits] = useState<Waits>({});
-  const waiting = waits.BUY !== undefined || waits.HOLD !== undefined;
-  // FR-013: the buttons a wait applies to, so focus can go back to the one pressed.
-  const reserveButton = useRef<HTMLButtonElement>(null);
+  const waits = useWaits();
+  const buyer = useBuy(id, waits);
+  const phase = buyer.phase;
+  // FR-013: the buttons a buy wait applies to, so focus can go back to the one pressed.
   const confirmOrderButton = useRef<HTMLButtonElement>(null);
-  const confirmPurchaseButton = useRef<HTMLButtonElement>(null);
   const checkAgainButton = useRef<HTMLButtonElement>(null);
-  const refocus = useRef<RefObject<HTMLButtonElement | null> | null>(null);
 
-  // FR-011: N counts down once a second, measured from the Backend's N; at 0 the wait ends.
-  useEffect(() => {
-    if (!waiting) return;
-    const tick = (): void =>
-      setWaits((all) => {
-        const next: Waits = {};
-        let changed = false;
-        for (const kind of ['BUY', 'HOLD'] as const) {
-          const w = all[kind];
-          if (!w) continue;
-          const left = Math.ceil((w.deadline - performance.now()) / 1000);
-          if (left <= 0) changed = true;
-          else if (left !== w.left) {
-            next[kind] = { ...w, left };
-            changed = true;
-          } else next[kind] = w;
-        }
-        return changed ? next : all;
-      });
-    const timer = setInterval(tick, 250);
-    return () => clearInterval(timer);
-  }, [waiting]);
-
-  // FR-013 (independent review M2, M3): what the one live region says: the message of the latest
-  // refusal for the limit, as it was then, kept until that wait ends, so it is said once however
-  // often the countdown above its button unmounts and mounts again.
-  const [announcement, setAnnouncement] = useState<{
-    kind: RateLimitedAction;
-    text: string;
-  } | null>(null);
-  useEffect(() => {
-    if (announcement && !waits[announcement.kind]) setAnnouncement(null);
-  }, [waits, announcement]);
-
-  // FR-013: a button natively disabled while confirming may have lost focus to the page; once
-  // it is back, focus returns to it. A layout effect, so focus moves in the same commit that shows
-  // the wait, never a frame later.
-  useLayoutEffect(() => {
-    const target = refocus.current?.current;
-    if (!target) return;
-    refocus.current = null;
-    target.focus();
-  });
-
-  /** Spec 026 FR-011: starts a kind's wait; `pressed` gets focus back if it had gone to the page. */
-  const startWait = (
-    kind: RateLimitedAction,
-    seconds: number,
-    pressed: RefObject<HTMLButtonElement | null>,
-  ): void => {
-    setWaits((all) => ({
-      ...all,
-      [kind]: { deadline: performance.now() + seconds * 1000, left: seconds },
-    }));
-    setAnnouncement({ kind, text: rateLimitMessage(seconds) });
-    const active = document.activeElement;
-    if (active === null || active === document.body) refocus.current = pressed;
+  /** Spec 033 research R10: one more line in the hold log. */
+  const say = (text: string): void => {
+    logId.current += 1;
+    const line = { id: logId.current, text };
+    setLog((all) => [...all, line].slice(-LOG_LINES));
   };
+  useEffect(() => {
+    if (log.length === 0) return;
+    const timer = setTimeout(() => setLog([]), LOG_CLEAR_MS);
+    return () => clearTimeout(timer);
+  }, [log]);
 
-  /** Shows a reservation; the countdown starts only for a new one, never restarts (FR-004). */
-  const adopt = useCallback((r: Reservation | null) => {
+  /**
+   * Shows a reservation; the countdown starts only for a new one, never restarts while it lasts
+   * (FR-004; spec 033 FR-003, FR-004).
+   */
+  const adopt = useCallback((r: Reservation | null, created = false) => {
+    const before = reservationRef.current;
     setReservation(r);
+    reservationRef.current = r;
     if (!r) {
       deadline.current = null;
       setSecondsLeft(null);
       return;
     }
-    if (deadline.current === null) {
+    if (created || deadline.current === null || before?.createdAt !== r.createdAt) {
       ranOutSeats.current = [];
       deadline.current = performance.now() + r.secondsLeft * 1000;
       warned.current = false;
@@ -231,9 +170,6 @@ export function GetTickets({ event }: { event: Event }) {
   }, []);
 
   const reservationRef = useRef<Reservation | null>(null);
-  reservationRef.current = reservation;
-  const seatsRef = useRef<ChosenSeat[]>([]);
-  seatsRef.current = seats;
   const mapRef = useRef<StreamSeatMap | null>(null);
   mapRef.current = live.map;
   // The seats of a reservation whose countdown just ran out: the Backend may close it up to a
@@ -242,6 +178,67 @@ export function GetTickets({ event }: { event: Event }) {
   // When this tab last changed its reservation; a list requested before that is out of date.
   const lastWrite = useRef(0);
   const { reloadMine } = live;
+
+  /** Loads what is left, and the seat map, again. */
+  const refresh = (): void => {
+    setReloads((n) => n + 1);
+    live.reload();
+  };
+
+  // Spec 033 FR-007 (research R6): the click queue, and what each answer means here.
+  const queue = useHoldQueue(id, {
+    isHeld: (seat) => (reservationRef.current?.seats ?? []).some((s) => sameSeat(s, seat)),
+    onDone: (action, r, created) => {
+      lastWrite.current = performance.now();
+      if (action.kind === 'release') {
+        setReleasedHere((all) => [...all, seatKey(action.seat)]);
+      }
+      adopt(r, created);
+      if (action.kind === 'hold') {
+        const left =
+          deadline.current === null
+            ? (r?.secondsLeft ?? 0)
+            : Math.max(0, Math.ceil((deadline.current - performance.now()) / 1000));
+        say(`${seatLabel(action.seat)} held. ${clock(left)} left.`);
+      } else if (r) {
+        say(`${seatLabel(action.seat)} released.`);
+      } else {
+        say(
+          `${seatLabel(action.seat)} released. You hold no seats now; the next seat you click ` +
+            'starts a new 5 minutes.',
+        );
+      }
+    },
+    onRefused: (action, error) => holdRefused(action, error),
+    onLimited: (_action, seconds) => waits.start('HOLD', seconds),
+    onNoAnswer: (action) => {
+      // Spec 033 edge case "No answer": the seat goes back; what is true is loaded again, so a
+      // hold that did go through shows as held.
+      setNotice(`Your click on ${seatLabel(action.seat)} didn't go through. Try again.`);
+      reloadMine();
+      live.reload();
+    },
+    onSignedOut: () => void signIn(),
+  });
+
+  /** Spec 033 FR-016: a refused click, as an alert naming the seat and the reason. */
+  function holdRefused(action: QueuedAction, error: ErrorEnvelope | undefined): void {
+    const e = error?.error;
+    if (action.kind === 'release') {
+      setNotice(e?.message ?? `${seatLabel(action.seat)} couldn't be released.`);
+      reloadMine();
+      return;
+    }
+    if (e?.code === 'SEAT_TAKEN') {
+      // Spec 007 US3-2, spec 015 US1-2: the seat is someone else's; the map shows it again.
+      setNotice(e.message);
+      refresh();
+    } else if (e?.code === 'SEAT_COOLDOWN') {
+      setNotice(cooldownMessage(e.details));
+    } else {
+      setNotice(e?.message ?? `${seatLabel(action.seat)} couldn't be held.`);
+    }
+  }
 
   /**
    * Research R8, R13: the Backend's view of this customer's reservation, loaded on open and again
@@ -264,31 +261,20 @@ export function GetTickets({ event }: { event: Event }) {
       return;
     }
     adopt(null);
-    setStatus('Your reserved seats were released.');
+    say('Your held seats were released.');
   }, [live.mine, live.mineAt, id, adopt]);
 
   useEffect(() => setReleasedHere([]), [live.map]);
 
-  /** This customer's own seat: being reserved now, reserved, or from the reservation that ran out. */
+  /** This customer's own seat: being held now, held, or from the reservation that ran out. */
   const isOwn = (c: { sectionId: string; row: number; seat: number }): boolean =>
-    inFlight.current.includes(placeKey(c)) ||
+    queue.pending.get(placeKey(c)) === 'hold' ||
     ranOutSeats.current.includes(placeKey(c)) ||
     (reservationRef.current?.seats ?? []).some((r) => placeKey(r) === placeKey(c));
 
-  /** FR-011: drops picks someone else reserved or bought, naming them in the status region. */
-  const dropPicks = (gone: { sectionId: string; row: number; seat: number }[]): void => {
-    const lost = seatsRef.current.filter((p) => gone.some((g) => placeKey(g) === placeKey(p)));
-    if (lost.length === 0) return;
-    setSeats((all) => all.filter((p) => !lost.some((l) => placeKey(l) === placeKey(p))));
-    setStatus(
-      `${lost.map(seatLabel).join('; ')} ${lost.length === 1 ? 'is' : 'are'} no longer ` +
-        `available: someone else reserved or bought ${lost.length === 1 ? 'it' : 'them'}.`,
-    );
-  };
-
-  // A snapshot after a reconnect may show picks taken while the stream was down.
-  // Like a change: the customer's own seats (in flight, reserved, or just run out) are not taken
-  // by someone else, and a seat that was open before stays focusable (FR-011, FR-012).
+  // A snapshot after a reconnect may show seats taken while the stream was down. The customer's
+  // own seats are not taken by someone else, and a seat that was open before stays focusable
+  // (FR-011, FR-012).
   onSnapshot.current = (map: StreamSeatMap): void => {
     const before = mapRef.current;
     // An admin change ends the stream (contract: streamSeatMap); the snapshot after it may map
@@ -307,7 +293,6 @@ export function GetTickets({ event }: { event: Event }) {
     };
     const late = gone.filter(wasOpen).map(placeKey);
     if (late.length > 0) setLateGone((all) => [...new Set([...all, ...late])]);
-    dropPicks(gone);
   };
 
   // FR-011, FR-012: what another customer reserved or bought, as it happens. Those seats stay
@@ -316,7 +301,6 @@ export function GetTickets({ event }: { event: Event }) {
     const gone = change.changes.filter((c) => c.state !== 'open' && !isOwn(c));
     if (gone.length === 0) return;
     setLateGone((all) => [...new Set([...all, ...gone.map(placeKey)])]);
-    dropPicks(gone);
   };
 
   // FR-005, FR-012: the countdown, a single 1-minute warning, and the end of the 5 minutes.
@@ -328,22 +312,16 @@ export function GetTickets({ event }: { event: Event }) {
       setSecondsLeft(left);
       if (left > 0 && left <= 60 && !warned.current) {
         warned.current = true;
-        setWarning('1 minute left to confirm your purchase.');
+        setWarning(ONE_MINUTE_LEFT);
       }
       if (left === 0) {
-        // The picks are kept, so the customer can reserve them again (US1-4).
-        setSeats((all) => [
-          ...all,
-          ...reservation.seats.filter((r) => !all.some((c) => sameSeat(c, r))),
-        ]);
         ranOutSeats.current = reservation.seats.map(placeKey);
         deadline.current = null;
+        reservationRef.current = null;
         setReservation(null);
         setSecondsLeft(null);
         setNotice(null);
-        setStatus(null);
         setRanOut(true);
-        requestId.current = null;
       }
     };
     tick();
@@ -398,12 +376,17 @@ export function GetTickets({ event }: { event: Event }) {
   // Spec 007 FR-006: on a seated event, a tier with no section mapped to it sells nothing.
   const onSale = (t: TicketTier): boolean =>
     !seated || seated.sections.some((s) => s.tierId === t.id);
-  const mine = reservation?.seats ?? [];
+  const mine: ChosenSeat[] = reservation?.seats ?? [];
   // Spec 015: seats in another customer's reservation (the map never says whose, FR-014).
   const othersReserved = section
     ? section.reserved.filter((p) => {
         const label = { section: section.name, row: p.row, seat: p.seat };
-        return !mine.some((m) => sameSeat(m, label)) && !releasedHere.includes(seatKey(label));
+        const place = { sectionId: section.sectionId, row: p.row, seat: p.seat };
+        return (
+          !mine.some((m) => sameSeat(m, label)) &&
+          !releasedHere.includes(seatKey(label)) &&
+          !queue.pending.has(placeKey(place))
+        );
       })
     : [];
   const late = section
@@ -411,8 +394,19 @@ export function GetTickets({ event }: { event: Event }) {
         .filter((k) => k.startsWith(`${section.sectionId}-`))
         .map((k) => k.slice(section.sectionId.length + 1))
     : [];
-  const chosenCount = seated ? seats.length + mine.length : Math.min(quantity, maxQuantity);
-  // Spec 017 FR-001: no order without a valid name; reserving seats needs none.
+  // Spec 033: the seats held once every queued click is answered.
+  const willHold = new Set(mine.map(placeKey));
+  for (const [key, action] of queue.pending) {
+    if (action === 'hold') willHold.add(key);
+    else willHold.delete(key);
+  }
+  const chosenCount = seated ? willHold.size : Math.min(quantity, maxQuantity);
+  const full = chosenCount >= maxQuantity;
+  // Spec 033 FR-005 (research R7): while seats are held, or the first is being held, the other
+  // ticket types wait until the held seats are released by clicking them.
+  const lockedTier = reservation ? reservation.tierId : queue.busy ? tierId : null;
+  const heldTier = reservation ? tierList.find((t) => t.id === reservation.tierId) : undefined;
+  // Spec 017 FR-001: no order without a valid name.
   const nameProblem = holderNameProblem(holderName);
   // The shared message, shown once the field was left (research R2).
   const nameError = nameTouched && nameProblem !== null ? holderNameMessage(nameProblem) : null;
@@ -422,185 +416,35 @@ export function GetTickets({ event }: { event: Event }) {
     chosenCount > 0 &&
     nameProblem === null &&
     phase.kind === 'choosing';
-  const canReserve = price !== undefined && seats.length > 0 && phase.kind === 'choosing';
 
   const choose = (change: () => void): void => {
     change();
-    requestId.current = null;
+    buyer.reset();
   };
+  /** Spec 033 FR-001: a click on a seat holds it, or releases it if held. */
   const toggleSeat = (seat: ChosenSeat): void => {
-    // Research R13: deselecting a reserved seat releases it at once (FR-007).
-    if (mine.some((m) => sameSeat(m, seat))) {
-      void release([seat]);
-      return;
-    }
-    choose(() =>
-      setSeats((all) =>
-        all.some((c) => sameSeat(c, seat)) ? all.filter((c) => !sameSeat(c, seat)) : [...all, seat],
-      ),
-    );
+    setNotice(null);
+    setRanOut(false);
+    queue.click(seat);
   };
 
-  /** Explains a refusal, keeping every pick that is still open (Constitution IV, FR-002). */
-  function refused(error: ErrorEnvelope | undefined): void {
-    const e = error?.error;
-    setRanOut(false);
-    if (e?.code === 'SEAT_TAKEN') {
-      // Spec 007 US3-2, spec 015 US1-2: let go of the taken seats, keep the rest.
-      const gone = (e.details?.seats ?? []) as SeatLabel[];
-      setSeats((all) => all.filter((c) => !gone.some((g) => sameSeat(g, c))));
-      setNotice(e.message);
-      refresh();
-    } else if (e?.code === 'SEAT_COOLDOWN') {
-      // FR-004a: when, in the customer's own time zone; spec 020 FR-023: with its abbreviation.
-      const waiting = (e.details?.seats ?? []) as SeatLabel[];
-      const at = formatViewerTime(String(e.details?.availableAt));
-      setNotice(
-        `You released ${waiting.map(seatLabel).join('; ')} less than 2 minutes ago. You can ` +
-          `reserve ${waiting.length === 1 ? 'it' : 'them'} again at ${at}.`,
-      );
-    } else if (e?.code === 'RESERVATION_REQUIRED') {
-      // FR-006: the reservation is gone (ran out, or ended by an admin change); keep its seats as
-      // picks and look again for what the Backend has.
-      setSeats((all) => [...all, ...mine.filter((r) => !all.some((c) => sameSeat(c, r)))]);
-      adopt(null);
-      setNotice(e.message);
-      reloadMine();
-    } else {
-      setNotice(e?.message ?? 'The request was refused.');
-    }
-  }
-
-  /** Loads what is left, and the seat map, again. */
-  function refresh(): void {
-    setReloads((n) => n + 1);
-    live.reload();
-  }
-
-  async function reserve(): Promise<void> {
-    // Spec 026 FR-013: waiting out the limit, the button does nothing.
-    if (sending.current || waits.HOLD) return;
-    sending.current = true;
-    inFlight.current = seats.map(placeKey);
-    try {
-      const { data, error, response } = await api.POST('/events/{id}/reservation', {
-        params: { path: { id } },
-        body: { seats: seats.map((c) => ({ sectionId: c.sectionId, row: c.row, seat: c.seat })) },
-      });
-      const limited = limitedFor(response, error);
-      if (response.ok && data) {
-        setNotice(null);
-        setSeats([]);
-        lastWrite.current = performance.now();
-        adopt(data);
-      } else if (response.status === 401) {
-        await signIn();
-      } else if (limited !== null) {
-        // Spec 026 FR-012: nothing was done; the picks, the reservation, and the notice stay.
-        startWait('HOLD', limited, reserveButton);
-      } else {
-        refused(error);
-      }
-    } catch {
-      setNotice("Can't reach QueuePass right now. Your seats weren't reserved; try again.");
-    } finally {
-      sending.current = false;
-      inFlight.current = [];
-    }
-  }
-
-  /** FR-007: releases the listed seats, or all of them. The countdown doesn't change. */
-  async function release(which?: ChosenSeat[]): Promise<void> {
-    try {
-      const { data, response } = await api.POST('/events/{id}/reservation/release', {
-        params: { path: { id } },
-        ...(which
-          ? {
-              body: {
-                seats: which.map((c) => ({ sectionId: c.sectionId, row: c.row, seat: c.seat })),
-              },
-            }
-          : {}),
-      });
-      if (response.status === 401) {
-        await signIn();
-        return;
-      }
-      if (!response.ok) {
-        reloadMine();
-        return;
-      }
-      const freed = which ?? mine;
-      setReleasedHere((all) => [...all, ...freed.map(seatKey)]);
-      lastWrite.current = performance.now();
-      adopt(data?.reservation ?? null);
-      setStatus(null);
-    } catch {
-      reloadMine();
-    }
-  }
-
+  /** Spec 006: Confirm order, for general admission. */
   async function confirm(): Promise<void> {
-    // Spec 026 FR-013: waiting out the limit, the buying buttons do nothing.
-    if (sending.current || waits.BUY) return;
-    sending.current = true;
-    requestId.current ??= crypto.randomUUID();
-    // Spec 026 FR-014: a refusal for the limit returns to where the press came from.
-    const from: Phase = phase.kind === 'unknown' ? { kind: 'unknown' } : { kind: 'choosing' };
-    const pressed =
-      phase.kind === 'unknown'
-        ? checkAgainButton
-        : seated
-          ? confirmPurchaseButton
-          : confirmOrderButton;
-    setPhase({ kind: 'confirming', checking: phase.kind === 'unknown' });
-    // Spec 015 FR-006: a seated order buys the reserved seats.
-    const buying = seated ? mine : [];
-    try {
-      const { data, error, response } = await api.POST('/events/{id}/orders', {
-        params: { path: { id } },
-        body: {
-          ...(chosen ? { tierId: chosen.id } : {}),
-          holderName,
-          quantity: seated ? buying.length : chosenCount,
-          requestId: requestId.current,
-          ...(seated
-            ? { seats: buying.map((c) => ({ sectionId: c.sectionId, row: c.row, seat: c.seat })) }
-            : {}),
-        },
-      });
-      const limited = limitedFor(response, error);
-      if (response.ok && data) {
-        setNotice(null);
-        lastWrite.current = performance.now();
-        adopt(null);
-        setPhase({ kind: 'done', order: data as Order });
-      } else if (limited !== null) {
-        // Spec 026 FR-012, FR-014: nothing was recorded. The same confirmation (its requestId)
-        // is kept, so Check again still never places a second order; nothing is loaded again.
-        setPhase(from);
-        startWait('BUY', limited, pressed);
-      } else if (response.status === 401) {
-        // The token is checked before any ordering rule, so nothing was recorded.
-        setPhase({ kind: 'choosing' });
-        await signIn();
-      } else if (response.status >= 500) {
-        setPhase({ kind: 'unknown' });
-      } else {
-        // Refused: nothing was recorded. The next press is a new confirmation.
-        refused(error);
-        requestId.current = null;
-        refresh();
-        setPhase({ kind: 'choosing' });
-      }
-    } catch {
-      setPhase({ kind: 'unknown' });
-    } finally {
-      sending.current = false;
+    const pressed = phase.kind === 'unknown' ? checkAgainButton : confirmOrderButton;
+    const outcome = await buyer.buy(
+      { ...(chosen ? { tierId: chosen.id } : {}), holderName, quantity: chosenCount },
+      pressed,
+    );
+    if (outcome.kind === 'done') setNotice(null);
+    if (outcome.kind === 'refused') {
+      // Refused: nothing was recorded; what is left is loaded again (FR-006).
+      setNotice(outcome.error?.error?.message ?? 'The request was refused.');
+      refresh();
     }
   }
 
-  if (phase.kind === 'done') return <Confirmation event={event} order={phase.order} />;
+  if (phase.kind === 'done')
+    return <OrderConfirmation eventName={event.name} order={phase.order} />;
 
   const closedBadge =
     left.salesClosed === 'CANCELLED'
@@ -639,7 +483,7 @@ export function GetTickets({ event }: { event: Event }) {
         aria-atomic="true"
         data-announces="rate-limit"
       >
-        {announcement?.text}
+        {waits.announcement}
       </p>
       {/* Spec 008 FR-005: the lowest tier price, compared in whole cents. */}
       {tierList.length > 0 && (
@@ -656,11 +500,11 @@ export function GetTickets({ event }: { event: Event }) {
           {notice}
         </p>
       )}
-      {/* Spec 015 FR-005, FR-012: the end of the 5 minutes is announced as an alert. */}
+      {/* Spec 015 FR-005, FR-012; spec 033 FR-015: the end of the 5 minutes is an alert. */}
       {ranOut && (
         <p role="alert" className="banner banner--error">
-          Your reservation ran out, so its seats were released. You can reserve them again in 2
-          minutes if they are still open.
+          Your reservation ran out, so its seats were released. You can hold them again in 2 minutes
+          if they are still open.
         </p>
       )}
       {phase.kind === 'unknown' || (phase.kind === 'confirming' && phase.checking) ? (
@@ -671,12 +515,12 @@ export function GetTickets({ event }: { event: Event }) {
               Check again, which never places a second order, or look for it in{' '}
               <Link to="/my-tickets">My tickets</Link>.
             </p>
-            {waits.BUY && <WaitMessage wait={waits.BUY} />}
+            {waits.waits.BUY && <WaitMessage wait={waits.waits.BUY} />}
             <button
               ref={checkAgainButton}
               type="button"
               className="btn btn--ghost"
-              aria-disabled={waits.BUY ? true : undefined}
+              aria-disabled={waits.waits.BUY ? true : undefined}
               onClick={() => void confirm()}
             >
               Check again
@@ -713,14 +557,14 @@ export function GetTickets({ event }: { event: Event }) {
                   name="tier"
                   value={t.id}
                   checked={tierId === t.id}
-                  disabled={tierLeft(t.id) === 0 || !onSale(t)}
+                  disabled={
+                    tierLeft(t.id) === 0 ||
+                    !onSale(t) ||
+                    (lockedTier !== null && t.id !== lockedTier)
+                  }
                   onChange={() =>
                     choose(() => {
-                      // Spec 015 research R13: another tier releases the active reservation first.
-                      if (reservation && reservation.tierId !== t.id) void release();
                       setTierId(t.id);
-                      // One tier per order (spec 007): seats of another tier don't carry over.
-                      setSeats([]);
                       setSectionId(null);
                     })
                   }
@@ -738,6 +582,10 @@ export function GetTickets({ event }: { event: Event }) {
                 )}
               </label>
             ))}
+            {/* Spec 033 FR-005: why the other ticket types can't be chosen now. */}
+            {heldTier && tierList.length > 1 && (
+              <p className="note">{`Your held seats are ${heldTier.name} seats. To choose another ticket type, click your held seats to release them.`}</p>
+            )}
           </fieldset>
         ) : (
           <p>{`${usd(event.basePrice)} each, ${count(left.ticketsLeft)} left`}</p>
@@ -746,206 +594,144 @@ export function GetTickets({ event }: { event: Event }) {
         {limit !== null && (
           <p className="note">{`Limit: ${tickets(limit.limit)} per customer. You can get ${limit.remaining} more.`}</p>
         )}
-        {/* Spec 017 FR-001: one name, the buyer's own, on every ticket of the order. A shown
-            error is linked to the field, so screen readers read it with the hint. */}
-        <div className="holder-name">
-          <label htmlFor="holder-name">Name on tickets</label>
-          <input
-            id="holder-name"
-            type="text"
-            value={holderName}
-            autoComplete="name"
-            aria-describedby={
-              nameError !== null ? 'holder-name-hint holder-name-error' : 'holder-name-hint'
-            }
-            aria-invalid={nameError !== null ? true : undefined}
-            onChange={(e) => choose(() => setHolderName(e.target.value))}
-            onBlur={() => setNameTouched(true)}
-          />
-          <p id="holder-name-hint" className="note">
-            Your name, as on the photo ID you&apos;ll show at the gate. It goes on every ticket.
-          </p>
-          {nameError !== null && (
-            <p id="holder-name-error" className="banner banner--error">
-              {nameError}
-            </p>
-          )}
-        </div>
         {seated ? (
-          section && (
-            <>
-              <label>
-                Section{' '}
-                <select value={section.sectionId} onChange={(e) => setSectionId(e.target.value)}>
-                  {offered.map((s) => (
-                    <option key={s.sectionId} value={s.sectionId}>
-                      {`Section ${s.name}`}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <SeatPicker
-                section={section}
-                chosen={seats}
-                mine={mine}
-                reserved={othersReserved}
-                late={late}
-                full={chosenCount >= maxQuantity}
-                onToggle={toggleSeat}
-              />
-              {limit !== null && limitBinds && chosenCount >= maxQuantity && (
-                <p className="note">{`No more seats can be chosen: the limit of ${tickets(limit.limit)} per customer allows you ${limit.remaining} more.`}</p>
-              )}
-              <ul aria-label="Chosen seats">
-                {seats.map((c) => (
-                  <li key={`${c.sectionId}-${c.row}-${c.seat}`}>
-                    <span>{seatLabel(c)}</span>{' '}
-                    <button
-                      type="button"
-                      aria-label={`Remove ${seatLabel(c)}`}
-                      onClick={() => toggleSeat(c)}
-                    >
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              {/* Spec 026 FR-011, FR-013: the wait, above the button it explains, which stays
-                  focusable (aria-disabled) and does nothing until the wait ends. */}
-              {waits.HOLD && <WaitMessage wait={waits.HOLD} />}
-              <button
-                ref={reserveButton}
-                type="button"
-                className={reservation ? 'btn' : 'btn btn--primary'}
-                disabled={!canReserve}
-                aria-disabled={waits.HOLD ? true : undefined}
-                onClick={() => void reserve()}
-              >
-                Reserve seats
-              </button>
-              {reservation && reserved(reservation)}
-              {/* FR-012: the countdown's own status region, always present so its 1:00 warning is
-                  announced, apart from the timer and from the other messages below. Boxed only
-                  while it has something to say, so an empty one draws no bar (T046). */}
-              <p role="status" className={reservation && warning ? 'note' : undefined}>
-                {reservation ? warning : null}
-              </p>
-              {/* FR-012: announced, unlike the timer; FR-011 messages join it (US3). */}
-              <p role="status" className={status ? 'note' : undefined}>
-                {status}
-              </p>
-            </>
-          )
+          section && seatedForm(section)
         ) : (
-          <label>
-            Quantity{' '}
-            <select
-              value={Math.min(quantity, maxQuantity)}
-              onChange={(e) => choose(() => setQuantity(Number(e.target.value)))}
+          <>
+            {nameField()}
+            <label>
+              Quantity{' '}
+              <select
+                value={Math.min(quantity, maxQuantity)}
+                onChange={(e) => choose(() => setQuantity(Number(e.target.value)))}
+              >
+                {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {price !== undefined && <p>{`Total: ${totalUsd(price, chosenCount)}`}</p>}
+            {waits.waits.BUY && <WaitMessage wait={waits.waits.BUY} />}
+            <button
+              ref={confirmOrderButton}
+              type="button"
+              className="btn btn--primary"
+              disabled={!canConfirm}
+              aria-disabled={waits.waits.BUY ? true : undefined}
+              onClick={() => void confirm()}
             >
-              {Array.from({ length: maxQuantity }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        {/* FR-006: with a reservation, Confirm purchase buys exactly its seats. */}
-        {price !== undefined && (
-          <p>{`Total: ${totalUsd(price, seated && reservation ? mine.length : chosenCount)}`}</p>
-        )}
-        {!seated && waits.BUY && <WaitMessage wait={waits.BUY} />}
-        {!seated && (
-          <button
-            ref={confirmOrderButton}
-            type="button"
-            className="btn btn--primary"
-            disabled={!canConfirm}
-            aria-disabled={waits.BUY ? true : undefined}
-            onClick={() => void confirm()}
-          >
-            {phase.kind === 'confirming' ? 'Confirming…' : 'Confirm order'}
-          </button>
+              {phase.kind === 'confirming' ? 'Confirming…' : 'Confirm order'}
+            </button>
+          </>
         )}
       </>
     );
   }
 
-  /** Spec 015 FR-005: the reserved seats, the countdown, Confirm purchase, and Release seats. */
-  function reserved(r: Reservation) {
+  /** Spec 017 FR-001: one name, the buyer's own, on every ticket of a general-admission order. */
+  function nameField() {
     return (
-      <section className="note reservation" aria-labelledby="reserved-heading">
-        <h3 id="reserved-heading">Reserved for you</h3>
-        {/* A timer isn't announced (aria-live off); the 1-minute warning is, below. */}
-        <p role="timer" aria-live="off">
-          {`Time left to confirm: ${clock(secondsLeft ?? r.secondsLeft)}`}
+      // A shown error is linked to the field, so screen readers read it with the hint.
+      <div className="holder-name">
+        <label htmlFor="holder-name">Name on tickets</label>
+        <input
+          id="holder-name"
+          type="text"
+          value={holderName}
+          autoComplete="name"
+          aria-describedby={
+            nameError !== null ? 'holder-name-hint holder-name-error' : 'holder-name-hint'
+          }
+          aria-invalid={nameError !== null ? true : undefined}
+          onChange={(e) => choose(() => setHolderName(e.target.value))}
+          onBlur={() => setNameTouched(true)}
+        />
+        <p id="holder-name-hint" className="note">
+          Your name, as on the photo ID you&apos;ll show at the gate. It goes on every ticket.
         </p>
-        <ul aria-label="Reserved seats">
+        {nameError !== null && (
+          <p id="holder-name-error" className="banner banner--error">
+            {nameError}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  /**
+   * Spec 033 (FR-001, FR-009, FR-010, FR-016): the section, the seat map (the only control for
+   * choosing seats), the hold wait above it, the Your seats box directly below it, and the hold log.
+   */
+  function seatedForm(here: NonNullable<typeof section>) {
+    return (
+      <>
+        <label>
+          Section{' '}
+          <select value={here.sectionId} onChange={(e) => setSectionId(e.target.value)}>
+            {offered.map((s) => (
+              <option key={s.sectionId} value={s.sectionId}>
+                {`Section ${s.name}`}
+              </option>
+            ))}
+          </select>
+        </label>
+        {limit !== null && limitBinds && full && (
+          <p className="note">{`No more seats can be chosen: the limit of ${tickets(limit.limit)} per customer allows you ${limit.remaining} more.`}</p>
+        )}
+        {chosenCount >= RESERVATION_LIMITS.maxSeats && (
+          <p className="note">{`A reservation holds at most ${RESERVATION_LIMITS.maxSeats} seats.`}</p>
+        )}
+        {/* Spec 026 FR-011, spec 033 FR-009: the hold wait, directly above the seats it holds
+            back, which stay focusable (aria-disabled) and do nothing until it ends. */}
+        {waits.waits.HOLD && <WaitMessage wait={waits.waits.HOLD} />}
+        <SeatPicker
+          section={here}
+          mine={mine}
+          pending={queue.pending}
+          reserved={othersReserved}
+          late={late}
+          full={full}
+          blocked={waits.waits.HOLD !== undefined}
+          onToggle={toggleSeat}
+        />
+        {reservation && yourSeats(reservation)}
+        {/* Spec 033 FR-016 (research R10): each hold and release, appended, so answers close
+            together are each said, in order; not atomic, so only the new line is read. */}
+        <div
+          role="status"
+          aria-atomic="false"
+          data-announces="holds"
+          className={log.length > 0 ? 'note' : undefined}
+        >
+          {log.map((line) => (
+            <p key={line.id}>{line.text}</p>
+          ))}
+        </div>
+      </>
+    );
+  }
+
+  /** Spec 033 FR-010, FR-011 (research R9): the countdown, the seats, the total, Add to cart. */
+  function yourSeats(r: Reservation) {
+    const each = r.tierId ? tierList.find((t) => t.id === r.tierId)?.price : event.basePrice;
+    return (
+      <section className="note reservation" aria-labelledby="your-seats-heading">
+        <h3 id="your-seats-heading">Your seats</h3>
+        <HoldCountdown secondsLeft={secondsLeft ?? r.secondsLeft} warning={warning} />
+        <ul aria-label="Held seats">
           {r.seats.map((s) => (
-            <li key={`${s.sectionId}-${s.row}-${s.seat}`}>
-              <span>{seatLabel(s)}</span>{' '}
-              <button
-                type="button"
-                aria-label={`Release ${seatLabel(s)}`}
-                onClick={() => void release([s])}
-              >
-                Release
-              </button>
-            </li>
+            <li key={placeKey(s)}>{seatLabel(s)}</li>
           ))}
         </ul>
-        {waits.BUY && <WaitMessage wait={waits.BUY} />}
-        <div className="form__actions">
-          <button
-            ref={confirmPurchaseButton}
-            type="button"
-            className="btn btn--primary"
-            disabled={!canConfirm}
-            aria-disabled={waits.BUY ? true : undefined}
-            onClick={() => void confirm()}
-          >
-            {phase.kind === 'confirming' ? 'Confirming…' : 'Confirm purchase'}
-          </button>
-          <button type="button" className="btn btn--ghost" onClick={() => void release()}>
-            Release seats
-          </button>
-        </div>
+        {each !== undefined && <p>{`Total: ${totalUsd(each, r.seats.length)}`}</p>}
+        <button type="button" className="btn btn--primary" onClick={() => navigate('/cart')}>
+          Add to cart
+        </button>
       </section>
     );
   }
 }
 
 const tickets = (n: number): string => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;
-
-/** Spec 006 FR-004: what was bought, what it cost, and every ticket code. */
-function Confirmation({ event, order }: { event: Event; order: Order }) {
-  return (
-    <section aria-label="Order confirmed">
-      <h2>Order confirmed</h2>
-      <dl>
-        <dt>Event</dt>
-        <dd>{event.name}</dd>
-        {order.tierName && (
-          <>
-            <dt>Tier</dt>
-            <dd>{order.tierName}</dd>
-          </>
-        )}
-        <dt>Quantity</dt>
-        <dd>{order.quantity}</dd>
-        <dt>Price each</dt>
-        <dd>{usd(order.unitPrice)}</dd>
-        <dt>Total charged</dt>
-        <dd>{usd(order.totalPrice)}</dd>
-      </dl>
-      <h3>Your ticket codes</h3>
-      <ul aria-label="Ticket codes">
-        {order.tickets.map((t) => (
-          <li key={t.id}>{t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}</li>
-        ))}
-      </ul>
-      <Link to="/my-tickets">See all my tickets</Link>
-    </section>
-  );
-}

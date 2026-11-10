@@ -162,7 +162,7 @@ describe('the cart (FR-012, FR-013)', () => {
     const name = screen.getByRole('textbox', { name: 'Name on tickets' });
 
     expect(within(box).getByRole('button', { name: 'Buy tickets' })).toBeDisabled();
-    fireEvent.change(name, { target: { value: 'J' } });
+    fireEvent.change(name, { target: { value: '1234' } });
     fireEvent.blur(name);
 
     expect(name).toHaveAttribute('aria-invalid', 'true');
