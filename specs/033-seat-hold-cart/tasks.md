@@ -270,7 +270,7 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   time.
 - [x] T027 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, research.md, and the contract; fix the findings; record the round here.
-  **Done**: code review round 1 on PR #154, recorded below, every finding fixed.
+  **Done**: code review rounds 1 and 2 on PR #154, recorded below, every finding fixed.
 - [ ] T028 Running-system walk, quickstart S0–S11, on a stack of its own (`-p qp033`) or path B with
   Mahdi's go for the team stack's ports (ground rules), in a browser and with a screen reader or the
   accessibility tree for S1 and S2; record each scenario's result here (Constitution VI smoke test).
@@ -391,3 +391,26 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   - After round 1: the Customer app suite three times, 400/400 each (28 files; lines 98.12%); the
     reservation, seat-hold, order-reservation, and attempt-limit tests once, 10 suites, 121 tests,
     all pass.
+- **Round 2** (code review on PR #154, 2026-11-10): no must-fix; 2 should-fix and 3 nits, the
+  should-fixes' approach decided by the coordinator. All fixed in the `Review 033: code review
+  round 2` commit, tests first.
+  - S1 (FR-016, `015` FR-012): with the stream not live, round 1's `refresh()` called
+    `live.reload()`, which empties the map, so the panel went back to "Loading tickets…" and the
+    focus fell to the page → the Customer app never calls `live.reload()`: it reads
+    `/events/{id}/seats` itself and shows that map over the stream's until the stream next changes
+    it, and a reload of what is left or of the tiers keeps the last answer on screen, so the form is
+    never redrawn after the first load (no change to the shared hook). Test: `seats.test.tsx`'s
+    taken-seat case (no stream; the map's second read takes a moment, as over a network) keeps the
+    same, focused seat button with `aria-disabled` and never shows "Loading tickets…".
+  - S2 (FR-012, FR-017): an event whose details kept failing left the cart loading for good → its
+    reads back off (1, 2, 4, 8, then every 10 seconds, each with the next read of the
+    reservations), and after 3 failures its entry shows with "Details unavailable" (a link to the
+    event), its seats, and its countdown; Buy tickets still buys (the order needs no details).
+    Tests: the entry after 3 failures, bought; the backoff's tries over 45 seconds.
+  - N3: "bought" also needs one of the reservation's seats on the order, so a general-admission or
+    other-seats order in another tab does not call an ended reservation bought. Test.
+  - N4: the click queue's handlers are updated in a layout effect, not during render; its comment
+    says a queued answer after Add to cart can still sign in again or reload (harmless).
+  - N5: `026 S2` checks the shown wait against the click's own `429` (`retryAfterSeconds`), not
+    against 5 seconds, and waits for it to end accordingly.
+

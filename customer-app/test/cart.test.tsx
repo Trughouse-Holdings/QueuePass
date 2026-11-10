@@ -414,7 +414,21 @@ describe('live (FR-017; research R8)', () => {
       routes({
         'GET /me/reservations': () => json(mine),
         'GET /me/orders': () =>
-          json([myOrder({ eventId: 'e1', createdAt: '2026-10-20T19:01:00.000Z' })]),
+          json([
+            myOrder({
+              eventId: 'e1',
+              createdAt: '2026-10-20T19:01:00.000Z',
+              tickets: [
+                {
+                  id: 'k1',
+                  code: 'AAAA2222BBBB',
+                  status: 'VALID',
+                  checkedInAt: null,
+                  seat: { section: 'A', row: 1, seat: 5 },
+                },
+              ],
+            }),
+          ]),
       }),
     );
     renderCustomer({ at: '/cart' });
@@ -437,6 +451,25 @@ describe('live (FR-017; research R8)', () => {
       routes({
         'GET /me/reservations': () => json(mine),
         'GET /me/orders': json([myOrder({ eventId: 'e1', createdAt: '2026-10-20T18:00:00.000Z' })]),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+    await entry('Early Show');
+
+    mine = [];
+    await advance(2_000);
+
+    expect(await screen.findByText('Your reservation for Early Show ended.')).toBeInTheDocument();
+  });
+
+  it('says the reservation ended when a later order for that event holds none of its seats (review round 2, N3)', async () => {
+    fakeClock();
+    let mine = [reservation('e1', [5])];
+    stubApi(
+      routes({
+        'GET /me/reservations': () => json(mine),
+        // A general-admission order, or other seats, bought in another tab.
+        'GET /me/orders': json([myOrder({ eventId: 'e1', createdAt: '2026-10-20T19:01:00.000Z' })]),
       }),
     );
     renderCustomer({ at: '/cart' });
@@ -483,6 +516,79 @@ describe('live (FR-017; research R8)', () => {
 
     expect(await entry('Early Show')).toBeInTheDocument();
     expect(calls.filter((c) => c.path === '/events/e1')).toHaveLength(2);
+  });
+
+  it('after 3 failed reads of an event, shows its entry with "Details unavailable", its seats, and its countdown; Buy tickets still buys (review round 2, S2)', async () => {
+    fakeClock();
+    const { calls } = stubApi(
+      routes({
+        'GET /me/reservations': json([reservation('e1', [5, 6], { secondsLeft: 200 })]),
+        'GET /events/e1': json({ error: { code: 'INTERNAL', message: 'x' } }, 500),
+        'POST /events/e1/orders': json(order({ eventId: 'e1' }), 201),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+    expect(await screen.findByText('Loading your cart…')).toBeInTheDocument();
+
+    // Tried at about 0, 2, and 5 seconds (each wait counts from the failure, then the next read).
+    await advance(6_000);
+
+    const box = await entry('Details unavailable');
+    expect(calls.filter((c) => c.path === '/events/e1')).toHaveLength(3);
+    expect(within(box).getByRole('link', { name: 'Details unavailable' })).toHaveAttribute(
+      'href',
+      '/events/e1',
+    );
+    expect(
+      within(within(box).getByRole('list', { name: 'Seats' }))
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Section A, Row 1, Seat 5', 'Section A, Row 1, Seat 6']);
+    expect(within(box).getByRole('timer')).toHaveTextContent(/3:1\d/);
+    expect(screen.queryByText(/Your cart is empty/)).toBeNull();
+
+    await typeHolderName();
+    fireEvent.click(within(box).getByRole('button', { name: 'Buy tickets' }));
+    await screen.findByRole('region', { name: 'Order confirmed' });
+    expect(calls.find((c) => c.path === '/events/e1/orders')?.body).toEqual({
+      tierId: 't-vip',
+      holderName: 'Jordan Lee',
+      quantity: 2,
+      requestId: expect.any(String),
+      seats: [
+        { sectionId: 's-a', row: 1, seat: 5 },
+        { sectionId: 's-a', row: 1, seat: 6 },
+      ],
+    });
+  });
+
+  it("backs off an event's failed reads: 1, 2, 4 seconds, capped at 10 (review round 2, S2)", async () => {
+    fakeClock();
+    const { calls } = stubApi(
+      routes({
+        'GET /me/reservations': json([reservation('e1', [5])]),
+        'GET /events/e1': json({ error: { code: 'INTERNAL', message: 'x' } }, 500),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+    const tries = () => calls.filter((c) => c.path === '/events/e1').length;
+    await waitFor(() => expect(tries()).toBe(1));
+
+    // Each wait (1, 2, 4, 8, then 10 s) counts from the failure, and the next read of the
+    // reservations (once a second) tries again: about 0, 2, 5, 10, 19, 30, 41 seconds.
+    const at = async (seconds: number, n: number) => {
+      await advance(seconds * 1_000 - elapsed);
+      elapsed = seconds * 1_000;
+      expect(tries()).toBe(n);
+    };
+    let elapsed = 0;
+    await at(4, 2);
+    await at(7, 3);
+    await at(15, 4);
+    await at(25, 5);
+    await at(35, 6);
+    await at(40, 6);
+    await at(45, 7);
   });
 
   it('does not list a reservation whose event is gone (404)', async () => {

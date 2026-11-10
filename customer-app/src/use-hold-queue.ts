@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import type { ErrorEnvelope, Reservation } from '@queuepass/shared';
 import { useAuth } from '@queuepass/shared/web';
 import { limitedFor } from './use-buy';
@@ -45,7 +45,9 @@ const opposite = (kind: SeatAction): SeatAction => (kind === 'hold' ? 'release' 
  *   `401` clears the queue.
  *
  * Queued clicks keep being sent after the page unmounts (Add to cart leaves it): harmless, since
- * each is a request the customer made, and the cart shows the reservation that results.
+ * each is a request the customer made, and the cart shows the reservation that results. Their
+ * answers still reach the event page's last handlers: a `401` still signs the customer in again,
+ * and no answer still reloads the reservation and the seat map, both also harmless.
  *
  * `pending` tells, for each seat with a queued or in-flight action, what it will be: held
  * (`hold`) or open (`release`). The page adopts each answer as it comes, with its own `lastWrite`
@@ -56,7 +58,11 @@ export function useHoldQueue(eventId: string, handlers: HoldQueueHandlers) {
   const queue = useRef<QueuedAction[]>([]);
   const inFlight = useRef<QueuedAction | null>(null);
   const latest = useRef(handlers);
-  latest.current = handlers;
+  // Updated after each commit, not during render (review round 2, N4); answers and clicks come
+  // after it.
+  useLayoutEffect(() => {
+    latest.current = handlers;
+  });
   const [, setVersion] = useState(0);
   const changed = (): void => setVersion((n) => n + 1);
 

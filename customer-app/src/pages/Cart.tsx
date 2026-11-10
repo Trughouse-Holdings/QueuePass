@@ -25,7 +25,11 @@ interface Entry {
 }
 
 /** What the cart shows of an event, read once per event (research R8). */
-type EventInfo = { event: Event; tiers: TicketTier[] } | 'missing';
+type EventDetails = { event: Event; tiers: TicketTier[] };
+type EventInfo = EventDetails | 'missing';
+
+/** Review round 2 (S2): an entry whose event could not be read 3 times is shown without it. */
+const DETAILS_UNAVAILABLE = 'Details unavailable';
 
 /** One reservation, by its event and when it was made: a later one for the event is another. */
 const reservationKey = (r: Reservation): string => `${r.eventId}:${r.createdAt}`;
@@ -72,6 +76,9 @@ export function Cart() {
   const reading = useRef(false);
   const stopped = useRef(false);
   const requested = useRef(new Set<string>());
+  // Review round 2 (S2): an event's failed reads, and when it may be read again (1, 2, 4 … 10 s).
+  const [failures, setFailures] = useState<Record<string, number>>({});
+  const retryAt = useRef(new Map<string, number>());
 
   const nameOf = (eventId: string): string => {
     const info = infosRef.current[eventId];
@@ -97,7 +104,7 @@ export function Cart() {
   /**
    * FR-017: one `listMyOrders` read says whether a vanished entry was bought here or elsewhere: an
    * order for its event placed since the reservation was made, both times the Backend's (review
-   * round 1, N5).
+   * round 1, N5), holding one of its seats (round 2, N3).
    */
   const explain = useCallback(
     async (r: Reservation): Promise<void> => {
@@ -106,7 +113,19 @@ export function Cart() {
       try {
         const { data } = await api.GET('/me/orders');
         bought = (data ?? []).some(
-          (o) => o.eventId === r.eventId && Date.parse(o.createdAt) >= Date.parse(r.createdAt),
+          (o) =>
+            o.eventId === r.eventId &&
+            Date.parse(o.createdAt) >= Date.parse(r.createdAt) &&
+            // One of the reservation's own seats: a general-admission order, or other seats,
+            // bought in another tab is not this reservation's (review round 2, N3).
+            o.tickets.some(
+              (t) =>
+                t.seat !== null &&
+                r.seats.some(
+                  (s) =>
+                    s.section === t.seat?.section && s.row === t.seat.row && s.seat === t.seat.seat,
+                ),
+            ),
         );
       } catch {
         // Not known: said as ended.
@@ -208,9 +227,19 @@ export function Cart() {
 
   // Research R8: each listed event's details and ticket types, read once while the page is open.
   useEffect(() => {
+    /** A failed read: tried again after 1, 2, 4, … seconds, at most 10, with the reads. */
+    const failed = (eventId: string): void => {
+      requested.current.delete(eventId);
+      setFailures((all) => {
+        const n = (all[eventId] ?? 0) + 1;
+        retryAt.current.set(eventId, performance.now() + Math.min(1_000 * 2 ** (n - 1), 10_000));
+        return { ...all, [eventId]: n };
+      });
+    };
     for (const e of entries ?? []) {
       const eventId = e.reservation.eventId;
-      if (requested.current.has(eventId)) continue;
+      if (requested.current.has(eventId) || infos[eventId] !== undefined) continue;
+      if (performance.now() < (retryAt.current.get(eventId) ?? 0)) continue;
       requested.current.add(eventId);
       void (async () => {
         try {
@@ -226,25 +255,31 @@ export function Cart() {
           } else if (ev.response.ok && ev.data && tiers.response.ok && tiers.data) {
             info = { event: ev.data, tiers: tiers.data };
           } else {
-            // Any other failure: read again with the next read of the reservations (review
-            // round 1, S2), never taken for a deleted event.
-            requested.current.delete(eventId);
+            // Any other failure: read again later (review round 1, S2), never taken for a
+            // deleted event.
+            failed(eventId);
             return;
           }
           setInfos((all) => ({ ...all, [eventId]: info }));
         } catch {
-          // No answer: read again with the next read of the reservations.
-          requested.current.delete(eventId);
+          // No answer: read again later.
+          failed(eventId);
         }
       })();
     }
-  }, [entries, api, signIn]);
+  }, [entries, infos, api, signIn]);
 
-  // Until every listed event's details are known, the cart is loading, not empty (review S2).
-  const pending = (entries ?? []).some((e) => infos[e.reservation.eventId] === undefined);
+  // Until every listed event's details are known, or failed 3 times, the cart is loading, not
+  // empty (review rounds 1 and 2, S2). After 3 failures the entry shows without them.
+  const unavailable = (eventId: string): boolean =>
+    infos[eventId] === undefined && (failures[eventId] ?? 0) >= 3;
+  const pending = (entries ?? []).some(
+    (e) => infos[e.reservation.eventId] === undefined && !unavailable(e.reservation.eventId),
+  );
   const shown = (entries ?? []).flatMap((e) => {
     const info = infos[e.reservation.eventId];
-    return info && info !== 'missing' ? [{ entry: e, info }] : [];
+    if (info && info !== 'missing') return [{ entry: e, info: info as EventDetails | null }];
+    return unavailable(e.reservation.eventId) ? [{ entry: e, info: null }] : [];
   });
   const nameProblem = holderNameProblem(holderName);
   const nameError = nameTouched && nameProblem !== null ? holderNameMessage(nameProblem) : null;
@@ -306,8 +341,8 @@ export function Cart() {
             <CartEntry
               key={reservationKey(entry.reservation)}
               entry={entry}
-              event={info.event}
-              tiers={info.tiers}
+              event={info?.event ?? null}
+              tiers={info?.tiers ?? []}
               holderName={holderName}
               nameOk={nameProblem === null}
               waits={waits}
@@ -318,12 +353,17 @@ export function Cart() {
               }
               onBought={(order) => {
                 drop(entry.reservation);
-                setConfirmed((all) => [...all, { eventName: info.event.name, order }]);
+                setConfirmed((all) => [
+                  ...all,
+                  { eventName: info?.event.name ?? DETAILS_UNAVAILABLE, order },
+                ]);
               }}
               onRanOut={() => ranOut(entry.reservation)}
               onEnded={() => {
                 drop(entry.reservation);
-                setStatus(<p>{`Your reservation for ${info.event.name} ended.`}</p>);
+                setStatus(
+                  <p>{`Your reservation for ${nameOf(entry.reservation.eventId)} ended.`}</p>,
+                );
               }}
             />
           ))}
@@ -351,7 +391,8 @@ function CartEntry({
   onEnded,
 }: {
   entry: Entry;
-  event: Event;
+  /** `null`: its details could not be read (review round 2, S2); it can still be bought. */
+  event: Event | null;
   tiers: TicketTier[];
   holderName: string;
   nameOk: boolean;
@@ -397,7 +438,8 @@ function CartEntry({
   }, [entry.deadline]);
 
   const tier = r.tierId ? tiers.find((t) => t.id === r.tierId) : undefined;
-  const price = r.tierId ? tier?.price : event.basePrice;
+  // Without its event's details the price is not known; the order does not need it.
+  const price = !event ? undefined : r.tierId ? tier?.price : event.basePrice;
   const headingId = `cart-${r.eventId}`;
 
   async function buy(): Promise<void> {
@@ -438,10 +480,10 @@ function CartEntry({
   return (
     <section className="card card--padded" aria-labelledby={headingId}>
       <h2 id={headingId}>
-        <Link to={`/events/${r.eventId}`}>{event.name}</Link>
+        <Link to={`/events/${r.eventId}`}>{event?.name ?? DETAILS_UNAVAILABLE}</Link>
       </h2>
       <HoldCountdown secondsLeft={secondsLeft} warning={warning} />
-      <p>{when(event.startsAt, event.location.timeZone)}</p>
+      {event && <p>{when(event.startsAt, event.location.timeZone)}</p>}
       {price !== undefined && (
         <p>{tier ? `${tier.name}, ${usd(price)} each` : `${usd(price)} each`}</p>
       )}

@@ -170,8 +170,20 @@ export function GetTickets({ event }: { event: Event }) {
   }, []);
 
   const reservationRef = useRef<Reservation | null>(null);
+  // Spec 033 review round 2 (S1): the seat map read again by this page, shown over the stream's
+  // until the stream next changes it. `live.reload()` would empty the map and redraw the form as
+  // "Loading tickets…", dropping the keyboard focus, so this page never calls it.
+  const [mapRead, setMapRead] = useState<StreamSeatMap | null>(null);
+  useEffect(() => setMapRead(null), [live.map]);
+  const seatMap = mapRead ?? live.map;
   const mapRef = useRef<StreamSeatMap | null>(null);
-  mapRef.current = live.map;
+  mapRef.current = seatMap;
+  // What is left and the tiers, as last loaded: a reload keeps them on screen meanwhile, so the
+  // form is never redrawn after the first load (review round 2, S1).
+  const lastAvailability = useRef<Availability | null>(null);
+  if (availability.kind === 'ok') lastAvailability.current = availability.data;
+  const lastTiers = useRef<TicketTier[] | null>(null);
+  if (tiers.kind === 'ok') lastTiers.current = tiers.data;
   // The seats of a reservation whose countdown just ran out: the Backend may close it up to a
   // second later, and they are still this customer's until then.
   const ranOutSeats = useRef<string[]>([]);
@@ -179,10 +191,21 @@ export function GetTickets({ event }: { event: Event }) {
   const lastWrite = useRef(0);
   const { reloadMine } = live;
 
-  /** Loads what is left, and the seat map, again. */
+  /** Reads the seat map again, keeping the one shown until the answer comes. */
+  const readMap = async (): Promise<void> => {
+    if (!event.reservedSeating) return;
+    try {
+      const { data, response } = await api.GET('/events/{id}/seats', { params: { path: { id } } });
+      if (response.ok && data) setMapRead(data);
+    } catch {
+      // The stream, or the next refusal, brings it.
+    }
+  };
+
+  /** Loads what is left, and the seat map, again, never redrawing the form. */
   const refresh = (): void => {
     setReloads((n) => n + 1);
-    live.reload();
+    void readMap();
   };
 
   // Spec 033 FR-007 (research R6): the click queue, and what each answer means here.
@@ -216,7 +239,7 @@ export function GetTickets({ event }: { event: Event }) {
       // hold that did go through shows as held.
       setNotice(`Your click on ${seatLabel(action.seat)} didn't go through. Try again.`);
       reloadMine();
-      live.reload();
+      void readMap();
     },
     onSignedOut: () => void signIn(),
   });
@@ -240,7 +263,7 @@ export function GetTickets({ event }: { event: Event }) {
         return at ? [placeKey({ sectionId: at.sectionId, row: s.row, seat: s.seat })] : [];
       });
       setLateGone((all) => [...new Set([...all, placeKey(action.seat), ...named])]);
-      // A live map already shows it; reloading would redraw the form and drop the focus.
+      // A live map already shows it; otherwise the map is read again, kept on screen meanwhile.
       if (live.status !== 'live') refresh();
     } else if (e?.code === 'SEAT_COOLDOWN') {
       setNotice(cooldownMessage(e.details));
@@ -343,14 +366,26 @@ export function GetTickets({ event }: { event: Event }) {
     live.map === null &&
     (live.status === 'loading' || live.status === 'connecting');
   const seatsFailed = event.reservedSeating && live.map === null && !seatsLoading;
-  if (availability.kind === 'loading' || tiers.kind === 'loading' || seatsLoading) {
+  const leftNow =
+    availability.kind === 'ok'
+      ? availability.data
+      : availability.kind === 'loading'
+        ? lastAvailability.current
+        : null;
+  const tiersNow =
+    tiers.kind === 'ok' ? tiers.data : tiers.kind === 'loading' ? lastTiers.current : null;
+  if (
+    (availability.kind === 'loading' && leftNow === null) ||
+    (tiers.kind === 'loading' && tiersNow === null) ||
+    seatsLoading
+  ) {
     return <p>Loading tickets…</p>;
   }
   // Spec 015 edge case "Event deleted": its stream ended and a reconnect found no event.
   if (event.reservedSeating && live.status === 'missing') {
     return <p className="banner banner--error">This event no longer exists.</p>;
   }
-  if (availability.kind !== 'ok' || tiers.kind !== 'ok' || seatsFailed) {
+  if (leftNow === null || tiersNow === null || seatsFailed) {
     // Spec 012 FR-010: an error, so the theme's error banner; no role added, as before.
     return (
       <p className="banner banner--error">
@@ -359,8 +394,8 @@ export function GetTickets({ event }: { event: Event }) {
     );
   }
 
-  const left = availability.data;
-  const tierList = tiers.data;
+  const left = leftNow;
+  const tierList = tiersNow;
   const tierLeft = (tid: string): number =>
     left.tiers.find((t) => t.tierId === tid)?.ticketsLeft ?? 0;
   const chosen = tierList.find((t) => t.id === tierId) ?? null;
@@ -376,7 +411,7 @@ export function GetTickets({ event }: { event: Event }) {
   const limitBinds =
     limit !== null && limit.remaining <= ORDER_LIMITS.maxQuantity && limit.remaining < ticketsLeft;
   const price = tierList.length > 0 ? chosen?.price : event.basePrice;
-  const seated = live.map?.reservedSeating === true ? live.map : null;
+  const seated = seatMap?.reservedSeating === true ? seatMap : null;
   // Seats for the chosen tier's sections; every section when the event has no tiers.
   const offered = seated
     ? seated.sections.filter((s) => (tierList.length > 0 ? chosen && s.tierId === chosen.id : true))

@@ -66,8 +66,16 @@ test('026 S2: a customer over the hold limit sees a countdown and keeps their se
   expect(full, 'the hold allowance was filled through the API').toBe(true);
   await customer.dispose();
 
-  // Step 4: another seat clicked, at once, within the wait: refused for the limit.
+  // Step 4: another seat clicked, at once, within the wait: refused for the limit. The wait shown
+  // is the one this refusal gives, whichever window binds on a slow runner (033 review round 2).
+  const refusal = page.waitForResponse(
+    (r) =>
+      r.request().method() === 'POST' &&
+      new URL(r.url()).pathname === `/events/${event.id}/reservation` &&
+      r.status() === 429,
+  );
   await second.click();
+  const retryAfter = Number((await (await refusal).json()).error.details.retryAfterSeconds);
   // The visible banner; a visually hidden live region carries the same words for screen readers
   // (review M2), so the text alone matches twice.
   const message = tickets.locator('p.banner', {
@@ -76,7 +84,9 @@ test('026 S2: a customer over the hold limit sees a countdown and keeps their se
   await expect(message).toBeVisible();
   const n = Number((await message.textContent())?.match(/\d+/)?.[0]);
   expect(n).toBeGreaterThanOrEqual(1);
-  expect(n).toBeLessThanOrEqual(5);
+  // Counting down from the refusal's own N: at most N, and not more than a couple of seconds less.
+  expect(n).toBeLessThanOrEqual(retryAfter);
+  expect(n).toBeGreaterThanOrEqual(Math.max(1, retryAfter - 2));
   // Above the seat map; open seats wait it out; the held seat and Add to cart stay.
   await expect(message.locator('xpath=following-sibling::*[1]')).toHaveAttribute(
     'aria-label',
@@ -87,7 +97,7 @@ test('026 S2: a customer over the hold limit sees a countdown and keeps their se
   await expect(held.getByRole('button', { name: 'Add to cart' })).toBeEnabled();
 
   // Step 5: when the countdown ends, the next click holds the second seat.
-  await expect(message).toBeHidden({ timeout: 15_000 });
+  await expect(message).toBeHidden({ timeout: (retryAfter + 5) * 1_000 });
   await expect(second).not.toHaveAttribute('aria-disabled', 'true');
   await second.click();
   await expect(held).toContainText('Section A, Row 1, Seat 2');

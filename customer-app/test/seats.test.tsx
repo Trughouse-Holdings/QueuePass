@@ -365,7 +365,11 @@ describe('confirming seats (US2-3; FR-008, FR-011)', () => {
     );
     const { calls } = withHolds(
       routes(
-        () => json(maps++ === 0 ? seatMap() : reloaded),
+        // The second read takes a moment, as over a network, so a redraw would be seen.
+        () =>
+          maps++ === 0
+            ? json(seatMap())
+            : new Promise<Response>((r) => setTimeout(() => r(json(reloaded)), 50)),
         undefined,
         56,
         // Spec 015: the taken seat is refused when it is held (spec 033: when clicked).
@@ -377,14 +381,27 @@ describe('confirming seats (US2-3; FR-008, FR-011)', () => {
     await chooseTier(/VIP/);
     chooseSection('A');
     await hold(1, 1);
-    fireEvent.click(seatButton(1, 3));
+    // No seat stream here (it is not stubbed), so the map is read again by itself.
+    const clicked = seatButton(1, 3);
+    clicked.focus();
+    let redrawn = false;
+    const watch = new MutationObserver(() => {
+      if (document.body.textContent?.includes('Loading tickets…')) redrawn = true;
+    });
+    watch.observe(document.body, { childList: true, subtree: true, characterData: true });
+    fireEvent.click(clicked);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Section A, Row 1, Seat 3 is already taken.',
     );
-    // Shown as sold once the map reloads; clicked, so it stays focusable (spec 033 review M1).
+    // Shown as sold once the map is read again; clicked, so it stays focusable, and the form is
+    // never redrawn, so the focus stays on it (spec 033 review rounds 1 and 2, M1).
     await vi.waitFor(() => expect(seatButton(1, 3)).toHaveAccessibleName('Row 1, Seat 3, sold'));
     expect(seatButton(1, 3)).toHaveAttribute('aria-disabled', 'true');
+    expect(seatButton(1, 3)).toBe(clicked);
+    expect(clicked).toHaveFocus();
+    watch.disconnect();
+    expect(redrawn).toBe(false);
     expect(chosen()).toEqual(['Section A, Row 1, Seat 1']);
     expect(calls.filter((c) => c.path === '/events/e1/seats').length).toBeGreaterThanOrEqual(2);
   });
