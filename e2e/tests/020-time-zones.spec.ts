@@ -110,7 +110,10 @@ test('020 S7: a start time the venue zone skips is refused and nothing is sent; 
   // Said under the field as soon as it is typed. Spec 035: no second copy in a banner.
   await expect(page.getByText(message).first()).toBeVisible();
   await page.getByRole('button', { name: 'Schedule event' }).click();
-  await expect(page.getByText(message)).toHaveCount(1);
+  // Under the field and in the form's polite status line (035 FR-007). Spec 036: doors derived
+  // from the start add no "Enter when doors open." of their own, so the status keeps this message.
+  await expect(page.getByText(message)).toHaveCount(2);
+  await expect(page.getByTestId('form-status')).toHaveText(message);
   // Every value kept; nothing sent.
   await expectEventDateTime(page, 'Starts', `${night}T02:30`);
   await expect(page.getByRole('heading', { level: 1, name: 'Schedule event' })).toBeVisible();
