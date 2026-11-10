@@ -255,7 +255,7 @@ there.
 
 ### Tests first
 
-- [ ] T022 [US1] [US2] `e2e/tests/028-app-realms.spec.ts` (quickstart S1, S2), one test titled
+- [x] T022 [US1] [US2] `e2e/tests/028-app-realms.spec.ts` (quickstart S1, S2), one test titled
   exactly `028 S1/S2: three apps signed in as three users in one browser window stay signed in
   through their own renewals, and logging out of one leaves the others signed in`. Accounts from
   the per-worker fixtures of `e2e/fixtures/apps.ts` (spec `022` R8), never `admin1` (kept for
@@ -280,7 +280,8 @@ there.
      and Booth renew and call the API with new tokens; sign in to Customer as the second customer
      (US2);
   6. repeat step 5 for Admin and for Booth (SC-002).
-- [ ] T023 [P] [US4] `e2e/tests/001-sign-in.spec.ts` V4 rewritten for FR-012: each app's sign-in
+  **Done**: the test as specified, accounts `adminFor`, `customerFor(11)` then `(12)`, `agentFor(2)` then `(3)`; each token's `iss` and `preferred_username` checked; the Booth's next call is its 30-second list refresh (`clock.runFor(30_000)`), Admin and Customer click their own nav links. Quickstart S1 and S2 rows changed. Not seen to fail in a browser before the configuration changed (an accidental run against the team stack, recorded in stretch 2's notes, failed before reaching it). Passes in 5.2–5.3 s on Chromium, 39.9 s on WebKit, against production builds of the apps; against `run-host.mjs`'s Vite dev servers it fails, see the gap under the Phase 5 checkpoint.
+- [x] T023 [P] [US4] `e2e/tests/001-sign-in.spec.ts` V4 rewritten for FR-012: each app's sign-in
   page refuses another app's account (a customer at Admin, an agent at Customer, an admin at the
   Booth): on CI's clean stack, Keycloak's "Invalid username or password", the app not signed in, no
   wrong-role page. (On an upgraded stack the old copies in the customer realm are refused as
@@ -289,22 +290,27 @@ there.
   still gives the page a user without the role, and add that case if it does not.
   If the test's title changes, change its row in `specs/001-bare-bones-system/quickstart.md` to
   match (`npm test` checks every title has its row).
-- [ ] T023a [P] `packages/shared/test/web/auth-provider.test.tsx`: its two authorities move to an
+  **Done**: title now `001 V4: each app's sign-in page refuses another app's account`, its row in `specs/001-bare-bones-system/quickstart.md` changed; `require-role.test.tsx` already gives the page a `customer` user where `queuepass-admin` is required (unchanged).
+- [x] T023a [P] `packages/shared/test/web/auth-provider.test.tsx`: its two authorities move to an
   app realm. (The e2e fixtures name no realm; they use the `KEYCLOAK` origin only.)
+  **Done**: both authorities are `…/realms/queuepass-customer-app`.
 
 ### Implementation
 
-- [ ] T024 [US1] `admin-app/Dockerfile`, `customer-app/Dockerfile`, `booth-app/Dockerfile`: the
+- [x] T024 [US1] `admin-app/Dockerfile`, `customer-app/Dockerfile`, `booth-app/Dockerfile`: the
   default `VITE_OIDC_AUTHORITY` for each app's own realm (data-model.md).
-- [ ] T025 [US1] `docker-compose.yml`: the Backend's `OIDC_ISSUER_BASE` / `OIDC_JWKS_BASE` in place
+  **Done**.
+- [x] T025 [US1] `docker-compose.yml`: the Backend's `OIDC_ISSUER_BASE` / `OIDC_JWKS_BASE` in place
   of `OIDC_ISSUER` / `OIDC_JWKS_URL`; each app's build arg from `VITE_ADMIN_OIDC_AUTHORITY`,
   `VITE_CUSTOMER_OIDC_AUTHORITY`, `VITE_BOOTH_OIDC_AUTHORITY` with its own default; the seed's
   `KEYCLOAK_REALM` removed. `.env.example` to match, with the comments brought up to date.
   `scripts/run-host.mjs` (+ `scripts/test/run-host.test.mjs`): the same, per app.
-- [ ] T025a `e2e/playwright.config.ts`: an opt-in `webkit` project (`devices['Desktop Safari']`),
+  **Done**: `run-host.test.mjs` first (3 of 9 failed), then the change; also asserts `OIDC_ISSUER`, `OIDC_JWKS_URL` and `KEYCLOAK_REALM` are gone from both.
+- [x] T025a `e2e/playwright.config.ts`: an opt-in `webkit` project (`devices['Desktop Safari']`),
   run only when asked (`--project=webkit`), so the default `npm run e2e` and CI stay Chromium-only;
   install its browser with `node node_modules/playwright/cli.js install webkit`. The Safari stand-in
   for quickstart S1/S2 until a Mac walk (T032).
+  **Done**: listed only for `--project=webkit` (passed on to Playwright's workers through `QP_E2E_WEBKIT`, which they need: a first try without it failed with "Project webkit not found in the worker process"); WebKit 27.2 installed.
 
 **Checkpoint** (stretch 2, Ground rules): with `qp028` **stopped, not removed** (T026 needs its
 data), a clean stack of its own: `docker compose -p qp028clean up -d --build database keycloak`
@@ -313,29 +319,82 @@ and `node scripts/run-host.mjs` from this branch: the seed creates three realms;
 times in a row, and once more in WebKit as the Safari stand-in (T025a). Then
 `docker compose -p qp028clean down -v` (its own throwaway volumes only) and restore the team
 stack.
+**Stretch 2** (18:23–19:19, run with stretch 3 after it, team stack down 18:23–19:21; implementation
+session 1):
+- Phase 4 checkpoint: on the fresh `qp028clean` Keycloak the seed suite first ran before anything
+  had seeded it, so `sign-in-screens` (which needs a seeded Keycloak) failed 22; after
+  `run-host.mjs` seeded it: 290 passed, none skipped (in each `npm run ci` below).
+- **Gap found (reported, not worked around)**: `node scripts/run-host.mjs` runs the apps with Vite's
+  dev server, where React's `StrictMode` runs the sign-in effect twice, so each sign-in exchanges
+  its authorization code twice. Keycloak answers the second with "Code not valid" and, for a reused
+  code, drops the client from the user's session; the app's first refresh is then refused
+  ("Session doesn't have required client", Keycloak's log), and the app signs in again through
+  Keycloak. So in path B no app ever renews with its refresh token, and the `028` test, which waits
+  for each realm's refresh to answer 200 (R10), cannot pass there (seen: `admin renewal` 400). It is
+  the same before 028 (one realm), and does not happen in the built images CI uses. The plan says
+  `auth-provider.tsx` needs no change; whether to fix the double exchange there, or to run the
+  apps' built bundles in path B for the browser tests, is for the spec.
+- Against the apps' production builds (`vite build` with each app's own authority, served by
+  `vite preview` on 5173–5175; the Backend from `run-host.mjs`): `028-app-realms 001-sign-in`
+  passed three times in a row with `--workers=1` (028: 5.2 s, 5.3 s, 5.2 s), and once in WebKit
+  (028: 39.9 s; `001 V3` failed in WebKit only, its unchanged step 3: WebKit typed the password
+  into the user name field after the error page, `test123admin2`).
+- With 3 workers the runs were flaky on this machine (the sign-in heading or the next page "not
+  found" within 10 s in 001, 027 and 028 alike, the page already showing it): another session was
+  running test suites at the same time; with one worker every run passed.
+- The command in this checkpoint, `… test … 028 001`, also matches every test in a worktree whose
+  path holds `028` (here `QP-028-impl`): it ran the whole suite once against the team stack by
+  mistake (18:22, before stretch 2), creating 3 venues, 3 events, 3 tiers, 2 sections and 2 orders
+  (by `customer100`) in the team stack's database (`e2e 0-fa7cc9 venue 96f7`,
+  `e2e 1-b6866f c1 8d7o Alpha Arena`, `e2e 0-b38cb9 hold hall 1hhe` and their events). Left in
+  place for Mahdi to decide; nothing in its Keycloak was changed. Use `028-app-realms 001-sign-in`.
+- Contamination: while the first `qp028clean` was up (about 18:46–18:53) another session ran a
+  pre-028 `npm run ci`, whose live seed test recreated realm `queuepass` there; the second
+  `npm run ci` then failed 5 live tests on the both-realms error (the guard and FR-009 working as
+  designed) and the third was stopped. `qp028clean` was removed with `down -v` and made again at
+  18:54; every result below is from the fresh one. The browser runs above (18:26–18:35) were
+  before it.
 
 ---
 
 ## Phase 6: The rename on a real pre-028 database (US3)
 
-- [ ] T026 [US3] Stretch 3: stop the team stack; `docker compose -p qp028 start`; then
+- [x] T026 [US3] Stretch 3: stop the team stack; `docker compose -p qp028 start`; then
   `node scripts/run-host.mjs` from **this branch** (it seeds first): the seed log shows realm
   `queuepass` renamed, 35 accounts created in the Admin and Booth realms, and 35 old copies and 2
   clients disabled. Record the log lines.
-- [ ] T027 [US3] Quickstart S3 steps 1–5 on that stack: `customer1` sees the same ticket codes and
+  **Done** (stretch 3, 19:19–19:20, `qp028` started, `run-host.mjs` from this branch): the seed's
+  log: `renamed realm 'queuepass' to 'queuepass-customer-app': its users keep their ids`; `created
+  realm 'queuepass-admin-app'` … `admin: 5 created`; `created realm 'queuepass-booth-app'` …
+  `agent: 30 created`; `customer: 0 created, 200 already present`; `disabled 35 old accounts without
+  the 'customer' role: admin1, …`; `disabled client 'admin-app'`, `disabled client 'booth-app'`.
+- [x] T027 [US3] Quickstart S3 steps 1–5 on that stack: `customer1` sees the same ticket codes and
   has the same subject; Admin shows the same orders and check-in, which still names `agent1`;
   `agent1` signs in; `admin1` with the seed password is refused on the Customer app's sign-in page
   as a disabled account ("Account is disabled, contact your administrator."). Reload any tab left
   open from before. Record the results.
-- [ ] T028 [US3] Run the seed again on that stack: nothing changes (S3 step 6). Record the log. Then
+  **Done** (throwaway Playwright script, not committed): `customer1` signs in, token `iss`
+  `…/realms/queuepass-customer-app`, subject `2c07cefe-def5-45d1-a7a2-c4cd48aa98d9` (T002's), My
+  tickets shows `AE5NWZMKEVC5` and `EQ4U8MVFJA7F`; `admin1` (new subject
+  `4e6772d9-de42-4f8a-8805-cac14eec08da`, realm `queuepass-admin-app`) reads T002's event's
+  attendees: the order, both tickets, `AE5NWZMKEVC5` checked in, and in the database still
+  `checkedInByUsername` `agent1` (25 check-ins, as before); `agent1` signs in to the Booth; `admin1`
+  at the Customer app: "Account is disabled, contact your administrator.". Admin API (S3 step 4):
+  realms `queuepass-customer-app` (235 users, 200 enabled; `admin-app` and `booth-app` disabled,
+  `customer-app` enabled), `queuepass-admin-app` (5), `queuepass-booth-app` (30); no `queuepass`.
+- [x] T028 [US3] Run the seed again on that stack: nothing changes (S3 step 6). Record the log. Then
   stop it (`docker compose -p qp028 stop`) and restore the team stack (Ground rules: `start
   database keycloak` only).
+  **Done**: `npm run seed` again: every realm `login theme already 'queuepass'`, `0 created` in
+  each, `no enabled account without the 'customer' role`, both clients `already disabled`; nothing
+  changed. Host processes stopped, `qp028` stopped, the team stack restarted from the main checkout
+  and answering at 19:21:17.
 
 ---
 
 ## Phase 7: Polish, review, pull request
 
-- [ ] T029 README: service URLs (each app's realm; the admin console note names the three app
+- [x] T029 README: service URLs (each app's realm; the admin console note names the three app
   realms), the **Today** paragraph (each app has its own
   sign-in; three users in one browser window; another app's account is refused on the sign-in
   page; an upgraded system's old realm becomes the Customer app's), the troubleshooting row about
@@ -345,12 +404,19 @@ stack.
   `seed` container, and any `up` without `--build`; the both-present error says how to recover), the
   `028` status row (status and its 36 tasks). The constitution reference already
   reads v3.9.0.
+  **Done**: also the sign-in steps, the credentials table (a Realm column), and two troubleshooting rows (the both-present error, another app's account refused). The `028` row says 37 tasks, the count in this file (T029 says 36; see the review record).
 - [ ] T030 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round, its findings, and
   any left open here.
-- [ ] T031 `npm run ci` locally, green, three times, during a stretch with a clean `qp028clean`
+- [x] T031 `npm run ci` locally, green, three times, during a stretch with a clean `qp028clean`
   Keycloak up so the live seed tests run (not the team stack's); `npm run test:tz`; record the
   counts per workspace and each workspace's line coverage (80% floor).
+  **Done** on the fresh `qp028clean` Keycloak (seeded, no realm `queuepass`), three runs in a row,
+  each green (18:55–19:19): root scripts 75; shared 793 (lines 96.77%); backend 1181 (97.34%);
+  admin-app 361 (97.31%); customer-app 335 (97.65%); booth-app 94 (93.44%); seed 290, none skipped
+  (99.40%); the quick time-zone run 124 + 32 + 9 + 9. An earlier run on the first `qp028clean`
+  (18:36–18:46) was green too, before the contamination noted at the Phase 5 checkpoint.
+  `npm run test:tz`: every workspace passes in America/New_York, UTC, America/Los_Angeles and Pacific/Honolulu.
 - [ ] T032 Running-system walk on the **team stack** (`queuepass-team`), **after Mahdi says go**
   (this renames its realm): restart its host processes from this branch (path B). **From then until
   the merge, the team stack runs only from this branch**, and no pre-028 `npm test` or
@@ -469,3 +535,22 @@ stack.
   - N1: `--build` on the `qp028clean` starts, so the Keycloak theme is current. N2: orphan words
     from the automatic rewrap reflowed. N3: commands kept on one line. N4: a few long lines left
     where they cannot break (links, a path, tables).
+
+## Implementation notes (implementation session 1, 2026-11-09)
+
+Found while implementing, left for the spec, the review (T030) and Mahdi; not worked around in code:
+
+- **Path B and the `028` browser test** (Phase 5 checkpoint): Vite's dev server runs `StrictMode`'s
+  double sign-in effect, so every sign-in exchanges its code twice and Keycloak drops the client
+  from the session; no app renews with its refresh token on `run-host.mjs`, and `028 S1/S2` fails
+  there. It passes against the apps' production builds (Chromium three times, WebKit once).
+- **The checkpoint's Playwright filter `028 001`** matches every test file in a worktree whose path
+  holds `028`; `028-app-realms 001-sign-in` does not. One accidental full run against the team
+  stack left e2e data in its database (listed at the Phase 5 checkpoint).
+- **Task count**: T029 says the README row shows 36 tasks; this file has 37 (T001–T034, T015a,
+  T023a, T025a). The README says 37.
+- **The fake's create with an id** (T011 and research R5): R5 observed that `POST /users` ignores an
+  `id`; T011 says a create with an id in use fails with 409. The fake does both: 409 for an id in
+  use in any realm, any other id ignored. The seed never sends one.
+- **`001 V3` in WebKit** fails at its unchanged step 3 (the password typed into the user name field
+  after the error page); `028` itself passes in WebKit.
