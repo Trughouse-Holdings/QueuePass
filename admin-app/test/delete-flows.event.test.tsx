@@ -134,11 +134,6 @@ describe('Deleting the blocking event frees its window', () => {
         return json(null, 204);
       },
       'POST /events': () => (blockerDeleted ? json(created, 201) : json(conflict409, 409)),
-      // Spec 008 US7: the event's ticket type is created right after it.
-      [`POST /events/${created.id}/tiers`]: json(
-        { id: 't-gen', eventId: created.id, name: 'General', price: '45.00', quantity: 500 },
-        201,
-      ),
     });
     render(
       <MemoryRouter initialEntries={['/events/new']}>
