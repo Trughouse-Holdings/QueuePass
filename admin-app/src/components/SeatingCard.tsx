@@ -23,7 +23,8 @@ const asApiError = (err: unknown): ApiError =>
  * Spec 007 US4 (FR-002, FR-004, FR-012): reserved seating on or off, each section's tier, and
  * the seat map. The Backend refuses switching after sales and retiering sold sections; this card
  * only explains the refusals in advance. Spec 015 FR-010 (research R14): the seat map and its
- * counts update live, from the same stream customers read.
+ * counts update live, from the same stream customers read. Issue #136 (research R12): the switch
+ * is shown only when it can be used, or when it is on, so it says the event is seated.
  */
 export function SeatingCard({
   event,
@@ -106,12 +107,18 @@ export function SeatingCard({
       return <p className="note">Seating is unavailable right now.</p>;
     }
     const { map, tiers, hasSales } = load;
-    const noLayout = map.sections.length === 0;
-    const reason = noLayout
-      ? 'This venue has no seating layout.'
-      : hasSales
-        ? "Seats can't change after tickets are sold."
-        : null;
+    // Issue #136 (research R12): with no layout, or with sales and reserved seating off, the
+    // switch can never be used, so the card says general admission instead of showing it.
+    if (map.sections.length === 0) {
+      return <p className="note">General admission: this venue has no seating layout.</p>;
+    }
+    if (hasSales && !map.reservedSeating) {
+      return (
+        <p className="note">
+          {"General admission: tickets have been sold, so reserved seating can't be turned on."}
+        </p>
+      );
+    }
     const shown = map.sections.find((s) => s.sectionId === viewing) ?? map.sections[0];
 
     return (
@@ -120,12 +127,12 @@ export function SeatingCard({
           <input
             type="checkbox"
             checked={reserved}
-            disabled={reason !== null}
+            disabled={hasSales}
             onChange={(e) => setReserved(e.target.checked)}
           />{' '}
           Reserved seating
         </label>
-        {reason && <p className="note">{reason}</p>}
+        {hasSales && <p className="note">{"Seats can't change after tickets are sold."}</p>}
 
         {reserved && tiers.length > 0 && (
           <div className="form__row">
@@ -148,18 +155,16 @@ export function SeatingCard({
             ))}
           </div>
         )}
-        {!noLayout && (
-          <div className="form__actions">
-            <button
-              type="button"
-              className="btn btn--primary"
-              disabled={busy}
-              onClick={() => void save()}
-            >
-              {busy ? 'Saving…' : 'Save seating'}
-            </button>
-          </div>
-        )}
+        <div className="form__actions">
+          <button
+            type="button"
+            className="btn btn--primary"
+            disabled={busy}
+            onClick={() => void save()}
+          >
+            {busy ? 'Saving…' : 'Save seating'}
+          </button>
+        </div>
 
         {/* FR-006: a tier with no section sells nothing; say so instead of letting it look on sale. */}
         {map.reservedSeating &&

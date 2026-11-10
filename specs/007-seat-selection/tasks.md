@@ -248,7 +248,8 @@ matching counts (quickstart S2, S4).
   per section (including "Not for sale"); Save seating sends `PUT /events/{id}/seating` with
   `reservedSeating` and the mapped sections only; a refusal shows its message; the seat map shows
   one section at a time (a section select), each row as a line of seats marked sold or open, and
-  "2 sold, 28 open" for that section.
+  "2 sold, 28 open" for that section. (Revised by research R12, #136: with no layout, or with
+  sales and reserved seating off, a "General admission: …" line replaces the checkbox.)
 - [X] T024 [P] [US4] Add to `admin-app/test/attendees.test.tsx`: a seated ticket shows
   "Section A, Row 1, Seat 5" next to its code; general-admission tickets show no seat.
 
