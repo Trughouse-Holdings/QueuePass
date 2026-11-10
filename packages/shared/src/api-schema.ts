@@ -1810,18 +1810,16 @@ export interface components {
             /**
              * @description `null` while tickets can be ordered; otherwise why they cannot: `CANCELLED` for a
              *     cancelled event (whatever the time), else `ENDED` from the event's `endsAt` on
-             *     (half-open; feature 034). `STARTED` was sent from `startsAt` on before feature 034 and
-             *     is never sent once 034 is implemented; 034's implementation removes it from this list.
+             *     (half-open; feature 034).
              * @enum {string|null}
              */
-            salesClosed: "CANCELLED" | "ENDED" | "STARTED" | null;
+            salesClosed: "CANCELLED" | "ENDED" | null;
             /**
              * @description Feature 034. `true` from the event's `startsAt` until its `endsAt` (half-open: `false` at
              *     `endsAt` exactly), by the Backend's clock when it answers, the same clock as
-             *     `salesClosed`; whatever the event's `status`. Always sent once 034 is implemented, and
-             *     listed as required then; until then clients treat a missing value as `false`.
+             *     `salesClosed`; whatever the event's `status`. Always sent.
              */
-            inProgress?: boolean;
+            inProgress: boolean;
             /** @description One entry per tier, in the order `listTicketTiers` returns; empty without tiers. */
             tiers: components["schemas"]["TierAvailability"][];
         };
