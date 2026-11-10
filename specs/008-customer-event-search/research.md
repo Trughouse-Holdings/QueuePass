@@ -149,6 +149,8 @@ change with all-member approval for one form; the event page's cards stay for la
   quantity (`TicketTierInput.quantity` is required without reserved seating, `007` R11).
 - **Create**: `POST /events`; seated: `PUT seating` on, `POST tiers` (no quantity), `PUT seating`
   mapping; general admission: `POST tiers` with quantities. Then open the event.
+  *Superseded by `031` (#127): one `POST /events` carries `reservedSeating` and `tiers` (each with
+  its `sectionIds`), saved all or nothing (`031` research R1 to R5). Edit, below, is unchanged.*
 - **Edit** loads the event, its tiers, and (at a venue with a layout) its seat map. Saving: `PATCH
   /events/{id}`; `POST` new tiers; `PATCH` changed tiers (quantity only for general admission);
   `PUT seating` with the choice and mappings (seated) when the venue has a layout; then `DELETE`

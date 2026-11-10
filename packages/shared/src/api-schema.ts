@@ -445,6 +445,52 @@ export interface paths {
          *     `startsAt`, both allowed: otherwise `400 DOORS_OPEN_OUT_OF_RANGE`, whose message names the
          *     allowed range in the venue's local time. This comes before the capacity checks. The Admin
          *     app always sends it.
+         *
+         *     Feature 031: **the event, its ticket types, and its reserved seating are saved together or
+         *     not at all.** `tiers` and `reservedSeating` are optional; a request with neither (or with
+         *     `tiers: []` and `reservedSeating: false`) is checked, saved, and answered exactly as
+         *     before. With them, the whole request is one transaction: any refusal, or any failure
+         *     before it commits, leaves no event, ticket type, or section mapping. Each part obeys the
+         *     rules `createTier` and `updateSeating` apply. The checks, in order:
+         *
+         *     - **Seating**, right after the event's times and doors are checked and before the
+         *       capacity checks, since the capacity depends on it: `reservedSeating: true` needs a
+         *       venue with a seating layout (`400` naming `reservedSeating`) and no
+         *       `totalTicketCapacity` (`400` naming `totalTicketCapacity`). The event's capacity is then
+         *       the layout's total seats, and the capacity and `maxTicketsPerCustomer` checks use
+         *       it.
+         *     - The event's other checks as before: capacity, `maxTicketsPerCustomer`, scheduling
+         *       conflict.
+         *     - **Each ticket type, in the order sent**: its name, trimmed, is not the name of an
+         *       earlier one ignoring case (`409 TIER_NAME_TAKEN`); without reserved seating `quantity`
+         *       is required and a non-empty `sectionIds` is refused, with it `quantity` must be left out
+         *       (`400` for each); every section in `sectionIds` is in the venue's layout and listed
+         *       under no earlier ticket type (`400`).
+         *     - **The ticket types together**: without reserved seating, their quantities add up to no
+         *       more than the event's `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`).
+         *
+         *     With reserved seating each ticket type's `quantity` becomes the seats of its sections, 0
+         *     when it lists none, and a section listed under no ticket type is not for sale, as after
+         *     `updateSeating`. The venue row is held for the whole transaction, so a layout change at
+         *     the venue runs entirely before or after it.
+         *
+         *     **Which field a refusal is about.** A rule refusal about one ticket type names it by path,
+         *     `tiers.<index>.<field>` (the zero-based index in `tiers`; the field `name`, `price`,
+         *     `quantity`, or `sectionIds`); one about the ticket types together names `tiers`; one
+         *     about seating names `reservedSeating` or `totalTicketCapacity`. On a `409`
+         *     (`TIER_NAME_TAKEN`, `CAPACITY_EXCEEDED`) the path is `details.field`. A `409
+         *     TIER_NAME_TAKEN` without `details.field` is the database's backstop (two names the
+         *     check took as different but the database's case folding did not) and names no ticket
+         *     type. On `400 VALIDATION_FAILED` every malformed field is listed at once in
+         *     `details.fields`, and each entry about the new fields starts with its place: an entry
+         *     about one field of ticket type *i* starts `tiers.<i>.<field> ` (`tiers.1.price must be
+         *     …`); an unknown field in ticket type *i* is `tiers.<i>.property <name> should not exist`;
+         *     any other entry about the ticket types (`tiers` not a list, an entry that is not an
+         *     object, more than 50) starts with `tiers` (an entry that is not an object reads
+         *     `tiers.tiers must be a list of ticket types, …`); one about seating starts with
+         *     `reservedSeating` or `totalTicketCapacity`. So a client places an entry on ticket type
+         *     *i* when it starts `tiers.<i>.`, on the ticket types when it otherwise starts `tiers`, and
+         *     on seating by those two names. The rest of each message is for people.
          */
         post: operations["createEvent"];
         delete?: never;
@@ -1438,6 +1484,42 @@ export interface components {
             maxTicketsPerCustomer?: number | null;
             /** @description Non-negative decimal string. */
             basePrice: string;
+            /**
+             * @description Feature 031. Optional; left out, `false`. `true` schedules the event with reserved
+             *     seating at its venue's layout, as `updateSeating` would turn it on: the venue must have
+             *     a layout, and `totalTicketCapacity` must be left out (the capacity is the layout's total
+             *     seats). May be left out but not sent as `null` (`400`).
+             */
+            reservedSeating?: boolean;
+            /**
+             * @description Feature 031. Optional. The event's ticket types, saved with it in one transaction, all
+             *     or nothing (`createEvent`). Left out or empty, the event has none, as before. At most
+             *     50, as many as a layout's sections. May be left out but not sent as `null` (`400`).
+             */
+            tiers?: components["schemas"]["EventTierInput"][];
+        };
+        /**
+         * @description Feature 031. One ticket type in `createEvent`: the fields of `TicketTierInput`, and the
+         *     sections it sells when the event has reserved seating. Any other field is
+         *     `400 VALIDATION_FAILED`.
+         */
+        EventTierInput: {
+            /** @description Trimmed; unique within the request ignoring case. */
+            name: string;
+            /** @description Non-negative decimal string. */
+            price: string;
+            /**
+             * @description Required without reserved seating; left out with it (its quantity is then its
+             *     sections' seats). The ticket types together may not exceed the event's
+             *     `totalTicketCapacity`. Never `null`.
+             */
+            quantity?: number;
+            /**
+             * @description Only with `reservedSeating: true`. The sections of the venue's layout this ticket type
+             *     sells, each section under one ticket type at most. Left out or empty, it sells none
+             *     yet (quantity 0). May be left out but not sent as `null` (`400`).
+             */
+            sectionIds?: string[];
         };
         /**
          * @description Partial update; supply only the fields being changed. From 1.19.0 (#117), a field may be
