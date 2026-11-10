@@ -1,16 +1,15 @@
 # Contract Changes: All-or-Nothing Event Scheduling
 
 The single contract is [`contracts/openapi.yaml`](../../../contracts/openapi.yaml) (Constitution I).
-This feature moves it to **1.23.0** in the spec and plan PR (MINOR: two optional request fields and
+This feature moves it from **1.22.0 to 1.23.0** in the spec and plan PR (MINOR: two optional request fields and
 a new request schema; no response, operation, or error code changes), with
 `packages/shared/src/api-schema.ts` regenerated (`node node_modules/openapi-typescript/bin/cli.js
 contracts/openapi.yaml -o packages/shared/src/api-schema.ts`, the same as `npm run generate:api`) and
 `node scripts/check-contract-drift.mjs` passing.
 
-**Version order**: `main` is at 1.21.0. Spec `030` (branch `030-hide-past-events-spec`, not merged)
-takes 1.22.0. This branch, cut from `main`, goes 1.21.0 → 1.23.0 directly; once `030` merges it is
-rebased onto `main`, keeping `030`'s `listEvents` change and this version, and `api-schema.ts` is
-regenerated (research R12).
+**Version order**: spec `030`'s spec PR (merged, `10bd53f`) took 1.22.0. This branch is rebased onto
+it, keeps its `listEvents` change and its `VALIDATION_FAILED` examples, and regenerates
+`api-schema.ts` (research R12).
 
 No new operation, so no `x-planned` marker. Until the implementation merges, `main`'s Backend
 refuses `tiers` and `reservedSeating` as unknown fields (`400 VALIDATION_FAILED`, the global pipe's
@@ -20,11 +19,11 @@ compiles unchanged.
 
 | Where | Change |
 | --- | --- |
-| `info.version` | 1.21.0 → 1.23.0 |
-| `createEvent` description | New paragraphs **Feature 031**: the event, its ticket types, and its reserved seating are saved together or not at all; without `tiers` and `reservedSeating` (or with `tiers: []` and `false`) exactly as before; the order of checks (seating right after the times and doors, then capacity, limit, conflict, then each ticket type in order, then their total); seated quantities from the sections; the venue held for the whole transaction; **which field a refusal is about**: the path `tiers.<index>.<field>`, `tiers`, `reservedSeating`, or `totalTicketCapacity`, in `details.field` on a `409` and at the start of each `details.fields` entry on a `400`. |
-| `EventInput` | New optional `reservedSeating` (boolean; left out is `false`) and `tiers` (array of `EventTierInput`). |
-| `EventTierInput` | New schema: `name` and `price` required (as `TicketTierInput`), `quantity` (integer ≥ 1, without reserved seating only), `sectionIds` (unique UUIDs, with reserved seating only). |
-| `responses.EventTimeRejected` examples | New `tierFieldsFailed` (two ticket type fields at once, with paths) and `sectionNotInLayout`. |
+| `info.version` | 1.22.0 → 1.23.0 |
+| `createEvent` description | New paragraphs **Feature 031**: the event, its ticket types, and its reserved seating are saved together or not at all; without `tiers` and `reservedSeating` (or with `tiers: []` and `false`) exactly as before; the order of checks (seating right after the times and doors, then capacity, limit, conflict, then each ticket type in order, then their total); seated quantities from the sections; the venue held for the whole transaction; **which field a refusal is about**: the path `tiers.<index>.<field>`, `tiers`, `reservedSeating`, or `totalTicketCapacity`, in `details.field` on a `409` (a `TIER_NAME_TAKEN` without it is the database's backstop, naming no type); on a `400`, each entry starts with its place: `tiers.<i>.<field> ` for a field rule, `tiers.<i>.property <name> should not exist` for an unknown field, `tiers…` for anything else about the ticket types (`tiers.tiers must be a list …` for an entry that is not an object), `reservedSeating` / `totalTicketCapacity` for seating; a non-empty `sectionIds` without reserved seating is refused. |
+| `EventInput` | New optional `reservedSeating` (boolean; left out is `false`) and `tiers` (array of `EventTierInput`, at most 50); neither may be sent as `null`. |
+| `EventTierInput` | New schema: `name` and `price` required (as `TicketTierInput`), `quantity` (integer ≥ 1, without reserved seating only), `sectionIds` (unique UUIDs, at most 50, non-empty only with reserved seating; not `null`). |
+| `responses.EventTimeRejected` examples | New `tierFieldsFailed` (two ticket type fields at once, with paths), `unknownTierField`, and `sectionNotInLayout`. |
 | `responses.Conflict` examples | New `tierNameRepeatedInRequest` (`TIER_NAME_TAKEN`, `details.field: tiers.1.name`) and `tiersOverCapacityInRequest` (`CAPACITY_EXCEEDED`, `details.field: tiers`, `totalTicketCapacity`, `tierTotal`). |
 
 Unchanged: the path, `x-required-roles: [queuepass-admin]`, the response schemas and status codes

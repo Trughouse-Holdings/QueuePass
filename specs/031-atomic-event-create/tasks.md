@@ -26,10 +26,10 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 - **Contract first**: the contract (1.23.0) and `api-schema.ts` come from the spec PR. The
   implementation does not change `contracts/openapi.yaml`, `packages/shared/`, `backend/prisma/`, or
   any other shared surface; if it finds it must, the change goes to the spec PR first.
-- **Spec `030`** (branch `030-hide-past-events-spec`) also raises the contract (1.22.0) and the
-  constitution (3.9.2). If it has merged, rebase onto `main` first: keep both roadmap rows, version
-  3.9.3, `030`'s `listEvents` change with version 1.23.0, and regenerate `api-schema.ts` (research
-  R12). Its code (`EventsService.findAll`, the Admin event list) does not overlap this feature's.
+- **Spec `030`**: its spec PR is merged and this branch is rebased onto it (contract 1.23.0 on
+  `030`'s 1.22.0, constitution 3.9.3 on 3.9.2; research R12). Its implementation (`EventsService.
+  findAll`, the Admin event list) does not overlap this feature's code; if it merges first, rebase
+  and keep both.
 - **One independent review** (Constitution III) of the implementation branch before its PR (T021).
 - **`npm run ci` locally** before pushing (T019), then **CI green on GitHub**, the `test` and `e2e`
   checks, before merge (T023).
@@ -72,14 +72,20 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   counts of `Event`, `TicketTier`, and `SectionTier` rows unchanged**: a repeated name (`Floor` /
   `floor`, and `Floor` / ` Floor `; `409 TIER_NAME_TAKEN`, `tiers.1.name`); a missing quantity
   without reserved seating (`400`, `tiers.0.quantity`); a quantity with it (`tiers.0.quantity`);
-  `sectionIds` without it (`tiers.0.sectionIds`); a section of another venue's layout and a random
+  a non-empty `sectionIds` without it (`tiers.0.sectionIds`; `sectionIds: []` without it is
+  accepted); `null` for `reservedSeating`, `tiers`, and a type's `sectionIds` (each `400`, its entry
+  starting with its name); 51 ticket types (`tiers may hold at most 50 ticket types`); `tiers: [5]`
+  (an entry exactly `tiers.tiers must be a list of ticket types, each an object with a name and a
+  price`); a section of another venue's layout and a random
   UUID (`tiers.0.sectionIds`, the message saying to reload); a section under two types
   (`tiers.1.sectionIds`); a repeated id in one `sectionIds` (`400`, `tiers.0.sectionIds`); reserved
   seating at a venue without a layout (`reservedSeating`); `totalTicketCapacity` with reserved seating
   (`totalTicketCapacity`); `maxTicketsPerCustomer` above the layout's total (`400`, as today);
   quantities over the capacity (`409 CAPACITY_EXCEEDED`, `details.field: tiers`, `totalTicketCapacity`,
   `tierTotal`); malformed fields in two types at once (both listed, each with its path); an unknown
-  field in a type; a scheduling conflict with ticket types (`409 SCHEDULING_CONFLICT`); the order of
+  field in a type (`tiers: [{ …, colour: 'red' }]`: an entry exactly `tiers.0.property colour should
+  not exist`); every entry of every `400` in this file starts with `tiers`, `reservedSeating`, or
+  `totalTicketCapacity` (no class-validator default message); a scheduling conflict with ticket types (`409 SCHEDULING_CONFLICT`); the order of
   R4 (a request with both a conflict and a repeated name gets the conflict; one with a repeated name
   and a bad section in a later type gets the name). And **a failure after the first write** (FR-015):
   make the mapping insert fail after the event and its types were written (a Jest spy on the
@@ -110,7 +116,9 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   CAPACITY_EXCEEDED` with `field: 'tiers'` beside the ticket types; scheduling again clears them and,
   answered `201`, uploads the picture and opens the event; a rejected `fetch` (a `TypeError`) shows
   FR-011's message with a link to `/events` and keeps every value; "Seating setup not finished"
-  appears nowhere. Must fail.
+  appears nowhere; a `502` with a non-envelope body gives the same no-answer message, and a `500`
+  with the envelope the banner as today; a `409 TIER_NAME_TAKEN` without `details.field` shows in
+  the banner only. Must fail.
 - [ ] T007 [US1] Update the existing Admin tests written against the old create sequence (SC-005),
   keeping what each checks: `event-seating-create.test.tsx` (the create flow and its refusal, now one
   request; its "Finish on the event page" case becomes "nothing saved, values kept"),
@@ -133,11 +141,11 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 ## Phase 3: Backend (US1, US2, US3)
 
 - [ ] T009 [US3] `backend/src/events/dto/event-tier.dto.ts` (new) and `create-event.dto.ts` (research
-  R9): `EventTierDto extends CreateTierDto` with `sectionIds?: string[]` (`@IsOptional()`,
-  `@IsArray()`, `@ArrayUnique()`, `@IsUUID('all', { each: true })`, messages starting with
-  `sectionIds`); `CreateEventDto.reservedSeating?: boolean` (`@IsOptional() @IsBoolean()`) and
-  `tiers?: EventTierDto[]` (`@IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() =>
-  EventTierDto)`). T003's malformed and unknown field cases pass.
+  R9, which lists every decorator and its message): `EventTierDto extends CreateTierDto` with
+  `sectionIds?: string[]`; `CreateEventDto.reservedSeating?: boolean` and `tiers?: EventTierDto[]`
+  (at most 50). Every decorator has its own message starting with its property name; `null` is
+  refused with `@ValidateIf(… !== undefined)`, not skipped by `@IsOptional()`. T003's malformed,
+  `null`, size, and unknown field cases pass.
 - [ ] T010 [US1] [US2] `backend/src/events/event-setup.ts` (new; research R4, R9):
   `planEventSetup(dto, venue, sections)` (pure; R4 steps 2, 4, 5 with their messages, paths, and
   codes, built with the project's envelope helpers: `conflict()` for `409`s, `BadRequestException({
@@ -171,10 +179,13 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   role="alert" id=…>`, with `aria-invalid` and `aria-describedby` on that type's inputs (a
   `sectionIds` message beside type *i*'s seats line in the seating part); cleared when Schedule event
   is clicked again. T006's placement cases pass.
-- [ ] T015 [US1] `EventForm.tsx` (FR-011, research R6): when the schedule request throws anything
-  that is not an `ApiError`, show in the banner "No answer from QueuePass, so the event may or may not
+- [ ] T015 [US1] `admin-app/src/api/client.ts` and `EventForm.tsx` (FR-011, research R5, R6):
+  `ApiError` gains `enveloped`, set by `unwrap` (`true` only when the body was the error envelope);
+  when the schedule request throws anything that is not an `ApiError`, or an `ApiError` with status
+  `>= 500` and `enveloped` false, show in the banner "No answer from QueuePass, so the event may or may not
   have been scheduled. Check the Events list before scheduling it again." with a link to `/events`;
-  keep every value. T006's network case passes.
+  keep every value. A `5xx` with the envelope is shown as an error, as today. T006's network and
+  gateway cases pass.
 - [ ] T016 [US1] Run the whole Admin suite: every test passes; `EventForm.tsx`'s comment on
   `scheduleEvent` cites `031` (research R4, R5) instead of `008` R10.
 
@@ -230,7 +241,33 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 
 ## Review record (spec branch)
 
-_Left for the independent review session._
+- **Round 1** (independent Claude session, 2026-11-09): 2 must-fix, 4 should-fix, 3 nits. All fixed
+  in the `Review 031: spec review round 1` commit, after a rebase onto `main`.
+  - M1: spec `030`'s spec PR merged (`10bd53f`) → rebased onto `main`: constitution 3.9.3 with row
+    `031` after `030`'s (next free `032`), the Sync Impact Report this amendment's only; contract
+    1.23.0 on `030`'s `listEvents` change and corrected examples; `api-schema.ts` regenerated;
+    README keeps both rows; "not merged" text updated (spec Assumptions, Edge Cases; research R10,
+    R12; contracts/README; tasks ground rules).
+  - M2: the "path then a space" promise broke for unknown nested fields, non-object entries, and
+    class-validator's default messages → every new decorator has its own message (R9, T009); the
+    contract and R3 describe the two other forms (`tiers.<i>.property <name> should not exist`,
+    `tiers.tiers must be a list …`) and the client's rule; T003 pins the exact entries and that no
+    default message appears.
+  - S1: a `5xx` without the envelope (a gateway error after the commit) is treated as no answer;
+    `ApiError.enveloped` (FR-011, R5, R6, R9, T006, T015).
+  - S2: R3's stale sentence about the list-versus-example mismatch dropped (`030` fixed the
+    examples).
+  - S3: a **non-empty** `sectionIds` is refused without reserved seating; `[]` accepted (FR-004, R4,
+    T003, contract).
+  - S4: the planner compares names with `toLowerCase()`; the database's `P2002` backstop answers
+    `TIER_NAME_TAKEN` without `details.field`, which the form shows in the banner only (R4,
+    data-model, contract, T006).
+  - N1: R3 says `020`/`025` use `details.field` on `400`s; only the key is reused.
+  - N2: `tiers` capped at 50 with `@ArrayMaxSize` (a layout's section cap), `sectionIds` too (R9,
+    contract, spec Assumptions).
+  - N3: `null` for `reservedSeating`, `tiers`, or `sectionIds` is refused (`@ValidateIf`, as #117),
+    documented in the contract (R9, T003).
+- **Open findings**: none.
 
 ## Review record (implementation branch)
 

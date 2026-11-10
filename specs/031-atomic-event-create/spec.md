@@ -216,8 +216,8 @@ seating, valid and broken, and two at once; compare the database before and afte
   malformed event fields are today.
 - **The venue's layout changes while scheduling**: the layout change and the schedule do not
   interleave; whichever runs second sees the other's result (User Story 2, scenario 3).
-- **Spec `030`** (past events left out of lists, not yet merged): a past-dated schedule is refused or
-  accepted exactly as today; this feature changes no list.
+- **Spec `030`** (past events left out of lists; its spec merged, its implementation not yet): a
+  past-dated schedule is refused or accepted exactly as today; this feature changes no list.
 
 ## Requirements *(mandatory)*
 
@@ -239,8 +239,8 @@ seating, valid and broken, and two at once; compare the database before and afte
   quantity and together they fit the event's ticket capacity; with reserved seating, the venue has a
   layout, no ticket capacity is typed, no type has a typed quantity, every section listed is in the
   venue's layout and under one type at most, each type's amount is its sections' seats, the event's
-  capacity is the layout's total, and tickets per customer fit that total. Sections may be listed only
-  with reserved seating.
+  capacity is the layout's total, and tickets per customer fit that total. A ticket type may list
+  sections (a non-empty list) only with reserved seating. At most 50 ticket types.
 - **FR-005**: Malformed fields MUST all be reported in one refusal. Otherwise the refusal MUST be the
   first rule broken in this order: the venue and the event's times and doors; seating; the event's
   capacity, tickets per customer, and scheduling conflict; each ticket type in the order sent; the
@@ -264,9 +264,11 @@ seating, valid and broken, and two at once; compare the database before and afte
   one that names the ticket types together or the seating, beside that group, associated with the
   field so assistive technology announces it with the field; it clears when the admin schedules
   again.
-- **FR-011**: When the scheduling request gets no answer (the connection dropped, the Backend
-  unreachable), the form MUST keep every value and say that it could not tell whether the event was
-  scheduled, with a link to the Events list to check before scheduling again.
+- **FR-011**: When the scheduling request gets no answer from the Backend (the connection dropped,
+  the Backend unreachable, or a server error that is not the Backend's own error answer, such as a
+  proxy's gateway error that can arrive after the Backend saved the event), the form MUST keep every
+  value and say that it could not tell whether the event was scheduled, with a link to the Events
+  list to check before scheduling again.
 - **FR-012**: Pictures MUST keep `014`'s behavior: uploaded after the event is saved; a refused one
   gives "Event created. These pictures were not added: …" and the new event's edit form. The "Seating
   setup not finished" message goes, since nothing can be half-saved any more.
@@ -324,12 +326,13 @@ seating, valid and broken, and two at once; compare the database before and afte
   price, as today.
 - **The base price** stays what the form sends, the lowest ticket type price (`008` R10); the
   Backend does not work it out.
-- **No limit on how many ticket types** one request may carry beyond the request size limit the
-  Backend already has; the form adds them one at a time.
-- **Coordination with work in flight**: spec `030` (#133, not merged) changes the event list
-  (`findAll`) and the Admin events page; this feature changes scheduling (`create`) and the event
-  form, different code, but both raise the contract's version, so whichever merges second rebases
-  (030 to 1.22.0, this to 1.23.0). Issue #130 (doors open as hours before the start, not specced)
+- **At most 50 ticket types** in one request, as many as a seating layout may have sections
+  (`007`), so a seated event can give every section its own type; more is refused as malformed. The
+  form adds them one at a time and no one schedules close to that.
+- **Coordination with work in flight**: spec `030` (#133; spec PR merged, contract 1.22.0 and
+  constitution 3.9.2 on `main`, implementation not merged) changes the event list (`findAll`) and
+  the Admin events page; this feature changes scheduling (`create`) and the event form, different
+  code. This branch is rebased on `030`'s spec (contract 1.23.0, constitution 3.9.3). Issue #130 (doors open as hours before the start, not specced)
   changes how the form picks `doorsOpenAt` but not what it sends. Issue #134 (the event form rework,
   not specced) will restructure the form and show errors as they happen; it can place server errors
   on fields by the names FR-006 defines, and it carries editing's all-or-nothing.

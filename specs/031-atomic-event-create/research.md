@@ -72,27 +72,47 @@ type); temporary client ids on each type (more fields, same result). Rejected.
 - `tiers`: the ticket types together (over capacity);
 - `reservedSeating`, `totalTicketCapacity`: the seating choice.
 
-On a `409` (`TIER_NAME_TAKEN`, `CAPACITY_EXCEEDED`) the path is `details.field`, the key `020` and
-`025` already use for the event's own times. On `400 VALIDATION_FAILED` each entry of
-`details.fields` about part of the body **starts with the path and a space**. That is already what
-the global `ValidationPipe` writes for nested fields: `@nestjs/common`'s
-`ValidationPipe.prependConstraintsWithParentProp` prefixes a nested constraint's message with its
-parent path (`tiers.1.` + `price must be …`), and this project's messages start with the property
-name. The service's own `400`s for the setup (R4) are written the same way, through
+On a `409` (`TIER_NAME_TAKEN`, `CAPACITY_EXCEEDED`) the path is `details.field`. Only the key is
+reused: `020` and `025` put `details.field` on their `400`s (`LOCAL_TIME_SKIPPED`,
+`UTC_OFFSET_MISMATCH`, `DOORS_OPEN_OUT_OF_RANGE`) for the event's own times.
+
+On `400 VALIDATION_FAILED` each entry of `details.fields` about a field rule **starts with the
+path and a space**. That is what the global `ValidationPipe` writes for nested fields:
+`@nestjs/common`'s `ValidationPipe.mapChildrenToValidationErrors` and
+`prependConstraintsWithParentProp` put the parent path and a dot in front of a nested constraint's
+message (`tiers.1.` + `price must be …`), and this project's messages start with the property
+name. That holds only when **every decorator on the new fields has its own message starting with
+its property name** (R9): class-validator's default messages for `@IsArray`, `@ArrayUnique`,
+`@IsUUID({ each: true })`, `@IsBoolean`, `@ArrayMaxSize`, and `@ValidateNested` do not
+(`each value in sectionIds must be a UUID`, `each value in nested property tiers must be either
+object or array`). Two entries keep another form, which the contract describes:
+
+- **An unknown field** in ticket type *i* is the pipe's whitelist message after the path,
+  `tiers.<i>.property <name> should not exist`: the path of the ticket type, not of a field.
+- **An entry of `tiers` that is not an object** (`tiers: [5]`): the nested-validation error sits on
+  the array's element, and the pipe prefixes it with `tiers.` but not the index, so it reads
+  `tiers.` + `@ValidateNested`'s message. With R9's message, `tiers.tiers must be a list of ticket
+  types, each an object with a name and a price`. `tiers` that is not an array at all gives the same
+  message without the prefix (and `@IsArray`'s).
+
+So the rule a client follows is the contract's: an entry starting `tiers.<i>.` is about ticket type
+*i*; any other entry starting `tiers` is about the ticket types; `reservedSeating` and
+`totalTicketCapacity` are about seating. T003 pins the exact strings, so a change in the pipe shows.
+
+The service's own `400`s for the setup (R4) are written the same way, through
 `BadRequestException({ message: [...] })`, which `AllExceptionsFilter`
-(`backend/src/common/filters/prisma-exception.filter.ts:143-147`) turns into `details.fields`. The
-contract states the path format (FR-006), so a client may rely on it rather than on the message.
+(`backend/src/common/filters/prisma-exception.filter.ts`, the `BAD_REQUEST` branch) turns into
+`details.fields`. The contract states the format (FR-006), so a client may rely on it rather than on
+the message.
 
 The form reads the path to place the message beside the field (R5). Issue #134, which asks "how do
 server errors map back onto fields?", can use the same paths.
 
 **Alternatives**:
 
-- **A structured `details.fields` object** (`{ "tiers.1.price": "…" }`, as the contract's
-  `ValidationFailed` example happens to show): the filter has sent a list since `001`, and the Admin
-  and Customer apps read it as a list (`ErrorBanner`); changing it changes every operation's `400`.
-  Rejected here; the list-versus-example mismatch is older than this feature and left alone (a
-  reviewer may want an issue for it).
+- **A structured `details.fields` object** (`{ "tiers.1.price": "…" }`): the filter has sent a
+  list since `001`, and the Admin and Customer apps read it as a list (`ErrorBanner`); changing it
+  changes every operation's `400`. Rejected.
 - **New error codes** (`TIER_INVALID`, `SECTION_INVALID`): the existing codes already say what kind
   of refusal it is, and clients branch on them today. Rejected.
 - **The first error only, without a field**: the form could not place it. Rejected.
@@ -111,10 +131,10 @@ server errors map back onto fields?", can use the same paths.
 3. Capacity within the venue, tickets per customer within the capacity, the scheduling conflict, as
    today (the capacity being the layout's total with reserved seating).
 4. **Each ticket type in order** (new, a pure function, R9): the name, trimmed, not equal ignoring
-   case to an earlier one's (`409 TIER_NAME_TAKEN`, `details.field: tiers.<i>.name`, message naming
+   case (compared with JavaScript's `toLowerCase()`) to an earlier one's (`409 TIER_NAME_TAKEN`, `details.field: tiers.<i>.name`, message naming
    both types); quantity required without reserved seating and left out with it (`400`, the
-   messages `TiersService.quantityFor` uses, prefixed with the path); `sectionIds` only with
-   reserved seating (`400`); each section in the venue's layout (`400`, "lists a section that is not
+   messages `TiersService.quantityFor` uses, prefixed with the path); a non-empty `sectionIds`
+   only with reserved seating (`400`; left out or `[]` is fine without it); each section in the venue's layout (`400`, "lists a section that is not
    in *venue*'s seating layout. Reload the form to see its sections.") and under no earlier type
    (`400`, naming the section and the earlier type).
 5. **The ticket types together** (new): without reserved seating, the quantities' sum at most the
@@ -140,6 +160,15 @@ concurrency (Constitution IV):
 | 60-minute rule at the venue | `event_no_overlap` exclusion constraint, as today |
 | Ticket type names unique per event ignoring case | the unique index on `("eventId", lower("name"))` (`004` research R3) |
 | One ticket type per section per event | `SectionTier`'s primary key `("eventId", "sectionId")` |
+
+The planner compares names with `toLowerCase()`; PostgreSQL's `lower()` can fold some non-ASCII
+letters differently, so two names the planner took as different can still collide in the index. That
+case, and any other unique violation the planner did not foresee, reaches the filter as Prisma's
+`P2002`, which it already answers `409 TIER_NAME_TAKEN` ("Another tier of this event already has
+that name") **without `details.field`**: the database's backstop, naming no ticket type. Nothing is
+saved (the transaction rolls back). The form shows it in the banner only, since it cannot tell
+which type; the admin renames and schedules again. A section listed twice cannot reach the database:
+the DTO's `@ArrayUnique` and the planner's check across types refuse it first.
 | Ticket types within the capacity | the event is new and uncommitted: no other transaction can see it, so nothing can change its total between the check and the commit |
 | Sections from the venue's current layout | the venue row `FOR SHARE` for the whole transaction; a layout save needs it `FOR UPDATE` |
 
@@ -168,10 +197,19 @@ insert). Rejected.
   messages clear when the admin schedules again (`handleSubmit` resets them with the banner). A
   section mapping message (`tiers.<i>.sectionIds`) is shown beside ticket type *i*'s seats line in the
   seating part, where the sections are chosen.
-- No connection (the request throws something that is not an `ApiError`, which today would reach
-  `ErrorBanner` without an envelope): the form shows, in the banner, "No answer from QueuePass, so the
-  event may or may not have been scheduled. Check the Events list before scheduling it again." with a
-  link to `/events`, and keeps every value (FR-011).
+- No answer (FR-011): the request throws something that is not an `ApiError` (a network failure,
+  which today would reach `ErrorBanner` without an envelope), **or** it is answered with a `5xx`
+  whose body is not the error envelope. `unwrap` (`admin-app/src/api/client.ts`) turns any response
+  without an envelope into an `ApiError` with code `VALIDATION_FAILED` and "Request failed with
+  status N.", so the form cannot tell those apart today; `ApiError` gains a read-only `enveloped`
+  (`true` when the body was the Backend's envelope), set by `unwrap`. A gateway error (`502`, `503`,
+  `504` from a proxy or the dev server's proxy) can arrive after the Backend committed, so it is
+  treated like no answer. A `5xx` **with** the envelope is the Backend's own answer: its transaction
+  rolled back and nothing was saved, so it is shown as an error as today. In the no-answer case the
+  form shows, in the banner, "No answer from QueuePass, so the event may or may not have been
+  scheduled. Check the Events list before scheduling it again." with a link to `/events`, and keeps
+  every value. A `4xx` without an envelope stays as today (nothing was saved: the Backend refused or
+  never got it).
 - `admin-app/src/api/events.ts`: `createEvent` takes the generated request type,
   `ApiComponents['schemas']['EventInput']` (exported by `@queuepass/shared`), so the form builds the
   body against the contract without changing `packages/shared`'s hand-written `EventInput`, which
@@ -186,8 +224,9 @@ first field at fault (useful, but #134 settles focus for the whole form). Reject
 
 ## R6. A dropped connection; no request key
 
-**Decision**: FR-011's message, and nothing more. A request that got no answer either committed the
-whole event or nothing (R4). If it committed, scheduling it again at the same venue and time is
+**Decision**: FR-011's message, and nothing more, for no answer at all and for a `5xx` without the
+Backend's envelope (R5). A request that got no answer either committed the whole event or nothing
+(R4). If it committed, scheduling it again at the same venue and time is
 refused with `SCHEDULING_CONFLICT`, whose message and `conflictingEvent` name the saved event, and the
 form already shows that as a distinct banner with its name and times (`EventForm.tsx:876-883`).
 
@@ -229,17 +268,30 @@ much larger change for a case the form already handles honestly. The issue keeps
 
 ## R9. Where the code goes
 
-- `backend/src/events/dto/create-event.dto.ts`: `reservedSeating?: boolean` (`@IsOptional()
-  @IsBoolean()`), `tiers?: EventTierDto[]` (`@IsOptional() @IsArray() @ValidateNested({ each: true })
-  @Type(() => EventTierDto)`).
+- **Every decorator on the new fields has its own message, starting with its property name**
+  (R3), and `null` is refused rather than skipped: `@IsOptional()` would let `null` through, so each
+  new field uses `@ValidateIf((o) => o.<field> !== undefined)`, as `CreateTierDto.quantity` does
+  since #117.
+- `backend/src/events/dto/create-event.dto.ts`:
+  - `reservedSeating?: boolean`: `@ValidateIf(…)`, `@IsBoolean({ message: 'reservedSeating must be
+    true or false' })`.
+  - `tiers?: EventTierDto[]`: `@ValidateIf(…)`, `@IsArray({ message: 'tiers must be a list of ticket
+    types' })`, `@ArrayMaxSize(50, { message: 'tiers may hold at most 50 ticket types' })` (50, as
+    many as a layout may have sections, `LayoutInputDto`'s cap, so a seated event can give each
+    section its own type), `@ValidateNested({ each: true, message: 'tiers must be a list of ticket
+    types, each an object with a name and a price' })`, `@Type(() => EventTierDto)`.
 - `backend/src/events/dto/event-tier.dto.ts` (new): `EventTierDto extends CreateTierDto` (same
-  messages for name, price, quantity) with `sectionIds?: string[]` (`@IsOptional() @IsArray()
-  @ArrayUnique() @IsUUID('all', { each: true })`).
+  messages for name, price, quantity) with `sectionIds?: string[]`: `@ValidateIf(…)`,
+  `@IsArray({ message: 'sectionIds must be a list of section ids' })`, `@ArrayMaxSize(50, { message:
+  'sectionIds may list at most 50 sections' })`, `@ArrayUnique({ message: 'sectionIds lists a
+  section more than once' })`, `@IsUUID('all', { each: true, message: 'sectionIds must hold section
+  ids (UUIDs)' })`.
 - `backend/src/events/event-setup.ts` (new): `planEventSetup(input, venue, sections)` →
   `{ reservedSeating, capacityFromLayout, tiers: { name, price, quantity, sectionIds }[] }` or throws
   the refusals of R4 steps 2, 4, 5 (step 5 given the capacity); pure, unit-tested. And
   `writeEventSetup(tx, eventId, plan)`.
 - `backend/src/events/events.service.ts`: `createLocked` calls them (R4).
+- `admin-app/src/api/client.ts`: `ApiError.enveloped` set by `unwrap` (R5).
 - No change to `TiersService`, `SeatMapService`, `LayoutService`, the filter, `backend/prisma/`, or
   the hand-written types in `packages/shared/src/` (the Admin app uses the generated type, R5).
 - `contracts/openapi.yaml` and `packages/shared/src/api-schema.ts`: this PR.
@@ -254,11 +306,10 @@ much larger change for a case the form already handles honestly. The issue keeps
 - **`014` research R9**'s "After creating" paragraph describes the old refusal path ("Seating setup
   not finished"); a note says that path is gone (`031` FR-012) and the picture path is unchanged.
   `014` FR-018 itself is unchanged.
-- **Spec `030`** (#133, branch `030-hide-past-events-spec`, not merged): contract 1.22.0 (a
-  `listEvents` parameter), constitution 3.9.2, `EventsService.findAll`, the Admin events and venue
-  pages. Different functions from this feature's (`createLocked`, the event form), so the code does not
-  overlap; the contract version, the constitution's report and roadmap, and the README's status table
-  do, and this branch is rebased onto `main` once 030 merges (R12).
+- **Spec `030`** (#133): its spec PR merged (`10bd53f`: contract 1.22.0 with `listEvents`'
+  `includePast`, constitution 3.9.2); its implementation (`EventsService.findAll`, the Admin events
+  and venue pages) is not merged yet. Different functions from this feature's (`createLocked`, the
+  event form), so the code does not overlap. This branch is rebased onto it (R12).
 - **Issue #130** (doors open as hours before the start, not specced): changes how the form picks
   `doorsOpenAt`, not what it sends. Whichever lands second rebases `EventForm.tsx`.
 - **Issue #134** (the event form rework, not specced): builds on this feature: scheduling is already
@@ -278,7 +329,9 @@ Written first, seen to fail, then made to pass:
     seat map (`getSeatMap`) shows them.
   - a body without `tiers` and `reservedSeating` gives exactly today's answer (and `tiers: []`).
   - each refusal of R4, with its status, code, and path: a repeated name (also differing in case
-    and spaces), a missing quantity, a quantity with reserved seating, `sectionIds` without it, a
+    and spaces), a missing quantity, a quantity with reserved seating, a non-empty `sectionIds`
+    without it (and `sectionIds: []` without it accepted), `null` for `reservedSeating`, `tiers`,
+    or `sectionIds`, more than 50 ticket types, `tiers: [5]`, a
     section of another venue, a section under two types, a repeated id in one `sectionIds`, reserved
     seating at a venue without a layout, `totalTicketCapacity` with reserved seating, a limit above
     the layout's total, the quantities over capacity, malformed tier fields (all listed at once with
@@ -318,17 +371,17 @@ Written first, seen to fail, then made to pass:
 
 ## R12. Contract, constitution, and README
 
-- **Contract 1.21.0 → 1.23.0** (MINOR: optional request fields; 1.22.0 is spec `030`'s, on its branch).
+- **Contract 1.22.0 → 1.23.0** (MINOR: optional request fields), on top of spec `030`'s 1.22.0.
   `api-schema.ts` regenerated; `node scripts/check-contract-drift.mjs` passes. Until the
   implementation merges, `main`'s Backend refuses `tiers` and `reservedSeating` as unknown fields
   (`forbidNonWhitelisted`); no client sends them before then, so `main` stays green. The Backend's
   contract tests check responses only, and the responses do not change.
-- **Constitution 3.9.2 → 3.9.3** (PATCH, roadmap row `031`, next free number `032`), on top of
-  `030`'s 3.9.2. This branch is cut from `main` at 3.9.1, so until `030` merges its diff shows
-  3.9.1 → 3.9.3 without row `030`. Once `030` merges, the branch is rebased onto `main`: the Sync
-  Impact Report keeps this one, the roadmap keeps both rows (030 then 031), the version stays 3.9.3,
-  the contract keeps `030`'s `listEvents` change and this version, `api-schema.ts` is regenerated, and
-  the README's status table keeps both rows.
+- **Constitution 3.9.2 → 3.9.3** (PATCH, roadmap row `031` after `030`'s, next free number
+  `032`), on top of `030`'s 3.9.2. The branch was cut before `030`'s spec merged and rebased onto
+  `main` after it (spec review round 1): the Sync Impact Report is this amendment's, the roadmap keeps
+  both rows, the contract keeps `030`'s `listEvents` change and its corrected `VALIDATION_FAILED`
+  examples with version 1.23.0, `api-schema.ts` was regenerated, and the README's status table keeps
+  both rows.
 - **README**: the `031` status row and the version reference (this PR); the Admin app's description of
   scheduling, if it says the event is created before its ticket types, in the implementation PR.
 - **Shared surface** in this PR: the constitution, `contracts/openapi.yaml`, and

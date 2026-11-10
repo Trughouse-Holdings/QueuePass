@@ -779,8 +779,8 @@ paths:
           conflict.
         - **Each ticket type, in the order sent**: its name, trimmed, is not the name of an
           earlier one ignoring case (`409 TIER_NAME_TAKEN`); without reserved seating `quantity`
-          is required and `sectionIds` must be left out or empty, with it `quantity` must be left
-          out (`400` for each); every section in `sectionIds` is in the venue's layout and listed
+          is required and a non-empty `sectionIds` is refused, with it `quantity` must be left out
+          (`400` for each); every section in `sectionIds` is in the venue's layout and listed
           under no earlier ticket type (`400`).
         - **The ticket types together**: without reserved seating, their quantities add up to no
           more than the event's `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`).
@@ -790,14 +790,23 @@ paths:
         `updateSeating`. The venue row is held for the whole transaction, so a layout change at
         the venue runs entirely before or after it.
 
-        **Which field a refusal is about.** A refusal about one ticket type names it by path,
+        **Which field a refusal is about.** A rule refusal about one ticket type names it by path,
         `tiers.<index>.<field>` (the zero-based index in `tiers`; the field `name`, `price`,
         `quantity`, or `sectionIds`); one about the ticket types together names `tiers`; one
-        about seating names `reservedSeating` or `totalTicketCapacity`. On a `409`, the path is
-        `details.field`. On `400 VALIDATION_FAILED`, each entry of `details.fields` about part of
-        the body starts with that part's path and a space (`tiers.1.price must be …`), and every
-        malformed field is listed at once. Clients may rely on the path; the rest of each message
-        is for people.
+        about seating names `reservedSeating` or `totalTicketCapacity`. On a `409`
+        (`TIER_NAME_TAKEN`, `CAPACITY_EXCEEDED`) the path is `details.field`. A `409
+        TIER_NAME_TAKEN` without `details.field` is the database's backstop (two names the
+        check took as different but the database's case folding did not) and names no ticket
+        type. On `400 VALIDATION_FAILED` every malformed field is listed at once in
+        `details.fields`, and each entry about the new fields starts with its place: an entry
+        about one field of ticket type *i* starts `tiers.<i>.<field> ` (`tiers.1.price must be
+        …`); an unknown field in ticket type *i* is `tiers.<i>.property <name> should not exist`;
+        any other entry about the ticket types (`tiers` not a list, an entry that is not an
+        object, more than 50) starts with `tiers` (an entry that is not an object reads
+        `tiers.tiers must be a list of ticket types, …`); one about seating starts with
+        `reservedSeating` or `totalTicketCapacity`. So a client places an entry on ticket type
+        *i* when it starts `tiers.<i>.`, on the ticket types when it otherwise starts `tiers`, and
+        on seating by those two names. The rest of each message is for people.
       operationId: createEvent
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -2156,13 +2165,15 @@ components:
             Feature 031. Optional; left out, `false`. `true` schedules the event with reserved
             seating at its venue's layout, as `updateSeating` would turn it on: the venue must have
             a layout, and `totalTicketCapacity` must be left out (the capacity is the layout's total
-            seats).
+            seats). May be left out but not sent as `null` (`400`).
         tiers:
           type: array
+          maxItems: 50
           items: { $ref: '#/components/schemas/EventTierInput' }
           description: |
             Feature 031. Optional. The event's ticket types, saved with it in one transaction, all
-            or nothing (`createEvent`). Left out or empty, the event has none, as before.
+            or nothing (`createEvent`). Left out or empty, the event has none, as before. At most
+            50, as many as a layout's sections. May be left out but not sent as `null` (`400`).
 
     EventTierInput:
       type: object
@@ -2191,11 +2202,12 @@ components:
         sectionIds:
           type: array
           uniqueItems: true
+          maxItems: 50
           items: { type: string, format: uuid }
           description: |
             Only with `reservedSeating: true`. The sections of the venue's layout this ticket type
             sells, each section under one ticket type at most. Left out or empty, it sells none
-            yet (quantity 0).
+            yet (quantity 0). May be left out but not sent as `null` (`400`).
 
     EventUpdate:
       type: object
@@ -3136,6 +3148,15 @@ components:
                     fields:
                       - tiers.1.price must be a non-negative decimal string with at most 2 decimal places
                       - tiers.2.quantity must be a positive whole number
+            unknownTierField:
+              summary: Feature 031. createEvent, a field a ticket type does not have
+              value:
+                error:
+                  code: VALIDATION_FAILED
+                  message: Request validation failed.
+                  details:
+                    fields:
+                      - tiers.0.property colour should not exist
             sectionNotInLayout:
               summary: Feature 031. createEvent, a section that is not in the venue's layout
               value:

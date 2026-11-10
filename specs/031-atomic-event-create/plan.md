@@ -9,7 +9,7 @@
 
 - **`createEvent` takes the setup** (research R1, R2): optional `reservedSeating` and `tiers`
   (`EventTierInput`: name, price, quantity, `sectionIds`) in `POST /events`; without them, unchanged.
-  Contract 1.21.0 → 1.23.0 (1.22.0 is spec `030`'s).
+  Contract 1.22.0 → 1.23.0, on top of spec `030`'s 1.22.0.
 - **One transaction** (R4): inside the existing `createLocked` (venue `FOR SHARE`, then the checks),
   seating checks after the times, the event's capacity, limit, and conflict checks as today, then each
   ticket type and their total; all checks before the first write; then the event, its ticket types,
@@ -70,9 +70,9 @@ the existing create tests updated; one browser test.
 
 | Principle | Check | Result |
 | --- | --- | --- |
-| I. Contract first | `createEvent`'s request gains two optional fields and `EventTierInput`; its description gives the order of checks and the field paths; two new examples on each of its `400` and `409` responses; `info.version` 1.21.0 → 1.23.0; `api-schema.ts` regenerated with `openapi-typescript`, drift check green. Responses and error codes unchanged. The Admin app types the request from the generated schema (contracts/README.md) | Pass |
+| I. Contract first | `createEvent`'s request gains two optional fields and `EventTierInput`; its description gives the order of checks and the field paths; two new examples on each of its `400` and `409` responses; `info.version` 1.22.0 → 1.23.0; `api-schema.ts` regenerated with `openapi-typescript`, drift check green. Responses and error codes unchanged. The Admin app types the request from the generated schema (contracts/README.md) | Pass |
 | II. One command | No Compose, seed, or environment change; `docker compose up --build` unchanged | Pass |
-| III. Spec-driven | Spec + plan PR with the constitution row (3.9.3, on top of `030`'s 3.9.2, rebased after it merges), independent review, fresh implementer; commits cite `031` and #127; `fixes #127` only in the implementation PR's description. Shared surface in this PR: the constitution, the contract, `api-schema.ts` (every member approves). The implementation PR touches none (research R9) | Pass |
+| III. Spec-driven | Spec + plan PR with the constitution row (3.9.3, on top of `030`'s 3.9.2, rebased onto it), independent review, fresh implementer; commits cite `031` and #127; `fixes #127` only in the implementation PR's description. Shared surface in this PR: the constitution, the contract, `api-schema.ts` (every member approves). The implementation PR touches none (research R9) | Pass |
 | IV. Server-authoritative | Every rule of `004`, `007`, `016` applied by the Backend inside the scheduling transaction; under concurrency guaranteed by `event_no_overlap`, the tier name unique index, `SectionTier`'s primary key, and the venue row lock (research R4); the form keeps every value, shows the refusal as an explicit error beside its field, and a dropped connection as its own message (FR-009 to FR-011) | Pass |
 | V. Least privilege | `createEvent` stays `queuepass-admin` only; no role, token, or realm change; the route coverage test unchanged | Pass |
 | VI. Test-first, real database | Integration tests on Testcontainers PostgreSQL written first: each refusal leaves no rows, a failure after the first write leaves none, two concurrent schedules save one whole event; planner unit tests; Admin tests; a browser test (research R11) | Pass |
@@ -118,6 +118,7 @@ backend/
         └── events.create-setup.concurrency.e2e-spec.ts # new: two schedules; schedule vs layout
 admin-app/
 ├── src/api/events.ts                          # createEvent typed by the generated EventInput (R5)
+├── src/api/client.ts                          # ApiError.enveloped, set by unwrap (R5)
 ├── src/pages/EventForm.tsx                    # scheduleEvent: one request; fieldErrors; no-answer
 │                                              # message; setupRefused removed (R5)
 └── test/

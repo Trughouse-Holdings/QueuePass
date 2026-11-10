@@ -39,10 +39,10 @@ A refusal or a failure at any point leaves none of these rows (FR-003).
 | Field | New | Meaning |
 | --- | --- | --- |
 | `name`, `locationId`, `startsAt`, `endsAt`, `doorsOpenAt`, `totalTicketCapacity`, `maxTicketsPerCustomer`, `basePrice` | no | as today; `totalTicketCapacity` must be left out with `reservedSeating: true` |
-| `reservedSeating` | yes | optional boolean, left out = `false` |
-| `tiers[]` | yes | optional; each an `EventTierInput` |
+| `reservedSeating` | yes | optional boolean, left out = `false`; not `null` |
+| `tiers[]` | yes | optional, at most 50; each an `EventTierInput`; not `null` |
 | `tiers[i].name`, `.price`, `.quantity` | as `TicketTierInput` | quantity required without reserved seating, left out with it |
-| `tiers[i].sectionIds[]` | yes | only with reserved seating; distinct section ids of the venue's layout |
+| `tiers[i].sectionIds[]` | yes | non-empty only with reserved seating; distinct section ids of the venue's layout, at most 50; not `null` |
 
 ## Field paths in refusals (research R3)
 
@@ -51,9 +51,12 @@ A refusal or a failure at any point leaves none of these rows (FR-003).
 | `tiers.<i>.name` | ticket type *i*'s name: malformed, or the same as an earlier type's |
 | `tiers.<i>.price` | ticket type *i*'s price: malformed |
 | `tiers.<i>.quantity` | ticket type *i*'s quantity: malformed, missing without reserved seating, sent with it |
-| `tiers.<i>.sectionIds` | ticket type *i*'s sections: malformed, sent without reserved seating, not in the layout, or listed under an earlier type |
-| `tiers` | the ticket types together: over the event's capacity; or `tiers` itself malformed |
+| `tiers.<i>.sectionIds` | ticket type *i*'s sections: malformed, non-empty without reserved seating, not in the layout, or listed under an earlier type |
+| `tiers.<i>` | an unknown field in ticket type *i*: `tiers.<i>.property <name> should not exist` |
+| `tiers` | the ticket types together: over the event's capacity; or `tiers` itself malformed (not a list, more than 50, an entry that is not an object: `tiers.tiers must be a list …`) |
 | `reservedSeating` | reserved seating at a venue without a layout; or malformed |
 | `totalTicketCapacity` | sent with reserved seating |
 
-*i* is the zero-based index in the request's `tiers`; the Admin form shows ticket type *i + 1*.
+*i* is the zero-based index in the request's `tiers`; the Admin form shows ticket type *i + 1*. A
+`409 TIER_NAME_TAKEN` without `details.field` is the database's backstop (research R4) and has no
+path; the form shows it in the banner only.
