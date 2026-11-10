@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ORDER_LIMITS,
@@ -200,11 +200,12 @@ export function GetTickets({
   if (availability.kind === 'ok' && loadedAt.current.answer !== availability.data) {
     loadedAt.current = { answer: availability.data, at: Date.now() };
   }
-  // Spec 034 FR-017: each answer, once, to the page.
+  // Spec 034 FR-017: each answer, once, to the page; before the browser paints, so the page's
+  // ended line never shows beside a panel that already says the event is in progress.
   const reportSales = useRef(onSales);
   reportSales.current = onSales;
   const answer = availability.kind === 'ok' ? availability.data : null;
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (answer) reportSales.current?.(answer);
   }, [answer]);
   const lastTiers = useRef<TicketTier[] | null>(null);

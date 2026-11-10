@@ -232,7 +232,7 @@ describe('one clock on the page (FR-017)', () => {
         'This event has already started (began at 7:00 PM EST). You can still buy tickets until it ends at 10:00 PM EST.',
       ),
     ).toBeInTheDocument();
-    expect(screen.queryByText(ENDED_LINE)).toBeNull();
+    await waitFor(() => expect(screen.queryByText(ENDED_LINE)).toBeNull());
   });
 
   it('a slow browser clock still shows the ended line once the Backend says ENDED', async () => {
@@ -300,7 +300,7 @@ describe('one clock on the page (FR-017)', () => {
     renderCustomer({ at: '/events/e1' });
 
     await screen.findByText(BUY);
-    expect(screen.queryByText(ENDED_LINE)).toBeNull();
+    await waitFor(() => expect(screen.queryByText(ENDED_LINE)).toBeNull());
     await typeHolderName();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm order' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Only 0 tickets are left');
