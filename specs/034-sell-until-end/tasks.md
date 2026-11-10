@@ -105,7 +105,7 @@ confirm they **fail** before the implementation tasks that follow.
   R6): an event that started 30 minutes ago and ends in 2 hours; a customer orders one ticket (after
   the start); as a gate agent, `lookupEntryTicket` with that event as the gate returns it admittable,
   and `admitTicket` admits it. Must fail (the order is refused today).
-- [ ] T007 [P] [US1] [US2] [US3] Customer app (FR-008 to FR-012; research R4, R5): new
+- [x] T007 [P] [US1] [US2] [US3] Customer app (FR-008 to FR-012; research R4, R5): new
   `customer-app/test/started-notice.test.tsx` with the app's API stubs and `vi.setSystemTime`, an event
   in `America/New_York` from 7:00 PM to 10:00 PM local:
   - availability `{ salesClosed: null, inProgress: true }`, tickets left: the panel's first paragraph
@@ -144,7 +144,7 @@ confirm they **fail** before the implementation tasks that follow.
     status-badge table row `{ salesClosed: 'STARTED' }` → `'ENDED'` (~118); the refusal stub "Sales
     for Early Show closed when it started." → "…closed when it ended." (~130).
     `customer-app/test/format.test.ts`: the helper (T015). Must fail.
-- [ ] T008 [US1] `e2e/tests/034-sell-until-end.spec.ts` (new; quickstart S1, S2; research R11): one
+- [x] T008 [US1] `e2e/tests/034-sell-until-end.spec.ts` (new; quickstart S1, S2; research R11): one
   test, `034 S1/S2: a customer buys a ticket for an event that has already started and sees the notice
   on the panel and the confirmation`. Setup through the API as `adminFor(testInfo)`: a venue of its
   own (`uniqueName`, Louisville, Eastern), an event that started 10 minutes ago and ends 2 hours from
@@ -179,7 +179,7 @@ confirm they **fail** before the implementation tasks that follow.
 
 ## Phase 4: Contract and shared types (shared surface)
 
-- [ ] T014 `contracts/openapi.yaml` (contracts/README.md, step 2): `STARTED` removed from
+- [x] T014 `contracts/openapi.yaml` (contracts/README.md, step 2): `STARTED` removed from
   `Availability.salesClosed.enum` and its description; `inProgress` added to `Availability.required`,
   its description's last sentence "Always sent."; version stays 1.26.0. `npm run generate:api`;
   `node scripts/check-contract-drift.mjs` passes. `packages/shared/src/order.ts`: `SalesClosedReason =
@@ -195,7 +195,7 @@ confirm they **fail** before the implementation tasks that follow.
   has already started (began at {start}). You can still buy tickets until it ends at {end}.", `'first'`
   → the first sentence, `'admit'` → "… Your tickets admit you until it ends at {end}."; or an equivalent
   shape, one helper for the three. `format.test.ts` passes.
-- [ ] T016 [US1] [US2] [US3] `GetTickets.tsx` (FR-008 to FR-011): keep the time availability loaded;
+- [x] T016 [US1] [US2] [US3] `GetTickets.tsx` (FR-008 to FR-011): keep the time availability loaded;
   the notice paragraph (class `note`) directly under the panel's heading when `inProgress &&
   salesClosed === null`, full when the panel offers a way to get tickets, first sentence otherwise;
   `ENDED` → badge "Sales closed", "Sales closed: this event has ended."; no `STARTED` branch left.
@@ -204,7 +204,7 @@ confirm they **fail** before the implementation tasks that follow.
   `useLoad` re-keys), and "This event has ended." then shows when `salesClosed === 'ENDED'`, or when
   `salesClosed === 'CANCELLED' && !inProgress && hasEnded(e.endsAt, loadedAt)`, never while
   `inProgress`; before any answer, or if none arrives, `hasEnded(e.endsAt, loadedAt)` as `030`.
-- [ ] T017 [US1] The confirmation (FR-012): in `OrderConfirmation.tsx` once `033`'s implementation has
+- [x] T017 [US1] The confirmation (FR-012): in `OrderConfirmation.tsx` once `033`'s implementation has
   merged (so the cart's confirmation shows it too), else in `Confirmation` in `GetTickets.tsx`: the line
   under its heading when `order.createdAt >= event.startsAt`. T007 passes; the whole Customer suite
   passes.
@@ -213,15 +213,15 @@ confirm they **fail** before the implementation tasks that follow.
 
 ## Phase 6: Browser tests, documentation, review, pull request
 
-- [ ] T018 `e2e/tests/029-demo-checkpoint.spec.ts`: "Sales closed: this event has already started." →
+- [x] T018 `e2e/tests/029-demo-checkpoint.spec.ts`: "Sales closed: this event has already started." →
   "Sales closed: this event has ended."; its comment. T008 and `029 S2` pass on the `e2e` stack.
-- [ ] T019 `specs/034-sell-until-end/quickstart.md`: the Automation rows S1 and S2 become `Automated:
+- [x] T019 `specs/034-sell-until-end/quickstart.md`: the Automation rows S1 and S2 become `Automated:
   \`<T008's exact title>\`` (S2 keeping its note); `npm test`'s quickstart-marks check passes.
-- [ ] T020 README: "Getting tickets" says sales close when an event ends, and that from its start the
+- [x] T020 README: "Getting tickets" says sales close when an event ends, and that from its start the
   page says it has already started and until when tickets are on sale (`034`); `006`'s status-row
   summary "sales close when an event starts" → "…ends (`034`)"; the `034` status row (tasks count and
   code status); the demo-data paragraphs if they say sales closed at the start.
-- [ ] T021 `npm run ci` locally, green; record the counts per workspace and the Backend's and Customer
+- [x] T021 `npm run ci` locally, green; record the counts per workspace and the Backend's and Customer
   app's line coverage (each at or above 80%).
 - [ ] T022 Run the Backend suite three times in a row, the Customer app suite three times, and `npm run
   test:tz` (the notice's times in several zones); record the counts. The `e2e` job on GitHub runs T008
@@ -290,6 +290,24 @@ confirm they **fail** before the implementation tasks that follow.
   shared 793, Backend 1303, admin-app 402, customer-app 357, booth-app 94, seed 124 (and the
   root's 85); line coverage shared 96.77%, Backend 97.17%, admin-app 97.46%, customer-app 97.70%,
   booth-app 93.44%, seed 99.41%.
+
+- **Phase B** (2026-11-10): `main` merged at `334595b` (`033`'s implementation, PR #154, and
+  `032`'s, PR #151, as `fbf2a65`), with no conflict: `reservations.service.ts` keeps `033`'s steps
+  and `salesClosed()` on `endsAt`; the contract keeps `032`'s required `checkInDetailsRemovedAt`,
+  `033`'s text, and T014's tightening (drift check passes). `order.ts` narrowed (T014 done).
+  Tests first: `started-notice.test.tsx` 13 of 16 failed before T016 and T017; the cart's new
+  confirmation case failed before the cart passed the event to `OrderConfirmation`. The cart shows
+  no notice (Out of scope; spec Edge Cases); buying there follows the Backend's `endsAt` rule.
+  T017's line is in `OrderConfirmation.tsx`, so the event page and the cart both show it. T008
+  uses customer slot 11 and agent slot 4; it runs in CI's `e2e` job on the PR (no local stack).
+- **Phase B runs** (head `9b0aaed` and its parent): Backend suite 3 times, 1355/1355 each; Customer
+  app 3 times, 433/433 each (an earlier 3 runs failed one FR-017 case twice under load: the page's
+  ended line was still there one render after the notice; fixed by reporting the answer in a
+  layout effect, before paint, and the tests waiting for the line to go); `npm run test:tz` passed
+  in New_York, UTC, Los_Angeles, and Honolulu for every workspace; `npm run ci` green: shared 793,
+  Backend 1355, admin-app 417, customer-app 433, booth-app 94, seed 124, root 85; line coverage
+  shared 96.77%, Backend 97.12%, admin-app 97.50%, customer-app 98.11%, booth-app 93.44%, seed
+  99.41%. T022's `e2e` job time is recorded when the PR's CI runs.
 
 ## Review record (spec branch)
 
