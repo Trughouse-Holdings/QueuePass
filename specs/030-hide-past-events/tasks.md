@@ -396,3 +396,7 @@ confirm they **fail** before the implementation tasks that follow.
   - N2: `events.past.e2e-spec.ts` calls `expectToMatchContract(res, 'listEvents')` on every `200` it
     reads (the default and `includePast=true` included), as well as the client's own check (R11).
   - N3: `029 S2` also asserts "This event has ended." on Season Opener's page (FR-014).
+  - After the fixes: `npm run ci` green; Backend 1249/1249, admin 384/384, customer 351/351, each three
+    times in a row. Then `main` merged again (spec `031`'s implementation, `796e9a9`): `npm run ci`
+    green with root scripts 85, shared 793, Backend 1295, admin 402, customer 351, booth 94, seed 262
+    (28 skipped); lines: Backend 97.17%, admin 97.46%, customer 97.68%.
