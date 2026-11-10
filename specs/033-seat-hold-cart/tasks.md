@@ -413,4 +413,4 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
     says a queued answer after Add to cart can still sign in again or reload (harmless).
   - N5: `026 S2` checks the shown wait against the click's own `429` (`retryAfterSeconds`), not
     against 5 seconds, and waits for it to end accordingly.
-
+  - After round 2: the Customer app suite three times, 403/403 each (28 files; lines 98.04%).
