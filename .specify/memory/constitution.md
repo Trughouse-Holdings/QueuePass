@@ -1,19 +1,22 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.9.2 -> 3.9.3 (PATCH): one roadmap row reserved; no principle changed and no control
-  removed. On top of spec 030's amendment (3.9.1 -> 3.9.2, row 030-hide-past-events, merged).
-Problem: issue #127. Scheduling an event in the Admin app can show an error and still create the
-  event: the form creates the event, then its seating and ticket types, in separate requests (spec
-  008 research R10), so a refusal after the first leaves an event without them, and trying again
-  can duplicate it or conflict with itself.
+Version: 3.9.3 -> 3.9.4 (PATCH): one roadmap row reserved; no principle changed and no control
+  removed. Applies on top of spec 031's amendment (3.9.2 -> 3.9.3, row
+  031-atomic-event-create), merged to main as f9d083b.
+Problem: issue #129. Every admitted ticket keeps, forever, when it was admitted and which Ticket
+  Booth agent admitted it (spec 017 research R3). Once an event is over that is personal data with
+  no purpose; it should be dropped one week after the event ends, while each event's report keeps
+  how many tickets were used to enter it.
 Changed:
-  - Roadmap: row 031-atomic-event-create reserved (scheduling saves the event, its ticket types,
-    and its reserved seating in one request, all or nothing; refusals name the ticket type or
-    section at fault; the form keeps every value; pictures still upload afterwards, as in 014;
-    editing stays as it is, its own all-or-nothing left to #134). The next free number is 032.
-Impact: spec 031, and its contract change (createEvent takes reservedSeating and tiers). Spec 008's
-  FR-018 and research R10, and spec 014's research R9, are marked superseded for scheduling only.
-  No other spec changes. The README's version reference follows. Templates: none need updating.
+  - Roadmap: row 032-drop-check-ins reserved (a Backend job removes every ticket's check-in details
+    once 7 days have passed since its event ended, cancelled events included, keeping each event's
+    checked-in count; the 7 days are one named constant; the Admin app's Attendees, Sales card,
+    Reports, and attendee export say when the details were removed; a removed event's times no
+    longer change). The next free number is 033.
+Impact: spec 032, and its contract change (1.24.0: checkInDetailsRemovedAt on Event, OrderEvent,
+  and EventSales; updateEvent's 409 CHECK_IN_DETAILS_REMOVED). Specs 005, 017, and 023 keep their
+  rules until an event's cutoff, then read the kept count (spec 032 research R4, R7). No other spec
+  changes. The README's version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -324,7 +327,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `032`.
+number is a pull request against this table. The next free number is `033`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -359,6 +362,7 @@ number is a pull request against this table. The next free number is `032`.
 | `029-demo-checkpoint` | One command, refused unless explicitly allowed and pointed at a local QueuePass database, removes all app data (venues, seating, events, tiers, images, orders, tickets and their check-ins, seat holds), keeps the schema, and loads the demo data again through the Backend's rules, with times relative to the run: events on sale, one open at the Ticket Booth, one cancelled, one over; the same state every run, in seconds, saying what it removed and created; Keycloak untouched; never run by `docker compose up`; saving and restoring a hand-made checkpoint deferred (#139) | `005`, `017`, `025` |
 | `030-hide-past-events` | An event is past once the current time reaches its end (`endsAt`); wherever events are listed, past events are left out by default, by the Backend for every client; the Admin app's event list and venue page have a Show past events toggle that lists them too, marked Ended; the Customer app has no toggle, keeps past tickets in a Past section of My tickets, and opens a past event's own page saying it has ended; an event's Admin page, attendees, sales, and Reports stay reachable (#133) | `002`, `003`, `004`, `005`, `006`, `008`, `019`, `020`, `025` |
 | `031-atomic-event-create` | Scheduling an event in the Admin app saves the event, its ticket types, and its reserved seating (which section sells which type) in one request, all or nothing: any refusal leaves no event, ticket type, or seating behind, and two schedules for one slot save one whole event; each refusal names the ticket type or section at fault, so the form shows it beside that field and keeps every value to fix and resubmit; pictures still upload after the event exists, as in `014`; existing callers that send only the event are unchanged; editing an event is unchanged (#127) | `004`, `007`, `008`, `014` |
+| `032-drop-check-ins` | One week after an event ends (`endsAt` + 7 days, one named constant), a Backend job that runs every hour removes when each of its tickets was admitted and which Ticket Booth agent admitted it, cancelled events included, and keeps the event's checked-in count, so its report reads the same afterwards; the Admin app's Attendees, Sales card, Reports, and attendee export say "Check-in details removed on …" instead of showing tickets as not checked in; My tickets no longer says when a ticket was used; once removed, the event's times can no longer change (#129) | `005`, `017`, `023`, `025` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -411,4 +415,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.9.3 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09
+**Version**: 3.9.4 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09
