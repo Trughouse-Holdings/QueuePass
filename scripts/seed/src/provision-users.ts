@@ -3,10 +3,13 @@ import { APP_REALMS, type AppRealm } from './app-realms';
 import { loadConfig } from './keycloak-client';
 
 /** Exactly the principals spec 001 FR-003 requires: 5 + 30 + 200 = 235, one group per realm. */
+const countOf = (prefix: AppRealm['prefix']): number =>
+  APP_REALMS.find((r) => r.prefix === prefix)!.count;
+
 export const EXPECTED_COUNTS = {
-  admin: 5,
-  agent: 30,
-  customer: 200,
+  admin: countOf('admin'),
+  agent: countOf('agent'),
+  customer: countOf('customer'),
   total: APP_REALMS.reduce((sum, r) => sum + r.count, 0),
 } as const;
 

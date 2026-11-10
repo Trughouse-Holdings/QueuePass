@@ -405,9 +405,15 @@ session 1):
   `028` status row (status and its 36 tasks). The constitution reference already
   reads v3.9.0.
   **Done**: also the sign-in steps, the credentials table (a Realm column), and two troubleshooting rows (the both-present error, another app's account refused). The `028` row says 37 tasks, the count in this file (T029 says 36; see the review record).
-- [ ] T030 Independent review by a separate Claude session (Constitution III) of the implementation
+- [x] T030 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round, its findings, and
   any left open here.
+  **Done** (round 1, 2026-11-09): no must-fix, 2 should-fix, 5 nits, all fixed; verdict "only minor
+  findings remain". Recorded in the review record (implementation branch) below. Re-run without a
+  stack (live seed tests skipped, `KEYCLOAK_URL`/`KEYCLOAK_HEALTH_URL` at `http://127.0.0.1:9`), three
+  times each, all green: root scripts 75; seed 262 + 28 skipped (lines 99.41%); backend 1182 (97.34%);
+  format, lint, the e2e typecheck, the build and the quickstart marks pass. The changed `001 V4` was
+  not run in a browser (no stack could be held); it runs in CI's `e2e` check.
 - [x] T031 `npm run ci` locally, green, three times, during a stretch with a clean `qp028clean`
   Keycloak up so the live seed tests run (not the team stack's); `npm run test:tz`; record the
   counts per workspace and each workspace's line coverage (80% floor).
@@ -557,3 +563,26 @@ Found while implementing, left for the spec, the review (T030) and Mahdi; not wo
   use in any realm, any other id ignored. The seed never sends one.
 - **`001 V3` in WebKit** fails at its unchanged step 3 (the password typed into the user name field
   after the error page); `028` itself passes in WebKit.
+
+## Review record (implementation branch)
+
+- **Round 1** (T030, an independent Claude session that did not write the code, 2026-11-09): no
+  must-fix, 2 should-fix, 5 nits; verdict "only minor findings remain". Fixed in the merge of
+  `main`, the `Clarify 028` commit, and the `Impl 028: code review round 1` commit:
+  - should: the branch was behind `main` (spec 029, Constitution 3.9.1 with roadmap row 029) →
+    `origin/main` merged; the README keeps both the `028` and `029` status rows and the v3.9.1
+    reference; the constitution is unchanged.
+  - should: the path-B limitation was only in this file → research R13 step 4, plan.md ("Working
+    safely beside the team stack") and the quickstart's S1 and S2 rows: the `028` browser test runs
+    against built bundles (CI's `e2e` job, or `vite build` and `vite preview` beside
+    `run-host.mjs`'s Backend), not Vite's dev server, whose `StrictMode` double sign-in effect stops
+    every renewal (from before 028; FR-013 keeps it out of scope).
+  - nit: `auth.guard.ts` logged each refusal inside the `try` twice → the `catch` passes an
+    `UnauthorizedException` on unchanged; a test checks a refusal is logged once, with its reason.
+  - nit: `001 V4` accepted only "Invalid username or password." → also "Account is disabled,
+    contact your administrator." (an upgraded stack's old copies, FR-012).
+  - nit: README troubleshooting → the wrong-role row says no seeded account reaches that page any
+    more; a row for "Account is disabled"; the Admin app's row reads ", realm" like the others.
+  - nit: `e2e/playwright.config.ts` → says a `QP_E2E_WEBKIT=1` left set makes a plain
+    `npm run e2e` run WebKit too, where `001 V3` fails.
+  - nit: `EXPECTED_COUNTS` in `provision-users.ts` → every count derived from `APP_REALMS`.

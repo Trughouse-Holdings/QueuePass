@@ -97,6 +97,8 @@ export class AuthGuard implements CanActivate {
       };
       return true;
     } catch (err) {
+      // A refusal above has already been logged once; pass it on as it is.
+      if (err instanceof UnauthorizedException) throw err;
       const reason =
         err instanceof errors.JOSEError ? err.code : err instanceof Error ? err.message : 'unknown';
       return this.refuse(reason);

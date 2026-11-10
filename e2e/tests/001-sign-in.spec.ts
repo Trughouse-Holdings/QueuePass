@@ -82,9 +82,14 @@ test("001 V4: each app's sign-in page refuses another app's account", async ({
       await page.goto(APPS[app].url);
       await expect(signInHeading(page, app)).toBeVisible();
       await submitSignIn(page, username, PASSWORD);
-      // On CI's clean stack the account is not in this app's realm at all.
+      // On CI's clean stack the account is not in this app's realm at all; on an upgraded stack
+      // the Customer app's realm holds the old admin and agent copies, disabled (FR-012).
       await expect(signInHeading(page, app)).toBeVisible();
-      await expect(page.getByText('Invalid username or password.')).toBeVisible();
+      await expect(
+        page
+          .getByText('Invalid username or password.')
+          .or(page.getByText('Account is disabled, contact your administrator.')),
+      ).toBeVisible();
       // Not signed in: no app page, and never the wrong-role page.
       await expect(page).not.toHaveURL(new RegExp(`^${APPS[app].url}/`));
       await expect(page.getByRole('button', { name: 'Log out' })).toHaveCount(0);

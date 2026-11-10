@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { APP_REALMS, LEGACY_REALM } from '@queuepass/shared';
 import { SignJWT } from 'jose';
 import request from 'supertest';
@@ -108,6 +109,18 @@ describe('Tokens from the three app realms', () => {
       expectUnauthenticated(await as(ctx, token).get('/me'));
     }
     expectNoKeysAskedFor();
+  });
+
+  // Code review round 1: each refusal is logged once, with its own reason.
+  it('logs a refusal once, with its reason', async () => {
+    const warn = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    try {
+      const token = await tokenFor({ username: 'admin1', roles: [], iss: issuerFor('other') });
+      expectUnauthenticated(await as(ctx, token).get('/me'));
+      expect(warn.mock.calls).toEqual([['Refused request: issuer is not an app realm']]);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('asks only the realm the token names for keys', async () => {
