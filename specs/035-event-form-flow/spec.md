@@ -300,7 +300,9 @@ names), and there is no error banner at the top of the page. The typed values re
 - The admin leaves a required field empty, then returns and types: the error, if shown, clears as
   they type; an empty field they have not left yet does not show an error until they leave it or
   press the button.
-- Doors open still follow the start until the admin changes doors themselves (`025`); a doors
+- Doors open still follow the start until the admin changes doors themselves (`025`) (**note
+  2026-11-10, `036`**: superseded by `036` FR-006, FR-007, FR-014: doors follow the start in
+  "Before the start" mode and stay put in "At a set time" mode); a doors
   range problem appears next to Doors open as soon as both times name a moment and doors have been
   left or a save has been tried, as the range note does today once a save was tried, and earlier
   once doors have been left.
@@ -495,8 +497,10 @@ names), and there is no error banner at the top of the page. The typed values re
 
 ## Out of scope
 
-- Safari's missing time picker in the calendar popup (#128).
-- Picking doors open as a number of hours before the start (#130).
+- Safari's missing time picker in the calendar popup (#128). **Note (2026-11-10, spec `036`)**:
+  now in `036`, with #130.
+- Picking doors open as a number of hours before the start (#130). **Note (2026-11-10, spec
+  `036`)**: now in `036`, with #128.
 - Event description, age restriction, and category (#49; doors open is already `025`).
 - Draft and published events, on-sale and off-sale times (#44).
 - Pictures in the scheduling or update request (`014` keeps them separate on purpose).

@@ -19,6 +19,14 @@ doors-open time, set by admins in the venue's time zone, no more than 6 hours be
 not after it; the Ticket Booth works an event only from 1 hour before its doors open until it ends;
 customers and the Admin app show the doors-open time with the event.
 
+> **Note (2026-11-10, spec `036`)**: How the Admin event form picks doors open, and how it picks
+> the start and end, is specified in `036` (issues #130 and #128). FR-002's single Doors open
+> date-and-time field, FR-003's follow-the-start rule as the only behaviour, and the form part of
+> FR-005 (the range check next to that field) give way to `036` FR-001 to FR-010 for the form.
+> The Backend, the stored `doorsOpenAt` instant, the 0-to-6-hour range measured in elapsed time
+> (FR-001, FR-004, FR-005's Backend and database rules, FR-007, FR-008), the check-in window, and
+> how customers and the Ticket Booth see doors open are unchanged.
+
 ## Context
 
 Builds on `017` (gate check-in: the Ticket Booth app's choice of event, FR-007, and the entry
