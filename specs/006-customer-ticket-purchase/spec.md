@@ -60,8 +60,9 @@ attendee list in the Admin app.
 ### User Story 2 - Sold Out and Cancelled Are Explained (Priority: P2)
 
 A customer can tell, before trying, when tickets cannot be had and why: sold out, cancelled, or
-sales closed because the event has started. When tickets run out
-between viewing and confirming, the customer is told what happened and nothing is recorded.
+sales closed because the event has started. When tickets run out between viewing and confirming, the
+customer is told what happened and nothing is recorded. _Amended 2026-11-09 by spec `034` (#126),
+FR-001, FR-011: sales close because the event has ended, not started._
 
 **Why this priority**: The Backend already refuses these orders (`005`). This story makes the
 refusal clear instead of a dead end.
@@ -84,6 +85,8 @@ tier as sold out and the second shows as cancelled, and neither can be confirmed
    offers no way to get tickets.
 6. **Given** an event that has started, **When** a customer opens it, **Then** it shows "Sales
    closed" and offers no way to get tickets; an order sent anyway is refused by the Backend.
+   _Amended 2026-11-09 by spec `034` (#126), FR-001, FR-011: sales close when the event ends, not
+   when it starts; an ended event shows "Sales closed: this event has ended."_
 
 ---
 
@@ -129,7 +132,8 @@ own order, with its codes.
 - **Demo orders**: orders made by the demo script belong to stand-in identities, so they never
   appear in a real customer's My tickets (`005` assumptions).
 - **Event starts while a customer is confirming**: the Backend decides by the time the order
-  arrives; an order at or after the start time is refused as sales closed (FR-014).
+  arrives; an order at or after the start time is refused as sales closed (FR-014). _Amended
+  2026-11-09 by spec `034` (#126), FR-001, FR-002: at or after the end time, not the start._
 
 ## Requirements *(mandatory)*
 
@@ -176,7 +180,11 @@ own order, with its codes.
 - **FR-014**: Sales MUST close when an event starts. The Backend MUST refuse an order placed at or
   after the event's start time, with a reason saying sales have closed, and the Customer app MUST
   show such events as "Sales closed" with no way to get tickets. This replaces `005`'s "no sales
-  window yet" assumption for start time only.
+  window yet" assumption for start time only. _Amended 2026-11-09 by spec `034` (#126), FR-001,
+  FR-002, FR-011: sales close when the event **ends** (half-open: at its end time it is closed), not
+  when it starts; the refusal says sales closed when the event ended, and the Customer app shows
+  "Sales closed: this event has ended."; from the start to the end it says the event has already
+  started (FR-008)._
 
 ### Key Entities
 
@@ -193,8 +201,9 @@ own order, with its codes.
 - **SC-002**: 0 duplicate orders result from one confirmation, including repeated clicks and retried
   requests.
 - **SC-003**: My tickets shows 100% of a customer's own orders and 0 of anyone else's.
-- **SC-004**: On 100% of sold-out, cancelled, or started events, the customer can tell why tickets are
-  unavailable without attempting to buy.
+- **SC-004**: On 100% of sold-out, cancelled, or started events, the customer can tell why tickets
+  are unavailable without attempting to buy. _Amended 2026-11-09 by spec `034` (#126), FR-011:
+  ended, not started, events._
 - **SC-005**: 0 events or tiers are ever oversold through the Customer app.
 - **SC-006**: The full test suite passes from a clean checkout.
 

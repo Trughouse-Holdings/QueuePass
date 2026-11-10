@@ -85,6 +85,9 @@ services:
       # any 60 seconds and in any 5 seconds. Whole numbers of at least 1; nothing turns them off.
       RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-10}
       RATE_LIMIT_PER_5_SECONDS: ${RATE_LIMIT_PER_5_SECONDS:-3}
+      # Spec 033 (research R5): seat holds' own pair, since each seat click is a hold attempt.
+      RATE_LIMIT_HOLD_PER_MINUTE: ${RATE_LIMIT_HOLD_PER_MINUTE:-30}
+      RATE_LIMIT_HOLD_PER_5_SECONDS: ${RATE_LIMIT_HOLD_PER_5_SECONDS:-10}
     ports:
       - '3000:3000'
     depends_on:

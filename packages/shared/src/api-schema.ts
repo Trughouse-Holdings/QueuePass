@@ -108,6 +108,9 @@ export interface paths {
          * @description The signed-in customer's active reservations, for every event, newest first (feature 015).
          *     A reservation is active from when it is made until it is bought, released, or ended, or its
          *     5 minutes run out (`expiresAt`, exclusive). The customer is the token's subject.
+         *
+         *     Feature 033: the Customer app's cart is this list; nothing else is stored for it. Each entry
+         *     is bought with one `createOrder` for its event, naming its seats.
          */
         get: operations["listMyReservations"];
         put?: never;
@@ -131,7 +134,8 @@ export interface paths {
          * Release all my seat reservations
          * @description Releases every active reservation of the signed-in customer, for every event (feature
          *     015). The Customer app calls it when the customer logs out. Each released seat is open to
-         *     others at once, and this customer can't reserve it again for 2 minutes. Safe to repeat.
+         *     others at once, and this customer can't reserve it again until 2 minutes after its
+         *     reservation ended (feature 033). Safe to repeat.
          *     Feature 026: never limited and never counted toward the attempt limits.
          */
         post: operations["releaseAllMyReservations"];
@@ -659,6 +663,11 @@ export interface paths {
          *     Feature 016: for a signed-in customer and an event with a `maxTicketsPerCustomer`,
          *     `customerLimit` gives the limit, the caller's own valid tickets for the event, and how many
          *     more they may get; otherwise it is `null`. It never describes another customer.
+         *
+         *     Feature 034: sales close at `endsAt`, not `startsAt`, so `salesClosed` is `ENDED` from
+         *     `endsAt` on (`STARTED` is no longer sent once 034 is implemented), and `inProgress` says whether the event is between
+         *     its `startsAt` and its `endsAt`, by the same clock in the same answer. The Customer app shows
+         *     its "already started" notice from these two values, never from its own clock.
          */
         get: operations["getEventAvailability"];
         put?: never;
@@ -779,7 +788,8 @@ export interface paths {
          * @description Reserves seats for the signed-in customer for 5 minutes (feature 015). With no active
          *     reservation for the event, it makes one (`201`) that ends at `expiresAt`, 5 minutes later;
          *     with one, it adds the seats to it (`200`) without changing `expiresAt`. All or nothing:
-         *     any refusal reserves no seat.
+         *     any refusal reserves no seat. Feature 033: the Customer app sends one seat per request, as
+         *     each seat is clicked, one request at a time.
          *
          *     Each seat follows the rules of `createOrder`'s seats: inside the venue's layout, in a
          *     section for sale and, for an event with tiers, all of one tier (`400`), and not repeated
@@ -790,12 +800,18 @@ export interface paths {
          *     hold).
          *
          *     Refused when the event has no reserved seating (`400`), is cancelled (`409
-         *     EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or
-         *     in another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
-         *     `details.reserved` listing the reserved ones); and for seats of this customer's own
-         *     reservation that ended unbought less than 2 minutes ago (`409 SEAT_COOLDOWN`,
-         *     `details.seats`, `details.availableAt`). No seat is ever in two active reservations, or in
-         *     one and on a valid ticket, including under concurrent requests.
+         *     EVENT_CANCELLED`), or has ended (`409 SALES_CLOSED`; feature 034, before which it was
+         *     refused once started); for seats with a valid ticket or in
+         *     another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
+         *     `details.reserved` listing the reserved ones); and for seats that left one of this
+         *     customer's reservations released, run out, or on logout, when that reservation ended less
+         *     than 2 minutes ago (`409 SEAT_COOLDOWN`, `details.seats`, `details.availableAt`: the
+         *     reservation's end plus 2 minutes). Feature 033: the wait counts from the end of the
+         *     reservation, not of the seat's hold, so a seat released from the active reservation while it
+         *     keeps other seats can be reserved again at once, into it, with `expiresAt` unchanged; bought
+         *     seats, and seats ended by an admin change or cancellation, never wait. A seat that is both
+         *     taken and waiting is refused as `SEAT_TAKEN`. No seat is ever in two active reservations, or
+         *     in one and on a valid ticket, including under concurrent requests.
          *
          *     There is no `tierId` in the request: the reservation's tier is the tier of the sections its
          *     seats are in (`null` for an event without tiers), and is returned as `tierId`.
@@ -826,12 +842,15 @@ export interface paths {
         put?: never;
         /**
          * Release reserved seats
-         * @description Releases seats from the signed-in customer's active reservation for the event (feature
-         *     015): the listed `seats`, or all of them when `seats` is omitted. Released seats are open
-         *     to others at once, and this customer can't reserve them again for 2 minutes. The rest
-         *     keep their `expiresAt`. A seat not in the reservation is `400`. With no active reservation,
-         *     nothing happens and `reservation` is `null`, so a repeat is harmless. Feature 026: never
-         *     limited and never counted toward the attempt limits.
+         * @description Releases seats from the signed-in customer's active reservation for the event (feature 015):
+         *     the listed `seats`, or all of them when `seats` is omitted. Released seats are open to
+         *     others at once. The rest keep their `expiresAt`. Releasing the last seat ends the
+         *     reservation; this customer can't then reserve any seat that left it released, run out, or on
+         *     logout until 2 minutes after that end (bought seats, and seats ended by an admin change or
+         *     cancellation, never wait), while a seat released as others stay reserved can be reserved
+         *     again at once (feature 033; `reserveSeats`). A seat not in the reservation is `400`. With no
+         *     active reservation, nothing happens and `reservation` is `null`, so a repeat is harmless.
+         *     Feature 026: never limited and never counted toward the attempt limits.
          */
         post: operations["releaseSeats"];
         delete?: never;
@@ -864,10 +883,11 @@ export interface paths {
          *     `details.available`). Sales never exceed a tier's quantity or the event's capacity,
          *     including under concurrent requests.
          *
-         *     Feature 006: sales close when the event starts; an order at or after `startsAt` is
-         *     refused (`409 SALES_CLOSED`). A `requestId` makes a confirmation safe to repeat: if this
+         *     Feature 006, as changed by feature 034: sales close when the event ends; an order at or after
+         *     `endsAt` is refused (`409 SALES_CLOSED`), and one after `startsAt` but before `endsAt` is
+         *     placed like any other. A `requestId` makes a confirmation safe to repeat: if this
          *     customer already placed an order with the same `requestId`, that order is returned with
-         *     `200` and nothing new is recorded, even if the event has since sold out, started, or been
+         *     `200` and nothing new is recorded, even if the event has since sold out, ended, or been
          *     cancelled. The same `requestId` with a different event, tier, or quantity is refused
          *     (`409 REQUEST_ID_REUSED`). Without a `requestId`, every request places a new order.
          *
@@ -1771,8 +1791,9 @@ export interface components {
             };
         };
         /**
-         * @description Tickets left for an event and its tiers, and whether sales are closed (feature 006).
-         *     Valid tickets only. Guidance, not a reservation.
+         * @description Tickets left for an event and its tiers, whether sales are closed (feature 006), and
+         *     whether the event is in progress (feature 034). Valid tickets only. Guidance, not a
+         *     reservation.
          */
         Availability: {
             /** Format: uuid */
@@ -1787,10 +1808,20 @@ export interface components {
             /** @description The event's ticket capacity minus its valid tickets. */
             ticketsLeft: number;
             /**
-             * @description `null` while tickets can be ordered; otherwise why they cannot.
+             * @description `null` while tickets can be ordered; otherwise why they cannot: `CANCELLED` for a
+             *     cancelled event (whatever the time), else `ENDED` from the event's `endsAt` on
+             *     (half-open; feature 034). `STARTED` was sent from `startsAt` on before feature 034 and
+             *     is never sent once 034 is implemented; 034's implementation removes it from this list.
              * @enum {string|null}
              */
-            salesClosed: "CANCELLED" | "STARTED" | null;
+            salesClosed: "CANCELLED" | "ENDED" | "STARTED" | null;
+            /**
+             * @description Feature 034. `true` from the event's `startsAt` until its `endsAt` (half-open: `false` at
+             *     `endsAt` exactly), by the Backend's clock when it answers, the same clock as
+             *     `salesClosed`; whatever the event's `status`. Always sent once 034 is implemented, and
+             *     listed as required then; until then clients treat a missing value as `false`.
+             */
+            inProgress?: boolean;
             /** @description One entry per tier, in the order `listTicketTiers` returns; empty without tiers. */
             tiers: components["schemas"]["TierAvailability"][];
         };
@@ -2367,7 +2398,8 @@ export interface components {
         };
         /**
          * @description Feature 026. The caller's account is over its attempt allowance for this operation
-         *     (`x-attempt-limit`): 10 in any 60 seconds or 3 in any 5 seconds. Nothing was checked or
+         *     (`x-attempt-limit`): for `BUY`, 10 in any 60 seconds or 3 in any 5 seconds; for `HOLD`, 30
+         *     in any 60 seconds or 10 in any 5 seconds (feature 033). Nothing was checked or
          *     done, and this refusal does not count as an attempt. `details.action` is `BUY` or `HOLD`;
          *     `details.retryAfterSeconds` (an integer, 1 to 60) is how long to wait, rounded up, and
          *     `Retry-After` carries the same number; after that wait, with no other attempt of the same

@@ -30,10 +30,15 @@ Issue #27 lists three open decisions. The user settled them on 2026-10-12 (see C
 - Q: When does a seat count as held: on click, or on an explicit reserve action? → A: On an
   explicit action. The customer picks seats, then presses **Reserve seats**. Picking alone holds
   nothing and is not shown to anyone else.
+  _Amended 2026-11-09 by spec `033` (#135), clarifications: a seat is held when it is clicked; there
+  is no Reserve seats; clicking a held seat releases it._
 - Q: How long does a hold last if the customer closes the tab without logging out? → A: A
   reservation lasts 5 minutes from the moment **Reserve seats** succeeds. The customer must press
   **Confirm purchase** within those 5 minutes, or the seats are released. The 5 minutes do not
   restart.
+  _Amended 2026-11-09 by spec `033` (#135): the 5 minutes start with the first seat clicked, and
+  tickets are bought with Buy tickets in the cart; the 5 minutes still never restart while seats are
+  held._
 - Q: How should seats another customer has reserved look to everyone else? → A: As a distinct
   **Reserved** state, different from sold, and named as such for screen readers, so customers can
   tell they may free up. The Admin seat map also shows reserved seats and counts.
@@ -42,6 +47,9 @@ Issue #27 lists three open decisions. The user settled them on 2026-10-12 (see C
   release it, they deselect a seat, or they log out), that customer can't reserve those seats
   again; other customers can. So that releasing never forces this wait, a customer adds seats to
   their active reservation instead of releasing it and reserving again.
+  _Amended 2026-11-09 by spec `033` (#135), FR-006: a seat released while the reservation keeps
+  other seats can be held again at once; once the reservation ends, every seat of it waits 2 minutes
+  from that end._
 - Q: Should the Admin app's event seat map update live too, or only the Customer app's? → A: Both.
   The Admin seat map, including its section counts, gets the same live updates as customers.
 - Q: Must a seated order come from the customer's own active reservation, or may it still name
@@ -52,6 +60,10 @@ Issue #27 lists three open decisions. The user settled them on 2026-10-12 (see C
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Reserve Seats, Then Confirm Within 5 Minutes (Priority: P1)
+
+_Amended 2026-11-09 by spec `033` (#135): in the Customer app this story is replaced by `033` US1 to
+US3 (click to hold, Add to cart, buy from the cart, no Reserve seats, Release, or Release seats).
+The Backend behavior it describes stands._
 
 On a seated event, a customer picks seats as in `007`, presses **Reserve seats**, and the seats
 are theirs for 5 minutes. A countdown shows the time left. They press **Confirm purchase** before
@@ -193,7 +205,9 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
 - **One tier per reservation**: as with orders (`007`), all seats in a reservation belong to one
   tier. Picking another tier releases the active reservation.
 - **Sales closed**: no seats can be reserved for an event that has started or is cancelled. When an
-  event is cancelled or starts, its reservations end.
+  event is cancelled or starts, its reservations end. _Amended 2026-11-09 by spec `034` (#126),
+  FR-003, FR-004: seats can be reserved until the event ends, and its reservations end when it
+  ends, not when it starts._
 - **Admin seating changes**: if an admin turns reserved seating off, replaces the venue's layout,
   moves a section to another tier, adds the first tier to a seated event, or removes a tier,
   reservations on the affected seats end. The customer sees it through the live update, and is
@@ -216,6 +230,8 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
 - **FR-001**: On a seated event, the Customer app MUST let a customer pick seats as in `007` and
   then press **Reserve seats** to reserve them. Picking alone MUST NOT reserve a seat or be visible
   to anyone else.
+  _Amended 2026-11-09 by spec `033` (#135), FR-001: clicking an open seat holds it at once; there
+  are no picks._
 - **FR-002**: A reservation MUST be all-or-nothing: if any picked seat is reserved by another
   customer, has a valid ticket, is outside the layout, is in a section not for sale or of another
   tier, or is repeated, nothing MUST be reserved, and the refusal MUST name the unavailable seats.
@@ -230,9 +246,15 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
   MUST NOT be able to reserve that seat for the same event; the refusal MUST name the seat and say
   when it can be reserved again. Other customers MUST be able to reserve it at once. Seats ended by
   an admin change or cancellation (FR-016) are not affected.
+  _Amended 2026-11-09 by spec `033` (#135), FR-006: the 2 minutes count from the end of the
+  reservation, for every seat that left it released, run out, or by logout; a seat released while
+  the reservation keeps other seats can be held again at once._
 - **FR-005**: While a reservation is active, the Customer app MUST show a countdown of the time
   left, a **Confirm purchase** control, and a **Release seats** control. When the 5 minutes end,
   it MUST tell the customer, stop offering Confirm purchase, and keep their picks.
+  _Amended 2026-11-09 by spec `033` (#135), FR-010 to FR-015: a prominent countdown on the event
+  page and in the cart, Add to cart, and Buy tickets in the cart; no Release seats; picks are no
+  longer kept when it runs out (there are none)._
 - **FR-006**: Confirm purchase MUST order the reserved seats as in `007`. The Backend MUST accept a
   seated order only if every seat it names is in the ordering customer's active reservation for
   that event; otherwise it MUST refuse the whole order, naming the seats that aren't, and saying
@@ -242,6 +264,9 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
 - **FR-007**: A customer MUST be able to release their own reservation, all of it with Release
   seats or one seat at a time by deselecting it. A released seat MUST be open to others at once.
   Releasing seats MUST NOT change the time left on the rest.
+  _Amended 2026-11-09 by spec `033` (#135), FR-001, FR-002: releasing is by clicking held seats
+  only; there is no Release seats control. The Backend operation that releases all stays (logout
+  uses it)._
 - **FR-008**: Logging out of the Customer app MUST release every reservation the customer holds,
   for every event, before the session ends. If that release can't be completed, the reservations
   MUST still end when their 5 minutes do.
@@ -275,7 +300,9 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
   whose reservations have no tier, and, for a section, when it is moved to another tier. Removing a
   tier or deleting the event removes its reservations with it. Every seat these changes free,
   including seats whose tickets a cancellation voids, MUST reach viewers as open. No seat MUST be
-  reservable while the event's sales are closed.
+  reservable while the event's sales are closed. _Amended 2026-11-09 by spec `034` (#126), FR-003,
+  FR-004: they end when their event **ends**, not when it starts, since sales now close at the
+  end._
 - **FR-017**: Events that do not sell seats MUST keep working exactly as in `006`, and every `007`
   rule for seated orders MUST still hold, with the reservation required by FR-006 added.
 - **FR-018**: The contract MUST be updated first; changes to existing operations MUST be additive,

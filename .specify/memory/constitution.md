@@ -1,26 +1,33 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.9.3 -> 3.9.4 (PATCH): one roadmap row reserved; no principle changed and no control
-  removed. Applies on top of spec 031's amendment (3.9.2 -> 3.9.3, row
-  031-atomic-event-create), merged to main as f9d083b.
-Problem: issue #129. Every admitted ticket keeps, forever, when it was admitted and which Ticket
-  Booth agent admitted it (spec 017 research R3). Once an event is over that is personal data with
-  no purpose; it should be dropped one week after the event ends, while each event's report keeps
-  how many tickets were used to enter it.
+Version: 3.9.5 -> 3.9.6 (PATCH): one roadmap row reserved; no principle changed and no control
+  removed. Applies on top of spec 033's amendment (3.9.4 -> 3.9.5, row 033-seat-hold-cart),
+  merged to main as 17b3b88; 033's implementation (branch 033-seat-hold-cart-impl) is in flight.
+Problem: issue #126. Ticket sales close the moment an event starts (spec 006 FR-014), so someone who
+  arrives late or decides at the door cannot buy a ticket while the event is still going. Sales
+  should stay open until the event ends, and a customer buying after the start should be told the
+  event has already started and until when tickets are on sale.
 Changed:
-  - Roadmap: row 032-drop-check-ins reserved (a Backend job removes every ticket's check-in details
-    once 7 days have passed since its event ended, cancelled events included, keeping each event's
-    checked-in count; the 7 days are one named constant; the Admin app's Attendees, Sales card,
-    Reports, and attendee export say when the details were removed; a removed event's times no
-    longer change). The next free number is 033.
-Impact: spec 032, and its contract change (1.24.0: checkInDetailsRemovedAt on Event, OrderEvent,
-  and EventSales; updateEvent's 409 CHECK_IN_DETAILS_REMOVED). Specs 005, 017, and 023 keep their
-  rules until an event's cutoff, then read the kept count (spec 032 research R4, R7). Spec 030
-  (merged) is amended for removed events only, with a dated note in its spec: its FR-016 (a Past
-  ticket keeps its state and printable ticket) gives way to 032 FR-014 ("Event over", no printable
-  ticket), and its edge case of an event moved later coming back gives way to 032 FR-008 (times
-  fixed once removed) (spec 032 research R9, R10). No other spec changes. The README's version
-  reference follows. Templates: none need updating.
+  - Roadmap: row 034-sell-until-end reserved (orders and seat holds are allowed until the event's
+    end, half-open, and refused as sales closed from then on; holds end at the end, not the start;
+    capacity, the per-customer limit, the attempt limits, and seat holds unchanged; from the start
+    to the end the Get tickets panel says the event has already started, when it began and until
+    when tickets are on sale, in the venue's time zone, and an order placed after the start says so
+    on its confirmation; after the end, "Sales closed: this event has ended."; the Ticket Booth
+    admits a ticket bought after the start until the end, as today). The next free number is 035.
+Impact: spec 034, and its contract change (1.26.0: Availability.salesClosed gains ENDED, which
+  replaces STARTED once 034 is implemented; Availability gains inProgress; createOrder's and
+  reserveSeats' sales-closed rule moves to endsAt; the SALES_CLOSED example), with packages/shared's
+  api-schema.ts regenerated and order.ts's SalesClosedReason and Availability widened to match in
+  the spec PR. Every start-based sales rule in an earlier spec gets a dated note: 006 (US2's
+  narrative and scenario 6, its edge case, FR-014, SC-004), 007 (its "Events that started or were
+  cancelled" edge case), 015 (its "Sales closed" edge case and FR-016), 030 (the clarification
+  leaving the Get tickets panel to #126, and FR-014: once availability has loaded, the page's "This
+  event has ended." line follows it, ENDED, or CANCELLED and not in progress with the end passed by
+  the browser's clock when the event loaded, never while in progress, 034 FR-017), and 033 (its edge
+  cases on ended events in the cart and on a reservation ending elsewhere, its #126 line, and its
+  coordination assumption). No other spec changes. The README's version reference follows.
+  Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -331,7 +338,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `033`.
+number is a pull request against this table. The next free number is `035`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -367,6 +374,8 @@ number is a pull request against this table. The next free number is `033`.
 | `030-hide-past-events` | An event is past once the current time reaches its end (`endsAt`); wherever events are listed, past events are left out by default, by the Backend for every client; the Admin app's event list and venue page have a Show past events toggle that lists them too, marked Ended; the Customer app has no toggle, keeps past tickets in a Past section of My tickets, and opens a past event's own page saying it has ended; an event's Admin page, attendees, sales, and Reports stay reachable (#133) | `002`, `003`, `004`, `005`, `006`, `008`, `019`, `020`, `025` |
 | `031-atomic-event-create` | Scheduling an event in the Admin app saves the event, its ticket types, and its reserved seating (which section sells which type) in one request, all or nothing: any refusal leaves no event, ticket type, or seating behind, and two schedules for one slot save one whole event; each refusal names the ticket type or section at fault, so the form shows it beside that field and keeps every value to fix and resubmit; pictures still upload after the event exists, as in `014`; existing callers that send only the event are unchanged; editing an event is unchanged (#127) | `004`, `007`, `008`, `014` |
 | `032-drop-check-ins` | One week after an event ends (`endsAt` + 7 days, one named constant), a Backend job that runs every hour removes when each of its tickets was admitted and which Ticket Booth agent admitted it, cancelled events included, and keeps the event's checked-in count, so its report reads the same afterwards; the Admin app's Attendees, Sales card, Reports, and attendee export say "Check-in details removed on …" instead of showing tickets as not checked in; My tickets no longer says when a ticket was used; once removed, the event's times can no longer change (#129) | `005`, `017`, `018`, `023`, `025`, `030` |
+| `033-seat-hold-cart` | On a seated event the seat map is the only control for choosing seats: clicking an open seat holds it for the customer at once, and clicking it again releases it; the first held seat starts the reservation's 5 minutes, further seats join it without restarting them, and releasing the last one ends it, so the next click starts a new 5:00; no Reserve seats, Remove, Release, or Release seats; the countdown is shown prominently on the event page and in the cart, and every hold and release is announced; Add to cart opens a Cart page that lists the customer's active reservations, kept by the Backend (so a refresh or another device shows them), each event bought on its own before its countdown ends, then removed and the customer told; a seat released while others stay held can be held again at once, and every seat of an ended reservation waits 2 minutes from its end; seat holds get their own attempt allowance (30 a minute, 10 in any 5 seconds); general admission unchanged; one checkout for several events deferred (#135) | `007`, `015`, `016`, `017`, `020`, `026` |
+| `034-sell-until-end` | Tickets are sold until an event ends, not when it starts: orders and seat holds are allowed until its end time (half-open) and refused as sales closed from then on, and holds end at the end; capacity, the per-customer limit, the attempt limits, and seat holds apply as before; from the start to the end the Customer app's Get tickets panel says the event has already started, when it began, and that tickets are on sale until it ends, in the venue's time zone, and the confirmation of an order placed after the start says so; after the end it says "Sales closed: this event has ended."; a ticket bought after the start is admitted at the Ticket Booth until the end, as today (#126) | `006`, `015`, `016`, `020`, `025`, `026`, `030`, `033` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -419,4 +428,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.9.4 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09
+**Version**: 3.9.6 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09

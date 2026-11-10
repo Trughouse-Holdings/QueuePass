@@ -93,6 +93,8 @@ The confirmation shows both seats, and the admin seat map shows them sold.
    number of seats.
 3. **Given** chosen seats, **When** the customer confirms, **Then** one ticket is issued per seat
    and the confirmation lists each ticket's code and seat (section, row, seat number).
+   _Amended 2026-11-09 by spec `033` (#135): the seats are held as they are clicked and bought with
+   Buy tickets in the Cart page (`015`, then `033` FR-013)._
 4. **Given** a confirmed order, **When** the customer opens My tickets, **Then** each ticket shows
    its seat.
 5. **Given** a customer choosing more than 10 seats, **Then** they cannot confirm (the `005`
@@ -171,7 +173,8 @@ map shows those 3 seats sold and the section counts match.
 - **Capacity**: a seated event never sells more than its ticket capacity (`005`), nor more seats
   than its layout has.
 - **Unmapped sections**: when an event has tiers, a section mapped to no tier is not for sale.
-- **Events that started or were cancelled**: no seats can be chosen (`006` FR-014, `005`).
+- **Events that started or were cancelled**: no seats can be chosen (`006` FR-014, `005`). _Amended
+  2026-11-09 by spec `034` (#126), FR-001: seats can be chosen until the event ends, not starts._
 - **General admission at a venue with a layout**: allowed; the event sells tickets without seats,
   exactly as in `006` (FR-002).
 - **A tier with no sections**: its amount is 0, so it sells nothing (FR-006).
@@ -203,6 +206,9 @@ map shows those 3 seats sold and the section counts match.
   confirming. For an event with tiers, the customer picks a tier first, and only that tier's
   sections are offered. Seats chosen in one section stay chosen when the customer switches to
   another section of the same tier.
+  _Amended 2026-11-09 by spec `033` (#135): chosen seats are held seats (`033` FR-001); the total
+  and the seats show in the Your seats box, and confirming is Buy tickets in the cart (`033` FR-010,
+  FR-013)._
 - **FR-008**: An order for a seated event MUST name its seats; the Backend MUST issue one ticket
   per seat and MUST refuse a seat that is taken, outside the layout, in a section not for sale or
   mapped to a different tier than the order's, or repeated in the same order. A refusal for taken
