@@ -88,7 +88,8 @@ the team can overturn it in review of the spec PR.
 - Q: A direct link to a past event in the Customer app? → A: **The page opens and says "This event
   has ended."** under the event's name, with its details as today, never "not found". Its Get tickets
   panel is left as it is (sales closed); issue `#126` rewords it when sales move to the end
-  (recommended answer, open to review) (FR-014; research R7).
+  (recommended answer, open to review) (FR-014; research R7). _Amended 2026-11-09 by spec `034`
+  (#126), FR-011: the panel now says "Sales closed: this event has ended."_
 - Q: How is "Ended" shown in the Admin app? → A: **A plain "Ended" label beside the event's name**,
   in text, not color alone (Constitution VII), on both lists with the toggle on and on the event's own
   page. Each app works it out from the event's end and its own clock when the page loads, as the

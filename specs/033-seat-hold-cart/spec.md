@@ -315,7 +315,11 @@ them taken by another customer first; it alone is refused and named.
 - **General admission**: unchanged; it never appears in the cart.
 - **Spec `030`** (an ended event's page says "This event has ended."; implementation in flight): a
   reservation ends when its event starts (`015` FR-016), so an ended event is never in the cart.
-- **Issue #126** (sell until the event ends; not yet specced): see Assumptions.
+  _Amended 2026-11-09 by spec `034` (#126), FR-004: a reservation ends when its event ends, so a
+  started event stays in the cart until its end, and an ended one never is._
+- **Issue #126** (sell until the event ends; not yet specced): see Assumptions. _Amended 2026-11-09
+  by spec `034` (#126): specced as `034`; its Assumptions say which of the two implementations
+  merges what._
 
 ## Requirements *(mandatory)*
 
