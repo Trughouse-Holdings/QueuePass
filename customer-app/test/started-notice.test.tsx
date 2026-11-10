@@ -232,7 +232,8 @@ describe('one clock on the page (FR-017)', () => {
         'This event has already started (began at 7:00 PM EST). You can still buy tickets until it ends at 10:00 PM EST.',
       ),
     ).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByText(ENDED_LINE)).toBeNull());
+    // Reported before paint (a layout effect), so never beside the notice, even for one render.
+    expect(screen.queryByText(ENDED_LINE)).toBeNull();
   });
 
   it('a slow browser clock still shows the ended line once the Backend says ENDED', async () => {
@@ -300,7 +301,7 @@ describe('one clock on the page (FR-017)', () => {
     renderCustomer({ at: '/events/e1' });
 
     await screen.findByText(BUY);
-    await waitFor(() => expect(screen.queryByText(ENDED_LINE)).toBeNull());
+    expect(screen.queryByText(ENDED_LINE)).toBeNull();
     await typeHolderName();
     fireEvent.click(screen.getByRole('button', { name: 'Confirm order' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Only 0 tickets are left');
@@ -311,5 +312,46 @@ describe('one clock on the page (FR-017)', () => {
     reload.resolve(json(availability({ salesClosed: 'ENDED', inProgress: false })));
     expect(await screen.findByText(ENDED_LINE)).toBeInTheDocument();
     expect(screen.getByText('Sales closed: this event has ended.')).toBeInTheDocument();
+  });
+
+  // Review round 1 (S2): a reload that fails after a first answer keeps that answer.
+  it.each([
+    ['answers 500', () => json({ error: { code: 'INTERNAL', message: 'boom' } }, 500)],
+    [
+      'never answers (a network error)',
+      (): Response => {
+        throw new TypeError('Failed to fetch');
+      },
+    ],
+  ])('keeps the last answer when the reload %s', async (_how, failed) => {
+    at(AFTER_END);
+    let reads = 0;
+    stubApi(
+      routes(
+        () => {
+          reads += 1;
+          return reads === 1 ? json(availability({ inProgress: true })) : failed();
+        },
+        {
+          orderReply: json(
+            { error: { code: 'SOLD_OUT', message: 'Only 0 tickets are left for Early Show.' } },
+            409,
+          ),
+        },
+      ),
+    );
+    renderCustomer({ at: '/events/e1' });
+
+    await screen.findByText(BUY);
+    expect(screen.queryByText(ENDED_LINE)).toBeNull();
+    await typeHolderName();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm order' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Only 0 tickets are left');
+    await waitFor(() => expect(reads).toBe(2));
+    // Let the failed reload settle: the panel keeps the last answer, and so does the page.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByText(ENDED_LINE)).toBeNull();
+    expect(screen.getByText(BUY)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Confirm order' })).toBeInTheDocument();
   });
 });
