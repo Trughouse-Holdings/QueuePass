@@ -83,7 +83,8 @@ the team can overturn it in review of the spec PR.
   deleted. An order belongs under Past once its event has ended, decided when the page loads. In the
   Past section a ticket shows its state but no "Show entry code" link, because the gate no longer
   admits it (`025`); its printable ticket stays (recommended answer, open to review) (FR-015, FR-016;
-  research R8).
+  research R8). _Amended 2026-11-09 by spec `032` (#129), FR-014: once its event's check-in details
+  have been removed, a valid ticket reads "Event over" and has no printable ticket._
 - Q: A direct link to a past event in the Customer app? → A: **The page opens and says "This event
   has ended."** under the event's name, with its details as today, never "not found". Its Get tickets
   panel is left as it is (sales closed); issue `#126` rewords it when sales move to the end
@@ -147,7 +148,8 @@ says it has ended.
    tickets, **Then** the upcoming order is listed first, and the ended one under a **Past** heading
    after it, each with its tickets, holder name, total, and state as today.
 2. **Given** an order under Past with a valid, unused ticket, **Then** it offers no "Show entry code"
-   link, and still offers its printable ticket.
+   link, and still offers its printable ticket. _Amended 2026-11-09 by spec `032` (#129), FR-014: not
+   once its event's check-in details have been removed ("Event over", no printable ticket)._
 3. **Given** a customer whose orders are all for ended events, **Then** My tickets shows the Past
    section and says they have no upcoming tickets, with a link to browse events.
 4. **Given** the page of an event that has ended, opened from My tickets or a direct link, **Then** it
@@ -237,7 +239,9 @@ minute ago and one in progress; the first is left out only without it.
 - **Changing a venue's time zone** moves its past events' times too (`020`, `024`), so the venue
   form's note counts past events.
 - **An event moved later.** An admin who edits a past event's end to a later time brings it back
-  into the lists from the next load; nothing else is needed.
+  into the lists from the next load; nothing else is needed. _Amended 2026-11-09 by spec `032`
+  (#129), FR-008: not for an event whose check-in details have been removed (a week after its end);
+  its times can no longer change._
 - **A cancelled event that has ended.** Hidden like any past event; with the toggle on, marked both
   Cancelled and Ended. In the Customer app, its page says both it has been cancelled and that it has
   ended.
@@ -296,7 +300,8 @@ minute ago and one in progress; the first is left out only without it.
   newest order first; no order is left out. With no upcoming orders, it MUST say so and link to the
   Events page; with no past orders, it MUST show no Past heading.
 - **FR-016**: Under Past, a ticket MUST NOT offer "Show entry code"; it MUST keep its state and its
-  printable ticket.
+  printable ticket. _Amended 2026-11-09 by spec `032` (#129), FR-014: once its event's check-in
+  details have been removed, a valid ticket reads "Event over" and has no printable ticket._
 
 **The Ticket Booth**
 

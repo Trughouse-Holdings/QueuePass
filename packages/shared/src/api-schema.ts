@@ -554,6 +554,13 @@ export interface paths {
          *     the same time before the start (also when moving to a venue in another zone, which does not
          *     have to send it). Otherwise an update without it leaves it unchanged. Moving
          *     `doorsOpenAt` later can close an open check-in window; entries already recorded stay.
+         *
+         *     Feature 032: once an event's check-in details have been removed (`checkInDetailsRemovedAt`
+         *     set), an update whose `startsAt`, `endsAt`, or `doorsOpenAt` in force after it differs from
+         *     the stored instant is refused with `409 CHECK_IN_DETAILS_REMOVED`
+         *     (`details.removedAt`), and nothing changes. Sending the stored instants again, or changing
+         *     only other fields, is allowed. Before removal, times change as above, and the removal
+         *     follows the `endsAt` in force.
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -1438,6 +1445,14 @@ export interface components {
              * @example 45.00
              */
             basePrice: string;
+            /**
+             * Format: date-time
+             * @description Feature 032. When the Backend removed the check-in details of this event's tickets, at
+             *     or after `endsAt` plus 7 days; `null` until then. Always sent once 032 is implemented;
+             *     not listed as required so this contract can merge ahead of the implementation with the
+             *     suite green. Clients treat a missing value as `null`.
+             */
+            checkInDetailsRemovedAt?: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1643,7 +1658,12 @@ export interface components {
             code: string;
             /** @enum {string} */
             status: "VALID" | "VOID";
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description When the ticket was admitted; `null` while unused. Feature 032: also `null` once its
+             *     event's check-in details have been removed (`checkInDetailsRemovedAt`), whether or not
+             *     it was used.
+             */
             checkedInAt: string | null;
             /** @description Feature 007. The seat this ticket is for; `null` for general admission. */
             seat: components["schemas"]["SeatLabel"] | null;
@@ -1726,6 +1746,13 @@ export interface components {
             doorsOpenAt: string;
             /** @enum {string} */
             status: "SCHEDULED" | "CANCELLED";
+            /**
+             * Format: date-time
+             * @description Feature 032. As `Event.checkInDetailsRemovedAt`. When set, My tickets shows the order's
+             *     valid tickets as "Event over", with no entry code or printable ticket. Not listed as
+             *     required until 032 is implemented; clients treat a missing value as `null`.
+             */
+            checkInDetailsRemovedAt?: string | null;
             location: {
                 /** Format: uuid */
                 id: string;
@@ -1966,7 +1993,18 @@ export interface components {
             status: "SCHEDULED" | "CANCELLED";
             ticketCapacity: number;
             ticketsSold: number;
+            /**
+             * @description Valid tickets admitted at the gate; 0 for a cancelled event. Feature 032: once the
+             *     event's check-in details have been removed, the count kept at that moment, so the
+             *     figure does not change.
+             */
             checkedIn: number;
+            /**
+             * Format: date-time
+             * @description Feature 032. As `Event.checkInDetailsRemovedAt`. Not listed as required until 032 is
+             *     implemented; clients treat a missing value as `null`.
+             */
+            checkInDetailsRemovedAt?: string | null;
             /** @example 45.00 */
             revenue: string;
             tiers: components["schemas"]["TierSales"][];
@@ -2086,7 +2124,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED" | "CHECK_IN_DETAILS_REMOVED";
                 message: string;
                 details?: {
                     [key: string]: unknown;

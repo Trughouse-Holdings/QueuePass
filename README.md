@@ -3,7 +3,7 @@
 Venue and event management with sign-in for every user and guaranteed conflict-free scheduling.
 
 Built from the specifications in [`specs/`](specs/) under the project constitution at
-[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.9.3).
+[`.specify/memory/constitution.md`](.specify/memory/constitution.md) (v3.9.4).
 
 ---
 
@@ -54,6 +54,7 @@ on the running system, and its browser test in CI are still to do.
 | [`029-demo-checkpoint`](specs/029-demo-checkpoint/spec.md)                   | One command resets a local database to the demo state (events on sale, one open at the Ticket Booth, one over), the same every time, in seconds; refused unless explicitly allowed on a local database; Keycloak accounts untouched                                    | Draft            | Done (19/22 tasks) | **Built, reviewed, and walked** |
 | [`030-hide-past-events`](specs/030-hide-past-events/spec.md)                 | Events that have ended leave every event list in the Customer and Admin apps; admins turn on Show past events to see them, marked Ended; customers keep past tickets under Past on My tickets, and a past event's page says it has ended                               | Draft            | In review          | Not started                     |
 | [`031-atomic-event-create`](specs/031-atomic-event-create/spec.md)           | Scheduling an event saves it with its ticket types and seating in one step, or saves nothing; a refusal shows beside the ticket type or section at fault, and the form keeps everything typed; pictures still upload afterwards                                        | Draft            | Done (18/23 tasks) | **Built (review pending)**      |
+| [`032-drop-check-ins`](specs/032-drop-check-ins/spec.md)                     | One week after an event ends, who checked in and when is removed from its tickets; the event keeps its checked-in count, so its report reads the same; the Admin app says when the details were removed                                                                | Draft            | In review          | Not started                     |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. Each app has its
