@@ -75,10 +75,10 @@ test('030 S1/S2: the Customer app leaves an ended event out of the list, a searc
   await test.step("the ended event's own page opens and says it has ended", async () => {
     await page.goto(`${new URL(page.url()).origin}/events/${ended.id}`);
     await expect(page.getByRole('heading', { level: 1, name: ended.name })).toBeVisible();
-    await expect(page.getByText('This event has ended.')).toBeVisible();
+    await expect(page.getByText('This event has ended.', { exact: true })).toBeVisible();
     await page.goto(`${new URL(page.url()).origin}/events/${inProgress.id}`);
     await expect(page.getByRole('heading', { level: 1, name: inProgress.name })).toBeVisible();
-    await expect(page.getByText('This event has ended.')).toHaveCount(0);
+    await expect(page.getByText('This event has ended.', { exact: true })).toHaveCount(0);
   });
   await page.context().close();
 });

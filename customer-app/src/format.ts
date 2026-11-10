@@ -1,4 +1,10 @@
-import { DEFAULT_TIME_ZONE, formatEventTime, formatDoorsOpen } from '@queuepass/shared';
+import {
+  DEFAULT_TIME_ZONE,
+  formatEventEnd,
+  formatEventTime,
+  formatDoorsOpen,
+  type InstantLike,
+} from '@queuepass/shared';
 
 /**
  * An event time in its venue's zone, always with its date (spec 003 FR-006) and the zone's
@@ -55,3 +61,32 @@ export const doorsOpen = (
  * (half-open), whatever its status.
  */
 export const hasEnded = (endsAt: string, now: number): boolean => Date.parse(endsAt) <= now;
+
+/**
+ * Spec 034 (research R4, R5): which notice an event in progress gets. `buy` on the Get tickets
+ * panel while it offers tickets (FR-008), `first` while it shows a reason it offers none (FR-010),
+ * `admit` on the confirmation of an order placed after the start (FR-012).
+ */
+export type StartedNoticeKind = 'buy' | 'first' | 'admit';
+
+/**
+ * Spec 034 FR-008 to FR-010, FR-012: "This event has already started (began at 7:00 PM EST)."
+ * and, for `buy` or `admit`, the sentence that follows. Each time is in the venue's zone with its
+ * abbreviation, alone on the local date of `at` (when the panel's availability loaded, or the
+ * order's `createdAt`) and with its date otherwise (FR-009), by `formatEventEnd` (spec 020).
+ */
+export function startedNotice(
+  startsAt: string,
+  endsAt: string,
+  timeZone: string | null | undefined,
+  at: InstantLike,
+  kind: StartedNoticeKind,
+): string {
+  const zone = timeZone || DEFAULT_TIME_ZONE;
+  const first = `This event has already started (began at ${formatEventEnd(at, startsAt, zone)}).`;
+  if (kind === 'first') return first;
+  const end = formatEventEnd(at, endsAt, zone);
+  return kind === 'buy'
+    ? `${first} You can still buy tickets until it ends at ${end}.`
+    : `${first} Your tickets admit you until it ends at ${end}.`;
+}

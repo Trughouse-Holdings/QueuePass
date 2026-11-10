@@ -233,7 +233,8 @@ export async function runDemoData(app: INestApplicationContext): Promise<DemoSum
   await tiers.create(gala.id, { name: 'Balcony', price: '50.00', quantity: 100 });
 
   // Spec 029 FR-007 (research R5): an event that is over, so the apps show one; 7 days before the
-  // run at 7:00 PM to 10:00 PM at the Hall. Sales closed at its start (006), so it has no tickets.
+  // run at 7:00 PM to 10:00 PM at the Hall. Sales closed at its end (034); the demo places no
+  // order for it.
   const past = await events.create({
     name: 'Season Opener',
     locationId: hall.id,

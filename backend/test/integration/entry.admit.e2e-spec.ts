@@ -1,6 +1,15 @@
 import { randomUUID } from 'node:crypto';
 import { asAdmin } from '../setup/authed-request';
-import { agent, customer, eventAroundNow, orderWithTickets, venue } from '../setup/fixtures';
+import {
+  agent,
+  atInstant,
+  customer,
+  event,
+  eventAroundNow,
+  HOLDER,
+  orderWithTickets,
+  venue,
+} from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor } from '../setup/tokens';
@@ -185,5 +194,42 @@ describe('admitTicket', () => {
       reason: 'OTHER_EVENT',
       event: { name: 'Desert Show', timeZone: 'America/Phoenix' },
     });
+  });
+
+  // Spec 034 FR-013, SC-006 (research R6): a ticket bought after its event's start, through the
+  // API, is admitted at the gate until the end; the entry window is unchanged.
+  it('admits a ticket bought after the event started', async () => {
+    const now = Date.now();
+    // A venue of its own, so the venue's 60-minute rule never meets beforeEach's event.
+    const lateId = await event(ctx, await venue(ctx, 'Late Hall'), {
+      name: 'Late Show',
+      startsAt: atInstant(now - 30 * 60_000),
+      endsAt: atInstant(now + 2 * 3_600_000),
+    });
+    const placed = await (
+      await customer(ctx)
+    )
+      .post(`/events/${lateId}/orders`)
+      .send({ holderName: HOLDER, quantity: 1 });
+    expect(placed.status).toBe(201);
+    const ticket = placed.body.tickets[0] as { id: string; code: string };
+
+    const look = await (
+      await agent(ctx)
+    )
+      .post(`/events/${lateId}/entry/lookup`)
+      .send({ code: ticket.code });
+    expect(look.status).toBe(200);
+    expect(look.body.state).toBe('ADMITTABLE');
+
+    const admitted = await (
+      await agent(ctx)
+    )
+      .post(`/events/${lateId}/entry/admit`)
+      .send({ ticketId: ticket.id, wholeOrder: false });
+    expect(admitted.status).toBe(200);
+    expect(admitted.body.admitted).toEqual([
+      { ticketId: ticket.id, code: ticket.code, usedAt: expect.any(String) },
+    ]);
   });
 });
