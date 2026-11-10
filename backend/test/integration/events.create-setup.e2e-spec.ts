@@ -1,5 +1,5 @@
 import type { Prisma } from '@prisma/client';
-import type { Response } from 'supertest';
+import request, { type Response } from 'supertest';
 import { expectToMatchContract } from '../contract/expect-to-match-contract';
 import { asAdmin } from '../setup/authed-request';
 import { venue, windowAt } from '../setup/fixtures';
@@ -466,7 +466,24 @@ describe('Scheduling an event with its ticket types and seating (031)', () => {
           return fn(failing);
         }, options as never)) as never);
       try {
-        const res = await refused(() => seated(), 500);
+        // Sent without the helper's contract check: the contract declares no 500, and this one
+        // is injected. The envelope is still the standard one (Constitution I).
+        const res = await refused(
+          () =>
+            request(ctx.app.getHttpServer())
+              .post('/events')
+              .set('Authorization', `Bearer ${ctx.adminToken}`)
+              .send(
+                base(seatedVenue, {
+                  reservedSeating: true,
+                  tiers: [
+                    { name: 'Front', price: '120.00', sectionIds: [front] },
+                    { name: 'Standard', price: '70.00', sectionIds: [middle] },
+                  ],
+                }),
+              ),
+          500,
+        );
         expect(res.body.error.code).toEqual(expect.any(String));
         expect(res.body.error.message).toEqual(expect.any(String));
         // The failure came after the first writes, inside the transaction.
