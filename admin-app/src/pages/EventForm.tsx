@@ -661,6 +661,10 @@ export function EventForm(): React.ReactElement {
     error?.code === 'SCHEDULING_CONFLICT'
       ? ((error.details?.conflictingEvent ?? null) as ConflictingEventRef | null)
       : null;
+  // Spec 032: times are locked once check-in details are removed. Shown with the times, like a
+  // scheduling conflict, not next to submit.
+  const timesRefusal =
+    error?.code === 'SCHEDULING_CONFLICT' || error?.code === 'CHECK_IN_DETAILS_REMOVED';
 
   // Spec 020 (review round 1, S1): while the venue list has failed or not arrived, the edited
   // event's own venue stands in, so its zone is never replaced by Eastern by accident.
@@ -1134,7 +1138,7 @@ export function EventForm(): React.ReactElement {
             <p className="note" data-testid="zone-line">
               {zoneLine()}
             </p>
-            {conflict && <ErrorBanner error={error!} />}
+            {timesRefusal && <ErrorBanner error={error!} />}
             {conflict && (
               <p data-testid="conflict-detail" className="conflict-detail">
                 Conflicts with <strong>{conflict.name}</strong>, which runs{' '}
@@ -1326,7 +1330,7 @@ export function EventForm(): React.ReactElement {
               </div>
             </div>
           )}
-          {!conflict && placed.unmapped.length > 0 && (
+          {!timesRefusal && placed.unmapped.length > 0 && (
             <p className="field__hint" role="alert" data-testid="submit-error">
               {placed.unmapped.join(' ')}
             </p>
