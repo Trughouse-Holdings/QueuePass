@@ -118,6 +118,7 @@ tickets, and the attendee list show it with no extra request (FR-011).
   the venue has no layout or the event has sales), a tier select per section for events with
   tiers, and **Save seating**. Below it, the seat map: one section at a time, each row a line of
   seats marked sold or open, with sold and open counts per section.
+  **Note, 2026-11-09 (#136)**: the checkbox is no longer shown when it can never be used; see R12.
 - **Attendees**: each ticket shows its seat.
 
 ## R8: Customer app
@@ -198,3 +199,26 @@ reports) keeps working unchanged:
 **Alternatives rejected**: computing the numbers on every read would leave the columns stale and
 touch every query in `004`–`006`; dropping the typed fields everywhere was the larger option the
 user declined (general admission keeps them).
+
+## R12: No Reserved seating checkbox that can't be used (2026-11-09, issue #136)
+
+R7's Seating card always showed the **Reserved seating** checkbox, disabled with a reason when it
+could not be used. A control that can never be used is noise, and at a venue without a layout it
+suggested the event was missing something. The card now shows the checkbox only when it can be
+used or is on, matching the event form, which offers Reserved seating / General admission only
+when the venue has a layout (`008` US6, research R9):
+
+| Venue layout | Tickets sold | Reserved seating | Seating card |
+| --- | --- | --- | --- |
+| None | either | off (on can't happen: a layout can't be removed while a seated event uses it) | "General admission: this venue has no seating layout." No checkbox, no **Save seating** |
+| Yes | yes | off | "General admission: tickets have been sold, so reserved seating can't be turned on." No checkbox, no **Save seating** |
+| Yes | yes | on | Unchanged: checked, disabled, "Seats can't change after tickets are sold."; tiers and **Save seating** for unsold sections |
+| Yes | no | either | Unchanged: the checkbox, usable |
+
+**Decision on the issue's open question** (recommended, open to review): with tickets sold and
+reserved seating off, the checkbox can never be turned on (FR-002), so it goes too. With it on,
+it stays, checked: it is what tells the admin the event is seated, and section tiers may still
+change for sections without sales (FR-004).
+
+Only the Admin app changes. The Backend's refusals (FR-002) and the spec's requirements are
+unchanged; spec US4 never named the checkbox. T023's test now checks the table above.

@@ -2,7 +2,7 @@
 // the browser tests. It removes any leftover `qpe2e` stack; refuses while the stack's ports are
 // still in use (someone else's stack); starts a fresh one from clean data exactly as `docker compose up --build` builds it, with
 // the address stand-in of e2e/stack/docker-compose.e2e.yml (FR-010); loads the README's demo
-// data; runs Playwright; keeps every service's log when something failed; and always removes the
+// state with the reset (spec 029 research R13); runs Playwright; keeps every service's log when something failed; and always removes the
 // stack and its volumes (SC-006), also on Ctrl-C, SIGTERM, or a hang-up. Exit code: Playwright's, or 1 when the ports are busy or the
 // stack did not start.
 import { spawn } from 'node:child_process';
@@ -168,15 +168,26 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
       await run('docker', [...COMPOSE, 'logs', '--no-color', 'seed'], { track });
       return 1;
     }
-    log(`npm run e2e: stack healthy after ${minutes()}; loading the demo data…`);
+    // Spec 029 research R13: the demo state through the reset, on the Compose path; the one place
+    // that gives the permission without a person typing it, for this throwaway stack only (FR-003).
+    log(`npm run e2e: stack healthy after ${minutes()}; loading the demo state (reset)…`);
     const demo = await run(
       'docker',
-      [...COMPOSE, 'exec', '-T', 'backend', 'node', 'backend/dist/scripts/demo-data.js'],
+      [
+        ...COMPOSE,
+        'exec',
+        '-T',
+        '-e',
+        'QUEUEPASS_ALLOW_RESET=1',
+        'backend',
+        'node',
+        'backend/dist/scripts/demo-reset.js',
+      ],
       { track },
     );
     if (interrupted) return 130;
     if (demo !== 0) {
-      error('npm run e2e: the demo data did not load.');
+      error('npm run e2e: the demo state did not load.');
       return 1;
     }
 

@@ -5,9 +5,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { parse } from 'yaml';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
@@ -209,4 +211,91 @@ test('stops the Backend when /health never answers', async () => {
     child.stderr.destroy();
   }
   assert.ok(closed, 'the Backend still runs');
+});
+
+// Spec 029 FR-002, FR-003, SC-007 (research R6, R12, tasks T007): path B's reset runs one step
+// with the Backend's environment, never gives the permission itself, and starts nothing else.
+test("--demo-reset plans one step, demo-reset, with the Backend child's environment and no children", () => {
+  const blocks = plan('--backend-tz', 'America/Los_Angeles', '--demo-reset');
+  assert.deepEqual(
+    blocks.map((b) => [b.kind, b.name]),
+    [['setup', 'demo-reset']],
+  );
+  const step = blocks[0];
+  assert.equal(step.command, 'npm run demo-reset --workspace @queuepass/backend');
+  const backend = find(plan('--backend-tz', 'America/Los_Angeles'), 'backend');
+  assert.deepEqual(step.env, backend.env);
+  assert.ok(!('QUEUEPASS_ALLOW_RESET' in step.env), 'run-host.mjs must not give the permission');
+});
+
+test('--demo-reset with --demo-data is refused, naming both', () => {
+  const r = spawnSync(process.execPath, [SCRIPT, '--print', '--demo-reset', '--demo-data'], {
+    encoding: 'utf8',
+  });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /--demo-reset/);
+  assert.match(r.stderr, /--demo-data/);
+});
+
+test('--demo-reset without a built Backend says to build it and runs nothing (FR-002)', async () => {
+  const { run } = await import('../run-host.mjs');
+  const marker = join(tmpdir(), `qp-demo-reset-ran-${process.pid}`);
+  const step = {
+    name: 'demo-reset',
+    command: `"${process.execPath}" -e "require('fs').writeFileSync(process.argv[1], 'x')" "${marker}"`,
+    env: {},
+  };
+  await assert.rejects(
+    run(
+      { demoReset: true },
+      {
+        plan: { setup: [step], children: [] },
+        resetScript: join(ROOT, 'backend', 'dist', 'scripts', 'no-such-demo-reset.js'),
+        quiet: true,
+      },
+    ),
+    /Build the Backend first: npm run build --workspace @queuepass\/backend/,
+  );
+  assert.equal(existsSync(marker), false, 'the step ran');
+});
+
+// Code review round 1, s2 (research R6): after its one step, reset mode returns; it starts no child
+// and never waits for the Backend's health.
+test('--demo-reset runs its step and returns: no child, no health wait (R6)', async () => {
+  const { run } = await import('../run-host.mjs');
+  const marker = join(tmpdir(), `qp-demo-reset-child-${process.pid}`);
+  let polled = 0;
+  const server = createServer((_, res) => {
+    polled += 1;
+    res.end('ok');
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const started = [];
+  try {
+    await run(
+      { demoReset: true },
+      {
+        plan: {
+          setup: [{ name: 'demo-reset', command: `"${process.execPath}" -e "0"`, env: {} }],
+          children: [
+            {
+              name: 'backend',
+              command: `"${process.execPath}" -e "require('fs').writeFileSync(process.argv[1], 'x')" "${marker}"`,
+              env: {},
+            },
+          ],
+        },
+        resetScript: SCRIPT,
+        healthUrl: `http://127.0.0.1:${server.address().port}/health`,
+        healthTimeoutMs: 1500,
+        onStart: (child) => started.push(child),
+        quiet: true,
+      },
+    );
+  } finally {
+    server.close();
+  }
+  assert.equal(started.length, 0, 'a child was started');
+  assert.equal(polled, 0, 'the health URL was polled');
+  assert.equal(existsSync(marker), false, 'the child ran');
 });

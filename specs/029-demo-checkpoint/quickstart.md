@@ -106,7 +106,7 @@ by the Backend's integration tests against real PostgreSQL (tasks T003 to T006).
 | --- | --- |
 | S0 | Manual: a stack of its own with hand-made extra data; the e2e stack is fresh |
 | S1 | Manual: removing every row would break the browser tests running beside it; the wipe and the output are covered by the Backend's tests, and the harness runs the reset once per job |
-| S2 | Manual: until T014 adds `029 S2: after the reset, the Ticket Booth offers Demo Tonight open and the Customer app shows Season Opener with sales closed`; admitting a ticket by hand |
+| S2 | Automated: `029 S2: after the reset, the Ticket Booth offers Demo Tonight open and the Customer app shows Season Opener with sales closed`; rest Manual: admitting a ticket by hand |
 | S3 | Manual: two resets compared by the Backend's tests (T004) |
 | S4 | Manual: refusals are command-line behavior, covered by the Backend's guard and migration tests (T003, T005) |
 | S5 | Manual: start-up is every `npm run e2e`; the root script test checks no Compose file or workflow gives the permission (T007) |
