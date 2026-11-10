@@ -15,12 +15,10 @@ import {
   doorsOpenProblem,
   doorsOpenRangeMessage,
   formatLocalTime,
-  resolveLocal,
   skippedTimeMessage,
   toLocalDateTime,
   toOffsetDateTime,
   zoneName,
-  type Moment,
   type ResolvedLocal,
   type UsTimeZone,
 } from '@queuepass/shared';
@@ -28,38 +26,32 @@ import { until, when } from '../format';
 import { createEvent, getEvent, updateEvent } from '../api/events';
 import { deleteEventImage, reorderEventImages, uploadEventImage } from '../api/images';
 import { listLocations } from '../api/locations';
-import { getLayout, getSeatMap, updateSeating } from '../api/seating';
-import { createTier, deleteTier, listTiers, updateTier } from '../api/tiers';
+import { getAvailability, getLayout, getSeatMap } from '../api/seating';
+import { listTiers } from '../api/tiers';
 import { ApiError } from '../api/client';
+import {
+  fieldErrors,
+  firstErrorKey,
+  firstPlacedKey,
+  focusIdFor,
+  lockReason,
+  momentOf,
+  previewErrors,
+  resolveField,
+  seatTotals,
+  visibleErrors,
+  type Occurrence,
+  type SoldCounts,
+  type TimeField,
+  type TypeFieldError,
+  TYPE_FIELDS,
+} from './event-form-checks';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ImagesField, type ImageItem } from '../components/ImagesField';
 import { SuccessState } from '../components/SuccessState';
 
-/** Spec 020 research R13: which of a repeated local time's two moments the admin chose. */
-type Occurrence = '' | 'first' | 'second';
-type TimeField = 'startsAt' | 'endsAt' | 'doorsOpenAt';
-
 /** Spec 025 research R4: on a new event, Doors open follows the start 1 hour earlier. */
 const DEFAULT_DOORS_GAP_MS = DEFAULT_DOORS_BEFORE_START_MINUTES * 60_000;
-
-/**
- * A `datetime-local` value read in the venue's zone (research R11, R13): null while it is not a
- * complete date and time. Never the browser's zone.
- */
-function resolveField(local: string, zone: UsTimeZone): ResolvedLocal | null {
-  try {
-    return local ? resolveLocal(local, zone) : null;
-  } catch {
-    return null;
-  }
-}
-
-/** The moment a field names: `null` for a skipped time, or a repeated one not yet chosen. */
-function momentOf(resolved: ResolvedLocal, occurrence: Occurrence): Moment | null {
-  if (resolved.kind === 'ok') return resolved.moment;
-  if (resolved.kind === 'repeated' && occurrence) return resolved[occurrence];
-  return null;
-}
 
 /**
  * One ticket type on the form (spec 008 US6, US7). `id` is set for a type the event already has;
@@ -69,23 +61,12 @@ type TicketType = { id?: string; name: string; price: string; quantity: string }
 
 const NEW_TYPE: TicketType = { name: '', price: '', quantity: '' };
 
-const validationError = (message: string): ApiError =>
-  new ApiError(400, { error: { code: 'VALIDATION_FAILED', message } });
-
 /** "45.5" → 4550, so prices compare as money rather than as text. */
 const cents = (price: string): number => Math.round(Number(price.trim()) * 100);
 
 /** Spec 008 R10: the event's base price is its lowest ticket type price. */
 const lowestPrice = (types: TicketType[]): string =>
   types.reduce((low, t) => (cents(t.price) < cents(low.price) ? t : low)).price.trim();
-
-/** Spec 016 research R7: the allowed range, or no upper bound while the capacity is unknown. */
-const limitRefused = (most: number | null): ApiError =>
-  validationError(
-    most !== null
-      ? `Tickets per customer must be a whole number from 1 to ${most}, or blank for no limit.`
-      : 'Tickets per customer must be a whole number of at least 1, or blank for no limit.',
-  );
 
 /**
  * Spec 014 research R9: what the form hands its edit form after creating an event whose pictures
@@ -128,53 +109,6 @@ const savedItem = (image: EventImage, file?: File): ImageItem => ({
   ...(file ? { file } : {}),
 });
 
-/** One refusal message placed on a ticket type, with the field it names (spec 031 research R3). */
-interface TypeFieldError {
-  field: string;
-  message: string;
-}
-
-/** Spec 031 FR-010 (research R3, R5): a refusal's messages by the place in the form they name. */
-interface PlacedErrors {
-  /** By the ticket type's index in the request (ticket type i + 1 on the form). */
-  types: Map<number, TypeFieldError[]>;
-  /** The ticket types together (`tiers`). */
-  tiers: string[];
-  /** The seating choice (`reservedSeating`, `totalTicketCapacity`). */
-  seating: string[];
-}
-
-const TYPE_FIELDS = ['name', 'price', 'quantity', 'sectionIds'];
-
-/**
- * Spec 031 (research R3, R5): reads the path a refusal names, from `details.field` (exactly the
- * path) or from the start of each `details.fields` entry, as the contract says a client should:
- * `tiers.<i>.` is ticket type i, any other start with `tiers` the ticket types, and
- * `reservedSeating` or `totalTicketCapacity` the seating. Anything else stays in the banner only.
- */
-function fieldErrors(error: ApiError | null): PlacedErrors {
-  const placed: PlacedErrors = { types: new Map(), tiers: [], seating: [] };
-  if (!error) return placed;
-  const place = (path: string, message: string, exact: boolean) => {
-    const type = /^tiers\.(\d+)\.(\w+)/.exec(path);
-    if (type) {
-      const i = Number(type[1]);
-      placed.types.set(i, [...(placed.types.get(i) ?? []), { field: type[2]!, message }]);
-    } else if (exact ? path === 'tiers' : /^tiers[ .]/.test(path)) {
-      placed.tiers.push(message);
-    } else if (/^(reservedSeating|totalTicketCapacity)$/.test(exact ? path : path.split(' ')[0]!)) {
-      placed.seating.push(message);
-    }
-  };
-  const field = error.details?.field;
-  if (typeof field === 'string') place(field, error.envelope.error.message, true);
-  const fields = error.details?.fields;
-  if (Array.isArray(fields)) {
-    for (const entry of fields) if (typeof entry === 'string') place(entry, entry, false);
-  }
-  return placed;
-}
-
 /** Spec 031 FR-011: a schedule that got no answer may or may not have been saved. */
 const noAnswerFrom = (err: unknown): boolean =>
   !(err instanceof ApiError) || (err.status >= 500 && !err.enveloped);
@@ -215,12 +149,22 @@ export function EventForm(): React.ReactElement {
   const [storedBasePrice, setStoredBasePrice] = useState('');
   // Spec 008 US6 (research R9): at a venue with a layout, set up seating while scheduling.
   const [layout, setLayout] = useState<SeatingLayout | null>(null);
+  const [layoutReady, setLayoutReady] = useState(false);
   const [plan, setPlan] = useState<'reserved' | 'general'>('reserved');
   const [types, setTypes] = useState<TicketType[]>([NEW_TYPE]);
-  /** Spec 008 US7: the types the event had when the form opened, to tell what changed. */
-  const [loadedTypes, setLoadedTypes] = useState<TicketType[]>([]);
   const [typesLoaded, setTypesLoaded] = useState(!id);
   const [typesFailed, setTypesFailed] = useState(false);
+  // Spec 035 (research R5): a field shows its preview error after it is left, then as the admin types.
+  const [touched, setTouched] = useState<Set<string>>(new Set());
+  const [submitted, setSubmitted] = useState(false);
+  const [live, setLive] = useState('');
+  const announced = useRef<Set<string>>(new Set());
+  const EMPTY_SOLD: SoldCounts = {
+    eventSold: 0,
+    soldByTier: new Map(),
+    soldBySection: new Map(),
+  };
+  const [sold, setSold] = useState<SoldCounts>(EMPTY_SOLD);
   /** Each section's ticket type, as an index into `types`; '' is Not for sale. */
   const [sectionType, setSectionType] = useState<Record<string, string>>({});
   const [error, setError] = useState<ApiError | null>(null);
@@ -251,6 +195,7 @@ export function EventForm(): React.ReactElement {
   useEffect(() => {
     if (id) return;
     setLayout(null);
+    setLayoutReady(false);
     if (!locationId) return;
     let cancelled = false;
     getLayout(locationId)
@@ -259,8 +204,14 @@ export function EventForm(): React.ReactElement {
         setLayout(l.sections.length > 0 ? l : null);
         // Every section sells the first ticket type until the admin says otherwise.
         setSectionType(Object.fromEntries(l.sections.map((s) => [s.id, '0'])));
+        setLayoutReady(true);
       })
-      .catch(() => !cancelled && setLayout(null));
+      .catch(() => {
+        if (!cancelled) {
+          setLayout(null);
+          setLayoutReady(true);
+        }
+      });
     return () => {
       cancelled = true;
     };
@@ -318,17 +269,50 @@ export function EventForm(): React.ReactElement {
       })
       .catch((err: ApiError) => setError(err));
     // Spec 008 US7 (R10): the event's ticket types and, at a venue with a layout, its sections.
-    Promise.all([listTiers(id), getSeatMap(id).catch(() => null)])
-      .then(([tiers, map]) => {
+    Promise.all([
+      listTiers(id),
+      getSeatMap(id).catch(() => null),
+      getAvailability(id).catch(() => null),
+    ])
+      .then(([tiers, map, availability]) => {
         const loaded = tiers.map((t) => ({
           id: t.id,
           name: t.name,
           price: t.price,
           quantity: String(t.quantity),
         }));
-        setLoadedTypes(loaded);
         setTypes(loaded.length > 0 ? loaded : [NEW_TYPE]);
         setTypesLoaded(true);
+        setLayoutReady(true);
+        const soldByTier = new Map<string, number>();
+        if (availability) {
+          const leftByTier = new Map(
+            availability.tiers.map((row) => [row.tierId, row.ticketsLeft]),
+          );
+          let eventSold = 0;
+          for (const t of tiers) {
+            const left = leftByTier.get(t.id);
+            const soldCount = left == null ? 0 : Math.max(0, t.quantity - left);
+            soldByTier.set(t.id, soldCount);
+            eventSold += soldCount;
+          }
+          setSold((now) => ({
+            ...now,
+            eventSold: Math.max(eventSold, now.eventSold),
+            soldByTier,
+          }));
+        }
+        if (map) {
+          setSold((now) => ({
+            ...now,
+            eventSold: Math.max(
+              now.eventSold,
+              map.sections.reduce((n, s) => n + s.sold, 0),
+            ),
+            soldBySection: new Map(map.sections.map((s) => [s.sectionId, s.sold])),
+            soldByTier: now.soldByTier.size > 0 ? now.soldByTier : soldByTier,
+          }));
+        }
         if (!map || map.sections.length === 0) return;
         setLayout({
           locationId: '',
@@ -352,7 +336,10 @@ export function EventForm(): React.ReactElement {
         );
       })
       // Without its ticket types the form saves the event's details alone.
-      .catch(() => setTypesFailed(true));
+      .catch(() => {
+        setTypesFailed(true);
+        setLayoutReady(true);
+      });
   }, [id]);
 
   const reserved = layout !== null && plan === 'reserved';
@@ -362,14 +349,6 @@ export function EventForm(): React.ReactElement {
     name: t.name.trim(),
     price: t.price.trim(),
     ...(reserved ? {} : { quantity: Number(t.quantity) }),
-  });
-
-  /** Reserved seating on, with each section mapped to its ticket type's tier. */
-  const seating = (tierIds: string[]) => ({
-    reservedSeating: true,
-    sections: (layout?.sections ?? [])
-      .filter((sec) => sectionType[sec.id] !== '' && tierIds[Number(sectionType[sec.id])])
-      .map((sec) => ({ sectionId: sec.id, tierId: tierIds[Number(sectionType[sec.id])] })),
   });
 
   /**
@@ -502,40 +481,30 @@ export function EventForm(): React.ReactElement {
   }
 
   /**
-   * Spec 008 R10: apply the edit through the existing operations, stopping at the first refusal.
-   * Switching between seated and general admission happens before the ticket types change,
-   * since the Backend takes a typed quantity only without reserved seating.
+   * Spec 035 FR-016 to FR-019 (research R8): one update request carries the event, its ticket
+   * types, and its reserved seating, saved all or nothing. If the types could not be loaded, only
+   * the details are sent, as before.
    */
   async function saveEvent(eventId: string, payload: EventInput): Promise<void> {
-    const switching = typesLoaded && layout !== null && reserved !== seated;
-    // Spec 016 research R7: turning reserved seating on raises the capacity to the layout's
-    // total, which the form already checked the limit against, so the limit waits for the switch.
-    const limitAfterSwitch = switching && reserved && 'maxTicketsPerCustomer' in payload;
-    const { maxTicketsPerCustomer, ...details } = payload;
-    await updateEvent(eventId, limitAfterSwitch ? details : payload);
-    if (!typesLoaded) return;
-    if (switching) await updateSeating(eventId, { reservedSeating: reserved, sections: [] });
-    if (limitAfterSwitch) await updateEvent(eventId, { maxTicketsPerCustomer });
-    const tierIds = types.map((t) => t.id ?? '');
-    for (const [i, t] of types.entries()) {
-      if (!t.id) tierIds[i] = (await createTier(eventId, tierInput(t))).id;
+    if (!typesLoaded) {
+      await updateEvent(eventId, payload);
+      return;
     }
-    for (const t of types) {
-      const before = loadedTypes.find((l) => l.id === t.id);
-      if (!t.id || !before) continue;
-      const changes = Object.fromEntries(
-        Object.entries(tierInput(t)).filter(([key, value]) =>
-          key === 'quantity'
-            ? value !== Number(before.quantity)
-            : value !== before[key as 'name' | 'price'],
-        ),
-      );
-      if (Object.keys(changes).length > 0) await updateTier(eventId, t.id, changes);
-    }
-    if (reserved) await updateSeating(eventId, seating(tierIds));
-    for (const l of loadedTypes) {
-      if (l.id && !types.some((t) => t.id === l.id)) await deleteTier(eventId, l.id);
-    }
+    await updateEvent(eventId, {
+      ...payload,
+      reservedSeating: reserved,
+      tiers: types.map((t, i) => ({
+        ...(t.id ? { id: t.id } : {}),
+        ...tierInput(t),
+        ...(reserved
+          ? {
+              sectionIds: (layout?.sections ?? [])
+                .filter((sec) => sectionType[sec.id] === String(i))
+                .map((sec) => sec.id),
+            }
+          : {}),
+      })),
+    });
   }
 
   async function handleSubmit(e: React.FormEvent): Promise<void> {
@@ -545,73 +514,48 @@ export function EventForm(): React.ReactElement {
     setSaved(false);
     setImagesNotice(null);
 
-    // Spec 016 research R7: a preview of the Backend's range check; the Backend decides.
-    const limit = maxPerCustomer.trim();
-    const most = capacityPreview();
-    if (
-      limit !== '' &&
-      (!Number.isInteger(Number(limit)) ||
-        Number(limit) < 1 ||
-        (most !== null && Number(limit) > most))
-    ) {
-      setError(limitRefused(most));
+    // Spec 035 FR-003 to FR-007 (research R3, R5): never send a known problem; show every
+    // current preview error and focus the first field at fault.
+    setSubmitted(true);
+    setDoorsChecked(true);
+    const all = previewErrors({
+      name,
+      locationId,
+      startsAt,
+      endsAt,
+      doorsOpenAt,
+      venueZone,
+      hasVenue: Boolean(selected),
+      occurrence,
+      typesLoaded,
+      types,
+      reserved,
+      totalTicketCapacity,
+      venueCapacity: selected ? selected.seatingCapacity : null,
+      layoutSeats: layout?.totalSeats ?? null,
+      maxPerCustomer,
+      sectionType,
+      sections: layout?.sections,
+    });
+    if (all.size > 0) {
+      const first = firstErrorKey(all, types.length);
+      if (first) {
+        requestAnimationFrame(() => document.getElementById(focusIdFor(first))?.focus());
+      }
       return;
     }
 
-    if (typesLoaded) {
-      const blank = (t: TicketType) =>
-        !t.name.trim() || !t.price.trim() || (!reserved && !t.quantity.trim());
-      if (types.some(blank)) {
-        setError(
-          validationError(
-            reserved
-              ? 'Give every ticket type a name and a price.'
-              : 'Give every ticket type a name, a price, and a quantity.',
-          ),
-        );
-        return;
-      }
-    }
-    // Review round 2, m2: times mean nothing until a venue gives them a zone.
-    if (!selected) {
-      setError(validationError("Choose a venue first: times are in the venue's local time."));
-      return;
-    }
-    // Spec 020 FR-016, FR-017 (research R13): a preview of the Backend's zone checks, with the
-    // same message for a skipped time; a repeated time is sent only once its occurrence is chosen.
-    // Spec 025 FR-005 (research R4): Doors open after the start and end, then its range.
+    const limit = maxPerCustomer.trim();
     const sent: Record<TimeField, string> = { startsAt, endsAt, doorsOpenAt };
     const instants: Partial<Record<TimeField, Date>> = {};
-    setDoorsChecked(true);
     for (const field of ['startsAt', 'endsAt', 'doorsOpenAt'] as const) {
-      if (field === 'doorsOpenAt' && !doorsOpenAt) {
-        setError(validationError('Enter when doors open.'));
-        return;
-      }
       const r = resolveField(sent[field], venueZone);
-      if (!r) continue;
-      if (r.kind === 'skipped') {
-        setError(
-          validationError(skippedTimeMessage(sent[field], venueZone, r.skippedFrom, r.skippedTo)),
-        );
-        return;
-      }
-      const m = momentOf(r, occurrence[field]);
-      if (!m) {
-        setError(validationError(`Choose which ${formatLocalTime(sent[field])} you mean.`));
-        return;
-      }
+      const m = r ? momentOf(r, occurrence[field]) : null;
+      if (!m) return;
       sent[field] = toOffsetDateTime(m.instant, venueZone);
       instants[field] = m.instant;
     }
-    if (
-      instants.startsAt &&
-      instants.doorsOpenAt &&
-      doorsOpenProblem(instants.startsAt, instants.doorsOpenAt)
-    ) {
-      setError(validationError(doorsOpenRangeMessage(instants.startsAt, venueZone)));
-      return;
-    }
+
     setBusy(true);
 
     const payload: EventInput = {
@@ -683,18 +627,20 @@ export function EventForm(): React.ReactElement {
     }
   }
 
-  // Spec 031 FR-010: cleared with the error when the admin schedules again. Scheduling only:
-  // the Edit form shows refusals in the banner, as before (FR-013).
-  const placed = fieldErrors(isEdit ? null : error);
+  // Spec 035 FR-010, FR-019: a refusal that names a field is placed on create and on edit.
+  const placed = fieldErrors(error);
+  useEffect(() => {
+    if (!error) return;
+    const first = firstPlacedKey(fieldErrors(error), types.length);
+    if (!first) return;
+    const frame = requestAnimationFrame(() => document.getElementById(focusIdFor(first))?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [error, types.length]);
   const typeErrors = (i: number, section: boolean): TypeFieldError[] =>
     (placed.types.get(i) ?? []).filter((e) => (e.field === 'sectionIds' && reserved) === section);
   /** The type's input for `field` is invalid when a message names it, or names no known field. */
   const invalid = (i: number, field: string): boolean =>
     typeErrors(i, false).some((e) => e.field === field || !TYPE_FIELDS.includes(e.field));
-  const typeInputProps = (i: number, field: string) =>
-    invalid(i, field)
-      ? { 'aria-invalid': true as const, 'aria-describedby': `type-${i + 1}-error` }
-      : {};
   /** The seating hint, described by the seating choice (FR-010). */
   const seatingProps = placed.seating.length > 0 ? { 'aria-describedby': 'seating-error' } : {};
   /** A section select is tied to the hint of the ticket type it sells. */
@@ -831,15 +777,90 @@ export function EventForm(): React.ReactElement {
     );
   }
 
-  /**
-   * Spec 016 research R7: the capacity the event will have, as the Total tickets row shows it:
-   * the layout total when seated, else the typed total, else the venue's; `null` while unknown.
-   */
-  function capacityPreview(): number | null {
-    if (reserved && layout) return layout.totalSeats;
-    if (seated || totalTicketCapacity.trim() !== '') return Number(totalTicketCapacity);
-    return selected ? selected.seatingCapacity : null;
-  }
+  const previewAll = previewErrors({
+    name,
+    locationId,
+    startsAt,
+    endsAt,
+    doorsOpenAt,
+    venueZone,
+    hasVenue: Boolean(selected),
+    occurrence,
+    typesLoaded,
+    types,
+    reserved,
+    totalTicketCapacity,
+    venueCapacity: selected ? selected.seatingCapacity : null,
+    layoutSeats: layout?.totalSeats ?? null,
+    maxPerCustomer,
+    sectionType,
+    sections: layout?.sections,
+  });
+  const preview = visibleErrors(previewAll, touched, submitted);
+  const totals = seatTotals({
+    reserved,
+    types,
+    sections: layout?.sections,
+    sectionType,
+    totalTicketCapacity,
+    venueCapacity: selected ? selected.seatingCapacity : null,
+    layoutSeats: layout?.totalSeats ?? null,
+  });
+  const mark = (key: string) => setTouched((now) => new Set(now).add(key));
+  const clearServer = () => {
+    if (error) setError(null);
+  };
+  const fieldHint = (key: string): string[] =>
+    placed.fields.get(key) ?? (preview.get(key) ? [preview.get(key)!] : []);
+  const fieldProps = (key: string, testId = `${key}-error`) =>
+    fieldHint(key).length > 0 ? { 'aria-invalid': true as const, 'aria-describedby': testId } : {};
+
+  const timeChromeMessages = (): Set<string> => {
+    const msgs = new Set<string>();
+    const start = resolved.startsAt ? momentOf(resolved.startsAt, occurrence.startsAt) : null;
+    const doors = resolved.doorsOpenAt
+      ? momentOf(resolved.doorsOpenAt, occurrence.doorsOpenAt)
+      : null;
+    if (selected && start && doors && doorsOpenProblem(start.instant, doors.instant)) {
+      msgs.add(doorsOpenRangeMessage(start.instant, venueZone));
+    }
+    for (const field of ['startsAt', 'endsAt', 'doorsOpenAt'] as const) {
+      const r = selected ? resolved[field] : null;
+      const local = typed[field];
+      if (!r) continue;
+      if (r.kind === 'skipped') {
+        msgs.add(skippedTimeMessage(local, venueZone, r.skippedFrom, r.skippedTo));
+      }
+    }
+    return msgs;
+  };
+
+  const previewKeys = [...preview.keys()].sort().join('|');
+  useEffect(() => {
+    for (const key of [...announced.current]) {
+      if (!preview.has(key)) announced.current.delete(key);
+    }
+    const next = [...preview.keys()].filter((key) => !announced.current.has(key));
+    if (next.length > 0) {
+      setLive(next.map((key) => preview.get(key)!).join(' '));
+      for (const key of next) announced.current.add(key);
+    } else if (preview.size === 0) {
+      setLive('');
+    }
+  }, [previewKeys]);
+
+  const typeInvalid = (i: number, field: string): boolean =>
+    invalid(i, field) || preview.has(`tiers.${i}.${field}`);
+  const typeHint = (i: number, section: boolean): string[] => {
+    const server = typeErrors(i, section).map((e) => e.message);
+    if (server.length > 0) return server;
+    if (section)
+      return preview.get(`tiers.${i}.sectionIds`) ? [preview.get(`tiers.${i}.sectionIds`)!] : [];
+    const keys = ['name', 'price', 'quantity'] as const;
+    return keys.flatMap((field) =>
+      preview.get(`tiers.${i}.${field}`) ? [preview.get(`tiers.${i}.${field}`)!] : [],
+    );
+  };
 
   const setType = (i: number, change: Partial<TicketType>) =>
     setTypes(types.map((t, j) => (j === i ? { ...t, ...change } : t)));
@@ -858,6 +879,14 @@ export function EventForm(): React.ReactElement {
   };
 
   /** Spec 008 US6, US7: the ticket types, with a quantity for general admission. */
+  const typeControl = (i: number, field: 'name' | 'price' | 'quantity') => ({
+    id: `type-${i + 1}-${field}`,
+    ...(typeInvalid(i, field)
+      ? { 'aria-invalid': true as const, 'aria-describedby': `type-${i + 1}-error` }
+      : {}),
+    onBlur: () => mark(`tiers.${i}.${field}`),
+  });
+  const soldFor = (t: TicketType): number => (t.id ? (sold.soldByTier.get(t.id) ?? 0) : 0);
   const typeLines = (
     <>
       {types.map((t, i) => (
@@ -867,16 +896,22 @@ export function EventForm(): React.ReactElement {
               aria-label={`Ticket type ${i + 1} name`}
               placeholder="Floor"
               value={t.name}
-              onChange={(e) => setType(i, { name: e.target.value })}
-              {...typeInputProps(i, 'name')}
+              onChange={(e) => {
+                clearServer();
+                setType(i, { name: e.target.value });
+              }}
+              {...typeControl(i, 'name')}
             />
             <input
               aria-label={`Ticket type ${i + 1} price`}
               inputMode="decimal"
               placeholder="80.00"
               value={t.price}
-              onChange={(e) => setType(i, { price: e.target.value })}
-              {...typeInputProps(i, 'price')}
+              onChange={(e) => {
+                clearServer();
+                setType(i, { price: e.target.value });
+              }}
+              {...typeControl(i, 'price')}
             />
             {!reserved && (
               <input
@@ -885,20 +920,27 @@ export function EventForm(): React.ReactElement {
                 min={1}
                 placeholder="100"
                 value={t.quantity}
-                onChange={(e) => setType(i, { quantity: e.target.value })}
-                {...typeInputProps(i, 'quantity')}
+                onChange={(e) => {
+                  clearServer();
+                  setType(i, { quantity: e.target.value });
+                }}
+                {...typeControl(i, 'quantity')}
               />
             )}
             {types.length > 1 && (
-              <button type="button" className="btn" onClick={() => removeType(i)}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => removeType(i)}
+                disabled={soldFor(t) > 0}
+                title={soldFor(t) > 0 ? lockReason.type : undefined}
+              >
                 Remove ticket type {i + 1}
               </button>
             )}
           </div>
-          {hint(
-            `type-${i + 1}-error`,
-            typeErrors(i, false).map((e) => e.message),
-          )}
+          {soldFor(t) > 0 && <span className="field__hint">{lockReason.quantity(soldFor(t))}</span>}
+          {hint(`type-${i + 1}-error`, typeHint(i, false))}
         </Fragment>
       ))}
       <div>
@@ -922,7 +964,11 @@ export function EventForm(): React.ReactElement {
             id={`section-${sec.id}`}
             aria-label={`Section ${sec.name} ticket type`}
             value={sectionType[sec.id] ?? ''}
-            onChange={(e) => setSectionType({ ...sectionType, [sec.id]: e.target.value })}
+            disabled={(sold.soldBySection.get(sec.id) ?? 0) > 0}
+            onChange={(e) => {
+              clearServer();
+              setSectionType({ ...sectionType, [sec.id]: e.target.value });
+            }}
             {...sectionProps(sec.id)}
           >
             {types.map((t, i) => (
@@ -932,6 +978,9 @@ export function EventForm(): React.ReactElement {
             ))}
             <option value="">Not for sale</option>
           </select>
+          {(sold.soldBySection.get(sec.id) ?? 0) > 0 && (
+            <span className="field__hint">{lockReason.section}</span>
+          )}
         </div>
       ))}
       <div className="note">
@@ -943,10 +992,7 @@ export function EventForm(): React.ReactElement {
           return (
             <p key={i} data-testid={`seats-${i + 1}`}>
               {`${t.name.trim() || `Ticket type ${i + 1}`}: ${seats.toLocaleString()} ${seats === 1 ? 'seat' : 'seats'}`}{' '}
-              {hint(
-                `seats-${i + 1}-error`,
-                typeErrors(i, true).map((e) => e.message),
-              )}
+              {hint(`seats-${i + 1}-error`, typeHint(i, true))}
             </p>
           );
         })}
@@ -971,124 +1017,147 @@ export function EventForm(): React.ReactElement {
           </div>
         </div>
       )}
-      {error && <ErrorBanner error={error} />}
-      {noAnswer && (
-        <div role="alert" data-testid="no-answer" className="banner banner--error">
-          <span className="banner__icon" aria-hidden="true">
-            ✕
-          </span>
-          <div className="banner__body">
-            <strong>Could not save</strong>
-            <p>
-              No answer from QueuePass, so the event may or may not have been scheduled. Check the{' '}
-              <Link to="/events">Events list</Link> before scheduling it again.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {conflict && (
-        <p data-testid="conflict-detail" className="conflict-detail">
-          Conflicts with <strong>{conflict.name}</strong>, which runs{' '}
-          {when(conflict.startsAt, venueZone)} –{' '}
-          {until(conflict.startsAt, conflict.endsAt, venueZone)}. Pick a slot at least 60 minutes
-          clear of it, or choose another venue.
-        </p>
-      )}
 
       <div className="card">
         <form className="form" onSubmit={handleSubmit}>
-          <div className="field">
-            <label htmlFor="name">Event name</label>
-            <input
-              id="name"
-              value={name}
-              placeholder="Season Opener"
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="locationId">Venue</label>
-            <select
-              id="locationId"
-              value={locationId}
-              onChange={(e) => {
-                setLocationId(e.target.value);
-                // Spec 020 FR-015: the typed times stay; a repeated hour is asked again.
-                setOccurrence({ startsAt: '', endsAt: '', doorsOpenAt: '' });
-                // Spec 025 FR-003: Doors open the admin has not changed follows the start in the
-                // new venue's zone (a start skipped in the old zone may name a moment here).
-                const next = venues.find((v) => v.id === e.target.value);
-                if (next) followStart(startsAt, '', next.timeZone ?? DEFAULT_TIME_ZONE);
-              }}
-            >
-              <option value="">Select a venue…</option>
-              {venues.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name} ({v.seatingCapacity.toLocaleString()} seats)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="field">
-            <label htmlFor="doorsOpenAt">Doors open</label>
-            <input
-              id="doorsOpenAt"
-              type="datetime-local"
-              value={doorsOpenAt}
-              onChange={(e) => {
-                setDoorsOpenAt(e.target.value);
-                setDoorsTouched(true);
-                setOccurrence((o) => ({ ...o, doorsOpenAt: '' }));
-              }}
-            />
-            {timeNote('doorsOpenAt')}
-            {doorsRangeNote()}
-          </div>
-          <div className="field-row">
+          <fieldset className="field">
+            <legend>Venue and times</legend>
             <div className="field">
-              <label htmlFor="startsAt">Starts</label>
+              <label htmlFor="name">Event name</label>
               <input
-                id="startsAt"
-                type="datetime-local"
-                value={startsAt}
+                id="name"
+                value={name}
+                placeholder="Season Opener"
+                onBlur={() => mark('name')}
                 onChange={(e) => {
-                  setStartsAt(e.target.value);
-                  setOccurrence((o) => ({ ...o, startsAt: '' }));
-                  followStart(e.target.value, '');
+                  clearServer();
+                  setName(e.target.value);
                 }}
+                {...fieldProps('name')}
               />
-              {timeNote('startsAt')}
+              {hint('name-error', fieldHint('name'))}
             </div>
-            <div className="field">
-              <label htmlFor="endsAt">Ends</label>
-              <input
-                id="endsAt"
-                type="datetime-local"
-                value={endsAt}
-                onChange={(e) => {
-                  setEndsAt(e.target.value);
-                  setOccurrence((o) => ({ ...o, endsAt: '' }));
-                }}
-              />
-              {timeNote('endsAt')}
-            </div>
-          </div>
-          <p className="note" data-testid="zone-line">
-            {zoneLine()}
-          </p>
 
-          {typesLoaded && layout && (
-            <fieldset className="field">
+            <div className="field">
+              <label htmlFor="locationId">Venue</label>
+              <select
+                id="locationId"
+                value={locationId}
+                onBlur={() => mark('locationId')}
+                onChange={(e) => {
+                  clearServer();
+                  setLocationId(e.target.value);
+                  // Spec 020 FR-015: the typed times stay; a repeated hour is asked again.
+                  setOccurrence({ startsAt: '', endsAt: '', doorsOpenAt: '' });
+                  // Spec 025 FR-003: Doors open the admin has not changed follows the start in the
+                  // new venue's zone (a start skipped in the old zone may name a moment here).
+                  const next = venues.find((v) => v.id === e.target.value);
+                  if (next) followStart(startsAt, '', next.timeZone ?? DEFAULT_TIME_ZONE);
+                }}
+                {...fieldProps('locationId')}
+              >
+                <option value="">Select a venue…</option>
+                {venues.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.seatingCapacity.toLocaleString()} seats)
+                  </option>
+                ))}
+              </select>
+              {hint('locationId-error', fieldHint('locationId'))}
+            </div>
+
+            <div className="field">
+              <label htmlFor="doorsOpenAt">Doors open</label>
+              <input
+                id="doorsOpenAt"
+                type="datetime-local"
+                value={doorsOpenAt}
+                onBlur={() => mark('doorsOpenAt')}
+                onChange={(e) => {
+                  clearServer();
+                  setDoorsOpenAt(e.target.value);
+                  setDoorsTouched(true);
+                  setOccurrence((o) => ({ ...o, doorsOpenAt: '' }));
+                }}
+                {...fieldProps('doorsOpenAt')}
+              />
+              {timeNote('doorsOpenAt')}
+              {doorsRangeNote()}
+              {hint(
+                'doorsOpenAt-error',
+                fieldHint('doorsOpenAt').filter((m) => !timeChromeMessages().has(m)),
+              )}
+            </div>
+            <div className="field-row">
+              <div className="field">
+                <label htmlFor="startsAt">Starts</label>
+                <input
+                  id="startsAt"
+                  type="datetime-local"
+                  value={startsAt}
+                  onBlur={() => mark('startsAt')}
+                  onChange={(e) => {
+                    clearServer();
+                    setStartsAt(e.target.value);
+                    setOccurrence((o) => ({ ...o, startsAt: '' }));
+                    followStart(e.target.value, '');
+                  }}
+                  {...fieldProps('startsAt')}
+                />
+                {timeNote('startsAt')}
+                {hint(
+                  'startsAt-error',
+                  fieldHint('startsAt').filter((m) => !timeChromeMessages().has(m)),
+                )}
+              </div>
+              <div className="field">
+                <label htmlFor="endsAt">Ends</label>
+                <input
+                  id="endsAt"
+                  type="datetime-local"
+                  value={endsAt}
+                  onBlur={() => mark('endsAt')}
+                  onChange={(e) => {
+                    clearServer();
+                    setEndsAt(e.target.value);
+                    setOccurrence((o) => ({ ...o, endsAt: '' }));
+                  }}
+                  {...fieldProps('endsAt')}
+                />
+                {timeNote('endsAt')}
+                {hint(
+                  'endsAt-error',
+                  fieldHint('endsAt').filter((m) => !timeChromeMessages().has(m)),
+                )}
+              </div>
+            </div>
+            <p className="note" data-testid="zone-line">
+              {zoneLine()}
+            </p>
+            {conflict && <ErrorBanner error={error!} />}
+            {conflict && (
+              <p data-testid="conflict-detail" className="conflict-detail">
+                Conflicts with <strong>{conflict.name}</strong>, which runs{' '}
+                {when(conflict.startsAt, venueZone)} –{' '}
+                {until(conflict.startsAt, conflict.endsAt, venueZone)}. Pick a slot at least 60
+                minutes clear of it, or choose another venue.
+              </p>
+            )}
+          </fieldset>
+
+          {Boolean(locationId) && typesLoaded && layoutReady && layout && (
+            <fieldset className="field" id="tickets-and-seating">
               <legend>Tickets and seating</legend>
               <label className="choice">
                 <input
                   type="radio"
                   name="plan"
                   checked={plan === 'reserved'}
-                  onChange={() => setPlan('reserved')}
+                  disabled={sold.eventSold > 0}
+                  onChange={() => {
+                    clearServer();
+                    setPlan('reserved');
+                  }}
                   {...seatingProps}
                 />
                 Reserved seating
@@ -1098,21 +1167,102 @@ export function EventForm(): React.ReactElement {
                   type="radio"
                   name="plan"
                   checked={plan === 'general'}
-                  onChange={() => setPlan('general')}
+                  disabled={sold.eventSold > 0}
+                  onChange={() => {
+                    clearServer();
+                    setPlan('general');
+                  }}
                   {...seatingProps}
                 />
                 General admission
               </label>
-              {hint('seating-error', placed.seating)}
+              {sold.eventSold > 0 && <span className="field__hint">{lockReason.seating}</span>}
+              {hint('seating-error', [
+                ...placed.seating,
+                ...(preview.get('tiers') ? [preview.get('tiers')!] : []),
+              ])}
               {typeLines}
               {reserved && sectionSetup(layout)}
+              <p className="note" data-testid="seat-total">
+                {totals.summary}
+                {totals.leftoverSentence ? ` ${totals.leftoverSentence}` : ''}
+              </p>
+              {reserved && layout ? (
+                <p className="note">
+                  {`Total tickets: ${layout.totalSeats.toLocaleString()}, set by the venue's seating layout.`}
+                </p>
+              ) : seated ? (
+                <p className="note">
+                  {`Total tickets: ${Number(totalTicketCapacity).toLocaleString()}, set by the venue's seating layout.`}
+                </p>
+              ) : (
+                <div className="field">
+                  <label htmlFor="totalTicketCapacity">Total tickets</label>
+                  <input
+                    id="totalTicketCapacity"
+                    type="number"
+                    min={1}
+                    value={totalTicketCapacity}
+                    placeholder={selected ? String(selected.seatingCapacity) : '18000'}
+                    onBlur={() => mark('totalTicketCapacity')}
+                    onChange={(e) => {
+                      clearServer();
+                      setTotalTicketCapacity(e.target.value);
+                    }}
+                    {...fieldProps('totalTicketCapacity')}
+                  />
+                  <span className="field__hint">
+                    {selected
+                      ? `Up to ${selected.seatingCapacity.toLocaleString()} at ${selected.name}. `
+                      : ''}
+                    Leave blank to use the venue&apos;s capacity.
+                  </span>
+                  {hint('totalTicketCapacity-error', fieldHint('totalTicketCapacity'))}
+                </div>
+              )}
             </fieldset>
           )}
-          {typesLoaded && !layout && (
-            <fieldset className="field" {...seatingProps}>
-              <legend>Ticket types</legend>
-              {hint('seating-error', placed.seating)}
+          {Boolean(locationId) && typesLoaded && layoutReady && !layout && (
+            <fieldset className="field" id="tickets-and-seating" {...seatingProps}>
+              <legend>Tickets and seating</legend>
+              {hint('seating-error', [
+                ...placed.seating,
+                ...(preview.get('tiers') ? [preview.get('tiers')!] : []),
+              ])}
               {typeLines}
+              <p className="note" data-testid="seat-total">
+                {totals.summary}
+                {totals.leftoverSentence ? ` ${totals.leftoverSentence}` : ''}
+              </p>
+              {seated ? (
+                <p className="note">
+                  {`Total tickets: ${Number(totalTicketCapacity).toLocaleString()}, set by the venue's seating layout.`}
+                </p>
+              ) : (
+                <div className="field">
+                  <label htmlFor="totalTicketCapacity">Total tickets</label>
+                  <input
+                    id="totalTicketCapacity"
+                    type="number"
+                    min={1}
+                    value={totalTicketCapacity}
+                    placeholder={selected ? String(selected.seatingCapacity) : '18000'}
+                    onBlur={() => mark('totalTicketCapacity')}
+                    onChange={(e) => {
+                      clearServer();
+                      setTotalTicketCapacity(e.target.value);
+                    }}
+                    {...fieldProps('totalTicketCapacity')}
+                  />
+                  <span className="field__hint">
+                    {selected
+                      ? `Up to ${selected.seatingCapacity.toLocaleString()} at ${selected.name}. `
+                      : ''}
+                    Leave blank to use the venue&apos;s capacity.
+                  </span>
+                  {hint('totalTicketCapacity-error', fieldHint('totalTicketCapacity'))}
+                </div>
+              )}
             </fieldset>
           )}
           {typesFailed && (
@@ -1121,62 +1271,79 @@ export function EventForm(): React.ReactElement {
               above.
             </p>
           )}
+          {isEdit && seated && !(typesLoaded && layoutReady) && (
+            <p className="note">
+              {`Total tickets: ${Number(totalTicketCapacity).toLocaleString()}, set by the venue's seating layout.`}
+            </p>
+          )}
 
-          <div className="field-row">
-            {reserved && layout ? (
-              <p className="note">
-                {`Total tickets: ${layout.totalSeats.toLocaleString()}, set by the venue's seating layout.`}
-              </p>
-            ) : seated ? (
-              <p className="note">
-                {`Total tickets: ${Number(totalTicketCapacity).toLocaleString()}, set by the venue's seating layout.`}
-              </p>
-            ) : (
-              <div className="field">
-                <label htmlFor="totalTicketCapacity">Total tickets</label>
-                <input
-                  id="totalTicketCapacity"
-                  type="number"
-                  min={1}
-                  value={totalTicketCapacity}
-                  placeholder={selected ? String(selected.seatingCapacity) : '18000'}
-                  onChange={(e) => setTotalTicketCapacity(e.target.value)}
-                />
-                <span className="field__hint">
-                  {selected
-                    ? `Up to ${selected.seatingCapacity.toLocaleString()} at ${selected.name}. `
-                    : ''}
-                  Leave blank to use the venue&apos;s capacity.
-                </span>
-              </div>
-            )}
-          </div>
+          <fieldset className="field">
+            <legend>Details</legend>
+            <div className="field">
+              <label htmlFor="maxTicketsPerCustomer">Tickets per customer</label>
+              <input
+                id="maxTicketsPerCustomer"
+                type="number"
+                min={1}
+                step={1}
+                value={maxPerCustomer}
+                onBlur={() => mark('maxTicketsPerCustomer')}
+                onChange={(e) => {
+                  clearServer();
+                  setMaxPerCustomer(e.target.value);
+                }}
+                onInvalid={(e) => {
+                  e.preventDefault();
+                  mark('maxTicketsPerCustomer');
+                  setSubmitted(true);
+                }}
+                {...fieldProps('maxTicketsPerCustomer')}
+              />
+              <span className="field__hint">Leave blank for no limit.</span>
+              {hint('maxTicketsPerCustomer-error', fieldHint('maxTicketsPerCustomer'))}
+            </div>
 
-          <div className="field">
-            <label htmlFor="maxTicketsPerCustomer">Tickets per customer</label>
-            <input
-              id="maxTicketsPerCustomer"
-              type="number"
-              min={1}
-              step={1}
-              value={maxPerCustomer}
-              onChange={(e) => setMaxPerCustomer(e.target.value)}
-              // The browser blocks 0 or a fraction itself; say the range instead of its bubble.
-              onInvalid={(e) => {
-                e.preventDefault();
-                setError(limitRefused(capacityPreview()));
-              }}
+            <ImagesField
+              eventId={id}
+              items={images}
+              onAdd={addImages}
+              onMove={moveImage}
+              onRemove={removeImage}
             />
-            <span className="field__hint">Leave blank for no limit.</span>
-          </div>
+          </fieldset>
 
-          <ImagesField
-            eventId={id}
-            items={images}
-            onAdd={addImages}
-            onMove={moveImage}
-            onRemove={removeImage}
-          />
+          {noAnswer && (
+            <div role="alert" data-testid="no-answer" className="banner banner--error">
+              <span className="banner__icon" aria-hidden="true">
+                ✕
+              </span>
+              <div className="banner__body">
+                <strong>Could not save</strong>
+                <p>
+                  No answer from QueuePass, so the event may or may not have been scheduled. Check
+                  the <Link to="/events">Events list</Link> before scheduling it again.
+                </p>
+              </div>
+            </div>
+          )}
+          {!conflict && placed.unmapped.length > 0 && (
+            <p className="field__hint" role="alert" data-testid="submit-error">
+              {placed.unmapped.join(' ')}
+            </p>
+          )}
+          <p
+            aria-live="polite"
+            data-testid="form-status"
+            style={{
+              position: 'absolute',
+              width: 1,
+              height: 1,
+              overflow: 'hidden',
+              clip: 'rect(0 0 0 0)',
+            }}
+          >
+            {live}
+          </p>
 
           <div className="form__actions">
             <button type="submit" className="btn btn--primary" disabled={busy}>

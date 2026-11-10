@@ -730,7 +730,8 @@ describe('spec 031: a refused schedule sends no picture (FR-009, FR-012)', () =>
     await vi.waitFor(() => expect(items()).toHaveLength(2));
     fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));
 
-    expect(await screen.findByTestId('error-banner')).toHaveTextContent('Name taken.');
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByText('Name taken.')).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent('Seating setup not finished');
     expect(screen.getByTestId('where')).toHaveTextContent('/events/new');
     expect(server.imageCalls()).toEqual([]);
@@ -766,7 +767,8 @@ describe('spec 031: a refused schedule sends no picture (FR-009, FR-012)', () =>
     await vi.waitFor(() => expect(items()).toHaveLength(1));
     fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));
 
-    expect(await screen.findByTestId('error-banner')).toHaveTextContent('Seating refused.');
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByText('Seating refused.')).toBeInTheDocument();
     expect(document.body).not.toHaveTextContent('Seating setup not finished');
     expect(screen.getByTestId('where')).toHaveTextContent('/events/new');
     expect(server.imageCalls()).toEqual([]);

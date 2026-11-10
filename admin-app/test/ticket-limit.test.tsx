@@ -51,6 +51,7 @@ const fillNew = async ({ total = '', reserved = false } = {}) => {
   fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
   fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
   if (reserved) await screen.findByLabelText('Reserved seating');
+  await screen.findByLabelText('Ticket type 1 name');
   fireEvent.change(screen.getByLabelText('Ticket type 1 name'), { target: { value: 'General' } });
   fireEvent.change(screen.getByLabelText('Ticket type 1 price'), { target: { value: '10.00' } });
   if (!reserved) {
@@ -166,12 +167,13 @@ describe('event form: Tickets per customer', () => {
     setLimit('120');
     submit(/Save changes/);
 
-    await vi.waitFor(() => expect(api.count('PATCH', `/events/${EVENT.id}`)).toBe(2));
-    const writes = api.calls.filter((c) => c.method !== 'GET').map((c) => c.method);
-    expect(writes.slice(0, 3)).toEqual(['PATCH', 'PUT', 'PATCH']);
-    const [details, limit] = api.calls.filter((c) => c.method === 'PATCH');
-    expect(details.body).not.toHaveProperty('maxTicketsPerCustomer');
-    expect(limit.body).toEqual({ maxTicketsPerCustomer: 120 });
+    await vi.waitFor(() => expect(api.count('PATCH', `/events/${EVENT.id}`)).toBe(1));
+    const writes = api.calls.filter((c) => c.method !== 'GET');
+    expect(writes.map((c) => c.method)).toEqual(['PATCH']);
+    expect(writes[0].body).toMatchObject({
+      reservedSeating: true,
+      maxTicketsPerCustomer: 120,
+    });
   });
 
   describe('refuses a value out of range before sending, keeping the other values', () => {
@@ -182,7 +184,9 @@ describe('event form: Tickets per customer', () => {
       setLimit(value);
       submit(/Schedule event/);
 
-      expect(await screen.findByText(refusal(40))).toBeInTheDocument();
+      expect(await screen.findByTestId('maxTicketsPerCustomer-error')).toHaveTextContent(
+        refusal(40),
+      );
       expect(api.count('POST', '/events')).toBe(0);
       expect(screen.getByLabelText('Event name')).toHaveValue('Opener');
       expect(screen.getByLabelText('Total tickets')).toHaveValue(40);
@@ -195,7 +199,9 @@ describe('event form: Tickets per customer', () => {
       setLimit('51');
       submit(/Schedule event/);
 
-      expect(await screen.findByText(refusal(50))).toBeInTheDocument();
+      expect(await screen.findByTestId('maxTicketsPerCustomer-error')).toHaveTextContent(
+        refusal(50),
+      );
       expect(api.count('POST', '/events')).toBe(0);
     });
 
@@ -206,7 +212,9 @@ describe('event form: Tickets per customer', () => {
       setLimit('31');
       submit(/Schedule event/);
 
-      expect(await screen.findByText(refusal(30))).toBeInTheDocument();
+      expect(await screen.findByTestId('maxTicketsPerCustomer-error')).toHaveTextContent(
+        refusal(30),
+      );
       expect(api.count('POST', '/events')).toBe(0);
 
       setLimit('30');
@@ -241,8 +249,10 @@ describe('event form: Tickets per customer', () => {
     setLimit('4');
     submit(/Schedule event/);
 
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveTextContent(/maxTicketsPerCustomer must be from 1/);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('maxTicketsPerCustomer-error')).toHaveTextContent(
+      /maxTicketsPerCustomer must be from 1/,
+    );
     expect(limitField()).toHaveValue(4);
   });
 });

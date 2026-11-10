@@ -94,6 +94,7 @@ async function fill(starts: string, ends: string) {
   set('Venue', CENTRAL.id);
   set('Starts', starts);
   set('Ends', ends);
+  await screen.findByLabelText('Ticket type 1 name');
   set('Ticket type 1 name', 'General');
   set('Ticket type 1 price', '45.00');
   set('Ticket type 1 quantity', '10');
@@ -168,7 +169,8 @@ describe('checks before sending (FR-004, FR-005)', () => {
       set('Doors open', value);
       expect(screen.getByTestId('doorsOpenAt-range')).toHaveTextContent(RANGE);
       save();
-      expect(await screen.findByTestId('error-banner')).toHaveTextContent(RANGE);
+      expect(screen.queryByTestId('error-banner')).toBeNull();
+      expect(screen.getByTestId('doorsOpenAt-range')).toHaveTextContent(RANGE);
       expect(screen.getByTestId('doorsOpenAt-range')).toHaveAttribute('role', 'alert');
       expect(posted(api)).toHaveLength(0);
       expect(doors()).toHaveValue(value);
@@ -198,7 +200,10 @@ describe('checks before sending (FR-004, FR-005)', () => {
     await fill('2026-11-20T19:00', '2026-11-20T22:00');
     set('Doors open', '');
     save();
-    expect(await screen.findByTestId('error-banner')).toHaveTextContent('Enter when doors open.');
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('doorsOpenAt-error')).toHaveTextContent(
+      'Enter when doors open.',
+    );
     expect(posted(api)).toHaveLength(0);
   });
 
@@ -210,7 +215,8 @@ describe('checks before sending (FR-004, FR-005)', () => {
       "2:30 AM on Mar 14, 2027 doesn't exist in Central Time: clocks jump from 2:00 AM to 3:00 AM. Choose another time.";
     expect(screen.getByTestId('doorsOpenAt-skipped')).toHaveTextContent(message);
     save();
-    expect(await screen.findByTestId('error-banner')).toHaveTextContent(message);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(screen.getByTestId('doorsOpenAt-skipped')).toHaveTextContent(message);
     expect(posted(api)).toHaveLength(0);
   });
 
@@ -220,7 +226,8 @@ describe('checks before sending (FR-004, FR-005)', () => {
     set('Doors open', '2027-11-07T01:30');
     const group = screen.getByTestId('doorsOpenAt-occurrence');
     save();
-    expect(await screen.findByTestId('error-banner')).toHaveTextContent(
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('doorsOpenAt-error')).toHaveTextContent(
       'Choose which 1:30 AM you mean.',
     );
     expect(posted(api)).toHaveLength(0);
@@ -261,9 +268,8 @@ describe('what is sent (FR-007)', () => {
     await fill('2026-11-20T19:00', '2026-11-20T22:00');
     set('Doors open', '2026-11-20T17:30');
     save();
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveAttribute('data-code', 'DOORS_OPEN_OUT_OF_RANGE');
-    expect(banner).toHaveTextContent(RANGE);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('doorsOpenAt-error')).toHaveTextContent(RANGE);
     expect(doors()).toHaveValue('2026-11-20T17:30');
     expect(screen.getByLabelText('Starts')).toHaveValue('2026-11-20T19:00');
   });

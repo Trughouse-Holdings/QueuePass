@@ -121,13 +121,11 @@ describe('EventForm conflict handling', () => {
     renderForm();
     await fillAndSubmit();
 
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveAttribute('data-code', 'VALIDATION_FAILED');
-    expect(banner).toHaveClass('banner--error');
-    expect(banner).not.toHaveClass('banner--conflict');
-    expect(banner.querySelector('strong')?.textContent).toBe('Could not save');
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('endsAt-error')).toHaveTextContent(
+      'endsAt must be later than startsAt',
+    );
     expect(screen.queryByTestId('conflict-detail')).toBeNull();
-    expect(banner).toHaveTextContent('endsAt must be later than startsAt');
   });
 
   it('retains every entered value after a rejection (FR-035)', async () => {

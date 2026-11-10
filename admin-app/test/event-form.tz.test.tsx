@@ -104,6 +104,7 @@ async function fill(venue: string, starts: string, ends: string) {
   set('Venue', venue);
   set('Starts', starts);
   set('Ends', ends);
+  await screen.findByLabelText('Ticket type 1 name');
   set('Ticket type 1 name', 'General');
   set('Ticket type 1 price', '45.00');
   set('Ticket type 1 quantity', '10');
@@ -171,8 +172,8 @@ describe('daylight saving (FR-016, FR-017)', () => {
       "2:30 AM on Mar 14, 2027 doesn't exist in Eastern Time: clocks jump from 2:00 AM to 3:00 AM. Choose another time.";
     expect(screen.getByTestId('startsAt-skipped')).toHaveTextContent(message);
     save();
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveTextContent(message);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(screen.getByTestId('startsAt-skipped')).toHaveTextContent(message);
     expect(posted(api)).toHaveLength(0);
     expect(screen.getByLabelText('Starts')).toHaveValue('2027-03-14T02:30');
     expect(screen.getByLabelText('Event name')).toHaveValue('Fall Concert');
@@ -185,7 +186,7 @@ describe('daylight saving (FR-016, FR-017)', () => {
     await fill(EAST.id, '2027-03-14T02:30', '2027-03-14T04:00');
     expect(screen.getByLabelText('Doors open')).toHaveValue('');
     save();
-    await screen.findByTestId('error-banner');
+    expect(screen.queryByTestId('error-banner')).toBeNull();
     expect(posted(api)).toHaveLength(0);
     set('Venue', PHX.id);
     expect(screen.getByLabelText('Doors open')).toHaveValue('2027-03-14T01:30');
@@ -225,7 +226,8 @@ describe('daylight saving (FR-016, FR-017)', () => {
     expect(second).not.toBeChecked();
 
     save();
-    expect(await screen.findByTestId('error-banner')).toHaveTextContent(
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('startsAt-error')).toHaveTextContent(
       'Choose which 1:30 AM you mean.',
     );
     expect(posted(api)).toHaveLength(0);
@@ -325,13 +327,12 @@ describe("the Backend's refusals (FR-026)", () => {
       'UTC_OFFSET_MISMATCH',
       "startsAt is stated with offset -07:00, but Riverside is in Eastern Time, which is -04:00 at that time. Send the venue's local time with its offset.",
     ],
-  ])('shows %s in the banner with every value kept', async (code, message) => {
+  ])('shows %s beside the start, with every value kept', async (code, message) => {
     newForm(() => json({ error: { code, message, details: { field: 'startsAt' } } }, 400));
     await fill(EAST.id, '2026-10-01T19:00', '2026-10-01T22:00');
     save();
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveAttribute('data-code', code);
-    expect(banner).toHaveTextContent(message);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('startsAt-error')).toHaveTextContent(message);
     expect(screen.getByLabelText('Starts')).toHaveValue('2026-10-01T19:00');
     expect(screen.getByLabelText('Ends')).toHaveValue('2026-10-01T22:00');
     expect(screen.getByLabelText('Venue')).toHaveValue(EAST.id);
@@ -464,7 +465,8 @@ describe('changing the venue after choosing a repeated hour', () => {
     expect(first).not.toBeChecked();
     expect(second).not.toBeChecked();
     save();
-    expect(await screen.findByTestId('error-banner')).toHaveTextContent(
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('startsAt-error')).toHaveTextContent(
       'Choose which 1:30 AM you mean.',
     );
     expect(posted(api)).toHaveLength(0);
@@ -486,13 +488,14 @@ describe('saving with no venue chosen', () => {
     set('Event name', 'Fall Concert');
     set('Starts', starts);
     set('Ends', ends);
-    set('Ticket type 1 name', 'General');
-    set('Ticket type 1 price', '45.00');
-    set('Ticket type 1 quantity', '10');
     save();
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveTextContent("Choose a venue first: times are in the venue's local time.");
-    expect(banner).not.toHaveTextContent(/Eastern|Which|Choose which/);
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    const venueError = await screen.findByTestId('locationId-error');
+    expect(venueError).toHaveTextContent(
+      "Choose a venue first: times are in the venue's local time.",
+    );
+    expect(venueError).not.toHaveTextContent(/Eastern|Which|Choose which/);
+    expect(screen.queryByLabelText('Ticket type 1 name')).toBeNull();
     expect(posted(api)).toHaveLength(0);
   });
 });

@@ -224,10 +224,8 @@ describe('EventForm against live rejections', () => {
     renderAt('/events/new', '/events/new', <EventForm />);
     await submit();
 
-    const banner = await screen.findByTestId('error-banner');
-    expect(banner).toHaveAttribute('data-code', 'CAPACITY_EXCEEDED');
-    expect(banner).not.toHaveClass('banner--conflict');
-    expect(banner).toHaveTextContent('22090');
+    expect(screen.queryByTestId('error-banner')).toBeNull();
+    expect(await screen.findByTestId('submit-error')).toHaveTextContent('22090');
     expect(screen.queryByTestId('conflict-detail')).toBeNull();
   });
 
