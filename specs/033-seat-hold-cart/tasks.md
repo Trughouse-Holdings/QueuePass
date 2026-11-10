@@ -428,4 +428,4 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
     screen, not only one in flight.
   - N4: the cart's failure count is computed outside the state updater (a ref holds the counts).
   - N5: a confirmation for an entry without its event's details says "this event". Test.
-
+  - After round 3: the Customer app suite three times, 404/404 each (28 files; lines 98.04%).
