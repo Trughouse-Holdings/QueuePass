@@ -1,4 +1,4 @@
-import type { Event, EventInput, EventUpdate } from '@queuepass/shared';
+import type { ApiComponents, Event, EventUpdate } from '@queuepass/shared';
 import { api, unwrap } from './client';
 
 /**
@@ -20,7 +20,11 @@ export const listEvents = (filters: EventFilters = {}): Promise<Event[]> => {
 export const getEvent = (id: string): Promise<Event> =>
   unwrap(api.GET('/events/{id}', { params: { path: { id } } }));
 
-export const createEvent = (input: EventInput): Promise<Event> =>
+/**
+ * Spec 031 (research R5): typed by the contract's own `EventInput`, which carries the ticket types
+ * and reserved seating saved with the event in one request.
+ */
+export const createEvent = (input: ApiComponents['schemas']['EventInput']): Promise<Event> =>
   unwrap(api.POST('/events', { body: input }));
 
 export const updateEvent = (id: string, input: EventUpdate): Promise<Event> =>

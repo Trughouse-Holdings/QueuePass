@@ -21,18 +21,6 @@ const LAYOUT = {
 };
 const SMALL = { ...VENUE, seatingCapacity: 50 };
 const LIMITED = { ...EVENT, maxTicketsPerCustomer: 4 };
-const tierReply = json(
-  {
-    id: 't-gen',
-    eventId: EVENT.id,
-    name: 'General',
-    price: '10.00',
-    quantity: 10,
-    createdAt: EVENT.createdAt,
-    updatedAt: EVENT.updatedAt,
-  },
-  201,
-);
 
 const at = (path: string, route: string, element: React.ReactElement) =>
   render(
@@ -47,9 +35,8 @@ const at = (path: string, route: string, element: React.ReactElement) =>
 const newEventRoutes = (layout = NO_LAYOUT) => ({
   'GET /locations': json([SMALL]),
   [`GET /locations/${VENUE.id}/layout`]: json(layout),
+  // Spec 031 FR-008: the event, its ticket types, and its seating in one request.
   'POST /events': json(EVENT, 201),
-  [`POST /events/${EVENT.id}/tiers`]: tierReply,
-  [`PUT /events/${EVENT.id}/seating`]: json({}),
 });
 
 /** Fills a new general-admission event at the 50-seat venue. */

@@ -36,8 +36,8 @@ function newForm(post: () => Response = () => json({ ...EVENT, locationId: CENTR
   const api = stubApi({
     'GET /locations': json([CENTRAL]),
     [`GET /locations/${CENTRAL.id}/layout`]: json(NO_LAYOUT),
+    // Spec 031 FR-008: the ticket types go in the one POST /events.
     'POST /events': post,
-    [`POST /events/${EVENT.id}/tiers`]: json(TIER, 201),
   });
   render(
     <MemoryRouter initialEntries={['/events/new']}>

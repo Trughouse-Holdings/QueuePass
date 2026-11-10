@@ -56,16 +56,11 @@ const typeLine = (n: number, name: string, price: string, quantity?: string) => 
 
 describe('scheduling a general-admission event', () => {
   it('has no base price, takes ticket types with quantities, and prices the event by the lowest', async () => {
-    let tiers = 0;
+    // Spec 031 FR-008: the ticket types go in the one POST /events.
     const api = stubApi({
       'GET /locations': json([PLAIN]),
       'GET /locations/v-plain/layout': json(NO_LAYOUT),
       'POST /events': json({ ...EVENT, locationId: 'v-plain' }, 201),
-      [`POST /events/${EVENT.id}/tiers`]: () =>
-        json(
-          ++tiers === 1 ? tier('t1', 'Floor', '80.00', 100) : tier('t2', 'Lawn', '25.00', 300),
-          201,
-        ),
     });
     at('/events/new', '/events/new');
 
@@ -82,14 +77,12 @@ describe('scheduling a general-admission event', () => {
 
     expect(await screen.findByText('Event page', {}, { timeout: 3000 })).toBeInTheDocument();
     const writes = api.calls.filter((c) => c.method !== 'GET');
-    expect(writes.map((c) => `${c.method} ${c.path}`)).toEqual([
-      'POST /events',
-      `POST /events/${EVENT.id}/tiers`,
-      `POST /events/${EVENT.id}/tiers`,
-    ]);
+    expect(writes.map((c) => `${c.method} ${c.path}`)).toEqual(['POST /events']);
     expect(writes[0].body).toMatchObject({ basePrice: '25.00' });
-    expect(writes[1].body).toEqual({ name: 'Floor', price: '80.00', quantity: 100 });
-    expect(writes[2].body).toEqual({ name: 'Lawn', price: '25.00', quantity: 300 });
+    expect((writes[0].body as { tiers: unknown }).tiers).toEqual([
+      { name: 'Floor', price: '80.00', quantity: 100 },
+      { name: 'Lawn', price: '25.00', quantity: 300 },
+    ]);
   });
 
   it('asks for a quantity on a general-admission ticket type', async () => {

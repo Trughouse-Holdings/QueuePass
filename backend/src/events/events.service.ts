@@ -27,6 +27,7 @@ import type { SeatLabel } from '../seating/seat-rules';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventsQuery } from './dto/list-events.query';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { eventCapacity, planEventSetup, writeEventSetup } from './event-setup';
 import { checkEventTime } from './event-time';
 import { SchedulingConflictException } from './scheduling-conflict.exception';
 
@@ -109,7 +110,8 @@ export class EventsService {
    * Spec 020 research R10: one transaction that first takes the venue row FOR SHARE, so the zone
    * the times are checked against is the zone the event is saved under (a zone change, FOR
    * UPDATE, waits for it or it waits for the zone change). The conflict pre-check and the insert
-   * run in it too; the event_no_overlap constraint is still the guarantee.
+   * run in it too; the event_no_overlap constraint is still the guarantee. Spec 031 (research R4):
+   * so do the event's ticket types and section mappings, all or nothing.
    */
   private createOnce(dto: CreateEventDto): Promise<EventResponse> {
     this.assertWindowOrdered(new Date(dto.startsAt), new Date(dto.endsAt));
@@ -131,11 +133,23 @@ export class EventsService {
       ? checkEventTime('doorsOpenAt', dto.doorsOpenAt, zone, location.name)
       : new Date(startsAt.getTime() - DEFAULT_DOORS_BEFORE_START_MINUTES * MINUTE_MS);
     this.assertDoorsInRange(startsAt, doorsOpenAt, zone);
+    // Spec 031 research R4 step 2: with reserved seating, the venue's sections, read under the
+    // venue's share lock taken above, so a layout save (FOR UPDATE) runs wholly before or after;
+    // the capacity is then the layout's total.
+    const sections = dto.reservedSeating
+      ? await tx.section.findMany({
+          where: { locationId: dto.locationId },
+          orderBy: { position: 'asc' },
+        })
+      : [];
     // Spec 007 FR-019: left out, the event can sell as many tickets as the venue holds.
-    const capacity = dto.totalTicketCapacity ?? location.seatingCapacity;
+    const capacity = eventCapacity(dto, location, sections);
     this.assertCapacityWithinVenue(capacity, location);
     this.assertLimitWithinCapacity(dto.maxTicketsPerCustomer, null, capacity);
     await this.assertNoConflict(dto.locationId, zone, startsAt, endsAt, null, tx);
+    // Spec 031 research R4 steps 4, 5: each ticket type in order, then their total. Every check
+    // runs before the first write; the transaction makes a failure in the writes leave nothing.
+    const plan = planEventSetup(dto, location, sections, capacity);
 
     const created = await tx.event.create({
       data: {
@@ -147,9 +161,11 @@ export class EventsService {
         totalTicketCapacity: capacity,
         maxTicketsPerCustomer: dto.maxTicketsPerCustomer ?? null,
         basePrice: dto.basePrice,
+        ...(plan.reservedSeating ? { reservedSeating: true } : {}),
       },
       include: EVENT_INCLUDE,
     });
+    await writeEventSetup(tx, created.id, plan);
 
     return this.toResponse(created);
   }
