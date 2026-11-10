@@ -205,7 +205,9 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
 - **One tier per reservation**: as with orders (`007`), all seats in a reservation belong to one
   tier. Picking another tier releases the active reservation.
 - **Sales closed**: no seats can be reserved for an event that has started or is cancelled. When an
-  event is cancelled or starts, its reservations end.
+  event is cancelled or starts, its reservations end. _Amended 2026-11-09 by spec `034` (#126),
+  FR-003, FR-004: seats can be reserved until the event ends, and its reservations end when it
+  ends, not when it starts._
 - **Admin seating changes**: if an admin turns reserved seating off, replaces the venue's layout,
   moves a section to another tier, adds the first tier to a seated event, or removes a tier,
   reservations on the affected seats end. The customer sees it through the live update, and is
@@ -298,7 +300,9 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
   whose reservations have no tier, and, for a section, when it is moved to another tier. Removing a
   tier or deleting the event removes its reservations with it. Every seat these changes free,
   including seats whose tickets a cancellation voids, MUST reach viewers as open. No seat MUST be
-  reservable while the event's sales are closed.
+  reservable while the event's sales are closed. _Amended 2026-11-09 by spec `034` (#126), FR-003,
+  FR-004: they end when their event **ends**, not when it starts, since sales now close at the
+  end._
 - **FR-017**: Events that do not sell seats MUST keep working exactly as in `006`, and every `007`
   rule for seated orders MUST still hold, with the reservation required by FR-006 added.
 - **FR-018**: The contract MUST be updated first; changes to existing operations MUST be additive,
