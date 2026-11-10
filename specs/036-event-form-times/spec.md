@@ -41,42 +41,44 @@ in `025`.
 ### Session 2026-11-10
 
 The issues and Jeff's comment on #130 settle most of what the form must do. Every question they
-leave open took the recommended answer below, written unattended and recorded here as
-**recommended answer, open to review**, so Nathan and the team can overturn it in review of this
-pull request.
+leave open took the recommended answer below; Nathan accepted all of them on 2026-11-10,
+including the answer on switching from a gap that is not a 15-minute step (FR-014).
 
 - Q: Whole hours only, or also half hours / 15-minute steps? → A: **15-minute steps**, from 0
   (at the start) through 6 hours. Venues often use 30, 45, or 90 minutes, and #130's own example of
   a 90-minute gap then lands on a regular choice instead of a one-off. The list is *At the start*,
   *15 minutes before*, *30 minutes before*, … *1 hour before*, *1 hour 15 minutes before*, … *6
-  hours before* (recommended answer, open to review) (FR-003; research R1).
+  hours before* (accepted 2026-11-10) (FR-003; research R1).
 - Q: Keep the API as `doorsOpenAt`, or add `doorsBeforeStartMinutes`? → A: **Keep `doorsOpenAt`.**
   The form sends the start minus the chosen length (or the date and time the admin picked). No
-  OpenAPI change, no Backend change. Smaller, and every other client stays as it is (recommended
-  answer, open to review, and the issue's preferred option) (research R3).
+  OpenAPI change, no Backend change. Smaller, and every other client stays as it is (accepted
+  2026-11-10, and the issue's preferred option) (research R3).
 - Q: Is "2 hours before" 2 elapsed hours, or 2 hours earlier on the wall clock? → A: **2 elapsed
   hours**, like the Backend's 0-to-6-hour range (`025` FR-004, `020` FR-025). They differ only when
   a daylight-saving change falls between doors and the start. The form shows the resulting local
-  time, so the admin can see it (recommended answer, open to review) (FR-009; research R4).
+  time, so the admin can see it (accepted 2026-11-10) (FR-009; research R4).
 - Q: Default mode for a new event, and which mode an existing event opens in? → A: **A new event
   opens in "Before the start", 1 hour before** (`025` research R4). **An edit opens in "Before the
   start" when the stored gap is a 15-minute step in 0 to 6 hours; otherwise in "At a set time"**,
   showing the exact stored time, and does not change it unless the admin picks a new value
-  (recommended answer, open to review) (FR-004, FR-005; research R5).
+  (accepted 2026-11-10) (FR-004, FR-005; research R5).
 - Q: In "At a set time" mode, does moving the start move the doors (as `025` FR-003 does today)?
   → A: **No. The doors stay at the date and time shown.** The admin chose a clock time. If that
   puts doors outside 0 to 6 hours before the new start, the form shows the same range message as
   today and does not send. In "Before the start" mode, the doors keep the chosen length and move
-  with the start (recommended answer, open to review) (FR-007; research R6).
+  with the start (accepted 2026-11-10) (FR-007; research R6).
 - Q: Separate date and time controls, a custom picker, or a hint on the native date-time field?
   → A: **A date control and a time control side by side**, joined into one local value, for
   Starts, Ends, and Doors open in "At a set time" mode. Every browser then shows a clear time
   control. A custom picker would be new visual design (Constitution VII). A hint on the native
-  field does not really fix Safari (recommended answer, open to review, issue #128 option 1)
+  field does not really fix Safari (accepted 2026-11-10, issue #128 option 1)
   (FR-010; research R2).
+- Q: Switching to "Before the start" from a gap that is not a 15-minute step? → A: **Allowed, never
+  rounded.** The length shows no choice until the admin picks one; until then the doors instant
+  stays as it was, is shown, and is what is sent (accepted 2026-11-10) (FR-014).
 - Q: Amend `025` in place, or a new spec? → A: **A new spec (`036`)** that supersedes the form
   parts of `025` (FR-002, FR-003, and the form part of FR-005), with dated notes in `025`. The
-  Backend and stored instant stay `025`'s (recommended answer, open to review) (research R7).
+  Backend and stored instant stay `025`'s (accepted 2026-11-10) (research R7).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -155,7 +157,7 @@ skipped and a repeated local time, and by running the event-form browser tests i
 3. **Given** a local time the venue's zone repeats, **When** the admin enters it, **Then** the
    form still asks which occurrence they mean and sends the chosen offset.
 4. **Given** a refused save, **When** the form comes back, **Then** the date and time they entered
-   are still there (`002` FR-030 / the form's FR-035).
+   are still there (`002` FR-030; `035` FR-005, FR-010).
 5. **Given** the From and To filters on the Admin event list and the Customer event list, **When**
    they are used, **Then** they remain date-only and stay consistent with the event form's date
    controls (no time part; they already use a date control in every browser).
@@ -196,8 +198,12 @@ all in range.
 - A daylight-saving change between doors and the start: the length is elapsed time; the shown
   local time may not be "2 hours earlier" on the clock, and the form shows that local time.
 - Keyboard and screen readers: the mode choice, the length list, and the date and time controls
-  are usable without a pointer; the resulting doors time is announced when it changes, not on
-  every keystroke of an unrelated field (`035`'s polite live region).
+  are usable without a pointer; the resulting doors time is announced politely when it changes
+  (FR-016).
+- Switching ways when one side does not name one moment, or from a gap that is not a 15-minute
+  step: FR-014 and FR-015.
+- Doors 6 hours before a start just after midnight fall on the day before; the resulting-time line
+  says so (FR-004).
 - The From and To event-list filters stay date-only; this feature does not add a time to them.
 
 ## Requirements *(mandatory)*
@@ -214,10 +220,12 @@ all in range.
   *At the start*) to 6 hours inclusive. The default on a new event MUST be **1 hour before**.
 - **FR-004**: Next to that choice the form MUST show the resulting doors-open time in the venue's
   time zone, with the zone's abbreviation, once the start names one moment (for example "Doors
-  open at 6:00 PM EDT").
+  open at 6:00 PM EDT"). When the doors fall on the day before the start's local date, the line
+  says so (for example "Doors open at 8:00 PM EST the day before").
 - **FR-005**: A new event MUST open in "Before the start". An edit MUST open in "Before the start"
   when the stored gap is a 15-minute step in 0 to 6 hours, and in "At a set time" otherwise,
-  showing the exact stored time and not changing it until the admin picks a new value.
+  showing the exact stored time and not changing it until the admin changes doors or the start
+  (in "Before the start", FR-006 then applies).
 - **FR-006**: In "Before the start" mode, a change to a start that names one moment MUST keep the
   chosen length: doors move with the start, and the shown time updates.
 - **FR-007**: In "At a set time" mode, a change to the start MUST leave the doors date and time as
@@ -233,7 +241,11 @@ all in range.
   and a time control** side by side, joined into one venue-local value. Times are still read in
   the venue's zone (`020`). A skipped local time is still refused; a repeated one is still chosen.
   The controls MUST work with the keyboard and assistive technology. The form MUST keep what was
-  entered when a save is refused.
+  entered when a save is refused, and clearing one control MUST NOT clear the other. A field error
+  (missing, skipped, repeated, out of range, or a Backend refusal placed on the field, `035` FR-005,
+  FR-007, FR-010) is described on both controls (`aria-invalid`, `aria-describedby`) and moves focus
+  to the date control, or to the time control when only the time is missing. In "Before the
+  start" mode a doors error is on the length select, which takes focus.
 - **FR-011**: The form MUST still send `doorsOpenAt` as the venue-local instant (with the venue
   offset, under `020` FR-018). It MUST NOT require a new API field. Existing create and update
   requests that already send `doorsOpenAt` stay valid.
@@ -243,6 +255,21 @@ all in range.
 - **FR-013**: The From and To filters on the Admin and Customer event lists MUST stay date-only
   and remain a date control in every browser. This feature does not change their behaviour unless
   a check finds they are inconsistent with the form's date controls (research R8).
+
+- **FR-014**: Switching to "Before the start" when the current gap is not a 15-minute step in 0 to
+  6 hours MUST be allowed and MUST NOT round. The length shows no choice (*Choose a length…*) until
+  the admin picks one. Until then the doors instant stays as it was: the resulting-time line shows
+  it, a start change leaves it put (as FR-007), and a save sends it after the FR-008 range check.
+  Picking a length applies FR-006 from then on.
+- **FR-015**: Switching to "At a set time" when there is no doors instant yet (for example a new
+  event whose start does not name one moment) MUST show empty doors controls. Switching to "Before
+  the start" while the doors do not name one moment (empty, incomplete, skipped, or a repeated time
+  not yet chosen) MUST keep the chosen length (or 1 hour if none) and derive doors from the start
+  as soon as it names one moment. When "Before the start" derives a doors time in a repeated hour,
+  switching to "At a set time" MUST show the matching occurrence already chosen.
+- **FR-016**: The resulting-time line MUST be a polite live region, present from the first render
+  of "Before the start", so a change of length or start that changes it is announced once, not on
+  every keystroke.
 
 ### Key Entities
 

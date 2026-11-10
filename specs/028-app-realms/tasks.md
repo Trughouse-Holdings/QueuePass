@@ -311,6 +311,9 @@ there.
   install its browser with `node node_modules/playwright/cli.js install webkit`. The Safari stand-in
   for quickstart S1/S2 until a Mac walk (T032).
   **Done**: listed only for `--project=webkit` (passed on to Playwright's workers through `QP_E2E_WEBKIT`, which they need: a first try without it failed with "Project webkit not found in the worker process"); WebKit 27.2 installed.
+  **Note (2026-11-10, spec `036` FR-012)**: CI now also runs a `webkit` project, limited by file to
+  the event-form specs (003, 020, 025, 031, 035, 036), and `scripts/e2e.mjs` installs WebKit when
+  `CI` is set. The rest of CI stays Chromium-only.
 
 **Checkpoint** (stretch 2, Ground rules): with `qp028` **stopped, not removed** (T026 needs its
 data), a clean stack of its own: `docker compose -p qp028clean up -d --build database keycloak`

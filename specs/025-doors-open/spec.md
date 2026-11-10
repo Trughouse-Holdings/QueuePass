@@ -27,7 +27,6 @@ customers and the Admin app show the doors-open time with the event.
 > (FR-001, FR-004, FR-005's Backend and database rules, FR-007, FR-008), the check-in window, and
 > how customers and the Ticket Booth see doors open are unchanged.
 
-
 ## Context
 
 Builds on `017` (gate check-in: the Ticket Booth app's choice of event, FR-007, and the entry

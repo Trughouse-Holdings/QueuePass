@@ -4,7 +4,8 @@
 
 **Date**: 2026-11-10
 
-Every decision below that the issues left open is a **recommended answer, open to review**.
+Every decision below that the issues left open was a recommended answer; Nathan accepted them all on
+2026-11-10.
 
 ## R1: 15-minute steps (FR-003)
 
@@ -83,6 +84,11 @@ nothing is rounded away.
 **Alternatives considered**: Always open edits in "At a set time" (loses the usual "1 hour before"
 view). Always open in "Before the start" and add a one-off option for odd gaps (messier list).
 
+**Switching to "Before the start" from an off-step gap** (FR-014): allowed and never rounded. The
+length shows *Choose a length…*; the kept instant is shown, sent, and range-checked until a length
+is picked. **Alternatives considered**: refuse the switch until a length is picked (an extra rule
+to learn); snap to the nearest step (silently moves the doors).
+
 ## R6: Moving the start in "At a set time" mode (FR-007)
 
 **Decision**: In "At a set time" mode, doors stay at the date and time shown when the start
@@ -125,6 +131,14 @@ end, or doors). Chromium still runs the full suite. A local `npm run e2e` stays 
 unless WebKit is asked for, because other tests have known WebKit failures (`028`, `001` V3). CI
 installs WebKit as well as Chromium. A hand walk on real Safari is still listed as untested from
 this machine.
+
+**How**: `e2e/playwright.config.ts` adds the `webkit` project whenever `CI` is set, with
+`testMatch` limited to the event-form spec files (003, 020, 025, 031, 035, 036), and
+`scripts/e2e.mjs` installs WebKit when `CI` (or the WebKit opt-in) is set. No change to
+`.github/workflows/`, so no shared-surface approval is needed for it. Limiting by file runs all of
+each listed file in WebKit, including `025`'s Ticket Booth journey; that is accepted as long as it
+passes there. This reverses `028` T025a's "CI stays Chromium-only" for those files; `028` carries a
+dated note.
 
 **Rationale**: #128's "done when" asks for WebKit on the event form. Enabling WebKit for every
 test would fail existing journeys and lengthen every CI run.
