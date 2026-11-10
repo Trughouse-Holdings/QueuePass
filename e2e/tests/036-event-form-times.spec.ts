@@ -31,8 +31,10 @@ test('036 S1: an event with doors 2 hours before the start shows that time in th
   await page
     .getByLabel('Venue', { exact: true })
     .selectOption({ label: `${venueName} (500 seats)` });
-  await expect(page.getByLabel('Before the start')).toBeChecked();
-  await page.getByLabel('How long before the start').selectOption({ label: '2 hours before' });
+  await expect(page.getByLabel('Before the start', { exact: true })).toBeChecked();
+  await page
+    .getByLabel('How long before the start', { exact: true })
+    .selectOption({ label: '2 hours before' });
   await fillEventDateTime(page, 'Starts', `${day}T19:00`);
   await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(`Doors open at ${doorsAt}`);
   await fillEventDateTime(page, 'Ends', `${day}T22:00`);

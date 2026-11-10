@@ -39,7 +39,7 @@ test('025 S1/S2/S6: an admin sets when doors open, and customers see it', async 
   await page
     .getByLabel('Venue', { exact: true })
     .selectOption({ label: `${venueName} (500 seats)` });
-  await expect(page.getByLabel('Before the start')).toBeChecked();
+  await expect(page.getByLabel('Before the start', { exact: true })).toBeChecked();
   await expect(page.getByTestId('doorsOpenAt-preview')).toHaveCount(0);
   await fillEventDateTime(page, 'Starts', `${day}T19:00`);
   await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
@@ -51,7 +51,7 @@ test('025 S1/S2/S6: an admin sets when doors open, and customers see it', async 
   await page.getByLabel('Ticket type 1 quantity', { exact: true }).fill('50');
 
   // More than 6 hours before the start: switch to a set time, named under the field, nothing sent.
-  await page.getByLabel('At a set time').click();
+  await page.getByLabel('At a set time', { exact: true }).click();
   await fillEventDateTime(page, 'Doors open', `${day}T12:30`);
   const range =
     'Doors must open no more than 6 hours before the start and not after it: between ' +
@@ -84,8 +84,8 @@ test('025 S1/S2/S6: an admin sets when doors open, and customers see it', async 
 
   // S2: edit the start to 8:00 PM; a 90-minute gap is a listed length and stays 90 minutes before.
   await page.getByRole('link', { name: 'Edit', exact: true }).click();
-  await expect(page.getByLabel('Before the start')).toBeChecked();
-  await expect(page.getByLabel('How long before the start')).toHaveValue('90');
+  await expect(page.getByLabel('Before the start', { exact: true })).toBeChecked();
+  await expect(page.getByLabel('How long before the start', { exact: true })).toHaveValue('90');
   await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
     `Doors open at ${timeOfDay(at('17:30'), CHICAGO)}`,
   );
