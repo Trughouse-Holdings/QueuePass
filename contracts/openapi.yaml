@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.25.0
+  version: 1.26.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -68,6 +68,14 @@ info:
     tickets had been admitted, which the sales report keeps as the event's `checkedIn`. From then
     on every ticket of that event has `checkedInAt: null`, and the event's times cannot change
     (`409 CHECK_IN_DETAILS_REMOVED`).
+
+    **Sales window** (feature 034, in place of feature 006's close at the start): tickets for an
+    event can be ordered (`createOrder`) and seats reserved (`reserveSeats`) until its `endsAt`,
+    half-open: at `endsAt` exactly and after, both are refused with `409 SALES_CLOSED`. A cancelled
+    event is refused with `409 EVENT_CANCELLED` first, at any time. `startsAt` plays no part in
+    whether sales are open; from `startsAt` until `endsAt` the event is in progress
+    (`Availability.inProgress`). Seat reservations still open at `endsAt` end then, within a few
+    seconds, and their `expiresAt` is never shortened.
 
     **Errors**: every non-2xx response is an `ErrorEnvelope`. Branch on `error.code`, never on
     `error.message`.
@@ -1076,6 +1084,11 @@ paths:
         Feature 016: for a signed-in customer and an event with a `maxTicketsPerCustomer`,
         `customerLimit` gives the limit, the caller's own valid tickets for the event, and how many
         more they may get; otherwise it is `null`. It never describes another customer.
+
+        Feature 034: sales close at `endsAt`, not `startsAt`, so `salesClosed` is `ENDED` from
+        `endsAt` on (`STARTED` is no longer sent), and `inProgress` says whether the event is between
+        its `startsAt` and its `endsAt`, by the same clock in the same answer. The Customer app shows
+        its "already started" notice from these two values, never from its own clock.
       operationId: getEventAvailability
       x-required-roles: []
       responses:
@@ -1230,7 +1243,8 @@ paths:
         hold).
 
         Refused when the event has no reserved seating (`400`), is cancelled (`409
-        EVENT_CANCELLED`), or has started (`409 SALES_CLOSED`); for seats with a valid ticket or in
+        EVENT_CANCELLED`), or has ended (`409 SALES_CLOSED`; feature 034, before which it was
+        refused once started); for seats with a valid ticket or in
         another customer's active reservation (`409 SEAT_TAKEN`, `details.seats`, with
         `details.reserved` listing the reserved ones); and for seats that left one of this
         customer's reservations released, run out, or on logout, when that reservation ended less
@@ -1334,10 +1348,11 @@ paths:
         `details.available`). Sales never exceed a tier's quantity or the event's capacity,
         including under concurrent requests.
 
-        Feature 006: sales close when the event starts; an order at or after `startsAt` is
-        refused (`409 SALES_CLOSED`). A `requestId` makes a confirmation safe to repeat: if this
+        Feature 006, as changed by feature 034: sales close when the event ends; an order at or after
+        `endsAt` is refused (`409 SALES_CLOSED`), and one after `startsAt` but before `endsAt` is
+        placed like any other. A `requestId` makes a confirmation safe to repeat: if this
         customer already placed an order with the same `requestId`, that order is returned with
-        `200` and nothing new is recorded, even if the event has since sold out, started, or been
+        `200` and nothing new is recorded, even if the event has since sold out, ended, or been
         cancelled. The same `requestId` with a different event, tier, or quantity is refused
         (`409 REQUEST_ID_REUSED`). Without a `requestId`, every request places a new order.
 
@@ -2544,8 +2559,9 @@ components:
 
     Availability:
       description: |
-        Tickets left for an event and its tiers, and whether sales are closed (feature 006).
-        Valid tickets only. Guidance, not a reservation.
+        Tickets left for an event and its tiers, whether sales are closed (feature 006), and
+        whether the event is in progress (feature 034). Valid tickets only. Guidance, not a
+        reservation.
       type: object
       required: [eventId, ticketsLeft, salesClosed, tiers]
       properties:
@@ -2565,8 +2581,19 @@ components:
           description: The event's ticket capacity minus its valid tickets.
         salesClosed:
           type: [string, 'null']
-          enum: [CANCELLED, STARTED, null]
-          description: '`null` while tickets can be ordered; otherwise why they cannot.'
+          enum: [CANCELLED, ENDED, STARTED, null]
+          description: |
+            `null` while tickets can be ordered; otherwise why they cannot: `CANCELLED` for a
+            cancelled event (whatever the time), else `ENDED` from the event's `endsAt` on
+            (half-open; feature 034). `STARTED` was sent from `startsAt` on before feature 034 and
+            is never sent once 034 is implemented; 034's implementation removes it from this list.
+        inProgress:
+          type: boolean
+          description: |
+            Feature 034. `true` from the event's `startsAt` until its `endsAt` (half-open: `false` at
+            `endsAt` exactly), by the Backend's clock when it answers, the same clock as
+            `salesClosed`; whatever the event's `status`. Always sent once 034 is implemented, and
+            listed as required then; until then clients treat a missing value as `false`.
         tiers:
           type: array
           description: One entry per tier, in the order `listTicketTiers` returns; empty without tiers.
@@ -3594,11 +3621,11 @@ components:
                   code: EVENT_CANCELLED
                   message: Season Opener is cancelled and can no longer be changed or sold.
             salesClosed:
-              summary: The event has started, so sales are closed (feature 006)
+              summary: The event has ended, so sales are closed (features 006, 034)
               value:
                 error:
                   code: SALES_CLOSED
-                  message: Sales for Season Opener closed when it started.
+                  message: Sales for Season Opener closed when it ended.
             requestIdReused:
               summary: A requestId already used for a different order (feature 006)
               value:
