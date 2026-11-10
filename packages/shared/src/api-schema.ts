@@ -495,6 +495,9 @@ export interface paths {
          *     `reservedSeating` or `totalTicketCapacity`. So a client places an entry on ticket type
          *     *i* when it starts `tiers.<i>.`, on the ticket types when it otherwise starts `tiers`, and
          *     on seating by those two names. The rest of each message is for people.
+         *
+         *     Feature 035: `EventTierInput.id` is not allowed on a schedule (`400 VALIDATION_FAILED`,
+         *     an entry starting `tiers.<i>.id`). It is only for `updateEvent`.
          */
         post: operations["createEvent"];
         delete?: never;
@@ -565,6 +568,24 @@ export interface paths {
          *     (`details.removedAt`), and nothing changes. Sending the stored instants again, or changing
          *     only other fields, is allowed. Before removal, times change as above, and the removal
          *     follows the `endsAt` in force.
+         *
+         *     Feature 035. Optional `reservedSeating` and `tiers` (each an `EventTierInput`, at most 50)
+         *     save the event's details, its complete ticket types, and its reserved seating together, or
+         *     save none of this request. Without them, or with neither sent, the request is answered
+         *     exactly as before. When they are sent they are the complete new set: a ticket type with
+         *     `id` must be a type of this event and is updated; a type without `id` is created; an
+         *     existing type left out is removed, subject to the same sold-ticket rules as `deleteTier`,
+         *     `updateTier`, and `updateSeating` (`TIER_HAS_ORDERS`, `EVENT_HAS_ORDERS`,
+         *     `CAPACITY_EXCEEDED` when a quantity would fall below tickets sold). Holds on a remapped
+         *     section, or when reserved seating is turned off, are closed as in `updateSeating`.
+         *     `reservedSeating` left out while `tiers` is sent is `false`. Neither field may be `null`.
+         *
+         *     Checks, after the event's details as above: seating, then each ticket type in the order
+         *     sent, then their total, as in `createEvent` (feature 031), then the sold-ticket rules. A
+         *     refusal names its field the same way: `details.field` is `tiers.<index>.<field>` (including
+         *     `id`), `tiers`, `reservedSeating`, or `totalTicketCapacity` on a `409`; on a `400`, each
+         *     `details.fields` entry starts with its place. A refused removal of a type with orders is
+         *     `409 TIER_HAS_ORDERS` with `details.field: tiers`, and the message names the type.
          */
         patch: operations["updateEvent"];
         trace?: never;
@@ -1537,8 +1558,17 @@ export interface components {
          * @description Feature 031. One ticket type in `createEvent`: the fields of `TicketTierInput`, and the
          *     sections it sells when the event has reserved seating. Any other field is
          *     `400 VALIDATION_FAILED`.
+         *     Feature 035: optional `id` (a UUID) is allowed only on `updateEvent`, where it names an
+         *     existing ticket type of that event to keep and update. On `createEvent` it is
+         *     `400 VALIDATION_FAILED` (`tiers.<i>.id`). Not `null`.
          */
         EventTierInput: {
+            /**
+             * Format: uuid
+             * @description Feature 035. Optional. On `updateEvent`, the id of an existing ticket type of this
+             *     event. On `createEvent`, refused. Left out, the type is created. Not `null`.
+             */
+            id?: string;
             /** @description Trimmed; unique within the request ignoring case. */
             name: string;
             /** @description Non-negative decimal string. */
@@ -1592,6 +1622,20 @@ export interface components {
             /** @description Feature 016. `null` clears the limit. */
             maxTicketsPerCustomer?: number | null;
             basePrice?: string;
+            /**
+             * @description Feature 035. Optional; left out, and `tiers` is sent, `false`. `true` saves the event
+             *     with reserved seating at its venue's layout. Not `null`. Without `tiers` and this
+             *     field, the request does not change ticket types or seating.
+             */
+            reservedSeating?: boolean;
+            /**
+             * @description Feature 035. Optional. The event's complete ticket types after this update, saved with
+             *     the event and its reserved seating in one step, all or nothing. An entry with `id` is
+             *     an existing type of this event; an entry without is created; an existing type left
+             *     out is removed. Left out, ticket types and seating are not changed. At most 50. Not
+             *     `null`.
+             */
+            tiers?: components["schemas"]["EventTierInput"][];
         };
         /**
          * @description Feature 014. One picture of an event: what a client needs to load it from

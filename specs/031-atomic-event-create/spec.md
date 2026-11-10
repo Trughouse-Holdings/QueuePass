@@ -21,6 +21,14 @@ seating rows, an Admin app test shows a refused ticket type keeps the form fille
 event, and a browser test walks the same. The roadmap number is reserved by this PR's amendment
 (Constitution 3.9.3).
 
+
+> **Note (2026-11-09, spec `035`)**: Editing an event, its ticket types, and its seating is now
+> all or nothing through the Edit event form (`035` FR-016 to FR-019), which closes the gap this
+> spec left in FR-013 and Out of scope. On that form, a refusal that names a field is shown only
+> beside the field, with focus, not also in a banner at the top (`035` FR-010 to FR-012), which
+> supersedes FR-009, FR-010, and SC-003 for the Admin event form only. Scheduling itself is
+> unchanged: one request, all or nothing, as specified here.
+
 ## Context
 
 Builds on `002` (events and the 60-minute rule; FR-030, the form keeps the admin's values when a

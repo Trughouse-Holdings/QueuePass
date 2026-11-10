@@ -160,6 +160,10 @@ change with all-member approval for one form; the event page's cards stay for la
   right after `PATCH /events/{id}`, before the ticket types change: the Backend takes a typed
   quantity only without reserved seating. If the ticket types cannot be loaded, Edit saves the
   event's details alone and keeps its stored base price.
+  *Superseded for the Edit event form by `035` (#134, 2026-11-09): one `PATCH /events/{id}`
+  carries `reservedSeating` and `tiers` (each existing type with its `id`), saved all or nothing
+  (`035` research R8). A request without those fields is still answered as this section describes.
+  If the ticket types cannot be loaded, Edit still saves the details alone.*
 
 `002`'s Admin form tests fill a ticket type instead of the base price; their assertions about
 refusals keeping values check the ticket type's price instead.
