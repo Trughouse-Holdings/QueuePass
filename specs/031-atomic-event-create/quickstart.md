@@ -111,7 +111,7 @@ to T005); the form by the Admin app's tests (T006, T007).
 | S0 | Manual: setup by hand; the browser tests make their own venue and events through the API |
 | S1 | Manual: scheduling a general-admission event is `003`'s browser test, which now sends the one request; the request's body is checked by the Admin app's tests (T006) |
 | S2 | Manual: the seated schedule's rows are checked by the Backend's tests (T002) and its request by the Admin app's (T006) |
-| S3 | Manual: until T008 adds `031 S3: a refused ticket type on Schedule shows its error beside it, keeps the form filled, and creates no event` |
+| S3 | Automated: `031 S3: a refused ticket type on Schedule shows its error beside it, keeps the form filled, and creates no event` |
 | S4 | Manual: two tabs and a layout change by hand; both refusals are in the Backend's tests (T003, T005) and their placement in the Admin app's (T006) |
 | S5 | Manual: the conflict with ticket types is in the Backend's tests (T003, T005); the conflict banner is `002`'s |
 | S6 | Manual: stopping the Backend would break the browser tests running beside it; the message is in the Admin app's tests (T006) |

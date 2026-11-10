@@ -1,5 +1,8 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
   IsISO8601,
   IsInt,
   IsOptional,
@@ -9,8 +12,11 @@ import {
   Length,
   Matches,
   Min,
+  ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { OFFSET_DATE_TIME, needsOffset } from '../event-time';
+import { EventTierDto } from './event-tier.dto';
 
 const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -66,4 +72,26 @@ export class CreateEventDto {
     message: 'basePrice must be a non-negative decimal string with at most 2 decimal places',
   })
   basePrice!: string;
+
+  /**
+   * Spec 031 (research R9): optional, left out is `false`; never `null`. `true` schedules the
+   * event with reserved seating at its venue's layout.
+   */
+  @ValidateIf((o: CreateEventDto) => o.reservedSeating !== undefined)
+  @IsBoolean({ message: 'reservedSeating must be true or false' })
+  reservedSeating?: boolean;
+
+  /**
+   * Spec 031 (research R9): optional, at most 50 (a layout's section cap); never `null`. Saved
+   * with the event in one transaction, all or nothing.
+   */
+  @ValidateIf((o: CreateEventDto) => o.tiers !== undefined)
+  @IsArray({ message: 'tiers must be a list of ticket types' })
+  @ArrayMaxSize(50, { message: 'tiers may hold at most 50 ticket types' })
+  @ValidateNested({
+    each: true,
+    message: 'tiers must be a list of ticket types, each an object with a name and a price',
+  })
+  @Type(() => EventTierDto)
+  tiers?: EventTierDto[];
 }

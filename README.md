@@ -19,7 +19,8 @@ pending. `024` is built, reviewed, and walked on the running system. `025` and `
 built, reviewed, and walked on the running system (path B; their browser tests run in CI). `027`
 is built, reviewed, and walked in the browser (with Constitution 3.8.0 for its header and its pulse).
 `028` is built and reviewed (code review rounds 1 and 2); its walk on the running system (T032) and
-its browser tests in CI (T033) are still to do.
+its browser tests in CI (T033) are still to do. `031` is built and reviewed (code review round 1); its walk on
+the running system and its browser test in CI are still to do.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                       | Spec             | Plan and tasks     | Code                            |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ------------------------------- |
@@ -52,7 +53,7 @@ its browser tests in CI (T033) are still to do.
 | [`028-app-realms`](specs/028-app-realms/spec.md)                             | Each app has its own Keycloak sign-in, so three different users can use the three apps in one browser window and logging out of one leaves the others signed in; existing accounts and their orders carry over                                                         | Draft            | Done (34/37 tasks) | **Built**                       |
 | [`029-demo-checkpoint`](specs/029-demo-checkpoint/spec.md)                   | One command resets a local database to the demo state (events on sale, one open at the Ticket Booth, one over), the same every time, in seconds; refused unless explicitly allowed on a local database; Keycloak accounts untouched                                    | Draft            | Done (19/22 tasks) | **Built, reviewed, and walked** |
 | [`030-hide-past-events`](specs/030-hide-past-events/spec.md)                 | Events that have ended leave every event list in the Customer and Admin apps; admins turn on Show past events to see them, marked Ended; customers keep past tickets under Past on My tickets, and a past event's page says it has ended                               | Draft            | Done (21/25 tasks) | **Built**                       |
-| [`031-atomic-event-create`](specs/031-atomic-event-create/spec.md)           | Scheduling an event saves it with its ticket types and seating in one step, or saves nothing; a refusal shows beside the ticket type or section at fault, and the form keeps everything typed; pictures still upload afterwards                                        | Draft            | In review          | Not started                     |
+| [`031-atomic-event-create`](specs/031-atomic-event-create/spec.md)           | Scheduling an event saves it with its ticket types and seating in one step, or saves nothing; a refusal shows beside the ticket type or section at fault, and the form keeps everything typed; pictures still upload afterwards                                        | Draft            | Done (19/23 tasks) | **Built and reviewed**          |
 | [`032-drop-check-ins`](specs/032-drop-check-ins/spec.md)                     | One week after an event ends, who checked in and when is removed from its tickets; the event keeps its checked-in count, so its report reads the same; the Admin app says when the details were removed                                                                | Draft            | In review          | Not started                     |
 
 **Today** all three front ends sign in through Keycloak and log out,
@@ -493,7 +494,9 @@ unchanged.
 - **Map links** — every venue address in the Admin and Customer apps opens Google Maps in a new
   tab (`013`)
 - **Event scheduling** — admins create, view, edit, and delete events with times, ticket
-  capacity, and base price (`002`)
+  capacity, and base price (`002`). Scheduling saves the event with its ticket types and seating
+  in one step, all or nothing: a refusal saves none of it, shows beside the ticket type or section
+  at fault, and keeps everything typed (`031`)
 - **Double-booking prevention** — events at the same venue must be at least **60 minutes**
   apart, enforced by a database constraint so no client can bypass it (`002`)
 - **Customer browsing** — customers see all venues and the events that have not ended, read-only

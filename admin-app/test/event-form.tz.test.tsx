@@ -51,8 +51,8 @@ function newForm(post: () => Response = () => json({ ...EVENT, locationId: EAST.
     [`GET /locations/${CENTRAL.id}/layout`]: json(NO_LAYOUT(CENTRAL.id)),
     [`GET /locations/${EAST.id}/layout`]: json(NO_LAYOUT(EAST.id)),
     [`GET /locations/${PHX.id}/layout`]: json(NO_LAYOUT(PHX.id)),
+    // Spec 031 FR-008: the ticket types go in the one POST /events.
     'POST /events': post,
-    [`POST /events/${EVENT.id}/tiers`]: json(TIER, 201),
   });
   render(
     <MemoryRouter initialEntries={['/events/new']}>

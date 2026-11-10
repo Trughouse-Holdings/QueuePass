@@ -65,11 +65,8 @@ describe('event form', () => {
   it("lets a new event's capacity be left blank, and leaves it out of the request", async () => {
     const api = stubApi({
       'GET /locations': json([VENUE]),
+      // Spec 031 FR-008: the ticket type goes in the one POST /events.
       'POST /events': json(EVENT, 201),
-      [`POST /events/${EVENT.id}/tiers`]: json(
-        { id: 't-gen', eventId: EVENT.id, name: 'General', price: '10.00', quantity: 10 },
-        201,
-      ),
     });
     at('/events/new', '/events/new', <EventForm />);
 

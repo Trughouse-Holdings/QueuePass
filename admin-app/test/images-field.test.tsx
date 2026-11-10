@@ -110,7 +110,6 @@ function backend(
     [`GET /events/${ID}`]: () => json({ ...EV, images: [...images] }),
     [`PATCH /events/${ID}`]: () => json({ ...EV, images: [...images] }),
     [`GET /events/${ID}/tiers`]: json([TIER]),
-    [`POST /events/${ID}/tiers`]: json(TIER, 201),
     [`POST /events/${ID}/images`]: () => {
       const planned = opts.uploads?.[n++] ?? 'ok';
       if (planned === 'network-error') throw new TypeError('Failed to fetch');
@@ -349,7 +348,7 @@ describe('the Images control', () => {
 });
 
 describe('saving', () => {
-  it('creates the event, its ticket type, then uploads each picture in order as multipart', async () => {
+  it('creates the event with its ticket type, then uploads each picture in order as multipart', async () => {
     const server = backend();
     renderAt('/events/new');
     await fillNewEvent();
@@ -359,9 +358,9 @@ describe('saving', () => {
 
     expect(await screen.findByText('Event page', {}, { timeout: 3000 })).toBeInTheDocument();
     const writes = server.api.calls.filter((c) => c.method !== 'GET');
+    // Spec 031 FR-008, FR-012: one POST /events with the ticket type, then the pictures.
     expect(writes.map((c) => `${c.method} ${c.path}`)).toEqual([
       'POST /events',
-      `POST /events/${ID}/tiers`,
       `POST /events/${ID}/images`,
       `POST /events/${ID}/images`,
       `POST /events/${ID}/images`,
@@ -709,11 +708,20 @@ describe('creating an event when a picture is refused (FR-017, FR-018)', () => {
   });
 });
 
-describe('spec 008 unchanged: a refused seating or ticket type step', () => {
+describe('spec 031: a refused schedule sends no picture (FR-009, FR-012)', () => {
   it('stays on Schedule event with every value and picture when a ticket type is refused', async () => {
     const server = backend({
       routes: {
-        [`POST /events/${ID}/tiers`]: refusal(409, 'TIER_NAME_TAKEN', 'Name taken.'),
+        'POST /events': json(
+          {
+            error: {
+              code: 'TIER_NAME_TAKEN',
+              message: 'Name taken.',
+              details: { field: 'tiers.0.name' },
+            },
+          },
+          409,
+        ),
       },
     });
     renderAt('/events/new');
@@ -722,11 +730,8 @@ describe('spec 008 unchanged: a refused seating or ticket type step', () => {
     await vi.waitFor(() => expect(items()).toHaveLength(2));
     fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));
 
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('Seating setup not finished');
-    expect(
-      within(alert).getByRole('link', { name: 'Finish on the event page' }),
-    ).toBeInTheDocument();
+    expect(await screen.findByTestId('error-banner')).toHaveTextContent('Name taken.');
+    expect(document.body).not.toHaveTextContent('Seating setup not finished');
     expect(screen.getByTestId('where')).toHaveTextContent('/events/new');
     expect(server.imageCalls()).toEqual([]);
     expect(screen.getByLabelText('Event name')).toHaveValue('Season Opener');
@@ -743,8 +748,7 @@ describe('spec 008 unchanged: a refused seating or ticket type step', () => {
       routes: {
         'GET /locations': json([{ ...VENUE, seatingCapacity: 10 }, PLAIN]),
         [`GET /locations/${VENUE.id}/layout`]: json(layout),
-        'POST /events': json({ ...EV, locationId: VENUE.id, location: VENUE }, 201),
-        [`PUT /events/${ID}/seating`]: refusal(409, 'LAYOUT_IN_USE', 'Seating refused.'),
+        'POST /events': refusal(400, 'VALIDATION_FAILED', 'Seating refused.'),
       },
     });
     renderAt('/events/new');
@@ -762,7 +766,8 @@ describe('spec 008 unchanged: a refused seating or ticket type step', () => {
     await vi.waitFor(() => expect(items()).toHaveLength(1));
     fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Seating setup not finished');
+    expect(await screen.findByTestId('error-banner')).toHaveTextContent('Seating refused.');
+    expect(document.body).not.toHaveTextContent('Seating setup not finished');
     expect(screen.getByTestId('where')).toHaveTextContent('/events/new');
     expect(server.imageCalls()).toEqual([]);
     expect(items()).toHaveLength(1);
