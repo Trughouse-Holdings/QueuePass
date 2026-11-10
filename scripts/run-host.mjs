@@ -28,7 +28,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 
 const KEYCLOAK = 'http://localhost:8080';
-const REALM = `${KEYCLOAK}/realms/queuepass`;
+// Spec 028 (research R8, data-model.md): every app realm is under this base; each app signs in
+// through its own realm.
+const REALMS = `${KEYCLOAK}/realms`;
 const API = 'http://localhost:3000';
 
 /** Spec 029 FR-002: the compiled reset, which `--demo-reset` needs and never builds. */
@@ -66,8 +68,8 @@ export function plan(options) {
   const backendEnv = {
     DATABASE_URL: 'postgresql://queuepass:queuepass@localhost:5432/queuepass?schema=public',
     PORT: '3000',
-    OIDC_ISSUER: REALM,
-    OIDC_JWKS_URL: `${REALM}/protocol/openid-connect/certs`,
+    OIDC_ISSUER_BASE: REALMS,
+    OIDC_JWKS_BASE: REALMS,
     OIDC_AUDIENCE: 'queuepass-api',
     CORS_ORIGINS: 'http://localhost:5173,http://localhost:5174,http://localhost:5175',
     ADDRESS_GEOCODER_URL: options.geocoderUrl ?? 'https://geocoding.geo.census.gov',
@@ -111,7 +113,6 @@ export function plan(options) {
         KEYCLOAK_HEALTH_URL: 'http://localhost:9000',
         KEYCLOAK_ADMIN: 'admin',
         KEYCLOAK_ADMIN_PASSWORD: 'admin',
-        KEYCLOAK_REALM: 'queuepass',
         SEED_USER_PASSWORD: 'test123',
       },
     },
@@ -130,7 +131,11 @@ export function plan(options) {
   const app = (name, port) => ({
     name,
     command: `npm run dev --workspace @queuepass/${name} -- --port ${port} --strictPort`,
-    env: { VITE_API_BASE_URL: API, VITE_OIDC_AUTHORITY: REALM, VITE_OIDC_CLIENT_ID: name },
+    env: {
+      VITE_API_BASE_URL: API,
+      VITE_OIDC_AUTHORITY: `${REALMS}/queuepass-${name}`,
+      VITE_OIDC_CLIENT_ID: name,
+    },
   });
   const children = [
     {

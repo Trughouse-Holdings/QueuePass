@@ -11,12 +11,18 @@ import type UserRepresentation from '@keycloak/keycloak-admin-client/lib/defs/us
  * no Keycloak. It implements exactly the methods `scripts/seed/src/*.ts` calls, over in-memory
  * state, and records every call. It is a Proxy: calling any other method throws
  * `fake Keycloak: <group>.<method> is not implemented`, so a change to the seed that calls
- * something new fails with a message naming what to add here (spec 021's `realms.findOne` and
- * `realms.update`, for the realm's login theme, were added that way).
+ * something new fails with a message naming what to add here.
  *
- * One realm's worth of state: the seed only ever works in one realm. Every call is recorded, and a
- * call whose `realm` argument names another realm than the fake's (`queuepass` unless given)
- * throws, so a request sent to the wrong realm fails the test.
+ * Spec 028 (research R5, R6, R10; tasks T011): several realms, as Keycloak holds them.
+ * - A call names its realm; a realm that does not exist fails, as Keycloak's 404 does.
+ * - `realms.create` makes the realm as Keycloak does: its built-in `roles` client scope and its
+ *   `default-roles-<realm>` composite role.
+ * - `realms.update` with a new `realm` RENAMES it, keeping every user, client, role and scope; the
+ *   default-roles composite keeps its old name (Keycloak does not rename it).
+ * - User ids are unique across ALL realms, as Keycloak makes them: a create with an id that exists
+ *   in any realm fails with 409; any other id sent on create is ignored (a new one is given).
+ * - Users and clients can be read and updated (`enabled` included).
+ * - Nothing is ever deleted (FR-007): a realm, client or user delete fails the test.
  */
 
 export interface FakeUser extends UserRepresentation {
@@ -28,14 +34,19 @@ export interface FakeClientScope extends ClientScopeRepresentation {
   protocolMappers: ProtocolMapperRepresentation[];
 }
 
-export interface FakeState {
-  realms: RealmRepresentation[];
+/** One realm's state. `rep.realm` is its name. */
+export interface FakeRealm {
+  rep: RealmRepresentation;
   roles: RoleRepresentation[];
   users: FakeUser[];
   clients: ClientRepresentation[];
   clientScopes: FakeClientScope[];
   /** Client internal id → the ids of its default client scopes. */
   defaultScopes: Record<string, string[]>;
+}
+
+export interface FakeState {
+  realms: FakeRealm[];
 }
 
 export interface FakeCall {
@@ -52,6 +63,13 @@ export interface FakeKeycloak {
   methods(): string[];
   /** The arguments of every call to one method, in order. */
   callsTo(method: string): unknown[][];
+  /** The realm named `name`; fails when there is none. */
+  realm(name: string): FakeRealm;
+  /**
+   * Makes every call after the first call to `method` fail, as a seed run stopped at that point
+   * (T014 (b)); the call to `method` itself goes through.
+   */
+  stopAfter(method: string): void;
 }
 
 type Args = { realm?: string; id?: string };
@@ -60,122 +78,204 @@ let nextId = 0;
 const newId = (kind: string): string => `${kind}-${++nextId}`;
 const copy = <T>(value: T): T => (value === undefined ? value : structuredClone(value));
 
+/** A 409 as the admin client raises it. */
+class Conflict extends Error {
+  readonly response = { status: 409 };
+}
+
 export function emptyState(): FakeState {
+  return { realms: [] };
+}
+
+/** A realm as Keycloak creates it: the built-in `roles` scope and the default-roles composite. */
+export function newRealm(rep: RealmRepresentation): FakeRealm {
   return {
-    realms: [],
-    roles: [],
+    rep,
+    roles: [{ id: newId('role'), name: `default-roles-${rep.realm}`, composite: true }],
     users: [],
     clients: [],
-    clientScopes: [],
+    clientScopes: [
+      { id: newId('scope'), name: 'roles', protocol: 'openid-connect', protocolMappers: [] },
+    ],
     defaultScopes: {},
   };
 }
 
-/** A realm as a fresh Keycloak has it after `provisionRealm`: realm, roles, the built-in `roles` scope. */
-export function provisionedRealmState(realm = 'queuepass'): FakeState {
-  const state = emptyState();
-  state.realms.push({ realm });
-  for (const name of ['queuepass-admin', 'gate-agent', 'customer']) {
-    state.roles.push({ id: newId('role'), name });
-  }
-  state.clientScopes.push({
-    id: newId('scope'),
-    name: 'roles',
-    protocol: 'openid-connect',
-    protocolMappers: [],
-  });
-  return state;
+/** A state holding one fresh realm, with `roles` created in it (as `provisionRealm` leaves it). */
+export function provisionedRealmState(realm: string, roles: readonly string[] = []): FakeState {
+  const r = newRealm({ realm });
+  for (const name of roles) r.roles.push({ id: newId('role'), name });
+  return { realms: [r] };
 }
 
-export function createFakeKeycloak(
-  initial: FakeState = emptyState(),
-  { realm = 'queuepass' }: { realm?: string } = {},
-): FakeKeycloak {
+/** A user as a test puts one in a realm, with its id and its realm roles. */
+export function fakeUser(id: string, username: string, realmRoles: string[]): FakeUser {
+  return { id, username, enabled: true, realmRoles };
+}
+
+/** Pages a list as Keycloak's admin API does: `first` from 0, `max` 100 unless given. */
+const page = <T>(list: T[], { first, max }: { first?: number; max?: number }): T[] =>
+  list.slice(first ?? 0, (first ?? 0) + (max ?? 100));
+
+export function createFakeKeycloak(initial: FakeState = emptyState()): FakeKeycloak {
   const state = initial;
   const calls: FakeCall[] = [];
+  let stopAt: string | undefined;
+  let stopped = false;
 
-  const scope = (id: string | undefined): FakeClientScope => {
-    const found = state.clientScopes.find((s) => s.id === id);
+  const realm = (name: string | undefined): FakeRealm => {
+    const found = state.realms.find((r) => r.rep.realm === name);
+    if (!found) throw new Error(`fake Keycloak: no realm '${name}'`);
+    return found;
+  };
+  const allUserIds = (): Set<string> =>
+    new Set(state.realms.flatMap((r) => r.users.map((u) => u.id as string)));
+
+  const scope = (r: FakeRealm, id: string | undefined): FakeClientScope => {
+    const found = r.clientScopes.find((s) => s.id === id);
     if (!found) throw new Error(`fake Keycloak: no client scope with id '${id}'`);
     return found;
+  };
+  const user = (r: FakeRealm, id: string | undefined): FakeUser => {
+    const found = r.users.find((u) => u.id === id);
+    if (!found) throw new Error(`fake Keycloak: no user with id '${id}'`);
+    return found;
+  };
+  const neverDelete = (what: string) => () => {
+    throw new Error(`fake Keycloak: ${what} deleted, and nothing is ever deleted (FR-007)`);
   };
 
   const groups: Record<string, Record<string, (...args: never[]) => unknown>> = {
     realms: {
-      find: () => state.realms,
+      find: () => state.realms.map((r) => r.rep),
       // Keycloak answers 404 for an absent realm; the admin client turns that into undefined.
-      findOne: ({ realm: name }: { realm: string }) => state.realms.find((r) => r.realm === name),
+      findOne: ({ realm: name }: { realm: string }) =>
+        state.realms.find((r) => r.rep.realm === name)?.rep,
       create: (rep: RealmRepresentation) => {
-        state.realms.push(rep);
+        if (state.realms.some((r) => r.rep.realm === rep.realm)) {
+          throw new Conflict(`fake Keycloak: realm '${rep.realm}' already exists`);
+        }
+        state.realms.push(newRealm(rep));
         return { realmName: rep.realm };
       },
       // A partial update, as Keycloak's PUT /admin/realms/{realm}: only the fields sent change.
+      // A new `realm` renames it, keeping everything in it (research R5).
       update: ({ realm: name }: { realm: string }, rep: RealmRepresentation) => {
-        const found = state.realms.find((r) => r.realm === name);
-        if (!found) throw new Error(`fake Keycloak: no realm '${name}'`);
-        Object.assign(found, rep);
+        const found = realm(name);
+        if (rep.realm !== undefined && rep.realm !== name) {
+          if (state.realms.some((r) => r.rep.realm === rep.realm)) {
+            throw new Conflict(`fake Keycloak: realm '${rep.realm}' already exists`);
+          }
+        }
+        Object.assign(found.rep, rep);
       },
+      del: neverDelete('a realm'),
     },
     roles: {
-      find: () => state.roles,
-      create: ({ realm: _realm, ...rep }: RoleRepresentation & Args) => {
-        state.roles.push({ id: newId('role'), ...rep });
+      find: ({ realm: name }: Args) => realm(name).roles,
+      create: ({ realm: name, ...rep }: RoleRepresentation & Args) => {
+        realm(name).roles.push({ id: newId('role'), ...rep });
         return { roleName: rep.name };
       },
-      findOneByName: ({ name }: { name: string }) => state.roles.find((r) => r.name === name),
+      findOneByName: ({ realm: name, name: role }: Args & { name: string }) =>
+        realm(name).roles.find((r) => r.name === role),
+      findUsersWithRole: ({
+        realm: name,
+        name: role,
+        first,
+        max,
+      }: Args & { name: string; first?: number; max?: number }) =>
+        page(
+          realm(name).users.filter((u) => u.realmRoles.includes(role)),
+          { first, max },
+        ),
     },
     users: {
-      find: ({ username, exact }: { username?: string; exact?: boolean }) =>
-        state.users.filter((u) =>
-          exact ? u.username === username : (u.username ?? '').includes(username ?? ''),
+      find: ({
+        realm: name,
+        username,
+        exact,
+        first,
+        max,
+      }: Args & { username?: string; exact?: boolean; first?: number; max?: number }) =>
+        page(
+          realm(name).users.filter((u) =>
+            exact ? u.username === username : (u.username ?? '').includes(username ?? ''),
+          ),
+          { first, max },
         ),
-      create: ({ realm: _realm, ...rep }: UserRepresentation & Args) => {
+      findOne: ({ realm: name, id }: Args) => realm(name).users.find((u) => u.id === id),
+      create: ({ realm: name, id: asked, ...rep }: UserRepresentation & Args) => {
+        const r = realm(name);
+        // Research R5: user ids are unique across the server.
+        if (asked !== undefined && allUserIds().has(asked)) {
+          throw new Conflict(`fake Keycloak: a user with id '${asked}' already exists`);
+        }
+        if (r.users.some((u) => u.username === rep.username)) {
+          throw new Conflict(`fake Keycloak: user '${rep.username}' already exists in '${name}'`);
+        }
         const id = newId('user');
-        state.users.push({ ...rep, id, realmRoles: [] });
+        r.users.push({ ...rep, id, realmRoles: [] });
         return { id };
       },
-      addRealmRoleMappings: ({ id, roles }: { id: string; roles: RoleRepresentation[] }) => {
-        const user = state.users.find((u) => u.id === id);
-        if (!user) throw new Error(`fake Keycloak: no user with id '${id}'`);
-        user.realmRoles.push(...roles.map((r) => r.name as string));
+      update: ({ realm: name, id }: Args, rep: UserRepresentation) => {
+        const u = user(realm(name), id);
+        Object.assign(u, rep, { id: u.id, realmRoles: u.realmRoles });
       },
+      addRealmRoleMappings: ({
+        realm: name,
+        id,
+        roles,
+      }: Args & { roles: RoleRepresentation[] }) => {
+        user(realm(name), id).realmRoles.push(...roles.map((r) => r.name as string));
+      },
+      del: neverDelete('a user'),
     },
     clients: {
-      find: ({ clientId }: { clientId?: string }) =>
-        state.clients.filter((c) => clientId === undefined || c.clientId === clientId),
-      create: ({ realm: _realm, ...rep }: ClientRepresentation & Args) => {
+      find: ({ realm: name, clientId }: Args & { clientId?: string }) =>
+        realm(name).clients.filter((c) => clientId === undefined || c.clientId === clientId),
+      create: ({ realm: name, ...rep }: ClientRepresentation & Args) => {
+        const r = realm(name);
         const id = newId('client');
-        state.clients.push({ ...rep, id });
-        state.defaultScopes[id] = [];
+        r.clients.push({ ...rep, id });
+        r.defaultScopes[id] = [];
         return { id };
       },
-      update: ({ id }: Args, rep: ClientRepresentation) => {
-        const index = state.clients.findIndex((c) => c.id === id);
+      update: ({ realm: name, id }: Args, rep: ClientRepresentation) => {
+        const r = realm(name);
+        const index = r.clients.findIndex((c) => c.id === id);
         if (index < 0) throw new Error(`fake Keycloak: no client with id '${id}'`);
-        state.clients[index] = { ...rep, id };
+        r.clients[index] = { ...rep, id };
       },
-      listDefaultClientScopes: ({ id }: Args) =>
-        (state.defaultScopes[id as string] ?? []).map((scopeId) => ({
+      listDefaultClientScopes: ({ realm: name, id }: Args) => {
+        const r = realm(name);
+        return (r.defaultScopes[id as string] ?? []).map((scopeId) => ({
           id: scopeId,
-          name: scope(scopeId).name,
-        })),
-      addDefaultClientScope: ({ id, clientScopeId }: Args & { clientScopeId: string }) => {
-        (state.defaultScopes[id as string] ??= []).push(clientScopeId);
+          name: scope(r, scopeId).name,
+        }));
       },
+      addDefaultClientScope: ({
+        realm: name,
+        id,
+        clientScopeId,
+      }: Args & { clientScopeId: string }) => {
+        (realm(name).defaultScopes[id as string] ??= []).push(clientScopeId);
+      },
+      del: neverDelete('a client'),
     },
     clientScopes: {
-      find: () => state.clientScopes,
-      create: ({ realm: _realm, ...rep }: ClientScopeRepresentation & Args) => {
+      find: ({ realm: name }: Args) => realm(name).clientScopes,
+      create: ({ realm: name, ...rep }: ClientScopeRepresentation & Args) => {
         const id = newId('scope');
-        state.clientScopes.push({ ...rep, id, protocolMappers: [] });
+        realm(name).clientScopes.push({ ...rep, id, protocolMappers: [] });
         return { id };
       },
-      listProtocolMappers: ({ id }: Args) => scope(id).protocolMappers,
-      addProtocolMapper: ({ id }: Args, mapper: ProtocolMapperRepresentation) => {
-        scope(id).protocolMappers.push({ ...mapper, id: newId('mapper') });
+      listProtocolMappers: ({ realm: name, id }: Args) => scope(realm(name), id).protocolMappers,
+      addProtocolMapper: ({ realm: name, id }: Args, mapper: ProtocolMapperRepresentation) => {
+        scope(realm(name), id).protocolMappers.push({ ...mapper, id: newId('mapper') });
       },
-      delProtocolMapper: ({ id, mapperId }: Args & { mapperId: string }) => {
-        const s = scope(id);
+      delProtocolMapper: ({ realm: name, id, mapperId }: Args & { mapperId: string }) => {
+        const s = scope(realm(name), id);
         s.protocolMappers = s.protocolMappers.filter((m) => m.id !== mapperId);
       },
     },
@@ -193,14 +293,11 @@ export function createFakeKeycloak(
           if (isProbe(method)) return undefined;
           const impl = groups[group]?.[method];
           return async (...args: unknown[]) => {
-            calls.push({ method: `${group}.${method}`, args: copy(args) });
-            if (!impl) throw new Error(`fake Keycloak: ${group}.${method} is not implemented`);
-            const asked = (args[0] as { realm?: unknown } | undefined)?.realm;
-            if (asked !== undefined && asked !== realm) {
-              throw new Error(
-                `fake Keycloak: ${group}.${method} asked for realm '${String(asked)}', not '${realm}'`,
-              );
-            }
+            const name = `${group}.${method}`;
+            calls.push({ method: name, args: copy(args) });
+            if (stopped) throw new Error(`fake Keycloak: stopped after ${stopAt} (test)`);
+            if (!impl) throw new Error(`fake Keycloak: ${name} is not implemented`);
+            if (name === stopAt) stopped = true;
             // Copies in and out, as over HTTP: the seed can never alias the fake's state.
             return copy(await (impl as (...a: unknown[]) => unknown)(...copy(args)));
           };
@@ -215,11 +312,21 @@ export function createFakeKeycloak(
     },
   ) as KcAdminClient;
 
+  // Research R5: a state the test sets up holds each user id once across the server.
+  const ids = state.realms.flatMap((r) => r.users.map((u) => u.id));
+  if (new Set(ids).size !== ids.length) {
+    throw new Error('fake Keycloak: a user id appears twice across realms');
+  }
+
   return {
     kc,
     state,
     calls,
     methods: () => calls.map((c) => c.method),
     callsTo: (method) => calls.filter((c) => c.method === method).map((c) => c.args),
+    realm: (name) => realm(name),
+    stopAfter: (method) => {
+      stopAt = method;
+    },
   };
 }

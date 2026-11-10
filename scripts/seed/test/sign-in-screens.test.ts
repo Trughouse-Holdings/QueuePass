@@ -1,7 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { describe, it, expect, beforeAll } from 'vitest';
+import { APP_REALMS } from '../src/app-realms';
 import { FRONTEND_CLIENTS } from '../src/provision-clients';
 import { SOURCE } from '../src/stone-lines/cli';
+import { liveSkipReason } from './live-guard';
 
 /**
  * Spec 021 research R11 (FR-001, FR-002, FR-005, FR-006, FR-007, FR-008, FR-011, FR-012): the
@@ -9,24 +11,19 @@ import { SOURCE } from '../src/stone-lines/cli';
  * for each app and for a client with no QueuePass identity.
  *
  * Requires a running Keycloak built from keycloak/Dockerfile and seeded. Skipped with its reason
- * when absent, as seed-idempotence.test.ts (spec 011 research R16): CI has no Keycloak.
+ * when absent, as seed-idempotence.test.ts (spec 011 research R16): CI has no Keycloak. Spec 028
+ * (FR-008, tasks T015, T015a): each app's page in its own realm; skipped on a Keycloak that still
+ * has realm `queuepass` (no app realms yet), unless QP_SEED_ALLOW_RENAME=1 (research R13).
  */
 const KEYCLOAK = process.env.KEYCLOAK_URL ?? 'http://localhost:8080';
-const realm = process.env.KEYCLOAK_REALM ?? 'queuepass';
 
-// Keycloak 26 serves /health/* on the management port (9000), not 8080.
-const keycloakUp = async (): Promise<boolean> => {
-  try {
-    const res = await fetch(
-      `${process.env.KEYCLOAK_HEALTH_URL ?? 'http://localhost:9000'}/health/ready`,
-    );
-    return res.ok;
-  } catch {
-    return false;
-  }
-};
+/** The realm the pages with no QueuePass app (account console, no client) are fetched from. */
+const realm = APP_REALMS.find((r) => r.app === 'customer')!.realm;
+/** The app realm a client signs in through (spec 028 data-model.md); Keycloak's own, `realm`. */
+const realmOf = (clientId: string): string =>
+  APP_REALMS.find((r) => r.clientId === clientId)?.realm ?? realm;
 
-const SKIP_REASON = 'Keycloak not reachable; start the stack to run the sign-in screen tests';
+const UNREACHABLE = 'Keycloak not reachable; start the stack to run the sign-in screen tests';
 
 /** contracts/README.md: what each app's sign-in page shows. */
 const SCREENS: Record<string, { heading: string; audience: string }> = {
@@ -65,9 +62,12 @@ async function authorize(clientId: string, redirectUri: string): Promise<Page> {
     code_challenge: base64url(createHash('sha256').update(verifier).digest()),
     code_challenge_method: 'S256',
   });
-  const res = await fetch(`${KEYCLOAK}/realms/${realm}/protocol/openid-connect/auth?${params}`, {
-    redirect: 'manual',
-  });
+  const res = await fetch(
+    `${KEYCLOAK}/realms/${realmOf(clientId)}/protocol/openid-connect/auth?${params}`,
+    {
+      redirect: 'manual',
+    },
+  );
   return { status: res.status, html: await res.text(), cookies: cookiesOf(res) };
 }
 
@@ -123,10 +123,10 @@ function read(html: string) {
 }
 
 describe('the sign-in screens (spec 021)', () => {
-  let available = false;
+  let skipReason: string | undefined;
   beforeAll(async () => {
-    available = await keycloakUp();
-    if (!available) console.warn(`[skip] ${SKIP_REASON}`);
+    skipReason = await liveSkipReason(UNREACHABLE);
+    if (skipReason) console.warn(`[skip] ${skipReason}`);
   });
 
   describe.each(FRONTEND_CLIENTS.map((c) => [c.clientId, c] as const))('%s', (clientId, c) => {
@@ -136,7 +136,7 @@ describe('the sign-in screens (spec 021)', () => {
     it('names the app in the tab title and the one heading, says who it is for, and sets its accent class (US1)', async ({
       skip,
     }) => {
-      skip(!available, SKIP_REASON);
+      skip(!!skipReason, skipReason);
       const page = await authorize(clientId, redirectUri);
       expect(page.status).toBe(200);
       const got = read(page.html);
@@ -149,7 +149,7 @@ describe('the sign-in screens (spec 021)', () => {
     it('loads the shared theme and the sign-in layout, and no PatternFly (FR-007)', async ({
       skip,
     }) => {
-      skip(!available, SKIP_REASON);
+      skip(!!skipReason, skipReason);
       const { html } = await authorize(clientId, redirectUri);
       const sheets = read(html).stylesheets;
       expect(sheets.map((s) => s.split('/').slice(-2).join('/'))).toEqual([
@@ -166,7 +166,7 @@ describe('the sign-in screens (spec 021)', () => {
     it('keeps the form: username or email, password, a labelled show-password button, no registration (FR-011, FR-012)', async ({
       skip,
     }) => {
-      skip(!available, SKIP_REASON);
+      skip(!!skipReason, skipReason);
       const { html } = await authorize(clientId, redirectUri);
       expect(html).toMatch(/<label for="username"[^>]*>Username or email<\/label>/);
       expect(html).toMatch(/<input[^>]*id="username"[^>]*autofocus/);
@@ -185,7 +185,7 @@ describe('the sign-in screens (spec 021)', () => {
     it('keeps the identity after a wrong password and says so under the fields (US2, FR-004, R9)', async ({
       skip,
     }) => {
-      skip(!available, SKIP_REASON);
+      skip(!!skipReason, skipReason);
       const first = await authorize(clientId, redirectUri);
       const page = await submit(first, 'admin1', 'wrong');
       expect(page.status).toBe(200);
@@ -216,7 +216,7 @@ describe('the sign-in screens (spec 021)', () => {
   it('shows a client with no QueuePass identity under its own name, with no audience line (FR-008)', async ({
     skip,
   }) => {
-    skip(!available, SKIP_REASON);
+    skip(!!skipReason, skipReason);
     // Not /realms/<realm>/account itself: that answers 200 with a single-page app that sends the
     // browser to sign in only from JavaScript (R11).
     const page = await authorize('account-console', `${KEYCLOAK}/realms/${realm}/account/`);
@@ -255,7 +255,7 @@ describe('the sign-in screens (spec 021)', () => {
         async () =>
           (
             await fetch(
-              `${KEYCLOAK}/realms/${realm}/protocol/openid-connect/logout?client_id=booth-app`,
+              `${KEYCLOAK}/realms/${realmOf('booth-app')}/protocol/openid-connect/logout?client_id=booth-app`,
             )
           ).text(),
       ],
@@ -272,7 +272,7 @@ describe('the sign-in screens (spec 021)', () => {
     it.for(pages)(
       '%s: has the backdrop element first in <body>, the QUEUEPASS header, and the card',
       async ([, get], { skip }) => {
-        skip(!available, SKIP_REASON);
+        skip(!!skipReason, skipReason);
         const html = await get();
         const afterBody = html.split(/<body\b[^>]*>/)[1] ?? '';
         expect(afterBody.trimStart()).toMatch(
@@ -295,7 +295,7 @@ describe('the sign-in screens (spec 021)', () => {
     );
 
     it("serves Keycloak's stones image and the lines image beside login.css", async ({ skip }) => {
-      skip(!available, SKIP_REASON);
+      skip(!!skipReason, skipReason);
       const { html } = await authorize('admin-app', 'http://localhost:5173/');
       const sheet = read(html).stylesheets.find((s) => s.endsWith('/css/login.css'));
       expect(sheet, 'the login.css link').toBeDefined();
@@ -319,7 +319,7 @@ describe('the sign-in screens (spec 021)', () => {
   it('shows a page with no client as "Sign in to QueuePass", with the page\'s own header (FR-008, R9)', async ({
     skip,
   }) => {
-    skip(!available, SKIP_REASON);
+    skip(!!skipReason, skipReason);
     // A sign-in step reached with no sign-in under way: Keycloak knows no client.
     const res = await fetch(`${KEYCLOAK}/realms/${realm}/login-actions/authenticate`);
     const html = await res.text();

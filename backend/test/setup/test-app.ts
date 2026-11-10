@@ -1,6 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { createLocalJWKSet } from 'jose';
+import { APP_REALMS } from '@queuepass/shared';
+import { createLocalJWKSet, type JWTVerifyGetKey } from 'jose';
 import { ADDRESS_GEOCODER } from '../../src/address/address-geocoder';
 import { MAP_SEARCH } from '../../src/address/map-search';
 import { AppModule } from '../../src/app.module';
@@ -15,7 +16,7 @@ import { FakeClock } from './fake-clock';
 import { FakeGeocoder } from './fake-geocoder';
 import { FakeMapSearch } from './fake-map-search';
 import { testKeys } from './keys';
-import { ADMIN, TEST_AUDIENCE, TEST_ISSUER, tokenFor } from './tokens';
+import { ADMIN, TEST_AUDIENCE, TEST_ISSUER_BASE, tokenFor } from './tokens';
 
 export interface TestContext {
   app: INestApplication;
@@ -33,6 +34,12 @@ export interface TestContext {
    * `advance(ms)`. Not `clock`, which never moves these windows.
    */
   attemptClock: FakeAttemptClock;
+  /**
+   * Spec 028 (research R8, R10): each app realm's key set, as the Backend is given it; each a
+   * `jest.fn` around a local key set holding only that realm's test key, so a test can see which
+   * realm's keys were asked for.
+   */
+  keySets: Record<string, jest.Mock<ReturnType<JWTVerifyGetKey>, Parameters<JWTVerifyGetKey>>>;
 }
 
 export interface TestAppOptions {
@@ -48,8 +55,9 @@ export interface TestAppOptions {
  * Boots the real application graph with the same pipes, filters, guards, CORS, and /docs as
  * production (src/configure-app.ts), so responses under test are what clients receive.
  *
- * Five substitutions: the key set (the app trusts only the test key pair instead of fetching
- * Keycloak's JWKS, research R11; token validation itself is NOT bypassed), the address service,
+ * Five substitutions: the key sets (the app trusts, for each app realm, only that realm's test
+ * key pair instead of fetching Keycloak's JWKS, research R11 and spec 028 research R10; token
+ * validation itself is NOT bypassed), the address service,
  * replaced by a `FakeGeocoder` (spec 013 research R9), the seat hold sweep's interval, 0 so
  * no timer runs (spec 015 research R4), the live-code clock, a `FakeClock` (spec 018
  * research R3), and the attempt windows' clock, a `FakeAttemptClock` (spec 026 research R2). A
@@ -66,12 +74,17 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestC
     process.env.RATE_LIMIT_PER_MINUTE = String(limits.perMinute);
     process.env.RATE_LIMIT_PER_5_SECONDS = String(limits.perFiveSeconds);
   }
-  process.env.OIDC_ISSUER = TEST_ISSUER;
+  process.env.OIDC_ISSUER_BASE = TEST_ISSUER_BASE;
   process.env.OIDC_AUDIENCE = TEST_AUDIENCE;
-  process.env.OIDC_JWKS_URL ??= 'http://keycloak.invalid/certs';
+  process.env.OIDC_JWKS_BASE ??= 'http://keycloak.invalid/realms';
   process.env.CORS_ORIGINS = 'http://localhost:5173,http://localhost:5174,http://localhost:5175';
 
-  const { trusted } = await testKeys();
+  const keys = await testKeys();
+  const keySets: TestContext['keySets'] = {};
+  for (const { realm } of APP_REALMS) {
+    const local = createLocalJWKSet({ keys: [keys.realms[realm]!.publicJwk] });
+    keySets[realm] = jest.fn((...args: Parameters<JWTVerifyGetKey>) => local(...args));
+  }
   const geocoder = new FakeGeocoder();
   const map = new FakeMapSearch();
   const clock = new FakeClock();
@@ -80,7 +93,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestC
     .overrideProvider(ATTEMPT_CLOCK)
     .useValue(attemptClock)
     .overrideProvider(JWKS)
-    .useValue(createLocalJWKSet({ keys: [trusted.publicJwk] }))
+    .useValue(keySets)
     .overrideProvider(ADDRESS_GEOCODER)
     .useValue(geocoder)
     .overrideProvider(MAP_SEARCH)
@@ -106,5 +119,6 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestC
     map,
     clock,
     attemptClock,
+    keySets,
   };
 }

@@ -82,14 +82,12 @@ test('the seed talks to Keycloak on localhost', () => {
   const seed = find(plan(), 'seed');
   assert.equal(seed.env.KEYCLOAK_URL, 'http://localhost:8080');
   assert.equal(seed.env.KEYCLOAK_HEALTH_URL, 'http://localhost:9000');
-  for (const key of [
-    'KEYCLOAK_ADMIN',
-    'KEYCLOAK_ADMIN_PASSWORD',
-    'KEYCLOAK_REALM',
-    'SEED_USER_PASSWORD',
-  ]) {
+  for (const key of ['KEYCLOAK_ADMIN', 'KEYCLOAK_ADMIN_PASSWORD', 'SEED_USER_PASSWORD']) {
     assert.equal(seed.env[key], composeValue('seed', key), key);
   }
+  // Spec 028 (research R11): the realms come from the seed's own table; KEYCLOAK_REALM is retired.
+  assert.equal(seed.env.KEYCLOAK_REALM, undefined);
+  assert.equal(compose.services.seed.environment.KEYCLOAK_REALM, undefined);
 });
 
 test("the Backend has compose's environment on localhost, and TZ from --backend-tz", () => {
@@ -98,15 +96,21 @@ test("the Backend has compose's environment on localhost, and TZ from --backend-
   for (const key of [
     'DATABASE_URL',
     'PORT',
-    'OIDC_ISSUER',
-    'OIDC_JWKS_URL',
+    'OIDC_ISSUER_BASE',
+    'OIDC_JWKS_BASE',
     'OIDC_AUDIENCE',
     'CORS_ORIGINS',
     'ADDRESS_GEOCODER_URL',
   ]) {
     assert.equal(backend.env[key], composeValue('backend', key), key);
   }
-  assert.match(backend.env.OIDC_JWKS_URL, /^http:\/\/localhost:8080\//);
+  // Spec 028 (research R8): the bases every realm's issuer and key set are under.
+  assert.equal(backend.env.OIDC_ISSUER_BASE, 'http://localhost:8080/realms');
+  assert.equal(backend.env.OIDC_JWKS_BASE, 'http://localhost:8080/realms');
+  for (const old of ['OIDC_ISSUER', 'OIDC_JWKS_URL']) {
+    assert.equal(backend.env[old], undefined, old);
+    assert.equal(compose.services.backend.environment[old], undefined, old);
+  }
   assert.match(backend.env.DATABASE_URL, /@localhost:5432\//);
   assert.equal(backend.env.TZ, 'America/Los_Angeles');
 });
@@ -127,12 +131,12 @@ test('--geocoder-url points the Backend and demo data elsewhere (S11, P1)', () =
   assert.equal(find(blocks, 'demo-data').env.ADDRESS_GEOCODER_URL, 'http://127.0.0.1:9');
 });
 
-test('each app gets its API, sign-in authority, and own client id, on its own port', () => {
+test('each app gets its API, its own realm as sign-in authority, and own client id, on its own port', () => {
   const blocks = plan();
-  for (const [app, port] of [
-    ['admin-app', '5173'],
-    ['customer-app', '5174'],
-    ['booth-app', '5175'],
+  for (const [app, port, realm] of [
+    ['admin-app', '5173', 'queuepass-admin-app'],
+    ['customer-app', '5174', 'queuepass-customer-app'],
+    ['booth-app', '5175', 'queuepass-booth-app'],
   ]) {
     const child = find(blocks, app);
     assert.match(
@@ -142,6 +146,8 @@ test('each app gets its API, sign-in authority, and own client id, on its own po
     for (const key of ['VITE_API_BASE_URL', 'VITE_OIDC_AUTHORITY', 'VITE_OIDC_CLIENT_ID']) {
       assert.equal(child.env[key], composeValue(app, key, 'args'), `${app} ${key}`);
     }
+    // Spec 028 (data-model.md): each app signs in through its own realm.
+    assert.equal(child.env.VITE_OIDC_AUTHORITY, `http://localhost:8080/realms/${realm}`, app);
   }
   assert.deepEqual(
     blocks.filter((b) => b.kind === 'child').map((b) => b.name),

@@ -4,6 +4,20 @@ import { defineConfig, devices } from '@playwright/test';
 
 const CI = !!process.env.CI;
 
+/**
+ * Spec 028 (tasks T025a): WebKit, Safari's engine, the stand-in for a Safari walk until one is
+ * made on a Mac. Opt-in: listed only when asked for (`--project=webkit`), so `npm run e2e` and CI
+ * stay Chromium-only. Its browser: `node node_modules/playwright/cli.js install webkit`.
+ */
+const argv = process.argv;
+const WEBKIT =
+  process.env.QP_E2E_WEBKIT === '1' ||
+  argv.some((a, i) => a === '--project=webkit' || (a === '--project' && argv[i + 1] === 'webkit'));
+// Workers load this file again with their own arguments: they learn of the project from here.
+// So a QP_E2E_WEBKIT=1 left set in the shell makes a plain `npm run e2e` run WebKit too, where
+// `001 V3` fails (code review round 1); unset it after a WebKit run.
+if (WEBKIT) process.env.QP_E2E_WEBKIT = '1';
+
 export default defineConfig({
   testDir: 'tests',
   fullyParallel: true,
@@ -29,5 +43,8 @@ export default defineConfig({
     locale: 'en-US',
     timezoneId: 'America/New_York',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    ...(WEBKIT ? [{ name: 'webkit', use: { ...devices['Desktop Safari'] } }] : []),
+  ],
 });

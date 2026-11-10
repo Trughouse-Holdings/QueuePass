@@ -2,7 +2,7 @@ import { SignJWT } from 'jose';
 import request from 'supertest';
 import { anon, as } from '../setup/authed-request';
 import { createTestApp, TestContext } from '../setup/test-app';
-import { ADMIN, tokenFor } from '../setup/tokens';
+import { ADMIN, issuerFor, REALM, tokenFor } from '../setup/tokens';
 
 /**
  * Spec 001 FR-018, FR-019, FR-030 — the Backend trusts only valid, correctly scoped tokens.
@@ -69,7 +69,7 @@ describe('Token validation', () => {
     })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject('x')
-      .setIssuer('http://localhost:8080/realms/queuepass')
+      .setIssuer(issuerFor(REALM.admin))
       .setAudience('queuepass-api')
       .setExpirationTime('5m')
       .sign(new TextEncoder().encode('a-shared-secret-that-is-at-least-32-bytes'));

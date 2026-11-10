@@ -47,7 +47,6 @@ describe('loadConfig', () => {
       healthUrl: 'http://localhost:9000',
       adminUser: 'admin',
       adminPassword: 'admin',
-      realm: 'queuepass',
       userPassword: 'test123',
     });
   });
@@ -65,9 +64,16 @@ describe('loadConfig', () => {
       healthUrl: 'http://kc:9000',
       adminUser: 'root',
       adminPassword: 'secret',
-      realm: 'other',
       userPassword: 'pw',
     });
+  });
+
+  // Spec 028 (research R11): the realms come from APP_REALMS; KEYCLOAK_REALM is retired.
+  it('no longer reads KEYCLOAK_REALM, and names no realm', () => {
+    vi.stubEnv('KEYCLOAK_REALM', 'other');
+
+    expect(loadConfig()).not.toHaveProperty('realm');
+    expect(JSON.stringify(loadConfig())).not.toContain('other');
   });
 });
 
