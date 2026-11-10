@@ -252,9 +252,22 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   buying from the Cart; the `033` status row (tasks count and code status).
 - [x] T025 `npm run ci` locally, green; record the counts per workspace and the Backend's and Customer
   app's line coverage (each at or above 80%).
+  **Done** (2026-11-10, after merging `main` at `89d2349`, spec `034`'s PR): `npm run ci` green,
+  exit 0, with `KEYCLOAK_URL` and `KEYCLOAK_HEALTH_URL` set to `http://127.0.0.1:9` so the live seed
+  tests skip (28 skipped). Counts: root scripts 85; shared 793; Backend 1309 (110 suites);
+  admin-app 402; customer-app 395 (28 files); booth-app 94; seed 262 passed, 28 skipped; quick
+  test:tz (Los Angeles) pass. Line coverage: shared 96.77%, Backend 97.17%, admin-app 97.46%,
+  customer-app 97.98%, booth-app 93.44%, seed 99.41%. (Also green before the merge, on `c45d545`.)
 - [ ] T026 Run the Backend suite three times in a row, the Customer app suite three times, and `npm
   run test:tz` (the cooldown time in the viewer's zone); record the counts. The `e2e` job on GitHub
   runs T008 and T009; record its time.
+  **Local part done** (on `c45d545`): the Backend suite three times in a row, 1309/1309 each (110
+  suites; 212 s, 209 s, 195 s; lines 97.17%); the Customer app suite three times, 395/395 each (28
+  files; lines 97.98%); `npm run test:tz` passed in America/New_York, UTC, America/Los_Angeles, and
+  Pacific/Honolulu for every workspace except one admin-app timeout in Pacific/Honolulu (`venue page
+  events > lists the venue's events in its zone`, 10 s under load; admin-app is untouched here),
+  which passed on rerunning that zone. **Pending**: the `e2e` job on GitHub (T008, T009) and its
+  time.
 - [ ] T027 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, research.md, and the contract; fix the findings; record the round here.
 - [ ] T028 Running-system walk, quickstart S0–S11, on a stack of its own (`-p qp033`) or path B with
