@@ -52,7 +52,7 @@ For an event `e` and the instant `now`:
 | --- | --- | --- |
 | Get tickets panel, top | `inProgress` and `salesClosed = null` | "This event has already started (began at {start})." + " You can still buy tickets until it ends at {end}." only when the panel shows no closed, sold-out, limit, or no-seats-on-sale message |
 | Get tickets panel, closed | `salesClosed = ENDED` | badge "Sales closed"; "Sales closed: this event has ended." |
-| Event page, under the name (`030`) | before availability loads: browser clock `>= endsAt`; after: `salesClosed = ENDED` (never while `inProgress`) | "This event has ended." (FR-017) |
+| Event page, under the name (`030`) | before any availability answer: browser clock `>= endsAt`; after (the last answer, kept while reloading): `salesClosed = ENDED`, or `salesClosed = CANCELLED` and not `inProgress` and browser clock `>= endsAt`; never while `inProgress` | "This event has ended." (FR-017) |
 | Confirmation | `order.createdAt >= event.startsAt` | "This event has already started (began at {start}). Your tickets admit you until it ends at {end}." |
 
 `{start}` and `{end}` are in the venue's zone with its abbreviation, each time alone on the reference

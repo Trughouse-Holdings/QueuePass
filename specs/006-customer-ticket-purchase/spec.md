@@ -181,9 +181,10 @@ own order, with its codes.
   after the event's start time, with a reason saying sales have closed, and the Customer app MUST
   show such events as "Sales closed" with no way to get tickets. This replaces `005`'s "no sales
   window yet" assumption for start time only. _Amended 2026-11-09 by spec `034` (#126), FR-001,
-  FR-002, FR-011: sales close when the event **ends** (half-open: at its end time it is closed), not when it starts;
-  the refusal says sales closed when the event ended, and the Customer app shows "Sales closed: this
-  event has ended."; from the start to the end it says the event has already started (FR-008)._
+  FR-002, FR-011: sales close when the event **ends** (half-open: at its end time it is closed), not
+  when it starts; the refusal says sales closed when the event ended, and the Customer app shows
+  "Sales closed: this event has ended."; from the start to the end it says the event has already
+  started (FR-008)._
 
 ### Key Entities
 

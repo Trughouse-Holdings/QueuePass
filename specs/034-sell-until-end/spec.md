@@ -95,9 +95,12 @@ so Mahdi and the team can overturn it in review of the spec PR.
   R4).
 - Q: The event page's "This event has ended." line (`030`) uses the browser's clock, the panel the
   Backend's: what if they disagree? → A: **Once the panel's availability has loaded, the line
-  follows it**: shown when `salesClosed` is `ENDED`, not while `inProgress` is true, so the header
-  and the panel never contradict each other; before availability loads, `030`'s browser-clock rule
-  stands (decided in spec review round 1, by the orchestrating session) (FR-017; research R4).
+  follows it**: shown when `salesClosed` is `ENDED`, or, for a cancelled event (`CANCELLED` whatever
+  the time), when `inProgress` is false and `030`'s browser-clock rule says it has ended; never
+  while `inProgress` is true. So the header and the panel never contradict each other, and a
+  cancelled event that has ended still says so. Before availability first loads, or if it never
+  answers, `030`'s browser-clock rule stands; a later reload keeps the last answer meanwhile
+  (decided in spec review rounds 1 and 2, by the orchestrating session) (FR-017; research R4).
 - Q: On the confirmation? → A: **For an order placed at or after the event's start**, the
   confirmation says "This event has already started (began at 7:00 PM EST). Your tickets admit you
   until it ends at 10:00 PM EST.", decided from the order's own time and the event's start, both the
@@ -246,8 +249,9 @@ values follow the rule.
 - **A client's clock differs from the Backend's.** The Backend decides whether sales are open and
   whether the event is in progress; the apps only show it. The times in the notice are the event's
   own. A browser clock running a few minutes fast near the end does not put "This event has ended."
-  under the name while the Backend says the event is in progress: once availability has loaded, that
-  line follows it (FR-017); before, it follows `030`'s rule.
+  under the name while the Backend says the event is in progress, and a slow one does not hide it
+  once the Backend says sales have ended: once availability has loaded, that line follows it
+  (FR-017); before, it follows `030`'s rule.
 - **A cancelled event in progress.** Refused as cancelled; the panel shows only that it is cancelled.
 - **A cancelled event that has ended.** As today: `CANCELLED` wins; its page says it has been
   cancelled and (`030`) that it has ended.
@@ -308,9 +312,12 @@ values follow the rule.
   has already started (began at {start}). Your tickets admit you until it ends at {end}.", by
   FR-009's rule; an order placed before the start MUST show no such line.
 - **FR-017**: Once the Get tickets panel has loaded the event's availability, the event page's "This
-  event has ended." line (`030` FR-014) MUST be shown exactly when availability says sales have
-  `ENDED`, and not while it says the event is in progress; before availability has loaded, `030`'s
-  rule (the browser's clock when the event loaded) applies. _(Added in spec review round 1.)_
+  event has ended." line (`030` FR-014) MUST follow the last answer: shown when it says sales have
+  `ENDED`, or when it says `CANCELLED` with the event not in progress and `030`'s rule (the
+  browser's clock when the event loaded) says the event has ended; never while it says the event is
+  in progress. While availability is loading again after a first answer, the last answer MUST still
+  be used. Before any answer has arrived, or if none ever does, `030`'s rule applies. _(Added in
+  spec review round 1, cancelled events in round 2.)_
 
 **Unchanged**
 

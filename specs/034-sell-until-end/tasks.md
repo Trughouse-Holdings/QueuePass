@@ -121,8 +121,12 @@ confirm they **fail** before the implementation tasks that follow.
   - **One clock on the page** (FR-017): with the browser clock (`vi.setSystemTime`) 3 minutes after
     the event's `endsAt` and availability `{ salesClosed: null, inProgress: true }` (the Backend's
     clock behind), the page shows no "This event has ended." once availability has loaded, and shows
-    the notice; with availability `{ ENDED, false }`, "This event has ended." is shown; before
-    availability answers (a pending stub), the page follows `030`'s rule.
+    the notice. With the browser clock 3 minutes **before** `endsAt` (a slow clock) and availability
+    `{ ENDED, false }`, "This event has ended." is shown, so the line follows availability, not the
+    clock. A cancelled event whose end has passed by the browser clock, with `{ CANCELLED,
+    inProgress: false }`, keeps the line; with `{ CANCELLED, inProgress: true }`, no line. Before
+    availability answers (a pending stub), the page follows `030`'s rule; after a first answer, a
+    reload of availability (a refusal) that is still pending keeps the last answer's line.
   - `{ CANCELLED, inProgress: true }`: no "already started"; the cancelled message.
   - `{ null, false }`: no notice.
   - `{ ENDED, false }`: the "Sales closed" badge and "Sales closed: this event has ended."; no "already
@@ -192,8 +196,10 @@ confirm they **fail** before the implementation tasks that follow.
   salesClosed === null`, full when the panel offers a way to get tickets, first sentence otherwise;
   `ENDED` → badge "Sales closed", "Sales closed: this event has ended."; no `STARTED` branch left.
   `pages/EventDetail.tsx` (FR-017; research R4): `GetTickets` reports each availability load to the
-  page (a callback prop), and "This event has ended." then follows `salesClosed === 'ENDED'` (never
-  while `inProgress`); before the first load, `hasEnded(e.endsAt, loadedAt)` as `030`.
+  page on every answer (a callback prop; not on `loading`, so the last answer is kept while
+  `useLoad` re-keys), and "This event has ended." then shows when `salesClosed === 'ENDED'`, or when
+  `salesClosed === 'CANCELLED' && !inProgress && hasEnded(e.endsAt, loadedAt)`, never while
+  `inProgress`; before any answer, or if none arrives, `hasEnded(e.endsAt, loadedAt)` as `030`.
 - [ ] T017 [US1] The confirmation (FR-012): in `OrderConfirmation.tsx` once `033`'s implementation has
   merged (so the cart's confirmation shows it too), else in `Confirmation` in `GetTickets.tsx`: the line
   under its heading when `order.createdAt >= event.startsAt`. T007 passes; the whole Customer suite
@@ -283,4 +289,20 @@ confirm they **fail** before the implementation tasks that follow.
     `packages/shared` changes (`api-schema.ts`, `order.ts`) named.
   - N7: R8 says where the notice can be seen: Demo Tonight from 1 hour after a reset, or an event
     scheduled with a past start (quickstart S0).
+- **Round 2** (independent Claude session, 2026-11-09): 1 must-fix, 1 should-fix, 2 nits. All fixed
+  in the `Review 034: spec review round 2` commit, and the Sync Impact Report's wording in a
+  `Constitution:` commit.
+  - M1: FR-017 showed "This event has ended." exactly when availability says `ENDED`, but
+    availability says `CANCELLED` whatever the time, so a cancelled event that has ended lost the
+    line (against this spec's edge case and `030` FR-014) → **decided by the orchestrating
+    session**: once availability has loaded, the line shows when `salesClosed === 'ENDED'`, or when
+    `salesClosed === 'CANCELLED' && !inProgress` and `030`'s browser-clock rule says ended; never
+    while `inProgress` (spec Clarifications and FR-017, research R4, data-model, T007, T016, the
+    `030` FR-014 note, the constitution's Impact line).
+  - S1: T007's one-clock test also runs `{ ENDED, false }` with the browser clock before `endsAt` (a
+    slow clock), so it proves the line follows availability, not the clock; spec Edge Cases says so.
+  - N1: FR-017, R4, and T016 keep the last availability answer while `useLoad` re-keys to `loading`
+    (reloads, seatings), and use `030`'s rule when no answer ever arrives; T007 covers a pending
+    reload.
+  - N2: the `006` FR-014 dated note's long line rewrapped.
 - **Open findings**: none.

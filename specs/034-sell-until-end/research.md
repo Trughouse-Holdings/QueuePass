@@ -134,11 +134,15 @@ for seated events only; rejected.
 - **One clock for the page once availability has loaded** (FR-017, decided in spec review round 1):
   `EventDetail.tsx` shows "This event has ended." from `hasEnded(e.endsAt, loadedAt)` (`030`
   research R7, the browser's clock). Once `GetTickets` has loaded availability, it tells the page (a
-  callback prop such as `onSales({ ended, inProgress })`, called on every load), and the line then
-  shows exactly when `salesClosed === 'ENDED'`, and never while `inProgress` is true. Before the
-  first load the page keeps `030`'s rule, so a past event's page says it has ended at once. A
-  browser clock a few minutes fast near the end can therefore no longer show "This event has ended."
-  above a panel offering tickets. `030` FR-014 carries a dated note.
+  callback prop such as `onSales({ salesClosed, inProgress })`, called on every answer, not on
+  `loading`, so a reload keeps the last answer), and the line then shows when `salesClosed ===
+  'ENDED'`, or when `salesClosed === 'CANCELLED' && !inProgress && hasEnded(e.endsAt, loadedAt)`
+  (availability says `CANCELLED` whatever the time, so a cancelled event that has ended still says
+  so, as `030` FR-014 and this spec's edge case require), and never while `inProgress` is true.
+  Before the first answer, or if none ever arrives, the page keeps `030`'s rule, so a past event's
+  page says it has ended at once. A browser clock a few minutes fast near the end can therefore no
+  longer show "This event has ended." above a panel offering tickets. `030` FR-014 carries a dated
+  note.
 
 **Why at the panel's top**: that is where the customer decides to buy; the panel already loads
 availability, so the page needs no second request. Under the name it would need availability in
@@ -277,7 +281,8 @@ Opener's sales are closed, which stays true.
   the first sentence; cancelled in progress → no notice; ahead → no notice; ended → "Sales closed"
   and "…has ended."; the notice is not in the event page's header; with the browser clock set a few
   minutes after the end but availability saying `{ null, inProgress: true }`, the page shows no
-  "This event has ended." line (FR-017), and with availability `ENDED` it shows it; a confirmation
+  "This event has ended." line (FR-017), and with availability `ENDED` and the browser clock before
+  the end it shows it; a cancelled ended event (`{ CANCELLED, false }`) keeps it; a confirmation
   for an order whose `createdAt` is after the start shows its line, one before shows none;
   `format.test.ts` for the helper; `npm run test:tz` runs them in several zones.
 - **Browser** (`e2e/tests/034-sell-until-end.spec.ts`, Playwright against the `qpe2e` stack): `034

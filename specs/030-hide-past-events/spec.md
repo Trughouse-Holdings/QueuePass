@@ -297,8 +297,8 @@ minute ago and one in progress; the first is left out only without it.
   events and MUST offer no control to show them. A past event's own page MUST open and say "This
   event has ended." under its name. _Amended 2026-11-09 by spec `034` (#126), FR-017: once the
   page's Get tickets panel has loaded the event's availability, the line follows it (shown when
-  sales have `ENDED`, not while the event is in progress) instead of the browser's clock; before
-  that, this rule stands._
+  sales have `ENDED`, or for a cancelled event not in progress when this rule says it has ended;
+  never while the event is in progress); before any answer, this rule stands._
 - **FR-015**: My tickets MUST list orders for events that have not ended first, then, under a
   **Past** heading, orders for events that have ended, decided when the page loads; each section
   newest order first; no order is left out. With no upcoming orders, it MUST say so and link to the
