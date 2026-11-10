@@ -49,7 +49,7 @@ describe('My tickets', () => {
       within(nav)
         .getAllByRole('link')
         .map((l) => l.textContent),
-    ).toEqual(['Events', 'Venues', 'My tickets']);
+    ).toEqual(['Events', 'Venues', 'My tickets', 'Cart']);
     expect(within(nav).getByRole('link', { name: 'My tickets' })).toHaveAttribute(
       'href',
       '/my-tickets',

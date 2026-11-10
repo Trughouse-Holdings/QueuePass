@@ -17,7 +17,8 @@ const FIVE_SECONDS_MS = 5_000;
 
 /**
  * Spec 026 (FR-001 to FR-003, FR-008, FR-010, FR-015, FR-019; research R2, R3, R8): each customer
- * account's buy and seat-hold allowances, as rolling windows over the attempts let through.
+ * account's buy and seat-hold allowances, as rolling windows over the attempts let through; each
+ * kind with its own numbers (spec 033 FR-008, research R5).
  *
  * The counts live in this one Backend's memory and a restart forgets them: a deviation from
  * Constitution IV that Mahdi accepted on 2026-11-02 (plan.md, Complexity Tracking). Deciding
@@ -66,8 +67,9 @@ export class AttemptLimitsService implements OnModuleInit, OnModuleDestroy {
     //    dropped all the same, so no account is ever shut out by one.
     const times = (this.attempts.get(key) ?? []).filter((t) => age(t) < MINUTE_MS && age(t) >= 0);
 
-    // 2. The minute: the wait until the attempt that fills it is a minute old.
-    const { perMinute, perFiveSeconds } = this.limits;
+    // 2. The minute: the wait until the attempt that fills it is a minute old. Each kind has its
+    //    own pair (spec 033 research R5).
+    const { perMinute, perFiveSeconds } = this.limits[kind];
     const waitMinute =
       times.length >= perMinute ? MINUTE_MS - age(times[times.length - perMinute]) : 0;
     // 3. The same for the last 5 seconds.
@@ -125,9 +127,8 @@ export class AttemptLimitsService implements OnModuleInit, OnModuleDestroy {
   ): void {
     if (now < (this.loggedUntil.get(key) ?? -Infinity)) return;
     this.loggedUntil.set(key, now + wait);
-    const window = minuteBinds
-      ? `${this.limits.perMinute} in 60 seconds`
-      : `${this.limits.perFiveSeconds} in 5 seconds`;
+    const { perMinute, perFiveSeconds } = this.limits[kind];
+    const window = minuteBinds ? `${perMinute} in 60 seconds` : `${perFiveSeconds} in 5 seconds`;
     this.logger.warn(
       `Attempt limit: customer ${sub} over the ${kind} allowance (${window}); ` +
         `try again in ${Math.ceil(wait / 1000)} s.`,

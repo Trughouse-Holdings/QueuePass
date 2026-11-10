@@ -19,8 +19,10 @@ fixTimeBeforeFixtures();
 
 /**
  * Spec 026 US2 (FR-011 to FR-014; research R6, R10): a buy or hold attempt refused as too many
- * tries shows the message above the button it explains, counting down each second from the
- * Backend's N; that kind's buttons wait it out (aria-disabled, still focusable); nothing is lost.
+ * tries shows the message above the control it explains, counting down each second from the
+ * Backend's N; that kind's controls wait it out (aria-disabled, still focusable); nothing is lost.
+ * Spec 033 (FR-009, FR-014): the hold wait is on a seat click, above the seat map; the buy wait on
+ * Confirm order and on the cart's Buy tickets.
  */
 afterEach(() => {
   vi.useRealTimers();
@@ -99,14 +101,10 @@ const advance = (ms: number) => act(async () => vi.advanceTimersByTimeAsync(ms))
 const button = (name: string) => screen.getByRole('button', { name });
 const seatButton = (row: number, seat: number) =>
   screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}(,|$)`) });
-const picks = () =>
-  within(screen.getByRole('list', { name: 'Chosen seats' }))
+const heldSeats = () =>
+  within(screen.getByRole('region', { name: 'Your seats' }))
     .queryAllByRole('listitem')
-    .map((li) => li.firstChild?.textContent);
-const reservedSeats = () =>
-  within(screen.getByRole('list', { name: 'Reserved seats' }))
-    .queryAllByRole('listitem')
-    .map((li) => li.firstChild?.textContent);
+    .map((li) => li.textContent);
 const posts = (calls: { method: string; path: string; body: unknown }[], path: string) =>
   calls.filter((c) => c.method === 'POST' && c.path === path);
 const message = (seconds: number) =>
@@ -142,8 +140,8 @@ const watchAnnouncements = (): string[] => {
 const otherAlerts = () =>
   screen.queryAllByRole('alert').filter((a) => /Too many tries/.test(a.textContent ?? ''));
 
-describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013)', () => {
-  it('counts down above Reserve seats, keeps everything, then lets the customer try again', async () => {
+describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013; spec 033 FR-009)', () => {
+  it('counts down above the seat map, keeps everything, then lets the customer click again', async () => {
     fakeClock();
     let holds = 0;
     const { calls } = stubApi(
@@ -166,33 +164,31 @@ describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013)', ()
 
     fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
     const said = watchAnnouncements();
-    await typeHolderName();
     fireEvent.click(seatButton(1, 1));
-    fireEvent.click(button('Reserve seats'));
     await screen.findByRole('timer');
 
-    fireEvent.click(seatButton(1, 2));
-    const reserve = button('Reserve seats');
-    reserve.focus();
-    fireEvent.click(reserve);
+    const second = seatButton(1, 2);
+    second.focus();
+    fireEvent.click(second);
 
     await waitFor(() => expect(countdown()).toHaveTextContent(message(3)));
-    // Directly above the button it explains.
-    expect(reserve.previousElementSibling).toBe(countdown());
-    expect(reserve).toHaveAttribute('aria-disabled', 'true');
-    expect(reserve).toBeEnabled();
-    expect(document.activeElement).toBe(reserve);
-    // Nothing lost: the pick, the held seat, and the buying controls.
-    expect(picks()).toEqual(['Section A, Row 1, Seat 2']);
-    expect(reservedSeats()).toEqual(['Section A, Row 1, Seat 1']);
-    expect(button('Confirm purchase')).toBeEnabled();
-    expect(button('Confirm purchase')).not.toHaveAttribute('aria-disabled');
-    expect(button('Release Section A, Row 1, Seat 1')).toBeEnabled();
-    expect(screen.getByRole('textbox', { name: 'Name on tickets' })).toHaveValue('Jordan Lee');
+    // Directly above the seat map it explains.
+    expect(countdown().nextElementSibling).toBe(
+      screen.getByRole('region', { name: 'Section A seats' }),
+    );
+    // Open seats wait it out, still focusable; the clicked one keeps the focus.
+    expect(seatButton(1, 2)).toHaveAttribute('aria-disabled', 'true');
+    expect(seatButton(1, 2)).toBeEnabled();
+    expect(document.activeElement).toBe(seatButton(1, 2));
+    // Nothing lost: the held seat, the countdown, and Add to cart; the held seat still releases.
+    expect(heldSeats()).toEqual(['Section A, Row 1, Seat 1']);
+    expect(button('Add to cart')).toBeEnabled();
+    expect(seatButton(1, 1)).not.toHaveAttribute('aria-disabled');
 
-    // Pressing it, or Enter on it, sends nothing while it waits.
-    fireEvent.click(reserve);
-    fireEvent.keyDown(reserve, { key: 'Enter' });
+    // Clicking an open seat, or Enter on it, sends nothing while it waits.
+    fireEvent.click(seatButton(1, 2));
+    fireEvent.keyDown(seatButton(1, 3), { key: 'Enter' });
+    fireEvent.click(seatButton(1, 3));
     expect(posts(calls, '/events/e1/reservation')).toHaveLength(2);
 
     // Announced once, by the one live region, which keeps the first N; the countdown is not live.
@@ -209,12 +205,13 @@ describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013)', ()
     await advance(1_000);
     expect(screen.queryByText(/^Too many tries/)).toBeNull();
     expect(announcer()).toBeEmptyDOMElement();
-    expect(reserve).not.toHaveAttribute('aria-disabled');
-    expect(document.activeElement).toBe(reserve);
+    expect(seatButton(1, 2)).not.toHaveAttribute('aria-disabled');
 
-    fireEvent.click(reserve);
+    // The refused click is not sent again by itself; the next click holds the seat.
+    expect(posts(calls, '/events/e1/reservation')).toHaveLength(2);
+    fireEvent.click(seatButton(1, 2));
     await waitFor(() =>
-      expect(reservedSeats()).toEqual(['Section A, Row 1, Seat 1', 'Section A, Row 1, Seat 2']),
+      expect(heldSeats()).toEqual(['Section A, Row 1, Seat 1', 'Section A, Row 1, Seat 2']),
     );
     expect(posts(calls, '/events/e1/reservation').map((c) => c.body)).toEqual([
       { seats: [{ sectionId: 's-a', row: 1, seat: 1 }] },
@@ -270,90 +267,84 @@ describe('a buy refused as too many tries (US2-3, US2-4; FR-011, FR-012)', () =>
     expect(second).toBe(first);
   });
 
-  it('on Confirm purchase, waits the buying buttons only; holds and the hold countdown carry on', async () => {
+  it("on the cart's Buy tickets, waits the buying buttons only; the hold countdown carries on (spec 033 FR-014)", async () => {
     fakeClock();
+    let n = 0;
     const { calls } = stubApi(
       seatedRoutes({
         'GET /me/reservations': json([reservation([[1, 1]], { secondsLeft: 200 })]),
-        'POST /events/e1/orders': limited('BUY', 3),
-        'POST /events/e1/reservation': json(
-          reservation(
-            [
-              [1, 1],
-              [1, 3],
-            ],
-            { secondsLeft: 198 },
-          ),
-          200,
-        ),
+        'POST /events/e1/orders': () => (n++ === 0 ? limited('BUY', 3) : json(order(), 201)),
       }),
     );
-    renderCustomer({ at: '/events/e1' });
+    renderCustomer({ at: '/cart' });
 
     expect(await screen.findByRole('timer')).toHaveTextContent('3:20');
     await typeHolderName();
-    fireEvent.click(button('Confirm purchase'));
+    const buy = button('Buy tickets');
+    buy.focus();
+    fireEvent.click(buy);
 
     await waitFor(() => expect(countdown()).toHaveTextContent(message(3)));
-    const purchase = button('Confirm purchase');
-    expect(purchase).toHaveAttribute('aria-disabled', 'true');
-    // Inside Reserved for you, directly above the buttons' row.
-    expect(purchase.parentElement?.previousElementSibling).toBe(countdown());
-    expect(reservedSeats()).toEqual(['Section A, Row 1, Seat 1']);
-    expect(button('Release seats')).toBeEnabled();
+    expect(button('Buy tickets')).toHaveAttribute('aria-disabled', 'true');
+    // Directly above the button it explains.
+    expect(button('Buy tickets').previousElementSibling).toBe(countdown());
+    expect(document.activeElement).toBe(button('Buy tickets'));
+    expect(screen.getByRole('textbox', { name: 'Name on tickets' })).toHaveValue('Jordan Lee');
+
+    fireEvent.click(button('Buy tickets'));
+    expect(posts(calls, '/events/e1/orders')).toHaveLength(1);
 
     await advance(2_000);
     expect(screen.getByRole('timer')).toHaveTextContent('3:18');
     expect(countdown()).toHaveTextContent(message(1));
 
-    // Holding still works while buying waits.
-    fireEvent.click(seatButton(1, 3));
-    expect(button('Reserve seats')).not.toHaveAttribute('aria-disabled');
-    fireEvent.click(button('Reserve seats'));
-    await waitFor(() =>
-      expect(reservedSeats()).toEqual(['Section A, Row 1, Seat 1', 'Section A, Row 1, Seat 3']),
-    );
-    expect(posts(calls, '/events/e1/reservation')).toHaveLength(1);
-
     await advance(1_000);
-    expect(button('Confirm purchase')).not.toHaveAttribute('aria-disabled');
+    expect(button('Buy tickets')).not.toHaveAttribute('aria-disabled');
+    fireEvent.click(button('Buy tickets'));
+    await screen.findByRole('region', { name: 'Order confirmed' });
+    const [first, second] = posts(calls, '/events/e1/orders').map(
+      (c) => (c.body as { requestId: string }).requestId,
+    );
+    // Nothing was recorded for the refused one, and it is still this purchase.
+    expect(second).toBe(first);
   });
 
-  it('does not announce a wait again when its button comes back during it (review M3)', async () => {
+  it('announces a wait once though the cart shows it above each Buy tickets (review M3)', async () => {
     fakeClock();
     stubApi(
       seatedRoutes({
-        'GET /me/reservations': json([reservation([[1, 1]], { secondsLeft: 200 })]),
+        'GET /me/reservations': json([
+          reservation([[1, 1]], { secondsLeft: 200 }),
+          reservation([[1, 1]], { eventId: 'e2', tierId: null, secondsLeft: 250 }),
+        ]),
+        'GET /events/e2': json(event({ id: 'e2', name: 'Late Play', reservedSeating: true })),
+        'GET /events/e2/tiers': json([]),
         'POST /events/e1/orders': limited('BUY', 5),
-        'POST /events/e1/reservation/release': json({ reservation: null }),
-        'POST /events/e1/reservation': json(reservation([[1, 4]], { secondsLeft: 300 }), 201),
       }),
     );
-    renderCustomer({ at: '/events/e1' });
+    renderCustomer({ at: '/cart' });
 
-    await screen.findByRole('timer');
+    await screen.findByRole('region', { name: 'Late Play' });
     const said = watchAnnouncements();
     await typeHolderName();
-    fireEvent.click(button('Confirm purchase'));
-    await waitFor(() => expect(countdown()).toHaveTextContent(message(5)));
-
-    // Release everything: Confirm purchase and its countdown go; the wait goes on.
-    fireEvent.click(button('Release seats'));
-    await waitFor(() =>
-      expect(screen.queryByRole('button', { name: 'Confirm purchase' })).toBeNull(),
+    fireEvent.click(
+      within(screen.getByRole('region', { name: 'Early Show' })).getByRole('button', {
+        name: 'Buy tickets',
+      }),
     );
-    expect(document.querySelector('p[aria-live="off"].banner')).toBeNull();
 
-    // Hold again within the wait: Confirm purchase comes back waiting, shown but not said again.
+    await waitFor(() =>
+      expect(
+        screen.getAllByText(message(5)).filter((p) => p.getAttribute('aria-live') === 'off'),
+      ).toHaveLength(2),
+    );
+    for (const b of screen.getAllByRole('button', { name: 'Buy tickets' })) {
+      expect(b).toHaveAttribute('aria-disabled', 'true');
+    }
     await advance(1_000);
-    fireEvent.click(seatButton(1, 4));
-    fireEvent.click(button('Reserve seats'));
-    await waitFor(() =>
-      expect(button('Confirm purchase')).toHaveAttribute('aria-disabled', 'true'),
-    );
-    expect(countdown()).toHaveTextContent(message(4));
     expect(said).toEqual([message(5)]);
     expect(announcer()).toHaveTextContent(message(5));
+    expect(otherAlerts()).toHaveLength(0);
   });
 
   it('stops counting down when the page goes away (review M4)', async () => {
@@ -448,10 +439,9 @@ describe('a 429 that is not a refusal for the limit', () => {
 
     fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
     fireEvent.click(seatButton(1, 1));
-    fireEvent.click(button('Reserve seats'));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Slow down.');
-    expect(button('Reserve seats')).not.toHaveAttribute('aria-disabled');
+    expect(seatButton(1, 2)).not.toHaveAttribute('aria-disabled');
     expect(screen.queryByText(/^Too many tries/)).toBeNull();
   });
 });

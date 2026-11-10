@@ -11,7 +11,9 @@ import { tokenFor } from '../setup/tokens';
 /**
  * Spec 026 US1 (FR-001, FR-002, FR-004, FR-007, FR-010; SC-001, SC-002; research R1, R7, R10):
  * seat-hold attempts have their own allowance, separate from buying; releases are never limited.
- * One customer of its own per case (`rl-hold-<case>`), as the counts outlive each case.
+ * Spec 033 (FR-008, research R5): that allowance has its own numbers, 30 in any 60 seconds and 10
+ * in any 5, while buying keeps 10 and 3. One customer of its own per case (`rl-hold-<case>`), as
+ * the counts outlive each case.
  */
 describe('Seat-hold attempts over the allowance', () => {
   let ctx: TestContext;
@@ -69,15 +71,15 @@ describe('Seat-hold attempts over the allowance', () => {
       ({ secondsLeft: _s, ...r }) => r,
     );
 
-  it('handles exactly 3 of 20 simultaneous holds, each of its own seat, and refuses 17 (SC-001)', async () => {
+  it('handles exactly 10 of 20 simultaneous holds, each of its own seat, and refuses 10 (SC-001)', async () => {
     const c = await customer('burst');
 
     const results = await Promise.all(Array.from({ length: 20 }, (_, i) => hold(c, i + 1)));
 
     const handled = results.flatMap((r, i) => (r.status === 429 ? [] : [{ r, n: i + 1 }]));
-    expect(handled).toHaveLength(3);
+    expect(handled).toHaveLength(10);
     const refused = results.filter((r) => r.status === 429);
-    expect(refused).toHaveLength(17);
+    expect(refused).toHaveLength(10);
     for (const r of refused) {
       expectHoldRefusal(r);
       expect(r.body.error.details.retryAfterSeconds).toBeLessThanOrEqual(5);
@@ -92,12 +94,30 @@ describe('Seat-hold attempts over the allowance', () => {
     expect(await ctx.prisma.seatHold.count({ where: { releasedAt: null } })).toBe(heldSeats.length);
   });
 
+  it("refuses the 31st hold attempt in a minute, with the wait to the oldest one's minute (FR-008)", async () => {
+    const c = await customer('minute');
+    // 10 attempts at 0 s, 5 s, and 10 s: never 11 in 5 seconds. Seats 1 to 10 are held; the rest
+    // are refused for their own reasons (already in the reservation, or the 10-seat cap), and count.
+    for (const batch of [0, 1, 2]) {
+      for (let i = 1; i <= 10; i++) {
+        expect((await hold(c, batch === 0 ? i : i + 10)).status).not.toBe(429);
+      }
+      ctx.attemptClock.advance(batch === 2 ? 1_000 : 5_000);
+    }
+
+    // At 11 s: 30 in the last minute, the oldest made at 0 s, so 49 seconds to wait.
+    expectHoldRefusal(await hold(c, 21), 49);
+    ctx.attemptClock.advance(48_999);
+    expectHoldRefusal(await hold(c, 21), 1);
+    ctx.attemptClock.advance(1);
+    expect((await hold(c, 21)).status).not.toBe(429);
+  });
+
   it('keeps the held seats and their end time, and publishes nothing, on a refusal (FR-007, SC-002)', async () => {
     const c = await customer('kept');
     expect((await hold(c, 1, 2)).status).toBe(201);
-    // Two more attempts, each refused for its own reason (already in the reservation): counted.
-    expect((await hold(c, 1)).status).toBe(400);
-    expect((await hold(c, 2)).status).toBe(400);
+    // Nine more attempts, each refused for its own reason (already in the reservation): counted.
+    for (let i = 0; i < 9; i++) expect((await hold(c, 1 + (i % 2))).status).toBe(400);
     const before = await reservations(c);
     const publish = jest.spyOn(SeatEventsService.prototype, 'publish');
 
@@ -110,8 +130,8 @@ describe('Seat-hold attempts over the allowance', () => {
 
   it('never counts or refuses releases (FR-004)', async () => {
     const c = await customer('release');
-    for (const n of [1, 2, 3]) expect([200, 201]).toContain((await hold(c, n)).status);
-    expectHoldRefusal(await hold(c, 4), 5);
+    for (let n = 1; n <= 10; n++) expect([200, 201]).toContain((await hold(c, n)).status);
+    expectHoldRefusal(await hold(c, 11), 5);
 
     const releases: Response[] = [];
     for (const n of [1, 2, 3]) {
@@ -126,18 +146,22 @@ describe('Seat-hold attempts over the allowance', () => {
 
     expect(releases.map((r) => r.status)).toEqual(Array(13).fill(200));
     // The releases left the hold allowance as it was: still waiting out the same 5 seconds.
-    expectHoldRefusal(await hold(c, 4), 5);
+    expectHoldRefusal(await hold(c, 11), 5);
   });
 
-  it('keeps the buy and hold allowances apart (FR-001)', async () => {
+  it('keeps the buy and hold allowances apart, buying still refused at its fourth in 5 seconds (FR-001, FR-008)', async () => {
     const buyer = await customer('buy-first');
     for (let i = 0; i < 3; i++) expect((await buy(buyer)).status).toBe(201);
-    expect((await buy(buyer)).status).toBe(429);
+    const fourth = await buy(buyer);
+    expect(fourth.status).toBe(429);
+    expect(fourth.body.error.details.action).toBe('BUY');
     expect((await hold(buyer, 5)).status).toBe(201);
 
     const holder = await customer('hold-first');
-    for (const n of [6, 7, 8]) expect([200, 201]).toContain((await hold(holder, n)).status);
-    expectHoldRefusal(await hold(holder, 9));
+    for (const n of [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]) {
+      expect([200, 201]).toContain((await hold(holder, n)).status);
+    }
+    expectHoldRefusal(await hold(holder, 21));
     expect((await buy(holder)).status).toBe(201);
   });
 });
