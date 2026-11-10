@@ -18,7 +18,8 @@ every pull request, green on GitHub. `023` is built and reviewed; its running-sy
 pending. `024` is built, reviewed, and walked on the running system. `025` and `026` are
 built, reviewed, and walked on the running system (path B; their browser tests run in CI). `027`
 is built, reviewed, and walked in the browser (with Constitution 3.8.0 for its header and its pulse).
-`028` is built; its independent review and its walk on the running system are still to do.
+`028` is built and reviewed (code review rounds 1 and 2); its walk on the running system (T032) and
+its browser tests in CI (T033) are still to do.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                       | Spec             | Plan and tasks     | Code                         |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ---------------------------- |

@@ -124,9 +124,12 @@ test('028 S1/S2: three apps signed in as three users in one browser window stay 
   browser,
 }, testInfo) => {
   test.setTimeout(240_000);
+  // Code review round 2: 11 to 19 are 026's, one per repeat. No index is free, so the two customers
+  // are 001's (9 and 10), whose tests only sign in and out: a worker runs its tests one at a time,
+  // and this test neither buys nor holds seats, so sharing them changes nothing either test sees.
   const users: Record<AppName, string> = {
     admin: adminFor(testInfo),
-    customer: customerFor(testInfo, 11),
+    customer: customerFor(testInfo, 9),
     booth: agentFor(testInfo, 2),
   };
   // One browser window: one context, one tab per app.
@@ -154,7 +157,7 @@ test('028 S1/S2: three apps signed in as three users in one browser window stay 
   // their own users (FR-004, SC-002); then the app signs in again, as another user where the
   // fixtures give one.
   const again: Record<AppName, string> = {
-    customer: customerFor(testInfo, 12),
+    customer: customerFor(testInfo, 10),
     admin: users.admin,
     booth: agentFor(testInfo, 3),
   };

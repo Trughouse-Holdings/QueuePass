@@ -280,7 +280,7 @@ there.
      and Booth renew and call the API with new tokens; sign in to Customer as the second customer
      (US2);
   6. repeat step 5 for Admin and for Booth (SC-002).
-  **Done**: the test as specified, accounts `adminFor`, `customerFor(11)` then `(12)`, `agentFor(2)` then `(3)`; each token's `iss` and `preferred_username` checked; the Booth's next call is its 30-second list refresh (`clock.runFor(30_000)`), Admin and Customer click their own nav links. Quickstart S1 and S2 rows changed. Not seen to fail in a browser before the configuration changed (an accidental run against the team stack, recorded in stretch 2's notes, failed before reaching it). Passes in 5.2–5.3 s on Chromium, 39.9 s on WebKit, against production builds of the apps; against `run-host.mjs`'s Vite dev servers it fails, see the gap under the Phase 5 checkpoint.
+  **Done**: the test as specified, accounts `adminFor`, `customerFor(11)` then `(12)` (9 and 10 after code review round 2), `agentFor(2)` then `(3)`; each token's `iss` and `preferred_username` checked; the Booth's next call is its 30-second list refresh (`clock.runFor(30_000)`), Admin and Customer click their own nav links. Quickstart S1 and S2 rows changed. Not seen to fail in a browser before the configuration changed (an accidental run against the team stack, recorded in stretch 2's notes, failed before reaching it). Passes in 5.2–5.3 s on Chromium, 39.9 s on WebKit, against production builds of the apps; against `run-host.mjs`'s Vite dev servers it fails, see the gap under the Phase 5 checkpoint.
 - [x] T023 [P] [US4] `e2e/tests/001-sign-in.spec.ts` V4 rewritten for FR-012: each app's sign-in
   page refuses another app's account (a customer at Admin, an agent at Customer, an admin at the
   Booth): on CI's clean stack, Keycloak's "Invalid username or password", the app not signed in, no
@@ -586,3 +586,12 @@ Found while implementing, left for the spec, the review (T030) and Mahdi; not wo
   - nit: `e2e/playwright.config.ts` → says a `QP_E2E_WEBKIT=1` left set makes a plain
     `npm run e2e` run WebKit too, where `001 V3` fails.
   - nit: `EXPECTED_COUNTS` in `provision-users.ts` → every count derived from `APP_REALMS`.
+- **Round 2** (an independent Claude session, 2026-11-09, on PR #145): no must-fix, no should-fix,
+  2 nits; verdict "only minor findings remain". Fixed in the `Impl 028: code review round 2`
+  commit:
+  - nit: the README's status line still said 028's review was to do → rounds 1 and 2 done; the
+    walk (T032) and the CI run (T033) open.
+  - nit: `028 S1/S2` used `customerFor(testInfo, 11)` and `(12)`, which `026` takes (11 plus the
+    repeat index) → indices 9 and 10. The suggested 5 and 6 are `017`'s and `019`'s, and every index
+    from 0 to 19 is taken, so 028 shares `001`'s two, whose tests only sign in and out (a worker
+    runs its tests one at a time, and 028 neither buys nor holds seats); said in the test.
