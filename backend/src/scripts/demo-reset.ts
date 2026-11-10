@@ -51,6 +51,8 @@ const notLocal = (host: string): ResetRefused =>
 const NOT_MIGRATED =
   'Refused: this database is not a QueuePass database, or its migrations are not all applied. ' +
   'Start the Backend once (it applies them), then reset.';
+const UNREADABLE =
+  'Refused: DATABASE_URL cannot be read, so the database host is not known to be local.';
 const BUSY = 'Refused: the database is busy; try again.';
 
 /**
@@ -58,10 +60,17 @@ const BUSY = 'Refused: the database is busy; try again.';
  * database name: what the guard checks and what the output names, never the password (FR-011).
  */
 function targetOf(url: URL): ResetTarget {
+  let database: string;
+  try {
+    database = decodeURIComponent(url.pathname.replace(/^\//, ''));
+  } catch {
+    // Code review round 2, n1: a bad percent escape is an unreadable address, not a URIError.
+    throw new ResetRefused(UNREADABLE);
+  }
   return {
     host: url.hostname.replace(/^\[(.*)\]$/, '$1').toLowerCase(),
     port: url.port ? Number(url.port) : 5432,
-    database: decodeURIComponent(url.pathname.replace(/^\//, '')),
+    database,
   };
 }
 
@@ -86,9 +95,7 @@ export function checkResetAllowed(
   try {
     url = new URL(raw);
   } catch {
-    throw new ResetRefused(
-      'Refused: DATABASE_URL cannot be read, so the database host is not known to be local.',
-    );
+    throw new ResetRefused(UNREADABLE);
   }
   const target = targetOf(url);
   const host = target.host;

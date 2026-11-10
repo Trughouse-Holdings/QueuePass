@@ -242,7 +242,8 @@ confirm they **fail** before the implementation tasks of Phase 3.
   the Compose images cannot be built here, so it waits for the PR's CI run (T021).
 - [x] T019 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, and research.md; fix the findings; record the round here.
-  **Done**: round 1, recorded under "Review record (implementation branch)"; all findings fixed.
+  **Done**: rounds 1 and 2, recorded under "Review record (implementation branch)"; all findings
+  fixed.
 - [x] T020 Running-system walk, quickstart S0–S7, on Compose project `qp029` (path B on this machine;
   the team stack's ports are needed, so ask Mahdi before stopping it, ground rules); record each
   scenario's result here (Constitution VI smoke test).
@@ -418,4 +419,13 @@ confirm they **fail** before the implementation tasks of Phase 3.
   - After the fixes, three runs each: Backend unit tests 279/279 (one run's `nominatim-search` fetch
     timed out under load, unrelated to 029; a fourth run made three green in a row), the
     `demo-reset` Testcontainers suite 16/16, root script tests 85/85.
+- **Round 2** (independent Claude session, 2026-11-09, on PR #144): no must-fix, no should-fix, 2
+  nits; the reviewer's verdict: only minor findings remain. Both fixed in the `Impl 029: code review
+  round 2` commit.
+  - N1: a bad percent escape in the database name (`postgresql://localhost/qp%zz`) threw a `URIError`
+    ("URI malformed") instead of a refusal → `targetOf` turns it into the "DATABASE_URL cannot be
+    read" refusal; a guard test, seen to fail first with the `URIError`.
+  - N2: README's Demo checkpoint paragraph rewrapped after round 1's N7 edit.
+  - After the fixes, three runs each: the guard unit test 34/34, the `demo-reset` Testcontainers
+    suite 16/16, root script tests 85/85.
 - **Open findings**: none.

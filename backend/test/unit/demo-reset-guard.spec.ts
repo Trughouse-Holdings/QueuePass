@@ -127,6 +127,15 @@ describe('checkResetAllowed (spec 029)', () => {
       expect(message).toMatch(/^Refused: /);
     });
 
+    // Code review round 2, n1: a bad percent escape in the database name is a refusal, not a
+    // URIError ("URI malformed").
+    it('refuses a database name with a bad percent escape as unreadable', () => {
+      const message = refusal(env({ DATABASE_URL: `postgresql://u:${SECRET}@localhost/qp%zz` }));
+      expect(message).toBe(
+        'Refused: DATABASE_URL cannot be read, so the database host is not known to be local.',
+      );
+    });
+
     it('checks the permission before the host', () => {
       expect(
         refusal(env({ QUEUEPASS_ALLOW_RESET: undefined, DATABASE_URL: url('db.example.com') })),

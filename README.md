@@ -263,12 +263,12 @@ $env:QUEUEPASS_ALLOW_RESET='1'; node scripts/run-host.mjs --demo-reset; Remove-I
 
 On path B it resets whichever database publishes port 5432 on the laptop. `run-host.mjs --print
 --demo-reset` shows the step and its environment, including the local default `DATABASE_URL` and
-its password, as `--print` does for every step. It prints the database it
-worked on (never the password), the rows it removed of each kind, what it created, when Demo
-Tonight's check-in closes, and how long it took. Afterwards **reload any open app**. Purchase
-attempt limits (`026`) counted before the reset live in the running Backend's memory and clear
-within a minute, or when the Backend restarts. If it fails after removing the data (for example,
-two resets at once), it says the demo state is incomplete: run it again.
+its password, as `--print` does for every step. It prints the database it worked on (never the
+password), the rows it removed of each kind, what it created, when Demo Tonight's check-in closes,
+and how long it took. Afterwards **reload any open app**. Purchase attempt limits (`026`) counted
+before the reset live in the running Backend's memory and clear within a minute, or when the
+Backend restarts. If it fails after removing the data (for example, two resets at once), it says
+the demo state is incomplete: run it again.
 
 Saving and restoring a hand-made checkpoint (`pg_dump`/`pg_restore`) is not built: a restored state
 brings back old times, so Demo Tonight would no longer be open ([research R8](specs/029-demo-checkpoint/research.md)).
