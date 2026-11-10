@@ -429,6 +429,9 @@ session 1):
 - [ ] T033 The whole e2e suite needs the Compose stack's geocoder stub and images, so it runs in
   CI's `e2e` check on the PR (record the run, its counts and the `028` test's time); locally,
   `028` and `001` three times in a row, and once in WebKit (the Phase 5 checkpoint).
+  **Local part done, see the Phase 5 checkpoint** (three Chromium runs and one WebKit run, against
+  the apps' production builds because of the dev-server gap recorded there); the CI run waits for
+  the PR (T034), so this stays open.
 - [ ] T034 Push and open the implementation PR (after the spec PR has merged and the branch is up to
   date with `main`): description says `fixes #138`, lists the review, the walk, the test counts, and
   the shared surface touched (`packages/shared/`, `docker-compose.yml`, `.env.example`; Nate
