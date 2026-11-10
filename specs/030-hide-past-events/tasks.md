@@ -1,0 +1,243 @@
+---
+description: "Task list for Hide Past Events"
+---
+
+# Tasks: Hide Past Events
+
+**Input**: [plan.md](./plan.md), [spec.md](./spec.md), [research.md](./research.md) (R1–R12),
+[data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) (`listEvents` gains
+`includePast`, 1.22.0), [quickstart.md](./quickstart.md) (S0–S9)
+
+**Issue**: [#133](https://github.com/Trughouse-Holdings/QueuePass/issues/133). The implementation
+PR's **description** says `fixes #133` on its own line. No commit message on either branch may
+contain "fixes #133", "closes #133", or "resolves #133".
+
+**Tests**: **REQUIRED and written first** (Constitution VI). Write the test tasks of Phase 2 and
+confirm they **fail** before the implementation tasks that follow.
+
+## Ground rules
+
+- **Fresh session** (Constitution III): implement on branch `030-hide-past-events-impl` in a Claude
+  session that starts from these files only. While the spec and plan PR is open, cut it from
+  `030-hide-past-events-spec` and carry in every change that PR's review makes; once it merges, bring
+  it up to `main`. A gap in the spec or plan is fixed there, not worked around in code.
+- **Commits** cite the spec, the task IDs, and the issue: `Impl 030: the event list leaves past events
+  out (T008, T009, #133)`.
+- **The contract is done** in the spec PR (1.22.0, `api-schema.ts` regenerated). The implementation PR
+  does not touch `contracts/openapi.yaml`, `packages/shared/`, or any other shared surface; a needed
+  contract change goes back to the spec branch (or, after it merges, a `Clarify 030` PR).
+- **One independent review** (Constitution III) of the implementation branch before its PR (T023).
+- **`npm run ci` locally** before pushing (T021), then **CI green on GitHub**, the `test` and `e2e`
+  checks, before merge (T025).
+- **The team stack**: compose project `queuepass-team`, its Backend and apps run from
+  `C:\Users\mahdi\hello_world\QueuePass-team` with `run-host.mjs`, holds every fixed port (5432, 8080,
+  3000, 5173–5175). Do not stop it or write to it without Mahdi saying so in the session; walk on a
+  stack of your own (`-p qp030`) when the ports are free, otherwise ask (T024).
+- **Path B on this machine** (README "When the images can't be built"): the app images cannot be
+  built here, so the Compose path (A) is walked by CI's `e2e` job (T007) and the hand walk uses path B.
+- **Spec `029`**'s implementation (`029-demo-checkpoint-impl`) adds `e2e/tests/029-demo-checkpoint.spec.ts`,
+  which reads the past demo event from `GET /events`. Whichever of `029` and `030` merges second makes
+  T012's change.
+
+## Format: `[ID] [P?] [Story] Description`
+
+- **[P]**: can run in parallel (different files, no dependency on an unfinished task)
+- **[Story]**: US1–US4 from spec.md
+
+---
+
+## Phase 1: Setup
+
+- [ ] T001 Cut `030-hide-past-events-impl` from `030-hide-past-events-spec` (or from `main` once the
+  spec PR has merged); `npm ci`; `npm run ci` green before any change, so a later failure is this
+  feature's. Confirm `packages/shared/src/api-schema.ts` has `includePast?: boolean` in `listEvents`.
+
+---
+
+## Phase 2: Tests first (all must fail before the implementation)
+
+- [ ] T002 [P] [US1] [US4] `backend/test/integration/events.past.e2e-spec.ts` (new; FR-001 to FR-007,
+  SC-001 to SC-003, research R1 to R3, R11), with `createTestApp()`, `resetDb`, and the fake geocoder;
+  `afterEach` calls `ctx.clock.useRealTime()`. Events made relative to the real time through the API
+  (two venues, so the 60-minute rule never meets them): **ended** (ended 1 minute ago), **cancelled
+  ended** (ended 2 hours ago, then cancelled), **in progress** (started 30 minutes ago, ends in 2
+  hours), **ahead** (in 7 days). Cases:
+  - `GET /events` and `?includePast=false`: in progress and ahead, in that order; neither ended one.
+  - `?includePast=true`: all four, soonest start first.
+  - The boundary: an event created ending at a whole minute `E` in the future; `ctx.clock.set(E)` →
+    left out; `ctx.clock.set(E - 1)` → listed (SC-003).
+  - Combined: `locationId` (each venue), `q` (the ended event's name: empty without the parameter,
+    the event with it), `from`/`to` around the ended event's start, `fromDate`/`toDate` on its local
+    date: each empty without `includePast`, the ended event with it.
+  - `includePast=TRUE`, `1`, `yes`, and `includePast=` (empty): `400 VALIDATION_FAILED` whose details
+    name `includePast`.
+  - Admin, customer, and gate-agent tokens each get `200` with `includePast=true` and the past events.
+  - `GET /events/{id}` of the ended event: `200`, the event.
+  - Every `200` matches the contract (`expectToMatchContract(res, 'listEvents')`).
+  Must fail (no parameter yet: `400` for `includePast`, and past events listed by default).
+- [ ] T003 [P] [US3] `admin-app/test/past-events.test.tsx` (new; FR-008 to FR-012, research R4 to R6),
+  with the app's existing API mocking and a fixed time (`vi.useFakeTimers({ toFake: ['Date'] })` and
+  `vi.setSystemTime`, or the pattern the app's tests already use): fixtures with one event ended, one in
+  progress, one ahead.
+  - Events page at `/events`: the request has no `includePast`; the page says past events are hidden;
+    the checkbox "Show past events" is unchecked.
+  - Checking it: a new request with `includePast=true`, without pressing Search; the address has
+    `past=1`; the ended event's row has the text "Ended", the others do not; the hidden note is gone.
+  - Opened at `/events?past=1`: checked, and the first request has `includePast=true`.
+  - With `q` typed and searched and the toggle on, Clear empties `q` and keeps `past=1`.
+  - Off, a search that returns nothing: the empty state names Show past events.
+  - Venue page (`/locations/:id`): the same four behaviors for its own list (request has `locationId`,
+    and `includePast=true` only when checked).
+  - Venue form (`/locations/:id/edit`): its events request always has `includePast=true`.
+  - A cancelled ended event, with the toggle on: both "Cancelled" and "Ended".
+  Must fail (no control yet).
+- [ ] T004 [P] [US3] Admin app, same or neighbouring test files (FR-011, FR-013, research R6, R9):
+  `admin-app/test/format.test.ts` (or the app's existing format test) for `hasEnded(endsAt, now)`:
+  `false` one millisecond before `endsAt`, `true` at it and after; `EventDetail` of an ended event shows
+  "Ended" beside the name, of an event in progress does not; `Attendees` of an ended event loads; Reports
+  with a past event in `/reports/sales` lists it and its name links to `/events/<id>`. Must fail where
+  new (no helper, no pill).
+- [ ] T005 [P] [US1] [US2] `customer-app/test/past-events.test.tsx` (new; FR-014, research R6, R7,
+  R11): the Events page, a search (`q`), a venue filter, a date filter, and a venue page each request
+  `/events` without `includePast` (check every requested URL); no control on those pages names past
+  events. `EventDetail` of an event ended one minute ago shows "This event has ended." under the name;
+  of one in progress, not; of a cancelled ended event, both lines. `customer-app/test/format.test.ts`
+  (or the existing one): `hasEnded` as in T004. Must fail where new.
+- [ ] T006 [P] [US2] `customer-app/test/my-tickets.test.tsx` (or the existing My tickets test; FR-015,
+  FR-016, research R8), with a fixed time: orders for an ahead event and an ended one (newest first
+  from the API, the ended one newer) → the ahead order first, then a heading "Past", then the ended
+  order; every order present; under Past a valid unused ticket has "Print ticket" and no "Show entry
+  code"; above it, both. Only past orders → "You have no upcoming tickets." with "Browse events", then
+  Past. Only upcoming → no "Past" heading. No orders → "You have no tickets yet." Must fail.
+- [ ] T007 [US1] [US2] [US3] `e2e/tests/030-hide-past-events.spec.ts` (new; research R11), with the
+  fixtures in `e2e/fixtures/` (`apiFor`/`apiAs`, `createVenue`, `createEvent`, `addTier`, the
+  per-worker accounts of `apps.ts`), its own venue with a unique name, and through the API an event
+  that ended an hour ago, one in progress, and one ahead, at times that keep 60 minutes apart:
+  - `030 S1/S2: the Customer app leaves an ended event out of the list, a search, and its venue page, and its own page says it has ended`:
+    the Events page, a search for the ended event's name, and the venue's page show the in-progress and
+    ahead events and not the ended one; the ended event's page (by its id) shows its name and "This
+    event has ended."
+  - `030 S4/S6: the Admin app hides an ended event until Show past events is on, marks it Ended, and its page, attendees, and Reports row open`:
+    the Events page (search the venue) does not list the ended event; after checking Show past events
+    it is listed with "Ended"; after a reload still; its page shows "Ended"; its Attendees page opens;
+    Reports lists it and its name opens its page.
+  Read only beyond its own rows. Must fail (no behavior yet). Write it now; it runs on CI's `e2e` job
+  (T022).
+
+---
+
+## Phase 3: The Backend
+
+- [ ] T008 [US4] `backend/src/events/dto/list-events.query.ts` (research R3): `includePast?: 'true' |
+  'false'` with `@IsOptional()` and `@IsIn(['true', 'false'], { message: 'includePast must be true or
+  false' })`; the header comment names spec 030. T002's validation cases pass.
+- [ ] T009 [US1] [US4] `backend/src/events/events.module.ts`: provide `{ provide: CLOCK, useValue:
+  systemClock }`. `backend/src/events/events.service.ts`: inject `@Inject(CLOCK) private readonly clock:
+  Clock` as the constructor's third argument; in `findAll`, add `...(query.includePast === 'true' ? {} :
+  { endsAt: { gt: new Date(this.clock.now()) } })` to `where`, with a comment citing FR-001, FR-002 and
+  research R1, R2. `backend/src/common/clock.ts`: its header says the event list's past rule reads it
+  too. `backend/test/unit/events.venue-moved.spec.ts`: pass `systemClock` as the third argument. T002
+  passes.
+- [ ] T010 [US4] Run the Backend suite. Every existing integration test that now fails because the
+  events it lists have ended (fixed dates before the run, research R10) adds `includePast=true` to those
+  list requests (`?includePast=true`, or `&includePast=true` after its other filters) and nothing else;
+  a failure for any other reason is investigated, not patched. The commit names every file changed.
+  Suite green.
+- [ ] T011 Admin and Customer apps: any existing test that now meets the Ended label, the hidden note,
+  or My tickets' Past section only because its fixture's dates are behind the run (research R10) moves
+  the fixture ahead, or fixes the time, so it tests what it tested before. Name each in the commit.
+- [ ] T012 `e2e/tests/029-demo-checkpoint.spec.ts`, if `029`'s implementation has merged (or merges
+  before this PR): its `api.call<Event[]>('GET', '/events')` becomes `'/events?includePast=true'`, with
+  a comment citing spec 030 research R10. If `030` merges first, leave a note in `029`'s PR instead
+  (Mahdi's call). `029`'s quickstart text is unchanged (Season Opener's page still shows sales closed).
+
+---
+
+## Phase 4: The Admin app (US3)
+
+- [ ] T013 [US3] `admin-app/src/api/events.ts`: `EventFilters.includePast?: boolean` (sent only when
+  `true`; the existing falsy filter drops `false`). `admin-app/src/format.ts`: `hasEnded(endsAt: string,
+  now: number): boolean`, `Date.parse(endsAt) <= now`, citing FR-001. T004's helper cases pass.
+- [ ] T014 [US3] `admin-app/src/pages/EventList.tsx` (research R5, R6): `past` read from the address
+  beside `q`, `venue`, `from`, `to`, but outside `KEYS`' "filtered" test and outside the search form's
+  submit; a checkbox labelled "Show past events" that sets or removes `past=1` at once (keeping the other
+  keys); `clear` keeps `past`; `toApi` sends `includePast: true` when on; the time read when the events
+  arrive (kept with them, as My tickets' `loadedAt`); `<span className="pill">Ended</span>` after the
+  name (after Cancelled when both) when `hasEnded`; while off, the subtitle adds "past events hidden" and
+  the empty states add the hint naming Show past events. T003's Events page cases pass.
+- [ ] T015 [US3] `admin-app/src/pages/LocationDetail.tsx`: the same control on its own address
+  (`useSearchParams`, `past=1`), `listEvents({ locationId: id, includePast })`, refetching when it
+  changes; "Past events are hidden." under "Events here" while off (also when the list is empty); Ended
+  pills. T003's venue page cases pass.
+- [ ] T016 [US3] `admin-app/src/pages/LocationForm.tsx`: `listEvents({ locationId: id, includePast:
+  true })` with a comment citing FR-010. `admin-app/src/pages/EventDetail.tsx`: the Ended pill beside
+  the name (after Cancelled), from the time the event loaded. T003's form case and T004 pass.
+
+---
+
+## Phase 5: The Customer app (US1, US2)
+
+- [ ] T017 [US2] `customer-app/src/format.ts`: `hasEnded`, as T013. `customer-app/src/pages/EventDetail.tsx`
+  (research R7): read the time when the event loads; when ended, `<p><strong>This event has
+  ended.</strong></p>` under the name, after the cancelled line. No change to the list pages, filters,
+  or `GetTickets`. T005 passes.
+- [ ] T018 [US2] `customer-app/src/pages/MyTickets.tsx` (research R8): split `orders` by
+  `hasEnded(o.event.endsAt, loadedAt)`; upcoming first, then `<h2>Past</h2>` and the past ones, each in
+  the API's order; the empty texts of T006; `OrderCard` takes whether its event has ended and leaves out
+  "Show entry code" then, keeping "Print ticket". T006 passes.
+
+---
+
+## Phase 6: Documentation, review, pull request
+
+- [ ] T019 `specs/030-hide-past-events/quickstart.md`: the Automation rows S1, S2, S4, S6 become
+  `Automated: \`<T007's exact title>\``, with `; rest Manual: …` where the test walks part of the
+  scenario (S6: exports and the Sales card by hand); `npm test`'s quickstart-marks check passes.
+- [ ] T020 README: the `030` status row (tasks count and code status); the Customer and Admin app
+  descriptions, where they list what each page shows, say past events are hidden and, for admins, the
+  toggle (FR-018).
+- [ ] T021 `npm run ci` locally, green; record the counts per workspace and each workspace's line
+  coverage (each at or above 80%).
+- [ ] T022 Run the Backend suite three times in a row, and the Admin and Customer suites three times,
+  and `npm run test:tz` (several zones: the boundary and the apps' fixed times); record the counts.
+  The `e2e` job on GitHub runs T007's two tests; record their time.
+- [ ] T023 Independent review by a separate Claude session (Constitution III) of the implementation
+  against spec.md, plan.md, research.md, and the contract; fix the findings; record the round here.
+- [ ] T024 Running-system walk, quickstart S0–S9, on a stack of its own (`-p qp030`) or path B with
+  Mahdi's go for the team stack's ports (ground rules); record each scenario's result here
+  (Constitution VI smoke test). Check the pages at phone width too (spec `008`).
+- [ ] T025 Push and open the implementation PR (after the spec PR has merged and the branch is up to
+  date with `main`): description says `fixes #133`, lists the review, the walk, the test counts, and
+  that no shared surface is touched. Wait for CI green on GitHub (`test` and `e2e`) on the final
+  commit; merge only when green and approved.
+
+---
+
+## Dependencies & Execution Order
+
+- **Setup (T001)** → **Tests (T002–T007)** → **Backend (T008–T012)** → **Admin (T013–T016)** and
+  **Customer (T017, T018)** → **Polish (T019–T025)**.
+- T008 → T009 (T002 needs both). T010 after T009 (the default changes there). T011 after T014–T018
+  (the labels appear there); T012 any time after T009.
+- T013 before T014–T016. T017 before T018 (the helper).
+- T007 passes only after T009, T014, T016, and T017. T019 after T007 passes.
+
+### Parallel opportunities
+
+- T002, T003–T004, T005–T006 (three workspaces' test files); T007 beside them.
+- The Admin phase (T013–T016) and the Customer phase (T017, T018) once T009 is done.
+
+## Implementation Strategy
+
+- **MVP**: T001–T010: the Backend leaves past events out for every client. On its own it already
+  meets US1 (the Customer app's lists need no change) and US4.
+- Then the Admin toggle and labels (US3), the Customer page notice and My tickets (US2), the browser
+  tests, the README, and the PR.
+
+## Review record (spec branch)
+
+_Left for the independent review session._
+
+## Review record (implementation branch)
+
+_Left for the implementation's review (T023)._
