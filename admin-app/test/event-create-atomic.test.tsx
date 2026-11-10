@@ -389,3 +389,164 @@ describe('no answer (FR-011)', () => {
     expect(screen.queryByTestId('no-answer')).toBeNull();
   });
 });
+
+/** Code review round 1 (S1, S2, S3): every place a path lands, each tied to its field. */
+describe('each path lands beside its field, associated with it (FR-010)', () => {
+  const refused = (fields: string[]) =>
+    json(
+      {
+        error: {
+          code: 'VALIDATION_FAILED',
+          message: 'Request validation failed.',
+          details: { fields },
+        },
+      },
+      400,
+    );
+
+  it('puts a malformed price on ticket type 2’s price input only', async () => {
+    const entry =
+      'tiers.1.price must be a non-negative decimal string with at most 2 decimal places';
+    backend(refused([entry]));
+    renderNew();
+    await fillGeneral();
+    schedule();
+
+    await banner();
+    const price2 = screen.getByLabelText('Ticket type 2 price');
+    expect(price2).toHaveAttribute('aria-invalid', 'true');
+    expect(price2).toHaveAccessibleDescription(entry);
+    expect(screen.getByLabelText('Ticket type 2 name')).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByLabelText('Ticket type 2 quantity')).not.toHaveAttribute('aria-invalid');
+    expect(screen.getByLabelText('Ticket type 1 price')).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('marks every input of a type with an unknown property', async () => {
+    const entry = 'tiers.0.property colour should not exist';
+    backend(refused([entry]));
+    renderNew();
+    await fillGeneral();
+    schedule();
+
+    await banner();
+    for (const field of ['name', 'price', 'quantity']) {
+      const input = screen.getByLabelText(`Ticket type 1 ${field}`);
+      expect(input).toHaveAttribute('aria-invalid', 'true');
+      expect(input).toHaveAccessibleDescription(entry);
+    }
+    expect(screen.getByLabelText('Ticket type 2 name')).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('puts an entry about the list itself beside the ticket types', async () => {
+    const entry =
+      'tiers.tiers must be a list of ticket types, each an object with a name and a price';
+    backend(refused([entry]));
+    renderNew();
+    await fillGeneral();
+    schedule();
+
+    await banner();
+    expect(screen.getByTestId('tiers-error')).toHaveTextContent(entry);
+    expect(screen.queryByTestId('type-1-error')).toBeNull();
+  });
+
+  it('puts a capacity entry beside the ticket types group, which it describes', async () => {
+    const entry = 'totalTicketCapacity must be a positive whole number';
+    backend(refused([entry]));
+    renderNew();
+    await fillGeneral();
+    schedule();
+
+    await banner();
+    const group = screen.getByRole('group', { name: 'Ticket types' });
+    expect(within(group).getByTestId('seating-error')).toHaveTextContent(entry);
+    expect(group).toHaveAccessibleDescription(entry);
+  });
+
+  it('puts a seating refusal beside the seating choice, which it describes', async () => {
+    const entry = 'reservedSeating needs a seating layout; Yum Center has none';
+    backend(refused([entry]));
+    renderNew();
+    await fillSeated();
+    schedule();
+
+    await banner();
+    const group = screen.getByRole('group', { name: 'Tickets and seating' });
+    expect(within(group).getByTestId('seating-error')).toHaveTextContent(entry);
+    for (const name of ['Reserved seating', 'General admission']) {
+      expect(screen.getByRole('radio', { name })).toHaveAccessibleDescription(entry);
+    }
+  });
+
+  it('ties a refused section list to the selects that sell that type', async () => {
+    const entry =
+      "tiers.0.sectionIds lists a section that is not in Yum Center's seating layout. Reload the form to see its sections.";
+    backend(refused([entry]));
+    renderNew();
+    await fillSeated();
+    schedule();
+
+    await banner();
+    const front = screen.getByRole('combobox', { name: 'Section front ticket type' });
+    expect(front).toHaveAttribute('aria-invalid', 'true');
+    expect(front).toHaveAccessibleDescription(entry);
+    for (const name of ['middle', 'back']) {
+      const select = screen.getByRole('combobox', { name: `Section ${name} ticket type` });
+      expect(select).not.toHaveAttribute('aria-invalid');
+      expect(select).not.toHaveAccessibleDescription(entry);
+    }
+  });
+});
+
+/** Code review round 1 (S3): FR-013, the Edit form shows refusals as before, banner only. */
+describe('editing is unchanged (FR-013)', () => {
+  it('shows no field hints on Edit, whatever the refusal names', async () => {
+    const fields = [
+      'totalTicketCapacity must be a positive whole number',
+      'tiers.0.name must be between 1 and 100 characters',
+    ];
+    stubApi({
+      'GET /locations': json([PLAIN]),
+      [`GET /events/${ID}`]: json({ ...EVENT, locationId: 'v-plain', location: PLAIN }),
+      [`GET /events/${ID}/tiers`]: json([
+        {
+          id: 't1',
+          eventId: ID,
+          name: 'Floor',
+          price: '80.00',
+          quantity: 10,
+          createdAt: EVENT.createdAt,
+          updatedAt: EVENT.updatedAt,
+        },
+      ]),
+      [`PATCH /events/${ID}`]: json(
+        {
+          error: {
+            code: 'VALIDATION_FAILED',
+            message: 'Request validation failed.',
+            details: { fields },
+          },
+        },
+        400,
+      ),
+    });
+    render(
+      <MemoryRouter initialEntries={[`/events/${ID}/edit`]}>
+        <Routes>
+          <Route path="/events/:id/edit" element={<EventForm />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await vi.waitFor(() =>
+      expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('Floor'),
+    );
+    await vi.waitFor(() => expect(screen.getByLabelText('Event name')).toHaveValue(EVENT.name));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+    expect(await banner()).toHaveTextContent(fields[0]!);
+    for (const id of ['seating-error', 'tiers-error', 'type-1-error']) {
+      expect(screen.queryByTestId(id)).toBeNull();
+    }
+    expect(screen.getByLabelText('Ticket type 1 name')).not.toHaveAttribute('aria-invalid');
+  });
+});
