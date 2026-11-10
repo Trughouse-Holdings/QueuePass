@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.26.0
+  version: 1.27.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -831,6 +831,9 @@ paths:
         `reservedSeating` or `totalTicketCapacity`. So a client places an entry on ticket type
         *i* when it starts `tiers.<i>.`, on the ticket types when it otherwise starts `tiers`, and
         on seating by those two names. The rest of each message is for people.
+
+        Feature 035: `EventTierInput.id` is not allowed on a schedule (`400 VALIDATION_FAILED`,
+        an entry starting `tiers.<i>.id`). It is only for `updateEvent`.
       operationId: createEvent
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -909,6 +912,24 @@ paths:
         (`details.removedAt`), and nothing changes. Sending the stored instants again, or changing
         only other fields, is allowed. Before removal, times change as above, and the removal
         follows the `endsAt` in force.
+
+        Feature 035. Optional `reservedSeating` and `tiers` (each an `EventTierInput`, at most 50)
+        save the event's details, its complete ticket types, and its reserved seating together, or
+        save none of this request. Without them, or with neither sent, the request is answered
+        exactly as before. When they are sent they are the complete new set: a ticket type with
+        `id` must be a type of this event and is updated; a type without `id` is created; an
+        existing type left out is removed, subject to the same sold-ticket rules as `deleteTier`,
+        `updateTier`, and `updateSeating` (`TIER_HAS_ORDERS`, `EVENT_HAS_ORDERS`,
+        `CAPACITY_EXCEEDED` when a quantity would fall below tickets sold). Holds on a remapped
+        section, or when reserved seating is turned off, are closed as in `updateSeating`.
+        `reservedSeating` left out while `tiers` is sent is `false`. Neither field may be `null`.
+
+        Checks, after the event's details as above: seating, then each ticket type in the order
+        sent, then their total, as in `createEvent` (feature 031), then the sold-ticket rules. A
+        refusal names its field the same way: `details.field` is `tiers.<index>.<field>` (including
+        `id`), `tiers`, `reservedSeating`, or `totalTicketCapacity` on a `409`; on a `400`, each
+        `details.fields` entry starts with its place. A refused removal of a type with orders is
+        `409 TIER_HAS_ORDERS` with `details.field: tiers`, and the message names the type.
       operationId: updateEvent
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -2238,7 +2259,16 @@ components:
         Feature 031. One ticket type in `createEvent`: the fields of `TicketTierInput`, and the
         sections it sells when the event has reserved seating. Any other field is
         `400 VALIDATION_FAILED`.
+        Feature 035: optional `id` (a UUID) is allowed only on `updateEvent`, where it names an
+        existing ticket type of that event to keep and update. On `createEvent` it is
+        `400 VALIDATION_FAILED` (`tiers.<i>.id`). Not `null`.
       properties:
+        id:
+          type: string
+          format: uuid
+          description: |
+            Feature 035. Optional. On `updateEvent`, the id of an existing ticket type of this
+            event. On `createEvent`, refused. Left out, the type is created. Not `null`.
         name:
           {
             type: string,
@@ -2303,6 +2333,22 @@ components:
           minimum: 1
           description: Feature 016. `null` clears the limit.
         basePrice: { type: string, pattern: '^\d+(\.\d{1,2})?$' }
+        reservedSeating:
+          type: boolean
+          description: |
+            Feature 035. Optional; left out, and `tiers` is sent, `false`. `true` saves the event
+            with reserved seating at its venue's layout. Not `null`. Without `tiers` and this
+            field, the request does not change ticket types or seating.
+        tiers:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/EventTierInput' }
+          description: |
+            Feature 035. Optional. The event's complete ticket types after this update, saved with
+            the event and its reserved seating in one step, all or nothing. An entry with `id` is
+            an existing type of this event; an entry without is created; an existing type left
+            out is removed. Left out, ticket types and seating are not changed. At most 50. Not
+            `null`.
 
     EventImage:
       description: |
@@ -3252,6 +3298,24 @@ components:
                   details:
                     fields:
                       - tiers.0.property colour should not exist
+            tierIdOnCreate:
+              summary: Feature 035. createEvent, a ticket type sent with an id
+              value:
+                error:
+                  code: VALIDATION_FAILED
+                  message: Request validation failed.
+                  details:
+                    fields:
+                      - tiers.0.id is not allowed when scheduling
+            unknownTierIdOnUpdate:
+              summary: Feature 035. updateEvent, a ticket type id that is not of this event
+              value:
+                error:
+                  code: VALIDATION_FAILED
+                  message: Request validation failed.
+                  details:
+                    fields:
+                      - tiers.0.id is not a ticket type of this event
             sectionNotInLayout:
               summary: Feature 031. createEvent, a section that is not in the venue's layout
               value:
@@ -3596,6 +3660,24 @@ components:
                     field: tiers
                     totalTicketCapacity: 500
                     tierTotal: 600
+            updateTierHasOrders:
+              summary: Feature 035. updateEvent, a ticket type with orders was left out
+              value:
+                error:
+                  code: TIER_HAS_ORDERS
+                  message: 'Cannot remove the tier "Floor": it has 2 orders.'
+                  details:
+                    field: tiers
+                    orderCount: 2
+            updateSeatingHasSold:
+              summary: Feature 035. updateEvent, reserved seating cannot be switched; tickets sold
+              value:
+                error:
+                  code: EVENT_HAS_ORDERS
+                  message: 'Season Opener has sold tickets, so reserved seating can no longer be switched off.'
+                  details:
+                    field: reservedSeating
+                    ticketsSold: 12
             soldOut:
               summary: Fewer tickets left than requested
               value:
