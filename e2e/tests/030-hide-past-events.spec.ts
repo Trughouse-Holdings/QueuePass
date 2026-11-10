@@ -95,8 +95,10 @@ test('030 S4/S6: the Admin app hides an ended event until Show past events is on
   await test.step('the Events page, searched by venue, leaves the ended event out', async () => {
     await page.getByRole('link', { name: 'Events', exact: true }).click();
     await expect(page.getByText(/past events hidden/)).toBeVisible();
-    await page.getByLabel('Venue', { exact: true }).selectOption({ label: venue.name });
-    await page.getByRole('button', { name: 'Search' }).click();
+    // The filter's label wraps its select, so its name starts with "Venue" and goes on with the
+    // options' text; matched by its start, not exactly.
+    await page.getByRole('combobox', { name: /^Venue/ }).selectOption({ label: venue.name });
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
     await expect(row(inProgress.name)).toBeVisible();
     await expect(row(ahead.name)).toBeVisible();
     await expect(row(ended.name)).toHaveCount(0);
