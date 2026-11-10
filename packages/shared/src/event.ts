@@ -43,6 +43,12 @@ export interface Event {
    * the Backend, but optional in the contract (research R8), so clients treat missing as empty.
    */
   images?: EventImage[];
+  /**
+   * Spec 032 FR-004: when the Backend removed the check-in details of this event's tickets, at or
+   * after `endsAt` + `CHECK_IN_RETENTION_DAYS`; `null` until then. Always sent by the Backend from
+   * 032 on; a missing value means `null` (contracts/README.md).
+   */
+  checkInDetailsRemovedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -90,6 +96,13 @@ export const DOORS_OPEN_MAX_BEFORE_START_MINUTES = 360;
  * until the event ends: `[doorsOpenAt - 60 minutes, endsAt)`.
  */
 export const ENTRY_OPENS_BEFORE_DOORS_MINUTES = 60;
+
+/**
+ * Spec 032 FR-007 (research R3): a ticket's check-in details are kept until its event's `endsAt`
+ * plus this many days of 24 hours (half-open: due at that instant), then the Backend's retention
+ * job removes them. Read by the Backend's job and the Admin app's "kept for 7 days after the event".
+ */
+export const CHECK_IN_RETENTION_DAYS = 7;
 
 export type DoorsOpenProblem = 'TOO_EARLY' | 'AFTER_START';
 

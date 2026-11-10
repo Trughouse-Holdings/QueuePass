@@ -100,4 +100,16 @@ describe('salesTable', () => {
     expect(rows[0][3]).toEqual(t('Eastern Time'));
     expect(rows[1][4]).toEqual(t('1 scheduled event'));
   });
+
+  it("gives a removed event's row the report's kept count (spec 032 FR-013)", () => {
+    const report = {
+      ...EXPORT_REPORT,
+      events: EXPORT_REPORT.events.map((e, i) =>
+        i === 0 ? { ...e, checkedIn: 3, checkInDetailsRemovedAt: '2026-11-10T03:00:00Z' } : e,
+      ),
+    };
+    const rows = salesTable(report, 'admin2', 'America/New_York').rows;
+    expect(rows[0][8]).toEqual(n(3));
+    expect(rows[0]).toHaveLength(table.columns.length);
+  });
 });

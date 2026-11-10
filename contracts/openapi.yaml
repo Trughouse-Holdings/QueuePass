@@ -2092,6 +2092,7 @@ components:
           status,
           cancelledAt,
           reservedSeating,
+          checkInDetailsRemovedAt,
           createdAt,
           updatedAt,
         ]
@@ -2161,9 +2162,9 @@ components:
           format: date-time
           description: |
             Feature 032. When the Backend removed the check-in details of this event's tickets, at
-            or after `endsAt` plus 7 days; `null` until then. Always sent once 032 is implemented;
-            not listed as required so this contract can merge ahead of the implementation with the
-            suite green. Clients treat a missing value as `null`.
+            or after `endsAt` plus 7 days; `null` until then. Required from 1.24.0 once implemented
+            (feature 032's implementation); clients of an older Backend treat a missing value as
+            `null`.
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -2519,7 +2520,7 @@ components:
     OrderEvent:
       description: The parts of an event My tickets shows next to an order (feature 006).
       type: object
-      required: [id, name, startsAt, endsAt, doorsOpenAt, status, location]
+      required: [id, name, startsAt, endsAt, doorsOpenAt, status, checkInDetailsRemovedAt, location]
       properties:
         id: { type: string, format: uuid }
         name: { type: string, example: Season Opener }
@@ -2537,8 +2538,8 @@ components:
           format: date-time
           description: |
             Feature 032. As `Event.checkInDetailsRemovedAt`. When set, My tickets shows the order's
-            valid tickets as "Event over", with no entry code or printable ticket. Not listed as
-            required until 032 is implemented; clients treat a missing value as `null`.
+            valid tickets as "Event over", with no entry code or printable ticket. Required from
+            1.24.0 once implemented; clients of an older Backend treat a missing value as `null`.
         location:
           type: object
           required: [id, name, address, timeZone]
@@ -2873,6 +2874,7 @@ components:
           ticketCapacity,
           ticketsSold,
           checkedIn,
+          checkInDetailsRemovedAt,
           revenue,
           tiers,
         ]
@@ -2900,8 +2902,8 @@ components:
           type: [string, 'null']
           format: date-time
           description: |
-            Feature 032. As `Event.checkInDetailsRemovedAt`. Not listed as required until 032 is
-            implemented; clients treat a missing value as `null`.
+            Feature 032. As `Event.checkInDetailsRemovedAt`. Required from 1.24.0 once implemented;
+            clients of an older Backend treat a missing value as `null`.
         revenue: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
         tiers:
           type: array
