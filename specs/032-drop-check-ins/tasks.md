@@ -229,7 +229,10 @@ confirm they **fail** before the implementation tasks of Phase 3.
   `CLOCK`); `customer-app/test/check-ins-removed.test.tsx`'s not-removed case uses `030`'s
   `fixTimeBeforeFixtures()`. **Done** when merging `main` at `0f35df9` (`030` merged as PR #149), as planned; two
   Customer cases added: a past event not removed keeps "Print ticket" without "Show entry code", and
-  a removed event under Past shows "Event over" and no links.
+  a removed event under Past shows "Event over" and no links. After that merge: `npm run ci` green (root 85, shared 793,
+  Backend 1333 in 114 suites at 97.12% lines, admin-app 417 at 97.5%, customer-app 356 at 97.7%,
+  booth-app 94, seed 262 + 28 skipped), then Backend, admin-app, and customer-app three times each,
+  identical.
 
 ---
 
