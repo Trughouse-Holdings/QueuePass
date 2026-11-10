@@ -388,3 +388,6 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   - N8: `use-hold-queue.ts` guards only the request, so a handler that throws surfaces instead of
     reading as no answer; a comment says queued clicks keep sending after Add to cart leaves the
     page (harmless: the cart shows the result).
+  - After round 1: the Customer app suite three times, 400/400 each (28 files; lines 98.12%); the
+    reservation, seat-hold, order-reservation, and attempt-limit tests once, 10 suites, 121 tests,
+    all pass.
