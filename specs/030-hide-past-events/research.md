@@ -4,7 +4,8 @@
 
 The issue (#133) settles what is hidden and where. Every decision below that the issue leaves open
 takes the recommended option and records the alternatives, for Mahdi and the team to overturn in
-review of the spec PR. The code was read on `main` at `b293dc5`.
+review of the spec PR. The code was read on `main` at `b293dc5`, and checked again after rebasing onto
+`5598b67` (spec `029`'s implementation merged).
 
 ## R1. Where the rule lives: the Backend's event list
 
@@ -208,22 +209,28 @@ the venue page says past events are hidden, and its toggle shows them (spec Edge
   event). Fixing only the tests that fail today would leave the rest to fail later, one by one, on
   their dates. So **every** list request (`get('/events…')`) in a test whose events are on fixed dates
   gains `includePast=true`, whether it fails today or not; they are found by searching the tests, not
-  by running them (tasks T010). A list request whose events are made relative to now is left as it is
+  by running them (tasks T010). `events.ticket-limit.e2e-spec.ts` lists events too, but its fixture
+  places them 365 days and more ahead of the run, so it stays. A list request whose events are made relative to now is left as it is
   unless it relies on a past event being listed (the demo data's past event, `029`). No assertion
   otherwise changes; the commit names each file.
-- **Front-end tests** mock the API, so the Backend's default does not reach them. But wherever an Admin
+- **Front-end tests** mock the API, so the Backend's default does not reach them. They are found by
+  search too: tests that render a page gaining a date rule (Admin `EventList`, `LocationDetail`,
+  `EventDetail`; Customer `EventDetail`, `VenueDetail`, `MyTickets`) with fixed-date fixtures
+  (`admin-app/test/fixtures/events.json`, `fixtures-005.ts`, `customer-app/test/helpers.tsx`, and others
+  ending 2026-11-20 to 2027-11-07; tasks T011). The precedent for fixing the time is
+  `customer-app/test/add-to-calendar.test.tsx`: `vi.useFakeTimers({ toFake: [..., 'Date'] })` and
+  `vi.setSystemTime`. Wherever an Admin
   or Customer test's outcome now depends on the date (the Ended label, the hidden note's list, My
   tickets' Past section, the ended notice), the test fixes the time (`vi.setSystemTime`) or builds its
   fixtures relative to the time it runs (T011). Moving a fixed date further ahead would only put the
   failure off to that date.
-- **Spec `029` (demo checkpoint)**, implementation branch `029-demo-checkpoint-impl` (not merged at
-  the time of writing): its browser test `029 S2` reads `GET /events` to find Season Opener, the demo's
-  past event, by name. After `030` that list leaves it out, so the test asks with
-  `?includePast=true`. `029`'s implementation (PR #144) is expected to merge first, so `030`'s
-  implementation PR carries the change (T012). It also rewords `029`'s text that has the customer find
-  Season Opener in the Customer app's list (spec `029` US1 scenario 3, quickstart S2 step 2): after
+- **Spec `029` (demo checkpoint)**, merged (PR #144, `5598b67`): its browser test `029 S2` reads `GET
+  /events` to find Season Opener, the demo's past event, by name. After `030` that list leaves it out,
+  so the test asks with `?includePast=true`, in `030`'s implementation PR (T012). That PR also rewords
+  the text that has the customer see Season Opener in the Customer app (spec `029` US1 narrative and
+  scenario 3, SC-006, quickstart S2 step 2; the README's "Demo data" and "Demo checkpoint"): after
   `030` it is not listed, so the customer opens Season Opener's page by its link, where it still shows
-  sales closed (T012).
+  sales closed (T012, T020).
 - **`#126` (sell until the event ends)**, not yet specified: the same boundary, `endsAt`. An event in
   progress is listed (here) and will be on sale (there). `030` does not touch the Get tickets panel, the
   `salesClosed` values, or the sales rules, so `#126` changes them without meeting this feature.

@@ -121,7 +121,8 @@ customer-app/
 └── test/                                      # past-events.test.tsx (new), my-tickets, format
 
 e2e/tests/030-hide-past-events.spec.ts         # new: 030 S1/S2, 030 S4/S6
-e2e/tests/029-demo-checkpoint.spec.ts          # GET /events?includePast=true, if 029 merged first (R10)
+e2e/tests/029-demo-checkpoint.spec.ts          # GET /events?includePast=true (029 merged, R10)
+specs/029-demo-checkpoint/spec.md, quickstart.md # Season Opener opened by its link (T012)
 specs/030-hide-past-events/quickstart.md       # Automation rows → Automated (impl)
 ```
 

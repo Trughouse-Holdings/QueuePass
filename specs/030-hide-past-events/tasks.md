@@ -35,9 +35,9 @@ confirm they **fail** before the implementation tasks that follow.
   stack of your own (`-p qp030`) when the ports are free, otherwise ask (T024).
 - **Path B on this machine** (README "When the images can't be built"): the app images cannot be
   built here, so the Compose path (A) is walked by CI's `e2e` job (T007) and the hand walk uses path B.
-- **Spec `029`**'s implementation (`029-demo-checkpoint-impl`) adds `e2e/tests/029-demo-checkpoint.spec.ts`,
-  which reads the past demo event from `GET /events`. Whichever of `029` and `030` merges second makes
-  T012's change.
+- **Spec `029`** has merged (PR #144, `5598b67`): `e2e/tests/029-demo-checkpoint.spec.ts` reads the
+  past demo event from `GET /events`, and 029's spec, quickstart, and the README say the Customer app
+  shows Season Opener. This feature's implementation makes T012's and T020's changes.
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -154,27 +154,41 @@ confirm they **fail** before the implementation tasks that follow.
 - [ ] T010 [US4] Every Backend list request in a test whose events are on **fixed dates**, past or still
   ahead, gains `includePast=true` (`?includePast=true`, or `&includePast=true` after its other
   filters) and nothing else (research R10). Find them by searching, not by running: every
-  `get('/events` and ``get(`/events?`` under `backend/test`. On `main` at `b293dc5` that is
+  `get('/events` and ``get(`/events?`` under `backend/test`. On `main` at `5598b67` that is
   `events.crud.e2e-spec.ts` (lines 69, 84, 131, 156), `events.date-filter.e2e-spec.ts` (82; its `400`
   cases at 116 too), `events.doors-open.e2e-spec.ts` (85; events ending 2026-11-21),
   `events.price-precision.e2e-spec.ts` (58), `events.search.e2e-spec.ts` (49 to 102, including its 2026-12
-  and 2027 events), and `events.ticket-limit.e2e-spec.ts` (83); check each one's dates, and any added
-  since. `demo-data.e2e-spec.ts` (95, times relative to now) adds it only if it counts the demo's past
-  event; `venues-events.authz.e2e-spec.ts` (103, 113: status and contract only) stays. Then run the
+  and 2027 events); check each one's dates, and any added since. They stay as they are:
+  `events.ticket-limit.e2e-spec.ts` (83; its events come from `test/setup/fixtures.ts`'s `event()`,
+  365 days and more ahead of the run); `demo-data.e2e-spec.ts` (97, times relative to now) unless it
+  counts the demo's past event, Season Opener, in which case it asks with `includePast=true`;
+  `venues-events.authz.e2e-spec.ts` (103, 113: status and contract only). Then run the
   suite: a failure is investigated, not patched. The commit names every file changed. Suite green.
-- [ ] T011 Admin and Customer apps: every existing test whose outcome now depends on the date (the
-  Ended label, the list under the hidden note, My tickets' Past section, the ended notice) fixes the
-  time with `vi.setSystemTime` (fake `Date` only) or builds its fixtures relative to the time it runs,
-  so it tests what it tested before, today and on any later date (research R10). Moving a fixed date
-  further ahead is not enough: it only puts the failure off. Name each in the commit.
-- [ ] T012 Spec `029` after `030` (research R10). `029`'s implementation (PR #144) is expected to merge
-  first, so this PR carries both changes (if it has not merged when this PR opens, ask Mahdi):
+- [ ] T011 Admin and Customer apps (research R10). Find the tests by searching, not by running: every
+  test that renders a page gaining a date rule (Admin `EventList`, `LocationDetail`, `EventDetail`;
+  Customer `EventDetail`, `VenueDetail`, `MyTickets`: by importing the page, or rendering the app at
+  its route, `/events`, `/locations/<id>`, `/events/<id>`, `/venues/<id>`, `/my-tickets`) **and** uses
+  fixed-date fixtures (`grep -rlE "endsAt['\"]?: ?['\"]20[0-9]{2}-" admin-app/test customer-app/test`,
+  plus whatever imports them). On `main` at `5598b67` the shared fixtures are
+  `admin-app/test/fixtures/events.json`, `admin-app/test/fixtures-005.ts`, and
+  `customer-app/test/helpers.tsx`, with events ending on 2026-11-20/21, 2026-12-02/09, 2027-01-01/02,
+  and 2027-11-07; and, among others, `admin-app/test/EventDetail.test.tsx`, `LocationDetail.test.tsx`,
+  `customer-app/test/browse.test.tsx`, `doors-open.test.tsx`, and `my-tickets.test.tsx`. Each such test
+  fixes the time before rendering, as `customer-app/test/add-to-calendar.test.tsx` (line 94) does:
+  `vi.useFakeTimers({ toFake: [..., 'Date'] })` then `vi.setSystemTime(NOW)`, with `NOW` before every
+  fixture's end unless the test is about an ended event; or builds its fixtures relative to the time it
+  runs. Moving a fixed date further ahead is not enough: it only puts the failure off. Name each in the
+  commit.
+- [ ] T012 Spec `029` after `030` (research R10). `029`'s implementation has merged (PR #144), so this
+  PR carries these changes:
   - `e2e/tests/029-demo-checkpoint.spec.ts`: its `api.call<Event[]>('GET', '/events')` becomes
     `'/events?includePast=true'`, with a comment citing spec 030 research R10.
   - `specs/029-demo-checkpoint/spec.md` US1 acceptance scenario 3 and `quickstart.md` S2 step 2: where
     the customer sees Season Opener with sales closed, reword to open Season Opener's page by its link
-    (it is not listed after spec `030`), which shows "Sales closed". Text only; `029`'s Automation table
-    and test title are unchanged.
+    (it is not listed after spec `030`), which shows "Sales closed". The same for 029's US1 narrative
+    (spec.md, "in the Customer app, Fall Concert is on sale and Season Opener is over") and SC-006
+    ("the Customer app shows Season Opener with sales closed"): on its page. Text only; `029`'s
+    Automation table and test title are unchanged.
 
 ---
 
@@ -221,7 +235,10 @@ confirm they **fail** before the implementation tasks that follow.
   scenario (S6: exports and the Sales card by hand); `npm test`'s quickstart-marks check passes.
 - [ ] T020 README: the `030` status row (tasks count and code status); the Customer and Admin app
   descriptions, where they list what each page shows, say past events are hidden and, for admins, the
-  toggle (FR-018).
+  toggle (FR-018). In "Demo data" ("Season Opener, a week ago and over, so the apps show an event whose
+  sales are closed") and "Demo checkpoint" ("Season Opener over, its sales closed"), say Season Opener
+  is left out of the event lists after `030`: its page (by link, from Reports, or the Admin list with
+  Show past events on) shows sales closed, as T012 rewords 029's spec.
 - [ ] T021 `npm run ci` locally, green; record the counts per workspace and each workspace's line
   coverage (each at or above 80%).
 - [ ] T022 Run the Backend suite three times in a row, and the Admin and Customer suites three times,
@@ -294,6 +311,24 @@ confirm they **fail** before the implementation tasks that follow.
     rather than adding a line after it (research R2, T009).
   - N4: `/my-tickets/<ticket>/entry-code` still opens by its address for a past ticket (only its link is
     left out); the gate refuses the ticket as ended anyway → listed in spec Out of scope.
+- **Round 2** (independent Claude session, 2026-11-09): no must-fix, 2 should-fix, 3 nits; the
+  reviewer's verdict: only minor findings remain. All fixed in the `Review 030: spec review round 2`
+  commit, after rebasing onto `main` at `5598b67`.
+  - S1: PR #144 (spec `029`'s implementation) merged → rebased onto `main`; README keeps main's `029`
+    row ("Done (19/22 tasks)", "Built, reviewed, and walked") with the `030` row added and v3.9.2; the
+    constitution's diff against `main` is only the Sync Impact Report, row `030`, the next free number
+    `031`, and the version line. The Sync Impact Report's Impact line now names 029's text and README
+    rewording (its own `Constitution:` commit).
+  - S2: T011 said to fix front-end tests without saying how to find them → a search like T010's: tests
+    rendering the six pages that gain a date rule with fixed-date fixtures (the fixture files and
+    dates as of `5598b67`), fixing the time as `customer-app/test/add-to-calendar.test.tsx` does
+    (research R10, T011).
+  - N1: text written against `b293dc5` updated: `029` has merged; `demo-data.e2e-spec.ts`'s list request
+    is line 97 (research R10, plan.md, T010, ground rules).
+  - N2: `events.ticket-limit.e2e-spec.ts` dropped from T010's list: its `event()` fixture places events
+    365 days and more ahead; noted in T010 and R10.
+  - N3: T020 also rewords the README's "Demo data" and "Demo checkpoint" lines, and T012 029's US1
+    narrative and SC-006, about Season Opener being shown in the Customer app.
 - **Open findings**: none.
 
 ## Review record (implementation branch)
