@@ -38,6 +38,10 @@ in `025`.
 
 ## Clarifications
 
+> **Note (2026-11-10, issue #160)**: after 036 merged, Nathan asked that a new event open on
+> today's date, ending 4 hours after the start, instead of empty Starts and Ends. FR-017 adds it;
+> the start time is the next whole hour, and Ends follows the start until it is changed.
+
 ### Session 2026-11-10
 
 The issues and Jeff's comment on #130 settle most of what the form must do. Every question they
@@ -270,6 +274,14 @@ all in range.
 - **FR-016**: The resulting-time line MUST be a polite live region, present from the first render
   of "Before the start", so a change of length or start that changes it is announced once, not on
   every keystroke.
+
+- **FR-017** (added 2026-11-10, issue #160): A new event MUST open with **Starts at the next whole
+  hour after now, today** (strictly after, so 1:00:00 PM gives 2:00 PM; late at night that is
+  tomorrow) and **Ends 4 elapsed hours later**, in the default zone until a venue is chosen; Doors
+  open then takes FR-003's default. A repeated local time the defaults land on is already chosen
+  (`020`). Until the admin changes Starts, choosing a venue recomputes the defaults in that venue's
+  zone. Until the admin changes Ends, Ends follows a start that names one moment, 4 elapsed hours
+  later; once changed, it stays. An edit is unchanged: it shows the stored times.
 
 ### Key Entities
 

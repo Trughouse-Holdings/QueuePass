@@ -85,3 +85,21 @@ export function doorsOpenAtPreview(
 
 export const doorsOffsetOptions = (): { minutes: number; label: string }[] =>
   doorsOffsetMinutesList().map((minutes) => ({ minutes, label: doorsOffsetLabel(minutes) }));
+
+/** Spec 036 FR-017 (#160): a new event lasts 4 hours by default, in elapsed time. */
+export const DEFAULT_EVENT_LENGTH_MINUTES = 4 * 60;
+
+/**
+ * Spec 036 FR-017 (#160): a new event starts at the next whole hour after `now` (strictly after,
+ * so 1:00:00 PM gives 2:00 PM) and ends 4 elapsed hours later. Every US zone is a whole number of
+ * hours from UTC, so the next UTC hour is the next local hour in the venue's zone too.
+ */
+export function defaultEventInstants(now: InstantLike): { startsAt: Date; endsAt: Date } {
+  const HOUR = 3_600_000;
+  const at = now instanceof Date ? now : new Date(now);
+  const startsAt = new Date(Math.floor(at.getTime() / HOUR) * HOUR + HOUR);
+  return {
+    startsAt,
+    endsAt: new Date(startsAt.getTime() + DEFAULT_EVENT_LENGTH_MINUTES * 60_000),
+  };
+}
