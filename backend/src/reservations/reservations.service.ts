@@ -76,7 +76,10 @@ export class ReservationsService {
     }
   }
 
-  /** Research R5, steps 1 to 7, in order. All or nothing: any refusal rolls everything back. */
+  /**
+   * Research R5, steps 1 to 7, in order (spec 033 research R4 renumbered 4 and 5: the sold or taken
+   * check now runs before the 2-minute wait). All or nothing: any refusal rolls everything back.
+   */
   private async reserveLocked(
     tx: Tx,
     principal: Principal,
@@ -109,15 +112,17 @@ export class ReservationsService {
       throw badSeats(`${seatText(already[0])} is already in your reservation`);
     }
 
-    // 4. The 2-minute wait on this customer's own recently ended holds (FR-004a, research R6).
-    await this.assertNoWait(tx, eventId, principal.sub, seats);
-
-    // 5. Seats sold, or in another customer's reservation (FR-002).
+    // 4. Seats sold, or in another customer's reservation (FR-002). Before the wait, so a seat
+    //    both taken and waiting is refused as taken, the truer reason (spec 033 research R4).
     const sold = await soldSeats(tx, eventId, seats);
     const others = holds.filter(
       (h) => h.customerSub !== principal.sub && seats.some((s) => seatKey(s) === seatKey(h)),
     );
     if (sold.length > 0 || others.length > 0) throw seatsTaken(sold, others);
+
+    // 5. The 2-minute wait on seats of this customer's recently ended reservations (FR-004a, as
+    //    spec 033 FR-006 amends it; research R4).
+    await this.assertNoWait(tx, eventId, principal.sub, seats);
 
     // 6. At most 10 seats, and no more than the 016 limit allows, counting valid tickets only.
     const total = mine.length + seats.length;
@@ -188,6 +193,15 @@ export class ReservationsService {
     throw badSeats(`${seatText(label)} is not for sale`);
   }
 
+  /**
+   * Spec 033 FR-006 (research R4): a seat waits when it left one of this customer's reservations
+   * released, run out, or on logout, and that reservation ended less than 2 minutes ago; the wait
+   * runs from the reservation's end. A seat released from the still-active reservation is not
+   * blocked: it can be held again at once, into it. The bound on the hold's own release keeps the
+   * `(eventId, releasedAt)` index in use and is safe: a hold leaves its reservation at most 5
+   * minutes and one locking transaction (15 seconds) before the reservation ends, so a hold that
+   * can still block was released less than 7 minutes 15 seconds ago.
+   */
   private async assertNoWait(
     tx: Tx,
     eventId: string,
@@ -198,11 +212,13 @@ export class ReservationsService {
       { seatSection: string; seatRow: number; seatNumber: number; availableAt: Date }[]
     >`
       SELECT h."seatSection", h."seatRow", h."seatNumber",
-             h."releasedAt" + interval '2 minutes' AS "availableAt"
+             r."endedAt" + interval '2 minutes' AS "availableAt"
       FROM "SeatHold" h JOIN "SeatReservation" r ON r."id" = h."reservationId"
       WHERE h."eventId" = ${eventId}::uuid AND r."customerSub" = ${customerSub}
         AND h."endReason" IN ('EXPIRED', 'RELEASED', 'LOGOUT')
-        AND now() < h."releasedAt" + interval '2 minutes'`;
+        AND h."releasedAt" > now() - interval '8 minutes'
+        AND r."endedAt" IS NOT NULL
+        AND now() < r."endedAt" + interval '2 minutes'`;
     const waiting = recent.filter((h) =>
       seats.some(
         (s) => s.section === h.seatSection && s.row === h.seatRow && s.seat === h.seatNumber,
@@ -215,8 +231,8 @@ export class ReservationsService {
     const availableAt = new Date(Math.max(...waiting.map((h) => h.availableAt.getTime())));
     throw conflict(
       'SEAT_COOLDOWN',
-      `You released ${labels.map(seatText).join('; ')} less than 2 minutes ago. You can ` +
-        `reserve ${labels.length === 1 ? 'it' : 'them'} again at ${utcTime(availableAt)}.`,
+      `Your reservation of ${labels.map(seatText).join('; ')} ended less than 2 minutes ago. ` +
+        `You can reserve ${labels.length === 1 ? 'it' : 'them'} again at ${utcTime(availableAt)}.`,
       { seats: labels, availableAt: availableAt.toISOString() },
     );
   }
@@ -251,9 +267,9 @@ export class ReservationsService {
   }
 
   /**
-   * Research R8: releases the listed seats, or all of them, with `RELEASED` (which starts the
-   * 2-minute wait), and ends the reservation once no seat is left. Without an active reservation
-   * nothing happens, so a repeat is harmless.
+   * Research R8: releases the listed seats, or all of them, with `RELEASED`, and ends the
+   * reservation once no seat is left; its released seats then wait 2 minutes from that end (spec
+   * 033 research R4). Without an active reservation nothing happens, so a repeat is harmless.
    */
   async release(
     principal: Principal,

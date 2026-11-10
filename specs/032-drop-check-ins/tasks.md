@@ -47,15 +47,19 @@ confirm they **fail** before the implementation tasks of Phase 3.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `032-drop-check-ins-impl` from `032-drop-check-ins-spec` (or from `main` once the spec
+- [x] T001 Cut `032-drop-check-ins-impl` from `032-drop-check-ins-spec` (or from `main` once the spec
   PR has merged); `npm ci`; `npm run ci` green before any change, so a later failure is this
   feature's.
+  **Done** (2026-11-10): cut from `main` at `10802fe` (the spec PR merged); `npm ci`; `npm run ci`
+  on the untouched branch green through format, lint, build, root scripts (85), shared (793), and the
+  Backend's 1233 existing tests; its only failure was T003's new file, written meanwhile (the columns
+  did not exist yet), as intended.
 
 ---
 
 ## Phase 2: Tests first (all must fail before Phase 3)
 
-- [ ] T002 [US1] [US2] `backend/test/integration/check-in-retention.e2e-spec.ts` (new; FR-001 to
+- [x] T002 [US1] [US2] `backend/test/integration/check-in-retention.e2e-spec.ts` (new; FR-001 to
   FR-006, FR-009, SC-001 to SC-004, research R4, R5, R11), with `createTestApp()` (which never starts the job) and
   its `FakeClock`; fixtures made through the services, then times and check-ins set directly with
   `prisma` (an event E ended at a fixed instant; its tickets admitted with all three columns, one with
@@ -90,11 +94,15 @@ confirm they **fail** before the implementation tasks of Phase 3.
   `retentionBound(now)` is `now − 604 800 000 ms` exactly for weeks holding the 2026-11-01 fall-back
   and the 2027-03-14 spring-forward.
   Must fail (no module yet).
-- [ ] T003 [P] [US1] `backend/test/integration/check-in-retention.constraints.e2e-spec.ts` (new;
+  **Done**: written first; failed (no module, no `CHECK_IN_RETENTION_DAYS`). Two cases corrected
+  after the first green run, not the code: F, which ends a day after E, is itself due at `+ 8 d` and at
+  the moved end's cutoff minus 1 minute, so those runs remove F and leave E as it was.
+- [x] T003 [P] [US1] `backend/test/integration/check-in-retention.constraints.e2e-spec.ts` (new;
   FR-015): raw SQL updates on an event: an instant without a count, a count without an instant, and a
   count of −1 each fail naming `event_check_ins_removed_together`; both set with 0 succeeds. Must fail
   (no columns yet).
-- [ ] T004 [P] [US4] `backend/test/integration/events.check-ins-removed.e2e-spec.ts` (new; FR-008,
+  **Done**: failed (no columns), then green.
+- [x] T004 [P] [US4] `backend/test/integration/events.check-ins-removed.e2e-spec.ts` (new; FR-008,
   SC-006, research R6): on an event marked removed (set directly): `PATCH` with a later `endsAt`, an
   earlier `startsAt`, or a different `doorsOpenAt` → `409 CHECK_IN_DETAILS_REMOVED`,
   `details.removedAt` its instant, the message naming the date in the venue's zone, the event unchanged;
@@ -104,7 +112,8 @@ confirm they **fail** before the implementation tasks of Phase 3.
   Each response passes `expectToMatchContract(res, 'updateEvent')`. Also
   `getEvent`, `listMyOrders`, and `getSalesReport` include `checkInDetailsRemovedAt` (`null`, then the
   instant) and match the contract. Must fail.
-- [ ] T005 [P] [US2] [US3] Admin app (Vitest; FR-009 to FR-013, research R7, R8):
+  **Done**: failed (no columns), then green; also asserts the kept count is never on `Event`.
+- [x] T005 [P] [US2] [US3] Admin app (Vitest; FR-009 to FR-013, research R7, R8):
   - `admin-app/test/check-ins-removed.test.tsx` (new): a removed event (fixture with
     `checkInDetailsRemovedAt` `2026-11-10T03:00:00Z`, venue `America/New_York`, report row `checkedIn`
     3): Attendees shows "Check-in details removed on Nov 9, 2026 (kept for 7 days after the event).",
@@ -116,24 +125,30 @@ confirm they **fail** before the implementation tasks of Phase 3.
     empty and the subtitle lines include the sentence and "3 tickets were checked in."; without a count,
     the sentence only. `sales-rows.test.ts`: a removed event's row has the report's `checkedIn`.
   Must fail.
-- [ ] T006 [P] Customer app (Vitest; FR-014, research R9): `customer-app/test/check-ins-removed.test.tsx`
+  **Done**: 8 page and 3 export cases failed. `sales-rows.test.ts`'s new case passed from the start,
+  as R8 leaves `salesTable` unchanged; it stays as the guard.
+- [x] T006 [P] Customer app (Vitest; FR-014, research R9): `customer-app/test/check-ins-removed.test.tsx`
   (new): an order whose event has `checkInDetailsRemovedAt` set: each valid ticket reads "Event over",
   with no "Show entry code" or "Print ticket" link; a void ticket "Void"; `/my-tickets/<id>/print` for
   such a ticket shows "This ticket can't be printed."; an order whose event is not removed: as today.
   Must fail.
+  **Done**: 2 of 3 failed (the not-removed case is today's behaviour).
 
 ---
 
 ## Phase 3: Implementation
 
-- [ ] T007 Shared (research R3; contracts/README.md): `CHECK_IN_RETENTION_DAYS = 7` in
+- [x] T007 Shared (research R3; contracts/README.md): `CHECK_IN_RETENTION_DAYS = 7` in
   `packages/shared/src/event.ts` (exported), `Event.checkInDetailsRemovedAt?: string | null`;
   `packages/shared/src/order.ts`: the same on the My tickets order event and `EventSales`. Keep
   `api-schema.ts` as generated in the spec PR (`node scripts/check-contract-drift.mjs`).
-- [ ] T008 Migration and schema (data-model.md): `20261110000000_check_in_retention/migration.sql`
+  **Done**.
+- [x] T008 Migration and schema (data-model.md): `20261110000000_check_in_retention/migration.sql`
   exactly as data-model.md; `schema.prisma` fields and comments; `npx prisma generate`. Makes T003
   pass.
-- [ ] T009 [US1] `backend/src/entry/check-in-retention.ts` (research R5): `CHECK_IN_RETENTION_INTERVAL_MS`
+  **Done**: the migration sorts after `20261102000000_doors_open`, the newest on `main`; `030` and `031`
+  add none.
+- [x] T009 [US1] `backend/src/entry/check-in-retention.ts` (research R5): `CHECK_IN_RETENTION_INTERVAL_MS`
   token, `CheckInRetention` with `start()` (one run, then the timer), `onModuleDestroy`, and **no
   lifecycle hook that runs it**; `removeDue(now?)` with the running flag, the bound computed in
   JavaScript by the exported `retentionBound(now)` (`now − CHECK_IN_RETENTION_DAYS × 86 400 000 ms`,
@@ -142,40 +157,82 @@ confirm they **fail** before the implementation tasks of Phase 3.
   run that removed anything. `EntryModule` provides it with `{ provide: CHECK_IN_RETENTION_INTERVAL_MS,
   useValue: 3_600_000 }`. `backend/src/main.ts` calls `app.get(CheckInRetention).start()` after
   `app.listen`, the only call. Makes T002's removal cases and the start-up unit test pass.
-- [ ] T010 [US2] `ReportsService.sales` (research R4): `checkedIn` is 0 for a cancelled event, else the
+  **Done**: the removal's two writes are the SQL of R5 (so `Event.updatedAt` is not bumped by the job).
+- [x] T010 [US2] `ReportsService.sales` (research R4): `checkedIn` is 0 for a cancelled event, else the
   kept count once removed, else the live count; `checkInDetailsRemovedAt` on each event row. Makes T002's
   report cases pass.
-- [ ] T011 [US4] `EventsService` (research R6): in `updateLocked`, after `doorsOpenAt` is resolved and
+  **Done**.
+- [x] T011 [US4] `EventsService` (research R6): in `updateLocked`, after `doorsOpenAt` is resolved and
   before the capacity checks and `assertNoConflict`, the `409 CHECK_IN_DETAILS_REMOVED` for a changed resolved `startsAt`, `endsAt`, or `doorsOpenAt` on a
   removed event (message date in the venue's zone, `details.removedAt`); `toResponse` sends
   `checkInDetailsRemovedAt`; `OrdersService.mine` adds it to the event summary. Check
   `backend/test/integration/demo-reset.e2e-spec.ts`'s fingerprint still passes (the new columns are
   NULL after every reset, research R10). Makes T004 pass.
-- [ ] T012 [US3] Admin app (research R7, R8): `removedNote()` in `format.ts`; Attendees, SalesCard,
+  **Done**: `demo-reset.e2e-spec.ts` passes unchanged (its fingerprint names fields, the new ones
+  NULL after every reset).
+- [x] T012 [US3] Admin app (research R7, R8): `removedNote()` in `format.ts`; Attendees, SalesCard,
   Reports, EventForm's 409 banner; `attendeeTable` with the optional kept count; Attendees passes it.
   Makes T005 pass.
-- [ ] T013 Customer app (research R9): `MyTickets.tsx` state and links; `PrintTicket.tsx` refusal.
+  **Done**: no change to `EventForm` was needed; its existing banner shows the 409 with the values
+  kept. The export's count line reads "1 ticket was checked in." for one.
+- [x] T013 Customer app (research R9): `MyTickets.tsx` state and links; `PrintTicket.tsx` refusal.
   Makes T006 pass.
+  **Done**.
 
 ---
 
 ## Phase 4: Documentation, review, pull request
 
-- [ ] T014 README: a short "Check-in retention" paragraph (what is removed, when, the constant, that a
+- [x] T014 README: a short "Check-in retention" paragraph (what is removed, when, the constant, that a
   Backend start removes every event past its cutoff, what admins see); the `032` status row updated.
-- [ ] T015 `contracts/openapi.yaml`: list `checkInDetailsRemovedAt` as required on `Event`,
+  **Done**: README "Check-in retention" under What the system does; status row Done (18/21 tasks).
+- [x] T015 `contracts/openapi.yaml`: list `checkInDetailsRemovedAt` as required on `Event`,
   `OrderEvent`, and `EventSales` now that the Backend sends it (as `014`, `016` did; still 1.24.0, a
   note in the field descriptions "Required from 1.24.0 once implemented"); regenerate `api-schema.ts`.
-- [ ] T016 Quickstart: confirm the Automation table (all Manual, with reasons) still holds.
-- [ ] T017 Backend coverage: the job's error paths (one event failing, a deleted event) have tests, so
+  **Done**: `checkInDetailsRemovedAt` required on `Event`, `OrderEvent`, `EventSales`;
+  `api-schema.ts` regenerated; `check-contract-drift` green.
+- [x] T016 Quickstart: confirm the Automation table (all Manual, with reasons) still holds.
+  **Done**: still all Manual; nothing in `e2e/tests` for `032`; `check-quickstart-marks` green.
+- [x] T017 Backend coverage: the job's error paths (one event failing, a deleted event) have tests, so
   the Backend stays above 80%.
-- [ ] T018 `npm run ci` locally, three times, with `npm run test:tz` once; all green.
+  **Done**: one event failing (logged, the others removed), a deleted event (`false`), a run already
+  going, and a failing run at `start()` (logged) are tested; `check-in-retention.ts` 97.82% lines,
+  Backend 97.03%.
+- [x] T018 `npm run ci` locally, three times, with `npm run test:tz` once; all green.
+  **Done** (2026-11-10, head after `f3bd624`): `npm run ci` green, exit 0, with `KEYCLOAK_URL` and
+  `KEYCLOAK_HEALTH_URL` set to `http://127.0.0.1:9` (seed: 262 passed, 28 live tests skipped). Counts:
+  root scripts 85; shared 793; Backend 1269 (110 suites); admin-app 377; customer-app 338; booth-app
+  94; seed 262 + 28 skipped. Lines: shared 96.77%, Backend 97.03%, admin-app 97.32%, customer-app
+  97.66%, booth-app 93.44%, seed 99.41%. Then each affected workspace three times in a row, identical
+  each time: shared 793/793, Backend 1269/1269, admin-app 377/377, customer-app 338/338. `npm run
+  test:tz`: all pass in America/New_York, UTC, America/Los_Angeles, Pacific/Honolulu for shared,
+  Backend, admin, customer, booth. A second `npm run ci` with the README and tasks changes: green, the same counts.
+  After merging `main` with spec `031`'s implementation (`796e9a9`): `npm run ci` green (root 85, shared
+  793, Backend 1315 in 113 suites at 97.11% lines, admin-app 395 at 97.48%, customer-app 338, booth-app
+  94, seed 262 + 28 skipped), then the Backend and admin-app suites twice more, identical (three runs
+  each on the merged code).
 - [ ] T019 Walk the quickstart S0–S6 on `-p qp032` (or path B with Mahdi's go), recording each
   Expected as seen.
-- [ ] T020 Independent review (Constitution III) of the implementation branch by a Claude session that
+  **Pending**: not walked by the implementing session. `-p qp032` needs the fixed ports the team
+  stack holds, and the ground rules allow stopping it only with Mahdi's go in the session; no browser
+  test covers `032` (quickstart Automation), so there was no CI-only path to it either.
+- [x] T020 Independent review (Constitution III) of the implementation branch by a Claude session that
   did not write it; fix the findings; record them below.
+  **Done**: round 1 on PR #151, recorded below; every finding fixed.
 - [ ] T021 Open the PR (`fixes #129` in the description, the review record, the walk), after the spec
   PR has merged; CI green.
+  PR #151 opened by the coordinating session. **Merge with `030`** (PR #149, likely first; research
+  R10, review round 1 S1): `MyTickets.tsx` links under `t.status === 'VALID' && t.checkedInAt === null
+  && !removed`, with `030`'s `!ended` inside guarding only "Show entry code" (a removed event shows
+  neither link; a past event not removed keeps "Print ticket", `030` FR-016); `030`'s Past section and
+  `h3` cards kept; `events.service.ts` keeps both sides' imports and constructor (`030` injects
+  `CLOCK`); `customer-app/test/check-ins-removed.test.tsx`'s not-removed case uses `030`'s
+  `fixTimeBeforeFixtures()`. **Done** when merging `main` at `0f35df9` (`030` merged as PR #149), as planned; two
+  Customer cases added: a past event not removed keeps "Print ticket" without "Show entry code", and
+  a removed event under Past shows "Event over" and no links. After that merge: `npm run ci` green (root 85, shared 793,
+  Backend 1333 in 114 suites at 97.12% lines, admin-app 417 at 97.5%, customer-app 356 at 97.7%,
+  booth-app 94, seed 262 + 28 skipped), then Backend, admin-app, and customer-app three times each,
+  identical.
 
 ---
 
@@ -261,4 +318,17 @@ confirm they **fail** before the implementation tasks of Phase 3.
 
 ## Review record (implementation branch)
 
-_Left for the implementation's review (T020)._
+- **Round 1** (independent Claude session, on PR #151): no must-fix, 1 should-fix, 5 nits; verdict
+  "only minor findings remain". All addressed in `Review 032: implementation review round 1` and the
+  `Clarify 032:` commit.
+  - S1: the merge with `030`'s implementation recorded (T021, research R10); done when `030` merges.
+  - N2: an `attendee-rows` case for "1 ticket was checked in.".
+  - N3: `Attendees` clears the kept count when the event changes, so another event's count is never
+    shown or exported; a page test moves between two removed events.
+  - N4: the start-up unit test also fails if anything in `backend/src` but `main.ts` starts the job.
+  - N5: the 409's date is in the zone of the event's current venue, also when the request moves it
+    (code, a Backend test, research R6).
+  - N6: contracts/README.md says the shared types keep the field optional on purpose.
+  - After the fixes: admin-app 397/397 and customer-app 338/338, three runs each; the Backend's unit
+    suites and the three new retention integration suites once, 342/342 (23 suites); the new
+    Attendees case seen to fail with the fix taken out; `prettier --check .` and ESLint clean.

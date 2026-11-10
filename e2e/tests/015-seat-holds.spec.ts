@@ -1,6 +1,7 @@
 // Spec 015 quickstart S2: live gray-out. Two customers side by side on one seated event; seats one
 // reserves show as reserved on the other's open page within 2 seconds, without a reload (FR-006),
-// and turn open again within 2 seconds when released.
+// and turn open again within 2 seconds when released. Spec 033: the first customer's clicks hold
+// the seats, and clicking them again releases them.
 import { expect, test, type Page } from '@playwright/test';
 import { adminFor, customerFor } from '../fixtures/apps';
 import { apiFor, seatedEvent } from '../fixtures/api';
@@ -13,10 +14,9 @@ const LIVE_MS = 2_000;
 /** Opens the event, chooses General and Section A, and returns Section A's seats. */
 async function openSectionA(page: Page, eventId: string) {
   const tickets = page.getByRole('region', { name: 'Get tickets' });
-  await tickets.getByRole('radio', { name: /^General, \$20\.00/ }).check();
-  await tickets
-    .getByRole('combobox', { name: 'Section', exact: true })
-    .selectOption({ label: 'Section A' });
+  await tickets.getByRole('radio', { name: /^General, \$20\.00/ }).click();
+  await expect(tickets.getByRole('radio', { name: /^General, \$20\.00/ })).toBeChecked();
+  await tickets.getByRole('combobox', { name: 'Section' }).selectOption({ label: 'Section A' });
   const seats = tickets.getByRole('region', { name: 'Section A seats' });
   await expect(seats.getByRole('button', { name: 'Row 2, Seat 3', exact: true })).toBeEnabled();
   expect(page.url()).toContain(eventId);
@@ -67,13 +67,13 @@ test('015 S2: live gray-out, seats one customer reserves turn unavailable for an
   /** What is left of the 2 seconds since `since` (FR-006): every check shares one deadline. */
   const left = (since: number) => ({ timeout: Math.max(1, LIVE_MS - (Date.now() - since)) });
 
+  // Spec 033: each click holds the seat at once. The 2 seconds run from the second click, so
+  // they never span two holds one after another (review round 1, N6).
   await first.seats.getByRole('button', { name: 'Row 2, Seat 3', exact: true }).click();
   await first.seats.getByRole('button', { name: 'Row 2, Seat 4', exact: true }).click();
-  await first.tickets.getByLabel('Name on tickets').fill('Jordan Lee');
   const reservedAt = Date.now();
-  await first.tickets.getByRole('button', { name: 'Reserve seats' }).click();
 
-  // Never reloaded: within 2 seconds of the press, Customer 2 sees both seats Reserved and can't
+  // Never reloaded: within 2 seconds of the clicks, Customer 2 sees both seats Reserved and can't
   // choose them, and the Admin sees them ◩ with section A's counts.
   await Promise.all([
     ...[3, 4].map((seat) =>
@@ -94,11 +94,16 @@ test('015 S2: live gray-out, seats one customer reserves turn unavailable for an
     await expect(customerSeat(seat)).toBeDisabled();
     await expect(adminSeat(seat)).toHaveText('◩');
   }
-  await expect(first.tickets.getByRole('heading', { name: 'Reserved for you' })).toBeVisible();
+  await expect(first.tickets.getByRole('region', { name: 'Your seats' })).toBeVisible();
 
-  // Customer 1 releases them: within 2 seconds they are open again for Customer 2 and the Admin.
+  // Customer 1 releases them by clicking them: within 2 seconds they are open again for Customer 2
+  // and the Admin.
+  await expect(
+    first.seats.getByRole('button', { name: 'Row 2, Seat 4, reserved by you' }),
+  ).toBeVisible();
   const releasedAt = Date.now();
-  await first.tickets.getByRole('button', { name: 'Release seats' }).click();
+  await first.seats.getByRole('button', { name: 'Row 2, Seat 3, reserved by you' }).click();
+  await first.seats.getByRole('button', { name: 'Row 2, Seat 4, reserved by you' }).click();
   await Promise.all([
     ...[3, 4].map((seat) =>
       expect(customerSeat(seat)).toHaveAccessibleName(`Row 2, Seat ${seat}`, left(releasedAt)),

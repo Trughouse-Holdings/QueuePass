@@ -115,18 +115,22 @@ test('007 S3: a customer chooses seats and gets them', async ({ browser, page },
 
   await signIn(page, 'customer', customerFor(testInfo, 1), `/events/${event.id}`);
   const tickets = page.getByRole('region', { name: 'Get tickets' });
-  await tickets.getByRole('radio', { name: /^VIP, \$120\.00/ }).check();
-  await tickets
-    .getByRole('combobox', { name: 'Section', exact: true })
-    .selectOption({ label: 'Section A' });
+  await tickets.getByRole('radio', { name: /^VIP, \$120\.00/ }).click();
+  await expect(tickets.getByRole('radio', { name: /^VIP, \$120\.00/ })).toBeChecked();
+  await tickets.getByRole('combobox', { name: 'Section' }).selectOption({ label: 'Section A' });
   const seats = tickets.getByRole('region', { name: 'Section A seats' });
+  // Spec 033: each click holds the seat at once; the seats are bought from the cart.
   await seats.getByRole('button', { name: 'Row 1, Seat 5', exact: true }).click();
+  await expect(seats.getByRole('button', { name: 'Row 1, Seat 5, reserved by you' })).toBeVisible();
   await seats.getByRole('button', { name: 'Row 1, Seat 6', exact: true }).click();
+  await expect(seats.getByRole('button', { name: 'Row 1, Seat 6, reserved by you' })).toBeVisible();
   await expect(tickets.getByText('Total: $240.00')).toBeVisible();
-  await tickets.getByLabel('Name on tickets').fill('Jordan Lee');
-  // Spec 015: picked seats are reserved first, then bought.
-  await tickets.getByRole('button', { name: 'Reserve seats' }).click();
-  await tickets.getByRole('button', { name: 'Confirm purchase' }).click();
+  await tickets.getByRole('button', { name: 'Add to cart' }).click();
+  await page.getByRole('textbox', { name: 'Name on tickets' }).fill('Jordan Lee');
+  await page
+    .getByRole('region', { name: eventName })
+    .getByRole('button', { name: 'Buy tickets' })
+    .click();
 
   const confirmed = page.getByRole('region', { name: 'Order confirmed' });
   const codes = confirmed.getByRole('list', { name: 'Ticket codes' });

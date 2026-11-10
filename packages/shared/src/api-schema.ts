@@ -1468,11 +1468,11 @@ export interface components {
             /**
              * Format: date-time
              * @description Feature 032. When the Backend removed the check-in details of this event's tickets, at
-             *     or after `endsAt` plus 7 days; `null` until then. Always sent once 032 is implemented;
-             *     not listed as required so this contract can merge ahead of the implementation with the
-             *     suite green. Clients treat a missing value as `null`.
+             *     or after `endsAt` plus 7 days; `null` until then. Required from 1.24.0 once implemented
+             *     (feature 032's implementation); clients of an older Backend treat a missing value as
+             *     `null`.
              */
-            checkInDetailsRemovedAt?: string | null;
+            checkInDetailsRemovedAt: string | null;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -1769,10 +1769,10 @@ export interface components {
             /**
              * Format: date-time
              * @description Feature 032. As `Event.checkInDetailsRemovedAt`. When set, My tickets shows the order's
-             *     valid tickets as "Event over", with no entry code or printable ticket. Not listed as
-             *     required until 032 is implemented; clients treat a missing value as `null`.
+             *     valid tickets as "Event over", with no entry code or printable ticket. Required from
+             *     1.24.0 once implemented; clients of an older Backend treat a missing value as `null`.
              */
-            checkInDetailsRemovedAt?: string | null;
+            checkInDetailsRemovedAt: string | null;
             location: {
                 /** Format: uuid */
                 id: string;
@@ -2030,10 +2030,10 @@ export interface components {
             checkedIn: number;
             /**
              * Format: date-time
-             * @description Feature 032. As `Event.checkInDetailsRemovedAt`. Not listed as required until 032 is
-             *     implemented; clients treat a missing value as `null`.
+             * @description Feature 032. As `Event.checkInDetailsRemovedAt`. Required from 1.24.0 once implemented;
+             *     clients of an older Backend treat a missing value as `null`.
              */
-            checkInDetailsRemovedAt?: string | null;
+            checkInDetailsRemovedAt: string | null;
             /** @example 45.00 */
             revenue: string;
             tiers: components["schemas"]["TierSales"][];

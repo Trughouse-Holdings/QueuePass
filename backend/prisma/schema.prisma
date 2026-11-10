@@ -63,6 +63,11 @@ model Event {
   // event_no_overlap constraint applies only WHERE status = 'SCHEDULED' (migration SQL).
   status              EventStatus @default(SCHEDULED)
   cancelledAt         DateTime?   @db.Timestamptz(6)
+  // Spec 032 (research R4): when the check-in details of this event's tickets were removed, and
+  // how many of its valid tickets had been admitted then; both or neither
+  // (event_check_ins_removed_together, migration SQL). Only CheckInRetention writes them.
+  checkInDetailsRemovedAt DateTime? @db.Timestamptz(6)
+  keptCheckedInCount      Int?
   tiers               TicketTier[]
   orders              Order[]
   tickets             Ticket[]
@@ -168,7 +173,8 @@ model Ticket {
   code        String       @unique
   status      TicketStatus @default(VALID)
   checkedInAt DateTime?    @db.Timestamptz(6)
-  // Spec 017 research R3: who admitted it; both or neither, and only with checkedInAt.
+  // Spec 017 research R3: who admitted it; both or neither, and only with checkedInAt. All three
+  // emptied at the event's cutoff (spec 032).
   checkedInBySub      String?
   checkedInByUsername String?
   // Spec 018 research R1: the key for this ticket's live codes. Never selected unless named

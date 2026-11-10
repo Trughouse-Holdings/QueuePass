@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { Availability, Event, Location, MyOrder, Order, TicketTier } from '@queuepass/shared';
 import { AuthProvider, RequireRole } from '@queuepass/shared/web';
@@ -7,7 +7,8 @@ import { App } from '../src/App';
 import { releaseOnLogout } from '../src/release-on-logout';
 import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-user-manager';
 
-type Reply = Response | (() => Response | Promise<Response>) | 'network-error';
+/** A route's answer; a function is given the request (spec 033: the hold backend reads it). */
+type Reply = Response | ((req: Request) => Response | Promise<Response>) | 'network-error';
 
 /** A JSON response, as the Backend would send it. */
 export const json = (body: unknown, status = 200): Response =>
@@ -57,7 +58,7 @@ export function stubApi(routes: Record<string, Reply> = {}) {
     if (reply === undefined)
       return json({ error: { code: 'NOT_FOUND', message: 'unstubbed' } }, 404);
     if (reply === 'network-error') throw new TypeError('Failed to fetch');
-    const res = typeof reply === 'function' ? await reply() : reply;
+    const res = typeof reply === 'function' ? await reply(req.clone()) : reply;
     return res.clone();
   });
   vi.stubGlobal('fetch', fetchMock);
@@ -262,6 +263,76 @@ export function seatStream() {
     },
     get connects() {
       return connects;
+    },
+  };
+}
+
+/** A seat as hold and release requests name it. */
+type HeldPlace = { sectionId: string; row: number; seat: number };
+
+/**
+ * Spec 033 (research R6): the Backend as it answers seat clicks on event `e1`, one reservation of
+ * `tierId`: each hold adds its seats (201 for the first, 200 after), each release removes them and
+ * ends the reservation with the last. With `manual`, each answer waits for `answer()`, so a test
+ * can see the click queue. `sections` names each section id, as reservations show it.
+ */
+export function holdBackend(
+  opts: {
+    sections?: Record<string, string>;
+    tierId?: string | null;
+    secondsLeft?: number;
+    manual?: boolean;
+  } = {},
+) {
+  const sections = opts.sections ?? { 's-a': 'A' };
+  let held: HeldPlace[] = [];
+  const waiting: (() => void)[] = [];
+  const later = (make: () => Response): Promise<Response> =>
+    opts.manual
+      ? new Promise((resolve) => waiting.push(() => resolve(make())))
+      : Promise.resolve(make());
+  const same = (a: HeldPlace, b: HeldPlace) =>
+    a.sectionId === b.sectionId && a.row === b.row && a.seat === b.seat;
+  const reservationOf = (list: HeldPlace[]) => ({
+    eventId: 'e1',
+    tierId: opts.tierId === undefined ? 't-vip' : opts.tierId,
+    seats: list.map((s) => ({ ...s, section: sections[s.sectionId] ?? '?' })),
+    createdAt: '2026-10-20T19:00:00.000Z',
+    expiresAt: '2026-10-20T19:05:00.000Z',
+    secondsLeft: opts.secondsLeft ?? 300,
+  });
+  const seatsOf = async (req: Request): Promise<HeldPlace[]> => {
+    const text = await req.clone().text();
+    return ((text ? JSON.parse(text) : null)?.seats ?? []) as HeldPlace[];
+  };
+  const order = (a: HeldPlace, b: HeldPlace) =>
+    a.sectionId.localeCompare(b.sectionId) || a.row - b.row || a.seat - b.seat;
+  return {
+    /** The seats held now, as `row-seat` (any section). */
+    held: () => held.map((s) => `${s.row}-${s.seat}`),
+    answer: async () => {
+      await vi.waitFor(() => {
+        if (waiting.length === 0) throw new Error('no answer is waiting');
+      });
+      await act(async () => waiting.shift()?.());
+    },
+    routes: {
+      'GET /me/reservations': () => json(held.length ? [reservationOf(held)] : []),
+      'POST /events/e1/reservation': async (req: Request) => {
+        const seats = await seatsOf(req);
+        return later(() => {
+          const created = held.length === 0;
+          held = [...held, ...seats].sort(order);
+          return json(reservationOf(held), created ? 201 : 200);
+        });
+      },
+      'POST /events/e1/reservation/release': async (req: Request) => {
+        const seats = await seatsOf(req);
+        return later(() => {
+          held = held.filter((h) => !seats.some((s) => same(s, h)));
+          return json({ reservation: held.length ? reservationOf(held) : null });
+        });
+      },
     },
   };
 }

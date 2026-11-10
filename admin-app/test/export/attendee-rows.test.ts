@@ -141,4 +141,51 @@ describe('attendeeTable', () => {
     expect(t.rows[0][0]).toEqual(d('2026-09-30T11:00'));
     expect(t.subtitle[2]).toBe("Times are in Eastern Time (the venue's time zone).");
   });
+
+  describe('a removed event (spec 032 US3-2; FR-012, research R8)', () => {
+    const REMOVED = { ...CHICAGO_EVENT, checkInDetailsRemovedAt: '2026-11-10T03:00:00Z' };
+    const SENTENCE = 'Check-in details removed on Nov 9, 2026 (kept for 7 days after the event).';
+
+    it('keeps the Checked in column, empty in every row', () => {
+      const t = attendeeTable(REMOVED, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York', 3);
+      expect(t.columns[7].header).toBe('Checked in');
+      expect(t.rows.length).toBe(table().rows.length);
+      for (const row of t.rows) expect(row[7]).toEqual(d(''));
+      // Every other cell is as before.
+      expect(t.rows.map((r) => [...r.slice(0, 7), ...r.slice(8)])).toEqual(
+        table().rows.map((r) => [...r.slice(0, 7), ...r.slice(8)]),
+      );
+    });
+
+    it('adds the sentence and the kept count to the heading lines', () => {
+      const t = attendeeTable(REMOVED, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York', 3);
+      expect(t.subtitle).toEqual([
+        'Made at Oct 30, 2026, 2:05 PM EDT',
+        'Made by admin1',
+        SENTENCE,
+        '3 tickets were checked in.',
+        "Times are in Central Time (the venue's time zone).",
+      ]);
+    });
+
+    it('says "1 ticket was checked in." for a count of one (review round 1)', () => {
+      const t = attendeeTable(REMOVED, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York', 1);
+      expect(t.subtitle).toContain('1 ticket was checked in.');
+      expect(t.subtitle.join(' ')).not.toContain('tickets were');
+    });
+
+    it('adds the sentence only when the count could not be read', () => {
+      const t = attendeeTable(REMOVED, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York');
+      expect(t.subtitle).toContain(SENTENCE);
+      expect(t.subtitle.join(' ')).not.toMatch(/checked in\./);
+      expect(t.subtitle).toHaveLength(4);
+    });
+
+    it('is as today for an event not removed (US3-3)', () => {
+      const kept = { ...CHICAGO_EVENT, checkInDetailsRemovedAt: null };
+      expect(attendeeTable(kept, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York', 3)).toEqual(
+        table(),
+      );
+    });
+  });
 });

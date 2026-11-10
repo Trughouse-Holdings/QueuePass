@@ -7,7 +7,7 @@ import {
   type Order,
   type Ticket,
 } from '@queuepass/shared';
-import { seatLabel } from '../format';
+import { removedNote, seatLabel } from '../format';
 import { deviceZone, madeLines } from './made';
 import type { Cell, ExportColumn, ExportTable } from './table';
 
@@ -37,6 +37,9 @@ const COLUMNS: ExportColumn[] = [
 /**
  * Spec 023 FR-004 (data-model.md): one row per ticket, carrying its order's details, in the
  * page's order (the Backend's, oldest order first). Every time is in the venue's zone (R4).
+ * Spec 032 FR-012 (research R8): for an event whose check-in details were removed, the Checked in
+ * column stays, empty in every row, and the heading lines say so, with `keptCheckedIn`, the
+ * report's kept count, when it could be read.
  */
 export function attendeeTable(
   event: Event,
@@ -44,10 +47,24 @@ export function attendeeTable(
   madeAt: InstantLike,
   madeBy: string,
   adminZone: string = deviceZone(),
+  keptCheckedIn?: number | null,
 ): ExportTable {
   const zone = event.location.timeZone ?? DEFAULT_TIME_ZONE;
   const local = (iso: string | null): Cell => dateTime(iso ? toLocalDateTime(iso, zone) : '');
   const made = madeLines(madeAt, madeBy, adminZone);
+  const removedAt = event.checkInDetailsRemovedAt ?? null;
+  const removed = removedAt
+    ? [
+        removedNote(removedAt, zone),
+        ...(keptCheckedIn == null
+          ? []
+          : [
+              keptCheckedIn === 1
+                ? '1 ticket was checked in.'
+                : `${keptCheckedIn.toLocaleString('en-US')} tickets were checked in.`,
+            ]),
+      ]
+    : [];
 
   const rows = orders.flatMap((o) =>
     o.tickets.map((t): Cell[] => [
@@ -59,7 +76,7 @@ export function attendeeTable(
       text(t.code),
       text(TICKET_STATUS[t.status]),
       // Research R13b: a void ticket shows no check-in, as the page shows only "(void)".
-      local(t.status === 'VOID' ? null : t.checkedInAt),
+      local(t.status === 'VOID' || removedAt ? null : t.checkedInAt),
       text(ORDER_STATUS[o.status]),
       { kind: 'money', value: o.unitPrice },
       text(o.id.slice(0, 8).toUpperCase()),
@@ -68,7 +85,11 @@ export function attendeeTable(
 
   return {
     title: `Attendees: ${event.name}`,
-    subtitle: [...made.lines, `Times are in ${zoneName(zone)} (the venue's time zone).`],
+    subtitle: [
+      ...made.lines,
+      ...removed,
+      `Times are in ${zoneName(zone)} (the venue's time zone).`,
+    ],
     madeAt: made.madeAt,
     sheetName: 'Attendees',
     columns: COLUMNS,

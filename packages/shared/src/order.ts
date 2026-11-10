@@ -52,6 +52,11 @@ export interface OrderEvent {
   /** Spec 025 FR-010: when the venue's doors open; required from contract 1.18.1. */
   doorsOpenAt: string;
   status: EventStatus;
+  /**
+   * Spec 032 FR-014: when the event's check-in details were removed; set, My tickets shows its
+   * valid tickets as "Event over". A missing value means `null`.
+   */
+  checkInDetailsRemovedAt?: string | null;
   location: {
     id: string;
     name: string;
@@ -133,7 +138,10 @@ export interface EventSales {
   status: EventStatus;
   ticketCapacity: number;
   ticketsSold: number;
+  /** Spec 032 FR-009: 0 when cancelled, else the kept count once removed, else the live count. */
   checkedIn: number;
+  /** Spec 032 FR-009: when the event's check-in details were removed; a missing value means `null`. */
+  checkInDetailsRemovedAt?: string | null;
   revenue: string;
   tiers: TierSales[];
 }

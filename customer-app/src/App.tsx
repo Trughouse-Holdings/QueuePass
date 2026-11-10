@@ -1,5 +1,6 @@
 import { Link, NavLink, Route, Routes } from 'react-router-dom';
 import { LogoutButton } from '@queuepass/shared/web';
+import { Cart } from './pages/Cart';
 import { EventList } from './pages/EventList';
 import { EntryCode } from './pages/EntryCode';
 import { EventDetail } from './pages/EventDetail';
@@ -10,8 +11,8 @@ import { VenueDetail } from './pages/VenueDetail';
 
 /**
  * QueuePass for customers: every venue and event (spec 003), getting tickets and My tickets
- * (spec 006). main.tsx puts this behind sign-in and the customer role (spec 001), so no route
- * renders without both.
+ * (spec 006), and the cart of held seats (spec 033). main.tsx puts this behind sign-in and the
+ * customer role (spec 001), so no route renders without both.
  */
 /** Spec 008: the Admin app's nav classes, so the current page is marked (research R2). */
 const navClass = ({ isActive }: { isActive: boolean }): string =>
@@ -34,6 +35,10 @@ export function App() {
             <NavLink to="/my-tickets" className={navClass}>
               My tickets
             </NavLink>
+            {/* Spec 033 FR-012: the cart, the customer's active reservations. */}
+            <NavLink to="/cart" className={navClass}>
+              Cart
+            </NavLink>
           </nav>
           <LogoutButton />
         </div>
@@ -47,6 +52,8 @@ export function App() {
           <Route path="/venues" element={<VenueList />} />
           <Route path="/venues/:id" element={<VenueDetail />} />
           <Route path="/my-tickets" element={<MyTickets />} />
+          {/* Spec 033 FR-012: held seats, bought from here. */}
+          <Route path="/cart" element={<Cart />} />
           {/* Spec 017 FR-012: the printable ticket. */}
           <Route path="/my-tickets/:ticketId/print" element={<PrintTicket />} />
           {/* Spec 018 FR-001: the live entry code. */}
