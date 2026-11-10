@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import type { Event } from '@queuepass/shared';
 import { ImageGallery, ServiceUnreachable } from '@queuepass/shared/web';
 import { GetTickets } from '../components/GetTickets';
-import { count, doorsOpen, usd, when } from '../format';
+import { count, doorsOpen, hasEnded, usd, when } from '../format';
 import { useLoad } from '../use-load';
 
 /**
@@ -11,9 +11,11 @@ import { useLoad } from '../use-load';
  */
 export function EventDetail() {
   const { id = '' } = useParams();
-  const load = useLoad<Event>(`event:${id}`, (api) =>
-    api.GET('/events/{id}', { params: { path: { id } } }),
-  );
+  // Spec 030 research R7: the time is read once, when the event loads, and kept with it.
+  const load = useLoad<{ event: Event; loadedAt: number }>(`event:${id}`, async (api) => {
+    const { data, response } = await api.GET('/events/{id}', { params: { path: { id } } });
+    return { response, data: data && { event: data, loadedAt: Date.now() } };
+  });
 
   if (load.kind === 'loading') return <p>Loading…</p>;
   if (load.kind === 'unreachable') return <ServiceUnreachable />;
@@ -26,7 +28,7 @@ export function EventDetail() {
     );
   }
 
-  const e = load.data;
+  const e = load.data.event;
   return (
     <section>
       {/* Spec 014 FR-021: the event's images across the full width of the app, above its name. */}
@@ -40,6 +42,12 @@ export function EventDetail() {
       {e.status === 'CANCELLED' && (
         <p>
           <strong>This event has been cancelled.</strong>
+        </p>
+      )}
+      {/* Spec 030 FR-014 (research R7): a past event's page still opens, and says so. */}
+      {hasEnded(e.endsAt, load.data.loadedAt) && (
+        <p>
+          <strong>This event has ended.</strong>
         </p>
       )}
       <div className="card">

@@ -1,4 +1,5 @@
 import { HttpException } from '@nestjs/common';
+import { systemClock } from '../../src/common/clock';
 import { EventsService } from '../../src/events/events.service';
 import type { PrismaService } from '../../src/prisma/prisma.service';
 import type { SeatEventsService } from '../../src/seating/seat-events.service';
@@ -28,7 +29,11 @@ describe('EventsService.update when the event keeps moving venue', () => {
       event: { findUnique: jest.fn().mockResolvedValue({ locationId: 'venue-a' }) },
       $transaction: jest.fn(async (fn: (t: unknown) => unknown) => fn(tx)),
     };
-    const service = new EventsService(prisma as unknown as PrismaService, {} as SeatEventsService);
+    const service = new EventsService(
+      prisma as unknown as PrismaService,
+      {} as SeatEventsService,
+      systemClock,
+    );
 
     const err = await service.update('e1', { name: 'Renamed' }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(HttpException);

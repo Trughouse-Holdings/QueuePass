@@ -43,8 +43,9 @@ it proves.
    offered. Choose Demo Tonight and admit one of its tickets (a code from the Admin app's attendee
    list). **Expected**: admitted.
 2. Customer app, as `customer1`. **Expected**: Fall Concert and Comedy Night on sale; Holiday Gala
-   cancelled; Season Opener shows "Sales closed"; My tickets is empty (the earlier orders were
-   removed; demo orders belong to stand-in identities).
+   cancelled; Season Opener is not listed (spec `030` leaves past events out), and its page, opened
+   by its link (from the Admin app, or its Reports row), shows "Sales closed"; My tickets is empty
+   (the earlier orders were removed; demo orders belong to stand-in identities).
 
 ## S3. The same state again (US2; SC-003)
 

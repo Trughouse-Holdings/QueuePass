@@ -4,6 +4,10 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventDetail } from '../src/pages/EventDetail';
 import { json, seatStream, stubApi } from './helpers/api-stub';
 import { EVENT } from './fixtures-005';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 015 (FR-010, FR-012, FR-013; research R14): the Admin app's event seat map shows reserved

@@ -49,6 +49,12 @@ export const doorsOpen = (
 ): string => formatDoorsOpen(startsAt, doorsOpenAt, timeZone || DEFAULT_TIME_ZONE);
 
 /**
+ * Spec 030 FR-001 (research R6): an event is past from the instant `now` reaches its end
+ * (half-open), whatever its status.
+ */
+export const hasEnded = (endsAt: string, now: number): boolean => Date.parse(endsAt) <= now;
+
+/**
  * Spec 032 FR-010, FR-011 (research R7): "Check-in details removed on Nov 9, 2026 (kept for 7 days
  * after the event).", the date in the venue's zone, the days from `CHECK_IN_RETENTION_DAYS`.
  */

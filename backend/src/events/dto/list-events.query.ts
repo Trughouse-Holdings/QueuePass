@@ -1,9 +1,10 @@
-import { IsISO8601, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
+import { IsIn, IsISO8601, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-validator';
 
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
- * GET /events filters (spec 002 `locationId`; spec 004 FR-006 `q`, `from`, `to`). Unknown
+ * GET /events filters (spec 002 `locationId`; spec 004 FR-006 `q`, `from`, `to`; spec 030
+ * `includePast`). Unknown
  * parameters are refused by the global ValidationPipe (forbidNonWhitelisted).
  */
 export class ListEventsQuery {
@@ -37,4 +38,13 @@ export class ListEventsQuery {
   @Matches(DATE_ONLY, { message: 'toDate must be a date, YYYY-MM-DD' })
   @IsISO8601({ strict: true }, { message: 'toDate must be a date, YYYY-MM-DD' })
   toDate?: string;
+
+  /**
+   * Spec 030 FR-002, FR-003 (research R3): `true` also lists past events; left out or `false`,
+   * they are left out. Query values stay strings (no implicit conversion), so `TRUE`, `1`, `yes`,
+   * or an empty value is refused.
+   */
+  @IsOptional()
+  @IsIn(['true', 'false'], { message: 'includePast must be true or false' })
+  includePast?: 'true' | 'false';
 }

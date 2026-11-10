@@ -79,9 +79,11 @@ describe('Event date filters by venue day (spec 020 FR-020)', () => {
   });
 
   const names = async (query: string) =>
-    ((await asAdmin(ctx).get(`/events?${query}`).expect(200)).body as { name: string }[]).map(
-      (e) => e.name,
-    );
+    (
+      (await asAdmin(ctx).get(`/events?${query}&includePast=true`).expect(200)).body as {
+        name: string;
+      }[]
+    ).map((e) => e.name);
 
   it('Oct 1 to Oct 1 is every event starting on Oct 1 at its venue, soonest first', async () => {
     expect(await names('fromDate=2026-10-01&toDate=2026-10-01')).toEqual([

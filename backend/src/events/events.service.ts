@@ -2,6 +2,7 @@ import {
   BadRequestException,
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -17,6 +18,7 @@ import {
   localDate,
   type UsTimeZone,
 } from '@queuepass/shared';
+import { CLOCK, type Clock } from '../common/clock';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
 import { searchText } from '../common/search-text';
@@ -92,6 +94,7 @@ export class EventsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly seatEvents: SeatEventsService,
+    @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
   private toResponse(event: EventWithLocation): EventResponse {
@@ -190,6 +193,9 @@ export class EventsService {
         ? { startsAt: { ...(from ? { gte: from } : {}), ...(to ? { lt: to } : {}) } }
         : {}),
       ...(days ? { startsAt: days.window } : {}),
+      // Spec 030 FR-001, FR-002 (research R1, R2): past from the instant the Backend's clock
+      // reaches `endsAt` (half-open), whatever the status; left out unless asked for.
+      ...(query.includePast === 'true' ? {} : { endsAt: { gt: new Date(this.clock.now()) } }),
     };
     const events = await this.prisma.event.findMany({
       where,

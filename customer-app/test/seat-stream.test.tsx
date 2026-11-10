@@ -1,7 +1,19 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { Reservation, SeatMap } from '@queuepass/shared';
-import { availability, event, json, renderCustomer, seatStream, stubApi, tier } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  renderCustomer,
+  seatStream,
+  stubApi,
+  tier,
+  fixTimeBeforeFixtures,
+} from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 015 US3 (FR-010–FR-012; research R9, R13): the Customer app's seat map is live. Another

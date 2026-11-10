@@ -8,6 +8,10 @@ import { EventForm } from '../src/pages/EventForm';
 import { deleteEvent } from '../src/api/events';
 import conflict409 from './fixtures/conflict-409.json';
 import { json, stubApi } from './helpers/api-stub';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /** Spec 002 FR-010, FR-026, FR-027, US2-8; research R4, R5. */
 const VENUE = {

@@ -227,7 +227,9 @@ confirm they **fail** before the implementation tasks of Phase 3.
   neither link; a past event not removed keeps "Print ticket", `030` FR-016); `030`'s Past section and
   `h3` cards kept; `events.service.ts` keeps both sides' imports and constructor (`030` injects
   `CLOCK`); `customer-app/test/check-ins-removed.test.tsx`'s not-removed case uses `030`'s
-  `fixTimeBeforeFixtures()`.
+  `fixTimeBeforeFixtures()`. **Done** when merging `main` at `0f35df9` (`030` merged as PR #149), as planned; two
+  Customer cases added: a past event not removed keeps "Print ticket" without "Show entry code", and
+  a removed event under Past shows "Event over" and no links.
 
 ---
 

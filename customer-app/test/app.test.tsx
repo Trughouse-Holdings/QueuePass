@@ -2,7 +2,18 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { screen } from '@testing-library/react';
-import { availability, event, json, renderCustomer, stubApi, venue } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  renderCustomer,
+  stubApi,
+  venue,
+  fixTimeBeforeFixtures,
+} from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 001 US2, spec 003 US3, and spec 006 FR-009: the sign-in gate, wrong-role refusal, and

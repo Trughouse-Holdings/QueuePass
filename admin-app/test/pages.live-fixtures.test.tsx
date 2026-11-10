@@ -12,6 +12,10 @@ import events from './fixtures/events.json';
 import conflict409 from './fixtures/conflict-409.json';
 import validation400 from './fixtures/validation-400.json';
 import capacity409 from './fixtures/capacity-409.json';
+import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * UI verification against payloads CAPTURED FROM THE LIVE BACKEND, not hand-written

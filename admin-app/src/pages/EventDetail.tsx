@@ -10,12 +10,12 @@ import { SalesCard } from '../components/SalesCard';
 import { SeatingCard } from '../components/SeatingCard';
 import { SuccessState } from '../components/SuccessState';
 import { TierSection } from '../components/TierSection';
-import { doorsOpen, when } from '../format';
+import { doorsOpen, hasEnded, when } from '../format';
 import { useDelete } from '../hooks/use-delete';
 
 type Load =
   | { kind: 'loading' }
-  | { kind: 'ok'; event: Event }
+  | { kind: 'ok'; event: Event; loadedAt: number }
   | { kind: 'missing' }
   | { kind: 'unreachable' };
 
@@ -30,7 +30,8 @@ export function EventDetail(): React.ReactElement {
   useEffect(() => {
     let cancelled = false;
     getEvent(id)
-      .then((event) => !cancelled && setLoad({ kind: 'ok', event }))
+      // Spec 030 FR-012 (research R6): the time is read when the event loads.
+      .then((event) => !cancelled && setLoad({ kind: 'ok', event, loadedAt: Date.now() }))
       .catch((err: unknown) => {
         if (cancelled) return;
         setLoad(
@@ -61,14 +62,23 @@ export function EventDetail(): React.ReactElement {
       </section>
     );
   }
-  return <EventView event={load.event} onChange={(event) => setLoad({ kind: 'ok', event })} />;
+  return (
+    <EventView
+      event={load.event}
+      ended={hasEnded(load.event.endsAt, load.loadedAt)}
+      onChange={(event) => setLoad({ kind: 'ok', event, loadedAt: Date.now() })}
+    />
+  );
 }
 
 function EventView({
   event,
+  ended,
   onChange,
 }: {
   event: Event;
+  /** Spec 030 FR-011: whether the event had ended when it loaded. */
+  ended: boolean;
   onChange: (event: Event) => void;
 }): React.ReactElement {
   const cancelled = event.status === 'CANCELLED';
@@ -106,7 +116,8 @@ function EventView({
       <div className="page-head">
         <div>
           <h1 className="page-title">
-            {event.name} {cancelled && <span className="pill pill--danger">Cancelled</span>}
+            {event.name} {cancelled && <span className="pill pill--danger">Cancelled</span>}{' '}
+            {ended && <span className="pill">Ended</span>}
           </h1>
         </div>
         <div className="form__actions">

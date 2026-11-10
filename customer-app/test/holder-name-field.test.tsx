@@ -1,7 +1,19 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import type { Reservation, SeatMap } from '@queuepass/shared';
-import { availability, event, json, order, renderCustomer, stubApi, tier } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  order,
+  renderCustomer,
+  stubApi,
+  tier,
+  fixTimeBeforeFixtures,
+} from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 017 US4 (FR-001–FR-003; research R2, R12): the Name on tickets field, validated with the

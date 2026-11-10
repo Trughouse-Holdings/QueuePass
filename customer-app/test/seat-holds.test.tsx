@@ -12,7 +12,11 @@ import {
   stubApi,
   tier,
   typeHolderName,
+  fixTimeBeforeFixtures,
 } from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 015 US1 (FR-001, FR-002, FR-005–FR-008, FR-012; research R13): pick seats, press Reserve

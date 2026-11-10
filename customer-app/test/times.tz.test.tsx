@@ -1,7 +1,19 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import { keyToBase64url, type Location } from '@queuepass/shared';
-import { availability, event, json, myOrder, renderCustomer, stubApi, venue } from './helpers';
+import {
+  availability,
+  event,
+  json,
+  myOrder,
+  renderCustomer,
+  stubApi,
+  venue,
+  fixTimeBeforeFixtures,
+} from './helpers';
+
+// Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
+fixTimeBeforeFixtures();
 
 /**
  * Spec 020 US1 (FR-021, FR-022, SC-002, SC-003; research R12): every event time in the Customer
