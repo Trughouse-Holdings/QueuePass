@@ -279,9 +279,11 @@ all in range.
   hour after now, today** (strictly after, so 1:00:00 PM gives 2:00 PM; late at night that is
   tomorrow) and **Ends 4 elapsed hours later**, in the default zone until a venue is chosen; Doors
   open then takes FR-003's default. A repeated local time the defaults land on is already chosen
-  (`020`). Until the admin changes Starts, choosing a venue recomputes the defaults in that venue's
-  zone. Until the admin changes Ends, Ends follows a start that names one moment, 4 elapsed hours
-  later; once changed, it stays. An edit is unchanged: it shows the stored times.
+  (`020`). While the admin has changed none of Starts, Ends, and the doors mode, choosing a venue
+  recomputes the defaults in that venue's zone; after any of those changes, every typed time stays
+  as typed (`020` FR-015). Until the admin changes Ends, Ends follows a start that names one
+  moment, 4 elapsed hours later; once changed, it stays. Choosing which of a repeated time counts
+  as a change to that field. An edit is unchanged: it shows the stored times.
 
 ### Key Entities
 

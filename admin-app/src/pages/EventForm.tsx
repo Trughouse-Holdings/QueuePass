@@ -917,10 +917,13 @@ export function EventForm(): React.ReactElement {
     const time = formatLocalTime(local);
     const choose = (value: Occurrence) => {
       setOccurrence((o) => ({ ...o, [field]: value }));
+      // FR-017: choosing which of a repeated time is a change to that field.
       if (field === 'startsAt') {
+        setStartsTouched(true);
         applyDoorsOffset(startsAt, value);
         followEnd(startsAt, value);
       }
+      if (field === 'endsAt') setEndsTouched(true);
     };
     return (
       <fieldset className="field" data-testid={`${field}-occurrence`}>
@@ -1224,15 +1227,16 @@ export function EventForm(): React.ReactElement {
                   const next = venues.find((v) => v.id === e.target.value);
                   if (!next) return;
                   const zone = next.timeZone ?? DEFAULT_TIME_ZONE;
-                  if (!startsTouched && !isEdit) {
-                    // Spec 036 FR-017: untouched defaults are recomputed in the venue's zone.
+                  if (!isEdit && !startsTouched && !endsTouched && doorsMode === 'before') {
+                    // Spec 036 FR-017: while no time has been changed, the defaults are
+                    // recomputed in the venue's zone. Once one has, every typed time stays (020).
                     const fresh = newEventTimes(new Date(), zone);
                     setStartsAt(fresh.startsAt);
-                    if (!endsTouched) setEndsAt(fresh.endsAt);
+                    setEndsAt(fresh.endsAt);
                     setOccurrence((o) => ({
                       ...o,
                       startsAt: fresh.occurrence.startsAt,
-                      endsAt: endsTouched ? '' : fresh.occurrence.endsAt,
+                      endsAt: fresh.occurrence.endsAt,
                     }));
                     applyDoorsOffset(fresh.startsAt, fresh.occurrence.startsAt, zone);
                     return;

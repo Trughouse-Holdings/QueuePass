@@ -143,3 +143,50 @@ describe('Ends follows the start until it is changed (FR-017)', () => {
     expectLocalDateTime('Ends', '2026-11-20T23:00');
   });
 });
+
+describe('review round 1: a venue change after a time was changed keeps typed times (FR-017)', () => {
+  it('a changed Ends: Starts and Ends keep their local times, so the length is kept', async () => {
+    at('2026-11-10T17:41:00Z');
+    newForm();
+    setLocalDateTime('Ends', '2026-11-10T18:00');
+    await pickVenue();
+    expectLocalDateTime('Starts', '2026-11-10T13:00');
+    expectLocalDateTime('Ends', '2026-11-10T18:00');
+  });
+
+  it('doors switched to At a set time: Starts and doors keep their local times, no range message', async () => {
+    at('2026-11-10T17:41:00Z');
+    newForm();
+    fireEvent.click(screen.getByLabelText('At a set time'));
+    expectLocalDateTime('Doors open', '2026-11-10T12:00');
+    await pickVenue();
+    expectLocalDateTime('Starts', '2026-11-10T13:00');
+    expectLocalDateTime('Doors open', '2026-11-10T12:00');
+    expect(screen.queryByTestId('doorsOpenAt-range')).toBeNull();
+  });
+});
+
+describe('review round 1: repeated times (FR-017)', () => {
+  it('choosing the other repeated start moves Ends with it, 4 elapsed hours later', async () => {
+    at('2027-11-07T05:30:00Z'); // 12:30 AM CDT in Chicago
+    newForm();
+    await pickVenue();
+    expectLocalDateTime('Ends', '2027-11-07T04:00');
+    fireEvent.click(
+      within(screen.getByTestId('startsAt-occurrence')).getByLabelText(
+        '1:00 AM CST (the second time)',
+      ),
+    );
+    // 1:00 AM CST is 07:00Z; 4 hours later is 11:00Z, 5:00 AM CST.
+    expectLocalDateTime('Ends', '2027-11-07T05:00');
+  });
+
+  it('Ends follows an edited start in elapsed time across a fall-back night', async () => {
+    at('2026-11-10T17:41:00Z');
+    newForm();
+    await pickVenue();
+    // 11:00 PM CDT on Nov 6, 2027 is 04:00Z; 4 hours later is 08:00Z, 2:00 AM CST.
+    setLocalDateTime('Starts', '2027-11-06T23:00');
+    expectLocalDateTime('Ends', '2027-11-07T02:00');
+  });
+});
