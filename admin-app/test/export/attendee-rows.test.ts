@@ -168,6 +168,12 @@ describe('attendeeTable', () => {
       ]);
     });
 
+    it('says "1 ticket was checked in." for a count of one (review round 1)', () => {
+      const t = attendeeTable(REMOVED, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York', 1);
+      expect(t.subtitle).toContain('1 ticket was checked in.');
+      expect(t.subtitle.join(' ')).not.toContain('tickets were');
+    });
+
     it('adds the sentence only when the count could not be read', () => {
       const t = attendeeTable(REMOVED, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York');
       expect(t.subtitle).toContain(SENTENCE);

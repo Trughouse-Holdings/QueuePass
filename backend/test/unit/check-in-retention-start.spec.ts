@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { CheckInRetention, retentionBound } from '../../src/entry/check-in-retention';
 
@@ -18,6 +18,20 @@ describe('CheckInRetention start-up', () => {
   it('is started by main.ts', () => {
     const main = readFileSync(path.resolve(__dirname, '../../src/main.ts'), 'utf8');
     expect(main).toMatch(/app\.get\(CheckInRetention\)\.start\(\)/);
+  });
+
+  it('is started nowhere else in the Backend source (review round 1)', () => {
+    const src = path.resolve(__dirname, '../../src');
+    const files = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const full = path.join(dir, name);
+        return statSync(full).isDirectory() ? files(full) : full.endsWith('.ts') ? [full] : [];
+      });
+    const starting = files(src).filter((f) => {
+      const text = readFileSync(f, 'utf8');
+      return /CheckInRetention\)?\.start\(\)|retention\w*\.start\(\)/i.test(text);
+    });
+    expect(starting.map((f) => path.relative(src, f))).toEqual(['main.ts']);
   });
 });
 

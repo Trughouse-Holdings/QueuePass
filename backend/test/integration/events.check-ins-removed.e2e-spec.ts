@@ -1,5 +1,6 @@
 import { formatEventDate, type UsTimeZone } from '@queuepass/shared';
 import { asAdmin } from '../setup/authed-request';
+import { PLACES } from '../setup/fake-geocoder';
 import { atInstant, customer, event, HOLDER, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
@@ -81,6 +82,41 @@ describe('A removed event stays closed', () => {
         .expect(409);
       // 03:00 UTC on Nov 10 is the evening of Nov 9 in every US zone.
       expect(res.body.error.message).toContain('removed on Nov 9, 2026,');
+    });
+
+    it("dates the removal in the event's current venue zone when the request also moves it (review round 1)", async () => {
+      // 05:30 UTC on Nov 10: Nov 10 in Eastern time, still Nov 9 in Arizona.
+      await ctx.prisma.$executeRaw`
+        UPDATE "Event" SET "checkInDetailsRemovedAt" = ${new Date('2026-11-10T05:30:00Z')}::timestamptz
+        WHERE "id" = ${id}::uuid`;
+      ctx.geocoder.placeAt(PLACES.phoenix);
+      const phoenix = (
+        await asAdmin(ctx)
+          .post('/locations')
+          .send({
+            name: 'Phoenix Hall',
+            street: '201 E Jefferson St',
+            city: 'Phoenix',
+            state: 'AZ',
+            zip: '85004',
+            seatingCapacity: 500,
+          })
+          .expect(201)
+      ).body;
+      ctx.geocoder.reset();
+      expect(phoenix.timeZone).toBe('America/Phoenix');
+      expect(zone).toBe('America/New_York');
+
+      const res = await asAdmin(ctx)
+        .patch(`/events/${id}`)
+        .send({
+          locationId: phoenix.id,
+          startsAt: atInstant(START, 'America/Phoenix'),
+          endsAt: atInstant(END + HOUR, 'America/Phoenix'),
+        })
+        .expect(409);
+      expect(res.body.error.code).toBe('CHECK_IN_DETAILS_REMOVED');
+      expect(res.body.error.message).toContain('removed on Nov 10, 2026,');
     });
 
     it('accepts the stored instants with a new name', async () => {

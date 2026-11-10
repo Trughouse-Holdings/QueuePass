@@ -216,10 +216,18 @@ confirm they **fail** before the implementation tasks of Phase 3.
   **Pending**: not walked by the implementing session. `-p qp032` needs the fixed ports the team
   stack holds, and the ground rules allow stopping it only with Mahdi's go in the session; no browser
   test covers `032` (quickstart Automation), so there was no CI-only path to it either.
-- [ ] T020 Independent review (Constitution III) of the implementation branch by a Claude session that
+- [x] T020 Independent review (Constitution III) of the implementation branch by a Claude session that
   did not write it; fix the findings; record them below.
+  **Done**: round 1 on PR #151, recorded below; every finding fixed.
 - [ ] T021 Open the PR (`fixes #129` in the description, the review record, the walk), after the spec
   PR has merged; CI green.
+  PR #151 opened by the coordinating session. **Merge with `030`** (PR #149, likely first; research
+  R10, review round 1 S1): `MyTickets.tsx` links under `t.status === 'VALID' && t.checkedInAt === null
+  && !removed`, with `030`'s `!ended` inside guarding only "Show entry code" (a removed event shows
+  neither link; a past event not removed keeps "Print ticket", `030` FR-016); `030`'s Past section and
+  `h3` cards kept; `events.service.ts` keeps both sides' imports and constructor (`030` injects
+  `CLOCK`); `customer-app/test/check-ins-removed.test.tsx`'s not-removed case uses `030`'s
+  `fixTimeBeforeFixtures()`.
 
 ---
 
@@ -305,4 +313,14 @@ confirm they **fail** before the implementation tasks of Phase 3.
 
 ## Review record (implementation branch)
 
-_Left for the implementation's review (T020)._
+- **Round 1** (independent Claude session, on PR #151): no must-fix, 1 should-fix, 5 nits; verdict
+  "only minor findings remain". All addressed in `Review 032: implementation review round 1` and the
+  `Clarify 032:` commit.
+  - S1: the merge with `030`'s implementation recorded (T021, research R10); done when `030` merges.
+  - N2: an `attendee-rows` case for "1 ticket was checked in.".
+  - N3: `Attendees` clears the kept count when the event changes, so another event's count is never
+    shown or exported; a page test moves between two removed events.
+  - N4: the start-up unit test also fails if anything in `backend/src` but `main.ts` starts the job.
+  - N5: the 409's date is in the zone of the event's current venue, also when the request moves it
+    (code, a Backend test, research R6).
+  - N6: contracts/README.md says the shared types keep the field optional on purpose.

@@ -40,6 +40,8 @@ export function Attendees({ username }: { username?: string }): React.ReactEleme
   const removedAt = load.kind === 'ok' ? (load.event.checkInDetailsRemovedAt ?? null) : null;
 
   useEffect(() => {
+    // Review round 1: another event's count is never shown or exported for this one.
+    setKept(null);
     if (!removedAt) return;
     let cancelled = false;
     getSalesReport()

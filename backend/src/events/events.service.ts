@@ -357,9 +357,15 @@ export class EventsService {
         doorsOpenAt.getTime() !== existing.doorsOpenAt.getTime())
     ) {
       const removedAt = existing.checkInDetailsRemovedAt;
+      // The date in the zone of the venue the event is at (where its details were removed), not
+      // the destination of a move in the same request (review round 1).
+      const removedZone =
+        locationId === existing.locationId
+          ? zone
+          : ((await this.requireLocation(existing.locationId, tx)).timeZone as UsTimeZone);
       throw conflict(
         'CHECK_IN_DETAILS_REMOVED',
-        `The check-in details of ${existing.name} were removed on ${formatEventDate(removedAt, zone)}, so its times can no longer change.`,
+        `The check-in details of ${existing.name} were removed on ${formatEventDate(removedAt, removedZone)}, so its times can no longer change.`,
         { removedAt: removedAt.toISOString() },
       );
     }

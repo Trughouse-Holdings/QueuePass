@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Attendees } from '../src/pages/Attendees';
 import { EventDetail } from '../src/pages/EventDetail';
 import { EventForm } from '../src/pages/EventForm';
@@ -87,6 +87,43 @@ describe('Attendees of a removed event (US3-1; FR-010)', () => {
 
     expect(await screen.findByText(SENTENCE)).toBeInTheDocument();
     expect(await screen.findByText('2 orders · 2 valid tickets')).toBeInTheDocument();
+  });
+
+  it("never shows another removed event's kept count after moving between events (review round 1)", async () => {
+    const OTHER = '55555555-5555-4555-8555-555555555555';
+    stubApi({
+      [`GET /events/${EVENT.id}`]: json(REMOVED),
+      [`GET ${ATTENDEES}`]: json(EMPTIED),
+      [`GET /events/${OTHER}`]: json({ ...REMOVED, id: OTHER, name: 'Winter Gala' }),
+      [`GET /events/${OTHER}/attendees`]: json(EMPTIED),
+      // The report has no row for the second event, so its count is not known.
+      'GET /reports/sales': json(reportWith(REMOVED_AT)),
+    });
+    render(
+      <MemoryRouter initialEntries={[ATTENDEES]}>
+        <Routes>
+          <Route
+            path="/events/:id/attendees"
+            element={
+              <>
+                <Attendees />
+                <Link to={`/events/${OTHER}/attendees`}>Next event</Link>
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText('2 orders · 2 valid tickets · 3 checked in'),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: 'Next event' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Attendees: Winter Gala' }),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('2 orders · 2 valid tickets')).toBeInTheDocument();
+    expect(screen.queryByText(/3 checked in/)).not.toBeInTheDocument();
   });
 
   it('is as today for an event not removed, and does not read the report (US3-3)', async () => {
