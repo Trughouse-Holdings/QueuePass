@@ -13,6 +13,7 @@ import conflict409 from './fixtures/conflict-409.json';
 import validation400 from './fixtures/validation-400.json';
 import capacity409 from './fixtures/capacity-409.json';
 import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+import { expectLocalDateTime, setLocalDateTime } from './helpers/event-times';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
 fixTimeBeforeFixtures();
@@ -182,8 +183,8 @@ describe('EventForm against live rejections', () => {
       screen.getByLabelText('Venue'),
       locations.find((l) => l.name.startsWith('KFC'))!.id,
     );
-    await user.type(screen.getByLabelText('Starts'), '2026-10-01T19:30');
-    await user.type(screen.getByLabelText('Ends'), '2026-10-01T20:30');
+    setLocalDateTime('Starts', '2026-10-01T19:30');
+    setLocalDateTime('Ends', '2026-10-01T20:30');
     await user.type(screen.getByLabelText('Total tickets'), '100');
     // Spec 008 US7: priced by a ticket type instead of a base price.
     await user.type(screen.getByLabelText('Ticket type 1 name'), 'General');
@@ -214,7 +215,7 @@ describe('EventForm against live rejections', () => {
     await screen.findByTestId('error-banner');
 
     expect(screen.getByLabelText('Event name')).toHaveValue('UI Test Clash');
-    expect(screen.getByLabelText('Starts')).toHaveValue('2026-10-01T19:30');
+    expectLocalDateTime('Starts', '2026-10-01T19:30');
     expect(screen.getByLabelText('Total tickets')).toHaveValue(100);
     expect(screen.getByLabelText('Ticket type 1 price')).toHaveValue('10.00');
   });

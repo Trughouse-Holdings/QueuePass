@@ -6,6 +6,7 @@ import { apiFor, createVenue, type Event, type TicketTier } from '../fixtures/ap
 import { PLACES, uniqueName } from '../fixtures/data';
 import { signIn } from '../fixtures/sign-in';
 import { localDate } from '../fixtures/time';
+import { fillEventDateTime } from '../fixtures/event-times';
 
 const EASTERN = 'America/New_York';
 
@@ -30,8 +31,8 @@ test("035 S1: a seated event that fills the venue's layout is scheduled without 
   await page
     .getByLabel('Venue', { exact: true })
     .selectOption({ label: `${venueName} (30 seats)` });
-  await page.getByLabel('Starts', { exact: true }).fill(`${day}T19:00`);
-  await page.getByLabel('Ends', { exact: true }).fill(`${day}T22:00`);
+  await fillEventDateTime(page, 'Starts', `${day}T19:00`);
+  await fillEventDateTime(page, 'Ends', `${day}T22:00`);
 
   await expect(page.getByRole('group', { name: 'Tickets and seating' })).toBeVisible();
   await expect(page.getByLabel('Reserved seating')).toBeChecked();

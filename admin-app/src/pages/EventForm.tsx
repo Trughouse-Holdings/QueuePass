@@ -10,7 +10,6 @@ import type {
 import {
   DEFAULT_TIME_ZONE,
   EVENT_IMAGE_LIMITS,
-  DEFAULT_DOORS_BEFORE_START_MINUTES,
   abbreviationAt,
   doorsOpenProblem,
   doorsOpenRangeMessage,
@@ -46,12 +45,33 @@ import {
   type TypeFieldError,
   TYPE_FIELDS,
 } from './event-form-checks';
+import { DateTimeFields } from './DateTimeFields';
+import {
+  DEFAULT_DOORS_OFFSET_MINUTES,
+  doorsInstantBeforeStart,
+  doorsModeForStoredGapMs,
+  doorsOffsetOptions,
+  doorsOpenAtPreview,
+  isExactDoorsOffsetMinutes,
+  type DoorsMode,
+} from './event-form-times';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ImagesField, type ImageItem } from '../components/ImagesField';
 import { SuccessState } from '../components/SuccessState';
 
-/** Spec 025 research R4: on a new event, Doors open follows the start 1 hour earlier. */
-const DEFAULT_DOORS_GAP_MS = DEFAULT_DOORS_BEFORE_START_MINUTES * 60_000;
+/**
+ * Spec 036 FR-010: a time field's error focuses its date control, or its time control when only
+ * the time is missing; in "Before the start" mode a doors error focuses the length select.
+ */
+function timeAwareFocusId(key: string): string {
+  if (key === 'doorsOpenAt' && document.getElementById('doorsOpenOffset')) return 'doorsOpenOffset';
+  if (key === 'startsAt' || key === 'endsAt' || key === 'doorsOpenAt') {
+    const date = document.getElementById(`${key}-date`) as HTMLInputElement | null;
+    const time = document.getElementById(`${key}-time`) as HTMLInputElement | null;
+    return date?.value && time && !time.value ? `${key}-time` : `${key}-date`;
+  }
+  return focusIdFor(key);
+}
 
 /**
  * One ticket type on the form (spec 008 US6, US7). `id` is set for a type the event already has;
@@ -131,8 +151,11 @@ export function EventForm(): React.ReactElement {
   // Spec 025 research R4: Doors open, a local string like the start, following the start (same
   // gap) until the admin changes it themselves.
   const [doorsOpenAt, setDoorsOpenAt] = useState('');
-  const [doorsTouched, setDoorsTouched] = useState(false);
-  const [doorsGapMs, setDoorsGapMs] = useState(DEFAULT_DOORS_GAP_MS);
+  // Spec 036: two ways to set doors open; a new event starts in "Before the start", 1 hour.
+  const [doorsMode, setDoorsMode] = useState<DoorsMode>('before');
+  const [doorsOffsetMinutes, setDoorsOffsetMinutes] = useState<number | null>(
+    DEFAULT_DOORS_OFFSET_MINUTES,
+  );
   /** Once a save was tried, the range message under Doors open is announced (role="alert"). */
   const [doorsChecked, setDoorsChecked] = useState(false);
   const [occurrence, setOccurrence] = useState<Record<TimeField, Occurrence>>({
@@ -256,12 +279,40 @@ export function EventForm(): React.ReactElement {
           : ['', ''];
         setStartsAt(start);
         setEndsAt(end);
-        setDoorsOpenAt(doors);
-        setDoorsTouched(false);
-        setDoorsGapMs(
-          e.doorsOpenAt ? Date.parse(e.startsAt) - Date.parse(e.doorsOpenAt) : DEFAULT_DOORS_GAP_MS,
-        );
-        setOccurrence({ startsAt: startOcc, endsAt: endOcc, doorsOpenAt: doorsOcc });
+        let doorsLocal = doors;
+        let doorsOccFinal = doorsOcc;
+        let mode: DoorsMode = 'before';
+        let offset: number | null = DEFAULT_DOORS_OFFSET_MINUTES;
+        if (e.doorsOpenAt) {
+          const gapMs = Date.parse(e.startsAt) - Date.parse(e.doorsOpenAt);
+          mode = doorsModeForStoredGapMs(gapMs);
+          const gapMinutes = gapMs / 60_000;
+          offset =
+            mode === 'before'
+              ? gapMinutes
+              : isExactDoorsOffsetMinutes(gapMinutes)
+                ? gapMinutes
+                : null;
+        } else if (Number.isFinite(Date.parse(e.startsAt))) {
+          // No stored doors (a Backend before 025): 1 hour before the stored start, so the
+          // preview and what would be sent agree (036 FR-004, FR-005).
+          const instant = doorsInstantBeforeStart(
+            new Date(e.startsAt),
+            DEFAULT_DOORS_OFFSET_MINUTES,
+          );
+          doorsLocal = toLocalDateTime(instant, zone);
+          const r = resolveField(doorsLocal, zone);
+          doorsOccFinal =
+            r?.kind !== 'repeated'
+              ? ''
+              : toOffsetDateTime(instant, zone).slice(-6) === r.first.offset
+                ? 'first'
+                : 'second';
+        }
+        setDoorsOpenAt(doorsLocal);
+        setDoorsMode(mode);
+        setDoorsOffsetMinutes(offset);
+        setOccurrence({ startsAt: startOcc, endsAt: endOcc, doorsOpenAt: doorsOccFinal });
         setTotalTicketCapacity(String(e.totalTicketCapacity));
         setMaxPerCustomer(e.maxTicketsPerCustomer == null ? '' : String(e.maxTicketsPerCustomer));
         setSeated(e.reservedSeating);
@@ -536,11 +587,12 @@ export function EventForm(): React.ReactElement {
       maxPerCustomer,
       sectionType,
       sections: layout?.sections,
+      doorsFromStart: doorsMode === 'before' && doorsOffsetMinutes != null,
     });
     if (all.size > 0) {
       const first = firstErrorKey(all, types.length);
       if (first) {
-        requestAnimationFrame(() => document.getElementById(focusIdFor(first))?.focus());
+        requestAnimationFrame(() => document.getElementById(timeAwareFocusId(first))?.focus());
       }
       return;
     }
@@ -633,7 +685,9 @@ export function EventForm(): React.ReactElement {
     if (!error) return;
     const first = firstPlacedKey(fieldErrors(error), types.length);
     if (!first) return;
-    const frame = requestAnimationFrame(() => document.getElementById(focusIdFor(first))?.focus());
+    const frame = requestAnimationFrame(() =>
+      document.getElementById(timeAwareFocusId(first))?.focus(),
+    );
     return () => cancelAnimationFrame(frame);
   }, [error, types.length]);
   const typeErrors = (i: number, section: boolean): TypeFieldError[] =>
@@ -681,16 +735,31 @@ export function EventForm(): React.ReactElement {
   const typed: Record<TimeField, string> = { startsAt, endsAt, doorsOpenAt };
 
   /**
-   * Spec 025 FR-003 (research R4): a start that names one moment moves Doors open to that moment
-   * minus the gap, until the admin has changed Doors open themselves. The occurrence of a repeated
-   * doors time is the one the instant is.
+   * Spec 036 FR-006: in "Before the start" mode, a start that names one moment sets doors to that
+   * instant minus the chosen length (elapsed). In "At a set time" mode doors stay put (FR-007).
+   * The occurrence of a repeated doors time is the one the instant is.
    */
-  function followStart(local: string, chosen: Occurrence, zone: UsTimeZone = venueZone): void {
-    if (doorsTouched) return;
+  function applyDoorsOffset(
+    local: string,
+    chosen: Occurrence,
+    zone: UsTimeZone = venueZone,
+    minutes: number | null = doorsOffsetMinutes,
+  ): void {
+    if (doorsMode !== 'before' || minutes == null) return;
+    setDoorsFromStart(local, chosen, zone, minutes);
+  }
+
+  /** Doors at the start minus `minutes` (elapsed), once the start names one moment. */
+  function setDoorsFromStart(
+    local: string,
+    chosen: Occurrence,
+    zone: UsTimeZone,
+    minutes: number,
+  ): void {
     const r = resolveField(local, zone);
     const m = r ? momentOf(r, chosen) : null;
     if (!m) return;
-    const instant = new Date(m.instant.getTime() - doorsGapMs);
+    const instant = doorsInstantBeforeStart(m.instant, minutes);
     const value = toLocalDateTime(instant, zone);
     const doors = resolveField(value, zone);
     const occ: Occurrence =
@@ -702,6 +771,50 @@ export function EventForm(): React.ReactElement {
     setDoorsOpenAt(value);
     setOccurrence((o) => ({ ...o, doorsOpenAt: occ }));
   }
+
+  function switchDoorsMode(next: DoorsMode): void {
+    if (next === 'at-time') {
+      setDoorsMode('at-time');
+      return;
+    }
+    const start = resolved.startsAt ? momentOf(resolved.startsAt, occurrence.startsAt) : null;
+    const doors = resolved.doorsOpenAt
+      ? momentOf(resolved.doorsOpenAt, occurrence.doorsOpenAt)
+      : null;
+    if (start && doors) {
+      // FR-002, FR-014: the same instant; an off-step gap shows no length and is not rounded.
+      const minutes = (start.instant.getTime() - doors.instant.getTime()) / 60_000;
+      setDoorsOffsetMinutes(isExactDoorsOffsetMinutes(minutes) ? minutes : null);
+    } else {
+      // FR-015: doors that name no moment are derived from the start (kept length, else 1 hour).
+      const minutes = doorsOffsetMinutes ?? DEFAULT_DOORS_OFFSET_MINUTES;
+      setDoorsOffsetMinutes(minutes);
+      if (start) setDoorsFromStart(startsAt, occurrence.startsAt, venueZone, minutes);
+    }
+    setDoorsMode('before');
+  }
+
+  /**
+   * Spec 036 FR-004, FR-014: the resulting time next to the length, once the start names one
+   * moment; with no length chosen (an off-step gap), the kept doors time.
+   */
+  function doorsPreview(): string | null {
+    if (doorsMode !== 'before' || !selected) return null;
+    const start = resolved.startsAt ? momentOf(resolved.startsAt, occurrence.startsAt) : null;
+    if (!start) return null;
+    let instant: Date;
+    if (doorsOffsetMinutes == null) {
+      const doors = resolved.doorsOpenAt
+        ? momentOf(resolved.doorsOpenAt, occurrence.doorsOpenAt)
+        : null;
+      if (!doors) return null;
+      instant = doors.instant;
+    } else {
+      instant = doorsInstantBeforeStart(start.instant, doorsOffsetMinutes);
+    }
+    return doorsOpenAtPreview(instant, venueZone, start.instant);
+  }
+  const doorsLine = doorsPreview();
 
   /** Spec 025 FR-005: the range message under Doors open once both times name one moment. */
   function doorsRangeNote(): React.ReactElement | null {
@@ -753,8 +866,7 @@ export function EventForm(): React.ReactElement {
     const time = formatLocalTime(local);
     const choose = (value: Occurrence) => {
       setOccurrence((o) => ({ ...o, [field]: value }));
-      if (field === 'startsAt') followStart(startsAt, value);
-      if (field === 'doorsOpenAt') setDoorsTouched(true);
+      if (field === 'startsAt') applyDoorsOffset(startsAt, value);
     };
     return (
       <fieldset className="field" data-testid={`${field}-occurrence`}>
@@ -799,6 +911,7 @@ export function EventForm(): React.ReactElement {
     maxPerCustomer,
     sectionType,
     sections: layout?.sections,
+    doorsFromStart: doorsMode === 'before' && doorsOffsetMinutes != null,
   });
   const preview = visibleErrors(previewAll, touched, submitted);
   const totals = seatTotals({
@@ -1053,10 +1166,9 @@ export function EventForm(): React.ReactElement {
                   setLocationId(e.target.value);
                   // Spec 020 FR-015: the typed times stay; a repeated hour is asked again.
                   setOccurrence({ startsAt: '', endsAt: '', doorsOpenAt: '' });
-                  // Spec 025 FR-003: Doors open the admin has not changed follows the start in the
-                  // new venue's zone (a start skipped in the old zone may name a moment here).
+                  // Spec 036: in "Before the start" mode, recompute doors in the new venue's zone.
                   const next = venues.find((v) => v.id === e.target.value);
-                  if (next) followStart(startsAt, '', next.timeZone ?? DEFAULT_TIME_ZONE);
+                  if (next) applyDoorsOffset(startsAt, '', next.timeZone ?? DEFAULT_TIME_ZONE);
                 }}
                 {...fieldProps('locationId')}
               >
@@ -1070,43 +1182,106 @@ export function EventForm(): React.ReactElement {
               {hint('locationId-error', fieldHint('locationId'))}
             </div>
 
-            <div className="field">
-              <label htmlFor="doorsOpenAt">Doors open</label>
-              <input
-                id="doorsOpenAt"
-                type="datetime-local"
-                value={doorsOpenAt}
-                onBlur={() => mark('doorsOpenAt')}
-                onChange={(e) => {
-                  clearServer();
-                  setDoorsOpenAt(e.target.value);
-                  setDoorsTouched(true);
-                  setOccurrence((o) => ({ ...o, doorsOpenAt: '' }));
-                }}
-                {...fieldProps('doorsOpenAt')}
-              />
-              {timeNote('doorsOpenAt')}
+            <fieldset className="field">
+              <legend>Doors open</legend>
+              <label className="choice">
+                <input
+                  type="radio"
+                  name="doors-open-mode"
+                  checked={doorsMode === 'before'}
+                  onChange={() => {
+                    clearServer();
+                    switchDoorsMode('before');
+                  }}
+                />
+                Before the start
+              </label>
+              <label className="choice">
+                <input
+                  type="radio"
+                  name="doors-open-mode"
+                  checked={doorsMode === 'at-time'}
+                  onChange={() => {
+                    clearServer();
+                    switchDoorsMode('at-time');
+                  }}
+                />
+                At a set time
+              </label>
+              {doorsMode === 'before' ? (
+                <>
+                  <div className="field">
+                    <label htmlFor="doorsOpenOffset">How long before the start</label>
+                    <select
+                      id="doorsOpenOffset"
+                      value={doorsOffsetMinutes ?? ''}
+                      onBlur={() => mark('doorsOpenAt')}
+                      onChange={(e) => {
+                        clearServer();
+                        const minutes = Number(e.target.value);
+                        setDoorsOffsetMinutes(minutes);
+                        setDoorsFromStart(startsAt, occurrence.startsAt, venueZone, minutes);
+                      }}
+                      {...fieldProps('doorsOpenAt')}
+                      aria-describedby={[
+                        fieldProps('doorsOpenAt')['aria-describedby'],
+                        'doorsOpenAt-live',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                    >
+                      {doorsOffsetMinutes == null ? (
+                        <option value="" disabled>
+                          Choose a length…
+                        </option>
+                      ) : null}
+                      {doorsOffsetOptions().map((opt) => (
+                        <option key={opt.minutes} value={opt.minutes}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* FR-016: mounted from the first render so the first value is announced. */}
+                  <p className="note" id="doorsOpenAt-live" aria-live="polite">
+                    {doorsLine ? <span data-testid="doorsOpenAt-preview">{doorsLine}</span> : null}
+                  </p>
+                </>
+              ) : (
+                <DateTimeFields
+                  id="doorsOpenAt"
+                  name="Doors open"
+                  value={doorsOpenAt}
+                  onBlur={() => mark('doorsOpenAt')}
+                  onChange={(value) => {
+                    clearServer();
+                    setDoorsOpenAt(value);
+                    setOccurrence((o) => ({ ...o, doorsOpenAt: '' }));
+                  }}
+                  fieldProps={fieldProps('doorsOpenAt')}
+                />
+              )}
+              {doorsMode === 'at-time' ? timeNote('doorsOpenAt') : null}
               {doorsRangeNote()}
               {hint(
                 'doorsOpenAt-error',
                 fieldHint('doorsOpenAt').filter((m) => !timeChromeMessages().has(m)),
               )}
-            </div>
+            </fieldset>
             <div className="field-row">
               <div className="field">
-                <label htmlFor="startsAt">Starts</label>
-                <input
+                <DateTimeFields
                   id="startsAt"
-                  type="datetime-local"
+                  name="Starts"
                   value={startsAt}
                   onBlur={() => mark('startsAt')}
-                  onChange={(e) => {
+                  onChange={(value) => {
                     clearServer();
-                    setStartsAt(e.target.value);
+                    setStartsAt(value);
                     setOccurrence((o) => ({ ...o, startsAt: '' }));
-                    followStart(e.target.value, '');
+                    applyDoorsOffset(value, '');
                   }}
-                  {...fieldProps('startsAt')}
+                  fieldProps={fieldProps('startsAt')}
                 />
                 {timeNote('startsAt')}
                 {hint(
@@ -1115,18 +1290,17 @@ export function EventForm(): React.ReactElement {
                 )}
               </div>
               <div className="field">
-                <label htmlFor="endsAt">Ends</label>
-                <input
+                <DateTimeFields
                   id="endsAt"
-                  type="datetime-local"
+                  name="Ends"
                   value={endsAt}
                   onBlur={() => mark('endsAt')}
-                  onChange={(e) => {
+                  onChange={(value) => {
                     clearServer();
-                    setEndsAt(e.target.value);
+                    setEndsAt(value);
                     setOccurrence((o) => ({ ...o, endsAt: '' }));
                   }}
-                  {...fieldProps('endsAt')}
+                  fieldProps={fieldProps('endsAt')}
                 />
                 {timeNote('endsAt')}
                 {hint(

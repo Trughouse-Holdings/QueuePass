@@ -51,7 +51,7 @@ The Admin and Customer From and To filters stay date-only and still work as they
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: setup by hand; the browser tests make their own venues through the API |
-| S1 | Manual: until T007 adds `036 S1: an event with doors 2 hours before the start shows that time in the Customer app` |
+| S1 | Automated: `036 S1: an event with doors 2 hours before the start shows that time in the Customer app` |
 | S2 | Manual: covered by the Admin app's tests (mode switch keeps the instant) |
 | S3 | Manual: covered by the Admin app's tests (offset kept when the start moves) |
 | S4 | Manual: covered by the Admin app's tests (doors stay put; range message) |

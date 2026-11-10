@@ -7,6 +7,7 @@ import { EventForm } from '../src/pages/EventForm';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, VENUE } from './fixtures-005';
 import { fixTimeBeforeFixtures } from './helpers/fixed-time';
+import { setLocalDateTime } from './helpers/event-times';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
 fixTimeBeforeFixtures();
@@ -48,8 +49,8 @@ const fillNew = async ({ total = '', reserved = false } = {}) => {
   fireEvent.change(await screen.findByLabelText('Event name'), { target: { value: 'Opener' } });
   await screen.findByRole('option', { name: /Yum Center/ });
   fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
-  fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
-  fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+  setLocalDateTime('Starts', '2030-05-01T18:00');
+  setLocalDateTime('Ends', '2030-05-01T21:00');
   if (reserved) await screen.findByLabelText('Reserved seating');
   await screen.findByLabelText('Ticket type 1 name');
   fireEvent.change(screen.getByLabelText('Ticket type 1 name'), { target: { value: 'General' } });

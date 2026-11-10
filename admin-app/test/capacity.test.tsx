@@ -7,6 +7,7 @@ import { LocationForm } from '../src/pages/LocationForm';
 import { TierSection } from '../src/components/TierSection';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, VENUE } from './fixtures-005';
+import { setLocalDateTime } from './helpers/event-times';
 
 /**
  * Spec 007 FR-006, FR-017–FR-019 (research R11): no capacity or tier amount is typed in the
@@ -72,8 +73,8 @@ describe('event form', () => {
 
     fireEvent.change(await screen.findByLabelText('Event name'), { target: { value: 'Blank' } });
     fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
-    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
-    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+    setLocalDateTime('Starts', '2030-05-01T18:00');
+    setLocalDateTime('Ends', '2030-05-01T21:00');
     await screen.findByLabelText('Ticket type 1 name');
     fireEvent.change(screen.getByLabelText('Ticket type 1 name'), { target: { value: 'General' } });
     fireEvent.change(screen.getByLabelText('Ticket type 1 price'), { target: { value: '10.00' } });

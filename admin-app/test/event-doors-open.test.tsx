@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { doorsOpenRangeMessage } from '@queuepass/shared';
 import { EventForm } from '../src/pages/EventForm';
 import { json, stubApi } from './helpers/api-stub';
+import { expectLocalDateTime, setLocalDateTime } from './helpers/event-times';
 import { EVENT, VENUE } from './fixtures-005';
 
 /**
@@ -84,9 +85,26 @@ function editForm() {
   return api;
 }
 
-const set = (label: string, value: string) =>
+const set = (label: string, value: string) => {
+  if (label === 'Starts' || label === 'Ends' || label === 'Doors open') {
+    if (label === 'Doors open' && screen.queryByLabelText('At a set time')) {
+      fireEvent.click(screen.getByLabelText('At a set time'));
+    }
+    if (value === '') {
+      if (label === 'Doors open') fireEvent.click(screen.getByLabelText('At a set time'));
+      fireEvent.change(screen.getByLabelText(`${label} date`, { exact: true }), {
+        target: { value: '' },
+      });
+      fireEvent.change(screen.getByLabelText(`${label} time`, { exact: true }), {
+        target: { value: '' },
+      });
+      return;
+    }
+    setLocalDateTime(label, value);
+    return;
+  }
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
-const doors = () => screen.getByLabelText('Doors open');
+};
 
 async function fill(starts: string, ends: string) {
   await screen.findByRole('option', { name: /Prairie Hall/ });
@@ -100,6 +118,8 @@ async function fill(starts: string, ends: string) {
   set('Ticket type 1 quantity', '10');
 }
 
+const preview = () => screen.getByTestId('doorsOpenAt-preview');
+
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));
 const posted = (api: ReturnType<typeof stubApi>) =>
   api.calls.filter((c) => c.method === 'POST' && c.path === '/events').map((c) => c.body);
@@ -107,56 +127,70 @@ const posted = (api: ReturnType<typeof stubApi>) =>
 // 7:00 PM CST on Nov 20, 2026 is 01:00Z on Nov 21.
 const RANGE = doorsOpenRangeMessage('2026-11-21T01:00:00Z', 'America/Chicago');
 
-describe('the Doors open field (FR-002, FR-003)', () => {
-  it('is before Starts and empty, then follows the typed start 1 hour earlier', async () => {
+describe('the Doors open field (036 FR-001, FR-003, FR-006, FR-007)', () => {
+  it('opens Before the start, 1 hour, then the shown time follows the start', async () => {
     newForm();
     await screen.findByRole('option', { name: /Prairie Hall/ });
     set('Venue', CENTRAL.id);
-    expect(doors()).toHaveValue('');
+    expect(screen.getByLabelText('Before the start')).toBeChecked();
+    expect(screen.getByLabelText('How long before the start')).toHaveValue('60');
+    expect(screen.queryByTestId('doorsOpenAt-preview')).toBeNull();
     expect(
-      doors().compareDocumentPosition(screen.getByLabelText('Starts')) &
+      screen
+        .getByRole('group', { name: 'Doors open' })
+        .compareDocumentPosition(screen.getByLabelText('Starts date')) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
 
     set('Starts', '2026-11-20T19:00');
-    expect(doors()).toHaveValue('2026-11-20T18:00');
+    expect(preview()).toHaveTextContent('Doors open at 6:00 PM CST');
     set('Starts', '2026-11-20T20:00');
-    expect(doors()).toHaveValue('2026-11-20T19:00');
+    expect(preview()).toHaveTextContent('Doors open at 7:00 PM CST');
   });
 
-  it('keeps what the admin typed when the start changes afterwards', async () => {
+  it('in At a set time mode, keeps the doors date and time when the start changes', async () => {
     newForm();
     await fill('2026-11-20T19:00', '2026-11-20T22:00');
     set('Doors open', '2026-11-20T17:30');
     set('Starts', '2026-11-20T20:00');
-    expect(doors()).toHaveValue('2026-11-20T17:30');
+    expectLocalDateTime('Doors open', '2026-11-20T17:30');
   });
 
-  it('on edit shows the stored doors and follows the start with the stored 90-minute gap', async () => {
+  it('on edit of a 90-minute gap opens Before the start and keeps that length when the start moves', async () => {
     editForm();
-    await vi.waitFor(() => expect(doors()).toHaveValue('2026-11-20T17:30'));
+    await vi.waitFor(() => expect(preview()).toHaveTextContent('Doors open at 5:30 PM CST'));
+    expect(screen.getByLabelText('Before the start')).toBeChecked();
+    expect(screen.getByLabelText('How long before the start')).toHaveValue('90');
     set('Starts', '2026-11-20T20:00');
-    expect(doors()).toHaveValue('2026-11-20T18:30');
+    expect(preview()).toHaveTextContent('Doors open at 6:30 PM CST');
+  });
+
+  it('switching modes keeps the same doors-open time', async () => {
+    newForm();
+    await fill('2026-11-20T19:00', '2026-11-20T22:00');
+    expect(preview()).toHaveTextContent('Doors open at 6:00 PM CST');
+    fireEvent.click(screen.getByLabelText('At a set time'));
+    expectLocalDateTime('Doors open', '2026-11-20T18:00');
+    fireEvent.click(screen.getByLabelText('Before the start'));
+    expect(screen.getByLabelText('How long before the start')).toHaveValue('60');
+    expect(preview()).toHaveTextContent('Doors open at 6:00 PM CST');
   });
 
   it('does not follow a start that is a repeated time not yet chosen, then follows the chosen one', async () => {
     newForm();
     await fill('2027-11-07T03:00', '2027-11-07T05:00');
-    expect(doors()).toHaveValue('2027-11-07T02:00');
+    expect(preview()).toHaveTextContent('Doors open at 2:00 AM CST');
     set('Starts', '2027-11-07T01:30');
-    expect(doors()).toHaveValue('2027-11-07T02:00');
+    // The start does not yet name one moment, so the resulting-time line is hidden
+    // and doors are not recomputed (036 edge case; 025 FR-003).
+    expect(screen.queryByTestId('doorsOpenAt-preview')).toBeNull();
     fireEvent.click(
       within(screen.getByTestId('startsAt-occurrence')).getByLabelText(
         '1:30 AM CST (the second time)',
       ),
     );
     // 1:30 AM CST is 07:30Z; an hour before is 06:30Z, 1:30 AM CDT, the first 1:30 AM.
-    expect(doors()).toHaveValue('2027-11-07T01:30');
-    expect(
-      within(screen.getByTestId('doorsOpenAt-occurrence')).getByLabelText(
-        '1:30 AM CDT (the first time)',
-      ),
-    ).toBeChecked();
+    expect(preview()).toHaveTextContent('Doors open at 1:30 AM CDT');
   });
 });
 
@@ -173,7 +207,7 @@ describe('checks before sending (FR-004, FR-005)', () => {
       expect(screen.getByTestId('doorsOpenAt-range')).toHaveTextContent(RANGE);
       expect(screen.getByTestId('doorsOpenAt-range')).toHaveAttribute('role', 'alert');
       expect(posted(api)).toHaveLength(0);
-      expect(doors()).toHaveValue(value);
+      expectLocalDateTime('Doors open', value);
       expect(screen.getByLabelText('Event name')).toHaveValue('Fall Concert');
     },
   );
@@ -270,8 +304,8 @@ describe('what is sent (FR-007)', () => {
     save();
     expect(screen.queryByTestId('error-banner')).toBeNull();
     expect(await screen.findByTestId('doorsOpenAt-error')).toHaveTextContent(RANGE);
-    expect(doors()).toHaveValue('2026-11-20T17:30');
-    expect(screen.getByLabelText('Starts')).toHaveValue('2026-11-20T19:00');
+    expectLocalDateTime('Doors open', '2026-11-20T17:30');
+    expectLocalDateTime('Starts', '2026-11-20T19:00');
   });
 });
 
@@ -280,19 +314,16 @@ describe('following, the remaining cases (T035)', () => {
     newForm();
     // 2:30 AM CST on 2027-11-07 is 08:30Z; an hour before is 07:30Z, the second 1:30 AM (CST).
     await fill('2027-11-07T02:30', '2027-11-07T04:00');
-    expect(doors()).toHaveValue('2027-11-07T01:30');
-    expect(
-      within(screen.getByTestId('doorsOpenAt-occurrence')).getByLabelText(
-        '1:30 AM CST (the second time)',
-      ),
-    ).toBeChecked();
+    expect(preview()).toHaveTextContent('Doors open at 1:30 AM CST');
   });
 
   it('leaves Doors open as it is when the start is cleared', async () => {
     newForm();
     await fill('2026-11-20T19:00', '2026-11-20T22:00');
     set('Starts', '');
-    expect(doors()).toHaveValue('2026-11-20T18:00');
+    expect(screen.queryByTestId('doorsOpenAt-preview')).toBeNull();
+    fireEvent.click(screen.getByLabelText('At a set time'));
+    expectLocalDateTime('Doors open', '2026-11-20T18:00');
   });
 
   it('on edit of an event without doorsOpenAt (a Backend before 025), starts empty and follows 1 hour before', async () => {
@@ -314,9 +345,218 @@ describe('following, the remaining cases (T035)', () => {
         </Routes>
       </MemoryRouter>,
     );
-    await vi.waitFor(() => expect(screen.getByLabelText('Starts')).toHaveValue('2026-11-20T19:00'));
-    expect(doors()).toHaveValue('');
+    await vi.waitFor(() => expectLocalDateTime('Starts', '2026-11-20T19:00'));
+    expect(preview()).toHaveTextContent('Doors open at 6:00 PM CST');
     set('Starts', '2026-11-20T20:00');
-    expect(doors()).toHaveValue('2026-11-20T19:00');
+    expect(preview()).toHaveTextContent('Doors open at 7:00 PM CST');
+  });
+});
+
+/**
+ * Spec 036 independent review round 1 (2026-11-10): FR-004, FR-010, FR-014, FR-015, FR-016, US1
+ * AS4, US2 AS5, and the offset sent for a derived doors time on a fall-back night.
+ */
+function editWith(doorsOpenAt: string) {
+  const stored = { ...STORED, doorsOpenAt };
+  const api = stubApi({
+    'GET /locations': json([CENTRAL]),
+    [`GET /events/${EVENT.id}`]: json(stored),
+    [`GET /events/${EVENT.id}/tiers`]: json([TIER]),
+    [`GET /events/${EVENT.id}/seats`]: json({
+      eventId: EVENT.id,
+      reservedSeating: false,
+      sections: [],
+    }),
+    [`PATCH /events/${EVENT.id}`]: json(stored),
+  });
+  render(
+    <MemoryRouter initialEntries={[`/events/${EVENT.id}/edit`]}>
+      <Routes>
+        <Route path="/events/:id/edit" element={<EventForm />} />
+        <Route path="/events/:id" element={<p>Event page</p>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+  return api;
+}
+const length = () => screen.getByLabelText('How long before the start');
+const patched = (api: ReturnType<typeof stubApi>) =>
+  api.calls.find((c) => c.method === 'PATCH')?.body;
+
+describe('review round 1: modes and switching (FR-005, FR-014, FR-015, US1 AS4)', () => {
+  it('an edit with a 10-minute gap opens At a set time with the exact stored time (US2 AS5)', async () => {
+    // 6:50 PM CST is 00:50Z on Nov 21.
+    const api = editWith('2026-11-21T00:50:00.000Z');
+    await vi.waitFor(() => expectLocalDateTime('Doors open', '2026-11-20T18:50'));
+    expect(screen.getByLabelText('At a set time')).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await screen.findByText('Event page', {}, { timeout: 3000 });
+    expect(patched(api)).toMatchObject({ doorsOpenAt: '2026-11-20T18:50:00-06:00' });
+  });
+
+  it('switching to Before the start from an off-step gap shows no length, keeps the time, and sends it', async () => {
+    const api = newForm();
+    await fill('2026-11-20T19:00', '2026-11-20T22:00');
+    set('Doors open', '2026-11-20T17:50');
+    fireEvent.click(screen.getByLabelText('Before the start'));
+    expect(length()).toHaveValue('');
+    expect(screen.getByRole('option', { name: 'Choose a length…' })).toBeInTheDocument();
+    expect(preview()).toHaveTextContent('Doors open at 5:50 PM CST');
+    // Until a length is picked, a start change leaves doors put (FR-014).
+    set('Starts', '2026-11-20T19:30');
+    expect(preview()).toHaveTextContent('Doors open at 5:50 PM CST');
+    save();
+    await screen.findByText('Event page', {}, { timeout: 3000 });
+    expect(posted(api)[0]).toMatchObject({ doorsOpenAt: '2026-11-20T17:50:00-06:00' });
+  });
+
+  it('switching back to Before the start with empty doors derives them from the start (FR-015)', async () => {
+    const api = newForm();
+    await fill('2026-11-20T19:00', '2026-11-20T22:00');
+    set('Doors open', '');
+    fireEvent.click(screen.getByLabelText('Before the start'));
+    expect(length()).toHaveValue('60');
+    expect(preview()).toHaveTextContent('Doors open at 6:00 PM CST');
+    save();
+    await screen.findByText('Event page', {}, { timeout: 3000 });
+    expect(posted(api)[0]).toMatchObject({ doorsOpenAt: '2026-11-20T18:00:00-06:00' });
+  });
+
+  it('switching back with an unchosen repeated doors time derives doors from the start (FR-015)', async () => {
+    const api = newForm();
+    await fill('2027-11-07T03:00', '2027-11-07T05:00');
+    set('Doors open', '2027-11-07T01:30');
+    fireEvent.click(screen.getByLabelText('Before the start'));
+    expect(preview()).toHaveTextContent('Doors open at 2:00 AM CST');
+    save();
+    await screen.findByText('Event page', {}, { timeout: 3000 });
+    expect(posted(api)[0]).toMatchObject({ doorsOpenAt: '2027-11-07T02:00:00-06:00' });
+  });
+
+  it.each([
+    ['0', '2026-11-20T19:00:00-06:00', 'Doors open at 7:00 PM CST'],
+    ['120', '2026-11-20T17:00:00-06:00', 'Doors open at 5:00 PM CST'],
+    ['360', '2026-11-20T13:00:00-06:00', 'Doors open at 1:00 PM CST'],
+  ])(
+    'picking %s minutes after the start is set sends the start minus that length (US1 AS4)',
+    async (minutes, sent, line) => {
+      const api = newForm();
+      await fill('2026-11-20T19:00', '2026-11-20T22:00');
+      fireEvent.change(length(), { target: { value: minutes } });
+      expect(preview()).toHaveTextContent(line);
+      expect(screen.queryByTestId('doorsOpenAt-range')).toBeNull();
+      save();
+      await screen.findByText('Event page', {}, { timeout: 3000 });
+      expect(posted(api)[0]).toMatchObject({ doorsOpenAt: sent });
+    },
+  );
+
+  it('a derived doors time on a fall-back night is sent with its own offset, and At a set time shows that occurrence', async () => {
+    const api = newForm();
+    await fill('2027-11-07T01:30', '2027-11-07T05:00');
+    fireEvent.click(
+      within(screen.getByTestId('startsAt-occurrence')).getByLabelText(
+        '1:30 AM CST (the second time)',
+      ),
+    );
+    // 1:30 AM CST is 07:30Z; an hour before is 06:30Z, the first 1:30 AM (CDT, -05:00).
+    fireEvent.click(screen.getByLabelText('At a set time'));
+    expect(
+      within(screen.getByTestId('doorsOpenAt-occurrence')).getByLabelText(
+        '1:30 AM CDT (the first time)',
+      ),
+    ).toBeChecked();
+    fireEvent.click(screen.getByLabelText('Before the start'));
+    save();
+    await screen.findByText('Event page', {}, { timeout: 3000 });
+    expect(posted(api)[0]).toMatchObject({
+      startsAt: '2027-11-07T01:30:00-06:00',
+      doorsOpenAt: '2027-11-07T01:30:00-05:00',
+    });
+  });
+});
+
+describe('review round 1: the resulting-time line (FR-004, FR-016)', () => {
+  it('is a polite live region from the first render, empty until the start names one moment', async () => {
+    newForm();
+    await screen.findByRole('option', { name: /Prairie Hall/ });
+    set('Venue', CENTRAL.id);
+    const live = document.getElementById('doorsOpenAt-live');
+    expect(live).toHaveAttribute('aria-live', 'polite');
+    expect(live).toBeEmptyDOMElement();
+    expect(length().getAttribute('aria-describedby')).toContain('doorsOpenAt-live');
+    set('Starts', '2026-11-20T19:00');
+    expect(live).toHaveTextContent('Doors open at 6:00 PM CST');
+  });
+
+  it('says "the day before" when doors fall on the previous local date', async () => {
+    newForm();
+    await fill('2026-11-21T02:00', '2026-11-21T05:00');
+    fireEvent.change(length(), { target: { value: '360' } });
+    expect(preview()).toHaveTextContent('Doors open at 8:00 PM CST the day before');
+    fireEvent.change(length(), { target: { value: '60' } });
+    expect(preview()).toHaveTextContent(/^Doors open at 1:00 AM CST$/);
+  });
+});
+
+describe('review round 1: split controls, errors and focus (FR-010)', () => {
+  it('clearing the time keeps the date', async () => {
+    newForm();
+    await fill('2026-11-20T19:00', '2026-11-20T22:00');
+    fireEvent.change(screen.getByLabelText('Starts time', { exact: true }), {
+      target: { value: '' },
+    });
+    expect(screen.getByLabelText('Starts date', { exact: true })).toHaveValue('2026-11-20');
+  });
+
+  it('a missing start focuses Starts date; a missing start time focuses Starts time', async () => {
+    newForm();
+    await fill('', '2026-11-20T22:00');
+    save();
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText('Starts date', { exact: true })),
+    );
+    expect(screen.getByLabelText('Starts date', { exact: true })).toHaveAttribute(
+      'aria-describedby',
+      'startsAt-error',
+    );
+    expect(screen.getByLabelText('Starts time', { exact: true })).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    fireEvent.change(screen.getByLabelText('Starts date', { exact: true }), {
+      target: { value: '2026-11-20' },
+    });
+    save();
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByLabelText('Starts time', { exact: true })),
+    );
+  });
+
+  it('a Backend doors refusal in Before the start is on the length select, which takes focus', async () => {
+    newForm(() =>
+      json({ error: { code: 'DOORS_OPEN_OUT_OF_RANGE', message: RANGE, details: {} } }, 400),
+    );
+    await fill('2026-11-20T19:00', '2026-11-20T22:00');
+    save();
+    expect(await screen.findByTestId('doorsOpenAt-error')).toHaveTextContent(RANGE);
+    await vi.waitFor(() => expect(document.activeElement).toBe(length()));
+    expect(length()).toHaveAttribute('aria-invalid', 'true');
+    expect(length().getAttribute('aria-describedby')).toContain('doorsOpenAt-error');
+  });
+
+  it('a Backend doors refusal in At a set time focuses Doors open date', async () => {
+    newForm(() =>
+      json({ error: { code: 'DOORS_OPEN_OUT_OF_RANGE', message: RANGE, details: {} } }, 400),
+    );
+    await fill('2026-11-20T19:00', '2026-11-20T22:00');
+    set('Doors open', '2026-11-20T17:30');
+    save();
+    expect(await screen.findByTestId('doorsOpenAt-error')).toHaveTextContent(RANGE);
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByLabelText('Doors open date', { exact: true }),
+      ),
+    );
   });
 });

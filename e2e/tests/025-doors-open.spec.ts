@@ -9,6 +9,7 @@ import { addTier, apiFor, buyTickets, createEvent, createVenue } from '../fixtur
 import { PLACES, startsInHours, uniqueName } from '../fixtures/data';
 import { signIn } from '../fixtures/sign-in';
 import { atLocal, eventTime, localDate, localDateOf, timeOfDay, zoned } from '../fixtures/time';
+import { expectEventDateTime, fillEventDateTime } from '../fixtures/event-times';
 
 const CHICAGO = 'America/Chicago';
 
@@ -38,32 +39,36 @@ test('025 S1/S2/S6: an admin sets when doors open, and customers see it', async 
   await page
     .getByLabel('Venue', { exact: true })
     .selectOption({ label: `${venueName} (500 seats)` });
-  const doors = page.getByLabel('Doors open', { exact: true });
-  await expect(doors).toHaveValue('');
-  await page.getByLabel('Starts', { exact: true }).fill(`${day}T19:00`);
-  await expect(doors).toHaveValue(`${day}T18:00`);
-  await page.getByLabel('Ends', { exact: true }).fill(`${day}T22:00`);
+  await expect(page.getByLabel('Before the start', { exact: true })).toBeChecked();
+  await expect(page.getByTestId('doorsOpenAt-preview')).toHaveCount(0);
+  await fillEventDateTime(page, 'Starts', `${day}T19:00`);
+  await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
+    `Doors open at ${timeOfDay(at('18:00'), CHICAGO)}`,
+  );
+  await fillEventDateTime(page, 'Ends', `${day}T22:00`);
   await page.getByLabel('Ticket type 1 name', { exact: true }).fill('General');
   await page.getByLabel('Ticket type 1 price', { exact: true }).fill('20');
   await page.getByLabel('Ticket type 1 quantity', { exact: true }).fill('50');
 
-  // More than 6 hours before the start: named under the field and on Save, nothing sent.
-  await doors.fill(`${day}T17:30`);
-  await doors.fill(`${day}T12:30`);
+  // More than 6 hours before the start: switch to a set time, named under the field, nothing sent.
+  await page.getByLabel('At a set time', { exact: true }).click();
+  await fillEventDateTime(page, 'Doors open', `${day}T12:30`);
   const range =
     'Doors must open no more than 6 hours before the start and not after it: between ' +
     `${eventTime(at('13:00'), CHICAGO)} and ${timeOfDay(at('19:00'), CHICAGO)}.`;
-  await expect(page.getByText(range).first()).toBeVisible();
+  await expect(page.getByTestId('doorsOpenAt-range')).toHaveText(range);
   await page.getByRole('button', { name: 'Schedule event' }).click();
+  await expect(page.getByTestId('doorsOpenAt-range')).toHaveText(range);
+  // Under the field and in the form's polite status line (035 FR-007), as on main.
   await expect(page.getByText(range)).toHaveCount(2);
-  await expect(doors).toHaveValue(`${day}T12:30`);
+  await expectEventDateTime(page, 'Doors open', `${day}T12:30`);
   await page.waitForTimeout(1_000);
   expect(posted).toHaveLength(0);
 
   // Back to 5:30 PM: saved, and the event page says so.
   // The note under the field goes as soon as the value is in range. Spec 035: there is no
   // leftover banner; the preview clears, and the next press can send the schedule.
-  await doors.fill(`${day}T17:30`);
+  await fillEventDateTime(page, 'Doors open', `${day}T17:30`);
   await expect(page.getByTestId('doorsOpenAt-range')).toHaveCount(0);
   await expect(page.getByText(range)).toHaveCount(0);
   await page.getByRole('button', { name: 'Schedule event' }).click();
@@ -79,11 +84,17 @@ test('025 S1/S2/S6: an admin sets when doors open, and customers see it', async 
   ).toHaveCount(1);
   const eventPath = new URL(page.url()).pathname;
 
-  // S2: edit the start to 8:00 PM; Doors open follows with its 90-minute gap.
+  // S2: edit the start to 8:00 PM; a 90-minute gap is a listed length and stays 90 minutes before.
   await page.getByRole('link', { name: 'Edit', exact: true }).click();
-  await expect(doors).toHaveValue(`${day}T17:30`);
-  await page.getByLabel('Starts', { exact: true }).fill(`${day}T20:00`);
-  await expect(doors).toHaveValue(`${day}T18:30`);
+  await expect(page.getByLabel('Before the start', { exact: true })).toBeChecked();
+  await expect(page.getByLabel('How long before the start', { exact: true })).toHaveValue('90');
+  await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
+    `Doors open at ${timeOfDay(at('17:30'), CHICAGO)}`,
+  );
+  await fillEventDateTime(page, 'Starts', `${day}T20:00`);
+  await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
+    `Doors open at ${timeOfDay(at('18:30'), CHICAGO)}`,
+  );
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(page).toHaveURL(new RegExp(`${eventPath}$`));
   const doorsAt = timeOfDay(at('18:30'), CHICAGO);

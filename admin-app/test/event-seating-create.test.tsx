@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventForm } from '../src/pages/EventForm';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, VENUE } from './fixtures-005';
+import { setLocalDateTime } from './helpers/event-times';
 
 /**
  * Spec 008 US6 (FR-018; research R9): at a venue with a layout, the Schedule event form sets up
@@ -47,8 +48,8 @@ const fillBasics = async (venueId: string) => {
   });
   await screen.findByRole('option', { name: /Plain Hall/ });
   fireEvent.change(screen.getByLabelText('Venue'), { target: { value: venueId } });
-  fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
-  fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+  setLocalDateTime('Starts', '2030-05-01T18:00');
+  setLocalDateTime('Ends', '2030-05-01T21:00');
 };
 
 const typeLine = (n: number, name: string, price: string) => {

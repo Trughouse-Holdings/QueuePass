@@ -20,6 +20,7 @@ import {
 } from './helpers/images';
 import { EVENT, VENUE } from './fixtures-005';
 import { objectUrls } from '../../packages/shared/test/web/browser-stubs';
+import { setLocalDateTime } from './helpers/event-times';
 
 /**
  * Spec 014 US1 (FR-014 to FR-018; research R9): the Images control of the Schedule event and Edit
@@ -167,8 +168,8 @@ async function fillNewEvent() {
   });
   await screen.findByRole('option', { name: /Plain Hall/ });
   fireEvent.change(screen.getByLabelText('Venue'), { target: { value: 'v-plain' } });
-  fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
-  fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+  setLocalDateTime('Starts', '2030-05-01T18:00');
+  setLocalDateTime('Ends', '2030-05-01T21:00');
   fireEvent.change(await screen.findByLabelText('Ticket type 1 name'), {
     target: { value: 'Floor' },
   });
@@ -758,8 +759,8 @@ describe('spec 031: a refused schedule sends no picture (FR-009, FR-012)', () =>
     });
     await screen.findByRole('option', { name: /Yum Center/ });
     fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
-    fireEvent.change(screen.getByLabelText('Starts'), { target: { value: '2030-05-01T18:00' } });
-    fireEvent.change(screen.getByLabelText('Ends'), { target: { value: '2030-05-01T21:00' } });
+    setLocalDateTime('Starts', '2030-05-01T18:00');
+    setLocalDateTime('Ends', '2030-05-01T21:00');
     await screen.findByRole('group', { name: 'Tickets and seating' });
     fireEvent.change(screen.getByLabelText('Ticket type 1 name'), { target: { value: 'Floor' } });
     fireEvent.change(screen.getByLabelText('Ticket type 1 price'), { target: { value: '45.00' } });

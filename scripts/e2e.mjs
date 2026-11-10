@@ -191,11 +191,14 @@ export async function main(argv = process.argv.slice(2), deps = {}) {
       return 1;
     }
 
+    // Spec 036 FR-012: CI (and a WebKit opt-in) also installs Safari's engine for the event-form
+    // journeys. A plain local run stays Chromium-only.
     const install = [
       'playwright',
       'install',
       ...(process.env.CI ? ['--with-deps'] : []),
       'chromium',
+      ...(process.env.CI || process.env.QP_E2E_WEBKIT === '1' ? ['webkit'] : []),
     ];
     if ((await run('npx', install, { track })) !== 0) return 1;
     if (interrupted) return 130;

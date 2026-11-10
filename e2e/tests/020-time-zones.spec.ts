@@ -6,6 +6,7 @@ import { addTier, apiFor, buyTickets, createEvent, createVenue } from '../fixtur
 import { PLACES, uniqueName } from '../fixtures/data';
 import { signIn } from '../fixtures/sign-in';
 import { atLocal, eventTime, localDate, timeOfDay } from '../fixtures/time';
+import { expectEventDateTime, fillEventDateTime } from '../fixtures/event-times';
 
 const PHOENIX = 'America/Phoenix';
 
@@ -101,17 +102,20 @@ test('020 S7: a start time the venue zone skips is refused and nothing is sent; 
   await page
     .getByLabel('Venue', { exact: true })
     .selectOption({ label: `${venueName} (500 seats)` });
-  await page.getByLabel('Starts', { exact: true }).fill(`${night}T02:30`);
-  await page.getByLabel('Ends', { exact: true }).fill(`${night}T04:00`);
+  await fillEventDateTime(page, 'Starts', `${night}T02:30`);
+  await fillEventDateTime(page, 'Ends', `${night}T04:00`);
   await page.getByLabel('Ticket type 1 name', { exact: true }).fill('General');
   await page.getByLabel('Ticket type 1 price', { exact: true }).fill('20');
   await page.getByLabel('Ticket type 1 quantity', { exact: true }).fill('50');
   // Said under the field as soon as it is typed. Spec 035: no second copy in a banner.
   await expect(page.getByText(message).first()).toBeVisible();
   await page.getByRole('button', { name: 'Schedule event' }).click();
-  await expect(page.getByText(message)).toHaveCount(1);
+  // Under the field and in the form's polite status line (035 FR-007). Spec 036: doors derived
+  // from the start add no "Enter when doors open." of their own, so the status keeps this message.
+  await expect(page.getByText(message)).toHaveCount(2);
+  await expect(page.getByTestId('form-status')).toHaveText(message);
   // Every value kept; nothing sent.
-  await expect(page.getByLabel('Starts', { exact: true })).toHaveValue(`${night}T02:30`);
+  await expectEventDateTime(page, 'Starts', `${night}T02:30`);
   await expect(page.getByRole('heading', { level: 1, name: 'Schedule event' })).toBeVisible();
   // Long enough for a request the press might have sent late to have gone out (review minor 5).
   await page.waitForTimeout(1_000);
