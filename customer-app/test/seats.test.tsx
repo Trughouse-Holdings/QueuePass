@@ -382,7 +382,9 @@ describe('confirming seats (US2-3; FR-008, FR-011)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Section A, Row 1, Seat 3 is already taken.',
     );
-    await vi.waitFor(() => expect(seatButton(1, 3)).toBeDisabled());
+    // Shown as sold once the map reloads; clicked, so it stays focusable (spec 033 review M1).
+    await vi.waitFor(() => expect(seatButton(1, 3)).toHaveAccessibleName('Row 1, Seat 3, sold'));
+    expect(seatButton(1, 3)).toHaveAttribute('aria-disabled', 'true');
     expect(chosen()).toEqual(['Section A, Row 1, Seat 1']);
     expect(calls.filter((c) => c.path === '/events/e1/seats').length).toBeGreaterThanOrEqual(2);
   });

@@ -268,8 +268,9 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   events > lists the venue's events in its zone`, 10 s under load; admin-app is untouched here),
   which passed on rerunning that zone. **Pending**: the `e2e` job on GitHub (T008, T009) and its
   time.
-- [ ] T027 Independent review by a separate Claude session (Constitution III) of the implementation
+- [x] T027 Independent review by a separate Claude session (Constitution III) of the implementation
   against spec.md, plan.md, research.md, and the contract; fix the findings; record the round here.
+  **Done**: code review round 1 on PR #154, recorded below, every finding fixed.
 - [ ] T028 Running-system walk, quickstart S0–S11, on a stack of its own (`-p qp033`) or path B with
   Mahdi's go for the team stack's ports (ground rules), in a browser and with a screen reader or the
   accessibility tree for S1 and S2; record each scenario's result here (Constitution VI smoke test).
@@ -353,3 +354,37 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
     wait), and T010 updates the code's step comments (research R4, data-model, T010).
   - N3: the checklist no longer lists the hold allowance and one request per click as open to review.
 - **Open findings**: none.
+
+## Review record (implementation branch)
+
+- **Round 1** (code review on PR #154, 2026-11-10): 1 must-fix, 1 should-fix, 6 nits. All fixed
+  in the `Review 033: code review round 1` commit, tests first (each new test seen failing on the
+  code before it).
+  - M1 (FR-016, `015` FR-012): another customer's live change to a seat whose hold was pending was
+    skipped as this customer's own, so after the `SEAT_TAKEN` refusal the seat was drawn natively
+    `disabled` and the keyboard focus fell to the page → the refusal marks the refused seat (and the
+    seats it names) as unavailable while shown, so it stays focusable with `aria-disabled`, and the
+    map is reloaded only when the stream is not live (a reload redraws the form). Found with it:
+    the click queue called the handlers of the render that sent the click, so an answer saw stale
+    page state → it calls the page's latest handlers when the answer comes. Test:
+    `seat-stream.test.tsx` "keeps focus on a seat another customer took while this customer's hold
+    of it was pending"; `seats.test.tsx`'s taken-seat case now expects the clicked seat focusable.
+  - S2 (FR-012, FR-017): any non-401 failure to read an event marked it deleted for good, hiding a
+    live reservation and saying the cart was empty, and every visit flashed "Your cart is empty"
+    before the events were read → only a `404` hides an entry; other failures are read again with
+    the next read of the reservations; "Loading your cart…" shows until every listed event is read.
+    Tests: loading never empty, a `500` then success, a `404` not listed.
+  - N3: the cart's sequence guard could never fire with one read at a time → removed; the test
+    retitled ("applies its answer when it comes").
+  - N4: a cart opened with under a minute left says the 1-minute warning on opening, once for that
+    page, as the event page does → documented in `Cart.tsx`.
+  - N5: "bought since the cart loaded" compared the Backend's `createdAt` with the browser's clock →
+    an order counts as this reservation's when placed at or after the reservation's `createdAt`,
+    both the Backend's times; a purchase in another tab within 2 seconds of the end is told as run
+    out (documented). Tests: a browser clock weeks ahead still says bought; an older order says
+    ended.
+  - N6: `015 S2`'s 2 seconds now run from the second click, not across two holds.
+  - N7: `App.tsx`'s comment wrapped at 100.
+  - N8: `use-hold-queue.ts` guards only the request, so a handler that throws surfaces instead of
+    reading as no answer; a comment says queued clicks keep sending after Add to cart leaves the
+    page (harmless: the cart shows the result).

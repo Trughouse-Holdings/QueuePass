@@ -230,9 +230,18 @@ export function GetTickets({ event }: { event: Event }) {
       return;
     }
     if (e?.code === 'SEAT_TAKEN') {
-      // Spec 007 US3-2, spec 015 US1-2: the seat is someone else's; the map shows it again.
+      // Spec 007 US3-2, spec 015 US1-2: the seat is someone else's. Its live change may have come
+      // while this hold was pending, when it was not someone else's yet, so it is marked here:
+      // shown as taken, it stays focusable (aria-disabled), and the focus stays on it (015
+      // FR-012, spec 033 FR-016; review round 1, M1).
       setNotice(e.message);
-      refresh();
+      const named = ((e.details?.seats ?? []) as SeatLabel[]).flatMap((s) => {
+        const at = live.map?.sections.find((x) => x.name === s.section);
+        return at ? [placeKey({ sectionId: at.sectionId, row: s.row, seat: s.seat })] : [];
+      });
+      setLateGone((all) => [...new Set([...all, placeKey(action.seat), ...named])]);
+      // A live map already shows it; reloading would redraw the form and drop the focus.
+      if (live.status !== 'live') refresh();
     } else if (e?.code === 'SEAT_COOLDOWN') {
       setNotice(cooldownMessage(e.details));
     } else {

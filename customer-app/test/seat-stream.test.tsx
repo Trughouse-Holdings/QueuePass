@@ -55,7 +55,7 @@ const reservation = (seats: number[]): Reservation => ({
   secondsLeft: 300,
 });
 
-function setup(extra: Record<string, Response | (() => Response)> = {}) {
+function setup(extra: Record<string, Response | (() => Response | Promise<Response>)> = {}) {
   const stream = seatStream();
   const api = stubApi({
     'GET /events/e1': json(event({ reservedSeating: true })),
@@ -149,6 +149,41 @@ describe('live seat map (US3; FR-010)', () => {
 
     expect(await screen.findByRole('timer')).toBeInTheDocument();
     expect(seatButton(4)).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it("keeps focus on a seat another customer took while this customer's hold of it was pending (spec 033 review M1)", async () => {
+    let answer: (r: Response) => void = () => undefined;
+    const { stream } = setup({
+      'POST /events/e1/reservation': () => new Promise<Response>((r) => (answer = r)),
+    });
+    await live(stream);
+    const seat = seatButton(4);
+    seat.focus();
+    fireEvent.click(seat);
+    await waitFor(() => expect(seatButton(4)).toHaveAccessibleName('Row 1, Seat 4, holding'));
+
+    // Another customer's hold of it arrives while this one is in flight.
+    act(() => stream.send('seats', changes([4, 'reserved'])));
+    await act(async () =>
+      answer(
+        json(
+          {
+            error: {
+              code: 'SEAT_TAKEN',
+              message: 'Section A, Row 1, Seat 4 is reserved by another customer.',
+              details: { seats: [{ section: 'A', row: 1, seat: 4 }] },
+            },
+          },
+          409,
+        ),
+      ),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Seat 4 is reserved');
+    await waitFor(() => expect(seatButton(4)).toHaveAccessibleName('Row 1, Seat 4, reserved'));
+    expect(seatButton(4)).toHaveAttribute('aria-disabled', 'true');
+    expect(seatButton(4)).not.toBeDisabled();
+    expect(seatButton(4)).toHaveFocus();
   });
 
   it('marks a seat a reconnect snapshot shows as taken, keeping it focusable (FR-011, T047)', async () => {

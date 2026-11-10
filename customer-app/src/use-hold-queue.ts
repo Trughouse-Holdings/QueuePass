@@ -44,6 +44,9 @@ const opposite = (kind: SeatAction): SeatAction => (kind === 'hold' ? 'release' 
  *   is dropped; a hold refused for the allowance (`429`) drops every queued hold (releases go on);
  *   `401` clears the queue.
  *
+ * Queued clicks keep being sent after the page unmounts (Add to cart leaves it): harmless, since
+ * each is a request the customer made, and the cart shows the reservation that results.
+ *
  * `pending` tells, for each seat with a queued or in-flight action, what it will be: held
  * (`hold`) or open (`release`). The page adopts each answer as it comes, with its own `lastWrite`
  * guard against older reads.
@@ -59,7 +62,8 @@ export function useHoldQueue(eventId: string, handlers: HoldQueueHandlers) {
 
   const send = useCallback(
     async (action: QueuedAction): Promise<void> => {
-      const h = latest.current;
+      // The page's handlers as of the answer, not of the click: it may have re-rendered since.
+      const h = (): HoldQueueHandlers => latest.current;
       const { sectionId, row, seat } = action.seat;
       const body = { seats: [{ sectionId, row, seat }] };
       /** Drops the queued actions on this seat (or every queued hold) that `keep` refuses. */
@@ -68,42 +72,45 @@ export function useHoldQueue(eventId: string, handlers: HoldQueueHandlers) {
       };
       const dropOpposite = (): void =>
         drop((q) => !(q.key === action.key && q.kind === opposite(action.kind)));
+      // Only the request is guarded: a handler that throws is a bug to surface, not "no answer".
+      let answer: {
+        data?: Reservation | null;
+        error?: unknown;
+        response: Response;
+      };
       try {
         if (action.kind === 'hold') {
-          const { data, error, response } = await api.POST('/events/{id}/reservation', {
+          answer = await api.POST('/events/{id}/reservation', {
             params: { path: { id: eventId } },
             body,
           });
-          const limited = limitedFor(response, error);
-          if (response.ok && data) h.onDone(action, data, response.status === 201);
-          else if (response.status === 401) {
-            queue.current = [];
-            h.onSignedOut();
-          } else if (limited !== null) {
-            // Every queued hold would be refused too; releases go on (they are never limited).
-            drop((q) => q.kind !== 'hold' && q.key !== action.key);
-            h.onLimited(action, limited);
-          } else {
-            dropOpposite();
-            h.onRefused(action, error as ErrorEnvelope | undefined);
-          }
         } else {
-          const { data, error, response } = await api.POST('/events/{id}/reservation/release', {
+          const released = await api.POST('/events/{id}/reservation/release', {
             params: { path: { id: eventId } },
             body,
           });
-          if (response.ok) h.onDone(action, data?.reservation ?? null, false);
-          else if (response.status === 401) {
-            queue.current = [];
-            h.onSignedOut();
-          } else {
-            dropOpposite();
-            h.onRefused(action, error as ErrorEnvelope | undefined);
-          }
+          answer = { ...released, data: released.data?.reservation ?? null };
         }
       } catch {
         dropOpposite();
-        h.onNoAnswer(action);
+        h().onNoAnswer(action);
+        return;
+      }
+      const { data, response } = answer;
+      const error = answer.error as ErrorEnvelope | undefined;
+      const limited = action.kind === 'hold' ? limitedFor(response, error) : null;
+      if (response.ok && (data || action.kind === 'release')) {
+        h().onDone(action, data ?? null, response.status === 201);
+      } else if (response.status === 401) {
+        queue.current = [];
+        h().onSignedOut();
+      } else if (limited !== null) {
+        // Every queued hold would be refused too; releases go on (they are never limited).
+        drop((q) => q.kind !== 'hold' && q.key !== action.key);
+        h().onLimited(action, limited);
+      } else {
+        dropOpposite();
+        h().onRefused(action, error);
       }
     },
     [api, eventId],

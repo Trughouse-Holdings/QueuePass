@@ -67,10 +67,11 @@ test('015 S2: live gray-out, seats one customer reserves turn unavailable for an
   /** What is left of the 2 seconds since `since` (FR-006): every check shares one deadline. */
   const left = (since: number) => ({ timeout: Math.max(1, LIVE_MS - (Date.now() - since)) });
 
-  // Spec 033: each click holds the seat at once.
-  const reservedAt = Date.now();
+  // Spec 033: each click holds the seat at once. The 2 seconds run from the second click, so
+  // they never span two holds one after another (review round 1, N6).
   await first.seats.getByRole('button', { name: 'Row 2, Seat 3', exact: true }).click();
   await first.seats.getByRole('button', { name: 'Row 2, Seat 4', exact: true }).click();
+  const reservedAt = Date.now();
 
   // Never reloaded: within 2 seconds of the clicks, Customer 2 sees both seats Reserved and can't
   // choose them, and the Admin sees them ◩ with section A's counts.

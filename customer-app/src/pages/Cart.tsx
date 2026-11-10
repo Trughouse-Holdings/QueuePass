@@ -42,7 +42,7 @@ const ranOutMessage = (name: string): string =>
  *
  * The cart opens no seat stream: it reads the reservations again about once a second while the page
  * is visible, at once when it becomes visible or gains focus, and never while hidden; one read at a
- * time, and an older answer than the latest applied is ignored. An entry whose purchase is in flight
+ * time, so answers arrive in order. An entry whose purchase is in flight
  * or awaiting Check again is kept until that purchase settles. An entry that vanishes is explained
  * through one `listMyOrders` read: bought, if an order for its event was placed since the cart
  * loaded, otherwise ended. A read answered `401` stops the reads and signs in again.
@@ -61,7 +61,6 @@ export function Cart() {
   const [holderName, setHolderName] = useState('');
   const [nameTouched, setNameTouched] = useState(false);
 
-  const loadedAt = useRef(Date.now());
   const entriesRef = useRef<Entry[] | null>(null);
   entriesRef.current = entries;
   const infosRef = useRef(infos);
@@ -72,8 +71,6 @@ export function Cart() {
   const finished = useRef(new Set<string>());
   const reading = useRef(false);
   const stopped = useRef(false);
-  const sequence = useRef(0);
-  const applied = useRef(0);
   const requested = useRef(new Set<string>());
 
   const nameOf = (eventId: string): string => {
@@ -97,7 +94,11 @@ export function Cart() {
     [drop],
   );
 
-  /** FR-017: one `listMyOrders` read says whether a vanished entry was bought here or elsewhere. */
+  /**
+   * FR-017: one `listMyOrders` read says whether a vanished entry was bought here or elsewhere: an
+   * order for its event placed since the reservation was made, both times the Backend's (review
+   * round 1, N5).
+   */
   const explain = useCallback(
     async (r: Reservation): Promise<void> => {
       const name = nameOf(r.eventId);
@@ -105,7 +106,7 @@ export function Cart() {
       try {
         const { data } = await api.GET('/me/orders');
         bought = (data ?? []).some(
-          (o) => o.eventId === r.eventId && Date.parse(o.createdAt) >= loadedAt.current,
+          (o) => o.eventId === r.eventId && Date.parse(o.createdAt) >= Date.parse(r.createdAt),
         );
       } catch {
         // Not known: said as ended.
@@ -141,6 +142,8 @@ export function Cart() {
           // A purchase in progress: its own answer decides what the entry shows.
           next.push(e);
         } else if (e.deadline - now <= 2_000) {
+          // Gone within 2 seconds of its end: the run-out the countdown is about to show. (Bought
+          // in another tab in those last 2 seconds is told as run out here; My tickets has it.)
           ranOut(e.reservation);
         } else {
           finished.current.add(reservationKey(e.reservation));
@@ -159,7 +162,6 @@ export function Cart() {
   const read = useCallback(async (): Promise<void> => {
     if (reading.current || stopped.current) return;
     reading.current = true;
-    const mine = ++sequence.current;
     try {
       const { data, response } = await api.GET('/me/reservations');
       if (response.status === 401) {
@@ -167,8 +169,7 @@ export function Cart() {
         await signIn();
         return;
       }
-      if (!response.ok || !data || mine < applied.current) return;
-      applied.current = mine;
+      if (!response.ok || !data) return;
       apply(data);
     } catch {
       // The next read tries again.
@@ -218,20 +219,29 @@ export function Cart() {
             api.GET('/events/{id}/tiers', { params: { path: { id: eventId } } }),
           ]);
           if (ev.response.status === 401) return void signIn();
-          const info: EventInfo =
-            ev.response.ok && ev.data
-              ? { event: ev.data, tiers: tiers.data ?? [] }
-              : // Deleted since: its reservation went with it, so it is not listed.
-                'missing';
+          let info: EventInfo;
+          if (ev.response.status === 404) {
+            // Deleted since: its reservation went with it, so it is not listed.
+            info = 'missing';
+          } else if (ev.response.ok && ev.data && tiers.response.ok && tiers.data) {
+            info = { event: ev.data, tiers: tiers.data };
+          } else {
+            // Any other failure: read again with the next read of the reservations (review
+            // round 1, S2), never taken for a deleted event.
+            requested.current.delete(eventId);
+            return;
+          }
           setInfos((all) => ({ ...all, [eventId]: info }));
         } catch {
-          // Read again on the next appearance.
+          // No answer: read again with the next read of the reservations.
           requested.current.delete(eventId);
         }
       })();
     }
   }, [entries, api, signIn]);
 
+  // Until every listed event's details are known, the cart is loading, not empty (review S2).
+  const pending = (entries ?? []).some((e) => infos[e.reservation.eventId] === undefined);
   const shown = (entries ?? []).flatMap((e) => {
     const info = infos[e.reservation.eventId];
     return info && info !== 'missing' ? [{ entry: e, info }] : [];
@@ -262,7 +272,7 @@ export function Cart() {
       {confirmed.map((c) => (
         <OrderConfirmation key={c.order.id} eventName={c.eventName} order={c.order} />
       ))}
-      {entries === null ? (
+      {entries === null || (pending && shown.length === 0) ? (
         <p>Loading your cart…</p>
       ) : shown.length === 0 ? (
         <p>Your cart is empty. Seats you hold on an event&apos;s page appear here for 5 minutes.</p>
@@ -373,6 +383,8 @@ function CartEntry({
     const tick = (): void => {
       const left = Math.max(0, Math.ceil((entry.deadline - performance.now()) / 1000));
       setSecondsLeft(left);
+      // Once per reservation on this page; a cart opened with under a minute left says it on
+      // opening, as the event page does (review round 1, N4).
       if (left > 0 && left <= 60) setWarning(ONE_MINUTE_LEFT);
       if (left === 0 && !inProgressRef.current && !settled.current) {
         settled.current = true;

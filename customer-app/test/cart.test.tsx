@@ -405,14 +405,16 @@ describe('live (FR-017; research R8)', () => {
     expect(calls.filter((c) => c.path === '/me/orders')).toHaveLength(1);
   });
 
-  it('says the seats were bought, linking My tickets, when an order for that event appeared', async () => {
+  it('says the seats were bought, linking My tickets, when an order for that event appeared, by the Backend’s times (review N5)', async () => {
     fakeClock();
+    // This browser's clock is weeks ahead of the Backend's: only the Backend's times count.
+    vi.setSystemTime(Date.parse('2026-11-15T12:00:00.000Z'));
     let mine = [reservation('e1', [5])];
     stubApi(
       routes({
         'GET /me/reservations': () => json(mine),
         'GET /me/orders': () =>
-          json([myOrder({ eventId: 'e1', createdAt: new Date(Date.now()).toISOString() })]),
+          json([myOrder({ eventId: 'e1', createdAt: '2026-10-20T19:01:00.000Z' })]),
       }),
     );
     renderCustomer({ at: '/cart' });
@@ -426,6 +428,73 @@ describe('live (FR-017; research R8)', () => {
       'href',
       '/my-tickets',
     );
+  });
+
+  it('says the reservation ended when the only order for that event is older than it (review N5)', async () => {
+    fakeClock();
+    let mine = [reservation('e1', [5])];
+    stubApi(
+      routes({
+        'GET /me/reservations': () => json(mine),
+        'GET /me/orders': json([myOrder({ eventId: 'e1', createdAt: '2026-10-20T18:00:00.000Z' })]),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+    await entry('Early Show');
+
+    mine = [];
+    await advance(2_000);
+
+    expect(await screen.findByText('Your reservation for Early Show ended.')).toBeInTheDocument();
+  });
+
+  it('says it is loading, never empty, until the listed events are read (review S2)', async () => {
+    let answer: (r: Response) => void = () => undefined;
+    stubApi(
+      routes({
+        'GET /me/reservations': json([reservation('e1', [5])]),
+        'GET /events/e1': () => new Promise<Response>((r) => (answer = r)),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+
+    expect(await screen.findByText('Loading your cart…')).toBeInTheDocument();
+    await act(async () => undefined);
+    expect(screen.queryByText(/Your cart is empty/)).toBeNull();
+    await act(async () => answer(json(concert)));
+    expect(await entry('Early Show')).toBeInTheDocument();
+  });
+
+  it('reads an event again after a failure that is not 404, and never hides its reservation (review S2)', async () => {
+    fakeClock();
+    let n = 0;
+    const { calls } = stubApi(
+      routes({
+        'GET /me/reservations': json([reservation('e1', [5])]),
+        'GET /events/e1': () =>
+          n++ === 0 ? json({ error: { code: 'INTERNAL', message: 'x' } }, 500) : json(concert),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+    await waitFor(() => expect(n).toBe(1));
+    expect(screen.queryByText(/Your cart is empty/)).toBeNull();
+
+    await advance(1_000);
+
+    expect(await entry('Early Show')).toBeInTheDocument();
+    expect(calls.filter((c) => c.path === '/events/e1')).toHaveLength(2);
+  });
+
+  it('does not list a reservation whose event is gone (404)', async () => {
+    stubApi(
+      routes({
+        'GET /me/reservations': json([reservation('e1', [5])]),
+        'GET /events/e1': json({ error: { code: 'NOT_FOUND', message: 'x' } }, 404),
+      }),
+    );
+    renderCustomer({ at: '/cart' });
+
+    expect(await screen.findByText(/Your cart is empty/)).toBeInTheDocument();
   });
 
   it('keeps an entry whose purchase is in flight when a read lacks it', async () => {
@@ -473,7 +542,7 @@ describe('live (FR-017; research R8)', () => {
     expect(screen.getByRole('button', { name: 'Check again' })).toBeInTheDocument();
   });
 
-  it('sends no second read while one is in flight, and ignores an older answer', async () => {
+  it('sends no second read while one is in flight, and applies its answer when it comes', async () => {
     fakeClock();
     const answers: ((r: Response) => void)[] = [];
     const { calls } = stubApi(

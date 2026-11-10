@@ -11,8 +11,8 @@ import { VenueDetail } from './pages/VenueDetail';
 
 /**
  * QueuePass for customers: every venue and event (spec 003), getting tickets and My tickets
- * (spec 006), and the cart of held seats (spec 033). main.tsx puts this behind sign-in and the customer role (spec 001), so no route
- * renders without both.
+ * (spec 006), and the cart of held seats (spec 033). main.tsx puts this behind sign-in and the
+ * customer role (spec 001), so no route renders without both.
  */
 /** Spec 008: the Admin app's nav classes, so the current page is marked (research R2). */
 const navClass = ({ isActive }: { isActive: boolean }): string =>
