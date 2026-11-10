@@ -1,26 +1,27 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.9.3 -> 3.9.4 (PATCH): one roadmap row reserved; no principle changed and no control
-  removed. Applies on top of spec 031's amendment (3.9.2 -> 3.9.3, row
-  031-atomic-event-create), merged to main as f9d083b.
-Problem: issue #129. Every admitted ticket keeps, forever, when it was admitted and which Ticket
-  Booth agent admitted it (spec 017 research R3). Once an event is over that is personal data with
-  no purpose; it should be dropped one week after the event ends, while each event's report keeps
-  how many tickets were used to enter it.
+Version: 3.9.4 -> 3.9.5 (PATCH): one roadmap row reserved; no principle changed and no control
+  removed. Applies on top of spec 032's amendment (3.9.3 -> 3.9.4, row 032-drop-check-ins),
+  merged to main as 10802fe.
+Problem: issue #135 (it supersedes #131, closed as covered). Buying seats takes three controls on
+  top of the seat map: clicking a seat only picks it, Reserve seats holds the picks and starts the
+  5-minute countdown, and Remove, Release, and Release seats undo them; the countdown is a line of
+  small text; tickets are bought on the event page. Seats should be held as they are clicked, the
+  countdown shown prominently, and tickets bought from a cart before it runs out.
 Changed:
-  - Roadmap: row 032-drop-check-ins reserved (a Backend job removes every ticket's check-in details
-    once 7 days have passed since its event ended, cancelled events included, keeping each event's
-    checked-in count; the 7 days are one named constant; the Admin app's Attendees, Sales card,
-    Reports, and attendee export say when the details were removed; a removed event's times no
-    longer change). The next free number is 033.
-Impact: spec 032, and its contract change (1.24.0: checkInDetailsRemovedAt on Event, OrderEvent,
-  and EventSales; updateEvent's 409 CHECK_IN_DETAILS_REMOVED). Specs 005, 017, and 023 keep their
-  rules until an event's cutoff, then read the kept count (spec 032 research R4, R7). Spec 030
-  (merged) is amended for removed events only, with a dated note in its spec: its FR-016 (a Past
-  ticket keeps its state and printable ticket) gives way to 032 FR-014 ("Event over", no printable
-  ticket), and its edge case of an event moved later coming back gives way to 032 FR-008 (times
-  fixed once removed) (spec 032 research R9, R10). No other spec changes. The README's version
-  reference follows. Templates: none need updating.
+  - Roadmap: row 033-seat-hold-cart reserved (clicking an open seat holds it and clicking it again
+    releases it; the first held seat starts the 5 minutes, more seats join without restarting
+    them, and releasing the last one ends the reservation; no Reserve seats, Remove, Release, or
+    Release seats; a prominent countdown; Add to cart and a Cart page that is the customer's active
+    reservations, kept by the Backend, bought one event at a time; general admission unchanged;
+    a seat released while others stay held can be held again at once, and every seat of an ended
+    reservation waits 2 minutes from its end; seat holds get their own attempt allowance, 30 a
+    minute and 10 in any 5 seconds). The next free number is 034.
+Impact: spec 033, and its contract change (1.25.0: reserveSeats' and releaseSeats' 2-minute wait
+  rule, the HOLD allowance's numbers and settings; no schema, operation, or field changes). Specs
+  007, 015, and 026 get dated notes where 033 replaces their Customer app flow, 015's FR-004a, and
+  026's hold numbers. .env.example and docker-compose.yml gain the two hold settings. No other
+  spec changes. The README's version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -331,7 +332,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `033`.
+number is a pull request against this table. The next free number is `034`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -367,6 +368,7 @@ number is a pull request against this table. The next free number is `033`.
 | `030-hide-past-events` | An event is past once the current time reaches its end (`endsAt`); wherever events are listed, past events are left out by default, by the Backend for every client; the Admin app's event list and venue page have a Show past events toggle that lists them too, marked Ended; the Customer app has no toggle, keeps past tickets in a Past section of My tickets, and opens a past event's own page saying it has ended; an event's Admin page, attendees, sales, and Reports stay reachable (#133) | `002`, `003`, `004`, `005`, `006`, `008`, `019`, `020`, `025` |
 | `031-atomic-event-create` | Scheduling an event in the Admin app saves the event, its ticket types, and its reserved seating (which section sells which type) in one request, all or nothing: any refusal leaves no event, ticket type, or seating behind, and two schedules for one slot save one whole event; each refusal names the ticket type or section at fault, so the form shows it beside that field and keeps every value to fix and resubmit; pictures still upload after the event exists, as in `014`; existing callers that send only the event are unchanged; editing an event is unchanged (#127) | `004`, `007`, `008`, `014` |
 | `032-drop-check-ins` | One week after an event ends (`endsAt` + 7 days, one named constant), a Backend job that runs every hour removes when each of its tickets was admitted and which Ticket Booth agent admitted it, cancelled events included, and keeps the event's checked-in count, so its report reads the same afterwards; the Admin app's Attendees, Sales card, Reports, and attendee export say "Check-in details removed on …" instead of showing tickets as not checked in; My tickets no longer says when a ticket was used; once removed, the event's times can no longer change (#129) | `005`, `017`, `018`, `023`, `025`, `030` |
+| `033-seat-hold-cart` | On a seated event the seat map is the only control for choosing seats: clicking an open seat holds it for the customer at once, and clicking it again releases it; the first held seat starts the reservation's 5 minutes, further seats join it without restarting them, and releasing the last one ends it, so the next click starts a new 5:00; no Reserve seats, Remove, Release, or Release seats; the countdown is shown prominently on the event page and in the cart, and every hold and release is announced; Add to cart opens a Cart page that lists the customer's active reservations, kept by the Backend (so a refresh or another device shows them), each event bought on its own before its countdown ends, then removed and the customer told; a seat released while others stay held can be held again at once, and every seat of an ended reservation waits 2 minutes from its end; seat holds get their own attempt allowance (30 a minute, 10 in any 5 seconds); general admission unchanged; one checkout for several events deferred (#135) | `007`, `015`, `016`, `017`, `020`, `026` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -419,4 +421,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.9.4 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09
+**Version**: 3.9.5 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-09
