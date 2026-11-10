@@ -309,6 +309,27 @@ confirm they **fail** before the implementation tasks that follow.
   shared 96.77%, Backend 97.12%, admin-app 97.50%, customer-app 98.11%, booth-app 93.44%, seed
   99.41%. T022's `e2e` job time is recorded when the PR's CI runs.
 
+## Review record (implementation branch, T023)
+
+- **Round 1** (independent Claude session, PR #157, 2026-11-10): verdict "only minor findings
+  remain"; no must-fix, 2 should-fix, 3 nits.
+  - S1: `main` had moved (`035`'s implementation, PR #156, `d821a96`) and the README conflicted →
+    merged in `Impl 034: merge main with 035's implementation (#126)`: main's rows with `035`'s,
+    plus `034`'s row and `006`'s summary; the contract at `035`'s 1.27.0 keeps T014's tightening
+    (`STARTED` out, `inProgress` required) and `035`'s changes; `api-schema.ts` regenerated,
+    `check-contract-drift` passes; `035` added no migration.
+  - S2: `started-notice.test.tsx` adds a reload that answers 500, and one that fails with a
+    network error: no "This event has ended." line, and the panel keeps its last answer (FR-017).
+  - N1: `getEventAvailability`'s "(`STARTED` is no longer sent once 034 is implemented)" → "(`STARTED`
+    is no longer sent)", rewrapped; `api-schema.ts` regenerated.
+  - N2: the fast-clock and pending-reload cases assert at once, after the notice appears, that no
+    ended line is there (the answer is reported in a layout effect, before paint).
+  - N3: commit subjects kept under ~100 characters from here on.
+  - **Runs after round 1**: Backend suite 3 times, 1371/1371 each; Customer app 3 times, 435/435
+    each; Admin app 431/431; `npm run ci` green (shared 793, Backend 1371, admin-app 431,
+    customer-app 435, booth-app 94, seed 124, root 85; line coverage shared 96.77%, Backend
+    97.17%, admin-app 97.35%, customer-app 98.15%, booth-app 93.44%, seed 99.41%).
+
 ## Review record (spec branch)
 
 - **Round 1** (independent Claude session, 2026-11-09): no must-fix; 3 should-fix (one decided by the
