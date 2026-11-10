@@ -60,8 +60,9 @@ attendee list in the Admin app.
 ### User Story 2 - Sold Out and Cancelled Are Explained (Priority: P2)
 
 A customer can tell, before trying, when tickets cannot be had and why: sold out, cancelled, or
-sales closed because the event has started. When tickets run out
-between viewing and confirming, the customer is told what happened and nothing is recorded.
+sales closed because the event has started. When tickets run out between viewing and confirming, the
+customer is told what happened and nothing is recorded. _Amended 2026-11-09 by spec `034` (#126),
+FR-001, FR-011: sales close because the event has ended, not started._
 
 **Why this priority**: The Backend already refuses these orders (`005`). This story makes the
 refusal clear instead of a dead end.
@@ -199,8 +200,9 @@ own order, with its codes.
 - **SC-002**: 0 duplicate orders result from one confirmation, including repeated clicks and retried
   requests.
 - **SC-003**: My tickets shows 100% of a customer's own orders and 0 of anyone else's.
-- **SC-004**: On 100% of sold-out, cancelled, or started events, the customer can tell why tickets are
-  unavailable without attempting to buy.
+- **SC-004**: On 100% of sold-out, cancelled, or started events, the customer can tell why tickets
+  are unavailable without attempting to buy. _Amended 2026-11-09 by spec `034` (#126), FR-011:
+  ended, not started, events._
 - **SC-005**: 0 events or tiers are ever oversold through the Customer app.
 - **SC-006**: The full test suite passes from a clean checkout.
 

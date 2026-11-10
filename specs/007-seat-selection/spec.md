@@ -173,7 +173,8 @@ map shows those 3 seats sold and the section counts match.
 - **Capacity**: a seated event never sells more than its ticket capacity (`005`), nor more seats
   than its layout has.
 - **Unmapped sections**: when an event has tiers, a section mapped to no tier is not for sale.
-- **Events that started or were cancelled**: no seats can be chosen (`006` FR-014, `005`).
+- **Events that started or were cancelled**: no seats can be chosen (`006` FR-014, `005`). _Amended
+  2026-11-09 by spec `034` (#126), FR-001: seats can be chosen until the event ends, not starts._
 - **General admission at a venue with a layout**: allowed; the event sells tickets without seats,
   exactly as in `006` (FR-002).
 - **A tier with no sections**: its amount is 0, so it sells nothing (FR-006).

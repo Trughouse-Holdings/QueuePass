@@ -84,14 +84,20 @@ so Mahdi and the team can overturn it in review of the spec PR.
   its abbreviation (`020`); a time is shown alone when it falls on the venue's date at the moment the
   panel loaded, and with its date otherwise ("until it ends at Nov 21, 2026, 1:00 AM EST" for a show
   that runs past midnight) (recommended answer, open to review) (FR-008, FR-009; research R4).
-- Q: The notice when the customer cannot buy (sold out, or at their limit)? → A: **Only its first
-  sentence**, "This event has already started (began at 7:00 PM EST).", above the sold-out or limit
-  message: "You can still buy tickets" would not be true for them. A cancelled event shows only that
-  it is cancelled (recommended answer, open to review) (FR-010; research R4).
+- Q: The notice when the customer cannot buy (sold out, at their limit, or no seats on sale yet)? →
+  A: **Only its first sentence**, "This event has already started (began at 7:00 PM EST).", above
+  whichever of those messages applies: "You can still buy tickets" would not be true for them. A
+  cancelled event shows only that it is cancelled (recommended answer, open to review) (FR-010;
+  research R4).
 - Q: After the end? → A: **The panel's badge stays "Sales closed" and its sentence becomes "Sales
   closed: this event has ended."**, below `030`'s "This event has ended." under the name. The
   Backend's refusal says "Sales for {event} closed when it ended." (the issue) (FR-011; research R2,
   R4).
+- Q: The event page's "This event has ended." line (`030`) uses the browser's clock, the panel the
+  Backend's: what if they disagree? → A: **Once the panel's availability has loaded, the line
+  follows it**: shown when `salesClosed` is `ENDED`, not while `inProgress` is true, so the header
+  and the panel never contradict each other; before availability loads, `030`'s browser-clock rule
+  stands (decided in spec review round 1, by the orchestrating session) (FR-017; research R4).
 - Q: On the confirmation? → A: **For an order placed at or after the event's start**, the
   confirmation says "This event has already started (began at 7:00 PM EST). Your tickets admit you
   until it ends at 10:00 PM EST.", decided from the order's own time and the event's start, both the
@@ -222,7 +228,9 @@ values follow the rule.
 ### Edge Cases
 
 - **The exact end.** At the event's end an order or a hold is refused; one millisecond before, it is
-  allowed (subject to every other rule).
+  allowed (subject to every other rule). The Backend's tests check a few seconds before the end and
+  the end reached; the millisecond itself would need a clock the tests can stop in every path, which
+  research R1 does not add.
 - **The exact start.** At the start nothing changes for sales: an order one millisecond before and one
   at the start are both allowed; from the start the panel shows the notice.
 - **A page left open across the start.** The notice appears the next time the panel loads
@@ -237,7 +245,9 @@ values follow the rule.
   Moving times is otherwise as before (`002`, `025`, `032`).
 - **A client's clock differs from the Backend's.** The Backend decides whether sales are open and
   whether the event is in progress; the apps only show it. The times in the notice are the event's
-  own.
+  own. A browser clock running a few minutes fast near the end does not put "This event has ended."
+  under the name while the Backend says the event is in progress: once availability has loaded, that
+  line follows it (FR-017); before, it follows `030`'s rule.
 - **A cancelled event in progress.** Refused as cancelled; the panel shows only that it is cancelled.
 - **A cancelled event that has ended.** As today: `CANCELLED` wins; its page says it has been
   cancelled and (`030`) that it has ended.
@@ -288,15 +298,19 @@ values follow the rule.
 - **FR-009**: The start and end in the notice MUST be in the venue's time zone with its abbreviation
   (`020`), each shown alone when it falls on the venue's date at the moment the panel loaded and with
   its date otherwise.
-- **FR-010**: While an event is in progress and the panel offers no way to get tickets because none
-  are left or the customer is at their limit, it MUST show only the notice's first sentence, "This
-  event has already started (began at {start}).", above that reason. For a cancelled event it MUST
-  show no notice.
+- **FR-010**: While an event is in progress and sales are open but the panel shows a reason it
+  offers no way to get tickets (none left, the customer at their limit, or no seats on sale yet), it
+  MUST show only the notice's first sentence, "This event has already started (began at {start}).",
+  above that reason. For a cancelled event it MUST show no notice.
 - **FR-011**: Once sales have ended, the panel MUST show the "Sales closed" badge and "Sales closed:
   this event has ended.", with no way to get tickets.
 - **FR-012**: The confirmation of an order placed at or after its event's start MUST say "This event
   has already started (began at {start}). Your tickets admit you until it ends at {end}.", by
   FR-009's rule; an order placed before the start MUST show no such line.
+- **FR-017**: Once the Get tickets panel has loaded the event's availability, the event page's "This
+  event has ended." line (`030` FR-014) MUST be shown exactly when availability says sales have
+  `ENDED`, and not while it says the event is in progress; before availability has loaded, `030`'s
+  rule (the browser's clock when the event loaded) applies. _(Added in spec review round 1.)_
 
 **Unchanged**
 
@@ -309,9 +323,14 @@ values follow the rule.
 
 **Documentation**
 
-- **FR-016**: The contract MUST state the rule (sales close at `endsAt`), `ENDED`, and `inProgress`;
-  `006` FR-014, `015` FR-016, and the notes in `030` and `033` that leave this to #126 MUST carry a
-  dated note pointing here; the README MUST list `034` and describe the rule.
+- **FR-016**: The contract MUST state the rule (sales close at `endsAt`), `ENDED`, and `inProgress`.
+  Every start-based sales rule in an earlier spec MUST carry a dated note pointing here: `006`
+  (US2's narrative and scenario 6, the "Event starts while a customer is confirming" edge case,
+  FR-014, SC-004), `007` (the "Events that started or were cancelled" edge case), `015` (the "Sales
+  closed" edge case, FR-016), `030` (the clarification leaving the panel to #126, and FR-014 for
+  FR-017), and `033` (the edge cases on ended events in the cart and on a reservation ending
+  elsewhere, the "Issue
+  #126" line, and the coordination assumption). The README MUST list `034` and describe the rule.
 
 ### Key Entities
 
@@ -346,9 +365,10 @@ values follow the rule.
 - **The Backend's clocks.** Each path keeps the clock it reads today (the order check and
   availability the Backend's process clock, holds and the sweep the database's clock); they run on
   one machine, so they agree to well under a second. Only the instant compared changes (research R1).
-- **The contract change lands in two steps**, as `032`'s did: the spec PR adds `ENDED` and
-  `inProgress` (optional) and keeps `STARTED`, so `main`'s Backend still matches; the implementation
-  removes `STARTED` and makes `inProgress` required, keeping 1.26.0 (research R2).
+- **The contract change lands in two steps**, as PR #151 proposes for `032`: the spec PR adds
+  `ENDED` and `inProgress` (optional) and keeps `STARTED`, so `main`'s Backend still matches; the
+  implementation removes `STARTED` and makes `inProgress` required, keeping 1.26.0, which the
+  contract approved in the spec PR already announces (research R2).
 - **Coordination with `033`'s implementation** (branch `033-seat-hold-cart-impl`, in flight): it
   reworks the seated half of `GetTickets.tsx`, moves the confirmation into its own component shared
   with the new cart, and changes the reservation wait query in `reservations.service.ts`; this

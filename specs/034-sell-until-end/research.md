@@ -52,8 +52,10 @@ sent. `Availability` gains a boolean `inProgress`: `startsAt <= now < endsAt`, b
 `getEventAvailability`'s description, and the `SALES_CLOSED` example ("Sales for Season Opener closed
 when it ended.") say so. Contract **1.25.0 → 1.26.0** (MINOR).
 
-**In two steps, as `032` did**, so `main` stays green between the PRs (every response the Backend's
-tests receive is checked against the contract, `backend/test/setup/authed-request.ts`):
+**In two steps, as PR #151 proposes for `032`** (not yet a merged precedent: `032`'s merged contract
+README says only that the implementation "always sends" its fields), so `main` stays green between
+the PRs (every response the Backend's tests receive is checked against the contract,
+`backend/test/setup/authed-request.ts`):
 
 1. **This PR**: the enum is `[CANCELLED, ENDED, STARTED, null]`, with `STARTED` described as sent only
    before `034` is implemented; `inProgress` is listed but not required. `api-schema.ts` is
@@ -61,11 +63,16 @@ tests receive is checked against the contract, `backend/test/setup/authed-reques
    'STARTED'` and adds `inProgress?: boolean`, because the Customer and Admin apps assign the
    generated availability to that type and their builds fail otherwise (checked with `tsc --noEmit`
    against this branch's `packages/shared`).
-2. **The implementation PR**: `STARTED` leaves the enum and its description, `inProgress` is listed in
-   `required`, `api-schema.ts` is regenerated, and `order.ts` narrows to `'CANCELLED' | 'ENDED'` and
-   `inProgress: boolean`; the version stays 1.26.0 (as `032`'s implementation, PR #151, makes its field
-   required at 1.24.0). This is a shared-surface change in the implementation PR, and every team member
-   approves it there.
+2. **The implementation PR**: `STARTED` leaves the enum and its description, `inProgress` is listed
+   in `required`, `api-schema.ts` is regenerated, and `order.ts` narrows to `'CANCELLED' | 'ENDED'`
+   and `inProgress: boolean`; the version stays 1.26.0 (as `032`'s implementation, PR #151, open,
+   proposes to make its field required at 1.24.0). This is a shared-surface change in the
+   implementation PR, and every team member approves it there.
+
+Keeping 1.26.0 in the implementation is acceptable under Principle I because the contract text
+approved in this PR already announces the final shape: `STARTED` is described as never sent once
+`034` is implemented and to be removed by that implementation, and `inProgress` as always sent and
+required then. The implementation changes no behavior the reviewed contract does not already state.
 
 **Why `ENDED` rather than keeping `STARTED`**: a value named for the start that is sent at the end would
 mislead every reader of the contract. Every client is in this repository and changes in the same PR,
@@ -124,6 +131,14 @@ for seated events only; rejected.
   and the confirmation (R5) say the same thing.
 - **Once on the page**: the notice is not repeated under the event's name in `EventDetail.tsx`, where
   `030`'s "This event has ended." stays (spec Clarifications).
+- **One clock for the page once availability has loaded** (FR-017, decided in spec review round 1):
+  `EventDetail.tsx` shows "This event has ended." from `hasEnded(e.endsAt, loadedAt)` (`030`
+  research R7, the browser's clock). Once `GetTickets` has loaded availability, it tells the page (a
+  callback prop such as `onSales({ ended, inProgress })`, called on every load), and the line then
+  shows exactly when `salesClosed === 'ENDED'`, and never while `inProgress` is true. Before the
+  first load the page keeps `030`'s rule, so a past event's page says it has ended at once. A
+  browser clock a few minutes fast near the end can therefore no longer show "This event has ended."
+  above a panel offering tickets. `030` FR-014 carries a dated note.
 
 **Why at the panel's top**: that is where the customer decides to buy; the panel already loads
 availability, so the page needs no second request. Under the name it would need availability in
@@ -171,13 +186,15 @@ can show one at once.
 
 ## R8. Demo data and existing tests that assume sales close at the start
 
-- **Demo data** (`backend/src/scripts/demo-data.ts`, `029`): unchanged events and times. Demo Tonight
-  starts 1 hour after the run and ends 4 hours after it, so it is on sale throughout and shows the
-  notice from its start; Season Opener, over, shows "Sales closed: this event has ended.". The comment
-  on Season Opener ("Sales closed at its start (006), so it has no tickets.") becomes "Sales closed at
-  its end (034); the demo places no order for it." No demo event is moved into progress at load: Demo
-  Tonight's 1 hour before its start is what makes its check-in window open at once (`017` research
-  R13, `025`), and moving it would change `029`'s state and tests (Mahdi to confirm).
+- **Demo data** (`backend/src/scripts/demo-data.ts`, `029`): unchanged events and times. Demo
+  Tonight starts 1 hour after the run and ends 4 hours after it, so it is on sale throughout and
+  shows the notice from its start; Season Opener, over, shows "Sales closed: this event has ended.".
+  The comment on Season Opener ("Sales closed at its start (006), so it has no tickets.") becomes
+  "Sales closed at its end (034); the demo places no order for it." No demo event is moved into
+  progress at load: Demo Tonight's 1 hour before its start is what makes its check-in window open at
+  once (`017` research R13, `025`), and moving it would change `029`'s state and tests (Mahdi to
+  confirm). The notice can be seen on Demo Tonight from 1 hour after a reset, or at once on any
+  event an admin schedules with a start in the past (quickstart S0).
 - **`e2e/tests/029-demo-checkpoint.spec.ts`** expects "Sales closed: this event has already started."
   on Season Opener; it becomes "Sales closed: this event has ended.".
 - **`backend/test/integration/orders.sales-closed.e2e-spec.ts`**: rewritten for the end (R11); its
@@ -189,18 +206,24 @@ can show one at once.
   → "…once it has ended", plus a hold kept by the sweep after the start.
 - **`availability.e2e-spec.ts`**: `STARTED` → `ENDED` for an ended event; `null` and `inProgress: true`
   for one in progress; `inProgress` on every case.
-- **`customer-app/test/purchase-unavailable.test.tsx`**: its started-event fixture becomes an ended one
-  (`ENDED`), and the notice cases are added (R11).
+- **`customer-app/test/purchase-unavailable.test.tsx`**: its started-event fixture becomes an ended
+  one (`ENDED`), and the notice cases are added (R11). It has three stale spots: the test "shows
+  Sales closed, and no form, once the event has started" (~line 90, `STARTED` and "…already
+  started."), the status-badge table row `{ salesClosed: 'STARTED' }` (~118), and the refusal stub
+  "Sales for Early Show closed when it started." (~130).
 - The README's "Getting tickets" paragraph ("events that have started say why tickets aren't
   available; sales close when an event starts") and `006`'s status-row summary are reworded in the
   implementation PR.
 
 ## R9. Spec amendments
 
-Dated notes (`_Amended 2026-11-09 by spec 034 (#126) …_`), in this PR: `006` US2 scenario 6, its edge
-case "Event starts while a customer is confirming", and FR-014; `015`'s "Sales closed" entity and
-FR-016; `030`'s clarification leaving the panel to `#126`; `033`'s edge case on ended events in the cart
-and its "Issue #126" line. `029`'s spec says Season Opener's sales are closed, which stays true.
+Dated notes (`_Amended 2026-11-09 by spec 034 (#126) …_`), in this PR: `006` US2's narrative and
+scenario 6, its edge case "Event starts while a customer is confirming", FR-014, and SC-004; `007`'s
+edge case "Events that started or were cancelled"; `015`'s "Sales closed" edge case and FR-016;
+`030`'s clarification leaving the panel to `#126`, and its FR-014 for FR-017 (R4); `033`'s edge
+cases on ended events in the cart and on a reservation that ends elsewhere ("the event starts"), its
+"Issue #126" line, and its coordination assumption ("not yet specced"). `029`'s spec says Season
+Opener's sales are closed, which stays true.
 
 ## R10. Coordination with work in flight
 
@@ -233,8 +256,13 @@ and its "Issue #126" line. `029`'s spec says Season Opener's sales are closed, w
     request (at the end; the process clock, as the order check reads, not the database's `now()`);
     cancelled in progress → `EVENT_CANCELLED`; a repeated `requestId` after the end returns the earlier
     order (`200`).
-  - `reservations.e2e-spec.ts`: a hold for an event in progress → `201`; an ended event → `409
-    SALES_CLOSED` with the new message.
+  - `reservations.e2e-spec.ts`: a hold for an event in progress → `201`; one for an event ending in
+    10 seconds → `201` (just before the end); an ended event → `409 SALES_CLOSED` with the new
+    message.
+  - **The boundary**: with real time, "at the end" is tested as the end just reached (the end set to
+    the test's own time immediately before the request, so the request arrives at or a few
+    milliseconds after it), and "before" as a few seconds before. "One millisecond before" cannot be
+    tested without a clock the tests can stop in every path, which R1 does not add.
   - `reservations.admin-changes.e2e-spec.ts` (or a new `reservations.sales-end.e2e-spec.ts`): a
     reservation on an event moved into progress by SQL survives `sweepOnce()`; moved past its end, the
     next `sweepOnce()` ends it `CLOSED` and publishes its seats open.
@@ -245,11 +273,13 @@ and its "Issue #126" line. `029`'s spec says Season Opener's sales are closed, w
   - `demo-reset.e2e-spec.ts` and the demo-data tests: unchanged unless they assert the old text.
 - **Customer app** (Vitest, React Testing Library), `purchase-unavailable.test.tsx` and a new
   `started-notice.test.tsx`: in progress → the notice with both sentences, times in the venue's zone
-  with its abbreviation, the end with its date past local midnight; sold out or at the limit → only the
-  first sentence; cancelled in progress → no notice; ahead → no notice; ended → "Sales closed" and "…has
-  ended."; the notice is not in the event page's header; a confirmation for an order whose `createdAt` is
-  after the start shows its line, one before shows none; `format.test.ts` for the helper; `npm run
-  test:tz` runs them in several zones.
+  with its abbreviation, the end with its date past local midnight; sold out or at the limit → only
+  the first sentence; cancelled in progress → no notice; ahead → no notice; ended → "Sales closed"
+  and "…has ended."; the notice is not in the event page's header; with the browser clock set a few
+  minutes after the end but availability saying `{ null, inProgress: true }`, the page shows no
+  "This event has ended." line (FR-017), and with availability `ENDED` it shows it; a confirmation
+  for an order whose `createdAt` is after the start shows its line, one before shows none;
+  `format.test.ts` for the helper; `npm run test:tz` runs them in several zones.
 - **Browser** (`e2e/tests/034-sell-until-end.spec.ts`, Playwright against the `qpe2e` stack): `034
   S1/S2: a customer buys a ticket for an event that has already started and sees the notice on the
   panel and the confirmation`: an admin makes an event at a venue of its own that started 10 minutes

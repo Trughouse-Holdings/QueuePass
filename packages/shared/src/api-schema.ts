@@ -665,7 +665,7 @@ export interface paths {
          *     more they may get; otherwise it is `null`. It never describes another customer.
          *
          *     Feature 034: sales close at `endsAt`, not `startsAt`, so `salesClosed` is `ENDED` from
-         *     `endsAt` on (`STARTED` is no longer sent), and `inProgress` says whether the event is between
+         *     `endsAt` on (`STARTED` is no longer sent once 034 is implemented), and `inProgress` says whether the event is between
          *     its `startsAt` and its `endsAt`, by the same clock in the same answer. The Customer app shows
          *     its "already started" notice from these two values, never from its own clock.
          */

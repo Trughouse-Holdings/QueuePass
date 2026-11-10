@@ -75,18 +75,21 @@ confirm they **fail** before the implementation tasks that follow.
     Date()` (with `startsAt` and `doorsOpenAt` moved back by the same amount, keeping
     `event_doors_open_range` and the end after the start): `409`, `SALES_CLOSED`, message `Sales for
     Season Opener closed when it ended.`, `order.count()` 0.
-  - the same with `endsAt` set to the test's `new Date()` immediately before the request (at the end):
-    `409 SALES_CLOSED`. The order check reads the Backend's process clock (research R1), the same as the
-    test's, so the instants are the test's, never the database's `now()`, which runs in the container.
+  - the same with `endsAt` set to the test's `new Date()` immediately before the request (at the
+    end): `409 SALES_CLOSED`. With real time this is the end just reached (the request arrives at or
+    a few milliseconds after it); "one millisecond before" is not tested (research R1, R11). The
+    order check reads the Backend's process clock (research R1), the same as the test's, so the
+    instants are the test's, never the database's `now()`, which runs in the container.
   - in progress, then cancelled: `409 EVENT_CANCELLED`.
   - a `requestId` order placed while in progress, the event then moved past its end: the repeat is
     `200` with the same order id.
   - every response matches the contract (the authed client checks it).
   Must fail (today an order after the start is refused).
 - [ ] T003 [P] [US1] [US2] `backend/test/integration/reservations.e2e-spec.ts` (FR-003, FR-005): "is
-  409 SALES_CLOSED once the event has started" becomes "…once it has ended" (moved past its end as in
-  T002), with the new message; add "reserves seats for an event in progress" (`201`, the seats held).
-  Must fail.
+  409 SALES_CLOSED once the event has started" becomes "…once it has ended" (moved past its end as
+  in T002), with the new message; add "reserves seats for an event in progress" (`201`, the seats
+  held) and "reserves seats for an event ending in 10 seconds" (`201`, just before the end). Must
+  fail.
 - [ ] T004 [P] [US2] `backend/test/integration/reservations.admin-changes.e2e-spec.ts` (FR-004,
   SC-003; research R3): "the sweep ends every hold once the event has started" becomes two cases: a
   reservation on an event moved by SQL to have started (not ended) survives `sweepOnce()` (still open,
@@ -111,18 +114,28 @@ confirm they **fail** before the implementation tasks that follow.
     event page's header (outside the panel) does not contain "already started".
   - the event ending 1:00 AM the next local day: "until it ends at Nov 21, 2026, 1:00 AM EST" (with the
     date that fixture uses).
-  - in progress and sold out: "This event has already started (began at 7:00 PM EST)." and no "You can
-    still buy tickets"; the sold-out message. In progress with `customerLimit.remaining: 0`: the same
-    first sentence and the limit message.
+  - in progress and sold out: "This event has already started (began at 7:00 PM EST)." and no "You
+    can still buy tickets"; the sold-out message. In progress with `customerLimit.remaining: 0`: the
+    same first sentence and the limit message. In progress, seated, with no section on sale: the
+    same first sentence and "No seats are on sale for this event yet." (FR-010).
+  - **One clock on the page** (FR-017): with the browser clock (`vi.setSystemTime`) 3 minutes after
+    the event's `endsAt` and availability `{ salesClosed: null, inProgress: true }` (the Backend's
+    clock behind), the page shows no "This event has ended." once availability has loaded, and shows
+    the notice; with availability `{ ENDED, false }`, "This event has ended." is shown; before
+    availability answers (a pending stub), the page follows `030`'s rule.
   - `{ CANCELLED, inProgress: true }`: no "already started"; the cancelled message.
   - `{ null, false }`: no notice.
   - `{ ENDED, false }`: the "Sales closed" badge and "Sales closed: this event has ended."; no "already
     started" anywhere in the panel.
   - after confirming an order whose stubbed `createdAt` is after the event's start: the confirmation
-    says "This event has already started (began at 7:00 PM EST). Your tickets admit you until it ends at
-    10:00 PM EST."; with `createdAt` before the start: no such line.
-  `customer-app/test/purchase-unavailable.test.tsx`: its `STARTED` fixture becomes `ENDED`, with "Sales
-  closed: this event has ended."; `customer-app/test/format.test.ts`: the helper (T015). Must fail.
+    says "This event has already started (began at 7:00 PM EST). Your tickets admit you until it
+    ends at 10:00 PM EST."; with `createdAt` before the start: no such line.
+    `customer-app/test/purchase-unavailable.test.tsx`, its three stale spots (research R8): the test
+    "shows Sales closed, and no form, once the event has started" (~line 90) becomes "…once the
+    event has ended" with `salesClosed: 'ENDED'` and "Sales closed: this event has ended."; the
+    status-badge table row `{ salesClosed: 'STARTED' }` → `'ENDED'` (~118); the refusal stub "Sales
+    for Early Show closed when it started." → "…closed when it ended." (~130).
+    `customer-app/test/format.test.ts`: the helper (T015). Must fail.
 - [ ] T008 [US1] `e2e/tests/034-sell-until-end.spec.ts` (new; quickstart S1, S2; research R11): one
   test, `034 S1/S2: a customer buys a ticket for an event that has already started and sees the notice
   on the panel and the confirmation`. Setup through the API as `adminFor(testInfo)`: a venue of its
@@ -178,6 +191,9 @@ confirm they **fail** before the implementation tasks that follow.
   the notice paragraph (class `note`) directly under the panel's heading when `inProgress &&
   salesClosed === null`, full when the panel offers a way to get tickets, first sentence otherwise;
   `ENDED` → badge "Sales closed", "Sales closed: this event has ended."; no `STARTED` branch left.
+  `pages/EventDetail.tsx` (FR-017; research R4): `GetTickets` reports each availability load to the
+  page (a callback prop), and "This event has ended." then follows `salesClosed === 'ENDED'` (never
+  while `inProgress`); before the first load, `hasEnded(e.endsAt, loadedAt)` as `030`.
 - [ ] T017 [US1] The confirmation (FR-012): in `OrderConfirmation.tsx` once `033`'s implementation has
   merged (so the cart's confirmation shows it too), else in `Confirmation` in `GetTickets.tsx`: the line
   under its heading when `order.createdAt >= event.startsAt`. T007 passes; the whole Customer suite
@@ -238,3 +254,33 @@ confirm they **fail** before the implementation tasks that follow.
 
 ## Review record (spec branch)
 
+- **Round 1** (independent Claude session, 2026-11-09): no must-fix; 3 should-fix (one decided by the
+  orchestrating session), 7 nits. All fixed in the `Review 034: spec review round 1` commit, and the
+  Sync Impact Report's wording in a `Constitution:` commit.
+  - S1: the two-step contract change cited `032` as a precedent, but making its fields required at
+    1.24.0 is only proposed in PR #151, still open → "as PR #151 proposes for `032`", and the reason
+    keeping 1.26.0 is acceptable under Principle I: the contract approved here already announces the
+    final shape (research R2, plan Constitution Check I, contracts/README, spec Assumptions).
+  - S2: start-based rules left without a note → dated notes on `006` (US2's narrative, SC-004), `007`
+    (its "Events that started or were cancelled" edge case), and `033` (a reservation ending elsewhere
+    when "the event starts"; the coordination assumption's "not yet specced"); listed in R9, FR-016,
+    and the constitution's Impact line.
+  - S3: two clocks on one page, the event page's `030` "This event has ended." (browser clock) beside
+    the panel (Backend clock). **Decided by the orchestrating session**: once the panel's availability
+    has loaded, the line follows `salesClosed === 'ENDED'` (never while `inProgress`); before that,
+    `030`'s rule → spec Clarifications, Edge Cases, FR-017; research R4; data-model; plan; T007 (a
+    fast browser clock near the end shows no "ended" line while the Backend says in progress); T016;
+    a dated note on `030` FR-014.
+  - N1: `getEventAvailability`'s "(`STARTED` is no longer sent)" → "…once 034 is implemented";
+    `api-schema.ts` regenerated.
+  - N2: T007 and R8 name the three stale spots in `purchase-unavailable.test.tsx` (~90, ~118, ~130).
+  - N3: T002's "at the end" with real time is the end just reached; spec Edge Cases, R11, and T002 say
+    "one millisecond before" cannot be tested without the injectable clock R1 rejects.
+  - N4: FR-010 aligned with R4: the first sentence only whenever a closed message applies (sold out,
+    the limit, or no seats on sale yet); T007 adds the no-seats case; data-model.
+  - N5: plan row VI's hold just before the end → T003 and R11 add it.
+  - N6: Sync Impact Report: `015`'s "Sales closed" edge case (not an entity); the spec PR's
+    `packages/shared` changes (`api-schema.ts`, `order.ts`) named.
+  - N7: R8 says where the notice can be seen: Demo Tonight from 1 hour after a reset, or an event
+    scheduled with a past start (quickstart S0).
+- **Open findings**: none.

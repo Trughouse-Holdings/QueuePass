@@ -21,7 +21,7 @@ SALES_CLOSED` stays, refused at a different instant.
 | `Availability` | Description names `inProgress`. `salesClosed.enum`: `[CANCELLED, ENDED, STARTED, null]`, described (`CANCELLED` whatever the time, else `ENDED` from `endsAt`; `STARTED` only before 034 is implemented). New property `inProgress` (`boolean`), not in `required` yet. |
 | `responses.Conflict` example `salesClosed` | summary "The event has ended, so sales are closed (features 006, 034)"; message "Sales for Season Opener closed when it ended." |
 
-## Two steps, as `032` did
+## Two steps, as PR #151 proposes for `032`
 
 Every response the Backend's tests receive is checked against the contract
 (`backend/test/setup/authed-request.ts`), so `main` must accept the Backend as it is until the
@@ -33,6 +33,14 @@ implementation merges:
    `inProgress` is added to `Availability.required`, and its description's last sentence ("Always sent
    once 034 is implemented …") becomes "Always sent."; `api-schema.ts` regenerated; the version stays
    **1.26.0**. A shared-surface change in that PR, approved there by every team member.
+
+Keeping 1.26.0 in the implementation is acceptable under Principle I because the contract text
+approved in this PR already announces the final shape: `STARTED` is described as never sent once
+`034` is implemented and to be removed by that implementation, and `inProgress` as always sent and
+required then. The implementation changes no behavior the reviewed contract does not already state.
+`032`'s merged contract README says only that its implementation "always sends" its fields; making
+them required at 1.24.0 is what its implementation PR (#151, open) proposes, so this is not yet a
+merged precedent.
 
 `packages/shared/src/order.ts` (hand-written types, shared surface) changes in this PR too:
 `SalesClosedReason` is `'CANCELLED' | 'ENDED' | 'STARTED'` and `Availability` gains `inProgress?:
