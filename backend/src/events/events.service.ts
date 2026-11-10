@@ -27,7 +27,7 @@ import type { SeatLabel } from '../seating/seat-rules';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventsQuery } from './dto/list-events.query';
 import { UpdateEventDto } from './dto/update-event.dto';
-import { planEventSetup, seatingCapacity, writeEventSetup } from './event-setup';
+import { eventCapacity, planEventSetup, writeEventSetup } from './event-setup';
 import { checkEventTime } from './event-time';
 import { SchedulingConflictException } from './scheduling-conflict.exception';
 
@@ -142,15 +142,14 @@ export class EventsService {
           orderBy: { position: 'asc' },
         })
       : [];
-    const layoutCapacity = seatingCapacity(dto, location, sections);
     // Spec 007 FR-019: left out, the event can sell as many tickets as the venue holds.
-    const capacity = layoutCapacity ?? dto.totalTicketCapacity ?? location.seatingCapacity;
+    const capacity = eventCapacity(dto, location, sections);
     this.assertCapacityWithinVenue(capacity, location);
     this.assertLimitWithinCapacity(dto.maxTicketsPerCustomer, null, capacity);
     await this.assertNoConflict(dto.locationId, zone, startsAt, endsAt, null, tx);
     // Spec 031 research R4 steps 4, 5: each ticket type in order, then their total. Every check
     // runs before the first write; the transaction makes a failure in the writes leave nothing.
-    const plan = planEventSetup(dto, location, sections);
+    const plan = planEventSetup(dto, location, sections, capacity);
 
     const created = await tx.event.create({
       data: {

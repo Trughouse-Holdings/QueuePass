@@ -657,9 +657,8 @@ export function EventForm(): React.ReactElement {
       } catch (err) {
         if (!(err instanceof ImageStepError) || isEdit) throw err;
         // Spec 014 FR-018: the event, its seating, and its ticket types are saved (031: in one
-        // request, so always together); the form
-        // becomes that event's edit form with the pictures not yet added, so saving again
-        // changes only this event.
+        // request, so always together); the form becomes that event's edit form with the
+        // pictures not yet added, so saving again changes only this event.
         const [first, ...rest] = err.remaining;
         const why = err.refusal ? err.refusal.envelope.error.message : 'could not be sent';
         const names = [`${first!.name} (${why})`, ...rest.map((f) => f.name)].join(', ');
@@ -684,8 +683,9 @@ export function EventForm(): React.ReactElement {
     }
   }
 
-  // Spec 031 FR-010: cleared with the error when the admin schedules again.
-  const placed = fieldErrors(error);
+  // Spec 031 FR-010: cleared with the error when the admin schedules again. Scheduling only:
+  // the Edit form shows refusals in the banner, as before (FR-013).
+  const placed = fieldErrors(isEdit ? null : error);
   const typeErrors = (i: number, section: boolean): TypeFieldError[] =>
     (placed.types.get(i) ?? []).filter((e) => (e.field === 'sectionIds' && reserved) === section);
   /** The type's input for `field` is invalid when a message names it, or names no known field. */
@@ -695,6 +695,15 @@ export function EventForm(): React.ReactElement {
     invalid(i, field)
       ? { 'aria-invalid': true as const, 'aria-describedby': `type-${i + 1}-error` }
       : {};
+  /** The seating hint, described by the seating choice (FR-010). */
+  const seatingProps = placed.seating.length > 0 ? { 'aria-describedby': 'seating-error' } : {};
+  /** A section select is tied to the hint of the ticket type it sells. */
+  const sectionProps = (sectionId: string) => {
+    const chosen = sectionType[sectionId] ?? '';
+    return chosen !== '' && typeErrors(Number(chosen), true).length > 0
+      ? { 'aria-invalid': true as const, 'aria-describedby': `seats-${Number(chosen) + 1}-error` }
+      : {};
+  };
   const hint = (id: string, messages: string[]): React.ReactElement | null =>
     messages.length > 0 ? (
       <span className="field__hint" role="alert" id={id} data-testid={id}>
@@ -914,6 +923,7 @@ export function EventForm(): React.ReactElement {
             aria-label={`Section ${sec.name} ticket type`}
             value={sectionType[sec.id] ?? ''}
             onChange={(e) => setSectionType({ ...sectionType, [sec.id]: e.target.value })}
+            {...sectionProps(sec.id)}
           >
             {types.map((t, i) => (
               <option key={i} value={String(i)}>
@@ -1079,6 +1089,7 @@ export function EventForm(): React.ReactElement {
                   name="plan"
                   checked={plan === 'reserved'}
                   onChange={() => setPlan('reserved')}
+                  {...seatingProps}
                 />
                 Reserved seating
               </label>
@@ -1088,6 +1099,7 @@ export function EventForm(): React.ReactElement {
                   name="plan"
                   checked={plan === 'general'}
                   onChange={() => setPlan('general')}
+                  {...seatingProps}
                 />
                 General admission
               </label>
@@ -1097,7 +1109,7 @@ export function EventForm(): React.ReactElement {
             </fieldset>
           )}
           {typesLoaded && !layout && (
-            <fieldset className="field">
+            <fieldset className="field" {...seatingProps}>
               <legend>Ticket types</legend>
               {hint('seating-error', placed.seating)}
               {typeLines}

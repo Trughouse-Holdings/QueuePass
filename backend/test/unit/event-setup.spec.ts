@@ -1,5 +1,10 @@
 import { BadRequestException, HttpException } from '@nestjs/common';
-import { planEventSetup, seatingCapacity, type SetupInput } from '../../src/events/event-setup';
+import {
+  eventCapacity,
+  planEventSetup,
+  seatingCapacity,
+  type SetupInput,
+} from '../../src/events/event-setup';
 
 /** Spec 031 research R4 steps 2, 4, 5 and R9: the planner, pure, every branch. */
 describe('planEventSetup (031)', () => {
@@ -300,5 +305,18 @@ describe('planEventSetup (031)', () => {
         { name: 'None', price: '10.00', quantity: 0, sectionIds: [] },
       ],
     });
+  });
+
+  // Code review round 1, N1: one source of truth for the capacity.
+  it("takes the event's capacity: the layout's, else typed, else the venue's", () => {
+    expect(eventCapacity(input({ reservedSeating: true }), venue, sections)).toBe(60);
+    expect(eventCapacity(input({ totalTicketCapacity: 40 }), plain, [])).toBe(40);
+    expect(eventCapacity(input(), plain, [])).toBe(500);
+  });
+
+  it('checks the ticket types against the capacity it is given', () => {
+    const tiers = [{ name: 'A', price: '1.00', quantity: 300 }];
+    expect(refusal(() => planEventSetup(input({ tiers }), plain, [], 299)).status).toBe(409);
+    expect(planEventSetup(input({ tiers }), plain, [], 300).tiers).toHaveLength(1);
   });
 });

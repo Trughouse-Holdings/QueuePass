@@ -81,18 +81,34 @@ export function seatingCapacity(
 }
 
 /**
+ * The event's ticket capacity: with reserved seating the layout's total (R4 step 2, refusing as
+ * `seatingCapacity` does), else the typed one, else the venue's (spec 007 FR-019).
+ */
+export function eventCapacity(
+  input: SetupInput,
+  venue: SetupVenue,
+  sections: SetupSection[],
+): number {
+  return (
+    seatingCapacity(input, venue, sections) ?? input.totalTicketCapacity ?? venue.seatingCapacity
+  );
+}
+
+/**
  * R4 steps 2, 4, and 5, pure: the seating, each ticket type in the order sent, then their total.
  * Throws the first refusal; never throws for a request without `tiers` and `reservedSeating`.
  * `sections` is the venue's layout as read under the venue's lock (empty without reserved
- * seating).
+ * seating). `capacity` is the event's, from `eventCapacity`: `createLocked` passes the one it
+ * already checked (so step 2 has run), and left out it is worked out here, step 2 included.
  */
 export function planEventSetup(
   input: SetupInput,
   venue: SetupVenue,
   sections: SetupSection[],
+  capacity: number = eventCapacity(input, venue, sections),
 ): EventSetupPlan {
-  const capacityFromLayout = seatingCapacity(input, venue, sections);
-  const reserved = capacityFromLayout !== null;
+  const reserved = input.reservedSeating === true;
+  const capacityFromLayout = reserved ? capacity : null;
   const byId = new Map(sections.map((s) => [s.id, s]));
   /** Each section listed so far, and the index of the type that lists it. */
   const owner = new Map<string, number>();
@@ -158,7 +174,6 @@ export function planEventSetup(
 
   // R4 step 5: without reserved seating, the typed quantities within the event's capacity.
   if (!reserved && planned.length > 0) {
-    const capacity = input.totalTicketCapacity ?? venue.seatingCapacity;
     const tierTotal = planned.reduce((n, t) => n + t.quantity, 0);
     if (tierTotal > capacity) {
       throw conflict(
