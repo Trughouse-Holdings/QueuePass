@@ -1,10 +1,13 @@
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { atInstant, customer, event, HOLDER, tier, venue } from '../setup/fixtures';
+import { atInstant, customer, endEventAt, event, HOLDER, tier, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, CUSTOMER, tokenFor } from '../setup/tokens';
 
-/** Spec 006 FR-002, FR-014 (research R1): tickets left, and whether sales are closed. */
+/**
+ * Spec 006 FR-002 (research R1): tickets left; spec 034 FR-006, FR-007 (research R2): whether
+ * sales are closed (`CANCELLED`, `ENDED`) and whether the event is in progress.
+ */
 describe('Event availability', () => {
   let ctx: TestContext;
   let venueId: string;
@@ -46,6 +49,7 @@ describe('Event availability', () => {
       eventId,
       ticketsLeft: 7,
       salesClosed: null,
+      inProgress: false,
       tiers: [],
       customerLimit: null,
     });
@@ -61,6 +65,7 @@ describe('Event availability', () => {
     const tiers = await asAdmin(ctx).get(`/events/${eventId}/tiers`).expect(200);
     const res = await availability(eventId);
     expect(res.body.ticketsLeft).toBe(86);
+    expect(res.body.inProgress).toBe(false);
     expect(res.body.tiers).toEqual(
       tiers.body.map((t: { id: string }) => ({
         tierId: t.id,
@@ -72,26 +77,51 @@ describe('Event availability', () => {
   it('reports a sold-out event as 0 left', async () => {
     const eventId = await event(ctx, venueId, { capacity: 2 });
     await buy(eventId, { quantity: 2 });
-    expect((await availability(eventId)).body.ticketsLeft).toBe(0);
+    expect((await availability(eventId)).body).toMatchObject({ ticketsLeft: 0, inProgress: false });
   });
 
-  it('says sales are closed once the event has started', async () => {
+  it('says an event ahead is on sale and not in progress', async () => {
+    const eventId = await event(ctx, venueId);
+    expect((await availability(eventId)).body).toMatchObject({
+      salesClosed: null,
+      inProgress: false,
+    });
+  });
+
+  it('says an event in progress is still on sale', async () => {
     const eventId = await event(ctx, venueId, started());
-    expect((await availability(eventId)).body.salesClosed).toBe('STARTED');
+    expect((await availability(eventId)).body).toMatchObject({
+      salesClosed: null,
+      inProgress: true,
+    });
   });
 
-  it('says cancelled, not started, for a cancelled event, and its void tickets do not count', async () => {
+  it('says sales are closed once the event has ended, and no longer in progress', async () => {
+    const eventId = await event(ctx, venueId, started());
+    await endEventAt(ctx, eventId, new Date(Date.now() - 1_000));
+    expect((await availability(eventId)).body).toMatchObject({
+      salesClosed: 'ENDED',
+      inProgress: false,
+    });
+  });
+
+  it('says cancelled, not ended, for a cancelled event, and its void tickets do not count', async () => {
     const eventId = await event(ctx, venueId, { capacity: 10 });
     await buy(eventId, { quantity: 3 });
     await asAdmin(ctx).post(`/events/${eventId}/cancel`).expect(200);
     expect((await availability(eventId)).body).toMatchObject({
       ticketsLeft: 10,
       salesClosed: 'CANCELLED',
+      inProgress: false,
     });
 
+    // inProgress is the clock fact alone, also for a cancelled event (research R2).
     const startedThenCancelled = await event(ctx, venueId, started());
     await asAdmin(ctx).post(`/events/${startedThenCancelled}/cancel`).expect(200);
-    expect((await availability(startedThenCancelled)).body.salesClosed).toBe('CANCELLED');
+    expect((await availability(startedThenCancelled)).body).toMatchObject({
+      salesClosed: 'CANCELLED',
+      inProgress: true,
+    });
   });
 
   it('answers 404 for an unknown event and 400 for a malformed id', async () => {

@@ -1,15 +1,38 @@
 import { Link } from 'react-router-dom';
-import type { Order } from '@queuepass/shared';
-import { seatLabel, usd } from '../format';
+import type { Event, Order } from '@queuepass/shared';
+import { seatLabel, startedNotice, usd } from '../format';
 
 /**
  * Spec 006 FR-004: what was bought, what it cost, and every ticket code (with its seat, spec 007).
- * Moved out of `GetTickets` by spec 033 (research R8), so the cart confirms the same way.
+ * Moved out of `GetTickets` by spec 033 (research R8), so the cart confirms the same way. Spec 034
+ * FR-012 (research R5): for an order placed at or after its event's start, how long the tickets
+ * admit, from the order's own time and the event's, both the Backend's; without the event's
+ * details (the cart could not read them), no such line.
  */
-export function OrderConfirmation({ eventName, order }: { eventName: string; order: Order }) {
+export function OrderConfirmation({
+  eventName,
+  order,
+  event,
+}: {
+  eventName: string;
+  order: Order;
+  event?: Pick<Event, 'startsAt' | 'endsAt' | 'location'> | null;
+}) {
+  const late = event && Date.parse(order.createdAt) >= Date.parse(event.startsAt);
   return (
     <section aria-label="Order confirmed">
       <h2>Order confirmed</h2>
+      {late && (
+        <p className="note">
+          {startedNotice(
+            event.startsAt,
+            event.endsAt,
+            event.location.timeZone,
+            order.createdAt,
+            'admit',
+          )}
+        </p>
+      )}
       <dl>
         <dt>Event</dt>
         <dd>{eventName}</dd>

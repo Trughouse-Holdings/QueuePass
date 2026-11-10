@@ -1,7 +1,16 @@
 import type { Response } from 'supertest';
 import { expectToMatchContract } from '../contract/expect-to-match-contract';
 import { anon, as, asAdmin } from '../setup/authed-request';
-import { atInstant, customer, event, HOLDER, holdSeats, tier, venue } from '../setup/fixtures';
+import {
+  atInstant,
+  customer,
+  endEventAt,
+  event,
+  HOLDER,
+  holdSeats,
+  tier,
+  venue,
+} from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { AGENT, ADMIN, subFor, tokenFor } from '../setup/tokens';
@@ -204,18 +213,48 @@ describe('Seat reservations', () => {
       expect(code(res)).toBe('EVENT_CANCELLED');
     });
 
-    it('is 409 SALES_CLOSED once the event has started', async () => {
-      const start = Date.now() - 60_000;
+    // Spec 034 FR-003, FR-005 (research R11): holds are open until the event ends, not starts.
+    it('is 409 SALES_CLOSED once the event has ended', async () => {
+      const now = Date.now();
       const { eventId } = await tiered({
-        startsAt: atInstant(start),
-        endsAt: atInstant(start + 3 * 3_600_000),
+        startsAt: atInstant(now - 60_000),
+        endsAt: atInstant(now + 3_600_000),
       });
+      // Past its end by a minute: salesClosed() reads the database's clock (research R1).
+      await endEventAt(ctx, eventId, new Date(Date.now() - 60_000));
 
       const res = await reserve(eventId, [seat(sectionA, 1, 1)]);
 
       expect(res.status).toBe(409);
       expect(code(res)).toBe('SALES_CLOSED');
+      expect(res.body.error.message).toBe('Sales for Season Opener closed when it ended.');
       expect(await ctx.prisma.seatReservation.count()).toBe(0);
+    });
+
+    it('reserves seats for an event in progress', async () => {
+      const now = Date.now();
+      const { eventId } = await tiered({
+        startsAt: atInstant(now - 60_000),
+        endsAt: atInstant(now + 3 * 3_600_000),
+      });
+
+      const res = await reserve(eventId, [seat(sectionA, 1, 1), seat(sectionA, 1, 2)]);
+
+      expect(res.status).toBe(201);
+      expect(await liveHolds(eventId)).toBe(2);
+    });
+
+    it('reserves seats for an event ending in 10 seconds', async () => {
+      const now = Date.now();
+      const { eventId } = await tiered({
+        startsAt: atInstant(now - 3 * 3_600_000),
+        endsAt: atInstant(now + 10_000),
+      });
+
+      const res = await reserve(eventId, [seat(sectionA, 1, 1)]);
+
+      expect(res.status).toBe(201);
+      expect(await liveHolds(eventId)).toBe(1);
     });
 
     it('is 409 TICKET_LIMIT_REACHED past the limit, counting valid tickets only', async () => {
