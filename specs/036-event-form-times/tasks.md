@@ -37,7 +37,7 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `036-event-form-times-spec` from latest `main`; `npm ci` so later failures are this
+- [ ] T001 Cut `036-event-form-times-impl` from the spec branch (research R10); `npm ci` so later failures are this
   feature's. Record any test that cannot be run on the untouched tree (no Docker).
 
 ---
@@ -58,7 +58,15 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   leaves doors put, and doors more than 6 hours before the start show the range message and send
   nothing; an edit of a 90-minute gap opens in "Before the start". Existing skipped, repeated, and
   send cases are rewritten against the new controls (or against "At a set time" where they need a
-  doors date and time). Must fail on the current form.
+  doors date and time). Also (review round 1): an edit with a 10-minute gap opens in "At a set
+  time" with the exact time (US2 AS5); switching to "Before the start" from an off-step gap shows
+  *Choose a length…*, keeps and shows the instant, and sends it unchanged (FR-014); switching back
+  to "Before the start" with empty doors derives them from the start (FR-015); picking a length
+  after the start is set sends start minus that length, including *At the start* and *6 hours
+  before* (US1 AS4); a derived doors time on a fall-back night is sent with the right offset; the
+  resulting-time line is a polite live region from first render and says "the day before" when it
+  applies (FR-016, FR-004); a missing start, and a doors refusal in each mode, move focus to the
+  right control (FR-010). Must fail on the current form.
 - [ ] T004 [P] [US3] `admin-app/test/event-form.tz.test.tsx` retargeted (FR-010, FR-011): fills and
   assertions use the date and time controls (or a test helper); venue-zone, skipped, and repeated
   behaviour still holds; doors following a start is the "Before the start" default, 1 hour (or the
@@ -92,7 +100,7 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
   and the existing field errors still attach; incomplete date or time is treated as empty.
 - [ ] T010 [US1] [US2] [US4] Rework Doors open on `EventForm`: the mode choice; "Before the start"
   select and the resulting-time line; "At a set time" uses T009; switching keeps the instant
-  (research plan note: do not snap an off-step gap to a neighbouring step); new event defaults;
+  (FR-014, FR-015: do not snap an off-step gap to a neighbouring step); new event defaults;
   edit mode from the stored gap; start changes follow FR-006 and FR-007; range message unchanged;
   submit still sends `doorsOpenAt`.
 - [ ] T011 [US3] Event-list From and To filters: confirm they stay date-only and use the same
@@ -106,7 +114,8 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 - [ ] T012 [US3] Playwright: in CI, add a `webkit` project limited to the event-form tests (020,
   025, 031, 035, 036, and 003 if it fills the form). Local `npm run e2e` stays Chromium-only
   unless WebKit is asked for. `scripts/e2e.mjs` installs WebKit as well as Chromium when CI (or
-  the WebKit opt-in) is set. Do not run the whole suite in WebKit (`028` / `001` V3).
+  the WebKit opt-in) is set. Do not run the whole suite in WebKit (`028` / `001` V3). No change to
+  `.github/workflows/` (research R9).
 - [ ] T013 [US3] Flip quickstart S1 to `Automated: \`036 S1: an event with doors 2 hours before
   the start shows that time in the Customer app\`` on the **impl** branch only, once T007 exists
   there.
@@ -138,7 +147,7 @@ confirm they **fail** before the implementation tasks of Phases 3 and 4.
 
 ## Notes
 
-- Open questions for Nathan are the recommended answers in the spec clarifications (steps, no API
-  change, elapsed time, default/edit mode, start-move in "At a set time", date+time controls, and
-  not snapping off-step gaps).
+- The spec clarifications' answers (steps, no API change, elapsed time, default/edit mode,
+  start-move in "At a set time", date+time controls, not snapping off-step gaps) were accepted by
+  Nathan on 2026-11-10.
 - T021-style review is T017 here.

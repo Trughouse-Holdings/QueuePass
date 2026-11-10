@@ -33,8 +33,8 @@ and doors in date-and-time mode are each a date control and a time control. The 
 ## Constitution Check
 
 - I (contract): no change; `doorsOpenAt` remains the request field.
-- III (two PRs, citations, independent review): spec PR then impl PR; review recorded as still to
-  do if both are opened in one session.
+- III (two PRs, citations, independent review): spec PR then impl PR; one independent review of
+  each branch (done 2026-11-10, findings fixed; see each PR).
 - IV (server authority): the form previews the range; the Backend still refuses out-of-range
   doors.
 - VI (tests first): failing tests before the form change.
@@ -54,22 +54,28 @@ and doors in date-and-time mode are each a date control and a time control. The 
   value.
 - Derive doors in "Before the start" mode only when the start names one moment; otherwise leave
   the resulting-time line off, and do not send doors until it does.
-- When switching to "Before the start" from a gap that is not a 15-minute step, keep the instant
-  (FR-002) and show "At a set time" until the admin picks a list value — actually FR-002 says if
-  it's not a step, "At a set time" shows the time. Switching *to* "Before the start" from an odd
-  gap: the nearest honest behaviour is to keep the instant visible in the resulting-time line and
-  not silently round the select; the implementation should not snap to a neighbouring step.
-  Recommended approach, open to review: if the current gap is not a list value, stay on "At a set
-  time" and do not switch (the "Before the start" choice is not applied, or it is applied only
-  after the admin also picks a length). Simpler and less surprising: **allow the switch only by
-  picking a length**, or snap to the nearest step and show the new time. **Chosen: do not snap.**
-  If the gap is not a step, the "Before the start" control includes no matching option; the form
-  stays in "At a set time" if the admin tries to switch, and says the current gap is not a listed
-  length, so they can pick "At a set time" (already there) or choose a listed length, which then
-  switches and applies that length. Even simpler for v1: **switching to "Before the start" is
-  always allowed; if the gap is not a step, the select shows no selection until they pick one, and
-  the shown time stays as it was until they do.** That keeps the instant (FR-002) and avoids
-  rounding. Open to review (research R5 supplement). Record this in tasks and the PR.
+- Switching to "Before the start" from a gap that is not a 15-minute step (FR-014, accepted
+  2026-11-10): the switch is always allowed and never snaps. The length select shows *Choose a
+  length…* with no choice, the kept doors instant stays as it is (shown in the resulting-time
+  line, and sent and range-checked on save) until the admin picks a length, which then applies
+  from the start. Until then a start change leaves doors put, as in "At a set time".
+- Switching when one side does not name one moment (FR-015): to "At a set time" with no doors
+  instant yet shows empty doors controls; to "Before the start" while the doors do not name one
+  moment recomputes doors from the start (kept length, else 1 hour) once the start names one. A
+  derived doors time in a repeated hour carries its occurrence, so "At a set time" opens with the
+  matching choice.
+- Focus and messages (FR-010): a field error on Starts, Ends, or Doors open in "At a set time"
+  moves focus to its date control, or to its time control when only the time is missing; both
+  controls carry `aria-invalid` and `aria-describedby`. In "Before the start" the length select
+  carries them and takes focus.
+- The resulting-time line stays mounted as a polite live region (empty while there is nothing to
+  show), so its first value is announced (FR-016); it names the day when doors fall on the day
+  before the start (FR-004).
+- WebKit in CI (FR-012): `e2e/playwright.config.ts` adds the `webkit` project, limited by file to
+  the event-form specs, whenever `CI` is set, and `scripts/e2e.mjs` installs WebKit then. No change
+  to `.github/workflows/` (not shared surface). This reverses `028` T025a's "CI stays
+  Chromium-only" for those files only; a dated note in `028` records it. The whole of each listed
+  file runs in WebKit, including `025`'s Ticket Booth journey.
 - Fill helpers in Admin tests and e2e replace every `getByLabel('Starts').fill('…T19:00')` so
   existing journeys keep passing.
 
