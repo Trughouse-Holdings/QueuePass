@@ -20,7 +20,8 @@ built, reviewed, and walked on the running system (path B; their browser tests r
 is built, reviewed, and walked in the browser (with Constitution 3.8.0 for its header and its pulse).
 `028` is built and reviewed (code review rounds 1 and 2); its walk on the running system (T032) and
 its browser tests in CI (T033) are still to do. `031` is built and reviewed (code review round 1); its walk on
-the running system and its browser test in CI are still to do.
+the running system and its browser test in CI are still to do. `033` is built; its independent
+review, its walk on the running system, and its browser tests in CI are still to do.
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                       | Spec             | Plan and tasks     | Code                            |
 | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ------------------------------- |
@@ -55,7 +56,7 @@ the running system and its browser test in CI are still to do.
 | [`030-hide-past-events`](specs/030-hide-past-events/spec.md)                 | Events that have ended leave every event list in the Customer and Admin apps; admins turn on Show past events to see them, marked Ended; customers keep past tickets under Past on My tickets, and a past event's page says it has ended                               | Draft            | Done (21/25 tasks) | **Built**                       |
 | [`031-atomic-event-create`](specs/031-atomic-event-create/spec.md)           | Scheduling an event saves it with its ticket types and seating in one step, or saves nothing; a refusal shows beside the ticket type or section at fault, and the form keeps everything typed; pictures still upload afterwards                                        | Draft            | Done (19/23 tasks) | **Built and reviewed**          |
 | [`032-drop-check-ins`](specs/032-drop-check-ins/spec.md)                     | One week after an event ends, who checked in and when is removed from its tickets; the event keeps its checked-in count, so its report reads the same; the Admin app says when the details were removed                                                                | Draft            | In review          | Not started                     |
-| [`033-seat-hold-cart`](specs/033-seat-hold-cart/spec.md)                     | Clicking a seat holds it and clicking it again lets it go; a prominent 5-minute countdown starts with the first seat; Add to cart, then buy each event's seats from the Cart before the countdown ends; general admission unchanged                                    | Draft            | In review          | Not started                     |
+| [`033-seat-hold-cart`](specs/033-seat-hold-cart/spec.md)                     | Clicking a seat holds it and clicking it again lets it go; a prominent 5-minute countdown starts with the first seat; Add to cart, then buy each event's seats from the Cart before the countdown ends; general admission unchanged                                    | Draft            | Done (25/29 tasks) | **Built**                       |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. Each app has its
@@ -160,10 +161,12 @@ Census finds no match it vouches for, the Backend also searches OpenStreetMap's 
 second; `off` turns it off), so venues the Census misses, such as the KFC Yum! Center, are still
 verified (spec 013 research R16).
 
-Purchase rate limits (`026`) are two settings in `.env` (see `.env.example`):
-`RATE_LIMIT_PER_MINUTE` (default `10`) and `RATE_LIMIT_PER_5_SECONDS` (default `3`), the buy
-attempts, and separately the seat-hold attempts, each customer account may make in any 60 seconds
-and in any 5 seconds. A demo may raise them; any value that is not a whole number of at least 1,
+Purchase rate limits (`026`, `033`) are four settings in `.env` (see `.env.example`): the buy
+attempts each customer account may make in any 60 seconds and in any 5 seconds,
+`RATE_LIMIT_PER_MINUTE` (default `10`) and `RATE_LIMIT_PER_5_SECONDS` (default `3`), and the
+seat-hold attempts, `RATE_LIMIT_HOLD_PER_MINUTE` (default `30`) and `RATE_LIMIT_HOLD_PER_5_SECONDS`
+(default `10`), higher because the Customer app holds each seat as it is clicked. A demo may raise
+them; any value that is not a whole number of at least 1,
 or a 5-second number above the minute's, stops the Backend at start-up, and nothing turns the
 limits off. The browser tests always use the defaults.
 
@@ -552,8 +555,9 @@ unchanged.
   event, across all their orders, or leave it blank for no limit. Customers see how many more they
   can get, and the Backend refuses an order over the limit, including simultaneous ones (`016`)
 - **Purchase rate limits** — each customer account may try to buy at most 10 times a minute and
-  3 times in any 5 seconds, and separately the same to reserve seats, however the API is called,
-  with no one exempt; releasing seats is never limited. Over a limit, nothing is done and the
+  3 times in any 5 seconds, and separately to hold seats at most 30 times a minute and 10 times in
+  any 5 seconds (`033`), however the API is called, with no one exempt; releasing seats is never
+  limited. Over a limit, nothing is done and the
   Customer app says "Too many tries. You can try again in N seconds." above the button, counting
   down until it works again; nothing the customer had is lost (`026`)
 - **Event images** — admins add up to 5 pictures to an event in its form, move them, and remove
@@ -566,17 +570,26 @@ unchanged.
 
 ### Seat reservations
 
-On an event with reserved seating, a customer picks seats and presses **Reserve seats**. The
-seats are theirs for exactly 5 minutes, with a countdown; **Confirm purchase** buys them, and
-**Release seats** (or deselecting one) lets them go. A seated order must come from the customer's
-own reservation. No seat is ever reserved by two customers, or reserved and sold, at once,
+On an event with reserved seating, the seat map is the only control for choosing seats: a click
+on an open seat holds it for the customer at once, and a click on a held seat lets it go (`033`).
+The first held seat starts exactly 5 minutes, shown in large type in a **Your seats** box below
+the map with the seats and the total, and every hold and release is announced. **Add to cart**
+opens the **Cart** (also in the top bar), which lists every event the customer holds seats for,
+each with its own countdown; the customer types the name on the tickets once and buys each event
+with **Buy tickets** before its countdown ends. The cart is the Backend's reservations, so a
+refresh, another tab, or another device shows the same. A seated order must come from the
+customer's own reservation. No seat is ever reserved by two customers, or reserved and sold, at once,
 guaranteed by the database (`015`).
 
-- **The 5 minutes** never restart. Adding seats keeps the same end. When they run out, the seats
-  are released and the customer is told, with their picks kept.
-- **The 2-minute wait**: a customer whose reservation ended unbought (it ran out, they released
-  it, or they logged out) can reserve those same seats again 2 minutes later. Anyone else can
-  reserve them at once. Admin changes and cancellations start no wait.
+- **The 5 minutes** never restart while seats are held. Adding seats keeps the same end; letting
+  the last one go ends the reservation, and the next click starts a new 5 minutes. When they run
+  out, the seats are released, leave the cart, and the customer is told.
+- **The 2-minute wait**: a seat let go while the reservation keeps other seats can be clicked
+  again at once. Once a reservation has ended unbought (it ran out, its last seat was let go, or
+  the customer logged out), every seat it held waits 2 minutes from its end for that customer
+  (`033`). Anyone else can hold them at once. Admin changes and cancellations start no wait.
+- **Ticket types**: while seats are held, the other ticket types wait until the held seats are
+  let go by clicking them.
 - **Live updates**: every customer and admin viewing an event's seat map sees seats turn
   Reserved, open, or sold within 2 seconds, without refreshing, and catches up after a dropped
   connection. Reserved looks different from sold (a dashed outline and an R, not a striped cross;
@@ -690,8 +703,8 @@ The front ends reach data **only** through this API. None holds a database conne
 - No emailed tickets and no wallet passes. A printed code never expires, which is why it always
   takes an ID check; only the live code in the Customer app skips it (`018`).
 - No undo for an entry, no re-entry, and refused ID checks are not recorded.
-- Picking a seat holds nothing until **Reserve seats**; reservation times are fixed, with no
-  admin override or waiting list. No best-available assignment, and no drawn floor plans:
+- Reservation times are fixed, with no admin override or waiting list; the cart buys each
+  event on its own, with no one checkout across events, and general admission never enters it. No best-available assignment, and no drawn floor plans:
   sections are rectangular rows of seats.
 - The Ticket Booth app is a stub (sign-in, hello-world, logout) until a later spec.
 - No self-service sign-up, password reset, or multi-factor authentication.
