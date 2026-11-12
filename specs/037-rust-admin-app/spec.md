@@ -264,7 +264,8 @@ differs).
 **Quality**
 
 - **FR-016**: The Rust Admin app MUST have automated tests run by the project's one test command
-  and in CI, and MUST meet the same 80% line coverage floor as every other front end.
+  and in CI. Its logic MUST meet the same 80% line coverage floor as every other front end, and
+  every one of its screens MUST be exercised by at least one browser test.
 - **FR-017**: The browser tests MUST run the Admin quickstart journeys against the Rust Admin app
   as well as the React Admin app, and this feature's quickstart MUST mark each scenario Automated
   or Manual.
