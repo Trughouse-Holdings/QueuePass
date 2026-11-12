@@ -242,6 +242,10 @@ merge button is blocked; fix it and confirm merging is allowed once the check is
 - **FR-005**: The check MUST measure line coverage for each of the six workspaces, each on its own
   source code only. Only generated code may be excluded, and each exclusion MUST be listed in that
   workspace's coverage configuration with its reason (Constitution VI).
+
+> **Note (2026-11-11, spec `037`)**: There are seven workspaces now: `admin-rust-app` is measured by
+> `cargo llvm-cov` on its `core` crate, with its view crate excluded as Constitution VI (3.10.0)
+> allows. FR-003's steps gain the root `ci` script's `rust:setup` step before the build.
 - **FR-006**: On every run whose tests pass, the check MUST show, in the run's summary, each
   workspace's line coverage, marking each workspace below 80%.
 - **FR-007**: Until `010-test-coverage` is merged, a workspace below 80% MUST NOT fail the run, and

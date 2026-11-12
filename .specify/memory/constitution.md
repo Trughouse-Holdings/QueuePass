@@ -21,7 +21,11 @@ Changed:
     Continuous integration rows name the Rust Admin app's tools.
   - Security and Data Constraints: CORS allows the four front-end origins.
   - Roadmap: row 037-rust-admin-app reserved. The next free number is 038.
-Impact: spec 037 (#163). No API, schema, or existing app behaviour changes. The Customer app's Rust
+Impact: spec 037 (#163). No API, schema, or existing app behaviour changes. Merged specs whose
+  text names three realms, origins, workspaces, apps, or the 235-account total get dated notes
+  pointing here, in this PR: 001 (SC-002 account total), 011 (FR-005 six workspaces, and the CI
+  steps gaining the Rust setup step), 022 (the e2e port list), 027 (one sign-in accent and line
+  colour per app, now four), and 028 (FR-010 three app realms). The Customer app's Rust
   version (a separate spec) will need its own amendment row and realm decision. The README's
   version reference follows. Templates: none need updating.
 -->
@@ -60,7 +64,7 @@ every front end and every team member builds against.
   human-readable message, and structured details where relevant.
 
 Rationale: A single enforcement point makes authorization, validation, and scheduling rules
-unavoidable. A shared contract is what lets three front ends and one backend be built in
+unavoidable. A shared contract is what lets several front ends and one backend be built in
 parallel, by different people, without drifting apart.
 
 ### II. One Repo, One Command, Reproducible
@@ -218,7 +222,9 @@ after it.
   One more exclusion is allowed (spec `037`): the Rust Admin app's floor is measured by
   `cargo llvm-cov` on its `core` crate (all logic: API client, sign-in state, form checks, times,
   money, exports), and its browser-only view crate is excluded. The replacement control is that
-  every Admin browser journey also runs against the Rust Admin app in the required `e2e` check.
+  every Admin browser journey also runs against the Rust Admin app in the required `e2e` check,
+  and spec `037`'s own browser tests drive each Rust Admin screen those journeys do not reach
+  (the event page's cards, pictures, attendees, reports, and downloads), listed in its quickstart.
 - Before an implementation PR is merged, the system MUST be brought up with
   `docker compose up --build`, and each front end MUST be signed into, used, and signed out of as
   a smoke test.
@@ -269,8 +275,8 @@ and the colors the sign-in screens draw on that background, are tokens in the sh
 only in its token blocks and checked by its contrast tests. The apps themselves keep the one
 shared accent and use none of them.
 
-The one exception to "one shared look" (spec `037`): the Rust Admin app uses its own red theme,
-not the shared theme, so nobody can mistake it for the Admin app. It keeps every usability target
+A second exception, to "one shared look" and to "no per-app variants" (spec `037`): the Rust Admin
+app uses its own red theme, not the shared theme, so nobody can mistake it for the Admin app. It keeps every usability target
 above (contrast, focus, states not by color alone, keyboard access, phone width) and adds no other
 decoration. Its sign-in accent, like the other apps', is a token in the shared theme's sign-in
 block, checked by its contrast tests.
@@ -309,16 +315,17 @@ These choices are fixed for every feature. Changing one requires amending this c
 | Front-end sign-in | A standards-based OIDC client library, not a Keycloak-only adapter |
 | Backend token validation | JWT verification against the JWKS endpoint of the token's own app realm, using a standards-based JOSE library |
 | Backend tests | Jest, with Testcontainers for PostgreSQL |
-| Front-end tests | Vitest with React Testing Library; for the Rust Admin app, `cargo test` with `cargo llvm-cov`, and `wasm-bindgen-test` for browser glue |
+| Front-end tests | Vitest with React Testing Library; for the Rust Admin app, `cargo test` with `cargo llvm-cov` |
 | Lint and format | ESLint and Prettier; `cargo clippy` and `cargo fmt` for the Rust Admin app |
 | Browser tests | Playwright (Chromium) in `e2e/` at the repository root, against the Compose stack (`npm run e2e`) |
-| Continuous integration | GitHub Actions on every pull request open and update: the `test` job installs the pinned Rust toolchain and runs `npm test` with coverage; the `e2e` job runs the browser tests, the Admin journeys against both Admin apps |
+| Continuous integration | GitHub Actions on every pull request open and update: the `test` job runs the steps of the root `ci` script, among them `rust:setup` (the pinned Rust toolchain and prebuilt `trunk` and `cargo-llvm-cov`), and `npm test` with coverage; the `e2e` job runs the browser tests, the Admin journeys against both Admin apps |
 | Orchestration | Docker Compose v2 |
 
 ## Security and Data Constraints
 
 - **Roles and test accounts**: The seed provisions 5 QueuePass Admins (`admin1`–`admin5`, realm
-  role `queuepass-admin`, in realm `queuepass-admin-app`), 30 Gate Agents (`agent1`–`agent30`,
+  role `queuepass-admin`) in realm `queuepass-admin-app` and again, as separate accounts with the
+  same names and password, in realm `queuepass-admin-rust-app` (spec `037`), 30 Gate Agents (`agent1`–`agent30`,
   `gate-agent`, in `queuepass-booth-app`), and 200 Customers (`customer1`–`customer200`,
   `customer`, in `queuepass-customer-app`). Self-enrollment, password reset, and MFA are out of
   scope.

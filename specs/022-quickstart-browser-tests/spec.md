@@ -261,6 +261,9 @@ it passes and leaves no containers or volumes behind.
 - The stack's ports are the standard ones (5173–5175, 3000, 8080, 5432): the apps' sign-in clients
   allow only those exact addresses (Constitution: exact redirect URIs), so the browser-test stack
   cannot move to other ports, and a teammate's own stack must be stopped first (FR-013).
+
+> **Note (2026-11-11, spec `037`)**: The Rust Admin app adds port 5176 to the stack's ports and to
+> `E2E_PORTS` (Constitution 3.10.0).
 - GitHub's standard Linux runner has Docker Compose and network access to build the images.
 - The browser tests are a new folder at the repository root with their own dependencies, not one of
   the six workspaces under the 80% coverage rule: they are tests, not code under test.
