@@ -1,23 +1,29 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.9.7 -> 3.9.8 (PATCH): one roadmap row reserved; no principle changed and no control
-  removed. Applies on top of spec 035's amendment (3.9.6 -> 3.9.7, row 035-event-form-flow),
-  merged to main as d0eaf9f (implementation d821a96).
-Problem: issues #130 and #128, done together. Admins set Doors open as a third date and time
-  even though the only allowed values are 0 to 6 hours before the start, and Safari's calendar
-  popup for those date-time fields has no time picker, so the time is easy to miss.
+Version: 3.9.8 -> 3.10.0 (MINOR): a fourth front end, the Rust Admin app, is added, with the
+  widenings it needs; one roadmap row reserved.
+Problem: issue #163. John's requirement for the week of 2026-11-11: rewrite the Admin app in Rust,
+  running at the same time as the current apps, visibly different (red), with every feature of the
+  current Admin app. The stack table fixes TypeScript and React for every front end, Principle V
+  and the CORS rule name three realms and three origins, Principle VI allows only generated code
+  to be left out of coverage, and Principle VII forbids a per-app look.
 Changed:
-  - Roadmap: row 036-event-form-times reserved (the Admin event form offers two ways to set
-    doors open, one at a time: a length of time before the start, in 15-minute steps from 0 to
-    6 hours, default 1 hour on a new event, with the resulting time shown; or a date and a time;
-    switching keeps the same doors-open time; Starts and Ends, and Doors open in date-and-time
-    mode, are each a date control and a time control so every browser shows a clear time picker;
-    the form still sends doorsOpenAt; no contract change). The next free number is 037.
-Impact: spec 036. No OpenAPI change (the form still sends doorsOpenAt; research R3). Spec 025
-  (merged) is amended, with dated notes in its spec: its FR-002, FR-003, and the form part of
-  FR-005 give way to 036 for how the Admin event form picks doors open and start/end times.
-  Spec 035's Out of scope items for #128 and #130 give way to this feature. The README's version
-  reference follows. Templates: none need updating.
+  - Preamble, Principle II: seven long-running parts; four web front ends.
+  - Principle V and the Identity row: a fourth realm and client (`queuepass-admin-rust-app`,
+    `admin-rust-app`), whose role is `queuepass-admin`, the same as the Admin app's.
+  - Principle VI: the `admin-rust-app` workspace joins the 80% floor, measured by Rust tooling on
+    its `core` crate. Its browser-only view code may be excluded, and the replacement control is
+    named: every Admin browser journey also runs against the Rust Admin app in the required `e2e`
+    check.
+  - Principle VII: an exception for the Rust Admin app's own red theme. It keeps the usability
+    targets, and its sign-in accent is a shared-theme sign-in token like the others.
+  - Stack table: Language, Repository, Front ends, Identity, Front-end tests, Lint and format, and
+    Continuous integration rows name the Rust Admin app's tools.
+  - Security and Data Constraints: CORS allows the four front-end origins.
+  - Roadmap: row 037-rust-admin-app reserved. The next free number is 038.
+Impact: spec 037 (#163). No API, schema, or existing app behaviour changes. The Customer app's Rust
+  version (a separate spec) will need its own amendment row and realm decision. The README's
+  version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -26,8 +32,9 @@ QueuePass replaces spreadsheets, drifting email lists, and paper tickets with on
 record for venues and events. It is a proof of concept that must run on a laptop, stay correct
 under concurrency, and be built so its simulated parts can be replaced later.
 
-The system has six long-running parts: PostgreSQL, Keycloak, the Backend API, and three web
-front ends (the **Admin app**, the **Customer app**, and the **Ticket Booth app**).
+The system has seven long-running parts: PostgreSQL, Keycloak, the Backend API, and four web
+front ends (the **Admin app**, the **Customer app**, the **Ticket Booth app**, and the **Rust
+Admin app**, a second Admin app written in Rust that runs beside the first, spec `037`).
 
 ## Core Principles
 
@@ -60,8 +67,8 @@ parallel, by different people, without drifting apart.
 
 All applications live in one repository, and each runs in its own container with its own
 Dockerfile. From a clean checkout, `docker compose up --build` MUST bring up the whole system on
-one laptop, seeded and usable, with no manual steps: PostgreSQL, Keycloak, the Backend, all three
-front ends, and a one-shot seed job.
+one laptop, seeded and usable, with no manual steps: PostgreSQL, Keycloak, the Backend, every
+front end, and a one-shot seed job.
 
 - Every service MUST expose a health check, and startup order MUST be gated on health, not on
   timing.
@@ -161,21 +168,21 @@ feature `001` onward:
 - Users sign in on Keycloak's login page using the OIDC Authorization Code flow with PKCE. No
   front end ever accepts, handles, or stores a password.
 - Each front end MUST sign in through its own Keycloak realm (`queuepass-admin-app`,
-  `queuepass-customer-app`, `queuepass-booth-app`), so signing in to, renewing, or logging out of
+  `queuepass-customer-app`, `queuepass-booth-app`, `queuepass-admin-rust-app`), so signing in to, renewing, or logging out of
   one app never ends, changes, or replaces another app's sign-in in the same browser.
 - Logging out MUST end both the front end's session and its realm's Keycloak session.
 - Front ends MUST hold tokens in memory only, never in `localStorage` or `sessionStorage`, and
   MUST send the signed-in user's own access token as a `Bearer` token on every API call.
 - The Backend MUST validate the access token (a JWT) on every endpoint except health: its issuer,
-  which MUST be one of the three app realms, its signature against that realm's own published
+  which MUST be one of the app realms, its signature against that realm's own published
   keys, its audience, and its expiry. A missing, expired, malformed, or wrongly signed token, or
   one from any other issuer, MUST be refused with `401`.
 - The Backend MUST enforce role permissions on the server, reading roles from the validated
   token, and refuse with `403`. From each realm it MUST honour only that app's role
-  (`queuepass-admin` from the Admin app's realm, `customer` from the Customer app's, `gate-agent`
-  from the Ticket Booth's) and ignore any other role in the token. Hiding a control in a UI is never the
+  (`queuepass-admin` from the Admin app's realm and from the Rust Admin app's, `customer` from the
+  Customer app's, `gate-agent` from the Ticket Booth's) and ignore any other role in the token. Hiding a control in a UI is never the
   enforcement.
-- The Admin app requires `queuepass-admin`, the Customer app requires `customer`, and the Ticket
+- The Admin app and the Rust Admin app require `queuepass-admin`, the Customer app requires `customer`, and the Ticket
   Booth app requires `gate-agent`. A signed-in user without the required role is told so plainly,
   shown no data, and offered logout.
 - QueuePass MUST NOT store passwords or manage identities. It stores at most the Keycloak subject
@@ -203,11 +210,15 @@ after it.
   genuinely concurrent requests.
 - The full suite MUST run with one documented command (`npm test`) on a laptop, and MUST also
   run automatically in GitHub Actions whenever a pull request is opened or updated.
-- Each workspace (`backend`, `admin-app`, `customer-app`, `booth-app`, `packages/shared`, and
-  `scripts/seed`) MUST reach at least **80% line coverage** on its own; one well-tested
+- Each workspace (`backend`, `admin-app`, `customer-app`, `booth-app`, `admin-rust-app`,
+  `packages/shared`, and `scripts/seed`) MUST reach at least **80% line coverage** on its own; one well-tested
   workspace cannot make up for another. Coverage MUST be measured by the documented test command
   and checked in CI. Only generated code (such as `packages/shared/src/api-schema.ts`) may be
   excluded, and every exclusion MUST be listed in the coverage configuration with its reason.
+  One more exclusion is allowed (spec `037`): the Rust Admin app's floor is measured by
+  `cargo llvm-cov` on its `core` crate (all logic: API client, sign-in state, form checks, times,
+  money, exports), and its browser-only view crate is excluded. The replacement control is that
+  every Admin browser journey also runs against the Rust Admin app in the required `e2e` check.
 - Before an implementation PR is merged, the system MUST be brought up with
   `docker compose up --build`, and each front end MUST be signed into, used, and signed out of as
   a smoke test.
@@ -258,6 +269,12 @@ and the colors the sign-in screens draw on that background, are tokens in the sh
 only in its token blocks and checked by its contrast tests. The apps themselves keep the one
 shared accent and use none of them.
 
+The one exception to "one shared look" (spec `037`): the Rust Admin app uses its own red theme,
+not the shared theme, so nobody can mistake it for the Admin app. It keeps every usability target
+above (contrast, focus, states not by color alone, keyboard access, phone width) and adds no other
+decoration. Its sign-in accent, like the other apps', is a token in the shared theme's sign-in
+block, checked by its contrast tests.
+
 Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
 without anyone spending time on visual design, and a change to the look is made once.
 
@@ -281,21 +298,21 @@ These choices are fixed for every feature. Changing one requires amending this c
 
 | Concern | Decision |
 |---|---|
-| Language | TypeScript (strict mode) everywhere: backend, front ends, seed, and tests |
+| Language | TypeScript (strict mode) everywhere: backend, front ends, seed, and tests, except the Rust Admin app, which is Rust (stable, pinned in its `rust-toolchain.toml`) |
 | Runtime | Node.js 22 LTS, pinned in `.nvmrc` |
-| Repository | One monorepo with npm workspaces: `backend/`, `admin-app/`, `customer-app/`, `booth-app/`, `packages/shared/`, `scripts/seed/` |
+| Repository | One monorepo with npm workspaces: `backend/`, `admin-app/`, `customer-app/`, `booth-app/`, `admin-rust-app/` (scripts only, wrapping cargo and trunk), `packages/shared/`, `scripts/seed/` |
 | Backend | NestJS 11, REST over HTTP/JSON |
 | Persistence | PostgreSQL 17 through Prisma 6. Schema changes only through committed migrations (`prisma migrate deploy`, never `prisma db push`) |
 | API contract | OpenAPI 3.1 at `contracts/openapi.yaml`, served by the Backend at `/docs` |
-| Front ends | React 19 with Vite 6, one app per container |
-| Identity | Keycloak 26, one realm per front end (`queuepass-admin-app`, `queuepass-customer-app`, `queuepass-booth-app`), each with that front end's one public OIDC client (`admin-app`, `customer-app`, `booth-app`) |
+| Front ends | React 19 with Vite 6, one app per container; the Rust Admin app is Leptos (client-side, WebAssembly) built with Trunk |
+| Identity | Keycloak 26, one realm per front end (`queuepass-admin-app`, `queuepass-customer-app`, `queuepass-booth-app`, `queuepass-admin-rust-app`), each with that front end's one public OIDC client (`admin-app`, `customer-app`, `booth-app`, `admin-rust-app`) |
 | Front-end sign-in | A standards-based OIDC client library, not a Keycloak-only adapter |
 | Backend token validation | JWT verification against the JWKS endpoint of the token's own app realm, using a standards-based JOSE library |
 | Backend tests | Jest, with Testcontainers for PostgreSQL |
-| Front-end tests | Vitest with React Testing Library |
-| Lint and format | ESLint and Prettier |
+| Front-end tests | Vitest with React Testing Library; for the Rust Admin app, `cargo test` with `cargo llvm-cov`, and `wasm-bindgen-test` for browser glue |
+| Lint and format | ESLint and Prettier; `cargo clippy` and `cargo fmt` for the Rust Admin app |
 | Browser tests | Playwright (Chromium) in `e2e/` at the repository root, against the Compose stack (`npm run e2e`) |
-| Continuous integration | GitHub Actions on every pull request open and update: the `test` job runs `npm test` with coverage; the `e2e` job runs the browser tests |
+| Continuous integration | GitHub Actions on every pull request open and update: the `test` job installs the pinned Rust toolchain and runs `npm test` with coverage; the `e2e` job runs the browser tests, the Admin journeys against both Admin apps |
 | Orchestration | Docker Compose v2 |
 
 ## Security and Data Constraints
@@ -314,7 +331,7 @@ These choices are fixed for every feature. Changing one requires amending this c
   are disabled on front-end clients.
 - **Secrets**: No secret, key, or non-seed credential may be committed. Configuration reaches
   services through environment variables, with working defaults in `.env.example`.
-- **CORS**: The Backend allows only the three front-end origins.
+- **CORS**: The Backend allows only the four front-end origins.
 - **Identifiers**: Primary keys are UUIDs.
 - **Money**: Amounts are exact decimals or integer cents, never floating point. The currency is
   USD only.
@@ -328,7 +345,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `037`.
+number is a pull request against this table. The next free number is `038`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -368,6 +385,7 @@ number is a pull request against this table. The next free number is `037`.
 | `034-sell-until-end` | Tickets are sold until an event ends, not when it starts: orders and seat holds are allowed until its end time (half-open) and refused as sales closed from then on, and holds end at the end; capacity, the per-customer limit, the attempt limits, and seat holds apply as before; from the start to the end the Customer app's Get tickets panel says the event has already started, when it began, and that tickets are on sale until it ends, in the venue's time zone, and the confirmation of an order placed after the start says so; after the end it says "Sales closed: this event has ended."; a ticket bought after the start is admitted at the Ticket Booth until the end, as today (#126) | `006`, `015`, `016`, `020`, `025`, `026`, `030`, `033` |
 | `035-event-form-flow` | The Admin app's Schedule event and Edit event form in three sections (venue and times; tickets and seating; details: tickets per customer and pictures), showing only what the choices so far make relevant; each problem the form can see is shown beside its field as soon as it is wrong (on leaving the field, then as the admin types) and cleared when fixed, announced politely without flooding a screen reader; submit never sends a known problem and moves focus to the first field at fault; a live total of seats assigned per ticket type and overall against the venue's layout (or the event's total tickets) names exactly what is left; a Backend refusal is shown beside its field and focused, not in a banner at the top, and every value is kept; on edit, controls the Backend would refuse because tickets are sold are locked with the reason beside them; an edit of the event, its ticket types, and its seating is saved all or nothing through the existing update request, as scheduling already is (`031`); pictures still upload afterwards (#134) | `002`, `004`, `005`, `007`, `008`, `014`, `015`, `016`, `020`, `025`, `031` |
 | `036-event-form-times` | The Admin event form offers two ways to set doors open, one at a time: a length of time before the start (15-minute steps from 0 to 6 hours, 1 hour by default on a new event) with the resulting time shown, or a date and a time; switching keeps the same doors-open time; Starts, Ends, and Doors open in date-and-time mode each use a date control and a time control so the time cannot be overlooked in any browser; the form still sends the existing doors-open timestamp (#130, #128) | `020`, `025`, `035` |
+| `037-rust-admin-app` | A second Admin app written in Rust (`admin-rust-app/`, port 5176) running beside the unchanged Admin app, against the same API and data; its own realm `queuepass-admin-rust-app` with the same admin accounts and role, so signing in or out of one Admin app never touches the other; red on every screen, sign-in included, and named "QueuePass Admin (Rust)"; every behaviour of the Admin app on `main` when its implementation PR opens, checked item by item; every Admin browser journey runs against both; no API change (#163) | `001`, `002`, `004`, `005`, `007`, `013`, `014`, `015`, `016`, `020`, `021`, `023`, `024`, `025`, `028`, `030`, `031`, `032`, `035`, `036` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -420,4 +438,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.9.8 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-10
+**Version**: 3.10.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-11
