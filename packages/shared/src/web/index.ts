@@ -29,3 +29,8 @@ export { ImageGallery } from './image-gallery.js';
 export type { ImageGalleryProps } from './image-gallery.js';
 export { ImageViewer } from './image-viewer.js';
 export type { ImageViewerProps } from './image-viewer.js';
+// Spec 038: the venue map's geometry and a layout's preview (research R13, R15).
+export { bounds, centroid, outlinePath, sectionViewBox } from './venue-map/map-geometry.js';
+export type { Bounds, Point } from './venue-map/map-geometry.js';
+export { LayoutPreview } from './venue-map/layout-preview.js';
+export type { PreviewLayout } from './venue-map/layout-preview.js';

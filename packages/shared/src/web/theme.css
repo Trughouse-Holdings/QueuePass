@@ -1090,3 +1090,34 @@ dd {
     right: 8px;
   }
 }
+
+/* Spec 038 (T018, research R13, R15): a layout's preview on the venue page: its floor object and
+   its sections with their names, never its seats. Neutral theme tokens only for now; T038 adds
+   the level colors (--level-*) and the map tokens (--map-bg, --map-floor), which the venue map
+   uses and this preview may then take up. */
+.layout-preview {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.layout-preview__floor {
+  fill: var(--bg);
+  stroke: var(--border-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.layout-preview__section {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.layout-preview__label {
+  fill: var(--text);
+  font-weight: 600;
+  pointer-events: none;
+}
