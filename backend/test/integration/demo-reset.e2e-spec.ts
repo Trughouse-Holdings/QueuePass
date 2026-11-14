@@ -30,13 +30,18 @@ import { resetDb } from '../setup/reset-db';
 import type { PrismaService } from '../../src/prisma/prisma.service';
 
 const MIGRATIONS = path.resolve(__dirname, '../../prisma/migrations');
-const DEMO_VENUES = ['Demo Riverside Hall', 'QueuePass Demo Arena'];
+// Spec 038 (FR-033, research R18): the KFC Yum! Center and its four events join the demo.
+const DEMO_VENUES = ['Demo Riverside Hall', 'KFC Yum! Center', 'QueuePass Demo Arena'];
 const DEMO_EVENTS = [
   'Fall Concert',
   'Comedy Night',
   'Demo Tonight',
   'Holiday Gala',
   'Season Opener',
+  'Cardinals Women vs. Duke',
+  'Cardinals Men vs. Kentucky',
+  'Arena Tour: Live',
+  'WWE Saturday Night',
 ];
 const DAY = 86_400_000;
 
@@ -47,6 +52,10 @@ const DAY = 86_400_000;
  * Dated events by their local date relative to the created Fall Concert's, local time, duration,
  * and doors offset; Demo Tonight by duration and doors offset only. Tickets have no link to their
  * order and no check-in; check-ins are a count per event with who checked them in (R12). Image bytes as SHA-256. Every list sorted.
+ * Spec 038 (SC-008, T046): layouts with their levels, and their seats as one digest per layout
+ * (each seat's section, row, number, labels, place, level and accessibility); each event's layout,
+ * level prices and seats off sale (by section and row label); tickets and holds by their seat's
+ * labels, level and price.
  */
 async function fingerprint(prisma: PrismaService) {
   const sorted = <T>(rows: T[]) => rows.map((r) => JSON.stringify(r)).sort();
@@ -58,6 +67,19 @@ async function fingerprint(prisma: PrismaService) {
   const tierName = new Map(tiers.map((t) => [t.id, t.name]));
   // Spec 038: sections belong to a venue's layout.
   const sections = await prisma.section.findMany({ include: { layout: true } });
+  const layouts = await prisma.layout.findMany({ include: { levels: true } });
+  const layoutName = new Map(layouts.map((l) => [l.id, l.name]));
+  const seatDigests = await prisma.$queryRaw<{ layoutId: string; digest: string }[]>`
+    SELECT sec."layoutId"::text AS "layoutId",
+           md5(string_agg(concat_ws('|', sec."name", r."number", r."label", s."number", s."label",
+                                    s."x", s."y", lv."name", s."accessible"),
+                          ',' ORDER BY sec."position", r."number", s."number")) AS digest
+    FROM "Section" sec
+    JOIN "SeatRow" r ON r."sectionId" = sec."id"
+    JOIN "Seat" s ON s."rowId" = r."id"
+    JOIN "PriceLevel" lv ON lv."id" = COALESCE(s."levelId", r."levelId", sec."levelId")
+    GROUP BY sec."layoutId"`;
+  const digestOf = new Map(seatDigests.map((d) => [d.layoutId, d.digest]));
 
   const concert = events.find((e) => e.name === 'Fall Concert');
   const refDay = concert ? Date.parse(localDate(concert.startsAt, concert.location.timeZone)) : 0;
@@ -95,10 +117,44 @@ async function fingerprint(prisma: PrismaService) {
         position: s.position,
       })),
     ),
+    layouts: sorted(
+      layouts.map((l) => ({
+        venue: venueName.get(l.locationId),
+        name: l.name,
+        source: l.source,
+        floor: [l.floorKind, l.floorOutline],
+        size: [l.width, l.height],
+        seats: l.seatCount,
+        levels: l.levels
+          .map((v) => [v.rank, v.name, v.color])
+          .sort((a, b) => Number(a[0]) - Number(b[0])),
+        digest: digestOf.get(l.id) ?? null,
+      })),
+    ),
+    levelPrices: sorted(
+      (await prisma.eventLevelPrice.findMany({ include: { level: true } })).map((p) => ({
+        event: eventName.get(p.eventId),
+        level: p.level.name,
+        price: p.price.toString(),
+      })),
+    ),
+    offSale: sorted(
+      (
+        await prisma.$queryRaw<{ eventId: string; section: string; row: string; n: bigint }[]>`
+          SELECT o."eventId"::text AS "eventId", sec."name" AS "section", r."label" AS "row",
+                 count(*) AS n
+          FROM "EventOffSaleSeat" o
+          JOIN "Seat" s ON s."id" = o."seatId"
+          JOIN "SeatRow" r ON r."id" = s."rowId"
+          JOIN "Section" sec ON sec."id" = s."sectionId"
+          GROUP BY 1, 2, 3`
+      ).map((r) => ({ event: eventName.get(r.eventId), at: [r.section, r.row], n: Number(r.n) })),
+    ),
     events: sorted(
       events.map((e) => ({
         name: e.name,
         venue: e.location.name,
+        layout: e.layoutId ? layoutName.get(e.layoutId) : null,
         status: e.status,
         cancelled: e.cancelledAt !== null,
         capacity: e.totalTicketCapacity,
@@ -147,13 +203,21 @@ async function fingerprint(prisma: PrismaService) {
             seatSection: true,
             seatRow: true,
             seatNumber: true,
+            seatRowLabel: true,
+            seatLabel: true,
+            seatId: true,
+            levelName: true,
+            price: true,
           },
         })
       ).map((t) => ({
         event: eventName.get(t.eventId),
         tier: t.tierId ? tierName.get(t.tierId) : null,
         status: t.status,
-        seat: [t.seatSection, t.seatRow, t.seatNumber],
+        seat: [t.seatSection, t.seatRow, t.seatNumber, t.seatRowLabel, t.seatLabel],
+        seated: t.seatId !== null,
+        level: t.levelName,
+        price: t.price.toString(),
       })),
     ),
     // R12 (clarified): check-ins as a count per event, with who checked them in. Which of Fall
@@ -183,6 +247,7 @@ async function fingerprint(prisma: PrismaService) {
       (await prisma.seatHold.findMany()).map((h) => ({
         event: eventName.get(h.eventId),
         seat: [h.seatSection, h.seatRow, h.seatNumber],
+        seated: h.seatId !== null,
         released: h.releasedAt !== null,
         reason: h.endReason,
       })),
@@ -335,14 +400,25 @@ describe('Demo reset (spec 029)', () => {
       const summary = await reset();
       expect(summary.created).toMatchObject({
         created: true,
-        venues: 2,
-        events: 5,
+        venues: 3,
+        events: 9,
         past: 'Season Opener',
       });
       for (const n of Object.values(summary.removed.tables)) expect(n).toBe(0);
       f0 = await fingerprint(ctx.prisma);
-      expect(f0.locations).toHaveLength(2);
-      expect(f0.events).toHaveLength(5);
+      expect(f0.locations).toHaveLength(3);
+      expect(f0.events).toHaveLength(9);
+      // Spec 038 (research R18): four layouts with all their seats, two events with seats off
+      // sale, and sold seats with no live hold.
+      expect(f0.layouts).toHaveLength(4);
+      for (const l of f0.layouts) expect(JSON.parse(l).digest).toMatch(/^[0-9a-f]{32}$/);
+      expect(new Set(f0.offSale.map((r) => JSON.parse(r).event))).toEqual(
+        new Set(['Cardinals Women vs. Duke', 'WWE Saturday Night']),
+      );
+      expect(f0.tickets.filter((t) => JSON.parse(t).seated).length).toBeGreaterThan(100);
+      expect(f0.holds.length).toBeGreaterThan(100);
+      for (const h of f0.holds)
+        expect(JSON.parse(h)).toMatchObject({ released: true, reason: 'BOUGHT' });
       expect(f0.checkIns).toEqual([
         JSON.stringify({
           event: 'Fall Concert',
@@ -353,10 +429,12 @@ describe('Demo reset (spec 029)', () => {
     });
 
     it('after extra data, leaves only demo rows, equal to the empty reset (SC-001)', async () => {
+      const demo = await counts(ctx.prisma);
       await fillExtraData();
       const before = await counts(ctx.prisma);
-      expect(before.Section).toBe(2);
-      expect(before.SeatHold).toBe(2);
+      // Spec 038: beside the demo's own sections and (ended) holds.
+      expect(before.Section - demo.Section).toBe(2);
+      expect(before.SeatHold - demo.SeatHold).toBe(2);
       await reset();
 
       // Every table the catalog lists holds only demo rows.
@@ -379,6 +457,14 @@ describe('Demo reset (spec 029)', () => {
         if (columns.includes('locationId')) {
           foreign.push(
             `"locationId" NOT IN (SELECT "id" FROM "Location" WHERE "name" IN (${DEMO_VENUES.map((v) => `'${v}'`).join(', ')}))`,
+          );
+        }
+        // Spec 038: a layout's levels, sections, rows and seats, by the demo venues' layouts.
+        const demoLayouts = `SELECT l."id" FROM "Layout" l JOIN "Location" v ON v."id" = l."locationId" WHERE v."name" IN (${DEMO_VENUES.map((v) => `'${v}'`).join(', ')})`;
+        if (columns.includes('layoutId')) foreign.push(`"layoutId" NOT IN (${demoLayouts})`);
+        if (columns.includes('sectionId')) {
+          foreign.push(
+            `"sectionId" NOT IN (SELECT "id" FROM "Section" WHERE "layoutId" IN (${demoLayouts}))`,
           );
         }
         const where = foreign.length > 0 ? foreign.join(' OR ') : 'true';
@@ -515,11 +601,19 @@ describe('Demo reset (spec 029)', () => {
       const c = summary.created;
       expect(c).toMatchObject({
         created: true,
-        venues: 2,
-        events: 5,
+        venues: 3,
+        events: 9,
         cancelled: 'Holiday Gala',
         past: 'Season Opener',
       });
+      // Spec 038 (T047): the layouts, in the summary and in the database.
+      expect(c.layouts).toEqual([
+        { name: 'Basketball', seats: 22_090 },
+        { name: 'End-stage concert', seats: 17_500 },
+        { name: 'Center stage', seats: 19_500 },
+        { name: 'Wrestling (ring)', seats: 18_000 },
+      ]);
+      expect(await ctx.prisma.layout.count()).toBe(4);
       expect(await ctx.prisma.order.count()).toBe(c.orders);
       expect(await ctx.prisma.ticket.count()).toBe(c.tickets);
       expect(await ctx.prisma.ticket.count({ where: { checkedInAt: { not: null } } })).toBe(
@@ -545,8 +639,12 @@ describe('Demo reset (spec 029)', () => {
           `${n(before.SeatReservation, 'seat reservation')}, ${n(before.SeatHold, 'seat hold')}.`,
       );
       expect(out).toContain(
-        `Created: 2 venues, 5 events (Holiday Gala cancelled, Season Opener over), ${c.orders} orders, ` +
-          `${c.tickets} tickets (${c.checkedIn} checked in), ${c.images} images.`,
+        `Created: 3 venues, 4 layouts, 9 events (Holiday Gala cancelled, Season Opener over), ` +
+          `${c.orders} orders, ${c.tickets} tickets (${c.checkedIn} checked in), ${c.images} images.`,
+      );
+      expect(out).toContain(
+        'KFC Yum! Center layouts: Basketball, 22,090 seats; End-stage concert, 17,500 seats; ' +
+          'Center stage, 19,500 seats; Wrestling (ring), 18,000 seats.',
       );
       const tonight = await ctx.prisma.event.findFirstOrThrow({
         where: { name: 'Demo Tonight' },
@@ -640,15 +738,15 @@ describe('Demo reset (spec 029)', () => {
         }
       }
       if (results.every((r) => r.status === 'fulfilled')) {
-        expect(await ctx.prisma.location.count()).toBe(2);
+        expect(await ctx.prisma.location.count()).toBe(3);
         expect(await ctx.prisma.location.count({ where: { name: 'QueuePass Demo Arena' } })).toBe(
           1,
         );
       }
       // One more run ends in the demo state (spec Edge Cases).
       await reset();
-      expect(await ctx.prisma.location.count()).toBe(2);
-      expect(await ctx.prisma.event.count()).toBe(5);
+      expect(await ctx.prisma.location.count()).toBe(3);
+      expect(await ctx.prisma.event.count()).toBe(9);
     });
   });
 });

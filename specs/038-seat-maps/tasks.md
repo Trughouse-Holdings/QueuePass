@@ -957,7 +957,7 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   floor). Each file checked against `LayoutFile` before it is written; written one row a line, places
   to 0.1, so the files are in `.prettierignore` beside `api-schema.ts`. T043's 14 tests pass; ESLint
   and Prettier clean.
-- [ ] T046 [P] [US5] `backend/test/integration/demo-data.e2e-spec.ts` and `demo-reset.e2e-spec.ts`
+- [X] T046 [P] [US5] `backend/test/integration/demo-data.e2e-spec.ts` and `demo-reset.e2e-spec.ts`
   updated (FR-033, SC-008, US5): after the demo data, the venue "KFC Yum! Center" (1 Arena Plaza,
   Louisville, KY 40202) has exactly four layouts with those seat counts, `seatingCapacity` 22,090;
   the four upcoming events of research R18's table with exactly those layouts, prices and off-sale
@@ -965,13 +965,38 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   End-stage concert and Wrestling by 1 and locked, Center stage by none and unlocked; the other demo
   venues unchanged (they have no layout); two resets end in the same layouts, prices, off-sale seats
   and seat states (times relative to the run). Must fail.
-- [ ] T047 [US5] `backend/src/scripts/demo-data.ts`: the Yum! Center venue, its four layouts through
+  **Done** (2026-11-14): written first and seen failing (`demo-data` 19 of 27 red: 2 venues, 5
+  events, no Yum! Center; `demo-reset` did not compile without `DemoSummary.layouts`). `demo-data`:
+  the venue (verified, Eastern, capacity 22,090); its layouts through `listVenueLayouts` (seats,
+  sections, levels, `eventsUsing`, `locked`, as above) and every seat in the database; Basketball's
+  four levels as R18 pins them; the Hall and the Arena with no layout and only the four events
+  seated; for each event of R18's table: its layout, upcoming, prices by level name (Upper none on
+  Women's), base price the lowest, seats off sale per section and row equal to the layout's (301–330
+  whole; rows S–W of 305–310 and 320–325), capacity the seats on sale; 35 to 45 seats sold, each
+  once, on sale, of 3 levels or more, each ticket with its seat's labels, level and price; one hold
+  per ticket, ended `BOUGHT`, no reservation open; orders by demo customers, totals the sum; offline,
+  the Yum! Center still loads (not verified). `demo-reset`: the fingerprint gains layouts (levels,
+  floor, size, a digest of every seat), level prices, seats off sale, tickets' labels, level and
+  price; SC-001's demo-rows check covers the layout tables; the printed summary.
+- [X] T047 [US5] `backend/src/scripts/demo-data.ts`: the Yum! Center venue, its four layouts through
   the layouts service's import (the JSON modules), the four events through `EventsService` with
   `layoutId`, `levelPrices`, `offSale` (research R18's table), then sold seats through
   `ReservationsService` and `OrdersService` (a hold, then an order, as a customer does); no seat is
   left held (a hold lasts 5 minutes; the held state is shown live in the demo); `DemoSummary` gains
   `layouts`.
   `backend/src/scripts/demo-reset.ts` prints them. T046 passes. *Demo data usable from here.*
+  **Done** (2026-11-14): the KFC Yum! Center after the Hall and before the Arena (the "already
+  run" marker, as the Hall is); the four JSON modules through `LayoutsService.importFile`; the
+  events through `EventsService.create` (off sale as whole sections, or rows by the numbers
+  `LayoutsService.section` reads), days 9, 16, 23 and 26 at 7:00, 7:00, 8:00 and 7:30 PM venue
+  time; 40 seats each in 10 orders of 2 to 6 over every level on sale, each `reserve` then `create`
+  as demo customers 1–20 with their holder names, so no hold is left. `DemoSummary.layouts` is
+  `{name, seats}[]`; the reset prints `Created: 3 venues, 4 layouts, 9 events (…)` and the line
+  `KFC Yum! Center layouts: Basketball, 22,090 seats; …`, and its R10 check counts 3 venues. The
+  files are in `backend/dist/scripts/layouts/` after the build. **For T059**: the demo data now
+  takes about 7 s in the tests (the four imports about 4.2 s), against `029`'s 10-second SC-002.
+  Backend (`jest --runInBand`): 125 of 126 suites, 1,515 of 1,516 tests; the one failure is T001's
+  `rate-limits.buy` 200-connection case. `npx tsc --noEmit -p backend`, ESLint, Prettier clean.
 
 ---
 
