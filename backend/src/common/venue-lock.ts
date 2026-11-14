@@ -29,11 +29,7 @@ export async function lockVenueAndEvents(
   locationId: string,
   options: { allStatuses?: boolean } = {},
 ): Promise<LockedVenue> {
-  const venues = await tx.$queryRaw<LockedVenue[]>`
-    SELECT "name", "seatingCapacity", "timeZone", "timeZoneSource"::text AS "timeZoneSource"
-    FROM "Location" WHERE "id" = ${locationId}::uuid
-    FOR UPDATE`;
-  if (venues.length === 0) throw new NotFoundException(`No venue exists with id ${locationId}.`);
+  const venue = await lockVenue(tx, locationId);
   if (options.allStatuses) {
     await tx.$queryRaw`
       SELECT "id" FROM "Event" WHERE "locationId" = ${locationId}::uuid
@@ -44,6 +40,23 @@ export async function lockVenueAndEvents(
       WHERE "locationId" = ${locationId}::uuid AND "status" = 'SCHEDULED'
       ORDER BY "id" FOR UPDATE`;
   }
+  return venue;
+}
+
+/**
+ * The venue row alone, FOR UPDATE: the first lock of every venue write. Spec 038 research R7: a
+ * layout write locks the venue with this, then the layout, then the layout's scheduled events
+ * (`layouts/layout-lock.ts`), keeping "the venue first, always".
+ */
+export async function lockVenue(
+  tx: Prisma.TransactionClient,
+  locationId: string,
+): Promise<LockedVenue> {
+  const venues = await tx.$queryRaw<LockedVenue[]>`
+    SELECT "name", "seatingCapacity", "timeZone", "timeZoneSource"::text AS "timeZoneSource"
+    FROM "Location" WHERE "id" = ${locationId}::uuid
+    FOR UPDATE`;
+  if (venues.length === 0) throw new NotFoundException(`No venue exists with id ${locationId}.`);
   return venues[0];
 }
 

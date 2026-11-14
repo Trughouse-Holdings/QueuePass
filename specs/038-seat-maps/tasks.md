@@ -90,7 +90,7 @@ confirm they **fail** before its implementation tasks.
 
 ### Tests first
 
-- [ ] T003 [P] `backend/test/integration/migration.seat-maps.e2e-spec.ts` (R16, FR-031, FR-032,
+- [X] T003 [P] `backend/test/integration/migration.seat-maps.e2e-spec.ts` (R16, FR-031, FR-032,
   SC-006), on the pattern of `migration.time-zones.e2e-spec.ts` (a fresh database migrated to the
   migration before `_seat_maps`, rows inserted with SQL, then the migration): a venue with 3
   sections; a seated event with 2 ticket types mapping 2 sections and leaving 1 unmapped, with
@@ -112,17 +112,29 @@ confirm they **fail** before its implementation tasks.
   (`ticket_one_valid_per_seat`), two live holds for one `seatId` fail (`seat_hold_one_live_per_seat`),
   deleting a sold seat fails (`ticket_valid_has_seat`), `reservedSeating` without `layoutId` fails
   (`event_seating_matches_layout`). Must fail (no migration yet).
-- [ ] T004 [P] `backend/test/unit/seat-levels.spec.ts` (R1, FR-003): the resolution helper picks the
+  **Done** (2026-11-13): written first and seen failing for the right reason (no `_seat_maps`
+  migration: `expect(NEW_MIGRATION).toBeDefined()`); 18 tests, all pass after T005 and T006. Beyond
+  the list: a seated event's ticket sold without a type (level = its section's name), an ended hold
+  in a section that is gone (no seat), every section's outline, label point and every seat's place
+  checked against `layout-lines.ts`. A raw unique violation names its key, not its index, so the two
+  index cases check `pg_indexes` for the definition and the error for SQLSTATE 23505 on
+  `("eventId", "seatId")`.
+- [X] T004 [P] `backend/test/unit/seat-levels.spec.ts` (R1, FR-003): the resolution helper picks the
   seat's own level, else the row's, else the section's; and `backend/test/unit/layout-lines.spec.ts`
   (R6): `n` section lines placed in `ceil(√n)` columns in order, each rectangle `seatsPerRow × 2 + 4`
   units wide and `rows × 2 + 4` high with 8 units between, seats 2 units apart, `size` the grid's
   bounds; and `backend/test/unit/seat-runs.spec.ts` (R5): a run `{first, count, from, to}` gives
   `count` seats labelled `first…first+count−1` evenly from `from` to `to`, with `bend` on a quadratic
   curve through it, `count: 1` at `from`. Must fail.
+  **Done** (2026-11-13): the three files written first and seen failing (modules missing); 22 tests
+  pass after T008. The tests fix what R6 and R5 leave open: grid cells are all as large as the largest
+  section (8 units between cells), sections go left to right then down, seats are 3 units in from the
+  rectangle's edges with row 1 at the top; a run is spaced evenly in the curve's parameter, and `bend`
+  is the point the quadratic curve passes halfway (control point `2·bend − (from + to)/2`).
 
 ### Implementation
 
-- [ ] T005 Schema in `backend/prisma/schema.prisma` exactly as data-model.md: new models `Layout`
+- [X] T005 Schema in `backend/prisma/schema.prisma` exactly as data-model.md: new models `Layout`
   (`name` "1–50 characters, trimmed; unique per venue ignoring case", `source` enum `FILE | LINES`,
   `floorKind` enum `COURT | END_STAGE | CENTER_STAGE | RING | NONE`, `floorOutline` JSONB nullable
   "`NULL` with `NONE`", `width`/`height` "1–5,000", `seatCount` "≥ 1" (30,000 is the Backend's limit for new layouts)), `PriceLevel` (`name`
@@ -137,7 +149,14 @@ confirm they **fail** before its implementation tasks.
   `levelName` VARCHAR(50) nullable, `price` DECIMAL(10,2) required; `Order.unitPrice` nullable;
   `SeatHold.seatId` (nullable, SET NULL); `SectionTier` removed. The level foreign keys of `Section`, `SeatRow` and `Seat` are `NO ACTION`
   (`onDelete: NoAction`), not `RESTRICT` (R7). Comments cite 038 and data-model.md.
-- [ ] T006 The migration `backend/prisma/migrations/<timestamp>_seat_maps/migration.sql`, by hand
+  **Done** (2026-11-13): every model, field, type, limit and `onDelete` as data-model.md.
+  `prisma migrate diff --from-migrations … --to-schema-datamodel` against a fresh PostgreSQL 17 is
+  empty. The composite foreign keys need unique targets: `PriceLevel (layoutId, id)`
+  (`price_level_layout_id`) and `SeatRow (id, sectionId)` (`seat_row_id_section`); the Seat → row
+  key is `seat_row_section`. Indexes beside them for the cascades and lookups: `Event (layoutId)`,
+  `Ticket (seatId)`, `SeatHold (seatId)`, `Seat (levelId)`, `SeatRow (levelId)`,
+  `EventLevelPrice (levelId)`, `EventOffSaleSeat (seatId)`, `Layout (locationId)`.
+- [X] T006 The migration `backend/prisma/migrations/<timestamp>_seat_maps/migration.sql`, by hand
   (R16 steps 1–6, data-model.md "Carry-over"): tables, the carry-over in SQL (`generate_series` for
   rows and seats on the R6 grid), every CHECK and index named in data-model.md
   (`layout_name_unique_per_venue`, `price_level_name_unique`, `price_level_rank_unique`,
@@ -149,6 +168,17 @@ confirm they **fail** before its implementation tasks.
   `seat_hold_one_live_per_seat` on `(eventId, seatId) WHERE "releasedAt" IS NULL`), then the drops.
   `npx prisma migrate dev --create-only` is not used; `prisma migrate diff` may help check the
   schema matches. T003 passes.
+  **Done** (2026-11-13): `20261113000000_seat_maps/migration.sql`, R16 steps 1–6 in order; every
+  name in this task as given. data-model.md states some rules as "(CHECK)" without a name; they are
+  `layout_name_valid` (1–50 characters, trimmed), `layout_floor_outline_matches_kind`,
+  `layout_floor_outline_points` and `section_outline_points` (3–64 points), `layout_size_range`,
+  `layout_seat_count_positive`, `price_level_name_length`, `price_level_rank_range` (1–50),
+  `seat_row_number_range`, `seat_row_label_length`, `seat_number_range`, `seat_label_length`,
+  `event_level_price_non_negative`, `event_seat_seq_non_negative`. Decided here: a level's rank is the
+  section's place in position order (= position + 1 for `007`'s positions 0, 1, 2…); tickets and holds
+  find their section by name ignoring case (names are unique so); `levelName` is set on every ticket
+  with a seat label, `price` on every ticket; `Location.seatingCapacity` is left as it is (`007` kept it
+  equal to the layout's seats). T003 passes; the 40,000-seat venue takes under a second.
 - [X] T007 [P] Shared types in `packages/shared/src/seating.ts`: `LAYOUT_LIMITS` (`maxSections:
   100`, `maxRows: 100`, `maxSeatsPerRow: 200`, `maxSeats: 30_000`, `maxLevels: 12`,
   `maxCarriedLevels: 50`, `nameMaxLength: 50`, `labelMaxLength: 5`, `maxOutlinePoints: 64`,
@@ -160,12 +190,20 @@ confirm they **fail** before its implementation tasks.
   **Done** (2026-11-13): `packages/shared/test/seating.test.ts` written first and seen failing (4
   tests); then `LAYOUT_LIMITS`, `LEVEL_COLORS` (checked against `LevelColor` at compile time with
   `satisfies`) and 30 aliases of the contract's 038 schemas; 4 tests pass, `tsc` clean.
-- [ ] T008 Backend helpers: `backend/src/seating/seat-levels.ts` (the `COALESCE(seat, row, section)`
+- [X] T008 Backend helpers: `backend/src/seating/seat-levels.ts` (the `COALESCE(seat, row, section)`
   SQL fragment and a function giving a seat's level; counts per section and level by state for one
   event, in one grouped query, R11), `backend/src/layouts/seat-runs.ts` (run expansion, R5),
   `backend/src/layouts/layout-lines.ts` (grid placement, R6), `backend/src/layouts/layout-lock.ts`
   (lock venue, then layout `FOR UPDATE`, then every scheduled event using it in id order, R7, built
   on `common/venue-lock.ts`). T004 passes.
+  **Done** (2026-11-13): T004 passes (22 tests). `seat-levels.ts` also has `countSeatStates` (per
+  section and resolved level: `open`, `reserved`, `sold`, `offSale`, the contract's
+  `LevelSeatCounts` names, and `seq` from the same statement); `layout-lock.ts` has `lockLayout` and
+  `lockVenueForLayouts` (create, import, duplicate), built on a new `lockVenue` in
+  `common/venue-lock.ts` that `lockVenueAndEvents` now calls. Neither had a test in this task, so
+  `backend/test/integration/seat-levels.e2e-spec.ts` (7 tests: counts by state and level with `seq`,
+  a GA event, a 404; the lock's events in id order, its 404, and an event save's `FOR SHARE` on the
+  venue waiting for a layout write) was written first, seen failing, and passes.
 
 - [ ] T009 Contract **step 2** and the retired code, together (R3, Constitution I): `git apply
   specs/038-seat-maps/contracts/step2.diff` (unchanged; it applies to 1.28.0 with every `x-planned`
