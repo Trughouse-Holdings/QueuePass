@@ -1,15 +1,16 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import type { Reservation, SeatMap } from '@queuepass/shared';
+import type { MyReservation as Reservation } from '@queuepass/shared/web';
 import {
   availability,
   event,
   fakeClock,
   json,
+  openSection,
   order,
   renderCustomer,
+  seatedMap,
   stubApi,
-  tier,
   typeHolderName,
   fixTimeBeforeFixtures,
 } from './helpers';
@@ -22,7 +23,7 @@ fixTimeBeforeFixtures();
  * tries shows the message above the control it explains, counting down each second from the
  * Backend's N; that kind's controls wait it out (aria-disabled, still focusable); nothing is lost.
  * Spec 033 (FR-009, FR-014): the hold wait is on a seat click, above the seat map; the buy wait on
- * Confirm order and on the cart's Buy tickets.
+ * Confirm order and on the cart's Buy tickets. Spec 038: the seats are on the venue map.
  */
 afterEach(() => {
   vi.useRealTimers();
@@ -30,29 +31,23 @@ afterEach(() => {
 });
 
 type Reply = Response | (() => Response);
-const vip = tier({ id: 't-vip', name: 'VIP', price: '120.00', quantity: 30 });
 
-const seatMap = (): SeatMap => ({
-  eventId: 'e1',
-  reservedSeating: true,
-  sections: [
-    {
-      sectionId: 's-a',
-      name: 'A',
-      rows: 2,
-      seatsPerRow: 6,
-      tierId: 't-vip',
-      sold: 0,
-      taken: [],
-      reserved: [],
-    },
-  ],
-});
+/** Spec 038: section A, 2 rows of 6 seats, all open, at $40. */
+const arena = seatedMap([{ sectionId: 's-a', name: 'A', rows: 2, seatsPerRow: 6 }]);
 
 const reservation = (seats: [number, number][], over: Partial<Reservation> = {}): Reservation => ({
   eventId: 'e1',
-  tierId: 't-vip',
-  seats: seats.map(([row, seat]) => ({ sectionId: 's-a', section: 'A', row, seat })),
+  tierId: null,
+  seats: seats.map(([row, seat]) => ({
+    sectionId: 's-a',
+    section: 'A',
+    row,
+    seat,
+    rowLabel: String(row),
+    seatLabel: String(seat),
+    levelName: 'Standard',
+    price: '40.00',
+  })),
   createdAt: '2026-10-20T19:00:00.000Z',
   expiresAt: '2026-10-20T19:05:00.000Z',
   secondsLeft: 300,
@@ -60,12 +55,12 @@ const reservation = (seats: [number, number][], over: Partial<Reservation> = {})
 });
 
 const seatedRoutes = (extra: Record<string, Reply> = {}) => ({
-  'GET /events/e1': json(event({ reservedSeating: true })),
-  'GET /events/e1/tiers': json([vip]),
-  'GET /events/e1/availability': json(
-    availability({ ticketsLeft: 12, tiers: [{ tierId: 't-vip', ticketsLeft: 12 }] }),
+  'GET /events/e1': json(
+    event({ reservedSeating: true, layoutId: 'lay-1', basePrice: '40.00', priceMax: '40.00' }),
   ),
-  'GET /events/e1/seats': json(seatMap()),
+  'GET /events/e1/tiers': json([]),
+  'GET /events/e1/availability': json(availability({ ticketsLeft: 12 })),
+  ...arena.routes,
   'GET /me/reservations': json([]),
   ...extra,
 });
@@ -100,7 +95,7 @@ const losingFocus = (reply: Response): (() => Response) => {
 const advance = (ms: number) => act(async () => vi.advanceTimersByTimeAsync(ms));
 const button = (name: string) => screen.getByRole('button', { name });
 const seatButton = (row: number, seat: number) =>
-  screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}(,|$)`) });
+  screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}, `) });
 const heldSeats = () =>
   within(screen.getByRole('region', { name: 'Your seats' }))
     .queryAllByRole('listitem')
@@ -162,7 +157,7 @@ describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013; spec
     );
     renderCustomer({ at: '/events/e1' });
 
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+    await openSection('A');
     const said = watchAnnouncements();
     fireEvent.click(seatButton(1, 1));
     await screen.findByRole('timer');
@@ -174,14 +169,14 @@ describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013; spec
     await waitFor(() => expect(countdown()).toHaveTextContent(message(3)));
     // Directly above the seat map it explains.
     expect(countdown().nextElementSibling).toBe(
-      screen.getByRole('region', { name: 'Section A seats' }),
+      screen.getByRole('group', { name: 'Arena map' }).closest('.venue-map'),
     );
     // Open seats wait it out, still focusable; the clicked one keeps the focus.
     expect(seatButton(1, 2)).toHaveAttribute('aria-disabled', 'true');
     expect(seatButton(1, 2)).toBeEnabled();
     expect(document.activeElement).toBe(seatButton(1, 2));
     // Nothing lost: the held seat, the countdown, and Add to cart; the held seat still releases.
-    expect(heldSeats()).toEqual(['Section A, Row 1, Seat 1']);
+    expect(heldSeats()).toEqual(['Section A, Row 1, Seat 1, Standard, $40.00']);
     expect(button('Add to cart')).toBeEnabled();
     expect(seatButton(1, 1)).not.toHaveAttribute('aria-disabled');
 
@@ -211,7 +206,10 @@ describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013; spec
     expect(posts(calls, '/events/e1/reservation')).toHaveLength(2);
     fireEvent.click(seatButton(1, 2));
     await waitFor(() =>
-      expect(heldSeats()).toEqual(['Section A, Row 1, Seat 1', 'Section A, Row 1, Seat 2']),
+      expect(heldSeats()).toEqual([
+        'Section A, Row 1, Seat 1, Standard, $40.00',
+        'Section A, Row 1, Seat 2, Standard, $40.00',
+      ]),
     );
     expect(posts(calls, '/events/e1/reservation').map((c) => c.body)).toEqual([
       { seats: [{ sectionId: 's-a', row: 1, seat: 1 }] },
@@ -315,7 +313,7 @@ describe('a buy refused as too many tries (US2-3, US2-4; FR-011, FR-012)', () =>
       seatedRoutes({
         'GET /me/reservations': json([
           reservation([[1, 1]], { secondsLeft: 200 }),
-          reservation([[1, 1]], { eventId: 'e2', tierId: null, secondsLeft: 250 }),
+          reservation([[1, 1]], { eventId: 'e2', secondsLeft: 250 }),
         ]),
         'GET /events/e2': json(event({ id: 'e2', name: 'Late Play', reservedSeating: true })),
         'GET /events/e2/tiers': json([]),
@@ -437,7 +435,7 @@ describe('a 429 that is not a refusal for the limit', () => {
     );
     renderCustomer({ at: '/events/e1' });
 
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+    await openSection('A');
     fireEvent.click(seatButton(1, 1));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Slow down.');

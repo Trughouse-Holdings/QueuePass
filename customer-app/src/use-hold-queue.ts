@@ -1,8 +1,8 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import type { ErrorEnvelope, Reservation } from '@queuepass/shared';
+import type { ErrorEnvelope } from '@queuepass/shared';
 import { useAuth } from '@queuepass/shared/web';
 import { limitedFor } from './use-buy';
-import type { ChosenSeat } from './components/SeatPicker';
+import type { ChosenSeat, Reservation } from './seats';
 
 export type SeatAction = 'hold' | 'release';
 

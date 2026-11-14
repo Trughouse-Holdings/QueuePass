@@ -77,6 +77,27 @@
   --qr-dark: #000000;
   --qr-light: #ffffff;
 
+  /* Spec 038 (research R13): the venue map. Its background, the floor object under the sections,
+     the gray of unavailable seats and sections, the customer's own seats, and the 12 price-level
+     colors a layout names (contract LevelColor), each at 3:1 or more on --map-bg. A level's name
+     is always shown beside its color, so color is never the only cue. */
+  --map-bg: #ffffff;
+  --map-floor: #e3e6ea;
+  --seat-unavailable: #868e99;
+  --seat-mine: #4f46e5;
+  --level-violet: #7c3aed;
+  --level-blue: #2563eb;
+  --level-cyan: #0e7490;
+  --level-teal: #0f766e;
+  --level-green: #15803d;
+  --level-lime: #4d7c0f;
+  --level-yellow: #a16207;
+  --level-orange: #c2410c;
+  --level-red: #dc2626;
+  --level-pink: #db2777;
+  --level-purple: #a21caf;
+  --level-brown: #92400e;
+
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -156,6 +177,24 @@
 
     --qr-dark: #000000;
     --qr-light: #ffffff;
+
+    /* Spec 038: the venue map, lighter shades on the dark map. */
+    --map-bg: #171a21;
+    --map-floor: #272c36;
+    --seat-unavailable: #6f7887;
+    --seat-mine: #8b85f5;
+    --level-violet: #a78bfa;
+    --level-blue: #60a5fa;
+    --level-cyan: #22d3ee;
+    --level-teal: #2dd4bf;
+    --level-green: #4ade80;
+    --level-lime: #a3e635;
+    --level-yellow: #facc15;
+    --level-orange: #fb923c;
+    --level-red: #f87171;
+    --level-pink: #f472b6;
+    --level-purple: #e879f9;
+    --level-brown: #d4a373;
 
     --shadow: 0 1px 3px rgb(0 0 0 / 40%);
     --shadow-lg: 0 6px 16px -4px rgb(0 0 0 / 50%);
@@ -1123,8 +1162,8 @@ dd {
 }
 
 /* Spec 038 (T025, research R15): the event form's Seating section. A level's swatch beside its
-   name (the name is always there, so color is never the only cue); neutral until T038 adds the
-   level colors (--level-*), which then color each .level-swatch--<color>. One section zoomed in
+   name (the name is always there, so color is never the only cue), in its level's color
+   (.level-swatch--<color>, T038). One section zoomed in
    the off-sale tool, its seats at their places: on sale filled, off sale hollow and dashed, sold
    or held muted and not pressable. */
 .level-swatch {
@@ -1136,6 +1175,42 @@ dd {
   background: var(--accent-soft);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);
+}
+.level-swatch--violet {
+  background: var(--level-violet);
+}
+.level-swatch--blue {
+  background: var(--level-blue);
+}
+.level-swatch--cyan {
+  background: var(--level-cyan);
+}
+.level-swatch--teal {
+  background: var(--level-teal);
+}
+.level-swatch--green {
+  background: var(--level-green);
+}
+.level-swatch--lime {
+  background: var(--level-lime);
+}
+.level-swatch--yellow {
+  background: var(--level-yellow);
+}
+.level-swatch--orange {
+  background: var(--level-orange);
+}
+.level-swatch--red {
+  background: var(--level-red);
+}
+.level-swatch--pink {
+  background: var(--level-pink);
+}
+.level-swatch--purple {
+  background: var(--level-purple);
+}
+.level-swatch--brown {
+  background: var(--level-brown);
 }
 .off-sale-section {
   display: block;
@@ -1174,4 +1249,241 @@ dd {
 .off-sale-section__seat:focus-visible circle {
   stroke: var(--text);
   stroke-width: 3;
+}
+
+/* Spec 038 (T038, research R13): the venue map's level colors. A section, a seat, or a legend mark
+   with .venue-map--<color> is filled with that level's color; .venue-map--unavailable is the gray
+   of a section with no open seat (in the price filter) and of seats that can't be chosen. */
+.venue-map--violet {
+  fill: var(--level-violet);
+}
+.venue-map--blue {
+  fill: var(--level-blue);
+}
+.venue-map--cyan {
+  fill: var(--level-cyan);
+}
+.venue-map--teal {
+  fill: var(--level-teal);
+}
+.venue-map--green {
+  fill: var(--level-green);
+}
+.venue-map--lime {
+  fill: var(--level-lime);
+}
+.venue-map--yellow {
+  fill: var(--level-yellow);
+}
+.venue-map--orange {
+  fill: var(--level-orange);
+}
+.venue-map--red {
+  fill: var(--level-red);
+}
+.venue-map--pink {
+  fill: var(--level-pink);
+}
+.venue-map--purple {
+  fill: var(--level-purple);
+}
+.venue-map--brown {
+  fill: var(--level-brown);
+}
+.venue-map--unavailable {
+  fill: var(--seat-unavailable);
+}
+
+/* Spec 038 (T039, research R13, R14): the venue map, shared by the Customer and Admin apps. The
+   drawing scales to the card's width; touch moves the map, not the page. Sections in their level's
+   color (above) with their names on a halo of the map's background, readable on any fill. A section
+   with no open seat in the price filter, and a seat outside it, is faded and still pressable. Seat
+   states differ by shape and mark, not color alone: open filled, held hollow, sold a small dot
+   with a cross, off sale a dash, the customer's own the accent with a check. */
+.venue-map {
+  display: grid;
+  gap: var(--space-3);
+}
+.venue-map__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 70vh;
+  aspect-ratio: 3 / 2;
+  background: var(--map-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  touch-action: none;
+  user-select: none;
+}
+.venue-map__bg {
+  fill: var(--map-bg);
+}
+.venue-map__floor {
+  fill: var(--map-floor);
+  stroke: var(--border-strong);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.venue-map__section {
+  stroke: var(--map-bg);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+.venue-map__section--state {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+}
+.venue-map__section--faded,
+.venue-map__seat--faded {
+  opacity: 0.35;
+}
+/* The section zoomed into: pale under its seats, its edge drawn. */
+.venue-map__section.venue-map__section--current {
+  fill: var(--map-floor);
+  stroke: var(--border-strong);
+  opacity: 1;
+}
+.venue-map__section:focus-visible,
+.venue-map__seat:focus-visible {
+  outline: none;
+}
+.venue-map__section:focus-visible {
+  stroke: var(--text);
+  stroke-width: 3px;
+}
+.venue-map__label,
+.venue-map__row-label {
+  fill: var(--text);
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--map-bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.venue-map__row-label {
+  fill: var(--text-muted);
+  font-weight: 400;
+}
+.venue-map__seat {
+  cursor: pointer;
+}
+.venue-map__seat[aria-disabled='true'] {
+  cursor: not-allowed;
+}
+.venue-map__dot {
+  stroke: none;
+}
+.venue-map__dot--hollow {
+  fill: var(--map-bg);
+  stroke: var(--seat-unavailable);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+.venue-map__dot--small {
+  fill: var(--seat-unavailable);
+}
+.venue-map__hit {
+  fill: transparent;
+}
+.venue-map__mark {
+  fill: none;
+  stroke-width: 1.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.venue-map__mark--cross,
+.venue-map__mark--check {
+  stroke: var(--map-bg);
+}
+.venue-map__mark--dash {
+  stroke: var(--seat-unavailable);
+  stroke-width: 2px;
+}
+.venue-map__seat--mine .venue-map__dot {
+  fill: var(--seat-mine);
+}
+.venue-map__seat:focus-visible .venue-map__dot,
+.venue-map__seat:focus-visible .venue-map__hit {
+  stroke: var(--text);
+  stroke-width: 3px;
+  vector-effect: non-scaling-stroke;
+}
+.venue-map__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.venue-map__tip {
+  min-height: 1.55em;
+  margin: 0;
+  color: var(--text-muted);
+}
+.venue-map__none {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.venue-map__none p {
+  margin: 0;
+}
+
+/* The legend: each level with its swatch and price, each seat state with its mark. */
+.venue-map-legend {
+  display: grid;
+  gap: var(--space-2);
+}
+.venue-map-legend__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.venue-map-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.venue-map-legend__item--out {
+  color: var(--text-muted);
+}
+.venue-map-legend__mark {
+  flex: none;
+  background: var(--map-bg);
+  border-radius: var(--radius-pill);
+}
+/* An open seat's mark in the legend is in one level's color; the levels' own are listed above. */
+.venue-map-legend__mark .venue-map__dot {
+  fill: var(--level-blue);
+}
+.venue-map-legend__mark .venue-map__dot--hollow {
+  fill: var(--map-bg);
+}
+.venue-map-legend__mark .venue-map__dot--small {
+  fill: var(--seat-unavailable);
+}
+.venue-map-legend__mark .venue-map__seat--mine .venue-map__dot {
+  fill: var(--seat-mine);
+}
+
+/* The price filter: two range inputs, low and high, and the range they make. */
+.price-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+.price-filter__end {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.price-filter__range {
+  font-weight: 600;
 }

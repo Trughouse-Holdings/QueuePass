@@ -1,15 +1,14 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { SeatMap } from '@queuepass/shared';
 import {
   availability,
   event,
   holdBackend,
   json,
   renderCustomer,
+  seatedMap,
   stubApi,
-  tier,
   venue,
   fixTimeBeforeFixtures,
 } from './helpers';
@@ -42,54 +41,58 @@ describe('keyboard', () => {
     expect(screen.getByRole('link', { name: 'Early Show' })).toHaveFocus();
   });
 
-  it('chooses a tier, a section, and a seat, skipping taken seats', async () => {
+  it('opens the map, a section, and holds a seat by keyboard; taken seats do nothing', async () => {
     const user = userEvent.setup();
-    const map: SeatMap = {
-      eventId: 'e1',
-      reservedSeating: true,
-      sections: [
-        {
-          sectionId: 's-a',
-          name: 'A',
-          rows: 1,
-          seatsPerRow: 3,
-          tierId: 't-vip',
-          sold: 1,
-          taken: [{ row: 1, seat: 2 }],
-          reserved: [],
-        },
-      ],
-    };
-    stubApi({
-      'GET /events/e1': json(event({ reservedSeating: true })),
-      'GET /events/e1/tiers': json([tier({ id: 't-vip', name: 'VIP', price: '120.00' })]),
-      'GET /events/e1/availability': json(
-        availability({ ticketsLeft: 2, tiers: [{ tierId: 't-vip', ticketsLeft: 2 }] }),
-      ),
-      'GET /events/e1/seats': json(map),
+    const seats = seatedMap([
+      { sectionId: 's-a', name: 'A', rows: 1, seatsPerRow: 3, sold: [[1, 2]] },
+    ]);
+    const { calls } = stubApi({
+      'GET /events/e1': json(event({ reservedSeating: true, layoutId: 'lay-1' })),
+      'GET /events/e1/tiers': json([]),
+      'GET /events/e1/availability': json(availability({ ticketsLeft: 2 })),
+      ...seats.routes,
       // Spec 033: a seat pressed is held at once.
       ...holdBackend().routes,
     });
     renderCustomer({ at: '/events/e1' });
 
-    const vip = await screen.findByRole('radio', { name: /VIP/ });
-    vip.focus();
-    await user.keyboard(' ');
-    expect(vip).toBeChecked();
+    // Spec 038 (research R14): Choose seats, then a section by Enter, then a seat by Space.
+    const choose = await screen.findByRole('button', { name: 'Choose seats' });
+    choose.focus();
+    await user.keyboard('{Enter}');
+    const section = await screen.findByRole('button', { name: /^Section A,/ });
+    section.focus();
+    await user.keyboard('{Enter}');
+    const first = await screen.findByRole('button', { name: 'Row 1, Seat 1, Standard, $40, open' });
 
-    await user.tab();
+    // A sold seat is reachable (aria-disabled) but pressing it does nothing.
+    const sold = screen.getByRole('button', { name: 'Row 1, Seat 2, Standard, $40, sold' });
+    sold.focus();
+    await user.keyboard(' ');
+    await user.keyboard('{Enter}');
+    expect(sold).toHaveAttribute('aria-disabled', 'true');
+    expect(calls.filter((c) => c.method === 'POST')).toHaveLength(0);
+
     // Spec 033 FR-013: a seated event asks for the name in the cart, not here.
-    expect(screen.getByRole('combobox', { name: 'Section' })).toHaveFocus();
-    await user.tab();
-    const first = screen.getByRole('button', { name: 'Row 1, Seat 1' });
-    expect(first).toHaveFocus();
+    expect(screen.queryByRole('textbox', { name: 'Name on tickets' })).toBeNull();
+    first.focus();
     await user.keyboard(' ');
-    expect(first).toHaveAttribute('aria-pressed', 'true');
     // Held, and the focus stays on the seat (spec 033 FR-016).
-    await waitFor(() => expect(first).toHaveAccessibleName('Row 1, Seat 1, reserved by you'));
+    await waitFor(() =>
+      expect(first).toHaveAccessibleName('Row 1, Seat 1, Standard, $40, held by you'),
+    );
+    expect(first).toHaveAttribute('aria-pressed', 'true');
     expect(first).toHaveFocus();
+    expect(calls.filter((c) => c.method === 'POST').map((c) => c.body)).toEqual([
+      { seats: [{ sectionId: 's-a', row: 1, seat: 1 }] },
+    ]);
 
+    // Every seat is a tab stop, in drawing order.
     await user.tab();
-    expect(screen.getByRole('button', { name: 'Row 1, Seat 3' })).toHaveFocus();
+    expect(sold).toHaveFocus();
+    await user.tab();
+    expect(
+      screen.getByRole('button', { name: 'Row 1, Seat 3, Standard, $40, open' }),
+    ).toHaveFocus();
   });
 });

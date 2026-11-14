@@ -718,7 +718,7 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   a price change, a lines edit of its layout and another layout, and a reconnect reads the new
   prices. A general-admission event's stream is `404`, like its map (decided here: it has no
   `venueMap` to begin with; the contract names only an unknown or deleted event).
-- [ ] T031 [P] [US3] `packages/shared/test/venue-map/use-pan-zoom.test.ts` (R13): zoom at a point
+- [X] T031 [P] [US3] `packages/shared/test/venue-map/use-pan-zoom.test.ts` (R13): zoom at a point
   keeps that point under the cursor; zoom bounded (fit … 40×); pan by a drag; two pointers pinch;
   `+`, `−`, arrows; zoom-to-section gives the section's bounds with a margin; reduced motion skips the
   animation. `packages/shared/test/venue-map/map-state.test.ts`: the reducer applies a snapshot,
@@ -727,7 +727,15 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   its seats; deltas in either order give the same counts; a reconnect replaces the map and reloads
   the open section; a section's color is its cheapest level with open
   seats inside the filter, else unavailable; the filter's range from the levels' prices. Must fail.
-- [ ] T032 [P] [US3] `packages/shared/test/venue-map/venue-map.test.tsx` (FR-016–FR-019, SC-007):
+  **Done** (2026-11-14): both files written first and seen failing (no modules); 14 + 15 tests
+  pass after T039. Fixed here where R12/R13 leave it open: the map's `seq` stays the one it was read
+  at and each change above it is counted once (by its `seq`), so counts are the same in any order,
+  and a count may dip below 0 between two changes of one seat; a loaded section applies a change to
+  a seat only above the section's `seq` and that seat's last change, so out-of-order changes still
+  end at the latest state; a section read later replays the changes after its `seq`; a map read
+  again keeps changes newer than it; zoom 1 (the fit) to 40, `+`/`=`, `-`/`−`/`_`, arrows by a tenth
+  of the view, a press under 4 px is a click, zoom-to-section's margin a tenth of its larger side.
+- [X] T032 [P] [US3] `packages/shared/test/venue-map/venue-map.test.tsx` (FR-016–FR-019, SC-007):
   the overview draws every section with its name and fill, the floor object, and a legend naming
   each level with its color and price; the price filter (two range inputs, whole dollars) fades
   sections with no open seats inside it and marks levels outside it in the legend, and "No open seats
@@ -735,7 +743,13 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   in and draws its rows and seats with row labels and Back to map; each seat state has its mark
   (open filled, held hollow, sold cross, off sale dash, mine check) and an accessible name "Row F,
   Seat 7, Courtside, $95, open"; hover and focus show "Sec 115, Row F, Seat 7 · Courtside · $95"; faded seats still clickable; the overview never renders seat elements. Must fail.
-- [ ] T033 [P] [US3] `customer-app/test/venue-map-flow.test.tsx` (R14, FR-021, FR-022, FR-024): a
+  **Done** (2026-11-14): written first and seen failing (no module); 21 tests pass after T039.
+  Names fixed here: a section "Section 115, 2 open seats from $60", "Section 101, no open seats
+  between $50 and $95", "Section 301, no open seats"; seat states "open", "held", "sold", "off
+  sale", "held by you", "holding", "releasing"; a level with no price "Upper: not on sale" and, in
+  a seat's name, "not on sale"; prices on the map in whole dollars when whole ("$95", "$59.50").
+  Also covered: zoom buttons, the state view (`colorBy: 'state'`) naming counts by state.
+- [X] T033 [P] [US3] `customer-app/test/venue-map-flow.test.tsx` (R14, FR-021, FR-022, FR-024): a
   seated event shows "$35–$95" and Choose seats (no ticket-type step); Choose seats opens the map;
   zoom into a section, click seats of two levels: each sends one hold (`033`'s queue), Your seats
   lists each with its level and price and the sum; Back to map; Add to cart; the cart lists each seat
@@ -747,6 +761,18 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
 
 ### Implementation
 
+  **Done** (2026-11-14): `venue-map-flow.test.tsx` (7 tests, on the R18 levels: Courtside $95,
+  Lower sideline $60, Lower end $35, Upper not on sale) written first and seen failing (no price
+  range, no Choose seats); passes after T040. Test helpers: `seatedMap` (a venue map and its
+  sections with their routes), `openSection`, `seatOf`; `holdBackend` gives each seat its labels,
+  level and price, `tierId` null. Moved to the map, same intent: `seats`, `seat-holds`,
+  `seat-hold-click`, `seat-stream`, `cart`, `keyboard`, `rate-limit`, `holder-name-field`,
+  `ticket-limit`, `started-notice`, `theme-classes` (`purchase` is general admission only and
+  needed nothing). Tests of retired ticket types on seated events became their 038 form (seats of
+  two levels in one hold; another section in the same hold; a seated sold-out event in place of
+  "No seats are on sale for this event yet"); four in `seats.test.tsx` had none and were deleted
+  (changing the tier freely, a tier with no seats on sale, a tier sold out, no tier with a
+  section). Ticket fixtures in six other files gain the 2.0.0 `price`, `levelName` and labels.
 - [X] T034 [US3] `backend/src/seating/venue-map.service.ts` and `venue-map.controller.ts`:
   `getVenueMap` (one grouped count query, R11) and `getVenueMapSection`; remove their `x-planned`
   markers; regenerate `api-schema.ts`.
@@ -809,23 +835,61 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   14 of 123, 105 of 1,467): `rate-limits.buy`'s 200-connection case, T001's `ECONNRESET` (this Mac's
   listen queue). Green now: every suite T009a, T019 and T025 left red for T027–T030 and T035
   (`layouts.concurrency` included). `npx tsc --noEmit -p backend` clean; ESLint and Prettier clean.
-- [ ] T038 [US3] Theme tokens in `packages/shared/src/web/theme.css`: `--level-violet` …
+- [X] T038 [US3] Theme tokens in `packages/shared/src/web/theme.css`: `--level-violet` …
   `--level-brown` (the 12 names), `--seat-unavailable`, `--seat-mine`, `--map-floor`, `--map-bg`,
   each level color ≥ 3:1 against `--map-bg`; the theme's contrast tests cover them
   (`packages/shared/test/theme*.test.ts`); `admin-app/test/theme-drift.test.ts` and the Customer
   app's still pass.
-- [ ] T039 [US3] `packages/shared/src/web/venue-map/`: `use-pan-zoom.ts`, `map-state.ts`,
+  **Done** (2026-11-14): `contrast.test.ts`'s venue-map cases written first and seen failing (34,
+  tokens missing); then the tokens in both sets (light 600–800 shades on `--map-bg` #ffffff, dark
+  400 shades on #171a21, each 4.6:1 or more; `--seat-unavailable`, `--seat-mine` and
+  `--border-strong` 3:1 or more too), `.level-swatch--<color>` (Admin's price table now shows the
+  color) and `.venue-map--<color>`, `.venue-map--unavailable` fills. Theme 450 tests, both apps'
+  drift tests pass.
+- [X] T039 [US3] `packages/shared/src/web/venue-map/`: `use-pan-zoom.ts`, `map-state.ts`,
   `venue-map.tsx` (overview and zoomed section, `colorBy: 'price' | 'state'`, `onSeat` callback),
   `section-view.tsx`, `legend.tsx`, `price-filter.tsx`, exported from `web/index.ts`; styles in the
   shared theme's classes only. `packages/shared/src/web/use-seat-stream.ts` and `seat-stream.ts`:
   the `venueMap` snapshot, the delta reducer, loaded sections kept current. T031, T032 pass.
-- [ ] T040 [US3] Customer app: `components/GetTickets.tsx` seated half → Choose seats and the shared
+  **Done** (2026-11-14): `map-state.ts` (the reducer: `map`, `change`, `section`, `reset`;
+  `needsLoad`, `sectionLevel`, `openSeatsIn`, `priceRangeOf`, `formatPrice`), `use-pan-zoom.ts`,
+  `venue-map.tsx` (controlled open section, loaded by the caller; the price filter kept inside
+  unless `range`/`onRange` are given, for US4), `section-view.tsx` (seats as focusable
+  `role="button"` groups, `aria-disabled` when not choosable, a `seatView` hook for the customer's
+  own and pending seats), `legend.tsx`, `price-filter.tsx`; theme classes `.venue-map*`,
+  `.venue-map-legend*`, `.price-filter*`. The stream: `seat-stream.ts` reads `venueMap` (types
+  `StreamVenueMap`, `StreamSeatMapChange`); `useSeatStream` reads `getVenueMap`, then the stream,
+  keeps the map and the `openSectionId` section current through the reducer, reloads that
+  section after each new map (its seats shown meanwhile), and gains `section` and `refresh()`;
+  `mine` is the contract's `Reservation` (`MyReservation`, with level and price); `applySeatChange`
+  and `StreamSeatMap` are gone. `test/web/seat-stream.test.ts` moved to `venueMap` (written first,
+  seen failing). Shared 32 files, 889 tests pass; `tsc` clean for `packages/shared` and
+  `booth-app`. **Red after it, owner T048/T049**: Admin `seat-holds.test.tsx`'s 3 live-map tests
+  (the read-only `SeatingCard` still reads `007`'s map through `useSeatStream`).
+- [X] T040 [US3] Customer app: `components/GetTickets.tsx` seated half → Choose seats and the shared
   map (R14) with `033`'s `use-hold-queue.ts` and Your seats (per-seat level and price, the sum);
   `pages/Cart.tsx` (each seat's level and price from `listMyReservations`' `ReservedSeat`, refreshed
   with its poll); `OrderConfirmation.tsx`, `pages/MyTickets.tsx`,
   `pages/PrintTicket.tsx` (labels "Section 115, Row F, Seat 7", level, price);
   `pages/EventList.tsx`, `EventDetail.tsx` ("$20–$95" from `basePrice` and `priceMax`). Remove
   `SeatPicker.tsx`. T033 passes.
+  **Done** (2026-11-14): `GetTickets.tsx`'s seated half: the price range and Choose seats (the
+  map opens at once when the customer holds seats of the event, and stays open), the shared
+  `VenueMap` with `useSeatStream`'s open section, `033`'s queue and log unchanged, each seat's
+  look from the reservation and pending clicks (`seatView`; unavailable seats `aria-disabled`,
+  focusable), `SEAT_OFF_SALE` treated as `SEAT_TAKEN`, a reconnect's map reloading what is left
+  and the held seats' prices; Your seats lists "Section 115, Row F, Seat 7, Courtside, $95.00"
+  and the sum. `Cart.tsx` reads no ticket types: each seat's level and price from
+  `listMyReservations`, the total their sum. `OrderConfirmation`, `MyTickets`, `PrintTicket`
+  name seats by their labels with level and price (no "Price each" when `unitPrice` is `null`);
+  `EventCard`/`EventDetail` show "$35–$95" for a seated event (`eventPrice`). `SeatPicker.tsx`
+  removed; `ChosenSeat` and the contract's `Reservation` in `src/seats.ts`. Shared `order.ts`
+  follows contract 2.0.0 (`Ticket.price`, `levelName`, labelled seat; `Order.unitPrice` nullable).
+  Customer 31 files, 442 tests (98.2% lines); `tsc` clean for `customer-app`. **Admin type errors
+  after it, with owner**: `api/seating.ts`, `SeatingCard.tsx`, `SeatGrid.tsx` (`007`'s map, T049);
+  `export/attendee-rows.ts` (`unitPrice` nullable, was `api/orders.ts`'s, T051/T054);
+  `test/export/fixtures.ts`, `pdf.fit.test.ts`, `size.test.ts` (tickets without `price`,
+  `levelName`, seat labels; T050).
 
 **Checkpoint**: the EDIS demo path works end to end on any layout.
 

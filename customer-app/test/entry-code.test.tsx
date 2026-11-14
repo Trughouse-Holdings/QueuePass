@@ -34,15 +34,33 @@ const NO_CONNECTION =
 const orders = (over: Parameters<typeof myOrder>[0] = {}) => [
   myOrder({
     tickets: [
-      { id: TICKET, code: CODE, status: 'VALID', checkedInAt: null, seat: null },
+      {
+        id: TICKET,
+        code: CODE,
+        status: 'VALID',
+        checkedInAt: null,
+        seat: null,
+        price: '45.50',
+        levelName: null,
+      },
       {
         id: 'k-used',
         code: 'CCCC3333DDDD',
         status: 'VALID',
         checkedInAt: '2026-12-01T23:10:00.000Z',
         seat: null,
+        price: '45.50',
+        levelName: null,
       },
-      { id: 'k-void', code: 'GGGG5555HHHH', status: 'VOID', checkedInAt: null, seat: null },
+      {
+        id: 'k-void',
+        code: 'GGGG5555HHHH',
+        status: 'VOID',
+        checkedInAt: null,
+        seat: null,
+        price: '45.50',
+        levelName: null,
+      },
     ],
     ...over,
   }),
@@ -135,7 +153,7 @@ describe('the live-code screen', () => {
     let answer!: () => void;
     const gate = new Promise<void>((r) => (answer = r));
     const seated = orders();
-    seated[0].tickets[0].seat = { section: 'A', row: 3, seat: 7 };
+    seated[0].tickets[0].seat = { section: 'A', row: 3, seat: 7, rowLabel: '3', seatLabel: '7' };
     const { calls } = await openEntryCode({
       'GET /me/orders': json(seated),
       [`GET /me/tickets/${TICKET}/entry-key`]: async () => {
