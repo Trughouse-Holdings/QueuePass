@@ -22,6 +22,8 @@ is built, reviewed, and walked in the browser (with Constitution 3.8.0 for its h
 its browser tests in CI (T033) are still to do. `031` is built and reviewed (code review round 1); its walk on
 the running system and its browser test in CI are still to do. `033` is built and reviewed (code
 review rounds 1 to 3); its walk on the running system and its browser tests in CI are still to do.
+`038` is built (seat maps; its independent review, its walk on the running system, and its browser
+tests in CI are still to do).
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                                 | Spec             | Plan and tasks     | Code                            |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ------------------------------- |
@@ -60,7 +62,7 @@ review rounds 1 to 3); its walk on the running system and its browser tests in C
 | [`034-sell-until-end`](specs/034-sell-until-end/spec.md)                     | Tickets are on sale until an event ends, not when it starts; from the start to the end the Get tickets panel says it has already started and until when tickets are on sale; after the end, "Sales closed: this event has ended."                                                | Draft            | Done (21/25 tasks) | **Built**                       |
 | [`035-event-form-flow`](specs/035-event-form-flow/spec.md)                   | The Admin event form in three sections; errors appear beside the field as they happen; a live seat total names what is left; submit never sends a known problem; a server refusal focuses the field at fault; an edit of the event, its types, and its seating is all or nothing | Draft            | Done (21/22 tasks) | **Built (review pending)**      |
 | [`036-event-form-times`](specs/036-event-form-times/spec.md)                 | The Admin event form: doors open as time before the start or as a date and a time, one mode at a time; Starts and Ends use a date control and a time control in every browser                                                                                                    | Draft            | Done (16/18 tasks) | **Built (review pending)**      |
-| [`038-seat-maps`](specs/038-seat-maps/spec.md)                               | Several layouts per venue with price levels by section, row or seat; an event's price per level and seats off sale; the customer's venue map with a price filter and a zoom into a section; the KFC Yum! Center in the demo data (#165)                                          | Draft            | Done (0/62 tasks)  | Not started                     |
+| [`038-seat-maps`](specs/038-seat-maps/spec.md)                               | Several layouts per venue with price levels by section, row or seat; an event's price per level and seats off sale; the customer's venue map with a price filter and a zoom into a section; the KFC Yum! Center in the demo data (#165)                                          | Draft            | Done (60/63 tasks) | **Built (review pending)**      |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. Each app has its
@@ -75,9 +77,11 @@ and a venue that still has events is refused with a count of what blocks it. In 
 customers find events by name, venue, and dates, browse them as cards on any screen, and see
 every venue with what is on there; get tickets
 for an event, in a tier or at its base price, and see their codes; choose their exact seats at
-events with reserved seating, reserving them for 5 minutes while they confirm, and see seats
-others reserve or buy change live; and find every order they placed on **My tickets**. Admins give
-venues seating layouts and see each seated event's seat map. Admins can cap how many tickets one
+events with reserved seating on a map of the venue, filtered by price and zoomed into a section,
+holding them for 5 minutes while they buy, and see seats others hold or buy change live; and find
+every order they placed on **My tickets**. Admins give venues several seating layouts, each with
+price levels, schedule a seated event with a price per level and seats off sale, and watch each
+seated event's seats on the same map (`038`). Admins can cap how many tickets one
 customer may hold for an event; customers see how many more they can get, and the Backend refuses
 an order over the cap, even when two arrive at once. A venue's address is checked by
 the US Census Geocoder when it is saved, then, if the Census doesn't confirm it, against
@@ -234,12 +238,17 @@ app (`006`), but to fill the Admin pages quickly for a demo, run once after `doc
 docker compose exec backend node backend/dist/scripts/demo-data.js
 ```
 
-It adds two venues, five events (three with tiers; Demo Tonight, open for gate check-in as
+It adds three venues and nine events. Five are at two of them (three with tiers; Demo Tonight, open for gate check-in as
 soon as the data loads, `017`; and Season Opener, a week ago and over, so the apps show an event
 whose sales are closed, `029`; since `030` it is left out of the event lists, and its page, opened
 by its link, from Reports, or from the Admin list with Show past events on, shows its sales closed), named orders from `customer1`…`customer25`, some check-ins, one
-cancelled event, and generated striped pictures (three on the concert, one on the comedy night),
-all through the real Backend rules. Running it again changes nothing. It is never run
+cancelled event, and generated striped pictures (three on the concert, one on the comedy night).
+The third venue is the **KFC Yum! Center** in Louisville (`038`), with four layouts made from the
+venue's public facts (Basketball, 22,090 seats in 54 sections and four price levels; End-stage
+concert, 17,500; Center stage; Wrestling (ring)) and four upcoming seated events on them: the
+Cardinals women's and men's basketball games, a concert, and a wrestling night, each with its
+prices by level, some with seats off sale, and about 40 seats sold. All of it goes through the
+real Backend rules. Running it again changes nothing. It is never run
 automatically. Its orders belong to stand-in identities, so they don't appear on any customer's
 **My tickets**; buy in the Customer app to see that page filled.
 
@@ -260,13 +269,15 @@ the service can't be reached, it saves them with their addresses not verified an
 ## Demo checkpoint
 
 Before a demo, one command brings a **local** database back to the demo state (`029`): it removes
-every venue, seating section, event, tier, image, order, ticket (with its check-in), and seat hold,
+every venue, layout (with its levels, sections, and seats), event, tier, image, order, ticket (with
+its check-in), and seat hold,
 keeps the schema and its migration record, and loads the [demo data](#demo-data) again through the
 Backend's rules. Every reset ends in the same state, with times relative to the moment it ran:
 Fall Concert and Comedy Night on sale, Demo Tonight open at the Ticket Booth (for 4 hours),
-Holiday Gala cancelled, and Season Opener over, its sales closed (left out of the event lists since
+Holiday Gala cancelled, Season Opener over, its sales closed (left out of the event lists since
 `030`; its page, by its link, from Reports, or from the Admin list with Show past events on, shows
-it). It takes a few seconds. Keycloak
+it), and the KFC Yum! Center's four layouts and four seated events with the same seats sold and
+none held (`038`). It takes a few seconds. Keycloak
 is not touched: every account, role, and sign-in stays as it was.
 
 It deletes everything, so it is refused unless you give the permission `QUEUEPASS_ALLOW_RESET=1`
@@ -551,13 +562,23 @@ unchanged.
 - **The Customer app on a phone** — events as cards, one column on a phone with no sideways
   scrolling, 44-pixel touch targets, WCAG AA contrast checked by a test, seat states that hold
   in grayscale, and full keyboard use, in the Admin app's look (`008`)
-- **Seating layouts** — admins give a venue sections of numbered rows and seats, within its
-  seating capacity; a layout is locked while seated sales depend on it (`007`)
-- **Reserved seating** — per event, admins choose seats or general admission and map each
-  section to a tier; the event page shows a seat map with sold and open counts (`007`)
-- **Choosing seats** — customers pick a tier, a section, and their exact seats; every ticket names
-  its seat. No seat is ever sold twice, guaranteed by the database, and cancelling frees seats
-  (`007`)
+- **Seating layouts** — a venue has several layouts (Basketball, End-stage concert, …), each a
+  map of sections, rows, and seats in price levels (by section, row, or seat), imported from a
+  layout file or made from section lines; the venue's capacity is its largest layout's. A layout
+  used by an event with sold or held seats is locked: it can be duplicated, not changed or
+  deleted (`038`, after `007`). The layout file format is `LayoutFile` in
+  [`contracts/openapi.yaml`](contracts/openapi.yaml); the demo's four KFC Yum! Center files are made
+  by `node scripts/layouts/generate-yum-center.mjs` from `scripts/layouts/yum-center/plan.json`
+- **Reserved seating** — an event is general admission or uses one of its venue's layouts, with a
+  price per level and any sections, rows, or seats off sale; its capacity is the seats on sale and
+  its price the range of its level prices ("$35–$95"). A ticket keeps the price it was sold at.
+  The Admin event page shows the seats on the venue map by state, live, with each section's sold
+  and open counts (`038`)
+- **Choosing seats** — on a seated event, **Choose seats** opens the venue map: sections colored
+  by their cheapest open level, a price filter, a legend; a section zooms in to its seats, each
+  with its row, seat, level, and price. The same choices are a **Sections** list for the keyboard
+  and screen readers. Every ticket names its seat, level, and price. No seat is ever sold twice,
+  guaranteed by the database, and cancelling frees seats (`007`, `038`)
 - **Ticket limit per customer** — admins may set the most tickets one customer can hold for an
   event, across all their orders, or leave it blank for no limit. Customers see how many more they
   can get, and the Backend refuses an order over the limit, including simultaneous ones (`016`)
@@ -577,7 +598,7 @@ unchanged.
 
 ### Seat reservations
 
-On an event with reserved seating, the seat map is the only control for choosing seats: a click
+On an event with reserved seating, the venue map is the only control for choosing seats: a click
 on an open seat holds it for the customer at once, and a click on a held seat lets it go (`033`).
 The first held seat starts exactly 5 minutes, shown in large type in a **Your seats** box below
 the map with the seats and the total, and every hold and release is announced. **Add to cart**
@@ -595,12 +616,12 @@ guaranteed by the database (`015`).
   again at once. Once a reservation has ended unbought (it ran out, its last seat was let go, or
   the customer logged out), every seat it held waits 2 minutes from its end for that customer
   (`033`). Anyone else can hold them at once. Admin changes and cancellations start no wait.
-- **Ticket types**: while seats are held, the other ticket types wait until the held seats are
-  let go by clicking them.
-- **Live updates**: every customer and admin viewing an event's seat map sees seats turn
-  Reserved, open, or sold within 2 seconds, without refreshing, and catches up after a dropped
-  connection. Reserved looks different from sold (a dashed outline and an R, not a striped cross;
-  `◩` in the Admin app, with reserved counts), and nobody sees who reserved a seat.
+- **Price levels**: one reservation may hold seats of several levels, each at its level's price,
+  and the total is their sum (`038`).
+- **Live updates**: every customer and admin viewing an event's venue map sees seats turn held,
+  open, or sold within 2 seconds, without refreshing, with the sections' counts, and catches up
+  after a dropped connection. Each state has its own mark, not only a color (held a hollow circle,
+  sold a cross, off sale a dash), and nobody sees who holds a seat (`038`).
 - **Logging out** of the Customer app releases every seat the customer has reserved.
 
 ### Gate check-in
@@ -729,8 +750,9 @@ The front ends reach data **only** through this API. None holds a database conne
   takes an ID check; only the live code in the Customer app skips it (`018`).
 - No undo for an entry, no re-entry, and refused ID checks are not recorded.
 - Reservation times are fixed, with no admin override or waiting list; the cart buys each
-  event on its own, with no one checkout across events, and general admission never enters it. No best-available assignment, and no drawn floor plans:
-  sections are rectangular rows of seats.
+  event on its own, with no one checkout across events, and general admission never enters it. No
+  best-available assignment, and no drawing tool for layouts: a drawn map comes from a layout file;
+  a layout made in the Admin app from section lines has rectangular sections (`038`).
 - The Ticket Booth app is a stub (sign-in, hello-world, logout) until a later spec.
 - No self-service sign-up, password reset, or multi-factor authentication.
 - No visual design work: front ends are plain and accessible (Constitution VII).

@@ -1159,9 +1159,16 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   (S10–S13 the one `038 S10/S11/S12/S13` test); S15 Automated by `038 S10/S15` with "rest Manual:"
   pinch; the rest Manual as before. `node scripts/check-quickstart-marks.mjs`: 36 quickstarts,
   every browser test has its row.
-- [ ] T056 [P] `README.md`: the 038 row (Plan and tasks "Done (N/62 tasks)", Code "Built (review
+- [X] T056 [P] `README.md`: the 038 row (Plan and tasks "Done (N/62 tasks)", Code "Built (review
   pending)"), seat maps in the feature list, the demo's Yum! Center, the layout file format pointer
   (`contracts/openapi.yaml` `LayoutFile`), `scripts/layouts/generate-yum-center.mjs`.
+  **Done** (2026-11-14): the 038 row "Done (60/63 tasks)" (63 task lines with T009a; T060–T062
+  left) and "**Built (review pending)**", with a status line; the summary paragraph; the feature
+  list's Seating layouts, Reserved seating and Choosing seats rewritten for layouts, levels, the
+  venue map and the Sections list, with the `LayoutFile` pointer and
+  `scripts/layouts/generate-yum-center.mjs`; Demo data and Demo checkpoint with the KFC Yum!
+  Center's four layouts and events; Seat reservations (price levels, the map's marks, no more
+  ticket types beside held seats); the scope note on drawn maps.
 - [ ] T057 Coverage: each workspace ≥ 80% lines (`npm test`); add tests where a new file falls short,
   no exclusions.
 - [ ] T058 `npm run ci` green locally; `npm run e2e` green; record the run.
