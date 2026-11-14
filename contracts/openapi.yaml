@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 1.28.0
+  version: 2.0.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -91,10 +91,7 @@ info:
     as described, until that feature's implementation, which removes it from this document by
     applying, unchanged, the patch committed with the feature's spec
     (`specs/<feature>/contracts/step2.diff`, Constitution I), in the same change that stops serving
-    it. Build nothing new on it. Feature 038 retires the venue's single layout (`getLayout`,
-    `replaceLayout`, `deleteLayout`), `getSeatMap`, `updateSeating`, `EventInput.reservedSeating`,
-    `EventUpdate.reservedSeating`, `EventTierInput.sectionIds`, and `streamSeatMap`'s `snapshot`
-    event; its implementation is contract 2.0.0.
+    it. Build nothing new on it. None is marked now.
 
     **Seat maps** (feature 038): a venue has any number of **layouts** (`listVenueLayouts`), each a
     map of sections placed in the building, rows with labels such as `A` or `AA`, seats with their
@@ -106,9 +103,7 @@ info:
     lowest level price; it has no ticket types. A seat is named in requests as before, `{sectionId,
     row, seat}`, where `row` is the row's number in its section (1 = front) and `seat` the seat's
     number in its row (1 = first drawn); responses add the labels people read (`rowLabel`,
-    `seatLabel`). New fields in existing responses are sent once 038 is implemented; they are not
-    listed as required, so this contract merges ahead of the implementation with the suite green.
-    Map places are `[x, y]` in the layout's map units, `y` growing downward, as in SVG.
+    `seatLabel`). Map places are `[x, y]` in the layout's map units, `y` growing downward, as in SVG.
 
     **Live streams**: `streamSeatMap` answers with `text/event-stream` (Server-Sent Events). It is
     a plain HTTP `GET`. Each event's `data` is one JSON document, and `x-sse-events` on the
@@ -481,9 +476,9 @@ paths:
       summary: Update a venue
       description: |
         Lowering `seatingCapacity` below the `totalTicketCapacity` of any event already
-        scheduled at this venue is refused with `CAPACITY_EXCEEDED`. Feature 007: while the venue
-        has a seating layout, its `seatingCapacity` is the layout's total seats and cannot be set
-        here (`400`).
+        scheduled at this venue is refused with `CAPACITY_EXCEEDED`. Feature 038: while the venue
+        has layouts, its `seatingCapacity` is its largest layout's seats and cannot be set here
+        (`400`).
 
         Feature 013: `street`, `city`, `state`, and `zip` are sent all together or not at all
         (`400`). When they are sent and differ from the stored ones (ignoring case and extra
@@ -628,95 +623,6 @@ paths:
                   details:
                     eventCount: 3
 
-  /locations/{id}/layout:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-        description: The venue.
-    get:
-      tags: [seating]
-      summary: A venue's seating layout
-      description: |
-        **Retired by feature 038** (served until its implementation): use `listVenueLayouts` and
-        `getVenueLayout`.
-
-        The venue's sections in display order, and their total seats (feature 007). `sections` is
-        empty when the venue has no layout.
-      operationId: getLayout
-      x-retired: '038'
-      x-required-roles: []
-      responses:
-        '200':
-          description: The layout.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SeatingLayout' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthenticated' }
-        '404': { $ref: '#/components/responses/NotFound' }
-    put:
-      tags: [seating]
-      summary: Replace a venue's seating layout
-      description: |
-        **Retired by feature 038** (served until its implementation): use `createVenueLayout`,
-        `importVenueLayout` and `updateVenueLayout`.
-
-        Replaces every section with the given ones, in order (feature 007). Section names must be
-        unique ignoring case (`400`). Saving sets the venue's `seatingCapacity` to the layout's
-        total seats, and the `totalTicketCapacity` of every scheduled event at the venue with
-        reserved seating to the same total. Refused when that total is below the
-        `totalTicketCapacity` of a scheduled general-admission event at the venue (`409
-        CAPACITY_EXCEEDED`, naming it), and while any scheduled event at the venue with reserved
-        seating has valid tickets (`409 LAYOUT_IN_USE`, `details.events`). Every event's section
-        mappings at this venue are dropped, because the old sections no longer exist, so their
-        tiers' quantities become 0 until remapped.
-
-        Feature 016: also refused when the total is below the `maxTicketsPerCustomer` of a
-        scheduled event at the venue with reserved seating (`409 CAPACITY_EXCEEDED`, naming it);
-        lower its limit first.
-
-        Feature 015: saving ends every active reservation at the venue's events.
-      operationId: replaceLayout
-      x-retired: '038'
-      x-required-roles: [queuepass-admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/LayoutInput' }
-      responses:
-        '200':
-          description: The new layout.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SeatingLayout' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthenticated' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-    delete:
-      tags: [seating]
-      summary: Remove a venue's seating layout
-      description: |
-        **Retired by feature 038** (served until its implementation): use `deleteVenueLayout`.
-
-        Removes every section (feature 007). Refused as `replaceLayout` is, and also while any
-        scheduled event at the venue has reserved seating on (`409 LAYOUT_IN_USE`). The venue
-        keeps its last `seatingCapacity`, which can be set by `updateLocation` again.
-      operationId: deleteLayout
-      x-retired: '038'
-      x-required-roles: [queuepass-admin]
-      responses:
-        '204': { description: Layout removed. }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthenticated' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-
   /locations/{id}/layouts:
     parameters:
       - name: id
@@ -732,7 +638,6 @@ paths:
         and how many scheduled events use it; empty when it has none. Any signed-in user may read
         it: a layout is the venue's public map.
       operationId: listVenueLayouts
-      x-planned: '038'
       x-required-roles: []
       responses:
         '200':
@@ -761,7 +666,6 @@ paths:
         `totalTicketCapacity` of a scheduled general-admission event at the venue (`409
         CAPACITY_EXCEEDED`, naming it).
       operationId: createVenueLayout
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -803,7 +707,6 @@ paths:
         is `409 LAYOUT_NAME_TAKEN`. The venue's capacity is set and checked as by
         `createVenueLayout`.
       operationId: importVenueLayout
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -839,7 +742,6 @@ paths:
         `latestPrices` are the level prices of the most recently created scheduled event on this
         layout, for the Admin app to start a new event's price boxes from; `null` when none uses it.
       operationId: getVenueLayout
-      x-planned: '038'
       x-required-roles: []
       responses:
         '200':
@@ -870,7 +772,6 @@ paths:
         event would then have on-sale seats in a level it has no price for, no seat on sale, or a
         `maxTicketsPerCustomer` above its seats on sale.
       operationId: updateVenueLayout
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -899,7 +800,6 @@ paths:
         venue (`409 CAPACITY_EXCEEDED`, naming it); after its last layout it keeps its last value,
         typed with `updateLocation` again.
       operationId: deleteVenueLayout
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       responses:
         '204': { description: Layout deleted. }
@@ -928,7 +828,6 @@ paths:
         Feature 038. The section's rows front first, each with its seats in order, each seat with
         its label, place, level (its own, else its row's, else its section's) and accessible mark.
       operationId: getVenueLayoutSection
-      x-planned: '038'
       x-required-roles: []
       responses:
         '200':
@@ -956,7 +855,6 @@ paths:
         then "(copy 2)", … , whichever is free; a `name` another layout has is `409
         LAYOUT_NAME_TAKEN`.
       operationId: duplicateVenueLayout
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: false
@@ -1081,38 +979,33 @@ paths:
         allowed range in the venue's local time. This comes before the capacity checks. The Admin
         app always sends it.
 
-        Feature 031: **the event, its ticket types, and its reserved seating are saved together or
-        not at all.** `tiers` and `reservedSeating` are optional; a request with neither (or with
-        `tiers: []` and `reservedSeating: false`) is checked, saved, and answered exactly as
-        before. With them, the whole request is one transaction: any refusal, or any failure
-        before it commits, leaves no event, ticket type, or section mapping. Each part obeys the
-        rules `createTier` and `updateSeating` apply. The checks, in order:
+        Feature 031: **the event, its ticket types, and its seating are saved together or not at
+        all.** Feature 038: the seating is `layoutId`, `levelPrices` and `offSale`; a seated event
+        has no ticket types. `tiers`, `layoutId`, `levelPrices` and `offSale` are optional; a
+        request with none of them is checked, saved, and answered exactly as before. With them,
+        the whole request is one transaction: any refusal, or any failure before it commits,
+        leaves no event, ticket type, price, or off-sale seat. The checks, in order:
 
         - **Seating**, right after the event's times and doors are checked and before the
-          capacity checks, since the capacity depends on it: `reservedSeating: true` needs a
-          venue with a seating layout (`400` naming `reservedSeating`) and no
-          `totalTicketCapacity` (`400` naming `totalTicketCapacity`). The event's capacity is then
-          the layout's total seats, and the capacity and `maxTicketsPerCustomer` checks use
-          it.
+          capacity checks, since the capacity depends on it: a `layoutId` must be a layout of the
+          venue, with no `tiers` and no `totalTicketCapacity` (`400` naming `layoutId`, `tiers` or
+          `totalTicketCapacity`); then `levelPrices` and `offSale` as described on them. The
+          event's capacity is then its seats on sale, and the capacity and
+          `maxTicketsPerCustomer` checks use it.
         - The event's other checks as before: capacity, `maxTicketsPerCustomer`, scheduling
           conflict.
         - **Each ticket type, in the order sent**: its name, trimmed, is not the name of an
-          earlier one ignoring case (`409 TIER_NAME_TAKEN`); without reserved seating `quantity`
-          is required and a non-empty `sectionIds` is refused, with it `quantity` must be left out
-          (`400` for each); every section in `sectionIds` is in the venue's layout and listed
-          under no earlier ticket type (`400`).
-        - **The ticket types together**: without reserved seating, their quantities add up to no
-          more than the event's `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`).
+          earlier one ignoring case (`409 TIER_NAME_TAKEN`); `quantity` is required (`400`).
+        - **The ticket types together**: their quantities add up to no more than the event's
+          `totalTicketCapacity` (`409 CAPACITY_EXCEEDED`).
 
-        With reserved seating each ticket type's `quantity` becomes the seats of its sections, 0
-        when it lists none, and a section listed under no ticket type is not for sale, as after
-        `updateSeating`. The venue row is held for the whole transaction, so a layout change at
-        the venue runs entirely before or after it.
+        The venue row is held for the whole transaction, so a layout change at the venue runs
+        entirely before or after it.
 
         **Which field a refusal is about.** A rule refusal about one ticket type names it by path,
-        `tiers.<index>.<field>` (the zero-based index in `tiers`; the field `name`, `price`,
-        `quantity`, or `sectionIds`); one about the ticket types together names `tiers`; one
-        about seating names `reservedSeating` or `totalTicketCapacity`. On a `409`
+        `tiers.<index>.<field>` (the zero-based index in `tiers`; the field `name`, `price`, or
+        `quantity`); one about the ticket types together names `tiers`; one about seating names
+        `layoutId`, `levelPrices`, `offSale` or `totalTicketCapacity`. On a `409`
         (`TIER_NAME_TAKEN`, `CAPACITY_EXCEEDED`) the path is `details.field`. A `409
         TIER_NAME_TAKEN` without `details.field` is the database's backstop (two names the
         check took as different but the database's case folding did not) and names no ticket
@@ -1123,9 +1016,9 @@ paths:
         any other entry about the ticket types (`tiers` not a list, an entry that is not an
         object, more than 50) starts with `tiers` (an entry that is not an object reads
         `tiers.tiers must be a list of ticket types, …`); one about seating starts with
-        `reservedSeating` or `totalTicketCapacity`. So a client places an entry on ticket type
-        *i* when it starts `tiers.<i>.`, on the ticket types when it otherwise starts `tiers`, and
-        on seating by those two names. The rest of each message is for people.
+        `layoutId`, `levelPrices`, `offSale` or `totalTicketCapacity`. So a client places an
+        entry on ticket type *i* when it starts `tiers.<i>.`, on the ticket types when it
+        otherwise starts `tiers`, and on seating by those names. The rest of each message is for people.
 
         Feature 035: `EventTierInput.id` is not allowed on a schedule (`400 VALIDATION_FAILED`,
         an entry starting `tiers.<i>.id`). It is only for `updateEvent`.
@@ -1176,10 +1069,9 @@ paths:
         re-evaluated against the destination venue and window, excluding the event itself.
         Lowering `totalTicketCapacity` below the sum of the event's tier quantities, or below
         its tickets sold, is refused with `409 CAPACITY_EXCEEDED` (features 004, 005). A
-        cancelled event cannot be changed (`409 EVENT_CANCELLED`). Feature 007: while an event has
-        reserved seating, it cannot move to another venue, and its `totalTicketCapacity` is its
-        venue's layout total and cannot be set (`400` for either); turn reserved seating off
-        first.
+        cancelled event cannot be changed (`409 EVENT_CANCELLED`). Feature 038: a seated event's
+        `totalTicketCapacity` is its seats on sale and cannot be set (`400`); moving it to another
+        venue clears its layout, as `layoutId` describes.
 
         Feature 016: `maxTicketsPerCustomer` may be set, changed, or cleared with `null` at any
         time before the event is cancelled. After the existing capacity checks, the limit in
@@ -1208,21 +1100,19 @@ paths:
         only other fields, is allowed. Before removal, times change as above, and the removal
         follows the `endsAt` in force.
 
-        Feature 035. Optional `reservedSeating` and `tiers` (each an `EventTierInput`, at most 50)
-        save the event's details, its complete ticket types, and its reserved seating together, or
-        save none of this request. Without them, or with neither sent, the request is answered
-        exactly as before. When they are sent they are the complete new set: a ticket type with
-        `id` must be a type of this event and is updated; a type without `id` is created; an
-        existing type left out is removed, subject to the same sold-ticket rules as `deleteTier`,
-        `updateTier`, and `updateSeating` (`TIER_HAS_ORDERS`, `EVENT_HAS_ORDERS`,
-        `CAPACITY_EXCEEDED` when a quantity would fall below tickets sold). Holds on a remapped
-        section, or when reserved seating is turned off, are closed as in `updateSeating`.
-        `reservedSeating` left out while `tiers` is sent is `false`. Neither field may be `null`.
+        Feature 035. Optional `tiers` (each an `EventTierInput`, at most 50) and, feature 038,
+        `layoutId`, `levelPrices` and `offSale` save the event's details, its complete ticket
+        types, and its seating together, or save none of this request. Without them the request is
+        answered exactly as before. `tiers`, when sent, is the complete new set: a ticket type
+        with `id` must be a type of this event and is updated; a type without `id` is created; an
+        existing type left out is removed, subject to the same sold-ticket rules as `deleteTier`
+        and `updateTier` (`TIER_HAS_ORDERS`, `EVENT_HAS_ORDERS`, `CAPACITY_EXCEEDED` when a
+        quantity would fall below tickets sold). `tiers` may not be `null`.
 
         Checks, after the event's details as above: seating, then each ticket type in the order
         sent, then their total, as in `createEvent` (feature 031), then the sold-ticket rules. A
         refusal names its field the same way: `details.field` is `tiers.<index>.<field>` (including
-        `id`), `tiers`, `reservedSeating`, or `totalTicketCapacity` on a `409`; on a `400`, each
+        `id`), `tiers`, `layoutId`, `levelPrices`, `offSale`, or `totalTicketCapacity` on a `409`; on a `400`, each
         `details.fields` entry starts with its place. A refused removal of a type with orders is
         `409 TIER_HAS_ORDERS` with `details.field: tiers`, and the message names the type.
       operationId: updateEvent
@@ -1298,13 +1188,7 @@ paths:
         `details.remaining`). The capacity rule holds under concurrent requests. Also refused:
         a cancelled event (`409 EVENT_CANCELLED`), and an event that already sold tickets
         without tiers (`409 EVENT_HAS_ORDERS`), since those tickets would belong to no tier.
-        Feature 007: for an event with reserved seating, `quantity` must be omitted (`400`
-        otherwise): the tier's quantity is the seats in its mapped sections, 0 until mapped. For
-        any other event it is required (`400`).
-
-        Feature 015: adding the first tier to an event with reserved seating ends its active
-        reservations, which were made without a tier and could no longer be bought; their seats
-        become open at once.
+        `quantity` is required (`400`).
 
         Feature 038: a seated event has no ticket types; adding one to it is `400`. Its prices are
         its `levelPrices`.
@@ -1345,8 +1229,7 @@ paths:
       description: |
         Same rules as creating one, evaluated against the event's other tiers. `quantity` may not
         drop below the tier's tickets sold (`409 CAPACITY_EXCEEDED`). A price change does not
-        affect orders already placed. Feature 007: for an event with reserved seating, `quantity`
-        cannot be set (`400`); it follows the tier's mapped sections.
+        affect orders already placed.
       operationId: updateTicketTier
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -1420,40 +1303,6 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
 
-  /events/{id}/seats:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-        description: The event.
-    get:
-      tags: [seating]
-      summary: The event's seat map
-      description: |
-        **Retired by feature 038** (served until its implementation): use `getVenueMap` and
-        `getVenueMapSection`.
-
-        Whether the event has reserved seating and, for each section of its venue's layout, its
-        size, its tier for this event, and which seats are taken by valid tickets (feature 007).
-        It never says who holds a seat. `sections` is empty when the venue has no layout.
-
-        Feature 015: each section's `reserved` lists the seats in active reservations. It is the
-        same for every caller and never says whose; a customer's own are in
-        `listMyReservations`. `streamSeatMap` sends this map and then every change, live.
-      operationId: getSeatMap
-      x-retired: '038'
-      x-required-roles: []
-      responses:
-        '200':
-          description: The seat map.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SeatMap' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthenticated' }
-        '404': { $ref: '#/components/responses/NotFound' }
-
   /events/{id}/venue-map:
     parameters:
       - name: id
@@ -1472,7 +1321,6 @@ paths:
         The same for every caller; it never says who holds or bought a seat. `streamSeatMap` sends
         this map first and then every change. A general-admission event has no venue map (`404`).
       operationId: getVenueMap
-      x-planned: '038'
       x-required-roles: []
       responses:
         '200':
@@ -1504,7 +1352,6 @@ paths:
         state for this event. Never says who holds or bought a seat. Apply `streamSeatMap`'s
         changes to it to keep it current.
       operationId: getVenueMapSection
-      x-planned: '038'
       x-required-roles: []
       responses:
         '200':
@@ -1527,19 +1374,16 @@ paths:
       tags: [seating]
       summary: Live updates of the event's seat map
       description: |
-        A Server-Sent Events stream of the event's seat map (feature 015). It begins with
-        `event: snapshot`, whose `data` is the `SeatMap`, as from `getSeatMap`. After that, each
-        `event: seats` carries a `SeatMapChange`: seats that became open, reserved, or sold, sent
-        within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15 seconds. No
-        event ever names a customer. A client that loses the stream reconnects and gets a fresh
-        snapshot. The stream ends when the access token expires; reconnect at once with a current
-        one. It also ends when the event's seating or its venue's layout changes; reconnect at
-        once for a new snapshot. It also ends when the event is deleted; a reconnect then gets
-        `404`. Feature 038: a general-admission event has no venue map, so its stream is `404`
-        too.
+        A Server-Sent Events stream of the event's seat map (feature 015). After the first event,
+        each `event: seats` carries a `SeatMapChange`: seats that became open, reserved, sold, or
+        off sale, sent within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15
+        seconds. No event ever names a customer. A client that loses the stream reconnects and
+        gets a fresh map. The stream ends when the access token expires; reconnect at once with a
+        current one. It also ends when the event is deleted; a reconnect then gets `404`. A
+        general-admission event has no venue map, so its stream is `404` too.
 
         Feature 038: the stream begins with `event: venueMap`, whose `data` is the `VenueMap`, as
-        from `getVenueMap`, in place of `snapshot` (retired). Each `seats` message carries the
+        from `getVenueMap`. Each `seats` message carries the
         event's seat-change sequence number `seq`, and each change the seat's `levelId` and the
         state it left (`from`). A client keeps the venue map's counts by adding 1 to `state` and
         taking 1 from `from` for that level, for messages whose `seq` is greater than the map's
@@ -1551,29 +1395,25 @@ paths:
       operationId: streamSeatMap
       x-required-roles: []
       x-sse-events:
-        snapshot:
-          $ref: '#/components/schemas/SeatMap'
-          x-retired: '038'
         venueMap:
           $ref: '#/components/schemas/VenueMap'
-          x-planned: '038'
         seats: { $ref: '#/components/schemas/SeatMapChange' }
         ping: { type: object, maxProperties: 0 }
       responses:
         '200':
           description: |
-            The event stream. `data` is a `SeatMap` for `snapshot` and a `SeatMapChange` for
+            The event stream. `data` is a `VenueMap` for `venueMap` and a `SeatMapChange` for
             `seats`.
           content:
             text/event-stream:
               schema:
                 type: string
                 example: |
-                  event: snapshot
-                  data: {"eventId":"7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40","reservedSeating":true,"sections":[]}
+                  event: venueMap
+                  data: {"eventId":"7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40","seq":41,"layoutId":"0b7f2a7e-3c55-4a63-9f1e-5e0c8b4d2a11","layoutName":"Basketball","size":{"width":1000,"height":640},"floorKind":"COURT","floorOutline":[[350,230],[650,230],[650,410],[350,410]],"levels":[],"sections":[]}
 
                   event: seats
-                  data: {"eventId":"7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40","changes":[{"sectionId":"5b0d3c1e-8f2a-4c6b-9d1e-2a3b4c5d6e7f","row":1,"seat":3,"state":"reserved"}]}
+                  data: {"eventId":"7c2f1b5e-1f3a-4f9e-9a2d-0c9b1d2e3f40","seq":42,"changes":[{"sectionId":"5b0d3c1e-8f2a-4c6b-9d1e-2a3b4c5d6e7f","row":1,"seat":3,"state":"reserved","from":"open","levelId":"9a1c0e4b-2d3f-4a5b-8c6d-7e8f9a0b1c2d"}]}
         '400': { $ref: '#/components/responses/ValidationFailed' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -1595,7 +1435,6 @@ paths:
         as `{sectionId, row}`, then single seats. A general-admission event answers with
         `layoutId: null` and empty lists.
       operationId: getEventSeating
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       responses:
         '200':
@@ -1607,45 +1446,6 @@ paths:
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
-    put:
-      tags: [seating]
-      summary: Set reserved seating and section tiers
-      description: |
-        **Retired by feature 038** (served until its implementation): an event's layout, level
-        prices and seats off sale are saved with `createEvent` and `updateEvent` (`layoutId`,
-        `levelPrices`, `offSale`) and read with `getEventSeating`.
-
-        Turns reserved seating on or off and replaces the event's section-to-tier mappings
-        (feature 007). Reserved seating can switch only while the event has no valid tickets
-        (`409 EVENT_HAS_ORDERS`), and turn on only when its venue has a layout (`400`). Each
-        `sectionId` must be a section of the venue and each `tierId` a tier of the event (`400`).
-        A section with valid tickets cannot move to another tier (`409 EVENT_HAS_ORDERS`). A
-        cancelled event cannot change (`409 EVENT_CANCELLED`). With reserved seating on, the event's
-        `totalTicketCapacity` becomes its venue's layout total and each tier's `quantity` becomes
-        the seats in the sections mapped to it (0 with none); turning it off keeps those numbers.
-
-        Feature 015: turning reserved seating off ends every active reservation for the event, and
-        moving a section to another tier ends the reservations' seats in that section.
-      operationId: updateSeating
-      x-retired: '038'
-      x-required-roles: [queuepass-admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/SeatingInput' }
-      responses:
-        '200':
-          description: The updated seat map.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/SeatMap' }
-        '400': { $ref: '#/components/responses/ValidationFailed' }
-        '401': { $ref: '#/components/responses/Unauthenticated' }
-        '403': { $ref: '#/components/responses/Forbidden' }
-        '404': { $ref: '#/components/responses/NotFound' }
-        '409': { $ref: '#/components/responses/Conflict' }
-
   /events/{id}/reservation:
     parameters:
       - name: id
@@ -1663,10 +1463,9 @@ paths:
         any refusal reserves no seat. Feature 033: the Customer app sends one seat per request, as
         each seat is clicked, one request at a time.
 
-        Each seat follows the rules of `createOrder`'s seats: inside the venue's layout, in a
-        section for sale and, for an event with tiers, all of one tier (`400`), and not repeated
-        (`400`). Added seats must be of the active reservation's tier and not already in it
-        (`400`). A reservation holds at most 10 seats (`400`), and no more than the customer may
+        Each seat follows the rules of `createOrder`'s seats: a seat of the event's layout (`400`),
+        on sale (`409 SEAT_OFF_SALE`), and not repeated (`400`). Added seats must not already be in
+        the reservation (`400`). A reservation holds at most 10 seats (`400`), and no more than the customer may
         still get under the event's `maxTicketsPerCustomer`, counting valid tickets only
         (`409 TICKET_LIMIT_REACHED`; `details.requested` is the seats the reservation would then
         hold).
@@ -1685,13 +1484,8 @@ paths:
         taken and waiting is refused as `SEAT_TAKEN`. No seat is ever in two active reservations, or
         in one and on a valid ticket, including under concurrent requests.
 
-        There is no `tierId` in the request: the reservation's tier is the tier of the sections its
-        seats are in (`null` for an event without tiers), and is returned as `tierId`.
-
-        Feature 038: a seat is any seat of the event's layout (`400` otherwise), of any price
-        level: one reservation may hold seats of several levels, still at most 10. A seat off sale
-        for the event is `409 SEAT_OFF_SALE` (`details.seats`). `tierId` is always `null`. Each
-        reserved seat says its labels, level and current price.
+        Feature 038: one reservation may hold seats of several price levels, still at most 10.
+        `tierId` is always `null`. Each reserved seat says its labels, level and current price.
 
         Feature 026: a seat-hold attempt (`x-attempt-limit: HOLD`), new or adding seats, however
         many seats it names. Over the caller's hold allowance it is refused with `429 RATE_LIMITED`
@@ -1791,8 +1585,7 @@ paths:
         (`409 REQUEST_ID_REUSED`). Without a `requestId`, every request places a new order.
 
         Feature 007: an event with reserved seating requires `seats`, exactly `quantity` distinct
-        ones, each inside its venue's layout and, for an event with tiers, in a section mapped to
-        the order's tier (`400` otherwise); an event without reserved seating forbids them. Seats
+        seats of its layout (`400` otherwise); an event without reserved seating forbids them. Seats
         already taken by valid tickets are refused (`409 SEAT_TAKEN`, `details.seats`). No seat is
         ever held by two valid tickets, including under concurrent requests. A repeated
         `requestId` must also name the same seats.
@@ -1811,15 +1604,12 @@ paths:
         customer's reservation is `409 SEAT_TAKEN` (with `details.reserved`); any other seat is
         `409 RESERVATION_REQUIRED` (`details.seats`; `details.expired` is `true` when the
         caller's reservation ran out). Bought seats leave the reservation; seats not bought stay
-        reserved until it ends. A repeated `requestId` is returned before this check. An order whose
-        `tierId` is not the reservation's tier is `400`, since its seats are not in that tier's
-        sections.
+        reserved until it ends. A repeated `requestId` is returned before this check.
 
         Feature 038: for a seated event, `tierId` must be left out (`400`); the seats may be of
         several price levels. Each ticket costs its seat's level price at the moment the order is
         placed, under the event's lock, and says it (`Ticket.price`, `Ticket.levelName`);
-        `totalPrice` is their sum. From 2.0.0 (feature 038's implementation) `unitPrice` is `null`
-        when the tickets' prices differ. A seat off sale is `409 SEAT_OFF_SALE`.
+        `totalPrice` is their sum; `unitPrice` is `null` when the tickets' prices differ. A seat off sale is `409 SEAT_OFF_SALE`.
 
         Feature 017: `holderName` is the buyer's own name, printed on every ticket of the order
         and checked against their ID at the gate. It is trimmed of leading and trailing spaces,
@@ -2532,6 +2322,8 @@ components:
           status,
           cancelledAt,
           reservedSeating,
+          layoutId,
+          priceMax,
           checkInDetailsRemovedAt,
           createdAt,
           updatedAt,
@@ -2542,21 +2334,21 @@ components:
         reservedSeating:
           type: boolean
           description: |
-            Feature 007. Whether customers choose seats; set with `updateSeating`. Feature 038:
-            `true` exactly when `layoutId` is set.
+            Feature 007. Whether customers choose seats. Feature 038: `true` exactly when
+            `layoutId` is set.
         layoutId:
           type: [string, 'null']
           format: uuid
           description: |
             Feature 038. The venue layout the event's seats come from; `null` for general
-            admission. Sent once 038 is implemented.
+            admission.
         priceMax:
           type: [string, 'null']
           pattern: '^\d+\.\d{2}$'
           description: |
             Feature 038. For a seated event, the highest price of a level with seats on sale
             (`basePrice` is the lowest), so its price shows as a range; `null` for general
-            admission. Sent once 038 is implemented.
+            admission.
           example: '95.00'
         status:
           type: string
@@ -2671,14 +2463,6 @@ components:
             `totalTicketCapacity` (`400` otherwise).
         basePrice:
           { type: string, pattern: '^\d+(\.\d{1,2})?$', description: Non-negative decimal string. }
-        reservedSeating:
-          type: boolean
-          x-retired: '038'
-          description: |
-            **Retired by feature 038**: send `layoutId`. Feature 031. Optional; left out, `false`. `true` schedules the event with reserved
-            seating at its venue's layout, as `updateSeating` would turn it on: the venue must have
-            a layout, and `totalTicketCapacity` must be left out (the capacity is the layout's total
-            seats). May be left out but not sent as `null` (`400`).
         tiers:
           type: array
           maxItems: 50
@@ -2730,9 +2514,9 @@ components:
       type: object
       required: [name, price]
       description: |
-        Feature 031. One ticket type in `createEvent`: the fields of `TicketTierInput`, and the
-        sections it sells when the event has reserved seating. Any other field is
-        `400 VALIDATION_FAILED`.
+        Feature 031. One ticket type in `createEvent`: the fields of `TicketTierInput`. Any other
+        field is `400 VALIDATION_FAILED`. Feature 038: only for general admission; with a
+        `layoutId`, `tiers` must be empty.
         Feature 035: optional `id` (a UUID) is allowed only on `updateEvent`, where it names an
         existing ticket type of that event to keep and update. On `createEvent` it is
         `400 VALIDATION_FAILED` (`tiers.<i>.id`). Not `null`.
@@ -2756,21 +2540,8 @@ components:
           type: integer
           minimum: 1
           description: |
-            Required without reserved seating; left out with it (its quantity is then its
-            sections' seats). The ticket types together may not exceed the event's
+            Required. The ticket types together may not exceed the event's
             `totalTicketCapacity`. Never `null`.
-        sectionIds:
-          type: array
-          uniqueItems: true
-          maxItems: 50
-          items: { type: string, format: uuid }
-          x-retired: '038'
-          description: |
-            **Retired by feature 038**: a seated event has no ticket types. Only with
-            `reservedSeating: true`. The sections of the venue's layout this ticket type
-            sells, each section under one ticket type at most. Left out or empty, it sells none
-            yet (quantity 0). May be left out but not sent as `null` (`400`).
-
     EventUpdate:
       type: object
       minProperties: 1
@@ -2809,14 +2580,6 @@ components:
           minimum: 1
           description: Feature 016. `null` clears the limit.
         basePrice: { type: string, pattern: '^\d+(\.\d{1,2})?$' }
-        reservedSeating:
-          type: boolean
-          x-retired: '038'
-          description: |
-            **Retired by feature 038**: send `layoutId`. Feature 035. Optional; left out, and
-            `tiers` is sent, `false`. `true` saves the event
-            with reserved seating at its venue's layout. Not `null`. Without `tiers` and this
-            field, the request does not change ticket types or seating.
         tiers:
           type: array
           maxItems: 50
@@ -2936,8 +2699,7 @@ components:
           minimum: 0
           example: 500
           description: |
-            Typed for a general-admission event. Feature 007: for an event with reserved seating,
-            the seats in the sections mapped to this tier; 0 when none are.
+            Typed for a general-admission event (feature 038: seated events have no tiers).
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
 
@@ -2976,7 +2738,7 @@ components:
     Ticket:
       description: One seat. The code is unique and unguessable (feature 005).
       type: object
-      required: [id, code, status, checkedInAt, seat]
+      required: [id, code, status, checkedInAt, seat, price, levelName]
       properties:
         id: { type: string, format: uuid }
         code: { type: string, pattern: '^[A-Z2-9]{12}$', example: 7KQ2M9XWAB4C }
@@ -2998,13 +2760,13 @@ components:
           pattern: '^\d+\.\d{2}$'
           description: |
             Feature 038. What this ticket cost: its seat's level price when bought, or its order's
-            `unitPrice`. Sent once 038 is implemented.
+            `unitPrice`.
           example: '60.00'
         levelName:
           type: [string, 'null']
           description: |
             Feature 038. The seat's price level as sold (for a ticket from before 038, its ticket
-            type's name); `null` for general admission. Sent once 038 is implemented.
+            type's name); `null` for general admission.
           example: Lower sideline
 
     Order:
@@ -3045,12 +2807,12 @@ components:
             before feature 017.
         quantity: { type: integer, minimum: 1, maximum: 10 }
         unitPrice:
-          type: string
+          type: [string, 'null']
           pattern: '^\d+\.\d{2}$'
           example: '45.00'
           description: |
-            The price of each ticket. Feature 038: from 2.0.0, `null` when the order's tickets have
-            different prices (seats of several levels); each ticket's `price` says its own.
+            The price of each ticket. Feature 038: `null` when the order's tickets have different
+            prices (seats of several levels); each ticket's `price` says its own.
         totalPrice: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
         status: { type: string, enum: [CONFIRMED, REFUNDED] }
         createdAt: { type: string, format: date-time }
@@ -3206,55 +2968,6 @@ components:
           minimum: 0
           description: The tier's quantity minus its valid tickets, never more than the event has left.
 
-    Section:
-      description: One block of a venue's seating layout (feature 007).
-      type: object
-      required: [id, name, rows, seatsPerRow]
-      properties:
-        id: { type: string, format: uuid }
-        name: { type: string, minLength: 1, maxLength: 50, example: A }
-        rows: { type: integer, minimum: 1, maximum: 100, example: 10 }
-        seatsPerRow: { type: integer, minimum: 1, maximum: 200, example: 20 }
-
-    SectionInput:
-      type: object
-      required: [name, rows, seatsPerRow]
-      properties:
-        name: { type: string, minLength: 1, maxLength: 50, example: A }
-        rows: { type: integer, minimum: 1, maximum: 100 }
-        seatsPerRow: { type: integer, minimum: 1, maximum: 200 }
-
-    LayoutInput:
-      x-retired: '038'
-      type: object
-      required: [sections]
-      properties:
-        sections:
-          type: array
-          minItems: 1
-          maxItems: 50
-          description: In display order. Names unique ignoring case.
-          items: { $ref: '#/components/schemas/SectionInput' }
-
-    SeatingLayout:
-      x-retired: '038'
-      description: A venue's sections, in display order (feature 007).
-      type: object
-      required: [locationId, totalSeats, sections]
-      properties:
-        locationId: { type: string, format: uuid }
-        totalSeats: { type: integer, minimum: 0 }
-        sections:
-          type: array
-          items: { $ref: '#/components/schemas/Section' }
-
-    SeatPosition:
-      type: object
-      required: [row, seat]
-      properties:
-        row: { type: integer, minimum: 1 }
-        seat: { type: integer, minimum: 1 }
-
     SeatChoice:
       description: |
         A seat a customer chooses when ordering (feature 007). Feature 038: `row` is the row's
@@ -3272,7 +2985,7 @@ components:
         A sold seat, by its section's name when sold (feature 007). Feature 038: `row` and `seat`
         are numbers; show `rowLabel` and `seatLabel`, the labels when sold ("Row AA, Seat 101").
       type: object
-      required: [section, row, seat]
+      required: [section, row, seat, rowLabel, seatLabel]
       properties:
         section: { type: string, example: A }
         row: { type: integer, minimum: 1, example: 3 }
@@ -3281,53 +2994,19 @@ components:
           type: string
           minLength: 1
           maxLength: 5
-          description: Feature 038. Sent once 038 is implemented; before, show `row`.
+          description: Feature 038.
           example: F
         seatLabel:
           type: string
           minLength: 1
           maxLength: 5
-          description: Feature 038. Sent once 038 is implemented; before, show `seat`.
+          description: Feature 038.
           example: '7'
-
-    SeatMapSection:
-      type: object
-      required: [sectionId, name, rows, seatsPerRow, tierId, sold, taken, reserved]
-      properties:
-        sectionId: { type: string, format: uuid }
-        name: { type: string }
-        rows: { type: integer, minimum: 1 }
-        seatsPerRow: { type: integer, minimum: 1 }
-        tierId:
-          type: [string, 'null']
-          format: uuid
-          description: This section's tier for the event; `null` when unmapped.
-        sold: { type: integer, minimum: 0 }
-        taken:
-          type: array
-          description: Seats held by valid tickets. Never says by whom.
-          items: { $ref: '#/components/schemas/SeatPosition' }
-        reserved:
-          type: array
-          description: Seats in active reservations (feature 015). Never says by whom.
-          items: { $ref: '#/components/schemas/SeatPosition' }
-
-    SeatMap:
-      x-retired: '038'
-      description: An event's seats, sold or open (feature 007), or reserved (feature 015).
-      type: object
-      required: [eventId, reservedSeating, sections]
-      properties:
-        eventId: { type: string, format: uuid }
-        reservedSeating: { type: boolean }
-        sections:
-          type: array
-          items: { $ref: '#/components/schemas/SeatMapSection' }
 
     SeatMapChange:
       description: Seats of one event that changed state, as sent by `streamSeatMap` (feature 015).
       type: object
-      required: [eventId, changes]
+      required: [eventId, seq, changes]
       properties:
         eventId: { type: string, format: uuid }
         seq:
@@ -3335,10 +3014,8 @@ components:
           minimum: 1
           description: |
             Feature 038. The event's seat-change sequence number after this change: one more for
-            each transaction that changed a seat, assigned under the event's lock, so changes
-            arrive in increasing order per transaction. A change whose `seq` is not greater than
+            each transaction that changed a seat, assigned under the event's lock. A change whose `seq` is not greater than
             the `seq` of the map or section it would apply to is already in it and is skipped.
-            Sent once 038 is implemented.
         changes:
           type: array
           minItems: 1
@@ -3347,7 +3024,7 @@ components:
     SeatStateChange:
       description: One seat's new state. Never says who reserved or bought it (feature 015).
       type: object
-      required: [sectionId, row, seat, state]
+      required: [sectionId, row, seat, state, from, levelId]
       properties:
         sectionId: { type: string, format: uuid }
         row: { type: integer, minimum: 1 }
@@ -3355,11 +3032,11 @@ components:
         state: { $ref: '#/components/schemas/SeatState' }
         from:
           $ref: '#/components/schemas/SeatState'
-          description: Feature 038. The state the seat left. Sent once 038 is implemented.
+          description: Feature 038. The state the seat left.
         levelId:
           type: string
           format: uuid
-          description: Feature 038. The seat's price level. Sent once 038 is implemented.
+          description: Feature 038. The seat's price level.
 
     SeatState:
       type: string
@@ -3371,7 +3048,7 @@ components:
     ReservedSeat:
       description: A seat in a reservation, by section id and by its section's name (feature 015).
       type: object
-      required: [sectionId, section, row, seat]
+      required: [sectionId, section, row, seat, rowLabel, seatLabel, levelName, price]
       properties:
         sectionId: { type: string, format: uuid }
         section: { type: string, example: A }
@@ -3379,22 +3056,21 @@ components:
         seat: { type: integer, minimum: 1, example: 5 }
         rowLabel:
           type: string
-          description: Feature 038. Sent once 038 is implemented.
+          description: Feature 038.
           example: F
         seatLabel:
           type: string
-          description: Feature 038. Sent once 038 is implemented.
+          description: Feature 038.
           example: '7'
         levelName:
           type: string
-          description: Feature 038. The seat's price level. Sent once 038 is implemented.
+          description: Feature 038. The seat's price level.
           example: Lower sideline
         price:
           type: string
           pattern: '^\d+\.\d{2}$'
           description: |
-            Feature 038. The level's price now; the purchase is at the price when bought. Sent
-            once 038 is implemented.
+            Feature 038. The level's price now; the purchase is at the price when bought.
           example: '60.00'
 
     Reservation:
@@ -3408,7 +3084,7 @@ components:
         tierId:
           type: [string, 'null']
           format: uuid
-          description: The tier of every seat; `null` for an event without tiers.
+          description: Always `null` (feature 038; seated events have no ticket types).
         seats:
           type: array
           minItems: 1
@@ -3467,22 +3143,6 @@ components:
           type: integer
           minimum: 0
           description: How many reserved seats were released, across every event.
-
-    SeatingInput:
-      x-retired: '038'
-      type: object
-      required: [reservedSeating, sections]
-      properties:
-        reservedSeating: { type: boolean }
-        sections:
-          type: array
-          description: The complete set of mappings; sections left out become unmapped.
-          items:
-            type: object
-            required: [sectionId, tierId]
-            properties:
-              sectionId: { type: string, format: uuid }
-              tierId: { type: string, format: uuid }
 
     LevelColor:
       type: string
@@ -3891,7 +3551,8 @@ components:
     VenueMap:
       description: Feature 038. An event's venue map, by section (`getVenueMap`).
       type: object
-      required: [eventId, layoutId, layoutName, size, floorKind, floorOutline, levels, sections]
+      required:
+        [eventId, seq, layoutId, layoutName, size, floorKind, floorOutline, levels, sections]
       properties:
         eventId: { type: string, format: uuid }
         seq:
@@ -3899,7 +3560,7 @@ components:
           minimum: 0
           description: |
             The event's seat-change sequence number this map was read at. Apply only the
-            `SeatMapChange`s with a greater `seq` to it. Sent once 038 is implemented.
+            `SeatMapChange`s with a greater `seq` to it.
         layoutId: { type: string, format: uuid }
         layoutName: { type: string }
         size: { $ref: '#/components/schemas/MapSize' }
@@ -3951,15 +3612,14 @@ components:
     VenueMapSection:
       description: Feature 038. One section of an event's venue map, seat by seat.
       type: object
-      required: [eventId, sectionId, name, rows]
+      required: [eventId, seq, sectionId, name, rows]
       properties:
         eventId: { type: string, format: uuid }
         seq:
           type: integer
           minimum: 0
           description: |
-            As `VenueMap.seq`: apply only the changes with a greater `seq` to this section. Sent
-            once 038 is implemented.
+            As `VenueMap.seq`: apply only the changes with a greater `seq` to this section.
         sectionId: { type: string, format: uuid }
         name: { type: string }
         rows:
@@ -4036,6 +3696,7 @@ components:
           checkInDetailsRemovedAt,
           revenue,
           tiers,
+          levels,
         ]
       properties:
         eventId: { type: string, format: uuid }
@@ -4071,7 +3732,7 @@ components:
           type: array
           description: |
             Feature 038. A seated event's sales by price level (its `tiers` is empty); empty for
-            general admission. Sent once 038 is implemented.
+            general admission.
           items: { $ref: '#/components/schemas/LevelSales' }
 
     SalesReport:
@@ -4118,6 +3779,7 @@ components:
           state,
           event,
           tierName,
+          levelName,
           seat,
           holderName,
           usedAt,
@@ -4152,8 +3814,7 @@ components:
         levelName:
           type: [string, 'null']
           description: |
-            Feature 038. The seat's price level as sold; `null` for general admission. Sent once
-            038 is implemented.
+            Feature 038. The seat's price level as sold; `null` for general admission.
         seat:
           oneOf:
             - $ref: '#/components/schemas/SeatLabel'
@@ -4475,16 +4136,6 @@ components:
                   details:
                     fields:
                       - tiers.0.id is not a ticket type of this event
-            sectionNotInLayout:
-              summary: Feature 031. createEvent, a section that is not in the venue's layout
-              value:
-                error:
-                  code: VALIDATION_FAILED
-                  message: Request validation failed.
-                  details:
-                    fields:
-                      - "tiers.0.sectionIds lists a section that is not in QueuePass Demo Arena's seating layout. Reload the form to see its sections."
-
     OrderRejected:
       description: |
         Request shape or field validation failed (`VALIDATION_FAILED`), or, feature 017, the
@@ -4855,14 +4506,14 @@ components:
                   details:
                     field: tiers
                     orderCount: 2
-            updateSeatingHasSold:
-              summary: Feature 035. updateEvent, reserved seating cannot be switched; tickets sold
+            layoutChangeHasSold:
+              summary: Feature 038. updateEvent, the layout cannot change; seats sold or held
               value:
                 error:
                   code: EVENT_HAS_ORDERS
-                  message: 'Season Opener has sold tickets, so reserved seating can no longer be switched off.'
+                  message: 'Season Opener has sold or held seats, so its layout can no longer change.'
                   details:
-                    field: reservedSeating
+                    field: layoutId
                     ticketsSold: 12
             soldOut:
               summary: Fewer tickets left than requested

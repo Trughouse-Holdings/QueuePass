@@ -79,7 +79,7 @@ Hold Row F 7 and 8 and Row P 7; Back to map; Add to cart; Buy. **Expected**: One
 
 ## S15. Phone width (US3)
 
-Phone width (390 × 844): pinch, zoom buttons, tap a section. **Expected**: Zooms and pans; tap zooms into the section. **Covered by**: manual, pinch can't be driven reliably in Playwright's Chromium; zoom buttons and tap are in `038 S10` at phone width.
+Phone width (390 × 844): pinch, zoom buttons, tap a section. **Expected**: Zooms and pans; tap zooms into the section. **Covered by**: manual, pinch can't be driven reliably in Playwright's Chromium; the zoom buttons and taps at phone width are browser `038 S10/S15`.
 
 ## S16. Keyboard and screen reader (US4)
 
@@ -115,31 +115,29 @@ sale (< 3 min). The stream's 2-second delivery (SC-004) is the Backend `seat-str
 ## Automation
 
 Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
-manual. `npm test` checks this table against `e2e/tests`. Until the implementation adds
-`e2e/tests/038-seat-maps.spec.ts`, every row is Manual; the implementation turns the rows its
-browser tests walk (S0, S5, S6, S10–S14, S16, S17) into Automated rows with the tests' exact titles
-(T055).
+manual. `npm test` checks this table against `e2e/tests`. `e2e/tests/038-seat-maps.spec.ts` walks
+S0, S5, S6, S10–S14, S16 and S17, and S15's zoom buttons and taps at phone width (T052, T055).
 
 | Scenario | Browser test |
 | --- | --- |
-| S0 | Manual: covered by the Backend `demo-data` test until T052 adds `038 S0` |
+| S0 | Automated: `038 S0: after the reset, the KFC Yum! Center has its four layouts, three locked by sold seats, and its four events` |
 | S1 | Manual: two resets compared by the Backend `demo-data` test (twice); a browser adds nothing |
 | S2 | Manual: covered by the Backend `layouts` test and the Admin `LayoutsCard` test |
 | S3 | Manual: covered by the Backend `layouts` test and the Admin `LayoutsCard` test |
 | S4 | Manual: covered by the Backend `layouts` test |
-| S5 | Manual: covered by the Backend `layouts` test until T052 adds `038 S5` |
-| S6 | Manual: covered by the Backend `event-seating` and Admin `SeatingSection` tests until T052 adds `038 S6` |
+| S5 | Automated: `038 S5: a locked layout refuses Rename and Delete naming its event, and Duplicate makes an unlocked copy` |
+| S6 | Automated: `038 S6: an admin schedules an event on Basketball with the upper level and rows D–F of 104 off sale and a price per level` |
 | S7 | Manual: covered by the Admin `SeatingSection` test |
 | S8 | Manual: covered by the Backend `event-seating` test |
 | S9 | Manual: covered by the Backend `orders.levels` test |
-| S10 | Manual: covered by the shared `VenueMap` and Customer `venue-map-flow` tests until T052 adds `038 S10` |
-| S11 | Manual: covered by the shared `VenueMap` test until T052 adds it to `038 S10` |
-| S12 | Manual: covered by the shared `VenueMap` test until T052 adds it to `038 S10` |
-| S13 | Manual: covered by the Customer `venue-map-flow` test until T052 adds it to `038 S10` |
-| S14 | Manual: covered by the Backend `seat-stream` test until T052 adds `038 S14` |
-| S15 | Manual: pinch can't be driven reliably in Playwright's Chromium; the zoom buttons and a tap at phone width go into `038 S10` (T052) |
-| S16 | Manual: covered by the shared and Customer `SectionsList` tests until T052 adds `038 S16` |
-| S17 | Manual: covered by the Admin `EventSeatMap` test until T052 adds `038 S17` |
+| S10 | Automated: `038 S10/S11/S12/S13: a customer filters the venue map by price, zooms into section 115, holds seats of two levels, and buys them` |
+| S11 | Automated: `038 S10/S11/S12/S13: a customer filters the venue map by price, zooms into section 115, holds seats of two levels, and buys them` |
+| S12 | Automated: `038 S10/S11/S12/S13: a customer filters the venue map by price, zooms into section 115, holds seats of two levels, and buys them` |
+| S13 | Automated: `038 S10/S11/S12/S13: a customer filters the venue map by price, zooms into section 115, holds seats of two levels, and buys them` |
+| S14 | Automated: `038 S14: a second customer watching section 115 sees a seat held, then sold, within 2 seconds` |
+| S15 | Automated: `038 S10/S15: at phone width, the zoom buttons and a tap on a section open its seats, and a tap holds one`; rest Manual: pinch can't be driven reliably in Playwright's Chromium |
+| S16 | Automated: `038 S16: by keyboard alone, the Sections list filters, opens section 115, holds a seat and releases it` |
+| S17 | Automated: `038 S17: the admin's map of a seated event shows a customer's hold within 2 seconds` |
 | S18 | Manual: a migration from a pre-038 database; the Backend `migration.seat-maps` test |
 | S19 | Manual: genuinely concurrent requests; the Backend `seats.concurrency` test |
 | S20 | Manual: covered by the Booth app's entry result test |

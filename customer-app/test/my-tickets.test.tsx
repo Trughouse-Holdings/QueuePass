@@ -24,6 +24,8 @@ const older = myOrder({
       status: 'VALID',
       checkedInAt: '2026-12-01T23:10:00.000Z',
       seat: null,
+      price: '45.50',
+      levelName: null,
     },
   ],
   event: {
@@ -86,7 +88,17 @@ describe('My tickets', () => {
       id: 'o3',
       status: 'REFUNDED',
       refundedAt: '2026-10-04T12:00:00.000Z',
-      tickets: [{ id: 'k5', code: 'GGGG5555HHHH', status: 'VOID', checkedInAt: null, seat: null }],
+      tickets: [
+        {
+          id: 'k5',
+          code: 'GGGG5555HHHH',
+          status: 'VOID',
+          checkedInAt: null,
+          seat: null,
+          price: '45.50',
+          levelName: null,
+        },
+      ],
       event: { ...opener.event, id: 'e3', name: 'Gone Show', status: 'CANCELLED' },
     });
     stubApi({ 'GET /me/orders': json([opener, older, refunded]) });
@@ -109,7 +121,7 @@ describe('My tickets', () => {
     expect(within(third).getByText('This event has been cancelled.')).toBeInTheDocument();
   });
 
-  it('shows the seat of a seated ticket (spec 007 FR-011)', async () => {
+  it('shows the seat of a seated ticket, with its level and price (spec 007 FR-011, 038 FR-026)', async () => {
     const seated = myOrder({
       id: 'o4',
       tickets: [
@@ -118,7 +130,9 @@ describe('My tickets', () => {
           code: 'JJJJ7777KKKK',
           status: 'VALID',
           checkedInAt: null,
-          seat: { section: 'A', row: 3, seat: 7 },
+          seat: { section: 'A', row: 3, seat: 7, rowLabel: '3', seatLabel: '7' },
+          price: '45.50',
+          levelName: 'Standard',
         },
       ],
     });
@@ -131,7 +145,7 @@ describe('My tickets', () => {
         .getAllByRole('listitem')
         .map((li) => li.textContent);
     expect(ticketsOf(first)).toEqual([
-      'JJJJ7777KKKK, Section A, Row 3, Seat 7: Valid Show entry code Print ticket',
+      'JJJJ7777KKKK, Section A, Row 3, Seat 7, Standard, $45.50: Valid Show entry code Print ticket',
     ]);
     expect(ticketsOf(second)).toEqual([
       'AAAA2222BBBB: Valid Show entry code Print ticket',
@@ -205,7 +219,17 @@ describe('upcoming, then Past (spec 030)', () => {
   const ended = myOrder({
     id: 'o6',
     createdAt: iso(NOW - 24 * HOUR),
-    tickets: [{ id: 'k6', code: 'MMMM8888NNNN', status: 'VALID', checkedInAt: null, seat: null }],
+    tickets: [
+      {
+        id: 'k6',
+        code: 'MMMM8888NNNN',
+        status: 'VALID',
+        checkedInAt: null,
+        seat: null,
+        price: '45.50',
+        levelName: null,
+      },
+    ],
     event: {
       ...myOrder().event,
       id: 'e6',

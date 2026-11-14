@@ -142,7 +142,7 @@ const options = () =>
 const loadEdit = async (stored: Location, extra: Record<string, Response> = {}) => {
   const api = stubApi({
     [`GET ${PATH}`]: json(stored),
-    [`GET ${PATH}/layout`]: json({ sections: [] }),
+    [`GET ${PATH}/layouts`]: json([]),
     [`PATCH ${PATH}`]: json(stored),
     'GET /locations': json([stored]),
     ...extra,
@@ -350,7 +350,7 @@ describe('the zone-change note (R14)', () => {
   it('is not shown on a venue without events', async () => {
     stubApi({
       [`GET ${PATH}`]: json(venue),
-      [`GET ${PATH}/layout`]: json({ sections: [] }),
+      [`GET ${PATH}/layouts`]: json([]),
       'GET /events': json([]),
     });
     renderAt(`${PATH}/edit`);
@@ -365,7 +365,7 @@ describe('the zone-change note (R14)', () => {
   it('is shown on a venue with events', async () => {
     stubApi({
       [`GET ${PATH}`]: json(venue),
-      [`GET ${PATH}/layout`]: json({ sections: [] }),
+      [`GET ${PATH}/layouts`]: json([]),
       'GET /events': json([{ id: 'e1', name: 'Fall Concert' }]),
     });
     renderAt(`${PATH}/edit`);
@@ -379,7 +379,7 @@ describe('zone change refusals (FR-026)', () => {
   const edit = async (body: object, status: number) => {
     stubApi({
       [`GET ${PATH}`]: json(venue),
-      [`GET ${PATH}/layout`]: json({ sections: [] }),
+      [`GET ${PATH}/layouts`]: json([]),
       [`PATCH ${PATH}`]: json(body, status),
     });
     renderAt(`${PATH}/edit`);

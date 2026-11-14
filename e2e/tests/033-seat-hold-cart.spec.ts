@@ -1,6 +1,7 @@
 // Spec 033 quickstart S1, S2, S6: on a seated event a customer holds seats by clicking them (no
 // Reserve seats), lets one go by clicking it and takes it back at once (no 2-minute wait while the
 // reservation goes on), adds them to the cart, and buys them there before the countdown ends.
+// Spec 038: the seats are clicked on the venue map, section A zoomed into.
 import { expect, test } from '@playwright/test';
 import { adminFor, customerFor } from '../fixtures/apps';
 import { apiFor, seatedEvent } from '../fixtures/api';
@@ -22,25 +23,28 @@ test('033 S1/S2/S6: a customer holds seats by clicking them, lets one go and tak
   const { event } = await seatedEvent(admin.api, {
     venueName: uniqueName(testInfo, 'cart hall'),
     place: PLACES.louisville,
-    sections: [{ name: 'A', rows: 2, seatsPerRow: 10 }],
+    layout: {
+      name: 'Main floor',
+      levels: [{ name: 'Standard', color: 'blue' }],
+      sections: [{ name: 'A', rows: 2, seatsPerRow: 10, level: 'Standard' }],
+    },
     event: { name: eventName, startsAt: startsInHours(24 * 7), endsAt: startsInHours(24 * 7 + 3) },
-    tiers: [{ name: 'Standard', price: '25.00' }],
-    map: [0],
+    prices: { Standard: '25.00' },
   });
   await admin.close();
 
   // Index 19: 0 to 10 are the other tests', 11 to 18 026's repeats.
   await signIn(page, 'customer', customerFor(testInfo, 19), `/events/${event.id}`);
   const tickets = page.getByRole('region', { name: 'Get tickets' });
-  await tickets.getByRole('radio', { name: /^Standard, \$25\.00/ }).click();
-  await expect(tickets.getByRole('radio', { name: /^Standard, \$25\.00/ })).toBeChecked();
-  const seats = tickets.getByRole('region', { name: 'Section A seats' });
+  await tickets.getByRole('button', { name: 'Choose seats' }).click();
+  const seats = tickets.getByRole('group', { name: 'Main floor map' });
+  await seats.getByRole('button', { name: /^Section A, / }).click();
   const seat = (n: number) =>
-    seats.getByRole('button', { name: new RegExp(`^Row 1, Seat ${n}(,|$)`) });
+    seats.getByRole('button', { name: new RegExp(`^Row 1, Seat ${n}, `) });
 
   // S1: a click holds the seat at once; the countdown starts at 5:00 (or 4:5x).
   await seat(5).click();
-  await expect(seat(5)).toHaveAccessibleName('Row 1, Seat 5, reserved by you');
+  await expect(seat(5)).toHaveAccessibleName('Row 1, Seat 5, Standard, $25, held by you');
   const box = tickets.getByRole('region', { name: 'Your seats' });
   const timer = box.getByRole('timer');
   await expect(timer).toHaveText(/(5:00|4:5\d)/);
@@ -49,20 +53,20 @@ test('033 S1/S2/S6: a customer holds seats by clicking them, lets one go and tak
 
   // A second seat joins; the countdown has not gone up.
   await seat(6).click();
-  await expect(seat(6)).toHaveAccessibleName('Row 1, Seat 6, reserved by you');
+  await expect(seat(6)).toHaveAccessibleName('Row 1, Seat 6, Standard, $25, held by you');
   expect(seconds(await timer.locator('.hold-countdown__time').textContent())).toBeLessThanOrEqual(
     first,
   );
 
   // S2: a click on a held seat lets it go; a click again takes it back, with no refusal.
   await seat(6).click();
-  await expect(seat(6)).toHaveAccessibleName('Row 1, Seat 6');
+  await expect(seat(6)).toHaveAccessibleName('Row 1, Seat 6, Standard, $25, open');
   await seat(6).click();
-  await expect(seat(6)).toHaveAccessibleName('Row 1, Seat 6, reserved by you');
+  await expect(seat(6)).toHaveAccessibleName('Row 1, Seat 6, Standard, $25, held by you');
   await expect(tickets.getByRole('alert')).toHaveCount(0);
   await expect(box.getByRole('listitem')).toHaveText([
-    'Section A, Row 1, Seat 5',
-    'Section A, Row 1, Seat 6',
+    'Section A, Row 1, Seat 5, Standard, $25.00',
+    'Section A, Row 1, Seat 6, Standard, $25.00',
   ]);
 
   // No button of the old flow on the event page.

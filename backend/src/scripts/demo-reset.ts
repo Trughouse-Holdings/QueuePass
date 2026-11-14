@@ -6,7 +6,7 @@ import { Prisma, type PrismaClient } from '@prisma/client';
 import { formatTimeOfDay } from '@queuepass/shared';
 import { AppModule } from '../app.module';
 import { PrismaService } from '../prisma/prisma.service';
-import { DEMO_VENUE, runDemoData, type DemoSummary } from './demo-data';
+import { DEMO_VENUE, layoutsLine, runDemoData, type DemoSummary } from './demo-data';
 
 /**
  * The demo checkpoint (spec 029, research R1): removes every row of every QueuePass table, keeps
@@ -224,10 +224,17 @@ export interface ResetOptions {
 /** Research R11: table names as words, in the order printed; another table under its name. */
 const LABELS: [table: string, one: string, many: string][] = [
   ['Location', 'venue', 'venues'],
+  // Spec 038 (T009a): a venue's layouts, in place of `007`'s sections on the venue.
+  ['Layout', 'layout', 'layouts'],
+  ['PriceLevel', 'price level', 'price levels'],
   ['Section', 'seating section', 'seating sections'],
+  ['SeatRow', 'seat row', 'seat rows'],
+  ['Seat', 'seat', 'seats'],
   ['Event', 'event', 'events'],
   ['TicketTier', 'tier', 'tiers'],
-  ['SectionTier', 'section tier', 'section tiers'],
+  // Spec 038: an event's level prices and off-sale seats, in place of `007`'s section tiers.
+  ['EventLevelPrice', 'level price', 'level prices'],
+  ['EventOffSaleSeat', 'off-sale seat', 'off-sale seats'],
   ['EventImage', 'image', 'images'],
   ['Order', 'order', 'orders'],
   ['Ticket', 'ticket', 'tickets'],
@@ -292,7 +299,8 @@ export async function runDemoReset(
       prisma.location.count(),
       prisma.location.count({ where: { name: DEMO_VENUE } }),
     ]);
-    if (venues !== 2 || arenas !== 1) throw new Error('another reset ran at the same time');
+    // Spec 038 (research R18): the Hall, the KFC Yum! Center and the Arena.
+    if (venues !== 3 || arenas !== 1) throw new Error('another reset ran at the same time');
     const found = await prisma.event.findFirst({
       where: { name: 'Demo Tonight' },
       include: { location: true },
@@ -304,11 +312,13 @@ export async function runDemoReset(
   }
 
   log(
-    `Created: ${created.venues} venues, ${created.events} events (${created.cancelled} cancelled, ` +
-      `${created.past} over), ${created.orders} orders, ${created.tickets} tickets ` +
-      `(${created.checkedIn} checked in), ${created.images} images. Demo Tonight is open for ` +
-      `check-in until ${formatTimeOfDay(tonight.endsAt, tonight.location.timeZone)}.`,
+    `Created: ${created.venues} venues, ${created.layouts.length} layouts, ${created.events} ` +
+      `events (${created.cancelled} cancelled, ${created.past} over), ${created.orders} orders, ` +
+      `${created.tickets} tickets (${created.checkedIn} checked in), ${created.images} images. ` +
+      `Demo Tonight is open for check-in until ` +
+      `${formatTimeOfDay(tonight.endsAt, tonight.location.timeZone)}.`,
   );
+  log(layoutsLine(created.layouts));
   if (created.unverifiedVenues > 0) {
     log(
       'The address service was unavailable, so the demo venues were saved with their addresses ' +

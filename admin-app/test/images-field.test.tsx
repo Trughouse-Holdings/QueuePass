@@ -8,6 +8,7 @@ import { AuthProvider } from '@queuepass/shared/web';
 import { EventForm } from '../src/pages/EventForm';
 import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-user-manager';
 import { json, stubApi } from './helpers/api-stub';
+import { layoutRoutes } from './fixtures-038';
 import {
   ANIMATED_CHUNK,
   brokenPngFile,
@@ -30,7 +31,6 @@ afterEach(() => vi.unstubAllGlobals());
 
 const ID = EVENT.id;
 const PLAIN = { ...VENUE, id: 'v-plain', name: 'Plain Hall' };
-const NO_LAYOUT = { locationId: 'v-plain', totalSeats: 0, sections: [] };
 const EV = { ...EVENT, locationId: 'v-plain', location: PLAIN, images: [] as EventImage[] };
 const TIER = {
   id: 't1',
@@ -106,7 +106,6 @@ function backend(
   let made = 0;
   const api = stubApi({
     'GET /locations': json([PLAIN]),
-    'GET /locations/v-plain/layout': json(NO_LAYOUT),
     'POST /events': json(EV, 201),
     [`GET /events/${ID}`]: () => json({ ...EV, images: [...images] }),
     [`PATCH /events/${ID}`]: () => json({ ...EV, images: [...images] }),
@@ -741,15 +740,11 @@ describe('spec 031: a refused schedule sends no picture (FR-009, FR-012)', () =>
   });
 
   it('does the same when the seating is refused', async () => {
-    const layout = {
-      locationId: VENUE.id,
-      totalSeats: 10,
-      sections: [{ id: 's-front', name: 'front', rows: 1, seatsPerRow: 10 }],
-    };
+    // Spec 038: the venue's Club layout, its one level priced.
     const server = backend({
       routes: {
-        'GET /locations': json([{ ...VENUE, seatingCapacity: 10 }, PLAIN]),
-        [`GET /locations/${VENUE.id}/layout`]: json(layout),
+        'GET /locations': json([{ ...VENUE, seatingCapacity: 12 }, PLAIN]),
+        ...layoutRoutes(),
         'POST /events': refusal(400, 'VALIDATION_FAILED', 'Seating refused.'),
       },
     });
@@ -761,9 +756,12 @@ describe('spec 031: a refused schedule sends no picture (FR-009, FR-012)', () =>
     fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
     setLocalDateTime('Starts', '2030-05-01T18:00');
     setLocalDateTime('Ends', '2030-05-01T21:00');
-    await screen.findByRole('group', { name: 'Tickets and seating' });
-    fireEvent.change(screen.getByLabelText('Ticket type 1 name'), { target: { value: 'Floor' } });
-    fireEvent.change(screen.getByLabelText('Ticket type 1 price'), { target: { value: '45.00' } });
+    fireEvent.change(await screen.findByRole('combobox', { name: 'Seating' }), {
+      target: { value: 'l-club' },
+    });
+    fireEvent.change(await screen.findByRole('textbox', { name: 'Club seats price' }), {
+      target: { value: '45.00' },
+    });
     choose(pngFile('a.png'));
     await vi.waitFor(() => expect(items()).toHaveLength(1));
     fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));

@@ -212,51 +212,56 @@ describe('Per-customer ticket limit on events', () => {
     });
   });
 
-  describe("a venue layout below a seated event's limit (research R6)", () => {
-    const A = (rows: number) => ({ name: 'A', rows, seatsPerRow: 10 });
-    const layout = (rows: number) =>
-      asAdmin(ctx)
-        .put(`/locations/${venueId}/layout`)
-        .send({ sections: [A(rows)] });
+  describe("a seated event's limit against its seats on sale (038 research R6, R9)", () => {
+    /** A 30-seat layout, Section A of `rows` rows of 10, made from section lines. */
+    const lines = (rows: number) => ({
+      name: 'Standard',
+      levels: [{ name: 'Standard', color: 'violet' }],
+      sections: [{ name: 'A', rows, seatsPerRow: 10, level: 'Standard' }],
+    });
+    const seatedLayout = async () =>
+      (await asAdmin(ctx).post(`/locations/${venueId}/layouts`).send(lines(3)).expect(201)).body;
 
-    /** An unsold, scheduled event with reserved seating at a 30-seat layout. */
-    const seatedEvent = async (limit: number) => {
-      await layout(3).expect(200);
-      const id = await event(ctx, venueId, {
+    /** An unsold, scheduled event on that layout, every seat on sale. */
+    const seatedEvent = (layout: { id: string; levels: { id: string }[] }, limit: number) =>
+      create({
         name: 'Seated Show',
-        capacity: 30,
+        totalTicketCapacity: undefined,
         maxTicketsPerCustomer: limit,
+        layoutId: layout.id,
+        levelPrices: [{ levelId: layout.levels[0].id, price: '20.00' }],
       });
-      await asAdmin(ctx)
-        .put(`/events/${id}/seating`)
-        .send({ reservedSeating: true, sections: [] })
-        .expect(200);
-      return id;
-    };
 
-    it('refuses a layout with fewer seats than the limit, naming the event, changing nothing', async () => {
-      const id = await seatedEvent(25);
-
-      const res = await layout(2).expect(409);
-
+    it('checks the limit against the seats on sale: above is 409, equal is accepted', async () => {
+      const layout = await seatedLayout();
+      const res = await seatedEvent(layout, 31).expect(409);
       expect(code(res)).toBe('CAPACITY_EXCEEDED');
-      expect(res.body.error.message).toContain('"Seated Show"');
-      expect(res.body.error.message).toMatch(/Lower its limit first/);
-      expect(res.body.error.details).toEqual({
-        totalSeats: 20,
-        conflictingEvent: { id, name: 'Seated Show' },
-      });
-      const saved = await asAdmin(ctx).get(`/locations/${venueId}/layout`).expect(200);
-      expect(saved.body.totalSeats).toBe(30);
+      expect(res.body.error.details).toMatchObject({ seatsOnSale: 30, maxTicketsPerCustomer: 31 });
+      const ok = await seatedEvent(layout, 30).expect(201);
+      expect(ok.body).toMatchObject({ totalTicketCapacity: 30, maxTicketsPerCustomer: 30 });
+    });
+
+    it('refuses a lines edit that would leave fewer seats than the limit, naming the event, changing nothing', async () => {
+      const layout = await seatedLayout();
+      const id = (await seatedEvent(layout, 25).expect(201)).body.id;
+
+      const res = await asAdmin(ctx).put(`/layouts/${layout.id}`).send(lines(2)).expect(409);
+
+      expect(code(res)).toBe('LAYOUT_IN_USE');
+      expect(res.body.error.message).toContain('Seated Show');
+      expect(res.body.error.message).toMatch(/limit of 25 tickets per customer/);
+      expect(res.body.error.details.events).toEqual([{ id, name: 'Seated Show' }]);
+      expect(await ctx.prisma.seat.count()).toBe(30);
       const venueRow = await ctx.prisma.location.findUniqueOrThrow({ where: { id: venueId } });
       expect(venueRow.seatingCapacity).toBe(30);
       const row = await ctx.prisma.event.findUniqueOrThrow({ where: { id } });
       expect(row).toMatchObject({ totalTicketCapacity: 30, maxTicketsPerCustomer: 25 });
     });
 
-    it('accepts a layout whose total equals the limit', async () => {
-      const id = await seatedEvent(20);
-      await layout(2).expect(200);
+    it('accepts a lines edit whose seats on sale equal the limit', async () => {
+      const layout = await seatedLayout();
+      const id = (await seatedEvent(layout, 20).expect(201)).body.id;
+      await asAdmin(ctx).put(`/layouts/${layout.id}`).send(lines(2)).expect(200);
       const row = await ctx.prisma.event.findUniqueOrThrow({ where: { id } });
       expect(row).toMatchObject({ totalTicketCapacity: 20, maxTicketsPerCustomer: 20 });
     });

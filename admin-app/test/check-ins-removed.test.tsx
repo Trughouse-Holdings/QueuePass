@@ -197,16 +197,6 @@ describe('the edit form (US4; FR-008, Constitution IV)', () => {
       'GET /locations': json([EASTERN]),
       [`GET /events/${EVENT.id}`]: json(REMOVED),
       [`GET /events/${EVENT.id}/tiers`]: json([TIER]),
-      [`GET /events/${EVENT.id}/seats`]: json({
-        eventId: EVENT.id,
-        reservedSeating: false,
-        sections: [],
-      }),
-      [`GET /locations/${EASTERN.id}/layout`]: json({
-        locationId: EASTERN.id,
-        totalSeats: 0,
-        sections: [],
-      }),
       [`PATCH /events/${EVENT.id}`]: json(
         {
           error: {

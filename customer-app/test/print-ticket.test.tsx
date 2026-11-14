@@ -19,15 +19,33 @@ const CODE = 'AAAA2222BBBB';
 
 const mixed = myOrder({
   tickets: [
-    { id: 'k1', code: CODE, status: 'VALID', checkedInAt: null, seat: null },
+    {
+      id: 'k1',
+      code: CODE,
+      status: 'VALID',
+      checkedInAt: null,
+      seat: null,
+      price: '45.50',
+      levelName: null,
+    },
     {
       id: 'k2',
       code: 'CCCC3333DDDD',
       status: 'VALID',
       checkedInAt: '2026-12-01T23:10:00.000Z',
       seat: null,
+      price: '45.50',
+      levelName: null,
     },
-    { id: 'k3', code: 'GGGG5555HHHH', status: 'VOID', checkedInAt: null, seat: null },
+    {
+      id: 'k3',
+      code: 'GGGG5555HHHH',
+      status: 'VOID',
+      checkedInAt: null,
+      seat: null,
+      price: '45.50',
+      levelName: null,
+    },
   ],
 });
 
@@ -53,7 +71,9 @@ describe('the printable view (US5-1)', () => {
           code: CODE,
           status: 'VALID',
           checkedInAt: null,
-          seat: { section: 'A', row: 3, seat: 7 },
+          seat: { section: 'A', row: 3, seat: 7, rowLabel: '3', seatLabel: '7' },
+          price: '45.50',
+          levelName: 'Standard',
         },
       ],
     });

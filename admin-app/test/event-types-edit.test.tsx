@@ -4,16 +4,16 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventForm } from '../src/pages/EventForm';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, VENUE } from './fixtures-005';
+import { layoutRoutes } from './fixtures-038';
 import { setLocalDateTime } from './helpers/event-times';
 
 /**
- * Spec 008 US7 (FR-019; research R10): no base price; every event is priced by its ticket types,
- * and editing an event changes its ticket types and section types too.
+ * Spec 008 US7 (FR-019; research R10): no base price; a general-admission event is priced by its
+ * ticket types, and editing it changes them too. Spec 038 (FR-012): a seated event has none.
  */
 afterEach(() => vi.unstubAllGlobals());
 
 const PLAIN = { ...VENUE, id: 'v-plain', name: 'Plain Hall' };
-const NO_LAYOUT = { locationId: 'v-plain', totalSeats: 0, sections: [] };
 const tier = (id: string, name: string, price: string, quantity: number) => ({
   id,
   eventId: EVENT.id,
@@ -35,9 +35,9 @@ const at = (path: string, route: string) =>
   );
 
 /**
- * The edit form has loaded the event's ticket types (section selects show their names too) and,
- * issue #118, the event itself: they are separate requests, and the event decides reserved
- * seating (so whether quantities show) and what Save sends.
+ * The edit form has loaded the event's ticket types and, issue #118, the event itself: they are
+ * separate requests, and the event decides its seating (so whether ticket types show) and what Save
+ * sends.
  */
 const typesLoaded = () =>
   vi.waitFor(() => {
@@ -60,7 +60,7 @@ describe('scheduling a general-admission event', () => {
     // Spec 031 FR-008: the ticket types go in the one POST /events.
     const api = stubApi({
       'GET /locations': json([PLAIN]),
-      'GET /locations/v-plain/layout': json(NO_LAYOUT),
+      'GET /locations/v-plain/layouts': json([]),
       'POST /events': json({ ...EVENT, locationId: 'v-plain' }, 201),
     });
     at('/events/new', '/events/new');
@@ -90,7 +90,7 @@ describe('scheduling a general-admission event', () => {
   it('asks for a quantity on a general-admission ticket type', async () => {
     const api = stubApi({
       'GET /locations': json([PLAIN]),
-      'GET /locations/v-plain/layout': json(NO_LAYOUT),
+      'GET /locations/v-plain/layouts': json([]),
     });
     at('/events/new', '/events/new');
 
@@ -107,85 +107,39 @@ describe('scheduling a general-admission event', () => {
   });
 });
 
-describe('editing a seated event', () => {
-  const SEATED = { ...EVENT, reservedSeating: true, totalTicketCapacity: 30 };
+describe("editing an event: ticket types are general admission's (spec 038 FR-012)", () => {
+  const GA = { ...EVENT, layoutId: null, priceMax: null, totalTicketCapacity: 30 };
   const PATH = `/events/${EVENT.id}`;
-  const routes = (extra: object = {}) => ({
+  const routes = (event: object = GA, extra: object = {}) => ({
     'GET /locations': json([VENUE]),
-    [`GET ${PATH}`]: json(SEATED),
+    ...layoutRoutes(),
+    [`GET ${PATH}`]: json(event),
     [`GET ${PATH}/tiers`]: json([
       tier('t-floor', 'Floor', '80.00', 10),
       tier('t-bal', 'Balcony', '30.00', 20),
     ]),
-    [`GET ${PATH}/seats`]: json({
-      eventId: EVENT.id,
-      reservedSeating: true,
-      sections: [
-        {
-          sectionId: 's-front',
-          name: 'front',
-          rows: 1,
-          seatsPerRow: 10,
-          tierId: 't-floor',
-          sold: 0,
-          taken: [],
-          reserved: [],
-        },
-        {
-          sectionId: 's-middle',
-          name: 'middle',
-          rows: 1,
-          seatsPerRow: 10,
-          tierId: 't-bal',
-          sold: 0,
-          taken: [],
-          reserved: [],
-        },
-        {
-          sectionId: 's-back',
-          name: 'back',
-          rows: 1,
-          seatsPerRow: 10,
-          tierId: 't-bal',
-          sold: 0,
-          taken: [],
-          reserved: [],
-        },
-      ],
-    }),
     ...extra,
   });
 
-  it('shows its ticket types and section types, prefilled, and no base price', async () => {
+  it('shows its ticket types with quantities, prefilled, and no base price', async () => {
     stubApi(routes());
     at(`${PATH}/edit`, '/events/:id/edit');
 
     await typesLoaded();
     expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('Floor');
     expect(screen.getByLabelText('Ticket type 2 price')).toHaveValue('30.00');
-    expect(screen.queryByLabelText('Ticket type 1 quantity')).toBeNull();
-    expect(screen.getByRole('combobox', { name: 'Section back ticket type' })).toHaveValue('1');
+    expect(screen.getByLabelText('Ticket type 1 quantity')).toHaveValue(10);
     expect(screen.queryByLabelText('Base price')).toBeNull();
   });
 
-  it('applies renamed, repriced, and new types and a moved section, then opens the event', async () => {
-    const api = stubApi(
-      routes({
-        [`PATCH ${PATH}`]: json(SEATED),
-        [`POST ${PATH}/tiers`]: json(tier('t-box', 'Box', '120.00', 0), 201),
-        [`PATCH ${PATH}/tiers/t-bal`]: json(tier('t-bal', 'Upper', '35.00', 20)),
-        [`PUT ${PATH}/seating`]: json({ eventId: EVENT.id, reservedSeating: true, sections: [] }),
-      }),
-    );
+  it('applies renamed, repriced, and new types in one PATCH, then opens the event', async () => {
+    const api = stubApi(routes(GA, { [`PATCH ${PATH}`]: json(GA) }));
     at(`${PATH}/edit`, '/events/:id/edit');
     await typesLoaded();
 
-    typeLine(2, 'Upper', '35.00');
+    typeLine(2, 'Upper', '35.00', '15');
     fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
-    typeLine(3, 'Box', '120.00');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Section back ticket type' }), {
-      target: { value: '2' },
-    });
+    typeLine(3, 'Box', '120.00', '5');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(await screen.findByText('Event page', {}, { timeout: 3000 })).toBeInTheDocument();
@@ -193,23 +147,62 @@ describe('editing a seated event', () => {
     expect(writes.map((c) => `${c.method} ${c.path}`)).toEqual([`PATCH ${PATH}`]);
     expect(writes[0].body).toMatchObject({
       basePrice: '35.00',
-      reservedSeating: true,
       tiers: [
-        { id: 't-floor', name: 'Floor', price: '80.00', sectionIds: ['s-front'] },
-        { id: 't-bal', name: 'Upper', price: '35.00', sectionIds: ['s-middle'] },
-        { name: 'Box', price: '120.00', sectionIds: ['s-back'] },
+        { id: 't-floor', name: 'Floor', price: '80.00', quantity: 10 },
+        { id: 't-bal', name: 'Upper', price: '35.00', quantity: 15 },
+        { name: 'Box', price: '120.00', quantity: 5 },
       ],
     });
-    expect(writes[0].body).not.toHaveProperty('totalTicketCapacity');
+    expect(writes[0].body).not.toHaveProperty('reservedSeating');
   });
 
-  it("shows the Backend's reason for a refused change and keeps the form", async () => {
-    const message = 'Section back has sold seats, so it stays in its tier.';
+  it('shows no ticket types for a seated event: it is priced by level', async () => {
     stubApi(
-      routes({
+      routes(
+        {
+          ...EVENT,
+          reservedSeating: true,
+          layoutId: 'l-club',
+          priceMax: '20.00',
+          totalTicketCapacity: 12,
+        },
+        {
+          [`GET ${PATH}/tiers`]: json([]),
+          [`GET ${PATH}/seating`]: json({
+            eventId: EVENT.id,
+            layoutId: 'l-club',
+            levels: [
+              {
+                levelId: 'l-club',
+                name: 'Club seats',
+                rank: 1,
+                color: 'orange',
+                seatCount: 12,
+                seatsOnSale: 12,
+                price: '20.00',
+              },
+            ],
+            offSale: [],
+            seatsOnSale: 12,
+            seatsOffSale: 0,
+          }),
+        },
+      ),
+    );
+    at(`${PATH}/edit`, '/events/:id/edit');
+
+    expect(await screen.findByRole('textbox', { name: 'Club seats price' })).toHaveValue('20.00');
+    expect(screen.queryByLabelText('Ticket type 1 name')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add ticket type' })).toBeNull();
+  });
+
+  it("shows the Backend's reason for a refused change beside the ticket types and keeps the form", async () => {
+    const message = 'Cannot remove the tier "Balcony": it has 2 orders.';
+    stubApi(
+      routes(GA, {
         [`PATCH ${PATH}`]: json(
           {
-            error: { code: 'EVENT_HAS_ORDERS', message, details: { field: 'tiers.0.sectionIds' } },
+            error: { code: 'TIER_HAS_ORDERS', message, details: { field: 'tiers', orderCount: 2 } },
           },
           409,
         ),
@@ -218,13 +211,12 @@ describe('editing a seated event', () => {
     at(`${PATH}/edit`, '/events/:id/edit');
     await typesLoaded();
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Section back ticket type' }), {
-      target: { value: '0' },
-    });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove ticket type 2' }));
+    fireEvent.change(screen.getByLabelText('Ticket type 1 quantity'), { target: { value: '30' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
     expect(screen.queryByTestId('error-banner')).toBeNull();
     expect(await screen.findByText(message)).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Section back ticket type' })).toHaveValue('0');
+    expect(screen.getByLabelText('Ticket type 1 quantity')).toHaveValue(30);
   });
 });

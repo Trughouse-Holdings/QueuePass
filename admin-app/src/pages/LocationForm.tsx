@@ -13,13 +13,14 @@ import {
 import { venueZone } from '../format';
 import { listEvents } from '../api/events';
 import { createLocation, getLocation, updateLocation } from '../api/locations';
-import { getLayout, replaceLayout } from '../api/seating';
+import { createVenueLayout, listVenueLayouts } from '../api/layouts';
 import { ApiError } from '../api/client';
 import { ErrorBanner } from '../components/ErrorBanner';
 import {
   SectionLines,
-  toSectionInputs,
+  toLinesInput,
   totalSeats,
+  type LevelLine,
   type SectionLine,
 } from '../components/SectionLines';
 import type { NoticeState } from '../hooks/use-delete';
@@ -75,6 +76,13 @@ const ZONE_CHANGE_NOTE =
 
 const ZONE_REQUIRED = "Choose the venue's time zone.";
 
+/**
+ * Spec 038 (T019): a seated venue's first layout, made from its section lines on the New venue
+ * form, is named as the carry-over names a venue's layout (R16), with one level to start.
+ */
+const FIRST_LAYOUT = 'Standard';
+const FIRST_LEVEL: LevelLine = { name: 'Standard', color: 'violet' };
+
 /** Spec 013 FR-008's "same address", on the form's side: ignoring case and extra spaces. */
 function sameAsStored(a: Address, v: Location | null): boolean {
   if (!v || v.street == null) return Object.values(a).every((x) => x.trim() === '');
@@ -99,11 +107,14 @@ export function LocationForm(): React.ReactElement {
   const [seatingCapacity, setSeatingCapacity] = useState('');
   // Spec 013 research R13: the venue as loaded, for the not-verified notes on edit.
   const [loaded, setLoaded] = useState<Location | null>(null);
-  // Spec 007 FR-017: a venue with a seating layout takes its capacity from it.
-  const [setByLayout, setSetByLayout] = useState(false);
+  // Spec 038 FR-009: a venue with layouts takes its capacity from the largest; null without.
+  const [largest, setLargest] = useState<number | null>(null);
+  const setByLayout = largest !== null;
   // Spec 008 US5: a new venue is seated (sections, capacity calculated) or general admission.
   const [kind, setKind] = useState<'general' | 'seated'>('general');
   const [lines, setLines] = useState<SectionLine[]>([]);
+  // Spec 038 FR-005: the seated venue's first layout has price levels; one to start with.
+  const [levels, setLevels] = useState<LevelLine[]>([FIRST_LEVEL]);
   const [layoutRefused, setLayoutRefused] = useState<{ venue: Location; error: ApiError } | null>(
     null,
   );
@@ -134,9 +145,11 @@ export function LocationForm(): React.ReactElement {
         setZoneChoice(l.timeZone ?? DEFAULT_TIME_ZONE);
       })
       .catch((err: ApiError) => setError(err));
-    getLayout(id)
-      .then((layout) => setSetByLayout(layout.sections.length > 0))
-      .catch(() => setSetByLayout(false));
+    listVenueLayouts(id)
+      .then((layouts) =>
+        setLargest(layouts.length > 0 ? Math.max(...layouts.map((l) => l.seatCount)) : null),
+      )
+      .catch(() => setLargest(null));
     // Spec 030 FR-010: changing the zone moves past events' times too, so they count.
     listEvents({ locationId: id, includePast: true })
       .then((events) => setHasEvents(events.length > 0))
@@ -210,7 +223,7 @@ export function LocationForm(): React.ReactElement {
         venue = await createLocation({ name, ...parts, ...zonePart, seatingCapacity: capacity });
         if (seated) {
           try {
-            await replaceLayout(venue.id, { sections: toSectionInputs(lines) });
+            await createVenueLayout(venue.id, toLinesInput(FIRST_LAYOUT, levels, lines));
           } catch (err) {
             // The venue exists; only its layout was refused. Say so, and where to add it.
             setLayoutRefused({ venue, error: err as ApiError });
@@ -434,15 +447,31 @@ export function LocationForm(): React.ReactElement {
 
           {!isEdit && kind === 'seated' ? (
             <>
-              <SectionLines lines={lines} onChange={setLines} />
+              <SectionLines
+                levels={levels}
+                onLevelsChange={setLevels}
+                lines={lines}
+                onChange={setLines}
+              />
               <p className="note">{`Total: ${totalSeats(lines).toLocaleString()} ${
                 totalSeats(lines) === 1 ? 'seat' : 'seats'
               }`}</p>
             </>
-          ) : setByLayout ? (
-            <p className="note">
-              {`Seating capacity: ${Number(seatingCapacity).toLocaleString()}, set by its seating layout.`}
-            </p>
+          ) : largest !== null ? (
+            // Spec 038 FR-009: read-only, never sent; the largest layout sets it.
+            <div className="field">
+              <label htmlFor="seatingCapacity">Seating capacity</label>
+              <input
+                id="seatingCapacity"
+                type="number"
+                readOnly
+                value={largest}
+                aria-describedby="seatingCapacity-hint"
+              />
+              <span id="seatingCapacity-hint" className="field__hint">
+                {`From the largest layout (${largest.toLocaleString()} seats)`}
+              </span>
+            </div>
           ) : (
             <div className="field">
               <label htmlFor="seatingCapacity">Seating capacity</label>

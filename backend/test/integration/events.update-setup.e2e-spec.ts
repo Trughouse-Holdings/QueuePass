@@ -8,16 +8,14 @@ import { resetDb } from '../setup/reset-db';
 
 /**
  * Spec 035 (FR-017, FR-018, SC-004; research R8, R11): `PATCH /events/{id}` takes the event's
- * ticket types and reserved seating and saves them with its details in one transaction, all or
- * nothing. Every refusal leaves the event, its types, and its mappings unchanged.
+ * ticket types and saves them with its details in one transaction, all or nothing. Every refusal
+ * leaves the event and its types unchanged. Spec 038 (T009a): `007`'s reserved seating by
+ * section-to-type mapping is retired with contract 2.0.0; its cases went, and T020
+ * (`event-seating.e2e-spec.ts`) tests changing an event's layout, prices and off-sale seats.
  */
-describe('Updating an event with its ticket types and seating (035)', () => {
+describe('Updating an event with its ticket types (035)', () => {
   let ctx: TestContext;
   let plainVenue: string;
-  let seatedVenue: string;
-  let front: string;
-  let middle: string;
-  let back: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -28,18 +26,6 @@ describe('Updating an event with its ticket types and seating (035)', () => {
   beforeEach(async () => {
     await resetDb(ctx.prisma);
     plainVenue = await venue(ctx, 'Plain Hall');
-    seatedVenue = await venue(ctx, 'Seated Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${seatedVenue}/layout`)
-      .send({
-        sections: [
-          { name: 'front', rows: 1, seatsPerRow: 10 },
-          { name: 'middle', rows: 1, seatsPerRow: 10 },
-          { name: 'back', rows: 1, seatsPerRow: 10 },
-        ],
-      })
-      .expect(200);
-    [front, middle, back] = layout.body.sections.map((s: { id: string }) => s.id);
   });
 
   const base = (locationId: string, over: object = {}) => ({
@@ -71,26 +57,6 @@ describe('Updating an event with its ticket types and seating (035)', () => {
     return { event: res.body, floor: tiers[0]!, balcony: tiers[1]! };
   };
 
-  const createSeated = async () => {
-    const res = await asAdmin(ctx)
-      .post('/events')
-      .send(
-        base(seatedVenue, {
-          reservedSeating: true,
-          tiers: [
-            { name: 'Front', price: '120.00', sectionIds: [front] },
-            { name: 'Standard', price: '70.00', sectionIds: [middle] },
-          ],
-        }),
-      )
-      .expect(201);
-    const tiers = await ctx.prisma.ticketTier.findMany({
-      where: { eventId: res.body.id },
-      orderBy: { createdAt: 'asc' },
-    });
-    return { event: res.body, frontType: tiers[0]!, standard: tiers[1]! };
-  };
-
   const patch = (id: string, body: object) => asAdmin(ctx).patch(`/events/${id}`).send(body);
 
   const snapshot = async (eventId: string) => {
@@ -98,10 +64,6 @@ describe('Updating an event with its ticket types and seating (035)', () => {
     const tiers = await ctx.prisma.ticketTier.findMany({
       where: { eventId },
       orderBy: { createdAt: 'asc' },
-    });
-    const mappings = await ctx.prisma.sectionTier.findMany({
-      where: { eventId },
-      orderBy: { sectionId: 'asc' },
     });
     return {
       name: event.name,
@@ -113,7 +75,6 @@ describe('Updating an event with its ticket types and seating (035)', () => {
         price: t.price.toFixed(2),
         quantity: t.quantity,
       })),
-      mappings: mappings.map((m) => ({ sectionId: m.sectionId, tierId: m.tierId })),
     };
   };
 
@@ -129,21 +90,10 @@ describe('Updating an event with its ticket types and seating (035)', () => {
     return res;
   };
 
-  const sell = async (
-    eventId: string,
-    tierId: string,
-    quantity: number,
-    seat?: { section: string; row: number; number: number },
-  ) => {
+  const sell = async (eventId: string, tierId: string, quantity: number) => {
     const { orderId } = await orderWithTickets(ctx, eventId, { quantity });
     await ctx.prisma.order.update({ where: { id: orderId }, data: { tierId } });
-    await ctx.prisma.ticket.updateMany({
-      where: { orderId },
-      data: {
-        tierId,
-        ...(seat ? { seatSection: seat.section, seatRow: seat.row, seatNumber: seat.number } : {}),
-      },
-    });
+    await ctx.prisma.ticket.updateMany({ where: { orderId }, data: { tierId } });
   };
 
   describe('saved whole', () => {
@@ -151,7 +101,6 @@ describe('Updating an event with its ticket types and seating (035)', () => {
       const { event, floor, balcony } = await createGeneral();
       const res = await patch(event.id, {
         name: 'Season Opener (revised)',
-        reservedSeating: false,
         tiers: [
           { id: floor.id, name: 'Floor', price: '90.00', quantity: 280 },
           { name: 'Gallery', price: '40.00', quantity: 50 },
@@ -168,28 +117,7 @@ describe('Updating an event with its ticket types and seating (035)', () => {
       expect(after.tiers.some((t) => t.id === balcony.id)).toBe(false);
     });
 
-    it('remaps sections and adds a type on a seated event', async () => {
-      const { event, frontType, standard } = await createSeated();
-      const res = await patch(event.id, {
-        reservedSeating: true,
-        tiers: [
-          { id: frontType.id, name: 'Front', price: '120.00', sectionIds: [front, middle] },
-          { id: standard.id, name: 'Standard', price: '70.00', sectionIds: [] },
-          { name: 'Back', price: '50.00', sectionIds: [back] },
-        ],
-      }).expect(200);
-      expectToMatchContract(res, 'updateEvent');
-      const after = await snapshot(event.id);
-      const byName = Object.fromEntries(after.tiers.map((t) => [t.name, t]));
-      expect(byName.Front.quantity).toBe(20);
-      expect(byName.Standard.quantity).toBe(0);
-      expect(byName.Back.quantity).toBe(10);
-      expect(new Set(after.mappings.map((m) => m.sectionId))).toEqual(
-        new Set([front, middle, back]),
-      );
-    });
-
-    it('leaves types and seating alone when they are not sent', async () => {
+    it('leaves types alone when they are not sent', async () => {
       const { event, floor, balcony } = await createGeneral();
       const before = await snapshot(event.id);
       const res = await patch(event.id, { name: 'Only the name' }).expect(200);
@@ -198,7 +126,6 @@ describe('Updating an event with its ticket types and seating (035)', () => {
       expect(after.name).toBe('Only the name');
       expect(after.tiers.map((t) => t.id)).toEqual([floor.id, balcony.id]);
       expect(after.reservedSeating).toBe(before.reservedSeating);
-      expect(after.mappings).toEqual(before.mappings);
     });
   });
 
@@ -328,44 +255,6 @@ describe('Updating an event with its ticket types and seating (035)', () => {
       );
       expect(res.body.error.code).toBe('CAPACITY_EXCEEDED');
       expect(res.body.error.details.field).toBe('tiers.0.quantity');
-    });
-
-    it('refuses to switch reserved seating when tickets are sold', async () => {
-      const { event, frontType, standard } = await createSeated();
-      await sell(event.id, frontType.id, 1, { section: 'front', row: 1, number: 1 });
-      const res = await refused(
-        event.id,
-        () =>
-          patch(event.id, {
-            reservedSeating: false,
-            tiers: [
-              { id: frontType.id, name: 'Front', price: '120.00', quantity: 10 },
-              { id: standard.id, name: 'Standard', price: '70.00', quantity: 10 },
-            ],
-          }),
-        409,
-      );
-      expect(res.body.error.code).toBe('EVENT_HAS_ORDERS');
-      expect(res.body.error.details.field).toBe('reservedSeating');
-    });
-
-    it('refuses to remap a section with sold seats', async () => {
-      const { event, frontType, standard } = await createSeated();
-      await sell(event.id, frontType.id, 1, { section: 'front', row: 1, number: 1 });
-      const res = await refused(
-        event.id,
-        () =>
-          patch(event.id, {
-            reservedSeating: true,
-            tiers: [
-              { id: frontType.id, name: 'Front', price: '120.00', sectionIds: [] },
-              { id: standard.id, name: 'Standard', price: '70.00', sectionIds: [front, middle] },
-            ],
-          }),
-        409,
-      );
-      expect(res.body.error.code).toBe('EVENT_HAS_ORDERS');
-      expect(res.body.error.details.field).toBe('tiers.1.sectionIds');
     });
 
     it('leaves the event unchanged when a write after the first change fails', async () => {

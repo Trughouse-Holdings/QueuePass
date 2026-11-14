@@ -128,7 +128,7 @@ describe('Orders', () => {
       .send({ price: '150.00' })
       .expect(200);
     const row = await ctx.prisma.order.findUniqueOrThrow({ where: { id: placed.body.id } });
-    expect(row.unitPrice.toFixed(2)).toBe('100.00');
+    expect(row.unitPrice?.toFixed(2)).toBe('100.00');
   });
 
   it('never oversells under 20 simultaneous orders against capacity 10', async () => {

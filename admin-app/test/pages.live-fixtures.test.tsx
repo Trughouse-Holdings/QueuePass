@@ -42,6 +42,8 @@ function route(handlers: {
       if (init?.method === 'POST' && handlers.post) {
         return json(handlers.post.body, handlers.post.status);
       }
+      // Spec 038: no venue has layouts here.
+      if (u.includes('/layouts')) return json([]);
       if (u.includes('/locations')) {
         const h = handlers.locations ?? json(locations);
         return typeof h === 'function' ? h() : h.clone();

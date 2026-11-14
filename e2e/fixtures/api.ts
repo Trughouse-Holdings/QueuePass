@@ -2,6 +2,8 @@
 // Backend's API, with the access token the app itself sent after a real sign-in on Keycloak's
 // page. No other credential, no direct-grant client, no bypass. Request shapes are the contract's
 // (contracts/openapi.yaml), through the generated types.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   expect,
   request,
@@ -17,8 +19,13 @@ import { zoned } from './time';
 
 type Schemas = components['schemas'];
 export type Location = Schemas['Location'];
-export type SeatingLayout = Schemas['SeatingLayout'];
 export type Event = Schemas['Event'];
+export type LayoutDetail = Schemas['LayoutDetail'];
+export type LayoutFile = Schemas['LayoutFile'];
+export type LayoutSectionSeats = Schemas['LayoutSectionSeats'];
+export type SeatChoice = Schemas['SeatChoice'];
+export type OffSaleSelector = Schemas['OffSaleSelector'];
+export type Reservation = Schemas['Reservation'];
 export type TicketTier = Schemas['TicketTier'];
 export type Order = Schemas['Order'];
 /** A venue's address as the Admin form takes it (spec 013): all four fields. */
@@ -101,24 +108,80 @@ export class Api {
   }
 }
 
-/** A venue at one of the stand-in's addresses (research R4); seated when `sections` are given. */
-export async function createVenue(
-  api: Api,
-  place: Place,
-  name: string,
-  sections?: Schemas['SectionInput'][],
-): Promise<Location & { layout?: SeatingLayout }> {
+/** A venue at one of the stand-in's addresses (research R4), with no layout. */
+export async function createVenue(api: Api, place: Place, name: string): Promise<Location> {
   const venue = await api.call<Location>('POST', '/locations', {
     name,
     ...place,
     seatingCapacity: 500,
   } satisfies Schemas['LocationInput']);
   expect(venue.addressVerified, `${name}: the stand-in should verify ${place.street}`).toBe(true);
-  if (!sections) return venue;
-  const layout = await api.call<SeatingLayout>('PUT', `/locations/${venue.id}/layout`, {
-    sections,
-  } satisfies Schemas['LayoutInput']);
-  return { ...venue, layout };
+  return venue;
+}
+
+/** Spec 038 (FR-005): a layout of the venue from section lines; rows and seats numbered 1, 2, …. */
+export function createLayout(
+  api: Api,
+  venue: Location,
+  lines: Schemas['LayoutLinesInput'],
+): Promise<LayoutDetail> {
+  return api.call<LayoutDetail>('POST', `/locations/${venue.id}/layouts`, lines);
+}
+
+/** Spec 038 (FR-004): a layout file imported at the venue, under `name` when given. */
+export function importLayout(
+  api: Api,
+  venue: Location,
+  file: LayoutFile,
+  name?: string,
+): Promise<LayoutDetail> {
+  return api.call<LayoutDetail>('POST', `/locations/${venue.id}/layouts/import`, {
+    file,
+    ...(name !== undefined ? { name } : {}),
+  } satisfies Schemas['LayoutImport']);
+}
+
+/** The demo's KFC Yum! Center layout files (spec 038 research R18), as the reset imports them. */
+export type YumCenterLayout = 'basketball' | 'end-stage' | 'center-stage' | 'wrestling';
+export function yumCenterFile(which: YumCenterLayout): LayoutFile {
+  const path = join(__dirname, '../../backend/src/scripts/layouts', `yum-center-${which}.json`);
+  return JSON.parse(readFileSync(path, 'utf8')) as LayoutFile;
+}
+
+/** A section of the layout by its name. */
+export function sectionOf(layout: LayoutDetail, name: string): LayoutDetail['sections'][number] {
+  const section = layout.sections.find((s) => s.name === name);
+  expect(section, `${layout.name} has a section ${name}`).toBeDefined();
+  return section!;
+}
+
+/** A level of the layout by its name. */
+export function levelOf(layout: LayoutDetail, name: string): LayoutDetail['levels'][number] {
+  const level = layout.levels.find((l) => l.name === name);
+  expect(level, `${layout.name} has a level ${name}`).toBeDefined();
+  return level!;
+}
+
+/**
+ * Spec 038 (research R2): a seat as the API takes it, by numbers, from its section's name and the
+ * row and seat labels people read ("115", "F", "7").
+ */
+export async function seatAt(
+  api: Api,
+  layout: LayoutDetail,
+  section: string,
+  row: string,
+  seat: string,
+): Promise<SeatChoice> {
+  const { id: sectionId } = sectionOf(layout, section);
+  const seats = await api.call<LayoutSectionSeats>(
+    'GET',
+    `/layouts/${layout.id}/sections/${sectionId}`,
+  );
+  const r = seats.rows.find((x) => x.label === row);
+  const s = r?.seats.find((x) => x.label === seat);
+  expect(s, `${layout.name} has section ${section}, row ${row}, seat ${seat}`).toBeDefined();
+  return { sectionId, row: r!.number, seat: s!.number };
 }
 
 export interface EventSetup {
@@ -130,6 +193,13 @@ export interface EventSetup {
   maxTicketsPerCustomer?: number;
   /** Spec 025: when doors open; left out, the Backend takes the start minus 1 hour. */
   doorsOpenAt?: Date;
+  /** Spec 038: reserved seating on one of the venue's layouts, priced by level. */
+  seating?: {
+    layout: LayoutDetail;
+    /** A price for each level with seats on sale, by the level's name. */
+    prices: Record<string, string>;
+    offSale?: OffSaleSelector[];
+  };
 }
 
 /** An event at the venue, its times sent in the venue's zone with its offset (spec 020). */
@@ -144,6 +214,16 @@ export function createEvent(api: Api, venue: Location, e: EventSetup): Promise<E
     ...(e.capacity !== undefined ? { totalTicketCapacity: e.capacity } : {}),
     ...(e.maxTicketsPerCustomer !== undefined
       ? { maxTicketsPerCustomer: e.maxTicketsPerCustomer }
+      : {}),
+    ...(e.seating
+      ? {
+          layoutId: e.seating.layout.id,
+          levelPrices: Object.entries(e.seating.prices).map(([name, price]) => ({
+            levelId: levelOf(e.seating!.layout, name).id,
+            price,
+          })),
+          offSale: e.seating.offSale ?? [],
+        }
       : {}),
   } satisfies Schemas['EventInput']);
 }
@@ -161,18 +241,6 @@ export function addTier(
   );
 }
 
-/** Turns reserved seating on and maps sections to tiers (spec 007). */
-export function setSeating(
-  api: Api,
-  event: Event,
-  sections: { sectionId: string; tierId: string }[],
-): Promise<unknown> {
-  return api.call('PUT', `/events/${event.id}/seating`, {
-    reservedSeating: true,
-    sections,
-  } satisfies Schemas['SeatingInput']);
-}
-
 /** Spec 016: the per-customer limit. */
 export function setTicketLimit(api: Api, event: Event, limit: number): Promise<Event> {
   return api.call<Event>('PATCH', `/events/${event.id}`, {
@@ -184,13 +252,24 @@ export function setTicketLimit(api: Api, event: Event, limit: number): Promise<E
 export function buyTickets(
   api: Api,
   event: Event,
-  order: { quantity: number; holderName: string; tierId?: string },
+  order: { quantity: number; holderName: string; tierId?: string; seats?: SeatChoice[] },
 ): Promise<Order> {
   return api.call<Order>(
     'POST',
     `/events/${event.id}/orders`,
     order satisfies Schemas['OrderInput'],
   );
+}
+
+/** Spec 033, 038: a customer's hold of seats, for set-up (one seat a request, as the app does). */
+export async function holdSeats(api: Api, event: Event, seats: SeatChoice[]): Promise<Reservation> {
+  let held: Reservation | undefined;
+  for (const seat of seats) {
+    held = await api.call<Reservation>('POST', `/events/${event.id}/reservation`, {
+      seats: [seat],
+    } satisfies Schemas['ReservationInput']);
+  }
+  return held!;
 }
 
 /** Research R6's name for `Api.as`. */
@@ -220,33 +299,57 @@ export async function apiFor(
 }
 
 /**
- * A seated event (spec 007): a venue with `sections`, an event there, reserved seating on, one
- * tier per entry of `tiers`, and every section mapped to the tier `map` names (by index).
+ * A seated event (spec 038): a venue with one layout from section lines, and an event there on it,
+ * priced by level (`prices`, by level name), with the seats `offSale` gives off sale.
  */
 export async function seatedEvent(
   api: Api,
   setup: {
     venueName: string;
     place: Place;
-    sections: Schemas['SectionInput'][];
+    layout: Schemas['LayoutLinesInput'];
     event: EventSetup;
-    tiers: { name: string; price: string }[];
-    map: number[];
+    prices: Record<string, string>;
+    offSale?: (layout: LayoutDetail) => OffSaleSelector[];
   },
-): Promise<{ venue: Location; event: Event; tiers: TicketTier[]; layout: SeatingLayout }> {
-  const venue = await createVenue(api, setup.place, setup.venueName, setup.sections);
-  const layout = venue.layout!;
-  const event = await createEvent(api, venue, setup.event);
-  await api.call('PUT', `/events/${event.id}/seating`, {
-    reservedSeating: true,
-    sections: [],
-  } satisfies Schemas['SeatingInput']);
-  const tiers: TicketTier[] = [];
-  for (const t of setup.tiers) tiers.push(await addTier(api, event, t));
-  await setSeating(
-    api,
-    event,
-    layout.sections.map((s, i) => ({ sectionId: s.id, tierId: tiers[setup.map[i]].id })),
-  );
-  return { venue, event, tiers, layout };
+): Promise<{ venue: Location; event: Event; layout: LayoutDetail }> {
+  const venue = await createVenue(api, setup.place, setup.venueName);
+  const layout = await createLayout(api, venue, setup.layout);
+  const event = await createEvent(api, venue, {
+    ...setup.event,
+    seating: { layout, prices: setup.prices, offSale: setup.offSale?.(layout) },
+  });
+  return { venue, event, layout };
 }
+
+/**
+ * Spec 038 (research R18): a venue of the test's own with the Yum! Center's Basketball layout,
+ * and an event on it priced as the demo's women's game (Courtside $95, Lower sideline $60, Lower
+ * end $35) with the upper level, sections 301–330, off sale; `offSale` adds more.
+ */
+export async function basketballEvent(
+  api: Api,
+  setup: { venueName: string; place: Place; event: EventSetup; offSale?: OffSaleSelector[] },
+): Promise<{ venue: Location; event: Event; layout: LayoutDetail }> {
+  const venue = await createVenue(api, setup.place, setup.venueName);
+  const layout = await importLayout(api, venue, yumCenterFile('basketball'));
+  const upper = layout.sections
+    .filter((s) => /^3\d\d$/.test(s.name))
+    .map((s) => ({ sectionId: s.id }));
+  const event = await createEvent(api, venue, {
+    ...setup.event,
+    seating: {
+      layout,
+      prices: WOMENS_GAME_PRICES,
+      offSale: [...upper, ...(setup.offSale ?? [])],
+    },
+  });
+  return { venue, event, layout };
+}
+
+/** The demo's women's game prices by level (research R18); Upper is off sale. */
+export const WOMENS_GAME_PRICES = {
+  Courtside: '95.00',
+  'Lower sideline': '60.00',
+  'Lower end': '35.00',
+};

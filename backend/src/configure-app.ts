@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import { LAYOUT_LIMITS } from '@queuepass/shared';
+import { json, type NextFunction, type Request, type Response } from 'express';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as swaggerUi from 'swagger-ui-express';
@@ -16,6 +17,17 @@ export function contractPath(): string {
  * so tests exercise exactly what production serves.
  */
 export function configureApp(app: INestApplication): void {
+  // Spec 038 research R5 (T016): a layout file may be up to 4 MB, on its import route only. This
+  // parser runs before Nest's own (registered at init, 100 kB), which then leaves the parsed body
+  // alone; every other route keeps the default. A larger body is a 413, as elsewhere.
+  // Its refusals (too large, not JSON) are answered by the exception filter, as Nest's parser's.
+  const importParser = json({ limit: LAYOUT_LIMITS.maxImportBytes });
+  app.use(
+    '/locations/:id/layouts/import',
+    (req: Request, res: Response, next: NextFunction): void =>
+      req.method === 'POST' ? importParser(req, res, next) : next(),
+  );
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

@@ -1,6 +1,12 @@
 import type { Response } from 'supertest';
-import { asAdmin } from '../setup/authed-request';
-import { HOLDER, customer, event, holdSeats, venue } from '../setup/fixtures';
+import {
+  HOLDER,
+  customer,
+  holdSeats,
+  seatedEvent,
+  venue,
+  type InsertedLayout,
+} from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor } from '../setup/tokens';
@@ -8,12 +14,12 @@ import { subFor } from '../setup/tokens';
 /**
  * Spec 015 US2 (FR-009, SC-001; Constitution IV, VI; research R2): no seat is ever in two active
  * reservations, or in one and on a valid ticket, under genuinely simultaneous requests. Each case
- * runs 5 times.
+ * runs 5 times. Spec 038 (FR-025): a seat is claimed by its id, whatever its level.
  */
 describe('Reservations under concurrency', () => {
   let ctx: TestContext;
   let eventId: string;
-  let sectionA: string;
+  let layout: InsertedLayout;
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -24,30 +30,23 @@ describe('Reservations under concurrency', () => {
   beforeEach(async () => {
     await resetDb(ctx.prisma);
     const venueId = await venue(ctx, 'Seat Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${venueId}/layout`)
-      .send({ sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }] })
-      .expect(200);
-    sectionA = layout.body.sections[0].id;
-    eventId = await event(ctx, venueId, { capacity: 30 });
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
+    ({ eventId, layout } = await seatedEvent(ctx, venueId, {
+      sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }],
+    }));
   });
 
   const code = (res: Response): string => res.body.error?.code;
-  const seat = (row: number, s: number) => ({ sectionId: sectionA, row, seat: s });
+  const seat = (row: number, s: number) => ({ sectionId: layout.sections.A, row, seat: s });
   const reserve = async (n: number, seats: object[]) =>
     (await customer(ctx, n)).post(`/events/${eventId}/reservation`).send({ seats });
   /** Valid tickets plus live holds on one seat: never more than 1. */
-  const claims = async (row: number, s: number): Promise<number> =>
-    (await ctx.prisma.ticket.count({
-      where: { eventId, status: 'VALID', seatSection: 'A', seatRow: row, seatNumber: s },
-    })) +
-    (await ctx.prisma.seatHold.count({
-      where: { eventId, releasedAt: null, seatSection: 'A', seatRow: row, seatNumber: s },
-    }));
+  const claims = async (row: number, s: number): Promise<number> => {
+    const seatId = layout.seat('A', row, s);
+    return (
+      (await ctx.prisma.ticket.count({ where: { eventId, status: 'VALID', seatId } })) +
+      (await ctx.prisma.seatHold.count({ where: { eventId, releasedAt: null, seatId } }))
+    );
+  };
   const reset = () =>
     ctx.prisma.$executeRawUnsafe('TRUNCATE TABLE "SeatHold", "SeatReservation", "Ticket", "Order"');
 
@@ -103,7 +102,7 @@ describe('Reservations under concurrency', () => {
       await holdSeats(ctx.prisma, {
         eventId,
         customerSub: subFor('customer1'),
-        seats: [{ section: 'A', row: 3, seat: 3 }],
+        seats: [{ section: 'A', row: 3, seat: 3, seatId: layout.seat('A', 3, 3) }],
         secondsAgo: run % 2 === 0 ? 10 : 301,
       });
 

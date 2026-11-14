@@ -37,7 +37,18 @@ function ordersOf(tickets: number): Order[] {
         code: `ABCD${String(n + k).padStart(8, '0')}`,
         status: i % 11 ? ('VALID' as const) : ('VOID' as const),
         checkedInAt: k % 2 ? new Date(at + 3_600_000).toISOString() : null,
-        seat: i % 3 === 1 ? { section: 'A', row: 1 + (i % 40), seat: 1 + k } : null,
+        seat:
+          i % 3 === 1
+            ? {
+                section: 'A',
+                row: 1 + (i % 40),
+                seat: 1 + k,
+                rowLabel: String(1 + (i % 40)),
+                seatLabel: String(1 + k),
+              }
+            : null,
+        price: '84.30',
+        levelName: i % 3 === 1 ? 'Lower sideline' : null,
       })),
     });
     n += quantity;

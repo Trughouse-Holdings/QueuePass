@@ -1,16 +1,19 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import type { Availability, CustomerLimit, SeatMap } from '@queuepass/shared';
+import type { Availability, CustomerLimit } from '@queuepass/shared';
 import {
   availability,
   event,
   holdBackend,
   json,
+  openSection,
   renderCustomer,
+  seatOf,
+  seatedMap,
   stubApi,
-  tier,
   typeHolderName,
   fixTimeBeforeFixtures,
+  mapDrawing,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -162,51 +165,38 @@ describe('without a limit (FR-017)', () => {
 });
 
 describe('choosing seats (US4-3)', () => {
-  const vip = tier({ id: 't-vip', name: 'VIP', price: '120.00', quantity: 6 });
-  const map: SeatMap = {
-    eventId: 'e1',
+  // Spec 038: section A of a venue map, 2 rows of 3 seats at $40.
+  const arena = seatedMap([{ sectionId: 's-a', name: 'A', rows: 2, seatsPerRow: 3 }]);
+  const seated = event({
     reservedSeating: true,
-    sections: [
-      {
-        sectionId: 's-a',
-        name: 'A',
-        rows: 2,
-        seatsPerRow: 3,
-        tierId: 't-vip',
-        sold: 0,
-        taken: [],
-        reserved: [],
-      },
-    ],
-  };
+    layoutId: 'lay-1',
+    basePrice: '40.00',
+    priceMax: '40.00',
+  });
+  const mine = () => within(mapDrawing()).getAllByRole('button', { name: /, held by you$/ });
 
   it('stops at what the customer may still get, and says why', async () => {
     stubApi({
-      'GET /events/e1': json(event({ reservedSeating: true })),
-      'GET /events/e1/tiers': json([vip]),
+      'GET /events/e1': json(seated),
+      'GET /events/e1/tiers': json([]),
       'GET /events/e1/availability': json(
-        availability({
-          ticketsLeft: 6,
-          tiers: [{ tierId: 't-vip', ticketsLeft: 6 }],
-          customerLimit: limit(2, 3),
-        }),
+        availability({ ticketsLeft: 6, customerLimit: limit(2, 3) }),
       ),
-      'GET /events/e1/seats': json(map),
+      ...arena.routes,
       // Spec 033: each click holds the seat at once.
       ...holdBackend().routes,
     });
     renderCustomer({ at: '/events/e1' });
 
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
-    const seat = (s: number) => screen.getByRole('button', { name: `Row 1, Seat ${s}` });
+    await openSection('A');
     expect(screen.queryByText(/No more seats can be chosen/)).toBeNull();
-    fireEvent.click(seat(1));
-    fireEvent.click(seat(2));
-    await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: /, reserved by you$/ })).toHaveLength(2),
-    );
+    fireEvent.click(seatOf(1, 1));
+    fireEvent.click(seatOf(1, 2));
+    await waitFor(() => expect(mine()).toHaveLength(2));
 
-    expect(seat(3)).toBeDisabled();
+    // Spec 038: a seat that can't be chosen stays focusable, marked aria-disabled.
+    expect(seatOf(1, 3)).toHaveAttribute('aria-disabled', 'true');
+    expect(seatOf(1, 3)).toHaveAccessibleName('Row 1, Seat 3, Standard, $40, open');
     expect(
       screen.getByText(
         'No more seats can be chosen: the limit of 3 tickets per customer allows you 2 more.',
@@ -216,29 +206,23 @@ describe('choosing seats (US4-3)', () => {
 
   it('does not blame the limit when it ties with the seats left (research R3)', async () => {
     stubApi({
-      'GET /events/e1': json(event({ reservedSeating: true })),
-      'GET /events/e1/tiers': json([vip]),
+      'GET /events/e1': json(seated),
+      'GET /events/e1/tiers': json([]),
       'GET /events/e1/availability': json(
-        availability({
-          ticketsLeft: 2,
-          tiers: [{ tierId: 't-vip', ticketsLeft: 2 }],
-          customerLimit: limit(2, 3),
-        }),
+        availability({ ticketsLeft: 2, customerLimit: limit(2, 3) }),
       ),
-      'GET /events/e1/seats': json(map),
+      ...arena.routes,
       // Spec 033: each click holds the seat at once.
       ...holdBackend().routes,
     });
     renderCustomer({ at: '/events/e1' });
 
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 1' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 2' }));
-    await waitFor(() =>
-      expect(screen.getAllByRole('button', { name: /, reserved by you$/ })).toHaveLength(2),
-    );
+    await openSection('A');
+    fireEvent.click(seatOf(1, 1));
+    fireEvent.click(seatOf(1, 2));
+    await waitFor(() => expect(mine()).toHaveLength(2));
 
-    expect(screen.getByRole('button', { name: 'Row 1, Seat 3' })).toBeDisabled();
+    expect(seatOf(1, 3)).toHaveAttribute('aria-disabled', 'true');
     expect(screen.queryByText(/No more seats can be chosen/)).toBeNull();
   });
 });

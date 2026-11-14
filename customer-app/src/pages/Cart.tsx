@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  holderNameMessage,
-  holderNameProblem,
-  type Event,
-  type Order,
-  type Reservation,
-  type TicketTier,
-} from '@queuepass/shared';
+import { holderNameMessage, holderNameProblem, type Event, type Order } from '@queuepass/shared';
 import { useAuth } from '@queuepass/shared/web';
 import { HoldCountdown, ONE_MINUTE_LEFT } from '../components/HoldCountdown';
 import { OrderConfirmation } from '../components/OrderConfirmation';
 import { WaitMessage } from '../components/GetTickets';
-import { seatLabel, totalUsd, usd, when } from '../format';
+import { seatWithPrice, sumUsd, when } from '../format';
+import type { Reservation } from '../seats';
 import { useBuy, useWaits, type WaitsApi } from '../use-buy';
 
 /** Spec 033 research R8: how often the cart reads the reservations again while visible. */
@@ -24,8 +18,11 @@ interface Entry {
   deadline: number;
 }
 
-/** What the cart shows of an event, read once per event (research R8). */
-type EventDetails = { event: Event; tiers: TicketTier[] };
+/**
+ * What the cart shows of an event, read once per event (research R8). Spec 038 (research R14):
+ * no ticket types; each seat's level and price come with the reservation.
+ */
+type EventDetails = { event: Event };
 type EventInfo = EventDetails | 'missing';
 
 /** Review round 2 (S2): an entry whose event could not be read 3 times is shown without it. */
@@ -228,7 +225,7 @@ export function Cart() {
     };
   }, [read]);
 
-  // Research R8: each listed event's details and ticket types, read once while the page is open.
+  // Research R8: each listed event's details, read once while the page is open.
   useEffect(() => {
     /** A failed read: tried again after 1, 2, 4, … seconds, at most 10, with the reads. */
     const failed = (eventId: string): void => {
@@ -245,17 +242,14 @@ export function Cart() {
       requested.current.add(eventId);
       void (async () => {
         try {
-          const [ev, tiers] = await Promise.all([
-            api.GET('/events/{id}', { params: { path: { id: eventId } } }),
-            api.GET('/events/{id}/tiers', { params: { path: { id: eventId } } }),
-          ]);
+          const ev = await api.GET('/events/{id}', { params: { path: { id: eventId } } });
           if (ev.response.status === 401) return void signIn();
           let info: EventInfo;
           if (ev.response.status === 404) {
             // Deleted since: its reservation went with it, so it is not listed.
             info = 'missing';
-          } else if (ev.response.ok && ev.data && tiers.response.ok && tiers.data) {
-            info = { event: ev.data, tiers: tiers.data };
+          } else if (ev.response.ok && ev.data) {
+            info = { event: ev.data };
           } else {
             // Any other failure: read again later (review round 1, S2), never taken for a
             // deleted event.
@@ -349,7 +343,6 @@ export function Cart() {
               key={reservationKey(entry.reservation)}
               entry={entry}
               event={info?.event ?? null}
-              tiers={info?.tiers ?? []}
               holderName={holderName}
               nameOk={nameProblem === null}
               waits={waits}
@@ -387,13 +380,14 @@ export function Cart() {
 
 /**
  * Spec 033 FR-013, FR-014, FR-015: one event in the cart: its name, date and time in the venue's
- * zone, ticket type and price, countdown, seats, total, Change seats, and Buy tickets, which buys
- * exactly this reservation's seats as Confirm purchase did (`use-buy.ts`).
+ * zone, countdown, seats, total, Change seats, and Buy tickets, which buys exactly this
+ * reservation's seats as Confirm purchase did (`use-buy.ts`). Spec 038 (FR-022, research R14):
+ * each seat with its level and its price now, as `listMyReservations` gives it, refreshed with
+ * each read, and their sum; the purchase is at the prices when bought.
  */
 function CartEntry({
   entry,
   event,
-  tiers,
   holderName,
   nameOk,
   waits,
@@ -405,7 +399,6 @@ function CartEntry({
   entry: Entry;
   /** `null`: its details could not be read (review round 2, S2); it can still be bought. */
   event: Event | null;
-  tiers: TicketTier[];
   holderName: string;
   nameOk: boolean;
   waits: WaitsApi;
@@ -449,9 +442,6 @@ function CartEntry({
     return () => clearInterval(timer);
   }, [entry.deadline]);
 
-  const tier = r.tierId ? tiers.find((t) => t.id === r.tierId) : undefined;
-  // Without its event's details the price is not known; the order does not need it.
-  const price = !event ? undefined : r.tierId ? tier?.price : event.basePrice;
   const headingId = `cart-${r.eventId}`;
 
   async function buy(): Promise<void> {
@@ -496,15 +486,14 @@ function CartEntry({
       </h2>
       <HoldCountdown secondsLeft={secondsLeft} warning={warning} />
       {event && <p>{when(event.startsAt, event.location.timeZone)}</p>}
-      {price !== undefined && (
-        <p>{tier ? `${tier.name}, ${usd(price)} each` : `${usd(price)} each`}</p>
-      )}
       <ul aria-label="Seats">
         {r.seats.map((s) => (
-          <li key={`${s.sectionId}-${s.row}-${s.seat}`}>{seatLabel(s)}</li>
+          <li key={`${s.sectionId}-${s.row}-${s.seat}`}>
+            {seatWithPrice(s, s.levelName, s.price)}
+          </li>
         ))}
       </ul>
-      {price !== undefined && <p>{`Total: ${totalUsd(price, r.seats.length)}`}</p>}
+      <p>{`Total: ${sumUsd(r.seats.map((s) => s.price))}`}</p>
       {notice && (
         <p role="alert" className="banner banner--error">
           {notice}

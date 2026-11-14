@@ -356,16 +356,12 @@ describe('Editing a venue address', () => {
   it('sends a laid-out verified venue its name only, never capacity or address (024 R3)', async () => {
     const api = stubApi({
       [`GET ${PATH}`]: json(verified),
-      [`GET ${PATH}/layout`]: json({
-        locationId: ID,
-        totalSeats: 20,
-        sections: [{ id: 's', name: 'A', rows: 2, seatsPerRow: 10 }],
-      }),
+      [`GET ${PATH}/layouts`]: json([{ id: 'l', seatCount: 20 }]),
       [`PATCH ${PATH}`]: json(verified),
       'GET /locations': json([verified]),
     });
     renderAt(`${PATH}/edit`);
-    await screen.findByText(/set by its seating layout/);
+    await screen.findByText('From the largest layout (20 seats)');
     await waitFor(() => expect(field('Street address').value).toBe('430 W VINE ST'));
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await waitFor(() => expect(writes(api)).toHaveLength(1));
@@ -391,7 +387,7 @@ describe('Seated venue in one step', () => {
   it('saves the layout of a venue whose address is not verified (008 FR-017)', async () => {
     const api = stubApi({
       'POST /locations': json(notVerified, 201),
-      [`PUT ${PATH}/layout`]: json({ locationId: ID, totalSeats: 20, sections: [] }),
+      [`POST ${PATH}/layouts`]: json({ id: 'l-standard' }, 201),
       'GET /locations': json([notVerified]),
     });
     renderAt('/locations/new');
@@ -401,7 +397,7 @@ describe('Seated venue in one step', () => {
     await screen.findByText(NOT_VERIFIED_NOTICE);
     expect(writes(api).map((c) => `${c.method} ${c.path}`)).toEqual([
       'POST /locations',
-      `PUT ${PATH}/layout`,
+      `POST ${PATH}/layouts`,
     ]);
     expect(writes(api)[0].body).toMatchObject({ acceptUnverifiedAddress: true });
   });
@@ -411,7 +407,7 @@ describe('Seated venue whose layout is refused (spec 024 review round 1, minor 4
   it('says the address is not verified beside "Seating layout not saved"', async () => {
     stubApi({
       'POST /locations': json(notVerified, 201),
-      [`PUT ${PATH}/layout`]: json(
+      [`POST ${PATH}/layouts`]: json(
         { error: { code: 'VALIDATION_FAILED', message: 'section names must be unique' } },
         400,
       ),
@@ -431,7 +427,7 @@ describe('Seated venue whose layout is refused (spec 024 review round 1, minor 4
   it('says nothing about the address when it is verified', async () => {
     stubApi({
       'POST /locations': json(verified, 201),
-      [`PUT ${PATH}/layout`]: json(
+      [`POST ${PATH}/layouts`]: json(
         { error: { code: 'VALIDATION_FAILED', message: 'section names must be unique' } },
         400,
       ),

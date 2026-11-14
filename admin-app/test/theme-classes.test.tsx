@@ -78,7 +78,6 @@ it("the New event form's ticket-type line keeps exactly the form__row class", as
   };
   stubApi({
     'GET /locations': json([plain]),
-    'GET /locations/v-plain/layout': json({ locationId: 'v-plain', totalSeats: 0, sections: [] }),
   });
   renderAt('/events/new');
   await screen.findByRole('option', { name: /Plain Hall/ });

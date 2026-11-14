@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import type { Reservation } from '@queuepass/shared';
+import type { MyReservation as Reservation } from '@queuepass/shared/web';
 import {
   event,
   fakeClock,
@@ -10,7 +10,6 @@ import {
   order,
   renderCustomer,
   stubApi,
-  tier,
   typeHolderName,
 } from './helpers';
 
@@ -20,7 +19,9 @@ fixTimeBeforeFixtures();
 /**
  * Spec 033 (FR-012 to FR-015, FR-017; research R8, R9): the Cart page lists the customer's active
  * reservations, each bought on its own with Buy tickets before its countdown ends; it reads them
- * again about every second while visible, and opens no seat stream.
+ * again about every second while visible, and opens no seat stream. Spec 038 (FR-022, research
+ * R14): each seat with its level and its price now, from `listMyReservations`, and their sum; no
+ * ticket types.
  */
 let visibility: DocumentVisibilityState = 'visible';
 Object.defineProperty(document, 'visibilityState', {
@@ -34,8 +35,6 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const vip = tier({ id: 't-vip', eventId: 'e1', name: 'VIP', price: '120.00' });
-
 const concert = event({ id: 'e1', name: 'Early Show', reservedSeating: true });
 const play = event({
   id: 'e2',
@@ -45,14 +44,32 @@ const play = event({
   startsAt: '2026-12-03T01:00:00.000Z',
 });
 
+/**
+ * Spec 038: each seat with its labels, level and price now. Early Show's seat 5 is Courtside at
+ * $95, its others Lower sideline at $60; every other event's seats are Standard at $30.
+ */
+const level = (eventId: string, seat: number) =>
+  eventId !== 'e1'
+    ? { levelName: 'Standard', price: '30.00' }
+    : seat === 5
+      ? { levelName: 'Courtside', price: '95.00' }
+      : { levelName: 'Lower sideline', price: '60.00' };
 const reservation = (
   eventId: string,
   seats: number[],
   over: Partial<Reservation> = {},
 ): Reservation => ({
   eventId,
-  tierId: eventId === 'e1' ? 't-vip' : null,
-  seats: seats.map((seat) => ({ sectionId: 's-a', section: 'A', row: 1, seat })),
+  tierId: null,
+  seats: seats.map((seat) => ({
+    sectionId: 's-a',
+    section: 'A',
+    row: 1,
+    seat,
+    rowLabel: '1',
+    seatLabel: String(seat),
+    ...level(eventId, seat),
+  })),
   createdAt: '2026-10-20T19:00:00.000Z',
   expiresAt: '2026-10-20T19:05:00.000Z',
   secondsLeft: 300,
@@ -62,9 +79,7 @@ const reservation = (
 type Reply = Response | (() => Response | Promise<Response>) | 'network-error';
 const routes = (extra: Record<string, Reply> = {}): Record<string, Reply> => ({
   'GET /events/e1': json(concert),
-  'GET /events/e1/tiers': json([vip]),
   'GET /events/e2': json(play),
-  'GET /events/e2/tiers': json([]),
   'GET /me/orders': json([]),
   ...extra,
 });
@@ -73,27 +88,32 @@ const entry = (name: string) => screen.findByRole('region', { name });
 const reads = (calls: { method: string; path: string }[]) =>
   calls.filter((c) => c.method === 'GET' && c.path === '/me/reservations').length;
 const advance = (ms: number) => act(async () => vi.advanceTimersByTimeAsync(ms));
+// Spec 038: seats of two levels, each ticket at its own price, so no single price each.
 const placed = order({
   eventId: 'e1',
-  tierId: 't-vip',
-  tierName: 'VIP',
+  tierId: null,
+  tierName: null,
   quantity: 2,
-  unitPrice: '120.00',
-  totalPrice: '240.00',
+  unitPrice: null,
+  totalPrice: '155.00',
   tickets: [
     {
       id: 'k1',
       code: 'AAAA2222BBBB',
       status: 'VALID',
       checkedInAt: null,
-      seat: { section: 'A', row: 1, seat: 5 },
+      seat: { section: 'A', row: 1, seat: 5, rowLabel: '1', seatLabel: '5' },
+      price: '95.00',
+      levelName: 'Courtside',
     },
     {
       id: 'k2',
       code: 'CCCC3333DDDD',
       status: 'VALID',
       checkedInAt: null,
-      seat: { section: 'A', row: 1, seat: 6 },
+      seat: { section: 'A', row: 1, seat: 6, rowLabel: '1', seatLabel: '6' },
+      price: '60.00',
+      levelName: 'Lower sideline',
     },
   ],
 });
@@ -111,7 +131,7 @@ describe('the cart (FR-012, FR-013)', () => {
     expect(screen.queryByRole('textbox', { name: 'Name on tickets' })).toBeNull();
   });
 
-  it('lists each reservation, newest first, with its event, time, type, price, seats, countdown, and total', async () => {
+  it('lists each reservation, newest first, with its event, time, seats with level and price, countdown, and total', async () => {
     stubApi(
       routes({
         'GET /me/reservations': json([
@@ -131,24 +151,30 @@ describe('the cart (FR-012, FR-013)', () => {
       '/events/e1',
     );
     expect(second).toHaveTextContent('Dec 1, 2026, 6:00 PM EST');
-    expect(second).toHaveTextContent('VIP, $120.00 each');
+    // Spec 038: no ticket type; each seat with its own level and price.
+    expect(second).not.toHaveTextContent(/each/);
     expect(
       within(within(second).getByRole('list', { name: 'Seats' }))
         .getAllByRole('listitem')
         .map((li) => li.textContent),
-    ).toEqual(['Section A, Row 1, Seat 5', 'Section A, Row 1, Seat 6']);
+    ).toEqual([
+      'Section A, Row 1, Seat 5, Courtside, $95.00',
+      'Section A, Row 1, Seat 6, Lower sideline, $60.00',
+    ]);
     const timer = within(second).getByRole('timer');
     expect(timer).toHaveClass('hold-countdown');
     expect(timer).toHaveTextContent('2:00');
-    expect(second).toHaveTextContent('Total: $240.00');
+    expect(second).toHaveTextContent('Total: $155.00');
     expect(within(second).getByRole('link', { name: 'Change seats' })).toHaveAttribute(
       'href',
       '/events/e1',
     );
     expect(within(second).getByRole('button', { name: 'Buy tickets' })).toBeInTheDocument();
 
-    // An event without tiers: the base price.
-    expect(first).toHaveTextContent('$30.00 each');
+    // Another event's seat, at its own level's price.
+    expect(within(first).getByRole('list', { name: 'Seats' })).toHaveTextContent(
+      'Section A, Row 1, Seat 3, Standard, $30.00',
+    );
     expect(within(first).getByRole('timer')).toHaveTextContent('3:20');
     expect(first).toHaveTextContent('Total: $30.00');
     // One name field for the whole cart.
@@ -192,8 +218,8 @@ describe('buying (FR-014; US1-4)', () => {
     const done = await screen.findByRole('region', { name: 'Order confirmed' });
     const posts = calls.filter((c) => c.path === '/events/e1/orders');
     expect(posts).toHaveLength(1);
+    // Spec 038: no tierId on a seated order.
     expect(posts[0].body).toEqual({
-      tierId: 't-vip',
       holderName: 'Jordan Lee',
       quantity: 2,
       requestId: expect.any(String),
@@ -206,7 +232,13 @@ describe('buying (FR-014; US1-4)', () => {
       within(within(done).getByRole('list', { name: 'Ticket codes' }))
         .getAllByRole('listitem')
         .map((li) => li.textContent),
-    ).toEqual(['AAAA2222BBBB, Section A, Row 1, Seat 5', 'CCCC3333DDDD, Section A, Row 1, Seat 6']);
+    ).toEqual([
+      'AAAA2222BBBB, Section A, Row 1, Seat 5, Courtside, $95.00',
+      'CCCC3333DDDD, Section A, Row 1, Seat 6, Lower sideline, $60.00',
+    ]);
+    // The prices differ: the confirmation gives no single price each.
+    expect(within(done).queryByText('Price each')).toBeNull();
+    expect(within(done).getByText('$155.00')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Early Show' })).toBeNull();
   });
 
@@ -250,7 +282,7 @@ describe('buying (FR-014; US1-4)', () => {
     expect(within(done).queryByText(/already started/)).toBeNull();
   });
 
-  it('omits the tier for an event without tiers', async () => {
+  it('buys another event’s reservation with no tierId (spec 038: seated events have no ticket types)', async () => {
     const { calls } = stubApi(
       routes({
         'GET /me/reservations': json([reservation('e2', [3])]),
@@ -464,7 +496,9 @@ describe('live (FR-017; research R8)', () => {
                   code: 'AAAA2222BBBB',
                   status: 'VALID',
                   checkedInAt: null,
-                  seat: { section: 'A', row: 1, seat: 5 },
+                  seat: { section: 'A', row: 1, seat: 5, rowLabel: '1', seatLabel: '5' },
+                  price: '95.00',
+                  levelName: 'Courtside',
                 },
               ],
             }),
@@ -583,7 +617,12 @@ describe('live (FR-017; research R8)', () => {
       within(within(box).getByRole('list', { name: 'Seats' }))
         .getAllByRole('listitem')
         .map((li) => li.textContent),
-    ).toEqual(['Section A, Row 1, Seat 5', 'Section A, Row 1, Seat 6']);
+    ).toEqual([
+      'Section A, Row 1, Seat 5, Courtside, $95.00',
+      'Section A, Row 1, Seat 6, Lower sideline, $60.00',
+    ]);
+    // The seats' prices come with the reservation, not the event: the total is still shown.
+    expect(box).toHaveTextContent('Total: $155.00');
     expect(within(box).getByRole('timer')).toHaveTextContent(/3:1\d/);
     expect(screen.queryByText(/Your cart is empty/)).toBeNull();
 
@@ -593,7 +632,6 @@ describe('live (FR-017; research R8)', () => {
     // Review round 3 (N5): the event is "this event", not "Details unavailable".
     expect(within(done).getByText('this event')).toBeInTheDocument();
     expect(calls.find((c) => c.path === '/events/e1/orders')?.body).toEqual({
-      tierId: 't-vip',
       holderName: 'Jordan Lee',
       quantity: 2,
       requestId: expect.any(String),
@@ -718,12 +756,11 @@ describe('live (FR-017; research R8)', () => {
     );
   });
 
-  it('opens no seat stream, with 4 events, each read once; Buy tickets on the fourth sends at once', async () => {
+  it('opens no seat stream, with 4 events, each read once and their ticket types never; Buy tickets on the fourth sends at once', async () => {
     const ids = ['e1', 'e2', 'e3', 'e4'];
     const extra: Record<string, Reply> = {};
     for (const id of ['e3', 'e4']) {
       extra[`GET /events/${id}`] = json(event({ id, name: `Show ${id}`, reservedSeating: true }));
-      extra[`GET /events/${id}/tiers`] = json([]);
       extra[`POST /events/${id}/orders`] = json(order({ eventId: id }), 201);
     }
     const EventSourceSpy = vi.fn();
@@ -749,7 +786,9 @@ describe('live (FR-017; research R8)', () => {
     expect(calls.filter((c) => c.path.endsWith('/seats/stream'))).toHaveLength(0);
     for (const id of ids) {
       expect(calls.filter((c) => c.path === `/events/${id}`)).toHaveLength(1);
-      expect(calls.filter((c) => c.path === `/events/${id}/tiers`)).toHaveLength(1);
+      // Spec 038 (research R14): each seat's price comes with the reservation.
+      expect(calls.filter((c) => c.path === `/events/${id}/tiers`)).toHaveLength(0);
+      expect(calls.filter((c) => c.path.startsWith(`/events/${id}/venue-map`))).toHaveLength(0);
     }
   });
 

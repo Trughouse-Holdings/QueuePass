@@ -3,7 +3,7 @@ import type { MyOrder, Ticket } from '@queuepass/shared';
 import { ServiceUnreachable } from '@queuepass/shared/web';
 import { calendarEligible } from '../calendar';
 import { AddToCalendar } from '../components/AddToCalendar';
-import { doorsOpen, hasEnded, seatLabel, usd, when } from '../format';
+import { doorsOpen, hasEnded, seatWithPrice, usd, when } from '../format';
 import { useLoad } from '../use-load';
 
 /** The orders, and when they arrived: spec 019 FR-002 decides eligibility at that moment. */
@@ -123,7 +123,8 @@ function OrderCard({
       <ul aria-label="Tickets" className="ticket-list">
         {o.tickets.map((t) => (
           <li key={t.id}>
-            {`${t.seat ? `${t.code}, ${seatLabel(t.seat)}` : t.code}: ${ticketState(t, o.event.location.timeZone, removed)}`}
+            {/* Spec 038 FR-026: a seat by its labels as sold, with its level and price. */}
+            {`${t.seat ? `${t.code}, ${seatWithPrice(t.seat, t.levelName, t.price)}` : t.code}: ${ticketState(t, o.event.location.timeZone, removed)}`}
             {/* Spec 017 FR-012 and spec 018 FR-001: for each valid, unused ticket, a printable
                 view and its live entry code. */}
             {t.status === 'VALID' && t.checkedInAt === null && !removed && (

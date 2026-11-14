@@ -1,8 +1,8 @@
 import { Transform, Type } from 'class-transformer';
+import { LAYOUT_LIMITS } from '@queuepass/shared';
 import {
   ArrayMaxSize,
   IsArray,
-  IsBoolean,
   IsInt,
   IsISO8601,
   IsOptional,
@@ -16,6 +16,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { OFFSET_DATE_TIME, needsOffset } from '../event-time';
+import { LevelPriceDto, OffSaleSelectorDto } from './event-seating.dto';
 import { EventTierDto } from './event-tier.dto';
 
 const trim = ({ value }: { value: unknown }): unknown =>
@@ -82,14 +83,6 @@ export class UpdateEventDto {
   basePrice?: string;
 
   /**
-   * Spec 035 (research R8): optional, left out is `false` when `tiers` is sent; never `null`.
-   * Without `tiers` and this field, ticket types and seating are not changed.
-   */
-  @ValidateIf((o: UpdateEventDto) => o.reservedSeating !== undefined)
-  @IsBoolean({ message: 'reservedSeating must be true or false' })
-  reservedSeating?: boolean;
-
-  /**
    * Spec 035 (research R8): optional, the complete new set, at most 50; never `null`. Saved with
    * the event in one transaction, all or nothing.
    */
@@ -102,4 +95,39 @@ export class UpdateEventDto {
   })
   @Type(() => EventTierDto)
   tiers?: EventTierDto[];
+
+  /**
+   * Spec 038 (research R8): one of the venue's layouts for reserved seating; `null` or left out,
+   * general admission (on an update, `null` makes the event general admission; left out, unchanged).
+   */
+  @ValidateIf((o: UpdateEventDto) => o.layoutId !== undefined && o.layoutId !== null)
+  @IsUUID('all', { message: 'layoutId must be a layout id (UUID), or null for general admission' })
+  layoutId?: string | null;
+
+  /** Spec 038 (FR-011): a price per level with seats on sale; at most 50, never `null`. */
+  @ValidateIf((o: UpdateEventDto) => o.levelPrices !== undefined)
+  @IsArray({ message: 'levelPrices must be a list of level prices' })
+  @ArrayMaxSize(LAYOUT_LIMITS.maxCarriedLevels, {
+    message: `levelPrices may hold at most ${LAYOUT_LIMITS.maxCarriedLevels} prices`,
+  })
+  @ValidateNested({
+    each: true,
+    message:
+      'levelPrices must be a list of level prices, each an object with a levelId and a price',
+  })
+  @Type(() => LevelPriceDto)
+  levelPrices?: LevelPriceDto[];
+
+  /** Spec 038 (FR-013): the seats not sold, by section, row or seat; at most 5,000, never `null`. */
+  @ValidateIf((o: UpdateEventDto) => o.offSale !== undefined)
+  @IsArray({ message: 'offSale must be a list of sections, rows or seats' })
+  @ArrayMaxSize(LAYOUT_LIMITS.maxOffSaleSelectors, {
+    message: `offSale may hold at most ${LAYOUT_LIMITS.maxOffSaleSelectors.toLocaleString('en-US')} entries`,
+  })
+  @ValidateNested({
+    each: true,
+    message: 'offSale must be a list of sections, rows or seats, each an object with a sectionId',
+  })
+  @Type(() => OffSaleSelectorDto)
+  offSale?: OffSaleSelectorDto[];
 }

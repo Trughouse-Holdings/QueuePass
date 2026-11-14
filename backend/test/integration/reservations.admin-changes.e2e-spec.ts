@@ -1,24 +1,37 @@
-import type { SeatStateChange } from '@queuepass/shared';
+import type { SeatMapChange, SeatStateChange } from '@queuepass/shared';
 import type { Subscription } from 'rxjs';
 import { HoldSweeper } from '../../src/reservations/hold-sweeper';
 import { SeatEventsService } from '../../src/seating/seat-events.service';
 import { asAdmin } from '../setup/authed-request';
-import { customer, endEventAt, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
+import {
+  customer,
+  endEventAt,
+  reserveThenOrder,
+  seatedEvent,
+  seatedLayout,
+  venue,
+  type InsertedLayout,
+} from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
-import { subFor, tokenFor } from '../setup/tokens';
+import { tokenFor } from '../setup/tokens';
 
 /**
  * Spec 015 FR-016 (research R11): admin changes and closed sales end reservations, with `CLOSED`
- * and no 2-minute wait, and tell viewers the seats are open. Removing a tier or the event removes
- * its reservations by cascade instead.
+ * and no 2-minute wait, and tell viewers the seats are open. Removing the event removes its
+ * reservations by cascade instead.
+ *
+ * Spec 038 (research R7, R8, R12): an event's seating and its layout are no longer changed under
+ * live holds. Clearing or changing the layout is `409 EVENT_HAS_ORDERS`, taking a held seat off
+ * sale `409 SEAT_TAKEN`, a lines edit of the layout `409 LAYOUT_IN_USE`, a ticket type on a seated
+ * event `400`; each keeps every hold. A price change keeps the holds, publishes no seat and ends
+ * the event's streams. Every published change carries its `seq`, `from` and `levelId`.
  */
-describe('Admin changes end reservations', () => {
+describe('Admin changes and reservations', () => {
   let ctx: TestContext;
   let venueId: string;
-  let sectionA: string;
-  let sectionB: string;
-  let published: SeatStateChange[];
+  let layout: InsertedLayout;
+  let messages: SeatMapChange[];
   let subscription: Subscription | undefined;
 
   beforeAll(async () => {
@@ -31,26 +44,36 @@ describe('Admin changes end reservations', () => {
   beforeEach(async () => {
     await resetDb(ctx.prisma);
     venueId = await venue(ctx, 'Seat Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${venueId}/layout`)
-      .send({
-        sections: [
-          { name: 'A', rows: 3, seatsPerRow: 10 },
-          { name: 'B', rows: 2, seatsPerRow: 10 },
-        ],
-      })
-      .expect(200);
-    [sectionA, sectionB] = layout.body.sections.map((s: { id: string }) => s.id);
-    published = [];
+    layout = await seatedLayout(
+      ctx,
+      venueId,
+      [
+        { name: 'A', rows: 3, seatsPerRow: 10, level: 'VIP' },
+        { name: 'B', rows: 2, seatsPerRow: 10, level: 'General' },
+      ],
+      ['VIP', 'General'],
+    );
+    messages = [];
   });
 
-  const seat = (sectionId: string, row: number, s: number) => ({ sectionId, row, seat: s });
+  const PRICES = [
+    { name: 'VIP', price: '120.00' },
+    { name: 'General', price: '40.00' },
+  ];
+  /** A seated event on the layout: VIP $120 in A, General $40 in B. */
+  const seated = async () => (await seatedEvent(ctx, venueId, { layout, levels: PRICES })).eventId;
+
+  const seat = (section: 'A' | 'B', row: number, s: number) => ({
+    sectionId: layout.sections[section],
+    row,
+    seat: s,
+  });
   const reserve = async (eventId: string, seats: object[], n = 1) =>
     (await customer(ctx, n))
       .post(`/events/${eventId}/reservation`)
       .send({ seats })
       .then((r) => {
-        expect(r.status).toBe(201);
+        expect([200, 201]).toContain(r.status);
         return r;
       });
   /** Records what the bus publishes for the event from now on. */
@@ -60,54 +83,40 @@ describe('Admin changes end reservations', () => {
       .get(SeatEventsService)
       .changes(eventId)
       .subscribe({
-        next: (c) => published.push(...c.changes),
+        next: (c) => messages.push(c),
         complete: () => (completed = true),
       });
     return { completed: () => completed };
   };
+  const published = (): SeatStateChange[] => messages.flatMap((m) => m.changes);
   const opened = () =>
-    published
+    published()
       .filter((c) => c.state === 'open')
       .map(
         (c) =>
-          `${c.sectionId === sectionA ? 'A' : c.sectionId === sectionB ? 'B' : '?'}-${c.row}-${c.seat}`,
+          `${c.sectionId === layout.sections.A ? 'A' : c.sectionId === layout.sections.B ? 'B' : '?'}-${c.row}-${c.seat}`,
       )
       .sort();
   const holds = (eventId: string) =>
-    ctx.prisma.seatHold.findMany({ where: { eventId }, orderBy: [{ seatSection: 'asc' }] });
+    ctx.prisma.seatHold.findMany({
+      where: { eventId },
+      orderBy: [{ seatSection: 'asc' }, { seatRow: 'asc' }, { seatNumber: 'asc' }],
+    });
   const activeReservations = (eventId: string) =>
     ctx.prisma.seatReservation.count({ where: { eventId, endedAt: null } });
+  const seatSeq = async (eventId: string) =>
+    Number((await ctx.prisma.event.findUniqueOrThrow({ where: { id: eventId } })).seatSeq);
 
-  /** A seated event with VIP in A and General in B. */
-  const tiered = async () => {
-    const eventId = await event(ctx, venueId, { capacity: 50 });
-    const vip = await tier(ctx, eventId, 'VIP', '120.00', 30);
-    const general = await tier(ctx, eventId, 'General', '40.00', 20);
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({
-        reservedSeating: true,
-        sections: [
-          { sectionId: sectionA, tierId: vip },
-          { sectionId: sectionB, tierId: general },
-        ],
-      })
-      .expect(200);
-    return { eventId, vip, general };
-  };
-
-  it('cancelEvent ends the holds CLOSED and publishes held and voided seats as open', async () => {
-    const { eventId, vip } = await tiered();
+  it('cancelEvent ends the holds CLOSED and publishes held and voided seats as open, in one seq', async () => {
+    const eventId = await seated();
     await reserveThenOrder(
       ctx,
       await tokenFor({ username: 'customer2', roles: ['customer'] }),
       eventId,
-      {
-        tierId: vip,
-        seats: [seat(sectionA, 3, 3)],
-      },
+      { seats: [seat('A', 3, 3)] },
     ).then((r) => expect(r.status).toBe(201));
-    await reserve(eventId, [seat(sectionA, 1, 1), seat(sectionA, 1, 2)]);
+    await reserve(eventId, [seat('A', 1, 1), seat('A', 1, 2)]);
+    const before = await seatSeq(eventId);
     listen(eventId);
 
     await asAdmin(ctx).post(`/events/${eventId}/cancel`).expect(200);
@@ -116,120 +125,132 @@ describe('Admin changes end reservations', () => {
     expect(live.map((h) => h.endReason)).toEqual(['CLOSED', 'CLOSED']);
     expect(await activeReservations(eventId)).toBe(0);
     expect(opened()).toEqual(['A-1-1', 'A-1-2', 'A-3-3']);
+    expect(messages.map((m) => m.seq)).toEqual([before + 1]);
+    const vip = layout.levels.VIP;
+    expect(published()).toEqual(
+      expect.arrayContaining([
+        { ...seat('A', 1, 1), state: 'open', from: 'reserved', levelId: vip },
+        { ...seat('A', 3, 3), state: 'open', from: 'sold', levelId: vip },
+      ]),
+    );
   });
 
-  it('updateSeating turning reserved seating off ends every hold, without the 2-minute wait', async () => {
-    const eventId = await event(ctx, venueId, { capacity: 50 });
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
-    await reserve(eventId, [seat(sectionA, 1, 1)]);
+  it('refuses to clear or change the layout while seats are held (409 EVENT_HAS_ORDERS), keeping the holds', async () => {
+    const eventId = await seated();
+    await reserve(eventId, [seat('A', 1, 1)]);
+    const other = await seatedLayout(ctx, venueId, [{ name: 'Club', rows: 1, seatsPerRow: 4 }]);
+    const stream = listen(eventId);
+
+    const cleared = await asAdmin(ctx).patch(`/events/${eventId}`).send({ layoutId: null });
+    const moved = await asAdmin(ctx)
+      .patch(`/events/${eventId}`)
+      .send({
+        layoutId: other.id,
+        levelPrices: [{ levelId: other.levels.Standard, price: '10.00' }],
+      });
+
+    for (const res of [cleared, moved]) {
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('EVENT_HAS_ORDERS');
+    }
+    expect((await holds(eventId)).map((h) => h.endReason)).toEqual([null]);
+    expect(published()).toEqual([]);
+    expect(stream.completed()).toBe(false);
+  });
+
+  it('refuses to take a held seat off sale, by seat, row or section (409 SEAT_TAKEN), keeping the hold', async () => {
+    const eventId = await seated();
+    await reserve(eventId, [seat('B', 1, 1)], 2);
+    listen(eventId);
+
+    for (const offSale of [
+      [seat('B', 1, 1)],
+      [{ sectionId: layout.sections.B, row: 1 }],
+      [{ sectionId: layout.sections.B }],
+    ]) {
+      const res = await asAdmin(ctx).patch(`/events/${eventId}`).send({ offSale });
+      expect(res.status).toBe(409);
+      expect(res.body.error.code).toBe('SEAT_TAKEN');
+    }
+    expect((await holds(eventId)).map((h) => [h.seatSection, h.endReason])).toEqual([['B', null]]);
+    expect(published()).toEqual([]);
+  });
+
+  it('keeps every hold through a price change, publishing no seat and ending the streams', async () => {
+    const eventId = await seated();
+    await reserve(eventId, [seat('A', 1, 1)], 1);
+    await reserve(eventId, [seat('B', 1, 1)], 2);
     const stream = listen(eventId);
 
     await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: false, sections: [] })
-      .expect(200);
-
-    expect((await holds(eventId)).map((h) => h.endReason)).toEqual(['CLOSED']);
-    expect(opened()).toEqual(['A-1-1']);
-    // Review T047: the map's shape changed, so viewers reconnect for a fresh snapshot.
-    expect(stream.completed()).toBe(true);
-
-    // Back on: the same customer may reserve the seat at once (no wait after CLOSED).
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
-    await reserve(eventId, [seat(sectionA, 1, 1)]);
-  });
-
-  it("updateSeating moving one section to another tier ends only that section's holds", async () => {
-    const { eventId, vip, general } = await tiered();
-    await reserve(eventId, [seat(sectionA, 1, 1)], 1);
-    await reserve(eventId, [seat(sectionB, 1, 1)], 2);
-    listen(eventId);
-
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
+      .patch(`/events/${eventId}`)
       .send({
-        reservedSeating: true,
-        sections: [
-          { sectionId: sectionA, tierId: vip },
-          { sectionId: sectionB, tierId: vip },
+        levelPrices: [
+          { levelId: layout.levels.VIP, price: '150.00' },
+          { levelId: layout.levels.General, price: '40.00' },
         ],
       })
       .expect(200);
 
-    const after = await holds(eventId);
-    expect(after.map((h) => [h.seatSection, h.endReason])).toEqual([
+    expect((await holds(eventId)).map((h) => [h.seatSection, h.endReason])).toEqual([
       ['A', null],
-      ['B', 'CLOSED'],
+      ['B', null],
     ]);
-    expect(opened()).toEqual(['B-1-1']);
-    expect(general).toBeDefined();
-    // Customer 2 may reserve B-1-1 again at once, now as VIP.
-    const again = await reserve(eventId, [seat(sectionB, 1, 1)], 2);
-    expect(again.body.tierId).toBe(vip);
+    expect(published()).toEqual([]);
+    // Research R12: the map's prices changed, so viewers reconnect and read it again.
+    expect(stream.completed()).toBe(true);
+    const mine = await (await customer(ctx, 1)).get('/me/reservations').expect(200);
+    expect(mine.body[0].seats[0]).toMatchObject({ levelName: 'VIP', price: '150.00' });
   });
 
-  it("replaceLayout ends every hold at the venue's events", async () => {
-    const first = await event(ctx, venueId, { capacity: 50 });
-    const second = await event(ctx, venueId, { capacity: 50 });
-    for (const id of [first, second]) {
-      await asAdmin(ctx)
-        .put(`/events/${id}/seating`)
-        .send({ reservedSeating: true, sections: [] })
-        .expect(200);
-    }
-    await reserve(first, [seat(sectionA, 1, 1)]);
-    await reserve(second, [seat(sectionB, 2, 2)]);
+  it("refuses a lines edit of the layout while an event's seat is held (409 LAYOUT_IN_USE), keeping the holds", async () => {
+    const first = await seated();
+    const second = await seated();
+    await reserve(first, [seat('A', 1, 1)]);
+    await reserve(second, [seat('B', 2, 2)]);
     const stream = listen(first);
 
-    await asAdmin(ctx)
-      .put(`/locations/${venueId}/layout`)
-      .send({ sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }] })
-      .expect(200);
+    const res = await asAdmin(ctx)
+      .put(`/layouts/${layout.id}`)
+      .send({
+        levels: [{ name: 'VIP', color: 'violet' }],
+        sections: [{ name: 'A', rows: 3, seatsPerRow: 10, level: 'VIP' }],
+      });
 
-    expect((await holds(first)).map((h) => h.endReason)).toEqual(['CLOSED']);
-    expect((await holds(second)).map((h) => h.endReason)).toEqual(['CLOSED']);
-    // Published by the old layout's section ids, the ones viewers have; then the streams end, so
-    // viewers reconnect to the new layout (review T047).
-    expect(opened()).toEqual(['A-1-1']);
-    expect(stream.completed()).toBe(true);
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('LAYOUT_IN_USE');
+    expect((await holds(first)).map((h) => h.endReason)).toEqual([null]);
+    expect((await holds(second)).map((h) => h.endReason)).toEqual([null]);
+    expect(published()).toEqual([]);
+    expect(stream.completed()).toBe(false);
   });
 
-  it('createTicketTier adding the first tier ends tierless reservations', async () => {
-    const eventId = await event(ctx, venueId, { capacity: 50 });
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
-    await reserve(eventId, [seat(sectionA, 2, 2)]);
+  it('refuses a ticket type on a seated event (400), keeping the holds', async () => {
+    const eventId = await seated();
+    await reserve(eventId, [seat('A', 2, 2)]);
     listen(eventId);
 
-    // A seated event's tier takes no quantity: it follows its sections (spec 007 FR-006).
     await asAdmin(ctx)
       .post(`/events/${eventId}/tiers`)
-      .send({ name: 'VIP', price: '120.00' })
-      .expect(201);
+      .send({ name: 'VIP', price: '120.00', quantity: 10 })
+      .expect(400);
 
-    expect((await holds(eventId)).map((h) => h.endReason)).toEqual(['CLOSED']);
-    expect(await activeReservations(eventId)).toBe(0);
-    expect(opened()).toEqual(['A-2-2']);
+    expect((await holds(eventId)).map((h) => h.endReason)).toEqual([null]);
+    expect(await activeReservations(eventId)).toBe(1);
+    expect(published()).toEqual([]);
   });
 
   // Spec 034 FR-004, SC-003 (research R3): the sweep leaves a started event's holds alone and
   // ends them at its end, without shortening expiresAt.
   it('the sweep keeps the holds of an event that has started but not ended', async () => {
-    const { eventId } = await tiered();
-    await reserve(eventId, [seat(sectionA, 1, 4)]);
+    const eventId = await seated();
+    await reserve(eventId, [seat('A', 1, 4)]);
     await ctx.prisma.$executeRaw`
       UPDATE "Event"
       SET "doorsOpenAt" = "doorsOpenAt" + (now() - interval '1 minute' - "startsAt"),
           "startsAt" = now() - interval '1 minute'
       WHERE "id" = ${eventId}::uuid`;
+    const before = await seatSeq(eventId);
     listen(eventId);
 
     await ctx.app.get(HoldSweeper).sweepOnce();
@@ -237,13 +258,15 @@ describe('Admin changes end reservations', () => {
     expect(await activeReservations(eventId)).toBe(1);
     expect((await holds(eventId)).map((h) => h.endReason)).toEqual([null]);
     expect(opened()).toEqual([]);
+    expect(await seatSeq(eventId)).toBe(before);
   });
 
   it('the sweep ends every hold once the event has ended', async () => {
-    const { eventId } = await tiered();
-    const made = await reserve(eventId, [seat(sectionA, 1, 4)]);
+    const eventId = await seated();
+    const made = await reserve(eventId, [seat('A', 1, 4)]);
     // Past its end by a minute: the sweep reads the database's clock (research R1).
     await endEventAt(ctx, eventId, new Date(Date.now() - 60_000));
+    const before = await seatSeq(eventId);
     listen(eventId);
 
     await ctx.app.get(HoldSweeper).sweepOnce();
@@ -253,31 +276,12 @@ describe('Admin changes end reservations', () => {
     expect(reservation.endedAt).not.toBeNull();
     expect(reservation.expiresAt.getTime()).toBe(Date.parse(made.body.expiresAt));
     expect(opened()).toEqual(['A-1-4']);
-  });
-
-  it("deleteTicketTier removes the tier's reservations and publishes their seats as open", async () => {
-    const { eventId, general } = await tiered();
-    await reserve(eventId, [seat(sectionB, 1, 1), seat(sectionB, 1, 2)]);
-    await reserve(eventId, [seat(sectionA, 1, 1)], 2);
-    listen(eventId);
-
-    await asAdmin(ctx).delete(`/events/${eventId}/tiers/${general}`).expect(204);
-
-    const left = await holds(eventId);
-    expect(left.map((h) => h.seatSection)).toEqual(['A']);
-    expect(
-      await ctx.prisma.seatReservation.count({ where: { customerSub: subFor('customer1') } }),
-    ).toBe(0);
-    expect(opened()).toEqual(['B-1-1', 'B-1-2']);
+    expect(messages.map((m) => m.seq)).toEqual([before + 1]);
   });
 
   it('deleteEvent removes its reservations and completes its streams', async () => {
-    const eventId = await event(ctx, venueId, { capacity: 50 });
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
-    await reserve(eventId, [seat(sectionA, 1, 1)]);
+    const eventId = await seated();
+    await reserve(eventId, [seat('A', 1, 1)]);
     const stream = listen(eventId);
 
     await asAdmin(ctx).delete(`/events/${eventId}`).expect(204);

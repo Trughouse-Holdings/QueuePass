@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import type { Event } from '@queuepass/shared';
 import { ImageGallery } from '@queuepass/shared/web';
-import { doorsOpen, usd, when } from '../format';
+import { doorsOpen, eventPrice, when } from '../format';
 
 /**
  * Spec 008 FR-005 (research R3): one event as a card, built only from what the event list already
@@ -46,7 +46,8 @@ export function EventCard({ event: e }: { event: Event }) {
           </Link>
         </dd>
         <dt>Price</dt>
-        <dd className="price">{usd(e.basePrice)}</dd>
+        {/* Spec 038 FR-024: a seated event's price range, "$35–$95". */}
+        <dd className="price">{eventPrice(e)}</dd>
       </dl>
     </article>
   );

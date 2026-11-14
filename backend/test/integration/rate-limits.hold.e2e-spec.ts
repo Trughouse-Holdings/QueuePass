@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { rateLimitMessage } from '@queuepass/shared';
 import { SeatEventsService } from '../../src/seating/seat-events.service';
-import { as, asAdmin } from '../setup/authed-request';
-import { HOLDER, event, venue } from '../setup/fixtures';
+import { as } from '../setup/authed-request';
+import { HOLDER, event, seatedEvent, venue } from '../setup/fixtures';
 import { resetDb } from '../setup/reset-db';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { tokenFor } from '../setup/tokens';
@@ -30,16 +30,12 @@ describe('Seat-hold attempts over the allowance', () => {
   beforeEach(async () => {
     await resetDb(ctx.prisma);
     const venueId = await venue(ctx, 'Seat Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${venueId}/layout`)
-      .send({ sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }] })
-      .expect(200);
-    sectionId = layout.body.sections[0].id;
-    eventId = await event(ctx, venueId, { capacity: 30 });
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
+    // Spec 038: a seated event on a layout made from section lines, one level at 45.00.
+    const seated = await seatedEvent(ctx, venueId, {
+      sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }],
+    });
+    eventId = seated.eventId;
+    sectionId = seated.layout.sections.A;
     gaEventId = await event(ctx, await venue(ctx, 'Open Hall'), { capacity: 100 });
   });
   afterEach(() => jest.restoreAllMocks());

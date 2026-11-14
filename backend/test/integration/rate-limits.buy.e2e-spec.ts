@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { rateLimitMessage } from '@queuepass/shared';
 import { OrdersService } from '../../src/orders/orders.service';
-import { anon, as, asAdmin } from '../setup/authed-request';
-import { HOLDER, event, venue } from '../setup/fixtures';
+import { anon, as } from '../setup/authed-request';
+import { HOLDER, event, seatedEvent, venue } from '../setup/fixtures';
 import { resetDb } from '../setup/reset-db';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { subFor, tokenFor } from '../setup/tokens';
@@ -171,16 +171,11 @@ describe('Buy attempts over the allowance', () => {
 
   it("leaves the account's held seats and their end time unchanged (FR-007, SC-002)", async () => {
     const hall = await venue(ctx, 'Seat Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${hall}/layout`)
-      .send({ sections: [{ name: 'A', rows: 1, seatsPerRow: 10 }] })
-      .expect(200);
-    const sectionId = layout.body.sections[0].id as string;
-    const seated = await event(ctx, hall, { capacity: 10 });
-    await asAdmin(ctx)
-      .put(`/events/${seated}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
+    // Spec 038: a seated event on a layout made from section lines, one level at 45.00.
+    const { eventId: seated, layout } = await seatedEvent(ctx, hall, {
+      sections: [{ name: 'A', rows: 1, seatsPerRow: 10 }],
+    });
+    const sectionId = layout.sections.A;
     const token = await customerToken('held');
     const client = as(ctx, token);
     const seats = [1, 2].map((seat) => ({ sectionId, row: 1, seat }));

@@ -1,23 +1,20 @@
-import { BadRequestException, HttpException } from '@nestjs/common';
+import { HttpException } from '@nestjs/common';
 import {
   assertNoTierIdsOnCreate,
   eventCapacity,
   planEventSetup,
   planEventUpdate,
-  seatingCapacity,
   type SetupInput,
   type UpdateSetupInput,
 } from '../../src/events/event-setup';
 
-/** Spec 031 research R4 steps 2, 4, 5 and R9: the planner, pure, every branch. */
+/**
+ * Spec 031 research R4 steps 4, 5 and R9: the planner, pure, every branch. Spec 038 (T009a): `007`'s
+ * section-to-type mapping is retired with contract 2.0.0; its cases went, and T020 tests an
+ * event's layout, level prices and off-sale seats.
+ */
 describe('planEventSetup (031)', () => {
-  const venue = { name: 'Seated Hall', seatingCapacity: 60 };
   const plain = { name: 'Plain Hall', seatingCapacity: 500 };
-  const sections = [
-    { id: 'front', name: 'front', rows: 1, seatsPerRow: 10 },
-    { id: 'middle', name: 'middle', rows: 2, seatsPerRow: 10 },
-    { id: 'back', name: 'back', rows: 3, seatsPerRow: 10 },
-  ];
   const input = (over: Partial<SetupInput> = {}): SetupInput => ({
     name: 'Season Opener',
     ...over,
@@ -42,51 +39,8 @@ describe('planEventSetup (031)', () => {
 
   describe('without the new fields', () => {
     it('never throws and plans nothing', () => {
-      expect(planEventSetup(input(), plain, [])).toEqual({
-        reservedSeating: false,
-        capacityFromLayout: null,
-        tiers: [],
-      });
-      expect(planEventSetup(input({ tiers: [], reservedSeating: false }), plain, [])).toEqual({
-        reservedSeating: false,
-        capacityFromLayout: null,
-        tiers: [],
-      });
-      expect(seatingCapacity(input(), plain, [])).toBeNull();
-    });
-  });
-
-  describe('step 2, seating', () => {
-    it('refuses reserved seating without a layout, naming the venue', () => {
-      expect(messages(() => seatingCapacity(input({ reservedSeating: true }), plain, []))).toEqual([
-        'reservedSeating needs a seating layout; Plain Hall has none',
-      ]);
-      expect(() => planEventSetup(input({ reservedSeating: true }), plain, [])).toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('refuses a typed capacity with reserved seating', () => {
-      expect(
-        messages(() =>
-          seatingCapacity(
-            input({ reservedSeating: true, totalTicketCapacity: 60 }),
-            venue,
-            sections,
-          ),
-        ),
-      ).toEqual([
-        "totalTicketCapacity is set by the venue's seating layout while reserved seating is on",
-      ]);
-    });
-
-    it("takes the capacity from the layout's total", () => {
-      expect(seatingCapacity(input({ reservedSeating: true }), venue, sections)).toBe(60);
-      expect(planEventSetup(input({ reservedSeating: true }), venue, sections)).toEqual({
-        reservedSeating: true,
-        capacityFromLayout: 60,
-        tiers: [],
-      });
+      expect(planEventSetup(input(), plain)).toEqual({ tiers: [] });
+      expect(planEventSetup(input({ tiers: [] }), plain)).toEqual({ tiers: [] });
     });
   });
 
@@ -102,7 +56,6 @@ describe('planEventSetup (031)', () => {
             ],
           }),
           plain,
-          [],
         ),
       );
       expect(r).toEqual({
@@ -119,116 +72,23 @@ describe('planEventSetup (031)', () => {
       });
     });
 
-    it('needs a quantity without reserved seating', () => {
+    it('needs a quantity', () => {
       expect(
-        messages(() => planEventSetup(input({ tiers: [{ name: 'A', price: '1.00' }] }), plain, [])),
+        messages(() => planEventSetup(input({ tiers: [{ name: 'A', price: '1.00' }] }), plain)),
       ).toEqual(['tiers.0.quantity is required for a tier']);
-    });
-
-    it('refuses a quantity with reserved seating', () => {
-      expect(
-        messages(() =>
-          planEventSetup(
-            input({ reservedSeating: true, tiers: [{ name: 'A', price: '1.00', quantity: 5 }] }),
-            venue,
-            sections,
-          ),
-        ),
-      ).toEqual([
-        "tiers.0.quantity must be omitted: it follows this tier's sections while reserved seating is on",
-      ]);
-    });
-
-    it('refuses a non-empty sectionIds without reserved seating; [] is fine', () => {
-      const [message] = messages(() =>
-        planEventSetup(
-          input({
-            tiers: [
-              { name: 'A', price: '1.00', quantity: 5, sectionIds: [] },
-              { name: 'B', price: '1.00', quantity: 5, sectionIds: ['front'] },
-            ],
-          }),
-          plain,
-          [],
-        ),
-      );
-      expect(message).toMatch(/^tiers\.1\.sectionIds /);
-      expect(
-        planEventSetup(
-          input({ tiers: [{ name: 'A', price: '1.00', quantity: 5, sectionIds: [] }] }),
-          plain,
-          [],
-        ).tiers,
-      ).toEqual([{ name: 'A', price: '1.00', quantity: 5, sectionIds: [] }]);
-    });
-
-    it('refuses a section not in the layout, saying to reload', () => {
-      expect(
-        messages(() =>
-          planEventSetup(
-            input({
-              reservedSeating: true,
-              tiers: [{ name: 'A', price: '1.00', sectionIds: ['x'] }],
-            }),
-            venue,
-            sections,
-          ),
-        ),
-      ).toEqual([
-        "tiers.0.sectionIds lists a section that is not in Seated Hall's seating layout. " +
-          'Reload the form to see its sections.',
-      ]);
-    });
-
-    it('refuses a section an earlier type sells, naming both', () => {
-      expect(
-        messages(() =>
-          planEventSetup(
-            input({
-              reservedSeating: true,
-              tiers: [
-                { name: 'Front', price: '1.00', sectionIds: ['front'] },
-                { name: 'Rest', price: '1.00', sectionIds: ['middle', 'front'] },
-              ],
-            }),
-            venue,
-            sections,
-          ),
-        ),
-      ).toEqual([
-        "tiers.1.sectionIds lists section front, which ticket type 1, 'Front', already sells. " +
-          'A section sells one ticket type.',
-      ]);
-    });
-
-    it('refuses a section listed twice in one type', () => {
-      expect(
-        messages(() =>
-          planEventSetup(
-            input({
-              reservedSeating: true,
-              tiers: [{ name: 'Front', price: '1.00', sectionIds: ['front', 'front'] }],
-            }),
-            venue,
-            sections,
-          ),
-        ),
-      ).toEqual(['tiers.0.sectionIds lists a section more than once']);
     });
 
     it('checks the types in order: the first broken rule wins', () => {
       const r = refusal(() =>
         planEventSetup(
           input({
-            reservedSeating: true,
             tiers: [
-              { name: 'Front', price: '1.00', sectionIds: ['front'] },
-              { name: 'front', price: '1.00', sectionIds: [] },
-              { name: 'Back', price: '1.00', sectionIds: ['nowhere'] },
+              { name: 'Front', price: '1.00', quantity: 1 },
+              { name: 'front', price: '1.00', quantity: 1 },
+              { name: 'Back', price: '1.00' },
             ],
           }),
-          venue,
-          sections,
+          plain,
         ),
       );
       expect(r.status).toBe(409);
@@ -247,7 +107,6 @@ describe('planEventSetup (031)', () => {
             ],
           }),
           plain,
-          [],
         ),
       );
       expect(r).toEqual({
@@ -271,79 +130,44 @@ describe('planEventSetup (031)', () => {
           ],
         }),
         plain,
-        [],
       );
       expect(fits.tiers.map((t) => t.quantity)).toEqual([300, 200]);
       expect(
         refusal(() =>
-          planEventSetup(
-            input({ tiers: [{ name: 'A', price: '1.00', quantity: 501 }] }),
-            plain,
-            [],
-          ),
+          planEventSetup(input({ tiers: [{ name: 'A', price: '1.00', quantity: 501 }] }), plain),
         ).status,
       ).toBe(409);
     });
   });
 
-  it('sums each seated type’s seats from its sections, 0 for none', () => {
-    const plan = planEventSetup(
-      input({
-        reservedSeating: true,
-        tiers: [
-          { name: ' Front ', price: '120.00', sectionIds: ['front'] },
-          { name: 'Rest', price: '70.00', sectionIds: ['middle', 'back'] },
-          { name: 'None', price: '10.00' },
-        ],
-      }),
-      venue,
-      sections,
-    );
-    expect(plan).toEqual({
-      reservedSeating: true,
-      capacityFromLayout: 60,
-      tiers: [
-        { name: 'Front', price: '120.00', quantity: 10, sectionIds: ['front'] },
-        { name: 'Rest', price: '70.00', quantity: 50, sectionIds: ['middle', 'back'] },
-        { name: 'None', price: '10.00', quantity: 0, sectionIds: [] },
-      ],
-    });
-  });
-
   // Code review round 1, N1: one source of truth for the capacity.
-  it("takes the event's capacity: the layout's, else typed, else the venue's", () => {
-    expect(eventCapacity(input({ reservedSeating: true }), venue, sections)).toBe(60);
-    expect(eventCapacity(input({ totalTicketCapacity: 40 }), plain, [])).toBe(40);
-    expect(eventCapacity(input(), plain, [])).toBe(500);
+  it("takes the event's capacity: typed, else the venue's", () => {
+    expect(eventCapacity(input({ totalTicketCapacity: 40 }), plain)).toBe(40);
+    expect(eventCapacity(input(), plain)).toBe(500);
   });
 
   it('checks the ticket types against the capacity it is given', () => {
     const tiers = [{ name: 'A', price: '1.00', quantity: 300 }];
-    expect(refusal(() => planEventSetup(input({ tiers }), plain, [], 299)).status).toBe(409);
-    expect(planEventSetup(input({ tiers }), plain, [], 300).tiers).toHaveLength(1);
+    expect(refusal(() => planEventSetup(input({ tiers }), plain, 299)).status).toBe(409);
+    expect(planEventSetup(input({ tiers }), plain, 300).tiers).toHaveLength(1);
   });
 });
 
 /** Spec 035 (research R8): ids, removals, and sold-ticket rules on an update. */
 describe('planEventUpdate (035)', () => {
   const emptyCounts = {
-    eventSold: 0,
     tierlessSold: 0,
     soldByTier: new Map<string, number>(),
     ordersByTier: new Map<string, number>(),
-    soldBySection: new Map<string, number>(),
   };
   const ctx = (over: Partial<UpdateSetupInput> = {}): UpdateSetupInput => ({
     eventName: 'Season Opener',
-    reservedSeatingBefore: false,
     existingTiers: [
       { id: 't-floor', name: 'Floor' },
       { id: 't-balcony', name: 'Balcony' },
     ],
-    existingMappings: [],
     counts: emptyCounts,
     venue: { name: 'Plain Hall', seatingCapacity: 500 },
-    sections: [],
     capacity: 500,
     ...over,
   });
@@ -363,7 +187,6 @@ describe('planEventUpdate (035)', () => {
     const plan = planEventUpdate(
       {
         name: 'Season Opener',
-        reservedSeating: false,
         tiers: [
           { id: 't-floor', name: 'Floor', price: '80.00', quantity: 300 },
           { name: 'Gallery', price: '40.00', quantity: 50 },
@@ -418,56 +241,5 @@ describe('planEventUpdate (035)', () => {
         }),
       ),
     ).toEqual(['tiers.0.id is not allowed when scheduling']);
-  });
-
-  it('refuses remapping a sold section as EVENT_HAS_ORDERS, not quantity-below-sold', () => {
-    const seated = ctx({
-      reservedSeatingBefore: true,
-      existingTiers: [
-        { id: 't-front', name: 'Front' },
-        { id: 't-standard', name: 'Standard' },
-      ],
-      existingMappings: [
-        { sectionId: 'front', sectionName: 'front', tierId: 't-front' },
-        { sectionId: 'middle', sectionName: 'middle', tierId: 't-standard' },
-      ],
-      counts: {
-        ...emptyCounts,
-        eventSold: 1,
-        soldByTier: new Map([['t-front', 1]]),
-        soldBySection: new Map([['front', 1]]),
-      },
-      venue: { name: 'Seated Hall', seatingCapacity: 30 },
-      sections: [
-        { id: 'front', name: 'front', rows: 1, seatsPerRow: 10 },
-        { id: 'middle', name: 'middle', rows: 1, seatsPerRow: 10 },
-        { id: 'back', name: 'back', rows: 1, seatsPerRow: 10 },
-      ],
-      capacity: 30,
-    });
-    try {
-      planEventUpdate(
-        {
-          name: 'Season Opener',
-          reservedSeating: true,
-          tiers: [
-            { id: 't-front', name: 'Front', price: '120.00', sectionIds: [] },
-            { id: 't-standard', name: 'Standard', price: '70.00', sectionIds: ['front', 'middle'] },
-          ],
-        },
-        seated,
-      );
-      throw new Error('expected a refusal');
-    } catch (err) {
-      expect(err).toBeInstanceOf(HttpException);
-      const e = err as HttpException;
-      expect(e.getStatus()).toBe(409);
-      expect(e.getResponse()).toMatchObject({
-        error: {
-          code: 'EVENT_HAS_ORDERS',
-          details: { field: 'tiers.1.sectionIds' },
-        },
-      });
-    }
   });
 });

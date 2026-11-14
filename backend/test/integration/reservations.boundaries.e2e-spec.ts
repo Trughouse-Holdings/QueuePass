@@ -1,7 +1,14 @@
 import type { Response } from 'supertest';
 import { HoldSweeper } from '../../src/reservations/hold-sweeper';
-import { asAdmin } from '../setup/authed-request';
-import { HOLDER, customer, endHold, event, holdSeats, venue } from '../setup/fixtures';
+import {
+  HOLDER,
+  customer,
+  endHold,
+  holdSeats,
+  seatedEvent,
+  venue,
+  type InsertedLayout,
+} from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor } from '../setup/tokens';
@@ -11,12 +18,12 @@ import { subFor } from '../setup/tokens';
  * one second before and at each boundary. Spec 033 FR-006 (research R4): the wait counts from the
  * reservation's end and covers every seat that left it released, run out, or by logout. Rows are
  * moved into the past by the database's clock instead of waiting, so the database decides every
- * boundary.
+ * boundary. Spec 038: on a layout made from section lines; holds keep their seat (`seatId`).
  */
 describe('Reservation time boundaries', () => {
   let ctx: TestContext;
   let eventId: string;
-  let sectionA: string;
+  let layout: InsertedLayout;
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -27,20 +34,13 @@ describe('Reservation time boundaries', () => {
   beforeEach(async () => {
     await resetDb(ctx.prisma);
     const venueId = await venue(ctx, 'Seat Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${venueId}/layout`)
-      .send({ sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }] })
-      .expect(200);
-    sectionA = layout.body.sections[0].id;
-    eventId = await event(ctx, venueId, { capacity: 30 });
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
+    ({ eventId, layout } = await seatedEvent(ctx, venueId, {
+      sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }],
+    }));
   });
 
   const code = (res: Response): string => res.body.error?.code;
-  const seat = (row: number, s: number) => ({ sectionId: sectionA, row, seat: s });
+  const seat = (row: number, s: number) => ({ sectionId: layout.sections.A, row, seat: s });
   const reserve = async (seats: object[], n = 1) =>
     (await customer(ctx, n)).post(`/events/${eventId}/reservation`).send({ seats });
   const order = async (seats: object[], n = 1) =>
@@ -48,7 +48,12 @@ describe('Reservation time boundaries', () => {
       .post(`/events/${eventId}/orders`)
       .send({ holderName: HOLDER, quantity: seats.length, seats });
   const held = (secondsAgo: number, n = 1, seats = [{ section: 'A', row: 1, seat: 5 }]) =>
-    holdSeats(ctx.prisma, { eventId, customerSub: subFor(`customer${n}`), seats, secondsAgo });
+    holdSeats(ctx.prisma, {
+      eventId,
+      customerSub: subFor(`customer${n}`),
+      seats: seats.map((s) => ({ ...s, seatId: layout.seat(s.section, s.row, s.seat) })),
+      secondsAgo,
+    });
 
   /** Ends a reservation and its holds `secondsAgo` before the database's now, with a reason. */
   async function ended(reservationId: string, reason: string, secondsAgo: number): Promise<Date> {

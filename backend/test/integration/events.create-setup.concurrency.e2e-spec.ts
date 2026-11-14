@@ -5,8 +5,10 @@ import { resetDb } from '../setup/reset-db';
 
 /**
  * Spec 031 FR-007, SC-006 (research R4, R11): under genuinely concurrent requests, two
- * conflicting schedules with ticket types save one whole event and nothing of the other, and a
- * seated schedule and a layout save at its venue never interleave.
+ * conflicting schedules with ticket types save one whole event and nothing of the other. Spec 038
+ * (T009a): the case of a seated schedule racing `007`'s layout save went with that mapping. R7's
+ * lock order for 038 is tested in `seat-levels.e2e-spec.ts` (an event save waits for a layout
+ * write) and `layouts.concurrency.e2e-spec.ts` (T012).
  */
 describe('Scheduling with ticket types, concurrently (031)', () => {
   let ctx: TestContext;
@@ -60,73 +62,5 @@ describe('Scheduling with ticket types, concurrently (031)', () => {
     }
     expect(await ctx.prisma.event.count()).toBe(ROUNDS);
     expect(await ctx.prisma.ticketTier.count()).toBe(ROUNDS * 3);
-  });
-
-  it('never interleaves a seated schedule with a layout save at its venue', async () => {
-    const outcomes = { scheduleFirst: 0, layoutFirst: 0 };
-    for (let round = 0; round < ROUNDS; round++) {
-      const venueId = await venue(ctx, `Race Hall ${round}`);
-      const first = await asAdmin(ctx)
-        .put(`/locations/${venueId}/layout`)
-        .send({
-          sections: [
-            { name: 'front', rows: 1, seatsPerRow: 10 },
-            { name: 'back', rows: 2, seatsPerRow: 10 },
-          ],
-        })
-        .expect(200);
-      const [front, back] = first.body.sections.map((s: { id: string }) => s.id);
-      const [schedule, layout] = await Promise.all([
-        asAdmin(ctx)
-          .post('/events')
-          .send({
-            name: `Seated ${round}`,
-            locationId: venueId,
-            ...windowAt(600 + round),
-            basePrice: '10.00',
-            reservedSeating: true,
-            tiers: [
-              { name: 'Front', price: '20.00', sectionIds: [front] },
-              { name: 'Back', price: '10.00', sectionIds: [back] },
-              { name: 'Spare', price: '5.00' },
-            ],
-          }),
-        asAdmin(ctx)
-          .put(`/locations/${venueId}/layout`)
-          .send({
-            sections: [
-              { name: 'front renamed', rows: 1, seatsPerRow: 10 },
-              { name: 'back', rows: 2, seatsPerRow: 10 },
-            ],
-          }),
-      ]);
-      expect(layout.status).toBe(200);
-      const events = await ctx.prisma.event.findMany({
-        where: { locationId: venueId },
-        include: { tiers: true, sectionTiers: true },
-      });
-
-      if (schedule.status === 400) {
-        // The layout saved first: the schedule named gone sections and nothing of it remains.
-        outcomes.layoutFirst++;
-        expect(schedule.body.error.code).toBe('VALIDATION_FAILED');
-        expect(schedule.body.error.details.fields[0]).toMatch(/^tiers\.0\.sectionIds /);
-        expect(events).toHaveLength(0);
-      } else {
-        // The schedule saved first, whole; the layout save then dropped its mappings (007 R11).
-        outcomes.scheduleFirst++;
-        expect(schedule.status).toBe(201);
-        expect(events).toHaveLength(1);
-        expect(events[0].sectionTiers).toHaveLength(0);
-        expect(events[0].tiers.map((t) => t.quantity)).toEqual([0, 0, 0]);
-        expect(events[0].totalTicketCapacity).toBe(30);
-      }
-      // Never a mapping to a section that is gone.
-      const orphans = await ctx.prisma.$queryRaw<{ n: bigint }[]>`
-        SELECT count(*) AS n FROM "SectionTier" st
-        LEFT JOIN "Section" s ON s."id" = st."sectionId" WHERE s."id" IS NULL`;
-      expect(Number(orphans[0].n)).toBe(0);
-    }
-    expect(outcomes.scheduleFirst + outcomes.layoutFirst).toBe(ROUNDS);
   });
 });

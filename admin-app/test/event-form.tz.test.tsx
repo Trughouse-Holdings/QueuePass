@@ -27,7 +27,6 @@ const PHX = {
   timeZone: 'America/Phoenix',
   timeZoneSource: 'ADDRESS',
 };
-const NO_LAYOUT = (id: string) => ({ locationId: id, totalSeats: 0, sections: [] });
 const TIER = {
   id: 't1',
   eventId: EVENT.id,
@@ -49,9 +48,6 @@ const CENTRAL = {
 function newForm(post: () => Response = () => json({ ...EVENT, locationId: EAST.id }, 201)) {
   const api = stubApi({
     'GET /locations': json([EAST, PHX, CENTRAL]),
-    [`GET /locations/${CENTRAL.id}/layout`]: json(NO_LAYOUT(CENTRAL.id)),
-    [`GET /locations/${EAST.id}/layout`]: json(NO_LAYOUT(EAST.id)),
-    [`GET /locations/${PHX.id}/layout`]: json(NO_LAYOUT(PHX.id)),
     // Spec 031 FR-008: the ticket types go in the one POST /events.
     'POST /events': post,
   });
@@ -78,11 +74,6 @@ function editForm(
     'GET /locations': locations,
     [`GET /events/${EVENT.id}`]: json(e),
     [`GET /events/${EVENT.id}/tiers`]: json([TIER]),
-    [`GET /events/${EVENT.id}/seats`]: json({
-      eventId: EVENT.id,
-      reservedSeating: false,
-      sections: [],
-    }),
     [`PATCH /events/${EVENT.id}`]: json(e),
   });
   render(

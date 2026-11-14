@@ -13,6 +13,7 @@ import {
 import type { Principal } from '../auth/principal';
 import { CLOCK, type Clock } from '../common/clock';
 import { conflict } from '../common/conflict';
+import { ticketSeat } from '../common/ticket-seat';
 import { PrismaService } from '../prisma/prisma.service';
 import { checkLiveCode } from './live-code-check';
 import { entryOpens, normalizeCode, stateCase } from './ticket-state';
@@ -34,9 +35,13 @@ interface LookupRow {
   /** Spec 020 research R16: the event's venue's zone. */
   timeZone: string;
   tierName: string | null;
+  /** Spec 038 (R17): the level's name as sold. */
+  levelName: string | null;
   seatSection: string | null;
   seatRow: number | null;
   seatNumber: number | null;
+  seatRowLabel: string | null;
+  seatLabel: string | null;
   holderName: string | null;
   checkedInAt: Date | null;
   entryOpensAt: Date;
@@ -199,8 +204,8 @@ export class EntryService {
              ${stateCase(gateEventId)} AS "state",
              e."id" AS "eventId", e."name" AS "eventName", e."startsAt", e."endsAt",
              l."timeZone",
-             tier."name" AS "tierName",
-             t."seatSection", t."seatRow", t."seatNumber",
+             tier."name" AS "tierName", t."levelName",
+             t."seatSection", t."seatRow", t."seatNumber", t."seatRowLabel", t."seatLabel",
              o."holderName", t."checkedInAt",
              ${entryOpens} AS "entryOpensAt",
              (SELECT count(*)::int FROM "Ticket" u
@@ -301,10 +306,9 @@ function toEntryTicket(r: LookupRow, verifiedBy: 'LIVE_CODE' | 'TICKET_CODE'): E
       timeZone: r.timeZone as UsTimeZone,
     },
     tierName: r.tierName,
-    seat:
-      r.seatSection !== null && r.seatRow !== null && r.seatNumber !== null
-        ? { section: r.seatSection, row: r.seatRow, seat: r.seatNumber }
-        : null,
+    levelName: r.levelName,
+    // Spec 038 FR-026: the seat and its labels as sold.
+    seat: ticketSeat(r),
     holderName: r.holderName,
     // `null` unless the state is USED: a void ticket admitted before its event was cancelled
     // keeps its checkedInAt (Edge Cases), but the agent is told VOID, not when it entered.

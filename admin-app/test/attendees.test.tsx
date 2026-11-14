@@ -68,7 +68,7 @@ describe('Attendees page', () => {
         ...ORDERS[0],
         tickets: ORDERS[0].tickets.map((t, i) => ({
           ...t,
-          seat: i === 0 ? { section: 'A', row: 1, seat: 5 } : null,
+          seat: i === 0 ? { section: 'A', row: 1, seat: 5, rowLabel: 'A', seatLabel: '5' } : null,
         })),
       },
     ];
@@ -79,7 +79,8 @@ describe('Attendees page', () => {
     const items = within(row)
       .getAllByRole('listitem')
       .map((li) => li.textContent);
-    expect(items[0]).toContain('Section A, Row 1, Seat 5');
+    // Spec 038 FR-026: the row and seat by their labels as sold.
+    expect(items[0]).toContain('Section A, Row A, Seat 5');
     expect(items.slice(1).join(' ')).not.toContain('Section');
   });
 });
@@ -108,5 +109,110 @@ describe('names and entry times (spec 017 FR-004, FR-005, FR-020)', () => {
       .map((li) => li.textContent);
     expect(items[0]).toContain(`checked in ${when('2026-11-01T22:45:00.000Z')}`);
     expect(items[1]).not.toContain('checked in');
+  });
+});
+
+/** Spec 038 FR-030 (research R17): a seated order names each ticket's price level and price. */
+const SEATED = {
+  ...ORDERS[0],
+  id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  tierId: null,
+  tierName: null,
+  customerUsername: 'customer4',
+  holderName: 'Sam Park',
+  unitPrice: null,
+  totalPrice: '155.00',
+  tickets: [
+    {
+      ...ORDERS[0].tickets[1],
+      id: 'e1111111-1111-4111-8111-111111111111',
+      code: 'BCDFGHJK2345',
+      seat: { section: '115', row: 4, seat: 2, rowLabel: 'D', seatLabel: '2' },
+      price: '95.00',
+      levelName: 'Courtside',
+    },
+    {
+      ...ORDERS[0].tickets[1],
+      id: 'e2222222-2222-4222-8222-222222222222',
+      code: 'LMNPQRST6789',
+      seat: { section: '115', row: 6, seat: 7, rowLabel: 'F', seatLabel: '7' },
+      price: '60.00',
+      levelName: 'Lower sideline',
+    },
+  ],
+};
+
+describe('price levels and prices (spec 038 FR-026, FR-030, research R17)', () => {
+  it('has a Price level column with the levels of each order, none for general admission', async () => {
+    stubApi({
+      [`GET /events/${EVENT.id}`]: json(EVENT),
+      [`GET ${PATH}`]: json([...ORDERS, SEATED]),
+    });
+    renderPage();
+
+    expect(await screen.findByRole('columnheader', { name: 'Price level' })).toBeInTheDocument();
+    const headers = screen.getAllByRole('columnheader').map((h) => h.textContent);
+    expect(headers.indexOf('Price level')).toBe(headers.indexOf('Tier') + 1);
+
+    const seated = screen.getByText('customer4').closest('tr') as HTMLElement;
+    const cells = within(seated)
+      .getAllByRole('cell')
+      .map((c) => c.textContent);
+    expect(cells[headers.indexOf('Price level')]).toBe('Courtside, Lower sideline');
+    // A seated order has no ticket type, and is not general admission.
+    expect(cells[headers.indexOf('Tier')]).toBe('');
+    expect(within(seated).getByText('$155.00')).toBeInTheDocument();
+
+    const ga = screen.getByText('customer3').closest('tr') as HTMLElement;
+    const gaCells = within(ga)
+      .getAllByRole('cell')
+      .map((c) => c.textContent);
+    expect(gaCells[headers.indexOf('Price level')]).toBe('');
+    expect(gaCells[headers.indexOf('Tier')]).toBe('VIP');
+  });
+
+  it("shows each seated ticket's seat, level and own price", async () => {
+    stubApi({ [`GET /events/${EVENT.id}`]: json(EVENT), [`GET ${PATH}`]: json([SEATED]) });
+    renderPage();
+
+    const row = (await screen.findByText('customer4')).closest('tr') as HTMLElement;
+    const items = within(row)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent);
+    expect(items).toEqual([
+      'BCDFGHJK2345 Section 115, Row D, Seat 2, Courtside, $95.00',
+      'LMNPQRST6789 Section 115, Row F, Seat 7, Lower sideline, $60.00',
+    ]);
+  });
+
+  it("shows no per-ticket price on a general-admission order's tickets, which share its price", async () => {
+    stubApi({ [`GET /events/${EVENT.id}`]: json(EVENT), [`GET ${PATH}`]: json(ORDERS) });
+    renderPage();
+
+    const row = (await screen.findByText('customer3')).closest('tr') as HTMLElement;
+    const items = within(row)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent);
+    expect(items.join(' ')).not.toContain('$');
+  });
+
+  it("shows each ticket's price when an order has no unit price, even without a seat", async () => {
+    const mixed = {
+      ...ORDERS[0],
+      unitPrice: null,
+      tickets: [
+        { ...ORDERS[0].tickets[0], price: '80.00' },
+        { ...ORDERS[0].tickets[1], price: '88.60' },
+      ],
+    };
+    stubApi({ [`GET /events/${EVENT.id}`]: json(EVENT), [`GET ${PATH}`]: json([mixed]) });
+    renderPage();
+
+    const row = (await screen.findByText('customer3')).closest('tr') as HTMLElement;
+    const items = within(row)
+      .getAllByRole('listitem')
+      .map((li) => li.textContent);
+    expect(items[0]).toContain('$80.00');
+    expect(items[1]).toContain('$88.60');
   });
 });

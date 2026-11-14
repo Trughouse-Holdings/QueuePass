@@ -1,78 +1,52 @@
+import type { components } from './api-schema.js';
+
 /**
- * Mirrors the seating schemas in contracts/openapi.yaml (spec 007): venue layouts, seat maps, and
- * seats on orders and tickets. Spec 015: reservations and live seat-map changes.
+ * Mirrors the seating schemas in contracts/openapi.yaml (spec 007): seats on orders and tickets.
+ * Spec 015: reservations and live seat-map changes. Spec 038: layouts with price levels, event
+ * seating, and the venue map, as aliases of the generated types; `007`'s venue layout and seat map
+ * types went with contract 2.0.0.
  */
-export interface Section {
-  id: string;
-  name: string;
-  rows: number;
-  seatsPerRow: number;
-}
 
-export interface SectionInput {
-  name: string;
-  rows: number;
-  seatsPerRow: number;
-}
-
-export interface LayoutInput {
-  sections: SectionInput[];
-}
-
-export interface SeatingLayout {
-  locationId: string;
-  totalSeats: number;
-  sections: Section[];
-}
-
-export interface SeatPosition {
+/**
+ * A seat a customer chooses when ordering: its section's id, its row's number and its number in
+ * the row (spec 038 research R2: numbers, not labels).
+ */
+export interface SeatChoice {
+  sectionId: string;
   row: number;
   seat: number;
 }
 
-/** A seat a customer chooses when ordering. */
-export interface SeatChoice extends SeatPosition {
-  sectionId: string;
-}
-
-/** A sold seat, by its section's name when sold. */
-export interface SeatLabel extends SeatPosition {
+/** A sold seat, by its section's name when sold, its row's number and its number in the row. */
+export interface SeatLabel {
   section: string;
+  row: number;
+  seat: number;
 }
 
-export interface SeatMapSection {
-  sectionId: string;
-  name: string;
-  rows: number;
-  seatsPerRow: number;
-  tierId: string | null;
-  sold: number;
-  /** Seats held by valid tickets. Never says by whom. */
-  taken: SeatPosition[];
-  /** Spec 015: seats in active reservations. Never says by whom. */
-  reserved: SeatPosition[];
-}
+/**
+ * Spec 038 FR-026 (contract `SeatLabel`): a sold seat as a response gives it, with its row and seat
+ * labels as sold.
+ */
+export type SoldSeat = components['schemas']['SeatLabel'];
 
-export interface SeatMap {
-  eventId: string;
-  reservedSeating: boolean;
-  sections: SeatMapSection[];
-}
-
-export interface SeatingInput {
-  reservedSeating: boolean;
-  sections: { sectionId: string; tierId: string }[];
-}
-
-/** Spec 015: a seat in a reservation, by section id and by its section's name. */
+/**
+ * Spec 015: a seat in a reservation, by section id and by its section's name. Spec 038 (research
+ * R10): its row and seat labels, its level, and the level's price now (the purchase is at the
+ * price when bought).
+ */
 export interface ReservedSeat extends SeatLabel {
   sectionId: string;
+  rowLabel: string;
+  seatLabel: string;
+  levelName: string;
+  price: string;
 }
 
 /** Spec 015: the caller's active hold on seats of one event, for 5 minutes. */
 export interface Reservation {
   eventId: string;
-  /** The tier of every seat; `null` for an event without tiers. */
+  /** Always `null` (spec 038 research R10: a seated event has no ticket types). */
   tierId: string | null;
   seats: ReservedSeat[];
   createdAt: string;
@@ -101,23 +75,101 @@ export interface ReleasedSeats {
   released: number;
 }
 
-/** Spec 015: one seat's new state. Never says who reserved or bought it. */
+/**
+ * Spec 015: one seat's new state. Never says who reserved or bought it. Spec 038 (research R12):
+ * `offSale`, and the state the seat left (`from`) and its level (`levelId`).
+ */
 export interface SeatStateChange extends SeatChoice {
-  state: 'open' | 'reserved' | 'sold';
+  state: 'open' | 'reserved' | 'sold' | 'offSale';
+  from: 'open' | 'reserved' | 'sold' | 'offSale';
+  levelId: string;
 }
 
-/** Spec 015: seats of one event that changed state, as `streamSeatMap` sends them. */
+/**
+ * Spec 015: seats of one event that changed state, as `streamSeatMap` sends them. Spec 038
+ * (research R12): `seq`, the event's `seatSeq` after the change; a client applies it only to a map
+ * or section read at a smaller `seq`.
+ */
 export interface SeatMapChange {
   eventId: string;
+  seq: number;
   changes: SeatStateChange[];
 }
 
 /** Spec 015 FR-003, FR-004, FR-004a: fixed for every event (Constitution VIII). */
 export const RESERVATION_LIMITS = { minutes: 5, waitMinutes: 2, maxSeats: 10 } as const;
 
-export const SEATING_LIMITS = {
-  sectionNameMaxLength: 50,
+type Schemas = components['schemas'];
+
+/**
+ * Spec 038 (FR-001 to FR-003, FR-013, research R5, R8, R16): the limits of a layout and of an
+ * event's seating save. A layout carried over from `007` may have up to `maxCarriedLevels` levels
+ * and more than `maxSeats` seats; imports and section lines keep 12 and 30,000.
+ */
+export const LAYOUT_LIMITS = {
+  maxSections: 100,
   maxRows: 100,
   maxSeatsPerRow: 200,
-  maxSections: 50,
+  maxSeats: 30_000,
+  maxLevels: 12,
+  maxCarriedLevels: 50,
+  nameMaxLength: 50,
+  labelMaxLength: 5,
+  maxOutlinePoints: 64,
+  maxMapUnits: 5_000,
+  maxOffSaleSelectors: 5_000,
+  maxImportBytes: 4 * 1024 * 1024,
 } as const;
+
+/** Spec 038 research R13: one of the shared theme's 12 price-level colors. */
+export type LevelColor = Schemas['LevelColor'];
+
+/**
+ * Spec 038 research R13, R16: the 12 level colors in the contract's `LevelColor` order, the order
+ * the carry-over gives them out in (repeating after 12).
+ */
+export const LEVEL_COLORS = [
+  'violet',
+  'blue',
+  'cyan',
+  'teal',
+  'green',
+  'lime',
+  'yellow',
+  'orange',
+  'red',
+  'pink',
+  'purple',
+  'brown',
+] as const satisfies readonly LevelColor[];
+
+// Spec 038: the contract's layout, event seating and venue map schemas (contracts/README.md).
+export type FloorKind = Schemas['FloorKind'];
+export type MapPoint = Schemas['MapPoint'];
+export type MapOutline = Schemas['MapOutline'];
+export type MapSize = Schemas['MapSize'];
+export type PriceLevel = Schemas['PriceLevel'];
+export type LayoutSummary = Schemas['LayoutSummary'];
+export type LayoutDetail = Schemas['LayoutDetail'];
+export type LayoutSectionSummary = Schemas['LayoutSectionSummary'];
+export type LatestPrices = Schemas['LatestPrices'];
+export type LayoutSectionSeats = Schemas['LayoutSectionSeats'];
+export type LayoutSeat = Schemas['LayoutSeat'];
+export type LayoutLinesInput = Schemas['LayoutLinesInput'];
+export type LayoutLevelLine = Schemas['LayoutLevelLine'];
+export type LayoutSectionLine = Schemas['LayoutSectionLine'];
+export type LayoutUpdate = Schemas['LayoutUpdate'];
+export type LayoutDuplicate = Schemas['LayoutDuplicate'];
+export type LayoutImport = Schemas['LayoutImport'];
+export type LayoutFile = Schemas['LayoutFile'];
+export type LayoutFileSection = Schemas['LayoutFileSection'];
+export type LayoutFileSeat = Schemas['LayoutFileSeat'];
+export type LayoutFileSeatRun = Schemas['LayoutFileSeatRun'];
+export type LevelPriceInput = Schemas['LevelPriceInput'];
+export type OffSaleSelector = Schemas['OffSaleSelector'];
+export type EventSeating = Schemas['EventSeating'];
+export type VenueMap = Schemas['VenueMap'];
+export type LevelSeatCounts = Schemas['LevelSeatCounts'];
+export type VenueMapSection = Schemas['VenueMapSection'];
+export type SeatState = Schemas['SeatState'];
+export type LevelSales = Schemas['LevelSales'];

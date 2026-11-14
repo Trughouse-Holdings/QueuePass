@@ -1,6 +1,6 @@
 // Spec 006 quickstart P1 and P4 (get tickets in a tier; My tickets) and spec 007 quickstart S3
-// (choose seats). Each event is set up through the API by an admin; the purchase is walked in the
-// Customer app.
+// (choose seats; spec 038: on the venue map). Each event is set up through the API by an admin;
+// the purchase is walked in the Customer app.
 import { expect, test } from '@playwright/test';
 import { adminFor, customerFor } from '../fixtures/apps';
 import {
@@ -97,33 +97,38 @@ test('006 P1/P4: a customer gets 2 tickets in a tier and sees them in My tickets
 test('007 S3: a customer chooses seats and gets them', async ({ browser, page }, testInfo) => {
   const eventName = uniqueName(testInfo, 'seated show');
   const admin = await apiFor(browser, 'admin', adminFor(testInfo));
+  // Spec 038: sections of a layout in price levels, priced by the event (no ticket types).
   const { event } = await seatedEvent(admin.api, {
     venueName: uniqueName(testInfo, 'seat hall'),
     place: PLACES.louisville,
-    sections: [
-      { name: 'A', rows: 3, seatsPerRow: 10 },
-      { name: 'B', rows: 2, seatsPerRow: 20 },
-    ],
+    layout: {
+      name: 'Main floor',
+      levels: [
+        { name: 'VIP', color: 'violet' },
+        { name: 'General', color: 'teal' },
+      ],
+      sections: [
+        { name: 'A', rows: 3, seatsPerRow: 10, level: 'VIP' },
+        { name: 'B', rows: 2, seatsPerRow: 20, level: 'General' },
+      ],
+    },
     event: { name: eventName, startsAt: startsInHours(24 * 7), endsAt: startsInHours(24 * 7 + 3) },
-    tiers: [
-      { name: 'VIP', price: '120.00' },
-      { name: 'General', price: '40.00' },
-    ],
-    map: [0, 1],
+    prices: { VIP: '120.00', General: '40.00' },
   });
   await admin.close();
 
   await signIn(page, 'customer', customerFor(testInfo, 1), `/events/${event.id}`);
   const tickets = page.getByRole('region', { name: 'Get tickets' });
-  await tickets.getByRole('radio', { name: /^VIP, \$120\.00/ }).click();
-  await expect(tickets.getByRole('radio', { name: /^VIP, \$120\.00/ })).toBeChecked();
-  await tickets.getByRole('combobox', { name: 'Section' }).selectOption({ label: 'Section A' });
-  const seats = tickets.getByRole('region', { name: 'Section A seats' });
+  // Spec 038 (research R14): Choose seats opens the venue map; a section opens its seats.
+  await tickets.getByRole('button', { name: 'Choose seats' }).click();
+  const map = tickets.getByRole('group', { name: 'Main floor map' });
+  await map.getByRole('button', { name: /^Section A, 30 open seats from \$120$/ }).click();
   // Spec 033: each click holds the seat at once; the seats are bought from the cart.
-  await seats.getByRole('button', { name: 'Row 1, Seat 5', exact: true }).click();
-  await expect(seats.getByRole('button', { name: 'Row 1, Seat 5, reserved by you' })).toBeVisible();
-  await seats.getByRole('button', { name: 'Row 1, Seat 6', exact: true }).click();
-  await expect(seats.getByRole('button', { name: 'Row 1, Seat 6, reserved by you' })).toBeVisible();
+  const seat = (n: number) => map.getByRole('button', { name: new RegExp(`^Row 1, Seat ${n}, `) });
+  await seat(5).click();
+  await expect(seat(5)).toHaveAccessibleName('Row 1, Seat 5, VIP, $120, held by you');
+  await seat(6).click();
+  await expect(seat(6)).toHaveAccessibleName('Row 1, Seat 6, VIP, $120, held by you');
   await expect(tickets.getByText('Total: $240.00')).toBeVisible();
   await tickets.getByRole('button', { name: 'Add to cart' }).click();
   await page.getByRole('textbox', { name: 'Name on tickets' }).fill('Jordan Lee');

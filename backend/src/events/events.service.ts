@@ -24,9 +24,17 @@ import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
 import { searchText } from '../common/search-text';
 import { lockVenueShared } from '../common/venue-lock';
 import { PrismaService } from '../prisma/prisma.service';
-import { closeHolds, closeRunOut, toChanges } from '../reservations/holds';
+import { closeHolds, closeRunOut, fromHeld } from '../reservations/holds';
+import { sequence, toChanges, type SeatMove } from '../seating/seat-changes';
+import {
+  assertLayoutFree,
+  assertSeatingFields,
+  clearSeating,
+  planSeating,
+  targetLayout,
+  writeSeating,
+} from '../seating/event-seating';
 import { SeatEventsService } from '../seating/seat-events.service';
-import type { SeatLabel } from '../seating/seat-rules';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventsQuery } from './dto/list-events.query';
 import { UpdateEventDto } from './dto/update-event.dto';
@@ -41,6 +49,7 @@ import {
 import type { SeatStateChange } from '@queuepass/shared';
 
 import { checkEventTime } from './event-time';
+import { priceMaxes } from './price-range';
 import { SchedulingConflictException } from './scheduling-conflict.exception';
 
 /**
@@ -93,8 +102,13 @@ class VenueMoved extends Error {}
  * (research R7): `checkInDetailsRemovedAt` is sent; the kept count is not, it is an admin figure
  * read from the sales report.
  */
-export interface EventResponse extends Omit<EventWithLocation, 'basePrice' | 'keptCheckedInCount'> {
+export interface EventResponse extends Omit<
+  EventWithLocation,
+  'basePrice' | 'keptCheckedInCount' | 'seatSeq'
+> {
   basePrice: string;
+  /** Spec 038 FR-024, research R9: the highest on-sale level price; `null` for GA. */
+  priceMax: string | null;
   entryOpensAt: Date;
 }
 
@@ -106,11 +120,26 @@ export class EventsService {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  private toResponse(event: EventWithLocation): EventResponse {
-    const { keptCheckedInCount: _kept, ...sent } = event;
+  /** Spec 038 research R9: one event's response, its `priceMax` read with `db`. */
+  private async respond(db: Db, event: EventWithLocation): Promise<EventResponse> {
+    const [response] = await this.respondAll(db, [event]);
+    return response;
+  }
+
+  /** Every event's response, their `priceMax` read in one statement (research R9). */
+  private async respondAll(db: Db, events: EventWithLocation[]): Promise<EventResponse[]> {
+    const maxes = await priceMaxes(db, events);
+    return events.map((e) => this.toResponse(e, maxes.get(e.id) ?? null));
+  }
+
+  private toResponse(event: EventWithLocation, priceMax: string | null): EventResponse {
+    // Spec 038 research R12: seatSeq is internal (a BigInt, which JSON can't carry); the venue map
+    // and the stream send it as `seq`.
+    const { keptCheckedInCount: _kept, seatSeq: _seq, ...sent } = event;
     return {
       ...sent,
       basePrice: event.basePrice.toFixed(2),
+      priceMax,
       // Spec 025 research R6, R7: the same rule as the entry SQL's `entryOpens` fragment.
       entryOpensAt: new Date(
         event.doorsOpenAt.getTime() - ENTRY_OPENS_BEFORE_DOORS_MINUTES * MINUTE_MS,
@@ -127,7 +156,7 @@ export class EventsService {
    * the times are checked against is the zone the event is saved under (a zone change, FOR
    * UPDATE, waits for it or it waits for the zone change). The conflict pre-check and the insert
    * run in it too; the event_no_overlap constraint is still the guarantee. Spec 031 (research R4):
-   * so do the event's ticket types and section mappings, all or nothing.
+   * so do the event's ticket types, all or nothing.
    */
   private createOnce(dto: CreateEventDto): Promise<EventResponse> {
     this.assertWindowOrdered(new Date(dto.startsAt), new Date(dto.endsAt));
@@ -149,25 +178,24 @@ export class EventsService {
       ? checkEventTime('doorsOpenAt', dto.doorsOpenAt, zone, location.name)
       : new Date(startsAt.getTime() - DEFAULT_DOORS_BEFORE_START_MINUTES * MINUTE_MS);
     this.assertDoorsInRange(startsAt, doorsOpenAt, zone);
-    // Spec 031 research R4 step 2: with reserved seating, the venue's sections, read under the
-    // venue's share lock taken above, so a layout save (FOR UPDATE) runs wholly before or after;
-    // the capacity is then the layout's total.
-    const sections = dto.reservedSeating
-      ? await tx.section.findMany({
-          where: { locationId: dto.locationId },
-          orderBy: { position: 'asc' },
-        })
-      : [];
+    // Spec 038 (research R8, R9): the seating, before the capacity checks, since a seated event's
+    // capacity is its seats on sale and its base price its lowest level price.
+    const layoutId = dto.layoutId ?? null;
+    assertSeatingFields(layoutId, dto);
+    const seating = layoutId
+      ? await planSeating(tx, { layoutId, locationId: dto.locationId, request: dto, saved: null })
+      : null;
     // Spec 007 FR-019: left out, the event can sell as many tickets as the venue holds.
-    const capacity = eventCapacity(dto, location, sections);
+    const capacity = seating ? seating.seatsOnSale : eventCapacity(dto, location);
     this.assertCapacityWithinVenue(capacity, location);
-    this.assertLimitWithinCapacity(dto.maxTicketsPerCustomer, null, capacity);
+    if (seating) this.assertSeatedLimit(dto.maxTicketsPerCustomer, null, capacity);
+    else this.assertLimitWithinCapacity(dto.maxTicketsPerCustomer, null, capacity);
     await this.assertNoConflict(dto.locationId, zone, startsAt, endsAt, null, tx);
     // Spec 035 (research R8): id is only for an update.
     assertNoTierIdsOnCreate(dto);
     // Spec 031 research R4 steps 4, 5: each ticket type in order, then their total. Every check
     // runs before the first write; the transaction makes a failure in the writes leave nothing.
-    const plan = planEventSetup(dto, location, sections, capacity);
+    const plan = planEventSetup(dto, location, capacity);
 
     const created = await tx.event.create({
       data: {
@@ -178,14 +206,17 @@ export class EventsService {
         doorsOpenAt,
         totalTicketCapacity: capacity,
         maxTicketsPerCustomer: dto.maxTicketsPerCustomer ?? null,
-        basePrice: dto.basePrice,
-        ...(plan.reservedSeating ? { reservedSeating: true } : {}),
+        // Spec 038 (R9): a seated event's base price is set here; a sent one is ignored.
+        basePrice: seating ? seating.basePrice : dto.basePrice,
+        layoutId,
+        reservedSeating: layoutId !== null,
       },
       include: EVENT_INCLUDE,
     });
     await writeEventSetup(tx, created.id, plan);
+    if (seating) await writeSeating(tx, created.id, seating);
 
-    return this.toResponse(created);
+    return this.respond(tx, created);
   }
 
   async findAll(query: ListEventsQuery = {}): Promise<EventResponse[]> {
@@ -220,7 +251,7 @@ export class EventsService {
           return (!days.fromDate || date >= days.fromDate) && (!days.toDate || date <= days.toDate);
         })
       : events;
-    return kept.map((e) => this.toResponse(e));
+    return this.respondAll(this.prisma, kept);
   }
 
   /**
@@ -253,7 +284,7 @@ export class EventsService {
       include: EVENT_INCLUDE,
     });
     if (!event) throw new NotFoundException(`No event exists with id ${id}.`);
-    return this.toResponse(event);
+    return this.respond(this.prisma, event);
   }
 
   update(id: string, dto: UpdateEventDto): Promise<EventResponse> {
@@ -281,10 +312,10 @@ export class EventsService {
           (tx) => this.updateLocked(tx, id, dto, before.locationId),
           LOCKING_TX,
         );
-        // Spec 035 (research R8): tell live seat-map viewers after the setup commits, as
-        // updateSeating does; a details-only update has no changes and does not end streams.
-        if (result.changes.length > 0) this.seatEvents.publish(id, result.changes);
-        if (result.setupApplied) this.seatEvents.end(id);
+        // Spec 038 (research R12): after the commit, an off-sale change goes to live viewers with
+        // its seq; a layout or price change ends their streams, so they reload the map.
+        this.seatEvents.publish(id, { changes: result.changes, seq: result.seq });
+        if (result.endStreams) this.seatEvents.end(id);
         return result.response;
       } catch (err) {
         if (!(err instanceof VenueMoved)) throw err;
@@ -307,29 +338,18 @@ export class EventsService {
     id: string,
     dto: UpdateEventDto,
     venueBefore: string,
-  ): Promise<{ response: EventResponse; changes: SeatStateChange[]; setupApplied: boolean }> {
+  ): Promise<{
+    response: EventResponse;
+    changes: SeatStateChange[];
+    seq: number | null;
+    endStreams: boolean;
+  }> {
+    // Spec 038 research R7: the venue first, then the event; the layout is only read (its
+    // foreign key's KEY SHARE), never locked.
     await lockVenueShared(tx, [venueBefore, dto.locationId ?? venueBefore]);
     const locked = await lockEvent(tx, id);
     if (locked.locationId !== venueBefore) throw new VenueMoved();
     if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
-    // Spec 035: when the request carries the setup, reserved seating in force after it decides
-    // whether the event can move and whether a typed capacity is allowed.
-    const setupSent = dto.tiers !== undefined || dto.reservedSeating !== undefined;
-    const reservedAfter = setupSent ? dto.reservedSeating === true : locked.reservedSeating;
-    // Spec 007 research R3: a seated event's sections belong to its venue, so it cannot move.
-    if (reservedAfter && dto.locationId && dto.locationId !== locked.locationId) {
-      throw new BadRequestException({
-        message: ['Turn reserved seating off before moving this event to another venue.'],
-      });
-    }
-    // Spec 007 FR-018: a seated event's capacity is its venue's layout total.
-    if (reservedAfter && dto.totalTicketCapacity !== undefined) {
-      throw new BadRequestException({
-        message: [
-          "totalTicketCapacity is set by the venue's seating layout while reserved seating is on",
-        ],
-      });
-    }
     const existing = await tx.event.findUniqueOrThrow({ where: { id } });
 
     // The conflict check runs against the DESTINATION venue and DESTINATION window —
@@ -396,55 +416,61 @@ export class EventsService {
       );
     }
 
-    const sections = reservedAfter
-      ? await tx.section.findMany({
-          where: { locationId },
-          orderBy: { position: 'asc' },
-        })
-      : [];
-    const capacity = reservedAfter
-      ? eventCapacity(
-          {
-            name: dto.name ?? existing.name,
-            reservedSeating: true,
-            totalTicketCapacity: undefined,
-          },
-          location,
-          sections,
-        )
-      : (dto.totalTicketCapacity ?? existing.totalTicketCapacity);
+    // Spec 038 (research R8): the seating, after the times and before the capacity checks. The
+    // layout after this request: sent, else cleared by a move to another venue, else kept. It
+    // changes only while the event has no sold or held seats (FR-010).
+    const layoutId = targetLayout(existing, dto, locationId);
+    const layoutChanged = layoutId !== existing.layoutId;
+    assertSeatingFields(layoutId, dto);
+    if (layoutChanged) await assertLayoutFree(tx, id, existing.name);
+    const seating =
+      layoutId !== null &&
+      (layoutChanged || dto.levelPrices !== undefined || dto.offSale !== undefined)
+        ? await planSeating(tx, {
+            layoutId,
+            locationId,
+            request: dto,
+            saved: { eventId: id, eventName: existing.name, layoutId: existing.layoutId },
+          })
+        : null;
+    // Spec 035: the request carries the ticket types when it sends them. Spec 038 (FR-012): a
+    // seated event has none, so an event put on a layout loses its types, by `tiers`' own rules.
+    const tiers =
+      dto.tiers ??
+      (layoutId !== null && (await tx.ticketTier.count({ where: { eventId: id } })) > 0
+        ? []
+        : undefined);
+    const setupSent = tiers !== undefined;
+
+    // Spec 038 (R9): a seated event's capacity is its seats on sale; clearing the layout keeps
+    // the capacity unless one is sent.
+    const capacity = seating
+      ? seating.seatsOnSale
+      : layoutId === null
+        ? (dto.totalTicketCapacity ?? existing.totalTicketCapacity)
+        : existing.totalTicketCapacity;
     this.assertCapacityWithinVenue(capacity, location);
-    if (dto.totalTicketCapacity !== undefined || (setupSent && reservedAfter)) {
+    if (layoutId === null && dto.totalTicketCapacity !== undefined) {
       if (!setupSent) await this.assertCoversTiers(tx, id, capacity);
       await this.assertCoversSales(tx, id, capacity);
     }
-    this.assertLimitWithinCapacity(
-      dto.maxTicketsPerCustomer,
-      existing.maxTicketsPerCustomer,
-      capacity,
-    );
+    if (layoutId !== null) {
+      this.assertSeatedLimit(dto.maxTicketsPerCustomer, existing.maxTicketsPerCustomer, capacity);
+    } else {
+      this.assertLimitWithinCapacity(
+        dto.maxTicketsPerCustomer,
+        existing.maxTicketsPerCustomer,
+        capacity,
+      );
+    }
 
     // `id` is excluded so an event never conflicts with itself (FR-025) — saving an
     // unchanged event must always succeed.
     await this.assertNoConflict(locationId, zone, startsAt, endsAt, id, tx);
 
     let setupPlan: ReturnType<typeof planEventUpdate> | null = null;
-    let existingMappings: {
-      sectionId: string;
-      sectionName: string;
-      tierId: string;
-    }[] = [];
     if (setupSent) {
       const existingTiers = await tx.ticketTier.findMany({ where: { eventId: id } });
-      const mappings = await tx.sectionTier.findMany({
-        where: { eventId: id },
-        include: { section: true },
-      });
-      existingMappings = mappings.map((m) => ({
-        sectionId: m.sectionId,
-        sectionName: m.section.name,
-        tierId: m.tierId,
-      }));
       const soldByTier = new Map<string, number>();
       const ordersByTier = new Map<string, number>();
       for (const tier of existingTiers) {
@@ -452,42 +478,16 @@ export class EventsService {
         ordersByTier.set(tier.id, await tx.order.count({ where: { tierId: tier.id } }));
       }
       setupPlan = planEventUpdate(
-        {
-          name: dto.name ?? existing.name,
-          totalTicketCapacity: reservedAfter ? undefined : capacity,
-          reservedSeating: reservedAfter,
-          tiers: dto.tiers,
-        },
+        { name: dto.name ?? existing.name, totalTicketCapacity: capacity, tiers },
         {
           eventName: dto.name ?? existing.name,
-          reservedSeatingBefore: existing.reservedSeating,
           existingTiers: existingTiers.map((tier) => ({ id: tier.id, name: tier.name })),
-          existingMappings,
           counts: {
-            eventSold: await ticketsSold(tx, { eventId: id }),
             tierlessSold: await ticketsSold(tx, { eventId: id, tierId: null }),
             soldByTier,
             ordersByTier,
-            soldBySection: new Map(
-              await Promise.all(
-                existingMappings.map(
-                  async (m) =>
-                    [
-                      m.sectionId,
-                      await tx.ticket.count({
-                        where: {
-                          eventId: id,
-                          status: 'VALID' as const,
-                          seatSection: m.sectionName,
-                        },
-                      }),
-                    ] as const,
-                ),
-              ),
-            ),
           },
           venue: location,
-          sections,
           capacity,
         },
       );
@@ -501,31 +501,39 @@ export class EventsService {
         ...(dto.startsAt !== undefined ? { startsAt } : {}),
         ...(dto.endsAt !== undefined ? { endsAt } : {}),
         ...(doorsOpenAt.getTime() !== existing.doorsOpenAt.getTime() ? { doorsOpenAt } : {}),
-        ...(dto.totalTicketCapacity !== undefined || (setupSent && reservedAfter)
+        ...(seating || (layoutId === null && dto.totalTicketCapacity !== undefined)
           ? { totalTicketCapacity: capacity }
           : {}),
-        ...(dto.basePrice !== undefined ? { basePrice: dto.basePrice } : {}),
+        // Spec 038 (R9): a seated event's base price is its lowest level price; a sent one is
+        // ignored.
+        ...(seating
+          ? { basePrice: seating.basePrice }
+          : layoutId === null && dto.basePrice !== undefined
+            ? { basePrice: dto.basePrice }
+            : {}),
+        ...(layoutChanged ? { layoutId, reservedSeating: layoutId !== null } : {}),
         // Spec 016: `null` clears the limit, so presence, not truthiness, decides.
         ...(dto.maxTicketsPerCustomer !== undefined
           ? { maxTicketsPerCustomer: dto.maxTicketsPerCustomer }
           : {}),
-        ...(setupSent ? { reservedSeating: reservedAfter } : {}),
       },
       include: EVENT_INCLUDE,
     });
 
-    let changes: SeatStateChange[] = [];
-    if (setupPlan) {
-      changes = await writeEventUpdate(tx, id, locationId, setupPlan, {
-        reservedSeating: existing.reservedSeating,
-        mappings: existingMappings,
-      });
-    }
+    if (setupPlan) await writeEventUpdate(tx, id, setupPlan);
+    if (layoutChanged && layoutId === null) await clearSeating(tx, id);
+    const written = seating ? await writeSeating(tx, id, seating) : { changes: [], seq: null };
 
-    const fresh = setupPlan
-      ? await tx.event.findUniqueOrThrow({ where: { id }, include: EVENT_INCLUDE })
-      : updated;
-    return { response: this.toResponse(fresh), changes, setupApplied: setupSent };
+    const fresh =
+      setupPlan || written.seq !== null
+        ? await tx.event.findUniqueOrThrow({ where: { id }, include: EVENT_INCLUDE })
+        : updated;
+    return {
+      response: await this.respond(tx, fresh),
+      changes: written.changes,
+      seq: written.seq,
+      endStreams: layoutChanged || (seating?.pricesChanged ?? false),
+    };
   }
 
   async remove(id: string): Promise<void> {
@@ -565,18 +573,16 @@ export class EventsService {
       const locked = await lockEvent(tx, id);
       if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
 
-      const freed: SeatLabel[] = [...(await closeRunOut(tx, id)), ...(await closeHolds(tx, id))];
+      // Spec 038 research R12: held seats leave `reserved`, sold seats `sold`, all in one seq.
+      const freed: SeatMove[] = [
+        ...fromHeld(await closeRunOut(tx, id)),
+        ...fromHeld(await closeHolds(tx, id)),
+      ];
       const sold = await tx.ticket.findMany({
-        where: { eventId: id, status: 'VALID', seatSection: { not: null } },
-        select: { seatSection: true, seatRow: true, seatNumber: true },
+        where: { eventId: id, status: 'VALID', seatId: { not: null } },
+        select: { seatId: true },
       });
-      for (const t of sold) {
-        freed.push({
-          section: t.seatSection as string,
-          row: t.seatRow as number,
-          seat: t.seatNumber as number,
-        });
-      }
+      for (const t of sold) freed.push({ seatId: t.seatId, from: 'sold' });
 
       const now = new Date();
       const tickets = await tx.ticket.updateMany({
@@ -594,11 +600,11 @@ export class EventsService {
       });
       return {
         result: {
-          event: this.toResponse(event),
+          event: await this.respond(tx, event),
           ordersRefunded: orders.count,
           ticketsVoided: tickets.count,
         },
-        changes: await toChanges(tx, locked.locationId, freed, 'open'),
+        changes: await sequence(tx, id, await toChanges(tx, locked.layoutId, freed, 'open')),
       };
     }, LOCKING_TX);
     this.seatEvents.publish(id, changes);
@@ -696,6 +702,30 @@ export class EventsService {
         { proposedTicketCapacity: capacity, maxTicketsPerCustomer: stored },
       );
     }
+  }
+
+  /**
+   * Spec 038 (FR-014, research R9): a seated event's limit per customer, sent or kept, may not
+   * exceed its seats on sale, which the seating sets: `409 CAPACITY_EXCEEDED`, naming the limit
+   * when it was sent, else the seats off sale that lowered the capacity under it.
+   */
+  private assertSeatedLimit(
+    sent: number | null | undefined,
+    stored: number | null,
+    seatsOnSale: number,
+  ): void {
+    const limit = sent !== undefined ? sent : stored;
+    if (limit === null || limit <= seatsOnSale) return;
+    throw conflict(
+      'CAPACITY_EXCEEDED',
+      `This event would have ${seatsOnSale.toLocaleString('en-US')} seats on sale, fewer than its ` +
+        `limit of ${limit} tickets per customer. Lower the limit or put more seats on sale.`,
+      {
+        field: sent !== undefined ? 'maxTicketsPerCustomer' : 'offSale',
+        seatsOnSale,
+        maxTicketsPerCustomer: limit,
+      },
+    );
   }
 
   /** Spec 005 FR-011: capacity may not drop below the tickets already sold. */

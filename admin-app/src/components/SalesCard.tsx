@@ -5,7 +5,8 @@ import { removedNote } from '../format';
 import { usd } from '../money';
 
 /**
- * Spec 005 FR-006: one event's sales, with each tier broken out. Read from the sales report,
+ * Spec 005 FR-006: one event's sales, with each tier broken out (each price level for a seated
+ * event, spec 038 FR-030). Read from the sales report,
  * which is small enough at this scale to fetch whole (research R6). Shows nothing if the report
  * cannot be loaded: the rest of the event page still works.
  */
@@ -51,6 +52,36 @@ export function SalesCard({ eventId }: { eventId: string }): React.ReactElement 
                   <td className="cell-strong">{t.name}</td>
                   <td className="cell-num">{`${t.ticketsSold.toLocaleString()} of ${t.quantity.toLocaleString()}`}</td>
                   <td className="price">{usd(t.revenue)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {/* Spec 038 FR-030 (research R17): a seated event's sales by price level, as sold. */}
+      {sales.levels.length > 0 && (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Price level</th>
+                <th>Price</th>
+                <th>Sold</th>
+                <th>Revenue</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sales.levels.map((l) => (
+                <tr key={l.levelId ?? `sold-${l.name}`}>
+                  <td className="cell-strong">{l.name}</td>
+                  <td className="price">{l.price === null ? '—' : usd(l.price)}</td>
+                  {/* A level deleted since: what was sold, with no seats on sale to count. */}
+                  <td className="cell-num">
+                    {l.levelId === null
+                      ? l.ticketsSold.toLocaleString()
+                      : `${l.ticketsSold.toLocaleString()} of ${l.seatsOnSale.toLocaleString()}`}
+                  </td>
+                  <td className="price">{usd(l.revenue)}</td>
                 </tr>
               ))}
             </tbody>

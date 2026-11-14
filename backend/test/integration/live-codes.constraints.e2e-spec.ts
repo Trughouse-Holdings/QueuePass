@@ -33,8 +33,8 @@ describe('Ticket entry secrets', () => {
   const insertTicket = async (code: string): Promise<string> => {
     const id = randomUUID();
     await ctx.prisma.$executeRaw`
-      INSERT INTO "Ticket" ("id", "orderId", "eventId", "code")
-      VALUES (${id}::uuid, ${orderId}::uuid, ${eventId}::uuid, ${code})`;
+      INSERT INTO "Ticket" ("id", "orderId", "eventId", "code", "price")
+      VALUES (${id}::uuid, ${orderId}::uuid, ${eventId}::uuid, ${code}, 45.00)`;
     return id;
   };
 

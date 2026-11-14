@@ -1,30 +1,22 @@
-import type {
-  Availability,
-  LayoutInput,
-  SeatingInput,
-  SeatingLayout,
-  SeatMap,
-} from '@queuepass/shared';
+import type { Availability, EventSeating, VenueMapSection } from '@queuepass/shared';
 import { api, unwrap } from './client';
 
-/** Spec 007: venue seating layouts, reserved seating, and seat maps. */
-const venuePath = (locationId: string) => ({ params: { path: { id: locationId } } });
+/**
+ * Spec 038 (research R8, R11): an event's seating as the event form edits it, and one section's
+ * seat states. `007`'s layout and seating writes are gone (contract 2.0.0): a layout is the
+ * `layouts` API's, and an event's seating is saved with the event.
+ */
+export const getEventSeating = (eventId: string): Promise<EventSeating> =>
+  unwrap(api.GET('/events/{id}/seating', { params: { path: { id: eventId } } }));
 
-export const getLayout = (locationId: string): Promise<SeatingLayout> =>
-  unwrap(api.GET('/locations/{id}/layout', venuePath(locationId)));
+/** Each seat of one section with its state at the event: the off-sale tool disables sold and held. */
+export const getVenueMapSection = (eventId: string, sectionId: string): Promise<VenueMapSection> =>
+  unwrap(
+    api.GET('/events/{id}/venue-map/sections/{sectionId}', {
+      params: { path: { id: eventId, sectionId } },
+    }),
+  ) as Promise<VenueMapSection>;
 
-export const replaceLayout = (locationId: string, input: LayoutInput): Promise<SeatingLayout> =>
-  unwrap(api.PUT('/locations/{id}/layout', { ...venuePath(locationId), body: input }));
-
-export const deleteLayout = (locationId: string): Promise<void> =>
-  unwrap(api.DELETE('/locations/{id}/layout', venuePath(locationId)));
-
-export const getSeatMap = (eventId: string): Promise<SeatMap> =>
-  unwrap(api.GET('/events/{id}/seats', { params: { path: { id: eventId } } }));
-
-export const updateSeating = (eventId: string, input: SeatingInput): Promise<SeatMap> =>
-  unwrap(api.PUT('/events/{id}/seating', { params: { path: { id: eventId } }, body: input }));
-
-/** Spec 006's availability: whether any ticket is sold decides if seating may still switch. */
+/** Spec 006's availability: whether any ticket is sold decides if the seating may still change. */
 export const getAvailability = (eventId: string): Promise<Availability> =>
   unwrap(api.GET('/events/{id}/availability', { params: { path: { id: eventId } } }));
