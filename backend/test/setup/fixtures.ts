@@ -469,6 +469,33 @@ export async function insertLayout(
 }
 
 /**
+ * Spec 038 (T010): the ids of a layout made through the API (`createVenueLayout`,
+ * `importVenueLayout`), read from the database, in the shape `insertLayout` returns, so
+ * `seatEventOn`, `sellSeats` and `holdSeats` work on it too. Seats by row and seat **numbers**.
+ */
+export async function layoutRefs(ctx: TestContext, layoutId: string): Promise<InsertedLayout> {
+  const levels = await ctx.prisma.priceLevel.findMany({ where: { layoutId } });
+  const sections = await ctx.prisma.section.findMany({ where: { layoutId } });
+  const seats = await ctx.prisma.seat.findMany({
+    where: { section: { layoutId } },
+    include: { row: true, section: true },
+  });
+  const byPlace = new Map(
+    seats.map((s) => [`${s.section.name}/${s.row.number}/${s.number}`, s.id] as const),
+  );
+  return {
+    id: layoutId,
+    levels: Object.fromEntries(levels.map((l) => [l.name, l.id])),
+    sections: Object.fromEntries(sections.map((s) => [s.name, s.id])),
+    seat: (section, row, seat) => {
+      const seatId = byPlace.get(`${section}/${row}/${seat}`);
+      if (!seatId) throw new Error(`layoutRefs: no seat ${section}/${row}/${seat}`);
+      return seatId;
+    },
+  };
+}
+
+/**
  * Spec 038 (T009a): an event put on a layout directly, before the event's seating is saved through
  * the API (T023): its layout, a price per level (by name), and the given seats off sale. Each call
  * replaces the event's prices and off-sale seats.

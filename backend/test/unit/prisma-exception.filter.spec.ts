@@ -101,6 +101,23 @@ describe('AllExceptionsFilter, spec 014', () => {
     expect(run(new HttpException('too big', 413))).toEqual(generic);
   });
 
+  // Spec 038 (T016): the JSON body parser's own refusals (Express's `body-parser`, before any
+  // route) are the client's errors: a body too large is 413, a body that is not JSON is 400.
+  it("answers the body parser's refusals with their status in the envelope, not 500", () => {
+    const parserError = (status: number, type: string) =>
+      Object.assign(new Error('parser'), { status, statusCode: status, type, expose: true });
+    expect(run(parserError(413, 'entity.too.large'))).toEqual({
+      status: 413,
+      body: { error: { code: 'VALIDATION_FAILED', message: 'The request body is too large.' } },
+    });
+    expect(run(parserError(400, 'entity.parse.failed'))).toMatchObject({
+      status: 400,
+      body: { error: { code: 'VALIDATION_FAILED' } },
+    });
+    // Anything else with a status stays unexpected.
+    expect(run(Object.assign(new Error('x'), { status: 413 })).status).toBe(500);
+  });
+
   // Review of PR #63: the raw-statement fallback reads Prisma's structured fields only.
   it('does not map an Error that Prisma did not throw to IMAGES_CHANGED, whatever its text', () => {
     const text =

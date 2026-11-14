@@ -11,6 +11,7 @@ import { TiersModule } from './tiers/tiers.module';
 import { OrdersModule } from './orders/orders.module';
 import { ReportsModule } from './reports/reports.module';
 import { SeatingModule } from './seating/seating.module';
+import { LayoutsModule } from './layouts/layouts.module';
 import { EntryModule } from './entry/entry.module';
 import { ReservationsModule } from './reservations/reservations.module';
 
@@ -29,6 +30,7 @@ import { ReservationsModule } from './reservations/reservations.module';
     OrdersModule,
     ReportsModule,
     SeatingModule,
+    LayoutsModule,
     ReservationsModule,
     EntryModule,
   ],

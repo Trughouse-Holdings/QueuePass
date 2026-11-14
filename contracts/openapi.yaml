@@ -636,7 +636,6 @@ paths:
         and how many scheduled events use it; empty when it has none. Any signed-in user may read
         it: a layout is the venue's public map.
       operationId: listVenueLayouts
-      x-planned: '038'
       x-required-roles: []
       responses:
         '200':
@@ -665,7 +664,6 @@ paths:
         `totalTicketCapacity` of a scheduled general-admission event at the venue (`409
         CAPACITY_EXCEEDED`, naming it).
       operationId: createVenueLayout
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -707,7 +705,6 @@ paths:
         is `409 LAYOUT_NAME_TAKEN`. The venue's capacity is set and checked as by
         `createVenueLayout`.
       operationId: importVenueLayout
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -742,7 +739,6 @@ paths:
         `latestPrices` are the level prices of the most recently created scheduled event on this
         layout, for the Admin app to start a new event's price boxes from; `null` when none uses it.
       operationId: getVenueLayout
-      x-planned: '038'
       x-required-roles: []
       responses:
         '200':
@@ -773,7 +769,6 @@ paths:
         event would then have on-sale seats in a level it has no price for, no seat on sale, or a
         `maxTicketsPerCustomer` above its seats on sale.
       operationId: updateVenueLayout
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -802,7 +797,6 @@ paths:
         venue (`409 CAPACITY_EXCEEDED`, naming it); after its last layout it keeps its last value,
         typed with `updateLocation` again.
       operationId: deleteVenueLayout
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       responses:
         '204': { description: Layout deleted. }
@@ -831,7 +825,6 @@ paths:
         Feature 038. The section's rows front first, each with its seats in order, each seat with
         its label, place, level (its own, else its row's, else its section's) and accessible mark.
       operationId: getVenueLayoutSection
-      x-planned: '038'
       x-required-roles: []
       responses:
         '200':
@@ -859,7 +852,6 @@ paths:
         then "(copy 2)", … , whichever is free; a `name` another layout has is `409
         LAYOUT_NAME_TAKEN`.
       operationId: duplicateVenueLayout
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: false
