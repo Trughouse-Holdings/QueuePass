@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import type { Event, Location } from '@queuepass/shared';
+import type { Event, LayoutSummary, Location } from '@queuepass/shared';
 import { AddressLink } from '@queuepass/shared/web';
 import { ApiError } from '../api/client';
 import { deleteLocation, getLocation } from '../api/locations';
 import { listEvents } from '../api/events';
 import { ErrorBanner } from '../components/ErrorBanner';
-import { LayoutCard } from '../components/LayoutCard';
+import { LayoutsCard } from '../components/LayoutsCard';
 import { hasEnded, venueZone, when } from '../format';
 import { useDelete } from '../hooks/use-delete';
 
@@ -96,6 +96,9 @@ function VenueView({
   past: boolean;
   onPast: (on: boolean) => void;
 }): React.ReactElement {
+  // Spec 038 FR-009: while the venue has layouts, its capacity is its largest layout's.
+  const [layouts, setLayouts] = useState<LayoutSummary[]>([]);
+  const largest = layouts.length > 0 ? Math.max(...layouts.map((l) => l.seatCount)) : null;
   const { remove, deleting, error } = useDelete({
     kind: 'venue',
     name: venue.name,
@@ -133,8 +136,11 @@ function VenueView({
       <div className="card">
         <p>
           Seating capacity:{' '}
-          <span className="cell-num">{venue.seatingCapacity.toLocaleString()}</span>
+          <span className="cell-num">{(largest ?? venue.seatingCapacity).toLocaleString()}</span>
         </p>
+        {largest !== null && (
+          <p className="note">{`From the largest layout (${largest.toLocaleString()} seats)`}</p>
+        )}
 
         <h2>Events here</h2>
         <label className="choice">
@@ -182,7 +188,7 @@ function VenueView({
         )}
       </div>
 
-      <LayoutCard venue={venue} />
+      <LayoutsCard venue={venue} events={events} onLayouts={setLayouts} />
     </section>
   );
 }

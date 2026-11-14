@@ -15,12 +15,11 @@ import { setLocalDateTime } from './helpers/event-times';
  */
 afterEach(() => vi.unstubAllGlobals());
 
-const LAYOUT = {
-  locationId: VENUE.id,
-  totalSeats: 70,
-  sections: [{ id: 's-a', name: 'A', rows: 7, seatsPerRow: 10 }],
-};
-const NO_LAYOUT = { locationId: VENUE.id, totalSeats: 0, sections: [] };
+// Spec 038 FR-009: a venue's layouts; its capacity is the largest one's.
+const LAYOUTS = [
+  { id: 'l-a', locationId: VENUE.id, name: 'Standard', seatCount: 70 },
+  { id: 'l-b', locationId: VENUE.id, name: 'Small', seatCount: 40 },
+];
 const SEATED = { ...EVENT, reservedSeating: true, totalTicketCapacity: 70 } as Event;
 
 const at = (path: string, route: string, element: React.ReactElement) =>
@@ -33,18 +32,17 @@ const at = (path: string, route: string, element: React.ReactElement) =>
   );
 
 describe('venue form', () => {
-  it("shows a laid-out venue's capacity as set by its layout, and never sends it", async () => {
+  it("shows a laid-out venue's capacity as its largest layout's, read-only, and never sends it", async () => {
     const api = stubApi({
       [`GET /locations/${VENUE.id}`]: json({ ...VENUE, seatingCapacity: 70 }),
-      [`GET /locations/${VENUE.id}/layout`]: json(LAYOUT),
+      [`GET /locations/${VENUE.id}/layouts`]: json(LAYOUTS),
       [`PATCH /locations/${VENUE.id}`]: json({ ...VENUE, seatingCapacity: 70 }),
     });
     at(`/locations/${VENUE.id}/edit`, '/locations/:id/edit', <LocationForm />);
 
-    expect(
-      await screen.findByText('Seating capacity: 70, set by its seating layout.'),
-    ).toBeInTheDocument();
-    expect(screen.queryByLabelText('Seating capacity')).toBeNull();
+    expect(await screen.findByText('From the largest layout (70 seats)')).toBeInTheDocument();
+    expect(screen.getByLabelText('Seating capacity')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Seating capacity')).toHaveValue(70);
 
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
     await vi.waitFor(() => expect(api.count('PATCH', `/locations/${VENUE.id}`)).toBe(1));
@@ -54,7 +52,7 @@ describe('venue form', () => {
   it('keeps the capacity field for a venue without a layout', async () => {
     stubApi({
       [`GET /locations/${VENUE.id}`]: json(VENUE),
-      [`GET /locations/${VENUE.id}/layout`]: json(NO_LAYOUT),
+      [`GET /locations/${VENUE.id}/layouts`]: json([]),
     });
     at(`/locations/${VENUE.id}/edit`, '/locations/:id/edit', <LocationForm />);
 

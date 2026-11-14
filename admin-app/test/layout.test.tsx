@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LocationDetail } from '../src/pages/LocationDetail';
 import { json, stubApi } from './helpers/api-stub';
@@ -9,21 +9,67 @@ import { fixTimeBeforeFixtures } from './helpers/fixed-time';
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
 fixTimeBeforeFixtures();
 
-/** Spec 007 US1 (FR-001, FR-003): the venue page's seating layout. */
+/**
+ * Spec 007 US1 as spec 038 amends it (FR-005, FR-006; research R6, R15): a layout made from section
+ * lines is edited as lines again, each with its price level, on the venue page's Layouts card.
+ * An imported layout has no lines to edit.
+ */
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 const PATH = `/locations/${VENUE.id}`;
-const LAYOUT_PATH = `${PATH}/layout`;
-const A = { id: 's-a', name: 'A', rows: 3, seatsPerRow: 10 };
-const B = { id: 's-b', name: 'B', rows: 2, seatsPerRow: 20 };
-const layout = (sections: object[], totalSeats: number) => ({
+const LINES_ID = 'l-club';
+const square: [number, number][] = [
+  [0, 0],
+  [10, 0],
+  [10, 10],
+  [0, 10],
+];
+const CLUB = {
+  id: LINES_ID,
   locationId: VENUE.id,
-  totalSeats,
-  sections,
-});
+  name: 'Club room',
+  source: 'LINES',
+  floorKind: 'NONE',
+  seatCount: 70,
+  sectionCount: 2,
+  levelCount: 2,
+  eventsUsing: 0,
+  locked: false,
+  size: { width: 100, height: 40 },
+  floorOutline: null,
+  levels: [
+    { id: 'lv-front', name: 'Front', rank: 1, color: 'violet', seatCount: 30 },
+    { id: 'lv-back', name: 'Back', rank: 2, color: 'teal', seatCount: 40 },
+  ],
+  sections: [
+    {
+      id: 's-a',
+      name: 'A',
+      levelId: 'lv-front',
+      outline: square,
+      labelAt: [5, 5],
+      rowCount: 3,
+      seatCount: 30,
+      levelIds: ['lv-front'],
+    },
+    {
+      id: 's-b',
+      name: 'B',
+      levelId: 'lv-back',
+      outline: square,
+      labelAt: [5, 5],
+      rowCount: 2,
+      seatCount: 40,
+      levelIds: ['lv-back'],
+    },
+  ],
+  latestPrices: null,
+};
+const FILE_LAYOUT = { ...CLUB, id: 'l-file', name: 'Basketball', source: 'FILE' };
+const { size: _s, floorOutline: _f, levels: _l, sections: _x, latestPrices: _p, ...SUMMARY } = CLUB;
 
 const renderPage = () =>
   render(
@@ -37,121 +83,116 @@ const renderPage = () =>
 const routes = (extra: Record<string, Response | (() => Response)> = {}) => ({
   [`GET ${PATH}`]: json(VENUE),
   'GET /events': json([]),
-  [`GET ${LAYOUT_PATH}`]: json(layout([A, B], 70)),
+  [`GET ${PATH}/layouts`]: json([SUMMARY]),
+  [`GET /layouts/${LINES_ID}`]: json(CLUB),
   ...extra,
 });
 
-const card = () => screen.findByRole('region', { name: 'Seating layout' });
+const club = () => screen.findByRole('article', { name: 'Club room' });
+const edit = async () =>
+  fireEvent.click(
+    within(await club()).getByRole('button', { name: 'Edit section lines of Club room' }),
+  );
 
-describe('Seating layout card', () => {
-  it('lists each section with its size and seats, and the total', async () => {
+describe('Editing a layout made from section lines', () => {
+  it('starts from its lines, each with its rows, seats per row and price level', async () => {
     stubApi(routes());
     renderPage();
+    await edit();
 
-    const region = await card();
-    const rows = await within(region).findAllByRole('row');
-    expect(rows.slice(1).map((r) => r.textContent)).toEqual([
-      'A3 rows × 10 seats30',
-      'B2 rows × 20 seats40',
-    ]);
-    expect(within(region).getByText('Total: 70 seats')).toBeInTheDocument();
-  });
-
-  it('says so when the venue has no layout', async () => {
-    stubApi(routes({ [`GET ${LAYOUT_PATH}`]: json(layout([], 0)) }));
-    renderPage();
-
-    expect(await within(await card()).findByText('No seating layout')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Remove layout' })).toBeNull();
-  });
-
-  it('edits the layout and saves the sections in order', async () => {
-    const saved = layout([A, B, { id: 's-c', name: 'C', rows: 1, seatsPerRow: 5 }], 75);
-    const api = stubApi(routes({ [`PUT ${LAYOUT_PATH}`]: json(saved) }));
-    renderPage();
-
-    fireEvent.click(await within(await card()).findByRole('button', { name: 'Edit layout' }));
     expect(screen.getByRole('textbox', { name: 'Section 1 Section name' })).toHaveValue('A');
+    expect(screen.getByRole('spinbutton', { name: 'Section 1 Rows' })).toHaveValue(3);
+    expect(screen.getByRole('spinbutton', { name: 'Section 1 Seats per row' })).toHaveValue(10);
+    expect(screen.getByRole('combobox', { name: 'Section 2 Price level' })).toHaveValue('Back');
+    expect(screen.getByRole('textbox', { name: 'Level 2 Level name' })).toHaveValue('Back');
+    expect(screen.getByRole('combobox', { name: 'Level 1 Color' })).toHaveValue('violet');
+    expect(screen.getByText('Total: 70 seats')).toBeInTheDocument();
+  });
+
+  it('saves the levels and the lines in order', async () => {
+    const api = stubApi(routes({ [`PUT /layouts/${LINES_ID}`]: json(CLUB) }));
+    renderPage();
+    await edit();
+
     fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Section 3 Section name' }), {
       target: { value: 'C' },
     });
-    fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 3 Rows' }), {
-      target: { value: '1' },
-    });
     fireEvent.change(screen.getByRole('spinbutton', { name: 'Section 3 Seats per row' }), {
       target: { value: '5' },
     });
-    // Spec 024 FR-019, FR-021: the hint once, and each line's seats.
-    expect(
-      screen.getAllByText(
-        'A section is a grid of seats: rows run front to back, and every row has the same number of seats across.',
-      ),
-    ).toHaveLength(1);
+    fireEvent.change(screen.getByRole('combobox', { name: 'Section 3 Price level' }), {
+      target: { value: 'Back' },
+    });
     expect(
       within(screen.getByRole('group', { name: 'Section 2' })).getByText('= 40 seats'),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Save layout' }));
 
-    expect(await within(await card()).findByText('Total: 75 seats')).toBeInTheDocument();
-    const put = api.calls.find((c) => c.method === 'PUT');
-    expect(put?.body).toEqual({
+    await waitFor(() => expect(api.count('PUT', `/layouts/${LINES_ID}`)).toBe(1));
+    expect(api.calls.find((c) => c.method === 'PUT')?.body).toEqual({
+      name: 'Club room',
+      levels: [
+        { name: 'Front', color: 'violet' },
+        { name: 'Back', color: 'teal' },
+      ],
       sections: [
-        { name: 'A', rows: 3, seatsPerRow: 10 },
-        { name: 'B', rows: 2, seatsPerRow: 20 },
-        { name: 'C', rows: 1, seatsPerRow: 5 },
+        { name: 'A', rows: 3, seatsPerRow: 10, level: 'Front' },
+        { name: 'B', rows: 2, seatsPerRow: 20, level: 'Back' },
+        { name: 'C', rows: 1, seatsPerRow: 5, level: 'Back' },
       ],
     });
   });
 
   it('removes a section line before saving', async () => {
-    const api = stubApi(routes({ [`PUT ${LAYOUT_PATH}`]: json(layout([B], 40)) }));
+    const api = stubApi(routes({ [`PUT /layouts/${LINES_ID}`]: json(CLUB) }));
     renderPage();
-
-    fireEvent.click(await within(await card()).findByRole('button', { name: 'Edit layout' }));
+    await edit();
     fireEvent.click(screen.getByRole('button', { name: 'Remove section 1' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save layout' }));
-
-    await within(await card()).findByText('Total: 40 seats');
-    expect(api.calls.find((c) => c.method === 'PUT')?.body).toEqual({
-      sections: [{ name: 'B', rows: 2, seatsPerRow: 20 }],
+    await waitFor(() => expect(api.count('PUT', `/layouts/${LINES_ID}`)).toBe(1));
+    expect(api.calls.find((c) => c.method === 'PUT')?.body).toMatchObject({
+      sections: [{ name: 'B', rows: 2, seatsPerRow: 20, level: 'Back' }],
     });
   });
 
   it.each([
     [
       'LAYOUT_IN_USE',
-      'The seating layout of Yum Center is in use by "Season Opener", which has sold seats.',
+      'Club room is used by "Season Opener", which has sold or held seats. Duplicate it to make changes.',
     ],
     [
       'CAPACITY_EXCEEDED',
       'The layout has 70 seats, fewer than "Big Night" sells (100 tickets). Lower its capacity first.',
     ],
-  ])("shows a %s refusal in the Backend's words", async (code, message) => {
-    stubApi(routes({ [`PUT ${LAYOUT_PATH}`]: json({ error: { code, message } }, 409) }));
+  ])("shows a %s refusal in the Backend's words, keeping the lines", async (code, message) => {
+    stubApi(routes({ [`PUT /layouts/${LINES_ID}`]: json({ error: { code, message } }, 409) }));
     renderPage();
-
-    fireEvent.click(await within(await card()).findByRole('button', { name: 'Edit layout' }));
+    await edit();
     fireEvent.click(screen.getByRole('button', { name: 'Save layout' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(await within(await club()).findByRole('alert')).toHaveTextContent(message);
+    expect(screen.getByRole('textbox', { name: 'Section 1 Section name' })).toHaveValue('A');
   });
 
-  it('removes the layout only after confirming', async () => {
-    const confirm = vi
-      .spyOn(window, 'confirm')
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
-    const api = stubApi(routes({ [`DELETE ${LAYOUT_PATH}`]: json(null, 204) }));
+  it('offers no line edit for an imported layout', async () => {
+    const {
+      size: _a,
+      floorOutline: _b,
+      levels: _c,
+      sections: _d,
+      latestPrices: _e,
+      ...summary
+    } = FILE_LAYOUT;
+    stubApi(
+      routes({
+        [`GET ${PATH}/layouts`]: json([summary]),
+        'GET /layouts/l-file': json(FILE_LAYOUT),
+      }),
+    );
     renderPage();
-
-    const remove = await within(await card()).findByRole('button', { name: 'Remove layout' });
-    fireEvent.click(remove);
-    expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Yum Center'));
-    expect(api.count('DELETE', LAYOUT_PATH)).toBe(0);
-
-    fireEvent.click(remove);
-    expect(await within(await card()).findByText('No seating layout')).toBeInTheDocument();
-    expect(api.count('DELETE', LAYOUT_PATH)).toBe(1);
+    const item = await screen.findByRole('article', { name: 'Basketball' });
+    expect(within(item).getByRole('button', { name: 'Rename Basketball' })).toBeInTheDocument();
+    expect(within(item).queryByRole('button', { name: /Edit section lines/ })).toBeNull();
   });
 });

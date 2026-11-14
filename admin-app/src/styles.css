@@ -133,8 +133,15 @@
    tier mapping keep .form__row as it is. At phone width: the name, then rows × seats per row,
    then the seats and Remove. */
 .form__row--section {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 6.5rem) auto minmax(0, 6.5rem) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 6.5rem) auto minmax(0, 6.5rem) minmax(
+      0,
+      9rem
+    ) auto;
   align-items: end;
+}
+.form__row--section select {
+  width: 100%;
+  min-width: 0;
 }
 .form__row--section > .btn {
   grid-column: 1 / -1;
@@ -156,7 +163,8 @@
   .form__row--section {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   }
-  .form__row--section > .field:first-of-type {
+  .form__row--section > .field:first-of-type,
+  .form__row--section > .section-line__level {
     grid-column: 1 / -1;
   }
   .form__row--section > .section-line__seats {
@@ -170,6 +178,42 @@
     align-self: center;
     padding-bottom: 0;
   }
+}
+
+/* Spec 038 (research R15): a layout's price level line, "Level name" and "Color", with Remove
+   under them; the venue page's layouts, one after another, each with its preview. */
+.form__row--level {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 9rem);
+  align-items: end;
+}
+.form__row--level > .btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.form__row--level input,
+.form__row--level select {
+  width: 100%;
+  min-width: 0;
+}
+.layout-list {
+  display: grid;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+.layout-item {
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.layout-item > h3 {
+  margin: 0 0 var(--space-1);
+}
+.layout-item > p {
+  margin: 0 0 var(--space-2);
+}
+.layout-item .layout-preview {
+  margin: var(--space-2) 0 var(--space-3);
 }
 
 /* ---------------------------------------------------------------- event images (spec 014) */
