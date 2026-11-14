@@ -325,7 +325,7 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
 
 ### Tests first
 
-- [ ] T010 [P] [US1] `backend/test/integration/layouts.e2e-spec.ts` (FR-001–FR-009, R5–R7;
+- [X] T010 [P] [US1] `backend/test/integration/layouts.e2e-spec.ts` (FR-001–FR-009, R5–R7;
   contracts/README.md): `importVenueLayout` with `small.json` → `201`, counts, `source: FILE`, levels
   by rank, every section's `outline`, `labelAt` (the centroid when the file has none), `levelIds`;
   `getVenueLayoutSection` gives rows front first and each seat's resolved level and `accessible`;
@@ -355,18 +355,32 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   scheduled GA event's capacity → `409 CAPACITY_EXCEEDED` naming it; `listVenueLayouts` ordered by
   name with `eventsUsing` and `locked`; `getVenueLayout.latestPrices` from the latest-starting
   scheduled event, `null` with none; every response `expectToMatchContract`. Must fail.
-- [ ] T011 [P] [US1] `backend/test/integration/layouts.authz.e2e-spec.ts`: for each of the eight
+  **Done** (2026-11-13): 44 tests, written first and seen failing (`404`, no routes); all pass
+  after T014–T016. `latestPrices` is tested as the contract, R8 and T023 say it: the most recently
+  **created** scheduled event (one created later and starting sooner wins); this task's "the
+  latest-starting" disagrees with them (reported). The body over 4 MB is checked outside the
+  contract helper: the contract declares no `413` for `importVenueLayout` (reported); the 200 kB
+  body elsewhere is `413` too. Helper `layoutRefs` in `test/setup/fixtures.ts` gives a layout made
+  through the API the shape `insertLayout` returns, for `seatEventOn`, `sellSeats`, `holdSeats`.
+- [X] T011 [P] [US1] `backend/test/integration/layouts.authz.e2e-spec.ts`: for each of the eight
   layout operations, missing, expired, wrong-signed, wrong-audience and wrong-role tokens (`401`,
   `403`), as `event-images.authz.e2e-spec.ts` does; reads allowed to a customer and a gate agent.
   Must fail.
-- [ ] T012 [P] [US1] `backend/test/integration/layouts.concurrency.e2e-spec.ts`: a lines edit and a
+  **Done** (2026-11-13): 6 tests, seen failing (`404`), all pass after T015; the first checks the
+  eight operations are the contract's, served, with their roles.
+- [X] T012 [P] [US1] `backend/test/integration/layouts.concurrency.e2e-spec.ts`: a lines edit and a
   hold of a seat of an event on the layout, started together 10 times: either the hold succeeds and
   the edit is refused (`409 LAYOUT_IN_USE`), or the edit succeeds and the hold sees the new layout,
   never a hold on a seat the edit deleted; two imports with one name at once: exactly one `201`.
   Must fail.
   Also (from T009a): an event's seating save (`updateEvent` with `levelPrices`/`offSale`) racing a
   lines edit of its layout, 10 times: the edit's refusals of R6 always see the saved prices.
-- [ ] T013 [P] [US1] `admin-app/test/layouts-card.test.tsx` (R15, FR-007, FR-009): the Layouts card
+  **Done** (2026-11-13): 3 tests, seen failing; the two imports pass after T015. **Still red, and
+  cannot pass in US1**: the hold race needs holds that set `SeatHold.seatId` (today's
+  `insertHolds` does not, so a hold is a `500` on `seat_hold_live_has_seat`; T035), and the seating
+  save race needs `updateEvent` to take `layoutId`/`levelPrices` (`400` today; T023). Owners: T035
+  and T023.
+- [X] T013 [P] [US1] `admin-app/test/layouts-card.test.tsx` (R15, FR-007, FR-009): the Layouts card
   lists each layout's name, seats, sections, levels, "used by N events", "Locked: seats sold at
   {event}" when locked, and a preview (an `svg` with one outline per section, no seat circles);
   Import layout file reads a chosen JSON file and sends it; `LAYOUT_FILE_INVALID` lists every
@@ -375,15 +389,25 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   control; the venue's capacity field read-only with "From the largest layout (22,090 seats)".
   `admin-app/test/section-lines.test.tsx` and `layout.test.tsx` updated to the level column. Must
   fail.
+  **Done** (2026-11-13): `layouts-card.test.tsx` (14 tests) written first and seen failing (no
+  card); `section-lines.test.tsx` gains the levels list and Price level column (16 tests);
+  `layout.test.tsx` now edits a LINES layout's lines on the card (6 tests). All pass after T019.
+  "Locked: seats sold at {event}" names the scheduled events using the layout from the venue page's
+  event list: neither `LayoutSummary` nor `LayoutDetail` says which event locks it (reported).
 
 ### Implementation
 
-- [ ] T014 [US1] `backend/src/layouts/layout-file.ts`: check a `LayoutFile` as a whole (R5): shape
+- [X] T014 [US1] `backend/src/layouts/layout-file.ts`: check a `LayoutFile` as a whole (R5): shape
   and every `LAYOUT_LIMITS` limit, trimmed unique names and labels ignoring case, level keys
   and level ranks unique, level keys resolve, `kind: NONE` ⇔ no outline, every point inside `size`, at most 50 problems plus `more`;
   expand runs; give the rows to save with numbers by order and seats with numbers by order. Messages
   name places as people read them ("Section 104, row F: seat 7 appears twice").
-- [ ] T015 [US1] `backend/src/layouts/layouts.service.ts`, `layouts.controller.ts`,
+  **Done** (2026-11-13): `checkLayoutFile` returns the checked layout (levels by key, sections with
+  rows and seats numbered by order, runs expanded with `seat-runs.ts`, a missing `labelAt` the
+  outline's centroid) or up to 50 `{path, message}` plus `more`; paths are the request's
+  (`file.sections[0].rows[0].seats[2]`), as the contract's example. Labels are compared ignoring
+  case (stricter than the database's `seat_label_unique`).
+- [X] T015 [US1] `backend/src/layouts/layouts.service.ts`, `layouts.controller.ts`,
   `layouts.module.ts`, DTOs for `LayoutLinesInput`, `LayoutUpdate`, `LayoutDuplicate`,
   `LayoutImport` (the file itself checked by T014, not by the global pipe): list, get, section,
   create, import (`createMany` in batches of 5,000 inside one transaction), update (rename; lines
@@ -392,23 +416,56 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   checked); the lock and capacity rules (R7) under `layout-lock.ts`; `seatingCapacity` written in the same transaction; after commit, `end()` the
   seat streams of events on a changed layout. Register in `app.module.ts`; remove the `x-planned`
   markers of the eight operations in `contracts/openapi.yaml` and regenerate `api-schema.ts`.
-- [ ] T016 [US1] `backend/src/configure-app.ts`: a JSON body limit of `LAYOUT_LIMITS.maxImportBytes`
+  **Done** (2026-11-13): as listed; markers removed (4 left: `getEventSeating`, `getVenueMap`,
+  `getVenueMapSection`, `venueMap`), `api-schema.ts` unchanged by it, drift check passes. Decided
+  here: a "live hold" for the lock is any hold with `releasedAt` NULL (as the database's
+  `seat_hold_one_live_per_seat`), so an edit never deletes a seat a run-out hold not yet swept still
+  names; a lines edit keeps a row or seat only when its label equals its number (lines label them
+  so), so no number moves; level ranks move through free ranks (`(layoutId, rank)` is checked row by
+  row); sections park at positions from 1,000 while reordered (`section_position_non_negative`);
+  duplicate copies in SQL (levels by rank, sections by position, rows by number); "(copy)" names
+  are cut to fit 50 characters; the capacity refusal's details are `seatingCapacity` and
+  `conflictingEvent {id, name, totalTicketCapacity}`.
+- [X] T016 [US1] `backend/src/configure-app.ts`: a JSON body limit of `LAYOUT_LIMITS.maxImportBytes`
   on `POST /locations/:id/layouts/import` only; every other route keeps the default.
-- [ ] T017 [US1] `backend/src/locations/`: `updateLocation` refuses a typed `seatingCapacity` while
+  **Done** (2026-11-13): an Express JSON parser of 4 MB mounted before Nest's own on that path
+  (`express` is now a direct Backend dependency, at the version already installed). Found: every
+  body-parser refusal (too large, not JSON) reached the exception filter as an unknown error, a
+  `500`; the filter now answers them with their own `413` or `400` (unit test first).
+- [X] T017 [US1] `backend/src/locations/`: `updateLocation` refuses a typed `seatingCapacity` while
   the venue has layouts (as `007` did with its layout); `deleteLocation` unchanged (layouts cascade
   with a venue that has no events).
   Its test: `locations.address-edit.e2e-spec.ts`'s 3 seated cases move from the removed
   `PUT /locations/{id}/layout` to a layout made with `createVenueLayout` (from T009a).
-- [ ] T018 [P] [US1] Shared map drawing for previews: `packages/shared/src/web/venue-map/map-geometry.ts`
+  **Done** (2026-11-13): the refusal (already under the venue lock) gets its final wording; the 3
+  cases moved and pass; `locations.address-edit` is green.
+- [X] T018 [P] [US1] Shared map drawing for previews: `packages/shared/src/web/venue-map/map-geometry.ts`
   (outline to SVG path, bounds, centroid, `viewBox` of a section) and
   `packages/shared/src/web/venue-map/layout-preview.tsx` (sections and floor object only, each
   section's name, no seats, `role="img"` with an accessible name "Basketball: 54 sections"), with
   `packages/shared/test/venue-map/layout-preview.test.tsx` written first.
-- [ ] T019 [US1] Admin app: `admin-app/src/api/layouts.ts` (the eight operations, typed from
+  **Done** (2026-11-13): with `map-geometry.test.ts` too, both seen failing (no module); 10 tests
+  pass. Exported from `web/index.ts`. Its look: `.layout-preview*` classes in `theme.css` on neutral
+  tokens (`--accent-soft`, `--accent`, `--bg`, `--border-strong`); a note there leaves level colors
+  and `--map-*` tokens to T038.
+- [X] T019 [US1] Admin app: `admin-app/src/api/layouts.ts` (the eight operations, typed from
   `api-schema.ts`), `admin-app/src/components/LayoutsCard.tsx` (replaces `LayoutCard.tsx`; R15),
   `SectionLines.tsx` (a level column and a levels list), `pages/LocationForm.tsx` and
   `pages/LocationDetail.tsx` (the card, the read-only capacity). Remove `LayoutCard.tsx` and its
   uses. T010–T013 pass.
+  **Done** (2026-11-13): as listed; `LayoutCard.tsx` removed. The New venue form's Seated option
+  now makes the venue's first layout with `createVenueLayout`, named "Standard" (as the carry-over
+  names one) with one level "Standard" to start (a choice made here; no task named it), and
+  `capacity`, `venue-create`, `venue-address`, `venue-time-zone` tests move to the layout routes.
+  T010, T011, T013 pass; T012's two races stay red for T023 and T035 (above).
+  **After Phase 3** (`jest --runInBand`): Backend 15 of 121 suites red, 108 of 1,417 tests (before:
+  15 of 118, 110 of 1,363). Green now: `locations.address-edit`. Red, with owner: as T009a's list
+  less `locations.address-edit`, plus `layouts.concurrency` (2 of 3; T023, T035). Admin 51 files,
+  480 tests pass; shared 28 files, 807 tests. `tsc --noEmit` clean for the Backend; shared only
+  `seat-stream.ts`/`use-seat-stream.ts` (T039). The Admin build still fails in `pages/EventForm.tsx`,
+  `components/SeatingCard.tsx`, `SeatGrid.tsx`, `api/seating.ts` (US2 T025, US6 T049),
+  `api/orders.ts` (`Order.unitPrice` nullable; T050–T051), `test/ticket-limit.test.tsx`
+  (`SeatingLayout`; US2, not named in T022) and the shared stream files (T039).
 
 **Checkpoint**: layouts can be made, listed, previewed, locked and duplicated.
 
