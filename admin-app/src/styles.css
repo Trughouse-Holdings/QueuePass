@@ -565,7 +565,8 @@
   cursor: pointer;
   paint-order: stroke;
   stroke: var(--map-bg);
-  stroke-width: 3px;
+  /* A share of the label's own size: it is drawn in map units, 2 a row (039 walk). */
+  stroke-width: 0.15em;
   stroke-linejoin: round;
 }
 .editor-map__row-label--selected {
