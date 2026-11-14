@@ -317,6 +317,23 @@ describe.each([
     },
   );
 
+  // FR-027 (T060, S3): the admin's map fills each section by its make-up of seat states.
+  it.each(['open', 'held', 'sold', 'off'])(
+    'draws --map-state-%s at 3:1 or more on --map-bg, with its section and swatch classes',
+    (state) => {
+      expect(t[`map-state-${state}`], `map-state-${state}`).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(contrast(t[`map-state-${state}`], t['map-bg'])).toBeGreaterThanOrEqual(3);
+      expect(css).toMatch(
+        new RegExp(
+          `\\.venue-map__section--state-${state}\\s*\\{[^}]*var\\(--map-state-${state}\\)`,
+        ),
+      );
+      expect(css).toMatch(
+        new RegExp(`\\.state-swatch--${state}\\s*\\{[^}]*var\\(--map-state-${state}\\)`),
+      );
+    },
+  );
+
   it('gives every level color a swatch class and a map class (the name is always beside it)', () => {
     for (const color of LEVEL_COLORS) {
       expect(css).toMatch(

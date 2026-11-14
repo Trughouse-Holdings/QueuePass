@@ -370,6 +370,56 @@ describe('colored by state (FR-027)', () => {
     expect(screen.getByRole('list', { name: 'Seat states' })).toBeInTheDocument();
   });
 
+  it('fills each section by its make-up of seat states, as the legend names them (US6, S17)', () => {
+    const made = (name: string, c: ReturnType<typeof counts>[]) => ({
+      ...MAP.sections[1],
+      sectionId: `s-${name}`,
+      name,
+      counts: c,
+    });
+    const map: Map = {
+      ...MAP,
+      sections: [
+        // Some open: open.
+        made('A', [counts(L1, 1, 2, 1, 1)]),
+        // None open, some held: held.
+        made('B', [counts(L1, 0, 1, 3)]),
+        // None open or held, some sold: sold out.
+        made('C', [counts(L1, 0, 0, 3, 1)]),
+        // Every seat off sale: off sale.
+        made('D', [counts(L4, 0, 0, 0, 4)]),
+      ],
+    };
+    render(
+      <VenueMap
+        map={map}
+        colorBy="state"
+        openSectionId={null}
+        section={null}
+        onOpenSection={() => undefined}
+      />,
+    );
+    expect(section('A')).toHaveClass('venue-map__section--state-open');
+    expect(section('B')).toHaveClass('venue-map__section--state-held');
+    expect(section('C')).toHaveClass('venue-map__section--state-sold');
+    expect(section('D')).toHaveClass('venue-map__section--state-off');
+    const legend = screen.getByRole('list', { name: 'Sections' });
+    const items = within(legend).getAllByRole('listitem');
+    expect(items.map((li) => li.textContent)).toEqual([
+      'Seats open',
+      'None open, some held',
+      'Sold out',
+      'Off sale',
+    ]);
+    for (const [i, kind] of ['open', 'held', 'sold', 'off'].entries()) {
+      expect(items[i].querySelector(`.state-swatch--${kind}`)).not.toBeNull();
+    }
+    // Not on the customer's map, which has its price levels instead.
+    cleanup();
+    render(<Harness />);
+    expect(screen.queryByRole('list', { name: 'Sections' })).toBeNull();
+  });
+
   it('shows each section’s sold / open under its name, as the legend says (T049)', () => {
     render(<Harness colorBy="state" />);
     expect(within(drawing()).getByText('1 / 2')).toBeInTheDocument();

@@ -79,6 +79,14 @@ describe('the event page’s map by seat state (FR-027)', () => {
         .getAllByRole('listitem')
         .map((li) => li.textContent),
     ).toEqual(['Open', 'Held', 'Sold', 'Off sale']);
+    // Each section filled by its make-up of seat states, the fills named in the legend (T060, S3).
+    expect(section('Floor A')).toHaveClass('venue-map__section--state-open');
+    const fills = within(region).getByRole('list', { name: 'Sections' });
+    expect(
+      within(fills)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['Seats open', 'None open, some held', 'Sold out', 'Off sale']);
     // No price filter or price legend: the admin's map is by state.
     expect(within(region).queryByRole('slider')).toBeNull();
     expect(within(region).queryByRole('list', { name: 'Price levels' })).toBeNull();

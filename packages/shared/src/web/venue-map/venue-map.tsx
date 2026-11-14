@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { bounds, outlinePath } from './map-geometry.js';
-import { Legend } from './legend.js';
+import { Legend, type SectionState } from './legend.js';
 import {
   formatPrice,
   openSeatsIn,
@@ -43,6 +43,19 @@ function stateCounts(section: MapSectionSummary) {
   const sum = (k: 'open' | 'reserved' | 'sold' | 'offSale'): number =>
     section.counts.reduce((n, c) => n + Math.max(0, c[k]), 0);
   return { open: sum('open'), held: sum('reserved'), sold: sum('sold'), offSale: sum('offSale') };
+}
+
+/**
+ * FR-027 (US6): what the admin's map fills a section with, by its seats' states: some open; none
+ * open but some held (they may open again); sold out (none open or held, some sold); or none on
+ * sale. The legend's Sections list names each (`SECTION_STATES`).
+ */
+export function sectionState(section: MapSectionSummary): SectionState {
+  const c = stateCounts(section);
+  if (c.open > 0) return 'open';
+  if (c.held > 0) return 'held';
+  if (c.sold > 0) return 'sold';
+  return 'off';
 }
 
 /**
@@ -114,7 +127,7 @@ export function VenueMap({
       classes.push(level ? `venue-map--${level.color}` : 'venue-map--unavailable');
       if (openSeatsIn(map, s, range) === 0) classes.push('venue-map__section--faded');
     } else {
-      classes.push('venue-map__section--state');
+      classes.push('venue-map__section--state', `venue-map__section--state-${sectionState(s)}`);
     }
     if (s.sectionId === open?.sectionId) classes.push('venue-map__section--current');
     return classes.join(' ');

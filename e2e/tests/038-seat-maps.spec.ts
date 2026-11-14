@@ -526,9 +526,12 @@ test("038 S17: the admin's map of a seated event shows a customer's hold within 
     seating.getByText(`0 sold, 0 held, ${ON_SALE} open, ${UPPER} off sale`),
   ).toBeVisible();
   await expect(seating.getByText('Sections show sold / open seats.')).toBeVisible();
+  // Each section filled by its make-up of seat states, as the legend's Sections list names them.
+  await expect(seating.getByRole('list', { name: 'Sections' })).toContainText('Seats open');
   await expect(sectionOn(map, '115')).toHaveAccessibleName(
     `Section 115, ${SECTION_115} open, 0 held, 0 sold, 0 off sale`,
   );
+  await expect(sectionOn(map, '115')).toHaveClass(/venue-map__section--state-open/);
   await sectionOn(map, '115').click();
   await expect(seatOn(map, 'F', 7)).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
 

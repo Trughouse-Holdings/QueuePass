@@ -1,10 +1,22 @@
 import { formatPrice, inRange, type PriceRange, type VenueMap } from './map-state.js';
 
+/** FR-027: a section's make-up of seat states on the admin's map (`sectionState`). */
+export type SectionState = 'open' | 'held' | 'sold' | 'off';
+
+/** FR-027: the admin's map's section fills, in the legend's order, by name. */
+export const SECTION_STATES: readonly [SectionState, string][] = [
+  ['open', 'Seats open'],
+  ['held', 'None open, some held'],
+  ['sold', 'Sold out'],
+  ['off', 'Off sale'],
+];
+
 /**
  * Spec 038 FR-016, FR-019 (research R13, T039): the map's legend. Each level by name, its color
  * beside it and its price ("Courtside $95", "Upper: not on sale"), a level outside the price
  * filter marked so in words; then each seat state with the mark the map draws for it, so neither
- * levels nor states are told by color alone (Constitution VII).
+ * levels nor states are told by color alone (Constitution VII). The admin's map (FR-027) lists
+ * instead what each section's fill means, by name beside its swatch, as the levels are.
  */
 export function Legend({
   map,
@@ -43,7 +55,17 @@ export function Legend({
         </ul>
       )}
       {colorBy === 'state' && (
-        <p className="venue-map-legend__note">Sections show sold / open seats.</p>
+        <>
+          <ul aria-label="Sections" className="venue-map-legend__list">
+            {SECTION_STATES.map(([kind, name]) => (
+              <li key={kind} className="venue-map-legend__item">
+                <span className={`level-swatch state-swatch--${kind}`} aria-hidden="true" />
+                {name}
+              </li>
+            ))}
+          </ul>
+          <p className="venue-map-legend__note">Sections show sold / open seats.</p>
+        </>
       )}
       <ul aria-label="Seat states" className="venue-map-legend__list">
         {states.map(([kind, name]) => (

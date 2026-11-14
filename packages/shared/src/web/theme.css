@@ -97,6 +97,13 @@
   --level-pink: #db2777;
   --level-purple: #a21caf;
   --level-brown: #92400e;
+  /* FR-027 (T060): the admin's map fills a section by its seats' states: some open, none open but
+     some held, sold out, or none on sale. Its counts are written on it, so color is not the only
+     cue. */
+  --map-state-open: #15803d;
+  --map-state-held: #b45309;
+  --map-state-sold: #4338ca;
+  --map-state-off: #868e99;
 
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
@@ -195,6 +202,10 @@
     --level-pink: #f472b6;
     --level-purple: #e879f9;
     --level-brown: #d4a373;
+    --map-state-open: #4ade80;
+    --map-state-held: #fbbf24;
+    --map-state-sold: #a5b4fc;
+    --map-state-off: #6f7887;
 
     --shadow: 0 1px 3px rgb(0 0 0 / 40%);
     --shadow-lg: 0 6px 16px -4px rgb(0 0 0 / 50%);
@@ -1333,7 +1344,19 @@ dd {
 }
 .venue-map__section--state {
   fill: var(--accent-soft);
-  stroke: var(--accent);
+}
+/* FR-027: the admin's map, each section by its make-up of seat states (the legend's Sections). */
+.venue-map__section--state-open {
+  fill: var(--map-state-open);
+}
+.venue-map__section--state-held {
+  fill: var(--map-state-held);
+}
+.venue-map__section--state-sold {
+  fill: var(--map-state-sold);
+}
+.venue-map__section--state-off {
+  fill: var(--map-state-off);
 }
 .venue-map__section--faded,
 .venue-map__seat--faded {
@@ -1472,7 +1495,22 @@ dd {
   fill: var(--seat-mine);
 }
 
-/* The price filter: two range inputs, low and high, and the range they make. */
+/* FR-027: the admin legend's swatches for a section's make-up of seat states, shaped as the
+   level swatches. */
+.state-swatch--open {
+  background: var(--map-state-open);
+}
+.state-swatch--held {
+  background: var(--map-state-held);
+}
+.state-swatch--sold {
+  background: var(--map-state-sold);
+}
+.state-swatch--off {
+  background: var(--map-state-off);
+}
+
+/* The price filter: two range inputs, low and high, and the range they make.
 .price-filter {
   display: flex;
   flex-wrap: wrap;
