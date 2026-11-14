@@ -284,8 +284,9 @@ model PriceLevel {
 // Spec 007: a section of seats. Spec 038 FR-002 (data-model.md): it belongs to a layout, not a
 // venue (existing ids kept, R16); names are unique per layout ignoring case
 // (section_name_unique_per_layout, migration SQL). Its level must be of its layout (the composite
-// foreign key (layoutId, levelId)); NO ACTION, not RESTRICT, so a layout delete cascades through
-// its levels and sections (research R7).
+// foreign key (layoutId, levelId)); NO ACTION, made DEFERRABLE INITIALLY DEFERRED in the migration
+// SQL (Prisma can't say it), so a layout delete cascades through its levels and sections in one
+// statement (research R7).
 model Section {
   id        String     @id @default(uuid()) @db.Uuid
   layout    Layout     @relation(fields: [layoutId], references: [id], onDelete: Cascade)
@@ -308,14 +309,14 @@ model Section {
 
 // Spec 038 FR-002 (data-model.md): a row of a section; number 1 = front, 1 to 100, and a label of
 // 1 to 5 characters, both unique per section (seat_row_number_unique, seat_row_label_unique). Its
-// own level overrides its section's; NO ACTION (research R7).
+// own level overrides its section's; SET NULL when that level goes, falling back (research R7).
 model SeatRow {
   id        String      @id @default(uuid()) @db.Uuid
   section   Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
   sectionId String      @db.Uuid
   number    Int
   label     String      @db.VarChar(5)
-  level     PriceLevel? @relation(fields: [levelId], references: [id], onDelete: NoAction)
+  level     PriceLevel? @relation(fields: [levelId], references: [id], onDelete: SetNull)
   levelId   String?     @db.Uuid
   seats     Seat[]
 
@@ -329,7 +330,7 @@ model SeatRow {
 // Spec 038 FR-002, FR-003, research R1 (data-model.md): one seat. Its number (1 to 200, order in
 // the row) and label (1 to 5 characters) are unique per row (seat_number_unique, seat_label_unique);
 // sectionId is its row's (the composite foreign key (rowId, sectionId)). Its level, when set,
-// overrides its row's and section's (seat-levels.ts); NO ACTION (research R7).
+// overrides its row's and section's (seat-levels.ts); SET NULL when that level goes (research R7).
 model Seat {
   id         String             @id @default(uuid()) @db.Uuid
   row        SeatRow            @relation(fields: [rowId, sectionId], references: [id, sectionId], onDelete: Cascade, map: "seat_row_section")
@@ -340,7 +341,7 @@ model Seat {
   label      String             @db.VarChar(5)
   x          Float              @db.Real
   y          Float              @db.Real
-  level      PriceLevel?        @relation(fields: [levelId], references: [id], onDelete: NoAction)
+  level      PriceLevel?        @relation(fields: [levelId], references: [id], onDelete: SetNull)
   levelId    String?            @db.Uuid
   // No behavior until #57.
   accessible Boolean            @default(false)

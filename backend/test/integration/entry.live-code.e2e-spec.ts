@@ -56,6 +56,8 @@ describe('lookupEntryTicket with a live code', () => {
         timeZone: 'America/New_York',
       },
       tierName: null,
+      // Spec 038 (contract 2.0.0): general admission has no level.
+      levelName: null,
       seat: null,
       holderName: 'Jordan Lee',
       usedAt: null,

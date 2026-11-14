@@ -100,7 +100,8 @@ describe('One valid ticket per seat', () => {
     const placed = await bought(1, [seat(3, 3)]);
     expect(placed.status).toBe(201);
     const orderId = placed.body.id;
-    const tierless = { orderId, eventId, tierId: null };
+    // Spec 038: every ticket has a price; T029 rewrites this suite on layouts (seatId).
+    const tierless = { orderId, eventId, tierId: null, price: '45.00' };
 
     await expect(
       ctx.prisma.ticket.create({

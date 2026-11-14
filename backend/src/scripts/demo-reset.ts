@@ -224,10 +224,17 @@ export interface ResetOptions {
 /** Research R11: table names as words, in the order printed; another table under its name. */
 const LABELS: [table: string, one: string, many: string][] = [
   ['Location', 'venue', 'venues'],
+  // Spec 038 (T009a): a venue's layouts, in place of `007`'s sections on the venue.
+  ['Layout', 'layout', 'layouts'],
+  ['PriceLevel', 'price level', 'price levels'],
   ['Section', 'seating section', 'seating sections'],
+  ['SeatRow', 'seat row', 'seat rows'],
+  ['Seat', 'seat', 'seats'],
   ['Event', 'event', 'events'],
   ['TicketTier', 'tier', 'tiers'],
-  ['SectionTier', 'section tier', 'section tiers'],
+  // Spec 038: an event's level prices and off-sale seats, in place of `007`'s section tiers.
+  ['EventLevelPrice', 'level price', 'level prices'],
+  ['EventOffSaleSeat', 'off-sale seat', 'off-sale seats'],
   ['EventImage', 'image', 'images'],
   ['Order', 'order', 'orders'],
   ['Ticket', 'ticket', 'tickets'],

@@ -10,9 +10,21 @@ import {
   wipeAppData,
   type ResetSummary,
 } from '../../src/scripts/demo-reset';
-import { asAdmin } from '../setup/authed-request';
 import { PNG, upload } from '../setup/images';
-import { agent, atInstant, customer, event, HOLDER, tier, venue } from '../setup/fixtures';
+import {
+  agent,
+  atInstant,
+  customer,
+  endHold,
+  event,
+  HOLDER,
+  holdSeats,
+  insertLayout,
+  seatEventOn,
+  sellSeats,
+  venue,
+} from '../setup/fixtures';
+import { subFor } from '../setup/tokens';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import type { PrismaService } from '../../src/prisma/prisma.service';
@@ -44,8 +56,8 @@ async function fingerprint(prisma: PrismaService) {
   const eventName = new Map(events.map((e) => [e.id, e.name]));
   const tiers = await prisma.ticketTier.findMany();
   const tierName = new Map(tiers.map((t) => [t.id, t.name]));
-  const sections = await prisma.section.findMany();
-  const sectionName = new Map(sections.map((s) => [s.id, s.name]));
+  // Spec 038: sections belong to a venue's layout.
+  const sections = await prisma.section.findMany({ include: { layout: true } });
 
   const concert = events.find((e) => e.name === 'Fall Concert');
   const refDay = concert ? Date.parse(localDate(concert.startsAt, concert.location.timeZone)) : 0;
@@ -77,10 +89,9 @@ async function fingerprint(prisma: PrismaService) {
     ),
     sections: sorted(
       sections.map((s) => ({
-        venue: venueName.get(s.locationId),
+        venue: venueName.get(s.layout.locationId),
+        layout: s.layout.name,
         name: s.name,
-        rows: s.rows,
-        seatsPerRow: s.seatsPerRow,
         position: s.position,
       })),
     ),
@@ -105,13 +116,6 @@ async function fingerprint(prisma: PrismaService) {
         quantity: t.quantity,
       })),
     ),
-    sectionTiers: sorted(
-      (await prisma.sectionTier.findMany()).map((st) => ({
-        event: eventName.get(st.eventId),
-        section: sectionName.get(st.sectionId),
-        tier: tierName.get(st.tierId),
-      })),
-    ),
     images: sorted(
       (await prisma.eventImage.findMany()).map((i) => ({
         event: eventName.get(i.eventId),
@@ -128,7 +132,7 @@ async function fingerprint(prisma: PrismaService) {
         customer: [o.customerSub, o.customerUsername],
         holder: o.holderName,
         quantity: o.quantity,
-        prices: [o.unitPrice.toString(), o.totalPrice.toString()],
+        prices: [o.unitPrice?.toString() ?? null, o.totalPrice.toString()],
         status: o.status,
         refunded: o.refundedAt !== null,
       })),
@@ -249,52 +253,47 @@ describe('Demo reset (spec 029)', () => {
   }
 
   /**
-   * SC-001's extra data, through the services: a venue with two sections, a seated event with
-   * tiers mapped to them, an unseated event in its check-in window, an image, orders by a real
-   * customer, one ticket admitted, a live seat hold and an ended one.
+   * SC-001's extra data: a venue with a layout of two sections, a seated event on it with a level
+   * price each, a seat off sale and a sold seat, an unseated event in its check-in window, an
+   * image, orders by a real customer, one ticket admitted, a live seat hold and an ended one. Spec
+   * 038 (T009a): the layout, the event's seating, the sale and the holds are inserted directly until
+   * their routes and services serve them (T017, T023, T035, T036).
    */
   async function fillExtraData(): Promise<void> {
     const hall = await venue(ctx, 'Extra Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${hall}/layout`)
-      .send({
-        sections: [
-          { name: 'Left', rows: 2, seatsPerRow: 5 },
-          { name: 'Right', rows: 2, seatsPerRow: 5 },
-        ],
-      })
-      .expect(200);
-    const [left, right] = layout.body.sections.map((s: { id: string }) => s.id);
+    const layout = await insertLayout(ctx, hall, {
+      levels: ['Front', 'Back'],
+      sections: [
+        { name: 'Left', level: 'Front', rows: 2, seatsPerRow: 5 },
+        { name: 'Right', level: 'Back', rows: 2, seatsPerRow: 5 },
+      ],
+    });
 
-    const seated = await event(ctx, hall, { name: 'EDIS Showcase Night', capacity: 20 });
-    const front = await tier(ctx, seated, 'Front', '60.00', 10);
-    const back = await tier(ctx, seated, 'Back', '30.00', 10);
-    await asAdmin(ctx)
-      .put(`/events/${seated}/seating`)
-      .send({
-        reservedSeating: true,
-        sections: [
-          { sectionId: left, tierId: front },
-          { sectionId: right, tierId: back },
-        ],
-      })
-      .expect(200);
+    const seated = await event(ctx, hall, { name: 'EDIS Showcase Night', capacity: 19 });
+    await seatEventOn(ctx, seated, layout, { Front: '60.00', Back: '30.00' }, [
+      layout.seat('Right', 2, 5),
+    ]);
+    await sellSeats(ctx, seated, layout, [
+      { section: 'Left', row: 2, seat: 1, levelName: 'Front', price: '60.00' },
+    ]);
     await upload(ctx, seated, PNG, { contentType: 'image/png' }).expect(201);
 
     // A live hold (customer2) and an ended one (customer3 released it).
-    await (
-      await customer(ctx, 2)
-    )
-      .post(`/events/${seated}/reservation`)
-      .send({ seats: [{ sectionId: left, row: 1, seat: 1 }] })
-      .expect(201);
-    await (
-      await customer(ctx, 3)
-    )
-      .post(`/events/${seated}/reservation`)
-      .send({ seats: [{ sectionId: right, row: 1, seat: 1 }] })
-      .expect(201);
-    await (await customer(ctx, 3)).post(`/events/${seated}/reservation/release`).send().expect(200);
+    await holdSeats(ctx.prisma, {
+      eventId: seated,
+      customerSub: subFor('customer2'),
+      seats: [{ section: 'Left', row: 1, seat: 1, seatId: layout.seat('Left', 1, 1) }],
+    });
+    const released = await holdSeats(ctx.prisma, {
+      eventId: seated,
+      customerSub: subFor('customer3'),
+      seats: [{ section: 'Right', row: 1, seat: 1, seatId: layout.seat('Right', 1, 1) }],
+    });
+    await endHold(ctx.prisma, released.holdIds[0], 'RELEASED');
+    await ctx.prisma.seatReservation.update({
+      where: { id: released.reservationId },
+      data: { endedAt: new Date() },
+    });
 
     // An unseated event whose check-in window is open now (it starts in 30 minutes).
     const start = Math.floor(Date.now() / 60_000) * 60_000 + 30 * 60_000;
@@ -535,9 +534,13 @@ describe('Demo reset (spec 029)', () => {
       );
       const n = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
       expect(out).toContain(
-        `Removed: ${n(before.Location, 'venue')}, ${n(before.Section, 'seating section')}, ` +
+        // Spec 038 (T009a): the layout tables in place of `007`'s sections and section tiers.
+        `Removed: ${n(before.Location, 'venue')}, ${n(before.Layout, 'layout')}, ` +
+          `${n(before.PriceLevel, 'price level')}, ${n(before.Section, 'seating section')}, ` +
+          `${n(before.SeatRow, 'seat row')}, ${n(before.Seat, 'seat')}, ` +
           `${n(before.Event, 'event')}, ${n(before.TicketTier, 'tier')}, ` +
-          `${n(before.SectionTier, 'section tier')}, ${n(before.EventImage, 'image')}, ` +
+          `${n(before.EventLevelPrice, 'level price')}, ` +
+          `${n(before.EventOffSaleSeat, 'off-sale seat')}, ${n(before.EventImage, 'image')}, ` +
           `${n(before.Order, 'order')}, ${n(before.Ticket, 'ticket')} (1 checked in), ` +
           `${n(before.SeatReservation, 'seat reservation')}, ${n(before.SeatHold, 'seat hold')}.`,
       );

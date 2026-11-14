@@ -24,6 +24,12 @@ export interface SeatLabel {
   seat: number;
 }
 
+/**
+ * Spec 038 FR-026 (contract `SeatLabel`): a sold seat as a response gives it, with its row and seat
+ * labels as sold.
+ */
+export type SoldSeat = components['schemas']['SeatLabel'];
+
 /** Spec 015: a seat in a reservation, by section id and by its section's name. */
 export interface ReservedSeat extends SeatLabel {
   sectionId: string;

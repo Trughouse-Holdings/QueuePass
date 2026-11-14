@@ -1,20 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { asAdmin } from '../setup/authed-request';
-import {
-  customer,
-  event,
-  orderWithTickets,
-  reserveThenOrder,
-  tier,
-  venue,
-} from '../setup/fixtures';
+import { customer, event, orderWithTickets, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
-import { tokenFor } from '../setup/tokens';
 
 /**
  * Spec 017 US4 (FR-001–FR-004, SC-006; research R2): every new order carries one valid holder's
- * name, refused with 400 HOLDER_NAME_INVALID otherwise, contract-checked.
+ * name, refused with 400 HOLDER_NAME_INVALID otherwise, contract-checked. Spec 038 (T009a): the
+ * seated case (a reserved seat's order carries the name too) went with `007`'s seating setup; T028
+ * (`orders.levels.e2e-spec.ts`) adds it back on its `seatedEvent` layout.
  */
 describe('Orders carry a holder name', () => {
   let ctx: TestContext;
@@ -98,28 +92,5 @@ describe('Orders carry a holder name', () => {
     await orderWithTickets(ctx, eventId, { quantity: 1, holderName: null });
     const attendees = await asAdmin(ctx).get(`/events/${eventId}/attendees`).expect(200);
     expect(attendees.body[0].holderName).toBeNull();
-  });
-
-  it('a seated order (reserveThenOrder) carries the name too', async () => {
-    const seatedVenue = await venue(ctx, 'Seated Hall');
-    await asAdmin(ctx)
-      .put(`/locations/${seatedVenue}/layout`)
-      .send({ sections: [{ name: 'A', rows: 2, seatsPerRow: 5 }] })
-      .expect(200);
-    const seatedEvent = await event(ctx, seatedVenue, { capacity: 10 });
-    const general = await tier(ctx, seatedEvent, 'General', '30.00', 10);
-    const sections = await ctx.prisma.section.findMany({ where: { locationId: seatedVenue } });
-    await asAdmin(ctx)
-      .put(`/events/${seatedEvent}/seating`)
-      .send({ reservedSeating: true, sections: [{ sectionId: sections[0].id, tierId: general }] })
-      .expect(200);
-
-    const token = await tokenFor({ username: 'customer1', roles: ['customer'] });
-    const res = await reserveThenOrder(ctx, token, seatedEvent, {
-      tierId: general,
-      seats: [{ sectionId: sections[0].id, row: 1, seat: 1 }],
-    });
-    expect(res.status).toBe(201);
-    expect(res.body.holderName).toBe('Test Holder');
   });
 });

@@ -41,6 +41,7 @@ import {
 import type { SeatStateChange } from '@queuepass/shared';
 
 import { checkEventTime } from './event-time';
+import { priceMaxes } from './price-range';
 import { SchedulingConflictException } from './scheduling-conflict.exception';
 
 /**
@@ -98,6 +99,8 @@ export interface EventResponse extends Omit<
   'basePrice' | 'keptCheckedInCount' | 'seatSeq'
 > {
   basePrice: string;
+  /** Spec 038 FR-024, research R9: the highest on-sale level price; `null` for GA. */
+  priceMax: string | null;
   entryOpensAt: Date;
 }
 
@@ -109,13 +112,26 @@ export class EventsService {
     @Inject(CLOCK) private readonly clock: Clock,
   ) {}
 
-  private toResponse(event: EventWithLocation): EventResponse {
+  /** Spec 038 research R9: one event's response, its `priceMax` read with `db`. */
+  private async respond(db: Db, event: EventWithLocation): Promise<EventResponse> {
+    const [response] = await this.respondAll(db, [event]);
+    return response;
+  }
+
+  /** Every event's response, their `priceMax` read in one statement (research R9). */
+  private async respondAll(db: Db, events: EventWithLocation[]): Promise<EventResponse[]> {
+    const maxes = await priceMaxes(db, events);
+    return events.map((e) => this.toResponse(e, maxes.get(e.id) ?? null));
+  }
+
+  private toResponse(event: EventWithLocation, priceMax: string | null): EventResponse {
     // Spec 038 research R12: seatSeq is internal (a BigInt, which JSON can't carry); the venue map
     // and the stream send it as `seq`.
     const { keptCheckedInCount: _kept, seatSeq: _seq, ...sent } = event;
     return {
       ...sent,
       basePrice: event.basePrice.toFixed(2),
+      priceMax,
       // Spec 025 research R6, R7: the same rule as the entry SQL's `entryOpens` fragment.
       entryOpensAt: new Date(
         event.doorsOpenAt.getTime() - ENTRY_OPENS_BEFORE_DOORS_MINUTES * MINUTE_MS,
@@ -180,7 +196,7 @@ export class EventsService {
     });
     await writeEventSetup(tx, created.id, plan);
 
-    return this.toResponse(created);
+    return this.respond(tx, created);
   }
 
   async findAll(query: ListEventsQuery = {}): Promise<EventResponse[]> {
@@ -215,7 +231,7 @@ export class EventsService {
           return (!days.fromDate || date >= days.fromDate) && (!days.toDate || date <= days.toDate);
         })
       : events;
-    return kept.map((e) => this.toResponse(e));
+    return this.respondAll(this.prisma, kept);
   }
 
   /**
@@ -248,7 +264,7 @@ export class EventsService {
       include: EVENT_INCLUDE,
     });
     if (!event) throw new NotFoundException(`No event exists with id ${id}.`);
-    return this.toResponse(event);
+    return this.respond(this.prisma, event);
   }
 
   update(id: string, dto: UpdateEventDto): Promise<EventResponse> {
@@ -457,7 +473,7 @@ export class EventsService {
     const fresh = setupPlan
       ? await tx.event.findUniqueOrThrow({ where: { id }, include: EVENT_INCLUDE })
       : updated;
-    return { response: this.toResponse(fresh), changes, setupApplied: setupSent };
+    return { response: await this.respond(tx, fresh), changes, setupApplied: setupSent };
   }
 
   async remove(id: string): Promise<void> {
@@ -526,7 +542,7 @@ export class EventsService {
       });
       return {
         result: {
-          event: this.toResponse(event),
+          event: await this.respond(tx, event),
           ordersRefunded: orders.count,
           ticketsVoided: tickets.count,
         },

@@ -44,6 +44,7 @@ import {
 } from '../seating/seat-rules';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ticketCode } from './ticket-code';
+import { ticketSeat, type SoldSeat } from '../common/ticket-seat';
 
 // Spec 018 research R1: queries leave entrySecret out (PrismaService's global omit).
 type OrderRow = Order & { tier: TicketTier | null; tickets: Omit<Ticket, 'entrySecret'>[] };
@@ -69,8 +70,15 @@ export interface OrderResponse {
     code: string;
     status: Ticket['status'];
     checkedInAt: Date | null;
-    /** Spec 007 FR-011: the seat, or `null` for general admission. */
-    seat: { section: string; row: number; seat: number } | null;
+    /**
+     * Spec 007 FR-011: the seat, or `null` for general admission. Spec 038 FR-026: with its row
+     * and seat labels as sold.
+     */
+    seat: SoldSeat | null;
+    /** Spec 038 FR-026: what this ticket cost. */
+    price: string;
+    /** Spec 038 FR-030, research R17: its level's name as sold; `null` for general admission. */
+    levelName: string | null;
   }[];
 }
 
@@ -93,10 +101,9 @@ export function toOrderResponse(o: OrderRow): OrderResponse {
       code: t.code,
       status: t.status,
       checkedInAt: t.checkedInAt,
-      seat:
-        t.seatSection !== null && t.seatRow !== null && t.seatNumber !== null
-          ? { section: t.seatSection, row: t.seatRow, seat: t.seatNumber }
-          : null,
+      seat: ticketSeat(t),
+      price: t.price.toFixed(2),
+      levelName: t.levelName,
     })),
   };
 }

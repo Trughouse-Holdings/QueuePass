@@ -244,7 +244,7 @@ confirm they **fail** before its implementation tasks.
   labels (`ticket_seat_all_or_none`); `rate-limits.buy` as T001. Builds: Admin and Customer apps (as
   planned), and the Booth app, whose type check includes `packages/shared/src/web/seat-stream.ts`
   and `use-seat-stream.ts` (`SeatMap`, `getSeatMap`; T039).
-- [ ] T009a Keep the branch's general-admission suites green after step 2, and give every retired-
+- [X] T009a Keep the branch's general-admission suites green after step 2, and give every retired-
   seating test an owner (added after T009, 2026-11-13):
   - **Level foreign keys** in `backend/prisma/migrations/<timestamp>_seat_maps/migration.sql` and
     `schema.prisma` as data-model.md now says: `SeatRow.levelId` and `Seat.levelId` `ON DELETE SET
@@ -267,6 +267,49 @@ confirm they **fail** before its implementation tasks.
     `SectionTier`; `entry.lookup.e2e-spec.ts` writes its seated ticket with labels and a `seatId`.
   - After it: every Backend suite passes except those whose seated setup a later task rewrites
     (each named in that task), listed in this task's Done note with their owner.
+  **Done** (2026-11-13): the two delete cases added to T003's test first and seen failing
+  (`SeatRow_levelId_fkey`); then `SeatRow.levelId` and `Seat.levelId` `ON DELETE SET NULL`,
+  `Section_layoutId_levelId_fkey` `DEFERRABLE INITIALLY DEFERRED` (Prisma's `onDelete: SetNull` and
+  `NoAction`); T003's 20 tests pass, `prisma migrate diff` from the migrations to the schema is
+  empty. Tests for the fields written first and seen failing on the missing fields, then served:
+  `events.price-max.e2e-spec.ts` (new: `null` for GA in create, get and list; a seated event's
+  highest priced level with a seat on sale, a level reached only by a row's or a seat's own level,
+  a priced level with no seats ignored, one taken off sale); `reports.e2e-spec.ts` (`levels: []`
+  for GA; a seated event's current levels by rank with price, `null` when unpriced, and seats not
+  off sale, tickets sold and revenue from VALID tickets by `levelName` as sold, matched by name, then
+  a name no level has with `levelId` and `price` `null`; `tiers: []`); `attendees.e2e-spec.ts`
+  (each ticket's `price`, `levelName`, `seat.rowLabel`/`seatLabel`; GA `null`s; `unitPrice` `null`
+  when prices differ); `entry.lookup`/`entry.live-code` (`levelName`, seat labels). Served by
+  `events/price-range.ts` (one grouped statement for any number of events, on every event
+  response), `common/ticket-seat.ts` (orders, attendees, My orders, the gate), `ReportsService`'s
+  `levelSales`; `EntryTicket` in `packages/shared/src/entry.ts` gains `levelName` and the labelled
+  seat (`SoldSeat`, the contract's `SeatLabel`). Test helpers in `test/setup/fixtures.ts` until the
+  routes serve them: `insertLayout`, `seatEventOn`, `sellSeats` (T027's `seatedEvent` goes through
+  the API); `holdSeats` takes a `seatId`. Retired tests: the mapping cases deleted from the four
+  files named (`event-setup.spec.ts` keeps 12 GA tests; the first-broken-rule case now on names and
+  quantities); `events.create-setup`'s FR-015 rollback now fails the second ticket type's insert (the
+  mapping insert was the last write) and the update-setup GA test no longer sends
+  `reservedSeating`; `orders.holder-name`'s seated case deleted, for T028 to add back on its
+  `seatedEvent` (T028's text does not yet say so); `seats.concurrency` compiles (a ticket `price`)
+  and stays red for T029; `demo-reset.ts`'s `LABELS` list `Layout`, `PriceLevel`, `Section`,
+  `SeatRow`, `Seat`, `EventLevelPrice`, `EventOffSaleSeat` (no `SectionTier`), and
+  `demo-reset.e2e-spec.ts`'s extra data now puts its seated event on an inserted layout with a sold
+  seat, an off-sale seat and both holds by SQL, so it passes (T046 still adds the Yum! Center data);
+  `entry.lookup` sells its seated ticket with labels and a `seatId`; `gate-check-in.constraints` and
+  `live-codes.constraints` insert their tickets with a `price`. `npx tsc --noEmit -p backend` clean
+  (tests included); ESLint and Prettier clean; shared 26 files, 797 tests pass.
+  **Backend after T009a** (`jest --runInBand`): 15 of 118 suites red, 109 of 1,363 tests (before:
+  80 of 117 suites, 577 of 1,293 tests, with T003's two new cases). Red, with owner: T027
+  `reservations`, `reservations.boundaries`, `reservations.admin-changes`,
+  `seat-holds.constraints`; T028 `orders.seats`, `orders.reservation`; T029 `seats.concurrency`;
+  T030 `seat-stream` (all set up seats through the removed `PUT /locations/{id}/layout`, `404`).
+  **Red with no owner in this list** (the same `404` setup; not named by any task):
+  `reservations.concurrency` (3 tests; T029's race is its 038 form), `rate-limits.hold` (5),
+  `rate-limits.ordinary` (1 of 6), `rate-limits.buy` (its seated case, 1 of 8, beside T001's
+  200-connection case), `orders.ticket-limit` ("counts the seats of a reserved-seating event", 1 of
+  16), `events.ticket-limit` ("a venue layout below a seated event's limit", 2 of 19; T010's lines
+  edit refused above `maxTicketsPerCustomer` is its 038 form), `locations.address-edit` (3 of 46:
+  a typed capacity on a laid-out venue and its races with a layout save; T017's rule).
 
 **Checkpoint**: the database carries today's data over; one seating model, contract 2.0.0; the
 helpers pass their tests.

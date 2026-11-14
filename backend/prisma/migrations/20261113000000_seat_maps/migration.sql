@@ -363,8 +363,11 @@ CREATE UNIQUE INDEX "seat_hold_one_live_per_seat"
     ON "SeatHold"("eventId", "seatId") WHERE "releasedAt" IS NULL;
 
 -- Foreign keys. A layout goes with its venue (which can't be deleted with events, 002), and its
--- levels, sections, rows and seats with it. The level keys of sections, rows and seats are NO
--- ACTION, not RESTRICT, so that cascade is never refused midway (R7, review M6). A layout an event
+-- levels, sections, rows and seats with it, in one statement (R7, review M6, corrected after T009):
+-- a row's or seat's own level is SET NULL when the level goes (it falls back to its row's or
+-- section's, FR-003), and a section's level is NO ACTION DEFERRABLE INITIALLY DEFERRED, checked at
+-- commit, after the cascade has removed the section too (NO ACTION checked at once fails before the
+-- cascade reaches the rows and seats). A layout an event
 -- uses, cancelled included, can't be deleted (RESTRICT, R7). A ticket's or hold's seat is SET NULL,
 -- which the CHECKs below refuse for a VALID ticket or a live hold, so a sold or held seat can't be
 -- deleted (R10).
@@ -377,11 +380,11 @@ ALTER TABLE "Section" ADD CONSTRAINT "Section_layoutId_fkey"
 -- A section's level is of its own layout.
 ALTER TABLE "Section" ADD CONSTRAINT "Section_layoutId_levelId_fkey"
     FOREIGN KEY ("layoutId", "levelId") REFERENCES "PriceLevel"("layoutId", "id")
-    ON DELETE NO ACTION ON UPDATE CASCADE;
+    ON DELETE NO ACTION ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED;
 ALTER TABLE "SeatRow" ADD CONSTRAINT "SeatRow_sectionId_fkey"
     FOREIGN KEY ("sectionId") REFERENCES "Section"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "SeatRow" ADD CONSTRAINT "SeatRow_levelId_fkey"
-    FOREIGN KEY ("levelId") REFERENCES "PriceLevel"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+    FOREIGN KEY ("levelId") REFERENCES "PriceLevel"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 -- A seat's section is its row's.
 ALTER TABLE "Seat" ADD CONSTRAINT "seat_row_section"
     FOREIGN KEY ("rowId", "sectionId") REFERENCES "SeatRow"("id", "sectionId")
@@ -389,7 +392,7 @@ ALTER TABLE "Seat" ADD CONSTRAINT "seat_row_section"
 ALTER TABLE "Seat" ADD CONSTRAINT "Seat_sectionId_fkey"
     FOREIGN KEY ("sectionId") REFERENCES "Section"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "Seat" ADD CONSTRAINT "Seat_levelId_fkey"
-    FOREIGN KEY ("levelId") REFERENCES "PriceLevel"("id") ON DELETE NO ACTION ON UPDATE CASCADE;
+    FOREIGN KEY ("levelId") REFERENCES "PriceLevel"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE "EventLevelPrice" ADD CONSTRAINT "EventLevelPrice_eventId_fkey"
     FOREIGN KEY ("eventId") REFERENCES "Event"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 ALTER TABLE "EventLevelPrice" ADD CONSTRAINT "EventLevelPrice_levelId_fkey"

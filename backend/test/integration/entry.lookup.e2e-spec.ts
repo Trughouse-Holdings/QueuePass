@@ -1,7 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { windowAt as liveWindowAt } from '@queuepass/shared';
 import { asAdmin } from '../setup/authed-request';
-import { agent, eventAroundNow, liveCodeFor, orderWithTickets, venue } from '../setup/fixtures';
+import {
+  agent,
+  eventAroundNow,
+  insertLayout,
+  liveCodeFor,
+  orderWithTickets,
+  seatEventOn,
+  sellSeats,
+  venue,
+} from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -51,6 +60,8 @@ describe('lookupEntryTicket', () => {
         timeZone: 'America/New_York',
       },
       tierName: null,
+      // Spec 038 (contract 2.0.0): general admission has no level.
+      levelName: null,
       seat: null,
       holderName: 'Jordan Lee',
       usedAt: null,
@@ -96,26 +107,37 @@ describe('lookupEntryTicket', () => {
     }
   });
 
-  it('returns the seat of a seated ticket, and the tier name of a tiered one', async () => {
-    // Seat labels live on the ticket row (spec 007); set them directly, like the rest of the row.
-    const { tickets } = await orderWithTickets(ctx, eventId, { quantity: 1 });
-    await ctx.prisma.ticket.update({
-      where: { id: tickets[0].id },
-      data: { seatSection: 'A', seatRow: 2, seatNumber: 7 },
+  it('returns the seat, its labels and level of a seated ticket, and the tier name of a tiered one', async () => {
+    // Spec 038 FR-026, R17: the seat, its labels and its level as sold, from the ticket row.
+    const layout = await insertLayout(ctx, venueId, {
+      levels: ['Floor'],
+      sections: [{ name: 'A', level: 'Floor', rows: 2, seatsPerRow: 8 }],
     });
+    await seatEventOn(ctx, eventId, layout, { Floor: '45.00' });
+    const { tickets } = await sellSeats(ctx, eventId, layout, [
+      { section: 'A', row: 2, seat: 7, levelName: 'Floor', price: '45.00' },
+    ]);
     const res = await lookup(tickets[0].code);
     expect(res.status).toBe(200);
-    expect(res.body.seat).toEqual({ section: 'A', row: 2, seat: 7 });
+    expect(res.body.seat).toEqual({ section: 'A', row: 2, seat: 7, rowLabel: 'B', seatLabel: '7' });
+    expect(res.body.levelName).toBe('Floor');
+    expect(res.body.tierName).toBeNull();
 
+    const general = await eventAroundNow(ctx, await venue(ctx, 'Walk-in Hall'), {
+      startsInSeconds: 3600,
+      lastsSeconds: 10800,
+    });
+    const { tickets: walkIn } = await orderWithTickets(ctx, general, { quantity: 1 });
     const tier = await ctx.prisma.ticketTier.create({
-      data: { eventId, name: 'VIP', price: '120.00', quantity: 10 },
+      data: { eventId: general, name: 'VIP', price: '120.00', quantity: 10 },
     });
     await ctx.prisma.ticket.update({
-      where: { id: tickets[0].id },
+      where: { id: walkIn[0].id },
       data: { tierId: tier.id },
     });
-    const tiered = await lookup(tickets[0].code);
+    const tiered = await lookup(walkIn[0].code, general);
     expect(tiered.body.tierName).toBe('VIP');
+    expect(tiered.body.levelName).toBeNull();
   });
 
   it('counts unused tickets of the order: 4 fresh, 3 after one is admitted', async () => {

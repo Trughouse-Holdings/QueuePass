@@ -706,4 +706,66 @@ describe('migration seat_maps (R16)', () => {
       ).rejects.toThrow(/event_seating_matches_layout/);
     });
   });
+
+  // R7 (corrected after T009, T009a): a layout's levels, sections, rows and seats go in the one
+  // statement that deletes it, or its venue, even where rows and seats have levels of their own
+  // (SeatRow.levelId and Seat.levelId SET NULL; Section.levelId checked at commit).
+  describe('then a layout with levels of its own on rows and seats is deleted in one statement', () => {
+    /** A venue with one layout: levels A and B, a section of level A, its row and seat of B. */
+    async function venueWithLayout(): Promise<{ venueId: string; layoutId: string }> {
+      const venueId = id();
+      const layoutId = id();
+      const [levelA, levelB, sectionId, rowId] = [id(), id(), id(), id()];
+      await sql(`
+        INSERT INTO "Location" ("id", "name", "address", "seatingCapacity", "timeZone",
+                                "timeZoneSource", "updatedAt")
+        VALUES ('${venueId}', 'Hall ${venueId.slice(0, 8)}', '1 Main St', 2, 'America/New_York',
+                'DEFAULT', now())`);
+      await sql(`
+        INSERT INTO "Layout" ("id", "locationId", "name", "source", "floorKind", "width", "height",
+                              "seatCount", "updatedAt")
+        VALUES ('${layoutId}', '${venueId}', 'Concert', 'FILE', 'NONE', 20, 20, 2, now())`);
+      await sql(`
+        INSERT INTO "PriceLevel" ("id", "layoutId", "name", "rank", "color")
+        VALUES ('${levelA}', '${layoutId}', 'A', 1, '${LEVEL_COLORS[0]}'),
+               ('${levelB}', '${layoutId}', 'B', 2, '${LEVEL_COLORS[1]}')`);
+      await sql(`
+        INSERT INTO "Section" ("id", "layoutId", "name", "levelId", "outline", "labelX", "labelY",
+                               "position", "updatedAt")
+        VALUES ('${sectionId}', '${layoutId}', '101', '${levelA}', '[[0,0],[20,0],[20,20]]', 10, 10,
+                0, now())`);
+      await sql(`
+        INSERT INTO "SeatRow" ("id", "sectionId", "number", "label", "levelId")
+        VALUES ('${rowId}', '${sectionId}', 1, 'A', '${levelB}')`);
+      await sql(`
+        INSERT INTO "Seat" ("id", "rowId", "sectionId", "number", "label", "x", "y", "levelId")
+        VALUES ('${id()}', '${rowId}', '${sectionId}', 1, '1', 5, 5, '${levelB}'),
+               ('${id()}', '${rowId}', '${sectionId}', 2, '2', 7, 5, NULL)`);
+      return { venueId, layoutId };
+    }
+
+    const left = async (layoutId: string) =>
+      (
+        await query<{ n: number }>(`
+          SELECT ((SELECT count(*) FROM "Layout" WHERE "id" = '${layoutId}')
+                + (SELECT count(*) FROM "PriceLevel" WHERE "layoutId" = '${layoutId}')
+                + (SELECT count(*) FROM "Section" WHERE "layoutId" = '${layoutId}')
+                + (SELECT count(*) FROM "SeatRow" r JOIN "Section" s ON s."id" = r."sectionId"
+                   WHERE s."layoutId" = '${layoutId}')
+                + (SELECT count(*) FROM "Seat" st JOIN "Section" s ON s."id" = st."sectionId"
+                   WHERE s."layoutId" = '${layoutId}'))::int AS n`)
+      )[0].n;
+
+    it('the layout', async () => {
+      const { layoutId } = await venueWithLayout();
+      await sql(`DELETE FROM "Layout" WHERE "id" = '${layoutId}'`);
+      expect(await left(layoutId)).toBe(0);
+    });
+
+    it('its venue', async () => {
+      const { venueId, layoutId } = await venueWithLayout();
+      await sql(`DELETE FROM "Location" WHERE "id" = '${venueId}'`);
+      expect(await left(layoutId)).toBe(0);
+    });
+  });
 });
