@@ -119,6 +119,20 @@ describe('a zoomed section', () => {
     expect(seat('Row A, Seat 3')).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it('starts a box inside the section’s own outline, above the background, not a pan (review B3)', async () => {
+    const { user } = await zoomInto101();
+    await user.click(screen.getByRole('button', { name: 'Box select' }));
+    const current = map().querySelector('.editor-map__current') as Element;
+    const vb = map().getAttribute('viewBox')!.split(' ').map(Number);
+    const at = (x: number, y: number) => ({ clientX: x - vb[0], clientY: y - vb[1] });
+    fireEvent.pointerDown(current, { pointerId: 2, ...at(17, 27) });
+    fireEvent.pointerMove(map(), { pointerId: 2, ...at(21, 31) });
+    fireEvent.pointerUp(map(), { pointerId: 2, ...at(21, 31) });
+    expect(
+      within(panel('Selection')).getByText('4 seats selected in section 101'),
+    ).toBeInTheDocument();
+  });
+
   it('Paint gives the selected seats the chosen level; Use section’s level clears it', async () => {
     const { user } = await zoomInto101();
     press(seat('Row B, Seat 1'));

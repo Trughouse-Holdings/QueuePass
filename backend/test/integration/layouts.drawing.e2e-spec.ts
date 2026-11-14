@@ -407,6 +407,28 @@ describe('Layout drawings (039)', () => {
       expect(await layoutCount()).toBe(0);
     });
 
+    it('refuses two seats of a section on the same place, naming both (review M1)', async () => {
+      const body: Json = newDrawing();
+      body.sections[0].rows[1].seats[2].at = body.sections[0].rows[0].seats[2].at;
+      const stacked: Json = newDrawing();
+      stacked.sections[2].rows = [
+        { label: 'A', seats: [{ label: '1', at: [60, 180] }] },
+        { label: 'B', seats: [{ label: '1', at: [60, 180] }] },
+      ];
+      for (const bad of [body, stacked]) {
+        const res = await create(bad).expect(400);
+        expect(res.body.error.code).toBe('LAYOUT_FILE_INVALID');
+      }
+      const res = await create(body).expect(400);
+      expect(problems(res)).toEqual([
+        {
+          path: 'sections[0].rows[1].seats[2].at',
+          message: 'Section 101, row B: seat 3 is on the same place as row A, seat 3',
+        },
+      ]);
+      expect(await layoutCount()).toBe(0);
+    });
+
     it('keeps the first 50 problems and counts the rest', async () => {
       const body = grid({ seats: 60 });
       for (const s of body.sections[0].rows[0].seats) s.label = 'x';

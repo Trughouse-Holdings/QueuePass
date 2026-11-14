@@ -160,6 +160,20 @@ describe('outlineAround (R5)', () => {
     for (const s of rows.flat()) expect(inside(s, out)).toBe(true);
   });
 
+  it('for seats on top of each other still gives a box of at least 3 distinct points (review M1)', () => {
+    const distinct = (pts: Pt[]) => new Set(pts.map((p) => p.join(','))).size;
+    const stacked = outlineAround([[[10, 10]], [[10, 10]]]);
+    expect(distinct(stacked)).toBeGreaterThanOrEqual(3);
+    const pair = outlineAround([
+      [
+        [10, 10],
+        [10, 10],
+      ],
+    ]);
+    expect(distinct(pair)).toBe(4);
+    expect(inside([10, 10], pair)).toBe(true);
+  });
+
   it('for rows mixing one seat and many draws around every seat', () => {
     const rows: Pt[][] = [[[0, 0]], ...straight([1, 5]).slice(1)];
     const out = outlineAround(rows);

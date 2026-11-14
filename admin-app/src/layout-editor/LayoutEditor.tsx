@@ -1,5 +1,5 @@
-import { useEffect, useId, useReducer, useRef, useState } from 'react';
-import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useId, useReducer, useRef, useState } from 'react';
+import { Link, useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { LAYOUT_LIMITS, type FloorKind, type LayoutDrawing } from '@queuepass/shared';
 import { LayoutPreview, centroid } from '@queuepass/shared/web';
 import type { ApiError } from '../api/client';
@@ -12,7 +12,7 @@ import {
 import { ErrorBanner } from '../components/ErrorBanner';
 import { EditorCanvas } from './EditorCanvas';
 import { emptyDoc, fromDrawing, mapSize, toInput, type EditorDoc, type Place } from './editor-doc';
-import { FLOOR_NAMES, currentDoc, initState, isDirty, reduce } from './editor-state';
+import { FLOOR_NAMES, currentDoc, initState, isDirty, reduce, type Action } from './editor-state';
 import { LevelsPanel } from './LevelsPanel';
 import { SaveBar, asApiError } from './SaveBar';
 import { SectionsPanel } from './SectionsPanel';
@@ -76,7 +76,18 @@ export function LayoutEditor({
   layoutId: string | null;
 }): React.ReactElement {
   const navigate = useNavigate();
-  const [state, dispatch] = useReducer(reduce, undefined, () => initState(emptyDoc()));
+  // Review B4: a new layout just saved opens here, and still says so.
+  const justCreated = (useLocation().state as { saved?: boolean } | null)?.saved === true;
+  const [state, apply] = useReducer(reduce, undefined, () => initState(emptyDoc()));
+  // Review B1: while a save is on its way the document takes no change, so what the admin sees
+  // after it is what was saved, and nothing done meanwhile is lost.
+  const savingRef = useRef(false);
+  const dispatch = useCallback((a: Action): void => {
+    if (savingRef.current && a.type !== 'saved' && a.type !== 'load') return;
+    apply(a);
+  }, []);
+  // Review S1: saved, but not read back, so what was new has no ids here: Save waits for Reload.
+  const [unread, setUnread] = useState(false);
   const [loading, setLoading] = useState<boolean>(layoutId !== null);
   const [loadError, setLoadError] = useState<ApiError | null>(null);
   const [meta, setMeta] = useState<Meta>({ revision: null, locked: false, lockedBy: [] });
@@ -161,6 +172,7 @@ export function LayoutEditor({
     dispatch({ type: 'load', doc: fromDrawing(d) });
     setMeta(metaOf(d));
     setWarned(new Set());
+    setUnread(false);
   };
 
   /** FR-002: a locked layout is changed by duplicating it (038 Duplicate) and editing the copy. */
@@ -178,24 +190,30 @@ export function LayoutEditor({
   /** Saves the document whole (R3), then reads it back for the ids and revision it now has. */
   const save = async (): Promise<void> => {
     const sent = currentDoc(state);
-    if (layoutId) {
-      await saveLayoutDrawing(layoutId, toInput(sent, meta.revision));
-      try {
-        const d = await getLayoutDrawing(layoutId);
-        dispatch({ type: 'saved', doc: fromDrawing(d) });
-        setMeta(metaOf(d));
-      } catch {
-        // Saved, but not read back: the next save may give new seats new ids, which is safe.
-        dispatch({ type: 'saved' });
-        setMeta((m) => ({ ...m, revision: (m.revision ?? 0) + 1 }));
+    savingRef.current = true;
+    try {
+      if (layoutId) {
+        await saveLayoutDrawing(layoutId, toInput(sent, meta.revision));
+        try {
+          const d = await getLayoutDrawing(layoutId);
+          dispatch({ type: 'saved', sent, doc: fromDrawing(d) });
+          setMeta(metaOf(d));
+        } catch {
+          // Saved, but not read back: what was new has no id here and the revision is unknown,
+          // so another save could make the new parts twice. Save waits for a Reload.
+          dispatch({ type: 'saved', sent });
+          setUnread(true);
+        }
+        return;
       }
-      return;
+      const made = await createLayoutDrawing(venueId, toInput(sent, null));
+      dispatch({ type: 'saved', sent });
+      // Saved: the move to the new layout's route is not leaving unsaved work.
+      dirtyRef.current = false;
+      navigate(editPath(made.id), { replace: true, state: { saved: true } });
+    } finally {
+      savingRef.current = false;
     }
-    const made = await createLayoutDrawing(venueId, toInput(sent, null));
-    dispatch({ type: 'saved' });
-    // Saved: the move to the new layout's route is not leaving unsaved work.
-    dirtyRef.current = false;
-    navigate(editPath(made.id), { replace: true });
   };
 
   if (loading) return <p className="loading">Loading the layout…</p>;
@@ -339,6 +357,12 @@ export function LayoutEditor({
           onWarned={setWarned}
           onSaveAsNew={saveAsNew}
           onReload={layoutId ? reload : undefined}
+          initiallySaved={justCreated}
+          blocked={
+            unread
+              ? 'Saved, but the layout could not be read back. Reload it before saving again.'
+              : undefined
+          }
         />
       </div>
       <p role="status" aria-live="polite" className="layout-editor__status">

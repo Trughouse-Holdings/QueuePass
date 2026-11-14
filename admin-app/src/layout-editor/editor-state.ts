@@ -11,6 +11,7 @@ import {
   type SectionGenerator,
 } from '@queuepass/shared';
 import {
+  isNew,
   levelName,
   outlineOf,
   seatLevel,
@@ -74,7 +75,11 @@ const FLOOR_SIZE: Record<Exclude<FloorKind, 'NONE'>, [number, number]> = {
 
 export type Action =
   | { type: 'load'; doc: EditorDoc }
-  | { type: 'saved'; doc?: EditorDoc }
+  /**
+   * The save of `sent` went through; `doc` is the layout read back after it, with the ids the
+   * Backend gave what was new, when it could be read.
+   */
+  | { type: 'saved'; sent: EditorDoc; doc?: EditorDoc }
   | { type: 'undo' }
   | { type: 'redo' }
   | { type: 'selectSections'; ids: string[] }
@@ -208,6 +213,91 @@ function commit(
 }
 
 /** The selection with what no longer exists taken out. */
+/**
+ * Review S1: the ids the Backend gave the parts of `sent` that were new, from the layout read back
+ * after the save. A save keeps the order of levels, sections, rows and seats, so they match by
+ * place; a part whose place doesn't line up is left as it was.
+ */
+function newIds(sent: EditorDoc, back: EditorDoc): Map<string, string> {
+  const ids = new Map<string, string>();
+  const pair = (mine: string, theirs: string | undefined): void => {
+    if (theirs && isNew(mine)) ids.set(mine, theirs);
+  };
+  sent.levels.forEach((l, i) => pair(l.id, back.levels[i]?.id));
+  sent.sections.forEach((x, i) => {
+    const y = back.sections[i];
+    if (!y) return;
+    pair(x.id, y.id);
+    x.rows.forEach((r, j) => {
+      const q = y.rows[j];
+      if (!q) return;
+      pair(r.id, q.id);
+      r.seats.forEach((seat, k) => pair(seat.id, q.seats[k]?.id));
+    });
+  });
+  return ids;
+}
+
+/** Documents with `ids` put in place of the old ones, each part made again only if it changed. */
+function remapper(ids: Map<string, string>): { doc: (d: EditorDoc) => EditorDoc } {
+  const docs = new Map<EditorDoc, EditorDoc>();
+  const sections = new Map<EdSection, EdSection>();
+  const id = (v: string): string => ids.get(v) ?? v;
+  const lvl = (v: string | null): string | null => (v === null ? null : id(v));
+  const section = (x: EdSection): EdSection => {
+    const done = sections.get(x);
+    if (done) return done;
+    let changed = ids.has(x.id) || ids.has(x.levelId);
+    const rows = x.rows.map((r) => {
+      const touched =
+        ids.has(r.id) ||
+        (r.levelId !== null && ids.has(r.levelId)) ||
+        r.seats.some((q) => ids.has(q.id) || (q.levelId !== null && ids.has(q.levelId)));
+      if (!touched) return r;
+      changed = true;
+      return {
+        ...r,
+        id: id(r.id),
+        levelId: lvl(r.levelId),
+        seats: r.seats.map((q) => ({ ...q, id: id(q.id), levelId: lvl(q.levelId) })),
+      };
+    });
+    const out = changed ? { ...x, id: id(x.id), levelId: id(x.levelId), rows } : x;
+    sections.set(x, out);
+    return out;
+  };
+  return {
+    doc: (d) => {
+      if (ids.size === 0) return d;
+      const done = docs.get(d);
+      if (done) return done;
+      const levels = d.levels.some((l) => ids.has(l.id))
+        ? d.levels.map((l) => ({ ...l, id: id(l.id) }))
+        : d.levels;
+      const mapped = d.sections.map(section);
+      const out =
+        levels === d.levels && mapped.every((x, i) => x === d.sections[i])
+          ? d
+          : { ...d, levels, sections: mapped };
+      docs.set(d, out);
+      return out;
+    },
+  };
+}
+
+function remapSelection(sel: Selection, ids: Map<string, string>): Selection {
+  const id = (v: string): string => ids.get(v) ?? v;
+  switch (sel.kind) {
+    case 'sections':
+      return { kind: 'sections', ids: sel.ids.map(id) };
+    case 'rows':
+    case 'seats':
+      return { kind: sel.kind, sectionId: id(sel.sectionId), ids: sel.ids.map(id) };
+    default:
+      return sel;
+  }
+}
+
 function sanitize(sel: Selection, doc: EditorDoc): Selection {
   if (sel.kind === 'none') return sel;
   if (sel.kind === 'floor') return doc.floor.outline ? sel : { kind: 'none' };
@@ -528,18 +618,19 @@ export function reduce(s: EditorState, a: Action): EditorState {
     case 'load':
       return initState(a.doc);
     case 'saved': {
-      // The document saved, or as read back after the save (with the ids the Backend gave), in
-      // place of the current step: the steps before stay, so Undo past the save still works.
-      if (!a.doc) return { ...s, saved: doc, typing: null, message: 'Layout saved' };
-      const history = [...s.history.slice(0, s.cursor), a.doc];
+      // R10 (review B1, S1): `sent` is what was saved. Every `new:` id in it now has the id the
+      // Backend gave it (read back, matched by order), and every step of the history takes those
+      // ids, so Undo past the save, or a change made while the save was on its way, never sends
+      // the saved parts again as new ones. The saved document is `sent` with those ids; a change
+      // made after it stays a change.
+      const ids = a.doc ? newIds(a.sent, a.doc) : new Map<string, string>();
+      const remap = remapper(ids);
       return {
         ...s,
-        history,
-        steps: s.steps.slice(0, s.cursor + 1),
-        saved: a.doc,
-        seq: Math.max(s.seq, highestNew(a.doc)),
-        selection: sanitize(s.selection, a.doc),
-        zoomed: s.zoomed && a.doc.sections.some((x) => x.id === s.zoomed) ? s.zoomed : null,
+        history: s.history.map(remap.doc),
+        saved: remap.doc(a.sent),
+        selection: remapSelection(s.selection, ids),
+        zoomed: s.zoomed ? (ids.get(s.zoomed) ?? s.zoomed) : null,
         message: 'Layout saved',
         typing: null,
       };
@@ -596,6 +687,8 @@ export function reduce(s: EditorState, a: Action): EditorState {
         s,
         keepOnMap({ ...doc, floor: { kind: a.kind, outline } }),
         `Floor object set to ${FLOOR_NAMES[a.kind]}`,
+        // Review B2: selected, so its corner handles show and it can be resized at once.
+        { selection: { kind: 'floor' } },
       );
     }
     case 'moveFloor': {

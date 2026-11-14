@@ -8,8 +8,9 @@ export const shown = (n: number): string => {
 
 /**
  * Spec 039 FR-011, FR-026: a number typed into the Selection panel. What is typed is kept while
- * the box has focus (so "30" can be typed through "3"); each whole number typed is sent at once;
- * the box shows the value again when it changes elsewhere or focus leaves.
+ * the box has focus, and sent on Enter or when focus leaves (review S2: a number on its way, "1"
+ * of "100", is never applied, so it can't push the layout about); the box shows the value again
+ * when it changes elsewhere or focus leaves.
  */
 export function NumberBox({
   label,
@@ -31,6 +32,10 @@ export function NumberBox({
   const id = useId();
   const [text, setText] = useState(shown(value));
   const focused = useRef(false);
+  const send = (raw: string): void => {
+    const n = raw.trim() === '' ? NaN : Number(raw);
+    if (Number.isFinite(n) && shown(n) !== shown(value)) onValue(n);
+  };
   useEffect(() => {
     if (!focused.current) setText(shown(value));
   }, [value]);
@@ -49,15 +54,17 @@ export function NumberBox({
         onFocus={() => {
           focused.current = true;
         }}
-        onBlur={() => {
+        onBlur={(e) => {
           focused.current = false;
+          send(e.currentTarget.value);
           setText(shown(value));
         }}
-        onChange={(e) => {
-          setText(e.target.value);
-          const n = e.target.value.trim() === '' ? NaN : Number(e.target.value);
-          if (Number.isFinite(n)) onValue(n);
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          send(e.currentTarget.value);
         }}
+        onChange={(e) => setText(e.target.value)}
       />
     </div>
   );

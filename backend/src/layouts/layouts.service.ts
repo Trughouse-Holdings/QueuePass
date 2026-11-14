@@ -496,6 +496,10 @@ export class LayoutsService {
     if (body.revision === undefined) {
       throw badRequest(['send the revision you read: a layout is saved over the revision read']);
     }
+    // Review M2: everything but the ids is checked before any lock is taken, so a wrong body
+    // never holds up holds and orders at the layout's events; the ids are checked under the lock.
+    const shape = checkDrawing(body, null);
+    if (!shape.ok) throw drawingInvalid(shape.problems, shape.more);
     const { result, eventIds } = await this.prisma.$transaction(async (tx) => {
       const { venue, layout, eventIds } = await lockLayout(tx, layoutId);
       const { revision } = await tx.layout.findUniqueOrThrow({
@@ -537,7 +541,9 @@ export class LayoutsService {
       );
       await this.setCapacity(tx, layout.locationId, venue);
       return { result: await this.detail(tx, layoutId), eventIds };
-    }, IMPORT_TX);
+      // R8: a write to an existing layout, so the lock order's own bounds (about a second for
+      // the Yum! Center's 22,090 seats).
+    }, LOCKING_TX);
     for (const id of eventIds) this.seatEvents.end(id);
     return result;
   }

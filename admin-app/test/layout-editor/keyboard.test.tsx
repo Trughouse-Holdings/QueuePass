@@ -89,12 +89,40 @@ describe('keyboard only', () => {
     await chooseByList(user, '101');
     expect(within(sel()).getByRole('heading', { name: 'Section 101' })).toBeInTheDocument();
     await user.clear(within(sel()).getByLabelText('Angle'));
-    await user.keyboard('30');
+    await user.keyboard('30{Enter}');
     expect(status()).toHaveTextContent('Section 101 turned to 30°');
     await user.clear(within(sel()).getByLabelText('x'));
     await user.keyboard('50');
+    // Review S2: kept on Enter or on leaving the box, not one keystroke at a time.
+    expect(status()).not.toHaveTextContent('Section 101 moved');
+    await user.tab();
     expect(status()).toHaveTextContent('Section 101 moved');
     expect(value('x')).toBe(50);
+  });
+
+  it('typing a place moves only that section: no keystroke along the way shifts the others (review S2)', async () => {
+    const user = await open();
+    await chooseByList(user, '102');
+    const other = value('x');
+    await chooseByList(user, '101');
+    // "1", then "10", "100" on the way: 1 would put 101 near the left edge, past it once turned.
+    await user.clear(within(sel()).getByLabelText('x'));
+    await user.keyboard('100{Enter}');
+    expect(value('x')).toBe(100);
+    await chooseByList(user, '102');
+    expect(value('x')).toBe(other);
+  });
+
+  it('moves and turns the selection from a section focused on the map, too (review M3)', async () => {
+    const user = await open();
+    const section = within(map()).getByRole('button', { name: /^Section 101, / });
+    section.focus();
+    await user.keyboard(' ');
+    expect(within(sel()).getByRole('heading', { name: 'Section 101' })).toBeInTheDocument();
+    await user.keyboard('{ArrowRight}');
+    expect(value('x')).toBe(21);
+    await user.keyboard(']');
+    expect(value('Angle')).toBe(1);
   });
 
   it('moves and turns the selection with the map focused; Escape clears it', async () => {

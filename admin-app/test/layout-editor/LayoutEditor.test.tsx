@@ -84,6 +84,8 @@ describe('a new layout', () => {
     expect(body).toMatchObject({ name: 'Basketball', floor: { kind: 'NONE' } });
     expect((body.sections as unknown[]).length).toBe(1);
     expect(await screen.findByRole('textbox', { name: 'Layout name' })).toHaveValue('Basketball');
+    // Review B4: the editor opened on the new layout still says it was saved.
+    expect(await screen.findByText('Saved')).toBeInTheDocument();
   });
 });
 
@@ -115,6 +117,44 @@ describe('an existing layout', () => {
     const put = api.calls.find((c) => c.method === 'PUT');
     expect(put?.body).toMatchObject({ revision: 4, name: 'Riverside bowl' });
     expect(api.count('GET', DRAWING_PATH)).toBe(2);
+  });
+
+  it('takes no change while a save is on its way (review B1)', async () => {
+    let answer: (r: Response) => void = () => undefined;
+    stubApi({
+      [`GET ${DRAWING_PATH}`]: () => json(DRAWING),
+      [`PUT ${DRAWING_PATH}`]: () => new Promise<Response>((r) => (answer = r)),
+    });
+    const user = userEvent.setup();
+    renderEditor(EDIT_PATH);
+    const name = await screen.findByRole('textbox', { name: 'Layout name' });
+    await user.type(name, ' bowl');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('button', { name: 'Saving…' })).toBeDisabled();
+    await user.type(name, 'X');
+    expect(name).toHaveValue('Riverside bowl');
+    answer(json(detailOf(LAYOUT_ID)));
+    expect(await screen.findByText('Saved')).toBeInTheDocument();
+  });
+
+  it('after a save it could not read back, Save waits for a reload (review S1)', async () => {
+    let reads = 0;
+    stubApi({
+      [`GET ${DRAWING_PATH}`]: () =>
+        ++reads === 1
+          ? json(DRAWING)
+          : json({ error: { code: 'VALIDATION_FAILED', message: 'Down' } }, 503),
+      [`PUT ${DRAWING_PATH}`]: json(detailOf(LAYOUT_ID)),
+    });
+    const user = userEvent.setup();
+    renderEditor(EDIT_PATH);
+    await user.type(await screen.findByRole('textbox', { name: 'Layout name' }), ' bowl');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      await screen.findByText(/Saved, but the layout could not be read back/),
+    ).toBeInTheDocument();
+    await user.type(screen.getByRole('textbox', { name: 'Layout name' }), '!');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
   });
 
   it('a LAYOUT_FILE_INVALID refusal selects the section at its path and keeps the document', async () => {

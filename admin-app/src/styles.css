@@ -487,6 +487,8 @@
   stroke: var(--border-strong);
   stroke-width: 1px;
   vector-effect: non-scaling-stroke;
+  /* Review B3: a press on it goes to the map (a pan, or Box select's box). */
+  pointer-events: none;
 }
 .editor-map__faded {
   opacity: 0.25;

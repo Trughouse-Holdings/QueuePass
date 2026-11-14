@@ -78,6 +78,8 @@ describe('rename and floor', () => {
     const ys = floor.outline!.map((p) => p[1]);
     expect((Math.min(...xs) + Math.max(...xs)) / 2).toBe(150);
     expect((Math.min(...ys) + Math.max(...ys)) / 2).toBe(100);
+    // Review B2: chosen, it is selected, so its corner handles show for resizing (FR-005).
+    expect(s.selection).toEqual({ kind: 'floor' });
     // Another kind keeps the place.
     s = reduce(s, { type: 'setFloor', kind: 'RING', at: [0, 0] });
     expect(doc(s).floor).toEqual({ kind: 'RING', outline: floor.outline });
@@ -139,20 +141,77 @@ describe('dirty', () => {
     s = reduce(s, { type: 'undo' });
     expect(isDirty(s)).toBe(false);
     s = reduce(s, { type: 'redo' });
-    s = reduce(s, { type: 'saved' });
+    s = reduce(s, { type: 'saved', sent: doc(s) });
     expect(isDirty(s)).toBe(false);
     // Undo past the save is allowed, and is a change again.
     s = reduce(s, { type: 'undo' });
     expect(isDirty(s)).toBe(true);
   });
 
-  it('saved with a reloaded document takes it as the saved one, keeping the history', () => {
+  it('saved with nothing new keeps the document and the history', () => {
     let s = reduce(loaded(), { type: 'rename', name: 'X' });
-    const reloaded = { ...doc(s), name: 'X' };
-    s = reduce(s, { type: 'saved', doc: reloaded });
-    expect(doc(s)).toBe(reloaded);
+    const sent = doc(s);
+    s = reduce(s, { type: 'saved', sent, doc: { ...sent } });
+    expect(doc(s)).toBe(sent);
     expect(isDirty(s)).toBe(false);
     expect(s.cursor).toBe(1);
+  });
+
+  /** A new section added, then moved; read back with the ids the Backend gave everything new. */
+  function addedAndMoved() {
+    let s = reduce(loaded(), {
+      type: 'addSection',
+      name: '103',
+      values: { ...BLOCK, rows: 1, seatsPerRow: [2] },
+      levelId: 'lv-std',
+      at: [150, 100],
+    });
+    const added = doc(s).sections[2];
+    s = reduce(s, { type: 'moveSections', ids: [added.id], dx: 5, dy: 0 });
+    const sent = doc(s);
+    const server = (id: string) => (id.startsWith('new:') ? `srv-${id.slice(4)}` : id);
+    const back = {
+      ...sent,
+      sections: sent.sections.map((x) => ({
+        ...x,
+        id: server(x.id),
+        rows: x.rows.map((r) => ({
+          ...r,
+          id: server(r.id),
+          seats: r.seats.map((q) => ({ ...q, id: server(q.id) })),
+        })),
+      })),
+    };
+    return { s, sent, back, added };
+  }
+
+  it("saved with the read-back gives every step the Backend's ids, so Undo past a save never sends new ones again (review S1)", () => {
+    const { s: before, sent, back, added } = addedAndMoved();
+    let s = reduce(before, { type: 'saved', sent, doc: back });
+    expect(isDirty(s)).toBe(false);
+    expect(doc(s).sections[2].id).toBe(back.sections[2].id);
+    // Undo the move: the section is still the saved one, by id, rows and seats too.
+    s = reduce(s, { type: 'undo' });
+    const undone = doc(s).sections[2];
+    expect(undone.id).toBe(back.sections[2].id);
+    expect(undone.id).not.toBe(added.id);
+    expect(undone.rows[0].seats.map((q) => q.id)).toEqual(
+      back.sections[2].rows[0].seats.map((q) => q.id),
+    );
+    expect(toInput(doc(s), 3).sections[2].id).toBe(back.sections[2].id);
+  });
+
+  it('keeps a change made while the save was on its way, still unsaved, with the new ids (review B1)', () => {
+    const { s: before, sent, back } = addedAndMoved();
+    // A move after Save was pressed, before its answer came back.
+    const during = reduce(before, { type: 'moveSections', ids: ['s-101'], dx: 50, dy: 0 });
+    const moved = doc(during).sections[0].origin;
+    const s = reduce(during, { type: 'saved', sent, doc: back });
+    expect(doc(s).sections[0].origin).toEqual(moved);
+    expect(isDirty(s)).toBe(true);
+    expect(doc(s).sections[2].id).toBe(back.sections[2].id);
+    // Undo returns to what was saved.
+    expect(isDirty(reduce(s, { type: 'undo' }))).toBe(false);
   });
 });
 

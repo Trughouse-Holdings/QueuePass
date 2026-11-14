@@ -56,6 +56,8 @@ export function SaveBar({
   onWarned,
   onSaveAsNew,
   onReload,
+  initiallySaved = false,
+  blocked,
 }: {
   doc: EditorDoc;
   dirty: boolean;
@@ -69,8 +71,12 @@ export function SaveBar({
   onSaveAsNew?: (name: string) => Promise<void>;
   /** FR-024: reads the layout again, the changes thrown away. */
   onReload?: () => Promise<void>;
+  /** Review B4: the editor opened on a layout it has just made, so it starts saved. */
+  initiallySaved?: boolean;
+  /** Why Save can't be used now (shown beside it, with Reload), or nothing. */
+  blocked?: string;
 }): React.ReactElement {
-  const [status, setStatus] = useState<Status>({ kind: 'idle' });
+  const [status, setStatus] = useState<Status>({ kind: initiallySaved ? 'saved' : 'idle' });
   const [copyName, setCopyName] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<ApiError | null>(null);
   const [copyBusy, setCopyBusy] = useState(false);
@@ -143,13 +149,27 @@ export function SaveBar({
         <button
           type="button"
           className="btn btn--primary"
-          disabled={status.kind === 'saving'}
+          disabled={status.kind === 'saving' || blocked !== undefined}
           onClick={() => void save()}
         >
           {status.kind === 'saving' ? 'Saving…' : 'Save'}
         </button>
-        {status.kind === 'saved' && <span className="editor-save__saved">Saved</span>}
+        {status.kind === 'saved' && !blocked && <span className="editor-save__saved">Saved</span>}
       </div>
+      {blocked && (
+        <div role="alert" className="banner banner--conflict">
+          <div className="banner__body">
+            <strong>{blocked}</strong>
+            {onReload && (
+              <div className="form__actions">
+                <button type="button" className="btn" onClick={() => void reload()}>
+                  Reload
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {status.kind === 'missing' && (
         <div role="alert" className="banner banner--error">
           <div className="banner__body">

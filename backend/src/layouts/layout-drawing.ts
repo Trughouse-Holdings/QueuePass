@@ -348,6 +348,8 @@ export function checkDrawing(body: unknown, existing: ExistingIds | null): Drawi
           );
         }
         const rowLabels = new Set<string>();
+        // Review M1: each seat's place, to a tenth of a unit, so two on one place are refused.
+        const places = new Map<string, string>();
         raw.rows.forEach((rawRow, j) => {
           const rowPath = `${path}.rows[${j}]`;
           if (!isObject(rawRow)) {
@@ -368,10 +370,13 @@ export function checkDrawing(body: unknown, existing: ExistingIds | null): Drawi
             name: `section ${sectionName ?? i + 1}`,
           });
           const rowLevel = levelKey(rawRow.level, `${rowPath}.level`, rowPlace, false);
-          const seats = checkSeats(rawRow.seats, `${rowPath}.seats`, rowPlace, {
-            id: rowId,
-            name: `row ${rowLabel ?? j + 1}`,
-          });
+          const seats = checkSeats(
+            rawRow.seats,
+            `${rowPath}.seats`,
+            rowPlace,
+            { id: rowId, name: `row ${rowLabel ?? j + 1}` },
+            places,
+          );
           seatCount += seats?.length ?? 0;
           if (rowLabel !== null && seats) {
             rows.push({ id: rowId, number: j + 1, label: rowLabel, levelKey: rowLevel, seats });
@@ -396,6 +401,7 @@ export function checkDrawing(body: unknown, existing: ExistingIds | null): Drawi
     path: string,
     rowPlace: string,
     row: { id: string | null; name: string },
+    places: Map<string, string>,
   ): DrawnSeat[] | null {
     if (!Array.isArray(v) || v.length === 0) {
       add(path, `${rowPlace}: a row needs at least one seat.`);
@@ -443,6 +449,15 @@ export function checkDrawing(body: unknown, existing: ExistingIds | null): Drawi
         ok = false;
         return;
       }
+      const key = `${Math.round(at[0] * 10)},${Math.round(at[1] * 10)}`;
+      const here = `${row.name}, seat ${seatLabel}`;
+      const taken = places.get(key);
+      if (taken) {
+        add(`${seatPath}.at`, `${rowPlace}: seat ${seatLabel} is on the same place as ${taken}`);
+        ok = false;
+        return;
+      }
+      places.set(key, here);
       seats.push({
         id,
         number: k + 1,

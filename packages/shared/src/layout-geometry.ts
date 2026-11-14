@@ -81,18 +81,26 @@ export function outlineAround(rowsIn: readonly (readonly Pt[])[]): [number, numb
   const rows = rowsIn.filter((r) => r.length > 0);
   if (rows.length === 0) throw new Error('outlineAround needs at least one seat');
   const m = OUTLINE_MARGIN;
+  /** A box 1.5 units around every seat: one seat's square, or seats with no direction to follow. */
+  const box = (): [number, number][] => {
+    const all = rows.flat();
+    const x0 = Math.min(...all.map((p) => p[0])) - m;
+    const x1 = Math.max(...all.map((p) => p[0])) + m;
+    const y0 = Math.min(...all.map((p) => p[1])) - m;
+    const y1 = Math.max(...all.map((p) => p[1])) + m;
+    const corners: Pt[] = [
+      [x0, y1],
+      [x0, y0],
+      [x1, y0],
+      [x1, y1],
+    ];
+    return corners.map(clean);
+  };
 
   if (rows.length === 1) {
     const row = rows[0];
-    if (row.length === 1) {
-      const [x, y] = row[0];
-      return [
-        [x - m, y + m],
-        [x - m, y - m],
-        [x + m, y - m],
-        [x + m, y + m],
-      ];
-    }
+    // One seat, or a row whose ends are on top of each other (review M1): no direction to follow.
+    if (row.length === 1 || length(sub(row[row.length - 1], row[0])) < 1e-9) return box();
     // Along the row: from its first seat to its last, and across it.
     const t = unit(sub(row[row.length - 1], row[0]));
     const n = perp(t);
@@ -192,7 +200,9 @@ export function outlineAround(rowsIn: readonly (readonly Pt[])[]): [number, numb
     fr,
     ...[...frontEdge].reverse(),
   ];
-  return dropRepeats(ring).map(clean);
+  const out = dropRepeats(ring).map(clean);
+  // Seats on top of each other leave too few points for an outline (review M1).
+  return new Set(out.map((p) => `${p[0]},${p[1]}`)).size >= 3 ? out : box();
 }
 
 /** Douglas–Peucker: the points of a chain that keep it within `tolerance` of every point left out. */

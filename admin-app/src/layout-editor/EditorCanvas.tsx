@@ -226,7 +226,10 @@ export function EditorCanvas({
   };
 
   const onKeyDown = (e: React.KeyboardEvent<SVGSVGElement>): void => {
-    if (e.target !== e.currentTarget) return;
+    // The map itself, or a section on it (review M3): a keyboard user who chose a section with
+    // Space moves and turns it from there.
+    const onSection = (e.target as Element).closest?.('.editor-map__section') != null;
+    if (e.target !== e.currentTarget && !onSection) return;
     if (e.key === 'Escape') {
       dispatch({ type: 'clearSelection' });
       return;
@@ -338,7 +341,16 @@ export function EditorCanvas({
         tabIndex={0}
         viewBox={pz.viewBox}
         preserveAspectRatio="xMidYMid meet"
-        onPointerDown={pz.onPointerDown}
+        onPointerDown={(e) => {
+          // Review B3: with Box select on in a zoomed section, a press anywhere (the section's
+          // own outline included) not taken by a seat or a row label starts the box, not a pan.
+          if (zoomSection && boxSelect) {
+            drag.current = { kind: 'box', from: toMap(e), add: e.shiftKey };
+            capture(e);
+            return;
+          }
+          pz.onPointerDown(e);
+        }}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
@@ -350,12 +362,6 @@ export function EditorCanvas({
           y={fit.y}
           width={fit.width}
           height={fit.height}
-          onPointerDown={(e) => {
-            if (!zoomSection || !boxSelect) return;
-            e.stopPropagation();
-            drag.current = { kind: 'box', from: toMap(e), add: e.shiftKey };
-            capture(e);
-          }}
           onClick={() => {
             if (!pz.dragged()) dispatch({ type: 'clearSelection' });
           }}
