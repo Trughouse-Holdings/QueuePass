@@ -1734,7 +1734,11 @@ export interface components {
              * @description Feature 038. With a layout: the seats this event does not sell, by whole section, row,
              *     or seat. Replaces the event's set (`[]` puts every seat on sale). A selector naming no
              *     seat of the layout is `400`; a sold or held seat is `409 SEAT_TAKEN` (`details.seats`);
-             *     no seat left on sale is `400`. Left out on `createEvent`, none; on `updateEvent`,
+             *     no seat left on sale is `400`; a `maxTicketsPerCustomer` above the seats on sale is
+             *     `409 CAPACITY_EXCEEDED` with `details.field` `maxTicketsPerCustomer` when the limit
+             *     was sent in the request, else `offSale`. Putting an event that has ticket types on a
+             *     layout removes them by the rules of `tiers` (`409 TIER_HAS_ORDERS` when one has
+             *     orders). Left out on `createEvent`, none; on `updateEvent`,
              *     unchanged.
              */
             offSale?: components["schemas"]["OffSaleSelector"][];
@@ -1834,7 +1838,11 @@ export interface components {
              * @description Feature 038. With a layout: the seats this event does not sell, by whole section, row,
              *     or seat. Replaces the event's set (`[]` puts every seat on sale). A selector naming no
              *     seat of the layout is `400`; a sold or held seat is `409 SEAT_TAKEN` (`details.seats`);
-             *     no seat left on sale is `400`. Left out on `createEvent`, none; on `updateEvent`,
+             *     no seat left on sale is `400`; a `maxTicketsPerCustomer` above the seats on sale is
+             *     `409 CAPACITY_EXCEEDED` with `details.field` `maxTicketsPerCustomer` when the limit
+             *     was sent in the request, else `offSale`. Putting an event that has ticket types on a
+             *     layout removes them by the rules of `tiers` (`409 TIER_HAS_ORDERS` when one has
+             *     orders). Left out on `createEvent`, none; on `updateEvent`,
              *     unchanged.
              */
             offSale?: components["schemas"]["OffSaleSelector"][];

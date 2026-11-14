@@ -841,7 +841,8 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
 - [ ] T049 [US6] `admin-app/src/components/EventSeatMap.tsx` on the shared map (`colorBy: 'state'`)
   and `useSeatStream`, in `pages/EventDetail.tsx`; remove `SeatingCard.tsx` and `SeatGrid.tsx`.
   T048 passes.
-
+  Also (from T025): the event page's `TierSection` offers no Add a tier on a seated event (the
+  Backend refuses it, `400`); the read-only `SeatingCard` left by T025 goes with `SeatGrid.tsx`.
 ---
 
 ## Phase 9: Reports, attendee lists, the gate (FR-026, FR-030, R17)
@@ -880,6 +881,8 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   `admin-app/src/api/seating.ts` has no old calls left; Customer `OrderConfirmation.tsx` and
   `MyTickets.tsx` and Admin `attendee-rows.ts` and `Attendees.tsx` show each ticket's `price` when
   `unitPrice` is `null`.
+  Also (from T025): remove the six Admin tests' unused stubs of the retired
+  `GET /locations/{id}/layout`.
 - [ ] T055 `specs/038-seat-maps/quickstart.md`: the Automation rows of S0, S5, S6, S10–S14, S16,
   S17 → `Automated: \`<exact test title>\``; the rest Manual with their reason;
   `node scripts/check-quickstart-marks.mjs` passes.

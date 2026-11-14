@@ -463,6 +463,9 @@ edge case; review M4).
   checkbox per row, and seat clicks toggle single seats; the line "N seats on sale · M off sale".
   A Backend refusal is shown beside the price box, the layout select or the map, and focused (`031`,
   `035`). Sold or held seats are disabled in the tool, with the reason.
+- **Event form defaults** (from T025): a venue with layouts starts the Seating section on General
+  admission (the admin picks a layout); the event page's Seating card no longer edits seating (it
+  points to Edit event) until T049 replaces it with the live map.
 - **Event page**: the same map colored by state (FR-027), each section showing "sold / open", a
   state legend, live (`useSeatStream`). The attendee list and its exports show the price level and
   each ticket's price.
