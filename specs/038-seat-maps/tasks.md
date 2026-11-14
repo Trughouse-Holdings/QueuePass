@@ -725,11 +725,17 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   skips the ones the map already has); changes with `from` and `levelId` from holds, releases, the sweep, purchases,
   refunds, cancellations and off-sale saves; `end()` on seating and layout saves; remove the
   `x-planned` marker of the `venueMap` event. T026–T030 pass.
-- [ ] T038 [US3] Theme tokens in `packages/shared/src/web/theme.css`: `--level-violet` …
+- [X] T038 [US3] Theme tokens in `packages/shared/src/web/theme.css`: `--level-violet` …
   `--level-brown` (the 12 names), `--seat-unavailable`, `--seat-mine`, `--map-floor`, `--map-bg`,
   each level color ≥ 3:1 against `--map-bg`; the theme's contrast tests cover them
   (`packages/shared/test/theme*.test.ts`); `admin-app/test/theme-drift.test.ts` and the Customer
   app's still pass.
+  **Done** (2026-11-14): `contrast.test.ts`'s venue-map cases written first and seen failing (34,
+  tokens missing); then the tokens in both sets (light 600–800 shades on `--map-bg` #ffffff, dark
+  400 shades on #171a21, each 4.6:1 or more; `--seat-unavailable`, `--seat-mine` and
+  `--border-strong` 3:1 or more too), `.level-swatch--<color>` (Admin's price table now shows the
+  color) and `.venue-map--<color>`, `.venue-map--unavailable` fills. Theme 450 tests, both apps'
+  drift tests pass.
 - [ ] T039 [US3] `packages/shared/src/web/venue-map/`: `use-pan-zoom.ts`, `map-state.ts`,
   `venue-map.tsx` (overview and zoomed section, `colorBy: 'price' | 'state'`, `onSeat` callback),
   `section-view.tsx`, `legend.tsx`, `price-filter.tsx`, exported from `web/index.ts`; styles in the

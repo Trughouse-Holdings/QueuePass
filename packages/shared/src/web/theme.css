@@ -77,6 +77,27 @@
   --qr-dark: #000000;
   --qr-light: #ffffff;
 
+  /* Spec 038 (research R13): the venue map. Its background, the floor object under the sections,
+     the gray of unavailable seats and sections, the customer's own seats, and the 12 price-level
+     colors a layout names (contract LevelColor), each at 3:1 or more on --map-bg. A level's name
+     is always shown beside its color, so color is never the only cue. */
+  --map-bg: #ffffff;
+  --map-floor: #e3e6ea;
+  --seat-unavailable: #868e99;
+  --seat-mine: #4f46e5;
+  --level-violet: #7c3aed;
+  --level-blue: #2563eb;
+  --level-cyan: #0e7490;
+  --level-teal: #0f766e;
+  --level-green: #15803d;
+  --level-lime: #4d7c0f;
+  --level-yellow: #a16207;
+  --level-orange: #c2410c;
+  --level-red: #dc2626;
+  --level-pink: #db2777;
+  --level-purple: #a21caf;
+  --level-brown: #92400e;
+
   --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -156,6 +177,24 @@
 
     --qr-dark: #000000;
     --qr-light: #ffffff;
+
+    /* Spec 038: the venue map, lighter shades on the dark map. */
+    --map-bg: #171a21;
+    --map-floor: #272c36;
+    --seat-unavailable: #6f7887;
+    --seat-mine: #8b85f5;
+    --level-violet: #a78bfa;
+    --level-blue: #60a5fa;
+    --level-cyan: #22d3ee;
+    --level-teal: #2dd4bf;
+    --level-green: #4ade80;
+    --level-lime: #a3e635;
+    --level-yellow: #facc15;
+    --level-orange: #fb923c;
+    --level-red: #f87171;
+    --level-pink: #f472b6;
+    --level-purple: #e879f9;
+    --level-brown: #d4a373;
 
     --shadow: 0 1px 3px rgb(0 0 0 / 40%);
     --shadow-lg: 0 6px 16px -4px rgb(0 0 0 / 50%);
@@ -1123,8 +1162,8 @@ dd {
 }
 
 /* Spec 038 (T025, research R15): the event form's Seating section. A level's swatch beside its
-   name (the name is always there, so color is never the only cue); neutral until T038 adds the
-   level colors (--level-*), which then color each .level-swatch--<color>. One section zoomed in
+   name (the name is always there, so color is never the only cue), in its level's color
+   (.level-swatch--<color>, T038). One section zoomed in
    the off-sale tool, its seats at their places: on sale filled, off sale hollow and dashed, sold
    or held muted and not pressable. */
 .level-swatch {
@@ -1136,6 +1175,42 @@ dd {
   background: var(--accent-soft);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-pill);
+}
+.level-swatch--violet {
+  background: var(--level-violet);
+}
+.level-swatch--blue {
+  background: var(--level-blue);
+}
+.level-swatch--cyan {
+  background: var(--level-cyan);
+}
+.level-swatch--teal {
+  background: var(--level-teal);
+}
+.level-swatch--green {
+  background: var(--level-green);
+}
+.level-swatch--lime {
+  background: var(--level-lime);
+}
+.level-swatch--yellow {
+  background: var(--level-yellow);
+}
+.level-swatch--orange {
+  background: var(--level-orange);
+}
+.level-swatch--red {
+  background: var(--level-red);
+}
+.level-swatch--pink {
+  background: var(--level-pink);
+}
+.level-swatch--purple {
+  background: var(--level-purple);
+}
+.level-swatch--brown {
+  background: var(--level-brown);
 }
 .off-sale-section {
   display: block;
@@ -1174,4 +1249,47 @@ dd {
 .off-sale-section__seat:focus-visible circle {
   stroke: var(--text);
   stroke-width: 3;
+}
+
+/* Spec 038 (T038, research R13): the venue map's level colors. A section, a seat, or a legend mark
+   with .venue-map--<color> is filled with that level's color; .venue-map--unavailable is the gray
+   of a section with no open seat (in the price filter) and of seats that can't be chosen. */
+.venue-map--violet {
+  fill: var(--level-violet);
+}
+.venue-map--blue {
+  fill: var(--level-blue);
+}
+.venue-map--cyan {
+  fill: var(--level-cyan);
+}
+.venue-map--teal {
+  fill: var(--level-teal);
+}
+.venue-map--green {
+  fill: var(--level-green);
+}
+.venue-map--lime {
+  fill: var(--level-lime);
+}
+.venue-map--yellow {
+  fill: var(--level-yellow);
+}
+.venue-map--orange {
+  fill: var(--level-orange);
+}
+.venue-map--red {
+  fill: var(--level-red);
+}
+.venue-map--pink {
+  fill: var(--level-pink);
+}
+.venue-map--purple {
+  fill: var(--level-purple);
+}
+.venue-map--brown {
+  fill: var(--level-brown);
+}
+.venue-map--unavailable {
+  fill: var(--seat-unavailable);
 }
