@@ -37,6 +37,7 @@ const levelLine = (page: Page, name: string): Locator =>
 
 /** Drags with the mouse from the middle of `target` by (dx, dy) screen pixels, in steps. */
 async function drag(page: Page, target: Locator, dx: number, dy: number): Promise<void> {
+  await target.scrollIntoViewIfNeeded();
   const box = await target.boundingBox();
   if (!box) throw new Error('drag: the target is not on screen');
   const x = box.x + box.width / 2;

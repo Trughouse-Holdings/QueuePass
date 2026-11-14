@@ -302,6 +302,11 @@
   display: grid;
   gap: var(--space-3);
 }
+/* T037: the map stays in view while the side column scrolls, below the sticky top bar (60px). */
+.layout-editor__body > .editor-map-wrap {
+  position: sticky;
+  top: calc(60px + var(--space-3));
+}
 .editor-panel h2 {
   margin: 0 0 var(--space-2);
   font-size: 15px;

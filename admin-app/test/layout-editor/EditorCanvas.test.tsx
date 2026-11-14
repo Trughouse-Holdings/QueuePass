@@ -83,6 +83,18 @@ describe('dragging sections', () => {
     expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
   });
 
+  it('takes the pointer only once a drag moves, so a click or double-click still reaches the section (T037)', async () => {
+    await open();
+    const svg = map() as unknown as SVGSVGElement;
+    const capture = vi.fn();
+    svg.setPointerCapture = capture;
+    fireEvent.pointerDown(sectionOnMap('102'), { clientX: 100, clientY: 31, pointerId: 1 });
+    expect(capture).not.toHaveBeenCalled();
+    fireEvent.pointerMove(map(), { clientX: 110, clientY: 31, pointerId: 1 });
+    expect(capture).toHaveBeenCalledWith(1);
+    fireEvent.pointerUp(map(), { clientX: 110, clientY: 31, pointerId: 1 });
+  });
+
   it('Shift-click adds a section; dragging one of two selected moves both', async () => {
     await open();
     fireEvent.pointerDown(sectionOnMap('101'), { clientX: 20, clientY: 29, pointerId: 1 });

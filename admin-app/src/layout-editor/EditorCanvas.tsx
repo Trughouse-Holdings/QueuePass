@@ -154,7 +154,8 @@ export function EditorCanvas({
       client: [e.clientX, e.clientY],
       moved: false,
     };
-    capture(e);
+    // Not captured yet: a click, or a double-click that zooms in, must still reach the section.
+    // The pointer is taken once the drag moves (onPointerMove), as the shared pan does.
   };
 
   const pressFloor = (e: React.PointerEvent): void => {
@@ -162,7 +163,6 @@ export function EditorCanvas({
     e.stopPropagation();
     dispatch({ type: 'selectFloor' });
     drag.current = { kind: 'floor', from: toMap(e), client: [e.clientX, e.clientY], moved: false };
-    capture(e);
   };
 
   const onPointerMove = (e: React.PointerEvent<SVGSVGElement>): void => {
@@ -175,6 +175,7 @@ export function EditorCanvas({
     if (d.kind === 'move' || d.kind === 'floor') {
       if (!d.moved && Math.hypot(e.clientX - d.client[0], e.clientY - d.client[1]) < DRAG_SLOP)
         return;
+      if (!d.moved) capture(e);
       d.moved = true;
       setLive({ kind: d.kind, dx: at[0] - d.from[0], dy: at[1] - d.from[1] });
     } else if (d.kind === 'turn') {
