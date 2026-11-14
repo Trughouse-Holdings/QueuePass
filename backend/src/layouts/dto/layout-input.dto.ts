@@ -66,7 +66,7 @@ export class LayoutSectionLineDto {
 const levelsOf = (max: number) => [
   IsArray({ message: 'levels must be a list' }),
   ArrayMinSize(1, { message: 'a layout needs at least 1 level' }),
-  ArrayMaxSize(max, { message: `a layout has at most ${LAYOUT_LIMITS.maxLevels} levels` }),
+  ArrayMaxSize(max, { message: `a layout has at most ${max} levels` }),
   ValidateNested({ each: true }),
   Type(() => LayoutLevelLineDto),
 ];
