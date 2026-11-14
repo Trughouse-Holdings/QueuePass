@@ -149,7 +149,7 @@ confirm they **fail** before its implementation tasks.
   `seat_hold_one_live_per_seat` on `(eventId, seatId) WHERE "releasedAt" IS NULL`), then the drops.
   `npx prisma migrate dev --create-only` is not used; `prisma migrate diff` may help check the
   schema matches. T003 passes.
-- [ ] T007 [P] Shared types in `packages/shared/src/seating.ts`: `LAYOUT_LIMITS` (`maxSections:
+- [X] T007 [P] Shared types in `packages/shared/src/seating.ts`: `LAYOUT_LIMITS` (`maxSections:
   100`, `maxRows: 100`, `maxSeatsPerRow: 200`, `maxSeats: 30_000`, `maxLevels: 12`,
   `maxCarriedLevels: 50`, `nameMaxLength: 50`, `labelMaxLength: 5`, `maxOutlinePoints: 64`,
   `maxMapUnits: 5_000`, `maxOffSaleSelectors: 5_000`, `maxImportBytes: 4 * 1024 * 1024`),
@@ -157,6 +157,9 @@ confirm they **fail** before its implementation tasks.
   `api-schema.ts` for the new schemas (`LayoutSummary`, `LayoutDetail`, `VenueMap`,
   `VenueMapSection`, `SeatState`, `OffSaleSelector`, …). `SEATING_LIMITS` goes in T009. Unit test
   `packages/shared/test/seating.test.ts` that `LEVEL_COLORS` equals the contract's enum.
+  **Done** (2026-11-13): `packages/shared/test/seating.test.ts` written first and seen failing (4
+  tests); then `LAYOUT_LIMITS`, `LEVEL_COLORS` (checked against `LevelColor` at compile time with
+  `satisfies`) and 30 aliases of the contract's 038 schemas; 4 tests pass, `tsc` clean.
 - [ ] T008 Backend helpers: `backend/src/seating/seat-levels.ts` (the `COALESCE(seat, row, section)`
   SQL fragment and a function giving a seat's level; counts per section and level by state for one
   event, in one grouped query, R11), `backend/src/layouts/seat-runs.ts` (run expansion, R5),

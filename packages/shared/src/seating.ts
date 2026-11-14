@@ -1,6 +1,9 @@
+import type { components } from './api-schema.js';
+
 /**
  * Mirrors the seating schemas in contracts/openapi.yaml (spec 007): venue layouts, seat maps, and
- * seats on orders and tickets. Spec 015: reservations and live seat-map changes.
+ * seats on orders and tickets. Spec 015: reservations and live seat-map changes. Spec 038: layouts
+ * with price levels, event seating, and the venue map, as aliases of the generated types.
  */
 export interface Section {
   id: string;
@@ -121,3 +124,78 @@ export const SEATING_LIMITS = {
   maxSeatsPerRow: 200,
   maxSections: 50,
 } as const;
+
+type Schemas = components['schemas'];
+
+/**
+ * Spec 038 (FR-001 to FR-003, FR-013, research R5, R8, R16): the limits of a layout and of an
+ * event's seating save. A layout carried over from `007` may have up to `maxCarriedLevels` levels
+ * and more than `maxSeats` seats; imports and section lines keep 12 and 30,000.
+ */
+export const LAYOUT_LIMITS = {
+  maxSections: 100,
+  maxRows: 100,
+  maxSeatsPerRow: 200,
+  maxSeats: 30_000,
+  maxLevels: 12,
+  maxCarriedLevels: 50,
+  nameMaxLength: 50,
+  labelMaxLength: 5,
+  maxOutlinePoints: 64,
+  maxMapUnits: 5_000,
+  maxOffSaleSelectors: 5_000,
+  maxImportBytes: 4 * 1024 * 1024,
+} as const;
+
+/** Spec 038 research R13: one of the shared theme's 12 price-level colors. */
+export type LevelColor = Schemas['LevelColor'];
+
+/**
+ * Spec 038 research R13, R16: the 12 level colors in the contract's `LevelColor` order, the order
+ * the carry-over gives them out in (repeating after 12).
+ */
+export const LEVEL_COLORS = [
+  'violet',
+  'blue',
+  'cyan',
+  'teal',
+  'green',
+  'lime',
+  'yellow',
+  'orange',
+  'red',
+  'pink',
+  'purple',
+  'brown',
+] as const satisfies readonly LevelColor[];
+
+// Spec 038: the contract's layout, event seating and venue map schemas (contracts/README.md).
+export type FloorKind = Schemas['FloorKind'];
+export type MapPoint = Schemas['MapPoint'];
+export type MapOutline = Schemas['MapOutline'];
+export type MapSize = Schemas['MapSize'];
+export type PriceLevel = Schemas['PriceLevel'];
+export type LayoutSummary = Schemas['LayoutSummary'];
+export type LayoutDetail = Schemas['LayoutDetail'];
+export type LayoutSectionSummary = Schemas['LayoutSectionSummary'];
+export type LatestPrices = Schemas['LatestPrices'];
+export type LayoutSectionSeats = Schemas['LayoutSectionSeats'];
+export type LayoutSeat = Schemas['LayoutSeat'];
+export type LayoutLinesInput = Schemas['LayoutLinesInput'];
+export type LayoutLevelLine = Schemas['LayoutLevelLine'];
+export type LayoutSectionLine = Schemas['LayoutSectionLine'];
+export type LayoutUpdate = Schemas['LayoutUpdate'];
+export type LayoutDuplicate = Schemas['LayoutDuplicate'];
+export type LayoutImport = Schemas['LayoutImport'];
+export type LayoutFile = Schemas['LayoutFile'];
+export type LayoutFileSection = Schemas['LayoutFileSection'];
+export type LayoutFileSeat = Schemas['LayoutFileSeat'];
+export type LayoutFileSeatRun = Schemas['LayoutFileSeatRun'];
+export type LevelPriceInput = Schemas['LevelPriceInput'];
+export type OffSaleSelector = Schemas['OffSaleSelector'];
+export type EventSeating = Schemas['EventSeating'];
+export type VenueMap = Schemas['VenueMap'];
+export type LevelSeatCounts = Schemas['LevelSeatCounts'];
+export type VenueMapSection = Schemas['VenueMapSection'];
+export type SeatState = Schemas['SeatState'];
+export type LevelSales = Schemas['LevelSales'];
