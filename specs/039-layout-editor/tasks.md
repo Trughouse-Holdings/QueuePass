@@ -62,13 +62,18 @@ below by file name alone (`editor-state.test.ts`, `SaveBar.test.tsx`) is in
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `039-layout-editor-impl` from `039-layout-editor-spec` (rebased onto `main` after
+- [X] T001 Cut `039-layout-editor-impl` from `039-layout-editor-spec` (rebased onto `main` after
   #167 merged); `npm ci`; `npx prisma generate` in `backend/`; `npm run ci` green before any change,
   so a later failure is this feature's. Record any test that already fails on the untouched branch
   (038's T001 and T058 saw `rate-limits.buy.e2e-spec.ts` "lets another account buy while one sends
   200" fail with `connect ECONNRESET` on this Mac; if it does, run the remaining workspaces' tests by
   hand and record them).
-- [ ] T002 [P] Test helpers in `backend/test/setup/layout-drawing.ts`: `drawingToInput(drawing:
+  **Done 2026-11-14**: on the untouched branch, `npm run ci` failed in the Backend with two
+  suites: `rate-limits.buy.e2e-spec.ts` (`connect ECONNRESET`, as 038 saw) and
+  `layouts.authz.e2e-spec.ts`, which listed 039's three `x-planned` operations; the latter was
+  a spec-branch defect, fixed there (commit "Plan 039: keep 038's layouts.authz table…").
+  Every other workspace passed.
+- [X] T002 [P] Test helpers in `backend/test/setup/layout-drawing.ts`: `drawingToInput(drawing:
   LayoutDrawing): LayoutDrawingInput` (levels keyed by their id, which matches the key pattern
   `^[a-z0-9-]{1,40}$`; every id kept; `revision` copied; `origin`, `angle`, `generator` copied;
   row and seat `level` from their own `levelId` when present); `newDrawing()`: a `LayoutDrawingInput`
@@ -87,7 +92,7 @@ the editor's document, state and page shell that every story builds on.
 
 ### Tests first
 
-- [ ] T003 [P] `backend/test/integration/migration.layout-editor.e2e-spec.ts` on the pattern of
+- [X] T003 [P] `backend/test/integration/migration.layout-editor.e2e-spec.ts` on the pattern of
   `migration.seat-maps.e2e-spec.ts` (a fresh database migrated to the migration before
   `_layout_editor`, rows inserted with SQL, then the migration). Before: a venue with an imported
   layout of two sections (label points (50, 60) and (150, 60)) and a carried-over "Standard" layout.
@@ -99,7 +104,7 @@ the editor's document, state and page shell that every story builds on.
   transaction fails without, and commits after, `SET CONSTRAINTS seat_row_label_unique DEFERRED`;
   the CHECKs refuse `angle = -180`, accept `angle = 180`, refuse `originX = 5001` and
   `originY = -1`, refuse `revision = 0`, refuse `generator = '[]'::jsonb`.
-- [ ] T004 [P] `packages/shared/test/layout-geometry.test.ts` (R5, R6): `outlineAround(rows)` for a
+- [X] T004 [P] `packages/shared/test/layout-geometry.test.ts` (R5, R6): `outlineAround(rows)` for a
   3 × 4 straight block is the first seats front to back then the last seats back to front, each
   pushed out 1.5 units, in order, closed; for a curved block it hugs the arcs (no point inside the
   hollow of the curve: every outline point is within 1.5 units + 1e-6 of some seat); for rows of
@@ -108,7 +113,7 @@ the editor's document, state and page shell that every story builds on.
   row; a one-seat section a 4-point square. `moveBy(points, dx, dy)`; `turnAbout(points, origin,
   degrees)` (90° clockwise with `y` down maps (1, 0) about (0, 0) to (0, 1)); `normalizeAngle`
   returns values in `(-180, 180]` (`-180` → `180`, `190` → `-170`, `360` → `0`).
-- [ ] T005 [P] `backend/test/integration/layouts.drawing.e2e-spec.ts` (FR-019–FR-024, R3–R5, R8, R9,
+- [X] T005 [P] `backend/test/integration/layouts.drawing.e2e-spec.ts` (FR-019–FR-024, R3–R5, R8, R9,
   R16), against Testcontainers PostgreSQL, using T002's helpers:
   - **Read**: `getLayoutDrawing` of an imported `small.json` returns `revision` 1, `locked: false`,
     `lockedBy: []`, every row and seat with its id, own `levelId` only where the file set one,
@@ -116,7 +121,7 @@ the editor's document, state and page shell that every story builds on.
     `generator: null`; of a layout an event with a valid ticket uses: `locked: true`, `lockedBy`
     names that event.
   - **Create**: `createLayoutDrawing` of `newDrawing()` → 201 `LayoutDetail`, `source: 'DRAWN'`,
-    `seatCount` 31, 3 sections, 2 levels; each outline equals `outlineAround` of its seats; the label
+    `seatCount` 37 (T002's sections: 12 + 20 + 5; "31" here first was a miscount), 3 sections, 2 levels; each outline equals `outlineAround` of its seats; the label
     point is the outline's centroid; `size` = the largest `x`/`y` of seats, outlines and floor + 10;
     rows numbered 1…n and seats 1…m in the order sent; ids and `revision` in the body are ignored.
   - **Limits, both sides**: 100 sections OK / 101 refused; 100 rows / 101; 200 seats in a row /
@@ -150,14 +155,14 @@ the editor's document, state and page shell that every story builds on.
     event's capacity → `409 CAPACITY_EXCEEDED`.
   - **Body size**: a 3.9 MB body is accepted on both drawing write routes; a 4.1 MB body is `413`;
     other routes keep the default limit.
-- [ ] T006 [P] `backend/test/integration/layouts.authz.e2e-spec.ts`: add `getLayoutDrawing`,
+- [X] T006 [P] `backend/test/integration/layouts.authz.e2e-spec.ts`: add `getLayoutDrawing`,
   `saveLayoutDrawing` and `createLayoutDrawing` to its table (missing, expired, wrong-signed,
   wrong-audience token → 401; a `customer` or `gate-agent` token → 403; `queuepass-admin` → not 401
   or 403), as for 038's operations.
 
 ### Implementation
 
-- [ ] T007 Migration `backend/prisma/migrations/<timestamp>_layout_editor/migration.sql`,
+- [X] T007 Migration `backend/prisma/migrations/<timestamp>_layout_editor/migration.sql`,
   hand-written, and `backend/prisma/schema.prisma` (data-model.md):
   - `ALTER TYPE "LayoutSource" ADD VALUE 'DRAWN'`; `enum LayoutSource { FILE LINES DRAWN }`.
   - `Layout.revision` "INT NOT NULL DEFAULT 1, CHECK ≥ 1" (`layout_revision_positive`).
@@ -169,18 +174,18 @@ the editor's document, state and page shell that every story builds on.
     ADD CONSTRAINT "<name>" UNIQUE (…) DEFERRABLE INITIALLY IMMEDIATE`; `schema.prisma`'s
     `@@unique` lines keep their `map:` names.
   - Run T003; it passes.
-- [ ] T008 Write origin and angle everywhere a section is made, in `backend/src/layouts/
+- [X] T008 Write origin and angle everywhere a section is made, in `backend/src/layouts/
   layouts.service.ts` (`insertContent`, `copyContent`, the lines insert in `replaceLines`) and
   `layout-lines.ts`: a new section's `originX`, `originY` = its label point and `angle` = 0;
   `copyContent` (duplicate) copies `originX`, `originY`, `angle`, `generator`; a kept section in a
   lines edit gets its new label point as origin. `update` (rename or lines) raises `revision` by one
   in its transaction. Every existing `layouts`, `migration.seat-maps` and `demo-data` test still
   passes.
-- [ ] T009 [P] `packages/shared/src/layout-geometry.ts` (R5, R6): `outlineAround`, `moveBy`,
+- [X] T009 [P] `packages/shared/src/layout-geometry.ts` (R5, R6): `outlineAround`, `moveBy`,
   `turnAbout`, `normalizeAngle`, and the constants `SEAT_GAP = 2`, `ROW_GAP = 2`,
   `OUTLINE_MARGIN = 1.5`, `SIZE_MARGIN = 10`; pure, no DOM; exported from
   `packages/shared/src/index.ts`. Run T004; it passes.
-- [ ] T010 Checks (R16) in `backend/src/layouts/`: factor `layout-file.ts`'s name, label, key,
+- [X] T010 Checks (R16) in `backend/src/layouts/`: factor `layout-file.ts`'s name, label, key,
   limit and place checks into functions taking a path prefix, used by the file import unchanged
   (its tests still pass); new `layout-drawing.ts` with `checkDrawing(body, existing | null)`: those
   checks over a `LayoutDrawingInput`, places from 0 to 5,000, no control characters
@@ -188,27 +193,27 @@ the editor's document, state and page shell that every story builds on.
   kind and parent) every id of this layout, of the right kind and under its own parent; up to 50
   `{ path, message }` problems, messages naming section, row and seat as 038's do
   ("Section 104, row F: seat 7 appears twice").
-- [ ] T011 DTOs `backend/src/layouts/dto/layout-drawing.dto.ts` (`LayoutDrawingInput` with
+- [X] T011 DTOs `backend/src/layouts/dto/layout-drawing.dto.ts` (`LayoutDrawingInput` with
   class-validator, `forbidNonWhitelisted` as every DTO; `SectionGenerator` as in the contract);
   `layouts.controller.ts` routes `GET /layouts/:layoutId/drawing`, `PUT /layouts/:layoutId/drawing`,
   `POST /locations/:id/layouts/drawing`, each `@Roles('queuepass-admin')`; `configure-app.ts`: the
   4 MB JSON parser (`LAYOUT_LIMITS.maxImportBytes`) also on `PUT /layouts/:layoutId/drawing` and
   `POST /locations/:id/layouts/drawing`.
-- [ ] T012 Contract markers: remove `x-planned: '039'` from `getLayoutDrawing`, `saveLayoutDrawing`
+- [X] T012 Contract markers: remove `x-planned: '039'` from `getLayoutDrawing`, `saveLayoutDrawing`
   and `createLayoutDrawing` in `contracts/openapi.yaml`; `npm run generate:api`;
   `node scripts/check-contract-drift.mjs` passes; the route-coverage test now expects the routes
   served.
-- [ ] T013 `LayoutsService.drawing(layoutId)` in `layouts.service.ts` → `LayoutDrawing` (R3): one
+- [X] T013 `LayoutsService.drawing(layoutId)` in `layouts.service.ts` → `LayoutDrawing` (R3): one
   query for levels, one for sections, one for rows and seats ordered by section position, row
   number, seat number; own `levelId` on rows and seats only when set; `accessible` only when true;
   `locked` and `lockedBy` from the same query `assertUnlocked` uses (scheduled events with valid
   tickets or live holds); 404 for an unknown layout.
-- [ ] T014 `LayoutsService.createDrawing(locationId, body)` (R8): `lockVenue`; `checkDrawing(body,
+- [X] T014 `LayoutsService.createDrawing(locationId, body)` (R8): `lockVenue`; `checkDrawing(body,
   null)`; `assertNameFree`; outlines from `outlineAround`, label points from `centroid`, size from
   the largest `x`/`y` + `SIZE_MARGIN`; insert levels (ranks 1…n by order), sections (`position` by
   order, origin, angle, generator), rows and seats (numbers by order) with `insertBatches`;
   `source: 'DRAWN'`, `revision: 1`, `seatCount`; `setCapacity`; return `detail`.
-- [ ] T015 `LayoutsService.saveDrawing(layoutId, body)` (R8 steps 1–10): `lockLayout`; `revision`
+- [X] T015 `LayoutsService.saveDrawing(layoutId, body)` (R8 steps 1–10): `lockLayout`; `revision`
   check (`409 LAYOUT_CHANGED`, `details: { revision }`, message "<name> was changed since you
   opened it; nothing was saved."); `assertUnlocked`; `assertNameFree`; `checkDrawing(body,
   existing)`; `SET CONSTRAINTS` the six DEFERRED; delete what is not sent (seats, rows, sections,
@@ -273,7 +278,7 @@ drag and turn → save; the customer map shows it.
 
 ### Tests first
 
-- [ ] T024 [P] [US1] `packages/shared/test/layout-geometry.test.ts`, `generateBlock` (R7), seat by
+- [X] T024 [P] [US1] `packages/shared/test/layout-geometry.test.ts`, `generateBlock` (R7), seat by
   seat: 3 rows × 4 straight → row k seat i at `((i − 1.5) × 2, −2k)`; rows `[4, 6]` → the second row
   centered on the first; `curve: 40` with `[20, 20, 20]` → every seat of row k at distance `R₀ + 2k`
   from `(0, R₀)` with `R₀ = 2 × 19 / (40° in radians)`, neighbours 2 units apart along the arc
@@ -311,7 +316,7 @@ drag and turn → save; the customer map shows it.
 
 ### Implementation
 
-- [ ] T030 [US1] `generateBlock(values)` in `packages/shared/src/layout-geometry.ts` (R7), and
+- [X] T030 [US1] `generateBlock(values)` in `packages/shared/src/layout-geometry.ts` (R7), and
   `placeBlock(local, origin, angle)`; run T024; it passes.
 - [ ] T031 [US1] Actions in `editor-state.ts`: `addSection` (generator values, level, place at
   the visible map's middle, selected), `moveSections` (offset; the normalizing shift of R5),
@@ -385,7 +390,7 @@ to edit; stale or newly locked saves refused with Save as a new layout or Reload
 
 ### Tests first
 
-- [ ] T046 [P] [US3] `backend/test/integration/layouts.drawing.concurrency.e2e-spec.ts` (Constitution
+- [X] T046 [P] [US3] `backend/test/integration/layouts.drawing.concurrency.e2e-spec.ts` (Constitution
   IV): on a layout a scheduled event uses with no sales, a save and 10 holds of 10 different seats
   started at once: either every hold that succeeded committed before the save, and the save is
   refused `409 LAYOUT_IN_USE`, or the save committed first and every hold of a deleted seat failed
