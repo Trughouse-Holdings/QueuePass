@@ -353,7 +353,7 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   "(copy 2)", new ids, unlocked; `seatingCapacity` = largest layout, recomputed on create, import,
   edit, duplicate and delete, kept after the last delete; a layout write that would drop it below a
   scheduled GA event's capacity → `409 CAPACITY_EXCEEDED` naming it; `listVenueLayouts` ordered by
-  name with `eventsUsing` and `locked`; `getVenueLayout.latestPrices` from the latest-starting
+  name with `eventsUsing` and `locked`; `getVenueLayout.latestPrices` from the most recently created
   scheduled event, `null` with none; every response `expectToMatchContract`. Must fail.
   **Done** (2026-11-13): 44 tests, written first and seen failing (`404`, no routes); all pass
   after T014–T016. `latestPrices` is tested as the contract, R8 and T023 say it: the most recently
@@ -381,8 +381,9 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   save race needs `updateEvent` to take `layoutId`/`levelPrices` (`400` today; T023). Owners: T035
   and T023.
 - [X] T013 [P] [US1] `admin-app/test/layouts-card.test.tsx` (R15, FR-007, FR-009): the Layouts card
-  lists each layout's name, seats, sections, levels, "used by N events", "Locked: seats sold at
-  {event}" when locked, and a preview (an `svg` with one outline per section, no seat circles);
+  lists each layout's name, seats, sections, levels, "used by N events", "Locked: seats are sold
+  or held" when locked (the API names no event there; a refused change shows the events from the
+  `409`), and a preview (an `svg` with one outline per section, no seat circles);
   Import layout file reads a chosen JSON file and sends it; `LAYOUT_FILE_INVALID` lists every
   problem under the input and keeps the file chosen; New layout from section lines with a level
   column and level names; Rename, Duplicate, Delete (confirm), each refusal shown beside its
@@ -452,7 +453,9 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   `api-schema.ts`), `admin-app/src/components/LayoutsCard.tsx` (replaces `LayoutCard.tsx`; R15),
   `SectionLines.tsx` (a level column and a levels list), `pages/LocationForm.tsx` and
   `pages/LocationDetail.tsx` (the card, the read-only capacity). Remove `LayoutCard.tsx` and its
-  uses. T010–T013 pass.
+  uses. T010–T013 pass, except two of T012's races, which need later tasks: the hold race passes
+  with T035 (holds set `seatId`) and the seating-save race with T023 (`updateEvent` takes
+  `layoutId` and `levelPrices`); each of those tasks re-runs `layouts.concurrency.e2e-spec.ts`.
   **Done** (2026-11-13): as listed; `LayoutCard.tsx` removed. The New venue form's Seated option
   now makes the venue's first layout with `createVenueLayout`, named "Standard" (as the carry-over
   names one) with one level "Standard" to start (a choice made here; no task named it), and
@@ -532,6 +535,7 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   `events.service.ts` (`priceMax` on every event read, the venue-change rule, `layoutId: null`). An
   off-sale change publishes `seats` changes with a new `seatSeq`; a layout or price change ends the
   event's streams (R12).
+  Then re-run `layouts.concurrency.e2e-spec.ts`: its seating-save race (T012) passes (from T019).
 - [ ] T024 [US2] `GET /events/:id/seating` (`getEventSeating`) in
   `backend/src/seating/event-seating.controller.ts`; `backend/src/tiers/` refuses a tier on a seated
   event (`400`); remove the `x-planned` marker of `getEventSeating`; regenerate `api-schema.ts`.
@@ -540,7 +544,9 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   of `035` FR-008 for seated events); the price table; the off-sale tool on the shared map (the
   tool's state is a set of selectors, compacted as the Backend does); the line; refusals beside their
   fields (`035` FR-010). T020–T022 pass.
-
+  Also (from T019): `admin-app/test/ticket-limit.test.tsx` moves off `SeatingLayout` to layouts; the
+  Layouts card's locked note reads "Locked: seats are sold or held" without naming an event
+  (T013 as amended).
 **Checkpoint**: a seated event can be scheduled on a layout with prices and seats off sale.
 
 ---
@@ -641,6 +647,7 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   `Event.seatSeq` once under the event lock and publishes that `seq` (R12).
   `backend/src/reservations/`: holds and releases by seat id, `tierId` null on seated events, `ReservedSeat` labels, level and price,
   the `016` limit and `033`'s wait unchanged; `holds.ts` `toChanges` with `from` and `levelId`.
+  Then re-run `layouts.concurrency.e2e-spec.ts`: its hold race (T012) passes (from T019).
 - [ ] T036 [US3] `backend/src/orders/orders.service.ts`: seated orders without `tierId`; each ticket
   `seatId`, `price` (the level price read under the event lock), `levelName`, `seatSection`,
   `seatRow`, `seatNumber`, `seatRowLabel`, `seatLabel`; `totalPrice` the sum; `unitPrice` null when

@@ -450,10 +450,12 @@ edge case; review M4).
 **Decision**:
 
 - **Venue page**: a **Layouts** card replaces `LayoutCard`: each layout's name, seats, sections,
-  levels, "used by N events", a locked note, and a small preview (the overview drawing, no
+  levels, "used by N events", a locked note ("Locked: seats are sold or held"), and a small preview (the overview drawing, no
   seats); **Import layout file** (a file input reading the JSON in the browser and sending it;
   problems listed under it), **New layout from section lines** (`SectionLines.tsx` with a level
-  column and level names), **Rename**, **Duplicate**, **Delete**. The venue's seating capacity
+  column and level names), **Rename**, **Duplicate**, **Delete**. The **New venue** form keeps its
+  seated option and section lines (`024`) and saves them as the venue's first layout, "Standard",
+  with one level "Standard" (from T019). The venue's seating capacity
   is read-only while it has layouts (FR-009).
 - **Event form, Seating section** (`035`): General admission or a layout (select, with preview);
   the price table (level, color swatch, seats on sale, price box, started from `latestPrices`); the

@@ -2840,6 +2840,26 @@ export interface components {
             };
         };
         /**
+         * @description Feature 038. The request body is over its size limit (4 MB for `importVenueLayout`).
+         *     Nothing was saved.
+         */
+        RequestTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "VALIDATION_FAILED",
+                 *         "message": "The request body is too large."
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /**
          * @description Feature 038. The request is malformed (`VALIDATION_FAILED`), or the layout file has
          *     problems (`LAYOUT_FILE_INVALID`): `details.problems` lists up to 50, each with its `path`
          *     in the request and a `message`; `details.more` is how many more there were.
@@ -3569,6 +3589,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
         };
     };
     getVenueLayout: {
