@@ -1,5 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  Allow,
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
@@ -139,4 +140,30 @@ export class LayoutImportDto {
 
   @IsObject({ message: 'file must be a layout file (a JSON object)' })
   file!: Record<string, unknown>;
+}
+
+/**
+ * Spec 039 (T011): `LayoutDrawingInput`, the layout editor's whole layout. Only its top level is
+ * checked here (the fields, and `revision` a whole number of 1 or more); everything inside is
+ * checked as a whole by `layout-drawing.ts` (research R16), so each problem comes back as `400
+ * LAYOUT_FILE_INVALID` with its path into the body, as a layout file's do, never as a bare
+ * validation message. Up to 30,000 seats are not turned into class instances one by one.
+ */
+export class LayoutDrawingInputDto {
+  @IsOptional()
+  @IsInt({ message: 'revision must be a whole number' })
+  @Min(1, { message: 'revision must be at least 1' })
+  revision?: number;
+
+  @Allow()
+  name!: unknown;
+
+  @Allow()
+  floor!: unknown;
+
+  @Allow()
+  levels!: unknown;
+
+  @Allow()
+  sections!: unknown;
 }
