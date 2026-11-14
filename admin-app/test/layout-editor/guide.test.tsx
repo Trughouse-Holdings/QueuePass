@@ -37,7 +37,7 @@ describe('the steps', () => {
       expect.stringMatching(/^Pick a floor object/),
       expect.stringMatching(/^Add a section: in Sections, press Add section/),
       expect.stringMatching(/^Drag the section into place/),
-      expect.stringMatching(/^Add price levels and paint them/),
+      expect.stringMatching(/^Give seats price levels/),
       expect.stringMatching(/^Name the layout at the top and press Save/),
     ]);
     expect(within(guide()).queryByText('Done:')).toBeNull();
@@ -82,7 +82,7 @@ describe('the line under the map', () => {
     expect(hint()).toHaveTextContent(/Double-click it to see its seats/);
     await user.dblClick(sectionOnMap('101'));
     expect(hint()).toHaveTextContent(/Click seats .* or a row label/);
-    expect(hint()).toHaveTextContent(/press Paint/);
+    expect(hint()).toHaveTextContent(/Selection: Price level/);
   });
 
   it('is not shown, nor the steps, on a locked layout', async () => {

@@ -17,7 +17,7 @@ import {
  * Spec 039 US2 (FR-012, FR-016; research R11; T040): a zoomed section. Enter or double-click
  * zooms in and draws its seats in their levels' colors with row labels at both ends; click selects
  * a seat, Shift-click adds; a row label selects its row, Shift on another the range; with Box
- * select on, a drag selects the seats inside (off, it pans); Paint applies the chosen level; Back
+ * select on, a drag selects the seats inside (off, it pans); Price level gives them a level; Back
  * to layout returns to the overview.
  */
 beforeAll(installPointerEvents);
@@ -133,15 +133,16 @@ describe('a zoomed section', () => {
     ).toBeInTheDocument();
   });
 
-  it('Paint gives the selected seats the chosen level; Use section’s level clears it', async () => {
+  it('Price level under Selection gives the selected seats a level; "Same as the row" clears it', async () => {
     const { user } = await zoomInto101();
     press(seat('Row B, Seat 1'));
-    const levels = panel('Price levels');
-    await user.click(within(levels).getByRole('radio', { name: 'Standard' }));
-    await user.click(within(levels).getByRole('button', { name: 'Paint: Standard' }));
+    const level = within(panel('Selection')).getByRole('combobox', { name: 'Price level' });
+    expect(level).toHaveDisplayValue('Same as the row (Courtside)');
+    await user.selectOptions(level, 'Standard');
     expect(seat('Row B, Seat 1')).toHaveAccessibleName('Row B, Seat 1, Standard');
     expect(screen.getByRole('status')).toHaveTextContent('Row B, seat 1 painted Standard');
-    await user.click(within(levels).getByRole('button', { name: "Use section's level" }));
+    expect(level).toHaveDisplayValue('Standard');
+    await user.selectOptions(level, 'Same as the row (Courtside)');
     expect(seat('Row B, Seat 1')).toHaveAccessibleName('Row B, Seat 1, Courtside');
   });
 });

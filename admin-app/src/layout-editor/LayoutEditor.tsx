@@ -95,7 +95,6 @@ export function LayoutEditor({
   const narrow = useMediaQuery(PHONE);
   const centerRef = useRef<Place>([150, 100]);
   const [warned, setWarned] = useState<Set<string>>(() => new Set());
-  const [paintLevel, setPaintLevel] = useState<string>('');
   const nameId = useId();
   const nameProblemId = useId();
 
@@ -282,10 +281,8 @@ export function LayoutEditor({
     );
   }
 
-  // The level Paint and Add section use: the one chosen, else the best.
-  const chosen = doc.levels.some((l) => l.id === paintLevel)
-    ? paintLevel
-    : (doc.levels[0]?.id ?? '');
+  // The level a new section takes unless Add section says otherwise: the best.
+  const chosen = doc.levels[0]?.id ?? '';
 
   // FR-014, R11: Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z and Ctrl+Y redo; a text box keeps its own.
   const onKeyDown = (e: React.KeyboardEvent): void => {
@@ -396,13 +393,7 @@ export function LayoutEditor({
           />
           <SelectionPanel doc={doc} selection={state.selection} dispatch={dispatch} />
           {/* After the sections, in the order of the steps (Guide): sections, then levels. */}
-          <LevelsPanel
-            doc={doc}
-            dispatch={dispatch}
-            selection={state.selection}
-            chosen={chosen}
-            onChoose={setPaintLevel}
-          />
+          <LevelsPanel doc={doc} dispatch={dispatch} />
         </div>
       </div>
     </div>

@@ -218,11 +218,12 @@ async function addLevel(page: Page, name: string, color: string): Promise<void> 
   await levelsPanel(page).getByLabel(`Color of ${name}`).selectOption(color);
 }
 
+/** The selection's level, chosen under Selection: Price level (it applies at once). */
 async function paint(page: Page, level: string): Promise<void> {
-  await levelsPanel(page).getByRole('radio', { name: level }).check();
-  await levelsPanel(page)
-    .getByRole('button', { name: `Paint: ${level}` })
-    .click();
+  await page
+    .locator('[aria-labelledby="editor-selection-heading"]')
+    .getByLabel('Price level')
+    .selectOption({ label: level });
 }
 
 async function expectTotals(page: Page, totals: Record<string, number>): Promise<void> {

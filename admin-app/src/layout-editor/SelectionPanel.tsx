@@ -17,6 +17,7 @@ import {
   type Action,
   type Selection,
 } from './editor-state';
+import { LevelPicker } from './LevelPicker';
 import { NumberBox } from './NumberBox';
 
 const seatsText = (n: number): string => `${n.toLocaleString()} ${n === 1 ? 'seat' : 'seats'}`;
@@ -99,6 +100,11 @@ export function SelectionPanel({
       <h2 id="editor-selection-heading">Selection</h2>
       {selection.kind === 'none' && <p className="note">Nothing selected.</p>}
       {selection.kind === 'floor' && <p>{`Floor object: ${FLOOR_NAMES[doc.floor.kind]}`}</p>}
+      {(selection.kind === 'sections' ||
+        selection.kind === 'rows' ||
+        selection.kind === 'seats') && (
+        <LevelPicker doc={doc} selection={selection} dispatch={dispatch} />
+      )}
       {selection.kind === 'sections' && !one && (
         <>
           <p>{`${selection.ids.length} sections selected`}</p>

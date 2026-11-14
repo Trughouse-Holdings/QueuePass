@@ -191,9 +191,9 @@ describe('keyboard only', () => {
     await activate(user, within(rows).getByRole('checkbox', { name: 'Row A' }), ' ');
     await activate(user, within(rows).getByRole('checkbox', { name: 'Row B' }), ' ');
     expect(within(sel()).getByText('Rows A–B selected in section 101')).toBeInTheDocument();
-    const levels = panel('Price levels');
-    await activate(user, within(levels).getByRole('radio', { name: 'Courtside' }), ' ');
-    await activate(user, within(levels).getByRole('button', { name: 'Paint: Courtside' }));
+    const level = within(sel()).getByRole('combobox', { name: 'Price level' });
+    level.focus();
+    await user.selectOptions(level, 'Courtside');
     expect(status()).toHaveTextContent('Rows A–B painted Courtside');
 
     // Row A's seats open under it.

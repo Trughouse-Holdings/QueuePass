@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { LAYOUT_LIMITS, LEVEL_COLORS } from '@queuepass/shared';
 import type { EdLevel, EditorDoc } from './editor-doc';
-import { levelNameProblem, totals, type Action, type Selection } from './editor-state';
+import { levelNameProblem, totals, type Action } from './editor-state';
 
 const seats = (n: number): string => `${n.toLocaleString()} ${n === 1 ? 'seat' : 'seats'}`;
 const colorName = (c: string): string => c.charAt(0).toUpperCase() + c.slice(1);
@@ -9,35 +9,24 @@ const colorName = (c: string): string => c.charAt(0).toUpperCase() + c.slice(1);
 /**
  * Spec 039 US2 (FR-015–FR-018; research R12; T043): the layout's price levels, best first (the
  * order is the rank), each named beside its color with the seats in it, and the whole layout's
- * total. Choosing a level (the radio) and Paint sets it on the selection; Use section's level
- * clears a row's or seat's own level. Each level is renamed in place, recolored from the theme's
+ * total. It only manages the levels (walk feedback, 2026-11-14): a selection's level is chosen
+ * under Selection (`LevelPicker`). Each level is renamed in place, recolored from the theme's
  * 12 level colors, moved up or down, or deleted after choosing the level its seats take; the last
  * level can't be deleted. Read-only, it is the list alone.
  */
 export function LevelsPanel({
   doc,
   dispatch,
-  selection,
-  chosen,
-  onChoose,
   readOnly = false,
 }: {
   doc: EditorDoc;
   dispatch?: (a: Action) => void;
-  selection?: Selection;
-  /** The level Paint and Add section use. */
-  chosen?: string;
-  onChoose?: (id: string) => void;
   readOnly?: boolean;
 }): React.ReactElement {
   const t = totals(doc);
   const [deleting, setDeleting] = useState<string | null>(null);
   const lastId = useId();
   const edit = !readOnly && dispatch;
-  const chosenLevel = doc.levels.find((l) => l.id === chosen) ?? doc.levels[0];
-  const sel = selection ?? { kind: 'none' };
-  const canPaint = sel.kind === 'sections' || sel.kind === 'rows' || sel.kind === 'seats';
-  const canClear = sel.kind === 'rows' || sel.kind === 'seats';
 
   return (
     <section className="card editor-panel" aria-labelledby="editor-levels-heading">
@@ -45,23 +34,10 @@ export function LevelsPanel({
       <ol className="editor-levels">
         {doc.levels.map((l, i) => (
           <li key={l.id} className="editor-levels__item">
-            {edit ? (
-              <label className="editor-levels__choose">
-                <input
-                  type="radio"
-                  name="editor-paint-level"
-                  checked={chosenLevel?.id === l.id}
-                  onChange={() => onChoose?.(l.id)}
-                />
-                <span className={`level-swatch level-swatch--${l.color}`} aria-hidden="true" />
-                <span className="editor-levels__name">{l.name}</span>
-              </label>
-            ) : (
-              <span className="editor-levels__choose">
-                <span className={`level-swatch level-swatch--${l.color}`} aria-hidden="true" />
-                <span className="editor-levels__name">{l.name}</span>
-              </span>
-            )}
+            <span className="editor-levels__choose">
+              <span className={`level-swatch level-swatch--${l.color}`} aria-hidden="true" />
+              <span className="editor-levels__name">{l.name}</span>
+            </span>
             <span className="editor-levels__count">{seats(t.byLevel[l.id] ?? 0)}</span>
             {edit && (
               <div className="editor-levels__edit">
@@ -119,7 +95,6 @@ export function LevelsPanel({
                     onDelete={(replacement) => {
                       dispatch({ type: 'deleteLevel', id: l.id, replacement });
                       setDeleting(null);
-                      if (chosen === l.id) onChoose?.(replacement);
                     }}
                     onCancel={() => setDeleting(null)}
                   />
@@ -147,24 +122,9 @@ export function LevelsPanel({
               Add level
             </button>
           </div>
-          <div className="form__actions">
-            <button
-              type="button"
-              className="btn btn--primary"
-              disabled={!canPaint || !chosenLevel}
-              onClick={() => chosenLevel && dispatch({ type: 'paint', levelId: chosenLevel.id })}
-            >
-              {`Paint: ${chosenLevel?.name ?? ''}`}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              disabled={!canClear}
-              onClick={() => dispatch({ type: 'clearLevel' })}
-            >
-              Use section&apos;s level
-            </button>
-          </div>
+          <p className="note">
+            To give seats a level, select them, then choose it under Selection: Price level.
+          </p>
         </>
       )}
     </section>

@@ -42,7 +42,7 @@ export function Guide({
     },
     {
       done: leveled,
-      text: 'Add price levels and paint them: press Add level, choose a level, select sections (or, after double-clicking a section, rows and seats), and press Paint.',
+      text: 'Give seats price levels: add levels under Price levels (Add level), then select sections (or, after double-clicking a section, rows and seats) and choose their level under Selection: Price level.',
     },
     { done: false, text: 'Name the layout at the top and press Save.' },
   ];
@@ -75,10 +75,10 @@ export function Guide({
 /** What can be done now, by what is selected. */
 function hintFor(selection: Selection, zoomed: boolean, hasSections: boolean): string {
   if (zoomed) {
-    return 'Click seats (Shift-click for more) or a row label (Shift-click another for a range of rows); Box select draws a box around seats. Then choose a price level and press Paint. Back to layout returns to the whole map.';
+    return 'Click seats (Shift-click for more) or a row label (Shift-click another for a range of rows); Box select draws a box around seats. Then choose their level under Selection: Price level. Back to layout returns to the whole map.';
   }
   if (selection.kind === 'sections') {
-    return 'Drag it to move it. Drag the round handle above it to turn it. Double-click it to see its seats. The arrow keys move it, and [ and ] turn it.';
+    return 'Drag it to move it. Drag the round handle above it to turn it. Choose its level under Selection: Price level. Double-click it to see its seats. The arrow keys move it, and [ and ] turn it.';
   }
   if (selection.kind === 'floor') return 'Drag the floor to move it; drag its corners to size it.';
   if (!hasSections) return 'Start with the steps above: a floor object, then a section.';
