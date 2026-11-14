@@ -615,3 +615,13 @@
   gap: var(--space-2);
   padding: var(--space-1) 0 var(--space-2) var(--space-6);
 }
+
+/* Nate's walk (2026-11-14): in the side panels a row of buttons ("Mark accessible", "Mark not
+   accessible", "Delete seats") wraps onto another line instead of squeezing and cutting off their
+   labels. */
+.editor-panel .form__actions {
+  flex-wrap: wrap;
+}
+.editor-panel .form__actions > .btn {
+  flex-shrink: 0;
+}
