@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ORDER_LIMITS,
@@ -115,6 +115,8 @@ export function GetTickets({
   // loaded and kept current.
   const [mapOpen, setMapOpen] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>(null);
+  // Spec 038 US4 (SC-007): the Sections list's heading, which the map's skip button moves to.
+  const sectionsHeading = useId();
   // Spec 015 FR-010 (research R9), spec 038 R12: only a seated event has a venue map, kept live,
   // with the customer's own reservations (`mine`), which a change to one of them reloads.
   const onSnapshot = useRef<(map: StreamVenueMap) => void>(() => undefined);
@@ -772,8 +774,10 @@ export function GetTickets({
                 onRange={setRange}
                 seatView={seatView}
                 onSeat={chooseSeat}
+                skipTo={sectionsHeading}
               />
               <SectionsList
+                headingId={sectionsHeading}
                 map={map}
                 range={range}
                 openSectionId={shownSection}

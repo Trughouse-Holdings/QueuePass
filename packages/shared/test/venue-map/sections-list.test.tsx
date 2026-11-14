@@ -133,8 +133,10 @@ function Harness({ onSeat }: { onSeat?: (s: MapSeat) => void }) {
         onRange={setRange}
         seatView={seatView}
         onSeat={choose}
+        skipTo="sections-heading"
       />
       <SectionsList
+        headingId="sections-heading"
         map={MAP}
         range={range}
         openSectionId={open}
@@ -342,6 +344,22 @@ describe('choosing a seat (FR-020, FR-021)', () => {
     expect(cheap.querySelector('.venue-map__seat--faded')).not.toBeNull();
     fireEvent.click(cheap);
     expect(onSeat).toHaveBeenCalledWith(expect.objectContaining({ row: 2, seat: 7 }));
+  });
+});
+
+describe('the skip to the Sections list (US4, SC-007; T060, M5)', () => {
+  it('lets the keyboard pass the map’s sections to the list', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    const skip = screen.getByRole('button', { name: 'Skip to the Sections list' });
+    // Before the map's sections, after its filter and zoom controls.
+    for (let i = 0; i < 10 && document.activeElement !== skip; i += 1) await user.tab();
+    expect(skip).toHaveFocus();
+    expect(skip).toHaveClass('skip-link');
+    await user.keyboard('{Enter}');
+    expect(within(list()).getByRole('heading', { name: 'Sections' })).toHaveFocus();
+    await user.tab();
+    expect(listed('115')).toHaveFocus();
   });
 });
 

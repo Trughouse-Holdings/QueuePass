@@ -1552,6 +1552,17 @@ dd {
 .sections-list h3 {
   margin: 0;
 }
+/* Spec 038 US4 (SC-007): the map's "Skip to the Sections list", out of sight until focused. */
+.skip-link:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
 .sections-list__sections {
   display: grid;
   gap: var(--space-1);

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, vi } from 'vitest';
+import { describe, it, expect, afterEach, onTestFinished, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Order } from '@queuepass/shared';
@@ -104,6 +104,22 @@ async function chooseSeats() {
   return screen.findByRole('region', { name: 'Sections' });
 }
 
+/**
+ * jsdom gives a range input none of its own keys; a browser moves it one step per arrow key (the
+ * browser test S16 presses them for real). This supplies that, so the test presses keys only.
+ */
+function rangeKeys(): () => void {
+  const steps: Record<string, number> = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 };
+  const onKey = (e: KeyboardEvent): void => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement) || t.type !== 'range' || !(e.key in steps)) return;
+    const next = Math.min(Number(t.max), Math.max(Number(t.min), Number(t.value) + steps[e.key]));
+    fireEvent.change(t, { target: { value: String(next) } });
+  };
+  document.addEventListener('keydown', onKey);
+  return () => document.removeEventListener('keydown', onKey);
+}
+
 describe('the Sections list beside the map (FR-020)', () => {
   it('lists each section with its open seats’ price range and count, under the price filter', async () => {
     stubApi(routes());
@@ -195,31 +211,45 @@ describe('the Sections list beside the map (FR-020)', () => {
     });
     const { calls } = stubApi(routes({ ...b.routes, 'POST /events/e1/orders': json(bought, 201) }));
     renderCustomer({ at: '/events/e1' });
+    onTestFinished(rangeKeys());
+    /** Tab, as a person would, until `target` has the focus. */
+    const tabTo = async (target: () => Element | null, most = 80) => {
+      for (let i = 0; i < most && document.activeElement !== target(); i += 1) await user.tab();
+      expect(target()).toHaveFocus();
+    };
 
-    (await screen.findByRole('button', { name: 'Choose seats' })).focus();
+    await tabTo(() => screen.queryByRole('button', { name: 'Choose seats' }));
     await user.keyboard('{Enter}');
     await screen.findByRole('region', { name: 'Sections' });
-    // The list is reached by Tab, past the map.
-    const first = listed('115');
-    for (let i = 0; i < 40 && document.activeElement !== first; i += 1) await user.tab();
-    expect(first).toHaveFocus();
+    // The price filter by its arrow keys: $35 up to $50.
+    await tabTo(() => screen.queryByRole('slider', { name: 'Lowest price' }));
+    for (let i = 0; i < 15; i += 1) await user.keyboard('{ArrowRight}');
+    expect(screen.getByText('$50–$95')).toBeInTheDocument();
+    expect(listed('101')).toHaveAccessibleName('Section 101, no open seats between $50 and $95');
+    // The list is reached past the map's sections by its skip button, a few Tabs on.
+    await tabTo(() => screen.queryByRole('button', { name: 'Skip to the Sections list' }), 6);
+    await user.keyboard('{Enter}');
+    expect(within(list()).getByRole('heading', { name: 'Sections' })).toHaveFocus();
+    await user.tab();
+    expect(listed('115')).toHaveFocus();
     await user.keyboard('{Enter}');
     const seat = await within(list()).findByRole('button', {
       name: 'Row P, Seat 7, Lower sideline, $60, open',
     });
-    seat.focus();
+    await tabTo(() => seat);
     await user.keyboard(' ');
     await waitFor(() =>
       expect(seat).toHaveAccessibleName('Row P, Seat 7, Lower sideline, $60, held by you'),
     );
     expect(seat).toHaveFocus();
 
-    (await screen.findByRole('button', { name: 'Add to cart' })).focus();
+    await screen.findByRole('button', { name: 'Add to cart' });
+    await tabTo(() => screen.queryByRole('button', { name: 'Add to cart' }));
     await user.keyboard('{Enter}');
-    const name = await screen.findByRole('textbox', { name: 'Name on tickets' });
-    name.focus();
+    await screen.findByRole('textbox', { name: 'Name on tickets' });
+    await tabTo(() => screen.queryByRole('textbox', { name: 'Name on tickets' }));
     await user.keyboard('Sam Rivera');
-    screen.getByRole('button', { name: 'Buy tickets' }).focus();
+    await tabTo(() => screen.queryByRole('button', { name: 'Buy tickets' }));
     await user.keyboard('{Enter}');
 
     const done = await screen.findByRole('region', { name: 'Order confirmed' });

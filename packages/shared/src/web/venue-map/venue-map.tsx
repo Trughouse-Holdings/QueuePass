@@ -35,6 +35,12 @@ export interface VenueMapProps {
   /** How each seat is shown and whether it can be chosen; by its state otherwise. */
   seatView?(seat: MapSeat): SeatView;
   onSeat?(seat: MapSeat): void;
+  /**
+   * Spec 038 US4 (FR-020, SC-007): the id of the Sections list's heading beside the map. A "Skip
+   * to the Sections list" button before the map's sections, shown when focused, moves the focus
+   * there, so the keyboard need not pass every section of the map.
+   */
+  skipTo?: string;
 }
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
@@ -75,6 +81,7 @@ export function VenueMap({
   onRange,
   seatView,
   onSeat,
+  skipTo,
 }: VenueMapProps): React.ReactElement {
   const full = useMemo(() => priceRangeOf(map.levels), [map.levels]);
   const [ownRange, setOwnRange] = usePriceFilter(map.levels);
@@ -164,6 +171,15 @@ export function VenueMap({
         </button>
       </div>
       {open && !seats && <p className="note">{`Loading the seats of section ${open.name}…`}</p>}
+      {skipTo && (
+        <button
+          type="button"
+          className="btn skip-link"
+          onClick={() => document.getElementById(skipTo)?.focus()}
+        >
+          Skip to the Sections list
+        </button>
+      )}
       {/* FR-019: a seat's section, row, seat, level and price, on hover and focus; its
           accessible name already says it, so this is for the eyes only. */}
       <p className="venue-map__tip" aria-hidden="true">

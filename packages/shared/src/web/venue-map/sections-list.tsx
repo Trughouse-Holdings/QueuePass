@@ -25,6 +25,8 @@ export interface SectionsListProps {
   /** How each seat is shown and whether it can be chosen; the map's own. */
   seatView?(seat: MapSeat): SeatView;
   onSeat?(seat: MapSeat): void;
+  /** Its heading's id, focusable by script: the map's "Skip to the Sections list" moves there. */
+  headingId?: string;
 }
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
@@ -60,8 +62,10 @@ export function SectionsList({
   onOpenSection,
   seatView,
   onSeat,
+  headingId,
 }: SectionsListProps): React.ReactElement {
   const id = useId();
+  const heading = headingId ?? `${id}-heading`;
   const open = map.sections.find((s) => s.sectionId === openSectionId) ?? null;
   const seats = open && section?.sectionId === open.sectionId ? section : null;
 
@@ -80,8 +84,10 @@ export function SectionsList({
   };
 
   return (
-    <section className="sections-list" aria-labelledby={`${id}-heading`}>
-      <h3 id={`${id}-heading`}>Sections</h3>
+    <section className="sections-list" aria-labelledby={heading}>
+      <h3 id={heading} tabIndex={-1}>
+        Sections
+      </h3>
       <ul className="sections-list__sections">
         {map.sections.map((s) => {
           const { name, prices, open: count } = summary(s);
