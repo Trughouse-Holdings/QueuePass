@@ -472,12 +472,12 @@ lists, announcements.
 
 ## Phase 8: Polish, browser tests, review
 
-- [ ] T054 Contract check: `grep -n "x-planned: '039'" contracts/openapi.yaml` finds nothing;
+- [X] T054 Contract check: `grep -n "x-planned: '039'" contracts/openapi.yaml` finds nothing;
   `node scripts/check-contract-drift.mjs` passes.
-- [ ] T055 [P] `specs/039-layout-editor/quickstart.md`: the Automation rows of S1, S2, S3 and S5
+- [X] T055 [P] `specs/039-layout-editor/quickstart.md`: the Automation rows of S1, S2, S3 and S5
   become Automated with T029's and T041's exact titles; `node scripts/check-quickstart-marks.mjs`
   passes.
-- [ ] T056 [P] `README.md`: the 039 row (plan and tasks "Done (N/63 tasks)", code "Built (review
+- [X] T056 [P] `README.md`: the 039 row (plan and tasks "Done (N/63 tasks)", code "Built (review
   …)") and the layout editor in the Admin app's list of screens, in the README's existing style.
 - [ ] T057 Coverage: each workspace ≥ 80% lines (`npm test`); add tests where a new file falls short.
 - [ ] T058 `npm run ci` green locally; `npm run e2e` green (on a port-shifted stack if the team

@@ -136,17 +136,15 @@ court with three levels from blank (< 15 min, someone who has not used the edito
 ## Automation
 
 Which scenarios a browser test walks on every pull request (spec `022`), and why the rest stay
-manual. `npm test` checks this table against `e2e/tests`. Until the implementation adds
-`e2e/tests/039-layout-editor.spec.ts`, every row is Manual; the implementation turns the rows its
-browser tests walk (S1–S3 for US1, S5 for US2) into Automated rows with the tests' exact titles.
+manual. `npm test` checks this table against `e2e/tests`. `e2e/tests/039-layout-editor.spec.ts` walks S1–S3 (US1) and S5 (US2).
 
 | Scenario | Browser test |
 | --- | --- |
-| S1 | Manual: covered by the shared `layout-geometry` test and Admin tests until the browser test for US1 is added |
-| S2 | Manual: covered by Admin `EditorCanvas` and `editor-state` tests until the browser test for US1 is added |
-| S3 | Manual: covered by the Backend `layouts.drawing` test until the browser test for US1 is added |
+| S1 | Automated: `039 S1/S2/S3: an admin draws a layout with a court and two generated sections, turns one, saves it, and the customer map draws it` |
+| S2 | Automated: `039 S1/S2/S3: an admin draws a layout with a court and two generated sections, turns one, saves it, and the customer map draws it` |
+| S3 | Automated: `039 S1/S2/S3: an admin draws a layout with a court and two generated sections, turns one, saves it, and the customer map draws it` |
 | S4 | Manual: covered by the Admin `LayoutEditor` test |
-| S5 | Manual: covered by Admin `LevelsPanel` and `editor-state` tests until the browser test for US2 is added |
+| S5 | Automated: `039 S5: an admin adds three levels, paints a section, rows A–D and two seats, deletes Standard, and the levels are kept on reopening` |
 | S6 | Manual: covered by the Admin `editor-state` test |
 | S7 | Manual: covered by the Backend `layouts.drawing` test |
 | S8 | Manual: covered by the Admin `LayoutsCard` and `LayoutEditor` tests |

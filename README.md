@@ -23,7 +23,8 @@ its browser tests in CI (T033) are still to do. `031` is built and reviewed (cod
 the running system and its browser test in CI are still to do. `033` is built and reviewed (code
 review rounds 1 to 3); its walk on the running system and its browser tests in CI are still to do.
 `038` is built (seat maps; its independent review, its walk on the running system, and its browser
-tests in CI are still to do).
+tests in CI are still to do). `039` is built (the layout editor; its independent review, its walk on
+the running system, and its browser tests in CI are still to do).
 
 | Spec                                                                         | What it delivers                                                                                                                                                                                                                                                                 | Spec             | Plan and tasks     | Code                            |
 | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------ | ------------------------------- |
@@ -63,6 +64,7 @@ tests in CI are still to do).
 | [`035-event-form-flow`](specs/035-event-form-flow/spec.md)                   | The Admin event form in three sections; errors appear beside the field as they happen; a live seat total names what is left; submit never sends a known problem; a server refusal focuses the field at fault; an edit of the event, its types, and its seating is all or nothing | Draft            | Done (21/22 tasks) | **Built (review pending)**      |
 | [`036-event-form-times`](specs/036-event-form-times/spec.md)                 | The Admin event form: doors open as time before the start or as a date and a time, one mode at a time; Starts and Ends use a date control and a time control in every browser                                                                                                    | Draft            | Done (16/18 tasks) | **Built (review pending)**      |
 | [`038-seat-maps`](specs/038-seat-maps/spec.md)                               | Several layouts per venue with price levels by section, row or seat; an event's price per level and seats off sale; the customer's venue map with a price filter and a zoom into a section; the KFC Yum! Center in the demo data (#165)                                          | Draft            | Done (60/63 tasks) | **Built (review pending)**      |
+| [`039-layout-editor`](specs/039-layout-editor/spec.md)                       | The Admin app's layout editor: sections generated from rows and seats, straight or curved, dragged and turned into place; price levels painted on sections, rows and seats; Undo and Redo; a keyboard path; unsold layouts edited keeping events' prices                         | Draft            | Done (49/63 tasks) | **Built (review pending)**      |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. Each app has its
@@ -569,6 +571,14 @@ unchanged.
   deleted (`038`, after `007`). The layout file format is `LayoutFile` in
   [`contracts/openapi.yaml`](contracts/openapi.yaml); the demo's four KFC Yum! Center files are made
   by `node scripts/layouts/generate-yum-center.mjs` from `scripts/layouts/yum-center/plan.json`
+- **The layout editor** — in the Admin app, New layout, or Edit on any layout nobody has bought
+  from, opens a full-page editor: pick a floor object (court, end stage, center stage, ring), add
+  sections with the block generator (rows, seats per row or a list of them, letter or number row
+  labels, a curve), drag and turn them into place, paint price levels on sections, rows and single
+  seats, duplicate, relabel or delete, mark seats accessible, undo and redo, and save the whole
+  layout at once; every action also works by keyboard. A save keeps each scheduled event's prices
+  and off-sale seats and puts new seats off sale; a locked layout opens read-only with Duplicate to
+  edit (`039`)
 - **Reserved seating** — an event is general admission or uses one of its venue's layouts, with a
   price per level and any sections, rows, or seats off sale; its capacity is the seats on sale and
   its price the range of its level prices ("$35–$95"). A ticket keeps the price it was sold at.
@@ -751,8 +761,8 @@ The front ends reach data **only** through this API. None holds a database conne
 - No undo for an entry, no re-entry, and refused ID checks are not recorded.
 - Reservation times are fixed, with no admin override or waiting list; the cart buys each
   event on its own, with no one checkout across events, and general admission never enters it. No
-  best-available assignment, and no drawing tool for layouts: a drawn map comes from a layout file;
-  a layout made in the Admin app from section lines has rectangular sections (`038`).
+  best-available assignment. The layout editor generates sections from rows and seats; it has no
+  free drawing of outlines, mirroring, snapping, export, or touch editing (`039`).
 - The Ticket Booth app is a stub (sign-in, hello-world, logout) until a later spec.
 - No self-service sign-up, password reset, or multi-factor authentication.
 - No visual design work: front ends are plain and accessible (Constitution VII).
