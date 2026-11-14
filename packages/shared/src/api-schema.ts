@@ -361,13 +361,19 @@ export interface paths {
         };
         /**
          * A venue's seating layout
-         * @description The venue's sections in display order, and their total seats (feature 007). `sections` is
+         * @description **Retired by feature 038** (served until its implementation): use `listVenueLayouts` and
+         *     `getVenueLayout`.
+         *
+         *     The venue's sections in display order, and their total seats (feature 007). `sections` is
          *     empty when the venue has no layout.
          */
         get: operations["getLayout"];
         /**
          * Replace a venue's seating layout
-         * @description Replaces every section with the given ones, in order (feature 007). Section names must be
+         * @description **Retired by feature 038** (served until its implementation): use `createVenueLayout`,
+         *     `importVenueLayout` and `updateVenueLayout`.
+         *
+         *     Replaces every section with the given ones, in order (feature 007). Section names must be
          *     unique ignoring case (`400`). Saving sets the venue's `seatingCapacity` to the layout's
          *     total seats, and the `totalTicketCapacity` of every scheduled event at the venue with
          *     reserved seating to the same total. Refused when that total is below the
@@ -387,11 +393,181 @@ export interface paths {
         post?: never;
         /**
          * Remove a venue's seating layout
-         * @description Removes every section (feature 007). Refused as `replaceLayout` is, and also while any
+         * @description **Retired by feature 038** (served until its implementation): use `deleteVenueLayout`.
+         *
+         *     Removes every section (feature 007). Refused as `replaceLayout` is, and also while any
          *     scheduled event at the venue has reserved seating on (`409 LAYOUT_IN_USE`). The venue
          *     keeps its last `seatingCapacity`, which can be set by `updateLocation` again.
          */
         delete: operations["deleteLayout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{id}/layouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A venue's seating layouts
+         * @description Feature 038. Every layout of the venue, ordered by name ignoring case, each with its counts
+         *     and how many scheduled events use it; empty when it has none. Any signed-in user may read
+         *     it: a layout is the venue's public map.
+         */
+        get: operations["listVenueLayouts"];
+        put?: never;
+        /**
+         * Make a layout from section lines
+         * @description Feature 038. A plain layout: its levels in rank order (the first is rank 1), and section
+         *     lines of rows × seats per row, each in one level named in `levels`. Sections are
+         *     rectangles placed in a grid of `ceil(√n)` columns in line order; rows are labelled `1`,
+         *     `2`, … front first and seats `1`, `2`, … ; `floorKind` is `NONE`; `source` is `LINES`.
+         *
+         *     Refused: a name another layout of the venue has, ignoring case (`409
+         *     LAYOUT_NAME_TAKEN`); repeated section or level names ignoring case, a section's level not
+         *     among `levels`, or more than 30,000 seats (`400 VALIDATION_FAILED`). Sets the venue's
+         *     `seatingCapacity` to its largest layout's seats; refused when that would fall below the
+         *     `totalTicketCapacity` of a scheduled general-admission event at the venue (`409
+         *     CAPACITY_EXCEEDED`, naming it).
+         */
+        post: operations["createVenueLayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/locations/{id}/layouts/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import a layout file
+         * @description Feature 038. Saves the layout a `LayoutFile` describes, all or nothing; `source` is
+         *     `FILE`. `name`, when sent, is used in place of the file's `name`. The body may be up to
+         *     4 MB (every other request keeps the default limit).
+         *
+         *     The file is checked as a whole before anything is saved: its shape and every limit of
+         *     `LayoutFile`, unique names and labels, levels named by their `key`, outlines and seats
+         *     inside `size`. Any problem refuses it with `400 LAYOUT_FILE_INVALID`, listing up to 50
+         *     problems in `details.problems`, each with the place in the file (`path`) and a message
+         *     naming the section, row and seat. A name another layout of the venue has, ignoring case,
+         *     is `409 LAYOUT_NAME_TAKEN`. The venue's capacity is set and checked as by
+         *     `createVenueLayout`.
+         */
+        post: operations["importVenueLayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/layouts/{layoutId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout. */
+                layoutId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A layout's map, without its seats
+         * @description Feature 038. The layout's size, floor object, levels, and each section's outline, label
+         *     point and counts; seats come one section at a time from `getVenueLayoutSection`.
+         *     `latestPrices` are the level prices of the scheduled event on this layout with the latest
+         *     start, for the Admin app to start a new event's price boxes from; `null` when none uses it.
+         */
+        get: operations["getVenueLayout"];
+        /**
+         * Rename a layout, or replace its section lines
+         * @description Feature 038. `name` renames it. `levels` and `sections`, sent together and only for a
+         *     layout made from lines (`source: LINES`; otherwise `400`), replace its lines as
+         *     `createVenueLayout` makes them, keeping the id of every level, section, row and seat whose
+         *     name or label is unchanged, so events on it keep their prices and seats off sale for
+         *     those; what is gone is deleted with its prices and off-sale entries.
+         *
+         *     Refused while the layout is `locked`, that is used by a scheduled event that has valid
+         *     tickets or live holds (`409 LAYOUT_IN_USE`, `details.events`). Name and capacity rules as
+         *     `createVenueLayout`. Viewers of events that use it reload (`streamSeatMap` ends).
+         */
+        put: operations["updateVenueLayout"];
+        post?: never;
+        /**
+         * Delete a layout
+         * @description Feature 038. Refused while any scheduled event uses it (`409 LAYOUT_IN_USE`,
+         *     `details.events`). The venue's `seatingCapacity` becomes its largest remaining layout's
+         *     seats; after its last layout it keeps its last value, typed with `updateLocation` again.
+         */
+        delete: operations["deleteVenueLayout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/layouts/{layoutId}/sections/{sectionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout. */
+                layoutId: string;
+                /** @description A section of the layout (`404` otherwise). */
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * One section's rows and seats
+         * @description Feature 038. The section's rows front first, each with its seats in order, each seat with
+         *     its label, place, level (its own, else its row's, else its section's) and accessible mark.
+         */
+        get: operations["getVenueLayoutSection"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/layouts/{layoutId}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout to copy. */
+                layoutId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Duplicate a layout
+         * @description Feature 038. A copy at the same venue with new ids throughout, used by no event, so it can
+         *     be changed. Always allowed, locked or not. Without `name`, it is named "<name> (copy)",
+         *     then "(copy 2)", … , whichever is free; a `name` another layout has is `409
+         *     LAYOUT_NAME_TAKEN`.
+         */
+        post: operations["duplicateVenueLayout"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -621,6 +797,9 @@ export interface paths {
          *     Feature 015: adding the first tier to an event with reserved seating ends its active
          *     reservations, which were made without a tier and could no longer be bought; their seats
          *     become open at once.
+         *
+         *     Feature 038: a seated event has no ticket types; adding one to it is `400`. Its prices are
+         *     its `levelPrices`.
          */
         post: operations["createTicketTier"];
         delete?: never;
@@ -711,7 +890,10 @@ export interface paths {
         };
         /**
          * The event's seat map
-         * @description Whether the event has reserved seating and, for each section of its venue's layout, its
+         * @description **Retired by feature 038** (served until its implementation): use `getVenueMap` and
+         *     `getVenueMapSection`.
+         *
+         *     Whether the event has reserved seating and, for each section of its venue's layout, its
          *     size, its tier for this event, and which seats are taken by valid tickets (feature 007).
          *     It never says who holds a seat. `sections` is empty when the venue has no layout.
          *
@@ -720,6 +902,61 @@ export interface paths {
          *     `listMyReservations`. `streamSeatMap` sends this map and then every change, live.
          */
         get: operations["getSeatMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/venue-map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * The event's venue map, without seats
+         * @description Feature 038. The event's layout drawn as sections (size, floor object, each section's
+         *     outline and label point), its levels with this event's prices (`null` for a level with no
+         *     seats on sale), and for each section and level how many seats are `open`, `reserved`
+         *     (held), `sold` and `offSale`. Seats come one section at a time from `getVenueMapSection`.
+         *     The same for every caller; it never says who holds or bought a seat. `streamSeatMap` sends
+         *     this map first and then every change. A general-admission event has no venue map (`404`).
+         */
+        get: operations["getVenueMap"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/events/{id}/venue-map/sections/{sectionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+                /** @description A section of the event's layout (`404` otherwise). */
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * One section of the venue map, seat by seat
+         * @description Feature 038. The section's rows front first and each seat with its label, place, level and
+         *     state for this event. Never says who holds or bought a seat. Apply `streamSeatMap`'s
+         *     changes to it to keep it current.
+         */
+        get: operations["getVenueMapSection"];
         put?: never;
         post?: never;
         delete?: never;
@@ -749,6 +986,13 @@ export interface paths {
          *     one. It also ends when the event's seating or its venue's layout changes; reconnect at
          *     once for a new snapshot. It also ends when the event is deleted; a reconnect then gets
          *     `404`.
+         *
+         *     Feature 038: the stream begins with `event: venueMap`, whose `data` is the `VenueMap`, as
+         *     from `getVenueMap`, in place of `snapshot` (retired). Each change also says the seat's
+         *     `levelId` and the state it left (`from`), so a client keeps the venue map's counts by
+         *     adding 1 to `state` and taking 1 from `from` for that level; seats taken off sale or put
+         *     back are changes too (`offSale`, `open`). The stream ends when the event's seating or its
+         *     layout is saved.
          */
         get: operations["streamSeatMap"];
         put?: never;
@@ -769,10 +1013,22 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /**
+         * An event's layout, level prices and seats off sale
+         * @description Feature 038. What the Admin app's Seating section edits: the event's layout, each of its
+         *     levels with its seats, seats on sale and this event's price (`null` when not set), and the
+         *     seats off sale as selectors, compacted: a whole section as `{sectionId}`, then whole rows
+         *     as `{sectionId, row}`, then single seats. A general-admission event answers with
+         *     `layoutId: null` and empty lists.
+         */
+        get: operations["getEventSeating"];
         /**
          * Set reserved seating and section tiers
-         * @description Turns reserved seating on or off and replaces the event's section-to-tier mappings
+         * @description **Retired by feature 038** (served until its implementation): an event's layout, level
+         *     prices and seats off sale are saved with `createEvent` and `updateEvent` (`layoutId`,
+         *     `levelPrices`, `offSale`) and read with `getEventSeating`.
+         *
+         *     Turns reserved seating on or off and replaces the event's section-to-tier mappings
          *     (feature 007). Reserved seating can switch only while the event has no valid tickets
          *     (`409 EVENT_HAS_ORDERS`), and turn on only when its venue has a layout (`400`). Each
          *     `sectionId` must be a section of the venue and each `tierId` a tier of the event (`400`).
@@ -836,6 +1092,11 @@ export interface paths {
          *
          *     There is no `tierId` in the request: the reservation's tier is the tier of the sections its
          *     seats are in (`null` for an event without tiers), and is returned as `tierId`.
+         *
+         *     Feature 038: a seat is any seat of the event's layout (`400` otherwise), of any price
+         *     level: one reservation may hold seats of several levels, still at most 10. A seat off sale
+         *     for the event is `409 SEAT_OFF_SALE` (`details.seats`). `tierId` is always `null`. Each
+         *     reserved seat says its labels, level and current price.
          *
          *     Feature 026: a seat-hold attempt (`x-attempt-limit: HOLD`), new or adding seats, however
          *     many seats it names. Over the caller's hold allowance it is refused with `429 RATE_LIMITED`
@@ -936,6 +1197,12 @@ export interface paths {
          *     reserved until it ends. A repeated `requestId` is returned before this check. An order whose
          *     `tierId` is not the reservation's tier is `400`, since its seats are not in that tier's
          *     sections.
+         *
+         *     Feature 038: for a seated event, `tierId` must be left out (`400`); the seats may be of
+         *     several price levels. Each ticket costs its seat's level price at the moment the order is
+         *     placed, under the event's lock, and says it (`Ticket.price`, `Ticket.levelName`);
+         *     `totalPrice` is their sum. From 2.0.0 (feature 038's implementation) `unitPrice` is `null`
+         *     when the tickets' prices differ. A seat off sale is `409 SEAT_OFF_SALE`.
          *
          *     Feature 017: `holderName` is the buyer's own name, printed on every ticket of the order
          *     and checked against their ID at the gate. It is trimmed of leading and trailing spaces,
@@ -1421,8 +1688,24 @@ export interface components {
             id: string;
             /** @example Season Opener */
             name: string;
-            /** @description Feature 007. Whether customers choose seats; set with `updateSeating`. */
+            /**
+             * @description Feature 007. Whether customers choose seats; set with `updateSeating`. Feature 038:
+             *     `true` exactly when `layoutId` is set.
+             */
             reservedSeating: boolean;
+            /**
+             * Format: uuid
+             * @description Feature 038. The venue layout the event's seats come from; `null` for general
+             *     admission. Sent once 038 is implemented.
+             */
+            layoutId?: string | null;
+            /**
+             * @description Feature 038. For a seated event, the highest price of a level with seats on sale
+             *     (`basePrice` is the lowest), so its price shows as a range; `null` for general
+             *     admission. Sent once 038 is implemented.
+             * @example 95.00
+             */
+            priceMax?: string | null;
             /**
              * @description Feature 005. A cancelled event stays on record but is read-only.
              * @enum {string}
@@ -1541,7 +1824,7 @@ export interface components {
             /** @description Non-negative decimal string. */
             basePrice: string;
             /**
-             * @description Feature 031. Optional; left out, `false`. `true` schedules the event with reserved
+             * @description **Retired by feature 038**: send `layoutId`. Feature 031. Optional; left out, `false`. `true` schedules the event with reserved
              *     seating at its venue's layout, as `updateSeating` would turn it on: the venue must have
              *     a layout, and `totalTicketCapacity` must be left out (the capacity is the layout's total
              *     seats). May be left out but not sent as `null` (`400`).
@@ -1553,6 +1836,32 @@ export interface components {
              *     50, as many as a layout's sections. May be left out but not sent as `null` (`400`).
              */
             tiers?: components["schemas"]["EventTierInput"][];
+            /**
+             * Format: uuid
+             * @description Feature 038. One of the venue's layouts for reserved seating, or `null` for general
+             *     admission. With a layout, `tiers` must be empty and `totalTicketCapacity` left out
+             *     (`400`): the capacity is the seats on sale and `basePrice` the lowest level price, both
+             *     set by the Backend (a `basePrice` sent is ignored). A layout of another venue is `400`.
+             *     On `updateEvent`, changing or clearing it is refused while the event has valid tickets
+             *     or live holds (`409 EVENT_HAS_ORDERS`), and clears its `levelPrices` and `offSale`.
+             *     Left out on `updateEvent`, unchanged.
+             */
+            layoutId?: string | null;
+            /**
+             * @description Feature 038. With a layout: a price for every level of it that has seats on sale (`400
+             *     VALIDATION_FAILED`, `details.field: levelPrices`, naming the levels without one), each
+             *     level at most once, each a level of the layout (`400`). Replaces the event's prices; a
+             *     ticket already sold keeps its price. Left out on `updateEvent`, unchanged.
+             */
+            levelPrices?: components["schemas"]["LevelPriceInput"][];
+            /**
+             * @description Feature 038. With a layout: the seats this event does not sell, by whole section, row,
+             *     or seat. Replaces the event's set (`[]` puts every seat on sale). A selector naming no
+             *     seat of the layout is `400`; a sold or held seat is `409 SEAT_TAKEN` (`details.seats`);
+             *     no seat left on sale is `400`. Left out on `createEvent`, none; on `updateEvent`,
+             *     unchanged.
+             */
+            offSale?: components["schemas"]["OffSaleSelector"][];
         };
         /**
          * @description Feature 031. One ticket type in `createEvent`: the fields of `TicketTierInput`, and the
@@ -1580,7 +1889,8 @@ export interface components {
              */
             quantity?: number;
             /**
-             * @description Only with `reservedSeating: true`. The sections of the venue's layout this ticket type
+             * @description **Retired by feature 038**: a seated event has no ticket types. Only with
+             *     `reservedSeating: true`. The sections of the venue's layout this ticket type
              *     sells, each section under one ticket type at most. Left out or empty, it sells none
              *     yet (quantity 0). May be left out but not sent as `null` (`400`).
              */
@@ -1623,7 +1933,8 @@ export interface components {
             maxTicketsPerCustomer?: number | null;
             basePrice?: string;
             /**
-             * @description Feature 035. Optional; left out, and `tiers` is sent, `false`. `true` saves the event
+             * @description **Retired by feature 038**: send `layoutId`. Feature 035. Optional; left out, and
+             *     `tiers` is sent, `false`. `true` saves the event
              *     with reserved seating at its venue's layout. Not `null`. Without `tiers` and this
              *     field, the request does not change ticket types or seating.
              */
@@ -1636,6 +1947,32 @@ export interface components {
              *     `null`.
              */
             tiers?: components["schemas"]["EventTierInput"][];
+            /**
+             * Format: uuid
+             * @description Feature 038. One of the venue's layouts for reserved seating, or `null` for general
+             *     admission. With a layout, `tiers` must be empty and `totalTicketCapacity` left out
+             *     (`400`): the capacity is the seats on sale and `basePrice` the lowest level price, both
+             *     set by the Backend (a `basePrice` sent is ignored). A layout of another venue is `400`.
+             *     On `updateEvent`, changing or clearing it is refused while the event has valid tickets
+             *     or live holds (`409 EVENT_HAS_ORDERS`), and clears its `levelPrices` and `offSale`.
+             *     Left out on `updateEvent`, unchanged.
+             */
+            layoutId?: string | null;
+            /**
+             * @description Feature 038. With a layout: a price for every level of it that has seats on sale (`400
+             *     VALIDATION_FAILED`, `details.field: levelPrices`, naming the levels without one), each
+             *     level at most once, each a level of the layout (`400`). Replaces the event's prices; a
+             *     ticket already sold keeps its price. Left out on `updateEvent`, unchanged.
+             */
+            levelPrices?: components["schemas"]["LevelPriceInput"][];
+            /**
+             * @description Feature 038. With a layout: the seats this event does not sell, by whole section, row,
+             *     or seat. Replaces the event's set (`[]` puts every seat on sale). A selector naming no
+             *     seat of the layout is `400`; a sold or held seat is `409 SEAT_TAKEN` (`details.seats`);
+             *     no seat left on sale is `400`. Left out on `createEvent`, none; on `updateEvent`,
+             *     unchanged.
+             */
+            offSale?: components["schemas"]["OffSaleSelector"][];
         };
         /**
          * @description Feature 014. One picture of an event: what a client needs to load it from
@@ -1731,6 +2068,18 @@ export interface components {
             checkedInAt: string | null;
             /** @description Feature 007. The seat this ticket is for; `null` for general admission. */
             seat: components["schemas"]["SeatLabel"] | null;
+            /**
+             * @description Feature 038. What this ticket cost: its seat's level price when bought, or its order's
+             *     `unitPrice`. Sent once 038 is implemented.
+             * @example 60.00
+             */
+            price?: string;
+            /**
+             * @description Feature 038. The seat's price level as sold (for a ticket from before 038, its ticket
+             *     type's name); `null` for general admission. Sent once 038 is implemented.
+             * @example Lower sideline
+             */
+            levelName?: string | null;
         };
         /** @description One customer's purchase for one event (feature 005). */
         Order: {
@@ -1753,7 +2102,11 @@ export interface components {
              */
             holderName: string | null;
             quantity: number;
-            /** @example 45.00 */
+            /**
+             * @description The price of each ticket. Feature 038: from 2.0.0, `null` when the order's tickets have
+             *     different prices (seats of several levels); each ticket's `price` says its own.
+             * @example 45.00
+             */
             unitPrice: string;
             /** @example 45.00 */
             totalPrice: string;
@@ -1917,14 +2270,21 @@ export interface components {
             row: number;
             seat: number;
         };
-        /** @description A seat a customer chooses when ordering (feature 007). */
+        /**
+         * @description A seat a customer chooses when ordering (feature 007). Feature 038: `row` is the row's
+         *     number in its section (1 = front) and `seat` the seat's number in its row, as
+         *     `getVenueMapSection` gives them; not their labels.
+         */
         SeatChoice: {
             /** Format: uuid */
             sectionId: string;
             row: number;
             seat: number;
         };
-        /** @description A sold seat, by its section's name when sold (feature 007). */
+        /**
+         * @description A sold seat, by its section's name when sold (feature 007). Feature 038: `row` and `seat`
+         *     are numbers; show `rowLabel` and `seatLabel`, the labels when sold ("Row AA, Seat 101").
+         */
         SeatLabel: {
             /** @example A */
             section: string;
@@ -1932,6 +2292,16 @@ export interface components {
             row: number;
             /** @example 7 */
             seat: number;
+            /**
+             * @description Feature 038. Sent once 038 is implemented; before, show `row`.
+             * @example F
+             */
+            rowLabel?: string;
+            /**
+             * @description Feature 038. Sent once 038 is implemented; before, show `seat`.
+             * @example 7
+             */
+            seatLabel?: string;
         };
         SeatMapSection: {
             /** Format: uuid */
@@ -1969,9 +2339,21 @@ export interface components {
             sectionId: string;
             row: number;
             seat: number;
-            /** @enum {string} */
-            state: "open" | "reserved" | "sold";
+            state: components["schemas"]["SeatState"];
+            /** @description Feature 038. The state the seat left. Sent once 038 is implemented. */
+            from?: components["schemas"]["SeatState"];
+            /**
+             * Format: uuid
+             * @description Feature 038. The seat's price level. Sent once 038 is implemented.
+             */
+            levelId?: string;
         };
+        /**
+         * @description A seat's state for one event: `reserved` is held by a customer (feature 015); `offSale` is
+         *     not sold at this event (feature 038).
+         * @enum {string}
+         */
+        SeatState: "open" | "reserved" | "sold" | "offSale";
         /** @description A seat in a reservation, by section id and by its section's name (feature 015). */
         ReservedSeat: {
             /** Format: uuid */
@@ -1982,6 +2364,27 @@ export interface components {
             row: number;
             /** @example 5 */
             seat: number;
+            /**
+             * @description Feature 038. Sent once 038 is implemented.
+             * @example F
+             */
+            rowLabel?: string;
+            /**
+             * @description Feature 038. Sent once 038 is implemented.
+             * @example 7
+             */
+            seatLabel?: string;
+            /**
+             * @description Feature 038. The seat's price level. Sent once 038 is implemented.
+             * @example Lower sideline
+             */
+            levelName?: string;
+            /**
+             * @description Feature 038. The level's price now; the purchase is at the price when bought. Sent
+             *     once 038 is implemented.
+             * @example 60.00
+             */
+            price?: string;
         };
         /**
          * @description The caller's active hold on seats of one event, for 5 minutes (feature 015). It ends at
@@ -2034,6 +2437,345 @@ export interface components {
                 tierId: string;
             }[];
         };
+        /**
+         * @description Feature 038. One of the shared theme's 12 price-level colors; the apps draw it from the
+         *     theme, so the look stays one (Constitution VII).
+         * @enum {string}
+         */
+        LevelColor: "violet" | "blue" | "cyan" | "teal" | "green" | "lime" | "yellow" | "orange" | "red" | "pink" | "purple" | "brown";
+        /**
+         * @description Feature 038. What is drawn on the floor of a layout.
+         * @enum {string}
+         */
+        FloorKind: "COURT" | "END_STAGE" | "CENTER_STAGE" | "RING" | "NONE";
+        /**
+         * @description Feature 038. `[x, y]` in the layout's map units; `y` grows downward.
+         * @example [
+         *       205,
+         *       195
+         *     ]
+         */
+        MapPoint: [
+            number,
+            number
+        ];
+        /** @description Feature 038. A closed polygon, its points in order. */
+        MapOutline: components["schemas"]["MapPoint"][];
+        MapSize: {
+            width: number;
+            height: number;
+        };
+        /** @description Feature 038. A group of seats of a layout of similar desirability. */
+        PriceLevel: {
+            /** Format: uuid */
+            id: string;
+            /** @example Lower sideline */
+            name: string;
+            /** @description 1 is the most desirable. */
+            rank: number;
+            color: components["schemas"]["LevelColor"];
+            seatCount: number;
+        };
+        /** @description Feature 038. One layout of a venue, as the venue page lists it. */
+        LayoutSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            locationId: string;
+            /** @example Basketball */
+            name: string;
+            /**
+             * @description Imported from a file, or made from section lines (only these take lines).
+             * @enum {string}
+             */
+            source: "FILE" | "LINES";
+            floorKind: components["schemas"]["FloorKind"];
+            /** @example 22090 */
+            seatCount: number;
+            /** @example 54 */
+            sectionCount: number;
+            /** @example 4 */
+            levelCount: number;
+            /** @description Scheduled events using it. */
+            eventsUsing: number;
+            /**
+             * @description Used by a scheduled event that has valid tickets or live holds: it cannot be changed
+             *     or deleted, only duplicated.
+             */
+            locked: boolean;
+        };
+        /** @description Feature 038. A layout's map without its seats. */
+        LayoutDetail: components["schemas"]["LayoutSummary"] & {
+            size: components["schemas"]["MapSize"];
+            /** @description `null` with `floorKind: NONE`. */
+            floorOutline: components["schemas"]["MapOutline"] | null;
+            /** @description By rank. */
+            levels: components["schemas"]["PriceLevel"][];
+            /** @description In drawing order. */
+            sections: components["schemas"]["LayoutSectionSummary"][];
+            latestPrices: components["schemas"]["LatestPrices"] | null;
+        };
+        LayoutSectionSummary: {
+            /** Format: uuid */
+            id: string;
+            /** @example 104 */
+            name: string;
+            /**
+             * Format: uuid
+             * @description The section's own level, for rows and seats without one.
+             */
+            levelId: string;
+            outline: components["schemas"]["MapOutline"];
+            labelAt: components["schemas"]["MapPoint"];
+            rowCount: number;
+            seatCount: number;
+            /** @description Every level its seats are in, by rank. */
+            levelIds: string[];
+        };
+        /** @description Feature 038. The level prices of the latest-starting scheduled event on a layout. */
+        LatestPrices: {
+            /** Format: uuid */
+            eventId: string;
+            eventName: string;
+            /** Format: date-time */
+            startsAt: string;
+            prices: components["schemas"]["LevelPriceInput"][];
+        };
+        /** @description Feature 038. One section of a layout, seat by seat. */
+        LayoutSectionSeats: {
+            /** Format: uuid */
+            layoutId: string;
+            /** Format: uuid */
+            sectionId: string;
+            name: string;
+            /** @description Front first. */
+            rows: {
+                number: number;
+                /** @example F */
+                label: string;
+                seats: components["schemas"]["LayoutSeat"][];
+            }[];
+        };
+        LayoutSeat: {
+            number: number;
+            /** @example 7 */
+            label: string;
+            at: components["schemas"]["MapPoint"];
+            /**
+             * Format: uuid
+             * @description Its level, resolved (its own, else its row's, else its section's).
+             */
+            levelId: string;
+            /** @description Marked accessible; no other behavior yet (#57). */
+            accessible: boolean;
+        };
+        /** @description Feature 038. A layout made from section lines (`createVenueLayout`). Names are trimmed. */
+        LayoutLinesInput: {
+            name: string;
+            /** @description In rank order; names unique ignoring case. */
+            levels: components["schemas"]["LayoutLevelLine"][];
+            /** @description In drawing order; names unique ignoring case. */
+            sections: components["schemas"]["LayoutSectionLine"][];
+        };
+        LayoutLevelLine: {
+            name: string;
+            color: components["schemas"]["LevelColor"];
+        };
+        LayoutSectionLine: {
+            name: string;
+            rows: number;
+            seatsPerRow: number;
+            /** @description A name in `levels`. */
+            level: string;
+        };
+        /**
+         * @description Feature 038. `name` alone renames; `levels` and `sections` together replace a
+         *     `LINES` layout's lines.
+         */
+        LayoutUpdate: {
+            name?: string;
+            levels?: components["schemas"]["LayoutLevelLine"][];
+            sections?: components["schemas"]["LayoutSectionLine"][];
+        };
+        LayoutDuplicate: {
+            name?: string;
+        };
+        LayoutImport: {
+            /** @description Used in place of the file's `name`. */
+            name?: string;
+            file: components["schemas"]["LayoutFile"];
+        };
+        /**
+         * @description Feature 038. A venue layout as data, format 1. At most 100 sections, 100 rows a section,
+         *     200 seats a row, 30,000 seats, 12 levels. Every place is inside `size`.
+         */
+        LayoutFile: {
+            /** @enum {integer} */
+            format: 1;
+            name: string;
+            floor: {
+                kind: components["schemas"]["FloorKind"];
+                /** @description Required unless `kind` is `NONE`. */
+                outline?: components["schemas"]["MapOutline"];
+            };
+            size: components["schemas"]["MapSize"];
+            levels: {
+                /** @description How sections, rows and seats of this file name the level. */
+                key: string;
+                name: string;
+                rank: number;
+                color: components["schemas"]["LevelColor"];
+            }[];
+            sections: components["schemas"]["LayoutFileSection"][];
+        };
+        LayoutFileSection: {
+            name: string;
+            /** @description A level `key`. */
+            level: string;
+            outline: components["schemas"]["MapOutline"];
+            /** @description Where the name is drawn; left out, the outline's centroid. */
+            labelAt?: components["schemas"]["MapPoint"];
+            /** @description Front first; the order gives each row its number. */
+            rows: {
+                label: string;
+                /** @description A level `key` */
+                level?: string;
+                seats: components["schemas"]["LayoutFileSeat"][] | components["schemas"]["LayoutFileSeatRun"];
+            }[];
+        };
+        LayoutFileSeat: {
+            label: string;
+            at: components["schemas"]["MapPoint"];
+            /** @description A level `key` */
+            level?: string;
+            accessible?: boolean;
+        };
+        /**
+         * @description `count` seats labelled `first`, `first + 1`, … spaced evenly from `from` to `to`, along a
+         *     curve through `bend` when given; in that order.
+         */
+        LayoutFileSeatRun: {
+            first: number;
+            count: number;
+            from: components["schemas"]["MapPoint"];
+            to: components["schemas"]["MapPoint"];
+            bend?: components["schemas"]["MapPoint"];
+        };
+        LevelPriceInput: {
+            /** Format: uuid */
+            levelId: string;
+            /**
+             * @description Non-negative decimal string in USD.
+             * @example 60.00
+             */
+            price: string;
+        };
+        /**
+         * @description Feature 038. Seats not sold at one event: a whole section (`sectionId` alone), one row
+         *     (with `row`), or one seat (with `row` and `seat`), by numbers as in `SeatChoice`.
+         */
+        OffSaleSelector: {
+            /** Format: uuid */
+            sectionId: string;
+            row?: number;
+            /** @description Only with `row`. */
+            seat?: number;
+        };
+        /** @description Feature 038. An event's layout, prices and seats off sale (`getEventSeating`). */
+        EventSeating: {
+            /** Format: uuid */
+            eventId: string;
+            /** Format: uuid */
+            layoutId: string | null;
+            levels: {
+                /** Format: uuid */
+                levelId: string;
+                name: string;
+                rank: number;
+                color: components["schemas"]["LevelColor"];
+                seatCount: number;
+                seatsOnSale: number;
+                price: string | null;
+            }[];
+            offSale: components["schemas"]["OffSaleSelector"][];
+            seatsOnSale: number;
+            seatsOffSale: number;
+        };
+        /** @description Feature 038. An event's venue map, by section (`getVenueMap`). */
+        VenueMap: {
+            /** Format: uuid */
+            eventId: string;
+            /** Format: uuid */
+            layoutId: string;
+            layoutName: string;
+            size: components["schemas"]["MapSize"];
+            floorKind: components["schemas"]["FloorKind"];
+            floorOutline: components["schemas"]["MapOutline"] | null;
+            /** @description By rank. */
+            levels: {
+                /** Format: uuid */
+                levelId: string;
+                name: string;
+                rank: number;
+                color: components["schemas"]["LevelColor"];
+                /** @description This event's price; `null` when the level has no seats on sale. */
+                price: string | null;
+            }[];
+            sections: {
+                /** Format: uuid */
+                sectionId: string;
+                name: string;
+                outline: components["schemas"]["MapOutline"];
+                labelAt: components["schemas"]["MapPoint"];
+                /** @description One entry per level the section has seats in. */
+                counts: components["schemas"]["LevelSeatCounts"][];
+            }[];
+        };
+        LevelSeatCounts: {
+            /** Format: uuid */
+            levelId: string;
+            open: number;
+            reserved: number;
+            sold: number;
+            offSale: number;
+        };
+        /** @description Feature 038. One section of an event's venue map, seat by seat. */
+        VenueMapSection: {
+            /** Format: uuid */
+            eventId: string;
+            /** Format: uuid */
+            sectionId: string;
+            name: string;
+            /** @description Front first. */
+            rows: {
+                number: number;
+                /** @example F */
+                label: string;
+                seats: {
+                    number: number;
+                    /** @example 7 */
+                    label: string;
+                    at: components["schemas"]["MapPoint"];
+                    /** Format: uuid */
+                    levelId: string;
+                    state: components["schemas"]["SeatState"];
+                    accessible: boolean;
+                }[];
+            }[];
+        };
+        /** @description Feature 038. One price level's sales at a seated event. */
+        LevelSales: {
+            /**
+             * Format: uuid
+             * @description `null` once the level was deleted.
+             */
+            levelId: string | null;
+            name: string;
+            price: string | null;
+            seatsOnSale: number;
+            ticketsSold: number;
+            revenue: string;
+        };
         Cancellation: {
             event: components["schemas"]["Event"];
             ordersRefunded: number;
@@ -2081,6 +2823,11 @@ export interface components {
             /** @example 45.00 */
             revenue: string;
             tiers: components["schemas"]["TierSales"][];
+            /**
+             * @description Feature 038. A seated event's sales by price level (its `tiers` is empty); empty for
+             *     general admission. Sent once 038 is implemented.
+             */
+            levels?: components["schemas"]["LevelSales"][];
         };
         SalesReport: {
             /** Format: date-time */
@@ -2133,6 +2880,11 @@ export interface components {
             };
             /** @description `null` for an event sold at its base price. */
             tierName: string | null;
+            /**
+             * @description Feature 038. The seat's price level as sold; `null` for general admission. Sent once
+             *     038 is implemented.
+             */
+            levelName?: string | null;
             seat: components["schemas"]["SeatLabel"] | null;
             /** @description `null` for a ticket bought before feature 017 ("No name on ticket"). */
             holderName: string | null;
@@ -2197,7 +2949,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED" | "CHECK_IN_DETAILS_REMOVED";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "LAYOUT_NAME_TAKEN" | "LAYOUT_FILE_INVALID" | "SEAT_OFF_SALE" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED" | "CHECK_IN_DETAILS_REMOVED";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -2265,6 +3017,40 @@ export interface components {
                  *             "endsAt must be later than startsAt",
                  *             "seatingCapacity must be a positive whole number"
                  *           ]
+                 *         }
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /**
+         * @description Feature 038. The request is malformed (`VALIDATION_FAILED`), or the layout file has
+         *     problems (`LAYOUT_FILE_INVALID`): `details.problems` lists up to 50, each with its `path`
+         *     in the request and a `message`; `details.more` is how many more there were.
+         */
+        LayoutFileRejected: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "LAYOUT_FILE_INVALID",
+                 *         "message": "The layout file has 2 problems; nothing was saved.",
+                 *         "details": {
+                 *           "problems": [
+                 *             {
+                 *               "path": "file.sections[12].rows[2].seats[6]",
+                 *               "message": "Section 104, row F: seat 7 appears twice"
+                 *             },
+                 *             {
+                 *               "path": "file.sections[30].level",
+                 *               "message": "Section 301: level \"uper\" is not in the file"
+                 *             }
+                 *           ],
+                 *           "more": 0
                  *         }
                  *       }
                  *     }
@@ -2964,6 +3750,240 @@ export interface operations {
             409: components["responses"]["Conflict"];
         };
     };
+    listVenueLayouts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The venue's layouts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutSummary"][];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    createVenueLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayoutLinesInput"];
+            };
+        };
+        responses: {
+            /** @description The new layout. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetail"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    importVenueLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayoutImport"];
+            };
+        };
+        responses: {
+            /** @description The imported layout. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetail"];
+                };
+            };
+            400: components["responses"]["LayoutFileRejected"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getVenueLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout. */
+                layoutId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The layout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetail"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateVenueLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout. */
+                layoutId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayoutUpdate"];
+            };
+        };
+        responses: {
+            /** @description The updated layout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetail"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    deleteVenueLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout. */
+                layoutId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Layout deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
+    getVenueLayoutSection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout. */
+                layoutId: string;
+                /** @description A section of the layout (`404` otherwise). */
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The section's seats. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutSectionSeats"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    duplicateVenueLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout to copy. */
+                layoutId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["LayoutDuplicate"];
+            };
+        };
+        responses: {
+            /** @description The copy. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetail"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+        };
+    };
     listEvents: {
         parameters: {
             query?: {
@@ -3298,6 +4318,60 @@ export interface operations {
             404: components["responses"]["NotFound"];
         };
     };
+    getVenueMap: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The venue map. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenueMap"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getVenueMapSection: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+                /** @description A section of the event's layout (`404` otherwise). */
+                sectionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The section's seats. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VenueMapSection"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
     streamSeatMap: {
         parameters: {
             query?: never;
@@ -3324,6 +4398,33 @@ export interface operations {
             };
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getEventSeating: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The event. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event's seating. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventSeating"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
         };
     };

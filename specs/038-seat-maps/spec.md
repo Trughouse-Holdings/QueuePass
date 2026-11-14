@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Issue**: not filed yet; to be filed before the spec PR opens, and cited in every commit from then on.
+**Issue**: [#165](https://github.com/Trughouse-Holdings/QueuePass/issues/165)
 
 **Input**: John's direction at the Nov 10 team meeting, and the seat-maps proposal Nate drafted from it
 (QueuePass Seat Maps Proposal, Nov 11–12), whose spec "038" this is. John asked for "a realistic
@@ -158,7 +158,7 @@ layout.
 Avery schedules "Cardinals Women's Basketball vs. Duke" at the Yum! Center. In the event form's
 Seating section she picks **Basketball**; a price table lists its levels with their seat counts, and
 she types $95, $60, $35 and $20. She takes the whole upper level, sections 301–330, **off sale**,
-and also rows A–C of section 104 for a camera platform. The line under the map reads "11,212 seats
+and also rows D–F of section 104 for a camera platform. The line under the map reads "11,212 seats
 on sale · 10,878 off sale". She saves; the event's capacity is the seats on sale, and its price
 reads "$20–$95".
 
@@ -341,13 +341,15 @@ map shows each change within 2 seconds.
 
 - **FR-001**: A venue MUST be able to have zero or more **layouts**, each with a name (1–50
   characters, unique per venue ignoring case), a floor object (court, end stage, center stage, ring,
-  or none), sections, rows, seats and price levels. A layout has 1 to 30,000 seats.
+  or none), sections, rows, seats and price levels. A layout has 1 to 100 sections and 1 to 30,000
+  seats.
 - **FR-002**: A **section** MUST have a name (1–50 characters, unique within its layout ignoring
   case), an outline and a place on the layout's map, and 1 to 100 rows. A **row** MUST have a label
   (1–5 characters, unique within its section, such as "A", "AA" or "12") and an order, and 1 to 200
   seats. A **seat** MUST have a label (1–5 characters, unique within its row) and a place on the
   map, and MAY be marked accessible (for `#57` later; this spec gives the mark no other behavior).
-- **FR-003**: A layout MUST have 1 to 12 **price levels**, each with a name (1–50 characters,
+- **FR-003**: A layout MUST have 1 to 12 **price levels** (a layout carried over by FR-031 may
+  have one per section, up to 50), each with a name (1–50 characters,
   unique within the layout ignoring case), a rank (1 = most desirable) and a color. Every seat MUST
   have exactly one level: its own if set, else its row's, else its section's.
 - **FR-004**: Admins MUST be able to create a layout by **importing a layout file** in the format
@@ -447,6 +449,10 @@ map shows each change within 2 seconds.
   "Standard" with those sections, rows labelled by their numbers, seats by theirs, and one price
   level per section named after it. Each seated event at that venue MUST use it, with each level
   priced at what its section sold for (its ticket type's price, or the base price without types).
+  A section not mapped to a ticket type on an event with types (not sellable before this feature)
+  MUST be off sale for that event; an event with types and no mapped section (nothing sellable)
+  MUST become general admission, keeping its types. A carried-over ticket's price level is the name
+  of the ticket type it was sold as, else its section's.
 - **FR-032**: Every ticket sold before this feature MUST keep its seat, labels and price, and stay
   valid or void as it was. Every scenario of `006`, `016`, `017`, `033` and `034` MUST still pass;
   `007` and `015` scenarios pass as amended below.

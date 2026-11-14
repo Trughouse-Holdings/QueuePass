@@ -78,6 +78,12 @@ export const ERROR_CODES = [
   // Spec 032: a change to the times of an event whose check-in details were removed. Added ahead
   // of the implementation, so the list matches the contract.
   'CHECK_IN_DETAILS_REMOVED',
+  // Spec 038: another layout of the venue has this name; a layout file with problems (each in
+  // details.problems); a seat the event does not sell. Added ahead of the implementation, so the
+  // list matches the contract.
+  'LAYOUT_NAME_TAKEN',
+  'LAYOUT_FILE_INVALID',
+  'SEAT_OFF_SALE',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];

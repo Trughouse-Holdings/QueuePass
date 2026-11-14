@@ -36,5 +36,7 @@
   or endpoint is named.
 - No [NEEDS CLARIFICATION] markers: the proposal's six open decisions (D1–D6) take its recommended
   answers, recorded in Clarifications as "recommended answer, open to review" until John answers.
-- Open outside this spec: whether the Rust apps must also get seat maps (question for John); the
-  GitHub issue is to be filed before the spec PR opens.
+- Open outside this spec: whether the Rust apps must also get seat maps (question for John). The
+  issue is #165. Planning (2026-11-13) amended FR-001 (at most 100 sections), FR-003 and FR-031
+  (carried-over layouts and their edge cases) and US2's rows (the Yum! Center's lower rows start at
+  D); every item still passes.

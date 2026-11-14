@@ -186,20 +186,30 @@ map shows those 3 seats sold and the section counts match.
 - **FR-001**: Admins MUST be able to create, view, change, and remove a venue's seating layout:
   sections with names unique ignoring case (1–50 characters), each with 1–100 rows, each row with
   1–200 seats. Rows are numbered from 1 and seats from 1 within each row.
+  _Amended 2026-11-13 by spec `038` (#165), FR-001–FR-008: a venue has several named layouts, each a map with
+  price levels, imported from a file or made from section lines (`038` FR-001–FR-009); rows and seats
+  have labels as well as numbers._
 - **FR-002**: An admin MUST choose for each event whether it sells seats (reserved seating) or
   not (general admission, as in `006`). Reserved seating MAY be turned on only when the event's
   venue has a layout, and MAY be switched either way only while the event has no valid tickets.
   New events default to general admission.
+  _Amended 2026-11-13 by spec `038` (#165), FR-010: reserved seating is choosing one of the venue's layouts._
 - **FR-003**: A layout MUST NOT be changed or removed while any scheduled event that sells seats
   from it has valid tickets; the refusal MUST name those events. A layout MUST NOT be removed
   while any scheduled event at the venue has reserved seating on, even without sales. Replacing a
   layout MUST leave every event's sections at that venue unmapped, so admins remap them.
+  _Amended 2026-11-13 by spec `038` (#165), FR-006: a layout is locked while a scheduled event using it has valid
+  tickets or live holds; Duplicate makes an editable copy._
 - **FR-004**: For a seated event with tiers, an admin MUST be able to map each section to exactly
   one of the event's tiers. A section with valid tickets MUST NOT be moved to another tier.
+  _Amended 2026-11-13 by spec `038` (#165), FR-012: a seated event has no ticket types; it sets a price per price level
+  of its layout. The section-to-tier mapping ends._
 - **FR-005**: A seated event without tiers sells every seat at its base price.
+  _Amended 2026-11-13 by spec `038` (#165), FR-011, FR-012: its base price is its lowest level price._
 - **FR-006**: On a seated event, each tier's amount MUST be the number of seats in the sections
   mapped to it, recalculated whenever the mapping or the layout changes; admins MUST NOT type it.
   A tier with no section mapped to it has an amount of 0 and sells nothing.
+  _Amended 2026-11-13 by spec `038` (#165): no tiers on seated events (`038` FR-012)._
 - **FR-007**: For a seated event, the Customer app's Get tickets form MUST show a seat map one
   section at a time (the chosen section's rows and seats, taken seats marked and not choosable)
   and let the customer choose 1 to 10 seats, showing the exact total and every chosen seat before
@@ -209,10 +219,14 @@ map shows those 3 seats sold and the section counts match.
   _Amended 2026-11-09 by spec `033` (#135): chosen seats are held seats (`033` FR-001); the total
   and the seats show in the Your seats box, and confirming is Buy tickets in the cart (`033` FR-010,
   FR-013)._
+  _Amended 2026-11-13 by spec `038` (#165), FR-016–FR-021: the seat map is the venue map, with a price filter, a
+  zoom into a section, and a Sections list; seats of any levels in one hold._
 - **FR-008**: An order for a seated event MUST name its seats; the Backend MUST issue one ticket
   per seat and MUST refuse a seat that is taken, outside the layout, in a section not for sale or
   mapped to a different tier than the order's, or repeated in the same order. A refusal for taken
   seats MUST name them.
+  _Amended 2026-11-13 by spec `038` (#165), FR-021, FR-022, FR-013: a seat off sale is refused; there is no tier
+  rule; each ticket costs its seat's level price._
 - **FR-009**: A seat MUST be held by at most one valid ticket for an event, including under
   concurrent orders. This MUST be guaranteed by the database, not only checked by the Backend
   (Constitution IV).
@@ -235,9 +249,12 @@ map shows those 3 seats sold and the section counts match.
   set whenever the layout is saved; admins MUST NOT type it while the layout exists. Saving a
   layout whose total is below a scheduled general-admission event's ticket capacity at the venue
   MUST be refused, naming the event.
+  _Amended 2026-11-13 by spec `038` (#165), FR-009: the largest layout's seats._
 - **FR-018**: A seated event MUST take its ticket capacity from its venue's layout total, set when
   reserved seating is turned on and whenever the layout changes; admins MUST NOT type it while
   reserved seating is on.
+  _Amended 2026-11-13 by spec `038` (#165), FR-014: the seats on sale, the layout's seats minus the event's
+  off-sale seats._
 - **FR-019**: A new event's ticket capacity MAY be left out, in which case it is the venue's
   seating capacity. General-admission events and venues without a layout otherwise keep typed
   capacities and tier quantities exactly as in `002`, `004`, and `006`.
