@@ -1,23 +1,21 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.9.7 -> 3.9.8 (PATCH): one roadmap row reserved; no principle changed and no control
-  removed. Applies on top of spec 035's amendment (3.9.6 -> 3.9.7, row 035-event-form-flow),
-  merged to main as d0eaf9f (implementation d821a96).
-Problem: issues #130 and #128, done together. Admins set Doors open as a third date and time
-  even though the only allowed values are 0 to 6 hours before the start, and Safari's calendar
-  popup for those date-time fields has no time picker, so the time is easy to miss.
+Version: 3.9.8 -> 3.9.9 (PATCH): two roadmap rows reserved; no principle changed and no control
+  removed. Applies on top of spec 036's amendment (3.9.7 -> 3.9.8, row 036-event-form-times).
+  PR #164 (spec 037, 3.9.8 -> 3.10.0, row 037-rust-admin-app) is open; whichever of it and this
+  amendment merges second takes the next version (3.10.1 here if #164 merges first) and keeps
+  every row.
+Problem: issue #165. John's requirement for the week of 2026-11-11, approved on 2026-11-13 as the
+  seat-maps proposal: a realistic venue map like other ticketing apps, several layouts per venue,
+  prices by desirability down to rows and seats, sections and rows off sale per event, and the KFC
+  Yum! Center as demo data. The proposal splits it into two specs.
 Changed:
-  - Roadmap: row 036-event-form-times reserved (the Admin event form offers two ways to set
-    doors open, one at a time: a length of time before the start, in 15-minute steps from 0 to
-    6 hours, default 1 hour on a new event, with the resulting time shown; or a date and a time;
-    switching keeps the same doors-open time; Starts and Ends, and Doors open in date-and-time
-    mode, are each a date control and a time control so every browser shows a clear time picker;
-    the form still sends doorsOpenAt; no contract change). The next free number is 037.
-Impact: spec 036. No OpenAPI change (the form still sends doorsOpenAt; research R3). Spec 025
-  (merged) is amended, with dated notes in its spec: its FR-002, FR-003, and the form part of
-  FR-005 give way to 036 for how the Admin event form picks doors open and start/end times.
-  Spec 035's Out of scope items for #128 and #130 give way to this feature. The README's version
-  reference follows. Templates: none need updating.
+  - Roadmap: rows 038-seat-maps and 039-layout-editor reserved. The next free number is 040
+    (037 is reserved by #164).
+Impact: specs 038 (#165) and 039 (issue to be filed). Spec 038's contract change is in two steps
+  (1.28.0 in its spec PR, 2.0.0 in its implementation, removals approved in the spec PR; its
+  research R3), under Principle I as written. Specs 007, 015, 033 and 035 get dated notes in 038's
+  spec PR. The README's version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -328,7 +326,8 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `037`.
+number is a pull request against this table. The next free number is `040` (`037` is reserved
+by the open PR #164).
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -368,6 +367,8 @@ number is a pull request against this table. The next free number is `037`.
 | `034-sell-until-end` | Tickets are sold until an event ends, not when it starts: orders and seat holds are allowed until its end time (half-open) and refused as sales closed from then on, and holds end at the end; capacity, the per-customer limit, the attempt limits, and seat holds apply as before; from the start to the end the Customer app's Get tickets panel says the event has already started, when it began, and that tickets are on sale until it ends, in the venue's time zone, and the confirmation of an order placed after the start says so; after the end it says "Sales closed: this event has ended."; a ticket bought after the start is admitted at the Ticket Booth until the end, as today (#126) | `006`, `015`, `016`, `020`, `025`, `026`, `030`, `033` |
 | `035-event-form-flow` | The Admin app's Schedule event and Edit event form in three sections (venue and times; tickets and seating; details: tickets per customer and pictures), showing only what the choices so far make relevant; each problem the form can see is shown beside its field as soon as it is wrong (on leaving the field, then as the admin types) and cleared when fixed, announced politely without flooding a screen reader; submit never sends a known problem and moves focus to the first field at fault; a live total of seats assigned per ticket type and overall against the venue's layout (or the event's total tickets) names exactly what is left; a Backend refusal is shown beside its field and focused, not in a banner at the top, and every value is kept; on edit, controls the Backend would refuse because tickets are sold are locked with the reason beside them; an edit of the event, its ticket types, and its seating is saved all or nothing through the existing update request, as scheduling already is (`031`); pictures still upload afterwards (#134) | `002`, `004`, `005`, `007`, `008`, `014`, `015`, `016`, `020`, `025`, `031` |
 | `036-event-form-times` | The Admin event form offers two ways to set doors open, one at a time: a length of time before the start (15-minute steps from 0 to 6 hours, 1 hour by default on a new event) with the resulting time shown, or a date and a time; switching keeps the same doors-open time; Starts, Ends, and Doors open in date-and-time mode each use a date control and a time control so the time cannot be overlooked in any browser; the form still sends the existing doors-open timestamp (#130, #128) | `020`, `025`, `035` |
+| `038-seat-maps` | Several named seating layouts per venue, each a map of sections placed in the building, labelled rows and seats, imported from a layout file or made from section lines; 1 to 12 price levels per layout by section, row or seat; a seated event uses one layout, sets a price per level and takes sections, rows or seats off sale, and has no ticket types; its capacity is its seats on sale; one hold and one order may mix levels, each ticket at its own price; the Customer app's venue map colored by price with a price filter, a zoom into a section and a Sections list for keyboard and screen readers; the Admin app's Layouts card, Seating section and live map by seat state; today's venues and seated events carried over to a "Standard" layout; the KFC Yum! Center's four layouts and four demo events in the reset (#165) | `007`, `015`, `016`, `017`, `023`, `029`, `031`, `033`, `034`, `035` |
+| `039-layout-editor` | The Admin app's layout editor: a block generator for sections of rows and seats, drag and rotate sections, paint price levels by section, row or seat, duplicate and edit layouts nobody has bought from | `038` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -420,4 +421,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.9.8 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-10
+**Version**: 3.9.9 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-13
