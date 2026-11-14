@@ -484,7 +484,7 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
 
 **Independent test**: quickstart S0, S1; Backend `demo-data` test; generator test.
 
-- [ ] T043 [P] [US5] `scripts/test/layouts.test.mjs` (node:test, run by `npm test`'s
+- [X] T043 [P] [US5] `scripts/test/layouts.test.mjs` (node:test, run by `npm test`'s
   `scripts/test/*.test.mjs`): the generator's output for each of the four layouts is valid against
   the contract's `LayoutFile` (Ajv 2020 with the contract, as `expect-to-match-contract.ts`), has 54
   sections for Basketball, exactly 22,090 seats for Basketball and 17,500 for End-stage concert,
@@ -493,18 +493,34 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   104–108 and 113–117; Lower sideline = their other rows and terrace 209–212; Lower end = 101–103,
   109–112, 118–120; Upper = 301–330), the other layouts' three (Floor, Lower, Upper); running it
   twice gives byte-identical files; the committed files equal a fresh run. Must fail.
-- [ ] T044 [P] [US5] `scripts/layouts/yum-center/plan.json`: the section plan traced by hand from
+  **Done** (2026-11-13): written first and seen failing (the generator did not exist). 14 tests:
+  the four files valid against `LayoutFile` (Ajv 2020 from the Backend's dependency, the contract
+  loaded as `expect-to-match-contract.ts` does), R5's other limits, every seat (each run expanded
+  as T004 states) inside its own section; the totals, row letters, levels, seat 1 on the right;
+  two runs into temporary directories byte-identical; `--check` passes on the committed files and
+  fails on a changed one.
+- [X] T044 [P] [US5] `scripts/layouts/yum-center/plan.json`: the section plan traced by hand from
   the venue's public seating charts (D6; no ticket seller's data): for each layout, the floor object,
   each section's name, outline, row line (front edge and back edge), row labels and level; floor
   sections for the concert (1–5), center stage and wrestling layouts. A header note in
   `scripts/layouts/yum-center/README.md` names the sources (the venue's published charts), the
   published capacities, and what is our estimate.
-- [ ] T045 [US5] `scripts/layouts/generate-yum-center.mjs` (plain Node ES module, like
+  **Done** (2026-11-13): a geometric approximation, not a trace of any chart: the venue's public
+  facts (capacities, section numbers, row letters, seat 1 on the right, the end-stage cut) on a
+  superellipse bowl in map units of about a foot. No ticket seller's data. The README says what is
+  ours: the shape, seats per row, depths, the floor sections, Center stage's and Wrestling's cuts and
+  totals, and how the published cut sits on R18's axis (one section wider on the 101 side).
+- [X] T045 [US5] `scripts/layouts/generate-yum-center.mjs` (plain Node ES module, like
   `scripts/*.mjs`): reads the plan, spreads seats per row so each layout's total matches its target,
   writes `backend/src/scripts/layouts/yum-center-basketball.json`, `-end-stage.json`,
   `-center-stage.json`, `-wrestling.json` as seat runs (R5), sorted and formatted deterministically;
   `node scripts/layouts/generate-yum-center.mjs --check` exits non-zero when a committed file differs.
   T043 passes.
+  **Done** (2026-11-13): Basketball 22,090 (54 sections), End-stage concert 17,500 (1,504 on the
+  floor), Center stage 19,500 and Wrestling (ring) 18,000 (our estimates; 1,422 and 548 on the
+  floor). Each file checked against `LayoutFile` before it is written; written one row a line, places
+  to 0.1, so the files are in `.prettierignore` beside `api-schema.ts`. T043's 14 tests pass; ESLint
+  and Prettier clean.
 - [ ] T046 [P] [US5] `backend/test/integration/demo-data.e2e-spec.ts` and `demo-reset.e2e-spec.ts`
   updated (FR-033, SC-008, US5): after the demo data, the venue "KFC Yum! Center" (1 Arena Plaza,
   Louisville, KY 40202) has exactly four layouts with those seat counts, `seatingCapacity` 22,090;

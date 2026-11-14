@@ -11,3 +11,7 @@ packages/shared/src/api-schema.ts
 .claude/
 .specify/
 specs/
+
+# Spec 038: the Yum! Center layout files, generated one row a line by
+# scripts/layouts/generate-yum-center.mjs (its --check keeps them current).
+backend/src/scripts/layouts/yum-center-*.json
