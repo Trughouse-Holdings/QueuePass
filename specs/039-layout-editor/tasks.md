@@ -482,10 +482,11 @@ lists, announcements.
 - [X] T057 Coverage: each workspace ≥ 80% lines (`npm test`); add tests where a new file falls short.
 - [X] T058 `npm run ci` green locally; `npm run e2e` green (on a port-shifted stack if the team
   stack holds 5173–5175, as 038's T058 did); record the runs.
-- [ ] T059 Timing checks (quickstart "Timing checks"; SC-001–SC-003, SC-008) on the demo state on a
+- [X] T059 Timing checks (quickstart "Timing checks"; SC-001–SC-003, SC-008) on the demo state on a
   laptop; record the times for the PR description.
-- [ ] T060 Tell Nate, for the `037` session: `LayoutSummary.source` may be `DRAWN` and three new
+- [X] T060 Tell Nate, for the `037` session: `LayoutSummary.source` may be `DRAWN` and three new
   operations exist (research R1).
+  **Done 2026-11-14**: told Nate, and said in the implementation PR's description.
 - [X] T061 Independent review of the implementation branch by a Claude session that did not write it
   (Constitution III), against the merged spec and plan; fix the findings, each with a test written
   to fail first; record the review and any open finding for the PR description.
@@ -500,8 +501,13 @@ lists, announcements.
   (the data router was made before sign-in restored the address), clicks and double-clicks on a
   section going to the map (pointer captured too early), and a kept row painted with a level
   made in the same save failing with a 500.
-- [ ] T062 Walk the quickstart on a Compose project of your own (`-p qp039`): S1–S14, with Nate.
+- [X] T062 Walk the quickstart on a Compose project of your own (`-p qp039`): S1–S14, with Nate.
   His "pass" closes it.
+  **Done 2026-11-14**: walked on `-p qp039`; Nate's feedback along the way was fixed on this
+  branch, each with a test first (the how-to steps and hint line, the floor shown whole when
+  chosen, the selection's level chosen under Selection, wrapping button rows, Delete for the
+  floor, 038's off-sale section buttons and row-label halos). Nate: "yes everything passes"
+  (his confirmation closes the walk and the timing checks; no times were recorded).
 - [ ] T063 Push `039-layout-editor-impl` (ask first); open the implementation PR (ask first)
   assigned to nathan-707, its description with `fixes #N` on its own line, the review, the timing
   checks and the walk; CI green (`test` and `e2e`) before merge.
