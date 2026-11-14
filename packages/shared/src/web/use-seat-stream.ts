@@ -36,7 +36,8 @@ export interface SeatStreamOptions {
 /**
  * `loading` before any map, `connecting` until the stream's first venue map, `live` while it
  * delivers, `reconnecting` while it is down (the map shown may be behind), `offline` when it
- * stopped, `missing` for an unknown event or one without a venue map (general admission),
+ * stopped, `missing` for an unknown event or one without a venue map (general admission, also
+ * after a switch to it while streaming),
  * `unreachable` when no map could be loaded.
  */
 export type LiveSeatStatus =
@@ -185,8 +186,10 @@ export function useSeatStream(eventId: string | null, options: SeatStreamOptions
           onStatus: (s: SeatStreamStatus) => {
             if (s === 'live') wasLive = true;
             if (s === 'connecting' || s === 'live' || s === 'reconnecting') setStatus(s);
-            // A 404 after the stream was live: the event was deleted (research R9). Before
-            // that, the map loaded, so streaming is just unavailable.
+            // A 404 after the stream was live: the event was deleted (research R9), or switched
+            // to general admission (spec 038 FR-010), which has no venue map; the caller reads
+            // the event to tell which. Before that, the map loaded, so streaming is just
+            // unavailable.
             else if (s === 'gone') setStatus(wasLive ? 'missing' : 'offline');
           },
         },

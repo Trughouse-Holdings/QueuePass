@@ -92,9 +92,12 @@ export function cooldownMessage(details: Record<string, unknown> | undefined): s
 export function GetTickets({
   event,
   onSales,
+  onEventChanged,
 }: {
   event: Event;
   onSales?: (answer: Availability) => void;
+  /** Spec 038 FR-010: the event as read again after its venue map went, now general admission. */
+  onEventChanged?: (event: Event) => void;
 }) {
   const { api, signIn, accessToken } = useAuth();
   const navigate = useNavigate();
@@ -122,6 +125,31 @@ export function GetTickets({
     openSectionId: openSection,
     onSnapshot: (map) => onSnapshot.current(map),
   });
+  // Spec 038 FR-010: a seated event whose venue map is gone (`404`, from the map or the stream)
+  // was deleted or switched to general admission; the two answer alike, so the event is read again
+  // to tell them apart. Now general admission, the page shows it as such (`onEventChanged`).
+  const [mapGone, setMapGone] = useState<'checking' | 'deleted' | 'unavailable' | null>(null);
+  const reportEvent = useRef(onEventChanged);
+  reportEvent.current = onEventChanged;
+  useEffect(() => {
+    if (!seatedEvent || live.status !== 'missing') return;
+    let cancelled = false;
+    setMapGone('checking');
+    void api
+      .GET('/events/{id}', { params: { path: { id } } })
+      .then(({ data, response }) => {
+        if (cancelled) return;
+        if (response.status === 404) setMapGone('deleted');
+        else if (data && !data.reservedSeating && reportEvent.current) reportEvent.current(data);
+        else setMapGone('unavailable');
+      })
+      .catch(() => {
+        if (!cancelled) setMapGone('unavailable');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, id, seatedEvent, live.status]);
   // Spec 038 FR-017, FR-020: one price filter for the map and the Sections list.
   const [range, setRange] = usePriceFilter(live.map?.levels ?? NO_LEVELS);
 
@@ -367,18 +395,20 @@ export function GetTickets({
   // A reload in flight, or one that failed, keeps the last good answer (review round 3, N3).
   const leftNow = availability.kind === 'ok' ? availability.data : lastAvailability.current;
   const tiersNow = tiers.kind === 'ok' ? tiers.data : lastTiers.current;
+  const gone = seatedEvent && live.status === 'missing';
   if (
     (availability.kind === 'loading' && leftNow === null) ||
     (tiers.kind === 'loading' && tiersNow === null) ||
-    seatsLoading
+    seatsLoading ||
+    (gone && mapGone !== 'deleted' && mapGone !== 'unavailable')
   ) {
     return <p>Loading tickets…</p>;
   }
   // Spec 015 edge case "Event deleted": its stream ended and a reconnect found no event.
-  if (seatedEvent && live.status === 'missing') {
+  if (gone && mapGone === 'deleted') {
     return <p className="banner banner--error">This event no longer exists.</p>;
   }
-  if (leftNow === null || tiersNow === null || seatsFailed) {
+  if (leftNow === null || tiersNow === null || seatsFailed || gone) {
     // Spec 012 FR-010: an error, so the theme's error banner; no role added, as before.
     return (
       <p className="banner banner--error">

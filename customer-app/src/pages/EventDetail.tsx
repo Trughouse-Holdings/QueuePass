@@ -20,6 +20,13 @@ export function EventDetail() {
   // Spec 034 FR-017 (research R4): the Get tickets panel's last answer about sales, by the
   // Backend's clock. An answer saying STARTED or without inProgress (a Backend from before 034)
   // counts as no answer.
+  // Spec 038 FR-010: the event as read again by the Get tickets panel when its seating became
+  // general admission; it replaces the one loaded.
+  const [changed, setChanged] = useState<{ event: Event; loadedAt: number } | null>(null);
+  const onEventChanged = useCallback(
+    (event: Event) => setChanged({ event, loadedAt: Date.now() }),
+    [],
+  );
   const [sales, setSales] = useState<Pick<
     Availability,
     'eventId' | 'salesClosed' | 'inProgress'
@@ -40,11 +47,12 @@ export function EventDetail() {
     );
   }
 
-  const e = load.data.event;
+  const loaded = changed?.event.id === id ? changed : load.data;
+  const e = loaded.event;
   // Spec 030 FR-014 (research R7): past by the browser's clock when the event loaded; spec 034
   // FR-017: once the panel has answered, its answer decides, never "ended" while in progress, and
   // a cancelled event (CANCELLED whatever the time) still needs the browser's clock.
-  const byClock = hasEnded(e.endsAt, load.data.loadedAt);
+  const byClock = hasEnded(e.endsAt, loaded.loadedAt);
   const answer = sales?.eventId === e.id ? sales : null;
   const ended =
     answer === null
@@ -104,7 +112,13 @@ export function EventDetail() {
           )}
         </dl>
       </div>
-      <GetTickets event={e} onSales={onSales} />
+      {/* Keyed by its seating, so a switch to general admission starts the panel afresh. */}
+      <GetTickets
+        key={`${e.id}:${e.reservedSeating ? 'seated' : 'general'}`}
+        event={e}
+        onSales={onSales}
+        onEventChanged={onEventChanged}
+      />
       <Link to="/events">All events</Link>
     </section>
   );

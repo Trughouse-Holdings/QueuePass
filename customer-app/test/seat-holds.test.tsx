@@ -508,31 +508,84 @@ describe('review round 1 (T047)', () => {
     expect(screen.getByText('Total: $80.00')).toBeInTheDocument();
   });
 
-  it('says the event no longer exists when the seat stream answers 404', async () => {
+  /** A stream that sends the map and ends, then answers 404 (no venue map any more). */
+  const endingStream = () => {
     let streams = 0;
+    return () =>
+      streams++ === 0
+        ? new Response(
+            new ReadableStream({
+              start: (c) => {
+                c.enqueue(
+                  new TextEncoder().encode(
+                    `event: venueMap\ndata: ${JSON.stringify(arena().map)}\n\n`,
+                  ),
+                );
+                c.close();
+              },
+            }),
+            { status: 200, headers: { 'content-type': 'text/event-stream' } },
+          )
+        : json({ error: { code: 'NOT_FOUND', message: 'No event' } }, 404);
+  };
+  /** The event as loaded first, then as `later` answers. */
+  const eventThen = (later: () => Response) => {
+    let reads = 0;
+    return () =>
+      reads++ === 0
+        ? json(event({ reservedSeating: true, layoutId: 'lay-1', basePrice: '40.00' }))
+        : later();
+  };
+
+  it('says the event no longer exists when the seat stream answers 404 and the event is gone', async () => {
     stubApi(
       routes({
-        'GET /events/e1/seats/stream': () =>
-          streams++ === 0
-            ? new Response(
-                new ReadableStream({
-                  start: (c) => {
-                    c.enqueue(
-                      new TextEncoder().encode(
-                        `event: venueMap\ndata: ${JSON.stringify(arena().map)}\n\n`,
-                      ),
-                    );
-                    c.close();
-                  },
-                }),
-                { status: 200, headers: { 'content-type': 'text/event-stream' } },
-              )
-            : json({ error: { code: 'NOT_FOUND', message: 'No event' } }, 404),
+        'GET /events/e1/seats/stream': endingStream(),
+        'GET /events/e1': eventThen(() =>
+          json({ error: { code: 'NOT_FOUND', message: 'No event' } }, 404),
+        ),
       }),
     );
     renderCustomer({ at: '/events/e1' });
 
     expect(await screen.findByText('This event no longer exists.')).toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Arena map' })).toBeNull();
+  });
+
+  it('shows general admission when the event was switched to it (FR-010), not a deleted event', async () => {
+    const { calls } = stubApi(
+      routes({
+        'GET /events/e1/seats/stream': endingStream(),
+        'GET /events/e1': eventThen(() =>
+          json(event({ reservedSeating: false, layoutId: null, basePrice: '25.00' })),
+        ),
+      }),
+    );
+    renderCustomer({ at: '/events/e1' });
+
+    // The general-admission purchase form, with the event's base price, and no map.
+    expect(await screen.findByRole('button', { name: 'Confirm order' })).toBeInTheDocument();
+    expect(screen.queryByText('This event no longer exists.')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Arena map' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Choose seats' })).toBeNull();
+    expect(screen.getAllByText('$25.00').length).toBeGreaterThan(0);
+    expect(calls.filter((c) => c.path === '/events/e1')).toHaveLength(2);
+  });
+
+  it('says ticket information is unavailable when the map is gone but the event is still seated', async () => {
+    stubApi(
+      routes({
+        'GET /events/e1/seats/stream': endingStream(),
+        'GET /events/e1': eventThen(() =>
+          json(event({ reservedSeating: true, layoutId: 'lay-1', basePrice: '40.00' })),
+        ),
+      }),
+    );
+    renderCustomer({ at: '/events/e1' });
+
+    expect(
+      await screen.findByText('Ticket information is unavailable right now. Try again later.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('This event no longer exists.')).toBeNull();
   });
 });
