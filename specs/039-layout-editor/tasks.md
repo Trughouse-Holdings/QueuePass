@@ -8,8 +8,8 @@ description: "Task list for Layout Editor: Draw, Arrange and Price a Venue Layou
 [data-model.md](./data-model.md), [contracts/README.md](./contracts/README.md) (contract 2.1.0),
 [quickstart.md](./quickstart.md) (S1–S14)
 
-**Issue**: not filed yet; it is filed before the spec PR opens (Constitution III). Below, `#N`
-means its number. The implementation PR's **description** says `fixes #N` on its own line. No
+**Issue**: #168, filed before the spec PR opens (Constitution III). Below, `#N` means #168.
+The implementation PR's **description** says `fixes #N` on its own line. No
 commit message on either branch may contain "fixes #N", "closes #N", or "resolves #N".
 
 **Tests**: **REQUIRED and written first** (Constitution VI, FR-029). In every phase, write its test

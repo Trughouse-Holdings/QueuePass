@@ -1,7 +1,7 @@
 # Implementation Plan: Layout Editor: Draw, Arrange and Price a Venue Layout
 
 **Branch**: `039-layout-editor-spec` | **Date**: 2026-11-14 | **Spec**: [spec.md](./spec.md) |
-**Issue**: not filed yet (Constitution III; before the PR)
+**Issue**: #168
 
 **Input**: Feature specification from `specs/039-layout-editor/spec.md`; the seat-maps proposal's
 second spec (D1 option A).
@@ -80,14 +80,14 @@ VIII (no free drawing, mirroring, snapping, export, co-editing, touch; Out of sc
 | --- | --- | --- |
 | I. Contract first | 2.1.0 in this PR: three operations with request, response, role and every error, `x-planned: '039'`; `LAYOUT_CHANGED` in the envelope and `ERROR_CODES`; `api-schema.ts` regenerated, drift check passes; additions only (R1 on `DRAWN` in a response enum) | Pass |
 | II. One command | `docker compose up --build` unchanged; the migration runs in `migrate deploy`; no new service, setting or dependency | Pass |
-| III. Spec-driven | Spec + plan PR, independent review, fresh implementer; commits `Spec/Plan/Tasks 039: …`; `fixes #N` only in the implementation PR's description. **The issue is not filed yet**: it must exist before the spec PR opens (to do, with Nate's OK). Shared surface in this PR: `contracts/openapi.yaml`, `api-schema.ts`, `errors.ts`; in the implementation: `layout-geometry.ts` | Pass once the issue is filed |
+| III. Spec-driven | Spec + plan PR, independent review, fresh implementer; commits `Spec/Plan/Tasks 039: …`; `fixes #N` only in the implementation PR's description. The issue is #168, filed before the spec PR. Shared surface in this PR: `contracts/openapi.yaml`, `api-schema.ts`, `errors.ts`; in the implementation: `layout-geometry.ts` | Pass |
 | IV. Server-authoritative | Every rule decided by the Backend in one transaction: the 038 lock order (venue → layout → events), revision, lock, ids and parents, limits, events left able to sell (R8, R9); outlines and map size computed by the Backend (R5); uniqueness by deferrable constraints checked at commit; a hold racing a save is serialized by the event row lock (concurrency test) | Pass |
 | V. Least privilege | `getLayoutDrawing`, `saveLayoutDrawing`, `createLayoutDrawing` `queuepass-admin`; the public map reads are unchanged; authorization tests (missing, expired, wrong-signed, wrong-audience, wrong-role) for all three | Pass |
 | VI. Test-first, real database | Backend rules tested first against Testcontainers PostgreSQL, both sides of each limit, swaps of labels, ranks and names, the migration, a save racing 10 holds; generator and outline seat by seat; reducer actions and Undo; browser tests for US1 and US2 (`022`); 80% per workspace | Pass |
 | VII. Shared look | The editor uses the shared map's shapes, level color tokens and pan/zoom; levels always named beside their color; warnings by outline and text; every action by keyboard with visible focus and a status line (R11); no decoration | Pass |
 | VIII. Simplicity | No canvas library, no state library, no edit-operation API, no versioned layouts, no live co-editing; free drawing, mirroring, snapping, spacing, export, touch editing named in the spec's Out of scope | Pass |
 
-Post-design: unchanged; III passes once the issue is filed.
+Post-design: unchanged.
 
 ## Project Structure
 

@@ -6,7 +6,7 @@
 
 **Status**: Draft
 
-**Issue**: not filed yet (Constitution III asks for one before the spec PR)
+**Issue**: #168
 
 **Input**: The seat-maps proposal's second spec (QueuePass Seat Maps Proposal, Nov 11–13; John
 approved the feature on 2026-11-13). John asked that admins can "draw or define" a venue's maps,
