@@ -1,0 +1,318 @@
+{
+  "note": "KFC Yum! Center section plan for spec 038 (R18, FR-033). Read README.md first: what is traced, what is our estimate, and that no ticket seller data is used. Map units are about 1 foot; x grows east, y grows south; bowl degrees run clockwise from the middle of the east end.",
+  "center": [250, 210],
+  "size": { "width": 500, "height": 420 },
+  "bowl": { "seats": 22090, "halfLength": 85, "halfWidth": 45, "exponent": 3, "samples": 7200 },
+  "limits": { "sectionGap": 1.5, "minSeatPitch": 1.5, "maxSeatPitch": 3 },
+  "rings": [
+    {
+      "key": "lower",
+      "frontDepth": 0,
+      "rowPitch": 2.75,
+      "seatPitch": 1.8,
+      "aisle": 3,
+      "refDepth": 30,
+      "rowLabels": "D-Z,AA-HH",
+      "sections": [
+        { "name": "101", "from": 180, "to": 193, "rows": 23 },
+        { "name": "102", "from": 193, "to": 206, "rows": 23 },
+        { "name": "103", "from": 206, "to": 219, "rows": 23 },
+        { "name": "104", "from": 219, "to": 238, "rows": 31 },
+        { "name": "105", "from": 238, "to": 257, "rows": 31 },
+        { "name": "106", "from": 257, "to": 276, "rows": 31 },
+        { "name": "107", "from": 276, "to": 295, "rows": 31 },
+        { "name": "108", "from": 295, "to": 314, "rows": 31 },
+        { "name": "109", "from": 314, "to": 337, "rows": 23 },
+        { "name": "110", "from": 337, "to": 360, "rows": 23 },
+        { "name": "111", "from": 0, "to": 23, "rows": 23 },
+        { "name": "112", "from": 23, "to": 46, "rows": 23 },
+        { "name": "113", "from": 46, "to": 65, "rows": 31 },
+        { "name": "114", "from": 65, "to": 84, "rows": 31 },
+        { "name": "115", "from": 84, "to": 103, "rows": 31 },
+        { "name": "116", "from": 103, "to": 122, "rows": 31 },
+        { "name": "117", "from": 122, "to": 141, "rows": 31 },
+        { "name": "118", "from": 141, "to": 154, "rows": 23 },
+        { "name": "119", "from": 154, "to": 167, "rows": 23 },
+        { "name": "120", "from": 167, "to": 180, "rows": 23 }
+      ]
+    },
+    {
+      "key": "terrace",
+      "frontDepth": 66,
+      "rowPitch": 2.75,
+      "seatPitch": 1.8,
+      "aisle": 3,
+      "refDepth": 75,
+      "rows": 6,
+      "rowLabels": "A-F",
+      "sections": [
+        { "name": "209", "from": 314, "to": 337 },
+        { "name": "210", "from": 337, "to": 360 },
+        { "name": "211", "from": 0, "to": 23 },
+        { "name": "212", "from": 23, "to": 46 }
+      ]
+    },
+    {
+      "key": "upper",
+      "frontDepth": 100,
+      "rowPitch": 2.3,
+      "seatPitch": 2.6,
+      "aisle": 5,
+      "refDepth": 125,
+      "rows": 23,
+      "rowLabels": "A-W",
+      "sections": [
+        { "name": "301", "from": 180, "to": 192 },
+        { "name": "302", "from": 192, "to": 204 },
+        { "name": "303", "from": 204, "to": 216 },
+        { "name": "304", "from": 216, "to": 228 },
+        { "name": "305", "from": 228, "to": 240 },
+        { "name": "306", "from": 240, "to": 252 },
+        { "name": "307", "from": 252, "to": 264 },
+        { "name": "308", "from": 264, "to": 276 },
+        { "name": "309", "from": 276, "to": 288 },
+        { "name": "310", "from": 288, "to": 300 },
+        { "name": "311", "from": 300, "to": 312 },
+        { "name": "312", "from": 312, "to": 324 },
+        { "name": "313", "from": 324, "to": 336 },
+        { "name": "314", "from": 336, "to": 348 },
+        { "name": "315", "from": 348, "to": 360 },
+        { "name": "316", "from": 0, "to": 12 },
+        { "name": "317", "from": 12, "to": 24 },
+        { "name": "318", "from": 24, "to": 36 },
+        { "name": "319", "from": 36, "to": 48 },
+        { "name": "320", "from": 48, "to": 60 },
+        { "name": "321", "from": 60, "to": 72 },
+        { "name": "322", "from": 72, "to": 84 },
+        { "name": "323", "from": 84, "to": 96 },
+        { "name": "324", "from": 96, "to": 108 },
+        { "name": "325", "from": 108, "to": 120 },
+        { "name": "326", "from": 120, "to": 132 },
+        { "name": "327", "from": 132, "to": 144 },
+        { "name": "328", "from": 144, "to": 156 },
+        { "name": "329", "from": 156, "to": 168 },
+        { "name": "330", "from": 168, "to": 180 }
+      ]
+    }
+  ],
+  "floorSeating": { "rowPitch": 2.75, "edge": 1, "minSeatPitch": 1.6, "maxSeatPitch": 2.4 },
+  "layouts": [
+    {
+      "file": "yum-center-basketball.json",
+      "name": "Basketball",
+      "seats": 22090,
+      "floor": {
+        "kind": "COURT",
+        "outline": [
+          [-47, -25],
+          [47, -25],
+          [47, 25],
+          [-47, 25]
+        ]
+      },
+      "levels": [
+        { "key": "courtside", "name": "Courtside", "rank": 1, "color": "violet" },
+        { "key": "lower-sideline", "name": "Lower sideline", "rank": 2, "color": "blue" },
+        { "key": "lower-end", "name": "Lower end", "rank": 3, "color": "teal" },
+        { "key": "upper", "name": "Upper", "rank": 4, "color": "green" }
+      ],
+      "bowlLevels": [
+        { "level": "courtside", "sections": ["104-108", "113-117"], "rows": ["D", "E", "F", "G"] },
+        { "level": "lower-sideline", "sections": ["104-108", "113-117", "209-212"] },
+        { "level": "lower-end", "sections": ["101-103", "109-112", "118-120"] },
+        { "level": "upper", "sections": ["301-330"] }
+      ],
+      "remove": [],
+      "partial": [],
+      "floorSections": []
+    },
+    {
+      "file": "yum-center-end-stage.json",
+      "name": "End-stage concert",
+      "seats": 17500,
+      "floor": {
+        "kind": "END_STAGE",
+        "outline": [
+          [-97, -30],
+          [-66, -30],
+          [-66, 30],
+          [-97, 30]
+        ]
+      },
+      "levels": [
+        { "key": "floor", "name": "Floor", "rank": 1, "color": "violet" },
+        { "key": "lower", "name": "Lower", "rank": 2, "color": "blue" },
+        { "key": "upper", "name": "Upper", "rank": 3, "color": "green" }
+      ],
+      "bowlLevels": [
+        { "level": "lower", "sections": ["101-120", "209-212"] },
+        { "level": "upper", "sections": ["301-330"] }
+      ],
+      "floorSections": [
+        {
+          "name": "Floor 1",
+          "level": "floor",
+          "center": [-42.75, 25],
+          "facing": "W",
+          "width": 23,
+          "rows": 14
+        },
+        {
+          "name": "Floor 2",
+          "level": "floor",
+          "center": [-42.75, 0],
+          "facing": "W",
+          "width": 23,
+          "rows": 14
+        },
+        {
+          "name": "Floor 3",
+          "level": "floor",
+          "center": [-42.75, -25],
+          "facing": "W",
+          "width": 23,
+          "rows": 14
+        },
+        {
+          "name": "Floor 4",
+          "level": "floor",
+          "center": [21.875, 19],
+          "facing": "W",
+          "width": 34,
+          "rows": 29
+        },
+        {
+          "name": "Floor 5",
+          "level": "floor",
+          "center": [21.875, -19],
+          "facing": "W",
+          "width": 34,
+          "rows": 29
+        }
+      ],
+      "remove": ["101-103", "119-120", "301-306", "325-330"],
+      "partial": [
+        { "section": "104", "keep": "after", "at": 0.25 },
+        { "section": "118", "keep": "before", "at": 0.75 }
+      ]
+    },
+    {
+      "file": "yum-center-center-stage.json",
+      "name": "Center stage",
+      "seats": 19500,
+      "floor": {
+        "kind": "CENTER_STAGE",
+        "outline": [
+          [-20, -20],
+          [20, -20],
+          [20, 20],
+          [-20, 20]
+        ]
+      },
+      "levels": [
+        { "key": "floor", "name": "Floor", "rank": 1, "color": "violet" },
+        { "key": "lower", "name": "Lower", "rank": 2, "color": "blue" },
+        { "key": "upper", "name": "Upper", "rank": 3, "color": "green" }
+      ],
+      "bowlLevels": [
+        { "level": "lower", "sections": ["101-120", "209-212"] },
+        { "level": "upper", "sections": ["301-330"] }
+      ],
+      "floorSections": [
+        {
+          "name": "Floor 1",
+          "level": "floor",
+          "center": [0, -32.25],
+          "facing": "S",
+          "width": 80,
+          "rows": 6
+        },
+        {
+          "name": "Floor 2",
+          "level": "floor",
+          "center": [47.375, 0],
+          "facing": "W",
+          "width": 44,
+          "rows": 17
+        },
+        {
+          "name": "Floor 3",
+          "level": "floor",
+          "center": [0, 32.25],
+          "facing": "N",
+          "width": 80,
+          "rows": 6
+        },
+        {
+          "name": "Floor 4",
+          "level": "floor",
+          "center": [-47.375, 0],
+          "facing": "E",
+          "width": 44,
+          "rows": 17
+        }
+      ],
+      "remove": ["110-111", "312-319"],
+      "partial": []
+    },
+    {
+      "file": "yum-center-wrestling.json",
+      "name": "Wrestling (ring)",
+      "seats": 18000,
+      "floor": {
+        "kind": "RING",
+        "outline": [
+          [-10, -10],
+          [10, -10],
+          [10, 10],
+          [-10, 10],
+          [-10, 4],
+          [-70, 4],
+          [-70, 28],
+          [-97, 28],
+          [-97, -28],
+          [-70, -28],
+          [-70, -4],
+          [-10, -4]
+        ]
+      },
+      "levels": [
+        { "key": "floor", "name": "Floor", "rank": 1, "color": "violet" },
+        { "key": "lower", "name": "Lower", "rank": 2, "color": "blue" },
+        { "key": "upper", "name": "Upper", "rank": 3, "color": "green" }
+      ],
+      "bowlLevels": [
+        { "level": "lower", "sections": ["101-120", "209-212"] },
+        { "level": "upper", "sections": ["301-330"] }
+      ],
+      "floorSections": [
+        {
+          "name": "Floor 1",
+          "level": "floor",
+          "center": [0, -27],
+          "facing": "S",
+          "width": 56,
+          "rows": 8
+        },
+        {
+          "name": "Floor 2",
+          "level": "floor",
+          "center": [29.75, 0],
+          "facing": "W",
+          "width": 30,
+          "rows": 10
+        },
+        {
+          "name": "Floor 3",
+          "level": "floor",
+          "center": [0, 27],
+          "facing": "N",
+          "width": 56,
+          "rows": 8
+        }
+      ],
+      "remove": ["101-103", "118-120", "301-304", "327-330"],
+      "partial": []
+    }
+  ]
+}
