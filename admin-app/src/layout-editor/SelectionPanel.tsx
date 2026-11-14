@@ -99,7 +99,20 @@ export function SelectionPanel({
     <section className="card editor-panel" aria-labelledby="editor-selection-heading">
       <h2 id="editor-selection-heading">Selection</h2>
       {selection.kind === 'none' && <p className="note">Nothing selected.</p>}
-      {selection.kind === 'floor' && <p>{`Floor object: ${FLOOR_NAMES[doc.floor.kind]}`}</p>}
+      {selection.kind === 'floor' && (
+        <>
+          <p>{`Floor object: ${FLOOR_NAMES[doc.floor.kind]}`}</p>
+          <div className="form__actions">
+            <button
+              type="button"
+              className="btn"
+              onClick={() => dispatch({ type: 'setFloor', kind: 'NONE', at: [0, 0] })}
+            >
+              Delete floor object
+            </button>
+          </div>
+        </>
+      )}
       {(selection.kind === 'sections' ||
         selection.kind === 'rows' ||
         selection.kind === 'seats') && (

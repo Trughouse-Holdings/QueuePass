@@ -261,6 +261,9 @@ export function EditorCanvas({
       } else if (selection.kind === 'rows' || selection.kind === 'seats') {
         const section = doc.sections.find((x) => x.id === selection.sectionId);
         if (section) deleteSeats(doc, section.id, seatIdsOf(section, selection), dispatch);
+      } else if (selection.kind === 'floor') {
+        // Walk feedback (2026-11-14): the floor object goes too (Undo brings it back).
+        dispatch({ type: 'setFloor', kind: 'NONE', at: [0, 0] });
       }
       return;
     }

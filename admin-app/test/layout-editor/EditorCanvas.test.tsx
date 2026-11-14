@@ -219,6 +219,31 @@ describe('the floor object', () => {
     expect(map().getAttribute('viewBox')).toBe(before);
   });
 
+  it('selected, is deleted by the Delete key or by Delete floor object, and Undo brings it back (walk feedback)', async () => {
+    const user = userEvent.setup();
+    const { container } = await open();
+    const floor = () => container.querySelector('.editor-map__floor');
+    const choose = () => {
+      fireEvent.pointerDown(floor()!, { clientX: 60, clientY: 50, pointerId: 1 });
+      fireEvent.pointerUp(map(), { clientX: 60, clientY: 50, pointerId: 1 });
+    };
+    choose();
+    map().focus();
+    await user.keyboard('{Delete}');
+    expect(floor()).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Floor object removed');
+    expect(screen.getByRole('combobox', { name: 'Floor object' })).toHaveValue('NONE');
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(floor()).not.toBeNull();
+
+    choose();
+    await user.click(
+      within(panel('Selection')).getByRole('button', { name: 'Delete floor object' }),
+    );
+    expect(floor()).toBeNull();
+    expect(within(panel('Selection')).getByText('Nothing selected.')).toBeInTheDocument();
+  });
+
   it('is moved by dragging and resized by a corner handle', async () => {
     const { container } = await open();
     const floor = () => container.querySelector('.editor-map__floor') as SVGPathElement;

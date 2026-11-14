@@ -80,7 +80,9 @@ function hintFor(selection: Selection, zoomed: boolean, hasSections: boolean): s
   if (selection.kind === 'sections') {
     return 'Drag it to move it. Drag the round handle above it to turn it. Choose its level under Selection: Price level. Double-click it to see its seats. The arrow keys move it, and [ and ] turn it.';
   }
-  if (selection.kind === 'floor') return 'Drag the floor to move it; drag its corners to size it.';
+  if (selection.kind === 'floor') {
+    return 'Drag the floor to move it; drag its corners to size it. Delete (the key, or Delete floor object under Selection) removes it.';
+  }
   if (!hasSections) return 'Start with the steps above: a floor object, then a section.';
   return 'Click a section to select it (Shift-click for more). Drag empty space to move the map; scroll or use the zoom buttons to zoom.';
 }
