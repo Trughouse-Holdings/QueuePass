@@ -19,6 +19,7 @@ describe('attendeeTable', () => {
       ['Customer', 'text'],
       ['Name on tickets', 'text'],
       ['Tier', 'text'],
+      ['Price level', 'text'],
       ['Seat', 'text'],
       ['Ticket code', 'text'],
       ['Ticket status', 'text'],
@@ -37,6 +38,7 @@ describe('attendeeTable', () => {
         t('Jordan Lee'),
         t('VIP'),
         t(''),
+        t(''),
         t('ABCDEFGH2345'),
         t('Valid'),
         d('2026-11-01T16:45'),
@@ -49,6 +51,7 @@ describe('attendeeTable', () => {
         t('customer3'),
         t('Jordan Lee'),
         t('VIP'),
+        t(''),
         t(''),
         t('JKLMNPQR6789'),
         t('Valid'),
@@ -63,6 +66,7 @@ describe('attendeeTable', () => {
         t('=SUM(1,1)'),
         t('General admission'),
         t(''),
+        t(''),
         t('STUVWXYZ2345'),
         t('Valid'),
         d(''),
@@ -75,7 +79,9 @@ describe('attendeeTable', () => {
         t('customer3'),
         t('Zoë O’Brien'),
         t('Floor'),
-        t('Section A, Row 3, Seat 7'),
+        // Spec 038 R17, FR-026: a carried-over ticket's level is its type's name; the row by its label.
+        t('Floor'),
+        t('Section A, Row C, Seat 7'),
         t('MNPQRSTU2345'),
         t('Valid'),
         d(''),
@@ -89,6 +95,7 @@ describe('attendeeTable', () => {
         t('No name on ticket'),
         t('General'),
         t(''),
+        t(''),
         t('VWXYZ2345678'),
         t('Void'),
         // R13b: a void ticket's check-in stays empty, as the page shows only "(void)".
@@ -97,12 +104,48 @@ describe('attendeeTable', () => {
         m('45.00'),
         t('DDDDDDDD'),
       ],
+      // Spec 038 FR-030 (research R17): a seated order has no tier; each ticket names its level and
+      // its own price, as the order has no unit price.
+      [
+        d('2026-10-07T07:00'),
+        t('customer4'),
+        t('Sam Park'),
+        t(''),
+        t('Courtside'),
+        t('Section 115, Row D, Seat 2'),
+        t('BCDFGHJK2345'),
+        t('Valid'),
+        d(''),
+        t('Confirmed'),
+        m('95.00'),
+        t('EEEEEEEE'),
+      ],
+      [
+        d('2026-10-07T07:00'),
+        t('customer4'),
+        t('Sam Park'),
+        t(''),
+        t('Lower sideline'),
+        t('Section 115, Row F, Seat 7'),
+        t('LMNPQRST6789'),
+        t('Valid'),
+        d(''),
+        t('Confirmed'),
+        m('60.00'),
+        t('EEEEEEEE'),
+      ],
     ]);
+  });
+
+  it("prices each ticket at its own price, whatever the order's unit price (038 FR-030)", () => {
+    const seated = { ...EXPORT_ORDERS[4], unitPrice: '77.50' };
+    const rows = attendeeTable(CHICAGO_EVENT, [seated], MADE_AT, 'admin1', 'UTC').rows;
+    expect(rows.map((r) => r[10])).toEqual([m('95.00'), m('60.00')]);
   });
 
   it("prices add up to the page's order totals", () => {
     const cents = table().rows.reduce(
-      (sum, row) => sum + Math.round(Number((row[9] as { value: string }).value) * 100),
+      (sum, row) => sum + Math.round(Number((row[10] as { value: string }).value) * 100),
       0,
     );
     const totals = EXPORT_ORDERS.reduce(
@@ -148,12 +191,12 @@ describe('attendeeTable', () => {
 
     it('keeps the Checked in column, empty in every row', () => {
       const t = attendeeTable(REMOVED, EXPORT_ORDERS, MADE_AT, 'admin1', 'America/New_York', 3);
-      expect(t.columns[7].header).toBe('Checked in');
+      expect(t.columns[8].header).toBe('Checked in');
       expect(t.rows.length).toBe(table().rows.length);
-      for (const row of t.rows) expect(row[7]).toEqual(d(''));
+      for (const row of t.rows) expect(row[8]).toEqual(d(''));
       // Every other cell is as before.
-      expect(t.rows.map((r) => [...r.slice(0, 7), ...r.slice(8)])).toEqual(
-        table().rows.map((r) => [...r.slice(0, 7), ...r.slice(8)]),
+      expect(t.rows.map((r) => [...r.slice(0, 8), ...r.slice(9)])).toEqual(
+        table().rows.map((r) => [...r.slice(0, 8), ...r.slice(9)]),
       );
     });
 

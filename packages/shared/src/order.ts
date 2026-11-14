@@ -1,5 +1,5 @@
 import type { Event, EventStatus } from './event.js';
-import type { SeatChoice, SoldSeat } from './seating.js';
+import type { LevelSales, SeatChoice, SoldSeat } from './seating.js';
 import type { UsTimeZone } from './time-zone.js';
 
 /**
@@ -148,6 +148,8 @@ export interface EventSales {
   checkInDetailsRemovedAt?: string | null;
   revenue: string;
   tiers: TierSales[];
+  /** Spec 038 (R17): a seated event's sales by price level as sold; empty for general admission. */
+  levels: LevelSales[];
 }
 
 export interface SalesReport {

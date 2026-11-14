@@ -8,5 +8,6 @@ import { DEFAULT_TIME_ZONE, formatEventTime } from '@queuepass/shared';
 export const when = (iso: string, timeZone?: string | null): string =>
   formatEventTime(iso, timeZone || DEFAULT_TIME_ZONE);
 
-export const seatLabel = (s: { section: string; row: number; seat: number }): string =>
-  `Section ${s.section}, Row ${s.row}, Seat ${s.seat}`;
+/** Spec 038 FR-026: a seat by its labels as sold, "Section 115, Row F, Seat 7". */
+export const seatLabel = (s: { section: string; rowLabel: string; seatLabel: string }): string =>
+  `Section ${s.section}, Row ${s.rowLabel}, Seat ${s.seatLabel}`;

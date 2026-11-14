@@ -58,7 +58,10 @@ const WIDEST: Order = {
       code: 'WWWWMMMMWWWW',
       status: 'VALID',
       checkedInAt: '2026-11-01T22:45:00.000Z',
-      seat: { section: 'MMMM', row: 300, seat: 300 },
+      // Spec 038: labels of up to 5 characters, a level name of up to 50.
+      seat: { section: 'MMMM', row: 300, seat: 300, rowLabel: 'MMMMM', seatLabel: 'MMMMM' },
+      price: '9999.99',
+      levelName: 'Lower Sideline Terrace Club, Courtside Premium',
     },
   ],
 };

@@ -33,6 +33,29 @@ const renderReports = () =>
     </MemoryRouter>,
   );
 
+/** Spec 038 FR-030: a seated event, its sales by price level (`EventSales.levels`). */
+const SEATED_REPORT = {
+  ...REPORT,
+  events: REPORT.events.map((e, i) =>
+    i === 0
+      ? {
+          ...e,
+          tiers: [],
+          levels: [
+            {
+              levelId: '55555555-5555-4555-8555-555555555555',
+              name: 'Courtside',
+              price: '95.00',
+              seatsOnSale: 30,
+              ticketsSold: 25,
+              revenue: '1321.50',
+            },
+          ],
+        }
+      : { ...e, levels: [] },
+  ),
+};
+
 describe('Download on the Reports page', () => {
   it('is offered when the report is shown, and not while loading', async () => {
     stubApi({ 'GET /reports/sales': json(REPORT) });
@@ -63,6 +86,23 @@ describe('Download on the Reports page', () => {
     const table = salesTable(REPORT as unknown as SalesReport, 'admin2');
     expect(await blob.text()).toBe(await toCsv(table).text());
     expect(name).toMatch(/^sales-report-2026-10-0[01]-\d{4}\.csv$/);
+  });
+
+  it("keeps one row per event for a seated event, with the page's figures (023 FR-005; 038 R17)", async () => {
+    stubApi({ 'GET /reports/sales': json(SEATED_REPORT) });
+    const user = userEvent.setup();
+    renderReports();
+    await user.click(await screen.findByText('Download'));
+    await user.click(screen.getByRole('button', { name: 'CSV' }));
+
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    const [blob] = vi.mocked(save).mock.calls[0];
+    const csv = await blob.text();
+    const lines = csv.trim().split('\r\n');
+    // A header, one row per event, then Total; no row per level.
+    expect(lines).toHaveLength(1 + SEATED_REPORT.events.length + 1);
+    expect(lines[1]).toMatch(/^Season Opener,Yum Center,.*,25,100,1321\.50,12,/);
+    expect(csv).not.toContain('Courtside');
   });
 
   it("names the signed-in admin as made by, from the app's sign-in (R13a)", async () => {

@@ -75,6 +75,8 @@ export const REPORT = {
           revenue: '421.50',
         },
       ],
+      // Spec 038 (contract 2.0.0): general admission has no price levels.
+      levels: [],
     },
     {
       eventId: '33333333-3333-4333-8333-333333333333',
@@ -87,6 +89,7 @@ export const REPORT = {
       checkedIn: 0,
       revenue: '3000.00',
       tiers: [],
+      levels: [],
     },
     {
       eventId: '44444444-4444-4444-8444-444444444444',
@@ -99,16 +102,32 @@ export const REPORT = {
       checkedIn: 0,
       revenue: '0.00',
       tiers: [],
+      levels: [],
     },
   ],
 };
 
-const ticket = (id: string, code: string, checkedInAt: string | null, status = 'VALID') => ({
+/** Spec 038 (contract 2.0.0): each ticket's price, and no level or seat for general admission. */
+const ticket = (
+  id: string,
+  code: string,
+  checkedInAt: string | null,
+  price: string,
+  status = 'VALID',
+) => ({
   id,
   code,
   status,
   checkedInAt,
-  seat: null as { section: string; row: number; seat: number } | null,
+  seat: null as {
+    section: string;
+    row: number;
+    seat: number;
+    rowLabel: string;
+    seatLabel: string;
+  } | null,
+  price,
+  levelName: null as string | null,
 });
 
 export const ORDERS = [
@@ -127,8 +146,13 @@ export const ORDERS = [
     createdAt: '2026-09-30T15:00:00.000Z',
     refundedAt: null,
     tickets: [
-      ticket('a1111111-1111-4111-8111-111111111111', 'ABCDEFGH2345', '2026-11-01T22:45:00.000Z'),
-      ticket('a2222222-2222-4222-8222-222222222222', 'JKLMNPQR6789', null),
+      ticket(
+        'a1111111-1111-4111-8111-111111111111',
+        'ABCDEFGH2345',
+        '2026-11-01T22:45:00.000Z',
+        '84.30',
+      ),
+      ticket('a2222222-2222-4222-8222-222222222222', 'JKLMNPQR6789', null, '84.30'),
     ],
   },
   {
@@ -145,6 +169,8 @@ export const ORDERS = [
     status: 'REFUNDED',
     createdAt: '2026-09-30T16:00:00.000Z',
     refundedAt: '2026-09-30T17:00:00.000Z',
-    tickets: [ticket('b1111111-1111-4111-8111-111111111111', 'STUVWXYZ2345', null, 'VOID')],
+    tickets: [
+      ticket('b1111111-1111-4111-8111-111111111111', 'STUVWXYZ2345', null, '45.00', 'VOID'),
+    ],
   },
 ];

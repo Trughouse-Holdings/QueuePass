@@ -1020,16 +1020,33 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
 
 ## Phase 9: Reports, attendee lists, the gate (FR-026, FR-030, R17)
 
-- [ ] T050 [P] `backend/test/integration/reports.e2e-spec.ts`, `attendees.e2e-spec.ts`,
+- [X] T050 [P] `backend/test/integration/reports.e2e-spec.ts`, `attendees.e2e-spec.ts`,
   `entry.lookup.e2e-spec.ts`: a seated event's `EventSales.levels` (name, price, seats on sale,
   tickets sold, revenue) and empty `tiers`; attendees with each ticket's level and price; the entry
   ticket's `levelName` and seat labels. `admin-app/test/attendees.test.tsx`,
   `attendees-export.test.tsx`, `reports.test.tsx`, `reports-export.test.tsx`: a Price level column
   and a Price per ticket in the list, CSV, Excel and PDF. `booth-app/test/` entry result: "Section
   115, Row F, Seat 7" and "Lower sideline". Must fail.
-- [ ] T051 `backend/src/reports/`, attendee list, `backend/src/entry/`: the fields above.
+  **Done** (2026-11-14): the Backend specs with the contract (T009a); the Admin and Booth tests
+  written first and seen failing (Booth 5 red: the row by its number, no Price level). Admin: the
+  attendee list's Price level column and each ticket's seat by its labels, level and own price;
+  the CSV, Excel and PDF with a Price level column and Price per ticket; the Sales card's and the
+  report's levels (sold "N of M", a deleted level's sold count alone). Booth
+  `test/entry-result.test.tsx`: "Section 115, Row F, Seat 7" and "Lower sideline", no ticket type
+  for a seated ticket, a carried-over ticket's type kept beside its level, general admission as
+  today; `check-in.test.tsx` reads the row by its label.
+- [X] T051 `backend/src/reports/`, attendee list, `backend/src/entry/`: the fields above.
   `admin-app/src/pages/Attendees.tsx`, `export/attendee-rows.ts`, the report page and its exports;
   `booth-app/src/EntryResult.tsx`. T050 passes.
+  **Done** (2026-11-14): the Backend fields were served from T009a. `seatLabel` (Admin, Booth)
+  reads `rowLabel` and `seatLabel`. A seated ticket shows no "General admission" (blank Tier, the
+  Booth's Ticket type only for a carried-over ticket). Attendees: a Price level column (an order's
+  distinct levels) and, after each code, its seat, level and price. Export: Price level beside Tier,
+  Price from `Ticket.price`; Name on tickets, Tier and Seat narrowed so the PDF still fits letter
+  landscape (`pdf.fit.test`). `SalesCard` gains the levels table; `EventSales.levels` in
+  `packages/shared` (reusing `seating.ts`'s `LevelSales`). Admin 492 of 495 (the 3 red are the seat
+  stream's, T039's own, as before), Booth 99, shared 889, Customer 442, Backend 1,515 of 1,516
+  (`rate-limits.buy` SC-005, `ECONNRESET`, red without these changes too).
 
 ---
 
