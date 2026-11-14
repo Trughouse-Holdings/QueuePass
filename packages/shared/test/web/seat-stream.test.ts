@@ -367,8 +367,10 @@ describe('useSeatStream', () => {
     await waitFor(() => expect(count('/events/e1/seats/stream')).toBe(2));
     expect(result.current.section).not.toBeNull();
     act(() => second.send('venueMap', map(1, 9)));
+    // The second map is read, and the section is read again for it.
+    await waitFor(() => expect(counts(result)).toMatchObject({ open: 3, reserved: 1 }));
+    await waitFor(() => expect(count(SECTION)).toBe(3));
     await waitFor(() => expect((result.current.section as { seq: number } | null)?.seq).toBe(9));
-    expect(counts(result)).toMatchObject({ open: 3, reserved: 1 });
   });
 
   it('says missing for an event with no venue map (404)', async () => {
