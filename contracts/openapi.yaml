@@ -1437,7 +1437,6 @@ paths:
         as `{sectionId, row}`, then single seats. A general-admission event answers with
         `layoutId: null` and empty lists.
       operationId: getEventSeating
-      x-planned: '038'
       x-required-roles: [queuepass-admin]
       responses:
         '200':

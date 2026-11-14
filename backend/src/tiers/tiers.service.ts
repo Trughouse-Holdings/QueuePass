@@ -47,10 +47,17 @@ export class TiersService {
     const { result, changes } = await this.prisma.$transaction(async (tx) => {
       const event = await lockEvent(tx, eventId);
       if (event.status === 'CANCELLED') throw eventCancelled(event.name);
+      // Spec 038 (FR-012, research R8): a seated event is priced by level, never by ticket type.
+      if (event.layoutId !== null) {
+        throw new BadRequestException({
+          message: [
+            'a seated event has no ticket types; set a price for each price level of its layout',
+          ],
+        });
+      }
       await this.assertNoTierlessSales(tx, event);
       await this.assertNameFree(tx, event, dto.name, null);
-      // Spec 007 FR-006: a seated tier's amount comes from its sections, 0 until mapped.
-      const quantity = this.quantityFor(event, dto.quantity);
+      const quantity = this.quantityFor(dto.quantity);
       await this.assertFits(tx, event, quantity, null);
       const created = await tx.ticketTier.create({
         data: { eventId, name: dto.name, price: dto.price, quantity },
@@ -129,18 +136,8 @@ export class TiersService {
 
   // ---------------------------------------------------------------- rules
 
-  /** Spec 007 FR-006: typed without reserved seating, calculated (starting at 0) with it. */
-  private quantityFor(event: LockedEvent, typed: number | undefined): number {
-    if (event.reservedSeating) {
-      if (typed !== undefined) {
-        throw new BadRequestException({
-          message: [
-            "quantity must be omitted: it follows this tier's sections while reserved seating is on",
-          ],
-        });
-      }
-      return 0;
-    }
+  /** Spec 004: a general-admission tier's quantity is typed (spec 038: only GA has tiers). */
+  private quantityFor(typed: number | undefined): number {
     if (typed === undefined) {
       throw new BadRequestException({ message: ['quantity is required for a tier'] });
     }

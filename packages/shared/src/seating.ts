@@ -67,14 +67,25 @@ export interface ReleasedSeats {
   released: number;
 }
 
-/** Spec 015: one seat's new state. Never says who reserved or bought it. */
+/**
+ * Spec 015: one seat's new state. Never says who reserved or bought it. Spec 038 (research R12):
+ * `offSale`, and the state the seat left (`from`) and its level (`levelId`), which the contract's
+ * `SeatStateChange` requires; optional here until every publisher sends them (T035, T037).
+ */
 export interface SeatStateChange extends SeatChoice {
-  state: 'open' | 'reserved' | 'sold';
+  state: 'open' | 'reserved' | 'sold' | 'offSale';
+  from?: 'open' | 'reserved' | 'sold' | 'offSale';
+  levelId?: string;
 }
 
-/** Spec 015: seats of one event that changed state, as `streamSeatMap` sends them. */
+/**
+ * Spec 015: seats of one event that changed state, as `streamSeatMap` sends them. Spec 038
+ * (research R12): `seq`, the event's `seatSeq` after the change; optional here until every
+ * publisher sends it (T035, T037).
+ */
 export interface SeatMapChange {
   eventId: string;
+  seq?: number;
   changes: SeatStateChange[];
 }
 
