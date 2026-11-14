@@ -23,6 +23,10 @@ app is for, and uses the app's own accent: indigo for Admin, teal for Tickets, a
 Booth; the look ships with the repository and is applied from a clean clone) and `012` (one shared
 theme: accent color, fonts, spacing, light and dark color schemes).
 
+> **Note (2026-11-11, spec `037`)**: A fourth sign-in look, red, is added for the Rust Admin app
+> (client `admin-rust-app`), with its own accent set and line colour, so there are four line
+> colours, not three (Constitution 3.11.0).
+
 Today, since `021`, the sign-in pages are a card on the flat page color, with a 6 px accent band at
 the top, the brand mark, the app's name as the heading, and the audience line. Before `021`,
 Keycloak's stock sign-in page showed a background of grey low-poly "stones", lighter at the top left
