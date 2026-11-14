@@ -480,7 +480,7 @@ lists, announcements.
 - [X] T056 [P] `README.md`: the 039 row (plan and tasks "Done (N/63 tasks)", code "Built (review
   …)") and the layout editor in the Admin app's list of screens, in the README's existing style.
 - [X] T057 Coverage: each workspace ≥ 80% lines (`npm test`); add tests where a new file falls short.
-- [ ] T058 `npm run ci` green locally; `npm run e2e` green (on a port-shifted stack if the team
+- [X] T058 `npm run ci` green locally; `npm run e2e` green (on a port-shifted stack if the team
   stack holds 5173–5175, as 038's T058 did); record the runs.
 - [ ] T059 Timing checks (quickstart "Timing checks"; SC-001–SC-003, SC-008) on the demo state on a
   laptop; record the times for the PR description.
