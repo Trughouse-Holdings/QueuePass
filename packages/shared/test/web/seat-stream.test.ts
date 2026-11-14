@@ -373,6 +373,45 @@ describe('useSeatStream', () => {
     await waitFor(() => expect((result.current.section as { seq: number } | null)?.seq).toBe(9));
   });
 
+  it('tries the open section again after a network error or a 5xx, waiting longer each time', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { count } = stubRoutes({
+      '/events/e1/venue-map': [() => json(map())],
+      '/events/e1/seats/stream': [() => sse().response],
+      [SECTION]: [
+        () => {
+          throw new TypeError('Failed to fetch');
+        },
+        () => new Response(null, { status: 503 }),
+        () => json(section()),
+      ],
+    });
+    const { result } = renderHook(() => useSeatStream('e1', { ...options, openSectionId: 's-a' }));
+    await waitFor(() => expect(count(SECTION)).toBe(1));
+    expect(result.current.section).toBeNull();
+    // The first try again after a second, the next after two.
+    await act(async () => vi.advanceTimersByTimeAsync(1_000));
+    await waitFor(() => expect(count(SECTION)).toBe(2));
+    await act(async () => vi.advanceTimersByTimeAsync(1_000));
+    expect(count(SECTION)).toBe(2);
+    await act(async () => vi.advanceTimersByTimeAsync(1_000));
+    await waitFor(() => expect(result.current.section).not.toBeNull());
+    expect(count(SECTION)).toBe(3);
+  });
+
+  it('does not try a section again that is not there (404)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { count } = stubRoutes({
+      '/events/e1/venue-map': [() => json(map())],
+      '/events/e1/seats/stream': [() => sse().response],
+      [SECTION]: [() => new Response(null, { status: 404 })],
+    });
+    renderHook(() => useSeatStream('e1', { ...options, openSectionId: 's-a' }));
+    await waitFor(() => expect(count(SECTION)).toBe(1));
+    await act(async () => vi.advanceTimersByTimeAsync(30_000));
+    expect(count(SECTION)).toBe(1);
+  });
+
   it('says missing for an event with no venue map (404)', async () => {
     stubRoutes({});
     const { result } = renderHook(() => useSeatStream('e1', options));

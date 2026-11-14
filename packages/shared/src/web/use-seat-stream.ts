@@ -66,7 +66,8 @@ export interface LiveSeats {
  * `getVenueMap`, so the page works as before if streaming is blocked; the stream then replaces it
  * with its own first `venueMap` and sends `seats` changes, applied by `mapReducer` against each
  * `seq`, so a change already in the map or the section is never applied twice (FR-023). After a
- * reconnect, the open section is read again; its seats stay shown meanwhile. The stream is closed
+ * reconnect, the open section is read again; its seats stay shown meanwhile. A section read with
+ * no answer or a 5xx is tried again after 1, 2, 4, 8, then every 10 seconds. The stream is closed
  * on unmount and when the event changes, since a browser allows only 6 connections per host.
  *
  * For a customer (`withMine`), `mine` is reloaded whenever a change touches one of their reserved
@@ -91,6 +92,11 @@ export function useSeatStream(eventId: string | null, options: SeatStreamOptions
   const mineTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const hasMap = useRef(false);
   const sectionRequest = useRef<string | null>(null);
+  // A section read that failed (no answer, or a 5xx) is tried again, 1, 2, 4, 8, then every 10
+  // seconds, while the section stays open; `sectionTry` counts the tries, to start the next.
+  const [sectionTry, setSectionTry] = useState(0);
+  const sectionFailures = useRef(0);
+  const sectionTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const eventRef = useRef(eventId);
   eventRef.current = eventId;
 
@@ -206,27 +212,46 @@ export function useSeatStream(eventId: string | null, options: SeatStreamOptions
   // The open section's seats: loaded when opened, and again after each new map.
   const openSectionId = options.openSectionId ?? null;
   const wanted = openSectionId !== null && state.map !== null && needsLoad(state, openSectionId);
+  const sectionKey = eventId && openSectionId ? `${eventId}:${openSectionId}` : null;
+  useEffect(() => {
+    // Another section (or none): its tries start from the first wait.
+    clearTimeout(sectionTimer.current);
+    sectionFailures.current = 0;
+  }, [sectionKey]);
+  useEffect(() => () => clearTimeout(sectionTimer.current), []);
   useEffect(() => {
     if (!eventId || !openSectionId || !wanted) return;
-    const key = `${eventId}:${openSectionId}:${mapVersion}`;
+    const key = `${eventId}:${openSectionId}:${mapVersion}:${sectionTry}`;
     if (sectionRequest.current === key) return;
     sectionRequest.current = key;
+    clearTimeout(sectionTimer.current);
     const asked = versionRef.current;
+    let failed = false;
     void opts.current.api
       .GET('/events/{id}/venue-map/sections/{sectionId}', {
         params: { path: { id: eventId, sectionId: openSectionId } },
       })
-      .then(({ data }) => {
+      .then(({ data, response }) => {
+        if (data) sectionFailures.current = 0;
+        // A 4xx (a section no longer in the layout) is not tried again; a new map may close it.
+        else failed = response.status >= 500;
         // Read before a newer map: the next request (for that map) brings it.
         if (data && asked === versionRef.current && eventRef.current === eventId) {
           dispatch({ type: 'section', section: data as VenueMapSection });
         }
       })
-      .catch(() => undefined)
+      .catch(() => {
+        failed = true;
+      })
       .finally(() => {
-        if (sectionRequest.current === key) sectionRequest.current = null;
+        if (sectionRequest.current !== key) return;
+        sectionRequest.current = null;
+        if (!failed) return;
+        const wait = Math.min(1_000 * 2 ** sectionFailures.current, 10_000);
+        sectionFailures.current += 1;
+        sectionTimer.current = setTimeout(() => setSectionTry((n) => n + 1), wait);
       });
-  }, [eventId, openSectionId, wanted, mapVersion]);
+  }, [eventId, openSectionId, wanted, mapVersion, sectionTry]);
 
   const map = state.map;
   const loaded = openSectionId ? state.sections[openSectionId] : undefined;
