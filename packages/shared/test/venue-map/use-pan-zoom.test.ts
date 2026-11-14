@@ -131,6 +131,23 @@ describe('usePanZoom', () => {
     expect(result.current.dragged()).toBe(true);
   });
 
+  it('suppresses only the click that ends a drag, not a later click without a press (T060, M4)', () => {
+    vi.useFakeTimers();
+    try {
+      const { result } = mount();
+      act(() => result.current.onPointerDown(pointer(1, 500, 300)));
+      act(() => result.current.onPointerMove(pointer(1, 450, 280)));
+      act(() => result.current.onPointerUp(pointer(1, 450, 280)));
+      // The click the browser sends with the pointerup, in the same task.
+      expect(result.current.dragged()).toBe(true);
+      // A later click with no pointerdown (a screen reader's activation) chooses.
+      act(() => vi.runAllTimers());
+      expect(result.current.dragged()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('a press without a move is not a drag', () => {
     const { result } = mount();
     act(() => result.current.onPointerDown(pointer(1, 500, 300)));

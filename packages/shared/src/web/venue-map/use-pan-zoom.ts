@@ -133,7 +133,7 @@ export interface PanZoom {
   onPointerMove(e: React.PointerEvent): void;
   onPointerUp(e: React.PointerEvent): void;
   onKeyDown(e: React.KeyboardEvent): void;
-  /** Whether the last press was a drag, so the click that ends it chooses nothing. */
+  /** Whether a drag just ended, so the click that ends it chooses nothing; false after that. */
   dragged(): boolean;
 }
 
@@ -304,6 +304,13 @@ export function usePanZoom(fit: View): PanZoom {
       wasDrag.current = dragging.current;
       dragging.current = false;
       pressedAt.current = null;
+      // The click that ends a drag comes in this same task; any later one (a screen reader's
+      // activation, with no press) must choose, so the mark lasts only until then.
+      if (wasDrag.current) {
+        setTimeout(() => {
+          wasDrag.current = false;
+        }, 0);
+      }
     }
   };
 
