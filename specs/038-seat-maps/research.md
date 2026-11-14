@@ -237,7 +237,8 @@ refused (`409 LAYOUT_IN_USE`, naming each event and why) when an event would the
 in a level it has no price for (a section moved to a new level), no seat on sale, or a
 `maxTicketsPerCustomer` above its seats on sale (FR-006, review S4). Only a layout made from lines
 (`source: LINES`) takes lines; an imported one can only be renamed (its geometry comes from its
-file; `039` edits it). A carried-over layout with more than 12 levels may keep as many as it has
+file; `039` edits it). _Amended 2026-11-14 by spec `039` (research R4): an imported layout that
+is not locked is edited in `039`'s layout editor, keeping ids by id, not by label._ A carried-over layout with more than 12 levels may keep as many as it has
 (review S8).
 
 **Why**: FR-005 keeps today's quick way to make a small room's layout. Keeping ids by label makes an

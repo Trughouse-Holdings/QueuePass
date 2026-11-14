@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: QueuePass Backend API
-  version: 2.0.0
+  version: 2.1.0
   description: |
     The single, authoritative API contract for QueuePass (Constitution I). Every front end builds
     against this document. An endpoint is added or changed here, in a reviewed pull request,
@@ -726,6 +726,51 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /locations/{id}/layouts/drawing:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The venue.
+    post:
+      tags: [seating]
+      summary: Save a new layout drawn in the layout editor
+      description: |
+        Feature 039. Saves the layout a `LayoutDrawingInput` describes as a new layout of the
+        venue, all or nothing; `source` is `DRAWN`. Every `id` in the body, and `revision`, are
+        ignored, so the editor's **Save as a new layout** sends the same body it would have saved
+        over an existing layout. The body may be up to 4 MB, as `importVenueLayout`'s.
+
+        The Backend draws each section's outline around its seats and puts its name at the
+        outline's centroid; the map's size is everything drawn plus a margin. Checked as a whole
+        before anything is saved, as `importVenueLayout` checks a file: the limits of
+        `LayoutDrawingInput`, unique names and labels, levels named by their `key`, every place
+        from 0 to 5,000. Any problem refuses it with `400 LAYOUT_FILE_INVALID`, listing up to 50
+        problems in `details.problems`, each with its `path` in the body and a message naming the
+        section, row and seat. A name another layout of the venue has, ignoring case, is `409
+        LAYOUT_NAME_TAKEN`. The venue's capacity is set and checked as by `createVenueLayout`.
+      operationId: createLayoutDrawing
+      x-planned: '039'
+      x-required-roles: [queuepass-admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LayoutDrawingInput' }
+      responses:
+        '201':
+          description: The new layout.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LayoutDetail' }
+        '400': { $ref: '#/components/responses/LayoutFileRejected' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   /layouts/{layoutId}:
     parameters:
       - name: layoutId
@@ -771,6 +816,9 @@ paths:
         refused (`409 LAYOUT_IN_USE`, `details.events`, the message saying why for each) when an
         event would then have on-sale seats in a level it has no price for, no seat on sale, or a
         `maxTicketsPerCustomer` above its seats on sale.
+
+        Feature 039: a rename or a lines edit raises the layout's `revision` by one, so a layout
+        editor that read it before is refused (`saveLayoutDrawing`, `409 LAYOUT_CHANGED`).
       operationId: updateVenueLayout
       x-required-roles: [queuepass-admin]
       requestBody:
@@ -868,6 +916,82 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/LayoutDetail' }
         '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /layouts/{layoutId}/drawing:
+    parameters:
+      - name: layoutId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+        description: The layout.
+    get:
+      tags: [seating]
+      summary: A whole layout, for the layout editor
+      description: |
+        Feature 039. Everything the editor needs to change the layout, every seat included: its
+        `revision`, whether it is `locked` and by which events, the floor object, its levels, and
+        each section's place (`origin`, `angle`), the values it was generated from (`generator`,
+        `null` when it was not), rows and seats with their ids and their **own** levels (`levelId`
+        is left out where a row or seat takes its section's or row's). A locked layout is still
+        returned, for the editor to show read-only.
+      operationId: getLayoutDrawing
+      x-planned: '039'
+      x-required-roles: [queuepass-admin]
+      responses:
+        '200':
+          description: The layout, seat by seat.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LayoutDrawing' }
+        '400': { $ref: '#/components/responses/ValidationFailed' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [seating]
+      summary: Save a layout from the layout editor
+      description: |
+        Feature 039. Replaces the layout with the one the body describes, all or nothing, under
+        the checks of `createLayoutDrawing`. Every level, section, row and seat sent with its `id`
+        is **kept** (its id and what points at it: an event's price for a level, an event's
+        off-sale entry for a seat), even when renamed, relabelled, moved or repainted; a row or
+        seat must be sent under the section or row it belongs to (`400` otherwise). Anything of
+        the layout not sent is deleted, with its prices and off-sale entries; anything sent
+        without an `id` is new. Rows and seats are numbered by their order in the body. A
+        `LINES` layout becomes `DRAWN`. The layout's `revision` goes up by one.
+
+        Refused, nothing saved:
+        - `409 LAYOUT_CHANGED` when `revision` is not the layout's current one (another admin, or
+          another tab, saved it since it was read); `details.revision` is the current one.
+        - `409 LAYOUT_IN_USE` while the layout is `locked` (`details.events`).
+        - `409 LAYOUT_IN_USE` when a scheduled event using the layout would then have on-sale
+          seats in a level it has no price for, no seat on sale, or a `maxTicketsPerCustomer`
+          above its seats on sale (`details.events`, the message saying why for each).
+        - Name and capacity rules as `createVenueLayout`.
+
+        For every scheduled event using the layout, **new** seats go off sale for that event and
+        its `totalTicketCapacity`, `basePrice` and `priceMax` are recomputed. Viewers of events
+        that use it reload (`streamSeatMap` ends).
+      operationId: saveLayoutDrawing
+      x-planned: '039'
+      x-required-roles: [queuepass-admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LayoutDrawingInput' }
+      responses:
+        '200':
+          description: The saved layout.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LayoutDetail' }
+        '400': { $ref: '#/components/responses/LayoutFileRejected' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -3212,16 +3336,20 @@ components:
         name: { type: string, minLength: 1, maxLength: 50, example: Basketball }
         source:
           type: string
-          enum: [FILE, LINES]
-          description: Imported from a file, or made from section lines (only these take lines).
+          enum: [FILE, LINES, DRAWN]
+          description: |
+            Imported from a file, made from section lines (only these take lines), or, feature
+            039, drawn in the Admin app's layout editor (a `LINES` layout saved from the editor
+            becomes `DRAWN`; a `FILE` layout stays `FILE`).
         floorKind: { $ref: '#/components/schemas/FloorKind' }
         seatCount:
           type: integer
           minimum: 1
           example: 22090
           description: |
-            At most 30,000 for a layout imported or made from lines; a layout carried over from
-            before 038 ("Standard") may have more, up to the old limits (50 × 100 × 200).
+            At most 30,000 for a layout imported, made from lines or drawn (feature 039); a layout
+            carried over from before 038 ("Standard") may have more, up to the old limits
+            (50 × 100 × 200).
         sectionCount: { type: integer, minimum: 1, example: 54 }
         levelCount: { type: integer, minimum: 1, example: 4 }
         eventsUsing:
@@ -3497,6 +3625,218 @@ components:
         from: { $ref: '#/components/schemas/MapPoint' }
         to: { $ref: '#/components/schemas/MapPoint' }
         bend: { $ref: '#/components/schemas/MapPoint' }
+
+    SectionGenerator:
+      description: |
+        Feature 039. The values a section was generated from in the layout editor, kept for
+        Regenerate. Rows are labelled from `firstRow` in `rowLabels` style (letters: A … Z, AA …
+        ZZ, AAA …; numbers: 1, 2, …), front first; seats from `firstSeat` up, `direction` as seen
+        from the floor; `curve` is the arc of the front row in degrees (0 straight).
+      type: object
+      required: [rows, seatsPerRow, rowLabels, firstRow, firstSeat, direction, curve]
+      additionalProperties: false
+      properties:
+        rows: { type: integer, minimum: 1, maximum: 100 }
+        seatsPerRow:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: One number for every row, or one for each row front first.
+          items: { type: integer, minimum: 1, maximum: 200 }
+        rowLabels: { type: string, enum: [LETTERS, NUMBERS] }
+        firstRow: { type: string, minLength: 1, maxLength: 5, example: A }
+        firstSeat: { type: integer, minimum: 1, maximum: 9999 }
+        direction: { type: string, enum: [LEFT_TO_RIGHT, RIGHT_TO_LEFT] }
+        curve: { type: number, minimum: 0, maximum: 120 }
+
+    LayoutDrawing:
+      description: Feature 039. A whole layout as the layout editor reads it.
+      type: object
+      required:
+        [id, locationId, name, source, revision, locked, lockedBy, floor, size, levels, sections]
+      properties:
+        id: { type: string, format: uuid }
+        locationId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 50 }
+        source: { type: string, enum: [FILE, LINES, DRAWN] }
+        revision:
+          type: integer
+          minimum: 1
+          description: Goes up by one with every change to the layout; sent back on save.
+        locked: { type: boolean }
+        lockedBy:
+          type: array
+          description: The scheduled events with valid tickets or live holds that lock it.
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+        floor: { $ref: '#/components/schemas/LayoutDrawingFloor' }
+        size: { $ref: '#/components/schemas/MapSize' }
+        levels:
+          type: array
+          description: By rank.
+          items:
+            type: object
+            required: [id, name, rank, color]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string, minLength: 1, maxLength: 50 }
+              rank: { type: integer, minimum: 1, maximum: 50 }
+              color: { $ref: '#/components/schemas/LevelColor' }
+        sections:
+          type: array
+          description: In drawing order.
+          items:
+            type: object
+            required: [id, name, levelId, origin, angle, generator, outline, rows]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string, minLength: 1, maxLength: 50 }
+              levelId: { type: string, format: uuid }
+              origin:
+                $ref: '#/components/schemas/MapPoint'
+                description: The point the section moves and turns about.
+              angle:
+                type: number
+                minimum: -180
+                maximum: 180
+                description: Degrees clockwise the editor has turned it; 0 for an imported section.
+              generator:
+                oneOf:
+                  - $ref: '#/components/schemas/SectionGenerator'
+                  - type: 'null'
+              outline: { $ref: '#/components/schemas/MapOutline' }
+              rows:
+                type: array
+                description: Front first.
+                items:
+                  type: object
+                  required: [id, label, seats]
+                  properties:
+                    id: { type: string, format: uuid }
+                    label: { type: string, minLength: 1, maxLength: 5 }
+                    levelId:
+                      type: string
+                      format: uuid
+                      description: The row's own level; left out when it takes the section's.
+                    seats:
+                      type: array
+                      description: In order.
+                      items:
+                        type: object
+                        required: [id, label, at]
+                        properties:
+                          id: { type: string, format: uuid }
+                          label: { type: string, minLength: 1, maxLength: 5 }
+                          at: { $ref: '#/components/schemas/MapPoint' }
+                          levelId:
+                            type: string
+                            format: uuid
+                            description: The seat's own level; left out when it takes the row's.
+                          accessible:
+                            type: boolean
+                            description: Left out when `false`.
+
+    LayoutDrawingFloor:
+      type: object
+      required: [kind]
+      properties:
+        kind: { $ref: '#/components/schemas/FloorKind' }
+        outline:
+          $ref: '#/components/schemas/MapOutline'
+          description: Required unless `kind` is `NONE`, and left out then.
+
+    LayoutDrawingInput:
+      description: |
+        Feature 039. A whole layout as the layout editor saves it. At most 100 sections, 100 rows
+        a section, 200 seats a row, 30,000 seats, 12 levels; every place from 0 to 5,000. No
+        outlines and no size: the Backend draws each section's outline around its seats and sizes
+        the map to fit (research R5 of spec 039).
+      type: object
+      required: [name, floor, levels, sections]
+      additionalProperties: false
+      properties:
+        revision:
+          type: integer
+          minimum: 1
+          description: Required by `saveLayoutDrawing` (`400` without it); ignored on create.
+        name: { type: string, minLength: 1, maxLength: 50 }
+        floor: { $ref: '#/components/schemas/LayoutDrawingFloor' }
+        levels:
+          type: array
+          minItems: 1
+          maxItems: 12
+          description: Best first; the order gives each its rank.
+          items:
+            type: object
+            required: [key, name, color]
+            additionalProperties: false
+            properties:
+              id:
+                type: string
+                format: uuid
+                description: A level of this layout, kept; left out for a new level.
+              key:
+                type: string
+                pattern: '^[a-z0-9-]{1,40}$'
+                description: How sections, rows and seats of this body name the level.
+              name: { type: string, minLength: 1, maxLength: 50 }
+              color: { $ref: '#/components/schemas/LevelColor' }
+        sections:
+          type: array
+          minItems: 1
+          maxItems: 100
+          description: In drawing order.
+          items:
+            type: object
+            required: [name, level, origin, angle, rows]
+            additionalProperties: false
+            properties:
+              id: { type: string, format: uuid, description: Kept; left out for a new section. }
+              name: { type: string, minLength: 1, maxLength: 50 }
+              level: { type: string, description: A level `key`. }
+              origin: { $ref: '#/components/schemas/MapPoint' }
+              angle: { type: number, minimum: -180, maximum: 180 }
+              generator:
+                oneOf:
+                  - $ref: '#/components/schemas/SectionGenerator'
+                  - type: 'null'
+              rows:
+                type: array
+                minItems: 1
+                maxItems: 100
+                description: Front first; the order gives each row its number.
+                items:
+                  type: object
+                  required: [label, seats]
+                  additionalProperties: false
+                  properties:
+                    id: { type: string, format: uuid, description: Kept; left out for a new row. }
+                    label: { type: string, minLength: 1, maxLength: 5 }
+                    level: { type: string, description: A level `key`, overriding the section's. }
+                    seats:
+                      type: array
+                      minItems: 1
+                      maxItems: 200
+                      description: In order; the order gives each seat its number.
+                      items:
+                        type: object
+                        required: [label, at]
+                        additionalProperties: false
+                        properties:
+                          id:
+                            type: string
+                            format: uuid
+                            description: Kept; left out for a new seat.
+                          label: { type: string, minLength: 1, maxLength: 5 }
+                          at: { $ref: '#/components/schemas/MapPoint' }
+                          level:
+                            type: string
+                            description: A level `key`, overriding the row's.
+                          accessible: { type: boolean }
 
     LevelPriceInput:
       type: object
@@ -3932,6 +4272,7 @@ components:
                 - LAYOUT_NAME_TAKEN
                 - LAYOUT_FILE_INVALID
                 - SEAT_OFF_SALE
+                - LAYOUT_CHANGED
                 - ADDRESS_NOT_FOUND
                 - ADDRESS_AMBIGUOUS
                 - ADDRESS_SERVICE_UNAVAILABLE
@@ -4386,6 +4727,14 @@ components:
                   message: KFC Yum! Center already has a layout named "Basketball".
                   details:
                     layoutId: 0b7f2a7e-3c55-4a63-9f1e-5e0c8b4d2a11
+            layoutChanged:
+              summary: Feature 039. The layout was saved by someone else since it was read
+              value:
+                error:
+                  code: LAYOUT_CHANGED
+                  message: Basketball was changed since you opened it; nothing was saved.
+                  details:
+                    revision: 7
             layoutLocked:
               summary: Feature 038. A layout used by an event with sold or held seats
               value:

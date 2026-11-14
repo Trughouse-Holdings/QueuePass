@@ -63,6 +63,17 @@ in Slack and not yet answered one by one. Each takes
 the proposal's recommended answer, recorded here as **recommended answer, open to review**, so John,
 Mahdi and the team can overturn it in review of the spec PR.
 
+_Noted 2026-11-14: John answered D1–D6 on the proposal. D1, D3 and D5: the recommended answer
+(A), as built. D2: A, confirmed as "seats placed into tiers on the layout, mapped to prices at the
+event level"; several tier maps on one layout is a future item, not a requirement (#169); until
+then Duplicate makes a differently tiered copy. D4: John chose B (drop old seating, reload the
+demo data); A was already built and merged, and it is kept unless John asks for it removed (the
+reset still reloads the demo data). D6: check Ticketmaster's API terms and seats.io. Ticketmaster's
+Discovery API gives only a seat-map image per event, and its terms bar apps that replicate its
+core experience; seats.io is a paid hosted map and seat picker with only a 90-day trial that
+cannot sell seats, so it would replace this spec rather than feed it data. A (trace the venue's
+public charts) stays._
+
 - Q: How are layouts made in this spec, since the drawing editor is `039`? → A: **Two ways: import a
   layout file, or build a plain layout from section lines as today.** A layout file holds sections
   with their outlines and places, rows with labels, seats with their places, price levels, and each
@@ -374,6 +385,10 @@ map shows each change within 2 seconds.
   seats off sale for those events and recompute their capacity and prices, and MUST be refused,
   naming the event, when an event would then have on-sale seats in a level it has no price for, no
   seat on sale, or a per-customer limit above its seats on sale.
+  _Amended 2026-11-14 by spec `039`, FR-002 and FR-021: any layout that is not locked, imported,
+  from section lines or drawn, can also be edited in the Admin app's layout editor, which keeps the
+  identity of every section, row and seat the admin did not delete; section lines still apply only
+  to a section-line layout, which becomes drawn once saved from the editor._
 - **FR-007**: The venue page MUST list each layout's name, seat count, section count, level count,
   and the number of scheduled events using it, with a preview of its map.
 - **FR-008**: Layout changes MUST require `queuepass-admin`. A layout's map, without who holds any
@@ -425,6 +440,11 @@ map shows each change within 2 seconds.
   the price range of its open seats and its open seat count, under the same filter; then the chosen
   section's seats as buttons grouped by row, each named with row, seat, level, price and state. The
   map and the list MUST share one state.
+  *Amended 2026-11-14 by spec 039 (Nate's walk)*: the list always shows every section and never
+  their seats. Choosing a section in it opens the section on the map, marks it in the list, and
+  moves the keyboard's focus to its first seat on the map, where seats (focusable buttons named
+  as above) are chosen; choosing it again shows the whole map. The keyboard path (SC-007) runs
+  through the list to the map's seats.
 - **FR-021**: Clicking an open seat on the map or in the list MUST hold it, and clicking a held seat
   MUST release it, exactly as `033` (one countdown per event, Add to cart, buy from the cart, the
   2-minute wait, the hold allowance). One hold MUST be able to hold seats of any levels of one event;
@@ -533,8 +553,12 @@ map shows each change within 2 seconds.
 
 - The seat-maps proposal's decisions D1–D6 take its recommended answers until John answers in Slack
   (Clarifications).
+  _Noted 2026-11-14: John answered; every recommended answer stands except D4, where he chose B and
+  the built A is kept unless he asks for it removed (Clarifications, Session 2026-11-13)._
 - The drawing editor (block generator, drag and rotate, price-level painting by hand) is spec `039`.
   Until it merges, a layout's row and seat level overrides come from its file.
+  _Amended 2026-11-14 by spec `039`: the layout editor also sets row and seat levels, by
+  painting._
 - The Rust Admin and Customer apps (`037` and its Customer counterpart) are not changed here; `037`'s
   seating screens follow this spec's (research R22). Whether
   they must also get seat maps is an open question for John.

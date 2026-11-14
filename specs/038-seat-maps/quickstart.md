@@ -83,7 +83,7 @@ Phone width (390 × 844): pinch, zoom buttons, tap a section. **Expected**: Zoom
 
 ## S16. Keyboard and screen reader (US4)
 
-Keyboard only: filter, open the Sections list, choose 115, hold Row F Seat 7, release it. **Expected**: Seats are buttons named "Row F, Seat 7, Courtside, $95, open"; the map shows the same. **Covered by**: Customer `SectionsList` test; browser `038 S16`.
+Keyboard only: filter, open the Sections list, choose 115, hold Row F Seat 7, release it. **Expected**: Seats are buttons named "Row F, Seat 7, Courtside, $95, open"; the map shows the same. *Amended 2026-11-14 (spec 039, FR-020 amended)*: 115 opens on the map and stays marked in the list, the focus goes to its first seat on the map, and Row F Seat 7 is held and released there. **Covered by**: Customer `SectionsList` test; browser `038 S16`.
 
 ## S17. The admin's live map (US6)
 

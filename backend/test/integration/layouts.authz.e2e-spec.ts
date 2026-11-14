@@ -94,6 +94,9 @@ describe('Venue layout endpoints: authorization (038)', () => {
   it('covers the eight layout operations of the contract, all served', () => {
     const declared = operations
       .filter((o) => o.path.startsWith('/layouts') || o.path.startsWith('/locations/{id}/layouts'))
+      // Spec 039's three drawing operations are `x-planned` until its implementation, which adds
+      // them to this table (039 T006).
+      .filter((o) => !o.planned)
       .map((o) => o.operationId)
       .sort();
     expect(all.map((w) => w.op).sort()).toEqual(declared);
