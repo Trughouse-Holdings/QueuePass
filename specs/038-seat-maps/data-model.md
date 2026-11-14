@@ -21,7 +21,7 @@ One seating configuration of a venue (FR-001).
 | `floorKind` | enum `FloorKind`: `COURT`, `END_STAGE`, `CENTER_STAGE`, `RING`, `NONE` | |
 | `floorOutline` | JSONB, nullable | `[[x, y], …]`, 3–64 points; `NULL` with `NONE` (CHECK) |
 | `width`, `height` | INT | 1–5,000 map units (CHECK) |
-| `seatCount` | INT | the number of its seats, 1–30,000 (CHECK), written by every layout write in the same transaction |
+| `seatCount` | INT | the number of its seats, ≥ 1 (CHECK), written by every layout write in the same transaction; the Backend allows at most 30,000 for an import or section lines, while a carried-over layout keeps every seat its venue had (R16) |
 | `createdAt`, `updatedAt` | TIMESTAMPTZ | |
 
 ### PriceLevel
@@ -48,7 +48,7 @@ Moves from the venue to a layout (FR-002). Existing ids are kept (R16).
 | `id` | UUID | kept from `007` |
 | `layoutId` | UUID → `Layout` | `ON DELETE CASCADE`; replaces `locationId` |
 | `name` | VARCHAR(50) | unique per layout ignoring case (`section_name_unique_per_layout`, replaces `section_name_unique_per_venue`) |
-| `levelId` | UUID → `PriceLevel` | required; the default level of its rows and seats; `RESTRICT` |
+| `levelId` | UUID → `PriceLevel` | required; the default level of its rows and seats; `NO ACTION` (not `RESTRICT`, so a layout delete cascades through levels and sections, R7) |
 | `outline` | JSONB | `[[x, y], …]`, 3–64 points |
 | `labelX`, `labelY` | REAL | where its name is drawn (the outline's centroid unless the file says) |
 | `position` | INT | drawing and list order; unique per layout |
@@ -64,7 +64,7 @@ composite foreign key `(layoutId, levelId) → PriceLevel(layoutId, id)`.
 | `sectionId` | UUID → `Section` | `ON DELETE CASCADE` |
 | `number` | INT | 1 = front; 1–100; unique per section (`seat_row_number_unique`) |
 | `label` | VARCHAR(5) | 1–5 characters; unique per section (`seat_row_label_unique`) |
-| `levelId` | UUID → `PriceLevel`, nullable | the row's own level, overriding its section's |
+| `levelId` | UUID → `PriceLevel`, nullable | the row's own level, overriding its section's; `NO ACTION` |
 
 ### Seat
 
@@ -76,7 +76,7 @@ composite foreign key `(layoutId, levelId) → PriceLevel(layoutId, id)`.
 | `number` | INT | 1–200; order in the row; unique per row (`seat_number_unique`) |
 | `label` | VARCHAR(5) | 1–5 characters; unique per row (`seat_label_unique`) |
 | `x`, `y` | REAL | place in map units, inside the layout's size |
-| `levelId` | UUID → `PriceLevel`, nullable | the seat's own level |
+| `levelId` | UUID → `PriceLevel`, nullable | the seat's own level; `NO ACTION` |
 | `accessible` | BOOLEAN | default `false`; no behavior until #57 |
 
 Index `(sectionId)`. **A seat's level** is `COALESCE(Seat.levelId, SeatRow.levelId,
@@ -119,7 +119,8 @@ by every layout write; typed by admins otherwise (`002`). Relation `sections` be
 
 | Field | Change |
 | --- | --- |
-| `layoutId` | **new**, UUID → `Layout`, nullable, `ON DELETE RESTRICT`; `NULL` is general admission |
+| `layoutId` | **new**, UUID → `Layout`, nullable, `ON DELETE RESTRICT` (a layout any event uses, cancelled included, is never deleted, R7); `NULL` is general admission |
+| `seatSeq` | **new**, BIGINT, default 0, ≥ 0 (CHECK): the event's seat-change sequence number, incremented once by every transaction that changes one of its seats' states, under the event lock (R12) |
 | `reservedSeating` | kept as a column for every query that reads it; CHECK `event_seating_matches_layout`: `reservedSeating = (layoutId IS NOT NULL)` |
 | `totalTicketCapacity` | on a seated event, the layout's seats minus its off-sale seats, written by the Backend (R9); ≥ 1 (existing CHECK) |
 | `basePrice` | on a seated event, the lowest price of a level with seats on sale (R9) |
@@ -188,10 +189,12 @@ A seat of a seated event is in exactly one state, decided under the event lock:
 | `reserved` (held) | a live hold of an active reservation points at it (`015`) |
 | `open` | none of these |
 
+Every transaction below increments `Event.seatSeq` once, under the event lock.
+
 Transitions: `open ↔ offSale` (the event's seating save; refused for `sold`/`reserved`); `open →
 reserved → open` (hold, release, expiry, logout, admin change); `reserved → sold` (purchase); `sold
 → open` (refund or cancellation voids the ticket, `005`, `009`). Every transition publishes a
-`SeatStateChange` with `from`, `state` and `levelId` after commit (R12).
+`SeatMapChange` with the new `seq` and, per seat, `from`, `state` and `levelId` after commit (R12).
 
 ## Carry-over (R16)
 
@@ -200,6 +203,7 @@ reserved → open` (hold, release, expiry, logout, admin change); `reserved → 
 | A venue's sections | One layout "Standard", `LINES`, `NONE`; sections keep their ids; one level per section named after it (rank = position + 1, colors in order, repeating after 12); rows and seats generated, labels = numbers, places on the R6 grid |
 | A seated event | `layoutId` = Standard; a mapped section's level priced at its type's price; on an event without types, every level at its base price; an unmapped section on an event with types, its seats off sale |
 | A seated event with types and no mapped section | general admission, keeping its types |
+| An event with reserved seating (any status) at a venue with no sections | general admission (R16) |
 | Its ticket types | deleted, after its orders, tickets and reservations drop `tierId` |
 | A seated ticket | `seatId` by section id, row and seat; labels = numbers; `price` = its order's `unitPrice`; `levelName` = its type's name, else its section's |
 | A hold | `seatId` as above (ended holds whose section is gone keep `NULL`) |

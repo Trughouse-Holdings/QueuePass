@@ -241,6 +241,9 @@ seating, valid and broken, and two at once; compare the database before and afte
 - **FR-003**: Scheduling MUST save the event, its ticket types, its reserved seating choice, and each
   section's ticket type together, all or nothing: when any part is refused, or anything fails before
   the whole is saved, no event, ticket type, or section mapping from that request may remain.
+  _Amended 2026-11-13 by spec `038` (#165), FR-010–FR-015: a seated event's seating is its layout, a price per
+  level and its seats off sale, saved with it; it has no ticket types, so no section is saved under
+  one (`reservedSeating` and `sectionIds` are retired)._
 - **FR-004**: The parts MUST obey every rule they obey when added one by one (`004`, `007`, `016`):
   ticket type names 1 to 100 characters after trimming, unique within the event ignoring case; prices
   non-negative with at most two decimals; without reserved seating, every type has a whole positive
@@ -265,6 +268,8 @@ seating, valid and broken, and two at once; compare the database before and afte
 
 - **FR-008**: The Schedule event form MUST save the event, its ticket types, and its seating in one
   scheduling request, then upload its pictures as today.
+  _Amended 2026-11-13 by spec `038` (#165), FR-015: the Seating section saves a layout, level prices and seats off
+  sale in place of each section's ticket type._
 - **FR-009**: When scheduling is refused, the form MUST keep every value the admin entered (the
   ticket types, the seating choices, and the chosen pictures included; `002` FR-030), show the
   Backend's message in its error banner as today, and create nothing.

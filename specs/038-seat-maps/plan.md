@@ -18,9 +18,10 @@ approved on 2026-11-13.
   numbers with labels added beside them, so holds, orders, the cart and the stream keep working.
   Eleven new operations (layouts, a section's seats, event seating, the venue map and one section of
   it); `createEvent`/`updateEvent` take `layoutId`, `levelPrices` and `offSale`; the stream starts
-  with a `venueMap` and its changes say `levelId` and `from`. **Contract 1.28.0 in this PR**
-  (additions, `x-planned` and `x-retired` markers), **2.0.0 in the implementation** (the removals
-  listed here, R3).
+  with a `venueMap`, and every change carries the event's seat-change `seq`, the seat's `levelId`
+  and the state it left (`from`), so counts never double (R12). **Contract 1.28.0 in this PR**
+  (additions, `x-planned` and `x-retired` markers), **2.0.0 in the implementation** by applying the
+  committed patch `contracts/step2.diff` unchanged (R3).
 - **Backend**: a new `layouts` module (import with a problem list, section lines, edit keeping ids,
   rename, duplicate, delete, the lock); event seating inside the event save (`event-setup.ts`);
   the venue map reads; holds and orders without tiers on seated events, priced per seat at purchase;
@@ -38,7 +39,12 @@ approved on 2026-11-13.
   committed files) and four demo events, loaded by the reset (`029`).
 - **Spec 038** amended in this PR (R20): issue #165, the 100-section limit, the carried-over levels,
   the unmapped-section cases. **Dated notes** in `007`, `015`, `033`, `035` (FR-036).
-- **Constitution 3.9.9** (R20): roadmap rows `038` and `039`; next free `040`.
+- **Constitution 3.10.0** (R3, R20): Principle I and gate 2 allow a breaking removal approved in the
+  spec PR as an exact patch; roadmap rows `038` and `039`; next free `040`.
+- **Spec 037** (PR #164, the Rust Admin app) ports seating screens this feature retires: 038's
+  implementation merges first and 037's seating parity follows 038 (R22).
+- **Independent review round 1** (2026-11-13): five blocking and twenty-two other findings, all
+  addressed in this PR (research notes "review B1"… where each lands).
 
 ## Technical Context
 
@@ -86,16 +92,17 @@ new or rewritten test files.
 
 | Principle | Check | Result |
 | --- | --- | --- |
-| I. Contract first | 1.28.0 in this PR: every new operation declared with request, response, role and every error, `x-planned: '038'`; new response fields optional; three new codes in the envelope and `ERROR_CODES`; `api-schema.ts` regenerated, drift check passes, all apps compile unchanged. The removals and the one nullable change are **approved here word for word** (contracts/README.md "Step 2") and made by the implementation in the change that stops serving them, as `x-planned` markers already are (R3; see Complexity Tracking) | Pass |
+| I. Contract first | 1.28.0 in this PR: every new operation declared with request, response, role and every error, `x-planned: '038'`; new response fields optional; three new codes in the envelope and `ERROR_CODES`; `api-schema.ts` regenerated, drift check passes, all apps compile unchanged. The breaking part is the exact patch `contracts/step2.diff` (checked to apply and compile), marked `x-retired: '038'` in 1.28.0, applied unchanged by the implementation, under the rule this PR adds to Principle I (3.10.0, R3) | Pass |
 | II. One command | `docker compose up --build` unchanged; the migration runs in `migrate deploy`; the Yum! Center files ship in the Backend image (JSON modules); no new service or setting | Pass |
-| III. Spec-driven | Issue #165; spec + plan PR with the constitution rows (3.9.9), independent review, fresh implementer; commits `Spec/Plan/Tasks 038: … (#165)`; `fixes #165` only in the implementation PR's description. Shared surface in this PR: the constitution, `contracts/openapi.yaml`, `api-schema.ts`, `errors.ts` (every member approves). The implementation touches shared surface again: the contract's step 2, `theme.css` (level colors and marks), `packages/shared/src/web/venue-map/` (both apps use it) | Pass |
-| IV. Server-authoritative | Layout lock, prices, off-sale, holds and purchase prices decided by the Backend under the venue → layout → event lock order (R7); one valid ticket and one live hold per seat by partial unique indexes on `seatId`; a sold or held seat can't be deleted (`SET NULL` + CHECK); off-sale vs hold serialized by the event row lock; refusals keep the admin's entries (`031`, `035`) | Pass |
+| III. Spec-driven | Issue #165; spec + plan PR with the constitution amendment (3.10.0), independent review, fresh implementer; commits `Spec/Plan/Tasks 038: … (#165)`; `fixes #165` only in the implementation PR's description. Shared surface in this PR: the constitution, `contracts/openapi.yaml`, `api-schema.ts`, `errors.ts` (every member approves). The implementation touches shared surface again: the contract's step 2, `theme.css` (level colors and marks), `packages/shared/src/web/venue-map/` (both apps use it) | Pass |
+| IV. Server-authoritative | Layout lock, prices, off-sale, holds and purchase prices decided by the Backend, the venue always locked first (layout writes: venue, layout, events; event saves: venue shared, event, layout key share; holds and orders: the event only) (R7); one valid ticket and one live hold per seat by partial unique indexes on `seatId`; a sold or held seat can't be deleted (`SET NULL` + CHECK); off-sale vs hold serialized by the event row lock; refusals keep the admin's entries (`031`, `035`) | Pass |
 | V. Least privilege | Layout writes, `getEventSeating` and event seating fields `queuepass-admin`; layout and venue-map reads any signed-in user (a public map, FR-008); no response names who holds or bought a seat (FR-028); authorization tests for every new operation (missing, expired, wrong-signed, wrong-audience, wrong-role) | Pass |
 | VI. Test-first, real database | Every Backend rule tested first against Testcontainers PostgreSQL, both sides of each limit (30,000 seats, 100 rows, 200 seats, 12 levels, 4 MB), the carry-over from a real pre-038 database (R16), 10 genuinely concurrent holds and orders (SC-001); app and shared tests first; browser tests for US2 and US3 (`022`); 80% per workspace | Pass |
 | VII. Shared look | 12 level colors, the unavailable gray and the seat marks are tokens in `packages/shared/src/web/theme.css`, checked by its contrast tests; the map component is shared, so both apps match; states by shape and text as well as color (FR-019, SC-007); no decoration (a floor object is a labelled outline) | Pass |
 | VIII. Simplicity | No editor (`039`), pit, best available, versioned layouts, canvas renderer or pan/zoom library; off-sale stored as seats, not rules; deferred items named in the spec's Out of scope; no control deferred | Pass |
 
-Post-design: unchanged, all pass. Constitution amended to 3.9.9 (PATCH, roadmap rows only).
+Post-design: unchanged, all pass. Constitution amended to 3.10.0 (MINOR: the breaking-removal rule
+in Principle I and gate 2; roadmap rows). Re-checked after review round 1: all pass.
 
 ## Project Structure
 
@@ -105,6 +112,7 @@ Post-design: unchanged, all pass. Constitution amended to 3.9.9 (PATCH, roadmap 
 specs/038-seat-maps/
 ├── spec.md, plan.md, research.md (R1–R21), data-model.md, quickstart.md (S0–S21)
 ├── contracts/README.md          # 1.27.0 → 1.28.0 now; step 2 → 2.0.0 in the implementation
+├── contracts/step2.diff         # the exact 1.28.0 → 2.0.0 patch the implementation applies
 ├── checklists/requirements.md
 └── tasks.md                     # /speckit-tasks
 ```
@@ -112,12 +120,12 @@ specs/038-seat-maps/
 ### Source Code
 
 ```text
-.specify/memory/constitution.md                 # 3.9.9, rows 038 and 039 (this PR)
-contracts/openapi.yaml                          # 1.28.0 (this PR); 2.0.0 (impl, step 2)
+.specify/memory/constitution.md                 # 3.10.0: Principle I rule, rows 038, 039 (this PR)
+contracts/openapi.yaml                          # 1.28.0 (this PR); 2.0.0 (impl: git apply step2.diff)
 packages/shared/src/api-schema.ts               # regenerated (this PR, and impl)
 packages/shared/src/errors.ts                   # three codes (this PR)
-specs/007-…, 015-…, 033-…, 035-…/spec.md        # dated notes (this PR)
-README.md                                       # 038 row, v3.9.9 (this PR); seat maps, demo (impl)
+specs/007-, 015-, 023-, 024-, 031-, 033-, 035-…/spec.md  # dated notes (this PR)
+README.md                                       # 038 row, v3.10.0 (this PR); seat maps, demo (impl)
 
 backend/
 ├── prisma/schema.prisma                        # data-model.md
@@ -188,7 +196,9 @@ take off sale).
 For the EDIS demo on 2026-11-20 (R21); tasks.md numbers it.
 
 1. **Tests first** for each step below, seen to fail.
-2. **Schema and migration** with the carry-over test (R16).
+2. **Schema and migration** with the carry-over test (R16); **contract step 2** applied and the
+   retired Backend code and its tests removed in the same phase, so the branch has one seating model
+   from then on (the old apps' seating screens stay red until their phase moves them).
 3. **Layouts API**: import with problems, lines, edit, rename, duplicate, delete, lock, capacity
    (R5–R7).
 4. **Yum! Center** section plan, generator, files; demo venue, layouts, events in `demo-data.ts`
@@ -200,12 +210,12 @@ For the EDIS demo on 2026-11-20 (R21); tasks.md numbers it.
 9. **Customer flow**: Choose seats, filter, zoom, Your seats, cart (R14). *Demo path complete.*
 10. **Admin**: Layouts card, Seating section with the off-sale tool, event page map (R15).
 11. **Reports, attendees, exports, Booth** (R17).
-12. **Contract step 2** (2.0.0) and removal of the retired code; browser tests; quickstart's
+12. Check that no `x-planned: '038'` or `x-retired` marker is left; browser tests; quickstart's
     Automation rows; README; `npm run ci`; e2e; review; walk; PR.
 
 ## Complexity Tracking
 
 | Choice | Why needed | Simpler alternative rejected because |
 | --- | --- | --- |
-| Contract in two steps, with removals made by the implementation PR (R3) | Constitution I wants the change reviewed before code; Principle III wants `main` green and accurate at every merge; the contract tests validate every response strictly, so a breaking change merged early turns `main` red | All in the spec PR breaks `main`; all in the implementation PR skips review; keeping the retired operations forever leaves two seating models; deferring removals to `039` makes the route-coverage test fail between the merges. The implementation already edits the contract to remove `x-planned` markers, so it removing what this PR marks `x-retired` is the same kind of approved, mechanical step |
+| Contract in two steps, the second an exact patch applied by the implementation PR (R3) | Constitution I wants the change reviewed before code; Principle III wants `main` green and accurate at every merge; the contract tests validate every response strictly, so a breaking change merged early turns `main` red | All in the spec PR breaks `main`; all in the implementation PR skips review; keeping the retired operations forever leaves two seating models; deferring removals to `039` makes the route-coverage test fail between the merges. This PR amends the constitution (3.10.0) so the rule is written, not inferred |
 | More than 12 levels on a carried-over layout (R16) | One level per old section is the only way every existing event keeps every seat's price, since events at one venue mapped sections to different ticket types | Merging sections into ≤ 12 levels would change what some existing seats cost; the limit stays for every new layout |

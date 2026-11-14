@@ -9,7 +9,7 @@
 **Issue**: [#165](https://github.com/Trughouse-Holdings/QueuePass/issues/165)
 
 **Input**: John's direction at the Nov 10 team meeting, and the seat-maps proposal Nate drafted from it
-(QueuePass Seat Maps Proposal, Nov 11–12), whose spec "038" this is. John asked for "a realistic
+(QueuePass Seat Maps Proposal, Nov 11–13; John approved the feature on 2026-11-13), whose spec "038" this is. John asked for "a realistic
 looking seat map that's similar to what you might see in any of the other ticketing apps": a visual
 map of the venue, a zoom into a section, each seat drawn, and a filter of available seats by price
 range. A venue has several seating layouts ("one layout for basketball games, another layout for a
@@ -58,7 +58,8 @@ is the same seat at every event in the series. This spec makes that possible and
 
 ### Session 2026-11-13
 
-The proposal's six decisions (D1–D6) are posted for John in Slack and not yet answered. Each takes
+John approved the feature on 2026-11-13; the proposal's six decisions (D1–D6) are posted for him
+in Slack and not yet answered one by one. Each takes
 the proposal's recommended answer, recorded here as **recommended answer, open to review**, so John,
 Mahdi and the team can overturn it in review of the spec PR.
 
@@ -81,7 +82,8 @@ Mahdi and the team can overturn it in review of the spec PR.
 - Q: Can a layout change once events use it? → A: **A layout used by any scheduled event that has
   valid tickets or live holds cannot be changed or deleted; Duplicate makes an editable copy.** A
   sold seat can never move, vanish, or change level (D3; recommended answer, open to review)
-  (FR-006).
+  (FR-006). A layout any event uses, a cancelled or past one included, cannot be deleted, since its
+  tickets keep their seats (review 2026-11-13).
 - Q: What happens to today's venues, layouts, seated events and sold tickets? → A: **They carry over
   unchanged.** Each venue's sections become a plain layout named "Standard", one price level per
   section; each seated event uses it, priced so every seat costs what it costs today; each sold
@@ -156,11 +158,12 @@ layout.
 ### User Story 2 - An admin schedules a seated event: a layout, a price per level, seats off sale (Priority: P1)
 
 Avery schedules "Cardinals Women's Basketball vs. Duke" at the Yum! Center. In the event form's
-Seating section she picks **Basketball**; a price table lists its levels with their seat counts, and
-she types $95, $60, $35 and $20. She takes the whole upper level, sections 301–330, **off sale**,
-and also rows D–F of section 104 for a camera platform. The line under the map reads "11,212 seats
-on sale · 10,878 off sale". She saves; the event's capacity is the seats on sale, and its price
-reads "$20–$95".
+Seating section she picks **Basketball**; a price table lists its four levels with their seat
+counts. She takes the whole upper level, sections 301–330, **off sale**, and also rows D–F of
+section 104 for a camera platform; the Upper level no longer asks for a price. She types $95 for
+Courtside, $60 for Lower sideline and $35 for Lower end. The line under the map reads the seats on
+sale and off sale. She saves; the event's capacity is the seats on sale, and its price reads
+"$35–$95".
 
 **Why this priority**: Without prices and sale rules on an event, no customer can buy a seat on a
 layout.
@@ -189,7 +192,8 @@ off-sale seats; confirm the refusals below.
 7. **Given** a seated event, **When** the admin changes a level's price, **Then** tickets already
    sold keep the price they were sold at, and new sales use the new price.
 8. **Given** the next event scheduled on the same layout, **When** the admin picks that layout,
-   **Then** the price boxes start with the prices of the latest earlier event on that layout.
+   **Then** the price boxes start with the prices of the event on that layout scheduled most
+   recently.
 
 ---
 
@@ -197,12 +201,13 @@ off-sale seats; confirm the refusals below.
 
 Jordan opens the women's basketball game and presses **Choose seats**. The Yum! Center is drawn from
 above with the court in the middle. The lower bowl is colored by price; the upper level is gray. A
-legend lists "Courtside $95, Lower sideline $60, Lower corner $35, Upper $20". He drags the price
-filter to $30–$65; the courtside sections fade. He clicks section 115: the map zooms in, rows D to HH
-appear in place, the front rows blue for $60 and the back rows green for $35. Hovering a seat shows
-"Sec 115, Row F, Seat 7 · Lower sideline · $60". He clicks Row F seats 7 and 8 and Row P seat 7; all
-three are held, the 5-minute countdown starts, and Your seats lists them with $60, $60 and $35, total
-$155. He presses **Back to map**, then Add to cart, and buys from the cart as in `033`.
+legend lists "Courtside $95, Lower sideline $60, Lower end $35, Upper: not on sale". He drags the
+price filter to $50–$100; the end sections, which only have $35 seats, fade. He clicks section 115,
+along the sideline: the map zooms in and its rows appear in place, rows D to G in Courtside's color
+and the rows behind them in Lower sideline's. Hovering a seat shows "Sec 115, Row F, Seat 7 ·
+Courtside · $95". He clicks Row F seats 7 and 8 and Row P seat 7; all three are held, the 5-minute
+countdown starts, and Your seats lists them with $95, $95 and $60, total $250. He presses **Back to
+map**, then Add to cart, and buys from the cart as in `033`.
 
 **Why this priority**: This is what John asked to see and the heart of the EDIS demo.
 
@@ -242,7 +247,7 @@ them; the tickets carry each seat's own price and label.
 
 Sam uses a screen reader. Next to the map, the page offers a **Sections** list: each section's name,
 its price range, and its open seats, filtered by the same price range. Choosing a section lists its
-rows, each with its seats as buttons named "Row F, Seat 7, Lower sideline, $60, open". Holding a
+rows, each with its seats as buttons named "Row F, Seat 7, Courtside, $95, open". Holding a
 seat here holds it on the map as well.
 
 **Why this priority**: The map is a picture; the list keeps seat choosing usable by keyboard and
@@ -267,8 +272,10 @@ Before a demo, Nate runs the reset command (`029`). The KFC Yum! Center has its 
 Basketball, End-stage concert, Center stage and Wrestling (ring). Four upcoming events use them,
 modelled on John's examples: women's basketball (upper level off sale, rows of one lower section
 priced differently), men's basketball (everything on sale), an end-stage concert (floor sections
-1–5, the seats behind the stage off sale), and WWE (floor sections around the ring, back rows of some
-sections off sale). Each has some seats already sold and held, so every seat state shows.
+1–5; the seats behind the stage are not in that layout), and WWE (floor sections around the ring, back rows of some
+sections off sale). Each has some seats already sold. Held seats can't be part of a saved demo
+state, since a hold lasts 5 minutes; they show live when a second customer holds seats during the
+demo.
 
 **Why this priority**: The demo must start from the same state every time, and the broken seat
 demo (#162) came from having no seated event.
@@ -281,7 +288,7 @@ run it again and get the same result.
 1. **Given** any database, **When** the reset command runs, **Then** the Yum! Center has exactly
    the four layouts, Basketball with 22,090 seats and End-stage concert with 17,500.
 2. **Given** the reset, **Then** the four demo events exist with their layouts, level prices, the
-   off-sale seats described above, and some seats sold and held.
+   off-sale seats described above, and some seats sold.
 3. **Given** the reset run twice, **Then** the second run ends in the same layouts, events, prices
    and seat states (times relative to when it ran).
 
@@ -331,7 +338,8 @@ map shows each change within 2 seconds.
   sold ticket keeps its own label and its original seat.
 - **General admission events**: unchanged; they have no layout, keep ticket types, and never show
   the map.
-- **Cancelled event** (`005`): its tickets are void, so its seats no longer block layout changes.
+- **Cancelled event** (`005`): its tickets are void, so its seats no longer block layout edits; the
+  layout still can't be deleted while the cancelled event uses it (duplicate it instead).
 
 ## Requirements *(mandatory)*
 
@@ -360,12 +368,16 @@ map shows each change within 2 seconds.
   a grid, rows labelled 1 upward and seats numbered 1 upward, as `007` did.
 - **FR-006**: Admins MUST be able to rename, duplicate and delete layouts, and to edit a
   section-line layout. A layout used by any scheduled event that has valid tickets or live holds
-  MUST NOT be changed or deleted, and a layout used by any scheduled event MUST NOT be deleted; the
-  refusal MUST name the events. Duplicate MUST always work and make an unused copy.
+  MUST NOT be changed or deleted, and a layout used by any event (scheduled, past or cancelled)
+  MUST NOT be deleted; the refusal MUST name the events. Duplicate MUST always work and make an
+  unused copy. A section-line edit of a layout used by scheduled events without sales MUST put new
+  seats off sale for those events and recompute their capacity and prices, and MUST be refused,
+  naming the event, when an event would then have on-sale seats in a level it has no price for, no
+  seat on sale, or a per-customer limit above its seats on sale.
 - **FR-007**: The venue page MUST list each layout's name, seat count, section count, level count,
   and the number of scheduled events using it, with a preview of its map.
 - **FR-008**: Layout changes MUST require `queuepass-admin`. A layout's map, without who holds any
-  seat, MUST be readable by any signed-in user of the Admin and Customer apps.
+  seat, MUST be readable by any signed-in user (the map is public).
 - **FR-009**: A venue's seating capacity MUST be the seat count of its largest layout whenever it
   has one, and admins MUST NOT type it then; a venue without layouts keeps a typed capacity (`002`).
 
@@ -390,8 +402,8 @@ map shows each change within 2 seconds.
 - **FR-015**: The event form's Seating section (`035`) MUST offer: the layout (or general
   admission) with a preview; a price table of the layout's levels with each level's color and seats
   on sale; and the map with an off-sale tool and a running line "N seats on sale · M off sale".
-  Price boxes MUST start with the prices of the latest earlier event on the same layout, when there
-  is one. Saving the event, its layout, prices and off-sale seats MUST be all or nothing, and a
+  Price boxes MUST start with the prices of the most recently scheduled event on the same layout,
+  when there is one. Saving the event, its layout, prices and off-sale seats MUST be all or nothing, and a
   refusal MUST appear beside the field at fault, as `031` and `035` do.
 
 **Customer venue map**
@@ -421,9 +433,10 @@ map shows each change within 2 seconds.
   at the moment of purchase, and its total MUST be the sum. Your seats and the cart MUST list each
   seat with its level and price.
 - **FR-023**: Seat changes (held, released, sold, put on or taken off sale) MUST reach every viewer's
-  map within 2 seconds without a refresh, as `015`, including the sections' colors and counts.
+  map within 2 seconds without a refresh, as `015`, including the sections' colors and counts, and
+  a change that a viewer's map already includes MUST NOT be counted twice.
 - **FR-024**: The event page MUST show a seated event's price as the range of its on-sale level
-  prices ("$20–$95") and a **Choose seats** button in place of the ticket-type step.
+  prices ("$35–$95") and a **Choose seats** button in place of the ticket-type step.
 
 **Seats, labels, and other screens**
 
@@ -451,18 +464,22 @@ map shows each change within 2 seconds.
   priced at what its section sold for (its ticket type's price, or the base price without types).
   A section not mapped to a ticket type on an event with types (not sellable before this feature)
   MUST be off sale for that event; an event with types and no mapped section (nothing sellable)
-  MUST become general admission, keeping its types. A carried-over ticket's price level is the name
-  of the ticket type it was sold as, else its section's.
+  MUST become general admission, keeping its types; so MUST any event with reserved seating (of any
+  status) whose venue has no sections. A carried-over ticket's price level is the name of the
+  ticket type it was sold as, else its section's. A carried-over layout keeps every seat its venue
+  had, even past the 30,000-seat limit for new layouts.
 - **FR-032**: Every ticket sold before this feature MUST keep its seat, labels and price, and stay
   valid or void as it was. Every scenario of `006`, `016`, `017`, `033` and `034` MUST still pass;
   `007` and `015` scenarios pass as amended below.
 - **FR-033**: The demo data and the reset command (`029`) MUST load the KFC Yum! Center's four
   layouts (Basketball 22,090 seats; End-stage concert 17,500; Center stage and Wrestling (ring) at
   our estimate) from layout files committed to the repository, made by a script from a section plan
-  traced from the venue's public charts, and the four demo events of User Story 5 with sold and held
-  seats. No data is taken from Ticketmaster or any other ticket seller's site.
-- **FR-034**: The contract MUST be updated first (Constitution I). Removing ticket types from seated
-  events and the section-to-ticket-type mapping MAY be breaking for the seating operations; every
+  traced from the venue's public charts, and the four demo events of User Story 5 with sold seats. No data is taken from Ticketmaster or any other ticket seller's site.
+- **FR-034**: The contract MUST be updated first (Constitution I). These changes MAY be breaking,
+  made by the implementation from a patch approved with this spec (Constitution I): removing the
+  venue's single layout, the seat map and the seating update operations, the section-to-ticket-type
+  mapping and its request fields, and the stream's first-message format; making an order's unit
+  price empty when its tickets have different prices; and making the new fields required. Every
   other change MUST be additive, and the contract's version MUST say which.
 - **FR-035**: Automated tests MUST cover, against real PostgreSQL: layout and import rules, level
   resolution (seat, row, section), event prices and off-sale rules, the carry-over of existing data,
@@ -471,8 +488,10 @@ map shows each change within 2 seconds.
   (Constitution VI, `022`) MUST walk User Stories 2 and 3.
 - **FR-036**: This spec MUST amend, with dated notes: `007` FR-001–FR-008, FR-017 and FR-018
   (layouts, reserved seating, section-to-type mapping, capacities); `015`'s one-ticket-type
-  reservation; `033` FR-005 (ticket types while seats are held: seated events have none); and `035`'s
-  Seating section.
+  reservation; `033` FR-005 (ticket types while seats are held: seated events have none); `035`'s
+  Seating section; `031` FR-003 and FR-008 (each section's ticket type saved with the event); `024`
+  FR-018–FR-022 (section lines on the venue form and the venue page's layout editor); and `023`'s
+  export columns (price level and price per ticket).
 
 ### Key Entities
 
@@ -516,7 +535,8 @@ map shows each change within 2 seconds.
   (Clarifications).
 - The drawing editor (block generator, drag and rotate, price-level painting by hand) is spec `039`.
   Until it merges, a layout's row and seat level overrides come from its file.
-- The Rust Admin and Customer apps (`037` and its Customer counterpart) are not changed here. Whether
+- The Rust Admin and Customer apps (`037` and its Customer counterpart) are not changed here; `037`'s
+  seating screens follow this spec's (research R22). Whether
   they must also get seat maps is an open question for John.
 - Season tickets (Mahdi's spec) use this spec's layouts and seats; nothing here depends on them.
 - Holds, the cart, the 5-minute countdown, the 2-minute wait, the hold allowance, and the purchase

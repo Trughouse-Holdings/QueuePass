@@ -3,8 +3,9 @@
 **Feature**: `038-seat-maps` | **Spec**: [spec.md](./spec.md) | **Date**: 2026-11-13 |
 **Issue**: [#165](https://github.com/Trughouse-Holdings/QueuePass/issues/165)
 
-John approved the seat-maps proposal on 2026-11-13. The spec's Clarifications give D1–D6 their
-recommended answers. Every decision below that the spec leaves open also takes a recommended
+John approved the seat-maps feature on 2026-11-13. The spec's Clarifications give D1–D6 their
+recommended answers. An independent review (2026-11-13, round 1) found five blocking and
+twenty-two other problems; the decisions below are as revised for it. Every decision below that the spec leaves open also takes a recommended
 option and records the alternatives, for Mahdi and the team to overturn in review of the spec PR.
 Paths are `main` at `5ba87a5`.
 
@@ -43,7 +44,7 @@ Paths are `main` at `5ba87a5`.
 - **Demo data** (`backend/src/scripts/demo-data.ts`, `demo-reset.ts`, `029`): two demo venues and
   their events through the real services; the reset empties every table and runs it.
 - **Contract**: 1.27.0. `getLayout`, `replaceLayout`, `deleteLayout`
-  (`/locations/{id}/layout`), `getSeatMap`, `updateSeating` (`/events/{id}/seat-map`,
+  (`/locations/{id}/layout`), `getSeatMap`, `updateSeating` (`/events/{id}/seats`,
   `/events/{id}/seating`), `streamSeatMap`, `reserveSeats`, `releaseSeats`, `createOrder`. The
   route-coverage test (`backend/test/contract/route-coverage.e2e-spec.ts`) fails if an operation
   marked `x-planned` is served or an unmarked one is not (`015` R12).
@@ -105,18 +106,22 @@ are added wherever a seat is shown.
   `venueMap` is added beside `snapshot`. The five operations and the fields `038` replaces are
   marked **`x-retired: '038'`** and keep their description, so `main` keeps serving and testing
   them until the implementation.
-- **The implementation PR, 2.0.0 (MAJOR)**: removes exactly what this PR marks `x-retired: '038'`
-  and makes `Order.unitPrice` nullable, as listed in `contracts/README.md` ("Step 2"), in the same
-  change that stops serving them, and removes the `x-planned` markers in the change that serves each
-  route.
+- **The implementation PR, 2.0.0 (MAJOR)**: applies **`contracts/step2.diff`**, committed in this
+  PR, unchanged (`git apply`): it removes exactly what this PR marks `x-retired: '038'`, makes
+  `Order.unitPrice` nullable, makes the new fields required, and rewrites the descriptions that
+  described the mapping. It is applied in Phase 2 of the tasks, together with the migration and the
+  removal of the retired Backend code, and before any `x-planned` marker is removed, so its context
+  matches. The implementation removes each `x-planned` marker in the change that serves its route.
+- **Constitution 3.10.0** (this PR) adds the rule this needs to Principle I and gate 2: a breaking
+  removal may be approved in the spec PR, marked `x-retired`, committed as the exact patch, and
+  applied unchanged by the implementation (review B1).
 
 **Why**: Constitution I wants every contract change reviewed before code merges, and Principle III
 wants `main` green and demo-ready after every merge. A breaking change merged ahead of its code
 would make `main`'s Backend fail its own contract tests (`expect-to-match-contract.ts` validates
 every response with Ajv, strictly). Splitting additions from removals keeps the contract true at
-every commit on `main`. The removals are reviewed and approved here, word for word in the README;
-the implementation PR only carries them out, as it already removes `x-planned` markers. FR-034 asks
-the version to say which change breaks: 2.0.0 does.
+every commit on `main`. The removals are reviewed and approved here as the exact patch; the
+implementation PR only applies it. FR-034 asks the version to say which change breaks: 2.0.0 does.
 
 **Alternatives**:
 
@@ -196,6 +201,7 @@ check the Backend doesn't make anyway). Rejected.
   `first`, `first + 1`, … and spaced evenly; seats are numbered in the order listed.
 - **Levels** are named by a `key` inside the file; `rank` 1 is most desirable; `color` is one of the
   12 level colors of the shared theme (R13).
+- **Ranks** are unique within the file (a repeated rank is a problem, not a database error).
 - **Limits** (FR-001–FR-003): 1–100 sections, 1–100 rows a section, 1–200 seats a row, 1–30,000
   seats, 1–12 levels; names and labels as FR-002; every outline 3–64 points inside `size`.
 - **Problems**: a refused import is `400 LAYOUT_FILE_INVALID` with `details.problems`, up to 50
@@ -223,8 +229,14 @@ of `ceil(√n)` columns, in line order, each a rectangle `seatsPerRow × 2 + 4` 
 (FR-005). `updateVenueLayout` with lines replaces them, **keeping** the id of every level, section,
 row and seat whose name or label is unchanged, so an event's prices and off-sale seats on a layout
 nobody has bought from survive an edit; levels, sections, rows and seats that are gone are deleted
-with their prices and off-sale entries. Only a layout made from lines (`source: LINES`) takes
-lines; an imported one can only be renamed (its geometry comes from its file; `039` edits it).
+with their prices and off-sale entries. For every scheduled event using the layout, **new** seats
+go off sale for that event and its capacity, `basePrice` and `priceMax` are recomputed; the edit is
+refused (`409 LAYOUT_IN_USE`, naming each event and why) when an event would then have on-sale seats
+in a level it has no price for (a section moved to a new level), no seat on sale, or a
+`maxTicketsPerCustomer` above its seats on sale (FR-006, review S4). Only a layout made from lines
+(`source: LINES`) takes lines; an imported one can only be renamed (its geometry comes from its
+file; `039` edits it). A carried-over layout with more than 12 levels may keep as many as it has
+(review S8).
 
 **Why**: FR-005 keeps today's quick way to make a small room's layout. Keeping ids by label makes an
 edit before any sale harmless to events already set up on it.
@@ -237,18 +249,26 @@ into a grid; rejected).
 
 **Decision**: a layout is **locked** while any scheduled event using it has a valid ticket or a
 live hold (FR-006): rename, line edits and delete are refused with `409 LAYOUT_IN_USE`,
-`details.events`. Delete is also refused while any scheduled event uses it at all. Duplicate is
-always allowed and makes an unlocked copy named "<name> (copy)" (then "(copy 2)", …), with new ids
-throughout. A layout write locks the **venue** row, then the **layout** row, then every scheduled
-event using it, in id order (as `common/venue-lock.ts` does today); an event save that picks a
-layout locks the event, then reads the layout's id under a `FOR KEY SHARE` lock. Foreign keys back
-the rule: `Event.layoutId` is `RESTRICT`, and a seat a valid ticket or a live hold points at cannot
-be deleted (R10).
+`details.events`. Delete is also refused while **any** event uses it, past or cancelled included
+(their tickets keep their seats; review B5): `Event.layoutId` is `RESTRICT`, so the database
+agrees. Duplicate is always allowed and makes an unlocked copy named "<name> (copy)" (then
+"(copy 2)", …), with new ids throughout.
+
+**Lock order: the venue first, always** (review S11). A layout write locks the **venue** row `FOR
+UPDATE`, then the **layout** row, then every scheduled event using it, in id order (as
+`common/venue-lock.ts` does today). An event save locks the venue `FOR SHARE` first
+(`lockVenueShared`, as `events.service.ts` does today), then the event, then reads the layout,
+whose foreign key takes a `KEY SHARE` lock on it; that is safe only because the venue lock comes
+first. Holds, orders and the sweep lock only the event and never a layout or venue. Foreign keys
+back the rules: `Event.layoutId` is `RESTRICT`; a seat a valid ticket or a live hold points at cannot
+be deleted (R10); the level foreign keys of `Section`, `SeatRow` and `Seat` are `NO ACTION`, not
+`RESTRICT`, so deleting a layout cascades through its levels and sections without a mid-cascade
+refusal (review M6).
 
 The venue's `seatingCapacity` is its largest layout's seat count, set by every layout write; a
 layout write that would lower it below a scheduled general-admission event's `totalTicketCapacity`
-at the venue is refused (`409 CAPACITY_EXCEEDED`, as `replaceLayout` does today, FR-009). Deleting
-the last layout keeps the last capacity, typed again from then on.
+at the venue is refused (`409 CAPACITY_EXCEEDED`, as `replaceLayout` does today, FR-009), deletes
+included (review M7). Deleting the last layout keeps the last capacity, typed again from then on.
 
 **Why**: "a sold seat can never move, vanish, or change level" (D3) needs every write that could
 move one to see the sales; locking venue → layout → events keeps the one lock order the Backend
@@ -280,7 +300,14 @@ the rest of the event (`031`, `035`):
 `getEventSeating` returns them as saved, with the off-sale seats **compacted** back to selectors (a
 whole section as one, then whole rows, then seats), each level's seat count and seats on sale, and
 the totals. The form's price boxes start from `getVenueLayout`'s `latestPrices`: the level prices of
-the layout's scheduled event with the latest start, if any (FR-015).
+the most recently **created** scheduled event on the layout, if any (FR-015, review M3).
+
+**Edge rules** (review S10): on `updateEvent`, `layoutId: null` is allowed and makes the event
+general admission (it joins `maxTicketsPerCustomer` and `doorsOpenAt` as the fields that may be
+`null`); its `totalTicketCapacity` and `basePrice` stay as they were unless sent. When `layoutId`
+changes, the old prices and off-sale seats go and the `levelPrices` and `offSale` sent in the same
+request apply to the new layout. With `locationId` in the same request, the layout must be of the
+new venue; a venue change without `layoutId` clears the layout (refused while the event has sales).
 
 **Why**: one request keeps "save the event, its layout, prices and off-sale seats" atomic, as `031`
 made the rest of the form. Selectors keep the request small (the upper level of the Yum! Center is
@@ -327,7 +354,7 @@ for general admission, so lists and the event page show "$20–$95" without anot
 
 ## R11. The venue map: overview counts and one section at a time
 
-**Decision**: `getVenueMap` returns the layout's drawing (size, floor, each section's id, name,
+**Decision**: `getVenueMap` returns the event's seat-change `seq` it was read at (R12), the layout's drawing (size, floor, each section's id, name,
 outline and label point), its levels with this event's prices (`null` for a level with nothing on
 sale), and per section and level the counts `open`, `held`, `sold`, `offSale`. `getVenueMapSection`
 returns the section's rows (number, label) and seats (row, seat, label, place, level, state, and
@@ -345,12 +372,27 @@ both without seats.
 `offSale`; `state: reserved` keeps its name (it is "held" in every screen). `streamSeatMap` begins
 with `event: venueMap` (a `VenueMap`) in place of `snapshot`. A client applies a change to the
 section it has open, and to the overview counts as `−1` on `from` and `+1` on `state` for the
-level; deltas commute, so two changes published out of order still add up. Saving an event's
-seating or a layout it uses ends its streams, so viewers reload (as `007`/`015` did).
+level.
+
+**A sequence number per event** (review B3): the stream subscribes to the bus before it reads the
+map, and replays what arrived meanwhile (`seat-stream.controller.ts`: "the snapshot may already
+include them, and repeating a state is harmless"). Repeating an absolute state is harmless; a
+repeated `−1/+1` delta is not. So `Event.seatSeq` (BIGINT, from 0) is incremented once in every
+transaction that changes a seat's state, under the event lock, and that value is the `seq` of the
+`SeatMapChange` it publishes. `getVenueMap`, `getVenueMapSection` and the `venueMap` event carry the
+`seq` they were read at (read in the same statement as the counts). A client applies a change only
+when its `seq` is greater than the map's (for counts) or the open section's (for seats), so a change
+already in a snapshot is never counted twice, in whatever order things arrive.
+
+**Which saves end the stream** (review S5): an event save that changes its `layoutId` or its level
+prices, and a layout edit of a layout it uses, end its streams (the map's levels, prices or
+shape changed), and viewers reconnect, read the new map, and reload the section they had open. An
+event save that only changes its off-sale seats publishes them as `seats` changes (`offSale`,
+`open`) and keeps the stream.
 
 **Alternatives**: send each changed section's new counts (two publishes can arrive out of order
-and the older counts would win; rejected); have clients load every section's seats (FR-029;
-rejected).
+and the older counts would win; rejected); deltas without a sequence (double-counted on replay;
+rejected); have clients load every section's seats (FR-029; rejected).
 
 ## R13. Drawing the map: SVG, one shared component, our own pan and zoom
 
@@ -394,8 +436,9 @@ range inputs over whole dollars, low and high, starting at the full range; FR-01
 **Back to map** while zoomed, and `033`'s **Your seats** box with its countdown below, now listing
 each seat with its level and price, and the total. Clicking seats holds and releases exactly as
 `033` (the click queue, `use-hold-queue.ts`, the cart, Buy tickets). The cart lists each seat with
-its level and price, which it reads from `getVenueMapSection` once per listed section (cached) and
-refreshes on the reservation poll, so a price change shows before buying (spec edge case).
+its level and price from `listMyReservations` (`ReservedSeat.levelName` and `price`, the current
+price), which it already reads about once a second, so a price change shows before buying (spec
+edge case; review M4).
 
 ## R15. The admin's screens
 
@@ -429,7 +472,10 @@ refreshes on the reservation poll, so a price change shows before buying (spec e
 3. Each seated event: `layoutId` = its venue's Standard. A section mapped to a ticket type is priced
    at that type's price; on an event without types, at its base price; a section **not mapped** on
    an event with types (unsellable today) goes **off sale**. An event with types and no section
-   mapped (nothing sellable today) becomes **general admission**, keeping its types.
+   mapped (nothing sellable today) becomes **general admission**, keeping its types. So does any
+   event with `reservedSeating = true`, of **any status**, whose venue has no sections: `007`'s
+   `remove` only checks scheduled events, so a cancelled seated event can sit at a venue whose
+   layout was removed (review B4a).
 4. Tickets and holds get their `seatId` by section id or name, row and seat; a valid ticket's
    `price` is its order's `unitPrice` and its level name the ticket type's name (else the section's).
    Orders, tickets and reservations of seated events drop their `tierId`; those events' ticket types
@@ -443,10 +489,17 @@ refreshes on the reservation poll, so a price change shows before buying (spec e
 50 sections, so it may have more than 12 levels. The spec now allows that for carried-over layouts
 only (FR-031 amended in this PR); imports and section lines keep 1–12.
 
+**The 30,000-seat limit** (review B4b): `007` allowed 50 sections × 100 rows × 200 seats. A
+carried-over layout keeps every seat its venue had; the database CHECK on `Layout.seatCount` is only
+`≥ 1`, and the Backend applies 30,000 to imports and section lines. Generating seats in the migration
+is one `INSERT … SELECT` over `generate_series`; on the team's and demo databases (a few hundred to a
+few thousand seats) it takes well under a second, and even the old maximum is one statement.
+
 **Tests**: `migration.seat-maps.e2e-spec.ts` migrates a fresh database to the migration before,
 inserts each case (a seated event with types, one without, one with an unmapped section, one with
-nothing mapped, a general-admission event, valid, void and refunded tickets, a live hold and an
-ended one), applies the migration, and checks SC-006 seat by seat, as
+nothing mapped, a cancelled seated event at a venue with no sections, a venue of 40,000 seats, a
+general-admission event, valid, void and refunded tickets, a live hold and an ended one), applies
+the migration, and checks SC-006 seat by seat, as
 `migration.time-zones.e2e-spec.ts` does for `020`.
 
 **Alternatives**: keep `Section`/`SectionTier` beside the new tables for old events (two seating
@@ -459,7 +512,10 @@ at one venue; rejected).
 level name as sold (FR-030): `Order.tickets[].levelName`, `EntryTicket.levelName`, the attendee
 list and its CSV/Excel/PDF exports (a **Price level** column beside **Ticket type**, and a **Price**
 per ticket), and the sales report's `EventSales.levels` (each level's name, price, seats on sale,
-tickets sold, revenue) beside `tiers`, empty for general admission. Seat labels are shown as
+tickets sold, revenue) beside `tiers`, empty for general admission. Sold tickets and revenue are
+grouped by `Ticket.levelName` **as sold**; seats on sale and price come from the event's current
+levels. A carried-over event's tickets carry their ticket type's name as `levelName`, so its
+history still reads by ticket type, beside its new per-section levels (review M9). Seat labels are shown as
 "Section 115, Row F, Seat 7" from `rowLabel`/`seatLabel` (FR-026) in the confirmation, My tickets,
 the printed ticket, the attendee list, and the Booth's result.
 
@@ -475,16 +531,37 @@ the printed ticket, the attendee list, and the Booth's result.
   capacities, and checks each file against the `LayoutFile` schema from the contract before writing.
 - **Files** (`backend/src/scripts/layouts/yum-center-{basketball,end-stage,center-stage,wrestling}.json`,
   imported as JSON modules so the build copies them): Basketball 22,090 seats (lower 101–120 rows D–Z
-  then AA–HH where they go that deep, terrace 209–212, upper 301–330 rows A–W, 54 sections, 4 levels:
-  Courtside = rows D–G of the sideline sections, Lower sideline, Lower corner, Upper); End-stage
+  then AA–HH where they go that deep, terrace 209–212, upper 301–330 rows A–W, 54 sections); End-stage
   concert 17,500 (sections 101–103, 119–120, 301–306 and 325–330 removed, 104 and 118 partial,
   floor 1–5); Center stage about 19,500 and Wrestling (ring) about 18,000, our estimates, with floor
   sections around the stage or ring.
+- **Basketball's levels, pinned** (review S1; the stories, quickstart and browser tests use these):
+
+  | Level (rank, color) | Seats |
+  | --- | --- |
+  | Courtside (1, violet) | rows D–G of the sideline sections 104–108 and 113–117 |
+  | Lower sideline (2, blue) | the other rows of 104–108 and 113–117; terrace 209–212 |
+  | Lower end (3, teal) | the end and corner sections 101–103, 109–112, 118–120 |
+  | Upper (4, green) | 301–330 |
+
+  The other three layouts each have three levels: Floor (1), Lower (2), Upper (3), with the floor
+  sections in Floor.
 - **Demo events** (FR-033, US5) at the "KFC Yum! Center" venue (1 Arena Plaza, Louisville, KY
-  40202): women's basketball (upper off sale; sideline rows priced by row), men's basketball (all on
-  sale), end-stage concert (behind the stage off sale), WWE (back rows of 4 floor-facing sections
-  off sale); on each, about 40 seats sold to demo customers and 6 held, through the real services.
-  The reset (`029`) loads them with the rest; times relative to the run.
+  40202), the only seated events in the demo data (today's demo venues have no layout):
+
+  | Event | Layout | Prices | Off sale |
+  | --- | --- | --- | --- |
+  | Cardinals Women vs. Duke | Basketball | $95 / $60 / $35 (Upper none) | 301–330 |
+  | Cardinals Men vs. Kentucky | Basketball | $150 / $90 / $55 / $25 | none |
+  | Arena Tour: Live | End-stage concert | $120 / $75 / $40 | none beyond the layout's own cut |
+  | WWE Saturday Night | Wrestling (ring) | $110 / $65 / $30 | rows S–W of 305–310 and 320–325 |
+
+  On each, about 40 seats are sold to demo customers through the real services (a hold, then an
+  order, as a customer does). **No seat is left held**: a hold lasts exactly 5 minutes
+  (`seat_reservation_five_minutes`) and the sweep ends it, so the held state is shown live by a
+  second customer during the demo (review S3). So Basketball is used by 2 events, End-stage concert
+  and Wrestling by 1, all three locked; Center stage by none, unlocked (review S2). The reset (`029`)
+  loads them with the rest; times relative to the run.
 
 **Why**: John wanted the real building "without spending 3 weeks typing it all in"; a traced plan
 of about 60 sections plus a generator is an afternoon, reviewable, and ours to publish.
@@ -514,13 +591,15 @@ of about 60 sections plus a generator is an afternoon, reviewable, and ours to p
 ## R20. Spec, constitution, other specs
 
 - **Spec 038** (this PR): issue #165; FR-001 gains the 100-section limit; FR-003 and FR-031 allow a
-  carried-over layout more than 12 levels; FR-031 states the unmapped-section and nothing-mapped
-  cases (R16).
+  carried-over layout more than 12 levels and seats; FR-031 states the unmapped-section,
+  nothing-mapped and no-sections cases (R16); after review round 1, FR-006 (delete and line edits),
+  FR-008, FR-015, FR-023, FR-024, FR-033, FR-034, FR-036 and US2, US3, US5 as described above.
 - **Dated notes** (FR-036, this PR): `007` FR-001–FR-008, FR-017, FR-018; `015`'s one-tier
-  reservation; `033` FR-005; `035`'s Seating section.
-- **Constitution 3.9.9** (PATCH, roadmap only): rows `038-seat-maps` and `039-layout-editor`
-  reserved. PR #164 (`037`, 3.10.0) is open; whichever lands second takes the next version
-  (3.10.1 here if #164 is first) and keeps both rows. The next free number is `040`.
+  reservation; `033` FR-005; `035`'s Seating section; `031` FR-003 and FR-008; `024` FR-018–FR-022;
+  `023`'s export columns.
+- **Constitution 3.10.0** (MINOR): Principle I and gate 2 gain the rule for breaking removals (R3);
+  rows `038-seat-maps` and `039-layout-editor` reserved. PR #164 (`037`) also takes 3.10.0;
+  whichever lands second takes 3.11.0 and keeps both. The next free number is `040`.
 
 ## R21. Order of work, for the EDIS demo on 2026-11-20
 
@@ -530,3 +609,25 @@ import → Yum! Center files and demo data → event seating in the event save �
 the stream → holds and orders across levels → the shared map component → Customer flow → Admin
 Layouts card and Seating section → Sections list → Admin live map → reports, attendees, Booth →
 browser tests. tasks.md follows it.
+
+## R22. Spec 037 (the Rust Admin app) builds on what 038 retires
+
+**Problem** (review B2): PR #164's parity checklist ports the Admin app's current seating screens to
+Rust: V6 (`LayoutCard`, `replaceLayout`), E3 and E12 (section-to-ticket-type mapping,
+`updateSeating`), E13 (`SeatGrid` and the `snapshot` stream), with types generated from the contract
+and the `015`, `031` and `035` browser journeys run against it. Whichever of the two implementations
+merges second would turn `main` red: 2.0.0 removes those operations, or the Rust app is built on
+them.
+
+**Decision** (recommended answer, open to review; both features are Nate's): **038's implementation
+merges before 037's.** Before 037's implementation starts its seating screens, 037's spec PR amends
+its parity rows V6, E3 (the seating part), E12 and E13 to port 038's screens instead (the Layouts
+card, the Seating section with prices and off-sale seats, the event page's venue map), and its
+browser journeys follow 038's. If 037's implementation is merged first after all, 038's
+implementation PR also moves the Rust Admin app off the retired operations (a task added then), and
+cannot merge without it.
+
+**Alternatives**: 037 drops seating parity for now (John asked for every feature of the Admin app);
+step 2 waits for 037 (keeps two seating models on `main` and blocks 038's cleanup). Rejected, open to
+review.
+

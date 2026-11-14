@@ -19,7 +19,7 @@ the implementation fills in the test names.
 
 ## S0. The demo has the Yum! Center (US5)
 
-Run the reset; open Venues → KFC Yum! Center. **Expected**: Layouts: Basketball 22,090 seats · 54 sections · 4 levels; End-stage concert 17,500; Center stage; Wrestling (ring); each used by 1 event, locked (seats sold); capacity 22,090, read-only. **Covered by**: Backend `demo-data` test; browser `038 S0`.
+Run the reset; open Venues → KFC Yum! Center. **Expected**: Layouts: Basketball 22,090 seats · 54 sections · 4 levels; End-stage concert 17,500; Center stage; Wrestling (ring). Basketball is used by 2 events, End-stage concert and Wrestling by 1, all three locked (seats sold); Center stage by none, unlocked. Capacity 22,090, read-only. The four events of research R18 exist with their prices and off-sale seats, about 40 seats sold each and none held. **Covered by**: Backend `demo-data` test; browser `038 S0`.
 
 ## S1. The reset is repeatable (US5)
 
@@ -31,7 +31,7 @@ On a venue with no layouts, **Import layout file** with `backend/test/fixtures/l
 
 ## S3. A layout file with problems (US1)
 
-Import `backend/test/fixtures/layouts/bad.json` (a repeated seat, a missing level, a 31,000-seat section). **Expected**: Nothing saved; each problem listed with where it is, e.g. "Section 104, row F: seat 7 appears twice". **Covered by**: Backend `layouts` test; Admin `LayoutsCard` test.
+Import `backend/test/fixtures/layouts/bad.json` (a repeated seat label, a level key not in the file, a 201-seat row, two sections with one name, a point outside the map). **Expected**: Nothing saved; each problem listed with where it is, e.g. "Section 104, row F: seat 7 appears twice". **Covered by**: Backend `layouts` test; Admin `LayoutsCard` test.
 
 ## S4. A layout from section lines (US1)
 
@@ -43,7 +43,7 @@ On Basketball (locked), try Rename and Delete; then **Duplicate**. **Expected**:
 
 ## S6. Schedule a seated event (US2)
 
-Schedule "Cardinals Women vs. Duke" at the Yum! Center on Basketball; price $95, $60, $35, $20; take sections 301–330 and rows D–F of 104 off sale; save. **Expected**: Line reads seats on sale and off sale as the counts; event price "$35–$95"; capacity = seats on sale. **Covered by**: browser `038 S6`.
+Schedule "Cardinals Women vs. Duke" at the Yum! Center on Basketball; take sections 301–330 and rows D–F of 104 off sale (the Upper price box goes away); price Courtside $95, Lower sideline $60, Lower end $35; save. **Expected**: Line reads seats on sale and off sale as the counts; event price "$35–$95"; capacity = seats on sale. **Covered by**: browser `038 S6`.
 
 ## S7. A level without a price (US2)
 
@@ -59,19 +59,19 @@ Change a level's price after a sale. **Expected**: The sold ticket keeps its pri
 
 ## S10. The customer's venue map (US3)
 
-As `customer1`, open women's basketball → **Choose seats**. **Expected**: Sections colored by cheapest open level; upper level gray; legend names levels and prices. **Covered by**: browser `038 S10`.
+As `customer1`, open women's basketball → **Choose seats**. **Expected**: Sections colored by their cheapest open level; the upper level gray; the legend reads Courtside $95, Lower sideline $60, Lower end $35, Upper: not on sale. **Covered by**: browser `038 S10`.
 
 ## S11. The price filter (US3)
 
-Set the price filter to $30–$65. **Expected**: Courtside sections faded; overview still shows all. **Covered by**: Customer `VenueMap` test; browser `038 S10`.
+Set the price filter to $50–$100. **Expected**: The end sections (101–103, 109–112, 118–120, only $35 seats) fade; the sideline sections stay; the overview still shows every section. **Covered by**: Customer `VenueMap` test; browser `038 S10`.
 
 ## S12. Zoom into a section (US3)
 
-Click section 115; hover Row F Seat 7. **Expected**: Zoomed; rows D…HH drawn; "Sec 115, Row F, Seat 7 · Lower sideline · $60". **Covered by**: shared `VenueMap` test; browser `038 S10`.
+Click section 115; hover Row F Seat 7. **Expected**: Zoomed; rows D–G in Courtside's color, the rows behind in Lower sideline's; "Sec 115, Row F, Seat 7 · Courtside · $95". **Covered by**: shared `VenueMap` test; browser `038 S10`.
 
 ## S13. Hold seats of two levels and buy (US3)
 
-Hold Row F 7 and 8 (sideline) and a corner seat; Back to map; Add to cart; Buy. **Expected**: One countdown; Your seats lists each with its price and the sum; order has 3 tickets at their prices; My tickets shows "Section 115, Row F, Seat 7". **Covered by**: browser `038 S10`.
+Hold Row F 7 and 8 and Row P 7; Back to map; Add to cart; Buy. **Expected**: One countdown; Your seats lists $95, $95 and $60, total $250; order has 3 tickets at their prices; My tickets shows "Section 115, Row F, Seat 7". **Covered by**: browser `038 S10`.
 
 ## S14. Live changes (US3)
 
@@ -83,7 +83,7 @@ Phone width (390 × 844): pinch, zoom buttons, tap a section. **Expected**: Zoom
 
 ## S16. Keyboard and screen reader (US4)
 
-Keyboard only: filter, open the Sections list, choose 115, hold Row F Seat 7, release it. **Expected**: Seats are buttons named "Row F, Seat 7, Lower sideline, $60, open"; the map shows the same. **Covered by**: Customer `SectionsList` test; browser `038 S16`.
+Keyboard only: filter, open the Sections list, choose 115, hold Row F Seat 7, release it. **Expected**: Seats are buttons named "Row F, Seat 7, Courtside, $95, open"; the map shows the same. **Covered by**: Customer `SectionsList` test; browser `038 S16`.
 
 ## S17. The admin's live map (US6)
 
@@ -118,51 +118,29 @@ Which scenarios a browser test walks on every pull request (spec `022`), and why
 manual. `npm test` checks this table against `e2e/tests`. Until the implementation adds
 `e2e/tests/038-seat-maps.spec.ts`, every row is Manual; the implementation turns the rows its
 browser tests walk (S0, S5, S6, S10–S14, S16, S17) into Automated rows with the tests' exact titles
-(tasks).
+(T055).
 
 | Scenario | Browser test |
 | --- | --- |
-
-| S0 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S1 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S2 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S3 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S4 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S5 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S6 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S7 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S8 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S9 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S10 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S11 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S12 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S13 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S14 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S15 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S16 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S17 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S18 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S19 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S20 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
-
-| S21 | Manual: until the implementation's browser tests or Backend and app tests named above cover it |
+| S0 | Manual: covered by the Backend `demo-data` test until T052 adds `038 S0` |
+| S1 | Manual: two resets compared by the Backend `demo-data` test (twice); a browser adds nothing |
+| S2 | Manual: covered by the Backend `layouts` test and the Admin `LayoutsCard` test |
+| S3 | Manual: covered by the Backend `layouts` test and the Admin `LayoutsCard` test |
+| S4 | Manual: covered by the Backend `layouts` test |
+| S5 | Manual: covered by the Backend `layouts` test until T052 adds `038 S5` |
+| S6 | Manual: covered by the Backend `event-seating` and Admin `SeatingSection` tests until T052 adds `038 S6` |
+| S7 | Manual: covered by the Admin `SeatingSection` test |
+| S8 | Manual: covered by the Backend `event-seating` test |
+| S9 | Manual: covered by the Backend `orders.levels` test |
+| S10 | Manual: covered by the shared `VenueMap` and Customer `venue-map-flow` tests until T052 adds `038 S10` |
+| S11 | Manual: covered by the shared `VenueMap` test until T052 adds it to `038 S10` |
+| S12 | Manual: covered by the shared `VenueMap` test until T052 adds it to `038 S10` |
+| S13 | Manual: covered by the Customer `venue-map-flow` test until T052 adds it to `038 S10` |
+| S14 | Manual: covered by the Backend `seat-stream` test until T052 adds `038 S14` |
+| S15 | Manual: pinch can't be driven reliably in Playwright's Chromium; the zoom buttons and a tap at phone width go into `038 S10` (T052) |
+| S16 | Manual: covered by the shared and Customer `SectionsList` tests until T052 adds `038 S16` |
+| S17 | Manual: covered by the Admin `EventSeatMap` test until T052 adds `038 S17` |
+| S18 | Manual: a migration from a pre-038 database; the Backend `migration.seat-maps` test |
+| S19 | Manual: genuinely concurrent requests; the Backend `seats.concurrency` test |
+| S20 | Manual: covered by the Booth app's entry result test |
+| S21 | Manual: file downloads; covered by the Admin `attendees-export` test |

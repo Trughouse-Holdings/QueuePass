@@ -86,9 +86,10 @@ info:
     that serves the route. A test fails if a marked operation is served, or an unmarked one is not.
 
     **Retired operations**: an operation or field marked `x-retired: '<feature>'` is still served
-    as described, until that feature's implementation, which removes it from this document in the
-    same change that stops serving it, as listed in that feature's `contracts/README.md`. Build
-    nothing new on it. Feature 038 retires the venue's single layout (`getLayout`,
+    as described, until that feature's implementation, which removes it from this document by
+    applying, unchanged, the patch committed with the feature's spec
+    (`specs/<feature>/contracts/step2.diff`, Constitution I), in the same change that stops serving
+    it. Build nothing new on it. Feature 038 retires the venue's single layout (`getLayout`,
     `replaceLayout`, `deleteLayout`), `getSeatMap`, `updateSeating`, `EventInput.reservedSeating`,
     `EventUpdate.reservedSeating`, `EventTierInput.sectionIds`, and `streamSeatMap`'s `snapshot`
     event; its implementation is contract 2.0.0.
@@ -832,8 +833,8 @@ paths:
       description: |
         Feature 038. The layout's size, floor object, levels, and each section's outline, label
         point and counts; seats come one section at a time from `getVenueLayoutSection`.
-        `latestPrices` are the level prices of the scheduled event on this layout with the latest
-        start, for the Admin app to start a new event's price boxes from; `null` when none uses it.
+        `latestPrices` are the level prices of the most recently created scheduled event on this
+        layout, for the Admin app to start a new event's price boxes from; `null` when none uses it.
       operationId: getVenueLayout
       x-planned: '038'
       x-required-roles: []
@@ -859,6 +860,12 @@ paths:
         Refused while the layout is `locked`, that is used by a scheduled event that has valid
         tickets or live holds (`409 LAYOUT_IN_USE`, `details.events`). Name and capacity rules as
         `createVenueLayout`. Viewers of events that use it reload (`streamSeatMap` ends).
+
+        For every scheduled event using the layout, a lines edit puts **new** seats off sale for
+        that event and recomputes its `totalTicketCapacity`, `basePrice` and `priceMax`. It is
+        refused (`409 LAYOUT_IN_USE`, `details.events`, the message saying why for each) when an
+        event would then have on-sale seats in a level it has no price for, no seat on sale, or a
+        `maxTicketsPerCustomer` above its seats on sale.
       operationId: updateVenueLayout
       x-planned: '038'
       x-required-roles: [queuepass-admin]
@@ -882,9 +889,12 @@ paths:
       tags: [seating]
       summary: Delete a layout
       description: |
-        Feature 038. Refused while any scheduled event uses it (`409 LAYOUT_IN_USE`,
-        `details.events`). The venue's `seatingCapacity` becomes its largest remaining layout's
-        seats; after its last layout it keeps its last value, typed with `updateLocation` again.
+        Feature 038. Refused while any event uses it, a cancelled or past one included, since its
+        tickets keep their seats (`409 LAYOUT_IN_USE`, `details.events`); duplicate it instead. The
+        venue's `seatingCapacity` becomes its largest remaining layout's seats, refused when that
+        would fall below the `totalTicketCapacity` of a scheduled general-admission event at the
+        venue (`409 CAPACITY_EXCEEDED`, naming it); after its last layout it keeps its last value,
+        typed with `updateLocation` again.
       operationId: deleteVenueLayout
       x-planned: '038'
       x-required-roles: [queuepass-admin]
@@ -1525,11 +1535,15 @@ paths:
         `404`.
 
         Feature 038: the stream begins with `event: venueMap`, whose `data` is the `VenueMap`, as
-        from `getVenueMap`, in place of `snapshot` (retired). Each change also says the seat's
-        `levelId` and the state it left (`from`), so a client keeps the venue map's counts by
-        adding 1 to `state` and taking 1 from `from` for that level; seats taken off sale or put
-        back are changes too (`offSale`, `open`). The stream ends when the event's seating or its
-        layout is saved.
+        from `getVenueMap`, in place of `snapshot` (retired). Each `seats` message carries the
+        event's seat-change sequence number `seq`, and each change the seat's `levelId` and the
+        state it left (`from`). A client keeps the venue map's counts by adding 1 to `state` and
+        taking 1 from `from` for that level, for messages whose `seq` is greater than the map's
+        `seq` only (a message read while the map was being read may already be in it), and a
+        loaded section's seats the same way against that section's `seq`. Seats taken off sale or
+        put back by an event save are `seats` messages (`offSale`, `open`). The stream **ends**
+        when the event's layout or level prices change, or a layout it uses is edited; a client
+        reconnects at once, reads the new map, and reloads the section it had open.
       operationId: streamSeatMap
       x-required-roles: []
       x-sse-events:
@@ -2678,8 +2692,12 @@ components:
             (`400`): the capacity is the seats on sale and `basePrice` the lowest level price, both
             set by the Backend (a `basePrice` sent is ignored). A layout of another venue is `400`.
             On `updateEvent`, changing or clearing it is refused while the event has valid tickets
-            or live holds (`409 EVENT_HAS_ORDERS`), and clears its `levelPrices` and `offSale`.
-            Left out on `updateEvent`, unchanged.
+            or live holds (`409 EVENT_HAS_ORDERS`), and replaces its `levelPrices` and `offSale`
+            with those sent in the same request (none when not sent). Clearing it keeps the
+            event's `totalTicketCapacity` and `basePrice` as they were unless sent, as general
+            admission then types them. With `locationId` in the same request, the layout must be
+            of the new venue; a venue change without `layoutId` clears the layout (refused, as
+            above, while the event has sales). Left out on `updateEvent`, unchanged.
         levelPrices:
           type: array
           maxItems: 50
@@ -2751,8 +2769,8 @@ components:
       description: |
         Partial update; supply only the fields being changed. From 1.19.0 (#117), a field may be
         left out but not sent as `null` (`400 VALIDATION_FAILED` naming it, nothing changed),
-        except `maxTicketsPerCustomer` (`null` clears the limit) and `doorsOpenAt` (`null` counts
-        as left out).
+        except `maxTicketsPerCustomer` (`null` clears the limit), `doorsOpenAt` (`null` counts
+        as left out) and, feature 038, `layoutId` (`null` makes the event general admission).
       properties:
         name: { type: string, minLength: 1, maxLength: 200 }
         locationId:
@@ -2810,8 +2828,12 @@ components:
             (`400`): the capacity is the seats on sale and `basePrice` the lowest level price, both
             set by the Backend (a `basePrice` sent is ignored). A layout of another venue is `400`.
             On `updateEvent`, changing or clearing it is refused while the event has valid tickets
-            or live holds (`409 EVENT_HAS_ORDERS`), and clears its `levelPrices` and `offSale`.
-            Left out on `updateEvent`, unchanged.
+            or live holds (`409 EVENT_HAS_ORDERS`), and replaces its `levelPrices` and `offSale`
+            with those sent in the same request (none when not sent). Clearing it keeps the
+            event's `totalTicketCapacity` and `basePrice` as they were unless sent, as general
+            admission then types them. With `locationId` in the same request, the layout must be
+            of the new venue; a venue change without `layoutId` clears the layout (refused, as
+            above, while the event has sales). Left out on `updateEvent`, unchanged.
         levelPrices:
           type: array
           maxItems: 50
@@ -3296,6 +3318,15 @@ components:
       required: [eventId, changes]
       properties:
         eventId: { type: string, format: uuid }
+        seq:
+          type: integer
+          minimum: 1
+          description: |
+            Feature 038. The event's seat-change sequence number after this change: one more for
+            each transaction that changed a seat, assigned under the event's lock, so changes
+            arrive in increasing order per transaction. A change whose `seq` is not greater than
+            the `seq` of the map or section it would apply to is already in it and is skipped.
+            Sent once 038 is implemented.
         changes:
           type: array
           minItems: 1
@@ -3512,7 +3543,13 @@ components:
           enum: [FILE, LINES]
           description: Imported from a file, or made from section lines (only these take lines).
         floorKind: { $ref: '#/components/schemas/FloorKind' }
-        seatCount: { type: integer, minimum: 1, maximum: 30000, example: 22090 }
+        seatCount:
+          type: integer
+          minimum: 1
+          example: 22090
+          description: |
+            At most 30,000 for a layout imported or made from lines; a layout carried over from
+            before 038 ("Standard") may have more, up to the old limits (50 × 100 × 200).
         sectionCount: { type: integer, minimum: 1, example: 54 }
         levelCount: { type: integer, minimum: 1, example: 4 }
         eventsUsing:
@@ -3571,7 +3608,7 @@ components:
           items: { type: string, format: uuid }
 
     LatestPrices:
-      description: Feature 038. The level prices of the latest-starting scheduled event on a layout.
+      description: Feature 038. The level prices of the most recently created scheduled event on a layout.
       type: object
       required: [eventId, eventName, startsAt, prices]
       properties:
@@ -3669,7 +3706,10 @@ components:
         levels:
           type: array
           minItems: 1
-          maxItems: 12
+          maxItems: 50
+          description: |
+            At most 12, or, for a carried-over layout with more, at most as many as it has now
+            (`400` otherwise).
           items: { $ref: '#/components/schemas/LayoutLevelLine' }
         sections:
           type: array
@@ -3842,6 +3882,12 @@ components:
       required: [eventId, layoutId, layoutName, size, floorKind, floorOutline, levels, sections]
       properties:
         eventId: { type: string, format: uuid }
+        seq:
+          type: integer
+          minimum: 0
+          description: |
+            The event's seat-change sequence number this map was read at. Apply only the
+            `SeatMapChange`s with a greater `seq` to it. Sent once 038 is implemented.
         layoutId: { type: string, format: uuid }
         layoutName: { type: string }
         size: { $ref: '#/components/schemas/MapSize' }
@@ -3896,6 +3942,12 @@ components:
       required: [eventId, sectionId, name, rows]
       properties:
         eventId: { type: string, format: uuid }
+        seq:
+          type: integer
+          minimum: 0
+          description: |
+            As `VenueMap.seq`: apply only the changes with a greater `seq` to this section. Sent
+            once 038 is implemented.
         sectionId: { type: string, format: uuid }
         name: { type: string }
         rows:

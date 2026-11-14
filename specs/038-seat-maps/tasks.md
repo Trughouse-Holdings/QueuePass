@@ -22,22 +22,28 @@ confirm they **fail** before its implementation tasks.
   `038-seat-maps-spec` and carry in every change that PR's review makes; once it merges, bring it up
   to `main`. A gap in the spec or plan is fixed there (a commit on the spec branch), not worked
   around in code.
-- **Commits** cite the spec, the task IDs, and the issue: `Impl 038: layout import (T020–T023, #165)`.
+- **Commits** cite the spec, the task IDs, and the issue: `Impl 038: layout import (T021–T024, #165)`.
   The body names the FR or R it rests on.
 - **Contract**: 1.28.0 and `api-schema.ts` come from the spec PR. The implementation changes the
-  contract only to (a) remove each `x-planned: '038'` marker in the change that serves its route,
-  and (b) carry out **Step 2** of contracts/README.md word for word (T053). Anything else it finds
-  it needs goes to the spec PR first.
+  contract only to (a) apply `specs/038-seat-maps/contracts/step2.diff` unchanged with `git apply`
+  (T009, Constitution 3.10.0 Principle I), and (b) remove each `x-planned: '038'` marker in the change
+  that serves its route. Anything else it finds it needs goes to the spec PR first; if `main`'s
+  contract changes so the patch no longer applies, the patch is remade on the spec branch.
 - **Shared surface the implementation touches** (every member approves the PR): the contract's
   step 2, `api-schema.ts`, `backend/prisma/`, `packages/shared/src/seating.ts`,
   `packages/shared/src/web/venue-map/`, `use-seat-stream.ts`, `seat-stream.ts`, `theme.css`.
-- **Work in flight**: PR #164 (`037` Rust Admin) changes the constitution (3.10.0) and no code this
-  feature touches; whichever lands second renumbers the constitution and keeps both rows.
-- **Lock order** (R7): venue → layout → events by id. Never lock an event and then a layout or a
-  venue.
-- **One independent review** (Constitution III) of the implementation branch before its PR (T059).
-- **`npm run ci` locally** before pushing (T057), then **CI green on GitHub** (`test` and `e2e`)
-  before merge (T061).
+- **Work in flight**: PR #164 (`037` Rust Admin) also amends the constitution to 3.10.0; whichever
+  lands second takes 3.11.0 and keeps both. Its Rust Admin app ports the seating screens this feature
+  retires: this implementation merges **before** 037's, and 037's seating parity rows follow 038
+  (research R22). If 037's implementation is on `main` first, stop and add the Rust app's move to
+  this task list on the spec branch before merging.
+- **Lock order** (R7): **the venue first, always.** Layout writes: venue `FOR UPDATE`, then the
+  layout, then its scheduled events by id (`layout-lock.ts`). Event saves: venue `FOR SHARE`
+  (`lockVenueShared`), then the event, then the layout read (its foreign key takes `KEY SHARE`).
+  Holds, orders and the sweep: the event only, never a layout or a venue.
+- **One independent review** (Constitution III) of the implementation branch before its PR (T060).
+- **`npm run ci` locally** before pushing (T058), then **CI green on GitHub** (`test` and `e2e`)
+  before merge (T062).
 - **The team stack** (Compose project `queuepass-team`) holds the fixed ports and the team's data.
   Walk on a Compose project of your own (`-p qp038`); stop the team stack only with Mahdi's go, with
   `docker compose -p queuepass-team stop` (never `down`, never `-v`), and restore it afterwards.
@@ -76,7 +82,8 @@ confirm they **fail** before its implementation tasks.
   migration before `_seat_maps`, rows inserted with SQL, then the migration): a venue with 3
   sections; a seated event with 2 ticket types mapping 2 sections and leaving 1 unmapped, with
   VALID, VOID and REFUNDED tickets, a live hold and an ended one; a seated event without types; a
-  seated event with types and no mapping; a general-admission event with types. After: one layout
+  seated event with types and no mapping; a general-admission event with types; a CANCELLED event with `reservedSeating = true` at a venue with
+  no sections; a venue of 40,000 seats (two sections of 100 × 200) with one seated event. After: one layout
   "Standard", `source = 'LINES'`, `floorKind = 'NONE'`; sections keep their ids; one level per
   section named after it, rank = position + 1; rows `1…n` labelled `'1'…'n'`, seats `1…m`
   labelled `'1'…'m'`; the first event's mapped levels priced at their types' prices, the unmapped
@@ -86,7 +93,9 @@ confirm they **fail** before its implementation tasks.
   no-mapping event `reservedSeating = false`, `layoutId` NULL, types kept; every ticket keeps
   `seatSection`, `seatRow`, `seatNumber`, status, gets `seatId`, `seatRowLabel`, `seatLabel`, `price`
   = its order's `unitPrice` and `levelName` = its type's name (else the section's); the live hold
-  has `seatId`; the GA event unchanged. Then: two VALID tickets for one `seatId` fail
+  has `seatId`; the GA event unchanged; the cancelled event at the venue without sections is general admission
+  (`reservedSeating = false`, `layoutId` NULL); the 40,000-seat venue's Standard layout has all
+  40,000 seats (`seatCount` 40,000); `Event.seatSeq` is 0 everywhere. Then: two VALID tickets for one `seatId` fail
   (`ticket_one_valid_per_seat`), two live holds for one `seatId` fail (`seat_hold_one_live_per_seat`),
   deleting a sold seat fails (`ticket_valid_has_seat`), `reservedSeating` without `layoutId` fails
   (`event_seating_matches_layout`). Must fail (no migration yet).
@@ -103,7 +112,7 @@ confirm they **fail** before its implementation tasks.
 - [ ] T005 Schema in `backend/prisma/schema.prisma` exactly as data-model.md: new models `Layout`
   (`name` "1–50 characters, trimmed; unique per venue ignoring case", `source` enum `FILE | LINES`,
   `floorKind` enum `COURT | END_STAGE | CENTER_STAGE | RING | NONE`, `floorOutline` JSONB nullable
-  "`NULL` with `NONE`", `width`/`height` "1–5,000", `seatCount` "1–30,000"), `PriceLevel` (`name`
+  "`NULL` with `NONE`", `width`/`height` "1–5,000", `seatCount` "≥ 1" (30,000 is the Backend's limit for new layouts)), `PriceLevel` (`name`
   VARCHAR(50) unique per layout ignoring case, `rank` "1–50" unique per layout, `color` VARCHAR(10)
   one of the 12 names), `SeatRow` (`number` "1–100", `label` VARCHAR(5) "1–5 characters", both
   unique per section, `levelId` nullable), `Seat` (`rowId`, `sectionId` denormalised, `number`
@@ -111,9 +120,10 @@ confirm they **fail** before its implementation tasks.
   default false), `EventLevelPrice` (PK `(eventId, levelId)`, `price` DECIMAL(10,2) "≥ 0"),
   `EventOffSaleSeat` (PK `(eventId, seatId)`); `Section` with `layoutId`, `levelId` (required),
   `outline` JSONB, `labelX`/`labelY` REAL, without `locationId`/`rows`/`seatsPerRow`; `Event.layoutId`
-  (nullable, RESTRICT); `Ticket.seatId` (nullable, SET NULL), `seatRowLabel`, `seatLabel` VARCHAR(5),
+  (nullable, RESTRICT), `Event.seatSeq` (BIGINT, default 0, "≥ 0"); `Ticket.seatId` (nullable, SET NULL), `seatRowLabel`, `seatLabel` VARCHAR(5),
   `levelName` VARCHAR(50) nullable, `price` DECIMAL(10,2) required; `Order.unitPrice` nullable;
-  `SeatHold.seatId` (nullable, SET NULL); `SectionTier` removed. Comments cite 038 and data-model.md.
+  `SeatHold.seatId` (nullable, SET NULL); `SectionTier` removed. The level foreign keys of `Section`, `SeatRow` and `Seat` are `NO ACTION`
+  (`onDelete: NoAction`), not `RESTRICT` (R7). Comments cite 038 and data-model.md.
 - [ ] T006 The migration `backend/prisma/migrations/<timestamp>_seat_maps/migration.sql`, by hand
   (R16 steps 1–6, data-model.md "Carry-over"): tables, the carry-over in SQL (`generate_series` for
   rows and seats on the R6 grid), every CHECK and index named in data-model.md
@@ -132,7 +142,7 @@ confirm they **fail** before its implementation tasks.
   `maxMapUnits: 5_000`, `maxOffSaleSelectors: 5_000`, `maxImportBytes: 4 * 1024 * 1024`),
   `LEVEL_COLORS` (the 12 names in the contract's `LevelColor` order), and type aliases from
   `api-schema.ts` for the new schemas (`LayoutSummary`, `LayoutDetail`, `VenueMap`,
-  `VenueMapSection`, `SeatState`, `OffSaleSelector`, …). `SEATING_LIMITS` stays until T053. Unit test
+  `VenueMapSection`, `SeatState`, `OffSaleSelector`, …). `SEATING_LIMITS` goes in T009. Unit test
   `packages/shared/test/seating.test.ts` that `LEVEL_COLORS` equals the contract's enum.
 - [ ] T008 Backend helpers: `backend/src/seating/seat-levels.ts` (the `COALESCE(seat, row, section)`
   SQL fragment and a function giving a seat's level; counts per section and level by state for one
@@ -141,7 +151,23 @@ confirm they **fail** before its implementation tasks.
   (lock venue, then layout `FOR UPDATE`, then every scheduled event using it in id order, R7, built
   on `common/venue-lock.ts`). T004 passes.
 
-**Checkpoint**: the database carries today's data over; the helpers pass their tests.
+- [ ] T009 Contract **step 2** and the retired code, together (R3, Constitution I): `git apply
+  specs/038-seat-maps/contracts/step2.diff` (unchanged; it applies to 1.28.0 with every `x-planned`
+  marker still in place), `npm run generate:api`, `node scripts/check-contract-drift.mjs`; the
+  contract is 2.0.0 with no `x-retired` marker. Remove the retired Backend code:
+  `backend/src/seating/layout.service.ts`, `layout.controller.ts`, `seat-map.service.ts`,
+  `seat-map.controller.ts`, `tier-seats.ts`, `dto/layout-input.dto.ts`, `dto/seating-input.dto.ts`,
+  the `updateSeating` route, the `snapshot` message in `seat-stream.controller.ts` (the stream sends
+  nothing first until T037), and seated `reservedSeating`/`sectionIds` handling in
+  `backend/src/events/event-setup.ts`; their tests `layout.e2e-spec.ts`, `seating.e2e-spec.ts`,
+  `seating.capacity.e2e-spec.ts` (replaced by Phases 3–5's). `SEATING_LIMITS` and the old types in
+  `packages/shared/src/seating.ts` go. From here the Admin and Customer apps' seating screens and
+  their tests do not compile or pass until their phases move them (US1, US2, US3, US6); nothing is
+  pushed for review before Phase 10 is green. The route-coverage test passes (the 2.0.0 contract has
+  no retired operation, and every new one is still `x-planned`).
+
+**Checkpoint**: the database carries today's data over; one seating model, contract 2.0.0; the
+helpers pass their tests.
 
 ---
 
@@ -154,7 +180,7 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
 
 ### Tests first
 
-- [ ] T009 [P] [US1] `backend/test/integration/layouts.e2e-spec.ts` (FR-001–FR-009, R5–R7;
+- [ ] T010 [P] [US1] `backend/test/integration/layouts.e2e-spec.ts` (FR-001–FR-009, R5–R7;
   contracts/README.md): `importVenueLayout` with `small.json` → `201`, counts, `source: FILE`, levels
   by rank, every section's `outline`, `labelAt` (the centroid when the file has none), `levelIds`;
   `getVenueLayoutSection` gives rows front first and each seat's resolved level and `accessible`;
@@ -169,22 +195,31 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   layout → `400`; a lines edit keeps the ids of unchanged levels, sections, rows and seats and an
   event's prices and off-sale seats on them, and deletes what is gone with theirs; a layout used by a
   scheduled event with a VALID ticket, or with a live hold → rename, edit and delete `409
-  LAYOUT_IN_USE` naming the event; a layout used by a scheduled event with no sales → delete `409`;
-  after the event is cancelled → allowed; `duplicateVenueLayout` always `201`, "(copy)", then
+  LAYOUT_IN_USE` naming the event; after that event is cancelled → rename and edit allowed, delete
+  still `409` (a cancelled or past event uses it, FR-006); a layout used by a scheduled event with no
+  sales → delete `409`; a layout no event uses, with levels, sections, rows and seats → delete
+  `204` (the cascade is not refused by the level foreign keys); a delete that would lower the
+  venue's capacity below a scheduled GA event's → `409 CAPACITY_EXCEEDED`; a lines edit of a layout
+  used by an unsold scheduled event puts the new seats off sale for it and recomputes its capacity,
+  `basePrice` and `priceMax`, and is refused (`409 LAYOUT_IN_USE`, naming the event and why) when a
+  section moves to a level the event has no price for, when no seat would be on sale, or when its
+  `maxTicketsPerCustomer` would exceed its seats on sale; a carried-over layout with 20 levels takes
+  a lines edit with 20 levels and refuses 21 (`400`), while a new layout refuses 13; `duplicateVenueLayout` always `201`, "(copy)", then
   "(copy 2)", new ids, unlocked; `seatingCapacity` = largest layout, recomputed on create, import,
   edit, duplicate and delete, kept after the last delete; a layout write that would drop it below a
   scheduled GA event's capacity → `409 CAPACITY_EXCEEDED` naming it; `listVenueLayouts` ordered by
   name with `eventsUsing` and `locked`; `getVenueLayout.latestPrices` from the latest-starting
   scheduled event, `null` with none; every response `expectToMatchContract`. Must fail.
-- [ ] T010 [P] [US1] `backend/test/integration/layouts.authz.e2e-spec.ts`: for each of the eight
+- [ ] T011 [P] [US1] `backend/test/integration/layouts.authz.e2e-spec.ts`: for each of the eight
   layout operations, missing, expired, wrong-signed, wrong-audience and wrong-role tokens (`401`,
   `403`), as `event-images.authz.e2e-spec.ts` does; reads allowed to a customer and a gate agent.
   Must fail.
-- [ ] T011 [P] [US1] `backend/test/integration/layouts.concurrency.e2e-spec.ts`: a lines edit and an
-  order for a seat of an event on the layout, started together 10 times: never both succeed when the
-  order would make the layout locked first; two imports with one name at once: exactly one `201`.
+- [ ] T012 [P] [US1] `backend/test/integration/layouts.concurrency.e2e-spec.ts`: a lines edit and a
+  hold of a seat of an event on the layout, started together 10 times: either the hold succeeds and
+  the edit is refused (`409 LAYOUT_IN_USE`), or the edit succeeds and the hold sees the new layout,
+  never a hold on a seat the edit deleted; two imports with one name at once: exactly one `201`.
   Must fail.
-- [ ] T012 [P] [US1] `admin-app/test/layouts-card.test.tsx` (R15, FR-007, FR-009): the Layouts card
+- [ ] T013 [P] [US1] `admin-app/test/layouts-card.test.tsx` (R15, FR-007, FR-009): the Layouts card
   lists each layout's name, seats, sections, levels, "used by N events", "Locked: seats sold at
   {event}" when locked, and a preview (an `svg` with one outline per section, no seat circles);
   Import layout file reads a chosen JSON file and sends it; `LAYOUT_FILE_INVALID` lists every
@@ -196,34 +231,35 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
 
 ### Implementation
 
-- [ ] T013 [US1] `backend/src/layouts/layout-file.ts`: check a `LayoutFile` as a whole (R5): shape
+- [ ] T014 [US1] `backend/src/layouts/layout-file.ts`: check a `LayoutFile` as a whole (R5): shape
   and every `LAYOUT_LIMITS` limit, trimmed unique names and labels ignoring case, level keys
-  resolve, `kind: NONE` ⇔ no outline, every point inside `size`, at most 50 problems plus `more`;
+  and level ranks unique, level keys resolve, `kind: NONE` ⇔ no outline, every point inside `size`, at most 50 problems plus `more`;
   expand runs; give the rows to save with numbers by order and seats with numbers by order. Messages
   name places as people read them ("Section 104, row F: seat 7 appears twice").
-- [ ] T014 [US1] `backend/src/layouts/layouts.service.ts`, `layouts.controller.ts`,
+- [ ] T015 [US1] `backend/src/layouts/layouts.service.ts`, `layouts.controller.ts`,
   `layouts.module.ts`, DTOs for `LayoutLinesInput`, `LayoutUpdate`, `LayoutDuplicate`,
-  `LayoutImport` (the file itself checked by T013, not by the global pipe): list, get, section,
+  `LayoutImport` (the file itself checked by T014, not by the global pipe): list, get, section,
   create, import (`createMany` in batches of 5,000 inside one transaction), update (rename; lines
-  keeping ids by label, R6), duplicate, delete; the lock and capacity rules (R7) under
-  `layout-lock.ts`; `seatingCapacity` written in the same transaction; after commit, `end()` the
+  keeping ids by label, new seats off sale for unsold events using it, their capacity and prices
+  recomputed, the refusals of R6), duplicate, delete (refused while any event uses it; capacity
+  checked); the lock and capacity rules (R7) under `layout-lock.ts`; `seatingCapacity` written in the same transaction; after commit, `end()` the
   seat streams of events on a changed layout. Register in `app.module.ts`; remove the `x-planned`
   markers of the eight operations in `contracts/openapi.yaml` and regenerate `api-schema.ts`.
-- [ ] T015 [US1] `backend/src/configure-app.ts`: a JSON body limit of `LAYOUT_LIMITS.maxImportBytes`
+- [ ] T016 [US1] `backend/src/configure-app.ts`: a JSON body limit of `LAYOUT_LIMITS.maxImportBytes`
   on `POST /locations/:id/layouts/import` only; every other route keeps the default.
-- [ ] T016 [US1] `backend/src/locations/`: `updateLocation` refuses a typed `seatingCapacity` while
+- [ ] T017 [US1] `backend/src/locations/`: `updateLocation` refuses a typed `seatingCapacity` while
   the venue has layouts (as `007` did with its layout); `deleteLocation` unchanged (layouts cascade
   with a venue that has no events).
-- [ ] T017 [P] [US1] Shared map drawing for previews: `packages/shared/src/web/venue-map/map-geometry.ts`
+- [ ] T018 [P] [US1] Shared map drawing for previews: `packages/shared/src/web/venue-map/map-geometry.ts`
   (outline to SVG path, bounds, centroid, `viewBox` of a section) and
   `packages/shared/src/web/venue-map/layout-preview.tsx` (sections and floor object only, each
   section's name, no seats, `role="img"` with an accessible name "Basketball: 54 sections"), with
   `packages/shared/test/venue-map/layout-preview.test.tsx` written first.
-- [ ] T018 [US1] Admin app: `admin-app/src/api/layouts.ts` (the eight operations, typed from
+- [ ] T019 [US1] Admin app: `admin-app/src/api/layouts.ts` (the eight operations, typed from
   `api-schema.ts`), `admin-app/src/components/LayoutsCard.tsx` (replaces `LayoutCard.tsx`; R15),
   `SectionLines.tsx` (a level column and a levels list), `pages/LocationForm.tsx` and
   `pages/LocationDetail.tsx` (the card, the read-only capacity). Remove `LayoutCard.tsx` and its
-  uses. T009–T012 pass.
+  uses. T010–T013 pass.
 
 **Checkpoint**: layouts can be made, listed, previewed, locked and duplicated.
 
@@ -238,7 +274,7 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
 
 ### Tests first
 
-- [ ] T019 [P] [US2] `backend/test/integration/event-seating.e2e-spec.ts` (FR-010–FR-015, R8, R9):
+- [ ] T020 [P] [US2] `backend/test/integration/event-seating.e2e-spec.ts` (FR-010–FR-015, R8, R9):
   `createEvent` with `layoutId`, `levelPrices` for every level with seats on sale and `offSale`
   selectors (a whole section, two rows, two seats) → `201`, `reservedSeating: true`,
   `totalTicketCapacity` = seats − off sale, `basePrice` = lowest on-sale price, `priceMax` = highest,
@@ -251,14 +287,17 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   clears prices and off-sale seats; with a VALID ticket or a live hold → `409 EVENT_HAS_ORDERS`, as
   is clearing it; taking a sold or held seat off sale (by seat, row or section) → `409 SEAT_TAKEN`
   `details.seats`; a price change keeps sold tickets' prices; `updateEvent` without the three fields
-  leaves them; moving the event to another venue with a layout and no sales clears the layout;
+  leaves them; `updateEvent` with `layoutId: null` makes the event general admission keeping its
+  capacity and base price unless sent; a new `layoutId` with `levelPrices` and `offSale` in the same
+  request saves those for the new layout; `locationId` and a `layoutId` of the new venue together →
+  `200`, of the old venue → `400`; moving the event to another venue with a layout and no sales clears the layout;
   `getEventSeating` compacts selectors (section, then rows, then seats) and gives each level's
   seats, seats on sale and price; a GA event gives `layoutId: null` and empty lists;
   `createTicketTier` on a seated event → `400`; the event list and `getEvent` carry `layoutId` and
   `priceMax` (`null` for GA); every response `expectToMatchContract`. Must fail.
-- [ ] T020 [P] [US2] `backend/test/integration/event-seating.authz.e2e-spec.ts`: `getEventSeating`
+- [ ] T021 [P] [US2] `backend/test/integration/event-seating.authz.e2e-spec.ts`: `getEventSeating`
   and the seating fields of `createEvent`/`updateEvent` for each token case; `401`/`403`. Must fail.
-- [ ] T021 [P] [US2] `admin-app/test/seating-section.test.tsx` (FR-015, R15; `035`'s rules):
+- [ ] T022 [P] [US2] `admin-app/test/seating-section.test.tsx` (FR-015, R15; `035`'s rules):
   reserved seating offers the venue's layouts with a preview; picking one shows the price table
   (level, color swatch, seats on sale, empty price box) started from `latestPrices`; the off-sale tool
   in a zoomed section (Whole section off sale / on sale, a checkbox per row, a seat click) updates
@@ -274,22 +313,25 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
 
 ### Implementation
 
-- [ ] T022 [US2] `backend/src/seating/event-seating.ts`: validate and save `layoutId`, `levelPrices`,
+- [ ] T023 [US2] `backend/src/seating/event-seating.ts`: validate and save `layoutId`, `levelPrices`,
   `offSale` inside the event's transaction under its lock (R8): expand selectors to seat ids, refuse
   sold or held seats, write `EventLevelPrice` and `EventOffSaleSeat`, set `reservedSeating`,
-  `totalTicketCapacity`, `basePrice`; compaction for reads; `latestPrices`. Called from
+  `totalTicketCapacity`, `basePrice`; compaction for reads; `latestPrices` (the most recently
+  created scheduled event on the layout). The venue is locked first (`lockVenueShared`, as
+  `events.service.ts` does today), then the event; never the layout. Called from
   `backend/src/events/event-setup.ts` (`createEvent`, `updateEvent`; refusal order: fields, then
   layout, then prices, then off-sale, then capacity and limit, as `031` orders its checks) and
-  `events.service.ts` (`priceMax` on every event read, the venue-change rule). Remove seated
-  `tiers`/`sectionIds` handling from `event-setup.ts`.
-- [ ] T023 [US2] `GET /events/:id/seating` (`getEventSeating`) in
+  `events.service.ts` (`priceMax` on every event read, the venue-change rule, `layoutId: null`). An
+  off-sale change publishes `seats` changes with a new `seatSeq`; a layout or price change ends the
+  event's streams (R12).
+- [ ] T024 [US2] `GET /events/:id/seating` (`getEventSeating`) in
   `backend/src/seating/event-seating.controller.ts`; `backend/src/tiers/` refuses a tier on a seated
   event (`400`); remove the `x-planned` marker of `getEventSeating`; regenerate `api-schema.ts`.
-- [ ] T024 [US2] Admin app: `admin-app/src/components/SeatingSection.tsx` (R15) in
+- [ ] T025 [US2] Admin app: `admin-app/src/components/SeatingSection.tsx` (R15) in
   `pages/EventForm.tsx`'s Seating section (replacing the section-to-type mapping and the seat totals
   of `035` FR-008 for seated events); the price table; the off-sale tool on the shared map (the
   tool's state is a set of selectors, compacted as the Backend does); the line; refusals beside their
-  fields (`035` FR-010). T019–T021 pass.
+  fields (`035` FR-010). T020–T022 pass.
 
 **Checkpoint**: a seated event can be scheduled on a layout with prices and seats off sale.
 
@@ -305,15 +347,16 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
 
 ### Tests first
 
-- [ ] T025 [P] [US3] `backend/test/integration/venue-map.e2e-spec.ts` (R11, FR-016, FR-028,
+- [ ] T026 [P] [US3] `backend/test/integration/venue-map.e2e-spec.ts` (R11, FR-016, FR-028,
   FR-029): `getVenueMap` gives the layout's drawing, levels with this event's prices (`null` for a
   level with nothing on sale) and per section and level `open`, `reserved`, `sold`, `offSale` that
   add up to the section's seats, after holds, a sale, a void ticket and off-sale seats;
-  `getVenueMapSection` gives each seat's state and resolved level; a section of another layout →
+  `getVenueMapSection` gives each seat's state and resolved level; both carry the event's `seq`,
+  read in the same statement as the states; a section of another layout →
   `404`; a GA event → `404`; no response contains a customer's sub, username, order or holder name;
   the same answer for an admin and a customer; authorization cases for both operations; contract
   matches. Must fail.
-- [ ] T026 [P] [US3] `backend/test/integration/holds.levels.e2e-spec.ts` (FR-021, R10): one
+- [ ] T027 [P] [US3] `backend/test/integration/holds.levels.e2e-spec.ts` (FR-021, R10): one
   reservation holds seats of three levels, still at most 10 (`400` at 11 as before);
   `Reservation.tierId` is `null`; each `ReservedSeat` has `rowLabel`, `seatLabel`, `levelName` and the
   current `price`; an off-sale seat → `409 SEAT_OFF_SALE` `details.seats`, nothing held; a seat of
@@ -322,86 +365,95 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   `reservations.admin-changes.e2e-spec.ts`, `seat-holds.constraints.e2e-spec.ts` and the test
   fixtures (`backend/test/setup/fixtures.ts`: a `seatedEvent` helper that makes a lines layout and
   prices it) from section-to-tier setups to layouts. Must fail.
-- [ ] T027 [P] [US3] `backend/test/integration/orders.levels.e2e-spec.ts` (FR-022, FR-026, R10):
+- [ ] T028 [P] [US3] `backend/test/integration/orders.levels.e2e-spec.ts` (FR-022, FR-026, R10):
   buying held seats of two levels makes one ticket per seat at its level's price **at purchase**
   (a price changed after the hold applies), `totalPrice` the sum, `unitPrice` the one price when all
   equal and `null` when they differ, each ticket's `price`, `levelName`, `seat.rowLabel`,
   `seat.seatLabel`; `tierId` on a seated order → `400`; an off-sale seat → `409 SEAT_OFF_SALE`;
   `listMyOrders` and `listAttendees` show the same. Update `orders.seats.e2e-spec.ts`,
   `orders.reservation.e2e-spec.ts`, `orders.e2e-spec.ts` seated cases. Must fail.
-- [ ] T028 [P] [US3] `backend/test/integration/seats.concurrency.e2e-spec.ts` (FR-025, SC-001): 10
+- [ ] T029 [P] [US3] `backend/test/integration/seats.concurrency.e2e-spec.ts` (FR-025, SC-001): 10
   customers hold the same seat at once → exactly one `2xx`, nine `409 SEAT_TAKEN`; the holder sends
   10 orders for that seat at once, each with its own `requestId` → exactly one `201` and one VALID
   ticket, the rest refused; with the application check bypassed (two VALID tickets for one `seatId`
   inserted at once by SQL) the database refuses one (`ticket_one_valid_per_seat`); an admin taking a
   seat off sale while 10 customers try to hold it → either a hold or the off-sale save wins, never
   both. Genuinely concurrent (`Promise.all` on separate connections). Must fail.
-- [ ] T029 [P] [US3] `backend/test/integration/seat-stream.e2e-spec.ts` (R12, FR-023): the stream
-  begins with `event: venueMap` (a `VenueMap`), no `snapshot`; hold, release, purchase, expiry and an
-  off-sale save each send `seats` with `state`, `from` and `levelId`; the counts of a fresh
-  `getVenueMap` equal the first map plus the deltas; saving the event's seating or its layout ends
-  the stream; every message matches `x-sse-events`. Must fail.
-- [ ] T030 [P] [US3] `packages/shared/test/venue-map/use-pan-zoom.test.ts` (R13): zoom at a point
+- [ ] T030 [P] [US3] `backend/test/integration/seat-stream.e2e-spec.ts` (R12, FR-023, SC-004): the
+  stream begins with `event: venueMap` (a `VenueMap` with `seq`), no `snapshot`; hold, release,
+  purchase, expiry and an off-sale save each send `seats` with a `seq` one greater than the last and
+  `state`, `from` and `levelId` per seat; a change made while the map is being read (hold during the
+  connect, many times) is either in the map or has a `seq` above the map's, never both, so the first
+  map plus the changes with greater `seq` equals a fresh `getVenueMap` every time; an off-sale save
+  keeps the stream, a layout or price change and a layout edit end it; every message matches
+  `x-sse-events`; 20 trials of a hold with a second viewer connected, at least 19 delivered within 2
+  seconds (SC-004). Must fail.
+- [ ] T031 [P] [US3] `packages/shared/test/venue-map/use-pan-zoom.test.ts` (R13): zoom at a point
   keeps that point under the cursor; zoom bounded (fit … 40×); pan by a drag; two pointers pinch;
   `+`, `−`, arrows; zoom-to-section gives the section's bounds with a margin; reduced motion skips the
   animation. `packages/shared/test/venue-map/map-state.test.ts`: the reducer applies a snapshot,
   then deltas to counts (−1 `from`, +1 `state` for `levelId`), then to a loaded section's seats;
-  deltas in either order give the same counts; a section's color is its cheapest level with open
+  a change whose `seq` is not above the map's is skipped for counts, and not above a section's for
+  its seats; deltas in either order give the same counts; a reconnect replaces the map and reloads
+  the open section; a section's color is its cheapest level with open
   seats inside the filter, else unavailable; the filter's range from the levels' prices. Must fail.
-- [ ] T031 [P] [US3] `packages/shared/test/venue-map/venue-map.test.tsx` (FR-016–FR-019, SC-007):
+- [ ] T032 [P] [US3] `packages/shared/test/venue-map/venue-map.test.tsx` (FR-016–FR-019, SC-007):
   the overview draws every section with its name and fill, the floor object, and a legend naming
   each level with its color and price; the price filter (two range inputs, whole dollars) fades
   sections with no open seats inside it and marks levels outside it in the legend, and "No open seats
   between $X and $Y" with Reset when nothing matches; clicking or pressing Enter on a section zooms
   in and draws its rows and seats with row labels and Back to map; each seat state has its mark
   (open filled, held hollow, sold cross, off sale dash, mine check) and an accessible name "Row F,
-  Seat 7, Lower sideline, $60, open"; hover and focus show "Sec 115, Row F, Seat 7 · Lower sideline ·
-  $60"; faded seats still clickable; the overview never renders seat elements. Must fail.
-- [ ] T032 [P] [US3] `customer-app/test/venue-map-flow.test.tsx` (R14, FR-021, FR-022, FR-024): a
-  seated event shows "$20–$95" and Choose seats (no ticket-type step); Choose seats opens the map;
+  Seat 7, Courtside, $95, open"; hover and focus show "Sec 115, Row F, Seat 7 · Courtside · $95"; faded seats still clickable; the overview never renders seat elements. Must fail.
+- [ ] T033 [P] [US3] `customer-app/test/venue-map-flow.test.tsx` (R14, FR-021, FR-022, FR-024): a
+  seated event shows "$35–$95" and Choose seats (no ticket-type step); Choose seats opens the map;
   zoom into a section, click seats of two levels: each sends one hold (`033`'s queue), Your seats
   lists each with its level and price and the sum; Back to map; Add to cart; the cart lists each seat
-  with level and price and shows a changed price after the reservation poll; Buy tickets; the
+  with level and price from `listMyReservations` (`levelName`, `price`; no venue-map read) and shows
+  a changed price after the next poll; Buy tickets; the
   confirmation and My tickets say "Section 115, Row F, Seat 7"; live `seats` messages recolor a
   section. Update `seats.test.tsx`, `seat-holds.test.tsx`, `seat-stream.test.tsx`, `cart.test.tsx`,
   `keyboard.test.tsx`, `purchase` tests from the section-and-grid flow to the map. Must fail.
 
 ### Implementation
 
-- [ ] T033 [US3] `backend/src/seating/venue-map.service.ts` and `venue-map.controller.ts`:
+- [ ] T034 [US3] `backend/src/seating/venue-map.service.ts` and `venue-map.controller.ts`:
   `getVenueMap` (one grouped count query, R11) and `getVenueMapSection`; remove their `x-planned`
   markers; regenerate `api-schema.ts`.
-- [ ] T034 [US3] `backend/src/seating/seat-rules.ts`: `resolveSeats` returns seat ids with labels and
+- [ ] T035 [US3] `backend/src/seating/seat-rules.ts`: `resolveSeats` returns seat ids with labels and
   resolved levels from `{sectionId, row, seat}` on the event's layout; no tier rule; refuses off-sale
-  seats (`409 SEAT_OFF_SALE`); `soldSeats` by seat id. `backend/src/reservations/`: holds and
-  releases by seat id, `tierId` null on seated events, `ReservedSeat` labels, level and price,
+  seats (`409 SEAT_OFF_SALE`); `soldSeats` by seat id. Every transaction that changes a seat's state
+  (hold, release, the sweep, purchase, refund, cancellation, off-sale save) increments
+  `Event.seatSeq` once under the event lock and publishes that `seq` (R12).
+  `backend/src/reservations/`: holds and releases by seat id, `tierId` null on seated events, `ReservedSeat` labels, level and price,
   the `016` limit and `033`'s wait unchanged; `holds.ts` `toChanges` with `from` and `levelId`.
-- [ ] T035 [US3] `backend/src/orders/orders.service.ts`: seated orders without `tierId`; each ticket
+- [ ] T036 [US3] `backend/src/orders/orders.service.ts`: seated orders without `tierId`; each ticket
   `seatId`, `price` (the level price read under the event lock), `levelName`, `seatSection`,
   `seatRow`, `seatNumber`, `seatRowLabel`, `seatLabel`; `totalPrice` the sum; `unitPrice` null when
   prices differ; responses with `price`, `levelName`, `rowLabel`, `seatLabel`. General admission
   unchanged (each ticket's `price` = `unitPrice`).
-- [ ] T036 [US3] `backend/src/seating/seat-stream.controller.ts` and `seat-events.service.ts`: send
-  `venueMap` first; changes with `from` and `levelId` from holds, releases, the sweep, purchases,
+- [ ] T037 [US3] `backend/src/seating/seat-stream.controller.ts` and `seat-events.service.ts`: send
+  `venueMap` first (with its `seq`; changes that arrive while it is read are still sent, the client
+  skips the ones the map already has); changes with `from` and `levelId` from holds, releases, the sweep, purchases,
   refunds, cancellations and off-sale saves; `end()` on seating and layout saves; remove the
-  `x-planned` marker of the `venueMap` event. T025–T029 pass.
-- [ ] T037 [US3] Theme tokens in `packages/shared/src/web/theme.css`: `--level-violet` …
+  `x-planned` marker of the `venueMap` event. T026–T030 pass.
+- [ ] T038 [US3] Theme tokens in `packages/shared/src/web/theme.css`: `--level-violet` …
   `--level-brown` (the 12 names), `--seat-unavailable`, `--seat-mine`, `--map-floor`, `--map-bg`,
   each level color ≥ 3:1 against `--map-bg`; the theme's contrast tests cover them
   (`packages/shared/test/theme*.test.ts`); `admin-app/test/theme-drift.test.ts` and the Customer
   app's still pass.
-- [ ] T038 [US3] `packages/shared/src/web/venue-map/`: `use-pan-zoom.ts`, `map-state.ts`,
+- [ ] T039 [US3] `packages/shared/src/web/venue-map/`: `use-pan-zoom.ts`, `map-state.ts`,
   `venue-map.tsx` (overview and zoomed section, `colorBy: 'price' | 'state'`, `onSeat` callback),
   `section-view.tsx`, `legend.tsx`, `price-filter.tsx`, exported from `web/index.ts`; styles in the
   shared theme's classes only. `packages/shared/src/web/use-seat-stream.ts` and `seat-stream.ts`:
-  the `venueMap` snapshot, the delta reducer, loaded sections kept current. T030, T031 pass.
-- [ ] T039 [US3] Customer app: `components/GetTickets.tsx` seated half → Choose seats and the shared
+  the `venueMap` snapshot, the delta reducer, loaded sections kept current. T031, T032 pass.
+- [ ] T040 [US3] Customer app: `components/GetTickets.tsx` seated half → Choose seats and the shared
   map (R14) with `033`'s `use-hold-queue.ts` and Your seats (per-seat level and price, the sum);
-  `pages/Cart.tsx` (each seat's level and price from `getVenueMapSection`, cached per section,
-  refreshed with the reservation poll); `OrderConfirmation.tsx`, `pages/MyTickets.tsx`,
+  `pages/Cart.tsx` (each seat's level and price from `listMyReservations`' `ReservedSeat`, refreshed
+  with its poll); `OrderConfirmation.tsx`, `pages/MyTickets.tsx`,
   `pages/PrintTicket.tsx` (labels "Section 115, Row F, Seat 7", level, price);
   `pages/EventList.tsx`, `EventDetail.tsx` ("$20–$95" from `basePrice` and `priceMax`). Remove
-  `SeatPicker.tsx`. T032 passes.
+  `SeatPicker.tsx`. T033 passes.
 
 **Checkpoint**: the EDIS demo path works end to end on any layout.
 
@@ -413,58 +465,61 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
 
 **Independent test**: quickstart S16; shared and Customer `SectionsList` tests.
 
-- [ ] T040 [P] [US4] `packages/shared/test/venue-map/sections-list.test.tsx` and
+- [ ] T041 [P] [US4] `packages/shared/test/venue-map/sections-list.test.tsx` and
   `customer-app/test/sections-list.test.tsx` (FR-020): reachable by keyboard; each section's name,
   price range of its open seats and open count under the filter; choosing one lists its rows as
   groups of seat buttons named "Row F, Seat 7, Lower sideline, $60, open" with `aria-pressed` for
   held-by-me; Enter or Space holds and releases exactly as a map click (the same queue); a hold in
   either view shows in the other at once; the whole flow to buying by keyboard only. Must fail.
-- [ ] T041 [US4] `packages/shared/src/web/venue-map/sections-list.tsx` on the same `map-state`;
-  beside the map at laptop width and below it under 640 px; used by `GetTickets.tsx`. T040 passes.
+- [ ] T042 [US4] `packages/shared/src/web/venue-map/sections-list.tsx` on the same `map-state`;
+  beside the map at laptop width and below it under 640 px; used by `GetTickets.tsx`. T041 passes.
 
 ---
 
 ## Phase 7: User Story 5 - The demo resets to the Yum! Center events John showed (P2)
 
 **Goal**: the four layouts from committed files made by a generator from a traced plan, and four demo
-events with sold and held seats, in the reset (FR-033, R18). The generator and files (T042–T045)
+events with sold seats, in the reset (FR-033, R18). The generator and files (T043–T045)
 need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
 
 **Independent test**: quickstart S0, S1; Backend `demo-data` test; generator test.
 
-- [ ] T042 [P] [US5] `scripts/test/layouts.test.mjs` (node:test, run by `npm test`'s
+- [ ] T043 [P] [US5] `scripts/test/layouts.test.mjs` (node:test, run by `npm test`'s
   `scripts/test/*.test.mjs`): the generator's output for each of the four layouts is valid against
   the contract's `LayoutFile` (Ajv 2020 with the contract, as `expect-to-match-contract.ts`), has 54
   sections for Basketball, exactly 22,090 seats for Basketball and 17,500 for End-stage concert,
   Center stage and Wrestling within ±5% of 19,500 and 18,000, the lower rows `D…Z, AA…` and upper
-  rows `A…W`, 4 levels for Basketball with Courtside = rows D–G of the sideline sections; running it
+  rows `A…W`; Basketball's four levels exactly as research R18 pins them (Courtside = rows D–G of
+  104–108 and 113–117; Lower sideline = their other rows and terrace 209–212; Lower end = 101–103,
+  109–112, 118–120; Upper = 301–330), the other layouts' three (Floor, Lower, Upper); running it
   twice gives byte-identical files; the committed files equal a fresh run. Must fail.
-- [ ] T043 [P] [US5] `scripts/layouts/yum-center/plan.json`: the section plan traced by hand from
+- [ ] T044 [P] [US5] `scripts/layouts/yum-center/plan.json`: the section plan traced by hand from
   the venue's public seating charts (D6; no ticket seller's data): for each layout, the floor object,
   each section's name, outline, row line (front edge and back edge), row labels and level; floor
   sections for the concert (1–5), center stage and wrestling layouts. A header note in
   `scripts/layouts/yum-center/README.md` names the sources (the venue's published charts), the
   published capacities, and what is our estimate.
-- [ ] T044 [US5] `scripts/layouts/generate-yum-center.mjs` (plain Node ES module, like
+- [ ] T045 [US5] `scripts/layouts/generate-yum-center.mjs` (plain Node ES module, like
   `scripts/*.mjs`): reads the plan, spreads seats per row so each layout's total matches its target,
   writes `backend/src/scripts/layouts/yum-center-basketball.json`, `-end-stage.json`,
   `-center-stage.json`, `-wrestling.json` as seat runs (R5), sorted and formatted deterministically;
   `node scripts/layouts/generate-yum-center.mjs --check` exits non-zero when a committed file differs.
-  T042 passes.
-- [ ] T045 [P] [US5] `backend/test/integration/demo-data.e2e-spec.ts` and `demo-reset.e2e-spec.ts`
+  T043 passes.
+- [ ] T046 [P] [US5] `backend/test/integration/demo-data.e2e-spec.ts` and `demo-reset.e2e-spec.ts`
   updated (FR-033, SC-008, US5): after the demo data, the venue "KFC Yum! Center" (1 Arena Plaza,
   Louisville, KY 40202) has exactly four layouts with those seat counts, `seatingCapacity` 22,090;
-  four upcoming events: women's basketball (sections 301–330 off sale; sideline rows priced by row
-  level), men's basketball (all on sale), end-stage concert (behind the stage off sale), WWE (back
-  rows of four sections off sale); each with about 40 sold seats and 6 held; the existing demo
-  venues' events keep working on their Standard layouts; two resets end in the same layouts, prices,
-  off-sale seats and seat states (times relative to the run). Must fail.
-- [ ] T046 [US5] `backend/src/scripts/demo-data.ts`: the Yum! Center venue, its four layouts through
+  the four upcoming events of research R18's table with exactly those layouts, prices and off-sale
+  seats; each with about 40 sold seats and **no** live hold; Basketball used by 2 events and locked,
+  End-stage concert and Wrestling by 1 and locked, Center stage by none and unlocked; the other demo
+  venues unchanged (they have no layout); two resets end in the same layouts, prices, off-sale seats
+  and seat states (times relative to the run). Must fail.
+- [ ] T047 [US5] `backend/src/scripts/demo-data.ts`: the Yum! Center venue, its four layouts through
   the layouts service's import (the JSON modules), the four events through `EventsService` with
-  `layoutId`, `levelPrices`, `offSale`, then sold seats through `OrdersService` (holds first, as the
-  real flow) and held seats left live with long-lived demo reservations made with the same rules;
-  the existing demo venues' seated events on layouts; `DemoSummary` gains `layouts`.
-  `backend/src/scripts/demo-reset.ts` prints them. T045 passes. *Demo data usable from here.*
+  `layoutId`, `levelPrices`, `offSale` (research R18's table), then sold seats through
+  `ReservationsService` and `OrdersService` (a hold, then an order, as a customer does); no seat is
+  left held (a hold lasts 5 minutes; the held state is shown live in the demo); `DemoSummary` gains
+  `layouts`.
+  `backend/src/scripts/demo-reset.ts` prints them. T046 passes. *Demo data usable from here.*
 
 ---
 
@@ -474,73 +529,70 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
 
 **Independent test**: quickstart S17; Admin `EventSeatMap` test.
 
-- [ ] T047 [P] [US6] `admin-app/test/event-seat-map.test.tsx` (FR-027, FR-028): the event page
+- [ ] T048 [P] [US6] `admin-app/test/event-seat-map.test.tsx` (FR-027, FR-028): the event page
   shows the map colored by state with a state legend (open, held, sold, off sale) and each section's
   "sold / open" counts; zoom into a section; a live `seats` message changes a seat and its section's
   counts; no buyer shown (the attendee list link stays). Update `seat-holds.test.tsx` and
   `EventDetail.test.tsx` from the grid to the map. Must fail.
-- [ ] T048 [US6] `admin-app/src/components/EventSeatMap.tsx` on the shared map (`colorBy: 'state'`)
+- [ ] T049 [US6] `admin-app/src/components/EventSeatMap.tsx` on the shared map (`colorBy: 'state'`)
   and `useSeatStream`, in `pages/EventDetail.tsx`; remove `SeatingCard.tsx` and `SeatGrid.tsx`.
-  T047 passes.
+  T048 passes.
 
 ---
 
 ## Phase 9: Reports, attendee lists, the gate (FR-026, FR-030, R17)
 
-- [ ] T049 [P] `backend/test/integration/reports.e2e-spec.ts`, `attendees.e2e-spec.ts`,
+- [ ] T050 [P] `backend/test/integration/reports.e2e-spec.ts`, `attendees.e2e-spec.ts`,
   `entry.lookup.e2e-spec.ts`: a seated event's `EventSales.levels` (name, price, seats on sale,
   tickets sold, revenue) and empty `tiers`; attendees with each ticket's level and price; the entry
   ticket's `levelName` and seat labels. `admin-app/test/attendees.test.tsx`,
   `attendees-export.test.tsx`, `reports.test.tsx`, `reports-export.test.tsx`: a Price level column
   and a Price per ticket in the list, CSV, Excel and PDF. `booth-app/test/` entry result: "Section
   115, Row F, Seat 7" and "Lower sideline". Must fail.
-- [ ] T050 `backend/src/reports/`, attendee list, `backend/src/entry/`: the fields above.
+- [ ] T051 `backend/src/reports/`, attendee list, `backend/src/entry/`: the fields above.
   `admin-app/src/pages/Attendees.tsx`, `export/attendee-rows.ts`, the report page and its exports;
-  `booth-app/src/EntryResult.tsx`. T049 passes.
+  `booth-app/src/EntryResult.tsx`. T050 passes.
 
 ---
 
 ## Phase 10: Contract step 2, browser tests, polish
 
-- [ ] T051 [P] `e2e/tests/038-seat-maps.spec.ts` (quickstart S0, S5, S6, S10–S14, S16, S17), each
+- [ ] T052 [P] `e2e/tests/038-seat-maps.spec.ts` (quickstart S0, S5, S6, S10–S14, S16, S17), each
   test titled `038 <labels>: <description>` (spec `022`): S0 (the Yum! Center's four layouts after
   the e2e stack's reset); S5 (locked Basketball refuses rename; Duplicate works); S6 (schedule on
-  Basketball, price four levels, upper level and rows D–F of 104 off sale, save, the event price
-  "$20–$95"); S10–S13 (filter $30–$65, zoom 115, hold two levels, Back to map, Add to cart, buy,
-  My tickets labels) at laptop and phone width (zoom buttons and tap); S14 (a second customer sees
+  Basketball, the upper level and rows D–F of 104 off sale, Upper's price box gone, price $95, $60,
+  $35, save, the event price "$35–$95"); S10–S13 (filter $50–$100 fades the end sections, zoom 115,
+  hold Row F 7 and 8 at $95 and Row P 7 at $60, total $250, Back to map, Add to cart, buy, My
+  tickets labels) at laptop and phone width (zoom buttons and tap); S14 (a second customer sees
   a hold within 2 s); S16 (the Sections list by keyboard to a hold); S17 (the admin map shows a
   customer's hold). Must fail.
-- [ ] T052 [P] Update the browser tests that set up seating, titles unchanged: `006-007-tickets`,
+- [ ] T053 [P] Update the browser tests that set up seating, titles unchanged: `006-007-tickets`,
   `015-seat-holds`, `031-atomic-event-create`, `033-seat-hold-cart`, `035-event-form-flow`
   (`e2e/tests/*.spec.ts`), and `e2e/helpers` (a layout helper through the API) from
   section-to-type mappings to layouts.
-- [ ] T053 Contract **step 2** exactly as contracts/README.md lists it (items 1–8): 2.0.0, the five
-  operations and `snapshot` removed, the schemas and fields removed, `Order.unitPrice` nullable, the
-  new fields required; `npm run generate:api`; `node scripts/check-contract-drift.mjs`. Remove the
-  retired code: `backend/src/seating/layout.service.ts`, `layout.controller.ts`,
-  `seat-map.service.ts`, `seat-map.controller.ts`, `tier-seats.ts`, their DTOs and routes,
-  `updateSeating`; `admin-app/src/api/seating.ts` old calls; `SEATING_LIMITS` and the old types in
-  `packages/shared/src/seating.ts`; their tests (`layout.e2e-spec.ts`, `seating.e2e-spec.ts`,
-  `seating.capacity.e2e-spec.ts`) replaced by Phases 3–5's. The route-coverage test passes with no
-  `x-planned: '038'` or `x-retired: '038'` left. Customer `OrderConfirmation.tsx` and Admin
-  `attendee-rows.ts` handle `unitPrice: null`.
-- [ ] T054 `specs/038-seat-maps/quickstart.md`: the Automation rows of S0, S5, S6, S10–S14, S16,
+- [ ] T054 Contract check: `grep -n "x-planned: '038'\|x-retired" contracts/openapi.yaml` finds
+  nothing; `info.version` is 2.0.0; `node scripts/check-contract-drift.mjs` passes; the
+  route-coverage test passes; no app imports a type step 2 removed (`tsc` in every workspace);
+  `admin-app/src/api/seating.ts` has no old calls left; Customer `OrderConfirmation.tsx` and
+  `MyTickets.tsx` and Admin `attendee-rows.ts` and `Attendees.tsx` show each ticket's `price` when
+  `unitPrice` is `null`.
+- [ ] T055 `specs/038-seat-maps/quickstart.md`: the Automation rows of S0, S5, S6, S10–S14, S16,
   S17 → `Automated: \`<exact test title>\``; the rest Manual with their reason;
   `node scripts/check-quickstart-marks.mjs` passes.
-- [ ] T055 [P] `README.md`: the 038 row (Plan and tasks "Done (N/61 tasks)", Code "Built (review
+- [ ] T056 [P] `README.md`: the 038 row (Plan and tasks "Done (N/62 tasks)", Code "Built (review
   pending)"), seat maps in the feature list, the demo's Yum! Center, the layout file format pointer
   (`contracts/openapi.yaml` `LayoutFile`), `scripts/layouts/generate-yum-center.mjs`.
-- [ ] T056 Coverage: each workspace ≥ 80% lines (`npm test`); add tests where a new file falls short,
+- [ ] T057 Coverage: each workspace ≥ 80% lines (`npm test`); add tests where a new file falls short,
   no exclusions.
-- [ ] T057 `npm run ci` green locally; `npm run e2e` green; record the run.
-- [ ] T058 Timing checks (quickstart "Timing checks"; SC-002, SC-003, SC-005) on the demo state on a
+- [ ] T058 `npm run ci` green locally; `npm run e2e` green; record the run.
+- [ ] T059 Timing checks (quickstart "Timing checks"; SC-002, SC-003, SC-005) on the demo state on a
   laptop; record the times in the PR description.
-- [ ] T059 Independent review of the implementation branch by a Claude session that did not write it
+- [ ] T060 Independent review of the implementation branch by a Claude session that did not write it
   (Constitution III), against the merged spec and plan; fix the findings; record the review and any
   open finding in the PR description.
-- [ ] T060 Walk the quickstart on a Compose project of your own (`-p qp038`): S0–S21 and the
+- [ ] T061 Walk the quickstart on a Compose project of your own (`-p qp038`): S0–S21 and the
   Constitution VI smoke test (sign in, use, sign out of each front end); Nate's "pass" closes it.
-- [ ] T061 Push `038-seat-maps-impl` (ask first); open the implementation PR (ask first) assigned to
+- [ ] T062 Push `038-seat-maps-impl` (ask first); open the implementation PR (ask first) assigned to
   `nathan-707`, its description with `fixes #165` on its own line, the review record, the timing
   checks, and the shared surface touched; CI `test` and `e2e` green before merge.
 
@@ -550,29 +602,29 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
 
 - **Phase 1** → **Phase 2** (blocks everything).
 - **US1 (Phase 3)** needs Phase 2. **US2 (Phase 4)** needs US1 (an event picks a layout). **US3
-  (Phase 5)** needs US2 (prices and off-sale seats) for its Backend; its shared map tasks (T030,
-  T031, T037, T038) need only T017 and can run beside US2.
-- **US4 (Phase 6)** needs T038. **US5 (Phase 7)**: T042–T044 need only Phase 2 (run beside US1);
-  T045–T046 need US1, US2 and US3's Backend (T034–T035, sold and held seats). **US6 (Phase 8)**
-  needs T038 and T036.
-- **Phase 9** needs T035. **Phase 10** needs all; T053 (step 2) comes after every route is served
-  and every client moved.
+  (Phase 5)** needs US2 (prices and off-sale seats) for its Backend; its shared map tasks (T031,
+  T032, T038, T039) need only T018 and can run beside US2.
+- **US4 (Phase 6)** needs T039. **US5 (Phase 7)**: T043–T045 need only Phase 2 (run beside US1);
+  T046–T047 need US1, US2 and US3's Backend (T035–T036, holds and orders for the sold seats). **US6 (Phase 8)**
+  needs T039 and T037.
+- **Phase 9** needs T036. **Phase 10** needs all. Step 2 is T009, in Phase 2: from then on the
+  branch has one seating model, and each app's seating tests come back as its phase moves it.
 
 ```text
-Phase 2 ─┬─ US1 ── US2 ── US3 (Backend) ─┬─ US5 (T045–T046) ── Phase 9 ── Phase 10
+Phase 2 ─┬─ US1 ── US2 ── US3 (Backend) ─┬─ US5 (T046–T047) ── Phase 9 ── Phase 10
          │                               └─ US6
-         ├─ US5 generator (T042–T044)
-         └─ T017 ── shared map (T030, T031, T037, T038) ─┬─ US3 (Customer) ── US4
+         ├─ US5 generator (T043–T045)
+         └─ T018 ── shared map (T031, T032, T038, T039) ─┬─ US3 (Customer) ── US4
                                                          └─ US6
 ```
 
 ## Parallel examples
 
-- **Phase 2**: T003 and T004 together; then T005 → T006 while T007 runs.
-- **US1**: T009, T010, T011, T012 together; T017 beside T013–T016.
-- **US2**: T019, T020, T021 together.
-- **US3**: T025–T032 together (eight test files in four workspaces); T037 beside T033–T036.
-- **Across stories**: the generator (T042–T044) by itself any time after Phase 2.
+- **Phase 2**: T003 and T004 together; then T005 → T006 while T007 runs; T008; then T009.
+- **US1**: T010, T011, T012, T013 together; T018 beside T014–T017.
+- **US2**: T020, T021, T022 together.
+- **US3**: T026–T033 together (eight test files in four workspaces); T038 beside T034–T037.
+- **Across stories**: the generator (T043–T045) by itself any time after Phase 2.
 
 ## Implementation Strategy
 
