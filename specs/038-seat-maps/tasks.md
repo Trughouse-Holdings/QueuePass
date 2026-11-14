@@ -675,7 +675,7 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   keeps the stream, a layout or price change and a layout edit end it; every message matches
   `x-sse-events`; 20 trials of a hold with a second viewer connected, at least 19 delivered within 2
   seconds (SC-004). Must fail.
-- [ ] T031 [P] [US3] `packages/shared/test/venue-map/use-pan-zoom.test.ts` (R13): zoom at a point
+- [X] T031 [P] [US3] `packages/shared/test/venue-map/use-pan-zoom.test.ts` (R13): zoom at a point
   keeps that point under the cursor; zoom bounded (fit … 40×); pan by a drag; two pointers pinch;
   `+`, `−`, arrows; zoom-to-section gives the section's bounds with a margin; reduced motion skips the
   animation. `packages/shared/test/venue-map/map-state.test.ts`: the reducer applies a snapshot,
@@ -684,7 +684,15 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   its seats; deltas in either order give the same counts; a reconnect replaces the map and reloads
   the open section; a section's color is its cheapest level with open
   seats inside the filter, else unavailable; the filter's range from the levels' prices. Must fail.
-- [ ] T032 [P] [US3] `packages/shared/test/venue-map/venue-map.test.tsx` (FR-016–FR-019, SC-007):
+  **Done** (2026-11-14): both files written first and seen failing (no modules); 14 + 15 tests
+  pass after T039. Fixed here where R12/R13 leave it open: the map's `seq` stays the one it was read
+  at and each change above it is counted once (by its `seq`), so counts are the same in any order,
+  and a count may dip below 0 between two changes of one seat; a loaded section applies a change to
+  a seat only above the section's `seq` and that seat's last change, so out-of-order changes still
+  end at the latest state; a section read later replays the changes after its `seq`; a map read
+  again keeps changes newer than it; zoom 1 (the fit) to 40, `+`/`=`, `-`/`−`/`_`, arrows by a tenth
+  of the view, a press under 4 px is a click, zoom-to-section's margin a tenth of its larger side.
+- [X] T032 [P] [US3] `packages/shared/test/venue-map/venue-map.test.tsx` (FR-016–FR-019, SC-007):
   the overview draws every section with its name and fill, the floor object, and a legend naming
   each level with its color and price; the price filter (two range inputs, whole dollars) fades
   sections with no open seats inside it and marks levels outside it in the legend, and "No open seats
@@ -692,6 +700,12 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   in and draws its rows and seats with row labels and Back to map; each seat state has its mark
   (open filled, held hollow, sold cross, off sale dash, mine check) and an accessible name "Row F,
   Seat 7, Courtside, $95, open"; hover and focus show "Sec 115, Row F, Seat 7 · Courtside · $95"; faded seats still clickable; the overview never renders seat elements. Must fail.
+  **Done** (2026-11-14): written first and seen failing (no module); 21 tests pass after T039.
+  Names fixed here: a section "Section 115, 2 open seats from $60", "Section 101, no open seats
+  between $50 and $95", "Section 301, no open seats"; seat states "open", "held", "sold", "off
+  sale", "held by you", "holding", "releasing"; a level with no price "Upper: not on sale" and, in
+  a seat's name, "not on sale"; prices on the map in whole dollars when whole ("$95", "$59.50").
+  Also covered: zoom buttons, the state view (`colorBy: 'state'`) naming counts by state.
 - [ ] T033 [P] [US3] `customer-app/test/venue-map-flow.test.tsx` (R14, FR-021, FR-022, FR-024): a
   seated event shows "$35–$95" and Choose seats (no ticket-type step); Choose seats opens the map;
   zoom into a section, click seats of two levels: each sends one hold (`033`'s queue), Your seats
@@ -736,11 +750,26 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   `--border-strong` 3:1 or more too), `.level-swatch--<color>` (Admin's price table now shows the
   color) and `.venue-map--<color>`, `.venue-map--unavailable` fills. Theme 450 tests, both apps'
   drift tests pass.
-- [ ] T039 [US3] `packages/shared/src/web/venue-map/`: `use-pan-zoom.ts`, `map-state.ts`,
+- [X] T039 [US3] `packages/shared/src/web/venue-map/`: `use-pan-zoom.ts`, `map-state.ts`,
   `venue-map.tsx` (overview and zoomed section, `colorBy: 'price' | 'state'`, `onSeat` callback),
   `section-view.tsx`, `legend.tsx`, `price-filter.tsx`, exported from `web/index.ts`; styles in the
   shared theme's classes only. `packages/shared/src/web/use-seat-stream.ts` and `seat-stream.ts`:
   the `venueMap` snapshot, the delta reducer, loaded sections kept current. T031, T032 pass.
+  **Done** (2026-11-14): `map-state.ts` (the reducer: `map`, `change`, `section`, `reset`;
+  `needsLoad`, `sectionLevel`, `openSeatsIn`, `priceRangeOf`, `formatPrice`), `use-pan-zoom.ts`,
+  `venue-map.tsx` (controlled open section, loaded by the caller; the price filter kept inside
+  unless `range`/`onRange` are given, for US4), `section-view.tsx` (seats as focusable
+  `role="button"` groups, `aria-disabled` when not choosable, a `seatView` hook for the customer's
+  own and pending seats), `legend.tsx`, `price-filter.tsx`; theme classes `.venue-map*`,
+  `.venue-map-legend*`, `.price-filter*`. The stream: `seat-stream.ts` reads `venueMap` (types
+  `StreamVenueMap`, `StreamSeatMapChange`); `useSeatStream` reads `getVenueMap`, then the stream,
+  keeps the map and the `openSectionId` section current through the reducer, reloads that
+  section after each new map (its seats shown meanwhile), and gains `section` and `refresh()`;
+  `mine` is the contract's `Reservation` (`MyReservation`, with level and price); `applySeatChange`
+  and `StreamSeatMap` are gone. `test/web/seat-stream.test.ts` moved to `venueMap` (written first,
+  seen failing). Shared 32 files, 889 tests pass; `tsc` clean for `packages/shared` and
+  `booth-app`. **Red after it, owner T048/T049**: Admin `seat-holds.test.tsx`'s 3 live-map tests
+  (the read-only `SeatingCard` still reads `007`'s map through `useSeatStream`).
 - [ ] T040 [US3] Customer app: `components/GetTickets.tsx` seated half → Choose seats and the shared
   map (R14) with `033`'s `use-hold-queue.ts` and Your seats (per-seat level and price, the sum);
   `pages/Cart.tsx` (each seat's level and price from `listMyReservations`' `ReservedSeat`, refreshed

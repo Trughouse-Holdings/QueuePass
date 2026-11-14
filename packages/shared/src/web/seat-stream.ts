@@ -1,8 +1,11 @@
 import type { components, paths } from '../api-schema.js';
 import { apiBaseUrl } from './api-client.js';
 
-/** Typed by the contract (Constitution I): the stream's payloads, from the generated schema. */
-export type StreamSeatMap = components['schemas']['SeatMap'];
+/**
+ * Typed by the contract (Constitution I): the stream's payloads, from the generated schema. Spec
+ * 038 (research R12): the stream begins with the event's venue map, then sends `seats` changes.
+ */
+export type StreamVenueMap = components['schemas']['VenueMap'];
 export type StreamSeatMapChange = components['schemas']['SeatMapChange'];
 
 const STREAM_PATH = '/events/{id}/seats/stream' satisfies keyof paths;
@@ -11,8 +14,8 @@ const STREAM_PATH = '/events/{id}/seats/stream' satisfies keyof paths;
 export const RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000] as const;
 
 /**
- * `connecting` before the first snapshot, `live` once one arrived, `reconnecting` while waiting to
- * try again, `gone` after a 404 (the event was deleted), `closed` after `close()`.
+ * `connecting` before the first venue map, `live` once one arrived, `reconnecting` while waiting
+ * to try again, `gone` after a 404 (the event was deleted), `closed` after `close()`.
  */
 export type SeatStreamStatus = 'connecting' | 'live' | 'reconnecting' | 'gone' | 'closed';
 
@@ -27,14 +30,15 @@ export interface SeatStream {
  * and payload types come from the generated schema instead.
  *
  * Sends only `Authorization` and `Accept`: the CORS policy allows no other request header. Each
- * connect sends a fresh `snapshot` first, which is how a viewer catches up after a drop (FR-010).
- * When the server ends the stream (at token expiry) it reconnects at once with the current token;
- * after a drop or an error status it waits 1, 2, then 5 seconds; after a 404 it stops.
+ * connect sends a fresh venue map first (`event: venueMap`, spec 038 research R12), which is how a
+ * viewer catches up after a drop (FR-010). When the server ends the stream (at token expiry, or
+ * when the event's layout or prices change) it reconnects at once with the current token; after a
+ * drop or an error status it waits 1, 2, then 5 seconds; after a 404 it stops.
  */
 export function openSeatStream(
   eventId: string,
   getToken: () => string | undefined,
-  onSnapshot: (map: StreamSeatMap) => void,
+  onMap: (map: StreamVenueMap) => void,
   onChange: (change: StreamSeatMapChange) => void,
   opts: { baseUrl?: string; onStatus?: (status: SeatStreamStatus) => void } = {},
 ): SeatStream {
@@ -59,7 +63,7 @@ export function openSeatStream(
     const token = getToken();
     const headers: Record<string, string> = { Accept: 'text/event-stream' };
     if (token) headers.Authorization = `Bearer ${token}`;
-    let snapshotSeen = false;
+    let mapSeen = false;
     try {
       const res = await fetch(new Request(url, { headers, signal: controller.signal }));
       if (res.status === 404) {
@@ -69,11 +73,11 @@ export function openSeatStream(
       }
       if (!res.ok || !res.body) throw new Error(`seat stream answered ${res.status}`);
       await readEvents(res.body, (event, data) => {
-        if (event === 'snapshot') {
-          snapshotSeen = true;
+        if (event === 'venueMap') {
+          mapSeen = true;
           failures = 0;
           status('live');
-          onSnapshot(JSON.parse(data) as StreamSeatMap);
+          onMap(JSON.parse(data) as StreamVenueMap);
         } else if (event === 'seats') {
           onChange(JSON.parse(data) as StreamSeatMapChange);
         }
@@ -82,9 +86,10 @@ export function openSeatStream(
       retryLater();
       return;
     }
-    // Ended by the server. After a snapshot that is the planned end at token expiry: reconnect
-    // at once. Without one, something is wrong, so wait like after any other failure.
-    if (snapshotSeen) void connect();
+    // Ended by the server. After a venue map that is a planned end (token expiry, a layout or
+    // price change): reconnect at once. Without one, something is wrong, so wait as after any
+    // other failure.
+    if (mapSeen) void connect();
     else retryLater();
   }
 

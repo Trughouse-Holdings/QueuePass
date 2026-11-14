@@ -15,11 +15,16 @@ export { openSeatStream, RECONNECT_DELAYS_MS } from './seat-stream.js';
 export type {
   SeatStream,
   SeatStreamStatus,
-  StreamSeatMap,
   StreamSeatMapChange,
+  StreamVenueMap,
 } from './seat-stream.js';
-export { applySeatChange, useSeatStream } from './use-seat-stream.js';
-export type { LiveSeats, LiveSeatStatus, SeatStreamOptions } from './use-seat-stream.js';
+export { useSeatStream } from './use-seat-stream.js';
+export type {
+  LiveSeats,
+  LiveSeatStatus,
+  MyReservation,
+  SeatStreamOptions,
+} from './use-seat-stream.js';
 // Spec 014: event images, loaded with the token and shown as a rotating gallery.
 export { useEventImage } from './event-images.js';
 export type { EventImageState } from './event-images.js';
@@ -34,3 +39,38 @@ export { bounds, centroid, outlinePath, sectionViewBox } from './venue-map/map-g
 export type { Bounds, Point } from './venue-map/map-geometry.js';
 export { LayoutPreview } from './venue-map/layout-preview.js';
 export type { PreviewLayout } from './venue-map/layout-preview.js';
+// Spec 038 US3 (T039): the venue map, its state, its pan and zoom (research R11 to R13).
+export { VenueMap } from './venue-map/venue-map.js';
+export type { MapSeat, SeatView, ShownState, VenueMapProps } from './venue-map/venue-map.js';
+export { Legend } from './venue-map/legend.js';
+export { PriceFilter, wholeDollars } from './venue-map/price-filter.js';
+export { SectionView, seatTip } from './venue-map/section-view.js';
+export {
+  EMPTY_MAP_STATE,
+  formatPrice,
+  inRange,
+  mapReducer,
+  needsLoad,
+  openSeatsIn,
+  priceCents,
+  priceRangeOf,
+  sectionLevel,
+} from './venue-map/map-state.js';
+export type {
+  LoadedSection,
+  MapAction,
+  MapLevel,
+  MapSectionSummary,
+  MapState,
+  PriceRange,
+} from './venue-map/map-state.js';
+export {
+  MAX_ZOOM,
+  clientToMap,
+  fitView,
+  panBy,
+  pinchView,
+  usePanZoom,
+  zoomAt,
+} from './venue-map/use-pan-zoom.js';
+export type { PanZoom, View } from './venue-map/use-pan-zoom.js';
