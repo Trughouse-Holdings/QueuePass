@@ -78,7 +78,9 @@ info:
     seconds, and their `expiresAt` is never shortened.
 
     **Errors**: every non-2xx response is an `ErrorEnvelope`. Branch on `error.code`, never on
-    `error.message`.
+    `error.message`. A JSON request body over its size limit (100 kB; 4 MB for
+    `importVenueLayout`, feature 038) is refused before the route with `413 VALIDATION_FAILED`,
+    and a body that is not JSON with `400 VALIDATION_FAILED`.
 
     **Planned operations**: an operation marked `x-planned: '<feature>'` is declared in that
     feature's spec and plan pull request, before its implementation (Constitution I), and the
@@ -815,6 +817,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/LayoutDetail' }
         '400': { $ref: '#/components/responses/LayoutFileRejected' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -4324,6 +4327,18 @@ components:
                 fields:
                   - endsAt must be later than startsAt
                   - seatingCapacity must be a positive whole number
+
+    RequestTooLarge:
+      description: |
+        Feature 038. The request body is over its size limit (4 MB for `importVenueLayout`).
+        Nothing was saved.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: VALIDATION_FAILED
+              message: The request body is too large.
 
     LayoutFileRejected:
       description: |

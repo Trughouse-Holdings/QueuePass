@@ -51,7 +51,8 @@ approved on 2026-11-13.
 **Language/Version**: TypeScript 5.7 (strict), Node.js 22 LTS; NestJS 11, Prisma 6 (Backend);
 React 19, Vite 6 (Admin and Customer apps); plain Node ES modules for `scripts/`.
 
-**Primary Dependencies**: none new. SVG and Pointer Events for the map (R13, no pan/zoom
+**Primary Dependencies**: none new. `express` becomes a direct Backend dependency at the version
+Nest already installs, for the import route's own JSON body limit (R5; from T015). SVG and Pointer Events for the map (R13, no pan/zoom
 library); `openapi-fetch` and the generated `api-schema.ts`; `useSeatStream`.
 
 **Storage**: PostgreSQL 17. Six new tables, `Section` moved to layouts, new columns on `Event`,
