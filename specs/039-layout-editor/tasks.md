@@ -307,7 +307,7 @@ drag and turn → save; the customer map shows it.
 - [X] T028 [P] [US1] `admin-app/test/layout-editor/LayoutEditor.test.tsx`, unsaved changes (R13):
   with a change, following a link asks to confirm and Cancel stays with the change kept; a
   `beforeunload` handler is set while dirty and removed when saved.
-- [ ] T029 [P] [US1] Browser test `e2e/tests/039-layout-editor.spec.ts`, US1 (S1–S3), title
+- [X] T029 [P] [US1] Browser test `e2e/tests/039-layout-editor.spec.ts`, US1 (S1–S3), title
   `039 S1/S2/S3: an admin draws a layout with a court and two generated sections, turns one, saves it, and the customer map draws it`:
   make a venue, New layout, Court, generate "101" (12 × 20, letters, medium curve) and "102"
   (`16, 16, 18, 18, 20, 20`), drag and turn, name "Basketball", Save; the Layouts card lists 348
@@ -362,7 +362,7 @@ and seats; totals live.
   click selects a seat, Shift-click adds; clicking a row label selects the row, Shift-clicking
   another selects the range; with **Box select** on, a drag selects the seats inside the box (off,
   it pans); Paint applies the chosen level; **Back to layout** returns to the overview.
-- [ ] T041 [P] [US2] Browser test in `e2e/tests/039-layout-editor.spec.ts`, US2 (S5), title
+- [X] T041 [P] [US2] Browser test in `e2e/tests/039-layout-editor.spec.ts`, US2 (S5), title
   `039 S5: an admin adds three levels, paints a section, rows A–D and two seats, deletes Standard, and the levels are kept on reopening`:
   on the layout of T029, the totals read Courtside 80, Lower sideline 158, Upper 2, Standard 108,
   then after deleting Standard for Lower sideline, Courtside 80, Lower sideline 266, Upper 2; Save;
