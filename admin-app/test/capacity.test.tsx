@@ -107,43 +107,16 @@ describe('event form', () => {
 });
 
 describe('tier section on a seated event', () => {
-  const VIP = {
-    id: 't-vip',
-    eventId: EVENT.id,
-    name: 'VIP',
-    price: '120.00',
-    quantity: 30,
-    createdAt: EVENT.createdAt,
-    updatedAt: EVENT.updatedAt,
-  };
-
-  it('takes only a name and price, and shows each amount as calculated from its sections', async () => {
-    const api = stubApi({
-      [`GET /events/${EVENT.id}/tiers`]: json([VIP]),
-      [`POST /events/${EVENT.id}/tiers`]: json(
-        { ...VIP, id: 't-gen', name: 'General', quantity: 0 },
-        201,
-      ),
-    });
+  // Spec 038 (T049): a seated event sells seats by price level, so it has no ticket types and the
+  // section offers no Add a tier (the Backend refuses one, T024); `007`'s seated tier is gone.
+  it('offers no Add a tier, and says the event sells seats by price level', async () => {
+    const api = stubApi({ [`GET /events/${EVENT.id}/tiers`]: json([]) });
     render(<TierSection event={SEATED} />);
 
     const region = await screen.findByRole('region', { name: 'Ticket tiers' });
-    expect(
-      await within(region).findByText(
-        'Seats per tier come from the sections mapped in Seating below.',
-      ),
-    ).toBeInTheDocument();
-    const form = within(region).getByRole('form', { name: 'Add a tier' });
-    expect(within(form).queryByLabelText('Quantity')).toBeNull();
-
-    fireEvent.change(within(form).getByLabelText('Tier name'), { target: { value: 'General' } });
-    fireEvent.change(within(form).getByLabelText('Price'), { target: { value: '40.00' } });
-    fireEvent.click(within(form).getByRole('button', { name: 'Add tier' }));
-
-    await vi.waitFor(() => expect(api.count('POST', `/events/${EVENT.id}/tiers`)).toBe(1));
-    expect(api.calls.find((c) => c.method === 'POST')?.body).toEqual({
-      name: 'General',
-      price: '40.00',
-    });
+    expect(await within(region).findByText(/sells seats by price level/)).toBeInTheDocument();
+    expect(within(region).queryByRole('form', { name: 'Add a tier' })).toBeNull();
+    expect(within(region).queryByRole('button', { name: 'Add tier' })).toBeNull();
+    expect(api.calls.filter((c) => c.method !== 'GET')).toEqual([]);
   });
 });

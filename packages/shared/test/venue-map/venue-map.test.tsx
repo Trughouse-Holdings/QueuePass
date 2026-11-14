@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { useState } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { VenueMap, type MapSeat, type SeatView } from '../../src/web/venue-map/venue-map';
 import type { VenueMap as Map, VenueMapSection } from '../../src/web/venue-map/map-state';
 
@@ -368,5 +368,18 @@ describe('colored by state (FR-027)', () => {
     expect(screen.queryByRole('slider')).toBeNull();
     expect(screen.queryByRole('list', { name: 'Price levels' })).toBeNull();
     expect(screen.getByRole('list', { name: 'Seat states' })).toBeInTheDocument();
+  });
+
+  it('shows each section’s sold / open under its name, as the legend says (T049)', () => {
+    render(<Harness colorBy="state" />);
+    expect(within(drawing()).getByText('1 / 2')).toBeInTheDocument();
+    expect(within(drawing()).getByText('0 / 3')).toBeInTheDocument();
+    expect(within(drawing()).getByText('0 / 0')).toBeInTheDocument();
+    expect(screen.getByText('Sections show sold / open seats.')).toBeInTheDocument();
+    // Not on the customer's map.
+    cleanup();
+    render(<Harness />);
+    expect(within(drawing()).queryByText('1 / 2')).toBeNull();
+    expect(screen.queryByText('Sections show sold / open seats.')).toBeNull();
   });
 });

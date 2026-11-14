@@ -76,8 +76,7 @@ export function TierSection({
         createTier(event.id, {
           name: draft.name,
           price: draft.price,
-          // Spec 007 FR-006: a seated tier's amount comes from its sections, never typed.
-          ...(seated ? {} : { quantity: Number(draft.quantity) }),
+          quantity: Number(draft.quantity),
         }),
       () => setDraft(EMPTY),
     );
@@ -119,8 +118,13 @@ export function TierSection({
             Allocated {allocated.toLocaleString()} of {event.totalTicketCapacity.toLocaleString()}{' '}
             tickets
           </p>
+          {/* Spec 038 (FR-015, T024): a seated event has no ticket types; it sells seats by
+              its layout's price levels, set in the event form. */}
           {seated && (
-            <p className="note">Seats per tier come from the sections mapped in Seating below.</p>
+            <p className="note">
+              This event sells seats by price level, set in Edit event; ticket tiers are for general
+              admission.
+            </p>
           )}
           {tiers.length === 0 ? (
             <p className="note">
@@ -244,7 +248,8 @@ export function TierSection({
         </>
       )}
 
-      {!readOnly && (
+      {/* Spec 038 (T049): the Backend refuses a tier on a seated event (T024), so none is offered. */}
+      {!readOnly && !seated && (
         <form className="form" onSubmit={add} aria-label="Add a tier">
           <div className="field-row">
             <label className="field">
@@ -266,18 +271,16 @@ export function TierSection({
                 onChange={(e) => setDraft({ ...draft, price: e.target.value })}
               />
             </label>
-            {!seated && (
-              <label className="field">
-                Quantity
-                <input
-                  type="number"
-                  min={1}
-                  required
-                  value={draft.quantity}
-                  onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
-                />
-              </label>
-            )}
+            <label className="field">
+              Quantity
+              <input
+                type="number"
+                min={1}
+                required
+                value={draft.quantity}
+                onChange={(e) => setDraft({ ...draft, quantity: e.target.value })}
+              />
+            </label>
           </div>
           <div className="form__actions">
             <button type="submit" className="btn btn--primary" disabled={busy}>

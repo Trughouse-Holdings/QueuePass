@@ -1596,3 +1596,14 @@ dd {
   background: var(--map-bg);
   border-radius: var(--radius-pill);
 }
+
+/* Spec 038 US6 (T049, FR-027): the admin's map by seat state shows "sold / open" under each
+   section's name, as the legend's note says. */
+.venue-map__label-counts {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.venue-map-legend__note {
+  margin: 0;
+  color: var(--text-muted);
+}

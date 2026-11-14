@@ -996,16 +996,35 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
 
 **Independent test**: quickstart S17; Admin `EventSeatMap` test.
 
-- [ ] T048 [P] [US6] `admin-app/test/event-seat-map.test.tsx` (FR-027, FR-028): the event page
+- [X] T048 [P] [US6] `admin-app/test/event-seat-map.test.tsx` (FR-027, FR-028): the event page
   shows the map colored by state with a state legend (open, held, sold, off sale) and each section's
   "sold / open" counts; zoom into a section; a live `seats` message changes a seat and its section's
   counts; no buyer shown (the attendee list link stays). Update `seat-holds.test.tsx` and
   `EventDetail.test.tsx` from the grid to the map. Must fail.
-- [ ] T049 [US6] `admin-app/src/components/EventSeatMap.tsx` on the shared map (`colorBy: 'state'`)
+  **Done** (2026-11-14): written first and seen failing (9 of its 10; the unreadable-map case
+  passed on the old card's own message), with `seat-holds.test.tsx` (015's live tests, now on
+  `venueMap` and `seats` with `seq`; "reserved" is "held", hollow) and two `EventDetail.test.tsx`
+  cases (the map in the Seating card, no section select or grid; no Add a tier when seated).
+  Fixture `arenaVenueMap` in `fixtures-038.ts`. Also moved, as they tested what T049 removes:
+  `seating.test.tsx`'s grid case (now here) and `capacity.test.tsx`'s `007` seated tier (now: no
+  Add a tier). The shared `venue-map.test.tsx` gains the state view's "sold / open" labels.
+- [X] T049 [US6] `admin-app/src/components/EventSeatMap.tsx` on the shared map (`colorBy: 'state'`)
   and `useSeatStream`, in `pages/EventDetail.tsx`; remove `SeatingCard.tsx` and `SeatGrid.tsx`.
   T048 passes.
   Also (from T025): the event page's `TierSection` offers no Add a tier on a seated event (the
   Backend refuses it, `400`); the read-only `SeatingCard` left by T025 goes with `SeatGrid.tsx`.
+  **Done** (2026-11-14): `EventSeatMap` is the event page's Seating card: General admission, or the
+  note pointing to Edit event and the attendee list (FR-028), the event's totals ("1 sold, 1 held,
+  67 open, 1 off sale"), and the shared `VenueMap` by state, live through `useSeatStream` with the
+  open section; seats are `aria-disabled` (the admin's map only shows). The shared map's state view
+  now draws "sold / open" under each section's name and its legend says so ("Sections show sold /
+  open seats."; class `.venue-map__label-counts`, `.venue-map-legend__note`). `SeatingCard.tsx`,
+  `SeatGrid.tsx` and `getSeatMap` removed. `TierSection` on a seated event says it sells seats by
+  price level and offers no Add a tier. Not done (not a fit): the Seating section's off-sale tool
+  stays on the layout's seats, since a new event has no venue map to give `onSeat`. Admin 53 files,
+  491 tests; `tsc` for admin-app only T050/T051's (`export/attendee-rows.ts`,
+  `test/export/fixtures.ts`, `pdf.fit.test.ts`, `size.test.ts`). Five Admin tests still stub the
+  retired `GET /events/{id}/seats` (unused, for T054's sweep).
 ---
 
 ## Phase 9: Reports, attendee lists, the gate (FR-026, FR-030, R17)
