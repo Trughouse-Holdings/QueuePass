@@ -1535,7 +1535,8 @@ paths:
         snapshot. The stream ends when the access token expires; reconnect at once with a current
         one. It also ends when the event's seating or its venue's layout changes; reconnect at
         once for a new snapshot. It also ends when the event is deleted; a reconnect then gets
-        `404`.
+        `404`. Feature 038: a general-admission event has no venue map, so its stream is `404`
+        too.
 
         Feature 038: the stream begins with `event: venueMap`, whose `data` is the `VenueMap`, as
         from `getVenueMap`, in place of `snapshot` (retired). Each `seats` message carries the
