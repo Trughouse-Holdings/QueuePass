@@ -10,9 +10,15 @@ import {
   Post,
   Put,
 } from '@nestjs/common';
-import type { LayoutDetail, LayoutSectionSeats, LayoutSummary } from '@queuepass/shared';
+import type {
+  LayoutDetail,
+  LayoutDrawing,
+  LayoutSectionSeats,
+  LayoutSummary,
+} from '@queuepass/shared';
 import { Roles } from '../auth/roles.decorator';
 import {
+  LayoutDrawingInputDto,
   LayoutDuplicateDto,
   LayoutImportDto,
   LayoutLinesInputDto,
@@ -22,7 +28,8 @@ import { LayoutsService } from './layouts.service';
 
 /**
  * Spec 038 research R4: the eight layout operations of contracts/openapi.yaml. Reads are open to
- * any signed-in user (FR-008: the map is public); writes need `queuepass-admin`.
+ * any signed-in user (FR-008: the map is public); writes need `queuepass-admin`. Spec 039 (T011):
+ * the layout editor's three, the whole-layout read included, need `queuepass-admin`.
  */
 @Controller()
 export class LayoutsController {
@@ -90,5 +97,33 @@ export class LayoutsController {
     @Body() dto: LayoutDuplicateDto,
   ): Promise<LayoutDetail> {
     return this.layouts.duplicate(layoutId, dto);
+  }
+
+  /** Spec 039 `getLayoutDrawing` (research R3). */
+  @Get('layouts/:layoutId/drawing')
+  @Roles('queuepass-admin')
+  drawing(@Param('layoutId', ParseUUIDPipe) layoutId: string): Promise<LayoutDrawing> {
+    return this.layouts.drawing(layoutId);
+  }
+
+  /** Spec 039 `saveLayoutDrawing` (research R4, R8). */
+  @Put('layouts/:layoutId/drawing')
+  @Roles('queuepass-admin')
+  saveDrawing(
+    @Param('layoutId', ParseUUIDPipe) layoutId: string,
+    @Body() dto: LayoutDrawingInputDto,
+  ): Promise<LayoutDetail> {
+    return this.layouts.saveDrawing(layoutId, dto);
+  }
+
+  /** Spec 039 `createLayoutDrawing` (research R8). */
+  @Post('locations/:id/layouts/drawing')
+  @Roles('queuepass-admin')
+  @HttpCode(HttpStatus.CREATED)
+  createDrawing(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: LayoutDrawingInputDto,
+  ): Promise<LayoutDetail> {
+    return this.layouts.createDrawing(id, dto);
   }
 }

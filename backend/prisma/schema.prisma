@@ -237,6 +237,9 @@ model Layout {
   width        Int
   height       Int
   seatCount    Int
+  // Spec 039 research R9: raised by one with every change (rename, lines, drawing save); a
+  // drawing save names the revision it read (CHECK layout_revision_positive, >= 1).
+  revision     Int          @default(1)
   levels       PriceLevel[]
   sections     Section[]
   events       Event[]
@@ -246,10 +249,12 @@ model Layout {
   @@index([locationId])
 }
 
-// Spec 038 research R5, R6: how a layout was made; only LINES takes section lines.
+// Spec 038 research R5, R6: how a layout was made; only LINES takes section lines. Spec 039 R4:
+// DRAWN in the layout editor (a LINES layout saved from the editor becomes DRAWN).
 enum LayoutSource {
   FILE
   LINES
+  DRAWN
 }
 
 // Spec 038 FR-002: what is drawn on the floor of a layout.
@@ -298,12 +303,21 @@ model Section {
   outline   Json
   labelX    Float      @db.Real
   labelY    Float      @db.Real
+  // Spec 039 research R6, R7: the point it moves and turns about (0 to 5,000), degrees clockwise
+  // it is turned (-180 exclusive to 180), and the block generator's values it was made from
+  // (a JSON object, or null). CHECKs in the migration SQL.
+  originX   Float      @db.Real
+  originY   Float      @db.Real
+  angle     Float      @default(0) @db.Real
+  generator Json?
   position  Int
   rows      SeatRow[]
   seats     Seat[]
   createdAt DateTime   @default(now()) @db.Timestamptz(6)
   updatedAt DateTime   @updatedAt @db.Timestamptz(6)
 
+  // Spec 039 research R8: a constraint DEFERRABLE INITIALLY IMMEDIATE in the migration SQL, as
+  // are price_level_rank_unique and the four row and seat keys; Prisma can't say it.
   @@unique([layoutId, position])
 }
 

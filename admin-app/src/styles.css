@@ -118,6 +118,16 @@
   gap: var(--space-2);
   align-items: center;
 }
+/* Spec 039 walk (2026-11-14): the sections to take off sale, as many to a line as fit, each
+   button with its whole name ("Section BOTTOM"), not squeezed into the field grid above. */
+.section-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.section-choices > .btn {
+  flex-shrink: 0;
+}
 .form__row > legend {
   grid-column: 1 / -1;
   margin-bottom: var(--space-1);
@@ -255,4 +265,374 @@
 /* While the picture loads there is no shape yet: the card's 4:3 until then. */
 .image-item__thumb--loading {
   aspect-ratio: 4 / 3;
+}
+
+/* ------------------------------------------------------------ layout editor */
+/* Spec 039 (research R2, R11, R14): the layout editor, full width under the top bar: a toolbar,
+   the map, and a side column of panels. The map is the shared venue map's shapes (level colors
+   from .venue-map--<color>); the editor adds its selection, handles and warnings. Levels are
+   always named beside their color (Constitution VII). */
+.main--full {
+  max-width: none;
+  padding: var(--space-4) var(--space-6) var(--space-8);
+}
+.layout-editor {
+  display: grid;
+  gap: var(--space-3);
+}
+.layout-editor__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.layout-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+.layout-editor__name {
+  min-width: 240px;
+  margin: 0;
+}
+.layout-editor__status {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--text-muted);
+}
+.layout-editor__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: var(--space-4);
+  align-items: start;
+}
+.layout-editor__side {
+  display: grid;
+  gap: var(--space-3);
+}
+/* T037: the map stays in view while the side column scrolls, below the sticky top bar (60px). */
+.layout-editor__body > .editor-map-wrap {
+  position: sticky;
+  top: calc(60px + var(--space-3));
+}
+.editor-panel h2 {
+  margin: 0 0 var(--space-2);
+  font-size: 15px;
+}
+.editor-panel h3 {
+  margin: var(--space-2) 0;
+  font-size: 14px;
+}
+.editor-panel__totals {
+  margin: 0;
+  font-weight: 600;
+}
+.editor-field-error {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--danger);
+  font-size: 13px;
+}
+.editor-save {
+  display: grid;
+  gap: var(--space-2);
+}
+.editor-save__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.editor-save__saved {
+  color: var(--ok);
+  font-weight: 600;
+}
+.editor-place {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+.editor-number {
+  margin: 0;
+}
+.editor-number input {
+  width: 100%;
+}
+.editor-list {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.editor-list__item {
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+}
+.editor-list__item[aria-pressed='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.editor-levels {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+.editor-levels__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.editor-levels__count {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The map: drag moves sections, the round handle turns them, empty space pans. */
+.editor-map-wrap {
+  display: grid;
+  gap: var(--space-2);
+}
+.editor-map__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+/* Walk feedback (2026-11-14): how a layout is made, and what can be done now. */
+.editor-guide {
+  display: grid;
+  gap: var(--space-2);
+}
+.editor-guide__steps {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.editor-guide__steps summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+.editor-guide__steps ol {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  display: grid;
+  gap: var(--space-1);
+}
+.editor-guide__step--done {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.editor-level-picker__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.editor-level-picker__row select {
+  flex: 1;
+}
+.editor-guide__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.editor-map {
+  display: block;
+  width: 100%;
+  height: 70vh;
+  min-height: 360px;
+  background: var(--map-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  touch-action: none;
+  user-select: none;
+}
+.editor-map__bg {
+  fill: var(--map-bg);
+}
+.editor-map__floor {
+  fill: var(--map-floor);
+  stroke: var(--border-strong);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  cursor: move;
+}
+.editor-map__floor--selected {
+  stroke: var(--accent);
+  stroke-width: 3px;
+}
+.editor-map__section {
+  cursor: move;
+}
+.editor-map__section path {
+  stroke: var(--map-bg);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.editor-map__section--selected path {
+  stroke: var(--text);
+  stroke-width: 3px;
+}
+/* R15: a section whose seats overlap another's: a dashed warning edge (and the warning's text). */
+.editor-map__section--warn path {
+  stroke: var(--warn);
+  stroke-width: 3px;
+  stroke-dasharray: 6 3;
+}
+.editor-map__section:focus-visible {
+  outline: none;
+}
+.editor-map__section:focus-visible path {
+  stroke: var(--accent);
+  stroke-width: 4px;
+}
+.editor-map__label {
+  fill: var(--text);
+  font-weight: 600;
+  paint-order: stroke;
+  stroke: var(--map-bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.editor-map__selection {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1px;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.editor-map__turn-line {
+  stroke: var(--accent);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.editor-map__turn,
+.editor-map__corner {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+.editor-map__turn {
+  cursor: grab;
+}
+.editor-map__corner {
+  cursor: nwse-resize;
+}
+/* A zoomed section: pale under its seats, the others faded behind it (R2). */
+.editor-map__current {
+  fill: var(--map-floor);
+  stroke: var(--border-strong);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  /* Review B3: a press on it goes to the map (a pan, or Box select's box). */
+  pointer-events: none;
+}
+.editor-map__faded {
+  opacity: 0.25;
+  pointer-events: none;
+}
+.editor-map__seat {
+  cursor: pointer;
+}
+.editor-map__seat--selected .editor-map__dot {
+  stroke: var(--text);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+/* An accessible seat's mark: a ring in the map's background inside the seat (#57 adds meaning). */
+.editor-map__accessible {
+  fill: var(--map-bg);
+  pointer-events: none;
+}
+.editor-map__row-label {
+  fill: var(--text-muted);
+  cursor: pointer;
+  paint-order: stroke;
+  stroke: var(--map-bg);
+  /* A share of the label's own size: it is drawn in map units, 2 a row (039 walk). */
+  stroke-width: 0.15em;
+  stroke-linejoin: round;
+}
+.editor-map__row-label--selected {
+  fill: var(--accent);
+  font-weight: 700;
+}
+.editor-map__box {
+  fill: var(--accent-soft);
+  fill-opacity: 0.4;
+  stroke: var(--accent);
+  stroke-width: 1px;
+  stroke-dasharray: 3 2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.editor-levels__choose {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.editor-levels__edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+}
+.editor-levels__rename {
+  display: inline-grid;
+  flex: 1 1 120px;
+}
+.editor-levels__delete {
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+/* FR-026: the chosen section's rows, each opening to its seats, as checkbox lists. */
+.editor-rows__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.editor-rows__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.editor-rows__seats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-1) 0 var(--space-2) var(--space-6);
+}
+
+/* Nate's walk (2026-11-14): in the side panels a row of buttons ("Mark accessible", "Mark not
+   accessible", "Delete seats") wraps onto another line instead of squeezing and cutting off their
+   labels. */
+.editor-panel .form__actions {
+  flex-wrap: wrap;
+}
+.editor-panel .form__actions > .btn {
+  flex-shrink: 0;
 }

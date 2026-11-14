@@ -425,6 +425,9 @@ export async function insertLayout(
         ],
         labelX: left + w / 2,
         labelY: h / 2,
+        // Spec 039 research R6: a section not drawn in the editor turns about its label point.
+        originX: left + w / 2,
+        originY: h / 2,
         position,
       },
     });

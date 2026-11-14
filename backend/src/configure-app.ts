@@ -22,11 +22,14 @@ export function configureApp(app: INestApplication): void {
   // alone; every other route keeps the default. A larger body is a 413, as elsewhere.
   // Its refusals (too large, not JSON) are answered by the exception filter, as Nest's parser's.
   const importParser = json({ limit: LAYOUT_LIMITS.maxImportBytes });
-  app.use(
-    '/locations/:id/layouts/import',
+  const largeBody =
+    (method: string) =>
     (req: Request, res: Response, next: NextFunction): void =>
-      req.method === 'POST' ? importParser(req, res, next) : next(),
-  );
+      req.method === method ? importParser(req, res, next) : next();
+  app.use('/locations/:id/layouts/import', largeBody('POST'));
+  // Spec 039 research R3 (T011): the layout editor's whole layout, up to 4 MB, on its two writes.
+  app.use('/locations/:id/layouts/drawing', largeBody('POST'));
+  app.use('/layouts/:layoutId/drawing', largeBody('PUT'));
 
   app.useGlobalPipes(
     new ValidationPipe({

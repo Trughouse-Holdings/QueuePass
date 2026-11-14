@@ -9,11 +9,15 @@ import {
 import { Prisma } from '@prisma/client';
 import {
   LAYOUT_LIMITS,
+  outlineAround,
+  SIZE_MARGIN,
   type LatestPrices,
   type LayoutDetail,
+  type LayoutDrawing,
   type LayoutSectionSeats,
   type LayoutSummary,
   type LevelColor,
+  type SectionGenerator,
 } from '@queuepass/shared';
 import { conflict } from '../common/conflict';
 import { LOCKING_TX } from '../common/event-lock';
@@ -22,6 +26,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SeatEventsService } from '../seating/seat-events.service';
 import { SEAT_LEVEL_SQL } from '../seating/seat-levels';
 import type {
+  LayoutDrawingInputDto,
   LayoutDuplicateDto,
   LayoutImportDto,
   LayoutLevelLineDto,
@@ -29,7 +34,8 @@ import type {
   LayoutSectionLineDto,
   LayoutUpdateDto,
 } from './dto/layout-input.dto';
-import { checkLayoutFile, type CheckedLayout } from './layout-file';
+import { checkDrawing, type CheckedDrawing, type ExistingIds } from './layout-drawing';
+import { centroid, checkLayoutFile, type CheckedLayout, type Problem } from './layout-file';
 import { gridLayout, seatPlace } from './layout-lines';
 import { lockLayout, lockVenueForLayouts } from './layout-lock';
 import type { Point } from './seat-runs';
@@ -84,6 +90,10 @@ interface NewSection {
   labelAt: Point;
   position: number;
   rows: NewRow[];
+  /** Spec 039 research R6, R7: drawn sections only; otherwise the label point, 0 and none. */
+  origin?: Point;
+  angle?: number;
+  generator?: SectionGenerator | null;
 }
 
 /** REAL columns come back as doubles; a float4 holds about 7 significant digits. */
@@ -258,8 +268,9 @@ export class LayoutsService {
       const { venue, layout, eventIds } = await lockLayout(tx, layoutId);
       if (lines && layout.source !== 'LINES') {
         throw badRequest([
-          `${layout.name} was imported from a layout file; only a layout made from section ` +
-            'lines takes section lines',
+          `${layout.name} was ${
+            layout.source === 'DRAWN' ? 'drawn in the layout editor' : 'imported from a layout file'
+          }; only a layout made from section lines takes section lines`,
         ]);
       }
       await this.assertUnlocked(tx, layoutId, layout.name);
@@ -276,6 +287,11 @@ export class LayoutsService {
         );
         await this.replaceLines(tx, layoutId, dto.name ?? layout.name, checked, eventIds);
       }
+      // Spec 039 research R9: every change raises the revision a drawing save must name.
+      await tx.layout.update({
+        where: { id: layoutId },
+        data: { revision: { increment: 1 } },
+      });
       await this.setCapacity(tx, layout.locationId, venue);
       return { result: await this.detail(tx, layoutId), eventIds };
     }, LOCKING_TX);
@@ -342,18 +358,201 @@ export class LayoutsService {
     }, LOCKING_TX);
   }
 
+  // ------------------------------------------------------------------- the layout editor (039)
+
+  /**
+   * Spec 039 `getLayoutDrawing` (research R3): the whole layout for the editor, every row and seat
+   * with its id and its own level (left out where it takes its parent's), `accessible` only where
+   * true; each section's origin, angle and generator; the revision; and the events that lock it.
+   */
+  async drawing(layoutId: string): Promise<LayoutDrawing> {
+    const layout = await this.prisma.layout.findUnique({ where: { id: layoutId } });
+    if (!layout) throw new NotFoundException(`No layout exists with id ${layoutId}.`);
+    const levels = await this.prisma.priceLevel.findMany({
+      where: { layoutId },
+      orderBy: { rank: 'asc' },
+    });
+    const sections = await this.prisma.section.findMany({
+      where: { layoutId },
+      orderBy: { position: 'asc' },
+    });
+    const seats = await this.prisma.$queryRaw<
+      {
+        sectionId: string;
+        rowId: string;
+        rowLabel: string;
+        rowLevelId: string | null;
+        id: string;
+        label: string;
+        x: number;
+        y: number;
+        levelId: string | null;
+        accessible: boolean;
+      }[]
+    >`
+      SELECT r."sectionId"::text AS "sectionId", r."id"::text AS "rowId", r."label" AS "rowLabel",
+             r."levelId"::text AS "rowLevelId", s."id"::text AS "id", s."label", s."x", s."y",
+             s."levelId"::text AS "levelId", s."accessible"
+      FROM "Section" sec
+      JOIN "SeatRow" r ON r."sectionId" = sec."id"
+      JOIN "Seat" s ON s."rowId" = r."id"
+      WHERE sec."layoutId" = ${layoutId}::uuid
+      ORDER BY sec."position", r."number", s."number"`;
+    const rowsOf = new Map<string, LayoutDrawing['sections'][number]['rows']>();
+    let row: LayoutDrawing['sections'][number]['rows'][number] | undefined;
+    for (const s of seats) {
+      if (!row || row.id !== s.rowId) {
+        row = { id: s.rowId, label: s.rowLabel, seats: [] };
+        if (s.rowLevelId) row.levelId = s.rowLevelId;
+        const list = rowsOf.get(s.sectionId) ?? [];
+        list.push(row);
+        rowsOf.set(s.sectionId, list);
+      }
+      const seat: (typeof row.seats)[number] = {
+        id: s.id,
+        label: s.label,
+        at: [real(s.x), real(s.y)],
+      };
+      if (s.levelId) seat.levelId = s.levelId;
+      if (s.accessible) seat.accessible = true;
+      row.seats.push(seat);
+    }
+    const lockedBy = await lockingEvents(this.prisma, layoutId);
+    return {
+      id: layout.id,
+      locationId: layout.locationId,
+      name: layout.name,
+      source: layout.source,
+      revision: layout.revision,
+      locked: lockedBy.length > 0,
+      lockedBy,
+      floor:
+        layout.floorKind === 'NONE'
+          ? { kind: 'NONE' }
+          : { kind: layout.floorKind, outline: layout.floorOutline as Point[] },
+      size: { width: layout.width, height: layout.height },
+      levels: levels.map((l) => ({
+        id: l.id,
+        name: l.name,
+        rank: l.rank,
+        color: l.color as LevelColor,
+      })),
+      sections: sections.map((s) => ({
+        id: s.id,
+        name: s.name,
+        levelId: s.levelId,
+        origin: [real(s.originX), real(s.originY)],
+        angle: real(s.angle),
+        generator: (s.generator as SectionGenerator | null) ?? null,
+        outline: s.outline as Point[],
+        rows: rowsOf.get(s.id) ?? [],
+      })),
+    };
+  }
+
+  /**
+   * Spec 039 `createLayoutDrawing` (research R5, R8): a new DRAWN layout, all or nothing, checked
+   * as a whole first. The Backend draws each outline around its seats and sizes the map; ids and
+   * `revision` in the body are ignored.
+   */
+  async createDrawing(locationId: string, body: LayoutDrawingInputDto): Promise<LayoutDetail> {
+    const checked = checkDrawing(body, null);
+    if (!checked.ok) throw drawingInvalid(checked.problems, checked.more);
+    const drawing = checked.drawing;
+    return this.prisma.$transaction(async (tx) => {
+      const venue = await lockVenueForLayouts(tx, locationId);
+      await this.assertNameFree(tx, locationId, venue, drawing.name);
+      const id = randomUUID();
+      const plan = drawingPlan(drawing);
+      await tx.layout.create({
+        data: {
+          id,
+          locationId,
+          name: drawing.name,
+          source: 'DRAWN',
+          floorKind: drawing.floorKind,
+          floorOutline: drawing.floorOutline ?? Prisma.DbNull,
+          width: plan.size.width,
+          height: plan.size.height,
+          seatCount: drawing.seatCount,
+        },
+      });
+      await insertContent(tx, id, plan.levels, plan.sections);
+      await this.setCapacity(tx, locationId, venue);
+      return this.detail(tx, id);
+    }, IMPORT_TX);
+  }
+
+  /**
+   * Spec 039 `saveLayoutDrawing` (research R4, R8, R9): the layout replaced by the one the body
+   * describes, in one transaction in 038's lock order (venue, layout, its scheduled events).
+   * Refused when `revision` is stale, the layout locked, the body wrong, or an event on it would be
+   * left unable to sell. Everything sent with its id is kept (with the events' prices and
+   * off-sale seats on it), what is not sent is deleted, what has no id is new; rows and seats are
+   * numbered by order, with the per-row unique keys deferred to the commit so labels, numbers,
+   * ranks and positions may swap. New seats go off sale for each event, which is recomputed.
+   */
+  async saveDrawing(layoutId: string, body: LayoutDrawingInputDto): Promise<LayoutDetail> {
+    if (body.revision === undefined) {
+      throw badRequest(['send the revision you read: a layout is saved over the revision read']);
+    }
+    // Review M2: everything but the ids is checked before any lock is taken, so a wrong body
+    // never holds up holds and orders at the layout's events; the ids are checked under the lock.
+    const shape = checkDrawing(body, null);
+    if (!shape.ok) throw drawingInvalid(shape.problems, shape.more);
+    const { result, eventIds } = await this.prisma.$transaction(async (tx) => {
+      const { venue, layout, eventIds } = await lockLayout(tx, layoutId);
+      const { revision } = await tx.layout.findUniqueOrThrow({
+        where: { id: layoutId },
+        select: { revision: true },
+      });
+      if (body.revision !== revision) {
+        throw conflict(
+          'LAYOUT_CHANGED',
+          `${layout.name} was changed since you opened it; nothing was saved.`,
+          { revision },
+        );
+      }
+      await this.assertUnlocked(tx, layoutId, layout.name);
+      const current = await currentContent(tx, layoutId);
+      const checked = checkDrawing(body, current.ids);
+      if (!checked.ok) throw drawingInvalid(checked.problems, checked.more);
+      const drawing = checked.drawing;
+      await this.assertNameFree(tx, layout.locationId, venue, drawing.name, layoutId);
+      const newSeatIds = await replaceDrawing(tx, layoutId, drawing, current);
+      await tx.layout.update({
+        where: { id: layoutId },
+        data: {
+          name: drawing.name,
+          floorKind: drawing.floorKind,
+          floorOutline: drawing.floorOutline ?? Prisma.DbNull,
+          ...sizeOf(drawing),
+          seatCount: drawing.seatCount,
+          // R4: a LINES layout saved from the editor is drawn; section lines no longer apply.
+          ...(layout.source === 'LINES' ? { source: 'DRAWN' as const } : {}),
+          revision: { increment: 1 },
+        },
+      });
+      await afterLayoutChange(
+        tx,
+        `This layout can't be saved: ${drawing.name}`,
+        newSeatIds,
+        eventIds,
+      );
+      await this.setCapacity(tx, layout.locationId, venue);
+      return { result: await this.detail(tx, layoutId), eventIds };
+      // R8: a write to an existing layout, so the lock order's own bounds (about a second for
+      // the Yum! Center's 22,090 seats).
+    }, LOCKING_TX);
+    for (const id of eventIds) this.seatEvents.end(id);
+    return result;
+  }
+
   // -------------------------------------------------------------------------------- helpers
 
   /** FR-006, R7: no change while a scheduled event using it has a valid ticket or a live hold. */
   private async assertUnlocked(tx: Tx, layoutId: string, name: string): Promise<void> {
-    const blocking = await tx.$queryRaw<{ id: string; name: string }[]>`
-      SELECT e."id"::text AS "id", e."name"
-      FROM "Event" e
-      WHERE e."layoutId" = ${layoutId}::uuid AND e."status" = 'SCHEDULED'
-        AND (EXISTS (SELECT 1 FROM "Ticket" t WHERE t."eventId" = e."id" AND t."status" = 'VALID')
-             OR EXISTS (SELECT 1 FROM "SeatHold" h
-                        WHERE h."eventId" = e."id" AND h."releasedAt" IS NULL))
-      ORDER BY e."startsAt", e."id"`;
+    const blocking = await lockingEvents(tx, layoutId);
     if (blocking.length > 0) {
       throw conflict(
         'LAYOUT_IN_USE',
@@ -536,6 +735,10 @@ export class LayoutsService {
           outline: place.outline,
           labelX: place.labelAt[0],
           labelY: place.labelAt[1],
+          // Spec 039 research R6: a section on the lines' grid turns about its new label point.
+          originX: place.labelAt[0],
+          originY: place.labelAt[1],
+          angle: 0,
         },
       });
       newSeatIds.push(...(await this.replaceRows(tx, old.id, line, place)));
@@ -550,26 +753,7 @@ export class LayoutsService {
       },
     });
 
-    // The scheduled events using it: new seats off sale, then each must still sell (R6).
-    for (const eventId of eventIds) {
-      await insertBatches(newSeatIds, (ids) =>
-        tx.eventOffSaleSeat.createMany({ data: ids.map((seatId) => ({ eventId, seatId })) }),
-      );
-    }
-    const refused: { id: string; name: string; why: string }[] = [];
-    for (const eventId of eventIds) {
-      const why = await recomputeEvent(tx, eventId);
-      if (why) refused.push({ id: eventId, name: why.name, why: why.reason });
-    }
-    if (refused.length > 0) {
-      throw conflict(
-        'LAYOUT_IN_USE',
-        `These lines can't be saved: ${layoutName} is used by ` +
-          refused.map((e) => `"${e.name}", which would ${e.why}`).join('; ') +
-          '. Duplicate the layout to make a different one.',
-        { events: refused.map(({ id, name }) => ({ id, name })) },
-      );
-    }
+    await afterLayoutChange(tx, `These lines can't be saved: ${layoutName}`, newSeatIds, eventIds);
   }
 
   /** A kept section's rows and seats by label; returns the ids of the seats it makes. */
@@ -968,7 +1152,15 @@ async function insertContent(
   sections: NewSection[],
 ): Promise<void> {
   if (levels.length > 0) {
-    await tx.priceLevel.createMany({ data: levels.map((l) => ({ ...l, layoutId })) });
+    await tx.priceLevel.createMany({
+      data: levels.map((l) => ({
+        id: l.id,
+        layoutId,
+        name: l.name,
+        rank: l.rank,
+        color: l.color,
+      })),
+    });
   }
   if (sections.length === 0) return;
   await tx.section.createMany({
@@ -980,6 +1172,11 @@ async function insertContent(
       outline: s.outline,
       labelX: s.labelAt[0],
       labelY: s.labelAt[1],
+      // Spec 039 research R6: an imported or section-line section turns about its label point.
+      originX: s.origin?.[0] ?? s.labelAt[0],
+      originY: s.origin?.[1] ?? s.labelAt[1],
+      angle: s.angle ?? 0,
+      generator: s.generator ?? Prisma.DbNull,
       position: s.position,
     })),
   });
@@ -1011,9 +1208,9 @@ async function copyContent(tx: Tx, from: string, to: string): Promise<void> {
     FROM "PriceLevel" WHERE "layoutId" = ${from}::uuid`;
   await tx.$executeRaw`
     INSERT INTO "Section" ("id", "layoutId", "name", "levelId", "outline", "labelX", "labelY",
-                           "position", "updatedAt")
+                           "originX", "originY", "angle", "generator", "position", "updatedAt")
     SELECT gen_random_uuid(), ${to}::uuid, s."name", nl."id", s."outline", s."labelX", s."labelY",
-           s."position", now()
+           s."originX", s."originY", s."angle", s."generator", s."position", now()
     FROM "Section" s
     JOIN "PriceLevel" ol ON ol."id" = s."levelId"
     JOIN "PriceLevel" nl ON nl."layoutId" = ${to}::uuid AND nl."rank" = ol."rank"
@@ -1134,6 +1331,362 @@ async function recomputeEvent(
     data: { totalTicketCapacity: seats, basePrice: lowest },
   });
   return null;
+}
+
+/**
+ * FR-006, R7: the scheduled events using a layout that have a valid ticket or a live hold, which
+ * lock it; by start, then id.
+ */
+async function lockingEvents(db: Db, layoutId: string): Promise<{ id: string; name: string }[]> {
+  return db.$queryRaw<{ id: string; name: string }[]>`
+    SELECT e."id"::text AS "id", e."name"
+    FROM "Event" e
+    WHERE e."layoutId" = ${layoutId}::uuid AND e."status" = 'SCHEDULED'
+      AND (EXISTS (SELECT 1 FROM "Ticket" t WHERE t."eventId" = e."id" AND t."status" = 'VALID')
+           OR EXISTS (SELECT 1 FROM "SeatHold" h
+                      WHERE h."eventId" = e."id" AND h."releasedAt" IS NULL))
+    ORDER BY e."startsAt", e."id"`;
+}
+
+/**
+ * Spec 038 R6, spec 039 R8 (T015): after a layout's seats changed, for every scheduled event using
+ * it, the new seats go off sale and its capacity and base price are recomputed; refused, naming
+ * each event and why, when one would be left unable to sell. `what` begins the message ("These
+ * lines can't be saved: Club room").
+ */
+async function afterLayoutChange(
+  tx: Tx,
+  what: string,
+  newSeatIds: string[],
+  eventIds: string[],
+): Promise<void> {
+  for (const eventId of eventIds) {
+    await insertBatches(newSeatIds, (ids) =>
+      tx.eventOffSaleSeat.createMany({ data: ids.map((seatId) => ({ eventId, seatId })) }),
+    );
+  }
+  const refused: { id: string; name: string; why: string }[] = [];
+  for (const eventId of eventIds) {
+    const why = await recomputeEvent(tx, eventId);
+    if (why) refused.push({ id: eventId, name: why.name, why: why.reason });
+  }
+  if (refused.length > 0) {
+    throw conflict(
+      'LAYOUT_IN_USE',
+      `${what} is used by ` +
+        refused.map((e) => `"${e.name}", which would ${e.why}`).join('; ') +
+        '. Duplicate the layout to make a different one.',
+      { events: refused.map(({ id, name }) => ({ id, name })) },
+    );
+  }
+}
+
+// --------------------------------------------------------------------------- drawings (039)
+
+/** R16: a drawing's problems, as a layout file's are refused (`400 LAYOUT_FILE_INVALID`). */
+function drawingInvalid(problems: Problem[], more: number): HttpException {
+  const n = problems.length + more;
+  return new HttpException(
+    {
+      error: {
+        code: 'LAYOUT_FILE_INVALID',
+        message: `The layout has ${plural(n, 'problem')}; nothing was saved.`,
+        details: { problems, more },
+      },
+    },
+    HttpStatus.BAD_REQUEST,
+  );
+}
+
+/** R5: the map's size: the furthest seat, outline point or floor point, plus a margin. */
+function sizeOf(drawing: CheckedDrawing, outlines?: Point[][]): { width: number; height: number } {
+  let x = 0;
+  let y = 0;
+  const reach = (p: Point) => {
+    x = Math.max(x, p[0]);
+    y = Math.max(y, p[1]);
+  };
+  for (const s of drawing.sections)
+    for (const r of s.rows) for (const seat of r.seats) reach(seat.at);
+  for (const o of outlines ?? drawing.sections.map(outlineOf)) o.forEach(reach);
+  drawing.floorOutline?.forEach(reach);
+  const fit = (v: number) =>
+    Math.min(LAYOUT_LIMITS.maxMapUnits, Math.max(1, Math.ceil(v + SIZE_MARGIN)));
+  return { width: fit(x), height: fit(y) };
+}
+
+/** R5: a section's outline, drawn around its seats (the shared `outlineAround`). */
+const outlineOf = (s: CheckedDrawing['sections'][number]): Point[] =>
+  outlineAround(s.rows.map((r) => r.seats.map((seat) => seat.at)));
+
+/**
+ * A checked drawing's content with every id chosen: a kept one's own, a new one's random.
+ * Levels by order (rank), sections by order (position), outlines around their seats, names at
+ * the outlines' centroids.
+ */
+type PlanSeat = NewSeat & { kept: boolean };
+type PlanRow = Omit<NewRow, 'seats'> & { kept: boolean; seats: PlanSeat[] };
+type PlanSection = Omit<NewSection, 'rows'> & { kept: boolean; rows: PlanRow[] };
+
+function drawingPlan(drawing: CheckedDrawing): {
+  size: { width: number; height: number };
+  levels: (NewLevel & { kept: boolean })[];
+  sections: PlanSection[];
+} {
+  const levels = drawing.levels.map((l) => ({
+    id: l.id ?? randomUUID(),
+    kept: l.id !== null,
+    name: l.name,
+    rank: l.rank,
+    color: l.color,
+  }));
+  const byKey = new Map(drawing.levels.map((l, i) => [l.key, levels[i].id]));
+  const level = (key: string | null): string | null => (key === null ? null : byKey.get(key)!);
+  const outlines = drawing.sections.map(outlineOf);
+  return {
+    size: sizeOf(drawing, outlines),
+    levels,
+    sections: drawing.sections.map((s, position) => ({
+      id: s.id ?? randomUUID(),
+      kept: s.id !== null,
+      name: s.name,
+      levelId: byKey.get(s.levelKey)!,
+      outline: outlines[position],
+      labelAt: centroid(outlines[position]),
+      position,
+      origin: s.origin,
+      angle: s.angle,
+      generator: s.generator,
+      rows: s.rows.map((r) => ({
+        id: r.id ?? randomUUID(),
+        kept: r.id !== null,
+        number: r.number,
+        label: r.label,
+        levelId: level(r.levelKey),
+        seats: r.seats.map((seat) => ({
+          id: seat.id ?? randomUUID(),
+          kept: seat.id !== null,
+          number: seat.number,
+          label: seat.label,
+          at: seat.at,
+          levelId: level(seat.levelKey),
+          accessible: seat.accessible,
+        })),
+      })),
+    })),
+  };
+}
+
+/** A layout's ids by kind and parent, and the names of its levels and sections. */
+interface CurrentContent {
+  ids: ExistingIds;
+  levelNames: Map<string, string>;
+  sectionNames: Map<string, string>;
+}
+
+async function currentContent(tx: Tx, layoutId: string): Promise<CurrentContent> {
+  const levels = await tx.priceLevel.findMany({
+    where: { layoutId },
+    select: { id: true, name: true },
+  });
+  const sections = await tx.section.findMany({
+    where: { layoutId },
+    select: { id: true, name: true },
+  });
+  const rows = await tx.$queryRaw<{ id: string; sectionId: string }[]>`
+    SELECT r."id"::text AS "id", r."sectionId"::text AS "sectionId"
+    FROM "SeatRow" r JOIN "Section" sec ON sec."id" = r."sectionId"
+    WHERE sec."layoutId" = ${layoutId}::uuid`;
+  const seats = await tx.$queryRaw<{ id: string; rowId: string }[]>`
+    SELECT s."id"::text AS "id", s."rowId"::text AS "rowId"
+    FROM "Seat" s JOIN "Section" sec ON sec."id" = s."sectionId"
+    WHERE sec."layoutId" = ${layoutId}::uuid`;
+  return {
+    ids: {
+      levels: new Set(levels.map((l) => l.id)),
+      sections: new Set(sections.map((s) => s.id)),
+      rows: new Map(rows.map((r) => [r.id, r.sectionId])),
+      seats: new Map(seats.map((s) => [s.id, s.rowId])),
+    },
+    levelNames: new Map(levels.map((l) => [l.id, l.name])),
+    sectionNames: new Map(sections.map((s) => [s.id, s.name])),
+  };
+}
+
+/** The per-row unique keys a drawing save checks at its commit (data-model.md, R8). */
+const DEFERRED_KEYS = Prisma.raw(
+  [
+    'price_level_rank_unique',
+    'Section_layoutId_position_key',
+    'seat_row_number_unique',
+    'seat_row_label_unique',
+    'seat_number_unique',
+    'seat_label_unique',
+  ]
+    .map((n) => `"${n}"`)
+    .join(', '),
+);
+
+/**
+ * R8 steps 4–7: a layout's content replaced by a checked drawing's, keeping by id. Returns the ids
+ * of the seats it makes.
+ */
+async function replaceDrawing(
+  tx: Tx,
+  layoutId: string,
+  drawing: CheckedDrawing,
+  current: CurrentContent,
+): Promise<string[]> {
+  const plan = drawingPlan(drawing);
+  await tx.$executeRaw`SET CONSTRAINTS ${DEFERRED_KEYS} DEFERRED`;
+
+  // What is not sent goes, with its prices and off-sale entries (cascades).
+  const keptSeats = plan.sections.flatMap((s) =>
+    s.rows.flatMap((r) => r.seats.filter((x) => x.kept).map((x) => x.id)),
+  );
+  const keptRows = plan.sections.flatMap((s) => s.rows.filter((r) => r.kept).map((r) => r.id));
+  const keptSections = plan.sections.filter((s) => s.kept).map((s) => s.id);
+  const keptLevels = plan.levels.filter((l) => l.kept).map((l) => l.id);
+  await tx.$executeRaw`
+    DELETE FROM "Seat" s USING "Section" sec
+    WHERE s."sectionId" = sec."id" AND sec."layoutId" = ${layoutId}::uuid
+      AND NOT (s."id" = ANY(${keptSeats}::uuid[]))`;
+  await tx.$executeRaw`
+    DELETE FROM "SeatRow" r USING "Section" sec
+    WHERE r."sectionId" = sec."id" AND sec."layoutId" = ${layoutId}::uuid
+      AND NOT (r."id" = ANY(${keptRows}::uuid[]))`;
+  await tx.$executeRaw`
+    DELETE FROM "Section" WHERE "layoutId" = ${layoutId}::uuid
+      AND NOT ("id" = ANY(${keptSections}::uuid[]))`;
+  await tx.$executeRaw`
+    DELETE FROM "PriceLevel" WHERE "layoutId" = ${layoutId}::uuid
+      AND NOT ("id" = ANY(${keptLevels}::uuid[]))`;
+
+  // Names whose case-insensitive unique indexes can't wait for the commit: a kept level or
+  // section whose name changes takes a parked name first, so names may swap in one save.
+  const movingLevels = plan.levels.filter((l) => l.kept && current.levelNames.get(l.id) !== l.name);
+  const movingSections = plan.sections.filter(
+    (s) => s.kept && current.sectionNames.get(s.id) !== s.name,
+  );
+  if (movingLevels.length > 0) {
+    await tx.$executeRaw`
+      UPDATE "PriceLevel" SET "name" = chr(1) || "id"::text
+      WHERE "id" = ANY(${movingLevels.map((l) => l.id)}::uuid[])`;
+  }
+  if (movingSections.length > 0) {
+    await tx.$executeRaw`
+      UPDATE "Section" SET "name" = chr(1) || "id"::text
+      WHERE "id" = ANY(${movingSections.map((s) => s.id)}::uuid[])`;
+  }
+
+  // New levels before the kept rows and seats that may be painted with them: their level keys
+  // are checked at once (only a section's waits for the commit). A new level's name may be a
+  // kept one's old name, which was parked above; its rank waits for the commit.
+  const newLevels = plan.levels.filter((l) => !l.kept);
+  await insertContent(tx, layoutId, newLevels, []);
+
+  // The kept, in bulk: one statement a table.
+  const levels = plan.levels.filter((l) => l.kept);
+  if (levels.length > 0) {
+    await tx.$executeRaw`
+      UPDATE "PriceLevel" p SET "name" = v."name", "rank" = v."rank", "color" = v."color"
+      FROM jsonb_to_recordset(${JSON.stringify(levels)}::jsonb)
+        AS v("id" uuid, "name" text, "rank" int, "color" text)
+      WHERE p."id" = v."id"`;
+  }
+  const sections = plan.sections.filter((s) => s.kept);
+  if (sections.length > 0) {
+    const values = sections.map((s) => ({
+      id: s.id,
+      name: s.name,
+      levelId: s.levelId,
+      position: s.position,
+      outline: s.outline,
+      labelX: s.labelAt[0],
+      labelY: s.labelAt[1],
+      originX: s.origin![0],
+      originY: s.origin![1],
+      angle: s.angle,
+      generator: s.generator ?? null,
+    }));
+    await tx.$executeRaw`
+      UPDATE "Section" sec SET "name" = v."name", "levelId" = v."levelId",
+             "position" = v."position", "outline" = v."outline", "labelX" = v."labelX",
+             "labelY" = v."labelY", "originX" = v."originX", "originY" = v."originY",
+             "angle" = v."angle", "generator" = v."generator", "updatedAt" = now()
+      FROM jsonb_to_recordset(${JSON.stringify(values)}::jsonb)
+        AS v("id" uuid, "name" text, "levelId" uuid, "position" int, "outline" jsonb,
+             "labelX" float8, "labelY" float8, "originX" float8, "originY" float8,
+             "angle" float8, "generator" jsonb)
+      WHERE sec."id" = v."id"`;
+  }
+  const rows = plan.sections.flatMap((s) =>
+    s.rows
+      .filter((r) => r.kept)
+      .map((r) => ({ id: r.id, number: r.number, label: r.label, levelId: r.levelId })),
+  );
+  if (rows.length > 0) {
+    await tx.$executeRaw`
+      UPDATE "SeatRow" r SET "number" = v."number", "label" = v."label", "levelId" = v."levelId"
+      FROM jsonb_to_recordset(${JSON.stringify(rows)}::jsonb)
+        AS v("id" uuid, "number" int, "label" text, "levelId" uuid)
+      WHERE r."id" = v."id"`;
+  }
+  const seats = plan.sections.flatMap((s) =>
+    s.rows.flatMap((r) =>
+      r.seats
+        .filter((x) => x.kept)
+        .map((x) => ({
+          id: x.id,
+          number: x.number,
+          label: x.label,
+          x: x.at[0],
+          y: x.at[1],
+          levelId: x.levelId,
+          accessible: x.accessible,
+        })),
+    ),
+  );
+  if (seats.length > 0) {
+    await tx.$executeRaw`
+      UPDATE "Seat" s SET "number" = v."number", "label" = v."label", "x" = v."x", "y" = v."y",
+             "levelId" = v."levelId", "accessible" = v."accessible"
+      FROM jsonb_to_recordset(${JSON.stringify(seats)}::jsonb)
+        AS v("id" uuid, "number" int, "label" text, "x" float8, "y" float8, "levelId" uuid,
+             "accessible" boolean)
+      WHERE s."id" = v."id"`;
+  }
+
+  // The new: levels, sections with all they hold, and new rows and seats of kept sections.
+  const made: string[] = [];
+  const newSections = plan.sections.filter((s) => !s.kept);
+  await insertContent(tx, layoutId, [], newSections);
+  for (const s of newSections) {
+    for (const r of s.rows) for (const seat of r.seats) made.push(seat.id);
+  }
+  const newRows: SeatRowInsert[] = [];
+  const newSeats: SeatInsert[] = [];
+  for (const s of sections) {
+    for (const r of s.rows) {
+      if (!r.kept) {
+        newRows.push({
+          id: r.id,
+          sectionId: s.id,
+          number: r.number,
+          label: r.label,
+          levelId: r.levelId,
+        });
+      }
+      for (const seat of r.seats) {
+        if (r.kept && seat.kept) continue;
+        newSeats.push(seatInsert(seat, r.id, s.id));
+        made.push(seat.id);
+      }
+    }
+  }
+  await insertSeatRows(tx, newRows);
+  await insertSeats(tx, newSeats);
+  return made;
 }
 
 /** FR-015, R8: the level prices of the most recently created scheduled event on the layout. */

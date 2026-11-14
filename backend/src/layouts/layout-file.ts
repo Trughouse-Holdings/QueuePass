@@ -62,16 +62,32 @@ export interface CheckedLayout {
 export type LayoutFileResult =
   { ok: true; layout: CheckedLayout } | { ok: false; problems: Problem[]; more: number };
 
-const FLOOR_KINDS: readonly FloorKind[] = ['COURT', 'END_STAGE', 'CENTER_STAGE', 'RING', 'NONE'];
+// Spec 039 research R16 (T010): the checks a layout file and a layout drawing share are exported
+// from here: names, labels, the floor's kinds, the limits' wording, problems capped at 50.
+export const FLOOR_KINDS: readonly FloorKind[] = [
+  'COURT',
+  'END_STAGE',
+  'CENTER_STAGE',
+  'RING',
+  'NONE',
+];
 const KEY = /^[a-z0-9-]{1,30}$/;
 
-type Json = Record<string, unknown>;
-const isObject = (v: unknown): v is Json =>
+export type Json = Record<string, unknown>;
+export const isObject = (v: unknown): v is Json =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
-const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
-const count = (n: number): string => n.toLocaleString('en-US');
-const fold = (s: string): string => s.toLowerCase();
-const show = (n: number): string => String(Math.round(n * 1000) / 1000);
+export const isInt = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v);
+export const count = (n: number): string => n.toLocaleString('en-US');
+export const fold = (s: string): string => s.toLowerCase();
+export const show = (n: number): string => String(Math.round(n * 1000) / 1000);
+
+/** Problems in the order found, the first `MAX_PROBLEMS` kept and the rest counted. */
+export function capped(problems: Problem[]): { problems: Problem[]; more: number } {
+  return {
+    problems: problems.slice(0, MAX_PROBLEMS),
+    more: Math.max(0, problems.length - MAX_PROBLEMS),
+  };
+}
 
 /**
  * Spec 038 research R5: a polygon's centroid (its area's center), where a section's name is drawn
@@ -102,11 +118,7 @@ export function centroid(points: Point[]): Point {
 export function checkLayoutFile(file: unknown): LayoutFileResult {
   const problems: Problem[] = [];
   const add = (path: string, message: string) => problems.push({ path, message });
-  const done = (): LayoutFileResult => ({
-    ok: false,
-    problems: problems.slice(0, MAX_PROBLEMS),
-    more: Math.max(0, problems.length - MAX_PROBLEMS),
-  });
+  const done = (): LayoutFileResult => ({ ok: false, ...capped(problems) });
 
   if (!isObject(file)) {
     add('file', 'The layout file must be a JSON object.');
@@ -447,7 +459,7 @@ export function checkLayoutFile(file: unknown): LayoutFileResult {
 }
 
 /** A name of 1 to 50 characters after trimming, or null with a problem. */
-function checkName(
+export function checkName(
   v: unknown,
   path: string,
   what: string,
@@ -466,7 +478,7 @@ function checkName(
 }
 
 /** A row or seat label of 1 to 5 characters after trimming, or null with a problem. */
-function checkLabel(
+export function checkLabel(
   v: unknown,
   path: string,
   place: string,

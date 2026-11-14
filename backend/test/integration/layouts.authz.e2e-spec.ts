@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { operations } from '../contract/expect-to-match-contract';
 import { anon, as, asAdmin, type Client } from '../setup/authed-request';
 import { venue } from '../setup/fixtures';
+import { newDrawing } from '../setup/layout-drawing';
 import { resetDb } from '../setup/reset-db';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { AGENT, CUSTOMER, tokenFor } from '../setup/tokens';
@@ -10,7 +11,8 @@ import { AGENT, CUSTOMER, tokenFor } from '../setup/tokens';
 /**
  * Spec 038 FR-008 (Constitution V): every layout operation needs a valid token; only a QueuePass
  * Admin may make, change, duplicate or delete a layout; any signed-in role may read one (the map is
- * public). Each refusal changes nothing.
+ * public). Each refusal changes nothing. Spec 039 (T006): the layout editor's three operations,
+ * its whole-layout read included, are a QueuePass Admin's only (contracts/README.md of 039).
  */
 describe('Venue layout endpoints: authorization (038)', () => {
   let ctx: TestContext;
@@ -74,6 +76,17 @@ describe('Venue layout endpoints: authorization (038)', () => {
       run: (c: Client) => c.post(`/layouts/${layoutId}/duplicate`),
     },
     { op: 'deleteVenueLayout', run: (c: Client) => c.delete(`/layouts/${layoutId}`) },
+    // Spec 039: the drawing's read carries editing state, so it is an admin's alone.
+    { op: 'getLayoutDrawing', run: (c: Client) => c.get(`/layouts/${layoutId}/drawing`) },
+    {
+      op: 'saveLayoutDrawing',
+      run: (c: Client) =>
+        c.put(`/layouts/${layoutId}/drawing`).send({ ...newDrawing(), revision: 1 }),
+    },
+    {
+      op: 'createLayoutDrawing',
+      run: (c: Client) => c.post(`/locations/${venueId}/layouts/drawing`).send(newDrawing()),
+    },
   ];
   const reads = [
     { op: 'listVenueLayouts', run: (c: Client) => c.get(`/locations/${venueId}/layouts`) },
@@ -91,12 +104,9 @@ describe('Venue layout endpoints: authorization (038)', () => {
     venue: await ctx.prisma.location.findUniqueOrThrow({ where: { id: venueId } }),
   });
 
-  it('covers the eight layout operations of the contract, all served', () => {
+  it('covers the eleven layout operations of the contract, all served', () => {
     const declared = operations
       .filter((o) => o.path.startsWith('/layouts') || o.path.startsWith('/locations/{id}/layouts'))
-      // Spec 039's three drawing operations are `x-planned` until its implementation, which adds
-      // them to this table (039 T006).
-      .filter((o) => !o.planned)
       .map((o) => o.operationId)
       .sort();
     expect(all.map((w) => w.op).sort()).toEqual(declared);
@@ -130,6 +140,16 @@ describe('Venue layout endpoints: authorization (038)', () => {
       }
     }
     expect(await snapshot()).toEqual(before);
+  });
+
+  it('lets a QueuePass Admin through every operation (neither 401 nor 403)', async () => {
+    for (const w of all) {
+      const res = await w.run(asAdmin(ctx));
+      expect({ op: w.op, denied: [401, 403].includes(res.status) }).toEqual({
+        op: w.op,
+        denied: false,
+      });
+    }
   });
 
   for (const role of ['customer', 'agent'] as const) {

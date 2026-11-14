@@ -1,8 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
 import { AuthProvider, RequireRole } from '@queuepass/shared/web';
-import { App } from './App';
+import { routes } from './App';
+import { AppRouter } from './router';
 // Spec 012 (Constitution VII): the one shared theme first; this app's own screens after it.
 import '@queuepass/shared/theme.css';
 import './styles.css';
@@ -15,9 +15,7 @@ createRoot(document.getElementById('root') as HTMLElement).render(
       clientId={import.meta.env.VITE_OIDC_CLIENT_ID}
     >
       <RequireRole role="queuepass-admin">
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
+        <AppRouter routes={routes} />
       </RequireRole>
     </AuthProvider>
   </StrictMode>,

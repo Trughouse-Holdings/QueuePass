@@ -751,7 +751,6 @@ paths:
         section, row and seat. A name another layout of the venue has, ignoring case, is `409
         LAYOUT_NAME_TAKEN`. The venue's capacity is set and checked as by `createVenueLayout`.
       operationId: createLayoutDrawing
-      x-planned: '039'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true
@@ -939,7 +938,6 @@ paths:
         is left out where a row or seat takes its section's or row's). A locked layout is still
         returned, for the editor to show read-only.
       operationId: getLayoutDrawing
-      x-planned: '039'
       x-required-roles: [queuepass-admin]
       responses:
         '200':
@@ -977,7 +975,6 @@ paths:
         its `totalTicketCapacity`, `basePrice` and `priceMax` are recomputed. Viewers of events
         that use it reload (`streamSeatMap` ends).
       operationId: saveLayoutDrawing
-      x-planned: '039'
       x-required-roles: [queuepass-admin]
       requestBody:
         required: true

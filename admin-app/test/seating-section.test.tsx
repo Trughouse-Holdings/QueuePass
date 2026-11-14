@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -109,6 +111,17 @@ describe('Schedule a seated event', () => {
 
     await chooseLayout('Club');
     expect(priceBox('Club seats')).toHaveValue('');
+  });
+
+  it("lists the sections to take off sale in a row of their own that wraps, not the form's field grid (039 walk)", async () => {
+    await newForm();
+    await chooseLayout('Arena');
+    const button = within(tool()).getByRole('button', { name: 'Section Balcony' });
+    const row = button.parentElement!;
+    expect(row).toHaveClass('section-choices');
+    expect(row).not.toHaveClass('form__row');
+    const css = readFileSync(resolve(process.cwd(), 'src/styles.css'), 'utf8');
+    expect(css).toMatch(/\.section-choices\s*\{[^}]*flex-wrap: wrap/);
   });
 
   it('takes a section, a row and a seat off sale in a zoomed section, updating the line at once', async () => {

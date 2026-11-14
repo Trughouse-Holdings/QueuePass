@@ -1,5 +1,7 @@
 import type {
   LayoutDetail,
+  LayoutDrawing,
+  LayoutDrawingInput,
   LayoutDuplicate,
   LayoutImport,
   LayoutLinesInput,
@@ -62,3 +64,33 @@ export const duplicateVenueLayout = (
 
 export const deleteVenueLayout = (layoutId: string): Promise<void> =>
   unwrap(api.DELETE('/layouts/{layoutId}', layout(layoutId)));
+
+/**
+ * Spec 039 research R3 (T017): the whole layout as the editor reads it, every seat with its id and
+ * own level, its `revision`, and whether it is locked.
+ */
+export const getLayoutDrawing = (layoutId: string): Promise<LayoutDrawing> =>
+  unwrap(api.GET('/layouts/{layoutId}/drawing', layout(layoutId))) as Promise<LayoutDrawing>;
+
+/**
+ * R3, R4, R9: saves the whole layout at once, with the `revision` it was read at. A refusal is an
+ * `ApiError` carrying the envelope's `code`, `message` and `details`: `LAYOUT_FILE_INVALID` with
+ * `problems`, `LAYOUT_CHANGED` with the current `revision`, `LAYOUT_IN_USE` with `events`,
+ * `LAYOUT_NAME_TAKEN`.
+ */
+export const saveLayoutDrawing = (
+  layoutId: string,
+  input: LayoutDrawingInput,
+): Promise<LayoutDetail> =>
+  unwrap(
+    api.PUT('/layouts/{layoutId}/drawing', { ...layout(layoutId), body: input }),
+  ) as Promise<LayoutDetail>;
+
+/** R8: a new drawn layout at the venue, from the same body (ids and `revision` are ignored). */
+export const createLayoutDrawing = (
+  locationId: string,
+  input: LayoutDrawingInput,
+): Promise<LayoutDetail> =>
+  unwrap(
+    api.POST('/locations/{id}/layouts/drawing', { ...venue(locationId), body: input }),
+  ) as Promise<LayoutDetail>;

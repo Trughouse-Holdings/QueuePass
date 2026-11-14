@@ -476,32 +476,30 @@ test('038 S16: by keyboard alone, the Sections list filters, opens section 115, 
     'Section 101, no open seats between $50 and $95',
   );
 
-  // Section 115 from the list: its seats as buttons by row, named as the map names them.
+  // Section 115 from the list (spec 039's walk, FR-020 amended): it opens on the map, stays marked
+  // in the list among every section, and the focus goes to its first seat on the map, where seats
+  // are buttons named "Row F, Seat 7, Courtside, $95, open".
   const section = list.getByRole('button', { name: /^Section 115, / });
   await expect(section).toHaveAccessibleName(`Section 115, $60–$95, ${SECTION_115} open seats`);
   await section.focus();
   await page.keyboard.press('Enter');
-  await expect(section).toHaveAttribute('aria-expanded', 'true');
-  const seat = list
-    .getByRole('group', { name: 'Row F' })
-    .getByRole('button', { name: /^Row F, Seat 7, / });
+  await expect(section).toHaveAttribute('aria-pressed', 'true');
+  await expect(list.getByRole('button', { name: /^Row / })).toHaveCount(0);
+  await expect(map.locator('.venue-map__seat[role="button"]').first()).toBeFocused();
+  const seat = seatOn(map, 'F', 7);
   await expect(seat).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
 
-  // Held by Enter; the map, zoomed into the same section, shows the same.
+  // Held by Enter.
   await seat.focus();
   await page.keyboard.press('Enter');
   await expect(seat).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, held by you');
   await expect(seat).toHaveAttribute('aria-pressed', 'true');
-  await expect(seatOn(map, 'F', 7)).toHaveAccessibleName(
-    'Row F, Seat 7, Courtside, $95, held by you',
-  );
   await expect(log).toContainText('Section 115, Row F, Seat 7 held.');
 
   // Released by Space.
   await seat.focus();
   await page.keyboard.press('Space');
   await expect(seat).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
-  await expect(seatOn(map, 'F', 7)).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
   await expect(log).toContainText('Section 115, Row F, Seat 7 released.');
 });
 

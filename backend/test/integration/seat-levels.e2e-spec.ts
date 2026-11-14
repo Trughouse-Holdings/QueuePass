@@ -55,10 +55,11 @@ describe('seat levels and the layout lock (R1, R7, R11)', () => {
              ('${levels.other}', '${otherLayout}', 'O', 1, 'red')`);
     await sql(`
       INSERT INTO "Section" ("id", "layoutId", "name", "levelId", "outline", "labelX", "labelY",
-                             "position", "updatedAt")
-      VALUES ('${section}', '${layout}', 'S', '${levels.a}', '[[0,0],[10,0],[10,10]]', 5, 5, 0, now()),
+                             "originX", "originY", "position", "updatedAt")
+      VALUES ('${section}', '${layout}', 'S', '${levels.a}', '[[0,0],[10,0],[10,10]]', 5, 5, 5, 5, 0,
+              now()),
              ('${otherSection}', '${otherLayout}', 'T', '${levels.other}', '[[0,0],[10,0],[10,10]]',
-              5, 5, 0, now())`);
+              5, 5, 5, 5, 0, now())`);
     // Row 1 has the section's level A; row 2 its own level B; seat 1-1 its own level B.
     await sql(`
       INSERT INTO "SeatRow" ("id", "sectionId", "number", "label", "levelId")

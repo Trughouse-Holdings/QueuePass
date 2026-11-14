@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   LAYOUT_LIMITS,
   type LayoutDetail,
@@ -214,6 +215,10 @@ export function LayoutsCard({
         >
           Import layout file
         </button>
+        {/* Spec 039 FR-001: the layout editor, on a new layout. */}
+        <Link className="btn" to={`/locations/${venue.id}/layouts/new`}>
+          New layout
+        </Link>
         {!adding && (
           <button
             type="button"
@@ -366,6 +371,14 @@ function LayoutItem({
       )}
 
       <div className="form__actions">
+        {/* Spec 039 FR-001, FR-002: the layout editor; read-only with Duplicate to edit if locked. */}
+        <Link
+          className="btn"
+          to={`/locations/${layout.locationId}/layouts/${layout.id}/edit`}
+          aria-label={`${layout.locked ? 'View' : 'Edit'} ${name}`}
+        >
+          {layout.locked ? 'View' : 'Edit'}
+        </Link>
         <button
           type="button"
           className="btn"

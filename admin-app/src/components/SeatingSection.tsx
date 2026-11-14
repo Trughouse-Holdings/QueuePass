@@ -199,7 +199,7 @@ function OffSaleTool(props: SeatingSectionProps & { detail: LayoutDetail }): Rea
       {!summary ? (
         <>
           <p className="note">Choose a section to take its seats off sale or put them back.</p>
-          <div className="form__row">
+          <div className="section-choices">
             {detail.sections.map((s) => (
               <button key={s.id} type="button" className="btn" onClick={() => choose(s.id)}>
                 {`Section ${s.name}`}
