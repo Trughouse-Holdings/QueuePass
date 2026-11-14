@@ -568,3 +568,116 @@ export async function sellSeats(
   });
   return { orderId: order.id, tickets: order.tickets.map((t) => ({ id: t.id, code: t.code })) };
 }
+
+/** Spec 038 (T027): a section of a layout made from section lines, at one level. */
+export interface SeatedSection {
+  name: string;
+  rows: number;
+  seatsPerRow: number;
+  /** A level name; the first level when left out. */
+  level?: string;
+}
+
+/** Spec 038 (T027): what `seatedEvent` makes. */
+export interface SeatedEventSpec {
+  /** The layout's sections, when no `layout` is given. */
+  sections?: SeatedSection[];
+  /**
+   * The layout's levels in rank order, each with this event's price (`null`: no price, so its
+   * seats must all be off sale). Default: one level "Standard" at 45.00.
+   */
+  levels?: { name: string; price: string | null }[];
+  /** A layout already made (`seatedLayout`), to put another event on; its levels by name. */
+  layout?: InsertedLayout;
+  /** Seats off sale, by section name: a whole section, a row, or one seat. */
+  offSale?: { section: string; row?: number; seat?: number }[];
+  name?: string;
+  maxTicketsPerCustomer?: number | null;
+  startsAt?: string;
+  endsAt?: string;
+}
+
+/** Spec 038 (T027): a seated event and its layout's ids. */
+export interface SeatedEvent {
+  eventId: string;
+  layout: InsertedLayout;
+}
+
+const DEFAULT_LEVELS = [{ name: 'Standard', price: '45.00' }];
+let seatedLayouts = 0;
+
+/**
+ * Spec 038 (T027): a layout made from section lines through the API (`createVenueLayout`), its
+ * levels colored in `LEVEL_COLORS` order. Rows are labelled `1…n` and seats `1…m`, as lines label
+ * them (research R6).
+ */
+export async function seatedLayout(
+  ctx: TestContext,
+  venueId: string,
+  sections: SeatedSection[],
+  levels: string[] = DEFAULT_LEVELS.map((l) => l.name),
+  name?: string,
+): Promise<InsertedLayout> {
+  seatedLayouts += 1;
+  const res = await asAdmin(ctx)
+    .post(`/locations/${venueId}/layouts`)
+    .send({
+      name: name ?? `Seat plan ${seatedLayouts}`,
+      levels: levels.map((l, i) => ({ name: l, color: LEVEL_COLORS[i % LEVEL_COLORS.length] })),
+      sections: sections.map((s) => ({
+        name: s.name,
+        rows: s.rows,
+        seatsPerRow: s.seatsPerRow,
+        level: s.level ?? levels[0],
+      })),
+    })
+    .expect(201);
+  return layoutRefs(ctx, res.body.id);
+}
+
+/**
+ * Spec 038 (T027; research R8): a seated event scheduled through the API, as an admin does it: on
+ * a layout made from section lines (or one given), a price for each priced level, and the given
+ * seats off sale. Every test of holds, orders and the stream starts from it.
+ */
+export async function seatedEvent(
+  ctx: TestContext,
+  venueId: string,
+  spec: SeatedEventSpec,
+): Promise<SeatedEvent> {
+  const levels = spec.levels ?? DEFAULT_LEVELS;
+  const layout =
+    spec.layout ??
+    (await seatedLayout(
+      ctx,
+      venueId,
+      spec.sections ?? [],
+      levels.map((l) => l.name),
+    ));
+  const window = spec.startsAt && spec.endsAt ? spec : nextWindow();
+  const res = await asAdmin(ctx)
+    .post('/events')
+    .send({
+      name: spec.name ?? 'Season Opener',
+      locationId: venueId,
+      startsAt: window.startsAt,
+      endsAt: window.endsAt,
+      basePrice: '0.00',
+      layoutId: layout.id,
+      levelPrices: levels
+        .filter((l) => l.price !== null)
+        .map((l) => ({ levelId: layout.levels[l.name], price: l.price })),
+      offSale: (spec.offSale ?? []).map((o) => ({
+        sectionId: layout.sections[o.section],
+        ...(o.row !== undefined ? { row: o.row } : {}),
+        ...(o.seat !== undefined ? { seat: o.seat } : {}),
+      })),
+      ...(spec.maxTicketsPerCustomer !== undefined
+        ? { maxTicketsPerCustomer: spec.maxTicketsPerCustomer }
+        : {}),
+    });
+  if (res.status !== 201) {
+    throw new Error(`seatedEvent: createEvent answered ${res.status} ${JSON.stringify(res.body)}`);
+  }
+  return { eventId: res.body.id, layout };
+}

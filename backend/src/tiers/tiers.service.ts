@@ -9,7 +9,8 @@ import type { Prisma, TicketTier } from '@prisma/client';
 import { conflict, eventCancelled } from '../common/conflict';
 import { LOCKING_TX, LockedEvent, lockEvent, ticketsSold } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
-import { closeHolds, closeRunOut, liveHolds, toChanges } from '../reservations/holds';
+import { closeHolds, closeRunOut, fromHeld, liveHolds } from '../reservations/holds';
+import { sequence, toChanges } from '../seating/seat-changes';
 import { SeatEventsService } from '../seating/seat-events.service';
 import { CreateTierDto } from './dto/create-tier.dto';
 import { UpdateTierDto } from './dto/update-tier.dto';
@@ -68,10 +69,8 @@ export class TiersService {
         ...(await closeRunOut(tx, eventId)),
         ...(await closeHolds(tx, eventId, (h) => h.tierId === null)),
       ];
-      return {
-        result: toResponse(created),
-        changes: await toChanges(tx, event.layoutId, freed, 'open'),
-      };
+      const opened = await toChanges(tx, event.layoutId, fromHeld(freed), 'open');
+      return { result: toResponse(created), changes: await sequence(tx, eventId, opened) };
     }, LOCKING_TX);
     this.seatEvents.publish(eventId, changes);
     return result;
@@ -127,9 +126,9 @@ export class TiersService {
         ...(await closeRunOut(tx, eventId)),
         ...(await liveHolds(tx, eventId)).filter((h) => h.tierId === tierId),
       ];
-      const opened = await toChanges(tx, event.layoutId, freed, 'open');
+      const opened = await toChanges(tx, event.layoutId, fromHeld(freed), 'open');
       await tx.ticketTier.delete({ where: { id: tierId } });
-      return opened;
+      return sequence(tx, eventId, opened);
     }, LOCKING_TX);
     this.seatEvents.publish(eventId, changes);
   }

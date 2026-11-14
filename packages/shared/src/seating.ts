@@ -30,15 +30,23 @@ export interface SeatLabel {
  */
 export type SoldSeat = components['schemas']['SeatLabel'];
 
-/** Spec 015: a seat in a reservation, by section id and by its section's name. */
+/**
+ * Spec 015: a seat in a reservation, by section id and by its section's name. Spec 038 (research
+ * R10): its row and seat labels, its level, and the level's price now (the purchase is at the
+ * price when bought).
+ */
 export interface ReservedSeat extends SeatLabel {
   sectionId: string;
+  rowLabel: string;
+  seatLabel: string;
+  levelName: string;
+  price: string;
 }
 
 /** Spec 015: the caller's active hold on seats of one event, for 5 minutes. */
 export interface Reservation {
   eventId: string;
-  /** The tier of every seat; `null` for an event without tiers. */
+  /** Always `null` (spec 038 research R10: a seated event has no ticket types). */
   tierId: string | null;
   seats: ReservedSeat[];
   createdAt: string;
@@ -69,23 +77,22 @@ export interface ReleasedSeats {
 
 /**
  * Spec 015: one seat's new state. Never says who reserved or bought it. Spec 038 (research R12):
- * `offSale`, and the state the seat left (`from`) and its level (`levelId`), which the contract's
- * `SeatStateChange` requires; optional here until every publisher sends them (T035, T037).
+ * `offSale`, and the state the seat left (`from`) and its level (`levelId`).
  */
 export interface SeatStateChange extends SeatChoice {
   state: 'open' | 'reserved' | 'sold' | 'offSale';
-  from?: 'open' | 'reserved' | 'sold' | 'offSale';
-  levelId?: string;
+  from: 'open' | 'reserved' | 'sold' | 'offSale';
+  levelId: string;
 }
 
 /**
  * Spec 015: seats of one event that changed state, as `streamSeatMap` sends them. Spec 038
- * (research R12): `seq`, the event's `seatSeq` after the change; optional here until every
- * publisher sends it (T035, T037).
+ * (research R12): `seq`, the event's `seatSeq` after the change; a client applies it only to a map
+ * or section read at a smaller `seq`.
  */
 export interface SeatMapChange {
   eventId: string;
-  seq?: number;
+  seq: number;
   changes: SeatStateChange[];
 }
 

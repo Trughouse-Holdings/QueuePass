@@ -1,6 +1,6 @@
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type { Reservation, SeatStateChange } from '@queuepass/shared';
+import type { Reservation } from '@queuepass/shared';
 import { RESERVATION_LIMITS } from '@queuepass/shared';
 import type { Principal } from '../auth/principal';
 import { conflict, eventCancelled } from '../common/conflict';
@@ -8,27 +8,31 @@ import { LOCKING_TX, customerHeld, lockEvent, type LockedEvent } from '../common
 import { limitMessage } from '../common/ticket-limit';
 import { PrismaService } from '../prisma/prisma.service';
 import { SeatEventsService } from '../seating/seat-events.service';
+import { SEAT_LEVEL_SQL } from '../seating/seat-levels';
+import { sequence, toChanges, type SeatChanges } from '../seating/seat-changes';
 import {
   badSeats,
+  labelOf,
   resolveSeats,
-  seatKey,
   seatText,
   soldSeats,
   sortSeats,
   type ResolvedSeat,
-  type SeatLabel,
 } from '../seating/seat-rules';
 import { ReservationInputDto } from './dto/reservation-input.dto';
 import { ReservationReleaseDto } from './dto/reservation-release.dto';
-import { closeRunOut, endHolds, liveHolds, seatsTaken, toChanges } from './holds';
+import { closeRunOut, endHolds, fromHeld, liveHolds, seatsTaken } from './holds';
 
 type Tx = Prisma.TransactionClient;
 type Db = PrismaService | Tx;
 
-/** What a locked path did, and the seat changes to publish once it has committed. */
+/**
+ * What a locked path did, and the seat changes to publish once it has committed, with the seq its
+ * transaction set (spec 038 research R12).
+ */
 interface Locked<T> {
   result: T;
-  changes: SeatStateChange[];
+  changes: SeatChanges;
 }
 
 /**
@@ -105,8 +109,9 @@ export class ReservationsService {
       where: { eventId, customerSub: principal.sub, endedAt: null },
     });
     const mine = active ? holds.filter((h) => h.reservationId === active.id) : [];
+    // Spec 038 (research R10): any seats of the event on sale, of any levels; off sale is 409.
     const seats = await resolveSeats(tx, event, dto.seats);
-    const already = seats.filter((s) => mine.some((h) => seatKey(h) === seatKey(s)));
+    const already = seats.filter((s) => mine.some((h) => h.seatId === s.seatId));
     if (already.length > 0) {
       throw badSeats(`${seatText(already[0])} is already in your reservation`);
     }
@@ -115,7 +120,7 @@ export class ReservationsService {
     //    both taken and waiting is refused as taken, the truer reason (spec 033 research R4).
     const sold = await soldSeats(tx, eventId, seats);
     const others = holds.filter(
-      (h) => h.customerSub !== principal.sub && seats.some((s) => seatKey(s) === seatKey(h)),
+      (h) => h.customerSub !== principal.sub && seats.some((s) => s.seatId === h.seatId),
     );
     if (sold.length > 0 || others.length > 0) throw seatsTaken(sold, others);
 
@@ -151,17 +156,19 @@ export class ReservationsService {
 
     const reservation = await loadReservation(tx, reservationId);
     if (!reservation) throw new Error(`Reservation ${reservationId} vanished in its transaction.`);
+    // Spec 038 research R12: one seq for this transaction's changes, under the event lock.
+    const changes = [
+      ...(await toChanges(tx, event.layoutId, fromHeld(freed), 'open')),
+      ...(await toChanges(
+        tx,
+        event.layoutId,
+        seats.map((s) => ({ seatId: s.seatId, from: 'open' as const })),
+        'reserved',
+      )),
+    ];
     return {
       result: { status: active ? HttpStatus.OK : HttpStatus.CREATED, reservation },
-      changes: [
-        ...(await toChanges(tx, event.layoutId, freed, 'open')),
-        ...seats.map((s) => ({
-          sectionId: s.sectionId,
-          row: s.row,
-          seat: s.seat,
-          state: 'reserved' as const,
-        })),
-      ],
+      changes: await sequence(tx, eventId, changes),
     };
   }
 
@@ -178,12 +185,18 @@ export class ReservationsService {
     tx: Tx,
     eventId: string,
     customerSub: string,
-    seats: SeatLabel[],
+    seats: ResolvedSeat[],
   ): Promise<void> {
     const recent = await tx.$queryRaw<
-      { seatSection: string; seatRow: number; seatNumber: number; availableAt: Date }[]
+      {
+        seatId: string | null;
+        seatSection: string;
+        seatRow: number;
+        seatNumber: number;
+        availableAt: Date;
+      }[]
     >`
-      SELECT h."seatSection", h."seatRow", h."seatNumber",
+      SELECT h."seatId"::text AS "seatId", h."seatSection", h."seatRow", h."seatNumber",
              r."endedAt" + interval '2 minutes' AS "availableAt"
       FROM "SeatHold" h JOIN "SeatReservation" r ON r."id" = h."reservationId"
       WHERE h."eventId" = ${eventId}::uuid AND r."customerSub" = ${customerSub}
@@ -191,14 +204,11 @@ export class ReservationsService {
         AND h."releasedAt" > now() - interval '8 minutes'
         AND r."endedAt" IS NOT NULL
         AND now() < r."endedAt" + interval '2 minutes'`;
-    const waiting = recent.filter((h) =>
-      seats.some(
-        (s) => s.section === h.seatSection && s.row === h.seatRow && s.seat === h.seatNumber,
-      ),
-    );
+    // Spec 038 (FR-025): by the seat itself.
+    const waiting = recent.filter((h) => seats.some((s) => s.seatId === h.seatId));
     if (waiting.length === 0) return;
     const labels = sortSeats(
-      waiting.map((h) => ({ section: h.seatSection, row: h.seatRow, seat: h.seatNumber })),
+      waiting.map((h) => labelOf({ section: h.seatSection, row: h.seatRow, seat: h.seatNumber })),
     );
     const availableAt = new Date(Math.max(...waiting.map((h) => h.availableAt.getTime())));
     throw conflict(
@@ -231,10 +241,10 @@ export class ReservationsService {
   ): Promise<void> {
     for (const s of seats) {
       await tx.$executeRaw`
-        INSERT INTO "SeatHold" ("id", "reservationId", "eventId", "seatSection", "seatRow",
-                                "seatNumber", "createdAt")
-        VALUES (gen_random_uuid(), ${reservationId}::uuid, ${eventId}::uuid, ${s.section},
-                ${s.row}, ${s.seat}, now())`;
+        INSERT INTO "SeatHold" ("id", "reservationId", "eventId", "seatId", "seatSection",
+                                "seatRow", "seatNumber", "createdAt")
+        VALUES (gen_random_uuid(), ${reservationId}::uuid, ${eventId}::uuid, ${s.seatId}::uuid,
+                ${s.section}, ${s.row}, ${s.seat}, now())`;
     }
   }
 
@@ -254,8 +264,10 @@ export class ReservationsService {
       const active = await tx.seatReservation.findFirst({
         where: { eventId, customerSub: principal.sub, endedAt: null },
       });
-      const opened = await toChanges(tx, event.layoutId, freed, 'open');
-      if (!active) return { result: { reservation: null }, changes: opened };
+      const opened = await toChanges(tx, event.layoutId, fromHeld(freed), 'open');
+      if (!active) {
+        return { result: { reservation: null }, changes: await sequence(tx, eventId, opened) };
+      }
 
       const mine = (await liveHolds(tx, eventId)).filter((h) => h.reservationId === active.id);
       let targets = mine;
@@ -279,9 +291,10 @@ export class ReservationsService {
         });
       }
       await endHolds(tx, eventId, targets, 'RELEASED');
+      const released = await toChanges(tx, event.layoutId, fromHeld(targets), 'open');
       return {
         result: { reservation: await loadReservation(tx, active.id) },
-        changes: [...opened, ...(await toChanges(tx, event.layoutId, targets, 'open'))],
+        changes: await sequence(tx, eventId, [...opened, ...released]),
       };
     }, LOCKING_TX);
     this.seatEvents.publish(eventId, changes);
@@ -317,10 +330,8 @@ export class ReservationsService {
             (h) => h.customerSub === principal.sub,
           );
           await endHolds(tx, eventId, mine, 'LOGOUT');
-          return {
-            result: mine.length,
-            changes: await toChanges(tx, event.layoutId, [...freed, ...mine], 'open'),
-          };
+          const opened = await toChanges(tx, event.layoutId, fromHeld([...freed, ...mine]), 'open');
+          return { result: mine.length, changes: await sequence(tx, eventId, opened) };
         }, LOCKING_TX);
         released += result;
         this.seatEvents.publish(eventId, changes);
@@ -376,21 +387,32 @@ async function loadReservations(db: Db, where: Prisma.Sql): Promise<Reservation[
     ORDER BY r."createdAt" DESC, r."id" DESC`;
   if (rows.length === 0) return [];
   const ids = Prisma.join(rows.map((r) => Prisma.sql`${r.id}::uuid`));
+  // Spec 038 (research R10): each seat by its own row, with its labels, its resolved level and
+  // that level's price for the event now (a live hold always has its seat, seat_hold_live_has_seat).
   const seats = await db.$queryRaw<
     {
       reservationId: string;
       sectionId: string;
-      seatSection: string;
-      seatRow: number;
-      seatNumber: number;
+      section: string;
+      row: number;
+      seat: number;
+      rowLabel: string;
+      seatLabel: string;
+      levelName: string;
+      price: Prisma.Decimal | null;
     }[]
   >`
-    SELECT h."reservationId", s."id" AS "sectionId", h."seatSection", h."seatRow", h."seatNumber"
+    SELECT h."reservationId", sec."id"::text AS "sectionId", sec."name" AS "section",
+           r."number" AS "row", s."number" AS "seat", r."label" AS "rowLabel",
+           s."label" AS "seatLabel", pl."name" AS "levelName", p."price"
     FROM "SeatHold" h
-    JOIN "Event" e ON e."id" = h."eventId"
-    JOIN "Section" s ON s."layoutId" = e."layoutId" AND s."name" = h."seatSection"
+    JOIN "Seat" s ON s."id" = h."seatId"
+    JOIN "SeatRow" r ON r."id" = s."rowId"
+    JOIN "Section" sec ON sec."id" = s."sectionId"
+    JOIN "PriceLevel" pl ON pl."id" = ${SEAT_LEVEL_SQL}
+    LEFT JOIN "EventLevelPrice" p ON p."eventId" = h."eventId" AND p."levelId" = pl."id"
     WHERE h."reservationId" IN (${ids}) AND h."releasedAt" IS NULL
-    ORDER BY s."position", h."seatRow", h."seatNumber"`;
+    ORDER BY sec."position", r."number", s."number"`;
   return rows
     .map((r) => ({
       eventId: r.eventId,
@@ -399,9 +421,14 @@ async function loadReservations(db: Db, where: Prisma.Sql): Promise<Reservation[
         .filter((s) => s.reservationId === r.id)
         .map((s) => ({
           sectionId: s.sectionId,
-          section: s.seatSection,
-          row: s.seatRow,
-          seat: s.seatNumber,
+          section: s.section,
+          row: s.row,
+          seat: s.seat,
+          rowLabel: s.rowLabel,
+          seatLabel: s.seatLabel,
+          levelName: s.levelName,
+          // Every level with seats on sale has a price (research R8); 0.00 only if one had none.
+          price: (s.price ?? new Prisma.Decimal(0)).toFixed(2),
         })),
       createdAt: r.createdAt.toISOString(),
       expiresAt: r.expiresAt.toISOString(),

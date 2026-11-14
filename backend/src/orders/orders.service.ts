@@ -10,7 +10,6 @@ import {
   holderNameMessage,
   holderNameProblem,
   normalizeHolderName,
-  type SeatStateChange,
   type UsTimeZone,
 } from '@queuepass/shared';
 import type { Principal } from '../auth/principal';
@@ -27,14 +26,16 @@ import { PrismaService } from '../prisma/prisma.service';
 import {
   closeRunOut,
   endHolds,
+  fromHeld,
   liveHolds,
   seatsTaken,
-  toChanges,
   type LiveHold,
 } from '../reservations/holds';
+import { sequence, toChanges, type SeatChanges } from '../seating/seat-changes';
 import { SeatEventsService } from '../seating/seat-events.service';
 import {
   badSeats,
+  labelOf,
   resolveSeats,
   seatKey,
   seatText,
@@ -145,7 +146,7 @@ const isRequestIdCollision = (err: unknown): boolean => isUniqueViolationOn(err,
  * this needs a write from outside the Backend; the retry's check then names the taken seats.
  */
 const isSeatCollision = (err: unknown): boolean =>
-  isUniqueViolationOn(err, 'ticket_one_valid_per_seat') || isUniqueViolationOn(err, 'seatSection');
+  isUniqueViolationOn(err, 'ticket_one_valid_per_seat') || isUniqueViolationOn(err, 'seatId');
 
 /** An order, and whether it was placed now (`false`) or returned for a repeated request. */
 export interface PlacedOrder {
@@ -215,7 +216,7 @@ export class OrdersService {
     dto: CreateOrderDto,
     buyer: Principal,
     holderName: string,
-  ): Promise<{ placed: PlacedOrder; changes: SeatStateChange[] }> {
+  ): Promise<{ placed: PlacedOrder; changes: SeatChanges }> {
     const event = await lockEvent(tx, eventId);
 
     // Spec 006 FR-005: a repeated confirmation gets its first answer back, before any other rule,
@@ -240,7 +241,10 @@ export class OrdersService {
             'This requestId was already used for a different order. Start a new confirmation.',
           );
         }
-        return { placed: { order: toOrderResponse(earlier), replayed: true }, changes: [] };
+        return {
+          placed: { order: toOrderResponse(earlier), replayed: true },
+          changes: { changes: [], seq: null },
+        };
       }
     }
 
@@ -253,6 +257,14 @@ export class OrdersService {
     // Spec 015 research R3, R7: run-out reservations end first, so their seats are free.
     const freed = await closeRunOut(tx, eventId);
 
+    // Spec 038 (FR-012, research R10): a seated event is priced by level, never by ticket type.
+    if (event.layoutId !== null && dto.tierId) {
+      throw new BadRequestException({
+        message: [
+          "tierId must be omitted: a seated event has no ticket types; each seat costs its level's price",
+        ],
+      });
+    }
     const tierCount = await tx.ticketTier.count({ where: { eventId } });
     let tier: TicketTier | null = null;
     if (tierCount > 0) {
@@ -312,7 +324,17 @@ export class OrdersService {
     }
 
     // FR-004: the price is fixed on the order now; later tier price changes do not touch it.
-    const unitPrice = new Prisma.Decimal(tier ? tier.price : event.basePrice);
+    // Spec 038 FR-022 (research R10): a seated ticket costs its seat's level price now, read
+    // under the event lock; the order's total is their sum and its unitPrice the one price they
+    // share, or null when they differ (contract 2.0.0).
+    const prices = event.layoutId
+      ? await this.seatPrices(tx, eventId, seats)
+      : Array.from(
+          { length: dto.quantity },
+          () => new Prisma.Decimal(tier ? tier.price : event.basePrice),
+        );
+    const totalPrice = prices.reduce((sum, p) => sum.add(p), new Prisma.Decimal(0));
+    const unitPrice = prices.every((p) => p.equals(prices[0])) ? prices[0] : null;
     const order = await tx.order.create({
       data: {
         eventId,
@@ -323,16 +345,24 @@ export class OrdersService {
         requestId: dto.requestId ?? null,
         quantity: dto.quantity,
         unitPrice,
-        totalPrice: unitPrice.mul(dto.quantity),
+        totalPrice,
         tickets: {
-          create: Array.from({ length: dto.quantity }, (_, i) => ({
+          create: prices.map((price, i) => ({
             eventId,
             tierId: tier?.id ?? null,
             code: ticketCode(),
-            // Spec 038 FR-026: what this ticket cost (one price per order until T036).
-            price: unitPrice,
+            // Spec 038 FR-026: what this ticket cost, and its seat and labels as sold.
+            price,
             ...(seats[i]
-              ? { seatSection: seats[i].section, seatRow: seats[i].row, seatNumber: seats[i].seat }
+              ? {
+                  seatId: seats[i].seatId,
+                  seatSection: seats[i].section,
+                  seatRow: seats[i].row,
+                  seatNumber: seats[i].seat,
+                  seatRowLabel: seats[i].rowLabel,
+                  seatLabel: seats[i].seatLabel,
+                  levelName: seats[i].levelName,
+                }
               : {}),
           })),
         },
@@ -342,18 +372,36 @@ export class OrdersService {
     // Spec 015 research R7: the bought seats leave the reservation with the tickets, under the same
     // lock, so a seat is never both reserved and sold; the rest stay reserved until it ends.
     await endHolds(tx, eventId, holds, 'BOUGHT');
+    // Spec 038 research R12: one seq for this transaction's changes, under the event lock.
+    const changes = [
+      ...(await toChanges(tx, event.layoutId, fromHeld(freed), 'open')),
+      ...(await toChanges(tx, event.layoutId, fromHeld(seats), 'sold')),
+    ];
     return {
       placed: { order: toOrderResponse(order), replayed: false },
-      changes: [
-        ...(await toChanges(tx, event.layoutId, freed, 'open')),
-        ...seats.map((s) => ({
-          sectionId: s.sectionId,
-          row: s.row,
-          seat: s.seat,
-          state: 'sold' as const,
-        })),
-      ],
+      changes: await sequence(tx, eventId, changes),
     };
+  }
+
+  /**
+   * Spec 038 FR-022 (research R10): each seat's level price for the event, now, under the event
+   * lock the caller holds. A level with seats on sale always has one (research R8, checked when
+   * the event is saved), so a missing price is a broken invariant, never a customer's mistake.
+   */
+  private async seatPrices(
+    tx: Prisma.TransactionClient,
+    eventId: string,
+    seats: ResolvedSeat[],
+  ): Promise<Prisma.Decimal[]> {
+    const rows = await tx.eventLevelPrice.findMany({
+      where: { eventId, levelId: { in: [...new Set(seats.map((s) => s.levelId))] } },
+    });
+    const byLevel = new Map(rows.map((r) => [r.levelId, r.price]));
+    return seats.map((s) => {
+      const price = byLevel.get(s.levelId);
+      if (!price) throw new Error(`Event ${eventId} has no price for level ${s.levelId}.`);
+      return price;
+    });
   }
 
   /**
@@ -383,17 +431,18 @@ export class OrdersService {
 
     const seats = await resolveSeats(tx, event, dto.seats);
     const sold = await soldSeats(tx, event.id, seats);
+    // Spec 038 (FR-025): by the seat itself.
     const held = (await liveHolds(tx, event.id)).filter((h) =>
-      seats.some((s) => seatKey(s) === seatKey(h)),
+      seats.some((s) => s.seatId === h.seatId),
     );
     const others = held.filter((h) => h.customerSub !== buyer.sub);
     if (sold.length > 0 || others.length > 0) throw seatsTaken(sold, others);
 
     const mine = held.filter((h) => h.customerSub === buyer.sub);
-    const missing = seats.filter((s) => !mine.some((h) => seatKey(h) === seatKey(s)));
+    const missing = seats.filter((s) => !mine.some((h) => h.seatId === s.seatId));
     if (missing.length > 0) {
       const expired = await this.reservationRanOut(tx, event.id, buyer.sub);
-      const labels = sortSeats(missing.map(({ section, row, seat }) => ({ section, row, seat })));
+      const labels = sortSeats(missing.map(labelOf));
       const them = labels.length === 1 ? 'it' : 'them';
       throw conflict(
         'RESERVATION_REQUIRED',

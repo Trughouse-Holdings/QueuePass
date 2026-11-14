@@ -24,7 +24,8 @@ import { LOCKING_TX, lockEvent, ticketsSold } from '../common/event-lock';
 import { searchText } from '../common/search-text';
 import { lockVenueShared } from '../common/venue-lock';
 import { PrismaService } from '../prisma/prisma.service';
-import { closeHolds, closeRunOut, toChanges } from '../reservations/holds';
+import { closeHolds, closeRunOut, fromHeld } from '../reservations/holds';
+import { sequence, toChanges, type SeatMove } from '../seating/seat-changes';
 import {
   assertLayoutFree,
   assertSeatingFields,
@@ -34,7 +35,6 @@ import {
   writeSeating,
 } from '../seating/event-seating';
 import { SeatEventsService } from '../seating/seat-events.service';
-import type { SeatLabel } from '../seating/seat-rules';
 import { CreateEventDto } from './dto/create-event.dto';
 import { ListEventsQuery } from './dto/list-events.query';
 import { UpdateEventDto } from './dto/update-event.dto';
@@ -314,9 +314,7 @@ export class EventsService {
         );
         // Spec 038 (research R12): after the commit, an off-sale change goes to live viewers with
         // its seq; a layout or price change ends their streams, so they reload the map.
-        if (result.changes.length > 0) {
-          this.seatEvents.publish(id, result.changes, result.seq ?? undefined);
-        }
+        this.seatEvents.publish(id, { changes: result.changes, seq: result.seq });
         if (result.endStreams) this.seatEvents.end(id);
         return result.response;
       } catch (err) {
@@ -575,18 +573,16 @@ export class EventsService {
       const locked = await lockEvent(tx, id);
       if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
 
-      const freed: SeatLabel[] = [...(await closeRunOut(tx, id)), ...(await closeHolds(tx, id))];
+      // Spec 038 research R12: held seats leave `reserved`, sold seats `sold`, all in one seq.
+      const freed: SeatMove[] = [
+        ...fromHeld(await closeRunOut(tx, id)),
+        ...fromHeld(await closeHolds(tx, id)),
+      ];
       const sold = await tx.ticket.findMany({
-        where: { eventId: id, status: 'VALID', seatSection: { not: null } },
-        select: { seatSection: true, seatRow: true, seatNumber: true },
+        where: { eventId: id, status: 'VALID', seatId: { not: null } },
+        select: { seatId: true },
       });
-      for (const t of sold) {
-        freed.push({
-          section: t.seatSection as string,
-          row: t.seatRow as number,
-          seat: t.seatNumber as number,
-        });
-      }
+      for (const t of sold) freed.push({ seatId: t.seatId, from: 'sold' });
 
       const now = new Date();
       const tickets = await tx.ticket.updateMany({
@@ -608,7 +604,7 @@ export class EventsService {
           ordersRefunded: orders.count,
           ticketsVoided: tickets.count,
         },
-        changes: await toChanges(tx, locked.layoutId, freed, 'open'),
+        changes: await sequence(tx, id, await toChanges(tx, locked.layoutId, freed, 'open')),
       };
     }, LOCKING_TX);
     this.seatEvents.publish(id, changes);

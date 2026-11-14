@@ -1,7 +1,7 @@
 import { Prisma, type SeatHoldEnd } from '@prisma/client';
-import type { SeatStateChange } from '@queuepass/shared';
 import { conflict } from '../common/conflict';
-import { seatKey, seatText, sortSeats, type SeatLabel } from '../seating/seat-rules';
+import type { SeatMove } from '../seating/seat-changes';
+import { labelOf, seatText, sortSeats, type SeatLabel } from '../seating/seat-rules';
 
 /**
  * Spec 015: the hold operations every locked path shares (data-model.md; research R3, R7, R11).
@@ -11,12 +11,18 @@ import { seatKey, seatText, sortSeats, type SeatLabel } from '../seating/seat-ru
 
 type Tx = Prisma.TransactionClient;
 
-/** A live hold, with the customer and tier of its reservation. */
+/** A live hold, with the customer and tier of its reservation, and its seat (spec 038 R10). */
 export interface LiveHold extends SeatLabel {
   id: string;
   reservationId: string;
   customerSub: string;
   tierId: string | null;
+  seatId: string;
+}
+
+/** A seat whose hold ended: the seat itself and its label as held. */
+export interface FreedSeat extends SeatLabel {
+  seatId: string | null;
 }
 
 /**
@@ -24,8 +30,10 @@ export interface LiveHold extends SeatLabel {
  * `expiresAt`, and their live holds with `EXPIRED`, so the 2-minute wait starts at the end of the
  * 5 minutes however late this runs. Every locked path calls it first. Returns the freed seats.
  */
-export async function closeRunOut(tx: Tx, eventId: string): Promise<SeatLabel[]> {
-  const freed = await tx.$queryRaw<{ seatSection: string; seatRow: number; seatNumber: number }[]>`
+export async function closeRunOut(tx: Tx, eventId: string): Promise<FreedSeat[]> {
+  const freed = await tx.$queryRaw<
+    { seatId: string | null; seatSection: string; seatRow: number; seatNumber: number }[]
+  >`
     WITH ended AS (
       UPDATE "SeatReservation" SET "endedAt" = "expiresAt"
       WHERE "eventId" = ${eventId}::uuid AND "endedAt" IS NULL AND "expiresAt" <= now()
@@ -34,9 +42,18 @@ export async function closeRunOut(tx: Tx, eventId: string): Promise<SeatLabel[]>
     UPDATE "SeatHold" h SET "releasedAt" = ended."expiresAt", "endReason" = 'EXPIRED'
     FROM ended
     WHERE h."reservationId" = ended."id" AND h."releasedAt" IS NULL
-    RETURNING h."seatSection", h."seatRow", h."seatNumber"`;
-  return freed.map((h) => ({ section: h.seatSection, row: h.seatRow, seat: h.seatNumber }));
+    RETURNING h."seatId"::text AS "seatId", h."seatSection", h."seatRow", h."seatNumber"`;
+  return freed.map((h) => ({
+    seatId: h.seatId,
+    section: h.seatSection,
+    row: h.seatRow,
+    seat: h.seatNumber,
+  }));
 }
+
+/** Spec 038 research R12: seats whose holds ended, as moves out of `reserved`. */
+export const fromHeld = (seats: { seatId: string | null }[]): SeatMove[] =>
+  seats.map((s) => ({ seatId: s.seatId, from: 'reserved' as const }));
 
 /** The event's live holds (every one is active once `closeRunOut` has run under the lock). */
 export async function liveHolds(tx: Tx, eventId: string): Promise<LiveHold[]> {
@@ -46,13 +63,14 @@ export async function liveHolds(tx: Tx, eventId: string): Promise<LiveHold[]> {
       reservationId: string;
       customerSub: string;
       tierId: string | null;
+      seatId: string;
       seatSection: string;
       seatRow: number;
       seatNumber: number;
     }[]
   >`
-    SELECT h."id", h."reservationId", r."customerSub", r."tierId", h."seatSection", h."seatRow",
-           h."seatNumber"
+    SELECT h."id", h."reservationId", r."customerSub", r."tierId", h."seatId"::text AS "seatId",
+           h."seatSection", h."seatRow", h."seatNumber"
     FROM "SeatHold" h JOIN "SeatReservation" r ON r."id" = h."reservationId"
     WHERE h."eventId" = ${eventId}::uuid AND h."releasedAt" IS NULL`;
   return rows.map((h) => ({
@@ -60,6 +78,7 @@ export async function liveHolds(tx: Tx, eventId: string): Promise<LiveHold[]> {
     reservationId: h.reservationId,
     customerSub: h.customerSub,
     tierId: h.tierId,
+    seatId: h.seatId,
     section: h.seatSection,
     row: h.seatRow,
     seat: h.seatNumber,
@@ -99,34 +118,10 @@ export async function closeHolds(
   tx: Tx,
   eventId: string,
   which: (h: LiveHold) => boolean = () => true,
-): Promise<SeatLabel[]> {
+): Promise<LiveHold[]> {
   const holds = (await liveHolds(tx, eventId)).filter(which);
   await endHolds(tx, eventId, holds, 'CLOSED');
   return holds;
-}
-
-/**
- * Spec 015 research R9: seats as live changes, by the section ids of the event's layout (spec
- * 038: `layoutId`; `null` for general admission, which has none). A seat whose section is gone
- * has nothing left to show, so it is left out.
- */
-export async function toChanges(
-  tx: Pick<Tx, 'section'>,
-  layoutId: string | null,
-  seats: SeatLabel[],
-  state: SeatStateChange['state'],
-): Promise<SeatStateChange[]> {
-  if (seats.length === 0 || layoutId === null) return [];
-  const sections = await tx.section.findMany({ where: { layoutId } });
-  const seen = new Set<string>();
-  const changes: SeatStateChange[] = [];
-  for (const s of seats) {
-    const section = sections.find((x) => x.name === s.section);
-    if (!section || seen.has(seatKey(s))) continue;
-    seen.add(seatKey(s));
-    changes.push({ sectionId: section.id, row: s.row, seat: s.seat, state });
-  }
-  return changes;
 }
 
 /**
@@ -134,9 +129,7 @@ export async function toChanges(
  * `409 SEAT_TAKEN` naming them all, with `details.reserved` for those reserved rather than sold.
  */
 export function seatsTaken(sold: SeatLabel[], reserved: SeatLabel[]) {
-  const seats = sortSeats(
-    [...sold, ...reserved].map(({ section, row, seat }) => ({ section, row, seat })),
-  );
+  const seats = sortSeats([...sold, ...reserved].map(labelOf));
   const them = (list: SeatLabel[]) =>
     `${sortSeats(list).map(seatText).join('; ')} ${list.length === 1 ? 'is' : 'are'}`;
   const message = [
@@ -147,8 +140,6 @@ export function seatsTaken(sold: SeatLabel[], reserved: SeatLabel[]) {
     .join(' ');
   return conflict('SEAT_TAKEN', message, {
     seats,
-    ...(reserved.length > 0
-      ? { reserved: sortSeats(reserved.map(({ section, row, seat }) => ({ section, row, seat }))) }
-      : {}),
+    ...(reserved.length > 0 ? { reserved: sortSeats(reserved.map(labelOf)) } : {}),
   });
 }
