@@ -10,13 +10,16 @@ export function uniqueName(testInfo: TestInfo, what: string): string {
   return `e2e ${testInfo.parallelIndex}-${testInfo.testId.slice(0, 6)} ${what} ${random}`;
 }
 
+/** The demo data's own addresses (spec 029, spec 038's KFC Yum! Center), never a test's. */
+const DEMO_STREETS = ['430 W Vine St', '937 Phillips Ln', '1 Arena Plaza'];
+
 const place = (city: string): Place => {
-  const a = addresses.find((x) => x.city === city && x.street !== '937 Phillips Ln');
+  const a = addresses.find((x) => x.city === city && !DEMO_STREETS.includes(x.street));
   if (!a) throw new Error(`no stand-in address in ${city}`);
   return { street: a.street, city: a.city, state: a.state as Place['state'], zip: a.zip };
 };
 
-/** The stand-in's test addresses (research R4), one per zone; not the demo data's two. */
+/** The stand-in's test addresses (research R4), one per zone; not the demo data's three. */
 export const PLACES = {
   louisville: place('Louisville'), // Eastern
   chicago: place('Chicago'), // Central

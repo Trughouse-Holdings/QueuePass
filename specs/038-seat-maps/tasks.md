@@ -1086,7 +1086,7 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
 
 ## Phase 10: Contract step 2, browser tests, polish
 
-- [ ] T052 [P] `e2e/tests/038-seat-maps.spec.ts` (quickstart S0, S5, S6, S10–S14, S16, S17), each
+- [X] T052 [P] `e2e/tests/038-seat-maps.spec.ts` (quickstart S0, S5, S6, S10–S14, S16, S17), each
   test titled `038 <labels>: <description>` (spec `022`): S0 (the Yum! Center's four layouts after
   the e2e stack's reset); S5 (locked Basketball refuses rename; Duplicate works); S6 (schedule on
   Basketball, the upper level and rows D–F of 104 off sale, Upper's price box gone, price $95, $60,
@@ -1095,10 +1095,43 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   tickets labels) at laptop and phone width (zoom buttons and tap); S14 (a second customer sees
   a hold within 2 s); S16 (the Sections list by keyboard to a hold); S17 (the admin map shows a
   customer's hold). Must fail.
-- [ ] T053 [P] Update the browser tests that set up seating, titles unchanged: `006-007-tickets`,
+  **Done** (2026-11-14): eight tests, all in `e2e/tests/038-seat-maps.spec.ts`: `038 S0` (read
+  only, on the demo state: the Yum! Center's four layouts with their counts, three locked, Center
+  stage not; capacity 22,090 from the largest layout; the four events; the women's game's map
+  "40 sold, 0 held, 11204 open, 10846 off sale"), `038 S5` (Rename and Delete refused naming the
+  event, Duplicate makes "Basketball (copy)" unlocked), `038 S6` (the form: Basketball, 301–330
+  whole and rows D–F of 104 off sale, Upper's price box gone, 11,205 on sale · 10,885 off sale,
+  $95/$60/$35; saved with capacity 11,205, base $35, `priceMax` $95; the Customer app's price
+  "$35–$95"), `038 S10/S11/S12/S13` (legend, filter from $50 fades 101–103, 109–112, 118–120 and
+  keeps all 54 sections, zoom into 115, the tip, F7, F8 at $95 and P7 at $60, total $250.00, Back
+  to map, cart, buy, My tickets), `038 S10/S15` (390 × 844 with touch: Zoom in and Fit map, a tap
+  on 115, a tap holds F7), `038 S14` (held, then sold, on a second customer's map within 2 s),
+  `038 S16` (keyboard: Choose seats, the price filter's arrow keys, the Sections list's 115, a seat
+  held by Enter and released by Space, the map the same, the hold log), `038 S17` (the admin's
+  map by state: a customer's API hold within 2 s, the totals and 115's counts). Every test but
+  S0 makes a venue of its own and imports Basketball through the API from the file the reset
+  imports (`basketballEvent`), so none touches the demo's seats; customers 4–10.
+  Not seen failing before the code: the app was built first (Phases 3–9); written against it and
+  run (T058), where the first run's one failure was S16's own locator (three status regions).
+  Also needed for the reset in the e2e stack: the address stand-in now knows the demo's
+  "1 Arena Plaza, Louisville, KY 40202" (`e2e/stack/geocoder-stub/addresses.json`); without it the
+  harness's reset failed with ADDRESS_NOT_FOUND (map search is off there), so every browser test
+  would have failed in CI. `PLACES` leaves the demo's three streets out.
+- [X] T053 [P] Update the browser tests that set up seating, titles unchanged: `006-007-tickets`,
   `015-seat-holds`, `031-atomic-event-create`, `033-seat-hold-cart`, `035-event-form-flow`
   (`e2e/tests/*.spec.ts`), and `e2e/helpers` (a layout helper through the API) from
   section-to-type mappings to layouts.
+  **Done** (2026-11-14): `e2e/fixtures/api.ts` (the task's `e2e/helpers`): `createVenue` without
+  sections; `createLayout`, `importLayout`, `yumCenterFile`, `sectionOf`, `levelOf`, `seatAt`
+  (labels to numbers), `holdSeats`; `createEvent` takes `seating` (layout, prices by level name,
+  off sale); `seatedEvent` is a venue, a layout from lines and an event on it; `basketballEvent`
+  the women's game on an imported Basketball. `setSeating` and `SeatingLayout` gone. Titles
+  unchanged: `007 S3`, `015 S2`, `033 S1/S2/S6` on the venue map (Choose seats, the section, seats
+  named "Row 1, Seat 5, VIP, $120, open"; the Admin's map by state in `015`); `035 S1` picks the
+  layout and a price per level (capacity 30, base $60, `priceMax` $80); `031 S3` needed no change
+  (general admission). Also, not listed here but setting up seating: `026 S2` (the hold limit, on
+  the map; the wait message sits above `.venue-map-layout`) and `024 V1/V2/V3` (the venue page's
+  Layouts card: "Standard", 250 seats, its section lines editor).
 - [ ] T054 Contract check: `grep -n "x-planned: '038'\|x-retired" contracts/openapi.yaml` finds
   nothing; `info.version` is 2.0.0; `node scripts/check-contract-drift.mjs` passes; the
   route-coverage test passes; no app imports a type step 2 removed (`tsc` in every workspace);
@@ -1107,9 +1140,13 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   `unitPrice` is `null`.
   Also (from T025): remove the six Admin tests' unused stubs of the retired
   `GET /locations/{id}/layout`.
-- [ ] T055 `specs/038-seat-maps/quickstart.md`: the Automation rows of S0, S5, S6, S10–S14, S16,
+- [X] T055 `specs/038-seat-maps/quickstart.md`: the Automation rows of S0, S5, S6, S10–S14, S16,
   S17 → `Automated: \`<exact test title>\``; the rest Manual with their reason;
   `node scripts/check-quickstart-marks.mjs` passes.
+  **Done** (2026-11-14): S0, S5, S6, S10–S14, S16, S17 Automated with their tests' exact titles
+  (S10–S13 the one `038 S10/S11/S12/S13` test); S15 Automated by `038 S10/S15` with "rest Manual:"
+  pinch; the rest Manual as before. `node scripts/check-quickstart-marks.mjs`: 36 quickstarts,
+  every browser test has its row.
 - [ ] T056 [P] `README.md`: the 038 row (Plan and tasks "Done (N/62 tasks)", Code "Built (review
   pending)"), seat maps in the feature list, the demo's Yum! Center, the layout file format pointer
   (`contracts/openapi.yaml` `LayoutFile`), `scripts/layouts/generate-yum-center.mjs`.

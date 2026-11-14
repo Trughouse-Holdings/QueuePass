@@ -2,7 +2,7 @@
 // countdown above the seat map (spec 033: a seat click is the hold), keeps the seats already
 // held, and can hold again when the countdown ends. The stack runs with the default hold limits,
 // 30 a minute and 10 in any 5 seconds (spec 033; e2e/stack/docker-compose.e2e.yml), whatever a
-// developer's own configuration says.
+// developer's own configuration says. Spec 038: the seats are clicked on the venue map.
 import { expect, test } from '@playwright/test';
 import { adminFor, customerFor } from '../fixtures/apps';
 import { apiAs, apiFor, seatedEvent } from '../fixtures/api';
@@ -17,14 +17,17 @@ test('026 S2: a customer over the hold limit sees a countdown and keeps their se
   const { event, layout } = await seatedEvent(admin.api, {
     venueName: uniqueName(testInfo, 'limit hall'),
     place: PLACES.louisville,
-    sections: [{ name: 'A', rows: 2, seatsPerRow: 10 }],
+    layout: {
+      name: 'Main floor',
+      levels: [{ name: 'General', color: 'teal' }],
+      sections: [{ name: 'A', rows: 2, seatsPerRow: 10, level: 'General' }],
+    },
     event: {
       name: uniqueName(testInfo, 'limit show'),
       startsAt: startsInHours(24 * 7),
       endsAt: startsInHours(24 * 7 + 3),
     },
-    tiers: [{ name: 'General', price: '20.00' }],
-    map: [0],
+    prices: { General: '20.00' },
   });
   await admin.close();
 
@@ -38,14 +41,14 @@ test('026 S2: a customer over the hold limit sees a countdown and keeps their se
     signIn(page, 'customer', customerFor(testInfo, index), `/events/${event.id}`),
   );
   const tickets = page.getByRole('region', { name: 'Get tickets' });
-  await tickets.getByRole('radio', { name: /^General, \$20\.00/ }).click();
-  await expect(tickets.getByRole('radio', { name: /^General, \$20\.00/ })).toBeChecked();
-  const seats = tickets.getByRole('region', { name: 'Section A seats' });
+  await tickets.getByRole('button', { name: 'Choose seats' }).click();
+  const seats = tickets.getByRole('group', { name: 'Main floor map' });
+  await seats.getByRole('button', { name: /^Section A, / }).click();
   const held = tickets.getByRole('region', { name: 'Your seats' });
-  const second = seats.getByRole('button', { name: /^Row 1, Seat 2(,|$)/ });
+  const second = seats.getByRole('button', { name: /^Row 1, Seat 2, / });
 
   // Step 2: one seat held, by clicking it (spec 033).
-  await seats.getByRole('button', { name: 'Row 1, Seat 1', exact: true }).click();
+  await seats.getByRole('button', { name: 'Row 1, Seat 1, General, $20, open' }).click();
   await expect(held).toContainText('Section A, Row 1, Seat 1');
 
   // Step 3: hold attempts straight to the API, back to back, for the held seat, each refused as
@@ -87,11 +90,8 @@ test('026 S2: a customer over the hold limit sees a countdown and keeps their se
   // Counting down from the refusal's own N: at most N, and not more than a couple of seconds less.
   expect(n).toBeLessThanOrEqual(retryAfter);
   expect(n).toBeGreaterThanOrEqual(Math.max(1, retryAfter - 2));
-  // Above the seat map; open seats wait it out; the held seat and Add to cart stay.
-  await expect(message.locator('xpath=following-sibling::*[1]')).toHaveAttribute(
-    'aria-label',
-    'Section A seats',
-  );
+  // Above the venue map; open seats wait it out; the held seat and Add to cart stay.
+  await expect(message.locator('xpath=following-sibling::*[1]')).toHaveClass(/venue-map-layout/);
   await expect(second).toHaveAttribute('aria-disabled', 'true');
   await expect(held).toContainText('Section A, Row 1, Seat 1');
   await expect(held.getByRole('button', { name: 'Add to cart' })).toBeEnabled();
