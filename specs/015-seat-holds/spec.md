@@ -239,6 +239,8 @@ seat map shows them Reserved, and section A's counts show 2 reserved.
   than the customer may still get under the event's per-customer limit (`016`). A customer MUST
   have at most one active reservation per event. Reserving more seats while it is active MUST add
   them to it, all-or-nothing as in FR-002, without changing when it ends.
+  _Amended 2026-11-13 by spec `038` (#165), FR-021: on a seated event a reservation's seats may be of any price
+  levels; seated events have no tiers._
 - **FR-004**: A reservation MUST last exactly 5 minutes from when it is made, and MUST NOT be
   extended or restarted. When it ends without a purchase, its seats MUST be released.
 - **FR-004a**: For 2 minutes after a seat leaves a customer's reservation without being bought
