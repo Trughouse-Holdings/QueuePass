@@ -31,7 +31,6 @@ afterEach(() => vi.unstubAllGlobals());
 
 const ID = EVENT.id;
 const PLAIN = { ...VENUE, id: 'v-plain', name: 'Plain Hall' };
-const NO_LAYOUT = { locationId: 'v-plain', totalSeats: 0, sections: [] };
 const EV = { ...EVENT, locationId: 'v-plain', location: PLAIN, images: [] as EventImage[] };
 const TIER = {
   id: 't1',
@@ -107,7 +106,6 @@ function backend(
   let made = 0;
   const api = stubApi({
     'GET /locations': json([PLAIN]),
-    'GET /locations/v-plain/layout': json(NO_LAYOUT),
     'POST /events': json(EV, 201),
     [`GET /events/${ID}`]: () => json({ ...EV, images: [...images] }),
     [`PATCH /events/${ID}`]: () => json({ ...EV, images: [...images] }),

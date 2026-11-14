@@ -1132,7 +1132,7 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   (general admission). Also, not listed here but setting up seating: `026 S2` (the hold limit, on
   the map; the wait message sits above `.venue-map-layout`) and `024 V1/V2/V3` (the venue page's
   Layouts card: "Standard", 250 seats, its section lines editor).
-- [ ] T054 Contract check: `grep -n "x-planned: '038'\|x-retired" contracts/openapi.yaml` finds
+- [X] T054 Contract check: `grep -n "x-planned: '038'\|x-retired" contracts/openapi.yaml` finds
   nothing; `info.version` is 2.0.0; `node scripts/check-contract-drift.mjs` passes; the
   route-coverage test passes; no app imports a type step 2 removed (`tsc` in every workspace);
   `admin-app/src/api/seating.ts` has no old calls left; Customer `OrderConfirmation.tsx` and
@@ -1140,6 +1140,18 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   `unitPrice` is `null`.
   Also (from T025): remove the six Admin tests' unused stubs of the retired
   `GET /locations/{id}/layout`.
+  **Done** (2026-11-14): no `x-planned: '038'` and no `x-retired` marker in the contract (the
+  one match is the description of the marker itself); `info.version` 2.0.0;
+  `check-contract-drift.mjs` passes; the route-coverage test passes in the Backend run; `tsc
+  --noEmit` clean in shared, Backend, Admin, Customer, Booth and `e2e` (the fixtures' `SeatingLayout`
+  was step 2's last user, T053); no app names a schema step 2 removed; `admin-app/src/api/
+  seating.ts` has only `getEventSeating`, `getVenueMapSection`, `getAvailability`. A seated ticket
+  shows its own `price` (Customer `OrderConfirmation`, `MyTickets`; Admin `Attendees`, which also
+  shows it when `unitPrice` is `null`, and `attendee-rows.ts`, which always takes `Ticket.price`).
+  The retired stubs removed: `GET /locations/{id}/layout` from seven Admin tests (the six named
+  plus `images-field` and `theme-classes`; `event-form.tz` had three) and `GET /events/{id}/seats`
+  from `check-ins-removed`, `event-doors-open` and `event-form.tz`; their `NO_LAYOUT` constants
+  with them. Those seven files: 137 tests pass.
 - [X] T055 `specs/038-seat-maps/quickstart.md`: the Automation rows of S0, S5, S6, S10–S14, S16,
   S17 → `Automated: \`<exact test title>\``; the rest Manual with their reason;
   `node scripts/check-quickstart-marks.mjs` passes.

@@ -33,11 +33,6 @@ function at(iso: string) {
 function newForm() {
   const api = stubApi({
     'GET /locations': json([CENTRAL]),
-    [`GET /locations/${CENTRAL.id}/layout`]: json({
-      locationId: CENTRAL.id,
-      totalSeats: 0,
-      sections: [],
-    }),
     'POST /events': json({ ...EVENT, locationId: CENTRAL.id }, 201),
   });
   render(

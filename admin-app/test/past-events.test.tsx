@@ -108,7 +108,6 @@ function stubEvents(all = [GONE, ENDED, NOW_PLAYING, AHEAD], upcoming = [NOW_PLA
     },
     'GET /locations': json([VENUE]),
     [`GET /locations/${VENUE.id}`]: json(VENUE),
-    [`GET /locations/${VENUE.id}/layout`]: json({ locationId: VENUE.id, sections: [] }),
   });
   calls = api.calls;
   return api;
