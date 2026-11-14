@@ -276,7 +276,11 @@ describe('mapReducer', () => {
 
   it('takes a map at the same seq (a layout change or lines edit ends the stream, seq unchanged)', () => {
     const relaid = { ...venueMap(20), layoutName: 'Basketball, new' };
-    const s = run(EMPTY_MAP_STATE, { type: 'map', map: venueMap(20) }, { type: 'map', map: relaid });
+    const s = run(
+      EMPTY_MAP_STATE,
+      { type: 'map', map: venueMap(20) },
+      { type: 'map', map: relaid },
+    );
     expect(s.map).toEqual(relaid);
   });
 
