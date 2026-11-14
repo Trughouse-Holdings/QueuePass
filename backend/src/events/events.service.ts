@@ -93,7 +93,10 @@ class VenueMoved extends Error {}
  * (research R7): `checkInDetailsRemovedAt` is sent; the kept count is not, it is an admin figure
  * read from the sales report.
  */
-export interface EventResponse extends Omit<EventWithLocation, 'basePrice' | 'keptCheckedInCount'> {
+export interface EventResponse extends Omit<
+  EventWithLocation,
+  'basePrice' | 'keptCheckedInCount' | 'seatSeq'
+> {
   basePrice: string;
   entryOpensAt: Date;
 }
@@ -107,7 +110,9 @@ export class EventsService {
   ) {}
 
   private toResponse(event: EventWithLocation): EventResponse {
-    const { keptCheckedInCount: _kept, ...sent } = event;
+    // Spec 038 research R12: seatSeq is internal (a BigInt, which JSON can't carry); the venue map
+    // and the stream send it as `seq`.
+    const { keptCheckedInCount: _kept, seatSeq: _seq, ...sent } = event;
     return {
       ...sent,
       basePrice: event.basePrice.toFixed(2),
@@ -127,7 +132,7 @@ export class EventsService {
    * the times are checked against is the zone the event is saved under (a zone change, FOR
    * UPDATE, waits for it or it waits for the zone change). The conflict pre-check and the insert
    * run in it too; the event_no_overlap constraint is still the guarantee. Spec 031 (research R4):
-   * so do the event's ticket types and section mappings, all or nothing.
+   * so do the event's ticket types, all or nothing.
    */
   private createOnce(dto: CreateEventDto): Promise<EventResponse> {
     this.assertWindowOrdered(new Date(dto.startsAt), new Date(dto.endsAt));
@@ -149,17 +154,8 @@ export class EventsService {
       ? checkEventTime('doorsOpenAt', dto.doorsOpenAt, zone, location.name)
       : new Date(startsAt.getTime() - DEFAULT_DOORS_BEFORE_START_MINUTES * MINUTE_MS);
     this.assertDoorsInRange(startsAt, doorsOpenAt, zone);
-    // Spec 031 research R4 step 2: with reserved seating, the venue's sections, read under the
-    // venue's share lock taken above, so a layout save (FOR UPDATE) runs wholly before or after;
-    // the capacity is then the layout's total.
-    const sections = dto.reservedSeating
-      ? await tx.section.findMany({
-          where: { locationId: dto.locationId },
-          orderBy: { position: 'asc' },
-        })
-      : [];
     // Spec 007 FR-019: left out, the event can sell as many tickets as the venue holds.
-    const capacity = eventCapacity(dto, location, sections);
+    const capacity = eventCapacity(dto, location);
     this.assertCapacityWithinVenue(capacity, location);
     this.assertLimitWithinCapacity(dto.maxTicketsPerCustomer, null, capacity);
     await this.assertNoConflict(dto.locationId, zone, startsAt, endsAt, null, tx);
@@ -167,7 +163,7 @@ export class EventsService {
     assertNoTierIdsOnCreate(dto);
     // Spec 031 research R4 steps 4, 5: each ticket type in order, then their total. Every check
     // runs before the first write; the transaction makes a failure in the writes leave nothing.
-    const plan = planEventSetup(dto, location, sections, capacity);
+    const plan = planEventSetup(dto, location, capacity);
 
     const created = await tx.event.create({
       data: {
@@ -179,7 +175,6 @@ export class EventsService {
         totalTicketCapacity: capacity,
         maxTicketsPerCustomer: dto.maxTicketsPerCustomer ?? null,
         basePrice: dto.basePrice,
-        ...(plan.reservedSeating ? { reservedSeating: true } : {}),
       },
       include: EVENT_INCLUDE,
     });
@@ -312,10 +307,11 @@ export class EventsService {
     const locked = await lockEvent(tx, id);
     if (locked.locationId !== venueBefore) throw new VenueMoved();
     if (locked.status === 'CANCELLED') throw eventCancelled(locked.name);
-    // Spec 035: when the request carries the setup, reserved seating in force after it decides
-    // whether the event can move and whether a typed capacity is allowed.
-    const setupSent = dto.tiers !== undefined || dto.reservedSeating !== undefined;
-    const reservedAfter = setupSent ? dto.reservedSeating === true : locked.reservedSeating;
+    // Spec 035: the request carries the setup when it carries the ticket types. Spec 038 (T009):
+    // `007`'s reservedSeating went with contract 2.0.0; a seated event is one with a layout, which
+    // T023 lets this request set.
+    const setupSent = dto.tiers !== undefined;
+    const reservedAfter = locked.reservedSeating;
     // Spec 007 research R3: a seated event's sections belong to its venue, so it cannot move.
     if (reservedAfter && dto.locationId && dto.locationId !== locked.locationId) {
       throw new BadRequestException({
@@ -396,25 +392,9 @@ export class EventsService {
       );
     }
 
-    const sections = reservedAfter
-      ? await tx.section.findMany({
-          where: { locationId },
-          orderBy: { position: 'asc' },
-        })
-      : [];
-    const capacity = reservedAfter
-      ? eventCapacity(
-          {
-            name: dto.name ?? existing.name,
-            reservedSeating: true,
-            totalTicketCapacity: undefined,
-          },
-          location,
-          sections,
-        )
-      : (dto.totalTicketCapacity ?? existing.totalTicketCapacity);
+    const capacity = dto.totalTicketCapacity ?? existing.totalTicketCapacity;
     this.assertCapacityWithinVenue(capacity, location);
-    if (dto.totalTicketCapacity !== undefined || (setupSent && reservedAfter)) {
+    if (dto.totalTicketCapacity !== undefined) {
       if (!setupSent) await this.assertCoversTiers(tx, id, capacity);
       await this.assertCoversSales(tx, id, capacity);
     }
@@ -429,22 +409,8 @@ export class EventsService {
     await this.assertNoConflict(locationId, zone, startsAt, endsAt, id, tx);
 
     let setupPlan: ReturnType<typeof planEventUpdate> | null = null;
-    let existingMappings: {
-      sectionId: string;
-      sectionName: string;
-      tierId: string;
-    }[] = [];
     if (setupSent) {
       const existingTiers = await tx.ticketTier.findMany({ where: { eventId: id } });
-      const mappings = await tx.sectionTier.findMany({
-        where: { eventId: id },
-        include: { section: true },
-      });
-      existingMappings = mappings.map((m) => ({
-        sectionId: m.sectionId,
-        sectionName: m.section.name,
-        tierId: m.tierId,
-      }));
       const soldByTier = new Map<string, number>();
       const ordersByTier = new Map<string, number>();
       for (const tier of existingTiers) {
@@ -452,42 +418,16 @@ export class EventsService {
         ordersByTier.set(tier.id, await tx.order.count({ where: { tierId: tier.id } }));
       }
       setupPlan = planEventUpdate(
-        {
-          name: dto.name ?? existing.name,
-          totalTicketCapacity: reservedAfter ? undefined : capacity,
-          reservedSeating: reservedAfter,
-          tiers: dto.tiers,
-        },
+        { name: dto.name ?? existing.name, totalTicketCapacity: capacity, tiers: dto.tiers },
         {
           eventName: dto.name ?? existing.name,
-          reservedSeatingBefore: existing.reservedSeating,
           existingTiers: existingTiers.map((tier) => ({ id: tier.id, name: tier.name })),
-          existingMappings,
           counts: {
-            eventSold: await ticketsSold(tx, { eventId: id }),
             tierlessSold: await ticketsSold(tx, { eventId: id, tierId: null }),
             soldByTier,
             ordersByTier,
-            soldBySection: new Map(
-              await Promise.all(
-                existingMappings.map(
-                  async (m) =>
-                    [
-                      m.sectionId,
-                      await tx.ticket.count({
-                        where: {
-                          eventId: id,
-                          status: 'VALID' as const,
-                          seatSection: m.sectionName,
-                        },
-                      }),
-                    ] as const,
-                ),
-              ),
-            ),
           },
           venue: location,
-          sections,
           capacity,
         },
       );
@@ -501,26 +441,18 @@ export class EventsService {
         ...(dto.startsAt !== undefined ? { startsAt } : {}),
         ...(dto.endsAt !== undefined ? { endsAt } : {}),
         ...(doorsOpenAt.getTime() !== existing.doorsOpenAt.getTime() ? { doorsOpenAt } : {}),
-        ...(dto.totalTicketCapacity !== undefined || (setupSent && reservedAfter)
-          ? { totalTicketCapacity: capacity }
-          : {}),
+        ...(dto.totalTicketCapacity !== undefined ? { totalTicketCapacity: capacity } : {}),
         ...(dto.basePrice !== undefined ? { basePrice: dto.basePrice } : {}),
         // Spec 016: `null` clears the limit, so presence, not truthiness, decides.
         ...(dto.maxTicketsPerCustomer !== undefined
           ? { maxTicketsPerCustomer: dto.maxTicketsPerCustomer }
           : {}),
-        ...(setupSent ? { reservedSeating: reservedAfter } : {}),
       },
       include: EVENT_INCLUDE,
     });
 
-    let changes: SeatStateChange[] = [];
-    if (setupPlan) {
-      changes = await writeEventUpdate(tx, id, locationId, setupPlan, {
-        reservedSeating: existing.reservedSeating,
-        mappings: existingMappings,
-      });
-    }
+    const changes: SeatStateChange[] = [];
+    if (setupPlan) await writeEventUpdate(tx, id, setupPlan);
 
     const fresh = setupPlan
       ? await tx.event.findUniqueOrThrow({ where: { id }, include: EVENT_INCLUDE })
@@ -598,7 +530,7 @@ export class EventsService {
           ordersRefunded: orders.count,
           ticketsVoided: tickets.count,
         },
-        changes: await toChanges(tx, locked.locationId, freed, 'open'),
+        changes: await toChanges(tx, locked.layoutId, freed, 'open'),
       };
     }, LOCKING_TX);
     this.seatEvents.publish(id, changes);

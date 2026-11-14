@@ -1,18 +1,14 @@
 import { Module } from '@nestjs/common';
-import { LayoutController } from './layout.controller';
-import { LayoutService } from './layout.service';
 import { SeatEventsService } from './seat-events.service';
-import { SeatMapController } from './seat-map.controller';
-import { SeatMapService } from './seat-map.service';
 import { SeatStreamController } from './seat-stream.controller';
 
 /**
- * Spec 007: venue seating layouts, reserved seating per event, and seat maps. Spec 015: the bus
- * that carries seat changes to live viewers, and the stream they read.
+ * Spec 015: the bus that carries seat changes to live viewers, and the stream they read. Spec 038:
+ * `007`'s layout and seat map routes went with contract 2.0.0; layouts are the `layouts` module's.
  */
 @Module({
-  controllers: [LayoutController, SeatMapController, SeatStreamController],
-  providers: [LayoutService, SeatMapService, SeatEventsService],
-  exports: [LayoutService, SeatMapService, SeatEventsService],
+  controllers: [SeatStreamController],
+  providers: [SeatEventsService],
+  exports: [SeatEventsService],
 })
 export class SeatingModule {}

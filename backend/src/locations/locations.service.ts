@@ -455,8 +455,9 @@ export class LocationsService {
   ): Promise<void> {
     if (seatingCapacity === undefined) return;
 
-    // Spec 007 FR-017: a venue with a seating layout takes its capacity from the layout.
-    if ((await db.section.count({ where: { locationId: id } })) > 0) {
+    // Spec 007 FR-017: a venue with a seating layout takes its capacity from the layout. Spec 038
+    // FR-009: from its layouts (T017 gives this refusal its final wording).
+    if ((await db.layout.count({ where: { locationId: id } })) > 0) {
       throw new BadRequestException({
         message: [
           "seatingCapacity is set by this venue's seating layout; change the layout instead",

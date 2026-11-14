@@ -1,5 +1,5 @@
 import { HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, type TicketTier } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import type { Reservation, SeatStateChange } from '@queuepass/shared';
 import { RESERVATION_LIMITS } from '@queuepass/shared';
 import type { Principal } from '../auth/principal';
@@ -105,8 +105,7 @@ export class ReservationsService {
       where: { eventId, customerSub: principal.sub, endedAt: null },
     });
     const mine = active ? holds.filter((h) => h.reservationId === active.id) : [];
-    const tier = await this.tierFor(tx, event, dto, active?.tierId);
-    const seats = await resolveSeats(tx, event, tier, dto.seats);
+    const seats = await resolveSeats(tx, event, dto.seats);
     const already = seats.filter((s) => mine.some((h) => seatKey(h) === seatKey(s)));
     if (already.length > 0) {
       throw badSeats(`${seatText(already[0])} is already in your reservation`);
@@ -147,7 +146,7 @@ export class ReservationsService {
     }
 
     // 7. A new reservation, or the seats added to the active one with its expiresAt unchanged.
-    const reservationId = active?.id ?? (await this.insertReservation(tx, event, principal, tier));
+    const reservationId = active?.id ?? (await this.insertReservation(tx, event, principal));
     await this.insertHolds(tx, eventId, reservationId, seats);
 
     const reservation = await loadReservation(tx, reservationId);
@@ -155,7 +154,7 @@ export class ReservationsService {
     return {
       result: { status: active ? HttpStatus.OK : HttpStatus.CREATED, reservation },
       changes: [
-        ...(await toChanges(tx, event.locationId, freed, 'open')),
+        ...(await toChanges(tx, event.layoutId, freed, 'open')),
         ...seats.map((s) => ({
           sectionId: s.sectionId,
           row: s.row,
@@ -164,33 +163,6 @@ export class ReservationsService {
         })),
       ],
     };
-  }
-
-  /**
-   * The reservation's tier (research R5): the active one's, or the tier of the first seat's
-   * section; `null` for an event without tiers. A first seat in a section not for sale is `400`,
-   * after the layout rules have had their say.
-   */
-  private async tierFor(
-    tx: Tx,
-    event: LockedEvent,
-    dto: ReservationInputDto,
-    activeTierId: string | null | undefined,
-  ): Promise<TicketTier | null> {
-    const tiers = await tx.ticketTier.findMany({ where: { eventId: event.id } });
-    if (tiers.length === 0) return null;
-    if (activeTierId) {
-      const tier = tiers.find((t) => t.id === activeTierId);
-      if (tier) return tier;
-    }
-    const first = dto.seats[0];
-    const mapping = await tx.sectionTier.findUnique({
-      where: { eventId_sectionId: { eventId: event.id, sectionId: first.sectionId } },
-    });
-    const tier = tiers.find((t) => t.id === mapping?.tierId);
-    if (tier) return tier;
-    const [label] = await resolveSeats(tx, event, null, [first]);
-    throw badSeats(`${seatText(label)} is not for sale`);
   }
 
   /**
@@ -237,15 +209,15 @@ export class ReservationsService {
     );
   }
 
+  /** Spec 038 research R10: a seated event's reservation has no tier (`tierId` NULL). */
   private async insertReservation(
     tx: Tx,
     event: LockedEvent,
     principal: Principal,
-    tier: TicketTier | null,
   ): Promise<string> {
     const [{ id }] = await tx.$queryRaw<{ id: string }[]>`
-      INSERT INTO "SeatReservation" ("id", "eventId", "customerSub", "tierId", "createdAt", "expiresAt")
-      VALUES (gen_random_uuid(), ${event.id}::uuid, ${principal.sub}, ${tier?.id ?? null}::uuid,
+      INSERT INTO "SeatReservation" ("id", "eventId", "customerSub", "createdAt", "expiresAt")
+      VALUES (gen_random_uuid(), ${event.id}::uuid, ${principal.sub},
               now(), now() + interval '5 minutes')
       RETURNING "id"`;
     return id;
@@ -282,13 +254,16 @@ export class ReservationsService {
       const active = await tx.seatReservation.findFirst({
         where: { eventId, customerSub: principal.sub, endedAt: null },
       });
-      const opened = await toChanges(tx, event.locationId, freed, 'open');
+      const opened = await toChanges(tx, event.layoutId, freed, 'open');
       if (!active) return { result: { reservation: null }, changes: opened };
 
       const mine = (await liveHolds(tx, eventId)).filter((h) => h.reservationId === active.id);
       let targets = mine;
       if (dto.seats) {
-        const sections = await tx.section.findMany({ where: { locationId: event.locationId } });
+        const sections =
+          event.layoutId === null
+            ? []
+            : await tx.section.findMany({ where: { layoutId: event.layoutId } });
         targets = dto.seats.map((c) => {
           const name = sections.find((s) => s.id === c.sectionId)?.name;
           const hold = mine.find((h) => h.section === name && h.row === c.row && h.seat === c.seat);
@@ -306,7 +281,7 @@ export class ReservationsService {
       await endHolds(tx, eventId, targets, 'RELEASED');
       return {
         result: { reservation: await loadReservation(tx, active.id) },
-        changes: [...opened, ...(await toChanges(tx, event.locationId, targets, 'open'))],
+        changes: [...opened, ...(await toChanges(tx, event.layoutId, targets, 'open'))],
       };
     }, LOCKING_TX);
     this.seatEvents.publish(eventId, changes);
@@ -344,7 +319,7 @@ export class ReservationsService {
           await endHolds(tx, eventId, mine, 'LOGOUT');
           return {
             result: mine.length,
-            changes: await toChanges(tx, event.locationId, [...freed, ...mine], 'open'),
+            changes: await toChanges(tx, event.layoutId, [...freed, ...mine], 'open'),
           };
         }, LOCKING_TX);
         released += result;
@@ -413,7 +388,7 @@ async function loadReservations(db: Db, where: Prisma.Sql): Promise<Reservation[
     SELECT h."reservationId", s."id" AS "sectionId", h."seatSection", h."seatRow", h."seatNumber"
     FROM "SeatHold" h
     JOIN "Event" e ON e."id" = h."eventId"
-    JOIN "Section" s ON s."locationId" = e."locationId" AND s."name" = h."seatSection"
+    JOIN "Section" s ON s."layoutId" = e."layoutId" AND s."name" = h."seatSection"
     WHERE h."reservationId" IN (${ids}) AND h."releasedAt" IS NULL
     ORDER BY s."position", h."seatRow", h."seatNumber"`;
   return rows

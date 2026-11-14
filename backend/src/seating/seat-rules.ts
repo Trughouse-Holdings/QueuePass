@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import type { Prisma, TicketTier } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import type { LockedEvent } from '../common/event-lock';
 
 /** A seat by its label (spec 007 research R1): its section's name, row, and seat. */
@@ -9,7 +9,7 @@ export interface SeatLabel {
   seat: number;
 }
 
-/** A seat label with the id of its section in the venue's current layout. */
+/** A seat label with the id of its section in the event's layout. */
 export interface ResolvedSeat extends SeatLabel {
   sectionId: string;
 }
@@ -33,31 +33,34 @@ export const sortSeats = <T extends SeatLabel>(seats: T[]): T[] =>
 
 /**
  * Spec 007 FR-008, research R6; spec 015 research R5: the seats a request names, as labels, after
- * every seat rule: in the venue's layout, of the given tier's sections (any section for an event
- * without tiers), and not repeated (`400`). Orders and reservations share it, so a seat that can be
- * reserved is exactly a seat that can be ordered. Whether a seat is taken is checked by the caller.
+ * every seat rule: a seat of the event's layout, and not repeated (`400`). Orders and reservations
+ * share it, so a seat that can be reserved is exactly a seat that can be ordered. Whether a seat is
+ * taken is checked by the caller.
+ *
+ * Spec 038 (T009): `007`'s section-to-tier rule went with its table (SectionTier); the seat is
+ * looked up among the layout's rows and seats by its row's and its own number. T035 makes this
+ * return the seat's id, labels and level, and refuse seats off sale.
  */
 export async function resolveSeats(
   tx: Prisma.TransactionClient,
   event: LockedEvent,
-  tier: TicketTier | null,
   choices: SeatChoiceInput[],
 ): Promise<ResolvedSeat[]> {
-  const sections = await tx.section.findMany({ where: { locationId: event.locationId } });
-  const mappings = tier ? await tx.sectionTier.findMany({ where: { eventId: event.id } }) : [];
+  const sections =
+    event.layoutId === null
+      ? []
+      : await tx.section.findMany({ where: { layoutId: event.layoutId } });
   const resolved: ResolvedSeat[] = [];
   const keys = new Set<string>();
   for (const choice of choices) {
     const section = sections.find((s) => s.id === choice.sectionId);
-    if (!section) throw badSeats(`section ${choice.sectionId} is not part of this venue's layout`);
+    if (!section) throw badSeats(`section ${choice.sectionId} is not part of this event's layout`);
     const label = { section: section.name, row: choice.row, seat: choice.seat };
-    if (choice.row > section.rows || choice.seat > section.seatsPerRow) {
-      throw badSeats(`${seatText(label)} is not in the layout`);
-    }
-    // One tier per order (spec 007 Clarifications): every seat's section is mapped to its tier.
-    if (tier && mappings.find((m) => m.sectionId === section.id)?.tierId !== tier.id) {
-      throw badSeats(`${seatText(label)} is not sold as ${tier.name}`);
-    }
+    const seat = await tx.seat.findFirst({
+      where: { sectionId: section.id, number: choice.seat, row: { number: choice.row } },
+      select: { id: true },
+    });
+    if (!seat) throw badSeats(`${seatText(label)} is not in the layout`);
     if (keys.has(seatKey(label))) throw badSeats(`${seatText(label)} is listed twice`);
     keys.add(seatKey(label));
     resolved.push({ ...label, sectionId: section.id });

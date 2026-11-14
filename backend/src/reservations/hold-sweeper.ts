@@ -82,7 +82,7 @@ export class HoldSweeper implements OnModuleInit, OnModuleDestroy {
         const freed = await closeRunOut(tx, eventId);
         // Sales close when the event ends (spec 034): what is still reserved ends CLOSED.
         if (await salesClosed(tx, eventId)) freed.push(...(await closeHolds(tx, eventId)));
-        return toChanges(tx, event.locationId, freed, 'open');
+        return toChanges(tx, event.layoutId, freed, 'open');
       }, LOCKING_TX);
       this.seatEvents.publish(eventId, changes);
     } catch (err) {

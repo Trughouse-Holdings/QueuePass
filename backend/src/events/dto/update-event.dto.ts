@@ -2,7 +2,6 @@ import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
-  IsBoolean,
   IsInt,
   IsISO8601,
   IsOptional,
@@ -80,14 +79,6 @@ export class UpdateEventDto {
     message: 'basePrice must be a non-negative decimal string with at most 2 decimal places',
   })
   basePrice?: string;
-
-  /**
-   * Spec 035 (research R8): optional, left out is `false` when `tiers` is sent; never `null`.
-   * Without `tiers` and this field, ticket types and seating are not changed.
-   */
-  @ValidateIf((o: UpdateEventDto) => o.reservedSeating !== undefined)
-  @IsBoolean({ message: 'reservedSeating must be true or false' })
-  reservedSeating?: boolean;
 
   /**
    * Spec 035 (research R8): optional, the complete new set, at most 50; never `null`. Saved with

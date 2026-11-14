@@ -205,7 +205,7 @@ confirm they **fail** before its implementation tasks.
   a GA event, a 404; the lock's events in id order, its 404, and an event save's `FOR SHARE` on the
   venue waiting for a layout write) was written first, seen failing, and passes.
 
-- [ ] T009 Contract **step 2** and the retired code, together (R3, Constitution I): `git apply
+- [X] T009 Contract **step 2** and the retired code, together (R3, Constitution I): `git apply
   specs/038-seat-maps/contracts/step2.diff` (unchanged; it applies to 1.28.0 with every `x-planned`
   marker still in place), `npm run generate:api`, `node scripts/check-contract-drift.mjs`; the
   contract is 2.0.0 with no `x-retired` marker. Remove the retired Backend code:
@@ -219,6 +219,30 @@ confirm they **fail** before its implementation tasks.
   their tests do not compile or pass until their phases move them (US1, US2, US3, US6); nothing is
   pushed for review before Phase 10 is green. The route-coverage test passes (the 2.0.0 contract has
   no retired operation, and every new one is still `x-planned`).
+  **Done** (2026-11-13): `step2.diff` applied unchanged with `git apply` (clean); contract 2.0.0, no
+  `x-retired` marker, 12 `x-planned: '038'` markers left (11 operations and `venueMap`);
+  `api-schema.ts` regenerated; drift check passes. The listed files and tests are removed; the stream
+  sends no `snapshot`; `event-setup.ts` and `events.service.ts` lose `reservedSeating` and
+  `sectionIds` (and the DTOs their fields); `SEATING_LIMITS` and `007`'s types are gone from
+  `seating.ts`. For the Backend to compile on the new schema, the least change elsewhere, each
+  marked for its later task: `LockedEvent.layoutId`; `toChanges` and `resolveSeats` find sections by
+  the event's layout and a seat by its row and seat numbers, with no tier rule (T035); reservations
+  get no tier (R10); every ticket gets its order's price, `unitPrice` may be `null` (T036);
+  `updateLocation` counts layouts (T017); event responses leave out `seatSeq` (a BigInt);
+  `test/setup/reset-db.ts` truncates the new tables, `fixtures.ts` gives a ticket its price,
+  `orders.e2e-spec.ts` reads a nullable `unitPrice`. Backend builds; ESLint and Prettier clean;
+  route coverage passes; shared 26 files, 797 tests pass; Admin, Customer, Booth and seed tests pass
+  (Vitest does not type-check).
+  **Red after T009, as planned or reported**: Backend 78 of 117 suites. 57 fail only on 2.0.0's
+  required response fields that later tasks serve: `Event.priceMax` (T023), `EntryTicket.levelName`
+  and `Ticket.levelName` (T036, T050–T051), `EventSales.levels`; 10 set up seats through the removed
+  `PUT /locations/{id}/layout` (404) and are rewritten by T027–T030; 7 do not compile because they
+  test retired seating and no task lists them (`test/unit/event-setup.spec.ts`,
+  `events.create-setup`, `events.create-setup.concurrency`, `events.update-setup`,
+  `orders.holder-name`, `seats.concurrency`, `demo-reset`); `entry.lookup` writes a seat without
+  labels (`ticket_seat_all_or_none`); `rate-limits.buy` as T001. Builds: Admin and Customer apps (as
+  planned), and the Booth app, whose type check includes `packages/shared/src/web/seat-stream.ts`
+  and `use-seat-stream.ts` (`SeatMap`, `getSeatMap`; T039).
 
 **Checkpoint**: the database carries today's data over; one seating model, contract 2.0.0; the
 helpers pass their tests.

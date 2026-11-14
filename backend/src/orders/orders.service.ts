@@ -58,7 +58,8 @@ export interface OrderResponse {
   /** Spec 017 FR-001: the buyer's name on every ticket; `null` for orders placed before 017. */
   holderName: string | null;
   quantity: number;
-  unitPrice: string;
+  /** Spec 038 research R10: `null` when the tickets' prices differ (contract 2.0.0). */
+  unitPrice: string | null;
   totalPrice: string;
   status: Order['status'];
   createdAt: Date;
@@ -82,7 +83,7 @@ export function toOrderResponse(o: OrderRow): OrderResponse {
     customerUsername: o.customerUsername,
     holderName: o.holderName,
     quantity: o.quantity,
-    unitPrice: o.unitPrice.toFixed(2),
+    unitPrice: o.unitPrice?.toFixed(2) ?? null,
     totalPrice: o.totalPrice.toFixed(2),
     status: o.status,
     createdAt: o.createdAt,
@@ -262,7 +263,7 @@ export class OrdersService {
     }
 
     // Spec 007 research R6: seats are checked before counts, so a refusal names the seat.
-    const { seats, holds } = await this.seatsFor(tx, event, dto, tier, buyer);
+    const { seats, holds } = await this.seatsFor(tx, event, dto, buyer);
 
     let available = event.totalTicketCapacity - (await ticketsSold(tx, { eventId }));
     if (tier) {
@@ -321,6 +322,8 @@ export class OrdersService {
             eventId,
             tierId: tier?.id ?? null,
             code: ticketCode(),
+            // Spec 038 FR-026: what this ticket cost (one price per order until T036).
+            price: unitPrice,
             ...(seats[i]
               ? { seatSection: seats[i].section, seatRow: seats[i].row, seatNumber: seats[i].seat }
               : {}),
@@ -335,7 +338,7 @@ export class OrdersService {
     return {
       placed: { order: toOrderResponse(order), replayed: false },
       changes: [
-        ...(await toChanges(tx, event.locationId, freed, 'open')),
+        ...(await toChanges(tx, event.layoutId, freed, 'open')),
         ...seats.map((s) => ({
           sectionId: s.sectionId,
           row: s.row,
@@ -357,7 +360,6 @@ export class OrdersService {
     tx: Prisma.TransactionClient,
     event: LockedEvent,
     dto: CreateOrderDto,
-    tier: TicketTier | null,
     buyer: Principal,
   ): Promise<OrderSeats> {
     if (!event.reservedSeating) {
@@ -372,7 +374,7 @@ export class OrdersService {
       );
     }
 
-    const seats = await resolveSeats(tx, event, tier, dto.seats);
+    const seats = await resolveSeats(tx, event, dto.seats);
     const sold = await soldSeats(tx, event.id, seats);
     const held = (await liveHolds(tx, event.id)).filter((h) =>
       seats.some((s) => seatKey(s) === seatKey(h)),
@@ -431,7 +433,10 @@ export class OrdersService {
       .sort();
     const choices = dto.seats ?? [];
     if (choices.length === 0) return before.length === 0;
-    const sections = await tx.section.findMany({ where: { locationId: event.locationId } });
+    const sections =
+      event.layoutId === null
+        ? []
+        : await tx.section.findMany({ where: { layoutId: event.layoutId } });
     const requested: string[] = [];
     for (const c of choices) {
       const section = sections.find((s) => s.id === c.sectionId);

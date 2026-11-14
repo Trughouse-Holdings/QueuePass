@@ -10,6 +10,9 @@ import type { PrismaService } from '../../src/prisma/prisma.service';
  */
 export async function resetDb(prisma: PrismaService): Promise<void> {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "SeatHold", "SeatReservation", "Ticket", "Order", "SectionTier", "Section", "TicketTier", "Event", "Location" RESTART IDENTITY CASCADE',
+    // Spec 038: layouts, levels, sections, rows and seats; event prices and off-sale seats.
+    'TRUNCATE TABLE "SeatHold", "SeatReservation", "Ticket", "Order", "EventOffSaleSeat", ' +
+      '"EventLevelPrice", "TicketTier", "Event", "Seat", "SeatRow", "Section", "PriceLevel", ' +
+      '"Layout", "Location" RESTART IDENTITY CASCADE',
   );
 }

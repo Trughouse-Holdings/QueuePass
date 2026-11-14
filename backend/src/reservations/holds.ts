@@ -106,17 +106,18 @@ export async function closeHolds(
 }
 
 /**
- * Spec 015 research R9: seats as live changes, by the current layout's section ids. A seat whose
- * section is gone (a replaced layout) has nothing left to show, so it is left out.
+ * Spec 015 research R9: seats as live changes, by the section ids of the event's layout (spec
+ * 038: `layoutId`; `null` for general admission, which has none). A seat whose section is gone
+ * has nothing left to show, so it is left out.
  */
 export async function toChanges(
   tx: Pick<Tx, 'section'>,
-  locationId: string,
+  layoutId: string | null,
   seats: SeatLabel[],
   state: SeatStateChange['state'],
 ): Promise<SeatStateChange[]> {
-  if (seats.length === 0) return [];
-  const sections = await tx.section.findMany({ where: { locationId } });
+  if (seats.length === 0 || layoutId === null) return [];
+  const sections = await tx.section.findMany({ where: { layoutId } });
   const seen = new Set<string>();
   const changes: SeatStateChange[] = [];
   for (const s of seats) {

@@ -138,6 +138,10 @@ describe('seat levels and the layout lock (R1, R7, R11)', () => {
     await sql(`DELETE FROM "Ticket" WHERE "eventId" IN ('${Object.values(events).join("','")}')`);
     await sql(`DELETE FROM "Order" WHERE "eventId" IN ('${Object.values(events).join("','")}')`);
     await sql(`DELETE FROM "Event" WHERE "id" IN ('${Object.values(events).join("','")}')`);
+    // Rows and seats first: with a row or seat level of its own, a cascade from the venue is
+    // refused by SeatRow_levelId_fkey / Seat_levelId_fkey (NO ACTION is checked before the
+    // cascade reaches them; reported against data-model.md, research R7).
+    await sql(`DELETE FROM "SeatRow" WHERE "sectionId" IN ('${section}', '${otherSection}')`);
     await sql(`DELETE FROM "Location" WHERE "id" IN ('${venue}', '${otherVenue}')`);
     await db.$disconnect();
   });

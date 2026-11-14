@@ -1,70 +1,27 @@
 import type { components } from './api-schema.js';
 
 /**
- * Mirrors the seating schemas in contracts/openapi.yaml (spec 007): venue layouts, seat maps, and
- * seats on orders and tickets. Spec 015: reservations and live seat-map changes. Spec 038: layouts
- * with price levels, event seating, and the venue map, as aliases of the generated types.
+ * Mirrors the seating schemas in contracts/openapi.yaml (spec 007): seats on orders and tickets.
+ * Spec 015: reservations and live seat-map changes. Spec 038: layouts with price levels, event
+ * seating, and the venue map, as aliases of the generated types; `007`'s venue layout and seat map
+ * types went with contract 2.0.0.
  */
-export interface Section {
-  id: string;
-  name: string;
-  rows: number;
-  seatsPerRow: number;
-}
 
-export interface SectionInput {
-  name: string;
-  rows: number;
-  seatsPerRow: number;
-}
-
-export interface LayoutInput {
-  sections: SectionInput[];
-}
-
-export interface SeatingLayout {
-  locationId: string;
-  totalSeats: number;
-  sections: Section[];
-}
-
-export interface SeatPosition {
+/**
+ * A seat a customer chooses when ordering: its section's id, its row's number and its number in
+ * the row (spec 038 research R2: numbers, not labels).
+ */
+export interface SeatChoice {
+  sectionId: string;
   row: number;
   seat: number;
 }
 
-/** A seat a customer chooses when ordering. */
-export interface SeatChoice extends SeatPosition {
-  sectionId: string;
-}
-
-/** A sold seat, by its section's name when sold. */
-export interface SeatLabel extends SeatPosition {
+/** A sold seat, by its section's name when sold, its row's number and its number in the row. */
+export interface SeatLabel {
   section: string;
-}
-
-export interface SeatMapSection {
-  sectionId: string;
-  name: string;
-  rows: number;
-  seatsPerRow: number;
-  tierId: string | null;
-  sold: number;
-  /** Seats held by valid tickets. Never says by whom. */
-  taken: SeatPosition[];
-  /** Spec 015: seats in active reservations. Never says by whom. */
-  reserved: SeatPosition[];
-}
-
-export interface SeatMap {
-  eventId: string;
-  reservedSeating: boolean;
-  sections: SeatMapSection[];
-}
-
-export interface SeatingInput {
-  reservedSeating: boolean;
-  sections: { sectionId: string; tierId: string }[];
+  row: number;
+  seat: number;
 }
 
 /** Spec 015: a seat in a reservation, by section id and by its section's name. */
@@ -117,13 +74,6 @@ export interface SeatMapChange {
 
 /** Spec 015 FR-003, FR-004, FR-004a: fixed for every event (Constitution VIII). */
 export const RESERVATION_LIMITS = { minutes: 5, waitMinutes: 2, maxSeats: 10 } as const;
-
-export const SEATING_LIMITS = {
-  sectionNameMaxLength: 50,
-  maxRows: 100,
-  maxSeatsPerRow: 200,
-  maxSections: 50,
-} as const;
 
 type Schemas = components['schemas'];
 

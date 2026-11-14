@@ -12,9 +12,11 @@ export interface LockedEvent {
   status: EventStatus;
   /** Spec 034 FR-001: sales close at this instant. */
   endsAt: Date;
-  /** Spec 007: whether the event sells seats, and the venue whose layout it uses. */
+  /** Spec 007: whether the event sells seats, and its venue. */
   reservedSeating: boolean;
   locationId: string;
+  /** Spec 038: the layout it sells; `null` for general admission. */
+  layoutId: string | null;
 }
 
 /**
@@ -32,7 +34,7 @@ export async function lockEvent(
 ): Promise<LockedEvent> {
   const rows = await tx.$queryRaw<LockedEvent[]>`
     SELECT "id", "name", "totalTicketCapacity", "maxTicketsPerCustomer", "basePrice", "status",
-           "endsAt", "reservedSeating", "locationId"
+           "endsAt", "reservedSeating", "locationId", "layoutId"
     FROM "Event" WHERE "id" = ${eventId}::uuid FOR UPDATE`;
   if (rows.length === 0) throw new NotFoundException(`No event exists with id ${eventId}.`);
   return rows[0];

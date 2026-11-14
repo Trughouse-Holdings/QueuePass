@@ -197,7 +197,12 @@ export async function orderWithTickets(
       totalPrice: (45 * opts.quantity).toFixed(2),
       holderName: opts.holderName ?? null,
       tickets: {
-        create: Array.from({ length: opts.quantity }, () => ({ eventId, code: testTicketCode() })),
+        // Spec 038 FR-026: every ticket has its price.
+        create: Array.from({ length: opts.quantity }, () => ({
+          eventId,
+          code: testTicketCode(),
+          price: '45.00',
+        })),
       },
     },
     include: { tickets: { orderBy: { code: 'asc' } } },

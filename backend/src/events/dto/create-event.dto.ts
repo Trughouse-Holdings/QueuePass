@@ -2,7 +2,6 @@ import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
-  IsBoolean,
   IsISO8601,
   IsInt,
   IsOptional,
@@ -72,14 +71,6 @@ export class CreateEventDto {
     message: 'basePrice must be a non-negative decimal string with at most 2 decimal places',
   })
   basePrice!: string;
-
-  /**
-   * Spec 031 (research R9): optional, left out is `false`; never `null`. `true` schedules the
-   * event with reserved seating at its venue's layout.
-   */
-  @ValidateIf((o: CreateEventDto) => o.reservedSeating !== undefined)
-  @IsBoolean({ message: 'reservedSeating must be true or false' })
-  reservedSeating?: boolean;
 
   /**
    * Spec 031 (research R9): optional, at most 50 (a layout's section cap); never `null`. Saved

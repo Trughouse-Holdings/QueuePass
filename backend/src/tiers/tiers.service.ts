@@ -63,7 +63,7 @@ export class TiersService {
       ];
       return {
         result: toResponse(created),
-        changes: await toChanges(tx, event.locationId, freed, 'open'),
+        changes: await toChanges(tx, event.layoutId, freed, 'open'),
       };
     }, LOCKING_TX);
     this.seatEvents.publish(eventId, changes);
@@ -120,7 +120,7 @@ export class TiersService {
         ...(await closeRunOut(tx, eventId)),
         ...(await liveHolds(tx, eventId)).filter((h) => h.tierId === tierId),
       ];
-      const opened = await toChanges(tx, event.locationId, freed, 'open');
+      const opened = await toChanges(tx, event.layoutId, freed, 'open');
       await tx.ticketTier.delete({ where: { id: tierId } });
       return opened;
     }, LOCKING_TX);
