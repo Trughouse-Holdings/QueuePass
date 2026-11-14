@@ -731,9 +731,9 @@ describe('migration seat_maps (R16)', () => {
                ('${levelB}', '${layoutId}', 'B', 2, '${LEVEL_COLORS[1]}')`);
       await sql(`
         INSERT INTO "Section" ("id", "layoutId", "name", "levelId", "outline", "labelX", "labelY",
-                               "position", "updatedAt")
+                               "originX", "originY", "position", "updatedAt")
         VALUES ('${sectionId}', '${layoutId}', '101', '${levelA}', '[[0,0],[20,0],[20,20]]', 10, 10,
-                0, now())`);
+                10, 10, 0, now())`);
       await sql(`
         INSERT INTO "SeatRow" ("id", "sectionId", "number", "label", "levelId")
         VALUES ('${rowId}', '${sectionId}', 1, 'A', '${levelB}')`);

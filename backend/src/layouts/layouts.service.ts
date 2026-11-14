@@ -276,6 +276,11 @@ export class LayoutsService {
         );
         await this.replaceLines(tx, layoutId, dto.name ?? layout.name, checked, eventIds);
       }
+      // Spec 039 research R9: every change raises the revision a drawing save must name.
+      await tx.layout.update({
+        where: { id: layoutId },
+        data: { revision: { increment: 1 } },
+      });
       await this.setCapacity(tx, layout.locationId, venue);
       return { result: await this.detail(tx, layoutId), eventIds };
     }, LOCKING_TX);
@@ -536,6 +541,10 @@ export class LayoutsService {
           outline: place.outline,
           labelX: place.labelAt[0],
           labelY: place.labelAt[1],
+          // Spec 039 research R6: a section on the lines' grid turns about its new label point.
+          originX: place.labelAt[0],
+          originY: place.labelAt[1],
+          angle: 0,
         },
       });
       newSeatIds.push(...(await this.replaceRows(tx, old.id, line, place)));
@@ -980,6 +989,9 @@ async function insertContent(
       outline: s.outline,
       labelX: s.labelAt[0],
       labelY: s.labelAt[1],
+      // Spec 039 research R6: an imported or section-line section turns about its label point.
+      originX: s.labelAt[0],
+      originY: s.labelAt[1],
       position: s.position,
     })),
   });
@@ -1011,9 +1023,9 @@ async function copyContent(tx: Tx, from: string, to: string): Promise<void> {
     FROM "PriceLevel" WHERE "layoutId" = ${from}::uuid`;
   await tx.$executeRaw`
     INSERT INTO "Section" ("id", "layoutId", "name", "levelId", "outline", "labelX", "labelY",
-                           "position", "updatedAt")
+                           "originX", "originY", "angle", "generator", "position", "updatedAt")
     SELECT gen_random_uuid(), ${to}::uuid, s."name", nl."id", s."outline", s."labelX", s."labelY",
-           s."position", now()
+           s."originX", s."originY", s."angle", s."generator", s."position", now()
     FROM "Section" s
     JOIN "PriceLevel" ol ON ol."id" = s."levelId"
     JOIN "PriceLevel" nl ON nl."layoutId" = ${to}::uuid AND nl."rank" = ol."rank"
