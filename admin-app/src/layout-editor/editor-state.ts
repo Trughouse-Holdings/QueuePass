@@ -748,8 +748,11 @@ export function reduce(s: EditorState, a: Action): EditorState {
         : a.ids;
       return {
         ...s,
+        // Nothing left checked: the section stays chosen, its lists open (FR-026).
         selection:
-          ids.length > 0 ? { kind: 'rows', sectionId: a.sectionId, ids } : { kind: 'none' },
+          ids.length > 0
+            ? { kind: 'rows', sectionId: a.sectionId, ids }
+            : { kind: 'sections', ids: [a.sectionId] },
         typing: null,
       };
     }
@@ -780,7 +783,9 @@ export function reduce(s: EditorState, a: Action): EditorState {
       return {
         ...s,
         selection:
-          ids.length > 0 ? { kind: 'seats', sectionId: a.sectionId, ids } : { kind: 'none' },
+          ids.length > 0
+            ? { kind: 'seats', sectionId: a.sectionId, ids }
+            : { kind: 'sections', ids: [a.sectionId] },
         typing: null,
       };
     }

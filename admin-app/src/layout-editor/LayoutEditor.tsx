@@ -269,8 +269,24 @@ export function LayoutEditor({
     ? paintLevel
     : (doc.levels[0]?.id ?? '');
 
+  // FR-014, R11: Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z and Ctrl+Y redo; a text box keeps its own.
+  const onKeyDown = (e: React.KeyboardEvent): void => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('input, textarea, select')) return;
+    const key = e.key.toLowerCase();
+    if (key === 'z') {
+      e.preventDefault();
+      dispatch({ type: e.shiftKey ? 'redo' : 'undo' });
+    } else if (key === 'y') {
+      e.preventDefault();
+      dispatch({ type: 'redo' });
+    }
+  };
+
   return (
-    <div className="layout-editor">
+    // The key handler only hears keys of the controls inside; it adds no control of its own.
+    <div className="layout-editor" onKeyDown={onKeyDown}>
       <div className="layout-editor__head">
         <h1 className="page-title">{title}</h1>
         {back}

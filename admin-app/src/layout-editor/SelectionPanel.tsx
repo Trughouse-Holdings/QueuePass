@@ -87,6 +87,13 @@ export function SelectionPanel({
       ? doc.sections.find((s) => s.id === selection.ids[0])
       : undefined;
   const max = LAYOUT_LIMITS.maxMapUnits;
+  // The section whose rows and seats are listed: the one selected, or the one its rows or seats
+  // are of.
+  const listed =
+    one ??
+    (selection.kind === 'rows' || selection.kind === 'seats'
+      ? doc.sections.find((s) => s.id === selection.sectionId)
+      : undefined);
   return (
     <section className="card editor-panel" aria-labelledby="editor-selection-heading">
       <h2 id="editor-selection-heading">Selection</h2>
@@ -179,8 +186,105 @@ export function SelectionPanel({
           )}
         </>
       )}
+      {listed && <RowsList section={listed} selection={selection} dispatch={dispatch} />}
       {children}
     </section>
+  );
+}
+
+/**
+ * FR-026, R11 (T053): the chosen section's rows as a checkbox list, each row's seats opening under
+ * it as another, so rows and seats are selected (then painted, deleted, relabelled or marked)
+ * without the map. Checking adds to the selection, unchecking takes out.
+ */
+function RowsList({
+  section,
+  selection,
+  dispatch,
+}: {
+  section: EdSection;
+  selection: Selection;
+  dispatch: (a: Action) => void;
+}): React.ReactElement {
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const rowsOn = new Set(selection.kind === 'rows' ? selection.ids : []);
+  const seatsOn = new Set(selection.kind === 'seats' ? selection.ids : []);
+  const toggleOpen = (id: string): void =>
+    setOpen((o) => {
+      const n = new Set(o);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  return (
+    <div role="group" aria-label={`Rows of section ${section.name}`} className="editor-rows">
+      <h3>Rows</h3>
+      <ul className="editor-rows__list">
+        {section.rows.map((r) => {
+          const seatsId = `editor-seats-${r.id}`;
+          const isOpen = open.has(r.id);
+          return (
+            <li key={r.id}>
+              <span className="editor-rows__row">
+                <label>
+                  <input
+                    type="checkbox"
+                    aria-label={`Row ${r.label}`}
+                    checked={rowsOn.has(r.id)}
+                    onChange={() =>
+                      dispatch({
+                        type: 'selectRows',
+                        sectionId: section.id,
+                        ids: [r.id],
+                        add: true,
+                      })
+                    }
+                  />
+                  {`Row ${r.label} · ${seatsText(r.seats.length)}`}
+                </label>
+                <button
+                  type="button"
+                  className="btn btn--ghost"
+                  aria-label={`Seats of row ${r.label}`}
+                  aria-expanded={isOpen}
+                  aria-controls={isOpen ? seatsId : undefined}
+                  onClick={() => toggleOpen(r.id)}
+                >
+                  {isOpen ? 'Hide seats' : 'Seats'}
+                </button>
+              </span>
+              {isOpen && (
+                <div
+                  id={seatsId}
+                  role="group"
+                  aria-label={`Seats of row ${r.label}`}
+                  className="editor-rows__seats"
+                >
+                  {r.seats.map((q) => (
+                    <label key={q.id}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Seat ${q.label}`}
+                        checked={seatsOn.has(q.id)}
+                        onChange={() =>
+                          dispatch({
+                            type: 'selectSeats',
+                            sectionId: section.id,
+                            ids: [q.id],
+                            add: true,
+                          })
+                        }
+                      />
+                      {q.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 

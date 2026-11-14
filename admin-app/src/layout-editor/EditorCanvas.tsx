@@ -12,6 +12,7 @@ import {
 import { farthest, levelName, type EditorDoc, type Place } from './editor-doc';
 import { seatCount, type Action, type Selection } from './editor-state';
 import { SectionSeatsView, seatsInBox } from './SectionSeatsView';
+import { confirmDeleteSections, deleteSeats, seatIdsOf } from './SelectionPanel';
 
 /** An empty map shows at least this much, in map units (seats are 2 apart). */
 const MIN_WIDTH = 300;
@@ -228,6 +229,18 @@ export function EditorCanvas({
     if (e.target !== e.currentTarget) return;
     if (e.key === 'Escape') {
       dispatch({ type: 'clearSelection' });
+      return;
+    }
+    // FR-026: Delete (or Backspace) deletes the selection after asking.
+    if (!readOnly && (e.key === 'Delete' || e.key === 'Backspace')) {
+      e.preventDefault();
+      if (selection.kind === 'sections') {
+        if (confirmDeleteSections(doc, selection.ids))
+          dispatch({ type: 'deleteSections', ids: selection.ids });
+      } else if (selection.kind === 'rows' || selection.kind === 'seats') {
+        const section = doc.sections.find((x) => x.id === selection.sectionId);
+        if (section) deleteSeats(doc, section.id, seatIdsOf(section, selection), dispatch);
+      }
       return;
     }
     if (!readOnly && !zoomSection && selectedIds.length > 0) {

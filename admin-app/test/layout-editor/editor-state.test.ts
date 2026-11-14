@@ -477,10 +477,10 @@ describe('painting', () => {
     expect(s.message).toBe("Row B takes the section's level");
   });
 
-  it('a seat selected twice with add is taken out', () => {
+  it('a seat selected twice with add is taken out, leaving its section chosen', () => {
     let s = reduce(loaded(), { type: 'selectSeats', sectionId: 's-101', ids: ['st-a2'] });
     s = reduce(s, { type: 'selectSeats', sectionId: 's-101', ids: ['st-a2'], add: true });
-    expect(s.selection).toEqual({ kind: 'none' });
+    expect(s.selection).toEqual({ kind: 'sections', ids: ['s-101'] });
   });
 
   it('names one seat by its row and label', () => {

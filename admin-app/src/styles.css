@@ -548,3 +548,25 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
 }
+/* FR-026: the chosen section's rows, each opening to its seats, as checkbox lists. */
+.editor-rows__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.editor-rows__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.editor-rows__seats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-1) 0 var(--space-2) var(--space-6);
+}
