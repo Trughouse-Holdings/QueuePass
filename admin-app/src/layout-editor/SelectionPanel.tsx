@@ -1,6 +1,13 @@
 import { LAYOUT_LIMITS } from '@queuepass/shared';
 import { levelName, type EditorDoc } from './editor-doc';
-import { FLOOR_NAMES, seatCount, type Action, type Selection } from './editor-state';
+import {
+  FLOOR_NAMES,
+  rowsWord,
+  seatCount,
+  seatsWord,
+  type Action,
+  type Selection,
+} from './editor-state';
 import { NumberBox } from './NumberBox';
 
 /**
@@ -31,6 +38,9 @@ export function SelectionPanel({
       {selection.kind === 'floor' && <p>{`Floor object: ${FLOOR_NAMES[doc.floor.kind]}`}</p>}
       {selection.kind === 'sections' && !one && (
         <p>{`${selection.ids.length} sections selected`}</p>
+      )}
+      {(selection.kind === 'rows' || selection.kind === 'seats') && (
+        <PartsSelected doc={doc} selection={selection} />
       )}
       {one && (
         <>
@@ -70,4 +80,23 @@ export function SelectionPanel({
       {children}
     </section>
   );
+}
+
+/** "Rows A–D selected in section 101", "2 seats selected in section 101". */
+function PartsSelected({
+  doc,
+  selection,
+}: {
+  doc: EditorDoc;
+  selection: Extract<Selection, { kind: 'rows' | 'seats' }>;
+}): React.ReactElement | null {
+  const section = doc.sections.find((s) => s.id === selection.sectionId);
+  if (!section) return null;
+  const what =
+    selection.kind === 'rows'
+      ? rowsWord(section, selection.ids)
+      : selection.ids.length === 1
+        ? seatsWord(section, selection.ids)
+        : `${selection.ids.length} seats`;
+  return <p>{`${what} selected in section ${section.name}`}</p>;
 }

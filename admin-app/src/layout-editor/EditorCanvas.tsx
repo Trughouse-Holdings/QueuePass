@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { normalizeAngle } from '@queuepass/shared';
 import {
   bounds,
@@ -11,6 +11,7 @@ import {
 } from '@queuepass/shared/web';
 import { farthest, levelName, type EditorDoc, type Place } from './editor-doc';
 import { seatCount, type Action, type Selection } from './editor-state';
+import { SectionSeatsView, seatsInBox } from './SectionSeatsView';
 
 /** An empty map shows at least this much, in map units (seats are 2 apart). */
 const MIN_WIDTH = 300;
@@ -49,7 +50,8 @@ type Drag =
   | { kind: 'move'; ids: string[]; from: Place; client: Place; moved: boolean }
   | { kind: 'turn'; ids: string[]; center: Place; start: number }
   | { kind: 'floor'; from: Place; client: Place; moved: boolean }
-  | { kind: 'corner'; fixed: Place };
+  | { kind: 'corner'; fixed: Place }
+  | { kind: 'box'; from: Place; add: boolean };
 
 /** What the drag shows until it is let go: then it is one action (R11). */
 type Live =
@@ -57,6 +59,7 @@ type Live =
   | { kind: 'turn'; degrees: number }
   | { kind: 'floor'; dx: number; dy: number }
   | { kind: 'corner'; box: Bounds }
+  | { kind: 'box'; from: Place; to: Place }
   | null;
 
 export interface CanvasProps {
@@ -64,6 +67,8 @@ export interface CanvasProps {
   selection: Selection;
   readOnly: boolean;
   dispatch: (a: Action) => void;
+  /** The section zoomed into, its seats drawn (R2), or none. */
+  zoomed?: string | null;
   /** Sections drawn with a warning outline (overlaps, R15). */
   warned?: ReadonlySet<string>;
   /** Hears the middle of the visible map, where a new section goes (FR-007). */
@@ -86,6 +91,7 @@ export function EditorCanvas({
   selection,
   readOnly,
   dispatch,
+  zoomed = null,
   warned,
   centerRef,
 }: CanvasProps): React.ReactElement {
@@ -99,7 +105,18 @@ export function EditorCanvas({
     liveRef.current = l;
     setLiveState(l);
   };
+  const [boxSelect, setBoxSelect] = useState(false);
   if (centerRef) centerRef.current = viewCenter(pz.view);
+  const zoomSection = zoomed ? doc.sections.find((s) => s.id === zoomed) : undefined;
+
+  // Zooming into a section shows it whole (the shared map's animated zoom); out, the whole map.
+  const { zoomTo, fit: fitAll } = pz;
+  const zoomOutline = useRef(zoomSection?.outline);
+  zoomOutline.current = zoomSection?.outline;
+  useEffect(() => {
+    if (zoomed && zoomOutline.current) zoomTo(bounds(zoomOutline.current), 4);
+    else fitAll();
+  }, [zoomed, zoomTo, fitAll]);
 
   const selectedIds = selection.kind === 'sections' ? selection.ids : [];
   const selected = new Set(selectedIds);
@@ -163,6 +180,8 @@ export function EditorCanvas({
       const step = e.shiftKey ? 15 : 1;
       const raw = normalizeAngle(degreesOf(d.center, at) - d.start);
       setLive({ kind: 'turn', degrees: Math.round(raw / step) * step });
+    } else if (d.kind === 'box') {
+      setLive({ kind: 'box', from: d.from, to: at });
     } else {
       setLive({
         kind: 'corner',
@@ -189,6 +208,13 @@ export function EditorCanvas({
       dispatch({ type: 'moveFloor', dx: tenth(shown.dx), dy: tenth(shown.dy) });
     } else if (d.kind === 'turn' && shown.kind === 'turn') {
       dispatch({ type: 'turnSections', ids: d.ids, degrees: shown.degrees });
+    } else if (d.kind === 'box' && shown.kind === 'box' && zoomSection) {
+      dispatch({
+        type: 'selectSeats',
+        sectionId: zoomSection.id,
+        ids: seatsInBox(zoomSection, shown.from, shown.to),
+        add: d.add,
+      });
     } else if (d.kind === 'corner' && shown.kind === 'corner') {
       const b = shown.box;
       dispatch({
@@ -204,7 +230,7 @@ export function EditorCanvas({
       dispatch({ type: 'clearSelection' });
       return;
     }
-    if (!readOnly && selectedIds.length > 0) {
+    if (!readOnly && !zoomSection && selectedIds.length > 0) {
       const step = e.shiftKey ? 10 : 1;
       const moves: Record<string, [number, number]> = {
         ArrowLeft: [-step, 0],
@@ -231,7 +257,7 @@ export function EditorCanvas({
 
   // The selection's box, and the turn handle above it.
   const selectedPoints = doc.sections.filter((s) => selected.has(s.id)).flatMap((s) => s.outline);
-  const box = selectedPoints.length > 0 ? bounds(selectedPoints) : null;
+  const box = selectedPoints.length > 0 && !zoomSection ? bounds(selectedPoints) : null;
   const boxCenter: Place | null = box ? [box.x + box.width / 2, box.y + box.height / 2] : null;
   const handleAt: Place | null =
     box && boxCenter ? [boxCenter[0], box.y - 1 - Math.max(4, pz.view.height / 15)] : null;
@@ -267,6 +293,25 @@ export function EditorCanvas({
         <button type="button" className="btn" onClick={pz.fit}>
           Fit
         </button>
+        {zoomSection && (
+          <>
+            <button
+              type="button"
+              className="btn"
+              aria-pressed={boxSelect}
+              onClick={() => setBoxSelect((b) => !b)}
+            >
+              Box select
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => dispatch({ type: 'zoom', id: null })}
+            >
+              Back to layout
+            </button>
+          </>
+        )}
       </div>
       <svg
         ref={(el) => {
@@ -292,6 +337,12 @@ export function EditorCanvas({
           y={fit.y}
           width={fit.width}
           height={fit.height}
+          onPointerDown={(e) => {
+            if (!zoomSection || !boxSelect) return;
+            e.stopPropagation();
+            drag.current = { kind: 'box', from: toMap(e), add: e.shiftKey };
+            capture(e);
+          }}
           onClick={() => {
             if (!pz.dragged()) dispatch({ type: 'clearSelection' });
           }}
@@ -304,51 +355,84 @@ export function EditorCanvas({
             onPointerDown={pressFloor}
           />
         )}
-        {doc.sections.map((s) => {
-          const seats = seatCount(s);
-          const [lx, ly] = centroid(s.outline);
-          const isSelected = selected.has(s.id);
-          return (
-            <g
-              key={s.id}
-              role="button"
-              tabIndex={0}
-              aria-pressed={isSelected}
-              aria-label={`Section ${s.name}, ${levelName(doc, s.levelId)}, ${seats} ${seats === 1 ? 'seat' : 'seats'}`}
-              className={`editor-map__section${isSelected ? ' editor-map__section--selected' : ''}${
-                warned?.has(s.id) ? ' editor-map__section--warn' : ''
-              }`}
-              transform={isSelected ? groupTransform(s.origin) : undefined}
-              onPointerDown={(e) => pressSection(e, s.id)}
-              onKeyDown={(e) => {
-                if (e.key !== ' ' && e.key !== 'Enter') return;
-                e.preventDefault();
-                e.stopPropagation();
-                dispatch(
-                  e.shiftKey
-                    ? { type: 'toggleSection', id: s.id }
-                    : { type: 'selectSections', ids: [s.id] },
-                );
-              }}
-            >
+        {zoomSection &&
+          doc.sections.map((s) =>
+            s.id === zoomSection.id ? (
               <path
-                className={`venue-map--${colorOf.get(s.levelId) ?? 'violet'}`}
+                key={s.id}
+                className="editor-map__current"
                 d={outlinePath(s.outline)}
-              />
-              <text
-                className="editor-map__label"
-                x={lx}
-                y={ly}
-                fontSize={fontSize}
-                textAnchor="middle"
-                dominantBaseline="central"
                 aria-hidden="true"
+              />
+            ) : (
+              <path
+                key={s.id}
+                className={`editor-map__faded venue-map--${colorOf.get(s.levelId) ?? 'violet'}`}
+                d={outlinePath(s.outline)}
+                aria-hidden="true"
+              />
+            ),
+          )}
+        {zoomSection && (
+          <SectionSeatsView
+            doc={doc}
+            section={zoomSection}
+            selection={selection}
+            dispatch={dispatch}
+          />
+        )}
+        {!zoomSection &&
+          doc.sections.map((s) => {
+            const seats = seatCount(s);
+            const [lx, ly] = centroid(s.outline);
+            const isSelected = selected.has(s.id);
+            return (
+              <g
+                key={s.id}
+                role="button"
+                tabIndex={0}
+                aria-pressed={isSelected}
+                aria-label={`Section ${s.name}, ${levelName(doc, s.levelId)}, ${seats} ${seats === 1 ? 'seat' : 'seats'}`}
+                className={`editor-map__section${isSelected ? ' editor-map__section--selected' : ''}${
+                  warned?.has(s.id) ? ' editor-map__section--warn' : ''
+                }`}
+                transform={isSelected ? groupTransform(s.origin) : undefined}
+                onPointerDown={(e) => pressSection(e, s.id)}
+                onDoubleClick={() => dispatch({ type: 'zoom', id: s.id })}
+                onKeyDown={(e) => {
+                  if (e.key !== ' ' && e.key !== 'Enter') return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // R11: Enter zooms into the section, Space selects it (Shift adds).
+                  if (e.key === 'Enter') {
+                    dispatch({ type: 'zoom', id: s.id });
+                    return;
+                  }
+                  dispatch(
+                    e.shiftKey
+                      ? { type: 'toggleSection', id: s.id }
+                      : { type: 'selectSections', ids: [s.id] },
+                  );
+                }}
               >
-                {s.name}
-              </text>
-            </g>
-          );
-        })}
+                <path
+                  className={`venue-map--${colorOf.get(s.levelId) ?? 'violet'}`}
+                  d={outlinePath(s.outline)}
+                />
+                <text
+                  className="editor-map__label"
+                  x={lx}
+                  y={ly}
+                  fontSize={fontSize}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  aria-hidden="true"
+                >
+                  {s.name}
+                </text>
+              </g>
+            );
+          })}
         {box && (
           <rect
             className="editor-map__selection"
@@ -386,6 +470,16 @@ export function EditorCanvas({
               }}
             />
           </g>
+        )}
+        {live?.kind === 'box' && (
+          <rect
+            className="editor-map__box"
+            x={Math.min(live.from[0], live.to[0])}
+            y={Math.min(live.from[1], live.to[1])}
+            width={Math.abs(live.to[0] - live.from[0])}
+            height={Math.abs(live.to[1] - live.from[1])}
+            aria-hidden="true"
+          />
         )}
         {!readOnly && selection.kind === 'floor' && floorBox && !floorShift && (
           <g aria-hidden="true">

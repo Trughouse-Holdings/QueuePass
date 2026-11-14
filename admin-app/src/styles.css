@@ -481,3 +481,70 @@
 .editor-map__corner {
   cursor: nwse-resize;
 }
+/* A zoomed section: pale under its seats, the others faded behind it (R2). */
+.editor-map__current {
+  fill: var(--map-floor);
+  stroke: var(--border-strong);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+}
+.editor-map__faded {
+  opacity: 0.25;
+  pointer-events: none;
+}
+.editor-map__seat {
+  cursor: pointer;
+}
+.editor-map__seat--selected .editor-map__dot {
+  stroke: var(--text);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+/* An accessible seat's mark: a ring in the map's background inside the seat (#57 adds meaning). */
+.editor-map__accessible {
+  fill: var(--map-bg);
+  pointer-events: none;
+}
+.editor-map__row-label {
+  fill: var(--text-muted);
+  cursor: pointer;
+  paint-order: stroke;
+  stroke: var(--map-bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+.editor-map__row-label--selected {
+  fill: var(--accent);
+  font-weight: 700;
+}
+.editor-map__box {
+  fill: var(--accent-soft);
+  fill-opacity: 0.4;
+  stroke: var(--accent);
+  stroke-width: 1px;
+  stroke-dasharray: 3 2;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.editor-levels__choose {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.editor-levels__edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+}
+.editor-levels__rename {
+  display: inline-grid;
+  flex: 1 1 120px;
+}
+.editor-levels__delete {
+  width: 100%;
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}

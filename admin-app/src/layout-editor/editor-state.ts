@@ -1,14 +1,24 @@
 import {
   LAYOUT_LIMITS,
+  LEVEL_COLORS,
   generateBlock,
   moveBy,
   normalizeAngle,
   placeBlock,
   turnAbout,
   type FloorKind,
+  type LevelColor,
   type SectionGenerator,
 } from '@queuepass/shared';
-import { outlineOf, seatLevel, type EdSection, type EditorDoc, type Place } from './editor-doc';
+import {
+  levelName,
+  outlineOf,
+  seatLevel,
+  type EdRow,
+  type EdSection,
+  type EditorDoc,
+  type Place,
+} from './editor-doc';
 
 /**
  * Spec 039 research R10: the editor's state, one pure reducer over the document, the selection
@@ -79,7 +89,17 @@ export type Action =
   | { type: 'addSection'; name: string; values: SectionGenerator; levelId: string; at: Place }
   | { type: 'moveSections'; ids: string[]; dx: number; dy: number }
   | { type: 'turnSections'; ids: string[]; degrees: number }
-  | { type: 'placeSection'; id: string; origin?: Place; angle?: number };
+  | { type: 'placeSection'; id: string; origin?: Place; angle?: number }
+  | { type: 'selectRows'; sectionId: string; ids: string[]; add?: boolean }
+  | { type: 'selectRowRange'; sectionId: string; toId: string }
+  | { type: 'selectSeats'; sectionId: string; ids: string[]; add?: boolean }
+  | { type: 'addLevel' }
+  | { type: 'renameLevel'; id: string; name: string }
+  | { type: 'recolorLevel'; id: string; color: LevelColor }
+  | { type: 'moveLevel'; id: string; by: -1 | 1 }
+  | { type: 'deleteLevel'; id: string; replacement: string }
+  | { type: 'paint'; levelId: string }
+  | { type: 'clearLevel' };
 
 export const currentDoc = (s: EditorState): EditorDoc => s.history[s.cursor];
 export const isDirty = (s: EditorState): boolean => currentDoc(s) !== s.saved;
@@ -290,6 +310,95 @@ const rect = (cx: number, cy: number, w: number, h: number): Place[] => [
   [cx - w / 2, cy + h / 2],
 ];
 
+// ---------------------------------------------------------------------- levels and painting
+
+/** R12, FR-015: what is wrong with a level's name, or null: 1–50 characters, unique ignoring case. */
+export function levelNameProblem(doc: EditorDoc, id: string, name: string): string | null {
+  const n = name.trim();
+  if (n === '') return 'Name the level';
+  if (n.length > LAYOUT_LIMITS.nameMaxLength)
+    return `At most ${LAYOUT_LIMITS.nameMaxLength} characters`;
+  if (doc.levels.some((l) => l.id !== id && l.name.toLowerCase() === n.toLowerCase()))
+    return `Another level is named ${n}`;
+  return null;
+}
+
+/** "Row A", "Rows A–D" (a run in order), or "Rows A, C". */
+export function rowsWord(section: EdSection, ids: readonly string[]): string {
+  const idx = section.rows.map((r, i) => (ids.includes(r.id) ? i : -1)).filter((i) => i >= 0);
+  const labels = idx.map((i) => section.rows[i].label);
+  if (labels.length === 1) return `Row ${labels[0]}`;
+  const run = idx.every((i, k) => k === 0 || i === idx[k - 1] + 1);
+  return run ? `Rows ${labels[0]}–${labels[labels.length - 1]}` : `Rows ${labels.join(', ')}`;
+}
+
+/** "Row B, seat 3", or "2 seats". */
+export function seatsWord(section: EdSection, ids: readonly string[]): string {
+  if (ids.length !== 1) return `${ids.length} seats`;
+  for (const r of section.rows) {
+    const x = r.seats.find((q) => q.id === ids[0]);
+    if (x) return `Row ${r.label}, seat ${x.label}`;
+  }
+  return '1 seat';
+}
+
+/** The rows of one section changed by `change`, the others shared. */
+const changeRows = (doc: EditorDoc, sectionId: string, change: (r: EdRow) => EdRow): EditorDoc =>
+  changeSections(doc, [sectionId], (s) => {
+    const rows = s.rows.map(change);
+    return rows.every((r, i) => r === s.rows[i]) ? s : { ...s, rows };
+  });
+
+/** The seats of `ids` in one section with their own level set (or cleared, `null`). */
+const setSeatLevels = (
+  doc: EditorDoc,
+  sectionId: string,
+  ids: readonly string[],
+  levelId: string | null,
+): EditorDoc => {
+  const set = new Set(ids);
+  return changeRows(doc, sectionId, (r) =>
+    r.seats.some((x) => set.has(x.id))
+      ? { ...r, seats: r.seats.map((x) => (set.has(x.id) ? { ...x, levelId } : x)) }
+      : r,
+  );
+};
+
+/**
+ * R12: a level deleted, everything naming it repointed at `to`; a row's or seat's own level that
+ * then equals its parent's is cleared.
+ */
+function repoint(doc: EditorDoc, from: string, to: string): EditorDoc {
+  return {
+    ...doc,
+    levels: doc.levels.filter((l) => l.id !== from),
+    sections: doc.sections.map((s) => {
+      const secChanged = s.levelId === from;
+      const levelId = secChanged ? to : s.levelId;
+      let touched = secChanged;
+      const rows = s.rows.map((r) => {
+        const rowRe = r.levelId === from;
+        let rowLevel = rowRe ? to : r.levelId;
+        if (rowLevel === levelId && (rowRe || secChanged)) rowLevel = null;
+        const parent = rowLevel ?? levelId;
+        let seatTouched = false;
+        const seats = r.seats.map((x) => {
+          const seatRe = x.levelId === from;
+          let own = seatRe ? to : x.levelId;
+          if (own === parent && (seatRe || rowRe || secChanged)) own = null;
+          if (own === x.levelId) return x;
+          seatTouched = true;
+          return { ...x, levelId: own };
+        });
+        if (rowLevel === r.levelId && !seatTouched) return r;
+        touched = true;
+        return { ...r, levelId: rowLevel, seats: seatTouched ? seats : r.seats };
+      });
+      return touched ? { ...s, levelId, rows } : s;
+    }),
+  };
+}
+
 // ---------------------------------------------------------------------------------- reducer
 
 export function reduce(s: EditorState, a: Action): EditorState {
@@ -334,13 +443,16 @@ export function reduce(s: EditorState, a: Action): EditorState {
       return doc.floor.outline ? { ...s, selection: { kind: 'floor' }, typing: null } : s;
     case 'clearSelection':
       return { ...s, selection: { kind: 'none' }, typing: null };
-    case 'zoom':
-      return {
-        ...s,
-        zoomed: a.id,
-        selection: a.id ? { kind: 'sections', ids: [a.id] } : s.selection,
-        typing: null,
-      };
+    case 'zoom': {
+      // In, the section is selected; out, rows or seats of it give way to the section.
+      const sel = s.selection;
+      const selection: Selection = a.id
+        ? { kind: 'sections', ids: [a.id] }
+        : sel.kind === 'rows' || sel.kind === 'seats'
+          ? { kind: 'sections', ids: [sel.sectionId] }
+          : sel;
+      return { ...s, zoomed: a.id, selection, typing: null };
+    }
 
     case 'rename':
       return commit(s, { ...doc, name: a.name }, `Layout named ${a.name.trim()}`, {
@@ -502,6 +614,152 @@ export function reduce(s: EditorState, a: Action): EditorState {
         `Section ${section.name} ${what}`,
         { typing: `place:${a.id}:${a.angle !== undefined ? 'angle' : 'origin'}` },
       );
+    }
+
+    case 'selectRows': {
+      const before =
+        s.selection.kind === 'rows' && s.selection.sectionId === a.sectionId ? s.selection.ids : [];
+      const ids = a.add
+        ? a.ids.reduce(
+            (acc, id) => (acc.includes(id) ? acc.filter((i) => i !== id) : [...acc, id]),
+            before,
+          )
+        : a.ids;
+      return {
+        ...s,
+        selection:
+          ids.length > 0 ? { kind: 'rows', sectionId: a.sectionId, ids } : { kind: 'none' },
+        typing: null,
+      };
+    }
+    case 'selectRowRange': {
+      const section = doc.sections.find((x) => x.id === a.sectionId);
+      if (!section) return s;
+      const anchor =
+        s.selection.kind === 'rows' && s.selection.sectionId === a.sectionId
+          ? s.selection.ids[s.selection.ids.length - 1]
+          : a.toId;
+      const i = section.rows.findIndex((r) => r.id === anchor);
+      const j = section.rows.findIndex((r) => r.id === a.toId);
+      if (i < 0 || j < 0) return s;
+      const ids = section.rows.slice(Math.min(i, j), Math.max(i, j) + 1).map((r) => r.id);
+      return { ...s, selection: { kind: 'rows', sectionId: a.sectionId, ids }, typing: null };
+    }
+    case 'selectSeats': {
+      const before =
+        s.selection.kind === 'seats' && s.selection.sectionId === a.sectionId
+          ? s.selection.ids
+          : [];
+      const ids = a.add
+        ? a.ids.reduce(
+            (acc, id) => (acc.includes(id) ? acc.filter((i) => i !== id) : [...acc, id]),
+            before,
+          )
+        : a.ids;
+      return {
+        ...s,
+        selection:
+          ids.length > 0 ? { kind: 'seats', sectionId: a.sectionId, ids } : { kind: 'none' },
+        typing: null,
+      };
+    }
+
+    case 'addLevel': {
+      if (doc.levels.length >= LAYOUT_LIMITS.maxLevels) {
+        return { ...s, message: `A layout has at most ${LAYOUT_LIMITS.maxLevels} levels` };
+      }
+      const used = new Set(doc.levels.map((l) => l.color));
+      const color = LEVEL_COLORS.find((c) => !used.has(c)) ?? LEVEL_COLORS[0];
+      let k = doc.levels.length + 1;
+      while (levelNameProblem(doc, '', `Level ${k}`)) k += 1;
+      const seq = s.seq + 1;
+      const level = { id: `new:${seq}`, name: `Level ${k}`, color };
+      return commit(s, { ...doc, levels: [...doc.levels, level] }, `${level.name} added`, { seq });
+    }
+    case 'renameLevel': {
+      const level = doc.levels.find((l) => l.id === a.id);
+      if (!level) return s;
+      const problem = levelNameProblem(doc, a.id, a.name);
+      if (problem) return { ...s, message: problem };
+      const name = a.name.trim();
+      if (name === level.name) return s;
+      return commit(
+        s,
+        { ...doc, levels: doc.levels.map((l) => (l.id === a.id ? { ...l, name } : l)) },
+        `${level.name} renamed ${name}`,
+      );
+    }
+    case 'recolorLevel': {
+      const level = doc.levels.find((l) => l.id === a.id);
+      if (!level || level.color === a.color) return s;
+      return commit(
+        s,
+        { ...doc, levels: doc.levels.map((l) => (l.id === a.id ? { ...l, color: a.color } : l)) },
+        `${level.name} is now ${a.color}`,
+      );
+    }
+    case 'moveLevel': {
+      const i = doc.levels.findIndex((l) => l.id === a.id);
+      const j = i + a.by;
+      if (i < 0 || j < 0 || j >= doc.levels.length) return s;
+      const levels = [...doc.levels];
+      [levels[i], levels[j]] = [levels[j], levels[i]];
+      return commit(s, { ...doc, levels }, `${levels[j].name} moved to rank ${j + 1}`);
+    }
+    case 'deleteLevel': {
+      if (doc.levels.length <= 1) return { ...s, message: "The last level can't be deleted" };
+      const level = doc.levels.find((l) => l.id === a.id);
+      if (!level || a.replacement === a.id || !doc.levels.some((l) => l.id === a.replacement)) {
+        return s;
+      }
+      return commit(
+        s,
+        repoint(doc, a.id, a.replacement),
+        `${level.name} deleted; its seats are now ${levelName(doc, a.replacement)}`,
+      );
+    }
+    case 'paint':
+    case 'clearLevel': {
+      const sel = s.selection;
+      const levelId = a.type === 'paint' ? a.levelId : null;
+      const word = a.type === 'paint' ? `painted ${levelName(doc, a.levelId)}` : '';
+      if (sel.kind === 'sections' && a.type === 'paint') {
+        const next = changeSections(doc, sel.ids, (x) =>
+          x.levelId === a.levelId ? x : { ...x, levelId: a.levelId },
+        );
+        return commit(s, next, `${sectionsWord(doc, sel.ids)} ${word}`);
+      }
+      if (sel.kind === 'rows') {
+        const section = doc.sections.find((x) => x.id === sel.sectionId);
+        if (!section) return s;
+        const set = new Set(sel.ids);
+        const next = changeRows(doc, sel.sectionId, (r) =>
+          set.has(r.id) && r.levelId !== levelId ? { ...r, levelId } : r,
+        );
+        const who = rowsWord(section, sel.ids);
+        const one = sel.ids.length === 1;
+        return commit(
+          s,
+          next,
+          a.type === 'paint'
+            ? `${who} ${word}`
+            : `${who} ${one ? 'takes' : 'take'} the section's level`,
+        );
+      }
+      if (sel.kind === 'seats') {
+        const section = doc.sections.find((x) => x.id === sel.sectionId);
+        if (!section) return s;
+        const who = seatsWord(section, sel.ids);
+        const one = sel.ids.length === 1;
+        return commit(
+          s,
+          setSeatLevels(doc, sel.sectionId, sel.ids, levelId),
+          a.type === 'paint'
+            ? `${who} ${word}`
+            : `${who} ${one ? 'takes' : 'take'} the row's level`,
+        );
+      }
+      return s;
     }
   }
 }

@@ -79,6 +79,7 @@ export function LayoutEditor({
   const narrow = useMediaQuery(PHONE);
   const centerRef = useRef<Place>([150, 100]);
   const [warned, setWarned] = useState<Set<string>>(() => new Set());
+  const [paintLevel, setPaintLevel] = useState<string>('');
   const nameId = useId();
   const nameProblemId = useId();
 
@@ -198,16 +199,25 @@ export function LayoutEditor({
           {`Locked: seats are sold or held at ${listed(meta.lockedBy.map((e) => e.name))}`}
         </p>
         <div className="layout-editor__body">
-          <EditorCanvas doc={doc} selection={state.selection} readOnly dispatch={dispatch} />
+          <EditorCanvas
+            doc={doc}
+            selection={state.selection}
+            zoomed={state.zoomed}
+            readOnly
+            dispatch={dispatch}
+          />
           <div className="layout-editor__side">
-            <LevelsPanel doc={doc} />
+            <LevelsPanel doc={doc} readOnly />
           </div>
         </div>
       </div>
     );
   }
 
-  const firstLevel = doc.levels[0]?.id ?? '';
+  // The level Paint and Add section use: the one chosen, else the best.
+  const chosen = doc.levels.some((l) => l.id === paintLevel)
+    ? paintLevel
+    : (doc.levels[0]?.id ?? '');
 
   return (
     <div className="layout-editor">
@@ -271,6 +281,7 @@ export function LayoutEditor({
           doc={doc}
           selection={state.selection}
           readOnly={false}
+          zoomed={state.zoomed}
           dispatch={dispatch}
           centerRef={centerRef}
           warned={warned}
@@ -280,11 +291,17 @@ export function LayoutEditor({
             kind={doc.floor.kind}
             onKind={(kind) => dispatch({ type: 'setFloor', kind, at: centerRef.current })}
           />
-          <LevelsPanel doc={doc} />
+          <LevelsPanel
+            doc={doc}
+            dispatch={dispatch}
+            selection={state.selection}
+            chosen={chosen}
+            onChoose={setPaintLevel}
+          />
           <SectionsPanel
             doc={doc}
             selection={state.selection}
-            levelId={firstLevel}
+            levelId={chosen}
             onSelect={(id, add) =>
               dispatch(add ? { type: 'toggleSection', id } : { type: 'selectSections', ids: [id] })
             }

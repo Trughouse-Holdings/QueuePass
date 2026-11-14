@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { emptyDoc, fromDrawing, outlineOf } from '../../src/layout-editor/editor-doc';
+import { emptyDoc, fromDrawing, outlineOf, toInput } from '../../src/layout-editor/editor-doc';
 import {
   currentDoc,
   initState,
   isDirty,
+  levelNameProblem,
   reduce,
   totals,
   type EditorState,
@@ -340,5 +341,151 @@ describe('the floor object, moved and resized', () => {
       [50, 70],
     ]);
     expect(s.message).toBe('Floor object resized');
+  });
+});
+
+// ------------------------------------------------------------- US2 (T038): levels and painting
+// (R12, FR-015, FR-016). Riverside: Courtside (red) best, Standard (violet). 101's section level
+// is Standard, its row B Courtside, seat A1 Courtside; 102 is Courtside.
+
+const levelNames = (s: EditorState) => doc(s).levels.map((l) => l.name);
+const sec = (s: EditorState, i = 0) => doc(s).sections[i];
+
+describe('levels', () => {
+  it('adds a level with the first of the 12 colors not yet used, up to 12', () => {
+    let s = reduce(loaded(), { type: 'addLevel' });
+    const added = doc(s).levels[2];
+    expect(added).toMatchObject({ name: 'Level 3', color: 'blue' });
+    expect(added.id).toMatch(/^new:/);
+    expect(s.message).toBe('Level 3 added');
+    for (let i = 0; i < 9; i += 1) s = reduce(s, { type: 'addLevel' });
+    expect(doc(s).levels).toHaveLength(12);
+    expect(new Set(doc(s).levels.map((l) => l.color)).size).toBe(12);
+    const t = reduce(s, { type: 'addLevel' });
+    expect(doc(t).levels).toHaveLength(12);
+    expect(t.message).toBe('A layout has at most 12 levels');
+  });
+
+  it('renames a level, refusing an empty name or one another level has (ignoring case)', () => {
+    const s = reduce(loaded(), { type: 'renameLevel', id: 'lv-std', name: 'Lower sideline' });
+    expect(levelNames(s)).toEqual(['Courtside', 'Lower sideline']);
+    expect(levelNameProblem(doc(s), 'lv-std', 'courtside')).toBe(
+      'Another level is named courtside',
+    );
+    expect(levelNameProblem(doc(s), 'lv-std', ' ')).toBe('Name the level');
+    expect(levelNameProblem(doc(s), 'lv-std', 'Lower sideline')).toBeNull();
+    const refused = reduce(s, { type: 'renameLevel', id: 'lv-std', name: 'COURTSIDE' });
+    expect(doc(refused)).toBe(doc(s));
+    expect(refused.message).toBe('Another level is named COURTSIDE');
+  });
+
+  it('recolors a level', () => {
+    const s = reduce(loaded(), { type: 'recolorLevel', id: 'lv-std', color: 'teal' });
+    expect(doc(s).levels[1].color).toBe('teal');
+    expect(s.message).toBe('Standard is now teal');
+  });
+
+  it('moves a level up and down; ranks follow the order', () => {
+    let s = reduce(loaded(), { type: 'moveLevel', id: 'lv-std', by: -1 });
+    expect(levelNames(s)).toEqual(['Standard', 'Courtside']);
+    expect(s.message).toBe('Standard moved to rank 1');
+    expect(toInput(doc(s), 4).levels.map((l) => [l.key, l.name])).toEqual([
+      ['l1', 'Standard'],
+      ['l2', 'Courtside'],
+    ]);
+    // Not past either end.
+    expect(reduce(s, { type: 'moveLevel', id: 'lv-std', by: -1 })).toBe(s);
+    s = reduce(s, { type: 'moveLevel', id: 'lv-std', by: 1 });
+    expect(levelNames(s)).toEqual(['Courtside', 'Standard']);
+  });
+
+  it('deletes a level, its seats taking the replacement; overrides equal to their parent go', () => {
+    const s = reduce(loaded(), { type: 'deleteLevel', id: 'lv-court', replacement: 'lv-std' });
+    expect(levelNames(s)).toEqual(['Standard']);
+    const [a, b] = doc(s).sections;
+    // Row B and seat A1 were Courtside, now Standard: the same as their section, so cleared.
+    expect(a.rows[1].levelId).toBeNull();
+    expect(a.rows[0].seats[0].levelId).toBeNull();
+    expect(b.levelId).toBe('lv-std');
+    expect(totals(doc(s)).byLevel).toEqual({ 'lv-std': 8 });
+    expect(s.message).toBe('Courtside deleted; its seats are now Standard');
+  });
+
+  it('keeps an override that differs from its new parent', () => {
+    let s = reduce(loaded(), { type: 'addLevel' });
+    const upper = doc(s).levels[2].id;
+    s = reduce(s, { type: 'deleteLevel', id: 'lv-court', replacement: upper });
+    const [a] = doc(s).sections;
+    expect(a.rows[1].levelId).toBe(upper);
+    expect(a.rows[0].seats[0].levelId).toBe(upper);
+  });
+
+  it('refuses to delete the last level', () => {
+    let s = reduce(initState(emptyDoc()), {
+      type: 'deleteLevel',
+      id: 'new:0',
+      replacement: 'new:0',
+    });
+    expect(doc(s).levels).toHaveLength(1);
+    expect(s.message).toBe("The last level can't be deleted");
+    s = reduce(loaded(), { type: 'deleteLevel', id: 'lv-court', replacement: 'lv-court' });
+    expect(doc(s).levels).toHaveLength(2);
+  });
+});
+
+describe('painting', () => {
+  it('paints selected sections: their section level', () => {
+    let s = reduce(loaded(), { type: 'selectSections', ids: ['s-101', 's-102'] });
+    s = reduce(s, { type: 'paint', levelId: 'lv-std' });
+    expect(doc(s).sections.map((x) => x.levelId)).toEqual(['lv-std', 'lv-std']);
+    expect(s.message).toBe('2 sections painted Standard');
+    // Rows and seats with their own level keep it.
+    expect(totals(doc(s)).byLevel).toEqual({ 'lv-court': 4, 'lv-std': 4 });
+  });
+
+  it('paints rows their own level, and a range of rows by label', () => {
+    let s = reduce(loaded(), { type: 'selectRows', sectionId: 's-101', ids: ['r-101-a'] });
+    s = reduce(s, { type: 'selectRowRange', sectionId: 's-101', toId: 'r-101-b' });
+    expect(s.selection).toEqual({ kind: 'rows', sectionId: 's-101', ids: ['r-101-a', 'r-101-b'] });
+    s = reduce(s, { type: 'paint', levelId: 'lv-court' });
+    expect(sec(s).rows.map((r) => r.levelId)).toEqual(['lv-court', 'lv-court']);
+    expect(s.message).toBe('Rows A–B painted Courtside');
+    expect(totals(doc(s)).byLevel).toEqual({ 'lv-court': 8, 'lv-std': 0 });
+  });
+
+  it('paints seats their own level, and Use section’s level clears it', () => {
+    let s = reduce(loaded(), { type: 'selectSeats', sectionId: 's-101', ids: ['st-a2'] });
+    s = reduce(s, { type: 'selectSeats', sectionId: 's-101', ids: ['st-a3'], add: true });
+    s = reduce(s, { type: 'paint', levelId: 'lv-court' });
+    expect(sec(s).rows[0].seats.map((x) => x.levelId)).toEqual([
+      'lv-court',
+      'lv-court',
+      'lv-court',
+    ]);
+    expect(s.message).toBe('2 seats painted Courtside');
+    s = reduce(s, { type: 'clearLevel' });
+    expect(sec(s).rows[0].seats.map((x) => x.levelId)).toEqual(['lv-court', null, null]);
+    expect(s.message).toBe("2 seats take the row's level");
+    s = reduce(s, { type: 'selectRows', sectionId: 's-101', ids: ['r-101-b'] });
+    s = reduce(s, { type: 'clearLevel' });
+    expect(sec(s).rows[1].levelId).toBeNull();
+    expect(s.message).toBe("Row B takes the section's level");
+  });
+
+  it('a seat selected twice with add is taken out', () => {
+    let s = reduce(loaded(), { type: 'selectSeats', sectionId: 's-101', ids: ['st-a2'] });
+    s = reduce(s, { type: 'selectSeats', sectionId: 's-101', ids: ['st-a2'], add: true });
+    expect(s.selection).toEqual({ kind: 'none' });
+  });
+
+  it('names one seat by its row and label', () => {
+    let s = reduce(loaded(), { type: 'selectSeats', sectionId: 's-101', ids: ['st-b3'] });
+    s = reduce(s, { type: 'paint', levelId: 'lv-std' });
+    expect(s.message).toBe('Row B, seat 3 painted Standard');
+  });
+
+  it('paints nothing without a selection', () => {
+    const s = loaded();
+    expect(reduce(s, { type: 'paint', levelId: 'lv-std' })).toBe(s);
   });
 });
