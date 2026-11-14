@@ -421,6 +421,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/locations/{id}/layouts/drawing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a new layout drawn in the layout editor
+         * @description Feature 039. Saves the layout a `LayoutDrawingInput` describes as a new layout of the
+         *     venue, all or nothing; `source` is `DRAWN`. Every `id` in the body, and `revision`, are
+         *     ignored, so the editor's **Save as a new layout** sends the same body it would have saved
+         *     over an existing layout. The body may be up to 4 MB, as `importVenueLayout`'s.
+         *
+         *     The Backend draws each section's outline around its seats and puts its name at the
+         *     outline's centroid; the map's size is everything drawn plus a margin. Checked as a whole
+         *     before anything is saved, as `importVenueLayout` checks a file: the limits of
+         *     `LayoutDrawingInput`, unique names and labels, levels named by their `key`, every place
+         *     from 0 to 5,000. Any problem refuses it with `400 LAYOUT_FILE_INVALID`, listing up to 50
+         *     problems in `details.problems`, each with its `path` in the body and a message naming the
+         *     section, row and seat. A name another layout of the venue has, ignoring case, is `409
+         *     LAYOUT_NAME_TAKEN`. The venue's capacity is set and checked as by `createVenueLayout`.
+         */
+        post: operations["createLayoutDrawing"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/layouts/{layoutId}": {
         parameters: {
             query?: never;
@@ -456,6 +491,9 @@ export interface paths {
          *     refused (`409 LAYOUT_IN_USE`, `details.events`, the message saying why for each) when an
          *     event would then have on-sale seats in a level it has no price for, no seat on sale, or a
          *     `maxTicketsPerCustomer` above its seats on sale.
+         *
+         *     Feature 039: a rename or a lines edit raises the layout's `revision` by one, so a layout
+         *     editor that read it before is refused (`saveLayoutDrawing`, `409 LAYOUT_CHANGED`).
          */
         put: operations["updateVenueLayout"];
         post?: never;
@@ -520,6 +558,58 @@ export interface paths {
          *     LAYOUT_NAME_TAKEN`.
          */
         post: operations["duplicateVenueLayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/layouts/{layoutId}/drawing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout. */
+                layoutId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A whole layout, for the layout editor
+         * @description Feature 039. Everything the editor needs to change the layout, every seat included: its
+         *     `revision`, whether it is `locked` and by which events, the floor object, its levels, and
+         *     each section's place (`origin`, `angle`), the values it was generated from (`generator`,
+         *     `null` when it was not), rows and seats with their ids and their **own** levels (`levelId`
+         *     is left out where a row or seat takes its section's or row's). A locked layout is still
+         *     returned, for the editor to show read-only.
+         */
+        get: operations["getLayoutDrawing"];
+        /**
+         * Save a layout from the layout editor
+         * @description Feature 039. Replaces the layout with the one the body describes, all or nothing, under
+         *     the checks of `createLayoutDrawing`. Every level, section, row and seat sent with its `id`
+         *     is **kept** (its id and what points at it: an event's price for a level, an event's
+         *     off-sale entry for a seat), even when renamed, relabelled, moved or repainted; a row or
+         *     seat must be sent under the section or row it belongs to (`400` otherwise). Anything of
+         *     the layout not sent is deleted, with its prices and off-sale entries; anything sent
+         *     without an `id` is new. Rows and seats are numbered by their order in the body. A
+         *     `LINES` layout becomes `DRAWN`. The layout's `revision` goes up by one.
+         *
+         *     Refused, nothing saved:
+         *     - `409 LAYOUT_CHANGED` when `revision` is not the layout's current one (another admin, or
+         *       another tab, saved it since it was read); `details.revision` is the current one.
+         *     - `409 LAYOUT_IN_USE` while the layout is `locked` (`details.events`).
+         *     - `409 LAYOUT_IN_USE` when a scheduled event using the layout would then have on-sale
+         *       seats in a level it has no price for, no seat on sale, or a `maxTicketsPerCustomer`
+         *       above its seats on sale (`details.events`, the message saying why for each).
+         *     - Name and capacity rules as `createVenueLayout`.
+         *
+         *     For every scheduled event using the layout, **new** seats go off sale for that event and
+         *     its `totalTicketCapacity`, `basePrice` and `priceMax` are recomputed. Viewers of events
+         *     that use it reload (`streamSeatMap` ends).
+         */
+        put: operations["saveLayoutDrawing"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2297,14 +2387,17 @@ export interface components {
             /** @example Basketball */
             name: string;
             /**
-             * @description Imported from a file, or made from section lines (only these take lines).
+             * @description Imported from a file, made from section lines (only these take lines), or, feature
+             *     039, drawn in the Admin app's layout editor (a `LINES` layout saved from the editor
+             *     becomes `DRAWN`; a `FILE` layout stays `FILE`).
              * @enum {string}
              */
-            source: "FILE" | "LINES";
+            source: "FILE" | "LINES" | "DRAWN";
             floorKind: components["schemas"]["FloorKind"];
             /**
-             * @description At most 30,000 for a layout imported or made from lines; a layout carried over from
-             *     before 038 ("Standard") may have more, up to the old limits (50 × 100 × 200).
+             * @description At most 30,000 for a layout imported, made from lines or drawn (feature 039); a layout
+             *     carried over from before 038 ("Standard") may have more, up to the old limits
+             *     (50 × 100 × 200).
              * @example 22090
              */
             seatCount: number;
@@ -2480,6 +2573,160 @@ export interface components {
             from: components["schemas"]["MapPoint"];
             to: components["schemas"]["MapPoint"];
             bend?: components["schemas"]["MapPoint"];
+        };
+        /**
+         * @description Feature 039. The values a section was generated from in the layout editor, kept for
+         *     Regenerate. Rows are labelled from `firstRow` in `rowLabels` style (letters: A … Z, AA …
+         *     ZZ, AAA …; numbers: 1, 2, …), front first; seats from `firstSeat` up, `direction` as seen
+         *     from the floor; `curve` is the arc of the front row in degrees (0 straight).
+         */
+        SectionGenerator: {
+            rows: number;
+            /** @description One number for every row, or one for each row front first. */
+            seatsPerRow: number[];
+            /** @enum {string} */
+            rowLabels: "LETTERS" | "NUMBERS";
+            /** @example A */
+            firstRow: string;
+            firstSeat: number;
+            /** @enum {string} */
+            direction: "LEFT_TO_RIGHT" | "RIGHT_TO_LEFT";
+            curve: number;
+        };
+        /** @description Feature 039. A whole layout as the layout editor reads it. */
+        LayoutDrawing: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            locationId: string;
+            name: string;
+            /** @enum {string} */
+            source: "FILE" | "LINES" | "DRAWN";
+            /** @description Goes up by one with every change to the layout; sent back on save. */
+            revision: number;
+            locked: boolean;
+            /** @description The scheduled events with valid tickets or live holds that lock it. */
+            lockedBy: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            }[];
+            floor: components["schemas"]["LayoutDrawingFloor"];
+            size: components["schemas"]["MapSize"];
+            /** @description By rank. */
+            levels: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                rank: number;
+                color: components["schemas"]["LevelColor"];
+            }[];
+            /** @description In drawing order. */
+            sections: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                /** Format: uuid */
+                levelId: string;
+                /** @description The point the section moves and turns about. */
+                origin: components["schemas"]["MapPoint"];
+                /** @description Degrees clockwise the editor has turned it; 0 for an imported section. */
+                angle: number;
+                generator: components["schemas"]["SectionGenerator"] | null;
+                outline: components["schemas"]["MapOutline"];
+                /** @description Front first. */
+                rows: {
+                    /** Format: uuid */
+                    id: string;
+                    label: string;
+                    /**
+                     * Format: uuid
+                     * @description The row's own level; left out when it takes the section's.
+                     */
+                    levelId?: string;
+                    /** @description In order. */
+                    seats: {
+                        /** Format: uuid */
+                        id: string;
+                        label: string;
+                        at: components["schemas"]["MapPoint"];
+                        /**
+                         * Format: uuid
+                         * @description The seat's own level; left out when it takes the row's.
+                         */
+                        levelId?: string;
+                        /** @description Left out when `false`. */
+                        accessible?: boolean;
+                    }[];
+                }[];
+            }[];
+        };
+        LayoutDrawingFloor: {
+            kind: components["schemas"]["FloorKind"];
+            /** @description Required unless `kind` is `NONE`, and left out then. */
+            outline?: components["schemas"]["MapOutline"];
+        };
+        /**
+         * @description Feature 039. A whole layout as the layout editor saves it. At most 100 sections, 100 rows
+         *     a section, 200 seats a row, 30,000 seats, 12 levels; every place from 0 to 5,000. No
+         *     outlines and no size: the Backend draws each section's outline around its seats and sizes
+         *     the map to fit (research R5 of spec 039).
+         */
+        LayoutDrawingInput: {
+            /** @description Required by `saveLayoutDrawing` (`400` without it); ignored on create. */
+            revision?: number;
+            name: string;
+            floor: components["schemas"]["LayoutDrawingFloor"];
+            /** @description Best first; the order gives each its rank. */
+            levels: {
+                /**
+                 * Format: uuid
+                 * @description A level of this layout, kept; left out for a new level.
+                 */
+                id?: string;
+                /** @description How sections, rows and seats of this body name the level. */
+                key: string;
+                name: string;
+                color: components["schemas"]["LevelColor"];
+            }[];
+            /** @description In drawing order. */
+            sections: {
+                /**
+                 * Format: uuid
+                 * @description Kept; left out for a new section.
+                 */
+                id?: string;
+                name: string;
+                /** @description A level `key`. */
+                level: string;
+                origin: components["schemas"]["MapPoint"];
+                angle: number;
+                generator?: components["schemas"]["SectionGenerator"] | null;
+                /** @description Front first; the order gives each row its number. */
+                rows: {
+                    /**
+                     * Format: uuid
+                     * @description Kept; left out for a new row.
+                     */
+                    id?: string;
+                    label: string;
+                    /** @description A level `key` */
+                    level?: string;
+                    /** @description In order; the order gives each seat its number. */
+                    seats: {
+                        /**
+                         * Format: uuid
+                         * @description Kept; left out for a new seat.
+                         */
+                        id?: string;
+                        label: string;
+                        at: components["schemas"]["MapPoint"];
+                        /** @description A level `key`, overriding the row's. */
+                        level?: string;
+                        accessible?: boolean;
+                    }[];
+                }[];
+            }[];
         };
         LevelPriceInput: {
             /** Format: uuid */
@@ -2773,7 +3020,7 @@ export interface components {
         ErrorEnvelope: {
             error: {
                 /** @enum {string} */
-                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "LAYOUT_NAME_TAKEN" | "LAYOUT_FILE_INVALID" | "SEAT_OFF_SALE" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED" | "CHECK_IN_DETAILS_REMOVED";
+                code: "UNAUTHENTICATED" | "FORBIDDEN" | "VALIDATION_FAILED" | "NOT_FOUND" | "SCHEDULING_CONFLICT" | "VENUE_HAS_EVENTS" | "CAPACITY_EXCEEDED" | "TIER_NAME_TAKEN" | "SOLD_OUT" | "EVENT_CANCELLED" | "EVENT_HAS_ORDERS" | "TIER_HAS_ORDERS" | "SALES_CLOSED" | "REQUEST_ID_REUSED" | "SEAT_TAKEN" | "LAYOUT_IN_USE" | "TICKET_LIMIT_REACHED" | "SEAT_COOLDOWN" | "RESERVATION_REQUIRED" | "LAYOUT_NAME_TAKEN" | "LAYOUT_FILE_INVALID" | "SEAT_OFF_SALE" | "LAYOUT_CHANGED" | "ADDRESS_NOT_FOUND" | "ADDRESS_AMBIGUOUS" | "ADDRESS_SERVICE_UNAVAILABLE" | "IMAGE_LIMIT_REACHED" | "IMAGE_TOO_LARGE" | "IMAGE_TYPE_NOT_ALLOWED" | "IMAGES_CHANGED" | "IMAGE_DIMENSIONS_TOO_LARGE" | "HOLDER_NAME_INVALID" | "TICKET_NOT_FOUND" | "ENTRY_REFUSED" | "LIVE_CODE_INVALID" | "LIVE_CODE_EXPIRED" | "TIME_ZONE_REQUIRED" | "TIME_ZONE_HAS_ORDERS" | "EVENT_TIME_NOT_IN_ZONE" | "LOCAL_TIME_SKIPPED" | "UTC_OFFSET_MISMATCH" | "DOORS_OPEN_OUT_OF_RANGE" | "RATE_LIMITED" | "CHECK_IN_DETAILS_REMOVED";
                 message: string;
                 details?: {
                     [key: string]: unknown;
@@ -3601,6 +3848,39 @@ export interface operations {
             413: components["responses"]["RequestTooLarge"];
         };
     };
+    createLayoutDrawing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The venue. */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayoutDrawingInput"];
+            };
+        };
+        responses: {
+            /** @description The new layout. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetail"];
+                };
+            };
+            400: components["responses"]["LayoutFileRejected"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
+        };
+    };
     getVenueLayout: {
         parameters: {
             query?: never;
@@ -3743,6 +4023,66 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+        };
+    };
+    getLayoutDrawing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout. */
+                layoutId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The layout, seat by seat. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDrawing"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    saveLayoutDrawing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The layout. */
+                layoutId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LayoutDrawingInput"];
+            };
+        };
+        responses: {
+            /** @description The saved layout. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LayoutDetail"];
+                };
+            };
+            400: components["responses"]["LayoutFileRejected"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["RequestTooLarge"];
         };
     };
     listEvents: {

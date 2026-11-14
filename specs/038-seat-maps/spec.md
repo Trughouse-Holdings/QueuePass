@@ -374,6 +374,10 @@ map shows each change within 2 seconds.
   seats off sale for those events and recompute their capacity and prices, and MUST be refused,
   naming the event, when an event would then have on-sale seats in a level it has no price for, no
   seat on sale, or a per-customer limit above its seats on sale.
+  _Amended 2026-11-14 by spec `039`, FR-002 and FR-021: any layout that is not locked, imported,
+  from section lines or drawn, can also be edited in the Admin app's layout editor, which keeps the
+  identity of every section, row and seat the admin did not delete; section lines still apply only
+  to a section-line layout, which becomes drawn once saved from the editor._
 - **FR-007**: The venue page MUST list each layout's name, seat count, section count, level count,
   and the number of scheduled events using it, with a preview of its map.
 - **FR-008**: Layout changes MUST require `queuepass-admin`. A layout's map, without who holds any
@@ -535,6 +539,8 @@ map shows each change within 2 seconds.
   (Clarifications).
 - The drawing editor (block generator, drag and rotate, price-level painting by hand) is spec `039`.
   Until it merges, a layout's row and seat level overrides come from its file.
+  _Amended 2026-11-14 by spec `039`: the layout editor also sets row and seat levels, by
+  painting._
 - The Rust Admin and Customer apps (`037` and its Customer counterpart) are not changed here; `037`'s
   seating screens follow this spec's (research R22). Whether
   they must also get seat maps is an open question for John.

@@ -87,8 +87,8 @@ opens full page with an empty map, one price level, "Standard", and a floor obje
 rows, 20 seats per row, rows labelled A, B, C…, first seat 1, curve "medium". The editor draws a
 curved block of 240 seats; she drags it beside the court and turns it with the rotate handle until
 it faces the floor. She adds "102" with seats per row "16, 16, 18, 18, 20, 20" and puts it in the
-corner. The side panel reads "2 sections · 336 seats". She names the layout "Basketball", saves, and
-the Layouts card lists "Basketball · 336 seats · 2 sections · 1 price level · used by 0 events".
+corner. The side panel reads "2 sections · 348 seats". She names the layout "Basketball", saves, and
+the Layouts card lists "Basketball · 348 seats · 2 sections · 1 price level · used by 0 events".
 
 **Why this priority**: This is the editor. Without it, an arena-shaped layout can only come from a
 file made outside the app.
@@ -124,10 +124,10 @@ where the editor showed it.
 ### User Story 2 - An admin paints price levels on sections, rows and seats (Priority: P1)
 
 Avery adds three more levels, "Courtside", "Lower sideline" and "Upper", each with a color, and
-drags them into order from best to worst. With **Lower sideline** chosen, she clicks sections 101
-and 103; they fill with its color. She zooms into 101, selects rows A–D by their labels and paints
+moves them into order from best to worst. With **Lower sideline** chosen, she selects sections
+101 and 102 and paints; they fill with its color. She zooms into 101, selects rows A–D by their labels and paints
 them **Courtside**. She selects two seats on the aisle and paints them **Upper** for a blocked view.
-The side panel reads "Courtside 80 · Lower sideline 400 · Upper 2 · Standard 96". She deletes the
+The side panel reads "Courtside 80 · Lower sideline 266 · Upper 2 · Standard 0". She deletes the
 unused "Standard" level and saves.
 
 **Why this priority**: John's "gradients of desirability" are what makes an event's price per level
@@ -140,8 +140,8 @@ schedule an event on it and confirm the price table lists the levels with those 
 **Acceptance Scenarios**:
 
 1. **Given** the Levels panel, **When** the admin adds a level, **Then** it gets a name, a color from
-   the shared level colors, and a rank by its place in the list, and dragging (or moving it up or
-   down) reorders the ranks.
+   the shared level colors, and a rank by its place in the list, and moving it up or down
+   reorders the ranks.
 2. **Given** a chosen level and one or more selected sections, **When** the admin paints, **Then**
    each section's level becomes that level, and its rows and seats without a level of their own take
    its color.

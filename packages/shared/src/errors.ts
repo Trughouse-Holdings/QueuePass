@@ -84,6 +84,9 @@ export const ERROR_CODES = [
   'LAYOUT_NAME_TAKEN',
   'LAYOUT_FILE_INVALID',
   'SEAT_OFF_SALE',
+  // Spec 039: a layout saved from the editor was changed since the editor read it. Added ahead of
+  // the implementation, so the list matches the contract.
+  'LAYOUT_CHANGED',
 ] as const;
 
 export type ErrorCode = (typeof ERROR_CODES)[number];
