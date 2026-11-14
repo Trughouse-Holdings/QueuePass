@@ -827,6 +827,36 @@ describe('Layout drawings (039)', () => {
     });
   });
 
+  // --------------------------------------------------------------------------- SC-003 times
+
+  // SC-003, research R17: the largest Yum! Center layout read whole within 3 s and saved within
+  // 5 s, with every seat moved (a section dragged) and every id kept.
+  it("reads and saves the Yum! Center Basketball layout's 22,090 seats within SC-003's times", async () => {
+    const file = JSON.parse(
+      readFileSync(join(__dirname, '../../src/scripts/layouts/yum-center-basketball.json'), 'utf8'),
+    );
+    const layout = (await importFile(file).expect(201)).body;
+    let started = Date.now();
+    const d = await drawing(layout.id);
+    const readMs = Date.now() - started;
+    const body = drawingToInput(d as never) as Json;
+    for (const s of body.sections) {
+      s.origin = [s.origin[0] + 1, s.origin[1]];
+      for (const r of s.rows) for (const seat of r.seats) seat.at = [seat.at[0] + 1, seat.at[1]];
+    }
+    started = Date.now();
+    const res = await save(layout.id, body).expect(200);
+    const saveMs = Date.now() - started;
+    expect(res.body.seatCount).toBe(22_090);
+    expect(readMs).toBeLessThan(3_000);
+    expect(saveMs).toBeLessThan(5_000);
+    const after = await drawing(layout.id);
+    expect(after.sections[0].rows[0].seats[0]).toMatchObject({
+      id: d.sections[0].rows[0].seats[0].id,
+      at: [d.sections[0].rows[0].seats[0].at[0] + 1, d.sections[0].rows[0].seats[0].at[1]],
+    });
+  }, 60_000);
+
   // -------------------------------------------------------------------------------- capacity
 
   it("refuses a save that lowers the venue's largest layout below a scheduled general-admission event's capacity", async () => {
