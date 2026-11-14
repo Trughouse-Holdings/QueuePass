@@ -325,7 +325,7 @@
    /events/{id}/venue-map:
      parameters:
        - name: id
-@@ -1527,18 +1384,15 @@
+@@ -1527,19 +1384,16 @@
        tags: [seating]
        summary: Live updates of the event's seat map
        description: |
@@ -337,13 +337,15 @@
 -        snapshot. The stream ends when the access token expires; reconnect at once with a current
 -        one. It also ends when the event's seating or its venue's layout changes; reconnect at
 -        once for a new snapshot. It also ends when the event is deleted; a reconnect then gets
--        `404`.
+-        `404`. Feature 038: a general-admission event has no venue map, so its stream is `404`
+-        too.
 +        A Server-Sent Events stream of the event's seat map (feature 015). After the first event,
 +        each `event: seats` carries a `SeatMapChange`: seats that became open, reserved, sold, or
 +        off sale, sent within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15
 +        seconds. No event ever names a customer. A client that loses the stream reconnects and
 +        gets a fresh map. The stream ends when the access token expires; reconnect at once with a
-+        current one. It also ends when the event is deleted; a reconnect then gets `404`.
++        current one. It also ends when the event is deleted; a reconnect then gets `404`. A
++        general-admission event has no venue map, so its stream is `404` too.
  
          Feature 038: the stream begins with `event: venueMap`, whose `data` is the `VenueMap`, as
 -        from `getVenueMap`, in place of `snapshot` (retired). Each `seats` message carries the
@@ -351,7 +353,7 @@
          event's seat-change sequence number `seq`, and each change the seat's `levelId` and the
          state it left (`from`). A client keeps the venue map's counts by adding 1 to `state` and
          taking 1 from `from` for that level, for messages whose `seq` is greater than the map's
-@@ -1550,9 +1404,6 @@
+@@ -1551,9 +1405,6 @@
        operationId: streamSeatMap
        x-required-roles: []
        x-sse-events:
@@ -361,7 +363,7 @@
          venueMap:
            $ref: '#/components/schemas/VenueMap'
            x-planned: '038'
-@@ -1561,18 +1412,18 @@
+@@ -1562,18 +1413,18 @@
        responses:
          '200':
            description: |
@@ -384,7 +386,7 @@
          '400': { $ref: '#/components/responses/ValidationFailed' }
          '401': { $ref: '#/components/responses/Unauthenticated' }
          '404': { $ref: '#/components/responses/NotFound' }
-@@ -1606,45 +1457,6 @@
+@@ -1607,45 +1458,6 @@
          '401': { $ref: '#/components/responses/Unauthenticated' }
          '403': { $ref: '#/components/responses/Forbidden' }
          '404': { $ref: '#/components/responses/NotFound' }
@@ -430,7 +432,7 @@
    /events/{id}/reservation:
      parameters:
        - name: id
-@@ -1662,10 +1474,9 @@
+@@ -1663,10 +1475,9 @@
          any refusal reserves no seat. Feature 033: the Customer app sends one seat per request, as
          each seat is clicked, one request at a time.
  
@@ -444,24 +446,23 @@
          still get under the event's `maxTicketsPerCustomer`, counting valid tickets only
          (`409 TICKET_LIMIT_REACHED`; `details.requested` is the seats the reservation would then
          hold).
-@@ -1684,14 +1495,9 @@
+@@ -1685,13 +1496,8 @@
          taken and waiting is refused as `SEAT_TAKEN`. No seat is ever in two active reservations, or
          in one and on a valid ticket, including under concurrent requests.
  
 -        There is no `tierId` in the request: the reservation's tier is the tier of the sections its
 -        seats are in (`null` for an event without tiers), and is returned as `tierId`.
-+        Feature 038: one reservation may hold seats of several price levels, still at most 10.
-+        `tierId` is always `null`. Each reserved seat says its labels, level and current price.
- 
+-
 -        Feature 038: a seat is any seat of the event's layout (`400` otherwise), of any price
 -        level: one reservation may hold seats of several levels, still at most 10. A seat off sale
 -        for the event is `409 SEAT_OFF_SALE` (`details.seats`). `tierId` is always `null`. Each
 -        reserved seat says its labels, level and current price.
--
++        Feature 038: one reservation may hold seats of several price levels, still at most 10.
++        `tierId` is always `null`. Each reserved seat says its labels, level and current price.
+ 
          Feature 026: a seat-hold attempt (`x-attempt-limit: HOLD`), new or adding seats, however
          many seats it names. Over the caller's hold allowance it is refused with `429 RATE_LIMITED`
-         (`details.action: HOLD`) before any rule above is checked: no seat is reserved, and the
-@@ -1790,8 +1596,7 @@
+@@ -1791,8 +1597,7 @@
          (`409 REQUEST_ID_REUSED`). Without a `requestId`, every request places a new order.
  
          Feature 007: an event with reserved seating requires `seats`, exactly `quantity` distinct
@@ -471,7 +472,7 @@
          already taken by valid tickets are refused (`409 SEAT_TAKEN`, `details.seats`). No seat is
          ever held by two valid tickets, including under concurrent requests. A repeated
          `requestId` must also name the same seats.
-@@ -1810,15 +1615,12 @@
+@@ -1811,15 +1616,12 @@
          customer's reservation is `409 SEAT_TAKEN` (with `details.reserved`); any other seat is
          `409 RESERVATION_REQUIRED` (`details.seats`; `details.expired` is `true` when the
          caller's reservation ran out). Bought seats leave the reservation; seats not bought stay
@@ -489,7 +490,7 @@
  
          Feature 017: `holderName` is the buyer's own name, printed on every ticket of the order
          and checked against their ID at the gate. It is trimmed of leading and trailing spaces,
-@@ -2531,6 +2333,8 @@
+@@ -2532,6 +2334,8 @@
            status,
            cancelledAt,
            reservedSeating,
@@ -498,7 +499,7 @@
            checkInDetailsRemovedAt,
            createdAt,
            updatedAt,
-@@ -2541,21 +2345,21 @@
+@@ -2542,21 +2346,21 @@
          reservedSeating:
            type: boolean
            description: |
@@ -524,7 +525,7 @@
            example: '95.00'
          status:
            type: string
-@@ -2670,14 +2474,6 @@
+@@ -2671,14 +2475,6 @@
              `totalTicketCapacity` (`400` otherwise).
          basePrice:
            { type: string, pattern: '^\d+(\.\d{1,2})?$', description: Non-negative decimal string. }
@@ -539,7 +540,7 @@
          tiers:
            type: array
            maxItems: 50
-@@ -2729,9 +2525,9 @@
+@@ -2730,9 +2526,9 @@
        type: object
        required: [name, price]
        description: |
@@ -552,7 +553,7 @@
          Feature 035: optional `id` (a UUID) is allowed only on `updateEvent`, where it names an
          existing ticket type of that event to keep and update. On `createEvent` it is
          `400 VALIDATION_FAILED` (`tiers.<i>.id`). Not `null`.
-@@ -2755,21 +2551,8 @@
+@@ -2756,21 +2552,8 @@
            type: integer
            minimum: 1
            description: |
@@ -575,7 +576,7 @@
      EventUpdate:
        type: object
        minProperties: 1
-@@ -2808,14 +2591,6 @@
+@@ -2809,14 +2592,6 @@
            minimum: 1
            description: Feature 016. `null` clears the limit.
          basePrice: { type: string, pattern: '^\d+(\.\d{1,2})?$' }
@@ -590,7 +591,7 @@
          tiers:
            type: array
            maxItems: 50
-@@ -2935,8 +2710,7 @@
+@@ -2936,8 +2711,7 @@
            minimum: 0
            example: 500
            description: |
@@ -600,7 +601,7 @@
          createdAt: { type: string, format: date-time }
          updatedAt: { type: string, format: date-time }
  
-@@ -2975,7 +2749,7 @@
+@@ -2976,7 +2750,7 @@
      Ticket:
        description: One seat. The code is unique and unguessable (feature 005).
        type: object
@@ -609,7 +610,7 @@
        properties:
          id: { type: string, format: uuid }
          code: { type: string, pattern: '^[A-Z2-9]{12}$', example: 7KQ2M9XWAB4C }
-@@ -2997,13 +2771,13 @@
+@@ -2998,13 +2772,13 @@
            pattern: '^\d+\.\d{2}$'
            description: |
              Feature 038. What this ticket cost: its seat's level price when bought, or its order's
@@ -625,7 +626,7 @@
            example: Lower sideline
  
      Order:
-@@ -3044,12 +2818,12 @@
+@@ -3045,12 +2819,12 @@
              before feature 017.
          quantity: { type: integer, minimum: 1, maximum: 10 }
          unitPrice:
@@ -641,11 +642,10 @@
          totalPrice: { type: string, pattern: '^\d+\.\d{2}$', example: '45.00' }
          status: { type: string, enum: [CONFIRMED, REFUNDED] }
          createdAt: { type: string, format: date-time }
-@@ -3204,56 +2978,7 @@
-           type: integer
+@@ -3206,55 +2980,6 @@
            minimum: 0
            description: The tier's quantity minus its valid tickets, never more than the event has left.
--
+ 
 -    Section:
 -      description: One block of a venue's seating layout (feature 007).
 -      type: object
@@ -687,7 +687,7 @@
 -        sections:
 -          type: array
 -          items: { $ref: '#/components/schemas/Section' }
- 
+-
 -    SeatPosition:
 -      type: object
 -      required: [row, seat]
@@ -698,7 +698,7 @@
      SeatChoice:
        description: |
          A seat a customer chooses when ordering (feature 007). Feature 038: `row` is the row's
-@@ -3271,7 +2996,7 @@
+@@ -3272,7 +2997,7 @@
          A sold seat, by its section's name when sold (feature 007). Feature 038: `row` and `seat`
          are numbers; show `rowLabel` and `seatLabel`, the labels when sold ("Row AA, Seat 101").
        type: object
@@ -707,7 +707,7 @@
        properties:
          section: { type: string, example: A }
          row: { type: integer, minimum: 1, example: 3 }
-@@ -3280,53 +3005,19 @@
+@@ -3281,53 +3006,19 @@
            type: string
            minLength: 1
            maxLength: 5
@@ -764,7 +764,7 @@
        properties:
          eventId: { type: string, format: uuid }
          seq:
-@@ -3334,10 +3025,8 @@
+@@ -3335,10 +3026,8 @@
            minimum: 1
            description: |
              Feature 038. The event's seat-change sequence number after this change: one more for
@@ -776,7 +776,7 @@
          changes:
            type: array
            minItems: 1
-@@ -3346,7 +3035,7 @@
+@@ -3347,7 +3036,7 @@
      SeatStateChange:
        description: One seat's new state. Never says who reserved or bought it (feature 015).
        type: object
@@ -785,7 +785,7 @@
        properties:
          sectionId: { type: string, format: uuid }
          row: { type: integer, minimum: 1 }
-@@ -3354,11 +3043,11 @@
+@@ -3355,11 +3044,11 @@
          state: { $ref: '#/components/schemas/SeatState' }
          from:
            $ref: '#/components/schemas/SeatState'
@@ -799,7 +799,7 @@
  
      SeatState:
        type: string
-@@ -3370,7 +3059,7 @@
+@@ -3371,7 +3060,7 @@
      ReservedSeat:
        description: A seat in a reservation, by section id and by its section's name (feature 015).
        type: object
@@ -808,7 +808,7 @@
        properties:
          sectionId: { type: string, format: uuid }
          section: { type: string, example: A }
-@@ -3378,22 +3067,21 @@
+@@ -3379,22 +3068,21 @@
          seat: { type: integer, minimum: 1, example: 5 }
          rowLabel:
            type: string
@@ -835,7 +835,7 @@
            example: '60.00'
  
      Reservation:
-@@ -3407,7 +3095,7 @@
+@@ -3408,7 +3096,7 @@
          tierId:
            type: [string, 'null']
            format: uuid
@@ -844,7 +844,7 @@
          seats:
            type: array
            minItems: 1
-@@ -3466,22 +3154,6 @@
+@@ -3467,22 +3155,6 @@
            type: integer
            minimum: 0
            description: How many reserved seats were released, across every event.
@@ -867,7 +867,7 @@
  
      LevelColor:
        type: string
-@@ -3890,7 +3562,8 @@
+@@ -3891,7 +3563,8 @@
      VenueMap:
        description: Feature 038. An event's venue map, by section (`getVenueMap`).
        type: object
@@ -877,7 +877,7 @@
        properties:
          eventId: { type: string, format: uuid }
          seq:
-@@ -3898,7 +3571,7 @@
+@@ -3899,7 +3572,7 @@
            minimum: 0
            description: |
              The event's seat-change sequence number this map was read at. Apply only the
@@ -886,7 +886,7 @@
          layoutId: { type: string, format: uuid }
          layoutName: { type: string }
          size: { $ref: '#/components/schemas/MapSize' }
-@@ -3950,15 +3623,14 @@
+@@ -3951,15 +3624,14 @@
      VenueMapSection:
        description: Feature 038. One section of an event's venue map, seat by seat.
        type: object
@@ -904,7 +904,7 @@
          sectionId: { type: string, format: uuid }
          name: { type: string }
          rows:
-@@ -4035,6 +3707,7 @@
+@@ -4036,6 +3708,7 @@
            checkInDetailsRemovedAt,
            revenue,
            tiers,
@@ -912,7 +912,7 @@
          ]
        properties:
          eventId: { type: string, format: uuid }
-@@ -4070,7 +3743,7 @@
+@@ -4071,7 +3744,7 @@
            type: array
            description: |
              Feature 038. A seated event's sales by price level (its `tiers` is empty); empty for
@@ -921,7 +921,7 @@
            items: { $ref: '#/components/schemas/LevelSales' }
  
      SalesReport:
-@@ -4117,6 +3790,7 @@
+@@ -4118,6 +3791,7 @@
            state,
            event,
            tierName,
@@ -929,7 +929,7 @@
            seat,
            holderName,
            usedAt,
-@@ -4151,8 +3825,7 @@
+@@ -4152,8 +3826,7 @@
          levelName:
            type: [string, 'null']
            description: |
@@ -939,7 +939,7 @@
          seat:
            oneOf:
              - $ref: '#/components/schemas/SeatLabel'
-@@ -4474,16 +4147,6 @@
+@@ -4475,16 +4148,6 @@
                    details:
                      fields:
                        - tiers.0.id is not a ticket type of this event
@@ -956,7 +956,7 @@
      OrderRejected:
        description: |
          Request shape or field validation failed (`VALIDATION_FAILED`), or, feature 017, the
-@@ -4854,14 +4517,14 @@
+@@ -4855,14 +4518,14 @@
                    details:
                      field: tiers
                      orderCount: 2

@@ -888,7 +888,8 @@ export interface paths {
          *     off sale, sent within 2 seconds of the change. `event: ping` (`data: {}`) arrives every 15
          *     seconds. No event ever names a customer. A client that loses the stream reconnects and
          *     gets a fresh map. The stream ends when the access token expires; reconnect at once with a
-         *     current one. It also ends when the event is deleted; a reconnect then gets `404`.
+         *     current one. It also ends when the event is deleted; a reconnect then gets `404`. A
+         *     general-admission event has no venue map, so its stream is `404` too.
          *
          *     Feature 038: the stream begins with `event: venueMap`, whose `data` is the `VenueMap`, as
          *     from `getVenueMap`. Each `seats` message carries the

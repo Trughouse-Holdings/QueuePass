@@ -186,7 +186,7 @@ A seat of a seated event is in exactly one state, decided under the event lock:
 | --- | --- |
 | `offSale` | an `EventOffSaleSeat` row exists |
 | `sold` | a `VALID` ticket points at it |
-| `reserved` (held) | a live hold of an active reservation points at it (`015`) |
+| `reserved` (held) | a live hold (`releasedAt` NULL) points at it (`015`): a hold whose reservation has run out stays `reserved` until the sweep ends it, so the map and the sweep's change (a higher `seq`) never disagree (R12; from T034) |
 | `open` | none of these |
 
 Every transaction below increments `Event.seatSeq` once, under the event lock.
