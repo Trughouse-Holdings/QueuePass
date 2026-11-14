@@ -121,7 +121,8 @@ confirm they **fail** before its implementation tasks.
   `("eventId", "seatId")`.
 - [X] T004 [P] `backend/test/unit/seat-levels.spec.ts` (R1, FR-003): the resolution helper picks the
   seat's own level, else the row's, else the section's; and `backend/test/unit/layout-lines.spec.ts`
-  (R6): `n` section lines placed in `ceil(√n)` columns in order, each rectangle `seatsPerRow × 2 + 4`
+  (R6): `n` section lines placed in `ceil(√n)` columns in order, each cell as large as the largest
+  section, each rectangle `seatsPerRow × 2 + 4`
   units wide and `rows × 2 + 4` high with 8 units between, seats 2 units apart, `size` the grid's
   bounds; and `backend/test/unit/seat-runs.spec.ts` (R5): a run `{first, count, from, to}` gives
   `count` seats labelled `first…first+count−1` evenly from `from` to `to`, with `bend` on a quadratic
@@ -147,8 +148,8 @@ confirm they **fail** before its implementation tasks.
   `outline` JSONB, `labelX`/`labelY` REAL, without `locationId`/`rows`/`seatsPerRow`; `Event.layoutId`
   (nullable, RESTRICT), `Event.seatSeq` (BIGINT, default 0, "≥ 0"); `Ticket.seatId` (nullable, SET NULL), `seatRowLabel`, `seatLabel` VARCHAR(5),
   `levelName` VARCHAR(50) nullable, `price` DECIMAL(10,2) required; `Order.unitPrice` nullable;
-  `SeatHold.seatId` (nullable, SET NULL); `SectionTier` removed. The level foreign keys of `Section`, `SeatRow` and `Seat` are `NO ACTION`
-  (`onDelete: NoAction`), not `RESTRICT` (R7). Comments cite 038 and data-model.md.
+  `SeatHold.seatId` (nullable, SET NULL); `SectionTier` removed. The level foreign keys: `SeatRow.levelId` and `Seat.levelId` `onDelete: SetNull`;
+  `Section.levelId` `NoAction`, made `DEFERRABLE INITIALLY DEFERRED` in the migration SQL (R7). Comments cite 038 and data-model.md.
   **Done** (2026-11-13): every model, field, type, limit and `onDelete` as data-model.md.
   `prisma migrate diff --from-migrations … --to-schema-datamodel` against a fresh PostgreSQL 17 is
   empty. The composite foreign keys need unique targets: `PriceLevel (layoutId, id)`
@@ -243,6 +244,29 @@ confirm they **fail** before its implementation tasks.
   labels (`ticket_seat_all_or_none`); `rate-limits.buy` as T001. Builds: Admin and Customer apps (as
   planned), and the Booth app, whose type check includes `packages/shared/src/web/seat-stream.ts`
   and `use-seat-stream.ts` (`SeatMap`, `getSeatMap`; T039).
+- [ ] T009a Keep the branch's general-admission suites green after step 2, and give every retired-
+  seating test an owner (added after T009, 2026-11-13):
+  - **Level foreign keys** in `backend/prisma/migrations/<timestamp>_seat_maps/migration.sql` and
+    `schema.prisma` as data-model.md now says: `SeatRow.levelId` and `Seat.levelId` `ON DELETE SET
+    NULL`; `Section.levelId` `NO ACTION DEFERRABLE INITIALLY DEFERRED` (R7). Add to T003's test: a
+    layout whose rows and seats have levels of their own is deleted in one statement, and so is its
+    venue.
+  - **Serve the required 2.0.0 fields that need no new behavior**, so every general-admission suite
+    passes: `Event.priceMax` (`null` for general admission; for a seated event the highest price of a
+    level with seats on sale, read from `EventLevelPrice` and `EventOffSaleSeat`); `Ticket.price`,
+    `Ticket.levelName` and `SeatLabel.rowLabel`/`seatLabel` (from the ticket's columns, in every
+    response that has a ticket); `EntryTicket.levelName`; `EventSales.levels` (`[]` for general
+    admission; for a seated event its levels, tickets sold and revenue grouped by `Ticket.levelName`
+    as sold, R17). `Event.seatSeq` is never sent (a BigInt).
+  - **Retired-seating tests**: delete the cases that test the section-to-type mapping from
+    `backend/test/unit/event-setup.spec.ts`, `events.create-setup.e2e-spec.ts`,
+    `events.create-setup.concurrency.e2e-spec.ts` and `events.update-setup.e2e-spec.ts` (T020 adds
+    their layout versions); move `orders.holder-name.e2e-spec.ts`'s seated cases to T028's
+    `seatedEvent` helper (or delete them here and add them back in T028); `seats.concurrency` is
+    rewritten by T029; `demo-reset.ts`'s `LABELS` list the new tables in place of `Section` and
+    `SectionTier`; `entry.lookup.e2e-spec.ts` writes its seated ticket with labels and a `seatId`.
+  - After it: every Backend suite passes except those whose seated setup a later task rewrites
+    (each named in that task), listed in this task's Done note with their owner.
 
 **Checkpoint**: the database carries today's data over; one seating model, contract 2.0.0; the
 helpers pass their tests.
@@ -698,7 +722,7 @@ Phase 2 ─┬─ US1 ── US2 ── US3 (Backend) ─┬─ US5 (T046–T047
 
 ## Parallel examples
 
-- **Phase 2**: T003 and T004 together; then T005 → T006 while T007 runs; T008; then T009.
+- **Phase 2**: T003 and T004 together; then T005 → T006 while T007 runs; T008; then T009, T009a.
 - **US1**: T010, T011, T012, T013 together; T018 beside T014–T017.
 - **US2**: T020, T021, T022 together.
 - **US3**: T026–T033 together (eight test files in four workspaces); T038 beside T034–T037.

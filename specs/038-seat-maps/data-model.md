@@ -48,7 +48,7 @@ Moves from the venue to a layout (FR-002). Existing ids are kept (R16).
 | `id` | UUID | kept from `007` |
 | `layoutId` | UUID → `Layout` | `ON DELETE CASCADE`; replaces `locationId` |
 | `name` | VARCHAR(50) | unique per layout ignoring case (`section_name_unique_per_layout`, replaces `section_name_unique_per_venue`) |
-| `levelId` | UUID → `PriceLevel` | required; the default level of its rows and seats; `NO ACTION` (not `RESTRICT`, so a layout delete cascades through levels and sections, R7) |
+| `levelId` | UUID → `PriceLevel` | required; the default level of its rows and seats; `NO ACTION DEFERRABLE INITIALLY DEFERRED`, checked at commit, so a layout delete cascades through its levels and sections (R7) |
 | `outline` | JSONB | `[[x, y], …]`, 3–64 points |
 | `labelX`, `labelY` | REAL | where its name is drawn (the outline's centroid unless the file says) |
 | `position` | INT | drawing and list order; unique per layout |
@@ -64,7 +64,7 @@ composite foreign key `(layoutId, levelId) → PriceLevel(layoutId, id)`.
 | `sectionId` | UUID → `Section` | `ON DELETE CASCADE` |
 | `number` | INT | 1 = front; 1–100; unique per section (`seat_row_number_unique`) |
 | `label` | VARCHAR(5) | 1–5 characters; unique per section (`seat_row_label_unique`) |
-| `levelId` | UUID → `PriceLevel`, nullable | the row's own level, overriding its section's; `NO ACTION` |
+| `levelId` | UUID → `PriceLevel`, nullable | the row's own level, overriding its section's; `ON DELETE SET NULL` (an override to a deleted level falls back to the section's) |
 
 ### Seat
 
@@ -76,7 +76,7 @@ composite foreign key `(layoutId, levelId) → PriceLevel(layoutId, id)`.
 | `number` | INT | 1–200; order in the row; unique per row (`seat_number_unique`) |
 | `label` | VARCHAR(5) | 1–5 characters; unique per row (`seat_label_unique`) |
 | `x`, `y` | REAL | place in map units, inside the layout's size |
-| `levelId` | UUID → `PriceLevel`, nullable | the seat's own level; `NO ACTION` |
+| `levelId` | UUID → `PriceLevel`, nullable | the seat's own level; `ON DELETE SET NULL` (falls back to the row's, else the section's) |
 | `accessible` | BOOLEAN | default `false`; no behavior until #57 |
 
 Index `(sectionId)`. **A seat's level** is `COALESCE(Seat.levelId, SeatRow.levelId,

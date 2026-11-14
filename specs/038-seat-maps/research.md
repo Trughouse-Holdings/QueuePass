@@ -173,7 +173,7 @@ check the Backend doesn't make anyway). Rejected.
 {
   "format": 1,
   "name": "Basketball",
-  "floor": { "kind": "court", "outline": [[350,230],[650,230],[650,410],[350,410]] },
+  "floor": { "kind": "COURT", "outline": [[350,230],[650,230],[650,410],[350,410]] },
   "size": { "width": 1000, "height": 640 },
   "levels": [
     { "key": "courtside", "name": "Courtside", "rank": 1, "color": "violet" },
@@ -224,9 +224,11 @@ ticket seller's map (undocumented, and their terms forbid taking it, D6; rejecte
 
 **Decision**: `createVenueLayout` takes a name, 1–12 levels (`name`, `color`; rank by order) and
 1–100 section lines (`name`, `rows`, `seatsPerRow`, `level` by name). It places sections in a grid
-of `ceil(√n)` columns, in line order, each a rectangle `seatsPerRow × 2 + 4` units wide and `rows ×
-2 + 4` high with 8 units between, rows labelled 1, 2, 3… and seats 1, 2, 3…, `floor.kind: none`
-(FR-005). `updateVenueLayout` with lines replaces them, **keeping** the id of every level, section,
+of `ceil(√n)` columns, in line order, left to right then down, every cell as large as the largest
+section (`seatsPerRow × 2 + 4` units wide, `rows × 2 + 4` high) with 8 units between cells; seats
+2 units apart, 3 units in from the section's edge, row 1 at the top; rows labelled 1, 2, 3… and seats
+1, 2, 3…, `floor.kind: NONE` (FR-005). The carry-over migration places seats the same way (R16), and
+both are tested seat by seat (T004, T003). `updateVenueLayout` with lines replaces them, **keeping** the id of every level, section,
 row and seat whose name or label is unchanged, so an event's prices and off-sale seats on a layout
 nobody has bought from survive an edit; levels, sections, rows and seats that are gone are deleted
 with their prices and off-sale entries. For every scheduled event using the layout, **new** seats
@@ -261,9 +263,12 @@ UPDATE`, then the **layout** row, then every scheduled event using it, in id ord
 whose foreign key takes a `KEY SHARE` lock on it; that is safe only because the venue lock comes
 first. Holds, orders and the sweep lock only the event and never a layout or venue. Foreign keys
 back the rules: `Event.layoutId` is `RESTRICT`; a seat a valid ticket or a live hold points at cannot
-be deleted (R10); the level foreign keys of `Section`, `SeatRow` and `Seat` are `NO ACTION`, not
-`RESTRICT`, so deleting a layout cascades through its levels and sections without a mid-cascade
-refusal (review M6).
+be deleted (R10); the level foreign keys are set so that deleting a layout cascades through its levels, sections,
+rows and seats in one statement (review M6; corrected after T009 found `NO ACTION` is checked before
+the cascade reaches rows and seats): `SeatRow.levelId` and `Seat.levelId` are `ON DELETE SET NULL` (an
+own level that is deleted falls back, FR-003), and `Section.levelId` is `NO ACTION DEFERRABLE
+INITIALLY DEFERRED`, checked at commit (a section always keeps a level; a lines edit that removes a
+level still used by a section is refused by the Backend first).
 
 The venue's `seatingCapacity` is its largest layout's seat count, set by every layout write; a
 layout write that would lower it below a scheduled general-admission event's `totalTicketCapacity`
