@@ -479,3 +479,38 @@ describe('the layout editor from the Layouts card (spec 039)', () => {
     expect(link).toHaveAttribute('href', `${PATH}/layouts/new`);
   });
 });
+
+describe('Edit and View (spec 039 US3, T047)', () => {
+  const DRAWN = summary({ id: 'l-drawn', name: 'Drawn bowl', source: 'DRAWN' });
+
+  it('an unlocked layout of any source has Edit; a locked one View; both open the editor', async () => {
+    stubApi(routes([BASKETBALL, CLUB, DRAWN], { 'GET /layouts/l-drawn': json(detail(DRAWN, 1)) }));
+    renderAt(PATH);
+    const edit = await within(await item('Club room')).findByRole('link', {
+      name: 'Edit Club room',
+    });
+    expect(edit).toHaveAttribute('href', `${PATH}/layouts/l-club/edit`);
+    expect(
+      within(await item('Drawn bowl')).getByRole('link', { name: 'Edit Drawn bowl' }),
+    ).toHaveAttribute('href', `${PATH}/layouts/l-drawn/edit`);
+    const bb = await item('Basketball');
+    expect(within(bb).queryByRole('link', { name: 'Edit Basketball' })).toBeNull();
+    expect(within(bb).getByRole('link', { name: 'View Basketball' })).toHaveAttribute(
+      'href',
+      `${PATH}/layouts/l-bb/edit`,
+    );
+  });
+
+  it('a drawn layout takes no section lines', async () => {
+    stubApi(routes([CLUB, DRAWN], { 'GET /layouts/l-drawn': json(detail(DRAWN, 1)) }));
+    renderAt(PATH);
+    const drawn = await item('Drawn bowl');
+    await within(drawn).findByRole('img', { name: 'Drawn bowl: 1 section' });
+    expect(within(drawn).queryByRole('button', { name: /Edit section lines/ })).toBeNull();
+    expect(
+      await within(await item('Club room')).findByRole('button', {
+        name: 'Edit section lines of Club room',
+      }),
+    ).toBeInTheDocument();
+  });
+});

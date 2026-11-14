@@ -371,6 +371,14 @@ function LayoutItem({
       )}
 
       <div className="form__actions">
+        {/* Spec 039 FR-001, FR-002: the layout editor; read-only with Duplicate to edit if locked. */}
+        <Link
+          className="btn"
+          to={`/locations/${layout.locationId}/layouts/${layout.id}/edit`}
+          aria-label={`${layout.locked ? 'View' : 'Edit'} ${name}`}
+        >
+          {layout.locked ? 'View' : 'Edit'}
+        </Link>
         <button
           type="button"
           className="btn"

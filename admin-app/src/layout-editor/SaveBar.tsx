@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
+import { LAYOUT_LIMITS } from '@queuepass/shared';
 import { ApiError } from '../api/client';
 import type { EditorDoc } from './editor-doc';
 import { warningsOf } from './overlap';
@@ -53,6 +54,8 @@ export function SaveBar({
   onSelectSection,
   onNameProblem,
   onWarned,
+  onSaveAsNew,
+  onReload,
 }: {
   doc: EditorDoc;
   dirty: boolean;
@@ -62,8 +65,41 @@ export function SaveBar({
   onNameProblem: (message: string | null) => void;
   /** Hears the sections to outline as overlapping (none once the save goes). */
   onWarned?: (sections: Set<string>) => void;
+  /** FR-023, FR-024: saves the document as a new layout under `name`; throws the refusal. */
+  onSaveAsNew?: (name: string) => Promise<void>;
+  /** FR-024: reads the layout again, the changes thrown away. */
+  onReload?: () => Promise<void>;
 }): React.ReactElement {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
+  const [copyName, setCopyName] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<ApiError | null>(null);
+  const [copyBusy, setCopyBusy] = useState(false);
+  const copyId = useId();
+  const copyErrorId = useId();
+
+  const saveCopy = async (name: string): Promise<void> => {
+    if (!onSaveAsNew) return;
+    setCopyError(null);
+    setCopyBusy(true);
+    try {
+      await onSaveAsNew(name.trim());
+    } catch (err) {
+      setCopyError(asApiError(err));
+    } finally {
+      setCopyBusy(false);
+    }
+  };
+
+  const reload = async (): Promise<void> => {
+    if (!onReload || !window.confirm(RELOAD)) return;
+    try {
+      await onReload();
+      setStatus({ kind: 'idle' });
+      setCopyName(null);
+    } catch (err) {
+      setStatus({ kind: 'refused', error: asApiError(err) });
+    }
+  };
 
   // "Saved" lasts until the next change.
   useEffect(() => {
@@ -147,9 +183,68 @@ export function SaveBar({
         </div>
       )}
       {status.kind === 'refused' && <Refusal error={status.error} />}
+      {status.kind === 'refused' && OFFER_COPY.has(status.error.code) && (
+        <div className="form__actions">
+          {onSaveAsNew && copyName === null && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setCopyName(`${doc.name.trim()} (copy)`)}
+            >
+              Save as a new layout
+            </button>
+          )}
+          {onReload && status.error.code === 'LAYOUT_CHANGED' && (
+            <button type="button" className="btn" onClick={() => void reload()}>
+              Reload
+            </button>
+          )}
+        </div>
+      )}
+      {copyName !== null && (
+        <form
+          className="form"
+          aria-label="Save as a new layout"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void saveCopy(copyName);
+          }}
+        >
+          <div className="field">
+            <label htmlFor={copyId}>Name of the new layout</label>
+            <input
+              id={copyId}
+              value={copyName}
+              maxLength={LAYOUT_LIMITS.nameMaxLength}
+              aria-invalid={copyError ? true : undefined}
+              aria-describedby={copyError ? copyErrorId : undefined}
+              onChange={(e) => setCopyName(e.target.value)}
+            />
+            {copyError && (
+              <span id={copyErrorId} className="editor-field-error">
+                {copyError.message}
+              </span>
+            )}
+          </div>
+          <div className="form__actions">
+            <button type="submit" className="btn btn--primary" disabled={copyBusy}>
+              Save new layout
+            </button>
+            <button type="button" className="btn" onClick={() => setCopyName(null)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }
+
+/** R9: the refusals after which the work can still be kept as a new layout. */
+const OFFER_COPY = new Set(['LAYOUT_CHANGED', 'LAYOUT_IN_USE']);
+
+/** R9: the question before Reload throws the changes away. */
+export const RELOAD = 'Reload the layout? Your changes will be lost.';
 
 const problemsOf = (error: ApiError): Problem[] =>
   error.code === 'LAYOUT_FILE_INVALID'

@@ -3,7 +3,12 @@ import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { LAYOUT_LIMITS, type FloorKind, type LayoutDrawing } from '@queuepass/shared';
 import { LayoutPreview, centroid } from '@queuepass/shared/web';
 import type { ApiError } from '../api/client';
-import { createLayoutDrawing, getLayoutDrawing, saveLayoutDrawing } from '../api/layouts';
+import {
+  createLayoutDrawing,
+  duplicateVenueLayout,
+  getLayoutDrawing,
+  saveLayoutDrawing,
+} from '../api/layouts';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { EditorCanvas } from './EditorCanvas';
 import { emptyDoc, fromDrawing, mapSize, toInput, type EditorDoc, type Place } from './editor-doc';
@@ -132,6 +137,43 @@ export function LayoutEditor({
   }, [layoutId]);
 
   const editPath = (id: string): string => `/locations/${venueId}/layouts/${id}/edit`;
+  const [duplicateError, setDuplicateError] = useState<ApiError | null>(null);
+
+  /** Opens another layout: not leaving unsaved work, which has just been kept or given up. */
+  const openLayout = (id: string): void => {
+    dirtyRef.current = false;
+    navigate(editPath(id));
+  };
+
+  /** FR-023, FR-024: the work saved as a new layout at the venue, then opened. */
+  const saveAsNew = async (name: string): Promise<void> => {
+    const made = await createLayoutDrawing(venueId, {
+      ...toInput(currentDoc(state), null, { fresh: true }),
+      name,
+    });
+    openLayout(made.id);
+  };
+
+  /** FR-024: the layout as it is now, the changes thrown away. */
+  const reload = async (): Promise<void> => {
+    if (!layoutId) return;
+    const d = await getLayoutDrawing(layoutId);
+    dispatch({ type: 'load', doc: fromDrawing(d) });
+    setMeta(metaOf(d));
+    setWarned(new Set());
+  };
+
+  /** FR-002: a locked layout is changed by duplicating it (038 Duplicate) and editing the copy. */
+  const duplicateToEdit = async (): Promise<void> => {
+    if (!layoutId) return;
+    setDuplicateError(null);
+    try {
+      const copy = await duplicateVenueLayout(layoutId);
+      openLayout(copy.id);
+    } catch (err) {
+      setDuplicateError(asApiError(err));
+    }
+  };
 
   /** Saves the document whole (R3), then reads it back for the ids and revision it now has. */
   const save = async (): Promise<void> => {
@@ -198,6 +240,14 @@ export function LayoutEditor({
         <p className="note">
           {`Locked: seats are sold or held at ${listed(meta.lockedBy.map((e) => e.name))}`}
         </p>
+        <div className="form__actions">
+          <button type="button" className="btn btn--primary" onClick={() => void duplicateToEdit()}>
+            Duplicate to edit
+          </button>
+        </div>
+        {duplicateError && (
+          <ErrorBanner error={duplicateError} title="Could not duplicate the layout" />
+        )}
         <div className="layout-editor__body">
           <EditorCanvas
             doc={doc}
@@ -271,6 +321,8 @@ export function LayoutEditor({
           }}
           onNameProblem={setNameProblem}
           onWarned={setWarned}
+          onSaveAsNew={saveAsNew}
+          onReload={layoutId ? reload : undefined}
         />
       </div>
       <p role="status" aria-live="polite" className="layout-editor__status">

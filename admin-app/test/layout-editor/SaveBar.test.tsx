@@ -81,3 +81,107 @@ describe('warnings before saving', () => {
     expect(screen.queryByRole('group', { name: 'Before saving' })).toBeNull();
   });
 });
+
+describe('refused as changed or locked (T047, FR-023, FR-024)', () => {
+  const changed = json(
+    {
+      error: {
+        code: 'LAYOUT_CHANGED',
+        message: 'Riverside was changed since you opened it.',
+        details: { revision: 5 },
+      },
+    },
+    409,
+  );
+  const locked = json(
+    {
+      error: {
+        code: 'LAYOUT_IN_USE',
+        message: 'Riverside is used by "Cardinals vs. Duke", which has sold or held seats.',
+        details: { events: [{ id: 'e1', name: 'Cardinals vs. Duke' }] },
+      },
+    },
+    409,
+  );
+
+  async function refusedWith(reply: Response, extra = {}) {
+    const api = stubApi({
+      [`GET ${DRAWING_PATH}`]: json(DRAWING),
+      [`PUT ${DRAWING_PATH}`]: reply,
+      [`POST /locations/v1/layouts/drawing`]: json(detailOf('lay-new', 'Riverside (copy)'), 201),
+      'GET /layouts/lay-new/drawing': json({ ...DRAWING, id: 'lay-new', name: 'Riverside (copy)' }),
+      ...extra,
+    });
+    const user = userEvent.setup();
+    const view = renderEditor(EDIT_PATH);
+    const name = await screen.findByRole('textbox', { name: 'Layout name' });
+    await user.type(name, '!');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByRole('alert');
+    return { api, user, ...view };
+  }
+
+  it('LAYOUT_CHANGED keeps the document and offers Save as a new layout, which opens the copy', async () => {
+    const { api, user, router } = await refusedWith(changed);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Riverside was changed since you opened it.',
+    );
+    expect(screen.getByRole('textbox', { name: 'Layout name' })).toHaveValue('Riverside!');
+    await user.click(screen.getByRole('button', { name: 'Save as a new layout' }));
+    const box = screen.getByRole('textbox', { name: 'Name of the new layout' });
+    expect(box).toHaveValue('Riverside! (copy)');
+    await user.clear(box);
+    await user.type(box, 'Riverside (copy)');
+    await user.click(screen.getByRole('button', { name: 'Save new layout' }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/locations/v1/layouts/lay-new/edit'),
+    );
+    const post = api.calls.find((c) => c.method === 'POST');
+    expect(post?.body).toMatchObject({ name: 'Riverside (copy)' });
+    expect(post?.body).not.toHaveProperty('revision');
+    expect((post?.body as { sections: object[] }).sections[0]).not.toHaveProperty('id');
+  });
+
+  it('LAYOUT_CHANGED offers Reload, which reads the layout again after a confirm', async () => {
+    const { api, user } = await refusedWith(changed);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    await user.click(screen.getByRole('button', { name: 'Reload' }));
+    expect(confirm).toHaveBeenCalledWith('Reload the layout? Your changes will be lost.');
+    expect(screen.getByRole('textbox', { name: 'Layout name' })).toHaveValue('Riverside!');
+    confirm.mockReturnValue(true);
+    await user.click(screen.getByRole('button', { name: 'Reload' }));
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Layout name' })).toHaveValue('Riverside'),
+    );
+    expect(api.count('GET', DRAWING_PATH)).toBe(2);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('LAYOUT_IN_USE (locked) shows the message as sent and offers Save as a new layout, not Reload', async () => {
+    await refusedWith(locked);
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Riverside is used by "Cardinals vs. Duke", which has sold or held seats.',
+    );
+    expect(screen.getByRole('button', { name: 'Save as a new layout' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reload' })).toBeNull();
+  });
+
+  it('a refused new layout is shown beside its name box', async () => {
+    const { user } = await refusedWith(changed, {
+      [`POST /locations/v1/layouts/drawing`]: json(
+        {
+          error: {
+            code: 'LAYOUT_NAME_TAKEN',
+            message: 'Another layout is named Riverside! (copy).',
+          },
+        },
+        409,
+      ),
+    });
+    await user.click(screen.getByRole('button', { name: 'Save as a new layout' }));
+    await user.click(screen.getByRole('button', { name: 'Save new layout' }));
+    expect(
+      await screen.findByText('Another layout is named Riverside! (copy).'),
+    ).toBeInTheDocument();
+  });
+});

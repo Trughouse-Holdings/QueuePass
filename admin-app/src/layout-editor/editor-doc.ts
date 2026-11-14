@@ -142,15 +142,19 @@ const tenth = (n: number): number => {
 };
 const roundPlace = (p: Place): Place => [tenth(p[0]), tenth(p[1])];
 
-/** `{ id }` for a saved item, nothing for a new one (R4). */
-const idOf = (id: string): { id?: string } => (isNew(id) ? {} : { id });
-
 /**
  * R3, R10: the document as `LayoutDrawingInput`. Levels are keyed `l1`… best first; sections, rows
  * and seats name them by key; new items are sent without an id; places to 0.1; no outlines and no
- * size (the Backend draws and sizes them, R5). `revision` only for a layout that exists.
+ * size (the Backend draws and sizes them, R5). `revision` only for a layout that exists. A saved
+ * item is sent with its id (R4: kept), a new one without; `fresh` sends none.
  */
-export function toInput(doc: EditorDoc, revision: number | null): LayoutDrawingInput {
+export function toInput(
+  doc: EditorDoc,
+  revision: number | null,
+  opts: { fresh?: boolean } = {},
+): LayoutDrawingInput {
+  // FR-023: Save as a new layout sends everything as new (the Backend ignores ids there anyway).
+  const idOf = (id: string): { id?: string } => (opts.fresh || isNew(id) ? {} : { id });
   const keyOf = new Map(doc.levels.map((l, i) => [l.id, `l${i + 1}`]));
   const key = (levelId: string): string => keyOf.get(levelId) ?? levelId;
   return {

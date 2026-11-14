@@ -262,3 +262,42 @@ describe('unsaved changes (T028, R13)', () => {
     expect(unload()).toBe(false);
   });
 });
+
+describe('Duplicate to edit (T047, FR-002)', () => {
+  it("a locked layout's Duplicate to edit makes a copy and opens its edit route", async () => {
+    const api = stubApi({
+      [`GET ${DRAWING_PATH}`]: json(LOCKED),
+      [`POST /layouts/${LAYOUT_ID}/duplicate`]: json(detailOf('lay-copy', 'Riverside (copy)'), 201),
+      'GET /layouts/lay-copy/drawing': json({
+        ...DRAWING,
+        id: 'lay-copy',
+        name: 'Riverside (copy)',
+        revision: 1,
+      }),
+    });
+    const user = userEvent.setup();
+    const { router } = renderEditor(EDIT_PATH);
+    await user.click(await screen.findByRole('button', { name: 'Duplicate to edit' }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(`/locations/${VENUE_ID}/layouts/lay-copy/edit`),
+    );
+    expect(api.count('POST', `/layouts/${LAYOUT_ID}/duplicate`)).toBe(1);
+    expect(await screen.findByRole('textbox', { name: 'Layout name' })).toHaveValue(
+      'Riverside (copy)',
+    );
+  });
+
+  it('shows a refused duplicate beside the button', async () => {
+    stubApi({
+      [`GET ${DRAWING_PATH}`]: json(LOCKED),
+      [`POST /layouts/${LAYOUT_ID}/duplicate`]: json(
+        { error: { code: 'LAYOUT_NAME_TAKEN', message: 'Riverside (copy) is taken.' } },
+        409,
+      ),
+    });
+    const user = userEvent.setup();
+    renderEditor(EDIT_PATH);
+    await user.click(await screen.findByRole('button', { name: 'Duplicate to edit' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Riverside (copy) is taken.');
+  });
+});
