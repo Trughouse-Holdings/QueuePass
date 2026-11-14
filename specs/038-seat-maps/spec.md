@@ -440,6 +440,11 @@ map shows each change within 2 seconds.
   the price range of its open seats and its open seat count, under the same filter; then the chosen
   section's seats as buttons grouped by row, each named with row, seat, level, price and state. The
   map and the list MUST share one state.
+  *Amended 2026-11-14 by spec 039 (Nate's walk)*: the list always shows every section and never
+  their seats. Choosing a section in it opens the section on the map, marks it in the list, and
+  moves the keyboard's focus to its first seat on the map, where seats (focusable buttons named
+  as above) are chosen; choosing it again shows the whole map. The keyboard path (SC-007) runs
+  through the list to the map's seats.
 - **FR-021**: Clicking an open seat on the map or in the list MUST hold it, and clicking a held seat
   MUST release it, exactly as `033` (one countdown per event, Add to cart, buy from the cart, the
   2-minute wait, the hold allowance). One hold MUST be able to hold seats of any levels of one event;

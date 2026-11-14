@@ -77,6 +77,10 @@ John, Mahdi and the team can overturn them in review of the spec PR.
   selection is shown**: the Selection panel's **Price level** box shows the selection's level and
   sets another at once; rows and seats can take **Same as the section** (or row). The Levels panel
   only manages levels (research R12, amended) (FR-016).
+- Q (Nate's walk, 2026-11-14): when a customer chooses a section, should the Sections list
+  beside the map turn into the section's seats? → A: **No.** The list always shows every
+  section; seats are chosen on the map, where the keyboard's focus goes when a section is chosen
+  from the list. `038` FR-020 is amended with a dated note.
 - Q: Is this needed for the EDIS demo on 2026-11-20? → A: **No.** `038` carries the demo on its
   imported Yum! Center layouts; `039` shows the editor if it is done by then (proposal, order for
   EDIS).
