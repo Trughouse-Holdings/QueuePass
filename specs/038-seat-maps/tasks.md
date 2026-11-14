@@ -483,7 +483,7 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
 
 ### Tests first
 
-- [ ] T020 [P] [US2] `backend/test/integration/event-seating.e2e-spec.ts` (FR-010–FR-015, R8, R9):
+- [X] T020 [P] [US2] `backend/test/integration/event-seating.e2e-spec.ts` (FR-010–FR-015, R8, R9):
   `createEvent` with `layoutId`, `levelPrices` for every level with seats on sale and `offSale`
   selectors (a whole section, two rows, two seats) → `201`, `reservedSeating: true`,
   `totalTicketCapacity` = seats − off sale, `basePrice` = lowest on-sale price, `priceMax` = highest,
@@ -506,9 +506,19 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   `priceMax` (`null` for GA); every response `expectToMatchContract`. Must fail.
   Also: `events.ticket-limit.e2e-spec.ts`'s 2 seated cases move to an event on a layout (the limit
   against seats on sale, and a lines edit that would put it above them, R6) (from T009a).
-- [ ] T021 [P] [US2] `backend/test/integration/event-seating.authz.e2e-spec.ts`: `getEventSeating`
+  **Done** (2026-11-14): 49 tests, written first and seen failing (`400` on the new fields); all
+  pass after T023 and T024. Beyond the list: an off-sale save publishes its seats (`from`, `state`,
+  `levelId`) with the next `seq` and keeps the stream, a price or layout change ends it, a save that
+  changes nothing publishes nothing and keeps `seatSeq` (watched on `SeatEventsService`; T030 tests
+  the stream itself); the stored limit above the new seats on sale (`409`, `details.field:
+  offSale`); a GA event put on a layout, and one with ticket types (they go); moving a seated event
+  with sales (`409 EVENT_HAS_ORDERS`). `events.ticket-limit`'s seated cases are 3 now (above 30 is
+  `409`, 30 accepted; a lines edit to 20 seats refused under a limit of 25, accepted at 20).
+- [X] T021 [P] [US2] `backend/test/integration/event-seating.authz.e2e-spec.ts`: `getEventSeating`
   and the seating fields of `createEvent`/`updateEvent` for each token case; `401`/`403`. Must fail.
-- [ ] T022 [P] [US2] `admin-app/test/seating-section.test.tsx` (FR-015, R15; `035`'s rules):
+  **Done** (2026-11-14): 5 tests, seen failing (the route `404`, the operation still planned); pass
+  after T024. Each refusal changes nothing (events, prices, seats off sale compared).
+- [X] T022 [P] [US2] `admin-app/test/seating-section.test.tsx` (FR-015, R15; `035`'s rules):
   reserved seating offers the venue's layouts with a preview; picking one shows the price table
   (level, color swatch, seats on sale, empty price box) started from `latestPrices`; the off-sale tool
   in a zoomed section (Whole section off sale / on sale, a checkbox per row, a seat click) updates
@@ -521,10 +531,17 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   when sales exist. Update `event-seating-create.test.tsx`, `seating.test.tsx`,
   `event-form-flow.test.tsx` and `event-types-edit.test.tsx` from section-to-type mapping to layouts.
   Must fail.
+  **Done** (2026-11-14): `seating-section.test.tsx` (10 tests, on `test/fixtures-038.ts`: Arena,
+  70 seats in 3 levels, and Club) written first and seen failing (no Seating select); the four named
+  files moved to layouts. Also moved, since the form changed under them: `event-create-atomic`
+  (its seated cases), `capacity` (the seated note), `event-form-checks.test.ts`, `ticket-limit`,
+  `images-field` (its seated refusal), and two fetch mocks (`EventForm.conflict`,
+  `pages.live-fixtures`) that answered `/locations/{id}/layouts` with the venue list. Sold and held
+  seats are drawn seats (`role="button"` in the SVG), so they are `aria-disabled`, not `disabled`.
 
 ### Implementation
 
-- [ ] T023 [US2] `backend/src/seating/event-seating.ts`: validate and save `layoutId`, `levelPrices`,
+- [X] T023 [US2] `backend/src/seating/event-seating.ts`: validate and save `layoutId`, `levelPrices`,
   `offSale` inside the event's transaction under its lock (R8): expand selectors to seat ids, refuse
   sold or held seats, write `EventLevelPrice` and `EventOffSaleSeat`, set `reservedSeating`,
   `totalTicketCapacity`, `basePrice`; compaction for reads; `latestPrices` (the most recently
@@ -536,10 +553,30 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   off-sale change publishes `seats` changes with a new `seatSeq`; a layout or price change ends the
   event's streams (R12).
   Then re-run `layouts.concurrency.e2e-spec.ts`: its seating-save race (T012) passes (from T019).
-- [ ] T024 [US2] `GET /events/:id/seating` (`getEventSeating`) in
+  **Done** (2026-11-14): `targetLayout`, `assertSeatingFields`, `assertLayoutFree`, `planSeating`,
+  `writeSeating`, `clearSeating` and `readEventSeating` (compaction) in `event-seating.ts`; DTOs
+  `LevelPriceDto`, `OffSaleSelectorDto` (`seat` only with `row`); `events.service.ts` calls them
+  after the times and doors, before the capacity checks, under `lockVenueShared` then the event lock,
+  the layout only read. Its `400`s carry `details.field` and `details.fields` (entry starting with
+  the field); the missing-price `400` lists `details.levels`. `latestPrices` was served in T015
+  (`layouts.service.ts`). Decided here (the contract leaves them open, reported): the seated limit
+  refusal names `maxTicketsPerCustomer` when sent, else `offSale` (`details.seatsOnSale`,
+  `maxTicketsPerCustomer`); a GA event put on a layout loses its ticket types by `tiers`' rules
+  (`TIER_HAS_ORDERS` if one has orders); a "held" seat is a hold with `releasedAt` NULL (as T015);
+  changing the layout is refused for any VALID ticket or such hold (`details.ticketsSold`,
+  `seatsHeld`). `seatSeq` is incremented, and the seats published with it, only for an off-sale
+  change on the same layout; a new layout's streams just end. The shared `SeatStateChange` and
+  `SeatMapChange` gain optional `from`, `levelId`, `offSale` and `seq` (required once T035/T037
+  publish them everywhere). `layouts.concurrency`'s seating-save race passes; its hold race stays
+  red for T035.
+- [X] T024 [US2] `GET /events/:id/seating` (`getEventSeating`) in
   `backend/src/seating/event-seating.controller.ts`; `backend/src/tiers/` refuses a tier on a seated
   event (`400`); remove the `x-planned` marker of `getEventSeating`; regenerate `api-schema.ts`.
-- [ ] T025 [US2] Admin app: `admin-app/src/components/SeatingSection.tsx` (R15) in
+  **Done** (2026-11-14): the controller in `SeatingModule`, `queuepass-admin` only; the marker
+  removed (3 left: `getVenueMap`, `getVenueMapSection`, `venueMap`), `api-schema.ts` unchanged by
+  it, drift check passes; `TiersService.create` refuses a tier on an event with a layout, and its
+  `007` "quantity from sections" branch is gone.
+- [X] T025 [US2] Admin app: `admin-app/src/components/SeatingSection.tsx` (R15) in
   `pages/EventForm.tsx`'s Seating section (replacing the section-to-type mapping and the seat totals
   of `035` FR-008 for seated events); the price table; the off-sale tool on the shared map (the
   tool's state is a set of selectors, compacted as the Backend does); the line; refusals beside their
@@ -547,6 +584,36 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   Also (from T019): `admin-app/test/ticket-limit.test.tsx` moves off `SeatingLayout` to layouts; the
   Layouts card's locked note reads "Locked: seats are sold or held" without naming an event
   (T013 as amended).
+  **Done** (2026-11-14): `SeatingSection.tsx` (a Seating select, General admission or each layout;
+  `LayoutPreview`; the price table; the off-sale tool: section buttons, then one section drawn on
+  the layout's map units with Whole section off/on sale, a checkbox per row and seat toggles; the
+  line) and `off-sale.ts` (pure: a section's seats off sale from selectors, compaction in the
+  Backend's order, counts per level, which sections' seats a count needs). `EventForm.tsx` loses the
+  section-to-type mapping, `seatTotals` by section and `007`'s layout calls; ticket types and Total
+  tickets are general admission's; a seated event shows "Total tickets: N, the seats on sale." A
+  venue with layouts starts on General admission (a choice; `008` R9 started on reserved). Edit
+  reads `getEventSeating`, locks the layout once `availability` shows sales, and disables sold and
+  held seats from `getVenueMapSection`, which T034 serves (until then the Backend's `409 SEAT_TAKEN`
+  is shown beside the map). `api/seating.ts` keeps only `getEventSeating`, `getVenueMapSection`,
+  `getAvailability` and `getSeatMap` (T049). Theme classes `.level-swatch` (neutral until T038's
+  `--level-*`) and `.off-sale-section*`. `ticket-limit.test.tsx` moved; the Layouts card's note
+  names no event (its `events` prop is gone). Not named by this task, done because T022 lists
+  `seating.test.tsx` (gap, reported): the event page's `SeatingCard.tsx` no longer writes (its
+  `updateSeating` route went with 2.0.0); it points to Edit event and keeps its seat map for T049.
+  T020–T022 pass.
+  **After Phase 4** (`jest --runInBand`): Backend 14 of 123 suites red, 105 of 1,467 tests (before:
+  15 of 121, 108 of 1,417). Green now: `events.ticket-limit`. Red, with owner: T027
+  `reservations`, `reservations.boundaries`, `reservations.admin-changes`,
+  `seat-holds.constraints` (and, from T009a, `reservations.concurrency`, `rate-limits.hold`,
+  `rate-limits.ordinary`'s seated case, `rate-limits.buy`'s seated case beside T001's
+  200-connection case); T028 `orders.seats`, `orders.reservation`, `orders.ticket-limit`'s seated
+  case; T029 `seats.concurrency`; T030 `seat-stream`; T035 `layouts.concurrency`'s hold race (its
+  seating-save race passes). Admin 52 files, 484 tests pass (before 51, 480); shared 28 files, 807.
+  `tsc --noEmit`: Backend clean; shared only `seat-stream.ts`/`use-seat-stream.ts` (T039); Admin
+  only `api/seating.ts`'s `getSeatMap`, `SeatingCard.tsx`, `SeatGrid.tsx` (T049), `api/orders.ts`
+  (T050–T051) and the shared stream files (T039). Gaps found (no owner yet): the event page's
+  `TierSection` still offers Add a tier on a seated event (the Backend now refuses it, `400`); six
+  Admin tests still stub the retired `GET /locations/{id}/layout` (unused, for T054's sweep).
 **Checkpoint**: a seated event can be scheduled on a layout with prices and seats off sale.
 
 ---
