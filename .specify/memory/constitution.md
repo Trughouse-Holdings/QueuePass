@@ -1,21 +1,26 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.9.8 -> 3.9.9 (PATCH): two roadmap rows reserved; no principle changed and no control
-  removed. Applies on top of spec 036's amendment (3.9.7 -> 3.9.8, row 036-event-form-times).
-  PR #164 (spec 037, 3.9.8 -> 3.10.0, row 037-rust-admin-app) is open; whichever of it and this
-  amendment merges second takes the next version (3.10.1 here if #164 merges first) and keeps
-  every row.
+Version: 3.9.8 -> 3.10.0 (MINOR): Principle I and gate 2 gain one rule for breaking contract
+  removals; two roadmap rows reserved. No control removed. Applies on top of spec 036's amendment
+  (3.9.7 -> 3.9.8). PR #164 (spec 037) also amends 3.9.8 -> 3.10.0; whichever of the two merges
+  second takes the next MINOR (3.11.0) and keeps both changes and every row.
 Problem: issue #165. John's requirement for the week of 2026-11-11, approved on 2026-11-13 as the
-  seat-maps proposal: a realistic venue map like other ticketing apps, several layouts per venue,
+  seat-maps feature: a realistic venue map like other ticketing apps, several layouts per venue,
   prices by desirability down to rows and seats, sections and rows off sale per event, and the KFC
-  Yum! Center as demo data. The proposal splits it into two specs.
+  Yum! Center as demo data. It replaces the venue's single layout and the section-to-ticket-type
+  mapping, a breaking change: merged ahead of its code, the contract would fail main's own contract
+  tests (they validate every response strictly), and merged with its code it would not be reviewed
+  first.
 Changed:
-  - Roadmap: rows 038-seat-maps and 039-layout-editor reserved. The next free number is 040
+  - Principle I: a breaking removal MAY be approved in the spec PR, marked `x-retired`, committed as
+    the exact patch, and applied unchanged by the implementation PR.
+  - Development Workflow gate 2: the same, in one sentence.
+  - Roadmap: rows 038-seat-maps (#165) and 039-layout-editor reserved. The next free number is 040
     (037 is reserved by #164).
-Impact: specs 038 (#165) and 039 (issue to be filed). Spec 038's contract change is in two steps
-  (1.28.0 in its spec PR, 2.0.0 in its implementation, removals approved in the spec PR; its
-  research R3), under Principle I as written. Specs 007, 015, 033 and 035 get dated notes in 038's
-  spec PR. The README's version reference follows. Templates: none need updating.
+Impact: spec 038 uses the new rule (contract 1.28.0 in its spec PR; its contracts/step2.diff to
+  2.0.0 in its implementation). Spec 037 (#164) builds Rust screens on operations 038 retires; 038's
+  plan records the order (research R22). Specs 007, 015, 023, 024, 031, 033 and 035 get dated notes
+  in 038's spec PR. The README's version reference follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -42,6 +47,14 @@ every front end and every team member builds against.
 
 - An endpoint MUST be added to or changed in the OpenAPI document, and that change reviewed and
   approved in a pull request, before any implementation of it is merged.
+- A change that would break `main`'s own Backend if merged ahead of its code (an operation or field
+  removed, a response field made required or nullable, a stream event dropped) MAY be approved in
+  the spec and plan PR and carried out by the implementation PR, only when the spec PR marks every
+  operation, field, and event it removes with `x-retired: '<feature>'` and commits the exact change
+  as a patch to the contract (`specs/NNN-name/contracts/step2.diff`). The implementation applies that
+  patch unchanged, in the change that stops serving what it removes, and leaves no
+  `x-retired: '<feature>'` marker behind. Anything else the implementation finds it must change in
+  the contract goes back to the spec PR.
 - Every endpoint in the document MUST declare its request shape, response shape, required role,
   and every error it can return.
 - The Backend MUST conform to the document, and automated tests MUST fail when a response does
@@ -380,7 +393,8 @@ and the root `package.json`) needs approval from every team member in its pull r
    independent Claude review before its pull request is opened.
 2. **Contract before code.** Per Principle I, any API change is written into
    `contracts/openapi.yaml` in the spec and plan PR, before it is implemented, and merged before
-   its implementation is merged.
+   its implementation is merged; a breaking removal is written there as an `x-retired` marker and
+   committed as the exact patch the implementation applies (Principle I).
 3. **Tests precede implementation.** Per Principle VI.
 4. **Green gate.** The full suite MUST pass, locally and in CI, and every workspace MUST meet the
    80% line coverage floor before a pull request is merged (Principle VI). A failing test is
@@ -421,4 +435,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.9.9 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-13
+**Version**: 3.10.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-13
