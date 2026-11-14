@@ -332,7 +332,7 @@ drag and turn → save; the customer map shows it.
   ("Leave without saving? Your changes will be lost."), and `beforeunload`; run T028.
 - [X] T036 [US1] `admin-app/src/components/LayoutsCard.tsx`: **New layout** beside Import and
   section lines, linking to `/locations/:id/layouts/new`; its test in `admin-app/test/layouts-card.test.tsx` first.
-- [ ] T037 [US1] Run T029 against the e2e stack; it passes.
+- [X] T037 [US1] Run T029 against the e2e stack; it passes.
 
 **Checkpoint**: US1 works alone: a drawn layout is saved and sold from.
 
@@ -375,7 +375,7 @@ and seats; totals live.
 - [X] T044 [US2] `admin-app/src/layout-editor/SectionSeatsView.tsx` (zoom with `usePanZoom`'s
   animated `viewBox`, seats as the shared map's circles, row labels, selection, box select) and the
   Paint and Use section's level buttons; run T040.
-- [ ] T045 [US2] Run T041 against the e2e stack; it passes.
+- [X] T045 [US2] Run T041 against the e2e stack; it passes.
 
 **Checkpoint**: MVP: layouts are drawn and priced by level in the app.
 
@@ -479,16 +479,27 @@ lists, announcements.
   passes.
 - [X] T056 [P] `README.md`: the 039 row (plan and tasks "Done (N/63 tasks)", code "Built (review
   …)") and the layout editor in the Admin app's list of screens, in the README's existing style.
-- [ ] T057 Coverage: each workspace ≥ 80% lines (`npm test`); add tests where a new file falls short.
+- [X] T057 Coverage: each workspace ≥ 80% lines (`npm test`); add tests where a new file falls short.
 - [ ] T058 `npm run ci` green locally; `npm run e2e` green (on a port-shifted stack if the team
   stack holds 5173–5175, as 038's T058 did); record the runs.
 - [ ] T059 Timing checks (quickstart "Timing checks"; SC-001–SC-003, SC-008) on the demo state on a
   laptop; record the times for the PR description.
 - [ ] T060 Tell Nate, for the `037` session: `LayoutSummary.source` may be `DRAWN` and three new
   operations exist (research R1).
-- [ ] T061 Independent review of the implementation branch by a Claude session that did not write it
+- [X] T061 Independent review of the implementation branch by a Claude session that did not write it
   (Constitution III), against the merged spec and plan; fix the findings, each with a test written
   to fail first; record the review and any open finding for the PR description.
+  **Done 2026-11-14**: one round. 4 blocking (edits made during a save lost; the floor's corner
+  handles hidden after choosing a floor; Box select panning inside a zoomed section; "Saved"
+  lost after a new layout's redirect), 2 should-fix (Undo past a save re-sending saved parts as
+  new; typed places applied per keystroke) and 3 minor (stacked seats: a 500; the save checking
+  its body under its locks, in IMPORT_TX; arrow keys only from the bare map). All fixed, each
+  with a test first. Open, for the PR: `LAYOUT_IN_USE` doesn't say whether the layout is locked
+  or an event would be left unable to sell, so the editor offers Save as a new layout for both.
+  The browser tests then found three more, fixed the same way: deep links lost after sign-in
+  (the data router was made before sign-in restored the address), clicks and double-clicks on a
+  section going to the map (pointer captured too early), and a kept row painted with a level
+  made in the same save failing with a 500.
 - [ ] T062 Walk the quickstart on a Compose project of your own (`-p qp039`): S1–S14, with Nate.
   His "pass" closes it.
 - [ ] T063 Push `039-layout-editor-impl` (ask first); open the implementation PR (ask first)
