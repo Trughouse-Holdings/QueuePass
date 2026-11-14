@@ -537,6 +537,19 @@ describe('Layout drawings (039)', () => {
       expect(d.revision).toBe(4);
     });
 
+    it('paints kept rows and seats with a level made in the same save (T045)', async () => {
+      const layout = await drawn();
+      const body = await roundTrip(layout.id);
+      body.levels.push({ key: 'upper', name: 'Upper', color: 'green' });
+      body.sections[0].rows[1].level = 'upper';
+      body.sections[1].rows[0].seats[0].level = 'upper';
+      await save(layout.id, body).expect(200);
+      const d = await drawing(layout.id);
+      const upper = d.levels.find((l: Json) => l.name === 'Upper').id;
+      expect(d.sections[0].rows[1].levelId).toBe(upper);
+      expect(d.sections[1].rows[0].seats[0].levelId).toBe(upper);
+    });
+
     it('deletes what is not sent, makes what has no id, numbers by order', async () => {
       const layout = await drawn();
       const before = await drawing(layout.id);

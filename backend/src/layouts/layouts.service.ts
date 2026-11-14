@@ -1579,6 +1579,12 @@ async function replaceDrawing(
       WHERE "id" = ANY(${movingSections.map((s) => s.id)}::uuid[])`;
   }
 
+  // New levels before the kept rows and seats that may be painted with them: their level keys
+  // are checked at once (only a section's waits for the commit). A new level's name may be a
+  // kept one's old name, which was parked above; its rank waits for the commit.
+  const newLevels = plan.levels.filter((l) => !l.kept);
+  await insertContent(tx, layoutId, newLevels, []);
+
   // The kept, in bulk: one statement a table.
   const levels = plan.levels.filter((l) => l.kept);
   if (levels.length > 0) {
@@ -1653,9 +1659,8 @@ async function replaceDrawing(
 
   // The new: levels, sections with all they hold, and new rows and seats of kept sections.
   const made: string[] = [];
-  const newLevels = plan.levels.filter((l) => !l.kept);
   const newSections = plan.sections.filter((s) => !s.kept);
-  await insertContent(tx, layoutId, newLevels, newSections);
+  await insertContent(tx, layoutId, [], newSections);
   for (const s of newSections) {
     for (const r of s.rows) for (const seat of r.seats) made.push(seat.id);
   }
