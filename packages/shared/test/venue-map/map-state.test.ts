@@ -258,6 +258,34 @@ describe('mapReducer', () => {
     ).toEqual(counts(L1, 1, 1));
   });
 
+  it('ignores a map read before the one it has (a refresh answered after the stream’s map)', () => {
+    const sold = venueMap(20);
+    sold.sections[0].counts = [counts(L1, 0, 0, 2), counts(L2, 1)];
+    const s = run(
+      EMPTY_MAP_STATE,
+      { type: 'map', map: venueMap(10) },
+      { type: 'section', section: section115(20) },
+      { type: 'map', map: sold },
+      { type: 'section', section: section115(20) },
+      // Read at 15, before the stream's map at 20, answered after it.
+      { type: 'map', map: venueMap(15) },
+    );
+    expect(s.map).toEqual(sold);
+    expect(needsLoad(s, S115)).toBe(false);
+  });
+
+  it('takes a map at the same seq (a layout change or lines edit ends the stream, seq unchanged)', () => {
+    const relaid = { ...venueMap(20), layoutName: 'Basketball, new' };
+    const s = run(EMPTY_MAP_STATE, { type: 'map', map: venueMap(20) }, { type: 'map', map: relaid });
+    expect(s.map).toEqual(relaid);
+  });
+
+  it('takes a lower-seq map for another event', () => {
+    const other = { ...venueMap(5), eventId: 'e2' };
+    const s = run(EMPTY_MAP_STATE, { type: 'map', map: venueMap(20) }, { type: 'map', map: other });
+    expect(s.map).toEqual(other);
+  });
+
   it('ignores a change for another event, or before any map', () => {
     expect(
       mapReducer(EMPTY_MAP_STATE, { type: 'change', change: change(11, 7, 'open', 'sold') }),

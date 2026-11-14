@@ -106,6 +106,12 @@ export function mapReducer(state: MapState, action: MapAction): MapState {
     case 'reset':
       return EMPTY_MAP_STATE;
     case 'map': {
+      // FR-023: a map read before the one shown (a refresh answered after the stream's newer map)
+      // would drop the changes between them. Only a strictly lower `seq` is older: a layout change
+      // or a lines edit ends the stream without a seat change, so the next map has the same `seq`.
+      if (state.map?.eventId === action.map.eventId && action.map.seq < state.map.seq) {
+        return state;
+      }
       // The seats shown stay until their section is loaded again (`needsLoad`), so a reconnect
       // never empties the zoomed section under the customer's focus.
       const sections = Object.fromEntries(
