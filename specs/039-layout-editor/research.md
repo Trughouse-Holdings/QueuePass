@@ -316,9 +316,16 @@ counts from the document). **Add level** (to 12) takes a name and one of the 12 
 (dragging the list is not added: buttons are keyboard-usable and enough for 12 items). **Delete**
 asks for the level its seats take instead (sections, rows and seats that name it are repointed;
 row and seat overrides equal to their parent's level are cleared); the last level can't be deleted.
-Choosing a level then **Paint** sets it on the selection: sections (their level), rows (their own
-level), seats (their own level); **Use section's level** clears own levels of selected rows and
-seats. A new layout starts with one level, "Standard", violet.
+The selection's level is chosen where the selection is shown: the Selection panel's **Price level**
+box shows the level the selected sections, rows or seats have ("Mixed" when they differ), and
+choosing another sets it on them at once (one Undo step): sections (their level), rows (their own
+level), seats (their own level). For rows and seats its first choice, **Same as the section** or
+**Same as the row**, clears their own levels. A new layout starts with one level, "Standard",
+violet.
+
+*Amended 2026-11-14 (Nate's walk, "the Paint: Standard makes no sense")*: this replaces a radio
+per level in the Levels panel and a separate **Paint: <level>** button (and **Use section's
+level**); the Levels panel only manages levels. FR-016 is unchanged.
 
 **Why**: FR-015, FR-016; repointing on delete keeps every seat with a level (038 FR-003).
 

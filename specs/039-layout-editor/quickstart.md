@@ -51,8 +51,9 @@ Cancel keeps the editor and the change. Reload the tab: the browser asks too. **
 ## S5. Levels and painting (US2)
 
 Open Basketball (Edit). Add levels Courtside (red), Lower sideline (blue) and Upper (teal); move
-Courtside to the top. Select 101, choose Lower sideline, **Paint**. Zoom into 101, click row label
-A, Shift-click D, choose Courtside, **Paint**. Box-select two aisle seats in row K, paint Upper.
+Courtside to the top. Select 101 and choose Lower sideline as its **Price level** (Selection
+panel). Zoom into 101, click row label A, Shift-click D, choose Courtside as their Price level.
+Box-select two aisle seats in row K, and choose Upper.
 **Expected**: colors and names change at once; the totals read Courtside 80, Lower sideline 158,
 Upper 2, Standard 108. Delete Standard, choosing Lower sideline for its seats; save; reopen.
 **Expected**: every seat's level as painted. **Covered by**: Admin `LevelsPanel` and `editor-state`
@@ -110,7 +111,7 @@ seats will be removed. **Covered by**: Admin `editor-state` and `SelectionPanel`
 
 Without the mouse: Add section, generate, then in the Sections list choose it; type an angle of 30
 in the Selection panel; press the right arrow 5 times and Shift+right once; open its rows, check A–D
-and Paint Courtside; Save. **Expected**: every step reachable with a visible focus; the status line
+and choose Courtside as their Price level; Save. **Expected**: every step reachable with a visible focus; the status line
 announces each change. **Covered by**: Admin keyboard tests.
 
 ## S13. Warnings before saving (US1)

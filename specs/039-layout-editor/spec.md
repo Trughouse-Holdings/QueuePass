@@ -73,6 +73,10 @@ John, Mahdi and the team can overturn them in review of the spec PR.
 - Q: Overlapping sections? → A: **Flagged, not refused.** Two sections whose seats overlap are
   marked and listed as a warning before saving; the admin may still save, since an outline may only
   approximate a real section (FR-020).
+- Q (Nate's walk, 2026-11-14): how does an admin give a selection a level? → A: **Where the
+  selection is shown**: the Selection panel's **Price level** box shows the selection's level and
+  sets another at once; rows and seats can take **Same as the section** (or row). The Levels panel
+  only manages levels (research R12, amended) (FR-016).
 - Q: Is this needed for the EDIS demo on 2026-11-20? → A: **No.** `038` carries the demo on its
   imported Yum! Center layouts; `039` shows the editor if it is done by then (proposal, order for
   EDIS).
@@ -150,7 +154,8 @@ schedule an event on it and confirm the price table lists the levels with those 
 4. **Given** a zoomed section, **When** the admin selects single seats (click, or drag a box around
    them) and paints, **Then** those seats get that level as their own, overriding the row's and the
    section's.
-5. **Given** a row or seat with its own level, **When** the admin chooses **Use section's level**,
+5. **Given** a row or seat with its own level, **When** the admin chooses **Same as the section**
+   (for a seat, **Same as the row**) as its Price level,
    **Then** its own level is cleared and it shows the section's (or, for a seat, the row's).
 6. **Given** any change, **Then** the side panel shows the seats in each level and in the whole
    layout, at once.
@@ -233,7 +238,7 @@ on the customer map.
 Morgan, an admin who uses the keyboard, opens the editor. A **Sections** list beside the map names
 every section; choosing one selects it on the map. The **Selection** panel shows its place (x, y)
 and angle as number boxes; Morgan types an angle of 30 and nudges it right with the arrow keys. In
-the section's rows list Morgan checks rows A–D and chooses **Paint: Courtside**.
+the section's rows list Morgan checks rows A–D and chooses **Courtside** as their Price level.
 
 **Why this priority**: The constitution requires keyboard access; dragging must not be the only way
 to place or paint.
@@ -345,8 +350,8 @@ the arrow keys, paint a section, rows and a seat, and save.
   and MUST let the admin add (up to 12), rename, recolor, reorder and delete them. Deleting a level
   that seats use MUST ask which level they take instead; the last level MUST NOT be deleted.
 - **FR-016**: With a level chosen, painting MUST set the own level of the selection: sections (their
-  section level), rows (the row's own level), or seats (the seat's own level). **Use section's
-  level** MUST clear a row's or seat's own level. A seat's level stays its own, else its row's, else
+  section level), rows (the row's own level), or seats (the seat's own level). Choosing **Same as
+  the section** (or row) MUST clear a row's or seat's own level. A seat's level stays its own, else its row's, else
   its section's (`038` FR-003).
 - **FR-017**: The side panel MUST show, at once after each change, the seats in each level and in
   the whole layout, the sections, and the seats left under the 30,000 limit.
