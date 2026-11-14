@@ -13,3 +13,4 @@ export * from './roles.js';
 export * from './realms.js';
 export * from './rate-limit.js';
 export type { paths as ApiPaths, components as ApiComponents } from './api-schema.js';
+export * from './layout-geometry.js';

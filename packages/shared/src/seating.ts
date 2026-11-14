@@ -173,3 +173,8 @@ export type LevelSeatCounts = Schemas['LevelSeatCounts'];
 export type VenueMapSection = Schemas['VenueMapSection'];
 export type SeatState = Schemas['SeatState'];
 export type LevelSales = Schemas['LevelSales'];
+// Spec 039: the layout editor's whole-layout read and save (contracts/README.md of 039).
+export type LayoutDrawing = Schemas['LayoutDrawing'];
+export type LayoutDrawingFloor = Schemas['LayoutDrawingFloor'];
+export type LayoutDrawingInput = Schemas['LayoutDrawingInput'];
+export type SectionGenerator = Schemas['SectionGenerator'];
