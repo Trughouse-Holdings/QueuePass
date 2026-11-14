@@ -164,7 +164,7 @@ describe('choosing seats (US2-1, US2-2; FR-007; spec 038 FR-018)', () => {
     ]);
   });
 
-  it('allows no more seats than the tickets left (and never more than 10)', async () => {
+  it('allows no more seats than the tickets left', async () => {
     withHolds(routes(undefined, 2));
     renderCustomer({ at: '/events/e1' });
 
@@ -174,6 +174,36 @@ describe('choosing seats (US2-1, US2-2; FR-007; spec 038 FR-018)', () => {
 
     expect(seatOf(2, 1)).toHaveAttribute('aria-disabled', 'true');
     expect(seatOf(1, 1)).not.toHaveAttribute('aria-disabled');
+  });
+
+  it('never allows more than 10 seats, with more tickets left (T060, M6)', async () => {
+    withHolds(routes(undefined, 56));
+    renderCustomer({ at: '/events/e1' });
+
+    // A's 5 open seats, C's 2 and 3 of B's 4: 10 held, of 11 open.
+    await openSection('A');
+    for (const [row, seat] of [
+      [1, 1],
+      [1, 3],
+      [2, 1],
+      [2, 2],
+      [2, 3],
+    ]) {
+      await hold(row, seat);
+    }
+    await goTo('C');
+    await hold(1, 1);
+    await hold(1, 2);
+    await goTo('B');
+    await hold(1, 1);
+    await hold(1, 2);
+    await hold(1, 3);
+
+    expect(chosen()).toHaveLength(10);
+    expect(seatOf(1, 4)).toHaveAccessibleName('Row 1, Seat 4, General, $40, open');
+    expect(seatOf(1, 4)).toHaveAttribute('aria-disabled', 'true');
+    expect(seatOf(1, 1)).not.toHaveAttribute('aria-disabled');
+    expect(screen.getByText('A reservation holds at most 10 seats.')).toBeInTheDocument();
   });
 });
 
