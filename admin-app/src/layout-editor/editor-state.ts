@@ -428,7 +428,7 @@ const labelShape = (label: string, what: string): string | null => {
   return null;
 };
 
-/** FR-012, US4-3: a row's label is 1–5 characters, unique in its section. */
+/** FR-012, US4-3: a row's label is 1–5 characters, unique in its section ignoring case (R16). */
 export function rowLabelProblem(
   doc: EditorDoc,
   sectionId: string,
@@ -439,12 +439,12 @@ export function rowLabelProblem(
   if (shape) return shape;
   const section = doc.sections.find((x) => x.id === sectionId);
   const l = label.trim();
-  if (section?.rows.some((r) => r.id !== rowId && r.label === l))
+  if (section?.rows.some((r) => r.id !== rowId && r.label.toLowerCase() === l.toLowerCase()))
     return `Row ${l} is already in section ${section.name}`;
   return null;
 }
 
-/** FR-012, US4-3: a seat's label is 1–5 characters, unique in its row. */
+/** FR-012, US4-3: a seat's label is 1–5 characters, unique in its row ignoring case (R16). */
 export function seatLabelProblem(
   doc: EditorDoc,
   sectionId: string,
@@ -457,7 +457,7 @@ export function seatLabelProblem(
     .find((x) => x.id === sectionId)
     ?.rows.find((r) => r.seats.some((q) => q.id === seatId));
   const l = label.trim();
-  if (row?.seats.some((q) => q.id !== seatId && q.label === l))
+  if (row?.seats.some((q) => q.id !== seatId && q.label.toLowerCase() === l.toLowerCase()))
     return `Seat ${l} is already in row ${row.label}`;
   return null;
 }

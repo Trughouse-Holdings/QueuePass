@@ -597,6 +597,20 @@ describe('labels and accessible seats', () => {
     expect(seatLabelProblem(doc(s), 's-101', 'st-b1', '3A')).toBeNull();
   });
 
+  it('refuses a label that differs from another only in case, as the Backend does (R16)', () => {
+    const s = reduce(loaded(), {
+      type: 'relabelSeat',
+      sectionId: 's-101',
+      seatId: 'st-a3',
+      label: '3A',
+    });
+    expect(seatLabelProblem(doc(s), 's-101', 'st-a1', '3a')).toBe('Seat 3a is already in row A');
+    const t = reduce(s, { type: 'relabelRow', sectionId: 's-101', rowId: 'r-101-b', label: 'X' });
+    expect(rowLabelProblem(doc(t), 's-101', 'r-101-a', 'x')).toBe(
+      'Row x is already in section 101',
+    );
+  });
+
   it('marks seats accessible and not', () => {
     let s = reduce(loaded(), {
       type: 'markAccessible',
