@@ -15,6 +15,8 @@ import {
   stubApi,
   typeHolderName,
   fixTimeBeforeFixtures,
+  findOnMap,
+  mapDrawing,
 } from './helpers';
 import type { Reservation } from '../src/seats';
 
@@ -87,7 +89,9 @@ const pick = async (...seats: [number, number][]) => {
   for (const [row, seat] of seats) {
     fireEvent.click(seatButton(row, seat));
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: mineName(row, seat) })).toBeInTheDocument(),
+      expect(
+        within(mapDrawing()).getByRole('button', { name: mineName(row, seat) }),
+      ).toBeInTheDocument(),
     );
   }
 };
@@ -292,11 +296,9 @@ describe('releasing (US1-5, US1-6; FR-007; spec 033 US2)', () => {
     await pick([1, 1]);
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to map' }));
-    fireEvent.click(screen.getByRole('button', { name: /^Section B,/ }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Row 1, Seat 2, Standard, $40, open' }),
-    );
-    await screen.findByRole('button', { name: mineName(1, 2) });
+    fireEvent.click(within(mapDrawing()).getByRole('button', { name: /^Section B,/ }));
+    fireEvent.click(await findOnMap('Row 1, Seat 2, Standard, $40, open'));
+    await findOnMap(mineName(1, 2));
 
     expect(calls.some((c) => c.path === '/events/e1/reservation/release')).toBe(false);
     expect(reserved()).toEqual([line(1, 1), 'Section B, Row 1, Seat 2, Standard, $40.00']);
@@ -452,7 +454,9 @@ describe('held looks different from sold (US4; FR-012, research R13, R15; spec 0
     renderCustomer({ at: '/events/e1' });
     await openSection('A');
 
-    const seat = screen.getByRole('button', { name: 'Row 2, Seat 5, Standard, $40, held' });
+    const seat = within(mapDrawing()).getByRole('button', {
+      name: 'Row 2, Seat 5, Standard, $40, held',
+    });
 
     expect(seat).toHaveClass('venue-map__seat--held');
     expect(seat).not.toHaveClass('venue-map__seat--sold');
@@ -471,7 +475,7 @@ describe('held looks different from sold (US4; FR-012, research R13, R15; spec 0
     await screen.findByRole('timer');
     await openSection('A');
 
-    const seat = screen.getByRole('button', { name: mineName(1, 4) });
+    const seat = within(mapDrawing()).getByRole('button', { name: mineName(1, 4) });
 
     expect(seat).toHaveClass('venue-map__seat--mine');
     expect(seat).not.toHaveClass('venue-map__seat--held');
@@ -485,7 +489,9 @@ describe('held looks different from sold (US4; FR-012, research R13, R15; spec 0
     renderCustomer({ at: '/events/e1' });
     await openSection('A');
 
-    const seat = screen.getByRole('button', { name: 'Row 1, Seat 2, Standard, $40, sold' });
+    const seat = within(mapDrawing()).getByRole('button', {
+      name: 'Row 1, Seat 2, Standard, $40, sold',
+    });
 
     expect(seat).toHaveClass('venue-map__seat--sold');
     expect(seat.querySelector('.venue-map__mark--cross')).not.toBeNull();

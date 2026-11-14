@@ -64,6 +64,68 @@ export const seatTip = (s: MapSeat): string =>
     s.price === null ? 'not on sale' : formatPrice(s.price)
   }`;
 
+type LoadedRow = VenueMapSection['rows'][number];
+
+/** A loaded seat as the map and the Sections list hand it to `onSeat`. */
+export function mapSeatOf(
+  map: VenueMap,
+  section: VenueMapSection,
+  row: LoadedRow,
+  s: LoadedRow['seats'][number],
+): MapSeat {
+  const level = map.levels.find((l) => l.levelId === s.levelId);
+  return {
+    sectionId: section.sectionId,
+    section: section.name,
+    row: row.number,
+    rowLabel: row.label,
+    seat: s.number,
+    seatLabel: s.label,
+    levelId: s.levelId,
+    levelName: level?.name ?? '',
+    price: level?.price ?? null,
+    state: s.state,
+    accessible: s.accessible,
+  };
+}
+
+/** How a seat is drawn and named, the same in the map and in the Sections list (FR-020). */
+export interface SeatLook {
+  shown: ShownState;
+  disabled: boolean;
+  /** Its mark (SC-007: states differ by shape, not color alone). */
+  kind: MarkKind;
+  /** Its fill: its level's color while open, else the unavailable gray. */
+  color: string;
+  /** Outside the price filter: faded, still choosable (FR-017). */
+  faded: boolean;
+  /** "Row F, Seat 7, Courtside, $95, open". */
+  name: string;
+}
+
+export function seatLook(
+  map: VenueMap,
+  seat: MapSeat,
+  range: PriceRange | null,
+  seatView?: (seat: MapSeat) => SeatView,
+): SeatLook {
+  const view = seatView?.(seat) ?? {};
+  const shown = view.shown ?? seat.state;
+  const disabled = view.disabled ?? !['open', 'mine', 'holding', 'releasing'].includes(shown);
+  const kind = MARK[shown];
+  const level = map.levels.find((l) => l.levelId === seat.levelId);
+  return {
+    shown,
+    disabled,
+    kind,
+    color: kind === 'open' && level ? `venue-map--${level.color}` : 'venue-map--unavailable',
+    faded: range !== null && !inRange(seat.price, range),
+    name: `Row ${seat.rowLabel}, Seat ${seat.seatLabel}, ${seat.levelName}, ${
+      seat.price === null ? 'not on sale' : formatPrice(seat.price)
+    }, ${STATE_TEXT[shown]}`,
+  };
+}
+
 /** The distance between neighbouring seats, for their size and their row labels' place. */
 function seatSpacing(section: VenueMapSection): number {
   let best = Infinity;
@@ -103,7 +165,6 @@ export function SectionView({
 }): React.ReactElement {
   const spacing = seatSpacing(section);
   const r = spacing * 0.4;
-  const levels = new Map(map.levels.map((l) => [l.levelId, l]));
   return (
     <g className="venue-map__seats">
       {section.rows.map((row) => {
@@ -141,28 +202,13 @@ export function SectionView({
               </text>
             ))}
             {row.seats.map((s) => {
-              const level = levels.get(s.levelId);
-              const seat: MapSeat = {
-                sectionId: section.sectionId,
-                section: section.name,
-                row: row.number,
-                rowLabel: row.label,
-                seat: s.number,
-                seatLabel: s.label,
-                levelId: s.levelId,
-                levelName: level?.name ?? '',
-                price: level?.price ?? null,
-                state: s.state,
-                accessible: s.accessible,
-              };
-              const view = seatView?.(seat) ?? {};
-              const shown = view.shown ?? s.state;
-              const disabled =
-                view.disabled ?? !['open', 'mine', 'holding', 'releasing'].includes(shown);
-              const kind = MARK[shown];
-              const color =
-                kind === 'open' && level ? `venue-map--${level.color}` : 'venue-map--unavailable';
-              const faded = range !== null && !inRange(seat.price, range);
+              const seat = mapSeatOf(map, section, row, s);
+              const { shown, disabled, kind, color, faded, name } = seatLook(
+                map,
+                seat,
+                range,
+                seatView,
+              );
               const choose = (): void => {
                 if (!disabled) onSeat?.(seat);
               };
@@ -172,9 +218,7 @@ export function SectionView({
                   key={s.number}
                   role="button"
                   tabIndex={0}
-                  aria-label={`Row ${row.label}, Seat ${s.label}, ${seat.levelName}, ${
-                    seat.price === null ? 'not on sale' : formatPrice(seat.price)
-                  }, ${STATE_TEXT[shown]}`}
+                  aria-label={name}
                   aria-pressed={shown === 'mine' || shown === 'holding'}
                   aria-disabled={disabled || undefined}
                   className={`venue-map__seat venue-map__seat--${kind} ${color}${

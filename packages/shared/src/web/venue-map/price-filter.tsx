@@ -1,7 +1,22 @@
-import type { PriceRange } from './map-state.js';
+import { useEffect, useMemo, useState } from 'react';
+import { priceRangeOf, type MapLevel, type PriceRange } from './map-state.js';
 
 /** A filter end as people read it: "$50". */
 export const wholeDollars = (n: number): string => `$${n.toLocaleString('en-US')}`;
+
+/**
+ * Spec 038 FR-017, FR-020: the price filter's state, for a page that shows it in the map and
+ * filters the Sections list by it too. It starts at the levels' full range, and starts over there
+ * when the prices change (a reconnect after a price change); `null` when no level has a price.
+ */
+export function usePriceFilter(
+  levels: readonly MapLevel[],
+): [PriceRange | null, (range: PriceRange) => void] {
+  const full = useMemo(() => priceRangeOf(levels), [levels]);
+  const [range, setRange] = useState<PriceRange | null>(full);
+  useEffect(() => setRange(full), [full?.low, full?.high]);
+  return [range, setRange];
+}
 
 /**
  * Spec 038 FR-017 (research R14, T039): the price filter, a low and a high price in whole dollars

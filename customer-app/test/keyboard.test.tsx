@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   availability,
@@ -11,6 +11,8 @@ import {
   stubApi,
   venue,
   fixTimeBeforeFixtures,
+  findOnMap,
+  mapDrawing,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -60,13 +62,15 @@ describe('keyboard', () => {
     const choose = await screen.findByRole('button', { name: 'Choose seats' });
     choose.focus();
     await user.keyboard('{Enter}');
-    const section = await screen.findByRole('button', { name: /^Section A,/ });
+    const section = await findOnMap(/^Section A,/);
     section.focus();
     await user.keyboard('{Enter}');
-    const first = await screen.findByRole('button', { name: 'Row 1, Seat 1, Standard, $40, open' });
+    const first = await findOnMap('Row 1, Seat 1, Standard, $40, open');
 
     // A sold seat is reachable (aria-disabled) but pressing it does nothing.
-    const sold = screen.getByRole('button', { name: 'Row 1, Seat 2, Standard, $40, sold' });
+    const sold = within(mapDrawing()).getByRole('button', {
+      name: 'Row 1, Seat 2, Standard, $40, sold',
+    });
     sold.focus();
     await user.keyboard(' ');
     await user.keyboard('{Enter}');
@@ -92,7 +96,7 @@ describe('keyboard', () => {
     expect(sold).toHaveFocus();
     await user.tab();
     expect(
-      screen.getByRole('button', { name: 'Row 1, Seat 3, Standard, $40, open' }),
+      within(mapDrawing()).getByRole('button', { name: 'Row 1, Seat 3, Standard, $40, open' }),
     ).toHaveFocus();
   });
 });

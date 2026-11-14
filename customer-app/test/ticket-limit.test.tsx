@@ -13,6 +13,7 @@ import {
   stubApi,
   typeHolderName,
   fixTimeBeforeFixtures,
+  mapDrawing,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -172,7 +173,7 @@ describe('choosing seats (US4-3)', () => {
     basePrice: '40.00',
     priceMax: '40.00',
   });
-  const mine = () => screen.getAllByRole('button', { name: /, held by you$/ });
+  const mine = () => within(mapDrawing()).getAllByRole('button', { name: /, held by you$/ });
 
   it('stops at what the customer may still get, and says why', async () => {
     stubApi({

@@ -901,14 +901,29 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
 
 **Independent test**: quickstart S16; shared and Customer `SectionsList` tests.
 
-- [ ] T041 [P] [US4] `packages/shared/test/venue-map/sections-list.test.tsx` and
+- [X] T041 [P] [US4] `packages/shared/test/venue-map/sections-list.test.tsx` and
   `customer-app/test/sections-list.test.tsx` (FR-020): reachable by keyboard; each section's name,
   price range of its open seats and open count under the filter; choosing one lists its rows as
   groups of seat buttons named "Row F, Seat 7, Lower sideline, $60, open" with `aria-pressed` for
   held-by-me; Enter or Space holds and releases exactly as a map click (the same queue); a hold in
   either view shows in the other at once; the whole flow to buying by keyboard only. Must fail.
-- [ ] T042 [US4] `packages/shared/src/web/venue-map/sections-list.tsx` on the same `map-state`;
+  **Done** (2026-11-14): written first and seen failing (no module; no Sections region); 11 shared
+  and 3 Customer tests pass after T042. Names fixed here: the list is the region "Sections"; a
+  section "Section 115, $60–$95, 2 open seats" (one price "$35"; none "no open seats" or "no open
+  seats between $70 and $95", as the map), `aria-expanded` when chosen; each row a group "Row F".
+  The map and the list now name the same seats, so the Customer tests that mean the map look inside
+  it (`mapDrawing`, `findOnMap`, `seatOf` and `openSection` in `helpers.tsx`); the wait and Your
+  seats sit directly above and below `.venue-map-layout`, the map and list together.
+- [X] T042 [US4] `packages/shared/src/web/venue-map/sections-list.tsx` on the same `map-state`;
   beside the map at laptop width and below it under 640 px; used by `GetTickets.tsx`. T041 passes.
+  **Done** (2026-11-14): `SectionsList` takes the map's own props (map, range, open section and its
+  seats, `seatView`, `onSeat`): choosing a section here opens it on the map and the reverse, a seat
+  is a native button with its state's mark (`SeatMark`) beside its number, `aria-pressed` when the
+  customer's, `aria-disabled` and focusable when not choosable. `section-view.tsx` gains
+  `mapSeatOf` and `seatLook` (the seat, its mark, color, fade and name), used by both views;
+  `usePriceFilter` (price-filter.tsx) is the one filter `GetTickets.tsx` gives both. Theme classes
+  `.venue-map-layout` (two columns, one under 640 px) and `.sections-list*`. Shared 900 tests,
+  Customer 445; `tsc` clean for shared, customer-app, booth-app.
 
 ---
 
