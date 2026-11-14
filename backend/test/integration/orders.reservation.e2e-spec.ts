@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { HOLDER, customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
+import { HOLDER, customer, event, reserveThenOrder, seatedEvent, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { tokenFor } from '../setup/tokens';
@@ -15,7 +15,6 @@ describe('Seated orders need a reservation', () => {
   let venueId: string;
   let sectionA: string;
   let eventId: string;
-  let vip: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -26,17 +25,13 @@ describe('Seated orders need a reservation', () => {
   beforeEach(async () => {
     await resetDb(ctx.prisma);
     venueId = await venue(ctx, 'Seat Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${venueId}/layout`)
-      .send({ sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }] })
-      .expect(200);
-    sectionA = layout.body.sections[0].id;
-    eventId = await event(ctx, venueId, { capacity: 30 });
-    vip = await tier(ctx, eventId, 'VIP', '120.00', 30);
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [{ sectionId: sectionA, tierId: vip }] })
-      .expect(200);
+    // Spec 038: section A at one level, VIP $120 (no ticket types on a seated event).
+    const seated = await seatedEvent(ctx, venueId, {
+      sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }],
+      levels: [{ name: 'VIP', price: '120.00' }],
+    });
+    eventId = seated.eventId;
+    sectionA = seated.layout.sections.A;
   });
 
   const code = (res: Response): string => res.body.error?.code;
@@ -47,7 +42,6 @@ describe('Seated orders need a reservation', () => {
   const order = async (seats: object[], n = 1, requestId?: string) =>
     (await customer(ctx, n)).post(`/events/${eventId}/orders`).send({
       holderName: HOLDER,
-      tierId: vip,
       quantity: seats.length,
       seats,
       ...(requestId ? { requestId } : {}),
@@ -67,7 +61,6 @@ describe('Seated orders need a reservation', () => {
 
   it('accepts the reserved seats, ends their holds BOUGHT, and ends the reservation', async () => {
     const res = await reserveThenOrder(ctx, await token(), eventId, {
-      tierId: vip,
       seats: [seat(1, 5), seat(1, 6)],
     });
 
@@ -76,8 +69,8 @@ describe('Seated orders need a reservation', () => {
     expect(holds.map((h) => h.endReason)).toEqual(['BOUGHT', 'BOUGHT']);
     const r = await ctx.prisma.seatReservation.findFirstOrThrow({ where: { eventId } });
     expect(r.endedAt).not.toBeNull();
-    const map = await asAdmin(ctx).get(`/events/${eventId}/seats`).expect(200);
-    expect(map.body.sections[0]).toMatchObject({ sold: 2, reserved: [] });
+    const map = await asAdmin(ctx).get(`/events/${eventId}/venue-map`).expect(200);
+    expect(map.body.sections[0].counts[0]).toMatchObject({ sold: 2, reserved: 0 });
   });
 
   it('leaves the seats not bought reserved, with the same expiresAt', async () => {
@@ -125,7 +118,6 @@ describe('Seated orders need a reservation', () => {
   it('returns the earlier order for a requestId repeated after the reservation ended', async () => {
     const requestId = randomUUID();
     const first = await reserveThenOrder(ctx, await token(), eventId, {
-      tierId: vip,
       seats: [seat(1, 5)],
       requestId,
     });

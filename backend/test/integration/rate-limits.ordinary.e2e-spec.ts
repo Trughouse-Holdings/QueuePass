@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { as, asAdmin } from '../setup/authed-request';
-import { HOLDER, event, venue } from '../setup/fixtures';
+import { as } from '../setup/authed-request';
+import { HOLDER, event, seatedEvent, venue } from '../setup/fixtures';
 import { resetDb } from '../setup/reset-db';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { tokenFor } from '../setup/tokens';
@@ -26,16 +26,11 @@ describe('An ordinary customer and the attempt limits', () => {
 
   it('holds, adds, releases, holds, buys, buys again, and checks again with no 429', async () => {
     const venueId = await venue(ctx, 'Ordinary Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${venueId}/layout`)
-      .send({ sections: [{ name: 'A', rows: 1, seatsPerRow: 10 }] })
-      .expect(200);
-    const sectionId = layout.body.sections[0].id as string;
-    const seated = await event(ctx, venueId, { capacity: 10 });
-    await asAdmin(ctx)
-      .put(`/events/${seated}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
+    // Spec 038: a seated event on a layout made from section lines, one level at 45.00.
+    const { eventId: seated, layout } = await seatedEvent(ctx, venueId, {
+      sections: [{ name: 'A', rows: 1, seatsPerRow: 10 }],
+    });
+    const sectionId = layout.sections.A;
     const general = await event(ctx, await venue(ctx, 'Open Hall'), { capacity: 100 });
     const c = as(ctx, await tokenFor({ username: 'rl-ordinary', roles: ['customer'] }));
     const seat = (n: number) => ({ sectionId, row: 1, seat: n });

@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
-import { asAdmin } from '../setup/authed-request';
-import { HOLDER, customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
+import {
+  HOLDER,
+  customer,
+  event,
+  reserveThenOrder,
+  seatedEvent,
+  tier,
+  venue,
+} from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { subFor, tokenFor } from '../setup/tokens';
@@ -186,17 +193,12 @@ describe('Per-customer ticket limit on orders', () => {
   });
 
   it('counts the seats of a reserved-seating event toward the limit', async () => {
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${venueId}/layout`)
-      .send({ sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }] })
-      .expect(200);
-    const sectionA = layout.body.sections[0].id;
-    const eventId = await limited(3, 30);
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
-    const seat = (s: number) => ({ sectionId: sectionA, row: 1, seat: s });
+    // Spec 038: a seated event on a layout, its limit 3.
+    const { eventId, layout } = await seatedEvent(ctx, venueId, {
+      sections: [{ name: 'A', rows: 3, seatsPerRow: 10 }],
+      maxTicketsPerCustomer: 3,
+    });
+    const seat = (s: number) => ({ sectionId: layout.sections.A, row: 1, seat: s });
 
     const token = await tokenFor({ username: 'customer1', roles: ['customer'] });
     await reserveThenOrder(ctx, token, eventId, { seats: [seat(1), seat(2)] }).then((r) =>

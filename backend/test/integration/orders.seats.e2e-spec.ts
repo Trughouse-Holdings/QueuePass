@@ -1,17 +1,31 @@
 import { randomUUID } from 'node:crypto';
 import type { Response } from 'supertest';
 import { asAdmin } from '../setup/authed-request';
-import { HOLDER, customer, event, reserveThenOrder, tier, venue } from '../setup/fixtures';
+import {
+  HOLDER,
+  customer,
+  event,
+  reserveThenOrder,
+  seatedEvent,
+  seatedLayout,
+  venue,
+  type InsertedLayout,
+} from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 import { tokenFor } from '../setup/tokens';
 
-/** Spec 007 US2 (FR-005–FR-008, FR-011; research R6): ordering seats. */
+/**
+ * Spec 007 US2 (FR-005–FR-008, FR-011; research R6): ordering seats. Spec 038 (research R10): on a
+ * layout with price levels, each seat at its level's price; no ticket types.
+ */
 describe('Orders with seats', () => {
   let ctx: TestContext;
   let venueId: string;
+  let layout: InsertedLayout;
   let sectionA: string;
   let sectionB: string;
+  let sectionC: string;
 
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -22,16 +36,17 @@ describe('Orders with seats', () => {
   beforeEach(async () => {
     await resetDb(ctx.prisma);
     venueId = await venue(ctx, 'Seat Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${venueId}/layout`)
-      .send({
-        sections: [
-          { name: 'A', rows: 3, seatsPerRow: 10 },
-          { name: 'B', rows: 2, seatsPerRow: 20 },
-        ],
-      })
-      .expect(200);
-    [sectionA, sectionB] = layout.body.sections.map((s: { id: string }) => s.id);
+    layout = await seatedLayout(
+      ctx,
+      venueId,
+      [
+        { name: 'A', rows: 3, seatsPerRow: 10, level: 'VIP' },
+        { name: 'B', rows: 2, seatsPerRow: 20, level: 'General' },
+        { name: 'C', rows: 1, seatsPerRow: 5, level: 'Upper' },
+      ],
+      ['VIP', 'General', 'Upper'],
+    );
+    ({ A: sectionA, B: sectionB, C: sectionC } = layout.sections);
   });
 
   const order = async (eventId: string, body: object, n = 1) =>
@@ -42,7 +57,6 @@ describe('Orders with seats', () => {
   const bought = async (
     eventId: string,
     body: {
-      tierId?: string;
       seats: { sectionId: string; row: number; seat: number }[];
       requestId?: string;
     },
@@ -57,63 +71,73 @@ describe('Orders with seats', () => {
   const code = (res: Response): string => res.body.error?.code;
   const seat = (sectionId: string, row: number, s: number) => ({ sectionId, row, seat: s });
 
-  /** A seated event with VIP mapped to A and General to B (C left unmapped where added). */
-  const tiered = async (vipQuantity = 30) => {
-    const eventId = await event(ctx, venueId, { capacity: 70 });
-    const vip = await tier(ctx, eventId, 'VIP', '120.00', vipQuantity);
-    const general = await tier(ctx, eventId, 'General', '40.00', 40);
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({
-        reservedSeating: true,
-        sections: [
-          { sectionId: sectionA, tierId: vip },
-          { sectionId: sectionB, tierId: general },
+  /** A seated event: VIP ($120) on A, General ($40) on B, C (Upper) off sale. */
+  const tiered = async () =>
+    (
+      await seatedEvent(ctx, venueId, {
+        layout,
+        levels: [
+          { name: 'VIP', price: '120.00' },
+          { name: 'General', price: '40.00' },
+          { name: 'Upper', price: null },
         ],
+        offSale: [{ section: 'C' }],
       })
-      .expect(200);
-    return { eventId, vip, general };
-  };
+    ).eventId;
 
   it('issues one ticket per seat, each labelled with its section, row, and seat', async () => {
-    const { eventId, vip } = await tiered();
+    const eventId = await tiered();
 
     const res = await bought(eventId, {
-      tierId: vip,
       seats: [seat(sectionA, 1, 6), seat(sectionA, 1, 5)],
     });
 
     expect(res.status).toBe(201);
-    expect(res.body).toMatchObject({ tierName: 'VIP', quantity: 2, totalPrice: '240.00' });
-    const seats = res.body.tickets.map((t: { seat: object }) => t.seat);
-    expect(seats).toHaveLength(2);
-    expect(seats).toEqual(
+    expect(res.body).toMatchObject({
+      tierName: null,
+      quantity: 2,
+      unitPrice: '120.00',
+      totalPrice: '240.00',
+    });
+    const tickets = res.body.tickets.map((t: object) => ({
+      seat: (t as { seat: object }).seat,
+      levelName: (t as { levelName: string }).levelName,
+      price: (t as { price: string }).price,
+    }));
+    expect(tickets).toHaveLength(2);
+    expect(tickets).toEqual(
       expect.arrayContaining([
-        { section: 'A', row: 1, seat: 5 },
-        { section: 'A', row: 1, seat: 6 },
+        {
+          seat: { section: 'A', row: 1, seat: 5, rowLabel: '1', seatLabel: '5' },
+          levelName: 'VIP',
+          price: '120.00',
+        },
+        {
+          seat: { section: 'A', row: 1, seat: 6, rowLabel: '1', seatLabel: '6' },
+          levelName: 'VIP',
+          price: '120.00',
+        },
       ]),
     );
   });
 
   it('refuses malformed seat choices with 400 and records nothing', async () => {
-    const { eventId, vip } = await tiered();
+    const eventId = await tiered();
     const gaEvent = await event(ctx, venueId, { capacity: 70 });
     const elsewhere = await venue(ctx, 'Other Hall');
-    const other = await asAdmin(ctx)
-      .put(`/locations/${elsewhere}/layout`)
-      .send({ sections: [{ name: 'Z', rows: 1, seatsPerRow: 5 }] })
-      .expect(200);
+    const other = await seatedLayout(ctx, elsewhere, [{ name: 'Z', rows: 1, seatsPerRow: 5 }]);
 
     const cases: [string, object][] = [
-      [eventId, { tierId: vip, quantity: 1 }],
-      [eventId, { tierId: vip, quantity: 2, seats: [seat(sectionA, 1, 1)] }],
+      [eventId, { quantity: 1 }],
+      [eventId, { quantity: 2, seats: [seat(sectionA, 1, 1)] }],
       [gaEvent, { quantity: 1, seats: [seat(sectionA, 1, 1)] }],
-      [eventId, { tierId: vip, quantity: 2, seats: [seat(sectionA, 1, 1), seat(sectionA, 1, 1)] }],
-      [eventId, { tierId: vip, quantity: 1, seats: [seat(sectionA, 4, 1)] }],
-      [eventId, { tierId: vip, quantity: 1, seats: [seat(sectionA, 1, 11)] }],
-      [eventId, { tierId: vip, quantity: 1, seats: [seat(other.body.sections[0].id, 1, 1)] }],
-      [eventId, { tierId: vip, quantity: 1, seats: [seat(sectionB, 1, 1)] }],
-      [eventId, { tierId: vip, quantity: 1, seats: [{ sectionId: sectionA, row: 0, seat: 1 }] }],
+      [eventId, { quantity: 2, seats: [seat(sectionA, 1, 1), seat(sectionA, 1, 1)] }],
+      [eventId, { quantity: 1, seats: [seat(sectionA, 4, 1)] }],
+      [eventId, { quantity: 1, seats: [seat(sectionA, 1, 11)] }],
+      [eventId, { quantity: 1, seats: [seat(other.sections.Z, 1, 1)] }],
+      // Spec 038 (research R10): a seated event has no ticket types.
+      [eventId, { tierId: randomUUID(), quantity: 1, seats: [seat(sectionB, 1, 1)] }],
+      [eventId, { quantity: 1, seats: [{ sectionId: sectionA, row: 0, seat: 1 }] }],
     ];
     for (const [id, body] of cases) {
       const res = await order(id, body);
@@ -126,42 +150,43 @@ describe('Orders with seats', () => {
     expect(await ctx.prisma.order.count()).toBe(0);
   });
 
-  it('refuses a seat in a section mapped to no tier', async () => {
-    const eventId = await event(ctx, venueId, { capacity: 70 });
-    const vip = await tier(ctx, eventId, 'VIP', '120.00', 30);
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [{ sectionId: sectionA, tierId: vip }] })
-      .expect(200);
+  // Spec 038: `007`'s "section mapped to no tier" is now a seat off sale (409 SEAT_OFF_SALE).
+  it('refuses a seat off sale', async () => {
+    const eventId = await tiered();
 
-    const res = await order(eventId, { tierId: vip, quantity: 1, seats: [seat(sectionB, 1, 1)] });
-    expect(res.status).toBe(400);
+    const res = await order(eventId, { quantity: 1, seats: [seat(sectionC, 1, 1)] });
+    expect(res.status).toBe(409);
+    expect(code(res)).toBe('SEAT_OFF_SALE');
+    expect(res.body.error.details.seats).toEqual([seat(sectionC, 1, 1)]);
+    expect(await ctx.prisma.order.count()).toBe(0);
   });
 
-  it('sells any section at the base price for a seated event without tiers', async () => {
-    const eventId = await event(ctx, venueId, { capacity: 70, basePrice: '25.00' });
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
+  it('sells any section at one price when every section has the same level', async () => {
+    const { eventId, layout: one } = await seatedEvent(ctx, venueId, {
+      sections: [
+        { name: 'A', rows: 3, seatsPerRow: 10 },
+        { name: 'B', rows: 2, seatsPerRow: 20 },
+      ],
+      levels: [{ name: 'Standard', price: '25.00' }],
+    });
 
     const res = await bought(eventId, {
-      seats: [seat(sectionA, 2, 3), seat(sectionB, 1, 20)],
+      seats: [seat(one.sections.A, 2, 3), seat(one.sections.B, 1, 20)],
     });
 
     expect(res.status).toBe(201);
-    expect(res.body.totalPrice).toBe('50.00');
+    expect(res.body).toMatchObject({ unitPrice: '25.00', totalPrice: '50.00' });
   });
 
   it('refuses taken seats, naming them, and records nothing', async () => {
-    const { eventId, vip } = await tiered();
-    await bought(eventId, { tierId: vip, seats: [seat(sectionA, 1, 5)] }, 1).then((r) =>
+    const eventId = await tiered();
+    await bought(eventId, { seats: [seat(sectionA, 1, 5)] }, 1).then((r) =>
       expect(r.status).toBe(201),
     );
 
     const res = await order(
       eventId,
-      { tierId: vip, quantity: 2, seats: [seat(sectionA, 1, 4), seat(sectionA, 1, 5)] },
+      { quantity: 2, seats: [seat(sectionA, 1, 4), seat(sectionA, 1, 5)] },
       2,
     );
 
@@ -171,25 +196,20 @@ describe('Orders with seats', () => {
     expect(await ctx.prisma.order.count()).toBe(1);
   });
 
-  // Revision R11: a seated tier's amount is its sections' seats, so it sells out exactly when
-  // they do; the old case of a typed quantity below the seats no longer exists.
-  it("sets a seated tier's amount to its sections' seats", async () => {
-    const { eventId } = await tiered();
+  // Spec 038 (FR-012, FR-014, research R9): `007`'s seated tier amounts are gone; a seated
+  // event has no ticket types, and its capacity is its seats on sale.
+  it('gives a seated event no ticket types and its seats on sale as its capacity', async () => {
+    const eventId = await tiered();
     const tiers = await asAdmin(ctx).get(`/events/${eventId}/tiers`).expect(200);
-    expect(
-      Object.fromEntries(
-        tiers.body.map((t: { name: string; quantity: number }) => [t.name, t.quantity]),
-      ),
-    ).toEqual({
-      VIP: 30,
-      General: 40,
-    });
+    expect(tiers.body).toEqual([]);
+    const got = await asAdmin(ctx).get(`/events/${eventId}`).expect(200);
+    expect(got.body).toMatchObject({ totalTicketCapacity: 70, basePrice: '40.00' });
   });
 
   it('treats a repeated requestId with the same seats as a repeat, and different seats as reuse', async () => {
-    const { eventId, vip } = await tiered();
+    const eventId = await tiered();
     const requestId = randomUUID();
-    const body = { tierId: vip, quantity: 1, seats: [seat(sectionA, 2, 2)], requestId };
+    const body = { quantity: 1, seats: [seat(sectionA, 2, 2)], requestId };
     const first = await bought(eventId, body);
     expect(first.status).toBe(201);
 
@@ -203,17 +223,18 @@ describe('Orders with seats', () => {
   });
 
   it('shows seats on My orders and the attendee list, and none for general admission', async () => {
-    const { eventId, vip } = await tiered();
-    await bought(eventId, { tierId: vip, seats: [seat(sectionA, 3, 10)] });
+    const eventId = await tiered();
+    await bought(eventId, { seats: [seat(sectionA, 3, 10)] });
     const gaEvent = await event(ctx, venueId, { capacity: 70 });
     const ga = await order(gaEvent, { quantity: 1 });
     expect(ga.body.tickets[0].seat).toBeNull();
 
     const mine = await (await customer(ctx)).get('/me/orders').expect(200);
     const seated = mine.body.find((o: { eventId: string }) => o.eventId === eventId);
-    expect(seated.tickets[0].seat).toEqual({ section: 'A', row: 3, seat: 10 });
+    const sold = { section: 'A', row: 3, seat: 10, rowLabel: '3', seatLabel: '10' };
+    expect(seated.tickets[0].seat).toEqual(sold);
 
     const attendees = await asAdmin(ctx).get(`/events/${eventId}/attendees`).expect(200);
-    expect(attendees.body[0].tickets[0].seat).toEqual({ section: 'A', row: 3, seat: 10 });
+    expect(attendees.body[0].tickets[0].seat).toEqual(sold);
   });
 });
