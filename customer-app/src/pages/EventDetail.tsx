@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import type { Availability, Event } from '@queuepass/shared';
 import { ImageGallery, ServiceUnreachable } from '@queuepass/shared/web';
 import { GetTickets } from '../components/GetTickets';
-import { count, doorsOpen, hasEnded, usd, when } from '../format';
+import { count, doorsOpen, eventPrice, hasEnded, usd, when } from '../format';
 import { useLoad } from '../use-load';
 
 /**
@@ -90,8 +90,18 @@ export function EventDetail() {
           <dd>{when(e.endsAt, e.location.timeZone)}</dd>
           <dt>Tickets</dt>
           <dd>{count(e.totalTicketCapacity)}</dd>
-          <dt>Base price</dt>
-          <dd>{usd(e.basePrice)}</dd>
+          {/* Spec 038 FR-024: a seated event's price is the range of its level prices. */}
+          {e.reservedSeating ? (
+            <>
+              <dt>Price</dt>
+              <dd>{eventPrice(e)}</dd>
+            </>
+          ) : (
+            <>
+              <dt>Base price</dt>
+              <dd>{usd(e.basePrice)}</dd>
+            </>
+          )}
         </dl>
       </div>
       <GetTickets event={e} onSales={onSales} />

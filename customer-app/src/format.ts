@@ -3,8 +3,10 @@ import {
   formatEventEnd,
   formatEventTime,
   formatDoorsOpen,
+  type Event,
   type InstantLike,
 } from '@queuepass/shared';
+import { formatPrice } from '@queuepass/shared/web';
 
 /**
  * An event time in its venue's zone, always with its date (spec 003 FR-006) and the zone's
@@ -42,9 +44,49 @@ export function totalUsd(price: string, quantity: number): string {
   return usd(`${Math.floor(total / 100)}.${String(total % 100).padStart(2, '0')}`);
 }
 
-/** A seat as customers read it (spec 007 FR-011): "Section A, Row 3, Seat 7". */
-export const seatLabel = (s: { section: string; row: number; seat: number }): string =>
-  `Section ${s.section}, Row ${s.row}, Seat ${s.seat}`;
+/**
+ * Prices summed, as US dollars, in integer cents from the strings' digits (Money): an order or a
+ * hold of seats of several levels (spec 038 FR-022).
+ */
+export function sumUsd(prices: readonly string[]): string {
+  const total = prices.reduce((n, p) => n + cents(p), 0);
+  return usd(`${Math.floor(total / 100)}.${String(total % 100).padStart(2, '0')}`);
+}
+
+/**
+ * A seat as customers read it (spec 007 FR-011): "Section A, Row 3, Seat 7". Spec 038 (FR-026,
+ * research R2): by its row and seat labels when it has them ("Section 115, Row F, Seat 7").
+ */
+export const seatLabel = (s: {
+  section: string;
+  row: number;
+  seat: number;
+  rowLabel?: string;
+  seatLabel?: string;
+}): string => `Section ${s.section}, Row ${s.rowLabel ?? s.row}, Seat ${s.seatLabel ?? s.seat}`;
+
+/**
+ * Spec 038 FR-022, FR-026: a seat with its price level and price, as Your seats, the cart and the
+ * tickets list it: "Section 115, Row F, Seat 7, Courtside, $95.00".
+ */
+export const seatWithPrice = (
+  s: Parameters<typeof seatLabel>[0],
+  levelName: string | null | undefined,
+  price: string | undefined,
+): string =>
+  [seatLabel(s), ...(levelName ? [levelName] : []), ...(price ? [usd(price)] : [])].join(', ');
+
+/**
+ * Spec 038 FR-024 (research R9): an event's price as customers read it. A seated event's is the
+ * range of its on-sale level prices, "$35–$95" (one price when they are all the same); a
+ * general-admission event's is its base price.
+ */
+export function eventPrice(e: Pick<Event, 'basePrice' | 'reservedSeating' | 'priceMax'>): string {
+  if (!e.reservedSeating || !e.priceMax) return usd(e.basePrice);
+  return cents(e.priceMax) === cents(e.basePrice)
+    ? formatPrice(e.basePrice)
+    : `${formatPrice(e.basePrice)}–${formatPrice(e.priceMax)}`;
+}
 
 /**
  * Spec 025 FR-021 (research R9): an event's doors-open time next to its start, in its venue's

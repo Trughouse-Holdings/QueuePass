@@ -1,7 +1,16 @@
 import { afterEach, beforeEach, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { Availability, Event, Location, MyOrder, Order, TicketTier } from '@queuepass/shared';
+import type {
+  Availability,
+  Event,
+  Location,
+  MyOrder,
+  Order,
+  TicketTier,
+  VenueMap,
+  VenueMapSection,
+} from '@queuepass/shared';
 import { AuthProvider, RequireRole } from '@queuepass/shared/web';
 import { App } from '../src/App';
 import { releaseOnLogout } from '../src/release-on-logout';
@@ -219,8 +228,24 @@ export const order = (over: Partial<Order> = {}): Order => ({
   createdAt: '2026-10-03T15:00:00.000Z',
   refundedAt: null,
   tickets: [
-    { id: 'k1', code: 'AAAA2222BBBB', status: 'VALID', checkedInAt: null, seat: null },
-    { id: 'k2', code: 'CCCC3333DDDD', status: 'VALID', checkedInAt: null, seat: null },
+    {
+      id: 'k1',
+      code: 'AAAA2222BBBB',
+      status: 'VALID',
+      checkedInAt: null,
+      seat: null,
+      price: '45.50',
+      levelName: null,
+    },
+    {
+      id: 'k2',
+      code: 'CCCC3333DDDD',
+      status: 'VALID',
+      checkedInAt: null,
+      seat: null,
+      price: '45.50',
+      levelName: null,
+    },
   ],
   ...over,
 });
@@ -271,6 +296,14 @@ export function seatStream() {
 
 /** A seat as hold and release requests name it. */
 type HeldPlace = { sectionId: string; row: number; seat: number };
+/** Spec 038: what a reservation adds to each seat (contract `ReservedSeat`). */
+type SeatInfo = { rowLabel: string; seatLabel: string; levelName: string; price: string };
+const defaultSeatInfo = (s: HeldPlace): SeatInfo => ({
+  rowLabel: String(s.row),
+  seatLabel: String(s.seat),
+  levelName: STANDARD.name,
+  price: STANDARD.price ?? '0.00',
+});
 
 /**
  * Spec 033 (research R6): the Backend as it answers seat clicks on event `e1`, one reservation of
@@ -284,6 +317,8 @@ export function holdBackend(
     tierId?: string | null;
     secondsLeft?: number;
     manual?: boolean;
+    /** Spec 038: each held seat's labels, level and current price (`ReservedSeat`). */
+    seatInfo?: (place: HeldPlace) => Partial<SeatInfo>;
   } = {},
 ) {
   const sections = opts.sections ?? { 's-a': 'A' };
@@ -297,8 +332,14 @@ export function holdBackend(
     a.sectionId === b.sectionId && a.row === b.row && a.seat === b.seat;
   const reservationOf = (list: HeldPlace[]) => ({
     eventId: 'e1',
-    tierId: opts.tierId === undefined ? 't-vip' : opts.tierId,
-    seats: list.map((s) => ({ ...s, section: sections[s.sectionId] ?? '?' })),
+    // Spec 038: always null (seated events have no ticket types).
+    tierId: opts.tierId === undefined ? null : opts.tierId,
+    seats: list.map((s) => ({
+      ...s,
+      section: sections[s.sectionId] ?? '?',
+      ...defaultSeatInfo(s),
+      ...opts.seatInfo?.(s),
+    })),
     createdAt: '2026-10-20T19:00:00.000Z',
     expiresAt: '2026-10-20T19:05:00.000Z',
     secondsLeft: opts.secondsLeft ?? 300,
@@ -338,3 +379,134 @@ export function holdBackend(
     },
   };
 }
+
+/** Spec 038: a price level of an event's venue map. */
+export type MapLevelFixture = VenueMap['levels'][number];
+/** Spec 038: the one level of the plain maps below, at $40. */
+export const STANDARD: MapLevelFixture = {
+  levelId: 'l-std',
+  name: 'Standard',
+  rank: 1,
+  color: 'violet',
+  price: '40.00',
+};
+
+/** Spec 038: a section of a fixture map, its seats `rows × seatsPerRow`, rows labelled 1, 2, … */
+export interface SectionFixture {
+  sectionId: string;
+  name: string;
+  rows: number;
+  seatsPerRow: number;
+  /** Every seat's level (else STANDARD), or a level per row (`rowLevels[row - 1]`). */
+  levelId?: string;
+  rowLevels?: string[];
+  rowLabels?: string[];
+  /** Seat labels by number (else the number). */
+  seatLabels?: Record<number, string>;
+  sold?: [number, number][];
+  reserved?: [number, number][];
+  offSale?: [number, number][];
+}
+
+/**
+ * Spec 038 (research R11): a seated event's venue map and its sections as `getVenueMap` and
+ * `getVenueMapSection` give them, read at `seq`, with the routes that answer them for event `e1`.
+ * Sections are laid side by side, each seat 2 units from the next.
+ */
+export function seatedMap(
+  sections: SectionFixture[],
+  { levels = [STANDARD], seq = 1, layoutName = 'Arena' } = {},
+) {
+  const has = (list: [number, number][] | undefined, row: number, seat: number) =>
+    (list ?? []).some(([r, s]) => r === row && s === seat);
+  const stateOf = (f: SectionFixture, row: number, seat: number) =>
+    has(f.sold, row, seat)
+      ? ('sold' as const)
+      : has(f.reserved, row, seat)
+        ? ('reserved' as const)
+        : has(f.offSale, row, seat)
+          ? ('offSale' as const)
+          : ('open' as const);
+  const levelOf = (f: SectionFixture, row: number) =>
+    f.rowLevels?.[row - 1] ?? f.levelId ?? levels[0].levelId;
+  const x0 = (i: number) => 10 + i * 60;
+  const section = (sectionId: string): VenueMapSection => {
+    const i = sections.findIndex((f) => f.sectionId === sectionId);
+    const f = sections[i];
+    return {
+      eventId: 'e1',
+      seq,
+      sectionId,
+      name: f.name,
+      rows: Array.from({ length: f.rows }, (_, r) => ({
+        number: r + 1,
+        label: f.rowLabels?.[r] ?? String(r + 1),
+        seats: Array.from({ length: f.seatsPerRow }, (_, n) => ({
+          number: n + 1,
+          label: f.seatLabels?.[n + 1] ?? String(n + 1),
+          at: [x0(i) + 3 + 2 * n, 13 + 2 * r] as [number, number],
+          levelId: levelOf(f, r + 1),
+          state: stateOf(f, r + 1, n + 1),
+          accessible: false,
+        })),
+      })),
+    };
+  };
+  const map: VenueMap = {
+    eventId: 'e1',
+    seq,
+    layoutId: 'lay-1',
+    layoutName,
+    size: { width: 10 + sections.length * 60, height: 240 },
+    floorKind: 'NONE',
+    floorOutline: null,
+    levels,
+    sections: sections.map((f, i) => {
+      const counts = new Map<
+        string,
+        { open: number; reserved: number; sold: number; offSale: number }
+      >();
+      for (const row of section(f.sectionId).rows) {
+        for (const seat of row.seats) {
+          const c = counts.get(seat.levelId) ?? { open: 0, reserved: 0, sold: 0, offSale: 0 };
+          c[seat.state] += 1;
+          counts.set(seat.levelId, c);
+        }
+      }
+      return {
+        sectionId: f.sectionId,
+        name: f.name,
+        outline: [
+          [x0(i), 10],
+          [x0(i) + 50, 10],
+          [x0(i) + 50, 230],
+          [x0(i), 230],
+        ] as [number, number][],
+        labelAt: [x0(i) + 25, 5] as [number, number],
+        counts: [...counts].map(([levelId, c]) => ({ levelId, ...c })),
+      };
+    }),
+  };
+  const routes: Record<string, Response> = {
+    'GET /events/e1/venue-map': json(map),
+    ...Object.fromEntries(
+      sections.map((f) => [
+        `GET /events/e1/venue-map/sections/${f.sectionId}`,
+        json(section(f.sectionId)),
+      ]),
+    ),
+  };
+  return { map, section, routes };
+}
+
+/** Spec 038 (research R14): Choose seats, if offered, then a section of the map, and its seats. */
+export async function openSection(name: string) {
+  const [first] = await screen.findAllByRole('button', { name: /^Choose seats$|^Section / });
+  if (first.textContent === 'Choose seats') fireEvent.click(first);
+  fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^Section ${name},`) }));
+  await screen.findAllByRole('button', { name: /^Row / });
+}
+
+/** Spec 038: a seat of the open section, by its row and seat labels, whatever its state. */
+export const seatOf = (row: number | string, seat: number | string) =>
+  screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}, `) });

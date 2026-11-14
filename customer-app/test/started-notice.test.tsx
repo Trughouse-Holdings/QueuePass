@@ -1,14 +1,14 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import type { Availability, SeatMap } from '@queuepass/shared';
+import type { Availability } from '@queuepass/shared';
 import {
   availability,
   event,
   json,
   order,
   renderCustomer,
+  seatedMap,
   stubApi,
-  tier,
   typeHolderName,
 } from './helpers';
 
@@ -133,37 +133,36 @@ describe('only the first sentence when the customer cannot buy (FR-010)', () => 
     expect(screen.queryByText(/You can still buy tickets/)).toBeNull();
   });
 
-  it('seated, with no section on sale', async () => {
-    const general = tier({ id: 't-gen', name: 'General', price: '40.00' });
-    const map: SeatMap = {
-      eventId: 'e1',
-      reservedSeating: true,
-      sections: [
+  // Spec 038: a seated event has no ticket types, so 007's "no section on sale" is gone; its
+  // closed case is a seated event sold out, which offers no map.
+  it('seated, sold out', async () => {
+    stubApi({
+      ...routes(
+        { inProgress: true, ticketsLeft: 0 },
+        { event: show({ reservedSeating: true, layoutId: 'lay-1', priceMax: '60.00' }) },
+      ),
+      ...seatedMap([
         {
           sectionId: 's-a',
           name: 'A',
           rows: 1,
           seatsPerRow: 2,
-          tierId: null,
-          sold: 0,
-          taken: [],
-          reserved: [],
+          sold: [
+            [1, 1],
+            [1, 2],
+          ],
         },
-      ],
-    };
-    stubApi({
-      ...routes(
-        { inProgress: true, tiers: [{ tierId: 't-gen', ticketsLeft: 40 }] },
-        { event: show({ reservedSeating: true }) },
-      ),
-      'GET /events/e1/tiers': json([general]),
-      'GET /events/e1/seats': json(map),
+      ]).routes,
+      'GET /me/reservations': json([]),
     });
     renderCustomer({ at: '/events/e1' });
 
-    expect(await screen.findByText('No seats are on sale for this event yet.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Sold out: no tickets are left for this event.'),
+    ).toBeInTheDocument();
     expect(await firstParagraph()).toHaveTextContent(STARTED);
     expect(screen.queryByText(/You can still buy tickets/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Choose seats' })).toBeNull();
   });
 
   it('a cancelled event in progress shows only that it is cancelled', async () => {

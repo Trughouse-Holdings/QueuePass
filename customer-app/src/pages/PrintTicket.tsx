@@ -2,7 +2,7 @@ import { Link, useParams } from 'react-router-dom';
 import type { MyOrder } from '@queuepass/shared';
 import { ServiceUnreachable } from '@queuepass/shared/web';
 import { TicketQr } from '../components/TicketQr';
-import { doorsOpen, seatLabel, when } from '../format';
+import { doorsOpen, seatLabel, usd, when } from '../format';
 import { useLoad } from '../use-load';
 
 /**
@@ -71,6 +71,19 @@ export function PrintTicket() {
             <>
               <dt>Seat</dt>
               <dd>{seatLabel(ticket.seat)}</dd>
+            </>
+          )}
+          {/* Spec 038 FR-026: a seated ticket's price level and price as sold. */}
+          {ticket.levelName && (
+            <>
+              <dt>Price level</dt>
+              <dd>{ticket.levelName}</dd>
+            </>
+          )}
+          {ticket.seat && ticket.price && (
+            <>
+              <dt>Price</dt>
+              <dd>{usd(ticket.price)}</dd>
             </>
           )}
         </dl>

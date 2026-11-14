@@ -1,16 +1,19 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { formatViewerTime, type Reservation, type SeatMap } from '@queuepass/shared';
+import { formatViewerTime } from '@queuepass/shared';
+import type { Reservation } from '../src/seats';
 import {
+  STANDARD,
   availability,
   event,
   fakeClock,
   fixTimeBeforeFixtures,
   holdBackend,
   json,
+  openSection,
   renderCustomer,
+  seatedMap,
   stubApi,
-  tier,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -20,47 +23,43 @@ fixTimeBeforeFixtures();
  * Spec 033 (FR-001 to FR-011, FR-016, FR-019; research R6, R7, R9, R10): on a seated event a click
  * on an open seat holds it at once and a click on a held seat releases it, one request at a time in
  * click order; the Your seats box shows the countdown, the seats, the total, and Add to cart; every
- * hold and release is announced; refusals are alerts naming the seat.
+ * hold and release is announced; refusals are alerts naming the seat. Spec 038 (research R14): the
+ * seats are those of a section zoomed into on the venue map, each named with its level and price.
  */
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
-const vip = tier({ id: 't-vip', name: 'VIP', price: '120.00', quantity: 30 });
-const general = tier({ id: 't-gen', name: 'General', price: '40.00', quantity: 40 });
-
-const seatMap = (): SeatMap => ({
-  eventId: 'e1',
-  reservedSeating: true,
-  sections: [
-    {
-      sectionId: 's-a',
-      name: 'A',
-      rows: 2,
-      seatsPerRow: 12,
-      tierId: 't-vip',
-      sold: 0,
-      taken: [],
-      reserved: [],
-    },
-    {
-      sectionId: 's-b',
-      name: 'B',
-      rows: 1,
-      seatsPerRow: 4,
-      tierId: 't-gen',
-      sold: 0,
-      taken: [],
-      reserved: [],
-    },
+/** Spec 038: a second level, for a hold of seats of two levels (FR-021). */
+const BALCONY = {
+  levelId: 'l-bal',
+  name: 'Balcony',
+  rank: 2,
+  color: 'blue' as const,
+  price: '25.00',
+};
+const arena = seatedMap(
+  [
+    { sectionId: 's-a', name: 'A', rows: 2, seatsPerRow: 12 },
+    { sectionId: 's-b', name: 'B', rows: 1, seatsPerRow: 4, levelId: BALCONY.levelId },
   ],
-});
+  { levels: [STANDARD, BALCONY] },
+);
 
 const reservation = (seats: number[], over: Partial<Reservation> = {}): Reservation => ({
   eventId: 'e1',
-  tierId: 't-vip',
-  seats: seats.map((seat) => ({ sectionId: 's-a', section: 'A', row: 1, seat })),
+  tierId: null,
+  seats: seats.map((seat) => ({
+    sectionId: 's-a',
+    section: 'A',
+    row: 1,
+    seat,
+    rowLabel: '1',
+    seatLabel: String(seat),
+    levelName: 'Standard',
+    price: '40.00',
+  })),
   createdAt: '2026-10-20T19:00:00.000Z',
   expiresAt: '2026-10-20T19:05:00.000Z',
   secondsLeft: 300,
@@ -69,18 +68,12 @@ const reservation = (seats: number[], over: Partial<Reservation> = {}): Reservat
 
 type Reply = Response | ((req: Request) => Response | Promise<Response>) | 'network-error';
 const routes = (extra: Record<string, Reply> = {}) => ({
-  'GET /events/e1': json(event({ reservedSeating: true })),
-  'GET /events/e1/tiers': json([general, vip]),
-  'GET /events/e1/availability': json(
-    availability({
-      ticketsLeft: 56,
-      tiers: [
-        { tierId: 't-gen', ticketsLeft: 40 },
-        { tierId: 't-vip', ticketsLeft: 16 },
-      ],
-    }),
+  'GET /events/e1': json(
+    event({ reservedSeating: true, layoutId: 'lay-1', basePrice: '25.00', priceMax: '40.00' }),
   ),
-  'GET /events/e1/seats': json(seatMap()),
+  'GET /events/e1/tiers': json([]),
+  'GET /events/e1/availability': json(availability({ ticketsLeft: 28 })),
+  ...arena.routes,
   'GET /me/reservations': json([]),
   ...extra,
 });
@@ -96,14 +89,26 @@ function withBackend(
   return stubApi(routes({ ...b.routes, ...extra }));
 }
 const backend = (opts: { secondsLeft?: number; manual?: boolean } = {}) => {
-  const b = holdBackend(opts);
+  const b = holdBackend({
+    ...opts,
+    sections: { 's-a': 'A', 's-b': 'B' },
+    seatInfo: (p) =>
+      p.sectionId === 's-b' ? { levelName: BALCONY.name, price: BALCONY.price } : {},
+  });
   return { ...b, held: () => b.held().map((k) => Number(k.split('-')[1])) };
 };
 
 const seat = (n: number, row = 1) =>
-  screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${n}(,|$)`) });
+  screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${n}, `) });
+/** Spec 038: a seat's accessible name in section A (Standard, $40) in a state. */
+const named = (n: number, state: string) => `Row 1, Seat ${n}, Standard, $40, ${state}`;
+/** Spec 038: Section A's seats, as Choose seats and a click on the section show them. */
+const openA = () => openSection('A');
+/** The venue map's block; the hold wait sits above it, Your seats below it. */
+const mapBlock = () =>
+  screen.getByRole('group', { name: 'Arena map' }).closest('.venue-map') as HTMLElement;
+const held = (n: number) => `Section A, Row 1, Seat ${n}, Standard, $40.00`;
 const click = (n: number) => fireEvent.click(seat(n));
-const chooseVip = async () => fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
 const sent = (calls: { method: string; path: string; body: unknown }[]) =>
   calls
     .filter((c) => c.method === 'POST' && c.path.startsWith('/events/e1/reservation'))
@@ -129,14 +134,15 @@ describe('a click holds the seat at once (US1-1; FR-001, FR-003, FR-010)', () =>
     const b = backend();
     const { calls } = withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
 
     click(5);
 
     await waitFor(() =>
-      expect(
-        screen.getByRole('button', { name: 'Row 1, Seat 5, reserved by you' }),
-      ).toHaveAttribute('aria-pressed', 'true'),
+      expect(screen.getByRole('button', { name: named(5, 'held by you') })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      ),
     );
     expect(calls.filter((c) => c.path === '/events/e1/reservation')).toHaveLength(1);
     expect(calls.find((c) => c.path === '/events/e1/reservation')?.body).toEqual({
@@ -147,18 +153,18 @@ describe('a click holds the seat at once (US1-1; FR-001, FR-003, FR-010)', () =>
     expect(timer).toHaveClass('hold-countdown');
     expect(timer).toHaveAttribute('aria-live', 'off');
     expect(timer.querySelector('.hold-countdown__time')).toHaveTextContent('5:00');
-    expect(heldList()).toEqual(['Section A, Row 1, Seat 5']);
-    expect(within(box).getByText('Total: $120.00')).toBeInTheDocument();
+    expect(heldList()).toEqual([held(5)]);
+    expect(within(box).getByText('Total: $40.00')).toBeInTheDocument();
     expect(within(box).getByRole('button', { name: 'Add to cart' })).toBeEnabled();
-    // The box is directly below the seat map.
-    expect(screen.getByRole('region', { name: 'Section A seats' }).nextElementSibling).toBe(box);
+    // The box is directly below the venue map.
+    expect(mapBlock().nextElementSibling).toBe(box);
   });
 
   it("starts the countdown at the answer's secondsLeft and announces the hold with it", async () => {
     const b = backend({ secondsLeft: 299 });
     withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
 
     click(5);
 
@@ -173,7 +179,7 @@ describe('a click holds the seat at once (US1-1; FR-001, FR-003, FR-010)', () =>
     const b = backend();
     withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
     click(5);
     const box = await screen.findByRole('region', { name: 'Your seats' });
     await advance(10_000);
@@ -181,11 +187,9 @@ describe('a click holds the seat at once (US1-1; FR-001, FR-003, FR-010)', () =>
 
     click(6);
 
-    await waitFor(() =>
-      expect(heldList()).toEqual(['Section A, Row 1, Seat 5', 'Section A, Row 1, Seat 6']),
-    );
+    await waitFor(() => expect(heldList()).toEqual([held(5), held(6)]));
     expect(within(yourSeats()!).getByRole('timer')).toHaveTextContent('4:50');
-    expect(within(yourSeats()!).getByText('Total: $240.00')).toBeInTheDocument();
+    expect(within(yourSeats()!).getByText('Total: $80.00')).toBeInTheDocument();
     expect(logLines().at(-1)).toBe('Section A, Row 1, Seat 6 held. 4:50 left.');
   });
 
@@ -193,7 +197,7 @@ describe('a click holds the seat at once (US1-1; FR-001, FR-003, FR-010)', () =>
     const b = backend();
     withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
     click(5);
     await screen.findByRole('region', { name: 'Your seats' });
 
@@ -213,7 +217,7 @@ describe('a click holds the seat at once (US1-1; FR-001, FR-003, FR-010)', () =>
     const b = backend();
     const { calls } = withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
     click(5);
     await screen.findByRole('region', { name: 'Your seats' });
     const before = calls.length;
@@ -231,7 +235,7 @@ describe('a click on a held seat releases it (US2; FR-001, FR-004, FR-016)', () 
     const b = backend();
     const { calls } = withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
     click(5);
     await waitFor(() => expect(b.held()).toEqual([5]));
     click(6);
@@ -240,7 +244,7 @@ describe('a click on a held seat releases it (US2; FR-001, FR-004, FR-016)', () 
 
     click(6);
 
-    await waitFor(() => expect(heldList()).toEqual(['Section A, Row 1, Seat 5']));
+    await waitFor(() => expect(heldList()).toEqual([held(5)]));
     expect(sent(calls)).toEqual(['hold 5', 'hold 6', 'release 6']);
     expect(logLines().at(-1)).toBe('Section A, Row 1, Seat 6 released.');
     expect(within(yourSeats()!).getByRole('timer')).toHaveTextContent('4:40');
@@ -252,7 +256,7 @@ describe('a click on a held seat releases it (US2; FR-001, FR-004, FR-016)', () 
     const b = backend();
     withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
     click(5);
     await screen.findByRole('region', { name: 'Your seats' });
     await advance(30_000);
@@ -275,14 +279,14 @@ describe('the click queue (FR-007; research R6)', () => {
     const b = backend({ manual: true });
     const { calls } = withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
 
     click(3);
     click(1);
     click(2);
     await waitFor(() => expect(sent(calls)).toEqual(['hold 3']));
     // Pending seats are pressed, as they will be, and named holding.
-    expect(screen.getByRole('button', { name: 'Row 1, Seat 1, holding' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: named(1, 'holding') })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -307,7 +311,7 @@ describe('the click queue (FR-007; research R6)', () => {
     const b = backend();
     withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
     for (const n of [1, 2, 3, 4, 5, 6]) {
       click(n);
       await waitFor(() => expect(b.held()).toContain(n));
@@ -323,15 +327,15 @@ describe('the click queue (FR-007; research R6)', () => {
     const b = backend({ manual: true });
     const { calls } = withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
 
     click(3);
     click(4);
     click(4);
-    expect(seat(4)).toHaveAccessibleName('Row 1, Seat 4');
+    expect(seat(4)).toHaveAccessibleName(named(4, 'open'));
     await b.answer();
 
-    await waitFor(() => expect(heldList()).toEqual(['Section A, Row 1, Seat 3']));
+    await waitFor(() => expect(heldList()).toEqual([held(3)]));
     expect(sent(calls)).toEqual(['hold 3']);
   });
 
@@ -339,12 +343,12 @@ describe('the click queue (FR-007; research R6)', () => {
     const b = backend({ manual: true });
     const { calls } = withBackend(b);
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
 
     click(3);
     await waitFor(() => expect(sent(calls)).toEqual(['hold 3']));
     click(3);
-    expect(screen.getByRole('button', { name: 'Row 1, Seat 3, releasing' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: named(3, 'releasing') })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -354,7 +358,7 @@ describe('the click queue (FR-007; research R6)', () => {
     await waitFor(() => expect(sent(calls)).toEqual(['hold 3', 'release 3']));
     await b.answer();
 
-    await waitFor(() => expect(seat(3)).toHaveAccessibleName('Row 1, Seat 3'));
+    await waitFor(() => expect(seat(3)).toHaveAccessibleName(named(3, 'open')));
     expect(yourSeats()).toBeNull();
   });
 
@@ -373,7 +377,7 @@ describe('the click queue (FR-007; research R6)', () => {
       }),
     );
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
 
     click(3);
     click(3);
@@ -400,6 +404,7 @@ describe('the click queue (FR-007; research R6)', () => {
     );
     renderCustomer({ at: '/events/e1' });
     await screen.findByRole('region', { name: 'Your seats' });
+    await openA();
 
     click(5);
     click(5);
@@ -407,7 +412,9 @@ describe('the click queue (FR-007; research R6)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('is not in your reservation');
     await act(async () => undefined);
     expect(sent(calls)).toEqual(['release 5']);
-    expect(screen.getByRole('button', { name: 'Row 1, Seat 5, reserved by you' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: named(5, 'held by you') })).not.toHaveAttribute(
+      'aria-disabled',
+    );
   });
 
   it('drops the hold queued behind an unanswered release', async () => {
@@ -419,6 +426,7 @@ describe('the click queue (FR-007; research R6)', () => {
     );
     renderCustomer({ at: '/events/e1' });
     await screen.findByRole('region', { name: 'Your seats' });
+    await openA();
 
     click(6);
     click(6);
@@ -445,7 +453,7 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
       }),
     );
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
 
     click(3);
     click(4);
@@ -453,7 +461,7 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Section A, Row 1, Seat 3 is already taken.',
     );
-    await waitFor(() => expect(heldList()).toEqual(['Section A, Row 1, Seat 4']));
+    await waitFor(() => expect(heldList()).toEqual([held(4)]));
     expect(sent(calls)).toEqual(['hold 3', 'hold 4']);
   });
 
@@ -469,14 +477,14 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
       }),
     );
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
 
     click(5);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       `Your reservation of Section A, Row 1, Seat 5 ended less than 2 minutes ago. You can hold it again at ${formatViewerTime(availableAt)}.`,
     );
-    expect(seat(5)).toHaveAccessibleName('Row 1, Seat 5');
+    expect(seat(5)).toHaveAccessibleName(named(5, 'open'));
   });
 
   it('TICKET_LIMIT_REACHED keeps the held seats', async () => {
@@ -497,14 +505,14 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
       }),
     );
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
     click(1);
     await screen.findByRole('region', { name: 'Your seats' });
 
     click(2);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('allows 1 ticket per customer');
-    expect(heldList()).toEqual(['Section A, Row 1, Seat 1']);
+    expect(heldList()).toEqual([held(1)]);
   });
 
   it('with 10 seats held, open seats cannot be clicked and the note says why', async () => {
@@ -513,9 +521,13 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
     );
     renderCustomer({ at: '/events/e1' });
     await screen.findByRole('region', { name: 'Your seats' });
+    await openA();
 
-    expect(seat(11)).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Row 1, Seat 1, reserved by you' })).toBeEnabled();
+    // Unavailable seats stay focusable, marked aria-disabled (spec 038 FR-019).
+    expect(seat(11)).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByRole('button', { name: named(1, 'held by you') })).not.toHaveAttribute(
+      'aria-disabled',
+    );
     expect(screen.getByText('A reservation holds at most 10 seats.')).toBeInTheDocument();
   });
 
@@ -545,6 +557,7 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
     );
     renderCustomer({ at: '/events/e1' });
     await screen.findByRole('region', { name: 'Your seats' });
+    await openA();
 
     click(2);
     click(3);
@@ -554,8 +567,8 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
         el?.getAttribute('aria-live') === 'off' &&
         el.textContent === 'Too many tries. You can try again in 3 seconds.',
     );
-    // Above the seat map.
-    expect(wait.nextElementSibling).toBe(screen.getByRole('region', { name: 'Section A seats' }));
+    // Above the venue map.
+    expect(wait.nextElementSibling).toBe(mapBlock());
     expect(sent(calls)).toEqual(['hold 2']);
     expect(seat(4)).toHaveAttribute('aria-disabled', 'true');
     click(4);
@@ -573,8 +586,8 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
   it('a click with no answer reverts the seat, says so, and loads the map and reservation again', async () => {
     const { calls } = stubApi(routes({ 'POST /events/e1/reservation': 'network-error' }));
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
-    const maps = () => calls.filter((c) => c.path === '/events/e1/seats').length;
+    await openA();
+    const maps = () => calls.filter((c) => c.path === '/events/e1/venue-map').length;
     const mine = () => calls.filter((c) => c.path === '/me/reservations').length;
     const [m0, r0] = [maps(), mine()];
 
@@ -585,25 +598,33 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
     );
     await waitFor(() => expect(maps()).toBeGreaterThan(m0));
     await waitFor(() => expect(mine()).toBeGreaterThan(r0));
-    expect(seat(5)).toHaveAccessibleName('Row 1, Seat 5');
+    expect(seat(5)).toHaveAccessibleName(named(5, 'open'));
   });
 });
 
-describe('ticket types while seats are held (FR-005; research R7)', () => {
-  it('disables the other ticket types with the note, and releases nothing', async () => {
-    const { calls } = stubApi(routes({ 'GET /me/reservations': json([reservation([5])]) }));
+// Spec 038 FR-021 replaces 033 FR-005 (ticket types locked while seats are held): one hold may
+// hold seats of any levels and sections of the event.
+describe('seats of two levels in one hold (spec 038 FR-021)', () => {
+  it('adds a seat of another section and level to the same hold, each at its own price', async () => {
+    const b = backend();
+    const { calls } = withBackend(b);
     renderCustomer({ at: '/events/e1' });
+    await openA();
+    click(5);
     await screen.findByRole('region', { name: 'Your seats' });
 
-    expect(screen.getByRole('radio', { name: /VIP/ })).toBeChecked();
-    expect(screen.getByRole('radio', { name: /General/ })).toBeDisabled();
-    expect(
-      screen.getByText(
-        'Your held seats are VIP seats. To choose another ticket type, click your held seats to release them.',
-      ),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('radio', { name: /General/ }));
-    expect(calls.filter((c) => c.method === 'POST')).toEqual([]);
+    await openSection('B');
+    fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 1, Balcony, $25, open' }));
+
+    await waitFor(() =>
+      expect(heldList()).toEqual([held(5), 'Section B, Row 1, Seat 1, Balcony, $25.00']),
+    );
+    expect(within(yourSeats()!).getByText('Total: $65.00')).toBeInTheDocument();
+    expect(within(yourSeats()!).getAllByRole('timer')).toHaveLength(1);
+    expect(calls.filter((c) => c.method === 'POST').map((c) => c.body)).toEqual([
+      { seats: [{ sectionId: 's-a', row: 1, seat: 5 }] },
+      { seats: [{ sectionId: 's-b', row: 1, seat: 1 }] },
+    ]);
   });
 });
 
@@ -612,7 +633,7 @@ describe('the countdown (FR-010, FR-015)', () => {
     fakeClock();
     withBackend(backend());
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
     click(5);
     const timer = within(await screen.findByRole('region', { name: 'Your seats' })).getByRole(
       'timer',
@@ -632,7 +653,7 @@ describe('the countdown (FR-010, FR-015)', () => {
     fakeClock();
     withBackend(backend());
     renderCustomer({ at: '/events/e1' });
-    await chooseVip();
+    await openA();
     click(5);
     await screen.findByRole('region', { name: 'Your seats' });
 

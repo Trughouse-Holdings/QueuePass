@@ -1,5 +1,5 @@
 import type { Event, EventStatus } from './event.js';
-import type { SeatChoice, SeatLabel } from './seating.js';
+import type { SeatChoice, SoldSeat } from './seating.js';
 import type { UsTimeZone } from './time-zone.js';
 
 /**
@@ -11,8 +11,15 @@ export interface Ticket {
   code: string;
   status: 'VALID' | 'VOID';
   checkedInAt: string | null;
-  /** Spec 007: the seat this ticket is for; `null` for general admission. */
-  seat: SeatLabel | null;
+  /**
+   * Spec 007: the seat this ticket is for; `null` for general admission. Spec 038 (FR-026): with
+   * its row and seat labels as sold.
+   */
+  seat: SoldSeat | null;
+  /** Spec 038 (FR-022, FR-026): what this ticket cost, its level's price when bought. */
+  price: string;
+  /** Spec 038: the seat's price level as sold; `null` for general admission. */
+  levelName: string | null;
 }
 
 export interface Order {
@@ -24,7 +31,8 @@ export interface Order {
   /** Spec 017 FR-001: the buyer's name, on every ticket; `null` for orders placed before 017. */
   holderName: string | null;
   quantity: number;
-  unitPrice: string;
+  /** Spec 038: `null` when the tickets' prices differ (seats of several levels). */
+  unitPrice: string | null;
   totalPrice: string;
   status: 'CONFIRMED' | 'REFUNDED';
   createdAt: string;

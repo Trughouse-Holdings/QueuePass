@@ -15,9 +15,33 @@ fixTimeBeforeFixtures();
 const REMOVED_AT = '2026-11-10T03:00:00Z';
 const TICKETS = [
   // Used before the removal; its checkedInAt is gone now, like every other ticket's.
-  { id: 'k1', code: 'AAAA2222BBBB', status: 'VALID' as const, checkedInAt: null, seat: null },
-  { id: 'k2', code: 'CCCC3333DDDD', status: 'VALID' as const, checkedInAt: null, seat: null },
-  { id: 'k3', code: 'GGGG5555HHHH', status: 'VOID' as const, checkedInAt: null, seat: null },
+  {
+    id: 'k1',
+    code: 'AAAA2222BBBB',
+    status: 'VALID' as const,
+    checkedInAt: null,
+    seat: null,
+    price: '45.50',
+    levelName: null,
+  },
+  {
+    id: 'k2',
+    code: 'CCCC3333DDDD',
+    status: 'VALID' as const,
+    checkedInAt: null,
+    seat: null,
+    price: '45.50',
+    levelName: null,
+  },
+  {
+    id: 'k3',
+    code: 'GGGG5555HHHH',
+    status: 'VOID' as const,
+    checkedInAt: null,
+    seat: null,
+    price: '45.50',
+    levelName: null,
+  },
 ];
 const withRemoval = (removedAt: string | null) => {
   const base = myOrder({ tickets: TICKETS });

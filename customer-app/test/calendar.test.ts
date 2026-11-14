@@ -73,6 +73,8 @@ const ticket = (over: Partial<Ticket> = {}): Ticket => ({
   status: 'VALID',
   checkedInAt: null,
   seat: null,
+  price: '45.50',
+  levelName: null,
   ...over,
 });
 

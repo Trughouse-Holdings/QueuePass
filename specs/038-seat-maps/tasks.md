@@ -706,7 +706,7 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   sale", "held by you", "holding", "releasing"; a level with no price "Upper: not on sale" and, in
   a seat's name, "not on sale"; prices on the map in whole dollars when whole ("$95", "$59.50").
   Also covered: zoom buttons, the state view (`colorBy: 'state'`) naming counts by state.
-- [ ] T033 [P] [US3] `customer-app/test/venue-map-flow.test.tsx` (R14, FR-021, FR-022, FR-024): a
+- [X] T033 [P] [US3] `customer-app/test/venue-map-flow.test.tsx` (R14, FR-021, FR-022, FR-024): a
   seated event shows "$35–$95" and Choose seats (no ticket-type step); Choose seats opens the map;
   zoom into a section, click seats of two levels: each sends one hold (`033`'s queue), Your seats
   lists each with its level and price and the sum; Back to map; Add to cart; the cart lists each seat
@@ -718,6 +718,18 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
 
 ### Implementation
 
+  **Done** (2026-11-14): `venue-map-flow.test.tsx` (7 tests, on the R18 levels: Courtside $95,
+  Lower sideline $60, Lower end $35, Upper not on sale) written first and seen failing (no price
+  range, no Choose seats); passes after T040. Test helpers: `seatedMap` (a venue map and its
+  sections with their routes), `openSection`, `seatOf`; `holdBackend` gives each seat its labels,
+  level and price, `tierId` null. Moved to the map, same intent: `seats`, `seat-holds`,
+  `seat-hold-click`, `seat-stream`, `cart`, `keyboard`, `rate-limit`, `holder-name-field`,
+  `ticket-limit`, `started-notice`, `theme-classes` (`purchase` is general admission only and
+  needed nothing). Tests of retired ticket types on seated events became their 038 form (seats of
+  two levels in one hold; another section in the same hold; a seated sold-out event in place of
+  "No seats are on sale for this event yet"); four in `seats.test.tsx` had none and were deleted
+  (changing the tier freely, a tier with no seats on sale, a tier sold out, no tier with a
+  section). Ticket fixtures in six other files gain the 2.0.0 `price`, `levelName` and labels.
 - [ ] T034 [US3] `backend/src/seating/venue-map.service.ts` and `venue-map.controller.ts`:
   `getVenueMap` (one grouped count query, R11) and `getVenueMapSection`; remove their `x-planned`
   markers; regenerate `api-schema.ts`.
@@ -770,13 +782,30 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   seen failing). Shared 32 files, 889 tests pass; `tsc` clean for `packages/shared` and
   `booth-app`. **Red after it, owner T048/T049**: Admin `seat-holds.test.tsx`'s 3 live-map tests
   (the read-only `SeatingCard` still reads `007`'s map through `useSeatStream`).
-- [ ] T040 [US3] Customer app: `components/GetTickets.tsx` seated half → Choose seats and the shared
+- [X] T040 [US3] Customer app: `components/GetTickets.tsx` seated half → Choose seats and the shared
   map (R14) with `033`'s `use-hold-queue.ts` and Your seats (per-seat level and price, the sum);
   `pages/Cart.tsx` (each seat's level and price from `listMyReservations`' `ReservedSeat`, refreshed
   with its poll); `OrderConfirmation.tsx`, `pages/MyTickets.tsx`,
   `pages/PrintTicket.tsx` (labels "Section 115, Row F, Seat 7", level, price);
   `pages/EventList.tsx`, `EventDetail.tsx` ("$20–$95" from `basePrice` and `priceMax`). Remove
   `SeatPicker.tsx`. T033 passes.
+  **Done** (2026-11-14): `GetTickets.tsx`'s seated half: the price range and Choose seats (the
+  map opens at once when the customer holds seats of the event, and stays open), the shared
+  `VenueMap` with `useSeatStream`'s open section, `033`'s queue and log unchanged, each seat's
+  look from the reservation and pending clicks (`seatView`; unavailable seats `aria-disabled`,
+  focusable), `SEAT_OFF_SALE` treated as `SEAT_TAKEN`, a reconnect's map reloading what is left
+  and the held seats' prices; Your seats lists "Section 115, Row F, Seat 7, Courtside, $95.00"
+  and the sum. `Cart.tsx` reads no ticket types: each seat's level and price from
+  `listMyReservations`, the total their sum. `OrderConfirmation`, `MyTickets`, `PrintTicket`
+  name seats by their labels with level and price (no "Price each" when `unitPrice` is `null`);
+  `EventCard`/`EventDetail` show "$35–$95" for a seated event (`eventPrice`). `SeatPicker.tsx`
+  removed; `ChosenSeat` and the contract's `Reservation` in `src/seats.ts`. Shared `order.ts`
+  follows contract 2.0.0 (`Ticket.price`, `levelName`, labelled seat; `Order.unitPrice` nullable).
+  Customer 31 files, 442 tests (98.2% lines); `tsc` clean for `customer-app`. **Admin type errors
+  after it, with owner**: `api/seating.ts`, `SeatingCard.tsx`, `SeatGrid.tsx` (`007`'s map, T049);
+  `export/attendee-rows.ts` (`unitPrice` nullable, was `api/orders.ts`'s, T051/T054);
+  `test/export/fixtures.ts`, `pdf.fit.test.ts`, `size.test.ts` (tickets without `price`,
+  `levelName`, seat labels; T050).
 
 **Checkpoint**: the EDIS demo path works end to end on any layout.
 
