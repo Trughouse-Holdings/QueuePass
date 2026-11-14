@@ -133,10 +133,9 @@
    tier mapping keep .form__row as it is. At phone width: the name, then rows × seats per row,
    then the seats and Remove. */
 .form__row--section {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 6.5rem) auto minmax(0, 6.5rem) minmax(
-      0,
-      9rem
-    ) auto;
+  grid-template-columns:
+    minmax(0, 1fr) minmax(0, 6.5rem) auto minmax(0, 6.5rem) minmax(0, 9rem)
+    auto;
   align-items: end;
 }
 .form__row--section select {
