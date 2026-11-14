@@ -1215,9 +1215,38 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   - The import (backend/src/layouts, set-based rows and seats): Basketball 1.26 s → 0.90 s, End-stage
     concert 0.99 → 0.72, Center stage 1.08 → 0.79, Wrestling 1.03 → 0.75 (idle, Testcontainers
     PostgreSQL 17); the slowest import in a full in-band Backend run 1.05 s.
-- [ ] T060 Independent review of the implementation branch by a Claude session that did not write it
+- [X] T060 Independent review of the implementation branch by a Claude session that did not write it
   (Constitution III), against the merged spec and plan; fix the findings; record the review and any
   open finding in the PR description.
+  **Done** (2026-11-14): one independent review; 0 blocking, 4 should-fix (S1–S4), 6 minor
+  (M1–M6). Fixed, each with a test written to fail first:
+  - S1 (`360f79a`, `0394dcf`): `mapReducer` ignores a map for the same event read at a strictly
+    lower `seq`, so a late `refresh()` no longer drops the stream's newer changes (FR-023); an
+    equal `seq` (a layout change or lines edit ends the stream without one) is still taken.
+  - S2 (`c305a6e`): a seated event's venue map answering 404 makes the Get tickets panel read the
+    event again: switched to general admission (FR-010), the event page takes the fresh event and
+    shows the general-admission form; deleted, "This event no longer exists." as before; still
+    seated, "Ticket information is unavailable".
+  - S3 (`dab08ca`): the admin's map fills each section by its make-up of seat states (some open;
+    none open, some held; sold out; off sale), `--map-state-*` tokens in light and dark at 3:1 or
+    more on the map, and a Sections list in the legend beside the swatches, as the price levels
+    are (FR-027, US6, S17); browser test S17 checks it.
+  - S4 (`45e6c1e`): a section read with no answer or a 5xx is tried again after 1, 2, 4, 8, then
+    every 10 seconds while the section is open; a 4xx is not.
+  - M2 (`4c45b18`): the too-many-levels refusal names its own limit (12 new, 50 on an update).
+  - M3 (`eebad0a`): a `VALIDATION_FAILED` import refusal lists its `details.fields`.
+  - M4 (`e0bec0a`): the drag mark lasts only for the task the drag ends in, so a later click with no
+    press (a screen reader's activation) chooses.
+  - M5 (`9875afe`): a "Skip to the Sections list" button before the map's sections, shown when
+    focused, moves to the list's heading; the Customer keyboard test now reaches every control by
+    Tab and presses keys only (the price filter by its arrow keys).
+  - M6 (`bbd270f`): the tickets-left test renamed; a new test holds 10 of 11 open seats.
+  Tests: shared 919, Customer 448, Admin 503, Backend layout unit tests 59 (the new
+  `test/unit/layout-input.dto.spec.ts` with `layout-file` and `layout-lines`); type-check of
+  shared, Customer, Admin and Backend, ESLint and Prettier clean. Open findings, for the PR
+  description: M1, the public `getVenueLayout` gives the latest prices, levels with every seat off
+  sale included (the contract allows it); M3's name override, the Layouts card has no name field
+  for an import (the contract's `name`).
 - [ ] T061 Walk the quickstart on a Compose project of your own (`-p qp038`): S0–S21 and the
   Constitution VI smoke test (sign in, use, sign out of each front end); Nate's "pass" closes it.
 - [ ] T062 Push `038-seat-maps-impl` (ask first); open the implementation PR (ask first) assigned to
