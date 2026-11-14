@@ -243,6 +243,8 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   the edit is refused (`409 LAYOUT_IN_USE`), or the edit succeeds and the hold sees the new layout,
   never a hold on a seat the edit deleted; two imports with one name at once: exactly one `201`.
   Must fail.
+  Also (from T009a): an event's seating save (`updateEvent` with `levelPrices`/`offSale`) racing a
+  lines edit of its layout, 10 times: the edit's refusals of R6 always see the saved prices.
 - [ ] T013 [P] [US1] `admin-app/test/layouts-card.test.tsx` (R15, FR-007, FR-009): the Layouts card
   lists each layout's name, seats, sections, levels, "used by N events", "Locked: seats sold at
   {event}" when locked, and a preview (an `svg` with one outline per section, no seat circles);
@@ -274,6 +276,8 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
 - [ ] T017 [US1] `backend/src/locations/`: `updateLocation` refuses a typed `seatingCapacity` while
   the venue has layouts (as `007` did with its layout); `deleteLocation` unchanged (layouts cascade
   with a venue that has no events).
+  Its test: `locations.address-edit.e2e-spec.ts`'s 3 seated cases move from the removed
+  `PUT /locations/{id}/layout` to a layout made with `createVenueLayout` (from T009a).
 - [ ] T018 [P] [US1] Shared map drawing for previews: `packages/shared/src/web/venue-map/map-geometry.ts`
   (outline to SVG path, bounds, centroid, `viewBox` of a section) and
   `packages/shared/src/web/venue-map/layout-preview.tsx` (sections and floor object only, each
@@ -319,6 +323,8 @@ with a preview; locked layouts refuse changes but duplicate (FR-001–FR-009).
   seats, seats on sale and price; a GA event gives `layoutId: null` and empty lists;
   `createTicketTier` on a seated event → `400`; the event list and `getEvent` carry `layoutId` and
   `priceMax` (`null` for GA); every response `expectToMatchContract`. Must fail.
+  Also: `events.ticket-limit.e2e-spec.ts`'s 2 seated cases move to an event on a layout (the limit
+  against seats on sale, and a lines edit that would put it above them, R6) (from T009a).
 - [ ] T021 [P] [US2] `backend/test/integration/event-seating.authz.e2e-spec.ts`: `getEventSeating`
   and the seating fields of `createEvent`/`updateEvent` for each token case; `401`/`403`. Must fail.
 - [ ] T022 [P] [US2] `admin-app/test/seating-section.test.tsx` (FR-015, R15; `035`'s rules):
@@ -389,6 +395,9 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   `reservations.admin-changes.e2e-spec.ts`, `seat-holds.constraints.e2e-spec.ts` and the test
   fixtures (`backend/test/setup/fixtures.ts`: a `seatedEvent` helper that makes a lines layout and
   prices it) from section-to-tier setups to layouts. Must fail.
+  Also moved to the `seatedEvent` helper, same assertions (from T009a): `reservations.concurrency`
+  (3 tests), `rate-limits.hold` (5), `rate-limits.ordinary`'s seated case, `rate-limits.buy`'s
+  seated case.
 - [ ] T028 [P] [US3] `backend/test/integration/orders.levels.e2e-spec.ts` (FR-022, FR-026, R10):
   buying held seats of two levels makes one ticket per seat at its level's price **at purchase**
   (a price changed after the hold applies), `totalPrice` the sum, `unitPrice` the one price when all
@@ -396,6 +405,9 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   `seat.seatLabel`; `tierId` on a seated order → `400`; an off-sale seat → `409 SEAT_OFF_SALE`;
   `listMyOrders` and `listAttendees` show the same. Update `orders.seats.e2e-spec.ts`,
   `orders.reservation.e2e-spec.ts`, `orders.e2e-spec.ts` seated cases. Must fail.
+  Also (from T009a): `orders.ticket-limit`'s seated case moves to the `seatedEvent` helper; the seated
+  case of `orders.holder-name.e2e-spec.ts` deleted in T009a comes back here (the name on every ticket
+  of a mixed-level order).
 - [ ] T029 [P] [US3] `backend/test/integration/seats.concurrency.e2e-spec.ts` (FR-025, SC-001): 10
   customers hold the same seat at once → exactly one `2xx`, nine `409 SEAT_TAKEN`; the holder sends
   10 orders for that seat at once, each with its own `requestId` → exactly one `201` and one VALID
