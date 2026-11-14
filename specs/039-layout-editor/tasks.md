@@ -15,6 +15,13 @@ commit message on either branch may contain "fixes #N", "closes #N", or "resolve
 **Tests**: **REQUIRED and written first** (Constitution VI, FR-029). In every phase, write its test
 tasks and confirm they **fail** before its implementation tasks.
 
+**Where tests live**: each workspace runs tests only from its `test/` folder (`vitest.config.ts`
+`include: test/**`; the Backend's Jest `test/integration`, `test/unit`). So the shared tests are in
+`packages/shared/test/`, the editor's in `admin-app/test/layout-editor/`, the Layouts card's in
+`admin-app/test/layouts-card.test.tsx`, and Backend helpers in `backend/test/setup/`. A test named
+below by file name alone (`editor-state.test.ts`, `SaveBar.test.tsx`) is in
+`admin-app/test/layout-editor/`.
+
 ## Ground rules
 
 - **Fresh session** (Constitution III): implement on branch `039-layout-editor-impl` in a Claude
@@ -61,7 +68,7 @@ tasks and confirm they **fail** before its implementation tasks.
   (038's T001 and T058 saw `rate-limits.buy.e2e-spec.ts` "lets another account buy while one sends
   200" fail with `connect ECONNRESET` on this Mac; if it does, run the remaining workspaces' tests by
   hand and record them).
-- [ ] T002 [P] Test helpers in `backend/test/helpers/layout-drawing.ts`: `drawingToInput(drawing:
+- [ ] T002 [P] Test helpers in `backend/test/setup/layout-drawing.ts`: `drawingToInput(drawing:
   LayoutDrawing): LayoutDrawingInput` (levels keyed by their id, which matches the key pattern
   `^[a-z0-9-]{1,40}$`; every id kept; `revision` copied; `origin`, `angle`, `generator` copied;
   row and seat `level` from their own `levelId` when present); `newDrawing()`: a `LayoutDrawingInput`
@@ -92,7 +99,7 @@ the editor's document, state and page shell that every story builds on.
   transaction fails without, and commits after, `SET CONSTRAINTS seat_row_label_unique DEFERRED`;
   the CHECKs refuse `angle = -180`, accept `angle = 180`, refuse `originX = 5001` and
   `originY = -1`, refuse `revision = 0`, refuse `generator = '[]'::jsonb`.
-- [ ] T004 [P] `packages/shared/src/layout-geometry.test.ts` (R5, R6): `outlineAround(rows)` for a
+- [ ] T004 [P] `packages/shared/test/layout-geometry.test.ts` (R5, R6): `outlineAround(rows)` for a
   3 × 4 straight block is the first seats front to back then the last seats back to front, each
   pushed out 1.5 units, in order, closed; for a curved block it hugs the arcs (no point inside the
   hollow of the curve: every outline point is within 1.5 units + 1e-6 of some seat); for rows of
@@ -219,12 +226,12 @@ the editor's document, state and page shell that every story builds on.
 - [ ] T017 [P] `admin-app/src/api/layouts.ts`: `getLayoutDrawing`, `saveLayoutDrawing`,
   `createLayoutDrawing` through the generated client, returning the envelope's `code`, `message`
   and `details` on failure (as `importVenueLayout` does there).
-- [ ] T018 [P] Tests `admin-app/src/layout-editor/editor-doc.test.ts` (R10): `fromDrawing` →
+- [ ] T018 [P] Tests `admin-app/test/layout-editor/editor-doc.test.ts` (R10): `fromDrawing` →
   document → `toInput` round-trips a `LayoutDrawing` (levels keyed `l1`… by rank, ids kept, own
   levels kept, places rounded to 0.1); a new level, section, row or seat (id `new:<n>`) is sent
   without `id`; `revision` is sent for an existing layout and left out for a new one; outlines are
   `outlineAround` of the seats.
-- [ ] T019 [P] Tests `admin-app/src/layout-editor/editor-state.test.ts`, core (R10): `load`; select
+- [ ] T019 [P] Tests `admin-app/test/layout-editor/editor-state.test.ts`, core (R10): `load`; select
   and deselect sections; `rename`; `setFloor` (kind and rectangle; `NONE` clears the outline);
   history: each change is one step, Undo and Redo walk it, a change after Undo drops the redo side,
   the 101st change drops the oldest; `dirty` false after `load` and after `saved`, true after any
@@ -235,7 +242,7 @@ the editor's document, state and page shell that every story builds on.
 - [ ] T021 `admin-app/src/layout-editor/editor-state.ts`, core actions and history as T019
   (structural sharing: a change replaces only the sections it touches; history ≤ 100 documents).
   Run T019; it passes.
-- [ ] T022 [P] Tests `admin-app/src/layout-editor/LayoutEditor.test.tsx` (with `createMemoryRouter`):
+- [ ] T022 [P] Tests `admin-app/test/layout-editor/LayoutEditor.test.tsx` (with `createMemoryRouter`):
   `/locations/v1/layouts/new` shows an empty map, a name box, one level "Standard" and floor "None";
   `/…/:layoutId/edit` loads `getLayoutDrawing` and draws each section's outline and name and the
   floor; Save of a new layout calls `createLayoutDrawing` and moves to its edit route; Save of an
@@ -266,7 +273,7 @@ drag and turn → save; the customer map shows it.
 
 ### Tests first
 
-- [ ] T024 [P] [US1] `packages/shared/src/layout-geometry.test.ts`, `generateBlock` (R7), seat by
+- [ ] T024 [P] [US1] `packages/shared/test/layout-geometry.test.ts`, `generateBlock` (R7), seat by
   seat: 3 rows × 4 straight → row k seat i at `((i − 1.5) × 2, −2k)`; rows `[4, 6]` → the second row
   centered on the first; `curve: 40` with `[20, 20, 20]` → every seat of row k at distance `R₀ + 2k`
   from `(0, R₀)` with `R₀ = 2 × 19 / (40° in radians)`, neighbours 2 units apart along the arc
@@ -276,23 +283,23 @@ drag and turn → save; the customer map shows it.
   left to right; a `firstRow` not in the letter sequence ("AB") and `rows` 101, `seatsPerRow` 201,
   a `seatsPerRow` list whose length is neither 1 nor `rows` are errors; the origin is the front
   row's middle.
-- [ ] T025 [P] [US1] `admin-app/src/layout-editor/AddSectionForm.test.tsx`: fields name, rows, seats
+- [ ] T025 [P] [US1] `admin-app/test/layout-editor/AddSectionForm.test.tsx`: fields name, rows, seats
   per row ("20" or "16, 16, 18"), row labels (letters/numbers) and first row, first seat, direction,
   curve (None, Slight, Medium, Strong, or a number 0–120); Generate adds the section, selected, in
   the middle of the visible map, in the chosen level; a value over a limit is refused beside its
   field naming the limit ("At most 100 rows"), and the seats left under 30,000 are shown; a
   duplicate name is refused beside the name.
-- [ ] T026 [P] [US1] `admin-app/src/layout-editor/EditorCanvas.test.tsx`: dragging a selected
+- [ ] T026 [P] [US1] `admin-app/test/layout-editor/EditorCanvas.test.tsx`: dragging a selected
   section moves it and its seats by the pointer's offset in map units (one Undo step); dragging
   two selected sections moves both; the turn handle turns the selection about each section's origin
   in 1° steps, 15° with Shift, and the angle shows in the Selection panel; dragging past the top or
   left edge moves everything right or down so no place is below 0; the floor object is picked
   (Court, End stage, Center stage, Ring, None), moved, and resized by its corner handles.
-- [ ] T027 [P] [US1] `admin-app/src/layout-editor/overlap.test.ts` and `SaveBar.test.tsx` (R15):
+- [ ] T027 [P] [US1] `admin-app/test/layout-editor/overlap.test.ts` and `SaveBar.test.tsx` (R15):
   two sections with seats 1.4 units apart overlap and 1.6 apart do not; sections whose bounds do not
   meet are not compared; Save with an overlap or a level with no seats lists "Section 102 overlaps
   101" and "Upper has no seats" with **Save anyway** and **Go back**; Save anyway saves.
-- [ ] T028 [P] [US1] `admin-app/src/layout-editor/LayoutEditor.test.tsx`, unsaved changes (R13):
+- [ ] T028 [P] [US1] `admin-app/test/layout-editor/LayoutEditor.test.tsx`, unsaved changes (R13):
   with a change, following a link asks to confirm and Cancel stays with the change kept; a
   `beforeunload` handler is set while dirty and removed when saved.
 - [ ] T029 [P] [US1] Browser test `e2e/tests/039-layout-editor.spec.ts`, US1 (S1–S3), title
@@ -319,7 +326,7 @@ drag and turn → save; the customer map shows it.
 - [ ] T035 [US1] Unsaved changes in `LayoutEditor.tsx`: `useBlocker` while dirty with a confirm
   ("Leave without saving? Your changes will be lost."), and `beforeunload`; run T028.
 - [ ] T036 [US1] `admin-app/src/components/LayoutsCard.tsx`: **New layout** beside Import and
-  section lines, linking to `/locations/:id/layouts/new`; its test in `LayoutsCard.test.tsx` first.
+  section lines, linking to `/locations/:id/layouts/new`; its test in `admin-app/test/layouts-card.test.tsx` first.
 - [ ] T037 [US1] Run T029 against the e2e stack; it passes.
 
 **Checkpoint**: US1 works alone: a drawn layout is saved and sold from.
@@ -341,11 +348,11 @@ and seats; totals live.
   and clears row and seat overrides that then equal their parent's level, and refuses the last level;
   `paint(level)` on sections sets their level, on rows their own level, on seats their own level;
   `clearLevel` on rows and seats; totals after each.
-- [ ] T039 [P] [US2] `admin-app/src/layout-editor/LevelsPanel.test.tsx`: lists levels best first with
+- [ ] T039 [P] [US2] `admin-app/test/layout-editor/LevelsPanel.test.tsx`: lists levels best first with
   swatch, name and seats; Add level; rename in place; recolor from the 12 colors; Move up/Move down;
   Delete asks which level the seats take; the last level's Delete is disabled with the reason; each
   level's name is beside its color.
-- [ ] T040 [P] [US2] `admin-app/src/layout-editor/SectionSeatsView.test.tsx`: Enter or double-click on
+- [ ] T040 [P] [US2] `admin-app/test/layout-editor/SectionSeatsView.test.tsx`: Enter or double-click on
   a section zooms into it and draws its seats in their levels' colors with row labels at both ends;
   click selects a seat, Shift-click adds; clicking a row label selects the row, Shift-clicking
   another selects the range; with **Box select** on, a drag selects the seats inside the box (off,
@@ -383,7 +390,7 @@ to edit; stale or newly locked saves refused with Save as a new layout or Reload
   started at once: either every hold that succeeded committed before the save, and the save is
   refused `409 LAYOUT_IN_USE`, or the save committed first and every hold of a deleted seat failed
   and of a kept seat succeeded; never a hold on a deleted seat; run 5 times.
-- [ ] T047 [P] [US3] `LayoutsCard.test.tsx`: an unlocked layout of any `source` has **Edit**; a
+- [ ] T047 [P] [US3] `layouts-card.test.tsx`: an unlocked layout of any `source` has **Edit**; a
   locked one **View**; a `DRAWN` layout has no section-lines editing. `LayoutEditor.test.tsx`: a
   locked layout's **Duplicate to edit** calls `duplicateVenueLayout` and opens the copy's edit
   route. `SaveBar.test.tsx`: `409 LAYOUT_CHANGED` and `409 LAYOUT_IN_USE` (locked) keep the document
@@ -417,7 +424,7 @@ Regenerate.
   `markAccessible`; `regenerate(values)` keeps the id and own level of every row whose label is
   still generated and every seat whose row is kept and label still in it, places the new block at
   the section's origin and angle, and reports how many seats would go before applying.
-- [ ] T050 [P] [US4] `admin-app/src/layout-editor/SelectionPanel.test.tsx`: for one selected section,
+- [ ] T050 [P] [US4] `admin-app/test/layout-editor/SelectionPanel.test.tsx`: for one selected section,
   its name, origin, angle, and (when generated) its generator values with **Regenerate**, which
   warns "Regenerate removes N seats" when N > 0 and that labels changed by hand are replaced;
   Duplicate section and Delete section (confirm naming the seat count); for selected seats,
@@ -440,7 +447,7 @@ lists, announcements.
 
 ### Tests first
 
-- [ ] T052 [P] [US5] `admin-app/src/layout-editor/keyboard.test.tsx` (user-event, keyboard only):
+- [ ] T052 [P] [US5] `admin-app/test/layout-editor/keyboard.test.tsx` (user-event, keyboard only):
   Tab reaches every control with a visible focus (the focus class from the theme); the Sections list
   selects a section; typing 30 in the angle box turns it to 30°; typing x and y moves its origin;
   with the map focused, ArrowRight moves the selection 1 unit, Shift+ArrowRight 10, `[` and `]` turn

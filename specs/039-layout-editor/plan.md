@@ -128,9 +128,9 @@ backend/
     ├── layouts.authz.e2e-spec.ts               # three operations added
     └── migration.layout-editor.e2e-spec.ts     # new
 
-packages/shared/src/
-├── layout-geometry.ts                          # new: generateBlock, outlineAround, move, turn
-└── layout-geometry.test.ts
+packages/shared/
+├── src/layout-geometry.ts                      # new: generateBlock, outlineAround, move, turn
+└── test/layout-geometry.test.ts
 
 admin-app/src/
 ├── main.tsx, App.tsx                           # data router (R13); two editor routes
@@ -145,8 +145,8 @@ admin-app/src/
     ├── SectionSeatsView.tsx                    # zoomed section: seats, row labels, box select
     ├── AddSectionForm.tsx                      # generator form; Regenerate
     ├── LevelsPanel.tsx, SectionsPanel.tsx, SelectionPanel.tsx
-    ├── SaveBar.tsx                             # save, warnings, refusals, save as new, reload
-    └── *.test.ts(x)
+    └── SaveBar.tsx                             # save, warnings, refusals, save as new, reload
+admin-app/test/layout-editor/*.test.ts(x)       # the editor's tests (vitest runs test/** only)
 
 e2e/tests/039-layout-editor.spec.ts             # new: US1, US2
 specs/039-layout-editor/quickstart.md           # Automation rows → Automated (impl)
