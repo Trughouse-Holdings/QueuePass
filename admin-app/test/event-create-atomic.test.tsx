@@ -7,6 +7,7 @@ import { fakeUserManager, makeUser } from '../../packages/shared/test/web/fake-u
 import { json, stubApi } from './helpers/api-stub';
 import { pngFile, savedImage } from './helpers/images';
 import { EVENT, VENUE } from './fixtures-005';
+import { layoutRoutes } from './fixtures-038';
 import { expectLocalDateTime, setLocalDateTime } from './helpers/event-times';
 
 /**
@@ -18,16 +19,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const ID = EVENT.id;
 const PLAIN = { ...VENUE, id: 'v-plain', name: 'Plain Hall', seatingCapacity: 500 };
-const SEATED = { ...VENUE, seatingCapacity: 30 };
-const LAYOUT = {
-  locationId: VENUE.id,
-  totalSeats: 30,
-  sections: [
-    { id: 's-front', name: 'front', rows: 1, seatsPerRow: 10 },
-    { id: 's-middle', name: 'middle', rows: 1, seatsPerRow: 10 },
-    { id: 's-back', name: 'back', rows: 1, seatsPerRow: 10 },
-  ],
-};
+const SEATED = { ...VENUE, seatingCapacity: 70 };
 const NO_ANSWER =
   'No answer from QueuePass, so the event may or may not have been scheduled. Check the Events ' +
   'list before scheduling it again.';
@@ -60,8 +52,8 @@ const backend = (createReply: Reply | Reply[]) => {
   const replies = Array.isArray(createReply) ? [...createReply] : null;
   return stubApi({
     'GET /locations': json([SEATED, PLAIN]),
-    [`GET /locations/${VENUE.id}/layout`]: json(LAYOUT),
-    'GET /locations/v-plain/layout': json({ locationId: 'v-plain', totalSeats: 0, sections: [] }),
+    ...layoutRoutes(),
+    'GET /locations/v-plain/layouts': json([]),
     'POST /events': replies
       ? () => {
           const next = replies.shift()!;
@@ -112,15 +104,12 @@ async function fillSeated() {
   fireEvent.change(screen.getByLabelText('Venue'), { target: { value: VENUE.id } });
   setLocalDateTime('Starts', '2030-05-01T18:00');
   setLocalDateTime('Ends', '2030-05-01T21:00');
-  await screen.findByRole('group', { name: 'Tickets and seating' });
-  typeLine(1, 'Front', '120.00');
-  fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
-  typeLine(2, 'Standard', '70.00');
-  fireEvent.change(screen.getByRole('combobox', { name: 'Section middle ticket type' }), {
-    target: { value: '1' },
+  // Spec 038: the venue's Club layout, its one level priced.
+  fireEvent.change(await screen.findByRole('combobox', { name: 'Seating' }), {
+    target: { value: 'l-club' },
   });
-  fireEvent.change(screen.getByRole('combobox', { name: 'Section back ticket type' }), {
-    target: { value: '' },
+  fireEvent.change(await screen.findByRole('textbox', { name: 'Club seats price' }), {
+    target: { value: '20.00' },
   });
 }
 
@@ -164,8 +153,10 @@ describe('one request (FR-008, SC-004)', () => {
     expect(body.basePrice).toBe('60.00');
   });
 
-  it('sends reserved seating and each type’s sections from the selects', async () => {
-    const api = backend(json({ ...EVENT, reservedSeating: true, totalTicketCapacity: 30 }, 201));
+  it('sends a seated schedule with its layout, level prices and seats off sale', async () => {
+    const api = backend(
+      json({ ...EVENT, reservedSeating: true, layoutId: 'l-club', totalTicketCapacity: 12 }, 201),
+    );
     renderNew();
     await fillSeated();
     schedule();
@@ -173,12 +164,14 @@ describe('one request (FR-008, SC-004)', () => {
     expect(await screen.findByText('Event page', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(writes(api)).toEqual(['POST /events']);
     const body = api.calls.find((c) => c.method === 'POST')!.body as Record<string, unknown>;
-    expect(body.reservedSeating).toBe(true);
-    expect(body).not.toHaveProperty('totalTicketCapacity');
-    expect(body.tiers).toEqual([
-      { name: 'Front', price: '120.00', sectionIds: ['s-front'] },
-      { name: 'Standard', price: '70.00', sectionIds: ['s-middle'] },
-    ]);
+    expect(body).toMatchObject({
+      layoutId: 'l-club',
+      levelPrices: [{ levelId: 'l-club', price: '20.00' }],
+      offSale: [],
+    });
+    for (const field of ['reservedSeating', 'totalTicketCapacity', 'tiers']) {
+      expect(body).not.toHaveProperty(field);
+    }
   });
 });
 
@@ -218,9 +211,8 @@ describe('a refusal keeps every value and shows beside its field (FR-009, FR-010
     expect(document.body).not.toHaveTextContent('Seating setup not finished');
   });
 
-  it('shows a refused section beside ticket type 1’s seats line', async () => {
-    const message =
-      "tiers.0.sectionIds lists a section that is not in Yum Center's seating layout. Reload the form to see its sections.";
+  it('shows a refused seat beside the seats off sale', async () => {
+    const message = 'offSale.0 names no seat of this layout';
     backend(
       json(
         {
@@ -238,11 +230,8 @@ describe('a refusal keeps every value and shows beside its field (FR-009, FR-010
     schedule();
 
     expect(screen.queryByTestId('error-banner')).toBeNull();
-    const line = await screen.findByTestId('seats-1');
-    expect(line).toHaveTextContent('Front: 10 seats');
-    expect(within(line).getByRole('alert')).toHaveTextContent(message);
-    expect(screen.getByTestId('seats-2')).not.toHaveTextContent(message);
-    expect(screen.getByLabelText('Ticket type 2 name')).toHaveValue('Standard');
+    expect(await screen.findByTestId('offSale-error')).toHaveTextContent(message);
+    expect(screen.getByRole('textbox', { name: 'Club seats price' })).toHaveValue('20.00');
   });
 
   it('shows ticket types over capacity beside the ticket types', async () => {
@@ -449,37 +438,31 @@ describe('each path lands beside its field, associated with it (FR-010)', () => 
     expect(group).toHaveAccessibleDescription(entry);
   });
 
-  it('puts a seating refusal beside the seating choice, which it describes', async () => {
-    const entry = 'reservedSeating needs a seating layout; Yum Center has none';
+  it('puts a layout refusal beside the seating choice, which it describes', async () => {
+    const entry = "layoutId must be one of the venue's layouts";
     backend(refused([entry]));
     renderNew();
     await fillSeated();
     schedule();
 
     expect(screen.queryByTestId('error-banner')).toBeNull();
-    expect(await screen.findByTestId('seating-error')).toHaveTextContent(entry);
-    for (const name of ['Reserved seating', 'General admission']) {
-      expect(screen.getByRole('radio', { name })).toHaveAccessibleDescription(entry);
-    }
+    expect(await screen.findByTestId('layoutId-error')).toHaveTextContent(entry);
+    const select = screen.getByRole('combobox', { name: 'Seating' });
+    expect(select).toHaveAttribute('aria-invalid', 'true');
+    expect(select).toHaveAccessibleDescription(entry);
   });
 
-  it('ties a refused section list to the selects that sell that type', async () => {
-    const entry =
-      "tiers.0.sectionIds lists a section that is not in Yum Center's seating layout. Reload the form to see its sections.";
+  it('ties an off-sale entry to the seats off sale, which it describes', async () => {
+    const entry = 'offSale.0.row must be a whole number of at least 1, and is required with seat';
     backend(refused([entry]));
     renderNew();
     await fillSeated();
     schedule();
 
     expect(screen.queryByTestId('error-banner')).toBeNull();
-    const front = screen.getByRole('combobox', { name: 'Section front ticket type' });
-    await vi.waitFor(() => expect(front).toHaveAttribute('aria-invalid', 'true'));
-    expect(front).toHaveAccessibleDescription(entry);
-    for (const name of ['middle', 'back']) {
-      const select = screen.getByRole('combobox', { name: `Section ${name} ticket type` });
-      expect(select).not.toHaveAttribute('aria-invalid');
-      expect(select).not.toHaveAccessibleDescription(entry);
-    }
+    const tool = screen.getByRole('group', { name: 'Seats off sale' });
+    await vi.waitFor(() => expect(tool).toHaveAccessibleDescription(entry));
+    expect(screen.getByRole('combobox', { name: 'Seating' })).not.toHaveAttribute('aria-invalid');
   });
 });
 

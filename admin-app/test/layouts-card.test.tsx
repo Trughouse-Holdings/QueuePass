@@ -127,7 +127,9 @@ describe('Layouts card', () => {
     expect(
       within(bb).getByText('22,090 seats · 54 sections · 4 price levels · used by 2 events'),
     ).toBeInTheDocument();
-    expect(within(bb).getByText('Locked: seats sold at Cardinals vs. Duke')).toBeInTheDocument();
+    // T013 as amended: the API names no event that locks it; a refused change names them (409).
+    expect(within(bb).getByText('Locked: seats are sold or held')).toBeInTheDocument();
+    expect(within(bb).queryByText(/Cardinals vs. Duke/)).toBeNull();
     const preview = await within(bb).findByRole('img', { name: 'Basketball: 54 sections' });
     expect(preview.querySelectorAll('.layout-preview__section')).toHaveLength(54);
     expect(preview.querySelectorAll('circle')).toHaveLength(0);

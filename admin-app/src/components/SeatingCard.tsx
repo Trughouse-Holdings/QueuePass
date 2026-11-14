@@ -1,49 +1,25 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Event, SeatMap, TicketTier } from '@queuepass/shared';
+import { Link } from 'react-router-dom';
+import type { Event, SeatMap } from '@queuepass/shared';
 import { applySeatChange, useSeatStream } from '@queuepass/shared/web';
-import { ApiError, accessToken, api } from '../api/client';
-import { getAvailability, getSeatMap, updateSeating } from '../api/seating';
-import { listTiers } from '../api/tiers';
-import { ErrorBanner } from './ErrorBanner';
+import { accessToken, api } from '../api/client';
+import { getSeatMap } from '../api/seating';
 import { SeatGrid } from './SeatGrid';
 
-type Load =
-  | { kind: 'loading' }
-  | { kind: 'ok'; map: SeatMap; tiers: TicketTier[]; hasSales: boolean }
-  | { kind: 'unavailable' };
-
-const asApiError = (err: unknown): ApiError =>
-  err instanceof ApiError
-    ? err
-    : new ApiError(0, {
-        error: { code: 'VALIDATION_FAILED', message: "Can't reach the QueuePass service." },
-      });
+type Load = { kind: 'loading' } | { kind: 'ok'; map: SeatMap } | { kind: 'unavailable' };
 
 /**
- * Spec 007 US4 (FR-002, FR-004, FR-012): reserved seating on or off, each section's tier, and
- * the seat map. The Backend refuses switching after sales and retiering sold sections; this card
- * only explains the refusals in advance. Spec 015 FR-010 (research R14): the seat map and its
- * counts update live, from the same stream customers read. Issue #136 (research R12): the switch
- * is shown only when it can be used, or when it is on, so it says the event is seated.
+ * Spec 007 US4 (FR-012): the event page's Seating card and its seat map. Spec 015 FR-010 (research
+ * R14): the seat map and its counts update live, from the same stream customers read. Spec 038
+ * (FR-015, research R15): an event's layout, prices and seats off sale are set in the event form,
+ * so this card only says what the event is and where to change it; US6 (T049) replaces the seat
+ * map with the shared venue map.
  */
-export function SeatingCard({
-  event,
-  onSaved,
-}: {
-  event: Event;
-  /** Tells the event page that capacity and tier amounts may have changed (revision R11). */
-  onSaved?: () => void;
-}): React.ReactElement {
+export function SeatingCard({ event }: { event: Event }): React.ReactElement {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
-  const [reserved, setReserved] = useState(false);
-  const [tierOf, setTierOf] = useState<Record<string, string>>({});
   const [viewing, setViewing] = useState<string | null>(null);
-  const [error, setError] = useState<ApiError | null>(null);
-  const [busy, setBusy] = useState(false);
-  const busyRef = useRef(false);
 
-  // Spec 015: live changes and catch-up snapshots go into the map shown; the form's own state
-  // (the switch and each section's tier) is left as the admin set it.
+  // Spec 015: live changes and catch-up snapshots go into the map shown.
   const live = useSeatStream(event.id, {
     api,
     getToken: accessToken,
@@ -55,147 +31,47 @@ export function SeatingCard({
   const liveMap = useRef<SeatMap | null>(null);
   liveMap.current = live.map;
 
+  const seated = event.layoutId != null || event.reservedSeating;
   useEffect(() => {
+    if (!seated) return;
     let cancelled = false;
-    Promise.all([getSeatMap(event.id), listTiers(event.id), getAvailability(event.id)])
-      .then(([loaded, tiers, left]) => {
-        if (cancelled) return;
+    getSeatMap(event.id)
+      .then((loaded) => {
         // Changes may have arrived while this loaded: the stream's map already has them.
-        const map = liveMap.current ?? loaded;
-        setLoad({ kind: 'ok', map, tiers, hasSales: left.ticketsLeft < event.totalTicketCapacity });
-        adopt(map);
+        if (!cancelled) setLoad({ kind: 'ok', map: liveMap.current ?? loaded });
       })
       .catch(() => !cancelled && setLoad({ kind: 'unavailable' }));
     return () => {
       cancelled = true;
     };
-  }, [event.id, event.totalTicketCapacity]);
+  }, [event.id, seated]);
 
-  function adopt(map: SeatMap): void {
-    setReserved(map.reservedSeating);
-    setTierOf(
-      Object.fromEntries(map.sections.filter((s) => s.tierId).map((s) => [s.sectionId, s.tierId!])),
-    );
-  }
-
-  async function save(): Promise<void> {
-    if (busyRef.current || load.kind !== 'ok') return;
-    busyRef.current = true;
-    setBusy(true);
-    setError(null);
-    try {
-      const map = await updateSeating(event.id, {
-        reservedSeating: reserved,
-        sections: Object.entries(tierOf)
-          .filter(([, tierId]) => tierId)
-          .map(([sectionId, tierId]) => ({ sectionId, tierId })),
-      });
-      setLoad({ ...load, map });
-      adopt(map);
-      onSaved?.();
-    } catch (err) {
-      setError(asApiError(err));
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
-    }
-  }
-
-  const body = (): React.ReactNode => {
-    if (load.kind === 'loading') return <p className="loading">Loading seating…</p>;
+  const seatMap = (): React.ReactNode => {
+    if (load.kind === 'loading') return <p className="loading">Loading the seat map…</p>;
     if (load.kind === 'unavailable') {
-      return <p className="note">Seating is unavailable right now.</p>;
+      return <p className="note">The seat map is unavailable right now.</p>;
     }
-    const { map, tiers, hasSales } = load;
-    // Issue #136 (research R12): with no layout, or with sales and reserved seating off, the
-    // switch can never be used, so the card says general admission instead of showing it.
-    if (map.sections.length === 0) {
-      return <p className="note">General admission: this venue has no seating layout.</p>;
-    }
-    if (hasSales && !map.reservedSeating) {
-      return (
-        <p className="note">
-          {"General admission: tickets have been sold, so reserved seating can't be turned on."}
-        </p>
-      );
-    }
+    const { map } = load;
     const shown = map.sections.find((s) => s.sectionId === viewing) ?? map.sections[0];
-
+    if (!shown) return null;
     return (
       <>
+        <h3>Seat map</h3>
         <label>
-          <input
-            type="checkbox"
-            checked={reserved}
-            disabled={hasSales}
-            onChange={(e) => setReserved(e.target.checked)}
-          />{' '}
-          Reserved seating
-        </label>
-        {hasSales && <p className="note">{"Seats can't change after tickets are sold."}</p>}
-
-        {reserved && tiers.length > 0 && (
-          <div className="form__row">
+          Seat map section{' '}
+          <select value={shown.sectionId} onChange={(e) => setViewing(e.target.value)}>
             {map.sections.map((s) => (
-              <label key={s.sectionId}>
-                {`Section ${s.name} tier `}
-                <select
-                  aria-label={`Section ${s.name} tier`}
-                  value={tierOf[s.sectionId] ?? ''}
-                  onChange={(e) => setTierOf({ ...tierOf, [s.sectionId]: e.target.value })}
-                >
-                  <option value="">Not for sale</option>
-                  {tiers.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <option key={s.sectionId} value={s.sectionId}>
+                {`Section ${s.name}`}
+              </option>
             ))}
-          </div>
-        )}
-        <div className="form__actions">
-          <button
-            type="button"
-            className="btn btn--primary"
-            disabled={busy}
-            onClick={() => void save()}
-          >
-            {busy ? 'Saving…' : 'Save seating'}
-          </button>
-        </div>
-
-        {/* FR-006: a tier with no section sells nothing; say so instead of letting it look on sale. */}
-        {map.reservedSeating &&
-          tiers
-            .filter((t) => !map.sections.some((s) => s.tierId === t.id))
-            .map((t) => (
-              <p key={t.id} className="note">
-                {`${t.name} has no section, so it sells nothing. Choose a tier for a section above.`}
-              </p>
-            ))}
-
-        {map.reservedSeating && shown && (
-          <>
-            <h3>Seat map</h3>
-            <label>
-              Seat map section{' '}
-              <select value={shown.sectionId} onChange={(e) => setViewing(e.target.value)}>
-                {map.sections.map((s) => (
-                  <option key={s.sectionId} value={s.sectionId}>
-                    {`Section ${s.name}`}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {/* Spec 015 FR-013: sold, reserved, and open, kept current by the stream. */}
-            <p>{`${shown.sold} sold, ${shown.reserved.length} reserved, ${
-              shown.rows * shown.seatsPerRow - shown.sold - shown.reserved.length
-            } open`}</p>
-            <SeatGrid section={shown} />
-          </>
-        )}
+          </select>
+        </label>
+        {/* Spec 015 FR-013: sold, reserved, and open, kept current by the stream. */}
+        <p>{`${shown.sold} sold, ${shown.reserved.length} reserved, ${
+          shown.rows * shown.seatsPerRow - shown.sold - shown.reserved.length
+        } open`}</p>
+        <SeatGrid section={shown} />
       </>
     );
   };
@@ -203,8 +79,17 @@ export function SeatingCard({
   return (
     <section className="card" aria-labelledby="seating-heading">
       <h2 id="seating-heading">Seating</h2>
-      {error && <ErrorBanner error={error} title="Could not change seating" />}
-      {body()}
+      {seated ? (
+        <>
+          <p className="note">
+            Reserved seating: its layout, prices by level and seats off sale are changed in{' '}
+            <Link to={`/events/${event.id}/edit`}>Edit event</Link>.
+          </p>
+          {seatMap()}
+        </>
+      ) : (
+        <p className="note">General admission.</p>
+      )}
     </section>
   );
 }

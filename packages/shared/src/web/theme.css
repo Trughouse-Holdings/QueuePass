@@ -1121,3 +1121,57 @@ dd {
   font-weight: 600;
   pointer-events: none;
 }
+
+/* Spec 038 (T025, research R15): the event form's Seating section. A level's swatch beside its
+   name (the name is always there, so color is never the only cue); neutral until T038 adds the
+   level colors (--level-*), which then color each .level-swatch--<color>. One section zoomed in
+   the off-sale tool, its seats at their places: on sale filled, off sale hollow and dashed, sold
+   or held muted and not pressable. */
+.level-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: var(--space-2);
+  vertical-align: middle;
+  background: var(--accent-soft);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+}
+.off-sale-section {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  height: auto;
+  margin-top: var(--space-3);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.off-sale-section__seat {
+  cursor: pointer;
+}
+.off-sale-section__seat circle {
+  fill: var(--accent);
+  stroke: var(--accent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.off-sale-section__seat--off circle {
+  fill: var(--surface);
+  stroke: var(--text-muted);
+  stroke-dasharray: 2 2;
+}
+.off-sale-section__seat--taken {
+  cursor: not-allowed;
+}
+.off-sale-section__seat--taken circle {
+  fill: var(--border-strong);
+  stroke: var(--border-strong);
+}
+.off-sale-section__seat:focus-visible {
+  outline: none;
+}
+.off-sale-section__seat:focus-visible circle {
+  stroke: var(--text);
+  stroke-width: 3;
+}

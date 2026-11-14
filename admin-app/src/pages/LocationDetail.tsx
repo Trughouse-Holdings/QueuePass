@@ -188,7 +188,7 @@ function VenueView({
         )}
       </div>
 
-      <LayoutsCard venue={venue} events={events} onLayouts={setLayouts} />
+      <LayoutsCard venue={venue} onLayouts={setLayouts} />
     </section>
   );
 }

@@ -9,7 +9,10 @@ import { fixTimeBeforeFixtures } from './helpers/fixed-time';
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
 fixTimeBeforeFixtures();
 
-/** Spec 007 US4 (FR-002, FR-004, FR-012): the event page's Seating card and seat map. */
+/**
+ * Spec 007 US4 (FR-012): the event page's Seating card and seat map. Spec 038 US2: seating is set in
+ * the event form; the seat map is US6's (T048, T049).
+ */
 afterEach(() => vi.unstubAllGlobals());
 
 const PATH = `/events/${EVENT.id}`;
@@ -64,6 +67,9 @@ const routes = (opts: { seatMap?: object; ticketsLeft?: number; extra?: object }
   ...(opts.extra ?? {}),
 });
 
+/** Spec 038: a seated event is one with a layout. */
+const SEATED = { ...EVENT, reservedSeating: true, layoutId: 'l-arena', priceMax: '95.00' };
+
 const renderPage = () =>
   render(
     <MemoryRouter initialEntries={[PATH]}>
@@ -74,172 +80,42 @@ const renderPage = () =>
   );
 
 const card = () => screen.findByRole('region', { name: 'Seating' });
-const checkbox = async () =>
-  within(await card()).findByRole('checkbox', { name: 'Reserved seating' });
 
 describe('Seating card', () => {
-  it('turns reserved seating on and maps each section to a tier, or to nothing', async () => {
-    const api = stubApi(routes({ extra: { [`PUT ${PATH}/seating`]: json(map(true)) } }));
-    renderPage();
-
-    fireEvent.click(await checkbox());
-    const region = await card();
-    fireEvent.change(within(region).getByRole('combobox', { name: 'Section A tier' }), {
-      target: { value: 't-vip' },
-    });
-    expect(
-      within(within(region).getByRole('combobox', { name: 'Section B tier' }))
-        .getAllByRole('option')
-        .map((o) => o.textContent),
-    ).toEqual(['Not for sale', 'General', 'VIP']);
-    fireEvent.click(within(region).getByRole('button', { name: 'Save seating' }));
-
-    await within(region).findByText('0 sold, 0 reserved, 30 open');
-    expect(api.calls.find((c) => c.method === 'PUT')?.body).toEqual({
-      reservedSeating: true,
-      sections: [{ sectionId: 's-a', tierId: 't-vip' }],
-    });
-  });
-
-  // Issue #136 (research R12): a switch that can never be used is not shown.
-  it('shows general admission, with no switch or Save, when the venue has no layout', async () => {
-    stubApi(routes({ seatMap: { eventId: EVENT.id, reservedSeating: false, sections: [] } }));
+  // Spec 038 (FR-015, research R15): the layout, prices and seats off sale are set in the event
+  // form; the card says which the event is and where to change it, and never writes.
+  it('says a general-admission event is one, with no seat map and no switch', async () => {
+    const api = stubApi(routes());
     renderPage();
 
     const region = await card();
-    expect(
-      await within(region).findByText('General admission: this venue has no seating layout.'),
-    ).toBeInTheDocument();
+    expect(await within(region).findByText('General admission.')).toBeInTheDocument();
     expect(within(region).queryByRole('checkbox')).toBeNull();
-    expect(within(region).queryByText('Reserved seating')).toBeNull();
-    expect(within(region).queryByRole('button', { name: 'Save seating' })).toBeNull();
-  });
-
-  it('shows general admission, with no switch or Save, once tickets are sold with it off', async () => {
-    stubApi(routes({ ticketsLeft: EVENT.totalTicketCapacity - 1 }));
-    renderPage();
-
-    const region = await card();
-    expect(
-      await within(region).findByText(
-        "General admission: tickets have been sold, so reserved seating can't be turned on.",
-      ),
-    ).toBeInTheDocument();
-    expect(within(region).queryByRole('checkbox')).toBeNull();
-    expect(within(region).queryByRole('combobox', { name: 'Section A tier' })).toBeNull();
     expect(within(region).queryByRole('button', { name: 'Save seating' })).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Seat map' })).toBeNull();
+    expect(api.calls.filter((c) => c.method !== 'GET')).toEqual([]);
   });
 
-  it('keeps the switch, checked and disabled with the reason, once tickets are sold with it on', async () => {
-    stubApi(routes({ seatMap: map(true, 1), ticketsLeft: EVENT.totalTicketCapacity - 1 }));
-    renderPage();
-
-    const box = await checkbox();
-    expect(box).toBeChecked();
-    expect(box).toBeDisabled();
-    const region = await card();
-    expect(
-      within(region).getByText("Seats can't change after tickets are sold."),
-    ).toBeInTheDocument();
-    expect(within(region).queryByText(/^General admission/)).toBeNull();
-    // Unsold sections can still change tier, so Save stays.
-    expect(within(region).getByRole('button', { name: 'Save seating' })).toBeEnabled();
-  });
-
-  it.each([
-    ['off', false],
-    ['on', true],
-  ])('keeps the switch usable, %s, at a venue with a layout and no sales', async (_, on) => {
-    stubApi(routes({ seatMap: map(on) }));
-    renderPage();
-
-    const box = await checkbox();
-    expect(box).toBeEnabled();
-    if (on) expect(box).toBeChecked();
-    else expect(box).not.toBeChecked();
-    const region = await card();
-    expect(within(region).queryByText(/^General admission/)).toBeNull();
-    expect(within(region).queryByText("Seats can't change after tickets are sold.")).toBeNull();
-    expect(within(region).getByRole('button', { name: 'Save seating' })).toBeEnabled();
-  });
-
-  it('warns which tiers have no section, so they sell nothing', async () => {
-    stubApi(routes({ seatMap: map(true) }));
+  it("points a seated event's seating to Edit event, with no section-to-tier mapping", async () => {
+    stubApi({ ...routes({ seatMap: map(true) }), [`GET ${PATH}`]: json(SEATED) });
     renderPage();
 
     const region = await card();
-    expect(
-      await within(region).findByText(
-        'General has no section, so it sells nothing. Choose a tier for a section above.',
-      ),
-    ).toBeInTheDocument();
-    expect(within(region).queryByText(/VIP has no section/)).toBeNull();
-  });
-
-  it("shows a refusal in the Backend's words", async () => {
-    const message = 'Section A has sold seats, so it stays in its tier.';
-    stubApi(
-      routes({
-        seatMap: map(true, 2),
-        ticketsLeft: EVENT.totalTicketCapacity - 2,
-        extra: {
-          [`PUT ${PATH}/seating`]: json({ error: { code: 'EVENT_HAS_ORDERS', message } }, 409),
-        },
-      }),
+    expect(within(region).getByRole('link', { name: 'Edit event' })).toHaveAttribute(
+      'href',
+      `${PATH}/edit`,
     );
-    renderPage();
-
-    const region = await card();
-    fireEvent.change(await within(region).findByRole('combobox', { name: 'Section A tier' }), {
-      target: { value: 't-gen' },
-    });
-    fireEvent.click(within(region).getByRole('button', { name: 'Save seating' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(message);
-  });
-});
-
-describe('Seating and tiers stay in step (revision R11)', () => {
-  it('offers a newly added tier in the section dropdowns, and reloads tiers after saving seating', async () => {
-    let tiers = [VIP];
-    const api = stubApi({
-      ...routes({ seatMap: map(true) }),
-      // A seated event, as in the real flow: its tier form takes no quantity.
-      [`GET ${PATH}`]: json({ ...EVENT, reservedSeating: true }),
-      [`GET ${PATH}/tiers`]: () => json(tiers),
-      [`POST ${PATH}/tiers`]: () => {
-        tiers = [GEN, VIP];
-        return json(GEN, 201);
-      },
-      [`PUT ${PATH}/seating`]: json(map(true)),
-    });
-    renderPage();
-
-    const tierForm = await screen.findByRole('form', { name: 'Add a tier' });
-    fireEvent.change(within(tierForm).getByLabelText('Tier name'), {
-      target: { value: 'General' },
-    });
-    fireEvent.change(within(tierForm).getByLabelText('Price'), { target: { value: '40.00' } });
-    fireEvent.click(within(tierForm).getByRole('button', { name: 'Add tier' }));
-
-    // The card reloads (remounts) after a tier change, so look it up afresh each time.
-    await vi.waitFor(async () =>
-      expect(
-        within(within(await card()).getByRole('combobox', { name: 'Section B tier' }))
-          .getAllByRole('option')
-          .map((o) => o.textContent),
-      ).toEqual(['Not for sale', 'General', 'VIP']),
-    );
-
-    const before = api.count('GET', `${PATH}/tiers`);
-    fireEvent.click(within(await card()).getByRole('button', { name: 'Save seating' }));
-    await vi.waitFor(() => expect(api.count('GET', `${PATH}/tiers`)).toBeGreaterThan(before));
+    expect(within(region).queryByRole('combobox', { name: 'Section A tier' })).toBeNull();
+    expect(within(region).queryByRole('button', { name: 'Save seating' })).toBeNull();
   });
 });
 
 describe('Seat map', () => {
   it('shows one section at a time, each seat sold or open, with counts', async () => {
-    stubApi(routes({ seatMap: map(true, 2), ticketsLeft: EVENT.totalTicketCapacity - 2 }));
+    stubApi({
+      ...routes({ seatMap: map(true, 2), ticketsLeft: EVENT.totalTicketCapacity - 2 }),
+      [`GET ${PATH}`]: json(SEATED),
+    });
     renderPage();
 
     const region = await card();

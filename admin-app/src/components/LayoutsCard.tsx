@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import {
   LAYOUT_LIMITS,
-  type Event,
   type LayoutDetail,
   type LayoutSummary,
   type Location,
@@ -26,9 +25,6 @@ import {
   type LevelLine,
   type SectionLine,
 } from './SectionLines';
-
-/** An event at the venue, with the layout it uses (contract 2.0.0 `Event.layoutId`). */
-type VenueEvent = Event & { layoutId?: string | null };
 
 const count = (n: number, one: string, many = `${one}s`): string =>
   `${n.toLocaleString()} ${n === 1 ? one : many}`;
@@ -80,18 +76,17 @@ const draftOf = (layout: LayoutDetail): LinesDraft => {
 /**
  * Spec 038 US1 (FR-004–FR-009; research R15): the venue page's Layouts card, in place of `007`'s
  * single layout. Each layout with its counts, the scheduled events using it, whether it is locked
- * (sold or held seats at one of them), and a preview of its map; Import layout file, New layout
+ * (sold or held seats at one of them; the API names no event there, a refused change does), and a
+ * preview of its map; Import layout file, New layout
  * from section lines, and per layout Rename, Edit section lines (a layout made from lines only),
  * Duplicate and Delete. Each refusal is shown beside the control that was used, in the Backend's
  * words, and nothing typed is lost. `onLayouts` hears every list loaded, for the venue's capacity.
  */
 export function LayoutsCard({
   venue,
-  events,
   onLayouts,
 }: {
   venue: Location;
-  events: VenueEvent[];
   onLayouts?: (layouts: LayoutSummary[]) => void;
 }): React.ReactElement {
   const [layouts, setLayouts] = useState<LayoutSummary[] | null | 'unavailable'>(null);
@@ -176,9 +171,6 @@ export function LayoutsCard({
     if (ok) setAdding(null);
   }
 
-  const lockedAt = (layoutId: string): string[] =>
-    events.filter((e) => e.layoutId === layoutId && e.status === 'SCHEDULED').map((e) => e.name);
-
   return (
     <section className="card" aria-labelledby="layouts-heading">
       <h2 id="layouts-heading">Layouts</h2>
@@ -191,14 +183,7 @@ export function LayoutsCard({
       ) : (
         <div className="layout-list">
           {layouts.map((l) => (
-            <LayoutItem
-              key={l.id}
-              layout={l}
-              detail={details[l.id]}
-              lockedAt={lockedAt(l.id)}
-              busy={busy}
-              run={run}
-            />
+            <LayoutItem key={l.id} layout={l} detail={details[l.id]} busy={busy} run={run} />
           ))}
         </div>
       )}
@@ -295,13 +280,11 @@ function ImportProblems({ id, error }: { id: string; error: ImportError }): Reac
 function LayoutItem({
   layout,
   detail,
-  lockedAt,
   busy,
   run,
 }: {
   layout: LayoutSummary;
   detail: LayoutDetail | undefined;
-  lockedAt: string[];
   busy: boolean;
   run: (action: () => Promise<unknown>, fail: (err: ApiError) => void) => Promise<boolean>;
 }): React.ReactElement {
@@ -338,13 +321,7 @@ function LayoutItem({
         {`${count(layout.seatCount, 'seat')} · ${count(layout.sectionCount, 'section')} · ` +
           `${count(layout.levelCount, 'price level')} · used by ${count(layout.eventsUsing, 'event')}`}
       </p>
-      {layout.locked && (
-        <p className="note">
-          {lockedAt.length > 0
-            ? `Locked: seats sold at ${lockedAt.join(', ')}`
-            : 'Locked: seats are sold or held at an event using it'}
-        </p>
-      )}
+      {layout.locked && <p className="note">Locked: seats are sold or held</p>}
       {detail ? <LayoutPreview layout={detail} /> : <p className="loading">Loading the preview…</p>}
 
       {renaming !== null && (

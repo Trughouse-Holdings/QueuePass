@@ -95,9 +95,7 @@ describe('event form', () => {
     });
     at(`/events/${EVENT.id}/edit`, '/events/:id/edit', <EventForm />);
 
-    expect(
-      await screen.findByText("Total tickets: 70, set by the venue's seating layout."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Total tickets: 70, the seats on sale.')).toBeInTheDocument();
     expect(screen.queryByLabelText('Total tickets')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /Save/ }));
