@@ -99,7 +99,15 @@ export type Action =
   | { type: 'moveLevel'; id: string; by: -1 | 1 }
   | { type: 'deleteLevel'; id: string; replacement: string }
   | { type: 'paint'; levelId: string }
-  | { type: 'clearLevel' };
+  | { type: 'clearLevel' }
+  | { type: 'duplicateSection'; id: string }
+  | { type: 'renameSection'; id: string; name: string }
+  | { type: 'deleteSeats'; sectionId: string; ids: string[] }
+  | { type: 'deleteSections'; ids: string[] }
+  | { type: 'relabelRow'; sectionId: string; rowId: string; label: string }
+  | { type: 'relabelSeat'; sectionId: string; seatId: string; label: string }
+  | { type: 'markAccessible'; sectionId: string; ids: string[]; accessible: boolean }
+  | { type: 'regenerate'; id: string; values: SectionGenerator };
 
 export const currentDoc = (s: EditorState): EditorDoc => s.history[s.cursor];
 export const isDirty = (s: EditorState): boolean => currentDoc(s) !== s.saved;
@@ -397,6 +405,119 @@ function repoint(doc: EditorDoc, from: string, to: string): EditorDoc {
       return touched ? { ...s, levelId, rows } : s;
     }),
   };
+}
+
+// ------------------------------------------------------------------ fine-tuning (US4, T051)
+
+/** FR-010, edge case "Names and labels": what is wrong with a section's name, or null. */
+export function sectionNameProblem(doc: EditorDoc, id: string, name: string): string | null {
+  const n = name.trim();
+  if (n === '') return 'Name the section';
+  if (n.length > LAYOUT_LIMITS.nameMaxLength)
+    return `At most ${LAYOUT_LIMITS.nameMaxLength} characters`;
+  if (doc.sections.some((x) => x.id !== id && x.name.toLowerCase() === n.toLowerCase()))
+    return `Another section is named ${n}`;
+  return null;
+}
+
+const labelShape = (label: string, what: string): string | null => {
+  const l = label.trim();
+  if (l === '') return `Give the ${what} a label`;
+  if (l.length > LAYOUT_LIMITS.labelMaxLength)
+    return `At most ${LAYOUT_LIMITS.labelMaxLength} characters`;
+  return null;
+};
+
+/** FR-012, US4-3: a row's label is 1–5 characters, unique in its section. */
+export function rowLabelProblem(
+  doc: EditorDoc,
+  sectionId: string,
+  rowId: string,
+  label: string,
+): string | null {
+  const shape = labelShape(label, 'row');
+  if (shape) return shape;
+  const section = doc.sections.find((x) => x.id === sectionId);
+  const l = label.trim();
+  if (section?.rows.some((r) => r.id !== rowId && r.label === l))
+    return `Row ${l} is already in section ${section.name}`;
+  return null;
+}
+
+/** FR-012, US4-3: a seat's label is 1–5 characters, unique in its row. */
+export function seatLabelProblem(
+  doc: EditorDoc,
+  sectionId: string,
+  seatId: string,
+  label: string,
+): string | null {
+  const shape = labelShape(label, 'seat');
+  if (shape) return shape;
+  const row = doc.sections
+    .find((x) => x.id === sectionId)
+    ?.rows.find((r) => r.seats.some((q) => q.id === seatId));
+  const l = label.trim();
+  if (row?.seats.some((q) => q.id !== seatId && q.label === l))
+    return `Seat ${l} is already in row ${row.label}`;
+  return null;
+}
+
+/** FR-012: deleting these seats leaves seats in the section ('seats'), or none ('section'). */
+export function planDeleteSeats(
+  doc: EditorDoc,
+  sectionId: string,
+  ids: readonly string[],
+): 'seats' | 'section' {
+  const section = doc.sections.find((x) => x.id === sectionId);
+  const set = new Set(ids);
+  const left = section?.rows.some((r) => r.seats.some((q) => !set.has(q.id))) ?? false;
+  return left ? 'seats' : 'section';
+}
+
+/** A section's name with " (n)" for the first n from 2 that no section has. */
+function freeName(doc: EditorDoc, name: string): string {
+  for (let n = 2; ; n += 1) {
+    const suffix = ` (${n})`;
+    const candidate = `${name.slice(0, LAYOUT_LIMITS.nameMaxLength - suffix.length)}${suffix}`;
+    if (!sectionNameProblem(doc, '', candidate)) return candidate;
+  }
+}
+
+/** The labels a generator makes: rows, and each row's seats. */
+function generatedLabels(values: SectionGenerator | null): Map<string, Set<string>> | null {
+  if (!values) return null;
+  try {
+    const block = generateBlock(values);
+    return new Map(block.rows.map((r) => [r.label, new Set(r.seats.map((q) => q.label))]));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * FR-009, R7: what Regenerate with `values` would do to a section: the seats that would go, and
+ * whether labels changed by hand (not in what its generator made) would be replaced.
+ */
+export function regeneratePlan(
+  doc: EditorDoc,
+  id: string,
+  values: SectionGenerator,
+): { removed: number; handLabels: boolean } {
+  const section = doc.sections.find((x) => x.id === id);
+  const next = generatedLabels(values);
+  if (!section || !next) return { removed: 0, handLabels: false };
+  let removed = 0;
+  for (const r of section.rows) {
+    const seats = next.get(r.label);
+    for (const q of r.seats) if (!seats?.has(q.label)) removed += 1;
+  }
+  const before = generatedLabels(section.generator);
+  const handLabels =
+    before !== null &&
+    section.rows.some(
+      (r) => !before.has(r.label) || r.seats.some((q) => !before.get(r.label)?.has(q.label)),
+    );
+  return { removed, handLabels };
 }
 
 // ---------------------------------------------------------------------------------- reducer
@@ -760,6 +881,187 @@ export function reduce(s: EditorState, a: Action): EditorState {
         );
       }
       return s;
+    }
+
+    case 'duplicateSection': {
+      const from = doc.sections.find((x) => x.id === a.id);
+      if (!from) return s;
+      if (doc.sections.length >= LAYOUT_LIMITS.maxSections) {
+        return { ...s, message: `A layout has at most ${LAYOUT_LIMITS.maxSections} sections` };
+      }
+      if (totals(doc).seats + seatCount(from) > LAYOUT_LIMITS.maxSeats) {
+        return { ...s, message: 'The layout would be over its limits' };
+      }
+      let seq = s.seq;
+      const next = (): string => `new:${(seq += 1)}`;
+      const copy: EdSection = {
+        ...shiftSection(from, 10, 0),
+        id: next(),
+        name: freeName(doc, from.name),
+      };
+      copy.rows = copy.rows.map((r) => ({
+        ...r,
+        id: next(),
+        seats: r.seats.map((q) => ({ ...q, id: next() })),
+      }));
+      return commit(
+        s,
+        keepOnMap({ ...doc, sections: [...doc.sections, copy] }),
+        `Section ${from.name} duplicated as ${copy.name}`,
+        { selection: { kind: 'sections', ids: [copy.id] }, seq },
+      );
+    }
+    case 'renameSection': {
+      const section = doc.sections.find((x) => x.id === a.id);
+      if (!section) return s;
+      const problem = sectionNameProblem(doc, a.id, a.name);
+      if (problem) return { ...s, message: problem };
+      const name = a.name.trim();
+      if (name === section.name) return s;
+      return commit(
+        s,
+        changeSections(doc, [a.id], (x) => ({ ...x, name })),
+        `Section ${section.name} renamed ${name}`,
+      );
+    }
+    case 'deleteSeats': {
+      const section = doc.sections.find((x) => x.id === a.sectionId);
+      if (!section || a.ids.length === 0) return s;
+      if (planDeleteSeats(doc, a.sectionId, a.ids) === 'section') {
+        return {
+          ...s,
+          message: `Deleting every seat deletes the section: delete section ${section.name} instead`,
+        };
+      }
+      const set = new Set(a.ids);
+      const rows = section.rows
+        .map((r) =>
+          r.seats.some((q) => set.has(q.id))
+            ? { ...r, seats: r.seats.filter((q) => !set.has(q.id)) }
+            : r,
+        )
+        .filter((r) => r.seats.length > 0);
+      const gone = seatCount(section) - rows.reduce((n, r) => n + r.seats.length, 0);
+      return commit(
+        s,
+        changeSections(doc, [a.sectionId], (x) => ({ ...x, rows, outline: outlineOf(rows) })),
+        `${gone} ${gone === 1 ? 'seat' : 'seats'} deleted from section ${section.name}`,
+        { selection: { kind: 'none' } },
+      );
+    }
+    case 'deleteSections': {
+      const set = new Set(a.ids);
+      if (!doc.sections.some((x) => set.has(x.id))) return s;
+      const word = sectionsWord(doc, a.ids);
+      return commit(
+        s,
+        { ...doc, sections: doc.sections.filter((x) => !set.has(x.id)) },
+        `${word} deleted`,
+        {
+          selection: { kind: 'none' },
+          zoomed: s.zoomed && set.has(s.zoomed) ? null : s.zoomed,
+        },
+      );
+    }
+    case 'relabelRow': {
+      const section = doc.sections.find((x) => x.id === a.sectionId);
+      const row = section?.rows.find((r) => r.id === a.rowId);
+      if (!section || !row) return s;
+      const problem = rowLabelProblem(doc, a.sectionId, a.rowId, a.label);
+      if (problem) return { ...s, message: problem };
+      const label = a.label.trim();
+      if (label === row.label) return s;
+      return commit(
+        s,
+        changeRows(doc, a.sectionId, (r) => (r.id === a.rowId ? { ...r, label } : r)),
+        `Row ${row.label} relabelled ${label}`,
+      );
+    }
+    case 'relabelSeat': {
+      const section = doc.sections.find((x) => x.id === a.sectionId);
+      if (!section) return s;
+      const problem = seatLabelProblem(doc, a.sectionId, a.seatId, a.label);
+      if (problem) return { ...s, message: problem };
+      const label = a.label.trim();
+      const who = seatsWord(section, [a.seatId]);
+      return commit(
+        s,
+        changeRows(doc, a.sectionId, (r) =>
+          r.seats.some((q) => q.id === a.seatId && q.label !== label)
+            ? { ...r, seats: r.seats.map((q) => (q.id === a.seatId ? { ...q, label } : q)) }
+            : r,
+        ),
+        `${who} relabelled ${label}`,
+      );
+    }
+    case 'markAccessible': {
+      const section = doc.sections.find((x) => x.id === a.sectionId);
+      if (!section) return s;
+      const set = new Set(a.ids);
+      return commit(
+        s,
+        changeRows(doc, a.sectionId, (r) =>
+          r.seats.some((q) => set.has(q.id) && q.accessible !== a.accessible)
+            ? {
+                ...r,
+                seats: r.seats.map((q) => (set.has(q.id) ? { ...q, accessible: a.accessible } : q)),
+              }
+            : r,
+        ),
+        `${seatsWord(section, a.ids)} marked ${a.accessible ? 'accessible' : 'not accessible'}`,
+      );
+    }
+    case 'regenerate': {
+      const section = doc.sections.find((x) => x.id === a.id);
+      if (!section) return s;
+      let block;
+      try {
+        block = placeBlock(generateBlock(a.values), section.origin, section.angle);
+      } catch {
+        return { ...s, message: 'The section could not be generated' };
+      }
+      const others = totals(doc).seats - seatCount(section);
+      const adding = block.rows.reduce((n, r) => n + r.seats.length, 0);
+      if (others + adding > LAYOUT_LIMITS.maxSeats) {
+        return { ...s, message: 'The layout would be over its limits' };
+      }
+      // R7: a row is kept when its label is still generated, a seat when its row is kept and its
+      // label is still in it: their ids, own levels and accessible marks stay.
+      let seq = s.seq;
+      const next = (): string => `new:${(seq += 1)}`;
+      const oldRows = new Map(section.rows.map((r) => [r.label, r]));
+      const rows: EdRow[] = block.rows.map((r) => {
+        const old = oldRows.get(r.label);
+        const oldSeats = new Map((old?.seats ?? []).map((q) => [q.label, q]));
+        return {
+          id: old?.id ?? next(),
+          label: r.label,
+          levelId: old?.levelId ?? null,
+          seats: r.seats.map((q) => {
+            const was = oldSeats.get(q.label);
+            return {
+              id: was?.id ?? next(),
+              label: q.label,
+              at: q.at as Place,
+              levelId: was?.levelId ?? null,
+              accessible: was?.accessible ?? false,
+            };
+          }),
+        };
+      });
+      return commit(
+        s,
+        keepOnMap(
+          changeSections(doc, [a.id], (x) => ({
+            ...x,
+            generator: a.values,
+            rows,
+            outline: outlineOf(rows),
+          })),
+        ),
+        `Section ${section.name} regenerated`,
+        { selection: { kind: 'sections', ids: [a.id] }, seq },
+      );
     }
   }
 }

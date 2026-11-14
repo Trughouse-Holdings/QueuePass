@@ -5,7 +5,12 @@ import {
   initState,
   isDirty,
   levelNameProblem,
+  planDeleteSeats,
   reduce,
+  regeneratePlan,
+  rowLabelProblem,
+  seatLabelProblem,
+  sectionNameProblem,
   totals,
   type EditorState,
 } from '../../src/layout-editor/editor-state';
@@ -487,5 +492,177 @@ describe('painting', () => {
   it('paints nothing without a selection', () => {
     const s = loaded();
     expect(reduce(s, { type: 'paint', levelId: 'lv-std' })).toBe(s);
+  });
+});
+
+// ---------------------------------------------------------- US4 (T049): fine-tuning sections
+// (FR-009, FR-010, FR-012, FR-013; R7).
+
+describe('duplicateSection and renameSection', () => {
+  it('copies a section 10 units right under a free name, with new ids, levels, marks and generator', () => {
+    let s = reduce(loaded(), { type: 'duplicateSection', id: 's-101' });
+    const [orig, , copy] = doc(s).sections;
+    expect(copy.name).toBe('101 (2)');
+    expect(copy.origin).toEqual([30, 30]);
+    expect(copy.levelId).toBe(orig.levelId);
+    expect(copy.generator).toEqual(orig.generator);
+    expect(copy.rows[1].levelId).toBe('lv-court');
+    expect(copy.rows[0].seats[0]).toMatchObject({
+      label: '1',
+      at: [28, 30],
+      levelId: 'lv-court',
+      accessible: true,
+    });
+    const ids = [copy.id, ...copy.rows.flatMap((r) => [r.id, ...r.seats.map((x) => x.id)])];
+    expect(ids.every((id) => id.startsWith('new:'))).toBe(true);
+    expect(s.selection).toEqual({ kind: 'sections', ids: [copy.id] });
+    expect(s.message).toBe('Section 101 duplicated as 101 (2)');
+    s = reduce(s, { type: 'duplicateSection', id: 's-101' });
+    expect(doc(s).sections[3].name).toBe('101 (3)');
+  });
+
+  it('renames a section, refusing a name another section has', () => {
+    let s = reduce(loaded(), { type: 'renameSection', id: 's-101', name: '104' });
+    expect(sec(s).name).toBe('104');
+    expect(sectionNameProblem(doc(s), 's-101', '102')).toBe('Another section is named 102');
+    expect(sectionNameProblem(doc(s), 's-101', '')).toBe('Name the section');
+    s = reduce(s, { type: 'renameSection', id: 's-101', name: '102' });
+    expect(sec(s).name).toBe('104');
+    expect(s.message).toBe('Another section is named 102');
+  });
+});
+
+describe('deleting seats and sections', () => {
+  it('deletes seats; a row left empty is removed and the outline redrawn', () => {
+    const s = reduce(loaded(), {
+      type: 'deleteSeats',
+      sectionId: 's-101',
+      ids: ['st-b1', 'st-b2', 'st-b3', 'st-a3'],
+    });
+    const a = sec(s);
+    expect(a.rows.map((r) => r.label)).toEqual(['A']);
+    expect(a.rows[0].seats.map((x) => x.label)).toEqual(['1', '2']);
+    expect(a.rows[0].seats[1].at).toEqual([20, 30]);
+    expect(a.outline).toEqual(outlineOf(a.rows));
+    expect(s.message).toBe('4 seats deleted from section 101');
+    expect(s.selection).toEqual({ kind: 'none' });
+  });
+
+  it('asks before the last seats of a section go: the section is deleted instead', () => {
+    const all = ['st-a1', 'st-a2', 'st-a3', 'st-b1', 'st-b2', 'st-b3'];
+    expect(planDeleteSeats(doc(loaded()), 's-101', all)).toBe('section');
+    expect(planDeleteSeats(doc(loaded()), 's-101', ['st-a1'])).toBe('seats');
+    const s = loaded();
+    const t = reduce(s, { type: 'deleteSeats', sectionId: 's-101', ids: all });
+    expect(doc(t)).toBe(doc(s));
+    expect(t.message).toBe('Deleting every seat deletes the section: delete section 101 instead');
+  });
+
+  it('deletes sections', () => {
+    const s = reduce(loaded(), { type: 'deleteSections', ids: ['s-102'] });
+    expect(doc(s).sections.map((x) => x.name)).toEqual(['101']);
+    expect(s.message).toBe('Section 102 deleted');
+  });
+});
+
+describe('labels and accessible seats', () => {
+  it('relabels a row, refusing one used in the section or longer than 5', () => {
+    const s = reduce(loaded(), {
+      type: 'relabelRow',
+      sectionId: 's-101',
+      rowId: 'r-101-b',
+      label: 'A1',
+    });
+    expect(sec(s).rows[1].label).toBe('A1');
+    expect(s.message).toBe('Row B relabelled A1');
+    expect(rowLabelProblem(doc(s), 's-101', 'r-101-b', 'A')).toBe(
+      'Row A is already in section 101',
+    );
+    expect(rowLabelProblem(doc(s), 's-101', 'r-101-b', 'ABCDEF')).toBe('At most 5 characters');
+    expect(rowLabelProblem(doc(s), 's-101', 'r-101-b', ' ')).toBe('Give the row a label');
+    const t = reduce(s, { type: 'relabelRow', sectionId: 's-101', rowId: 'r-101-b', label: 'A' });
+    expect(doc(t)).toBe(doc(s));
+  });
+
+  it('relabels a seat, refusing one used in its row', () => {
+    const s = reduce(loaded(), {
+      type: 'relabelSeat',
+      sectionId: 's-101',
+      seatId: 'st-a3',
+      label: '3A',
+    });
+    expect(sec(s).rows[0].seats[2].label).toBe('3A');
+    expect(s.message).toBe('Row A, seat 3 relabelled 3A');
+    expect(seatLabelProblem(doc(s), 's-101', 'st-a3', '1')).toBe('Seat 1 is already in row A');
+    expect(seatLabelProblem(doc(s), 's-101', 'st-b1', '3A')).toBeNull();
+  });
+
+  it('marks seats accessible and not', () => {
+    let s = reduce(loaded(), {
+      type: 'markAccessible',
+      sectionId: 's-101',
+      ids: ['st-a2', 'st-b2'],
+      accessible: true,
+    });
+    expect(sec(s).rows.map((r) => r.seats[1].accessible)).toEqual([true, true]);
+    expect(s.message).toBe('2 seats marked accessible');
+    s = reduce(s, {
+      type: 'markAccessible',
+      sectionId: 's-101',
+      ids: ['st-a1'],
+      accessible: false,
+    });
+    expect(sec(s).rows[0].seats[0].accessible).toBe(false);
+    expect(s.message).toBe('Row A, seat 1 marked not accessible');
+  });
+});
+
+describe('regenerate', () => {
+  const values = { ...DRAWING.sections[0].generator!, rows: 3, seatsPerRow: [2] };
+
+  it('says how many seats would go, and whether labels changed by hand are replaced', () => {
+    expect(regeneratePlan(doc(loaded()), 's-101', values)).toEqual({
+      removed: 2,
+      handLabels: false,
+    });
+    const s = reduce(loaded(), {
+      type: 'relabelRow',
+      sectionId: 's-101',
+      rowId: 'r-101-b',
+      label: 'BB',
+    });
+    expect(regeneratePlan(doc(s), 's-101', values).handLabels).toBe(true);
+  });
+
+  it('rebuilds the block in place, keeping ids and own levels of rows and seats whose labels remain', () => {
+    const s = reduce(loaded(), { type: 'regenerate', id: 's-101', values });
+    const a = sec(s);
+    expect(a.generator).toEqual(values);
+    expect(a.rows.map((r) => [r.id, r.label, r.levelId])).toEqual([
+      ['r-101-a', 'A', null],
+      ['r-101-b', 'B', 'lv-court'],
+      [expect.stringMatching(/^new:/), 'C', null],
+    ]);
+    expect(a.rows[0].seats.map((x) => [x.id, x.label, x.levelId, x.accessible])).toEqual([
+      ['st-a1', '1', 'lv-court', true],
+      ['st-a2', '2', null, false],
+    ]);
+    // The block's front row is centered on the origin (20, 30), at the section's angle 0.
+    expect(a.rows[0].seats.map((x) => x.at)).toEqual([
+      [19, 30],
+      [21, 30],
+    ]);
+    expect(a.rows[2].seats[0].at).toEqual([19, 26]);
+    expect(a.outline).toEqual(outlineOf(a.rows));
+    expect(s.message).toBe('Section 101 regenerated');
+  });
+
+  it('keeps the section’s angle', () => {
+    let s = reduce(loaded(), { type: 'turnSections', ids: ['s-101'], degrees: 90 });
+    s = reduce(s, { type: 'regenerate', id: 's-101', values });
+    const [x, y] = sec(s).rows[0].seats[1].at;
+    expect(x).toBeCloseTo(20, 9);
+    expect(y).toBeCloseTo(31, 9);
+    expect(sec(s).angle).toBe(90);
   });
 });
