@@ -1169,11 +1169,52 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   `scripts/layouts/generate-yum-center.mjs`; Demo data and Demo checkpoint with the KFC Yum!
   Center's four layouts and events; Seat reservations (price levels, the map's marks, no more
   ticket types beside held seats); the scope note on drawn maps.
-- [ ] T057 Coverage: each workspace ≥ 80% lines (`npm test`); add tests where a new file falls short,
+- [X] T057 Coverage: each workspace ≥ 80% lines (`npm test`); add tests where a new file falls short,
   no exclusions.
-- [ ] T058 `npm run ci` green locally; `npm run e2e` green; record the run.
-- [ ] T059 Timing checks (quickstart "Timing checks"; SC-002, SC-003, SC-005) on the demo state on a
+  **Done** (2026-11-14): lines by workspace (`npm test`'s coverage, `coverage:report`): shared
+  98.04%, Backend 97.59%, Admin 97.71%, Customer 98.13%, Booth 93.53%, seed 99.41%. Two files of
+  this feature were under 80%, now 100% with tests, no exclusions: `backend/src/layouts/
+  layout-file.ts` (79.3%; `test/unit/layout-file.spec.ts`, 44 tests: each shape the API test never
+  sends, refused with its path and message, the 50-problem cap, the centroid) and
+  `packages/shared/src/web/index.ts` (0%; `test/web/index.test.ts`, the entry the apps import).
+- [X] T058 `npm run ci` green locally; `npm run e2e` green; record the run.
+  **Done** (2026-11-14), with two things CI must still show. `npm run ci` locally: Prettier,
+  ESLint and the `e2e` type-check, the build, `scripts/test` (99), the boundary, contract-drift and
+  quickstart-marks checks pass; shared 903 tests; Backend (`jest --runInBand --coverage`) 1,560
+  of 1,561 in two of three full runs: `rate-limits.buy`'s 200-connection case (`ECONNRESET`,
+  environmental on this Mac since T001), which stops `npm test`'s chain there, so Admin 502,
+  Customer 445, Booth 99, seed 290 (with `test-tz`) and `coverage:report` were run after it, all
+  green. In the third full run `demo-reset`'s "reports what it removed and created" took one reset
+  of 74 s (its 10-second check failed; the same reset is 5.5 to 6.5 s alone, with coverage, and in
+  the other runs); every other file ran at its usual time, so it is a stall of the test database,
+  not this code: the import's own work is about 0.9 s for Basketball, leaks nothing (heap level
+  over four resets of four imports), and `IMPORT_TX`'s 60 s let it finish where the old 15 s
+  failed it (the error this phase started with). CI's `test` job is the check.
+  `npm run e2e` could not run as written: the team stack (`queuepass-team`) holds ports 5173-5175,
+  and it was not stopped. Instead, the same `qpe2e` stack (`docker compose -p qpe2e` with
+  docker-compose.yml and e2e/stack/docker-compose.e2e.yml, `up --build`, the images built here)
+  with only the three apps published on 15173-15175, a local proxy in front of Chromium mapping
+  them back to localhost:5173-5175, the harness's reset, then Playwright with the suite's config
+  plus that proxy (neither file committed); the stack removed with `down -v` afterwards. Chromium:
+  38 of 38 pass (1.4 min), and 038, 015 and 033 pass with `--repeat-each 3` (30 of 30). WebKit
+  (CI's event-form journeys) could not run here: WebKit sends localhost past any proxy, so every
+  test stops at sign-in, the untouched ones too; CI's `e2e` job runs it and the official harness.
+- [X] T059 Timing checks (quickstart "Timing checks"; SC-002, SC-003, SC-005) on the demo state on a
   laptop; record the times in the PR description.
+  **Done** (2026-11-14), on the demo state in the `qpe2e` Compose stack on this laptop, timed by a
+  Playwright stopwatch (not committed), three runs each on Cardinals Women vs. Duke (Basketball,
+  22,090 seats):
+  - SC-003: the overview after Choose seats 47–48 ms (≤ 2 s; the map is streamed when the page
+    opens); section 116's seats after choosing it 157–208 ms (≤ 1 s).
+  - SC-002: from opening the event to a seat held inside $50–$95 (filter, section, seat) 0.71–0.81 s
+    of the app's own time (< 60 s); a person adds reading and pointing.
+  - SC-005: an event scheduled on Basketball with a price per level, section 301 and rows D–F of
+    104 off sale, 2.0 s of the app's own time (< 3 min); typed by hand it is the typing.
+  - Spec 029 SC-002 (reset under 10 s): the Compose reset 5.3–5.8 s (five runs); in the Backend
+    test 6.0 s (7.3 s before the set-based import; the four imports 3.2 s, 4.4 s before).
+  - The import (backend/src/layouts, set-based rows and seats): Basketball 1.26 s → 0.90 s, End-stage
+    concert 0.99 → 0.72, Center stage 1.08 → 0.79, Wrestling 1.03 → 0.75 (idle, Testcontainers
+    PostgreSQL 17); the slowest import in a full in-band Backend run 1.05 s.
 - [ ] T060 Independent review of the implementation branch by a Claude session that did not write it
   (Constitution III), against the merged spec and plan; fix the findings; record the review and any
   open finding in the PR description.
