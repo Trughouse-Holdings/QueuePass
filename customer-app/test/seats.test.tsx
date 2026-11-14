@@ -14,6 +14,7 @@ import {
   typeHolderName,
   fixTimeBeforeFixtures,
   type MapLevelFixture,
+  mapDrawing,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -79,9 +80,11 @@ const hold = async (row: number, seat: number) => {
 };
 /** Zooms into another section from the map. */
 const goTo = async (name: string) => {
-  fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Section ${name},`) }));
+  fireEvent.click(
+    within(mapDrawing()).getByRole('button', { name: new RegExp(`^Section ${name},`) }),
+  );
   await waitFor(() =>
-    expect(screen.getAllByRole('button', { name: /^Row / })[0]).toHaveAccessibleName(
+    expect(within(mapDrawing()).getAllByRole('button', { name: /^Row / })[0]).toHaveAccessibleName(
       name === 'B' ? /General/ : /VIP/,
     ),
   );
@@ -233,7 +236,7 @@ describe('a level with no seats on sale (spec 038 FR-016)', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Choose seats' }));
     expect(await screen.findByText('Upper: not on sale')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Section U,/ })).toHaveAccessibleName(
+    expect(within(mapDrawing()).getByRole('button', { name: /^Section U,/ })).toHaveAccessibleName(
       'Section U, no open seats',
     );
     await openSection('U');

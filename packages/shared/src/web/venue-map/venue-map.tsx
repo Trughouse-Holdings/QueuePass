@@ -11,7 +11,7 @@ import {
   type VenueMap as VenueMapData,
   type VenueMapSection,
 } from './map-state.js';
-import { PriceFilter, wholeDollars } from './price-filter.js';
+import { PriceFilter, usePriceFilter, wholeDollars } from './price-filter.js';
 import { SectionView, type MapSeat, type SeatView } from './section-view.js';
 import { usePanZoom } from './use-pan-zoom.js';
 
@@ -64,9 +64,7 @@ export function VenueMap({
   onSeat,
 }: VenueMapProps): React.ReactElement {
   const full = useMemo(() => priceRangeOf(map.levels), [map.levels]);
-  const [ownRange, setOwnRange] = useState<PriceRange | null>(full);
-  // New prices (a reconnect after a price change): the filter starts over at their full range.
-  useEffect(() => setOwnRange(full), [full?.low, full?.high]);
+  const [ownRange, setOwnRange] = usePriceFilter(map.levels);
   const priced = colorBy === 'price';
   const range = priced ? (givenRange !== undefined ? givenRange : ownRange) : null;
   const setRange = (r: PriceRange): void => {
@@ -195,22 +193,36 @@ export function VenueMap({
             }}
           />
         ))}
-        {map.sections.map((s) =>
-          s.sectionId === open?.sectionId ? null : (
+        {map.sections.map((s) => {
+          if (s.sectionId === open?.sectionId) return null;
+          // FR-027: the admin's map shows "sold / open" under each section's name.
+          const c = priced ? null : stateCounts(s);
+          return (
             <text
               key={s.sectionId}
               className="venue-map__label"
               x={s.labelAt[0]}
-              y={s.labelAt[1]}
+              y={c ? s.labelAt[1] - fontSize * 0.6 : s.labelAt[1]}
               fontSize={fontSize}
               textAnchor="middle"
               dominantBaseline="central"
               aria-hidden="true"
             >
-              {s.name}
+              {c ? (
+                <>
+                  <tspan x={s.labelAt[0]}>{s.name}</tspan>
+                  <tspan
+                    className="venue-map__label-counts"
+                    x={s.labelAt[0]}
+                    dy={fontSize * 1.2}
+                  >{`${c.sold} / ${c.open}`}</tspan>
+                </>
+              ) : (
+                s.name
+              )}
             </text>
-          ),
-        )}
+          );
+        })}
         {seats && (
           <SectionView
             map={map}

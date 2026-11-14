@@ -141,3 +141,75 @@ export const layoutRoutes = (venueId: string = VENUE.id) => ({
     ]),
   ),
 });
+
+type SeatState = 'open' | 'reserved' | 'sold' | 'offSale';
+
+/** Spec 038: this event's price per Arena level (Upper on sale too, unlike `latestPrices`). */
+const ARENA_PRICES: Record<string, string> = {
+  'l-front': '90.00',
+  'l-back': '55.00',
+  'l-upper': '30.00',
+};
+
+/**
+ * Spec 038 (research R11): an event's venue map on Arena as `getVenueMap` gives it, read at `seq`,
+ * and each section's seats as `getVenueMapSection` does, with the routes that answer them. `states`
+ * names the seats that are not open, by "sectionId/row/seat".
+ */
+export function arenaVenueMap(
+  eventId: string,
+  { seq = 1, states = {} }: { seq?: number; states?: Record<string, SeatState> } = {},
+) {
+  const section = (sectionId: keyof typeof SECTIONS) => {
+    const s = SECTIONS[sectionId];
+    return {
+      eventId,
+      seq,
+      sectionId,
+      name: s.name,
+      rows: s.rows.map((row) => ({
+        ...row,
+        seats: row.seats.map((seat) => ({
+          ...seat,
+          state: states[`${sectionId}/${row.number}/${seat.number}`] ?? ('open' as SeatState),
+        })),
+      })),
+    };
+  };
+  const ids = ['s-a', 's-b', 's-bal'] as const;
+  const map = {
+    eventId,
+    seq,
+    layoutId: ARENA.id,
+    layoutName: ARENA.name,
+    size: ARENA.size,
+    floorKind: 'NONE',
+    floorOutline: null,
+    levels: ARENA.levels.map((l) => ({
+      levelId: l.id,
+      name: l.name,
+      rank: l.rank,
+      color: l.color,
+      price: ARENA_PRICES[l.id],
+    })),
+    sections: ids.map((id) => {
+      const drawn = ARENA.sections.find((s) => s.id === id)!;
+      const counts = { open: 0, reserved: 0, sold: 0, offSale: 0 };
+      for (const row of section(id).rows) for (const seat of row.seats) counts[seat.state] += 1;
+      return {
+        sectionId: id,
+        name: drawn.name,
+        outline: drawn.outline,
+        labelAt: drawn.labelAt,
+        counts: [{ levelId: drawn.levelId, ...counts }],
+      };
+    }),
+  };
+  const routes = {
+    [`GET /events/${eventId}/venue-map`]: json(map),
+    ...Object.fromEntries(
+      ids.map((id) => [`GET /events/${eventId}/venue-map/sections/${id}`, json(section(id))]),
+    ),
+  };
+  return { map, section, routes };
+}

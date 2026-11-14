@@ -1487,3 +1487,123 @@ dd {
 .price-filter__range {
   font-weight: 600;
 }
+
+/* Spec 038 US4 (T042, FR-020, research R13): the Sections list, the map's choices without the map.
+   Beside the map at laptop width, under it on a phone. Each section a button with its name, the
+   price range of its open seats and their count; the chosen one's seats as buttons by row, each
+   with its state's mark from the map (open filled in its level's color, held hollow, sold a
+   cross, off sale a dash, the customer's own a check) beside its number, so no state is told by
+   color alone. A section with no open seat in the filter is muted, never faded below contrast. */
+.venue-map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
+  gap: var(--space-4);
+  align-items: start;
+}
+@media (max-width: 640px) {
+  .venue-map-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.sections-list {
+  display: grid;
+  gap: var(--space-2);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.sections-list h3 {
+  margin: 0;
+}
+.sections-list__sections {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sections-list__section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sections-list__section:hover {
+  border-color: var(--border-strong);
+}
+.sections-list__section[aria-expanded='true'] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.sections-list__section--faded {
+  color: var(--text-muted);
+}
+.sections-list__name {
+  font-weight: 600;
+}
+.sections-list__count {
+  color: var(--text-muted);
+}
+.sections-list__seats {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-2) 0 var(--space-2) var(--space-2);
+}
+.sections-list__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+}
+.sections-list__row-label {
+  min-width: 4em;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.sections-list__seat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.sections-list__seat[aria-pressed='true'] {
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.sections-list__seat[aria-disabled='true'] {
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+.sections-list__mark {
+  flex: none;
+  background: var(--map-bg);
+  border-radius: var(--radius-pill);
+}
+
+/* Spec 038 US6 (T049, FR-027): the admin's map by seat state shows "sold / open" under each
+   section's name, as the legend's note says. */
+.venue-map__label-counts {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.venue-map-legend__note {
+  margin: 0;
+  color: var(--text-muted);
+}

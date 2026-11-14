@@ -14,6 +14,7 @@ import {
   renderCustomer,
   seatedMap,
   stubApi,
+  mapDrawing,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -99,14 +100,14 @@ const backend = (opts: { secondsLeft?: number; manual?: boolean } = {}) => {
 };
 
 const seat = (n: number, row = 1) =>
-  screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${n}, `) });
+  within(mapDrawing()).getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${n}, `) });
 /** Spec 038: a seat's accessible name in section A (Standard, $40) in a state. */
 const named = (n: number, state: string) => `Row 1, Seat ${n}, Standard, $40, ${state}`;
 /** Spec 038: Section A's seats, as Choose seats and a click on the section show them. */
 const openA = () => openSection('A');
 /** The venue map's block; the hold wait sits above it, Your seats below it. */
 const mapBlock = () =>
-  screen.getByRole('group', { name: 'Arena map' }).closest('.venue-map') as HTMLElement;
+  screen.getByRole('group', { name: 'Arena map' }).closest('.venue-map-layout') as HTMLElement;
 const held = (n: number) => `Section A, Row 1, Seat ${n}, Standard, $40.00`;
 const click = (n: number) => fireEvent.click(seat(n));
 const sent = (calls: { method: string; path: string; body: unknown }[]) =>
@@ -139,10 +140,9 @@ describe('a click holds the seat at once (US1-1; FR-001, FR-003, FR-010)', () =>
     click(5);
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: named(5, 'held by you') })).toHaveAttribute(
-        'aria-pressed',
-        'true',
-      ),
+      expect(
+        within(mapDrawing()).getByRole('button', { name: named(5, 'held by you') }),
+      ).toHaveAttribute('aria-pressed', 'true'),
     );
     expect(calls.filter((c) => c.path === '/events/e1/reservation')).toHaveLength(1);
     expect(calls.find((c) => c.path === '/events/e1/reservation')?.body).toEqual({
@@ -286,7 +286,7 @@ describe('the click queue (FR-007; research R6)', () => {
     click(2);
     await waitFor(() => expect(sent(calls)).toEqual(['hold 3']));
     // Pending seats are pressed, as they will be, and named holding.
-    expect(screen.getByRole('button', { name: named(1, 'holding') })).toHaveAttribute(
+    expect(within(mapDrawing()).getByRole('button', { name: named(1, 'holding') })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
@@ -348,10 +348,9 @@ describe('the click queue (FR-007; research R6)', () => {
     click(3);
     await waitFor(() => expect(sent(calls)).toEqual(['hold 3']));
     click(3);
-    expect(screen.getByRole('button', { name: named(3, 'releasing') })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    expect(
+      within(mapDrawing()).getByRole('button', { name: named(3, 'releasing') }),
+    ).toHaveAttribute('aria-pressed', 'false');
     expect(sent(calls)).toEqual(['hold 3']);
 
     await b.answer();
@@ -412,9 +411,9 @@ describe('the click queue (FR-007; research R6)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('is not in your reservation');
     await act(async () => undefined);
     expect(sent(calls)).toEqual(['release 5']);
-    expect(screen.getByRole('button', { name: named(5, 'held by you') })).not.toHaveAttribute(
-      'aria-disabled',
-    );
+    expect(
+      within(mapDrawing()).getByRole('button', { name: named(5, 'held by you') }),
+    ).not.toHaveAttribute('aria-disabled');
   });
 
   it('drops the hold queued behind an unanswered release', async () => {
@@ -525,9 +524,9 @@ describe('refusals (US5; FR-006, FR-009, FR-016, FR-019)', () => {
 
     // Unavailable seats stay focusable, marked aria-disabled (spec 038 FR-019).
     expect(seat(11)).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('button', { name: named(1, 'held by you') })).not.toHaveAttribute(
-      'aria-disabled',
-    );
+    expect(
+      within(mapDrawing()).getByRole('button', { name: named(1, 'held by you') }),
+    ).not.toHaveAttribute('aria-disabled');
     expect(screen.getByText('A reservation holds at most 10 seats.')).toBeInTheDocument();
   });
 
@@ -614,7 +613,9 @@ describe('seats of two levels in one hold (spec 038 FR-021)', () => {
     await screen.findByRole('region', { name: 'Your seats' });
 
     await openSection('B');
-    fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 1, Balcony, $25, open' }));
+    fireEvent.click(
+      within(mapDrawing()).getByRole('button', { name: 'Row 1, Seat 1, Balcony, $25, open' }),
+    );
 
     await waitFor(() =>
       expect(heldList()).toEqual([held(5), 'Section B, Row 1, Seat 1, Balcony, $25.00']),

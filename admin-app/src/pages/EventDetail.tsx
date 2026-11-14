@@ -6,8 +6,8 @@ import { ApiError } from '../api/client';
 import { deleteEvent, getEvent } from '../api/events';
 import { cancelEvent } from '../api/orders';
 import { ErrorBanner } from '../components/ErrorBanner';
+import { EventSeatMap } from '../components/EventSeatMap';
 import { SalesCard } from '../components/SalesCard';
-import { SeatingCard } from '../components/SeatingCard';
 import { SuccessState } from '../components/SuccessState';
 import { TierSection } from '../components/TierSection';
 import { doorsOpen, hasEnded, when } from '../format';
@@ -182,8 +182,9 @@ function EventView({
       <SalesCard key={event.status} eventId={event.id} />
       {/* Spec 038: seating is set in the event form, so no card here changes another's data. */}
       <TierSection event={event} readOnly={cancelled} />
-      {/* Spec 007: hidden once cancelled, as the tier form's controls are. */}
-      {!cancelled && <SeatingCard event={event} />}
+      {/* Spec 007: hidden once cancelled, as the tier form's controls are. Spec 038 US6: the
+          seats on the venue map by state, live (T049). */}
+      {!cancelled && <EventSeatMap event={event} />}
     </section>
   );
 }

@@ -42,6 +42,9 @@ export function Legend({
           })}
         </ul>
       )}
+      {colorBy === 'state' && (
+        <p className="venue-map-legend__note">Sections show sold / open seats.</p>
+      )}
       <ul aria-label="Seat states" className="venue-map-legend__list">
         {states.map(([kind, name]) => (
           <li key={kind} className="venue-map-legend__item">

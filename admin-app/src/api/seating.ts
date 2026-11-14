@@ -1,4 +1,4 @@
-import type { Availability, EventSeating, SeatMap, VenueMapSection } from '@queuepass/shared';
+import type { Availability, EventSeating, VenueMapSection } from '@queuepass/shared';
 import { api, unwrap } from './client';
 
 /**
@@ -16,10 +16,6 @@ export const getVenueMapSection = (eventId: string, sectionId: string): Promise<
       params: { path: { id: eventId, sectionId } },
     }),
   ) as Promise<VenueMapSection>;
-
-/** Spec 007's seat map, until the shared venue map replaces it (US6, T049). */
-export const getSeatMap = (eventId: string): Promise<SeatMap> =>
-  unwrap(api.GET('/events/{id}/seats', { params: { path: { id: eventId } } }));
 
 /** Spec 006's availability: whether any ticket is sold decides if the seating may still change. */
 export const getAvailability = (eventId: string): Promise<Availability> =>

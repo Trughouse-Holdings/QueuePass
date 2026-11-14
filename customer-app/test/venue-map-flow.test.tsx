@@ -16,6 +16,8 @@ import {
   typeHolderName,
   fixTimeBeforeFixtures,
   type MapLevelFixture,
+  findOnMap,
+  mapDrawing,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -146,7 +148,7 @@ describe('choosing seats on the map (FR-021, FR-022; research R14)', () => {
       'Upper: not on sale',
     ]);
     fireEvent.click(within(map).getByRole('button', { name: /^Section 115,/ }));
-    await screen.findByRole('button', { name: 'Row F, Seat 7, Courtside, $95, open' });
+    await findOnMap('Row F, Seat 7, Courtside, $95, open');
 
     await hold('F', 7);
     await hold('P', 7);
@@ -174,7 +176,7 @@ describe('choosing seats on the map (FR-021, FR-022; research R14)', () => {
     expect(items(yourSeats())).toEqual(['Section 115, Row P, Seat 7, Lower sideline, $60.00']);
 
     fireEvent.click(screen.getByRole('button', { name: 'Back to map' }));
-    expect(screen.queryByRole('button', { name: /^Row / })).toBeNull();
+    expect(within(mapDrawing()).queryByRole('button', { name: /^Row / })).toBeNull();
     // Your seats stays below the map.
     expect(yourSeats()).toBeInTheDocument();
   });
@@ -203,8 +205,8 @@ describe('the cart and buying (FR-022; research R14, review M4)', () => {
     const { calls } = stubApi(routes(b.routes));
     renderCustomer({ at: '/events/e1' });
     fireEvent.click(await screen.findByRole('button', { name: 'Choose seats' }));
-    fireEvent.click(await screen.findByRole('button', { name: /^Section 115,/ }));
-    await screen.findByRole('button', { name: /^Row F, Seat 7,/ });
+    fireEvent.click(await findOnMap(/^Section 115,/));
+    await findOnMap(/^Row F, Seat 7,/);
     await hold('F', 7);
     await hold('P', 7);
     fireEvent.click(screen.getByRole('button', { name: 'Add to cart' }));
@@ -266,8 +268,8 @@ describe('the cart and buying (FR-022; research R14, review M4)', () => {
     );
     renderCustomer({ at: '/events/e1' });
     fireEvent.click(await screen.findByRole('button', { name: 'Choose seats' }));
-    fireEvent.click(await screen.findByRole('button', { name: /^Section 115,/ }));
-    await screen.findByRole('button', { name: /^Row F, Seat 7,/ });
+    fireEvent.click(await findOnMap(/^Section 115,/));
+    await findOnMap(/^Row F, Seat 7,/);
     await hold('F', 7);
     await hold('P', 7);
     fireEvent.click(screen.getByRole('button', { name: 'Add to cart' }));
@@ -306,7 +308,7 @@ describe('live changes (FR-023)', () => {
     stubApi(routes({ 'GET /events/e1/seats/stream': () => stream.reply() }));
     renderCustomer({ at: '/events/e1' });
     fireEvent.click(await screen.findByRole('button', { name: 'Choose seats' }));
-    const s101 = await screen.findByRole('button', { name: /^Section 101,/ });
+    const s101 = await findOnMap(/^Section 101,/);
     expect(s101).toHaveClass('venue-map--teal');
 
     await waitFor(() => stream.send('venueMap', arena().map));
@@ -327,12 +329,12 @@ describe('live changes (FR-023)', () => {
       }),
     );
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /^Section 101,/ })).toHaveClass(
+      expect(within(mapDrawing()).getByRole('button', { name: /^Section 101,/ })).toHaveClass(
         'venue-map--unavailable',
       ),
     );
-    expect(screen.getByRole('button', { name: /^Section 101,/ })).toHaveAccessibleName(
-      'Section 101, no open seats',
-    );
+    expect(
+      within(mapDrawing()).getByRole('button', { name: /^Section 101,/ }),
+    ).toHaveAccessibleName('Section 101, no open seats');
   });
 });

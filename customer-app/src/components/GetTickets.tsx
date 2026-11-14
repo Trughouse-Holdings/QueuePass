@@ -13,9 +13,12 @@ import {
   formatViewerTime,
 } from '@queuepass/shared';
 import {
+  SectionsList,
   VenueMap,
   useAuth,
+  usePriceFilter,
   useSeatStream,
+  type MapLevel,
   type MapSeat,
   type SeatView,
   type StreamVenueMap,
@@ -119,6 +122,8 @@ export function GetTickets({
     openSectionId: openSection,
     onSnapshot: (map) => onSnapshot.current(map),
   });
+  // Spec 038 FR-017, FR-020: one price filter for the map and the Sections list.
+  const [range, setRange] = usePriceFilter(live.map?.levels ?? NO_LEVELS);
 
   const [tierId, setTierId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -692,6 +697,17 @@ export function GetTickets({
    * above it, the Your seats box directly below it, and the hold log.
    */
   function seatedForm(map: StreamVenueMap) {
+    // A section gone from a new layout (the stream ended on the change) is closed.
+    const shownSection = map.sections.some((x) => x.sectionId === openSection) ? openSection : null;
+    const chooseSeat = (seat: MapSeat): void =>
+      toggleSeat({
+        sectionId: seat.sectionId,
+        section: seat.section,
+        row: seat.row,
+        seat: seat.seat,
+        rowLabel: seat.rowLabel,
+        seatLabel: seat.seatLabel,
+      });
     return (
       <>
         <p>{`${eventPrice(event)}, ${count(left.ticketsLeft)} ${
@@ -713,27 +729,30 @@ export function GetTickets({
             {/* Spec 026 FR-011, spec 033 FR-009: the hold wait, directly above the seats it holds
                 back, which stay focusable (aria-disabled) and do nothing until it ends. */}
             {waits.waits.HOLD && <WaitMessage wait={waits.waits.HOLD} />}
-            <VenueMap
-              map={map}
-              colorBy="price"
-              // A section gone from a new layout (the stream ended on the change) is closed.
-              openSectionId={
-                map.sections.some((x) => x.sectionId === openSection) ? openSection : null
-              }
-              section={live.section}
-              onOpenSection={setOpenSection}
-              seatView={seatView}
-              onSeat={(seat) =>
-                toggleSeat({
-                  sectionId: seat.sectionId,
-                  section: seat.section,
-                  row: seat.row,
-                  seat: seat.seat,
-                  rowLabel: seat.rowLabel,
-                  seatLabel: seat.seatLabel,
-                })
-              }
-            />
+            {/* Spec 038 FR-020 (research R13): the map and the Sections list, one state: the
+                same open section, price filter, seat views and hold queue. */}
+            <div className="venue-map-layout">
+              <VenueMap
+                map={map}
+                colorBy="price"
+                openSectionId={shownSection}
+                section={live.section}
+                onOpenSection={setOpenSection}
+                range={range}
+                onRange={setRange}
+                seatView={seatView}
+                onSeat={chooseSeat}
+              />
+              <SectionsList
+                map={map}
+                range={range}
+                openSectionId={shownSection}
+                section={live.section}
+                onOpenSection={setOpenSection}
+                seatView={seatView}
+                onSeat={chooseSeat}
+              />
+            </div>
             {reservation && yourSeats(reservation)}
           </>
         )}
@@ -775,5 +794,7 @@ export function GetTickets({
     );
   }
 }
+
+const NO_LEVELS: readonly MapLevel[] = [];
 
 const tickets = (n: number): string => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;

@@ -14,6 +14,7 @@ import {
   stubApi,
   typeHolderName,
   fixTimeBeforeFixtures,
+  findOnMap,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -188,7 +189,7 @@ describe("016's ticket-limit lines (FR-010)", () => {
     await openSection('A');
     fireEvent.click(seatOf(1, 1));
     fireEvent.click(seatOf(1, 2));
-    await screen.findByRole('button', { name: 'Row 1, Seat 2, Standard, $40, held by you' });
+    await findOnMap('Row 1, Seat 2, Standard, $40, held by you');
     expect(
       screen.getByText(
         'No more seats can be chosen: the limit of 3 tickets per customer allows you 2 more.',

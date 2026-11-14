@@ -13,6 +13,7 @@ import {
   stubApi,
   typeHolderName,
   fixTimeBeforeFixtures,
+  mapDrawing,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -95,7 +96,7 @@ const losingFocus = (reply: Response): (() => Response) => {
 const advance = (ms: number) => act(async () => vi.advanceTimersByTimeAsync(ms));
 const button = (name: string) => screen.getByRole('button', { name });
 const seatButton = (row: number, seat: number) =>
-  screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}, `) });
+  within(mapDrawing()).getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}, `) });
 const heldSeats = () =>
   within(screen.getByRole('region', { name: 'Your seats' }))
     .queryAllByRole('listitem')
@@ -169,7 +170,7 @@ describe('a hold refused as too many tries (US2-1, US2-2; FR-011 to FR-013; spec
     await waitFor(() => expect(countdown()).toHaveTextContent(message(3)));
     // Directly above the seat map it explains.
     expect(countdown().nextElementSibling).toBe(
-      screen.getByRole('group', { name: 'Arena map' }).closest('.venue-map'),
+      screen.getByRole('group', { name: 'Arena map' }).closest('.venue-map-layout'),
     );
     // Open seats wait it out, still focusable; the clicked one keeps the focus.
     expect(seatButton(1, 2)).toHaveAttribute('aria-disabled', 'true');

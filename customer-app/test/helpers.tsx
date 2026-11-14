@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, vi } from 'vitest';
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type {
   Availability,
@@ -499,14 +499,29 @@ export function seatedMap(
   return { map, section, routes };
 }
 
+/**
+ * Spec 038: the venue map's drawing ("Arena map"). The Sections list beside it (US4) offers the
+ * same sections and seats under the same names, so a test that means the map looks inside it.
+ */
+export const mapDrawing = () => screen.getByRole('group', { name: / map$/ });
+
+/** Spec 038: a section or seat button on the venue map, once the map is shown. */
+export async function findOnMap(name: string | RegExp) {
+  const map = await screen.findByRole('group', { name: / map$/ });
+  return within(map).findByRole('button', { name });
+}
+
 /** Spec 038 (research R14): Choose seats, if offered, then a section of the map, and its seats. */
 export async function openSection(name: string) {
   const [first] = await screen.findAllByRole('button', { name: /^Choose seats$|^Section / });
   if (first.textContent === 'Choose seats') fireEvent.click(first);
-  fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^Section ${name},`) }));
-  await screen.findAllByRole('button', { name: /^Row / });
+  const map = await screen.findByRole('group', { name: / map$/ });
+  fireEvent.click(
+    await within(map).findByRole('button', { name: new RegExp(`^Section ${name},`) }),
+  );
+  await within(map).findAllByRole('button', { name: /^Row / });
 }
 
-/** Spec 038: a seat of the open section, by its row and seat labels, whatever its state. */
+/** Spec 038: a seat of the open section on the map, by its row and seat labels, whatever its state. */
 export const seatOf = (row: number | string, seat: number | string) =>
-  screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}, `) });
+  within(mapDrawing()).getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}, `) });
