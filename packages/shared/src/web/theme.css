@@ -1589,9 +1589,16 @@ dd {
 .sections-list__section:hover {
   border-color: var(--border-strong);
 }
-.sections-list__section[aria-expanded='true'] {
+/* The section shown on the map (spec 039 walk: the list keeps every section; seats are chosen
+   on the map). */
+.sections-list__section[aria-pressed='true'] {
   border-color: var(--accent);
   background: var(--accent-soft);
+}
+.sections-list__shown {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
 }
 .sections-list__section--faded {
   color: var(--text-muted);
@@ -1602,51 +1609,6 @@ dd {
 .sections-list__count {
   color: var(--text-muted);
 }
-.sections-list__seats {
-  display: grid;
-  gap: var(--space-2);
-  padding: var(--space-2) 0 var(--space-2) var(--space-2);
-}
-.sections-list__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1);
-}
-.sections-list__row-label {
-  min-width: 4em;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-.sections-list__seat {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-}
-.sections-list__seat[aria-pressed='true'] {
-  border-color: var(--accent);
-  font-weight: 600;
-}
-.sections-list__seat[aria-disabled='true'] {
-  color: var(--text-muted);
-  cursor: not-allowed;
-}
-.sections-list__mark {
-  flex: none;
-  background: var(--map-bg);
-  border-radius: var(--radius-pill);
-}
-
 /* Spec 038 US6 (T049, FR-027): the admin's map by seat state shows "sold / open" under each
    section's name, as the legend's note says. */
 .venue-map__label-counts {

@@ -10,9 +10,10 @@ import type { VenueMap as Map, VenueMapSection } from '../../src/web/venue-map/m
 /**
  * Spec 038 US4 (T041; FR-020, SC-007; research R13): the Sections list, a second view of the venue
  * map's state that needs no map. Each section with its name, the price range of its open seats and
- * their count, under the same price filter; a section chosen lists its rows as groups of seat
- * buttons named as the map names them; a seat pressed here is the same choice as a click on the
- * map, and a seat held in either view shows in the other at once.
+ * their count, under the same price filter. Spec 039's walk (2026-11-14; 038 FR-020 amended): the
+ * list always shows every section, never seats. A section chosen here zooms the map into it,
+ * stays marked in the list, and the keyboard's focus moves to its first seat on the map, where
+ * seats are chosen (each a button named "Row F, Seat 7, Courtside, $95, open").
  */
 const L1 = 'l-court';
 const L2 = 'l-side';
@@ -122,6 +123,8 @@ function Harness({ onSeat }: { onSeat?: (s: MapSeat) => void }) {
     setMine((m) => (m.includes(key(s)) ? m.filter((k) => k !== key(s)) : [...m, key(s)]));
   };
   const section = open === 's-115' ? SECTION_115 : null;
+  // A section chosen from the list sends the keyboard to its seats on the map.
+  const [focusSeats, setFocusSeats] = useState(0);
   return (
     <>
       <VenueMap
@@ -134,16 +137,17 @@ function Harness({ onSeat }: { onSeat?: (s: MapSeat) => void }) {
         seatView={seatView}
         onSeat={choose}
         skipTo="sections-heading"
+        focusSeats={focusSeats}
       />
       <SectionsList
         headingId="sections-heading"
         map={MAP}
         range={range}
         openSectionId={open}
-        section={section}
-        onOpenSection={setOpen}
-        seatView={seatView}
-        onSeat={choose}
+        onOpenSection={(id) => {
+          setOpen(id);
+          if (id) setFocusSeats((n) => n + 1);
+        }}
       />
     </>
   );
@@ -179,7 +183,7 @@ describe('the sections (FR-020)', () => {
     expect(listed('115')).toHaveTextContent('$60–$95');
     expect(listed('115')).toHaveTextContent('2 open seats');
     for (const b of within(list()).getAllByRole('button')) {
-      expect(b).toHaveAttribute('aria-expanded', 'false');
+      expect(b).toHaveAttribute('aria-pressed', 'false');
     }
   });
 
@@ -204,146 +208,75 @@ describe('the sections (FR-020)', () => {
   });
 });
 
-describe('a section chosen (FR-020, SC-007)', () => {
-  it('lists its rows as groups of seat buttons, named as on the map, and opens it on the map', async () => {
+describe('a section chosen (FR-020 as amended, SC-007)', () => {
+  it('stays in the list with every other section, marked, with no seats; the map zooms into it', async () => {
     const user = userEvent.setup();
     render(<Harness />);
     listed('115').focus();
     await user.keyboard('{Enter}');
-    expect(listed('115')).toHaveAttribute('aria-expanded', 'true');
-    // One state: the map zoomed into the same section.
-    expect(screen.getByRole('button', { name: 'Back to map' })).toBeInTheDocument();
-
-    const rowF = within(list()).getByRole('group', { name: 'Row F' });
-    expect(
-      within(rowF)
-        .getAllByRole('button')
-        .map((b) => b.getAttribute('aria-label')),
-    ).toEqual([
-      'Row F, Seat 7, Courtside, $95, open',
-      'Row F, Seat 8, Courtside, $95, held',
-      'Row F, Seat 9, Courtside, $95, sold',
-      'Row F, Seat 10, Courtside, $95, off sale',
-    ]);
-    const rowP = within(list()).getByRole('group', { name: 'Row P' });
-    expect(within(rowP).getByRole('button')).toHaveAccessibleName(
-      'Row P, Seat 7, Lower sideline, $60, open',
+    expect(listed('115')).toHaveAttribute('aria-pressed', 'true');
+    expect(listed('115')).toHaveTextContent('On the map');
+    expect(listed('101')).toHaveAttribute('aria-pressed', 'false');
+    // Every section still listed; no seat is.
+    expect(within(list()).getAllByRole('button', { name: /^Section / })).toHaveLength(
+      MAP.sections.length,
     );
-    // Each seat's number is shown, beside the mark its state has on the map.
-    const [open, held, sold, off] = within(rowF).getAllByRole('button');
-    expect(open).toHaveTextContent('7');
-    expect(open.querySelector('.venue-map__seat--open.venue-map--violet')).not.toBeNull();
-    expect(held.querySelector('.venue-map__dot--hollow')).not.toBeNull();
-    expect(sold.querySelector('.venue-map__mark--cross')).not.toBeNull();
-    expect(off.querySelector('.venue-map__mark--dash')).not.toBeNull();
-    // Unavailable seats stay reachable, marked aria-disabled.
-    for (const b of [held, sold, off]) {
-      expect(b).toHaveAttribute('aria-disabled', 'true');
-      expect(b).not.toBeDisabled();
-    }
-    expect(open).not.toHaveAttribute('aria-disabled');
-    expect(open).toHaveAttribute('aria-pressed', 'false');
+    expect(within(list()).queryByRole('button', { name: /^Row / })).toBeNull();
+    expect(within(list()).queryAllByRole('group')).toHaveLength(0);
+    // One state: the map zoomed into the same section, its seats there.
+    expect(screen.getByRole('button', { name: 'Back to map' })).toBeInTheDocument();
+    expect(
+      within(drawing()).getByRole('button', { name: 'Row F, Seat 7, Courtside, $95, open' }),
+    ).toBeInTheDocument();
   });
 
-  it('closes when chosen again, and on the map’s Back to map', async () => {
+  it("sends the keyboard to the section's first seat on the map", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    listed('115').focus();
+    await user.keyboard('{Enter}');
+    expect(
+      within(drawing()).getByRole('button', { name: 'Row F, Seat 7, Courtside, $95, open' }),
+    ).toHaveFocus();
+  });
+
+  it('closes when chosen again, and on the map’s Back to map', () => {
     render(<Harness />);
     fireEvent.click(listed('115'));
-    expect(within(list()).getAllByRole('group')).toHaveLength(2);
     fireEvent.click(listed('115'));
-    expect(within(list()).queryAllByRole('group')).toHaveLength(0);
+    expect(listed('115')).toHaveAttribute('aria-pressed', 'false');
     expect(screen.queryByRole('button', { name: 'Back to map' })).toBeNull();
     fireEvent.click(listed('115'));
     fireEvent.click(screen.getByRole('button', { name: 'Back to map' }));
-    expect(listed('115')).toHaveAttribute('aria-expanded', 'false');
-    expect(within(list()).queryAllByRole('group')).toHaveLength(0);
+    expect(listed('115')).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('opens on the list the section opened on the map', () => {
+  it('marks in the list the section opened on the map, without moving the focus', () => {
     render(<Harness />);
-    fireEvent.click(within(drawing()).getByRole('button', { name: /^Section 115,/ }));
-    expect(listed('115')).toHaveAttribute('aria-expanded', 'true');
-    expect(within(list()).getByRole('group', { name: 'Row F' })).toBeInTheDocument();
-  });
-
-  it('says the seats are loading until they come', () => {
-    render(
-      <SectionsList
-        map={MAP}
-        range={null}
-        openSectionId="s-101"
-        section={null}
-        onOpenSection={() => undefined}
-      />,
-    );
-    expect(within(list()).getByText('Loading the seats…')).toBeInTheDocument();
+    const onMap = within(drawing()).getByRole('button', { name: /^Section 115,/ });
+    onMap.focus();
+    fireEvent.click(onMap);
+    expect(listed('115')).toHaveAttribute('aria-pressed', 'true');
+    expect(within(list()).queryByRole('button', { name: /^Row / })).toBeNull();
   });
 });
 
-describe('choosing a seat (FR-020, FR-021)', () => {
-  it('holds and releases by Enter or Space exactly as a click on the map', async () => {
+describe('choosing a seat, on the map (FR-020 as amended, FR-021)', () => {
+  it('after choosing a section in the list, holds and releases its seats by Enter or Space', async () => {
     const user = userEvent.setup();
     const onSeat = vi.fn();
     render(<Harness onSeat={onSeat} />);
-    fireEvent.click(listed('115'));
-    const inList = within(list()).getByRole('button', { name: /^Row P, Seat 7,/ });
-    inList.focus();
+    listed('115').focus();
     await user.keyboard('{Enter}');
-    expect(onSeat).toHaveBeenCalledTimes(1);
-    const fromList = onSeat.mock.calls[0][0] as MapSeat;
-    expect(fromList).toEqual(
-      expect.objectContaining({
-        sectionId: 's-115',
-        section: '115',
-        row: 2,
-        rowLabel: 'P',
-        seat: 7,
-        seatLabel: '7',
-        levelId: L2,
-        levelName: 'Lower sideline',
-        price: '60.00',
-        state: 'open',
-      }),
+    const seat = within(drawing()).getByRole('button', { name: /^Row P, Seat 7,/ });
+    seat.focus();
+    await user.keyboard('{Enter}');
+    expect(onSeat).toHaveBeenCalledWith(
+      expect.objectContaining({ sectionId: 's-115', row: 2, seat: 7, price: '60.00' }),
     );
-    // Held, in both views, and the focus stays on the seat.
-    expect(inList).toHaveAccessibleName('Row P, Seat 7, Lower sideline, $60, held by you');
-    expect(inList).toHaveAttribute('aria-pressed', 'true');
-    expect(inList).toHaveFocus();
-    const onMap = within(drawing()).getByRole('button', { name: /^Row P, Seat 7,/ });
-    expect(onMap).toHaveAccessibleName('Row P, Seat 7, Lower sideline, $60, held by you');
-
-    // Space releases it; the map's click gives the same seat as the list's key.
+    expect(seat).toHaveAccessibleName('Row P, Seat 7, Lower sideline, $60, held by you');
     await user.keyboard(' ');
-    expect(onMap).toHaveAccessibleName('Row P, Seat 7, Lower sideline, $60, open');
-    fireEvent.click(onMap);
-    expect(onSeat).toHaveBeenCalledTimes(3);
-    expect(onSeat.mock.calls[2][0]).toEqual(fromList);
-    expect(inList).toHaveAccessibleName('Row P, Seat 7, Lower sideline, $60, held by you');
-  });
-
-  it('does nothing for a seat that can’t be chosen', async () => {
-    const user = userEvent.setup();
-    const onSeat = vi.fn();
-    render(<Harness onSeat={onSeat} />);
-    fireEvent.click(listed('115'));
-    const sold = within(list()).getByRole('button', {
-      name: 'Row F, Seat 9, Courtside, $95, sold',
-    });
-    sold.focus();
-    await user.keyboard('{Enter}');
-    await user.keyboard(' ');
-    fireEvent.click(sold);
-    expect(onSeat).not.toHaveBeenCalled();
-  });
-
-  it('fades a seat outside the price filter, which stays choosable', () => {
-    const onSeat = vi.fn();
-    render(<Harness onSeat={onSeat} />);
-    setRange(70, 95);
-    fireEvent.click(listed('115'));
-    const cheap = within(list()).getByRole('button', { name: /^Row P, Seat 7,/ });
-    expect(cheap.querySelector('.venue-map__seat--faded')).not.toBeNull();
-    fireEvent.click(cheap);
-    expect(onSeat).toHaveBeenCalledWith(expect.objectContaining({ row: 2, seat: 7 }));
+    expect(seat).toHaveAccessibleName('Row P, Seat 7, Lower sideline, $60, open');
   });
 });
 

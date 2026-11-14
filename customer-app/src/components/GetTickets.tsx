@@ -115,6 +115,8 @@ export function GetTickets({
   // loaded and kept current.
   const [mapOpen, setMapOpen] = useState(false);
   const [openSection, setOpenSection] = useState<string | null>(null);
+  // Raised each time a section is chosen from the Sections list: the map then focuses its seats.
+  const [focusSeats, setFocusSeats] = useState(0);
   // Spec 038 US4 (SC-007): the Sections list's heading, which the map's skip button moves to.
   const sectionsHeading = useId();
   // Spec 015 FR-010 (research R9), spec 038 R12: only a seated event has a venue map, kept live,
@@ -775,16 +777,20 @@ export function GetTickets({
                 seatView={seatView}
                 onSeat={chooseSeat}
                 skipTo={sectionsHeading}
+                focusSeats={focusSeats}
               />
+              {/* Spec 039's walk (038 FR-020 amended): the list keeps every section and never
+                  shows seats; a section chosen there opens on the map, and the keyboard's
+                  focus goes to its seats there. */}
               <SectionsList
                 headingId={sectionsHeading}
                 map={map}
                 range={range}
                 openSectionId={shownSection}
-                section={live.section}
-                onOpenSection={setOpenSection}
-                seatView={seatView}
-                onSeat={chooseSeat}
+                onOpenSection={(id) => {
+                  setOpenSection(id);
+                  if (id) setFocusSeats((n) => n + 1);
+                }}
               />
             </div>
             {reservation && yourSeats(reservation)}

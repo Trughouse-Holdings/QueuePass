@@ -20,9 +20,10 @@ fixTimeBeforeFixtures();
 
 /**
  * Spec 038 US4 (T041; FR-020, FR-021, SC-007): the Sections list beside the map. Each section with
- * the price range of its open seats and their count, under the map's price filter; a section
- * chosen lists its seats as buttons grouped by row; pressing one holds or releases it through
- * `033`'s queue exactly as a click on the map, and the map and the list always agree. The whole
+ * the price range of its open seats and their count, under the map's price filter. Spec 039's
+ * walk (2026-11-14; FR-020 amended): the list always shows every section and never their seats;
+ * a section chosen in it opens on the map and stays marked in the list, the keyboard's focus
+ * moves to its first seat on the map, and seats are held there through `033`'s queue. The whole
  * way to buying works by keyboard alone.
  */
 afterEach(() => vi.unstubAllGlobals());
@@ -92,8 +93,6 @@ const list = () => screen.getByRole('region', { name: 'Sections' });
 const drawing = () => screen.getByRole('group', { name: 'Basketball map' });
 const listed = (name: string) =>
   within(list()).getByRole('button', { name: new RegExp(`^Section ${name}(,|$)`) });
-const inList = (row: string, seat: number) =>
-  within(list()).getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}, `) });
 const onMap = (row: string, seat: number) =>
   within(drawing()).getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}, `) });
 const posts = (calls: { method: string; path: string; body: unknown }[]) =>
@@ -143,51 +142,29 @@ describe('the Sections list beside the map (FR-020)', () => {
     expect(listed('101')).toHaveAccessibleName('Section 101, no open seats between $70 and $95');
   });
 
-  it('holds from the list through the same queue, and each view shows the other’s holds', async () => {
+  it('opens a section chosen in the list on the map, keeps every section listed, and holds its seats on the map', async () => {
     const b = holds();
     const { calls } = stubApi(routes(b.routes));
     renderCustomer({ at: '/events/e1' });
     await chooseSeats();
     fireEvent.click(listed('115'));
-    // One state: the map is in the same section.
-    await within(list()).findByRole('group', { name: 'Row F' });
+    // One state: the map is in the same section; the list keeps every section, no seats.
+    await waitFor(() => expect(onMap('P', 7)).toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Back to map' })).toBeInTheDocument();
+    expect(listed('115')).toHaveAttribute('aria-pressed', 'true');
+    expect(listed('101')).toBeInTheDocument();
+    expect(within(list()).queryByRole('button', { name: /^Row / })).toBeNull();
 
-    // A press in the list holds the seat, as a click on the map would.
-    fireEvent.click(inList('P', 7));
+    fireEvent.click(onMap('P', 7));
     await waitFor(() => expect(onMap('P', 7)).toHaveAccessibleName(/held by you$/));
-    expect(inList('P', 7)).toHaveAttribute('aria-pressed', 'true');
-    // A click on the map shows in the list.
-    fireEvent.click(onMap('F', 7));
-    await waitFor(() =>
-      expect(inList('F', 7)).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, held by you'),
-    );
     expect(posts(calls)).toEqual([
       ['/events/e1/reservation', { seats: [{ sectionId: 's-115', row: 2, seat: 7 }] }],
-      ['/events/e1/reservation', { seats: [{ sectionId: 's-115', row: 1, seat: 7 }] }],
     ]);
     expect(
       within(screen.getByRole('region', { name: 'Your seats' }))
         .getAllByRole('listitem')
         .map((li) => li.textContent),
-    ).toEqual([
-      'Section 115, Row F, Seat 7, Courtside, $95.00',
-      'Section 115, Row P, Seat 7, Lower sideline, $60.00',
-    ]);
-
-    // Released from the list, open on the map.
-    fireEvent.click(inList('F', 7));
-    await waitFor(() =>
-      expect(onMap('F', 7)).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open'),
-    );
-    expect(posts(calls).at(-1)).toEqual([
-      '/events/e1/reservation/release',
-      { seats: [{ sectionId: 's-115', row: 1, seat: 7 }] },
-    ]);
-    // A sold seat does nothing.
-    fireEvent.click(inList('F', 8));
-    expect(inList('F', 8)).toHaveAttribute('aria-disabled', 'true');
-    expect(posts(calls)).toHaveLength(3);
+    ).toEqual(['Section 115, Row P, Seat 7, Lower sideline, $60.00']);
   });
 
   it('takes the whole way to buying by keyboard alone (SC-007)', async () => {
@@ -233,7 +210,9 @@ describe('the Sections list beside the map (FR-020)', () => {
     await user.tab();
     expect(listed('115')).toHaveFocus();
     await user.keyboard('{Enter}');
-    const seat = await within(list()).findByRole('button', {
+    // The section opens on the map, and the focus goes to its first seat there.
+    await waitFor(() => expect(onMap('F', 1)).toHaveFocus());
+    const seat = within(drawing()).getByRole('button', {
       name: 'Row P, Seat 7, Lower sideline, $60, open',
     });
     await tabTo(() => seat);

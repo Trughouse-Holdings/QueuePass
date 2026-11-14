@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { bounds, outlinePath } from './map-geometry.js';
 import { Legend, type SectionState } from './legend.js';
 import {
@@ -41,6 +41,12 @@ export interface VenueMapProps {
    * there, so the keyboard need not pass every section of the map.
    */
   skipTo?: string;
+  /**
+   * Spec 039 walk (038 FR-020 amended): raised by the app each time a section is chosen from the
+   * Sections list; once that section's seats are drawn, the keyboard's focus moves to its first
+   * seat, where seats are now chosen.
+   */
+  focusSeats?: number;
 }
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
@@ -82,6 +88,7 @@ export function VenueMap({
   seatView,
   onSeat,
   skipTo,
+  focusSeats = 0,
 }: VenueMapProps): React.ReactElement {
   const full = useMemo(() => priceRangeOf(map.levels), [map.levels]);
   const [ownRange, setOwnRange] = usePriceFilter(map.levels);
@@ -140,8 +147,18 @@ export function VenueMap({
     return classes.join(' ');
   };
 
+  // A section chosen from the list: once its seats are drawn, focus its first one.
+  const root = useRef<HTMLDivElement | null>(null);
+  const focusedFor = useRef(0);
+  const seatsShown = section !== null && section.sectionId === openSectionId;
+  useEffect(() => {
+    if (focusSeats === focusedFor.current || !seatsShown) return;
+    focusedFor.current = focusSeats;
+    root.current?.querySelector<SVGElement>('.venue-map__seat[role="button"]')?.focus();
+  }, [focusSeats, seatsShown]);
+
   return (
-    <div className="venue-map">
+    <div className="venue-map" ref={root}>
       {priced && full && range && <PriceFilter full={full} range={range} onChange={setRange} />}
       <Legend map={map} colorBy={colorBy} range={range} />
       {priced && range && !anyOpen && (
