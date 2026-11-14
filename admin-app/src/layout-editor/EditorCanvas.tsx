@@ -120,6 +120,22 @@ export function EditorCanvas({
     else fitAll();
   }, [zoomed, zoomTo, fitAll]);
 
+  // Walk feedback (2026-11-14): a floor object just chosen (it is put down in the middle of the
+  // view and selected) is shown whole, with room around it; opening a layout never moves the view.
+  const floorKind = doc.floor.kind;
+  const floorOutline = useRef(doc.floor.outline);
+  floorOutline.current = doc.floor.outline;
+  const floorChosen = selection.kind === 'floor';
+  const shownKind = useRef(floorKind);
+  useEffect(() => {
+    if (floorKind === shownKind.current) return;
+    shownKind.current = floorKind;
+    const outline = floorOutline.current;
+    if (floorKind === 'NONE' || !outline || !floorChosen) return;
+    const b = bounds(outline);
+    zoomTo(b, Math.max(b.width, b.height) / 4);
+  }, [floorKind, floorChosen, zoomTo]);
+
   const selectedIds = selection.kind === 'sections' ? selection.ids : [];
   const selected = new Set(selectedIds);
   const colorOf = new Map(doc.levels.map((l) => [l.id, l.color]));

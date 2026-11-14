@@ -1,11 +1,12 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { json, stubApi } from '../helpers/api-stub';
 import { DRAWING } from './fixtures';
 import {
   DRAWING_PATH,
   EDIT_PATH,
+  NEW_PATH,
   installPointerEvents,
   map,
   panel,
@@ -188,6 +189,34 @@ describe('the floor object', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Floor object set to End stage');
     await user.selectOptions(floor, 'NONE');
     expect(container.querySelector('.editor-map__floor')).toBeNull();
+  });
+
+  it('chosen, is put down in view and the map zooms so all of it shows (walk feedback)', async () => {
+    const user = userEvent.setup();
+    stubApi({});
+    const { container } = renderEditor(NEW_PATH);
+    await screen.findByRole('textbox', { name: 'Layout name' });
+    // Zoomed in far enough that a court (100 × 56) would not fit in the view.
+    for (let i = 0; i < 4; i++) await user.click(screen.getByRole('button', { name: 'Zoom in' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Floor object' }), 'COURT');
+    const d = (container.querySelector('.editor-map__floor') as SVGPathElement).getAttribute('d')!;
+    const nums = d.match(/-?\d+(\.\d+)?/g)!.map(Number);
+    const xs = nums.filter((_, i) => i % 2 === 0);
+    const ys = nums.filter((_, i) => i % 2 === 1);
+    await waitFor(() => {
+      const [vx, vy, vw, vh] = map().getAttribute('viewBox')!.split(' ').map(Number);
+      expect(Math.min(...xs)).toBeGreaterThanOrEqual(vx);
+      expect(Math.min(...ys)).toBeGreaterThanOrEqual(vy);
+      expect(Math.max(...xs)).toBeLessThanOrEqual(vx + vw);
+      expect(Math.max(...ys)).toBeLessThanOrEqual(vy + vh);
+    });
+  });
+
+  it('does not move the view when a layout with a floor object is opened', async () => {
+    await open();
+    const before = map().getAttribute('viewBox');
+    await new Promise((r) => setTimeout(r, 300));
+    expect(map().getAttribute('viewBox')).toBe(before);
   });
 
   it('is moved by dragging and resized by a corner handle', async () => {
