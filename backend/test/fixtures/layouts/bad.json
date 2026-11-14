@@ -1,0 +1,68 @@
+{
+  "format": 1,
+  "name": "Bad file",
+  "floor": { "kind": "NONE" },
+  "size": { "width": 500, "height": 200 },
+  "levels": [{ "key": "main", "name": "Main", "rank": 1, "color": "blue" }],
+  "sections": [
+    {
+      "name": "104",
+      "level": "main",
+      "outline": [
+        [10, 10],
+        [100, 10],
+        [100, 60],
+        [10, 60]
+      ],
+      "rows": [
+        {
+          "label": "F",
+          "seats": [
+            { "label": "6", "at": [20, 20] },
+            { "label": "7", "at": [30, 20] },
+            { "label": "7", "at": [40, 20] }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "104 ",
+      "level": "upper",
+      "outline": [
+        [110, 10],
+        [200, 10],
+        [200, 60],
+        [110, 60]
+      ],
+      "rows": [
+        { "label": "A", "seats": { "first": 1, "count": 3, "from": [120, 20], "to": [140, 20] } }
+      ]
+    },
+    {
+      "name": "105",
+      "level": "main",
+      "outline": [
+        [10, 70],
+        [490, 70],
+        [490, 190],
+        [10, 190]
+      ],
+      "rows": [
+        { "label": "A", "seats": { "first": 1, "count": 201, "from": [12, 80], "to": [488, 80] } }
+      ]
+    },
+    {
+      "name": "106",
+      "level": "main",
+      "outline": [
+        [210, 10],
+        [520, 10],
+        [520, 60],
+        [210, 60]
+      ],
+      "rows": [
+        { "label": "A", "seats": { "first": 1, "count": 2, "from": [220, 20], "to": [230, 20] } }
+      ]
+    }
+  ]
+}

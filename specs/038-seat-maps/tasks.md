@@ -59,15 +59,28 @@ confirm they **fail** before its implementation tasks.
 
 ## Phase 1: Setup
 
-- [ ] T001 Cut `038-seat-maps-impl` from `038-seat-maps-spec` (or from `main` once the spec PR has
+- [X] T001 Cut `038-seat-maps-impl` from `038-seat-maps-spec` (or from `main` once the spec PR has
   merged); `npm ci`; `npm run ci` green before any change, so a later failure is this feature's.
   Record any test that already fails on the untouched branch.
-- [ ] T002 [P] Add the test fixtures `backend/test/fixtures/layouts/small.json` (a `LayoutFile`,
+  **Done** (2026-11-13): cut from `038-seat-maps-spec` at `49d1a39`; `npm ci`. `npm run ci` on the
+  untouched branch: Prettier, ESLint, every build, the root scripts' tests and `@queuepass/shared`
+  (25 files, 793 tests) pass; the Backend 114 of 115 suites, 1,370 of 1,371 tests (lines 97.17%).
+  The one failure is `rate-limits.buy.e2e-spec.ts`, "lets another account buy while one sends 200"
+  (`connect ECONNRESET`), and it fails the same way run alone: 200 connections at once overflow this
+  Mac's listen queue, before any QueuePass code runs. Since `npm test` stops there, the rest was run
+  by hand on the untouched branch: Admin app 50 files, 464 tests; Customer app 30, 435; Booth app 7,
+  94; seed 16 files, 262 tests (28 skipped); `test-tz` in America/Los_Angeles, all pass.
+- [X] T002 [P] Add the test fixtures `backend/test/fixtures/layouts/small.json` (a `LayoutFile`,
   `format: 1`, `floor.kind: "COURT"`, 3 sections of 3 rows, one row as a seat run and one as listed
   seats, 2 levels, one row-level and one seat-level override, one `accessible` seat: about 60 seats)
   and `backend/test/fixtures/layouts/bad.json` (a seat label repeated in a row, a section level key
   not in `levels`, a row of 201 seats, two sections named "104" and "104 " ignoring case after trim,
   an outline point outside `size`), each documented in a one-line `README.md` beside them.
+  **Done** (2026-11-13): `small.json` (61 seats: runs, one listed row, a bent run, a row-level and a
+  seat-level override, one accessible seat, `labelAt` on one section only) validates against the
+  contract's `LayoutFile` with Ajv; `bad.json` has the five problems, the 201-seat row also failing
+  the schema's `count` maximum. `floor.kind` is upper case, as the contract's `FloorKind` (R5's
+  example says `court`).
 
 ---
 
