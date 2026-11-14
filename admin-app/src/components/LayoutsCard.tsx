@@ -255,9 +255,15 @@ function ImportProblems({ id, error }: { id: string; error: ImportError }): Reac
     );
   }
   const details = error.error.details as
-    { problems?: { path: string; message: string }[]; more?: number } | undefined;
+    | { problems?: { path: string; message: string }[]; more?: number; fields?: string[] }
+    | undefined;
   const problems = error.error.code === 'LAYOUT_FILE_INVALID' ? (details?.problems ?? []) : [];
   const more = details?.more ?? 0;
+  // A refusal of the request itself (`VALIDATION_FAILED`) lists its fields, as ErrorBanner does.
+  const fields =
+    error.error.code === 'VALIDATION_FAILED' && Array.isArray(details?.fields)
+      ? details.fields
+      : [];
   return (
     <div id={id} role="alert" className="banner banner--error">
       <div className="banner__body">
@@ -269,6 +275,13 @@ function ImportProblems({ id, error }: { id: string; error: ImportError }): Reac
               <li key={`${p.path} ${p.message}`}>{`${p.message} (${p.path})`}</li>
             ))}
             {more > 0 && <li>{`and ${more} more`}</li>}
+          </ul>
+        )}
+        {fields.length > 0 && (
+          <ul>
+            {fields.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
           </ul>
         )}
       </div>

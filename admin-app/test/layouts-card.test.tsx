@@ -219,6 +219,40 @@ describe('Layouts card', () => {
     expect(input.getAttribute('aria-describedby')).toContain(alert.id);
   });
 
+  it('lists a validation refusal’s fields under the import too (T060, M3)', async () => {
+    stubApi(
+      routes([], {
+        [`POST ${IMPORT}`]: json(
+          {
+            error: {
+              code: 'VALIDATION_FAILED',
+              message: 'Request validation failed.',
+              details: { fields: ['name must be 1 to 50 characters'] },
+            },
+          },
+          400,
+        ),
+      }),
+    );
+    renderAt(PATH);
+
+    const region = await card();
+    fireEvent.change(within(region).getByLabelText('Layout file'), {
+      target: {
+        files: [new File(['{"format":1}'], 'club.json', { type: 'application/json' })],
+      },
+    });
+    fireEvent.click(within(region).getByRole('button', { name: 'Import layout file' }));
+
+    const alert = await within(region).findByRole('alert');
+    expect(alert).toHaveTextContent('Request validation failed.');
+    expect(
+      within(alert)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['name must be 1 to 50 characters']);
+  });
+
   it('says a file that is not JSON is not a layout file, sending nothing', async () => {
     const api = stubApi(routes([]));
     renderAt(PATH);
