@@ -383,13 +383,6 @@ export function LayoutEditor({
             kind={doc.floor.kind}
             onKind={(kind) => dispatch({ type: 'setFloor', kind, at: centerRef.current })}
           />
-          <LevelsPanel
-            doc={doc}
-            dispatch={dispatch}
-            selection={state.selection}
-            chosen={chosen}
-            onChoose={setPaintLevel}
-          />
           <SectionsPanel
             doc={doc}
             selection={state.selection}
@@ -402,6 +395,14 @@ export function LayoutEditor({
             }
           />
           <SelectionPanel doc={doc} selection={state.selection} dispatch={dispatch} />
+          {/* After the sections, in the order of the steps (Guide): sections, then levels. */}
+          <LevelsPanel
+            doc={doc}
+            dispatch={dispatch}
+            selection={state.selection}
+            chosen={chosen}
+            onChoose={setPaintLevel}
+          />
         </div>
       </div>
     </div>

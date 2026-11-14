@@ -10,6 +10,7 @@ import {
   type View,
 } from '@queuepass/shared/web';
 import { farthest, levelName, type EditorDoc, type Place } from './editor-doc';
+import { Guide } from './Guide';
 import { seatCount, type Action, type Selection } from './editor-state';
 import { SectionSeatsView, seatsInBox } from './SectionSeatsView';
 import { confirmDeleteSections, deleteSeats, seatIdsOf } from './SelectionPanel';
@@ -330,6 +331,7 @@ export function EditorCanvas({
           </>
         )}
       </div>
+      {!readOnly && <Guide doc={doc} selection={selection} zoomed={zoomSection !== undefined} />}
       <svg
         ref={(el) => {
           svg.current = el;

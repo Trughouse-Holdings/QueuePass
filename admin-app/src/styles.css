@@ -400,6 +400,36 @@
   flex-wrap: wrap;
   gap: var(--space-2);
 }
+/* Walk feedback (2026-11-14): how a layout is made, and what can be done now. */
+.editor-guide {
+  display: grid;
+  gap: var(--space-2);
+}
+.editor-guide__steps {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.editor-guide__steps summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+.editor-guide__steps ol {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-4);
+  display: grid;
+  gap: var(--space-1);
+}
+.editor-guide__step--done {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+.editor-guide__hint {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+}
 .editor-map {
   display: block;
   width: 100%;
