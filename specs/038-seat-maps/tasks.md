@@ -1247,8 +1247,12 @@ need only Phase 2's `LayoutFile` checks and can start right after Phase 2.
   description: M1, the public `getVenueLayout` gives the latest prices, levels with every seat off
   sale included (the contract allows it); M3's name override, the Layouts card has no name field
   for an import (the contract's `name`).
-- [ ] T061 Walk the quickstart on a Compose project of your own (`-p qp038`): S0–S21 and the
+- [X] T061 Walk the quickstart on a Compose project of your own (`-p qp038`): S0–S21 and the
   Constitution VI smoke test (sign in, use, sign out of each front end); Nate's "pass" closes it.
+  **Done** (2026-11-14): passed on Nate's word ("pass the walk") on Compose project `qp038` with the
+  demo state (reset 7.8 s, cold). Found while walking: an admin can't realistically make an
+  arena-shaped layout in the app (section lines draw a grid; a file or a script is needed for a
+  Yum! Center-like map); left to 039, the layout editor, and noted in the implementation PR.
 - [ ] T062 Push `038-seat-maps-impl` (ask first); open the implementation PR (ask first) assigned to
   `nathan-707`, its description with `fixes #165` on its own line, the review record, the timing
   checks, and the shared surface touched; CI `test` and `e2e` green before merge.
