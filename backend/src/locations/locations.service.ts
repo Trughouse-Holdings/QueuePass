@@ -455,12 +455,14 @@ export class LocationsService {
   ): Promise<void> {
     if (seatingCapacity === undefined) return;
 
-    // Spec 007 FR-017: a venue with a seating layout takes its capacity from the layout. Spec 038
-    // FR-009: from its layouts (T017 gives this refusal its final wording).
+    // Spec 038 FR-009 (T017): while the venue has layouts, its capacity is its largest layout's
+    // seat count, set by every layout write (layouts.service.ts), never typed. Read again under
+    // the venue's lock, which every layout write takes first (research R7).
     if ((await db.layout.count({ where: { locationId: id } })) > 0) {
       throw new BadRequestException({
         message: [
-          "seatingCapacity is set by this venue's seating layout; change the layout instead",
+          "seatingCapacity is set by this venue's seating layouts (the largest one's seats); " +
+            'change a layout instead',
         ],
       });
     }
