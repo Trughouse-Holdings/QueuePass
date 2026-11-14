@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import request from 'supertest';
 import { LAYOUT_LIMITS, LEVEL_COLORS } from '@queuepass/shared';
 import { gridLayout, seatPlace } from '../../src/layouts/layout-lines';
+import { LayoutsService } from '../../src/layouts/layouts.service';
 import { asAdmin } from '../setup/authed-request';
 import {
   event,
@@ -325,6 +326,28 @@ describe('Venue layouts (038 US1)', () => {
       expect(res.body.error.details.problems.map((p: Json) => p.path)).toContain(path);
       expect(await layoutCount()).toBe(1);
     });
+
+    // FR-004, research R5: rows and seats are written set-based, a statement each, so the reset's
+    // four Yum! Center imports stay well inside their transaction's limit and spec 029 SC-002's 10
+    // seconds (about 1.25 s for this file with `createMany` batches; about 0.9 s set-based).
+    it("imports the largest Yum! Center file, Basketball's 22,090 seats, well under its transaction's limit", async () => {
+      const file = JSON.parse(
+        readFileSync(
+          join(__dirname, '../../src/scripts/layouts/yum-center-basketball.json'),
+          'utf8',
+        ),
+      );
+      const started = Date.now();
+      const layout = await ctx.app.get(LayoutsService).importFile(venueId, { file });
+      const ms = Date.now() - started;
+      expect(layout.seatCount).toBe(22_090);
+      expect(await ctx.prisma.seat.count()).toBe(22_090);
+      expect(await ctx.prisma.seatRow.count({ where: { section: { layoutId: layout.id } } })).toBe(
+        file.sections.reduce((n: number, s: Json) => n + s.rows.length, 0),
+      );
+      // A third of the 15 seconds every other layout write has; the import's own is 60 (IMPORT_TX).
+      expect(ms).toBeLessThan(5_000);
+    }, 60_000);
 
     it('takes 30,000 seats and refuses 30,001', async () => {
       const ok = gridFile({ name: 'Full', sections: 2, rows: 100, seats: 150 });

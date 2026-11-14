@@ -37,8 +37,20 @@ import type { Point } from './seat-runs';
 type Tx = Prisma.TransactionClient;
 type Db = PrismaService | Tx;
 
-/** Seats are written in batches of this many (research R5: a 30,000-seat import, one transaction). */
+/** Off-sale seats are written in batches of this many. */
 const BATCH = 5_000;
+/**
+ * Rows and seats are written set-based, this many to a statement: a layout's 30,000 seats at most
+ * (research R5) in one, so an import is a few statements, not a round trip per batch.
+ */
+const SET_BATCH = LAYOUT_LIMITS.maxSeats;
+/**
+ * The import's transaction. Its venue lock waits as long as every layout write's (`LOCKING_TX`);
+ * the import itself, set-based, takes about a second for the Yum! Center's 22,090 seats on a
+ * laptop. The 60 s bound is a safety margin for a loaded machine, not the time it is expected to
+ * take (spec 029 SC-002's 10-second reset imports four layouts).
+ */
+const IMPORT_TX = { ...LOCKING_TX, timeout: 60_000 } as const;
 /** Where a kept section waits while sections are reordered: past any position a layout has. */
 const PARKED_POSITION = 1_000;
 
@@ -226,7 +238,7 @@ export class LayoutsService {
       await insertContent(tx, id, plan.levels, plan.sections);
       await this.setCapacity(tx, locationId, venue);
       return this.detail(tx, id);
-    }, LOCKING_TX);
+    }, IMPORT_TX);
   }
 
   /**
@@ -625,8 +637,9 @@ export class LayoutsService {
         } else fresh.push(seat(n));
       }
       if (fresh.length > 0) {
-        await insertBatches(fresh, (batch) =>
-          tx.seat.createMany({ data: batch.map((s) => seatRow(s, row.id, sectionId)) }),
+        await insertSeats(
+          tx,
+          fresh.map((s) => seatInsert(s, row.id, sectionId)),
         );
       }
     }
@@ -863,11 +876,26 @@ function filePlan(file: CheckedLayout): { levels: NewLevel[]; sections: NewSecti
 async function insertBatches<T>(
   items: T[],
   write: (batch: T[]) => Promise<unknown>,
+  size = BATCH,
 ): Promise<void> {
-  for (let i = 0; i < items.length; i += BATCH) await write(items.slice(i, i + BATCH));
+  for (let i = 0; i < items.length; i += size) await write(items.slice(i, i + size));
 }
 
-const seatRow = (s: NewSeat, rowId: string, sectionId: string) => ({
+interface SeatRowInsert {
+  id: string;
+  sectionId: string;
+  number: number;
+  label: string;
+  levelId: string | null;
+}
+interface SeatInsert extends Omit<NewSeat, 'at'> {
+  rowId: string;
+  sectionId: string;
+  x: number;
+  y: number;
+}
+
+const seatInsert = (s: NewSeat, rowId: string, sectionId: string): SeatInsert => ({
   id: s.id,
   rowId,
   sectionId,
@@ -879,24 +907,60 @@ const seatRow = (s: NewSeat, rowId: string, sectionId: string) => ({
   accessible: s.accessible,
 });
 
+/**
+ * Rows, set-based: one `INSERT … SELECT FROM jsonb_to_recordset(…)`, the rows as one JSON
+ * parameter, in place of `createMany`'s batches.
+ */
+async function insertSeatRows(tx: Tx, rows: SeatRowInsert[]): Promise<void> {
+  await insertBatches(
+    rows,
+    (b) => tx.$executeRaw`
+      INSERT INTO "SeatRow" ("id", "sectionId", "number", "label", "levelId")
+      SELECT j."id", j."sectionId", j."number", j."label", j."levelId"
+      FROM jsonb_to_recordset(${JSON.stringify(b)}::jsonb)
+        AS j("id" uuid, "sectionId" uuid, "number" int, "label" text, "levelId" uuid)`,
+    SET_BATCH,
+  );
+}
+
+/**
+ * Seats, set-based as rows are (research R5: a 30,000-seat import in one transaction, all or
+ * nothing, FR-004). Places go through float8 to the REAL columns, as `createMany`'s did.
+ */
+async function insertSeats(tx: Tx, seats: SeatInsert[]): Promise<void> {
+  await insertBatches(
+    seats,
+    (b) => tx.$executeRaw`
+      INSERT INTO "Seat" ("id", "rowId", "sectionId", "number", "label", "x", "y", "levelId",
+                          "accessible")
+      SELECT j."id", j."rowId", j."sectionId", j."number", j."label", j."x", j."y", j."levelId",
+             j."accessible"
+      FROM jsonb_to_recordset(${JSON.stringify(b)}::jsonb)
+        AS j("id" uuid, "rowId" uuid, "sectionId" uuid, "number" int, "label" text, "x" float8,
+             "y" float8, "levelId" uuid, "accessible" boolean)`,
+    SET_BATCH,
+  );
+}
+
 async function insertRows(tx: Tx, sectionId: string, rows: NewRow[]): Promise<void> {
   if (rows.length === 0) return;
-  await tx.seatRow.createMany({
-    data: rows.map((r) => ({
+  await insertSeatRows(
+    tx,
+    rows.map((r) => ({
       id: r.id,
       sectionId,
       number: r.number,
       label: r.label,
       levelId: r.levelId,
     })),
-  });
-  await insertBatches(
-    rows.flatMap((r) => r.seats.map((s) => seatRow(s, r.id, sectionId))),
-    (batch) => tx.seat.createMany({ data: batch }),
+  );
+  await insertSeats(
+    tx,
+    rows.flatMap((r) => r.seats.map((s) => seatInsert(s, r.id, sectionId))),
   );
 }
 
-/** Levels, then sections, then rows, then seats (in batches), with the ids chosen here. */
+/** Levels, then sections, then rows, then seats (set-based, in batches), with the ids chosen here. */
 async function insertContent(
   tx: Tx,
   layoutId: string,
@@ -920,20 +984,19 @@ async function insertContent(
     })),
   });
   const rows = sections.flatMap((s) => s.rows.map((r) => ({ ...r, sectionId: s.id })));
-  await insertBatches(rows, (batch) =>
-    tx.seatRow.createMany({
-      data: batch.map((r) => ({
-        id: r.id,
-        sectionId: r.sectionId,
-        number: r.number,
-        label: r.label,
-        levelId: r.levelId,
-      })),
-    }),
+  await insertSeatRows(
+    tx,
+    rows.map((r) => ({
+      id: r.id,
+      sectionId: r.sectionId,
+      number: r.number,
+      label: r.label,
+      levelId: r.levelId,
+    })),
   );
-  await insertBatches(
-    rows.flatMap((r) => r.seats.map((s) => seatRow(s, r.id, r.sectionId))),
-    (batch) => tx.seat.createMany({ data: batch }),
+  await insertSeats(
+    tx,
+    rows.flatMap((r) => r.seats.map((s) => seatInsert(s, r.id, r.sectionId))),
   );
 }
 
