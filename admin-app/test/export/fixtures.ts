@@ -1,4 +1,4 @@
-import type { Event, Order, SalesReport } from '@queuepass/shared';
+import type { Event, Order, SalesReport, Ticket } from '@queuepass/shared';
 import { EVENT, REPORT } from '../fixtures-005';
 
 /** Spec 023: an event in Central Time with every attendee edge case (T003). */
@@ -8,13 +8,18 @@ export const CHICAGO_EVENT = {
   location: { ...EVENT.location, timeZone: 'America/Chicago' },
 } as unknown as Event;
 
+type Seat = { section: string; row: number; seat: number; rowLabel: string; seatLabel: string };
+
+/** Spec 038 (contract 2.0.0): every ticket has its price; a seated one its level and labels. */
 const ticket = (
   id: string,
   code: string,
   checkedInAt: string | null = null,
   status: 'VALID' | 'VOID' = 'VALID',
-  seat: { section: string; row: number; seat: number } | null = null,
-) => ({ id, code, status, checkedInAt, seat });
+  price = '45.00',
+  seat: Seat | null = null,
+  levelName: string | null = null,
+): Ticket => ({ id, code, status, checkedInAt, seat, price, levelName });
 
 const order = (o: Partial<Order> & Pick<Order, 'id' | 'tickets'>): Order => ({
   eventId: EVENT.id,
@@ -42,8 +47,8 @@ export const EXPORT_ORDERS: Order[] = [
     totalPrice: '168.60',
     createdAt: '2026-09-30T15:00:00.000Z',
     tickets: [
-      ticket('t1', 'ABCDEFGH2345', '2026-11-01T22:45:00.000Z'),
-      ticket('t2', 'JKLMNPQR6789'),
+      ticket('t1', 'ABCDEFGH2345', '2026-11-01T22:45:00.000Z', 'VALID', '84.30'),
+      ticket('t2', 'JKLMNPQR6789', null, 'VALID', '84.30'),
     ],
   }),
   order({
@@ -62,7 +67,18 @@ export const EXPORT_ORDERS: Order[] = [
     unitPrice: '60.00',
     totalPrice: '60.00',
     createdAt: '2026-10-03T12:00:00.000Z',
-    tickets: [ticket('t4', 'MNPQRSTU2345', null, 'VALID', { section: 'A', row: 3, seat: 7 })],
+    // Spec 038 R17: a carried-over seated ticket keeps its ticket type's name as its level name.
+    tickets: [
+      ticket(
+        't4',
+        'MNPQRSTU2345',
+        null,
+        'VALID',
+        '60.00',
+        { section: 'A', row: 3, seat: 7, rowLabel: 'C', seatLabel: '7' },
+        'Floor',
+      ),
+    ],
   }),
   order({
     id: 'dddddddd-4444-4ddd-8ddd-dddddddddddd',
@@ -74,6 +90,35 @@ export const EXPORT_ORDERS: Order[] = [
     refundedAt: '2026-10-05T12:00:00.000Z',
     createdAt: '2026-10-04T12:00:00.000Z',
     tickets: [ticket('t5', 'VWXYZ2345678', '2026-10-06T12:00:00.000Z', 'VOID')],
+  }),
+  // Spec 038 FR-030: seats of two levels, so no unit price; each ticket has its own.
+  order({
+    id: 'eeeeeeee-5555-4eee-8eee-eeeeeeeeeeee',
+    customerUsername: 'customer4',
+    holderName: 'Sam Park',
+    unitPrice: null,
+    totalPrice: '155.00',
+    createdAt: '2026-10-07T12:00:00.000Z',
+    tickets: [
+      ticket(
+        't6',
+        'BCDFGHJK2345',
+        null,
+        'VALID',
+        '95.00',
+        { section: '115', row: 4, seat: 2, rowLabel: 'D', seatLabel: '2' },
+        'Courtside',
+      ),
+      ticket(
+        't7',
+        'LMNPQRST6789',
+        null,
+        'VALID',
+        '60.00',
+        { section: '115', row: 6, seat: 7, rowLabel: 'F', seatLabel: '7' },
+        'Lower sideline',
+      ),
+    ],
   }),
 ];
 

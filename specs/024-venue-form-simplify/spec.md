@@ -354,6 +354,9 @@ read each line's labels and seat count, and the total; check each box's name wit
 - **FR-018**: Each section line, on the New venue form and in the venue page's layout editor, MUST
   show visible labels "Section name", "Rows", and "Seats per row", with the Rows and Seats per row
   boxes side by side and "×" between them, so the line reads "Rows × Seats per row".
+  _Amended 2026-11-13 by spec `038` (#165), FR-018–FR-022: a venue's seats are its layouts; section lines make one
+  layout among several, on the venue page's Layouts card (`038` FR-005, FR-007); the New venue form's
+  section lines make the venue's first layout, "Standard", with one price level._
 - **FR-019**: Each section line MUST end with its seat count, rows times seats per row: "= 200
   seats", "= 1 seat", with a thousands separator ("= 20,000 seats"); a box that is empty or not a
   whole number counts as 0.

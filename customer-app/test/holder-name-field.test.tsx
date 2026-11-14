@@ -1,14 +1,14 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
-import type { Reservation, SeatMap } from '@queuepass/shared';
+import type { MyReservation as Reservation } from '@queuepass/shared/web';
 import {
   availability,
   event,
   json,
   order,
   renderCustomer,
+  seatedMap,
   stubApi,
-  tier,
   fixTimeBeforeFixtures,
 } from './helpers';
 
@@ -131,39 +131,35 @@ describe('the Name on tickets field (US4-1)', () => {
 });
 
 describe('the seated flow (US4-4)', () => {
-  const vip = tier({ id: 't-vip', name: 'VIP', price: '120.00', quantity: 30 });
-  const seatMap: SeatMap = {
-    eventId: 'e1',
-    reservedSeating: true,
-    sections: [
-      {
-        sectionId: 's-a',
-        name: 'A',
-        rows: 2,
-        seatsPerRow: 6,
-        tierId: 't-vip',
-        sold: 0,
-        taken: [],
-        reserved: [],
-      },
-    ],
-  };
+  // Spec 038: section A of a venue map, 2 rows of 6 seats at $40.
+  const arena = seatedMap([{ sectionId: 's-a', name: 'A', rows: 2, seatsPerRow: 6 }]);
   const reservation: Reservation = {
     eventId: 'e1',
-    tierId: 't-vip',
-    seats: [{ sectionId: 's-a', section: 'A', row: 1, seat: 1 }],
+    tierId: null,
+    seats: [
+      {
+        sectionId: 's-a',
+        section: 'A',
+        row: 1,
+        seat: 1,
+        rowLabel: '1',
+        seatLabel: '1',
+        levelName: 'Standard',
+        price: '40.00',
+      },
+    ],
     createdAt: '2026-10-20T19:00:00.000Z',
     expiresAt: '2026-10-20T19:05:00.000Z',
     secondsLeft: 300,
   };
 
   const seatedRoutes = (extra: Record<string, Response> = {}) => ({
-    'GET /events/e1': json(event({ reservedSeating: true })),
-    'GET /events/e1/tiers': json([vip]),
-    'GET /events/e1/availability': json(
-      availability({ ticketsLeft: 12, tiers: [{ tierId: 't-vip', ticketsLeft: 12 }] }),
+    'GET /events/e1': json(
+      event({ reservedSeating: true, layoutId: 'lay-1', basePrice: '40.00', priceMax: '40.00' }),
     ),
-    'GET /events/e1/seats': json(seatMap),
+    'GET /events/e1/tiers': json([]),
+    'GET /events/e1/availability': json(availability({ ticketsLeft: 12 })),
+    ...arena.routes,
     'GET /me/reservations': json([reservation]),
     ...extra,
   });
@@ -179,10 +175,7 @@ describe('the seated flow (US4-4)', () => {
   it('sends holderName with a seated order too, from the cart (spec 033 FR-013)', async () => {
     const { calls } = stubApi(
       seatedRoutes({
-        'POST /events/e1/orders': json(
-          order({ tierId: 't-vip', tierName: 'VIP', quantity: 1, holderName: 'Jordan Lee' }),
-          201,
-        ),
+        'POST /events/e1/orders': json(order({ quantity: 1, holderName: 'Jordan Lee' }), 201),
       }),
     );
     renderCustomer({ at: '/cart' });

@@ -54,6 +54,10 @@ function mockFetch(postResponse: { status: number; body: unknown }): void {
       // openapi-fetch passes a Request; older call sites passed (url, init).
       const url = typeof input === 'string' ? input : input.url;
       init = { method: typeof input === 'string' ? init?.method : input.method, ...init };
+      // Spec 038: the venue has no layouts.
+      if (String(url).includes('/layouts')) {
+        return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+      }
       if (String(url).includes('/locations')) {
         return new Response(JSON.stringify([VENUE]), {
           status: 200,

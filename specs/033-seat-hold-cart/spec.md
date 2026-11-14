@@ -342,6 +342,7 @@ them taken by another customer first; it alone is refused and named.
 - **FR-005**: While seats are held, the other ticket types MUST NOT be choosable, and a note MUST
   say to release the held seats (by clicking them) to choose another; the section choice stays free
   within the ticket type.
+  _Amended 2026-11-13 by spec `038` (#165): a seated event has no ticket types, so this applies to none (`038` FR-012)._
 - **FR-006** (amends `015` FR-004a): A seat released from a reservation that still holds other seats
   MUST be holdable again by the same customer at once, into that reservation, with its end
   unchanged. Once a reservation has ended, however it ended (its last seat released or bought, its 5

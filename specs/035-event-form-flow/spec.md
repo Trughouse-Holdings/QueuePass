@@ -366,6 +366,8 @@ names), and there is no error banner at the top of the page. The typed values re
   assigned to a ticket type, overall and per ticket type, and MUST say exactly what is left
   ("12 seats not assigned to a ticket type") or that all seats are assigned. It updates as section
   choices change, without a save.
+  _Amended 2026-11-13 by spec `038` (#165), FR-015: the Seating section is the layout, a price per level and the
+  seats off sale, with the line "N seats on sale · M off sale"._
 - **FR-009**: With general admission, a live total MUST show the ticket types' quantities against
   the event's total tickets (the typed total, or the venue's capacity when it is blank), and MUST
   say exactly what is left or how many seats the types are over the capacity. A total over the

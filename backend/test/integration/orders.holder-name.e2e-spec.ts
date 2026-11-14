@@ -1,20 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { asAdmin } from '../setup/authed-request';
-import {
-  customer,
-  event,
-  orderWithTickets,
-  reserveThenOrder,
-  tier,
-  venue,
-} from '../setup/fixtures';
+import { customer, event, orderWithTickets, seatedEvent, venue } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
-import { tokenFor } from '../setup/tokens';
 
 /**
  * Spec 017 US4 (FR-001–FR-004, SC-006; research R2): every new order carries one valid holder's
- * name, refused with 400 HOLDER_NAME_INVALID otherwise, contract-checked.
+ * name, refused with 400 HOLDER_NAME_INVALID otherwise, contract-checked. Spec 038 (T028): a
+ * seated order of seats of two levels carries the name too, on a layout (`seatedEvent`).
  */
 describe('Orders carry a holder name', () => {
   let ctx: TestContext;
@@ -100,26 +93,44 @@ describe('Orders carry a holder name', () => {
     expect(attendees.body[0].holderName).toBeNull();
   });
 
-  it('a seated order (reserveThenOrder) carries the name too', async () => {
+  it('carries the name on a seated order of seats of two price levels (038)', async () => {
     const seatedVenue = await venue(ctx, 'Seated Hall');
-    await asAdmin(ctx)
-      .put(`/locations/${seatedVenue}/layout`)
-      .send({ sections: [{ name: 'A', rows: 2, seatsPerRow: 5 }] })
-      .expect(200);
-    const seatedEvent = await event(ctx, seatedVenue, { capacity: 10 });
-    const general = await tier(ctx, seatedEvent, 'General', '30.00', 10);
-    const sections = await ctx.prisma.section.findMany({ where: { locationId: seatedVenue } });
-    await asAdmin(ctx)
-      .put(`/events/${seatedEvent}/seating`)
-      .send({ reservedSeating: true, sections: [{ sectionId: sections[0].id, tierId: general }] })
-      .expect(200);
-
-    const token = await tokenFor({ username: 'customer1', roles: ['customer'] });
-    const res = await reserveThenOrder(ctx, token, seatedEvent, {
-      tierId: general,
-      seats: [{ sectionId: sections[0].id, row: 1, seat: 1 }],
+    const { eventId: seated, layout } = await seatedEvent(ctx, seatedVenue, {
+      sections: [
+        { name: 'A', rows: 2, seatsPerRow: 5, level: 'Front' },
+        { name: 'B', rows: 2, seatsPerRow: 5, level: 'Back' },
+      ],
+      levels: [
+        { name: 'Front', price: '50.00' },
+        { name: 'Back', price: '30.00' },
+      ],
     });
+    const seats = [
+      { sectionId: layout.sections.A, row: 1, seat: 1 },
+      { sectionId: layout.sections.B, row: 2, seat: 3 },
+    ];
+    const buyer = await customer(ctx);
+    await buyer.post(`/events/${seated}/reservation`).send({ seats }).expect(201);
+
+    const res = await buyer
+      .post(`/events/${seated}/orders`)
+      .send({ holderName: '  Jordan Lee ', quantity: 2, seats });
+
     expect(res.status).toBe(201);
-    expect(res.body.holderName).toBe('Test Holder');
+    expect(res.body).toMatchObject({ holderName: 'Jordan Lee', unitPrice: null });
+    expect(res.body.tickets.map((t: { levelName: string }) => t.levelName).sort()).toEqual([
+      'Back',
+      'Front',
+    ]);
+    // The name is the order's, so it is on every one of its tickets.
+    const attendees = await asAdmin(ctx).get(`/events/${seated}/attendees`).expect(200);
+    expect(attendees.body).toHaveLength(1);
+    expect(attendees.body[0]).toMatchObject({ id: res.body.id, holderName: 'Jordan Lee' });
+    expect(attendees.body[0].tickets).toHaveLength(2);
+    const tickets = await ctx.prisma.ticket.findMany({
+      where: { eventId: seated },
+      include: { order: true },
+    });
+    expect(tickets.map((t) => t.order.holderName)).toEqual(['Jordan Lee', 'Jordan Lee']);
   });
 });

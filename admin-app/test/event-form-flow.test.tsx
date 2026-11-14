@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventForm } from '../src/pages/EventForm';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, VENUE } from './fixtures-005';
+import { layoutRoutes } from './fixtures-038';
 import { lockReason, MSG, repeatedTypeNameMessage } from '../src/pages/event-form-checks';
 import { setLocalDateTime } from './helpers/event-times';
 
@@ -15,16 +16,8 @@ import { setLocalDateTime } from './helpers/event-times';
 afterEach(() => vi.unstubAllGlobals());
 
 const PLAIN = { ...VENUE, id: 'v-plain', name: 'Plain Hall', seatingCapacity: 500 };
+// Spec 038: a venue with layouts; the form starts on General admission there too.
 const SEATED = { ...VENUE, seatingCapacity: 30 };
-const LAYOUT = {
-  locationId: VENUE.id,
-  totalSeats: 30,
-  sections: [
-    { id: 's-front', name: 'front', rows: 1, seatsPerRow: 10 },
-    { id: 's-middle', name: 'middle', rows: 1, seatsPerRow: 10 },
-    { id: 's-back', name: 'back', rows: 1, seatsPerRow: 10 },
-  ],
-};
 const NAME_TAKEN = repeatedTypeNameMessage(1, 'floor', 0, 'Floor');
 const PATH = `/events/${EVENT.id}`;
 
@@ -64,8 +57,8 @@ async function chooseSeatedVenue() {
 describe('Schedule event (FR-001 to FR-012, SC-002, SC-003, SC-006)', () => {
   const createRoutes = (extra: object = {}) => ({
     'GET /locations': json([SEATED, PLAIN]),
-    [`GET /locations/${VENUE.id}/layout`]: json(LAYOUT),
-    'GET /locations/v-plain/layout': json({ locationId: 'v-plain', totalSeats: 0, sections: [] }),
+    ...layoutRoutes(),
+    'GET /locations/v-plain/layouts': json([]),
     ...extra,
   });
 
@@ -83,7 +76,7 @@ describe('Schedule event (FR-001 to FR-012, SC-002, SC-003, SC-006)', () => {
     const tickets = await screen.findByRole('group', { name: 'Tickets and seating' });
     expect(tickets).toBeInTheDocument();
     expect(screen.getByTestId('seat-total')).toHaveTextContent(
-      '30 of 30 seats assigned All 30 seats are assigned.',
+      '0 of 30 seats assigned 30 seats not assigned to a ticket type',
     );
   });
 
@@ -104,9 +97,9 @@ describe('Schedule event (FR-001 to FR-012, SC-002, SC-003, SC-006)', () => {
     const api = stubApi(createRoutes());
     at('/events/new', '/events/new');
     await chooseSeatedVenue();
-    typeLine(1, 'Floor', '80.00');
+    typeLine(1, 'Floor', '80.00', '10');
     fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
-    typeLine(2, 'floor', '60.00');
+    typeLine(2, 'floor', '60.00', '10');
     schedule();
 
     expect(await screen.findByTestId('type-2-error')).toHaveTextContent(NAME_TAKEN);
@@ -132,15 +125,9 @@ describe('Schedule event (FR-001 to FR-012, SC-002, SC-003, SC-006)', () => {
     );
     at('/events/new', '/events/new');
     await chooseSeatedVenue();
-    typeLine(1, 'Floor', '80.00');
+    typeLine(1, 'Floor', '80.00', '10');
     fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
-    typeLine(2, 'Balcony', '60.00');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Section middle ticket type' }), {
-      target: { value: '1' },
-    });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Section back ticket type' }), {
-      target: { value: '1' },
-    });
+    typeLine(2, 'Balcony', '60.00', '20');
     schedule();
 
     expect(await screen.findByTestId('type-2-error')).toHaveTextContent(NAME_TAKEN);
@@ -177,7 +164,7 @@ describe('Schedule event (FR-001 to FR-012, SC-002, SC-003, SC-006)', () => {
     );
     at('/events/new', '/events/new');
     await chooseSeatedVenue();
-    typeLine(1, 'Floor', '80.00');
+    typeLine(1, 'Floor', '80.00', '10');
     schedule();
 
     const times = screen.getByRole('group', { name: 'Venue and times' });
@@ -189,7 +176,7 @@ describe('Schedule event (FR-001 to FR-012, SC-002, SC-003, SC-006)', () => {
 });
 
 describe('Edit event (FR-013, FR-014, FR-016, US5)', () => {
-  const seatedEvent = { ...EVENT, reservedSeating: true, totalTicketCapacity: 30 };
+  // Spec 038: ticket types are general admission's; a seated event's edit is SeatingSection's test.
   const tier = (id: string, name: string, price: string, quantity: number) => ({
     id,
     eventId: EVENT.id,
@@ -199,49 +186,23 @@ describe('Edit event (FR-013, FR-014, FR-016, US5)', () => {
     createdAt: EVENT.createdAt,
     updatedAt: EVENT.updatedAt,
   });
+  const gaEvent = { ...EVENT, layoutId: null, priceMax: null, totalTicketCapacity: 30 };
 
   const editRoutes = (extra: object = {}) => ({
     'GET /locations': json([SEATED]),
-    [`GET ${PATH}`]: json(seatedEvent),
+    ...layoutRoutes(),
+    [`GET ${PATH}`]: json(gaEvent),
     [`GET ${PATH}/tiers`]: json([
       tier('t-floor', 'Floor', '80.00', 10),
       tier('t-bal', 'Balcony', '30.00', 20),
     ]),
-    [`GET ${PATH}/seats`]: json({
+    [`GET ${PATH}/seating`]: json({
       eventId: EVENT.id,
-      reservedSeating: true,
-      sections: [
-        {
-          sectionId: 's-front',
-          name: 'front',
-          rows: 1,
-          seatsPerRow: 10,
-          tierId: 't-floor',
-          sold: 3,
-          taken: [],
-          reserved: [],
-        },
-        {
-          sectionId: 's-middle',
-          name: 'middle',
-          rows: 1,
-          seatsPerRow: 10,
-          tierId: 't-bal',
-          sold: 0,
-          taken: [],
-          reserved: [],
-        },
-        {
-          sectionId: 's-back',
-          name: 'back',
-          rows: 1,
-          seatsPerRow: 10,
-          tierId: 't-bal',
-          sold: 0,
-          taken: [],
-          reserved: [],
-        },
-      ],
+      layoutId: null,
+      levels: [],
+      offSale: [],
+      seatsOnSale: 0,
+      seatsOffSale: 0,
     }),
     [`GET ${PATH}/availability`]: json({
       eventId: EVENT.id,
@@ -255,25 +216,24 @@ describe('Edit event (FR-013, FR-014, FR-016, US5)', () => {
     ...extra,
   });
 
-  it('locks reserved seating, a sold section, and Remove on a type with sales, each with the reason', async () => {
+  it('locks the seating choice and Remove on a type with sales, each with the reason', async () => {
     stubApi(editRoutes());
     at(`${PATH}/edit`, '/events/:id/edit');
 
     await vi.waitFor(() =>
       expect(screen.getByLabelText('Ticket type 2 name')).toHaveValue('Balcony'),
     );
-    expect(screen.getByLabelText('Reserved seating')).toBeDisabled();
-    expect(screen.getByLabelText('General admission')).toBeDisabled();
+    await vi.waitFor(() =>
+      expect(screen.getByRole('combobox', { name: 'Seating' })).toBeDisabled(),
+    );
     expect(screen.getByText(lockReason.seating)).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Section front ticket type' })).toBeDisabled();
-    expect(screen.getByText(lockReason.section)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Remove ticket type 1' })).toBeDisabled();
     expect(screen.getByText(lockReason.quantity(3))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Remove ticket type 2' })).not.toBeDisabled();
   });
 
-  it('sends one PATCH /events/{id} with reservedSeating, tiers, and each existing type id', async () => {
-    const api = stubApi(editRoutes({ [`PATCH ${PATH}`]: json(seatedEvent) }));
+  it('sends one PATCH /events/{id} with tiers and each existing type id, and no seating', async () => {
+    const api = stubApi(editRoutes({ [`PATCH ${PATH}`]: json(gaEvent) }));
     at(`${PATH}/edit`, '/events/:id/edit');
     await vi.waitFor(() =>
       expect(screen.getByLabelText('Ticket type 2 name')).toHaveValue('Balcony'),
@@ -285,11 +245,13 @@ describe('Edit event (FR-013, FR-014, FR-016, US5)', () => {
     expect(await screen.findByText('Event page', {}, { timeout: 3000 })).toBeInTheDocument();
     expect(writes(api).map((c) => `${c.method} ${c.path}`)).toEqual([`PATCH ${PATH}`]);
     expect(writes(api)[0].body).toMatchObject({
-      reservedSeating: true,
       tiers: [
-        { id: 't-floor', name: 'Floor', price: '80.00', sectionIds: ['s-front'] },
-        { id: 't-bal', name: 'Balcony', price: '35.00', sectionIds: ['s-middle', 's-back'] },
+        { id: 't-floor', name: 'Floor', price: '80.00', quantity: 10 },
+        { id: 't-bal', name: 'Balcony', price: '35.00', quantity: 20 },
       ],
     });
+    for (const field of ['reservedSeating', 'layoutId', 'levelPrices', 'offSale']) {
+      expect(writes(api)[0].body).not.toHaveProperty(field);
+    }
   });
 });

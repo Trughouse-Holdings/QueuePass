@@ -65,6 +65,18 @@ function isImagePositionViolation(exception: unknown): boolean {
   return false;
 }
 
+/**
+ * body-parser's errors carry a 4xx `status` and a `type` such as `entity.too.large` or
+ * `entity.parse.failed`; as an HttpException of that status, or null for anything else.
+ */
+function bodyParserError(exception: unknown): HttpException | null {
+  if (exception instanceof HttpException || !(exception instanceof Error)) return null;
+  const { status, type } = exception as Error & { status?: unknown; type?: unknown };
+  if (typeof type !== 'string' || !type.startsWith('entity.')) return null;
+  if (typeof status !== 'number' || status < 400 || status >= 500) return null;
+  return new HttpException(exception.message, status);
+}
+
 function envelope(
   code: ErrorCode,
   message: string,
@@ -82,6 +94,11 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
+
+    // Spec 038 (T016): the JSON body parser's refusals (a body too large, a body that is not
+    // JSON) come before any route, as body-parser's own errors; they are the client's errors.
+    const parsed = bodyParserError(exception);
+    if (parsed) exception = parsed;
 
     if (exception instanceof HttpException) {
       const status = exception.getStatus();

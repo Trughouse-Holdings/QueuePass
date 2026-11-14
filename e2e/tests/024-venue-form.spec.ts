@@ -1,6 +1,7 @@
 // Spec 024 quickstart V1 to V5: on the New venue form the admin picks the time zone, an address the
 // address service does not know (or cannot be asked about) is saved in one press and marked not
-// verified, and section lines read Rows × Seats per row with their seats (research R10).
+// verified, and section lines read Rows × Seats per row with their seats (research R10). Spec 038:
+// the lines make the venue's first layout, edited from the venue page's Layouts card.
 import { expect, test, type Page, type Request } from '@playwright/test';
 import { API_BASE, adminFor } from '../fixtures/apps';
 import type { Place } from '../fixtures/api';
@@ -127,17 +128,22 @@ test('024 V1/V2/V3: an admin creates a seated venue in one press, at an address 
   await expect(row.getByText('Not verified', { exact: true })).toBeVisible();
   await expect(row.getByText('Central Time, chosen by an admin', { exact: true })).toBeVisible();
 
-  // V2: the venue page's layout, and the same labelled lines in its editor.
+  // V2: the venue page's layout (spec 038: its first layout, "Standard", in the Layouts card), and
+  // the same labelled lines in its editor.
   await row.getByRole('link', { name: venueName }).click();
-  const layout = page.getByRole('region', { name: 'Seating layout' });
-  await expect(layout.getByText('Total: 250 seats', { exact: true })).toBeVisible();
-  await layout.getByRole('button', { name: 'Edit layout' }).click();
-  await expect(layout.getByText(HINT)).toHaveCount(1);
-  await expect(layout.getByRole('spinbutton', { name: 'Section 1 Rows', exact: true })).toHaveValue(
+  const layout = page
+    .getByRole('region', { name: 'Layouts' })
+    .getByRole('article', { name: 'Standard', exact: true });
+  await expect(layout).toContainText('250 seats · 2 sections');
+  await layout.getByRole('button', { name: 'Edit section lines of Standard' }).click();
+  const editor = layout.getByRole('form', { name: 'Section lines of Standard' });
+  await expect(editor.getByText('Total: 250 seats', { exact: true })).toBeVisible();
+  await expect(editor.getByText(HINT)).toHaveCount(1);
+  await expect(editor.getByRole('spinbutton', { name: 'Section 1 Rows', exact: true })).toHaveValue(
     '10',
   );
   await expect(
-    layout.getByRole('spinbutton', { name: 'Section 1 Seats per row', exact: true }),
+    editor.getByRole('spinbutton', { name: 'Section 1 Seats per row', exact: true }),
   ).toHaveValue('20');
   await expect(line(page, 1).getByText('= 200 seats', { exact: true })).toBeVisible();
   await expect(line(page, 2).getByText('= 50 seats', { exact: true })).toBeVisible();

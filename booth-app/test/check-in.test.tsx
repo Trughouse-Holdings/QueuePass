@@ -71,6 +71,7 @@ const ticket = (over: Record<string, unknown> = {}) => ({
   state: 'ADMITTABLE',
   event: { id: EVENT_ID, name: 'Demo Tonight', startsAt: iso(1), endsAt: iso(4) },
   tierName: 'General',
+  levelName: null,
   seat: null,
   holderName: 'Jordan Lee',
   usedAt: null,
@@ -171,7 +172,13 @@ describe('Typed lookup and the ID check (FR-008, FR-010, FR-014)', () => {
   it('shows the event, ticket type, seat, name, and the ID-check prompt', async () => {
     stubApi({
       [EVENTS]: threeEvents(),
-      [LOOKUP]: json(ticket({ seat: { section: 'A', row: 2, seat: 7 }, unusedOnOrder: 1 })),
+      [LOOKUP]: json(
+        ticket({
+          seat: { section: 'A', row: 2, seat: 7, rowLabel: 'B', seatLabel: '7' },
+          levelName: 'Floor',
+          unusedOnOrder: 1,
+        }),
+      ),
     });
     const user = userEvent.setup();
     renderApp();
@@ -180,7 +187,8 @@ describe('Typed lookup and the ID check (FR-008, FR-010, FR-014)', () => {
     const result = await screen.findByRole('status');
     expect(within(result).getByText(/Demo Tonight/)).toBeInTheDocument();
     expect(within(result).getByText(/General/)).toBeInTheDocument();
-    expect(within(result).getByText(/Section A, Row 2, Seat 7/)).toBeInTheDocument();
+    // Spec 038 FR-026: the row by its label as sold.
+    expect(within(result).getByText(/Section A, Row B, Seat 7/)).toBeInTheDocument();
     // FR-015a: the unused count is always shown, even for one.
     expect(within(result).getByText('1 unused ticket on this order')).toBeInTheDocument();
     expect(within(result).getByText('Jordan Lee')).toBeInTheDocument();

@@ -9,6 +9,9 @@ import { toCsv } from '../src/export/csv';
 import { attendeeTable } from '../src/export/attendee-rows';
 import { fileName } from '../src/export/file-name';
 import { deviceZone } from '../src/export/made';
+import { fontGlyphs, pdfLayout, toPdf } from '../src/export/pdf';
+import readExcelFile from 'read-excel-file/node';
+import { REGULAR, loadFontsFromDisk } from './export/fonts';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, ORDERS } from './fixtures-005';
 
@@ -85,5 +88,84 @@ describe('Download on the Attendees page', () => {
     expect(name).toBe(fileName('attendees', 'Season Opener', table.madeAt, deviceZone(), 'csv'));
     expect(name).toMatch(/^attendees-season-opener-\d{4}-\d{2}-\d{2}-\d{4}\.csv$/);
     expect(api.count('GET', PATH)).toBe(1);
+  });
+});
+
+/** Spec 038 FR-030 (research R17; 023 FR-004 as amended): a seated order of two levels. */
+const SEATED = {
+  ...ORDERS[0],
+  id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+  tierId: null,
+  tierName: null,
+  customerUsername: 'customer4',
+  holderName: 'Sam Park',
+  unitPrice: null,
+  totalPrice: '155.00',
+  tickets: [
+    {
+      ...ORDERS[0].tickets[1],
+      id: 'e1111111-1111-4111-8111-111111111111',
+      code: 'BCDFGHJK2345',
+      seat: { section: '115', row: 4, seat: 2, rowLabel: 'D', seatLabel: '2' },
+      price: '95.00',
+      levelName: 'Courtside',
+    },
+    {
+      ...ORDERS[0].tickets[1],
+      id: 'e2222222-2222-4222-8222-222222222222',
+      code: 'LMNPQRST6789',
+      seat: { section: '115', row: 6, seat: 7, rowLabel: 'F', seatLabel: '7' },
+      price: '60.00',
+      levelName: 'Lower sideline',
+    },
+  ],
+};
+
+describe('a Price level column and a Price per ticket in every format (038 FR-030)', () => {
+  const download = async (button: string) => {
+    vi.spyOn(Date, 'now').mockReturnValue(LOADED_AT);
+    stubApi({ [`GET /events/${EVENT.id}`]: json(EVENT), [`GET ${PATH}`]: json([SEATED]) });
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByText('Download'));
+    await user.click(screen.getByRole('button', { name: button }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    return vi.mocked(save).mock.calls[0][0];
+  };
+  const table = () =>
+    attendeeTable(EVENT as unknown as Event, [SEATED] as unknown as Order[], LOADED_AT, 'admin1');
+
+  it('CSV', async () => {
+    const lines = (await (await download('CSV')).text()).replace(/^\uFEFF/, '').split('\r\n');
+    expect(lines[0]).toMatch(/^Order placed,Customer,Name on tickets,Tier,Price level,Seat,/);
+    expect(lines[1]).toContain(',,Courtside,"Section 115, Row D, Seat 2",BCDFGHJK2345,');
+    expect(lines[1]).toContain(',Confirmed,95.00,EEEEEEEE,');
+    expect(lines[2]).toContain(',,Lower sideline,"Section 115, Row F, Seat 7",LMNPQRST6789,');
+    expect(lines[2]).toContain(',Confirmed,60.00,EEEEEEEE,');
+  });
+
+  it('Excel', async () => {
+    const blob = await download('Excel (XLSX)');
+    const [sheet] = await readExcelFile(Buffer.from(await blob.arrayBuffer()));
+    const [head, first, second] = sheet.data;
+    const level = head.indexOf('Price level');
+    const price = head.indexOf('Price');
+    expect(level).toBe(head.indexOf('Tier') + 1);
+    expect([first[level], first[price]]).toEqual(['Courtside', 95]);
+    expect([second[level], second[price]]).toEqual(['Lower sideline', 60]);
+  });
+
+  it('PDF', async () => {
+    // The page's PDF is made from the same table as its CSV (above); the writer draws this layout.
+    const blob = await toPdf(table(), loadFontsFromDisk);
+    expect(blob.type).toBe('application/pdf');
+    const layout = pdfLayout(table(), fontGlyphs(REGULAR));
+    const level = layout.head.indexOf('Price level');
+    const price = layout.head.indexOf('Price');
+    expect(level).toBe(layout.head.indexOf('Tier') + 1);
+    expect(layout.body.map((r) => [r[level], r[price]])).toEqual([
+      ['Courtside', '$95.00'],
+      ['Lower sideline', '$60.00'],
+    ]);
   });
 });

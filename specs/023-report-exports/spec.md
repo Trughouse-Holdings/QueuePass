@@ -183,10 +183,14 @@ is shown as text, not run.
   Checked in (date-time, empty if not), Order status (Confirmed, Refunded), Price (the order's unit
   price), Order (a short order reference shared by its tickets). Orders oldest first, tickets in the
   page's order.
+  _Amended 2026-11-13 by spec `038` (#165), FR-030: for a seated ticket the attendee export also has a Price level
+  column and each ticket's Price (an order's tickets may differ in price)._
 - **FR-005**: The sales report export MUST have one row per event with these columns, in order:
   Event, Venue, Starts (date-time), Time zone, Status (Scheduled, Cancelled), Tickets sold, Ticket
   capacity, Revenue, Checked in; in the page's order; then one row **Total** with the page's totals
   (scheduled events, their capacity, tickets sold, checked in, revenue).
+  _Amended 2026-11-13 by spec `038` (#165), FR-030: a seated event's sales are by price level (`EventSales.levels`)
+  where they are by ticket type for general admission._
 - **FR-006**: Every date-time MUST be in its event's venue time zone (`020`), the zone named in the
   file (a column or the About sheet and PDF heading).
 - **FR-007**: CSV files MUST follow RFC 4180, be UTF-8 with a byte-order mark, have one header row,

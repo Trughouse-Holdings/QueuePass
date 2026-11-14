@@ -1,15 +1,18 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import type { Reservation, SeatMap } from '@queuepass/shared';
+import type { Reservation } from '@queuepass/shared';
 import {
   availability,
   event,
   json,
+  openSection,
   renderCustomer,
+  seatOf,
   seatStream,
+  seatedMap,
   stubApi,
-  tier,
   fixTimeBeforeFixtures,
+  type SectionFixture,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -18,121 +21,142 @@ fixTimeBeforeFixtures();
 /**
  * Spec 015 US3 (FR-010–FR-012; research R9, R13): the Customer app's seat map is live. Another
  * customer's reservation greys out without a refresh, a pick someone else takes is dropped with a
- * message, and a focused seat that becomes unavailable keeps focus.
+ * message, and a focused seat that becomes unavailable keeps focus. Spec 038 (research R12): the
+ * stream begins with the venue map; each change carries its `seq`, `from` and level.
  */
 afterEach(() => vi.unstubAllGlobals());
 
-const vip = tier({ id: 't-vip', name: 'VIP', price: '120.00', quantity: 30 });
+type State = 'open' | 'reserved' | 'sold' | 'offSale';
+/** Section A, one row of 6 seats at $40; `over` sets seats' states. */
+const sectionA = (over: Partial<SectionFixture> = {}): SectionFixture => ({
+  sectionId: 's-a',
+  name: 'A',
+  rows: 1,
+  seatsPerRow: 6,
+  ...over,
+});
 
-const seatMap = (): SeatMap => ({
+let seq = 1;
+/** Seats of row 1 of section A that changed, with the next `seq`. */
+const changes = (...seats: [number, State, State?][]) => ({
   eventId: 'e1',
-  reservedSeating: true,
-  sections: [
-    {
+  seq: ++seq,
+  changes: seats.map(([seat, state, from]) => ({
+    sectionId: 's-a',
+    row: 1,
+    seat,
+    state,
+    from: from ?? (state === 'open' ? 'reserved' : 'open'),
+    levelId: 'l-std',
+  })),
+});
+
+const reservation = (seats: number[]): Reservation =>
+  ({
+    eventId: 'e1',
+    tierId: null,
+    seats: seats.map((seat) => ({
       sectionId: 's-a',
-      name: 'A',
-      rows: 1,
-      seatsPerRow: 6,
-      tierId: 't-vip',
-      sold: 0,
-      taken: [],
-      reserved: [],
-    },
-  ],
-});
+      section: 'A',
+      row: 1,
+      seat,
+      rowLabel: '1',
+      seatLabel: String(seat),
+      levelName: 'Standard',
+      price: '40.00',
+    })),
+    createdAt: '2026-10-20T19:00:00.000Z',
+    expiresAt: '2026-10-20T19:05:00.000Z',
+    secondsLeft: 300,
+  }) as Reservation;
 
-const changes = (...seats: [number, 'open' | 'reserved' | 'sold'][]) => ({
-  eventId: 'e1',
-  changes: seats.map(([seat, state]) => ({ sectionId: 's-a', row: 1, seat, state })),
-});
-
-const reservation = (seats: number[]): Reservation => ({
-  eventId: 'e1',
-  tierId: 't-vip',
-  seats: seats.map((seat) => ({ sectionId: 's-a', section: 'A', row: 1, seat })),
-  createdAt: '2026-10-20T19:00:00.000Z',
-  expiresAt: '2026-10-20T19:05:00.000Z',
-  secondsLeft: 300,
-});
-
-function setup(extra: Record<string, Response | (() => Response | Promise<Response>)> = {}) {
+type Reply = Response | ((req: Request) => Response | Promise<Response>);
+/** The map's state as the Backend has it now; the routes read it at each request. */
+function setup(extra: Record<string, Reply> = {}, start: Partial<SectionFixture> = {}) {
+  seq = 1;
   const stream = seatStream();
+  const now = { fixture: sectionA(start), seq: 1 };
+  const current = () => seatedMap([now.fixture], { seq: now.seq });
   const api = stubApi({
-    'GET /events/e1': json(event({ reservedSeating: true })),
-    'GET /events/e1/tiers': json([vip]),
-    'GET /events/e1/availability': json(
-      availability({ ticketsLeft: 6, tiers: [{ tierId: 't-vip', ticketsLeft: 6 }] }),
-    ),
-    'GET /events/e1/seats': json(seatMap()),
+    'GET /events/e1': json(event({ reservedSeating: true, layoutId: 'lay-1', basePrice: '40.00' })),
+    'GET /events/e1/tiers': json([]),
+    'GET /events/e1/availability': json(availability({ ticketsLeft: 6 })),
+    'GET /events/e1/venue-map': () => json(current().map),
+    'GET /events/e1/venue-map/sections/s-a': () => json(current().section('s-a')),
     'GET /events/e1/seats/stream': stream.reply,
     'GET /me/reservations': json([]),
     ...extra,
   });
   renderCustomer({ at: '/events/e1' });
-  return { stream, ...api };
+  /** The map as it is now, and as the stream sends it first. */
+  const map = () => current().map;
+  return { stream, now, map, ...api };
 }
 
-const seatButton = (seat: number) =>
-  screen.getByRole('button', { name: new RegExp(`^Row 1, Seat ${seat}(,|$)`) });
-/** Waits for the stream to be open, then sends its snapshot. */
-async function live(stream: ReturnType<typeof seatStream>): Promise<void> {
-  fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
-  await waitFor(() => expect(stream.connects).toBe(1));
-  act(() => stream.send('snapshot', seatMap()));
+/** Opens section A, waits for the stream, then sends its venue map. */
+async function live(s: ReturnType<typeof setup>): Promise<void> {
+  await openSection('A');
+  await waitFor(() => expect(s.stream.connects).toBe(1));
+  act(() => s.stream.send('venueMap', s.map()));
 }
 
 describe('live seat map (US3; FR-010)', () => {
   it("greys out another customer's reservation without a refresh", async () => {
-    const { stream } = setup();
-    await live(stream);
-    expect(seatButton(4)).not.toHaveAttribute('aria-disabled', 'true');
+    const s = setup();
+    await live(s);
+    expect(seatOf(1, 4)).not.toHaveAttribute('aria-disabled', 'true');
 
-    act(() => stream.send('seats', changes([4, 'reserved'])));
+    act(() => s.stream.send('seats', changes([4, 'reserved'])));
 
-    await waitFor(() => expect(seatButton(4)).toHaveAttribute('aria-disabled', 'true'));
-    act(() => stream.send('seats', changes([4, 'open'])));
-    await waitFor(() => expect(seatButton(4)).not.toHaveAttribute('aria-disabled', 'true'));
+    await waitFor(() => expect(seatOf(1, 4)).toHaveAttribute('aria-disabled', 'true'));
+    act(() => s.stream.send('seats', changes([4, 'open'])));
+    await waitFor(() => expect(seatOf(1, 4)).not.toHaveAttribute('aria-disabled', 'true'));
   });
 
   it('marks seats another customer reserves or buys while shown, and sends nothing for them (FR-011; spec 033 research R10)', async () => {
-    const { stream, calls } = setup();
-    await live(stream);
+    const s = setup();
+    await live(s);
 
-    act(() => stream.send('seats', changes([3, 'reserved'], [5, 'sold'])));
+    act(() => s.stream.send('seats', changes([3, 'reserved'], [5, 'sold'])));
 
-    await waitFor(() => expect(seatButton(3)).toHaveAttribute('aria-disabled', 'true'));
-    expect(seatButton(5)).toHaveAttribute('aria-disabled', 'true');
-    fireEvent.click(seatButton(3));
-    fireEvent.click(seatButton(5));
-    expect(calls.filter((c) => c.method === 'POST')).toEqual([]);
+    await waitFor(() => expect(seatOf(1, 3)).toHaveAttribute('aria-disabled', 'true'));
+    expect(seatOf(1, 5)).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(seatOf(1, 3));
+    fireEvent.click(seatOf(1, 5));
+    expect(s.calls.filter((c) => c.method === 'POST')).toEqual([]);
   });
 
   it('keeps focus on a focused seat that becomes unavailable, and ignores activating it (FR-012)', async () => {
-    const { stream, calls } = setup();
-    await live(stream);
-    seatButton(6).focus();
-    expect(seatButton(6)).toHaveFocus();
+    const s = setup();
+    await live(s);
+    seatOf(1, 6).focus();
+    expect(seatOf(1, 6)).toHaveFocus();
 
-    act(() => stream.send('seats', changes([6, 'sold'])));
+    act(() => s.stream.send('seats', changes([6, 'sold'])));
 
-    await waitFor(() => expect(seatButton(6)).toHaveAttribute('aria-disabled', 'true'));
-    expect(seatButton(6)).toHaveFocus();
-    expect(seatButton(6)).not.toBeDisabled();
-    fireEvent.click(seatButton(6));
-    expect(calls.filter((c) => c.method === 'POST')).toEqual([]);
+    await waitFor(() => expect(seatOf(1, 6)).toHaveAttribute('aria-disabled', 'true'));
+    expect(seatOf(1, 6)).toHaveFocus();
+    fireEvent.click(seatOf(1, 6));
+    expect(s.calls.filter((c) => c.method === 'POST')).toEqual([]);
   });
 
   it("reloads My reservations when a change touches the customer's own reserved seat", async () => {
     let lists = 0;
-    const { stream } = setup({
-      'GET /me/reservations': () => json(lists++ === 0 ? [reservation([2, 3])] : []),
-    });
+    const s = setup(
+      { 'GET /me/reservations': () => json(lists++ === 0 ? [reservation([2, 3])] : []) },
+      {
+        reserved: [
+          [1, 2],
+          [1, 3],
+        ],
+      },
+    );
     await screen.findByRole('timer');
-    await waitFor(() => expect(stream.connects).toBe(1));
-    act(() => stream.send('snapshot', seatMap()));
+    await waitFor(() => expect(s.stream.connects).toBe(1));
+    act(() => s.stream.send('venueMap', s.map()));
 
     // An admin change ended it: both seats are open again.
-    act(() => stream.send('seats', changes([2, 'open'], [3, 'open'])));
+    act(() => s.stream.send('seats', changes([2, 'open'], [3, 'open'])));
 
     await waitFor(() => expect(lists).toBeGreaterThanOrEqual(2));
     await waitFor(() => expect(screen.queryByRole('timer')).toBeNull());
@@ -140,30 +164,32 @@ describe('live seat map (US3; FR-010)', () => {
 
   it('shows a reservation made in another tab', async () => {
     let lists = 0;
-    const { stream } = setup({
+    const s = setup({
       'GET /me/reservations': () => json(lists++ === 0 ? [] : [reservation([4])]),
     });
-    await live(stream);
+    await live(s);
 
-    act(() => stream.send('seats', changes([4, 'reserved'])));
+    act(() => s.stream.send('seats', changes([4, 'reserved'])));
 
     expect(await screen.findByRole('timer')).toBeInTheDocument();
-    expect(seatButton(4)).toHaveAttribute('aria-pressed', 'true');
+    expect(seatOf(1, 4)).toHaveAttribute('aria-pressed', 'true');
   });
 
   it("keeps focus on a seat another customer took while this customer's hold of it was pending (spec 033 review M1)", async () => {
     let answer: (r: Response) => void = () => undefined;
-    const { stream } = setup({
+    const s = setup({
       'POST /events/e1/reservation': () => new Promise<Response>((r) => (answer = r)),
     });
-    await live(stream);
-    const seat = seatButton(4);
+    await live(s);
+    const seat = seatOf(1, 4);
     seat.focus();
     fireEvent.click(seat);
-    await waitFor(() => expect(seatButton(4)).toHaveAccessibleName('Row 1, Seat 4, holding'));
+    await waitFor(() =>
+      expect(seatOf(1, 4)).toHaveAccessibleName('Row 1, Seat 4, Standard, $40, holding'),
+    );
 
     // Another customer's hold of it arrives while this one is in flight.
-    act(() => stream.send('seats', changes([4, 'reserved'])));
+    act(() => s.stream.send('seats', changes([4, 'reserved'])));
     await act(async () =>
       answer(
         json(
@@ -180,102 +206,108 @@ describe('live seat map (US3; FR-010)', () => {
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Seat 4 is reserved');
-    await waitFor(() => expect(seatButton(4)).toHaveAccessibleName('Row 1, Seat 4, reserved'));
-    expect(seatButton(4)).toHaveAttribute('aria-disabled', 'true');
-    expect(seatButton(4)).not.toBeDisabled();
-    expect(seatButton(4)).toHaveFocus();
+    await waitFor(() =>
+      expect(seatOf(1, 4)).toHaveAccessibleName('Row 1, Seat 4, Standard, $40, held'),
+    );
+    expect(seatOf(1, 4)).toHaveAttribute('aria-disabled', 'true');
+    expect(seatOf(1, 4)).toHaveFocus();
   });
 
-  it('drops a seat map read that the stream changed while it was in flight (review round 3, S1)', async () => {
+  it('keeps a change the stream sent while a read of the map was in flight (review round 3, S1; spec 038 R12)', async () => {
     let reads = 0;
     let answer: (r: Response) => void = () => undefined;
-    const { stream } = setup({
-      'GET /events/e1/seats': () =>
-        reads++ === 0 ? json(seatMap()) : new Promise<Response>((r) => (answer = r)),
+    const older = seatedMap([sectionA()]).map;
+    const s = setup({
+      'GET /events/e1/venue-map': () =>
+        reads++ === 0 ? json(older) : new Promise<Response>((r) => (answer = r)),
       'POST /events/e1/reservation': () => {
         throw new TypeError('Failed to fetch');
       },
     });
-    await live(stream);
+    await live(s);
 
     // No answer to a hold: the map is read again.
-    fireEvent.click(seatButton(2));
+    fireEvent.click(seatOf(1, 2));
     expect(await screen.findByRole('alert')).toHaveTextContent(/didn.t go through/);
     await waitFor(() => expect(reads).toBe(2));
 
-    // The stream says seat 5 is now reserved, then the older read answers with it open.
-    act(() => stream.send('seats', changes([5, 'reserved'])));
-    await waitFor(() => expect(seatButton(5)).toHaveAttribute('aria-disabled', 'true'));
-    await act(async () => answer(json(seatMap())));
+    // The stream says seat 5 is now held, then the older read answers with it open.
+    act(() => s.stream.send('seats', changes([5, 'reserved'])));
+    await waitFor(() => expect(seatOf(1, 5)).toHaveAttribute('aria-disabled', 'true'));
+    await act(async () => answer(json(older)));
 
-    expect(seatButton(5)).toHaveAccessibleName('Row 1, Seat 5, reserved');
-    expect(seatButton(5)).toHaveAttribute('aria-disabled', 'true');
+    // The section is read again after that map, and the change is kept on it (by its seq).
+    await waitFor(() =>
+      expect(s.calls.filter((c) => c.path === '/events/e1/venue-map/sections/s-a').length).toBe(3),
+    );
+    await waitFor(() =>
+      expect(seatOf(1, 5)).toHaveAccessibleName('Row 1, Seat 5, Standard, $40, held'),
+    );
+    expect(seatOf(1, 5)).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('marks a seat a reconnect snapshot shows as taken, keeping it focusable (FR-011, T047)', async () => {
-    const { stream, calls } = setup();
-    await live(stream);
+  it('marks a seat a reconnect map shows as taken, reading the open section again (FR-011, T047)', async () => {
+    const s = setup();
+    await live(s);
+    const reads = () =>
+      s.calls.filter((c) => c.path === '/events/e1/venue-map/sections/s-a').length;
+    const before = reads();
 
-    const later = seatMap();
-    later.sections[0].reserved = [{ row: 1, seat: 3 }];
-    act(() => stream.send('snapshot', later));
+    s.now.fixture = sectionA({ reserved: [[1, 3]] });
+    s.now.seq = 9;
+    act(() => s.stream.send('venueMap', s.map()));
 
-    // It was open before, so it stays focusable (FR-012, review round 2).
-    await waitFor(() => expect(seatButton(3)).toHaveAttribute('aria-disabled', 'true'));
-    expect(seatButton(3)).not.toBeDisabled();
-    fireEvent.click(seatButton(3));
-    expect(calls.filter((c) => c.method === 'POST')).toEqual([]);
+    // It stays focusable, marked aria-disabled (FR-012, review round 2).
+    await waitFor(() => expect(seatOf(1, 3)).toHaveAttribute('aria-disabled', 'true'));
+    expect(reads()).toBe(before + 1);
+    fireEvent.click(seatOf(1, 3));
+    expect(s.calls.filter((c) => c.method === 'POST')).toEqual([]);
   });
 
-  it('loads the tiers again when a snapshot maps the sections to other tiers (FR-016, T046)', async () => {
-    const gen = tier({ id: 't-gen', name: 'General', price: '20.00', quantity: 6 });
-    let remapped = false;
-    let tierLoads = 0;
-    const { stream } = setup({
-      'GET /events/e1/tiers': () => {
-        tierLoads += 1;
-        return json(remapped ? [vip, gen] : [vip]);
+  // Spec 038 R12: replaces 015's tier remapping. A layout or price change ends the stream; the map
+  // after the reconnect has the new prices, and what is left is read again.
+  it('reads what is left again, and shows the new prices, after a later venue map', async () => {
+    let loads = 0;
+    const s = setup({
+      'GET /events/e1/availability': () => {
+        loads += 1;
+        return json(availability({ ticketsLeft: 6 }));
       },
-      'GET /events/e1/availability': () =>
-        json(
-          availability({
-            ticketsLeft: 6,
-            tiers: remapped
-              ? [
-                  { tierId: 't-vip', ticketsLeft: 0 },
-                  { tierId: 't-gen', ticketsLeft: 6 },
-                ]
-              : [{ tierId: 't-vip', ticketsLeft: 6 }],
-          }),
-        ),
     });
-    await live(stream);
-    // A reconnect with the same mapping loads nothing again.
-    act(() => stream.send('snapshot', seatMap()));
-    expect(tierLoads).toBe(1);
+    await live(s);
+    expect(screen.getByText('Standard $40')).toBeInTheDocument();
+    const first = loads;
 
-    remapped = true;
-    const later = seatMap();
-    later.sections[0].tierId = 't-gen';
-    act(() => stream.send('snapshot', later));
+    const repriced = s.map();
+    repriced.levels = [{ ...repriced.levels[0], price: '45.00' }];
+    repriced.seq = 5;
+    act(() => s.stream.send('venueMap', repriced));
 
-    expect(await screen.findByRole('radio', { name: 'General, $20.00, 6 left' })).toBeEnabled();
-    expect(tierLoads).toBe(2);
+    expect(await screen.findByText('Standard $45')).toBeInTheDocument();
+    await waitFor(() => expect(loads).toBe(first + 1));
   });
 
   it("never calls the customer's own reserved seats taken by someone else (review round 2)", async () => {
-    const { stream } = setup({ 'GET /me/reservations': json([reservation([2, 3])]) });
+    const s = setup(
+      { 'GET /me/reservations': json([reservation([2, 3])]) },
+      {
+        reserved: [
+          [1, 2],
+          [1, 3],
+        ],
+      },
+    );
     await screen.findByRole('timer');
-    await waitFor(() => expect(stream.connects).toBe(1));
-    const mine = seatMap();
-    mine.sections[0].reserved = [
-      { row: 1, seat: 2 },
-      { row: 1, seat: 3 },
-    ];
+    await openSection('A');
+    await waitFor(() => expect(s.stream.connects).toBe(1));
 
-    act(() => stream.send('snapshot', mine));
+    act(() => s.stream.send('venueMap', s.map()));
 
-    expect(seatButton(2)).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() =>
+      expect(seatOf(1, 2)).toHaveAccessibleName('Row 1, Seat 2, Standard, $40, held by you'),
+    );
+    expect(seatOf(1, 2)).toHaveAttribute('aria-pressed', 'true');
+    expect(seatOf(1, 3)).not.toHaveAttribute('aria-disabled');
     expect(screen.queryByText(/no longer available/)).toBeNull();
   });
 });

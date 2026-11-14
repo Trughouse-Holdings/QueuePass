@@ -1,7 +1,9 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.9.8 -> 3.10.0 (MINOR): a fourth front end, the Rust Admin app, is added, with the
-  widenings it needs; one roadmap row reserved.
+Version: 3.10.0 -> 3.11.0 (MINOR): a fourth front end, the Rust Admin app, is added, with the
+  widenings it needs; one roadmap row reserved. Written for 3.9.8 -> 3.10.0 in PR #164; renumbered
+  to 3.11.0 on 2026-11-14 because spec 038's amendment (3.9.9 reserving 038 and 039, then 3.10.0
+  for breaking contract removals, PR #166) merged first. Both changes and every row are kept.
 Problem: issue #163. John's requirement for the week of 2026-11-11: rewrite the Admin app in Rust,
   running at the same time as the current apps, visibly different (red), with every feature of the
   current Admin app. The stack table fixes TypeScript and React for every front end, Principle V
@@ -20,14 +22,16 @@ Changed:
   - Stack table: Language, Repository, Front ends, Identity, Front-end tests, Lint and format, and
     Continuous integration rows name the Rust Admin app's tools.
   - Security and Data Constraints: CORS allows the four front-end origins.
-  - Roadmap: row 037-rust-admin-app reserved. The next free number is 038.
+  - Roadmap: row 037-rust-admin-app reserved. The next free number stays 040 (038 and 039 are
+    reserved by spec 038's amendment).
 Impact: spec 037 (#163). No API, schema, or existing app behaviour changes. Merged specs whose
   text names three realms, origins, workspaces, apps, or the 235-account total get dated notes
   pointing here, in this PR: 001 (SC-002 account total), 011 (FR-005 six workspaces, and the CI
   steps gaining the Rust setup step), 022 (the e2e port list), 027 (one sign-in accent and line
   colour per app, now four), and 028 (FR-010 three app realms). The Customer app's Rust
   version (a separate spec) will need its own amendment row and realm decision. The README's
-  version reference follows. Templates: none need updating.
+  version reference follows. Spec 038 (merged first) retires the seating operations some of 037's
+  parity rows name; 037's seating rows follow 038 (038 research R22). Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -55,6 +59,14 @@ every front end and every team member builds against.
 
 - An endpoint MUST be added to or changed in the OpenAPI document, and that change reviewed and
   approved in a pull request, before any implementation of it is merged.
+- A change that would break `main`'s own Backend if merged ahead of its code (an operation or field
+  removed, a response field made required or nullable, a stream event dropped) MAY be approved in
+  the spec and plan PR and carried out by the implementation PR, only when the spec PR marks every
+  operation, field, and event it removes with `x-retired: '<feature>'` and commits the exact change
+  as a patch to the contract (`specs/NNN-name/contracts/step2.diff`). The implementation applies that
+  patch unchanged, in the change that stops serving what it removes, and leaves no
+  `x-retired: '<feature>'` marker behind. Anything else the implementation finds it must change in
+  the contract goes back to the spec PR.
 - Every endpoint in the document MUST declare its request shape, response shape, required role,
   and every error it can return.
 - The Backend MUST conform to the document, and automated tests MUST fail when a response does
@@ -352,7 +364,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `038`.
+number is a pull request against this table. The next free number is `040`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -393,6 +405,8 @@ number is a pull request against this table. The next free number is `038`.
 | `035-event-form-flow` | The Admin app's Schedule event and Edit event form in three sections (venue and times; tickets and seating; details: tickets per customer and pictures), showing only what the choices so far make relevant; each problem the form can see is shown beside its field as soon as it is wrong (on leaving the field, then as the admin types) and cleared when fixed, announced politely without flooding a screen reader; submit never sends a known problem and moves focus to the first field at fault; a live total of seats assigned per ticket type and overall against the venue's layout (or the event's total tickets) names exactly what is left; a Backend refusal is shown beside its field and focused, not in a banner at the top, and every value is kept; on edit, controls the Backend would refuse because tickets are sold are locked with the reason beside them; an edit of the event, its ticket types, and its seating is saved all or nothing through the existing update request, as scheduling already is (`031`); pictures still upload afterwards (#134) | `002`, `004`, `005`, `007`, `008`, `014`, `015`, `016`, `020`, `025`, `031` |
 | `036-event-form-times` | The Admin event form offers two ways to set doors open, one at a time: a length of time before the start (15-minute steps from 0 to 6 hours, 1 hour by default on a new event) with the resulting time shown, or a date and a time; switching keeps the same doors-open time; Starts, Ends, and Doors open in date-and-time mode each use a date control and a time control so the time cannot be overlooked in any browser; the form still sends the existing doors-open timestamp (#130, #128) | `020`, `025`, `035` |
 | `037-rust-admin-app` | A second Admin app written in Rust (`admin-rust-app/`, port 5176) running beside the unchanged Admin app, against the same API and data; its own realm `queuepass-admin-rust-app` with the same admin accounts and role, so signing in or out of one Admin app never touches the other; red on every screen, sign-in included, and named "QueuePass Admin (Rust)"; every behaviour of the Admin app on `main` when its implementation PR opens, checked item by item; every Admin browser journey runs against both; no API change (#163) | `001`, `002`, `004`, `005`, `007`, `013`, `014`, `015`, `016`, `020`, `021`, `023`, `024`, `025`, `028`, `030`, `031`, `032`, `035`, `036` |
+| `038-seat-maps` | Several named seating layouts per venue, each a map of sections placed in the building, labelled rows and seats, imported from a layout file or made from section lines; 1 to 12 price levels per layout by section, row or seat; a seated event uses one layout, sets a price per level and takes sections, rows or seats off sale, and has no ticket types; its capacity is its seats on sale; one hold and one order may mix levels, each ticket at its own price; the Customer app's venue map colored by price with a price filter, a zoom into a section and a Sections list for keyboard and screen readers; the Admin app's Layouts card, Seating section and live map by seat state; today's venues and seated events carried over to a "Standard" layout; the KFC Yum! Center's four layouts and four demo events in the reset (#165) | `007`, `015`, `016`, `017`, `023`, `029`, `031`, `033`, `034`, `035` |
+| `039-layout-editor` | The Admin app's layout editor: a block generator for sections of rows and seats, drag and rotate sections, paint price levels by section, row or seat, duplicate and edit layouts nobody has bought from | `038` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -404,7 +418,8 @@ and the root `package.json`) needs approval from every team member in its pull r
    independent Claude review before its pull request is opened.
 2. **Contract before code.** Per Principle I, any API change is written into
    `contracts/openapi.yaml` in the spec and plan PR, before it is implemented, and merged before
-   its implementation is merged.
+   its implementation is merged; a breaking removal is written there as an `x-retired` marker and
+   committed as the exact patch the implementation applies (Principle I).
 3. **Tests precede implementation.** Per Principle VI.
 4. **Green gate.** The full suite MUST pass, locally and in CI, and every workspace MUST meet the
    80% line coverage floor before a pull request is merged (Principle VI). A failing test is
@@ -445,4 +460,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.10.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-11
+**Version**: 3.11.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-14

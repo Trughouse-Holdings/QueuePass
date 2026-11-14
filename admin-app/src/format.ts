@@ -22,9 +22,12 @@ export const when = (iso: string, timeZone?: string | null): string =>
 export const until = (start: string, end: string, timeZone?: string | null): string =>
   formatEventEnd(start, end, timeZone || DEFAULT_TIME_ZONE);
 
-/** A seat as admins and customers read it (spec 007 FR-011): "Section A, Row 3, Seat 7". */
-export const seatLabel = (s: { section: string; row: number; seat: number }): string =>
-  `Section ${s.section}, Row ${s.row}, Seat ${s.seat}`;
+/**
+ * A seat as admins and customers read it (spec 007 FR-011), by its labels as sold (spec 038
+ * FR-026): "Section 115, Row F, Seat 7".
+ */
+export const seatLabel = (s: { section: string; rowLabel: string; seatLabel: string }): string =>
+  `Section ${s.section}, Row ${s.rowLabel}, Seat ${s.seatLabel}`;
 
 /** Spec 020 research R14: how a venue's zone was set, in words. */
 export const SOURCE_TEXT: Record<TimeZoneSource, string> = {

@@ -22,7 +22,6 @@ const CENTRAL = {
   timeZone: 'America/Chicago',
   timeZoneSource: 'ADMIN',
 };
-const NO_LAYOUT = { locationId: CENTRAL.id, totalSeats: 0, sections: [] };
 const TIER = {
   id: 't1',
   eventId: EVENT.id,
@@ -36,7 +35,6 @@ const TIER = {
 function newForm(post: () => Response = () => json({ ...EVENT, locationId: CENTRAL.id }, 201)) {
   const api = stubApi({
     'GET /locations': json([CENTRAL]),
-    [`GET /locations/${CENTRAL.id}/layout`]: json(NO_LAYOUT),
     // Spec 031 FR-008: the ticket types go in the one POST /events.
     'POST /events': post,
   });
@@ -67,11 +65,6 @@ function editForm() {
     'GET /locations': json([CENTRAL]),
     [`GET /events/${EVENT.id}`]: json(STORED),
     [`GET /events/${EVENT.id}/tiers`]: json([TIER]),
-    [`GET /events/${EVENT.id}/seats`]: json({
-      eventId: EVENT.id,
-      reservedSeating: false,
-      sections: [],
-    }),
     [`PATCH /events/${EVENT.id}`]: json(STORED),
   });
   render(
@@ -334,11 +327,6 @@ describe('following, the remaining cases (T035)', () => {
       'GET /locations': json([CENTRAL]),
       [`GET /events/${EVENT.id}`]: json(old),
       [`GET /events/${EVENT.id}/tiers`]: json([TIER]),
-      [`GET /events/${EVENT.id}/seats`]: json({
-        eventId: EVENT.id,
-        reservedSeating: false,
-        sections: [],
-      }),
     });
     render(
       <MemoryRouter initialEntries={[`/events/${EVENT.id}/edit`]}>
@@ -364,11 +352,6 @@ function editWith(doorsOpenAt: string) {
     'GET /locations': json([CENTRAL]),
     [`GET /events/${EVENT.id}`]: json(stored),
     [`GET /events/${EVENT.id}/tiers`]: json([TIER]),
-    [`GET /events/${EVENT.id}/seats`]: json({
-      eventId: EVENT.id,
-      reservedSeating: false,
-      sections: [],
-    }),
     [`PATCH /events/${EVENT.id}`]: json(stored),
   });
   render(

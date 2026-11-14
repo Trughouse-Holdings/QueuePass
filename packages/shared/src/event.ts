@@ -36,8 +36,15 @@ export interface Event {
   /** Spec 005: a cancelled event stays on record but is read-only. */
   status: EventStatus;
   cancelledAt: string | null;
-  /** Spec 007: whether customers choose seats. */
+  /** Spec 007: whether customers choose seats. Spec 038: `true` exactly when `layoutId` is set. */
   reservedSeating: boolean;
+  /**
+   * Spec 038 (FR-010): the venue layout the event's seats come from; `null` for general admission.
+   * Required in contract 2.0.0; optional here, as `images`, so older fixtures still type-check.
+   */
+  layoutId?: string | null;
+  /** Spec 038 (FR-024, research R9): a seated event's highest on-sale level price; `null` for GA. */
+  priceMax?: string | null;
   /**
    * Spec 014: the event's images in order, metadata only; `[]` when there are none. Always sent by
    * the Backend, but optional in the contract (research R8), so clients treat missing as empty.

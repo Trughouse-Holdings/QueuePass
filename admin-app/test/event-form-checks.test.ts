@@ -1,6 +1,7 @@
 /**
  * Spec 035 T005 (FR-003 to FR-009, research R3, R6): preview errors appear and clear; seat
- * totals name what is left, and general admission over capacity is a problem.
+ * totals name what is left, and general admission over capacity is a problem. Spec 038 (FR-011,
+ * FR-014): a seated event's on-sale levels need prices, and its seats on sale are its capacity.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -25,10 +26,9 @@ const base = (over: Partial<PreviewInput> = {}): PreviewInput => ({
   occurrence: { startsAt: '', endsAt: '', doorsOpenAt: '' },
   typesLoaded: true,
   types: [{ name: 'Floor', price: '80.00', quantity: '80' }],
-  reserved: false,
+  seating: null,
   totalTicketCapacity: '100',
   venueCapacity: 100,
-  layoutSeats: null,
   maxPerCustomer: '',
   ...over,
 });
@@ -84,64 +84,62 @@ describe('previewErrors', () => {
   });
 });
 
-describe('seatTotals', () => {
-  const sections = [
-    { id: 's-front', name: 'Front', rows: 1, seatsPerRow: 10 },
-    { id: 's-middle', name: 'Middle', rows: 1, seatsPerRow: 10 },
-    { id: 's-back', name: 'Back', rows: 1, seatsPerRow: 10 },
-  ];
-
-  it('counts a reserved layout as 20 of 30, then all 30 assigned', () => {
-    const partial = seatTotals({
-      reserved: true,
-      types: [
-        { name: 'Front', price: '120.00', quantity: '' },
-        { name: 'Standard', price: '70.00', quantity: '' },
-      ],
-      sections,
-      sectionType: { 's-front': '0', 's-middle': '1', 's-back': '' },
-      totalTicketCapacity: '',
-      venueCapacity: 30,
-      layoutSeats: 30,
-    });
-    expect(partial.assigned).toBe(20);
-    expect(partial.total).toBe(30);
-    expect(partial.summary).toBe('20 of 30 seats assigned');
-    expect(partial.leftoverSentence).toBe('10 seats not assigned to a ticket type');
-
-    const full = seatTotals({
-      reserved: true,
-      types: [
-        { name: 'Front', price: '120.00', quantity: '' },
-        { name: 'Standard', price: '70.00', quantity: '' },
-      ],
-      sections,
-      sectionType: { 's-front': '0', 's-middle': '1', 's-back': '1' },
-      totalTicketCapacity: '',
-      venueCapacity: 30,
-      layoutSeats: 30,
-    });
-    expect(full.assigned).toBe(30);
-    expect(full.leftoverSentence).toBe('All 30 seats are assigned.');
+describe('previewErrors for a seated event (038)', () => {
+  const seating = (over: Partial<NonNullable<PreviewInput['seating']>> = {}) => ({
+    seatsOnSale: 60,
+    levels: [
+      { id: 'l-front', name: 'Front', onSale: 30, price: '95.00' },
+      { id: 'l-back', name: 'Back', onSale: 30, price: '' },
+      { id: 'l-upper', name: 'Upper', onSale: 0, price: '' },
+    ],
+    ...over,
   });
 
+  it('asks a price of each level with seats on sale only, and checks its form', () => {
+    const errors = previewErrors(base({ seating: seating() }));
+    expect(errors.get('levelPrices.l-back')).toBe('Give Back a price.');
+    expect(errors.has('levelPrices.l-front')).toBe(false);
+    expect(errors.has('levelPrices.l-upper')).toBe(false);
+    const bad = previewErrors(
+      base({
+        seating: seating({
+          levels: [{ id: 'l-front', name: 'Front', onSale: 60, price: '9.999' }],
+        }),
+      }),
+    );
+    expect(bad.get('levelPrices.l-front')).toBe(MSG.badPrice);
+  });
+
+  it('checks no ticket type, refuses no seat on sale, and limits per customer to the seats on sale', () => {
+    const errors = previewErrors(
+      base({
+        types: [{ name: '', price: '', quantity: '' }],
+        seating: seating({ seatsOnSale: 0, levels: [] }),
+        maxPerCustomer: '1',
+      }),
+    );
+    expect([...errors.keys()].filter((k) => k.startsWith('tiers'))).toEqual([]);
+    expect(errors.get('offSale')).toBe(MSG.noSeatOnSale);
+    expect(errors.get('maxTicketsPerCustomer')).toMatch(/from 1 to 0/);
+    const limit = previewErrors(base({ seating: seating(), maxPerCustomer: '61' }));
+    expect(limit.get('maxTicketsPerCustomer')).toMatch(/from 1 to 60/);
+  });
+});
+
+describe('seatTotals', () => {
   it('counts general admission 80 of 100 with 20 left, and names seats over capacity', () => {
     const under = seatTotals({
-      reserved: false,
       types: [{ name: 'Floor', price: '80.00', quantity: '80' }],
       totalTicketCapacity: '100',
       venueCapacity: 100,
-      layoutSeats: null,
     });
     expect(under.summary).toBe('80 of 100 seats assigned');
     expect(under.leftoverSentence).toBe('20 seats not assigned to a ticket type');
 
     const over = seatTotals({
-      reserved: false,
       types: [{ name: 'Floor', price: '80.00', quantity: '112' }],
       totalTicketCapacity: '100',
       venueCapacity: 100,
-      layoutSeats: null,
     });
     expect(over.over).toBe(12);
     expect(over.leftoverSentence).toBe("12 seats over the event's capacity");

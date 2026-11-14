@@ -18,6 +18,15 @@
     "y": 38.1953
   },
   {
+    "street": "1 Arena Plaza",
+    "city": "Louisville",
+    "state": "KY",
+    "zip": "40202",
+    "matchedAddress": "1 ARENA PLZ, LOUISVILLE, KY, 40202",
+    "x": -85.7539,
+    "y": 38.2575
+  },
+  {
     "street": "1 Arena Plz",
     "city": "Louisville",
     "state": "KY",

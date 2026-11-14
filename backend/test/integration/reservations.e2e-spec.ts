@@ -8,8 +8,10 @@ import {
   event,
   HOLDER,
   holdSeats,
-  tier,
+  seatedEvent,
+  seatedLayout,
   venue,
+  type InsertedLayout,
 } from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
@@ -19,11 +21,13 @@ import { AGENT, ADMIN, subFor, tokenFor } from '../setup/tokens';
  * Spec 015 US1 (FR-001–FR-003, FR-007, FR-008, FR-015; research R5, R8): reserving, adding to,
  * releasing, and listing reservations. Every response is checked against the contract by the
  * request helpers (`reserveSeats`, `releaseSeats`, `listMyReservations`,
- * `releaseAllMyReservations`).
+ * `releaseAllMyReservations`). Spec 038 (research R10): on a layout with price levels; a
+ * reservation has no ticket type, and each seat says its labels, level and current price.
  */
 describe('Seat reservations', () => {
   let ctx: TestContext;
   let venueId: string;
+  let layout: InsertedLayout;
   let sectionA: string;
   let sectionB: string;
   let sectionC: string;
@@ -37,17 +41,17 @@ describe('Seat reservations', () => {
   beforeEach(async () => {
     await resetDb(ctx.prisma);
     venueId = await venue(ctx, 'Seat Hall');
-    const layout = await asAdmin(ctx)
-      .put(`/locations/${venueId}/layout`)
-      .send({
-        sections: [
-          { name: 'A', rows: 3, seatsPerRow: 10 },
-          { name: 'B', rows: 2, seatsPerRow: 20 },
-          { name: 'C', rows: 1, seatsPerRow: 5 },
-        ],
-      })
-      .expect(200);
-    [sectionA, sectionB, sectionC] = layout.body.sections.map((s: { id: string }) => s.id);
+    layout = await seatedLayout(
+      ctx,
+      venueId,
+      [
+        { name: 'A', rows: 3, seatsPerRow: 10, level: 'VIP' },
+        { name: 'B', rows: 2, seatsPerRow: 20, level: 'General' },
+        { name: 'C', rows: 1, seatsPerRow: 5, level: 'Upper' },
+      ],
+      ['VIP', 'General', 'Upper'],
+    );
+    ({ A: sectionA, B: sectionB, C: sectionC } = layout.sections);
   });
 
   const code = (res: Response): string => res.body.error?.code;
@@ -61,48 +65,56 @@ describe('Seat reservations', () => {
   const liveHolds = (eventId: string) =>
     ctx.prisma.seatHold.count({ where: { eventId, releasedAt: null } });
 
-  /** A seated event: VIP in A, General in B, C not for sale. */
+  /** A seated event: VIP $120 in A, General $40 in B, C (Upper) off sale. */
   const tiered = async (
     opts: { maxTicketsPerCustomer?: number; startsAt?: string; endsAt?: string } = {},
-  ) => {
-    const eventId = await event(ctx, venueId, { capacity: 75, ...opts });
-    const vip = await tier(ctx, eventId, 'VIP', '120.00', 30);
-    const general = await tier(ctx, eventId, 'General', '40.00', 40);
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({
-        reservedSeating: true,
-        sections: [
-          { sectionId: sectionA, tierId: vip },
-          { sectionId: sectionB, tierId: general },
+  ) =>
+    seatedEvent(ctx, venueId, {
+      layout,
+      levels: [
+        { name: 'VIP', price: '120.00' },
+        { name: 'General', price: '40.00' },
+        { name: 'Upper', price: null },
+      ],
+      offSale: [{ section: 'C' }],
+      ...opts,
+    });
+
+  /** A seated event with every section on sale, Upper (C) at $25. */
+  const tierless = async () =>
+    (
+      await seatedEvent(ctx, venueId, {
+        layout,
+        levels: [
+          { name: 'VIP', price: '120.00' },
+          { name: 'General', price: '40.00' },
+          { name: 'Upper', price: '25.00' },
         ],
       })
-      .expect(200);
-    return { eventId, vip, general };
-  };
+    ).eventId;
 
-  /** A seated event without tiers: every section is for sale at the base price. */
-  const tierless = async () => {
-    const eventId = await event(ctx, venueId, { capacity: 75 });
-    await asAdmin(ctx)
-      .put(`/events/${eventId}/seating`)
-      .send({ reservedSeating: true, sections: [] })
-      .expect(200);
-    return eventId;
-  };
+  /** A seat as `Reservation.seats` gives it (spec 038: lines label rows and seats by number). */
+  const LEVELS = { A: ['VIP', '120.00'], B: ['General', '40.00'], C: ['Upper', '25.00'] } as const;
+  const reserved = (section: 'A' | 'B' | 'C', row: number, s: number) => ({
+    sectionId: layout.sections[section],
+    section,
+    row,
+    seat: s,
+    rowLabel: String(row),
+    seatLabel: String(s),
+    levelName: LEVELS[section][0],
+    price: LEVELS[section][1],
+  });
 
   describe('reserveSeats', () => {
     it('makes a reservation that ends exactly 5 minutes after it was made (201)', async () => {
-      const { eventId, vip } = await tiered();
+      const { eventId } = await tiered();
 
       const res = await reserve(eventId, [seat(sectionA, 1, 6), seat(sectionA, 1, 5)]);
 
       expect(res.status).toBe(201);
-      expect(res.body).toMatchObject({ eventId, tierId: vip });
-      expect(res.body.seats).toEqual([
-        { sectionId: sectionA, section: 'A', row: 1, seat: 5 },
-        { sectionId: sectionA, section: 'A', row: 1, seat: 6 },
-      ]);
+      expect(res.body).toMatchObject({ eventId, tierId: null });
+      expect(res.body.seats).toEqual([reserved('A', 1, 5), reserved('A', 1, 6)]);
       const created = Date.parse(res.body.createdAt);
       expect(Date.parse(res.body.expiresAt) - created).toBe(5 * 60_000);
       expect(res.body.secondsLeft).toBeGreaterThanOrEqual(299);
@@ -110,14 +122,14 @@ describe('Seat reservations', () => {
       expect(await liveHolds(eventId)).toBe(2);
     });
 
-    it('takes its tier from the seats: null for an event without tiers', async () => {
+    it('has no ticket type (tierId null), holding seats of several levels', async () => {
       const eventId = await tierless();
 
       const res = await reserve(eventId, [seat(sectionC, 1, 1), seat(sectionA, 2, 2)]);
 
       expect(res.status).toBe(201);
       expect(res.body.tierId).toBeNull();
-      expect(res.body.seats).toHaveLength(2);
+      expect(res.body.seats).toEqual([reserved('A', 2, 2), reserved('C', 1, 1)]);
     });
 
     it('adds seats to the active reservation with 200, keeping its expiresAt', async () => {
@@ -146,10 +158,6 @@ describe('Seat reservations', () => {
         // Outside the layout.
         [eventId, [seat(sectionA, 1, 1), seat(sectionA, 4, 1)]],
         [eventId, [seat(sectionA, 1, 1), seat(sectionA, 1, 11)]],
-        // A section not for sale.
-        [eventId, [seat(sectionA, 1, 1), seat(sectionC, 1, 1)]],
-        // Two tiers.
-        [eventId, [seat(sectionA, 1, 1), seat(sectionB, 1, 1)]],
         // Repeated.
         [eventId, [seat(sectionA, 1, 1), seat(sectionA, 1, 1)]],
         // More than 10 in one request.
@@ -169,14 +177,25 @@ describe('Seat reservations', () => {
       expect(await ctx.prisma.seatReservation.count()).toBe(0);
     });
 
-    it('refuses additions of another tier, already reserved, or past 10 seats in total', async () => {
+    it('refuses a seat off sale with 409 SEAT_OFF_SALE and reserves nothing (spec 038)', async () => {
+      const { eventId } = await tiered();
+
+      const res = await reserve(eventId, [seat(sectionA, 1, 1), seat(sectionC, 1, 1)]);
+
+      expect(res.status).toBe(409);
+      expect(code(res)).toBe('SEAT_OFF_SALE');
+      expect(res.body.error.details.seats).toEqual([seat(sectionC, 1, 1)]);
+      expect(await ctx.prisma.seatHold.count()).toBe(0);
+      expect(await ctx.prisma.seatReservation.count()).toBe(0);
+    });
+
+    it('refuses additions already reserved, or past 10 seats in total', async () => {
       const { eventId } = await tiered();
       await reserve(eventId, [seat(sectionA, 1, 1), seat(sectionA, 1, 2)]).then((r) =>
         expect(r.status).toBe(201),
       );
 
       const cases: object[][] = [
-        [seat(sectionB, 1, 1)],
         [seat(sectionA, 3, 3), seat(sectionA, 1, 2)],
         Array.from({ length: 9 }, (_, i) => seat(sectionA, 2, i + 1)),
       ];
@@ -258,14 +277,14 @@ describe('Seat reservations', () => {
     });
 
     it('is 409 TICKET_LIMIT_REACHED past the limit, counting valid tickets only', async () => {
-      const { eventId, vip } = await tiered({ maxTicketsPerCustomer: 3 });
+      const { eventId } = await tiered({ maxTicketsPerCustomer: 3 });
       // One ticket bought.
       await reserve(eventId, [seat(sectionA, 3, 1)]).then((r) => expect(r.status).toBe(201));
       await (
         await customer(ctx)
       )
         .post(`/events/${eventId}/orders`)
-        .send({ holderName: HOLDER, tierId: vip, quantity: 1, seats: [seat(sectionA, 3, 1)] })
+        .send({ holderName: HOLDER, quantity: 1, seats: [seat(sectionA, 3, 1)] })
         .expect(201);
 
       const over = await reserve(eventId, [
@@ -310,9 +329,7 @@ describe('Seat reservations', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.reservation.expiresAt).toBe(made.body.expiresAt);
-      expect(res.body.reservation.seats).toEqual([
-        { sectionId: sectionA, section: 'A', row: 1, seat: 2 },
-      ]);
+      expect(res.body.reservation.seats).toEqual([reserved('A', 1, 2)]);
       const ended = await ctx.prisma.seatHold.findFirstOrThrow({
         where: { eventId, seatRow: 1, seatNumber: 1 },
       });
@@ -465,7 +482,7 @@ describe('Seat reservations', () => {
       await holdSeats(ctx.prisma, {
         eventId: runOut,
         customerSub: subFor('customer1'),
-        seats: [{ section: 'A', row: 1, seat: 1 }],
+        seats: [{ section: 'A', row: 1, seat: 1, seatId: layout.seat('A', 1, 1) }],
         secondsAgo: 5 * 60,
       });
 
@@ -475,10 +492,7 @@ describe('Seat reservations', () => {
         second.eventId,
         first.eventId,
       ]);
-      expect(res.body[0].seats).toEqual([
-        { sectionId: sectionB, section: 'B', row: 2, seat: 1 },
-        { sectionId: sectionB, section: 'B', row: 2, seat: 2 },
-      ]);
+      expect(res.body[0].seats).toEqual([reserved('B', 2, 1), reserved('B', 2, 2)]);
       expect(res.body[0].secondsLeft).toBeGreaterThan(290);
     });
 

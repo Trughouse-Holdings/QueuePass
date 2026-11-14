@@ -1,25 +1,49 @@
 import { describe, it, expect } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { useState } from 'react';
-import { SectionLines, type SectionLine } from '../src/components/SectionLines';
+import {
+  SectionLines,
+  toLinesInput,
+  type LevelLine,
+  type SectionLine,
+} from '../src/components/SectionLines';
 
 /**
  * Spec 024 US3 (FR-018 to FR-022; research R8): each section line has visible labels "Section
  * name", "Rows" × "Seats per row", its seat count, and names built from its legend and labels;
- * one hint above the lines says what a section is.
+ * one hint above the lines says what a section is. Spec 038 FR-005 (research R15): a levels list
+ * (name and color, most desirable first) and a "Price level" column on every line.
  */
 const HINT =
   'A section is a grid of seats: rows run front to back, and every row has the same number of seats across.';
 
-function Lines({ start }: { start: SectionLine[] }): React.ReactElement {
+const LEVELS: LevelLine[] = [
+  { name: 'Front', color: 'violet' },
+  { name: 'Back', color: 'teal' },
+];
+
+function Lines({
+  start,
+  levels: startLevels = LEVELS,
+  onLines,
+}: {
+  start: SectionLine[];
+  levels?: LevelLine[];
+  onLines?: (levels: LevelLine[], lines: SectionLine[]) => void;
+}): React.ReactElement {
   const [lines, setLines] = useState(start);
-  return <SectionLines lines={lines} onChange={setLines} />;
+  const [levels, setLevels] = useState(startLevels);
+  onLines?.(levels, lines);
+  return (
+    <SectionLines levels={levels} onLevelsChange={setLevels} lines={lines} onChange={setLines} />
+  );
 }
 
-const line = (name: string, rows: string, seatsPerRow: string): SectionLine => ({
+const line = (name: string, rows: string, seatsPerRow: string, level = 'Front'): SectionLine => ({
   name,
   rows,
   seatsPerRow,
+  level,
 });
 const group = (n: number) => screen.getByRole('group', { name: `Section ${n}` });
 const box = (n: number, label: 'Rows' | 'Seats per row') =>
@@ -59,7 +83,9 @@ describe('SectionLines (spec 024 US3)', () => {
     expect(rows).toHaveAttribute('max', '100');
     expect(seats).toHaveAttribute('min', '1');
     expect(seats).toHaveAttribute('max', '200');
-    for (const el of [screen.getByRole('textbox'), rows, seats]) {
+    const name = screen.getByRole('textbox', { name: 'Section 1 Section name' });
+    const level = screen.getByRole('combobox', { name: 'Section 1 Price level' });
+    for (const el of [name, rows, seats, level]) {
       expect(el).not.toHaveAttribute('aria-label');
     }
   });
@@ -89,5 +115,56 @@ describe('SectionLines (spec 024 US3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
     expect(screen.getByRole('textbox', { name: 'Section 2 Section name' })).toHaveValue('');
     expect(within(group(2)).getByText('= 1 seat')).toBeInTheDocument();
+  });
+
+  it("gives every line a Price level select of the levels, by name, the line's level chosen", () => {
+    render(<Lines start={[line('Floor', '10', '20', 'Back')]} />);
+    const select = screen.getByRole('combobox', { name: 'Section 1 Price level' });
+    expect(select).toHaveValue('Back');
+    expect(
+      within(select)
+        .getAllByRole('option')
+        .map((o) => o.textContent),
+    ).toEqual(['Front', 'Back']);
+    expect(within(group(1)).getByText('Price level')).toBeInTheDocument();
+  });
+
+  it('lists the levels, most desirable first, each with a name and one of the 12 colors', () => {
+    render(<Lines start={[]} />);
+    expect(screen.getByRole('textbox', { name: 'Level 1 Level name' })).toHaveValue('Front');
+    const color = screen.getByRole('combobox', { name: 'Level 2 Color' });
+    expect(color).toHaveValue('teal');
+    expect(within(color).getAllByRole('option')).toHaveLength(12);
+    fireEvent.click(screen.getByRole('button', { name: 'Add level' }));
+    expect(screen.getByRole('textbox', { name: 'Level 3 Level name' })).toHaveValue('');
+    fireEvent.click(screen.getByRole('button', { name: 'Remove level 1' }));
+    expect(screen.getByRole('textbox', { name: 'Level 1 Level name' })).toHaveValue('Back');
+  });
+
+  it('renames a level in every line that uses it, and adds a line in the first level', () => {
+    let seen: SectionLine[] = [];
+    render(
+      <Lines
+        start={[line('Floor', '10', '20', 'Front'), line('Balcony', '5', '10', 'Back')]}
+        onLines={(_levels, lines) => (seen = lines)}
+      />,
+    );
+    set(screen.getByRole('textbox', { name: 'Level 1 Level name' }), 'Courtside');
+    expect(screen.getByRole('combobox', { name: 'Section 1 Price level' })).toHaveValue(
+      'Courtside',
+    );
+    expect(seen.map((l) => l.level)).toEqual(['Courtside', 'Back']);
+    fireEvent.click(screen.getByRole('button', { name: 'Add section' }));
+    expect(screen.getByRole('combobox', { name: 'Section 3 Price level' })).toHaveValue(
+      'Courtside',
+    );
+  });
+
+  it('makes the request: names trimmed, numbers as numbers, levels in order', () => {
+    expect(toLinesInput(' Club room ', LEVELS, [line(' Floor A ', '10', '20', 'Front')])).toEqual({
+      name: 'Club room',
+      levels: LEVELS,
+      sections: [{ name: 'Floor A', rows: 10, seatsPerRow: 20, level: 'Front' }],
+    });
   });
 });

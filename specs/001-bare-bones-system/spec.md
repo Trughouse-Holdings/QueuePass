@@ -286,7 +286,7 @@ token lacking that role and confirm it is refused as unauthorized.
   still exactly 235 after seeding runs again.
 
 > **Note (2026-11-11, spec `037`)**: A fourth realm, `queuepass-admin-rust-app`, holds its own
-> `admin1`–`admin5` for the Rust Admin app (Constitution 3.10.0), so the seed's total is 240.
+> `admin1`–`admin5` for the Rust Admin app (Constitution 3.11.0), so the seed's total is 240.
 - **SC-003**: For each of the three front ends, a user goes from opening the app, through sign-in,
   to the hello-world page, and back out via logout in under 1 minute.
 - **SC-004**: 100% of visits to any front-end page while signed out reach the login page, and none

@@ -40,7 +40,7 @@ test in `core`), or **M** (checked by hand, with the date).
 | V3 | Save: verified when the address service matches; otherwise saved as typed and marked not verified, also when the service is down; one step | 013, 024 | `pages/LocationForm.tsx` |
 | V4 | Backend refusals beside their field; every value kept | 002, IV | same |
 | V5 | Venue page: address with Google Maps link, "Not verified" note with "Edit the venue to verify it", time zone, capacity, seating layout card, Events here (Event, Starts, Ends) with past events hidden and the toggle, "Nothing is scheduled here." | 002, 007, 013, 020, 030 | `pages/LocationDetail.tsx`, `address-link.tsx` |
-| V6 | Change the seating layout from the venue page (Section, Size, Seats); "Could not change the layout" with the reason | 007, 024 | `components/LayoutCard.tsx` |
+| V6 | Layouts card on the venue page: each layout with its seats, sections and levels and the events using it; Import layout file (each problem listed with where it is, nothing saved), New layout from section lines (levels and lines, total seats), Rename, Edit lines, Duplicate, Delete, refused with the reason while locked or in use; a preview of the map; the venue's capacity read-only while it has layouts | 038 | `components/LayoutsCard.tsx`, `components/SectionLines.tsx`, shared `web/venue-map/layout-preview.tsx` |
 | V7 | Delete venue with confirmation; "Could not delete" with the reason; "This venue no longer exists." | 002 | `pages/LocationDetail.tsx`, `hooks/use-delete.ts` |
 
 ## Events
@@ -49,7 +49,7 @@ test in `core`), or **M** (checked by hand, with the date).
 |---|---|---|---|
 | E1 | Event list: Event, Venue, Date, Time (venue time zone), Base price, Tickets; filters: name, venue (All venues), From/To dates ("From must be on or before To."); Show past events toggle, past events marked Ended; cancelled marked; empty states ("No events scheduled", "No events match these filters.", "Past events are hidden.") | 002, 004, 020, 030 | `pages/EventList.tsx` |
 | E2 | Event form, section Venue and times: venue (Select a venue…), event name, Starts and Ends each a date control and a time control in the venue's time zone; a new event starts today at the next whole hour and ends 4 hours later; doors open as How long before the start (15-minute steps, 0–6 h, default 1 h) or as a date and a time, one at a time, switching keeps the instant; skipped and repeated local times handled | 020, 025, 035, 036 | `pages/EventForm.tsx`, `pages/DateTimeFields.tsx`, `pages/event-form-times.ts` |
-| E3 | Section Tickets and seating: total tickets or reserved seating; ticket types (name, price, quantity; add and remove); each venue section mapped to a ticket type or Not for sale; live total of seats assigned per type and overall against the layout | 004, 007, 031, 035 | `pages/EventForm.tsx` |
+| E3 | Section Tickets and seating: Seating is General admission or one of the venue's layouts; general admission keeps total tickets and ticket types (name, price, quantity; add and remove) with live totals; a layout shows its preview, a price per level, and the off-sale tool (sections, row ranges, single seats) with the seats on sale and off sale counted; refusals (an unpriced level, a sold or held seat taken off sale) beside their fields | 004, 031, 035, 038 | `pages/EventForm.tsx`, `components/SeatingSection.tsx`, `components/TierSection.tsx` |
 | E4 | Section Details: tickets per customer (No limit or a number); images (Add images, up to 5, reorder earlier and later, remove) | 014, 016, 035 | `components/ImagesField.tsx` |
 | E4b | Picture checks before upload, per file with its own note: type sniffed from the file's bytes (`readImageHeader`), the size limit, and the pixel limits | 014 | `components/ImagesField.tsx`, `packages/shared/src/event-image.ts` |
 | E4c | Base price format (`BASE_PRICE_PATTERN`) and the doors-open helpers | 002, 025 | `packages/shared/src/event.ts` |
@@ -60,9 +60,14 @@ test in `core`), or **M** (checked by hand, with the date).
 | E9 | Event page: venue, times with zone, doors open, base price, per-customer limit, status (Cancelled, Ended), image gallery that rotates every `GALLERY_INTERVAL_MS` with its pause control, and the full-size image viewer | 002, 014, 016, 020, 025, 030 | `pages/EventDetail.tsx`, `image-gallery.tsx`, `image-viewer.tsx`, `use-gallery-rotation.ts` |
 | E10 | Ticket tiers card: list, add a tier, edit name, price, quantity; "Could not save the tier" with the reason | 004 | `components/TierSection.tsx` |
 | E11 | Sales card: per tier Sold and Revenue | 005 | `components/SalesCard.tsx` |
-| E12 | Seating card: each section's tier or Not for sale, Save seating, "Could not change seating", "Seating is unavailable right now." | 007 | `components/SeatingCard.tsx` |
-| E13 | Seat map: each seat "Row r, Seat s" with sold, held, or open told apart without color alone; updates live from the seat stream (reconnects at token expiry) | 007, 015 | `components/SeatGrid.tsx`, `seat-stream.ts` |
+| E12 | Retired by 038: the event page has no Seating card. A seated event's layout, prices and off-sale seats change in the event form (E3), locked with the reason once seats are sold or held (E8) | 038 | `components/SeatingSection.tsx` (`lockedReason`) |
+| E13 | Event's live seat map: the venue map with each section colored by its seats' states (some open, held, sold out, off sale) and a legend with counts; zoom into a section; each seat named "Row r, Seat s" with its state told apart without color alone; updates live from the seat stream by sequence number (reconnects at token expiry) | 015, 038 | `components/EventSeatMap.tsx`, shared `web/venue-map/`, `use-seat-stream.ts` |
 | E14 | Cancel event with confirmation ("Could not cancel"), delete event with confirmation ("Could not delete"), "This event no longer exists." | 002, 005 | `pages/EventDetail.tsx` |
+
+> **2026-11-14** (038 research R22): spec 038 (seat maps, PRs #166 and #167) merged before this
+> spec, so V6, E3, E12 and E13 now port 038's screens instead of the retired section-to-ticket-type
+> seating, and the browser journeys run against both apps follow 038's (`038-seat-maps.spec.ts`).
+> Tasks T043, T050 and T059 follow these rows.
 
 ## Attendees and reports
 

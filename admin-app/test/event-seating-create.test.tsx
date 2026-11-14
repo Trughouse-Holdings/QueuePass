@@ -4,26 +4,24 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventForm } from '../src/pages/EventForm';
 import { json, stubApi } from './helpers/api-stub';
 import { EVENT, VENUE } from './fixtures-005';
+import { layoutRoutes } from './fixtures-038';
 import { setLocalDateTime } from './helpers/event-times';
 
 /**
- * Spec 008 US6 (FR-018; research R9): at a venue with a layout, the Schedule event form sets up
- * reserved seating, ticket types, and each section's ticket type in one go; spec 031 (FR-008):
- * in one request.
+ * Spec 008 US6 (FR-018; research R9), as spec 038 US2 changes it (FR-010, FR-015): at a venue with
+ * layouts, the Schedule event form offers general admission or one of its layouts; a seated event
+ * has no ticket types and no total to type, and is saved with its seating in one request (031).
  */
 afterEach(() => vi.unstubAllGlobals());
 
-const LAYOUT = {
-  locationId: VENUE.id,
-  totalSeats: 30,
-  sections: [
-    { id: 's-front', name: 'front', rows: 1, seatsPerRow: 10 },
-    { id: 's-middle', name: 'middle', rows: 1, seatsPerRow: 10 },
-    { id: 's-back', name: 'back', rows: 1, seatsPerRow: 10 },
-  ],
-};
 const PLAIN = { ...VENUE, id: 'v-plain', name: 'Plain Hall' };
-const SEATED_EVENT = { ...EVENT, reservedSeating: true, totalTicketCapacity: 30 };
+const SEATED_EVENT = {
+  ...EVENT,
+  reservedSeating: true,
+  layoutId: 'l-club',
+  priceMax: '20.00',
+  totalTicketCapacity: 12,
+};
 
 const renderNew = () =>
   render(
@@ -37,9 +35,9 @@ const renderNew = () =>
   );
 
 const baseRoutes = () => ({
-  'GET /locations': json([{ ...VENUE, seatingCapacity: 30 }, PLAIN]),
-  [`GET /locations/${VENUE.id}/layout`]: json(LAYOUT),
-  'GET /locations/v-plain/layout': json({ locationId: 'v-plain', totalSeats: 0, sections: [] }),
+  'GET /locations': json([{ ...VENUE, seatingCapacity: 70 }, PLAIN]),
+  ...layoutRoutes(),
+  'GET /locations/v-plain/layouts': json([]),
 });
 
 const fillBasics = async (venueId: string) => {
@@ -52,131 +50,84 @@ const fillBasics = async (venueId: string) => {
   setLocalDateTime('Ends', '2030-05-01T21:00');
 };
 
-const typeLine = (n: number, name: string, price: string) => {
-  fireEvent.change(screen.getByRole('textbox', { name: `Ticket type ${n} name` }), {
-    target: { value: name },
+const chooseClub = async () => {
+  fireEvent.change(await screen.findByRole('combobox', { name: 'Seating' }), {
+    target: { value: 'l-club' },
   });
-  fireEvent.change(screen.getByRole('textbox', { name: `Ticket type ${n} price` }), {
-    target: { value: price },
-  });
+  return screen.findByRole('textbox', { name: 'Club seats price' });
 };
 
-describe('Schedule event at a venue with a layout', () => {
-  it('shows tickets and seating, with no total to type', async () => {
+describe('Schedule event at a venue with layouts', () => {
+  it('starts on general admission, with ticket types and a total, and offers each layout', async () => {
     stubApi(baseRoutes());
     renderNew();
     await fillBasics(VENUE.id);
 
     const region = await screen.findByRole('group', { name: 'Tickets and seating' });
-    expect(within(region).getByRole('radio', { name: 'Reserved seating' })).toBeChecked();
-    expect(within(region).getByRole('radio', { name: 'General admission' })).not.toBeChecked();
-    expect(screen.queryByLabelText('Total tickets')).toBeNull();
-    for (const name of ['front', 'middle', 'back']) {
-      expect(
-        within(region).getByRole('combobox', { name: `Section ${name} ticket type` }),
-      ).toBeInTheDocument();
-    }
+    const seating = await within(region).findByRole('combobox', { name: 'Seating' });
+    expect(seating).toHaveValue('');
+    expect(within(region).getByRole('option', { name: 'Club (12 seats)' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Total tickets')).toBeInTheDocument();
+    expect(screen.getByLabelText('Ticket type 1 quantity')).toBeInTheDocument();
   });
 
-  it('totals each ticket type from the sections it sells', async () => {
+  it('shows no ticket types and no total to type for a layout: the total is its seats on sale', async () => {
     stubApi(baseRoutes());
     renderNew();
     await fillBasics(VENUE.id);
-    await screen.findByRole('group', { name: 'Tickets and seating' });
+    await chooseClub();
 
-    typeLine(1, 'Floor', '80.00');
-    fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
-    typeLine(2, 'Balcony', '30.00');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Section middle ticket type' }), {
-      target: { value: '1' },
-    });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Section back ticket type' }), {
-      target: { value: '1' },
-    });
-
-    expect(screen.getByText('Floor: 10 seats')).toBeInTheDocument();
-    expect(screen.getByText('Balcony: 20 seats')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Total tickets')).toBeNull();
+    expect(screen.queryByLabelText('Ticket type 1 name')).toBeNull();
+    expect(screen.getByText('Total tickets: 12, the seats on sale.')).toBeInTheDocument();
   });
 
-  it('sends the event, its seating, its ticket types, and the mapping in one request, then opens it', async () => {
-    // Spec 031 FR-008 (research R5): one POST /events, each type listing the sections it sells.
-    const api = stubApi({
-      ...baseRoutes(),
-      'POST /events': json(SEATED_EVENT, 201),
-    });
+  it('sends the event and its seating in one request, then opens it', async () => {
+    const api = stubApi({ ...baseRoutes(), 'POST /events': json(SEATED_EVENT, 201) });
     renderNew();
     await fillBasics(VENUE.id);
-    await screen.findByRole('group', { name: 'Tickets and seating' });
-    typeLine(1, 'Floor', '80.00');
-    fireEvent.click(screen.getByRole('button', { name: 'Add ticket type' }));
-    typeLine(2, 'Balcony', '30.00');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Section middle ticket type' }), {
-      target: { value: '1' },
-    });
-    fireEvent.change(screen.getByRole('combobox', { name: 'Section back ticket type' }), {
-      target: { value: '1' },
-    });
+    fireEvent.change(await chooseClub(), { target: { value: '20.00' } });
     fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));
 
     expect(await screen.findByText('Event page', {}, { timeout: 3000 })).toBeInTheDocument();
     const writes = api.calls.filter((c) => c.method !== 'GET');
     expect(writes.map((c) => `${c.method} ${c.path}`)).toEqual(['POST /events']);
-    expect(writes[0].body).not.toHaveProperty('totalTicketCapacity');
-    expect(writes[0].body).toMatchObject({
-      reservedSeating: true,
-      tiers: [
-        { name: 'Floor', price: '80.00', sectionIds: ['s-front'] },
-        { name: 'Balcony', price: '30.00', sectionIds: ['s-middle', 's-back'] },
-      ],
-    });
+    expect(writes[0]!.body).toEqual(
+      expect.objectContaining({
+        layoutId: 'l-club',
+        levelPrices: [{ levelId: 'l-club', price: '20.00' }],
+        offSale: [],
+        basePrice: '20.00',
+      }),
+    );
   });
 
   it('saves nothing when the schedule is refused, and keeps every value', async () => {
-    // Spec 031 FR-003, FR-009: the refusal is the whole schedule's; there is no event to finish.
-    const message = 'Another tier of this event already has that name';
+    const message = 'Club room is already committed at that time.';
     const api = stubApi({
       ...baseRoutes(),
-      'POST /events': json({ error: { code: 'TIER_NAME_TAKEN', message } }, 409),
+      'POST /events': json({ error: { code: 'EVENT_CANCELLED', message } }, 409),
     });
     renderNew();
     await fillBasics(VENUE.id);
-    await screen.findByRole('group', { name: 'Tickets and seating' });
-    typeLine(1, 'Floor', '80.00');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Section back ticket type' }), {
-      target: { value: '' },
-    });
+    fireEvent.change(await chooseClub(), { target: { value: '20.00' } });
     fireEvent.click(screen.getByRole('button', { name: 'Schedule event' }));
 
-    expect(screen.queryByTestId('error-banner')).toBeNull();
     expect(await screen.findByText(message)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'Finish on the event page' })).toBeNull();
     expect(api.calls.filter((c) => c.method !== 'GET').map((c) => c.path)).toEqual(['/events']);
     expect(screen.getByLabelText('Event name')).toHaveValue('Season Opener');
-    expect(screen.getByLabelText('Ticket type 1 name')).toHaveValue('Floor');
-    expect(screen.getByRole('combobox', { name: 'Section back ticket type' })).toHaveValue('');
-    expect(screen.getByRole('radio', { name: 'Reserved seating' })).toBeChecked();
+    expect(screen.getByRole('combobox', { name: 'Seating' })).toHaveValue('l-club');
+    expect(screen.getByRole('textbox', { name: 'Club seats price' })).toHaveValue('20.00');
     expect(screen.queryByText('Event page')).toBeNull();
   });
 
-  it('keeps the plain form for general admission', async () => {
-    stubApi(baseRoutes());
-    renderNew();
-    await fillBasics(VENUE.id);
-    fireEvent.click(await screen.findByRole('radio', { name: 'General admission' }));
-
-    expect(screen.getByLabelText('Total tickets')).toBeInTheDocument();
-    // Spec 008 US7: general admission still takes ticket types, each with a quantity.
-    expect(screen.getByLabelText('Ticket type 1 quantity')).toBeInTheDocument();
-    expect(screen.queryByRole('combobox', { name: 'Section front ticket type' })).toBeNull();
-  });
-
-  it('shows no tickets and seating for a venue without a layout', async () => {
+  it('shows no seating choice for a venue without layouts', async () => {
     stubApi(baseRoutes());
     renderNew();
     await fillBasics('v-plain');
 
     await vi.waitFor(() => expect(screen.getByLabelText('Total tickets')).toBeInTheDocument());
     expect(screen.getByRole('group', { name: 'Tickets and seating' })).toBeInTheDocument();
-    expect(screen.queryByRole('radio', { name: 'Reserved seating' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Seating' })).toBeNull();
   });
 });

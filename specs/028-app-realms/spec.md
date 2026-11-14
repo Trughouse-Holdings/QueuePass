@@ -257,7 +257,7 @@ signed in.
   requires. Any other issuer, the old shared realm's included, MUST be refused with 401.
 
 > **Note (2026-11-11, spec `037`)**: There are four app realms: `queuepass-admin-rust-app` for the Rust
-> Admin app, whose honoured role is `queuepass-admin` (Constitution 3.10.0).
+> Admin app, whose honoured role is `queuepass-admin` (Constitution 3.11.0).
 - **FR-011**: From a token of an app's realm the Backend MUST honour only that app's role
   (`queuepass-admin` from the Admin app's realm, `customer` from the Customer app's realm,
   `gate-agent` from the Ticket Booth's realm). Any other QueuePass role in the token MUST be

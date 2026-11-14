@@ -31,6 +31,20 @@ describe('Venue address check on edit (spec 013)', () => {
   const patch = (body: object, venueId = id) =>
     asAdmin(ctx).patch(`/locations/${venueId}`).send(body);
   const row = () => ctx.prisma.location.findUniqueOrThrow({ where: { id } });
+  /** Spec 038 (T017): a layout of one section made from lines, the venue's capacity its largest. */
+  const layout = (name: string, rows: number, seatsPerRow: number) =>
+    asAdmin(ctx)
+      .post(`/locations/${id}/layouts`)
+      .send({
+        name,
+        levels: [{ name: 'Main', color: 'violet' }],
+        sections: [{ name: 'A', rows, seatsPerRow, level: 'Main' }],
+      });
+  /** The seats of the venue's largest layout. */
+  const largest = async (): Promise<number> => {
+    const res = await asAdmin(ctx).get(`/locations/${id}/layouts`).expect(200);
+    return Math.max(...res.body.map((l: { seatCount: number }) => l.seatCount));
+  };
 
   /** A venue saved anyway: parts as typed, not verified. */
   async function savedAnyway(): Promise<string> {
@@ -404,10 +418,7 @@ describe('Venue address check on edit (spec 013)', () => {
   });
 
   it('refuses a capacity on a laid-out venue first: 400, without asking the service', async () => {
-    await asAdmin(ctx)
-      .put(`/locations/${id}/layout`)
-      .send({ sections: [{ name: 'A', rows: 2, seatsPerRow: 10 }] })
-      .expect(200);
+    await layout('Standard', 2, 10).expect(201);
     const res = await patch({ ...moved, seatingCapacity: 500 }).expect(400);
     expect(JSON.stringify(res.body.error.details.fields)).toMatch(/seating layout/);
     expect(ctx.geocoder.calls).toHaveLength(0);
@@ -497,18 +508,14 @@ describe('Venue address check on edit (spec 013)', () => {
       const gate = ctx.geocoder.pause();
       const slow = patch({ ...moved, seatingCapacity: 500 }).then((r) => r);
       await gate.started;
-      await asAdmin(ctx)
-        .put(`/locations/${id}/layout`)
-        .send({ sections: [{ name: 'A', rows: 10, seatsPerRow: 30 }] })
-        .expect(200);
+      await layout('Standard', 10, 30).expect(201);
       gate.release();
       const res = await slow;
       expect(res.status).toBe(400);
       expect(JSON.stringify(res.body.error.details.fields)).toMatch(/seating layout/);
       const after = await row();
       expect(after.seatingCapacity).toBe(300);
-      const layout = await asAdmin(ctx).get(`/locations/${id}/layout`).expect(200);
-      expect(layout.body.totalSeats).toBe(300);
+      expect(await largest()).toBe(300);
     });
 
     it('re-checks event capacity after an event is raised during the lookup', async () => {
@@ -543,15 +550,12 @@ describe('Venue address check on edit (spec 013)', () => {
       const requests = Array.from({ length: 10 }, (_, i) =>
         i % 2 === 0
           ? patch({ ...moved, street: `${900 + i} Phillips Ln`, seatingCapacity: 50 + i })
-          : asAdmin(ctx)
-              .put(`/locations/${id}/layout`)
-              .send({ sections: [{ name: 'A', rows: 1, seatsPerRow: 10 + i }] }),
+          : layout(`Layout ${i}`, 1, 10 + i),
       );
       const results = await Promise.all(requests);
       expect(results.filter((r) => r.status >= 500)).toEqual([]);
-      for (const r of results) expect([200, 400]).toContain(r.status);
-      const layout = await asAdmin(ctx).get(`/locations/${id}/layout`).expect(200);
-      expect((await row()).seatingCapacity).toBe(layout.body.totalSeats);
+      for (const r of results) expect([200, 201, 400]).toContain(r.status);
+      expect((await row()).seatingCapacity).toBe(await largest());
     });
   });
 

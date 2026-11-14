@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
+import { LEVEL_COLORS } from '../../src/seating';
 
 /**
  * Spec 012 FR-008 (research R7), moved from the Customer app (spec 008 FR-007): every text and
@@ -283,4 +284,64 @@ describe('the image scrim', () => {
       );
     },
   );
+});
+
+// Spec 038 research R13 (T038, FR-016, FR-019; Constitution VII): the venue map's colors. Each of
+// the 12 price-level colors, the gray of unavailable seats and sections, and the customer's own
+// seats are shapes on the map, so each is drawn at 3:1 or more on the map's background, in light and
+// dark. The floor object is decoration under the sections; its edge is --border-strong.
+describe.each([
+  ['light', light],
+  ['dark', dark],
+])('%s venue map (spec 038)', (_, t) => {
+  it('defines the map tokens', () => {
+    for (const name of [
+      'map-bg',
+      'map-floor',
+      'seat-unavailable',
+      'seat-mine',
+      ...LEVEL_COLORS.map((c) => `level-${c}`),
+    ]) {
+      expect(t[name], name).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it.each(LEVEL_COLORS)('draws --level-%s at 3:1 or more on --map-bg', (color) => {
+    expect(contrast(t[`level-${color}`], t['map-bg'])).toBeGreaterThanOrEqual(3);
+  });
+
+  it.each(['seat-unavailable', 'seat-mine', 'border-strong'])(
+    'draws --%s at 3:1 or more on --map-bg',
+    (token) => {
+      expect(contrast(t[token], t['map-bg'])).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  // FR-027 (T060, S3): the admin's map fills each section by its make-up of seat states.
+  it.each(['open', 'held', 'sold', 'off'])(
+    'draws --map-state-%s at 3:1 or more on --map-bg, with its section and swatch classes',
+    (state) => {
+      expect(t[`map-state-${state}`], `map-state-${state}`).toMatch(/^#[0-9a-f]{6}$/i);
+      expect(contrast(t[`map-state-${state}`], t['map-bg'])).toBeGreaterThanOrEqual(3);
+      expect(css).toMatch(
+        new RegExp(
+          `\\.venue-map__section--state-${state}\\s*\\{[^}]*var\\(--map-state-${state}\\)`,
+        ),
+      );
+      expect(css).toMatch(
+        new RegExp(`\\.state-swatch--${state}\\s*\\{[^}]*var\\(--map-state-${state}\\)`),
+      );
+    },
+  );
+
+  it('gives every level color a swatch class and a map class (the name is always beside it)', () => {
+    for (const color of LEVEL_COLORS) {
+      expect(css).toMatch(
+        new RegExp(`\\.level-swatch--${color}\\s*\\{[^}]*var\\(--level-${color}\\)`),
+      );
+      expect(css).toMatch(
+        new RegExp(`\\.venue-map--${color}[^{]*\\{[^}]*var\\(--level-${color}\\)`),
+      );
+    }
+  });
 });

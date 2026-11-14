@@ -135,14 +135,29 @@ export function EntryResult({
     }
   }
 
-  /** The ticket as FR-010 shows it: event, type, seat, holder's name. */
+  /**
+   * The ticket as FR-010 shows it: event, type, seat, holder's name. Spec 038 FR-030 (research
+   * R17): a seated ticket's price level as sold; its ticket type only when it has one (a ticket
+   * carried over from before 038), as a seat is never general admission.
+   */
   function context(t: EntryTicket) {
+    const seated = t.seat !== null || t.levelName !== null;
     return (
       <dl className="ticket-facts">
         <dt>Event</dt>
         <dd>{t.event.name}</dd>
-        <dt>Ticket type</dt>
-        <dd>{t.tierName ?? 'General admission'}</dd>
+        {(t.tierName || !seated) && (
+          <>
+            <dt>Ticket type</dt>
+            <dd>{t.tierName ?? 'General admission'}</dd>
+          </>
+        )}
+        {t.levelName && (
+          <>
+            <dt>Price level</dt>
+            <dd>{t.levelName}</dd>
+          </>
+        )}
         {t.seat && (
           <>
             <dt>Seat</dt>

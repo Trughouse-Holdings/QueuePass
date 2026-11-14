@@ -29,8 +29,9 @@ model Location {
   events          Event[]
   createdAt       DateTime @default(now()) @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @db.Timestamptz(6)
-  // Spec 007: the venue's seating layout.
-  sections Section[]
+  // Spec 038 FR-001: the venue's seating layouts (data-model.md); seatingCapacity is the largest
+  // one's seatCount while it has any (FR-009).
+  layouts         Layout[]
   // Spec 020 FR-001, FR-007: one of US_TIME_ZONES (CHECK location_time_zone_known), and how it
   // was set. Both have no default: the Backend always decides (FR-008).
   timeZone       String         @db.VarChar(40)
@@ -73,9 +74,20 @@ model Event {
   tickets             Ticket[]
   createdAt           DateTime @default(now()) @db.Timestamptz(6)
   updatedAt           DateTime @updatedAt @db.Timestamptz(6)
-  // Spec 007 FR-002: whether customers choose seats.
+  // Spec 007 FR-002: whether customers choose seats. Spec 038: true exactly when layoutId is set
+  // (CHECK event_seating_matches_layout, migration SQL).
   reservedSeating     Boolean       @default(false)
-  sectionTiers        SectionTier[]
+  // Spec 038 FR-010 (data-model.md): the layout it sells; NULL is general admission. RESTRICT: a
+  // layout any event uses, cancelled included, is never deleted (research R7).
+  layout              Layout?       @relation(fields: [layoutId], references: [id], onDelete: Restrict)
+  layoutId            String?       @db.Uuid
+  // Spec 038 research R12: the seat-change sequence number, incremented once by every transaction
+  // that changes one of its seats' states, under the event lock; >= 0 (CHECK
+  // event_seat_seq_non_negative).
+  seatSeq             BigInt        @default(0)
+  // Spec 038 FR-011, FR-013: a price per level of its layout, and the seats it does not sell.
+  levelPrices         EventLevelPrice[]
+  offSaleSeats        EventOffSaleSeat[]
   // Spec 014 FR-001: 0 to 5 images, in order; position 1 is the cover.
   images              EventImage[]
   // Spec 015: seat reservations and their holds, deleted with the event (research R11).
@@ -83,6 +95,7 @@ model Event {
   seatHolds           SeatHold[]
 
   @@index([locationId])
+  @@index([layoutId])
 }
 
 // Spec 014 (data-model.md). The CHECKs (position 1 to 5, the three types, the size) and the
@@ -119,7 +132,6 @@ model TicketTier {
   quantity  Int
   orders    Order[]
   tickets   Ticket[]
-  sections  SectionTier[]
   // Spec 015 research R11: reservations of this tier are deleted with it.
   seatReservations SeatReservation[]
   createdAt DateTime @default(now()) @db.Timestamptz(6)
@@ -140,7 +152,8 @@ model Order {
   customerSub      String
   customerUsername String
   quantity         Int
-  unitPrice        Decimal     @db.Decimal(10, 2)
+  // Spec 038 research R10: the price every ticket has, or NULL when they differ.
+  unitPrice        Decimal?    @db.Decimal(10, 2)
   totalPrice       Decimal     @db.Decimal(10, 2)
   status           OrderStatus @default(CONFIRMED)
   tickets          Ticket[]
@@ -180,15 +193,27 @@ model Ticket {
   // Spec 018 research R1: the key for this ticket's live codes. Never selected unless named
   // (PrismaService's global omit), never printed, never in any response but getTicketEntryKey.
   entrySecret         Bytes @default(dbgenerated("gen_random_bytes(32)")) @db.ByteA
-  // Spec 007: the seat's label when sold; all three set or all null (research R1). One valid
-  // ticket per seat is the partial unique index ticket_one_valid_per_seat in the migration.
-  seatSection String?
+  // Spec 007: the seat when sold: its section's name, its row's number and its number in the row.
+  // Spec 038 (data-model.md): with its row's and its own label as sold; the five all set or all
+  // NULL (CHECK ticket_seat_all_or_none).
+  seatSection         String?       @db.VarChar(50)
   seatRow     Int?
   seatNumber  Int?
+  seatRowLabel        String?       @db.VarChar(5)
+  seatLabel           String?       @db.VarChar(5)
+  // Spec 038 FR-025, research R10: the seat itself. SET NULL, but a VALID ticket with a seat must
+  // keep one (CHECK ticket_valid_has_seat), so a sold seat can't be deleted. One VALID ticket per
+  // seat is the partial unique index ticket_one_valid_per_seat in the migration.
+  seat                Seat?         @relation(fields: [seatId], references: [id], onDelete: SetNull)
+  seatId              String?       @db.Uuid
+  // Spec 038 FR-026: the price level's name as sold (seated tickets only), and what it cost.
+  levelName           String?       @db.VarChar(50)
+  price               Decimal       @db.Decimal(10, 2)
 
   @@index([orderId])
   @@index([eventId, status])
   @@index([tierId])
+  @@index([seatId])
 }
 
 enum TicketStatus {
@@ -196,35 +221,163 @@ enum TicketStatus {
   VOID
 }
 
-// Spec 007: a venue's layout is its sections (research R1). Names are unique per venue ignoring
-// case by the expression index section_name_unique_per_venue in the migration.
-model Section {
-  id          String        @id @default(uuid()) @db.Uuid
-  location    Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
-  locationId  String        @db.Uuid
-  name        String
-  rows        Int
-  seatsPerRow Int
-  position    Int
-  tiers       SectionTier[]
-  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
-  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+// Spec 038 FR-001 (data-model.md): one seating configuration of a venue. Names are unique per
+// venue ignoring case (layout_name_unique_per_venue) and 1 to 50 characters, trimmed; the size is
+// 1 to 5,000 map units each way; floorOutline is NULL exactly with NONE; seatCount is at least 1
+// (the Backend allows at most 30,000 for a new layout; a carried-over one keeps every seat, R16).
+// Every CHECK and expression index lives in the migration SQL.
+model Layout {
+  id           String       @id @default(uuid()) @db.Uuid
+  location     Location     @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  locationId   String       @db.Uuid
+  name         String       @db.VarChar(50)
+  source       LayoutSource
+  floorKind    FloorKind
+  floorOutline Json?
+  width        Int
+  height       Int
+  seatCount    Int
+  levels       PriceLevel[]
+  sections     Section[]
+  events       Event[]
+  createdAt    DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @db.Timestamptz(6)
 
-  @@unique([locationId, position])
   @@index([locationId])
 }
 
-// Spec 007 FR-004: for one seated event, which tier a section belongs to.
-model SectionTier {
-  event     Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  eventId   String     @db.Uuid
-  section   Section    @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  sectionId String     @db.Uuid
-  tier      TicketTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
-  tierId    String     @db.Uuid
+// Spec 038 research R5, R6: how a layout was made; only LINES takes section lines.
+enum LayoutSource {
+  FILE
+  LINES
+}
 
-  @@id([eventId, sectionId])
-  @@index([tierId])
+// Spec 038 FR-002: what is drawn on the floor of a layout.
+enum FloorKind {
+  COURT
+  END_STAGE
+  CENTER_STAGE
+  RING
+  NONE
+}
+
+// Spec 038 FR-003 (data-model.md): a group of seats of similar desirability. Names unique per
+// layout ignoring case (price_level_name_unique), ranks unique per layout (price_level_rank_unique)
+// and 1 to 50, the color one of the 12 names (price_level_color_known); all in the migration SQL.
+model PriceLevel {
+  id          String            @id @default(uuid()) @db.Uuid
+  layout      Layout            @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  layoutId    String            @db.Uuid
+  name        String            @db.VarChar(50)
+  rank        Int
+  color       String            @db.VarChar(10)
+  sections    Section[]
+  rows        SeatRow[]
+  seats       Seat[]
+  eventPrices EventLevelPrice[]
+
+  @@unique([layoutId, rank], map: "price_level_rank_unique")
+  // The target of Section's composite foreign key, so a section's level is of its own layout.
+  @@unique([layoutId, id], map: "price_level_layout_id")
+}
+
+// Spec 007: a section of seats. Spec 038 FR-002 (data-model.md): it belongs to a layout, not a
+// venue (existing ids kept, R16); names are unique per layout ignoring case
+// (section_name_unique_per_layout, migration SQL). Its level must be of its layout (the composite
+// foreign key (layoutId, levelId)); NO ACTION, made DEFERRABLE INITIALLY DEFERRED in the migration
+// SQL (Prisma can't say it), so a layout delete cascades through its levels and sections in one
+// statement (research R7).
+model Section {
+  id        String     @id @default(uuid()) @db.Uuid
+  layout    Layout     @relation(fields: [layoutId], references: [id], onDelete: Cascade)
+  layoutId  String     @db.Uuid
+  name      String     @db.VarChar(50)
+  level     PriceLevel @relation(fields: [layoutId, levelId], references: [layoutId, id], onDelete: NoAction)
+  levelId   String     @db.Uuid
+  // [[x, y], …], 3 to 64 points, and where its name is drawn.
+  outline   Json
+  labelX    Float      @db.Real
+  labelY    Float      @db.Real
+  position  Int
+  rows      SeatRow[]
+  seats     Seat[]
+  createdAt DateTime   @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @db.Timestamptz(6)
+
+  @@unique([layoutId, position])
+}
+
+// Spec 038 FR-002 (data-model.md): a row of a section; number 1 = front, 1 to 100, and a label of
+// 1 to 5 characters, both unique per section (seat_row_number_unique, seat_row_label_unique). Its
+// own level overrides its section's; SET NULL when that level goes, falling back (research R7).
+model SeatRow {
+  id        String      @id @default(uuid()) @db.Uuid
+  section   Section     @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId String      @db.Uuid
+  number    Int
+  label     String      @db.VarChar(5)
+  level     PriceLevel? @relation(fields: [levelId], references: [id], onDelete: SetNull)
+  levelId   String?     @db.Uuid
+  seats     Seat[]
+
+  @@unique([sectionId, number], map: "seat_row_number_unique")
+  @@unique([sectionId, label], map: "seat_row_label_unique")
+  // The target of Seat's composite foreign key, so a seat's section is its row's.
+  @@unique([id, sectionId], map: "seat_row_id_section")
+  @@index([levelId])
+}
+
+// Spec 038 FR-002, FR-003, research R1 (data-model.md): one seat. Its number (1 to 200, order in
+// the row) and label (1 to 5 characters) are unique per row (seat_number_unique, seat_label_unique);
+// sectionId is its row's (the composite foreign key (rowId, sectionId)). Its level, when set,
+// overrides its row's and section's (seat-levels.ts); SET NULL when that level goes (research R7).
+model Seat {
+  id         String             @id @default(uuid()) @db.Uuid
+  row        SeatRow            @relation(fields: [rowId, sectionId], references: [id, sectionId], onDelete: Cascade, map: "seat_row_section")
+  rowId      String             @db.Uuid
+  section    Section            @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  sectionId  String             @db.Uuid
+  number     Int
+  label      String             @db.VarChar(5)
+  x          Float              @db.Real
+  y          Float              @db.Real
+  level      PriceLevel?        @relation(fields: [levelId], references: [id], onDelete: SetNull)
+  levelId    String?            @db.Uuid
+  // No behavior until #57.
+  accessible Boolean            @default(false)
+  tickets    Ticket[]
+  holds      SeatHold[]
+  offSaleFor EventOffSaleSeat[]
+
+  @@unique([rowId, number], map: "seat_number_unique")
+  @@unique([rowId, label], map: "seat_label_unique")
+  @@index([sectionId])
+  @@index([levelId])
+}
+
+// Spec 038 FR-011 (data-model.md): an event's price for one level of its layout; >= 0 (CHECK
+// event_level_price_non_negative). That the level is of the event's layout is checked by the
+// Backend under the event lock. A level removed by a line edit takes its prices (research R6).
+model EventLevelPrice {
+  event   Event      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId String     @db.Uuid
+  level   PriceLevel @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  levelId String     @db.Uuid
+  price   Decimal    @db.Decimal(10, 2)
+
+  @@id([eventId, levelId])
+  @@index([levelId])
+}
+
+// Spec 038 FR-013 (data-model.md): a seat one event does not sell.
+model EventOffSaleSeat {
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  eventId String @db.Uuid
+  seat    Seat   @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  seatId  String @db.Uuid
+
+  @@id([eventId, seatId])
+  @@index([seatId])
 }
 
 // Spec 015 (research R1): one customer's 5-minute claim on seats of one event. `expiresAt` is
@@ -238,7 +391,7 @@ model SeatReservation {
   eventId     String      @db.Uuid
   // The Keycloak subject identifier (Constitution V), as on Order.
   customerSub String
-  // NULL for an event without tiers; every hold is in a section mapped to it (FR-003).
+  // NULL for an event without tiers (FR-003). Spec 038 research R10: NULL for every seated event.
   tier        TicketTier? @relation(fields: [tierId], references: [id], onDelete: Cascade)
   tierId      String?     @db.Uuid
   createdAt   DateTime    @db.Timestamptz(6)
@@ -252,10 +405,10 @@ model SeatReservation {
   @@index([customerSub])
 }
 
-// Spec 015 (research R1, R6): one seat in a reservation, by its label as on Ticket, kept after it
-// ends with when and why, since the 2-minute wait is computed from ended holds. No seat has two
-// live holds for an event: the partial unique index seat_hold_one_live_per_seat (migration SQL,
-// FR-009, Constitution IV).
+// Spec 015 (research R1, R6): one seat in a reservation, by its label as on Ticket (spec 038: and
+// by its seat), kept after it ends with when and why, since the 2-minute wait is computed from
+// ended holds. No seat has two live holds for an event: the partial unique index
+// seat_hold_one_live_per_seat (migration SQL, FR-009, Constitution IV).
 model SeatHold {
   id            String          @id @default(uuid()) @db.Uuid
   reservation   SeatReservation @relation(fields: [reservationId, eventId], references: [id, eventId], onDelete: Cascade, map: "seat_hold_reservation_event")
@@ -265,6 +418,11 @@ model SeatHold {
   seatSection   String
   seatRow       Int
   seatNumber    Int
+  // Spec 038 FR-025, research R10: the seat itself. SET NULL, but a live hold must keep one (CHECK
+  // seat_hold_live_has_seat), so a held seat can't be deleted. One live hold per seat is the
+  // partial unique index seat_hold_one_live_per_seat in the migration.
+  seat          Seat?           @relation(fields: [seatId], references: [id], onDelete: SetNull)
+  seatId        String?         @db.Uuid
   createdAt     DateTime        @db.Timestamptz(6)
   // Both NULL while live, both set once it ends (CHECK seat_hold_end_all_or_none).
   releasedAt    DateTime?       @db.Timestamptz(6)
@@ -272,6 +430,7 @@ model SeatHold {
 
   @@index([reservationId])
   @@index([eventId, releasedAt])
+  @@index([seatId])
 }
 
 // Spec 015 data-model.md: why a hold ended. EXPIRED, RELEASED and LOGOUT start the 2-minute wait

@@ -5,10 +5,13 @@ import { LocationForm } from '../src/pages/LocationForm';
 import { json, stubApi } from './helpers/api-stub';
 import { VENUE } from './fixtures-005';
 
-/** Spec 008 US5 (FR-017; research R8): a seated venue in one step, no capacity typed. */
+/**
+ * Spec 008 US5 (FR-017; research R8): a seated venue in one step, no capacity typed. Spec 038
+ * (T019): its section lines make its first layout, "Standard", with a price level to start.
+ */
 afterEach(() => vi.unstubAllGlobals());
 
-const LAYOUT_PATH = `/locations/${VENUE.id}/layout`;
+const LAYOUT_PATH = `/locations/${VENUE.id}/layouts`;
 
 const renderNew = () =>
   render(
@@ -76,7 +79,7 @@ describe('New venue: seated or general admission', () => {
   it('creates the venue with the total, then saves its layout', async () => {
     const api = stubApi({
       'POST /locations': json({ ...VENUE, seatingCapacity: 70 }, 201),
-      [`PUT ${LAYOUT_PATH}`]: json({ locationId: VENUE.id, totalSeats: 70, sections: [] }),
+      [`POST ${LAYOUT_PATH}`]: json({ id: 'l-standard' }, 201),
     });
     renderNew();
 
@@ -90,7 +93,7 @@ describe('New venue: seated or general admission', () => {
     const writes = api.calls.filter((c) => c.method !== 'GET');
     expect(writes.map((c) => `${c.method} ${c.path}`)).toEqual([
       'POST /locations',
-      `PUT ${LAYOUT_PATH}`,
+      `POST ${LAYOUT_PATH}`,
     ]);
     expect(writes[0].body).toEqual({
       name: 'Seat Hall',
@@ -99,18 +102,20 @@ describe('New venue: seated or general admission', () => {
       seatingCapacity: 70,
     });
     expect(writes[1].body).toEqual({
+      name: 'Standard',
+      levels: [{ name: 'Standard', color: 'violet' }],
       sections: [
-        { name: 'A', rows: 3, seatsPerRow: 10 },
-        { name: 'B', rows: 2, seatsPerRow: 20 },
+        { name: 'A', rows: 3, seatsPerRow: 10, level: 'Standard' },
+        { name: 'B', rows: 2, seatsPerRow: 20, level: 'Standard' },
       ],
     });
   });
 
   it('says so, with a way to the venue, when the layout is refused', async () => {
-    const message = "section names must be unique ignoring case; 'a' repeats";
+    const message = 'Request validation failed.';
     stubApi({
       'POST /locations': json(VENUE, 201),
-      [`PUT ${LAYOUT_PATH}`]: json({ error: { code: 'VALIDATION_FAILED', message } }, 400),
+      [`POST ${LAYOUT_PATH}`]: json({ error: { code: 'VALIDATION_FAILED', message } }, 400),
     });
     renderNew();
 

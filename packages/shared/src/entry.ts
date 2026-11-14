@@ -1,4 +1,4 @@
-import type { SeatLabel } from './seating.js';
+import type { SoldSeat } from './seating.js';
 import type { UsTimeZone } from './time-zone.js';
 
 /**
@@ -35,7 +35,10 @@ export interface EntryTicket {
   };
   /** `null` for an event sold at its base price. */
   tierName: string | null;
-  seat: SeatLabel | null;
+  /** Spec 038 (R17): the seat's price level as sold; `null` for general admission. */
+  levelName: string | null;
+  /** Spec 038 FR-026: with its row and seat labels as sold. */
+  seat: SoldSeat | null;
   /** `null` for a ticket bought before feature 017 ("No name on ticket"). */
   holderName: string | null;
   /** When it was admitted; `null` unless `state` is `USED`. */

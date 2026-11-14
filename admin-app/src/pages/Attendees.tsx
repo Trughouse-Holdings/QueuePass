@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import type { Event, Order } from '@queuepass/shared';
+import type { Event, Order, Ticket } from '@queuepass/shared';
 import { ApiError } from '../api/client';
 import { getEvent } from '../api/events';
 import { listAttendees } from '../api/orders';
@@ -22,6 +22,20 @@ type Load =
 const STATUS: Record<Order['status'], string> = { CONFIRMED: 'Confirmed', REFUNDED: 'Refunded' };
 
 const PRIVATE_NOTE = "The file contains customers' names and usernames. Keep it private.";
+
+/**
+ * After a ticket's code (spec 038 FR-026, FR-030): its seat by its labels, its price level, and
+ * its own price, which the order's unit price does not give for a seated ticket or an order of
+ * several prices: " Section 115, Row F, Seat 7, Lower sideline, $60.00".
+ */
+function ticketDetails(t: Ticket, unitPrice: string | null): string {
+  const parts = [
+    ...(t.seat ? [seatLabel(t.seat)] : []),
+    ...(t.levelName ? [t.levelName] : []),
+    ...(t.seat || t.levelName || unitPrice === null ? [usd(t.price)] : []),
+  ];
+  return parts.length > 0 ? ` ${parts.join(', ')}` : '';
+}
 
 /**
  * Spec 005 US3 (FR-007): who has tickets for an event, every ticket code, and which tickets have
@@ -145,6 +159,8 @@ export function Attendees({ username }: { username?: string }): React.ReactEleme
                   {/* Spec 017 FR-004: the name the gate checks an ID against. */}
                   <th>Name on tickets</th>
                   <th>Tier</th>
+                  {/* Spec 038 FR-030 (research R17): beside the ticket type. */}
+                  <th>Price level</th>
                   <th>Tickets</th>
                   <th>Total</th>
                   <th>Status</th>
@@ -155,11 +171,17 @@ export function Attendees({ username }: { username?: string }): React.ReactEleme
               <tbody>
                 {orders.map((o) => {
                   const checked = o.tickets.filter((t) => t.checkedInAt).length;
+                  const levels = [
+                    ...new Set(o.tickets.flatMap((t) => (t.levelName ? [t.levelName] : []))),
+                  ];
+                  const seated = o.tickets.some((t) => t.seat || t.levelName);
                   return (
                     <tr key={o.id}>
                       <td className="cell-strong">{o.customerUsername}</td>
                       <td>{o.holderName ?? 'No name on ticket'}</td>
-                      <td>{o.tierName ?? 'General admission'}</td>
+                      {/* A seat is never general admission (spec 038 FR-030). */}
+                      <td>{o.tierName ?? (seated ? '' : 'General admission')}</td>
+                      <td>{levels.join(', ')}</td>
                       <td className="cell-num">{o.quantity}</td>
                       <td className="price">{usd(o.totalPrice)}</td>
                       <td>
@@ -170,7 +192,7 @@ export function Attendees({ username }: { username?: string }): React.ReactEleme
                           {o.tickets.map((t) => (
                             <li key={t.id}>
                               <code>{t.code}</code>
-                              {t.seat && ` ${seatLabel(t.seat)}`}
+                              {ticketDetails(t, o.unitPrice)}
                               {/* Spec 017 FR-020: the time of each entry, from checkedInAt. */}
                               {t.status === 'VOID'
                                 ? ' (void)'

@@ -1,20 +1,24 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { formatViewerTime } from '@queuepass/shared';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import type { Reservation, SeatMap } from '@queuepass/shared';
 import {
   availability,
   event,
   fakeClock,
   holdBackend,
   json,
+  openSection,
   order,
   renderCustomer,
+  seatOf,
+  seatedMap,
   stubApi,
-  tier,
   typeHolderName,
   fixTimeBeforeFixtures,
+  findOnMap,
+  mapDrawing,
 } from './helpers';
+import type { Reservation } from '../src/seats';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
 fixTimeBeforeFixtures();
@@ -29,41 +33,34 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const vip = tier({ id: 't-vip', name: 'VIP', price: '120.00', quantity: 30 });
-const general = tier({ id: 't-gen', name: 'General', price: '40.00', quantity: 40 });
-
-const seatMap = (over: Partial<SeatMap> = {}): SeatMap => ({
-  eventId: 'e1',
-  reservedSeating: true,
-  sections: [
+// Spec 038: a venue map of sections A (2 rows of 6, Row 1 Seat 2 sold) and B (1 row of 4), every
+// seat Standard at $40.
+const arena = (over: { reservedA?: [number, number][] } = {}) =>
+  seatedMap([
     {
       sectionId: 's-a',
       name: 'A',
       rows: 2,
       seatsPerRow: 6,
-      tierId: 't-vip',
-      sold: 1,
-      taken: [{ row: 1, seat: 2 }],
-      reserved: [],
+      sold: [[1, 2]],
+      reserved: over.reservedA ?? [],
     },
-    {
-      sectionId: 's-b',
-      name: 'B',
-      rows: 1,
-      seatsPerRow: 4,
-      tierId: 't-gen',
-      sold: 0,
-      taken: [],
-      reserved: [],
-    },
-  ],
-  ...over,
-});
+    { sectionId: 's-b', name: 'B', rows: 1, seatsPerRow: 4 },
+  ]);
 
 const reservation = (seats: [number, number][], over: Partial<Reservation> = {}): Reservation => ({
   eventId: 'e1',
-  tierId: 't-vip',
-  seats: seats.map(([row, seat]) => ({ sectionId: 's-a', section: 'A', row, seat })),
+  tierId: null,
+  seats: seats.map(([row, seat]) => ({
+    sectionId: 's-a',
+    section: 'A',
+    row,
+    seat,
+    rowLabel: String(row),
+    seatLabel: String(seat),
+    levelName: 'Standard',
+    price: '40.00',
+  })),
   createdAt: '2026-10-20T19:00:00.000Z',
   expiresAt: '2026-10-20T19:05:00.000Z',
   secondsLeft: 300,
@@ -72,18 +69,10 @@ const reservation = (seats: [number, number][], over: Partial<Reservation> = {})
 
 type Reply = Response | ((req: Request) => Response | Promise<Response>) | 'network-error';
 const routes = (extra: Record<string, Reply> = {}) => ({
-  'GET /events/e1': json(event({ reservedSeating: true })),
-  'GET /events/e1/tiers': json([general, vip]),
-  'GET /events/e1/availability': json(
-    availability({
-      ticketsLeft: 56,
-      tiers: [
-        { tierId: 't-gen', ticketsLeft: 40 },
-        { tierId: 't-vip', ticketsLeft: 16 },
-      ],
-    }),
-  ),
-  'GET /events/e1/seats': json(seatMap()),
+  'GET /events/e1': json(event({ reservedSeating: true, layoutId: 'lay-1', basePrice: '40.00' })),
+  'GET /events/e1/tiers': json([]),
+  'GET /events/e1/availability': json(availability({ ticketsLeft: 15 })),
+  ...arena().routes,
   'GET /me/reservations': json([]),
   ...extra,
 });
@@ -91,20 +80,22 @@ const routes = (extra: Record<string, Reply> = {}) => ({
 const refusal = (code: string, message: string, details?: object) =>
   json({ error: { code, message, ...(details ? { details } : {}) } }, 409);
 
-const seatButton = (row: number, seat: number) =>
-  screen.getByRole('button', { name: new RegExp(`^Row ${row}, Seat ${seat}(,|$)`) });
-/** Spec 033 (FR-001): each click holds the seat at once, one request at a time. */
+const seatButton = (row: number, seat: number) => seatOf(row, seat);
+const mineName = (row: number, seat: number) =>
+  `Row ${row}, Seat ${seat}, Standard, $40, held by you`;
+/** Spec 033 (FR-001), spec 038: each click on the map's section A holds the seat at once. */
 const pick = async (...seats: [number, number][]) => {
-  fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+  await openSection('A');
   for (const [row, seat] of seats) {
     fireEvent.click(seatButton(row, seat));
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: `Row ${row}, Seat ${seat}, reserved by you` }),
+        within(mapDrawing()).getByRole('button', { name: mineName(row, seat) }),
       ).toBeInTheDocument(),
     );
   }
 };
+const line = (row: number, seat: number) => `Section A, Row ${row}, Seat ${seat}, Standard, $40.00`;
 const yourSeats = () => screen.queryByRole('region', { name: 'Your seats' });
 const reserved = () =>
   within(yourSeats()!)
@@ -112,8 +103,10 @@ const reserved = () =>
     .map((li) => li.textContent);
 const advance = (ms: number) => act(async () => vi.advanceTimersByTimeAsync(ms));
 /** The hold backend's routes on top of this file's. */
-const withHolds = (b = holdBackend(), extra: Record<string, Reply> = {}) =>
-  stubApi(routes({ ...b.routes, ...extra }));
+const withHolds = (
+  b = holdBackend({ sections: { 's-a': 'A', 's-b': 'B' } }),
+  extra: Record<string, Reply> = {},
+) => stubApi(routes({ ...b.routes, ...extra }));
 
 describe('holding seats (US1-1; FR-001, FR-005; spec 033 FR-001, FR-010)', () => {
   it('holds each clicked seat, then shows the countdown, the seats, the total, and Add to cart', async () => {
@@ -128,22 +121,20 @@ describe('holding seats (US1-1; FR-001, FR-005; spec 033 FR-001, FR-010)', () =>
       { seats: [{ sectionId: 's-a', row: 1, seat: 1 }] },
       { seats: [{ sectionId: 's-a', row: 1, seat: 3 }] },
     ]);
-    expect(reserved()).toEqual(['Section A, Row 1, Seat 1', 'Section A, Row 1, Seat 3']);
+    expect(reserved()).toEqual([line(1, 1), line(1, 3)]);
     expect(screen.getByRole('button', { name: 'Add to cart' })).toBeEnabled();
     expect(screen.queryByRole('button', { name: 'Confirm purchase' })).toBeNull();
-    expect(screen.getByText('Total: $240.00')).toBeInTheDocument();
+    expect(screen.getByText('Total: $80.00')).toBeInTheDocument();
   });
 
   it('adds a seat clicked later to the reservation', async () => {
-    const { calls } = withHolds(holdBackend({ secondsLeft: 250 }));
+    const { calls } = withHolds(holdBackend({ sections: { 's-a': 'A' }, secondsLeft: 250 }));
     renderCustomer({ at: '/events/e1' });
 
     await pick([1, 1]);
     fireEvent.click(seatButton(2, 4));
 
-    await waitFor(() =>
-      expect(reserved()).toEqual(['Section A, Row 1, Seat 1', 'Section A, Row 2, Seat 4']),
-    );
+    await waitFor(() => expect(reserved()).toEqual([line(1, 1), line(2, 4)]));
     expect(calls.filter((c) => c.method === 'POST').map((c) => c.body)).toEqual([
       { seats: [{ sectionId: 's-a', row: 1, seat: 1 }] },
       { seats: [{ sectionId: 's-a', row: 2, seat: 4 }] },
@@ -162,35 +153,29 @@ describe('holding seats (US1-1; FR-001, FR-005; spec 033 FR-001, FR-010)', () =>
     renderCustomer({ at: '/events/e1' });
 
     expect(await screen.findByRole('timer')).toHaveTextContent('2:05');
-    expect(reserved()).toEqual(['Section A, Row 1, Seat 4']);
-    expect(screen.getByRole('radio', { name: /VIP/ })).toBeChecked();
+    expect(reserved()).toEqual([line(1, 4)]);
+    // Spec 038 (research R14): the map is open at once while seats are held.
+    expect(screen.getByRole('group', { name: 'Arena map' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Choose seats' })).toBeNull();
   });
 });
 
 describe('buying from the cart (US1-3; FR-006; spec 033 FR-011, FR-014)', () => {
   it('orders the held seats with a requestId and shows them on the confirmation', async () => {
+    const ticket = (id: string, code: string, seat: number) => ({
+      id,
+      code,
+      status: 'VALID' as const,
+      checkedInAt: null,
+      seat: { section: 'A', row: 1, seat, rowLabel: '1', seatLabel: String(seat) },
+      price: '40.00',
+      levelName: 'Standard',
+    });
     const placed = order({
-      tierId: 't-vip',
-      tierName: 'VIP',
       quantity: 2,
-      unitPrice: '120.00',
-      totalPrice: '240.00',
-      tickets: [
-        {
-          id: 'k1',
-          code: 'AAAA2222BBBB',
-          status: 'VALID',
-          checkedInAt: null,
-          seat: { section: 'A', row: 1, seat: 1 },
-        },
-        {
-          id: 'k2',
-          code: 'CCCC3333DDDD',
-          status: 'VALID',
-          checkedInAt: null,
-          seat: { section: 'A', row: 1, seat: 3 },
-        },
-      ],
+      unitPrice: '40.00',
+      totalPrice: '80.00',
+      tickets: [ticket('k1', 'AAAA2222BBBB', 1), ticket('k2', 'CCCC3333DDDD', 3)],
     });
     const { calls } = withHolds(holdBackend(), {
       'POST /events/e1/orders': json(placed, 201),
@@ -204,8 +189,8 @@ describe('buying from the cart (US1-3; FR-006; spec 033 FR-011, FR-014)', () => 
     fireEvent.click(within(entry).getByRole('button', { name: 'Buy tickets' }));
 
     const done = await screen.findByRole('region', { name: 'Order confirmed' });
+    // Spec 038 (R10): a seated order names no ticket type.
     expect(calls.find((c) => c.path === '/events/e1/orders')?.body).toEqual({
-      tierId: 't-vip',
       holderName: 'Jordan Lee',
       quantity: 2,
       requestId: expect.any(String),
@@ -218,7 +203,7 @@ describe('buying from the cart (US1-3; FR-006; spec 033 FR-011, FR-014)', () => 
       within(within(done).getByRole('list', { name: 'Ticket codes' }))
         .getAllByRole('listitem')
         .map((li) => li.textContent),
-    ).toEqual(['AAAA2222BBBB, Section A, Row 1, Seat 1', 'CCCC3333DDDD, Section A, Row 1, Seat 3']);
+    ).toEqual([`AAAA2222BBBB, ${line(1, 1)}`, `CCCC3333DDDD, ${line(1, 3)}`]);
   });
 });
 
@@ -285,7 +270,7 @@ describe('releasing (US1-5, US1-6; FR-007; spec 033 US2)', () => {
 
     fireEvent.click(seatButton(1, 1));
 
-    await waitFor(() => expect(reserved()).toEqual(['Section A, Row 1, Seat 3']));
+    await waitFor(() => expect(reserved()).toEqual([line(1, 3)]));
     expect(calls.find((c) => c.path === '/events/e1/reservation/release')?.body).toEqual({
       seats: [{ sectionId: 's-a', row: 1, seat: 1 }],
     });
@@ -305,16 +290,19 @@ describe('releasing (US1-5, US1-6; FR-007; spec 033 US2)', () => {
     expect(screen.queryByRole('button', { name: 'Add to cart' })).toBeNull();
   });
 
-  it('never releases when another tier is clicked; the other tiers wait (spec 033 FR-005)', async () => {
+  it('never releases when another section is opened, and holds its seats in the same reservation (spec 038)', async () => {
     const { calls } = withHolds();
     renderCustomer({ at: '/events/e1' });
     await pick([1, 1]);
 
-    fireEvent.click(screen.getByRole('radio', { name: /General/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back to map' }));
+    fireEvent.click(within(mapDrawing()).getByRole('button', { name: /^Section B,/ }));
+    fireEvent.click(await findOnMap('Row 1, Seat 2, Standard, $40, open'));
+    await findOnMap(mineName(1, 2));
 
-    expect(screen.getByRole('radio', { name: /General/ })).toBeDisabled();
     expect(calls.some((c) => c.path === '/events/e1/reservation/release')).toBe(false);
-    expect(screen.getByRole('timer')).toBeInTheDocument();
+    expect(reserved()).toEqual([line(1, 1), 'Section B, Row 1, Seat 2, Standard, $40.00']);
+    expect(screen.getAllByRole('timer')).toHaveLength(1);
   });
 });
 
@@ -339,7 +327,7 @@ describe('refusals keep the held seats (US1-2; FR-002, FR-004a)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Section A, Row 1, Seat 3 is reserved by another customer.',
     );
-    await waitFor(() => expect(reserved()).toEqual(['Section A, Row 1, Seat 1']));
+    await waitFor(() => expect(reserved()).toEqual([line(1, 1)]));
   });
 
   it('says a sold seat is sold', async () => {
@@ -353,7 +341,7 @@ describe('refusals keep the held seats (US1-2; FR-002, FR-004a)', () => {
       }),
     );
     renderCustomer({ at: '/events/e1' });
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+    await openSection('A');
 
     fireEvent.click(seatButton(1, 3));
 
@@ -374,7 +362,7 @@ describe('refusals keep the held seats (US1-2; FR-002, FR-004a)', () => {
       }),
     );
     renderCustomer({ at: '/events/e1' });
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+    await openSection('A');
 
     fireEvent.click(seatButton(1, 1));
 
@@ -386,7 +374,7 @@ describe('refusals keep the held seats (US1-2; FR-002, FR-004a)', () => {
       .formatToParts(new Date(availableAt))
       .find((p) => p.type === 'timeZoneName')?.value;
     expect(formatViewerTime(availableAt).endsWith(` ${abbr}`)).toBe(true);
-    expect(seatButton(1, 1)).toHaveAccessibleName('Row 1, Seat 1');
+    expect(seatButton(1, 1)).toHaveAccessibleName('Row 1, Seat 1, Standard, $40, open');
   });
 
   it('says the reservation ran out when Buy tickets comes too late', async () => {
@@ -428,7 +416,7 @@ describe('refusals keep the held seats (US1-2; FR-002, FR-004a)', () => {
     fireEvent.click(seatButton(1, 3));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('allows 2 tickets per customer');
-    expect(reserved()).toEqual(['Section A, Row 1, Seat 1']);
+    expect(reserved()).toEqual([line(1, 1)]);
   });
 });
 
@@ -458,46 +446,56 @@ describe('logging out (US1-7; FR-008)', () => {
   });
 });
 
-describe('reserved looks different from sold (US4; FR-012, research R13, R15)', () => {
-  const othersReserved = seatMap();
-  othersReserved.sections[0].reserved = [{ row: 2, seat: 5 }];
+describe('held looks different from sold (US4; FR-012, research R13, R15; spec 038 FR-019)', () => {
+  const othersHeld = arena({ reservedA: [[2, 5]] });
 
-  it("shows another customer's reserved seat as Reserved: its own class, an R, and its name", async () => {
-    stubApi(routes({ 'GET /events/e1/seats': json(othersReserved) }));
+  it("shows another customer's held seat as held: hollow, its own class, and its name", async () => {
+    stubApi(routes(othersHeld.routes));
     renderCustomer({ at: '/events/e1' });
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+    await openSection('A');
 
-    const seat = screen.getByRole('button', { name: 'Row 2, Seat 5, reserved' });
+    const seat = within(mapDrawing()).getByRole('button', {
+      name: 'Row 2, Seat 5, Standard, $40, held',
+    });
 
-    expect(seat).toHaveClass('seat--reserved');
-    expect(seat).not.toHaveClass('seat--taken');
-    expect(seat).toHaveTextContent('R');
-    expect(seat).toBeDisabled();
+    expect(seat).toHaveClass('venue-map__seat--held');
+    expect(seat).not.toHaveClass('venue-map__seat--sold');
+    expect(seat.querySelector('.venue-map__dot--hollow')).not.toBeNull();
+    expect(seat).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it("shows the customer's own reserved seats as theirs", async () => {
-    stubApi(routes({ 'GET /me/reservations': json([reservation([[1, 4]])]) }));
+  it("shows the customer's own held seats as theirs", async () => {
+    stubApi(
+      routes({
+        ...arena({ reservedA: [[1, 4]] }).routes,
+        'GET /me/reservations': json([reservation([[1, 4]])]),
+      }),
+    );
     renderCustomer({ at: '/events/e1' });
     await screen.findByRole('timer');
+    await openSection('A');
 
-    const seat = screen.getByRole('button', { name: 'Row 1, Seat 4, reserved by you' });
+    const seat = within(mapDrawing()).getByRole('button', { name: mineName(1, 4) });
 
-    expect(seat).toHaveClass('seat--mine');
-    expect(seat).not.toHaveClass('seat--reserved');
+    expect(seat).toHaveClass('venue-map__seat--mine');
+    expect(seat).not.toHaveClass('venue-map__seat--held');
+    expect(seat.querySelector('.venue-map__mark--check')).not.toBeNull();
     expect(seat).toHaveAttribute('aria-pressed', 'true');
-    expect(seat).toBeEnabled();
+    expect(seat).not.toHaveAttribute('aria-disabled');
   });
 
   it('keeps sold seats as sold, by class, cross, and name', async () => {
-    stubApi(routes({ 'GET /events/e1/seats': json(othersReserved) }));
+    stubApi(routes(othersHeld.routes));
     renderCustomer({ at: '/events/e1' });
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
+    await openSection('A');
 
-    const seat = screen.getByRole('button', { name: 'Row 1, Seat 2, sold' });
+    const seat = within(mapDrawing()).getByRole('button', {
+      name: 'Row 1, Seat 2, Standard, $40, sold',
+    });
 
-    expect(seat).toHaveClass('seat--taken');
-    expect(seat).toHaveTextContent('✕');
-    expect(seat).toBeDisabled();
+    expect(seat).toHaveClass('venue-map__seat--sold');
+    expect(seat.querySelector('.venue-map__mark--cross')).not.toBeNull();
+    expect(seat).toHaveAttribute('aria-disabled', 'true');
   });
 });
 
@@ -507,34 +505,87 @@ describe('review round 1 (T047)', () => {
     renderCustomer({ at: '/events/e1' });
     await pick([1, 1], [1, 3]);
 
-    expect(screen.getByText('Total: $240.00')).toBeInTheDocument();
+    expect(screen.getByText('Total: $80.00')).toBeInTheDocument();
   });
 
-  it('says the event no longer exists when the seat stream answers 404', async () => {
+  /** A stream that sends the map and ends, then answers 404 (no venue map any more). */
+  const endingStream = () => {
     let streams = 0;
+    return () =>
+      streams++ === 0
+        ? new Response(
+            new ReadableStream({
+              start: (c) => {
+                c.enqueue(
+                  new TextEncoder().encode(
+                    `event: venueMap\ndata: ${JSON.stringify(arena().map)}\n\n`,
+                  ),
+                );
+                c.close();
+              },
+            }),
+            { status: 200, headers: { 'content-type': 'text/event-stream' } },
+          )
+        : json({ error: { code: 'NOT_FOUND', message: 'No event' } }, 404);
+  };
+  /** The event as loaded first, then as `later` answers. */
+  const eventThen = (later: () => Response) => {
+    let reads = 0;
+    return () =>
+      reads++ === 0
+        ? json(event({ reservedSeating: true, layoutId: 'lay-1', basePrice: '40.00' }))
+        : later();
+  };
+
+  it('says the event no longer exists when the seat stream answers 404 and the event is gone', async () => {
     stubApi(
       routes({
-        'GET /events/e1/seats/stream': () =>
-          streams++ === 0
-            ? new Response(
-                new ReadableStream({
-                  start: (c) => {
-                    c.enqueue(
-                      new TextEncoder().encode(
-                        `event: snapshot\ndata: ${JSON.stringify(seatMap())}\n\n`,
-                      ),
-                    );
-                    c.close();
-                  },
-                }),
-                { status: 200, headers: { 'content-type': 'text/event-stream' } },
-              )
-            : json({ error: { code: 'NOT_FOUND', message: 'No event' } }, 404),
+        'GET /events/e1/seats/stream': endingStream(),
+        'GET /events/e1': eventThen(() =>
+          json({ error: { code: 'NOT_FOUND', message: 'No event' } }, 404),
+        ),
       }),
     );
     renderCustomer({ at: '/events/e1' });
 
     expect(await screen.findByText('This event no longer exists.')).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Section A seats' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Arena map' })).toBeNull();
+  });
+
+  it('shows general admission when the event was switched to it (FR-010), not a deleted event', async () => {
+    const { calls } = stubApi(
+      routes({
+        'GET /events/e1/seats/stream': endingStream(),
+        'GET /events/e1': eventThen(() =>
+          json(event({ reservedSeating: false, layoutId: null, basePrice: '25.00' })),
+        ),
+      }),
+    );
+    renderCustomer({ at: '/events/e1' });
+
+    // The general-admission purchase form, with the event's base price, and no map.
+    expect(await screen.findByRole('button', { name: 'Confirm order' })).toBeInTheDocument();
+    expect(screen.queryByText('This event no longer exists.')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Arena map' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Choose seats' })).toBeNull();
+    expect(screen.getAllByText('$25.00').length).toBeGreaterThan(0);
+    expect(calls.filter((c) => c.path === '/events/e1')).toHaveLength(2);
+  });
+
+  it('says ticket information is unavailable when the map is gone but the event is still seated', async () => {
+    stubApi(
+      routes({
+        'GET /events/e1/seats/stream': endingStream(),
+        'GET /events/e1': eventThen(() =>
+          json(event({ reservedSeating: true, layoutId: 'lay-1', basePrice: '40.00' })),
+        ),
+      }),
+    );
+    renderCustomer({ at: '/events/e1' });
+
+    expect(
+      await screen.findByText('Ticket information is unavailable right now. Try again later.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('This event no longer exists.')).toBeNull();
   });
 });

@@ -9,7 +9,8 @@ import {
 import { LOCKING_TX, lockEvent } from '../common/event-lock';
 import { PrismaService } from '../prisma/prisma.service';
 import { SeatEventsService } from '../seating/seat-events.service';
-import { closeHolds, closeRunOut, toChanges } from './holds';
+import { sequence, toChanges } from '../seating/seat-changes';
+import { closeHolds, closeRunOut, fromHeld } from './holds';
 import { salesClosed } from './reservations.service';
 
 /**
@@ -79,10 +80,12 @@ export class HoldSweeper implements OnModuleInit, OnModuleDestroy {
     try {
       const changes = await this.prisma.$transaction(async (tx) => {
         const event = await lockEvent(tx, eventId);
-        const freed = await closeRunOut(tx, eventId);
+        const freed: { seatId: string | null }[] = await closeRunOut(tx, eventId);
         // Sales close when the event ends (spec 034): what is still reserved ends CLOSED.
         if (await salesClosed(tx, eventId)) freed.push(...(await closeHolds(tx, eventId)));
-        return toChanges(tx, event.locationId, freed, 'open');
+        // Spec 038 research R12: one seq for the sweep of this event, under its lock.
+        const opened = await toChanges(tx, event.layoutId, fromHeld(freed), 'open');
+        return sequence(tx, eventId, opened);
       }, LOCKING_TX);
       this.seatEvents.publish(eventId, changes);
     } catch (err) {

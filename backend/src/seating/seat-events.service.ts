@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import type { SeatMapChange, SeatStateChange } from '@queuepass/shared';
+import type { SeatMapChange } from '@queuepass/shared';
 import { Observable, Subject } from 'rxjs';
+import type { SeatChanges } from './seat-changes';
 
 /**
  * Spec 015 research R9: the in-process bus that tells every viewer of an event which seats became
@@ -13,10 +14,14 @@ import { Observable, Subject } from 'rxjs';
 export class SeatEventsService {
   private readonly subjects = new Map<string, Subject<SeatMapChange>>();
 
-  /** Sends the changes to every current viewer of the event. Does nothing for an empty list. */
-  publish(eventId: string, changes: SeatStateChange[]): void {
-    if (changes.length === 0) return;
-    this.subjects.get(eventId)?.next({ eventId, changes });
+  /**
+   * Sends the changes to every current viewer of the event. Does nothing for an empty list. Spec
+   * 038 (research R12): `seq` is the event's `seatSeq` the transaction that made them set
+   * (`seat-changes.ts`'s `sequence`), so a viewer never applies a change its map already has.
+   */
+  publish(eventId: string, { changes, seq }: SeatChanges): void {
+    if (changes.length === 0 || seq === null) return;
+    this.subjects.get(eventId)?.next({ eventId, seq, changes });
   }
 
   /** Every change to the event's seats from now on, until `end(eventId)`. */

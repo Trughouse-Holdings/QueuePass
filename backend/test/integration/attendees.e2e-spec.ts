@@ -1,5 +1,14 @@
 import { asAdmin } from '../setup/authed-request';
-import { HOLDER, customer, event, tier, venue } from '../setup/fixtures';
+import {
+  HOLDER,
+  customer,
+  event,
+  insertLayout,
+  seatEventOn,
+  sellSeats,
+  tier,
+  venue,
+} from '../setup/fixtures';
 import { createTestApp, TestContext } from '../setup/test-app';
 import { resetDb } from '../setup/reset-db';
 
@@ -71,6 +80,61 @@ describe('Attendee list', () => {
     const res = await asAdmin(ctx).get(`/events/${eventId}/attendees`).expect(200);
     expect(res.body[0].status).toBe('REFUNDED');
     expect(res.body[0].tickets[0].status).toBe('VOID');
+  });
+
+  it('gives each ticket its price, and no level or seat, for general admission (038 FR-026)', async () => {
+    await (
+      await customer(ctx)
+    )
+      .post(`/events/${eventId}/orders`)
+      .send({ holderName: HOLDER, quantity: 2 })
+      .expect(201);
+    const res = await asAdmin(ctx).get(`/events/${eventId}/attendees`).expect(200);
+    expect(res.body[0].tickets.map((t: object) => t)).toEqual([
+      expect.objectContaining({ price: '45.00', levelName: null, seat: null }),
+      expect.objectContaining({ price: '45.00', levelName: null, seat: null }),
+    ]);
+  });
+
+  it("gives a seated ticket its seat's labels, level and price as sold (038 FR-026, R17)", async () => {
+    const venueId = await venue(ctx, 'Seated Hall');
+    const layout = await insertLayout(ctx, venueId, {
+      levels: ['Courtside', 'Lower'],
+      sections: [
+        { name: '115', level: 'Lower', rows: 6, seatsPerRow: 8, rowLevels: { 1: 'Courtside' } },
+      ],
+    });
+    const seated = await event(ctx, venueId, { capacity: 48 });
+    await seatEventOn(ctx, seated, layout, { Courtside: '95.00', Lower: '60.00' });
+    await sellSeats(ctx, seated, layout, [
+      { section: '115', row: 1, seat: 2, levelName: 'Courtside', price: '95.00' },
+      { section: '115', row: 6, seat: 7, levelName: 'Lower', price: '60.00' },
+    ]);
+
+    const res = await asAdmin(ctx).get(`/events/${seated}/attendees`).expect(200);
+    expect(res.body[0]).toMatchObject({ unitPrice: null, totalPrice: '155.00' });
+    const tickets = res.body[0].tickets.map(
+      (t: { seat: object; price: string; levelName: string }) => ({
+        seat: t.seat,
+        price: t.price,
+        levelName: t.levelName,
+      }),
+    );
+    expect(tickets).toEqual(
+      expect.arrayContaining([
+        {
+          seat: { section: '115', row: 1, seat: 2, rowLabel: 'A', seatLabel: '2' },
+          price: '95.00',
+          levelName: 'Courtside',
+        },
+        {
+          seat: { section: '115', row: 6, seat: 7, rowLabel: 'F', seatLabel: '7' },
+          price: '60.00',
+          levelName: 'Lower',
+        },
+      ]),
+    );
+    expect(tickets).toHaveLength(2);
   });
 
   it('is 404 for an unknown event', async () => {

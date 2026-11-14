@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { EventDetail } from '../src/pages/EventDetail';
 import { when } from '../src/format';
 import { json, stubApi } from './helpers/api-stub';
+import { arenaVenueMap } from './fixtures-038';
 import { fixTimeBeforeFixtures } from './helpers/fixed-time';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -158,5 +159,46 @@ describe('EventDetail: Doors open', () => {
     renderPage();
     await screen.findByRole('heading', { name: 'Late Show' });
     expect(terms()).not.toContain('Doors open');
+  });
+});
+
+/**
+ * Spec 038 US6 (T048; FR-027, research R15): a seated event's page shows its seats on the venue
+ * map by state, where `007`'s section select and seat grid were; its ticket types are general
+ * admission's, so the tier section offers no Add a tier (the Backend refuses one, T024).
+ */
+describe('EventDetail: a seated event', () => {
+  const SEATED = { ...EVENT, reservedSeating: true, layoutId: 'l-arena', priceMax: '90.00' };
+  const routes = (event: object) => ({
+    [`GET ${PATH}`]: json(event),
+    [`GET ${PATH}/tiers`]: json([]),
+    ...arenaVenueMap(EVENT.id).routes,
+  });
+
+  it('shows the venue map in the Seating card, not a section select and seat grid', async () => {
+    stubApi(routes(SEATED));
+    renderPage();
+    const card = await screen.findByRole('region', { name: 'Seating' });
+    expect(await within(card).findByRole('group', { name: 'Arena map' })).toBeInTheDocument();
+    expect(within(card).queryByRole('combobox', { name: 'Seat map section' })).toBeNull();
+    expect(within(card).queryByRole('group', { name: /seat map$/ })).toBeNull();
+    expect(within(card).getByRole('link', { name: 'Edit event' })).toHaveAttribute(
+      'href',
+      `${PATH}/edit`,
+    );
+  });
+
+  it('offers no Add a tier on a seated event, and still does on general admission', async () => {
+    stubApi(routes(SEATED));
+    const { unmount } = renderPage();
+    const tiers = await screen.findByRole('region', { name: 'Ticket tiers' });
+    await within(tiers).findByText(/sells seats by price level/);
+    expect(screen.queryByRole('form', { name: 'Add a tier' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add tier' })).toBeNull();
+    unmount();
+
+    stubApi(routes(EVENT));
+    renderPage();
+    expect(await screen.findByRole('form', { name: 'Add a tier' })).toBeInTheDocument();
   });
 });

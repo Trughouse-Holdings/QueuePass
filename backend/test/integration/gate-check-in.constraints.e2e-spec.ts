@@ -30,8 +30,8 @@ describe('Gate check-in rules below the Backend', () => {
                            "unitPrice", "totalPrice")
       VALUES (${orderId}::uuid, ${eventId}::uuid, 'demo-customer1', 'customer1', 1, 45.00, 45.00)`;
     await ctx.prisma.$executeRaw`
-      INSERT INTO "Ticket" ("id", "orderId", "eventId", "code")
-      VALUES (${ticketId}::uuid, ${orderId}::uuid, ${eventId}::uuid, 'GATECHECK234')`;
+      INSERT INTO "Ticket" ("id", "orderId", "eventId", "code", "price")
+      VALUES (${ticketId}::uuid, ${orderId}::uuid, ${eventId}::uuid, 'GATECHECK234', 45.00)`;
   });
 
   /** Sets the order's name by SQL (no trimming, no Backend rule), returning the DB's answer. */

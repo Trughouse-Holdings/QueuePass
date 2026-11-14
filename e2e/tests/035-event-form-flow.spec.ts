@@ -1,8 +1,9 @@
-// Spec 035 quickstart S1 (FR-008, SC-001, T007): a seated event that assigns every section of a
-// 30-seat layout is scheduled without a submit-time error, and both ticket types are saved.
+// Spec 035 quickstart S1 (FR-008, SC-001, T007): a seated event on a 30-seat layout is scheduled
+// without a submit-time error. Spec 038 (FR-010, FR-011): the event takes one of the venue's
+// layouts and a price per level, in place of a ticket type per section; every seat is on sale.
 import { expect, test } from '@playwright/test';
 import { adminFor } from '../fixtures/apps';
-import { apiFor, createVenue, type Event, type TicketTier } from '../fixtures/api';
+import { apiFor, createLayout, createVenue, type Event } from '../fixtures/api';
 import { PLACES, uniqueName } from '../fixtures/data';
 import { signIn } from '../fixtures/sign-in';
 import { localDate } from '../fixtures/time';
@@ -17,17 +18,26 @@ test("035 S1: a seated event that fills the venue's layout is scheduled without 
   const venueName = uniqueName(testInfo, '035 Hall');
   const eventName = uniqueName(testInfo, '035 Full House');
   const admin = await apiFor(browser, 'admin', adminFor(testInfo));
-  await createVenue(admin.api, PLACES.louisville, venueName, [
-    { name: 'Front', rows: 2, seatsPerRow: 5 },
-    { name: 'Middle', rows: 2, seatsPerRow: 5 },
-    { name: 'Back', rows: 2, seatsPerRow: 5 },
-  ]);
+  const venue = await createVenue(admin.api, PLACES.louisville, venueName);
+  const layout = await createLayout(admin.api, venue, {
+    name: 'Hall',
+    levels: [
+      { name: 'Floor', color: 'violet' },
+      { name: 'Balcony', color: 'teal' },
+    ],
+    sections: [
+      { name: 'Front', rows: 2, seatsPerRow: 5, level: 'Floor' },
+      { name: 'Middle', rows: 2, seatsPerRow: 5, level: 'Balcony' },
+      { name: 'Back', rows: 2, seatsPerRow: 5, level: 'Balcony' },
+    ],
+  });
 
   const day = localDate(EASTERN, 5);
   await signIn(page, 'admin', adminFor(testInfo));
   await page.getByRole('link', { name: 'Events', exact: true }).click();
   await page.getByRole('link', { name: 'Schedule event' }).first().click();
   await page.getByLabel('Event name', { exact: true }).fill(eventName);
+  // The venue's capacity is its largest layout's seats (spec 038 FR-009).
   await page
     .getByLabel('Venue', { exact: true })
     .selectOption({ label: `${venueName} (30 seats)` });
@@ -35,22 +45,11 @@ test("035 S1: a seated event that fills the venue's layout is scheduled without 
   await fillEventDateTime(page, 'Ends', `${day}T22:00`);
 
   await expect(page.getByRole('group', { name: 'Tickets and seating' })).toBeVisible();
-  await expect(page.getByLabel('Reserved seating')).toBeChecked();
-  await page.getByLabel('Ticket type 1 name', { exact: true }).fill('Floor');
-  await page.getByLabel('Ticket type 1 price', { exact: true }).fill('80.00');
-  await page.getByRole('button', { name: 'Add ticket type' }).click();
-  await page.getByLabel('Ticket type 2 name', { exact: true }).fill('Balcony');
-  await page.getByLabel('Ticket type 2 price', { exact: true }).fill('60.00');
-  await page.getByRole('combobox', { name: 'Section Middle ticket type' }).selectOption({
-    label: 'Balcony',
-  });
-  await page.getByRole('combobox', { name: 'Section Back ticket type' }).selectOption({
-    label: 'Balcony',
-  });
-
-  await expect(page.getByTestId('seat-total')).toHaveText(
-    '30 of 30 seats assigned All 30 seats are assigned.',
-  );
+  await page.getByLabel('Seating', { exact: true }).selectOption({ label: 'Hall (30 seats)' });
+  await expect(page.getByRole('table', { name: 'Prices by level' })).toBeVisible();
+  await page.getByLabel('Floor price', { exact: true }).fill('80.00');
+  await page.getByLabel('Balcony price', { exact: true }).fill('60.00');
+  await expect(page.getByTestId('seat-line')).toHaveText('30 seats on sale · 0 off sale');
 
   await page.getByRole('button', { name: 'Schedule event' }).click();
   await expect(page.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
@@ -59,10 +58,13 @@ test("035 S1: a seated event that fills the venue's layout is scheduled without 
 
   const events = await admin.api.call<Event[]>('GET', `/events?q=${encodeURIComponent(eventName)}`);
   expect(events).toHaveLength(1);
-  const tiers = await admin.api.call<TicketTier[]>('GET', `/events/${events[0].id}/tiers`);
-  expect(tiers.map((t) => [t.name, t.quantity]).sort()).toEqual([
-    ['Balcony', 20],
-    ['Floor', 10],
-  ]);
+  // Every seat on sale: the capacity is the layout's 30 seats, the price its lowest and highest.
+  expect(events[0]).toMatchObject({
+    layoutId: layout.id,
+    reservedSeating: true,
+    totalTicketCapacity: 30,
+    basePrice: '60.00',
+    priceMax: '80.00',
+  });
   await admin.close();
 });

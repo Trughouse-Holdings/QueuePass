@@ -1,17 +1,20 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, within } from '@testing-library/react';
-import type { CustomerLimit, SeatMap } from '@queuepass/shared';
+import type { CustomerLimit } from '@queuepass/shared';
 import {
   availability,
   event,
   holdBackend,
   json,
+  openSection,
   order,
   renderCustomer,
+  seatOf,
+  seatedMap,
   stubApi,
-  tier,
   typeHolderName,
   fixTimeBeforeFixtures,
+  findOnMap,
 } from './helpers';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
@@ -41,6 +44,20 @@ describe('buttons', () => {
     stubApi(routes());
     renderCustomer({ at: '/events/e1' });
     expect(await screen.findByRole('button', { name: 'Confirm order' })).toHaveClass(
+      'btn',
+      'btn--primary',
+    );
+  });
+
+  it('Choose seats, on a seated event, is the primary button (spec 038)', async () => {
+    stubApi({
+      'GET /events/e1': json(event({ reservedSeating: true, layoutId: 'lay-1' })),
+      'GET /events/e1/tiers': json([]),
+      'GET /events/e1/availability': json(availability({ ticketsLeft: 6 })),
+      ...seatedMap([{ sectionId: 's-a', name: 'A', rows: 1, seatsPerRow: 2 }]).routes,
+    });
+    renderCustomer({ at: '/events/e1' });
+    expect(await screen.findByRole('button', { name: 'Choose seats' })).toHaveClass(
       'btn',
       'btn--primary',
     );
@@ -156,43 +173,23 @@ describe("016's ticket-limit lines (FR-010)", () => {
   });
 
   it('shows "No more seats can be chosen" as a note', async () => {
-    const vip = tier({ id: 't-vip', name: 'VIP', price: '120.00', quantity: 6 });
-    const map: SeatMap = {
-      eventId: 'e1',
-      reservedSeating: true,
-      sections: [
-        {
-          sectionId: 's-a',
-          name: 'A',
-          rows: 2,
-          seatsPerRow: 3,
-          tierId: 't-vip',
-          sold: 0,
-          taken: [],
-          reserved: [],
-        },
-      ],
-    };
+    const seats = seatedMap([{ sectionId: 's-a', name: 'A', rows: 2, seatsPerRow: 3 }]);
     stubApi({
-      'GET /events/e1': json(event({ reservedSeating: true })),
-      'GET /events/e1/tiers': json([vip]),
+      'GET /events/e1': json(event({ reservedSeating: true, layoutId: 'lay-1' })),
+      'GET /events/e1/tiers': json([]),
       'GET /events/e1/availability': json(
-        availability({
-          ticketsLeft: 6,
-          tiers: [{ tierId: 't-vip', ticketsLeft: 6 }],
-          customerLimit: limit(2, 3),
-        }),
+        availability({ ticketsLeft: 6, customerLimit: limit(2, 3) }),
       ),
-      'GET /events/e1/seats': json(map),
+      ...seats.routes,
       // Spec 033: each click holds the seat at once.
       ...holdBackend().routes,
     });
     renderCustomer({ at: '/events/e1' });
 
-    fireEvent.click(await screen.findByRole('radio', { name: /VIP/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 1' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Row 1, Seat 2' }));
-    await screen.findByRole('button', { name: 'Row 1, Seat 2, reserved by you' });
+    await openSection('A');
+    fireEvent.click(seatOf(1, 1));
+    fireEvent.click(seatOf(1, 2));
+    await findOnMap('Row 1, Seat 2, Standard, $40, held by you');
     expect(
       screen.getByText(
         'No more seats can be chosen: the limit of 3 tickets per customer allows you 2 more.',

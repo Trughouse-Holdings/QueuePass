@@ -3,7 +3,7 @@
 **Branch**: `037-rust-admin-app-spec` | **Date**: 2026-11-11 | **Spec**: [spec.md](./spec.md)
 
 **Issue**: [#163](https://github.com/Trughouse-Holdings/QueuePass/issues/163)
-**Constitution**: 3.9.8 → **3.10.0** (MINOR, this PR). Contract: unchanged.
+**Constitution**: 3.10.0 → **3.11.0** (MINOR, this PR; written as 3.9.8 → 3.10.0 and renumbered on 2026-11-14 after spec 038 took 3.10.0). Contract: unchanged.
 
 ## Summary
 
@@ -74,7 +74,7 @@ similar size in Rust, and about 45 parity items.
 | CI shape (spec 011) | ✅ | Rust setup is a part of the root `ci` script (`rust:setup`), so `ci-workflow.test.mjs`' rules hold. No cache step. Job times measured, with an open fallback (R12). |
 | Shared-surface approval | ⚠️ | The constitution, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`, and the root `package.json` change, so every team member must approve the impl PR, and this PR for the amendment. |
 
-**Result**: passes with the amendment in this PR (3.10.0). Every ⚠️ is a widening John asked for this
+**Result**: passes with the amendment in this PR (3.11.0). Every ⚠️ is a widening John asked for this
 week. None weakens a control without naming its replacement: the coverage exclusion's replacement
 is the required `e2e` check running every Admin journey against this app.
 
