@@ -628,7 +628,7 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
 
 ### Tests first
 
-- [ ] T026 [P] [US3] `backend/test/integration/venue-map.e2e-spec.ts` (R11, FR-016, FR-028,
+- [X] T026 [P] [US3] `backend/test/integration/venue-map.e2e-spec.ts` (R11, FR-016, FR-028,
   FR-029): `getVenueMap` gives the layout's drawing, levels with this event's prices (`null` for a
   level with nothing on sale) and per section and level `open`, `reserved`, `sold`, `offSale` that
   add up to the section's seats, after holds, a sale, a void ticket and off-sale seats;
@@ -637,7 +637,13 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   `404`; a GA event → `404`; no response contains a customer's sub, username, order or holder name;
   the same answer for an admin and a customer; authorization cases for both operations; contract
   matches. Must fail.
-- [ ] T027 [P] [US3] `backend/test/integration/holds.levels.e2e-spec.ts` (FR-021, R10): one
+  **Done** (2026-11-14): 10 tests, written first and seen failing (`404`, no routes); all pass after
+  T034 and T035. Beyond the list: a level priced but with every seat off sale has `price: null`; a
+  section's counts split by levels resolved by seat, row and section (`insertLayout` overrides);
+  `seq` moves by one with a hold and the counts with it; a gate agent's answer equals the others';
+  unknown event and section `404`. `getVenueMap` and `getVenueMapSection` have no `403` (any
+  signed-in user), so the authorization cases are the four `401`s.
+- [X] T027 [P] [US3] `backend/test/integration/holds.levels.e2e-spec.ts` (FR-021, R10): one
   reservation holds seats of three levels, still at most 10 (`400` at 11 as before);
   `Reservation.tierId` is `null`; each `ReservedSeat` has `rowLabel`, `seatLabel`, `levelName` and the
   current `price`; an off-sale seat → `409 SEAT_OFF_SALE` `details.seats`, nothing held; a seat of
@@ -649,7 +655,22 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   Also moved to the `seatedEvent` helper, same assertions (from T009a): `reservations.concurrency`
   (3 tests), `rate-limits.hold` (5), `rate-limits.ordinary`'s seated case, `rate-limits.buy`'s
   seated case.
-- [ ] T028 [P] [US3] `backend/test/integration/orders.levels.e2e-spec.ts` (FR-022, FR-026, R10):
+  **Done** (2026-11-14): `holds.levels` (8 tests) seen failing (holds `500`; 2 refusals already
+  passed), all pass after T035; it also checks labels that differ from numbers (`insertLayout`'s
+  rows A, B, …) and a price changed while held showing in `listMyReservations`. Helpers in
+  `fixtures.ts`: `seatedLayout` (a lines layout through `createVenueLayout`) and `seatedEvent`
+  (`createEvent` with `layoutId`, `levelPrices`, `offSale` by section name; or on a given layout).
+  Moved to them: `reservations` (24 → 25), `reservations.boundaries` (16), `reservations.concurrency`
+  (3), `reservations.admin-changes` (9), `seat-holds.constraints` (7 → 10), `rate-limits.hold` (5),
+  `rate-limits.ordinary` and `rate-limits.buy`'s seated cases. Translated: a section with no tier
+  is now off sale (`409 SEAT_OFF_SALE`); "two tiers" is allowed; `tierId` is `null`;
+  `updateSeating`'s cases become event saves (`layoutId` change or `null` with holds `409
+  EVENT_HAS_ORDERS`, a held seat off sale `409 SEAT_TAKEN`, a price change keeping holds and ending
+  the stream), `replaceLayout`'s a lines edit (`409 LAYOUT_IN_USE`), `createTicketTier`'s a `400`;
+  admin changes checked with `seq`, `from`, `levelId`. Deleted: "deleteTicketTier removes the
+  tier's reservations" (no ticket types on a seated event, FR-012). `seat-holds.constraints` adds
+  one live hold per `seatId` whatever the label, per event, and `seat_hold_live_has_seat`.
+- [X] T028 [P] [US3] `backend/test/integration/orders.levels.e2e-spec.ts` (FR-022, FR-026, R10):
   buying held seats of two levels makes one ticket per seat at its level's price **at purchase**
   (a price changed after the hold applies), `totalPrice` the sum, `unitPrice` the one price when all
   equal and `null` when they differ, each ticket's `price`, `levelName`, `seat.rowLabel`,
@@ -659,14 +680,28 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   Also (from T009a): `orders.ticket-limit`'s seated case moves to the `seatedEvent` helper; the seated
   case of `orders.holder-name.e2e-spec.ts` deleted in T009a comes back here (the name on every ticket
   of a mixed-level order).
-- [ ] T029 [P] [US3] `backend/test/integration/seats.concurrency.e2e-spec.ts` (FR-025, SC-001): 10
+  **Done** (2026-11-14): `orders.levels` (6 tests) seen failing (holds `500`, `RESERVATION_REQUIRED`
+  for the off-sale seat), all pass after T035 and T036; also labels as sold that differ from numbers,
+  and a price change after the sale touching no ticket. Moved to `seatedEvent`: `orders.seats` (8;
+  "a section mapped to no tier" → off sale `409`, "without tiers at the base price" → one level,
+  "a seated tier's amount" → no ticket types and capacity = seats on sale), `orders.reservation` (8;
+  its map check on `getVenueMap`), `orders.ticket-limit`'s seated case. `orders.e2e-spec.ts` has no
+  seated case, unchanged. `orders.holder-name` gets back its seated case (11 tests): one order of two
+  levels, the name on the order and so on every ticket, in the response and the attendee list.
+- [X] T029 [P] [US3] `backend/test/integration/seats.concurrency.e2e-spec.ts` (FR-025, SC-001): 10
   customers hold the same seat at once → exactly one `2xx`, nine `409 SEAT_TAKEN`; the holder sends
   10 orders for that seat at once, each with its own `requestId` → exactly one `201` and one VALID
   ticket, the rest refused; with the application check bypassed (two VALID tickets for one `seatId`
   inserted at once by SQL) the database refuses one (`ticket_one_valid_per_seat`); an admin taking a
   seat off sale while 10 customers try to hold it → either a hold or the off-sale save wins, never
   both. Genuinely concurrent (`Promise.all` on separate connections). Must fail.
-- [ ] T030 [P] [US3] `backend/test/integration/seat-stream.e2e-spec.ts` (R12, FR-023, SC-004): the
+  **Done** (2026-11-14): rewritten on `seatedEvent` (6 tests), seen failing (holds `500` on
+  `seat_hold_live_has_seat`), all pass after T035 and T036: 10 holds of one seat (3 runs), the
+  holder's 10 orders, two overlapping orders, two VALID tickets for one `seatId` inserted at once by
+  SQL (one refused, `23505`; the index is `("eventId", "seatId") WHERE status = 'VALID'`), an
+  off-sale save racing 10 holds (5 runs: the save `200` and every hold `SEAT_OFF_SALE`, or one hold
+  and the save `409 SEAT_TAKEN`), and a cancellation freeing every seat (read on `getVenueMap`).
+- [X] T030 [P] [US3] `backend/test/integration/seat-stream.e2e-spec.ts` (R12, FR-023, SC-004): the
   stream begins with `event: venueMap` (a `VenueMap` with `seq`), no `snapshot`; hold, release,
   purchase, expiry and an off-sale save each send `seats` with a `seq` one greater than the last and
   `state`, `from` and `levelId` per seat; a change made while the map is being read (hold during the
@@ -675,6 +710,14 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   keeps the stream, a layout or price change and a layout edit end it; every message matches
   `x-sse-events`; 20 trials of a hold with a second viewer connected, at least 19 delivered within 2
   seconds (SC-004). Must fail.
+  **Done** (2026-11-14): rewritten (14 tests; its `StreamReader` kept), seen failing (12 of 14: no
+  `venueMap`, holds `500`), all pass after T037. The seven changes of hold, release, hold, purchase,
+  hold, expiry (the sweep) and an off-sale save carry seqs `map.seq + 1 … + 7` and the map plus them
+  equals a fresh `getVenueMap`; a cancellation sends sold and held seats `open` in one seq; the
+  connect race runs 10 trials, each with a later hold as a fence before comparing; the stream ends on
+  a price change, a lines edit of its layout and another layout, and a reconnect reads the new
+  prices. A general-admission event's stream is `404`, like its map (decided here: it has no
+  `venueMap` to begin with; the contract names only an unknown or deleted event).
 - [ ] T031 [P] [US3] `packages/shared/test/venue-map/use-pan-zoom.test.ts` (R13): zoom at a point
   keeps that point under the cursor; zoom bounded (fit … 40×); pan by a drag; two pointers pinch;
   `+`, `−`, arrows; zoom-to-section gives the section's bounds with a margin; reduced motion skips the
@@ -704,10 +747,23 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
 
 ### Implementation
 
-- [ ] T034 [US3] `backend/src/seating/venue-map.service.ts` and `venue-map.controller.ts`:
+- [X] T034 [US3] `backend/src/seating/venue-map.service.ts` and `venue-map.controller.ts`:
   `getVenueMap` (one grouped count query, R11) and `getVenueMapSection`; remove their `x-planned`
   markers; regenerate `api-schema.ts`.
-- [ ] T035 [US3] `backend/src/seating/seat-rules.ts`: `resolveSeats` returns seat ids with labels and
+  **Done** (2026-11-14): `VenueMapService` (also the stream's first message) and
+  `VenueMapController` (`@Roles()`, any signed-in user) in `SeatingModule`; the drawing, prices and
+  counts read in one `RepeatableRead` snapshot, the counts and `seq` from `countSeatStates`' one
+  statement; the section from `sectionSeatStates` (new, in `seat-levels.ts`), its states and `seq`
+  in one statement too. A level's price is `null` unless it has a seat not off sale. Markers removed
+  (with T037's, none left), `api-schema.ts` unchanged by it, drift check passes. **Changed from
+  T008**: a seat counts `reserved` while its hold's row is live (`releasedAt` NULL), not by the
+  reservation's clock. Counted open by the clock, a run-out hold would be open in a map read before
+  the sweep and then opened again by the sweep's change with a greater `seq`: counted twice, against
+  FR-023 and R12 (data-model.md's "a live hold of an active reservation" holds under the event lock,
+  where `closeRunOut` runs first, but the map is read without it). The seat shows held until the
+  sweep (1 second) or a locked path ends it; `seat-levels.e2e-spec.ts`'s run-out seat now counts
+  `reserved` (reported).
+- [X] T035 [US3] `backend/src/seating/seat-rules.ts`: `resolveSeats` returns seat ids with labels and
   resolved levels from `{sectionId, row, seat}` on the event's layout; no tier rule; refuses off-sale
   seats (`409 SEAT_OFF_SALE`); `soldSeats` by seat id. Every transaction that changes a seat's state
   (hold, release, the sweep, purchase, refund, cancellation, off-sale save) increments
@@ -715,16 +771,44 @@ its own price; live changes (FR-016–FR-026, FR-029, R10–R14).
   `backend/src/reservations/`: holds and releases by seat id, `tierId` null on seated events, `ReservedSeat` labels, level and price,
   the `016` limit and `033`'s wait unchanged; `holds.ts` `toChanges` with `from` and `levelId`.
   Then re-run `layouts.concurrency.e2e-spec.ts`: its hold race (T012) passes (from T019).
-- [ ] T036 [US3] `backend/src/orders/orders.service.ts`: seated orders without `tierId`; each ticket
+  **Done** (2026-11-14): `resolveSeats` reads every seat named in one statement (`VALUES` joined to
+  rows and seats, level by `SEAT_LEVEL_SQL`), refuses a section not of the layout and a seat it does
+  not have (`400`), a seat twice (`400`), then seats off sale (`409 SEAT_OFF_SALE`, `details.seats` as
+  the request named them, the message with labels); `soldSeats`, the taken checks and the 2-minute
+  wait by `seatId`; holds insert `seatId`. `seat-changes.ts` (new): `toChanges` reads each moved
+  seat's `{sectionId, row, seat}` and level and takes `from` per seat; `sequence` increments
+  `seatSeq` once per transaction with changes, under the event lock; `SeatEventsService.publish`
+  takes `{changes, seq}` and sends nothing without a `seq`. Sequenced: hold, release, logout, the
+  sweep, purchase, cancellation (sold `from: sold`, held `from: reserved`, one seq), and tier writes
+  (only general admission has tiers now, so they never free a seat); the off-sale save already was
+  (T023). There is no refund other than cancellation (`005`, `009`). The shared `SeatStateChange`
+  (`from`, `levelId`), `SeatMapChange` (`seq`) are required now and `ReservedSeat` has `rowLabel`,
+  `seatLabel`, `levelName`, `price` (`packages/shared/src/seating.ts`; the front-end tasks build on
+  them). `layouts.concurrency` passes, its hold race included.
+- [X] T036 [US3] `backend/src/orders/orders.service.ts`: seated orders without `tierId`; each ticket
   `seatId`, `price` (the level price read under the event lock), `levelName`, `seatSection`,
   `seatRow`, `seatNumber`, `seatRowLabel`, `seatLabel`; `totalPrice` the sum; `unitPrice` null when
   prices differ; responses with `price`, `levelName`, `rowLabel`, `seatLabel`. General admission
   unchanged (each ticket's `price` = `unitPrice`).
-- [ ] T037 [US3] `backend/src/seating/seat-stream.controller.ts` and `seat-events.service.ts`: send
+  **Done** (2026-11-14): a `tierId` on a seated order is `400` before any other seat rule; the level
+  prices are read under the event lock after the seat rules (`seatPrices`; a level on sale without a
+  price is an invariant broken, a `500`, never a customer's refusal); each ticket has its seat id,
+  labels, `levelName` and price; `totalPrice` the sum, `unitPrice` the shared price or `null`; the
+  one-valid-ticket collision retry now recognises `seatId`. General admission unchanged.
+- [X] T037 [US3] `backend/src/seating/seat-stream.controller.ts` and `seat-events.service.ts`: send
   `venueMap` first (with its `seq`; changes that arrive while it is read are still sent, the client
   skips the ones the map already has); changes with `from` and `levelId` from holds, releases, the sweep, purchases,
   refunds, cancellations and off-sale saves; `end()` on seating and layout saves; remove the
   `x-planned` marker of the `venueMap` event. T026–T030 pass.
+  **Done** (2026-11-14): the stream subscribes to the bus, reads the map (`VenueMapService`), then
+  sends `venueMap` and the changes that came meanwhile, then each change as it comes; an unknown or
+  general-admission event is a plain `404` before any byte. Changes carry `from`, `levelId` and `seq`
+  from every seat-changing path (T035); `end()` on seating and layout saves was T023's and T015's.
+  Marker removed (none left); `api-schema.ts` unchanged, drift check passes. T026–T030 pass.
+  **After Phase 5's Backend** (`jest --runInBand`): 1 of 126 suites red, 1 of 1,501 tests (before:
+  14 of 123, 105 of 1,467): `rate-limits.buy`'s 200-connection case, T001's `ECONNRESET` (this Mac's
+  listen queue). Green now: every suite T009a, T019 and T025 left red for T027–T030 and T035
+  (`layouts.concurrency` included). `npx tsc --noEmit -p backend` clean; ESLint and Prettier clean.
 - [ ] T038 [US3] Theme tokens in `packages/shared/src/web/theme.css`: `--level-violet` …
   `--level-brown` (the 12 names), `--seat-unavailable`, `--seat-mine`, `--map-floor`, `--map-bg`,
   each level color ≥ 3:1 against `--map-bg`; the theme's contrast tests cover them
