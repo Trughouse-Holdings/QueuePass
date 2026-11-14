@@ -89,7 +89,8 @@ describe('seat levels and the layout lock (R1, R7, R11)', () => {
     await sql(`UPDATE "Event" SET "seatSeq" = 7 WHERE "id" = '${events.seatedA}'`);
 
     // Seat 1-1 off sale; 1-2 sold; 1-3 held; 2-1 a void ticket (open); 2-2 held by a reservation
-    // that ran out and was not yet swept (open, spec 015 research R3); 2-3 open.
+    // that ran out and was not yet swept (still reserved until a locked path or the sweep ends it
+    // and publishes it with the next seq, T034: FR-023); 2-3 open.
     await sql(`
       INSERT INTO "EventOffSaleSeat" ("eventId", "seatId")
       VALUES ('${events.seatedA}', '${seats.get('1-1')}')`);
@@ -152,7 +153,7 @@ describe('seat levels and the layout lock (R1, R7, R11)', () => {
       expect(seq).toBe(7n);
       expect(counts).toEqual([
         { sectionId: section, levelId: levels.a, open: 0, reserved: 1, sold: 1, offSale: 0 },
-        { sectionId: section, levelId: levels.b, open: 3, reserved: 0, sold: 0, offSale: 1 },
+        { sectionId: section, levelId: levels.b, open: 2, reserved: 1, sold: 0, offSale: 1 },
       ]);
     });
 

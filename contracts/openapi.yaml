@@ -1321,7 +1321,6 @@ paths:
         The same for every caller; it never says who holds or bought a seat. `streamSeatMap` sends
         this map first and then every change. A general-admission event has no venue map (`404`).
       operationId: getVenueMap
-      x-planned: '038'
       x-required-roles: []
       responses:
         '200':
@@ -1353,7 +1352,6 @@ paths:
         state for this event. Never says who holds or bought a seat. Apply `streamSeatMap`'s
         changes to it to keep it current.
       operationId: getVenueMapSection
-      x-planned: '038'
       x-required-roles: []
       responses:
         '200':
@@ -1398,7 +1396,6 @@ paths:
       x-sse-events:
         venueMap:
           $ref: '#/components/schemas/VenueMap'
-          x-planned: '038'
         seats: { $ref: '#/components/schemas/SeatMapChange' }
         ping: { type: object, maxProperties: 0 }
       responses:
