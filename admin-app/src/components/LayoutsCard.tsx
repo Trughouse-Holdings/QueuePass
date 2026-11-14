@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   LAYOUT_LIMITS,
   type LayoutDetail,
@@ -214,6 +215,10 @@ export function LayoutsCard({
         >
           Import layout file
         </button>
+        {/* Spec 039 FR-001: the layout editor, on a new layout. */}
+        <Link className="btn" to={`/locations/${venue.id}/layouts/new`}>
+          New layout
+        </Link>
         {!adding && (
           <button
             type="button"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyDoc, fromDrawing } from '../../src/layout-editor/editor-doc';
+import { emptyDoc, fromDrawing, outlineOf } from '../../src/layout-editor/editor-doc';
 import {
   currentDoc,
   initState,
@@ -162,5 +162,183 @@ describe('totals', () => {
 
   it('counts 0 for a level no seat is in', () => {
     expect(totals(emptyDoc()).byLevel).toEqual({ [emptyDoc().levels[0].id]: 0 });
+  });
+});
+
+// ------------------------------------------------------------------- US1 (T031): the generator
+// and moving, turning and the floor object (R5–R7, FR-005, FR-007, FR-011).
+
+const BLOCK = {
+  rows: 3,
+  seatsPerRow: [4],
+  rowLabels: 'LETTERS' as const,
+  firstRow: 'A',
+  firstSeat: 1,
+  direction: 'LEFT_TO_RIGHT' as const,
+  curve: 0,
+};
+
+describe('addSection', () => {
+  it('generates the block at the given place, in the level, selected, with its outline', () => {
+    const s = reduce(initState(emptyDoc()), {
+      type: 'addSection',
+      name: ' 101 ',
+      values: BLOCK,
+      levelId: 'new:0',
+      at: [150, 100],
+    });
+    const [section] = doc(s).sections;
+    expect(section).toMatchObject({
+      name: '101',
+      levelId: 'new:0',
+      origin: [150, 100],
+      angle: 0,
+      generator: BLOCK,
+    });
+    expect(section.id).toMatch(/^new:\d+$/);
+    expect(section.rows.map((r) => r.label)).toEqual(['A', 'B', 'C']);
+    // The origin is the middle of the front row; rows go back toward −y (R7).
+    expect(section.rows[0].seats.map((x) => x.at)).toEqual([
+      [147, 100],
+      [149, 100],
+      [151, 100],
+      [153, 100],
+    ]);
+    expect(section.rows[2].seats[0].at).toEqual([147, 96]);
+    expect(section.rows[0].seats.map((x) => x.label)).toEqual(['1', '2', '3', '4']);
+    expect(section.outline).toEqual(outlineOf(section.rows));
+    const ids = [section.id, ...section.rows.flatMap((r) => [r.id, ...r.seats.map((x) => x.id)])];
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(s.selection).toEqual({ kind: 'sections', ids: [section.id] });
+    expect(s.message).toBe('Section 101 added');
+    expect(totals(doc(s)).seats).toBe(12);
+  });
+
+  it('refuses a block that would take the layout over 30,000 seats', () => {
+    let s = initState(emptyDoc());
+    const big = { ...BLOCK, rows: 100, seatsPerRow: [200] };
+    s = reduce(s, {
+      type: 'addSection',
+      name: 'A',
+      values: big,
+      levelId: 'new:0',
+      at: [2500, 2500],
+    });
+    const t = reduce(s, {
+      type: 'addSection',
+      name: 'B',
+      values: big,
+      levelId: 'new:0',
+      at: [2500, 2500],
+    });
+    expect(doc(t).sections).toHaveLength(1);
+    expect(t.message).toBe('The layout would be over its limits');
+  });
+});
+
+describe('moveSections and turnSections', () => {
+  it('moves a section, its seats, outline and origin by the offset', () => {
+    const s = reduce(loaded(), { type: 'moveSections', ids: ['s-101'], dx: 10, dy: 5 });
+    const [a] = doc(s).sections;
+    expect(a.origin).toEqual([30, 35]);
+    expect(a.rows[0].seats[0].at).toEqual([28, 35]);
+    expect(a.outline[0]).toEqual([
+      doc(loaded()).sections[0].outline[0][0] + 10,
+      doc(loaded()).sections[0].outline[0][1] + 5,
+    ]);
+    expect(s.message).toBe('Section 101 moved');
+  });
+
+  it('moves several sections as one step', () => {
+    const s = reduce(loaded(), { type: 'moveSections', ids: ['s-101', 's-102'], dx: 1, dy: 1 });
+    expect(doc(s).sections.map((x) => x.origin)).toEqual([
+      [21, 31],
+      [101.04, 31],
+    ]);
+    expect(s.message).toBe('2 sections moved');
+    expect(s.history).toHaveLength(2);
+  });
+
+  it('past the top or left edge, moves everything right or down so no place is below 0 (R5)', () => {
+    const before = doc(loaded());
+    const s = reduce(loaded(), { type: 'moveSections', ids: ['s-101'], dx: 0, dy: -40 });
+    const after = doc(s);
+    // 101's outline reached y = 26.5 − 40 = −13.5: everything moves down 15.
+    expect(after.sections[0].origin).toEqual([20, 5]);
+    expect(after.sections[1].origin).toEqual([100.04, 45]);
+    expect(after.floor.outline![0]).toEqual([40, 55]);
+    const ys = after.sections.flatMap((x) => [
+      ...x.outline.map((p) => p[1]),
+      ...x.rows.flatMap((r) => r.seats.map((q) => q.at[1])),
+    ]);
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(0);
+    expect(before.sections[1].origin).toEqual([100.04, 30]);
+  });
+
+  it('never moves past 5,000', () => {
+    const s = reduce(loaded(), { type: 'moveSections', ids: ['s-101'], dx: 9000, dy: 0 });
+    const xs = doc(s).sections[0].outline.map((p) => p[0]);
+    expect(Math.max(...xs)).toBeCloseTo(5000, 6);
+  });
+
+  it('turns each section about its own origin, clockwise, and keeps the angle in (−180, 180]', () => {
+    let s = reduce(loaded(), { type: 'turnSections', ids: ['s-101'], degrees: 90 });
+    const [a] = doc(s).sections;
+    expect(a.angle).toBe(90);
+    // Seat A3 at (22, 30), 2 right of the origin (20, 30), turns to 2 below it.
+    const [x, y] = a.rows[0].seats[2].at;
+    expect(x).toBeCloseTo(20, 9);
+    expect(y).toBeCloseTo(32, 9);
+    expect(a.origin).toEqual([20, 30]);
+    expect(s.message).toBe('Section 101 turned to 90°');
+    s = reduce(s, { type: 'turnSections', ids: ['s-101', 's-102'], degrees: 100 });
+    expect(doc(s).sections.map((q) => q.angle)).toEqual([-170, -170]);
+    expect(doc(s).sections[1].origin).toEqual([100.04, 30]);
+    expect(s.message).toBe('2 sections turned 100°');
+  });
+
+  it('a whole turn is no change', () => {
+    const s = loaded();
+    expect(reduce(s, { type: 'turnSections', ids: ['s-101'], degrees: 360 })).toBe(s);
+  });
+});
+
+describe('placeSection (typed place and angle)', () => {
+  it('a typed angle turns by the difference; a typed place moves the origin there', () => {
+    let s = reduce(loaded(), { type: 'placeSection', id: 's-102', angle: 30 });
+    expect(doc(s).sections[1].angle).toBe(30);
+    s = reduce(s, { type: 'placeSection', id: 's-101', origin: [50, 60] });
+    const [a] = doc(s).sections;
+    expect(a.origin).toEqual([50, 60]);
+    expect(a.rows[0].seats[0].at).toEqual([48, 60]);
+    expect(s.message).toBe('Section 101 moved');
+  });
+
+  it('typing on in the same box is one step', () => {
+    let s = reduce(loaded(), { type: 'placeSection', id: 's-101', angle: 3 });
+    s = reduce(s, { type: 'placeSection', id: 's-101', angle: 30 });
+    expect(s.history).toHaveLength(2);
+    expect(doc(s).sections[0].angle).toBe(30);
+  });
+});
+
+describe('the floor object, moved and resized', () => {
+  it('moves the floor by an offset and resizes it to new bounds', () => {
+    let s = reduce(loaded(), { type: 'moveFloor', dx: 10, dy: 0 });
+    expect(doc(s).floor.outline).toEqual([
+      [50, 40],
+      [90, 40],
+      [90, 60],
+      [50, 60],
+    ]);
+    expect(s.message).toBe('Floor object moved');
+    s = reduce(s, { type: 'resizeFloor', to: { x: 50, y: 40, width: 60, height: 30 } });
+    expect(doc(s).floor.outline).toEqual([
+      [50, 40],
+      [110, 40],
+      [110, 70],
+      [50, 70],
+    ]);
+    expect(s.message).toBe('Floor object resized');
   });
 });

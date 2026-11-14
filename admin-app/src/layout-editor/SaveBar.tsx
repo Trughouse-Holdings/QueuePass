@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ApiError } from '../api/client';
 import type { EditorDoc } from './editor-doc';
+import { warningsOf } from './overlap';
 
 /** A refusal's problem: where in the body, and what. */
 export interface Problem {
@@ -35,12 +36,15 @@ type Status =
   | { kind: 'saving' }
   | { kind: 'saved' }
   | { kind: 'missing'; parts: string[] }
+  | { kind: 'warnings'; messages: string[] }
   | { kind: 'refused'; error: ApiError };
 
 /**
  * Spec 039 FR-019 (research R16; T023): Save, "Saved", and a refusal placed where it is: a
  * `LAYOUT_FILE_INVALID` problem selects the section its path points at, a name refusal goes beside
- * the name box. A refused save never changes the document (it is not touched here).
+ * the name box. A refused save never changes the document (it is not touched here). Before
+ * sending, the warnings that do not block a save (overlapping sections, levels with no seats) are
+ * listed with Save anyway and Go back, the overlapping sections outlined on the map (FR-020, R15).
  */
 export function SaveBar({
   doc,
@@ -48,6 +52,7 @@ export function SaveBar({
   onSave,
   onSelectSection,
   onNameProblem,
+  onWarned,
 }: {
   doc: EditorDoc;
   dirty: boolean;
@@ -55,6 +60,8 @@ export function SaveBar({
   onSave: () => Promise<void>;
   onSelectSection: (index: number) => void;
   onNameProblem: (message: string | null) => void;
+  /** Hears the sections to outline as overlapping (none once the save goes). */
+  onWarned?: (sections: Set<string>) => void;
 }): React.ReactElement {
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
 
@@ -63,11 +70,19 @@ export function SaveBar({
     if (dirty) setStatus((s) => (s.kind === 'saved' ? { kind: 'idle' } : s));
   }, [dirty]);
 
-  const save = async (): Promise<void> => {
+  const save = async (anyway = false): Promise<void> => {
     const parts = missingParts(doc);
     if (parts.length > 0) {
       setStatus({ kind: 'missing', parts });
       return;
+    }
+    if (!anyway) {
+      const warnings = warningsOf(doc);
+      onWarned?.(warnings.sections);
+      if (warnings.messages.length > 0) {
+        setStatus({ kind: 'warnings', messages: warnings.messages });
+        return;
+      }
     }
     setStatus({ kind: 'saving' });
     onNameProblem(null);
@@ -108,6 +123,26 @@ export function SaveBar({
                 <li key={p}>{p}</li>
               ))}
             </ul>
+          </div>
+        </div>
+      )}
+      {status.kind === 'warnings' && (
+        <div role="group" aria-label="Before saving" className="banner banner--conflict">
+          <div className="banner__body">
+            <strong>Before saving</strong>
+            <ul>
+              {status.messages.map((m) => (
+                <li key={m}>{m}</li>
+              ))}
+            </ul>
+            <div className="form__actions">
+              <button type="button" className="btn btn--primary" onClick={() => void save(true)}>
+                Save anyway
+              </button>
+              <button type="button" className="btn" onClick={() => setStatus({ kind: 'idle' })}>
+                Go back
+              </button>
+            </div>
           </div>
         </div>
       )}

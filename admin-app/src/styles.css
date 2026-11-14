@@ -462,3 +462,22 @@
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
+.editor-map__turn-line {
+  stroke: var(--accent);
+  stroke-width: 1px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.editor-map__turn,
+.editor-map__corner {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+}
+.editor-map__turn {
+  cursor: grab;
+}
+.editor-map__corner {
+  cursor: nwse-resize;
+}

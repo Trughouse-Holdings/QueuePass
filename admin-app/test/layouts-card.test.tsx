@@ -470,3 +470,12 @@ describe("the venue's capacity (FR-009)", () => {
     expect(field).not.toHaveAttribute('readonly');
   });
 });
+
+describe('the layout editor from the Layouts card (spec 039)', () => {
+  it('offers New layout, which opens the editor on a new layout (T036, FR-001)', async () => {
+    stubApi(routes([CLUB]));
+    renderAt(PATH);
+    const link = await within(await card()).findByRole('link', { name: 'New layout' });
+    expect(link).toHaveAttribute('href', `${PATH}/layouts/new`);
+  });
+});

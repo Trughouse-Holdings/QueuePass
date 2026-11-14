@@ -215,3 +215,50 @@ describe('the status line', () => {
     expect(status).toHaveTextContent('Floor object set to Ring');
   });
 });
+
+describe('unsaved changes (T028, R13)', () => {
+  it('following a link asks to confirm; Cancel stays with the change kept, OK leaves', async () => {
+    stubApi({ [`GET ${DRAWING_PATH}`]: json(DRAWING) });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const user = userEvent.setup();
+    const { router } = renderEditor(EDIT_PATH);
+    const name = await screen.findByRole('textbox', { name: 'Layout name' });
+    await user.type(name, ' bowl');
+    await user.click(screen.getByRole('link', { name: 'Back to the venue' }));
+    expect(confirm).toHaveBeenCalledWith('Leave without saving? Your changes will be lost.');
+    expect(router.state.location.pathname).toBe(EDIT_PATH);
+    expect(screen.getByRole('textbox', { name: 'Layout name' })).toHaveValue('Riverside bowl');
+    confirm.mockReturnValue(true);
+    await user.click(screen.getByRole('link', { name: 'Back to the venue' }));
+    expect(await screen.findByText('Venue page')).toBeInTheDocument();
+  });
+
+  it('leaves without asking when nothing changed', async () => {
+    stubApi({ [`GET ${DRAWING_PATH}`]: json(DRAWING) });
+    const confirm = vi.spyOn(window, 'confirm');
+    const user = userEvent.setup();
+    renderEditor(EDIT_PATH);
+    await user.click(await screen.findByRole('link', { name: 'Back to the venue' }));
+    expect(await screen.findByText('Venue page')).toBeInTheDocument();
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  it('holds a reload or a closed tab with beforeunload while dirty, not once saved', async () => {
+    stubApi({
+      [`GET ${DRAWING_PATH}`]: json(DRAWING),
+      [`PUT ${DRAWING_PATH}`]: json(detailOf(LAYOUT_ID)),
+    });
+    const user = userEvent.setup();
+    renderEditor(EDIT_PATH);
+    const unload = () => {
+      const e = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(e);
+      return e.defaultPrevented;
+    };
+    await user.type(await screen.findByRole('textbox', { name: 'Layout name' }), '!');
+    expect(unload()).toBe(true);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('Saved');
+    expect(unload()).toBe(false);
+  });
+});

@@ -1,5 +1,5 @@
 import { useEffect, useId, useReducer, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom';
 import { LAYOUT_LIMITS, type FloorKind, type LayoutDrawing } from '@queuepass/shared';
 import { LayoutPreview, centroid } from '@queuepass/shared/web';
 import type { ApiError } from '../api/client';
@@ -26,6 +26,9 @@ const metaOf = (d: LayoutDrawing): Meta => ({
   locked: d.locked,
   lockedBy: d.lockedBy,
 });
+
+/** R13: the question before unsaved changes are thrown away. */
+export const LEAVE = 'Leave without saving? Your changes will be lost.';
 
 /** "A", "A and B", "A, B and C". */
 const listed = (names: string[]): string =>
@@ -75,11 +78,36 @@ export function LayoutEditor({
   const [nameProblem, setNameProblem] = useState<string | null>(null);
   const narrow = useMediaQuery(PHONE);
   const centerRef = useRef<Place>([150, 100]);
+  const [warned, setWarned] = useState<Set<string>>(() => new Set());
   const nameId = useId();
   const nameProblemId = useId();
 
   const doc = currentDoc(state);
   const dirty = isDirty(state);
+
+  // FR-001 US1-7, R13: leaving with unsaved changes asks first, by any link, back or forward;
+  // a reload or a closed tab, through the browser's own question.
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      dirtyRef.current && currentLocation.pathname !== nextLocation.pathname,
+  );
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    if (window.confirm(LEAVE)) blocker.proceed();
+    else blocker.reset();
+  }, [blocker]);
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const hold = (e: BeforeUnloadEvent): void => {
+      e.preventDefault();
+      // Older browsers ask only when a return value is set.
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', hold);
+    return () => window.removeEventListener('beforeunload', hold);
+  }, [dirty]);
 
   useEffect(() => {
     if (!layoutId) return undefined;
@@ -122,6 +150,8 @@ export function LayoutEditor({
     }
     const made = await createLayoutDrawing(venueId, toInput(sent, null));
     dispatch({ type: 'saved' });
+    // Saved: the move to the new layout's route is not leaving unsaved work.
+    dirtyRef.current = false;
     navigate(editPath(made.id), { replace: true });
   };
 
@@ -230,6 +260,7 @@ export function LayoutEditor({
             if (s) dispatch({ type: 'selectSections', ids: [s.id] });
           }}
           onNameProblem={setNameProblem}
+          onWarned={setWarned}
         />
       </div>
       <p role="status" aria-live="polite" className="layout-editor__status">
@@ -242,6 +273,7 @@ export function LayoutEditor({
           readOnly={false}
           dispatch={dispatch}
           centerRef={centerRef}
+          warned={warned}
         />
         <div className="layout-editor__side">
           <FloorField

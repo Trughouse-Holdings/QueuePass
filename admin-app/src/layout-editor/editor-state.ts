@@ -47,11 +47,11 @@ export interface EditorState {
 export const HISTORY_LIMIT = 100;
 
 export const FLOOR_NAMES: Record<FloorKind, string> = {
+  NONE: 'None',
   COURT: 'Court',
   END_STAGE: 'End stage',
   CENTER_STAGE: 'Center stage',
   RING: 'Ring',
-  NONE: 'None',
 };
 
 /** A new floor object's size in map units (seats are 2 apart). */

@@ -1,5 +1,14 @@
-import { useMemo, useRef } from 'react';
-import { bounds, centroid, outlinePath, usePanZoom, type View } from '@queuepass/shared/web';
+import { useMemo, useRef, useState } from 'react';
+import { normalizeAngle } from '@queuepass/shared';
+import {
+  bounds,
+  centroid,
+  clientToMap,
+  outlinePath,
+  usePanZoom,
+  type Bounds,
+  type View,
+} from '@queuepass/shared/web';
 import { farthest, levelName, type EditorDoc, type Place } from './editor-doc';
 import { seatCount, type Action, type Selection } from './editor-state';
 
@@ -8,6 +17,8 @@ const MIN_WIDTH = 300;
 const MIN_HEIGHT = 200;
 /** The map grows in steps of this, so a small move does not reset the view. */
 const GROW_STEP = 50;
+/** A press that moves less than this many pixels is a click, not a drag. */
+const DRAG_SLOP = 3;
 
 /**
  * FR-005: the whole map, from 0, at least 300 × 200, growing in steps of 50 to keep every
@@ -21,6 +32,32 @@ export function mapFit(doc: EditorDoc): View {
 }
 
 const viewCenter = (v: View): Place => [v.x + v.width / 2, v.y + v.height / 2];
+const degreesOf = (from: Place, to: Place): number =>
+  (Math.atan2(to[1] - from[1], to[0] - from[0]) * 180) / Math.PI;
+const tenth = (n: number): number => Math.round(n * 10) / 10;
+
+type Corner = 'nw' | 'ne' | 'se' | 'sw';
+const CORNERS: Corner[] = ['nw', 'ne', 'se', 'sw'];
+const cornerAt = (b: Bounds, c: Corner): Place => [
+  c === 'nw' || c === 'sw' ? b.x : b.x + b.width,
+  c === 'nw' || c === 'ne' ? b.y : b.y + b.height,
+];
+const OPPOSITE: Record<Corner, Corner> = { nw: 'se', ne: 'sw', se: 'nw', sw: 'ne' };
+
+/** A drag under way: what it moves, from where. */
+type Drag =
+  | { kind: 'move'; ids: string[]; from: Place; client: Place; moved: boolean }
+  | { kind: 'turn'; ids: string[]; center: Place; start: number }
+  | { kind: 'floor'; from: Place; client: Place; moved: boolean }
+  | { kind: 'corner'; fixed: Place };
+
+/** What the drag shows until it is let go: then it is one action (R11). */
+type Live =
+  | { kind: 'move'; dx: number; dy: number }
+  | { kind: 'turn'; degrees: number }
+  | { kind: 'floor'; dx: number; dy: number }
+  | { kind: 'corner'; box: Bounds }
+  | null;
 
 export interface CanvasProps {
   doc: EditorDoc;
@@ -37,8 +74,12 @@ export interface CanvasProps {
  * Spec 039 research R2, R11 (T023, T033): the editor's map, drawn with the shared map's shapes
  * (`outlinePath`, the floor object, sections in their level's color with their names) in an SVG,
  * panned and zoomed by the shared `usePanZoom`. Click selects a section, Shift-click adds or
- * removes one; each section is a focusable button named with its level and seats, so color is
- * never the only cue (FR-018, FR-027).
+ * removes one; dragging a selected section moves the selection, the round handle above it turns
+ * it (1°, Shift 15°), each about its own origin; the floor object is dragged and resized by its
+ * corners. While dragging only an SVG transform changes; letting go is one action, one Undo step.
+ * Each section is a focusable button named with its level and seats, so color is never the only
+ * cue (FR-018, FR-027). With the map focused, the arrow keys move the selection (Shift 10), `[`
+ * and `]` turn it (Shift 15°), Escape clears it; without a selection they pan and zoom.
  */
 export function EditorCanvas({
   doc,
@@ -51,15 +92,168 @@ export function EditorCanvas({
   const fit = useMemo(() => mapFit(doc), [doc]);
   const pz = usePanZoom(fit);
   const svg = useRef<SVGSVGElement | null>(null);
+  const drag = useRef<Drag | null>(null);
+  const [live, setLiveState] = useState<Live>(null);
+  const liveRef = useRef<Live>(null);
+  const setLive = (l: Live): void => {
+    liveRef.current = l;
+    setLiveState(l);
+  };
   if (centerRef) centerRef.current = viewCenter(pz.view);
 
-  const selected = new Set(selection.kind === 'sections' ? selection.ids : []);
+  const selectedIds = selection.kind === 'sections' ? selection.ids : [];
+  const selected = new Set(selectedIds);
   const colorOf = new Map(doc.levels.map((l) => [l.id, l.color]));
   const fontSize = Math.max(fit.width, fit.height) / 60;
+  const handleR = Math.max(1.5, pz.view.width / 100);
 
-  const choose = (id: string, add: boolean): void => {
-    dispatch(add ? { type: 'toggleSection', id } : { type: 'selectSections', ids: [id] });
+  /** A pointer's place on the map; jsdom lays nothing out, so then its view is its box. */
+  const toMap = (e: { clientX: number; clientY: number }): Place => {
+    const r = svg.current?.getBoundingClientRect();
+    const rect =
+      r && r.width > 0 && r.height > 0
+        ? r
+        : { left: 0, top: 0, width: pz.view.width, height: pz.view.height };
+    return clientToMap(pz.view, rect, [e.clientX, e.clientY]);
   };
+  const capture = (e: React.PointerEvent): void => {
+    svg.current?.setPointerCapture?.(e.pointerId);
+  };
+
+  const pressSection = (e: React.PointerEvent, id: string): void => {
+    e.stopPropagation();
+    if (e.shiftKey) {
+      dispatch({ type: 'toggleSection', id });
+      return;
+    }
+    const ids = selected.has(id) ? selectedIds : [id];
+    if (!selected.has(id)) dispatch({ type: 'selectSections', ids });
+    if (readOnly) return;
+    drag.current = {
+      kind: 'move',
+      ids,
+      from: toMap(e),
+      client: [e.clientX, e.clientY],
+      moved: false,
+    };
+    capture(e);
+  };
+
+  const pressFloor = (e: React.PointerEvent): void => {
+    if (readOnly) return;
+    e.stopPropagation();
+    dispatch({ type: 'selectFloor' });
+    drag.current = { kind: 'floor', from: toMap(e), client: [e.clientX, e.clientY], moved: false };
+    capture(e);
+  };
+
+  const onPointerMove = (e: React.PointerEvent<SVGSVGElement>): void => {
+    const d = drag.current;
+    if (!d) {
+      pz.onPointerMove(e);
+      return;
+    }
+    const at = toMap(e);
+    if (d.kind === 'move' || d.kind === 'floor') {
+      if (!d.moved && Math.hypot(e.clientX - d.client[0], e.clientY - d.client[1]) < DRAG_SLOP)
+        return;
+      d.moved = true;
+      setLive({ kind: d.kind, dx: at[0] - d.from[0], dy: at[1] - d.from[1] });
+    } else if (d.kind === 'turn') {
+      const step = e.shiftKey ? 15 : 1;
+      const raw = normalizeAngle(degreesOf(d.center, at) - d.start);
+      setLive({ kind: 'turn', degrees: Math.round(raw / step) * step });
+    } else {
+      setLive({
+        kind: 'corner',
+        box: {
+          x: Math.min(d.fixed[0], at[0]),
+          y: Math.min(d.fixed[1], at[1]),
+          width: Math.abs(at[0] - d.fixed[0]),
+          height: Math.abs(at[1] - d.fixed[1]),
+        },
+      });
+    }
+  };
+
+  const onPointerUp = (e: React.PointerEvent<SVGSVGElement>): void => {
+    pz.onPointerUp(e);
+    const d = drag.current;
+    drag.current = null;
+    const shown = liveRef.current;
+    setLive(null);
+    if (!d || !shown) return;
+    if (d.kind === 'move' && shown.kind === 'move') {
+      dispatch({ type: 'moveSections', ids: d.ids, dx: tenth(shown.dx), dy: tenth(shown.dy) });
+    } else if (d.kind === 'floor' && shown.kind === 'floor') {
+      dispatch({ type: 'moveFloor', dx: tenth(shown.dx), dy: tenth(shown.dy) });
+    } else if (d.kind === 'turn' && shown.kind === 'turn') {
+      dispatch({ type: 'turnSections', ids: d.ids, degrees: shown.degrees });
+    } else if (d.kind === 'corner' && shown.kind === 'corner') {
+      const b = shown.box;
+      dispatch({
+        type: 'resizeFloor',
+        to: { x: tenth(b.x), y: tenth(b.y), width: tenth(b.width), height: tenth(b.height) },
+      });
+    }
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent<SVGSVGElement>): void => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Escape') {
+      dispatch({ type: 'clearSelection' });
+      return;
+    }
+    if (!readOnly && selectedIds.length > 0) {
+      const step = e.shiftKey ? 10 : 1;
+      const moves: Record<string, [number, number]> = {
+        ArrowLeft: [-step, 0],
+        ArrowRight: [step, 0],
+        ArrowUp: [0, -step],
+        ArrowDown: [0, step],
+      };
+      const move = moves[e.key];
+      if (move) {
+        e.preventDefault();
+        dispatch({ type: 'moveSections', ids: selectedIds, dx: move[0], dy: move[1] });
+        return;
+      }
+      // `[` and `]` (`{` and `}` with Shift on most keyboards) turn the selection.
+      const turn = ({ '[': -1, ']': 1, '{': -1, '}': 1 } as Record<string, number>)[e.key];
+      if (turn) {
+        e.preventDefault();
+        dispatch({ type: 'turnSections', ids: selectedIds, degrees: turn * (e.shiftKey ? 15 : 1) });
+        return;
+      }
+    }
+    pz.onKeyDown(e);
+  };
+
+  // The selection's box, and the turn handle above it.
+  const selectedPoints = doc.sections.filter((s) => selected.has(s.id)).flatMap((s) => s.outline);
+  const box = selectedPoints.length > 0 ? bounds(selectedPoints) : null;
+  const boxCenter: Place | null = box ? [box.x + box.width / 2, box.y + box.height / 2] : null;
+  const handleAt: Place | null =
+    box && boxCenter ? [boxCenter[0], box.y - 1 - Math.max(4, pz.view.height / 15)] : null;
+  const groupTransform = (origin: Place): string | undefined => {
+    if (live?.kind === 'move') return `translate(${live.dx} ${live.dy})`;
+    if (live?.kind === 'turn') return `rotate(${live.degrees} ${origin[0]} ${origin[1]})`;
+    return undefined;
+  };
+
+  // The floor, as the drag shows it.
+  let floor = doc.floor.outline;
+  if (floor && live?.kind === 'corner') {
+    const from = bounds(floor);
+    const to = live.box;
+    floor = floor.map((p): Place => [
+      to.x + ((p[0] - from.x) * to.width) / (from.width || 1),
+      to.y + ((p[1] - from.y) * to.height) / (from.height || 1),
+    ]);
+  }
+  const floorBox = floor ? bounds(floor) : null;
+  const floorShift = live?.kind === 'floor' ? `translate(${live.dx} ${live.dy})` : undefined;
+  const n = doc.sections.length;
 
   return (
     <div className="editor-map-wrap">
@@ -81,15 +275,16 @@ export function EditorCanvas({
         }}
         className="editor-map"
         role="application"
-        aria-label={`Layout map: ${doc.sections.length} ${doc.sections.length === 1 ? 'section' : 'sections'}`}
+        aria-label={`Layout map: ${n} ${n === 1 ? 'section' : 'sections'}`}
+        aria-roledescription="layout map"
         tabIndex={0}
         viewBox={pz.viewBox}
         preserveAspectRatio="xMidYMid meet"
         onPointerDown={pz.onPointerDown}
-        onPointerMove={pz.onPointerMove}
-        onPointerUp={pz.onPointerUp}
-        onPointerCancel={pz.onPointerUp}
-        onKeyDown={pz.onKeyDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onKeyDown={onKeyDown}
       >
         <rect
           className="editor-map__bg"
@@ -97,16 +292,16 @@ export function EditorCanvas({
           y={fit.y}
           width={fit.width}
           height={fit.height}
+          onClick={() => {
+            if (!pz.dragged()) dispatch({ type: 'clearSelection' });
+          }}
         />
-        {doc.floor.outline && (
+        {floor && (
           <path
             className={`editor-map__floor${selection.kind === 'floor' ? ' editor-map__floor--selected' : ''}`}
-            d={outlinePath(doc.floor.outline)}
-            onPointerDown={(e) => {
-              if (readOnly) return;
-              e.stopPropagation();
-              dispatch({ type: 'selectFloor' });
-            }}
+            d={outlinePath(floor)}
+            transform={floorShift}
+            onPointerDown={pressFloor}
           />
         )}
         {doc.sections.map((s) => {
@@ -123,15 +318,17 @@ export function EditorCanvas({
               className={`editor-map__section${isSelected ? ' editor-map__section--selected' : ''}${
                 warned?.has(s.id) ? ' editor-map__section--warn' : ''
               }`}
-              onPointerDown={(e) => {
-                e.stopPropagation();
-                choose(s.id, e.shiftKey);
-              }}
+              transform={isSelected ? groupTransform(s.origin) : undefined}
+              onPointerDown={(e) => pressSection(e, s.id)}
               onKeyDown={(e) => {
                 if (e.key !== ' ' && e.key !== 'Enter') return;
                 e.preventDefault();
                 e.stopPropagation();
-                choose(s.id, e.shiftKey);
+                dispatch(
+                  e.shiftKey
+                    ? { type: 'toggleSection', id: s.id }
+                    : { type: 'selectSections', ids: [s.id] },
+                );
               }}
             >
               <path
@@ -152,25 +349,68 @@ export function EditorCanvas({
             </g>
           );
         })}
-        {selection.kind === 'sections' && <SelectionBox doc={doc} ids={selection.ids} />}
+        {box && (
+          <rect
+            className="editor-map__selection"
+            x={box.x - 1}
+            y={box.y - 1}
+            width={box.width + 2}
+            height={box.height + 2}
+            transform={live?.kind === 'move' ? `translate(${live.dx} ${live.dy})` : undefined}
+            aria-hidden="true"
+          />
+        )}
+        {!readOnly && box && boxCenter && handleAt && (
+          <g aria-hidden="true">
+            <line
+              className="editor-map__turn-line"
+              x1={boxCenter[0]}
+              y1={box.y - 1}
+              x2={handleAt[0]}
+              y2={handleAt[1]}
+            />
+            <circle
+              className="editor-map__turn"
+              cx={handleAt[0]}
+              cy={handleAt[1]}
+              r={handleR}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                drag.current = {
+                  kind: 'turn',
+                  ids: selectedIds,
+                  center: boxCenter,
+                  start: degreesOf(boxCenter, toMap(e)),
+                };
+                capture(e);
+              }}
+            />
+          </g>
+        )}
+        {!readOnly && selection.kind === 'floor' && floorBox && !floorShift && (
+          <g aria-hidden="true">
+            {CORNERS.map((c) => {
+              const [x, y] = cornerAt(floorBox, c);
+              return (
+                <rect
+                  key={c}
+                  className="editor-map__corner"
+                  data-corner={c}
+                  x={x - handleR}
+                  y={y - handleR}
+                  width={handleR * 2}
+                  height={handleR * 2}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    drag.current = { kind: 'corner', fixed: cornerAt(floorBox, OPPOSITE[c]) };
+                    capture(e);
+                  }}
+                />
+              );
+            })}
+          </g>
+        )}
       </svg>
     </div>
-  );
-}
-
-/** A dashed rectangle around the selected sections. */
-function SelectionBox({ doc, ids }: { doc: EditorDoc; ids: string[] }): React.ReactElement | null {
-  const points = doc.sections.filter((s) => ids.includes(s.id)).flatMap((s) => s.outline);
-  if (points.length === 0) return null;
-  const b = bounds(points);
-  return (
-    <rect
-      className="editor-map__selection"
-      x={b.x - 1}
-      y={b.y - 1}
-      width={b.width + 2}
-      height={b.height + 2}
-      aria-hidden="true"
-    />
   );
 }
