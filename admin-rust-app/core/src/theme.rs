@@ -136,14 +136,13 @@ pub fn parse_tokens(css: &str) -> ThemeTokens {
         };
         if prelude == ":root" && tokens.light.is_empty() {
             tokens.light = declarations(body);
-        } else if prelude.starts_with("@media") && prelude.contains("prefers-color-scheme: dark") {
-            if let Some(inner) = body.find('{') {
-                if body[..inner].trim() == ":root" {
-                    if let Some(dark) = block_at(body, inner) {
-                        tokens.dark = declarations(dark);
-                    }
-                }
-            }
+        } else if prelude.starts_with("@media")
+            && prelude.contains("prefers-color-scheme: dark")
+            && let Some(inner) = body.find('{')
+            && body[..inner].trim() == ":root"
+            && let Some(dark) = block_at(body, inner)
+        {
+            tokens.dark = declarations(dark);
         }
         i = open + body.len() + 2;
     }

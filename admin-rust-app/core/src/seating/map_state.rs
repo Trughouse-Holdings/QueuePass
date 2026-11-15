@@ -393,22 +393,6 @@ pub fn needs_load(state: &MapState, section_id: &str) -> bool {
     state.sections.get(section_id).is_none_or(|s| s.stale)
 }
 
-/// TS `priceCents` for the contract's price strings (`^\d+\.\d{2}$`). Spec 037: the public
-/// `price_cents` is `money.rs`' (another task's); this private copy keeps the module standalone.
-/// A part that is not a number counts as 0 here, where the TypeScript would give `NaN`.
-fn price_cents(price: &str) -> i64 {
-    let (whole, fraction) = price.split_once('.').unwrap_or((price, ""));
-    let cents: String = format!("{fraction:0<2}").chars().take(2).collect();
-    let num = |s: &str| {
-        if s.is_empty() {
-            0
-        } else {
-            s.parse::<i64>().unwrap_or(0)
-        }
-    };
-    num(whole) * 100 + num(&cents)
-}
-
 /// TS `sectionLevel` (FR-016): the level a section is drawn in, its cheapest level (by price,
 /// then rank) with open seats; `None` when it has none (gray). Every priced level counts (spec
 /// 039's walk removed the price filter); a level with no price, or not in the map, does not.
@@ -424,7 +408,8 @@ pub fn section_level<'a>(map: &'a VenueMap, section: &MapSectionSummary) -> Opti
         let Some(price) = level.price.as_deref() else {
             continue;
         };
-        let cents = price_cents(price);
+        // The contract's price pattern means a price always reads; NaN in the TypeScript.
+        let cents = crate::money::price_cents(price).unwrap_or(0);
         let better = match best {
             None => true,
             Some((b, b_cents)) => cents < b_cents || (cents == b_cents && level.rank < b.rank),
