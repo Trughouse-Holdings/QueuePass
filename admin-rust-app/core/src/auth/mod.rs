@@ -162,6 +162,11 @@ impl AuthMachine {
         self.claims.roles.clone()
     }
 
+    /// The ID token, kept for a renewal that brings none and for logout's `id_token_hint`.
+    pub fn id_token(&self) -> Option<&str> {
+        self.tokens.as_ref().and_then(|t| t.id_token.as_deref())
+    }
+
     /// The refresh token the next renewal sends.
     pub fn refresh_token(&self) -> Option<&str> {
         self.tokens
