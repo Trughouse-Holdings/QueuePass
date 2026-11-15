@@ -16,9 +16,7 @@ import {
   SectionsList,
   VenueMap,
   useAuth,
-  usePriceFilter,
   useSeatStream,
-  type MapLevel,
   type MapSeat,
   type SeatView,
   type StreamVenueMap,
@@ -154,8 +152,6 @@ export function GetTickets({
       cancelled = true;
     };
   }, [api, id, seatedEvent, live.status]);
-  // Spec 038 FR-017, FR-020: one price filter for the map and the Sections list.
-  const [range, setRange] = usePriceFilter(live.map?.levels ?? NO_LEVELS);
 
   const [tierId, setTierId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -772,8 +768,6 @@ export function GetTickets({
                 openSectionId={shownSection}
                 section={live.section}
                 onOpenSection={setOpenSection}
-                range={range}
-                onRange={setRange}
                 seatView={seatView}
                 onSeat={chooseSeat}
                 skipTo={sectionsHeading}
@@ -785,7 +779,6 @@ export function GetTickets({
               <SectionsList
                 headingId={sectionsHeading}
                 map={map}
-                range={range}
                 openSectionId={shownSection}
                 onOpenSection={(id) => {
                   setOpenSection(id);
@@ -834,7 +827,5 @@ export function GetTickets({
     );
   }
 }
-
-const NO_LEVELS: readonly MapLevel[] = [];
 
 const tickets = (n: number): string => `${n} ${n === 1 ? 'ticket' : 'tickets'}`;

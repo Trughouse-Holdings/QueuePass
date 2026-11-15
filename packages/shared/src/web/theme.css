@@ -1264,7 +1264,7 @@ dd {
 
 /* Spec 038 (T038, research R13): the venue map's level colors. A section, a seat, or a legend mark
    with .venue-map--<color> is filled with that level's color; .venue-map--unavailable is the gray
-   of a section with no open seat (in the price filter) and of seats that can't be chosen. */
+   of a section with no open seat and of seats that can't be chosen. */
 .venue-map--violet {
   fill: var(--level-violet);
 }
@@ -1308,9 +1308,9 @@ dd {
 /* Spec 038 (T039, research R13, R14): the venue map, shared by the Customer and Admin apps. The
    drawing scales to the card's width; touch moves the map, not the page. Sections in their level's
    color (above) with their names on a halo of the map's background, readable on any fill. A section
-   with no open seat in the price filter, and a seat outside it, is faded and still pressable. Seat
-   states differ by shape and mark, not color alone: open filled, held hollow, sold a small dot
-   with a cross, off sale a dash, the customer's own the accent with a check. */
+   with no open seat is faded and still pressable. Seat states differ by shape and mark, not color
+   alone: open filled, held hollow, sold a small dot with a cross, off sale a dash, the customer's
+   own the accent with a check. */
 .venue-map {
   display: grid;
   gap: var(--space-3);
@@ -1358,8 +1358,7 @@ dd {
 .venue-map__section--state-off {
   fill: var(--map-state-off);
 }
-.venue-map__section--faded,
-.venue-map__seat--faded {
+.venue-map__section--faded {
   opacity: 0.35;
 }
 /* The section zoomed into: pale under its seats, its edge drawn. */
@@ -1446,15 +1445,6 @@ dd {
   margin: 0;
   color: var(--text-muted);
 }
-.venue-map__none {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-}
-.venue-map__none p {
-  margin: 0;
-}
 
 /* The legend: each level with its swatch and price, each seat state with its mark. */
 .venue-map-legend {
@@ -1473,9 +1463,6 @@ dd {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-}
-.venue-map-legend__item--out {
-  color: var(--text-muted);
 }
 .venue-map-legend__mark {
   flex: none;
@@ -1511,35 +1498,19 @@ dd {
   background: var(--map-state-off);
 }
 
-/* The price filter: two range inputs, low and high, and the range they make.
-.price-filter {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-}
-.price-filter__end {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-.price-filter__range {
-  font-weight: 600;
-}
-
 /* Spec 038 US4 (T042, FR-020, research R13): the Sections list, the map's choices without the map.
    Beside the map at laptop width, under it on a phone. Each section a button with its name, the
    price range of its open seats and their count; the chosen one's seats as buttons by row, each
    with its state's mark from the map (open filled in its level's color, held hollow, sold a
    cross, off sale a dash, the customer's own a check) beside its number, so no state is told by
-   color alone. A section with no open seat in the filter is muted, never faded below contrast. */
+   color alone. A section with no open seat is muted, never faded below contrast. */
 .venue-map-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
   gap: var(--space-3) var(--space-4);
   align-items: start;
 }
-/* The price filter, legend and buttons span both columns, so the map and the Sections list start
+/* The legend and buttons span both columns, so the map and the Sections list start
    on one line: the map's own box steps aside (`display: contents`, the DOM and focus order
    unchanged) and its parts become the layout's rows. The list is as tall as the map beside it,
    and scrolls. */

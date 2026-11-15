@@ -43,7 +43,6 @@ export type { PreviewLayout } from './venue-map/layout-preview.js';
 export { VenueMap } from './venue-map/venue-map.js';
 export type { MapSeat, SeatView, ShownState, VenueMapProps } from './venue-map/venue-map.js';
 export { Legend } from './venue-map/legend.js';
-export { PriceFilter, usePriceFilter, wholeDollars } from './venue-map/price-filter.js';
 export { SectionView, mapSeatOf, seatLook, seatTip } from './venue-map/section-view.js';
 export type { SeatLook } from './venue-map/section-view.js';
 export { SectionsList } from './venue-map/sections-list.js';
@@ -51,12 +50,10 @@ export type { SectionsListProps } from './venue-map/sections-list.js';
 export {
   EMPTY_MAP_STATE,
   formatPrice,
-  inRange,
   mapReducer,
   needsLoad,
   openSeatsIn,
   priceCents,
-  priceRangeOf,
   sectionLevel,
 } from './venue-map/map-state.js';
 export type {
@@ -65,7 +62,6 @@ export type {
   MapLevel,
   MapSectionSummary,
   MapState,
-  PriceRange,
 } from './venue-map/map-state.js';
 export {
   MAX_ZOOM,

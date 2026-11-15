@@ -267,7 +267,7 @@ test('038 S6: an admin schedules an event on Basketball with the upper level and
   await customer.close();
 });
 
-test('038 S10/S11/S12/S13: a customer filters the venue map by price, zooms into section 115, holds seats of two levels, and buys them', async ({
+test('038 S10/S12/S13: a customer sees the venue map, zooms into section 115, holds seats of two levels, and buys them', async ({
   browser,
   page,
 }, testInfo) => {
@@ -285,22 +285,14 @@ test('038 S10/S11/S12/S13: a customer filters the venue map by price, zooms into
   await expect(sectionOn(map, '101')).toHaveAccessibleName('Section 101, 288 open seats from $35');
   await expect(sectionOn(map, '301')).toHaveAccessibleName('Section 301, no open seats');
 
-  // S11: $50 and up fades the end sections, only $35 seats; the sideline sections stay.
-  await tickets.getByLabel('Lowest price').fill('50');
-  await expect(tickets.locator('.price-filter__range')).toHaveText('$50–$95');
-  for (const end of ['101', '103', '109', '112', '118', '120']) {
-    await expect(sectionOn(map, end)).toHaveAccessibleName(
-      `Section ${end}, no open seats between $50 and $95`,
-    );
-    await expect(sectionOn(map, end)).toHaveClass(/venue-map__section--faded/);
-  }
+  // S11 (removed in spec 039's walk, 2026-11-14): no price filter; only a section with no open
+  // seat is faded.
+  await expect(tickets.getByRole('slider')).toHaveCount(0);
+  await expect(sectionOn(map, '101')).not.toHaveClass(/venue-map__section--faded/);
+  await expect(sectionOn(map, '301')).toHaveClass(/venue-map__section--faded/);
   await expect(sectionOn(map, '115')).toHaveAccessibleName(
     `Section 115, ${SECTION_115} open seats from $60`,
   );
-  await expect(map.getByRole('button', { name: /^Section / })).toHaveCount(54);
-  await expect(
-    tickets.getByRole('list', { name: 'Price levels' }).getByRole('listitem').nth(2),
-  ).toHaveText('Lower end $35, outside your price range');
 
   // S12: zoomed into 115; rows D–G are Courtside, the rows behind Lower sideline.
   await sectionOn(map, '115').click();
@@ -453,7 +445,7 @@ test('038 S14: a second customer watching section 115 sees a seat held, then sol
   await two.context().close();
 });
 
-test('038 S16: by keyboard alone, the Sections list filters, opens section 115, holds a seat and releases it', async ({
+test('038 S16: by keyboard alone, the Sections list opens section 115, holds a seat and releases it', async ({
   browser,
   page,
 }, testInfo) => {
@@ -467,14 +459,6 @@ test('038 S16: by keyboard alone, the Sections list filters, opens section 115, 
   const list = tickets.getByRole('region', { name: 'Sections' });
   // Spec 033 FR-016: each hold and release said in the hold log, a status region.
   const log = tickets.getByRole('status').filter({ hasText: /Section 115/ });
-
-  // The price filter by its arrow keys: $35 up to $50.
-  await tickets.getByLabel('Lowest price').focus();
-  for (let i = 0; i < 15; i++) await page.keyboard.press('ArrowRight');
-  await expect(tickets.locator('.price-filter__range')).toHaveText('$50–$95');
-  await expect(list.getByRole('button', { name: /^Section 101, / })).toHaveAccessibleName(
-    'Section 101, no open seats between $50 and $95',
-  );
 
   // Section 115 from the list (spec 039's walk, FR-020 amended): it opens on the map, stays marked
   // in the list among every section, and the focus goes to its first seat on the map, where seats

@@ -1,12 +1,5 @@
 import { SeatMark, type MarkKind } from './legend.js';
-import {
-  formatPrice,
-  inRange,
-  type PriceRange,
-  type SeatState,
-  type VenueMap,
-  type VenueMapSection,
-} from './map-state.js';
+import { formatPrice, type SeatState, type VenueMap, type VenueMapSection } from './map-state.js';
 
 /**
  * A seat as the map hands it to `onSeat`: the API's `{sectionId, row, seat}` (numbers, research
@@ -97,8 +90,6 @@ export interface SeatLook {
   kind: MarkKind;
   /** Its fill: its level's color while open, else the unavailable gray. */
   color: string;
-  /** Outside the price filter: faded, still choosable (FR-017). */
-  faded: boolean;
   /** "Row F, Seat 7, Courtside, $95, open". */
   name: string;
 }
@@ -106,7 +97,6 @@ export interface SeatLook {
 export function seatLook(
   map: VenueMap,
   seat: MapSeat,
-  range: PriceRange | null,
   seatView?: (seat: MapSeat) => SeatView,
 ): SeatLook {
   const view = seatView?.(seat) ?? {};
@@ -119,7 +109,6 @@ export function seatLook(
     disabled,
     kind,
     color: kind === 'open' && level ? `venue-map--${level.color}` : 'venue-map--unavailable',
-    faded: range !== null && !inRange(seat.price, range),
     name: `Row ${seat.rowLabel}, Seat ${seat.seatLabel}, ${seat.levelName}, ${
       seat.price === null ? 'not on sale' : formatPrice(seat.price)
     }, ${STATE_TEXT[shown]}`,
@@ -143,12 +132,10 @@ function seatSpacing(section: VenueMapSection): number {
  * Spec 038 FR-018, FR-019 (research R13, T039): the seats of the one section zoomed into, each in
  * its place, row labels at both ends of each row. Every seat is a focusable button named "Row F,
  * Seat 7, Courtside, $95, open"; a seat that can't be chosen stays focusable, `aria-disabled`.
- * Seats outside the price filter are faded and still choosable (FR-017).
  */
 export function SectionView({
   map,
   section,
-  range,
   seatView,
   onSeat,
   onTip,
@@ -156,7 +143,6 @@ export function SectionView({
 }: {
   map: VenueMap;
   section: VenueMapSection;
-  range: PriceRange | null;
   seatView?: (seat: MapSeat) => SeatView;
   onSeat?: (seat: MapSeat) => void;
   onTip(text: string | null): void;
@@ -203,12 +189,7 @@ export function SectionView({
             ))}
             {row.seats.map((s) => {
               const seat = mapSeatOf(map, section, row, s);
-              const { shown, disabled, kind, color, faded, name } = seatLook(
-                map,
-                seat,
-                range,
-                seatView,
-              );
+              const { shown, disabled, kind, color, name } = seatLook(map, seat, seatView);
               const choose = (): void => {
                 if (!disabled) onSeat?.(seat);
               };
@@ -221,9 +202,7 @@ export function SectionView({
                   aria-label={name}
                   aria-pressed={shown === 'mine' || shown === 'holding'}
                   aria-disabled={disabled || undefined}
-                  className={`venue-map__seat venue-map__seat--${kind} ${color}${
-                    faded ? ' venue-map__seat--faded' : ''
-                  }`}
+                  className={`venue-map__seat venue-map__seat--${kind} ${color}`}
                   onClick={() => {
                     if (!dragged()) choose();
                   }}

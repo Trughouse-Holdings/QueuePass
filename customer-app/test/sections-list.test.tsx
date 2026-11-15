@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach, onTestFinished, vi } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Order } from '@queuepass/shared';
@@ -20,7 +20,7 @@ fixTimeBeforeFixtures();
 
 /**
  * Spec 038 US4 (T041; FR-020, FR-021, SC-007): the Sections list beside the map. Each section with
- * the price range of its open seats and their count, under the map's price filter. Spec 039's
+ * the price range of its open seats and their count (039's walk removed the price filter). Spec 039's
  * walk (2026-11-14; FR-020 amended): the list always shows every section and never their seats;
  * a section chosen in it opens on the map and stays marked in the list, the keyboard's focus
  * moves to its first seat on the map, and seats are held there through `033`'s queue. The whole
@@ -103,24 +103,8 @@ async function chooseSeats() {
   return screen.findByRole('region', { name: 'Sections' });
 }
 
-/**
- * jsdom gives a range input none of its own keys; a browser moves it one step per arrow key (the
- * browser test S16 presses them for real). This supplies that, so the test presses keys only.
- */
-function rangeKeys(): () => void {
-  const steps: Record<string, number> = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 };
-  const onKey = (e: KeyboardEvent): void => {
-    const t = e.target;
-    if (!(t instanceof HTMLInputElement) || t.type !== 'range' || !(e.key in steps)) return;
-    const next = Math.min(Number(t.max), Math.max(Number(t.min), Number(t.value) + steps[e.key]));
-    fireEvent.change(t, { target: { value: String(next) } });
-  };
-  document.addEventListener('keydown', onKey);
-  return () => document.removeEventListener('keydown', onKey);
-}
-
 describe('the Sections list beside the map (FR-020)', () => {
-  it('lists each section with its open seats’ price range and count, under the price filter', async () => {
+  it('lists each section with its open seats’ price range and count, with no price filter', async () => {
     stubApi(routes());
     renderCustomer({ at: '/events/e1' });
     await chooseSeats();
@@ -134,12 +118,7 @@ describe('the Sections list beside the map (FR-020)', () => {
       'Section 101, $35, 3 open seats',
       'Section 301, no open seats',
     ]);
-
-    fireEvent.change(screen.getByRole('slider', { name: 'Lowest price' }), {
-      target: { value: '70' },
-    });
-    expect(listed('115')).toHaveAccessibleName('Section 115, $95, 7 open seats');
-    expect(listed('101')).toHaveAccessibleName('Section 101, no open seats between $70 and $95');
+    expect(screen.queryByRole('slider')).toBeNull();
   });
 
   it('opens a section chosen in the list on the map, keeps every section listed, and holds its seats on the map', async () => {
@@ -188,7 +167,6 @@ describe('the Sections list beside the map (FR-020)', () => {
     });
     const { calls } = stubApi(routes({ ...b.routes, 'POST /events/e1/orders': json(bought, 201) }));
     renderCustomer({ at: '/events/e1' });
-    onTestFinished(rangeKeys());
     /** Tab, as a person would, until `target` has the focus. */
     const tabTo = async (target: () => Element | null, most = 80) => {
       for (let i = 0; i < most && document.activeElement !== target(); i += 1) await user.tab();
@@ -198,13 +176,9 @@ describe('the Sections list beside the map (FR-020)', () => {
     await tabTo(() => screen.queryByRole('button', { name: 'Choose seats' }));
     await user.keyboard('{Enter}');
     await screen.findByRole('region', { name: 'Sections' });
-    // The price filter by its arrow keys: $35 up to $50.
-    await tabTo(() => screen.queryByRole('slider', { name: 'Lowest price' }));
-    for (let i = 0; i < 15; i += 1) await user.keyboard('{ArrowRight}');
-    expect(screen.getByText('$50–$95')).toBeInTheDocument();
-    expect(listed('101')).toHaveAccessibleName('Section 101, no open seats between $50 and $95');
-    // The list is reached past the map's sections by its skip button, a few Tabs on.
-    await tabTo(() => screen.queryByRole('button', { name: 'Skip to the Sections list' }), 6);
+    // The list is reached past the map's sections by its skip button, after the zoom buttons;
+    // the map's sections come after it, so the list needs no Tab through them.
+    await tabTo(() => screen.queryByRole('button', { name: 'Skip to the Sections list' }));
     await user.keyboard('{Enter}');
     expect(within(list()).getByRole('heading', { name: 'Sections' })).toHaveFocus();
     await user.tab();

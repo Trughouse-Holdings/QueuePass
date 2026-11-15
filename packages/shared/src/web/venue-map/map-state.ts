@@ -158,51 +158,27 @@ export function mapReducer(state: MapState, action: MapAction): MapState {
 export const needsLoad = (state: MapState, sectionId: string): boolean =>
   state.sections[sectionId]?.stale !== false;
 
-/** FR-017: a price filter, low and high in whole dollars, both included. */
-export interface PriceRange {
-  low: number;
-  high: number;
-}
-
 /** A decimal-string price in whole cents, never through a floating-point price (Money). */
 export function priceCents(price: string): number {
   const [whole, fraction = ''] = price.split('.');
   return Number(whole) * 100 + Number(fraction.padEnd(2, '0').slice(0, 2));
 }
 
-/** FR-017: the filter's full range: the levels' prices, down and up to whole dollars. */
-export function priceRangeOf(levels: readonly MapLevel[]): PriceRange | null {
-  const prices = levels.flatMap((l) => (l.price === null ? [] : [priceCents(l.price)]));
-  if (prices.length === 0) return null;
-  return { low: Math.floor(Math.min(...prices) / 100), high: Math.ceil(Math.max(...prices) / 100) };
-}
-
-/** Whether a level's price is inside the filter; a level with no price is never. */
-export function inRange(price: string | null, range: PriceRange | null): boolean {
-  if (price === null) return false;
-  if (range === null) return true;
-  const c = priceCents(price);
-  return c >= range.low * 100 && c <= range.high * 100;
-}
-
 /**
  * FR-016 (clarification "section's color"): the level a section is drawn in, its cheapest level
- * (by price, then rank) with open seats inside the filter; `null` when it has none (gray).
+ * (by price, then rank) with open seats; `null` when it has none (gray). Spec 039's walk
+ * (2026-11-14): the price filter (038 FR-017) was removed, so every priced level counts.
  */
-export function sectionLevel(
-  map: VenueMap,
-  section: MapSectionSummary,
-  range: PriceRange | null,
-): MapLevel | null {
+export function sectionLevel(map: VenueMap, section: MapSectionSummary): MapLevel | null {
   let best: MapLevel | null = null;
   for (const c of section.counts) {
     if (c.open <= 0) continue;
     const level = map.levels.find((l) => l.levelId === c.levelId);
-    if (!level || !inRange(level.price, range)) continue;
+    if (!level || level.price === null) continue;
     if (
       !best ||
-      priceCents(level.price!) < priceCents(best.price!) ||
-      (priceCents(level.price!) === priceCents(best.price!) && level.rank < best.rank)
+      priceCents(level.price) < priceCents(best.price!) ||
+      (priceCents(level.price) === priceCents(best.price!) && level.rank < best.rank)
     ) {
       best = level;
     }
@@ -210,15 +186,11 @@ export function sectionLevel(
   return best;
 }
 
-/** A section's open seats inside the filter (every open seat with a price, without one). */
-export function openSeatsIn(
-  map: VenueMap,
-  section: MapSectionSummary,
-  range: PriceRange | null,
-): number {
+/** A section's open seats with a price (a level with none is not on sale). */
+export function openSeatsIn(map: VenueMap, section: MapSectionSummary): number {
   return section.counts.reduce((n, c) => {
     const level = map.levels.find((l) => l.levelId === c.levelId);
-    return level && inRange(level.price, range) ? n + Math.max(0, c.open) : n;
+    return level && level.price !== null ? n + Math.max(0, c.open) : n;
   }, 0);
 }
 

@@ -6,7 +6,7 @@ import type { VenueMap as Map, VenueMapSection } from '../../src/web/venue-map/m
 
 /**
  * Spec 038 US3 (T032; FR-016 to FR-019, FR-029, SC-007; research R13): the shared venue map. The
- * overview draws sections only, colored by their cheapest open level inside the price filter; a
+ * overview draws sections only, colored by their cheapest open level; a
  * section zoomed into draws its rows and seats, each with an accessible name and a mark for its
  * state, so no state is told by color alone.
  */
@@ -133,14 +133,6 @@ const section = (name: string) =>
   screen.getByRole('button', { name: new RegExp(`^Section ${name}(,|$)`) });
 const seatButton = (name: string) => screen.getByRole('button', { name });
 const drawing = () => screen.getByRole('group', { name: 'Basketball map' });
-const setRange = (low: number, high: number) => {
-  fireEvent.change(screen.getByRole('slider', { name: 'Lowest price' }), {
-    target: { value: String(low) },
-  });
-  fireEvent.change(screen.getByRole('slider', { name: 'Highest price' }), {
-    target: { value: String(high) },
-  });
-};
 
 describe('the overview (FR-016, FR-029)', () => {
   it('draws every section with its name, filled by its cheapest open level, and the floor', () => {
@@ -191,55 +183,20 @@ describe('the overview (FR-016, FR-029)', () => {
   });
 });
 
-describe('the price filter (FR-017)', () => {
-  it('starts at the full range of the levels’ prices, in whole dollars', () => {
+describe('no price filter (spec 039 walk, 2026-11-14: 038 FR-017 removed)', () => {
+  it('draws every section, fading only one with no open seat on sale', () => {
     render(<Harness />);
-    const low = screen.getByRole('slider', { name: 'Lowest price' });
-    const high = screen.getByRole('slider', { name: 'Highest price' });
-    expect(low).toHaveValue('35');
-    expect(high).toHaveValue('95');
-    expect(low).toHaveAttribute('min', '35');
-    expect(high).toHaveAttribute('max', '95');
-    expect(screen.getByText('$35–$95')).toBeInTheDocument();
-  });
-
-  it('fades sections with no open seat inside it and marks the levels outside it', () => {
-    render(<Harness />);
-    setRange(50, 95);
-    expect(screen.getByText('$50–$95')).toBeInTheDocument();
-    // 101 has only $35 seats.
-    expect(section('101')).toHaveClass('venue-map__section--faded', 'venue-map--unavailable');
-    expect(section('101')).toHaveAccessibleName('Section 101, no open seats between $50 and $95');
-    // 115 keeps its open $60 seat, and is still drawn by its color.
+    expect(screen.queryByRole('slider')).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Price' })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /^Section / })).toHaveLength(3);
+    expect(section('101')).not.toHaveClass('venue-map__section--faded');
     expect(section('115')).not.toHaveClass('venue-map__section--faded');
+    expect(section('301')).toHaveClass('venue-map__section--faded', 'venue-map--unavailable');
+    expect(section('301')).toHaveAccessibleName('Section 301, no open seats');
     const items = within(screen.getByRole('list', { name: 'Price levels' })).getAllByRole(
       'listitem',
     );
-    expect(items[2]).toHaveTextContent('Lower end $35, outside your price range');
-    expect(items[2]).toHaveClass('venue-map-legend__item--out');
-    expect(items[0]).not.toHaveTextContent(/outside/);
-    // Every section is still drawn.
-    expect(screen.getAllByRole('button', { name: /^Section / })).toHaveLength(3);
-  });
-
-  it('says when nothing matches, with Reset', () => {
-    render(<Harness />);
-    setRange(70, 80);
-    expect(screen.getByText('No open seats between $70 and $80.')).toBeInTheDocument();
-    for (const name of ['115', '101', '301']) {
-      expect(section(name)).toHaveClass('venue-map__section--faded');
-    }
-    fireEvent.click(screen.getByRole('button', { name: 'Reset price filter' }));
-    expect(screen.getByRole('slider', { name: 'Lowest price' })).toHaveValue('35');
-    expect(screen.getByRole('slider', { name: 'Highest price' })).toHaveValue('95');
-    expect(screen.queryByText(/No open seats between/)).toBeNull();
-  });
-
-  it('keeps the low end at or below the high end', () => {
-    render(<Harness />);
-    setRange(80, 60);
-    expect(screen.getByRole('slider', { name: 'Lowest price' })).toHaveValue('60');
-    expect(screen.getByRole('slider', { name: 'Highest price' })).toHaveValue('60');
+    for (const item of items) expect(item).not.toHaveTextContent(/outside/);
   });
 });
 
@@ -326,19 +283,6 @@ describe('a section zoomed into (FR-018, FR-019)', () => {
     expect(onSeat).toHaveBeenCalledTimes(3);
   });
 
-  it('fades seats outside the price filter, which stay choosable', () => {
-    const onSeat = vi.fn();
-    render(<Harness start="s-115" onSeat={onSeat} />);
-    setRange(70, 95);
-    const cheap = seatButton('Row P, Seat 7, Lower sideline, $60, open');
-    expect(cheap).toHaveClass('venue-map__seat--faded');
-    expect(seatButton('Row F, Seat 7, Courtside, $95, open')).not.toHaveClass(
-      'venue-map__seat--faded',
-    );
-    fireEvent.click(cheap);
-    expect(onSeat).toHaveBeenCalledWith(expect.objectContaining({ row: 2, seat: 7 }));
-  });
-
   it('says the seats are loading until they come', () => {
     render(
       <VenueMap map={MAP} openSectionId="s-101" section={null} onOpenSection={() => undefined} />,
@@ -361,7 +305,7 @@ describe('zoom controls (FR-018)', () => {
 });
 
 describe('colored by state (FR-027)', () => {
-  it('names each section’s counts by state, with no price filter', () => {
+  it('names each section’s counts by state', () => {
     render(<Harness colorBy="state" />);
     expect(section('115')).toHaveAccessibleName('Section 115, 2 open, 2 held, 1 sold, 1 off sale');
     expect(section('115')).toHaveClass('venue-map__section--state');

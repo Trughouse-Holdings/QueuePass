@@ -1,19 +1,14 @@
 import { useId } from 'react';
 import {
   formatPrice,
-  inRange,
   openSeatsIn,
   priceCents,
   type MapSectionSummary,
-  type PriceRange,
   type VenueMap,
 } from './map-state.js';
-import { wholeDollars } from './price-filter.js';
 
 export interface SectionsListProps {
   map: VenueMap;
-  /** The price filter the map shows (`usePriceFilter`); `null` for none. */
-  range: PriceRange | null;
   /** The section chosen, the same one the map is zoomed into. */
   openSectionId: string | null;
   /** Opens a section on the map (its seats are chosen there), or `null` for the whole map. */
@@ -24,12 +19,12 @@ export interface SectionsListProps {
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
 
-/** "$60–$95" (or "$35"): the prices of a section's open seats inside the filter; `null` if none. */
-function openPrices(map: VenueMap, s: MapSectionSummary, range: PriceRange | null): string | null {
+/** "$60–$95" (or "$35"): the prices of a section's open seats; `null` if none. */
+function openPrices(map: VenueMap, s: MapSectionSummary): string | null {
   const prices = s.counts.flatMap((c) => {
     if (c.open <= 0) return [];
     const price = map.levels.find((l) => l.levelId === c.levelId)?.price ?? null;
-    return price !== null && inRange(price, range) ? [price] : [];
+    return price !== null ? [price] : [];
   });
   if (prices.length === 0) return null;
   prices.sort((a, b) => priceCents(a) - priceCents(b));
@@ -39,9 +34,8 @@ function openPrices(map: VenueMap, s: MapSectionSummary, range: PriceRange | nul
 
 /**
  * Spec 038 US4 (FR-020, SC-007; research R13, T042): the Sections list, the map's sections without
- * the map. It reads the same state as the map: the same venue map and price filter and the same
- * open section. Each section is a button with its name, the price range of its open seats and
- * their count under the filter. Spec 039's walk (2026-11-14; FR-020 amended): the list always
+ * the map. It reads the same state as the map: the same venue map and the same open section.
+ * Each section is a button with its name, the price range of its open seats and their count. Spec 039's walk (2026-11-14; FR-020 amended): the list always
  * shows every section and never their seats. Choosing one opens it on the map, where its seats
  * are chosen; it stays marked here ("On the map", pressed), and choosing it again shows the
  * whole map. The app moves the keyboard to the section's seats on the map (`VenueMap`'s
@@ -49,7 +43,6 @@ function openPrices(map: VenueMap, s: MapSectionSummary, range: PriceRange | nul
  */
 export function SectionsList({
   map,
-  range,
   openSectionId,
   onOpenSection,
   headingId,
@@ -59,16 +52,13 @@ export function SectionsList({
   const open = map.sections.find((s) => s.sectionId === openSectionId) ?? null;
 
   const summary = (s: MapSectionSummary): { name: string; prices: string | null; open: string } => {
-    const n = openSeatsIn(map, s, range);
-    const prices = openPrices(map, s, range);
+    const n = openSeatsIn(map, s);
+    const prices = openPrices(map, s);
     if (n > 0 && prices) {
       const count = plural(n, 'open seat', 'open seats');
       return { name: `Section ${s.name}, ${prices}, ${count}`, prices, open: count };
     }
-    const outside = range !== null && openSeatsIn(map, s, null) > 0;
-    const none = outside
-      ? `no open seats between ${wholeDollars(range.low)} and ${wholeDollars(range.high)}`
-      : 'no open seats';
+    const none = 'no open seats';
     return { name: `Section ${s.name}, ${none}`, prices: null, open: none };
   };
 
