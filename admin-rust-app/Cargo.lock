@@ -41,6 +41,7 @@ dependencies = [
  "chrono-tz",
  "csv",
  "jsonschema",
+ "libm",
  "lopdf 0.47.0",
  "prettyplease 0.2.37",
  "printpdf",
