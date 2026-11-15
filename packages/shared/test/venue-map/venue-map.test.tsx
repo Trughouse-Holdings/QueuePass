@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { VenueMap, type MapSeat, type SeatView } from '../../src/web/venue-map/venue-map';
+import { VenueMap, fitOf, type MapSeat, type SeatView } from '../../src/web/venue-map/venue-map';
 import type { VenueMap as Map, VenueMapSection } from '../../src/web/venue-map/map-state';
 
 /**
@@ -292,15 +292,31 @@ describe('a section zoomed into (FR-018, FR-019)', () => {
 });
 
 describe('zoom controls (FR-018)', () => {
-  it('offers Zoom in, Zoom out and Fit map buttons', () => {
+  // Nate's walk (2026-11-14): the fit frames the sections and floor as drawn (x 100–600,
+  // y 40–440), with a margin of 4% of the larger side (20), not the 1000 × 640 canvas.
+  it('offers Zoom in, Zoom out and Fit map buttons, fitting what is drawn', () => {
     render(<Harness />);
     const svg = drawing();
-    expect(svg).toHaveAttribute('viewBox', '0 0 1000 640');
+    expect(svg).toHaveAttribute('viewBox', '80 20 540 440');
+    expect(svg.style.aspectRatio).toBe(String(540 / 440));
     fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
-    expect(svg.getAttribute('viewBox')).not.toBe('0 0 1000 640');
+    expect(svg.getAttribute('viewBox')).not.toBe('80 20 540 440');
     fireEvent.click(screen.getByRole('button', { name: 'Fit map' }));
-    expect(svg).toHaveAttribute('viewBox', '0 0 1000 640');
+    expect(svg).toHaveAttribute('viewBox', '80 20 540 440');
     expect(screen.getByRole('button', { name: 'Zoom out' })).toBeInTheDocument();
+  });
+
+  it('fits the sections and the floor, or the whole canvas when nothing is drawn', () => {
+    expect(fitOf(MAP)).toEqual({ x: 80, y: 20, width: 540, height: 440 });
+    // No floor drawn: the sections alone.
+    const noFloor = fitOf({ ...MAP, floorKind: 'NONE' });
+    expect(noFloor).toEqual(fitOf({ ...MAP, floorOutline: null }));
+    expect(fitOf({ ...MAP, sections: [], floorKind: 'NONE' })).toEqual({
+      x: 0,
+      y: 0,
+      width: 1000,
+      height: 640,
+    });
   });
 });
 

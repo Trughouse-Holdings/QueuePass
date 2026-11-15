@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { bounds, outlinePath } from './map-geometry.js';
+import { bounds, outlinePath, type Point } from './map-geometry.js';
 import { Legend, type SectionState } from './legend.js';
 import {
   formatPrice,
@@ -10,7 +10,7 @@ import {
   type VenueMapSection,
 } from './map-state.js';
 import { SectionView, type MapSeat, type SeatView } from './section-view.js';
-import { usePanZoom } from './use-pan-zoom.js';
+import { fitView, usePanZoom, type View } from './use-pan-zoom.js';
 
 export type { MapSeat, SeatView, ShownState } from './section-view.js';
 
@@ -40,6 +40,25 @@ export interface VenueMapProps {
    * seat, where seats are now chosen.
    */
   focusSeats?: number;
+}
+
+/** The margin around what Fit map frames, as a share of its larger side. */
+const FIT_MARGIN = 0.04;
+/** The map's box, width over height, follows the frame between these. */
+const MIN_ASPECT = 1;
+const MAX_ASPECT = 2.2;
+
+/**
+ * Nate's walk (2026-11-14): what Fit map (and the overview) frames: the sections and the floor as
+ * drawn, with a small margin, rather than the layout's whole canvas, so a layout drawn in one
+ * corner of its canvas still fills the map. The whole canvas when nothing is drawn.
+ */
+export function fitOf(map: VenueMapData): View {
+  const points: Point[] = map.sections.flatMap((s) => s.outline as Point[]);
+  if (map.floorKind !== 'NONE' && map.floorOutline) points.push(...(map.floorOutline as Point[]));
+  if (points.length === 0) return { x: 0, y: 0, width: map.size.width, height: map.size.height };
+  const b = bounds(points);
+  return fitView(b, Math.max(b.width, b.height) * FIT_MARGIN);
 }
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
@@ -85,7 +104,15 @@ export function VenueMap({
   const [tip, setTip] = useState<string | null>(null);
 
   const { width, height } = map.size;
-  const fit = useMemo(() => ({ x: 0, y: 0, width, height }), [width, height]);
+  const drawn = useMemo(
+    () => fitOf(map),
+    [map.sections, map.floorKind, map.floorOutline, map.size],
+  );
+  // A new object only when the frame moves, not on each count change.
+  const fit = useMemo(
+    () => ({ x: drawn.x, y: drawn.y, width: drawn.width, height: drawn.height }),
+    [drawn.x, drawn.y, drawn.width, drawn.height],
+  );
   const pz = usePanZoom(fit);
   const open = map.sections.find((s) => s.sectionId === openSectionId) ?? null;
   const openOutline = open?.outline;
@@ -99,7 +126,9 @@ export function VenueMap({
 
   const seats = open && section?.sectionId === open.sectionId ? section : null;
   // Section names are drawn at a steady size on screen as the map zooms.
-  const fontSize = Math.max(width, height) / 50 / Math.max(1, pz.zoom ** 0.75);
+  const fontSize = Math.max(fit.width, fit.height) / 50 / Math.max(1, pz.zoom ** 0.75);
+  // The map's box takes the frame's shape, within reason, so the layout fills it.
+  const aspect = Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, fit.width / fit.height));
 
   const sectionName = (s: MapSectionSummary): string => {
     if (!priced) {
@@ -174,6 +203,7 @@ export function VenueMap({
       <svg
         ref={pz.ref}
         className="venue-map__svg"
+        style={{ aspectRatio: String(aspect) }}
         role="group"
         aria-label={`${map.layoutName} map`}
         viewBox={pz.viewBox}
