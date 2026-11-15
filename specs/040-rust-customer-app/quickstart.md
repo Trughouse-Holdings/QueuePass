@@ -31,6 +31,11 @@ takes several minutes. React Customer is at `http://localhost:5174`, Rust Custom
 4. Open My tickets: the same orders as `customer1` has in the React Customer app.
 5. Open `http://localhost:5177/my-tickets` while signed out: after sign-in you land on My tickets.
 
+**Demo note (EDIS, Clarifications)**: the two Customer apps share one sign-in session in a browser.
+For a demo, show them in separate browser windows, one normal and one private, so signing out of one
+never touches the other. If the implementation PR has not merged by EDIS, run the demo from the
+implementation branch (`git switch 040-rust-customer-app-impl`, then S0).
+
 ## S2: The shared session
 
 1. Signed in to the Rust Customer app as `customer1` (S1), open `http://localhost:5174` in a new
@@ -42,7 +47,9 @@ takes several minutes. React Customer is at `http://localhost:5174`, Rust Custom
    - the held seat is released (open again on the React tab's map within 2 s);
    - the React tab asks for sign-in again at its next renewal, at most its access-token lifetime
      later (it may keep working until then);
-   - both Admin apps and the Ticket Booth are still signed in after a reload.
+   - both Admin apps and the Ticket Booth are still signed in after a reload;
+   - note whether Keycloak showed a front-channel logout page or loaded the React Customer app in a
+     frame during the logout (research R2; the default is that it does not).
 
 ## S3: Find events and venues
 
@@ -91,8 +98,9 @@ item passes, and is marked E, U, M, or N/A (with its reason) in the implementati
 ## S8: Wrong role and Backend down
 
 1. Sign in to the Rust Customer app with an account in the Customer realm that lacks `customer`
-   (made by hand in Keycloak's admin console): it says you lack access, shows no data, and offers
-   Log out.
+   (made by hand in Keycloak's admin console; the next seed run disables it, because the seed
+   disables every account without `customer` in that realm): it says you lack access, shows no
+   data, and offers Log out. The automated test needs no such account (research R13).
 2. Stop the Backend (`docker compose stop backend`) and reload: "Can't reach the QueuePass
    service." Start it again.
 
@@ -127,7 +135,7 @@ and arrangement; only the colors and the name differ (parity SL1–SL12).
 | S5 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S5: seats held in the Rust Customer app show in the React Customer app's cart and are bought in the Rust one`; `033` and `038`'s Customer journeys also run in the `customer-rust` project; the 5:00 run-out by hand |
 | S6 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S6: the entry code, the printed ticket, and the calendar file are the same in both Customer apps`; the Ticket Booth scan of a live code by hand (the gate's typed-code path is `017 S3`) |
 | S7 | Manual: a walk of the checklist by hand, recorded in the impl PR |
-| S8 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S8: a user without the customer role sees the wrong-role card, and an unreachable Backend is said plainly`; rest Manual: stopping the real Backend by hand |
+| S8 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S8: a token without the customer role shows the wrong-role card, and an unreachable Backend is said plainly`; rest Manual: a real role-less account and stopping the real Backend by hand |
 | S9 | Manual: test commands, run by CI |
 | S10 | Manual: needs people |
 | S11 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S11: every page has the same structure and arrangement in both Customer apps, at desktop and phone width` |

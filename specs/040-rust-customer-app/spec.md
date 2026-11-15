@@ -52,6 +52,19 @@ The roadmap number is reserved by this PR's amendment. The next free number befo
   implementation PR opens is added to the parity checklist by that PR (FR-012).
 - Q: When the React Customer app has a known bug or rough edge, copy it or fix it? → A: Copy it, as
   `037` decided. A fix goes into the React app first, in its own issue (FR-014).
+- Q: Is the shared session acceptable at EDIS, where both Customer apps are shown? → A: Yes. The
+  demo shows the two Customer apps in separate browser windows, one normal and one private, so
+  their sessions don't interfere (quickstart demo note).
+- Q: If the Rust app's QR code can't be made module-for-module identical to the React app's in
+  time? → A: The fallback is accepted: the same text at the same version and error-correction
+  level, which scans the same at the gate. The exact module (mask) match is a goal, not a gate
+  (FR-015, research R9).
+- Q: What if not everything is done by EDIS (2026-11-20)? → A: Cut line accepted: sign-in,
+  browsing, and general-admission buying first (target 2026-11-18), then seats, the cart, and My
+  tickets. If the implementation PR has not merged by EDIS, the demo runs from the implementation
+  branch.
+- Q: Issue #175's wording on the sign-in colors? → A: Updated by Mahdi: "red sign-in colors through
+  one per-client style rule" (research R7).
 
 ## Context
 
@@ -307,7 +320,9 @@ the same file apart from its stamp time.
   copies them, and a fix made in the React app is then copied too.
 - **FR-015**: Files and codes the Rust Customer app makes MUST be the same as the React Customer
   app's for the same data: the calendar file (apart from its stamp time) and the Google Calendar
-  link, the printed and the live QR codes, and the live entry code for a given 30-second window.
+  link, the text of the printed and the live QR codes (and their version and error-correction
+  level; the same modules are a goal, not a requirement, Clarifications), and the live entry code
+  for a given 30-second window.
 
 **Quality**
 
@@ -320,7 +335,7 @@ the same file apart from its stamp time.
 - **FR-018**: The README MUST list the Rust Customer app's address, how to start and test it, that
   it uses the same customer accounts, and the shared sign-in session.
 - **FR-019**: The Rust Customer app failing or being unavailable MUST NOT stop any other service
-  from starting or working.
+  from starting or working: no service in the one-command start depends on it.
 
 ### Key Entities
 

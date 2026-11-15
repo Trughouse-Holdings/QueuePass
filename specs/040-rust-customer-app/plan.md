@@ -71,8 +71,13 @@ pan and zoom about 1,780) and the shared helpers `time-zone.ts`, `holder-name.ts
 `live-code.ts`, `order.ts`, `seating.ts`, `location.ts`. 90 parity rows plus 12 "Same layout"
 rows. About half of the Rust code needed (sign-in, API transport, seat stream, venue map, pan and
 zoom, the page gallery, times, theme test) exists in `admin-rust-app/` and is copied (R4); the new
-work is the Customer screens, the card gallery, and the hold, cart, buy, calendar, live-code, and QR
-logic.
+work is the Customer screens, the card gallery, the map's skip link and Sections list, the stream's
+`withMine` rules, and the hold, cart, buy, calendar, live-code, and QR logic.
+
+**What may drop to "should" for EDIS without losing parity** (the spec's cut line): the automated
+`040 S11` layout comparison at two widths on every route (the checklist's SL rows are still walked
+by hand), the hallway test (SC-003), and the exact-mask QR match (the accepted fallback first).
+Every parity row stays a requirement.
 
 ## Constitution Check
 

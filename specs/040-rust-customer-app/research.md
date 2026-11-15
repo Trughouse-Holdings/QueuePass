@@ -44,6 +44,18 @@ app's next refresh is refused with an OAuth error, which already "ends the sessi
 again" (parity S2). Until then its access token still works, because the Backend checks only the
 token (constitution V). This is the accepted trade-off.
 
+**Front-channel logout with two clients in one session.** Every front-end client has
+`frontchannelLogout: true`, `rootUrl` = its origin, and `baseUrl` `/` (`desiredClient` in
+`provision-clients.ts`), and none sets `frontchannel.logout.url`. With two clients in one session,
+an RP-initiated logout from one could make Keycloak render its front-channel logout page with a
+frame for the other. Decision: T025 and `040 S2` (T029) observe it, recording the logout's
+requests and pages. **Default: accept and document.** If Keycloak only redirects back (expected:
+without `frontchannel.logout.url` there is no URL to frame), nothing changes and the README says
+so. If it shows a logout page or frames the other app, the seed sets `frontchannelLogout: false`
+on the two Customer clients only (`customer-app`, `customer-rust-app`; no app implements a
+front-channel logout endpoint, so nothing is lost), with a seed test first and a note in the impl
+PR. Either way, `040 S2` asserts the observed behavior so it can't change unnoticed.
+
 **Rationale**: Principle V and parity with `auth-provider.tsx`, `logout-button.tsx`, and
 `release-on-logout.ts`.
 
@@ -112,15 +124,15 @@ Copied (about 9,000 lines of Rust and 7,000 of tests, adapted):
 |---|---|---|
 | `core/build.rs` (typify over the contract) | same | none |
 | `core/src/api/client.rs` (`Call`, `ApiError`, `ApiClient`, error envelope) | `core/src/api/client.rs` | keep the transport and error types; replace the operation list with the Customer app's (R5) |
-| `core/src/api/seat_stream.rs` (SSE parser, reconnect policy) | same | none |
+| `core/src/api/seat_stream.rs` (SSE parser, reconnect policy) | same | none. **New work beside it**: the `withMine` rules, which neither of the Rust Admin app's stream files has (`packages/shared/src/web/use-seat-stream.ts` lines 123–163, `GetTickets.tsx` line 330): read `GET /me/reservations` on open, again 200 ms after a change that touches one of the customer's seats or makes any seat held, keep only the latest request's answer (`mineRequest`), and ignore an answer older than the page's last hold or release (`mineAt` against `lastWrite`). In `core/src/mine.rs`, test first (tasks T046, T048) |
 | `core/src/auth/mod.rs` | same | `REQUIRED_ROLE = "customer"` |
 | `core/src/seating/{mod,geometry,map_geometry,map_state,pan_zoom,venue_map}.rs` | same | none expected: they already port the shared venue map's `price` mode, the legend, and the Sections list's `openPrices`; `geometry.rs` comes too because `mod.rs` and `tests/seating_geometry.rs` use it |
 | `core/src/pages/event_page.rs`' gallery parts (`GALLERY_INTERVAL_MS`, `SLIDE_MS`, `gallery_box_height`, `count_line`, …) and their tests | `core/src/gallery.rs` | only what the copied `gallery.rs` view uses; the Admin event page's other parts are not copied |
 | `core/src/time.rs`, `money.rs`, `format.rs` (shared parts) | same | keep what the Customer app's `format.ts` and `time-zone.ts` use; drop Admin-only helpers |
 | `core/src/theme.rs` and `core/tests/theme.rs` | same | read `customer-app/src/styles.css` and `../admin-rust-app/style/red.css` (R6) |
 | `core/tests/{api_client,auth_state,seat_stream,seating_geometry,venue_map,time,money}.rs` and their fixtures | same | as the code |
-| `app/src/{oidc_glue,auth,config,util,download,seat_stream,device_zone}.rs` | same | release on logout (R2); no `guard.rs` (the Customer app has no unsaved-changes guard) |
-| `app/src/venue_map/{venue_map,section_view,legend,pan_zoom}.rs` | same | `layout_preview.rs` not copied (the Customer app has no preview) |
+| `app/src/{oidc_glue,auth,config,util,download,seat_stream,device_zone}.rs` | same | release on logout (R2); no `guard.rs` (the Customer app has no unsaved-changes guard); `seat_stream.rs` gains the `withMine` wiring to `core::mine` (new work) |
+| `app/src/venue_map/{venue_map,section_view,legend,pan_zoom}.rs` | same | `layout_preview.rs` not copied (the Customer app has no preview). **New work**: the Rust Admin app's `venue_map.rs` says the skip link and the Sections list's focus moves (`skipTo`, `focusSeats`) are "not ported", and it has no Sections list at all. The Customer app needs all three: the "Skip to the Sections list" button (parity M4), the Sections list (`sections-list.tsx`, M7), and focusing the first seat once a chosen section's seats are drawn (M7) |
 | `app/src/components/{gallery,address_link,link,banners}.rs` | same | the copied gallery is the `page` variant only (parity E3). The `card` variant (parity B6: the link wrapper, one shared `IntersectionObserver`, the 3:4–2:1 clamp and 160 px minimum, holding only the shown and next image) is **new work**, about 200 lines of view plus its rules in `core::gallery` |
 | `scripts/coverage-summary.mjs`, `Dockerfile`, `nginx.conf`, `Trunk.toml`, `rust-toolchain.toml`, `.cargo/config.toml`, `index.html` | same | port 5177, names, paths (R12) |
 
@@ -223,7 +235,8 @@ Rust Customer app (no session yet, or after sign-out). When a session already ex
 Customer app, Keycloak skips the form for both clients, so there is no sign-in page to color; the
 app itself is red from its first screen.
 
-**Rationale**: FR-010 with no new theme, no Keycloak image change, and no change to any other app's
+**Rationale**: FR-010 with no new theme, no change to `keycloak/Dockerfile` (only `login.css` and
+the messages file, which the image already copies, change), and no change to any other app's
 sign-in screen. Constitution VII's rule that sign-in accents are tokens in the shared theme's
 sign-in block, checked by its contrast tests, is met by reusing the existing red set.
 
@@ -260,16 +273,21 @@ decimal strings, never a float (parity F1, F2); counts with `en-US` grouping (F5
   PR with this reason. Every other entry-code state is the same.
 - **QR** (parity T12): the React app draws `qrcode-generator` 2.0.4's matrix (type 0 = smallest
   version, level M, alphanumeric mode, the mask with the lowest penalty as that library scores it).
-  The Rust app builds the matrix with the `qrcode` crate at the same version, level, and mode, and
-  applies the mask chosen by a port of `qrcode-generator`'s `getLostPoint` (about 80 lines) through
-  the crate's canvas API, then draws the same SVG (`viewBox` with a 4-module quiet zone, one
+  The Rust app builds the matrix with the `qrcode` crate without its segment optimiser
+  (`QrCode::with_error_correction_level` may mix numeric and alphanumeric segments, which
+  `qrcode-generator` never does): one alphanumeric segment through `qrcode::bits::Bits`
+  (`push_alphanumeric_data`, then the terminator for level M), at the smallest version that fits at
+  level M (as `qrcode-generator`'s type 0 picks it), with the mask chosen by a port of
+  `qrcode-generator`'s `getLostPoint` (about 80 lines) applied through the crate's canvas API; then
+  it draws the same SVG (`viewBox` with a 4-module quiet zone, one
   `path.ticket-qr__dark` of `M{c+4} {r+4}h1v1h-1z` per dark module). Fixtures from
   `qrcode-generator` itself, for the printed code and for live codes, are the reference: same
   modules.
-- **Fallback**: if the same modules can't be reached in the time left, the QR stays a valid code of
-  the same text at the same version and level, which every scanner and the Ticket Booth read the
-  same; the impl PR marks T12 "same text, not same modules" with the reason. The gate reads the
-  text, not the picture.
+- **Fallback (accepted by Mahdi, spec Clarifications)**: if the same modules can't be reached in
+  the time left, the QR stays a valid code of the same text at the same version and level, which
+  every scanner and the Ticket Booth read the same; the impl PR marks T12 "same text, not same
+  modules" with the reason. The gate reads the text, not the picture. The exact mask match is a
+  goal, not a gate: apply the fallback first if the first try doesn't match.
 
 **Rationale**: FR-015 and SC-007. Keeping both pieces in `core` puts them under the coverage floor.
 
@@ -374,10 +392,14 @@ this workspace; `cargo fmt --check`.
 - A `customerApp` fixture (`e2e/fixtures/customer-app.ts`, as `admin-app.ts`): `'customer'` by
   default, `'customer-rust'` in a new Playwright project `customer-rust` with `grep: /@customer/`.
 - Tag with the details object, never in the title, and switch the Customer steps to `customerApp`:
-  `006 P1/P4`, `007 S3`, `015` (its Customer steps), `016 S2`, `019 S2`, `020 S6`, `025`'s Customer
-  journey, `026 S2`, `030 S1/S2` and its second journey, `033 S1/S2/S6`, `034 S1/S2`,
-  `038 S10/S12/S13`, `038 S10/S15`, `038 S14`, `038 S16`, and the Customer steps of `003`, `017 S3`,
-  `029 S2`, `036`, and the other `038` and `039` journeys that open the Customer app. A journey
+  `001 V3` and `001 V4` (their per-app loops take `customerApp` in place of the hard-coded
+  `'customer'`, and `expectSignedIn` gains a `customer-rust` branch), `006 P1/P4`, `007 S3`, `015`
+  (its Customer steps), `016 S2`, `017 S3` (its Customer steps), `019 S2`, `020 S6`, `025`'s
+  Customer journey, `026 S2`, `030 S1/S2` and its second journey, `033 S1/S2/S6`, `034 S1/S2`,
+  `038 S10/S12/S13`, `038 S10/S15`, `038 S14`, `038 S16`, `038 S17` (its Customer steps), the
+  Customer steps of `037`'s journeys that hold or buy in the Customer app (`037 S4`), and the
+  Customer steps of `003`, `029 S2`, `036`, and the other `038` and `039` journeys that open the
+  Customer app. A journey
   that uses both an Admin app and the Customer app carries both tags and runs in both Rust
   projects, each switching only its own app. `028`'s one-window test stays untagged (it needs four
   separate users; the shared session is 040's own test).
@@ -391,12 +413,16 @@ this workspace; `cargo fmt --check`.
   `040-same-layout.spec.ts` (`040 S11`, every route's `main` `ariaSnapshot()` and boxes in both
   apps at 1280 and 375 px, `037` R15's method). A title with an apostrophe is written in double
   quotes.
-- `040 S8` reaches the two screens no `@customer` journey reaches: it makes a user without the
-  `customer` role in `queuepass-customer-app` through Keycloak's admin REST API with the stack's
-  local admin credentials (the `.env.example` defaults the seed uses; created only if missing, so
-  reruns converge), signs in as them, and expects the wrong-role card; then it routes the page's
-  API calls to a network failure (`page.route(…, (r) => r.abort())`) and expects "Can't reach the
-  QueuePass service.".
+- `040 S8` reaches the two screens no `@customer` journey reaches, with **no Keycloak writes** (a
+  role-less user in the Customer realm would be disabled by the seed's `disableOldCopies` on every
+  run, `scripts/seed/src/legacy-realm.ts`): it signs in as a test customer while `page.route`
+  rewrites the token endpoint's answer, replacing the access token's payload with one whose
+  `realm_access.roles` lacks `customer` (the signature is left as is). Both apps read roles from
+  the access token's claims without verifying it, before any API call (React `auth-provider.tsx`
+  `claimsOf`; Rust `core::auth::claims_of`, copied), and the ID token, which the Rust app does
+  verify, is untouched. It expects the wrong-role card with no API call made. Then it routes the
+  page's API calls to a network failure (`page.route(…, (r) => r.abort())`) and expects "Can't
+  reach the QueuePass service.".
 - No other Playwright change: the workers and the per-project account ranges above keep parallel
   tests apart.
 
@@ -422,7 +448,9 @@ this workspace; `cargo fmt --check`.
 - Mahdi's machine already has Rust 1.100.0, `trunk` 0.22.1, and `cargo-llvm-cov` 0.9.1 in
   `~/.cargo/bin`, so `npm run rust:setup` there should install nothing; that is its first check.
 - **CI time**: on `main` at `680b4f7` the `test` job took about 15 minutes and `e2e` about 14, of 30
-  each. This feature adds a second cold instrumented Rust build and clippy run to `test`, and a
+  each (037's impl run: about 14 and 13.5). Estimate with 040: `test` about 21–23 minutes and
+  `e2e` about 20–25 minutes, so the 25-minute trigger below is a real risk, and opening the draft
+  impl PR early is the control. This feature adds a second cold instrumented Rust build and clippy run to `test`, and a
   second Rust image plus every `@customer` journey again to `e2e`. The impl PR records both jobs'
   times **early**: a draft impl PR is opened as soon as the stub app and the `@customer` tags are in
   (tasks T032), so real times are known on day one or two, not on the last day. Over 25 minutes,

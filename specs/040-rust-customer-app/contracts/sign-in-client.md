@@ -20,6 +20,7 @@ is the contract for it.
 | Sign-in look | body class `qp-app--customer-rust-app` (set by `template.ftl` from the client) maps, in its own single-class rule in `login.css`, to the existing red set `--accent-rust`, `--accent-rust-hover`, `--accent-rust-soft`, `--accent-rust-text`, `--brand-mark-end-rust`, `--brand-mark-text-rust`, `--stone-accent-rust`, light and dark, the same mappings as `.qp-app--admin-rust-app` (which is not changed); message `qpAudience.customer-rust-app=For customers buying and viewing tickets, Rust version` |
 | Unchanged | the `customer-app` client and its `.qp-app--customer-app` look; every other realm and client |
 | Session | one Keycloak SSO session per browser for both Customer clients (accepted, constitution 3.12.0 Principle V exception) |
+| Front-channel logout | unchanged (`frontchannelLogout: true`, no `frontchannel.logout.url`) by default; if T025 and `040 S2` see Keycloak show a logout page or frame the other Customer app on logout, the seed turns it off for `customer-app` and `customer-rust-app` only, test first (research R2) |
 
 Source of truth: one row in `SHARED_REALM_CLIENTS` (`packages/shared/src/realms.ts`) and one row in
 `FRONTEND_CLIENTS` (`scripts/seed/src/provision-clients.ts`). The seed and browser-test copies of
