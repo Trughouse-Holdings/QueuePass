@@ -1,23 +1,37 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.11.0 -> 3.11.1 (PATCH): spec 037's Rust Admin app is to be exactly like the Admin app
-  apart from its colors and name, with seat maps (038) and the layout editor (039) included.
-Problem: issue #163. On 2026-11-14 Nathan asked for the Rust Admin app to match the Admin app as it
-  is on main now (ff993c4): the same screens, layout, words, and behavior. Principle VII's 037
-  exception said "its own red theme, not the shared theme", which read as allowing a different
-  layout, and roadmap row 037 named neither 038 nor 039.
+Version: 3.11.1 -> 3.12.0 (MINOR): spec 040 adds the Rust Customer app, a fifth front end, which
+  signs in through its own client in the Customer app's realm.
+Problem: issue #175. John asked for Rust versions of the Admin and Customer apps (2026-11-10); the
+  Rust Admin app is spec 037. On 2026-11-15 Mahdi (product owner) decided the Rust Customer app
+  uses the same customer accounts as the Customer app, so a customer's orders, tickets, and holds
+  show in both: it signs in to realm queuepass-customer-app through its own public client
+  customer-rust-app. Principle V requires each front end to sign in through its own realm, so that
+  signing out of one app never signs another out; two clients in one realm share one Keycloak
+  session.
 Changed:
-  - Principle VII: the 037 exception now reads as its own red colors on the Admin app's layout:
-    it uses the Admin app's stylesheets with a red set of look color tokens loaded after them;
-    data colors (danger, warn, ok, price levels, seat states, maps) stay the shared theme's.
-  - Roadmap row 037: "the same screens and layout, only red and named apart", and 038 and 039
-    added to its dependencies.
-Why PATCH: nothing of 037 is built yet, and roadmap edits have been PATCH before (3.9.8, 3.9.9);
-  the exception is narrowed, not widened: it now requires the Admin stylesheets and the shared
-  data colors.
-Impact: spec 037 only (#163; spec, plan, research R8 and R13-R15, data model, parity checklist,
-  quickstart, tasks, requirements checklist). No other spec, no API, schema, or app behavior changes. The README's version reference
-  follows. Templates: none need updating.
+  - Preamble and Principle II's parts: eight long-running parts, five web front ends.
+  - Principle V: an exception for the Rust Customer app's client in the Customer app's realm, with
+    the risk accepted explicitly (signing out of either Customer app ends the shared session and
+    releases the account's holds; signing in to one can sign the other in); the Customer and Rust
+    Customer apps require `customer`; no other app may share a realm.
+  - Principle VI: customer-rust-app joins the workspaces; the Rust view-crate coverage exclusion
+    and its replacement control (browser journeys) are widened to it.
+  - Principle VII: the red exception is widened to the Rust Customer app: the Rust Admin app's red
+    look tokens over the Customer app's stylesheets, and the Rust Admin app's red sign-in tokens.
+  - Stack table (Language, Repository, Front ends, Identity, Front-end tests, Lint, CI), the
+    OIDC clients and CORS rules (five origins), and the test-accounts note.
+  - Roadmap: row 040 reserved; the next free number is 041.
+Why MINOR: a principle is materially expanded (a new front end and a Principle V exception);
+  nothing that complied before stops complying, so not MAJOR.
+Weakened control and its accepted risk: one realm per app (Principle V) no longer holds between the
+  two Customer apps. The risk is to convenience, not to access: both clients give the same customer
+  the same `customer` role in the same realm, the Backend's token checks are unchanged, and every
+  other pair of apps keeps its own realm. Accepted by Mahdi on 2026-11-15.
+Impact: spec 040 (#175) only. No API or schema change; no change to the Customer app, the Rust
+  Admin app, or any other spec. Seed, Backend tests, Compose, and browser tests gain the client,
+  origin, and service in 040's implementation PR. The README's version reference follows.
+  Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -26,9 +40,10 @@ QueuePass replaces spreadsheets, drifting email lists, and paper tickets with on
 record for venues and events. It is a proof of concept that must run on a laptop, stay correct
 under concurrency, and be built so its simulated parts can be replaced later.
 
-The system has seven long-running parts: PostgreSQL, Keycloak, the Backend API, and four web
-front ends (the **Admin app**, the **Customer app**, the **Ticket Booth app**, and the **Rust
-Admin app**, a second Admin app written in Rust that runs beside the first, spec `037`).
+The system has eight long-running parts: PostgreSQL, Keycloak, the Backend API, and five web
+front ends (the **Admin app**, the **Customer app**, the **Ticket Booth app**, the **Rust Admin
+app**, a second Admin app written in Rust that runs beside the first, spec `037`, and the **Rust
+Customer app**, a second Customer app written in Rust that runs beside the first, spec `040`).
 
 ## Core Principles
 
@@ -172,6 +187,14 @@ feature `001` onward:
 - Each front end MUST sign in through its own Keycloak realm (`queuepass-admin-app`,
   `queuepass-customer-app`, `queuepass-booth-app`, `queuepass-admin-rust-app`), so signing in to, renewing, or logging out of
   one app never ends, changes, or replaces another app's sign-in in the same browser.
+- One exception (spec `040`): the Rust Customer app signs in through its own public client,
+  `customer-rust-app`, in the Customer app's realm `queuepass-customer-app`, so a customer is the
+  same account, with the same orders, tickets, and holds, in both Customer apps. The two Customer
+  apps therefore share one Keycloak session: logging out of either ends the other's Keycloak
+  session too (and, as logging out does, releases the account's seat holds, made in either app),
+  and signing in to one can sign the other in without the form. This risk is accepted for these two
+  apps only (Mahdi, 2026-11-15). Every other app keeps its own realm, and no other front end may
+  share a realm.
 - Logging out MUST end both the front end's session and its realm's Keycloak session.
 - Front ends MUST hold tokens in memory only, never in `localStorage` or `sessionStorage`, and
   MUST send the signed-in user's own access token as a `Bearer` token on every API call.
@@ -184,8 +207,8 @@ feature `001` onward:
   (`queuepass-admin` from the Admin app's realm and from the Rust Admin app's, `customer` from the
   Customer app's, `gate-agent` from the Ticket Booth's) and ignore any other role in the token. Hiding a control in a UI is never the
   enforcement.
-- The Admin app and the Rust Admin app require `queuepass-admin`, the Customer app requires `customer`, and the Ticket
-  Booth app requires `gate-agent`. A signed-in user without the required role is told so plainly,
+- The Admin app and the Rust Admin app require `queuepass-admin`, the Customer app and the Rust
+  Customer app require `customer`, and the Ticket Booth app requires `gate-agent`. A signed-in user without the required role is told so plainly,
   shown no data, and offered logout.
 - QueuePass MUST NOT store passwords or manage identities. It stores at most the Keycloak subject
   identifier. A name a buyer types onto an order, for the gate's ID check, is ticket data like a
@@ -213,7 +236,7 @@ after it.
 - The full suite MUST run with one documented command (`npm test`) on a laptop, and MUST also
   run automatically in GitHub Actions whenever a pull request is opened or updated.
 - Each workspace (`backend`, `admin-app`, `customer-app`, `booth-app`, `admin-rust-app`,
-  `packages/shared`, and `scripts/seed`) MUST reach at least **80% line coverage** on its own; one well-tested
+  `customer-rust-app`, `packages/shared`, and `scripts/seed`) MUST reach at least **80% line coverage** on its own; one well-tested
   workspace cannot make up for another. Coverage MUST be measured by the documented test command
   and checked in CI. Only generated code (such as `packages/shared/src/api-schema.ts`) may be
   excluded, and every exclusion MUST be listed in the coverage configuration with its reason.
@@ -223,6 +246,11 @@ after it.
   every Admin browser journey also runs against the Rust Admin app in the required `e2e` check,
   and spec `037`'s own browser tests drive each Rust Admin screen those journeys do not reach
   (the event page's cards, pictures, attendees, reports, and downloads), listed in its quickstart.
+  The Rust Customer app (spec `040`) takes the same exclusion on the same terms: its floor is
+  measured on its `core` crate (all logic: API client, sign-in state, holds, cart, purchase,
+  times, money, calendar files, live codes, QR codes), its view crate is excluded, and every
+  Customer browser journey also runs against it in the required `e2e` check, with spec `040`'s own
+  browser tests driving each screen those journeys do not reach, listed in its quickstart.
 - Before an implementation PR is merged, the system MUST be brought up with
   `docker compose up --build`, and each front end MUST be signed into, used, and signed out of as
   a smoke test.
@@ -280,7 +308,11 @@ look color tokens (page, surfaces, borders, text, accent) loaded after them, and
 (danger, warning, success, price levels, seat states, maps) stay the shared theme's. It keeps every
 usability target above (contrast, focus, states not by color alone, keyboard access, phone width)
 and adds no other decoration. Its sign-in accent, like the other apps', is a token in the shared theme's sign-in
-block, checked by its contrast tests.
+block, checked by its contrast tests. The Rust Customer app (spec `040`) takes the same exception
+with the same red: the Customer app's own stylesheets with the Rust Admin app's red look color
+tokens loaded after them, the same data colors as the Customer app, and, on the sign-in screens
+it starts, the Rust Admin app's red sign-in tokens. The Customer app's sign-in screens keep their
+own accent.
 
 Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
 without anyone spending time on visual design, and a change to the look is made once.
@@ -305,21 +337,21 @@ These choices are fixed for every feature. Changing one requires amending this c
 
 | Concern | Decision |
 |---|---|
-| Language | TypeScript (strict mode) everywhere: backend, front ends, seed, and tests, except the Rust Admin app, which is Rust (stable, pinned in its `rust-toolchain.toml`) |
+| Language | TypeScript (strict mode) everywhere: backend, front ends, seed, and tests, except the Rust Admin app and the Rust Customer app, which are Rust (stable, pinned in each one's `rust-toolchain.toml`) |
 | Runtime | Node.js 22 LTS, pinned in `.nvmrc` |
-| Repository | One monorepo with npm workspaces: `backend/`, `admin-app/`, `customer-app/`, `booth-app/`, `admin-rust-app/` (scripts only, wrapping cargo and trunk), `packages/shared/`, `scripts/seed/` |
+| Repository | One monorepo with npm workspaces: `backend/`, `admin-app/`, `customer-app/`, `booth-app/`, `admin-rust-app/` and `customer-rust-app/` (scripts only, wrapping cargo and trunk), `packages/shared/`, `scripts/seed/` |
 | Backend | NestJS 11, REST over HTTP/JSON |
 | Persistence | PostgreSQL 17 through Prisma 6. Schema changes only through committed migrations (`prisma migrate deploy`, never `prisma db push`) |
 | API contract | OpenAPI 3.1 at `contracts/openapi.yaml`, served by the Backend at `/docs` |
-| Front ends | React 19 with Vite 6, one app per container; the Rust Admin app is Leptos (client-side, WebAssembly) built with Trunk |
-| Identity | Keycloak 26, one realm per front end (`queuepass-admin-app`, `queuepass-customer-app`, `queuepass-booth-app`, `queuepass-admin-rust-app`), each with that front end's one public OIDC client (`admin-app`, `customer-app`, `booth-app`, `admin-rust-app`) |
+| Front ends | React 19 with Vite 6, one app per container; the Rust Admin app and the Rust Customer app are Leptos (client-side, WebAssembly) built with Trunk |
+| Identity | Keycloak 26, one realm per front end (`queuepass-admin-app`, `queuepass-customer-app`, `queuepass-booth-app`, `queuepass-admin-rust-app`), each with that front end's one public OIDC client (`admin-app`, `customer-app`, `booth-app`, `admin-rust-app`); the Customer app's realm also holds the Rust Customer app's client `customer-rust-app` (spec `040`, Principle V's exception) |
 | Front-end sign-in | A standards-based OIDC client library, not a Keycloak-only adapter |
 | Backend token validation | JWT verification against the JWKS endpoint of the token's own app realm, using a standards-based JOSE library |
 | Backend tests | Jest, with Testcontainers for PostgreSQL |
-| Front-end tests | Vitest with React Testing Library; for the Rust Admin app, `cargo test` with `cargo llvm-cov` |
-| Lint and format | ESLint and Prettier; `cargo clippy` and `cargo fmt` for the Rust Admin app |
+| Front-end tests | Vitest with React Testing Library; for the Rust Admin app and the Rust Customer app, `cargo test` with `cargo llvm-cov` |
+| Lint and format | ESLint and Prettier; `cargo clippy` and `cargo fmt` for the Rust Admin app and the Rust Customer app |
 | Browser tests | Playwright (Chromium) in `e2e/` at the repository root, against the Compose stack (`npm run e2e`) |
-| Continuous integration | GitHub Actions on every pull request open and update: the `test` job runs the steps of the root `ci` script, among them `rust:setup` (the pinned Rust toolchain and prebuilt `trunk` and `cargo-llvm-cov`), and `npm test` with coverage; the `e2e` job runs the browser tests, the Admin journeys against both Admin apps |
+| Continuous integration | GitHub Actions on every pull request open and update: the `test` job runs the steps of the root `ci` script, among them `rust:setup` (the pinned Rust toolchain and prebuilt `trunk` and `cargo-llvm-cov`), and `npm test` with coverage; the `e2e` job runs the browser tests, the Admin journeys against both Admin apps and the Customer journeys against both Customer apps |
 | Orchestration | Docker Compose v2 |
 
 ## Security and Data Constraints
@@ -328,18 +360,19 @@ These choices are fixed for every feature. Changing one requires amending this c
   role `queuepass-admin`) in realm `queuepass-admin-app` and again, as separate accounts with the
   same names and password, in realm `queuepass-admin-rust-app` (spec `037`), 30 Gate Agents (`agent1`–`agent30`,
   `gate-agent`, in `queuepass-booth-app`), and 200 Customers (`customer1`–`customer200`,
-  `customer`, in `queuepass-customer-app`). Self-enrollment, password reset, and MFA are out of
+  `customer`, in `queuepass-customer-app`, used by both Customer apps, spec `040`). Self-enrollment, password reset, and MFA are out of
   scope.
 - **Test credentials**: The shared seed password `test123` is for local development only. It MUST
   NOT be used in any shared, staging, or production environment, and MUST NOT be reused as a
   default for real accounts.
-- **OIDC clients**: One client per front end, in that front end's realm. Front-end clients are
+- **OIDC clients**: One client per front end, in that front end's realm (the Rust Customer app's in
+  the Customer app's realm, spec `040`). Front-end clients are
   public (no client secret), allow only the Authorization Code flow with PKCE (`S256`), and list
   exact redirect URIs and web origins; wildcards are not allowed. Direct-access (password) grants
   are disabled on front-end clients.
 - **Secrets**: No secret, key, or non-seed credential may be committed. Configuration reaches
   services through environment variables, with working defaults in `.env.example`.
-- **CORS**: The Backend allows only the four front-end origins.
+- **CORS**: The Backend allows only the five front-end origins.
 - **Identifiers**: Primary keys are UUIDs.
 - **Money**: Amounts are exact decimals or integer cents, never floating point. The currency is
   USD only.
@@ -353,7 +386,7 @@ These choices are fixed for every feature. Changing one requires amending this c
 ## Feature Roadmap
 
 Spec numbers are reserved here so two branches never claim the same number. Reserving a new
-number is a pull request against this table. The next free number is `040`.
+number is a pull request against this table. The next free number is `041`.
 
 | Spec | Scope | Depends on |
 |---|---|---|
@@ -396,6 +429,7 @@ number is a pull request against this table. The next free number is `040`.
 | `037-rust-admin-app` | A second Admin app written in Rust (`admin-rust-app/`, port 5176) running beside the unchanged Admin app, against the same API and data; its own realm `queuepass-admin-rust-app` with the same admin accounts and role, so signing in or out of one Admin app never touches the other; red on every screen, sign-in included, and named "QueuePass Admin (Rust)"; otherwise the same screens and layout as the Admin app, and every behaviour of the Admin app on `main` when its implementation PR opens (seat maps and the layout editor included), checked item by item; every Admin browser journey runs against both; no API change (#163) | `001`, `002`, `004`, `005`, `007`, `013`, `014`, `015`, `016`, `020`, `021`, `023`, `024`, `025`, `028`, `030`, `031`, `032`, `035`, `036`, `038`, `039` |
 | `038-seat-maps` | Several named seating layouts per venue, each a map of sections placed in the building, labelled rows and seats, imported from a layout file or made from section lines; 1 to 12 price levels per layout by section, row or seat; a seated event uses one layout, sets a price per level and takes sections, rows or seats off sale, and has no ticket types; its capacity is its seats on sale; one hold and one order may mix levels, each ticket at its own price; the Customer app's venue map colored by price with a price filter, a zoom into a section and a Sections list for keyboard and screen readers; the Admin app's Layouts card, Seating section and live map by seat state; today's venues and seated events carried over to a "Standard" layout; the KFC Yum! Center's four layouts and four demo events in the reset (#165) | `007`, `015`, `016`, `017`, `023`, `029`, `031`, `033`, `034`, `035` |
 | `039-layout-editor` | The Admin app's layout editor: a block generator for sections of rows and seats, drag and rotate sections, paint price levels by section, row or seat, duplicate and edit layouts nobody has bought from | `038` |
+| `040-rust-customer-app` | A second Customer app written in Rust (`customer-rust-app/`, port 5177) running beside the unchanged Customer app, against the same API and data; it signs in to the Customer app's realm through its own client `customer-rust-app`, so customers are the same accounts with the same orders, tickets, and holds in both, and the two Customer apps share one sign-in session (Principle V's exception); red on every screen, its sign-in included, with the Rust Admin app's red, and named "QueuePass Tickets (Rust)"; otherwise the same screens and layout as the Customer app, and every behaviour of the Customer app on `main` when its implementation PR opens (seat maps, holds and the cart, selling until the end, past events, My tickets, live entry codes, calendar files), checked item by item; every Customer browser journey runs against both; no API change (#175) | `001`, `003`, `006`, `007`, `008`, `012`, `013`, `014`, `015`, `016`, `017`, `018`, `019`, `020`, `021`, `025`, `026`, `027`, `028`, `030`, `032`, `033`, `034`, `037`, `038` |
 
 A change to the shared surface (`.specify/memory/constitution.md`, `contracts/openapi.yaml`,
 `backend/prisma/`, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`,
@@ -449,4 +483,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.11.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-14
+**Version**: 3.12.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-15
