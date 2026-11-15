@@ -4,7 +4,10 @@ import { APP_REALMS, LEGACY_REALM } from './app-realms';
 const customer = APP_REALMS.find((r) => r.app === 'customer')!;
 /** The realm the old shared realm becomes (spec 028 FR-006). */
 export const CUSTOMER_REALM = customer.realm;
-/** The other two apps' clients, disabled in the customer realm after the rename (FR-007). */
+/**
+ * The other apps' clients, disabled in the customer realm after the rename (FR-007). Spec 037's
+ * `admin-rust-app` is listed too; it never existed in the old realm, so it is skipped there.
+ */
 export const OTHER_CLIENTS = APP_REALMS.filter((r) => r !== customer).map((r) => r.clientId);
 
 /** How many users or role members one admin request lists. */

@@ -55,6 +55,13 @@
   --accent-booth-text: #ffffff;
   --brand-mark-end-booth: #c2410c;
   --brand-mark-text-booth: #ffffff;
+  /* Spec 037 (research R8, R11): the Rust Admin app's red sign-in accent (rust). */
+  --accent-rust: #b3261e;
+  --accent-rust-hover: #8f1d17;
+  --accent-rust-soft: #fdecea;
+  --accent-rust-text: #ffffff;
+  --brand-mark-end-rust: #c7362d;
+  --brand-mark-text-rust: #ffffff;
 
   /* Spec 027 (Constitution VII, the sign-in exception): what the sign-in screens draw on
      Keycloak's stones, dark in both sets: the page color under them, the shade behind the
@@ -67,6 +74,7 @@
   --stone-accent: #8b85f5;
   --stone-accent-tickets: #2dd4bf;
   --stone-accent-booth: #fbbf24;
+  --stone-accent-rust: #f28b82;
 
   /* Spec 014: the full-screen image backdrop and the text on it, dark in both sets. */
   --scrim: rgb(0 0 0 / 92%);
@@ -170,6 +178,12 @@
     --accent-booth-text: #0f1115;
     --brand-mark-end-booth: #f59e0b;
     --brand-mark-text-booth: #0f1115;
+    --accent-rust: #f28b82;
+    --accent-rust-hover: #f6aea8;
+    --accent-rust-soft: #4a1714;
+    --accent-rust-text: #0f1115;
+    --brand-mark-end-rust: #e57368;
+    --brand-mark-text-rust: #0f1115;
 
     /* Spec 027: the sign-in backdrop, the same as the light set. */
     --stone-base: #3a3a3a;
@@ -178,6 +192,7 @@
     --stone-accent: #8b85f5;
     --stone-accent-tickets: #2dd4bf;
     --stone-accent-booth: #fbbf24;
+    --stone-accent-rust: #f28b82;
 
     --scrim: rgb(0 0 0 / 92%);
     --scrim-text: #ffffff;

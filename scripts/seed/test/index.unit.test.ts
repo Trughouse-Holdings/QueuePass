@@ -62,6 +62,8 @@ describe('seed()', () => {
       'queuepass-customer-app',
       '-',
       'queuepass-booth-app',
+      '-',
+      'queuepass-admin-rust-app',
       'queuepass-customer-app',
     ]);
     // Within each app realm: the realm, then its client, then its users.
@@ -69,16 +71,16 @@ describe('seed()', () => {
     const firstOf = (method: string) => admin.findIndex((c) => c.method === method);
     expect(firstOf('roles.find')).toBeLessThan(firstOf('clients.find'));
     expect(firstOf('clients.find')).toBeLessThan(firstOf('users.find'));
-    expect(fake.state.realms.flatMap((r) => r.users)).toHaveLength(235);
-    expect(fake.state.realms.flatMap((r) => r.clients)).toHaveLength(3);
+    expect(fake.state.realms.flatMap((r) => r.users)).toHaveLength(240);
+    expect(fake.state.realms.flatMap((r) => r.clients)).toHaveLength(4);
 
     expect(console.log).toHaveBeenCalledWith(
       "[seed] target http://localhost:8080, realms 'queuepass-admin-app', " +
-        "'queuepass-customer-app', 'queuepass-booth-app'",
+        "'queuepass-customer-app', 'queuepass-booth-app', 'queuepass-admin-rust-app'",
     );
     expect(console.log).toHaveBeenLastCalledWith(
       '[seed] done — queuepass-admin-app: 5 admin, queuepass-customer-app: 200 customer, ' +
-        'queuepass-booth-app: 30 agent (235 principals, 3 clients)',
+        'queuepass-booth-app: 30 agent, queuepass-admin-rust-app: 5 admin (240 principals, 4 clients)',
     );
   });
 

@@ -10,8 +10,8 @@ import { createFakeKeycloak, fakeUser, provisionedRealmState } from './fake-keyc
  * recording fake).
  */
 describe('the seeded accounts', () => {
-  it('are 5 admins, 30 gate agents and 200 customers: 235', () => {
-    expect(EXPECTED_COUNTS).toEqual({ admin: 5, agent: 30, customer: 200, total: 235 });
+  it('are 5 admins in each Admin realm, 30 gate agents and 200 customers: 240 (037)', () => {
+    expect(EXPECTED_COUNTS).toEqual({ admin: 5, agent: 30, customer: 200, total: 240 });
   });
 });
 

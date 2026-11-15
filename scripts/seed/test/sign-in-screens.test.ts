@@ -39,6 +39,11 @@ const SCREENS: Record<string, { heading: string; audience: string }> = {
     heading: 'Sign in to QueuePass Ticket Booth',
     audience: 'For gate agents checking tickets in at the door.',
   },
+  // Spec 037 (research R8): the Rust Admin app.
+  'admin-rust-app': {
+    heading: 'Sign in to QueuePass Admin (Rust)',
+    audience: 'For QueuePass staff, Rust version',
+  },
 };
 
 /** A sign-in page as fetched, with the cookies Keycloak set on the way. */

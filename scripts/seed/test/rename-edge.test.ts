@@ -80,6 +80,7 @@ describe('the rename, at its edges', () => {
 
     expect(state.realms.map((r) => r.rep.realm).sort()).toEqual([
       'queuepass-admin-app',
+      'queuepass-admin-rust-app',
       'queuepass-booth-app',
       CUSTOMER,
     ]);

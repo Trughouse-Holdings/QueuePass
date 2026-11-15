@@ -38,7 +38,8 @@ export function legacyState(): FakeState {
     ],
   });
   const rolesScope = realm.clientScopes.find((s) => s.name === 'roles')!.id!;
-  for (const c of FRONTEND_CLIENTS) {
+  // The realm from before 028 had the three clients of its day; spec 037's came later.
+  for (const c of FRONTEND_CLIENTS.filter((f) => f.clientId !== 'admin-rust-app')) {
     const id = `old-client-${c.clientId}`;
     realm.clients.push({ ...desiredClient(c), id });
     realm.defaultScopes[id] = ['scope-api', rolesScope];

@@ -71,7 +71,8 @@ export function plan(options) {
     OIDC_ISSUER_BASE: REALMS,
     OIDC_JWKS_BASE: REALMS,
     OIDC_AUDIENCE: 'queuepass-api',
-    CORS_ORIGINS: 'http://localhost:5173,http://localhost:5174,http://localhost:5175',
+    CORS_ORIGINS:
+      'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176',
     ADDRESS_GEOCODER_URL: options.geocoderUrl ?? 'https://geocoding.geo.census.gov',
     ...(options.backendTz ? { TZ: options.backendTz } : {}),
   };

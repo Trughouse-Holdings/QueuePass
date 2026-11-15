@@ -5,7 +5,7 @@ import { createFakeKeycloak, emptyState, type FakeKeycloak } from './fake-keyclo
 
 /**
  * Spec 028 FR-005, FR-008, SC-006 (research R4; tasks T012): on a clean system one seed run makes
- * the three app realms, each with the sign-in look, its one role, the audience scope, its one
+ * the four app realms, each with the sign-in look, its one role, the audience scope, its one
  * client and exactly its users; no realm `queuepass` is made. Needs no Keycloak: the client module
  * is mocked to hand the seed a recording fake.
  */
@@ -40,7 +40,7 @@ afterEach(() => {
 });
 
 describe('the seed on a clean system', () => {
-  it('makes the three app realms and no realm queuepass', async () => {
+  it('makes the four app realms and no realm queuepass', async () => {
     const { seed } = await import('../src/index');
 
     await seed();
@@ -132,13 +132,13 @@ describe('the seed on a clean system', () => {
     }
   });
 
-  it('logs the three realms and their counts last', async () => {
+  it('logs the four realms and their counts last', async () => {
     const { seed } = await import('../src/index');
     await seed();
 
     expect(console.log).toHaveBeenLastCalledWith(
       '[seed] done — queuepass-admin-app: 5 admin, queuepass-customer-app: 200 customer, ' +
-        'queuepass-booth-app: 30 agent (235 principals, 3 clients)',
+        'queuepass-booth-app: 30 agent, queuepass-admin-rust-app: 5 admin (240 principals, 4 clients)',
     );
   });
 });

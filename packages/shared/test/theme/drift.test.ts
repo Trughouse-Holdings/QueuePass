@@ -466,11 +466,15 @@ describe('the sign-in look (spec 021)', () => {
     expect(listing(cssViolations(path, read(path), SIGN_IN))).toEqual([]);
   });
 
-  it('maps the Customer and Ticket Booth apps to their accents, and no other app', () => {
+  it('maps the Customer, Ticket Booth, and Rust Admin (037) apps to their accents, and no other app', () => {
     const selectors = [...read(path).matchAll(/([^{}]*)\{[^{}]*--accent:/g)].map((m) =>
       m[1]!.replace(/\/\*[\s\S]*?\*\//g, '').trim(),
     );
-    expect(selectors.sort()).toEqual(['.qp-app--booth-app', '.qp-app--customer-app']);
+    expect(selectors.sort()).toEqual([
+      '.qp-app--admin-rust-app',
+      '.qp-app--booth-app',
+      '.qp-app--customer-app',
+    ]);
   });
 });
 

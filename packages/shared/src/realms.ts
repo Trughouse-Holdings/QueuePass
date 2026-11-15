@@ -32,6 +32,14 @@ export const APP_REALMS = [
     prefix: 'agent',
     count: 30,
   },
+  {
+    app: 'admin-rust',
+    realm: 'queuepass-admin-rust-app',
+    clientId: 'admin-rust-app',
+    role: 'queuepass-admin',
+    prefix: 'admin',
+    count: 5,
+  },
 ] as const satisfies readonly AppRealmRow[];
 
 /** The single realm before 028; renamed by the seed to the customer realm (research R6). */
@@ -39,7 +47,7 @@ export const LEGACY_REALM = 'queuepass';
 
 /** One row of `APP_REALMS`. */
 export interface AppRealmRow {
-  app: 'admin' | 'customer' | 'booth';
+  app: 'admin' | 'customer' | 'booth' | 'admin-rust';
   realm: string;
   clientId: string;
   role: Role;

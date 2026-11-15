@@ -25,6 +25,14 @@ export const APP_REALMS = [
     prefix: 'agent',
     count: 30,
   },
+  {
+    app: 'admin-rust',
+    realm: 'queuepass-admin-rust-app',
+    clientId: 'admin-rust-app',
+    role: 'queuepass-admin',
+    prefix: 'admin',
+    count: 5,
+  },
 ] as const;
 
 /** The single realm before 028; renamed by the seed to the customer realm (research R6). */

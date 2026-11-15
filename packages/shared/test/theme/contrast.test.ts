@@ -108,7 +108,8 @@ describe.each([
   ['light', light],
   ['dark', dark],
 ])('%s sign-in accents (spec 021)', (_, t) => {
-  describe.each(['tickets', 'booth'])('%s', (app) => {
+  // Spec 037: the Rust Admin app's red set (rust).
+  describe.each(['tickets', 'booth', 'rust'])('%s', (app) => {
     /** The app's token for a shared role: --accent-hover → --accent-booth-hover, and so on. */
     const name = (role: string): string =>
       role.startsWith('accent') ? role.replace(/^accent/, `accent-${app}`) : `${role}-${app}`;
@@ -179,6 +180,7 @@ describe('the sign-in backdrop (spec 027)', () => {
     'stone-accent',
     'stone-accent-tickets',
     'stone-accent-booth',
+    'stone-accent-rust',
   ];
 
   it.each(STONE)('defines --%s the same in both sets', (name) => {
@@ -222,6 +224,7 @@ describe('the sign-in backdrop (spec 027)', () => {
     ['admin', 'stone-accent'],
     ['tickets', 'stone-accent-tickets'],
     ['booth', 'stone-accent-booth'],
+    ['rust', 'stone-accent-rust'],
   ])('%s', (_, accent) => {
     const backdrops = (): [string, string][] => [
       ['the darkest stone', DARKEST_STONE],
@@ -249,7 +252,7 @@ describe('the pause button panel (spec 027 R10)', () => {
     expect(contrast(stone('stone-text'), stone('stone-base'))).toBeGreaterThanOrEqual(4.5);
   });
 
-  it.each(['stone-accent', 'stone-accent-tickets', 'stone-accent-booth'])(
+  it.each(['stone-accent', 'stone-accent-tickets', 'stone-accent-booth', 'stone-accent-rust'])(
     'draws the --%s focus ring on --stone-base at 3:1 or more',
     (ring) => {
       expect(contrast(stone(ring), stone('stone-base'))).toBeGreaterThanOrEqual(3);

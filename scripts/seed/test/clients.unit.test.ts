@@ -38,11 +38,18 @@ const AUDIENCE_MAPPER = {
  * service-account grant, and exact redirect URIs, post-logout URIs, and web origins. The names
  * are the ones each sign-in screen shows, "Sign in to {name}" (spec 021 FR-002).
  */
-const PORTS = { 'admin-app': 5173, 'customer-app': 5174, 'booth-app': 5175 } as const;
+const PORTS = {
+  'admin-app': 5173,
+  'customer-app': 5174,
+  'booth-app': 5175,
+  // Spec 037 (research R11): the Rust Admin app.
+  'admin-rust-app': 5176,
+} as const;
 const NAMES = {
   'admin-app': 'QueuePass Admin',
   'customer-app': 'QueuePass Tickets',
   'booth-app': 'QueuePass Ticket Booth',
+  'admin-rust-app': 'QueuePass Admin (Rust)',
 } as const;
 
 function expectConstitutionalClient(c: ClientRepresentation): void {
