@@ -1,0 +1,35 @@
+{
+  "LAYOUT_LIMITS": {
+    "maxSections": 100,
+    "maxRows": 100,
+    "maxSeatsPerRow": 200,
+    "maxSeats": 30000,
+    "maxLevels": 12,
+    "maxCarriedLevels": 50,
+    "nameMaxLength": 50,
+    "labelMaxLength": 5,
+    "maxOutlinePoints": 64,
+    "maxMapUnits": 5000,
+    "maxOffSaleSelectors": 5000,
+    "maxImportBytes": 4194304
+  },
+  "LEVEL_COLORS": [
+    "violet",
+    "blue",
+    "cyan",
+    "teal",
+    "green",
+    "lime",
+    "yellow",
+    "orange",
+    "red",
+    "pink",
+    "purple",
+    "brown"
+  ],
+  "SEAT_GAP": 2,
+  "ROW_GAP": 2,
+  "OUTLINE_MARGIN": 1.5,
+  "SIZE_MARGIN": 10,
+  "MAX_ZOOM": 40
+}
