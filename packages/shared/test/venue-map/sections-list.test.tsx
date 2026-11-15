@@ -3,14 +3,13 @@ import { useState } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SectionsList } from '../../src/web/venue-map/sections-list';
-import { usePriceFilter } from '../../src/web/venue-map/price-filter';
 import { VenueMap, type MapSeat, type SeatView } from '../../src/web/venue-map/venue-map';
 import type { VenueMap as Map, VenueMapSection } from '../../src/web/venue-map/map-state';
 
 /**
  * Spec 038 US4 (T041; FR-020, SC-007; research R13): the Sections list, a second view of the venue
  * map's state that needs no map. Each section with its name, the price range of its open seats and
- * their count, under the same price filter. Spec 039's walk (2026-11-14; 038 FR-020 amended): the
+ * their count. Spec 039's walk (2026-11-14; 038 FR-020 amended): the
  * list always shows every section, never seats. A section chosen here zooms the map into it,
  * stays marked in the list, and the keyboard's focus moves to its first seat on the map, where
  * seats are chosen (each a button named "Row F, Seat 7, Courtside, $95, open").
@@ -108,12 +107,10 @@ const SECTION_115: VenueMapSection = {
 };
 
 /**
- * The map and the list side by side, as an app gives them: one open section, one price filter,
- * and one set of the customer's seats, which a choice in either view toggles.
+ * The map and the list side by side, as an app gives them: one open section and one set of the customer's seats, which a choice in either view toggles.
  */
 function Harness({ onSeat }: { onSeat?: (s: MapSeat) => void }) {
   const [open, setOpen] = useState<string | null>(null);
-  const [range, setRange] = usePriceFilter(MAP.levels);
   const [mine, setMine] = useState<string[]>([]);
   const key = (s: MapSeat) => `${s.sectionId}/${s.row}/${s.seat}`;
   const seatView = (s: MapSeat): SeatView =>
@@ -132,8 +129,6 @@ function Harness({ onSeat }: { onSeat?: (s: MapSeat) => void }) {
         openSectionId={open}
         section={section}
         onOpenSection={setOpen}
-        range={range}
-        onRange={setRange}
         seatView={seatView}
         onSeat={choose}
         skipTo="sections-heading"
@@ -142,7 +137,6 @@ function Harness({ onSeat }: { onSeat?: (s: MapSeat) => void }) {
       <SectionsList
         headingId="sections-heading"
         map={MAP}
-        range={range}
         openSectionId={open}
         onOpenSection={(id) => {
           setOpen(id);
@@ -157,14 +151,6 @@ const list = () => screen.getByRole('region', { name: 'Sections' });
 const drawing = () => screen.getByRole('group', { name: 'Basketball map' });
 const listed = (name: string) =>
   within(list()).getByRole('button', { name: new RegExp(`^Section ${name}(,|$)`) });
-const setRange = (low: number, high: number) => {
-  fireEvent.change(screen.getByRole('slider', { name: 'Lowest price' }), {
-    target: { value: String(low) },
-  });
-  fireEvent.change(screen.getByRole('slider', { name: 'Highest price' }), {
-    target: { value: String(high) },
-  });
-};
 
 describe('the sections (FR-020)', () => {
   it('lists each section with the price range of its open seats and their count', () => {
@@ -185,15 +171,6 @@ describe('the sections (FR-020)', () => {
     for (const b of within(list()).getAllByRole('button')) {
       expect(b).toHaveAttribute('aria-pressed', 'false');
     }
-  });
-
-  it('follows the price filter the map shows', () => {
-    render(<Harness />);
-    setRange(70, 95);
-    expect(listed('115')).toHaveAccessibleName('Section 115, $95, 1 open seat');
-    expect(listed('101')).toHaveAccessibleName('Section 101, no open seats between $70 and $95');
-    expect(listed('101')).toHaveClass('sections-list__section--faded');
-    expect(listed('301')).toHaveAccessibleName('Section 301, no open seats');
   });
 
   it('is reachable by keyboard: every section is a tab stop', async () => {
@@ -293,18 +270,5 @@ describe('the skip to the Sections list (US4, SC-007; T060, M5)', () => {
     expect(within(list()).getByRole('heading', { name: 'Sections' })).toHaveFocus();
     await user.tab();
     expect(listed('115')).toHaveFocus();
-  });
-});
-
-describe('usePriceFilter (FR-017)', () => {
-  it('starts at the levels’ full range and is shared by the map and the list', () => {
-    render(<Harness />);
-    expect(screen.getByRole('slider', { name: 'Lowest price' })).toHaveValue('35');
-    expect(screen.getByRole('slider', { name: 'Highest price' })).toHaveValue('95');
-    setRange(50, 95);
-    expect(listed('101')).toHaveAccessibleName('Section 101, no open seats between $50 and $95');
-    expect(within(drawing()).getByRole('button', { name: /^Section 101,/ })).toHaveAccessibleName(
-      'Section 101, no open seats between $50 and $95',
-    );
   });
 });

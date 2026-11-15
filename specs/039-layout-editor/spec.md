@@ -81,6 +81,10 @@ John, Mahdi and the team can overturn them in review of the spec PR.
   beside the map turn into the section's seats? → A: **No.** The list always shows every
   section; seats are chosen on the map, where the keyboard's focus goes when a section is chosen
   from the list. `038` FR-020 is amended with a dated note.
+- Q (Nate's walk, 2026-11-14, after merge): should the customer's map keep its price filter? →
+  A: **No.** It is removed; the map and the Sections list show every level's open seats. `038`
+  FR-017 is struck with a dated note (US3 scenario 2, its edge case and quickstart S11 too). The
+  legend and zoom buttons now span the map's row, so the map and the Sections list start level.
 - Q: Is this needed for the EDIS demo on 2026-11-20? → A: **No.** `038` carries the demo on its
   imported Yum! Center layouts; `039` shows the editor if it is done by then (proposal, order for
   EDIS).

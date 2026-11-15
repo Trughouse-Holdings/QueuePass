@@ -232,9 +232,9 @@ them; the tickets carry each seat's own price and label.
    its layout is drawn in place with its name; a section is filled with the color of its cheapest
    level that still has open seats, gray when it has none on sale or open; and a legend names each
    level with its color and price.
-2. **Given** the overview, **When** the customer sets the price filter to a range, **Then** sections
+2. ~~**Given** the overview, **When** the customer sets the price filter to a range, **Then** sections
    with no open seats priced inside it are drawn faded, the legend marks the levels outside it, and
-   the overview still shows every section.
+   the overview still shows every section.~~ *Removed 2026-11-14 with FR-017.*
 3. **Given** the overview, **When** the customer clicks (or presses Enter on) a section, **Then** the
    map zooms into it, drawing each row and seat in place with row labels; open seats show their
    level's color; sold, held, and off-sale seats are drawn as unavailable with a shape or mark, not
@@ -339,8 +339,8 @@ map shows each change within 2 seconds.
   within 2 seconds, as a sold seat does.
 - **Price changed while seats are held**: the hold keeps the seats; the purchase is at the price
   when bought, and the cart shows the new price before the customer buys.
-- **Price filter matching nothing**: every section is faded and a note says no open seats are in
-  that range; the filter can be reset to the full range.
+- ~~**Price filter matching nothing**: every section is faded and a note says no open seats are in
+  that range; the filter can be reset to the full range.~~ *Removed 2026-11-14 with FR-017.*
 - **An event's layout from another venue**: refused; an event uses only its own venue's layouts.
 - **Venue changed on an event with a layout**: allowed only with no valid tickets or live holds, and
   it clears the layout, prices and off-sale seats.
@@ -427,9 +427,13 @@ map shows each change within 2 seconds.
   object and every section in place with its name; each section filled with the color of its
   cheapest level that has open seats inside the price filter, or gray when none; and a legend naming
   each level with its color and price.
-- **FR-017**: The map MUST offer a **price filter** (a low and a high price, in whole dollars, over
+- **FR-017**: ~~The map MUST offer a **price filter** (a low and a high price, in whole dollars, over
   the event's level prices, starting at the full range). Sections with no open seats inside it MUST
-  be drawn faded, and seats outside it faded but still choosable.
+  be drawn faded, and seats outside it faded but still choosable.~~
+  *Amended 2026-11-14 by spec 039 (Nate's walk)*: the price filter is removed. The map and the
+  Sections list show every level's open seats; only a section with no open seat on sale is drawn
+  faded, and no seat is faded. Where FR-016, FR-020, US3 and US4 mention the filter, read the full
+  range of prices.
 - **FR-018**: Clicking, tapping, or pressing Enter on a section MUST zoom the map into it, drawing
   each row and seat in place, row labels beside the rows, and a **Back to map** control. The map
   MUST zoom and pan by scroll, pinch, drag, and zoom buttons.

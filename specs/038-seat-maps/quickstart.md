@@ -63,7 +63,9 @@ As `customer1`, open women's basketball → **Choose seats**. **Expected**: Sect
 
 ## S11. The price filter (US3)
 
-Set the price filter to $50–$100. **Expected**: The end sections (101–103, 109–112, 118–120, only $35 seats) fade; the sideline sections stay; the overview still shows every section. **Covered by**: Customer `VenueMap` test; browser `038 S10`.
+> **Removed 2026-11-14** (spec 039's walk, at Nate's request; FR-017 removed): the map has no price filter. **Expected**: No price filter is shown; every section is drawn, and only a section with no open seat on sale fades. **Covered by**: shared `VenueMap` test; browser `038 S10`.
+
+~~Set the price filter to $50–$100. **Expected**: The end sections (101–103, 109–112, 118–120, only $35 seats) fade; the sideline sections stay; the overview still shows every section.~~
 
 ## S12. Zoom into a section (US3)
 
@@ -130,13 +132,13 @@ S0, S5, S6, S10–S14, S16 and S17, and S15's zoom buttons and taps at phone wid
 | S7 | Manual: covered by the Admin `SeatingSection` test |
 | S8 | Manual: covered by the Backend `event-seating` test |
 | S9 | Manual: covered by the Backend `orders.levels` test |
-| S10 | Automated: `038 S10/S11/S12/S13: a customer filters the venue map by price, zooms into section 115, holds seats of two levels, and buys them` |
-| S11 | Automated: `038 S10/S11/S12/S13: a customer filters the venue map by price, zooms into section 115, holds seats of two levels, and buys them` |
-| S12 | Automated: `038 S10/S11/S12/S13: a customer filters the venue map by price, zooms into section 115, holds seats of two levels, and buys them` |
-| S13 | Automated: `038 S10/S11/S12/S13: a customer filters the venue map by price, zooms into section 115, holds seats of two levels, and buys them` |
+| S10 | Automated: `038 S10/S12/S13: a customer sees the venue map, zooms into section 115, holds seats of two levels, and buys them` |
+| S11 | Manual: removed by spec 039's walk (2026-11-14), the map has no price filter; the browser test `038 S10/S12/S13` checks that none is shown |
+| S12 | Automated: `038 S10/S12/S13: a customer sees the venue map, zooms into section 115, holds seats of two levels, and buys them` |
+| S13 | Automated: `038 S10/S12/S13: a customer sees the venue map, zooms into section 115, holds seats of two levels, and buys them` |
 | S14 | Automated: `038 S14: a second customer watching section 115 sees a seat held, then sold, within 2 seconds` |
 | S15 | Automated: `038 S10/S15: at phone width, the zoom buttons and a tap on a section open its seats, and a tap holds one`; rest Manual: pinch can't be driven reliably in Playwright's Chromium |
-| S16 | Automated: `038 S16: by keyboard alone, the Sections list filters, opens section 115, holds a seat and releases it` |
+| S16 | Automated: `038 S16: by keyboard alone, the Sections list opens section 115, holds a seat and releases it` |
 | S17 | Automated: `038 S17: the admin's map of a seated event shows a customer's hold within 2 seconds` |
 | S18 | Manual: a migration from a pre-038 database; the Backend `migration.seat-maps` test |
 | S19 | Manual: genuinely concurrent requests; the Backend `seats.concurrency` test |

@@ -1,27 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { bounds, outlinePath } from './map-geometry.js';
+import { bounds, outlinePath, type Point } from './map-geometry.js';
 import { Legend, type SectionState } from './legend.js';
 import {
   formatPrice,
   openSeatsIn,
-  priceRangeOf,
   sectionLevel,
   type MapSectionSummary,
-  type PriceRange,
   type VenueMap as VenueMapData,
   type VenueMapSection,
 } from './map-state.js';
-import { PriceFilter, usePriceFilter, wholeDollars } from './price-filter.js';
 import { SectionView, type MapSeat, type SeatView } from './section-view.js';
-import { usePanZoom } from './use-pan-zoom.js';
+import { fitView, usePanZoom, type View } from './use-pan-zoom.js';
 
 export type { MapSeat, SeatView, ShownState } from './section-view.js';
 
 export interface VenueMapProps {
   map: VenueMapData;
   /**
-   * `price` (the customer): sections in their cheapest open level's color, the price filter and
-   * the level legend. `state` (the admin, FR-027): sections named by their counts by state.
+   * `price` (the customer): sections in their cheapest open level's color and the level legend. `state` (the admin, FR-027): sections named by their counts by state.
    */
   colorBy?: 'price' | 'state';
   /** The section zoomed into, or `null` for the overview. */
@@ -29,9 +25,6 @@ export interface VenueMapProps {
   /** That section's seats once loaded (`getVenueMapSection`, kept current). */
   section: VenueMapSection | null;
   onOpenSection(sectionId: string | null): void;
-  /** The price filter, when the page shares it (the Sections list); kept here otherwise. */
-  range?: PriceRange | null;
-  onRange?(range: PriceRange): void;
   /** How each seat is shown and whether it can be chosen; by its state otherwise. */
   seatView?(seat: MapSeat): SeatView;
   onSeat?(seat: MapSeat): void;
@@ -47,6 +40,25 @@ export interface VenueMapProps {
    * seat, where seats are now chosen.
    */
   focusSeats?: number;
+}
+
+/** The margin around what Fit map frames, as a share of its larger side. */
+const FIT_MARGIN = 0.04;
+/** The map's box, width over height, follows the frame between these. */
+const MIN_ASPECT = 1;
+const MAX_ASPECT = 2.2;
+
+/**
+ * Nate's walk (2026-11-14): what Fit map (and the overview) frames: the sections and the floor as
+ * drawn, with a small margin, rather than the layout's whole canvas, so a layout drawn in one
+ * corner of its canvas still fills the map. The whole canvas when nothing is drawn.
+ */
+export function fitOf(map: VenueMapData): View {
+  const points: Point[] = map.sections.flatMap((s) => s.outline as Point[]);
+  if (map.floorKind !== 'NONE' && map.floorOutline) points.push(...(map.floorOutline as Point[]));
+  if (points.length === 0) return { x: 0, y: 0, width: map.size.width, height: map.size.height };
+  const b = bounds(points);
+  return fitView(b, Math.max(b.width, b.height) * FIT_MARGIN);
 }
 
 const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
@@ -83,25 +95,24 @@ export function VenueMap({
   openSectionId,
   section,
   onOpenSection,
-  range: givenRange,
-  onRange,
   seatView,
   onSeat,
   skipTo,
   focusSeats = 0,
 }: VenueMapProps): React.ReactElement {
-  const full = useMemo(() => priceRangeOf(map.levels), [map.levels]);
-  const [ownRange, setOwnRange] = usePriceFilter(map.levels);
   const priced = colorBy === 'price';
-  const range = priced ? (givenRange !== undefined ? givenRange : ownRange) : null;
-  const setRange = (r: PriceRange): void => {
-    setOwnRange(r);
-    onRange?.(r);
-  };
   const [tip, setTip] = useState<string | null>(null);
 
   const { width, height } = map.size;
-  const fit = useMemo(() => ({ x: 0, y: 0, width, height }), [width, height]);
+  const drawn = useMemo(
+    () => fitOf(map),
+    [map.sections, map.floorKind, map.floorOutline, map.size],
+  );
+  // A new object only when the frame moves, not on each count change.
+  const fit = useMemo(
+    () => ({ x: drawn.x, y: drawn.y, width: drawn.width, height: drawn.height }),
+    [drawn.x, drawn.y, drawn.width, drawn.height],
+  );
   const pz = usePanZoom(fit);
   const open = map.sections.find((s) => s.sectionId === openSectionId) ?? null;
   const openOutline = open?.outline;
@@ -114,32 +125,30 @@ export function VenueMap({
   }, [openSectionId]);
 
   const seats = open && section?.sectionId === open.sectionId ? section : null;
-  const anyOpen = map.sections.some((s) => openSeatsIn(map, s, range) > 0);
   // Section names are drawn at a steady size on screen as the map zooms.
-  const fontSize = Math.max(width, height) / 50 / Math.max(1, pz.zoom ** 0.75);
+  const fontSize = Math.max(fit.width, fit.height) / 50 / Math.max(1, pz.zoom ** 0.75);
+  // The map's box takes the frame's shape, within reason, so the layout fills it.
+  const aspect = Math.min(MAX_ASPECT, Math.max(MIN_ASPECT, fit.width / fit.height));
 
   const sectionName = (s: MapSectionSummary): string => {
     if (!priced) {
       const c = stateCounts(s);
       return `Section ${s.name}, ${c.open} open, ${c.held} held, ${c.sold} sold, ${c.offSale} off sale`;
     }
-    const n = openSeatsIn(map, s, range);
-    const level = sectionLevel(map, s, range);
+    const n = openSeatsIn(map, s);
+    const level = sectionLevel(map, s);
     if (n > 0 && level?.price) {
       return `Section ${s.name}, ${plural(n, 'open seat', 'open seats')} from ${formatPrice(level.price)}`;
     }
-    const outside = openSeatsIn(map, s, null) > 0 && range !== null;
-    return outside
-      ? `Section ${s.name}, no open seats between ${wholeDollars(range.low)} and ${wholeDollars(range.high)}`
-      : `Section ${s.name}, no open seats`;
+    return `Section ${s.name}, no open seats`;
   };
 
   const sectionClass = (s: MapSectionSummary): string => {
     const classes = ['venue-map__section'];
     if (priced) {
-      const level = sectionLevel(map, s, range);
+      const level = sectionLevel(map, s);
       classes.push(level ? `venue-map--${level.color}` : 'venue-map--unavailable');
-      if (openSeatsIn(map, s, range) === 0) classes.push('venue-map__section--faded');
+      if (openSeatsIn(map, s) === 0) classes.push('venue-map__section--faded');
     } else {
       classes.push('venue-map__section--state', `venue-map__section--state-${sectionState(s)}`);
     }
@@ -159,18 +168,7 @@ export function VenueMap({
 
   return (
     <div className="venue-map" ref={root}>
-      {priced && full && range && <PriceFilter full={full} range={range} onChange={setRange} />}
-      <Legend map={map} colorBy={colorBy} range={range} />
-      {priced && range && !anyOpen && (
-        <div className="note venue-map__none">
-          <p>{`No open seats between ${wholeDollars(range.low)} and ${wholeDollars(range.high)}.`}</p>
-          {full && (
-            <button type="button" className="btn btn--ghost" onClick={() => setRange(full)}>
-              Reset price filter
-            </button>
-          )}
-        </div>
-      )}
+      <Legend map={map} colorBy={colorBy} />
       <div className="venue-map__toolbar">
         {open && (
           <button type="button" className="btn" onClick={() => onOpenSection(null)}>
@@ -205,6 +203,7 @@ export function VenueMap({
       <svg
         ref={pz.ref}
         className="venue-map__svg"
+        style={{ aspectRatio: String(aspect) }}
         role="group"
         aria-label={`${map.layoutName} map`}
         viewBox={pz.viewBox}
@@ -273,7 +272,6 @@ export function VenueMap({
           <SectionView
             map={map}
             section={seats}
-            range={range}
             seatView={seatView}
             onSeat={onSeat}
             onTip={setTip}

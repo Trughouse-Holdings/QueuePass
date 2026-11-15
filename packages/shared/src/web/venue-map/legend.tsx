@@ -1,4 +1,4 @@
-import { formatPrice, inRange, type PriceRange, type VenueMap } from './map-state.js';
+import { formatPrice, type VenueMap } from './map-state.js';
 
 /** FR-027: a section's make-up of seat states on the admin's map (`sectionState`). */
 export type SectionState = 'open' | 'held' | 'sold' | 'off';
@@ -13,19 +13,16 @@ export const SECTION_STATES: readonly [SectionState, string][] = [
 
 /**
  * Spec 038 FR-016, FR-019 (research R13, T039): the map's legend. Each level by name, its color
- * beside it and its price ("Courtside $95", "Upper: not on sale"), a level outside the price
- * filter marked so in words; then each seat state with the mark the map draws for it, so neither
+ * beside it and its price ("Courtside $95", "Upper: not on sale"); then each seat state with the mark the map draws for it, so neither
  * levels nor states are told by color alone (Constitution VII). The admin's map (FR-027) lists
  * instead what each section's fill means, by name beside its swatch, as the levels are.
  */
 export function Legend({
   map,
   colorBy,
-  range,
 }: {
   map: VenueMap;
   colorBy: 'price' | 'state';
-  range: PriceRange | null;
 }): React.ReactElement {
   const states: [string, string][] = [
     ['open', 'Open'],
@@ -38,20 +35,12 @@ export function Legend({
     <div className="venue-map-legend">
       {colorBy === 'price' && (
         <ul aria-label="Price levels" className="venue-map-legend__list">
-          {map.levels.map((l) => {
-            const out = l.price !== null && range !== null && !inRange(l.price, range);
-            return (
-              <li
-                key={l.levelId}
-                className={`venue-map-legend__item${out ? ' venue-map-legend__item--out' : ''}`}
-              >
-                <span className={`level-swatch level-swatch--${l.color}`} aria-hidden="true" />
-                {l.price === null
-                  ? `${l.name}: not on sale`
-                  : `${l.name} ${formatPrice(l.price)}${out ? ', outside your price range' : ''}`}
-              </li>
-            );
-          })}
+          {map.levels.map((l) => (
+            <li key={l.levelId} className="venue-map-legend__item">
+              <span className={`level-swatch level-swatch--${l.color}`} aria-hidden="true" />
+              {l.price === null ? `${l.name}: not on sale` : `${l.name} ${formatPrice(l.price)}`}
+            </li>
+          ))}
         </ul>
       )}
       {colorBy === 'state' && (

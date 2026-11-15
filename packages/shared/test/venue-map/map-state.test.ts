@@ -5,7 +5,6 @@ import {
   mapReducer,
   needsLoad,
   openSeatsIn,
-  priceRangeOf,
   sectionLevel,
   type MapState,
   type SeatMapChange,
@@ -300,40 +299,27 @@ describe('mapReducer', () => {
   });
 });
 
-describe('the price filter and the colors', () => {
+describe('the colors and counts', () => {
   const map = venueMap();
   const sec = (id: string) => map.sections.find((s) => s.sectionId === id)!;
 
-  it('spans the levels’ prices in whole dollars', () => {
-    expect(priceRangeOf(map.levels)).toEqual({ low: 35, high: 95 });
-    expect(
-      priceRangeOf([
-        { ...map.levels[0], price: '59.50' },
-        { ...map.levels[1], price: '120.25' },
-      ]),
-    ).toEqual({ low: 59, high: 121 });
-    expect(priceRangeOf([{ ...map.levels[3] }])).toBeNull();
-  });
-
-  it('colors a section by its cheapest level with open seats inside the filter', () => {
-    expect(sectionLevel(map, sec(S115), { low: 35, high: 95 })?.name).toBe('Lower sideline');
-    expect(sectionLevel(map, sec(S115), { low: 70, high: 95 })?.name).toBe('Courtside');
-    expect(sectionLevel(map, sec(S101), { low: 35, high: 95 })?.name).toBe('Lower end');
-  });
-
-  it('is unavailable (no level) with no open seat inside the filter', () => {
-    expect(sectionLevel(map, sec(S101), { low: 50, high: 100 })).toBeNull();
-    // Nothing on sale.
-    expect(sectionLevel(map, sec(S301), { low: 0, high: 1000 })).toBeNull();
+  it('colors a section by its cheapest level with open seats', () => {
+    expect(sectionLevel(map, sec(S115))?.name).toBe('Lower sideline');
+    expect(sectionLevel(map, sec(S101))?.name).toBe('Lower end');
     // A level whose seats are all taken does not count.
-    const sold = { ...sec(S115), counts: [counts(L1, 0, 1, 1), counts(L2, 1)] };
-    expect(sectionLevel(map, sold, { low: 70, high: 95 })).toBeNull();
+    const sold = { ...sec(S115), counts: [counts(L1, 1), counts(L2, 0, 1, 1)] };
+    expect(sectionLevel(map, sold)?.name).toBe('Courtside');
   });
 
-  it('counts a section’s open seats inside the filter', () => {
-    expect(openSeatsIn(map, sec(S115), { low: 35, high: 95 })).toBe(3);
-    expect(openSeatsIn(map, sec(S115), { low: 61, high: 95 })).toBe(2);
-    expect(openSeatsIn(map, sec(S301), { low: 0, high: 1000 })).toBe(0);
+  it('is unavailable (no level) with no open seat on sale', () => {
+    expect(sectionLevel(map, sec(S301))).toBeNull();
+    const taken = { ...sec(S115), counts: [counts(L1, 0, 1, 1), counts(L2, 0, 1)] };
+    expect(sectionLevel(map, taken)).toBeNull();
+  });
+
+  it('counts a section’s open seats with a price', () => {
+    expect(openSeatsIn(map, sec(S115))).toBe(3);
+    expect(openSeatsIn(map, sec(S301))).toBe(0);
   });
 
   it('writes prices short: whole dollars without cents', () => {
