@@ -7,7 +7,13 @@ import { signInHeading, signOut, submitSignIn } from '../fixtures/sign-in';
 
 /** What each app shows once signed in (V3's "hello-world page", as each app has it today). */
 async function expectSignedIn(page: Page, app: AppName, username: string): Promise<void> {
-  await expect(page.getByText(APPS[app].name, { exact: true }).first()).toBeVisible();
+  // The app's name: in the header's brand link (the Rust Admin app's "(Rust)"), or as text.
+  await expect(
+    page
+      .getByText(APPS[app].name, { exact: true })
+      .or(page.getByRole('link', { name: APPS[app].name, exact: true }))
+      .first(),
+  ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible();
   if (app === 'admin' || app === 'admin-rust') {
     // The Admin app's landing page is still 001's hello page: the Backend's greeting, called

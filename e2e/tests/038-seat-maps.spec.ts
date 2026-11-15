@@ -265,9 +265,13 @@ test(
     const customer = await apiFor(browser, 'customer', customerFor(testInfo, 10));
     await customer.page.goto(`${APPS.customer.url}/events/${saved.id}`);
     await expect(customer.page.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
+    // In the event's details; the Get tickets tile, once loaded, says it again.
     await expect(
-      customer.page.getByRole('definition').filter({ hasText: /^\$35–\$95$/ }),
-    ).toHaveCount(1);
+      customer.page
+        .getByRole('definition')
+        .filter({ hasText: /^\$35–\$95$/ })
+        .first(),
+    ).toBeVisible();
     await customer.close();
   },
 );
