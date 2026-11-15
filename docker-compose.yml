@@ -178,6 +178,32 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # --------------------------------------------- rust admin app (037)
+  # Spec 037 (contract sign-in-realm.md, research R11): the Admin app again, in Rust, beside the
+  # React one, in its own realm. No other service depends on it (FR-019).
+  admin-rust-app:
+    build:
+      context: .
+      dockerfile: admin-rust-app/Dockerfile
+      args:
+        QP_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+        QP_OIDC_AUTHORITY: ${ADMIN_RUST_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass-admin-rust-app}
+        QP_OIDC_CLIENT_ID: admin-rust-app
+    ports:
+      - '5176:5176'
+    depends_on:
+      backend:
+        condition: service_healthy
+      # No login page before its OIDC client exists (research R10).
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5176/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
   # -------------------------------------------------------- seed (one-shot)
   seed:
     build:
