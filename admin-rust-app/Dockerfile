@@ -40,11 +40,13 @@ ARG QP_OIDC_CLIENT_ID=admin-rust-app
 ENV QP_API_BASE_URL=$QP_API_BASE_URL \
     QP_OIDC_AUTHORITY=$QP_OIDC_AUTHORITY \
     QP_OIDC_CLIENT_ID=$QP_OIDC_CLIENT_ID
-# The contract (core/build.rs generates the API types from it) and the React Admin app's own two
-# stylesheets (research R8), at their repository paths.
+# The contract (core/build.rs generates the API types from it), the React Admin app's own two
+# stylesheets (research R8), and its PDF fonts, at their repository paths.
 COPY contracts/openapi.yaml /repo/contracts/openapi.yaml
 COPY packages/shared/src/web/theme.css /repo/packages/shared/src/web/theme.css
 COPY admin-app/src/styles.css /repo/admin-app/src/styles.css
+# The PDF downloads embed the React app's own Noto Sans files (research R7).
+COPY admin-app/src/export/fonts /repo/admin-app/src/export/fonts
 COPY admin-rust-app ./
 # COPY keeps the files' own times, which can be older than the stub build: make them newer.
 RUN find core app -name '*.rs' -exec touch {} + \

@@ -20,3 +20,14 @@ chrono-tz = "0.10.4"
 opt-level = "z"
 lto = true
 codegen-units = 1
+
+# The export tests build 25,000-ticket PDFs and XLSX files; optimizing the libraries that write
+# and compress them keeps `npm test` (a debug, instrumented build) quick.
+[profile.dev.package.printpdf]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.flate2]
+opt-level = 3
+[profile.dev.package.rust_xlsxwriter]
+opt-level = 3

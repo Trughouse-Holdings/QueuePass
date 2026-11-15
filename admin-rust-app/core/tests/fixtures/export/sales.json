@@ -1,0 +1,76 @@
+{
+  "kind": "sales",
+  "report": {
+    "generatedAt": "2026-10-30T18:05:00.000Z",
+    "totals": {
+      "events": 2,
+      "ticketCapacity": 300,
+      "ticketsSold": 75,
+      "checkedIn": 12,
+      "revenue": "4321.50"
+    },
+    "events": [
+      {
+        "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+        "name": "Season Opener",
+        "venueName": "Yum Center",
+        "startsAt": "2026-11-01T23:00:00.000Z",
+        "status": "SCHEDULED",
+        "ticketCapacity": 100,
+        "ticketsSold": 25,
+        "checkedIn": 12,
+        "revenue": "1321.50",
+        "tiers": [
+          {
+            "tierId": "11111111-1111-4111-8111-111111111111",
+            "name": "General",
+            "price": "45.00",
+            "quantity": 80,
+            "ticketsSold": 20,
+            "revenue": "900.00"
+          },
+          {
+            "tierId": "22222222-2222-4222-8222-222222222222",
+            "name": "VIP",
+            "price": "84.30",
+            "quantity": 20,
+            "ticketsSold": 5,
+            "revenue": "421.50"
+          }
+        ],
+        "levels": [],
+        "timeZone": "America/New_York"
+      },
+      {
+        "eventId": "33333333-3333-4333-8333-333333333333",
+        "name": "Winter Gala",
+        "venueName": "Freedom Hall",
+        "startsAt": "2026-12-20T23:00:00.000Z",
+        "status": "SCHEDULED",
+        "ticketCapacity": 200,
+        "ticketsSold": 50,
+        "checkedIn": 0,
+        "revenue": "3000.00",
+        "tiers": [],
+        "levels": [],
+        "timeZone": "America/Los_Angeles"
+      },
+      {
+        "eventId": "44444444-4444-4444-8444-444444444444",
+        "name": "Rained Out",
+        "venueName": "Freedom Hall",
+        "startsAt": "2026-10-20T23:00:00.000Z",
+        "status": "CANCELLED",
+        "ticketCapacity": 50,
+        "ticketsSold": 0,
+        "checkedIn": 0,
+        "revenue": "0.00",
+        "tiers": [],
+        "levels": [],
+        "timeZone": "America/New_York"
+      }
+    ]
+  },
+  "madeBy": "admin2",
+  "adminZone": "America/New_York"
+}

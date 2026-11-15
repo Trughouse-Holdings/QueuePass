@@ -1,0 +1,2 @@
+# Spec 037 (X1): the React app's CSV files byte for byte, CRLF line ends and all; never converted.
+*.csv -text

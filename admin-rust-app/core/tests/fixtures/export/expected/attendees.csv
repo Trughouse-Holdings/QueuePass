@@ -1,0 +1,16 @@
+﻿Order placed,Customer,Name on tickets,Tier,Price level,Seat,Ticket code,Ticket status,Checked in,Order status,Price,Order,Exported at
+2026-09-30 10:00,customer3,Jordan Lee,VIP,,,ABCDEFGH2345,Valid,2026-11-01 16:45,Confirmed,84.30,AAAAAAAA,2026-10-30T14:05:00-04:00
+2026-09-30 10:00,customer3,Jordan Lee,VIP,,,JKLMNPQR6789,Valid,,Confirmed,84.30,AAAAAAAA,2026-10-30T14:05:00-04:00
+2026-10-01 20:30,customer2,"'=SUM(1,1)",General admission,,,STUVWXYZ2345,Valid,,Confirmed,45.00,BBBBBBBB,2026-10-30T14:05:00-04:00
+2026-10-03 07:00,customer3,Zoë O’Brien,Floor,Floor,"Section A, Row C, Seat 7",MNPQRSTU2345,Valid,,Confirmed,60.00,CCCCCCCC,2026-10-30T14:05:00-04:00
+2026-10-04 07:00,customer1,No name on ticket,General,,,VWXYZ2345678,Void,,Refunded,45.00,DDDDDDDD,2026-10-30T14:05:00-04:00
+2026-10-07 07:00,customer4,Sam Park,,Courtside,"Section 115, Row D, Seat 2",BCDFGHJK2345,Valid,,Confirmed,95.00,EEEEEEEE,2026-10-30T14:05:00-04:00
+2026-10-07 07:00,customer4,Sam Park,,Lower sideline,"Section 115, Row F, Seat 7",LMNPQRST6789,Valid,,Confirmed,60.00,EEEEEEEE,2026-10-30T14:05:00-04:00
+2026-10-08 07:00,customer5,'	Tabbed,General admission,,,CDFGHJKL2345,Valid,,Confirmed,45.00,FFFFFFFF,2026-10-30T14:05:00-04:00
+2026-10-08 07:00,'+customer6,"'Return",'@General,,,DFGHJKLM2345,Valid,,Confirmed,45.00,11111111,2026-10-30T14:05:00-04:00
+2026-10-08 07:00,customer7,"He said ""no"", twice",'-Discount,,,FGHJKLMN2345,Valid,2026-11-01 01:30,Confirmed,45.00,22222222,2026-10-30T14:05:00-04:00
+2026-10-08 07:00,customer8,"Line one
+line two",,Balcony,,GHJKLMNP2345,Valid,,Confirmed,1234.50,33333333,2026-10-30T14:05:00-04:00
+2026-10-08 07:00,customer8,"Line one
+line two",,Balcony,,HJKLMNPQ2345,Valid,,Confirmed,1234.50,33333333,2026-10-30T14:05:00-04:00
+2026-10-08 07:00,customer9,山田 Zoë 😀,VIP,,,JKLMNPQR2345,Valid,,Confirmed,84.30,44444444,2026-10-30T14:05:00-04:00
