@@ -38,3 +38,7 @@
   is where each behavior is listed and checked.
 - No clarification markers. Open questions are recorded as Assumptions with defaults: its own realm,
   parity as a snapshot (to confirm with John in Slack), and port 5176.
+- 2026-11-14 amendment (Clarifications): FR-020 (same layout) added and FR-011, FR-012, FR-013,
+  FR-014 widened; User Story 6 (the layout editor) added. Still no clarification markers. The look
+  rule is testable through the checklist's SL rows; "only colors and the name differ" is the
+  measurable form of "exactly like".

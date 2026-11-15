@@ -211,39 +211,90 @@ compares.
 The exports would not be Rust. This is the fallback only for PDF, and only if `printpdf` can't do
 the layout. Using it would need a note in the impl PR.
 
-## R8. The red look
+## R8. The red look on the React Admin app's layout
 
-**Decision**: The app has its own stylesheet, `admin-rust-app/style/theme.css`, with its own token
-block on `:root`. The accent is red (`#b3261e` on white, about 6.5:1, which meets AA for text and
-controls), and the page background is a pale red tint (`#fdecea`). The header bar is solid red with
-white text, which says "QueuePass Admin (Rust)", as does the tab title. Dark scheme: dark red
-surfaces with light text, also checked for AA. Focus rings, error, success, and sold, held, and open
-seat states keep a non-color cue (text or icon), as the shared theme's do. The layout can differ
-from the React app's.
+> **2026-11-14** (Clarifications, FR-020): rewritten before any implementation. The first version
+> gave the Rust Admin app its own stylesheet and let its layout differ. It is now to look exactly
+> like the React Admin app apart from its colors.
 
-The sign-in screen: the Keycloak theme already gives each client a body class `qp-app--<clientId>`
-and an accent per app (spec 021, 027). Add `qp-app--admin-rust-app` with a red accent token set,
-and a `qpAudience.admin-rust-app` message ("For QueuePass staff, Rust version"). These tokens live
-in the shared theme's sign-in token block with their contrast tests, as Principle VII requires for
-sign-in accents.
+**Decision**: The Rust Admin app uses the React Admin app's stylesheets themselves, not copies, with
+a red token set loaded after them:
 
-**Rationale**: FR-009 to FR-011. Red on every screen is the quickest "which app am I in" signal,
-and the header text backs it up for people who can't tell red apart.
+1. `packages/shared/src/web/theme.css` (the shared theme: tokens, layout, buttons, cards, tables,
+   banners, forms, the venue map's and the gallery's styles),
+2. `admin-app/src/styles.css` (the Admin app's own screens, the Layouts card, the seating section,
+   and the layout editor),
+3. `admin-rust-app/style/red.css`, last: in the shared theme's app token blocks (`:root` and the
+   `prefers-color-scheme: dark` block) it redefines exactly these 14 **look** tokens, light and
+   dark: `--bg`, `--surface`, `--surface-alt`, `--border`, `--border-strong`, `--text`,
+   `--text-muted`, `--text-faint`, `--accent`, `--accent-hover`, `--accent-soft`, `--accent-text`,
+   `--brand-mark-end`, and `--brand-mark-text`. It leaves every other token as it is: the **data**
+   colors `--danger*`, `--warn*`, `--ok*`, `--level-*`, `--map-*` (the `--map-state-*` set
+   included), and `--seat-*`, because they carry meaning and a price level's color must be the
+   same as on the Customer app's map (parity M17); the other apps' accents (`--accent-tickets*`,
+   `--accent-booth*`, `--brand-mark-*-tickets`, `--brand-mark-*-booth`), which the Admin screens
+   do not use; and `--stone-*`, `--scrim*`, `--qr-*`, `--shadow*`, and the font, radius, and space
+   tokens. It holds custom properties only: no selector rule, and no layout, size, spacing, or type
+   rule.
 
-**Alternatives considered**: *A red banner only*: It is easy to miss, and John asked for a red
-background or color across the app.
+Trunk links all three from `admin-rust-app/index.html` (`<link data-trunk rel="css" href="…">`,
+paths relative to `index.html`, so `../packages/…` and `../admin-app/…`; the repository root is
+already the Docker build context of every app), in
+that order, as `admin-app/src/main.tsx` imports the first two. The Leptos views use the same element
+structure and the same `class` values as the React components, so the same rules apply. The
+React files are not changed.
+
+The red set: accent `#b3261e` (about 6.5:1 on white), its hover and soft tints, a pale red page
+background `#fdecea`, red-tinted surfaces and borders, a red Q mark (`--brand-mark-end`), and a
+dark-scheme set of dark red surfaces with light text. Every look token is given a red-family value
+that keeps its role and its contrast. The header is not a solid red bar: the shared theme draws it
+with `--surface`, `--text`, and `--text-muted`, so it takes the red-tinted surface like the cards,
+with the red Q mark and red active link; a solid bar would need selector rules, which `red.css`
+does not hold. `danger` and the scheduling-conflict banner stay told apart from the red
+accent by their icon, border, and text (parity S9), not by hue alone. The header and the tab title
+say "QueuePass Admin (Rust)".
+
+The shared theme's drift scan (spec 012, `packages/shared/test/theme/`) reads the three React
+apps only, and its rule C1 forbids an app defining tokens, which is exactly what `red.css` does; the
+Rust app stays out of that scan under Principle VII's exception, and two `core` tests guard it
+instead (R9): every look token the shared theme's app blocks define is redefined in `red.css`, in
+light and dark, and no data token is, so no shared accent leaks into the Rust app and no meaning
+changes; and every text-on-surface and control pair passes AA (4.5:1 text, 3:1 controls and focus)
+with `red.css`'s values over the shared theme's.
+
+The sign-in screen: unchanged from the first version. The Keycloak theme gives each client a body
+class `qp-app--<clientId>` and an accent per app (spec 021, 027). Add `qp-app--admin-rust-app` with
+a red accent token set and a `qpAudience.admin-rust-app` message ("For QueuePass staff, Rust
+version"). These tokens live in the shared theme's sign-in token block with their contrast tests,
+as Principle VII requires for sign-in accents.
+
+**Rationale**: FR-009 to FR-011 and FR-020. Using the stylesheets themselves makes the two layouts
+the same by construction, and a later change to the React app's layout reaches the Rust app with
+no work. Overriding only color tokens is possible because the shared theme's drift check already
+forbids raw colors outside its token blocks, so every color on a screen comes from a token. Red on
+every screen is the quickest "which app am I in" signal, and the header text backs it up for people
+who can't tell red apart.
+
+**Alternatives considered**:
+- *Copy the two stylesheets into the Rust app and recolor them*: The copies drift as soon as the
+  React app changes, and FR-020 would need a second check to catch it.
+- *Its own stylesheet and layout (the first version)*: Replaced by FR-020.
+- *A red banner only*: It is easy to miss, and John asked for a red background or color across the
+  app.
 
 ## R9. Tests and coverage
 
 **Decision**:
 - The crate is split into a `core` library that compiles natively and in WebAssembly, and a thin
   `app` layer of Leptos views and browser glue (`web-sys` saving, the router, the signal wiring,
-  the OIDC redirect glue). `core` holds the API client, the sign-in state machine and a
-  `PkceStore` trait for the redirect values, the form checks, time logic, money, the row builders
-  and the three file writers, the parity messages, and the red theme's token values.
+  the OIDC redirect glue, pointer and wheel events). `core` holds the API client, the sign-in
+  state machine and a `PkceStore` trait for the redirect values, the form checks, time logic,
+  money, the row builders and the three file writers, the parity messages, the red theme's token
+  values, the map and layout geometry, pan and zoom math, the seat-stream state (R13), and the
+  layout editor's reducer and its helpers (R14).
 - `core` is tested with `cargo test` natively. `wiremock` stands in for the Backend in API client
   tests, and fixed signing keys serve the token-handling tests. An in-memory `PkceStore` proves the
-  verifier and `state` are removed after the exchange. A theme test parses `style/theme.css` and
+  verifier and `state` are removed after the exchange. A theme test parses `packages/shared/src/web/theme.css` and `style/red.css` and
   checks every text and control pair for AA contrast in light and dark, as the shared theme's
   contrast tests do.
 - Coverage: `cargo llvm-cov --package admin-rust-core --fail-under-lines 80 --json --summary-only`,
@@ -255,8 +306,10 @@ background or color across the app.
 - The `app` layer is browser-only code. It is excluded from the floor, with its reason recorded in
   `admin-rust-app/package.json`'s `coverage` notes. It is covered by browser tests: every `@admin`
   journey runs in the `admin-rust` project (R10). Spec 037's own journeys drive the screens those
-  don't reach (the event page's tier, sales, and seating cards, the venue layout card, pictures,
-  attendee table contents, report figures, the export menu and downloads). Every Rust screen is
+  don't reach (the event page's tier, sales, and seating cards, the Layouts card's import, section
+  lines, rename, and delete, the event form's off-sale tool, the layout editor's panels, keyboard
+  path, and refusals, pictures, attendee table contents, report figures, the export menu and
+  downloads), and `037 SL` (R15) opens every route in both apps. Every Rust screen is
   then exercised by some browser test, which is the replacement control the amendment names.
 - No `wasm-bindgen-test`. What it would have covered (redirect values cleaned up, downloads) is
   covered by the `PkceStore` unit test and by the 037 browser tests, which read `sessionStorage`
@@ -289,8 +342,9 @@ A browser test for every screen covers what the floor can't measure.
   `@admin`. Journeys are tagged with Playwright's details object, `test('…', { tag: '@admin' }, …)`,
   not inside the title, so every existing quickstart's exact-title Automated row stays valid.
 - Only journeys that use the Admin app get the tag and switch from `APPS.admin` to `adminApp`:
-  001, 002, 003, 020, 024, 025, 030, 031, 035, 036, and the Admin steps of 015. (016's journey has
-  no Admin screen.)
+  001, 002, 003, 020, 024, 025, 030, 031, 035, 036, the Admin steps of 015, and (added
+  2026-11-14) 038's S0, S5, S6, and S17 and 039's S1/S2/S3 and S5, whose Customer-app steps stay
+  on the Customer app. (016's journey has no Admin screen.)
 - `028-app-realms.spec.ts`' one-window test adds the Rust Admin app as a fourth app. Its title
   ("three apps …") changes, so 028's quickstart Automated row is edited to the new title in the
   same commit, or `check-quickstart-marks` fails.
@@ -388,3 +442,97 @@ use.
 
 **Rationale**: Principle VI's "one documented command" and per-workspace floor, and spec 011's CI
 rules kept as they are.
+
+## R13. Venue maps and the layout editor's map: SVG in Leptos
+
+> **2026-11-14**: new, for the seat-map (`038`) and layout-editor (`039`) parity rows.
+
+**Decision**: Draw every map as inline SVG from Leptos views (`view!` with the `svg` elements), with
+the same elements, attributes, roles, names, and `class` values as the React components, so the
+shared theme's map rules (`venue-map--<color>`, `--map-floor`, seat states, halos) style both:
+
+- **Shared venue map** (`packages/shared/src/web/venue-map/`: `venue-map.tsx`, `section-view.tsx`,
+  `sections-list.tsx`, `legend.tsx`, `layout-preview.tsx`) → `app/src/venue_map/`, used by the
+  Layouts card's preview, the event form's seating section, the event page's live map, and the
+  editor's phone-width preview.
+- **Pure parts in `core::seating`**, ported test-first from `packages/shared/test/` and
+  `admin-app/test/`: `layout-geometry.ts` (`moveBy`, `turnAbout`, `normalizeAngle`,
+  `outlineAround`, `rowLabels`, `checkBlock`, `seatCounts`, `generateBlock`, `placeBlock`, and its
+  constants), `map-geometry.ts` (`outlinePath`, `bounds`, `centroid`), `map-state.ts`, and the pure
+  functions of `use-pan-zoom.ts` (`fitView`, `zoomOf`, `zoomAt`, `panBy`, `clientToMap`,
+  `pinchView`, with `MAX_ZOOM` 40, the 1.5 step, the 0.002 wheel factor, the 4 px slop, and the
+  200 ms animation), plus `LAYOUT_LIMITS` and `LEVEL_COLORS` from `packages/shared/src/seating.ts`.
+  Outputs are compared with the TypeScript functions' outputs on the same fixtures (an export
+  script like T065's), so a path string or a label sequence is byte-for-byte the same.
+- **Browser glue in `app`**: pointer events with `setPointerCapture`, `wheel` with
+  `preventDefault` (non-passive listener), two-pointer pinch, `matchMedia` for the 640 px phone
+  check and `prefers-reduced-motion`, and `requestAnimationFrame` for the 200 ms zoom animation,
+  through `web-sys` and `gloo`.
+
+**Rationale**: SVG is what the React app draws, so the same CSS applies (FR-020) and the browser
+tests find the same roles and names. Keeping the math in `core` puts it under the coverage floor and
+lets the React tests be the reference cases.
+
+**Alternatives considered**: *Canvas or WebGL drawing*: The shared theme's rules and the accessible
+names would not apply, and 038 R13 already chose SVG. *Calling the TypeScript map from Rust through
+JavaScript interop*: It would not be a Rust app (FR-003).
+
+## R14. The layout editor's state: a pure reducer in `core::editor`
+
+> **2026-11-14**: new, for the layout-editor (`039`) parity rows (LE1–LE81).
+
+**Decision**: Port `admin-app/src/layout-editor/editor-state.ts` as `core::editor::reduce(state,
+action) -> state`, one Rust enum variant per action (35 today), with the same messages, the same
+100-document history and typing coalescing (`commit`), Undo and Redo with selection cleanup
+(`travel`, `sanitize`), the id remapping after a save (`newIds`, `remapper`), `keepOnMap`, the
+name and label checks, `repoint`, `planDeleteSeats`, `freeName`, and `regeneratePlan`. Port
+`editor-doc.ts` (`emptyDoc`, `fromDrawing`, `toInput`, `seatLevel`, `outlineOf`, `farthest`,
+`mapSize`) and `overlap.ts` (`findOverlaps`, `emptyLevels`, `warningsOf`) beside it. The pure pieces
+the React app keeps inside components move into `core` too, unchanged in behavior:
+`AddSectionForm`'s `CURVES`, `NEW_BLOCK`, `readDraft` and the First-row reset; `SaveBar`'s
+`missingParts`, `sectionIndexOf`, and problem listing; `SelectionPanel`'s confirm texts;
+`SectionSeatsView`'s `seatsInBox` and row-label ends; `EditorCanvas`'s `mapFit`, turn snapping,
+handle and box placement, and floor stretch; `NumberBox`'s display rule; `LevelPicker`'s value,
+"Mixed", and "Same as…" rule; `Guide`'s done flags and `hintFor`; and `LayoutEditor`'s `listed`
+and title rule. Tests are ported first from `admin-app/test/layout-editor/` (`editor-state`,
+`editor-doc`, `overlap`, and the component tests' cases for the moved pieces).
+
+The `app` layer holds one Leptos signal with the state, dispatches actions from the views, and
+reads `currentDoc`, `isDirty`, and `totals`. It has no editing logic of its own.
+
+**Rationale**: The editor is about 4,300 lines of React, most of it rules that must match exactly
+(messages, limits, history). A reducer ports one to one, and its tests are the React tests. The
+known quirks listed in the parity checklist (for example, the Regenerate confirm text with no seats
+removed) are copied, not fixed, because fixing them would make the two apps differ.
+
+**Alternatives considered**: *Fine-grained Leptos signals per section*: Faster for huge layouts,
+but the history, the id remapping, and the messages would have to be rebuilt instead of ported, and
+a layout has at most 30,000 seats and 100 sections, which a reducer handles.
+
+## R15. The unsaved-changes guard and the "same layout" check
+
+> **2026-11-14**: new, for parity rows LE4 and the SL rows (FR-020).
+
+**Decision**:
+- **Guard.** The React app uses React Router's `useBlocker` with `window.confirm("Leave without
+  saving? Your changes will be lost.")` and a `beforeunload` listener while the document is dirty
+  (039 R13). `leptos_router` 0.8 has no blocker, so the Rust app adds one in `app/src/guard.rs`: a
+  `dirty` signal the editor sets; the app's link component and every programmatic navigation ask
+  the guard first; a `popstate` listener (Back and Forward) asks too and, if the admin cancels,
+  puts the editor's URL back with `history.pushState`; `beforeunload` is set only while dirty. The
+  navigations 039 leaves unguarded (opening another layout after Save as new or Duplicate to edit,
+  and the move after a new layout's first save) pass the guard by a flag, as in the React app.
+- **Same layout check.** The test `037 SL` in `e2e/tests/037-rust-admin-app.spec.ts` opens every
+  route in both apps with the same data, at 1280 px and at 375 px wide, and compares the `main`
+  element's `ariaSnapshot()` (Playwright 1.64), with the app name normalized: the same headings,
+  landmarks, labels, buttons, and table columns in the same order. It also compares the bounding
+  boxes of each card, form section, and table, top to bottom, within 2 px, which catches a
+  missing class or wrapper that changes the arrangement. Colors are not compared.
+
+**Rationale**: The guard must ask at the same moments as the React app (LE4). The snapshot compares
+what FR-020 asks for (structure, order, and arrangement) without comparing colors, which must
+differ.
+
+**Alternatives considered**: *Screenshot comparison with colors removed*: Anti-aliasing and the
+red tints make pixel diffs noisy. *A hand walk only*: The SL rows are checked by hand too (M), but
+an automated check keeps the two layouts the same as the React app changes.

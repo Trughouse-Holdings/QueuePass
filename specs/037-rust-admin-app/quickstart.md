@@ -3,6 +3,9 @@
 How to check `037-rust-admin-app` end to end. Contracts: [sign-in-realm.md](./contracts/sign-in-realm.md),
 [parity-checklist.md](./contracts/parity-checklist.md).
 
+**Amended 2026-11-14**: S2–S4 follow seat maps (`038`); S10 (the layout editor, `039`) and S11
+(same layout, FR-020) are new.
+
 **Prerequisites**: Docker. For `npm test` and `npm run build` on the host, also `rustup`, then
 `npm run rust:setup` (the pinned toolchain from `admin-rust-app/rust-toolchain.toml`, plus prebuilt
 `trunk` and `cargo-llvm-cov`). `docker compose up --build` needs no Rust on the host.
@@ -31,31 +34,36 @@ several minutes. React Admin is at `http://localhost:5173`, and Rust Admin at
 
 ## S2: A change in one app shows in the other
 
-1. In Rust Admin, create a venue with two sections (for example 10 × 20 and 5 × 10) and a real
-   address.
+1. In Rust Admin, create a venue with a real address, Seating "Seated", two levels, and two
+   section lines (for example 10 × 20 and 5 × 10).
 2. In React Admin, open Venues: the venue is there with the same address, verified status, time
-   zone, and layout.
-3. Edit its capacity in React Admin, then reload it in Rust Admin: the new capacity shows.
-4. In Rust Admin, change the venue's layout on its page (layout card). React Admin shows the new
-   layout.
+   zone, and its "Standard" layout on the Layouts card.
+3. In React Admin, rename the layout; reload the venue in Rust Admin: the new name shows.
+4. In Rust Admin, on the venue's Layouts card, duplicate the layout, edit its section lines, and
+   import a layout file with a mistake in it: the problems are listed as in React Admin, and
+   nothing is saved. React Admin shows the copy with its new lines.
 
 ## S3: Schedule an event in the Rust Admin app
 
 1. In Rust Admin, Schedule event at the venue from S2. The times default to today at the next
    whole hour, and 4 hours later. Doors open 1 hour before.
-2. Add two ticket types, map each section to one, set 4 tickets per customer, and add two pictures.
+2. Keep General admission, add two ticket types, set 4 tickets per customer, and add two pictures.
 3. Submit. Open the event in React Admin: every value matches, including both pictures in order.
 4. In Rust Admin, schedule a second event at the same venue overlapping the first. The clash
    refusal shows beside the times, and every value is kept.
+5. In Rust Admin, schedule a third event at the venue, a day later, on its layout: give each level
+   a price and take one row and two single seats off sale. Open it in React Admin's Edit event:
+   the same layout, prices, and seats off sale.
 
-## S4: Live seat map
+## S4: Live venue map
 
-1. Open the S3 event in Rust Admin.
+1. Open S3's seated event in Rust Admin.
 2. In the Customer app (`http://localhost:5174`, `customer1` / `test123`), hold a seat, then buy
    it.
-3. Rust Admin's seat map shows the seat held, then sold, without a reload.
-4. On the same page, the Sales card shows the sale, the tiers card edits a tier's price, and the
-   Seating card marks a section Not for sale. Each change shows in React Admin.
+3. Rust Admin's Seating card shows the section's counts change, and, zoomed into the section, the
+   seat held, then sold, without a reload.
+4. On the same page, the Sales card shows the sale by price level. On S3's general-admission event,
+   the tiers card edits a tier's price; React Admin shows it.
 
 ## S5: Attendees, reports, downloads
 
@@ -90,17 +98,37 @@ npm run e2e         # @admin journeys run in both the chromium and admin-rust pr
 Show 5 people a screenshot of each Admin app, in random order, and ask which one it is. All 5 name
 it within 3 seconds. Record the result in the impl PR.
 
+## S10: The layout editor
+
+1. In Rust Admin, open S2's venue and choose New layout. Pick a Court floor, add two sections with
+   the block generator (one curved), drag one and turn it, add a level, paint a section and two
+   seats with it, then Undo and Redo once. Name it and Save.
+2. Open the same layout in React Admin's editor: every section, place, angle, label, and level is
+   the same. Move a section there and save.
+3. Back in Rust Admin, without reloading, move a section and save: the change-since-opened refusal
+   offers Save as a new layout and Reload, as in React Admin.
+4. Press Back with unsaved changes: the app asks first. Open a locked layout (S0's demo data): it
+   opens to view, and Duplicate to edit makes an editable copy.
+
+## S11: Same layout
+
+Open each page in both apps side by side, at a desktop width and at phone width: the same headings,
+cards, fields, buttons, and table columns in the same order and arrangement; only the colors and the
+name differ (parity SL1–SL14).
+
 ## Automation
 
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: the browser-test stack brings the system up itself |
 | S1 | Manual: becomes Automated in the impl PR as `037 S1: both Admin apps stay signed in, and logging out of one leaves the other` (also checks the red header, the tab title, `returnTo`, and that no sign-in value is left in `sessionStorage`); run 10 times with `--repeat-each=10` for SC-007 |
-| S2 | Manual: becomes Automated in the impl PR as `037 S2: a venue and its layout made in the Rust Admin app show in the React Admin app` |
-| S3 | Manual: becomes Automated in the impl PR as `037 S3: an event scheduled in the Rust Admin app with ticket types, seating, a limit, and pictures reads the same in the React Admin app`; the `031`, `035`, `036` event-form journeys also run in the `admin-rust` project |
-| S4 | Manual: becomes Automated in the impl PR as `037 S4: the Rust Admin app's event page shows live seats and edits tiers and seating`; `015`'s Admin steps also run in the `admin-rust` project |
+| S2 | Manual: becomes Automated in the impl PR as `037 S2: a venue and its layout made in the Rust Admin app show in the React Admin app`; `038 S0` and `038 S5` also run in the `admin-rust` project |
+| S3 | Manual: becomes Automated in the impl PR as `037 S3: events scheduled in the Rust Admin app, general admission and on a layout, read the same in the React Admin app`; the `031`, `035`, `036` event-form journeys and `038 S6` also run in the `admin-rust` project |
+| S4 | Manual: becomes Automated in the impl PR as `037 S4: the Rust Admin app's event page shows live seats, sales by level, and edits tiers`; `015`'s Admin steps and `038 S17` also run in the `admin-rust` project |
 | S5 | Manual: becomes Automated in the impl PR as `037 S5: attendees, reports, and every download in the Rust Admin app`; file contents are compared with the React app's by `core` tests (research R7) |
 | S6 | Manual: a walk of the checklist by hand, recorded in the impl PR |
 | S7 | Manual: needs an account made by hand and a stopped Backend; covered by `core` tests of `AuthState` |
 | S8 | Manual: test commands, run by CI |
 | S9 | Manual: needs people |
+| S10 | Manual: becomes Automated in the impl PR as `037 S10: a layout drawn in the Rust Admin app's editor is the same in the React Admin app's, and a stale save is refused`; `039 S1/S2/S3` and `039 S5` also run in the `admin-rust` project |
+| S11 | Manual: becomes Automated in the impl PR as `037 SL: every page has the same structure and arrangement in both Admin apps, at desktop and phone width` (research R15) |

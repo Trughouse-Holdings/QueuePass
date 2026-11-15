@@ -1,37 +1,23 @@
 <!--
 Sync Impact Report (replaced, not stacked, by the next amendment)
-Version: 3.10.0 -> 3.11.0 (MINOR): a fourth front end, the Rust Admin app, is added, with the
-  widenings it needs; one roadmap row reserved. Written for 3.9.8 -> 3.10.0 in PR #164; renumbered
-  to 3.11.0 on 2026-11-14 because spec 038's amendment (3.9.9 reserving 038 and 039, then 3.10.0
-  for breaking contract removals, PR #166) merged first. Both changes and every row are kept.
-Problem: issue #163. John's requirement for the week of 2026-11-11: rewrite the Admin app in Rust,
-  running at the same time as the current apps, visibly different (red), with every feature of the
-  current Admin app. The stack table fixes TypeScript and React for every front end, Principle V
-  and the CORS rule name three realms and three origins, Principle VI allows only generated code
-  to be left out of coverage, and Principle VII forbids a per-app look.
+Version: 3.11.0 -> 3.11.1 (PATCH): spec 037's Rust Admin app is to be exactly like the Admin app
+  apart from its colors and name, with seat maps (038) and the layout editor (039) included.
+Problem: issue #163. On 2026-11-14 Nathan asked for the Rust Admin app to match the Admin app as it
+  is on main now (ff993c4): the same screens, layout, words, and behavior. Principle VII's 037
+  exception said "its own red theme, not the shared theme", which read as allowing a different
+  layout, and roadmap row 037 named neither 038 nor 039.
 Changed:
-  - Preamble, Principle II: seven long-running parts; four web front ends.
-  - Principle V and the Identity row: a fourth realm and client (`queuepass-admin-rust-app`,
-    `admin-rust-app`), whose role is `queuepass-admin`, the same as the Admin app's.
-  - Principle VI: the `admin-rust-app` workspace joins the 80% floor, measured by Rust tooling on
-    its `core` crate. Its browser-only view code may be excluded, and the replacement control is
-    named: every Admin browser journey also runs against the Rust Admin app in the required `e2e`
-    check.
-  - Principle VII: an exception for the Rust Admin app's own red theme. It keeps the usability
-    targets, and its sign-in accent is a shared-theme sign-in token like the others.
-  - Stack table: Language, Repository, Front ends, Identity, Front-end tests, Lint and format, and
-    Continuous integration rows name the Rust Admin app's tools.
-  - Security and Data Constraints: CORS allows the four front-end origins.
-  - Roadmap: row 037-rust-admin-app reserved. The next free number stays 040 (038 and 039 are
-    reserved by spec 038's amendment).
-Impact: spec 037 (#163). No API, schema, or existing app behaviour changes. Merged specs whose
-  text names three realms, origins, workspaces, apps, or the 235-account total get dated notes
-  pointing here, in this PR: 001 (SC-002 account total), 011 (FR-005 six workspaces, and the CI
-  steps gaining the Rust setup step), 022 (the e2e port list), 027 (one sign-in accent and line
-  colour per app, now four), and 028 (FR-010 three app realms). The Customer app's Rust
-  version (a separate spec) will need its own amendment row and realm decision. The README's
-  version reference follows. Spec 038 (merged first) retires the seating operations some of 037's
-  parity rows name; 037's seating rows follow 038 (038 research R22). Templates: none need updating.
+  - Principle VII: the 037 exception now reads as its own red colors on the Admin app's layout:
+    it uses the Admin app's stylesheets with a red set of look color tokens loaded after them;
+    data colors (danger, warn, ok, price levels, seat states, maps) stay the shared theme's.
+  - Roadmap row 037: "the same screens and layout, only red and named apart", and 038 and 039
+    added to its dependencies.
+Why PATCH: nothing of 037 is built yet, and roadmap edits have been PATCH before (3.9.8, 3.9.9);
+  the exception is narrowed, not widened: it now requires the Admin stylesheets and the shared
+  data colors.
+Impact: spec 037 only (#163; spec, plan, research R8 and R13-R15, data model, parity checklist,
+  quickstart, tasks, requirements checklist). No other spec, no API, schema, or app behavior changes. The README's version reference
+  follows. Templates: none need updating.
 -->
 
 # QueuePass Constitution
@@ -288,9 +274,12 @@ only in its token blocks and checked by its contrast tests. The apps themselves 
 shared accent and use none of them.
 
 A second exception, to "one shared look" and to "no per-app variants" (spec `037`): the Rust Admin
-app uses its own red theme, not the shared theme, so nobody can mistake it for the Admin app. It keeps every usability target
-above (contrast, focus, states not by color alone, keyboard access, phone width) and adds no other
-decoration. Its sign-in accent, like the other apps', is a token in the shared theme's sign-in
+app uses its own red colors, not the shared theme's, so nobody can mistake it for the Admin app.
+Its layout is the Admin app's: it uses the Admin app's stylesheets themselves with its red set of
+look color tokens (page, surfaces, borders, text, accent) loaded after them, and the data colors
+(danger, warning, success, price levels, seat states, maps) stay the shared theme's. It keeps every
+usability target above (contrast, focus, states not by color alone, keyboard access, phone width)
+and adds no other decoration. Its sign-in accent, like the other apps', is a token in the shared theme's sign-in
 block, checked by its contrast tests.
 
 Rationale: Make it function now. Make it pretty later. One shared theme guarantees the apps match
@@ -404,7 +393,7 @@ number is a pull request against this table. The next free number is `040`.
 | `034-sell-until-end` | Tickets are sold until an event ends, not when it starts: orders and seat holds are allowed until its end time (half-open) and refused as sales closed from then on, and holds end at the end; capacity, the per-customer limit, the attempt limits, and seat holds apply as before; from the start to the end the Customer app's Get tickets panel says the event has already started, when it began, and that tickets are on sale until it ends, in the venue's time zone, and the confirmation of an order placed after the start says so; after the end it says "Sales closed: this event has ended."; a ticket bought after the start is admitted at the Ticket Booth until the end, as today (#126) | `006`, `015`, `016`, `020`, `025`, `026`, `030`, `033` |
 | `035-event-form-flow` | The Admin app's Schedule event and Edit event form in three sections (venue and times; tickets and seating; details: tickets per customer and pictures), showing only what the choices so far make relevant; each problem the form can see is shown beside its field as soon as it is wrong (on leaving the field, then as the admin types) and cleared when fixed, announced politely without flooding a screen reader; submit never sends a known problem and moves focus to the first field at fault; a live total of seats assigned per ticket type and overall against the venue's layout (or the event's total tickets) names exactly what is left; a Backend refusal is shown beside its field and focused, not in a banner at the top, and every value is kept; on edit, controls the Backend would refuse because tickets are sold are locked with the reason beside them; an edit of the event, its ticket types, and its seating is saved all or nothing through the existing update request, as scheduling already is (`031`); pictures still upload afterwards (#134) | `002`, `004`, `005`, `007`, `008`, `014`, `015`, `016`, `020`, `025`, `031` |
 | `036-event-form-times` | The Admin event form offers two ways to set doors open, one at a time: a length of time before the start (15-minute steps from 0 to 6 hours, 1 hour by default on a new event) with the resulting time shown, or a date and a time; switching keeps the same doors-open time; Starts, Ends, and Doors open in date-and-time mode each use a date control and a time control so the time cannot be overlooked in any browser; the form still sends the existing doors-open timestamp (#130, #128) | `020`, `025`, `035` |
-| `037-rust-admin-app` | A second Admin app written in Rust (`admin-rust-app/`, port 5176) running beside the unchanged Admin app, against the same API and data; its own realm `queuepass-admin-rust-app` with the same admin accounts and role, so signing in or out of one Admin app never touches the other; red on every screen, sign-in included, and named "QueuePass Admin (Rust)"; every behaviour of the Admin app on `main` when its implementation PR opens, checked item by item; every Admin browser journey runs against both; no API change (#163) | `001`, `002`, `004`, `005`, `007`, `013`, `014`, `015`, `016`, `020`, `021`, `023`, `024`, `025`, `028`, `030`, `031`, `032`, `035`, `036` |
+| `037-rust-admin-app` | A second Admin app written in Rust (`admin-rust-app/`, port 5176) running beside the unchanged Admin app, against the same API and data; its own realm `queuepass-admin-rust-app` with the same admin accounts and role, so signing in or out of one Admin app never touches the other; red on every screen, sign-in included, and named "QueuePass Admin (Rust)"; otherwise the same screens and layout as the Admin app, and every behaviour of the Admin app on `main` when its implementation PR opens (seat maps and the layout editor included), checked item by item; every Admin browser journey runs against both; no API change (#163) | `001`, `002`, `004`, `005`, `007`, `013`, `014`, `015`, `016`, `020`, `021`, `023`, `024`, `025`, `028`, `030`, `031`, `032`, `035`, `036`, `038`, `039` |
 | `038-seat-maps` | Several named seating layouts per venue, each a map of sections placed in the building, labelled rows and seats, imported from a layout file or made from section lines; 1 to 12 price levels per layout by section, row or seat; a seated event uses one layout, sets a price per level and takes sections, rows or seats off sale, and has no ticket types; its capacity is its seats on sale; one hold and one order may mix levels, each ticket at its own price; the Customer app's venue map colored by price with a price filter, a zoom into a section and a Sections list for keyboard and screen readers; the Admin app's Layouts card, Seating section and live map by seat state; today's venues and seated events carried over to a "Standard" layout; the KFC Yum! Center's four layouts and four demo events in the reset (#165) | `007`, `015`, `016`, `017`, `023`, `029`, `031`, `033`, `034`, `035` |
 | `039-layout-editor` | The Admin app's layout editor: a block generator for sections of rows and seats, drag and rotate sections, paint price levels by section, row or seat, duplicate and edit layouts nobody has bought from | `038` |
 
@@ -460,4 +449,4 @@ name the replacement control or accept the risk explicitly.
 (Principle VIII) MUST be reviewed when the feature that closes them is specified. A deferral that
 outlives its closing feature MUST be escalated rather than silently carried forward.
 
-**Version**: 3.11.0 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-14
+**Version**: 3.11.1 | **Ratified**: 2026-09-20 | **Last Amended**: 2026-11-14
