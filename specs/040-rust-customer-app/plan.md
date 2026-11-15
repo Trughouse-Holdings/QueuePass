@@ -68,10 +68,11 @@ not found). `customer-app/src` is 28 files, 3,775 lines: Get tickets about 1,300
 255, lists and filters about 400. It uses about 3,200 lines of shared web code
 (`packages/shared/src/web/`: sign-in about 440, galleries about 980, the venue map, its stream, and
 pan and zoom about 1,780) and the shared helpers `time-zone.ts`, `holder-name.ts`, `rate-limit.ts`,
-`live-code.ts`, `order.ts`, `seating.ts`, `location.ts`. 102 parity rows plus 12 "Same layout"
+`live-code.ts`, `order.ts`, `seating.ts`, `location.ts`. 90 parity rows plus 12 "Same layout"
 rows. About half of the Rust code needed (sign-in, API transport, seat stream, venue map, pan and
-zoom, galleries, times, theme test) exists in `admin-rust-app/` and is copied (R4); the new work is
-the Customer screens and the hold, cart, buy, calendar, live-code, and QR logic.
+zoom, the page gallery, times, theme test) exists in `admin-rust-app/` and is copied (R4); the new
+work is the Customer screens, the card gallery, and the hold, cart, buy, calendar, live-code, and QR
+logic.
 
 ## Constitution Check
 
@@ -109,7 +110,7 @@ specs/040-rust-customer-app/
 ├── plan.md               # this file
 ├── research.md           # R1–R14
 ├── data-model.md         # configuration rows and in-memory app types; no schema change
-├── quickstart.md         # S0–S10 and the Automation table
+├── quickstart.md         # S0–S11 and the Automation table
 ├── contracts/
 │   ├── sign-in-client.md # client, realm, Backend trust, sign-in look, CORS, Compose
 │   └── parity-checklist.md
@@ -154,7 +155,7 @@ customer-rust-app/                  # new; npm workspace @queuepass/customer-rus
         └── venue_map/              # copied: venue_map, section_view, legend, sections list, pan_zoom
 
 packages/shared/src/realms.ts       # + SHARED_REALM_CLIENTS, realmOfApp (R3); its tests
-keycloak/themes/queuepass/login/    # + .qp-app--customer-rust-app on the red rule; qpAudience message (R7)
+keycloak/themes/queuepass/login/    # + a .qp-app--customer-rust-app rule (the rust set); qpAudience message (R7)
 scripts/seed/src/                   # + client row; shared-realm client loop; app-realms copy
 backend/test/                       # + new-client token and CORS tests (contract sign-in-client.md)
 scripts/check-boundary.mjs          # both Rust apps (R12)
@@ -186,11 +187,13 @@ docker-compose.yml  .env.example  README.md  package.json  .specify/memory/const
 
 | Risk | Mitigation |
 |---|---|
-| Five days to EDIS (2026-11-20) | About half the Rust code is copied from a working app (R4). Tasks split into four parallel `core` streams and five screen streams. US1 (stub front end) is demoable on day one; US2 and US4 next; US3 and US5 after. |
+| Five days to EDIS (2026-11-20) | About half the Rust code is copied from a working app (R4). Tasks split for four parallel sessions. Get this spec PR approved and merged first (shared-surface approval by every team member). Cut line: US1, US2, and US4 by 2026-11-18; US3 and US5 after. Apply R9's QR fallback early rather than late. |
+| CI over its 30-minute limit, found late | A draft impl PR right after the stub and the tags (T032) gives real job times on day one or two; the 011 cache amendment is the prepared contingency (R14). |
 | The shared session surprises a demo (signing out of one Customer app signs the other out, and releases holds made in either) | Accepted in the spec; the README and the quickstart S2 say so; 040 S2 tests it, so the behavior is known, not discovered. |
 | The seed disables the new client (`legacy-realm.ts` `OTHER_CLIENTS`) | The client is not an `APP_REALMS` row (R3); a seed test asserts it stays enabled after a run from a pre-028 state. |
 | QR modules differ from `qrcode-generator`'s | Port its mask scoring and compare against its own fixtures; fallback: same text, version, and level, marked in the impl PR (R9). |
 | A change to the Rust Admin app's `red.css` breaks the Customer app's contrast | The Customer `core` theme test reads the linked file and fails in CI (R6). |
 | CI jobs pass 25 of their 30 minutes | Times recorded on the impl PR; the open 011 fallback of `037` R12 (R14). |
 | Parity drift while Customer features land in the React app | Parity is with `main` when the impl PR opens; the `customer-rust` project fails if a shared journey breaks; layout can't drift (shared stylesheets). |
-| Windows host builds (`trunk`, `cargo llvm-cov`, paths) | `rust:setup` Windows cases tested first; Mahdi's machine has the pinned tools; Compose needs no host Rust. |
+| Windows host builds (`trunk`, `cargo llvm-cov`, paths) | `rust:setup` Windows cases tested first, extracting with Windows' own `tar.exe` (R14); Mahdi's machine has the pinned tools; Compose needs no host Rust. |
+| Customer journeys run twice on the same accounts (attempt limits, cooldowns, orders) | The `customer-rust` project uses its own account range, `customer40`–`customer99` (R13). |

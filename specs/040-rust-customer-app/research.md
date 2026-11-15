@@ -60,7 +60,8 @@ export const SHARED_REALM_CLIENTS = [
 ] as const satisfies readonly SharedRealmClientRow[];
 ```
 
-with `SharedRealmClientRow { app: 'customer-rust'; realm: AppRealmRow['realm']; clientId: string }`
+with `SharedRealmClientRow { app: 'customer-rust'; realm: AppRealm['realm']; clientId: string }`
+(`AppRealm['realm']` is the literal union of the four realms, so a wrong realm fails `tsc`)
 and a helper `realmOfApp(app)` that looks in both tables. The seed's and the browser tests'
 import-free copies (`scripts/seed/src/app-realms.ts`, `e2e/fixtures/realms.ts`) gain the same
 table, and `packages/shared/test/realms.test.ts` checks the copies equal it, that each row's realm
@@ -76,7 +77,7 @@ What reads which table:
 | Seed `legacy-realm.ts` `OTHER_CLIENTS` | `APP_REALMS` only | Unchanged, and it must stay so: it disables every *other* app's client in the Customer realm after the 028 rename. A row for `customer-rust-app` in `APP_REALMS` would put it in that list and the seed would disable the new client on every run. This is the main reason for the separate table. |
 | Seed `provision-users.ts` `EXPECTED_COUNTS` | `APP_REALMS` only | Unchanged (240). |
 | `scripts/seed/src/provision-clients.ts` `FRONTEND_CLIENTS` | own list | Gains `{ clientId: 'customer-rust-app', name: 'QueuePass Tickets (Rust)', port: 5177 }`. `desiredClient` derives the exact redirect URI `http://localhost:5177/`, web origin, post-logout URI, PKCE `S256`, public, no direct grants. |
-| Browser tests `028-app-realms.spec.ts` | `APP_REALMS` | Unchanged: its one-window test proves four apps with four users stay apart; a fifth app in the Customer realm can't be signed in as a different user, so it is not added there. 040's own test covers the shared session (R13). |
+| Browser tests `028-app-realms.spec.ts` | `APP_REALMS` | Its one-window test proves four apps with four users stay apart; a fifth app in the Customer realm can't be signed in as a different user, so it is not added. Because `APPS` gains `customer-rust` (R13), the test's `Record<AppName, …>` objects and its `Object.keys(APPS)` loop switch to a local `APPS_028 = ['admin', 'customer', 'booth', 'admin-rust'] as const`; its title and quickstart row stay. 040's own test covers the shared session (R13). |
 
 **Audience**: the Backend checks issuer, signature, `aud` (`OIDC_AUDIENCE`, `queuepass-api`), and
 `exp`; it does not read `azp` or the client ID (`backend/src/auth/auth.guard.ts`). The audience
@@ -113,13 +114,14 @@ Copied (about 9,000 lines of Rust and 7,000 of tests, adapted):
 | `core/src/api/client.rs` (`Call`, `ApiError`, `ApiClient`, error envelope) | `core/src/api/client.rs` | keep the transport and error types; replace the operation list with the Customer app's (R5) |
 | `core/src/api/seat_stream.rs` (SSE parser, reconnect policy) | same | none |
 | `core/src/auth/mod.rs` | same | `REQUIRED_ROLE = "customer"` |
-| `core/src/seating/{map_geometry,map_state,pan_zoom,venue_map}.rs` | same | none expected: they already port the shared venue map's `price` mode, the legend, and the Sections list's `openPrices` |
+| `core/src/seating/{mod,geometry,map_geometry,map_state,pan_zoom,venue_map}.rs` | same | none expected: they already port the shared venue map's `price` mode, the legend, and the Sections list's `openPrices`; `geometry.rs` comes too because `mod.rs` and `tests/seating_geometry.rs` use it |
+| `core/src/pages/event_page.rs`' gallery parts (`GALLERY_INTERVAL_MS`, `SLIDE_MS`, `gallery_box_height`, `count_line`, …) and their tests | `core/src/gallery.rs` | only what the copied `gallery.rs` view uses; the Admin event page's other parts are not copied |
 | `core/src/time.rs`, `money.rs`, `format.rs` (shared parts) | same | keep what the Customer app's `format.ts` and `time-zone.ts` use; drop Admin-only helpers |
 | `core/src/theme.rs` and `core/tests/theme.rs` | same | read `customer-app/src/styles.css` and `../admin-rust-app/style/red.css` (R6) |
 | `core/tests/{api_client,auth_state,seat_stream,seating_geometry,venue_map,time,money}.rs` and their fixtures | same | as the code |
 | `app/src/{oidc_glue,auth,config,util,download,seat_stream,device_zone}.rs` | same | release on logout (R2); no `guard.rs` (the Customer app has no unsaved-changes guard) |
 | `app/src/venue_map/{venue_map,section_view,legend,pan_zoom}.rs` | same | `layout_preview.rs` not copied (the Customer app has no preview) |
-| `app/src/components/{gallery,address_link,link,banners}.rs` | same | the Customer app's gallery variants `card` and `page` (parity B6, E3) |
+| `app/src/components/{gallery,address_link,link,banners}.rs` | same | the copied gallery is the `page` variant only (parity E3). The `card` variant (parity B6: the link wrapper, one shared `IntersectionObserver`, the 3:4–2:1 clamp and 160 px minimum, holding only the shown and next image) is **new work**, about 200 lines of view plus its rules in `core::gallery` |
 | `scripts/coverage-summary.mjs`, `Dockerfile`, `nginx.conf`, `Trunk.toml`, `rust-toolchain.toml`, `.cargo/config.toml`, `index.html` | same | port 5177, names, paths (R12) |
 
 **Rationale**: `037` research VIII said "no shared Rust crate with the Customer app's Rust version
@@ -196,9 +198,12 @@ existing template, as every app's accent is already picked. `keycloak/themes/que
 already sets `<body class="qp-app--${client.clientId}">` and the heading "Sign in to
 {client.name}" from the client that started the sign-in (specs `021`, `027`). So:
 
-- `keycloak/themes/queuepass/login/resources/css/login.css`: the Rust Admin app's rule becomes
-  `.qp-app--admin-rust-app, .qp-app--customer-rust-app { …the seven --*-rust roles… }`, so the Rust
-  Customer app's sign-in uses the Rust Admin app's red sign-in tokens (`--accent-rust`,
+- `keycloak/themes/queuepass/login/resources/css/login.css`: a new rule
+  `.qp-app--customer-rust-app { …the same seven --*-rust mappings as .qp-app--admin-rust-app… }`
+  beside the Rust Admin app's, which stays untouched. A separate rule, not a selector list: the
+  theme drift check accepts only a single-class sign-in rule (`SIGN_IN_RULE` in
+  `packages/shared/test/theme/check-theme.ts`; `drift.test.ts` asserts a selector list is
+  reported), and that guard is not weakened. So the Rust Customer app's sign-in uses the Rust Admin app's red sign-in tokens (`--accent-rust`,
   `--accent-rust-hover`, `--accent-rust-soft`, `--accent-rust-text`, `--brand-mark-end-rust`,
   `--brand-mark-text-rust`, `--stone-accent-rust`), light and dark. No new token, so the shared
   theme's sign-in block and its contrast tests stay as they are.
@@ -358,7 +363,14 @@ this workspace; `cargo fmt --check`.
 - `e2e/fixtures/apps.ts` gains `'customer-rust': { url: 'http://localhost:5177', name: 'QueuePass
   Tickets (Rust)', role: 'customer' }`; every `Record<AppName, …>` gains the entry
   (`001-sign-in.spec.ts`, `027-sign-in-background.spec.ts`, `028-app-realms.spec.ts`), so
-  `tsc -p e2e` passes. `028`'s `realmOf` uses `realmOfApp` (R3).
+  `tsc -p e2e` passes, except `028-app-realms.spec.ts`, which narrows its records and loop to its
+  own four apps (R3 table).
+- **Accounts**: customer state is per account (attempt allowances keyed by `sub`, cooldowns,
+  orders, the cart), and the `customer-rust` project re-runs every `@customer` journey after the
+  `chromium` project. So `customerFor` takes the project into account: `customer100`–`customer159`
+  as today in `chromium`, and a disjoint range, `customer40`–`customer99` (20 per worker slot,
+  used by no test on `680b4f7`), in `customer-rust`. A run in one project never meets another's
+  leftover limits, holds, or orders.
 - A `customerApp` fixture (`e2e/fixtures/customer-app.ts`, as `admin-app.ts`): `'customer'` by
   default, `'customer-rust'` in a new Playwright project `customer-rust` with `grep: /@customer/`.
 - Tag with the details object, never in the title, and switch the Customer steps to `customerApp`:
@@ -371,13 +383,22 @@ this workspace; `cargo fmt --check`.
   separate users; the shared session is 040's own test).
 - `027-sign-in-background.spec.ts`: a fifth app whose audience line is `qpAudience.customer-rust-app`
   and whose line colour equals the Rust Admin app's (five apps, four distinct colours).
-- Spec 040's own tests in `e2e/tests/040-rust-customer-app.spec.ts` (titles in the quickstart): the
-  red sign-in and the same account (`040 S1`), the shared session and its sign-out (`040 S2`), holds
-  and the cart across the two apps (`040 S5`), entry code, print, and calendar file equal in both
-  apps (`040 S6`), and `040 S11` comparing every route's `main` `ariaSnapshot()` and boxes in both
-  apps at 1280 and 375 px (`037` R15's method).
-- No other Playwright change: the workers and account ranges (`customerFor`) already keep parallel
-  tests apart, in either project.
+- Spec 040's own tests (titles in the quickstart), one file per implementer session so parallel
+  work never edits one file: `e2e/tests/040-rust-customer-app.spec.ts` (`040 S1` the red sign-in
+  and the same account, `040 S2` the shared session and its sign-out, `040 S8` the wrong-role and
+  unreachable screens), `040-seats-cart.spec.ts` (`040 S5` holds and the cart across the two apps),
+  `040-tickets.spec.ts` (`040 S6` entry code, print, and calendar file equal in both apps), and
+  `040-same-layout.spec.ts` (`040 S11`, every route's `main` `ariaSnapshot()` and boxes in both
+  apps at 1280 and 375 px, `037` R15's method). A title with an apostrophe is written in double
+  quotes.
+- `040 S8` reaches the two screens no `@customer` journey reaches: it makes a user without the
+  `customer` role in `queuepass-customer-app` through Keycloak's admin REST API with the stack's
+  local admin credentials (the `.env.example` defaults the seed uses; created only if missing, so
+  reruns converge), signs in as them, and expects the wrong-role card; then it routes the page's
+  API calls to a network failure (`page.route(…, (r) => r.abort())`) and expects "Can't reach the
+  QueuePass service.".
+- No other Playwright change: the workers and the per-project account ranges above keep parallel
+  tests apart.
 
 **Rationale**: FR-017. One set of journeys is the parity check.
 
@@ -389,11 +410,13 @@ this workspace; `cargo fmt --check`.
   `cargo-llvm-cov` once.
 - Windows support: `TRIPLES` gains `'win32-x64': 'x86_64-pc-windows-msvc'` (and
   `'win32-arm64': 'aarch64-pc-windows-msvc'`). On Windows the release assets are `.zip`
-  (`trunk-x86_64-pc-windows-msvc.zip`, `cargo-llvm-cov-x86_64-pc-windows-msvc.zip`, both published
-  for `v0.22.1` and `v0.9.1`), and the binaries are `trunk.exe` and `cargo-llvm-cov.exe`. So
-  `assetUrl(tool, triple)` picks `.zip` for a `windows-msvc` triple; `install` downloads it to a
-  temporary file and extracts the one `.exe` with the system `tar -xf <file> -C <bin> <name>.exe`
-  (Windows 10 and later ship a `tar` that reads zip); `version()` runs `cargo.exe` and `trunk.exe`.
+  (`trunk-x86_64-pc-windows-msvc.zip`, `cargo-llvm-cov-x86_64-pc-windows-msvc.zip`, and the
+  `aarch64-pc-windows-msvc` ones, all published for `v0.22.1` and `v0.9.1`, checked 2026-11-15),
+  and the binaries are `trunk.exe` and `cargo-llvm-cov.exe`. So `assetUrl(tool, triple)` picks
+  `.zip` for a `windows-msvc` triple; `install` downloads it to a temporary file and extracts the
+  one `.exe` with Windows' own bsdtar by its full path, `%SystemRoot%/System32/tar.exe -xf <file>
+  -C <bin> <name>.exe` (from Git Bash the `tar` first on `PATH` is GNU tar, which can't read zip);
+  `version()` runs `cargo.exe` and `trunk.exe`.
   Linux and macOS stay as they are. `scripts/test/rust-setup.test.mjs` gains the Windows cases first
   (triple, URL, file name, version command).
 - Mahdi's machine already has Rust 1.100.0, `trunk` 0.22.1, and `cargo-llvm-cov` 0.9.1 in
@@ -401,7 +424,9 @@ this workspace; `cargo fmt --check`.
 - **CI time**: on `main` at `680b4f7` the `test` job took about 15 minutes and `e2e` about 14, of 30
   each. This feature adds a second cold instrumented Rust build and clippy run to `test`, and a
   second Rust image plus every `@customer` journey again to `e2e`. The impl PR records both jobs'
-  times. Over 25 minutes, the follow-up is `037` R12's: an amendment of spec 011's rules to allow
+  times **early**: a draft impl PR is opened as soon as the stub app and the `@customer` tags are in
+  (tasks T032), so real times are known on day one or two, not on the last day. Over 25 minutes,
+  the follow-up is `037` R12's: an amendment of spec 011's rules to allow
   one `actions/cache` step for `~/.cargo` and the two `target/` folders, stated openly, never worked
   around.
 

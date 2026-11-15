@@ -17,7 +17,7 @@ is the contract for it.
 | Web origin | exactly `http://localhost:5177` |
 | Default client scopes | `roles` and `queuepass-api` (its `queuepass-api-audience` mapper puts `aud: queuepass-api` in the access token) |
 | Users | none created: the realm's customers sign in (same `sub` as in the React Customer app) |
-| Sign-in look | body class `qp-app--customer-rust-app` (set by `template.ftl` from the client) maps to the existing red set `--accent-rust`, `--accent-rust-hover`, `--accent-rust-soft`, `--accent-rust-text`, `--brand-mark-end-rust`, `--brand-mark-text-rust`, `--stone-accent-rust`, light and dark, the same rule as `.qp-app--admin-rust-app`; message `qpAudience.customer-rust-app=For customers buying and viewing tickets, Rust version` |
+| Sign-in look | body class `qp-app--customer-rust-app` (set by `template.ftl` from the client) maps, in its own single-class rule in `login.css`, to the existing red set `--accent-rust`, `--accent-rust-hover`, `--accent-rust-soft`, `--accent-rust-text`, `--brand-mark-end-rust`, `--brand-mark-text-rust`, `--stone-accent-rust`, light and dark, the same mappings as `.qp-app--admin-rust-app` (which is not changed); message `qpAudience.customer-rust-app=For customers buying and viewing tickets, Rust version` |
 | Unchanged | the `customer-app` client and its `.qp-app--customer-app` look; every other realm and client |
 | Session | one Keycloak SSO session per browser for both Customer clients (accepted, constitution 3.12.0 Principle V exception) |
 

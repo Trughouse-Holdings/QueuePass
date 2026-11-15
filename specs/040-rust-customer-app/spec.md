@@ -333,8 +333,7 @@ sign-in client in the existing Customer realm.
 
 This spec PR carries an amendment, **3.11.1 → 3.12.0 (MINOR)**, that:
 
-- Adds the Rust Customer app as a fifth front end in the Preamble, Principle II, and the stack
-  table's Language, Repository, Front ends, Front-end tests, Lint, and CI rows.
+- Adds the Rust Customer app as a fifth front end in the Preamble and the stack table's Language, Repository, Front ends, Front-end tests, Lint, and CI rows.
 - Adds a **Principle V exception**: the Rust Customer app signs in through its own client in the
   Customer app's realm, so it shares that realm's customers and one sign-in session with the React
   Customer app. The risk (signing out of one Customer app signs the customer out of the other, and

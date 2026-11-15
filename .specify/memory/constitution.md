@@ -10,7 +10,7 @@ Problem: issue #175. John asked for Rust versions of the Admin and Customer apps
   signing out of one app never signs another out; two clients in one realm share one Keycloak
   session.
 Changed:
-  - Preamble and Principle II's parts: eight long-running parts, five web front ends.
+  - Preamble: eight long-running parts, five web front ends.
   - Principle V: an exception for the Rust Customer app's client in the Customer app's realm, with
     the risk accepted explicitly (signing out of either Customer app ends the shared session and
     releases the account's holds; signing in to one can sign the other in); the Customer and Rust
@@ -25,12 +25,16 @@ Changed:
 Why MINOR: a principle is materially expanded (a new front end and a Principle V exception);
   nothing that complied before stops complying, so not MAJOR.
 Weakened control and its accepted risk: one realm per app (Principle V) no longer holds between the
-  two Customer apps. The risk is to convenience, not to access: both clients give the same customer
-  the same `customer` role in the same realm, the Backend's token checks are unchanged, and every
-  other pair of apps keeps its own realm. Accepted by Mahdi on 2026-11-15.
+  two Customer apps. The risk is mostly to convenience, not to access: both clients give the same
+  customer the same `customer` role in the same realm, the Backend's token checks are unchanged,
+  and every other pair of apps keeps its own realm. The residual window: after logging out of one
+  Customer app, the other keeps API access until its access token expires (Keycloak's lifespan,
+  5 minutes by default), then its renewal is refused. Accepted by Mahdi on 2026-11-15.
 Impact: spec 040 (#175) only. No API or schema change; no change to the Customer app, the Rust
-  Admin app, or any other spec. Seed, Backend tests, Compose, and browser tests gain the client,
-  origin, and service in 040's implementation PR. The README's version reference follows.
+  Admin app, or any other spec. Seed, Backend tests, Compose, the login theme (`login.css` gains a
+  `.qp-app--customer-rust-app` rule over the existing red sign-in tokens, `messages_en.properties`
+  its audience line, with their tests), and browser tests gain the client, origin, and service in
+  040's implementation PR. The README's version reference follows.
   Templates: none need updating.
 -->
 

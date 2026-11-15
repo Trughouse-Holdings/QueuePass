@@ -62,19 +62,25 @@ come with them and must pass before any change.
 
 - [ ] T007 *(test first)* [P] `packages/shared/test/realms.test.ts`: `APP_REALMS` unchanged (4 rows, 240 accounts); `SHARED_REALM_CLIENTS` equals `[{ app: 'customer-rust', realm: 'queuepass-customer-app', clientId: 'customer-rust-app' }]`; each row's realm is an `APP_REALMS` realm; client IDs unique across both tables; `realmOfApp` finds both kinds; the seed and e2e copies equal both tables
 - [ ] T008 *(test first)* [P] Backend: give `backend/test/setup/tokens.ts` an `azp` option; in `backend/test/integration/auth.realms.e2e-spec.ts` (or a new `auth.shared-client.e2e-spec.ts`) the cases of contract sign-in-client.md: `azp: customer-rust-app` gets `200` on `GET /me/orders`; an order placed with `azp: customer-app` is listed with `azp: customer-rust-app` for the same `sub`, and a reservation made with one is released with the other; no `customer` role → `403`; wrong audience, expired, another realm's key → `401`. `backend/test/integration/cors-docs.e2e-spec.ts`: preflight from `http://localhost:5177` allowed
-- [ ] T009 *(test first)* [P] Seed tests: `scripts/seed/test/clients.unit.test.ts` (`PORTS` gains 5177; the client loop covers `SHARED_REALM_CLIENTS`), `provision-clients.test.ts` (`customer-rust-app`: public, PKCE `S256` only, no direct grants, exact `http://localhost:5177/` redirect and post-logout URIs, web origin, default scopes `roles` and `queuepass-api`, name `QueuePass Tickets (Rust)`), `seed-idempotence.test.ts` (the client is made in `queuepass-customer-app`; no user is created for it; a rerun converges; 240 accounts), `rename.test.ts` (after a pre-028 rename the client stays enabled; `OTHER_CLIENTS` does not list it)
+- [ ] T009 *(test first)* [P] Seed tests, each changed to its new assertion before the seed code:
+  - `scripts/seed/test/clients.unit.test.ts`: `PORTS` gains 5177; the client loop covers `SHARED_REALM_CLIENTS`;
+  - `provision-clients.test.ts`: the ordered "four front ends" list becomes five; `customer-rust-app` is public, PKCE `S256` only, no direct grants, exact `http://localhost:5177/` redirect and post-logout URIs, web origin, default scopes `roles` and `queuepass-api`, name `QueuePass Tickets (Rust)`;
+  - `scripts/seed/test/realms.test.ts` (line 86's one-client `toEqual` and line 141's `toHaveLength(4)`) and `index.unit.test.ts` (lines 75 and 83, "(240 principals, 4 clients)"): the Customer realm holds exactly `customer-app` and `customer-rust-app`; five clients; still 240 principals;
+  - `seed-idempotence.test.ts`: "only its own app's client is enabled in the realm" becomes "its own app's client and its `SHARED_REALM_CLIENTS` rows"; no user is created for the new client; a rerun converges;
+  - `legacy-state.ts` (line 42): the pre-028 fixture also filters out `customer-rust-app`, so the old realm never holds it; `rename.test.ts`: after the rename the new client is made and stays enabled, and `OTHER_CLIENTS` does not list it;
+  - `sign-in-screens.test.ts`: `realmOf` looks the client up in both tables (`realmOfApp` or by client ID), and `SCREENS` gains `customer-rust-app` (T013)
 - [ ] T010 Add `SHARED_REALM_CLIENTS`, `SharedRealmClientRow`, and `realmOfApp` to `packages/shared/src/realms.ts` (R3) and export them; the import-free copies in `scripts/seed/src/app-realms.ts` and `e2e/fixtures/realms.ts`; T007 passes
 - [ ] T011 Seed: `{ clientId: 'customer-rust-app', name: 'QueuePass Tickets (Rust)', port: 5177 }` in `FRONTEND_CLIENTS`; in `scripts/seed/src/index.ts`, after the realm loop, `provisionClient` for each `SHARED_REALM_CLIENTS` row in its realm; update the header comment and the done line (clients count); leave `legacy-realm.ts` and `provision-users.ts` unchanged; T009 passes
 - [ ] T012 Add `http://localhost:5177` to `CORS_ORIGINS` in `.env.example`, `docker-compose.yml`, `scripts/run-host.mjs`, `backend/test/setup/test-app.ts`, and `backend/test/integration/cors-docs.e2e-spec.ts`; T008 passes with no Backend source change
-- [ ] T013 [P] *(test first)* Sign-in look (R7): `scripts/seed/test/login-theme-files.test.ts` (`.qp-app--customer-rust-app` maps to the `rust` set; `qpAudience.customer-rust-app`), `scripts/seed/test/sign-in-screens.test.ts` (the heading "Sign in to QueuePass Tickets (Rust)" and the audience line for the new client; `customer-app` unchanged), `packages/shared/test/theme/drift.test.ts` (the new selector allowed); then in `keycloak/themes/queuepass/login/resources/css/login.css` make the red rule `.qp-app--admin-rust-app, .qp-app--customer-rust-app`, and add `qpAudience.customer-rust-app=For customers buying and viewing tickets, Rust version` to `messages_en.properties`. No new token in `theme.css`
+- [ ] T013 [P] *(test first)* Sign-in look (R7): `scripts/seed/test/login-theme-files.test.ts` (`.qp-app--customer-rust-app` maps to the `rust` set; `qpAudience.customer-rust-app`), `scripts/seed/test/sign-in-screens.test.ts` (the heading "Sign in to QueuePass Tickets (Rust)" and the audience line for the new client; `customer-app` unchanged), `packages/shared/test/theme/drift.test.ts` (lines 473–477, "maps … and no other app": a fifth entry, `.qp-app--customer-rust-app`, to the rust set; the selector-list guard stays); then in `keycloak/themes/queuepass/login/resources/css/login.css` add a separate single-class rule `.qp-app--customer-rust-app` with the same seven `--*-rust` mappings as `.qp-app--admin-rust-app` (left as it is), and add `qpAudience.customer-rust-app=For customers buying and viewing tickets, Rust version` to `messages_en.properties`. No new token in `theme.css`
 
 ### Container, configuration, boundary, coverage
 
 - [ ] T014 *(test first)* [P] `scripts/test/` boundary test: `scripts/check-boundary.mjs` scans both Rust apps' manifests (`Cargo.toml`, `core/Cargo.toml`, `app/Cargo.toml`) and sources (`core/src`, `app/src`) for the forbidden crates and text; then turn its `RUST_APP` constant into a list (R12)
-- [ ] T015 [P] `customer-rust-app/Dockerfile` and `nginx.conf` from `admin-rust-app`'s (R12): `customer-rust-app` paths; `ARG`→`ENV` for `QP_API_BASE_URL`, `QP_OIDC_AUTHORITY` (default the Customer realm), `QP_OIDC_CLIENT_ID` (`customer-rust-app`); copies `contracts/openapi.yaml`, `packages/shared/src/web/theme.css`, `customer-app/src/styles.css`, `admin-rust-app/style/red.css`; no fonts; nginx as `customer-app/nginx.conf` on 5177 (parity S4, S14)
+- [ ] T015 [P] (after T003) `customer-rust-app/Dockerfile` and `nginx.conf` from `admin-rust-app`'s (R12): `customer-rust-app` paths; `ARG`→`ENV` for `QP_API_BASE_URL`, `QP_OIDC_AUTHORITY` (default the Customer realm), `QP_OIDC_CLIENT_ID` (`customer-rust-app`); copies `contracts/openapi.yaml`, `packages/shared/src/web/theme.css`, `customer-app/src/styles.css`, `admin-rust-app/style/red.css`; no fonts; nginx as `customer-app/nginx.conf` on 5177 (parity S4, S14)
 - [ ] T016 Add service `customer-rust-app` to `docker-compose.yml` exactly as contract sign-in-client.md's Compose table (FR-019: nothing depends on it)
 - [ ] T017 [P] *(test first)* `scripts/test/run-host.test.mjs` and `scripts/test/e2e-ports.test.mjs`; then `scripts/run-host.mjs` (the sixth child and banner, contract Host run) and 5177 in `E2E_PORTS` of `scripts/e2e.mjs`
-- [ ] T018 [P] *(test first)* `scripts/test/coverage-report.test.mjs`: `WORKSPACES` has `customer-rust-app` and `--clean` removes its `coverage/`; then `scripts/coverage-report.mjs`; copy `admin-rust-app/scripts/coverage-summary.mjs` into `customer-rust-app/scripts/`
+- [ ] T018 [P] *(test first)* `scripts/test/coverage-report.test.mjs`: `WORKSPACES` has `customer-rust-app` and `--clean` removes its `coverage/`; then `scripts/coverage-report.mjs`; copy `admin-rust-app/scripts/coverage-summary.mjs` into `customer-rust-app/scripts/` with its `[admin-rust-app]` label changed to `[customer-rust-app]`, and add `customer-rust-app/scripts/**/*.mjs` to the Node-globals `files` glob in `eslint.config.mjs` (line 41) so `npm run lint` passes
 
 ### `core` foundations (copied, R4)
 
@@ -83,12 +89,14 @@ come with them and must pass before any change.
 - [ ] T021 [P] Copy `core/src/auth/` and `core/tests/auth_state.rs`; *(test first)* a `queuepass-admin`-only token is `WrongRole` and a `customer` token is `SignedIn`; set `REQUIRED_ROLE = "customer"`
 - [ ] T022 [P] Copy `core/src/{time,format,money}.rs` (the parts the Customer app uses) with their tests; *(test first)* port `customer-app/test/format.test.ts`, `times.tz.test.tsx`, and `doors-open.test.tsx` (F1–F6, B7, E4) and the shared `time-zone.ts` cases (`formatEventTime`, `formatEventEnd`, `formatDoorsOpen`, `formatViewerTime`); then the Customer `format.rs` functions (`usd`, `totalUsd`, `sumUsd`, `eventPrice`, `count`, `seatLabel`, `seatWithPrice`, `when`, `doorsOpen`, `startedNotice`)
 - [ ] T023 [P] Copy `core/src/theme.rs` and `core/tests/theme.rs`; *(test first)* point them at `customer-app/src/styles.css` and `../admin-rust-app/style/red.css`: exactly the 14 look tokens redefined, no data token, and AA for every pair the Customer screens use, light and dark (R6)
-- [ ] T024 [P] Copy `core/src/seating/{map_geometry,map_state,pan_zoom,venue_map}.rs`, `core/src/api/seat_stream.rs`, and their tests and fixtures (`seating_geometry`, `venue_map`, `seat_stream`); all pass unchanged; check the `Price` mode, legend, and `open_prices` against parity M4–M8
+- [ ] T024 [P] Copy `core/src/seating/{mod,geometry,map_geometry,map_state,pan_zoom,venue_map}.rs`, `core/src/api/seat_stream.rs`, and their tests and fixtures (`seating_geometry`, `venue_map`, `seat_stream`); all pass unchanged; check the `Price` mode, legend, and `open_prices` against parity M4–M8
 
 ### App shell (User Story 1's frame)
 
-- [ ] T025 Copy `app/src/{config,oidc_glue,auth,util,download,device_zone}.rs`; build-time `QP_*` for the Customer realm and `customer-rust-app`; **prove sign-in end to end** against `docker compose` (code with PKCE, `returnTo`, renewal, `pageshow`, end-session with `id_token_hint`) before any screen work (R2, parity S1–S4)
-- [ ] T026 `app/src/{main,routes,shell,release}.rs`: "Signing in…"; the header of parity S9 (plain-text brand "QueuePass Tickets (Rust)", nav Events, Venues, My tickets, Cart with prefix-matched `navlink--active` and `aria-current`, nothing active on `/`, Log out); every route of S11 with the NotFound section; the wrong-role card (S7); the unreachable banner (S8); Log out running release on logout first, at most 2 s, never fatal (S5, S6); 401 → sign in with `returnTo` (S3)
+- [ ] T025 (after T011, T012, T016, and the failing T027–T028) Copy `app/src/{config,oidc_glue,auth,util,download,device_zone}.rs`; build-time `QP_*` for the Customer realm and `customer-rust-app`; **prove sign-in end to end** against `docker compose` (code with PKCE, `returnTo`, renewal, `pageshow`, end-session with `id_token_hint`) before any screen work; turns `040 S1`'s sign-in steps green (R2, parity S1–S4)
+- [ ] T026 `app/src/{main,routes,shell,release}.rs`: "Signing in…"; the header of parity S9 (plain-text brand "QueuePass Tickets (Rust)", nav Events, Venues, My tickets, Cart with prefix-matched `navlink--active` and `aria-current`, nothing active on `/`, Log out); every route of S11 with the NotFound section; the wrong-role card (S7); the unreachable banner (S8); Log out running release on logout first, at most 2 s, never fatal (S5, S6); 401 → sign in with `returnTo` (S3); turns the rest of `040 S1` and the `@customer` `001` checks green
+
+**Test-first note**: T027 and T028 are written, and seen failing, before T025 and T026 (Dependencies); their Phase 3 placement is by story, not by order.
 
 **Checkpoint**: `docker compose up --build` brings up `customer-rust-app`; you can sign in on a red page, see a red shell, and log out (a constitution "stub front end").
 
@@ -98,12 +106,12 @@ come with them and must pass before any change.
 
 **Goal**: red sign-in, same customer, shared session as accepted. **Independent test**: quickstart S1, S2.
 
-- [ ] T027 *(test first)* [US1] `e2e/fixtures/apps.ts`: `'customer-rust': { url: 'http://localhost:5177', name: 'QueuePass Tickets (Rust)', role: 'customer' }`; the entry in every `Record<AppName, …>` (`001-sign-in.spec.ts`, `027-sign-in-background.spec.ts`, `028-app-realms.spec.ts`); `028`'s `realmOf` uses `realmOfApp`; new `e2e/fixtures/customer-app.ts` (`customerApp`, default `'customer'`); project `customer-rust` with `use: { customerApp: 'customer-rust' }` and `grep: /@customer/` in `e2e/playwright.config.ts` (R13)
-- [ ] T028 *(test first)* [US1] `e2e/tests/040-rust-customer-app.spec.ts`: `040 S1: the Rust Customer app's sign-in is red and names it, and the customer is the same as in the React Customer app` (fresh context: heading "Sign in to QueuePass Tickets (Rust)", the accent computed red; the React Customer sign-in still teal; header and tab title; page and header computed colors are `red.css`'s; nothing in `localStorage`, no PKCE value left in `sessionStorage`; My tickets lists an order placed through the React app for the same customer; `returnTo`)
-- [ ] T029 *(test first)* [US1] `040 S2: the two Customer apps share one session, and logging out of one releases holds and leaves every other app signed in` (quickstart S2: one context; the second Customer app signs in without the form; a held seat is released by the Rust app's Log out; after the access token's lifetime or a forced renewal, the React Customer app asks for sign-in; both Admin apps and the Booth still signed in)
+- [ ] T027 *(test first)* [US1] `e2e/fixtures/apps.ts`: `'customer-rust': { url: 'http://localhost:5177', name: 'QueuePass Tickets (Rust)', role: 'customer' }`; `001` and `027` gain the entry; `028-app-realms.spec.ts` instead narrows its records and its `Object.keys(APPS)` loop to a local `APPS_028 = ['admin', 'customer', 'booth', 'admin-rust'] as const` (title and quickstart row unchanged, R3); `customerFor` gives the `customer-rust` project its own range `customer40`–`customer99` (R13; `e2e/fixtures/apps.ts` and its unit check); new `e2e/fixtures/customer-app.ts` (`customerApp`, default `'customer'`); project `customer-rust` with `use: { customerApp: 'customer-rust' }` and `grep: /@customer/` in `e2e/playwright.config.ts` (R13)
+- [ ] T028 *(test first)* [US1] `e2e/tests/040-rust-customer-app.spec.ts` (sessions' own tests go in their own files, R13): `040 S1: the Rust Customer app's sign-in is red and names it, and the customer is the same as in the React Customer app` (fresh context: heading "Sign in to QueuePass Tickets (Rust)", the accent computed red; the React Customer sign-in still teal; header and tab title; page and header computed colors are `red.css`'s; nothing in `localStorage`, no PKCE value left in `sessionStorage`; My tickets lists an order placed through the React app for the same customer; `returnTo`)
+- [ ] T029 *(test first)* [US1] `040 S2: the two Customer apps share one session, and logging out of one releases holds and leaves every other app signed in` (quickstart S2: one context; the second Customer app signs in without the form; a held seat is released by the Rust app's Log out; after the access token's lifetime or a forced renewal, the React Customer app asks for sign-in; both Admin apps and the Booth still signed in); and, in the same file, `040 S8: a user without the customer role sees the wrong-role card, and an unreachable Backend is said plainly` (R13: a role-less user made through Keycloak's admin REST API, created only if missing; API calls aborted with `page.route`), so the wrong-role and unreachable screens have a browser test (FR-016)
 - [ ] T030 [P] [US1] `e2e/tests/027-sign-in-background.spec.ts`: the fifth app's `AUDIENCE` entry; its line colour equals the Rust Admin app's; five apps, four distinct colours. `001-sign-in.spec.ts`: the new app in its per-app checks
 - [ ] T031 [US1] Make T028–T030 pass (fix shell, glue, seed, or theme)
-- [ ] T032 [US1] Tag the Customer journeys `{ tag: '@customer' }` (details object, never in the title) and switch their Customer steps from `'customer'` to `customerApp`: the list in R13. A journey that also uses the Admin app keeps `@admin` and gets both tags. Titles unchanged. Leave `028`'s one-window test untagged, with a comment (R13)
+- [ ] T032 [US1] Tag the Customer journeys `{ tag: '@customer' }` (details object, never in the title) and switch their Customer steps from `'customer'` to `customerApp`: the list in R13. A journey that also uses the Admin app keeps `@admin` and gets both tags. Titles unchanged. Leave `028`'s one-window test untagged, with a comment (R13). Then open the impl PR as a **draft** at once, to get real CI job times on day one or two (R14, T063)
 
 **Checkpoint**: US1 shippable and demoable. Commit, and keep going.
 
@@ -114,8 +122,8 @@ come with them and must pass before any change.
 **Goal**: parity B1–B8, V1–V3, E1–E5, SL2–SL6. **Independent test**: quickstart S3.
 
 - [ ] T033 *(test first)* [P] [US2] `core/tests/filters.rs`: port `customer-app/test/filters.test.tsx` and `browse.test.tsx`'s logic (URL read and write, invalid and reversed dates dropped, `q` trimmed, the request query with `locationId` only once venues load, hide cancelled in the app, the 300 ms typing replace vs push rule); then `core/src/filters.rs` (B3, B4)
-- [ ] T034 *(test first)* [P] [US2] `core/tests/gallery.rs`: port the logic cases of `customer-app/test/event-images.test.tsx` and the shared gallery tests (5,000 ms turn, 400 ms slide, the pause reasons, the card and page size clamps, "i of n"); move or copy the pure rules from the copied `gallery.rs` into `core/src/gallery.rs` (B6, E3)
-- [ ] T035 [US2] Copy `app/src/components/{gallery,address_link,link,banners}.rs`; `app/src/components/{event_card,event_filters}.rs` and `app/src/pages/event_list.rs` (B1–B8)
+- [ ] T034 *(test first)* [P] [US2] `core/tests/gallery.rs`: copy the gallery cases of `admin-rust-app/core/tests/event_page.rs` (and `images.rs` where they apply) with the gallery parts of `admin-rust-app/core/src/pages/event_page.rs` (R4); add the card variant's cases from `customer-app/test/event-images.test.tsx`, `cards.test.tsx`, and `packages/shared/test/web/{image-gallery,gallery-size,use-gallery-rotation}.test.*` (3:4–2:1 clamp, 160 px minimum, 4:3 until known, show-and-next only, pause reasons); then `core/src/gallery.rs` (B6, E3)
+- [ ] T035 [US2] Copy `app/src/components/{gallery,address_link,link,banners}.rs` (the `page` variant) and write the **new** `card` variant (B6: link wrapper, one shared `IntersectionObserver` with `rootMargin` 200px); `app/src/components/{event_card,event_filters}.rs` and `app/src/pages/event_list.rs` (B1–B8)
 - [ ] T036 [P] [US2] `app/src/pages/{venue_list,venue_detail}.rs` (V1–V3)
 - [ ] T037 [US2] `app/src/pages/event_detail.rs`: E1–E5 and E8's page part, the page gallery and full-screen viewer, "All events"; the Get tickets slot (filled in US4 and US3)
 - [ ] T038 [US2] Make the `@customer` journeys of `020 S6`, `030 S1/S2`, and the event-page parts of `003` and `036` pass in project `customer-rust`
@@ -146,7 +154,7 @@ come with them and must pass before any change.
 - [ ] T049 [US3] Copy `app/src/venue_map/{venue_map,section_view,legend,pan_zoom}.rs` and `app/src/seat_stream.rs`; the Sections list and its focus moves; the stream with `withMine` and the 200 ms reservation re-read (M4–M8, M14)
 - [ ] T050 [US3] Seated part of `get_tickets.rs` and `app/src/components/hold_countdown.rs`: stat tiles, Choose seats, notes, the map layout, Your seats, Add to cart, the hold log, refusals (M1–M3, M9–M13, M15)
 - [ ] T051 [US3] `app/src/pages/cart.rs`: C1–C10 with the 1,000 ms reads while visible, `visibilitychange` and `focus` reads, one at a time, and the Name on tickets field
-- [ ] T052 [US3] Test `040 S5: seats held in the Rust Customer app show in the React Customer app's cart and are bought in the Rust one`; make `007 S3`, `015`'s Customer steps, `026 S2`, `033 S1/S2/S6`, `038 S10/S12/S13`, `038 S10/S15`, `038 S14`, `038 S16`, and the other `038`/`039` Customer steps pass in project `customer-rust`
+- [ ] T052 [US3] Test in `e2e/tests/040-seats-cart.spec.ts`: `040 S5: seats held in the Rust Customer app show in the React Customer app's cart and are bought in the Rust one`; make `007 S3`, `015`'s Customer steps, `026 S2`, `033 S1/S2/S6`, `038 S10/S12/S13`, `038 S10/S15`, `038 S14`, `038 S16`, and the other `038`/`039` Customer steps pass in project `customer-rust`
 
 ---
 
@@ -161,18 +169,18 @@ come with them and must pass before any change.
 - [ ] T057 [US5] `app/src/pages/my_tickets.rs` and `app/src/components/add_to_calendar.rs` (T1–T7, the Blob download with the 60 s revoke)
 - [ ] T058 [P] [US5] `app/src/components/ticket_qr.rs` and `app/src/pages/print_ticket.rs` (T8, T12, print rules S15)
 - [ ] T059 [US5] `app/src/pages/entry_code.rs` (T9–T11: both reads, every state, key in memory only, 250 ms checks, "Changes in n s")
-- [ ] T060 [US5] Test `040 S6: the entry code, the printed ticket, and the calendar file are the same in both Customer apps`; make `019 S2` pass in project `customer-rust`
+- [ ] T060 [US5] Test in `e2e/tests/040-tickets.spec.ts`: `040 S6: the entry code, the printed ticket, and the calendar file are the same in both Customer apps`; make `019 S2` pass in project `customer-rust`
 
 ---
 
 ## Phase 8: Polish and cross-cutting
 
-- [ ] T061 Test `040 S11: every page has the same structure and arrangement in both Customer apps, at desktop and phone width` (`037` R15's method over every route of parity S11 with the same data, at 1280 and 375 px); fix any difference in the Rust views (SL1–SL12, FR-020)
+- [ ] T061 Test in `e2e/tests/040-same-layout.spec.ts`: `040 S11: every page has the same structure and arrangement in both Customer apps, at desktop and phone width` (`037` R15's method over every route of parity S11 with the same data, at 1280 and 375 px); fix any difference in the Rust views (SL1–SL12, FR-020)
 - [ ] T062 `README.md`: the Rust Customer app's URL `http://localhost:5177`, the same customer accounts, the shared session and what signing out of either Customer app does, `rustup` plus `npm run rust:setup` (Windows included), the ports 5173–5177, and the `.env` CORS note for an older `.env` (FR-018)
 - [ ] T063 CI: no workflow change is expected (`rust:setup` is already a step and a part of `ci`); confirm `scripts/test/ci-workflow.test.mjs` passes; the `e2e` job builds `customer-rust-app` and runs the `customer-rust` project. Record both jobs' times on the impl PR; over 25 of 30 minutes, say so and propose `037` R12's 011 amendment instead of working around it (R14)
 - [ ] T064 `npm run ci` green (format, lint with both Rust apps' clippy, build, `npm test` with `customer-rust-app` ≥ 80% on `core`, coverage report) and `npm run e2e` green, on Windows and in CI; run `040 S2` with `--repeat-each=10` (SC-006)
 - [ ] T065 Parity walk: tick every row of `contracts/parity-checklist.md` E, U, M, or N/A in the impl PR, adding rows for Customer changes merged after `680b4f7` (T001); fix the checklist where the React app differs. Running-system gate from a fresh clone: `docker compose up --build`, seed succeeds the first time, sign in, use, and log out of all five front ends. Hallway test (quickstart S10, SC-003)
-- [ ] T066 Update `quickstart.md`'s Automation rows S1, S2, S5, S6, and S11 to Automated with their exact test titles; `node scripts/check-quickstart-marks.mjs` passes. Independent review by a Claude session that did not write the implementation; fix findings; record the review in the impl PR description; open the PR with `fixes #175` in its description
+- [ ] T066 Update `quickstart.md`'s Automation rows S1, S2, S5, S6, S8, and S11 to Automated with their exact test titles (rows with a manual part as ``Automated: `…`; rest Manual: <why>``, for example S5's 5:00 run-out and S8's real Backend stop); `node scripts/check-quickstart-marks.mjs` passes. Independent review by a Claude session that did not write the implementation; fix findings; record the review in the impl PR description; open the PR with `fixes #175` in its description
 - [ ] T067 Open a follow-up issue (not in this feature): extract the modules copied from `admin-rust-app/` into one shared Rust crate used by both Rust apps, after EDIS (R4)
 
 ---
@@ -180,7 +188,10 @@ come with them and must pass before any change.
 ## Dependencies
 
 - Phase 1 → Phase 2 → every story. In Phase 2, T025 (sign-in proved) comes before any screen; T019
-  before T020; T010 before T011 and T027.
+  before T020; T010 before T011 and T027; T003 before T015.
+- T025 needs the seed client (T011), CORS (T012), the Compose service (T016, with T015), and the
+  failing browser tests T027–T028 (test first). Session B waits on session A for T011, T012, and
+  T016, which A does first.
 - US1 (Phase 3) needs only Phase 2. T027 and T032 come before every "pass in `customer-rust`" task
   (T038, T044, T052, T060).
 - US2 (T035–T037) gives the event page that US4 and US3 fill. US4 and US3 are independent of each
@@ -198,17 +209,23 @@ off `040-rust-customer-app-impl`:
 
 | Session | Tasks | Touches |
 |---|---|---|
-| A: shared surface and browser tests | T006–T018, T027, T030, T032, T062, T063 | `packages/shared`, `scripts/`, `backend/test`, `keycloak/`, `docker-compose.yml`, `e2e/`, README |
-| B: skeleton, shell, lists, event page | T002–T005, T019–T026, T033–T038, T061 | `customer-rust-app/` core foundations, shell, US2 |
-| C: buying and My tickets logic and screens | T039–T044, T053–T060 | `core/{availability,holder_name,buy,my_tickets,calendar,live_code,qr}`, US4 and US5 screens |
-| D: seats, holds, cart | T045–T052 | `core/{hold_queue,reservation,cart}`, map views, seated panel, Cart |
+| A: shared surface and browser tests | T006–T014, T016–T018, T027–T030, T032, T062, T063 | `packages/shared`, `scripts/`, `backend/test`, `keycloak/`, `docker-compose.yml`, `e2e/` (`040-rust-customer-app.spec.ts`), README |
+| B: skeleton, shell, lists, event page | T002–T005, T015, T019–T026, T031, T033–T038, T061 | `customer-rust-app/` skeleton, Dockerfile, core foundations, shell, US2, `040-same-layout.spec.ts` |
+| C: buying and My tickets logic and screens | T039–T044, T053–T060 | `core/{availability,holder_name,buy,my_tickets,calendar,live_code,qr}`, US4 and US5 screens, `040-tickets.spec.ts` |
+| D: seats, holds, cart | T045–T052 | `core/{hold_queue,reservation,cart}`, map views, seated panel, Cart, `040-seats-cart.spec.ts` |
 
-A starts at once; B's T002–T005 and T019–T025 go first because C and D build on them (C and D can
-write their `core` tests against the React tests meanwhile). The session that integrates runs
-T028, T029, T031, T064–T067.
+A starts at once with T011, T012, T016 (B's T025 needs them) and T027–T028; B's T002–T005 and
+T019–T025 go first in B because C and D build on them (C and D can write their `core` tests
+against the React tests meanwhile). C and D share `get_tickets.rs`: C writes
+`get_tickets/general.rs`, D `get_tickets/seated.rs`, and the small `get_tickets/mod.rs` that picks
+one is B's (T037). Each session's browser tests are in its own `040-*.spec.ts` file. The
+integrating session runs T064–T067.
 
 ## Implementation strategy
 
+0. **Cut line for EDIS (2026-11-20)**: the spec PR approved and merged first; US1, US2, and US4 by
+   2026-11-18; US3 and US5 after. Apply R9's QR fallback early if the module grids don't match on
+   the first try.
 1. **MVP**: Phases 1–3. The Rust Customer app is up, red, signed in with the same customers, and the
    shared session behaves as accepted. Demoable.
 2. Lists and the event page (US2), then general admission (US4): the app sells tickets.
