@@ -2,8 +2,11 @@
 //! by `core/build.rs`, so they cannot drift from it. This checks one example per resource: each
 //! is valid against its `components.schemas` entry (formats included), and decodes into the
 //! generated type. The examples are the React Admin app's own test fixtures
-//! (`tests/fixtures/api/generate.mts`). No type is hand-written (T021: typify built all 84
-//! schemas), so there is no hand-written type to check here.
+//! (`tests/fixtures/api/generate.mts`). Every schema's type is generated (T021: typify built all
+//! 84). A few answers are also read into smaller hand-written structs, as far as a page reads them
+//! (the edit form's event, ticket types, seating and availability; the venue map and its
+//! sections): R5 checks each of those against its schema below, with every optional field there
+//! and with only the required ones.
 
 use std::{fs, path::PathBuf};
 
@@ -199,4 +202,119 @@ fn every_client_method_decodes_the_contracts_answer() {
     }
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert!(checked >= 29, "only {checked} methods matched an operation");
+}
+
+// ---------------------------------------------------------------- hand-written answer types (R5)
+
+/// `instance` cut down to what `schema` requires, at the top and in each array of objects one
+/// level down: a hand-written type must decode what the contract promises and nothing more.
+fn required_only(schema: &str, instance: &Value) -> Value {
+    let all = components();
+    let resolve = |s: &Value| -> Value {
+        match s["$ref"].as_str() {
+            Some(r) => all["schemas"][r.rsplit('/').next().unwrap()].clone(),
+            None => s.clone(),
+        }
+    };
+    fn cut(schema: &Value, value: &Value, resolve: &dyn Fn(&Value) -> Value) -> Value {
+        let schema = resolve(schema);
+        let Some(obj) = value.as_object() else {
+            return value.clone();
+        };
+        let required: Vec<&str> = schema["required"]
+            .as_array()
+            .map(|r| r.iter().filter_map(Value::as_str).collect())
+            .unwrap_or_default();
+        let mut out = serde_json::Map::new();
+        for (k, v) in obj {
+            if !required.contains(&k.as_str()) {
+                continue;
+            }
+            let prop = resolve(&schema["properties"][k]);
+            let v = match v.as_array() {
+                Some(items) => Value::Array(
+                    items
+                        .iter()
+                        .map(|i| cut(&prop["items"], i, resolve))
+                        .collect(),
+                ),
+                None => v.clone(),
+            };
+            out.insert(k.clone(), v);
+        }
+        Value::Object(out)
+    }
+    let reference = json!({ "$ref": format!("#/components/schemas/{schema}") });
+    cut(&reference, instance, &resolve)
+}
+
+/// `instance` is valid against `schema`, whole and cut to its required fields, and both decode
+/// into the hand-written `T`.
+fn check_hand_written<T: DeserializeOwned>(schema: &str, instance: Value) -> (T, T) {
+    let reference = json!({ "$ref": format!("#/components/schemas/{schema}") });
+    let errors = validate(reference.clone(), &instance);
+    assert!(errors.is_empty(), "{schema}:\n{}", errors.join("\n"));
+    let minimal = required_only(schema, &instance);
+    let errors = validate(reference, &minimal);
+    assert!(
+        errors.is_empty(),
+        "{schema}, required only:\n{}",
+        errors.join("\n")
+    );
+    let full = serde_json::from_value::<T>(instance).unwrap_or_else(|e| panic!("{schema}: {e}"));
+    let min = serde_json::from_value::<T>(minimal)
+        .unwrap_or_else(|e| panic!("{schema}, required only: {e}"));
+    (full, min)
+}
+
+#[test]
+fn the_edit_forms_event_tiers_seating_and_availability() {
+    use admin_rust_core::forms::event::{Availability, EventLoad, EventSeating, Tier};
+    let (event, _) = check_hand_written::<EventLoad>("Event", example("Event"));
+    assert_eq!(event.name, example("Event")["name"].as_str().unwrap());
+
+    let tier = json!({
+        "id": "0b8f5a0e-6a43-4c3a-9a55-0e1f4e0c2d11",
+        "eventId": "5f1b8d2e-1c7a-4f0e-8a5b-2b6f0c1d9e33",
+        "name": "Floor",
+        "price": "40.00",
+        "quantity": 20,
+        "createdAt": "2026-11-15T12:00:00Z",
+        "updatedAt": "2026-11-15T12:00:00Z"
+    });
+    let (tier, _) = check_hand_written::<Tier>("TicketTier", tier);
+    assert_eq!((tier.name.as_str(), tier.quantity), ("Floor", 20));
+
+    let seating = json!({
+        "eventId": "5f1b8d2e-1c7a-4f0e-8a5b-2b6f0c1d9e33",
+        "layoutId": "7a2c9d4e-3b1f-4e6a-9c8d-1e2f3a4b5c66",
+        "levels": [{
+            "levelId": "1d2e3f4a-5b6c-4d7e-8f90-a1b2c3d4e5f6",
+            "name": "Floor", "rank": 1, "color": "violet",
+            "seatCount": 15, "seatsOnSale": 10, "price": "50.00"
+        }],
+        "offSale": [{ "sectionId": "9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b", "row": 1 }],
+        "seatsOnSale": 10,
+        "seatsOffSale": 5
+    });
+    let (seating, _) = check_hand_written::<EventSeating>("EventSeating", seating);
+    assert_eq!((seating.seats_on_sale, seating.off_sale.len()), (10, 1));
+
+    let availability = json!({
+        "eventId": "5f1b8d2e-1c7a-4f0e-8a5b-2b6f0c1d9e33",
+        "customerLimit": null,
+        "ticketsLeft": 8,
+        "salesClosed": null,
+        "inProgress": false,
+        "tiers": [{ "tierId": "0b8f5a0e-6a43-4c3a-9a55-0e1f4e0c2d11", "ticketsLeft": 8 }]
+    });
+    let (availability, _) = check_hand_written::<Availability>("Availability", availability);
+    assert_eq!(availability.tiers[0].tickets_left, 8);
+}
+
+#[test]
+fn the_venue_map_and_a_section() {
+    use admin_rust_core::seating::map_state::{VenueMap, VenueMapSection};
+    check_hand_written::<VenueMap>("VenueMap", example("VenueMap"));
+    check_hand_written::<VenueMapSection>("VenueMapSection", example("VenueMapSection"));
 }

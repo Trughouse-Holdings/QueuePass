@@ -236,11 +236,15 @@ impl AuthMachine {
     }
 
     /// Sends the browser to Keycloak's page (a 401 from the API does this), unless logging out.
+    /// The status is kept, so the page stays up until the browser leaves, as `signIn` in
+    /// `auth-provider.tsx` (a cancelled leave question keeps the admin's work).
     pub fn sign_in(&mut self, here: &str) -> Vec<Effect> {
         if self.logging_out {
             return vec![];
         }
-        self.redirect(here)
+        vec![Effect::RedirectToSignIn {
+            return_to: here.to_string(),
+        }]
     }
 
     /// Time passes: the scheduled renewal, an expiry, or the next retry of a failed renewal.

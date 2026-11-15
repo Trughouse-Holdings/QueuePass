@@ -338,6 +338,8 @@ fn a_401_signs_in_again_with_the_page_to_return_to() {
             return_to: "/events/1/attendees".into()
         }]
     );
+    // The page stays signed in until the browser leaves (review finding 3).
+    assert_eq!(m.status(), AuthStatus::SignedIn);
 }
 
 #[test]

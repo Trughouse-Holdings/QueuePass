@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { boundaryFailures, RUST_FORBIDDEN_CRATES } from '../check-boundary.mjs';
+import { boundaryFailures, cargoDependencies, RUST_FORBIDDEN_CRATES } from '../check-boundary.mjs';
 
 function tree(files) {
   const root = mkdtempSync(join(tmpdir(), 'qp-boundary-'));
@@ -71,6 +71,40 @@ for (const [manifest, section] of [
     });
   }
 }
+
+for (const section of ['[dependencies.sqlx]', "[target.'cfg(unix)'.dev-dependencies.sqlx]"]) {
+  test(`fails on a crate's own table, ${section}`, () => {
+    const root = tree({
+      ...CLEAN_RUST,
+      'admin-rust-app/core/Cargo.toml': `${CLEAN_RUST['admin-rust-app/core/Cargo.toml']}\n${section}\nversion = "0.8"\n`,
+    });
+    try {
+      assert.match(boundaryFailures(root).join('\n'), /core\/Cargo\.toml: lists "sqlx"/);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
+test('fails on a renamed crate in its own table ([dependencies.db] package = "sqlx")', () => {
+  assert.deepEqual(cargoDependencies('[dependencies.db]\npackage = "sqlx"\nversion = "1"\n'), [
+    'db',
+    'sqlx',
+  ]);
+});
+
+test('fails when Cargo.lock pulls in a database crate through another crate', () => {
+  const root = tree({
+    ...CLEAN_RUST,
+    'admin-rust-app/Cargo.lock':
+      'version = 4\n\n[[package]]\nname = "serde"\n\n[[package]]\nname = "tokio-postgres"\nversion = "0.7.0"\n',
+  });
+  try {
+    assert.match(boundaryFailures(root).join('\n'), /Cargo\.lock: pulls in "tokio-postgres"/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 test('fails on a renamed database crate (package = "sqlx")', () => {
   const root = tree({

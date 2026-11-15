@@ -134,10 +134,12 @@ impl Oidc {
             .await
             .map_err(|_| ())?;
         let id_token = response.id_token().ok_or(())?;
-        // The ID token comes straight from the token endpoint. Its signature, issuer, audience,
-        // and nonce are checked; its times are checked at its own issue time, not against the
-        // device's clock, which may be wrong (as oidc-client-ts, which the React app uses, does
-        // not refuse a token on the device clock either).
+        // The ID token comes straight from the token endpoint over TLS-or-localhost. Its
+        // signature, issuer, audience, and nonce are checked. Its `exp` and `iat` checks are off
+        // on purpose: the verifier's clock is pinned to the token's own `iat`, so it can never be
+        // expired or issued in the future. The device's clock may be wrong (spec 028's tests set
+        // it days off), and oidc-client-ts, which the React app uses, does not refuse a token on
+        // the device clock either.
         let issued = issued_at(&id_token.to_string()).ok_or(())?;
         let verifier = client.id_token_verifier().set_time_fn(move || issued);
         id_token

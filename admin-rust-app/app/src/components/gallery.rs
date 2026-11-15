@@ -70,7 +70,7 @@ fn load(api: ApiClient, event_id: String, image: GalleryImage, entry: Rc<Entry>)
             query: Vec::new(),
             body: Body::None,
         };
-        let result = api.send_raw(call).await;
+        let result = api.send_raw_quiet(call).await;
         entry.loading.set(false);
         if entry.dropped.get() {
             return;

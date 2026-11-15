@@ -3,9 +3,13 @@
 //! and a `beforeunload` listener while the layout editor's document is dirty (039 R13);
 //! `leptos_router` 0.8 has no blocker, so the app has this one:
 //!
+//! - only a move to another pathname asks, as React's blocker (`currentLocation.pathname !==
+//!   nextLocation.pathname`);
 //! - in-app link clicks are seen in the capture phase, before the router's own listener, and a
 //!   cancelled one is stopped there;
-//! - Back and Forward (`popstate`) ask too; a cancelled one puts the editor's URL back;
+//! - Back and Forward (`popstate`) ask too; a cancelled one puts the editor's URL back with a new
+//!   history entry (React Router returns to the entry it left; `leptos_router` keeps no history
+//!   index to go back by, so the entries after it are lost);
 //! - programmatic navigation goes through [`Guard::navigate`];
 //! - `beforeunload` asks while dirty;
 //! - the navigations 039 leaves unguarded (opening another layout after Save as new or Duplicate
@@ -25,6 +29,16 @@ pub struct Guard {
     at: StoredValue<String>,
     /// One navigation passes unasked.
     pass: StoredValue<bool>,
+}
+
+/// The pathname of an in-app URL: `to` without its query or hash.
+fn pathname_of(to: &str) -> &str {
+    to.split(['?', '#']).next().unwrap_or(to)
+}
+
+/// The page's pathname now.
+fn pathname_now() -> String {
+    window().location().pathname().unwrap_or_default()
 }
 
 fn here() -> String {
@@ -90,6 +104,10 @@ impl Guard {
                 if !a.href().starts_with(&origin) {
                     return;
                 }
+                // As React's blocker: a move within the same page (query or hash) is not leaving.
+                if a.pathname() == pathname_now() {
+                    return;
+                }
                 if !guard.may_leave() {
                     e.prevent_default();
                     e.stop_immediate_propagation();
@@ -107,6 +125,10 @@ impl Guard {
         // Registered before the router's, so a cancelled Back or Forward stops here.
         let on_pop = Closure::<dyn Fn(web_sys::Event)>::new(move |e: web_sys::Event| {
             if !guard.dirty.get_untracked() && !guard.pass.get_value() {
+                return;
+            }
+            // The URL has already changed: still on the guarded page's path is not leaving.
+            if pathname_of(&guard.at.get_value()) == pathname_now() {
                 return;
             }
             if !guard.may_leave() {
@@ -154,7 +176,7 @@ impl Guard {
         to: &str,
         options: NavigateOptions,
     ) {
-        if self.may_leave() {
+        if pathname_of(to) == pathname_now() || self.may_leave() {
             navigate(to, options);
         }
     }

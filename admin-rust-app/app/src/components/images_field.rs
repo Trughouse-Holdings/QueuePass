@@ -106,7 +106,7 @@ fn saved_thumb(
             query: Vec::new(),
             body: Body::None,
         };
-        let Ok(bytes) = auth.api().send_raw(call).await else {
+        let Ok(bytes) = auth.api().send_raw_quiet(call).await else {
             return;
         };
         if !alive.load(Ordering::Relaxed) {

@@ -39,8 +39,10 @@ pub fn TierSection(
 
     let reload = move || {
         let api = auth.api();
-        let id = event_id.get_value();
+        // After a write's answer the page may be gone; then there is nothing to reload.
+        let id = event_id.try_get_value();
         async move {
+            let Some(id) = id else { return };
             match api.list_tiers(&id).await {
                 Ok(t) => {
                     tiers.try_set(Some(t));

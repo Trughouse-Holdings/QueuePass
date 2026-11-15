@@ -177,7 +177,7 @@ fn page(data: Arc<Loaded>, kept: RwSignal<Option<u64>>, auth: Auth) -> impl Into
                 &untrack(|| auth.username()).unwrap_or_else(|| "unknown".to_string()),
                 &table_zone,
                 if removed {
-                    kept.get_untracked().map(|n| n as i64)
+                    kept.try_get_untracked().flatten().map(|n| n as i64)
                 } else {
                     None
                 },

@@ -60,22 +60,41 @@ function walk(dir, needles, failures) {
  */
 export function cargoDependencies(text) {
   const crates = [];
-  let inDeps = false;
+  // 'list': a dependencies table, one crate a key; 'one': `[dependencies.<crate>]`, one crate's
+  // own table (review finding 5), where only `package = "…"` names another.
+  let mode = null;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.replace(/#.*$/, '').trim();
     if (!line) continue;
     const table = /^\[([^\]]+)\]$/.exec(line);
     if (table) {
-      inDeps = /(^|\.)(dependencies|dev-dependencies|build-dependencies)$/.test(table[1].trim());
+      const name = table[1].trim();
+      const one =
+        /(^|\.)(dependencies|dev-dependencies|build-dependencies)\."?([A-Za-z0-9_-]+)"?$/.exec(
+          name,
+        );
+      if (one) {
+        crates.push(one[3]);
+        mode = 'one';
+      } else {
+        mode = /(^|\.)(dependencies|dev-dependencies|build-dependencies)$/.test(name)
+          ? 'list'
+          : null;
+      }
       continue;
     }
-    if (!inDeps) continue;
+    if (!mode) continue;
     const key = /^"?([A-Za-z0-9_-]+)"?\s*(=|\.)/.exec(line);
-    if (key) crates.push(key[1]);
+    if (mode === 'list' && key) crates.push(key[1]);
     const renamed = /package\s*=\s*"([A-Za-z0-9_-]+)"/.exec(line);
     if (renamed) crates.push(renamed[1]);
   }
   return crates;
+}
+
+/** Every package `Cargo.lock` lists, the crates pulled in through others included. */
+export function cargoLockPackages(text) {
+  return [...text.matchAll(/^name = "([A-Za-z0-9_-]+)"$/gm)].map((m) => m[1]);
 }
 
 /** Every boundary failure under `root`, as `path: reason` lines. */
@@ -102,6 +121,13 @@ export function boundaryFailures(root) {
       for (const crate of new Set(cargoDependencies(readFileSync(path, 'utf8')))) {
         if (RUST_FORBIDDEN_CRATES.includes(crate))
           failures.push(`${RUST_APP}/${manifest}: lists "${crate}"`);
+      }
+    }
+    const lock = join(rust, 'Cargo.lock');
+    if (existsSync(lock)) {
+      for (const crate of new Set(cargoLockPackages(readFileSync(lock, 'utf8')))) {
+        if (RUST_FORBIDDEN_CRATES.includes(crate))
+          failures.push(`${RUST_APP}/Cargo.lock: pulls in "${crate}"`);
       }
     }
     for (const sources of RUST_SOURCES) {

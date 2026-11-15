@@ -11,12 +11,13 @@ use std::{cell::RefCell, rc::Rc};
 
 use admin_rust_core::{
     api::{
-        client::{ApiError, Body, Call, Method},
+        client::{ApiError, Body, Call, Method, ops},
         seat_stream::{
             LiveSeatStatus, LiveStatus, MapAnswer, SeatStream, SectionAnswer, SectionLoader,
             StreamMessage, StreamStep, encode_uri_component, open_seat_stream, section_wanted,
             stream_headers, stream_url,
         },
+        types,
     },
     seating::map_state::{MapAction, MapState, VenueMap, VenueMapSection, map_reducer},
 };
@@ -129,7 +130,7 @@ pub fn use_seat_stream(event_id: String, open_section_id: Signal<Option<String>>
             query: Vec::new(),
             body: Body::None,
         };
-        let answer = match api.send::<VenueMap>(call).await {
+        let answer = match api.send_quiet::<VenueMap>(call).await {
             Ok(map) => {
                 // The stream's own first map may have come already; it is newer.
                 if is_alive() && state.with_untracked(|s| s.map.is_none()) {
@@ -219,7 +220,9 @@ pub fn use_seat_stream(event_id: String, open_section_id: Signal<Option<String>>
         let api = api.clone();
         let id = id.clone();
         spawn_local(async move {
-            let result = api.get_venue_map_section(&id, &section_id).await;
+            let result = api
+                .send_quiet::<types::VenueMapSection>(ops::get_venue_map_section(&id, &section_id))
+                .await;
             if !is_alive() {
                 return;
             }

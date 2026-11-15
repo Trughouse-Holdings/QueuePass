@@ -240,6 +240,29 @@ async fn no_answer_is_unreachable() {
     let err = client.get_sales_report().await.unwrap_err();
     assert!(matches!(err, ApiError::Unreachable));
     assert_eq!(err.code(), None);
+    // A list page shows the browser's words for it, as React's `err.message` (review finding 4).
+    assert_eq!(err.page_message(), "Failed to fetch");
+}
+
+#[tokio::test]
+async fn a_quiet_read_does_not_sign_in_on_a_401() {
+    // The venue map and pictures are read with a bare `api.GET` in React: a 401 there is only an
+    // error (review finding 2).
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/events/e1/venue-map/sections/s1"))
+        .respond_with(ResponseTemplate::new(401).set_body_json(json!({
+            "error": { "code": "UNAUTHENTICATED", "message": "Sign in." }
+        })))
+        .mount(&server)
+        .await;
+    let (client, asked) = client(&server);
+    let call = ops::get_venue_map_section("e1", "s1");
+    let err = client.send_raw_quiet(call.clone()).await.unwrap_err();
+    assert_eq!(err.status(), Some(401));
+    assert_eq!(asked.get(), 0);
+    client.send_raw(call).await.unwrap_err();
+    assert_eq!(asked.get(), 1);
 }
 
 #[tokio::test]

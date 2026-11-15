@@ -49,12 +49,12 @@ pub fn VenueList() -> impl IntoView {
                 .api()
                 .list_locations((!trimmed.is_empty()).then_some(trimmed.as_str()))
                 .await;
-            if asked.get_value() != ticket {
+            if asked.try_get_value() != Some(ticket) {
                 return;
             }
             match result {
                 Ok(list) => locations.set(Some(list)),
-                Err(e) => error.set(Some(e.message().to_string())),
+                Err(e) => error.set(Some(e.page_message().to_string())),
             }
         });
     });

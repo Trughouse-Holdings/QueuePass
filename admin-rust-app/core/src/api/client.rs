@@ -131,6 +131,16 @@ impl ApiError {
         }
     }
 
+    /// The text a React page shows for `err.message` of a rejected call: the error's message,
+    /// or, with no answer at all, the browser's own words for a failed `fetch` (Chromium's
+    /// `TypeError: Failed to fetch`, the browser the tests and CI use).
+    pub fn page_message(&self) -> &str {
+        match self {
+            ApiError::Unreachable => "Failed to fetch",
+            _ => self.message(),
+        }
+    }
+
     pub fn details(&self) -> Option<&Map<String, Value>> {
         match self {
             ApiError::Status(e) => e.details.as_ref(),
@@ -423,8 +433,25 @@ impl ApiClient {
         &self.base_url
     }
 
-    /// Sends `call` and returns the answer's body (empty for 204), or the error it is.
+    /// Sends `call` and returns the answer's body (empty for 204), or the error it is. A 401
+    /// sends the browser to sign in (`unwrap` in `admin-app/src/api/client.ts`).
     pub async fn send_raw(&self, call: Call) -> Result<Vec<u8>, ApiError> {
+        self.exchange(call, true).await
+    }
+
+    /// As `send_raw`, but a 401 is only an error: the background reads the React app makes with
+    /// a bare `api.GET` (the venue map and its sections, event pictures) never sign in again.
+    pub async fn send_raw_quiet(&self, call: Call) -> Result<Vec<u8>, ApiError> {
+        self.exchange(call, false).await
+    }
+
+    /// As `send`, without the 401 action (`send_raw_quiet`).
+    pub async fn send_quiet<T: DeserializeOwned>(&self, call: Call) -> Result<T, ApiError> {
+        let body = self.send_raw_quiet(call).await?;
+        serde_json::from_slice(&body).map_err(|e| ApiError::Decode(e.to_string()))
+    }
+
+    async fn exchange(&self, call: Call, sign_in_on_401: bool) -> Result<Vec<u8>, ApiError> {
         let mut request = self.http.request(
             call.method.reqwest(),
             format!("{}{}", self.base_url, call.path),
@@ -460,7 +487,7 @@ impl ApiClient {
         if (200..300).contains(&status) {
             return Ok(body);
         }
-        if status == 401 {
+        if status == 401 && sign_in_on_401 {
             (self.on_unauthorized)();
         }
         Err(ApiError::Status(error_from(status, &body)))

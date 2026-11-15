@@ -116,12 +116,12 @@ pub fn EventList() -> impl IntoView {
         error.set(None);
         spawn_local(async move {
             let result = auth.api().list_events(&filters).await;
-            if asked.get_value() != ticket {
+            if asked.try_get_value() != Some(ticket) {
                 return;
             }
             match result {
                 Ok(events) => loaded.set(Some((events, now_ms()))),
-                Err(e) => error.set(Some(e.message().to_string())),
+                Err(e) => error.set(Some(e.page_message().to_string())),
             }
         });
     });
