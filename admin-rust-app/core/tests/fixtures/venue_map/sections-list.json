@@ -1,0 +1,826 @@
+[
+  {
+    "name": "basketball, none open",
+    "input": {
+      "map": {
+        "eventId": "e1",
+        "seq": 10,
+        "layoutId": "lay-1",
+        "layoutName": "Basketball",
+        "size": { "width": 1000, "height": 640 },
+        "floorKind": "COURT",
+        "floorOutline": [
+          [400, 260],
+          [600, 260],
+          [600, 380],
+          [400, 380]
+        ],
+        "levels": [
+          {
+            "levelId": "l-court",
+            "name": "Courtside",
+            "rank": 1,
+            "color": "violet",
+            "price": "95.00"
+          },
+          {
+            "levelId": "l-side",
+            "name": "Lower sideline",
+            "rank": 2,
+            "color": "blue",
+            "price": "60.00"
+          },
+          { "levelId": "l-end", "name": "Lower end", "rank": 3, "color": "teal", "price": "35.00" },
+          { "levelId": "l-upper", "name": "Upper", "rank": 4, "color": "green", "price": null }
+        ],
+        "sections": [
+          {
+            "sectionId": "s-115",
+            "name": "115",
+            "outline": [
+              [420, 400],
+              [480, 400],
+              [480, 440],
+              [420, 440]
+            ],
+            "labelAt": [450, 420],
+            "counts": [
+              { "levelId": "l-court", "open": 1, "reserved": 2, "sold": 1, "offSale": 1 },
+              { "levelId": "l-side", "open": 1, "reserved": 0, "sold": 0, "offSale": 0 }
+            ]
+          },
+          {
+            "sectionId": "s-101",
+            "name": "101",
+            "outline": [
+              [100, 300],
+              [160, 300],
+              [160, 340],
+              [100, 340]
+            ],
+            "labelAt": [130, 320],
+            "counts": [{ "levelId": "l-end", "open": 3, "reserved": 0, "sold": 0, "offSale": 0 }]
+          },
+          {
+            "sectionId": "s-301",
+            "name": "301",
+            "outline": [
+              [420, 40],
+              [480, 40],
+              [480, 80],
+              [420, 80]
+            ],
+            "labelAt": [450, 60],
+            "counts": [{ "levelId": "l-upper", "open": 0, "reserved": 0, "sold": 0, "offSale": 4 }]
+          }
+        ]
+      },
+      "openSectionId": null
+    },
+    "out": [
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section 115, $60–$95, 2 open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section 115"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__prices" },
+        "text": "$60–$95"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "2 open seats"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section 101, $35, 3 open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section 101"
+      },
+      { "tag": "SPAN", "depth": 2, "attrs": { "class": "sections-list__prices" }, "text": "$35" },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "3 open seats"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section 301, no open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section sections-list__section--faded",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section 301"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "no open seats"
+      }
+    ]
+  },
+  {
+    "name": "basketball, 115 open",
+    "input": {
+      "map": {
+        "eventId": "e1",
+        "seq": 10,
+        "layoutId": "lay-1",
+        "layoutName": "Basketball",
+        "size": { "width": 1000, "height": 640 },
+        "floorKind": "COURT",
+        "floorOutline": [
+          [400, 260],
+          [600, 260],
+          [600, 380],
+          [400, 380]
+        ],
+        "levels": [
+          {
+            "levelId": "l-court",
+            "name": "Courtside",
+            "rank": 1,
+            "color": "violet",
+            "price": "95.00"
+          },
+          {
+            "levelId": "l-side",
+            "name": "Lower sideline",
+            "rank": 2,
+            "color": "blue",
+            "price": "60.00"
+          },
+          { "levelId": "l-end", "name": "Lower end", "rank": 3, "color": "teal", "price": "35.00" },
+          { "levelId": "l-upper", "name": "Upper", "rank": 4, "color": "green", "price": null }
+        ],
+        "sections": [
+          {
+            "sectionId": "s-115",
+            "name": "115",
+            "outline": [
+              [420, 400],
+              [480, 400],
+              [480, 440],
+              [420, 440]
+            ],
+            "labelAt": [450, 420],
+            "counts": [
+              { "levelId": "l-court", "open": 1, "reserved": 2, "sold": 1, "offSale": 1 },
+              { "levelId": "l-side", "open": 1, "reserved": 0, "sold": 0, "offSale": 0 }
+            ]
+          },
+          {
+            "sectionId": "s-101",
+            "name": "101",
+            "outline": [
+              [100, 300],
+              [160, 300],
+              [160, 340],
+              [100, 340]
+            ],
+            "labelAt": [130, 320],
+            "counts": [{ "levelId": "l-end", "open": 3, "reserved": 0, "sold": 0, "offSale": 0 }]
+          },
+          {
+            "sectionId": "s-301",
+            "name": "301",
+            "outline": [
+              [420, 40],
+              [480, 40],
+              [480, 80],
+              [420, 80]
+            ],
+            "labelAt": [450, 60],
+            "counts": [{ "levelId": "l-upper", "open": 0, "reserved": 0, "sold": 0, "offSale": 4 }]
+          }
+        ]
+      },
+      "openSectionId": "s-115"
+    },
+    "out": [
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section 115, $60–$95, 2 open seats",
+          "aria-pressed": "true",
+          "class": "sections-list__section sections-list__section--chosen",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section 115"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__prices" },
+        "text": "$60–$95"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "2 open seats"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "aria-hidden": "true", "class": "sections-list__shown" },
+        "text": "On the map"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section 101, $35, 3 open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section 101"
+      },
+      { "tag": "SPAN", "depth": 2, "attrs": { "class": "sections-list__prices" }, "text": "$35" },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "3 open seats"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section 301, no open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section sections-list__section--faded",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section 301"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "no open seats"
+      }
+    ]
+  },
+  {
+    "name": "basketball, an open section not on the map",
+    "input": {
+      "map": {
+        "eventId": "e1",
+        "seq": 10,
+        "layoutId": "lay-1",
+        "layoutName": "Basketball",
+        "size": { "width": 1000, "height": 640 },
+        "floorKind": "COURT",
+        "floorOutline": [
+          [400, 260],
+          [600, 260],
+          [600, 380],
+          [400, 380]
+        ],
+        "levels": [
+          {
+            "levelId": "l-court",
+            "name": "Courtside",
+            "rank": 1,
+            "color": "violet",
+            "price": "95.00"
+          },
+          {
+            "levelId": "l-side",
+            "name": "Lower sideline",
+            "rank": 2,
+            "color": "blue",
+            "price": "60.00"
+          },
+          { "levelId": "l-end", "name": "Lower end", "rank": 3, "color": "teal", "price": "35.00" },
+          { "levelId": "l-upper", "name": "Upper", "rank": 4, "color": "green", "price": null }
+        ],
+        "sections": [
+          {
+            "sectionId": "s-115",
+            "name": "115",
+            "outline": [
+              [420, 400],
+              [480, 400],
+              [480, 440],
+              [420, 440]
+            ],
+            "labelAt": [450, 420],
+            "counts": [
+              { "levelId": "l-court", "open": 1, "reserved": 2, "sold": 1, "offSale": 1 },
+              { "levelId": "l-side", "open": 1, "reserved": 0, "sold": 0, "offSale": 0 }
+            ]
+          },
+          {
+            "sectionId": "s-101",
+            "name": "101",
+            "outline": [
+              [100, 300],
+              [160, 300],
+              [160, 340],
+              [100, 340]
+            ],
+            "labelAt": [130, 320],
+            "counts": [{ "levelId": "l-end", "open": 3, "reserved": 0, "sold": 0, "offSale": 0 }]
+          },
+          {
+            "sectionId": "s-301",
+            "name": "301",
+            "outline": [
+              [420, 40],
+              [480, 40],
+              [480, 80],
+              [420, 80]
+            ],
+            "labelAt": [450, 60],
+            "counts": [{ "levelId": "l-upper", "open": 0, "reserved": 0, "sold": 0, "offSale": 4 }]
+          }
+        ]
+      },
+      "openSectionId": "s-gone"
+    },
+    "out": [
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section 115, $60–$95, 2 open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section 115"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__prices" },
+        "text": "$60–$95"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "2 open seats"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section 101, $35, 3 open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section 101"
+      },
+      { "tag": "SPAN", "depth": 2, "attrs": { "class": "sections-list__prices" }, "text": "$35" },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "3 open seats"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section 301, no open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section sections-list__section--faded",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section 301"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "no open seats"
+      }
+    ]
+  },
+  {
+    "name": "odd, Stalls open",
+    "input": {
+      "map": {
+        "eventId": "e2",
+        "seq": 3,
+        "layoutId": "lay-2",
+        "layoutName": "Odd hall",
+        "size": { "width": 333, "height": 777 },
+        "floorKind": "NONE",
+        "floorOutline": [
+          [10, 10],
+          [30, 10],
+          [30, 30],
+          [10, 30]
+        ],
+        "levels": [
+          { "levelId": "l-a", "name": "Box", "rank": 1, "color": "orange", "price": "1200.50" },
+          { "levelId": "l-b", "name": "Stalls", "rank": 2, "color": "pink", "price": "60.5" },
+          { "levelId": "l-c", "name": "Gallery", "rank": 3, "color": "brown", "price": "0.99" },
+          { "levelId": "l-d", "name": "Closed", "rank": 4, "color": "lime", "price": null }
+        ],
+        "sections": [
+          {
+            "sectionId": "o-1",
+            "name": "Left Box",
+            "outline": [
+              [12.25, 40.5],
+              [80.125, 33.333],
+              [91.7, 120.01],
+              [15, 118.9]
+            ],
+            "labelAt": [49.77, 77.7],
+            "counts": [
+              { "levelId": "l-a", "open": 2, "reserved": -1, "sold": 3, "offSale": 0 },
+              { "levelId": "l-b", "open": -2, "reserved": 1, "sold": 0, "offSale": 1 }
+            ]
+          },
+          {
+            "sectionId": "o-2",
+            "name": "Stalls",
+            "outline": [
+              [100, 300],
+              [250.5, 290.25],
+              [260, 420.75],
+              [95.5, 430],
+              [90, 360]
+            ],
+            "labelAt": [171.1, 361.3],
+            "counts": [
+              { "levelId": "l-b", "open": 5, "reserved": 0, "sold": 7, "offSale": 0 },
+              { "levelId": "l-c", "open": 1, "reserved": 0, "sold": 0, "offSale": 0 },
+              { "levelId": "l-x", "open": 9, "reserved": 0, "sold": 0, "offSale": 0 }
+            ]
+          },
+          {
+            "sectionId": "o-3",
+            "name": "Gallery",
+            "outline": [
+              [30.3, 600.6],
+              [301, 600.6],
+              [301, 721.5],
+              [30.3, 721.5]
+            ],
+            "labelAt": [165.65, 661.05],
+            "counts": [
+              { "levelId": "l-c", "open": 0, "reserved": 4, "sold": 0, "offSale": 0 },
+              { "levelId": "l-d", "open": 6, "reserved": 0, "sold": 0, "offSale": 2 }
+            ]
+          },
+          {
+            "sectionId": "o-4",
+            "name": "Closed",
+            "outline": [
+              [5, 500],
+              [45, 500],
+              [45, 540],
+              [5, 540]
+            ],
+            "labelAt": [25, 520],
+            "counts": [{ "levelId": "l-d", "open": 0, "reserved": 0, "sold": 0, "offSale": 0 }]
+          }
+        ]
+      },
+      "openSectionId": "o-2"
+    },
+    "out": [
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section Left Box, $1,200.50, 2 open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section Left Box"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__prices" },
+        "text": "$1,200.50"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "2 open seats"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section Stalls, $0.99–$60.50, 6 open seats",
+          "aria-pressed": "true",
+          "class": "sections-list__section sections-list__section--chosen",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section Stalls"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__prices" },
+        "text": "$0.99–$60.50"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "6 open seats"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "aria-hidden": "true", "class": "sections-list__shown" },
+        "text": "On the map"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section Gallery, no open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section sections-list__section--faded",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section Gallery"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "no open seats"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section Closed, no open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section sections-list__section--faded",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section Closed"
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "no open seats"
+      }
+    ]
+  },
+  {
+    "name": "admin arena",
+    "input": {
+      "map": {
+        "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+        "seq": 1,
+        "layoutId": "l-arena",
+        "layoutName": "Arena",
+        "size": { "width": 80, "height": 10 },
+        "floorKind": "NONE",
+        "floorOutline": null,
+        "levels": [
+          { "levelId": "l-front", "name": "Front", "rank": 1, "color": "violet", "price": "90.00" },
+          { "levelId": "l-back", "name": "Back", "rank": 2, "color": "teal", "price": "55.00" },
+          { "levelId": "l-upper", "name": "Upper", "rank": 3, "color": "blue", "price": "30.00" }
+        ],
+        "sections": [
+          {
+            "sectionId": "s-a",
+            "name": "Floor A",
+            "outline": [
+              [0, 0],
+              [24, 0],
+              [24, 10],
+              [0, 10]
+            ],
+            "labelAt": [12, 5],
+            "counts": [{ "levelId": "l-front", "open": 28, "reserved": 1, "sold": 1, "offSale": 0 }]
+          },
+          {
+            "sectionId": "s-b",
+            "name": "Floor B",
+            "outline": [
+              [32, 0],
+              [56, 0],
+              [56, 10],
+              [32, 10]
+            ],
+            "labelAt": [44, 5],
+            "counts": [{ "levelId": "l-back", "open": 30, "reserved": 0, "sold": 0, "offSale": 0 }]
+          },
+          {
+            "sectionId": "s-bal",
+            "name": "Balcony",
+            "outline": [
+              [64, 0],
+              [78, 0],
+              [78, 8],
+              [64, 8]
+            ],
+            "labelAt": [71, 4],
+            "counts": [{ "levelId": "l-upper", "open": 9, "reserved": 0, "sold": 0, "offSale": 1 }]
+          }
+        ]
+      },
+      "openSectionId": null
+    },
+    "out": [
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section Floor A, $90, 28 open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section Floor A"
+      },
+      { "tag": "SPAN", "depth": 2, "attrs": { "class": "sections-list__prices" }, "text": "$90" },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "28 open seats"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section Floor B, $55, 30 open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section Floor B"
+      },
+      { "tag": "SPAN", "depth": 2, "attrs": { "class": "sections-list__prices" }, "text": "$55" },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "30 open seats"
+      },
+      { "tag": "LI", "depth": 0, "attrs": {}, "text": "" },
+      {
+        "tag": "BUTTON",
+        "depth": 1,
+        "attrs": {
+          "aria-label": "Section Balcony, $30, 9 open seats",
+          "aria-pressed": "false",
+          "class": "sections-list__section",
+          "type": "button"
+        },
+        "text": ""
+      },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__name" },
+        "text": "Section Balcony"
+      },
+      { "tag": "SPAN", "depth": 2, "attrs": { "class": "sections-list__prices" }, "text": "$30" },
+      {
+        "tag": "SPAN",
+        "depth": 2,
+        "attrs": { "class": "sections-list__count" },
+        "text": "9 open seats"
+      }
+    ]
+  }
+]
