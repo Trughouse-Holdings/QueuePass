@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "name": "Small court",
+  "floor": {
+    "kind": "COURT",
+    "outline": [
+      [70, 70],
+      [130, 70],
+      [130, 110],
+      [70, 110]
+    ]
+  },
+  "size": { "width": 200, "height": 120 },
+  "levels": [
+    { "key": "front", "name": "Front", "rank": 1, "color": "violet" },
+    { "key": "back", "name": "Back", "rank": 2, "color": "teal" }
+  ],
+  "sections": [
+    {
+      "name": "A",
+      "level": "front",
+      "outline": [
+        [10, 60],
+        [60, 60],
+        [60, 115],
+        [10, 115]
+      ],
+      "rows": [
+        { "label": "1", "seats": { "first": 1, "count": 7, "from": [55, 66], "to": [55, 108] } },
+        { "label": "2", "seats": { "first": 1, "count": 7, "from": [45, 66], "to": [45, 108] } },
+        {
+          "label": "3",
+          "level": "back",
+          "seats": { "first": 1, "count": 7, "from": [35, 66], "to": [35, 108] }
+        }
+      ]
+    },
+    {
+      "name": "B",
+      "level": "back",
+      "outline": [
+        [70, 10],
+        [130, 10],
+        [130, 60],
+        [70, 60]
+      ],
+      "labelAt": [100, 18],
+      "rows": [
+        { "label": "1", "seats": { "first": 1, "count": 7, "from": [76, 55], "to": [124, 55] } },
+        {
+          "label": "2",
+          "seats": [
+            { "label": "1", "at": [80, 45], "accessible": true },
+            { "label": "2", "at": [90, 45] },
+            { "label": "3", "at": [100, 45], "level": "front" },
+            { "label": "4", "at": [110, 45] },
+            { "label": "5", "at": [120, 45] }
+          ]
+        },
+        {
+          "label": "3",
+          "seats": { "first": 1, "count": 7, "from": [76, 35], "to": [124, 35], "bend": [100, 30] }
+        }
+      ]
+    },
+    {
+      "name": "C",
+      "level": "front",
+      "outline": [
+        [140, 60],
+        [190, 60],
+        [190, 115],
+        [140, 115]
+      ],
+      "rows": [
+        { "label": "1", "seats": { "first": 1, "count": 7, "from": [145, 66], "to": [145, 108] } },
+        { "label": "2", "seats": { "first": 1, "count": 7, "from": [155, 66], "to": [155, 108] } },
+        { "label": "3", "seats": { "first": 1, "count": 7, "from": [165, 66], "to": [165, 108] } }
+      ]
+    }
+  ]
+}

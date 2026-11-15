@@ -10,7 +10,7 @@ import { liveSkipReason } from './live-guard';
 /**
  * Spec 001 FR-004 through FR-007 and FR-034 — the seed must be idempotent AND deterministic,
  * for users and for the front-end sign-in clients; spec 028 FR-005, FR-009 (tasks T015): in each
- * of the three app realms, each holding its own users and its one client.
+ * of the four app realms, each holding its own users and its one client.
  *
  * Requires a running Keycloak. Skipped when absent so the unit suite stays runnable without
  * the stack up; the quickstart runs it with Keycloak available. Also skipped on a Keycloak that
@@ -30,7 +30,7 @@ describe('Keycloak seed idempotence', () => {
     if (skipReason) console.warn(`[skip] ${skipReason}`);
   });
 
-  it('seeds each app realm with exactly its users, 235 in all, and re-running changes nothing', async ({
+  it('seeds each app realm with exactly its users, 240 in all, and re-running changes nothing', async ({
     skip,
   }) => {
     skip(!!skipReason, skipReason);
@@ -42,6 +42,7 @@ describe('Keycloak seed idempotence', () => {
       'queuepass-admin-app': 5,
       'queuepass-customer-app': 200,
       'queuepass-booth-app': 30,
+      'queuepass-admin-rust-app': 5,
     });
     const kc = await createKeycloakClient();
     expect((await kc.realms.find()).map((r) => r.realm)).not.toContain(LEGACY_REALM);

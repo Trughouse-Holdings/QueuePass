@@ -73,7 +73,7 @@ export class Api {
 
   /** One call; on a 401 (an expired token) the page is reloaded for a fresh one, once. */
   async call<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'PATCH',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     data?: unknown,
   ): Promise<T> {

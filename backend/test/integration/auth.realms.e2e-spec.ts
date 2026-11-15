@@ -8,11 +8,11 @@ import { createTestApp, TestContext } from '../setup/test-app';
 import { issuerFor, REALM, subFor, TEST_AUDIENCE, tokenFor } from '../setup/tokens';
 
 /**
- * Spec 028 FR-010, FR-011, SC-005 (research R8): the Backend accepts tokens from the three app
- * realms only, each checked against its own realm's keys and issuer, and from each realm honours
+ * Spec 028 FR-010, FR-011, SC-005 (research R8): the Backend accepts tokens from the app realms
+ * only (four since spec 037), each checked against its own realm's keys and issuer, and from each realm honours
  * only its app's role. Every refusal looks the same to the caller (contract `Unauthenticated`).
  */
-describe('Tokens from the three app realms', () => {
+describe('Tokens from the app realms', () => {
   let ctx: TestContext;
   beforeAll(async () => {
     ctx = await createTestApp();
@@ -56,7 +56,7 @@ describe('Tokens from the three app realms', () => {
       });
     });
 
-    it('listing all three roles, allows only its own: 403 elsewhere, /me lists one (FR-011)', async () => {
+    it('listing every role, allows only its own: 403 elsewhere, /me lists one (FR-011)', async () => {
       const token = await tokenFor({ username: userOf(app.prefix), roles: ALL_ROLES, realm });
       for (const [role, paths] of Object.entries(ENDPOINTS)) {
         for (const path of paths) {
@@ -83,6 +83,60 @@ describe('Tokens from the three app realms', () => {
         });
         expectUnauthenticated(await as(ctx, token).get('/me'));
       }
+    });
+  });
+
+  // Spec 037 (contract sign-in-realm.md): the Rust Admin app's realm is trusted exactly as the
+  // React Admin app's: the admin role only, its own keys, a live token for the API audience.
+  describe('queuepass-admin-rust-app (spec 037)', () => {
+    const realm = 'queuepass-admin-rust-app';
+    const admin = { username: 'admin1', realm };
+
+    it('is one of the trusted realms, honouring the admin role', () => {
+      expect(APP_REALMS.find((r) => r.realm === realm)?.role).toBe('queuepass-admin');
+    });
+
+    it('gets 200 on an admin endpoint with the admin role', async () => {
+      await as(ctx, await tokenFor({ ...admin, roles: ['queuepass-admin'] }))
+        .get('/reports/sales')
+        .expect(200);
+    });
+
+    it('gets 403 on an admin endpoint with no QueuePass role', async () => {
+      const res = await as(ctx, await tokenFor({ ...admin, roles: [] })).get('/reports/sales');
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it.each([['customer'], ['gate-agent']])(
+      'gets 403 on an admin endpoint with only the %s role',
+      async (role) => {
+        const res = await as(ctx, await tokenFor({ ...admin, roles: [role] })).get(
+          '/reports/sales',
+        );
+        expect(res.status).toBe(403);
+        expect(res.body.error.code).toBe('FORBIDDEN');
+      },
+    );
+
+    it('gets 401 for an expired token', async () => {
+      const token = await tokenFor({ ...admin, roles: ['queuepass-admin'], expiresIn: -300 });
+      expectUnauthenticated(await as(ctx, token).get('/reports/sales'));
+    });
+
+    it('gets 401 for a token for another audience', async () => {
+      const token = await tokenFor({ ...admin, roles: ['queuepass-admin'], aud: 'account' });
+      expectUnauthenticated(await as(ctx, token).get('/reports/sales'));
+    });
+
+    it("gets 401 for its issuer on the React Admin app realm's key", async () => {
+      const token = await tokenFor({
+        ...admin,
+        roles: ['queuepass-admin'],
+        realm: 'queuepass-admin-app',
+        iss: issuerFor(realm),
+      });
+      expectUnauthenticated(await as(ctx, token).get('/reports/sales'));
     });
   });
 

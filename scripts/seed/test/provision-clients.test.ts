@@ -7,20 +7,22 @@ import { FRONTEND_CLIENTS, desiredClient } from '../src/provision-clients';
  * wildcards in redirect URIs. Pure: needs no Keycloak.
  */
 describe('desired front-end client settings', () => {
-  it('covers the three front ends on their own ports', () => {
+  it('covers the four front ends on their own ports (037: the Rust Admin app on 5176)', () => {
     expect(FRONTEND_CLIENTS.map((c) => [c.clientId, c.port])).toEqual([
       ['admin-app', 5173],
       ['customer-app', 5174],
       ['booth-app', 5175],
+      ['admin-rust-app', 5176],
     ]);
   });
 
   // Spec 021 FR-002: the name each sign-in screen shows comes from here, and only from here.
-  it('names the three front ends as their sign-in screens do', () => {
+  it('names the four front ends as their sign-in screens do', () => {
     expect(FRONTEND_CLIENTS.map((c) => [c.clientId, c.name])).toEqual([
       ['admin-app', 'QueuePass Admin'],
       ['customer-app', 'QueuePass Tickets'],
       ['booth-app', 'QueuePass Ticket Booth'],
+      ['admin-rust-app', 'QueuePass Admin (Rust)'],
     ]);
     for (const c of FRONTEND_CLIENTS) expect(desiredClient(c).name).toBe(c.name);
   });

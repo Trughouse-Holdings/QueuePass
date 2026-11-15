@@ -2,7 +2,11 @@ import type KcAdminClient from '@keycloak/keycloak-admin-client';
 import { APP_REALMS, type AppRealm } from './app-realms';
 import { loadConfig } from './keycloak-client';
 
-/** Exactly the principals spec 001 FR-003 requires: 5 + 30 + 200 = 235, one group per realm. */
+/**
+ * Exactly the principals spec 001 FR-003 requires, one group per realm: 5 + 30 + 200, plus spec
+ * 037's 5 Rust Admin accounts in their own realm = 240. `admin` counts one realm's admins (both
+ * Admin realms hold `admin1`–`admin5`).
+ */
 const countOf = (prefix: AppRealm['prefix']): number =>
   APP_REALMS.find((r) => r.prefix === prefix)!.count;
 

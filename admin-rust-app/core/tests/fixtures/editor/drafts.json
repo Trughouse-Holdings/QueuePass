@@ -1,0 +1,766 @@
+[
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": {}
+    }
+  },
+  {
+    "draft": {
+      "name": " 101 ",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "name": "Another section is named 101" }
+    }
+  },
+  {
+    "draft": {
+      "name": "101",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "except": "s-101",
+    "seatsBefore": 2,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": {}
+    }
+  },
+  {
+    "draft": {
+      "name": "",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "name": "Name the section" }
+    }
+  },
+  {
+    "draft": {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "name": "At most 50 characters" }
+    }
+  },
+  {
+    "draft": {
+      "name": "",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": false,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": {}
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": " 12 ",
+      "seatsPerRow": "  16,16 , 18\t18,,20 20 ",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 12,
+        "seatsPerRow": [16, 16, 18, 18, 20, 20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "seatsPerRow": "Give one number for every row, or one for each of the 12 rows" }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "6",
+      "seatsPerRow": "16, 16, 18, 18, 20, 20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 6,
+        "seatsPerRow": [16, 16, 18, 18, 20, 20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": {}
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "0x10",
+      "seatsPerRow": "1e1, .5e1, +3, 0b11, 0o7",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 16,
+        "seatsPerRow": [10, 5, 3, 3, 7],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "seatsPerRow": "Give one number for every row, or one for each of the 16 rows" }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "",
+      "seatsPerRow": "",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": null,
+        "seatsPerRow": [],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": {
+        "rows": "At least 1 row",
+        "seatsPerRow": "Seats per row: one number, or one a row"
+      }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "2.5",
+      "seatsPerRow": "20, x",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 2.5,
+        "seatsPerRow": [20, null],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": {
+        "seatsPerRow": "Seats per row: whole numbers, such as 20 or 16, 16, 18",
+        "rows": "At least 1 row"
+      }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "101",
+      "seatsPerRow": "201",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 101,
+        "seatsPerRow": [201],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "rows": "At most 100 rows", "seatsPerRow": "At most 200 seats in a row" }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "100",
+      "seatsPerRow": "200",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 20000,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 100,
+        "seatsPerRow": [200],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "seatsPerRow": "The layout would have 40,000 seats; at most 30,000" }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "100",
+      "seatsPerRow": "200",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 10000,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 100,
+        "seatsPerRow": [200],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": {}
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": " AB ",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "AB",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "firstRow": "The first row is a letter, or one letter repeated (A, AA, AAA)" }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": " zz ",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "zz",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": {}
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "NUMBERS",
+      "firstRow": "99999",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "NUMBERS",
+        "firstRow": "99999",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "firstRow": "Row labels would run past 5 characters" }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1e4",
+      "direction": "RIGHT_TO_LEFT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 10000,
+        "direction": "RIGHT_TO_LEFT",
+        "curve": 0
+      },
+      "problems": { "firstSeat": "The first seat is a whole number from 1 to 9,999" }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "Infinity",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": null,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "firstSeat": "The first seat is a whole number from 1 to 9,999" }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "40",
+      "curve": "junk",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 40
+      },
+      "problems": {}
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "custom",
+      "curve": "121",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 121
+      },
+      "problems": { "curve": "The curve is from 0 to 120 degrees" }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "custom",
+      "curve": " 25.5 ",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 25.5
+      },
+      "problems": {}
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "custom",
+      "curve": "-0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": {}
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "3",
+      "seatsPerRow": "4, 5",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": 3,
+        "seatsPerRow": [4, 5],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "seatsPerRow": "Give one number for every row, or one for each of the 3 rows" }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "1_0",
+      "seatsPerRow": "1.",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "-1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 8,
+    "checkName": true,
+    "many": false,
+    "out": {
+      "values": {
+        "rows": null,
+        "seatsPerRow": [1],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": -1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": {
+        "rows": "At least 1 row",
+        "firstSeat": "The first seat is a whole number from 1 to 9,999"
+      }
+    }
+  },
+  {
+    "draft": {
+      "name": "104",
+      "rows": "10",
+      "seatsPerRow": "20",
+      "rowLabels": "LETTERS",
+      "firstRow": "A",
+      "firstSeat": "1",
+      "direction": "LEFT_TO_RIGHT",
+      "curvePreset": "0",
+      "curve": "0",
+      "levelId": "lv-std"
+    },
+    "seatsBefore": 0,
+    "checkName": true,
+    "many": true,
+    "out": {
+      "values": {
+        "rows": 10,
+        "seatsPerRow": [20],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "problems": { "name": "A layout has at most 100 sections" }
+    }
+  }
+]

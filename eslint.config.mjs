@@ -16,6 +16,8 @@ export default tseslint.config(
       'e2e/playwright-report/',
       'e2e/test-results/',
       '**/*.min.js',
+      // Spec 037 (research R11): Rust build output of the Rust Admin app.
+      '**/target/',
       'specs/',
       '.specify/',
       // Generated from contracts/openapi.yaml by npm run generate:api.
@@ -35,7 +37,8 @@ export default tseslint.config(
   },
   {
     // Plain Node scripts run by npm test (boundary and contract-drift checks).
-    files: ['scripts/**/*.mjs', 'e2e/stack/**/*.mjs'],
+    // Spec 037: the Rust Admin app's coverage-summary script runs on Node too.
+    files: ['scripts/**/*.mjs', 'e2e/stack/**/*.mjs', 'admin-rust-app/scripts/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
   {

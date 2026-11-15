@@ -36,6 +36,8 @@ jobs:
         run: npm ci
       - name: Generate Prisma client
         run: npm run prisma:generate --workspace @queuepass/backend
+      - name: Set up Rust
+        run: npm run rust:setup
       - name: Check formatting
         run: npm run format:check
       - name: Lint

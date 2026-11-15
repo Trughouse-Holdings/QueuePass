@@ -72,6 +72,7 @@ describe('messages_en.properties (research R3, R9; data-model.md)', () => {
       'qpAudience.admin-app': 'For administrators managing venues, events, and sales.',
       'qpAudience.customer-app': 'For customers buying and viewing tickets.',
       'qpAudience.booth-app': 'For gate agents checking tickets in at the door.',
+      'qpAudience.admin-rust-app': 'For QueuePass staff, Rust version',
     });
   });
 });
@@ -369,6 +370,7 @@ describe('the sign-in backdrop (spec 027)', () => {
   it.each([
     ['.qp-app--customer-app', 'tickets'],
     ['.qp-app--booth-app', 'booth'],
+    ['.qp-app--admin-rust-app', 'rust'],
   ])('points the %s lines at its own lighter accent (R6)', (selector, app) => {
     expect(bodiesNaming(selector)).toContain(`--stone-accent: var(--stone-accent-${app});`);
   });

@@ -4,7 +4,8 @@
 // hours ago), in progress (30 minutes ago to 2 hours from now, 90 minutes after the ended one's
 // end, so the 60-minute rule holds), and ahead (7 days from now, 7:00 to 10:00 PM venue-local).
 // Read only beyond its own rows.
-import { expect, test, type Browser, type TestInfo } from '@playwright/test';
+import { expect, test } from '../fixtures/admin-app';
+import { type Browser, type TestInfo } from '@playwright/test';
 import { adminFor, customerFor } from '../fixtures/apps';
 import { apiFor, createEvent, createVenue, type Event, type Location } from '../fixtures/api';
 import { PLACES, uniqueName } from '../fixtures/data';
@@ -83,60 +84,62 @@ test('030 S1/S2: the Customer app leaves an ended event out of the list, a searc
   await page.context().close();
 });
 
-test('030 S4/S6: the Admin app hides an ended event until Show past events is on, marks it Ended, and its page, attendees, and Reports row open', async ({
-  browser,
-}, testInfo) => {
-  const { venue, ended, inProgress, ahead } = await setUp(browser, testInfo);
-  const page = await (await browser.newContext()).newPage();
-  await signIn(page, 'admin', adminFor(testInfo));
-  const row = (name: string) =>
-    page.getByRole('row').filter({ has: page.getByRole('link', { name, exact: true }) });
+test(
+  '030 S4/S6: the Admin app hides an ended event until Show past events is on, marks it Ended, and its page, attendees, and Reports row open',
+  { tag: '@admin' },
+  async ({ adminApp, browser }, testInfo) => {
+    const { venue, ended, inProgress, ahead } = await setUp(browser, testInfo);
+    const page = await (await browser.newContext()).newPage();
+    await signIn(page, adminApp, adminFor(testInfo));
+    const row = (name: string) =>
+      page.getByRole('row').filter({ has: page.getByRole('link', { name, exact: true }) });
 
-  await test.step('the Events page, searched by venue, leaves the ended event out', async () => {
-    await page.getByRole('link', { name: 'Events', exact: true }).click();
-    await expect(page.getByText(/past events hidden/)).toBeVisible();
-    // The filter's label wraps its select, so its name starts with "Venue" and goes on with the
-    // options' text; matched by its start, not exactly.
-    await page.getByRole('combobox', { name: /^Venue/ }).selectOption({ label: venue.name });
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
-    await expect(row(inProgress.name)).toBeVisible();
-    await expect(row(ahead.name)).toBeVisible();
-    await expect(row(ended.name)).toHaveCount(0);
-  });
+    await test.step('the Events page, searched by venue, leaves the ended event out', async () => {
+      await page.getByRole('link', { name: 'Events', exact: true }).click();
+      await expect(page.getByText(/past events hidden/)).toBeVisible();
+      // The filter's label wraps its select, so its name starts with "Venue" and goes on with the
+      // options' text; matched by its start, not exactly.
+      await page.getByRole('combobox', { name: /^Venue/ }).selectOption({ label: venue.name });
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+      await expect(row(inProgress.name)).toBeVisible();
+      await expect(row(ahead.name)).toBeVisible();
+      await expect(row(ended.name)).toHaveCount(0);
+    });
 
-  await test.step('Show past events lists it, marked Ended, and stays on after a reload', async () => {
-    // The checkbox follows the page address (past=1), which the router updates a moment after the
-    // click, so it is clicked and then waited for, not check()ed (which verifies at once).
-    const show = page.getByRole('checkbox', { name: 'Show past events' });
-    await show.click();
-    await expect(show).toBeChecked();
-    await expect(row(ended.name)).toBeVisible();
-    await expect(row(ended.name).getByText('Ended', { exact: true })).toBeVisible();
-    await expect(row(inProgress.name).getByText('Ended', { exact: true })).toHaveCount(0);
-    await expect(page).toHaveURL(/[?&]past=1(&|$)/);
-    await page.reload();
-    await expect(page.getByRole('checkbox', { name: 'Show past events' })).toBeChecked();
-    await expect(row(ended.name).getByText('Ended', { exact: true })).toBeVisible();
-  });
+    await test.step('Show past events lists it, marked Ended, and stays on after a reload', async () => {
+      // The checkbox follows the page address (past=1), which the router updates a moment after the
+      // click, so it is clicked and then waited for, not check()ed (which verifies at once).
+      const show = page.getByRole('checkbox', { name: 'Show past events' });
+      await show.click();
+      await expect(show).toBeChecked();
+      await expect(row(ended.name)).toBeVisible();
+      await expect(row(ended.name).getByText('Ended', { exact: true })).toBeVisible();
+      await expect(row(inProgress.name).getByText('Ended', { exact: true })).toHaveCount(0);
+      await expect(page).toHaveURL(/[?&]past=1(&|$)/);
+      await page.reload();
+      await expect(page.getByRole('checkbox', { name: 'Show past events' })).toBeChecked();
+      await expect(row(ended.name).getByText('Ended', { exact: true })).toBeVisible();
+    });
 
-  await test.step('its page shows Ended, and its Attendees page opens', async () => {
-    await row(ended.name).getByRole('link', { name: ended.name, exact: true }).click();
-    const heading = page.getByRole('heading', { level: 1, name: new RegExp(`^${ended.name}`) });
-    await expect(heading).toBeVisible();
-    await expect(heading.getByText('Ended', { exact: true })).toBeVisible();
-    await page.getByRole('link', { name: 'Attendees', exact: true }).click();
-    await expect(
-      page.getByRole('heading', { level: 1, name: `Attendees: ${ended.name}` }),
-    ).toBeVisible();
-  });
+    await test.step('its page shows Ended, and its Attendees page opens', async () => {
+      await row(ended.name).getByRole('link', { name: ended.name, exact: true }).click();
+      const heading = page.getByRole('heading', { level: 1, name: new RegExp(`^${ended.name}`) });
+      await expect(heading).toBeVisible();
+      await expect(heading.getByText('Ended', { exact: true })).toBeVisible();
+      await page.getByRole('link', { name: 'Attendees', exact: true }).click();
+      await expect(
+        page.getByRole('heading', { level: 1, name: `Attendees: ${ended.name}` }),
+      ).toBeVisible();
+    });
 
-  await test.step('Reports lists it, and its name opens its page', async () => {
-    await page.getByRole('link', { name: 'Reports', exact: true }).click();
-    await page.getByRole('link', { name: ended.name, exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`/events/${ended.id}$`));
-    await expect(
-      page.getByRole('heading', { level: 1, name: new RegExp(`^${ended.name}`) }),
-    ).toBeVisible();
-  });
-  await page.context().close();
-});
+    await test.step('Reports lists it, and its name opens its page', async () => {
+      await page.getByRole('link', { name: 'Reports', exact: true }).click();
+      await page.getByRole('link', { name: ended.name, exact: true }).click();
+      await expect(page).toHaveURL(new RegExp(`/events/${ended.id}$`));
+      await expect(
+        page.getByRole('heading', { level: 1, name: new RegExp(`^${ended.name}`) }),
+      ).toBeVisible();
+    });
+    await page.context().close();
+  },
+);

@@ -1,0 +1,139 @@
+{
+  "id": "dbcc0e93-93c3-4005-8d83-30e6e521652f",
+  "locationId": "3bfc2695-94ef-4492-88e9-a74bab00f042",
+  "name": "Riverside",
+  "source": "DRAWN",
+  "revision": 4,
+  "locked": false,
+  "lockedBy": [],
+  "floor": {
+    "kind": "COURT",
+    "outline": [
+      [40, 40],
+      [80, 40],
+      [80, 60],
+      [40, 60]
+    ]
+  },
+  "size": {
+    "width": 130,
+    "height": 90
+  },
+  "levels": [
+    {
+      "id": "aa429e4a-af8f-41de-8bc2-7eb99ad36eb5",
+      "name": "Courtside",
+      "rank": 1,
+      "color": "red"
+    },
+    {
+      "id": "c634bfbc-10bf-4e6f-833c-f0fedbf06ada",
+      "name": "Standard",
+      "rank": 2,
+      "color": "violet"
+    }
+  ],
+  "sections": [
+    {
+      "id": "db563000-8f37-4875-8470-523f2ba006d2",
+      "name": "101",
+      "levelId": "c634bfbc-10bf-4e6f-833c-f0fedbf06ada",
+      "origin": [20, 30],
+      "angle": 0,
+      "generator": {
+        "rows": 2,
+        "seatsPerRow": [3],
+        "rowLabels": "LETTERS",
+        "firstRow": "A",
+        "firstSeat": 1,
+        "direction": "LEFT_TO_RIGHT",
+        "curve": 0
+      },
+      "outline": [
+        [16.5, 31.5],
+        [16.5, 26.5],
+        [23.5, 26.5],
+        [23.5, 31.5]
+      ],
+      "rows": [
+        {
+          "id": "f84a45ce-34e3-46a0-8068-65f1c2aa40ba",
+          "label": "A",
+          "seats": [
+            {
+              "id": "31ca97d9-fe4c-4b50-83bd-28068bd0b58c",
+              "label": "1",
+              "at": [18, 30],
+              "accessible": true,
+              "levelId": "aa429e4a-af8f-41de-8bc2-7eb99ad36eb5"
+            },
+            {
+              "id": "99000434-6c2e-47c3-8db2-72a877b3a7d6",
+              "label": "2",
+              "at": [20, 30]
+            },
+            {
+              "id": "865403ff-f646-49bc-80fe-3679db9fc98f",
+              "label": "3",
+              "at": [22, 30]
+            }
+          ]
+        },
+        {
+          "id": "9bc99607-a2ca-4adf-87ce-47a55cf0b829",
+          "label": "B",
+          "levelId": "aa429e4a-af8f-41de-8bc2-7eb99ad36eb5",
+          "seats": [
+            {
+              "id": "605286fc-e570-476c-8136-9dde676a1b6f",
+              "label": "1",
+              "at": [18, 28]
+            },
+            {
+              "id": "68d74d0a-6c3c-426c-84cb-ef021c585d12",
+              "label": "2",
+              "at": [20, 28]
+            },
+            {
+              "id": "fcb300ff-e3b6-42c1-8a26-88916cccef9c",
+              "label": "3",
+              "at": [22, 28]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bbb63b83-fe5e-4fcc-8972-e9c70410bfea",
+      "name": "102",
+      "levelId": "aa429e4a-af8f-41de-8bc2-7eb99ad36eb5",
+      "origin": [100.04, 30],
+      "angle": 90,
+      "generator": null,
+      "outline": [
+        [98.5, 28.5],
+        [101.5, 28.5],
+        [101.5, 33.5],
+        [98.5, 33.5]
+      ],
+      "rows": [
+        {
+          "id": "8642be0e-7b9a-45a7-8352-15181091bba7",
+          "label": "1",
+          "seats": [
+            {
+              "id": "cbceef3e-2330-4159-8159-48a2f6e82be7",
+              "label": "1",
+              "at": [100.04, 30]
+            },
+            {
+              "id": "d120f13d-8b5a-4f27-8609-e2d964f9ece3",
+              "label": "2",
+              "at": [100, 32.0001]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

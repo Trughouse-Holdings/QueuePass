@@ -1,0 +1,65 @@
+{
+  "kind": "sales",
+  "report": {
+    "generatedAt": "2026-10-01T12:00:00.000Z",
+    "totals": {
+      "events": 1,
+      "ticketCapacity": 300,
+      "ticketsSold": 75,
+      "checkedIn": 12,
+      "revenue": "4321.50"
+    },
+    "events": [
+      {
+        "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+        "name": "Season Opener",
+        "venueName": "Yum Center",
+        "startsAt": "2026-11-01T23:00:00.000Z",
+        "status": "SCHEDULED",
+        "ticketCapacity": 100,
+        "ticketsSold": 25,
+        "checkedIn": 12,
+        "revenue": "1321.50",
+        "tiers": [],
+        "levels": [
+          {
+            "levelId": "55555555-5555-4555-8555-555555555555",
+            "name": "Courtside",
+            "price": "95.00",
+            "seatsOnSale": 30,
+            "ticketsSold": 25,
+            "revenue": "1321.50"
+          }
+        ]
+      },
+      {
+        "eventId": "33333333-3333-4333-8333-333333333333",
+        "name": "Winter Gala",
+        "venueName": "Freedom Hall",
+        "startsAt": "2026-12-20T23:00:00.000Z",
+        "status": "SCHEDULED",
+        "ticketCapacity": 200,
+        "ticketsSold": 50,
+        "checkedIn": 0,
+        "revenue": "3000.00",
+        "tiers": [],
+        "levels": []
+      },
+      {
+        "eventId": "44444444-4444-4444-8444-444444444444",
+        "name": "Rained Out",
+        "venueName": "Freedom Hall",
+        "startsAt": "2026-10-20T23:00:00.000Z",
+        "status": "CANCELLED",
+        "ticketCapacity": 50,
+        "ticketsSold": 0,
+        "checkedIn": 0,
+        "revenue": "0.00",
+        "tiers": [],
+        "levels": []
+      }
+    ]
+  },
+  "madeBy": "admin1",
+  "adminZone": "Europe/London"
+}

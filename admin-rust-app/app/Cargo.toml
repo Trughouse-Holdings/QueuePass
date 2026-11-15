@@ -1,0 +1,44 @@
+[package]
+name = "admin-rust-app"
+description = "Spec 037: the Rust Admin app's Leptos views and browser glue (WebAssembly only)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "admin-rust-app"
+path = "src/main.rs"
+
+[dependencies]
+admin-rust-core = { path = "../core" }
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+leptos = { version = "0.8.23", features = ["csr"] }
+leptos_router = "0.8.17"
+openidconnect = { version = "4.1.0", default-features = false, features = ["reqwest"] }
+reqwest = { version = "0.12.28", default-features = false, features = ["json"] }
+wasm-bindgen = "0.2.130"
+wasm-bindgen-futures = "0.4.80"
+js-sys = "0.3.107"
+console_error_panic_hook = "0.1"
+base64 = "0.23.1"
+web-sys = { version = "0.3.107", features = [
+  "Window", "Document", "Element", "HtmlElement", "Location", "History", "Storage",
+  "Blob", "BlobPropertyBag", "Url", "HtmlAnchorElement", "PointerEvent", "WheelEvent",
+  "KeyboardEvent", "MouseEvent", "Event", "EventTarget", "MediaQueryList", "Performance",
+  "PageTransitionEvent", "BeforeUnloadEvent", "PopStateEvent", "DomRect", "SvgElement",
+  "SvgGraphicsElement", "SvgsvgElement", "File", "FileList", "FileReader", "HtmlInputElement",
+  "HtmlSelectElement", "HtmlTextAreaElement", "HtmlDetailsElement", "Headers", "Request",
+  "RequestInit", "Response", "ReadableStream", "ReadableStreamDefaultReader", "AbortController",
+  "AbortSignal", "Navigator", "AddEventListenerOptions", "UrlSearchParams",
+  "HtmlImageElement", "ResizeObserver", "ResizeObserverEntry", "DomRectReadOnly", "NodeList",
+  "HtmlButtonElement"
+] }
+# The random source for PKCE and `state` in the browser (research R3): openidconnect's oauth2
+# pulls getrandom 0.2 (needs `js`) and other crates pull 0.4 (needs `wasm_js` and the cfg in
+# .cargo/config.toml).
+getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }

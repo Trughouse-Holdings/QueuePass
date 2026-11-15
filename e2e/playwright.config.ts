@@ -1,6 +1,7 @@
 // Spec 022 (research R7): Playwright Test for the browser tests, run by `npm run e2e` against the
 // `qpe2e` Compose stack. No retries, ever (FR-011, R13): a flaky test is fixed, not retried green.
 import { defineConfig, devices } from '@playwright/test';
+import type { AdminAppOptions } from './fixtures/admin-app';
 
 const CI = !!process.env.CI;
 
@@ -25,7 +26,7 @@ if (WEBKIT) process.env.QP_E2E_WEBKIT = '1';
 const EVENT_FORM_TESTS =
   /(?:003-venue-event|020-time-zones|025-doors-open|031-atomic-event-create|035-event-form-flow|036-event-form-times)\.spec\.ts$/;
 
-export default defineConfig({
+export default defineConfig<AdminAppOptions>({
   testDir: 'tests',
   fullyParallel: true,
   // R8: at most 3, so each worker's test accounts (by parallelIndex) never overlap.
@@ -52,6 +53,12 @@ export default defineConfig({
   },
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Spec 037 (research R10): every Admin journey again, against the Rust Admin app.
+    {
+      name: 'admin-rust',
+      use: { ...devices['Desktop Chrome'], adminApp: 'admin-rust' },
+      grep: /@admin/,
+    },
     ...(EVENT_FORM_WEBKIT
       ? [
           {

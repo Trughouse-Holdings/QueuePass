@@ -10,6 +10,8 @@ export const FRONTEND_CLIENTS = [
   { clientId: 'admin-app', name: 'QueuePass Admin', port: 5173 },
   { clientId: 'customer-app', name: 'QueuePass Tickets', port: 5174 },
   { clientId: 'booth-app', name: 'QueuePass Ticket Booth', port: 5175 },
+  // Spec 037 (research R4, R11): the Rust Admin app, in its own realm.
+  { clientId: 'admin-rust-app', name: 'QueuePass Admin (Rust)', port: 5176 },
 ] as const;
 
 /** Client scope whose mapper puts `queuepass-api` in every front-end access token (research R5). */

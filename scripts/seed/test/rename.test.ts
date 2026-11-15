@@ -40,6 +40,7 @@ describe('the seed over a realm queuepass from before 028', () => {
 
     expect(fake.state.realms.map((r) => r.rep.realm).sort()).toEqual([
       'queuepass-admin-app',
+      'queuepass-admin-rust-app',
       'queuepass-booth-app',
       'queuepass-customer-app',
     ]);

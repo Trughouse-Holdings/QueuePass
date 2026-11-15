@@ -62,22 +62,25 @@ function captureConsole(t) {
   return out;
 }
 
-test('the six workspaces, in a fixed order', () => {
+// Spec 037 (research R9): the Rust Admin app's `core`, measured by cargo llvm-cov and written in
+// the same summary shape by admin-rust-app/scripts/coverage-summary.mjs.
+test('the seven workspaces, in a fixed order', () => {
   assert.deepEqual(WORKSPACES, [
     'packages/shared',
     'backend',
     'admin-app',
+    'admin-rust-app',
     'customer-app',
     'booth-app',
     'scripts/seed',
   ]);
 });
 
-test('all six at 85%: six rows with percentage and covered/total lines, the note, exit 0', (t) => {
+test('all seven at 85%: seven rows with percentage and covered/total lines, the note, exit 0', (t) => {
   const rootDir = tempRoot(t);
   writeAll(rootDir);
   const rows = readSummaries(rootDir);
-  assert.equal(rows.length, 6);
+  assert.equal(rows.length, 7);
 
   const table = formatTable(rows);
   for (const workspace of WORKSPACES) {
@@ -231,4 +234,18 @@ test('run through a linked checkout, the script still runs (not a silent exit 0)
   const result = runScript(script);
   assert.match(result.stdout, /Line coverage by workspace/);
   assert.equal(result.status, 1);
+});
+
+// Spec 037 (research R9, tasks T020): cargo llvm-cov's JSON summary becomes the istanbul-shaped
+// coverage-summary.json the report reads.
+test('the Rust Admin app converts llvm-cov totals to total.lines', async () => {
+  const { toIstanbulSummary } = await import('../../admin-rust-app/scripts/coverage-summary.mjs');
+  const llvm = {
+    type: 'llvm.coverage.json.export',
+    data: [{ totals: { lines: { count: 2000, covered: 1712, percent: 85.6 } } }],
+  };
+  assert.deepEqual(toIstanbulSummary(llvm), {
+    total: { lines: { total: 2000, covered: 1712, skipped: 0, pct: 85.6 } },
+  });
+  assert.throws(() => toIstanbulSummary({ data: [] }), /no totals/);
 });

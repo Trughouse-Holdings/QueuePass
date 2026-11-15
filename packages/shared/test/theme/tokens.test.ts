@@ -122,6 +122,13 @@ const SIGN_IN_ACCENTS: Record<string, [string, string]> = {
   'accent-booth-text': ['#ffffff', '#0f1115'],
   'brand-mark-end-booth': ['#c2410c', '#f59e0b'],
   'brand-mark-text-booth': ['#ffffff', '#0f1115'],
+  // Spec 037 (research R8, R11): the Rust Admin app's red sign-in accent.
+  'accent-rust': ['#b3261e', '#f28b82'],
+  'accent-rust-hover': ['#8f1d17', '#f6aea8'],
+  'accent-rust-soft': ['#fdecea', '#4a1714'],
+  'accent-rust-text': ['#ffffff', '#0f1115'],
+  'brand-mark-end-rust': ['#c7362d', '#e57368'],
+  'brand-mark-text-rust': ['#ffffff', '#0f1115'],
 };
 
 describe('the sign-in screen accents (spec 021 research R5)', () => {
@@ -135,7 +142,7 @@ describe('the sign-in screen accents (spec 021 research R5)', () => {
     const outside = css
       .replace(/(^|\n):root\s*\{[^}]*\}/, '')
       .replace(/@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{[^}]*\}\s*\}/, '');
-    expect(outside).not.toMatch(/--(accent|brand-mark-(end|text))-(tickets|booth)/);
+    expect(outside).not.toMatch(/--(accent|brand-mark-(end|text))-(tickets|booth|rust)/);
   });
 });
 
@@ -150,6 +157,7 @@ const STONE: Record<string, string> = {
   'stone-accent': '#8b85f5',
   'stone-accent-tickets': '#2dd4bf',
   'stone-accent-booth': '#fbbf24',
+  'stone-accent-rust': '#f28b82',
 };
 
 describe('the sign-in backdrop tokens (spec 027 research R6)', () => {

@@ -14,16 +14,33 @@ describe('CORS and API documentation', () => {
     await ctx.app.close();
   });
 
-  it.each(['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175'])(
-    'allows the front-end origin %s',
-    async (origin) => {
-      const res = await request(ctx.app.getHttpServer())
-        .get('/health')
-        .set('Origin', origin)
-        .expect(200);
-      expect(res.headers['access-control-allow-origin']).toBe(origin);
-    },
-  );
+  it.each([
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    // Spec 037: the Rust Admin app.
+    'http://localhost:5176',
+  ])('allows the front-end origin %s', async (origin) => {
+    const res = await request(ctx.app.getHttpServer())
+      .get('/health')
+      .set('Origin', origin)
+      .expect(200);
+    expect(res.headers['access-control-allow-origin']).toBe(origin);
+  });
+
+  // Spec 037 (contract sign-in-realm.md): the Rust Admin app's preflight for an authorized write.
+  it('allows the preflight from the Rust Admin app at http://localhost:5176', async () => {
+    const res = await request(ctx.app.getHttpServer())
+      .options('/locations')
+      .set('Origin', 'http://localhost:5176')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'authorization,content-type');
+    expect(res.status).toBeLessThan(300);
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5176');
+    expect(String(res.headers['access-control-allow-headers']).toLowerCase()).toContain(
+      'authorization',
+    );
+  });
 
   it('does not grant any other origin', async () => {
     const res = await request(ctx.app.getHttpServer())

@@ -1,0 +1,6 @@
+# Spec 037 (research R2, R12): pinned at the stable release current when implementation started.
+[toolchain]
+channel = "1.100.0"
+targets = ["wasm32-unknown-unknown"]
+components = ["llvm-tools-preview", "rustfmt", "clippy"]
+profile = "minimal"

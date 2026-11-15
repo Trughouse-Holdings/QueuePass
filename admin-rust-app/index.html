@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QueuePass Admin (Rust)</title>
+    <!-- Spec 037 research R8: the React Admin app's own stylesheets, in its import order, then the
+         red look tokens last. -->
+    <link data-trunk rel="css" href="../packages/shared/src/web/theme.css" />
+    <link data-trunk rel="css" href="../admin-app/src/styles.css" />
+    <link data-trunk rel="css" href="style/red.css" />
+    <link data-trunk rel="rust" href="app/Cargo.toml" data-bin="admin-rust-app" data-wasm-opt="z" />
+  </head>
+  <body></body>
+</html>

@@ -1,6 +1,7 @@
-// Spec 028 quickstart S1 and S2 (research R10; FR-001 to FR-004, SC-002, SC-003): the three apps
-// signed in as three users in one browser window, each through its own realm, each renewing on its
-// own; logging out of one leaves the other two signed in through their next renewal.
+// Spec 028 quickstart S1 and S2 (research R10; FR-001 to FR-004, SC-002, SC-003): the apps signed
+// in as their own users in one browser window, each through its own realm, each renewing on its
+// own; logging out of one leaves the others signed in through their next renewal. Spec 037 (T037):
+// the Rust Admin app is the fourth.
 import {
   expect,
   test,
@@ -66,8 +67,9 @@ async function callOnce(context: BrowserContext, page: Page, app: AppName): Prom
     return;
   }
   // Each app's own navigation, to the other of two pages that each load from the API.
-  const [a, b] = app === 'admin' ? ['Events', 'Venues'] : ['Venues', 'Events'];
-  const onA = new URL(page.url()).pathname.startsWith(app === 'admin' ? '/events' : '/venues');
+  const admin = app === 'admin' || app === 'admin-rust';
+  const [a, b] = admin ? ['Events', 'Venues'] : ['Venues', 'Events'];
+  const onA = new URL(page.url()).pathname.startsWith(admin ? '/events' : '/venues');
   await page.getByRole('link', { name: onA ? b : a, exact: true }).click();
 }
 
@@ -120,7 +122,7 @@ async function renewAll(
   for (const app of apps) await expectNewToken(context, app, signed[app]!);
 }
 
-test('028 S1/S2: three apps signed in as three users in one browser window stay signed in through their own renewals, and logging out of one leaves the others signed in', async ({
+test('028 S1/S2: four apps signed in as four users in one browser window stay signed in through their own renewals, and logging out of one leaves the others signed in', async ({
   browser,
 }, testInfo) => {
   test.setTimeout(240_000);
@@ -131,6 +133,7 @@ test('028 S1/S2: three apps signed in as three users in one browser window stay 
     admin: adminFor(testInfo),
     customer: customerFor(testInfo, 9),
     booth: agentFor(testInfo, 2),
+    'admin-rust': adminFor(testInfo),
   };
   // One browser window: one context, one tab per app.
   const context = await browser.newContext();
@@ -140,28 +143,32 @@ test('028 S1/S2: three apps signed in as three users in one browser window stay 
     admin: await context.newPage(),
     customer: await context.newPage(),
     booth: await context.newPage(),
+    'admin-rust': await context.newPage(),
   };
 
-  // Steps 1 to 3: Admin, then Customer, then the Booth, each on its own sign-in page (FR-003),
+  // Steps 1 to 3: Admin, then Customer, then the Booth, then the Rust Admin app, each on its own
+  // sign-in page (FR-003),
   // each calling the API as its own user (FR-001).
   const signed: Record<AppName, Signed> = {
     admin: await signInAndCall(pages.admin, 'admin', users.admin),
     customer: await signInAndCall(pages.customer, 'customer', users.customer),
     booth: await signInAndCall(pages.booth, 'booth', users.booth),
+    'admin-rust': await signInAndCall(pages['admin-rust'], 'admin-rust', users['admin-rust']),
   };
 
   // Step 4: each app's own renewal (FR-002).
-  await test.step('all three renew, each as its own user', () => renewAll(context, signed));
+  await test.step('all four renew, each as its own user', () => renewAll(context, signed));
 
-  // Steps 5 and 6: each app logs out in turn; the other two renew and keep calling the API as
+  // Steps 5 and 6: each app logs out in turn; the others renew and keep calling the API as
   // their own users (FR-004, SC-002); then the app signs in again, as another user where the
   // fixtures give one.
   const again: Record<AppName, string> = {
     customer: customerFor(testInfo, 10),
     admin: users.admin,
     booth: agentFor(testInfo, 3),
+    'admin-rust': users['admin-rust'],
   };
-  for (const app of ['customer', 'admin', 'booth'] as const) {
+  for (const app of ['customer', 'admin', 'booth', 'admin-rust'] as const) {
     await test.step(`${app} logs out; the others stay signed in`, async () => {
       await signOut(pages[app], app);
       const others = Object.fromEntries(

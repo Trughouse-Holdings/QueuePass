@@ -1,0 +1,12 @@
+{
+  "id": "0c530530-9ca5-4a1b-8dab-3e58d837a842",
+  "locationId": "6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e",
+  "name": "Arena",
+  "source": "LINES",
+  "floorKind": "NONE",
+  "seatCount": 70,
+  "sectionCount": 3,
+  "levelCount": 3,
+  "eventsUsing": 0,
+  "locked": false
+}

@@ -15,3 +15,6 @@ specs/
 .specify/
 .claude/
 .DS_Store
+
+# Spec 037 (research R11): a host Rust build leaves gigabytes in admin-rust-app/target/.
+**/target/

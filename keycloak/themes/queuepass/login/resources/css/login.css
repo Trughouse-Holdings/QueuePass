@@ -343,3 +343,13 @@ body {
   --brand-mark-text: var(--brand-mark-text-booth);
   --stone-accent: var(--stone-accent-booth);
 }
+/* Spec 037 (research R8): the Rust Admin app's red set. */
+.qp-app--admin-rust-app {
+  --accent: var(--accent-rust);
+  --accent-hover: var(--accent-rust-hover);
+  --accent-soft: var(--accent-rust-soft);
+  --accent-text: var(--accent-rust-text);
+  --brand-mark-end: var(--brand-mark-end-rust);
+  --brand-mark-text: var(--brand-mark-text-rust);
+  --stone-accent: var(--stone-accent-rust);
+}

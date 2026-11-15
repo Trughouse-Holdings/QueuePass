@@ -5,6 +5,8 @@ export const APPS = {
   admin: { url: 'http://localhost:5173', name: 'QueuePass Admin', role: 'admin' },
   customer: { url: 'http://localhost:5174', name: 'QueuePass Tickets', role: 'customer' },
   booth: { url: 'http://localhost:5175', name: 'QueuePass Ticket Booth', role: 'gate agent' },
+  // Spec 037 (research R10): the Rust Admin app, in its own realm, beside the React one.
+  'admin-rust': { url: 'http://localhost:5176', name: 'QueuePass Admin (Rust)', role: 'admin' },
 } as const;
 
 export type AppName = keyof typeof APPS;

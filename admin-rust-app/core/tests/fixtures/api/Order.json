@@ -1,0 +1,34 @@
+{
+  "id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+  "tierId": "22222222-2222-4222-8222-222222222222",
+  "tierName": "VIP",
+  "customerUsername": "customer3",
+  "holderName": "Jordan Lee",
+  "quantity": 2,
+  "unitPrice": "84.30",
+  "totalPrice": "168.60",
+  "status": "CONFIRMED",
+  "createdAt": "2026-09-30T15:00:00.000Z",
+  "refundedAt": null,
+  "tickets": [
+    {
+      "id": "a1111111-1111-4111-8111-111111111111",
+      "code": "ABCDEFGH2345",
+      "status": "VALID",
+      "checkedInAt": "2026-11-01T22:45:00.000Z",
+      "seat": null,
+      "price": "84.30",
+      "levelName": null
+    },
+    {
+      "id": "a2222222-2222-4222-8222-222222222222",
+      "code": "JKLMNPQR6789",
+      "status": "VALID",
+      "checkedInAt": null,
+      "seat": null,
+      "price": "84.30",
+      "levelName": null
+    }
+  ]
+}
