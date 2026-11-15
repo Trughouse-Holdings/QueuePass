@@ -274,7 +274,13 @@ test('038 S10/S12/S13: a customer sees the venue map, zooms into section 115, ho
   const { event, eventName } = await womensGame(browser, testInfo, 'map game');
   await signIn(page, 'customer', customerFor(testInfo, 4), `/events/${event.id}`);
   const tickets = page.getByRole('region', { name: 'Get tickets' });
-  await expect(tickets.getByText(`$35–$95, ${n(ON_SALE)} seats left`)).toBeVisible();
+  // The price range and the seats left, as tiles (Nate's walk, 2026-11-14).
+  const tile = (label: string) =>
+    tickets
+      .locator('.stat-tile')
+      .filter({ has: page.getByRole('term').filter({ hasText: label }) });
+  await expect(tile('Price').getByRole('definition')).toHaveText('$35–$95');
+  await expect(tile('Seats left').getByRole('definition')).toHaveText(n(ON_SALE));
   const { map } = await chooseSeats(page);
 
   // S10: every section, colored by its cheapest open level; the upper level not on sale.

@@ -740,9 +740,19 @@ export function GetTickets({
       });
     return (
       <>
-        <p>{`${eventPrice(event)}, ${count(left.ticketsLeft)} ${
-          left.ticketsLeft === 1 ? 'seat' : 'seats'
-        } left`}</p>
+        {/* Nate's walk (2026-11-14): the price range and the seats left as tiles. */}
+        <dl className="stat-tiles">
+          <div className="stat-tile">
+            <dt className="stat-tile__label">Price</dt>
+            <dd className="stat-tile__value">{eventPrice(event)}</dd>
+          </div>
+          <div className="stat-tile">
+            <dt className="stat-tile__label">
+              {left.ticketsLeft === 1 ? 'Seat left' : 'Seats left'}
+            </dt>
+            <dd className="stat-tile__value">{count(left.ticketsLeft)}</dd>
+          </div>
+        </dl>
         {limitLine()}
         {!showMap ? (
           <button type="button" className="btn btn--primary" onClick={() => setMapOpen(true)}>

@@ -100,6 +100,34 @@ const chosen = () => {
 };
 
 describe('choosing seats (US2-1, US2-2; FR-007; spec 038 FR-018)', () => {
+  // Nate's walk (2026-11-14): the price range and the seats left, as labelled tiles.
+  const tiles = async () => {
+    const terms = await within(
+      await screen.findByRole('region', { name: 'Get tickets' }),
+    ).findAllByRole('term');
+    return terms
+      .filter((t) => t.closest('dl')?.classList.contains('stat-tiles'))
+      .map((t) => [t.textContent, t.nextElementSibling?.textContent]);
+  };
+
+  it('shows the price range and the seats left as tiles', async () => {
+    stubApi(routes());
+    renderCustomer({ at: '/events/e1' });
+    expect(await tiles()).toEqual([
+      ['Price', '$40–$120'],
+      ['Seats left', '56'],
+    ]);
+  });
+
+  it('says "Seat left" for the last one', async () => {
+    stubApi(routes(undefined, 1));
+    renderCustomer({ at: '/events/e1' });
+    expect(await tiles()).toEqual([
+      ['Price', '$40–$120'],
+      ['Seat left', '1'],
+    ]);
+  });
+
   it("offers every section on the map, then the chosen section's seats", async () => {
     stubApi(routes());
     renderCustomer({ at: '/events/e1' });

@@ -1262,6 +1262,39 @@ dd {
   stroke-width: 3;
 }
 
+/* Nate's walk (2026-11-14): facts as tiles, a small label over a large value (the customer's
+   price range and seats left). A description list, so each value is read with its label. */
+.stat-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+}
+.stat-tile {
+  flex: 0 1 auto;
+  min-width: 9rem;
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.stat-tile__label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.stat-tile__value {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 /* Spec 038 (T038, research R13): the venue map's level colors. A section, a seat, or a legend mark
    with .venue-map--<color> is filled with that level's color; .venue-map--unavailable is the gray
    of a section with no open seat and of seats that can't be chosen. */
