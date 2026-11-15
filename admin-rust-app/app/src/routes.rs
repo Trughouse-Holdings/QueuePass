@@ -29,9 +29,9 @@ pub fn AppRoutes() -> impl IntoView {
                         view=pages::stub::LayoutEditor
                     />
                     <Route path=path!("events") view=pages::event_list::EventList/>
-                    <Route path=path!("events/new") view=pages::stub::EventForm/>
+                    <Route path=path!("events/new") view=pages::event_form::EventForm/>
                     <Route path=path!("events/:id") view=pages::stub::EventDetail/>
-                    <Route path=path!("events/:id/edit") view=pages::stub::EventForm/>
+                    <Route path=path!("events/:id/edit") view=pages::event_form::EventForm/>
                     <Route path=path!("events/:id/attendees") view=pages::attendees::Attendees/>
                     <Route path=path!("reports") view=pages::reports::Reports/>
                 </ParentRoute>
