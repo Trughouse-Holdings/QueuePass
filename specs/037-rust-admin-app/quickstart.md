@@ -131,4 +131,4 @@ name differ (parity SL1–SL14).
 | S8 | Manual: test commands, run by CI |
 | S9 | Manual: needs people |
 | S10 | Manual: becomes Automated in the impl PR as `037 S10: a layout drawn in the Rust Admin app's editor is the same in the React Admin app's, and a stale save is refused`; `039 S1/S2/S3` and `039 S5` also run in the `admin-rust` project |
-| S11 | Automated: `037 SL: every page has the same structure and arrangement in both Admin apps, at desktop and phone width`; rest Manual: the side-by-side look by hand (research R15) |
+| S11 | Automated: `037 S11: every page has the same structure and arrangement in both Admin apps, at desktop and phone width`; rest Manual: the side-by-side look by hand (research R15) |

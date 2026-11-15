@@ -238,7 +238,7 @@ async function boxesOf(page: Page): Promise<{ x: number; y: number; w: number; h
   );
 }
 
-test('037 SL: every page has the same structure and arrangement in both Admin apps, at desktop and phone width', async ({
+test('037 S11: every page has the same structure and arrangement in both Admin apps, at desktop and phone width', async ({
   browser,
 }, testInfo) => {
   test.setTimeout(240_000);
