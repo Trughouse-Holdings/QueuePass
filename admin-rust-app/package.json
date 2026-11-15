@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "trunk serve --port 5176",
     "build": "trunk build --release",
-    "test": "cargo llvm-cov --package admin-rust-core --fail-under-lines 80 --json --summary-only --output-path coverage/llvm-cov.json && node scripts/coverage-summary.mjs",
+    "test": "node -e \"require('fs').mkdirSync('coverage',{recursive:true})\" && cargo llvm-cov --package admin-rust-core --fail-under-lines 80 --json --summary-only --output-path coverage/llvm-cov.json && node scripts/coverage-summary.mjs",
     "lint": "cargo clippy --workspace --exclude admin-rust-app --all-targets -- -D warnings && cargo clippy -p admin-rust-app --target wasm32-unknown-unknown -- -D warnings",
     "format:check": "cargo fmt --check"
   },
