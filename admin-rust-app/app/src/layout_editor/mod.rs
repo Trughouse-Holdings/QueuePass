@@ -12,6 +12,8 @@ mod guide;
 mod level_picker;
 mod levels_panel;
 mod number_box;
+mod page;
+mod save_bar;
 mod sections_panel;
 mod selection_panel;
 
@@ -26,6 +28,8 @@ use admin_rust_core::editor::{
     view::DeleteRequest,
 };
 use leptos::{html, prelude::*};
+
+pub use page::LayoutEditorPage;
 
 /// The editor's state and what the views read of it. `Copy`: every view holds it.
 #[derive(Clone, Copy)]

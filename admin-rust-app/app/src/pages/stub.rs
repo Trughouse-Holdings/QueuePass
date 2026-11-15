@@ -16,7 +16,6 @@ macro_rules! stub {
 stub! {
     VenueForm => "Venue",
     VenueDetail => "Venue",
-    LayoutEditor => "Layout",
     EventForm => "Event",
     EventDetail => "Event",
 }

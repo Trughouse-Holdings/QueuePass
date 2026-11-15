@@ -7,6 +7,7 @@ mod config;
 mod device_zone;
 mod download;
 mod guard;
+mod layout_editor;
 mod oidc_glue;
 mod pages;
 mod routes;
