@@ -3,7 +3,9 @@
 
 pub mod address_link;
 pub mod banners;
+pub mod layouts_card;
 pub mod link;
+pub mod section_lines;
 
 pub use address_link::AddressLink;
 pub use banners::{ErrorBanner, Notice, NoticeKind, ServiceUnreachable, SuccessState, WrongRole};
