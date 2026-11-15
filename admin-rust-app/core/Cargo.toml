@@ -43,3 +43,4 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 jsonschema = { version = "0.61.2", default-features = false }
 calamine = "0.38.0"
 lopdf = "0.47.0"
+serde_yaml = "0.9.34"
