@@ -2,7 +2,8 @@
 // address service does not know (or cannot be asked about) is saved in one press and marked not
 // verified, and section lines read Rows × Seats per row with their seats (research R10). Spec 038:
 // the lines make the venue's first layout, edited from the venue page's Layouts card.
-import { expect, test, type Page, type Request } from '@playwright/test';
+import { expect, test } from '../fixtures/admin-app';
+import { type Page, type Request } from '@playwright/test';
 import { API_BASE, adminFor } from '../fixtures/apps';
 import type { Place } from '../fixtures/api';
 import { OUTAGE_PLACE, PLACES, UNKNOWN_PLACE, uniqueName } from '../fixtures/data';
@@ -64,136 +65,142 @@ async function typeSection(page: Page, n: number, name: string, rows: string, se
 const line = (page: Page, n: number) =>
   page.getByRole('group', { name: `Section ${n}`, exact: true });
 
-test('024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick', async ({
-  page,
-}, testInfo) => {
-  const venueName = uniqueName(testInfo, 'yum center');
-  const posted = recordVenuePosts(page);
-  await signIn(page, 'admin', adminFor(testInfo));
-  await openNewVenue(page);
+test(
+  '024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick',
+  { tag: '@admin' },
+  async ({ adminApp, page }, testInfo) => {
+    const venueName = uniqueName(testInfo, 'yum center');
+    const posted = recordVenuePosts(page);
+    await signIn(page, adminApp, adminFor(testInfo));
+    await openNewVenue(page);
 
-  // V1: the eight zones and "Choose a time zone", nothing that works one out.
-  const zone = page.getByLabel('Time zone', { exact: true });
-  await expect(zone.getByRole('option')).toHaveText(['Choose a time zone', ...ZONES]);
-  await expect(zone).toHaveValue('');
+    // V1: the eight zones and "Choose a time zone", nothing that works one out.
+    const zone = page.getByLabel('Time zone', { exact: true });
+    await expect(zone.getByRole('option')).toHaveText(['Choose a time zone', ...ZONES]);
+    await expect(zone).toHaveValue('');
 
-  await page.getByLabel('Name', { exact: true }).fill(venueName);
-  await fillAddress(page, UNKNOWN_PLACE);
+    await page.getByLabel('Name', { exact: true }).fill(venueName);
+    await fillAddress(page, UNKNOWN_PLACE);
 
-  // V2: labelled section lines, each with its seats, and the hint once.
-  await page.getByRole('radio', { name: 'Seated' }).check();
-  await page.getByRole('button', { name: 'Add section' }).click();
-  await page.getByRole('button', { name: 'Add section' }).click();
-  await expect(page.getByText(HINT)).toHaveCount(1);
-  for (const n of [1, 2]) {
-    for (const label of ['Section name', 'Rows', 'Seats per row']) {
-      await expect(line(page, n).getByText(label, { exact: true })).toBeVisible();
+    // V2: labelled section lines, each with its seats, and the hint once.
+    await page.getByRole('radio', { name: 'Seated' }).check();
+    await page.getByRole('button', { name: 'Add section' }).click();
+    await page.getByRole('button', { name: 'Add section' }).click();
+    await expect(page.getByText(HINT)).toHaveCount(1);
+    for (const n of [1, 2]) {
+      for (const label of ['Section name', 'Rows', 'Seats per row']) {
+        await expect(line(page, n).getByText(label, { exact: true })).toBeVisible();
+      }
+      await expect(line(page, n).getByText('×', { exact: true })).toBeVisible();
     }
-    await expect(line(page, n).getByText('×', { exact: true })).toBeVisible();
-  }
-  await typeSection(page, 1, 'Floor', '10', '20');
-  await typeSection(page, 2, 'Balcony', '5', '10');
-  await expect(line(page, 1).getByText('= 200 seats', { exact: true })).toBeVisible();
-  await expect(line(page, 2).getByText('= 50 seats', { exact: true })).toBeVisible();
-  await expect(page.getByText('Total: 250 seats', { exact: true })).toBeVisible();
+    await typeSection(page, 1, 'Floor', '10', '20');
+    await typeSection(page, 2, 'Balcony', '5', '10');
+    await expect(line(page, 1).getByText('= 200 seats', { exact: true })).toBeVisible();
+    await expect(line(page, 2).getByText('= 50 seats', { exact: true })).toBeVisible();
+    await expect(page.getByText('Total: 250 seats', { exact: true })).toBeVisible();
 
-  // V1: no zone chosen: the form says so and sends nothing.
-  await page.getByRole('button', { name: 'Create venue' }).click();
-  await expect(
-    page.getByRole('alert').filter({ hasText: "Choose the venue's time zone." }),
-  ).toBeVisible();
-  // Long enough for a request the press might have sent late to have gone out.
-  await page.waitForTimeout(1_000);
-  expect(posted).toHaveLength(0);
+    // V1: no zone chosen: the form says so and sends nothing.
+    await page.getByRole('button', { name: 'Create venue' }).click();
+    await expect(
+      page.getByRole('alert').filter({ hasText: "Choose the venue's time zone." }),
+    ).toBeVisible();
+    // Long enough for a request the press might have sent late to have gone out.
+    await page.waitForTimeout(1_000);
+    expect(posted).toHaveLength(0);
 
-  // V1, V3: Central Time; one press saves the unknown address, not verified.
-  await zone.selectOption({ label: 'Central Time' });
-  await expect(page.getByText("Choose the venue's time zone.")).toHaveCount(0);
-  await page.getByRole('button', { name: 'Create venue' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Venues' })).toBeVisible();
-  await expect(
-    page.getByRole('status').filter({
-      hasText: notVerified(formatted(UNKNOWN_PLACE), 'Central Time, chosen by an admin'),
-    }),
-  ).toBeVisible();
-  await expect(page.getByTestId('success-state')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Save anyway/ })).toHaveCount(0);
-  expect(posted).toHaveLength(1);
-  expect(posted[0].postDataJSON()).toMatchObject({
-    acceptUnverifiedAddress: true,
-    timeZone: 'America/Chicago',
-  });
+    // V1, V3: Central Time; one press saves the unknown address, not verified.
+    await zone.selectOption({ label: 'Central Time' });
+    await expect(page.getByText("Choose the venue's time zone.")).toHaveCount(0);
+    await page.getByRole('button', { name: 'Create venue' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Venues' })).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({
+        hasText: notVerified(formatted(UNKNOWN_PLACE), 'Central Time, chosen by an admin'),
+      }),
+    ).toBeVisible();
+    await expect(page.getByTestId('success-state')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /Save anyway/ })).toHaveCount(0);
+    expect(posted).toHaveLength(1);
+    expect(posted[0].postDataJSON()).toMatchObject({
+      acceptUnverifiedAddress: true,
+      timeZone: 'America/Chicago',
+    });
 
-  const row = page.getByRole('row').filter({ has: page.getByRole('link', { name: venueName }) });
-  await expect(row.getByText('Not verified', { exact: true })).toBeVisible();
-  await expect(row.getByText('Central Time, chosen by an admin', { exact: true })).toBeVisible();
+    const row = page.getByRole('row').filter({ has: page.getByRole('link', { name: venueName }) });
+    await expect(row.getByText('Not verified', { exact: true })).toBeVisible();
+    await expect(row.getByText('Central Time, chosen by an admin', { exact: true })).toBeVisible();
 
-  // V2: the venue page's layout (spec 038: its first layout, "Standard", in the Layouts card), and
-  // the same labelled lines in its editor.
-  await row.getByRole('link', { name: venueName }).click();
-  const layout = page
-    .getByRole('region', { name: 'Layouts' })
-    .getByRole('article', { name: 'Standard', exact: true });
-  await expect(layout).toContainText('250 seats · 2 sections');
-  await layout.getByRole('button', { name: 'Edit section lines of Standard' }).click();
-  const editor = layout.getByRole('form', { name: 'Section lines of Standard' });
-  await expect(editor.getByText('Total: 250 seats', { exact: true })).toBeVisible();
-  await expect(editor.getByText(HINT)).toHaveCount(1);
-  await expect(editor.getByRole('spinbutton', { name: 'Section 1 Rows', exact: true })).toHaveValue(
-    '10',
-  );
-  await expect(
-    editor.getByRole('spinbutton', { name: 'Section 1 Seats per row', exact: true }),
-  ).toHaveValue('20');
-  await expect(line(page, 1).getByText('= 200 seats', { exact: true })).toBeVisible();
-  await expect(line(page, 2).getByText('= 50 seats', { exact: true })).toBeVisible();
-});
+    // V2: the venue page's layout (spec 038: its first layout, "Standard", in the Layouts card), and
+    // the same labelled lines in its editor.
+    await row.getByRole('link', { name: venueName }).click();
+    const layout = page
+      .getByRole('region', { name: 'Layouts' })
+      .getByRole('article', { name: 'Standard', exact: true });
+    await expect(layout).toContainText('250 seats · 2 sections');
+    await layout.getByRole('button', { name: 'Edit section lines of Standard' }).click();
+    const editor = layout.getByRole('form', { name: 'Section lines of Standard' });
+    await expect(editor.getByText('Total: 250 seats', { exact: true })).toBeVisible();
+    await expect(editor.getByText(HINT)).toHaveCount(1);
+    await expect(
+      editor.getByRole('spinbutton', { name: 'Section 1 Rows', exact: true }),
+    ).toHaveValue('10');
+    await expect(
+      editor.getByRole('spinbutton', { name: 'Section 1 Seats per row', exact: true }),
+    ).toHaveValue('20');
+    await expect(line(page, 1).getByText('= 200 seats', { exact: true })).toBeVisible();
+    await expect(line(page, 2).getByText('= 50 seats', { exact: true })).toBeVisible();
+  },
+);
 
-test('024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone', async ({
-  page,
-}, testInfo) => {
-  const venueName = uniqueName(testInfo, 'outage hall');
-  await signIn(page, 'admin', adminFor(testInfo));
-  await openNewVenue(page);
+test(
+  '024 V4/V5: with the address service down a venue is saved not verified, and a new address keeps its zone',
+  { tag: '@admin' },
+  async ({ adminApp, page }, testInfo) => {
+    const venueName = uniqueName(testInfo, 'outage hall');
+    await signIn(page, adminApp, adminFor(testInfo));
+    await openNewVenue(page);
 
-  // V4: the stand-in answers 503 for this street: saved at once, not verified.
-  await page.getByLabel('Name', { exact: true }).fill(venueName);
-  await fillAddress(page, OUTAGE_PLACE);
-  await page.getByLabel('Time zone', { exact: true }).selectOption({ label: 'Pacific Time' });
-  await page.getByLabel('Seating capacity', { exact: true }).fill('300');
-  await page.getByRole('button', { name: 'Create venue' }).click();
-  await expect(
-    page.getByRole('status').filter({
-      hasText: notVerified(formatted(OUTAGE_PLACE), 'Pacific Time, chosen by an admin'),
-    }),
-  ).toBeVisible();
-  const row = page.getByRole('row').filter({ has: page.getByRole('link', { name: venueName }) });
-  await expect(row.getByText('Not verified', { exact: true })).toBeVisible();
+    // V4: the stand-in answers 503 for this street: saved at once, not verified.
+    await page.getByLabel('Name', { exact: true }).fill(venueName);
+    await fillAddress(page, OUTAGE_PLACE);
+    await page.getByLabel('Time zone', { exact: true }).selectOption({ label: 'Pacific Time' });
+    await page.getByLabel('Seating capacity', { exact: true }).fill('300');
+    await page.getByRole('button', { name: 'Create venue' }).click();
+    await expect(
+      page.getByRole('status').filter({
+        hasText: notVerified(formatted(OUTAGE_PLACE), 'Pacific Time, chosen by an admin'),
+      }),
+    ).toBeVisible();
+    const row = page.getByRole('row').filter({ has: page.getByRole('link', { name: venueName }) });
+    await expect(row.getByText('Not verified', { exact: true })).toBeVisible();
 
-  // V5: Edit venue starts on the stored zone, and a new address does not change it.
-  await row.getByRole('link', { name: 'Edit', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Edit venue' })).toBeVisible();
-  const zone = page.getByLabel('Time zone', { exact: true });
-  await expect(zone).toHaveValue('America/Los_Angeles');
-  await expect(page.getByText('Pacific Time, chosen by an admin.', { exact: true })).toBeVisible();
-  await expect(
-    page.getByText('This address is not verified. Saving checks it again.', { exact: true }),
-  ).toBeVisible();
-  await fillAddress(page, PLACES.louisville);
-  await expect(
-    page.getByText(
-      "Changing the address doesn't change the time zone. Choose another zone here if the venue is in a different one.",
-      { exact: true },
-    ),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Save changes' }).click();
-  await expect(
-    page.getByTestId('success-state').filter({
-      hasText:
-        'Venue saved. Address: 1 ARENA PLZ, LOUISVILLE, KY 40202. Time zone: Pacific Time, chosen by an admin.',
-    }),
-  ).toBeVisible();
-  // The row is rendered before its missing mark counts for anything (review round 1, minor 5).
-  await expect(row.getByText('Pacific Time, chosen by an admin', { exact: true })).toBeVisible();
-  await expect(row.getByText('Not verified', { exact: true })).toHaveCount(0);
-});
+    // V5: Edit venue starts on the stored zone, and a new address does not change it.
+    await row.getByRole('link', { name: 'Edit', exact: true }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Edit venue' })).toBeVisible();
+    const zone = page.getByLabel('Time zone', { exact: true });
+    await expect(zone).toHaveValue('America/Los_Angeles');
+    await expect(
+      page.getByText('Pacific Time, chosen by an admin.', { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('This address is not verified. Saving checks it again.', { exact: true }),
+    ).toBeVisible();
+    await fillAddress(page, PLACES.louisville);
+    await expect(
+      page.getByText(
+        "Changing the address doesn't change the time zone. Choose another zone here if the venue is in a different one.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(
+      page.getByTestId('success-state').filter({
+        hasText:
+          'Venue saved. Address: 1 ARENA PLZ, LOUISVILLE, KY 40202. Time zone: Pacific Time, chosen by an admin.',
+      }),
+    ).toBeVisible();
+    // The row is rendered before its missing mark counts for anything (review round 1, minor 5).
+    await expect(row.getByText('Pacific Time, chosen by an admin', { exact: true })).toBeVisible();
+    await expect(row.getByText('Not verified', { exact: true })).toHaveCount(0);
+  },
+);

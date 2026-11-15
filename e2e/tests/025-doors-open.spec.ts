@@ -3,7 +3,8 @@
 // from an hour before its doors open and lists the others greyed with when they open. Every
 // expected time, abbreviation, and offset is built with fixtures/time.ts, so the tests pass in
 // standard and daylight time.
-import { expect, test, type Request } from '@playwright/test';
+import { expect, test } from '../fixtures/admin-app';
+import { type Request } from '@playwright/test';
 import { API_BASE, adminFor, agentFor, customerFor } from '../fixtures/apps';
 import { addTier, apiFor, buyTickets, createEvent, createVenue } from '../fixtures/api';
 import { PLACES, startsInHours, uniqueName } from '../fixtures/data';
@@ -13,110 +14,111 @@ import { expectEventDateTime, fillEventDateTime } from '../fixtures/event-times'
 
 const CHICAGO = 'America/Chicago';
 
-test('025 S1/S2/S6: an admin sets when doors open, and customers see it', async ({
-  page,
-  browser,
-}, testInfo) => {
-  const venueName = uniqueName(testInfo, 'doors hall');
-  const eventName = uniqueName(testInfo, 'doors show');
-  const admin = await apiFor(browser, 'admin', adminFor(testInfo));
-  const venue = await createVenue(admin.api, PLACES.chicago, venueName);
-  expect(venue.timeZone).toBe(CHICAGO);
-  await admin.close();
+test(
+  '025 S1/S2/S6: an admin sets when doors open, and customers see it',
+  { tag: '@admin' },
+  async ({ adminApp, page, browser }, testInfo) => {
+    const venueName = uniqueName(testInfo, 'doors hall');
+    const eventName = uniqueName(testInfo, 'doors show');
+    const admin = await apiFor(browser, 'admin', adminFor(testInfo));
+    const venue = await createVenue(admin.api, PLACES.chicago, venueName);
+    expect(venue.timeZone).toBe(CHICAGO);
+    await admin.close();
 
-  const day = localDate(CHICAGO, 3);
-  const at = (time: string) => atLocal(`${day}T${time}`, CHICAGO);
-  const posted: Request[] = [];
-  page.on('request', (req) => {
-    if (req.method() === 'POST' && req.url() === `${API_BASE}/events`) posted.push(req);
-  });
+    const day = localDate(CHICAGO, 3);
+    const at = (time: string) => atLocal(`${day}T${time}`, CHICAGO);
+    const posted: Request[] = [];
+    page.on('request', (req) => {
+      if (req.method() === 'POST' && req.url() === `${API_BASE}/events`) posted.push(req);
+    });
 
-  // S1: New event; Doors open, before Starts, follows the typed start 1 hour earlier.
-  await signIn(page, 'admin', adminFor(testInfo));
-  await page.getByRole('link', { name: 'Events', exact: true }).click();
-  await page.getByRole('link', { name: 'Schedule event' }).first().click();
-  await page.getByLabel('Event name', { exact: true }).fill(eventName);
-  await page
-    .getByLabel('Venue', { exact: true })
-    .selectOption({ label: `${venueName} (500 seats)` });
-  await expect(page.getByLabel('Before the start', { exact: true })).toBeChecked();
-  // Spec 036 FR-017: a new event opens with a start, so the line is already there.
-  await expect(page.getByTestId('doorsOpenAt-preview')).toHaveCount(1);
-  await fillEventDateTime(page, 'Starts', `${day}T19:00`);
-  await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
-    `Doors open at ${timeOfDay(at('18:00'), CHICAGO)}`,
-  );
-  await fillEventDateTime(page, 'Ends', `${day}T22:00`);
-  await page.getByLabel('Ticket type 1 name', { exact: true }).fill('General');
-  await page.getByLabel('Ticket type 1 price', { exact: true }).fill('20');
-  await page.getByLabel('Ticket type 1 quantity', { exact: true }).fill('50');
+    // S1: New event; Doors open, before Starts, follows the typed start 1 hour earlier.
+    await signIn(page, adminApp, adminFor(testInfo));
+    await page.getByRole('link', { name: 'Events', exact: true }).click();
+    await page.getByRole('link', { name: 'Schedule event' }).first().click();
+    await page.getByLabel('Event name', { exact: true }).fill(eventName);
+    await page
+      .getByLabel('Venue', { exact: true })
+      .selectOption({ label: `${venueName} (500 seats)` });
+    await expect(page.getByLabel('Before the start', { exact: true })).toBeChecked();
+    // Spec 036 FR-017: a new event opens with a start, so the line is already there.
+    await expect(page.getByTestId('doorsOpenAt-preview')).toHaveCount(1);
+    await fillEventDateTime(page, 'Starts', `${day}T19:00`);
+    await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
+      `Doors open at ${timeOfDay(at('18:00'), CHICAGO)}`,
+    );
+    await fillEventDateTime(page, 'Ends', `${day}T22:00`);
+    await page.getByLabel('Ticket type 1 name', { exact: true }).fill('General');
+    await page.getByLabel('Ticket type 1 price', { exact: true }).fill('20');
+    await page.getByLabel('Ticket type 1 quantity', { exact: true }).fill('50');
 
-  // More than 6 hours before the start: switch to a set time, named under the field, nothing sent.
-  await page.getByLabel('At a set time', { exact: true }).click();
-  await fillEventDateTime(page, 'Doors open', `${day}T12:30`);
-  const range =
-    'Doors must open no more than 6 hours before the start and not after it: between ' +
-    `${eventTime(at('13:00'), CHICAGO)} and ${timeOfDay(at('19:00'), CHICAGO)}.`;
-  await expect(page.getByTestId('doorsOpenAt-range')).toHaveText(range);
-  await page.getByRole('button', { name: 'Schedule event' }).click();
-  await expect(page.getByTestId('doorsOpenAt-range')).toHaveText(range);
-  // Under the field and in the form's polite status line (035 FR-007), as on main.
-  await expect(page.getByText(range)).toHaveCount(2);
-  await expectEventDateTime(page, 'Doors open', `${day}T12:30`);
-  await page.waitForTimeout(1_000);
-  expect(posted).toHaveLength(0);
+    // More than 6 hours before the start: switch to a set time, named under the field, nothing sent.
+    await page.getByLabel('At a set time', { exact: true }).click();
+    await fillEventDateTime(page, 'Doors open', `${day}T12:30`);
+    const range =
+      'Doors must open no more than 6 hours before the start and not after it: between ' +
+      `${eventTime(at('13:00'), CHICAGO)} and ${timeOfDay(at('19:00'), CHICAGO)}.`;
+    await expect(page.getByTestId('doorsOpenAt-range')).toHaveText(range);
+    await page.getByRole('button', { name: 'Schedule event' }).click();
+    await expect(page.getByTestId('doorsOpenAt-range')).toHaveText(range);
+    // Under the field and in the form's polite status line (035 FR-007), as on main.
+    await expect(page.getByText(range)).toHaveCount(2);
+    await expectEventDateTime(page, 'Doors open', `${day}T12:30`);
+    await page.waitForTimeout(1_000);
+    expect(posted).toHaveLength(0);
 
-  // Back to 5:30 PM: saved, and the event page says so.
-  // The note under the field goes as soon as the value is in range. Spec 035: there is no
-  // leftover banner; the preview clears, and the next press can send the schedule.
-  await fillEventDateTime(page, 'Doors open', `${day}T17:30`);
-  await expect(page.getByTestId('doorsOpenAt-range')).toHaveCount(0);
-  await expect(page.getByText(range)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Schedule event' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
-  expect(posted).toHaveLength(1);
-  expect(posted[0].postDataJSON()).toMatchObject({
-    doorsOpenAt: zoned(at('17:30'), CHICAGO),
-  });
-  const doorsTerm = page.getByRole('term').filter({ hasText: /^Doors open$/ });
-  await expect(doorsTerm).toBeVisible();
-  await expect(
-    page.getByRole('definition').filter({ hasText: timeOfDay(at('17:30'), CHICAGO) }),
-  ).toHaveCount(1);
-  const eventPath = new URL(page.url()).pathname;
+    // Back to 5:30 PM: saved, and the event page says so.
+    // The note under the field goes as soon as the value is in range. Spec 035: there is no
+    // leftover banner; the preview clears, and the next press can send the schedule.
+    await fillEventDateTime(page, 'Doors open', `${day}T17:30`);
+    await expect(page.getByTestId('doorsOpenAt-range')).toHaveCount(0);
+    await expect(page.getByText(range)).toHaveCount(0);
+    await page.getByRole('button', { name: 'Schedule event' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
+    expect(posted).toHaveLength(1);
+    expect(posted[0].postDataJSON()).toMatchObject({
+      doorsOpenAt: zoned(at('17:30'), CHICAGO),
+    });
+    const doorsTerm = page.getByRole('term').filter({ hasText: /^Doors open$/ });
+    await expect(doorsTerm).toBeVisible();
+    await expect(
+      page.getByRole('definition').filter({ hasText: timeOfDay(at('17:30'), CHICAGO) }),
+    ).toHaveCount(1);
+    const eventPath = new URL(page.url()).pathname;
 
-  // S2: edit the start to 8:00 PM; a 90-minute gap is a listed length and stays 90 minutes before.
-  await page.getByRole('link', { name: 'Edit', exact: true }).click();
-  await expect(page.getByLabel('Before the start', { exact: true })).toBeChecked();
-  await expect(page.getByLabel('How long before the start', { exact: true })).toHaveValue('90');
-  await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
-    `Doors open at ${timeOfDay(at('17:30'), CHICAGO)}`,
-  );
-  await fillEventDateTime(page, 'Starts', `${day}T20:00`);
-  await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
-    `Doors open at ${timeOfDay(at('18:30'), CHICAGO)}`,
-  );
-  await page.getByRole('button', { name: 'Save changes' }).click();
-  await expect(page).toHaveURL(new RegExp(`${eventPath}$`));
-  const doorsAt = timeOfDay(at('18:30'), CHICAGO);
-  await expect(page.getByRole('definition').filter({ hasText: doorsAt })).toHaveCount(1);
+    // S2: edit the start to 8:00 PM; a 90-minute gap is a listed length and stays 90 minutes before.
+    await page.getByRole('link', { name: 'Edit', exact: true }).click();
+    await expect(page.getByLabel('Before the start', { exact: true })).toBeChecked();
+    await expect(page.getByLabel('How long before the start', { exact: true })).toHaveValue('90');
+    await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
+      `Doors open at ${timeOfDay(at('17:30'), CHICAGO)}`,
+    );
+    await fillEventDateTime(page, 'Starts', `${day}T20:00`);
+    await expect(page.getByTestId('doorsOpenAt-preview')).toHaveText(
+      `Doors open at ${timeOfDay(at('18:30'), CHICAGO)}`,
+    );
+    await page.getByRole('button', { name: 'Save changes' }).click();
+    await expect(page).toHaveURL(new RegExp(`${eventPath}$`));
+    const doorsAt = timeOfDay(at('18:30'), CHICAGO);
+    await expect(page.getByRole('definition').filter({ hasText: doorsAt })).toHaveCount(1);
 
-  // S6: a customer sees it on the event page and its card.
-  const context = await browser.newContext();
-  const customer = await context.newPage();
-  await signIn(customer, 'customer', customerFor(testInfo, 3), eventPath);
-  await expect(customer.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
-  await expect(customer.getByRole('term').filter({ hasText: /^Doors open$/ })).toBeVisible();
-  await expect(customer.getByRole('definition').filter({ hasText: doorsAt })).toHaveCount(1);
-  await customer.getByRole('link', { name: 'Events', exact: true }).click();
-  await customer.getByLabel('Search events').fill(eventName);
-  const card = customer
-    .getByRole('article')
-    .filter({ has: customer.getByRole('heading', { name: eventName }) });
-  await expect(card).toContainText('Doors open');
-  await expect(card).toContainText(doorsAt);
-  await context.close();
-});
+    // S6: a customer sees it on the event page and its card.
+    const context = await browser.newContext();
+    const customer = await context.newPage();
+    await signIn(customer, 'customer', customerFor(testInfo, 3), eventPath);
+    await expect(customer.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
+    await expect(customer.getByRole('term').filter({ hasText: /^Doors open$/ })).toBeVisible();
+    await expect(customer.getByRole('definition').filter({ hasText: doorsAt })).toHaveCount(1);
+    await customer.getByRole('link', { name: 'Events', exact: true }).click();
+    await customer.getByLabel('Search events').fill(eventName);
+    const card = customer
+      .getByRole('article')
+      .filter({ has: customer.getByRole('heading', { name: eventName }) });
+    await expect(card).toContainText('Doors open');
+    await expect(card).toContainText(doorsAt);
+    await context.close();
+  },
+);
 
 test('025 S4/S5: the Ticket Booth works an event only from an hour before its doors open', async ({
   page,
