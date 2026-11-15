@@ -6,7 +6,9 @@
 //! stylesheets apply (R8) and 039's browser journeys drive both apps (R10).
 
 mod add_section;
+mod canvas;
 mod commit_box;
+mod guide;
 mod level_picker;
 mod levels_panel;
 mod number_box;
