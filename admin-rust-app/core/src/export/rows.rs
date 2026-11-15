@@ -10,8 +10,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::made::{
-    DEFAULT_TIME_ZONE, format_event_date, format_event_time, made_lines, to_local_date_time,
-    zone_name,
+    DEFAULT_TIME_ZONE, format_event_time, made_lines, to_local_date_time, zone_name,
 };
 use super::table::{Cell, CellKind, ExportColumn, ExportTable};
 
@@ -362,34 +361,22 @@ pub fn ticket_status_note(ticket: &Ticket, removed: bool, venue_zone: Option<&st
     }
 }
 
-/// 037-merge: duplicate of `seatLabel` (admin-app/src/format.ts): "Section 115, Row F, Seat 7".
+/// `seatLabel` (`crate::format`): "Section 115, Row F, Seat 7".
 fn seat_label(seat: &SoldSeat) -> String {
-    format!(
-        "Section {}, Row {}, Seat {}",
-        seat.section, seat.row_label, seat.seat_label
-    )
+    crate::format::seat_label(&seat.section, &seat.row_label, &seat.seat_label)
 }
 
-/// 037-merge: duplicate of `CHECK_IN_RETENTION_DAYS` (packages/shared/src/event.ts).
-const CHECK_IN_RETENTION_DAYS: u32 = 7;
-
-/// 037-merge: duplicate of `removedNote` (admin-app/src/format.ts).
+/// `removedNote` (`crate::format`), for an instant already read.
 fn removed_note(removed_at: DateTime<Utc>, zone: Option<&str>) -> String {
-    format!(
-        "Check-in details removed on {} (kept for {CHECK_IN_RETENTION_DAYS} days after the event).",
-        format_event_date(removed_at, zone.unwrap_or(DEFAULT_TIME_ZONE))
-    )
+    crate::format::removed_note(&crate::time::to_iso_string(removed_at), zone)
 }
 
-/// 037-merge: duplicate of `usd` (admin-app/src/money.ts): `"$1,234.50"` from the string's
-/// digits, padded or cut to two decimals, never rounded, never a float.
+/// `usd` (`crate::money`): `"$1,234.50"`.
 pub(crate) fn usd(amount: &str) -> String {
-    let (whole, fraction) = amount.split_once('.').unwrap_or((amount, ""));
-    let cents: String = fraction.chars().chain("00".chars()).take(2).collect();
-    format!("${}.{cents}", group(whole))
+    crate::money::usd(amount)
 }
 
-/// 037-merge: duplicate of `toLocaleString('en-US')` on a whole number: `"12,345"`, `"-1"`.
+/// `toLocaleString('en-US')` on a whole number: `"12,345"`, `"-1"`.
 pub(crate) fn group_digits(n: i64) -> String {
     let digits = n.unsigned_abs().to_string();
     format!("{}{}", if n < 0 { "-" } else { "" }, group(&digits))
