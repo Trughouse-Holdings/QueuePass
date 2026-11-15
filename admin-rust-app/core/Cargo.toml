@@ -15,7 +15,7 @@ serde_json.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
 # API calls; works natively (tests) and in WebAssembly (browser fetch). No TLS on wasm.
-reqwest = { version = "0.12.28", default-features = false, features = ["json"] }
+reqwest = { version = "0.12.28", default-features = false, features = ["json", "multipart"] }
 regress = "0.12.0"
 csv = "1.4.0"
 printpdf = { version = "=0.12.9", default-features = false }

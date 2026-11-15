@@ -151,8 +151,24 @@ test('each app gets its API, its own realm as sign-in authority, and own client 
   }
   assert.deepEqual(
     blocks.filter((b) => b.kind === 'child').map((b) => b.name),
-    ['backend', 'admin-app', 'customer-app', 'booth-app'],
+    ['backend', 'admin-app', 'customer-app', 'booth-app', 'admin-rust-app'],
   );
+});
+
+// Spec 037 (research R11, tasks T019): the Rust Admin app is served by `trunk serve` on 5176, with
+// the three QP_* values its Compose build gets.
+test('the Rust Admin app gets trunk serve on 5176 and the QP_* values of its Compose build', () => {
+  const child = find(plan(), 'admin-rust-app');
+  assert.equal(child.command, 'npm run dev --workspace @queuepass/admin-rust-app');
+  for (const key of ['QP_API_BASE_URL', 'QP_OIDC_AUTHORITY', 'QP_OIDC_CLIENT_ID']) {
+    assert.equal(child.env[key], composeValue('admin-rust-app', key, 'args'), key);
+  }
+  assert.equal(
+    child.env.QP_OIDC_AUTHORITY,
+    'http://localhost:8080/realms/queuepass-admin-rust-app',
+  );
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'admin-rust-app', 'package.json'), 'utf8'));
+  assert.equal(pkg.scripts.dev, 'trunk serve --port 5176');
 });
 
 test('refuses an unknown argument', () => {

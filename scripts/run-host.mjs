@@ -11,7 +11,7 @@
 // seed, build the Backend, and (with --demo-data) load the demo data. Then the Backend
 // (start:prod), and, once http://localhost:3000/health answers, the three apps (vite on 5173,
 // 5174, 5175, the exact redirect URIs of their OIDC clients). Output is prefixed by name; Ctrl+C
-// stops all four. --print shows every step and child with its environment and starts nothing.
+// stops all five (037: the Rust Admin app too). --print shows every step and child with its environment and starts nothing.
 //
 // Spec 029 (research R6): `--demo-reset` runs one step instead, the demo checkpoint (`npm run
 // demo-reset --workspace @queuepass/backend`) with the Backend's environment, in a second
@@ -147,6 +147,17 @@ export function plan(options) {
     app('admin-app', 5173),
     app('customer-app', 5174),
     app('booth-app', 5175),
+    // Spec 037 (research R11): the Rust Admin app, `trunk serve` on 5176 (its package's dev
+    // script), with the values its Compose build bakes in.
+    {
+      name: 'admin-rust-app',
+      command: 'npm run dev --workspace @queuepass/admin-rust-app',
+      env: {
+        QP_API_BASE_URL: API,
+        QP_OIDC_AUTHORITY: `${REALMS}/queuepass-admin-rust-app`,
+        QP_OIDC_CLIENT_ID: 'admin-rust-app',
+      },
+    },
   ];
   return { setup, children };
 }
@@ -270,7 +281,7 @@ export async function run(options, deps = {}) {
   console.log(`[backend] healthy at ${healthUrl}`);
   for (const a of apps) start(a);
   console.log(
-    'Admin http://localhost:5173 · Customer http://localhost:5174 · Booth http://localhost:5175 (Ctrl+C stops all four)',
+    'Admin http://localhost:5173 · Customer http://localhost:5174 · Booth http://localhost:5175 · Admin (Rust) http://localhost:5176 (Ctrl+C stops all five)',
   );
 }
 

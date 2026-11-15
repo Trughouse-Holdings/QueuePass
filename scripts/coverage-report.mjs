@@ -16,6 +16,8 @@ export const WORKSPACES = [
   'packages/shared',
   'backend',
   'admin-app',
+  // Spec 037 (research R9): the Rust Admin app's `core`, converted by its coverage-summary.mjs.
+  'admin-rust-app',
   'customer-app',
   'booth-app',
   'scripts/seed',

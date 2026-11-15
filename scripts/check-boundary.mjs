@@ -1,7 +1,9 @@
 // Constitution I / spec 001 FR-033: no front end may contain database access code or a
-// database driver. Fails naming the file and the match (research R12).
+// database driver. Fails naming the file and the match (research R12). Spec 037 (research R11):
+// the Rust Admin app too, through its Cargo manifests and its `core` and `app` sources.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const APPS = ['admin-app', 'customer-app', 'booth-app'];
 const FORBIDDEN_DEPS = [
@@ -17,36 +19,106 @@ const FORBIDDEN_DEPS = [
 const FORBIDDEN_TEXT = ['DATABASE_URL', 'postgres://', 'postgresql://', '@prisma/client'];
 const DEP_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];
 
-const failures = [];
+/** Spec 037: the Rust Admin app's Cargo manifests and sources. */
+const RUST_APP = 'admin-rust-app';
+const RUST_MANIFESTS = ['Cargo.toml', 'core/Cargo.toml', 'app/Cargo.toml'];
+const RUST_SOURCES = ['core/src', 'app/src'];
+export const RUST_FORBIDDEN_CRATES = [
+  'sqlx',
+  'diesel',
+  'postgres',
+  'tokio-postgres',
+  'sea-orm',
+  'prisma-client-rust',
+];
+const RUST_FORBIDDEN_TEXT = [
+  ...FORBIDDEN_TEXT,
+  'sqlx::',
+  'diesel::',
+  'tokio_postgres',
+  'sea_orm',
+  'prisma_client_rust',
+];
 
-function walk(dir) {
+function walk(dir, needles, failures) {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
-    if (statSync(path).isDirectory()) walk(path);
+    if (statSync(path).isDirectory()) walk(path, needles, failures);
     else {
       const text = readFileSync(path, 'utf8');
-      for (const needle of FORBIDDEN_TEXT) {
+      for (const needle of needles) {
         if (text.includes(needle)) failures.push(`${path}: contains "${needle}"`);
       }
     }
   }
 }
 
-for (const app of APPS) {
-  if (!existsSync(app)) continue;
-  const pkg = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
-  for (const field of DEP_FIELDS) {
-    for (const dep of Object.keys(pkg[field] ?? {})) {
-      if (FORBIDDEN_DEPS.includes(dep))
-        failures.push(`${app}/package.json: ${field} lists "${dep}"`);
+/**
+ * The crates a Cargo manifest names in any dependency table (`[dependencies]`,
+ * `[dev-dependencies]`, `[build-dependencies]`, `[workspace.dependencies]`, and their
+ * `[target.….dependencies]` forms), by key and by `package = "…"` rename.
+ */
+export function cargoDependencies(text) {
+  const crates = [];
+  let inDeps = false;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/#.*$/, '').trim();
+    if (!line) continue;
+    const table = /^\[([^\]]+)\]$/.exec(line);
+    if (table) {
+      inDeps = /(^|\.)(dependencies|dev-dependencies|build-dependencies)$/.test(table[1].trim());
+      continue;
     }
+    if (!inDeps) continue;
+    const key = /^"?([A-Za-z0-9_-]+)"?\s*(=|\.)/.exec(line);
+    if (key) crates.push(key[1]);
+    const renamed = /package\s*=\s*"([A-Za-z0-9_-]+)"/.exec(line);
+    if (renamed) crates.push(renamed[1]);
   }
-  if (existsSync(join(app, 'src'))) walk(join(app, 'src'));
+  return crates;
 }
 
-if (failures.length > 0) {
-  console.error('[boundary] front ends must reach data only through the Backend API:');
-  for (const f of failures) console.error(`  ${f}`);
-  process.exit(1);
+/** Every boundary failure under `root`, as `path: reason` lines. */
+export function boundaryFailures(root) {
+  const failures = [];
+  for (const app of APPS) {
+    const dir = join(root, app);
+    if (!existsSync(dir)) continue;
+    const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+    for (const field of DEP_FIELDS) {
+      for (const dep of Object.keys(pkg[field] ?? {})) {
+        if (FORBIDDEN_DEPS.includes(dep))
+          failures.push(`${app}/package.json: ${field} lists "${dep}"`);
+      }
+    }
+    if (existsSync(join(dir, 'src'))) walk(join(dir, 'src'), FORBIDDEN_TEXT, failures);
+  }
+
+  const rust = join(root, RUST_APP);
+  if (existsSync(rust)) {
+    for (const manifest of RUST_MANIFESTS) {
+      const path = join(rust, manifest);
+      if (!existsSync(path)) continue;
+      for (const crate of new Set(cargoDependencies(readFileSync(path, 'utf8')))) {
+        if (RUST_FORBIDDEN_CRATES.includes(crate))
+          failures.push(`${RUST_APP}/${manifest}: lists "${crate}"`);
+      }
+    }
+    for (const sources of RUST_SOURCES) {
+      const dir = join(rust, sources);
+      if (existsSync(dir)) walk(dir, RUST_FORBIDDEN_TEXT, failures);
+    }
+  }
+  return failures;
 }
-console.log(`[boundary] ${APPS.filter((a) => existsSync(a)).join(', ')}: no database access`);
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const failures = boundaryFailures('.');
+  if (failures.length > 0) {
+    console.error('[boundary] front ends must reach data only through the Backend API:');
+    for (const f of failures) console.error(`  ${f}`);
+    process.exit(1);
+  }
+  const checked = [...APPS, RUST_APP].filter((a) => existsSync(a));
+  console.log(`[boundary] ${checked.join(', ')}: no database access`);
+}

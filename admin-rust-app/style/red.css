@@ -37,7 +37,8 @@
     --accent-hover: #f6aea8;
     --accent-soft: #4a1714;
     --accent-text: #1a0c0b;
-    --brand-mark-end: #c7362d;
-    --brand-mark-text: #ffffff;
+    /* The letter is dark here: white on the lighter dark-scheme accent falls under 3:1. */
+    --brand-mark-end: #e57368;
+    --brand-mark-text: #1a0c0b;
   }
 }
