@@ -1,0 +1,56 @@
+{
+  "heading": [
+    "Sales report",
+    "Made at Oct 1, 2026, 1:00 PM GMT+1",
+    "Made by admin1",
+    "Each event's time is in its venue's time zone (the Time zone column)."
+  ],
+  "head": [
+    "Event",
+    "Venue",
+    "Starts",
+    "Time zone",
+    "Status",
+    "Tickets sold",
+    "Ticket capacity",
+    "Revenue",
+    "Checked in"
+  ],
+  "body": [
+    [
+      "Season Opener",
+      "Yum Center",
+      "2026-11-01 18:00",
+      "Eastern Time",
+      "Scheduled",
+      "25",
+      "100",
+      "$1,321.50",
+      "12"
+    ],
+    [
+      "Winter Gala",
+      "Freedom Hall",
+      "2026-12-20 18:00",
+      "Eastern Time",
+      "Scheduled",
+      "50",
+      "200",
+      "$3,000.00",
+      "0"
+    ],
+    [
+      "Rained Out",
+      "Freedom Hall",
+      "2026-10-20 19:00",
+      "Eastern Time",
+      "Cancelled",
+      "0",
+      "50",
+      "$0.00",
+      "0"
+    ],
+    ["Total", "", "", "", "1 scheduled event", "75", "300", "$4,321.50", "12"]
+  ],
+  "nowrap": [false, false, true, false, false, true, true, true, true]
+}

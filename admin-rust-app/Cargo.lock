@@ -54,9 +54,11 @@ dependencies = [
  "syn 2.0.119",
  "tokio",
  "typify",
+ "unicode-normalization",
  "url",
  "uuid",
  "wiremock",
+ "zip",
 ]
 
 [[package]]

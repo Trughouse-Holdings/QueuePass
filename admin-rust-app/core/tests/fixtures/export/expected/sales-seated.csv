@@ -1,0 +1,5 @@
+﻿Event,Venue,Starts,Time zone,Status,Tickets sold,Ticket capacity,Revenue,Checked in,Exported at
+Season Opener,Yum Center,2026-11-01 18:00,Eastern Time,Scheduled,25,100,1321.50,12,2026-10-01T13:00:00+01:00
+Winter Gala,Freedom Hall,2026-12-20 18:00,Eastern Time,Scheduled,50,200,3000.00,0,2026-10-01T13:00:00+01:00
+Rained Out,Freedom Hall,2026-10-20 19:00,Eastern Time,Cancelled,0,50,0.00,0,2026-10-01T13:00:00+01:00
+Total,,,,1 scheduled event,75,300,4321.50,12,2026-10-01T13:00:00+01:00

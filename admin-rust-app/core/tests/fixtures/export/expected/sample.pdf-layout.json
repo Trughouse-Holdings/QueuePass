@@ -1,0 +1,31 @@
+{
+  "heading": [
+    "Attendees: Export Test, Café",
+    "Made at Oct 30, 2026, 2:05 PM EDT",
+    "Made by admin1",
+    "Times are in Central Time (the venue's time zone)."
+  ],
+  "head": [
+    "Order placed",
+    "Name on tickets",
+    "Seat",
+    "Ticket code",
+    "Checked in",
+    "Price",
+    "Tickets"
+  ],
+  "body": [
+    ["2026-09-30 10:00", "Jordan Lee", "", "ABCDEFGH2345", "2026-11-01 16:45", "$84.30", "1,200"],
+    [
+      "2026-10-01 20:30",
+      "=SUM(1,1)",
+      "Section A, Row 3, Seat 7",
+      "STUVWXYZ2345",
+      "",
+      "$1,045.00",
+      "0"
+    ],
+    ["2026-10-03 07:00", "Zoë “Zo” O’Brien", "Line one\nline two", "-12", "", "$0.00", "-1"]
+  ],
+  "nowrap": [true, false, false, true, true, true, true]
+}

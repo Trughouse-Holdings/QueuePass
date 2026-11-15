@@ -1,0 +1,335 @@
+{
+  "kind": "attendees",
+  "event": {
+    "id": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+    "name": "Export Test, Café",
+    "locationId": "6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e",
+    "location": {
+      "id": "6ad046d4-2ca4-4cc4-8cc8-f5a167814e3e",
+      "name": "Yum Center",
+      "address": "1 Arena Plaza, Louisville, KY 40202",
+      "street": "1 Arena Plaza",
+      "city": "Louisville",
+      "state": "KY",
+      "zip": "40202",
+      "addressVerified": false,
+      "seatingCapacity": 22090,
+      "createdAt": "2026-09-20T18:57:51.352Z",
+      "updatedAt": "2026-09-20T18:57:51.352Z",
+      "timeZone": "America/Chicago"
+    },
+    "startsAt": "2026-11-01T23:00:00.000Z",
+    "endsAt": "2026-11-02T02:00:00.000Z",
+    "doorsOpenAt": "2026-11-01T22:00:00.000Z",
+    "entryOpensAt": "2026-11-01T21:00:00.000Z",
+    "totalTicketCapacity": 100,
+    "maxTicketsPerCustomer": null,
+    "basePrice": "45.00",
+    "status": "SCHEDULED",
+    "cancelledAt": null,
+    "reservedSeating": false,
+    "createdAt": "2026-09-20T18:57:51.352Z",
+    "updatedAt": "2026-09-20T18:57:51.352Z"
+  },
+  "orders": [
+    {
+      "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+      "tierId": "vip",
+      "tierName": "VIP",
+      "customerUsername": "customer3",
+      "holderName": "Jordan Lee",
+      "quantity": 2,
+      "unitPrice": "84.30",
+      "totalPrice": "168.60",
+      "status": "CONFIRMED",
+      "createdAt": "2026-09-30T15:00:00.000Z",
+      "refundedAt": null,
+      "id": "aaaaaaaa-1111-4aaa-8aaa-aaaaaaaaaaaa",
+      "tickets": [
+        {
+          "id": "t1",
+          "code": "ABCDEFGH2345",
+          "status": "VALID",
+          "checkedInAt": "2026-11-01T22:45:00.000Z",
+          "seat": null,
+          "price": "84.30",
+          "levelName": null
+        },
+        {
+          "id": "t2",
+          "code": "JKLMNPQR6789",
+          "status": "VALID",
+          "checkedInAt": null,
+          "seat": null,
+          "price": "84.30",
+          "levelName": null
+        }
+      ]
+    },
+    {
+      "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+      "tierId": null,
+      "tierName": null,
+      "customerUsername": "customer2",
+      "holderName": "=SUM(1,1)",
+      "quantity": 1,
+      "unitPrice": "45.00",
+      "totalPrice": "45.00",
+      "status": "CONFIRMED",
+      "createdAt": "2026-10-02T01:30:00.000Z",
+      "refundedAt": null,
+      "id": "bbbbbbbb-2222-4bbb-8bbb-bbbbbbbbbbbb",
+      "tickets": [
+        {
+          "id": "t3",
+          "code": "STUVWXYZ2345",
+          "status": "VALID",
+          "checkedInAt": null,
+          "seat": null,
+          "price": "45.00",
+          "levelName": null
+        }
+      ]
+    },
+    {
+      "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+      "tierId": "floor",
+      "tierName": "Floor",
+      "customerUsername": "customer3",
+      "holderName": "Zoë O’Brien",
+      "quantity": 1,
+      "unitPrice": "60.00",
+      "totalPrice": "60.00",
+      "status": "CONFIRMED",
+      "createdAt": "2026-10-03T12:00:00.000Z",
+      "refundedAt": null,
+      "id": "cccccccc-3333-4ccc-8ccc-cccccccccccc",
+      "tickets": [
+        {
+          "id": "t4",
+          "code": "MNPQRSTU2345",
+          "status": "VALID",
+          "checkedInAt": null,
+          "seat": {
+            "section": "A",
+            "row": 3,
+            "seat": 7,
+            "rowLabel": "C",
+            "seatLabel": "7"
+          },
+          "price": "60.00",
+          "levelName": "Floor"
+        }
+      ]
+    },
+    {
+      "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+      "tierId": "general",
+      "tierName": "General",
+      "customerUsername": "customer1",
+      "holderName": null,
+      "quantity": 1,
+      "unitPrice": "45.00",
+      "totalPrice": "45.00",
+      "status": "REFUNDED",
+      "createdAt": "2026-10-04T12:00:00.000Z",
+      "refundedAt": "2026-10-05T12:00:00.000Z",
+      "id": "dddddddd-4444-4ddd-8ddd-dddddddddddd",
+      "tickets": [
+        {
+          "id": "t5",
+          "code": "VWXYZ2345678",
+          "status": "VOID",
+          "checkedInAt": "2026-10-06T12:00:00.000Z",
+          "seat": null,
+          "price": "45.00",
+          "levelName": null
+        }
+      ]
+    },
+    {
+      "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+      "tierId": null,
+      "tierName": null,
+      "customerUsername": "customer4",
+      "holderName": "Sam Park",
+      "quantity": 2,
+      "unitPrice": null,
+      "totalPrice": "155.00",
+      "status": "CONFIRMED",
+      "createdAt": "2026-10-07T12:00:00.000Z",
+      "refundedAt": null,
+      "id": "eeeeeeee-5555-4eee-8eee-eeeeeeeeeeee",
+      "tickets": [
+        {
+          "id": "t6",
+          "code": "BCDFGHJK2345",
+          "status": "VALID",
+          "checkedInAt": null,
+          "seat": {
+            "section": "115",
+            "row": 4,
+            "seat": 2,
+            "rowLabel": "D",
+            "seatLabel": "2"
+          },
+          "price": "95.00",
+          "levelName": "Courtside"
+        },
+        {
+          "id": "t7",
+          "code": "LMNPQRST6789",
+          "status": "VALID",
+          "checkedInAt": null,
+          "seat": {
+            "section": "115",
+            "row": 6,
+            "seat": 7,
+            "rowLabel": "F",
+            "seatLabel": "7"
+          },
+          "price": "60.00",
+          "levelName": "Lower sideline"
+        }
+      ]
+    },
+    {
+      "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+      "tierId": null,
+      "tierName": null,
+      "customerUsername": "customer5",
+      "holderName": "\tTabbed",
+      "quantity": 1,
+      "unitPrice": "45.00",
+      "totalPrice": "45.00",
+      "status": "CONFIRMED",
+      "createdAt": "2026-10-08T12:00:00.000Z",
+      "refundedAt": null,
+      "id": "ffffffff-6666-4fff-8fff-ffffffffffff",
+      "tickets": [
+        {
+          "id": "t8",
+          "code": "CDFGHJKL2345",
+          "status": "VALID",
+          "checkedInAt": null,
+          "seat": null,
+          "price": "45.00",
+          "levelName": null
+        }
+      ]
+    },
+    {
+      "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+      "tierId": "general",
+      "tierName": "@General",
+      "customerUsername": "+customer6",
+      "holderName": "\rReturn",
+      "quantity": 1,
+      "unitPrice": "45.00",
+      "totalPrice": "45.00",
+      "status": "CONFIRMED",
+      "createdAt": "2026-10-08T12:00:00.000Z",
+      "refundedAt": null,
+      "id": "11111111-7777-4111-8111-111111111111",
+      "tickets": [
+        {
+          "id": "t9",
+          "code": "DFGHJKLM2345",
+          "status": "VALID",
+          "checkedInAt": null,
+          "seat": null,
+          "price": "45.00",
+          "levelName": null
+        }
+      ]
+    },
+    {
+      "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+      "tierId": "general",
+      "tierName": "-Discount",
+      "customerUsername": "customer7",
+      "holderName": "He said \"no\", twice",
+      "quantity": 1,
+      "unitPrice": "45.00",
+      "totalPrice": "45.00",
+      "status": "CONFIRMED",
+      "createdAt": "2026-10-08T12:00:00.000Z",
+      "refundedAt": null,
+      "id": "22222222-8888-4222-8222-222222222222",
+      "tickets": [
+        {
+          "id": "t10",
+          "code": "FGHJKLMN2345",
+          "status": "VALID",
+          "checkedInAt": "2026-11-01T06:30:00.000Z",
+          "seat": null,
+          "price": "45.00",
+          "levelName": null
+        }
+      ]
+    },
+    {
+      "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+      "tierId": null,
+      "tierName": null,
+      "customerUsername": "customer8",
+      "holderName": "Line one\nline two",
+      "quantity": 2,
+      "unitPrice": "1234.50",
+      "totalPrice": "2469.00",
+      "status": "CONFIRMED",
+      "createdAt": "2026-10-08T12:00:00.000Z",
+      "refundedAt": null,
+      "id": "33333333-9999-4333-8333-333333333333",
+      "tickets": [
+        {
+          "id": "t11",
+          "code": "GHJKLMNP2345",
+          "status": "VALID",
+          "checkedInAt": null,
+          "seat": null,
+          "price": "1234.50",
+          "levelName": "Balcony"
+        },
+        {
+          "id": "t12",
+          "code": "HJKLMNPQ2345",
+          "status": "VALID",
+          "checkedInAt": null,
+          "seat": null,
+          "price": "1234.50",
+          "levelName": "Balcony"
+        }
+      ]
+    },
+    {
+      "eventId": "b92fc02c-6013-470d-a3bf-bf53648b0ebc",
+      "tierId": "vip",
+      "tierName": "VIP",
+      "customerUsername": "customer9",
+      "holderName": "山田 Zoë 😀",
+      "quantity": 1,
+      "unitPrice": "84.30",
+      "totalPrice": "84.30",
+      "status": "CONFIRMED",
+      "createdAt": "2026-10-08T12:00:00.000Z",
+      "refundedAt": null,
+      "id": "44444444-aaaa-4444-8444-444444444444",
+      "tickets": [
+        {
+          "id": "t13",
+          "code": "JKLMNPQR2345",
+          "status": "VALID",
+          "checkedInAt": null,
+          "seat": null,
+          "price": "84.30",
+          "levelName": null
+        }
+      ]
+    }
+  ],
+  "madeAt": "2026-10-30T18:05:00.000Z",
+  "madeBy": "admin1",
+  "adminZone": "America/New_York",
+  "keptCheckedIn": null
+}

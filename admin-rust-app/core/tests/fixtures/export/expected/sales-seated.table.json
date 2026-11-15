@@ -1,0 +1,67 @@
+{
+  "title": "Sales report",
+  "subtitle": [
+    "Made at Oct 1, 2026, 1:00 PM GMT+1",
+    "Made by admin1",
+    "Each event's time is in its venue's time zone (the Time zone column)."
+  ],
+  "madeAt": "2026-10-01T13:00:00+01:00",
+  "sheetName": "Sales",
+  "columns": [
+    { "header": "Event", "kind": "text", "width": 30 },
+    { "header": "Venue", "kind": "text", "width": 24 },
+    { "header": "Starts", "kind": "dateTime", "width": 18 },
+    { "header": "Time zone", "kind": "text", "width": 24 },
+    { "header": "Status", "kind": "text", "width": 20 },
+    { "header": "Tickets sold", "kind": "count", "width": 13 },
+    { "header": "Ticket capacity", "kind": "count", "width": 15 },
+    { "header": "Revenue", "kind": "money", "width": 14 },
+    { "header": "Checked in", "kind": "count", "width": 12 }
+  ],
+  "rows": [
+    [
+      { "kind": "text", "value": "Season Opener" },
+      { "kind": "text", "value": "Yum Center" },
+      { "kind": "dateTime", "value": "2026-11-01T18:00" },
+      { "kind": "text", "value": "Eastern Time" },
+      { "kind": "text", "value": "Scheduled" },
+      { "kind": "count", "value": 25 },
+      { "kind": "count", "value": 100 },
+      { "kind": "money", "value": "1321.50" },
+      { "kind": "count", "value": 12 }
+    ],
+    [
+      { "kind": "text", "value": "Winter Gala" },
+      { "kind": "text", "value": "Freedom Hall" },
+      { "kind": "dateTime", "value": "2026-12-20T18:00" },
+      { "kind": "text", "value": "Eastern Time" },
+      { "kind": "text", "value": "Scheduled" },
+      { "kind": "count", "value": 50 },
+      { "kind": "count", "value": 200 },
+      { "kind": "money", "value": "3000.00" },
+      { "kind": "count", "value": 0 }
+    ],
+    [
+      { "kind": "text", "value": "Rained Out" },
+      { "kind": "text", "value": "Freedom Hall" },
+      { "kind": "dateTime", "value": "2026-10-20T19:00" },
+      { "kind": "text", "value": "Eastern Time" },
+      { "kind": "text", "value": "Cancelled" },
+      { "kind": "count", "value": 0 },
+      { "kind": "count", "value": 50 },
+      { "kind": "money", "value": "0.00" },
+      { "kind": "count", "value": 0 }
+    ],
+    [
+      { "kind": "text", "value": "Total" },
+      { "kind": "text", "value": "" },
+      { "kind": "dateTime", "value": "" },
+      { "kind": "text", "value": "" },
+      { "kind": "text", "value": "1 scheduled event" },
+      { "kind": "count", "value": 75 },
+      { "kind": "count", "value": 300 },
+      { "kind": "money", "value": "4321.50" },
+      { "kind": "count", "value": 12 }
+    ]
+  ]
+}
