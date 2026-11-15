@@ -3,9 +3,12 @@
 
 pub mod address_link;
 pub mod banners;
+pub mod event_form;
 pub mod export_menu;
+pub mod images_field;
 pub mod layouts_card;
 pub mod link;
+pub mod seating_section;
 pub mod section_lines;
 
 pub use address_link::AddressLink;
