@@ -32,7 +32,7 @@ web-sys = { version = "0.3.107", features = [
   "SvgGraphicsElement", "SvgsvgElement", "File", "FileList", "FileReader", "HtmlInputElement",
   "HtmlSelectElement", "HtmlTextAreaElement", "HtmlDetailsElement", "Headers", "Request",
   "RequestInit", "Response", "ReadableStream", "ReadableStreamDefaultReader", "AbortController",
-  "AbortSignal", "Navigator"
+  "AbortSignal", "Navigator", "AddEventListenerOptions", "UrlSearchParams"
 ] }
 # The random source for PKCE and `state` in the browser (research R3): openidconnect's oauth2
 # pulls getrandom 0.2 (needs `js`) and other crates pull 0.4 (needs `wasm_js` and the cfg in

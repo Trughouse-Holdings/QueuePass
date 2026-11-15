@@ -4,6 +4,7 @@
 mod auth;
 mod components;
 mod config;
+mod guard;
 mod oidc_glue;
 mod pages;
 mod routes;
@@ -19,6 +20,7 @@ use crate::{auth::Auth, components::WrongRole, routes::AppRoutes};
 #[component]
 fn App() -> impl IntoView {
     let auth = Auth::provide();
+    guard::Guard::provide();
     move || match auth.status() {
         AuthStatus::SignedIn => view! { <AppRoutes/> }.into_any(),
         AuthStatus::WrongRole => view! {
