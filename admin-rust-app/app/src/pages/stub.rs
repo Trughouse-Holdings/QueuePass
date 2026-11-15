@@ -15,5 +15,4 @@ macro_rules! stub {
 
 stub! {
     LayoutEditor => "Layout",
-    EventForm => "Event",
 }

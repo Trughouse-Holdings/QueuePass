@@ -86,6 +86,8 @@ pub const PRICES_CAPTION: &str = "Prices by level";
 pub const PRICE_PLACEHOLDER: &str = "60.00";
 /// A level with no seat on sale, instead of its price box (M9).
 pub const ALL_OFF_SALE: &str = "All seats off sale";
+/// The scheduling conflict's detail starts with this, then the other event's name (E7).
+pub const CONFLICT_PREFIX: &str = "Conflicts with ";
 /// E8: the types or seating of an edited event could not be read.
 pub const DETAILS_ONLY_NOTE: &str = "This event's ticket types or seating could not be loaded, so saving changes only the details above.";
 
@@ -2729,8 +2731,16 @@ impl<F: ImageFile> EventFormState<F> {
         (!self.times_refusal() && !placed.unmapped.is_empty()).then(|| placed.unmapped.join(" "))
     }
 
-    /// A scheduling conflict's detail (`conflict-detail`; the name is bold in the markup).
+    /// A scheduling conflict's detail (`conflict-detail`), [`Self::conflict_parts`] joined.
     pub fn conflict_line(&self) -> Option<String> {
+        self.conflict_parts()
+            .map(|(name, rest)| format!("{CONFLICT_PREFIX}{name}{rest}"))
+    }
+
+    /// A scheduling conflict's detail in the pieces the markup writes: after
+    /// [`CONFLICT_PREFIX`], the other event's name (in `<strong>`), then the rest (", which runs
+    /// {start} – {end}. Pick a slot …").
+    pub fn conflict_parts(&self) -> Option<(String, String)> {
         let error = self.error.as_ref()?;
         if error.code() != Some("SCHEDULING_CONFLICT") {
             return None;
@@ -2738,11 +2748,13 @@ impl<F: ImageFile> EventFormState<F> {
         let other = error.details()?.get("conflictingEvent")?.as_object()?;
         let text = |k: &str| other.get(k).and_then(Value::as_str).unwrap_or_default();
         let zone = self.venue_zone();
-        Some(format!(
-            "Conflicts with {}, which runs {} – {}. Pick a slot at least 60 minutes clear of it, or choose another venue.",
-            text("name"),
-            when(text("startsAt"), Some(&zone)),
-            until(text("startsAt"), text("endsAt"), Some(&zone)),
+        Some((
+            text("name").to_string(),
+            format!(
+                ", which runs {} – {}. Pick a slot at least 60 minutes clear of it, or choose another venue.",
+                when(text("startsAt"), Some(&zone)),
+                until(text("startsAt"), text("endsAt"), Some(&zone)),
+            ),
         ))
     }
 

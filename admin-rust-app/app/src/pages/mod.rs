@@ -2,6 +2,7 @@
 
 pub mod attendees;
 pub mod event_detail;
+pub mod event_form;
 pub mod event_list;
 pub mod home;
 pub mod reports;
