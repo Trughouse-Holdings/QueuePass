@@ -5,6 +5,13 @@
 **Issue**: [#163](https://github.com/Trughouse-Holdings/QueuePass/issues/163)
 **Constitution**: 3.10.0 → **3.11.0** (MINOR, this PR; written as 3.9.8 → 3.10.0 and renumbered on 2026-11-14 after spec 038 took 3.10.0). Contract: unchanged.
 
+**Amended 2026-11-14** (spec Clarifications, before any implementation): the Rust Admin app is
+exactly like the React Admin app on `main` at `ff993c4`, seat maps (`038`) and the layout editor
+(`039`) included, with the same layout (FR-020). Constitution **3.11.1** (PATCH): Principle VII's
+exception reads "its own red colors on the Admin app's layout", and roadmap row 037 depends on
+`038` and `039` too. Research R8 is rewritten; R13–R15 are new; the parity checklist gains seat
+maps, the layout editor, and "Same layout" rows.
+
 ## Summary
 
 Add `admin-rust-app/`, a second Admin app written in Rust. It is a Leptos client-side app compiled
@@ -13,7 +20,9 @@ to WebAssembly by Trunk and served by nginx on port 5176, next to the unchanged 
 accounts and role. That realm is one new row of `APP_REALMS`, which the Backend, the seed, and the
 browser tests already loop over. The app calls the same REST API through types generated from
 `contracts/openapi.yaml`. It is red on every screen, sign-in included, and it matches the React
-Admin app item by item against [the parity checklist](./contracts/parity-checklist.md). Logic lives
+Admin app item by item against [the parity checklist](./contracts/parity-checklist.md), with the
+same layout: it uses the React Admin app's own stylesheets with a red color-token set loaded last
+(R8), and its views use the same element structure and classes. Logic lives
 in a natively testable `core` crate, measured at 80% lines by `cargo llvm-cov`. Every Admin
 browser journey also runs against the Rust app.
 
@@ -26,7 +35,8 @@ repository stays TypeScript on Node 22.
 **Primary Dependencies**: `leptos` 0.8 (CSR) and `leptos_router`; `openidconnect` with `reqwest`
 (R3); `reqwest` (API calls, works in WebAssembly and natively); `serde` and `serde_json`; `typify`
 in `build.rs` (R5); `chrono` and `chrono-tz` (R6); `csv`, `rust_xlsxwriter` (`wasm` feature), and
-`printpdf`, pinned (R7); `web-sys`, `js-sys`, `wasm-bindgen`, and `gloo-timers` (browser glue);
+`printpdf`, pinned (R7); `web-sys`, `js-sys`, `wasm-bindgen`, and `gloo-timers` (browser glue,
+pointer and wheel events for the maps and the editor, R13);
 `getrandom` with its WebAssembly backend (R3). Build: `trunk`.
 
 **Storage**: none in the app. Tokens are held in memory, and the PKCE verifier and `state` sit in
@@ -50,9 +60,15 @@ time as in the React Admin app (SC-005).
 tokens in memory, PKCE, exact redirect URI); no change to the React Admin app; no API change; the
 Rust service failing never blocks another service (FR-019).
 
-**Scale/Scope**: 11 screens (home, 4 venue, 5 event, attendees, reports) and 6 cards/components
-with logic. The React Admin app is about 6,400 lines of TypeScript in `admin-app/src`. Expect a
-similar size in Rust, and about 45 parity items.
+**Scale/Scope** (re-measured 2026-11-14 at `ff993c4`): 13 screens (home, venue list, venue form for
+new and edit, venue page, event list, event form for new and edit, event page, attendees, reports,
+and the layout editor for new, edit, and view) and about 15 cards and components with logic (the
+Layouts card, section lines, the seating section and off-sale tool, tiers, sales, the live venue
+map, images, the export menu, and the editor's panels). The React Admin app is about 11,750 lines
+of TypeScript in `admin-app/src` (the layout editor alone about 4,300), and it uses about 5,000 lines
+of shared web code (`packages/shared/src/web/`, the venue map 1,400 of them) and the shared
+`layout-geometry.ts`. Expect a similar size in Rust, and about 170 parity items. The layout editor
+is the largest single piece.
 
 ## Constitution Check
 
@@ -65,12 +81,12 @@ similar size in Rust, and about 45 parity items.
 | III. Two PRs, reviews, citations | ✅ | This spec+plan PR (with the amendment), then `037-rust-admin-app-impl`. One independent review of each. A fresh implementer session. Commits cite `037` and `#163`. |
 | IV. Server-authoritative | ✅ | The form checks are previews only, ported as-is. Backend refusals shown beside the field, values kept. |
 | V. Sign-in, least privilege | ⚠️ amended | A fourth realm and client added to the rule and the Identity row. Same role, same Backend enforcement, tokens in memory, PKCE, exact URIs (R3, R4). |
-| VI. Test-first, coverage | ⚠️ amended | Rust tests run by `npm test`. 80% lines floor on `core` measured by `cargo llvm-cov`. View layer excluded; the named replacement control is a browser test for every Rust screen: the `@admin` journeys plus 037's S1–S5 journeys (R9). Tests written first: the Backend realm tests and `core` ports with their tests. |
-| VII. One shared look | ⚠️ amended | Exception: the Rust Admin app uses its own red theme so it is clearly another version, keeping the usability targets. Its sign-in accent lives in the shared theme's sign-in token block (R8). |
+| VI. Test-first, coverage | ⚠️ amended | Rust tests run by `npm test`. 80% lines floor on `core` measured by `cargo llvm-cov`. View layer excluded; the named replacement control is a browser test for every Rust screen: the `@admin` journeys plus 037's S1–S5, S10, and SL journeys (R9, R15). Tests written first: the Backend realm tests and `core` ports with their tests. |
+| VII. One shared look | ⚠️ amended | Exception: the Rust Admin app uses its own red colors so it is clearly another version, keeping the usability targets. Its layout is the Admin app's, from the same stylesheets (R8, 3.11.1). Its sign-in accent lives in the shared theme's sign-in token block (R8). |
 | VIII. YAGNI | ✅ | No new API, no server-side Rust, no runtime theme switching, no shared Rust crate with the Customer app's Rust version until both exist. |
 | Stack table | ⚠️ amended | Rust and Leptos/Trunk for this app only. Rust tests and tools added to the Front-end tests, Lint, and CI rows. |
 | CORS: three origins | ⚠️ amended | Four origins. |
-| Roadmap | ✅ | Row `037-rust-admin-app` reserved by this PR. The next free number is 038. |
+| Roadmap | ✅ | Row `037-rust-admin-app` reserved by this PR; 3.11.1 adds `038` and `039` to its dependencies. The next free number is 040. |
 | CI shape (spec 011) | ✅ | Rust setup is a part of the root `ci` script (`rust:setup`), so `ci-workflow.test.mjs`' rules hold. No cache step. Job times measured, with an open fallback (R12). |
 | Shared-surface approval | ⚠️ | The constitution, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`, and the root `package.json` change, so every team member must approve the impl PR, and this PR for the amendment. |
 
@@ -89,9 +105,9 @@ other than the one front end.
 specs/037-rust-admin-app/
 ├── spec.md
 ├── plan.md               # this file
-├── research.md           # R1–R12
+├── research.md           # R1–R15
 ├── data-model.md         # configuration rows and in-memory app types; no schema change
-├── quickstart.md         # S0–S8 and the Automation table
+├── quickstart.md         # S0–S11 and the Automation table
 ├── contracts/
 │   ├── sign-in-realm.md  # realm, client, Backend trust, CORS, Compose
 │   └── parity-checklist.md
@@ -109,9 +125,10 @@ admin-rust-app/                     # new; npm workspace @queuepass/admin-rust-a
 ├── rust-toolchain.toml             # pinned stable, wasm32-unknown-unknown, llvm-tools-preview
 ├── Dockerfile                      # rust+trunk build stage (dependency layer cached), nginx stage
 ├── nginx.conf                      # SPA fallback, port 5176
-├── index.html                      # Trunk entry; <title>QueuePass Admin (Rust)</title>
+├── index.html                      # Trunk entry; <title>QueuePass Admin (Rust)</title>; links the
+│                                   #   shared theme.css, admin-app/src/styles.css, then red.css (R8)
 ├── Trunk.toml
-├── style/theme.css                 # red tokens and component styles (R8)
+├── style/red.css                   # red color tokens only, light and dark; no layout rules (R8)
 ├── .cargo/config.toml              # getrandom wasm backend cfg (R3)
 ├── scripts/coverage-summary.mjs    # llvm-cov JSON → coverage/coverage-summary.json (istanbul shape, R9)
 ├── core/                           # crate admin-rust-core: native + wasm, measured for coverage
@@ -119,7 +136,12 @@ admin-rust-app/                     # new; npm workspace @queuepass/admin-rust-a
 │   ├── src/
 │   │   ├── api/                    # client, ApiError, one module per resource, seat stream parser
 │   │   ├── auth/                   # AuthState machine, PkceStore trait, token timing, role check (R3)
-│   │   ├── forms/                  # event form checks and times, venue form, section lines, images
+│   │   ├── forms/                  # event form checks and times, venue form, section lines, images,
+│   │   │                           #   seating section and off-sale ranges
+│   │   ├── seating/                # layout geometry, venue map geometry and state, pan and zoom math,
+│   │   │                           #   seat stream state (R13)
+│   │   ├── editor/                 # layout editor document, state and its actions, undo and redo,
+│   │   │                           #   overlap, generator, labels (R14)
 │   │   ├── time.rs                 # venue time zone conversion, skipped/repeated times (R6)
 │   │   ├── money.rs  format.rs  theme.rs
 │   │   └── export/                 # row builders, table, made-at, file name, csv/xlsx/pdf writers
@@ -129,7 +151,10 @@ admin-rust-app/                     # new; npm workspace @queuepass/admin-rust-a
         ├── main.rs  config.rs  routes.rs  shell.rs
         ├── oidc_glue.rs  download.rs  seat_stream.rs  device_zone.rs
         ├── pages/                  # home, venues (list, form, detail), events (list, form, detail), attendees, reports
-        └── components/             # layout card, tiers, sales, seating, seat grid, images field, export menu, notices
+        ├── layout_editor/          # editor page, canvas (SVG), panels, guard (R14, R15)
+        ├── venue_map/              # the shared venue map, section view, sections list, legend, preview (R13)
+        └── components/             # layouts card, section lines, seating section, tiers, sales, event seat map,
+                                    #   images field, export menu, notices
 
 packages/shared/src/realms.ts       # + admin-rust row (R4); its tests
 packages/shared/src/web/theme.css   # + red sign-in accent token set (R8); contrast tests
@@ -157,8 +182,10 @@ files are not touched.
    shell. User Story 1 is shippable here, as a "stub front end" in the constitution's sense.
 2. **`core` ports, test-first**: port each React helper with its tests: time, money, format,
    form checks, row builders. The React unit tests are the reference cases.
-3. **Venues** (US2), then **Events** form and pages (US3), then **event page cards and the live seat
-   map** (US4), then **Attendees, Reports, downloads** (US5).
+3. **Venues** and the Layouts card (US2), then **Events** form and pages with the seating section
+   (US3), then **event page cards and the live venue map** (US4), then **Attendees, Reports,
+   downloads** (US5), then the **layout editor** (US6). The venue map and layout geometry in `core`
+   come before US2's preview, because every map screen uses them.
 4. **Browser tests**: the `adminApp` fixture and `admin-rust` project, tags, the 037 tests.
 5. **CI, README, parity walk**, then the running-system gate from a fresh clone.
 
@@ -171,5 +198,7 @@ files are not touched.
 | `printpdf` table layout effort | Built once in `core/export/pdf.rs` and shared by both reports. JS interop is the noted last resort (R7). |
 | Rust image build time slows `docker compose up --build` and CI (30-minute job limit) | Cached dependency layer in the image (R11). Job times measured on the impl PR; over 25 minutes triggers the open 011 amendment for a cargo cache (R12). The Rust service is off every other service's critical path. |
 | `typify` and the contract's 267 `$ref`s | Spike in T020 before any screen work (R5). |
-| Parity drift while other features land in the React Admin app | Parity is with `main` when the impl PR opens (spec Assumption). Later specs state whether they cover the Rust app. The `admin-rust` e2e project fails if a shared journey breaks. |
+| Parity drift while other features land in the React Admin app | Parity is with `main` when the impl PR opens (spec Assumption); the checklist is complete for `ff993c4`. Later specs state whether they cover the Rust app. The `admin-rust` e2e project fails if a shared journey breaks. Layout cannot drift: the stylesheets are shared (R8). |
+| The layout editor's size (about 4,300 lines of React) and its pointer handling (drag, turn, box select, pan and zoom on SVG) | The editor's state, actions, undo and redo, and geometry are pure functions in `core`, ported test-first from `admin-app/test/layout-editor/` (R14). The view layer only maps pointer events to actions. It is the last story, so P1 work never waits on it. 039's own journeys run in the `admin-rust` project. |
+| A class name or element nesting differs, so a shared rule misses and the layout differs | "Same layout" rows in the checklist per screen (SL1 and on); a browser test compares each screen's headings, landmarks, and control order in both apps at desktop and phone width (R15). |
 | Team has no Rust installed | README prerequisites. Compose needs none. |

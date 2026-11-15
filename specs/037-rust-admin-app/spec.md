@@ -6,6 +6,11 @@
 
 **Status**: Draft
 
+**Amended**: 2026-11-14, before any implementation (#163). The Rust Admin app is to be exactly
+like the React Admin app as it is on `main` today (`ff993c4`): the same screens, the same layout,
+the same words, and the same behavior, with seat maps (`038`) and the layout editor (`039`)
+included. Only its red colors and its name differ. See Clarifications.
+
 **Issues**: [#163](https://github.com/Trughouse-Holdings/QueuePass/issues/163) (port the admin
 app to Rust)
 
@@ -20,13 +25,31 @@ spec. The Ticket Booth app is skipped. The Rust versions:
 
 The roadmap number is reserved by this PR's amendment. The next free number before it was 037.
 
+## Clarifications
+
+### Session 2026-11-14
+
+- Q: How close to the React Admin app must the Rust Admin app be? → A: Exactly like it, as it is
+  on `main` now (Nathan, 2026-11-14): the same pages at the same paths, the same layout (headings,
+  cards, sections, fields, buttons, and table columns in the same order, and the same phone-width
+  behavior), the same words, and the same behavior. Red colors and the "(Rust)" name are the only
+  visible differences. This replaces "they do not have to look like the current apps" in Input
+  item 2 and "It does not need to match the React Admin app's layout" in FR-011.
+- Q: Which Admin app is "now"? → A: `main` at `ff993c4` (2026-11-14), which has seat maps (`038`:
+  layouts per venue, prices per level, seats off sale, the live venue map), the layout editor
+  (`039`), and the follow-ups merged with them. The parity checklist lists every behavior of that
+  version. Anything merged into the React Admin app after it and before the implementation PR opens
+  is added to the checklist by the implementation PR (FR-012).
+
 ## Context
 
 Today the Admin app (`admin-app/`) is the one place QueuePass admins work. They sign in, manage
-venues and their seating, schedule and edit events with ticket types, reserved seating, and
-pictures, watch sales and seat maps, read attendee lists and reports, and download them. Each of
-those behaviors is defined by a merged spec (`002`, `004`, `005`, `007`, `012`, `013`, `014`,
-`015`, `016`, `020`, `021`, `023`, `024`, `025`, `028`, `030`, `031`, `032`, `035`, `036`).
+venues and their seating layouts, draw layouts in the layout editor, schedule and edit events with
+ticket types or a seating layout with prices per level and seats off sale, and pictures, watch
+sales and the live venue map, read attendee lists and reports, and download them. Each of those
+behaviors is defined by a merged spec (`002`, `004`, `005`, `007`, `012`, `013`, `014`, `015`,
+`016`, `020`, `021`, `023`, `024`, `025`, `028`, `030`, `031`, `032`, `035`, `036`, `038`,
+`039`).
 
 This feature adds a **second** Admin app, written in Rust, called the **Rust Admin app** below.
 The current one is the **React Admin app**. Both use the same Backend API and so the same data.
@@ -79,13 +102,14 @@ sign in to each as `admin1`, sign out of the Rust one, and use the React one: it
 
 An admin lists, searches, views, creates, edits, and deletes venues in the Rust Admin app, with
 the same rules and messages as the React Admin app: address checking, the time zone picked from
-the list, and the seating layout (sections of rows by seats per row).
+the list, and the venue's seating layouts on its Layouts card (import a layout file, make one from
+section lines, rename, edit lines, duplicate, delete, and the map preview, `038`).
 
 **Why this priority**: Events need venues. This is the first half of what admins do.
 
-**Independent Test**: Create a venue with a seating layout in the Rust Admin app, then open it in
-the React Admin app: it shows the same address, verified status, time zone, and layout. Edit it in
-the React app, reload it in the Rust app: the change shows.
+**Independent Test**: Create a venue in the Rust Admin app and give it a layout from section lines,
+then open it in the React Admin app: it shows the same address, verified status, time zone, and
+layout. Rename the layout in the React app, reload the Rust app: the change shows.
 
 **Acceptance Scenarios**:
 
@@ -95,11 +119,16 @@ the React app, reload it in the Rust app: the change shows.
    **Then** the venue is saved verified; **when** it does not, or the service is down, **then** it
    is saved as typed and marked not verified, as in `024`.
 3. **Given** a venue, **When** the admin opens it, **Then** they see its address (with its map
-   link), time zone, capacity, seating layout with each section's Rows × Seats per row and seat
-   count, and its events, with past events hidden unless shown.
+   link), time zone, capacity, its Layouts card with each layout's seats, sections, price levels,
+   preview, and the events using it, and its events, with past events hidden unless shown.
 4. **Given** a venue the Backend refuses to change or delete (for example, one with events),
    **Then** the Rust Admin app shows the Backend's reason beside the right field or action and
    keeps every value entered.
+5. **Given** a layout locked by sold or held seats, **When** the admin tries to rename, change, or
+   delete it, **Then** the Rust Admin app refuses with the same reason, naming the event, as the
+   React Admin app; Duplicate makes an unlocked copy.
+6. **Given** a layout file with problems, **When** the admin imports it, **Then** nothing is saved
+   and each problem is listed with where it is, as in the React Admin app.
 
 ---
 
@@ -108,16 +137,18 @@ the React app, reload it in the Rust app: the change shows.
 An admin schedules an event in the Rust Admin app with the same form behavior as the React Admin
 app: the three sections of `035`, the times of `036` (date and time controls; doors open as a
 length of time before the start or as a date and time; a new event starting today at the next
-whole hour and ending 4 hours later), ticket types, reserved seating and the live seat totals,
-tickets per customer, and pictures. Editing an event follows the same rules, including controls
-locked because tickets are sold.
+whole hour and ending 4 hours later), seating as general admission with ticket types or as one of
+the venue's layouts with a price per level and seats taken off sale (`038`), tickets per customer,
+and pictures. Editing an event follows the same rules, including controls locked because tickets
+are sold or seats held.
 
 **Why this priority**: Scheduling events is the core admin job, and the event form carries most of
 the Admin app's rules.
 
-**Independent Test**: Schedule an event with two ticket types, reserved seating, a per-customer
-limit, and two pictures in the Rust Admin app; open it in the React Admin app and check every
-value. Repeat the form's checks (`035`, `036`) in the Rust app and see the same messages.
+**Independent Test**: Schedule a general-admission event with two ticket types and a seated event
+on a layout with a price per level and a row off sale, each with a per-customer limit and two
+pictures, in the Rust Admin app; open each in the React Admin app and check every value. Repeat the
+form's checks (`035`, `036`, `038`) in the Rust app and see the same messages.
 
 **Acceptance Scenarios**:
 
@@ -128,18 +159,23 @@ value. Repeat the form's checks (`035`, `036`) in the Rust app and see the same 
    its seating are saved all or nothing, and pictures upload after it exists, as in `031`.
 3. **Given** the Backend refuses the event (for example, a clash at the venue within the 60-minute
    buffer), **Then** the reason is shown beside its field and focused, and every value is kept.
-4. **Given** an event with tickets sold, **When** the admin edits it, **Then** the controls the
-   Backend would refuse are locked, with the reason beside them.
+4. **Given** an event with tickets sold or seats held, **When** the admin edits it, **Then** the
+   controls the Backend would refuse are locked, with the reason beside them.
 5. **Given** an event, **When** the admin cancels or deletes it, **Then** the Rust Admin app asks
    first and follows the same rules and messages as the React Admin app.
+6. **Given** the admin picks a layout for the event, **Then** the form shows its preview, a price
+   for each of its levels, and the off-sale tool (sections, row ranges, single seats) with the
+   seats on sale and off sale counted, as the React Admin app does; an unpriced level or a sold or
+   held seat taken off sale is refused beside its field.
 
 ---
 
 ### User Story 4 - Watch events, sales, and seats (Priority: P2)
 
 An admin lists and searches events (with the Show past events toggle and filters), opens an event,
-and sees its details, pictures, sales, and seat map, with seats that change state as customers
-hold and buy them, without reloading.
+and sees its details, pictures, sales, and, for a seated event, the live venue map: each section
+filled by its seats' states, a legend with counts, and a zoom into a section's seats, which change
+state as customers hold and buy them, without reloading (`038`).
 
 **Why this priority**: Admins use these screens throughout an event's sale, but they only read.
 
@@ -184,6 +220,44 @@ differs).
 
 ---
 
+### User Story 6 - Draw and edit layouts in the layout editor (Priority: P2)
+
+An admin opens the layout editor from a venue's Layouts card in the Rust Admin app and draws a
+layout exactly as in the React Admin app (`039`): generate sections of rows and seats with the
+block generator, drag and turn them on the map, place the floor, paint price levels by section,
+row, or seat, fine-tune a section's rows and seats, undo and redo, and save it, or view a locked
+layout and duplicate it to edit. The same keyboard path, warnings, and unsaved-changes guard apply.
+
+**Why this priority**: It is the newest and largest Admin screen, and admins need it to make
+arena-shaped layouts. It comes after the P1 stories because events can use layouts made any other
+way, including layouts drawn in the React Admin app.
+
+**Independent Test**: In the Rust Admin app, draw a layout with a court and two generated sections,
+turn one, paint a section and two seats with a second level, and save it. Open it in the React
+Admin app's editor: every section, place, angle, label, and level is the same. Change it there and
+reload the Rust editor: the change shows.
+
+**Acceptance Scenarios**:
+
+1. **Given** a venue, **When** the admin chooses New layout, **Then** the Rust Admin app opens the
+   editor with the same panels, guidance, and controls, in the same places, as the React Admin
+   app's editor.
+2. **Given** the editor, **When** the admin generates, moves, turns, duplicates, relabels, or
+   deletes sections, or paints levels, **Then** the map, the warnings (for example, overlapping
+   sections), and the counts change as in the React Admin app, and Undo and Redo step through
+   them.
+3. **Given** unsaved changes, **When** the admin leaves the editor, **Then** they are asked first,
+   as in the React Admin app.
+4. **Given** a layout the admin changed in the other Admin app since opening it, **When** they
+   save, **Then** the Backend's refusal is shown as the React Admin app shows it, and their work is
+   kept.
+5. **Given** a locked layout, **When** the admin opens it, **Then** it opens to view only, and
+   Duplicate to edit makes an editable copy.
+6. **Given** only a keyboard, **When** the admin uses the editor, **Then** the same keys, row and
+   seat lists, and Delete, Undo, and Redo keys work as in the React Admin app.
+
+---
+
 ### Edge Cases
 
 - An admin edits the same event in both apps at once: the Backend's rules decide, and the second
@@ -200,6 +274,13 @@ differs).
   React Admin app has (phone-width layout, keyboard access, AA contrast, announced changes).
 - The Rust Admin app is down or still building: the rest of the system, the React Admin app
   included, starts and works without it.
+- An admin edits the same layout in both apps' editors: the second save is refused by the Backend
+  as changed since it was opened, and the Rust Admin app says so and keeps the work, as the React
+  Admin app does.
+- A layout becomes locked (a seat is sold or held) while it is open in the Rust editor: saving is
+  refused with the Backend's reason, as in the React Admin app.
+- A layout file over 4 MB or not JSON: refused before it is sent, with the same messages as the
+  React Admin app; a file the Backend finds wrong is refused with each problem listed.
 
 ## Requirements *(mandatory)*
 
@@ -241,23 +322,35 @@ differs).
   version (for example "QueuePass Admin (Rust)").
 - **FR-011**: The red theme MUST keep the usability the React Admin app has: AA contrast for text
   and controls, visible focus, states that do not rely on color alone, keyboard access, and a
-  layout that works at phone width. It does not need to match the React Admin app's layout.
+  layout that works at phone width.
+- **FR-020**: Apart from its colors and its name, the Rust Admin app MUST look like the React Admin
+  app (amended 2026-11-14, Clarifications): the same pages at the same paths; on each page the same
+  headings, cards, sections, fields, buttons, tables, and table columns, in the same order and the
+  same arrangement; the same sizes, spacing, and type; and the same changes at phone width. The
+  venue maps and the layout editor are drawn the same way, with only their colors changed.
 
 **Working the same**
 
 - **FR-012**: The Rust Admin app MUST provide every behavior the React Admin app provides on `main`
   when this feature's implementation PR opens, as defined by the merged specs listed in Context.
   The plan MUST list each one, by screen, as a parity checklist, and the implementation MUST be
-  checked against it.
+  checked against it. The checklist lists every behavior of `main` at `ff993c4` (2026-11-14); the
+  implementation PR adds a row for any Admin behavior merged after it.
 - **FR-013**: At least these screens and actions MUST be present: the signed-in home page; Venues
-  (list, search, view, create, edit, delete, seating layout, address check, time zone); Events
-  (list, search and filters, Show past events, view, schedule, edit, cancel, delete, ticket types,
-  reserved seating with live totals, tickets per customer, pictures, doors open, times in the
-  venue's time zone); an event's sales and live seat map; Attendees; Reports; and CSV, XLSX, and
-  PDF downloads of the attendee list and the sales report.
+  (list, search, view, create, edit, delete, address check, time zone, and the Layouts card:
+  import a layout file, new layout from section lines, rename, edit lines, duplicate, delete, the
+  map preview, and the links into the editor); the layout editor (new, edit, view, the block
+  generator, moving and turning sections, the floor, price levels and painting, fine-tuning rows
+  and seats, keyboard use, undo and redo, save, save as a new layout, and the unsaved-changes
+  guard); Events (list, search and filters, Show past events, view, schedule, edit, cancel, delete,
+  general admission with ticket types and live totals, a seating layout with a price per level and
+  seats off sale, tickets per customer, pictures, doors open, times in the venue's time zone); an
+  event's sales and its live venue map; Attendees; Reports; and CSV, XLSX, and PDF downloads of the
+  attendee list and the sales report.
 - **FR-014**: For the same data and action, the Rust Admin app MUST give the same outcome as the
   React Admin app: the same values saved, the same Backend refusals shown with the same meaning
-  beside the same field, the same values kept after a refusal, and the same figures shown.
+  beside the same field, the same values kept after a refusal, the same figures shown, and the same
+  visible words (headings, labels, buttons, messages, and notes).
 - **FR-015**: Downloads from the Rust Admin app MUST hold the same rows, columns, and values as the
   React Admin app's downloads of the same data, apart from the time each file was made.
 
@@ -276,8 +369,10 @@ differs).
 
 ### Key Entities
 
-No new data. The Rust Admin app reads and writes the same venues, seating layouts, events, ticket
-types, pictures, orders, tickets, and check-ins as the React Admin app, through the same API. The
+No new data. The Rust Admin app reads and writes the same venues, seating layouts (with their
+sections, rows, seats, price levels, and drawings), events (with their prices per level and seats
+off sale), ticket types, pictures, orders, tickets, and check-ins as the React Admin app, through
+the same API. The
 only new configuration is one sign-in realm with its client, the admin role, and its five admin
 accounts.
 
@@ -290,7 +385,8 @@ This spec PR carries an amendment (MINOR) that:
   the plan. TypeScript and React stay fixed for every other front end.
 - Adds its realm and client to Principle V and the Identity row, and its origin to the CORS rule.
 - Adds an exception to Principle VII: the Rust Admin app uses its own red theme, not the shared
-  theme, so it is clearly a different version. It keeps the usability targets.
+  theme, so it is clearly a different version. It keeps the usability targets. (Amended
+  2026-11-14, Constitution 3.11.1: its own red colors, on the Admin app's layout.)
 - Adds its workspace to Principle VI's coverage floor, measured by its own Rust tooling but run by
   the one test command, and its tests to the Front-end tests row.
 - Reserves roadmap row `037-rust-admin-app`. The Customer app's Rust version takes the next number.
@@ -301,7 +397,8 @@ This spec PR carries an amendment (MINOR) that:
 
 - **SC-001**: From a fresh clone, one command brings up both Admin apps, the Customer app, and the
   Ticket Booth app, and an admin can sign in to both Admin apps at once in one browser.
-- **SC-002**: 100% of the plan's parity checklist items pass in the Rust Admin app.
+- **SC-002**: 100% of the plan's parity checklist items pass in the Rust Admin app, the "Same
+  layout" items included.
 - **SC-003**: In a hallway test, 5 of 5 people shown either Admin app name which one it is within 3
   seconds.
 - **SC-004**: For one event, every CSV, XLSX, and PDF download from the Rust Admin app matches the
@@ -320,14 +417,15 @@ This spec PR carries an amendment (MINOR) that:
   accounts have the same names and password in both realms; admin data is not tied to who made it,
   so nothing depends on the two realms' accounts being the same identity.
 - **Parity is a snapshot.** Parity is with `main` when this feature's implementation PR opens.
-  Each later Admin feature (for example, seat maps and season tickets) says in its own spec
-  whether it also covers the Rust Admin app. Whether John wants every later feature built twice is
-  to be asked in Slack, with options, before the seat-map proposal is final.
+  The checklist is complete for `main` at `ff993c4` (2026-11-14), seat maps (`038`) and the layout
+  editor (`039`) included. Each later Admin feature (for example, season tickets) says in its own
+  spec whether it also covers the Rust Admin app.
 - **Port.** The Rust Admin app runs on port 5176 unless the plan finds it taken. The Customer
   app's Rust version picks its own.
-- **Look.** The Rust Admin app's red theme is its own. It need not match the React Admin app's
-  layout, but it keeps the same words for the same things, so the parity check and the browser
-  tests can use one script for both.
+- **Look.** The Rust Admin app's red colors are its own; everything else about its look is the
+  React Admin app's (FR-020). It keeps the same words for the same things, so the parity check and
+  the browser tests can use one script for both. The plan reuses the React Admin app's stylesheets
+  rather than copying them, so the two layouts cannot drift apart.
 - **Same downloads.** "The same" for PDFs means the same text, rows, and columns, not
   pixel-identical pages.
 - **Out of scope**: changes to the Backend's rules or API; changes to the React Admin app; the
