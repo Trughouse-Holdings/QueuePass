@@ -15,10 +15,10 @@ use std::sync::LazyLock;
 
 use admin_rust_core::api::client::{ApiError, error_from};
 use admin_rust_core::forms::event::{
-    self, Availability, EventFormState, EventLoad, EventSeating, FieldMessages, LevelPreview,
-    MSG_BAD_PRICE, MSG_END_ORDER, MSG_NAME, MSG_NO_SEAT_ON_SALE, MSG_TYPE_QUANTITY, Occurrence,
-    PreviewInput, SeatingPreview, SectionRequest, Submit, TicketType, Tier, TimeField, TimeNote,
-    TypeField, Venue, field_errors, lock_reason, over_capacity_message, preview_errors,
+    self, Availability, CONFLICT_PREFIX, EventFormState, EventLoad, EventSeating, FieldMessages,
+    LevelPreview, MSG_BAD_PRICE, MSG_END_ORDER, MSG_NAME, MSG_NO_SEAT_ON_SALE, MSG_TYPE_QUANTITY,
+    Occurrence, PreviewInput, SeatingPreview, SectionRequest, Submit, TicketType, Tier, TimeField,
+    TimeNote, TypeField, Venue, field_errors, lock_reason, over_capacity_message, preview_errors,
     repeated_type_name_message, seat_totals,
 };
 use admin_rust_core::forms::off_sale::{LayoutDetail, LayoutSectionSeats, LayoutSummary, Taken};
@@ -2053,6 +2053,16 @@ fn a_conflict_names_the_conflicting_event_and_keeps_every_value() {
     f.create_failed(err);
     assert!(f.times_refusal());
     assert!(f.conflict_line().unwrap().contains("Season Opener"));
+    let (name, rest) = f.conflict_parts().unwrap();
+    assert_eq!(name, "Season Opener");
+    assert!(rest.starts_with(", which runs "));
+    assert!(
+        rest.ends_with(". Pick a slot at least 60 minutes clear of it, or choose another venue.")
+    );
+    assert_eq!(
+        f.conflict_line().unwrap(),
+        format!("{CONFLICT_PREFIX}{name}{rest}")
+    );
     assert_eq!(f.name, "Clashing Show");
     assert_local(&f, TimeField::StartsAt, "2026-10-01T20:00");
     assert_local(&f, TimeField::EndsAt, "2026-10-01T23:00");
