@@ -19,7 +19,7 @@ pub fn AppRoutes() -> impl IntoView {
             <Routes fallback=|| view! { <NotFound/> }>
                 <ParentRoute path=path!("") view=AppShell>
                     <Route path=path!("") view=pages::home::Home/>
-                    <Route path=path!("locations") view=pages::stub::VenueList/>
+                    <Route path=path!("locations") view=pages::venue_list::VenueList/>
                     <Route path=path!("locations/new") view=pages::stub::VenueForm/>
                     <Route path=path!("locations/:id") view=pages::stub::VenueDetail/>
                     <Route path=path!("locations/:id/edit") view=pages::stub::VenueForm/>
@@ -28,7 +28,7 @@ pub fn AppRoutes() -> impl IntoView {
                         path=path!("locations/:id/layouts/:layoutId/edit")
                         view=pages::stub::LayoutEditor
                     />
-                    <Route path=path!("events") view=pages::stub::EventList/>
+                    <Route path=path!("events") view=pages::event_list::EventList/>
                     <Route path=path!("events/new") view=pages::stub::EventForm/>
                     <Route path=path!("events/:id") view=pages::stub::EventDetail/>
                     <Route path=path!("events/:id/edit") view=pages::stub::EventForm/>

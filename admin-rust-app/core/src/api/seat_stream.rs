@@ -45,7 +45,7 @@ pub fn stream_headers(token: Option<&str>) -> Vec<(&'static str, String)> {
 }
 
 /// JavaScript's `encodeURIComponent`.
-fn encode_uri_component(s: &str) -> String {
+pub fn encode_uri_component(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
         if b.is_ascii_alphanumeric() || b"-_.!~*'()".contains(&b) {

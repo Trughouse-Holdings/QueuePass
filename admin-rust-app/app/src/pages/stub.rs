@@ -14,11 +14,9 @@ macro_rules! stub {
 }
 
 stub! {
-    VenueList => "Venues",
     VenueForm => "Venue",
     VenueDetail => "Venue",
     LayoutEditor => "Layout",
-    EventList => "Events",
     EventForm => "Event",
     EventDetail => "Event",
     Attendees => "Attendees",

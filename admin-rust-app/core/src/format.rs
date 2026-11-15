@@ -104,3 +104,12 @@ pub fn removed_note(removed_at: &str, time_zone: Option<&str>) -> String {
 pub fn removed_short(removed_at: &str, time_zone: Option<&str>) -> String {
     format!("Details removed {}", event_date(removed_at, time_zone))
 }
+
+/// Ports `mapsUrl` (`packages/shared/src/location.ts`): a venue's address as a Google Maps search
+/// (spec 013 FR-014).
+pub fn maps_url(address: &str) -> String {
+    format!(
+        "https://www.google.com/maps/search/?api=1&query={}",
+        crate::api::seat_stream::encode_uri_component(address)
+    )
+}

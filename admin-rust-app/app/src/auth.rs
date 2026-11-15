@@ -65,8 +65,10 @@ impl Auth {
         self.machine.with(|m| m.status())
     }
 
+    /// The signed-in admin's username; changes only with a new sign-in.
     pub fn username(&self) -> Option<String> {
-        self.machine.with(|m| m.username().map(str::to_string))
+        self.machine
+            .with_untracked(|m| m.username().map(str::to_string))
     }
 
     /// The API client (Constitution I: the only network path to data).

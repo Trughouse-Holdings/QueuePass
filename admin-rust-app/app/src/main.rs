@@ -9,6 +9,7 @@ mod oidc_glue;
 mod pages;
 mod routes;
 mod shell;
+mod util;
 
 use admin_rust_core::auth::AuthStatus;
 use leptos::prelude::*;
@@ -21,7 +22,9 @@ use crate::{auth::Auth, components::WrongRole, routes::AppRoutes};
 fn App() -> impl IntoView {
     let auth = Auth::provide();
     guard::Guard::provide();
-    move || match auth.status() {
+    // The machine is notified on every clock tick; the page changes only when the status does.
+    let status = Memo::new(move |_| auth.status());
+    move || match status.get() {
         AuthStatus::SignedIn => view! { <AppRoutes/> }.into_any(),
         AuthStatus::WrongRole => view! {
             <div class="app">

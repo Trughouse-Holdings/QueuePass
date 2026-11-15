@@ -134,8 +134,14 @@ impl Oidc {
             .await
             .map_err(|_| ())?;
         let id_token = response.id_token().ok_or(())?;
+        // The ID token comes straight from the token endpoint. Its signature, issuer, audience,
+        // and nonce are checked; its times are checked at its own issue time, not against the
+        // device's clock, which may be wrong (as oidc-client-ts, which the React app uses, does
+        // not refuse a token on the device clock either).
+        let issued = issued_at(&id_token.to_string()).ok_or(())?;
+        let verifier = client.id_token_verifier().set_time_fn(move || issued);
         id_token
-            .claims(&client.id_token_verifier(), &Nonce::new(pending.nonce))
+            .claims(&verifier, &Nonce::new(pending.nonce))
             .map_err(|_| ())?;
         let tokens = Tokens {
             access_token: response.access_token().secret().clone(),
@@ -205,4 +211,15 @@ impl Oidc {
 fn expires_at(expires_in: Option<std::time::Duration>) -> i64 {
     // Keycloak always sends expires_in; 5 minutes is its default token life.
     now_ms() + expires_in.map(|d| d.as_millis() as i64).unwrap_or(300_000)
+}
+
+/// A JWT's `iat`, read without verifying (the verifier then checks the signature).
+fn issued_at(jwt: &str) -> Option<chrono::DateTime<chrono::Utc>> {
+    use base64::Engine;
+    let payload = jwt.split('.').nth(1)?;
+    let bytes = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(payload.trim_end_matches('='))
+        .ok()?;
+    let claims: serde_json::Value = serde_json::from_slice(&bytes).ok()?;
+    chrono::DateTime::from_timestamp(claims["iat"].as_i64()?, 0)
 }

@@ -13,6 +13,7 @@ name = "admin-rust-app"
 version = "0.1.0"
 dependencies = [
  "admin-rust-core",
+ "base64 0.23.1",
  "chrono",
  "chrono-tz",
  "console_error_panic_hook",
