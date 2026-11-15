@@ -142,10 +142,6 @@ impl Guard {
         }
     }
 
-    pub fn is_dirty(&self) -> bool {
-        self.dirty.get()
-    }
-
     /// Lets the next navigation through unasked (the unguarded moves of 039).
     pub fn pass_next(&self) {
         self.pass.set_value(true);

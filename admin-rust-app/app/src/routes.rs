@@ -23,10 +23,10 @@ pub fn AppRoutes() -> impl IntoView {
                     <Route path=path!("locations/new") view=pages::venue_form::VenueForm/>
                     <Route path=path!("locations/:id") view=pages::venue_detail::VenueDetail/>
                     <Route path=path!("locations/:id/edit") view=pages::venue_form::VenueForm/>
-                    <Route path=path!("locations/:id/layouts/new") view=pages::stub::LayoutEditor/>
+                    <Route path=path!("locations/:id/layouts/new") view=crate::layout_editor::LayoutEditorPage/>
                     <Route
                         path=path!("locations/:id/layouts/:layoutId/edit")
-                        view=pages::stub::LayoutEditor
+                        view=crate::layout_editor::LayoutEditorPage
                     />
                     <Route path=path!("events") view=pages::event_list::EventList/>
                     <Route path=path!("events/new") view=pages::event_form::EventForm/>
