@@ -242,7 +242,10 @@ write(
     const after = steps.map((step) => {
       if (step.type === 'saveNow') {
         const sent = currentDoc(s);
-        s = reduce(s, step.readBack ? { type: 'saved', sent, doc: readBack(sent) } : { type: 'saved', sent });
+        s = reduce(
+          s,
+          step.readBack ? { type: 'saved', sent, doc: readBack(sent) } : { type: 'saved', sent },
+        );
       } else {
         s = reduce(s, step);
       }
@@ -261,9 +264,21 @@ const drafts: { draft: BlockDraft; except?: string; seatsBefore: number; checkNa
   { draft: { ...base, name: '' }, seatsBefore: 8, checkName: true },
   { draft: { ...base, name: 'x'.repeat(51) }, seatsBefore: 8, checkName: true },
   { draft: { ...base, name: '' }, seatsBefore: 8, checkName: false },
-  { draft: { ...base, rows: ' 12 ', seatsPerRow: '  16,16 , 18\t18,,20 20 ' }, seatsBefore: 8, checkName: true },
-  { draft: { ...base, rows: '6', seatsPerRow: '16, 16, 18, 18, 20, 20' }, seatsBefore: 8, checkName: true },
-  { draft: { ...base, rows: '0x10', seatsPerRow: '1e1, .5e1, +3, 0b11, 0o7' }, seatsBefore: 8, checkName: true },
+  {
+    draft: { ...base, rows: ' 12 ', seatsPerRow: '  16,16 , 18\t18,,20 20 ' },
+    seatsBefore: 8,
+    checkName: true,
+  },
+  {
+    draft: { ...base, rows: '6', seatsPerRow: '16, 16, 18, 18, 20, 20' },
+    seatsBefore: 8,
+    checkName: true,
+  },
+  {
+    draft: { ...base, rows: '0x10', seatsPerRow: '1e1, .5e1, +3, 0b11, 0o7' },
+    seatsBefore: 8,
+    checkName: true,
+  },
   { draft: { ...base, rows: '', seatsPerRow: '' }, seatsBefore: 8, checkName: true },
   { draft: { ...base, rows: '2.5', seatsPerRow: '20, x' }, seatsBefore: 8, checkName: true },
   { draft: { ...base, rows: '101', seatsPerRow: '201' }, seatsBefore: 8, checkName: true },
@@ -272,17 +287,29 @@ const drafts: { draft: BlockDraft; except?: string; seatsBefore: number; checkNa
   { draft: { ...base, firstRow: ' AB ' }, seatsBefore: 8, checkName: true },
   { draft: { ...base, firstRow: ' zz ' }, seatsBefore: 8, checkName: true },
   { draft: { ...base, rowLabels: 'NUMBERS', firstRow: '99999' }, seatsBefore: 8, checkName: true },
-  { draft: { ...base, firstSeat: '1e4', direction: 'RIGHT_TO_LEFT' }, seatsBefore: 8, checkName: true },
+  {
+    draft: { ...base, firstSeat: '1e4', direction: 'RIGHT_TO_LEFT' },
+    seatsBefore: 8,
+    checkName: true,
+  },
   { draft: { ...base, firstSeat: 'Infinity' }, seatsBefore: 8, checkName: true },
   { draft: { ...base, curvePreset: '40', curve: 'junk' }, seatsBefore: 8, checkName: true },
   { draft: { ...base, curvePreset: 'custom', curve: '121' }, seatsBefore: 8, checkName: true },
   { draft: { ...base, curvePreset: 'custom', curve: ' 25.5 ' }, seatsBefore: 8, checkName: true },
   { draft: { ...base, curvePreset: 'custom', curve: '-0' }, seatsBefore: 8, checkName: true },
   { draft: { ...base, rows: '3', seatsPerRow: '4, 5' }, seatsBefore: 8, checkName: true },
-  { draft: { ...base, rows: '1_0', seatsPerRow: '1.', firstSeat: '-1' }, seatsBefore: 8, checkName: true },
+  {
+    draft: { ...base, rows: '1_0', seatsPerRow: '1.', firstSeat: '-1' },
+    seatsBefore: 8,
+    checkName: true,
+  },
 ];
 const many = { ...fromDrawing(DRAWING) };
-many.sections = Array.from({ length: 100 }, (_, i) => ({ ...many.sections[0], id: `s${i}`, name: `S${i}` }));
+many.sections = Array.from({ length: 100 }, (_, i) => ({
+  ...many.sections[0],
+  id: `s${i}`,
+  name: `S${i}`,
+}));
 write('drafts.json', [
   ...drafts.map((d) => ({
     ...d,
@@ -299,9 +326,21 @@ write('drafts.json', [
 // regeneratePlan, and the number box's display.
 const doc = fromDrawing(DRAWING);
 write('plans.json', [
-  { id: 's-101', values: { ...NEW_BLOCK, rows: 3, seatsPerRow: [2] }, out: regeneratePlan(doc, 's-101', { ...NEW_BLOCK, rows: 3, seatsPerRow: [2] }) },
-  { id: 's-101', values: { ...NEW_BLOCK, rows: 2, seatsPerRow: [3] }, out: regeneratePlan(doc, 's-101', { ...NEW_BLOCK, rows: 2, seatsPerRow: [3] }) },
-  { id: 's-102', values: { ...NEW_BLOCK, rows: 1, seatsPerRow: [1] }, out: regeneratePlan(doc, 's-102', { ...NEW_BLOCK, rows: 1, seatsPerRow: [1] }) },
+  {
+    id: 's-101',
+    values: { ...NEW_BLOCK, rows: 3, seatsPerRow: [2] },
+    out: regeneratePlan(doc, 's-101', { ...NEW_BLOCK, rows: 3, seatsPerRow: [2] }),
+  },
+  {
+    id: 's-101',
+    values: { ...NEW_BLOCK, rows: 2, seatsPerRow: [3] },
+    out: regeneratePlan(doc, 's-101', { ...NEW_BLOCK, rows: 2, seatsPerRow: [3] }),
+  },
+  {
+    id: 's-102',
+    values: { ...NEW_BLOCK, rows: 1, seatsPerRow: [1] },
+    out: regeneratePlan(doc, 's-102', { ...NEW_BLOCK, rows: 1, seatsPerRow: [1] }),
+  },
   { id: 'nope', values: NEW_BLOCK, out: regeneratePlan(doc, 'nope', NEW_BLOCK) },
 ]);
 write(
