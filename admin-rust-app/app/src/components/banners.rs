@@ -4,8 +4,8 @@
 
 use admin_rust_core::api::client::ApiError;
 use leptos::prelude::*;
-use leptos_router::hooks::{use_location, use_navigate};
 use leptos_router::NavigateOptions;
+use leptos_router::hooks::{use_location, use_navigate};
 use serde::{Deserialize, Serialize};
 
 use crate::{auth::use_auth, components::AppLink};
@@ -55,7 +55,12 @@ fn string_list(error: &ApiError, key: &str) -> Vec<String> {
         .details()
         .and_then(|d| d.get(key))
         .and_then(|v| v.as_array())
-        .map(|items| items.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|v| v.as_str().map(str::to_string))
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -81,7 +86,10 @@ pub fn ErrorBanner(
                 items
                     .iter()
                     .filter_map(|e| {
-                        Some((e["id"].as_str()?.to_string(), e["name"].as_str()?.to_string()))
+                        Some((
+                            e["id"].as_str()?.to_string(),
+                            e["name"].as_str()?.to_string(),
+                        ))
                     })
                     .collect()
             })
@@ -142,7 +150,10 @@ pub struct NoticeState {
 /// Navigation options carrying a notice in the history state, as the React app's
 /// `navigate(to, { state: { notice } })`.
 pub fn with_notice(kind: NoticeKind, text: impl Into<String>) -> NavigateOptions {
-    let notice = NoticeState { kind, text: text.into() };
+    let notice = NoticeState {
+        kind,
+        text: text.into(),
+    };
     let state = serde_wasm_state(&notice);
     NavigateOptions {
         state: leptos_router::location::State::new(state),
@@ -170,8 +181,19 @@ pub fn Notice() -> impl IntoView {
     if notice.is_some() {
         let path = location.pathname.get_untracked();
         let search = location.search.get_untracked();
-        let to = if search.is_empty() { path } else { format!("{path}?{search}") };
-        navigate(&to, NavigateOptions { replace: true, scroll: false, ..NavigateOptions::default() });
+        let to = if search.is_empty() {
+            path
+        } else {
+            format!("{path}?{search}")
+        };
+        navigate(
+            &to,
+            NavigateOptions {
+                replace: true,
+                scroll: false,
+                ..NavigateOptions::default()
+            },
+        );
     }
     notice.map(|n| match n.kind {
         NoticeKind::Success => view! { <SuccessState message=n.text/> }.into_any(),

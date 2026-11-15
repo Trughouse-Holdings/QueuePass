@@ -41,6 +41,7 @@ syn = "2"
 prettyplease = "0.2"
 
 [dev-dependencies]
+serde_yaml = "0.9.34"
 # Spec 037 R13 (T031): the seat-map parity fixtures are read back to the exact float.
 serde_json = { workspace = true, features = ["float_roundtrip"] }
 wiremock = "0.6.5"

@@ -9,10 +9,7 @@ use admin_rust_core::{
     api::client::ApiClient,
     auth::{AuthMachine, AuthStatus, Effect},
 };
-use leptos::{
-    prelude::*,
-    task::spawn_local,
-};
+use leptos::{prelude::*, task::spawn_local};
 use wasm_bindgen::JsCast;
 
 use crate::{
@@ -45,7 +42,8 @@ impl Auth {
         let machine = RwSignal::new(AuthMachine::new());
         let oidc = StoredValue::new_local(None);
         // The client reads the token and the 401 action through the machine, which exists now.
-        let token = Rc::new(move || machine.with_untracked(|m| m.access_token().map(str::to_string)));
+        let token =
+            Rc::new(move || machine.with_untracked(|m| m.access_token().map(str::to_string)));
         let auth_cell: Rc<std::cell::OnceCell<Auth>> = Rc::new(std::cell::OnceCell::new());
         let on_401 = {
             let cell = auth_cell.clone();
@@ -113,7 +111,10 @@ impl Auth {
 
     fn listen(&self) {
         let auth = *self;
-        set_interval(move || auth.step(|m| m.tick(now_ms())), Duration::from_secs(1));
+        set_interval(
+            move || auth.step(|m| m.tick(now_ms())),
+            Duration::from_secs(1),
+        );
         let _ = window_event_listener(leptos::ev::online, move |_| auth.step(|m| m.online()));
         let _ = window_event_listener_untyped("pageshow", move |ev| {
             let persisted = ev
@@ -153,7 +154,8 @@ impl Auth {
                             &window().location().search().unwrap_or_default(),
                         )
                         .ok();
-                        let get = |k: &str| params.as_ref().and_then(|p| p.get(k)).unwrap_or_default();
+                        let get =
+                            |k: &str| params.as_ref().and_then(|p| p.get(k)).unwrap_or_default();
                         let outcome = oidc
                             .exchange(&mut SessionPkceStore, &get("code"), &get("state"))
                             .await;
@@ -174,7 +176,10 @@ impl Auth {
                     let auth = *self;
                     let oidc = oidc.clone();
                     let (refresh, id_token) = self.machine.with_untracked(|m| {
-                        (m.refresh_token().map(str::to_string), m.id_token().map(str::to_string))
+                        (
+                            m.refresh_token().map(str::to_string),
+                            m.id_token().map(str::to_string),
+                        )
                     });
                     spawn_local(async move {
                         let outcome = match refresh {

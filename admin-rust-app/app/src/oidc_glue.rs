@@ -11,8 +11,7 @@ use admin_rust_core::auth::{
 use openidconnect::{
     AuthorizationCode, ClientId, CsrfToken, EndpointMaybeSet, EndpointNotSet, EndpointSet,
     IssuerUrl, Nonce, OAuth2TokenResponse, PkceCodeChallenge, PkceCodeVerifier,
-    ProviderMetadataWithLogout, RedirectUrl, RefreshToken, RequestTokenError, Scope,
-    TokenResponse,
+    ProviderMetadataWithLogout, RedirectUrl, RefreshToken, RequestTokenError, Scope, TokenResponse,
     core::{CoreAuthenticationFlow, CoreClient},
 };
 
@@ -74,7 +73,8 @@ impl Oidc {
     /// Discovery at `config::OIDC_AUTHORITY`'s `.well-known/openid-configuration`, with its JWKS.
     pub async fn discover() -> Result<Oidc, String> {
         let http = reqwest::Client::new();
-        let issuer = IssuerUrl::new(config::OIDC_AUTHORITY.to_string()).map_err(|e| e.to_string())?;
+        let issuer =
+            IssuerUrl::new(config::OIDC_AUTHORITY.to_string()).map_err(|e| e.to_string())?;
         let metadata = ProviderMetadataWithLogout::discover_async(issuer, &http)
             .await
             .map_err(|e| format!("discovery: {e}"))?;
