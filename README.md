@@ -154,14 +154,15 @@ docker compose up --build
 
 One command from a clean clone. No manual configuration steps.
 
-| Service          | URL                   | Sign in as        | Notes                                                                                              |
-| ---------------- | --------------------- | ----------------- | -------------------------------------------------------------------------------------------------- |
-| Admin app        | http://localhost:5173 | `admin1`          | role `queuepass-admin`, realm `queuepass-admin-app`                                                |
-| Customer app     | http://localhost:5174 | `customer1`       | role `customer`, realm `queuepass-customer-app`; find and browse events, get tickets, choose seats |
-| Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`, realm `queuepass-booth-app`; check tickets in by camera scan or typed code      |
-| Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs`                                       |
-| Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realms `queuepass-admin-app`, `queuepass-customer-app`, `queuepass-booth-app`       |
-| PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                                                                   |
+| Service          | URL                   | Sign in as        | Notes                                                                                                                    |
+| ---------------- | --------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Admin app        | http://localhost:5173 | `admin1`          | role `queuepass-admin`, realm `queuepass-admin-app`                                                                      |
+| Customer app     | http://localhost:5174 | `customer1`       | role `customer`, realm `queuepass-customer-app`; find and browse events, get tickets, choose seats                       |
+| Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`, realm `queuepass-booth-app`; check tickets in by camera scan or typed code                            |
+| Admin app (Rust) | http://localhost:5176 | `admin1`          | the Admin app again, in Rust and red (`037`); role `queuepass-admin`, realm `queuepass-admin-rust-app`                   |
+| Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs`                                                             |
+| Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realms `queuepass-admin-app`, `queuepass-customer-app`, `queuepass-booth-app`, `queuepass-admin-rust-app` |
+| PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                                                                                         |
 
 Saving a new venue address needs internet: the Backend checks it with the US Census Geocoder
 (`ADDRESS_GEOCODER_URL`, default `https://geocoding.geo.census.gov`, no key). Offline, a new
@@ -179,6 +180,15 @@ seat-hold attempts, `RATE_LIMIT_HOLD_PER_MINUTE` (default `30`) and `RATE_LIMIT_
 them; any value that is not a whole number of at least 1,
 or a 5-second number above the minute's, stops the Backend at start-up, and nothing turns the
 limits off. The browser tests always use the defaults.
+
+**The Rust Admin app** (`037`, issue #163) is the Admin app written in Rust (Leptos, compiled to
+WebAssembly by Trunk) beside the React one, with every screen of it and the same layout, in red so
+you can tell them apart. It signs in through its own realm, `queuepass-admin-rust-app`, with the
+same `admin1`–`admin5` accounts, so both Admin apps can be signed in at once and logging out of one
+leaves the other. Its first `docker compose up --build` takes several minutes (a Rust build); later
+builds reuse the cached dependency layer. A `.env` made before `037` must add
+`http://localhost:5176` to `CORS_ORIGINS` (see `.env.example`), or the Rust app's API calls are
+refused.
 
 Startup order is gated on health: the Backend waits for PostgreSQL and applies migrations, the
 seed waits for Keycloak's `/health/ready`, and the front ends wait for the Backend.
@@ -203,7 +213,7 @@ container, and any `docker compose up` without `--build`. The seed then stops, n
 to recover, rename the extra `queuepass` aside in the admin console (for example to
 `queuepass-recreated`), never delete it, and start again.
 
-> The stack uses ports 3000, 5173–5175, 8080, 9000, and 5432. Stop anything else using them
+> The stack uses ports 3000, 5173–5176, 8080, 9000, and 5432. Stop anything else using them
 > first, or `docker compose up` fails with "port is already allocated".
 
 **When the images can't be built** (for example, a network that intercepts TLS, so a build cannot
@@ -215,7 +225,7 @@ the host. Stop any stack using the same ports first.
 docker compose -p qp020gate up -d database keycloak
 npm ci
 node scripts/run-host.mjs --backend-tz America/Los_Angeles --demo-data
-# builds, migrates, seeds Keycloak, starts the Backend and the three apps; Ctrl+C stops them
+# builds, migrates, seeds Keycloak, starts the Backend and the four apps; Ctrl+C stops them
 docker compose -p qp020gate down -v   # afterwards, with its data
 ```
 
@@ -363,6 +373,13 @@ npm install     # first time only
 npm test
 ```
 
+`npm test` needs [`rustup`](https://rustup.rs) for the Rust Admin app (`037`); run
+`npm run rust:setup` once, which installs the pinned toolchain (with the WebAssembly target) and the
+pinned `trunk` and `cargo-llvm-cov`. The Rust app's logic is measured on its `core` crate
+(`cargo llvm-cov`, 80% lines); its views are covered by the browser tests, every Admin journey
+running against both Admin apps (Playwright project `admin-rust`, journeys tagged `@admin`).
+`docker compose up --build` needs no Rust on the machine: the image brings its own.
+
 `npm test` works on a fresh clone: the Backend's tests generate the Prisma client first. It runs
 the repository scripts' own tests, the boundary and contract-drift checks, then every workspace's
 tests, and measures each workspace's line coverage (a short summary after each).
@@ -449,7 +466,7 @@ npm run e2e -- -g "015 S2"               # one scenario, by its name
 npm run e2e -- --repeat-each=3           # every test three times in a row
 ```
 
-`npm run e2e` refuses to start, naming the ports, while anything holds 5173–5175, 3000, 8080, 9000,
+`npm run e2e` refuses to start, naming the ports, while anything holds 5173–5176, 3000, 8080, 9000,
 or 5432, and touches nothing. Otherwise it starts Compose project `qpe2e` from clean data with
 `docker compose up --build` plus `e2e/stack/docker-compose.e2e.yml`, loads the demo state with the
 reset ([Demo checkpoint](#demo-checkpoint)), installs
@@ -474,14 +491,15 @@ parallel.
 
 ## Seeded test credentials
 
-The seed provisions **235 accounts**, each in its app's realm with that app's one OIDC client
-(`028`):
+The seed provisions **240 accounts**, each in its app's realm with that app's one OIDC client
+(`028`; the Rust Admin app's realm, `037`, holds a second set of the five admins):
 
-| Accounts           | Usernames                   | Realm role        | Realm                    |
-| ------------------ | --------------------------- | ----------------- | ------------------------ |
-| 5 QueuePass Admins | `admin1` … `admin5`         | `queuepass-admin` | `queuepass-admin-app`    |
-| 30 Gate Agents     | `agent1` … `agent30`        | `gate-agent`      | `queuepass-booth-app`    |
-| 200 Customers      | `customer1` … `customer200` | `customer`        | `queuepass-customer-app` |
+| Accounts           | Usernames                   | Realm role        | Realm                      |
+| ------------------ | --------------------------- | ----------------- | -------------------------- |
+| 5 QueuePass Admins | `admin1` … `admin5`         | `queuepass-admin` | `queuepass-admin-app`      |
+| 5 QueuePass Admins | `admin1` … `admin5`         | `queuepass-admin` | `queuepass-admin-rust-app` |
+| 30 Gate Agents     | `agent1` … `agent30`        | `gate-agent`      | `queuepass-booth-app`      |
+| 200 Customers      | `customer1` … `customer200` | `customer`        | `queuepass-customer-app`   |
 
 **Password for every seeded account: `test123`**
 
@@ -795,6 +813,7 @@ specs/            Specifications, plans, contracts, tasks
 | Symptom                                                               | Fix                                                                                                                                                                                                                                                       |
 | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `port is already allocated` on startup                                | Another program or Compose project is using one of the ports listed under _Start the system_. Stop it.                                                                                                                                                    |
+| The Rust Admin app (5176) shows "Can't reach the QueuePass service."  | Your `.env` predates `037`: add `http://localhost:5176` to `CORS_ORIGINS` (see `.env.example`), then `docker compose up -d backend`.                                                                                                                      |
 | Seed fails with connection refused                                    | Keycloak wasn't ready; the job retries. Confirm `KC_HEALTH_ENABLED=true`.                                                                                                                                                                                 |
 | Every API call returns `401` with a valid login                       | A token's issuer is the browser's Keycloak address (`localhost:8080/realms/<realm>`), not the in-container one. The Backend's `OIDC_ISSUER_BASE` must be `http://localhost:8080/realms` while `OIDC_JWKS_BASE` fetches keys from `keycloak:8080` (`028`). |
 | `401` with "invalid audience"                                         | The front-end client is missing the audience mapper for the QueuePass API. Re-run the seed.                                                                                                                                                               |
