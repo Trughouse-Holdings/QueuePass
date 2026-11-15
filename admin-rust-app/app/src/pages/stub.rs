@@ -21,6 +21,4 @@ stub! {
     EventList => "Events",
     EventForm => "Event",
     EventDetail => "Event",
-    Attendees => "Attendees",
-    Reports => "Reports",
 }

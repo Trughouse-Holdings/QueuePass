@@ -2,6 +2,7 @@
 //! classes so the shared stylesheets apply (research R8).
 
 pub mod banners;
+pub mod export_menu;
 pub mod link;
 
 pub use banners::{ErrorBanner, Notice, NoticeKind, ServiceUnreachable, SuccessState, WrongRole};

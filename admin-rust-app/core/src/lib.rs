@@ -8,6 +8,7 @@ pub mod export;
 pub mod format;
 pub mod forms;
 pub mod money;
+pub mod pages;
 pub mod seating;
 pub mod theme;
 pub mod time;
