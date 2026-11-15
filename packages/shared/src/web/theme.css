@@ -1536,12 +1536,40 @@ dd {
 .venue-map-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(14rem, 18rem);
-  gap: var(--space-4);
+  gap: var(--space-3) var(--space-4);
   align-items: start;
+}
+/* The price filter, legend and buttons span both columns, so the map and the Sections list start
+   on one line: the map's own box steps aside (`display: contents`, the DOM and focus order
+   unchanged) and its parts become the layout's rows. The list is as tall as the map beside it,
+   and scrolls. */
+.venue-map-layout > .venue-map {
+  display: contents;
+}
+.venue-map-layout > .venue-map > * {
+  grid-column: 1 / -1;
+}
+.venue-map-layout > .venue-map > .venue-map__svg {
+  grid-column: 1;
+}
+.venue-map-layout > .sections-list {
+  grid-column: 2;
+  align-self: stretch;
+  align-content: start;
+  contain: size;
+  max-height: none;
 }
 @media (max-width: 640px) {
   .venue-map-layout {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .venue-map-layout > .venue-map > .venue-map__svg,
+  .venue-map-layout > .sections-list {
+    grid-column: 1;
+  }
+  .venue-map-layout > .sections-list {
+    contain: none;
+    max-height: 80vh;
   }
 }
 .sections-list {
