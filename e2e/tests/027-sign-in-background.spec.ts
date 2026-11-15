@@ -37,6 +37,7 @@ const AUDIENCE: Record<AppName, string> = {
   admin: 'For administrators managing venues, events, and sales.',
   customer: 'For customers buying and viewing tickets.',
   booth: 'For gate agents checking tickets in at the door.',
+  'admin-rust': 'For QueuePass staff, Rust version',
 };
 
 const SCHEMES = ['light', 'dark'] as const;
@@ -144,7 +145,8 @@ test("027 S1: each app's sign-in page shows the stones with its accent in the li
   for (const app of Object.keys(APPS)) {
     expect(lineColors[`${app} light`]).toBe(lineColors[`${app} dark`]);
   }
-  expect(new Set(Object.keys(APPS).map((app) => lineColors[`${app} light`])).size).toBe(3);
+  // Spec 037: four apps, four line colours.
+  expect(new Set(Object.keys(APPS).map((app) => lineColors[`${app} light`])).size).toBe(4);
 });
 
 /** SC-002's five window sizes. */
@@ -386,7 +388,7 @@ async function pauseLook(page: Page) {
 test('027 S9: the lines pulse, and the pause button stops them, is remembered, and is gone under reduced motion', async ({
   browser,
 }) => {
-  // R10: three apps, each through a handful of reloads and contexts.
+  // R10: every app (four since spec 037), each through a handful of reloads and contexts.
   test.setTimeout(2 * 60_000);
   for (const app of Object.keys(APPS) as AppName[]) {
     await test.step(`${app}: pulse, pause, remember`, async () => {

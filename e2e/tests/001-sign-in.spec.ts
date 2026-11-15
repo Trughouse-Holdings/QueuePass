@@ -29,6 +29,7 @@ test('001 V3: sign in, the signed-in page, and logout in each app', async ({
     admin: adminFor(testInfo),
     customer: customerFor(testInfo, 9),
     booth: agentFor(testInfo, 0),
+    'admin-rust': adminFor(testInfo),
   };
   for (const app of ['admin', 'customer', 'booth'] as const) {
     await test.step(`${app}: ${users[app]}`, async () => {
