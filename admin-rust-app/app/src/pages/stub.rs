@@ -18,5 +18,4 @@ stub! {
     VenueDetail => "Venue",
     LayoutEditor => "Layout",
     EventForm => "Event",
-    EventDetail => "Event",
 }
