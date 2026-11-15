@@ -563,14 +563,14 @@ impl ApiClient {
         &self,
         layout_id: &str,
         input: &Value,
-    ) -> Result<types::LayoutDrawing, ApiError> {
+    ) -> Result<types::LayoutDetail, ApiError> {
         self.send(ops::save_layout_drawing(layout_id, input)).await
     }
     pub async fn create_layout_drawing(
         &self,
         location_id: &str,
         input: &Value,
-    ) -> Result<types::LayoutDrawing, ApiError> {
+    ) -> Result<types::LayoutDetail, ApiError> {
         self.send(ops::create_layout_drawing(location_id, input))
             .await
     }

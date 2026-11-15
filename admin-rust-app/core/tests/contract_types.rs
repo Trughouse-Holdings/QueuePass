@@ -125,3 +125,78 @@ fn the_validator_refuses_a_bad_example() {
     bad["timeZone"] = json!("Europe/Paris");
     assert!(!validate(json!({ "$ref": "#/components/schemas/Location" }), &bad).is_empty());
 }
+
+/// The type each `ApiClient` method decodes is the one the contract's 2xx answer names, for every
+/// method named after an operation (`createLayoutDrawing` → `create_layout_drawing`). Found in the
+/// browser: drawing saves answer `LayoutDetail`, and reading them as `LayoutDrawing` failed after
+/// the layout was saved.
+#[test]
+fn every_client_method_decodes_the_contracts_answer() {
+    let text = fs::read_to_string(root().join("contracts/openapi.yaml")).unwrap();
+    let doc: Value = serde_yaml::from_str(&text).unwrap();
+    let snake = |s: &str| {
+        s.chars().fold(String::new(), |mut out, c| {
+            if c.is_ascii_uppercase() {
+                out.push('_');
+                out.push(c.to_ascii_lowercase());
+            } else {
+                out.push(c);
+            }
+            out
+        })
+    };
+    let mut answers = std::collections::BTreeMap::new();
+    for item in doc["paths"].as_object().unwrap().values() {
+        for op in item.as_object().unwrap().values() {
+            let Some(id) = op["operationId"].as_str() else {
+                continue;
+            };
+            let ok = op["responses"]
+                .as_object()
+                .unwrap()
+                .iter()
+                .find(|(code, _)| code.starts_with('2'))
+                .map(|(_, r)| r["content"]["application/json"]["schema"].clone());
+            let name = |r: &Value| {
+                r["$ref"]
+                    .as_str()
+                    .map(|s| s.rsplit('/').next().unwrap().to_string())
+            };
+            let ty = match ok {
+                Some(s) if s["type"] == "array" => {
+                    name(&s["items"]).map(|n| format!("Vec<types::{n}>"))
+                }
+                Some(s) if !s.is_null() => name(&s).map(|n| format!("types::{n}")),
+                _ => Some("()".to_string()),
+            };
+            answers.insert(snake(id), ty);
+        }
+    }
+    let client =
+        fs::read_to_string(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("src/api/client.rs"))
+            .unwrap();
+    let mut checked = 0;
+    let mut wrong = Vec::new();
+    for part in client.split("pub async fn ").skip(1) {
+        let name: String = part
+            .chars()
+            .take_while(|c| c.is_alphanumeric() || *c == '_')
+            .collect();
+        let Some(Some(want)) = answers.get(&name) else {
+            continue;
+        };
+        let after = &part[part.find("-> Result<").unwrap() + "-> Result<".len()..];
+        let got: String = after[..after.find(", ApiError>").unwrap()]
+            .chars()
+            .filter(|c| !c.is_whitespace())
+            .collect();
+        checked += 1;
+        if &got != want {
+            wrong.push(format!(
+                "{name}: decodes {got}, the contract answers {want}"
+            ));
+        }
+    }
+    assert!(wrong.is_empty(), "{wrong:#?}");
+    assert!(checked >= 29, "only {checked} methods matched an operation");
+}
