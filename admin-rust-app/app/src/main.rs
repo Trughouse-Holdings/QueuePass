@@ -12,6 +12,7 @@ mod pages;
 mod routes;
 mod shell;
 mod util;
+mod venue_map;
 
 use admin_rust_core::auth::AuthStatus;
 use leptos::prelude::*;
