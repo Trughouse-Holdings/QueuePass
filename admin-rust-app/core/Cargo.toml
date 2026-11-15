@@ -50,7 +50,6 @@ wiremock = "0.6.5"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 jsonschema = { version = "0.61.2", default-features = false }
 # Spec 037 T048: request bodies checked against contracts/openapi.yaml's schemas.
-serde_yaml = "0.9.34"
 calamine = "0.38.0"
 lopdf = "0.47.0"
 # Reads an XLSX file's XML (number formats, frozen pane) in the export tests; already in the

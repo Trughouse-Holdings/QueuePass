@@ -4,6 +4,8 @@
 mod auth;
 mod components;
 mod config;
+mod device_zone;
+mod download;
 mod guard;
 mod oidc_glue;
 mod pages;
