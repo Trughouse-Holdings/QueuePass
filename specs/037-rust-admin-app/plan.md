@@ -3,7 +3,7 @@
 **Branch**: `037-rust-admin-app-spec` | **Date**: 2026-11-11 | **Spec**: [spec.md](./spec.md)
 
 **Issue**: [#163](https://github.com/Trughouse-Holdings/QueuePass/issues/163)
-**Constitution**: 3.10.0 → **3.11.0** (MINOR, this PR; written as 3.9.8 → 3.10.0 and renumbered on 2026-11-14 after spec 038 took 3.10.0). Contract: unchanged.
+**Constitution**: 3.10.0 → **3.11.0** (MINOR, the first spec PR; written as 3.9.8 → 3.10.0 and renumbered on 2026-11-14 after spec 038 took 3.10.0), then **3.11.1** (PATCH, the 2026-11-14 amendment: the Admin app's layout). Contract: unchanged.
 
 **Amended 2026-11-14** (spec Clarifications, before any implementation): the Rust Admin app is
 exactly like the React Admin app on `main` at `ff993c4`, seat maps (`038`) and the layout editor
@@ -60,9 +60,9 @@ time as in the React Admin app (SC-005).
 tokens in memory, PKCE, exact redirect URI); no change to the React Admin app; no API change; the
 Rust service failing never blocks another service (FR-019).
 
-**Scale/Scope** (re-measured 2026-11-14 at `ff993c4`): 13 screens (home, venue list, venue form for
-new and edit, venue page, event list, event form for new and edit, event page, attendees, reports,
-and the layout editor for new, edit, and view) and about 15 cards and components with logic (the
+**Scale/Scope** (re-measured 2026-11-14 at `ff993c4`): 13 routes on 10 screens (home, venue list,
+venue form for new and edit, venue page, event list, event form for new and edit, event page,
+attendees, reports, and the layout editor for new, edit, and view) and about 15 cards and components with logic (the
 Layouts card, section lines, the seating section and off-sale tool, tiers, sales, the live venue
 map, images, the export menu, and the editor's panels). The React Admin app is about 11,750 lines
 of TypeScript in `admin-app/src` (the layout editor alone about 4,300), and it uses about 5,000 lines
@@ -90,7 +90,7 @@ is the largest single piece.
 | CI shape (spec 011) | ✅ | Rust setup is a part of the root `ci` script (`rust:setup`), so `ci-workflow.test.mjs`' rules hold. No cache step. Job times measured, with an open fallback (R12). |
 | Shared-surface approval | ⚠️ | The constitution, `packages/shared/`, `docker-compose.yml`, `.env.example`, `.github/workflows/`, and the root `package.json` change, so every team member must approve the impl PR, and this PR for the amendment. |
 
-**Result**: passes with the amendment in this PR (3.11.0). Every ⚠️ is a widening John asked for this
+**Result**: passes with the amendments in the 037 spec PRs (3.11.0, then 3.11.1). Every ⚠️ is a widening John asked for this
 week. None weakens a control without naming its replacement: the coverage exclusion's replacement
 is the required `e2e` check running every Admin journey against this app.
 
@@ -148,10 +148,10 @@ admin-rust-app/                     # new; npm workspace @queuepass/admin-rust-a
 │   └── tests/                      # integration tests (wiremock), export fixtures and React expectations
 └── app/                            # crate admin-rust-app: Leptos views + browser glue (wasm only)
     └── src/
-        ├── main.rs  config.rs  routes.rs  shell.rs
+        ├── main.rs  config.rs  routes.rs  shell.rs  guard.rs (R15)
         ├── oidc_glue.rs  download.rs  seat_stream.rs  device_zone.rs
         ├── pages/                  # home, venues (list, form, detail), events (list, form, detail), attendees, reports
-        ├── layout_editor/          # editor page, canvas (SVG), panels, guard (R14, R15)
+        ├── layout_editor/          # editor page, canvas (SVG), panels; uses guard.rs (R14, R15)
         ├── venue_map/              # the shared venue map, section view, sections list, legend, preview (R13)
         └── components/             # layouts card, section lines, seating section, tiers, sales, event seat map,
                                     #   images field, export menu, notices
@@ -197,7 +197,7 @@ files are not touched.
 | `typify` can't express a contract schema | Hand-write that one type and check it against the schema (R5). |
 | `printpdf` table layout effort | Built once in `core/export/pdf.rs` and shared by both reports. JS interop is the noted last resort (R7). |
 | Rust image build time slows `docker compose up --build` and CI (30-minute job limit) | Cached dependency layer in the image (R11). Job times measured on the impl PR; over 25 minutes triggers the open 011 amendment for a cargo cache (R12). The Rust service is off every other service's critical path. |
-| `typify` and the contract's 267 `$ref`s | Spike in T020 before any screen work (R5). |
+| `typify` and the contract's 267 `$ref`s | Spike in T021 before any screen work (R5). |
 | Parity drift while other features land in the React Admin app | Parity is with `main` when the impl PR opens (spec Assumption); the checklist is complete for `ff993c4`. Later specs state whether they cover the Rust app. The `admin-rust` e2e project fails if a shared journey breaks. Layout cannot drift: the stylesheets are shared (R8). |
 | The layout editor's size (about 4,300 lines of React) and its pointer handling (drag, turn, box select, pan and zoom on SVG) | The editor's state, actions, undo and redo, and geometry are pure functions in `core`, ported test-first from `admin-app/test/layout-editor/` (R14). The view layer only maps pointer events to actions. It is the last story, so P1 work never waits on it. 039's own journeys run in the `admin-rust` project. |
 | A class name or element nesting differs, so a shared rule misses and the layout differs | "Same layout" rows in the checklist per screen (SL1 and on); a browser test compares each screen's headings, landmarks, and control order in both apps at desktop and phone width (R15). |

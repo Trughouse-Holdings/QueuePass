@@ -12,8 +12,11 @@ Changed:
     data colors (danger, warn, ok, price levels, seat states, maps) stay the shared theme's.
   - Roadmap row 037: "the same screens and layout, only red and named apart", and 038 and 039
     added to its dependencies.
-Impact: spec 037 only (#163; spec, plan, research R8 and R13-R15, parity checklist, quickstart,
-  tasks). No other spec, no API, schema, or app behavior changes. The README's version reference
+Why PATCH: nothing of 037 is built yet, and roadmap edits have been PATCH before (3.9.8, 3.9.9);
+  the exception is narrowed, not widened: it now requires the Admin stylesheets and the shared
+  data colors.
+Impact: spec 037 only (#163; spec, plan, research R8 and R13-R15, data model, parity checklist,
+  quickstart, tasks, requirements checklist). No other spec, no API, schema, or app behavior changes. The README's version reference
   follows. Templates: none need updating.
 -->
 

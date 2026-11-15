@@ -224,23 +224,33 @@ a red token set loaded after them:
    banners, forms, the venue map's and the gallery's styles),
 2. `admin-app/src/styles.css` (the Admin app's own screens, the Layouts card, the seating section,
    and the layout editor),
-3. `admin-rust-app/style/red.css`, last: it redefines every **look** color token of the shared
-   theme's app token blocks (`:root` and the `prefers-color-scheme: dark` block): page, surfaces,
-   borders, text, and the accent family. It leaves the **data** colors as they are: `--danger*`,
-   `--warn*`, `--ok*`, `--level-*`, `--map-*`, `--seat-*`, and `--map-state-*`, because they carry
-   meaning, and a price level's color must be the same as on the Customer app's map (parity M17).
-   No layout, size, spacing, or type rule lives in it.
+3. `admin-rust-app/style/red.css`, last: in the shared theme's app token blocks (`:root` and the
+   `prefers-color-scheme: dark` block) it redefines exactly these 14 **look** tokens, light and
+   dark: `--bg`, `--surface`, `--surface-alt`, `--border`, `--border-strong`, `--text`,
+   `--text-muted`, `--text-faint`, `--accent`, `--accent-hover`, `--accent-soft`, `--accent-text`,
+   `--brand-mark-end`, and `--brand-mark-text`. It leaves every other token as it is: the **data**
+   colors `--danger*`, `--warn*`, `--ok*`, `--level-*`, `--map-*` (the `--map-state-*` set
+   included), and `--seat-*`, because they carry meaning and a price level's color must be the
+   same as on the Customer app's map (parity M17); the other apps' accents (`--accent-tickets*`,
+   `--accent-booth*`, `--brand-mark-*-tickets`, `--brand-mark-*-booth`), which the Admin screens
+   do not use; and `--stone-*`, `--scrim*`, `--qr-*`, `--shadow*`, and the font, radius, and space
+   tokens. It holds custom properties only: no selector rule, and no layout, size, spacing, or type
+   rule.
 
 Trunk links all three from `admin-rust-app/index.html` (`<link data-trunk rel="css" href="…">`,
-paths relative to the repository root, which is already the Docker build context of every app), in
+paths relative to `index.html`, so `../packages/…` and `../admin-app/…`; the repository root is
+already the Docker build context of every app), in
 that order, as `admin-app/src/main.tsx` imports the first two. The Leptos views use the same element
 structure and the same `class` values as the React components, so the same rules apply. The
 React files are not changed.
 
 The red set: accent `#b3261e` (about 6.5:1 on white), its hover and soft tints, a pale red page
-background `#fdecea`, a solid red header with white text, and a dark-scheme set of dark red surfaces
-with light text. Every other look token (surfaces, borders, text) is given a red-family value that
-keeps its role and its contrast. `danger` and the scheduling-conflict banner stay told apart from the red
+background `#fdecea`, red-tinted surfaces and borders, a red Q mark (`--brand-mark-end`), and a
+dark-scheme set of dark red surfaces with light text. Every look token is given a red-family value
+that keeps its role and its contrast. The header is not a solid red bar: the shared theme draws it
+with `--surface`, `--text`, and `--text-muted`, so it takes the red-tinted surface like the cards,
+with the red Q mark and red active link; a solid bar would need selector rules, which `red.css`
+does not hold. `danger` and the scheduling-conflict banner stay told apart from the red
 accent by their icon, border, and text (parity S9), not by hue alone. The header and the tab title
 say "QueuePass Admin (Rust)".
 
@@ -284,7 +294,7 @@ who can't tell red apart.
   layout editor's reducer and its helpers (R14).
 - `core` is tested with `cargo test` natively. `wiremock` stands in for the Backend in API client
   tests, and fixed signing keys serve the token-handling tests. An in-memory `PkceStore` proves the
-  verifier and `state` are removed after the exchange. A theme test parses `style/theme.css` and
+  verifier and `state` are removed after the exchange. A theme test parses `packages/shared/src/web/theme.css` and `style/red.css` and
   checks every text and control pair for AA contrast in light and dark, as the shared theme's
   contrast tests do.
 - Coverage: `cargo llvm-cov --package admin-rust-core --fail-under-lines 80 --json --summary-only`,
@@ -453,7 +463,7 @@ shared theme's map rules (`venue-map--<color>`, `--map-floor`, seat states, halo
   `pinchView`, with `MAX_ZOOM` 40, the 1.5 step, the 0.002 wheel factor, the 4 px slop, and the
   200 ms animation), plus `LAYOUT_LIMITS` and `LEVEL_COLORS` from `packages/shared/src/seating.ts`.
   Outputs are compared with the TypeScript functions' outputs on the same fixtures (an export
-  script like T061's), so a path string or a label sequence is byte-for-byte the same.
+  script like T065's), so a path string or a label sequence is byte-for-byte the same.
 - **Browser glue in `app`**: pointer events with `setPointerCapture`, `wheel` with
   `preventDefault` (non-passive listener), two-pointer pinch, `matchMedia` for the 640 px phone
   check and `prefers-reduced-motion`, and `requestAnimationFrame` for the 200 ms zoom animation,
@@ -472,7 +482,7 @@ JavaScript interop*: It would not be a Rust app (FR-003).
 > **2026-11-14**: new, for the layout-editor (`039`) parity rows (LE1–LE81).
 
 **Decision**: Port `admin-app/src/layout-editor/editor-state.ts` as `core::editor::reduce(state,
-action) -> state`, one Rust enum variant per action (33 today), with the same messages, the same
+action) -> state`, one Rust enum variant per action (35 today), with the same messages, the same
 100-document history and typing coalescing (`commit`), Undo and Redo with selection cleanup
 (`travel`, `sanitize`), the id remapping after a save (`newIds`, `remapper`), `keepOnMap`, the
 name and label checks, `repoint`, `planDeleteSeats`, `freeName`, and `regeneratePlan`. Port

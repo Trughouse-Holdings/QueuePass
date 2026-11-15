@@ -41,6 +41,20 @@ The roadmap number is reserved by this PR's amendment. The next free number befo
   version. Anything merged into the React Admin app after it and before the implementation PR opens
   is added to the checklist by the implementation PR (FR-012).
 
+### Session 2026-11-15
+
+- Q: Which colors turn red in the Rust Admin app? → A: The look colors only: the page background,
+  the header, cards, and other surfaces, borders, text, and the accent (primary buttons, links, the
+  Q mark). The
+  data colors stay exactly the React Admin app's: seat states, price levels, map colors, and the
+  error, warning, and success colors (FR-009).
+- Q: Do the Rust Admin app's PDF downloads keep the React Admin app's indigo header, or turn red?
+  → A: They keep it. Downloads are records, so they are the same whichever Admin app made them;
+  the red is for telling the apps apart on screen (FR-015).
+- Q: When the React Admin app has a known bug or rough edge, does the Rust Admin app copy it or fix
+  it? → A: It copies it. A known bug is fixed in the React Admin app, in its own issue, and the Rust
+  Admin app takes the fix like any later Admin change (FR-012, FR-014).
+
 ## Context
 
 Today the Admin app (`admin-app/`) is the one place QueuePass admins work. They sign in, manage
@@ -93,7 +107,7 @@ sign in to each as `admin1`, sign out of the Rust one, and use the React one: it
 5. **Given** the Backend cannot be reached, **When** the Rust Admin app loads a page, **Then** it
    says so plainly, as the React Admin app does.
 6. **Given** any signed-in page of the Rust Admin app, **Then** the page is visibly red (its
-   background or its accent), the app's name in the header and the browser tab says it is the Rust
+   background, surfaces, and accent), the app's name in the header and the browser tab says it is the Rust
    version, and a sign-out control is shown.
 
 ---
@@ -316,8 +330,11 @@ reload the Rust editor: the change shows.
 **Looking different**
 
 - **FR-009**: Every screen of the Rust Admin app, its sign-in screen included, MUST be visibly red
-  (a red background or a red accent across headers, primary buttons, and links) so it cannot be
-  mistaken for the React Admin app at a glance.
+  so it cannot be mistaken for the React Admin app at a glance. Its look colors are red: the page
+  background, the header, cards, and other surfaces (tinted red), borders, text, and the accent
+  (primary buttons, links, the Q mark). Its data colors MUST stay the React Admin app's: seat states, price levels, map colors,
+  and the error, warning, and success colors, so a level or seat state looks the same in both Admin
+  apps and in the Customer app.
 - **FR-010**: The Rust Admin app's name in its header and browser tab MUST say it is the Rust
   version (for example "QueuePass Admin (Rust)").
 - **FR-011**: The red theme MUST keep the usability the React Admin app has: AA contrast for text
@@ -350,9 +367,12 @@ reload the Rust editor: the change shows.
 - **FR-014**: For the same data and action, the Rust Admin app MUST give the same outcome as the
   React Admin app: the same values saved, the same Backend refusals shown with the same meaning
   beside the same field, the same values kept after a refusal, the same figures shown, and the same
-  visible words (headings, labels, buttons, messages, and notes).
+  visible words (headings, labels, buttons, messages, and notes). This includes the React Admin
+  app's known bugs and rough edges: the Rust Admin app copies them rather than fixing them on its
+  own, and a fix made in the React Admin app is then copied too.
 - **FR-015**: Downloads from the Rust Admin app MUST hold the same rows, columns, and values as the
-  React Admin app's downloads of the same data, apart from the time each file was made.
+  React Admin app's downloads of the same data, apart from the time each file was made. They are
+  not red: a PDF keeps the React Admin app's header color and layout.
 
 **Quality**
 
@@ -422,7 +442,7 @@ This spec PR carries an amendment (MINOR) that:
   spec whether it also covers the Rust Admin app.
 - **Port.** The Rust Admin app runs on port 5176 unless the plan finds it taken. The Customer
   app's Rust version picks its own.
-- **Look.** The Rust Admin app's red colors are its own; everything else about its look is the
+- **Look.** The Rust Admin app's red look colors are its own (FR-009); everything else about its look is the
   React Admin app's (FR-020). It keeps the same words for the same things, so the parity check and
   the browser tests can use one script for both. The plan reuses the React Admin app's stylesheets
   rather than copying them, so the two layouts cannot drift apart.
