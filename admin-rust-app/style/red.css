@@ -1,0 +1,43 @@
+/* ============================================================================
+   Spec 037 (research R8, FR-009 to FR-011, FR-020; Constitution VII's exception): the Rust Admin
+   app's red look. Loaded after the shared theme and the React Admin app's own stylesheet, it
+   redefines exactly the 14 look tokens, light and dark, and nothing else: no selector rule, no
+   layout, size, spacing, or type rule. The data colors (danger, warn, ok, levels, map, seats)
+   stay the shared theme's, because they carry meaning. core/tests/theme.rs checks both rules and
+   the AA contrast of every pair.
+   ========================================================================== */
+:root {
+  --bg: #fdecea;
+  --surface: #fff7f6;
+  --surface-alt: #fdf0ee;
+  --border: #f1d2ce;
+  --border-strong: #9c605a;
+  --text: #1f1414;
+  --text-muted: #7a4f4a;
+  --text-faint: #b58c88;
+  --accent: #b3261e;
+  --accent-hover: #8f1d17;
+  --accent-soft: #fbe0dd;
+  --accent-text: #ffffff;
+  --brand-mark-end: #c7362d;
+  --brand-mark-text: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a0c0b;
+    --surface: #241312;
+    --surface-alt: #2c1716;
+    --border: #3d2321;
+    --border-strong: #a3726d;
+    --text: #f5e9e8;
+    --text-muted: #c9a7a3;
+    --text-faint: #8f6b67;
+    --accent: #f28b82;
+    --accent-hover: #f6aea8;
+    --accent-soft: #4a1714;
+    --accent-text: #1a0c0b;
+    --brand-mark-end: #c7362d;
+    --brand-mark-text: #ffffff;
+  }
+}

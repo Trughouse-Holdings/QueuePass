@@ -1,0 +1,17 @@
+{
+  "name": "@queuepass/admin-rust-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "trunk serve --port 5176",
+    "build": "trunk build --release",
+    "test": "cargo llvm-cov --package admin-rust-core --fail-under-lines 80 --json --summary-only --output-path coverage/llvm-cov.json && node scripts/coverage-summary.mjs",
+    "lint": "cargo clippy --workspace --exclude admin-rust-app --all-targets -- -D warnings && cargo clippy -p admin-rust-app --target wasm32-unknown-unknown -- -D warnings",
+    "format:check": "cargo fmt --check"
+  },
+  "coverage": {
+    "measured": "core (crate admin-rust-core), 80% lines, cargo llvm-cov (research R9)",
+    "excluded": "app (crate admin-rust-app): Leptos views and browser glue compiled only to WebAssembly, which cargo llvm-cov cannot measure natively. Constitution VI's replacement control: every Rust screen is driven by a browser test (the @admin journeys in the admin-rust Playwright project, plus 037 S1-S5, S10, and SL)."
+  }
+}

@@ -15,3 +15,6 @@ specs/
 # Spec 038: the Yum! Center layout files, generated one row a line by
 # scripts/layouts/generate-yum-center.mjs (its --check keeps them current).
 backend/src/scripts/layouts/yum-center-*.json
+
+# Spec 037 (research R11): Rust build output.
+**/target/

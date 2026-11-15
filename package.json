@@ -10,6 +10,7 @@
     "packages/shared",
     "backend",
     "admin-app",
+    "admin-rust-app",
     "customer-app",
     "booth-app",
     "scripts/seed"
@@ -23,7 +24,8 @@
     "lint": "eslint . && tsc -p e2e/tsconfig.json",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "ci": "npm run prisma:generate --workspace @queuepass/backend && npm run format:check && npm run lint && npm run build && npm test && npm run coverage:report",
+    "ci": "npm run prisma:generate --workspace @queuepass/backend && npm run rust:setup && npm run format:check && npm run lint && npm run build && npm test && npm run coverage:report",
+    "rust:setup": "node scripts/rust-setup.mjs",
     "coverage:report": "node scripts/coverage-report.mjs",
     "generate:api": "openapi-typescript contracts/openapi.yaml -o packages/shared/src/api-schema.ts"
   },

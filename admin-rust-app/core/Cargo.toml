@@ -1,0 +1,45 @@
+[package]
+name = "admin-rust-core"
+description = "Spec 037: every rule of the Rust Admin app, testable natively (research R9)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "admin_rust_core"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+# API calls; works natively (tests) and in WebAssembly (browser fetch). No TLS on wasm.
+reqwest = { version = "0.12.28", default-features = false, features = ["json"] }
+regress = "0.12.0"
+csv = "1.4.0"
+printpdf = { version = "=0.12.9", default-features = false }
+base64 = "0.23.1"
+url = "2.5.8"
+uuid = { version = "1", features = ["serde"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+rust_xlsxwriter = { version = "0.102.0", features = ["wasm"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rust_xlsxwriter = "0.102.0"
+
+[build-dependencies]
+typify = "0.8.0"
+serde_json = "1"
+serde_yaml = "0.9.34"
+schemars = "0.8"
+syn = "2"
+prettyplease = "0.2"
+
+[dev-dependencies]
+wiremock = "0.6.5"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+jsonschema = { version = "0.61.2", default-features = false }
+calamine = "0.38.0"
+lopdf = "0.47.0"

@@ -1,0 +1,22 @@
+# Spec 037: the Rust Admin app (#163). `core` holds every rule and is measured for coverage
+# natively; `app` holds the Leptos views and browser glue (research R9).
+[workspace]
+resolver = "3"
+members = ["core", "app"]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+publish = false
+license = "UNLICENSED"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4.45", default-features = false, features = ["std", "clock", "serde"] }
+chrono-tz = "0.10.4"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1

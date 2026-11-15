@@ -16,6 +16,8 @@ export default tseslint.config(
       'e2e/playwright-report/',
       'e2e/test-results/',
       '**/*.min.js',
+      // Spec 037 (research R11): Rust build output of the Rust Admin app.
+      '**/target/',
       'specs/',
       '.specify/',
       // Generated from contracts/openapi.yaml by npm run generate:api.
