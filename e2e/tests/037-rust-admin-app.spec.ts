@@ -2,8 +2,9 @@
 // app. Each test drives both apps, so it runs in the default project only; the shared Admin
 // journeys run against the Rust app through the `admin-rust` project (`@admin`).
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { APPS, adminFor } from '../fixtures/apps';
-import { PLACES, uniqueName } from '../fixtures/data';
+import { apiFor, basketballEvent, buyTickets, createEvent } from '../fixtures/api';
+import { APPS, adminFor, customerFor } from '../fixtures/apps';
+import { PLACES, startsInHours, uniqueName } from '../fixtures/data';
 import { signIn, signInHeading, signOut, submitSignIn } from '../fixtures/sign-in';
 
 const RUST = APPS['admin-rust'];
@@ -199,4 +200,112 @@ test('037 S2: a venue and its layout made in the Rust Admin app show in the Reac
   });
 
   await context.close();
+});
+
+// Research R15 (FR-020, parity SL1–SL14): the two Admin apps lay out every page the same way.
+// What is compared, per page and width: `main`'s accessibility snapshot (headings, landmarks,
+// labels, buttons, table columns, in order), with the app's name and what other tests running at
+// the same time may add (list options, live counts) normalized; and the boxes of each card, form
+// section, table, and page head, top to bottom, within 2 px. Colors are not compared.
+
+/** What may differ between the two loads without the layout differing. */
+function normalized(snapshot: string, route: string): string {
+  let out = snapshot
+    .replaceAll('QueuePass Admin (Rust)', 'QueuePass Admin')
+    // A select's options list every venue on the stack, which tests running beside this add to.
+    .replace(/^\s*- option .*$\n?/gm, '');
+  if (route === '/reports') out = out.replace(/\d/g, '#');
+  return out;
+}
+
+const BOX_SELECTOR =
+  'main .page-head, main .card, main fieldset, main table, main .stats, main .gallery-band';
+
+/** `main`, ready: no loading text left. */
+async function settled(page: Page): Promise<Locator> {
+  const main = page.locator('main');
+  await expect(main).toBeVisible();
+  await expect(main.getByText(/^Loading/)).toHaveCount(0, { timeout: 15_000 });
+  return main;
+}
+
+async function boxesOf(page: Page): Promise<{ x: number; y: number; w: number; h: number }[]> {
+  return page.locator(BOX_SELECTOR).evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect();
+      return { x: r.x, y: r.y + window.scrollY, w: r.width, h: r.height };
+    }),
+  );
+}
+
+test('037 SL: every page has the same structure and arrangement in both Admin apps, at desktop and phone width', async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(240_000);
+  const username = adminFor(testInfo);
+  const admin = await apiFor(browser, 'admin', username);
+  const name = uniqueName(testInfo, 'same layout');
+  const seated = await basketballEvent(admin.api, {
+    venueName: `${name} arena`,
+    place: PLACES.louisville,
+    event: {
+      name: `${name} game`,
+      startsAt: startsInHours(24 * 5),
+      endsAt: startsInHours(24 * 5 + 3),
+    },
+  });
+  const ga = await createEvent(admin.api, seated.venue, {
+    name: `${name} concert`,
+    startsAt: startsInHours(24 * 12),
+    endsAt: startsInHours(24 * 12 + 3),
+    capacity: 100,
+  });
+  const customer = await apiFor(browser, 'customer', customerFor(testInfo, 5));
+  await buyTickets(customer.api, ga, { quantity: 2, holderName: 'Jordan Lee' });
+  await customer.close();
+  await admin.close();
+
+  const q = encodeURIComponent(name);
+  const routes = [
+    '/',
+    `/locations?q=${q}`,
+    '/locations/new',
+    `/locations/${seated.venue.id}`,
+    `/locations/${seated.venue.id}/edit`,
+    `/locations/${seated.venue.id}/layouts/${seated.layout.id}/edit`,
+    `/events?q=${q}`,
+    '/events/new',
+    `/events/${seated.event.id}`,
+    `/events/${ga.id}`,
+    `/events/${ga.id}/edit`,
+    `/events/${ga.id}/attendees`,
+    '/reports',
+  ];
+
+  for (const width of [1280, 375]) {
+    const context = await browser.newContext({ viewport: { width, height: 900 } });
+    const react = await context.newPage();
+    const rust = await context.newPage();
+    await signIn(react, 'admin', username);
+    await signIn(rust, 'admin-rust', username);
+    for (const route of routes) {
+      await test.step(`${route} at ${width} px`, async () => {
+        await react.goto(`${APPS.admin.url}${route}`);
+        await rust.goto(`${RUST.url}${route}`);
+        const [reactMain, rustMain] = [await settled(react), await settled(rust)];
+        const path = route.split('?')[0]!;
+        expect(normalized(await rustMain.ariaSnapshot(), path)).toEqual(
+          normalized(await reactMain.ariaSnapshot(), path),
+        );
+        const [a, b] = [await boxesOf(react), await boxesOf(rust)];
+        expect(b.length, 'the same number of cards, sections, and tables').toBe(a.length);
+        for (const [i, box] of a.entries()) {
+          for (const k of ['x', 'y', 'w', 'h'] as const) {
+            expect(Math.abs(b[i]![k] - box[k]), `box ${i} ${k}`).toBeLessThanOrEqual(2);
+          }
+        }
+      });
+    }
+    await context.close();
+  }
 });
