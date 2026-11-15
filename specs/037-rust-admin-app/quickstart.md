@@ -122,7 +122,7 @@ name differ (parity SL1–SL14).
 | --- | --- |
 | S0 | Manual: the browser-test stack brings the system up itself |
 | S1 | Automated: `037 S1: both Admin apps stay signed in, and logging out of one leaves the other`; rest Manual: the 10 runs with `--repeat-each=10` for SC-007 (the test also checks the red header, the tab title, `returnTo`, and that no sign-in value is left in `sessionStorage`) |
-| S2 | Manual: becomes Automated in the impl PR as `037 S2: a venue and its layout made in the Rust Admin app show in the React Admin app`; `038 S0` and `038 S5` also run in the `admin-rust` project |
+| S2 | Automated: `037 S2: a venue and its layout made in the Rust Admin app show in the React Admin app`; rest Manual: two price levels by hand (the test uses one); `038 S0` and `038 S5` also run in the `admin-rust` project |
 | S3 | Manual: becomes Automated in the impl PR as `037 S3: events scheduled in the Rust Admin app, general admission and on a layout, read the same in the React Admin app`; the `031`, `035`, `036` event-form journeys and `038 S6` also run in the `admin-rust` project |
 | S4 | Manual: becomes Automated in the impl PR as `037 S4: the Rust Admin app's event page shows live seats, sales by level, and edits tiers`; `015`'s Admin steps and `038 S17` also run in the `admin-rust` project |
 | S5 | Manual: becomes Automated in the impl PR as `037 S5: attendees, reports, and every download in the Rust Admin app`; file contents are compared with the React app's by `core` tests (research R7) |
