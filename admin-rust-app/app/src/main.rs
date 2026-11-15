@@ -10,6 +10,7 @@ mod guard;
 mod oidc_glue;
 mod pages;
 mod routes;
+mod seat_stream;
 mod shell;
 mod util;
 mod venue_map;

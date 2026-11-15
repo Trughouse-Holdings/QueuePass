@@ -30,7 +30,7 @@ pub fn AppRoutes() -> impl IntoView {
                     />
                     <Route path=path!("events") view=pages::event_list::EventList/>
                     <Route path=path!("events/new") view=pages::stub::EventForm/>
-                    <Route path=path!("events/:id") view=pages::stub::EventDetail/>
+                    <Route path=path!("events/:id") view=pages::event_detail::EventDetail/>
                     <Route path=path!("events/:id/edit") view=pages::stub::EventForm/>
                     <Route path=path!("events/:id/attendees") view=pages::attendees::Attendees/>
                     <Route path=path!("reports") view=pages::reports::Reports/>
