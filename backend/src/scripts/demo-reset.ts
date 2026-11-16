@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import type { INestApplicationContext } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { Prisma, type PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { formatTimeOfDay } from '@queuepass/shared';
 import { AppModule } from '../app.module';
 import { PrismaService } from '../prisma/prisma.service';
@@ -201,6 +201,62 @@ export async function wipeAppData(prisma: PrismaService): Promise<RemovedCounts>
   }
 }
 
+/**
+ * Fix #179 (research R15): runs the demo data's load while a second connection holds every
+ * QueuePass table in SHARE UPDATE EXCLUSIVE mode, then analyzes them all in that same transaction.
+ * Autovacuum skips a table it cannot lock, so no auto-analyze runs during the load; one that ran
+ * while an import's seats were still uncommitted would record `Seat` as nearly empty, and the
+ * layout reads planned from that took seconds each until the next auto-analyze. The lock does not
+ * block reads or writes, only ANALYZE, VACUUM, and schema changes; a second reset's wipe waits
+ * for it and is refused as busy (R10). Its own connection, so the load never waits for a pooled
+ * one this transaction holds. Once the load has finished, the statistics are only an optimisation:
+ * a failed ANALYZE or commit (review round 1, S1) still returns the load's result, and autovacuum
+ * analyzes the tables later.
+ */
+export async function loadWithStatisticsHeld<T>(
+  load: () => Promise<T>,
+  databaseUrl: string | undefined = process.env.DATABASE_URL,
+): Promise<T> {
+  const url = new URL(databaseUrl ?? 'postgresql://localhost');
+  url.searchParams.set('connection_limit', '1');
+  const holder = new PrismaClient({ datasourceUrl: url.toString() });
+  let loaded: { result: T } | undefined;
+  try {
+    return await holder.$transaction(
+      async (tx) => {
+        await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = '3s'`);
+        const tables = (
+          await tx.$queryRaw<{ tablename: string }[]>`
+            SELECT tablename FROM pg_tables
+            WHERE schemaname = current_schema() AND tablename <> '_prisma_migrations'
+            ORDER BY tablename`
+        ).map((r) => r.tablename);
+        if (tables.length === 0) return load();
+        const list = tables.map(quoted).join(', ');
+        try {
+          await tx.$executeRawUnsafe(`LOCK TABLE ${list} IN SHARE UPDATE EXCLUSIVE MODE`);
+        } catch (err) {
+          // Another reset's load holds it (R10); the load's own errors report as themselves.
+          if (isBusy(err)) throw new Error('the database is busy');
+          throw err;
+        }
+        loaded = { result: await load() };
+        await tx.$executeRawUnsafe(`ANALYZE ${list}`);
+        return loaded.result;
+      },
+      // R9: a load is seconds, about 20 with a hanging address service. The limit stays near that
+      // (review round 1, S2): it bounds how long the lock can stand if the load stalls behind a
+      // request that waits for it, such as a test's TRUNCATE after a timed-out reset.
+      { timeout: 60_000, maxWait: 5_000 },
+    );
+  } catch (err) {
+    if (loaded) return loaded.result;
+    throw err;
+  } finally {
+    await holder.$disconnect();
+  }
+}
+
 export interface ResetSummary {
   target: ResetTarget;
   removed: RemovedCounts;
@@ -293,7 +349,7 @@ export async function runDemoReset(
   let tonight: { endsAt: Date; location: { timeZone: string } };
   try {
     await options.afterWipe?.();
-    created = await runDemoData(app);
+    created = await loadWithStatisticsHeld(() => runDemoData(app));
     if (!created.created) throw new Error('another reset ran at the same time');
     const [venues, arenas] = await Promise.all([
       prisma.location.count(),
