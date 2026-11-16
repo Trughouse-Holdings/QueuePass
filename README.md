@@ -10,7 +10,8 @@ Built from the specifications in [`specs/`](specs/) under the project constituti
 ## Status
 
 Features `001` through `008` and `012` through `018` are built and verified. `019` is built and
-reviewed; part of its running-system walk is still to do. `020` is built, reviewed, and walked
+reviewed; part of its running-system walk is still to do. `040` (the Rust Customer app) is built
+with its browser tests passing locally; its implementation PR (#177) is in review. `020` is built, reviewed, and walked
 on the running system (path B; the image checks wait for a machine where images build). `011` is built; its first runs on
 GitHub and its running-system walk are pending. `021` is built, reviewed, and walked in the
 browser. `022` is built and reviewed: browser tests walk the main journey of ten features on
@@ -65,6 +66,7 @@ do.
 | [`036-event-form-times`](specs/036-event-form-times/spec.md)                 | The Admin event form: doors open as time before the start or as a date and a time, one mode at a time; Starts and Ends use a date control and a time control in every browser                                                                                                    | Draft            | Done (16/18 tasks) | **Built (review pending)**      |
 | [`038-seat-maps`](specs/038-seat-maps/spec.md)                               | Several layouts per venue with price levels by section, row or seat; an event's price per level and seats off sale; the customer's venue map with a price filter and a zoom into a section; the KFC Yum! Center in the demo data (#165)                                          | Draft            | Done (60/63 tasks) | **Built (review pending)**      |
 | [`039-layout-editor`](specs/039-layout-editor/spec.md)                       | The Admin app's layout editor: sections generated from rows and seats, straight or curved, dragged and turned into place; price levels painted on sections, rows and seats; Undo and Redo; a keyboard path; unsold layouts edited keeping events' prices                         | Draft            | Done (62/63 tasks) | **Built and walked**            |
+| [`040-rust-customer-app`](specs/040-rust-customer-app/spec.md) | The Customer app again, in Rust and red, beside the React one on port 5177, signing in to the same Customer realm through its own client, so the customers, orders, tickets, and seat holds are the same | Draft | Done (see tasks.md) | **Built (impl PR #177 open)** |
 
 **Today** all three front ends sign in through Keycloak and log out,
 and the Backend refuses any request without a valid token and the right role. Each app has its
@@ -160,6 +162,7 @@ One command from a clean clone. No manual configuration steps.
 | Customer app     | http://localhost:5174 | `customer1`       | role `customer`, realm `queuepass-customer-app`; find and browse events, get tickets, choose seats                       |
 | Ticket Booth app | http://localhost:5175 | `agent1`          | role `gate-agent`, realm `queuepass-booth-app`; check tickets in by camera scan or typed code                            |
 | Admin app (Rust) | http://localhost:5176 | `admin1`          | the Admin app again, in Rust and red (`037`); role `queuepass-admin`, realm `queuepass-admin-rust-app`                   |
+| Customer app (Rust) | http://localhost:5177 | `customer1` | the Customer app again, in Rust and red (`040`); the same customers, realm `queuepass-customer-app`, client `customer-rust-app` |
 | Backend API      | http://localhost:3000 | Bearer token      | `GET /health` is the only open endpoint; contract at `/docs`                                                             |
 | Keycloak         | http://localhost:8080 | `admin` / `admin` | admin console; realms `queuepass-admin-app`, `queuepass-customer-app`, `queuepass-booth-app`, `queuepass-admin-rust-app` |
 | PostgreSQL       | `localhost:5432`      |                   | volume-mapped; survives restarts                                                                                         |
@@ -190,6 +193,18 @@ builds reuse the cached dependency layer. A `.env` made before `037` must add
 `http://localhost:5176` to `CORS_ORIGINS` (see `.env.example`), or the Rust app's API calls are
 refused.
 
+**The Rust Customer app** (`040`, issue #175) is the Customer app written in Rust the same way, at
+`http://localhost:5177`, with every screen of the React Customer app (`5174`) and the same layout,
+in the Rust Admin app's red, named "QueuePass Tickets (Rust)". Unlike the Rust Admin app it has no
+realm of its own: it signs in to the Customer realm, `queuepass-customer-app`, through its own
+client `customer-rust-app`, so `customer1`–`customer200` are the same customers in both Customer
+apps, with the same orders, tickets, and seat holds. **The two Customer apps share one sign-in
+session in a browser**: signing in to one can sign the other in without the form, and logging out
+of either ends that session (the other asks for sign-in again once its current access ends, within
+its next renewal) and releases the customer's seat holds made in either app. Every other app stays
+signed in. For a demo, show the two Customer apps in separate windows, one normal and one private.
+A `.env` made before `040` must add `http://localhost:5177` to `CORS_ORIGINS` (see `.env.example`).
+
 Startup order is gated on health: the Backend waits for PostgreSQL and applies migrations, the
 seed waits for Keycloak's `/health/ready`, and the front ends wait for the Backend.
 
@@ -213,7 +228,7 @@ container, and any `docker compose up` without `--build`. The seed then stops, n
 to recover, rename the extra `queuepass` aside in the admin console (for example to
 `queuepass-recreated`), never delete it, and start again.
 
-> The stack uses ports 3000, 5173–5176, 8080, 9000, and 5432. Stop anything else using them
+> The stack uses ports 3000, 5173–5177, 8080, 9000, and 5432. Stop anything else using them
 > first, or `docker compose up` fails with "port is already allocated".
 
 **When the images can't be built** (for example, a network that intercepts TLS, so a build cannot
@@ -373,11 +388,15 @@ npm install     # first time only
 npm test
 ```
 
-`npm test` needs [`rustup`](https://rustup.rs) for the Rust Admin app (`037`); run
-`npm run rust:setup` once, which installs the pinned toolchain (with the WebAssembly target) and the
-pinned `trunk` and `cargo-llvm-cov`. The Rust app's logic is measured on its `core` crate
-(`cargo llvm-cov`, 80% lines); its views are covered by the browser tests, every Admin journey
-running against both Admin apps (Playwright project `admin-rust`, journeys tagged `@admin`).
+`npm test` needs [`rustup`](https://rustup.rs) for the Rust Admin app (`037`) and the Rust
+Customer app (`040`); run `npm run rust:setup` once (Linux, macOS, or Windows), which installs the
+pinned toolchain (with the WebAssembly target) and the pinned `trunk` and `cargo-llvm-cov` when
+they are missing. Each Rust app's logic is measured on its `core` crate (`cargo llvm-cov`, 80%
+lines); its views are covered by the browser tests, every Admin journey running against both Admin
+apps (Playwright project `admin-rust`, journeys tagged `@admin`) and every Customer journey against
+both Customer apps (project `customer-rust`, journeys tagged `@customer`, with its own accounts
+`customer40`–`customer99`). To run the Rust Customer app alone from the host:
+`npm run dev --workspace @queuepass/customer-rust-app` (`trunk serve` on 5177).
 `docker compose up --build` needs no Rust on the machine: the image brings its own.
 
 `npm test` works on a fresh clone: the Backend's tests generate the Prisma client first. It runs
@@ -466,7 +485,7 @@ npm run e2e -- -g "015 S2"               # one scenario, by its name
 npm run e2e -- --repeat-each=3           # every test three times in a row
 ```
 
-`npm run e2e` refuses to start, naming the ports, while anything holds 5173–5176, 3000, 8080, 9000,
+`npm run e2e` refuses to start, naming the ports, while anything holds 5173–5177, 3000, 8080, 9000,
 or 5432, and touches nothing. Otherwise it starts Compose project `qpe2e` from clean data with
 `docker compose up --build` plus `e2e/stack/docker-compose.e2e.yml`, loads the demo state with the
 reset ([Demo checkpoint](#demo-checkpoint)), installs
@@ -814,6 +833,8 @@ specs/            Specifications, plans, contracts, tasks
 | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `port is already allocated` on startup                                | Another program or Compose project is using one of the ports listed under _Start the system_. Stop it.                                                                                                                                                    |
 | The Rust Admin app (5176) shows "Can't reach the QueuePass service."  | Your `.env` predates `037`: add `http://localhost:5176` to `CORS_ORIGINS` (see `.env.example`), then `docker compose up -d backend`.                                                                                                                      |
+| The Rust Customer app (5177) shows "Can't reach the QueuePass service." | Your `.env` predates `040`: add `http://localhost:5177` to `CORS_ORIGINS` (see `.env.example`), then `docker compose up -d backend`. |
+| Logging out of one Customer app signs the other out | Expected (`040`): the React and Rust Customer apps share one sign-in session. Use a private window for the second one. |
 | Seed fails with connection refused                                    | Keycloak wasn't ready; the job retries. Confirm `KC_HEALTH_ENABLED=true`.                                                                                                                                                                                 |
 | Every API call returns `401` with a valid login                       | A token's issuer is the browser's Keycloak address (`localhost:8080/realms/<realm>`), not the in-container one. The Backend's `OIDC_ISSUER_BASE` must be `http://localhost:8080/realms` while `OIDC_JWKS_BASE` fetches keys from `keycloak:8080` (`028`). |
 | `401` with "invalid audience"                                         | The front-end client is missing the audience mapper for the QueuePass API. Re-run the seed.                                                                                                                                                               |

@@ -138,4 +138,4 @@ and arrangement; only the colors and the name differ (parity SL1–SL12).
 | S8 | Automated: `040 S8: a token without the customer role shows the wrong-role card, and an unreachable Backend is said plainly`; rest Manual: a real role-less account and stopping the real Backend by hand |
 | S9 | Manual: test commands, run by CI |
 | S10 | Manual: needs people |
-| S11 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S11: every page has the same structure and arrangement in both Customer apps, at desktop and phone width` |
+| S11 | Automated: `040 S11: every page has the same structure and arrangement in both Customer apps, at desktop and phone width`; rest Manual: print preview, the image viewer, dark mode, and the screens after a purchase, by hand |
