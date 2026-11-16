@@ -204,6 +204,34 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # ------------------------------------------ rust customer app (040)
+  # Spec 040 (contract sign-in-client.md, research R12): the Customer app again, in Rust, beside the
+  # React one, with its own client in the Customer realm (the same customers). No other service
+  # depends on it (FR-019).
+  customer-rust-app:
+    build:
+      context: .
+      dockerfile: customer-rust-app/Dockerfile
+      args:
+        QP_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+        # The React Customer app's variable: the same realm, so no new .env key.
+        QP_OIDC_AUTHORITY: ${VITE_CUSTOMER_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass-customer-app}
+        QP_OIDC_CLIENT_ID: customer-rust-app
+    ports:
+      - '5177:5177'
+    depends_on:
+      backend:
+        condition: service_healthy
+      # No login page before its OIDC client exists (research R10).
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5177/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
   # -------------------------------------------------------- seed (one-shot)
   seed:
     build:
