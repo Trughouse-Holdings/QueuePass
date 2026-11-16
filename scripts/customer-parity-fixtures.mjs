@@ -54,9 +54,18 @@ const MAX_ADDRESS = ('12 Main St, Suite 4; Floor 2, '.repeat(16) + 'LOUISVILLE, 
 
 const CALENDAR_EVENTS = [
   ['the R3 example', orderEvent()],
-  ['crossing midnight', orderEvent({ startsAt: '2026-11-07T03:00:00.000Z', endsAt: '2026-11-07T07:00:00.000Z' })],
-  ['crossing the new year', orderEvent({ startsAt: '2026-12-31T23:00:00Z', endsAt: '2027-01-01T02:00:00Z' })],
-  ['milliseconds dropped', orderEvent({ startsAt: '2026-10-31T23:30:00.999Z', endsAt: '2026-11-01T02:45:59.999Z' })],
+  [
+    'crossing midnight',
+    orderEvent({ startsAt: '2026-11-07T03:00:00.000Z', endsAt: '2026-11-07T07:00:00.000Z' }),
+  ],
+  [
+    'crossing the new year',
+    orderEvent({ startsAt: '2026-12-31T23:00:00Z', endsAt: '2027-01-01T02:00:00Z' }),
+  ],
+  [
+    'milliseconds dropped',
+    orderEvent({ startsAt: '2026-10-31T23:30:00.999Z', endsAt: '2026-11-01T02:45:59.999Z' }),
+  ],
   [
     'every escape at once',
     orderEvent({
@@ -64,7 +73,10 @@ const CALENDAR_EVENTS = [
       location: venueAt('Hall "A": North', 'Back\\door; 2, LOUISVILLE'),
     }),
   ],
-  ['control characters', orderEvent({ name: 'A\u0000B\u0007C\tD\u007F\u001F', location: venueAt('V\u001F', 'X\r') })],
+  [
+    'control characters',
+    orderEvent({ name: 'A\u0000B\u0007C\tD\u007F\u001F', location: venueAt('V\u001F', 'X\r') }),
+  ],
   ['200 ASCII', orderEvent({ name: 'x'.repeat(200) })],
   ['67 and 68 octets', orderEvent({ name: 'y'.repeat(68) })],
   ['é × 100', orderEvent({ name: 'é'.repeat(100) })],
@@ -74,7 +86,10 @@ const CALENDAR_EVENTS = [
   ['a \\, on a fold', orderEvent({ location: venueAt('a'.repeat(65), 'LOUISVILLE') })],
   [
     'the maximum LOCATION',
-    orderEvent({ name: 'Café Noël 🎉 ' + 'n'.repeat(187), location: venueAt(LONG_VENUE, MAX_ADDRESS) }),
+    orderEvent({
+      name: 'Café Noël 🎉 ' + 'n'.repeat(187),
+      location: venueAt(LONG_VENUE, MAX_ADDRESS),
+    }),
   ],
   ['a name to slug', orderEvent({ name: 'Show #2: Encore! Ünïcödé & Co' })],
   ['an end equal to the start', orderEvent({ endsAt: '2026-10-31T23:30:00.000Z' })],
