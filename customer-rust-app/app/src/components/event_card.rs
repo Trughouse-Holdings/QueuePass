@@ -5,8 +5,7 @@
 
 use customer_rust_core::{
     api::types::{Event, EventStatus},
-    format::{doors_open, when},
-    money::{format_price, price_cents, usd},
+    format::{self, doors_open, when},
     time::to_iso_string,
 };
 use leptos::prelude::*;
@@ -19,35 +18,18 @@ use crate::{
     util::enum_text,
 };
 
-/// `eventPrice` (`format.ts`, parity F2): general admission (or no `priceMax`) → `usd(basePrice)`;
-/// seated → "$35" when both ends are equal in cents, else "$35–$95". Session C's T022 adds
-/// `core::format::event_price`; until it is merged this is the same rule from `core::money`.
+/// `eventPrice(e)` (parity F2) over the generated type.
 pub fn event_price(e: &Event) -> String {
-    let base: &str = &e.base_price;
-    match e.price_max.as_deref() {
-        Some(max) if e.reserved_seating && !max.is_empty() => {
-            if price_cents(max) == price_cents(base) {
-                format_price(base)
-            } else {
-                format!("{}–{}", format_price(base), format_price(max))
-            }
-        }
-        _ => usd(base),
-    }
+    format::event_price(
+        &e.base_price,
+        e.reserved_seating,
+        e.price_max.as_deref().map(String::as_str),
+    )
 }
 
-/// `count` (`format.ts`, parity F5): `toLocaleString('en-US')`, "22,090". Session C's T022 adds
-/// `core::format::count`; until it is merged this is the same rule.
+/// `count(n)` (parity F5) for the contract's positive counts.
 pub fn count(n: u64) -> String {
-    let digits = n.to_string();
-    let mut out = String::with_capacity(digits.len() + digits.len() / 3);
-    for (i, c) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i).is_multiple_of(3) {
-            out.push(',');
-        }
-        out.push(c);
-    }
-    out
+    format::count(i64::try_from(n).unwrap_or(i64::MAX))
 }
 
 /// The event's zone as the API spells it (`location.timeZone`).

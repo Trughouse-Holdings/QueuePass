@@ -9,8 +9,8 @@ use customer_rust_core::{
         types::{Event, EventStatus},
     },
     event_page::{SalesAnswer, get_tickets_key, page_has_ended},
+    format::usd,
     load::Load,
-    money::usd,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
