@@ -175,7 +175,7 @@ come with them and must pass before any change.
 
 ## Phase 8: Polish and cross-cutting
 
-- [ ] T061 Test in `e2e/tests/040-same-layout.spec.ts`: `040 S11: every page has the same structure and arrangement in both Customer apps, at desktop and phone width` (`037` R15's method over every route of parity S11 with the same data, at 1280 and 375 px); fix any difference in the Rust views (SL1–SL12, FR-020)
+- [X] T061 Test in `e2e/tests/040-same-layout.spec.ts`: `040 S11: every page has the same structure and arrangement in both Customer apps, at desktop and phone width` (`037` R15's method over every route of parity S11 with the same data, at 1280 and 375 px); fix any difference in the Rust views (SL1–SL12, FR-020)
 - [ ] T062 `README.md`: the Rust Customer app's URL `http://localhost:5177`, the same customer accounts, the shared session and what signing out of either Customer app does, `rustup` plus `npm run rust:setup` (Windows included), the ports 5173–5177, and the `.env` CORS note for an older `.env` (FR-018)
 - [ ] T063 CI: no workflow change is expected (`rust:setup` is already a step and a part of `ci`); confirm `scripts/test/ci-workflow.test.mjs` passes; the `e2e` job builds `customer-rust-app` and runs the `customer-rust` project. Record both jobs' times on the impl PR; over 25 of 30 minutes, say so and propose `037` R12's 011 amendment instead of working around it (R14)
 - [ ] T064 `npm run ci` green (format, lint with both Rust apps' clippy, build, `npm test` with `customer-rust-app` ≥ 80% on `core`, coverage report) and `npm run e2e` green, on Windows and in CI; run `040 S2` with `--repeat-each=10` (SC-006)
