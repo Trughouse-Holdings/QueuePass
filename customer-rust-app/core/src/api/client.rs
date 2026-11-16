@@ -213,12 +213,13 @@ impl EventQuery {
     }
 }
 
-/// One seat of a hold, a release, or a seated order (`SeatChoice`).
+/// One seat of a hold, a release, or a seated order (`SeatChoice`): the row's and the seat's
+/// numbers, not their labels (038), sent as JSON integers.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SeatRef {
     pub section_id: String,
-    pub row: String,
-    pub seat: String,
+    pub row: u64,
+    pub seat: u64,
 }
 
 impl SeatRef {
