@@ -4,7 +4,7 @@
 //! limit line and box, the tier choices and "From", the quantity bounds, and the totals in cents.
 //! The general-admission form (session C) and the seated panel (session D) both read these.
 
-use uuid::Uuid;
+pub use uuid::Uuid;
 
 use crate::api::types::{Availability, AvailabilitySalesClosed, TicketTier};
 use crate::format::{StartedNoticeKind, cents, count, started_notice, total_usd, usd};
