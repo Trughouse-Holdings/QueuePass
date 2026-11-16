@@ -126,7 +126,7 @@ pub fn event_query(f: &Filters, venue_ids: Option<&[String]>) -> EventQuery {
     EventQuery {
         q: some(&f.q),
         location_id: venue_ids
-            .filter(|ids| !f.venue.is_empty() && ids.iter().any(|id| *id == f.venue))
+            .filter(|ids| !f.venue.is_empty() && ids.contains(&f.venue))
             .map(|_| f.venue.clone()),
         from_date: is_day(&f.from).then(|| f.from.clone()),
         to_date: is_day(&f.to).then(|| f.to.clone()),
@@ -179,7 +179,7 @@ pub fn typed_search(text: &str, f: &Filters) -> Option<Filters> {
 
 /// The Venue select's value: the address's venue only when it is a listed one, else "All venues".
 pub fn venue_choice(f: &Filters, venue_ids: &[String]) -> String {
-    if venue_ids.iter().any(|id| *id == f.venue) {
+    if venue_ids.contains(&f.venue) {
         f.venue.clone()
     } else {
         String::new()
