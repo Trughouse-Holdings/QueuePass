@@ -7,6 +7,12 @@ export const APPS = {
   booth: { url: 'http://localhost:5175', name: 'QueuePass Ticket Booth', role: 'gate agent' },
   // Spec 037 (research R10): the Rust Admin app, in its own realm, beside the React one.
   'admin-rust': { url: 'http://localhost:5176', name: 'QueuePass Admin (Rust)', role: 'admin' },
+  // Spec 040 (research R13): the Rust Customer app, a second client in the Customer realm.
+  'customer-rust': {
+    url: 'http://localhost:5177',
+    name: 'QueuePass Tickets (Rust)',
+    role: 'customer',
+  },
 } as const;
 
 export type AppName = keyof typeof APPS;
@@ -33,8 +39,16 @@ export function agentFor(testInfo: TestInfo, n = 0): string {
   return `agent${10 + slot(testInfo) * 5 + n}`;
 }
 
-/** `customer100`–`customer159`: twenty per worker (`n` 0–19). */
+/** Spec 040 (research R13): the Playwright project that runs the `@customer` journeys again. */
+export const CUSTOMER_RUST_PROJECT = 'customer-rust';
+
+/**
+ * `customer100`–`customer159`: twenty per worker (`n` 0–19). Spec 040 (research R13): in the
+ * `customer-rust` project, which runs every `@customer` journey again, `customer40`–`customer99`
+ * instead, so a run in one project never meets another's leftover limits, holds, or orders.
+ */
 export function customerFor(testInfo: TestInfo, n = 0): string {
   if (n < 0 || n > 19) throw new Error(`customer n ${n}: 0 to 19 (R8)`);
-  return `customer${100 + slot(testInfo) * 20 + n}`;
+  const first = testInfo.project.name === CUSTOMER_RUST_PROJECT ? 40 : 100;
+  return `customer${first + slot(testInfo) * 20 + n}`;
 }

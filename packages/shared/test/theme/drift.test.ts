@@ -466,7 +466,7 @@ describe('the sign-in look (spec 021)', () => {
     expect(listing(cssViolations(path, read(path), SIGN_IN))).toEqual([]);
   });
 
-  it('maps the Customer, Ticket Booth, and Rust Admin (037) apps to their accents, and no other app', () => {
+  it('maps the Customer, Ticket Booth, Rust Admin (037), and Rust Customer (040) apps to their accents, and no other app', () => {
     const selectors = [...read(path).matchAll(/([^{}]*)\{[^{}]*--accent:/g)].map((m) =>
       m[1]!.replace(/\/\*[\s\S]*?\*\//g, '').trim(),
     );
@@ -474,7 +474,26 @@ describe('the sign-in look (spec 021)', () => {
       '.qp-app--admin-rust-app',
       '.qp-app--booth-app',
       '.qp-app--customer-app',
+      '.qp-app--customer-rust-app',
     ]);
+  });
+
+  // Spec 040 (research R7): the Rust Customer app's rule is its own single-class rule with the
+  // Rust Admin app's seven red mappings, so the selector-list guard below is not weakened.
+  it("gives .qp-app--customer-rust-app the Rust Admin app's red mappings, in a rule of its own", () => {
+    const body = (selector: string): string[] => {
+      const css = read(path);
+      const at = css.indexOf(`\n${selector} {`);
+      if (at < 0) return [];
+      return css
+        .slice(css.indexOf('{', at) + 1, css.indexOf('}', at))
+        .split(';')
+        .map((d) => d.trim())
+        .filter(Boolean);
+    };
+    const rust = body('.qp-app--admin-rust-app');
+    expect(rust).toHaveLength(7);
+    expect(body('.qp-app--customer-rust-app')).toEqual(rust);
   });
 });
 

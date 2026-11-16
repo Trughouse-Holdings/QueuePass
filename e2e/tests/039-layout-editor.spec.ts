@@ -5,7 +5,7 @@
 // it in the editor.
 //
 // Customer account: 4 (it only looks at a map; it holds no seat).
-import { expect, test } from '../fixtures/admin-app';
+import { expect, test } from '../fixtures/customer-app';
 import { adminFor, customerFor } from '../fixtures/apps';
 import {
   apiFor,
@@ -36,8 +36,8 @@ type Pt = [number, number];
 
 test(
   '039 S1/S2/S3: an admin draws a layout with a court and two generated sections, turns one, saves it, and the customer map draws it',
-  { tag: '@admin' },
-  async ({ adminApp, page, browser }, testInfo) => {
+  { tag: ['@admin', '@customer'] },
+  async ({ customerApp, adminApp, page, browser }, testInfo) => {
     const admin = await apiFor(browser, 'admin', adminFor(testInfo));
     const venue: Location = await createVenue(
       admin.api,
@@ -105,7 +105,7 @@ test(
     });
     await admin.close();
 
-    await signIn(page, 'customer', customerFor(testInfo, 4), `/events/${event.id}`);
+    await signIn(page, customerApp, customerFor(testInfo, 4), `/events/${event.id}`);
     const tickets = page.getByRole('region', { name: 'Get tickets' });
     await tickets.getByRole('button', { name: 'Choose seats' }).click();
     const map = tickets.getByRole('group', { name: 'Basketball map' });

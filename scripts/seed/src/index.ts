@@ -1,4 +1,4 @@
-import { APP_REALMS } from './app-realms';
+import { APP_REALMS, SHARED_REALM_CLIENTS } from './app-realms';
 import { createKeycloakClient, waitForKeycloak, loadConfig } from './keycloak-client';
 import { disableOldCopies, renameLegacyRealm } from './legacy-realm';
 import { provisionRealm } from './provision-realm';
@@ -7,10 +7,12 @@ import { provisionClient, FRONTEND_CLIENTS } from './provision-clients';
 
 /**
  * Idempotent Keycloak seed (spec 001 FR-004 through FR-007; spec 028 FR-005 to FR-009).
- * Safe to run any number of times: it converges on the same three app realms, each with its one
- * client and its users, 235 in all. On a system made before spec 028, it first renames the old
- * shared realm to the Customer app's realm, and last disables the old admin and agent copies and
- * the other apps' clients there (research R6).
+ * Safe to run any number of times: it converges on the same four app realms, each with its own
+ * app's client and its users, 240 in all, and (spec 040, research R3) on each
+ * `SHARED_REALM_CLIENTS` row's client in its realm, with no realm or users of its own: five
+ * clients. On a system made before spec 028, it first renames the old shared realm to the Customer
+ * app's realm, and last disables the old admin and agent copies and the other apps' clients there
+ * (research R6), never a shared-realm client.
  */
 export async function seed(): Promise<void> {
   const cfg = loadConfig();
@@ -30,6 +32,13 @@ export async function seed(): Promise<void> {
       FRONTEND_CLIENTS.find((c) => c.clientId === app.clientId)!,
     );
     await provisionUsers(kc, app);
+  }
+  for (const row of SHARED_REALM_CLIENTS) {
+    await provisionClient(
+      kc,
+      row.realm,
+      FRONTEND_CLIENTS.find((c) => c.clientId === row.clientId)!,
+    );
   }
   await disableOldCopies(kc);
 

@@ -3,7 +3,7 @@
 // from an hour before its doors open and lists the others greyed with when they open. Every
 // expected time, abbreviation, and offset is built with fixtures/time.ts, so the tests pass in
 // standard and daylight time.
-import { expect, test } from '../fixtures/admin-app';
+import { expect, test } from '../fixtures/customer-app';
 import { type Request } from '@playwright/test';
 import { API_BASE, adminFor, agentFor, customerFor } from '../fixtures/apps';
 import { addTier, apiFor, buyTickets, createEvent, createVenue } from '../fixtures/api';
@@ -16,8 +16,8 @@ const CHICAGO = 'America/Chicago';
 
 test(
   '025 S1/S2/S6: an admin sets when doors open, and customers see it',
-  { tag: '@admin' },
-  async ({ adminApp, page, browser }, testInfo) => {
+  { tag: ['@admin', '@customer'] },
+  async ({ customerApp, adminApp, page, browser }, testInfo) => {
     const venueName = uniqueName(testInfo, 'doors hall');
     const eventName = uniqueName(testInfo, 'doors show');
     const admin = await apiFor(browser, 'admin', adminFor(testInfo));
@@ -105,7 +105,7 @@ test(
     // S6: a customer sees it on the event page and its card.
     const context = await browser.newContext();
     const customer = await context.newPage();
-    await signIn(customer, 'customer', customerFor(testInfo, 3), eventPath);
+    await signIn(customer, customerApp, customerFor(testInfo, 3), eventPath);
     await expect(customer.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
     await expect(customer.getByRole('term').filter({ hasText: /^Doors open$/ })).toBeVisible();
     await expect(customer.getByRole('definition').filter({ hasText: doorsAt })).toHaveCount(1);

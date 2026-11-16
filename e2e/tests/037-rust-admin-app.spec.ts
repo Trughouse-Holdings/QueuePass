@@ -1,7 +1,10 @@
 // Spec 037 (quickstart S1–S5, S10, S11; research R10): the Rust Admin app beside the React Admin
 // app. Each test drives both apps, so it runs in the default project only; the shared Admin
-// journeys run against the Rust app through the `admin-rust` project (`@admin`).
-import { expect, test, type Locator, type Page } from '@playwright/test';
+// journeys run against the Rust app through the `admin-rust` project (`@admin`). Spec 040 (research
+// R13): `037 S4` holds and buys in the Customer app, so it is tagged `@customer` and its Customer
+// steps run against the Rust Customer app in the `customer-rust` project.
+import { expect, test } from '../fixtures/customer-app';
+import { type Locator, type Page } from '@playwright/test';
 import {
   addTier,
   apiFor,
@@ -523,85 +526,91 @@ test('037 S3: events scheduled in the Rust Admin app, general admission and on a
   await context.close();
 });
 
-test("037 S4: the Rust Admin app's event page shows live seats, sales by level, and edits tiers", async ({
-  browser,
-}, testInfo) => {
-  test.setTimeout(120_000);
-  const username = adminFor(testInfo);
-  const admin = await apiFor(browser, 'admin', username);
-  const gameName = uniqueName(testInfo, 'rust game');
-  const { event, layout, venue } = await basketballEvent(admin.api, {
-    venueName: uniqueName(testInfo, 'rust arena'),
-    place: PLACES.louisville,
-    event: { name: gameName, startsAt: startsInHours(24 * 8), endsAt: startsInHours(24 * 8 + 3) },
-  });
-  const ga = await createEvent(admin.api, venue, {
-    name: uniqueName(testInfo, 'rust open day'),
-    startsAt: startsInHours(24 * 15),
-    endsAt: startsInHours(24 * 15 + 3),
-    capacity: 100,
-  });
-  await addTier(admin.api, ga, { name: 'General', price: '30.00', quantity: 100 });
-  await admin.close();
+test(
+  "037 S4: the Rust Admin app's event page shows live seats, sales by level, and edits tiers",
+  { tag: '@customer' },
+  async ({ customerApp, browser }, testInfo) => {
+    test.setTimeout(120_000);
+    const username = adminFor(testInfo);
+    const admin = await apiFor(browser, 'admin', username);
+    const gameName = uniqueName(testInfo, 'rust game');
+    const { event, layout, venue } = await basketballEvent(admin.api, {
+      venueName: uniqueName(testInfo, 'rust arena'),
+      place: PLACES.louisville,
+      event: { name: gameName, startsAt: startsInHours(24 * 8), endsAt: startsInHours(24 * 8 + 3) },
+    });
+    const ga = await createEvent(admin.api, venue, {
+      name: uniqueName(testInfo, 'rust open day'),
+      startsAt: startsInHours(24 * 15),
+      endsAt: startsInHours(24 * 15 + 3),
+      capacity: 100,
+    });
+    await addTier(admin.api, ga, { name: 'General', price: '30.00', quantity: 100 });
+    await admin.close();
 
-  const context = await browser.newContext();
-  const rust = await context.newPage();
-  const react = await context.newPage();
-  await signIn(rust, 'admin-rust', username, `/events/${event.id}`);
-  const seating = rust.getByRole('region', { name: 'Seating' });
-  const map = seating.getByRole('group', { name: 'Basketball map' });
-  const section = map.getByRole('button', { name: /^Section 115, / });
-  await expect(seating.getByText(/^0 sold, 0 held, [\d,]+ open, [\d,]+ off sale$/)).toBeVisible();
-  await section.click();
-  const seatF7 = map.getByRole('button', { name: /^Row F, Seat 7, / });
-  await expect(seatF7).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
+    const context = await browser.newContext();
+    const rust = await context.newPage();
+    const react = await context.newPage();
+    await signIn(rust, 'admin-rust', username, `/events/${event.id}`);
+    const seating = rust.getByRole('region', { name: 'Seating' });
+    const map = seating.getByRole('group', { name: 'Basketball map' });
+    const section = map.getByRole('button', { name: /^Section 115, / });
+    await expect(seating.getByText(/^0 sold, 0 held, [\d,]+ open, [\d,]+ off sale$/)).toBeVisible();
+    await section.click();
+    const seatF7 = map.getByRole('button', { name: /^Row F, Seat 7, / });
+    await expect(seatF7).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
 
-  const customer = await apiFor(browser, 'customer', customerFor(testInfo, 11));
-  const seat = await seatAt(customer.api, layout, '115', 'F', '7');
-  await test.step('a hold from the Customer app shows without a reload', async () => {
-    await holdSeats(customer.api, event, [seat]);
-    await expect(seatF7).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, held');
-    await expect(seating.getByText(/^0 sold, 1 held, /)).toBeVisible();
-  });
-  await test.step('then the sale, in the counts, the seat, and the section', async () => {
-    await buyTickets(customer.api, event, { quantity: 1, holderName: 'Jordan Lee', seats: [seat] });
-    await expect(seatF7).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, sold');
-    await expect(seating.getByText(/^1 sold, 0 held, /)).toBeVisible();
-    await rust.getByRole('button', { name: 'Back to map' }).click();
-    await expect(section).toHaveAccessibleName(/, 0 held, 1 sold, 0 off sale$/);
-  });
-  await customer.close();
+    const customer = await apiFor(browser, customerApp, customerFor(testInfo, 11));
+    const seat = await seatAt(customer.api, layout, '115', 'F', '7');
+    await test.step('a hold from the Customer app shows without a reload', async () => {
+      await holdSeats(customer.api, event, [seat]);
+      await expect(seatF7).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, held');
+      await expect(seating.getByText(/^0 sold, 1 held, /)).toBeVisible();
+    });
+    await test.step('then the sale, in the counts, the seat, and the section', async () => {
+      await buyTickets(customer.api, event, {
+        quantity: 1,
+        holderName: 'Jordan Lee',
+        seats: [seat],
+      });
+      await expect(seatF7).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, sold');
+      await expect(seating.getByText(/^1 sold, 0 held, /)).toBeVisible();
+      await rust.getByRole('button', { name: 'Back to map' }).click();
+      await expect(section).toHaveAccessibleName(/, 0 held, 1 sold, 0 off sale$/);
+    });
+    await customer.close();
 
-  await test.step('the Sales card shows it by level, as the React app does', async () => {
-    await rust.reload();
-    const sales = rust.getByRole('region', { name: 'Sales' });
-    await expect(sales).toContainText('1 of');
-    await expect(sales.getByRole('row', { name: /^Courtside / })).toContainText('$95.00');
-    await signIn(react, 'admin', username, `/events/${event.id}`);
-    await expect(react.getByRole('region', { name: 'Sales' })).toContainText('1 of');
-    expect(await rust.getByRole('region', { name: 'Sales' }).ariaSnapshot()).toEqual(
-      await react.getByRole('region', { name: 'Sales' }).ariaSnapshot(),
-    );
-  });
+    await test.step('the Sales card shows it by level, as the React app does', async () => {
+      await rust.reload();
+      const sales = rust.getByRole('region', { name: 'Sales' });
+      await expect(sales).toContainText('1 of');
+      await expect(sales.getByRole('row', { name: /^Courtside / })).toContainText('$95.00');
+      await signIn(react, 'admin', username, `/events/${event.id}`);
+      await expect(react.getByRole('region', { name: 'Sales' })).toContainText('1 of');
+      expect(await rust.getByRole('region', { name: 'Sales' }).ariaSnapshot()).toEqual(
+        await react.getByRole('region', { name: 'Sales' }).ariaSnapshot(),
+      );
+    });
 
-  await test.step("a tier's price edited in Rust shows in React", async () => {
-    await rust.goto(`${RUST.url}/events/${ga.id}`);
-    const tiers = rust.getByRole('region', { name: 'Ticket tiers' });
-    await tiers
-      .getByRole('row', { name: /^General / })
-      .getByRole('button', { name: 'Edit' })
-      .click();
-    await tiers.getByLabel('Price for General', { exact: true }).fill('35.00');
-    await tiers.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(tiers.getByRole('row', { name: /^General / })).toContainText('$35.00');
-    await react.goto(`${APPS.admin.url}/events/${ga.id}`);
-    await expect(
-      react.getByRole('region', { name: 'Ticket tiers' }).getByRole('row', { name: /^General / }),
-    ).toContainText('$35.00');
-  });
+    await test.step("a tier's price edited in Rust shows in React", async () => {
+      await rust.goto(`${RUST.url}/events/${ga.id}`);
+      const tiers = rust.getByRole('region', { name: 'Ticket tiers' });
+      await tiers
+        .getByRole('row', { name: /^General / })
+        .getByRole('button', { name: 'Edit' })
+        .click();
+      await tiers.getByLabel('Price for General', { exact: true }).fill('35.00');
+      await tiers.getByRole('button', { name: 'Save', exact: true }).click();
+      await expect(tiers.getByRole('row', { name: /^General / })).toContainText('$35.00');
+      await react.goto(`${APPS.admin.url}/events/${ga.id}`);
+      await expect(
+        react.getByRole('region', { name: 'Ticket tiers' }).getByRole('row', { name: /^General / }),
+      ).toContainText('$35.00');
+    });
 
-  await context.close();
-});
+    await context.close();
+  },
+);
 
 /** Opens the page's Download menu and saves one format; the file's name and text. */
 async function download(page: Page, menu: string, button: string) {

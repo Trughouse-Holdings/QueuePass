@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { parse } from 'yaml';
+import { BANNER } from '../run-host.mjs';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const SCRIPT = join(ROOT, 'scripts', 'run-host.mjs');
@@ -151,7 +152,7 @@ test('each app gets its API, its own realm as sign-in authority, and own client 
   }
   assert.deepEqual(
     blocks.filter((b) => b.kind === 'child').map((b) => b.name),
-    ['backend', 'admin-app', 'customer-app', 'booth-app', 'admin-rust-app'],
+    ['backend', 'admin-app', 'customer-app', 'booth-app', 'admin-rust-app', 'customer-rust-app'],
   );
 });
 
@@ -169,6 +170,27 @@ test('the Rust Admin app gets trunk serve on 5176 and the QP_* values of its Com
   );
   const pkg = JSON.parse(readFileSync(join(ROOT, 'admin-rust-app', 'package.json'), 'utf8'));
   assert.equal(pkg.scripts.dev, 'trunk serve --port 5176');
+});
+
+// Spec 040 (contract sign-in-client.md, Host run; research R12): a sixth child, the Rust Customer
+// app, `trunk serve` on 5177 with the QP_* values of its Compose build: the Customer realm and its
+// own client there.
+test('the Rust Customer app gets trunk serve on 5177 and the QP_* values of its Compose build', () => {
+  const child = find(plan(), 'customer-rust-app');
+  assert.equal(child.command, 'npm run dev --workspace @queuepass/customer-rust-app');
+  for (const key of ['QP_API_BASE_URL', 'QP_OIDC_AUTHORITY', 'QP_OIDC_CLIENT_ID']) {
+    assert.equal(child.env[key], composeValue('customer-rust-app', key, 'args'), key);
+  }
+  assert.equal(child.env.QP_OIDC_AUTHORITY, 'http://localhost:8080/realms/queuepass-customer-app');
+  assert.equal(child.env.QP_OIDC_CLIENT_ID, 'customer-rust-app');
+  const pkg = JSON.parse(readFileSync(join(ROOT, 'customer-rust-app', 'package.json'), 'utf8'));
+  assert.equal(pkg.scripts.dev, 'trunk serve --port 5177');
+});
+
+test('the start banner names the Rust Customer app and all six', () => {
+  assert.match(BANNER, /Customer \(Rust\) http:\/\/localhost:5177/);
+  assert.match(BANNER, /Ctrl\+C stops all six/);
+  assert.match(BANNER, /Admin \(Rust\) http:\/\/localhost:5176/);
 });
 
 test('refuses an unknown argument', () => {

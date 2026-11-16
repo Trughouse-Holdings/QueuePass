@@ -2,6 +2,8 @@
 // `qpe2e` Compose stack. No retries, ever (FR-011, R13): a flaky test is fixed, not retried green.
 import { defineConfig, devices } from '@playwright/test';
 import type { AdminAppOptions } from './fixtures/admin-app';
+import { CUSTOMER_RUST_PROJECT } from './fixtures/apps';
+import type { CustomerAppOptions } from './fixtures/customer-app';
 
 const CI = !!process.env.CI;
 
@@ -26,7 +28,7 @@ if (WEBKIT) process.env.QP_E2E_WEBKIT = '1';
 const EVENT_FORM_TESTS =
   /(?:003-venue-event|020-time-zones|025-doors-open|031-atomic-event-create|035-event-form-flow|036-event-form-times)\.spec\.ts$/;
 
-export default defineConfig<AdminAppOptions>({
+export default defineConfig<AdminAppOptions & CustomerAppOptions>({
   testDir: 'tests',
   fullyParallel: true,
   // R8: at most 3, so each worker's test accounts (by parallelIndex) never overlap.
@@ -58,6 +60,13 @@ export default defineConfig<AdminAppOptions>({
       name: 'admin-rust',
       use: { ...devices['Desktop Chrome'], adminApp: 'admin-rust' },
       grep: /@admin/,
+    },
+    // Spec 040 (research R13): every Customer journey again, against the Rust Customer app, with
+    // its own customer accounts (`customerFor`).
+    {
+      name: CUSTOMER_RUST_PROJECT,
+      use: { ...devices['Desktop Chrome'], customerApp: 'customer-rust' },
+      grep: /@customer/,
     },
     ...(EVENT_FORM_WEBKIT
       ? [

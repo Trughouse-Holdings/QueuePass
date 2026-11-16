@@ -6,7 +6,12 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { boundaryFailures, cargoDependencies, RUST_FORBIDDEN_CRATES } from '../check-boundary.mjs';
+import {
+  boundaryFailures,
+  cargoDependencies,
+  RUST_APPS,
+  RUST_FORBIDDEN_CRATES,
+} from '../check-boundary.mjs';
 
 function tree(files) {
   const root = mkdtempSync(join(tmpdir(), 'qp-boundary-'));
@@ -128,7 +133,79 @@ for (const [file, text] of [
     try {
       const failures = boundaryFailures(root);
       assert.equal(failures.length, 1, failures.join('\n'));
-      assert.match(failures[0], new RegExp(file.replaceAll('/', '\\/')));
+      // Spec 040 (R14, Windows): `walk` joins paths with the platform's separator.
+      assert.match(failures[0], new RegExp(file.replaceAll('/', '[\\\\/]')));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
+
+// Spec 040 (research R12, tasks T014): the Rust Customer app's manifests, lock file, and sources
+// are scanned the same way.
+const CLEAN_CUSTOMER_RUST = Object.fromEntries(
+  Object.entries(CLEAN_RUST).map(([path, text]) => [
+    path.replace('admin-rust-app/', 'customer-rust-app/'),
+    text.replaceAll('admin-rust', 'customer-rust'),
+  ]),
+);
+
+test('scans both Rust apps', () => {
+  assert.deepEqual(RUST_APPS, ['admin-rust-app', 'customer-rust-app']);
+});
+
+test('both Rust apps with no database crate or code pass', () => {
+  const root = tree({ ...CLEAN_RUST, ...CLEAN_CUSTOMER_RUST });
+  try {
+    assert.deepEqual(boundaryFailures(root), []);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+for (const manifest of ['Cargo.toml', 'core/Cargo.toml', 'app/Cargo.toml']) {
+  for (const crate of RUST_FORBIDDEN_CRATES) {
+    test(`fails when customer-rust-app/${manifest} lists ${crate}`, () => {
+      const path = `customer-rust-app/${manifest}`;
+      const root = tree({
+        ...CLEAN_RUST,
+        ...CLEAN_CUSTOMER_RUST,
+        [path]: `${CLEAN_CUSTOMER_RUST[path]}\n[dependencies]\n${crate} = { version = "1" }\n`,
+      });
+      try {
+        const failures = boundaryFailures(root);
+        assert.equal(failures.length, 1, failures.join('\n'));
+        assert.equal(failures[0], `${path}: lists "${crate}"`);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  }
+}
+
+test("fails when the Rust Customer app's Cargo.lock pulls in a database crate", () => {
+  const root = tree({
+    ...CLEAN_CUSTOMER_RUST,
+    'customer-rust-app/Cargo.lock': 'version = 4\n\n[[package]]\nname = "diesel"\n',
+  });
+  try {
+    assert.deepEqual(boundaryFailures(root), ['customer-rust-app/Cargo.lock: pulls in "diesel"']);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+for (const [file, text] of [
+  ['customer-rust-app/core/src/db.rs', 'const URL: &str = "postgresql://qp@localhost/qp";'],
+  ['customer-rust-app/app/src/env.rs', 'let url = env!("DATABASE_URL");'],
+  ['customer-rust-app/core/src/orm.rs', 'use sea_orm::Database;'],
+]) {
+  test(`fails on database code in ${file}`, () => {
+    const root = tree({ ...CLEAN_CUSTOMER_RUST, [file]: text });
+    try {
+      const failures = boundaryFailures(root);
+      assert.equal(failures.length, 1, failures.join('\n'));
+      assert.match(failures[0], new RegExp(file.replaceAll('/', '[\\\\/]')));
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

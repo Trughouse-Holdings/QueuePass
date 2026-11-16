@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeKeycloak, type FakeKeycloak } from './fake-keycloak';
 import { legacyState } from './legacy-state';
+import { OTHER_CLIENTS } from '../src/legacy-realm';
 
 /**
  * Spec 028 FR-006, FR-007, FR-009, SC-004 (research R5, R6; tasks T013): over a Keycloak made
@@ -84,6 +85,8 @@ describe('the seed over a realm queuepass from before 028', () => {
       ['admin-app', 'old-client-admin-app', false],
       ['customer-app', 'old-client-customer-app', true],
       ['booth-app', 'old-client-booth-app', false],
+      // Spec 040 (research R3): made after the rename, and left enabled.
+      ['customer-rust-app', expect.any(String), true],
     ]);
     expect(clients.find((c) => c.clientId === 'customer-app')).toMatchObject({
       name: 'QueuePass Tickets',
@@ -121,6 +124,21 @@ describe('the seed over a realm queuepass from before 028', () => {
       }
     },
   );
+
+  // Spec 040 (research R3): the old copies' check never lists the Rust Customer app's client, so
+  // the seed never disables it, on this run or the next.
+  it('makes the customer-rust-app client and keeps it enabled across runs', async () => {
+    expect(OTHER_CLIENTS).not.toContain('customer-rust-app');
+    const first = await seedOnce();
+    client.fake = createFakeKeycloak(first.state);
+    const second = await seedOnce();
+
+    const rust = second.realm(CUSTOMER).clients.find((c) => c.clientId === 'customer-rust-app');
+    expect(rust).toMatchObject({ enabled: true, name: 'QueuePass Tickets (Rust)' });
+    expect(console.log).not.toHaveBeenCalledWith(
+      "[seed] queuepass-customer-app: disabled client 'customer-rust-app'",
+    );
+  });
 
   it('logs the rename and what it disabled', async () => {
     await seedOnce();

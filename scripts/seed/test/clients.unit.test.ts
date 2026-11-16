@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { APP_REALMS } from '../src/app-realms';
+import { APP_REALMS, SHARED_REALM_CLIENTS } from '../src/app-realms';
 import {
   AUDIENCE_SCOPE,
   FRONTEND_CLIENTS,
@@ -18,7 +18,8 @@ import {
  * Spec 001 FR-005 to FR-007 and research R5/R6 through spec 010 research R4: the audience scope
  * and the three front-end clients are created when absent and converged when drifted, each with
  * the audience and roles scopes as defaults. Spec 028 (FR-005, tasks T015): in each app realm,
- * the audience scope and that app's one client. Needs no Keycloak (a recording fake).
+ * the audience scope and that app's one client. Spec 040 (research R3): and each
+ * `SHARED_REALM_CLIENTS` row's client in its realm. Needs no Keycloak (a recording fake).
  */
 const AUDIENCE_MAPPER = {
   name: 'queuepass-api-audience',
@@ -44,12 +45,15 @@ const PORTS = {
   'booth-app': 5175,
   // Spec 037 (research R11): the Rust Admin app.
   'admin-rust-app': 5176,
+  // Spec 040 (research R3, R12): the Rust Customer app, a second client in the Customer realm.
+  'customer-rust-app': 5177,
 } as const;
 const NAMES = {
   'admin-app': 'QueuePass Admin',
   'customer-app': 'QueuePass Tickets',
   'booth-app': 'QueuePass Ticket Booth',
   'admin-rust-app': 'QueuePass Admin (Rust)',
+  'customer-rust-app': 'QueuePass Tickets (Rust)',
 } as const;
 
 function expectConstitutionalClient(c: ClientRepresentation): void {
@@ -81,8 +85,8 @@ const scopeId = (state: FakeState, name: string) =>
 const client = (state: FakeState, clientId: string) =>
   only(state).clients.find((c) => c.clientId === clientId)!;
 
-describe.each(APP_REALMS.map((r) => [r.realm, r.clientId] as const))(
-  'provisionClient: %s',
+describe.each([...APP_REALMS, ...SHARED_REALM_CLIENTS].map((r) => [r.realm, r.clientId] as const))(
+  'provisionClient: %s, %s',
   (realm, clientId) => {
     const c = FRONTEND_CLIENTS.find((f) => f.clientId === clientId)!;
     const fresh = (): FakeState => provisionedRealmState(realm);
