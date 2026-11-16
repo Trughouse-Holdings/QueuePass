@@ -1,6 +1,6 @@
 // Spec 003 quickstart C1 (with 002's Admin pages and 013's address check): an admin adds a venue
 // and an event in the Admin app; a customer finds the event, with its venue and times.
-import { expect, test } from '../fixtures/admin-app';
+import { expect, test } from '../fixtures/customer-app';
 
 import { adminFor, customerFor } from '../fixtures/apps';
 import { apiFor, createEvent, createVenue, type Location } from '../fixtures/api';
@@ -13,8 +13,8 @@ const ZONE = 'America/New_York'; // Louisville, KY: Eastern.
 
 test(
   '003 C1: events appear soonest first, with their venues, times, and prices',
-  { tag: '@admin' },
-  async ({ adminApp, browser }, testInfo) => {
+  { tag: ['@admin', '@customer'] },
+  async ({ customerApp, adminApp, browser }, testInfo) => {
     // One search finds this test's three events: Early Show, Late Show, and Matinee.
     const base = uniqueName(testInfo, 'c1');
     const venueName = `${base} Alpha Arena`;
@@ -74,7 +74,7 @@ test(
     )!;
 
     const page = await (await browser.newContext()).newPage();
-    await signIn(page, 'customer', customerFor(testInfo, 8));
+    await signIn(page, customerApp, customerFor(testInfo, 8));
     const titles = () =>
       page.getByRole('list', { name: 'Events' }).getByRole('heading', { level: 2 });
     const card = (name: string) =>

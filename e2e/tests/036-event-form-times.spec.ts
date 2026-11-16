@@ -1,6 +1,6 @@
 // Spec 036 quickstart S1 (FR-003, FR-004, SC-006, T007): an event scheduled with doors 2 hours
 // before the start shows that time in the Customer app. The form still sends doorsOpenAt.
-import { expect, test } from '../fixtures/admin-app';
+import { expect, test } from '../fixtures/customer-app';
 
 import { adminFor, customerFor } from '../fixtures/apps';
 import { apiFor, createVenue } from '../fixtures/api';
@@ -13,8 +13,8 @@ const EASTERN = 'America/New_York';
 
 test(
   '036 S1: an event with doors 2 hours before the start shows that time in the Customer app',
-  { tag: '@admin' },
-  async ({ adminApp, page, browser }, testInfo) => {
+  { tag: ['@admin', '@customer'] },
+  async ({ customerApp, adminApp, page, browser }, testInfo) => {
     const venueName = uniqueName(testInfo, '036 Hall');
     const eventName = uniqueName(testInfo, '036 Doors Show');
     const admin = await apiFor(browser, 'admin', adminFor(testInfo));
@@ -49,7 +49,7 @@ test(
 
     const context = await browser.newContext();
     const customer = await context.newPage();
-    await signIn(customer, 'customer', customerFor(testInfo, 3), eventPath);
+    await signIn(customer, customerApp, customerFor(testInfo, 3), eventPath);
     await expect(customer.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
     await expect(customer.getByRole('term').filter({ hasText: /^Doors open$/ })).toBeVisible();
     await expect(customer.getByRole('definition').filter({ hasText: doorsAt })).toHaveCount(1);

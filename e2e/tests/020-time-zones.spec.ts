@@ -1,6 +1,6 @@
 // Spec 020 quickstart S6 and S7: event times show in the venue's zone whatever the browser's zone;
 // a start time the venue's zone skips (the spring-forward night) is refused before anything is sent.
-import { expect, test } from '../fixtures/admin-app';
+import { expect, test } from '../fixtures/customer-app';
 
 import { API_BASE, adminFor, customerFor } from '../fixtures/apps';
 import { addTier, apiFor, buyTickets, createEvent, createVenue } from '../fixtures/api';
@@ -22,56 +22,66 @@ function nextSpringForward(): string {
   }
 }
 
-test('020 S6: a customer sees event times in the venue zone, whatever the browser zone', async ({
-  browser,
-}, testInfo) => {
-  const eventName = uniqueName(testInfo, 'tz west');
-  const day = localDate(PHOENIX, 7);
-  const startsAt = atLocal(`${day}T19:00`, PHOENIX);
-  const endsAt = atLocal(`${day}T22:00`, PHOENIX);
-  const admin = await apiFor(browser, 'admin', adminFor(testInfo));
-  const venue = await createVenue(admin.api, PLACES.phoenix, uniqueName(testInfo, 'phoenix hall'));
-  expect(venue.timeZone).toBe(PHOENIX);
-  const event = await createEvent(admin.api, venue, { name: eventName, startsAt, endsAt });
-  const tier = await addTier(admin.api, event, { name: 'General', price: '20.00', quantity: 50 });
-  await admin.close();
-  // One ticket (set-up), so My tickets shows the order too.
-  const customer = await apiFor(browser, 'customer', customerFor(testInfo, 7));
-  await buyTickets(customer.api, event, { quantity: 1, tierId: tier.id, holderName: 'Jordan Lee' });
-  await customer.close();
-
-  const start = eventTime(startsAt, PHOENIX);
-  expect(start).toMatch(/, 7:00 PM MST$/);
-  for (const timezoneId of ['America/New_York', 'Asia/Tokyo']) {
-    await test.step(`browser in ${timezoneId}`, async () => {
-      const context = await browser.newContext({ timezoneId });
-      const page = await context.newPage();
-      await signIn(page, 'customer', customerFor(testInfo, 7), `/events/${event.id}`);
-      await expect(page.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
-      await expect(page.getByRole('definition').filter({ hasText: start })).toHaveCount(1);
-      await expect(page.getByText(eventTime(endsAt, PHOENIX), { exact: true })).toBeVisible();
-      // The event list's card says the same.
-      await page.getByRole('link', { name: 'Events', exact: true }).click();
-      await page.getByLabel('Search events').fill(eventName);
-      const card = page
-        .getByRole('article')
-        .filter({ has: page.getByRole('heading', { name: eventName }) });
-      await expect(card).toContainText(start);
-      // Filtered to the event's own date at its venue, it is still listed, whatever the zone.
-      await page.getByLabel('From', { exact: true }).fill(day);
-      await page.getByLabel('To', { exact: true }).fill(day);
-      await expect(card).toContainText(start);
-      // My tickets says the same.
-      await page.getByRole('link', { name: 'My tickets', exact: true }).click();
-      const order = page
-        .getByRole('article')
-        .filter({ has: page.getByRole('heading', { name: eventName }) });
-      await expect(order.getByRole('definition').filter({ hasText: start })).toHaveCount(1);
-      expect(timeOfDay(startsAt, timezoneId)).not.toBe(timeOfDay(startsAt, PHOENIX));
-      await context.close();
+test(
+  '020 S6: a customer sees event times in the venue zone, whatever the browser zone',
+  { tag: '@customer' },
+  async ({ customerApp, browser }, testInfo) => {
+    const eventName = uniqueName(testInfo, 'tz west');
+    const day = localDate(PHOENIX, 7);
+    const startsAt = atLocal(`${day}T19:00`, PHOENIX);
+    const endsAt = atLocal(`${day}T22:00`, PHOENIX);
+    const admin = await apiFor(browser, 'admin', adminFor(testInfo));
+    const venue = await createVenue(
+      admin.api,
+      PLACES.phoenix,
+      uniqueName(testInfo, 'phoenix hall'),
+    );
+    expect(venue.timeZone).toBe(PHOENIX);
+    const event = await createEvent(admin.api, venue, { name: eventName, startsAt, endsAt });
+    const tier = await addTier(admin.api, event, { name: 'General', price: '20.00', quantity: 50 });
+    await admin.close();
+    // One ticket (set-up), so My tickets shows the order too.
+    const customer = await apiFor(browser, customerApp, customerFor(testInfo, 7));
+    await buyTickets(customer.api, event, {
+      quantity: 1,
+      tierId: tier.id,
+      holderName: 'Jordan Lee',
     });
-  }
-});
+    await customer.close();
+
+    const start = eventTime(startsAt, PHOENIX);
+    expect(start).toMatch(/, 7:00 PM MST$/);
+    for (const timezoneId of ['America/New_York', 'Asia/Tokyo']) {
+      await test.step(`browser in ${timezoneId}`, async () => {
+        const context = await browser.newContext({ timezoneId });
+        const page = await context.newPage();
+        await signIn(page, customerApp, customerFor(testInfo, 7), `/events/${event.id}`);
+        await expect(page.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
+        await expect(page.getByRole('definition').filter({ hasText: start })).toHaveCount(1);
+        await expect(page.getByText(eventTime(endsAt, PHOENIX), { exact: true })).toBeVisible();
+        // The event list's card says the same.
+        await page.getByRole('link', { name: 'Events', exact: true }).click();
+        await page.getByLabel('Search events').fill(eventName);
+        const card = page
+          .getByRole('article')
+          .filter({ has: page.getByRole('heading', { name: eventName }) });
+        await expect(card).toContainText(start);
+        // Filtered to the event's own date at its venue, it is still listed, whatever the zone.
+        await page.getByLabel('From', { exact: true }).fill(day);
+        await page.getByLabel('To', { exact: true }).fill(day);
+        await expect(card).toContainText(start);
+        // My tickets says the same.
+        await page.getByRole('link', { name: 'My tickets', exact: true }).click();
+        const order = page
+          .getByRole('article')
+          .filter({ has: page.getByRole('heading', { name: eventName }) });
+        await expect(order.getByRole('definition').filter({ hasText: start })).toHaveCount(1);
+        expect(timeOfDay(startsAt, timezoneId)).not.toBe(timeOfDay(startsAt, PHOENIX));
+        await context.close();
+      });
+    }
+  },
+);
 
 test(
   '020 S7: a start time the venue zone skips is refused and nothing is sent; an Arizona venue takes it',

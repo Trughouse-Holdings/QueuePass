@@ -3,7 +3,7 @@
 // and turn open again within 2 seconds when released. Spec 033: the first customer's clicks hold
 // the seats, and clicking them again releases them. Spec 038: on the venue map, section A zoomed
 // into; the Admin's event page shows the same seats on its map by state (FR-027).
-import { expect, test } from '../fixtures/admin-app';
+import { expect, test } from '../fixtures/customer-app';
 import { type Page } from '@playwright/test';
 import { adminFor, customerFor } from '../fixtures/apps';
 import { apiFor, seatedEvent } from '../fixtures/api';
@@ -29,8 +29,8 @@ async function openSectionA(page: Page, eventId: string) {
 
 test(
   '015 S2: live gray-out, seats one customer reserves turn unavailable for another within 2 seconds',
-  { tag: '@admin' },
-  async ({ adminApp, browser }, testInfo) => {
+  { tag: ['@admin', '@customer'] },
+  async ({ customerApp, adminApp, browser }, testInfo) => {
     const admin = await apiFor(browser, 'admin', adminFor(testInfo));
     const { event } = await seatedEvent(admin.api, {
       venueName: uniqueName(testInfo, 'hold hall'),
@@ -56,8 +56,8 @@ test(
     const one = await (await browser.newContext()).newPage();
     const two = await (await browser.newContext()).newPage();
     const desk = await (await browser.newContext()).newPage();
-    await signIn(one, 'customer', customerFor(testInfo, 2), `/events/${event.id}`);
-    await signIn(two, 'customer', customerFor(testInfo, 3), `/events/${event.id}`);
+    await signIn(one, customerApp, customerFor(testInfo, 2), `/events/${event.id}`);
+    await signIn(two, customerApp, customerFor(testInfo, 3), `/events/${event.id}`);
     await signIn(desk, adminApp, adminFor(testInfo), `/events/${event.id}`);
     const first = await openSectionA(one, event.id);
     const second = await openSectionA(two, event.id);

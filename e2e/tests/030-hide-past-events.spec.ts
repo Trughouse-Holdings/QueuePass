@@ -4,7 +4,7 @@
 // hours ago), in progress (30 minutes ago to 2 hours from now, 90 minutes after the ended one's
 // end, so the 60-minute rule holds), and ahead (7 days from now, 7:00 to 10:00 PM venue-local).
 // Read only beyond its own rows.
-import { expect, test } from '../fixtures/admin-app';
+import { expect, test } from '../fixtures/customer-app';
 import { type Browser, type TestInfo } from '@playwright/test';
 import { adminFor, customerFor } from '../fixtures/apps';
 import { apiFor, createEvent, createVenue, type Event, type Location } from '../fixtures/api';
@@ -49,40 +49,42 @@ async function setUp(browser: Browser, testInfo: TestInfo): Promise<Setup> {
   return { base, venue, ended, inProgress, ahead };
 }
 
-test('030 S1/S2: the Customer app leaves an ended event out of the list, a search, and its venue page, and its own page says it has ended', async ({
-  browser,
-}, testInfo) => {
-  const { base, venue, ended, inProgress, ahead } = await setUp(browser, testInfo);
-  const page = await (await browser.newContext()).newPage();
-  await signIn(page, 'customer', customerFor(testInfo, 10));
-  const titles = (label: string) =>
-    page.getByRole('list', { name: label }).getByRole('heading', { level: 2 });
+test(
+  '030 S1/S2: the Customer app leaves an ended event out of the list, a search, and its venue page, and its own page says it has ended',
+  { tag: '@customer' },
+  async ({ customerApp, browser }, testInfo) => {
+    const { base, venue, ended, inProgress, ahead } = await setUp(browser, testInfo);
+    const page = await (await browser.newContext()).newPage();
+    await signIn(page, customerApp, customerFor(testInfo, 10));
+    const titles = (label: string) =>
+      page.getByRole('list', { name: label }).getByRole('heading', { level: 2 });
 
-  await test.step('the Events page and a search show the other two, not the ended one', async () => {
-    await expect(page.getByRole('heading', { level: 1, name: 'Events' })).toBeVisible();
-    await page.getByLabel('Search events').fill(base);
-    await expect(titles('Events')).toHaveText([inProgress.name, ahead.name]);
-    await page.getByLabel('Search events').fill(ended.name);
-    await expect(page.getByText('No events match your filters.')).toBeVisible();
-    await expect(page.getByRole('heading', { name: ended.name })).toHaveCount(0);
-  });
+    await test.step('the Events page and a search show the other two, not the ended one', async () => {
+      await expect(page.getByRole('heading', { level: 1, name: 'Events' })).toBeVisible();
+      await page.getByLabel('Search events').fill(base);
+      await expect(titles('Events')).toHaveText([inProgress.name, ahead.name]);
+      await page.getByLabel('Search events').fill(ended.name);
+      await expect(page.getByText('No events match your filters.')).toBeVisible();
+      await expect(page.getByRole('heading', { name: ended.name })).toHaveCount(0);
+    });
 
-  await test.step("the venue's page shows the other two", async () => {
-    await page.goto(`${new URL(page.url()).origin}/venues/${venue.id}`);
-    await expect(page.getByRole('heading', { level: 1, name: venue.name })).toBeVisible();
-    await expect(titles(`Events at ${venue.name}`)).toHaveText([inProgress.name, ahead.name]);
-  });
+    await test.step("the venue's page shows the other two", async () => {
+      await page.goto(`${new URL(page.url()).origin}/venues/${venue.id}`);
+      await expect(page.getByRole('heading', { level: 1, name: venue.name })).toBeVisible();
+      await expect(titles(`Events at ${venue.name}`)).toHaveText([inProgress.name, ahead.name]);
+    });
 
-  await test.step("the ended event's own page opens and says it has ended", async () => {
-    await page.goto(`${new URL(page.url()).origin}/events/${ended.id}`);
-    await expect(page.getByRole('heading', { level: 1, name: ended.name })).toBeVisible();
-    await expect(page.getByText('This event has ended.', { exact: true })).toBeVisible();
-    await page.goto(`${new URL(page.url()).origin}/events/${inProgress.id}`);
-    await expect(page.getByRole('heading', { level: 1, name: inProgress.name })).toBeVisible();
-    await expect(page.getByText('This event has ended.', { exact: true })).toHaveCount(0);
-  });
-  await page.context().close();
-});
+    await test.step("the ended event's own page opens and says it has ended", async () => {
+      await page.goto(`${new URL(page.url()).origin}/events/${ended.id}`);
+      await expect(page.getByRole('heading', { level: 1, name: ended.name })).toBeVisible();
+      await expect(page.getByText('This event has ended.', { exact: true })).toBeVisible();
+      await page.goto(`${new URL(page.url()).origin}/events/${inProgress.id}`);
+      await expect(page.getByRole('heading', { level: 1, name: inProgress.name })).toBeVisible();
+      await expect(page.getByText('This event has ended.', { exact: true })).toHaveCount(0);
+    });
+    await page.context().close();
+  },
+);
 
 test(
   '030 S4/S6: the Admin app hides an ended event until Show past events is on, marks it Ended, and its page, attendees, and Reports row open',
