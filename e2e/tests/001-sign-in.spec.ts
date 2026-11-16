@@ -1,6 +1,7 @@
 // Spec 001 quickstart V3 and V4: sign-in, the signed-in page, and logout in each app; another
-// app's account refused (spec 028 FR-012).
-import { expect, test } from '../fixtures/admin-app';
+// app's account refused (spec 028 FR-012). Spec 040 (research R13): tagged `@customer` too, so the
+// `customer-rust` project runs them against the Rust Customer app.
+import { expect, test } from '../fixtures/customer-app';
 import { type Page } from '@playwright/test';
 import { APPS, PASSWORD, adminFor, agentFor, customerFor, type AppName } from '../fixtures/apps';
 import { signInHeading, signOut, submitSignIn } from '../fixtures/sign-in';
@@ -20,7 +21,8 @@ async function expectSignedIn(page: Page, app: AppName, username: string): Promi
     // with the user's own token (the Backend names it "QueuePass Admin" in both Admin apps).
     await expect(page.getByRole('heading', { level: 1, name: APPS.admin.name })).toBeVisible();
     await expect(page.getByText(username)).toBeVisible();
-  } else if (app === 'customer') {
+  } else if (app === 'customer' || app === 'customer-rust') {
+    // Spec 040 (parity S9, S11): the Rust Customer app's `/` is the event list, as the React one's.
     await expect(page.getByRole('heading', { level: 1, name: 'Events' })).toBeVisible();
   } else {
     await expect(
@@ -31,15 +33,16 @@ async function expectSignedIn(page: Page, app: AppName, username: string): Promi
 
 test(
   '001 V3: sign in, the signed-in page, and logout in each app',
-  { tag: '@admin' },
-  async ({ adminApp, browser }, testInfo) => {
+  { tag: ['@admin', '@customer'] },
+  async ({ adminApp, customerApp, browser }, testInfo) => {
     const users: Record<AppName, string> = {
       admin: adminFor(testInfo),
       customer: customerFor(testInfo, 9),
       booth: agentFor(testInfo, 0),
       'admin-rust': adminFor(testInfo),
+      'customer-rust': customerFor(testInfo, 9),
     };
-    for (const app of [adminApp, 'customer', 'booth'] as const) {
+    for (const app of [adminApp, customerApp, 'booth'] as const) {
       await test.step(`${app}: ${users[app]}`, async () => {
         // A new context per app: V3's private window, so no earlier session interferes.
         const context = await browser.newContext();
@@ -78,12 +81,12 @@ test(
 // wrong-role page is covered by packages/shared/test/web/require-role.test.tsx.
 test(
   "001 V4: each app's sign-in page refuses another app's account",
-  { tag: '@admin' },
-  async ({ adminApp, browser }, testInfo) => {
+  { tag: ['@admin', '@customer'] },
+  async ({ adminApp, customerApp, browser }, testInfo) => {
     // V4: a customer at the Admin app, a gate agent at the Customer app, an admin at the Booth.
     const refused: [AppName, string][] = [
       [adminApp, customerFor(testInfo, 10)],
-      ['customer', agentFor(testInfo, 1)],
+      [customerApp, agentFor(testInfo, 1)],
       ['booth', adminFor(testInfo)],
     ];
     for (const [app, username] of refused) {
