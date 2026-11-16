@@ -138,7 +138,8 @@ test("040 S5: seats held in the Rust Customer app show in the React Customer app
   await expect(react.getByRole('region', { name: eventName })).toHaveCount(0, {
     timeout: 15_000,
   });
-  await react.getByRole('link', { name: 'My tickets', exact: true }).click();
+  // The nav link: the cart's bought status holds a "My tickets" link too (parity C8).
+  await react.getByRole('navigation').getByRole('link', { name: 'My tickets' }).click();
   const order = react.getByRole('article').filter({ hasText: eventName });
   const lines = order.getByRole('list', { name: 'Tickets' });
   await expect(lines).toContainText('Section A, Row 1, Seat 5, Standard, $25.00: Valid');
