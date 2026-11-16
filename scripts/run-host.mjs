@@ -11,7 +11,7 @@
 // seed, build the Backend, and (with --demo-data) load the demo data. Then the Backend
 // (start:prod), and, once http://localhost:3000/health answers, the three apps (vite on 5173,
 // 5174, 5175, the exact redirect URIs of their OIDC clients). Output is prefixed by name; Ctrl+C
-// stops all five (037: the Rust Admin app too). --print shows every step and child with its environment and starts nothing.
+// stops all six (037: the Rust Admin app too; 040: the Rust Customer app). --print shows every step and child with its environment and starts nothing.
 //
 // Spec 029 (research R6): `--demo-reset` runs one step instead, the demo checkpoint (`npm run
 // demo-reset --workspace @queuepass/backend`) with the Backend's environment, in a second
@@ -64,6 +64,10 @@ function parseArgs(argv) {
 }
 
 /** Every step and child, with the environment each one is given (on top of the parent's). */
+/** The line printed once every app is started (spec 040: six children, the Backend included). */
+export const BANNER =
+  'Admin http://localhost:5173 · Customer http://localhost:5174 · Booth http://localhost:5175 · Admin (Rust) http://localhost:5176 · Customer (Rust) http://localhost:5177 (Ctrl+C stops all six)';
+
 export function plan(options) {
   const backendEnv = {
     DATABASE_URL: 'postgresql://queuepass:queuepass@localhost:5432/queuepass?schema=public',
@@ -156,6 +160,17 @@ export function plan(options) {
         QP_API_BASE_URL: API,
         QP_OIDC_AUTHORITY: `${REALMS}/queuepass-admin-rust-app`,
         QP_OIDC_CLIENT_ID: 'admin-rust-app',
+      },
+    },
+    // Spec 040 (contract sign-in-client.md, Host run; research R12): the Rust Customer app,
+    // `trunk serve` on 5177, with its own client in the Customer realm, as its Compose build.
+    {
+      name: 'customer-rust-app',
+      command: 'npm run dev --workspace @queuepass/customer-rust-app',
+      env: {
+        QP_API_BASE_URL: API,
+        QP_OIDC_AUTHORITY: `${REALMS}/queuepass-customer-app`,
+        QP_OIDC_CLIENT_ID: 'customer-rust-app',
       },
     },
   ];
@@ -280,9 +295,7 @@ export async function run(options, deps = {}) {
   }
   console.log(`[backend] healthy at ${healthUrl}`);
   for (const a of apps) start(a);
-  console.log(
-    'Admin http://localhost:5173 · Customer http://localhost:5174 · Booth http://localhost:5175 · Admin (Rust) http://localhost:5176 (Ctrl+C stops all five)',
-  );
+  console.log(BANNER);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

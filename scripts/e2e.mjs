@@ -14,7 +14,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 
 /** Every port the Compose stack publishes; the sign-in clients allow only these (spec Assumptions). */
-export const E2E_PORTS = [5173, 5174, 5175, 5176, 3000, 8080, 9000, 5432];
+export const E2E_PORTS = [5173, 5174, 5175, 5176, 5177, 3000, 8080, 9000, 5432];
 
 export const PROJECT = 'qpe2e';
 export const COMPOSE = [
