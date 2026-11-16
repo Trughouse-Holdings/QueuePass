@@ -64,15 +64,27 @@ describe('seed()', () => {
       'queuepass-booth-app',
       '-',
       'queuepass-admin-rust-app',
+      // Spec 040 (research R3): each SHARED_REALM_CLIENTS row's client, in its realm.
       'queuepass-customer-app',
     ]);
+    // Spec 040: the shared-realm client after the realm loop, before the old copies' check.
+    const createdRust = fake.calls.findIndex(
+      (c) =>
+        c.method === 'clients.create' &&
+        (c.args[0] as { clientId?: string }).clientId === 'customer-rust-app',
+    );
+    expect(createdRust).toBeGreaterThan(realms.lastIndexOf('queuepass-admin-rust-app'));
+    expect(createdRust).toBeLessThan(
+      fake.calls.findIndex((c) => c.method === 'roles.findUsersWithRole'),
+    );
     // Within each app realm: the realm, then its client, then its users.
     const admin = fake.calls.filter((c) => realmOf(c.args) === 'queuepass-admin-app');
     const firstOf = (method: string) => admin.findIndex((c) => c.method === method);
     expect(firstOf('roles.find')).toBeLessThan(firstOf('clients.find'));
     expect(firstOf('clients.find')).toBeLessThan(firstOf('users.find'));
     expect(fake.state.realms.flatMap((r) => r.users)).toHaveLength(240);
-    expect(fake.state.realms.flatMap((r) => r.clients)).toHaveLength(4);
+    // Spec 040 (research R3): the four apps' clients and the Rust Customer app's.
+    expect(fake.state.realms.flatMap((r) => r.clients)).toHaveLength(5);
 
     expect(console.log).toHaveBeenCalledWith(
       "[seed] target http://localhost:8080, realms 'queuepass-admin-app', " +
@@ -80,7 +92,7 @@ describe('seed()', () => {
     );
     expect(console.log).toHaveBeenLastCalledWith(
       '[seed] done — queuepass-admin-app: 5 admin, queuepass-customer-app: 200 customer, ' +
-        'queuepass-booth-app: 30 agent, queuepass-admin-rust-app: 5 admin (240 principals, 4 clients)',
+        'queuepass-booth-app: 30 agent, queuepass-admin-rust-app: 5 admin (240 principals, 5 clients)',
     );
   });
 

@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { APP_REALMS, LEGACY_REALM } from '../src/app-realms';
+import { APP_REALMS, LEGACY_REALM, SHARED_REALM_CLIENTS } from '../src/app-realms';
 import { desiredClient, FRONTEND_CLIENTS } from '../src/provision-clients';
 import { createFakeKeycloak, emptyState, type FakeKeycloak } from './fake-keycloak';
 
 /**
  * Spec 028 FR-005, FR-008, SC-006 (research R4; tasks T012): on a clean system one seed run makes
  * the four app realms, each with the sign-in look, its one role, the audience scope, its one
- * client and exactly its users; no realm `queuepass` is made. Needs no Keycloak: the client module
+ * client and exactly its users; no realm `queuepass` is made. Spec 040 (research R3): the Customer
+ * realm also holds the Rust Customer app's client, and no extra user. Needs no Keycloak: the client module
  * is mocked to hand the seed a recording fake.
  */
 const client = vi.hoisted(() => ({ fake: undefined as FakeKeycloak | undefined }));
@@ -75,17 +76,24 @@ describe('the seed on a clean system', () => {
       ]);
     });
 
-    it('holds the audience scope with its one mapper, and its one client using it', async () => {
+    it('holds the audience scope with its one mapper, and its clients using it', async () => {
       const { seed } = await import('../src/index');
       await seed();
 
       const r = client.fake!.realm(realm);
       const scope = r.clientScopes.find((s) => s.name === 'queuepass-api');
       expect(scope?.protocolMappers).toEqual([{ ...AUDIENCE_MAPPER, id: expect.any(String) }]);
-      const want = FRONTEND_CLIENTS.find((c) => c.clientId === app.clientId)!;
-      expect(r.clients).toEqual([{ ...desiredClient(want), id: expect.any(String) }]);
+      // Its own app's client, then (spec 040) each SHARED_REALM_CLIENTS row in this realm.
+      const clientIds = [
+        app.clientId,
+        ...SHARED_REALM_CLIENTS.filter((s) => s.realm === realm).map((s) => s.clientId),
+      ];
+      const want = clientIds.map((id) => FRONTEND_CLIENTS.find((c) => c.clientId === id)!);
+      expect(r.clients).toEqual(want.map((w) => ({ ...desiredClient(w), id: expect.any(String) })));
       const roles = r.clientScopes.find((s) => s.name === 'roles')!;
-      expect(r.defaultScopes[r.clients[0]!.id!]).toEqual([scope!.id, roles.id]);
+      for (const c of r.clients) {
+        expect(r.defaultScopes[c.id!], c.clientId).toEqual([scope!.id, roles.id]);
+      }
     });
 
     it(`holds exactly its ${app.count} users, enabled, with its role and the seed password`, async () => {
@@ -138,7 +146,30 @@ describe('the seed on a clean system', () => {
 
     expect(console.log).toHaveBeenLastCalledWith(
       '[seed] done — queuepass-admin-app: 5 admin, queuepass-customer-app: 200 customer, ' +
-        'queuepass-booth-app: 30 agent, queuepass-admin-rust-app: 5 admin (240 principals, 4 clients)',
+        'queuepass-booth-app: 30 agent, queuepass-admin-rust-app: 5 admin (240 principals, 5 clients)',
     );
+  });
+});
+
+/** Spec 040 (research R3): the Customer realm holds exactly the two Customer clients. */
+describe('the Customer realm (spec 040)', () => {
+  it('holds exactly customer-app and customer-rust-app, both enabled', async () => {
+    const { seed } = await import('../src/index');
+    await seed();
+
+    const clients = client.fake!.realm('queuepass-customer-app').clients;
+    expect(clients.map((c) => [c.clientId, c.enabled])).toEqual([
+      ['customer-app', true],
+      ['customer-rust-app', true],
+    ]);
+  });
+
+  it('five clients in all, and still 240 principals', async () => {
+    const { seed } = await import('../src/index');
+    await seed();
+
+    const realms = client.fake!.state.realms;
+    expect(realms.flatMap((r) => r.clients)).toHaveLength(5);
+    expect(realms.flatMap((r) => r.users)).toHaveLength(240);
   });
 });
