@@ -147,13 +147,13 @@ come with them and must pass before any change.
 
 **Goal**: parity M1–M16, C1–C10. **Independent test**: quickstart S5.
 
-- [ ] T045 *(test first)* [P] [US3] `core/tests/hold_queue.rs`: port `seat-hold-click.test.tsx`'s queue cases (order, one at a time, cancel queued, opposite of in-flight, drop on refusal, drop holds on 429, clear on 401)
-- [ ] T046 *(test first)* [P] [US3] `core/tests/mine.rs` (new work, R4): the `withMine` rules of parity M14 from `packages/shared/src/web/use-seat-stream.ts` lines 123–163 and `GetTickets.tsx` line 330, ported from `packages/shared/test/web/seat-stream.test.ts` and `customer-app/test/seat-stream.test.tsx` (read on open; re-read 200 ms after a change touching the customer's seats or holding any seat; only the latest request's answer; an answer older than the page's last hold or release ignored). And `core/tests/reservation.rs`: port `seat-holds.test.tsx`, `seats.test.tsx`, `venue-map-flow.test.tsx`, and `sections-list.test.tsx`' logic (`seatView`, deadline from 201 or a new `createdAt`, never restarted by more seats, 250 ms ticks, warning once, run out, the hold log's 5 lines and 10 s clear, every refusal text including `SEAT_COOLDOWN` in the viewer's zone, M15's return from the cart)
-- [ ] T047 *(test first)* [P] [US3] `core/tests/cart.rs`: port `cart.test.tsx` (read schedule decisions, entries by event and `createdAt`, fixed deadlines, the warning rule on every tick, detail retries and "Details unavailable", Buy outcomes, run out, vanished entries and the one `/me/orders` read, gone set)
-- [ ] T048 [US3] (after T042) `core/src/{hold_queue,reservation,mine,cart}.rs` passing T045–T047, using C's `core::buy` and `Waits` (the HOLD wait, the Cart's purchase) and `core::holder_name` (R10)
-- [ ] T049 [US3] Copy `app/src/venue_map/{venue_map,section_view,legend,pan_zoom}.rs` and `app/src/seat_stream.rs`; then the new work R4 names: the "Skip to the Sections list" button (M4), the Sections list `sections_list.rs` (M7) and its focus moves (to the Sections heading; to the first seat once a chosen section is drawn), and the stream's `withMine` wiring to `core::mine` (M14)
-- [ ] T050 [US3] (after T043) `get_tickets/seated.rs` inside C's frame, using `core::availability`, and `app/src/components/hold_countdown.rs`: stat tiles, Choose seats, notes, the map layout, Your seats, Add to cart, the hold log, refusals (M1–M3, M9–M13, M15)
-- [ ] T051 [US3] (after T043) `app/src/pages/cart.rs`, reusing C's Name on tickets field and `order_confirmation.rs`: C1–C10 with the 1,000 ms reads while visible, `visibilitychange` and `focus` reads, one at a time, and the Name on tickets field
+- [X] T045 *(test first)* [P] [US3] `core/tests/hold_queue.rs`: port `seat-hold-click.test.tsx`'s queue cases (order, one at a time, cancel queued, opposite of in-flight, drop on refusal, drop holds on 429, clear on 401)
+- [X] T046 *(test first)* [P] [US3] `core/tests/mine.rs` (new work, R4): the `withMine` rules of parity M14 from `packages/shared/src/web/use-seat-stream.ts` lines 123–163 and `GetTickets.tsx` line 330, ported from `packages/shared/test/web/seat-stream.test.ts` and `customer-app/test/seat-stream.test.tsx` (read on open; re-read 200 ms after a change touching the customer's seats or holding any seat; only the latest request's answer; an answer older than the page's last hold or release ignored). And `core/tests/reservation.rs`: port `seat-holds.test.tsx`, `seats.test.tsx`, `venue-map-flow.test.tsx`, and `sections-list.test.tsx`' logic (`seatView`, deadline from 201 or a new `createdAt`, never restarted by more seats, 250 ms ticks, warning once, run out, the hold log's 5 lines and 10 s clear, every refusal text including `SEAT_COOLDOWN` in the viewer's zone, M15's return from the cart)
+- [X] T047 *(test first)* [P] [US3] `core/tests/cart.rs`: port `cart.test.tsx` (read schedule decisions, entries by event and `createdAt`, fixed deadlines, the warning rule on every tick, detail retries and "Details unavailable", Buy outcomes, run out, vanished entries and the one `/me/orders` read, gone set)
+- [X] T048 [US3] (after T042) `core/src/{hold_queue,reservation,mine,cart}.rs` passing T045–T047, using C's `core::buy` and `Waits` (the HOLD wait, the Cart's purchase) and `core::holder_name` (R10)
+- [X] T049 [US3] Copy `app/src/venue_map/{venue_map,section_view,legend,pan_zoom}.rs` and `app/src/seat_stream.rs`; then the new work R4 names: the "Skip to the Sections list" button (M4), the Sections list `sections_list.rs` (M7) and its focus moves (to the Sections heading; to the first seat once a chosen section is drawn), and the stream's `withMine` wiring to `core::mine` (M14)
+- [X] T050 [US3] (after T043) `get_tickets/seated.rs` inside C's frame, using `core::availability`, and `app/src/components/hold_countdown.rs`: stat tiles, Choose seats, notes, the map layout, Your seats, Add to cart, the hold log, refusals (M1–M3, M9–M13, M15)
+- [X] T051 [US3] (after T043) `app/src/pages/cart.rs`, reusing C's Name on tickets field and `order_confirmation.rs`: C1–C10 with the 1,000 ms reads while visible, `visibilitychange` and `focus` reads, one at a time, and the Name on tickets field
 - [ ] T052 [US3] Test in `e2e/tests/040-seats-cart.spec.ts`: `040 S5: seats held in the Rust Customer app show in the React Customer app's cart and are bought in the Rust one`; make `007 S3`, `015`'s Customer steps, `026 S2`, `033 S1/S2/S6`, `038 S10/S12/S13`, `038 S10/S15`, `038 S14`, `038 S16`, and the other `038`/`039` Customer steps pass in project `customer-rust`
 
 ---
@@ -307,3 +307,45 @@ Decisions the spec left open, taken in its spirit:
   React page's `signIn()`); "Getting your entry code…" stays meanwhile.
 - **T060**: `040 S6` uses `customerFor` index 14 (no other journey uses it). It is written but not
   run here; making `019 S2` pass in `customer-rust` is the integrator's browser run.
+## Implementation notes (session D)
+
+Decisions the spec left open, taken in its spirit:
+
+- **T048, `core` types**: `core::reservation::{Reservation, ReservedSeat}` are plain structs
+  deserialized from the contract's JSON (`createdAt` kept as the Backend wrote it, since a
+  reservation is one per event and `createdAt`), not the generated types, so the reducers and their
+  tests stay small. `PlacedOrder::from(&MyOrder)` is what C8's `/me/orders` read needs.
+- **T048, 201 vs 200**: the `ApiClient` gives no status on success, so the hold queue's answers pass
+  `created: false`. Nothing changes: a 201 always carries a new `createdAt` (or there was no
+  reservation shown), which restarts the countdown in `Holds::adopt` exactly as `created` would.
+  `HoldAnswer::from_answer` still reads a 201 as `created` for a caller that has the status.
+- **T048, after merging session C**: the seat words and sums use `core::format`, the hold queue's
+  `limited_for` is `core::buy`'s (re-exported), and the seated notes use `core::availability`
+  (`max_quantity`, `limit_binds`, `limit_full_note`, `max_seats_note`); session D's own
+  `SeatLimits` was dropped for them. The cart's purchases are `core::buy::Buy`, with the page's one
+  `Waits` (C4).
+- **T048, `core::mine`**: the 200 ms re-read is decided in `core` (`wants_reread`) and timed in the
+  app (`seat_stream.rs`, a timeout restarted by each such change, as `clearTimeout`/`setTimeout`).
+  `on_map` counts the stream's venue maps (`onSnapshot`): each after the first reads the
+  reservations again and raises `maps_after_first`, which reloads the availability.
+- **T049**: the Sections list's buttons are keyed (`<For>`), so a count change keeps the focus on a
+  button. Its heading's id is the fixed `sections-list-heading` (React's `useId()` value differs by
+  render, and nothing reads it but the skip link). The first seat is focused in the next animation
+  frame after the chosen section's seats are drawn.
+- **T050**: the hold queue lives in an `Rc<RefCell<HoldQueue>>` outside the view's signals, so
+  clicks still queued keep being sent after the page is left (Add to cart), as `use-hold-queue.ts`
+  does; a 401 answered then still signs in again. One 250 ms interval runs the countdown and the hold
+  log's 10 s clear while the panel is mounted.
+- **T050, B's file**: `components/get_tickets/mod.rs` (session B's; session C had already filled
+  the general branch) now renders `seated::Seated` for a seated event: a two-line change.
+- **T051**: the run-out alert, the status, and each entry's words are kept in `core::cart`; the
+  view keys entries and confirmations, so the 250 ms ticks update text in place and the focus stays
+  on Buy tickets. After a 429 the focus returns to the pressed button if it fell to the page.
+- **Session B's `SeatRef`** (`core/src/api/client.rs`): it sent `row` and `seat` as JSON strings;
+  the contract's `SeatChoice` has integers, so they are now `u64` (two-line fix and its two test
+  fixtures in `core/tests/api_client.rs`).
+- **T052 (part), T066 (part)**: `e2e/tests/040-seats-cart.spec.ts` is written (untagged: it drives
+  both Customer apps; `customerFor` 14) but not run; quickstart S5 is marked Automated with its
+  title, the 5:00 run-out and the Admin seat maps by hand. The `customer-rust` runs of `007 S3`,
+  `015`, `026 S2`, `033`, `038`, and `039` (the rest of T052) are the integrating session's browser
+  runs.

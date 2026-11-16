@@ -2,9 +2,9 @@
 //! panel. `frame` is the card both kinds of event use (session C), `general` the general-admission
 //! form (C), `seated` the seat map and holds (D); this module picks one (B's T037).
 //!
-//! Filled minimally by session C for general admission (B owns this file): the seated branch
-//! shows the frame alone until session D's `seated::Seated` (same props as `general::General`)
-//! takes its place. The page keys the panel by `{id}:seated` / `{id}:general` (parity E2).
+//! Filled minimally by session C for general admission and session D for the seated panel
+//! (`seated::Seated`, the same props as `general::General`); B owns this file. The page keys the
+//! panel by `{id}:seated` / `{id}:general` (parity E2).
 
 pub mod frame;
 pub mod general;
@@ -23,8 +23,7 @@ pub fn GetTickets(
     #[prop(optional)] on_event_changed: Option<Callback<Event>>,
 ) -> impl IntoView {
     if event.reserved_seating {
-        let panel = frame::Panel::new(event, on_sales, on_event_changed);
-        view! { <frame::GetTicketsFrame panel>""</frame::GetTicketsFrame> }.into_any()
+        view! { <seated::Seated event on_sales on_event_changed/> }.into_any()
     } else {
         view! { <general::General event on_sales on_event_changed/> }.into_any()
     }

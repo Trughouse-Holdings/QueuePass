@@ -245,10 +245,10 @@ async fn a_hold_and_a_release_send_the_seats() {
     let server = MockServer::start().await;
     let seats = vec![SeatRef {
         section_id: "s-1".into(),
-        row: "F".into(),
-        seat: "7".into(),
+        row: 6,
+        seat: 7,
     }];
-    let body = json!({ "seats": [{ "sectionId": "s-1", "row": "F", "seat": "7" }] });
+    let body = json!({ "seats": [{ "sectionId": "s-1", "row": 6, "seat": 7 }] });
     for route in ["reservation", "reservation/release"] {
         Mock::given(method("POST"))
             .and(path(format!("/events/{ID}/{route}")))
@@ -346,8 +346,8 @@ async fn each_customer_read_is_sent_with_the_token() {
 fn each_operation_names_the_react_apps_method_and_path() {
     let seats = [SeatRef {
         section_id: "s".into(),
-        row: "1".into(),
-        seat: "2".into(),
+        row: 1,
+        seat: 2,
     }];
     let cases: Vec<(Call, &str, String)> = vec![
         (
