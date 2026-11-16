@@ -15,6 +15,7 @@
 // ported case by case in core/tests/filters.rs.
 import { createRequire } from 'node:module';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import * as prettier from 'prettier';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -212,10 +213,12 @@ const files = {
   'qr.json': qr,
 };
 mkdirSync(OUT_DIR, { recursive: true });
+// Written as the repository's Prettier settings format JSON, so `format:check` passes.
+const PRETTIER = await prettier.resolveConfig(join(OUT_DIR, 'any.json'));
 let differs = false;
 for (const [name, value] of Object.entries(files)) {
   const path = join(OUT_DIR, name);
-  const text = `${JSON.stringify(value, null, 1)}\n`;
+  const text = await prettier.format(JSON.stringify(value), { ...PRETTIER, parser: 'json' });
   if (check) {
     let committed = '';
     try {
