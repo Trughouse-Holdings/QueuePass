@@ -237,3 +237,28 @@ integrating session runs T064–T067.
 4. My tickets, entry code, print, and calendar (US5): full parity.
 5. Polish: the same-layout check, README, CI times, parity walk, fresh-clone gate, hallway test,
    review, PR.
+
+## Implementation notes (session A)
+
+Decisions the spec left open, taken in its spirit:
+
+- **T010**: `realmOfApp(app)` takes the union of both tables' `app` keys and returns the realm, or
+  `undefined` for an unknown key; the seed and e2e copies carry the same function.
+- **T011**: the `SHARED_REALM_CLIENTS` clients are provisioned right after the realm loop and before
+  `disableOldCopies`, which never lists them (`index.unit.test.ts` checks the order).
+- **T014, T006**: two existing cases assumed POSIX paths (`check-boundary.test.mjs`' source-file
+  regex, `rust-setup.test.mjs`' `/home/runner/.cargo/bin`) and failed on Windows; the tests now
+  accept either separator. No script behaviour changed for them.
+- **T017**: the start banner is the exported `BANNER` of `scripts/run-host.mjs`, so the test reads it.
+- **T027**: `e2e/` has no unit runner, so `customerFor`'s ranges are checked in
+  `packages/shared/test/e2e-accounts.test.ts`, beside `realms.test.ts`' check of the e2e realm copy.
+  The `customerApp` fixture extends the `adminApp` one, so a journey with both apps has both options.
+- **T028–T029**: `040 S1`'s React order is placed with the React Customer app's own token (`apiFor`,
+  client `customer-app`), not through its panel. `040 S1`, `S2`, and `S8` use `customerFor` 9 and 10,
+  001's and 028's sign-in-only accounts, as 028 does. `040 S8` checks both Customer apps, the React
+  one as the reference. `040 S2` asserts R2's default (the end-session answer is a redirect, and no
+  frame loads in the Rust tab during logout); it is **unverified** until T025 runs it against a
+  stack.
+- **T032**: in a tagged journey every Customer app use switches to `customerApp`, set-up sign-ins
+  through `apiFor` included. Journeys whose only Customer use is set-up through the API stay untagged
+  (`025 S4/S5`, `037 S2`, `S3`, `S5`); `030 S4/S6` has no Customer step and stays `@admin` only.
