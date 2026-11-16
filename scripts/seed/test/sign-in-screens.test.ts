@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { describe, it, expect, beforeAll } from 'vitest';
-import { APP_REALMS } from '../src/app-realms';
+import { APP_REALMS, SHARED_REALM_CLIENTS } from '../src/app-realms';
 import { FRONTEND_CLIENTS } from '../src/provision-clients';
 import { SOURCE } from '../src/stone-lines/cli';
 import { liveSkipReason } from './live-guard';
@@ -19,9 +19,10 @@ const KEYCLOAK = process.env.KEYCLOAK_URL ?? 'http://localhost:8080';
 
 /** The realm the pages with no QueuePass app (account console, no client) are fetched from. */
 const realm = APP_REALMS.find((r) => r.app === 'customer')!.realm;
-/** The app realm a client signs in through (spec 028 data-model.md); Keycloak's own, `realm`. */
+/** The app realm a client signs in through (spec 028 data-model.md; spec 040 research R3: either
+ * table); Keycloak's own, `realm`. */
 const realmOf = (clientId: string): string =>
-  APP_REALMS.find((r) => r.clientId === clientId)?.realm ?? realm;
+  [...APP_REALMS, ...SHARED_REALM_CLIENTS].find((r) => r.clientId === clientId)?.realm ?? realm;
 
 const UNREACHABLE = 'Keycloak not reachable; start the stack to run the sign-in screen tests';
 
@@ -43,6 +44,11 @@ const SCREENS: Record<string, { heading: string; audience: string }> = {
   'admin-rust-app': {
     heading: 'Sign in to QueuePass Admin (Rust)',
     audience: 'For QueuePass staff, Rust version',
+  },
+  // Spec 040 (research R7): the Rust Customer app, a second client in the Customer realm.
+  'customer-rust-app': {
+    heading: 'Sign in to QueuePass Tickets (Rust)',
+    audience: 'For customers buying and viewing tickets, Rust version',
   },
 };
 

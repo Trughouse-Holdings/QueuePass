@@ -88,8 +88,9 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestC
   process.env.OIDC_ISSUER_BASE = TEST_ISSUER_BASE;
   process.env.OIDC_AUDIENCE = TEST_AUDIENCE;
   process.env.OIDC_JWKS_BASE ??= 'http://keycloak.invalid/realms';
+  // Spec 040: the Rust Customer app's 5177 beside the other front ends.
   process.env.CORS_ORIGINS =
-    'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176';
+    'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177';
 
   const keys = await testKeys();
   const keySets: TestContext['keySets'] = {};

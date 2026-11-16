@@ -75,7 +75,7 @@ services:
       OIDC_ISSUER_BASE: ${OIDC_ISSUER_BASE:-http://localhost:8080/realms}
       OIDC_JWKS_BASE: ${OIDC_JWKS_BASE:-http://keycloak:8080/realms}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-queuepass-api}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:5176,http://localhost:5177}
       # Spec 013: the address service that checks venue addresses (research R12).
       ADDRESS_GEOCODER_URL: ${ADDRESS_GEOCODER_URL:-https://geocoding.geo.census.gov}
       # Spec 013 research R16 (#25): the map searched when the address service vouches for no
@@ -199,6 +199,34 @@ services:
         condition: service_completed_successfully
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5176/health || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # ------------------------------------------ rust customer app (040)
+  # Spec 040 (contract sign-in-client.md, research R12): the Customer app again, in Rust, beside the
+  # React one, with its own client in the Customer realm (the same customers). No other service
+  # depends on it (FR-019).
+  customer-rust-app:
+    build:
+      context: .
+      dockerfile: customer-rust-app/Dockerfile
+      args:
+        QP_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+        # The React Customer app's variable: the same realm, so no new .env key.
+        QP_OIDC_AUTHORITY: ${VITE_CUSTOMER_OIDC_AUTHORITY:-http://localhost:8080/realms/queuepass-customer-app}
+        QP_OIDC_CLIENT_ID: customer-rust-app
+    ports:
+      - '5177:5177'
+    depends_on:
+      backend:
+        condition: service_healthy
+      # No login page before its OIDC client exists (research R10).
+      seed:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:5177/health || exit 1']
       interval: 5s
       timeout: 5s
       retries: 20

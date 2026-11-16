@@ -73,6 +73,8 @@ describe('messages_en.properties (research R3, R9; data-model.md)', () => {
       'qpAudience.customer-app': 'For customers buying and viewing tickets.',
       'qpAudience.booth-app': 'For gate agents checking tickets in at the door.',
       'qpAudience.admin-rust-app': 'For QueuePass staff, Rust version',
+      // Spec 040 (research R7): the Rust Customer app, a second client in the Customer realm.
+      'qpAudience.customer-rust-app': 'For customers buying and viewing tickets, Rust version',
     });
   });
 });
@@ -371,6 +373,8 @@ describe('the sign-in backdrop (spec 027)', () => {
     ['.qp-app--customer-app', 'tickets'],
     ['.qp-app--booth-app', 'booth'],
     ['.qp-app--admin-rust-app', 'rust'],
+    // Spec 040 (research R7): the Rust Customer app uses the Rust Admin app's red set.
+    ['.qp-app--customer-rust-app', 'rust'],
   ])('points the %s lines at its own lighter accent (R6)', (selector, app) => {
     expect(bodiesNaming(selector)).toContain(`--stone-accent: var(--stone-accent-${app});`);
   });

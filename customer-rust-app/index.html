@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QueuePass Tickets (Rust)</title>
+    <!-- Spec 040 research R6: the React Customer app's own stylesheets, in its import order, then
+         the Rust Admin app's red look tokens last (linked, not copied). -->
+    <link data-trunk rel="css" href="../packages/shared/src/web/theme.css" />
+    <link data-trunk rel="css" href="../customer-app/src/styles.css" />
+    <link data-trunk rel="css" href="../admin-rust-app/style/red.css" />
+    <link
+      data-trunk
+      rel="rust"
+      href="app/Cargo.toml"
+      data-bin="customer-rust-app"
+      data-wasm-opt="z"
+    />
+  </head>
+  <body></body>
+</html>

@@ -38,6 +38,8 @@ const AUDIENCE: Record<AppName, string> = {
   customer: 'For customers buying and viewing tickets.',
   booth: 'For gate agents checking tickets in at the door.',
   'admin-rust': 'For QueuePass staff, Rust version',
+  // Spec 040 (research R7): the Rust Customer app's own line, on the Rust Admin app's red.
+  'customer-rust': 'For customers buying and viewing tickets, Rust version',
 };
 
 const SCHEMES = ['light', 'dark'] as const;
@@ -145,7 +147,10 @@ test("027 S1: each app's sign-in page shows the stones with its accent in the li
   for (const app of Object.keys(APPS)) {
     expect(lineColors[`${app} light`]).toBe(lineColors[`${app} dark`]);
   }
-  // Spec 037: four apps, four line colours.
+  // Spec 037: four apps, four line colours. Spec 040 (research R7): the Rust Customer app's lines
+  // are the Rust Admin app's red, so five apps, four line colours.
+  expect(Object.keys(APPS)).toHaveLength(5);
+  expect(lineColors['customer-rust light']).toBe(lineColors['admin-rust light']);
   expect(new Set(Object.keys(APPS).map((app) => lineColors[`${app} light`])).size).toBe(4);
 });
 

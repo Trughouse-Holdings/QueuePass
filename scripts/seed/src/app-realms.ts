@@ -42,3 +42,22 @@ export const APP_REALMS = [
 export const LEGACY_REALM = 'queuepass';
 
 export type AppRealm = (typeof APP_REALMS)[number];
+
+/** Spec 040 (research R3): a front end with its own client in another app's realm (no realm, role,
+ * or users of its own). A copy of `packages/shared/src/realms.ts`' table, checked equal by
+ * `packages/shared/test/realms.test.ts`. */
+export const SHARED_REALM_CLIENTS = [
+  { app: 'customer-rust', realm: 'queuepass-customer-app', clientId: 'customer-rust-app' },
+] as const;
+
+export type SharedRealmClient = (typeof SHARED_REALM_CLIENTS)[number];
+
+/** Spec 040 (research R3): the realm an app signs in through, from either table. */
+export function realmOfApp(
+  app: AppRealm['app'] | SharedRealmClient['app'],
+): AppRealm['realm'] | undefined {
+  return (
+    APP_REALMS.find((r) => r.app === app)?.realm ??
+    SHARED_REALM_CLIENTS.find((r) => r.app === app)?.realm
+  );
+}

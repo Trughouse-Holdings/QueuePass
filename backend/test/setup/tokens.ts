@@ -41,6 +41,9 @@ export interface TokenOptions {
   noRealmAccess?: boolean;
   /** Omit `exp` entirely. */
   noExp?: boolean;
+  /** Spec 040 (contract sign-in-client.md): the client the token was issued to, as Keycloak's
+   * `azp`. Omitted unless given; the Backend reads neither `azp` nor the client ID. */
+  azp?: string;
 }
 
 /** A stable subject per username, shaped like a Keycloak user id. */
@@ -62,6 +65,7 @@ export async function tokenFor(opts: TokenOptions): Promise<string> {
 
   const claims: Record<string, unknown> = { preferred_username: opts.username };
   if (!opts.noRealmAccess) claims.realm_access = { roles: opts.roles };
+  if (opts.azp !== undefined) claims.azp = opts.azp;
 
   const jwt = new SignJWT(claims)
     .setProtectedHeader({ alg: 'RS256', kid: key.kid, typ: 'JWT' })

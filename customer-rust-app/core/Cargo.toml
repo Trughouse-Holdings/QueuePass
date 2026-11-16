@@ -1,0 +1,47 @@
+[package]
+name = "customer-rust-core"
+description = "Spec 040: every rule of the Rust Customer app, testable natively (research R10, R11)."
+edition.workspace = true
+version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[lib]
+name = "customer_rust_core"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+chrono-tz.workspace = true
+# API calls; works natively (tests) and in WebAssembly (browser fetch). No TLS on wasm.
+reqwest = { version = "0.12.28", default-features = false, features = ["json"] }
+regress = "0.12.0"
+base64 = "0.23.1"
+url = "2.5.8"
+uuid = { version = "1", features = ["serde"] }
+# Spec 037 R13: fdlibm's sin, cos, and pow, as V8 computes Math.sin, Math.cos, and **, the
+# same natively and in WebAssembly (the copied venue map geometry).
+libm = "0.2.16"
+# Calendar file names (NFKD) and the name on tickets (NFC), as `String.normalize` (R10).
+unicode-normalization = "0.1.26"
+# Spec 040 R9: the live entry code (HMAC-SHA256) and the QR matrix.
+hmac = "0.12"
+sha2 = "0.10"
+qrcode = { version = "0.14", default-features = false }
+
+[build-dependencies]
+typify = "0.8.0"
+serde_json = "1"
+serde_yaml = "0.9.34"
+schemars = "0.8"
+syn = "2"
+prettyplease = "0.2"
+
+[dev-dependencies]
+serde_yaml = "0.9.34"
+# Spec 037 R13 (T031): the seat-map parity fixtures are read back to the exact float.
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+wiremock = "0.6.5"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+jsonschema = { version = "0.61.2", default-features = false }

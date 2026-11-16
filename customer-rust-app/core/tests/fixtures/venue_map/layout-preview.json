@@ -1,0 +1,2211 @@
+[
+  {
+    "name": "54 sections",
+    "input": {
+      "name": "Basketball",
+      "size": { "width": 1000, "height": 640 },
+      "floorKind": "COURT",
+      "floorOutline": [
+        [400, 250],
+        [600, 250],
+        [600, 390],
+        [400, 390]
+      ],
+      "sections": [
+        {
+          "id": "s0",
+          "name": "101",
+          "outline": [
+            [20, 20],
+            [50, 20],
+            [50, 40],
+            [20, 40]
+          ],
+          "labelAt": [35, 30]
+        },
+        {
+          "id": "s1",
+          "name": "102",
+          "outline": [
+            [120, 20],
+            [150, 20],
+            [150, 40],
+            [120, 40]
+          ],
+          "labelAt": [135, 30]
+        },
+        {
+          "id": "s2",
+          "name": "103",
+          "outline": [
+            [220, 20],
+            [250, 20],
+            [250, 40],
+            [220, 40]
+          ],
+          "labelAt": [235, 30]
+        },
+        {
+          "id": "s3",
+          "name": "104",
+          "outline": [
+            [320, 20],
+            [350, 20],
+            [350, 40],
+            [320, 40]
+          ],
+          "labelAt": [335, 30]
+        },
+        {
+          "id": "s4",
+          "name": "105",
+          "outline": [
+            [420, 20],
+            [450, 20],
+            [450, 40],
+            [420, 40]
+          ],
+          "labelAt": [435, 30]
+        },
+        {
+          "id": "s5",
+          "name": "106",
+          "outline": [
+            [520, 20],
+            [550, 20],
+            [550, 40],
+            [520, 40]
+          ],
+          "labelAt": [535, 30]
+        },
+        {
+          "id": "s6",
+          "name": "107",
+          "outline": [
+            [620, 20],
+            [650, 20],
+            [650, 40],
+            [620, 40]
+          ],
+          "labelAt": [635, 30]
+        },
+        {
+          "id": "s7",
+          "name": "108",
+          "outline": [
+            [720, 20],
+            [750, 20],
+            [750, 40],
+            [720, 40]
+          ],
+          "labelAt": [735, 30]
+        },
+        {
+          "id": "s8",
+          "name": "109",
+          "outline": [
+            [820, 20],
+            [850, 20],
+            [850, 40],
+            [820, 40]
+          ],
+          "labelAt": [835, 30]
+        },
+        {
+          "id": "s9",
+          "name": "110",
+          "outline": [
+            [20, 120],
+            [50, 120],
+            [50, 140],
+            [20, 140]
+          ],
+          "labelAt": [35, 130]
+        },
+        {
+          "id": "s10",
+          "name": "111",
+          "outline": [
+            [120, 120],
+            [150, 120],
+            [150, 140],
+            [120, 140]
+          ],
+          "labelAt": [135, 130]
+        },
+        {
+          "id": "s11",
+          "name": "112",
+          "outline": [
+            [220, 120],
+            [250, 120],
+            [250, 140],
+            [220, 140]
+          ],
+          "labelAt": [235, 130]
+        },
+        {
+          "id": "s12",
+          "name": "113",
+          "outline": [
+            [320, 120],
+            [350, 120],
+            [350, 140],
+            [320, 140]
+          ],
+          "labelAt": [335, 130]
+        },
+        {
+          "id": "s13",
+          "name": "114",
+          "outline": [
+            [420, 120],
+            [450, 120],
+            [450, 140],
+            [420, 140]
+          ],
+          "labelAt": [435, 130]
+        },
+        {
+          "id": "s14",
+          "name": "115",
+          "outline": [
+            [520, 120],
+            [550, 120],
+            [550, 140],
+            [520, 140]
+          ],
+          "labelAt": [535, 130]
+        },
+        {
+          "id": "s15",
+          "name": "116",
+          "outline": [
+            [620, 120],
+            [650, 120],
+            [650, 140],
+            [620, 140]
+          ],
+          "labelAt": [635, 130]
+        },
+        {
+          "id": "s16",
+          "name": "117",
+          "outline": [
+            [720, 120],
+            [750, 120],
+            [750, 140],
+            [720, 140]
+          ],
+          "labelAt": [735, 130]
+        },
+        {
+          "id": "s17",
+          "name": "118",
+          "outline": [
+            [820, 120],
+            [850, 120],
+            [850, 140],
+            [820, 140]
+          ],
+          "labelAt": [835, 130]
+        },
+        {
+          "id": "s18",
+          "name": "119",
+          "outline": [
+            [20, 220],
+            [50, 220],
+            [50, 240],
+            [20, 240]
+          ],
+          "labelAt": [35, 230]
+        },
+        {
+          "id": "s19",
+          "name": "120",
+          "outline": [
+            [120, 220],
+            [150, 220],
+            [150, 240],
+            [120, 240]
+          ],
+          "labelAt": [135, 230]
+        },
+        {
+          "id": "s20",
+          "name": "121",
+          "outline": [
+            [220, 220],
+            [250, 220],
+            [250, 240],
+            [220, 240]
+          ],
+          "labelAt": [235, 230]
+        },
+        {
+          "id": "s21",
+          "name": "122",
+          "outline": [
+            [320, 220],
+            [350, 220],
+            [350, 240],
+            [320, 240]
+          ],
+          "labelAt": [335, 230]
+        },
+        {
+          "id": "s22",
+          "name": "123",
+          "outline": [
+            [420, 220],
+            [450, 220],
+            [450, 240],
+            [420, 240]
+          ],
+          "labelAt": [435, 230]
+        },
+        {
+          "id": "s23",
+          "name": "124",
+          "outline": [
+            [520, 220],
+            [550, 220],
+            [550, 240],
+            [520, 240]
+          ],
+          "labelAt": [535, 230]
+        },
+        {
+          "id": "s24",
+          "name": "125",
+          "outline": [
+            [620, 220],
+            [650, 220],
+            [650, 240],
+            [620, 240]
+          ],
+          "labelAt": [635, 230]
+        },
+        {
+          "id": "s25",
+          "name": "126",
+          "outline": [
+            [720, 220],
+            [750, 220],
+            [750, 240],
+            [720, 240]
+          ],
+          "labelAt": [735, 230]
+        },
+        {
+          "id": "s26",
+          "name": "127",
+          "outline": [
+            [820, 220],
+            [850, 220],
+            [850, 240],
+            [820, 240]
+          ],
+          "labelAt": [835, 230]
+        },
+        {
+          "id": "s27",
+          "name": "128",
+          "outline": [
+            [20, 320],
+            [50, 320],
+            [50, 340],
+            [20, 340]
+          ],
+          "labelAt": [35, 330]
+        },
+        {
+          "id": "s28",
+          "name": "129",
+          "outline": [
+            [120, 320],
+            [150, 320],
+            [150, 340],
+            [120, 340]
+          ],
+          "labelAt": [135, 330]
+        },
+        {
+          "id": "s29",
+          "name": "130",
+          "outline": [
+            [220, 320],
+            [250, 320],
+            [250, 340],
+            [220, 340]
+          ],
+          "labelAt": [235, 330]
+        },
+        {
+          "id": "s30",
+          "name": "131",
+          "outline": [
+            [320, 320],
+            [350, 320],
+            [350, 340],
+            [320, 340]
+          ],
+          "labelAt": [335, 330]
+        },
+        {
+          "id": "s31",
+          "name": "132",
+          "outline": [
+            [420, 320],
+            [450, 320],
+            [450, 340],
+            [420, 340]
+          ],
+          "labelAt": [435, 330]
+        },
+        {
+          "id": "s32",
+          "name": "133",
+          "outline": [
+            [520, 320],
+            [550, 320],
+            [550, 340],
+            [520, 340]
+          ],
+          "labelAt": [535, 330]
+        },
+        {
+          "id": "s33",
+          "name": "134",
+          "outline": [
+            [620, 320],
+            [650, 320],
+            [650, 340],
+            [620, 340]
+          ],
+          "labelAt": [635, 330]
+        },
+        {
+          "id": "s34",
+          "name": "135",
+          "outline": [
+            [720, 320],
+            [750, 320],
+            [750, 340],
+            [720, 340]
+          ],
+          "labelAt": [735, 330]
+        },
+        {
+          "id": "s35",
+          "name": "136",
+          "outline": [
+            [820, 320],
+            [850, 320],
+            [850, 340],
+            [820, 340]
+          ],
+          "labelAt": [835, 330]
+        },
+        {
+          "id": "s36",
+          "name": "137",
+          "outline": [
+            [20, 420],
+            [50, 420],
+            [50, 440],
+            [20, 440]
+          ],
+          "labelAt": [35, 430]
+        },
+        {
+          "id": "s37",
+          "name": "138",
+          "outline": [
+            [120, 420],
+            [150, 420],
+            [150, 440],
+            [120, 440]
+          ],
+          "labelAt": [135, 430]
+        },
+        {
+          "id": "s38",
+          "name": "139",
+          "outline": [
+            [220, 420],
+            [250, 420],
+            [250, 440],
+            [220, 440]
+          ],
+          "labelAt": [235, 430]
+        },
+        {
+          "id": "s39",
+          "name": "140",
+          "outline": [
+            [320, 420],
+            [350, 420],
+            [350, 440],
+            [320, 440]
+          ],
+          "labelAt": [335, 430]
+        },
+        {
+          "id": "s40",
+          "name": "141",
+          "outline": [
+            [420, 420],
+            [450, 420],
+            [450, 440],
+            [420, 440]
+          ],
+          "labelAt": [435, 430]
+        },
+        {
+          "id": "s41",
+          "name": "142",
+          "outline": [
+            [520, 420],
+            [550, 420],
+            [550, 440],
+            [520, 440]
+          ],
+          "labelAt": [535, 430]
+        },
+        {
+          "id": "s42",
+          "name": "143",
+          "outline": [
+            [620, 420],
+            [650, 420],
+            [650, 440],
+            [620, 440]
+          ],
+          "labelAt": [635, 430]
+        },
+        {
+          "id": "s43",
+          "name": "144",
+          "outline": [
+            [720, 420],
+            [750, 420],
+            [750, 440],
+            [720, 440]
+          ],
+          "labelAt": [735, 430]
+        },
+        {
+          "id": "s44",
+          "name": "145",
+          "outline": [
+            [820, 420],
+            [850, 420],
+            [850, 440],
+            [820, 440]
+          ],
+          "labelAt": [835, 430]
+        },
+        {
+          "id": "s45",
+          "name": "146",
+          "outline": [
+            [20, 520],
+            [50, 520],
+            [50, 540],
+            [20, 540]
+          ],
+          "labelAt": [35, 530]
+        },
+        {
+          "id": "s46",
+          "name": "147",
+          "outline": [
+            [120, 520],
+            [150, 520],
+            [150, 540],
+            [120, 540]
+          ],
+          "labelAt": [135, 530]
+        },
+        {
+          "id": "s47",
+          "name": "148",
+          "outline": [
+            [220, 520],
+            [250, 520],
+            [250, 540],
+            [220, 540]
+          ],
+          "labelAt": [235, 530]
+        },
+        {
+          "id": "s48",
+          "name": "149",
+          "outline": [
+            [320, 520],
+            [350, 520],
+            [350, 540],
+            [320, 540]
+          ],
+          "labelAt": [335, 530]
+        },
+        {
+          "id": "s49",
+          "name": "150",
+          "outline": [
+            [420, 520],
+            [450, 520],
+            [450, 540],
+            [420, 540]
+          ],
+          "labelAt": [435, 530]
+        },
+        {
+          "id": "s50",
+          "name": "151",
+          "outline": [
+            [520, 520],
+            [550, 520],
+            [550, 540],
+            [520, 540]
+          ],
+          "labelAt": [535, 530]
+        },
+        {
+          "id": "s51",
+          "name": "152",
+          "outline": [
+            [620, 520],
+            [650, 520],
+            [650, 540],
+            [620, 540]
+          ],
+          "labelAt": [635, 530]
+        },
+        {
+          "id": "s52",
+          "name": "153",
+          "outline": [
+            [720, 520],
+            [750, 520],
+            [750, 540],
+            [720, 540]
+          ],
+          "labelAt": [735, 530]
+        },
+        {
+          "id": "s53",
+          "name": "154",
+          "outline": [
+            [820, 520],
+            [850, 520],
+            [850, 540],
+            [820, 540]
+          ],
+          "labelAt": [835, 530]
+        }
+      ]
+    },
+    "out": {
+      "root": {
+        "class": "layout-preview",
+        "role": "img",
+        "aria-label": "Basketball: 54 sections",
+        "viewBox": "0 0 1000 640",
+        "preserveAspectRatio": "xMidYMid meet"
+      },
+      "elements": [
+        {
+          "tag": "path",
+          "depth": 0,
+          "attrs": { "class": "layout-preview__floor", "d": "M400 250L600 250L600 390L400 390Z" },
+          "text": ""
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M20 20L50 20L50 40L20 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "35",
+            "y": "30"
+          },
+          "text": "101"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M120 20L150 20L150 40L120 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "135",
+            "y": "30"
+          },
+          "text": "102"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M220 20L250 20L250 40L220 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "235",
+            "y": "30"
+          },
+          "text": "103"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M320 20L350 20L350 40L320 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "335",
+            "y": "30"
+          },
+          "text": "104"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M420 20L450 20L450 40L420 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "435",
+            "y": "30"
+          },
+          "text": "105"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M520 20L550 20L550 40L520 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "535",
+            "y": "30"
+          },
+          "text": "106"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M620 20L650 20L650 40L620 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "635",
+            "y": "30"
+          },
+          "text": "107"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M720 20L750 20L750 40L720 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "735",
+            "y": "30"
+          },
+          "text": "108"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M820 20L850 20L850 40L820 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "835",
+            "y": "30"
+          },
+          "text": "109"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M20 120L50 120L50 140L20 140Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "35",
+            "y": "130"
+          },
+          "text": "110"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M120 120L150 120L150 140L120 140Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "135",
+            "y": "130"
+          },
+          "text": "111"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M220 120L250 120L250 140L220 140Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "235",
+            "y": "130"
+          },
+          "text": "112"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M320 120L350 120L350 140L320 140Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "335",
+            "y": "130"
+          },
+          "text": "113"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M420 120L450 120L450 140L420 140Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "435",
+            "y": "130"
+          },
+          "text": "114"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M520 120L550 120L550 140L520 140Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "535",
+            "y": "130"
+          },
+          "text": "115"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M620 120L650 120L650 140L620 140Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "635",
+            "y": "130"
+          },
+          "text": "116"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M720 120L750 120L750 140L720 140Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "735",
+            "y": "130"
+          },
+          "text": "117"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M820 120L850 120L850 140L820 140Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "835",
+            "y": "130"
+          },
+          "text": "118"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M20 220L50 220L50 240L20 240Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "35",
+            "y": "230"
+          },
+          "text": "119"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M120 220L150 220L150 240L120 240Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "135",
+            "y": "230"
+          },
+          "text": "120"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M220 220L250 220L250 240L220 240Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "235",
+            "y": "230"
+          },
+          "text": "121"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M320 220L350 220L350 240L320 240Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "335",
+            "y": "230"
+          },
+          "text": "122"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M420 220L450 220L450 240L420 240Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "435",
+            "y": "230"
+          },
+          "text": "123"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M520 220L550 220L550 240L520 240Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "535",
+            "y": "230"
+          },
+          "text": "124"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M620 220L650 220L650 240L620 240Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "635",
+            "y": "230"
+          },
+          "text": "125"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M720 220L750 220L750 240L720 240Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "735",
+            "y": "230"
+          },
+          "text": "126"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M820 220L850 220L850 240L820 240Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "835",
+            "y": "230"
+          },
+          "text": "127"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M20 320L50 320L50 340L20 340Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "35",
+            "y": "330"
+          },
+          "text": "128"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M120 320L150 320L150 340L120 340Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "135",
+            "y": "330"
+          },
+          "text": "129"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M220 320L250 320L250 340L220 340Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "235",
+            "y": "330"
+          },
+          "text": "130"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M320 320L350 320L350 340L320 340Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "335",
+            "y": "330"
+          },
+          "text": "131"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M420 320L450 320L450 340L420 340Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "435",
+            "y": "330"
+          },
+          "text": "132"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M520 320L550 320L550 340L520 340Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "535",
+            "y": "330"
+          },
+          "text": "133"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M620 320L650 320L650 340L620 340Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "635",
+            "y": "330"
+          },
+          "text": "134"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M720 320L750 320L750 340L720 340Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "735",
+            "y": "330"
+          },
+          "text": "135"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M820 320L850 320L850 340L820 340Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "835",
+            "y": "330"
+          },
+          "text": "136"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M20 420L50 420L50 440L20 440Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "35",
+            "y": "430"
+          },
+          "text": "137"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M120 420L150 420L150 440L120 440Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "135",
+            "y": "430"
+          },
+          "text": "138"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M220 420L250 420L250 440L220 440Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "235",
+            "y": "430"
+          },
+          "text": "139"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M320 420L350 420L350 440L320 440Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "335",
+            "y": "430"
+          },
+          "text": "140"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M420 420L450 420L450 440L420 440Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "435",
+            "y": "430"
+          },
+          "text": "141"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M520 420L550 420L550 440L520 440Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "535",
+            "y": "430"
+          },
+          "text": "142"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M620 420L650 420L650 440L620 440Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "635",
+            "y": "430"
+          },
+          "text": "143"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M720 420L750 420L750 440L720 440Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "735",
+            "y": "430"
+          },
+          "text": "144"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M820 420L850 420L850 440L820 440Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "835",
+            "y": "430"
+          },
+          "text": "145"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M20 520L50 520L50 540L20 540Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "35",
+            "y": "530"
+          },
+          "text": "146"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M120 520L150 520L150 540L120 540Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "135",
+            "y": "530"
+          },
+          "text": "147"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M220 520L250 520L250 540L220 540Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "235",
+            "y": "530"
+          },
+          "text": "148"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M320 520L350 520L350 540L320 540Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "335",
+            "y": "530"
+          },
+          "text": "149"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M420 520L450 520L450 540L420 540Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "435",
+            "y": "530"
+          },
+          "text": "150"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M520 520L550 520L550 540L520 540Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "535",
+            "y": "530"
+          },
+          "text": "151"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M620 520L650 520L650 540L620 540Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "635",
+            "y": "530"
+          },
+          "text": "152"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M720 520L750 520L750 540L720 540Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "735",
+            "y": "530"
+          },
+          "text": "153"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M820 520L850 520L850 540L820 540Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "835",
+            "y": "530"
+          },
+          "text": "154"
+        }
+      ]
+    }
+  },
+  {
+    "name": "one section",
+    "input": {
+      "name": "Basketball",
+      "size": { "width": 1000, "height": 640 },
+      "floorKind": "COURT",
+      "floorOutline": [
+        [400, 250],
+        [600, 250],
+        [600, 390],
+        [400, 390]
+      ],
+      "sections": [
+        {
+          "id": "s0",
+          "name": "101",
+          "outline": [
+            [20, 20],
+            [50, 20],
+            [50, 40],
+            [20, 40]
+          ],
+          "labelAt": [35, 30]
+        }
+      ]
+    },
+    "out": {
+      "root": {
+        "class": "layout-preview",
+        "role": "img",
+        "aria-label": "Basketball: 1 section",
+        "viewBox": "0 0 1000 640",
+        "preserveAspectRatio": "xMidYMid meet"
+      },
+      "elements": [
+        {
+          "tag": "path",
+          "depth": 0,
+          "attrs": { "class": "layout-preview__floor", "d": "M400 250L600 250L600 390L400 390Z" },
+          "text": ""
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M20 20L50 20L50 40L20 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "35",
+            "y": "30"
+          },
+          "text": "101"
+        }
+      ]
+    }
+  },
+  {
+    "name": "no floor",
+    "input": {
+      "name": "Basketball",
+      "size": { "width": 1000, "height": 640 },
+      "floorKind": "NONE",
+      "floorOutline": null,
+      "sections": [
+        {
+          "id": "s0",
+          "name": "101",
+          "outline": [
+            [20, 20],
+            [50, 20],
+            [50, 40],
+            [20, 40]
+          ],
+          "labelAt": [35, 30]
+        },
+        {
+          "id": "s1",
+          "name": "102",
+          "outline": [
+            [120, 20],
+            [150, 20],
+            [150, 40],
+            [120, 40]
+          ],
+          "labelAt": [135, 30]
+        },
+        {
+          "id": "s2",
+          "name": "103",
+          "outline": [
+            [220, 20],
+            [250, 20],
+            [250, 40],
+            [220, 40]
+          ],
+          "labelAt": [235, 30]
+        }
+      ]
+    },
+    "out": {
+      "root": {
+        "class": "layout-preview",
+        "role": "img",
+        "aria-label": "Basketball: 3 sections",
+        "viewBox": "0 0 1000 640",
+        "preserveAspectRatio": "xMidYMid meet"
+      },
+      "elements": [
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M20 20L50 20L50 40L20 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "35",
+            "y": "30"
+          },
+          "text": "101"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M120 20L150 20L150 40L120 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "135",
+            "y": "30"
+          },
+          "text": "102"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M220 20L250 20L250 40L220 40Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "20",
+            "text-anchor": "middle",
+            "x": "235",
+            "y": "30"
+          },
+          "text": "103"
+        }
+      ]
+    }
+  },
+  {
+    "name": "no sections",
+    "input": {
+      "name": "Basketball",
+      "size": { "width": 1000, "height": 640 },
+      "floorKind": "COURT",
+      "floorOutline": [
+        [400, 250],
+        [600, 250],
+        [600, 390],
+        [400, 390]
+      ],
+      "sections": []
+    },
+    "out": {
+      "root": {
+        "class": "layout-preview",
+        "role": "img",
+        "aria-label": "Basketball: 0 sections",
+        "viewBox": "0 0 1000 640",
+        "preserveAspectRatio": "xMidYMid meet"
+      },
+      "elements": [
+        {
+          "tag": "path",
+          "depth": 0,
+          "attrs": { "class": "layout-preview__floor", "d": "M400 250L600 250L600 390L400 390Z" },
+          "text": ""
+        }
+      ]
+    }
+  },
+  {
+    "name": "odd numbers, a floor outline given with kind NONE",
+    "input": {
+      "name": "Odd hall",
+      "size": { "width": 333, "height": 777 },
+      "floorKind": "NONE",
+      "floorOutline": [
+        [10, 10],
+        [30, 10],
+        [30, 30],
+        [10, 30]
+      ],
+      "sections": [
+        {
+          "id": "o-1",
+          "name": "Left Box",
+          "outline": [
+            [12.25, 40.5],
+            [80.125, 33.333],
+            [91.7, 120.01],
+            [15, 118.9]
+          ],
+          "labelAt": [49.77, 77.7]
+        },
+        {
+          "id": "o-2",
+          "name": "Stalls",
+          "outline": [
+            [100, 300],
+            [250.5, 290.25],
+            [260, 420.75],
+            [95.5, 430],
+            [90, 360]
+          ],
+          "labelAt": [171.1, 361.3]
+        },
+        {
+          "id": "o-3",
+          "name": "Gallery",
+          "outline": [
+            [30.3, 600.6],
+            [301, 600.6],
+            [301, 721.5],
+            [30.3, 721.5]
+          ],
+          "labelAt": [165.65, 661.05]
+        },
+        {
+          "id": "o-4",
+          "name": "Closed",
+          "outline": [
+            [5, 500],
+            [45, 500],
+            [45, 540],
+            [5, 540]
+          ],
+          "labelAt": [25, 520]
+        }
+      ]
+    },
+    "out": {
+      "root": {
+        "class": "layout-preview",
+        "role": "img",
+        "aria-label": "Odd hall: 4 sections",
+        "viewBox": "0 0 333 777",
+        "preserveAspectRatio": "xMidYMid meet"
+      },
+      "elements": [
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": {
+            "class": "layout-preview__section",
+            "d": "M12.25 40.5L80.125 33.333L91.7 120.01L15 118.9Z"
+          },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "15.54",
+            "text-anchor": "middle",
+            "x": "49.77",
+            "y": "77.7"
+          },
+          "text": "Left Box"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": {
+            "class": "layout-preview__section",
+            "d": "M100 300L250.5 290.25L260 420.75L95.5 430L90 360Z"
+          },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "15.54",
+            "text-anchor": "middle",
+            "x": "171.1",
+            "y": "361.3"
+          },
+          "text": "Stalls"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": {
+            "class": "layout-preview__section",
+            "d": "M30.3 600.6L301 600.6L301 721.5L30.3 721.5Z"
+          },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "15.54",
+            "text-anchor": "middle",
+            "x": "165.65",
+            "y": "661.05"
+          },
+          "text": "Gallery"
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M5 500L45 500L45 540L5 540Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "15.54",
+            "text-anchor": "middle",
+            "x": "25",
+            "y": "520"
+          },
+          "text": "Closed"
+        }
+      ]
+    }
+  },
+  {
+    "name": "a ring floor, wider than tall",
+    "input": {
+      "name": "Ring",
+      "size": { "width": 1234, "height": 99 },
+      "floorKind": "RING",
+      "floorOutline": [
+        [600.5, 40.25],
+        [640.75, 40.25],
+        [640.75, 60.125],
+        [600.5, 60.125]
+      ],
+      "sections": [
+        {
+          "id": "r",
+          "name": "Ringside",
+          "outline": [
+            [500, 20],
+            [550, 20],
+            [550, 30],
+            [500, 30]
+          ],
+          "labelAt": [525, 25]
+        }
+      ]
+    },
+    "out": {
+      "root": {
+        "class": "layout-preview",
+        "role": "img",
+        "aria-label": "Ring: 1 section",
+        "viewBox": "0 0 1234 99",
+        "preserveAspectRatio": "xMidYMid meet"
+      },
+      "elements": [
+        {
+          "tag": "path",
+          "depth": 0,
+          "attrs": {
+            "class": "layout-preview__floor",
+            "d": "M600.5 40.25L640.75 40.25L640.75 60.125L600.5 60.125Z"
+          },
+          "text": ""
+        },
+        { "tag": "g", "depth": 0, "attrs": {}, "text": "" },
+        {
+          "tag": "path",
+          "depth": 1,
+          "attrs": { "class": "layout-preview__section", "d": "M500 20L550 20L550 30L500 30Z" },
+          "text": ""
+        },
+        {
+          "tag": "text",
+          "depth": 1,
+          "attrs": {
+            "aria-hidden": "true",
+            "class": "layout-preview__label",
+            "dominant-baseline": "central",
+            "font-size": "24.68",
+            "text-anchor": "middle",
+            "x": "525",
+            "y": "25"
+          },
+          "text": "Ringside"
+        }
+      ]
+    }
+  }
+]

@@ -6,7 +6,7 @@
 //
 // Customer accounts: 4 to 10 (this file holds few seats with each; 11 to 18 are 026's repeats,
 // which fill an account's hold allowance, and 19 is 033's).
-import { expect, test } from '../fixtures/admin-app';
+import { expect, test } from '../fixtures/customer-app';
 import { type Locator, type Page } from '@playwright/test';
 import { APPS, adminFor, customerFor } from '../fixtures/apps';
 import {
@@ -124,8 +124,8 @@ test(
 
 test(
   '038 S5: a locked layout refuses Rename and Delete naming its event, and Duplicate makes an unlocked copy',
-  { tag: '@admin' },
-  async ({ adminApp, browser, page }, testInfo) => {
+  { tag: ['@admin', '@customer'] },
+  async ({ customerApp, adminApp, browser, page }, testInfo) => {
     const venueName = uniqueName(testInfo, 'lock arena');
     const eventName = uniqueName(testInfo, 'lock game');
     const admin = await apiFor(browser, 'admin', adminFor(testInfo));
@@ -146,7 +146,7 @@ test(
       },
     });
     // A seat sold locks the layout (FR-006, research R7).
-    const customer = await apiFor(browser, 'customer', customerFor(testInfo, 4));
+    const customer = await apiFor(browser, customerApp, customerFor(testInfo, 4));
     const seat = await seatAt(customer.api, layout, '115', 'F', '7');
     await holdSeats(customer.api, event, [seat]);
     await buyTickets(customer.api, event, { quantity: 1, holderName: 'Jordan Lee', seats: [seat] });
@@ -191,8 +191,8 @@ test(
 
 test(
   '038 S6: an admin schedules an event on Basketball with the upper level and rows D–F of 104 off sale and a price per level',
-  { tag: '@admin' },
-  async ({ adminApp, browser, page }, testInfo) => {
+  { tag: ['@admin', '@customer'] },
+  async ({ customerApp, adminApp, browser, page }, testInfo) => {
     // Thirty sections are taken off sale one by one, each loaded as the form loads it.
     test.setTimeout(180_000);
     const venueName = uniqueName(testInfo, 'form arena');
@@ -262,8 +262,8 @@ test(
     await admin.close();
 
     // FR-024: customers read the event's price as "$35–$95".
-    const customer = await apiFor(browser, 'customer', customerFor(testInfo, 10));
-    await customer.page.goto(`${APPS.customer.url}/events/${saved.id}`);
+    const customer = await apiFor(browser, customerApp, customerFor(testInfo, 10));
+    await customer.page.goto(`${APPS[customerApp].url}/events/${saved.id}`);
     await expect(customer.page.getByRole('heading', { level: 1, name: eventName })).toBeVisible();
     // In the event's details; the Get tickets tile, once loaded, says it again.
     await expect(
@@ -276,236 +276,244 @@ test(
   },
 );
 
-test('038 S10/S12/S13: a customer sees the venue map, zooms into section 115, holds seats of two levels, and buys them', async ({
-  browser,
-  page,
-}, testInfo) => {
-  const { event, eventName } = await womensGame(browser, testInfo, 'map game');
-  await signIn(page, 'customer', customerFor(testInfo, 4), `/events/${event.id}`);
-  const tickets = page.getByRole('region', { name: 'Get tickets' });
-  // The price range and the seats left, as tiles (Nate's walk, 2026-11-14).
-  const tile = (label: string) =>
-    tickets
-      .locator('.stat-tile')
-      .filter({ has: page.getByRole('term').filter({ hasText: label }) });
-  await expect(tile('Price').getByRole('definition')).toHaveText('$35–$95');
-  await expect(tile('Seats left').getByRole('definition')).toHaveText(n(ON_SALE));
-  const { map } = await chooseSeats(page);
+test(
+  '038 S10/S12/S13: a customer sees the venue map, zooms into section 115, holds seats of two levels, and buys them',
+  { tag: '@customer' },
+  async ({ customerApp, browser, page }, testInfo) => {
+    const { event, eventName } = await womensGame(browser, testInfo, 'map game');
+    await signIn(page, customerApp, customerFor(testInfo, 4), `/events/${event.id}`);
+    const tickets = page.getByRole('region', { name: 'Get tickets' });
+    // The price range and the seats left, as tiles (Nate's walk, 2026-11-14).
+    const tile = (label: string) =>
+      tickets
+        .locator('.stat-tile')
+        .filter({ has: page.getByRole('term').filter({ hasText: label }) });
+    await expect(tile('Price').getByRole('definition')).toHaveText('$35–$95');
+    await expect(tile('Seats left').getByRole('definition')).toHaveText(n(ON_SALE));
+    const { map } = await chooseSeats(page);
 
-  // S10: every section, colored by its cheapest open level; the upper level not on sale.
-  await expect(map.getByRole('button', { name: /^Section / })).toHaveCount(54);
-  await expect(
-    tickets.getByRole('list', { name: 'Price levels' }).getByRole('listitem'),
-  ).toHaveText(['Courtside $95', 'Lower sideline $60', 'Lower end $35', 'Upper: not on sale']);
-  await expect(sectionOn(map, '101')).toHaveAccessibleName('Section 101, 288 open seats from $35');
-  await expect(sectionOn(map, '301')).toHaveAccessibleName('Section 301, no open seats');
+    // S10: every section, colored by its cheapest open level; the upper level not on sale.
+    await expect(map.getByRole('button', { name: /^Section / })).toHaveCount(54);
+    await expect(
+      tickets.getByRole('list', { name: 'Price levels' }).getByRole('listitem'),
+    ).toHaveText(['Courtside $95', 'Lower sideline $60', 'Lower end $35', 'Upper: not on sale']);
+    await expect(sectionOn(map, '101')).toHaveAccessibleName(
+      'Section 101, 288 open seats from $35',
+    );
+    await expect(sectionOn(map, '301')).toHaveAccessibleName('Section 301, no open seats');
 
-  // S11 (removed in spec 039's walk, 2026-11-14): no price filter; only a section with no open
-  // seat is faded.
-  await expect(tickets.getByRole('slider')).toHaveCount(0);
-  await expect(sectionOn(map, '101')).not.toHaveClass(/venue-map__section--faded/);
-  await expect(sectionOn(map, '301')).toHaveClass(/venue-map__section--faded/);
-  await expect(sectionOn(map, '115')).toHaveAccessibleName(
-    `Section 115, ${SECTION_115} open seats from $60`,
-  );
+    // S11 (removed in spec 039's walk, 2026-11-14): no price filter; only a section with no open
+    // seat is faded.
+    await expect(tickets.getByRole('slider')).toHaveCount(0);
+    await expect(sectionOn(map, '101')).not.toHaveClass(/venue-map__section--faded/);
+    await expect(sectionOn(map, '301')).toHaveClass(/venue-map__section--faded/);
+    await expect(sectionOn(map, '115')).toHaveAccessibleName(
+      `Section 115, ${SECTION_115} open seats from $60`,
+    );
 
-  // S12: zoomed into 115; rows D–G are Courtside, the rows behind Lower sideline.
-  await sectionOn(map, '115').click();
-  await expect(seatOn(map, 'D', 1)).toHaveAccessibleName('Row D, Seat 1, Courtside, $95, open');
-  await expect(seatOn(map, 'G', 1)).toHaveAccessibleName('Row G, Seat 1, Courtside, $95, open');
-  await expect(seatOn(map, 'H', 1)).toHaveAccessibleName(
-    'Row H, Seat 1, Lower sideline, $60, open',
-  );
-  await seatOn(map, 'F', 7).hover();
-  await expect(tickets.locator('.venue-map__tip')).toHaveText(
-    'Sec 115, Row F, Seat 7 · Courtside · $95',
-  );
+    // S12: zoomed into 115; rows D–G are Courtside, the rows behind Lower sideline.
+    await sectionOn(map, '115').click();
+    await expect(seatOn(map, 'D', 1)).toHaveAccessibleName('Row D, Seat 1, Courtside, $95, open');
+    await expect(seatOn(map, 'G', 1)).toHaveAccessibleName('Row G, Seat 1, Courtside, $95, open');
+    await expect(seatOn(map, 'H', 1)).toHaveAccessibleName(
+      'Row H, Seat 1, Lower sideline, $60, open',
+    );
+    await seatOn(map, 'F', 7).hover();
+    await expect(tickets.locator('.venue-map__tip')).toHaveText(
+      'Sec 115, Row F, Seat 7 · Courtside · $95',
+    );
 
-  // S13: Row F 7 and 8 and Row P 7, held at once by clicking them.
-  await seatOn(map, 'F', 7).click();
-  await expect(seatOn(map, 'F', 7)).toHaveAccessibleName(
-    'Row F, Seat 7, Courtside, $95, held by you',
-  );
-  await seatOn(map, 'F', 8).click();
-  await expect(seatOn(map, 'F', 8)).toHaveAccessibleName(
-    'Row F, Seat 8, Courtside, $95, held by you',
-  );
-  await seatOn(map, 'P', 7).click();
-  await expect(seatOn(map, 'P', 7)).toHaveAccessibleName(
-    'Row P, Seat 7, Lower sideline, $60, held by you',
-  );
-  const yours = tickets.getByRole('region', { name: 'Your seats' });
-  await expect(yours.getByRole('timer')).toHaveCount(1);
-  await expect(yours.getByRole('list', { name: 'Held seats' }).getByRole('listitem')).toHaveText([
-    'Section 115, Row F, Seat 7, Courtside, $95.00',
-    'Section 115, Row F, Seat 8, Courtside, $95.00',
-    'Section 115, Row P, Seat 7, Lower sideline, $60.00',
-  ]);
-  await expect(yours.getByText('Total: $250.00')).toBeVisible();
+    // S13: Row F 7 and 8 and Row P 7, held at once by clicking them.
+    await seatOn(map, 'F', 7).click();
+    await expect(seatOn(map, 'F', 7)).toHaveAccessibleName(
+      'Row F, Seat 7, Courtside, $95, held by you',
+    );
+    await seatOn(map, 'F', 8).click();
+    await expect(seatOn(map, 'F', 8)).toHaveAccessibleName(
+      'Row F, Seat 8, Courtside, $95, held by you',
+    );
+    await seatOn(map, 'P', 7).click();
+    await expect(seatOn(map, 'P', 7)).toHaveAccessibleName(
+      'Row P, Seat 7, Lower sideline, $60, held by you',
+    );
+    const yours = tickets.getByRole('region', { name: 'Your seats' });
+    await expect(yours.getByRole('timer')).toHaveCount(1);
+    await expect(yours.getByRole('list', { name: 'Held seats' }).getByRole('listitem')).toHaveText([
+      'Section 115, Row F, Seat 7, Courtside, $95.00',
+      'Section 115, Row F, Seat 8, Courtside, $95.00',
+      'Section 115, Row P, Seat 7, Lower sideline, $60.00',
+    ]);
+    await expect(yours.getByText('Total: $250.00')).toBeVisible();
 
-  // Back to map: the overview again, the seats still held.
-  await tickets.getByRole('button', { name: 'Back to map' }).click();
-  await expect(seatOn(map, 'F', 7)).toHaveCount(0);
-  await expect(sectionOn(map, '115')).toBeVisible();
-  await expect(yours.getByText('Total: $250.00')).toBeVisible();
+    // Back to map: the overview again, the seats still held.
+    await tickets.getByRole('button', { name: 'Back to map' }).click();
+    await expect(seatOn(map, 'F', 7)).toHaveCount(0);
+    await expect(sectionOn(map, '115')).toBeVisible();
+    await expect(yours.getByText('Total: $250.00')).toBeVisible();
 
-  await yours.getByRole('button', { name: 'Add to cart' }).click();
-  await expect(page).toHaveURL(/\/cart$/);
-  const entry = page.getByRole('region', { name: eventName });
-  await expect(entry.getByText('Total: $250.00')).toBeVisible();
-  await page.getByRole('textbox', { name: 'Name on tickets' }).fill('Jordan Lee');
-  await entry.getByRole('button', { name: 'Buy tickets' }).click();
+    await yours.getByRole('button', { name: 'Add to cart' }).click();
+    await expect(page).toHaveURL(/\/cart$/);
+    const entry = page.getByRole('region', { name: eventName });
+    await expect(entry.getByText('Total: $250.00')).toBeVisible();
+    await page.getByRole('textbox', { name: 'Name on tickets' }).fill('Jordan Lee');
+    await entry.getByRole('button', { name: 'Buy tickets' }).click();
 
-  const confirmed = page.getByRole('region', { name: 'Order confirmed' });
-  const codes = confirmed.getByRole('list', { name: 'Ticket codes' });
-  await expect(codes.getByRole('listitem')).toHaveCount(3);
-  await expect(codes).toContainText('Section 115, Row F, Seat 7, Courtside, $95.00');
-  await expect(codes).toContainText('Section 115, Row F, Seat 8, Courtside, $95.00');
-  await expect(codes).toContainText('Section 115, Row P, Seat 7, Lower sideline, $60.00');
-  await expect(confirmed).toContainText('$250.00');
+    const confirmed = page.getByRole('region', { name: 'Order confirmed' });
+    const codes = confirmed.getByRole('list', { name: 'Ticket codes' });
+    await expect(codes.getByRole('listitem')).toHaveCount(3);
+    await expect(codes).toContainText('Section 115, Row F, Seat 7, Courtside, $95.00');
+    await expect(codes).toContainText('Section 115, Row F, Seat 8, Courtside, $95.00');
+    await expect(codes).toContainText('Section 115, Row P, Seat 7, Lower sideline, $60.00');
+    await expect(confirmed).toContainText('$250.00');
 
-  await page.getByRole('link', { name: 'My tickets', exact: true }).click();
-  const order = page
-    .getByRole('article')
-    .filter({ has: page.getByRole('heading', { name: eventName }) });
-  await expect(order.getByRole('list', { name: 'Tickets' })).toContainText(
-    'Section 115, Row F, Seat 7',
-  );
-});
+    await page.getByRole('link', { name: 'My tickets', exact: true }).click();
+    const order = page
+      .getByRole('article')
+      .filter({ has: page.getByRole('heading', { name: eventName }) });
+    await expect(order.getByRole('list', { name: 'Tickets' })).toContainText(
+      'Section 115, Row F, Seat 7',
+    );
+  },
+);
 
-test('038 S10/S15: at phone width, the zoom buttons and a tap on a section open its seats, and a tap holds one', async ({
-  browser,
-}, testInfo) => {
-  const { event } = await womensGame(browser, testInfo, 'phone game');
-  const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    hasTouch: true,
-    isMobile: true,
-  });
-  const page = await context.newPage();
-  await signIn(page, 'customer', customerFor(testInfo, 5), `/events/${event.id}`);
-  const tickets = page.getByRole('region', { name: 'Get tickets' });
-  await tickets.getByRole('button', { name: 'Choose seats' }).tap();
-  const map = tickets.getByRole('group', { name: 'Basketball map' });
-  await expect(map).toBeVisible();
+test(
+  '038 S10/S15: at phone width, the zoom buttons and a tap on a section open its seats, and a tap holds one',
+  { tag: '@customer' },
+  async ({ customerApp, browser }, testInfo) => {
+    const { event } = await womensGame(browser, testInfo, 'phone game');
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      isMobile: true,
+    });
+    const page = await context.newPage();
+    await signIn(page, customerApp, customerFor(testInfo, 5), `/events/${event.id}`);
+    const tickets = page.getByRole('region', { name: 'Get tickets' });
+    await tickets.getByRole('button', { name: 'Choose seats' }).tap();
+    const map = tickets.getByRole('group', { name: 'Basketball map' });
+    await expect(map).toBeVisible();
 
-  // The zoom buttons zoom in about the middle and back out; Fit map shows the whole map.
-  const width = async () => Number((await map.getAttribute('viewBox'))?.split(' ')[2]);
-  const whole = await width();
-  await tickets.getByRole('button', { name: 'Zoom in' }).tap();
-  await expect.poll(width).toBeLessThan(whole);
-  await tickets.getByRole('button', { name: 'Fit map' }).tap();
-  await expect.poll(width).toBe(whole);
+    // The zoom buttons zoom in about the middle and back out; Fit map shows the whole map.
+    const width = async () => Number((await map.getAttribute('viewBox'))?.split(' ')[2]);
+    const whole = await width();
+    await tickets.getByRole('button', { name: 'Zoom in' }).tap();
+    await expect.poll(width).toBeLessThan(whole);
+    await tickets.getByRole('button', { name: 'Fit map' }).tap();
+    await expect.poll(width).toBe(whole);
 
-  // A tap on a section opens its seats; a tap on a seat holds it.
-  await sectionOn(map, '115').tap();
-  await expect(tickets.getByRole('button', { name: 'Back to map' })).toBeVisible();
-  await expect(seatOn(map, 'F', 7)).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
-  await seatOn(map, 'F', 7).tap();
-  await expect(seatOn(map, 'F', 7)).toHaveAccessibleName(
-    'Row F, Seat 7, Courtside, $95, held by you',
-  );
-  await expect(tickets.getByRole('region', { name: 'Your seats' })).toContainText(
-    'Section 115, Row F, Seat 7, Courtside, $95.00',
-  );
-  await context.close();
-});
+    // A tap on a section opens its seats; a tap on a seat holds it.
+    await sectionOn(map, '115').tap();
+    await expect(tickets.getByRole('button', { name: 'Back to map' })).toBeVisible();
+    await expect(seatOn(map, 'F', 7)).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
+    await seatOn(map, 'F', 7).tap();
+    await expect(seatOn(map, 'F', 7)).toHaveAccessibleName(
+      'Row F, Seat 7, Courtside, $95, held by you',
+    );
+    await expect(tickets.getByRole('region', { name: 'Your seats' })).toContainText(
+      'Section 115, Row F, Seat 7, Courtside, $95.00',
+    );
+    await context.close();
+  },
+);
 
-test('038 S14: a second customer watching section 115 sees a seat held, then sold, within 2 seconds', async ({
-  browser,
-}, testInfo) => {
-  const { event, eventName } = await womensGame(browser, testInfo, 'live game');
-  const one = await (await browser.newContext()).newPage();
-  const two = await (await browser.newContext()).newPage();
-  await signIn(one, 'customer', customerFor(testInfo, 6), `/events/${event.id}`);
-  await signIn(two, 'customer', customerFor(testInfo, 7), `/events/${event.id}`);
-  const first = await chooseSeats(one);
-  const second = await chooseSeats(two);
-  await sectionOn(first.map, '115').click();
-  await sectionOn(second.map, '115').click();
-  const watched = seatOn(second.map, 'F', 9);
-  await expect(watched).toHaveAccessibleName('Row F, Seat 9, Courtside, $95, open');
+test(
+  '038 S14: a second customer watching section 115 sees a seat held, then sold, within 2 seconds',
+  { tag: '@customer' },
+  async ({ customerApp, browser }, testInfo) => {
+    const { event, eventName } = await womensGame(browser, testInfo, 'live game');
+    const one = await (await browser.newContext()).newPage();
+    const two = await (await browser.newContext()).newPage();
+    await signIn(one, customerApp, customerFor(testInfo, 6), `/events/${event.id}`);
+    await signIn(two, customerApp, customerFor(testInfo, 7), `/events/${event.id}`);
+    const first = await chooseSeats(one);
+    const second = await chooseSeats(two);
+    await sectionOn(first.map, '115').click();
+    await sectionOn(second.map, '115').click();
+    const watched = seatOn(second.map, 'F', 9);
+    await expect(watched).toHaveAccessibleName('Row F, Seat 9, Courtside, $95, open');
 
-  // Held: the seat and its section's count change on the other page, never reloaded.
-  await seatOn(first.map, 'F', 9).click();
-  const heldAt = Date.now();
-  await Promise.all([
-    expect(watched).toHaveAccessibleName('Row F, Seat 9, Courtside, $95, held', within(heldAt)),
-    expect(sectionOn(second.map, '115')).toHaveAccessibleName(
-      `Section 115, ${SECTION_115 - 1} open seats from $60`,
-      within(heldAt),
-    ),
-  ]);
-  await expect(watched).toBeDisabled();
+    // Held: the seat and its section's count change on the other page, never reloaded.
+    await seatOn(first.map, 'F', 9).click();
+    const heldAt = Date.now();
+    await Promise.all([
+      expect(watched).toHaveAccessibleName('Row F, Seat 9, Courtside, $95, held', within(heldAt)),
+      expect(sectionOn(second.map, '115')).toHaveAccessibleName(
+        `Section 115, ${SECTION_115 - 1} open seats from $60`,
+        within(heldAt),
+      ),
+    ]);
+    await expect(watched).toBeDisabled();
 
-  // Bought from the cart: sold on the other page within 2 seconds.
-  await first.tickets
-    .getByRole('region', { name: 'Your seats' })
-    .getByRole('button', { name: 'Add to cart' })
-    .click();
-  await one.getByRole('textbox', { name: 'Name on tickets' }).fill('Jordan Lee');
-  await one
-    .getByRole('region', { name: eventName })
-    .getByRole('button', { name: 'Buy tickets' })
-    .click();
-  const boughtAt = Date.now();
-  await expect(watched).toHaveAccessibleName(
-    'Row F, Seat 9, Courtside, $95, sold',
-    within(boughtAt),
-  );
-  await expect(one.getByRole('region', { name: 'Order confirmed' })).toContainText(
-    'Section 115, Row F, Seat 9',
-  );
-  await one.context().close();
-  await two.context().close();
-});
+    // Bought from the cart: sold on the other page within 2 seconds.
+    await first.tickets
+      .getByRole('region', { name: 'Your seats' })
+      .getByRole('button', { name: 'Add to cart' })
+      .click();
+    await one.getByRole('textbox', { name: 'Name on tickets' }).fill('Jordan Lee');
+    await one
+      .getByRole('region', { name: eventName })
+      .getByRole('button', { name: 'Buy tickets' })
+      .click();
+    const boughtAt = Date.now();
+    await expect(watched).toHaveAccessibleName(
+      'Row F, Seat 9, Courtside, $95, sold',
+      within(boughtAt),
+    );
+    await expect(one.getByRole('region', { name: 'Order confirmed' })).toContainText(
+      'Section 115, Row F, Seat 9',
+    );
+    await one.context().close();
+    await two.context().close();
+  },
+);
 
-test('038 S16: by keyboard alone, the Sections list opens section 115, holds a seat and releases it', async ({
-  browser,
-  page,
-}, testInfo) => {
-  const { event } = await womensGame(browser, testInfo, 'keys game');
-  await signIn(page, 'customer', customerFor(testInfo, 8), `/events/${event.id}`);
-  const tickets = page.getByRole('region', { name: 'Get tickets' });
-  const choose = tickets.getByRole('button', { name: 'Choose seats' });
-  await choose.focus();
-  await page.keyboard.press('Enter');
-  const map = tickets.getByRole('group', { name: 'Basketball map' });
-  const list = tickets.getByRole('region', { name: 'Sections' });
-  // Spec 033 FR-016: each hold and release said in the hold log, a status region.
-  const log = tickets.getByRole('status').filter({ hasText: /Section 115/ });
+test(
+  '038 S16: by keyboard alone, the Sections list opens section 115, holds a seat and releases it',
+  { tag: '@customer' },
+  async ({ customerApp, browser, page }, testInfo) => {
+    const { event } = await womensGame(browser, testInfo, 'keys game');
+    await signIn(page, customerApp, customerFor(testInfo, 8), `/events/${event.id}`);
+    const tickets = page.getByRole('region', { name: 'Get tickets' });
+    const choose = tickets.getByRole('button', { name: 'Choose seats' });
+    await choose.focus();
+    await page.keyboard.press('Enter');
+    const map = tickets.getByRole('group', { name: 'Basketball map' });
+    const list = tickets.getByRole('region', { name: 'Sections' });
+    // Spec 033 FR-016: each hold and release said in the hold log, a status region.
+    const log = tickets.getByRole('status').filter({ hasText: /Section 115/ });
 
-  // Section 115 from the list (spec 039's walk, FR-020 amended): it opens on the map, stays marked
-  // in the list among every section, and the focus goes to its first seat on the map, where seats
-  // are buttons named "Row F, Seat 7, Courtside, $95, open".
-  const section = list.getByRole('button', { name: /^Section 115, / });
-  await expect(section).toHaveAccessibleName(`Section 115, $60–$95, ${SECTION_115} open seats`);
-  await section.focus();
-  await page.keyboard.press('Enter');
-  await expect(section).toHaveAttribute('aria-pressed', 'true');
-  await expect(list.getByRole('button', { name: /^Row / })).toHaveCount(0);
-  await expect(map.locator('.venue-map__seat[role="button"]').first()).toBeFocused();
-  const seat = seatOn(map, 'F', 7);
-  await expect(seat).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
+    // Section 115 from the list (spec 039's walk, FR-020 amended): it opens on the map, stays marked
+    // in the list among every section, and the focus goes to its first seat on the map, where seats
+    // are buttons named "Row F, Seat 7, Courtside, $95, open".
+    const section = list.getByRole('button', { name: /^Section 115, / });
+    await expect(section).toHaveAccessibleName(`Section 115, $60–$95, ${SECTION_115} open seats`);
+    await section.focus();
+    await page.keyboard.press('Enter');
+    await expect(section).toHaveAttribute('aria-pressed', 'true');
+    await expect(list.getByRole('button', { name: /^Row / })).toHaveCount(0);
+    await expect(map.locator('.venue-map__seat[role="button"]').first()).toBeFocused();
+    const seat = seatOn(map, 'F', 7);
+    await expect(seat).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
 
-  // Held by Enter.
-  await seat.focus();
-  await page.keyboard.press('Enter');
-  await expect(seat).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, held by you');
-  await expect(seat).toHaveAttribute('aria-pressed', 'true');
-  await expect(log).toContainText('Section 115, Row F, Seat 7 held.');
+    // Held by Enter.
+    await seat.focus();
+    await page.keyboard.press('Enter');
+    await expect(seat).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, held by you');
+    await expect(seat).toHaveAttribute('aria-pressed', 'true');
+    await expect(log).toContainText('Section 115, Row F, Seat 7 held.');
 
-  // Released by Space.
-  await seat.focus();
-  await page.keyboard.press('Space');
-  await expect(seat).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
-  await expect(log).toContainText('Section 115, Row F, Seat 7 released.');
-});
+    // Released by Space.
+    await seat.focus();
+    await page.keyboard.press('Space');
+    await expect(seat).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
+    await expect(log).toContainText('Section 115, Row F, Seat 7 released.');
+  },
+);
 
 test(
   "038 S17: the admin's map of a seated event shows a customer's hold within 2 seconds",
-  { tag: '@admin' },
-  async ({ adminApp, browser, page }, testInfo) => {
+  { tag: ['@admin', '@customer'] },
+  async ({ customerApp, adminApp, browser, page }, testInfo) => {
     const eventName = uniqueName(testInfo, 'watch game');
     const admin = await apiFor(browser, 'admin', adminFor(testInfo));
     const { event, layout } = await basketballEvent(admin.api, {
@@ -537,7 +545,7 @@ test(
     await expect(seatOn(map, 'F', 7)).toHaveAccessibleName('Row F, Seat 7, Courtside, $95, open');
 
     // A customer holds Row F, Seat 7: held on the admin's map within 2 seconds, never reloaded.
-    const customer = await apiFor(browser, 'customer', customerFor(testInfo, 9));
+    const customer = await apiFor(browser, customerApp, customerFor(testInfo, 9));
     const seat = await seatAt(customer.api, layout, '115', 'F', '7');
     await holdSeats(customer.api, event, [seat]);
     const heldAt = Date.now();

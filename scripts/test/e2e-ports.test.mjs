@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { E2E_PORTS, SIGNALS, busyPorts, listening, main, portsMessage } from '../e2e.mjs';
 
 test('the runner checks every port the Compose stack publishes (R3)', () => {
-  // Spec 037: the Rust Admin app's 5176.
-  assert.deepEqual(E2E_PORTS, [5173, 5174, 5175, 5176, 3000, 8080, 9000, 5432]);
+  // Spec 037: the Rust Admin app's 5176; spec 040 (research R12): the Rust Customer app's 5177.
+  assert.deepEqual(E2E_PORTS, [5173, 5174, 5175, 5176, 5177, 3000, 8080, 9000, 5432]);
 });
 
 test('busyPorts returns exactly the ports whose connect succeeds, in the order given', async () => {

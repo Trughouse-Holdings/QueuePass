@@ -64,23 +64,26 @@ function captureConsole(t) {
 
 // Spec 037 (research R9): the Rust Admin app's `core`, measured by cargo llvm-cov and written in
 // the same summary shape by admin-rust-app/scripts/coverage-summary.mjs.
-test('the seven workspaces, in a fixed order', () => {
+// Spec 040 (research R11, tasks T018): the Rust Customer app's `core`, the same way, after the
+// React Customer app (the root test script's order).
+test('the eight workspaces, in a fixed order', () => {
   assert.deepEqual(WORKSPACES, [
     'packages/shared',
     'backend',
     'admin-app',
     'admin-rust-app',
     'customer-app',
+    'customer-rust-app',
     'booth-app',
     'scripts/seed',
   ]);
 });
 
-test('all seven at 85%: seven rows with percentage and covered/total lines, the note, exit 0', (t) => {
+test('all eight at 85%: eight rows with percentage and covered/total lines, the note, exit 0', (t) => {
   const rootDir = tempRoot(t);
   writeAll(rootDir);
   const rows = readSummaries(rootDir);
-  assert.equal(rows.length, 7);
+  assert.equal(rows.length, 8);
 
   const table = formatTable(rows);
   for (const workspace of WORKSPACES) {
@@ -157,6 +160,8 @@ test("cleanCoverage removes every workspace's coverage folder, and an absent one
   for (const workspace of WORKSPACES) {
     assert.ok(!existsSync(join(rootDir, workspace, 'coverage')), `${workspace}/coverage remains`);
   }
+  // Spec 040: the Rust Customer app's coverage/ too.
+  assert.ok(!existsSync(join(rootDir, 'customer-rust-app', 'coverage')));
   cleanCoverage(rootDir);
 });
 
@@ -246,6 +251,20 @@ test('the Rust Admin app converts llvm-cov totals to total.lines', async () => {
   };
   assert.deepEqual(toIstanbulSummary(llvm), {
     total: { lines: { total: 2000, covered: 1712, skipped: 0, pct: 85.6 } },
+  });
+  assert.throws(() => toIstanbulSummary({ data: [] }), /no totals/);
+});
+
+// Spec 040 (research R11, tasks T018): the Rust Customer app's copy converts the same way.
+test('the Rust Customer app converts llvm-cov totals to total.lines', async () => {
+  const { toIstanbulSummary } =
+    await import('../../customer-rust-app/scripts/coverage-summary.mjs');
+  const llvm = {
+    type: 'llvm.coverage.json.export',
+    data: [{ totals: { lines: { count: 1000, covered: 850, percent: 85 } } }],
+  };
+  assert.deepEqual(toIstanbulSummary(llvm), {
+    total: { lines: { total: 1000, covered: 850, skipped: 0, pct: 85 } },
   });
   assert.throws(() => toIstanbulSummary({ data: [] }), /no totals/);
 });

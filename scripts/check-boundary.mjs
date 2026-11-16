@@ -1,6 +1,7 @@
 // Constitution I / spec 001 FR-033: no front end may contain database access code or a
 // database driver. Fails naming the file and the match (research R12). Spec 037 (research R11):
-// the Rust Admin app too, through its Cargo manifests and its `core` and `app` sources.
+// the Rust Admin app too, through its Cargo manifests and its `core` and `app` sources. Spec 040
+// (research R12): and the Rust Customer app, the same way.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,8 +20,8 @@ const FORBIDDEN_DEPS = [
 const FORBIDDEN_TEXT = ['DATABASE_URL', 'postgres://', 'postgresql://', '@prisma/client'];
 const DEP_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];
 
-/** Spec 037: the Rust Admin app's Cargo manifests and sources. */
-const RUST_APP = 'admin-rust-app';
+/** Spec 037: the Rust apps' Cargo manifests and sources; spec 040 adds the Rust Customer app. */
+export const RUST_APPS = ['admin-rust-app', 'customer-rust-app'];
 const RUST_MANIFESTS = ['Cargo.toml', 'core/Cargo.toml', 'app/Cargo.toml'];
 const RUST_SOURCES = ['core/src', 'app/src'];
 export const RUST_FORBIDDEN_CRATES = [
@@ -113,21 +114,22 @@ export function boundaryFailures(root) {
     if (existsSync(join(dir, 'src'))) walk(join(dir, 'src'), FORBIDDEN_TEXT, failures);
   }
 
-  const rust = join(root, RUST_APP);
-  if (existsSync(rust)) {
+  for (const app of RUST_APPS) {
+    const rust = join(root, app);
+    if (!existsSync(rust)) continue;
     for (const manifest of RUST_MANIFESTS) {
       const path = join(rust, manifest);
       if (!existsSync(path)) continue;
       for (const crate of new Set(cargoDependencies(readFileSync(path, 'utf8')))) {
         if (RUST_FORBIDDEN_CRATES.includes(crate))
-          failures.push(`${RUST_APP}/${manifest}: lists "${crate}"`);
+          failures.push(`${app}/${manifest}: lists "${crate}"`);
       }
     }
     const lock = join(rust, 'Cargo.lock');
     if (existsSync(lock)) {
       for (const crate of new Set(cargoLockPackages(readFileSync(lock, 'utf8')))) {
         if (RUST_FORBIDDEN_CRATES.includes(crate))
-          failures.push(`${RUST_APP}/Cargo.lock: pulls in "${crate}"`);
+          failures.push(`${app}/Cargo.lock: pulls in "${crate}"`);
       }
     }
     for (const sources of RUST_SOURCES) {
@@ -145,6 +147,6 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     for (const f of failures) console.error(`  ${f}`);
     process.exit(1);
   }
-  const checked = [...APPS, RUST_APP].filter((a) => existsSync(a));
+  const checked = [...APPS, ...RUST_APPS].filter((a) => existsSync(a));
   console.log(`[boundary] ${checked.join(', ')}: no database access`);
 }

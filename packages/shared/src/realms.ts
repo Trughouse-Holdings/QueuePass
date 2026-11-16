@@ -56,3 +56,28 @@ export interface AppRealmRow {
 }
 
 export type AppRealm = (typeof APP_REALMS)[number];
+
+/** One row of `SHARED_REALM_CLIENTS`. */
+export interface SharedRealmClientRow {
+  app: 'customer-rust';
+  realm: AppRealm['realm'];
+  clientId: string;
+}
+
+/** Spec 040 (research R3): a front end with its own client in another app's realm. It has no
+ * realm, role, or users of its own: it uses that realm's, so the seed makes no extra account. */
+export const SHARED_REALM_CLIENTS = [
+  { app: 'customer-rust', realm: 'queuepass-customer-app', clientId: 'customer-rust-app' },
+] as const satisfies readonly SharedRealmClientRow[];
+
+export type SharedRealmClient = (typeof SHARED_REALM_CLIENTS)[number];
+
+/** Spec 040 (research R3): the realm an app signs in through, from either table. */
+export function realmOfApp(
+  app: AppRealm['app'] | SharedRealmClient['app'],
+): AppRealm['realm'] | undefined {
+  return (
+    APP_REALMS.find((r) => r.app === app)?.realm ??
+    SHARED_REALM_CLIENTS.find((r) => r.app === app)?.realm
+  );
+}

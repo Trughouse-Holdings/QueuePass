@@ -1,0 +1,538 @@
+{
+  "files": [
+    {
+      "label": "the R3 example",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "Season Opener",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:Season Opener\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Season+Opener&dates=20261031T233000Z%2F20261101T024500Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "season-opener.ics"
+    },
+    {
+      "label": "crossing midnight",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "Season Opener",
+        "startsAt": "2026-11-07T03:00:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-07T07:00:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261107T030000Z\r\nDTEND:20261107T070000Z\r\nSUMMARY:Season Opener\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Season+Opener&dates=20261107T030000Z%2F20261107T070000Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "season-opener.ics"
+    },
+    {
+      "label": "crossing the new year",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "Season Opener",
+        "startsAt": "2026-12-31T23:00:00Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2027-01-01T02:00:00Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261231T230000Z\r\nDTEND:20270101T020000Z\r\nSUMMARY:Season Opener\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Season+Opener&dates=20261231T230000Z%2F20270101T020000Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "season-opener.ics"
+    },
+    {
+      "label": "milliseconds dropped",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "Season Opener",
+        "startsAt": "2026-10-31T23:30:00.999Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:59.999Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024559Z\r\nSUMMARY:Season Opener\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Season+Opener&dates=20261031T233000Z%2F20261101T024559Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "season-opener.ics"
+    },
+    {
+      "label": "every escape at once",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "Rock, Paper; Scissors \\ Live\r\nTour",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "Hall \"A\": North",
+          "address": "Back\\door; 2, LOUISVILLE"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:Rock\\, Paper\\; Scissors \\\\ Live\\nTour\r\nLOCATION:Hall \"A\": North\\, Back\\\\door\\; 2\\, LOUISVILLE\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Rock%2C+Paper%3B+Scissors+%5C+Live%0D%0ATour&dates=20261031T233000Z%2F20261101T024500Z&location=Hall+%22A%22%3A+North%2C+Back%5Cdoor%3B+2%2C+LOUISVILLE",
+      "fileName": "rock-paper-scissors-live-tour.ics"
+    },
+    {
+      "label": "control characters",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "A\u0000B\u0007C\tD\u001f",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": { "id": "v1", "name": "V\u001f", "address": "X\r" }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:ABC\tD\r\nLOCATION:V\\, X\\n\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=A%00B%07C%09D%7F%1F&dates=20261031T233000Z%2F20261101T024500Z&location=V%1F%2C+X%0D",
+      "fileName": "a-b-c-d.ics"
+    },
+    {
+      "label": "200 ASCII",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\n xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx&dates=20261031T233000Z%2F20261101T024500Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ics"
+    },
+    {
+      "label": "67 and 68 octets",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy\r\n y\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy&dates=20261031T233000Z%2F20261101T024500Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy.ics"
+    },
+    {
+      "label": "é × 100",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:ééééééééééééééééééééééééééééééééé\r\n ééééééééééééééééééééééééééééééééééééé\r\n éééééééééééééééééééééééééééééé\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9%C3%A9&dates=20261031T233000Z%2F20261101T024500Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee.ics"
+    },
+    {
+      "label": "漢 × 70",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢\r\n 漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢\r\n 漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢漢\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2%E6%BC%A2&dates=20261031T233000Z%2F20261101T024500Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "event.ics"
+    },
+    {
+      "label": "🎉 × 50",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉\r\n 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉\r\n 🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉🎉\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89%F0%9F%8E%89&dates=20261031T233000Z%2F20261101T024500Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "event.ics"
+    },
+    {
+      "label": "mixed",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢\r\n 🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉\r\n aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé\r\n 漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢🎉aé漢\r\n 🎉aé漢🎉\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89a%C3%A9%E6%BC%A2%F0%9F%8E%89&dates=20261031T233000Z%2F20261101T024500Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "ae-ae-ae-ae-ae-ae-ae-ae-ae-ae-ae-ae-ae-ae-ae-ae-ae-ae-ae-ae.ics"
+    },
+    {
+      "label": "a \\, on a fold",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "Season Opener",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "address": "LOUISVILLE"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:Season Opener\r\nLOCATION:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\\\r\n , LOUISVILLE\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Season+Opener&dates=20261031T233000Z%2F20261101T024500Z&location=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa%2C+LOUISVILLE",
+      "fileName": "season-opener.ics"
+    },
+    {
+      "label": "the maximum LOCATION",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "Café Noël 🎉 nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "Hall, of; Fame Hall, of; Fame Hall, of; Fame Hall, of; Fame Hall, of; Fame Hall, of; Fame Hall, of; Fame Hall, of; Fame Hall, of; Fame Hall, of; Fame Hall, of; Fame Hall, of; Fame Hall, of; Fame Arena",
+          "address": "12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, 12 Main St, Suite 4; Floor 2, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:Café Noël 🎉 nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\r\n nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\r\n nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn\r\nLOCATION:Hall\\, of\\; Fame Hall\\, of\\; Fame Hall\\, of\\; Fame Hall\\, of\\; Fam\r\n e Hall\\, of\\; Fame Hall\\, of\\; Fame Hall\\, of\\; Fame Hall\\, of\\; Fame Hall\r\n \\, of\\; Fame Hall\\, of\\; Fame Hall\\, of\\; Fame Hall\\, of\\; Fame Hall\\, of\\\r\n ; Fame Arena\\, 12 Main St\\, Suite 4\\; Floor 2\\, 12 Main St\\, Suite 4\\; Flo\r\n or 2\\, 12 Main St\\, Suite 4\\; Floor 2\\, 12 Main St\\, Suite 4\\; Floor 2\\, 1\r\n 2 Main St\\, Suite 4\\; Floor 2\\, 12 Main St\\, Suite 4\\; Floor 2\\, 12 Main S\r\n t\\, Suite 4\\; Floor 2\\, 12 Main St\\, Suite 4\\; Floor 2\\, 12 Main St\\, Suit\r\n e 4\\; Floor 2\\, 12 Main St\\, Suite 4\\; Floor 2\\, 12 Main St\\, Suite 4\\; Fl\r\n oor 2\\, 12 Main St\\, Suite 4\\; Floor 2\\, 12 Main St\\, Suite 4\\; Floor 2\\, \r\n 12 Main St\\, Suite 4\\; Floor 2\\, 12 Main St\\, Suite 4\\; Floor 2\\, 12 Main \r\n St\\, Suite 4\\; Floor 2\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Caf%C3%A9+No%C3%ABl+%F0%9F%8E%89+nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn&dates=20261031T233000Z%2F20261101T024500Z&location=Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Hall%2C+of%3B+Fame+Arena%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+12+Main+St%2C+Suite+4%3B+Floor+2%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "cafe-noel-nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn.ics"
+    },
+    {
+      "label": "a name to slug",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "Show #2: Encore! Ünïcödé & Co",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-11-01T02:45:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//QueuePass//Customer app//EN\r\nCALSCALE:GREGORIAN\r\nMETHOD:PUBLISH\r\nBEGIN:VEVENT\r\nUID:queuepass-event-6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21\r\nDTSTAMP:20261024T153007Z\r\nDTSTART:20261031T233000Z\r\nDTEND:20261101T024500Z\r\nSUMMARY:Show #2: Encore! Ünïcödé & Co\r\nLOCATION:KFC Yum! Center\\, 1 ARENA PLAZA\\, LOUISVILLE\\, KY 40202\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+      "google": "https://calendar.google.com/calendar/render?action=TEMPLATE&text=Show+%232%3A+Encore%21+%C3%9Cn%C3%AFc%C3%B6d%C3%A9+%26+Co&dates=20261031T233000Z%2F20261101T024500Z&location=KFC+Yum%21+Center%2C+1+ARENA+PLAZA%2C+LOUISVILLE%2C+KY+40202",
+      "fileName": "show-2-encore-unicode-co.ics"
+    },
+    {
+      "label": "an end equal to the start",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "Season Opener",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-10-31T23:30:00.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": null,
+      "google": null,
+      "fileName": "season-opener.ics"
+    },
+    {
+      "label": "an end before the start",
+      "event": {
+        "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+        "name": "Season Opener",
+        "startsAt": "2026-10-31T23:30:00.000Z",
+        "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+        "endsAt": "2026-10-31T23:29:59.000Z",
+        "status": "SCHEDULED",
+        "location": {
+          "id": "v1",
+          "name": "KFC Yum! Center",
+          "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+        }
+      },
+      "now": "2026-10-24T15:30:07.999Z",
+      "ics": null,
+      "google": null,
+      "fileName": "season-opener.ics"
+    }
+  ],
+  "fileNames": [
+    { "name": "Season Opener", "fileName": "season-opener.ics" },
+    { "name": "Rock, Paper; Scissors \\ Live", "fileName": "rock-paper-scissors-live.ics" },
+    { "name": "Café Noël", "fileName": "cafe-noel.ics" },
+    { "name": "  --A--  ", "fileName": "a.ics" },
+    { "name": "🎉🎉", "fileName": "event.ics" },
+    { "name": "漢字", "fileName": "event.ics" },
+    { "name": "", "fileName": "event.ics" },
+    { "name": "Show #2: Encore!", "fileName": "show-2-encore.ics" },
+    {
+      "name": "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "fileName": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.ics"
+    },
+    {
+      "name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "fileName": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.ics"
+    },
+    { "name": "ﬁnal ½ Ⅻ ①", "fileName": "final-1-2-xii-1.ics" },
+    { "name": "Ǆemal Ǳ", "fileName": "dzemal-dz.ics" }
+  ],
+  "eligible": [
+    {
+      "label": "scheduled, future, valid",
+      "order": {
+        "id": "o1",
+        "tickets": [{ "status": "VALID" }],
+        "event": {
+          "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+          "name": "Season Opener",
+          "startsAt": "2026-10-31T23:30:00.000Z",
+          "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+          "endsAt": "2026-11-01T02:45:00.000Z",
+          "status": "SCHEDULED",
+          "location": {
+            "id": "v1",
+            "name": "KFC Yum! Center",
+            "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+          }
+        }
+      },
+      "nowMs": 1792855807999,
+      "eligible": true
+    },
+    {
+      "label": "cancelled",
+      "order": {
+        "id": "o1",
+        "tickets": [{ "status": "VALID" }],
+        "event": {
+          "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+          "name": "Season Opener",
+          "startsAt": "2026-10-31T23:30:00.000Z",
+          "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+          "endsAt": "2026-11-01T02:45:00.000Z",
+          "status": "CANCELLED",
+          "location": {
+            "id": "v1",
+            "name": "KFC Yum! Center",
+            "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+          }
+        }
+      },
+      "nowMs": 1792855807999,
+      "eligible": false
+    },
+    {
+      "label": "1 ms before the end",
+      "order": {
+        "id": "o1",
+        "tickets": [{ "status": "VALID" }],
+        "event": {
+          "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+          "name": "Season Opener",
+          "startsAt": "2026-10-31T23:30:00.000Z",
+          "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+          "endsAt": "2026-11-01T02:45:00.000Z",
+          "status": "SCHEDULED",
+          "location": {
+            "id": "v1",
+            "name": "KFC Yum! Center",
+            "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+          }
+        }
+      },
+      "nowMs": 1793501099999,
+      "eligible": true
+    },
+    {
+      "label": "at the end",
+      "order": {
+        "id": "o1",
+        "tickets": [{ "status": "VALID" }],
+        "event": {
+          "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+          "name": "Season Opener",
+          "startsAt": "2026-10-31T23:30:00.000Z",
+          "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+          "endsAt": "2026-11-01T02:45:00.000Z",
+          "status": "SCHEDULED",
+          "location": {
+            "id": "v1",
+            "name": "KFC Yum! Center",
+            "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+          }
+        }
+      },
+      "nowMs": 1793501100000,
+      "eligible": false
+    },
+    {
+      "label": "only void tickets",
+      "order": {
+        "id": "o1",
+        "tickets": [{ "status": "VOID" }],
+        "event": {
+          "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+          "name": "Season Opener",
+          "startsAt": "2026-10-31T23:30:00.000Z",
+          "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+          "endsAt": "2026-11-01T02:45:00.000Z",
+          "status": "SCHEDULED",
+          "location": {
+            "id": "v1",
+            "name": "KFC Yum! Center",
+            "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+          }
+        }
+      },
+      "nowMs": 1792855807999,
+      "eligible": false
+    },
+    {
+      "label": "no tickets",
+      "order": {
+        "id": "o1",
+        "tickets": [],
+        "event": {
+          "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+          "name": "Season Opener",
+          "startsAt": "2026-10-31T23:30:00.000Z",
+          "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+          "endsAt": "2026-11-01T02:45:00.000Z",
+          "status": "SCHEDULED",
+          "location": {
+            "id": "v1",
+            "name": "KFC Yum! Center",
+            "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+          }
+        }
+      },
+      "nowMs": 1792855807999,
+      "eligible": false
+    },
+    {
+      "label": "an end before the start",
+      "order": {
+        "id": "o1",
+        "tickets": [{ "status": "VALID" }],
+        "event": {
+          "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+          "name": "Season Opener",
+          "startsAt": "2026-10-31T23:30:00.000Z",
+          "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+          "endsAt": "2026-10-31T23:00:00.000Z",
+          "status": "SCHEDULED",
+          "location": {
+            "id": "v1",
+            "name": "KFC Yum! Center",
+            "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+          }
+        }
+      },
+      "nowMs": 0,
+      "eligible": false
+    },
+    {
+      "label": "an unreadable start",
+      "order": {
+        "id": "o1",
+        "tickets": [{ "status": "VALID" }],
+        "event": {
+          "id": "6f1c2a4e-3b7d-4e2f-9a10-5c8d7e6f4a21",
+          "name": "Season Opener",
+          "startsAt": "garbage",
+          "doorsOpenAt": "2026-10-31T22:30:00.000Z",
+          "endsAt": "2026-11-01T02:45:00.000Z",
+          "status": "SCHEDULED",
+          "location": {
+            "id": "v1",
+            "name": "KFC Yum! Center",
+            "address": "1 ARENA PLAZA, LOUISVILLE, KY 40202"
+          }
+        }
+      },
+      "nowMs": 0,
+      "eligible": false
+    }
+  ]
+}

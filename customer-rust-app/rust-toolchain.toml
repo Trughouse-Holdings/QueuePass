@@ -1,0 +1,6 @@
+# Spec 040 (research R1): the same pinned toolchain as admin-rust-app (spec 037 R2, R12).
+[toolchain]
+channel = "1.100.0"
+targets = ["wasm32-unknown-unknown"]
+components = ["llvm-tools-preview", "rustfmt", "clippy"]
+profile = "minimal"

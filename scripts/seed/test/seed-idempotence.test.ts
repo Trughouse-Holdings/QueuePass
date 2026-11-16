@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import type KcAdminClient from '@keycloak/keycloak-admin-client';
 import { seed } from '../src/index';
-import { APP_REALMS, LEGACY_REALM } from '../src/app-realms';
+import { APP_REALMS, LEGACY_REALM, SHARED_REALM_CLIENTS } from '../src/app-realms';
 import { createKeycloakClient } from '../src/keycloak-client';
 import { FRONTEND_CLIENTS, AUDIENCE_SCOPE } from '../src/provision-clients';
 import { LOGIN_THEME } from '../src/provision-realm';
@@ -10,7 +10,8 @@ import { liveSkipReason } from './live-guard';
 /**
  * Spec 001 FR-004 through FR-007 and FR-034 — the seed must be idempotent AND deterministic,
  * for users and for the front-end sign-in clients; spec 028 FR-005, FR-009 (tasks T015): in each
- * of the four app realms, each holding its own users and its one client.
+ * of the four app realms, each holding its own users and its one client; spec 040 (research R3):
+ * plus each `SHARED_REALM_CLIENTS` row's client in its realm, with no user of its own.
  *
  * Requires a running Keycloak. Skipped when absent so the unit suite stays runnable without
  * the stack up; the quickstart runs it with Keycloak available. Also skipped on a Keycloak that
@@ -46,6 +47,13 @@ describe('Keycloak seed idempotence', () => {
     });
     const kc = await createKeycloakClient();
     expect((await kc.realms.find()).map((r) => r.realm)).not.toContain(LEGACY_REALM);
+    // Spec 040 (research R3): the shared-realm client brings no user: every enabled account in
+    // its realm is one of that realm's own customers.
+    for (const { realm } of SHARED_REALM_CLIENTS) {
+      const { prefix } = APP_REALMS.find((r) => r.realm === realm)!;
+      const enabled = (await kc.users.find({ realm, max: 1000 })).filter((u) => u.enabled);
+      for (const u of enabled) expect(u.username, realm).toMatch(new RegExp(`^${prefix}\\d+$`));
+    }
 
     await seed();
     expect(await countUsers()).toEqual(first);
@@ -61,7 +69,7 @@ describe('Keycloak seed idempotence', () => {
     const firstIds = await clientIds(kc);
     await seed();
 
-    for (const { realm, clientId } of APP_REALMS) {
+    for (const { realm, clientId } of FRONT_ENDS) {
       const scopes = (await kc.clientScopes.find({ realm })).filter(
         (s) => s.name === AUDIENCE_SCOPE,
       );
@@ -72,8 +80,10 @@ describe('Keycloak seed idempotence', () => {
       expect(mappers[0]!.config?.['included.custom.audience']).toBe('queuepass-api');
       expect(mappers[0]!.config?.['access.token.claim']).toBe('true');
 
-      // Only its own app's client is enabled in the realm.
-      const others = FRONTEND_CLIENTS.filter((c) => c.clientId !== clientId);
+      // Only its own app's client and its SHARED_REALM_CLIENTS rows (spec 040) are enabled.
+      const own = ownClients(realm);
+      expect(own).toContain(clientId);
+      const others = FRONTEND_CLIENTS.filter((c) => !own.includes(c.clientId));
       for (const other of others) {
         const [found] = await kc.clients.find({ realm, clientId: other.clientId });
         expect(found?.enabled ?? false, `${realm} ${other.clientId}`).toBe(false);
@@ -134,7 +144,7 @@ describe('Keycloak seed idempotence', () => {
 
     await seed();
     const kc = await createKeycloakClient();
-    for (const { realm, clientId } of APP_REALMS) {
+    for (const { realm, clientId } of FRONT_ENDS) {
       const { port } = FRONTEND_CLIENTS.find((c) => c.clientId === clientId)!;
       const [c] = await kc.clients.find({ realm, clientId });
       const origin = `http://localhost:${port}`;
@@ -152,7 +162,7 @@ describe('Keycloak seed idempotence', () => {
 
     await seed();
 
-    for (const { realm, clientId } of APP_REALMS) {
+    for (const { realm, clientId } of FRONT_ENDS) {
       const { port } = FRONTEND_CLIENTS.find((c) => c.clientId === clientId)!;
       const [after] = await kc.clients.find({ realm, clientId });
       const origin = `http://localhost:${port}`;
@@ -229,11 +239,19 @@ function expectNoWildcard(c: {
   for (const uri of uris) expect(uri, `${c.clientId}: ${uri}`).not.toContain('*');
 }
 
-/** Each app realm's own client's internal id. */
+/** Every front end's client, in its realm: the app realms' own, then (spec 040) the shared ones. */
+const FRONT_ENDS = [...APP_REALMS, ...SHARED_REALM_CLIENTS];
+
+/** The clients enabled in `realm`: its own app's, and its `SHARED_REALM_CLIENTS` rows'. */
+function ownClients(realm: string): string[] {
+  return FRONT_ENDS.filter((r) => r.realm === realm).map((r) => r.clientId);
+}
+
+/** Each front end's client's internal id, by client ID. */
 async function clientIds(kc: KcAdminClient): Promise<Record<string, string | undefined>> {
   const ids: Record<string, string | undefined> = {};
-  for (const { realm, clientId } of APP_REALMS) {
-    ids[realm] = (await kc.clients.find({ realm, clientId }))[0]?.id;
+  for (const { realm, clientId } of FRONT_ENDS) {
+    ids[clientId] = (await kc.clients.find({ realm, clientId }))[0]?.id;
   }
   return ids;
 }

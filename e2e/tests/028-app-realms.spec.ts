@@ -1,7 +1,10 @@
 // Spec 028 quickstart S1 and S2 (research R10; FR-001 to FR-004, SC-002, SC-003): the apps signed
 // in as their own users in one browser window, each through its own realm, each renewing on its
 // own; logging out of one leaves the others signed in through their next renewal. Spec 037 (T037):
-// the Rust Admin app is the fourth.
+// the Rust Admin app is the fourth. Spec 040 (research R3, R13): the Rust Customer app is not
+// added: it signs in through the Customer realm, so it can't be signed in as a fifth user in this
+// one window. This test keeps its own four apps (`APPS_028`); 040's own test covers the shared
+// session. Untagged, so it runs in the chromium project only.
 import {
   expect,
   test,
@@ -12,7 +15,6 @@ import {
 } from '@playwright/test';
 import {
   API_BASE,
-  APPS,
   KEYCLOAK,
   adminFor,
   agentFor,
@@ -21,6 +23,10 @@ import {
 } from '../fixtures/apps';
 import { APP_REALMS } from '../fixtures/realms';
 import { signIn, signOut } from '../fixtures/sign-in';
+
+/** The four apps of this test, each in a realm of its own (research R3: not the Rust Customer). */
+const APPS_028 = ['admin', 'customer', 'booth', 'admin-rust'] as const;
+type App028 = (typeof APPS_028)[number];
 
 const realmOf = (app: AppName): string => APP_REALMS.find((r) => r.app === app)!.realm;
 
@@ -129,7 +135,7 @@ test('028 S1/S2: four apps signed in as four users in one browser window stay si
   // Code review round 2: 11 to 19 are 026's, one per repeat. No index is free, so the two customers
   // are 001's (9 and 10), whose tests only sign in and out: a worker runs its tests one at a time,
   // and this test neither buys nor holds seats, so sharing them changes nothing either test sees.
-  const users: Record<AppName, string> = {
+  const users: Record<App028, string> = {
     admin: adminFor(testInfo),
     customer: customerFor(testInfo, 9),
     booth: agentFor(testInfo, 2),
@@ -139,7 +145,7 @@ test('028 S1/S2: four apps signed in as four users in one browser window stay si
   const context = await browser.newContext();
   // R10: the clock is the context's; installed once, before the first page, never again.
   await context.clock.install();
-  const pages: Record<AppName, Page> = {
+  const pages: Record<App028, Page> = {
     admin: await context.newPage(),
     customer: await context.newPage(),
     booth: await context.newPage(),
@@ -149,7 +155,7 @@ test('028 S1/S2: four apps signed in as four users in one browser window stay si
   // Steps 1 to 3: Admin, then Customer, then the Booth, then the Rust Admin app, each on its own
   // sign-in page (FR-003),
   // each calling the API as its own user (FR-001).
-  const signed: Record<AppName, Signed> = {
+  const signed: Record<App028, Signed> = {
     admin: await signInAndCall(pages.admin, 'admin', users.admin),
     customer: await signInAndCall(pages.customer, 'customer', users.customer),
     booth: await signInAndCall(pages.booth, 'booth', users.booth),
@@ -162,7 +168,7 @@ test('028 S1/S2: four apps signed in as four users in one browser window stay si
   // Steps 5 and 6: each app logs out in turn; the others renew and keep calling the API as
   // their own users (FR-004, SC-002); then the app signs in again, as another user where the
   // fixtures give one.
-  const again: Record<AppName, string> = {
+  const again: Record<App028, string> = {
     customer: customerFor(testInfo, 10),
     admin: users.admin,
     booth: agentFor(testInfo, 3),
@@ -172,7 +178,7 @@ test('028 S1/S2: four apps signed in as four users in one browser window stay si
     await test.step(`${app} logs out; the others stay signed in`, async () => {
       await signOut(pages[app], app);
       const others = Object.fromEntries(
-        (Object.keys(signed) as AppName[]).filter((a) => a !== app).map((a) => [a, signed[a]]),
+        (Object.keys(signed) as App028[]).filter((a) => a !== app).map((a) => [a, signed[a]]),
       );
       await renewAll(context, others);
       // The app that logged out is still on its own sign-in page, not signed back in by another.
@@ -183,7 +189,7 @@ test('028 S1/S2: four apps signed in as four users in one browser window stay si
   }
 
   // Every app ends signed in as the user it last signed in as.
-  for (const app of Object.keys(APPS) as AppName[]) {
+  for (const app of APPS_028) {
     await expect(pages[app].getByRole('button', { name: 'Log out' })).toBeVisible();
   }
   await context.close();
