@@ -1,0 +1,97 @@
+{
+  "eventId": "ce36863f-51b6-4af9-8163-97ffb3e9af50",
+  "seq": 1,
+  "layoutId": "0c530530-9ca5-4a1b-8dab-3e58d837a842",
+  "layoutName": "Arena",
+  "size": {
+    "width": 80,
+    "height": 10
+  },
+  "floorKind": "NONE",
+  "floorOutline": null,
+  "levels": [
+    {
+      "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+      "name": "Front",
+      "rank": 1,
+      "color": "violet",
+      "price": "90.00"
+    },
+    {
+      "levelId": "fb8e9da0-2b36-4416-8b01-3960130c7438",
+      "name": "Back",
+      "rank": 2,
+      "color": "teal",
+      "price": "55.00"
+    },
+    {
+      "levelId": "416d985d-2410-4108-8d1d-7d0fb10f3f97",
+      "name": "Upper",
+      "rank": 3,
+      "color": "blue",
+      "price": "30.00"
+    }
+  ],
+  "sections": [
+    {
+      "sectionId": "31258b3d-11df-43e1-8c8d-0431d917963a",
+      "name": "Floor A",
+      "outline": [
+        [0, 0],
+        [24, 0],
+        [24, 10],
+        [0, 10]
+      ],
+      "labelAt": [12, 5],
+      "counts": [
+        {
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "open": 28,
+          "reserved": 1,
+          "sold": 1,
+          "offSale": 0
+        }
+      ]
+    },
+    {
+      "sectionId": "47ffcef7-fd77-48ad-87fe-7cacdb3c85b3",
+      "name": "Floor B",
+      "outline": [
+        [32, 0],
+        [56, 0],
+        [56, 10],
+        [32, 10]
+      ],
+      "labelAt": [44, 5],
+      "counts": [
+        {
+          "levelId": "fb8e9da0-2b36-4416-8b01-3960130c7438",
+          "open": 30,
+          "reserved": 0,
+          "sold": 0,
+          "offSale": 0
+        }
+      ]
+    },
+    {
+      "sectionId": "accbca9f-8701-439d-8325-0205b00741c8",
+      "name": "Balcony",
+      "outline": [
+        [64, 0],
+        [78, 0],
+        [78, 8],
+        [64, 8]
+      ],
+      "labelAt": [71, 4],
+      "counts": [
+        {
+          "levelId": "416d985d-2410-4108-8d1d-7d0fb10f3f97",
+          "open": 10,
+          "reserved": 0,
+          "sold": 0,
+          "offSale": 0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,266 @@
+{
+  "eventId": "ce36863f-51b6-4af9-8163-97ffb3e9af50",
+  "seq": 1,
+  "sectionId": "31258b3d-11df-43e1-8c8d-0431d917963a",
+  "name": "Floor A",
+  "rows": [
+    {
+      "number": 1,
+      "label": "1",
+      "seats": [
+        {
+          "number": 1,
+          "label": "1",
+          "at": [3, 3],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "sold"
+        },
+        {
+          "number": 2,
+          "label": "2",
+          "at": [5, 3],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "reserved"
+        },
+        {
+          "number": 3,
+          "label": "3",
+          "at": [7, 3],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 4,
+          "label": "4",
+          "at": [9, 3],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 5,
+          "label": "5",
+          "at": [11, 3],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 6,
+          "label": "6",
+          "at": [13, 3],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 7,
+          "label": "7",
+          "at": [15, 3],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 8,
+          "label": "8",
+          "at": [17, 3],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 9,
+          "label": "9",
+          "at": [19, 3],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 10,
+          "label": "10",
+          "at": [21, 3],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "label": "2",
+      "seats": [
+        {
+          "number": 1,
+          "label": "1",
+          "at": [3, 5],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 2,
+          "label": "2",
+          "at": [5, 5],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 3,
+          "label": "3",
+          "at": [7, 5],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 4,
+          "label": "4",
+          "at": [9, 5],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 5,
+          "label": "5",
+          "at": [11, 5],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 6,
+          "label": "6",
+          "at": [13, 5],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 7,
+          "label": "7",
+          "at": [15, 5],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 8,
+          "label": "8",
+          "at": [17, 5],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 9,
+          "label": "9",
+          "at": [19, 5],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 10,
+          "label": "10",
+          "at": [21, 5],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "label": "3",
+      "seats": [
+        {
+          "number": 1,
+          "label": "1",
+          "at": [3, 7],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 2,
+          "label": "2",
+          "at": [5, 7],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 3,
+          "label": "3",
+          "at": [7, 7],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 4,
+          "label": "4",
+          "at": [9, 7],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 5,
+          "label": "5",
+          "at": [11, 7],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 6,
+          "label": "6",
+          "at": [13, 7],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 7,
+          "label": "7",
+          "at": [15, 7],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 8,
+          "label": "8",
+          "at": [17, 7],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 9,
+          "label": "9",
+          "at": [19, 7],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        },
+        {
+          "number": 10,
+          "label": "10",
+          "at": [21, 7],
+          "levelId": "6e82aed0-f0e7-446f-83cb-67de83311f97",
+          "accessible": false,
+          "state": "open"
+        }
+      ]
+    }
+  ]
+}

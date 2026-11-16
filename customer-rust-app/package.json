@@ -1,0 +1,17 @@
+{
+  "name": "@queuepass/customer-rust-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "trunk serve --port 5177",
+    "build": "trunk build --release",
+    "test": "node -e \"require('fs').mkdirSync('coverage',{recursive:true})\" && cargo llvm-cov --package customer-rust-core --fail-under-lines 80 --json --summary-only --output-path coverage/llvm-cov.json && node scripts/coverage-summary.mjs",
+    "lint": "cargo clippy --workspace --exclude customer-rust-app --all-targets -- -D warnings && cargo clippy -p customer-rust-app --target wasm32-unknown-unknown -- -D warnings",
+    "format:check": "cargo fmt --check"
+  },
+  "coverage": {
+    "measured": "core (crate customer-rust-core), 80% lines, cargo llvm-cov (spec 040 research R11)",
+    "excluded": "app (crate customer-rust-app): Leptos views and browser glue compiled only to WebAssembly, which cargo llvm-cov cannot measure natively. Constitution VI's replacement control (3.12.0): every @customer journey runs against it in the customer-rust Playwright project, plus spec 040's own journeys (040 S1, S2, S5, S6, S8, S11)."
+  }
+}

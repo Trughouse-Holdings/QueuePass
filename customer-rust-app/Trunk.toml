@@ -1,0 +1,8 @@
+# Spec 040: Trunk builds the app crate to WebAssembly and serves it on 5177 (research R1, R12).
+[build]
+target = "index.html"
+dist = "dist"
+
+[serve]
+addresses = ["0.0.0.0"]
+port = 5177
