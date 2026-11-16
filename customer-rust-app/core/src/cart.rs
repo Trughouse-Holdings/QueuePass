@@ -337,7 +337,7 @@ impl Cart {
                 explain.push(e.reservation);
             }
         }
-        next.sort_by(|a, b| created(&b.reservation).cmp(&created(&a.reservation)));
+        next.sort_by_key(|e| std::cmp::Reverse(created(&e.reservation)));
         self.entries = Some(next);
         for r in ran_out {
             self.ran_out(&r);
