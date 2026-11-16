@@ -265,3 +265,45 @@ Decisions the spec left open, taken in its spirit:
 - **T066 (part)**: quickstart rows S1, S2, and S8 are marked Automated with their test titles now,
   because `node scripts/check-quickstart-marks.mjs` (part of `npm test`) fails while a browser test
   has no Automated row. The rest of T066 (S5, S6, S11, the review) is the integrating session's.
+
+## Implementation notes (session C)
+
+Decisions the spec left open, taken in its spirit:
+
+- **T022**: `core::format` is now the Customer `format.ts`; the Admin-only helpers (`until`,
+  `venue_zone`, `SOURCE_TEXT`, `removed_note`, `removed_short`) and their cases in `tests/time.rs`
+  were dropped (nothing in the Customer app or the copied seating code uses them); `maps_url` stays
+  for the address link. `seat_label` takes a `SeatRef` (numbers plus optional labels, as the
+  TypeScript's `rowLabel ?? row`); `SeatRef::from_label` reads the contract's `SeatLabel`. The
+  shared `time-zone.ts` cases were already in the copied `tests/time.rs`.
+- **T042**: `core::buy::Buy` takes the request id from the caller (`crypto.randomUUID()` in `app`)
+  and the monotonic time (`performance.now()`), so it is pure. A 2xx that cannot be read is the
+  unknown outcome (the TypeScript's `catch`); a 4xx without the envelope says "The request was
+  refused.". `Waits` keeps one announcement, cleared when its own wait ends, as `useWaits`.
+  `core::availability` re-exports `uuid::Uuid` so `app` needs no `uuid` dependency.
+- **T043, the panel interface** (written at the top of `components/get_tickets/frame.rs`): a panel
+  component calls `Panel::new(event, on_sales, on_event_changed)` (the reads, the waits' 250 ms
+  checks, `provide_context`), keeps its own state outside the frame, and renders
+  `<GetTicketsFrame panel>{form}</GetTicketsFrame>`. The seated panel sets `has_reservation`,
+  `seats_loading`, `seats_failed`, `ran_out`, `notice`, starts the HOLD wait on `panel.waits`, and
+  calls `panel.map_gone()` for E8. `general::General` and (session D) `seated::Seated` take the same
+  props as `GetTickets`. `get_tickets/mod.rs` (session B's) was filled minimally: general admission
+  → `general::General`; seated → the frame alone until D's `Seated` replaces that branch.
+- **T043**: the started note's reference instant is `Date.now()` when the availability answer
+  arrived (`loaded_at`), as the React `loadedAt`. The unknown-outcome box's Check again calls the
+  general form's confirm through `Panel::set_check_again`; the focus returns to the pressed button
+  on the next animation frame when it fell to the page.
+- **T054**: `scripts/customer-parity-fixtures.mjs` imports `customer-app/src/calendar.ts` and
+  `packages/shared/src/live-code.ts` unchanged and `qrcode-generator` as `TicketQr.tsx` calls it.
+  It does not import `filters.ts` (session B ported those rules case by case). Run on Windows with
+  Node 22 through the shared lock, from this worktree (which has no `node_modules`), as
+  `$env:NODE_PATH='<QP-040-impl>\node_modules'; <QP-040-impl>\node_modules\.bin\tsx.cmd
+  scripts/customer-parity-fixtures.mjs`; in a full checkout, `npx tsx scripts/customer-parity-fixtures.mjs`.
+- **T056**: the QR module grids equal `qrcode-generator` 2.0.4's on the first try for all nine
+  fixture texts (two ticket codes, four live codes, three longer texts up to version 5): R9's
+  fallback was **not** needed. The mask is scored as `getBestMaskPattern` does, with the format
+  information, the fixed dark module, and the version information all light (`makeImpl(true, …)`).
+- **T059**: both entry-code reads use `send_quiet`, and a 401 on either calls sign-in once (the
+  React page's `signIn()`); "Getting your entry code…" stays meanwhile.
+- **T060**: `040 S6` uses `customerFor` index 14 (no other journey uses it). It is written but not
+  run here; making `019 S2` pass in `customer-rust` is the integrator's browser run.
