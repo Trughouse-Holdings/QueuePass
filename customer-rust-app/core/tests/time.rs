@@ -7,19 +7,16 @@
 //!   carry, so it has no case here
 //! - `admin-app/test/event-form-times.test.ts` (spec 036 FR-003, FR-005, FR-009, FR-010)
 //! - `admin-app/test/event-default-times.test.tsx` (036 FR-017), its pure logic
-//! - `admin-app/test/event-form.tz.test.tsx` and `times.tz.test.tsx` (020 FR-014 to FR-026), their
-//!   pure logic
-//! - `admin-app/test/format.test.ts` (spec 030 FR-001)
+//! - `admin-app/test/event-form.tz.test.tsx` (020 FR-014 to FR-026), its pure logic
+//!
+//! Spec 040 T022: the Admin's `format.ts` cases (`until`, `venueZone`, `removedNote`, the Admin
+//! pages' times) went with those helpers; the Customer's `format.ts` cases are in `format.rs`.
 //!
 //! Every assertion is an exact value. The `fixtures/time/*.tsv` files are the TypeScript functions'
 //! own outputs under Node 22's `Intl` (written by `fixtures/time/generate.mts`), so the Rust text
 //! is byte-identical to the React app's.
 
 use chrono::{DateTime, Utc};
-use customer_rust_core::format::{
-    SOURCE_TEXT, doors_open, has_ended, removed_note, removed_short, seat_label, source_text,
-    until, venue_zone, when,
-};
 use customer_rust_core::time::*;
 
 fn at(iso: &str) -> DateTime<Utc> {
@@ -1408,208 +1405,6 @@ mod event_form_zone_logic_020 {
         assert_eq!(
             to_offset_date_time(second.instant, "America/Chicago").unwrap(),
             "2027-11-07T01:30:00-06:00"
-        );
-    }
-
-    #[test]
-    fn names_the_conflicting_event_times_in_the_venue_zone() {
-        let (s, e) = ("2026-10-01T23:00:00.000Z", "2026-10-02T02:00:00.000Z");
-        let zone = Some("America/New_York");
-        assert_eq!(
-            format!(
-                "Conflicts with X, which runs {} – {}.",
-                when(s, zone),
-                until(s, e, zone)
-            ),
-            "Conflicts with X, which runs Oct 1, 2026, 7:00 PM EDT – 10:00 PM EDT."
-        );
-    }
-}
-
-// ------------------------------------------------------------------ times.tz.test.tsx
-
-mod admin_pages_show_venue_times_020_r12 {
-    use super::*;
-
-    #[test]
-    fn each_event_in_its_venue_zone() {
-        for (zone, start, end, times, starts, ends) in [
-            (
-                "America/New_York",
-                "2026-10-01T23:00:00.000Z",
-                "2026-10-02T02:00:00.000Z",
-                "7:00 PM EDT – 10:00 PM EDT",
-                "Oct 1, 2026, 7:00 PM EDT",
-                "Oct 1, 2026, 10:00 PM EDT",
-            ),
-            (
-                "America/Phoenix",
-                "2026-10-02T02:00:00.000Z",
-                "2026-10-02T05:00:00.000Z",
-                "7:00 PM MST – 10:00 PM MST",
-                "Oct 1, 2026, 7:00 PM MST",
-                "Oct 1, 2026, 10:00 PM MST",
-            ),
-            (
-                "Pacific/Honolulu",
-                "2026-10-02T05:00:00.000Z",
-                "2026-10-02T08:00:00.000Z",
-                "7:00 PM HST – 10:00 PM HST",
-                "Oct 1, 2026, 7:00 PM HST",
-                "Oct 1, 2026, 10:00 PM HST",
-            ),
-        ] {
-            assert_eq!(format_event_date(at(start), zone), "Oct 1, 2026");
-            assert_eq!(
-                format!(
-                    "{} – {}",
-                    format_time_of_day(at(start), zone),
-                    until(start, end, Some(zone))
-                ),
-                times
-            );
-            assert_eq!(when(start, Some(zone)), starts);
-            assert_eq!(when(end, Some(zone)), ends);
-        }
-    }
-
-    #[test]
-    fn gives_an_event_across_midnight_its_end_date() {
-        let zone = "America/New_York";
-        let (start, end) = ("2026-10-02T02:00:00.000Z", "2026-10-02T05:00:00.000Z");
-        assert_eq!(
-            format!(
-                "{} – {}",
-                format_time_of_day(at(start), zone),
-                until(start, end, Some(zone))
-            ),
-            "10:00 PM EDT – Oct 2, 2026, 1:00 AM EDT"
-        );
-    }
-
-    #[test]
-    fn attendees_checked_in_time_in_the_venue_zone() {
-        // ORDERS' first ticket was checked in at 22:45Z on Nov 1: 12:45 PM HST.
-        assert_eq!(
-            when("2026-11-01T22:45:00.000Z", Some("Pacific/Honolulu")),
-            "Nov 1, 2026, 12:45 PM HST"
-        );
-    }
-
-    #[test]
-    fn reports_dates_each_event_in_its_venue_zone() {
-        // 9:00 PM PDT on Oct 1 is Oct 2 in UTC and in Eastern time.
-        let t = at("2026-10-02T04:00:00.000Z");
-        assert_eq!(format_event_date(t, "America/Los_Angeles"), "Oct 1, 2026");
-        assert_eq!(format_event_date(t, "America/New_York"), "Oct 2, 2026");
-    }
-}
-
-// ------------------------------------------------------------------ format.ts (format.test.ts)
-
-mod has_ended_030_fr_001 {
-    use super::*;
-
-    const END: &str = "2026-11-10T03:00:00.000Z";
-
-    #[test]
-    fn is_false_one_millisecond_before_the_end() {
-        let end = at(END).timestamp_millis();
-        assert!(!has_ended(END, end - 1));
-    }
-
-    #[test]
-    fn is_true_at_the_end_exactly_and_after() {
-        let end = at(END).timestamp_millis();
-        assert!(has_ended(END, end));
-        assert!(has_ended(END, end + 60_000));
-    }
-
-    #[test]
-    fn is_false_for_a_time_date_cannot_read() {
-        // `Date.parse` gives NaN, and `NaN <= now` is false.
-        assert!(!has_ended("garbage", i64::MAX));
-    }
-}
-
-mod format_ts {
-    use super::*;
-
-    #[test]
-    fn when_reads_a_missing_zone_as_eastern() {
-        let t = "2026-11-01T23:00:00.000Z";
-        assert_eq!(when(t, None), "Nov 1, 2026, 6:00 PM EST");
-        assert_eq!(when(t, Some("")), "Nov 1, 2026, 6:00 PM EST");
-        assert_eq!(
-            when(t, Some("Pacific/Honolulu")),
-            "Nov 1, 2026, 1:00 PM HST"
-        );
-    }
-
-    #[test]
-    fn until_gives_the_date_only_when_it_differs() {
-        assert_eq!(
-            until("2026-11-01T23:00:00.000Z", "2026-11-02T02:00:00.000Z", None),
-            "9:00 PM EST"
-        );
-        assert_eq!(
-            until(
-                "2026-11-01T23:00:00.000Z",
-                "2026-11-02T06:00:00.000Z",
-                Some("America/Chicago")
-            ),
-            "Nov 2, 2026, 12:00 AM CST"
-        );
-    }
-
-    #[test]
-    fn seat_label_reads_section_row_seat() {
-        assert_eq!(seat_label("115", "F", "7"), "Section 115, Row F, Seat 7");
-    }
-
-    #[test]
-    fn venue_zone_names_the_zone_and_how_it_was_set() {
-        assert_eq!(
-            venue_zone(Some("America/Phoenix"), Some("STATE")),
-            "Arizona Time (no daylight saving), from the state"
-        );
-        assert_eq!(venue_zone(None, None), "Eastern Time, the default");
-        // `??` keeps an empty zone, and an unknown source reads "undefined", as in TypeScript.
-        assert_eq!(venue_zone(Some(""), Some("BOGUS")), ", undefined");
-        assert_eq!(
-            SOURCE_TEXT,
-            [
-                ("ADDRESS", "from the address"),
-                ("STATE", "from the state"),
-                ("ADMIN", "chosen by an admin"),
-                ("DEFAULT", "the default"),
-            ]
-        );
-        assert_eq!(source_text("ADMIN"), Some("chosen by an admin"));
-        assert_eq!(source_text("admin"), None);
-    }
-
-    #[test]
-    fn doors_open_beside_the_start() {
-        assert_eq!(
-            doors_open("2026-11-01T23:00:00.000Z", "2026-11-01T22:00:00.000Z", None),
-            "5:00 PM EST"
-        );
-        assert_eq!(
-            doors_open("2026-11-20T06:00:00Z", "2026-11-20T04:30:00Z", None),
-            "Nov 19, 2026, 11:30 PM EST"
-        );
-    }
-
-    #[test]
-    fn removed_note_and_short_name_the_date_in_the_venue_zone() {
-        assert_eq!(
-            removed_note("2026-11-09T15:00:00.000Z", None),
-            "Check-in details removed on Nov 9, 2026 (kept for 7 days after the event)."
-        );
-        assert_eq!(
-            removed_short("2026-11-10T03:00:00.000Z", Some("America/Los_Angeles")),
-            "Details removed Nov 9, 2026"
         );
     }
 }
