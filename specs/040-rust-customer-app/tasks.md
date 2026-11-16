@@ -121,11 +121,11 @@ come with them and must pass before any change.
 
 **Goal**: parity B1–B8, V1–V3, E1–E5, SL2–SL6. **Independent test**: quickstart S3.
 
-- [ ] T033 *(test first)* [P] [US2] `core/tests/filters.rs`: port `customer-app/test/filters.test.tsx` and `browse.test.tsx`'s logic (URL read and write, invalid and reversed dates dropped, `q` trimmed, the request query with `locationId` only once venues load, hide cancelled in the app, the 300 ms typing replace vs push rule); then `core/src/filters.rs` (B3, B4)
-- [ ] T034 *(test first)* [P] [US2] `core/tests/gallery.rs`: copy the gallery cases of `admin-rust-app/core/tests/event_page.rs` (and `images.rs` where they apply) with the gallery parts of `admin-rust-app/core/src/pages/event_page.rs` (R4); add the card variant's cases from `customer-app/test/event-images.test.tsx`, `cards.test.tsx`, and `packages/shared/test/web/{image-gallery,gallery-size,use-gallery-rotation}.test.*` (3:4–2:1 clamp, 160 px minimum, 4:3 until known, show-and-next only, pause reasons); then `core/src/gallery.rs` (B6, E3)
-- [ ] T035 [US2] Copy `app/src/components/{gallery,address_link,link,banners}.rs` (the `page` variant) and write the **new** `card` variant (B6: link wrapper, one shared `IntersectionObserver` with `rootMargin` 200px); `app/src/components/{event_card,event_filters}.rs` and `app/src/pages/event_list.rs` (B1–B8)
-- [ ] T036 [P] [US2] `app/src/pages/{venue_list,venue_detail}.rs` (V1–V3)
-- [ ] T037 [US2] `app/src/pages/event_detail.rs`: E1–E5 and E8's page part, the page gallery and full-screen viewer, "All events"; the Get tickets slot (filled in US4 and US3)
+- [X] T033 *(test first)* [P] [US2] `core/tests/filters.rs`: port `customer-app/test/filters.test.tsx` and `browse.test.tsx`'s logic (URL read and write, invalid and reversed dates dropped, `q` trimmed, the request query with `locationId` only once venues load, hide cancelled in the app, the 300 ms typing replace vs push rule); then `core/src/filters.rs` (B3, B4)
+- [X] T034 *(test first)* [P] [US2] `core/tests/gallery.rs`: copy the gallery cases of `admin-rust-app/core/tests/event_page.rs` (and `images.rs` where they apply) with the gallery parts of `admin-rust-app/core/src/pages/event_page.rs` (R4); add the card variant's cases from `customer-app/test/event-images.test.tsx`, `cards.test.tsx`, and `packages/shared/test/web/{image-gallery,gallery-size,use-gallery-rotation}.test.*` (3:4–2:1 clamp, 160 px minimum, 4:3 until known, show-and-next only, pause reasons); then `core/src/gallery.rs` (B6, E3)
+- [X] T035 [US2] Copy `app/src/components/{gallery,address_link,link,banners}.rs` (the `page` variant) and write the **new** `card` variant (B6: link wrapper, one shared `IntersectionObserver` with `rootMargin` 200px); `app/src/components/{event_card,event_filters}.rs` and `app/src/pages/event_list.rs` (B1–B8)
+- [X] T036 [P] [US2] `app/src/pages/{venue_list,venue_detail}.rs` (V1–V3)
+- [X] T037 [US2] `app/src/pages/event_detail.rs`: E1–E5 and E8's page part, the page gallery and full-screen viewer, "All events"; the Get tickets slot (filled in US4 and US3)
 - [ ] T038 [US2] Make the `@customer` journeys of `020 S6`, `030 S1/S2`, and the event-page parts of `003` and `036` pass in project `customer-rust`
 
 ---
@@ -265,3 +265,26 @@ Decisions the spec left open, taken in its spirit:
 - **T066 (part)**: quickstart rows S1, S2, and S8 are marked Automated with their test titles now,
   because `node scripts/check-quickstart-marks.mjs` (part of `npm test`) fails while a browser test
   has no Automated row. The rest of T066 (S5, S6, S11, the review) is the integrating session's.
+
+## Implementation notes (session B, screens: T033–T037)
+
+- **T033**: `core::filters` takes the address's search string (with or without `?`) and reads it as
+  `URLSearchParams.get` does (first value, `+` as a space); `write_filters` is `URLSearchParams`'
+  text. Quirk kept: `isDay` goes through `Date.UTC`, which reads the years 0–99 as 1900–1999, so
+  those years are never days. The typing rule is `typed_search(text, filters)`: `Some(next)` to
+  write with the history entry replaced after 300 ms, `None` when the trimmed text is the address's.
+- **T034**: `core::gallery` copies the Rust Admin gallery arithmetic and adds the card rules
+  (`card_held`, `slide_still`, `rotating` with the four pause reasons, `live_politeness`). No case of
+  `admin-rust-app/core/tests/images.rs` applies: they test the Admin's upload field.
+- **T035**: the gallery's `use_media_query` is copied into `components/gallery.rs` (the venue map's
+  `pan_zoom.rs`, its Admin home, is session D's file here). The card's `IntersectionObserver` is one
+  shared observer (`thread_local`) told only each card's own element, disconnected with the last.
+- **T037**: a new `core::event_page` module (one line in `core/src/lib.rs`) holds the page's logic:
+  `sales_answer` (an availability answer kept only with a boolean `inProgress` and without
+  `STARTED`), `page_has_ended` (E5), and `get_tickets_key`. `GetTickets` takes the event, its load
+  time, `on_sales: Callback<SalesAnswer>`, and `on_event_changed: Callback<Event>` (as
+  `PanelProps`); the general and seated panels are marked placeholders in `get_tickets/mod.rs` until
+  sessions C (T043) and D (T050) fill them. The gallery band is drawn again only for another event,
+  and the panel only when its key changes.
+- **Formats**: session C's T022 commit (`546e893`) is merged in; the pages use `core::format`
+  (`when`, `doors_open`, `event_price`, `count`, `usd`).
