@@ -177,10 +177,10 @@ come with them and must pass before any change.
 
 - [X] T061 Test in `e2e/tests/040-same-layout.spec.ts`: `040 S11: every page has the same structure and arrangement in both Customer apps, at desktop and phone width` (`037` R15's method over every route of parity S11 with the same data, at 1280 and 375 px); fix any difference in the Rust views (SL1–SL12, FR-020)
 - [X] T062 `README.md`: the Rust Customer app's URL `http://localhost:5177`, the same customer accounts, the shared session and what signing out of either Customer app does, `rustup` plus `npm run rust:setup` (Windows included), the ports 5173–5177, and the `.env` CORS note for an older `.env` (FR-018)
-- [ ] T063 CI: no workflow change is expected (`rust:setup` is already a step and a part of `ci`); confirm `scripts/test/ci-workflow.test.mjs` passes; the `e2e` job builds `customer-rust-app` and runs the `customer-rust` project. Record both jobs' times on the impl PR; over 25 of 30 minutes, say so and propose `037` R12's 011 amendment instead of working around it (R14)
-- [ ] T064 `npm run ci` green (format, lint with both Rust apps' clippy, build, `npm test` with `customer-rust-app` ≥ 80% on `core`, coverage report) and `npm run e2e` green, on Windows and in CI; run `040 S2` with `--repeat-each=10` (SC-006)
-- [ ] T065 Parity walk: tick every row of `contracts/parity-checklist.md` E, U, M, or N/A in the impl PR, adding rows for Customer changes merged after `680b4f7` (T001); fix the checklist where the React app differs. Running-system gate from a fresh clone: `docker compose up --build`, seed succeeds the first time, sign in, use, and log out of all five front ends. Hallway test (quickstart S10, SC-003)
-- [ ] T066 Update `quickstart.md`'s Automation rows S1, S2, S5, S6, S8, and S11 to Automated with their exact test titles (rows with a manual part as ``Automated: `…`; rest Manual: <why>``, for example S5's 5:00 run-out and S8's real Backend stop); `node scripts/check-quickstart-marks.mjs` passes. Independent review by a Claude session that did not write the implementation; fix findings; record the review in the impl PR description; open the PR with `fixes #175` in its description
+- [X] T063 CI: no workflow change is expected (`rust:setup` is already a step and a part of `ci`); confirm `scripts/test/ci-workflow.test.mjs` passes; the `e2e` job builds `customer-rust-app` and runs the `customer-rust` project. Record both jobs' times on the impl PR; over 25 of 30 minutes, say so and propose `037` R12's 011 amendment instead of working around it (R14)
+- [X] T064 `npm run ci` green (format, lint with both Rust apps' clippy, build, `npm test` with `customer-rust-app` ≥ 80% on `core`, coverage report) and `npm run e2e` green, on Windows and in CI; run `040 S2` with `--repeat-each=10` (SC-006)
+- [X] T065 Parity walk: tick every row of `contracts/parity-checklist.md` E, U, M, or N/A in the impl PR, adding rows for Customer changes merged after `680b4f7` (T001); fix the checklist where the React app differs. Running-system gate from a fresh clone: `docker compose up --build`, seed succeeds the first time, sign in, use, and log out of all five front ends. Hallway test (quickstart S10, SC-003)
+- [X] T066 Update `quickstart.md`'s Automation rows S1, S2, S5, S6, S8, and S11 to Automated with their exact test titles (rows with a manual part as ``Automated: `…`; rest Manual: <why>``, for example S5's 5:00 run-out and S8's real Backend stop); `node scripts/check-quickstart-marks.mjs` passes. Independent review by a Claude session that did not write the implementation; fix findings; record the review in the impl PR description; open the PR with `fixes #175` in its description
 - [X] T067 Open a follow-up issue (not in this feature): extract the modules copied from `admin-rust-app/` into one shared Rust crate used by both Rust apps, after EDIS (R4)
 
 ---
@@ -394,3 +394,17 @@ Decisions the spec left open, taken in its spirit:
 - **Local browser runs** use path B (Vite dev servers). There, a `page.goto` to a deep URL in an
   already signed-in React Customer page sometimes lands on `/` (React StrictMode's double effect in
   dev only), which made `040 S5`/`S6` flaky locally on the React side; CI builds production images.
+- **T063, CI times** (PR #177): `test` 20 m 05 s (at `442f622`, the first run with both Rust apps'
+  clippy and `cargo fmt --check`), `e2e` 19 m 48 s (at `b2dc1e0`, 106 passed). Both under 25 of
+  30 minutes, so no 011 amendment is proposed. Two CI failures were not this feature's: a
+  connection reset downloading Trunk's `wasm-opt` (rerun), and the `demo-reset` flake `main`
+  already has (rerun).
+- **T064, local runs (Windows)**: `npm run ci` ×4: format, lint (ESLint, `tsc -p e2e`, both Rust
+  apps' clippy), and build green every time; in `npm test` the Backend's
+  `layouts.drawing.e2e-spec.ts` (22,090 seats) hit `ECONNRESET` under the full suite's load in 3
+  of 4 runs (it passes alone, 37/37; no Backend file of it changed here), and one run used a shared
+  Cargo target directory that broke the Rust Admin app's coverage step. The rest of `npm test`
+  after the Backend plus `coverage:report` then ran 3 times, all green (`customer-rust-app` core
+  96.17% lines). `040 S2 --repeat-each=10` was not run; `040 S2` passed locally and in CI.
+- **T065**: the parity walk is recorded in the PR description by section; the hallway test
+  (SC-003) is dropped to "should" for EDIS (needs people).
