@@ -126,6 +126,19 @@ impl<'a> SeatRef<'a> {
     }
 }
 
+impl<'a> SeatRef<'a> {
+    /// The contract's `SeatLabel` (a ticket's seat), labels and all.
+    pub fn from_label(s: &'a crate::api::types::SeatLabel) -> Self {
+        Self::labelled(
+            &s.section,
+            s.row.get() as i64,
+            s.seat.get() as i64,
+            &s.row_label,
+            &s.seat_label,
+        )
+    }
+}
+
 /// Ports `seatLabel`: "Section 115, Row F, Seat 7" (007 FR-011; 038 FR-026).
 pub fn seat_label(s: &SeatRef<'_>) -> String {
     let row = s.row_label.map_or_else(|| s.row.to_string(), str::to_owned);

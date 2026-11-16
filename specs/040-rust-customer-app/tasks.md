@@ -134,10 +134,10 @@ come with them and must pass before any change.
 
 **Goal**: parity P1–P11, E6, E7. **Independent test**: quickstart S4.
 
-- [ ] T039 *(test first)* [P] [US4] `core/tests/availability.rs`: port `purchase-unavailable.test.tsx`, `started-notice.test.tsx`, `ticket-limit.test.tsx`, and `doors-open.test.tsx`' panel cases (closed badge and text, started note and its short form, limit line and box, quantity bounds, "From", totals in cents)
-- [ ] T040 *(test first)* [P] [US4] `core/tests/holder_name.rs`: port `holder-name-field.test.tsx` and `packages/shared/test/holder-name.test.ts` (NFC, code points, messages in order)
-- [ ] T041 *(test first)* [P] [US4] `core/tests/buy.rs`: port `purchase.test.tsx` and `rate-limit.test.tsx` (request id kept or renewed, a second press sends nothing, Check again resends the same id, 401, refusal kept values, unknown outcome, 429 waits BUY and HOLD apart with their countdown and singular "1 second")
-- [ ] T042 [US4] `core/src/{availability,holder_name,buy}.rs` passing T039–T041 (R10)
+- [X] T039 *(test first)* [P] [US4] `core/tests/availability.rs`: port `purchase-unavailable.test.tsx`, `started-notice.test.tsx`, `ticket-limit.test.tsx`, and `doors-open.test.tsx`' panel cases (closed badge and text, started note and its short form, limit line and box, quantity bounds, "From", totals in cents)
+- [X] T040 *(test first)* [P] [US4] `core/tests/holder_name.rs`: port `holder-name-field.test.tsx` and `packages/shared/test/holder-name.test.ts` (NFC, code points, messages in order)
+- [X] T041 *(test first)* [P] [US4] `core/tests/buy.rs`: port `purchase.test.tsx` and `rate-limit.test.tsx` (request id kept or renewed, a second press sends nothing, Check again resends the same id, 401, refusal kept values, unknown outcome, 429 waits BUY and HOLD apart with their countdown and singular "1 second")
+- [X] T042 [US4] `core/src/{availability,holder_name,buy}.rs` passing T039–T041 (R10)
 - [ ] T043 [US4] `app/src/components/get_tickets/frame.rs`, the panel frame both kinds of event use (owned by this session): the card and heading, the loading and unavailable states (P1), the started note (E6), the hidden assertive region, "From", the notice, the closed text (E7), the limit box (P6), the unknown-outcome box (P9), and E8's switch of seating while open; then `get_tickets/general.rs` and `order_confirmation.rs` (P3–P11) with focus return
 - [ ] T044 [US4] Make `006 P1/P4`, `016 S2`, and `034 S1/S2` pass in project `customer-rust`
 
