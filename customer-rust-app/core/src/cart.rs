@@ -420,7 +420,23 @@ impl Cart {
     pub fn tick(&mut self, now: f64) {
         self.waits.tick(now);
         let mut out = Vec::new();
+        // Only an entry on screen counts down (React's countdown lives in a mounted `CartEntry`):
+        // one whose details are unknown or gone leaves only through a read (C3, C5, C8).
+        let hidden: Vec<String> = self
+            .entries
+            .iter()
+            .flatten()
+            .map(|e| e.reservation.event_id.clone())
+            .filter(|id| match self.infos.get(id) {
+                Some(Info::Details { .. }) => false,
+                Some(Info::Missing) => true,
+                None => !self.unavailable(id),
+            })
+            .collect();
         for e in self.entries.iter_mut().flatten() {
+            if hidden.contains(&e.reservation.event_id) {
+                continue;
+            }
             let left = ((e.deadline - now) / 1000.0).ceil().max(0.0) as u64;
             e.seconds_left = left;
             if left > 0 && left <= 60 {

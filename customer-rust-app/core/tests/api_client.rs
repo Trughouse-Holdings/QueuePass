@@ -119,7 +119,7 @@ async fn a_body_without_the_envelope_is_a_not_enveloped_validation_failure() {
 }
 
 #[tokio::test]
-async fn an_unknown_error_code_is_not_the_envelope() {
+async fn an_unknown_error_code_is_still_read_as_the_customer_pages_do() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/me/orders"))
@@ -131,7 +131,9 @@ async fn an_unknown_error_code_is_not_the_envelope() {
         .await;
     let (client, _) = client(&server);
     let err = client.list_my_orders().await.unwrap_err();
-    assert_eq!(err.message(), "Request failed with status 500.");
+    // Spec 040 (review finding 3): the Customer pages read any `{ error: { code, message } }`.
+    assert_eq!(err.message(), "x");
+    assert_eq!(err.code(), Some("SOMETHING_ELSE"));
 }
 
 #[tokio::test]

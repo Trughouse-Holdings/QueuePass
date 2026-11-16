@@ -175,6 +175,23 @@ pub fn error_from(status: u16, body: &[u8]) -> StatusError {
             enveloped: true,
         };
     }
+    // Spec 040 (review finding 3): the Customer pages read `error.code` and `error.message` from
+    // any JSON body (`error?.error?.message`), a code the contract doesn't list included.
+    if let Ok(Value::Object(body)) = serde_json::from_slice::<Value>(body)
+        && let Some(Value::Object(error)) = body.get("error")
+        && let (Some(code), Some(message)) = (
+            error.get("code").and_then(Value::as_str),
+            error.get("message").and_then(Value::as_str),
+        )
+    {
+        return StatusError {
+            status,
+            code: code.to_string(),
+            message: message.to_string(),
+            details: error.get("details").and_then(Value::as_object).cloned(),
+            enveloped: true,
+        };
+    }
     StatusError {
         status,
         code: "VALIDATION_FAILED".into(),

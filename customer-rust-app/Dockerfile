@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Copied from customer-rust-app/Dockerfile at 680b4f7 (spec 040 R4, R12): the Rust Customer app.
+# Copied from admin-rust-app/Dockerfile at 680b4f7 (spec 040 R4, R12): the Rust Customer app.
 # From spec 037 (research R11): A Rust build stage compiles the app to WebAssembly
 # with Trunk; an nginx stage serves the static files on 5177, as customer-app/Dockerfile does. The
 # build context is the repository root (the contract and the two stylesheets live outside the app).

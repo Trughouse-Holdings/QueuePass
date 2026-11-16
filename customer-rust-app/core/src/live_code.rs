@@ -176,8 +176,11 @@ pub fn entry_page(
     sent: f64,
     received: f64,
 ) -> EntryPage {
-    // `Promise.all` rejects (no answer) when either fetch does.
-    if matches!(orders, Err(ApiError::Unreachable)) || matches!(key, Err(ApiError::Unreachable)) {
+    // `Promise.all` rejects (no answer) when either fetch does, or when a 2xx body can't be
+    // read as JSON (review finding 4: openapi-fetch's parse throws there too).
+    let rejects =
+        |e: Option<&ApiError>| matches!(e, Some(ApiError::Unreachable | ApiError::Decode(_)));
+    if rejects(orders.as_ref().err()) || rejects(key.as_ref().err()) {
         return EntryPage::Offline;
     }
     let unauthorized = |e: Option<&ApiError>| e.and_then(ApiError::status) == Some(401);

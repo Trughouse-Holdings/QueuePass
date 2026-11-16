@@ -276,3 +276,19 @@ fn anything_else_is_the_standard_error_with_try_again() {
         EntryPage::Failed
     ));
 }
+
+/// Review finding 4: a 2xx body that can't be read rejects `Promise.all` in React, so the page
+/// says to use the printed ticket.
+#[test]
+fn an_unreadable_answer_is_treated_as_no_answer() {
+    assert!(matches!(
+        entry_page(
+            Err(ApiError::Decode("bad json".into())),
+            Ok(key()),
+            TICKET,
+            0.0,
+            0.0
+        ),
+        EntryPage::Offline
+    ));
+}

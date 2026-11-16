@@ -653,3 +653,16 @@ fn a_status_or_alert_stays_until_replaced() {
     cart.on_read(Ok(vec![]), 3_000.0);
     assert!(cart.alert.is_some());
 }
+
+/// Review finding 2: an entry not on screen (details unknown, or its event gone) has no
+/// countdown, as React's `CartEntry` is not mounted: it never runs out on a tick.
+#[test]
+fn an_entry_not_shown_does_not_run_out_on_a_tick() {
+    let mut cart = Cart::new();
+    assert!(cart.begin_read());
+    cart.on_read(Ok(vec![reservation("e1", &[1], 2)]), 0.0);
+    // No details asked for or answered yet: nothing shown.
+    cart.tick(5_000.0);
+    assert!(cart.alert.is_none());
+    assert!(cart.shown().is_empty());
+}
