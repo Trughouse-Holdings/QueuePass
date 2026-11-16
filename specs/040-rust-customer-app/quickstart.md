@@ -128,14 +128,14 @@ and arrangement; only the colors and the name differ (parity SL1–SL12).
 | Scenario | Browser test |
 | --- | --- |
 | S0 | Manual: the browser-test stack brings the system up itself |
-| S1 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S1: the Rust Customer app's sign-in is red and names it, and the customer is the same as in the React Customer app` |
-| S2 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S2: the two Customer apps share one session, and logging out of one releases holds and leaves every other app signed in` |
+| S1 | Automated: `040 S1: the Rust Customer app's sign-in is red and names it, and the customer is the same as in the React Customer app` |
+| S2 | Automated: `040 S2: the two Customer apps share one session, and logging out of one releases holds and leaves every other app signed in`; rest Manual: the 10 runs with `--repeat-each=10` for SC-006 |
 | S3 | Manual: no 040 test of its own; once the implementation PR tags them, the `@customer` journeys of `020` and `030` run in the `customer-rust` project (the started notice is `034 S1/S2`, under S4); the gallery by hand |
 | S4 | Manual: no 040 test of its own; once the implementation PR tags them, the `@customer` journeys of `006`, `016`, and `034` run in the `customer-rust` project |
 | S5 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S5: seats held in the Rust Customer app show in the React Customer app's cart and are bought in the Rust one`; `033` and `038`'s Customer journeys also run in the `customer-rust` project; the 5:00 run-out by hand |
 | S6 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S6: the entry code, the printed ticket, and the calendar file are the same in both Customer apps`; the Ticket Booth scan of a live code by hand (the gate's typed-code path is `017 S3`) |
 | S7 | Manual: a walk of the checklist by hand, recorded in the impl PR |
-| S8 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S8: a token without the customer role shows the wrong-role card, and an unreachable Backend is said plainly`; rest Manual: a real role-less account and stopping the real Backend by hand |
+| S8 | Automated: `040 S8: a token without the customer role shows the wrong-role card, and an unreachable Backend is said plainly`; rest Manual: a real role-less account and stopping the real Backend by hand |
 | S9 | Manual: test commands, run by CI |
 | S10 | Manual: needs people |
 | S11 | Manual: until the implementation PR, which makes it Automated with the planned test `040 S11: every page has the same structure and arrangement in both Customer apps, at desktop and phone width` |

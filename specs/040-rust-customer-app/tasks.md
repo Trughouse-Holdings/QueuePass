@@ -262,3 +262,6 @@ Decisions the spec left open, taken in its spirit:
 - **T032**: in a tagged journey every Customer app use switches to `customerApp`, set-up sign-ins
   through `apiFor` included. Journeys whose only Customer use is set-up through the API stay untagged
   (`025 S4/S5`, `037 S2`, `S3`, `S5`); `030 S4/S6` has no Customer step and stays `@admin` only.
+- **T066 (part)**: quickstart rows S1, S2, and S8 are marked Automated with their test titles now,
+  because `node scripts/check-quickstart-marks.mjs` (part of `npm test`) fails while a browser test
+  has no Automated row. The rest of T066 (S5, S6, S11, the review) is the integrating session's.
