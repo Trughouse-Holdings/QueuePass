@@ -283,18 +283,20 @@ The running Backend keeps working: requests for removed rows get its usual not-f
 hold sweeper finds nothing to sweep; a seat-map stream for a removed event stops getting changes.
 Open pages show their last state until reloaded, hence FR-014's reminder.
 
-Two resets at once: the second's wipe waits for the first's (or removes what the first loaded so
-far). Since #179 (R15), a wipe that comes while the other reset is loading waits for R15's lock and
-is refused as busy after 3 seconds, unless that load ends sooner. Neither is guaranteed to fail on its own: `Location.name` is not unique and `runDemoData`'s
-`findFirst`-then-create is not atomic, so both can pass the "demo venue exists" check and each create
-a full demo set. So after `runDemoData`, `runDemoReset` checks the result: the venue named `QueuePass
-Demo Arena` exists exactly once and there are exactly 2 venues. Otherwise, or when `runDemoData`
-returned `created: false` (the demo venue already there), it fails with FR-013's "another reset ran at
-the same time; run it again" (exit 1). Any other failure reports the same way. No lock is added: it
-is one person's laptop, and one more run fixes it. A test runs two `runDemoReset` calls at once and
-accepts a rejection with this message or with the busy message (a `40P01` or `55P03` during one
-reset's wipe is correct), and asserts the two never both resolve leaving two demo sets: if both
-resolve, exactly one demo set exists (tasks T006).
+Two resets at once: the second's wipe waits for the first's. Since #179 (R15), a wipe that comes
+while the other reset is loading waits for R15's lock and is refused as busy after 3 seconds, unless
+that load ends sooner; when both wipes pass before either load starts, the second's R15 lock waits
+instead and that reset fails as incomplete ("the database is busy"). Neither is guaranteed to fail
+on its own: `Location.name` is not unique and `runDemoData`'s `findFirst`-then-create is not atomic,
+so both can pass the "demo venue exists" check and each create a full demo set. So after
+`runDemoData`, `runDemoReset` checks the result: the venue named `QueuePass Demo Arena` exists
+exactly once and there are exactly 3 venues (2 before `038` added the Yum! Center). Otherwise, or
+when `runDemoData` returned `created: false` (the demo venue already there), it fails with FR-013's
+"another reset ran at the same time; run it again" (exit 1). Any other failure reports the same way.
+No lock is added: it is one person's laptop, and one more run fixes it. A test runs two
+`runDemoReset` calls at once and accepts a rejection with this message or with the busy message (a
+`40P01` or `55P03` during one reset's wipe is correct), and asserts the two never both resolve
+leaving two demo sets: if both resolve, exactly one demo set exists (tasks T006).
 
 ## R11. Output
 
@@ -412,39 +414,49 @@ demo state, never automatic) and points the Demo Tonight paragraph to it (FR-015
 
 ## R15. Statistics during the load (#179)
 
-**Decision**: `runDemoReset` runs the demo data's load inside `loadWithStatisticsHeld`. That function
-opens its own connection, starts a transaction, and locks every QueuePass table (the wipe's list from
-the catalog) `IN SHARE UPDATE EXCLUSIVE MODE` (`lock_timeout` 3 s). It then runs the load on the
-Backend's usual connections, runs `ANALYZE` on those tables, and commits.
+**Decision**: `runDemoReset` runs the demo data's load inside `loadWithStatisticsHeld`. That
+function opens its own connection, starts a transaction, and locks every QueuePass table (the wipe's
+list from the catalog) `IN SHARE UPDATE EXCLUSIVE MODE` (`lock_timeout` 3 s). It then runs the load
+on the Backend's usual connections, runs `ANALYZE` on those tables, and commits.
 
-**Why**: since `038` (T047) the load imports the Yum! Center's four layouts, 77,090 seats, each import in
-one transaction. Autovacuum's auto-analyze can run while an import's seats are still uncommitted. It
-cannot see them, so it records `Seat` and `SeatRow` as nearly empty, and those statistics stay until
-the next auto-analyze, about a minute later. With them, `LayoutsService.detail()` (its `levels` and
-`sections` queries, which every import returns) was planned as nested loops, 5 to 7 seconds per call
-on the team laptop. In CI one reset took 90 seconds (SC-002 is 10), and another passed the 120-second
-test limit. The busy refusal that followed was a knock-on effect: Jest does not stop a timed-out
-test, so the next test's wipe met that load's locks. ANALYZE from a second connection every 200 to
-500 ms during a reset reproduced it three times out of three (18 to 22 s, the Basketball import alone
-from about 1 s to 12 to 14 s). Statistics taken from empty or tiny tables did not slow it down.
+**Why**: since `038` (T047) the load imports the Yum! Center's four layouts, 77,090 seats, each
+import in one transaction. Autovacuum's auto-analyze can run while an import's seats are still
+uncommitted. It cannot see them, so it records `Seat` and `SeatRow` as nearly empty, and those
+statistics stay until the next auto-analyze, about a minute later. With them,
+`LayoutsService.detail()` (its `levels` and `sections` queries, which every import returns) was
+planned as nested loops, 5 to 7 seconds per call on the team laptop. In CI one reset took 90 seconds
+(SC-002 is 10), and another passed the 120-second test limit. The busy refusal that followed was a
+knock-on effect: Jest does not stop a timed-out test, so the next test's wipe met that load's locks.
+ANALYZE from a second connection every 200 to 500 ms during a reset reproduced it three times out of
+three (18 to 22 s, the Basketball import alone from about 1 s to 12 to 14 s). Statistics taken from
+empty or tiny tables did not slow it down.
 
-How it works: autovacuum skips a table whose lock it cannot get, and SHARE UPDATE EXCLUSIVE conflicts
-with itself, so no auto-analyze runs while the load does. A manual `ANALYZE` waits. The lock conflicts
-with neither row reads nor row writes (ACCESS SHARE, ROW EXCLUSIVE), so the load and a running
-Backend are not held up. The `ANALYZE` at the end leaves statistics that count what was loaded, so the
-apps' first reads after a reset plan well too. It adds a fraction of a second. The lock comes after the
-wipe (the wipe's ACCESS EXCLUSIVE would conflict with it), and on its own connection, so the load
-never waits for a pooled connection this transaction holds. A lock wait or timeout is reported like
-any failure after the wipe: "the demo state is incomplete (the database is busy); run it again"
-(FR-013).
+How it works: autovacuum skips a table whose lock it cannot get, and SHARE UPDATE EXCLUSIVE
+conflicts with itself, so no auto-analyze runs while the load does. A manual `ANALYZE` waits. The
+lock conflicts with neither row reads nor row writes (ACCESS SHARE, ROW EXCLUSIVE), so the load and
+a running Backend are not held up, as long as no conflicting request is queued. An ACCESS EXCLUSIVE
+request queued behind the lock (a second reset's wipe, or a test's `TRUNCATE` after a timed-out
+reset) makes later row locks queue behind it. A wipe gives up after its 3-second `lock_timeout`. A
+request with no time limit waits until the hold's transaction ends, so that limit stays near R9's
+worst case: 60 seconds, not more. Once the load has finished, a failed `ANALYZE` or commit still
+returns the load's result (the statistics are only an optimisation, and autovacuum gets to them
+later; review round 1). An anti-wraparound autovacuum does not skip locked tables, but it doesn't
+run on databases this young. An auto-analyze already running when the lock is requested is cancelled
+after `deadlock_timeout` (1 s), inside the 3 seconds. The `ANALYZE` at the end leaves statistics
+that count what was loaded, so the apps' first reads after a reset plan well too. It adds a fraction
+of a second. The lock comes after the wipe (the wipe's ACCESS EXCLUSIVE would conflict with it), and
+on its own connection, so the load never waits for a pooled connection this transaction holds. A
+lock timeout or deadlock is reported like any failure after the wipe: "the demo state is incomplete
+(the database is busy); run it again" (FR-013).
 
-**Tests** (R12): "leaves the statistics counting what it loaded" (`Seat`'s `reltuples` within 10% of
-its 77,090 rows right after a reset). "Keeps its time while statistics are taken during the load":
-another client runs `ANALYZE` on the seat tables every 200 ms during a reset, which must still meet
-SC-002's 10 seconds. Both fail without this decision (16.3 s, and stale statistics). "Says the
-demo state is incomplete when the load cannot take its lock": another client holds `Seat` in that mode
-right after the wipe, and the reset fails with FR-013's message naming the busy database. One more run
-then ends in the demo state.
+**Tests** (R12): "leaves the statistics counting what it loaded" (`Seat`'s and `SeatRow`'s
+`reltuples` within 10% of their rows right after a reset; `Seat` holds 77,090). "Keeps its time
+while statistics are taken during the load": another client runs `ANALYZE` on the seat tables every
+200 ms during a reset, which must still meet SC-002's 10 seconds. Both fail without this decision
+(16.3 s, and stale statistics). "Says the demo state is incomplete when the load cannot take its
+lock": another client holds `Seat` in that mode right after the wipe, and the reset fails with
+FR-013's message naming the busy database. One more run then ends in the demo state. "Reports a
+load's own error as itself, and returns a load's result" calls `loadWithStatisticsHeld` directly.
 
 **Alternatives**: turn autovacuum off in the tests' PostgreSQL: deterministic, but it hides a stall
 that a real reset on a laptop can hit, including at a demo. `ANALYZE` after each import: an

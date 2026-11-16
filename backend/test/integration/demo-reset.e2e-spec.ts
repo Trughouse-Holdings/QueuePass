@@ -6,6 +6,7 @@ import { PrismaClient } from '@prisma/client';
 import { localDate, toLocalDateTime } from '@queuepass/shared';
 import {
   assertMigrated,
+  loadWithStatisticsHeld,
   runDemoReset,
   wipeAppData,
   type ResetSummary,
@@ -732,15 +733,23 @@ describe('Demo reset (spec 029)', () => {
     it('leaves the statistics counting what it loaded (#179)', async () => {
       await reset();
       const seats = await ctx.prisma.seat.count();
-      const [{ estimate }] = await ctx.prisma.$queryRaw<{ estimate: number }[]>`
-        SELECT reltuples::float8 AS estimate FROM pg_class WHERE oid = '"Seat"'::regclass`;
       expect(seats).toBe(77_090);
-      expect(Math.abs(estimate - seats) / seats).toBeLessThan(0.1);
+      // Review round 1, n7: SeatRow too, the other table the slow plan read.
+      for (const [table, rows] of [
+        ['Seat', seats],
+        ['SeatRow', await ctx.prisma.seatRow.count()],
+      ] as const) {
+        const [{ estimate }] = await ctx.prisma.$queryRawUnsafe<{ estimate: number }[]>(
+          `SELECT reltuples::float8 AS estimate FROM pg_class WHERE oid = '"${table}"'::regclass`,
+        );
+        expect([table, Math.abs(estimate - rows) / rows < 0.1]).toEqual([table, true]);
+      }
     });
 
     it('keeps its time while statistics are taken during the load (#179)', async () => {
       const other = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
       let stop = false;
+      // Review round 1, n6: an ANALYZE that fails ends the loop and is rethrown when awaited.
       const analyzing = (async () => {
         while (!stop) {
           await other.$executeRawUnsafe(
@@ -749,6 +758,7 @@ describe('Demo reset (spec 029)', () => {
           await new Promise((r) => setTimeout(r, 200));
         }
       })();
+      analyzing.catch(() => undefined);
       const t0 = Date.now();
       try {
         await reset();
@@ -758,6 +768,16 @@ describe('Demo reset (spec 029)', () => {
         await other.$disconnect();
       }
       expect(Date.now() - t0).toBeLessThan(10_000);
+    });
+
+    // Review round 1, n5: the hold passes the load's own error on as itself, and returns its result.
+    it("reports a load's own error as itself, and returns a load's result (#179)", async () => {
+      await expect(
+        loadWithStatisticsHeld(async () => {
+          throw new Error('the load failed on its own');
+        }),
+      ).rejects.toThrow('the load failed on its own');
+      await expect(loadWithStatisticsHeld(async () => 42)).resolves.toBe(42);
     });
 
     it('says the demo state is incomplete when the load cannot take its lock (#179, FR-013)', async () => {

@@ -209,7 +209,9 @@ export async function wipeAppData(prisma: PrismaService): Promise<RemovedCounts>
  * layout reads planned from that took seconds each until the next auto-analyze. The lock does not
  * block reads or writes, only ANALYZE, VACUUM, and schema changes; a second reset's wipe waits
  * for it and is refused as busy (R10). Its own connection, so the load never waits for a pooled
- * one this transaction holds.
+ * one this transaction holds. Once the load has finished, the statistics are only an optimisation:
+ * a failed ANALYZE or commit (review round 1, S1) still returns the load's result, and autovacuum
+ * analyzes the tables later.
  */
 export async function loadWithStatisticsHeld<T>(
   load: () => Promise<T>,
@@ -218,6 +220,7 @@ export async function loadWithStatisticsHeld<T>(
   const url = new URL(databaseUrl ?? 'postgresql://localhost');
   url.searchParams.set('connection_limit', '1');
   const holder = new PrismaClient({ datasourceUrl: url.toString() });
+  let loaded: { result: T } | undefined;
   try {
     return await holder.$transaction(
       async (tx) => {
@@ -237,13 +240,18 @@ export async function loadWithStatisticsHeld<T>(
           if (isBusy(err)) throw new Error('the database is busy');
           throw err;
         }
-        const result = await load();
+        loaded = { result: await load() };
         await tx.$executeRawUnsafe(`ANALYZE ${list}`);
-        return result;
+        return loaded.result;
       },
-      // R9: a load is seconds, about 20 with a hanging address service; the limit is far above.
-      { timeout: 300_000, maxWait: 5_000 },
+      // R9: a load is seconds, about 20 with a hanging address service. The limit stays near that
+      // (review round 1, S2): it bounds how long the lock can stand if the load stalls behind a
+      // request that waits for it, such as a test's TRUNCATE after a timed-out reset.
+      { timeout: 60_000, maxWait: 5_000 },
     );
+  } catch (err) {
+    if (loaded) return loaded.result;
+    throw err;
   } finally {
     await holder.$disconnect();
   }
