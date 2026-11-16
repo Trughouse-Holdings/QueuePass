@@ -13,8 +13,8 @@ use serde_json::{Map, Value};
 pub use crate::hold_queue::Refusal;
 use crate::{
     api::client::SeatRef,
+    format,
     hold_queue::{HoldAnswer, QueuedAction, SeatAction, place_key},
-    money::{price_cents, usd},
     seating::{
         map_state::SeatState,
         venue_map::{SeatView, ShownState},
@@ -36,8 +36,6 @@ pub const TICK_MS: u32 = 250;
 /// A reservation that ends on the Backend this close to its local deadline is the run-out the
 /// countdown is about to show.
 const ENDING_SLACK_MS: f64 = 2_000.0;
-/// `RESERVATION_LIMITS.maxSeats` and `ORDER_LIMITS.maxQuantity` (`packages/shared`).
-pub const MAX_SEATS: u64 = 10;
 
 /// The contract's `ReservedSeat`: a held seat with its labels, level, and price now.
 #[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
@@ -96,7 +94,7 @@ pub fn clock(seconds: u64) -> String {
 }
 
 /// `seatLabel` (`format.ts`, 007 FR-011, 038 FR-026): "Section 115, Row F, Seat 7", by the labels
-/// when known, else the numbers.
+/// when known, else the numbers (`core::format::seat_label`).
 pub fn seat_text(
     section: &str,
     row: u64,
@@ -104,37 +102,34 @@ pub fn seat_text(
     row_label: Option<&str>,
     seat_label: Option<&str>,
 ) -> String {
-    let row = row_label.map_or_else(|| row.to_string(), str::to_string);
-    let seat = seat_label.map_or_else(|| seat.to_string(), str::to_string);
-    format!("Section {section}, Row {row}, Seat {seat}")
+    format::seat_label(&format::SeatRef {
+        section,
+        row: row as i64,
+        seat: seat as i64,
+        row_label,
+        seat_label,
+    })
 }
 
 /// `seatWithPrice(s, s.levelName, s.price)` (`format.ts`, 038 FR-022): "Section 115, Row F,
 /// Seat 7, Courtside, $95.00".
 pub fn seat_with_price(s: &ReservedSeat) -> String {
-    let mut parts = vec![seat_text(
-        &s.section,
-        s.row,
-        s.seat,
-        Some(&s.row_label),
-        Some(&s.seat_label),
-    )];
-    if !s.level_name.is_empty() {
-        parts.push(s.level_name.clone());
-    }
-    if !s.price.is_empty() {
-        parts.push(usd(&s.price));
-    }
-    parts.join(", ")
+    format::seat_with_price(
+        &format::SeatRef::labelled(
+            &s.section,
+            s.row as i64,
+            s.seat as i64,
+            &s.row_label,
+            &s.seat_label,
+        ),
+        Some(&s.level_name),
+        Some(&s.price),
+    )
 }
 
 /// `sumUsd` (`format.ts`): prices summed in integer cents from the strings' digits.
 pub fn sum_usd<'a>(prices: impl IntoIterator<Item = &'a str>) -> String {
-    let total: i64 = prices
-        .into_iter()
-        .map(|p| price_cents(p).unwrap_or(0))
-        .sum();
-    usd(&format!("{}.{:02}", total / 100, total % 100))
+    format::sum_usd(&prices.into_iter().collect::<Vec<_>>())
 }
 
 /// A seat as a refusal's `details.seats` names it.
@@ -545,46 +540,4 @@ impl Holds {
 /// Whole seconds from `now` to `deadline`, rounded up, never below 0.
 fn seconds_until(deadline: f64, now: f64) -> u64 {
     ((deadline - now) / 1000.0).ceil().max(0.0) as u64
-}
-
-/// How many seats may be chosen, and the notes above the map that say why no more can (M3).
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct SeatLimits {
-    /// `maxQuantity`: at least 1, at most 10, the tickets left, and the limit's remaining.
-    pub max: u64,
-    /// No more seats can be chosen.
-    pub full: bool,
-    /// "No more seats can be chosen: the limit of …", when the limit, not the seats left, stops
-    /// more seats and the customer is at it.
-    pub limit_note: Option<String>,
-    /// [`SeatLimits::AT_MOST_10`] shows.
-    pub at_most_10: bool,
-}
-
-impl SeatLimits {
-    pub const AT_MOST_10: &'static str = "A reservation holds at most 10 seats.";
-
-    /// From the tickets left, the customer's limit `(limit, remaining)` if any, and the seats
-    /// chosen once every queued click is answered.
-    pub fn new(tickets_left: u64, limit: Option<(u64, u64)>, chosen: usize) -> Self {
-        let chosen = chosen as u64;
-        let remaining = limit.map_or(u64::MAX, |l| l.1);
-        let max = MAX_SEATS.min(tickets_left).min(remaining).max(1);
-        let full = chosen >= max;
-        // On a tie with the tickets left the limit does not bind: the Backend answers SOLD_OUT.
-        let binds = limit.is_some_and(|(_, r)| r <= MAX_SEATS && r < tickets_left);
-        let limit_note = limit.filter(|_| binds && full).map(|(limit, remaining)| {
-            format!(
-                "No more seats can be chosen: the limit of {limit} {} per customer allows you \
-                 {remaining} more.",
-                if limit == 1 { "ticket" } else { "tickets" }
-            )
-        });
-        SeatLimits {
-            max,
-            full,
-            limit_note,
-            at_most_10: chosen >= MAX_SEATS,
-        }
-    }
 }

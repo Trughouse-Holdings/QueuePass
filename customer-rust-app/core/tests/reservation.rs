@@ -8,7 +8,7 @@ use customer_rust_core::{
     hold_queue::{ChosenSeat, HoldAnswer, QueuedAction, SeatAction},
     reservation::{
         Effects, HoldLog, Holds, ONE_MINUTE_LEFT, RAN_OUT, Refusal, Reservation, ReservedSeat,
-        SeatLimits, clock, cooldown_message, seat_text, seat_with_price, sum_usd,
+        clock, cooldown_message, seat_text, seat_with_price, sum_usd,
     },
     seating::{map_state::SeatState, venue_map::ShownState},
 };
@@ -659,52 +659,6 @@ fn the_map_shows_once_asked_while_seats_are_held_or_a_click_is_queued() {
     let mut other = Holds::new();
     other.adopt(Some(reservation(&[1])), false, 0.0);
     assert!(other.show_map(false));
-}
-
-// ------------------------------------------------------------------------ limits (M3)
-
-#[test]
-fn no_more_seats_than_the_tickets_left() {
-    let l = SeatLimits::new(2, None, 2);
-    assert_eq!(l.max, 2);
-    assert!(l.full);
-    assert_eq!(l.limit_note, None);
-    assert!(!l.at_most_10);
-}
-
-#[test]
-fn never_more_than_10_seats_with_more_tickets_left() {
-    let l = SeatLimits::new(56, None, 10);
-    assert!(l.full);
-    assert!(l.at_most_10);
-    assert_eq!(
-        SeatLimits::AT_MOST_10,
-        "A reservation holds at most 10 seats."
-    );
-    assert!(!SeatLimits::new(56, None, 9).full);
-}
-
-#[test]
-fn the_limit_note_when_the_limit_not_the_seats_left_stops_more() {
-    let l = SeatLimits::new(28, Some((4, 2)), 2);
-    assert!(l.full);
-    assert_eq!(
-        l.limit_note.as_deref(),
-        Some("No more seats can be chosen: the limit of 4 tickets per customer allows you 2 more.")
-    );
-    let one = SeatLimits::new(28, Some((1, 1)), 1);
-    assert_eq!(
-        one.limit_note.as_deref(),
-        Some("No more seats can be chosen: the limit of 1 ticket per customer allows you 1 more.")
-    );
-    // On a tie with the seats left the limit does not bind (the Backend answers SOLD_OUT).
-    assert_eq!(SeatLimits::new(2, Some((4, 2)), 2).limit_note, None);
-    // Not at it yet: no note.
-    assert_eq!(SeatLimits::new(28, Some((4, 2)), 1).limit_note, None);
-    // A limit of more than 10 left never binds.
-    assert_eq!(SeatLimits::new(56, Some((20, 12)), 10).limit_note, None);
-    // At least one seat may always be asked for.
-    assert_eq!(SeatLimits::new(0, None, 0).max, 1);
 }
 
 // ------------------------------------------------------------------------ the Backend's view

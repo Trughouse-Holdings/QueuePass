@@ -18,6 +18,7 @@ use std::collections::{BTreeMap, VecDeque};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
+pub use crate::buy::limited_for;
 use crate::{
     api::client::{ApiError, Call, SeatRef, ops},
     reservation::{Reservation, seat_text},
@@ -129,16 +130,6 @@ pub enum HoldAnswer {
 #[derive(Deserialize)]
 struct ReleaseAnswer {
     reservation: Option<Reservation>,
-}
-
-/// `limitedFor` (`use-buy.ts`, spec 026 FR-008): the seconds to wait, rounded up, when a refusal
-/// is a `429` `RATE_LIMITED` with a positive `details.retryAfterSeconds`; otherwise `None`.
-pub fn limited_for(error: &ApiError) -> Option<u64> {
-    if error.status() != Some(429) || error.code() != Some("RATE_LIMITED") {
-        return None;
-    }
-    let n = error.details()?.get("retryAfterSeconds")?.as_f64()?;
-    (n.is_finite() && n > 0.0).then(|| n.ceil() as u64)
 }
 
 impl HoldAnswer {
