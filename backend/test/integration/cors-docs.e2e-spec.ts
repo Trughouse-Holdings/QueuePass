@@ -20,6 +20,8 @@ describe('CORS and API documentation', () => {
     'http://localhost:5175',
     // Spec 037: the Rust Admin app.
     'http://localhost:5176',
+    // Spec 040: the Rust Customer app.
+    'http://localhost:5177',
   ])('allows the front-end origin %s', async (origin) => {
     const res = await request(ctx.app.getHttpServer())
       .get('/health')
@@ -40,6 +42,30 @@ describe('CORS and API documentation', () => {
     expect(String(res.headers['access-control-allow-headers']).toLowerCase()).toContain(
       'authorization',
     );
+  });
+
+  // Spec 040 (contract sign-in-client.md): the Rust Customer app's preflight for an authorized
+  // customer write (release on logout), and a port beside it is still not granted.
+  it('allows the preflight from the Rust Customer app at http://localhost:5177', async () => {
+    const res = await request(ctx.app.getHttpServer())
+      .options('/me/reservations/release')
+      .set('Origin', 'http://localhost:5177')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'authorization,content-type');
+    expect(res.status).toBeLessThan(300);
+    expect(res.headers['access-control-allow-origin']).toBe('http://localhost:5177');
+    expect(String(res.headers['access-control-allow-headers']).toLowerCase()).toContain(
+      'authorization',
+    );
+  });
+
+  it('does not grant an unlisted origin beside the front ends (http://localhost:5178)', async () => {
+    const res = await request(ctx.app.getHttpServer())
+      .options('/me/reservations/release')
+      .set('Origin', 'http://localhost:5178')
+      .set('Access-Control-Request-Method', 'POST')
+      .set('Access-Control-Request-Headers', 'authorization');
+    expect(res.headers['access-control-allow-origin']).toBeUndefined();
   });
 
   it('does not grant any other origin', async () => {
