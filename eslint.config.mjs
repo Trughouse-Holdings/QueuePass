@@ -37,8 +37,14 @@ export default tseslint.config(
   },
   {
     // Plain Node scripts run by npm test (boundary and contract-drift checks).
-    // Spec 037: the Rust Admin app's coverage-summary script runs on Node too.
-    files: ['scripts/**/*.mjs', 'e2e/stack/**/*.mjs', 'admin-rust-app/scripts/**/*.mjs'],
+    // Spec 037: the Rust Admin app's coverage-summary script runs on Node too; spec 040: the
+    // Rust Customer app's copy.
+    files: [
+      'scripts/**/*.mjs',
+      'e2e/stack/**/*.mjs',
+      'admin-rust-app/scripts/**/*.mjs',
+      'customer-rust-app/scripts/**/*.mjs',
+    ],
     languageOptions: { globals: globals.node },
   },
   {

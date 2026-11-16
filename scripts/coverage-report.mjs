@@ -19,6 +19,8 @@ export const WORKSPACES = [
   // Spec 037 (research R9): the Rust Admin app's `core`, converted by its coverage-summary.mjs.
   'admin-rust-app',
   'customer-app',
+  // Spec 040 (research R11): the Rust Customer app's `core`, the same way.
+  'customer-rust-app',
   'booth-app',
   'scripts/seed',
 ];
