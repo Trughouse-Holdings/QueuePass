@@ -141,7 +141,17 @@ async function expectSameLayout(react: Page, rust: Page, route: string): Promise
   expect(normalized(await rustMain.ariaSnapshot(), path)).toEqual(
     normalized(await reactMain.ariaSnapshot(), path),
   );
-  // The same elements and classes, in order.
+  // The same elements and classes, in order, once both have settled: a gallery is briefly
+  // `gallery--reshaping` while its picture's shape arrives, in either app.
+  await expect
+    .poll(
+      async () =>
+        JSON.stringify(normalized(await domOf(rust), path)) ===
+        JSON.stringify(normalized(await domOf(react), path)),
+      { timeout: 10_000 },
+    )
+    .toBe(true)
+    .catch(() => undefined);
   expect(normalized(await domOf(rust), path)).toEqual(normalized(await domOf(react), path));
   // The boxes settle once pictures know their shapes.
   await expect
