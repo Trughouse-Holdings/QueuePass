@@ -87,7 +87,7 @@ come with them and must pass before any change.
 - [ ] T019 Copy `core/build.rs` (typify over the contract, `core::api::types`) and any hand-written types with their `core/tests/contract_types.rs`; it builds every schema as in the Rust Admin app
 - [ ] T020 [P] Copy `core/src/api/client.rs`'s transport and error types with `core/tests/api_client.rs`'s transport cases; *(test first)* add a `wiremock` case per Customer operation of R5 (path, method, query keys, body, `Authorization: Bearer`); then the operations, replacing the Admin list
 - [ ] T021 [P] Copy `core/src/auth/` and `core/tests/auth_state.rs`; *(test first)* a `queuepass-admin`-only token is `WrongRole` and a `customer` token is `SignedIn`; set `REQUIRED_ROLE = "customer"`
-- [ ] T022 [P] Copy `core/src/{time,format,money}.rs` (the parts the Customer app uses) with their tests; *(test first)* port `customer-app/test/format.test.ts`, `times.tz.test.tsx`, and `doors-open.test.tsx` (F1–F6, B7, E4) and the shared `time-zone.ts` cases (`formatEventTime`, `formatEventEnd`, `formatDoorsOpen`, `formatViewerTime`); then the Customer `format.rs` functions (`usd`, `totalUsd`, `sumUsd`, `eventPrice`, `count`, `seatLabel`, `seatWithPrice`, `when`, `doorsOpen`, `startedNotice`)
+- [X] T022 [P] Copy `core/src/{time,format,money}.rs` (the parts the Customer app uses) with their tests; *(test first)* port `customer-app/test/format.test.ts`, `times.tz.test.tsx`, and `doors-open.test.tsx` (F1–F6, B7, E4) and the shared `time-zone.ts` cases (`formatEventTime`, `formatEventEnd`, `formatDoorsOpen`, `formatViewerTime`); then the Customer `format.rs` functions (`usd`, `totalUsd`, `sumUsd`, `eventPrice`, `count`, `seatLabel`, `seatWithPrice`, `when`, `doorsOpen`, `startedNotice`)
 - [ ] T023 [P] Copy `core/src/theme.rs` and `core/tests/theme.rs`; *(test first)* point them at `customer-app/src/styles.css` and `../admin-rust-app/style/red.css`: exactly the 14 look tokens redefined, no data token, and AA for every pair the Customer screens use, light and dark (R6)
 - [ ] T024 [P] Copy `core/src/seating/{mod,geometry,map_geometry,map_state,pan_zoom,venue_map}.rs`, `core/src/api/seat_stream.rs`, and their tests and fixtures (`seating_geometry`, `venue_map`, `seat_stream`); all pass unchanged; check the `Price` mode, legend, and `open_prices` against parity M4–M8
 
@@ -134,11 +134,11 @@ come with them and must pass before any change.
 
 **Goal**: parity P1–P11, E6, E7. **Independent test**: quickstart S4.
 
-- [ ] T039 *(test first)* [P] [US4] `core/tests/availability.rs`: port `purchase-unavailable.test.tsx`, `started-notice.test.tsx`, `ticket-limit.test.tsx`, and `doors-open.test.tsx`' panel cases (closed badge and text, started note and its short form, limit line and box, quantity bounds, "From", totals in cents)
-- [ ] T040 *(test first)* [P] [US4] `core/tests/holder_name.rs`: port `holder-name-field.test.tsx` and `packages/shared/test/holder-name.test.ts` (NFC, code points, messages in order)
-- [ ] T041 *(test first)* [P] [US4] `core/tests/buy.rs`: port `purchase.test.tsx` and `rate-limit.test.tsx` (request id kept or renewed, a second press sends nothing, Check again resends the same id, 401, refusal kept values, unknown outcome, 429 waits BUY and HOLD apart with their countdown and singular "1 second")
-- [ ] T042 [US4] `core/src/{availability,holder_name,buy}.rs` passing T039–T041 (R10)
-- [ ] T043 [US4] `app/src/components/get_tickets/frame.rs`, the panel frame both kinds of event use (owned by this session): the card and heading, the loading and unavailable states (P1), the started note (E6), the hidden assertive region, "From", the notice, the closed text (E7), the limit box (P6), the unknown-outcome box (P9), and E8's switch of seating while open; then `get_tickets/general.rs` and `order_confirmation.rs` (P3–P11) with focus return
+- [X] T039 *(test first)* [P] [US4] `core/tests/availability.rs`: port `purchase-unavailable.test.tsx`, `started-notice.test.tsx`, `ticket-limit.test.tsx`, and `doors-open.test.tsx`' panel cases (closed badge and text, started note and its short form, limit line and box, quantity bounds, "From", totals in cents)
+- [X] T040 *(test first)* [P] [US4] `core/tests/holder_name.rs`: port `holder-name-field.test.tsx` and `packages/shared/test/holder-name.test.ts` (NFC, code points, messages in order)
+- [X] T041 *(test first)* [P] [US4] `core/tests/buy.rs`: port `purchase.test.tsx` and `rate-limit.test.tsx` (request id kept or renewed, a second press sends nothing, Check again resends the same id, 401, refusal kept values, unknown outcome, 429 waits BUY and HOLD apart with their countdown and singular "1 second")
+- [X] T042 [US4] `core/src/{availability,holder_name,buy}.rs` passing T039–T041 (R10)
+- [X] T043 [US4] `app/src/components/get_tickets/frame.rs`, the panel frame both kinds of event use (owned by this session): the card and heading, the loading and unavailable states (P1), the started note (E6), the hidden assertive region, "From", the notice, the closed text (E7), the limit box (P6), the unknown-outcome box (P9), and E8's switch of seating while open; then `get_tickets/general.rs` and `order_confirmation.rs` (P3–P11) with focus return
 - [ ] T044 [US4] Make `006 P1/P4`, `016 S2`, and `034 S1/S2` pass in project `customer-rust`
 
 ---
@@ -162,13 +162,13 @@ come with them and must pass before any change.
 
 **Goal**: parity T1–T12. **Independent test**: quickstart S6.
 
-- [ ] T053 *(test first)* [P] [US5] `core/tests/my_tickets.rs`: port `my-tickets.test.tsx`, `past-events.test.tsx`, and `check-ins-removed.test.tsx` (upcoming and Past by the load time, ticket state text, which links show, calendar eligibility); then `core/src/my_tickets.rs`
-- [ ] T054 *(test first)* [P] [US5] `core/tests/calendar.rs`: port `calendar.test.ts` and `add-to-calendar.test.tsx`; add `scripts/customer-parity-fixtures.mjs`, which imports `customer-app/src/calendar.ts`, `filters.ts`, and `packages/shared/src/live-code.ts` unchanged and writes outputs for fixture inputs to `customer-rust-app/core/tests/fixtures/`; the ICS text (apart from `DTSTAMP`), file name, and Google URL must equal them; then `core/src/calendar.rs`
-- [ ] T055 *(test first)* [P] [US5] `core/tests/live_code.rs`: port `packages/shared/test/live-code.test.ts` and `entry-code.test.tsx`' clock cases, plus T054's live-code fixtures; then `core/src/live_code.rs` (`hmac`, `sha2`, base32 without padding, the offset rule, R9)
-- [ ] T056 *(test first)* [P] [US5] `core/tests/qr.rs`: fixtures of `qrcode-generator` 2.0.4's module grids (type 0, level M) for a printed ticket code and three live codes, written by the T054 script; then `core/src/qr.rs` (the `qrcode` crate without its segment optimiser: one alphanumeric segment through `qrcode::bits::Bits::push_alphanumeric_data`, the smallest version that fits at level M, the mask chosen by a port of `getLostPoint` applied through the canvas API, R9) and the SVG path text of parity T12. If the grids can't be made equal in time, apply R9's fallback and record it
-- [ ] T057 [US5] `app/src/pages/my_tickets.rs` and `app/src/components/add_to_calendar.rs` (T1–T7, the Blob download with the 60 s revoke)
-- [ ] T058 [P] [US5] `app/src/components/ticket_qr.rs` and `app/src/pages/print_ticket.rs` (T8, T12, print rules S15)
-- [ ] T059 [US5] `app/src/pages/entry_code.rs` (T9–T11: both reads, every state, key in memory only, 250 ms checks, "Changes in n s")
+- [X] T053 *(test first)* [P] [US5] `core/tests/my_tickets.rs`: port `my-tickets.test.tsx`, `past-events.test.tsx`, and `check-ins-removed.test.tsx` (upcoming and Past by the load time, ticket state text, which links show, calendar eligibility); then `core/src/my_tickets.rs`
+- [X] T054 *(test first)* [P] [US5] `core/tests/calendar.rs`: port `calendar.test.ts` and `add-to-calendar.test.tsx`; add `scripts/customer-parity-fixtures.mjs`, which imports `customer-app/src/calendar.ts`, `filters.ts`, and `packages/shared/src/live-code.ts` unchanged and writes outputs for fixture inputs to `customer-rust-app/core/tests/fixtures/`; the ICS text (apart from `DTSTAMP`), file name, and Google URL must equal them; then `core/src/calendar.rs`
+- [X] T055 *(test first)* [P] [US5] `core/tests/live_code.rs`: port `packages/shared/test/live-code.test.ts` and `entry-code.test.tsx`' clock cases, plus T054's live-code fixtures; then `core/src/live_code.rs` (`hmac`, `sha2`, base32 without padding, the offset rule, R9)
+- [X] T056 *(test first)* [P] [US5] `core/tests/qr.rs`: fixtures of `qrcode-generator` 2.0.4's module grids (type 0, level M) for a printed ticket code and three live codes, written by the T054 script; then `core/src/qr.rs` (the `qrcode` crate without its segment optimiser: one alphanumeric segment through `qrcode::bits::Bits::push_alphanumeric_data`, the smallest version that fits at level M, the mask chosen by a port of `getLostPoint` applied through the canvas API, R9) and the SVG path text of parity T12. If the grids can't be made equal in time, apply R9's fallback and record it
+- [X] T057 [US5] `app/src/pages/my_tickets.rs` and `app/src/components/add_to_calendar.rs` (T1–T7, the Blob download with the 60 s revoke)
+- [X] T058 [P] [US5] `app/src/components/ticket_qr.rs` and `app/src/pages/print_ticket.rs` (T8, T12, print rules S15)
+- [X] T059 [US5] `app/src/pages/entry_code.rs` (T9–T11: both reads, every state, key in memory only, 250 ms checks, "Changes in n s")
 - [ ] T060 [US5] Test in `e2e/tests/040-tickets.spec.ts`: `040 S6: the entry code, the printed ticket, and the calendar file are the same in both Customer apps`; make `019 S2` pass in project `customer-rust`
 
 ---
@@ -265,3 +265,45 @@ Decisions the spec left open, taken in its spirit:
 - **T066 (part)**: quickstart rows S1, S2, and S8 are marked Automated with their test titles now,
   because `node scripts/check-quickstart-marks.mjs` (part of `npm test`) fails while a browser test
   has no Automated row. The rest of T066 (S5, S6, S11, the review) is the integrating session's.
+
+## Implementation notes (session C)
+
+Decisions the spec left open, taken in its spirit:
+
+- **T022**: `core::format` is now the Customer `format.ts`; the Admin-only helpers (`until`,
+  `venue_zone`, `SOURCE_TEXT`, `removed_note`, `removed_short`) and their cases in `tests/time.rs`
+  were dropped (nothing in the Customer app or the copied seating code uses them); `maps_url` stays
+  for the address link. `seat_label` takes a `SeatRef` (numbers plus optional labels, as the
+  TypeScript's `rowLabel ?? row`); `SeatRef::from_label` reads the contract's `SeatLabel`. The
+  shared `time-zone.ts` cases were already in the copied `tests/time.rs`.
+- **T042**: `core::buy::Buy` takes the request id from the caller (`crypto.randomUUID()` in `app`)
+  and the monotonic time (`performance.now()`), so it is pure. A 2xx that cannot be read is the
+  unknown outcome (the TypeScript's `catch`); a 4xx without the envelope says "The request was
+  refused.". `Waits` keeps one announcement, cleared when its own wait ends, as `useWaits`.
+  `core::availability` re-exports `uuid::Uuid` so `app` needs no `uuid` dependency.
+- **T043, the panel interface** (written at the top of `components/get_tickets/frame.rs`): a panel
+  component calls `Panel::new(event, on_sales, on_event_changed)` (the reads, the waits' 250 ms
+  checks, `provide_context`), keeps its own state outside the frame, and renders
+  `<GetTicketsFrame panel>{form}</GetTicketsFrame>`. The seated panel sets `has_reservation`,
+  `seats_loading`, `seats_failed`, `ran_out`, `notice`, starts the HOLD wait on `panel.waits`, and
+  calls `panel.map_gone()` for E8. `general::General` and (session D) `seated::Seated` take the same
+  props as `GetTickets`. `get_tickets/mod.rs` (session B's) was filled minimally: general admission
+  → `general::General`; seated → the frame alone until D's `Seated` replaces that branch.
+- **T043**: the started note's reference instant is `Date.now()` when the availability answer
+  arrived (`loaded_at`), as the React `loadedAt`. The unknown-outcome box's Check again calls the
+  general form's confirm through `Panel::set_check_again`; the focus returns to the pressed button
+  on the next animation frame when it fell to the page.
+- **T054**: `scripts/customer-parity-fixtures.mjs` imports `customer-app/src/calendar.ts` and
+  `packages/shared/src/live-code.ts` unchanged and `qrcode-generator` as `TicketQr.tsx` calls it.
+  It does not import `filters.ts` (session B ported those rules case by case). Run on Windows with
+  Node 22 through the shared lock, from this worktree (which has no `node_modules`), as
+  `$env:NODE_PATH='<QP-040-impl>\node_modules'; <QP-040-impl>\node_modules\.bin\tsx.cmd
+  scripts/customer-parity-fixtures.mjs`; in a full checkout, `npx tsx scripts/customer-parity-fixtures.mjs`.
+- **T056**: the QR module grids equal `qrcode-generator` 2.0.4's on the first try for all nine
+  fixture texts (two ticket codes, four live codes, three longer texts up to version 5): R9's
+  fallback was **not** needed. The mask is scored as `getBestMaskPattern` does, with the format
+  information, the fixed dark module, and the version information all light (`makeImpl(true, …)`).
+- **T059**: both entry-code reads use `send_quiet`, and a 401 on either calls sign-in once (the
+  React page's `signIn()`); "Getting your entry code…" stays meanwhile.
+- **T060**: `040 S6` uses `customerFor` index 14 (no other journey uses it). It is written but not
+  run here; making `019 S2` pass in `customer-rust` is the integrator's browser run.

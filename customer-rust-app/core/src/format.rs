@@ -1,15 +1,18 @@
-// Copied from admin-rust-app/core/src/format.rs at 680b4f7 (spec 040 R4).
-//! Spec 037 (research R6): ports `admin-app/src/format.ts`, how the Admin pages show an event's
-//! times, a seat, and a venue's zone. Times come in as the API's ISO strings, as in the
-//! TypeScript; a response without a zone is read as [`DEFAULT_TIME_ZONE`].
+//! Spec 040 T022 (parity F1–F6, B7, E4): ports `customer-app/src/format.ts`, how the Customer
+//! app shows prices, counts, seats, and an event's times. Started from the Rust Admin app's
+//! `core/src/format.rs` (R4); its Admin-only helpers (`until`, `venueZone`, `removedNote`, …) are
+//! dropped. Times come in as the API's ISO strings, as in the TypeScript; a response without a
+//! zone (or with an empty one, `||`) is read as [`DEFAULT_TIME_ZONE`].
 //!
 //! Where the TypeScript passes a string `Date` cannot read to `Intl` (which throws "Invalid time
 //! value"), these show `Invalid Date`, `String(new Date('x'))`.
 
+use crate::money::{format_price, price_cents};
 use crate::time::{
-    CHECK_IN_RETENTION_DAYS, DEFAULT_TIME_ZONE, format_event_date, format_event_end,
-    format_event_time, parse_instant, zone_name,
+    DEFAULT_TIME_ZONE, format_doors_open, format_event_end, format_event_time, parse_instant,
 };
+
+pub use crate::money::usd;
 
 /// `timeZone || DEFAULT_TIME_ZONE`: a missing or empty zone is Eastern.
 fn zone_or_default(time_zone: Option<&str>) -> &str {
@@ -21,93 +24,217 @@ fn zone_or_default(time_zone: Option<&str>) -> &str {
 
 const INVALID_DATE: &str = "Invalid Date";
 
-/// Ports `when` (`format.ts`): an event time in its venue's zone, always with its date and the
-/// zone's abbreviation, "Oct 1, 2026, 7:00 PM EDT" (002 FR-031; 020 FR-021).
+/// Ports `when`: an event time in its venue's zone, always with its date and the zone's
+/// abbreviation, "Oct 1, 2026, 7:00 PM EDT" (003 FR-006; 020 FR-021).
 pub fn when(iso: &str, time_zone: Option<&str>) -> String {
     parse_instant(iso).map_or(INVALID_DATE.into(), |at| {
         format_event_time(at, zone_or_default(time_zone))
     })
 }
 
-/// Ports `until` (`format.ts`): an event's end next to its start, the time, or the date and time
-/// when the date differs.
-pub fn until(start: &str, end: &str, time_zone: Option<&str>) -> String {
+/// `formatEventEnd(start, end, zone)` over ISO strings.
+fn event_end(start: &str, end: &str, zone: &str) -> String {
     match (parse_instant(start), parse_instant(end)) {
-        (Some(s), Some(e)) => format_event_end(s, e, zone_or_default(time_zone)),
+        (Some(s), Some(e)) => format_event_end(s, e, zone),
         _ => INVALID_DATE.into(),
     }
 }
 
-/// Ports `seatLabel` (`format.ts`): a seat by its labels as sold (007 FR-011, 038 FR-026),
-/// "Section 115, Row F, Seat 7".
-pub fn seat_label(section: &str, row_label: &str, seat_label: &str) -> String {
-    format!("Section {section}, Row {row_label}, Seat {seat_label}")
+/// Ports `count`: a whole number with thousands separators, `n.toLocaleString('en-US')`.
+pub fn count(n: i64) -> String {
+    let digits = n.unsigned_abs().to_string();
+    let mut out = String::with_capacity(digits.len() + digits.len() / 3 + 1);
+    if n < 0 {
+        out.push('-');
+    }
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
 }
 
-/// Ports `SOURCE_TEXT` (`format.ts`): how a venue's zone was set, in words (020 R14), keyed by
-/// the contract's `TimeZoneSource`.
-pub const SOURCE_TEXT: [(&str, &str); 4] = [
-    ("ADDRESS", "from the address"),
-    ("STATE", "from the state"),
-    ("ADMIN", "chosen by an admin"),
-    ("DEFAULT", "the default"),
-];
-
-/// `SOURCE_TEXT[source]` (`format.ts`), or `None` for an unknown source.
-pub fn source_text(source: &str) -> Option<&'static str> {
-    SOURCE_TEXT
-        .iter()
-        .find(|(key, _)| *key == source)
-        .map(|(_, text)| *text)
+/// Ports `cents`: a decimal-string price in whole cents from its digits. `None` where the
+/// TypeScript gives `NaN` (the Backend never sends such a price).
+pub fn cents(price: &str) -> Option<i64> {
+    price_cents(price)
 }
 
-/// Ports `venueZone` (`format.ts`): "Eastern Time, from the address" (020 FR-024). As with the
-/// TypeScript's `??`, only a missing zone or source takes the default; an unknown source reads
-/// "undefined".
-pub fn venue_zone(time_zone: Option<&str>, time_zone_source: Option<&str>) -> String {
-    let source = source_text(time_zone_source.unwrap_or("DEFAULT")).unwrap_or("undefined");
-    format!(
-        "{}, {source}",
-        zone_name(time_zone.unwrap_or(DEFAULT_TIME_ZONE))
+/// `usd(`${Math.floor(total / 100)}.${String(total % 100).padStart(2, '0')}`)`, or the
+/// TypeScript's `NaN` text.
+fn usd_of_cents(total: Option<i64>) -> String {
+    match total {
+        Some(t) => usd(&format!("{}.{:0>2}", t.div_euclid(100), t.rem_euclid(100))),
+        None => usd("NaN.NaN"),
+    }
+}
+
+/// Ports `totalUsd`: a price times a quantity as US dollars, in integer cents (006 US1-3).
+pub fn total_usd(price: &str, quantity: i64) -> String {
+    usd_of_cents(cents(price).and_then(|c| c.checked_mul(quantity)))
+}
+
+/// Ports `sumUsd`: prices summed as US dollars, in integer cents (038 FR-022).
+pub fn sum_usd<S: AsRef<str>>(prices: &[S]) -> String {
+    usd_of_cents(
+        prices
+            .iter()
+            .try_fold(0i64, |n, p| n.checked_add(cents(p.as_ref())?)),
     )
 }
 
-/// Ports `doorsOpen` (`format.ts`): an event's doors-open time next to its start, in its venue's
-/// zone (025 FR-021): "5:30 PM EST" on the start's local date, "Nov 19, 2026, 11:30 PM EST"
-/// otherwise.
-pub fn doors_open(starts_at: &str, doors_open_at: &str, time_zone: Option<&str>) -> String {
-    until(starts_at, doors_open_at, time_zone)
+/// The seat `seatLabel` reads: its section, row and seat numbers, and the labels people read
+/// (`rowLabel ?? row`, `seatLabel ?? seat`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SeatRef<'a> {
+    pub section: &'a str,
+    pub row: i64,
+    pub seat: i64,
+    pub row_label: Option<&'a str>,
+    pub seat_label: Option<&'a str>,
 }
 
-/// Ports `hasEnded` (`format.ts`): an event is past from the instant `now` (ms since the epoch,
-/// passed in) reaches its end, half-open (030 FR-001). An end `Date` cannot read is never past
-/// (`NaN <= now` is false).
+impl<'a> SeatRef<'a> {
+    /// A seat known by its numbers only (no labels).
+    pub fn numbers(section: &'a str, row: i64, seat: i64) -> Self {
+        Self {
+            section,
+            row,
+            seat,
+            row_label: None,
+            seat_label: None,
+        }
+    }
+
+    /// A seat with its labels, as the contract's `SeatLabel` and `ReservedSeat` carry them.
+    pub fn labelled(
+        section: &'a str,
+        row: i64,
+        seat: i64,
+        row_label: &'a str,
+        seat_label: &'a str,
+    ) -> Self {
+        Self {
+            section,
+            row,
+            seat,
+            row_label: Some(row_label),
+            seat_label: Some(seat_label),
+        }
+    }
+}
+
+impl<'a> SeatRef<'a> {
+    /// The contract's `SeatLabel` (a ticket's seat), labels and all.
+    pub fn from_label(s: &'a crate::api::types::SeatLabel) -> Self {
+        Self::labelled(
+            &s.section,
+            s.row.get() as i64,
+            s.seat.get() as i64,
+            &s.row_label,
+            &s.seat_label,
+        )
+    }
+}
+
+/// Ports `seatLabel`: "Section 115, Row F, Seat 7" (007 FR-011; 038 FR-026).
+pub fn seat_label(s: &SeatRef<'_>) -> String {
+    let row = s.row_label.map_or_else(|| s.row.to_string(), str::to_owned);
+    let seat = s
+        .seat_label
+        .map_or_else(|| s.seat.to_string(), str::to_owned);
+    format!("Section {}, Row {row}, Seat {seat}", s.section)
+}
+
+/// Ports `seatWithPrice`: "Section 115, Row F, Seat 7, Courtside, $95.00" (038 FR-022, FR-026). An
+/// empty or missing level name or price is left out.
+pub fn seat_with_price(s: &SeatRef<'_>, level_name: Option<&str>, price: Option<&str>) -> String {
+    let mut parts = vec![seat_label(s)];
+    if let Some(level) = level_name.filter(|l| !l.is_empty()) {
+        parts.push(level.to_owned());
+    }
+    if let Some(p) = price.filter(|p| !p.is_empty()) {
+        parts.push(usd(p));
+    }
+    parts.join(", ")
+}
+
+/// Ports `eventPrice` (038 FR-024): a seated event's range of on-sale level prices, "$35–$95"
+/// (one price when they are all the same); a general-admission event's base price.
+pub fn event_price(base_price: &str, reserved_seating: bool, price_max: Option<&str>) -> String {
+    match price_max {
+        Some(max) if reserved_seating && !max.is_empty() => {
+            // `NaN === NaN` is false, so an unreadable price gives the range.
+            let same = matches!((cents(max), cents(base_price)), (Some(a), Some(b)) if a == b);
+            if same {
+                format_price(base_price)
+            } else {
+                format!("{}–{}", format_price(base_price), format_price(max))
+            }
+        }
+        _ => usd(base_price),
+    }
+}
+
+/// Ports `doorsOpen` (025 FR-021): "5:30 PM EST" on the start's local date, "Nov 19, 2026,
+/// 11:30 PM EST" otherwise, in the venue's zone.
+pub fn doors_open(starts_at: &str, doors_open_at: &str, time_zone: Option<&str>) -> String {
+    match (parse_instant(starts_at), parse_instant(doors_open_at)) {
+        (Some(s), Some(d)) => format_doors_open(s, d, zone_or_default(time_zone)),
+        _ => INVALID_DATE.into(),
+    }
+}
+
+/// Ports `hasEnded` (030 FR-001): past from the instant `now` (ms since the epoch) reaches the
+/// end, half-open. An end `Date` cannot read is never past (`NaN <= now` is false).
 pub fn has_ended(ends_at: &str, now: i64) -> bool {
     parse_instant(ends_at).is_some_and(|end| end.timestamp_millis() <= now)
 }
 
-fn event_date(at: &str, time_zone: Option<&str>) -> String {
-    parse_instant(at).map_or(INVALID_DATE.into(), |t| {
-        format_event_date(t, zone_or_default(time_zone))
-    })
+/// Ports `StartedNoticeKind` (034 R4, R5): `Buy` on the Get tickets panel while it offers tickets
+/// (FR-008), `First` while it shows a reason it offers none (FR-010), `Admit` on the confirmation
+/// of an order placed after the start (FR-012).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StartedNoticeKind {
+    Buy,
+    First,
+    Admit,
 }
 
-/// Ports `removedNote` (`format.ts`): "Check-in details removed on Nov 9, 2026 (kept for 7 days
-/// after the event).", the date in the venue's zone (032 FR-010, FR-011).
-pub fn removed_note(removed_at: &str, time_zone: Option<&str>) -> String {
-    format!(
-        "Check-in details removed on {} (kept for {CHECK_IN_RETENTION_DAYS} days after the event).",
-        event_date(removed_at, time_zone)
-    )
-}
-
-/// Ports `removedShort` (`format.ts`): the short form beside a count on Reports (032 FR-011).
-pub fn removed_short(removed_at: &str, time_zone: Option<&str>) -> String {
-    format!("Details removed {}", event_date(removed_at, time_zone))
+/// Ports `startedNotice` (034 FR-008 to FR-010, FR-012): "This event has already started (began
+/// at 7:00 PM EST)." and, for `Buy` or `Admit`, the sentence that follows; each time alone on the
+/// local date of `at` and with its date otherwise (FR-009).
+pub fn started_notice(
+    starts_at: &str,
+    ends_at: &str,
+    time_zone: Option<&str>,
+    at: &str,
+    kind: StartedNoticeKind,
+) -> String {
+    let zone = zone_or_default(time_zone);
+    let first = format!(
+        "This event has already started (began at {}).",
+        event_end(at, starts_at, zone)
+    );
+    let end = || event_end(at, ends_at, zone);
+    match kind {
+        StartedNoticeKind::First => first,
+        StartedNoticeKind::Buy => {
+            format!(
+                "{first} You can still buy tickets until it ends at {}.",
+                end()
+            )
+        }
+        StartedNoticeKind::Admit => {
+            format!("{first} Your tickets admit you until it ends at {}.", end())
+        }
+    }
 }
 
 /// Ports `mapsUrl` (`packages/shared/src/location.ts`): a venue's address as a Google Maps search
-/// (spec 013 FR-014).
+/// (spec 013 FR-014). Kept from the Admin's module: the address link uses it.
 pub fn maps_url(address: &str) -> String {
     format!(
         "https://www.google.com/maps/search/?api=1&query={}",
