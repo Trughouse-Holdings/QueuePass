@@ -42,6 +42,8 @@ export interface SeatingSectionProps {
   onBlur: (key: string) => void;
   /** The messages beside `layoutId`, `levelPrices`, `levelPrices.<id>` and `offSale`. */
   hints: (key: string) => string[];
+  /** A required field with no valid value yet, outlined in red before its message shows. */
+  needed?: (key: string) => boolean;
 }
 
 const hint = (id: string, messages: string[]): React.ReactElement | null =>
@@ -142,6 +144,7 @@ function LayoutSeating(props: SeatingSectionProps & { detail: LayoutDetail }): R
                           inputMode="decimal"
                           placeholder="60.00"
                           value={draft.prices[level.id] ?? ''}
+                          {...(props.needed?.(key) ? { className: 'input--needed' } : {})}
                           onBlur={() => props.onBlur(key)}
                           onChange={(e) => props.onPrice(level.id, e.target.value)}
                           {...described(`${id}-error`, messages)}
