@@ -187,6 +187,9 @@ const noAnswerFrom = (err: unknown): boolean =>
   !(err instanceof ApiError) || (err.status >= 500 && !err.enveloped);
 
 /** FR-032, FR-033, FR-034, FR-035 — create/edit an event. No removal control (API-only). */
+/** A ticket type's three boxes, named in the "Required" line under them. */
+const TYPE_BOXES = ['name', 'price', 'quantity'] as const;
+
 export function EventForm(): React.ReactElement {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -1180,6 +1183,11 @@ export function EventForm(): React.ReactElement {
               </button>
             )}
           </div>
+          {TYPE_BOXES.some((f) => needed(`tiers.${i}.${f}`)) && (
+            <span className="required-tag" data-testid={`type-${i + 1}-required`}>
+              {`Required: ${TYPE_BOXES.filter((f) => needed(`tiers.${i}.${f}`)).join(', ')}`}
+            </span>
+          )}
           {soldFor(t) > 0 && <span className="field__hint">{lockReason.quantity(soldFor(t))}</span>}
           {hint(`type-${i + 1}-error`, typeHint(i))}
         </Fragment>

@@ -642,6 +642,17 @@ input.input--needed,
 select.input--needed {
   border-color: var(--danger);
 }
+/* ...and says so: a small bold "Required" beside its label, or under a box with no label. */
+.field:has(> input.input--needed, > select.input--needed) > label::after {
+  content: 'Required';
+  margin-left: 8px;
+}
+.field:has(> input.input--needed, > select.input--needed) > label::after,
+.required-tag {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--danger);
+}
 input[aria-invalid='true']:focus,
 select[aria-invalid='true']:focus,
 input.input--needed:focus,

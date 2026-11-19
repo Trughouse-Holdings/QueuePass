@@ -112,11 +112,19 @@ describe('Schedule event (FR-001 to FR-012, SC-002, SC-003, SC-006)', () => {
     );
     expect(screen.getByRole('textbox', { name: 'Front price' })).not.toHaveClass('input--needed');
     expect(screen.getByRole('textbox', { name: 'Upper price' })).toHaveClass('input--needed');
+    const upper = screen.getByRole('textbox', { name: 'Upper price' }).closest('td')!;
+    expect(within(upper).getByText('Required')).toHaveClass('required-tag');
+    const front = screen.getByRole('textbox', { name: 'Front price' }).closest('td')!;
+    expect(within(front).queryByText('Required')).toBeNull();
 
     // General admission: an empty ticket type is outlined until it is filled in.
     await chooseGeneralAdmission();
     expect(screen.getByLabelText('Ticket type 1 name')).toHaveClass('input--needed');
+    expect(screen.getByTestId('type-1-required')).toHaveTextContent(
+      'Required: name, price, quantity',
+    );
     typeLine(1, 'Floor', '80.00', '10');
+    expect(screen.queryByTestId('type-1-required')).toBeNull();
     expect(screen.getByLabelText('Ticket type 1 name')).not.toHaveClass('input--needed');
     expect(screen.getByLabelText('Ticket type 1 price')).not.toHaveClass('input--needed');
   });
