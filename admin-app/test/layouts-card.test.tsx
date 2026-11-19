@@ -267,60 +267,6 @@ describe('Layouts card', () => {
     expect(api.count('POST', IMPORT)).toBe(0);
   });
 
-  it('makes a layout from section lines, with level names and a level for each section', async () => {
-    const api = stubApi(routes([], { [`POST ${LIST}`]: json(detail(CLUB, 2), 201) }));
-    renderAt(PATH);
-
-    const region = await card();
-    fireEvent.click(within(region).getByRole('button', { name: 'New layout from section lines' }));
-    fireEvent.change(within(region).getByLabelText('Layout name'), {
-      target: { value: 'Club room' },
-    });
-    fireEvent.change(within(region).getByRole('textbox', { name: 'Level 1 Level name' }), {
-      target: { value: 'Front' },
-    });
-    fireEvent.click(within(region).getByRole('button', { name: 'Add level' }));
-    fireEvent.change(within(region).getByRole('textbox', { name: 'Level 2 Level name' }), {
-      target: { value: 'Back' },
-    });
-    fireEvent.change(within(region).getByRole('combobox', { name: 'Level 2 Color' }), {
-      target: { value: 'teal' },
-    });
-    for (const [n, name, level] of [
-      [1, 'Floor A', 'Front'],
-      [2, 'Floor B', 'Back'],
-    ] as const) {
-      fireEvent.click(within(region).getByRole('button', { name: 'Add section' }));
-      fireEvent.change(within(region).getByRole('textbox', { name: `Section ${n} Section name` }), {
-        target: { value: name },
-      });
-      fireEvent.change(within(region).getByRole('spinbutton', { name: `Section ${n} Rows` }), {
-        target: { value: '10' },
-      });
-      fireEvent.change(
-        within(region).getByRole('spinbutton', { name: `Section ${n} Seats per row` }),
-        { target: { value: '20' } },
-      );
-      fireEvent.change(within(region).getByRole('combobox', { name: `Section ${n} Price level` }), {
-        target: { value: level },
-      });
-    }
-    fireEvent.click(within(region).getByRole('button', { name: 'Save layout' }));
-
-    await waitFor(() => expect(api.count('POST', LIST)).toBe(1));
-    expect(api.calls.find((c) => c.method === 'POST')?.body).toEqual({
-      name: 'Club room',
-      levels: [
-        { name: 'Front', color: 'violet' },
-        { name: 'Back', color: 'teal' },
-      ],
-      sections: [
-        { name: 'Floor A', rows: 10, seatsPerRow: 20, level: 'Front' },
-        { name: 'Floor B', rows: 10, seatsPerRow: 20, level: 'Back' },
-      ],
-    });
-  });
-
   it('renames a layout, and shows a refusal beside Rename', async () => {
     let reply = json({ ...detail(CLUB, 2), name: 'Club room (VIP)' });
     const api = stubApi(routes([CLUB], { 'PUT /layouts/l-club': () => reply }));
@@ -471,46 +417,30 @@ describe("the venue's capacity (FR-009)", () => {
   });
 });
 
-describe('the layout editor from the Layouts card (spec 039)', () => {
-  it('offers New layout, which opens the editor on a new layout (T036, FR-001)', async () => {
+describe('import only (2026-11-19: the layout editor and section lines were removed)', () => {
+  it('offers Import layout file as the only way to add a layout', async () => {
     stubApi(routes([CLUB]));
     renderAt(PATH);
-    const link = await within(await card()).findByRole('link', { name: 'New layout' });
-    expect(link).toHaveAttribute('href', `${PATH}/layouts/new`);
-  });
-});
-
-describe('Edit and View (spec 039 US3, T047)', () => {
-  const DRAWN = summary({ id: 'l-drawn', name: 'Drawn bowl', source: 'DRAWN' });
-
-  it('an unlocked layout of any source has Edit; a locked one View; both open the editor', async () => {
-    stubApi(routes([BASKETBALL, CLUB, DRAWN], { 'GET /layouts/l-drawn': json(detail(DRAWN, 1)) }));
-    renderAt(PATH);
-    const edit = await within(await item('Club room')).findByRole('link', {
-      name: 'Edit Club room',
-    });
-    expect(edit).toHaveAttribute('href', `${PATH}/layouts/l-club/edit`);
+    const layouts = await card();
+    expect(within(layouts).getByRole('button', { name: 'Import layout file' })).toBeInTheDocument();
+    expect(within(layouts).queryByRole('link', { name: 'New layout' })).toBeNull();
     expect(
-      within(await item('Drawn bowl')).getByRole('link', { name: 'Edit Drawn bowl' }),
-    ).toHaveAttribute('href', `${PATH}/layouts/l-drawn/edit`);
-    const bb = await item('Basketball');
-    expect(within(bb).queryByRole('link', { name: 'Edit Basketball' })).toBeNull();
-    expect(within(bb).getByRole('link', { name: 'View Basketball' })).toHaveAttribute(
-      'href',
-      `${PATH}/layouts/l-bb/edit`,
-    );
+      within(layouts).queryByRole('button', { name: 'New layout from section lines' }),
+    ).toBeNull();
   });
 
-  it('a drawn layout takes no section lines', async () => {
-    stubApi(routes([CLUB, DRAWN], { 'GET /layouts/l-drawn': json(detail(DRAWN, 1)) }));
+  it('gives each layout Rename, Duplicate and Delete, and no Edit, View or section lines', async () => {
+    stubApi(routes([BASKETBALL, CLUB]));
     renderAt(PATH);
-    const drawn = await item('Drawn bowl');
-    await within(drawn).findByRole('img', { name: 'Drawn bowl: 1 section' });
-    expect(within(drawn).queryByRole('button', { name: /Edit section lines/ })).toBeNull();
-    expect(
-      await within(await item('Club room')).findByRole('button', {
-        name: 'Edit section lines of Club room',
-      }),
-    ).toBeInTheDocument();
+    for (const name of ['Basketball', 'Club room']) {
+      const layout = await item(name);
+      for (const action of ['Rename', 'Duplicate', 'Delete']) {
+        expect(within(layout).getByRole('button', { name: `${action} ${name}` })).toBeVisible();
+      }
+      expect(
+        within(layout).queryByRole('link', { name: new RegExp(`(Edit|View) ${name}`) }),
+      ).toBeNull();
+      expect(within(layout).queryByRole('button', { name: /Edit section lines/ })).toBeNull();
+    }
   });
 });

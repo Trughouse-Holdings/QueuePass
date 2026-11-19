@@ -14,6 +14,7 @@ import validation400 from './fixtures/validation-400.json';
 import capacity409 from './fixtures/capacity-409.json';
 import { fixTimeBeforeFixtures } from './helpers/fixed-time';
 import { expectLocalDateTime, setLocalDateTime } from './helpers/event-times';
+import { layoutFile } from './helpers/layout-file';
 
 // Spec 030 (T011): fixed-date fixtures, so the time is fixed before them.
 fixTimeBeforeFixtures();
@@ -163,7 +164,8 @@ describe('LocationForm against a live validation rejection', () => {
     await user.type(screen.getByLabelText('ZIP code'), '40202');
     // Spec 024 FR-002: a new venue needs its zone chosen.
     await user.selectOptions(screen.getByLabelText('Time zone'), 'America/New_York');
-    await user.type(screen.getByLabelText('Seating capacity'), '1');
+    // 2026-11-19: a new venue starts from a layout file.
+    await user.upload(screen.getByLabelText('Layout file'), layoutFile());
     await user.click(screen.getByRole('button', { name: /Create venue/i }));
 
     const banner = await screen.findByTestId('error-banner');

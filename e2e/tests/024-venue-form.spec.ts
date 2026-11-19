@@ -1,13 +1,14 @@
 // Spec 024 quickstart V1 to V5: on the New venue form the admin picks the time zone, an address the
 // address service does not know (or cannot be asked about) is saved in one press and marked not
-// verified, and section lines read Rows × Seats per row with their seats (research R10). Spec 038:
-// the lines make the venue's first layout, edited from the venue page's Layouts card.
+// verified. 2026-11-19: a new venue starts from a layout file (section lines and the layout editor
+// were removed); the file is the venue's first layout, on the venue page's Layouts card.
 import { expect, test } from '../fixtures/admin-app';
 import { type Page, type Request } from '@playwright/test';
 import { API_BASE, adminFor } from '../fixtures/apps';
 import type { Place } from '../fixtures/api';
 import { OUTAGE_PLACE, PLACES, UNKNOWN_PLACE, uniqueName } from '../fixtures/data';
 import { signIn } from '../fixtures/sign-in';
+import { chooseLayoutFile, gridLayoutFile } from '../fixtures/layout-file';
 
 const ZONES = [
   'Eastern Time',
@@ -19,8 +20,6 @@ const ZONES = [
   'Hawaii-Aleutian Time',
   'Hawaii Time',
 ];
-const HINT =
-  'A section is a grid of seats: rows run front to back, and every row has the same number of seats across.';
 
 /** Research R6's notice for an address saved not verified. */
 const notVerified = (address: string, zone: string): string =>
@@ -53,18 +52,6 @@ async function openNewVenue(page: Page): Promise<void> {
   await expect(page.getByRole('heading', { level: 1, name: 'New venue' })).toBeVisible();
 }
 
-/** One section line: its name, rows, and seats per row, typed into the labelled boxes. */
-async function typeSection(page: Page, n: number, name: string, rows: string, seats: string) {
-  await page.getByRole('textbox', { name: `Section ${n} Section name`, exact: true }).fill(name);
-  await page.getByRole('spinbutton', { name: `Section ${n} Rows`, exact: true }).fill(rows);
-  await page
-    .getByRole('spinbutton', { name: `Section ${n} Seats per row`, exact: true })
-    .fill(seats);
-}
-
-const line = (page: Page, n: number) =>
-  page.getByRole('group', { name: `Section ${n}`, exact: true });
-
 test(
   '024 V1/V2/V3: an admin creates a seated venue in one press, at an address the service does not know, in the zone they pick',
   { tag: '@admin' },
@@ -82,22 +69,8 @@ test(
     await page.getByLabel('Name', { exact: true }).fill(venueName);
     await fillAddress(page, UNKNOWN_PLACE);
 
-    // V2: labelled section lines, each with its seats, and the hint once.
-    await page.getByRole('radio', { name: 'Seated' }).check();
-    await page.getByRole('button', { name: 'Add section' }).click();
-    await page.getByRole('button', { name: 'Add section' }).click();
-    await expect(page.getByText(HINT)).toHaveCount(1);
-    for (const n of [1, 2]) {
-      for (const label of ['Section name', 'Rows', 'Seats per row']) {
-        await expect(line(page, n).getByText(label, { exact: true })).toBeVisible();
-      }
-      await expect(line(page, n).getByText('×', { exact: true })).toBeVisible();
-    }
-    await typeSection(page, 1, 'Floor', '10', '20');
-    await typeSection(page, 2, 'Balcony', '5', '10');
-    await expect(line(page, 1).getByText('= 200 seats', { exact: true })).toBeVisible();
-    await expect(line(page, 2).getByText('= 50 seats', { exact: true })).toBeVisible();
-    await expect(page.getByText('Total: 250 seats', { exact: true })).toBeVisible();
+    // V2: the venue's layout file, of 250 seats (10 rows of 25), required.
+    await chooseLayoutFile(page, gridLayoutFile(10, 25, 'Standard'));
 
     // V1: no zone chosen: the form says so and sends nothing.
     await page.getByRole('button', { name: 'Create venue' }).click();
@@ -130,25 +103,14 @@ test(
     await expect(row.getByText('Not verified', { exact: true })).toBeVisible();
     await expect(row.getByText('Central Time, chosen by an admin', { exact: true })).toBeVisible();
 
-    // V2: the venue page's layout (spec 038: its first layout, "Standard", in the Layouts card), and
-    // the same labelled lines in its editor.
+    // V2: the venue page's layout: the imported file, in the Layouts card, with no section lines.
     await row.getByRole('link', { name: venueName }).click();
     const layout = page
       .getByRole('region', { name: 'Layouts' })
       .getByRole('article', { name: 'Standard', exact: true });
-    await expect(layout).toContainText('250 seats · 2 sections');
-    await layout.getByRole('button', { name: 'Edit section lines of Standard' }).click();
-    const editor = layout.getByRole('form', { name: 'Section lines of Standard' });
-    await expect(editor.getByText('Total: 250 seats', { exact: true })).toBeVisible();
-    await expect(editor.getByText(HINT)).toHaveCount(1);
-    await expect(
-      editor.getByRole('spinbutton', { name: 'Section 1 Rows', exact: true }),
-    ).toHaveValue('10');
-    await expect(
-      editor.getByRole('spinbutton', { name: 'Section 1 Seats per row', exact: true }),
-    ).toHaveValue('20');
-    await expect(line(page, 1).getByText('= 200 seats', { exact: true })).toBeVisible();
-    await expect(line(page, 2).getByText('= 50 seats', { exact: true })).toBeVisible();
+    await expect(layout).toContainText('250 seats · 1 section');
+    await expect(layout.getByRole('button', { name: /Edit section lines/ })).toHaveCount(0);
+    await expect(layout.getByRole('link', { name: /^(Edit|View) / })).toHaveCount(0);
   },
 );
 
@@ -164,7 +126,7 @@ test(
     await page.getByLabel('Name', { exact: true }).fill(venueName);
     await fillAddress(page, OUTAGE_PLACE);
     await page.getByLabel('Time zone', { exact: true }).selectOption({ label: 'Pacific Time' });
-    await page.getByLabel('Seating capacity', { exact: true }).fill('300');
+    await chooseLayoutFile(page, gridLayoutFile(12, 25));
     await page.getByRole('button', { name: 'Create venue' }).click();
     await expect(
       page.getByRole('status').filter({

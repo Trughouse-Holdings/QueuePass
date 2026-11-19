@@ -8,6 +8,7 @@ import { PLACES, uniqueName } from '../fixtures/data';
 import { signIn } from '../fixtures/sign-in';
 import { atLocal, eventTime, localDate } from '../fixtures/time';
 import { fillEventDateTime } from '../fixtures/event-times';
+import { chooseLayoutFile, gridLayoutFile } from '../fixtures/layout-file';
 
 const ZONE = 'America/New_York'; // Louisville, KY: Eastern.
 
@@ -33,7 +34,8 @@ test(
       await admin.getByLabel('City', { exact: true }).fill(PLACES.louisville.city);
       await admin.getByLabel('State', { exact: true }).selectOption(PLACES.louisville.state);
       await admin.getByLabel('ZIP code', { exact: true }).fill(PLACES.louisville.zip);
-      await admin.getByLabel('Seating capacity', { exact: true }).fill('500');
+      // 2026-11-19: a new venue starts from a layout file; its 500 seats are the capacity.
+      await chooseLayoutFile(admin, gridLayoutFile(20, 25));
       await admin.getByLabel('Time zone', { exact: true }).selectOption({ label: 'Eastern Time' });
       await admin.getByRole('button', { name: 'Create venue' }).click();
       // Spec 013: saved in the address service's standard form; spec 024: the zone the admin chose.
@@ -49,6 +51,10 @@ test(
         await admin
           .getByLabel('Venue', { exact: true })
           .selectOption({ label: `${venueName} (500 seats)` });
+        // The form starts on the venue's layout; this event is general admission.
+        await admin
+          .getByLabel('Seating', { exact: true })
+          .selectOption({ label: 'General admission' });
         await fillEventDateTime(admin, 'Starts', `${day}T18:00`);
         await fillEventDateTime(admin, 'Ends', `${day}T21:00`);
         await admin.getByLabel('Ticket type 1 name', { exact: true }).fill('General');

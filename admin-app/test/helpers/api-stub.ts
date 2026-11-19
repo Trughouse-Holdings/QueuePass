@@ -48,7 +48,17 @@ export function stubApi(routes: Record<string, Reply>) {
       contentType,
       body,
     });
-    const reply = routes[`${req.method} ${url.pathname}`];
+    // A key may hold `*` for one path segment ("POST /locations/*/layouts/import").
+    const key = `${req.method} ${url.pathname}`;
+    const reply =
+      routes[key] ??
+      Object.entries(routes).find(
+        ([k]) =>
+          k.includes('*') &&
+          new RegExp(`^${k.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]+')}$`).test(
+            key,
+          ),
+      )?.[1];
     if (reply === undefined)
       return json({ error: { code: 'NOT_FOUND', message: 'unstubbed' } }, 404);
     if (reply === 'network-error') throw new TypeError('Failed to fetch');
