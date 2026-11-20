@@ -502,3 +502,33 @@ describe('whole pictures (spec 014 FR-041, FR-042)', () => {
     expect(body).toMatch(/visibility:\s*hidden/);
   });
 });
+
+// Issue #182: a disabled button looked enabled. One rule fades it and shows a not-allowed
+// pointer, with theme values only (no color), and every .btn hover rule skips a disabled button.
+describe('disabled buttons (#182)', () => {
+  const rule = (selector: string): string => {
+    const at = css.indexOf(`\n${selector} {`);
+    return at < 0 ? '' : css.slice(css.indexOf('{', at) + 1, css.indexOf('}', at));
+  };
+
+  it('fade and show a not-allowed pointer, writing no color', () => {
+    const body = rule('.btn:disabled');
+    expect(body).toMatch(/opacity:\s*0\.55;/);
+    expect(body).toMatch(/cursor:\s*not-allowed;/);
+    expect(body).not.toMatch(/color|background|#|rgb|hsl/);
+  });
+
+  it('keep their look under the pointer and when pressed: every .btn :hover and :active rule skips :disabled', () => {
+    // Every selector of every rule, selector lists split (across lines too), comments dropped.
+    const selectors = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)].flatMap(
+      (m) => m[1]!.split(',').map((s) => s.trim()),
+    );
+    const pressed = selectors.filter((s) => /\.btn\b/.test(s) && /:(hover|active)/.test(s));
+    expect(pressed).toEqual([
+      '.btn:active:not(:disabled)',
+      '.btn--primary:hover:not(:disabled)',
+      '.btn--ghost:hover:not(:disabled)',
+      '.btn:not(.btn--primary):not(.btn--ghost):hover:not(:disabled)',
+    ]);
+  });
+});

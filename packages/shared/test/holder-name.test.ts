@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   HOLDER_NAME_MAX,
+  NAME_NEEDED_TO_BUY,
   holderNameMessage,
   holderNameProblem,
+  nameNeededToBuy,
   normalizeHolderName,
 } from '../src/holder-name';
 
@@ -69,5 +71,28 @@ describe('holderNameMessage', () => {
     expect(holderNameMessage('NO_LETTER')).toBe(
       'The name on the tickets must contain at least one letter.',
     );
+  });
+});
+
+/**
+ * Issue #182: a button disabled only for the name says so beside it, in both Customer apps (the
+ * Rust app's `core::holder_name::NAME_NEEDED_TO_BUY` is checked against this text).
+ */
+describe('nameNeededToBuy', () => {
+  it('is the one line, word for word', () => {
+    expect(NAME_NEEDED_TO_BUY).toBe('Enter the name on tickets above to buy.');
+  });
+
+  it('shows only while the name is the one thing missing', () => {
+    // Usable with a name, no name, no wait: the line.
+    expect(nameNeededToBuy({ nameOk: false, usableWithName: true, waiting: false })).toBe(
+      NAME_NEEDED_TO_BUY,
+    );
+    // A valid name: nothing to say.
+    expect(nameNeededToBuy({ nameOk: true, usableWithName: true, waiting: false })).toBeNull();
+    // Something else blocks it too (buying, nothing chosen, sold out): not the name's fault.
+    expect(nameNeededToBuy({ nameOk: false, usableWithName: false, waiting: false })).toBeNull();
+    // The BUY wait shows its own message.
+    expect(nameNeededToBuy({ nameOk: false, usableWithName: true, waiting: true })).toBeNull();
   });
 });
